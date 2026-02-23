@@ -28,19 +28,19 @@
   <!-- Styles -->
   <link rel="stylesheet" href="/assets/css/tokens.css?v=20251107" />
   <link rel="stylesheet" href="/assets/css/base.css?v=20251107" />
-  <link rel="stylesheet" href="/admin/admin.css?v=20260223_1" />
+  <link rel="stylesheet" href="/admin/admin.css?v=20260223_3" />
   
   <!-- Auth meta -->
   <meta name="ce-auth" content="required" />
   <meta name="ce-admin" content="required" />
   
   <!-- Scripts -->
-  <script type="module" src="/js/supabaseClient.js?v=20260223_1"></script>
+  <script type="module" src="/js/supabaseClient.js?v=20260223_2"></script>
   <script type="module" src="/js/toast.js?v=20251107"></script>
   <script src="/admin/universal-i18n-component.js?v=20250111"></script>
   <script src="/admin/poi-i18n-form.js?v=20250111"></script>
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
-  <script type="module" src="/admin/admin.js?v=20260223_1"></script>
+  <script type="module" src="/admin/admin.js?v=20260223_3"></script>
   <script src="/admin/admin-pwa.js?v=20260221_4" defer></script>
 </head>
 <body data-admin-panel="true">
@@ -798,7 +798,7 @@
               <button class="btn-secondary" type="button" id="btnRefreshTransportLocations">Refresh</button>
             </div>
             <div class="admin-card-body">
-              <p class="transport-editor-hint">Use unique stable codes (for example: <code>lca_airport</code>, <code>ayia_napa_center</code>). Routes, pricing and bookings rely on these locations.</p>
+              <p class="transport-editor-hint">Use unique codes and city groups. Example: <code>larnaca_airport</code> + city group <code>larnaca</code>. This lets city/airport/hotel points share one pricing bundle.</p>
               <form id="transportLocationForm" class="transport-editor-form" novalidate>
                 <input type="hidden" id="transportLocationId" />
                 <section class="transport-form-block">
@@ -815,6 +815,10 @@
                     <label class="admin-form-field transport-field">
                       <span>Code</span>
                       <input type="text" id="transportLocationCode" required placeholder="e.g. lca_airport" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>City group</span>
+                      <input type="text" id="transportLocationCityGroup" placeholder="e.g. larnaca" />
                     </label>
                     <label class="admin-form-field transport-field">
                       <span>Type</span>
@@ -837,7 +841,7 @@
                       <span>Active</span>
                     </label>
                   </div>
-                  <p class="transport-form-block__hint">Tip: Keep admin naming in English, and fill local name for future multilingual website labels.</p>
+                  <p class="transport-form-block__hint">Tip: Keep admin naming in English. Use one city group for variants like City + Airport + Hotel to manage shared prices faster.</p>
                 </section>
                 <div class="transport-editor-actions">
                   <button class="btn-secondary" type="button" id="btnResetTransportLocation">Clear</button>
@@ -854,6 +858,7 @@
                   <th>Name (EN)</th>
                   <th>Local name</th>
                   <th>Code</th>
+                  <th>City group</th>
                   <th>Type</th>
                   <th>Sort</th>
                   <th>Status</th>
@@ -862,7 +867,7 @@
                 </tr>
               </thead>
               <tbody id="transportLocationsTableBody">
-                <tr><td colspan="8" class="table-loading">Loading transport locations...</td></tr>
+                <tr><td colspan="9" class="table-loading">Loading transport locations...</td></tr>
               </tbody>
             </table>
           </div>
@@ -949,6 +954,14 @@
                       <input id="transportRouteActive" type="checkbox" checked />
                       <span>Active</span>
                     </label>
+                    <label class="transport-check-field transport-check-field--row">
+                      <input id="transportRouteCreateReversePair" type="checkbox" checked />
+                      <span>Create reverse route automatically</span>
+                    </label>
+                    <label class="transport-check-field transport-check-field--row">
+                      <input id="transportRouteSyncReverseRoute" type="checkbox" checked />
+                      <span>Keep reverse route prices synced</span>
+                    </label>
                   </div>
                 </section>
 
@@ -963,7 +976,7 @@
                   <h4 class="transport-form-block__title">Route Set Builder</h4>
                   <span class="transport-inline-badge">Bulk create</span>
                 </div>
-                <p class="transport-form-block__hint">Create many routes from one origin using current form values (prices, limits, trip mode). Existing pairs are skipped automatically.</p>
+                <p class="transport-form-block__hint">Create many routes with one save. You can expand pickup/destination to whole city groups (city + airport + hotel). Existing pairs are skipped automatically.</p>
                 <div class="admin-form-grid transport-fields-grid transport-fields-grid--route-builder">
                   <label class="admin-form-field transport-field">
                     <span>Base origin</span>
@@ -978,6 +991,14 @@
                   <label class="transport-check-field">
                     <input id="transportRouteSetIncludeReverse" type="checkbox" checked />
                     <span>Also create reverse routes</span>
+                  </label>
+                  <label class="transport-check-field">
+                    <input id="transportRouteSetExpandOriginGroup" type="checkbox" checked />
+                    <span>Expand pickup to same city group</span>
+                  </label>
+                  <label class="transport-check-field">
+                    <input id="transportRouteSetUseCityGroups" type="checkbox" checked />
+                    <span>Expand destinations by city group</span>
                   </label>
                   <label class="transport-check-field">
                     <input id="transportRouteSetOnlyActiveLocations" type="checkbox" checked />
@@ -1126,12 +1147,26 @@
                 <section class="transport-bulk-panel" aria-label="Apply pricing to additional routes">
                   <div class="transport-inline-head">
                     <h4 class="transport-form-block__title">Apply to Additional Routes</h4>
-                    <label class="transport-check-field transport-check-field--inline">
-                      <input id="transportPricingApplyToAdditional" type="checkbox" />
-                      <span>Create clones for selected routes</span>
-                    </label>
+                    <div class="transport-bulk-primary-toggles">
+                      <label class="transport-check-field transport-check-field--inline">
+                        <input id="transportPricingAutoReverseRoute" type="checkbox" checked />
+                        <span>Mirror to reverse route</span>
+                      </label>
+                      <label class="transport-check-field transport-check-field--inline">
+                        <input id="transportPricingApplyToAdditional" type="checkbox" />
+                        <span>Clone to selected destinations</span>
+                      </label>
+                      <label class="transport-check-field transport-check-field--inline">
+                        <input id="transportPricingBulkGroupByCity" type="checkbox" checked />
+                        <span>Group destinations by city bundle</span>
+                      </label>
+                    </div>
                   </div>
-                  <p class="transport-form-block__hint">Taxi workflow: choose one pickup point, tick destinations, optionally include return direction, then save once.</p>
+                  <ol class="transport-bulk-steps">
+                    <li>Choose pickup location.</li>
+                    <li>Tick destination checkboxes.</li>
+                    <li>Save once to apply the same pricing to all selected routes.</li>
+                  </ol>
                   <div class="admin-form-grid transport-fields-grid transport-fields-grid--pricing-bulk-scope">
                     <label class="admin-form-field transport-field">
                       <span>Pickup location (origin)</span>
@@ -1142,15 +1177,24 @@
                       <input id="transportPricingBulkDestinationSearch" class="form-control" type="text" placeholder="Search destination city/airport..." />
                     </label>
                   </div>
-                  <div class="transport-multi-select-toolbar">
-                    <label class="transport-check-field">
-                      <input id="transportPricingBulkOnlyActiveRoutes" type="checkbox" checked />
-                      <span>Hide inactive routes</span>
-                    </label>
-                    <label class="transport-check-field">
-                      <input id="transportPricingBulkIncludeReverse" type="checkbox" checked />
-                      <span>Create return route prices too</span>
-                    </label>
+                  <details class="transport-advanced-options" id="transportPricingBulkAdvancedPanel">
+                    <summary>Advanced options</summary>
+                    <div class="transport-multi-select-toolbar">
+                      <label class="transport-check-field">
+                        <input id="transportPricingBulkOnlyActiveRoutes" type="checkbox" checked />
+                        <span>Hide inactive routes</span>
+                      </label>
+                      <label class="transport-check-field">
+                        <input id="transportPricingBulkIncludeReverse" type="checkbox" checked />
+                        <span>Create return route prices too</span>
+                      </label>
+                      <label class="transport-check-field">
+                        <input id="transportPricingBulkUseCityGroups" type="checkbox" checked />
+                        <span>Expand by city groups (city/airport/hotel)</span>
+                      </label>
+                    </div>
+                  </details>
+                  <div class="transport-multi-select-toolbar transport-multi-select-toolbar--actions-only">
                     <div class="transport-multi-select-toolbar__actions">
                       <button class="btn-small btn-secondary" type="button" id="btnTransportPricingBulkSelectAll">Select all visible</button>
                       <button class="btn-small btn-secondary" type="button" id="btnTransportPricingBulkClearAll">Clear selection</button>
@@ -1236,7 +1280,7 @@
                 <option value="cancelled">Cancelled</option>
               </select>
             </label>
-            <label class="admin-form-field" style="margin: 0; min-width: 320px; flex: 1;">
+            <label class="admin-form-field" style="margin: 0; min-width: min(320px, 100%); flex: 1;">
               <span>Search</span>
               <input id="transportBookingsSearch" class="form-control" type="text" placeholder="booking id, customer, route" />
             </label>

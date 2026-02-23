@@ -4295,6 +4295,69 @@ function formatTransportLocationDisplayName(row, options = {}) {
   return label;
 }
 
+function normalizeTransportCityGroupValue(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+function deriveTransportCityGroupFromCode(codeRaw) {
+  const code = normalizeTransportCityGroupValue(codeRaw);
+  if (!code) return '';
+  const stripped = code.replace(
+    /_(airport|hotel|city|port|station|landmark|center|centre|downtown|pickup|dropoff)$/g,
+    '',
+  );
+  return stripped || code;
+}
+
+function getTransportLocationCityGroupById(locationId) {
+  const id = String(locationId || '').trim();
+  if (!id) return '';
+  const row = transportAdminState.locationById[id];
+  if (!row) return '';
+  const explicit = normalizeTransportCityGroupValue(row.city_group);
+  if (explicit) return explicit;
+  return deriveTransportCityGroupFromCode(row.code);
+}
+
+function getTransportLocationIdsForCityGroup(cityGroupRaw, options = {}) {
+  const cityGroup = normalizeTransportCityGroupValue(cityGroupRaw);
+  if (!cityGroup) return [];
+  const onlyActive = Boolean(options?.onlyActive);
+  const rows = Array.isArray(transportAdminState.locations) ? transportAdminState.locations : [];
+  return rows
+    .filter((row) => {
+      if (!row?.id) return false;
+      if (onlyActive && row?.is_active === false) return false;
+      return getTransportLocationCityGroupById(row.id) === cityGroup;
+    })
+    .map((row) => String(row.id || '').trim())
+    .filter(Boolean);
+}
+
+function findTransportReverseRouteByEndpoints(originLocationId, destinationLocationId, options = {}) {
+  const originId = String(originLocationId || '').trim();
+  const destinationId = String(destinationLocationId || '').trim();
+  const excludeRouteId = String(options?.excludeRouteId || '').trim();
+  if (!originId || !destinationId) return null;
+  return (transportAdminState.routes || []).find((row) =>
+    String(row?.origin_location_id || '').trim() === destinationId
+    && String(row?.destination_location_id || '').trim() === originId
+    && String(row?.id || '').trim() !== excludeRouteId,
+  ) || null;
+}
+
+function findTransportReverseRouteByRouteId(routeId) {
+  const id = String(routeId || '').trim();
+  if (!id) return null;
+  const route = transportAdminState.routeById[id];
+  if (!route) return null;
+  return findTransportReverseRouteByEndpoints(route.origin_location_id, route.destination_location_id, { excludeRouteId: id });
+}
+
 async function loadTransportLocationsByIds(client, locationIds) {
   const ids = Array.from(new Set((Array.isArray(locationIds) ? locationIds : []).map((id) => String(id || '').trim()).filter(Boolean)));
   if (!ids.length) return {};
@@ -10253,6 +10316,105 @@ function setSelectedValuesForMultiSelect(selectElement, values) {
   });
 }
 
+function getTransportLocationSelectOptionLabel(locationId) {
+  const id = String(locationId || '').trim();
+  if (!id) return '—';
+  const row = transportAdminState.locationById[id];
+  if (!row) return getTransportLocationLabel(id);
+  const base = getTransportLocationLabel(id);
+  const cityGroup = getTransportLocationCityGroupById(id);
+  const type = String(row.location_type || '').trim().toLowerCase();
+  const suffix = [cityGroup, type].filter(Boolean).join(' · ');
+  return suffix ? `${base} [${suffix}]` : base;
+}
+
+function transportHumanizeCityGroupLabel(groupValue, fallbackLabel = '') {
+  const normalized = normalizeTransportCityGroupValue(groupValue);
+  if (!normalized) {
+    return String(fallbackLabel || '').trim() || 'Custom area';
+  }
+  return normalized
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function getTransportRouteSetResolvedSelection() {
+  const originSelect = document.getElementById('transportRouteSetOrigin');
+  const destinationsSelect = document.getElementById('transportRouteSetDestinations');
+  const includeReverse = Boolean(document.getElementById('transportRouteSetIncludeReverse')?.checked);
+  const expandOriginGroup = Boolean(document.getElementById('transportRouteSetExpandOriginGroup')?.checked);
+  const expandDestinationGroups = Boolean(document.getElementById('transportRouteSetUseCityGroups')?.checked);
+  const onlyActiveLocations = Boolean(document.getElementById('transportRouteSetOnlyActiveLocations')?.checked);
+
+  const originLocationId = String(originSelect?.value || '').trim();
+  const selectedDestinationIds = getSelectedValuesFromMultiSelect(destinationsSelect)
+    .filter((id) => id && id !== originLocationId);
+
+  const originIds = new Set();
+  const destinationIds = new Set();
+
+  if (originLocationId) {
+    if (expandOriginGroup) {
+      const group = getTransportLocationCityGroupById(originLocationId);
+      if (group) {
+        getTransportLocationIdsForCityGroup(group, { onlyActive: onlyActiveLocations }).forEach((locationId) => {
+          if (locationId) originIds.add(locationId);
+        });
+      }
+    }
+    if (!originIds.size) originIds.add(originLocationId);
+  }
+
+  selectedDestinationIds.forEach((destinationId) => {
+    if (expandDestinationGroups) {
+      const group = getTransportLocationCityGroupById(destinationId);
+      if (group) {
+        getTransportLocationIdsForCityGroup(group, { onlyActive: onlyActiveLocations }).forEach((locationId) => {
+          if (locationId) destinationIds.add(locationId);
+        });
+        return;
+      }
+    }
+    destinationIds.add(destinationId);
+  });
+
+  const cleanedOriginIds = Array.from(originIds).filter(Boolean);
+  const cleanedDestinationIds = Array.from(destinationIds).filter((id) => id && !originIds.has(id));
+
+  const candidatePairs = [];
+  const uniqueKey = new Set();
+  cleanedOriginIds.forEach((originId) => {
+    cleanedDestinationIds.forEach((destinationId) => {
+      if (!originId || !destinationId || originId === destinationId) return;
+      const forwardKey = `${originId}:${destinationId}`;
+      if (!uniqueKey.has(forwardKey)) {
+        uniqueKey.add(forwardKey);
+        candidatePairs.push({ origin_location_id: originId, destination_location_id: destinationId });
+      }
+      if (includeReverse) {
+        const reverseKey = `${destinationId}:${originId}`;
+        if (!uniqueKey.has(reverseKey)) {
+          uniqueKey.add(reverseKey);
+          candidatePairs.push({ origin_location_id: destinationId, destination_location_id: originId });
+        }
+      }
+    });
+  });
+
+  return {
+    includeReverse,
+    expandOriginGroup,
+    expandDestinationGroups,
+    originLocationId,
+    selectedDestinationIds,
+    originIds: cleanedOriginIds,
+    destinationIds: cleanedDestinationIds,
+    candidatePairs,
+  };
+}
+
 function refreshTransportRouteSetBuilderOptions() {
   const locations = Array.isArray(transportAdminState.locations) ? transportAdminState.locations : [];
   const originSelect = document.getElementById('transportRouteSetOrigin');
@@ -10297,7 +10459,7 @@ function refreshTransportRouteSetBuilderOptions() {
 
   destinationsSelect.innerHTML = destinationRows.map((row) => {
     const id = String(row?.id || '').trim();
-    const label = getTransportLocationLabel(id);
+    const label = getTransportLocationSelectOptionLabel(id);
     return `<option value="${escapeHtml(id)}">${escapeHtml(label)}</option>`;
   }).join('');
 
@@ -10316,9 +10478,19 @@ function refreshTransportPricingAdditionalRoutesOptions() {
   const primaryRoute = primaryRouteId ? (transportAdminState.routeById[primaryRouteId] || null) : null;
   const search = String(document.getElementById('transportPricingBulkDestinationSearch')?.value || '').trim().toLowerCase();
   const onlyActiveRoutes = Boolean(document.getElementById('transportPricingBulkOnlyActiveRoutes')?.checked);
+  const groupByCityBundles = Boolean(document.getElementById('transportPricingBulkGroupByCity')?.checked);
+  const collectRouteIdsFromInput = (input) => {
+    const grouped = String(input.getAttribute('data-bulk-route-ids') || '')
+      .split(',')
+      .map((value) => String(value || '').trim())
+      .filter(Boolean);
+    if (grouped.length) return grouped;
+    const routeId = String(input.getAttribute('data-bulk-route-id') || '').trim();
+    return routeId ? [routeId] : [];
+  };
   const previouslyCheckedRouteIds = new Set(
-    Array.from(list.querySelectorAll('input[type="checkbox"][data-bulk-route-id]:checked'))
-      .map((input) => String(input.getAttribute('data-bulk-route-id') || '').trim())
+    Array.from(list.querySelectorAll('input[type="checkbox"][data-bulk-route-id]:checked, input[type="checkbox"][data-bulk-route-ids]:checked'))
+      .flatMap((input) => collectRouteIdsFromInput(input))
       .filter(Boolean),
   );
   const prevOrigin = String(originSelect.value || '').trim();
@@ -10373,36 +10545,132 @@ function refreshTransportPricingAdditionalRoutesOptions() {
     });
 
   if (!matchedRoutes.length) {
-    list.innerHTML = '<div class="transport-bulk-destination-list__empty">No destination routes found for selected pickup.</div>';
+    list.innerHTML = `<div class="transport-bulk-destination-list__empty">${groupByCityBundles ? 'No destination bundles found for selected pickup.' : 'No destination routes found for selected pickup.'}</div>`;
     syncTransportPricingBulkApplyControls();
     syncTransportPricingAdditionalSummary();
     return;
   }
 
-  list.innerHTML = matchedRoutes.map((row) => {
-    const routeId = String(row?.id || '').trim();
-    const destinationLabel = getTransportLocationLabel(row?.destination_location_id);
-    const reverseRoute = routes.find((candidate) =>
-      String(candidate?.origin_location_id || '').trim() === String(row?.destination_location_id || '').trim()
-      && String(candidate?.destination_location_id || '').trim() === String(row?.origin_location_id || '').trim(),
-    );
-    const reverseInfo = reverseRoute ? 'Reverse route available' : 'No reverse route yet';
-    const checked = previouslyCheckedRouteIds.has(routeId);
-    return `
-      <label class="transport-bulk-destination-item">
-        <input
-          type="checkbox"
-          data-bulk-route-id="${escapeHtml(routeId)}"
-          data-bulk-destination-label="${escapeHtml(destinationLabel)}"
-          ${checked ? 'checked' : ''}
-        />
-        <span class="transport-bulk-destination-item__body">
-          <span class="transport-bulk-destination-item__title">${escapeHtml(destinationLabel)}</span>
-          <span class="transport-bulk-destination-item__meta">${escapeHtml(reverseInfo)}</span>
-        </span>
-      </label>
-    `;
-  }).join('');
+  if (groupByCityBundles) {
+    const groups = new Map();
+    matchedRoutes.forEach((row) => {
+      const routeId = String(row?.id || '').trim();
+      if (!routeId) return;
+      const destinationId = String(row?.destination_location_id || '').trim();
+      const destinationLabel = getTransportLocationLabel(destinationId);
+      const destinationGroup = getTransportLocationCityGroupById(destinationId) || normalizeTransportCityGroupValue(destinationLabel) || destinationId;
+      const groupKey = destinationGroup || destinationId;
+      const destinationLocation = transportAdminState.locationById[destinationId] || null;
+      const destinationType = String(destinationLocation?.location_type || '').trim().toLowerCase();
+      const reverseRoute = findTransportReverseRouteByEndpoints(row.origin_location_id, row.destination_location_id, { excludeRouteId: routeId });
+      if (!groups.has(groupKey)) {
+        groups.set(groupKey, {
+          key: groupKey,
+          label: transportHumanizeCityGroupLabel(groupKey, destinationLabel),
+          routeIds: new Set(),
+          destinationLabels: new Set(),
+          destinationTypes: new Set(),
+          reverseAvailable: 0,
+          reverseMissing: 0,
+        });
+      }
+      const group = groups.get(groupKey);
+      group.routeIds.add(routeId);
+      group.destinationLabels.add(destinationLabel);
+      if (destinationType) group.destinationTypes.add(destinationType);
+      if (reverseRoute) {
+        group.reverseAvailable += 1;
+      } else {
+        group.reverseMissing += 1;
+      }
+    });
+
+    const groupedItems = Array.from(groups.values())
+      .filter((group) => {
+        if (!search) return true;
+        const haystack = [
+          group.label,
+          ...Array.from(group.destinationLabels),
+          ...Array.from(group.destinationTypes),
+        ]
+          .join(' ')
+          .toLowerCase();
+        return haystack.includes(search);
+      })
+      .sort((a, b) => a.label.localeCompare(b.label));
+
+    if (!groupedItems.length) {
+      list.innerHTML = '<div class="transport-bulk-destination-list__empty">No destination bundles match current search.</div>';
+      syncTransportPricingBulkApplyControls();
+      syncTransportPricingAdditionalSummary();
+      return;
+    }
+
+    list.innerHTML = groupedItems.map((group) => {
+      const routeIds = Array.from(group.routeIds);
+      const reverseMeta = group.reverseMissing > 0
+        ? `${group.reverseAvailable}/${routeIds.length} reverse routes ready`
+        : 'All reverse routes ready';
+      const destinationTypeMeta = group.destinationTypes.size
+        ? `${Array.from(group.destinationTypes).join(', ')}`
+        : 'mixed';
+      const variants = Array.from(group.destinationLabels).sort((a, b) => a.localeCompare(b));
+      const variantsPreview = variants.slice(0, 3).join(', ');
+      const variantsMore = Math.max(0, variants.length - 3);
+      const variantsLabel = variants.length
+        ? `Includes: ${variantsPreview}${variantsMore > 0 ? ` +${variantsMore} more` : ''}`
+        : '';
+      const destinationMeta = `${routeIds.length} route variant(s) · ${destinationTypeMeta} · ${reverseMeta}`;
+      const checked = routeIds.some((routeId) => previouslyCheckedRouteIds.has(routeId));
+      return `
+        <label class="transport-bulk-destination-item">
+          <input
+            type="checkbox"
+            data-bulk-route-ids="${escapeHtml(routeIds.join(','))}"
+            data-bulk-selection-type="city_group"
+            data-bulk-destination-label="${escapeHtml(group.label)}"
+            data-bulk-destination-group="${escapeHtml(group.key)}"
+            ${checked ? 'checked' : ''}
+          />
+          <span class="transport-bulk-destination-item__body">
+            <span class="transport-bulk-destination-item__title">${escapeHtml(group.label)}</span>
+            <span class="transport-bulk-destination-item__meta">${escapeHtml(destinationMeta)}</span>
+            ${variantsLabel ? `<span class="transport-bulk-destination-item__variants">${escapeHtml(variantsLabel)}</span>` : ''}
+          </span>
+        </label>
+      `;
+    }).join('');
+  } else {
+    list.innerHTML = matchedRoutes.map((row) => {
+      const routeId = String(row?.id || '').trim();
+      const destinationLabel = getTransportLocationLabel(row?.destination_location_id);
+      const destinationLocation = transportAdminState.locationById[String(row?.destination_location_id || '').trim()] || null;
+      const destinationGroup = getTransportLocationCityGroupById(row?.destination_location_id);
+      const destinationType = String(destinationLocation?.location_type || '').trim().toLowerCase();
+      const reverseRoute = findTransportReverseRouteByEndpoints(row.origin_location_id, row.destination_location_id, { excludeRouteId: routeId });
+      const reverseInfo = reverseRoute ? 'Reverse route available' : 'No reverse route yet';
+      const destinationMeta = [destinationGroup ? `group: ${destinationGroup}` : '', destinationType, reverseInfo]
+        .filter(Boolean)
+        .join(' · ');
+      const checked = previouslyCheckedRouteIds.has(routeId);
+      return `
+        <label class="transport-bulk-destination-item">
+          <input
+            type="checkbox"
+            data-bulk-route-id="${escapeHtml(routeId)}"
+            data-bulk-selection-type="route"
+            data-bulk-destination-label="${escapeHtml(destinationLabel)}"
+            data-bulk-destination-group="${escapeHtml(destinationGroup)}"
+            ${checked ? 'checked' : ''}
+          />
+          <span class="transport-bulk-destination-item__body">
+            <span class="transport-bulk-destination-item__title">${escapeHtml(destinationLabel)}</span>
+            <span class="transport-bulk-destination-item__meta">${escapeHtml(destinationMeta)}</span>
+          </span>
+        </label>
+      `;
+    }).join('');
+  }
 
   syncTransportPricingBulkApplyControls();
   syncTransportPricingAdditionalSummary();
@@ -10411,35 +10679,96 @@ function refreshTransportPricingAdditionalRoutesOptions() {
 function getTransportPricingBulkCheckedItems() {
   const list = document.getElementById('transportPricingBulkDestinations');
   if (!list) return [];
-  return Array.from(list.querySelectorAll('input[type="checkbox"][data-bulk-route-id]:checked'))
-    .map((input) => ({
-      routeId: String(input.getAttribute('data-bulk-route-id') || '').trim(),
-      destinationLabel: String(input.getAttribute('data-bulk-destination-label') || '').trim(),
-    }))
-    .filter((row) => row.routeId);
+  return Array.from(list.querySelectorAll('input[type="checkbox"][data-bulk-route-id]:checked, input[type="checkbox"][data-bulk-route-ids]:checked'))
+    .map((input) => {
+      const groupedRouteIds = String(input.getAttribute('data-bulk-route-ids') || '')
+        .split(',')
+        .map((value) => String(value || '').trim())
+        .filter(Boolean);
+      const singleRouteId = String(input.getAttribute('data-bulk-route-id') || '').trim();
+      const routeIds = Array.from(new Set(groupedRouteIds.length ? groupedRouteIds : (singleRouteId ? [singleRouteId] : [])));
+      return {
+        routeId: routeIds[0] || '',
+        routeIds,
+        destinationLabel: String(input.getAttribute('data-bulk-destination-label') || '').trim(),
+        destinationGroup: String(input.getAttribute('data-bulk-destination-group') || '').trim(),
+        selectionType: String(input.getAttribute('data-bulk-selection-type') || 'route').trim(),
+      };
+    })
+    .filter((row) => Array.isArray(row.routeIds) && row.routeIds.length);
 }
 
 function getTransportPricingBulkCheckedRouteIds() {
-  return getTransportPricingBulkCheckedItems().map((row) => row.routeId);
+  return Array.from(new Set(
+    getTransportPricingBulkCheckedItems()
+      .flatMap((row) => Array.isArray(row.routeIds) ? row.routeIds : [])
+      .filter(Boolean),
+  ));
 }
 
 function getTransportPricingBulkApplyRouteIds() {
   const primaryRouteId = String(document.getElementById('transportPricingRoute')?.value || '').trim();
   const includeReverse = Boolean(document.getElementById('transportPricingBulkIncludeReverse')?.checked);
-  const selectedForwardRouteIds = getTransportPricingBulkCheckedRouteIds()
+  const useCityGroups = Boolean(document.getElementById('transportPricingBulkUseCityGroups')?.checked);
+  const onlyActiveRoutes = Boolean(document.getElementById('transportPricingBulkOnlyActiveRoutes')?.checked);
+  const autoMirrorPrimaryReverse = Boolean(document.getElementById('transportPricingAutoReverseRoute')?.checked);
+
+  let selectedForwardRouteIds = getTransportPricingBulkCheckedRouteIds()
     .filter((routeId, index, list) => routeId && routeId !== primaryRouteId && list.indexOf(routeId) === index);
+
+  let cityGroupExpandedCount = 0;
+  if (useCityGroups && selectedForwardRouteIds.length) {
+    const selectedPairs = new Set();
+    selectedForwardRouteIds.forEach((routeId) => {
+      const row = transportAdminState.routeById[routeId];
+      if (!row) return;
+      const originGroup = getTransportLocationCityGroupById(row.origin_location_id);
+      const destinationGroup = getTransportLocationCityGroupById(row.destination_location_id);
+      if (!originGroup || !destinationGroup) return;
+      selectedPairs.add(`${originGroup}:${destinationGroup}`);
+    });
+
+    if (selectedPairs.size) {
+      const expanded = new Set(selectedForwardRouteIds);
+      (transportAdminState.routes || []).forEach((row) => {
+        const routeId = String(row?.id || '').trim();
+        if (!routeId || routeId === primaryRouteId) return;
+        if (onlyActiveRoutes && row?.is_active === false) return;
+        const originGroup = getTransportLocationCityGroupById(row.origin_location_id);
+        const destinationGroup = getTransportLocationCityGroupById(row.destination_location_id);
+        if (!originGroup || !destinationGroup) return;
+        if (selectedPairs.has(`${originGroup}:${destinationGroup}`)) {
+          expanded.add(routeId);
+        }
+      });
+      cityGroupExpandedCount = Math.max(0, expanded.size - selectedForwardRouteIds.length);
+      selectedForwardRouteIds = Array.from(expanded);
+    }
+  }
 
   const result = new Set(selectedForwardRouteIds);
   let reverseMissingCount = 0;
+  let autoReverseAdded = false;
+  let autoReverseMissing = false;
+
+  if (autoMirrorPrimaryReverse && primaryRouteId) {
+    const reverseRoute = findTransportReverseRouteByRouteId(primaryRouteId);
+    const reverseId = String(reverseRoute?.id || '').trim();
+    if (reverseId && reverseId !== primaryRouteId) {
+      result.add(reverseId);
+      autoReverseAdded = true;
+    } else {
+      autoReverseMissing = true;
+    }
+  }
 
   if (includeReverse) {
     selectedForwardRouteIds.forEach((routeId) => {
       const row = transportAdminState.routeById[routeId];
       if (!row) return;
-      const reverseRoute = (transportAdminState.routes || []).find((candidate) =>
-        String(candidate?.origin_location_id || '').trim() === String(row?.destination_location_id || '').trim()
-        && String(candidate?.destination_location_id || '').trim() === String(row?.origin_location_id || '').trim(),
-      );
+      const reverseRoute = findTransportReverseRouteByEndpoints(row.origin_location_id, row.destination_location_id, {
+        excludeRouteId: routeId,
+      });
       const reverseId = String(reverseRoute?.id || '').trim();
       if (!reverseId) {
         reverseMissingCount += 1;
@@ -10454,25 +10783,23 @@ function getTransportPricingBulkApplyRouteIds() {
     selectedForwardRouteIds,
     routeIds: Array.from(result),
     reverseMissingCount,
+    cityGroupExpandedCount,
+    autoReverseAdded,
+    autoReverseMissing,
   };
 }
 
 function syncTransportRouteSetSummary() {
   const summaryEl = document.getElementById('transportRouteSetSummary');
-  const originSelect = document.getElementById('transportRouteSetOrigin');
-  const destinationsSelect = document.getElementById('transportRouteSetDestinations');
-  const includeReverse = Boolean(document.getElementById('transportRouteSetIncludeReverse')?.checked);
-  if (!summaryEl || !(originSelect instanceof HTMLSelectElement) || !(destinationsSelect instanceof HTMLSelectElement)) return;
+  if (!summaryEl) return;
 
-  const originId = String(originSelect.value || '').trim();
-  if (!originId) {
+  const selection = getTransportRouteSetResolvedSelection();
+  if (!selection.originLocationId) {
     summaryEl.textContent = 'Select base origin first. Then choose destination locations for one-click route creation.';
     return;
   }
 
-  const selectedDestinations = getSelectedValuesFromMultiSelect(destinationsSelect)
-    .filter((id, index, arr) => id && arr.indexOf(id) === index && id !== originId);
-  if (!selectedDestinations.length) {
+  if (!selection.selectedDestinationIds.length) {
     summaryEl.textContent = 'No destinations selected yet.';
     return;
   }
@@ -10483,26 +10810,30 @@ function syncTransportRouteSetSummary() {
     return `${from}:${to}`;
   }));
 
-  let candidates = 0;
   let newPairs = 0;
-  selectedDestinations.forEach((destinationId) => {
-    const forward = `${originId}:${destinationId}`;
-    candidates += 1;
-    if (!existingPairs.has(forward)) newPairs += 1;
-    if (includeReverse) {
-      const reverse = `${destinationId}:${originId}`;
-      candidates += 1;
-      if (!existingPairs.has(reverse)) newPairs += 1;
-    }
+  selection.candidatePairs.forEach((pair) => {
+    const key = `${pair.origin_location_id}:${pair.destination_location_id}`;
+    if (!existingPairs.has(key)) newPairs += 1;
   });
 
+  const candidates = selection.candidatePairs.length;
   const skipped = Math.max(0, candidates - newPairs);
-  summaryEl.textContent = `${selectedDestinations.length} destination(s) selected. ${candidates} route pair(s) planned (${newPairs} new, ${skipped} already exist).`;
+  const expansionBits = [];
+  if (selection.expandOriginGroup && selection.originIds.length > 1) {
+    expansionBits.push(`pickup expanded to ${selection.originIds.length} locations`);
+  }
+  if (selection.expandDestinationGroups && selection.destinationIds.length > selection.selectedDestinationIds.length) {
+    expansionBits.push(`destinations expanded to ${selection.destinationIds.length} locations`);
+  }
+  const expansionText = expansionBits.length ? ` (${expansionBits.join(', ')})` : '';
+  summaryEl.textContent = `${selection.selectedDestinationIds.length} destination(s) selected${expansionText}. ${candidates} route pair(s) planned (${newPairs} new, ${skipped} already exist).`;
 }
 
 function syncTransportPricingAdditionalSummary() {
   const summaryEl = document.getElementById('transportPricingAdditionalSummary');
   const enabled = Boolean(document.getElementById('transportPricingApplyToAdditional')?.checked);
+  const autoReverseEnabled = Boolean(document.getElementById('transportPricingAutoReverseRoute')?.checked);
+  const groupByCityBundles = Boolean(document.getElementById('transportPricingBulkGroupByCity')?.checked);
   const routeId = String(document.getElementById('transportPricingRoute')?.value || '').trim();
   const originSelect = document.getElementById('transportPricingBulkOrigin');
   const originLabel = originSelect instanceof HTMLSelectElement
@@ -10510,7 +10841,18 @@ function syncTransportPricingAdditionalSummary() {
     : '';
   if (!summaryEl) return;
 
+  const autoReverseRoute = routeId ? findTransportReverseRouteByRouteId(routeId) : null;
+  const autoReverseRouteId = String(autoReverseRoute?.id || '').trim();
+
   if (!enabled) {
+    if (routeId && autoReverseEnabled) {
+      if (autoReverseRouteId) {
+        summaryEl.textContent = `Reverse mirror is enabled: this rule will also be saved for ${getTransportRouteLabel(autoReverseRoute)}.`;
+        return;
+      }
+      summaryEl.textContent = 'Reverse mirror is enabled, but reverse route does not exist yet.';
+      return;
+    }
     summaryEl.textContent = 'Enable bulk clone, choose pickup location, then tick destination boxes.';
     return;
   }
@@ -10523,7 +10865,10 @@ function syncTransportPricingAdditionalSummary() {
   const checkedItems = getTransportPricingBulkCheckedItems();
   if (!checkedItems.length) {
     if (originLabel) {
-      summaryEl.textContent = `Pickup selected: ${originLabel}. Tick destination checkboxes to clone this pricing rule.`;
+      const reverseHint = autoReverseEnabled
+        ? (autoReverseRouteId ? ' Reverse route mirror will also be included.' : ' Reverse mirror is enabled but reverse route is missing.')
+        : '';
+      summaryEl.textContent = `Pickup selected: ${originLabel}. Tick destination checkboxes to clone this pricing rule.${reverseHint}`;
       return;
     }
     summaryEl.textContent = 'Select pickup location, then tick destination routes.';
@@ -10533,35 +10878,65 @@ function syncTransportPricingAdditionalSummary() {
   const bulkSelection = getTransportPricingBulkApplyRouteIds();
   const preview = checkedItems.slice(0, 3).map((row) => row.destinationLabel).filter(Boolean).join(', ');
   const moreCount = Math.max(0, checkedItems.length - 3);
+  const selectedBundlesCount = checkedItems.filter((row) => row.selectionType === 'city_group').length;
 
   const reverseSuffix = bulkSelection.reverseMissingCount > 0
     ? ` ${bulkSelection.reverseMissingCount} destination(s) have no reverse route yet.`
     : '';
+  const cityGroupSuffix = bulkSelection.cityGroupExpandedCount > 0
+    ? ` ${bulkSelection.cityGroupExpandedCount} extra route(s) added by city-group expansion.`
+    : '';
+  const autoReverseSuffix = autoReverseEnabled
+    ? (bulkSelection.autoReverseAdded
+      ? ' Main reverse route included.'
+      : (bulkSelection.autoReverseMissing ? ' Main reverse route missing.' : ''))
+    : '';
   const previewSuffix = preview
     ? ` Destinations: ${preview}${moreCount > 0 ? ` +${moreCount} more` : ''}.`
     : '';
-  summaryEl.textContent = `${bulkSelection.selectedForwardRouteIds.length} destination(s) selected${originLabel ? ` from ${originLabel}` : ''}. ${bulkSelection.routeIds.length} route clone(s) will be created on save.${previewSuffix}${reverseSuffix}`;
+  const selectionSummary = groupByCityBundles
+    ? `${selectedBundlesCount} city bundle(s) selected`
+    : `${bulkSelection.selectedForwardRouteIds.length} destination route(s) selected`;
+  summaryEl.textContent = `${selectionSummary}${originLabel ? ` from ${originLabel}` : ''}. ${bulkSelection.routeIds.length} route clone(s) will be created on save.${previewSuffix}${cityGroupSuffix}${reverseSuffix}${autoReverseSuffix}`;
 }
 
 function syncTransportPricingBulkApplyControls() {
   const enabledToggle = document.getElementById('transportPricingApplyToAdditional');
+  const autoReverseToggle = document.getElementById('transportPricingAutoReverseRoute');
+  const groupByCityToggle = document.getElementById('transportPricingBulkGroupByCity');
   const originSelect = document.getElementById('transportPricingBulkOrigin');
   const searchInput = document.getElementById('transportPricingBulkDestinationSearch');
   const onlyActive = document.getElementById('transportPricingBulkOnlyActiveRoutes');
   const includeReverse = document.getElementById('transportPricingBulkIncludeReverse');
+  const useCityGroups = document.getElementById('transportPricingBulkUseCityGroups');
+  const advancedPanel = document.getElementById('transportPricingBulkAdvancedPanel');
   const btnSelectAll = document.getElementById('btnTransportPricingBulkSelectAll');
   const btnClear = document.getElementById('btnTransportPricingBulkClearAll');
   const list = document.getElementById('transportPricingBulkDestinations');
   const routeId = String(document.getElementById('transportPricingRoute')?.value || '').trim();
+  const routeSelected = Boolean(routeId);
   const enabled = Boolean(enabledToggle?.checked) && Boolean(routeId);
+
+  if (autoReverseToggle) autoReverseToggle.disabled = !routeSelected;
+  if (groupByCityToggle) groupByCityToggle.disabled = !enabled;
+  if (useCityGroups) {
+    if (groupByCityToggle?.checked) {
+      useCityGroups.checked = true;
+    }
+    useCityGroups.disabled = !enabled || Boolean(groupByCityToggle?.checked);
+  }
 
   [originSelect, searchInput, onlyActive, includeReverse, btnSelectAll, btnClear].forEach((el) => {
     if (el) el.disabled = !enabled;
   });
 
+  if (advancedPanel) {
+    advancedPanel.classList.toggle('is-disabled', !enabled);
+  }
+
   if (list) {
     list.classList.toggle('is-disabled', !enabled);
-    const checkboxes = list.querySelectorAll('input[type="checkbox"][data-bulk-route-id]');
+    const checkboxes = list.querySelectorAll('input[type="checkbox"][data-bulk-route-id], input[type="checkbox"][data-bulk-route-ids]');
     checkboxes.forEach((checkbox) => {
       if (!enabled) checkbox.checked = false;
       checkbox.disabled = !enabled;
@@ -10591,7 +10966,7 @@ function clearTransportRouteSetDestinations() {
 function selectAllTransportPricingAdditionalRoutes() {
   const list = document.getElementById('transportPricingBulkDestinations');
   if (!list) return;
-  list.querySelectorAll('input[type="checkbox"][data-bulk-route-id]:not([disabled])').forEach((checkbox) => {
+  list.querySelectorAll('input[type="checkbox"][data-bulk-route-id]:not([disabled]), input[type="checkbox"][data-bulk-route-ids]:not([disabled])').forEach((checkbox) => {
     checkbox.checked = true;
   });
   syncTransportPricingAdditionalSummary();
@@ -10600,7 +10975,7 @@ function selectAllTransportPricingAdditionalRoutes() {
 function clearTransportPricingAdditionalRoutes() {
   const list = document.getElementById('transportPricingBulkDestinations');
   if (!list) return;
-  list.querySelectorAll('input[type="checkbox"][data-bulk-route-id]').forEach((checkbox) => {
+  list.querySelectorAll('input[type="checkbox"][data-bulk-route-id], input[type="checkbox"][data-bulk-route-ids]').forEach((checkbox) => {
     checkbox.checked = false;
   });
   syncTransportPricingAdditionalSummary();
@@ -10652,10 +11027,12 @@ function resetTransportLocationForm() {
   form.reset();
   const idEl = document.getElementById('transportLocationId');
   const localNameEl = document.getElementById('transportLocationNameLocal');
+  const cityGroupEl = document.getElementById('transportLocationCityGroup');
   const activeEl = document.getElementById('transportLocationActive');
   const sortEl = document.getElementById('transportLocationSortOrder');
   if (idEl) idEl.value = '';
   if (localNameEl) localNameEl.value = '';
+  if (cityGroupEl) cityGroupEl.value = '';
   if (activeEl) activeEl.checked = true;
   if (sortEl) sortEl.value = '0';
 }
@@ -10670,6 +11047,7 @@ function editTransportLocation(locationId) {
   const nameEl = document.getElementById('transportLocationName');
   const localNameEl = document.getElementById('transportLocationNameLocal');
   const codeEl = document.getElementById('transportLocationCode');
+  const cityGroupEl = document.getElementById('transportLocationCityGroup');
   const typeEl = document.getElementById('transportLocationType');
   const sortEl = document.getElementById('transportLocationSortOrder');
   const activeEl = document.getElementById('transportLocationActive');
@@ -10678,6 +11056,7 @@ function editTransportLocation(locationId) {
   if (nameEl) nameEl.value = String(row.name || '');
   if (localNameEl) localNameEl.value = String(row.name_local || '');
   if (codeEl) codeEl.value = String(row.code || '');
+  if (cityGroupEl) cityGroupEl.value = String(row.city_group || deriveTransportCityGroupFromCode(row.code) || '');
   if (typeEl) typeEl.value = String(row.location_type || 'city');
   if (sortEl) sortEl.value = String(Number(row.sort_order || 0));
   if (activeEl) activeEl.checked = Boolean(row.is_active !== false);
@@ -10714,7 +11093,7 @@ function renderTransportLocationsTable() {
   if (!tbody) return;
 
   if (!rows.length) {
-    renderTransportTableMessage('transportLocationsTableBody', 8, 'No transport locations yet.');
+    renderTransportTableMessage('transportLocationsTableBody', 9, 'No transport locations yet.');
     return;
   }
 
@@ -10725,14 +11104,15 @@ function renderTransportLocationsTable() {
       : '<span class="badge badge-success">ACTIVE</span>';
     return `
       <tr>
-        <td>${escapeHtml(String(row.name || '—'))}</td>
-        <td>${escapeHtml(String(row.name_local || '—'))}</td>
-        <td><code>${escapeHtml(String(row.code || ''))}</code></td>
-        <td>${escapeHtml(String(row.location_type || 'city'))}</td>
-        <td>${Number(row.sort_order || 0)}</td>
-        <td>${status}</td>
-        <td>${transportIsoToLabel(row.updated_at || row.created_at)}</td>
-        <td style="text-align: right;">
+        <td data-label="Name (EN)">${escapeHtml(String(row.name || '—'))}</td>
+        <td data-label="Local name">${escapeHtml(String(row.name_local || '—'))}</td>
+        <td data-label="Code"><code>${escapeHtml(String(row.code || ''))}</code></td>
+        <td data-label="City group"><code>${escapeHtml(String(row.city_group || deriveTransportCityGroupFromCode(row.code) || ''))}</code></td>
+        <td data-label="Type">${escapeHtml(String(row.location_type || 'city'))}</td>
+        <td data-label="Sort">${Number(row.sort_order || 0)}</td>
+        <td data-label="Status">${status}</td>
+        <td data-label="Updated">${transportIsoToLabel(row.updated_at || row.created_at)}</td>
+        <td data-label="Actions" style="text-align: right;">
           <button class="btn-small btn-secondary" type="button" onclick="editTransportLocation('${escapeHtml(id)}')">Edit</button>
           <button class="btn-small btn-danger" type="button" onclick="deleteTransportLocation('${escapeHtml(id)}')">Delete</button>
         </td>
@@ -10755,9 +11135,9 @@ async function loadTransportLocationsData(options = {}) {
   if (error) {
     console.error('Failed to load transport locations:', error);
     if (isMissingTableError(error, TRANSPORT_TABLES.locations)) {
-      renderTransportTableMessage('transportLocationsTableBody', 8, transportTableMissingHelp(TRANSPORT_TABLES.locations), true);
+      renderTransportTableMessage('transportLocationsTableBody', 9, transportTableMissingHelp(TRANSPORT_TABLES.locations), true);
     } else {
-      renderTransportTableMessage('transportLocationsTableBody', 8, String(error.message || 'Failed to load locations'), true);
+      renderTransportTableMessage('transportLocationsTableBody', 9, String(error.message || 'Failed to load locations'), true);
     }
     if (!silent) showToast(String(error.message || 'Failed to load transport locations'), 'error');
     return;
@@ -10785,6 +11165,10 @@ async function saveTransportLocationForm(event) {
   const name = String(document.getElementById('transportLocationName')?.value || '').trim();
   const nameLocal = String(document.getElementById('transportLocationNameLocal')?.value || '').trim();
   const code = String(document.getElementById('transportLocationCode')?.value || '').trim().toLowerCase();
+  const cityGroup = normalizeTransportCityGroupValue(
+    document.getElementById('transportLocationCityGroup')?.value
+      || deriveTransportCityGroupFromCode(code),
+  );
   const locationType = String(document.getElementById('transportLocationType')?.value || 'city').trim();
   const sortOrder = Number(document.getElementById('transportLocationSortOrder')?.value || 0);
   const isActive = Boolean(document.getElementById('transportLocationActive')?.checked);
@@ -10798,6 +11182,7 @@ async function saveTransportLocationForm(event) {
     name,
     name_local: nameLocal || null,
     code,
+    city_group: cityGroup || null,
     location_type: locationType || 'city',
     sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
     is_active: isActive,
@@ -10813,6 +11198,7 @@ async function saveTransportLocationForm(event) {
     if (error && isMissingColumnError(error, 'name_local')) {
       const fallbackPayload = { ...payload };
       delete fallbackPayload.name_local;
+      delete fallbackPayload.city_group;
       if (id) {
         ({ error } = await client.from(TRANSPORT_TABLES.locations).update(fallbackPayload).eq('id', id));
       } else {
@@ -10820,6 +11206,17 @@ async function saveTransportLocationForm(event) {
       }
       if (!error) {
         showToast('Location saved without local name (run migration 112_transport_locations_bilingual_name.sql to store local labels)', 'info');
+      }
+    } else if (error && isMissingColumnError(error, 'city_group')) {
+      const fallbackPayload = { ...payload };
+      delete fallbackPayload.city_group;
+      if (id) {
+        ({ error } = await client.from(TRANSPORT_TABLES.locations).update(fallbackPayload).eq('id', id));
+      } else {
+        ({ error } = await client.from(TRANSPORT_TABLES.locations).insert(fallbackPayload));
+      }
+      if (!error) {
+        showToast('Location saved without city group (run migration 113_transport_location_city_groups.sql)', 'info');
       }
     }
     if (error) throw error;
@@ -10967,6 +11364,8 @@ function resetTransportRouteForm() {
   const tripModeEl = document.getElementById('transportRouteTripMode');
   const roundTripMultiplierEl = document.getElementById('transportRouteRoundTripMultiplier');
   const sortEl = document.getElementById('transportRouteSortOrder');
+  const createReverseEl = document.getElementById('transportRouteCreateReversePair');
+  const syncReverseEl = document.getElementById('transportRouteSyncReverseRoute');
   if (idEl) idEl.value = '';
   if (currencyEl) currencyEl.value = 'EUR';
   if (includedPassengersEl) includedPassengersEl.value = '2';
@@ -10977,6 +11376,8 @@ function resetTransportRouteForm() {
   if (roundTripMultiplierEl) roundTripMultiplierEl.value = '2';
   if (sortEl) sortEl.value = '0';
   if (activeEl) activeEl.checked = true;
+  if (createReverseEl) createReverseEl.checked = true;
+  if (syncReverseEl) syncReverseEl.checked = true;
   syncTransportRouteRoundTripControls();
 }
 
@@ -11006,7 +11407,11 @@ function editTransportRoute(routeId) {
   setValue('transportRouteSortOrder', String(Number(row.sort_order || 0)));
 
   const activeEl = document.getElementById('transportRouteActive');
+  const createReverseEl = document.getElementById('transportRouteCreateReversePair');
+  const syncReverseEl = document.getElementById('transportRouteSyncReverseRoute');
   if (activeEl) activeEl.checked = Boolean(row.is_active !== false);
+  if (createReverseEl) createReverseEl.checked = true;
+  if (syncReverseEl) syncReverseEl.checked = true;
   syncTransportRouteRoundTripControls();
 
   transportAdminState.control.routeId = id;
@@ -11057,15 +11462,15 @@ function renderTransportRoutesTable() {
     const tripModeLabel = transportRouteTripModeLabel(row);
     return `
       <tr>
-        <td>${escapeHtml(getTransportRouteLabel(row))}</td>
-        <td style="text-align: right;">${escapeHtml(transportMoney(row.day_price, row.currency || 'EUR'))}</td>
-        <td style="text-align: right;">${escapeHtml(transportMoney(row.night_price, row.currency || 'EUR'))}</td>
-        <td>${escapeHtml(included)}</td>
-        <td>${escapeHtml(limits)}</td>
-        <td>${escapeHtml(tripModeLabel)}</td>
-        <td>${row.is_active === false ? '<span class="badge">INACTIVE</span>' : '<span class="badge badge-success">ACTIVE</span>'}</td>
-        <td>${transportIsoToLabel(row.updated_at || row.created_at)}</td>
-        <td style="text-align: right;">
+        <td data-label="Route">${escapeHtml(getTransportRouteLabel(row))}</td>
+        <td data-label="Day" style="text-align: right;">${escapeHtml(transportMoney(row.day_price, row.currency || 'EUR'))}</td>
+        <td data-label="Night" style="text-align: right;">${escapeHtml(transportMoney(row.night_price, row.currency || 'EUR'))}</td>
+        <td data-label="Included">${escapeHtml(included)}</td>
+        <td data-label="Limits">${escapeHtml(limits)}</td>
+        <td data-label="Trip mode">${escapeHtml(tripModeLabel)}</td>
+        <td data-label="Status">${row.is_active === false ? '<span class="badge">INACTIVE</span>' : '<span class="badge badge-success">ACTIVE</span>'}</td>
+        <td data-label="Updated">${transportIsoToLabel(row.updated_at || row.created_at)}</td>
+        <td data-label="Actions" style="text-align: right;">
           <button class="btn-small btn-secondary" type="button" onclick="openTransportPricingForRoute('${escapeHtml(id)}')">Pricing</button>
           <button class="btn-small btn-secondary" type="button" onclick="editTransportRoute('${escapeHtml(id)}')">Edit</button>
           <button class="btn-small btn-danger" type="button" onclick="deleteTransportRoute('${escapeHtml(id)}')">Delete</button>
@@ -11129,6 +11534,8 @@ async function saveTransportRouteForm(event) {
   const roundTripMultiplierRaw = Number(document.getElementById('transportRouteRoundTripMultiplier')?.value || 2);
   const sortOrder = Number(document.getElementById('transportRouteSortOrder')?.value || 0);
   const isActive = Boolean(document.getElementById('transportRouteActive')?.checked);
+  const createReversePair = Boolean(document.getElementById('transportRouteCreateReversePair')?.checked);
+  const syncReverseRoute = Boolean(document.getElementById('transportRouteSyncReverseRoute')?.checked);
 
   if (!originLocationId || !destinationLocationId) {
     showToast('Origin and destination are required', 'error');
@@ -11184,17 +11591,86 @@ async function saveTransportRouteForm(event) {
     sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
     is_active: isActive,
   };
+  const reversePayload = {
+    ...payload,
+    origin_location_id: destinationLocationId,
+    destination_location_id: originLocationId,
+  };
 
   try {
+    let reverseCreated = 0;
+    let reverseUpdated = 0;
+    let reverseSkipped = 0;
+    let reverseFailed = 0;
+
+    const applyReverseRouteSync = async () => {
+      const reverseRoute = findTransportReverseRouteByEndpoints(originLocationId, destinationLocationId, { excludeRouteId: id });
+      const reverseRouteId = String(reverseRoute?.id || '').trim();
+
+      if (reverseRouteId) {
+        if (!syncReverseRoute) {
+          reverseSkipped += 1;
+          return;
+        }
+        const { error: reverseUpdateError } = await client
+          .from(TRANSPORT_TABLES.routes)
+          .update(reversePayload)
+          .eq('id', reverseRouteId);
+        if (reverseUpdateError) throw reverseUpdateError;
+        reverseUpdated += 1;
+        return;
+      }
+
+      if (!createReversePair) return;
+
+      const { error: reverseInsertError } = await client
+        .from(TRANSPORT_TABLES.routes)
+        .insert(reversePayload);
+      if (reverseInsertError) {
+        const code = String(reverseInsertError.code || '').trim();
+        const message = String(reverseInsertError.message || '').toLowerCase();
+        if (code === '23505' || message.includes('duplicate')) {
+          reverseSkipped += 1;
+          return;
+        }
+        throw reverseInsertError;
+      }
+      reverseCreated += 1;
+    };
+
     let error = null;
     if (id) {
       ({ error } = await client.from(TRANSPORT_TABLES.routes).update(payload).eq('id', id));
+      if (error) throw error;
+      if (syncReverseRoute || createReversePair) {
+        try {
+          await applyReverseRouteSync();
+        } catch (reverseError) {
+          reverseFailed += 1;
+          console.error('Failed to sync reverse route:', reverseError);
+        }
+      }
     } else {
       ({ error } = await client.from(TRANSPORT_TABLES.routes).insert(payload));
+      if (error) throw error;
+      if (syncReverseRoute || createReversePair) {
+        try {
+          await applyReverseRouteSync();
+        } catch (reverseError) {
+          reverseFailed += 1;
+          console.error('Failed to sync reverse route:', reverseError);
+        }
+      }
     }
-    if (error) throw error;
 
-    showToast(id ? 'Transport route updated' : 'Transport route created', 'success');
+    const reverseSummaryParts = [];
+    if (reverseCreated > 0) reverseSummaryParts.push(`reverse created ${reverseCreated}`);
+    if (reverseUpdated > 0) reverseSummaryParts.push(`reverse updated ${reverseUpdated}`);
+    if (reverseSkipped > 0) reverseSummaryParts.push(`reverse skipped ${reverseSkipped}`);
+    if (reverseFailed > 0) reverseSummaryParts.push(`reverse failed ${reverseFailed}`);
+    const reverseSummary = reverseSummaryParts.length ? ` (${reverseSummaryParts.join(', ')})` : '';
+
+    showToast(`${id ? 'Transport route updated' : 'Transport route created'}${reverseSummary}`, reverseFailed > 0 ? 'error' : 'success');
     resetTransportRouteForm();
     await loadTransportRoutesData({ silent: true });
     await loadTransportPricingData({ silent: true });
@@ -11216,19 +11692,13 @@ async function createTransportRouteSetFromCurrentForm() {
   const client = ensureSupabase();
   if (!client) return;
 
-  const originSelect = document.getElementById('transportRouteSetOrigin');
-  const destinationsSelect = document.getElementById('transportRouteSetDestinations');
-  const includeReverse = Boolean(document.getElementById('transportRouteSetIncludeReverse')?.checked);
+  const selection = getTransportRouteSetResolvedSelection();
 
-  const originLocationId = String(originSelect?.value || '').trim();
-  const selectedDestinations = getSelectedValuesFromMultiSelect(destinationsSelect)
-    .filter((id) => id && id !== originLocationId);
-
-  if (!originLocationId) {
+  if (!selection.originLocationId) {
     showToast('Select base origin for route set', 'error');
     return;
   }
-  if (!selectedDestinations.length) {
+  if (!selection.selectedDestinationIds.length) {
     showToast('Select at least one destination', 'error');
     return;
   }
@@ -11282,25 +11752,11 @@ async function createTransportRouteSetFromCurrentForm() {
     return `${origin}:${destination}`;
   }));
 
-  const candidatePairs = new Map();
-  selectedDestinations.forEach((destinationLocationId) => {
-    const forwardKey = `${originLocationId}:${destinationLocationId}`;
-    if (!candidatePairs.has(forwardKey)) {
-      candidatePairs.set(forwardKey, { origin_location_id: originLocationId, destination_location_id: destinationLocationId });
-    }
-    if (includeReverse) {
-      const reverseKey = `${destinationLocationId}:${originLocationId}`;
-      if (!candidatePairs.has(reverseKey)) {
-        candidatePairs.set(reverseKey, { origin_location_id: destinationLocationId, destination_location_id: originLocationId });
-      }
-    }
-  });
-
   let createdCount = 0;
   let skippedCount = 0;
   let failedCount = 0;
 
-  for (const pair of candidatePairs.values()) {
+  for (const pair of selection.candidatePairs) {
     const routeKey = `${pair.origin_location_id}:${pair.destination_location_id}`;
     if (existingKeys.has(routeKey)) {
       skippedCount += 1;
@@ -11356,7 +11812,15 @@ async function createTransportRouteSetFromCurrentForm() {
     return;
   }
 
-  const summary = `Route set finished: created ${createdCount}, skipped ${skippedCount}, failed ${failedCount}`;
+  const summaryDetails = [];
+  if (selection.expandOriginGroup && selection.originIds.length > 1) {
+    summaryDetails.push(`pickup group x${selection.originIds.length}`);
+  }
+  if (selection.expandDestinationGroups && selection.destinationIds.length > selection.selectedDestinationIds.length) {
+    summaryDetails.push(`destination groups x${selection.destinationIds.length}`);
+  }
+  const detailsText = summaryDetails.length ? ` (${summaryDetails.join(', ')})` : '';
+  const summary = `Route set finished: created ${createdCount}, skipped ${skippedCount}, failed ${failedCount}${detailsText}`;
   showToast(summary, failedCount ? 'error' : 'success');
   await loadTransportRoutesData({ silent: true });
   await loadTransportPricingData({ silent: true });
@@ -11376,10 +11840,13 @@ function resetTransportPricingForm() {
   const activeEl = document.getElementById('transportPricingActive');
   const priorityEl = document.getElementById('transportPricingPriority');
   const applyAdditionalEl = document.getElementById('transportPricingApplyToAdditional');
+  const autoReverseEl = document.getElementById('transportPricingAutoReverseRoute');
+  const bulkGroupByCityEl = document.getElementById('transportPricingBulkGroupByCity');
   const bulkOriginEl = document.getElementById('transportPricingBulkOrigin');
   const bulkSearchEl = document.getElementById('transportPricingBulkDestinationSearch');
   const bulkOnlyActiveEl = document.getElementById('transportPricingBulkOnlyActiveRoutes');
   const bulkIncludeReverseEl = document.getElementById('transportPricingBulkIncludeReverse');
+  const bulkUseCityGroupsEl = document.getElementById('transportPricingBulkUseCityGroups');
   const bulkListEl = document.getElementById('transportPricingBulkDestinations');
   if (idEl) idEl.value = '';
   if (waitingPerHourEl) waitingPerHourEl.value = '0';
@@ -11391,12 +11858,15 @@ function resetTransportPricingForm() {
   if (priorityEl) priorityEl.value = '0';
   if (activeEl) activeEl.checked = true;
   if (applyAdditionalEl) applyAdditionalEl.checked = false;
+  if (autoReverseEl) autoReverseEl.checked = true;
+  if (bulkGroupByCityEl) bulkGroupByCityEl.checked = true;
   if (bulkOriginEl) bulkOriginEl.value = '';
   if (bulkSearchEl) bulkSearchEl.value = '';
   if (bulkOnlyActiveEl) bulkOnlyActiveEl.checked = true;
   if (bulkIncludeReverseEl) bulkIncludeReverseEl.checked = true;
+  if (bulkUseCityGroupsEl) bulkUseCityGroupsEl.checked = true;
   if (bulkListEl) {
-    bulkListEl.querySelectorAll('input[type="checkbox"][data-bulk-route-id]').forEach((input) => {
+    bulkListEl.querySelectorAll('input[type="checkbox"][data-bulk-route-id], input[type="checkbox"][data-bulk-route-ids]').forEach((input) => {
       input.checked = false;
     });
   }
@@ -11444,8 +11914,14 @@ function editTransportPricingRule(ruleId) {
   if (depositEnabledEl) depositEnabledEl.checked = Boolean(row.deposit_enabled === true);
   const applyAdditionalEl = document.getElementById('transportPricingApplyToAdditional');
   if (applyAdditionalEl) applyAdditionalEl.checked = false;
+  const autoReverseEl = document.getElementById('transportPricingAutoReverseRoute');
+  if (autoReverseEl) autoReverseEl.checked = true;
+  const bulkGroupByCityEl = document.getElementById('transportPricingBulkGroupByCity');
+  if (bulkGroupByCityEl) bulkGroupByCityEl.checked = true;
   const bulkSearchEl = document.getElementById('transportPricingBulkDestinationSearch');
   if (bulkSearchEl) bulkSearchEl.value = '';
+  const bulkUseCityGroupsEl = document.getElementById('transportPricingBulkUseCityGroups');
+  if (bulkUseCityGroupsEl) bulkUseCityGroupsEl.checked = true;
   const bulkOriginEl = document.getElementById('transportPricingBulkOrigin');
   const routeRow = transportAdminState.routeById[String(row.route_id || '').trim()] || null;
   if (bulkOriginEl instanceof HTMLSelectElement && routeRow?.origin_location_id) {
@@ -11453,7 +11929,7 @@ function editTransportPricingRule(ruleId) {
   }
   const bulkListEl = document.getElementById('transportPricingBulkDestinations');
   if (bulkListEl) {
-    bulkListEl.querySelectorAll('input[type="checkbox"][data-bulk-route-id]').forEach((input) => {
+    bulkListEl.querySelectorAll('input[type="checkbox"][data-bulk-route-id], input[type="checkbox"][data-bulk-route-ids]').forEach((input) => {
       input.checked = false;
     });
   }
@@ -11522,15 +11998,15 @@ function renderTransportPricingTable() {
       : 'No deposit';
     return `
       <tr>
-        <td>${escapeHtml(getTransportRouteLabelById(row.route_id))}</td>
-        <td>${escapeHtml(surcharges)}</td>
-        <td>${escapeHtml(`${String(row.night_start || '22:00').slice(0, 5)} - ${String(row.night_end || '06:00').slice(0, 5)}`)}</td>
-        <td>${escapeHtml(waiting)}</td>
-        <td>${escapeHtml(validity)}</td>
-        <td>${escapeHtml(depositLabel)}</td>
-        <td>${Number(row.priority || 0)}</td>
-        <td>${row.is_active === false ? '<span class="badge">INACTIVE</span>' : '<span class="badge badge-success">ACTIVE</span>'}</td>
-        <td style="text-align: right;">
+        <td data-label="Route">${escapeHtml(getTransportRouteLabelById(row.route_id))}</td>
+        <td data-label="Surcharges">${escapeHtml(surcharges)}</td>
+        <td data-label="Night window">${escapeHtml(`${String(row.night_start || '22:00').slice(0, 5)} - ${String(row.night_end || '06:00').slice(0, 5)}`)}</td>
+        <td data-label="Waiting">${escapeHtml(waiting)}</td>
+        <td data-label="Validity">${escapeHtml(validity)}</td>
+        <td data-label="Deposit">${escapeHtml(depositLabel)}</td>
+        <td data-label="Priority">${Number(row.priority || 0)}</td>
+        <td data-label="Status">${row.is_active === false ? '<span class="badge">INACTIVE</span>' : '<span class="badge badge-success">ACTIVE</span>'}</td>
+        <td data-label="Actions" style="text-align: right;">
           <button class="btn-small btn-secondary" type="button" onclick="editTransportPricingRule('${escapeHtml(id)}')">Edit</button>
           <button class="btn-small btn-danger" type="button" onclick="deleteTransportPricingRule('${escapeHtml(id)}')">Delete</button>
         </td>
@@ -11577,7 +12053,10 @@ async function saveTransportPricingForm(event) {
   const id = String(document.getElementById('transportPricingId')?.value || '').trim();
   const routeId = String(document.getElementById('transportPricingRoute')?.value || '').trim();
   const applyToAdditionalRoutes = Boolean(document.getElementById('transportPricingApplyToAdditional')?.checked);
-  const additionalRouteIds = getTransportPricingBulkApplyRouteIds().routeIds;
+  const bulkSelection = getTransportPricingBulkApplyRouteIds();
+  const additionalRouteIds = applyToAdditionalRoutes
+    ? bulkSelection.routeIds
+    : (bulkSelection.autoReverseAdded ? bulkSelection.routeIds : []);
   const waitingFeePerHour = Number(document.getElementById('transportPricingWaitingPerHour')?.value || 0);
   const depositEnabled = Boolean(document.getElementById('transportPricingDepositEnabled')?.checked);
   const depositMode = String(document.getElementById('transportPricingDepositMode')?.value || 'percent_total').trim().toLowerCase();
@@ -11655,6 +12134,10 @@ async function saveTransportPricingForm(event) {
   }
 
   try {
+    if (bulkSelection.autoReverseMissing) {
+      showToast('Reverse mirror enabled but reverse route is missing', 'info');
+    }
+
     let error = null;
     if (id) {
       ({ error } = await client.from(TRANSPORT_TABLES.pricing).update(payload).eq('id', id));
@@ -11664,7 +12147,7 @@ async function saveTransportPricingForm(event) {
     if (error) throw error;
 
     let clonedRulesCount = 0;
-    if (applyToAdditionalRoutes && additionalRouteIds.length) {
+    if (additionalRouteIds.length) {
       const cloneRows = additionalRouteIds.map((additionalRouteId) => ({
         ...payload,
         route_id: additionalRouteId,
@@ -11698,12 +12181,12 @@ async function saveTransportPricingForm(event) {
       }
 
       if (clonedRulesCount > 0) {
-        showToast(`Pricing cloned to ${clonedRulesCount} additional route(s)`, 'success');
+        showToast(`Pricing cloned to ${clonedRulesCount} linked route(s)`, 'success');
       }
     }
 
     const depositOverrideRouteIds = [routeId];
-    if (applyToAdditionalRoutes && additionalRouteIds.length) {
+    if (additionalRouteIds.length) {
       depositOverrideRouteIds.push(...additionalRouteIds);
     }
     const depositSync = await syncTransportDepositOverridesForRoutes(client, depositOverrideRouteIds, {
@@ -11819,27 +12302,27 @@ function renderTransportBookingsTable() {
       : '';
     return `
       <tr>
-        <td>
+        <td data-label="Booking">
           <div style="font-weight: 600;">#${escapeHtml(id.slice(0, 8).toUpperCase())}</div>
           <div style="font-size: 11px; color: var(--admin-text-muted);">${transportIsoToLabel(row.created_at)}</div>
         </td>
-        <td>
+        <td data-label="Customer">
           <div style="font-weight: 500;">${escapeHtml(String(row.customer_name || 'N/A'))}</div>
           <div style="font-size: 11px; color: var(--admin-text-muted);">${escapeHtml(String(row.customer_email || ''))}</div>
           ${row.customer_phone ? `<div style="font-size: 11px; color: var(--admin-text-muted);">${escapeHtml(String(row.customer_phone))}</div>` : ''}
         </td>
-        <td>
+        <td data-label="Route & Date">
           <div>${escapeHtml(routeLabel)}</div>
           <div style="font-size: 11px; color: var(--admin-text-muted);">${whenLabel}</div>
         </td>
-        <td>${escapeHtml(paxBagsLabel)}</td>
-        <td>
+        <td data-label="Pax / Bags">${escapeHtml(paxBagsLabel)}</td>
+        <td data-label="Status">
           ${transportStatusBadge(row.status)}
           ${row.payment_status ? `<div style="font-size: 10px; color: var(--admin-text-muted); margin-top: 4px;">${escapeHtml(String(row.payment_status).toUpperCase())}</div>` : ''}
           ${assignedPartnerLabel ? `<div style="font-size: 10px; color: var(--admin-text-muted); margin-top: 4px;">Assigned: ${escapeHtml(assignedPartnerLabel)}</div>` : ''}
         </td>
-        <td style="text-align: right; font-weight: 600;">${escapeHtml(amountLabel)}</td>
-        <td style="text-align: right;">
+        <td data-label="Amount" style="text-align: right; font-weight: 600;">${escapeHtml(amountLabel)}</td>
+        <td data-label="Actions" style="text-align: right;">
           <button class="btn-small btn-secondary" type="button" onclick="viewTransportBookingDetails('${escapeHtml(id)}')">View</button>
         </td>
       </tr>
@@ -12663,6 +13146,14 @@ function bindTransportAdminUi() {
   if (routeSetIncludeReverse) {
     routeSetIncludeReverse.addEventListener('change', () => syncTransportRouteSetSummary());
   }
+  const routeSetExpandOriginGroup = document.getElementById('transportRouteSetExpandOriginGroup');
+  if (routeSetExpandOriginGroup) {
+    routeSetExpandOriginGroup.addEventListener('change', () => syncTransportRouteSetSummary());
+  }
+  const routeSetUseCityGroups = document.getElementById('transportRouteSetUseCityGroups');
+  if (routeSetUseCityGroups) {
+    routeSetUseCityGroups.addEventListener('change', () => syncTransportRouteSetSummary());
+  }
   const routeSetOnlyActive = document.getElementById('transportRouteSetOnlyActiveLocations');
   if (routeSetOnlyActive) {
     routeSetOnlyActive.addEventListener('change', () => refreshTransportRouteSetBuilderOptions());
@@ -12715,6 +13206,14 @@ function bindTransportAdminUi() {
   if (pricingApplyToAdditional) {
     pricingApplyToAdditional.addEventListener('change', () => syncTransportPricingBulkApplyControls());
   }
+  const pricingAutoReverse = document.getElementById('transportPricingAutoReverseRoute');
+  if (pricingAutoReverse) {
+    pricingAutoReverse.addEventListener('change', () => syncTransportPricingAdditionalSummary());
+  }
+  const pricingBulkGroupByCity = document.getElementById('transportPricingBulkGroupByCity');
+  if (pricingBulkGroupByCity) {
+    pricingBulkGroupByCity.addEventListener('change', () => refreshTransportPricingAdditionalRoutesOptions());
+  }
   const pricingBulkOrigin = document.getElementById('transportPricingBulkOrigin');
   if (pricingBulkOrigin) {
     pricingBulkOrigin.addEventListener('change', () => refreshTransportPricingAdditionalRoutesOptions());
@@ -12730,6 +13229,10 @@ function bindTransportAdminUi() {
   const pricingBulkIncludeReverse = document.getElementById('transportPricingBulkIncludeReverse');
   if (pricingBulkIncludeReverse) {
     pricingBulkIncludeReverse.addEventListener('change', () => syncTransportPricingAdditionalSummary());
+  }
+  const pricingBulkUseCityGroups = document.getElementById('transportPricingBulkUseCityGroups');
+  if (pricingBulkUseCityGroups) {
+    pricingBulkUseCityGroups.addEventListener('change', () => syncTransportPricingAdditionalSummary());
   }
   const btnPricingSelectAll = document.getElementById('btnTransportPricingBulkSelectAll');
   if (btnPricingSelectAll) {

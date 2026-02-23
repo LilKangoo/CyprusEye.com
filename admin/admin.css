@@ -4842,7 +4842,7 @@ select#orderStatusFilter:focus {
 }
 
 .transport-fields-grid--location {
-  grid-template-columns: minmax(220px, 1.2fr) minmax(220px, 1.2fr) minmax(160px, 0.8fr) minmax(150px, 0.8fr) minmax(130px, 0.7fr) minmax(130px, 0.8fr);
+  grid-template-columns: minmax(220px, 1.2fr) minmax(220px, 1.2fr) minmax(160px, 0.8fr) minmax(160px, 0.8fr) minmax(150px, 0.8fr) minmax(130px, 0.7fr) minmax(130px, 0.8fr);
 }
 
 .transport-fields-grid--route-core {
@@ -4854,7 +4854,7 @@ select#orderStatusFilter:focus {
 }
 
 .transport-fields-grid--route-meta {
-  grid-template-columns: repeat(3, minmax(150px, 1fr)) minmax(170px, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
 }
 
 .transport-fields-grid--route-builder {
@@ -4894,6 +4894,11 @@ select#orderStatusFilter:focus {
   min-height: 42px;
   color: var(--admin-text);
   font-size: 13px;
+}
+
+.transport-check-field span {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .transport-check-field input[type='checkbox'] {
@@ -4937,6 +4942,27 @@ select#orderStatusFilter:focus {
   flex-wrap: wrap;
 }
 
+.transport-bulk-primary-toggles {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.transport-bulk-steps {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 2px;
+}
+
+.transport-bulk-steps li {
+  font-size: 12px;
+  color: var(--admin-text-muted);
+  line-height: 1.35;
+}
+
 .transport-inline-badge {
   display: inline-flex;
   align-items: center;
@@ -4957,6 +4983,53 @@ select#orderStatusFilter:focus {
   align-items: center;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.transport-multi-select-toolbar--actions-only {
+  justify-content: flex-end;
+}
+
+.transport-multi-select-toolbar--actions-only .transport-multi-select-toolbar__actions {
+  margin-left: 0;
+}
+
+.transport-advanced-options {
+  border: 1px dashed rgba(148, 163, 184, 0.35);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: rgba(15, 23, 42, 0.2);
+}
+
+.transport-advanced-options > summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 12px;
+  font-weight: 700;
+  color: #bfdbfe;
+}
+
+.transport-advanced-options > summary::-webkit-details-marker {
+  display: none;
+}
+
+.transport-advanced-options > summary::after {
+  content: 'Show';
+  margin-left: 8px;
+  color: var(--admin-text-muted);
+  font-weight: 500;
+}
+
+.transport-advanced-options[open] > summary::after {
+  content: 'Hide';
+}
+
+.transport-advanced-options .transport-multi-select-toolbar {
+  margin-top: 10px;
+}
+
+.transport-advanced-options.is-disabled {
+  opacity: 0.58;
+  pointer-events: none;
 }
 
 .transport-multi-select-toolbar__actions {
@@ -5079,12 +5152,35 @@ select#orderStatusFilter:focus {
   word-break: break-word;
 }
 
+.transport-bulk-destination-item__variants {
+  font-size: 11px;
+  color: #bfdbfe;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .transport-table-scroll {
-  overflow-x: auto;
+  overflow-x: hidden;
 }
 
 .transport-table-scroll .admin-table {
-  min-width: 820px;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.transport-table-scroll .admin-table th,
+.transport-table-scroll .admin-table td {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+#transportPreviewMatrixTable {
+  table-layout: auto;
+}
+
+#transportPreviewMatrixTable th,
+#transportPreviewMatrixTable td {
+  white-space: nowrap;
 }
 
 @media (max-width: 1280px) {
@@ -5144,6 +5240,10 @@ select#orderStatusFilter:focus {
     justify-self: start;
   }
 
+  .transport-bulk-primary-toggles {
+    justify-content: flex-start;
+  }
+
   .transport-multi-select-toolbar__actions {
     margin-left: 0;
   }
@@ -5182,6 +5282,10 @@ select#orderStatusFilter:focus {
     flex-direction: column;
   }
 
+  .transport-bulk-primary-toggles {
+    width: 100%;
+  }
+
   .transport-editor-actions {
     justify-content: stretch;
   }
@@ -5204,8 +5308,11 @@ select#orderStatusFilter:focus {
     font-size: 13px;
   }
 
-  .transport-table-scroll .admin-table {
-    min-width: 640px;
+  #transportPreviewMatrixTable th,
+  #transportPreviewMatrixTable td {
+    white-space: normal;
+    font-size: 11px;
+    padding: 8px 6px;
   }
 }
 
