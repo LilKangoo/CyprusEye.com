@@ -125,27 +125,19 @@ async function loadCalendarsCreateResourceOptions() {
 
       const routeRows = Array.isArray(routes) ? routes : [];
       const locationIds = Array.from(new Set(routeRows.flatMap((r) => [r?.origin_location_id, r?.destination_location_id]).filter(Boolean)));
-      const locationsById = {};
-
+      let locationsById = {};
       if (locationIds.length) {
-        const { data: locations, error: locationsError } = await client
-          .from('transport_locations')
-          .select('id, name, code')
-          .in('id', locationIds)
-          .limit(1000);
-        if (!locationsError) {
-          (locations || []).forEach((loc) => {
-            if (!loc?.id) return;
-            locationsById[loc.id] = loc;
-          });
+        try {
+          locationsById = await loadTransportLocationsByIds(client, locationIds);
+        } catch (_e) {
         }
       }
 
       rows = routeRows.map((r) => {
         const origin = locationsById[r.origin_location_id];
         const destination = locationsById[r.destination_location_id];
-        const originLabel = origin?.name || String(r.origin_location_id || '').slice(0, 8);
-        const destinationLabel = destination?.name || String(r.destination_location_id || '').slice(0, 8);
+        const originLabel = origin ? formatTransportLocationDisplayName(origin, { withCode: false, withLocal: true }) : String(r.origin_location_id || '').slice(0, 8);
+        const destinationLabel = destination ? formatTransportLocationDisplayName(destination, { withCode: false, withLocal: true }) : String(r.destination_location_id || '').slice(0, 8);
         return { id: r.id, label: `${originLabel} → ${destinationLabel}` };
       });
     } else if (type === 'shop') {
@@ -1289,20 +1281,10 @@ async function loadPartnerAssignments(partnerId) {
 
       const routeRows = Array.isArray(routes) ? routes : [];
       const locationIds = Array.from(new Set(routeRows.flatMap((r) => [r?.origin_location_id, r?.destination_location_id]).filter(Boolean)));
-      const locationsById = {};
-
+      let locationsById = {};
       if (locationIds.length) {
         try {
-          const { data: locations, error: locationsError } = await client
-            .from('transport_locations')
-            .select('id, name, code')
-            .in('id', locationIds)
-            .limit(1000);
-          if (locationsError) throw locationsError;
-          (locations || []).forEach((loc) => {
-            if (!loc?.id) return;
-            locationsById[loc.id] = loc;
-          });
+          locationsById = await loadTransportLocationsByIds(client, locationIds);
         } catch (_e) {
         }
       }
@@ -1311,8 +1293,8 @@ async function loadPartnerAssignments(partnerId) {
         if (!r?.id) return;
         const originRow = locationsById[r.origin_location_id] || null;
         const destinationRow = locationsById[r.destination_location_id] || null;
-        const originLabel = originRow?.name || String(r.origin_location_id || '').slice(0, 8);
-        const destinationLabel = destinationRow?.name || String(r.destination_location_id || '').slice(0, 8);
+        const originLabel = originRow ? formatTransportLocationDisplayName(originRow, { withCode: false, withLocal: true }) : String(r.origin_location_id || '').slice(0, 8);
+        const destinationLabel = destinationRow ? formatTransportLocationDisplayName(destinationRow, { withCode: false, withLocal: true }) : String(r.destination_location_id || '').slice(0, 8);
         partnerAssignmentsState.resourceDetails.transport[r.id] = {
           ...r,
           label: `${originLabel} → ${destinationLabel}`,
@@ -1711,20 +1693,10 @@ async function searchPartnerResources(type, term) {
 
       const routeRows = Array.isArray(routes) ? routes : [];
       const locationIds = Array.from(new Set(routeRows.flatMap((r) => [r?.origin_location_id, r?.destination_location_id]).filter(Boolean)));
-      const locationsById = {};
-
+      let locationsById = {};
       if (locationIds.length) {
         try {
-          const { data: locations, error: locationsError } = await client
-            .from('transport_locations')
-            .select('id, name, code')
-            .in('id', locationIds)
-            .limit(1000);
-          if (locationsError) throw locationsError;
-          (locations || []).forEach((loc) => {
-            if (!loc?.id) return;
-            locationsById[loc.id] = loc;
-          });
+          locationsById = await loadTransportLocationsByIds(client, locationIds);
         } catch (_e) {
         }
       }
@@ -1732,8 +1704,8 @@ async function searchPartnerResources(type, term) {
       const rows = routeRows.map((r) => {
         const origin = locationsById[r.origin_location_id];
         const destination = locationsById[r.destination_location_id];
-        const originLabel = origin?.name || String(r.origin_location_id || '').slice(0, 8);
-        const destinationLabel = destination?.name || String(r.destination_location_id || '').slice(0, 8);
+        const originLabel = origin ? formatTransportLocationDisplayName(origin, { withCode: false, withLocal: true }) : String(r.origin_location_id || '').slice(0, 8);
+        const destinationLabel = destination ? formatTransportLocationDisplayName(destination, { withCode: false, withLocal: true }) : String(r.destination_location_id || '').slice(0, 8);
         const routeLabel = `${originLabel} → ${destinationLabel}`;
         const status = r?.is_active === false ? ' (inactive)' : '';
         return { id: r.id, label: `${routeLabel}${status}` };
@@ -4305,6 +4277,57 @@ function normalizeI18nTitle(value) {
   return '';
 }
 
+function formatTransportLocationDisplayName(row, options = {}) {
+  if (!row || typeof row !== 'object') return '—';
+  const withCode = options.withCode !== false;
+  const withLocal = Boolean(options.withLocal);
+  const englishName = String(row.name || '').trim();
+  const localName = String(row.name_local || '').trim();
+  const code = String(row.code || '').trim();
+
+  let label = englishName || localName || '—';
+  if (withLocal && localName && localName.toLowerCase() !== label.toLowerCase()) {
+    label = `${label} / ${localName}`;
+  }
+  if (withCode && code) {
+    label = `${label} (${code})`;
+  }
+  return label;
+}
+
+async function loadTransportLocationsByIds(client, locationIds) {
+  const ids = Array.from(new Set((Array.isArray(locationIds) ? locationIds : []).map((id) => String(id || '').trim()).filter(Boolean)));
+  if (!ids.length) return {};
+
+  let data = [];
+  let error = null;
+  try {
+    ({ data, error } = await client
+      .from('transport_locations')
+      .select('id, name, name_local, code')
+      .in('id', ids)
+      .limit(1000));
+  } catch (e) {
+    error = e;
+  }
+
+  if (error && isMissingColumnError(error, 'name_local')) {
+    ({ data, error } = await client
+      .from('transport_locations')
+      .select('id, name, code')
+      .in('id', ids)
+      .limit(1000));
+  }
+  if (error) throw error;
+
+  return (Array.isArray(data) ? data : []).reduce((acc, row) => {
+    const id = String(row?.id || '').trim();
+    if (!id) return acc;
+    acc[id] = row;
+    return acc;
+  }, {});
+}
+
 async function loadDepositOverrides() {
   const client = ensureSupabase();
   if (!client) return;
@@ -4350,18 +4373,7 @@ async function loadDepositOverrides() {
     let transportLocationsById = {};
     if (transportLocationIds.length) {
       try {
-        const { data: transportLocations, error: transportLocationsError } = await client
-          .from('transport_locations')
-          .select('id, name, code')
-          .in('id', transportLocationIds)
-          .limit(1000);
-        if (!transportLocationsError && Array.isArray(transportLocations)) {
-          transportLocationsById = transportLocations.reduce((acc, loc) => {
-            if (!loc?.id) return acc;
-            acc[loc.id] = loc;
-            return acc;
-          }, {});
-        }
+        transportLocationsById = await loadTransportLocationsByIds(client, transportLocationIds);
       } catch (_e) {
       }
     }
@@ -4384,8 +4396,8 @@ async function loadDepositOverrides() {
     transportRouteRows.forEach((r) => {
       const origin = transportLocationsById[r.origin_location_id];
       const destination = transportLocationsById[r.destination_location_id];
-      const originLabel = origin?.name || String(r.origin_location_id || '').slice(0, 8);
-      const destinationLabel = destination?.name || String(r.destination_location_id || '').slice(0, 8);
+      const originLabel = origin ? formatTransportLocationDisplayName(origin, { withCode: false, withLocal: true }) : String(r.origin_location_id || '').slice(0, 8);
+      const destinationLabel = destination ? formatTransportLocationDisplayName(destination, { withCode: false, withLocal: true }) : String(r.destination_location_id || '').slice(0, 8);
       partnersUiState.depositOverrideLabels[`transport:${r.id}`] = `${originLabel} → ${destinationLabel}`;
     });
 
@@ -5894,27 +5906,19 @@ async function loadCalendarsResourceOptions() {
 
       const routeRows = Array.isArray(routes) ? routes : [];
       const locationIds = Array.from(new Set(routeRows.flatMap((r) => [r?.origin_location_id, r?.destination_location_id]).filter(Boolean)));
-      const locationsById = {};
-
+      let locationsById = {};
       if (locationIds.length) {
-        const { data: locations, error: locationsError } = await client
-          .from('transport_locations')
-          .select('id, name, code')
-          .in('id', locationIds)
-          .limit(1000);
-        if (!locationsError) {
-          (locations || []).forEach((loc) => {
-            if (!loc?.id) return;
-            locationsById[loc.id] = loc;
-          });
+        try {
+          locationsById = await loadTransportLocationsByIds(client, locationIds);
+        } catch (_e) {
         }
       }
 
       rows = routeRows.map((r) => {
         const origin = locationsById[r.origin_location_id];
         const destination = locationsById[r.destination_location_id];
-        const originLabel = origin?.name || String(r.origin_location_id || '').slice(0, 8);
-        const destinationLabel = destination?.name || String(r.destination_location_id || '').slice(0, 8);
+        const originLabel = origin ? formatTransportLocationDisplayName(origin, { withCode: false, withLocal: true }) : String(r.origin_location_id || '').slice(0, 8);
+        const destinationLabel = destination ? formatTransportLocationDisplayName(destination, { withCode: false, withLocal: true }) : String(r.destination_location_id || '').slice(0, 8);
         return { id: r.id, label: `${originLabel} → ${destinationLabel}` };
       });
     } else if (type === 'shop') {
@@ -9481,9 +9485,8 @@ function getTransportLocationLabel(locationId) {
   if (!id) return '—';
   const row = transportAdminState.locationById[id];
   if (!row) return id.slice(0, 8);
-  const name = String(row.name || '').trim() || id.slice(0, 8);
-  const code = String(row.code || '').trim();
-  return code ? `${name} (${code})` : name;
+  const label = formatTransportLocationDisplayName(row, { withCode: true, withLocal: false });
+  return label || id.slice(0, 8);
 }
 
 function getTransportRouteLabel(route) {
@@ -10033,6 +10036,7 @@ async function openTransportPricingEditorFromControl(options = {}) {
     if (pricingRouteEl) pricingRouteEl.value = routeId;
     refreshTransportPricingAdditionalRoutesOptions();
     syncTransportPricingBulkApplyControls();
+    syncTransportPricingCrossSummary();
   }
 
   const form = document.getElementById('transportPricingForm');
@@ -10334,6 +10338,167 @@ function refreshTransportPricingAdditionalRoutesOptions() {
   syncTransportPricingAdditionalSummary();
 }
 
+function refreshTransportPricingCrossLocationOptions() {
+  const rows = Array.isArray(transportAdminState.locations) ? transportAdminState.locations : [];
+  const originSelect = document.getElementById('transportPricingCrossOrigins');
+  const destinationSelect = document.getElementById('transportPricingCrossDestinations');
+  if (!(originSelect instanceof HTMLSelectElement) || !(destinationSelect instanceof HTMLSelectElement)) return;
+
+  const selectedOrigins = getSelectedValuesFromMultiSelect(originSelect);
+  const selectedDestinations = getSelectedValuesFromMultiSelect(destinationSelect);
+
+  const sortedRows = rows.slice().sort((a, b) => {
+    const sortDiff = Number(a?.sort_order || 0) - Number(b?.sort_order || 0);
+    if (sortDiff !== 0) return sortDiff;
+    return getTransportLocationLabel(a?.id).localeCompare(getTransportLocationLabel(b?.id));
+  });
+
+  const options = sortedRows.map((row) => {
+    const id = String(row?.id || '').trim();
+    if (!id) return '';
+    return `<option value="${escapeHtml(id)}">${escapeHtml(getTransportLocationLabel(id))}</option>`;
+  }).join('');
+
+  originSelect.innerHTML = options;
+  destinationSelect.innerHTML = options;
+  setSelectedValuesForMultiSelect(originSelect, selectedOrigins);
+  setSelectedValuesForMultiSelect(destinationSelect, selectedDestinations);
+  syncTransportPricingCrossSummary();
+}
+
+function syncTransportPricingCrossSummary() {
+  const summaryEl = document.getElementById('transportPricingCrossSummary');
+  const originSelect = document.getElementById('transportPricingCrossOrigins');
+  const destinationSelect = document.getElementById('transportPricingCrossDestinations');
+  const includeReverse = Boolean(document.getElementById('transportPricingCrossIncludeReverse')?.checked);
+  const onlyActiveRoutes = Boolean(document.getElementById('transportPricingCrossOnlyActiveRoutes')?.checked);
+  const primaryRouteId = String(document.getElementById('transportPricingRoute')?.value || '').trim();
+  if (!summaryEl || !(originSelect instanceof HTMLSelectElement) || !(destinationSelect instanceof HTMLSelectElement)) return;
+
+  const origins = getSelectedValuesFromMultiSelect(originSelect).filter(Boolean);
+  const destinations = getSelectedValuesFromMultiSelect(destinationSelect).filter(Boolean);
+  if (!primaryRouteId) {
+    summaryEl.textContent = 'Select main route first, then choose origin/destination groups.';
+    return;
+  }
+  if (!origins.length || !destinations.length) {
+    summaryEl.textContent = 'Select origin/destination groups to auto-mark matching route pairs.';
+    return;
+  }
+
+  const originsSet = new Set(origins);
+  const destinationsSet = new Set(destinations);
+  const allRoutes = Array.isArray(transportAdminState.routes) ? transportAdminState.routes : [];
+  const matches = allRoutes.filter((route) => {
+    const routeId = String(route?.id || '').trim();
+    if (!routeId || routeId === primaryRouteId) return false;
+    if (onlyActiveRoutes && route?.is_active === false) return false;
+    const originId = String(route?.origin_location_id || '').trim();
+    const destinationId = String(route?.destination_location_id || '').trim();
+    if (!originId || !destinationId) return false;
+
+    const directMatch = originsSet.has(originId) && destinationsSet.has(destinationId);
+    if (directMatch) return true;
+    if (!includeReverse) return false;
+    return originsSet.has(destinationId) && destinationsSet.has(originId);
+  });
+
+  summaryEl.textContent = `${origins.length} origin(s) × ${destinations.length} destination(s) -> ${matches.length} matching route(s).`;
+}
+
+function selectAllTransportPricingCrossOrigins() {
+  const select = document.getElementById('transportPricingCrossOrigins');
+  if (!(select instanceof HTMLSelectElement)) return;
+  Array.from(select.options || []).forEach((option) => {
+    option.selected = true;
+  });
+  syncTransportPricingCrossSummary();
+}
+
+function clearTransportPricingCrossOrigins() {
+  const select = document.getElementById('transportPricingCrossOrigins');
+  if (!(select instanceof HTMLSelectElement)) return;
+  Array.from(select.options || []).forEach((option) => {
+    option.selected = false;
+  });
+  syncTransportPricingCrossSummary();
+}
+
+function selectAllTransportPricingCrossDestinations() {
+  const select = document.getElementById('transportPricingCrossDestinations');
+  if (!(select instanceof HTMLSelectElement)) return;
+  Array.from(select.options || []).forEach((option) => {
+    option.selected = true;
+  });
+  syncTransportPricingCrossSummary();
+}
+
+function clearTransportPricingCrossDestinations() {
+  const select = document.getElementById('transportPricingCrossDestinations');
+  if (!(select instanceof HTMLSelectElement)) return;
+  Array.from(select.options || []).forEach((option) => {
+    option.selected = false;
+  });
+  syncTransportPricingCrossSummary();
+}
+
+function applyTransportPricingCrossMatches() {
+  const originSelect = document.getElementById('transportPricingCrossOrigins');
+  const destinationSelect = document.getElementById('transportPricingCrossDestinations');
+  const additionalRouteSelect = document.getElementById('transportPricingAdditionalRoutes');
+  const additionalSearchInput = document.getElementById('transportPricingAdditionalRoutesSearch');
+  const applyToggle = document.getElementById('transportPricingApplyToAdditional');
+  if (!(originSelect instanceof HTMLSelectElement) || !(destinationSelect instanceof HTMLSelectElement) || !(additionalRouteSelect instanceof HTMLSelectElement)) return;
+
+  const origins = getSelectedValuesFromMultiSelect(originSelect).filter(Boolean);
+  const destinations = getSelectedValuesFromMultiSelect(destinationSelect).filter(Boolean);
+  if (!origins.length || !destinations.length) {
+    showToast('Select at least one origin and one destination', 'error');
+    return;
+  }
+
+  const includeReverse = Boolean(document.getElementById('transportPricingCrossIncludeReverse')?.checked);
+  const onlyActiveRoutes = Boolean(document.getElementById('transportPricingCrossOnlyActiveRoutes')?.checked);
+  const primaryRouteId = String(document.getElementById('transportPricingRoute')?.value || '').trim();
+  if (!primaryRouteId) {
+    showToast('Select main route first', 'error');
+    return;
+  }
+  const originsSet = new Set(origins);
+  const destinationsSet = new Set(destinations);
+
+  const allRoutes = Array.isArray(transportAdminState.routes) ? transportAdminState.routes : [];
+  const matchedRouteIds = allRoutes
+    .filter((route) => {
+      const routeId = String(route?.id || '').trim();
+      if (!routeId || routeId === primaryRouteId) return false;
+      if (onlyActiveRoutes && route?.is_active === false) return false;
+      const originId = String(route?.origin_location_id || '').trim();
+      const destinationId = String(route?.destination_location_id || '').trim();
+      if (!originId || !destinationId) return false;
+
+      const directMatch = originsSet.has(originId) && destinationsSet.has(destinationId);
+      if (directMatch) return true;
+      if (!includeReverse) return false;
+      return originsSet.has(destinationId) && destinationsSet.has(originId);
+    })
+    .map((route) => String(route?.id || '').trim())
+    .filter(Boolean);
+
+  if (!matchedRouteIds.length) {
+    showToast('No matching routes found for selected location groups', 'info');
+    return;
+  }
+
+  if (additionalSearchInput) additionalSearchInput.value = '';
+  refreshTransportPricingAdditionalRoutesOptions();
+  setSelectedValuesForMultiSelect(additionalRouteSelect, matchedRouteIds);
+  if (applyToggle) applyToggle.checked = true;
+  syncTransportPricingBulkApplyControls();
+  syncTransportPricingCrossSummary();
+  showToast(`Selected ${matchedRouteIds.length} matching route(s)`, 'success');
+}
+
 function syncTransportRouteSetSummary() {
   const summaryEl = document.getElementById('transportRouteSetSummary');
   const originSelect = document.getElementById('transportRouteSetOrigin');
@@ -10478,6 +10643,7 @@ function refreshTransportLocationSelects() {
   });
 
   refreshTransportRouteSetBuilderOptions();
+  refreshTransportPricingCrossLocationOptions();
   renderTransportPricingPreview();
 }
 
@@ -10496,6 +10662,7 @@ function refreshTransportRouteSelects() {
 
   refreshTransportPricingAdditionalRoutesOptions();
   syncTransportPricingBulkApplyControls();
+  syncTransportPricingCrossSummary();
   refreshTransportControlRouteSelect();
   refreshTransportControlRuleSelect();
   renderTransportPricingPreview();
@@ -10506,9 +10673,11 @@ function resetTransportLocationForm() {
   if (!(form instanceof HTMLFormElement)) return;
   form.reset();
   const idEl = document.getElementById('transportLocationId');
+  const localNameEl = document.getElementById('transportLocationNameLocal');
   const activeEl = document.getElementById('transportLocationActive');
   const sortEl = document.getElementById('transportLocationSortOrder');
   if (idEl) idEl.value = '';
+  if (localNameEl) localNameEl.value = '';
   if (activeEl) activeEl.checked = true;
   if (sortEl) sortEl.value = '0';
 }
@@ -10521,6 +10690,7 @@ function editTransportLocation(locationId) {
 
   const idEl = document.getElementById('transportLocationId');
   const nameEl = document.getElementById('transportLocationName');
+  const localNameEl = document.getElementById('transportLocationNameLocal');
   const codeEl = document.getElementById('transportLocationCode');
   const typeEl = document.getElementById('transportLocationType');
   const sortEl = document.getElementById('transportLocationSortOrder');
@@ -10528,6 +10698,7 @@ function editTransportLocation(locationId) {
 
   if (idEl) idEl.value = String(row.id || '');
   if (nameEl) nameEl.value = String(row.name || '');
+  if (localNameEl) localNameEl.value = String(row.name_local || '');
   if (codeEl) codeEl.value = String(row.code || '');
   if (typeEl) typeEl.value = String(row.location_type || 'city');
   if (sortEl) sortEl.value = String(Number(row.sort_order || 0));
@@ -10565,7 +10736,7 @@ function renderTransportLocationsTable() {
   if (!tbody) return;
 
   if (!rows.length) {
-    renderTransportTableMessage('transportLocationsTableBody', 7, 'No transport locations yet.');
+    renderTransportTableMessage('transportLocationsTableBody', 8, 'No transport locations yet.');
     return;
   }
 
@@ -10577,6 +10748,7 @@ function renderTransportLocationsTable() {
     return `
       <tr>
         <td>${escapeHtml(String(row.name || '—'))}</td>
+        <td>${escapeHtml(String(row.name_local || '—'))}</td>
         <td><code>${escapeHtml(String(row.code || ''))}</code></td>
         <td>${escapeHtml(String(row.location_type || 'city'))}</td>
         <td>${Number(row.sort_order || 0)}</td>
@@ -10605,9 +10777,9 @@ async function loadTransportLocationsData(options = {}) {
   if (error) {
     console.error('Failed to load transport locations:', error);
     if (isMissingTableError(error, TRANSPORT_TABLES.locations)) {
-      renderTransportTableMessage('transportLocationsTableBody', 7, transportTableMissingHelp(TRANSPORT_TABLES.locations), true);
+      renderTransportTableMessage('transportLocationsTableBody', 8, transportTableMissingHelp(TRANSPORT_TABLES.locations), true);
     } else {
-      renderTransportTableMessage('transportLocationsTableBody', 7, String(error.message || 'Failed to load locations'), true);
+      renderTransportTableMessage('transportLocationsTableBody', 8, String(error.message || 'Failed to load locations'), true);
     }
     if (!silent) showToast(String(error.message || 'Failed to load transport locations'), 'error');
     return;
@@ -10633,6 +10805,7 @@ async function saveTransportLocationForm(event) {
 
   const id = String(document.getElementById('transportLocationId')?.value || '').trim();
   const name = String(document.getElementById('transportLocationName')?.value || '').trim();
+  const nameLocal = String(document.getElementById('transportLocationNameLocal')?.value || '').trim();
   const code = String(document.getElementById('transportLocationCode')?.value || '').trim().toLowerCase();
   const locationType = String(document.getElementById('transportLocationType')?.value || 'city').trim();
   const sortOrder = Number(document.getElementById('transportLocationSortOrder')?.value || 0);
@@ -10645,6 +10818,7 @@ async function saveTransportLocationForm(event) {
 
   const payload = {
     name,
+    name_local: nameLocal || null,
     code,
     location_type: locationType || 'city',
     sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
@@ -10657,6 +10831,18 @@ async function saveTransportLocationForm(event) {
       ({ error } = await client.from(TRANSPORT_TABLES.locations).update(payload).eq('id', id));
     } else {
       ({ error } = await client.from(TRANSPORT_TABLES.locations).insert(payload));
+    }
+    if (error && isMissingColumnError(error, 'name_local')) {
+      const fallbackPayload = { ...payload };
+      delete fallbackPayload.name_local;
+      if (id) {
+        ({ error } = await client.from(TRANSPORT_TABLES.locations).update(fallbackPayload).eq('id', id));
+      } else {
+        ({ error } = await client.from(TRANSPORT_TABLES.locations).insert(fallbackPayload));
+      }
+      if (!error) {
+        showToast('Location saved without local name (run migration 112_transport_locations_bilingual_name.sql to store local labels)', 'info');
+      }
     }
     if (error) throw error;
 
@@ -10701,6 +10887,92 @@ function transportDepositModeLabel(modeRaw, currency = 'EUR') {
   if (mode === 'fixed_amount') return `Fixed ${currency}`;
   if (mode === 'per_person') return `Per person ${currency}`;
   return '% of total';
+}
+
+function mapTransportPricingDepositModeToServiceMode(modeRaw) {
+  const mode = String(modeRaw || '').trim().toLowerCase();
+  if (mode === 'fixed_amount') return 'flat';
+  if (mode === 'per_person') return 'per_person';
+  return 'percent_total';
+}
+
+function getTransportRouteCurrency(routeId, fallback = 'EUR') {
+  const id = String(routeId || '').trim();
+  if (!id) return String(fallback || 'EUR').trim().toUpperCase() || 'EUR';
+  const route = transportAdminState.routeById[id];
+  const currency = String(route?.currency || fallback || 'EUR').trim().toUpperCase();
+  return currency || 'EUR';
+}
+
+async function syncTransportDepositOverridesForRoutes(client, routeIds, options = {}) {
+  if (!client) return { upserted: 0, removed: 0, failed: 0 };
+
+  const ids = Array.from(new Set((Array.isArray(routeIds) ? routeIds : []).map((id) => String(id || '').trim()).filter(Boolean)));
+  if (!ids.length) return { upserted: 0, removed: 0, failed: 0 };
+
+  const depositEnabled = Boolean(options.depositEnabled);
+  const depositValue = Number(options.depositValue || 0);
+  const mappedMode = mapTransportPricingDepositModeToServiceMode(options.depositMode);
+
+  let includeChildren = false;
+  let defaultCurrency = 'EUR';
+  try {
+    const { data, error } = await client
+      .from('service_deposit_rules')
+      .select('include_children, currency')
+      .eq('resource_type', 'transport')
+      .maybeSingle();
+    if (!error && data) {
+      includeChildren = Boolean(data.include_children);
+      defaultCurrency = String(data.currency || 'EUR').trim().toUpperCase() || 'EUR';
+    }
+  } catch (_e) {
+  }
+
+  let upserted = 0;
+  let removed = 0;
+  let failed = 0;
+  let missingDeps = false;
+
+  for (const routeId of ids) {
+    try {
+      if (!depositEnabled || !(depositValue > 0)) {
+        const { error } = await client
+          .from('service_deposit_overrides')
+          .delete()
+          .eq('resource_type', 'transport')
+          .eq('resource_id', routeId);
+        if (error) throw error;
+        removed += 1;
+        continue;
+      }
+
+      const payload = {
+        resource_type: 'transport',
+        resource_id: routeId,
+        mode: mappedMode,
+        amount: depositValue,
+        currency: getTransportRouteCurrency(routeId, defaultCurrency),
+        include_children: includeChildren,
+        enabled: true,
+      };
+
+      const { error } = await client
+        .from('service_deposit_overrides')
+        .upsert(payload, { onConflict: 'resource_type,resource_id' });
+      if (error) throw error;
+      upserted += 1;
+    } catch (error) {
+      if (isMissingTableError(error, 'service_deposit_overrides') || isMissingTableError(error, 'service_deposit_rules')) {
+        missingDeps = true;
+      } else {
+        failed += 1;
+      }
+      console.error('Failed to sync transport deposit override for route:', routeId, error);
+    }
+  }
+
+  return { upserted, removed, failed, missingDeps };
 }
 
 function resetTransportRouteForm() {
@@ -11128,6 +11400,10 @@ function resetTransportPricingForm() {
   const applyAdditionalEl = document.getElementById('transportPricingApplyToAdditional');
   const additionalSearchEl = document.getElementById('transportPricingAdditionalRoutesSearch');
   const additionalRoutesEl = document.getElementById('transportPricingAdditionalRoutes');
+  const crossOriginsEl = document.getElementById('transportPricingCrossOrigins');
+  const crossDestinationsEl = document.getElementById('transportPricingCrossDestinations');
+  const crossIncludeReverseEl = document.getElementById('transportPricingCrossIncludeReverse');
+  const crossOnlyActiveEl = document.getElementById('transportPricingCrossOnlyActiveRoutes');
   if (idEl) idEl.value = '';
   if (waitingPerHourEl) waitingPerHourEl.value = '0';
   if (depositEnabledEl) depositEnabledEl.checked = false;
@@ -11142,6 +11418,16 @@ function resetTransportPricingForm() {
   if (additionalRoutesEl instanceof HTMLSelectElement) {
     setSelectedValuesForMultiSelect(additionalRoutesEl, []);
   }
+  if (crossOriginsEl instanceof HTMLSelectElement) {
+    setSelectedValuesForMultiSelect(crossOriginsEl, []);
+  }
+  if (crossDestinationsEl instanceof HTMLSelectElement) {
+    setSelectedValuesForMultiSelect(crossDestinationsEl, []);
+  }
+  if (crossIncludeReverseEl) crossIncludeReverseEl.checked = true;
+  if (crossOnlyActiveEl) crossOnlyActiveEl.checked = true;
+  refreshTransportPricingCrossLocationOptions();
+  syncTransportPricingCrossSummary();
   refreshTransportPricingAdditionalRoutesOptions();
   syncTransportPricingDepositControls();
   syncTransportPricingBulkApplyControls();
@@ -11189,9 +11475,18 @@ function editTransportPricingRule(ruleId) {
   const additionalSearchEl = document.getElementById('transportPricingAdditionalRoutesSearch');
   if (additionalSearchEl) additionalSearchEl.value = '';
   const additionalRoutesEl = document.getElementById('transportPricingAdditionalRoutes');
+  const crossOriginsEl = document.getElementById('transportPricingCrossOrigins');
+  const crossDestinationsEl = document.getElementById('transportPricingCrossDestinations');
   if (additionalRoutesEl instanceof HTMLSelectElement) {
     setSelectedValuesForMultiSelect(additionalRoutesEl, []);
   }
+  if (crossOriginsEl instanceof HTMLSelectElement) {
+    setSelectedValuesForMultiSelect(crossOriginsEl, []);
+  }
+  if (crossDestinationsEl instanceof HTMLSelectElement) {
+    setSelectedValuesForMultiSelect(crossDestinationsEl, []);
+  }
+  syncTransportPricingCrossSummary();
   refreshTransportPricingAdditionalRoutesOptions();
   syncTransportPricingDepositControls();
   syncTransportPricingBulkApplyControls();
@@ -11299,6 +11594,7 @@ async function loadTransportPricingData(options = {}) {
   transportAdminState.pricingRules = data;
   renderTransportPricingTable();
   refreshTransportPricingAdditionalRoutesOptions();
+  syncTransportPricingCrossSummary();
   syncTransportPricingBulkApplyControls();
   refreshTransportControlRuleSelect();
   renderTransportPricingPreview();
@@ -11375,6 +11671,15 @@ async function saveTransportPricingForm(event) {
 
   if (!payload.deposit_enabled) {
     payload.deposit_value = 0;
+  } else {
+    if (!(Number(payload.deposit_value) > 0)) {
+      showToast('Deposit value must be greater than 0 when deposit is enabled', 'error');
+      return;
+    }
+    if (payload.deposit_mode === 'percent_total' && Number(payload.deposit_value) > 100) {
+      showToast('Deposit percent must be <= 100', 'error');
+      return;
+    }
   }
 
   if (payload.valid_from && payload.valid_to && payload.valid_to < payload.valid_from) {
@@ -11428,6 +11733,27 @@ async function saveTransportPricingForm(event) {
       if (clonedRulesCount > 0) {
         showToast(`Pricing cloned to ${clonedRulesCount} additional route(s)`, 'success');
       }
+    }
+
+    const depositOverrideRouteIds = [routeId];
+    if (applyToAdditionalRoutes && additionalRouteIds.length) {
+      depositOverrideRouteIds.push(...additionalRouteIds);
+    }
+    const depositSync = await syncTransportDepositOverridesForRoutes(client, depositOverrideRouteIds, {
+      depositEnabled: payload.deposit_enabled,
+      depositMode: payload.deposit_mode,
+      depositValue: payload.deposit_value,
+    });
+    if (depositSync.missingDeps) {
+      showToast('Deposit overrides sync skipped (service_deposit tables missing)', 'error');
+    } else if (depositSync.failed > 0) {
+      showToast(`Deposit overrides sync partial failure (${depositSync.failed})`, 'error');
+    } else if ((depositSync.upserted + depositSync.removed) > 0) {
+      showToast(`Deposit overrides synced (${depositSync.upserted} set, ${depositSync.removed} fallback to default)`, 'success');
+    }
+
+    if (partnersUiState.depositLoadedOnce) {
+      await loadDepositOverrides();
     }
 
     showToast(id ? 'Transport pricing rule updated' : 'Transport pricing rule created', 'success');
@@ -12408,6 +12734,7 @@ function bindTransportAdminUi() {
     pricingRouteSelect.addEventListener('change', () => {
       refreshTransportPricingAdditionalRoutesOptions();
       syncTransportPricingBulkApplyControls();
+      syncTransportPricingCrossSummary();
     });
   }
   const pricingDepositEnabled = document.getElementById('transportPricingDepositEnabled');
@@ -12421,6 +12748,42 @@ function bindTransportAdminUi() {
   const pricingApplyToAdditional = document.getElementById('transportPricingApplyToAdditional');
   if (pricingApplyToAdditional) {
     pricingApplyToAdditional.addEventListener('change', () => syncTransportPricingBulkApplyControls());
+  }
+  const pricingCrossOrigins = document.getElementById('transportPricingCrossOrigins');
+  if (pricingCrossOrigins) {
+    pricingCrossOrigins.addEventListener('change', () => syncTransportPricingCrossSummary());
+  }
+  const pricingCrossDestinations = document.getElementById('transportPricingCrossDestinations');
+  if (pricingCrossDestinations) {
+    pricingCrossDestinations.addEventListener('change', () => syncTransportPricingCrossSummary());
+  }
+  const pricingCrossIncludeReverse = document.getElementById('transportPricingCrossIncludeReverse');
+  if (pricingCrossIncludeReverse) {
+    pricingCrossIncludeReverse.addEventListener('change', () => syncTransportPricingCrossSummary());
+  }
+  const pricingCrossOnlyActive = document.getElementById('transportPricingCrossOnlyActiveRoutes');
+  if (pricingCrossOnlyActive) {
+    pricingCrossOnlyActive.addEventListener('change', () => syncTransportPricingCrossSummary());
+  }
+  const btnCrossAllOrigins = document.getElementById('btnTransportPricingCrossSelectAllOrigins');
+  if (btnCrossAllOrigins) {
+    btnCrossAllOrigins.addEventListener('click', () => selectAllTransportPricingCrossOrigins());
+  }
+  const btnCrossClearOrigins = document.getElementById('btnTransportPricingCrossClearOrigins');
+  if (btnCrossClearOrigins) {
+    btnCrossClearOrigins.addEventListener('click', () => clearTransportPricingCrossOrigins());
+  }
+  const btnCrossAllDestinations = document.getElementById('btnTransportPricingCrossSelectAllDestinations');
+  if (btnCrossAllDestinations) {
+    btnCrossAllDestinations.addEventListener('click', () => selectAllTransportPricingCrossDestinations());
+  }
+  const btnCrossClearDestinations = document.getElementById('btnTransportPricingCrossClearDestinations');
+  if (btnCrossClearDestinations) {
+    btnCrossClearDestinations.addEventListener('click', () => clearTransportPricingCrossDestinations());
+  }
+  const btnCrossApplyMatches = document.getElementById('btnTransportPricingCrossApplyMatches');
+  if (btnCrossApplyMatches) {
+    btnCrossApplyMatches.addEventListener('click', () => applyTransportPricingCrossMatches());
   }
   const pricingAdditionalSearch = document.getElementById('transportPricingAdditionalRoutesSearch');
   if (pricingAdditionalSearch) {
@@ -12458,6 +12821,8 @@ function bindTransportAdminUi() {
   refreshTransportRouteSetBuilderOptions();
   syncTransportRouteSetSummary();
   syncTransportPricingDepositControls();
+  refreshTransportPricingCrossLocationOptions();
+  syncTransportPricingCrossSummary();
   refreshTransportPricingAdditionalRoutesOptions();
   syncTransportPricingBulkApplyControls();
   syncTransportPricingAdditionalSummary();

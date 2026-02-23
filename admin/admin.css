@@ -4842,7 +4842,7 @@ select#orderStatusFilter:focus {
 }
 
 .transport-fields-grid--location {
-  grid-template-columns: minmax(220px, 1.4fr) minmax(160px, 1fr) minmax(150px, 1fr) minmax(130px, 0.8fr) minmax(130px, 0.8fr);
+  grid-template-columns: minmax(220px, 1.2fr) minmax(220px, 1.2fr) minmax(160px, 0.8fr) minmax(150px, 0.8fr) minmax(130px, 0.7fr) minmax(130px, 0.8fr);
 }
 
 .transport-fields-grid--route-core {
@@ -4871,6 +4871,10 @@ select#orderStatusFilter:focus {
 
 .transport-fields-grid--pricing-deposit {
   grid-template-columns: minmax(220px, 1fr) minmax(180px, 1fr);
+}
+
+.transport-fields-grid--pricing-cross {
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
 }
 
 .transport-field {
@@ -4993,6 +4997,11 @@ select#orderStatusFilter:focus {
   background: rgba(15, 23, 42, 0.2);
 }
 
+#transportPricingCrossOrigins.transport-multi-select,
+#transportPricingCrossDestinations.transport-multi-select {
+  min-height: 140px;
+}
+
 .transport-table-scroll {
   overflow-x: auto;
 }
@@ -5024,7 +5033,8 @@ select#orderStatusFilter:focus {
   .transport-fields-grid--route-builder,
   .transport-fields-grid--pricing-core,
   .transport-fields-grid--pricing-time,
-  .transport-fields-grid--pricing-deposit {
+  .transport-fields-grid--pricing-deposit,
+  .transport-fields-grid--pricing-cross {
     grid-template-columns: repeat(2, minmax(170px, 1fr));
   }
 
@@ -5048,7 +5058,8 @@ select#orderStatusFilter:focus {
   .transport-fields-grid--route-builder,
   .transport-fields-grid--pricing-core,
   .transport-fields-grid--pricing-time,
-  .transport-fields-grid--pricing-deposit {
+  .transport-fields-grid--pricing-deposit,
+  .transport-fields-grid--pricing-cross {
     grid-template-columns: repeat(2, minmax(150px, 1fr));
   }
 
@@ -5080,7 +5091,8 @@ select#orderStatusFilter:focus {
   .transport-fields-grid--route-builder,
   .transport-fields-grid--pricing-core,
   .transport-fields-grid--pricing-time,
-  .transport-fields-grid--pricing-deposit {
+  .transport-fields-grid--pricing-deposit,
+  .transport-fields-grid--pricing-cross {
     grid-template-columns: 1fr;
   }
 

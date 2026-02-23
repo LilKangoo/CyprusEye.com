@@ -805,8 +805,12 @@
                   <h4 class="transport-form-block__title">Location details</h4>
                   <div class="admin-form-grid transport-fields-grid transport-fields-grid--location">
                     <label class="admin-form-field transport-field transport-field--wide">
-                      <span>Name</span>
+                      <span>Name (English)</span>
                       <input type="text" id="transportLocationName" required placeholder="e.g. Larnaca Airport" />
+                    </label>
+                    <label class="admin-form-field transport-field transport-field--wide">
+                      <span>Local name (optional)</span>
+                      <input type="text" id="transportLocationNameLocal" placeholder="e.g. Larnaka Airport (local language)" />
                     </label>
                     <label class="admin-form-field transport-field">
                       <span>Code</span>
@@ -833,7 +837,7 @@
                       <span>Active</span>
                     </label>
                   </div>
-                  <p class="transport-form-block__hint">Tip: Add every airport/city/area first, then use Route Set Builder to create many route pairs in one save.</p>
+                  <p class="transport-form-block__hint">Tip: Keep admin naming in English, and fill local name for future multilingual website labels.</p>
                 </section>
                 <div class="transport-editor-actions">
                   <button class="btn-secondary" type="button" id="btnResetTransportLocation">Clear</button>
@@ -847,7 +851,8 @@
             <table class="admin-table">
               <thead>
                 <tr>
-                  <th>Name</th>
+                  <th>Name (EN)</th>
+                  <th>Local name</th>
                   <th>Code</th>
                   <th>Type</th>
                   <th>Sort</th>
@@ -857,7 +862,7 @@
                 </tr>
               </thead>
               <tbody id="transportLocationsTableBody">
-                <tr><td colspan="7" class="table-loading">Loading transport locations...</td></tr>
+                <tr><td colspan="8" class="table-loading">Loading transport locations...</td></tr>
               </tbody>
             </table>
           </div>
@@ -1101,6 +1106,7 @@
                       <span>Require deposit for this rule</span>
                     </label>
                   </div>
+                  <p class="transport-form-block__hint">When saved, route deposit is synced to <strong>Partners → Emails → Deposit overrides</strong>. If disabled, this route falls back to default <strong>Transport</strong> deposit rule there.</p>
                   <div class="admin-form-grid transport-fields-grid transport-fields-grid--pricing-deposit">
                     <label class="admin-form-field transport-field">
                       <span>Deposit mode</span>
@@ -1126,6 +1132,36 @@
                     </label>
                   </div>
                   <p class="transport-form-block__hint">Use this to copy extras, waiting fee/hour, deposit settings, validity dates, and priority to multiple routes in one save.</p>
+                  <div class="admin-form-grid transport-fields-grid transport-fields-grid--pricing-cross">
+                    <label class="admin-form-field transport-field">
+                      <span>Match origins</span>
+                      <select id="transportPricingCrossOrigins" class="form-control transport-multi-select" multiple size="6" aria-label="Cross pricing origins"></select>
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Match destinations</span>
+                      <select id="transportPricingCrossDestinations" class="form-control transport-multi-select" multiple size="6" aria-label="Cross pricing destinations"></select>
+                    </label>
+                  </div>
+                  <div class="transport-multi-select-toolbar">
+                    <label class="transport-check-field">
+                      <input id="transportPricingCrossIncludeReverse" type="checkbox" checked />
+                      <span>Include reverse direction match</span>
+                    </label>
+                    <label class="transport-check-field">
+                      <input id="transportPricingCrossOnlyActiveRoutes" type="checkbox" checked />
+                      <span>Only active routes</span>
+                    </label>
+                    <div class="transport-multi-select-toolbar__actions">
+                      <button class="btn-small btn-secondary" type="button" id="btnTransportPricingCrossSelectAllOrigins">All origins</button>
+                      <button class="btn-small btn-secondary" type="button" id="btnTransportPricingCrossClearOrigins">Clear origins</button>
+                      <button class="btn-small btn-secondary" type="button" id="btnTransportPricingCrossSelectAllDestinations">All destinations</button>
+                      <button class="btn-small btn-secondary" type="button" id="btnTransportPricingCrossClearDestinations">Clear destinations</button>
+                    </div>
+                  </div>
+                  <div class="transport-editor-actions">
+                    <button class="btn-secondary" type="button" id="btnTransportPricingCrossApplyMatches">Select matching routes</button>
+                  </div>
+                  <p class="transport-form-block__hint transport-form-block__hint--status" id="transportPricingCrossSummary">Select origin/destination groups to auto-mark matching route pairs.</p>
                   <div class="transport-multi-select-toolbar">
                     <input id="transportPricingAdditionalRoutesSearch" class="form-control transport-multi-select-search" type="text" placeholder="Filter routes..." />
                     <div class="transport-multi-select-toolbar__actions">
