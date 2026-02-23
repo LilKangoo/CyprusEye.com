@@ -656,12 +656,12 @@
           <div class="transport-control-center__head">
             <div>
               <h3 class="transport-control-center__title">Transport Control Center</h3>
-              <p class="transport-control-center__subtitle">Choose route and pricing rule, preview total customer price, then jump directly to edit forms.</p>
+              <p class="transport-control-center__subtitle">Choose route and pricing rule, preview customer total and deposit, then jump directly to edit forms.</p>
             </div>
             <div class="transport-control-center__steps" aria-label="Setup steps">
               <span class="transport-control-step">1. Locations</span>
               <span class="transport-control-step">2. Route base fare</span>
-              <span class="transport-control-step">3. Extra fees</span>
+              <span class="transport-control-step">3. Extras + deposit</span>
               <span class="transport-control-step">4. Review bookings</span>
             </div>
           </div>
@@ -696,7 +696,7 @@
               <div style="display:flex; justify-content:space-between; gap:10px; align-items:center; flex-wrap:wrap;">
                 <div>
                   <h4 style="margin:0;">Fare simulator</h4>
-                  <p class="transport-control-panel__hint">Live quote for passengers, bags, seats, oversize luggage and waiting time.</p>
+                  <p class="transport-control-panel__hint">Live quote for passengers, bags, seats, oversize luggage, waiting billed per started hour, and deposit.</p>
                 </div>
                 <button class="btn-secondary" type="button" id="btnTransportControlResetScenario">Reset scenario</button>
               </div>
@@ -707,6 +707,13 @@
                     <option value="auto">Auto by night window</option>
                     <option value="day">Force day rate</option>
                     <option value="night">Force night rate</option>
+                  </select>
+                </label>
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Trip type</span>
+                  <select id="transportPreviewTripType" class="form-control" data-transport-preview-input>
+                    <option value="one_way">One way</option>
+                    <option value="round_trip">Round trip</option>
                   </select>
                 </label>
                 <label class="admin-form-field" style="margin: 0;">
@@ -745,6 +752,7 @@
                 <div class="transport-breakdown-item"><span>Oversize bags</span><strong id="transportPreviewExtraOversize">—</strong></div>
                 <div class="transport-breakdown-item"><span>Seats (child + booster)</span><strong id="transportPreviewExtraSeats">—</strong></div>
                 <div class="transport-breakdown-item"><span>Waiting fee</span><strong id="transportPreviewExtraWaiting">—</strong></div>
+                <div class="transport-breakdown-item"><span>Deposit preview</span><strong id="transportPreviewDeposit">—</strong></div>
               </div>
               <div class="transport-total-row">
                 <span>Total quote</span>
@@ -858,7 +866,7 @@
               <button class="btn-secondary" type="button" id="btnRefreshTransportRoutes">Refresh</button>
             </div>
             <div class="admin-card-body">
-              <p class="transport-editor-hint">Set the base day/night fare and included capacity per route. Extra passengers, bags and waiting charges are configured in Pricing Rules.</p>
+              <p class="transport-editor-hint">Set base day/night fare, capacity, and whether this route is one-way only or also supports round trips.</p>
               <form id="transportRouteForm" novalidate>
                 <input type="hidden" id="transportRouteId" />
                 <div class="admin-form-grid" style="grid-template-columns: 1fr 1fr 130px 130px 100px 120px 120px 120px 120px; gap: 10px; align-items: end;">
@@ -899,7 +907,18 @@
                     <input type="number" id="transportRouteMaxBags" min="0" step="1" value="8" />
                   </label>
                 </div>
-                <div class="admin-form-grid" style="grid-template-columns: 180px 1fr; gap: 10px; align-items: end; margin-top: 10px;">
+                <div class="admin-form-grid" style="grid-template-columns: 220px 220px 180px 1fr; gap: 10px; align-items: end; margin-top: 10px;">
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Trip mode</span>
+                    <select id="transportRouteTripMode" class="form-control">
+                      <option value="one_way">One-way only</option>
+                      <option value="round_trip">One-way + round trip</option>
+                    </select>
+                  </label>
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Round-trip multiplier</span>
+                    <input type="number" id="transportRouteRoundTripMultiplier" min="1" step="0.01" value="2" />
+                  </label>
                   <label class="admin-form-field" style="margin: 0;">
                     <span>Sort order</span>
                     <input type="number" id="transportRouteSortOrder" min="0" step="1" value="0" />
@@ -926,13 +945,14 @@
                   <th style="text-align: right;">Night</th>
                   <th>Included</th>
                   <th>Limits</th>
+                  <th>Trip mode</th>
                   <th>Status</th>
                   <th>Updated</th>
                   <th style="text-align: right;">Actions</th>
                 </tr>
               </thead>
               <tbody id="transportRoutesTableBody">
-                <tr><td colspan="8" class="table-loading">Loading transport routes...</td></tr>
+                <tr><td colspan="9" class="table-loading">Loading transport routes...</td></tr>
               </tbody>
             </table>
           </div>
@@ -945,7 +965,7 @@
               <button class="btn-secondary" type="button" id="btnRefreshTransportPricing">Refresh</button>
             </div>
             <div class="admin-card-body">
-              <p class="transport-editor-hint">Create one or more rules per route. Lowest priority value wins when validity windows overlap. Use the simulator above to verify totals before publishing.</p>
+              <p class="transport-editor-hint">Create one or more rules per route. Configure extras, waiting fee per hour, and deposit logic (fixed, percent of total, or per person).</p>
               <form id="transportPricingForm" novalidate>
                 <input type="hidden" id="transportPricingId" />
                 <div class="admin-form-grid" style="grid-template-columns: 1.4fr repeat(6, 130px); gap: 10px; align-items: end;">
@@ -978,10 +998,22 @@
                     <input type="number" id="transportPricingWaitingIncluded" min="0" step="1" value="0" />
                   </label>
                 </div>
-                <div class="admin-form-grid" style="grid-template-columns: repeat(6, 160px) 1fr; gap: 10px; align-items: end; margin-top: 10px;">
+                <div class="admin-form-grid" style="grid-template-columns: 160px 220px 180px 160px 160px 160px 160px; gap: 10px; align-items: end; margin-top: 10px;">
                   <label class="admin-form-field" style="margin: 0;">
-                    <span>Wait €/min</span>
-                    <input type="number" id="transportPricingWaitingPerMinute" min="0" step="0.01" value="0" />
+                    <span>Wait / hour</span>
+                    <input type="number" id="transportPricingWaitingPerHour" min="0" step="0.01" value="0" />
+                  </label>
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Deposit mode</span>
+                    <select id="transportPricingDepositMode" class="form-control">
+                      <option value="percent_total">% of total</option>
+                      <option value="fixed_amount">Fixed amount</option>
+                      <option value="per_person">Per person</option>
+                    </select>
+                  </label>
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Deposit value</span>
+                    <input type="number" id="transportPricingDepositValue" min="0" step="0.01" value="0" />
                   </label>
                   <label class="admin-form-field" style="margin: 0;">
                     <span>Night start</span>
@@ -999,9 +1031,15 @@
                     <span>Valid to</span>
                     <input type="date" id="transportPricingValidTo" />
                   </label>
+                </div>
+                <div class="admin-form-grid" style="grid-template-columns: 180px 220px 1fr; gap: 10px; align-items: end; margin-top: 10px;">
                   <label class="admin-form-field" style="margin: 0;">
                     <span>Priority</span>
                     <input type="number" id="transportPricingPriority" min="0" step="1" value="0" />
+                  </label>
+                  <label style="display:flex; align-items:center; gap: 10px; margin-bottom: 10px;">
+                    <input id="transportPricingDepositEnabled" type="checkbox" style="width: 18px; height: 18px;" />
+                    <span>Require deposit for this rule</span>
                   </label>
                   <label style="display:flex; align-items:center; gap: 10px; margin-bottom: 10px;">
                     <input id="transportPricingActive" type="checkbox" checked style="width: 18px; height: 18px;" />
@@ -1025,13 +1063,14 @@
                   <th>Night window</th>
                   <th>Waiting</th>
                   <th>Validity</th>
+                  <th>Deposit</th>
                   <th>Priority</th>
                   <th>Status</th>
                   <th style="text-align: right;">Actions</th>
                 </tr>
               </thead>
               <tbody id="transportPricingTableBody">
-                <tr><td colspan="8" class="table-loading">Loading transport pricing rules...</td></tr>
+                <tr><td colspan="9" class="table-loading">Loading transport pricing rules...</td></tr>
               </tbody>
             </table>
           </div>

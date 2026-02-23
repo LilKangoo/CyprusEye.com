@@ -9,6 +9,10 @@
   console.log('📊 Header Stats Module loaded');
 
   const XP_PER_LEVEL = 150;
+  const AUTH_SESSION_CACHE_MS = 1500;
+  let authSessionCache = null;
+  let authSessionCacheAt = 0;
+  let authSessionInFlight = null;
 
   function toFiniteNumber(value, fallback) {
     const number = Number(value);
@@ -47,6 +51,60 @@
     }
 
     return 0;
+  }
+
+  async function getSafeAuthSession(sb, { force = false } = {}) {
+    if (!sb?.auth) return null;
+
+    const now = Date.now();
+    if (!force && (now - authSessionCacheAt) < AUTH_SESSION_CACHE_MS) {
+      return authSessionCache;
+    }
+
+    if (authSessionInFlight) {
+      return authSessionInFlight;
+    }
+
+    const runner = (async () => {
+      try {
+        if (typeof sb.auth.getSessionSafe === 'function') {
+          const res = await sb.auth.getSessionSafe();
+          return res?.data?.session || null;
+        }
+        const res = await sb.auth.getSession();
+        return res?.data?.session || null;
+      } catch (_) {
+        return null;
+      }
+    })();
+
+    authSessionInFlight = runner.finally(() => {
+      if (authSessionInFlight === runner) {
+        authSessionInFlight = null;
+      }
+    });
+
+    const session = await authSessionInFlight;
+    authSessionCache = session || null;
+    authSessionCacheAt = Date.now();
+    return authSessionCache;
+  }
+
+  async function getSafeAuthUser(sb, { force = false } = {}) {
+    try {
+      const stateUser = window?.CE_STATE?.session?.user || null;
+      if (stateUser) return stateUser;
+    } catch (_) {}
+
+    const session = await getSafeAuthSession(sb, { force });
+    if (session?.user) return session.user;
+
+    try {
+      const res = await sb.auth.getUser();
+      return res?.data?.user || null;
+    } catch (_) {
+      return null;
+    }
   }
 
   // Local i18n helper for header stats
@@ -129,9 +187,9 @@
 
       try {
         const sb = typeof window.getSupabase === 'function' ? window.getSupabase() : null;
-        if (sb?.auth?.getSession) {
-          const { data, error } = await sb.auth.getSession();
-          if (!error && data?.session?.user) return data.session.user;
+        if (sb?.auth) {
+          const user = await getSafeAuthUser(sb, { force: false });
+          if (user) return user;
         }
       } catch (_) {}
 
@@ -241,19 +299,7 @@
       }
 
       let user = null;
-      try {
-        const { data, error } = await sb.auth.getSession();
-        if (!error && data?.session?.user) {
-          user = data.session.user;
-        }
-      } catch (_) {}
-
-      if (!user) {
-        try {
-          const res = await sb.auth.getUser();
-          user = res?.data?.user || null;
-        } catch (_) {}
-      }
+      user = await getSafeAuthUser(sb, { force: false });
 
       if (!user) {
         console.log('ℹ️ Użytkownik niezalogowany');
