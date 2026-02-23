@@ -115,6 +115,39 @@ async function loadCalendarsCreateResourceOptions() {
         const city = r.city ? ` — ${r.city}` : '';
         return { id: r.id, label: `${title}${city}` };
       });
+    } else if (type === 'transport') {
+      const { data: routes, error: routesError } = await client
+        .from('transport_routes')
+        .select('id, origin_location_id, destination_location_id')
+        .order('updated_at', { ascending: false })
+        .limit(500);
+      if (routesError) throw routesError;
+
+      const routeRows = Array.isArray(routes) ? routes : [];
+      const locationIds = Array.from(new Set(routeRows.flatMap((r) => [r?.origin_location_id, r?.destination_location_id]).filter(Boolean)));
+      const locationsById = {};
+
+      if (locationIds.length) {
+        const { data: locations, error: locationsError } = await client
+          .from('transport_locations')
+          .select('id, name, code')
+          .in('id', locationIds)
+          .limit(1000);
+        if (!locationsError) {
+          (locations || []).forEach((loc) => {
+            if (!loc?.id) return;
+            locationsById[loc.id] = loc;
+          });
+        }
+      }
+
+      rows = routeRows.map((r) => {
+        const origin = locationsById[r.origin_location_id];
+        const destination = locationsById[r.destination_location_id];
+        const originLabel = origin?.name || String(r.origin_location_id || '').slice(0, 8);
+        const destinationLabel = destination?.name || String(r.destination_location_id || '').slice(0, 8);
+        return { id: r.id, label: `${originLabel} → ${destinationLabel}` };
+      });
     } else if (type === 'shop') {
       const { data, error } = await client
         .from('shop_products')
@@ -556,6 +589,7 @@ function renderAdminCalendarsResourceTypePanels() {
     { id: 'cars', label: 'Cars' },
     { id: 'trips', label: 'Trips' },
     { id: 'hotels', label: 'Hotels' },
+    { id: 'transport', label: 'Transport' },
   ];
 
   root.innerHTML = items.map((it) => {
@@ -829,6 +863,21 @@ function isMissingColumnError(err, columnName) {
   ) && msg.toLowerCase().includes(col.toLowerCase());
 }
 
+function isMissingTableError(err, tableName = '') {
+  const code = String(err?.code || '');
+  const msg = String(err?.message || '');
+  const normalizedMsg = msg.toLowerCase();
+  const normalizedTable = String(tableName || '').trim().toLowerCase();
+  const missing =
+    code === '42P01'
+    || /relation .* does not exist/i.test(msg)
+    || /could not find the table/i.test(msg)
+    || /table .* does not exist/i.test(msg);
+  if (!missing) return false;
+  if (!normalizedTable) return true;
+  return normalizedMsg.includes(normalizedTable) || true;
+}
+
 function stripAffiliatePartnerPayload(payload) {
   const next = { ...(payload || {}) };
   delete next.affiliate_enabled;
@@ -836,6 +885,38 @@ function stripAffiliatePartnerPayload(payload) {
   delete next.affiliate_level2_bps_override;
   delete next.affiliate_level3_bps_override;
   return next;
+}
+
+function stripTransportPartnerPayload(payload) {
+  const next = { ...(payload || {}) };
+  delete next.can_manage_transport;
+  return next;
+}
+
+function isPartnerPayloadSchemaError(error) {
+  const msg = String(error?.message || '');
+  return (
+    isMissingColumnError(error, 'can_manage_transport')
+    || isMissingColumnError(error, 'affiliate_enabled')
+    || /affiliate_/i.test(msg)
+  );
+}
+
+function buildPartnerPayloadVariants(payload) {
+  const base = { ...(payload || {}) };
+  const variants = [
+    base,
+    stripTransportPartnerPayload(base),
+    stripAffiliatePartnerPayload(base),
+    stripAffiliatePartnerPayload(stripTransportPartnerPayload(base)),
+  ];
+  const seen = new Set();
+  return variants.filter((variant) => {
+    const key = JSON.stringify(variant);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 const partnersState = {
@@ -871,6 +952,19 @@ const partnersUiState = {
   depositRequests: [],
   affiliateSettings: null,
   affiliateOverrides: [],
+};
+
+const transportAdminState = {
+  activeTab: 'locations',
+  locations: [],
+  routes: [],
+  pricingRules: [],
+  bookings: [],
+  locationById: {},
+  routeById: {},
+  assignablePartners: [],
+  assignablePartnersById: {},
+  assignablePartnersLoadedAt: 0,
 };
 
 let adminPartnerAuditChannel = null;
@@ -992,11 +1086,11 @@ const partnerAssignmentsState = {
   partnerId: null,
   partnerVendorId: null,
   rows: [],
-  rowsByType: { cars: [], trips: [], hotels: [], shop: [] },
-  resourceDetails: { cars: {}, trips: {}, hotels: {}, shop: {} },
+  rowsByType: { cars: [], trips: [], hotels: [], transport: [], shop: [] },
+  resourceDetails: { cars: {}, trips: {}, hotels: {}, transport: {}, shop: {} },
   shopVendorProducts: [],
-  searchResults: { cars: [], trips: [], hotels: [], shop: [] },
-  searchTimers: { cars: null, trips: null, hotels: null, shop: null },
+  searchResults: { cars: [], trips: [], hotels: [], transport: [], shop: [] },
+  searchTimers: { cars: null, trips: null, hotels: null, transport: null, shop: null },
 };
 
 function normalizeTitleJson(value) {
@@ -1097,8 +1191,8 @@ async function loadPartnerAssignments(partnerId) {
   if (!pid) return;
 
   partnerAssignmentsState.rows = [];
-  partnerAssignmentsState.rowsByType = { cars: [], trips: [], hotels: [], shop: [] };
-  partnerAssignmentsState.resourceDetails = { cars: {}, trips: {}, hotels: {}, shop: {} };
+  partnerAssignmentsState.rowsByType = { cars: [], trips: [], hotels: [], transport: [], shop: [] };
+  partnerAssignmentsState.resourceDetails = { cars: {}, trips: {}, hotels: {}, transport: {}, shop: {} };
 
   const { data, error } = await client
     .from('partner_resources')
@@ -1117,12 +1211,12 @@ async function loadPartnerAssignments(partnerId) {
   }).filter((r) => r.resource_type && r.resource_id);
 
   partnerAssignmentsState.rows = rows;
-  ['cars', 'trips', 'hotels', 'shop'].forEach((t) => {
+  ['cars', 'trips', 'hotels', 'transport', 'shop'].forEach((t) => {
     partnerAssignmentsState.rowsByType[t] = rows.filter((r) => r.resource_type === t);
   });
 
   const idsForType = (t) => Array.from(new Set((partnerAssignmentsState.rowsByType[t] || []).map((r) => r.resource_id).filter(Boolean)));
-  const [carsIds, tripIds, hotelIds, shopIds] = ['cars', 'trips', 'hotels', 'shop'].map(idsForType);
+  const [carsIds, tripIds, hotelIds, transportIds, shopIds] = ['cars', 'trips', 'hotels', 'transport', 'shop'].map(idsForType);
 
   if (carsIds.length) {
     try {
@@ -1180,6 +1274,49 @@ async function loadPartnerAssignments(partnerId) {
     } catch (_e) {}
   }
 
+  if (transportIds.length) {
+    try {
+      const { data: routes, error: routesError } = await client
+        .from('transport_routes')
+        .select('id, origin_location_id, destination_location_id, is_active')
+        .in('id', transportIds)
+        .limit(500);
+      if (routesError) throw routesError;
+
+      const routeRows = Array.isArray(routes) ? routes : [];
+      const locationIds = Array.from(new Set(routeRows.flatMap((r) => [r?.origin_location_id, r?.destination_location_id]).filter(Boolean)));
+      const locationsById = {};
+
+      if (locationIds.length) {
+        try {
+          const { data: locations, error: locationsError } = await client
+            .from('transport_locations')
+            .select('id, name, code')
+            .in('id', locationIds)
+            .limit(1000);
+          if (locationsError) throw locationsError;
+          (locations || []).forEach((loc) => {
+            if (!loc?.id) return;
+            locationsById[loc.id] = loc;
+          });
+        } catch (_e) {
+        }
+      }
+
+      routeRows.forEach((r) => {
+        if (!r?.id) return;
+        const originRow = locationsById[r.origin_location_id] || null;
+        const destinationRow = locationsById[r.destination_location_id] || null;
+        const originLabel = originRow?.name || String(r.origin_location_id || '').slice(0, 8);
+        const destinationLabel = destinationRow?.name || String(r.destination_location_id || '').slice(0, 8);
+        partnerAssignmentsState.resourceDetails.transport[r.id] = {
+          ...r,
+          label: `${originLabel} → ${destinationLabel}`,
+        };
+      });
+    } catch (_e) {}
+  }
+
   if (shopIds.length) {
     try {
       const { data: rr, error: ee } = await client
@@ -1200,12 +1337,13 @@ function renderPartnerAssignmentsHint() {
   const cars = (partnerAssignmentsState.rowsByType.cars || []).length;
   const trips = (partnerAssignmentsState.rowsByType.trips || []).length;
   const hotels = (partnerAssignmentsState.rowsByType.hotels || []).length;
+  const transport = (partnerAssignmentsState.rowsByType.transport || []).length;
   const shop = (partnerAssignmentsState.rowsByType.shop || []).length;
-  setPartnerAssignmentsHint(`Assigned: cars ${cars}, trips ${trips}, hotels ${hotels}, shop ${shop}`);
+  setPartnerAssignmentsHint(`Assigned: cars ${cars}, trips ${trips}, hotels ${hotels}, transport ${transport}, shop ${shop}`);
 }
 
 function renderPartnerAssignmentsTables() {
-  ['cars', 'trips', 'hotels'].forEach((t) => {
+  ['cars', 'trips', 'hotels', 'transport'].forEach((t) => {
     renderPartnerAssignmentsTable(t);
   });
   renderPartnerAssignmentsShop();
@@ -1263,6 +1401,21 @@ function renderPartnerAssignmentsTable(type) {
         <tr>
           <td>${escapeHtml(title)}</td>
           <td>${escapeHtml(city)}</td>
+          <td style="text-align: right; white-space: nowrap;">
+            <button class="btn-small btn-secondary" onclick="backfillPartnerResourceFulfillments('${escapeHtml(t)}','${escapeHtml(String(rid))}')">Backfill</button>
+            <button class="btn-small btn-secondary" onclick="removePartnerResourceAssignment('${escapeHtml(t)}','${escapeHtml(String(rid))}')">Remove</button>
+          </td>
+        </tr>
+      `;
+    }
+
+    if (t === 'transport') {
+      const label = d ? (String(d.label || '').trim() || String(rid).slice(0, 8)) : String(rid).slice(0, 8);
+      const details = d?.is_active === false ? 'Inactive route' : 'Active route';
+      return `
+        <tr>
+          <td>${escapeHtml(label)}</td>
+          <td>${escapeHtml(details)}</td>
           <td style="text-align: right; white-space: nowrap;">
             <button class="btn-small btn-secondary" onclick="backfillPartnerResourceFulfillments('${escapeHtml(t)}','${escapeHtml(String(rid))}')">Backfill</button>
             <button class="btn-small btn-secondary" onclick="removePartnerResourceAssignment('${escapeHtml(t)}','${escapeHtml(String(rid))}')">Remove</button>
@@ -1345,7 +1498,7 @@ async function loadShopVendorProducts(vendorId) {
 async function refreshPartnerAssignments() {
   const pid = String(partnerAssignmentsState.partnerId || '').trim();
 
-  ['cars', 'trips', 'hotels', 'shop'].forEach((t) => {
+  ['cars', 'trips', 'hotels', 'transport', 'shop'].forEach((t) => {
     clearPartnerAssignTable(t, 3);
     setPartnerAssignSelectOptions(t, []);
   });
@@ -1361,7 +1514,7 @@ async function refreshPartnerAssignments() {
   await loadShopVendorProducts(partnerAssignmentsState.partnerVendorId);
   renderPartnerAssignmentsTables();
 
-  ['cars', 'trips', 'hotels', 'shop'].forEach((t) => {
+  ['cars', 'trips', 'hotels', 'transport', 'shop'].forEach((t) => {
     schedulePartnerAssignSearch(t);
   });
 }
@@ -1398,7 +1551,7 @@ async function backfillPartnerResourceFulfillments(type, resourceId) {
   const t = String(type || '').trim();
   const rid = String(resourceId || '').trim();
   if (!rid) return;
-  if (t !== 'trips' && t !== 'hotels') return;
+  if (t !== 'trips' && t !== 'hotels' && t !== 'transport') return;
 
   try {
     const { data, error } = await client.rpc('admin_backfill_partner_service_fulfillments_for_resource', {
@@ -1440,7 +1593,7 @@ async function addPartnerResourceAssignment(type) {
     if (error) throw error;
 
     let backfilled = null;
-    if (t === 'trips' || t === 'hotels') {
+    if (t === 'trips' || t === 'hotels' || t === 'transport') {
       try {
         const { data, error: backfillError } = await client.rpc('admin_backfill_partner_service_fulfillments_for_resource', {
           p_resource_type: t,
@@ -1543,6 +1696,52 @@ async function searchPartnerResources(type, term) {
     }
   }
 
+  if (t === 'transport') {
+    try {
+      const { data: routes, error: routesError } = await client
+        .from('transport_routes')
+        .select('id, origin_location_id, destination_location_id, is_active')
+        .order('updated_at', { ascending: false })
+        .limit(500);
+      if (routesError) throw routesError;
+
+      const routeRows = Array.isArray(routes) ? routes : [];
+      const locationIds = Array.from(new Set(routeRows.flatMap((r) => [r?.origin_location_id, r?.destination_location_id]).filter(Boolean)));
+      const locationsById = {};
+
+      if (locationIds.length) {
+        try {
+          const { data: locations, error: locationsError } = await client
+            .from('transport_locations')
+            .select('id, name, code')
+            .in('id', locationIds)
+            .limit(1000);
+          if (locationsError) throw locationsError;
+          (locations || []).forEach((loc) => {
+            if (!loc?.id) return;
+            locationsById[loc.id] = loc;
+          });
+        } catch (_e) {
+        }
+      }
+
+      const rows = routeRows.map((r) => {
+        const origin = locationsById[r.origin_location_id];
+        const destination = locationsById[r.destination_location_id];
+        const originLabel = origin?.name || String(r.origin_location_id || '').slice(0, 8);
+        const destinationLabel = destination?.name || String(r.destination_location_id || '').slice(0, 8);
+        const routeLabel = `${originLabel} → ${destinationLabel}`;
+        const status = r?.is_active === false ? ' (inactive)' : '';
+        return { id: r.id, label: `${routeLabel}${status}` };
+      });
+
+      if (!q) return rows.slice(0, 50);
+      return rows.filter((r) => String(r.label || '').toLowerCase().includes(q)).slice(0, 50);
+    } catch (_e) {
+      return [];
+    }
+  }
+
   if (t === 'shop') {
     try {
       const { data, error } = await client
@@ -1602,7 +1801,7 @@ function bindPartnerAssignmentsUi() {
     });
   }
 
-  ['cars', 'trips', 'hotels', 'shop'].forEach((t) => {
+  ['cars', 'trips', 'hotels', 'transport', 'shop'].forEach((t) => {
     const searchId = partnerAssignFieldId('search', t);
     const input = searchId ? document.getElementById(searchId) : null;
     if (input) {
@@ -2247,6 +2446,7 @@ async function adminServiceFulfillmentActionForBooking(category, bookingId, fulf
     if (cat === 'cars') await viewCarBookingDetails(bid);
     if (cat === 'trips') await viewTripBookingDetails(bid);
     if (cat === 'hotels') await viewHotelBookingDetails(bid);
+    if (cat === 'transport') await viewTransportBookingDetails(bid);
   } catch (e) {
     console.error('Failed to perform fulfillment action:', e);
     showToast(e.message || 'Failed to perform action', 'error');
@@ -2872,6 +3072,8 @@ function renderAffiliateLedgerTable(rows, profilesById, payoutStatusById) {
       bookingAction = `<button class="btn-small btn-secondary" type="button" onclick="viewTripBookingDetails('${bookingId}')">Booking</button>`;
     } else if (type === 'hotels') {
       bookingAction = `<button class="btn-small btn-secondary" type="button" onclick="viewHotelBookingDetails('${bookingId}')">Booking</button>`;
+    } else if (type === 'transport') {
+      bookingAction = `<button class="btn-small btn-secondary" type="button" onclick="viewTransportBookingDetails('${bookingId}')">Booking</button>`;
     }
 
     const depositId = escapeHtml(String(row.deposit_request_id || ''));
@@ -3015,6 +3217,8 @@ function renderAffiliateUnattributedDepositsTable(rows) {
       bookingAction = `<button class="btn-small btn-secondary" type="button" onclick="viewTripBookingDetails('${bookingId}')">Booking</button>`;
     } else if (String(d.resource_type) === 'hotels') {
       bookingAction = `<button class="btn-small btn-secondary" type="button" onclick="viewHotelBookingDetails('${bookingId}')">Booking</button>`;
+    } else if (String(d.resource_type) === 'transport') {
+      bookingAction = `<button class="btn-small btn-secondary" type="button" onclick="viewTransportBookingDetails('${bookingId}')">Booking</button>`;
     }
 
     const selectAction = `<button class="btn-small btn-primary" type="button" onclick="selectAffiliateAttributionDeposit('${id}')">Use</button>`;
@@ -4023,7 +4227,7 @@ async function loadDefaultDepositRules() {
     const { data, error } = await client
       .from('service_deposit_rules')
       .select('resource_type, mode, amount, currency, include_children, enabled')
-      .in('resource_type', ['cars', 'trips', 'hotels']);
+      .in('resource_type', ['cars', 'trips', 'hotels', 'transport']);
 
     if (error) throw error;
     const rows = Array.isArray(data) ? data : [];
@@ -4032,7 +4236,7 @@ async function loadDefaultDepositRules() {
       if (r?.resource_type) byType[r.resource_type] = r;
     });
 
-    ['cars', 'trips', 'hotels'].forEach((t) => {
+    ['cars', 'trips', 'hotels', 'transport'].forEach((t) => {
       const row = byType[t] || {};
       const inputs = getDepositRuleInputs(t);
       if (inputs.mode) inputs.mode.value = row.mode || 'flat';
@@ -4052,7 +4256,7 @@ async function saveDefaultDepositRules() {
   if (!client) return;
 
   try {
-    const rows = ['cars', 'trips', 'hotels'].map((t) => {
+    const rows = ['cars', 'trips', 'hotels', 'transport'].map((t) => {
       const inputs = getDepositRuleInputs(t);
       const mode = String(inputs.mode?.value || '').trim();
       const amount = Number(inputs.amount?.value || 0);
@@ -4115,14 +4319,14 @@ async function loadDepositOverrides() {
     partnersUiState.depositOverrides = Array.isArray(data) ? data : [];
     partnersUiState.depositOverrideLabels = {};
 
-    const idsByType = { cars: [], trips: [], hotels: [] };
+    const idsByType = { cars: [], trips: [], hotels: [], transport: [] };
     partnersUiState.depositOverrides.forEach((r) => {
       const t = String(r.resource_type || '').trim();
       const id = r.resource_id;
       if (t && id && idsByType[t]) idsByType[t].push(id);
     });
 
-    const [carsRes, tripsRes, hotelsRes] = await Promise.all([
+    const [carsRes, tripsRes, hotelsRes, transportRoutesRes] = await Promise.all([
       idsByType.cars.length
         ? client.from('car_offers').select('id, car_model, car_type, location').in('id', idsByType.cars)
         : Promise.resolve({ data: [] }),
@@ -4132,7 +4336,31 @@ async function loadDepositOverrides() {
       idsByType.hotels.length
         ? client.from('hotels').select('id, slug, title, city').in('id', idsByType.hotels)
         : Promise.resolve({ data: [] }),
+      idsByType.transport.length
+        ? client.from('transport_routes').select('id, origin_location_id, destination_location_id').in('id', idsByType.transport)
+        : Promise.resolve({ data: [] }),
     ]);
+
+    const transportRouteRows = Array.isArray(transportRoutesRes?.data) ? transportRoutesRes.data : [];
+    const transportLocationIds = Array.from(new Set(transportRouteRows.flatMap((r) => [r?.origin_location_id, r?.destination_location_id]).filter(Boolean)));
+    let transportLocationsById = {};
+    if (transportLocationIds.length) {
+      try {
+        const { data: transportLocations, error: transportLocationsError } = await client
+          .from('transport_locations')
+          .select('id, name, code')
+          .in('id', transportLocationIds)
+          .limit(1000);
+        if (!transportLocationsError && Array.isArray(transportLocations)) {
+          transportLocationsById = transportLocations.reduce((acc, loc) => {
+            if (!loc?.id) return acc;
+            acc[loc.id] = loc;
+            return acc;
+          }, {});
+        }
+      } catch (_e) {
+      }
+    }
 
     (carsRes.data || []).forEach((r) => {
       const title = normalizeI18nTitle(r.car_model) || normalizeI18nTitle(r.car_type) || 'Car';
@@ -4148,6 +4376,13 @@ async function loadDepositOverrides() {
       const title = normalizeI18nTitle(r.title) || r.slug || String(r.id).slice(0, 8);
       const city = r.city ? ` — ${r.city}` : '';
       partnersUiState.depositOverrideLabels[`hotels:${r.id}`] = `${title}${city}`;
+    });
+    transportRouteRows.forEach((r) => {
+      const origin = transportLocationsById[r.origin_location_id];
+      const destination = transportLocationsById[r.destination_location_id];
+      const originLabel = origin?.name || String(r.origin_location_id || '').slice(0, 8);
+      const destinationLabel = destination?.name || String(r.destination_location_id || '').slice(0, 8);
+      partnersUiState.depositOverrideLabels[`transport:${r.id}`] = `${originLabel} → ${destinationLabel}`;
     });
 
     renderDepositOverridesTable();
@@ -4585,39 +4820,41 @@ async function openPartnerForm(partnerId = null) {
     let partner = null;
     let error = null;
 
-    const selectFull = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_create_offers, can_view_stats, can_view_payouts, cars_locations, affiliate_enabled, affiliate_level1_bps_override, affiliate_level2_bps_override, affiliate_level3_bps_override';
-    const selectNoCars = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_create_offers, can_view_stats, can_view_payouts, affiliate_enabled, affiliate_level1_bps_override, affiliate_level2_bps_override, affiliate_level3_bps_override';
-    const selectBase = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_create_offers, can_view_stats, can_view_payouts, cars_locations';
-    const selectBaseNoCars = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_create_offers, can_view_stats, can_view_payouts';
+    const selectFull = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_manage_transport, can_create_offers, can_view_stats, can_view_payouts, cars_locations, affiliate_enabled, affiliate_level1_bps_override, affiliate_level2_bps_override, affiliate_level3_bps_override';
+    const selectFullNoTransport = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_create_offers, can_view_stats, can_view_payouts, cars_locations, affiliate_enabled, affiliate_level1_bps_override, affiliate_level2_bps_override, affiliate_level3_bps_override';
+    const selectNoCars = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_manage_transport, can_create_offers, can_view_stats, can_view_payouts, affiliate_enabled, affiliate_level1_bps_override, affiliate_level2_bps_override, affiliate_level3_bps_override';
+    const selectNoCarsNoTransport = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_create_offers, can_view_stats, can_view_payouts, affiliate_enabled, affiliate_level1_bps_override, affiliate_level2_bps_override, affiliate_level3_bps_override';
+    const selectBase = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_manage_transport, can_create_offers, can_view_stats, can_view_payouts, cars_locations';
+    const selectBaseNoTransport = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_create_offers, can_view_stats, can_view_payouts, cars_locations';
+    const selectBaseNoCars = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_manage_transport, can_create_offers, can_view_stats, can_view_payouts';
+    const selectBaseNoCarsNoTransport = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_create_offers, can_view_stats, can_view_payouts';
 
-    ({ data: partner, error } = await client
-      .from('partners')
-      .select(selectFull)
-      .eq('id', partnerId)
-      .single());
+    const selectAttempts = [
+      selectFull,
+      selectFullNoTransport,
+      selectNoCars,
+      selectNoCarsNoTransport,
+      selectBase,
+      selectBaseNoTransport,
+      selectBaseNoCars,
+      selectBaseNoCarsNoTransport,
+    ];
 
-    if (error && /cars_locations/i.test(String(error.message || ''))) {
+    for (const selectQuery of selectAttempts) {
       ({ data: partner, error } = await client
         .from('partners')
-        .select(selectNoCars)
+        .select(selectQuery)
         .eq('id', partnerId)
         .single());
-    }
+      if (!error) break;
 
-    if (error && (/affiliate_/i.test(String(error.message || '')) || isMissingColumnError(error, 'affiliate_enabled'))) {
-      ({ data: partner, error } = await client
-        .from('partners')
-        .select(selectBase)
-        .eq('id', partnerId)
-        .single());
-
-      if (error && /cars_locations/i.test(String(error.message || ''))) {
-        ({ data: partner, error } = await client
-          .from('partners')
-          .select(selectBaseNoCars)
-          .eq('id', partnerId)
-          .single());
-      }
+      const msg = String(error.message || '');
+      const recoverable =
+        isMissingColumnError(error, 'cars_locations')
+        || isMissingColumnError(error, 'can_manage_transport')
+        || isMissingColumnError(error, 'affiliate_enabled')
+        || /affiliate_/i.test(msg);
+      if (!recoverable) break;
     }
 
     if (error) {
@@ -4635,6 +4872,21 @@ async function openPartnerForm(partnerId = null) {
     setPartnerFormChecked('partnerFormCanManageCars', partner.can_manage_cars);
     setPartnerFormChecked('partnerFormCanManageTrips', partner.can_manage_trips);
     setPartnerFormChecked('partnerFormCanManageHotels', partner.can_manage_hotels);
+    let canManageTransport = Boolean(partner.can_manage_transport);
+    if (partner.can_manage_transport == null) {
+      try {
+        const { data: transportPerm, error: transportPermError } = await client
+          .from('partners')
+          .select('can_manage_transport')
+          .eq('id', partner.id)
+          .maybeSingle();
+        if (!transportPermError) {
+          canManageTransport = Boolean(transportPerm?.can_manage_transport);
+        }
+      } catch (_e) {
+      }
+    }
+    setPartnerFormChecked('partnerFormCanManageTransport', canManageTransport);
     setPartnerFormChecked('partnerFormCanCreateOffers', partner.can_create_offers);
     setPartnerFormChecked('partnerFormCanViewStats', partner.can_view_stats);
     setPartnerFormChecked('partnerFormCanViewPayouts', partner.can_view_payouts);
@@ -4652,6 +4904,7 @@ async function openPartnerForm(partnerId = null) {
     if (title) title.textContent = 'New partner';
     setPartnerFormValue('partnerFormStatus', 'active');
     setPartnerFormChecked('partnerFormCanViewStats', true);
+    setPartnerFormChecked('partnerFormCanManageTransport', false);
 
     setPartnerFormCarsLocations([]);
 
@@ -4704,6 +4957,7 @@ async function savePartnerFromForm() {
     can_manage_cars: Boolean(document.getElementById('partnerFormCanManageCars')?.checked),
     can_manage_trips: Boolean(document.getElementById('partnerFormCanManageTrips')?.checked),
     can_manage_hotels: Boolean(document.getElementById('partnerFormCanManageHotels')?.checked),
+    can_manage_transport: Boolean(document.getElementById('partnerFormCanManageTransport')?.checked),
     can_create_offers: Boolean(document.getElementById('partnerFormCanCreateOffers')?.checked),
     can_view_stats: Boolean(document.getElementById('partnerFormCanViewStats')?.checked),
     can_view_payouts: Boolean(document.getElementById('partnerFormCanViewPayouts')?.checked),
@@ -4715,19 +4969,24 @@ async function savePartnerFromForm() {
   };
 
   try {
+    const payloadVariants = buildPartnerPayloadVariants(payload);
+
     if (partnerId) {
-      let { error } = await client.from('partners').update(payload).eq('id', partnerId);
-      if (error && (/affiliate_/i.test(String(error.message || '')) || isMissingColumnError(error, 'affiliate_enabled'))) {
-        const fallbackPayload = stripAffiliatePartnerPayload(payload);
-        ({ error } = await client.from('partners').update(fallbackPayload).eq('id', partnerId));
+      let error = null;
+      for (const variant of payloadVariants) {
+        ({ error } = await client.from('partners').update(variant).eq('id', partnerId));
+        if (!error) break;
+        if (!isPartnerPayloadSchemaError(error)) break;
       }
       if (error) throw error;
       showToast('Partner updated', 'success');
     } else {
-      let { data: inserted, error } = await client.from('partners').insert(payload).select('id').single();
-      if (error && (/affiliate_/i.test(String(error.message || '')) || isMissingColumnError(error, 'affiliate_enabled'))) {
-        const fallbackPayload = stripAffiliatePartnerPayload(payload);
-        ({ data: inserted, error } = await client.from('partners').insert(fallbackPayload).select('id').single());
+      let inserted = null;
+      let error = null;
+      for (const variant of payloadVariants) {
+        ({ data: inserted, error } = await client.from('partners').insert(variant).select('id').single());
+        if (!error) break;
+        if (!isPartnerPayloadSchemaError(error)) break;
       }
       if (error) throw error;
       if (inserted?.id) {
@@ -5181,13 +5440,14 @@ const calendarsState = {
   partnersById: {},
   partners: [],
   blocks: [],
-  resourcesByType: { shop: [], cars: [], trips: [], hotels: [] },
+  resourcesByType: { shop: [], cars: [], trips: [], hotels: [], transport: [] },
   bulkMode: false,
   selectedByType: {
     shop: new Set(),
     cars: new Set(),
     trips: new Set(),
     hotels: new Set(),
+    transport: new Set(),
   },
   monthValue: '',
   monthBlocks: [],
@@ -5195,7 +5455,7 @@ const calendarsState = {
 };
 
 function calendarsAvailabilityTypes() {
-  return ['shop', 'cars', 'trips', 'hotels'];
+  return ['shop', 'cars', 'trips', 'hotels', 'transport'];
 }
 
 function isCalendarsAvailabilityType(value) {
@@ -5620,6 +5880,39 @@ async function loadCalendarsResourceOptions() {
         const city = r.city ? ` — ${r.city}` : '';
         return { id: r.id, label: `${title}${city}` };
       });
+    } else if (type === 'transport') {
+      const { data: routes, error: routesError } = await client
+        .from('transport_routes')
+        .select('id, origin_location_id, destination_location_id')
+        .order('updated_at', { ascending: false })
+        .limit(500);
+      if (routesError) throw routesError;
+
+      const routeRows = Array.isArray(routes) ? routes : [];
+      const locationIds = Array.from(new Set(routeRows.flatMap((r) => [r?.origin_location_id, r?.destination_location_id]).filter(Boolean)));
+      const locationsById = {};
+
+      if (locationIds.length) {
+        const { data: locations, error: locationsError } = await client
+          .from('transport_locations')
+          .select('id, name, code')
+          .in('id', locationIds)
+          .limit(1000);
+        if (!locationsError) {
+          (locations || []).forEach((loc) => {
+            if (!loc?.id) return;
+            locationsById[loc.id] = loc;
+          });
+        }
+      }
+
+      rows = routeRows.map((r) => {
+        const origin = locationsById[r.origin_location_id];
+        const destination = locationsById[r.destination_location_id];
+        const originLabel = origin?.name || String(r.origin_location_id || '').slice(0, 8);
+        const destinationLabel = destination?.name || String(r.destination_location_id || '').slice(0, 8);
+        return { id: r.id, label: `${originLabel} → ${destinationLabel}` };
+      });
     } else if (type === 'shop') {
       const { data, error } = await client
         .from('shop_products')
@@ -5745,6 +6038,21 @@ async function resolvePartnerIdForCalendarsResource(client, resourceType, resour
     }
   }
 
+  if (type === 'transport') {
+    try {
+      const { data, error } = await client
+        .from('transport_routes')
+        .select('owner_partner_id')
+        .eq('id', rid)
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.owner_partner_id || null;
+    } catch (_e) {
+      return null;
+    }
+  }
+
   return null;
 }
 
@@ -5830,6 +6138,23 @@ async function loadCalendarsMonthData() {
       if (error) throw error;
       (data || []).forEach(r => {
         const d = r.trip_date || r.arrival_date;
+        if (!d) return;
+        ranges.push({ start_date: d, end_date: d });
+      });
+    }
+
+    if (type === 'transport') {
+      const { data, error } = await client
+        .from('transport_bookings')
+        .select('travel_date, status')
+        .eq('route_id', resourceId)
+        .neq('status', 'cancelled')
+        .gte('travel_date', startIso)
+        .lte('travel_date', endIso)
+        .limit(500);
+      if (error) throw error;
+      (data || []).forEach((r) => {
+        const d = r.travel_date;
         if (!d) return;
         ranges.push({ start_date: d, end_date: d });
       });
@@ -9122,6 +9447,1706 @@ window.moveHotelOrder = moveHotelOrder;
 window.updateHotelBookingStatus = updateHotelBookingStatus;
 window.deleteHotelBooking = deleteHotelBooking;
 
+// =====================================================
+// TRANSPORT ADMIN MODULE
+// =====================================================
+
+const TRANSPORT_TABLES = {
+  locations: 'transport_locations',
+  routes: 'transport_routes',
+  pricing: 'transport_pricing_rules',
+  bookings: 'transport_bookings',
+};
+
+function normalizeTransportTab(value) {
+  const tab = String(value || '').trim().toLowerCase();
+  if (tab === 'locations' || tab === 'routes' || tab === 'pricing' || tab === 'bookings') return tab;
+  return 'locations';
+}
+
+function getTransportActiveTab() {
+  const activeBtn = document.querySelector('.transport-tab-button.active');
+  if (activeBtn) {
+    return normalizeTransportTab(activeBtn.getAttribute('data-tab') || 'locations');
+  }
+  return normalizeTransportTab(transportAdminState.activeTab || 'locations');
+}
+
+function getTransportLocationLabel(locationId) {
+  const id = String(locationId || '').trim();
+  if (!id) return '—';
+  const row = transportAdminState.locationById[id];
+  if (!row) return id.slice(0, 8);
+  const name = String(row.name || '').trim() || id.slice(0, 8);
+  const code = String(row.code || '').trim();
+  return code ? `${name} (${code})` : name;
+}
+
+function getTransportRouteLabel(route) {
+  if (!route || typeof route !== 'object') return '—';
+  const origin = getTransportLocationLabel(route.origin_location_id);
+  const destination = getTransportLocationLabel(route.destination_location_id);
+  return `${origin} → ${destination}`;
+}
+
+function getTransportRouteLabelById(routeId) {
+  const id = String(routeId || '').trim();
+  if (!id) return '—';
+  const row = transportAdminState.routeById[id];
+  if (!row) return id.slice(0, 8);
+  return getTransportRouteLabel(row);
+}
+
+function renderTransportTableMessage(tbodyId, colSpan, message, isError = false) {
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+  tbody.innerHTML = `
+    <tr>
+      <td colspan="${colSpan}" class="table-loading" ${isError ? 'style="color: var(--admin-danger);"' : ''}>
+        ${escapeHtml(String(message || '—'))}
+      </td>
+    </tr>
+  `;
+}
+
+function transportIsoToLabel(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '—';
+  const dt = new Date(raw);
+  if (Number.isNaN(dt.getTime())) return escapeHtml(raw);
+  return dt.toLocaleString('en-GB');
+}
+
+function transportDateToLabel(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '—';
+  const dt = new Date(raw);
+  if (Number.isNaN(dt.getTime())) return escapeHtml(raw);
+  return dt.toLocaleDateString('en-GB');
+}
+
+function transportMoney(value, currency = 'EUR') {
+  const amount = Number(value || 0);
+  if (!Number.isFinite(amount)) return '—';
+  return formatMoney(amount, String(currency || 'EUR').trim().toUpperCase() || 'EUR');
+}
+
+function transportStatusBadge(statusRaw) {
+  const status = String(statusRaw || '').trim().toLowerCase();
+  if (!status) return '<span class="badge">UNKNOWN</span>';
+  if (status === 'confirmed' || status === 'accepted' || status === 'completed' || status === 'paid') {
+    return `<span class="badge badge-success">${escapeHtml(status.toUpperCase())}</span>`;
+  }
+  if (status === 'pending' || status === 'awaiting_payment' || status === 'pending_acceptance') {
+    return `<span class="badge badge-warning">${escapeHtml(status.toUpperCase())}</span>`;
+  }
+  if (status === 'cancelled' || status === 'rejected' || status === 'failed' || status === 'expired') {
+    return `<span class="badge badge-danger">${escapeHtml(status.toUpperCase())}</span>`;
+  }
+  return `<span class="badge">${escapeHtml(status.toUpperCase())}</span>`;
+}
+
+function getTransportPartnerDisplayName(partnerId) {
+  const id = String(partnerId || '').trim();
+  if (!id) return '—';
+
+  const fromTransport = transportAdminState.assignablePartnersById?.[id] || null;
+  if (fromTransport) return String(fromTransport.name || fromTransport.slug || id.slice(0, 8));
+
+  const fromPartnersState = partnersState?.partnersById?.[id] || null;
+  if (fromPartnersState) return String(fromPartnersState.name || fromPartnersState.slug || id.slice(0, 8));
+
+  return id.slice(0, 8);
+}
+
+async function loadTransportAssignablePartners(options = {}) {
+  const client = ensureSupabase();
+  if (!client) return [];
+
+  const force = Boolean(options?.force);
+  const now = Date.now();
+  const maxAgeMs = 30 * 1000;
+  if (
+    !force
+    && Array.isArray(transportAdminState.assignablePartners)
+    && transportAdminState.assignablePartners.length
+    && (now - Number(transportAdminState.assignablePartnersLoadedAt || 0)) < maxAgeMs
+  ) {
+    return transportAdminState.assignablePartners;
+  }
+
+  let rows = [];
+  let hasTransportPermissionColumn = true;
+
+  try {
+    const { data, error } = await client
+      .from('partners')
+      .select('id, name, slug, status, can_manage_transport')
+      .limit(1000);
+    if (error) {
+      if (isMissingColumnError(error, 'can_manage_transport')) {
+        hasTransportPermissionColumn = false;
+      } else {
+        throw error;
+      }
+    } else {
+      rows = Array.isArray(data) ? data : [];
+    }
+  } catch (error) {
+    console.error('Failed to load transport partners:', error);
+  }
+
+  if (!rows.length && !hasTransportPermissionColumn) {
+    try {
+      const { data, error } = await client
+        .from('partners')
+        .select('id, name, slug, status')
+        .limit(1000);
+      if (error) throw error;
+      rows = Array.isArray(data) ? data : [];
+    } catch (error) {
+      console.error('Failed to load transport partners (fallback):', error);
+      rows = [];
+    }
+  }
+
+  const filtered = rows
+    .filter((row) => {
+      if (!row?.id) return false;
+      const status = String(row.status || '').trim().toLowerCase();
+      if (status && status !== 'active') return false;
+      if (hasTransportPermissionColumn && !Boolean(row.can_manage_transport)) return false;
+      return true;
+    })
+    .map((row) => ({
+      id: String(row.id),
+      name: String(row.name || '').trim(),
+      slug: String(row.slug || '').trim(),
+      status: String(row.status || '').trim(),
+      can_manage_transport: hasTransportPermissionColumn ? Boolean(row.can_manage_transport) : true,
+    }))
+    .sort((a, b) => String(a.name || a.slug || '').localeCompare(String(b.name || b.slug || '')));
+
+  transportAdminState.assignablePartners = filtered;
+  transportAdminState.assignablePartnersById = {};
+  filtered.forEach((row) => {
+    if (!row?.id) return;
+    transportAdminState.assignablePartnersById[row.id] = row;
+  });
+  transportAdminState.assignablePartnersLoadedAt = now;
+
+  return filtered;
+}
+
+async function queryTransportTable(tableName, options = {}) {
+  const client = ensureSupabase();
+  if (!client) return { data: [], error: new Error('Database connection not available') };
+
+  const limit = Number(options.limit || 500);
+  const orderAttempts = Array.isArray(options.orderAttempts) && options.orderAttempts.length
+    ? options.orderAttempts
+    : [[]];
+
+  let lastError = null;
+
+  for (const attempt of orderAttempts) {
+    try {
+      let q = client.from(tableName).select('*').limit(limit);
+      attempt.forEach((ord) => {
+        if (!ord?.column) return;
+        q = q.order(ord.column, { ascending: ord.ascending !== false });
+      });
+
+      const { data, error } = await q;
+      if (!error) return { data: Array.isArray(data) ? data : [], error: null };
+
+      lastError = error;
+      const code = String(error.code || '');
+      const msg = String(error.message || '').toLowerCase();
+      if (code === '42703' || isSchemaCacheError(error) || msg.includes('column')) {
+        continue;
+      }
+      break;
+    } catch (error) {
+      lastError = error;
+      break;
+    }
+  }
+
+  return { data: [], error: lastError || new Error('Failed to load transport data') };
+}
+
+function transportTableMissingHelp(tableName) {
+  return `Missing table "${tableName}". Run transport migration first.`;
+}
+
+function refreshTransportLocationSelects() {
+  const rows = Array.isArray(transportAdminState.locations) ? transportAdminState.locations : [];
+
+  ['transportRouteOrigin', 'transportRouteDestination'].forEach((id) => {
+    const select = document.getElementById(id);
+    if (!select) return;
+    const prev = String(select.value || '').trim();
+    select.innerHTML = '<option value="">Select location</option>' + rows.map((row) => `
+      <option value="${escapeHtml(String(row.id || ''))}">
+        ${escapeHtml(getTransportLocationLabel(row.id))}
+      </option>
+    `).join('');
+    if (prev) select.value = prev;
+  });
+}
+
+function refreshTransportRouteSelects() {
+  const rows = Array.isArray(transportAdminState.routes) ? transportAdminState.routes : [];
+  const select = document.getElementById('transportPricingRoute');
+  if (!select) return;
+  const prev = String(select.value || '').trim();
+  select.innerHTML = '<option value="">Select route</option>' + rows.map((row) => `
+    <option value="${escapeHtml(String(row.id || ''))}">
+      ${escapeHtml(getTransportRouteLabel(row))}
+    </option>
+  `).join('');
+  if (prev) select.value = prev;
+}
+
+function resetTransportLocationForm() {
+  const form = document.getElementById('transportLocationForm');
+  if (!(form instanceof HTMLFormElement)) return;
+  form.reset();
+  const idEl = document.getElementById('transportLocationId');
+  const activeEl = document.getElementById('transportLocationActive');
+  const sortEl = document.getElementById('transportLocationSortOrder');
+  if (idEl) idEl.value = '';
+  if (activeEl) activeEl.checked = true;
+  if (sortEl) sortEl.value = '0';
+}
+
+function editTransportLocation(locationId) {
+  const id = String(locationId || '').trim();
+  if (!id) return;
+  const row = (transportAdminState.locations || []).find((r) => String(r?.id || '') === id);
+  if (!row) return;
+
+  const idEl = document.getElementById('transportLocationId');
+  const nameEl = document.getElementById('transportLocationName');
+  const codeEl = document.getElementById('transportLocationCode');
+  const typeEl = document.getElementById('transportLocationType');
+  const sortEl = document.getElementById('transportLocationSortOrder');
+  const activeEl = document.getElementById('transportLocationActive');
+
+  if (idEl) idEl.value = String(row.id || '');
+  if (nameEl) nameEl.value = String(row.name || '');
+  if (codeEl) codeEl.value = String(row.code || '');
+  if (typeEl) typeEl.value = String(row.location_type || 'city');
+  if (sortEl) sortEl.value = String(Number(row.sort_order || 0));
+  if (activeEl) activeEl.checked = Boolean(row.is_active !== false);
+}
+
+async function deleteTransportLocation(locationId) {
+  const id = String(locationId || '').trim();
+  if (!id) return;
+  if (!confirm('Delete this transport location?')) return;
+
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const { error } = await client
+      .from(TRANSPORT_TABLES.locations)
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+    showToast('Transport location deleted', 'success');
+    await loadTransportLocationsData({ silent: true });
+    await loadTransportRoutesData({ silent: true });
+    await loadTransportPricingData({ silent: true });
+  } catch (error) {
+    console.error('Failed to delete transport location:', error);
+    showToast(String(error?.message || 'Failed to delete location'), 'error');
+  }
+}
+
+function renderTransportLocationsTable() {
+  const rows = Array.isArray(transportAdminState.locations) ? transportAdminState.locations : [];
+  const tbody = document.getElementById('transportLocationsTableBody');
+  if (!tbody) return;
+
+  if (!rows.length) {
+    renderTransportTableMessage('transportLocationsTableBody', 7, 'No transport locations yet.');
+    return;
+  }
+
+  tbody.innerHTML = rows.map((row) => {
+    const id = String(row.id || '');
+    const status = row.is_active === false
+      ? '<span class="badge">INACTIVE</span>'
+      : '<span class="badge badge-success">ACTIVE</span>';
+    return `
+      <tr>
+        <td>${escapeHtml(String(row.name || '—'))}</td>
+        <td><code>${escapeHtml(String(row.code || ''))}</code></td>
+        <td>${escapeHtml(String(row.location_type || 'city'))}</td>
+        <td>${Number(row.sort_order || 0)}</td>
+        <td>${status}</td>
+        <td>${transportIsoToLabel(row.updated_at || row.created_at)}</td>
+        <td style="text-align: right;">
+          <button class="btn-small btn-secondary" type="button" onclick="editTransportLocation('${escapeHtml(id)}')">Edit</button>
+          <button class="btn-small btn-danger" type="button" onclick="deleteTransportLocation('${escapeHtml(id)}')">Delete</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function loadTransportLocationsData(options = {}) {
+  const silent = Boolean(options?.silent);
+  const { data, error } = await queryTransportTable(TRANSPORT_TABLES.locations, {
+    limit: 1000,
+    orderAttempts: [
+      [{ column: 'sort_order', ascending: true }, { column: 'name', ascending: true }],
+      [{ column: 'name', ascending: true }],
+      [{ column: 'updated_at', ascending: false }],
+    ],
+  });
+
+  if (error) {
+    console.error('Failed to load transport locations:', error);
+    if (isMissingTableError(error, TRANSPORT_TABLES.locations)) {
+      renderTransportTableMessage('transportLocationsTableBody', 7, transportTableMissingHelp(TRANSPORT_TABLES.locations), true);
+    } else {
+      renderTransportTableMessage('transportLocationsTableBody', 7, String(error.message || 'Failed to load locations'), true);
+    }
+    if (!silent) showToast(String(error.message || 'Failed to load transport locations'), 'error');
+    return;
+  }
+
+  transportAdminState.locations = data;
+  transportAdminState.locationById = {};
+  data.forEach((row) => {
+    const id = String(row?.id || '').trim();
+    if (!id) return;
+    transportAdminState.locationById[id] = row;
+  });
+
+  refreshTransportLocationSelects();
+  renderTransportLocationsTable();
+}
+
+async function saveTransportLocationForm(event) {
+  event.preventDefault();
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const id = String(document.getElementById('transportLocationId')?.value || '').trim();
+  const name = String(document.getElementById('transportLocationName')?.value || '').trim();
+  const code = String(document.getElementById('transportLocationCode')?.value || '').trim().toLowerCase();
+  const locationType = String(document.getElementById('transportLocationType')?.value || 'city').trim();
+  const sortOrder = Number(document.getElementById('transportLocationSortOrder')?.value || 0);
+  const isActive = Boolean(document.getElementById('transportLocationActive')?.checked);
+
+  if (!name || !code) {
+    showToast('Name and code are required', 'error');
+    return;
+  }
+
+  const payload = {
+    name,
+    code,
+    location_type: locationType || 'city',
+    sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
+    is_active: isActive,
+  };
+
+  try {
+    let error = null;
+    if (id) {
+      ({ error } = await client.from(TRANSPORT_TABLES.locations).update(payload).eq('id', id));
+    } else {
+      ({ error } = await client.from(TRANSPORT_TABLES.locations).insert(payload));
+    }
+    if (error) throw error;
+
+    showToast(id ? 'Transport location updated' : 'Transport location created', 'success');
+    resetTransportLocationForm();
+    await loadTransportLocationsData({ silent: true });
+    await loadTransportRoutesData({ silent: true });
+    await loadTransportPricingData({ silent: true });
+  } catch (error) {
+    console.error('Failed to save transport location:', error);
+    showToast(String(error?.message || 'Failed to save location'), 'error');
+  }
+}
+
+function resetTransportRouteForm() {
+  const form = document.getElementById('transportRouteForm');
+  if (!(form instanceof HTMLFormElement)) return;
+  form.reset();
+  const idEl = document.getElementById('transportRouteId');
+  const currencyEl = document.getElementById('transportRouteCurrency');
+  const activeEl = document.getElementById('transportRouteActive');
+  const includedPassengersEl = document.getElementById('transportRouteIncludedPassengers');
+  const includedBagsEl = document.getElementById('transportRouteIncludedBags');
+  const maxPassengersEl = document.getElementById('transportRouteMaxPassengers');
+  const maxBagsEl = document.getElementById('transportRouteMaxBags');
+  const sortEl = document.getElementById('transportRouteSortOrder');
+  if (idEl) idEl.value = '';
+  if (currencyEl) currencyEl.value = 'EUR';
+  if (includedPassengersEl) includedPassengersEl.value = '2';
+  if (includedBagsEl) includedBagsEl.value = '2';
+  if (maxPassengersEl) maxPassengersEl.value = '8';
+  if (maxBagsEl) maxBagsEl.value = '8';
+  if (sortEl) sortEl.value = '0';
+  if (activeEl) activeEl.checked = true;
+}
+
+function editTransportRoute(routeId) {
+  const id = String(routeId || '').trim();
+  if (!id) return;
+  const row = (transportAdminState.routes || []).find((r) => String(r?.id || '') === id);
+  if (!row) return;
+
+  const setValue = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.value = value;
+  };
+
+  setValue('transportRouteId', String(row.id || ''));
+  setValue('transportRouteOrigin', String(row.origin_location_id || ''));
+  setValue('transportRouteDestination', String(row.destination_location_id || ''));
+  setValue('transportRouteDayPrice', String(Number(row.day_price || 0)));
+  setValue('transportRouteNightPrice', String(Number(row.night_price || 0)));
+  setValue('transportRouteCurrency', String(row.currency || 'EUR'));
+  setValue('transportRouteIncludedPassengers', String(Number(row.included_passengers || 2)));
+  setValue('transportRouteIncludedBags', String(Number(row.included_bags || 2)));
+  setValue('transportRouteMaxPassengers', String(Number(row.max_passengers || 8)));
+  setValue('transportRouteMaxBags', String(Number(row.max_bags || 8)));
+  setValue('transportRouteSortOrder', String(Number(row.sort_order || 0)));
+
+  const activeEl = document.getElementById('transportRouteActive');
+  if (activeEl) activeEl.checked = Boolean(row.is_active !== false);
+}
+
+async function deleteTransportRoute(routeId) {
+  const id = String(routeId || '').trim();
+  if (!id) return;
+  if (!confirm('Delete this transport route?')) return;
+
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const { error } = await client
+      .from(TRANSPORT_TABLES.routes)
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+    showToast('Transport route deleted', 'success');
+    await loadTransportRoutesData({ silent: true });
+    await loadTransportPricingData({ silent: true });
+    await loadTransportBookingsData({ silent: true });
+  } catch (error) {
+    console.error('Failed to delete transport route:', error);
+    showToast(String(error?.message || 'Failed to delete route'), 'error');
+  }
+}
+
+function renderTransportRoutesTable() {
+  const rows = Array.isArray(transportAdminState.routes) ? transportAdminState.routes : [];
+  const tbody = document.getElementById('transportRoutesTableBody');
+  if (!tbody) return;
+
+  if (!rows.length) {
+    renderTransportTableMessage('transportRoutesTableBody', 8, 'No transport routes yet.');
+    return;
+  }
+
+  tbody.innerHTML = rows.map((row) => {
+    const id = String(row.id || '');
+    const included = `${Number(row.included_passengers || 0)} pax / ${Number(row.included_bags || 0)} bags`;
+    const limits = `${Number(row.max_passengers || 0)} pax / ${Number(row.max_bags || 0)} bags`;
+    return `
+      <tr>
+        <td>${escapeHtml(getTransportRouteLabel(row))}</td>
+        <td style="text-align: right;">${escapeHtml(transportMoney(row.day_price, row.currency || 'EUR'))}</td>
+        <td style="text-align: right;">${escapeHtml(transportMoney(row.night_price, row.currency || 'EUR'))}</td>
+        <td>${escapeHtml(included)}</td>
+        <td>${escapeHtml(limits)}</td>
+        <td>${row.is_active === false ? '<span class="badge">INACTIVE</span>' : '<span class="badge badge-success">ACTIVE</span>'}</td>
+        <td>${transportIsoToLabel(row.updated_at || row.created_at)}</td>
+        <td style="text-align: right;">
+          <button class="btn-small btn-secondary" type="button" onclick="editTransportRoute('${escapeHtml(id)}')">Edit</button>
+          <button class="btn-small btn-danger" type="button" onclick="deleteTransportRoute('${escapeHtml(id)}')">Delete</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function loadTransportRoutesData(options = {}) {
+  const silent = Boolean(options?.silent);
+  const { data, error } = await queryTransportTable(TRANSPORT_TABLES.routes, {
+    limit: 1000,
+    orderAttempts: [
+      [{ column: 'sort_order', ascending: true }, { column: 'created_at', ascending: false }],
+      [{ column: 'updated_at', ascending: false }],
+      [{ column: 'created_at', ascending: false }],
+    ],
+  });
+
+  if (error) {
+    console.error('Failed to load transport routes:', error);
+    if (isMissingTableError(error, TRANSPORT_TABLES.routes)) {
+      renderTransportTableMessage('transportRoutesTableBody', 8, transportTableMissingHelp(TRANSPORT_TABLES.routes), true);
+    } else {
+      renderTransportTableMessage('transportRoutesTableBody', 8, String(error.message || 'Failed to load routes'), true);
+    }
+    if (!silent) showToast(String(error?.message || 'Failed to load transport routes'), 'error');
+    return;
+  }
+
+  transportAdminState.routes = data;
+  transportAdminState.routeById = {};
+  data.forEach((row) => {
+    const id = String(row?.id || '').trim();
+    if (!id) return;
+    transportAdminState.routeById[id] = row;
+  });
+
+  refreshTransportRouteSelects();
+  renderTransportRoutesTable();
+}
+
+async function saveTransportRouteForm(event) {
+  event.preventDefault();
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const id = String(document.getElementById('transportRouteId')?.value || '').trim();
+  const originLocationId = String(document.getElementById('transportRouteOrigin')?.value || '').trim();
+  const destinationLocationId = String(document.getElementById('transportRouteDestination')?.value || '').trim();
+  const dayPrice = Number(document.getElementById('transportRouteDayPrice')?.value || 0);
+  const nightPrice = Number(document.getElementById('transportRouteNightPrice')?.value || 0);
+  const currency = String(document.getElementById('transportRouteCurrency')?.value || 'EUR').trim().toUpperCase() || 'EUR';
+  const includedPassengers = Number(document.getElementById('transportRouteIncludedPassengers')?.value || 0);
+  const includedBags = Number(document.getElementById('transportRouteIncludedBags')?.value || 0);
+  const maxPassengers = Number(document.getElementById('transportRouteMaxPassengers')?.value || 0);
+  const maxBags = Number(document.getElementById('transportRouteMaxBags')?.value || 0);
+  const sortOrder = Number(document.getElementById('transportRouteSortOrder')?.value || 0);
+  const isActive = Boolean(document.getElementById('transportRouteActive')?.checked);
+
+  if (!originLocationId || !destinationLocationId) {
+    showToast('Origin and destination are required', 'error');
+    return;
+  }
+  if (originLocationId === destinationLocationId) {
+    showToast('Origin and destination cannot be the same', 'error');
+    return;
+  }
+  if (!(dayPrice >= 0) || !(nightPrice >= 0)) {
+    showToast('Day and night prices must be >= 0', 'error');
+    return;
+  }
+
+  const payload = {
+    origin_location_id: originLocationId,
+    destination_location_id: destinationLocationId,
+    day_price: dayPrice,
+    night_price: nightPrice,
+    currency,
+    included_passengers: Number.isFinite(includedPassengers) ? includedPassengers : 0,
+    included_bags: Number.isFinite(includedBags) ? includedBags : 0,
+    max_passengers: Number.isFinite(maxPassengers) ? maxPassengers : 0,
+    max_bags: Number.isFinite(maxBags) ? maxBags : 0,
+    sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
+    is_active: isActive,
+  };
+
+  try {
+    let error = null;
+    if (id) {
+      ({ error } = await client.from(TRANSPORT_TABLES.routes).update(payload).eq('id', id));
+    } else {
+      ({ error } = await client.from(TRANSPORT_TABLES.routes).insert(payload));
+    }
+    if (error) throw error;
+
+    showToast(id ? 'Transport route updated' : 'Transport route created', 'success');
+    resetTransportRouteForm();
+    await loadTransportRoutesData({ silent: true });
+    await loadTransportPricingData({ silent: true });
+    await loadTransportBookingsData({ silent: true });
+  } catch (error) {
+    console.error('Failed to save transport route:', error);
+    showToast(String(error?.message || 'Failed to save route'), 'error');
+  }
+}
+
+function resetTransportPricingForm() {
+  const form = document.getElementById('transportPricingForm');
+  if (!(form instanceof HTMLFormElement)) return;
+  form.reset();
+  const idEl = document.getElementById('transportPricingId');
+  const nightStart = document.getElementById('transportPricingNightStart');
+  const nightEnd = document.getElementById('transportPricingNightEnd');
+  const activeEl = document.getElementById('transportPricingActive');
+  const priorityEl = document.getElementById('transportPricingPriority');
+  if (idEl) idEl.value = '';
+  if (nightStart) nightStart.value = '22:00';
+  if (nightEnd) nightEnd.value = '06:00';
+  if (priorityEl) priorityEl.value = '0';
+  if (activeEl) activeEl.checked = true;
+}
+
+function editTransportPricingRule(ruleId) {
+  const id = String(ruleId || '').trim();
+  if (!id) return;
+  const row = (transportAdminState.pricingRules || []).find((r) => String(r?.id || '') === id);
+  if (!row) return;
+
+  const setValue = (fieldId, value) => {
+    const el = document.getElementById(fieldId);
+    if (el) el.value = value;
+  };
+
+  setValue('transportPricingId', String(row.id || ''));
+  setValue('transportPricingRoute', String(row.route_id || ''));
+  setValue('transportPricingExtraPassenger', String(Number(row.extra_passenger_fee || 0)));
+  setValue('transportPricingExtraBag', String(Number(row.extra_bag_fee || 0)));
+  setValue('transportPricingOversizeBag', String(Number(row.oversize_bag_fee || 0)));
+  setValue('transportPricingChildSeat', String(Number(row.child_seat_fee || 0)));
+  setValue('transportPricingBoosterSeat', String(Number(row.booster_seat_fee || 0)));
+  setValue('transportPricingWaitingIncluded', String(Number(row.waiting_included_minutes || 0)));
+  setValue('transportPricingWaitingPerMinute', String(Number(row.waiting_fee_per_minute || 0)));
+  setValue('transportPricingNightStart', String(row.night_start || '22:00').slice(0, 5));
+  setValue('transportPricingNightEnd', String(row.night_end || '06:00').slice(0, 5));
+  setValue('transportPricingValidFrom', String(row.valid_from || ''));
+  setValue('transportPricingValidTo', String(row.valid_to || ''));
+  setValue('transportPricingPriority', String(Number(row.priority || 0)));
+
+  const activeEl = document.getElementById('transportPricingActive');
+  if (activeEl) activeEl.checked = Boolean(row.is_active !== false);
+}
+
+async function deleteTransportPricingRule(ruleId) {
+  const id = String(ruleId || '').trim();
+  if (!id) return;
+  if (!confirm('Delete this pricing rule?')) return;
+
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const { error } = await client
+      .from(TRANSPORT_TABLES.pricing)
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+    showToast('Transport pricing rule deleted', 'success');
+    await loadTransportPricingData({ silent: true });
+  } catch (error) {
+    console.error('Failed to delete pricing rule:', error);
+    showToast(String(error?.message || 'Failed to delete pricing rule'), 'error');
+  }
+}
+
+function renderTransportPricingTable() {
+  const rows = Array.isArray(transportAdminState.pricingRules) ? transportAdminState.pricingRules : [];
+  const tbody = document.getElementById('transportPricingTableBody');
+  if (!tbody) return;
+
+  if (!rows.length) {
+    renderTransportTableMessage('transportPricingTableBody', 8, 'No transport pricing rules yet.');
+    return;
+  }
+
+  tbody.innerHTML = rows.map((row) => {
+    const id = String(row.id || '');
+    const surcharges = [
+      `+pax ${transportMoney(row.extra_passenger_fee || 0, 'EUR')}`,
+      `+bag ${transportMoney(row.extra_bag_fee || 0, 'EUR')}`,
+      `+oversize ${transportMoney(row.oversize_bag_fee || 0, 'EUR')}`,
+      `child seat ${transportMoney(row.child_seat_fee || 0, 'EUR')}`,
+      `booster ${transportMoney(row.booster_seat_fee || 0, 'EUR')}`,
+    ].join(' · ');
+    const waiting = `${Number(row.waiting_included_minutes || 0)} min incl. · ${transportMoney(row.waiting_fee_per_minute || 0, 'EUR')}/min`;
+    const validity = `${row.valid_from ? transportDateToLabel(row.valid_from) : 'always'} → ${row.valid_to ? transportDateToLabel(row.valid_to) : 'no end'}`;
+    return `
+      <tr>
+        <td>${escapeHtml(getTransportRouteLabelById(row.route_id))}</td>
+        <td>${escapeHtml(surcharges)}</td>
+        <td>${escapeHtml(`${String(row.night_start || '22:00').slice(0, 5)} - ${String(row.night_end || '06:00').slice(0, 5)}`)}</td>
+        <td>${escapeHtml(waiting)}</td>
+        <td>${escapeHtml(validity)}</td>
+        <td>${Number(row.priority || 0)}</td>
+        <td>${row.is_active === false ? '<span class="badge">INACTIVE</span>' : '<span class="badge badge-success">ACTIVE</span>'}</td>
+        <td style="text-align: right;">
+          <button class="btn-small btn-secondary" type="button" onclick="editTransportPricingRule('${escapeHtml(id)}')">Edit</button>
+          <button class="btn-small btn-danger" type="button" onclick="deleteTransportPricingRule('${escapeHtml(id)}')">Delete</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function loadTransportPricingData(options = {}) {
+  const silent = Boolean(options?.silent);
+  const { data, error } = await queryTransportTable(TRANSPORT_TABLES.pricing, {
+    limit: 1000,
+    orderAttempts: [
+      [{ column: 'priority', ascending: true }, { column: 'updated_at', ascending: false }],
+      [{ column: 'updated_at', ascending: false }],
+      [{ column: 'created_at', ascending: false }],
+    ],
+  });
+
+  if (error) {
+    console.error('Failed to load transport pricing:', error);
+    if (isMissingTableError(error, TRANSPORT_TABLES.pricing)) {
+      renderTransportTableMessage('transportPricingTableBody', 8, transportTableMissingHelp(TRANSPORT_TABLES.pricing), true);
+    } else {
+      renderTransportTableMessage('transportPricingTableBody', 8, String(error.message || 'Failed to load pricing rules'), true);
+    }
+    if (!silent) showToast(String(error?.message || 'Failed to load transport pricing rules'), 'error');
+    return;
+  }
+
+  transportAdminState.pricingRules = data;
+  renderTransportPricingTable();
+}
+
+async function saveTransportPricingForm(event) {
+  event.preventDefault();
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const id = String(document.getElementById('transportPricingId')?.value || '').trim();
+  const routeId = String(document.getElementById('transportPricingRoute')?.value || '').trim();
+  const payload = {
+    route_id: routeId,
+    extra_passenger_fee: Number(document.getElementById('transportPricingExtraPassenger')?.value || 0),
+    extra_bag_fee: Number(document.getElementById('transportPricingExtraBag')?.value || 0),
+    oversize_bag_fee: Number(document.getElementById('transportPricingOversizeBag')?.value || 0),
+    child_seat_fee: Number(document.getElementById('transportPricingChildSeat')?.value || 0),
+    booster_seat_fee: Number(document.getElementById('transportPricingBoosterSeat')?.value || 0),
+    waiting_included_minutes: Number(document.getElementById('transportPricingWaitingIncluded')?.value || 0),
+    waiting_fee_per_minute: Number(document.getElementById('transportPricingWaitingPerMinute')?.value || 0),
+    night_start: String(document.getElementById('transportPricingNightStart')?.value || '22:00').slice(0, 5),
+    night_end: String(document.getElementById('transportPricingNightEnd')?.value || '06:00').slice(0, 5),
+    valid_from: String(document.getElementById('transportPricingValidFrom')?.value || '').trim() || null,
+    valid_to: String(document.getElementById('transportPricingValidTo')?.value || '').trim() || null,
+    priority: Number(document.getElementById('transportPricingPriority')?.value || 0),
+    is_active: Boolean(document.getElementById('transportPricingActive')?.checked),
+  };
+
+  if (!routeId) {
+    showToast('Route is required', 'error');
+    return;
+  }
+
+  try {
+    let error = null;
+    if (id) {
+      ({ error } = await client.from(TRANSPORT_TABLES.pricing).update(payload).eq('id', id));
+    } else {
+      ({ error } = await client.from(TRANSPORT_TABLES.pricing).insert(payload));
+    }
+    if (error) throw error;
+
+    showToast(id ? 'Transport pricing rule updated' : 'Transport pricing rule created', 'success');
+    resetTransportPricingForm();
+    await loadTransportPricingData({ silent: true });
+  } catch (error) {
+    console.error('Failed to save transport pricing:', error);
+    showToast(String(error?.message || 'Failed to save pricing rule'), 'error');
+  }
+}
+
+function renderTransportBookingsStats(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  const total = list.length;
+  const pending = list.filter((r) => String(r?.status || '').toLowerCase() === 'pending').length;
+  const awaitingPayment = list.filter((r) => String(r?.status || '').toLowerCase() === 'awaiting_payment').length;
+  const revenue = list
+    .filter((r) => {
+      const status = String(r?.status || '').toLowerCase();
+      return status === 'confirmed' || status === 'completed';
+    })
+    .reduce((sum, r) => sum + Number(r?.total_price || 0), 0);
+
+  const setText = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = String(value);
+  };
+
+  setText('statTransportBookingsTotal', total);
+  setText('statTransportBookingsPending', pending);
+  setText('statTransportBookingsAwaitingPayment', awaitingPayment);
+
+  const revenueEl = document.getElementById('statTransportBookingsRevenue');
+  if (revenueEl) revenueEl.textContent = `€${Number(revenue || 0).toFixed(2)}`;
+}
+
+function getFilteredTransportBookings() {
+  const rows = Array.isArray(transportAdminState.bookings) ? transportAdminState.bookings : [];
+  const statusFilter = String(document.getElementById('transportBookingsStatusFilter')?.value || '').trim().toLowerCase();
+  const search = String(document.getElementById('transportBookingsSearch')?.value || '').trim().toLowerCase();
+
+  return rows.filter((row) => {
+    const status = String(row?.status || '').trim().toLowerCase();
+    if (statusFilter && status !== statusFilter) return false;
+
+    if (!search) return true;
+    const haystack = [
+      row?.id,
+      row?.customer_name,
+      row?.customer_email,
+      row?.customer_phone,
+      getTransportRouteLabelById(row?.route_id),
+      row?.travel_date,
+      row?.travel_time,
+    ]
+      .map((value) => String(value || '').toLowerCase())
+      .join(' ');
+    return haystack.includes(search);
+  });
+}
+
+function renderTransportBookingsTable() {
+  const tbody = document.getElementById('transportBookingsTableBody');
+  if (!tbody) return;
+
+  const rows = getFilteredTransportBookings();
+  if (!rows.length) {
+    renderTransportTableMessage('transportBookingsTableBody', 7, 'No transport bookings found.');
+    return;
+  }
+
+  tbody.innerHTML = rows.map((row) => {
+    const id = String(row.id || '');
+    const routeLabel = getTransportRouteLabelById(row.route_id)
+      || `${getTransportLocationLabel(row.origin_location_id)} → ${getTransportLocationLabel(row.destination_location_id)}`;
+    const whenLabel = `${row.travel_date ? transportDateToLabel(row.travel_date) : '—'} ${row.travel_time ? escapeHtml(String(row.travel_time).slice(0, 5)) : ''}`.trim();
+    const paxBagsLabel = `${Number(row.num_passengers || 0)} pax / ${Number(row.num_bags || 0)} bags${Number(row.num_oversize_bags || 0) ? ` / ${Number(row.num_oversize_bags || 0)} oversize` : ''}`;
+    const amountLabel = transportMoney(row.total_price, row.currency || 'EUR');
+    const assignedPartnerLabel = row.assigned_partner_id
+      ? getTransportPartnerDisplayName(row.assigned_partner_id)
+      : '';
+    return `
+      <tr>
+        <td>
+          <div style="font-weight: 600;">#${escapeHtml(id.slice(0, 8).toUpperCase())}</div>
+          <div style="font-size: 11px; color: var(--admin-text-muted);">${transportIsoToLabel(row.created_at)}</div>
+        </td>
+        <td>
+          <div style="font-weight: 500;">${escapeHtml(String(row.customer_name || 'N/A'))}</div>
+          <div style="font-size: 11px; color: var(--admin-text-muted);">${escapeHtml(String(row.customer_email || ''))}</div>
+          ${row.customer_phone ? `<div style="font-size: 11px; color: var(--admin-text-muted);">${escapeHtml(String(row.customer_phone))}</div>` : ''}
+        </td>
+        <td>
+          <div>${escapeHtml(routeLabel)}</div>
+          <div style="font-size: 11px; color: var(--admin-text-muted);">${whenLabel}</div>
+        </td>
+        <td>${escapeHtml(paxBagsLabel)}</td>
+        <td>
+          ${transportStatusBadge(row.status)}
+          ${row.payment_status ? `<div style="font-size: 10px; color: var(--admin-text-muted); margin-top: 4px;">${escapeHtml(String(row.payment_status).toUpperCase())}</div>` : ''}
+          ${assignedPartnerLabel ? `<div style="font-size: 10px; color: var(--admin-text-muted); margin-top: 4px;">Assigned: ${escapeHtml(assignedPartnerLabel)}</div>` : ''}
+        </td>
+        <td style="text-align: right; font-weight: 600;">${escapeHtml(amountLabel)}</td>
+        <td style="text-align: right;">
+          <button class="btn-small btn-secondary" type="button" onclick="viewTransportBookingDetails('${escapeHtml(id)}')">View</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function loadTransportBookingsData(options = {}) {
+  const silent = Boolean(options?.silent);
+  const { data, error } = await queryTransportTable(TRANSPORT_TABLES.bookings, {
+    limit: 1000,
+    orderAttempts: [
+      [{ column: 'created_at', ascending: false }],
+      [{ column: 'updated_at', ascending: false }],
+    ],
+  });
+
+  if (error) {
+    console.error('Failed to load transport bookings:', error);
+    if (isMissingTableError(error, TRANSPORT_TABLES.bookings)) {
+      renderTransportTableMessage('transportBookingsTableBody', 7, transportTableMissingHelp(TRANSPORT_TABLES.bookings), true);
+    } else {
+      renderTransportTableMessage('transportBookingsTableBody', 7, String(error.message || 'Failed to load transport bookings'), true);
+    }
+    if (!silent) showToast(String(error?.message || 'Failed to load transport bookings'), 'error');
+    return;
+  }
+
+  transportAdminState.bookings = data;
+  renderTransportBookingsStats(data);
+  renderTransportBookingsTable();
+}
+
+async function viewTransportBookingDetails(bookingId) {
+  const id = String(bookingId || '').trim();
+  if (!id) return;
+  const client = ensureSupabase();
+  if (!client) return;
+
+  let booking = (transportAdminState.bookings || []).find((row) => String(row?.id || '') === id) || null;
+  if (!booking) {
+    try {
+      const { data, error } = await client
+        .from(TRANSPORT_TABLES.bookings)
+        .select('*')
+        .eq('id', id)
+        .single();
+      if (error) throw error;
+      booking = data || null;
+    } catch (error) {
+      showToast(String(error?.message || 'Failed to load booking details'), 'error');
+      return;
+    }
+  }
+  if (!booking) {
+    showToast('Booking not found', 'error');
+    return;
+  }
+
+  let fulfillment = null;
+  let fulfillmentRows = [];
+  try {
+    const { data: rows } = await client
+      .from('partner_service_fulfillments')
+      .select('id, status, contact_revealed_at, rejected_reason, partner_id, created_at')
+      .eq('resource_type', 'transport')
+      .eq('booking_id', id)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    fulfillmentRows = Array.isArray(rows) ? rows : [];
+    fulfillment = pickBestServiceFulfillment(fulfillmentRows) || null;
+  } catch (_e) {
+  }
+
+  await loadTransportAssignablePartners({ force: false });
+  const assignablePartners = Array.isArray(transportAdminState.assignablePartners)
+    ? transportAdminState.assignablePartners.slice()
+    : [];
+  const availablePartnerMap = new Map();
+  assignablePartners.forEach((partner) => {
+    const pid = String(partner?.id || '').trim();
+    if (!pid) return;
+    availablePartnerMap.set(pid, partner);
+  });
+  (fulfillmentRows || []).forEach((row) => {
+    const pid = String(row?.partner_id || '').trim();
+    if (!pid || availablePartnerMap.has(pid)) return;
+    availablePartnerMap.set(pid, {
+      id: pid,
+      name: getTransportPartnerDisplayName(pid),
+      slug: '',
+      status: 'legacy',
+      can_manage_transport: true,
+    });
+  });
+  const assignedPartnerIdFromBooking = String(booking?.assigned_partner_id || '').trim();
+  if (assignedPartnerIdFromBooking && !availablePartnerMap.has(assignedPartnerIdFromBooking)) {
+    availablePartnerMap.set(assignedPartnerIdFromBooking, {
+      id: assignedPartnerIdFromBooking,
+      name: getTransportPartnerDisplayName(assignedPartnerIdFromBooking),
+      slug: '',
+      status: 'legacy',
+      can_manage_transport: true,
+    });
+  }
+  const assignmentOptions = Array.from(availablePartnerMap.values()).sort((a, b) => {
+    const aLabel = String(a?.name || a?.slug || '').trim();
+    const bLabel = String(b?.name || b?.slug || '').trim();
+    return aLabel.localeCompare(bLabel);
+  });
+
+  const modal = document.getElementById('transportBookingDetailsModal');
+  const content = document.getElementById('transportBookingDetailsContent');
+  if (!modal || !content) return;
+
+  const routeLabelById = getTransportRouteLabelById(booking.route_id);
+  const routeLabel = routeLabelById && routeLabelById !== '—'
+    ? routeLabelById
+    : `${getTransportLocationLabel(booking.origin_location_id)} → ${getTransportLocationLabel(booking.destination_location_id)}`;
+  const createdAt = transportIsoToLabel(booking.created_at);
+  const travelDate = booking.travel_date ? transportDateToLabel(booking.travel_date) : '—';
+  const travelTime = booking.travel_time ? escapeHtml(String(booking.travel_time).slice(0, 5)) : '—';
+  const amountLabel = transportMoney(booking.total_price, booking.currency || 'EUR');
+  const fulfillmentStatus = String(fulfillment?.status || '').trim();
+  const assignedPartnerId = assignedPartnerIdFromBooking || String(fulfillment?.partner_id || '').trim();
+  const assignedPartnerLabel = assignedPartnerId ? getTransportPartnerDisplayName(assignedPartnerId) : '';
+
+  const fulfillmentActions = (() => {
+    if (!fulfillment?.id) return '';
+    if (fulfillmentStatus === 'pending_acceptance') {
+      return `
+        <div style="display:flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+          <button type="button" class="btn-secondary" onclick="adminServiceFulfillmentActionForBooking('transport','${escapeHtml(id)}','${escapeHtml(String(fulfillment.id))}','accept')">Accept</button>
+          <button type="button" class="btn-danger" onclick="adminServiceFulfillmentActionForBooking('transport','${escapeHtml(id)}','${escapeHtml(String(fulfillment.id))}','reject')">Reject</button>
+        </div>
+      `;
+    }
+    if (fulfillmentStatus === 'awaiting_payment') {
+      return `
+        <div style="display:flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+          <button type="button" class="btn-secondary" onclick="adminServiceFulfillmentActionForBooking('transport','${escapeHtml(id)}','${escapeHtml(String(fulfillment.id))}','mark_paid')">Mark paid</button>
+        </div>
+      `;
+    }
+    return '';
+  })();
+
+  const fulfillmentRowsBlock = fulfillmentRows.length
+    ? `
+      <div style="margin-top: 10px; display: grid; gap: 8px;">
+        ${fulfillmentRows.map((row) => {
+          const rowPartnerId = String(row?.partner_id || '').trim();
+          const rowPartnerLabel = rowPartnerId ? getTransportPartnerDisplayName(rowPartnerId) : '—';
+          const rowCreatedAt = transportIsoToLabel(row?.created_at);
+          const rowIsAssigned = assignedPartnerId && rowPartnerId === assignedPartnerId;
+          return `
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 8px 10px;">
+              <div style="display:grid; gap:4px;">
+                <div style="font-size: 13px; font-weight: 600;">${escapeHtml(rowPartnerLabel)}</div>
+                <div style="font-size: 11px; color: var(--admin-text-muted);">${escapeHtml(String(rowCreatedAt || '—'))}</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+                ${rowIsAssigned ? '<span class="badge badge-info">ASSIGNED</span>' : ''}
+                ${transportStatusBadge(row?.status || 'unknown')}
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `
+    : '<div style="margin-top: 10px; font-size: 12px; color: var(--admin-text-muted);">No linked fulfillments yet.</div>';
+
+  const assignmentHint = assignmentOptions.length
+    ? ''
+    : 'No active transport partners found. Enable "Can manage transport" for at least one partner.';
+  const assignmentBlock = `
+    <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
+      <h4 style="margin: 0; font-size: 14px; font-weight: 600;">Driver / Partner Assignment</h4>
+      <div style="margin-top: 6px; font-size: 12px; color: var(--admin-text-muted);">
+        Assign this booking to one transport partner (driver) for clear responsibility and contact flow.
+      </div>
+      <div style="margin-top: 12px; display: grid; gap: 10px;">
+        <div style="display:grid; gap:6px;">
+          <label for="transportBookingAssignPartnerSelect" style="font-size: 12px; color: var(--admin-text-muted);">Assigned partner</label>
+          <select id="transportBookingAssignPartnerSelect" class="form-control">
+            <option value="">Select partner</option>
+            ${assignmentOptions.map((partner) => {
+              const pid = String(partner?.id || '');
+              const label = String(partner?.name || partner?.slug || pid.slice(0, 8));
+              const selected = assignedPartnerId && pid === assignedPartnerId ? 'selected' : '';
+              return `<option value="${escapeHtml(pid)}" ${selected}>${escapeHtml(label)}</option>`;
+            }).join('')}
+          </select>
+          ${assignmentHint ? `<div style="font-size: 11px; color: var(--admin-danger);">${escapeHtml(assignmentHint)}</div>` : ''}
+        </div>
+        <div style="display:grid; gap:6px;">
+          <label for="transportBookingAssignNote" style="font-size: 12px; color: var(--admin-text-muted);">Assignment note (optional)</label>
+          <input id="transportBookingAssignNote" class="form-control" type="text" maxlength="500" value="${escapeHtml(String(booking.assignment_note || ''))}" placeholder="e.g. VIP airport pickup, driver prefers WhatsApp" />
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button type="button" class="btn-secondary" onclick="assignTransportBookingPartner('${escapeHtml(id)}')">Assign partner</button>
+          <button type="button" class="btn-small btn-secondary" onclick="clearTransportBookingPartnerAssignment('${escapeHtml(id)}')">Clear assignment</button>
+        </div>
+        <div style="font-size: 12px; color: var(--admin-text-muted);">
+          <strong>Current assignment:</strong> ${assignedPartnerLabel ? escapeHtml(assignedPartnerLabel) : 'Automatic by route'}
+          ${booking.assigned_at ? `<div>Assigned at: ${transportIsoToLabel(booking.assigned_at)}</div>` : ''}
+        </div>
+      </div>
+      ${fulfillmentRowsBlock}
+    </div>
+  `;
+
+  const fulfillmentBlock = fulfillment?.id
+    ? `
+      <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
+        <div style="display:flex; justify-content: space-between; gap: 16px; align-items: center; flex-wrap: wrap;">
+          <div>
+            <h4 style="margin: 0; font-size: 14px; font-weight: 600;">Partner Fulfillment</h4>
+            <div style="margin-top: 6px; font-size: 12px; color: var(--admin-text-muted);">Partner: ${escapeHtml(getTransportPartnerDisplayName(fulfillment.partner_id))}</div>
+            <div style="margin-top: 6px;">${transportStatusBadge(fulfillmentStatus || 'unknown')}</div>
+            ${fulfillment?.rejected_reason ? `<div style="margin-top: 6px; font-size: 12px; color: var(--admin-text-muted);">Reason: ${escapeHtml(String(fulfillment.rejected_reason))}</div>` : ''}
+          </div>
+          ${fulfillmentActions}
+        </div>
+      </div>
+    `
+    : `
+      <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
+        <h4 style="margin: 0; font-size: 14px; font-weight: 600;">Partner Fulfillment</h4>
+        <div style="margin-top: 6px; font-size: 12px; color: var(--admin-text-muted);">No linked fulfillment found for this booking.</div>
+      </div>
+    `;
+
+  content.innerHTML = `
+    <div style="display: grid; gap: 20px;">
+      <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
+        <div style="display:flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
+          <div>
+            <h4 style="margin: 0; font-size: 16px; font-weight: 600;">Booking #${escapeHtml(id.slice(0, 8).toUpperCase())}</h4>
+            <p style="margin: 4px 0 0; font-size: 12px; color: var(--admin-text-muted);">Created: ${createdAt}</p>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <select id="transportBookingStatusDropdown" class="form-control" style="min-width: 180px;" onchange="updateTransportBookingStatus('${escapeHtml(id)}', this.value)">
+              <option value="pending" ${String(booking.status || '') === 'pending' ? 'selected' : ''}>PENDING</option>
+              <option value="confirmed" ${String(booking.status || '') === 'confirmed' ? 'selected' : ''}>CONFIRMED</option>
+              <option value="awaiting_payment" ${String(booking.status || '') === 'awaiting_payment' ? 'selected' : ''}>AWAITING PAYMENT</option>
+              <option value="completed" ${String(booking.status || '') === 'completed' ? 'selected' : ''}>COMPLETED</option>
+              <option value="cancelled" ${String(booking.status || '') === 'cancelled' ? 'selected' : ''}>CANCELLED</option>
+            </select>
+            ${transportStatusBadge(booking.status || 'unknown')}
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h4 style="margin: 0 0 10px; font-size: 14px; font-weight: 600; color: var(--admin-text-muted);">Customer</h4>
+        <div style="display:grid; gap: 8px;">
+          <div><strong>Name:</strong> ${escapeHtml(String(booking.customer_name || 'N/A'))}</div>
+          <div><strong>Email:</strong> ${booking.customer_email ? `<a href="mailto:${escapeHtml(String(booking.customer_email))}">${escapeHtml(String(booking.customer_email))}</a>` : '—'}</div>
+          <div><strong>Phone:</strong> ${booking.customer_phone ? `<a href="tel:${escapeHtml(String(booking.customer_phone))}">${escapeHtml(String(booking.customer_phone))}</a>` : '—'}</div>
+        </div>
+      </div>
+
+      <div>
+        <h4 style="margin: 0 0 10px; font-size: 14px; font-weight: 600; color: var(--admin-text-muted);">Trip</h4>
+        <div style="display:grid; gap: 8px;">
+          <div><strong>Route:</strong> ${escapeHtml(routeLabel)}</div>
+          <div><strong>Date:</strong> ${travelDate}</div>
+          <div><strong>Time:</strong> ${travelTime}</div>
+          <div><strong>Passengers/Bags:</strong> ${Number(booking.num_passengers || 0)} pax / ${Number(booking.num_bags || 0)} bags${Number(booking.num_oversize_bags || 0) ? ` / ${Number(booking.num_oversize_bags || 0)} oversize` : ''}</div>
+          <div><strong>Payment status:</strong> ${escapeHtml(String(booking.payment_status || 'unknown').toUpperCase())}</div>
+        </div>
+      </div>
+
+      <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
+        <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">Total Price</h4>
+        <div style="font-size: 24px; font-weight: 700;">${escapeHtml(amountLabel)}</div>
+      </div>
+
+      ${assignmentBlock}
+
+      ${fulfillmentBlock}
+
+      <div style="display:flex; gap: 10px;">
+        <button class="btn-secondary" type="button" onclick="document.getElementById('transportBookingDetailsModal').hidden=true" style="flex:1;">Close</button>
+        <button class="btn-danger" type="button" onclick="deleteTransportBooking('${escapeHtml(id)}')" style="flex:1;">Delete booking</button>
+      </div>
+    </div>
+  `;
+
+  modal.hidden = false;
+}
+
+async function assignTransportBookingPartnerFallback(client, booking, partnerId) {
+  if (!client || !booking?.id || !partnerId) {
+    throw new Error('Missing fallback assignment data');
+  }
+
+  const bookingId = String(booking.id);
+  const nowIso = new Date().toISOString();
+
+  const closeStatuses = ['pending_acceptance', 'awaiting_payment', 'accepted', 'expired'];
+  try {
+    await client
+      .from('partner_service_fulfillments')
+      .update({ status: 'closed', updated_at: nowIso })
+      .eq('resource_type', 'transport')
+      .eq('booking_id', bookingId)
+      .neq('partner_id', partnerId)
+      .in('status', closeStatuses);
+  } catch (_e) {
+  }
+
+  const routeLabelById = getTransportRouteLabelById(booking.route_id);
+  const routeLabel = routeLabelById && routeLabelById !== '—'
+    ? routeLabelById
+    : `${getTransportLocationLabel(booking.origin_location_id)} → ${getTransportLocationLabel(booking.destination_location_id)}`;
+  const reference = `TRANSPORT-${bookingId.slice(0, 8).toUpperCase()}`;
+
+  let fid = null;
+  const rpcPayload = {
+    p_partner_id: partnerId,
+    p_resource_type: 'transport',
+    p_booking_id: booking.id,
+    p_resource_id: booking.route_id || null,
+    p_start_date: booking.travel_date || null,
+    p_end_date: booking.travel_date || null,
+    p_total_price: Number(booking.total_price || 0),
+    p_currency: String(booking.currency || 'EUR').trim().toUpperCase() || 'EUR',
+    p_customer_name: String(booking.customer_name || '').trim() || null,
+    p_customer_email: String(booking.customer_email || '').trim() || null,
+    p_customer_phone: String(booking.customer_phone || '').trim() || null,
+    p_reference: reference,
+    p_summary: String(routeLabel || 'Transport booking'),
+    p_created_at: booking.created_at || nowIso,
+  };
+
+  const { data: rpcFid, error: rpcError } = await client.rpc(
+    'upsert_partner_service_fulfillment_from_booking_with_partner',
+    rpcPayload,
+  );
+  if (rpcError) throw rpcError;
+  if (rpcFid) fid = String(rpcFid);
+
+  let selectedRow = null;
+  try {
+    const { data, error } = await client
+      .from('partner_service_fulfillments')
+      .select('id, status')
+      .eq('resource_type', 'transport')
+      .eq('booking_id', booking.id)
+      .eq('partner_id', partnerId)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    if (error) throw error;
+    selectedRow = Array.isArray(data) && data.length ? data[0] : null;
+  } catch (_e) {
+    selectedRow = null;
+  }
+
+  const targetFid = String((selectedRow?.id || fid || '')).trim();
+  if (!targetFid) return;
+
+  const selectedStatus = String(selectedRow?.status || '').trim().toLowerCase();
+  if (selectedStatus === 'closed' || selectedStatus === 'rejected' || selectedStatus === 'expired') {
+    try {
+      await client
+        .from('partner_service_fulfillments')
+        .update({
+          status: 'pending_acceptance',
+          accepted_at: null,
+          accepted_by: null,
+          rejected_at: null,
+          rejected_by: null,
+          rejected_reason: null,
+          contact_revealed_at: null,
+          updated_at: nowIso,
+        })
+        .eq('id', targetFid);
+    } catch (_e) {
+    }
+  }
+
+  const detailsPayload = {
+    travel_date: booking.travel_date || null,
+    travel_time: booking.travel_time || null,
+    num_passengers: Number(booking.num_passengers || 0),
+    num_bags: Number(booking.num_bags || 0),
+    num_oversize_bags: Number(booking.num_oversize_bags || 0),
+    child_seats: Number(booking.child_seats || 0),
+    booster_seats: Number(booking.booster_seats || 0),
+    waiting_minutes: Number(booking.waiting_minutes || 0),
+    pickup_address: booking.pickup_address || null,
+    dropoff_address: booking.dropoff_address || null,
+    flight_number: booking.flight_number || null,
+    notes: booking.notes || null,
+    origin_location_id: booking.origin_location_id || null,
+    destination_location_id: booking.destination_location_id || null,
+  };
+
+  const formPayload = {
+    route_id: booking.route_id || null,
+    origin_location_id: booking.origin_location_id || null,
+    destination_location_id: booking.destination_location_id || null,
+    travel_date: booking.travel_date || null,
+    travel_time: booking.travel_time || null,
+    num_passengers: Number(booking.num_passengers || 0),
+    num_bags: Number(booking.num_bags || 0),
+    num_oversize_bags: Number(booking.num_oversize_bags || 0),
+    child_seats: Number(booking.child_seats || 0),
+    booster_seats: Number(booking.booster_seats || 0),
+    waiting_minutes: Number(booking.waiting_minutes || 0),
+    pickup_address: booking.pickup_address || null,
+    dropoff_address: booking.dropoff_address || null,
+    flight_number: booking.flight_number || null,
+    notes: booking.notes || null,
+    customer_name: booking.customer_name || null,
+    customer_email: booking.customer_email || null,
+    customer_phone: booking.customer_phone || null,
+    base_price: Number(booking.base_price || 0),
+    extras_price: Number(booking.extras_price || 0),
+    total_price: Number(booking.total_price || 0),
+    currency: String(booking.currency || 'EUR').trim().toUpperCase() || 'EUR',
+    lang: booking.lang || null,
+  };
+
+  try {
+    await client
+      .from('partner_service_fulfillments')
+      .update({ details: detailsPayload })
+      .eq('id', targetFid);
+  } catch (_e) {
+  }
+
+  try {
+    await client
+      .from('partner_service_fulfillment_form_snapshots')
+      .upsert({
+        fulfillment_id: targetFid,
+        payload: formPayload,
+        created_at: booking.created_at || nowIso,
+      }, { onConflict: 'fulfillment_id' });
+  } catch (_e) {
+  }
+}
+
+async function assignTransportBookingPartner(bookingId) {
+  const id = String(bookingId || '').trim();
+  if (!id) return;
+
+  const selectEl = document.getElementById('transportBookingAssignPartnerSelect');
+  const noteEl = document.getElementById('transportBookingAssignNote');
+  const partnerId = String(selectEl?.value || '').trim();
+  const note = String(noteEl?.value || '').trim();
+
+  if (!partnerId) {
+    showToast('Select partner first', 'error');
+    return;
+  }
+
+  if (!confirm('Assign this transport booking to selected partner? Existing active assignments will be closed.')) {
+    return;
+  }
+
+  const client = ensureSupabase();
+  if (!client) return;
+
+  let booking = (transportAdminState.bookings || []).find((row) => String(row?.id || '') === id) || null;
+  if (!booking) {
+    try {
+      const { data, error } = await client
+        .from(TRANSPORT_TABLES.bookings)
+        .select('*')
+        .eq('id', id)
+        .single();
+      if (error) throw error;
+      booking = data || null;
+    } catch (error) {
+      showToast(String(error?.message || 'Failed to load booking details'), 'error');
+      return;
+    }
+  }
+  if (!booking) {
+    showToast('Booking not found', 'error');
+    return;
+  }
+  if (!booking.route_id) {
+    showToast('Booking has no route assigned', 'error');
+    return;
+  }
+
+  try {
+    const nowIso = new Date().toISOString();
+    const assignmentPayload = {
+      assigned_partner_id: partnerId,
+      assigned_at: nowIso,
+      assigned_by: adminState?.user?.id || null,
+      assignment_note: note || null,
+      updated_at: nowIso,
+    };
+
+    const { error: assignError } = await client
+      .from(TRANSPORT_TABLES.bookings)
+      .update(assignmentPayload)
+      .eq('id', id);
+
+    if (assignError) {
+      if (isMissingColumnError(assignError, 'assigned_partner_id')) {
+        await assignTransportBookingPartnerFallback(client, booking, partnerId);
+      } else {
+        throw assignError;
+      }
+    }
+
+    showToast('Transport booking assigned', 'success');
+    await loadTransportBookingsData({ silent: true });
+    await loadAllOrders({ silent: true });
+    await viewTransportBookingDetails(id);
+  } catch (error) {
+    console.error('Failed to assign transport booking partner:', error);
+    showToast(String(error?.message || 'Failed to assign transport booking'), 'error');
+  }
+}
+
+async function clearTransportBookingPartnerAssignment(bookingId) {
+  const id = String(bookingId || '').trim();
+  if (!id) return;
+
+  if (!confirm('Clear explicit partner assignment for this booking and return to automatic route assignment?')) {
+    return;
+  }
+
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const nowIso = new Date().toISOString();
+    const { error } = await client
+      .from(TRANSPORT_TABLES.bookings)
+      .update({
+        assigned_partner_id: null,
+        assigned_at: null,
+        assigned_by: null,
+        assignment_note: null,
+        updated_at: nowIso,
+      })
+      .eq('id', id);
+    if (error) throw error;
+
+    showToast('Transport assignment cleared', 'success');
+    await loadTransportBookingsData({ silent: true });
+    await loadAllOrders({ silent: true });
+    await viewTransportBookingDetails(id);
+  } catch (error) {
+    console.error('Failed to clear transport assignment:', error);
+    if (isMissingColumnError(error, 'assigned_partner_id')) {
+      showToast('Run latest transport assignment migration first (assigned_partner_id missing)', 'error');
+      return;
+    }
+    showToast(String(error?.message || 'Failed to clear assignment'), 'error');
+  }
+}
+
+async function updateTransportBookingStatus(bookingId, newStatus) {
+  const id = String(bookingId || '').trim();
+  const status = String(newStatus || '').trim().toLowerCase();
+  if (!id || !status) return;
+
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const payload = {
+      status,
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = await client
+      .from(TRANSPORT_TABLES.bookings)
+      .update(payload)
+      .eq('id', id);
+    if (error) throw error;
+
+    showToast(`Status updated to ${status}`, 'success');
+    await loadTransportBookingsData({ silent: true });
+    await loadAllOrders({ silent: true });
+    const modal = document.getElementById('transportBookingDetailsModal');
+    if (modal && !modal.hidden) {
+      await viewTransportBookingDetails(id);
+    }
+  } catch (error) {
+    console.error('Failed to update transport booking status:', error);
+    showToast(String(error?.message || 'Failed to update booking status'), 'error');
+  }
+}
+
+async function deleteTransportBooking(bookingId) {
+  const id = String(bookingId || '').trim();
+  if (!id) return;
+  if (!confirm('Delete this transport booking? This action cannot be undone.')) return;
+
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    try {
+      await client
+        .from('partner_service_fulfillments')
+        .delete()
+        .eq('resource_type', 'transport')
+        .eq('booking_id', id);
+    } catch (_e) {
+    }
+
+    const { error } = await client
+      .from(TRANSPORT_TABLES.bookings)
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+
+    showToast('Transport booking deleted', 'success');
+    const modal = document.getElementById('transportBookingDetailsModal');
+    if (modal) modal.hidden = true;
+    await loadTransportBookingsData({ silent: true });
+    await loadAllOrders({ silent: true });
+  } catch (error) {
+    console.error('Failed to delete transport booking:', error);
+    showToast(String(error?.message || 'Failed to delete booking'), 'error');
+  }
+}
+
+async function setTransportActiveTab(tab, options = {}) {
+  const normalizedTab = normalizeTransportTab(tab);
+  transportAdminState.activeTab = normalizedTab;
+
+  const tabButtons = document.querySelectorAll('.transport-tab-button');
+  tabButtons.forEach((btn) => {
+    const isActive = String(btn.getAttribute('data-tab') || '') === normalizedTab;
+    btn.classList.toggle('active', isActive);
+    btn.style.borderBottomColor = isActive ? 'var(--admin-primary)' : 'transparent';
+    btn.style.color = isActive ? 'var(--admin-text)' : 'var(--admin-text-muted)';
+  });
+
+  const panels = {
+    locations: document.getElementById('transportTabLocations'),
+    routes: document.getElementById('transportTabRoutes'),
+    pricing: document.getElementById('transportTabPricing'),
+    bookings: document.getElementById('transportTabBookings'),
+  };
+  Object.entries(panels).forEach(([key, panel]) => {
+    if (!panel) return;
+    panel.hidden = key !== normalizedTab;
+  });
+
+  if (options.load === false) return;
+
+  if (normalizedTab === 'locations') {
+    await loadTransportLocationsData({ silent: true });
+    return;
+  }
+  if (normalizedTab === 'routes') {
+    await loadTransportLocationsData({ silent: true });
+    await loadTransportRoutesData({ silent: true });
+    return;
+  }
+  if (normalizedTab === 'pricing') {
+    await loadTransportLocationsData({ silent: true });
+    await loadTransportRoutesData({ silent: true });
+    await loadTransportPricingData({ silent: true });
+    return;
+  }
+  await loadTransportLocationsData({ silent: true });
+  await loadTransportRoutesData({ silent: true });
+  await loadTransportAssignablePartners({ force: false });
+  await loadTransportBookingsData({ silent: true });
+}
+
+async function loadTransportAdminData() {
+  await setTransportActiveTab(getTransportActiveTab(), { load: true });
+}
+
+function bindTransportAdminUi() {
+  if (document.body?.dataset?.ceTransportAdminBound === '1') return;
+  if (document.body) document.body.dataset.ceTransportAdminBound = '1';
+
+  document.querySelectorAll('.transport-tab-button').forEach((button) => {
+    button.addEventListener('click', () => {
+      const tab = normalizeTransportTab(button.getAttribute('data-tab') || 'locations');
+      void setTransportActiveTab(tab, { load: true });
+    });
+  });
+
+  const btnRefreshTransport = document.getElementById('btnRefreshTransport');
+  if (btnRefreshTransport) {
+    btnRefreshTransport.addEventListener('click', () => {
+      void setTransportActiveTab(getTransportActiveTab(), { load: true });
+    });
+  }
+
+  const btnRefreshLocations = document.getElementById('btnRefreshTransportLocations');
+  if (btnRefreshLocations) {
+    btnRefreshLocations.addEventListener('click', () => {
+      void loadTransportLocationsData({ silent: false });
+    });
+  }
+
+  const btnRefreshRoutes = document.getElementById('btnRefreshTransportRoutes');
+  if (btnRefreshRoutes) {
+    btnRefreshRoutes.addEventListener('click', () => {
+      void loadTransportLocationsData({ silent: true });
+      void loadTransportRoutesData({ silent: false });
+    });
+  }
+
+  const btnRefreshPricing = document.getElementById('btnRefreshTransportPricing');
+  if (btnRefreshPricing) {
+    btnRefreshPricing.addEventListener('click', () => {
+      void loadTransportLocationsData({ silent: true });
+      void loadTransportRoutesData({ silent: true });
+      void loadTransportPricingData({ silent: false });
+    });
+  }
+
+  const btnRefreshBookings = document.getElementById('btnRefreshTransportBookings');
+  if (btnRefreshBookings) {
+    btnRefreshBookings.addEventListener('click', () => {
+      void loadTransportLocationsData({ silent: true });
+      void loadTransportRoutesData({ silent: true });
+      void loadTransportAssignablePartners({ force: true });
+      void loadTransportBookingsData({ silent: false });
+    });
+  }
+
+  const locationForm = document.getElementById('transportLocationForm');
+  if (locationForm instanceof HTMLFormElement) {
+    locationForm.addEventListener('submit', saveTransportLocationForm);
+  }
+  const resetLocationBtn = document.getElementById('btnResetTransportLocation');
+  if (resetLocationBtn) resetLocationBtn.addEventListener('click', () => resetTransportLocationForm());
+
+  const routeForm = document.getElementById('transportRouteForm');
+  if (routeForm instanceof HTMLFormElement) {
+    routeForm.addEventListener('submit', saveTransportRouteForm);
+  }
+  const resetRouteBtn = document.getElementById('btnResetTransportRoute');
+  if (resetRouteBtn) resetRouteBtn.addEventListener('click', () => resetTransportRouteForm());
+
+  const pricingForm = document.getElementById('transportPricingForm');
+  if (pricingForm instanceof HTMLFormElement) {
+    pricingForm.addEventListener('submit', saveTransportPricingForm);
+  }
+  const resetPricingBtn = document.getElementById('btnResetTransportPricing');
+  if (resetPricingBtn) resetPricingBtn.addEventListener('click', () => resetTransportPricingForm());
+
+  const bookingsStatusFilter = document.getElementById('transportBookingsStatusFilter');
+  if (bookingsStatusFilter) {
+    bookingsStatusFilter.addEventListener('change', () => renderTransportBookingsTable());
+  }
+
+  const bookingsSearch = document.getElementById('transportBookingsSearch');
+  if (bookingsSearch) {
+    bookingsSearch.addEventListener('input', () => renderTransportBookingsTable());
+  }
+
+  const detailsOverlay = document.getElementById('transportBookingDetailsModalOverlay');
+  if (detailsOverlay) {
+    detailsOverlay.addEventListener('click', () => {
+      const modal = document.getElementById('transportBookingDetailsModal');
+      if (modal) modal.hidden = true;
+    });
+  }
+  const detailsClose = document.getElementById('btnCloseTransportBookingDetails');
+  if (detailsClose) {
+    detailsClose.addEventListener('click', () => {
+      const modal = document.getElementById('transportBookingDetailsModal');
+      if (modal) modal.hidden = true;
+    });
+  }
+}
+
+window.loadTransportAdminData = loadTransportAdminData;
+window.editTransportLocation = editTransportLocation;
+window.deleteTransportLocation = deleteTransportLocation;
+window.editTransportRoute = editTransportRoute;
+window.deleteTransportRoute = deleteTransportRoute;
+window.editTransportPricingRule = editTransportPricingRule;
+window.deleteTransportPricingRule = deleteTransportPricingRule;
+window.viewTransportBookingDetails = viewTransportBookingDetails;
+window.assignTransportBookingPartner = assignTransportBookingPartner;
+window.clearTransportBookingPartnerAssignment = clearTransportBookingPartnerAssignment;
+window.updateTransportBookingStatus = updateTransportBookingStatus;
+window.deleteTransportBooking = deleteTransportBooking;
+
 async function deletePartnerResourcesFor(resourceType, resourceId) {
   const client = ensureSupabase();
   if (!client) return;
@@ -9573,6 +11598,9 @@ function switchView(viewName) {
       break;
     case 'hotels':
       loadHotelsAdminData();
+      break;
+    case 'transport':
+      loadTransportAdminData();
       break;
     case 'referrals':
       loadReferralSettings();
@@ -10728,6 +12756,8 @@ async function viewUserDetails(userId) {
                   bookingAction = `<button class="btn-small btn-secondary" onclick="viewTripBookingDetails('${bookingId}')">View</button>`;
                 } else if (String(d.resource_type) === 'hotels') {
                   bookingAction = `<button class="btn-small btn-secondary" onclick="viewHotelBookingDetails('${bookingId}')">View</button>`;
+                } else if (String(d.resource_type) === 'transport') {
+                  bookingAction = `<button class="btn-small btn-secondary" onclick="viewTransportBookingDetails('${bookingId}')">View</button>`;
                 }
 
                 return `
@@ -17018,6 +19048,8 @@ function initEventListeners() {
     });
   });
 
+  bindTransportAdminUi();
+
   const refreshPartnersBtn = document.getElementById('btnRefreshPartners');
   if (refreshPartnersBtn) refreshPartnersBtn.addEventListener('click', () => loadPartnersData());
 
@@ -19779,7 +21811,7 @@ async function buildOrdersAnalyticsSection(client) {
     partnerAgg[pid].partner += delta.partner || 0;
   };
 
-  const topByType = { cars: {}, trips: {}, hotels: {} };
+  const topByType = { cars: {}, trips: {}, hotels: {}, transport: {} };
   const bumpTop = (type, label, gross, deposit, partner) => {
     const t = safe(type);
     if (!topByType[t]) return;
@@ -19917,6 +21949,7 @@ async function buildOrdersAnalyticsSection(client) {
   const topCars = topList(topByType.cars || {});
   const topTrips = topList(topByType.trips || {});
   const topHotels = topList(topByType.hotels || {});
+  const topTransport = topList(topByType.transport || {});
 
   const totalOrders = serviceCounts.total + shopCounts.total;
   const pendingOrders = serviceCounts.pending + shopCounts.pending;
@@ -19982,7 +22015,7 @@ async function buildOrdersAnalyticsSection(client) {
       <p class="admin-view-subtitle" style="margin-top: 0;">Nasz zysk = deposit (usługi) + marża (shop). Partner = pełna cena - deposit (usługi) + alokacja (shop).</p>
 
       <div class="admin-stats-grid" style="margin-bottom:24px;">
-        <div class="admin-stat-card"><div class="stat-card-content"><p class="stat-card-label">Wszystkie zamówienia</p><p class="stat-card-value">${totalOrders}</p><p class="stat-card-change">Cars/Trips/Hotels + Shop</p></div></div>
+        <div class="admin-stat-card"><div class="stat-card-content"><p class="stat-card-label">Wszystkie zamówienia</p><p class="stat-card-value">${totalOrders}</p><p class="stat-card-change">Cars/Trips/Hotels/Transport + Shop</p></div></div>
         <div class="admin-stat-card"><div class="stat-card-content"><p class="stat-card-label">Czeka na zatwierdzenie</p><p class="stat-card-value">${pendingOrders}</p><p class="stat-card-change">pending_acceptance</p></div></div>
         <div class="admin-stat-card"><div class="stat-card-content"><p class="stat-card-label">Czeka na wpłatę</p><p class="stat-card-value">${awaitingOrders}</p><p class="stat-card-change">awaiting_payment</p></div></div>
         <div class="admin-stat-card"><div class="stat-card-content"><p class="stat-card-label">Zaakceptowane</p><p class="stat-card-value">${acceptedOrders}</p><p class="stat-card-change">accepted</p></div></div>
@@ -20024,6 +22057,7 @@ async function buildOrdersAnalyticsSection(client) {
         ${renderTopTable('Auta', topCars)}
         ${renderTopTable('Wycieczki', topTrips)}
         ${renderTopTable('Hotele', topHotels)}
+        ${renderTopTable('Transport', topTransport)}
         ${topShop.length ? renderShopTopTable(topShop) : ''}
       </div>
     </div>
@@ -20619,7 +22653,7 @@ function normalizeServiceFulfillmentStatus(statusRaw) {
 function getAllOrdersNormalizedStatus(order) {
   if (!order) return '';
   const cat = String(order.category || '').trim();
-  if (cat === 'cars' || cat === 'trips' || cat === 'hotels') {
+  if (cat === 'cars' || cat === 'trips' || cat === 'hotels' || cat === 'transport') {
     const bookingStatus = normalizeServiceBookingStatus(order.status);
     const fulfillmentStatus = normalizeServiceFulfillmentStatus(order.fulfillment_status);
 
@@ -20673,7 +22707,7 @@ function pickBestServiceFulfillment(rows) {
 }
 
 /**
- * Load all orders from car_bookings, trip_bookings, and hotel_bookings
+ * Load all orders from car_bookings, trip_bookings, hotel_bookings, and transport_bookings
  */
 async function loadAllOrders(opts = {}) {
   try {
@@ -20686,10 +22720,11 @@ async function loadAllOrders(opts = {}) {
     console.log('Loading all orders from all categories...');
 
     // Fetch all bookings in parallel
-    const [carsResult, tripsResult, hotelsResult, shopResult] = await Promise.all([
+    const [carsResult, tripsResult, hotelsResult, transportResult, shopResult] = await Promise.all([
       client.from('car_bookings').select('*').order('created_at', { ascending: false }).limit(200),
       client.from('trip_bookings').select('*').order('created_at', { ascending: false }).limit(200),
       client.from('hotel_bookings').select('*').order('created_at', { ascending: false }).limit(200),
+      client.from('transport_bookings').select('*').order('created_at', { ascending: false }).limit(200),
       client
         .from('shop_orders')
         .select('id, order_number, created_at, total, currency, status, payment_status, customer_name, customer_email, customer_phone, shipping_address')
@@ -20700,7 +22735,8 @@ async function loadAllOrders(opts = {}) {
     const carIds = (carsResult.data || []).map((b) => b && b.id).filter(Boolean);
     const tripIds = (tripsResult.data || []).map((b) => b && b.id).filter(Boolean);
     const hotelIds = (hotelsResult.data || []).map((b) => b && b.id).filter(Boolean);
-    const serviceBookingIds = [...carIds, ...tripIds, ...hotelIds];
+    const transportIds = (transportResult.data || []).map((b) => b && b.id).filter(Boolean);
+    const serviceBookingIds = [...carIds, ...tripIds, ...hotelIds, ...transportIds];
     const carPaidDepositMap = await fetchCarsPaidDepositMap(client, carIds);
 
     const fulfillmentByKey = {};
@@ -20709,7 +22745,7 @@ async function loadAllOrders(opts = {}) {
         const { data: fData, error: fErr } = await client
           .from('partner_service_fulfillments')
           .select('id, resource_type, booking_id, status, partner_id, contact_revealed_at, rejected_reason, created_at')
-          .in('resource_type', ['cars', 'trips', 'hotels'])
+          .in('resource_type', ['cars', 'trips', 'hotels', 'transport'])
           .in('booking_id', serviceBookingIds)
           .order('created_at', { ascending: false })
           .limit(2000);
@@ -20790,6 +22826,29 @@ async function loadAllOrders(opts = {}) {
     });
     });
 
+    // Process transport bookings
+    const transportBookings = (transportResult.data || []).map((booking) => {
+      const f = fulfillmentByKey[`transport:${String(booking?.id || '')}`] || null;
+      const origin = String(booking.origin_name || booking.origin_label || booking.origin || booking.origin_location_name || booking.origin_location_id || '').trim();
+      const destination = String(booking.destination_name || booking.destination_label || booking.destination || booking.destination_location_name || booking.destination_location_id || '').trim();
+      const routeLabel = String(booking.route_name || booking.route_label || '').trim() || ([origin, destination].filter(Boolean).join(' → '));
+      return ({
+        ...booking,
+        category: 'transport',
+        categoryLabel: 'Transport',
+        categoryIcon: '🚐',
+        categoryColor: '#0ea5e9',
+        customer_name: booking.customer_name || booking.full_name || 'N/A',
+        customer_email: booking.customer_email || booking.email || '',
+        customer_phone: booking.customer_phone || booking.phone || '',
+        displayName: routeLabel || 'Transport route',
+        total_price: Number(booking.total_price || booking.quoted_price || booking.final_price || 0),
+        viewFunction: 'viewTransportBookingDetails',
+        fulfillment_id: f ? f.id : null,
+        fulfillment_status: f ? f.status : null,
+      });
+    });
+
     // Process shop orders
     const shopOrders = (shopResult.data || []).map(order => ({
       ...order,
@@ -20806,7 +22865,7 @@ async function loadAllOrders(opts = {}) {
     }));
 
     // Combine all orders
-    allOrdersCache = [...carBookings, ...tripBookings, ...hotelBookings, ...shopOrders];
+    allOrdersCache = [...carBookings, ...tripBookings, ...hotelBookings, ...transportBookings, ...shopOrders];
 
     // Sort: pending/confirmed first, then by created_at descending
     allOrdersCache.sort((a, b) => {
@@ -20876,18 +22935,21 @@ function updateAllOrdersStats() {
   const carsPending = allOrdersCache.filter(o => o.category === 'cars' && isPending(o)).length;
   const tripsPending = allOrdersCache.filter(o => o.category === 'trips' && isPending(o)).length;
   const hotelsPending = allOrdersCache.filter(o => o.category === 'hotels' && isPending(o)).length;
+  const transportPending = allOrdersCache.filter(o => o.category === 'transport' && isPending(o)).length;
   const shopPending = allOrdersCache.filter(o => o.category === 'shop' && isPending(o)).length;
   const totalOrders = allOrdersCache.length;
 
   const statCarsPendingEl = $('#statCarsPending');
   const statTripsPendingEl = $('#statTripsPending');
   const statHotelsPendingEl = $('#statHotelsPending');
+  const statTransportPendingEl = $('#statTransportPending');
   const statShopPendingEl = $('#statShopPending');
   const statTotalOrdersEl = $('#statTotalOrders');
 
   if (statCarsPendingEl) statCarsPendingEl.textContent = carsPending;
   if (statTripsPendingEl) statTripsPendingEl.textContent = tripsPending;
   if (statHotelsPendingEl) statHotelsPendingEl.textContent = hotelsPending;
+  if (statTransportPendingEl) statTransportPendingEl.textContent = transportPending;
   if (statShopPendingEl) statShopPendingEl.textContent = shopPending;
   if (statTotalOrdersEl) statTotalOrdersEl.textContent = totalOrders;
 }
@@ -20947,6 +23009,10 @@ function renderAllOrdersTable() {
       const checkin = order.arrival_date ? new Date(order.arrival_date).toLocaleDateString('en-GB') : 'N/A';
       const checkout = order.departure_date ? new Date(order.departure_date).toLocaleDateString('en-GB') : 'N/A';
       dateInfo = `${checkin} → ${checkout}`;
+    } else if (order.category === 'transport') {
+      const travelDate = order.travel_date ? new Date(order.travel_date).toLocaleDateString('en-GB') : 'N/A';
+      const travelTime = String(order.travel_time || '').trim();
+      dateInfo = travelTime ? `${travelDate} ${travelTime.slice(0, 5)}` : travelDate;
     }
 
     const createdAt = order.created_at ? new Date(order.created_at).toLocaleDateString('en-GB') : 'N/A';
@@ -20966,6 +23032,17 @@ function renderAllOrdersTable() {
     const couponHint = order.category === 'cars' && String(priceMeta.couponCode || '').trim()
       ? `<div style="font-size:10px; color:#2563eb; margin-top:2px;">Coupon ${escapeHtml(String(priceMeta.couponCode || '').trim().toUpperCase())}</div>`
       : '';
+    const passengersDetail = (() => {
+      if (order.category === 'transport') {
+        const passengers = Number(order.num_passengers || order.passengers || 0);
+        const bags = Number(order.num_bags || order.bags || 0);
+        const oversize = Number(order.num_oversize_bags || 0);
+        if (!passengers && !bags && !oversize) return '';
+        return `<div style="font-size: 11px; color: var(--admin-text-muted); margin-top: 2px;">👥 ${passengers || 0} · 🧳 ${bags || 0}${oversize ? ` (+${oversize} oversize)` : ''}</div>`;
+      }
+      if (!order.num_adults) return '';
+      return `<div style="font-size: 11px; color: var(--admin-text-muted); margin-top: 2px;">👥 ${order.num_adults}${order.num_children ? '+' + order.num_children : ''}</div>`;
+    })();
 
     return `
       <tr style="${effectiveStatus === 'completed' || effectiveStatus === 'cancelled' ? 'opacity: 0.6;' : ''}">
@@ -20990,7 +23067,7 @@ function renderAllOrdersTable() {
         </td>
         <td>
           <div style="font-size: 12px;">${dateInfo}</div>
-          ${order.num_adults ? `<div style="font-size: 11px; color: var(--admin-text-muted); margin-top: 2px;">👥 ${order.num_adults}${order.num_children ? '+' + order.num_children : ''}</div>` : ''}
+          ${passengersDetail}
         </td>
         <td>
           <span class="badge ${statusClass}">
