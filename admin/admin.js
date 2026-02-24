@@ -870,6 +870,211 @@ function isMissingTableError(err, tableName = '') {
   return normalizedMsg.includes(normalizedTable) || true;
 }
 
+function isJwtExpiredError(err) {
+  const code = String(err?.code || '').toUpperCase();
+  const status = Number(err?.status || err?.statusCode || 0);
+  const msg = String(err?.message || err || '').toLowerCase();
+  return (
+    code === 'PGRST303'
+    || code === 'PGRST301'
+    || code === 'PGRST302'
+    || status === 401
+    || msg.includes('jwt expired')
+    || msg.includes('expired jwt')
+    || msg.includes('invalid jwt')
+    || msg.includes('token expired')
+    || msg.includes('auth session missing')
+  );
+}
+
+const TRANSPORT_AUTH_LOCK_TIMEOUT_RE = /navigator lockmanager lock|lock:sb-.*-auth-token|timed out waiting/i;
+
+function isTransportAuthLockTimeoutError(err) {
+  const msg = String(err?.message || err || '');
+  return TRANSPORT_AUTH_LOCK_TIMEOUT_RE.test(msg);
+}
+
+function isTransportRecoverableAuthError(err) {
+  return isJwtExpiredError(err) || isTransportAuthLockTimeoutError(err);
+}
+
+function parseTransportJwtPayload(token) {
+  const raw = String(token || '').trim();
+  if (!raw) return null;
+  const parts = raw.split('.');
+  if (parts.length < 2) return null;
+  try {
+    const base64 = parts[1]
+      .replace(/-/g, '+')
+      .replace(/_/g, '/')
+      .padEnd(Math.ceil(parts[1].length / 4) * 4, '=');
+    const json = atob(base64);
+    return JSON.parse(json);
+  } catch (_error) {
+    return null;
+  }
+}
+
+function getTransportSessionExpiryMs(session) {
+  if (!session || typeof session !== 'object') return null;
+  const expiresAt = Number(session.expires_at || 0);
+  if (Number.isFinite(expiresAt) && expiresAt > 0) {
+    return expiresAt * 1000;
+  }
+  const payload = parseTransportJwtPayload(session.access_token);
+  const payloadExp = Number(payload?.exp || 0);
+  if (Number.isFinite(payloadExp) && payloadExp > 0) {
+    return payloadExp * 1000;
+  }
+  return null;
+}
+
+function isTransportSessionFresh(session, minRemainingMs = 15000) {
+  const accessToken = String(session?.access_token || '').trim();
+  if (!accessToken) return false;
+  const expiryMs = getTransportSessionExpiryMs(session);
+  if (!Number.isFinite(expiryMs)) return true;
+  return (expiryMs - Date.now()) > Number(minRemainingMs || 0);
+}
+
+function waitTransportAuthRetry(ms = 120) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, Math.max(0, Number(ms || 0)));
+  });
+}
+
+let transportAuthRecoveryPromise = null;
+let transportAuthExpiryNoticeAt = 0;
+
+async function recoverAdminSessionForTransport(client) {
+  const sbClient = client || ensureSupabase();
+  if (!sbClient?.auth) return false;
+  if (transportAuthRecoveryPromise) return transportAuthRecoveryPromise;
+
+  const runner = (async () => {
+    const readSession = async (force = true) => {
+      if (typeof sbClient.auth.getSessionSafe === 'function') {
+        const { data, error } = await sbClient.auth.getSessionSafe({ force });
+        if (error && !isTransportAuthLockTimeoutError(error)) throw error;
+        return data?.session || null;
+      }
+      if (typeof sbClient.auth.getSession === 'function') {
+        const { data, error } = await sbClient.auth.getSession();
+        if (error && !isTransportAuthLockTimeoutError(error)) throw error;
+        return data?.session || null;
+      }
+      return null;
+    };
+
+    try {
+      let session = await readSession(true);
+      if (isTransportSessionFresh(session)) return true;
+
+      if (session?.refresh_token && typeof sbClient.auth.refreshSession === 'function') {
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          try {
+            const { data, error } = await sbClient.auth.refreshSession();
+            if (!error && isTransportSessionFresh(data?.session || null, 5000)) {
+              return true;
+            }
+            if (error && !isTransportRecoverableAuthError(error)) {
+              throw error;
+            }
+          } catch (error) {
+            if (!isTransportRecoverableAuthError(error)) throw error;
+          }
+
+          await waitTransportAuthRetry(160 * (attempt + 1));
+          session = await readSession(true);
+          if (isTransportSessionFresh(session, 5000)) return true;
+        }
+      }
+
+      session = await readSession(true);
+      return isTransportSessionFresh(session, 5000);
+    } catch (error) {
+      console.error('Failed to recover admin session for transport:', error);
+      return false;
+    }
+  })();
+
+  transportAuthRecoveryPromise = runner.finally(() => {
+    if (transportAuthRecoveryPromise === runner) {
+      transportAuthRecoveryPromise = null;
+    }
+  });
+  return transportAuthRecoveryPromise;
+}
+
+async function handleTransportAuthExpiry(error, options = {}) {
+  const silent = Boolean(options?.silent);
+  const client = ensureSupabase();
+  const recovered = await recoverAdminSessionForTransport(client);
+  if (recovered) {
+    if (!silent) showToast('Session refreshed. Retrying last action…', 'info');
+    return { recovered: true };
+  }
+
+  if (isTransportAuthLockTimeoutError(error)) {
+    const now = Date.now();
+    if (!silent && (now - transportAuthExpiryNoticeAt) > 3500) {
+      showToast('Session lock timed out. Retry the action or refresh the page.', 'error');
+      transportAuthExpiryNoticeAt = now;
+    }
+    return { recovered: false, lockTimeout: true };
+  }
+
+  const now = Date.now();
+  if ((now - transportAuthExpiryNoticeAt) > 4000) {
+    showToast('Session expired. Please sign in again.', 'error');
+    transportAuthExpiryNoticeAt = now;
+  }
+
+  try {
+    if (typeof showLoginScreen === 'function') {
+      showLoginScreen();
+    }
+  } catch (_error) {
+  }
+
+  window.setTimeout(() => {
+    try {
+      window.location.replace('/admin/login.html');
+    } catch (_error) {
+    }
+  }, 650);
+
+  return { recovered: false };
+}
+
+async function runTransportMutation(operation, options = {}) {
+  const client = ensureSupabase();
+  if (!client) return { data: null, error: new Error('Database connection not available') };
+
+  let retried = false;
+  while (true) {
+    try {
+      const result = await operation(client);
+      const error = result?.error || null;
+      if (!error) return { ...(result || {}), error: null };
+
+      if (!retried && isTransportRecoverableAuthError(error)) {
+        retried = true;
+        const { recovered } = await handleTransportAuthExpiry(error, { silent: Boolean(options?.silentAuthNotice) });
+        if (recovered) continue;
+      }
+      return { ...(result || {}), error };
+    } catch (error) {
+      if (!retried && isTransportRecoverableAuthError(error)) {
+        retried = true;
+        const { recovered } = await handleTransportAuthExpiry(error, { silent: Boolean(options?.silentAuthNotice) });
+        if (recovered) continue;
+      }
+      throw error;
+    }
+  }
+}
+
 function stripAffiliatePartnerPayload(payload) {
   const next = { ...(payload || {}) };
   delete next.affiliate_enabled;
@@ -9825,6 +10030,121 @@ function getTransportRouteLabelById(routeId) {
   return getTransportRouteLabel(row);
 }
 
+function getTransportRouteCityPairMeta(route) {
+  const originGroupRaw = getTransportLocationCityGroupById(route?.origin_location_id) || 'unassigned_origin';
+  const destinationGroupRaw = getTransportLocationCityGroupById(route?.destination_location_id) || 'unassigned_destination';
+  const originGroup = normalizeTransportCityGroupValue(originGroupRaw) || originGroupRaw;
+  const destinationGroup = normalizeTransportCityGroupValue(destinationGroupRaw) || destinationGroupRaw;
+  const originLabel = transportHumanizeCityGroupLabel(originGroup, 'Origin');
+  const destinationLabel = transportHumanizeCityGroupLabel(destinationGroup, 'Destination');
+  const key = `${originGroup}:${destinationGroup}`;
+  return {
+    key,
+    originGroup,
+    destinationGroup,
+    label: `${originLabel} → ${destinationLabel}`,
+  };
+}
+
+function buildTransportRouteOptionsGrouped(rows) {
+  const list = Array.isArray(rows) ? rows.slice() : [];
+  const groupsByKey = new Map();
+
+  list.forEach((row) => {
+    const id = String(row?.id || '').trim();
+    if (!id) return;
+    const meta = getTransportRouteCityPairMeta(row);
+    if (!groupsByKey.has(meta.key)) {
+      groupsByKey.set(meta.key, {
+        key: meta.key,
+        label: meta.label,
+        rows: [],
+      });
+    }
+    groupsByKey.get(meta.key).rows.push(row);
+  });
+
+  const groups = Array.from(groupsByKey.values())
+    .map((group) => ({
+      ...group,
+      rows: group.rows.slice().sort((a, b) => {
+        const sortDiff = Number(a?.sort_order || 0) - Number(b?.sort_order || 0);
+        if (sortDiff !== 0) return sortDiff;
+        return getTransportRouteLabel(a).localeCompare(getTransportRouteLabel(b));
+      }),
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+
+  return groups.map((group) => `
+    <optgroup label="${escapeHtml(`${group.label} (${group.rows.length})`)}">
+      ${group.rows.map((row) => {
+    const id = String(row?.id || '').trim();
+    if (!id) return '';
+    return `<option value="${escapeHtml(id)}">${escapeHtml(getTransportRouteLabel(row))}</option>`;
+  }).join('')}
+    </optgroup>
+  `).join('');
+}
+
+function formatTransportIntegerRange(values, unit) {
+  const nums = (Array.isArray(values) ? values : [])
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value));
+  if (!nums.length) return `— ${unit}`;
+  const min = Math.min(...nums);
+  const max = Math.max(...nums);
+  if (min === max) return `${min} ${unit}`;
+  return `${min}-${max} ${unit}`;
+}
+
+function formatTransportMoneyRange(values, currency) {
+  const nums = (Array.isArray(values) ? values : [])
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value));
+  if (!nums.length) return '—';
+  const min = Math.min(...nums);
+  const max = Math.max(...nums);
+  if (min === max) return transportMoney(min, currency);
+  return `${transportMoney(min, currency)} - ${transportMoney(max, currency)}`;
+}
+
+function applyTransportCityPairToRouteBulkScope(originGroup, destinationGroup) {
+  const origin = normalizeTransportCityGroupValue(originGroup);
+  const destination = normalizeTransportCityGroupValue(destinationGroup);
+  if (!origin || !destination) return;
+
+  const scopeModeEl = document.getElementById('transportRouteCityBulkScopeMode');
+  const originEl = document.getElementById('transportRouteCityBulkOriginGroup');
+  const destinationEl = document.getElementById('transportRouteCityBulkDestinationGroup');
+  const syncPricingEl = document.getElementById('transportCityPairSyncPricing');
+  if (scopeModeEl) scopeModeEl.value = 'city_pair';
+  if (originEl) originEl.value = origin;
+  if (destinationEl) destinationEl.value = destination;
+  if (syncPricingEl) syncPricingEl.checked = true;
+
+  syncTransportRouteCityBulkScopeControls();
+  syncTransportRouteCityBulkSummary();
+  syncTransportRouteCityBulkToPricingManager({ force: true });
+  showToast(`Loaded scope: ${getTransportCityPairLabel(origin, destination, false)}`, 'success');
+}
+
+function applyTransportCityPairToPricingBulkScope(originGroup, destinationGroup) {
+  const origin = normalizeTransportCityGroupValue(originGroup);
+  const destination = normalizeTransportCityGroupValue(destinationGroup);
+  if (!origin || !destination) return;
+
+  const scopeModeEl = document.getElementById('transportPricingCityBulkScopeMode');
+  const originEl = document.getElementById('transportPricingCityBulkOriginGroup');
+  const destinationEl = document.getElementById('transportPricingCityBulkDestinationGroup');
+  if (scopeModeEl) scopeModeEl.value = 'city_pair';
+  if (originEl) originEl.value = origin;
+  if (destinationEl) destinationEl.value = destination;
+
+  syncTransportPricingCityBulkScopeControls();
+  syncTransportPricingCityBulkSummary();
+  showToast(`Loaded pricing scope: ${getTransportCityPairLabel(origin, destination, false)}`, 'success');
+}
+
 function normalizeTransportTripMode(value) {
   const mode = String(value || '').trim().toLowerCase();
   if (mode === 'round_trip') return 'round_trip';
@@ -9965,11 +10285,7 @@ function refreshTransportControlRouteSelect() {
   const stateValue = String(transportAdminState.control?.routeId || '').trim();
   const preferred = previousValue || stateValue;
 
-  select.innerHTML = '<option value="">Select route</option>' + rows.map((row) => {
-    const id = String(row?.id || '').trim();
-    if (!id) return '';
-    return `<option value="${escapeHtml(id)}">${escapeHtml(getTransportRouteLabel(row))}</option>`;
-  }).join('');
+  select.innerHTML = '<option value="">Select route</option>' + buildTransportRouteOptionsGrouped(rows);
 
   let nextValue = '';
   if (preferred && existingIds.has(preferred)) {
@@ -10473,10 +10789,10 @@ async function loadTransportAssignablePartners(options = {}) {
   let hasTransportPermissionColumn = true;
 
   try {
-    const { data, error } = await client
-      .from('partners')
-      .select('id, name, slug, status, can_manage_transport')
-      .limit(1000);
+    const { data, error } = await runTransportMutation(
+      (db) => db.from('partners').select('id, name, slug, status, can_manage_transport').limit(1000),
+      { silentAuthNotice: true },
+    );
     if (error) {
       if (isMissingColumnError(error, 'can_manage_transport')) {
         hasTransportPermissionColumn = false;
@@ -10492,10 +10808,10 @@ async function loadTransportAssignablePartners(options = {}) {
 
   if (!rows.length && !hasTransportPermissionColumn) {
     try {
-      const { data, error } = await client
-        .from('partners')
-        .select('id, name, slug, status')
-        .limit(1000);
+      const { data, error } = await runTransportMutation(
+        (db) => db.from('partners').select('id, name, slug, status').limit(1000),
+        { silentAuthNotice: true },
+      );
       if (error) throw error;
       rows = Array.isArray(data) ? data : [];
     } catch (error) {
@@ -10544,24 +10860,41 @@ async function queryTransportTable(tableName, options = {}) {
   let lastError = null;
 
   for (const attempt of orderAttempts) {
+    let retriedAuth = false;
     try {
-      let q = client.from(tableName).select('*').limit(limit);
-      attempt.forEach((ord) => {
-        if (!ord?.column) return;
-        q = q.order(ord.column, { ascending: ord.ascending !== false });
-      });
+      while (true) {
+        let q = client.from(tableName).select('*').limit(limit);
+        attempt.forEach((ord) => {
+          if (!ord?.column) return;
+          q = q.order(ord.column, { ascending: ord.ascending !== false });
+        });
 
-      const { data, error } = await q;
-      if (!error) return { data: Array.isArray(data) ? data : [], error: null };
+        const { data, error } = await q;
+        if (!error) return { data: Array.isArray(data) ? data : [], error: null };
 
-      lastError = error;
-      const code = String(error.code || '');
-      const msg = String(error.message || '').toLowerCase();
-      if (code === '42703' || isSchemaCacheError(error) || msg.includes('column')) {
-        continue;
+        if (!retriedAuth && isTransportRecoverableAuthError(error)) {
+          retriedAuth = true;
+          const { recovered } = await handleTransportAuthExpiry(error, { silent: true });
+          if (recovered) continue;
+        }
+
+        lastError = error;
+        const code = String(error.code || '');
+        const msg = String(error.message || '').toLowerCase();
+        if (code === '42703' || isSchemaCacheError(error) || msg.includes('column')) {
+          break;
+        }
+        return { data: [], error };
       }
-      break;
+      continue;
     } catch (error) {
+      if (!retriedAuth && isTransportRecoverableAuthError(error)) {
+        retriedAuth = true;
+        const { recovered } = await handleTransportAuthExpiry(error, { silent: true });
+        if (recovered) {
+          continue;
+        }
+      }
       lastError = error;
       break;
     }
@@ -11425,11 +11758,7 @@ function refreshTransportRouteSelects() {
   const select = document.getElementById('transportPricingRoute');
   if (select) {
     const prev = String(select.value || '').trim();
-    select.innerHTML = '<option value="">Select route</option>' + rows.map((row) => `
-      <option value="${escapeHtml(String(row.id || ''))}">
-        ${escapeHtml(getTransportRouteLabel(row))}
-      </option>
-    `).join('');
+    select.innerHTML = '<option value="">Select route</option>' + buildTransportRouteOptionsGrouped(rows);
     if (prev) select.value = prev;
   }
 
@@ -12034,56 +12363,61 @@ function buildTransportRouteBulkPayloadFromForm() {
   };
 }
 
-async function applyTransportRouteCityBulkUpdate() {
+async function applyTransportRouteCityBulkUpdate(options = {}) {
   const client = ensureSupabase();
-  if (!client) return;
+  if (!client) return { ok: false, reason: 'no_client' };
+  const skipConfirm = Boolean(options?.skipConfirm);
+  const quiet = Boolean(options?.quiet);
 
   const selection = getTransportRouteCityBulkSelection();
   if (selection.scopeMode === 'city_pair' && (!selection.originGroup || !selection.destinationGroup)) {
     showToast('Select origin and destination city categories first', 'error');
-    return;
+    return { ok: false, reason: 'missing_scope' };
   }
   if (selection.scopeMode === 'single_route') {
     const formOriginId = String(document.getElementById('transportRouteOrigin')?.value || '').trim();
     const formDestinationId = String(document.getElementById('transportRouteDestination')?.value || '').trim();
     if (!formOriginId || !formDestinationId) {
       showToast('Select origin and destination in route form first', 'error');
-      return;
+      return { ok: false, reason: 'missing_single_route' };
     }
   }
   if (!selection.routeIds.length) {
     showToast(selection.scopeMode === 'single_route' ? 'No matched routes for selected route form pair' : 'No matched routes for selected city pair', 'info');
-    return;
+    return { ok: false, reason: 'no_routes' };
   }
 
   const payloadResult = buildTransportRouteBulkPayloadFromForm();
   if (payloadResult.error || !payloadResult.payload) {
     showToast(payloadResult.error || 'Invalid route form values', 'error');
-    return;
+    return { ok: false, reason: 'invalid_payload' };
   }
 
   const scopeLabel = selection.scopeMode === 'single_route'
     ? 'single route scope'
     : getTransportCityPairLabel(selection.originGroup, selection.destinationGroup, selection.includeReverse);
-  if (!confirm(`Apply current route form values to ${selection.routeIds.length} route(s) for ${scopeLabel}?`)) {
-    return;
+  if (!skipConfirm && !confirm(`Apply current route form values to ${selection.routeIds.length} route(s) for ${scopeLabel}?`)) {
+    return { ok: false, reason: 'cancelled' };
   }
 
   try {
     let updatedCount = 0;
     for (const chunk of chunkTransportList(selection.routeIds, 150)) {
-      const { error } = await client
-        .from(TRANSPORT_TABLES.routes)
-        .update(payloadResult.payload)
-        .in('id', chunk);
+      const { error } = await runTransportMutation(
+        (db) => db.from(TRANSPORT_TABLES.routes).update(payloadResult.payload).in('id', chunk),
+        { silentAuthNotice: true },
+      );
       if (error) throw error;
       updatedCount += chunk.length;
     }
 
-    showToast(`Updated ${updatedCount} route(s) for ${scopeLabel}`, 'success');
+    if (!quiet) {
+      showToast(`Updated ${updatedCount} route(s) for ${scopeLabel}`, 'success');
+    }
     await loadTransportRoutesData({ silent: true });
     await loadTransportPricingData({ silent: true });
     await loadTransportBookingsData({ silent: true });
+    return { ok: true, updatedCount, scopeLabel, routeIds: selection.routeIds.slice() };
   } catch (error) {
     console.error('Failed to apply route city bulk update:', error);
     if (
@@ -12091,9 +12425,10 @@ async function applyTransportRouteCityBulkUpdate() {
       || isMissingColumnError(error, 'round_trip_multiplier')
     ) {
       showToast('Run migration 111_transport_round_trip_waiting_hourly_and_deposit_rules.sql first', 'error');
-      return;
+      return { ok: false, reason: 'missing_columns', error };
     }
     showToast(String(error?.message || 'Failed to apply route bulk update'), 'error');
+    return { ok: false, reason: 'error', error };
   }
 }
 
@@ -12126,11 +12461,10 @@ async function deleteTransportRouteCityBulkMatches() {
   let linkedBookingCount = 0;
   try {
     for (const chunk of chunkTransportList(selection.routeIds, 120)) {
-      const { data, error } = await client
-        .from(TRANSPORT_TABLES.bookings)
-        .select('id')
-        .in('route_id', chunk)
-        .limit(1000);
+      const { data, error } = await runTransportMutation(
+        (db) => db.from(TRANSPORT_TABLES.bookings).select('id').in('route_id', chunk).limit(1000),
+        { silentAuthNotice: true },
+      );
       if (error && !isMissingTableError(error, TRANSPORT_TABLES.bookings)) {
         throw error;
       }
@@ -12155,20 +12489,19 @@ async function deleteTransportRouteCityBulkMatches() {
 
   try {
     for (const chunk of chunkTransportList(selection.routeIds, 120)) {
-      const pricingDelete = await client
-        .from(TRANSPORT_TABLES.pricing)
-        .delete()
-        .in('route_id', chunk);
+      const pricingDelete = await runTransportMutation(
+        (db) => db.from(TRANSPORT_TABLES.pricing).delete().in('route_id', chunk),
+        { silentAuthNotice: true },
+      );
       if (pricingDelete.error && !isMissingTableError(pricingDelete.error, TRANSPORT_TABLES.pricing)) {
         throw pricingDelete.error;
       }
 
       try {
-        const overridesDelete = await client
-          .from('service_deposit_overrides')
-          .delete()
-          .eq('resource_type', 'transport')
-          .in('resource_id', chunk);
+        const overridesDelete = await runTransportMutation(
+          (db) => db.from('service_deposit_overrides').delete().eq('resource_type', 'transport').in('resource_id', chunk),
+          { silentAuthNotice: true },
+        );
         if (overridesDelete.error && !isMissingTableError(overridesDelete.error, 'service_deposit_overrides')) {
           console.warn('Failed to clear transport deposit overrides for route chunk:', overridesDelete.error);
         }
@@ -12176,10 +12509,10 @@ async function deleteTransportRouteCityBulkMatches() {
         console.warn('Failed to clear transport deposit overrides for route chunk:', overrideError);
       }
 
-      const routeDelete = await client
-        .from(TRANSPORT_TABLES.routes)
-        .delete()
-        .in('id', chunk);
+      const routeDelete = await runTransportMutation(
+        (db) => db.from(TRANSPORT_TABLES.routes).delete().in('id', chunk),
+        { silentAuthNotice: true },
+      );
       if (routeDelete.error) throw routeDelete.error;
     }
 
@@ -12425,48 +12758,50 @@ function buildTransportPricingPayloadFromForm(routeId) {
   return { error: '', payload };
 }
 
-async function applyTransportPricingCityBulkUpdate() {
+async function applyTransportPricingCityBulkUpdate(options = {}) {
   const client = ensureSupabase();
-  if (!client) return;
+  if (!client) return { ok: false, reason: 'no_client' };
+  const skipConfirm = Boolean(options?.skipConfirm);
+  const quiet = Boolean(options?.quiet);
 
   const selection = getTransportPricingCityBulkSelection();
   if (selection.scopeMode === 'city_pair' && (!selection.originGroup || !selection.destinationGroup)) {
     showToast('Select origin and destination city categories first', 'error');
-    return;
+    return { ok: false, reason: 'missing_scope' };
   }
   if (selection.scopeMode === 'single_route') {
     const primaryRouteId = String(document.getElementById('transportPricingRoute')?.value || '').trim();
     if (!primaryRouteId) {
       showToast('Select route in pricing form first', 'error');
-      return;
+      return { ok: false, reason: 'missing_single_route' };
     }
   }
   if (!selection.routeIds.length) {
     showToast(selection.scopeMode === 'single_route' ? 'No matched routes for selected pricing route scope' : 'No matched routes for selected city pair', 'info');
-    return;
+    return { ok: false, reason: 'no_routes' };
   }
 
   const payloadResult = buildTransportPricingPayloadFromForm(selection.routeIds[0]);
   if (payloadResult.error || !payloadResult.payload) {
     showToast(payloadResult.error || 'Invalid pricing form values', 'error');
-    return;
+    return { ok: false, reason: 'invalid_payload' };
   }
 
   const cityPairLabel = selection.scopeMode === 'single_route'
     ? 'single route scope'
     : getTransportCityPairLabel(selection.originGroup, selection.destinationGroup, selection.includeReverse);
   const replaceLabel = selection.replaceExisting ? 'replace existing pricing rows' : 'add new pricing rows';
-  if (!confirm(`Apply current pricing form values to ${selection.routeIds.length} route(s) for ${cityPairLabel} and ${replaceLabel}?`)) {
-    return;
+  if (!skipConfirm && !confirm(`Apply current pricing form values to ${selection.routeIds.length} route(s) for ${cityPairLabel} and ${replaceLabel}?`)) {
+    return { ok: false, reason: 'cancelled' };
   }
 
   try {
     if (selection.replaceExisting) {
       for (const chunk of chunkTransportList(selection.routeIds, 120)) {
-        const { error } = await client
-          .from(TRANSPORT_TABLES.pricing)
-          .delete()
-          .in('route_id', chunk);
+        const { error } = await runTransportMutation(
+          (db) => db.from(TRANSPORT_TABLES.pricing).delete().in('route_id', chunk),
+          { silentAuthNotice: true },
+        );
         if (error && !isMissingTableError(error, TRANSPORT_TABLES.pricing)) throw error;
       }
     }
@@ -12481,9 +12816,10 @@ async function applyTransportPricingCityBulkUpdate() {
     let failedCount = 0;
 
     for (const chunkRows of chunkTransportList(rows, 120)) {
-      const { error: bulkInsertError } = await client
-        .from(TRANSPORT_TABLES.pricing)
-        .insert(chunkRows);
+      const { error: bulkInsertError } = await runTransportMutation(
+        (db) => db.from(TRANSPORT_TABLES.pricing).insert(chunkRows),
+        { silentAuthNotice: true },
+      );
 
       if (!bulkInsertError) {
         insertedCount += chunkRows.length;
@@ -12492,9 +12828,10 @@ async function applyTransportPricingCityBulkUpdate() {
 
       for (const row of chunkRows) {
         try {
-          const { error: rowError } = await client
-            .from(TRANSPORT_TABLES.pricing)
-            .insert(row);
+          const { error: rowError } = await runTransportMutation(
+            (db) => db.from(TRANSPORT_TABLES.pricing).insert(row),
+            { silentAuthNotice: true },
+          );
           if (!rowError) {
             insertedCount += 1;
             continue;
@@ -12531,9 +12868,19 @@ async function applyTransportPricingCityBulkUpdate() {
     if (depositSync.failed > 0) summaryParts.push(`deposit sync failed ${depositSync.failed}`);
     if (depositSync.missingDeps) summaryParts.push('deposit overrides table missing');
 
-    showToast(`Pricing bulk complete (${summaryParts.join(', ')})`, (failedCount || depositSync.failed) ? 'error' : 'success');
+    if (!quiet) {
+      showToast(`Pricing bulk complete (${summaryParts.join(', ')})`, (failedCount || depositSync.failed) ? 'error' : 'success');
+    }
     await loadTransportPricingData({ silent: true });
     syncTransportControlCenter();
+    return {
+      ok: true,
+      routeCount: selection.routeIds.length,
+      insertedCount,
+      duplicateCount,
+      failedCount,
+      depositSync,
+    };
   } catch (error) {
     console.error('Failed to apply pricing city bulk update:', error);
     if (
@@ -12543,10 +12890,39 @@ async function applyTransportPricingCityBulkUpdate() {
       || isMissingColumnError(error, 'deposit_value')
     ) {
       showToast('Run migration 111_transport_round_trip_waiting_hourly_and_deposit_rules.sql first', 'error');
-      return;
+      return { ok: false, reason: 'missing_columns', error };
     }
     showToast(String(error?.message || 'Failed to apply pricing bulk update'), 'error');
+    return { ok: false, reason: 'error', error };
   }
+}
+
+async function applyTransportRouteAndPricingCityBulkUpdate() {
+  const routeSelection = getTransportRouteCityBulkSelection();
+  if (!routeSelection.routeIds.length) {
+    showToast('Select valid city pair/scope with matched routes first', 'error');
+    return;
+  }
+
+  const scopeLabel = routeSelection.scopeMode === 'single_route'
+    ? 'current route scope'
+    : getTransportCityPairLabel(routeSelection.originGroup, routeSelection.destinationGroup, routeSelection.includeReverse);
+  if (!confirm(`Apply route values and pricing values together for ${routeSelection.routeIds.length} route(s) in ${scopeLabel}?`)) {
+    return;
+  }
+
+  syncTransportRouteCityBulkToPricingManager({ force: true });
+
+  const routeResult = await applyTransportRouteCityBulkUpdate({ skipConfirm: true, quiet: true });
+  if (!routeResult?.ok) return;
+
+  const pricingResult = await applyTransportPricingCityBulkUpdate({ skipConfirm: true, quiet: true });
+  if (!pricingResult?.ok) return;
+
+  showToast(
+    `Bundle applied: routes ${routeResult.updatedCount}, pricing inserted ${pricingResult.insertedCount || 0}${pricingResult.failedCount ? `, failed ${pricingResult.failedCount}` : ''}`,
+    pricingResult.failedCount ? 'error' : 'success',
+  );
 }
 
 async function deleteTransportPricingCityBulkMatches() {
@@ -12584,18 +12960,17 @@ async function deleteTransportPricingCityBulkMatches() {
 
   try {
     for (const chunk of chunkTransportList(selection.routeIds, 120)) {
-      const { error } = await client
-        .from(TRANSPORT_TABLES.pricing)
-        .delete()
-        .in('route_id', chunk);
+      const { error } = await runTransportMutation(
+        (db) => db.from(TRANSPORT_TABLES.pricing).delete().in('route_id', chunk),
+        { silentAuthNotice: true },
+      );
       if (error && !isMissingTableError(error, TRANSPORT_TABLES.pricing)) throw error;
 
       try {
-        const overridesDelete = await client
-          .from('service_deposit_overrides')
-          .delete()
-          .eq('resource_type', 'transport')
-          .in('resource_id', chunk);
+        const overridesDelete = await runTransportMutation(
+          (db) => db.from('service_deposit_overrides').delete().eq('resource_type', 'transport').in('resource_id', chunk),
+          { silentAuthNotice: true },
+        );
         if (overridesDelete.error && !isMissingTableError(overridesDelete.error, 'service_deposit_overrides')) {
           console.warn('Failed to clear transport deposit overrides for pricing chunk:', overridesDelete.error);
         }
@@ -12632,9 +13007,9 @@ async function saveTransportLocationRecord(client, payload, options = {}) {
   const id = String(options?.id || '').trim();
   const runWrite = async (rowPayload) => {
     if (id) {
-      return client.from(TRANSPORT_TABLES.locations).update(rowPayload).eq('id', id);
+      return runTransportMutation((db) => db.from(TRANSPORT_TABLES.locations).update(rowPayload).eq('id', id), { silentAuthNotice: true });
     }
-    return client.from(TRANSPORT_TABLES.locations).insert(rowPayload);
+    return runTransportMutation((db) => db.from(TRANSPORT_TABLES.locations).insert(rowPayload), { silentAuthNotice: true });
   };
 
   let fallbackMissingLocal = false;
@@ -12729,21 +13104,20 @@ async function deleteTransportLocation(locationId) {
   if (!client) return;
 
   try {
-    let { error } = await client
-      .from(TRANSPORT_TABLES.locations)
-      .delete()
-      .eq('id', id);
+    let { error } = await runTransportMutation(
+      (db) => db.from(TRANSPORT_TABLES.locations).delete().eq('id', id),
+      { silentAuthNotice: true },
+    );
 
     if (error) {
       const isRouteFkBlock = String(error.code || '').trim() === '23503'
         && String(error.message || '').toLowerCase().includes('transport_routes');
       if (!isRouteFkBlock) throw error;
 
-      const { data: linkedRoutes, error: linkedRoutesError } = await client
-        .from(TRANSPORT_TABLES.routes)
-        .select('id')
-        .or(`origin_location_id.eq.${id},destination_location_id.eq.${id}`)
-        .limit(5000);
+      const { data: linkedRoutes, error: linkedRoutesError } = await runTransportMutation(
+        (db) => db.from(TRANSPORT_TABLES.routes).select('id').or(`origin_location_id.eq.${id},destination_location_id.eq.${id}`).limit(5000),
+        { silentAuthNotice: true },
+      );
       if (linkedRoutesError) throw linkedRoutesError;
 
       const routeIds = Array.from(new Set((Array.isArray(linkedRoutes) ? linkedRoutes : [])
@@ -12763,17 +13137,17 @@ async function deleteTransportLocation(locationId) {
       const chunkSize = 200;
       for (let i = 0; i < routeIds.length; i += chunkSize) {
         const chunk = routeIds.slice(i, i + chunkSize);
-        const { error: deleteRoutesError } = await client
-          .from(TRANSPORT_TABLES.routes)
-          .delete()
-          .in('id', chunk);
+        const { error: deleteRoutesError } = await runTransportMutation(
+          (db) => db.from(TRANSPORT_TABLES.routes).delete().in('id', chunk),
+          { silentAuthNotice: true },
+        );
         if (deleteRoutesError) throw deleteRoutesError;
       }
 
-      ({ error } = await client
-        .from(TRANSPORT_TABLES.locations)
-        .delete()
-        .eq('id', id));
+      ({ error } = await runTransportMutation(
+        (db) => db.from(TRANSPORT_TABLES.locations).delete().eq('id', id),
+        { silentAuthNotice: true },
+      ));
       if (error) throw error;
 
       showToast(`Location deleted with ${routeIds.length} linked route(s)`, 'success');
@@ -13220,10 +13594,10 @@ async function deleteTransportRoute(routeId) {
   if (!client) return;
 
   try {
-    const { error } = await client
-      .from(TRANSPORT_TABLES.routes)
-      .delete()
-      .eq('id', id);
+    const { error } = await runTransportMutation(
+      (db) => db.from(TRANSPORT_TABLES.routes).delete().eq('id', id),
+      { silentAuthNotice: true },
+    );
     if (error) throw error;
     showToast('Transport route deleted', 'success');
     await loadTransportRoutesData({ silent: true });
@@ -13245,25 +13619,88 @@ function renderTransportRoutesTable() {
     return;
   }
 
-  tbody.innerHTML = rows.map((row) => {
-    const id = String(row.id || '');
-    const included = `${Number(row.included_passengers ?? 2)} pax / ${Number(row.included_bags ?? 2)} bags`;
-    const limits = `${Number(row.max_passengers ?? 8)} pax / ${Number(row.max_bags ?? 8)} bags`;
-    const tripModeLabel = transportRouteTripModeLabel(row);
+  const grouped = new Map();
+  rows.forEach((row) => {
+    const meta = getTransportRouteCityPairMeta(row);
+    if (!grouped.has(meta.key)) {
+      grouped.set(meta.key, {
+        ...meta,
+        rows: [],
+      });
+    }
+    grouped.get(meta.key).rows.push(row);
+  });
+
+  const groups = Array.from(grouped.values())
+    .map((group) => ({
+      ...group,
+      rows: group.rows.slice().sort((a, b) => {
+        const sortDiff = Number(a?.sort_order || 0) - Number(b?.sort_order || 0);
+        if (sortDiff !== 0) return sortDiff;
+        return getTransportRouteLabel(a).localeCompare(getTransportRouteLabel(b));
+      }),
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+
+  tbody.innerHTML = groups.map((group) => {
+    const currencySet = new Set(group.rows.map((row) => String(row?.currency || 'EUR').trim().toUpperCase() || 'EUR'));
+    const oneCurrency = currencySet.size === 1 ? Array.from(currencySet)[0] : '';
+    const dayLabel = oneCurrency
+      ? formatTransportMoneyRange(group.rows.map((row) => row?.day_price), oneCurrency)
+      : `${group.rows.length} mixed routes`;
+    const nightLabel = oneCurrency
+      ? formatTransportMoneyRange(group.rows.map((row) => row?.night_price), oneCurrency)
+      : `${group.rows.length} mixed routes`;
+    const included = `${formatTransportIntegerRange(group.rows.map((row) => row?.included_passengers ?? 2), 'pax')} / ${formatTransportIntegerRange(group.rows.map((row) => row?.included_bags ?? 2), 'bags')}`;
+    const limits = `${formatTransportIntegerRange(group.rows.map((row) => row?.max_passengers ?? 8), 'pax')} / ${formatTransportIntegerRange(group.rows.map((row) => row?.max_bags ?? 8), 'bags')}`;
+    const tripModes = Array.from(new Set(group.rows.map((row) => transportRouteTripModeLabel(row))));
+    const tripModeLabel = tripModes.length === 1 ? tripModes[0] : 'MIXED';
+    const activeCount = group.rows.filter((row) => row?.is_active !== false).length;
+    const updatedTs = group.rows
+      .map((row) => new Date(row?.updated_at || row?.created_at || 0).getTime())
+      .filter((value) => Number.isFinite(value));
+    const latestUpdated = updatedTs.length ? new Date(Math.max(...updatedTs)).toISOString() : '';
+    const detailsRows = group.rows.map((row) => {
+      const id = String(row?.id || '').trim();
+      if (!id) return '';
+      const routeLabel = getTransportRouteLabel(row);
+      const rowCurrency = String(row?.currency || 'EUR').trim().toUpperCase() || 'EUR';
+      const rowIncluded = `${Number(row?.included_passengers ?? 2)} pax / ${Number(row?.included_bags ?? 2)} bags`;
+      return `
+        <div class="transport-stacked-item">
+          <div class="transport-stacked-item__body">
+            <div class="transport-stacked-item__title">${escapeHtml(routeLabel)}</div>
+            <div class="transport-stacked-item__meta">
+              Day ${escapeHtml(transportMoney(row?.day_price, rowCurrency))} · Night ${escapeHtml(transportMoney(row?.night_price, rowCurrency))} · ${escapeHtml(rowIncluded)}
+            </div>
+          </div>
+          <div class="transport-stacked-item__actions">
+            <button class="btn-small btn-secondary" type="button" onclick="openTransportPricingForRoute('${escapeHtml(id)}')">Pricing</button>
+            <button class="btn-small btn-secondary" type="button" onclick="editTransportRoute('${escapeHtml(id)}')">Edit</button>
+            <button class="btn-small btn-danger" type="button" onclick="deleteTransportRoute('${escapeHtml(id)}')">Delete</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
     return `
       <tr>
-        <td data-label="Route">${escapeHtml(getTransportRouteLabel(row))}</td>
-        <td data-label="Day" style="text-align: right;">${escapeHtml(transportMoney(row.day_price, row.currency || 'EUR'))}</td>
-        <td data-label="Night" style="text-align: right;">${escapeHtml(transportMoney(row.night_price, row.currency || 'EUR'))}</td>
+        <td data-label="Route">
+          <div style="font-weight: 600;">${escapeHtml(group.label)}</div>
+          <details class="transport-stack-details">
+            <summary>Show ${group.rows.length} route variant(s)</summary>
+            <div class="transport-stacked-list">${detailsRows}</div>
+          </details>
+        </td>
+        <td data-label="Day" style="text-align: right;">${escapeHtml(dayLabel)}</td>
+        <td data-label="Night" style="text-align: right;">${escapeHtml(nightLabel)}</td>
         <td data-label="Included">${escapeHtml(included)}</td>
         <td data-label="Limits">${escapeHtml(limits)}</td>
         <td data-label="Trip mode">${escapeHtml(tripModeLabel)}</td>
-        <td data-label="Status">${row.is_active === false ? '<span class="badge">INACTIVE</span>' : '<span class="badge badge-success">ACTIVE</span>'}</td>
-        <td data-label="Updated">${transportIsoToLabel(row.updated_at || row.created_at)}</td>
+        <td data-label="Status">${activeCount === group.rows.length ? '<span class="badge badge-success">ALL ACTIVE</span>' : `<span class="badge">${activeCount}/${group.rows.length} ACTIVE</span>`}</td>
+        <td data-label="Updated">${latestUpdated ? transportIsoToLabel(latestUpdated) : '—'}</td>
         <td data-label="Actions" style="text-align: right;">
-          <button class="btn-small btn-secondary" type="button" onclick="openTransportPricingForRoute('${escapeHtml(id)}')">Pricing</button>
-          <button class="btn-small btn-secondary" type="button" onclick="editTransportRoute('${escapeHtml(id)}')">Edit</button>
-          <button class="btn-small btn-danger" type="button" onclick="deleteTransportRoute('${escapeHtml(id)}')">Delete</button>
+          <button class="btn-small btn-secondary" type="button" onclick="applyTransportCityPairToRouteBulkScope('${escapeHtml(group.originGroup)}','${escapeHtml(group.destinationGroup)}')">Load Scope</button>
         </td>
       </tr>
     `;
@@ -13402,10 +13839,10 @@ async function saveTransportRouteForm(event) {
           reverseSkipped += 1;
           return;
         }
-        const { error: reverseUpdateError } = await client
-          .from(TRANSPORT_TABLES.routes)
-          .update(reversePayload)
-          .eq('id', reverseRouteId);
+        const { error: reverseUpdateError } = await runTransportMutation(
+          (db) => db.from(TRANSPORT_TABLES.routes).update(reversePayload).eq('id', reverseRouteId),
+          { silentAuthNotice: true },
+        );
         if (reverseUpdateError) throw reverseUpdateError;
         reverseUpdated += 1;
         return;
@@ -13413,9 +13850,10 @@ async function saveTransportRouteForm(event) {
 
       if (!createReversePair) return;
 
-      const { error: reverseInsertError } = await client
-        .from(TRANSPORT_TABLES.routes)
-        .insert(reversePayload);
+      const { error: reverseInsertError } = await runTransportMutation(
+        (db) => db.from(TRANSPORT_TABLES.routes).insert(reversePayload),
+        { silentAuthNotice: true },
+      );
       if (reverseInsertError) {
         const code = String(reverseInsertError.code || '').trim();
         const message = String(reverseInsertError.message || '').toLowerCase();
@@ -13430,7 +13868,10 @@ async function saveTransportRouteForm(event) {
 
     let error = null;
     if (id) {
-      ({ error } = await client.from(TRANSPORT_TABLES.routes).update(payload).eq('id', id));
+      ({ error } = await runTransportMutation(
+        (db) => db.from(TRANSPORT_TABLES.routes).update(payload).eq('id', id),
+        { silentAuthNotice: true },
+      ));
       if (error) throw error;
       if (syncReverseRoute || createReversePair) {
         try {
@@ -13441,7 +13882,10 @@ async function saveTransportRouteForm(event) {
         }
       }
     } else {
-      ({ error } = await client.from(TRANSPORT_TABLES.routes).insert(payload));
+      ({ error } = await runTransportMutation(
+        (db) => db.from(TRANSPORT_TABLES.routes).insert(payload),
+        { silentAuthNotice: true },
+      ));
       if (error) throw error;
       if (syncReverseRoute || createReversePair) {
         try {
@@ -13570,7 +14014,10 @@ async function createTransportRouteSetFromCurrentForm() {
     };
 
     try {
-      const { error } = await client.from(TRANSPORT_TABLES.routes).insert(payload);
+      const { error } = await runTransportMutation(
+        (db) => db.from(TRANSPORT_TABLES.routes).insert(payload),
+        { silentAuthNotice: true },
+      );
       if (error) {
         const code = String(error.code || '').trim();
         const message = String(error.message || '').toLowerCase();
@@ -13781,10 +14228,10 @@ async function deleteTransportPricingRule(ruleId) {
   if (!client) return;
 
   try {
-    const { error } = await client
-      .from(TRANSPORT_TABLES.pricing)
-      .delete()
-      .eq('id', id);
+    const { error } = await runTransportMutation(
+      (db) => db.from(TRANSPORT_TABLES.pricing).delete().eq('id', id),
+      { silentAuthNotice: true },
+    );
     if (error) throw error;
     showToast('Transport pricing rule deleted', 'success');
     await loadTransportPricingData({ silent: true });
@@ -13804,39 +14251,91 @@ function renderTransportPricingTable() {
     return;
   }
 
-  tbody.innerHTML = rows.map((row) => {
-    const id = String(row.id || '');
-    const route = transportAdminState.routeById[String(row.route_id || '').trim()] || null;
-    const currency = String(route?.currency || 'EUR').trim().toUpperCase() || 'EUR';
-    const surcharges = [
-      `+pax ${transportMoney(row.extra_passenger_fee || 0, currency)}`,
-      `+bag ${transportMoney(row.extra_bag_fee || 0, currency)}`,
-      `+oversize ${transportMoney(row.oversize_bag_fee || 0, currency)}`,
-      `child seat ${transportMoney(row.child_seat_fee || 0, currency)}`,
-      `booster ${transportMoney(row.booster_seat_fee || 0, currency)}`,
-    ].join(' · ');
-    const waitingPerHour = Number(row.waiting_fee_per_hour || 0) > 0
-      ? Number(row.waiting_fee_per_hour || 0)
-      : (Number(row.waiting_fee_per_minute || 0) * 60);
-    const waiting = `${Number(row.waiting_included_minutes || 0)} min incl. · ${transportMoney(waitingPerHour || 0, currency)}/hour`;
-    const validity = `${row.valid_from ? transportDateToLabel(row.valid_from) : 'always'} → ${row.valid_to ? transportDateToLabel(row.valid_to) : 'no end'}`;
-    const depositEnabled = Boolean(row.deposit_enabled);
-    const depositLabel = depositEnabled
-      ? `${transportDepositModeLabel(row.deposit_mode, currency)} · ${row.deposit_mode === 'percent_total' ? `${Number(row.deposit_value || 0)}%` : transportMoney(row.deposit_value || 0, currency)}`
-      : 'No deposit';
+  const grouped = new Map();
+  rows.forEach((row) => {
+    const route = transportAdminState.routeById[String(row?.route_id || '').trim()] || null;
+    const meta = getTransportRouteCityPairMeta(route || {});
+    if (!grouped.has(meta.key)) {
+      grouped.set(meta.key, {
+        ...meta,
+        rows: [],
+      });
+    }
+    grouped.get(meta.key).rows.push(row);
+  });
+
+  const groups = Array.from(grouped.values())
+    .map((group) => ({
+      ...group,
+      rows: group.rows.slice().sort((a, b) => Number(a?.priority || 0) - Number(b?.priority || 0)),
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+
+  tbody.innerHTML = groups.map((group) => {
+    const currencies = new Set(group.rows.map((row) => {
+      const route = transportAdminState.routeById[String(row?.route_id || '').trim()] || null;
+      return String(route?.currency || 'EUR').trim().toUpperCase() || 'EUR';
+    }));
+    const currency = currencies.size === 1 ? Array.from(currencies)[0] : 'EUR';
+    const waitingPerHourValues = group.rows.map((row) => {
+      const perHour = Number(row?.waiting_fee_per_hour || 0);
+      if (perHour > 0) return perHour;
+      return Number(row?.waiting_fee_per_minute || 0) * 60;
+    });
+    const waitingLabel = `${formatTransportIntegerRange(group.rows.map((row) => row?.waiting_included_minutes || 0), 'min incl.')} · ${formatTransportMoneyRange(waitingPerHourValues, currency)}/hour`;
+    const enabledDeposits = group.rows.filter((row) => Boolean(row?.deposit_enabled)).length;
+    const priorityValues = group.rows.map((row) => Number(row?.priority || 0));
+    const minPriority = priorityValues.length ? Math.min(...priorityValues) : 0;
+    const maxPriority = priorityValues.length ? Math.max(...priorityValues) : 0;
+    const priorityLabel = minPriority === maxPriority ? String(minPriority) : `${minPriority}-${maxPriority}`;
+    const activeCount = group.rows.filter((row) => row?.is_active !== false).length;
+
+    const detailsRows = group.rows.map((row) => {
+      const id = String(row?.id || '').trim();
+      if (!id) return '';
+      const route = transportAdminState.routeById[String(row?.route_id || '').trim()] || null;
+      const rowCurrency = String(route?.currency || 'EUR').trim().toUpperCase() || 'EUR';
+      const surcharges = [
+        `+pax ${transportMoney(row?.extra_passenger_fee || 0, rowCurrency)}`,
+        `+bag ${transportMoney(row?.extra_bag_fee || 0, rowCurrency)}`,
+        `+oversize ${transportMoney(row?.oversize_bag_fee || 0, rowCurrency)}`,
+      ].join(' · ');
+      const depositEnabled = Boolean(row?.deposit_enabled);
+      const depositLabel = depositEnabled
+        ? `${transportDepositModeLabel(row?.deposit_mode, rowCurrency)} · ${row?.deposit_mode === 'percent_total' ? `${Number(row?.deposit_value || 0)}%` : transportMoney(row?.deposit_value || 0, rowCurrency)}`
+        : 'No deposit';
+      return `
+        <div class="transport-stacked-item">
+          <div class="transport-stacked-item__body">
+            <div class="transport-stacked-item__title">${escapeHtml(getTransportRouteLabelById(row?.route_id))} · P${Number(row?.priority || 0)}</div>
+            <div class="transport-stacked-item__meta">${escapeHtml(surcharges)} · ${escapeHtml(depositLabel)}</div>
+          </div>
+          <div class="transport-stacked-item__actions">
+            <button class="btn-small btn-secondary" type="button" onclick="editTransportPricingRule('${escapeHtml(id)}')">Edit</button>
+            <button class="btn-small btn-danger" type="button" onclick="deleteTransportPricingRule('${escapeHtml(id)}')">Delete</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
     return `
       <tr>
-        <td data-label="Route">${escapeHtml(getTransportRouteLabelById(row.route_id))}</td>
-        <td data-label="Surcharges">${escapeHtml(surcharges)}</td>
-        <td data-label="Night window">${escapeHtml(`${String(row.night_start || '22:00').slice(0, 5)} - ${String(row.night_end || '06:00').slice(0, 5)}`)}</td>
-        <td data-label="Waiting">${escapeHtml(waiting)}</td>
-        <td data-label="Validity">${escapeHtml(validity)}</td>
-        <td data-label="Deposit">${escapeHtml(depositLabel)}</td>
-        <td data-label="Priority">${Number(row.priority || 0)}</td>
-        <td data-label="Status">${row.is_active === false ? '<span class="badge">INACTIVE</span>' : '<span class="badge badge-success">ACTIVE</span>'}</td>
+        <td data-label="Route">
+          <div style="font-weight: 600;">${escapeHtml(group.label)}</div>
+          <details class="transport-stack-details">
+            <summary>Show ${group.rows.length} pricing rule(s)</summary>
+            <div class="transport-stacked-list">${detailsRows}</div>
+          </details>
+        </td>
+        <td data-label="Surcharges">${escapeHtml(`Rules ${group.rows.length}`)}</td>
+        <td data-label="Night window">${escapeHtml(`${group.rows.length} configured`)}</td>
+        <td data-label="Waiting">${escapeHtml(waitingLabel)}</td>
+        <td data-label="Validity">${escapeHtml('Mixed / per rule')}</td>
+        <td data-label="Deposit">${escapeHtml(`${enabledDeposits}/${group.rows.length} enabled`)}</td>
+        <td data-label="Priority">${escapeHtml(priorityLabel)}</td>
+        <td data-label="Status">${activeCount === group.rows.length ? '<span class="badge badge-success">ALL ACTIVE</span>' : `<span class="badge">${activeCount}/${group.rows.length} ACTIVE</span>`}</td>
         <td data-label="Actions" style="text-align: right;">
-          <button class="btn-small btn-secondary" type="button" onclick="editTransportPricingRule('${escapeHtml(id)}')">Edit</button>
-          <button class="btn-small btn-danger" type="button" onclick="deleteTransportPricingRule('${escapeHtml(id)}')">Delete</button>
+          <button class="btn-small btn-secondary" type="button" onclick="applyTransportCityPairToPricingBulkScope('${escapeHtml(group.originGroup)}','${escapeHtml(group.destinationGroup)}')">Load Scope</button>
         </td>
       </tr>
     `;
@@ -13970,9 +14469,15 @@ async function saveTransportPricingForm(event) {
 
     let error = null;
     if (id) {
-      ({ error } = await client.from(TRANSPORT_TABLES.pricing).update(payload).eq('id', id));
+      ({ error } = await runTransportMutation(
+        (db) => db.from(TRANSPORT_TABLES.pricing).update(payload).eq('id', id),
+        { silentAuthNotice: true },
+      ));
     } else {
-      ({ error } = await client.from(TRANSPORT_TABLES.pricing).insert(payload));
+      ({ error } = await runTransportMutation(
+        (db) => db.from(TRANSPORT_TABLES.pricing).insert(payload),
+        { silentAuthNotice: true },
+      ));
     }
     if (error) throw error;
 
@@ -13984,16 +14489,20 @@ async function saveTransportPricingForm(event) {
       }));
 
       try {
-        const { error: bulkCloneError } = await client
-          .from(TRANSPORT_TABLES.pricing)
-          .insert(cloneRows);
+        const { error: bulkCloneError } = await runTransportMutation(
+          (db) => db.from(TRANSPORT_TABLES.pricing).insert(cloneRows),
+          { silentAuthNotice: true },
+        );
         if (bulkCloneError) throw bulkCloneError;
         clonedRulesCount = cloneRows.length;
       } catch (bulkError) {
         console.warn('Bulk pricing clone failed, falling back to per-route insert:', bulkError);
         for (const row of cloneRows) {
           try {
-            const { error: rowError } = await client.from(TRANSPORT_TABLES.pricing).insert(row);
+            const { error: rowError } = await runTransportMutation(
+              (db) => db.from(TRANSPORT_TABLES.pricing).insert(row),
+              { silentAuthNotice: true },
+            );
             if (!rowError) {
               clonedRulesCount += 1;
               continue;
@@ -14195,11 +14704,14 @@ async function viewTransportBookingDetails(bookingId) {
   let booking = (transportAdminState.bookings || []).find((row) => String(row?.id || '') === id) || null;
   if (!booking) {
     try {
-      const { data, error } = await client
-        .from(TRANSPORT_TABLES.bookings)
-        .select('*')
-        .eq('id', id)
-        .single();
+      const { data, error } = await runTransportMutation(
+        (db) => db
+          .from(TRANSPORT_TABLES.bookings)
+          .select('*')
+          .eq('id', id)
+          .single(),
+        { silentAuthNotice: true },
+      );
       if (error) throw error;
       booking = data || null;
     } catch (error) {
@@ -14215,13 +14727,16 @@ async function viewTransportBookingDetails(bookingId) {
   let fulfillment = null;
   let fulfillmentRows = [];
   try {
-    const { data: rows } = await client
-      .from('partner_service_fulfillments')
-      .select('id, status, contact_revealed_at, rejected_reason, partner_id, created_at')
-      .eq('resource_type', 'transport')
-      .eq('booking_id', id)
-      .order('created_at', { ascending: false })
-      .limit(50);
+    const { data: rows } = await runTransportMutation(
+      (db) => db
+        .from('partner_service_fulfillments')
+        .select('id, status, contact_revealed_at, rejected_reason, partner_id, created_at')
+        .eq('resource_type', 'transport')
+        .eq('booking_id', id)
+        .order('created_at', { ascending: false })
+        .limit(50),
+      { silentAuthNotice: true },
+    );
     fulfillmentRows = Array.isArray(rows) ? rows : [];
     fulfillment = pickBestServiceFulfillment(fulfillmentRows) || null;
   } catch (_e) {
@@ -14456,13 +14971,17 @@ async function assignTransportBookingPartnerFallback(client, booking, partnerId)
 
   const closeStatuses = ['pending_acceptance', 'awaiting_payment', 'accepted', 'expired'];
   try {
-    await client
-      .from('partner_service_fulfillments')
-      .update({ status: 'closed', updated_at: nowIso })
-      .eq('resource_type', 'transport')
-      .eq('booking_id', bookingId)
-      .neq('partner_id', partnerId)
-      .in('status', closeStatuses);
+    const { error: closeError } = await runTransportMutation(
+      (db) => db
+        .from('partner_service_fulfillments')
+        .update({ status: 'closed', updated_at: nowIso })
+        .eq('resource_type', 'transport')
+        .eq('booking_id', bookingId)
+        .neq('partner_id', partnerId)
+        .in('status', closeStatuses),
+      { silentAuthNotice: true },
+    );
+    if (closeError) throw closeError;
   } catch (_e) {
   }
 
@@ -14490,23 +15009,26 @@ async function assignTransportBookingPartnerFallback(client, booking, partnerId)
     p_created_at: booking.created_at || nowIso,
   };
 
-  const { data: rpcFid, error: rpcError } = await client.rpc(
-    'upsert_partner_service_fulfillment_from_booking_with_partner',
-    rpcPayload,
+  const { data: rpcFid, error: rpcError } = await runTransportMutation(
+    (db) => db.rpc('upsert_partner_service_fulfillment_from_booking_with_partner', rpcPayload),
+    { silentAuthNotice: true },
   );
   if (rpcError) throw rpcError;
   if (rpcFid) fid = String(rpcFid);
 
   let selectedRow = null;
   try {
-    const { data, error } = await client
-      .from('partner_service_fulfillments')
-      .select('id, status')
-      .eq('resource_type', 'transport')
-      .eq('booking_id', booking.id)
-      .eq('partner_id', partnerId)
-      .order('created_at', { ascending: false })
-      .limit(1);
+    const { data, error } = await runTransportMutation(
+      (db) => db
+        .from('partner_service_fulfillments')
+        .select('id, status')
+        .eq('resource_type', 'transport')
+        .eq('booking_id', booking.id)
+        .eq('partner_id', partnerId)
+        .order('created_at', { ascending: false })
+        .limit(1),
+      { silentAuthNotice: true },
+    );
     if (error) throw error;
     selectedRow = Array.isArray(data) && data.length ? data[0] : null;
   } catch (_e) {
@@ -14519,19 +15041,23 @@ async function assignTransportBookingPartnerFallback(client, booking, partnerId)
   const selectedStatus = String(selectedRow?.status || '').trim().toLowerCase();
   if (selectedStatus === 'closed' || selectedStatus === 'rejected' || selectedStatus === 'expired') {
     try {
-      await client
-        .from('partner_service_fulfillments')
-        .update({
-          status: 'pending_acceptance',
-          accepted_at: null,
-          accepted_by: null,
-          rejected_at: null,
-          rejected_by: null,
-          rejected_reason: null,
-          contact_revealed_at: null,
-          updated_at: nowIso,
-        })
-        .eq('id', targetFid);
+      const { error: reopenError } = await runTransportMutation(
+        (db) => db
+          .from('partner_service_fulfillments')
+          .update({
+            status: 'pending_acceptance',
+            accepted_at: null,
+            accepted_by: null,
+            rejected_at: null,
+            rejected_by: null,
+            rejected_reason: null,
+            contact_revealed_at: null,
+            updated_at: nowIso,
+          })
+          .eq('id', targetFid),
+        { silentAuthNotice: true },
+      );
+      if (reopenError) throw reopenError;
     } catch (_e) {
     }
   }
@@ -14580,21 +15106,29 @@ async function assignTransportBookingPartnerFallback(client, booking, partnerId)
   };
 
   try {
-    await client
-      .from('partner_service_fulfillments')
-      .update({ details: detailsPayload })
-      .eq('id', targetFid);
+    const { error: detailsError } = await runTransportMutation(
+      (db) => db
+        .from('partner_service_fulfillments')
+        .update({ details: detailsPayload })
+        .eq('id', targetFid),
+      { silentAuthNotice: true },
+    );
+    if (detailsError) throw detailsError;
   } catch (_e) {
   }
 
   try {
-    await client
-      .from('partner_service_fulfillment_form_snapshots')
-      .upsert({
-        fulfillment_id: targetFid,
-        payload: formPayload,
-        created_at: booking.created_at || nowIso,
-      }, { onConflict: 'fulfillment_id' });
+    const { error: snapshotError } = await runTransportMutation(
+      (db) => db
+        .from('partner_service_fulfillment_form_snapshots')
+        .upsert({
+          fulfillment_id: targetFid,
+          payload: formPayload,
+          created_at: booking.created_at || nowIso,
+        }, { onConflict: 'fulfillment_id' }),
+      { silentAuthNotice: true },
+    );
+    if (snapshotError) throw snapshotError;
   } catch (_e) {
   }
 }
@@ -14623,11 +15157,14 @@ async function assignTransportBookingPartner(bookingId) {
   let booking = (transportAdminState.bookings || []).find((row) => String(row?.id || '') === id) || null;
   if (!booking) {
     try {
-      const { data, error } = await client
-        .from(TRANSPORT_TABLES.bookings)
-        .select('*')
-        .eq('id', id)
-        .single();
+      const { data, error } = await runTransportMutation(
+        (db) => db
+          .from(TRANSPORT_TABLES.bookings)
+          .select('*')
+          .eq('id', id)
+          .single(),
+        { silentAuthNotice: true },
+      );
       if (error) throw error;
       booking = data || null;
     } catch (error) {
@@ -14654,10 +15191,13 @@ async function assignTransportBookingPartner(bookingId) {
       updated_at: nowIso,
     };
 
-    const { error: assignError } = await client
-      .from(TRANSPORT_TABLES.bookings)
-      .update(assignmentPayload)
-      .eq('id', id);
+    const { error: assignError } = await runTransportMutation(
+      (db) => db
+        .from(TRANSPORT_TABLES.bookings)
+        .update(assignmentPayload)
+        .eq('id', id),
+      { silentAuthNotice: true },
+    );
 
     if (assignError) {
       if (isMissingColumnError(assignError, 'assigned_partner_id')) {
@@ -14690,16 +15230,19 @@ async function clearTransportBookingPartnerAssignment(bookingId) {
 
   try {
     const nowIso = new Date().toISOString();
-    const { error } = await client
-      .from(TRANSPORT_TABLES.bookings)
-      .update({
-        assigned_partner_id: null,
-        assigned_at: null,
-        assigned_by: null,
-        assignment_note: null,
-        updated_at: nowIso,
-      })
-      .eq('id', id);
+    const { error } = await runTransportMutation(
+      (db) => db
+        .from(TRANSPORT_TABLES.bookings)
+        .update({
+          assigned_partner_id: null,
+          assigned_at: null,
+          assigned_by: null,
+          assignment_note: null,
+          updated_at: nowIso,
+        })
+        .eq('id', id),
+      { silentAuthNotice: true },
+    );
     if (error) throw error;
 
     showToast('Transport assignment cleared', 'success');
@@ -14729,10 +15272,13 @@ async function updateTransportBookingStatus(bookingId, newStatus) {
       status,
       updated_at: new Date().toISOString(),
     };
-    const { error } = await client
-      .from(TRANSPORT_TABLES.bookings)
-      .update(payload)
-      .eq('id', id);
+    const { error } = await runTransportMutation(
+      (db) => db
+        .from(TRANSPORT_TABLES.bookings)
+        .update(payload)
+        .eq('id', id),
+      { silentAuthNotice: true },
+    );
     if (error) throw error;
 
     showToast(`Status updated to ${status}`, 'success');
@@ -14758,18 +15304,25 @@ async function deleteTransportBooking(bookingId) {
 
   try {
     try {
-      await client
-        .from('partner_service_fulfillments')
-        .delete()
-        .eq('resource_type', 'transport')
-        .eq('booking_id', id);
+      const { error: fulfillmentDeleteError } = await runTransportMutation(
+        (db) => db
+          .from('partner_service_fulfillments')
+          .delete()
+          .eq('resource_type', 'transport')
+          .eq('booking_id', id),
+        { silentAuthNotice: true },
+      );
+      if (fulfillmentDeleteError) throw fulfillmentDeleteError;
     } catch (_e) {
     }
 
-    const { error } = await client
-      .from(TRANSPORT_TABLES.bookings)
-      .delete()
-      .eq('id', id);
+    const { error } = await runTransportMutation(
+      (db) => db
+        .from(TRANSPORT_TABLES.bookings)
+        .delete()
+        .eq('id', id),
+      { silentAuthNotice: true },
+    );
     if (error) throw error;
 
     showToast('Transport booking deleted', 'success');
@@ -15080,6 +15633,12 @@ function bindTransportAdminUi() {
       void applyTransportRouteCityBulkUpdate();
     });
   }
+  const btnRoutePricingBulkApply = document.getElementById('btnTransportRoutePricingBulkApply');
+  if (btnRoutePricingBulkApply) {
+    btnRoutePricingBulkApply.addEventListener('click', () => {
+      void applyTransportRouteAndPricingCityBulkUpdate();
+    });
+  }
   const btnRouteCityBulkDelete = document.getElementById('btnTransportRouteCityBulkDelete');
   if (btnRouteCityBulkDelete) {
     btnRouteCityBulkDelete.addEventListener('click', () => {
@@ -15329,6 +15888,8 @@ window.assignTransportBookingPartner = assignTransportBookingPartner;
 window.clearTransportBookingPartnerAssignment = clearTransportBookingPartnerAssignment;
 window.updateTransportBookingStatus = updateTransportBookingStatus;
 window.deleteTransportBooking = deleteTransportBooking;
+window.applyTransportCityPairToRouteBulkScope = applyTransportCityPairToRouteBulkScope;
+window.applyTransportCityPairToPricingBulkScope = applyTransportCityPairToPricingBulkScope;
 
 async function deletePartnerResourcesFor(resourceType, resourceId) {
   const client = ensureSupabase();
