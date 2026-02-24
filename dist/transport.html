@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="assets/css/tokens.css" />
   <link rel="stylesheet" href="assets/css/base.css" />
   <link rel="stylesheet" href="css/toast.css" />
-  <link rel="stylesheet" href="css/transport-booking.css?v=20260224_2" />
+  <link rel="stylesheet" href="css/transport-booking.css?v=20260224_3" />
   <meta name="ce-auth" content="on" />
   <script type="module" src="js/supabaseClient.js"></script>
   <script type="module" src="js/toast.js"></script>
@@ -191,8 +191,7 @@
             <span class="transport-quote__badge">Live pricing</span>
             <h3>Total quote</h3>
           </div>
-          <div id="transportQuoteStatus" class="transport-status">Loading transport data...</div>
-          <div id="transportRouteMeta" class="transport-route-meta">Route details will appear after selecting pickup and destination.</div>
+          <div id="transportQuoteStatus" class="transport-status" hidden></div>
 
           <ul class="transport-breakdown">
             <li id="transportQuoteRowOutbound" class="transport-breakdown__row" hidden><span>Outbound leg total</span><strong id="transportQuoteOutbound">—</strong></li>
@@ -203,7 +202,7 @@
             <li id="transportQuoteRowOversize" class="transport-breakdown__row" hidden><span>Extra large bags (15kg+)</span><strong id="transportQuoteOversize">—</strong></li>
             <li id="transportQuoteRowSeats" class="transport-breakdown__row" hidden><span>Child + booster seats</span><strong id="transportQuoteSeats">—</strong></li>
             <li id="transportQuoteRowWaiting" class="transport-breakdown__row" hidden><span>Waiting fee</span><strong id="transportQuoteWaiting">—</strong></li>
-            <li id="transportQuoteRowDeposit" class="transport-breakdown__row transport-breakdown--deposit" hidden><span>Deposit to pay now</span><strong id="transportQuoteDeposit">—</strong></li>
+            <li id="transportQuoteRowDeposit" class="transport-breakdown__row transport-breakdown--deposit" hidden><span>Pay now to book</span><strong id="transportQuoteDeposit">—</strong></li>
           </ul>
 
           <div class="transport-total">
@@ -218,6 +217,6 @@
     </section>
   </main>
 
-  <script type="module" src="js/transport-booking.js?v=20260224_2"></script>
+  <script type="module" src="js/transport-booking.js?v=20260224_3"></script>
 </body>
 </html>

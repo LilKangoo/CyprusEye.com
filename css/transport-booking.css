@@ -402,7 +402,27 @@ body.transport-booking-page {
   border: 1px solid rgba(15, 109, 255, 0.14);
   border-radius: 10px;
   background: #ffffff;
-  padding: 9px 10px;
+  padding: 0 10px;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateY(-5px) scale(0.99);
+  border-color: transparent;
+  transition:
+    max-height 0.24s ease,
+    opacity 0.2s ease,
+    transform 0.22s ease,
+    padding 0.24s ease,
+    border-color 0.2s ease;
+}
+
+.transport-breakdown li.is-visible {
+  max-height: 56px;
+  padding-top: 9px;
+  padding-bottom: 9px;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  border-color: rgba(15, 109, 255, 0.14);
 }
 
 .transport-breakdown li[hidden] {
@@ -424,7 +444,7 @@ body.transport-booking-page {
   color: #0f7f74;
 }
 
-.transport-breakdown li.transport-breakdown--deposit {
+.transport-breakdown li.transport-breakdown--deposit.is-visible {
   border-color: rgba(29, 180, 165, 0.38);
   background: rgba(29, 180, 165, 0.08);
 }
@@ -476,6 +496,12 @@ body.transport-booking-page {
 .transport-footnote {
   font-size: 12px;
   color: var(--transport-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .transport-breakdown li {
+    transition: none;
+  }
 }
 
 @media (max-width: 1080px) {

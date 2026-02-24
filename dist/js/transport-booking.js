@@ -26,6 +26,8 @@ const state = {
 };
 
 const els = {};
+const QUOTE_ROW_HIDE_ANIMATION_MS = 240;
+const quoteRowHideTimers = new WeakMap();
 
 function byId(id) {
   return document.getElementById(id);
@@ -692,19 +694,56 @@ function calculateQuote(route, rule, scenario) {
 
 function setStatus(message, type = 'info') {
   if (!els.quoteStatus) return;
-  els.quoteStatus.textContent = String(message || '').trim();
-  els.quoteStatus.classList.toggle('is-error', type === 'error');
+  const isError = type === 'error';
+  if (!isError) {
+    els.quoteStatus.hidden = true;
+    els.quoteStatus.textContent = '';
+    els.quoteStatus.classList.remove('is-error');
+    return;
+  }
+
+  els.quoteStatus.hidden = false;
+  els.quoteStatus.textContent = String(message || 'Please check booking details.').trim();
+  els.quoteStatus.classList.add('is-error');
+}
+
+function clearQuoteRowHideTimer(rowEl) {
+  if (!rowEl) return;
+  const timerId = quoteRowHideTimers.get(rowEl);
+  if (timerId) {
+    window.clearTimeout(timerId);
+    quoteRowHideTimers.delete(rowEl);
+  }
 }
 
 function setQuoteBreakdownRow(rowEl, valueEl, options = {}) {
   const visible = Boolean(options?.visible);
   const text = String(options?.text ?? '—');
-  if (rowEl) {
-    rowEl.hidden = !visible;
-  }
   if (valueEl) {
     valueEl.textContent = visible ? text : '—';
   }
+  if (!rowEl) return;
+
+  clearQuoteRowHideTimer(rowEl);
+
+  if (visible) {
+    rowEl.hidden = false;
+    rowEl.setAttribute('aria-hidden', 'false');
+    window.requestAnimationFrame(() => {
+      rowEl.classList.add('is-visible');
+    });
+    return;
+  }
+
+  rowEl.setAttribute('aria-hidden', 'true');
+  rowEl.classList.remove('is-visible');
+  const timerId = window.setTimeout(() => {
+    if (!rowEl.classList.contains('is-visible')) {
+      rowEl.hidden = true;
+    }
+    quoteRowHideTimers.delete(rowEl);
+  }, QUOTE_ROW_HIDE_ANIMATION_MS);
+  quoteRowHideTimers.set(rowEl, timerId);
 }
 
 function resetQuoteBreakdownRows() {
