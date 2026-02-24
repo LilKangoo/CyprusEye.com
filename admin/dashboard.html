@@ -28,7 +28,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="/assets/css/tokens.css?v=20251107" />
   <link rel="stylesheet" href="/assets/css/base.css?v=20251107" />
-  <link rel="stylesheet" href="/admin/admin.css?v=20260223_3" />
+  <link rel="stylesheet" href="/admin/admin.css?v=20260223_4" />
   
   <!-- Auth meta -->
   <meta name="ce-auth" content="required" />
@@ -40,7 +40,7 @@
   <script src="/admin/universal-i18n-component.js?v=20250111"></script>
   <script src="/admin/poi-i18n-form.js?v=20250111"></script>
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
-  <script type="module" src="/admin/admin.js?v=20260223_3"></script>
+  <script type="module" src="/admin/admin.js?v=20260223_4"></script>
   <script src="/admin/admin-pwa.js?v=20260221_4" defer></script>
 </head>
 <body data-admin-panel="true">
@@ -809,8 +809,8 @@
                       <input type="text" id="transportLocationName" required placeholder="e.g. Larnaca Airport" />
                     </label>
                     <label class="admin-form-field transport-field transport-field--wide">
-                      <span>Local name (optional)</span>
-                      <input type="text" id="transportLocationNameLocal" placeholder="e.g. Larnaka Airport (local language)" />
+                      <span>Name (Polish)</span>
+                      <input type="text" id="transportLocationNameLocal" placeholder="e.g. Lotnisko Larnaka" />
                     </label>
                     <label class="admin-form-field transport-field">
                       <span>Code</span>
@@ -832,6 +832,10 @@
                         <option value="custom">Custom</option>
                       </select>
                     </label>
+                    <label class="transport-check-field transport-check-field--row transport-field">
+                      <input id="transportLocationBulkTypesEnabled" type="checkbox" />
+                      <span>Create multiple types at once</span>
+                    </label>
                     <label class="admin-form-field transport-field">
                       <span>Sort order</span>
                       <input type="number" id="transportLocationSortOrder" min="0" step="1" value="0" />
@@ -841,7 +845,16 @@
                       <span>Active</span>
                     </label>
                   </div>
-                  <p class="transport-form-block__hint">Tip: Keep admin naming in English. Use one city group for variants like City + Airport + Hotel to manage shared prices faster.</p>
+                  <div class="transport-type-filter-grid transport-type-filter-grid--location" id="transportLocationBulkTypesGrid" aria-label="Bulk location types">
+                    <label class="transport-type-filter-item"><input data-transport-location-bulk-type type="checkbox" value="city" checked /> <span>City</span></label>
+                    <label class="transport-type-filter-item"><input data-transport-location-bulk-type type="checkbox" value="airport" /> <span>Airport</span></label>
+                    <label class="transport-type-filter-item"><input data-transport-location-bulk-type type="checkbox" value="port" /> <span>Port</span></label>
+                    <label class="transport-type-filter-item"><input data-transport-location-bulk-type type="checkbox" value="station" /> <span>Station</span></label>
+                    <label class="transport-type-filter-item"><input data-transport-location-bulk-type type="checkbox" value="hotel" /> <span>Hotel</span></label>
+                    <label class="transport-type-filter-item"><input data-transport-location-bulk-type type="checkbox" value="landmark" /> <span>Landmark</span></label>
+                    <label class="transport-type-filter-item"><input data-transport-location-bulk-type type="checkbox" value="custom" /> <span>Custom</span></label>
+                  </div>
+                  <p class="transport-form-block__hint">Tip: Keep admin naming in English and Polish. For multi-type create, use base code without suffix (example: <code>larnaca</code>) to generate variants like <code>larnaca_airport</code>, <code>larnaca_hotel</code>.</p>
                 </section>
                 <div class="transport-editor-actions">
                   <button class="btn-secondary" type="button" id="btnResetTransportLocation">Clear</button>
@@ -856,7 +869,7 @@
               <thead>
                 <tr>
                   <th>Name (EN)</th>
-                  <th>Local name</th>
+                  <th>Name (PL)</th>
                   <th>Code</th>
                   <th>City group</th>
                   <th>Type</th>
@@ -976,7 +989,11 @@
                   <h4 class="transport-form-block__title">Route Set Builder</h4>
                   <span class="transport-inline-badge">Bulk create</span>
                 </div>
-                <p class="transport-form-block__hint">Create many routes with one save. You can expand pickup/destination to whole city groups (city + airport + hotel). Existing pairs are skipped automatically.</p>
+                <ol class="transport-bulk-steps">
+                  <li>Choose pickup location.</li>
+                  <li>Tick destination bundles or single destination points.</li>
+                  <li>Save once to create all route combinations with current route settings.</li>
+                </ol>
                 <div class="admin-form-grid transport-fields-grid transport-fields-grid--route-builder">
                   <label class="admin-form-field transport-field">
                     <span>Base origin</span>
@@ -988,6 +1005,27 @@
                   </label>
                 </div>
                 <div class="transport-multi-select-toolbar">
+                  <label class="transport-check-field">
+                    <input id="transportRouteSetGroupByCity" type="checkbox" checked />
+                    <span>Group destinations by city bundle</span>
+                  </label>
+                  <div class="transport-multi-select-toolbar__actions">
+                    <button class="btn-small btn-secondary" type="button" id="btnTransportRouteSetSelectAll">Select all</button>
+                    <button class="btn-small btn-secondary" type="button" id="btnTransportRouteSetClearAll">Clear selection</button>
+                  </div>
+                </div>
+                <div class="transport-type-filter-grid" id="transportRouteSetTypeFilters" aria-label="Route set destination type filters">
+                  <label class="transport-type-filter-item"><input data-transport-route-set-type-filter type="checkbox" value="city" checked /> <span>City</span></label>
+                  <label class="transport-type-filter-item"><input data-transport-route-set-type-filter type="checkbox" value="airport" checked /> <span>Airport</span></label>
+                  <label class="transport-type-filter-item"><input data-transport-route-set-type-filter type="checkbox" value="port" checked /> <span>Port</span></label>
+                  <label class="transport-type-filter-item"><input data-transport-route-set-type-filter type="checkbox" value="station" checked /> <span>Station</span></label>
+                  <label class="transport-type-filter-item"><input data-transport-route-set-type-filter type="checkbox" value="hotel" checked /> <span>Hotel</span></label>
+                  <label class="transport-type-filter-item"><input data-transport-route-set-type-filter type="checkbox" value="landmark" checked /> <span>Landmark</span></label>
+                  <label class="transport-type-filter-item"><input data-transport-route-set-type-filter type="checkbox" value="custom" checked /> <span>Custom</span></label>
+                </div>
+                <details class="transport-advanced-options" id="transportRouteSetAdvancedPanel">
+                  <summary>Advanced options</summary>
+                  <div class="transport-multi-select-toolbar">
                   <label class="transport-check-field">
                     <input id="transportRouteSetIncludeReverse" type="checkbox" checked />
                     <span>Also create reverse routes</span>
@@ -1004,12 +1042,11 @@
                     <input id="transportRouteSetOnlyActiveLocations" type="checkbox" checked />
                     <span>Only active destinations</span>
                   </label>
-                  <div class="transport-multi-select-toolbar__actions">
-                    <button class="btn-small btn-secondary" type="button" id="btnTransportRouteSetSelectAll">Select all</button>
-                    <button class="btn-small btn-secondary" type="button" id="btnTransportRouteSetClearAll">Clear selection</button>
                   </div>
+                </details>
+                <div id="transportRouteSetDestinations" class="transport-bulk-destination-list" aria-label="Route set destinations checklist">
+                  <div class="transport-bulk-destination-list__empty">Select pickup location to show destinations.</div>
                 </div>
-                <select id="transportRouteSetDestinations" class="form-control transport-multi-select" multiple size="8" aria-label="Route set destinations"></select>
                 <p class="transport-form-block__hint transport-form-block__hint--status" id="transportRouteSetSummary">Select destinations to prepare route set creation.</p>
                 <div class="transport-editor-actions">
                   <button class="btn-secondary" type="button" id="btnCreateTransportRouteSet">Create route set from current values</button>
@@ -1176,6 +1213,15 @@
                       <span>Destination search</span>
                       <input id="transportPricingBulkDestinationSearch" class="form-control" type="text" placeholder="Search destination city/airport..." />
                     </label>
+                  </div>
+                  <div class="transport-type-filter-grid" id="transportPricingBulkTypeFilters" aria-label="Pricing destination type filters">
+                    <label class="transport-type-filter-item"><input data-transport-pricing-type-filter type="checkbox" value="city" checked /> <span>City</span></label>
+                    <label class="transport-type-filter-item"><input data-transport-pricing-type-filter type="checkbox" value="airport" checked /> <span>Airport</span></label>
+                    <label class="transport-type-filter-item"><input data-transport-pricing-type-filter type="checkbox" value="port" checked /> <span>Port</span></label>
+                    <label class="transport-type-filter-item"><input data-transport-pricing-type-filter type="checkbox" value="station" checked /> <span>Station</span></label>
+                    <label class="transport-type-filter-item"><input data-transport-pricing-type-filter type="checkbox" value="hotel" checked /> <span>Hotel</span></label>
+                    <label class="transport-type-filter-item"><input data-transport-pricing-type-filter type="checkbox" value="landmark" checked /> <span>Landmark</span></label>
+                    <label class="transport-type-filter-item"><input data-transport-pricing-type-filter type="checkbox" value="custom" checked /> <span>Custom</span></label>
                   </div>
                   <details class="transport-advanced-options" id="transportPricingBulkAdvancedPanel">
                     <summary>Advanced options</summary>
