@@ -183,6 +183,20 @@ body.transport-booking-page {
   letter-spacing: 0.01em;
 }
 
+.transport-return-leg {
+  margin-top: 12px;
+  border: 1px solid rgba(15, 109, 255, 0.24);
+  border-radius: 12px;
+  background: rgba(15, 109, 255, 0.05);
+  padding: 10px;
+}
+
+.transport-return-leg h3 {
+  margin: 0;
+  font-size: 13px;
+  font-family: 'Space Grotesk', 'Manrope', sans-serif;
+}
+
 .transport-section__hint {
   margin: 4px 0 0;
   color: var(--transport-muted);
@@ -335,6 +349,11 @@ body.transport-booking-page {
 .transport-breakdown li strong {
   font-weight: 700;
   color: var(--transport-text);
+}
+
+.transport-breakdown li:nth-child(1) strong,
+.transport-breakdown li:nth-child(2) strong {
+  color: #0b4ab2;
 }
 
 .transport-breakdown li.transport-breakdown--deposit strong {

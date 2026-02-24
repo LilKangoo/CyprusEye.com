@@ -79,6 +79,32 @@
                 </select>
               </div>
             </div>
+            <div id="transportReturnLegSection" class="transport-return-leg" hidden>
+              <h3>Return leg</h3>
+              <p class="transport-section__hint">Set separate pickup, destination, date and time for the return transfer.</p>
+              <div class="transport-field-grid">
+                <div class="transport-field">
+                  <label for="transportReturnOrigin">Return pickup *</label>
+                  <select id="transportReturnOrigin">
+                    <option value="">Select return pickup</option>
+                  </select>
+                </div>
+                <div class="transport-field">
+                  <label for="transportReturnDestination">Return destination *</label>
+                  <select id="transportReturnDestination">
+                    <option value="">Select return destination</option>
+                  </select>
+                </div>
+                <div class="transport-field">
+                  <label for="transportReturnDate">Return date *</label>
+                  <input id="transportReturnDate" type="date" />
+                </div>
+                <div class="transport-field">
+                  <label for="transportReturnTime">Return time *</label>
+                  <input id="transportReturnTime" type="time" />
+                </div>
+              </div>
+            </div>
           </section>
 
           <section class="transport-section">
@@ -166,6 +192,8 @@
           <div id="transportRouteMeta" class="transport-route-meta">Route details will appear after selecting pickup and destination.</div>
 
           <ul class="transport-breakdown">
+            <li><span>Outbound leg total</span><strong id="transportQuoteOutbound">—</strong></li>
+            <li><span>Return leg total</span><strong id="transportQuoteReturn">—</strong></li>
             <li><span>Base fare</span><strong id="transportQuoteBase">—</strong></li>
             <li><span>Extra passengers</span><strong id="transportQuotePassengers">—</strong></li>
             <li><span>Extra bags</span><strong id="transportQuoteBags">—</strong></li>

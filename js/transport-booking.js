@@ -18,7 +18,10 @@ const state = {
   routeById: new Map(),
   activeRoute: null,
   activeRule: null,
+  activeReturnRoute: null,
+  activeReturnRule: null,
   lastQuote: null,
+  lastTripTypeSelection: 'one_way',
   loading: false,
 };
 
@@ -52,6 +55,10 @@ function escapeHtml(value) {
 function normalizeTripType(value) {
   const normalized = String(value || '').trim().toLowerCase();
   return normalized === 'round_trip' ? 'round_trip' : 'one_way';
+}
+
+function isRoundTripSelected() {
+  return normalizeTripType(els.tripTypeSelect?.value || 'one_way') === 'round_trip';
 }
 
 function toNonNegativeInt(value, fallback = 0) {
@@ -92,6 +99,27 @@ function parseTimeToMinutes(value) {
   if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
   if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
   return (hh * 60) + mm;
+}
+
+function addDaysToIsoDate(isoDate, days) {
+  const raw = String(isoDate || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return '';
+  const dt = new Date(`${raw}T00:00:00`);
+  if (Number.isNaN(dt.getTime())) return '';
+  dt.setDate(dt.getDate() + Number(days || 0));
+  return dt.toISOString().slice(0, 10);
+}
+
+function dateLabel(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '—';
+  try {
+    const dt = new Date(`${raw}T00:00:00`);
+    if (Number.isNaN(dt.getTime())) return raw;
+    return dt.toLocaleDateString('en-GB');
+  } catch (_error) {
+    return raw;
+  }
 }
 
 function timeInNightWindow(timeMinutes, startMinutes, endMinutes) {
@@ -258,15 +286,22 @@ function populateLocationSelects() {
 
   const previousOrigin = String(els.originSelect.value || '').trim();
   const previousDestination = String(els.destinationSelect.value || '').trim();
+  const previousReturnOrigin = String(els.returnOriginSelect?.value || '').trim();
+  const previousReturnDestination = String(els.returnDestinationSelect?.value || '').trim();
   const options = state.locations.map((location) => {
     const id = String(location?.id || '').trim();
     if (!id) return '';
     return `<option value="${escapeHtml(id)}">${escapeHtml(getLocationLabel(location))}</option>`;
   }).join('');
 
-  const placeholder = '<option value="">Select location</option>';
-  els.originSelect.innerHTML = `${placeholder}${options}`;
-  els.destinationSelect.innerHTML = `${placeholder}${options}`;
+  els.originSelect.innerHTML = `<option value="">Select pickup</option>${options}`;
+  els.destinationSelect.innerHTML = `<option value="">Select destination</option>${options}`;
+  if (els.returnOriginSelect instanceof HTMLSelectElement) {
+    els.returnOriginSelect.innerHTML = `<option value="">Select return pickup</option>${options}`;
+  }
+  if (els.returnDestinationSelect instanceof HTMLSelectElement) {
+    els.returnDestinationSelect.innerHTML = `<option value="">Select return destination</option>${options}`;
+  }
 
   const ids = new Set(state.locations.map((row) => String(row?.id || '').trim()).filter(Boolean));
   if (previousOrigin && ids.has(previousOrigin)) {
@@ -274,6 +309,12 @@ function populateLocationSelects() {
   }
   if (previousDestination && ids.has(previousDestination)) {
     els.destinationSelect.value = previousDestination;
+  }
+  if (els.returnOriginSelect instanceof HTMLSelectElement && previousReturnOrigin && ids.has(previousReturnOrigin)) {
+    els.returnOriginSelect.value = previousReturnOrigin;
+  }
+  if (els.returnDestinationSelect instanceof HTMLSelectElement && previousReturnDestination && ids.has(previousReturnDestination)) {
+    els.returnDestinationSelect.value = previousReturnDestination;
   }
 
   if (!els.originSelect.value && state.locations.length) {
@@ -285,6 +326,80 @@ function populateLocationSelects() {
   if (!els.destinationSelect.value && state.locations.length) {
     els.destinationSelect.value = String(state.locations[0].id || '');
   }
+
+  syncReturnDateConstraints();
+}
+
+function syncReturnDateConstraints() {
+  if (!(els.returnDateInput instanceof HTMLInputElement)) return;
+
+  const outboundDate = String(els.travelDateInput?.value || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(outboundDate)) {
+    els.returnDateInput.min = outboundDate;
+    if (els.returnDateInput.value && els.returnDateInput.value < outboundDate) {
+      els.returnDateInput.value = outboundDate;
+    }
+    return;
+  }
+
+  const todayIso = new Date().toISOString().slice(0, 10);
+  els.returnDateInput.min = todayIso;
+}
+
+function autoPopulateReturnLeg(options = {}) {
+  if (!isRoundTripSelected()) return;
+  const force = Boolean(options?.force);
+  const outboundOrigin = String(els.originSelect?.value || '').trim();
+  const outboundDestination = String(els.destinationSelect?.value || '').trim();
+  const outboundDate = String(els.travelDateInput?.value || '').trim();
+  const outboundTime = String(els.travelTimeInput?.value || '').trim().slice(0, 5);
+
+  if (els.returnOriginSelect instanceof HTMLSelectElement) {
+    const shouldSetOrigin = force || !String(els.returnOriginSelect.value || '').trim();
+    if (shouldSetOrigin && outboundDestination) {
+      els.returnOriginSelect.value = outboundDestination;
+    }
+  }
+
+  if (els.returnDestinationSelect instanceof HTMLSelectElement) {
+    const shouldSetDestination = force || !String(els.returnDestinationSelect.value || '').trim();
+    if (shouldSetDestination && outboundOrigin) {
+      els.returnDestinationSelect.value = outboundOrigin;
+    }
+  }
+
+  if (els.returnDateInput instanceof HTMLInputElement) {
+    const shouldSetDate = force || !String(els.returnDateInput.value || '').trim();
+    if (shouldSetDate) {
+      const suggestedReturnDate = addDaysToIsoDate(outboundDate, 2) || outboundDate;
+      if (suggestedReturnDate) {
+        els.returnDateInput.value = suggestedReturnDate;
+      }
+    }
+  }
+
+  if (els.returnTimeInput instanceof HTMLInputElement) {
+    const shouldSetTime = force || !String(els.returnTimeInput.value || '').trim();
+    if (shouldSetTime) {
+      els.returnTimeInput.value = outboundTime || '12:00';
+    }
+  }
+
+  syncReturnDateConstraints();
+}
+
+function syncReturnLegVisibility(options = {}) {
+  const roundTrip = isRoundTripSelected();
+  if (els.returnLegSection) {
+    els.returnLegSection.hidden = !roundTrip;
+  }
+
+  if (roundTrip) {
+    const switchedFromOneWay = state.lastTripTypeSelection !== 'round_trip';
+    autoPopulateReturnLeg({ force: Boolean(options?.force || switchedFromOneWay) });
+  }
+
+  state.lastTripTypeSelection = roundTrip ? 'round_trip' : 'one_way';
 }
 
 function setDefaultTravelDateTime() {
@@ -304,6 +419,19 @@ function setDefaultTravelDateTime() {
     const mm = now.getMinutes() >= 30 ? '30' : '00';
     els.travelTimeInput.value = `${hh}:${mm}`;
   }
+
+  if (els.returnDateInput instanceof HTMLInputElement && !els.returnDateInput.value) {
+    const suggestedReturnDate = addDaysToIsoDate(els.travelDateInput.value, 2) || els.travelDateInput.value;
+    if (suggestedReturnDate) {
+      els.returnDateInput.value = suggestedReturnDate;
+    }
+  }
+
+  if (els.returnTimeInput instanceof HTMLInputElement && !els.returnTimeInput.value) {
+    els.returnTimeInput.value = els.travelTimeInput.value || '12:00';
+  }
+
+  syncReturnDateConstraints();
 }
 
 async function prefillCustomerFromSession() {
@@ -346,15 +474,21 @@ async function prefillCustomerFromSession() {
   }
 }
 
-function getSelectedRoute() {
-  const originId = String(els.originSelect?.value || '').trim();
-  const destinationId = String(els.destinationSelect?.value || '').trim();
+function findRouteByLocations(originIdRaw, destinationIdRaw) {
+  const originId = String(originIdRaw || '').trim();
+  const destinationId = String(destinationIdRaw || '').trim();
   if (!originId || !destinationId) return null;
   return state.routes.find((route) => (
     String(route?.origin_location_id || '').trim() === originId
     && String(route?.destination_location_id || '').trim() === destinationId
     && route?.is_active !== false
   )) || null;
+}
+
+function getSelectedRoute() {
+  const originId = String(els.originSelect?.value || '').trim();
+  const destinationId = String(els.destinationSelect?.value || '').trim();
+  return findRouteByLocations(originId, destinationId);
 }
 
 function isRuleValidForDate(rule, dateIso) {
@@ -388,20 +522,22 @@ function getBestPricingRuleForRoute(routeId, travelDateIso) {
   return dateScoped.length ? dateScoped[0] : active[0];
 }
 
-function getScenario(route) {
+function getScenario(route, overrides = {}) {
   const passengersDefault = Math.max(1, toNonNegativeInt(route?.included_passengers, 2));
   const bagsDefault = toNonNegativeInt(route?.included_bags, 2);
+  const scenarioTripType = normalizeTripType(overrides.tripType ?? els.tripTypeSelect?.value ?? 'one_way');
+  const scenarioTravelTime = String(overrides.travelTime ?? els.travelTimeInput?.value ?? '12:00').trim().slice(0, 5);
 
   return {
     rateMode: 'auto',
-    tripType: normalizeTripType(els.tripTypeSelect?.value || 'one_way'),
-    travelTime: String(els.travelTimeInput?.value || '12:00').trim().slice(0, 5),
-    passengers: Math.max(1, toNonNegativeInt(els.passengersInput?.value, passengersDefault)),
-    bags: toNonNegativeInt(els.bagsInput?.value, bagsDefault),
-    oversizeBags: toNonNegativeInt(els.oversizeBagsInput?.value, 0),
-    childSeats: toNonNegativeInt(els.childSeatsInput?.value, 0),
-    boosterSeats: toNonNegativeInt(els.boosterSeatsInput?.value, 0),
-    waitingMinutes: toNonNegativeInt(els.waitingMinutesInput?.value, 0),
+    tripType: scenarioTripType,
+    travelTime: scenarioTravelTime,
+    passengers: Math.max(1, toNonNegativeInt(overrides.passengers ?? els.passengersInput?.value, passengersDefault)),
+    bags: toNonNegativeInt(overrides.bags ?? els.bagsInput?.value, bagsDefault),
+    oversizeBags: toNonNegativeInt(overrides.oversizeBags ?? els.oversizeBagsInput?.value, 0),
+    childSeats: toNonNegativeInt(overrides.childSeats ?? els.childSeatsInput?.value, 0),
+    boosterSeats: toNonNegativeInt(overrides.boosterSeats ?? els.boosterSeatsInput?.value, 0),
+    waitingMinutes: toNonNegativeInt(overrides.waitingMinutes ?? els.waitingMinutesInput?.value, 0),
   };
 }
 
@@ -524,6 +660,8 @@ function setStatus(message, type = 'info') {
 
 function clearQuoteView() {
   const ids = [
+    'transportQuoteOutbound',
+    'transportQuoteReturn',
     'transportQuoteBase',
     'transportQuotePassengers',
     'transportQuoteBags',
@@ -545,45 +683,124 @@ function clearQuoteView() {
   }
 }
 
-function renderQuote(route, rule, quote) {
-  if (!quote || !route) {
+function buildQuoteSummary(legs, options = {}) {
+  const list = Array.isArray(legs) ? legs.filter(Boolean) : [];
+  if (!list.length) return null;
+
+  const currencies = Array.from(new Set(
+    list.map((leg) => String(leg?.quote?.currency || '').trim().toUpperCase()).filter(Boolean),
+  ));
+  const currency = currencies[0] || 'EUR';
+  const mixedCurrencies = currencies.length > 1;
+
+  const summary = {
+    legs: list,
+    currency,
+    mixedCurrencies,
+    outboundTotal: 0,
+    returnTotal: 0,
+    baseFare: 0,
+    extraPassengersCost: 0,
+    extraBagsCost: 0,
+    oversizeCost: 0,
+    seatsCost: 0,
+    waitingCost: 0,
+    total: 0,
+    depositAmount: 0,
+    depositEnabled: false,
+    warnings: [],
+    hasBlockingCapacity: false,
+    isBookable: options.isBookable !== false,
+  };
+
+  list.forEach((leg, index) => {
+    const quote = leg?.quote || {};
+    const legTotal = round2(toNonNegativeNumber(quote.total, 0));
+    if (index === 0) summary.outboundTotal = legTotal;
+    if (index === 1) summary.returnTotal = legTotal;
+
+    summary.baseFare = round2(summary.baseFare + toNonNegativeNumber(quote.baseFare, 0));
+    summary.extraPassengersCost = round2(summary.extraPassengersCost + toNonNegativeNumber(quote.extraPassengersCost, 0));
+    summary.extraBagsCost = round2(summary.extraBagsCost + toNonNegativeNumber(quote.extraBagsCost, 0));
+    summary.oversizeCost = round2(summary.oversizeCost + toNonNegativeNumber(quote.oversizeCost, 0));
+    summary.seatsCost = round2(summary.seatsCost + toNonNegativeNumber(quote.seatsCost, 0));
+    summary.waitingCost = round2(summary.waitingCost + toNonNegativeNumber(quote.waitingCost, 0));
+    summary.total = round2(summary.total + legTotal);
+    summary.depositAmount = round2(summary.depositAmount + toNonNegativeNumber(quote.depositAmount, 0));
+    summary.depositEnabled = summary.depositEnabled || Boolean(quote.depositEnabled);
+
+    if (scenarioExceedsCapacity(quote)) {
+      summary.hasBlockingCapacity = true;
+    }
+
+    const legWarnings = Array.isArray(quote?.warnings) ? quote.warnings : [];
+    legWarnings.forEach((warning) => {
+      summary.warnings.push(`${leg.label}: ${warning}`);
+    });
+  });
+
+  if (mixedCurrencies) {
+    summary.isBookable = false;
+    summary.warnings.push('Selected legs use different currencies. Choose routes with the same currency.');
+  }
+
+  return summary;
+}
+
+function renderQuote(summary) {
+  if (!summary || !Array.isArray(summary.legs) || !summary.legs.length) {
     clearQuoteView();
     return;
   }
 
-  if (els.quoteBase) els.quoteBase.textContent = money(quote.baseFare * quote.tripMultiplier, quote.currency);
-  if (els.quotePassengers) els.quotePassengers.textContent = money(quote.extraPassengersCost * quote.tripMultiplier, quote.currency);
-  if (els.quoteBags) els.quoteBags.textContent = money(quote.extraBagsCost * quote.tripMultiplier, quote.currency);
-  if (els.quoteOversize) els.quoteOversize.textContent = money(quote.oversizeCost * quote.tripMultiplier, quote.currency);
-  if (els.quoteSeats) els.quoteSeats.textContent = money(quote.seatsCost * quote.tripMultiplier, quote.currency);
-  if (els.quoteWaiting) els.quoteWaiting.textContent = money(quote.waitingCost * quote.tripMultiplier, quote.currency);
-  if (els.quoteDeposit) els.quoteDeposit.textContent = quote.depositEnabled ? money(quote.depositAmount, quote.currency) : money(0, quote.currency);
-  if (els.quoteTotal) els.quoteTotal.textContent = money(quote.total, quote.currency);
-
-  const routeLabel = getRouteLabel(route);
-  const ruleLabel = rule?.id ? `Rule #${String(rule.id).slice(0, 8).toUpperCase()}` : 'Default extras (no active pricing rule)';
-  const tripLabel = quote.tripType === 'round_trip' ? `Round trip x${Number(quote.tripMultiplier || 1).toFixed(2)}` : 'One way';
+  if (els.quoteOutbound) {
+    els.quoteOutbound.textContent = money(summary.outboundTotal, summary.currency);
+  }
+  if (els.quoteReturn) {
+    const hasReturnLeg = summary.legs.length > 1;
+    els.quoteReturn.textContent = hasReturnLeg ? money(summary.returnTotal, summary.currency) : '—';
+  }
+  if (els.quoteBase) els.quoteBase.textContent = money(summary.baseFare, summary.currency);
+  if (els.quotePassengers) els.quotePassengers.textContent = money(summary.extraPassengersCost, summary.currency);
+  if (els.quoteBags) els.quoteBags.textContent = money(summary.extraBagsCost, summary.currency);
+  if (els.quoteOversize) els.quoteOversize.textContent = money(summary.oversizeCost, summary.currency);
+  if (els.quoteSeats) els.quoteSeats.textContent = money(summary.seatsCost, summary.currency);
+  if (els.quoteWaiting) els.quoteWaiting.textContent = money(summary.waitingCost, summary.currency);
+  if (els.quoteDeposit) els.quoteDeposit.textContent = summary.depositEnabled ? money(summary.depositAmount, summary.currency) : money(0, summary.currency);
+  if (els.quoteTotal) els.quoteTotal.textContent = money(summary.total, summary.currency);
 
   if (els.routeMeta) {
-    els.routeMeta.textContent = `${routeLabel} | ${tripLabel} | Day ${money(route?.day_price, quote.currency)} / Night ${money(route?.night_price, quote.currency)} | Included ${quote.includedPassengers} pax + ${quote.includedBags} bags | Max ${quote.maxPassengers} pax / ${quote.maxBags} bags | ${ruleLabel}`;
+    const legMeta = summary.legs.map((leg) => {
+      const routeLabel = getRouteLabel(leg.route);
+      const ruleLabel = leg?.rule?.id
+        ? `Rule #${String(leg.rule.id).slice(0, 8).toUpperCase()}`
+        : 'Default extras';
+      return `${leg.label}: ${routeLabel} · ${dateLabel(leg.travelDate)} ${escapeHtml(String(leg.travelTime || '—'))} · ${ruleLabel}`;
+    });
+    els.routeMeta.textContent = legMeta.join(' | ');
   }
 
   if (els.quoteWarnings) {
-    const warnings = Array.isArray(quote.warnings) ? quote.warnings : [];
+    const warnings = Array.isArray(summary.warnings) ? summary.warnings : [];
     els.quoteWarnings.innerHTML = warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('');
   }
 }
 
-function hasBlockingCapacityWarning(quote) {
+function scenarioExceedsCapacity(quote) {
   if (!quote || !quote.scenario) return true;
   return quote.scenario.passengers > quote.maxPassengers || quote.scenario.bags > quote.maxBags;
+}
+
+function hasBlockingCapacityWarning(summary) {
+  if (!summary) return true;
+  return Boolean(summary.hasBlockingCapacity);
 }
 
 function updateSubmitState() {
   if (!(els.submitButton instanceof HTMLButtonElement)) return;
 
-  const hasRoute = Boolean(state.activeRoute);
-  const hasQuote = Boolean(state.lastQuote);
+  const hasRoute = Boolean(state.activeRoute) && (!isRoundTripSelected() || Boolean(state.activeReturnRoute));
+  const hasQuote = Boolean(state.lastQuote && state.lastQuote.isBookable);
   const hasPolicy = Boolean(els.policyCheckbox?.checked);
   const hasBlockingWarning = hasBlockingCapacityWarning(state.lastQuote);
 
@@ -601,6 +818,8 @@ function refreshQuote() {
 
   state.activeRoute = null;
   state.activeRule = null;
+  state.activeReturnRoute = null;
+  state.activeReturnRule = null;
   state.lastQuote = null;
 
   if (!originId || !destinationId) {
@@ -617,46 +836,109 @@ function refreshQuote() {
     return null;
   }
 
-  const route = getSelectedRoute();
-  if (!route) {
+  const outboundRoute = getSelectedRoute();
+  if (!outboundRoute) {
     setStatus('This route is not available yet. Choose another location pair.', 'error');
     clearQuoteView();
     updateSubmitState();
     return null;
   }
 
-  const supportsRoundTrip = routeAllowsRoundTrip(route);
-  if (els.tripTypeSelect instanceof HTMLSelectElement) {
-    const roundTripOption = els.tripTypeSelect.querySelector('option[value="round_trip"]');
-    if (roundTripOption) roundTripOption.disabled = !supportsRoundTrip;
-    if (!supportsRoundTrip && normalizeTripType(els.tripTypeSelect.value) === 'round_trip') {
-      els.tripTypeSelect.value = 'one_way';
+  const travelDate = String(els.travelDateInput?.value || '').trim();
+  const travelTime = String(els.travelTimeInput?.value || '').trim().slice(0, 5);
+  const outboundRule = getBestPricingRuleForRoute(outboundRoute.id, travelDate);
+  const outboundScenario = getScenario(outboundRoute, { tripType: 'one_way', travelTime });
+  const outboundQuote = calculateQuote(outboundRoute, outboundRule, outboundScenario);
+
+  state.activeRoute = outboundRoute;
+  state.activeRule = outboundRule;
+
+  const outboundLeg = {
+    key: 'outbound',
+    label: 'Outbound',
+    route: outboundRoute,
+    rule: outboundRule,
+    quote: outboundQuote,
+    travelDate,
+    travelTime,
+  };
+
+  const tripType = normalizeTripType(els.tripTypeSelect?.value || 'one_way');
+  const isRoundTrip = tripType === 'round_trip';
+  let summary = null;
+  let statusMessage = '';
+  let statusType = 'info';
+
+  if (!isRoundTrip) {
+    summary = buildQuoteSummary([outboundLeg], { isBookable: true });
+  } else {
+    syncReturnDateConstraints();
+    const returnOriginId = String(els.returnOriginSelect?.value || '').trim();
+    const returnDestinationId = String(els.returnDestinationSelect?.value || '').trim();
+    const returnDate = String(els.returnDateInput?.value || '').trim();
+    const returnTime = String(els.returnTimeInput?.value || '').trim().slice(0, 5);
+
+    if (!returnOriginId || !returnDestinationId || !returnDate || !returnTime) {
+      summary = buildQuoteSummary([outboundLeg], { isBookable: false });
+      if (summary) summary.warnings.push('Return leg is incomplete. Select pickup, destination, date and time.');
+      statusMessage = 'Complete return leg fields to reserve both rides.';
+      statusType = 'error';
+    } else if (returnOriginId === returnDestinationId) {
+      summary = buildQuoteSummary([outboundLeg], { isBookable: false });
+      if (summary) summary.warnings.push('Return pickup and destination must be different.');
+      statusMessage = 'Return pickup and destination must be different.';
+      statusType = 'error';
+    } else {
+      const returnRoute = findRouteByLocations(returnOriginId, returnDestinationId);
+      if (!returnRoute) {
+        summary = buildQuoteSummary([outboundLeg], { isBookable: false });
+        if (summary) summary.warnings.push('Return route is not available for selected locations.');
+        statusMessage = 'Return route is not available yet. Choose another return pair.';
+        statusType = 'error';
+      } else {
+        const returnRule = getBestPricingRuleForRoute(returnRoute.id, returnDate);
+        const returnScenario = getScenario(returnRoute, { tripType: 'one_way', travelTime: returnTime });
+        const returnQuote = calculateQuote(returnRoute, returnRule, returnScenario);
+        const returnLeg = {
+          key: 'return',
+          label: 'Return',
+          route: returnRoute,
+          rule: returnRule,
+          quote: returnQuote,
+          travelDate: returnDate,
+          travelTime: returnTime,
+        };
+        summary = buildQuoteSummary([outboundLeg, returnLeg], { isBookable: true });
+        state.activeReturnRoute = returnRoute;
+        state.activeReturnRule = returnRule;
+      }
     }
   }
 
-  const travelDate = String(els.travelDateInput?.value || '').trim();
-  const rule = getBestPricingRuleForRoute(route.id, travelDate);
-  const scenario = getScenario(route);
-  const quote = calculateQuote(route, rule, scenario);
+  state.lastQuote = summary;
+  renderQuote(summary);
 
-  state.activeRoute = route;
-  state.activeRule = rule;
-  state.lastQuote = quote;
+  if (!summary) {
+    setStatus('Failed to calculate quote. Check route details.', 'error');
+    updateSubmitState();
+    return null;
+  }
 
-  renderQuote(route, rule, quote);
-
-  if (hasBlockingCapacityWarning(quote)) {
-    setStatus('Passengers or bags exceed route limits. Adjust values to continue.', 'error');
+  if (hasBlockingCapacityWarning(summary)) {
+    setStatus('Passengers or bags exceed route limits on at least one leg.', 'error');
+  } else if (statusMessage) {
+    setStatus(statusMessage, statusType);
   } else {
-    const rateLabel = quote.basePeriod === 'night' ? 'Night rate active' : 'Day rate active';
-    const depositLabel = quote.depositEnabled
-      ? `Deposit due now: ${money(quote.depositAmount, quote.currency)}`
-      : 'No deposit required for this route/rule';
-    setStatus(`${rateLabel}. ${depositLabel}.`, 'info');
+    const hasReturnLeg = summary.legs.length > 1;
+    const rateLabel = hasReturnLeg ? 'Two-leg quote calculated.' : (outboundQuote.basePeriod === 'night' ? 'Night rate active.' : 'Day rate active.');
+    const depositLabel = summary.depositEnabled
+      ? `Deposit due now: ${money(summary.depositAmount, summary.currency)}`
+      : 'No deposit required for selected route(s).';
+    setStatus(`${rateLabel} ${depositLabel}`, 'info');
   }
 
   updateSubmitState();
-  return quote;
+  return summary;
 }
 
 function validateRequiredFields() {
@@ -676,6 +958,25 @@ function validateRequiredFields() {
     if (!emailPattern.test(email)) return 'Email format looks invalid.';
   }
 
+  if (isRoundTripSelected()) {
+    const returnOrigin = String(els.returnOriginSelect?.value || '').trim();
+    const returnDestination = String(els.returnDestinationSelect?.value || '').trim();
+    const returnDate = String(els.returnDateInput?.value || '').trim();
+    const returnTime = String(els.returnTimeInput?.value || '').trim();
+
+    if (!returnOrigin || !returnDestination) {
+      return 'Return pickup and destination are required for round trip.';
+    }
+    if (returnOrigin === returnDestination) {
+      return 'Return pickup and destination must be different.';
+    }
+    if (!returnDate) return 'Return date is required for round trip.';
+    if (!returnTime) return 'Return time is required for round trip.';
+    if (date && returnDate < date) {
+      return 'Return date cannot be earlier than outbound date.';
+    }
+  }
+
   if (!els.policyCheckbox?.checked) {
     return 'Please confirm the contact consent checkbox.';
   }
@@ -683,20 +984,28 @@ function validateRequiredFields() {
   return '';
 }
 
-function buildBookingPayload(route, quote) {
+function buildBookingPayloadForLeg(leg, options = {}) {
+  const route = leg?.route || null;
+  const quote = leg?.quote || {};
   const scenario = quote?.scenario || {};
   const tripMultiplier = toNonNegativeNumber(quote?.tripMultiplier, 1) || 1;
   const basePrice = round2(toNonNegativeNumber(quote?.baseFare, 0) * tripMultiplier);
   const extrasPrice = round2(toNonNegativeNumber(quote?.extrasTotal, 0) * tripMultiplier);
   const totalPrice = round2(toNonNegativeNumber(quote?.total, 0));
   const currency = String(quote?.currency || route?.currency || 'EUR').trim().toUpperCase() || 'EUR';
+  const baseNotes = String(els.notesInput?.value || '').trim();
+  const bundleToken = String(options.bundleToken || '').trim();
+  const legLabel = String(leg?.label || '').trim();
+  const notesParts = [];
+  if (baseNotes) notesParts.push(baseNotes);
+  if (bundleToken) notesParts.push(`[transport_bundle:${bundleToken}] ${legLabel || 'Leg'}`);
 
   return {
     route_id: String(route?.id || '').trim() || null,
     origin_location_id: String(route?.origin_location_id || '').trim() || null,
     destination_location_id: String(route?.destination_location_id || '').trim() || null,
-    travel_date: String(els.travelDateInput?.value || '').trim(),
-    travel_time: String(els.travelTimeInput?.value || '').trim().slice(0, 5),
+    travel_date: String(leg?.travelDate || '').trim(),
+    travel_time: String(leg?.travelTime || '').trim().slice(0, 5),
     num_passengers: Math.max(1, toNonNegativeInt(scenario.passengers, 1)),
     num_bags: toNonNegativeInt(scenario.bags, 0),
     num_oversize_bags: toNonNegativeInt(scenario.oversizeBags, 0),
@@ -706,7 +1015,7 @@ function buildBookingPayload(route, quote) {
     pickup_address: String(els.pickupAddressInput?.value || '').trim() || null,
     dropoff_address: String(els.dropoffAddressInput?.value || '').trim() || null,
     flight_number: String(els.flightNumberInput?.value || '').trim() || null,
-    notes: String(els.notesInput?.value || '').trim() || null,
+    notes: notesParts.length ? notesParts.join('\n') : null,
     customer_name: String(els.customerNameInput?.value || '').trim(),
     customer_email: String(els.customerEmailInput?.value || '').trim() || null,
     customer_phone: String(els.customerPhoneInput?.value || '').trim(),
@@ -729,6 +1038,10 @@ function resetAfterSubmit() {
     date: String(els.travelDateInput?.value || '').trim(),
     time: String(els.travelTimeInput?.value || '').trim(),
     tripType: String(els.tripTypeSelect?.value || 'one_way').trim(),
+    returnOrigin: String(els.returnOriginSelect?.value || '').trim(),
+    returnDestination: String(els.returnDestinationSelect?.value || '').trim(),
+    returnDate: String(els.returnDateInput?.value || '').trim(),
+    returnTime: String(els.returnTimeInput?.value || '').trim(),
   };
 
   if (els.form instanceof HTMLFormElement) {
@@ -742,6 +1055,10 @@ function resetAfterSubmit() {
   if (els.travelDateInput) els.travelDateInput.value = preserved.date;
   if (els.travelTimeInput) els.travelTimeInput.value = preserved.time;
   if (els.tripTypeSelect) els.tripTypeSelect.value = normalizeTripType(preserved.tripType);
+  if (els.returnOriginSelect) els.returnOriginSelect.value = preserved.returnOrigin;
+  if (els.returnDestinationSelect) els.returnDestinationSelect.value = preserved.returnDestination;
+  if (els.returnDateInput) els.returnDateInput.value = preserved.returnDate;
+  if (els.returnTimeInput) els.returnTimeInput.value = preserved.returnTime;
 
   if (els.passengersInput) els.passengersInput.value = '2';
   if (els.bagsInput) els.bagsInput.value = '2';
@@ -750,6 +1067,7 @@ function resetAfterSubmit() {
   if (els.boosterSeatsInput) els.boosterSeatsInput.value = '0';
   if (els.waitingMinutesInput) els.waitingMinutesInput.value = '0';
 
+  syncReturnLegVisibility({ force: false });
   void prefillCustomerFromSession();
 }
 
@@ -768,6 +1086,12 @@ async function handleSubmit(event) {
     return;
   }
 
+  if (!quote.isBookable || !Array.isArray(quote.legs) || !quote.legs.length) {
+    setStatus('Complete route settings before submitting booking.', 'error');
+    updateSubmitState();
+    return;
+  }
+
   const validationError = validateRequiredFields();
   if (validationError) {
     setStatus(validationError, 'error');
@@ -782,7 +1106,10 @@ async function handleSubmit(event) {
     return;
   }
 
-  const payload = buildBookingPayload(state.activeRoute, quote);
+  const bundleToken = quote.legs.length > 1
+    ? `RT-${Date.now().toString(36).toUpperCase()}`
+    : '';
+  const payloads = quote.legs.map((leg) => buildBookingPayloadForLeg(leg, { bundleToken }));
 
   const initialButtonText = els.submitButton.textContent || 'Reserve transport';
   els.submitButton.disabled = true;
@@ -791,19 +1118,27 @@ async function handleSubmit(event) {
   try {
     const { data, error } = await supabase
       .from('transport_bookings')
-      .insert(payload)
-      .select('id, created_at')
-      .single();
+      .insert(payloads)
+      .select('id, created_at');
 
     if (error) throw error;
 
-    const shortId = String(data?.id || '').slice(0, 8).toUpperCase() || '--------';
+    const rows = Array.isArray(data) ? data : [];
+    const shortIds = rows
+      .map((row) => String(row?.id || '').trim())
+      .filter(Boolean)
+      .map((id) => id.slice(0, 8).toUpperCase());
+    const count = shortIds.length || payloads.length;
+    const idsLabel = shortIds.length ? shortIds.join(', ') : 'created';
+
     if (els.submitSuccess) {
       els.submitSuccess.hidden = false;
-      els.submitSuccess.innerHTML = `Booking request <strong>#${escapeHtml(shortId)}</strong> was sent successfully. Total: <strong>${escapeHtml(money(quote.total, quote.currency))}</strong>. We will contact you shortly.`;
+      els.submitSuccess.innerHTML = count > 1
+        ? `Booking bundle <strong>${escapeHtml(bundleToken || 'ROUND TRIP')}</strong> sent successfully with <strong>${count}</strong> rides (<strong>${escapeHtml(idsLabel)}</strong>). Total: <strong>${escapeHtml(money(quote.total, quote.currency))}</strong>.`
+        : `Booking request <strong>#${escapeHtml(shortIds[0] || '--------')}</strong> was sent successfully. Total: <strong>${escapeHtml(money(quote.total, quote.currency))}</strong>. We will contact you shortly.`;
     }
 
-    notify(`Transport booking #${shortId} created`, 'success');
+    notify(count > 1 ? `Transport bundle ${bundleToken || ''} created (${count} rides)` : `Transport booking #${shortIds[0] || ''} created`, 'success');
     setStatus('Booking submitted successfully. We will review and confirm shortly.', 'info');
     resetAfterSubmit();
     refreshQuote();
@@ -824,7 +1159,10 @@ function bindInputs() {
     els.destinationSelect,
     els.travelDateInput,
     els.travelTimeInput,
-    els.tripTypeSelect,
+    els.returnOriginSelect,
+    els.returnDestinationSelect,
+    els.returnDateInput,
+    els.returnTimeInput,
     els.passengersInput,
     els.bagsInput,
     els.oversizeBagsInput,
@@ -837,6 +1175,35 @@ function bindInputs() {
     input.addEventListener('input', refreshQuote);
     input.addEventListener('change', refreshQuote);
   });
+
+  if (els.tripTypeSelect instanceof HTMLSelectElement) {
+    els.tripTypeSelect.addEventListener('change', () => {
+      syncReturnLegVisibility();
+      refreshQuote();
+    });
+  }
+
+  if (els.travelDateInput instanceof HTMLInputElement) {
+    els.travelDateInput.addEventListener('change', () => {
+      syncReturnDateConstraints();
+      if (isRoundTripSelected() && !String(els.returnDateInput?.value || '').trim()) {
+        autoPopulateReturnLeg({ force: false });
+      }
+    });
+  }
+
+  if (els.destinationSelect instanceof HTMLSelectElement || els.originSelect instanceof HTMLSelectElement) {
+    const syncReturnFromOutbound = () => {
+      if (!isRoundTripSelected()) return;
+      const returnOriginEmpty = !String(els.returnOriginSelect?.value || '').trim();
+      const returnDestinationEmpty = !String(els.returnDestinationSelect?.value || '').trim();
+      if (returnOriginEmpty || returnDestinationEmpty) {
+        autoPopulateReturnLeg({ force: false });
+      }
+    };
+    els.destinationSelect?.addEventListener('change', syncReturnFromOutbound);
+    els.originSelect?.addEventListener('change', syncReturnFromOutbound);
+  }
 
   if (els.policyCheckbox) {
     els.policyCheckbox.addEventListener('change', () => {
@@ -856,6 +1223,11 @@ function initElements() {
   els.travelDateInput = byId('transportTravelDate');
   els.travelTimeInput = byId('transportTravelTime');
   els.tripTypeSelect = byId('transportTripType');
+  els.returnLegSection = byId('transportReturnLegSection');
+  els.returnOriginSelect = byId('transportReturnOrigin');
+  els.returnDestinationSelect = byId('transportReturnDestination');
+  els.returnDateInput = byId('transportReturnDate');
+  els.returnTimeInput = byId('transportReturnTime');
   els.passengersInput = byId('transportPassengers');
   els.bagsInput = byId('transportBags');
   els.oversizeBagsInput = byId('transportOversizeBags');
@@ -875,6 +1247,8 @@ function initElements() {
 
   els.quoteStatus = byId('transportQuoteStatus');
   els.routeMeta = byId('transportRouteMeta');
+  els.quoteOutbound = byId('transportQuoteOutbound');
+  els.quoteReturn = byId('transportQuoteReturn');
   els.quoteBase = byId('transportQuoteBase');
   els.quotePassengers = byId('transportQuotePassengers');
   els.quoteBags = byId('transportQuoteBags');
@@ -892,11 +1266,13 @@ async function initTransportBookingPage() {
 
   setDefaultTravelDateTime();
   bindInputs();
+  syncReturnLegVisibility({ force: false });
   clearQuoteView();
   updateSubmitState();
 
   try {
     await loadTransportCatalog();
+    syncReturnLegVisibility({ force: false });
     await prefillCustomerFromSession();
   } catch (error) {
     console.error('Failed to initialize transport booking page:', error);
