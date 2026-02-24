@@ -9851,6 +9851,7 @@ const TRANSPORT_TYPE_PRESETS = {
 };
 
 const TRANSPORT_SIMPLE_MODE_STORAGE_KEY = 'ce_transport_admin_simple_mode_v1';
+const TRANSPORT_GUIDED_MODE_STORAGE_KEY = 'ce_transport_admin_guided_mode_v1';
 const TRANSPORT_CITY_PAIR_PRESETS_STORAGE_KEY = 'ce_transport_city_pair_presets_v1';
 
 function readTransportLocalStorageJson(key, fallbackValue) {
@@ -9884,6 +9885,63 @@ function getTransportSimpleModePreference() {
 
 function setTransportSimpleModePreference(enabled) {
   writeTransportLocalStorageJson(TRANSPORT_SIMPLE_MODE_STORAGE_KEY, Boolean(enabled));
+}
+
+function getTransportGuidedModePreference() {
+  const stored = readTransportLocalStorageJson(TRANSPORT_GUIDED_MODE_STORAGE_KEY, true);
+  if (typeof stored === 'boolean') return stored;
+  if (stored === 'false') return false;
+  return true;
+}
+
+function setTransportGuidedModePreference(enabled) {
+  writeTransportLocalStorageJson(TRANSPORT_GUIDED_MODE_STORAGE_KEY, Boolean(enabled));
+}
+
+function getTransportGuidedStepHintByTab(tab) {
+  const normalized = normalizeTransportTab(tab || 'locations');
+  if (normalized === 'locations') {
+    return 'Step 1: create city/airport/hotel points with EN + PL naming and city groups.';
+  }
+  if (normalized === 'routes') {
+    return 'Step 2: define base route fares, limits, and two-way/one-way behavior.';
+  }
+  if (normalized === 'pricing') {
+    return 'Step 3: define extras, waiting fee per hour, deposit, and bulk city-pair rollout.';
+  }
+  return 'Step 4: monitor bookings, assign drivers/partners, and manage status/payment flow.';
+}
+
+function syncTransportGuidedStepState(activeTabRaw) {
+  const activeTab = normalizeTransportTab(activeTabRaw || transportAdminState.activeTab || 'locations');
+  const buttons = Array.from(document.querySelectorAll('[data-transport-guided-tab]'));
+  buttons.forEach((button) => {
+    const tab = normalizeTransportTab(button.getAttribute('data-transport-guided-tab') || '');
+    button.classList.toggle('is-active', tab === activeTab);
+  });
+
+  const hintEl = document.getElementById('transportGuidedStepHint');
+  if (hintEl) {
+    hintEl.textContent = getTransportGuidedStepHintByTab(activeTab);
+  }
+}
+
+function syncTransportGuidedModeState(options = {}) {
+  const forceEnabled = options?.forceEnabled;
+  const toggleEl = document.getElementById('transportGuidedModeToggle');
+  const enabled = typeof forceEnabled === 'boolean'
+    ? forceEnabled
+    : Boolean(toggleEl?.checked);
+  if (toggleEl instanceof HTMLInputElement) {
+    toggleEl.checked = enabled;
+  }
+
+  const viewEl = document.getElementById('viewTransport');
+  if (viewEl) {
+    viewEl.classList.toggle('transport-guided-mode', enabled);
+  }
+  setTransportGuidedModePreference(enabled);
+  syncTransportGuidedStepState(transportAdminState.activeTab || getTransportActiveTab());
 }
 
 function getTransportCityPairPresets() {
@@ -15641,6 +15699,8 @@ async function setTransportActiveTab(tab, options = {}) {
     panel.hidden = key !== normalizedTab;
   });
 
+  syncTransportGuidedStepState(normalizedTab);
+
   if (options.load === false) return;
 
   if (normalizedTab === 'locations') {
@@ -15701,6 +15761,24 @@ function bindTransportAdminUi() {
       syncTransportSimpleModeState();
     });
   }
+
+  const guidedModeToggle = document.getElementById('transportGuidedModeToggle');
+  if (guidedModeToggle instanceof HTMLInputElement) {
+    guidedModeToggle.checked = getTransportGuidedModePreference();
+    guidedModeToggle.addEventListener('change', () => {
+      syncTransportGuidedModeState();
+    });
+  }
+  document.querySelectorAll('[data-transport-guided-tab]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const tab = normalizeTransportTab(button.getAttribute('data-transport-guided-tab') || 'locations');
+      void setTransportActiveTab(tab, { load: true });
+      const tabsEl = document.querySelector('#viewTransport .transport-tabs');
+      if (tabsEl && typeof tabsEl.scrollIntoView === 'function') {
+        tabsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  });
 
   const btnRefreshLocations = document.getElementById('btnRefreshTransportLocations');
   if (btnRefreshLocations) {
@@ -16141,6 +16219,11 @@ function bindTransportAdminUi() {
     forceEnabled: simpleModeToggle instanceof HTMLInputElement
       ? simpleModeToggle.checked
       : getTransportSimpleModePreference(),
+  });
+  syncTransportGuidedModeState({
+    forceEnabled: guidedModeToggle instanceof HTMLInputElement
+      ? guidedModeToggle.checked
+      : getTransportGuidedModePreference(),
   });
   resetTransportControlScenario();
   syncTransportControlCenter();

@@ -28,7 +28,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="/assets/css/tokens.css?v=20251107" />
   <link rel="stylesheet" href="/assets/css/base.css?v=20251107" />
-  <link rel="stylesheet" href="/admin/admin.css?v=20260224_3" />
+  <link rel="stylesheet" href="/admin/admin.css?v=20260224_4" />
   
   <!-- Auth meta -->
   <meta name="ce-auth" content="required" />
@@ -40,7 +40,7 @@
   <script src="/admin/universal-i18n-component.js?v=20250111"></script>
   <script src="/admin/poi-i18n-form.js?v=20250111"></script>
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
-  <script type="module" src="/admin/admin.js?v=20260224_3"></script>
+  <script type="module" src="/admin/admin.js?v=20260224_4"></script>
   <script src="/admin/admin-pwa.js?v=20260221_4" defer></script>
 </head>
 <body data-admin-panel="true">
@@ -666,6 +666,10 @@
                 <input id="transportSimpleModeToggle" type="checkbox" checked />
                 <span>Simple mode (hide advanced tools)</span>
               </label>
+              <label class="transport-check-field transport-check-field--inline transport-simple-mode-toggle">
+                <input id="transportGuidedModeToggle" type="checkbox" checked />
+                <span>Guided mode (step by step)</span>
+              </label>
               <div class="transport-control-center__steps" aria-label="Setup steps">
                 <span class="transport-control-step">1. Locations</span>
                 <span class="transport-control-step">2. Route base fare</span>
@@ -675,8 +679,8 @@
             </div>
           </div>
 
-          <div class="transport-control-center__grid">
-            <section class="transport-control-panel">
+          <div class="transport-control-center__grid transport-control-center__grid--stacked">
+            <section class="transport-control-panel transport-control-panel--compact">
               <h4 class="transport-title-with-help">
                 Route & rule selector
                 <button class="transport-help-trigger" type="button" data-transport-help="selector" aria-label="How to use Route and rule selector">?</button>
@@ -704,7 +708,7 @@
               <div class="transport-control-status" id="transportPreviewStatus">Select route to start simulation.</div>
             </section>
 
-            <section class="transport-control-panel">
+            <section class="transport-control-panel transport-control-panel--compact">
               <div class="transport-inline-head">
                 <div>
                   <h4 class="transport-title-with-help transport-title-with-help--compact">
@@ -715,7 +719,7 @@
                 </div>
                 <button class="btn-secondary" type="button" id="btnTransportControlResetScenario">Reset scenario</button>
               </div>
-              <div class="admin-form-grid transport-simulator-grid">
+              <div class="admin-form-grid transport-simulator-grid transport-simulator-grid--core">
                 <label class="admin-form-field" style="margin: 0;">
                   <span>Rate mode</span>
                   <select id="transportPreviewRateMode" class="form-control" data-transport-preview-input>
@@ -743,6 +747,10 @@
                   <span>Bags</span>
                   <input id="transportPreviewBags" type="number" min="0" step="1" value="2" data-transport-preview-input />
                 </label>
+              </div>
+              <details class="transport-simulator-advanced" id="transportPreviewAdvancedPanel">
+                <summary>Advanced scenario options</summary>
+                <div class="admin-form-grid transport-simulator-grid transport-simulator-grid--advanced">
                 <label class="admin-form-field" style="margin: 0;">
                   <span>Oversize bags</span>
                   <input id="transportPreviewOversizeBags" type="number" min="0" step="1" value="0" data-transport-preview-input />
@@ -759,7 +767,8 @@
                   <span>Waiting minutes</span>
                   <input id="transportPreviewWaitingMinutes" type="number" min="0" step="1" value="0" data-transport-preview-input />
                 </label>
-              </div>
+                </div>
+              </details>
               <div class="transport-breakdown-grid">
                 <div class="transport-breakdown-item"><span>Base fare</span><strong id="transportPreviewBase">—</strong></div>
                 <div class="transport-breakdown-item"><span>Extra passengers</span><strong id="transportPreviewExtraPassengers">—</strong></div>
@@ -809,6 +818,46 @@
           </div>
           <button class="transport-help-trigger transport-workflow-strip__help" type="button" data-transport-help="workflow_bundle" aria-label="How to use workflow automation">?</button>
         </div>
+
+        <section class="transport-guided-panel" id="transportGuidedPanel">
+          <header class="transport-guided-panel__head">
+            <h4 class="transport-title-with-help transport-title-with-help--compact">
+              Guided Setup
+              <button class="transport-help-trigger" type="button" data-transport-help="workflow_bundle" aria-label="How to use guided setup">?</button>
+            </h4>
+            <p id="transportGuidedStepHint" class="transport-guided-panel__hint">Follow steps to configure transport without missing fields.</p>
+          </header>
+          <div class="transport-guided-steps" role="list" aria-label="Guided setup steps">
+            <button class="transport-guided-step" type="button" data-transport-guided-tab="locations">
+              <span class="transport-guided-step__number">1</span>
+              <span class="transport-guided-step__meta">
+                <strong>Locations</strong>
+                <small>Create city/airport/hotel points</small>
+              </span>
+            </button>
+            <button class="transport-guided-step" type="button" data-transport-guided-tab="routes">
+              <span class="transport-guided-step__number">2</span>
+              <span class="transport-guided-step__meta">
+                <strong>Routes</strong>
+                <small>Set base fare, capacity, trip mode</small>
+              </span>
+            </button>
+            <button class="transport-guided-step" type="button" data-transport-guided-tab="pricing">
+              <span class="transport-guided-step__number">3</span>
+              <span class="transport-guided-step__meta">
+                <strong>Pricing</strong>
+                <small>Extras, waiting, deposit and bulk apply</small>
+              </span>
+            </button>
+            <button class="transport-guided-step" type="button" data-transport-guided-tab="bookings">
+              <span class="transport-guided-step__number">4</span>
+              <span class="transport-guided-step__meta">
+                <strong>Bookings</strong>
+                <small>Assignments, status and payments</small>
+              </span>
+            </button>
+          </div>
+        </section>
 
         <div class="transport-tabs">
           <button class="transport-tab-button active" data-tab="locations" type="button">
