@@ -1441,10 +1441,10 @@
                     </h4>
                     <label class="transport-check-field transport-check-field--inline">
                       <input id="transportPricingDepositEnabled" type="checkbox" />
-                      <span>Require deposit for this rule</span>
+                      <span>Enable route deposit rule</span>
                     </label>
                   </div>
-                  <p class="transport-form-block__hint">When saved, route deposit is synced to <strong>Partners → Emails → Deposit overrides</strong>. If disabled, this route falls back to default <strong>Transport</strong> deposit rule there.</p>
+                  <p class="transport-form-block__hint">When saved, route deposit is synced to <strong>Partners → Emails → Deposit overrides</strong>. Final customer deposit uses the higher amount: <strong>MAX(base transport flat rule, this route rule)</strong>.</p>
                   <div class="admin-form-grid transport-fields-grid transport-fields-grid--pricing-deposit">
                     <label class="admin-form-field transport-field">
                       <span>Deposit mode</span>
@@ -1458,7 +1458,12 @@
                       <span>Deposit value</span>
                       <input type="number" id="transportPricingDepositValue" min="0" step="0.01" value="0" />
                     </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Base floor (flat default only)</span>
+                      <input type="number" id="transportPricingDepositBaseFloor" min="0" step="0.01" value="0" readonly />
+                    </label>
                   </div>
+                  <p class="transport-form-block__hint transport-form-block__hint--status" id="transportPricingDepositBaseHint">Final deposit = MAX(base floor from Partners Emails flat rule, route rule calculation).</p>
                 </section>
 
                 <section class="transport-bulk-panel transport-advanced-block" aria-label="Apply pricing to additional routes">
@@ -4464,7 +4469,6 @@
                   <option value="per_person">Per person</option>
                   <option value="flat">Flat</option>
                   <option value="percent_total">Percent of total</option>
-                  <option value="per_day">Per day</option>
                 </select>
                 <input id="depositRuleAmountTransport" type="number" step="0.01" min="0" class="form-control" />
                 <input id="depositRuleCurrencyTransport" type="text" class="form-control" value="EUR" />
@@ -4484,7 +4488,7 @@
             <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
               <div>
                 <h3>Deposit overrides</h3>
-                <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Override deposit rule for a specific car offer / trip / hotel / transport route</p>
+                <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Override deposit rule for a specific car offer / trip / hotel / transport route. For transport checkout, final deposit uses <strong>MAX(Default Transport flat rule, Transport route override)</strong>.</p>
               </div>
               <button class="btn-secondary" id="btnRefreshDepositOverrides">🔄 Refresh</button>
             </div>

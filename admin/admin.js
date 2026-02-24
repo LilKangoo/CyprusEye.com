@@ -1248,6 +1248,11 @@ const transportAdminState = {
   routes: [],
   pricingRules: [],
   bookings: [],
+  depositBaseFloor: 0,
+  depositBaseMode: 'flat',
+  depositBaseEnabled: false,
+  depositBaseCurrency: 'EUR',
+  depositBaseSourceAvailable: false,
   locationById: {},
   routeById: {},
   assignablePartners: [],
@@ -4511,7 +4516,13 @@ async function loadDefaultDepositRules() {
     ['cars', 'trips', 'hotels', 'transport'].forEach((t) => {
       const row = byType[t] || {};
       const inputs = getDepositRuleInputs(t);
-      if (inputs.mode) inputs.mode.value = row.mode || 'flat';
+      if (inputs.mode) {
+        let modeValue = String(row.mode || 'flat').trim();
+        if (t === 'transport' && !['per_person', 'flat', 'percent_total'].includes(modeValue)) {
+          modeValue = 'flat';
+        }
+        inputs.mode.value = modeValue;
+      }
       if (inputs.amount) inputs.amount.value = row.amount != null ? Number(row.amount) : '';
       if (inputs.currency) inputs.currency.value = row.currency || 'EUR';
       if (inputs.includeChildren) inputs.includeChildren.checked = Boolean(row.include_children);
@@ -4530,7 +4541,10 @@ async function saveDefaultDepositRules() {
   try {
     const rows = ['cars', 'trips', 'hotels', 'transport'].map((t) => {
       const inputs = getDepositRuleInputs(t);
-      const mode = String(inputs.mode?.value || '').trim();
+      let mode = String(inputs.mode?.value || '').trim();
+      if (t === 'transport' && !['per_person', 'flat', 'percent_total'].includes(mode)) {
+        mode = 'flat';
+      }
       const amount = Number(inputs.amount?.value || 0);
       const currency = String(inputs.currency?.value || 'EUR').trim() || 'EUR';
       const includeChildren = Boolean(inputs.includeChildren?.checked);
@@ -4559,7 +4573,32 @@ async function saveDefaultDepositRules() {
       .from('service_deposit_rules')
       .upsert(rows, { onConflict: 'resource_type' });
     if (error) throw error;
+
+    const transportRule = rows.find((row) => String(row?.resource_type || '') === 'transport') || null;
+    if (transportRule) {
+      try {
+        const mirrored = await syncTransportPricingDepositsFromPartnerDefaults(client, { defaultRule: transportRule });
+        if (mirrored.missingPricing) {
+          showToast('Transport pricing mirror skipped. Run migration 114_transport_deposit_base_floor.sql', 'error');
+        } else if (mirrored.updated > 0 || mirrored.floorUpdated > 0 || mirrored.skipped > 0 || mirrored.floorSkipped > 0) {
+          showToast(`Transport pricing mirrored from default rule (dynamic ${mirrored.updated}, base floor ${mirrored.floorUpdated})`, 'success');
+        }
+      } catch (mirrorError) {
+        console.error('Failed to mirror default transport deposit into pricing rules:', mirrorError);
+        showToast('Saved rules, but transport pricing mirror failed', 'error');
+      }
+    }
+
     showToast('Saved deposit rules', 'success');
+
+    try {
+      await refreshTransportDepositBaseFloorState(client, { updateUi: true });
+    } catch (_error) {
+    }
+
+    if (!document.getElementById('viewTransport')?.hidden) {
+      await loadTransportPricingData({ silent: true });
+    }
   } catch (e) {
     console.error('Failed to save deposit rules:', e);
     showToast(e.message || 'Failed to save deposit rules', 'error');
@@ -4902,6 +4941,7 @@ async function deleteDepositOverride(overrideId) {
   if (!client) return;
   const id = String(overrideId || '').trim();
   if (!id) return;
+  const existingRow = (partnersUiState.depositOverrides || []).find((row) => String(row?.id || '') === id) || null;
   if (!confirm('Delete this override?')) return;
 
   try {
@@ -4910,8 +4950,28 @@ async function deleteDepositOverride(overrideId) {
       .delete()
       .eq('id', id);
     if (error) throw error;
+
+    if (String(existingRow?.resource_type || '') === 'transport') {
+      try {
+        const mirrored = await syncSingleTransportPricingDepositFromPartnerOverride(
+          client,
+          String(existingRow?.resource_id || '').trim(),
+          null,
+        );
+        if (mirrored.missingPricing) {
+          showToast('Transport pricing fallback mirror skipped (missing pricing deposit columns)', 'error');
+        }
+      } catch (mirrorError) {
+        console.error('Failed to mirror transport override delete into pricing rules:', mirrorError);
+        showToast('Override deleted, but transport pricing mirror failed', 'error');
+      }
+    }
+
     showToast('Override deleted', 'success');
     await loadDepositOverrides();
+    if (!document.getElementById('viewTransport')?.hidden) {
+      await loadTransportPricingData({ silent: true });
+    }
   } catch (e) {
     console.error('Failed to delete override:', e);
     showToast(e.message || 'Failed to delete override', 'error');
@@ -4966,8 +5026,17 @@ function updateDepositOverrideModeOptions(resourceType) {
     perHourOpt.disabled = type !== 'trips';
   }
 
+  const perDayOpt = Array.from(modeEl.options || []).find((o) => String(o.value || '') === 'per_day');
+  if (perDayOpt) {
+    perDayOpt.hidden = type === 'transport';
+    perDayOpt.disabled = type === 'transport';
+  }
+
   if (type !== 'trips' && String(modeEl.value || '') === 'per_hour') {
-    modeEl.value = 'per_day';
+    modeEl.value = type === 'transport' ? 'flat' : 'per_day';
+  }
+  if (type === 'transport' && String(modeEl.value || '') === 'per_day') {
+    modeEl.value = 'flat';
   }
 }
 
@@ -5038,8 +5107,27 @@ async function saveDepositOverride() {
       .upsert(payload, { onConflict: 'resource_type,resource_id' });
     if (error) throw error;
 
+    if (resourceType === 'transport') {
+      try {
+        const mirrored = await syncSingleTransportPricingDepositFromPartnerOverride(client, resourceId, {
+          mode,
+          amount,
+          enabled,
+        });
+        if (mirrored.missingPricing) {
+          showToast('Transport pricing mirror skipped (missing pricing deposit columns)', 'error');
+        }
+      } catch (mirrorError) {
+        console.error('Failed to mirror transport override into pricing rules:', mirrorError);
+        showToast('Override saved, but transport pricing mirror failed', 'error');
+      }
+    }
+
     showToast('Override saved', 'success');
     await loadDepositOverrides();
+    if (resourceType === 'transport' && !document.getElementById('viewTransport')?.hidden) {
+      await loadTransportPricingData({ silent: true });
+    }
   } catch (e) {
     console.error('Failed to save override:', e);
     showToast(e.message || 'Failed to save override', 'error');
@@ -10665,18 +10753,25 @@ function calculateTransportControlQuote(route, rule, scenario) {
     ? depositModeRaw
     : 'percent_total';
   const depositValue = transportToNonNegativeNumber(rule?.deposit_value, 0);
+  const depositBaseFloor = transportToNonNegativeNumber(rule?.deposit_base_floor, 0);
 
-  let depositAmount = 0;
+  let depositDynamicAmount = 0;
   if (depositEnabled) {
     if (depositMode === 'fixed_amount') {
-      depositAmount = depositValue;
+      depositDynamicAmount = depositValue;
     } else if (depositMode === 'percent_total') {
-      depositAmount = (total * depositValue) / 100;
+      depositDynamicAmount = (total * depositValue) / 100;
     } else if (depositMode === 'per_person') {
-      depositAmount = scenario.passengers * depositValue;
+      depositDynamicAmount = scenario.passengers * depositValue;
     }
-    depositAmount = round2(Math.min(Math.max(depositAmount, 0), total));
   }
+  depositDynamicAmount = round2(Math.min(Math.max(depositDynamicAmount, 0), total));
+
+  const depositAmount = round2(Math.min(Math.max(Math.max(depositBaseFloor, depositDynamicAmount), 0), total));
+  const depositAppliedMode = depositAmount === depositBaseFloor && depositBaseFloor > depositDynamicAmount
+    ? 'base_floor'
+    : (depositEnabled ? depositMode : (depositBaseFloor > 0 ? 'base_floor' : 'none'));
+  const depositActive = depositAmount > 0;
 
   return {
     currency,
@@ -10705,9 +10800,12 @@ function calculateTransportControlQuote(route, rule, scenario) {
     waitingCost,
     extrasTotal,
     oneWayTotal,
-    depositEnabled,
+    depositEnabled: depositActive,
     depositMode,
     depositValue,
+    depositBaseFloor,
+    depositDynamicAmount,
+    depositAppliedMode,
     depositAmount,
     total,
     warnings,
@@ -10846,7 +10944,7 @@ function renderTransportPricingPreview() {
       : 'Trip: ONE WAY';
     const waitText = `Waiting: ${Number(quote.waitingIncluded || 0)} min incl. + ${transportMoney(quote.waitingFeePerHour || 0, quote.currency)}/hour`;
     const depositText = quote.depositEnabled
-      ? `Deposit: ${transportMoney(quote.depositAmount || 0, quote.currency)} (${String(quote.depositMode || '').replace('_', ' ')})`
+      ? `Deposit: ${transportMoney(quote.depositAmount || 0, quote.currency)} = MAX(base ${transportMoney(quote.depositBaseFloor || 0, quote.currency)}, route ${transportMoney(quote.depositDynamicAmount || 0, quote.currency)})`
       : 'Deposit: not required';
     const ruleText = selectedRule
       ? `Rule #${String(selectedRule.id || '').slice(0, 8).toUpperCase()} (priority ${Number(selectedRule.priority || 0)})`
@@ -11317,14 +11415,14 @@ const TRANSPORT_HELP_TOPICS = Object.freeze({
   },
   pricing_deposit: {
     title: 'Deposit Settings',
-    intro: 'Controls prepayment for this rule and syncs overrides.',
+    intro: 'Controls route deposit rule and syncs overrides.',
     steps: [
-      'Enable deposit for this rule.',
+      'Enable route deposit rule.',
       'Choose mode: percent_total, fixed_amount or per_person.',
-      'Set deposit value and save.',
+      'Set rule value and save.',
     ],
     tips: [
-      'If disabled, route falls back to global transport deposit in Partners → Emails.',
+      'Final checkout deposit uses MAX(Default Transport rule in Partners → Emails, route rule).',
     ],
   },
   pricing_additional_routes: {
@@ -13212,9 +13310,23 @@ function syncTransportPricingCityBulkSummary() {
   summaryEl.textContent = `${scopeLabel}. ${selection.routeIds.length} route(s) matched. Existing pricing rows: ${matchedRules.length} (${activeRuleCount} active). ${modeText}${previewSuffix}`;
 }
 
-function buildTransportPricingPayloadFromForm(routeId) {
+async function buildTransportPricingPayloadFromForm(routeId, options = {}) {
   const id = String(routeId || '').trim();
   if (!id) return { error: 'Route is required' };
+
+  const client = options?.client || ensureSupabase();
+  let baseFloor = Number(transportAdminState.depositBaseFloor || 0);
+  let baseMissingDeps = false;
+  if (client) {
+    try {
+      const refreshedBase = await refreshTransportDepositBaseFloorState(client, { updateUi: false });
+      baseFloor = Number(refreshedBase?.baseFloor || 0);
+      baseMissingDeps = Boolean(refreshedBase?.missingDeps);
+    } catch (_error) {
+      baseFloor = Number(transportAdminState.depositBaseFloor || 0);
+    }
+  }
+  const normalizedBaseFloor = Number.isFinite(baseFloor) ? Math.max(0, baseFloor) : 0;
 
   const waitingFeePerHour = Number(document.getElementById('transportPricingWaitingPerHour')?.value || 0);
   const depositEnabled = Boolean(document.getElementById('transportPricingDepositEnabled')?.checked);
@@ -13238,6 +13350,7 @@ function buildTransportPricingPayloadFromForm(routeId) {
     deposit_enabled: depositEnabled,
     deposit_mode: depositMode,
     deposit_value: depositValue,
+    deposit_base_floor: normalizedBaseFloor,
     night_start: String(document.getElementById('transportPricingNightStart')?.value || '22:00').slice(0, 5),
     night_end: String(document.getElementById('transportPricingNightEnd')?.value || '06:00').slice(0, 5),
     valid_from: String(document.getElementById('transportPricingValidFrom')?.value || '').trim() || null,
@@ -13282,7 +13395,7 @@ function buildTransportPricingPayloadFromForm(routeId) {
     return { error: 'Valid to date must be equal or later than valid from' };
   }
 
-  return { error: '', payload };
+  return { error: '', payload, baseMissingDeps };
 }
 
 async function applyTransportPricingCityBulkUpdate(options = {}) {
@@ -13308,10 +13421,13 @@ async function applyTransportPricingCityBulkUpdate(options = {}) {
     return { ok: false, reason: 'no_routes' };
   }
 
-  const payloadResult = buildTransportPricingPayloadFromForm(selection.routeIds[0]);
+  const payloadResult = await buildTransportPricingPayloadFromForm(selection.routeIds[0], { client });
   if (payloadResult.error || !payloadResult.payload) {
     showToast(payloadResult.error || 'Invalid pricing form values', 'error');
     return { ok: false, reason: 'invalid_payload' };
+  }
+  if (payloadResult.baseMissingDeps) {
+    showToast('Base deposit floor source is unavailable (service_deposit_rules missing). Using 0 as base floor.', 'error');
   }
 
   const cityPairLabel = selection.scopeMode === 'single_route'
@@ -13422,8 +13538,9 @@ async function applyTransportPricingCityBulkUpdate(options = {}) {
       || isMissingColumnError(error, 'deposit_enabled')
       || isMissingColumnError(error, 'deposit_mode')
       || isMissingColumnError(error, 'deposit_value')
+      || isMissingColumnError(error, 'deposit_base_floor')
     ) {
-      showToast('Run migration 111_transport_round_trip_waiting_hourly_and_deposit_rules.sql first', 'error');
+      showToast('Run migration 114_transport_deposit_base_floor.sql first', 'error');
       return { ok: false, reason: 'missing_columns', error };
     }
     showToast(String(error?.message || 'Failed to apply pricing bulk update'), 'error');
@@ -13913,6 +14030,8 @@ function syncTransportPricingDepositControls() {
   const enabledEl = document.getElementById('transportPricingDepositEnabled');
   const modeEl = document.getElementById('transportPricingDepositMode');
   const valueEl = document.getElementById('transportPricingDepositValue');
+  const baseFloorEl = document.getElementById('transportPricingDepositBaseFloor');
+  const baseHintEl = document.getElementById('transportPricingDepositBaseHint');
   if (!enabledEl || !modeEl || !valueEl) return;
 
   const enabled = Boolean(enabledEl.checked);
@@ -13920,6 +14039,37 @@ function syncTransportPricingDepositControls() {
   valueEl.disabled = !enabled;
   if (!enabled) {
     valueEl.value = '0';
+  }
+
+  const baseFloor = Number(baseFloorEl?.value || transportAdminState.depositBaseFloor || 0);
+  const normalizedBaseFloor = Number.isFinite(baseFloor) ? Math.max(0, baseFloor) : 0;
+  const baseCurrency = String(transportAdminState.depositBaseCurrency || 'EUR').trim().toUpperCase() || 'EUR';
+  const baseMode = String(transportAdminState.depositBaseMode || 'flat').trim().toLowerCase();
+  const baseEnabled = Boolean(transportAdminState.depositBaseEnabled);
+  const baseSourceAvailable = transportAdminState.depositBaseSourceAvailable !== false;
+
+  if (baseFloorEl && !baseFloorEl.value) {
+    baseFloorEl.value = String(normalizedBaseFloor);
+  }
+
+  if (baseHintEl) {
+    const mode = String(modeEl.value || 'percent_total').trim().toLowerCase();
+    const value = Number(valueEl.value || 0);
+    const crossover = mode === 'per_person' && value > 0 && normalizedBaseFloor > 0
+      ? Math.floor(normalizedBaseFloor / value) + 1
+      : null;
+    const crossoverText = crossover && Number.isFinite(crossover)
+      ? ` For this per-person value, route rule exceeds base from ${crossover} pax.`
+      : '';
+    const baseModeText = !baseSourceAvailable
+      ? ' Base floor source is unavailable (service_deposit_rules missing).'
+      : (!baseEnabled
+        ? ' Default transport rule is disabled, so base floor is 0.'
+        : (baseMode !== 'flat'
+          ? ` Default transport mode is ${baseMode}; base floor applies only to flat mode.`
+          : ''));
+
+    baseHintEl.textContent = `Final deposit = MAX(base ${transportMoney(normalizedBaseFloor, baseCurrency)} from Partners Emails flat rule, route rule).${crossoverText}${baseModeText}`;
   }
 }
 
@@ -13935,6 +14085,402 @@ function mapTransportPricingDepositModeToServiceMode(modeRaw) {
   if (mode === 'fixed_amount') return 'flat';
   if (mode === 'per_person') return 'per_person';
   return 'percent_total';
+}
+
+function mapServiceDepositModeToTransportPricingMode(modeRaw) {
+  const mode = String(modeRaw || '').trim().toLowerCase();
+  if (mode === 'percent_total') return 'percent_total';
+  if (mode === 'per_person') return 'per_person';
+  return 'fixed_amount';
+}
+
+function resolveTransportDepositBaseFloorFromRule(rule) {
+  const enabled = Boolean(rule?.enabled);
+  const mode = String(rule?.mode || '').trim().toLowerCase();
+  const amount = Number(rule?.amount || 0);
+  if (!enabled) return 0;
+  if (mode !== 'flat') return 0;
+  if (!Number.isFinite(amount) || !(amount > 0)) return 0;
+  return Math.max(0, amount);
+}
+
+function normalizeTransportPricingDepositSettingsFromServiceRule(rule) {
+  const amount = Number(rule?.amount || 0);
+  const normalizedAmount = Number.isFinite(amount) ? Math.max(0, amount) : 0;
+  const normalizedMode = mapServiceDepositModeToTransportPricingMode(rule?.mode);
+  const enabled = Boolean(rule?.enabled) && normalizedAmount > 0;
+  return {
+    depositEnabled: enabled,
+    depositMode: normalizedMode,
+    depositValue: normalizedAmount,
+  };
+}
+
+async function loadTransportDefaultServiceDepositRule(client) {
+  if (!client) return { rule: null, missingDeps: true };
+
+  let result = null;
+  try {
+    result = await runTransportMutation(
+      (db) => db
+        .from('service_deposit_rules')
+        .select('mode, amount, enabled, currency')
+        .eq('resource_type', 'transport')
+        .maybeSingle(),
+      { silentAuthNotice: true },
+    );
+  } catch (error) {
+    if (isMissingTableError(error, 'service_deposit_rules')) {
+      return { rule: null, missingDeps: true };
+    }
+    throw error;
+  }
+
+  if (result?.error) {
+    if (isMissingTableError(result.error, 'service_deposit_rules')) {
+      return { rule: null, missingDeps: true };
+    }
+    throw result.error;
+  }
+
+  const row = result?.data && typeof result.data === 'object' ? result.data : null;
+  if (!row) return { rule: null, missingDeps: false };
+  return {
+    rule: {
+      mode: String(row.mode || '').trim().toLowerCase(),
+      amount: Number(row.amount || 0),
+      enabled: Boolean(row.enabled),
+      currency: String(row.currency || 'EUR').trim().toUpperCase() || 'EUR',
+    },
+    missingDeps: false,
+  };
+}
+
+async function refreshTransportDepositBaseFloorState(client, options = {}) {
+  const loaded = await loadTransportDefaultServiceDepositRule(client);
+  const rule = loaded.rule || null;
+  const baseFloor = resolveTransportDepositBaseFloorFromRule(rule);
+
+  transportAdminState.depositBaseFloor = baseFloor;
+  transportAdminState.depositBaseMode = String(rule?.mode || '').trim().toLowerCase() || 'flat';
+  transportAdminState.depositBaseEnabled = Boolean(rule?.enabled);
+  transportAdminState.depositBaseCurrency = String(rule?.currency || 'EUR').trim().toUpperCase() || 'EUR';
+  transportAdminState.depositBaseSourceAvailable = !loaded.missingDeps;
+
+  if (options.updateUi !== false) {
+    const floorInput = document.getElementById('transportPricingDepositBaseFloor');
+    if (floorInput) floorInput.value = String(baseFloor);
+    syncTransportPricingDepositControls();
+  }
+
+  return {
+    baseFloor,
+    missingDeps: loaded.missingDeps,
+    rule,
+  };
+}
+
+async function applyTransportPricingDepositBaseFloorToRoutes(client, routeIds, baseFloorValue) {
+  if (!client) return { updated: 0, skipped: 0, missingPricing: true };
+
+  const ids = Array.from(new Set((Array.isArray(routeIds) ? routeIds : []).map((id) => String(id || '').trim()).filter(Boolean)));
+  if (!ids.length) return { updated: 0, skipped: 0, missingPricing: false };
+
+  const baseFloor = Number(baseFloorValue || 0);
+  const normalizedBaseFloor = Number.isFinite(baseFloor) ? Math.max(0, baseFloor) : 0;
+
+  let updated = 0;
+  let skipped = 0;
+  for (const chunk of chunkArray(ids, 150)) {
+    const result = await runTransportMutation(
+      (db) => db
+        .from(TRANSPORT_TABLES.pricing)
+        .update({ deposit_base_floor: normalizedBaseFloor })
+        .in('route_id', chunk),
+      { silentAuthNotice: true },
+    );
+
+    if (result?.error) {
+      if (isMissingTableError(result.error, TRANSPORT_TABLES.pricing) || isMissingColumnError(result.error, 'deposit_base_floor')) {
+        return { updated, skipped: skipped + chunk.length, missingPricing: true };
+      }
+      skipped += chunk.length;
+      console.error('Failed to mirror deposit base floor to transport pricing routes:', chunk, result.error);
+      continue;
+    }
+    updated += chunk.length;
+  }
+
+  return { updated, skipped, missingPricing: false };
+}
+
+async function loadEnabledTransportDepositOverrideRouteIds(client) {
+  if (!client) return { routeIds: [], missingDeps: true };
+
+  let result = null;
+  try {
+    result = await runTransportMutation(
+      (db) => db
+        .from('service_deposit_overrides')
+        .select('resource_id')
+        .eq('resource_type', 'transport')
+        .eq('enabled', true)
+        .limit(4000),
+      { silentAuthNotice: true },
+    );
+  } catch (error) {
+    if (isMissingTableError(error, 'service_deposit_overrides')) {
+      return { routeIds: [], missingDeps: true };
+    }
+    throw error;
+  }
+
+  if (result?.error) {
+    if (isMissingTableError(result.error, 'service_deposit_overrides')) {
+      return { routeIds: [], missingDeps: true };
+    }
+    throw result.error;
+  }
+
+  const routeIds = Array.from(new Set(
+    (Array.isArray(result?.data) ? result.data : [])
+      .map((row) => String(row?.resource_id || '').trim())
+      .filter(Boolean),
+  ));
+  return { routeIds, missingDeps: false };
+}
+
+async function loadTransportPricingRouteIds(client) {
+  if (!client) return { routeIds: [], missingPricing: true };
+
+  let result = null;
+  try {
+    result = await runTransportMutation(
+      (db) => db
+        .from(TRANSPORT_TABLES.pricing)
+        .select('route_id')
+        .not('route_id', 'is', null)
+        .limit(5000),
+      { silentAuthNotice: true },
+    );
+  } catch (error) {
+    if (isMissingTableError(error, TRANSPORT_TABLES.pricing)) {
+      return { routeIds: [], missingPricing: true };
+    }
+    throw error;
+  }
+
+  if (result?.error) {
+    if (
+      isMissingTableError(result.error, TRANSPORT_TABLES.pricing)
+      || isMissingColumnError(result.error, 'deposit_enabled')
+      || isMissingColumnError(result.error, 'deposit_mode')
+      || isMissingColumnError(result.error, 'deposit_value')
+    ) {
+      return { routeIds: [], missingPricing: true };
+    }
+    throw result.error;
+  }
+
+  const routeIds = Array.from(new Set(
+    (Array.isArray(result?.data) ? result.data : [])
+      .map((row) => String(row?.route_id || '').trim())
+      .filter(Boolean),
+  ));
+  return { routeIds, missingPricing: false };
+}
+
+async function applyTransportPricingDepositToRoutes(client, routeIds, settings = {}) {
+  if (!client) return { updated: 0, skipped: 0, missingPricing: true };
+
+  const ids = Array.from(new Set((Array.isArray(routeIds) ? routeIds : []).map((id) => String(id || '').trim()).filter(Boolean)));
+  if (!ids.length) return { updated: 0, skipped: 0, missingPricing: false };
+
+  const depositModeRaw = String(settings?.depositMode || 'fixed_amount').trim().toLowerCase();
+  const depositMode = ['fixed_amount', 'percent_total', 'per_person'].includes(depositModeRaw)
+    ? depositModeRaw
+    : 'fixed_amount';
+  const depositValue = Number(settings?.depositValue || 0);
+  const payload = {
+    deposit_enabled: Boolean(settings?.depositEnabled) && Number.isFinite(depositValue) && depositValue > 0,
+    deposit_mode: depositMode,
+    deposit_value: Number.isFinite(depositValue) ? Math.max(0, depositValue) : 0,
+  };
+
+  let updated = 0;
+  let skipped = 0;
+  for (const chunk of chunkArray(ids, 150)) {
+    const result = await runTransportMutation(
+      (db) => db
+        .from(TRANSPORT_TABLES.pricing)
+        .update(payload)
+        .in('route_id', chunk),
+      { silentAuthNotice: true },
+    );
+
+    if (result?.error) {
+      if (
+        isMissingTableError(result.error, TRANSPORT_TABLES.pricing)
+        || isMissingColumnError(result.error, 'deposit_enabled')
+        || isMissingColumnError(result.error, 'deposit_mode')
+        || isMissingColumnError(result.error, 'deposit_value')
+      ) {
+        return { updated, skipped: skipped + chunk.length, missingPricing: true };
+      }
+      skipped += chunk.length;
+      console.error('Failed to mirror deposit settings to transport pricing routes:', chunk, result.error);
+      continue;
+    }
+
+    updated += chunk.length;
+  }
+
+  return { updated, skipped, missingPricing: false };
+}
+
+async function syncTransportPricingDepositsFromPartnerDefaults(client, options = {}) {
+  if (!client) {
+    return {
+      updated: 0,
+      skipped: 0,
+      floorUpdated: 0,
+      floorSkipped: 0,
+      missingDeps: true,
+      missingPricing: true,
+    };
+  }
+
+  let defaultRule = options?.defaultRule || null;
+  let missingDeps = false;
+  if (!defaultRule) {
+    const loaded = await loadTransportDefaultServiceDepositRule(client);
+    defaultRule = loaded.rule;
+    missingDeps = missingDeps || loaded.missingDeps;
+  }
+  if (!defaultRule) {
+    return { updated: 0, skipped: 0, missingDeps, missingPricing: false };
+  }
+
+  let routeIds = Array.isArray(options?.routeIds)
+    ? options.routeIds.map((id) => String(id || '').trim()).filter(Boolean)
+    : [];
+  if (!routeIds.length) {
+    const pricingRoutes = await loadTransportPricingRouteIds(client);
+    routeIds = pricingRoutes.routeIds;
+    if (pricingRoutes.missingPricing) {
+      return {
+        updated: 0,
+        skipped: 0,
+        floorUpdated: 0,
+        floorSkipped: 0,
+        missingDeps,
+        missingPricing: true,
+      };
+    }
+  }
+  if (!routeIds.length) {
+    return {
+      updated: 0,
+      skipped: 0,
+      floorUpdated: 0,
+      floorSkipped: 0,
+      missingDeps,
+      missingPricing: false,
+    };
+  }
+
+  const baseFloor = resolveTransportDepositBaseFloorFromRule(defaultRule);
+  const floorSync = await applyTransportPricingDepositBaseFloorToRoutes(client, routeIds, baseFloor);
+  if (floorSync.missingPricing) {
+    return {
+      updated: 0,
+      skipped: 0,
+      floorUpdated: floorSync.updated,
+      floorSkipped: floorSync.skipped,
+      missingDeps,
+      missingPricing: true,
+    };
+  }
+
+  let overrideRouteIds = Array.isArray(options?.enabledOverrideRouteIds)
+    ? options.enabledOverrideRouteIds.map((id) => String(id || '').trim()).filter(Boolean)
+    : [];
+  if (!overrideRouteIds.length) {
+    const loadedOverrides = await loadEnabledTransportDepositOverrideRouteIds(client);
+    overrideRouteIds = loadedOverrides.routeIds;
+    missingDeps = missingDeps || loadedOverrides.missingDeps;
+  }
+
+  const overrideSet = new Set(overrideRouteIds);
+  const fallbackRouteIds = routeIds.filter((id) => !overrideSet.has(id));
+  if (!fallbackRouteIds.length) {
+    return {
+      updated: 0,
+      skipped: 0,
+      floorUpdated: floorSync.updated,
+      floorSkipped: floorSync.skipped,
+      missingDeps,
+      missingPricing: false,
+    };
+  }
+
+  const normalized = normalizeTransportPricingDepositSettingsFromServiceRule(defaultRule);
+  const applied = await applyTransportPricingDepositToRoutes(client, fallbackRouteIds, normalized);
+  return {
+    updated: applied.updated,
+    skipped: applied.skipped,
+    floorUpdated: floorSync.updated,
+    floorSkipped: floorSync.skipped,
+    missingDeps,
+    missingPricing: applied.missingPricing,
+  };
+}
+
+async function syncSingleTransportPricingDepositFromPartnerOverride(client, routeId, overrideRule = null) {
+  const id = String(routeId || '').trim();
+  if (!client || !id) {
+    return {
+      updated: 0,
+      skipped: 0,
+      floorUpdated: 0,
+      floorSkipped: 0,
+      missingDeps: true,
+      missingPricing: false,
+    };
+  }
+
+  const loadedDefault = await loadTransportDefaultServiceDepositRule(client);
+  const baseFloor = resolveTransportDepositBaseFloorFromRule(loadedDefault.rule);
+  const floorSync = await applyTransportPricingDepositBaseFloorToRoutes(client, [id], baseFloor);
+  if (floorSync.missingPricing) {
+    return {
+      updated: 0,
+      skipped: 0,
+      floorUpdated: floorSync.updated,
+      floorSkipped: floorSync.skipped,
+      missingDeps: loadedDefault.missingDeps,
+      missingPricing: true,
+    };
+  }
+
+  if (overrideRule && overrideRule.enabled && Number(overrideRule.amount || 0) > 0) {
+    const normalized = normalizeTransportPricingDepositSettingsFromServiceRule(overrideRule);
+    const applied = await applyTransportPricingDepositToRoutes(client, [id], normalized);
+    return {
+      updated: applied.updated,
+      skipped: applied.skipped,
+      floorUpdated: floorSync.updated,
+      floorSkipped: floorSync.skipped,
+      missingDeps: loadedDefault.missingDeps,
+      missingPricing: applied.missingPricing,
+    };
+  }
+
+  return syncTransportPricingDepositsFromPartnerDefaults(client, {
+    routeIds: [id],
+    defaultRule: loadedDefault.rule,
+    enabledOverrideRouteIds: [],
+  });
 }
 
 function getTransportRouteCurrency(routeId, fallback = 'EUR') {
@@ -14706,6 +15252,7 @@ function resetTransportPricingForm() {
   const depositEnabledEl = document.getElementById('transportPricingDepositEnabled');
   const depositModeEl = document.getElementById('transportPricingDepositMode');
   const depositValueEl = document.getElementById('transportPricingDepositValue');
+  const depositBaseFloorEl = document.getElementById('transportPricingDepositBaseFloor');
   const nightStart = document.getElementById('transportPricingNightStart');
   const nightEnd = document.getElementById('transportPricingNightEnd');
   const activeEl = document.getElementById('transportPricingActive');
@@ -14726,6 +15273,7 @@ function resetTransportPricingForm() {
   if (depositEnabledEl) depositEnabledEl.checked = false;
   if (depositModeEl) depositModeEl.value = 'percent_total';
   if (depositValueEl) depositValueEl.value = '0';
+  if (depositBaseFloorEl) depositBaseFloorEl.value = String(Number(transportAdminState.depositBaseFloor || 0));
   if (nightStart) nightStart.value = '22:00';
   if (nightEnd) nightEnd.value = '06:00';
   if (priorityEl) priorityEl.value = '0';
@@ -14793,6 +15341,7 @@ function editTransportPricingRule(ruleId) {
   );
   setValue('transportPricingDepositMode', String(row.deposit_mode || 'percent_total'));
   setValue('transportPricingDepositValue', String(Number(row.deposit_value || 0)));
+  setValue('transportPricingDepositBaseFloor', String(Number(row.deposit_base_floor || transportAdminState.depositBaseFloor || 0)));
   setValue('transportPricingNightStart', String(row.night_start || '22:00').slice(0, 5));
   setValue('transportPricingNightEnd', String(row.night_end || '06:00').slice(0, 5));
   setValue('transportPricingValidFrom', String(row.valid_from || ''));
@@ -14970,6 +15519,7 @@ function renderTransportPricingTable() {
     });
     const waitingLabel = `${formatTransportIntegerRange(group.rows.map((row) => row?.waiting_included_minutes || 0), 'min incl.')} · ${formatTransportMoneyRange(waitingPerHourValues, currency)}/hour`;
     const enabledDeposits = group.rows.filter((row) => Boolean(row?.deposit_enabled)).length;
+    const baseFloorRangeLabel = formatTransportMoneyRange(group.rows.map((row) => row?.deposit_base_floor || 0), currency);
     const priorityValues = group.rows.map((row) => Number(row?.priority || 0));
     const minPriority = priorityValues.length ? Math.min(...priorityValues) : 0;
     const maxPriority = priorityValues.length ? Math.max(...priorityValues) : 0;
@@ -14987,14 +15537,18 @@ function renderTransportPricingTable() {
         `+oversize ${transportMoney(row?.oversize_bag_fee || 0, rowCurrency)}`,
       ].join(' · ');
       const depositEnabled = Boolean(row?.deposit_enabled);
+      const depositBaseFloor = transportToNonNegativeNumber(row?.deposit_base_floor, 0);
       const depositLabel = depositEnabled
         ? `${transportDepositModeLabel(row?.deposit_mode, rowCurrency)} · ${row?.deposit_mode === 'percent_total' ? `${Number(row?.deposit_value || 0)}%` : transportMoney(row?.deposit_value || 0, rowCurrency)}`
-        : 'No deposit';
+        : 'No route rule';
+      const finalDepositLabel = depositBaseFloor > 0
+        ? `MAX(${transportMoney(depositBaseFloor, rowCurrency)} base, route rule)`
+        : 'Route rule only';
       return `
         <div class="transport-stacked-item">
           <div class="transport-stacked-item__body">
             <div class="transport-stacked-item__title">${escapeHtml(getTransportRouteLabelById(row?.route_id))} · P${Number(row?.priority || 0)}</div>
-            <div class="transport-stacked-item__meta">${escapeHtml(surcharges)} · ${escapeHtml(depositLabel)}</div>
+            <div class="transport-stacked-item__meta">${escapeHtml(surcharges)} · ${escapeHtml(depositLabel)} · ${escapeHtml(finalDepositLabel)}</div>
           </div>
           <div class="transport-stacked-item__actions">
             <button class="btn-small btn-secondary" type="button" onclick="editTransportPricingRule('${escapeHtml(id)}')">Edit</button>
@@ -15017,7 +15571,7 @@ function renderTransportPricingTable() {
         <td data-label="Night window">${escapeHtml(`${group.rows.length} configured`)}</td>
         <td data-label="Waiting">${escapeHtml(waitingLabel)}</td>
         <td data-label="Validity">${escapeHtml('Mixed / per rule')}</td>
-        <td data-label="Deposit">${escapeHtml(`${enabledDeposits}/${group.rows.length} enabled`)}</td>
+        <td data-label="Deposit">${escapeHtml(`${enabledDeposits}/${group.rows.length} rule enabled · base ${baseFloorRangeLabel}`)}</td>
         <td data-label="Priority">${escapeHtml(priorityLabel)}</td>
         <td data-label="Status">${activeCount === group.rows.length ? '<span class="badge badge-success">ALL ACTIVE</span>' : `<span class="badge">${activeCount}/${group.rows.length} ACTIVE</span>`}</td>
         <td data-label="Actions" style="text-align: right;">
@@ -15062,6 +15616,10 @@ async function loadTransportPricingData(options = {}) {
   }
 
   transportAdminState.pricingRules = data;
+  try {
+    await refreshTransportDepositBaseFloorState(ensureSupabase(), { updateUi: true });
+  } catch (_error) {
+  }
   renderTransportPricingTable();
   refreshTransportPricingCityBulkOptions();
   refreshTransportPricingAdditionalRoutesOptions();
@@ -15075,6 +15633,17 @@ async function saveTransportPricingForm(event) {
   event.preventDefault();
   const client = ensureSupabase();
   if (!client) return;
+
+  let transportBaseFloor = Number(transportAdminState.depositBaseFloor || 0);
+  let transportBaseMissingDeps = false;
+  try {
+    const baseState = await refreshTransportDepositBaseFloorState(client, { updateUi: true });
+    transportBaseFloor = Number(baseState?.baseFloor || 0);
+    transportBaseMissingDeps = Boolean(baseState?.missingDeps);
+  } catch (_error) {
+    transportBaseFloor = Number(transportAdminState.depositBaseFloor || 0);
+  }
+  const normalizedBaseFloor = Number.isFinite(transportBaseFloor) ? Math.max(0, transportBaseFloor) : 0;
 
   const id = String(document.getElementById('transportPricingId')?.value || '').trim();
   const routeId = String(document.getElementById('transportPricingRoute')?.value || '').trim();
@@ -15105,6 +15674,7 @@ async function saveTransportPricingForm(event) {
     deposit_enabled: depositEnabled,
     deposit_mode: depositMode,
     deposit_value: depositValue,
+    deposit_base_floor: normalizedBaseFloor,
     night_start: String(document.getElementById('transportPricingNightStart')?.value || '22:00').slice(0, 5),
     night_end: String(document.getElementById('transportPricingNightEnd')?.value || '06:00').slice(0, 5),
     valid_from: String(document.getElementById('transportPricingValidFrom')?.value || '').trim() || null,
@@ -15162,6 +15732,9 @@ async function saveTransportPricingForm(event) {
   try {
     if (bulkSelection.autoReverseMissing) {
       showToast('Reverse mirror enabled but reverse route is missing', 'info');
+    }
+    if (transportBaseMissingDeps) {
+      showToast('Base transport deposit source is unavailable (service_deposit_rules missing). Using 0 as base floor.', 'error');
     }
 
     let error = null;
@@ -15258,8 +15831,9 @@ async function saveTransportPricingForm(event) {
       || isMissingColumnError(error, 'deposit_enabled')
       || isMissingColumnError(error, 'deposit_mode')
       || isMissingColumnError(error, 'deposit_value')
+      || isMissingColumnError(error, 'deposit_base_floor')
     ) {
-      showToast('Run migration 111_transport_round_trip_waiting_hourly_and_deposit_rules.sql first', 'error');
+      showToast('Run migration 114_transport_deposit_base_floor.sql first', 'error');
       return;
     }
     showToast(String(error?.message || 'Failed to save pricing rule'), 'error');
@@ -16449,6 +17023,10 @@ function bindTransportAdminUi() {
   const pricingDepositMode = document.getElementById('transportPricingDepositMode');
   if (pricingDepositMode) {
     pricingDepositMode.addEventListener('change', () => syncTransportPricingDepositControls());
+  }
+  const pricingDepositValue = document.getElementById('transportPricingDepositValue');
+  if (pricingDepositValue) {
+    pricingDepositValue.addEventListener('input', () => syncTransportPricingDepositControls());
   }
   const pricingApplyToAdditional = document.getElementById('transportPricingApplyToAdditional');
   if (pricingApplyToAdditional) {

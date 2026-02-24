@@ -203,7 +203,7 @@ async function loadRoutesSafe() {
 async function loadPricingSafe() {
   let result = await supabase
     .from('transport_pricing_rules')
-    .select('id, route_id, extra_passenger_fee, extra_bag_fee, oversize_bag_fee, child_seat_fee, booster_seat_fee, waiting_included_minutes, waiting_fee_per_hour, waiting_fee_per_minute, night_start, night_end, valid_from, valid_to, priority, is_active, deposit_enabled, deposit_mode, deposit_value, updated_at, created_at')
+    .select('id, route_id, extra_passenger_fee, extra_bag_fee, oversize_bag_fee, child_seat_fee, booster_seat_fee, waiting_included_minutes, waiting_fee_per_hour, waiting_fee_per_minute, night_start, night_end, valid_from, valid_to, priority, is_active, deposit_enabled, deposit_mode, deposit_value, deposit_base_floor, updated_at, created_at')
     .eq('is_active', true)
     .order('priority', { ascending: true })
     .order('updated_at', { ascending: false })
@@ -216,6 +216,7 @@ async function loadPricingSafe() {
       || isMissingColumn(result.error, 'deposit_enabled')
       || isMissingColumn(result.error, 'deposit_mode')
       || isMissingColumn(result.error, 'deposit_value')
+      || isMissingColumn(result.error, 'deposit_base_floor')
     )
   ) {
     result = await supabase
@@ -610,14 +611,20 @@ function calculateQuote(route, rule, scenario) {
     ? depositModeRaw
     : 'percent_total';
   const depositValue = toNonNegativeNumber(pricingRule?.deposit_value, 0);
+  const depositBaseFloor = toNonNegativeNumber(pricingRule?.deposit_base_floor, 0);
 
-  let depositAmount = 0;
+  let depositDynamicAmount = 0;
   if (depositEnabled) {
-    if (depositMode === 'fixed_amount') depositAmount = depositValue;
-    if (depositMode === 'percent_total') depositAmount = (total * depositValue) / 100;
-    if (depositMode === 'per_person') depositAmount = scenario.passengers * depositValue;
-    depositAmount = round2(Math.min(Math.max(depositAmount, 0), total));
+    if (depositMode === 'fixed_amount') depositDynamicAmount = depositValue;
+    if (depositMode === 'percent_total') depositDynamicAmount = (total * depositValue) / 100;
+    if (depositMode === 'per_person') depositDynamicAmount = scenario.passengers * depositValue;
   }
+  depositDynamicAmount = round2(Math.min(Math.max(depositDynamicAmount, 0), total));
+  const depositAmount = round2(Math.min(Math.max(Math.max(depositBaseFloor, depositDynamicAmount), 0), total));
+  const depositAppliedMode = depositAmount === depositBaseFloor && depositBaseFloor > depositDynamicAmount
+    ? 'base_floor'
+    : (depositEnabled ? depositMode : (depositBaseFloor > 0 ? 'base_floor' : 'none'));
+  const hasDeposit = depositAmount > 0;
 
   return {
     currency,
@@ -642,9 +649,12 @@ function calculateQuote(route, rule, scenario) {
     waitingCost,
     extrasTotal,
     oneWayTotal,
-    depositEnabled,
+    depositEnabled: hasDeposit,
     depositMode,
     depositValue,
+    depositBaseFloor,
+    depositDynamicAmount,
+    depositAppliedMode,
     depositAmount,
     total,
     warnings,
