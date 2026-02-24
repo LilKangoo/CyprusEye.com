@@ -5180,6 +5180,10 @@ select#orderStatusFilter:focus {
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
 }
 
+.transport-fields-grid--route-global-capacity {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
 .transport-fields-grid--route-builder {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 }
@@ -6158,6 +6162,7 @@ select#orderStatusFilter:focus {
   .transport-fields-grid--route-core,
   .transport-fields-grid--capacity,
   .transport-fields-grid--route-meta,
+  .transport-fields-grid--route-global-capacity,
   .transport-fields-grid--route-builder,
   .transport-fields-grid--pricing-core,
   .transport-fields-grid--pricing-time,
@@ -6196,6 +6201,7 @@ select#orderStatusFilter:focus {
   .transport-fields-grid--route-core,
   .transport-fields-grid--capacity,
   .transport-fields-grid--route-meta,
+  .transport-fields-grid--route-global-capacity,
   .transport-fields-grid--route-builder,
   .transport-fields-grid--pricing-core,
   .transport-fields-grid--pricing-time,
@@ -6320,6 +6326,7 @@ select#orderStatusFilter:focus {
   .transport-fields-grid--route-core,
   .transport-fields-grid--capacity,
   .transport-fields-grid--route-meta,
+  .transport-fields-grid--route-global-capacity,
   .transport-fields-grid--route-builder,
   .transport-fields-grid--pricing-core,
   .transport-fields-grid--pricing-time,

@@ -11361,6 +11361,7 @@ const TRANSPORT_HELP_TOPICS = Object.freeze({
     steps: [
       'Set included pax, included small backpacks, and included large bags (15kg+) free in base fare.',
       'Set max pax and max total luggage for validation.',
+      'Use Global Capacity & Limits to apply one standard profile to all routes.',
     ],
   },
   route_trip_mode: {
@@ -12941,6 +12942,177 @@ function syncTransportRouteCityBulkSummary() {
     ? `Single route mode${singleRouteLabel ? `: ${singleRouteLabel}` : ''}`
     : `City pair mode: ${pairLabel}`;
   summaryEl.textContent = `${scopeLabel}. ${selection.routeIds.length} route variant(s) matched (${activeCount} active, ${inactiveCount} inactive).${previewSuffix}`;
+}
+
+function readTransportRouteGlobalCapacityValues() {
+  return {
+    includedPassengers: transportReadNumberInput('transportRouteGlobalIncludedPassengers', 2),
+    includedBags: transportReadNumberInput('transportRouteGlobalIncludedBags', 2),
+    includedLargeBags: transportReadNumberInput('transportRouteGlobalIncludedLargeBags', 0),
+    maxPassengers: transportReadNumberInput('transportRouteGlobalMaxPassengers', 8),
+    maxBags: transportReadNumberInput('transportRouteGlobalMaxBags', 8),
+  };
+}
+
+function validateTransportRouteGlobalCapacityValues(values) {
+  const includedPassengers = Number(values?.includedPassengers);
+  const includedBags = Number(values?.includedBags);
+  const includedLargeBags = Number(values?.includedLargeBags);
+  const maxPassengers = Number(values?.maxPassengers);
+  const maxBags = Number(values?.maxBags);
+
+  if (!Number.isFinite(includedPassengers) || !Number.isInteger(includedPassengers) || includedPassengers < 1) {
+    return 'Included pax must be an integer >= 1';
+  }
+  if (!Number.isFinite(includedBags) || !Number.isInteger(includedBags) || includedBags < 0) {
+    return 'Included small backpacks must be an integer >= 0';
+  }
+  if (!Number.isFinite(includedLargeBags) || !Number.isInteger(includedLargeBags) || includedLargeBags < 0) {
+    return 'Included large bags (15kg+) must be an integer >= 0';
+  }
+  if (!Number.isFinite(maxPassengers) || !Number.isInteger(maxPassengers) || maxPassengers < includedPassengers) {
+    return 'Max pax must be an integer >= included pax';
+  }
+  if (!Number.isFinite(maxBags) || !Number.isInteger(maxBags) || maxBags < (includedBags + includedLargeBags)) {
+    return 'Max total luggage must be >= included small + included large';
+  }
+  return '';
+}
+
+function getTransportRouteGlobalCapacitySelection(options = {}) {
+  const onlyActiveRoutes = options.onlyActiveRoutes == null
+    ? Boolean(document.getElementById('transportRouteGlobalOnlyActive')?.checked)
+    : Boolean(options.onlyActiveRoutes);
+  const values = options.values || readTransportRouteGlobalCapacityValues();
+
+  const routes = (transportAdminState.routes || [])
+    .filter((row) => {
+      if (!row?.id) return false;
+      if (!onlyActiveRoutes) return true;
+      return row.is_active !== false;
+    })
+    .slice();
+  const routeIds = routes.map((row) => String(row?.id || '').trim()).filter(Boolean);
+
+  return {
+    onlyActiveRoutes,
+    routeIds,
+    routes,
+    includedPassengers: Number(values.includedPassengers),
+    includedBags: Number(values.includedBags),
+    includedLargeBags: Number(values.includedLargeBags),
+    maxPassengers: Number(values.maxPassengers),
+    maxBags: Number(values.maxBags),
+  };
+}
+
+function syncTransportRouteGlobalSummary() {
+  const summaryEl = document.getElementById('transportRouteGlobalSummary');
+  if (!summaryEl) return;
+
+  const selection = getTransportRouteGlobalCapacitySelection();
+  if (!selection.routeIds.length) {
+    summaryEl.textContent = selection.onlyActiveRoutes
+      ? 'No active routes found for global capacity update.'
+      : 'No routes found for global capacity update.';
+    return;
+  }
+
+  const validationError = validateTransportRouteGlobalCapacityValues(selection);
+  if (validationError) {
+    summaryEl.textContent = `Invalid values: ${validationError}.`;
+    return;
+  }
+
+  const targetLabel = selection.onlyActiveRoutes ? 'active routes' : 'routes';
+  summaryEl.textContent = `Target: ${selection.routeIds.length} ${targetLabel}. Included: ${selection.includedPassengers} pax / ${selection.includedBags} small / ${selection.includedLargeBags} large 15kg+. Max: ${selection.maxPassengers} pax / ${selection.maxBags} total luggage.`;
+}
+
+function loadTransportRouteGlobalValuesFromCurrentForm(options = {}) {
+  const silent = Boolean(options?.silent);
+  const fieldPairs = [
+    ['transportRouteGlobalIncludedPassengers', 'transportRouteIncludedPassengers'],
+    ['transportRouteGlobalIncludedBags', 'transportRouteIncludedBags'],
+    ['transportRouteGlobalIncludedLargeBags', 'transportRouteIncludedLargeBags'],
+    ['transportRouteGlobalMaxPassengers', 'transportRouteMaxPassengers'],
+    ['transportRouteGlobalMaxBags', 'transportRouteMaxBags'],
+  ];
+
+  let copiedAny = false;
+  fieldPairs.forEach(([targetId, sourceId]) => {
+    const target = document.getElementById(targetId);
+    const source = document.getElementById(sourceId);
+    if (!(target instanceof HTMLInputElement) || !(source instanceof HTMLInputElement)) return;
+    target.value = source.value;
+    copiedAny = true;
+  });
+
+  syncTransportRouteGlobalSummary();
+  if (!silent && copiedAny) {
+    showToast('Global capacity values loaded from current route form', 'success');
+  }
+  return copiedAny;
+}
+
+async function applyTransportRouteGlobalCapacityUpdate(options = {}) {
+  const client = ensureSupabase();
+  if (!client) return;
+  const useCurrentForm = Boolean(options?.useCurrentForm);
+  if (useCurrentForm) {
+    loadTransportRouteGlobalValuesFromCurrentForm({ silent: true });
+  }
+
+  const selection = getTransportRouteGlobalCapacitySelection();
+  if (!selection.routeIds.length) {
+    showToast(selection.onlyActiveRoutes ? 'No active routes found for global update' : 'No routes found for global update', 'info');
+    return;
+  }
+
+  const validationError = validateTransportRouteGlobalCapacityValues(selection);
+  if (validationError) {
+    showToast(validationError, 'error');
+    syncTransportRouteGlobalSummary();
+    return;
+  }
+
+  const payload = {
+    included_passengers: Number(selection.includedPassengers),
+    included_bags: Number(selection.includedBags),
+    included_large_bags: Number(selection.includedLargeBags),
+    max_passengers: Number(selection.maxPassengers),
+    max_bags: Number(selection.maxBags),
+  };
+  const targetLabel = selection.onlyActiveRoutes ? 'active routes' : 'all routes';
+  const confirmMessage = [
+    `Apply global capacity limits to ${selection.routeIds.length} ${targetLabel}?`,
+    `Included: ${payload.included_passengers} pax, ${payload.included_bags} small backpacks, ${payload.included_large_bags} large bags (15kg+).`,
+    `Max: ${payload.max_passengers} pax, ${payload.max_bags} total luggage.`,
+  ].join('\n');
+  if (!confirm(confirmMessage)) return;
+
+  try {
+    let updatedCount = 0;
+    for (const chunk of chunkTransportList(selection.routeIds, 150)) {
+      const { error } = await runTransportMutation(
+        (db) => db.from(TRANSPORT_TABLES.routes).update(payload).in('id', chunk),
+        { silentAuthNotice: true },
+      );
+      if (error) throw error;
+      updatedCount += chunk.length;
+    }
+
+    showToast(`Global capacity update complete (${updatedCount} route(s))`, 'success');
+    await loadTransportRoutesData({ silent: true });
+    await loadTransportPricingData({ silent: true });
+    syncTransportRouteGlobalSummary();
+  } catch (error) {
+    console.error('Failed to apply global route capacity update:', error);
+    if (isMissingColumnError(error, 'included_large_bags')) {
+      showToast('Run migration 115_transport_large_bag_base_allowance.sql first', 'error');
+      return;
+    }
+    showToast(String(error?.message || 'Failed to apply global route update'), 'error');
+  }
 }
 
 function buildTransportRouteBulkPayloadFromForm() {
@@ -15200,6 +15372,7 @@ async function loadTransportRoutesData(options = {}) {
 
   refreshTransportRouteSelects();
   renderTransportRoutesTable();
+  syncTransportRouteGlobalSummary();
   syncTransportPricingGlobalSummary();
   syncTransportControlCenter();
 }
@@ -17159,6 +17332,32 @@ function bindTransportAdminUi() {
   if (btnApplyRouteCityCategories) {
     btnApplyRouteCityCategories.addEventListener('click', () => applyTransportRouteCityCategoriesToForm());
   }
+  [
+    'transportRouteGlobalIncludedPassengers',
+    'transportRouteGlobalIncludedBags',
+    'transportRouteGlobalIncludedLargeBags',
+    'transportRouteGlobalMaxPassengers',
+    'transportRouteGlobalMaxBags',
+  ].forEach((fieldId) => {
+    const input = document.getElementById(fieldId);
+    if (input) {
+      input.addEventListener('input', () => syncTransportRouteGlobalSummary());
+    }
+  });
+  const routeGlobalOnlyActive = document.getElementById('transportRouteGlobalOnlyActive');
+  if (routeGlobalOnlyActive) {
+    routeGlobalOnlyActive.addEventListener('change', () => syncTransportRouteGlobalSummary());
+  }
+  const btnRouteGlobalLoadFromForm = document.getElementById('btnTransportRouteGlobalLoadFromForm');
+  if (btnRouteGlobalLoadFromForm) {
+    btnRouteGlobalLoadFromForm.addEventListener('click', () => loadTransportRouteGlobalValuesFromCurrentForm());
+  }
+  const btnRouteGlobalApply = document.getElementById('btnTransportRouteGlobalApply');
+  if (btnRouteGlobalApply) {
+    btnRouteGlobalApply.addEventListener('click', () => {
+      void applyTransportRouteGlobalCapacityUpdate();
+    });
+  }
   const routeCityBulkScopeMode = document.getElementById('transportRouteCityBulkScopeMode');
   if (routeCityBulkScopeMode) {
     routeCityBulkScopeMode.addEventListener('change', () => {
@@ -17478,6 +17677,7 @@ function bindTransportAdminUi() {
   syncTransportRouteCityBulkScopeControls();
   refreshTransportRouteSetBuilderOptions();
   syncTransportRouteSetSummary();
+  syncTransportRouteGlobalSummary();
   syncTransportPricingDepositControls();
   syncTransportLocationTypeControls();
   refreshTransportPricingCityBulkOptions();

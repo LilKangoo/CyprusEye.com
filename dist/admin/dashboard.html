@@ -1136,6 +1136,49 @@
                   </div>
                 </section>
 
+                <section class="transport-bulk-panel" aria-label="Global capacity and limits">
+                  <div class="transport-inline-head">
+                    <h4 class="transport-form-block__title">Global Capacity & Limits (all routes)</h4>
+                    <span class="transport-inline-badge">Mass update</span>
+                  </div>
+                  <p class="transport-form-block__hint">Set one standard capacity profile and apply it to all routes at once.</p>
+                  <div class="admin-form-grid transport-fields-grid transport-fields-grid--route-global-capacity">
+                    <label class="admin-form-field transport-field">
+                      <span>Included pax</span>
+                      <input type="number" id="transportRouteGlobalIncludedPassengers" min="1" step="1" value="2" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Included small backpacks</span>
+                      <input type="number" id="transportRouteGlobalIncludedBags" min="0" step="1" value="2" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Included large bags (15kg+)</span>
+                      <input type="number" id="transportRouteGlobalIncludedLargeBags" min="0" step="1" value="0" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Max pax</span>
+                      <input type="number" id="transportRouteGlobalMaxPassengers" min="1" step="1" value="8" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Max total luggage</span>
+                      <input type="number" id="transportRouteGlobalMaxBags" min="0" step="1" value="8" />
+                    </label>
+                  </div>
+                  <div class="transport-multi-select-toolbar">
+                    <label class="transport-check-field">
+                      <input id="transportRouteGlobalOnlyActive" type="checkbox" checked />
+                      <span>Only active routes</span>
+                    </label>
+                    <div class="transport-multi-select-toolbar__actions">
+                      <button class="btn-small btn-secondary" type="button" id="btnTransportRouteGlobalLoadFromForm">Load from current route form</button>
+                    </div>
+                  </div>
+                  <p class="transport-form-block__hint transport-form-block__hint--status" id="transportRouteGlobalSummary" aria-live="polite">Set values to preview global route scope.</p>
+                  <div class="transport-editor-actions">
+                    <button class="btn-secondary" type="button" id="btnTransportRouteGlobalApply">Apply capacity globally</button>
+                  </div>
+                </section>
+
                 <section class="transport-form-block">
                   <h4 class="transport-form-block__title transport-title-with-help">
                     Trip mode and status
