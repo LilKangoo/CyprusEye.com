@@ -5019,6 +5019,16 @@ select#orderStatusFilter:focus {
   pointer-events: none;
 }
 
+.transport-type-preset-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.transport-type-preset-btn {
+  min-height: 32px;
+}
+
 .transport-multi-select-toolbar--actions-only {
   justify-content: flex-end;
 }

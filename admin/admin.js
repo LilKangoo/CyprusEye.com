@@ -4384,6 +4384,30 @@ function getTransportPricingSelectedTypeFilters() {
   return getTransportSelectedTypeValuesFromCheckboxes('input[data-transport-pricing-type-filter]', { fallbackAll: true });
 }
 
+function applyTransportTypePresetToInputs(inputs, presetKey) {
+  const preset = TRANSPORT_TYPE_PRESETS[String(presetKey || '').trim().toLowerCase()] || TRANSPORT_TYPE_PRESETS.all;
+  const allowed = new Set(preset.map((value) => normalizeTransportLocationType(value, '')).filter(Boolean));
+  inputs.forEach((input) => {
+    if (!(input instanceof HTMLInputElement)) return;
+    const type = normalizeTransportLocationType(input.value, '');
+    input.checked = Boolean(type && allowed.has(type));
+  });
+}
+
+function applyTransportRouteSetTypePreset(presetKey) {
+  const inputs = Array.from(document.querySelectorAll('input[data-transport-route-set-type-filter]'))
+    .filter((el) => el instanceof HTMLInputElement);
+  applyTransportTypePresetToInputs(inputs, presetKey);
+  refreshTransportRouteSetBuilderOptions();
+}
+
+function applyTransportPricingTypePreset(presetKey) {
+  const inputs = Array.from(document.querySelectorAll('input[data-transport-pricing-type-filter]'))
+    .filter((el) => el instanceof HTMLInputElement);
+  applyTransportTypePresetToInputs(inputs, presetKey);
+  refreshTransportPricingAdditionalRoutesOptions();
+}
+
 function getTransportLocationCityGroupById(locationId) {
   const id = String(locationId || '').trim();
   if (!id) return '';
@@ -9612,6 +9636,15 @@ const TRANSPORT_LOCATION_TYPE_META = [
 
 const TRANSPORT_LOCATION_TYPE_VALUES = TRANSPORT_LOCATION_TYPE_META.map((item) => item.value);
 
+const TRANSPORT_TYPE_PRESETS = {
+  all: TRANSPORT_LOCATION_TYPE_VALUES.slice(),
+  city_airport: ['city', 'airport'],
+  airport_hotel: ['airport', 'hotel'],
+  hotel_only: ['hotel'],
+  airport_only: ['airport'],
+  city_only: ['city'],
+};
+
 function normalizeTransportLocationType(value, fallback = 'city') {
   const raw = String(value || '').trim().toLowerCase();
   if (TRANSPORT_LOCATION_TYPE_VALUES.includes(raw)) return raw;
@@ -9621,6 +9654,58 @@ function normalizeTransportLocationType(value, fallback = 'city') {
 function getTransportLocationTypeMeta(typeRaw) {
   const type = normalizeTransportLocationType(typeRaw);
   return TRANSPORT_LOCATION_TYPE_META.find((item) => item.value === type) || TRANSPORT_LOCATION_TYPE_META[0];
+}
+
+function getTransportLocationRowsForCityGroup(cityGroupRaw, options = {}) {
+  const cityGroup = normalizeTransportCityGroupValue(cityGroupRaw);
+  const onlyActive = Boolean(options?.onlyActive);
+  const rows = Array.isArray(transportAdminState.locations) ? transportAdminState.locations : [];
+  return rows
+    .filter((row) => {
+      if (!row?.id) return false;
+      if (onlyActive && row?.is_active === false) return false;
+      return getTransportLocationCityGroupById(row.id) === cityGroup;
+    })
+    .slice()
+    .sort((a, b) => {
+      const sortDiff = Number(a?.sort_order || 0) - Number(b?.sort_order || 0);
+      if (sortDiff !== 0) return sortDiff;
+      return getTransportLocationLabel(a?.id).localeCompare(getTransportLocationLabel(b?.id));
+    });
+}
+
+function getTransportCityGroupOptions(options = {}) {
+  const onlyActive = Boolean(options?.onlyActive);
+  const rows = Array.isArray(transportAdminState.locations) ? transportAdminState.locations : [];
+  const grouped = new Map();
+
+  rows.forEach((row) => {
+    if (!row?.id) return;
+    if (onlyActive && row?.is_active === false) return;
+    const group = getTransportLocationCityGroupById(row.id);
+    if (!group) return;
+    if (!grouped.has(group)) {
+      grouped.set(group, {
+        value: group,
+        label: transportHumanizeCityGroupLabel(group, getTransportLocationLabel(row.id)),
+        count: 0,
+      });
+    }
+    grouped.get(group).count += 1;
+  });
+
+  return Array.from(grouped.values()).sort((a, b) => a.label.localeCompare(b.label));
+}
+
+function findTransportLocationIdForCityGroup(cityGroupRaw, preferredTypeRaw, options = {}) {
+  const preferredType = normalizeTransportLocationType(preferredTypeRaw || '', '');
+  const rows = getTransportLocationRowsForCityGroup(cityGroupRaw, options);
+  if (!rows.length) return '';
+  if (!preferredType) return String(rows[0]?.id || '').trim();
+
+  const preferred = rows.find((row) => normalizeTransportLocationType(row?.location_type || 'city') === preferredType);
+  if (preferred?.id) return String(preferred.id).trim();
+  return String(rows[0]?.id || '').trim();
 }
 
 function normalizeTransportTab(value) {
@@ -11233,6 +11318,7 @@ function refreshTransportLocationSelects() {
     if (prev) select.value = prev;
   });
 
+  refreshTransportRouteCityCategoryOptions();
   refreshTransportRouteSetBuilderOptions();
   refreshTransportPricingAdditionalRoutesOptions();
   renderTransportPricingPreview();
@@ -11256,6 +11342,95 @@ function refreshTransportRouteSelects() {
   refreshTransportControlRouteSelect();
   refreshTransportControlRuleSelect();
   renderTransportPricingPreview();
+}
+
+function refreshTransportRouteCityCategoryOptions() {
+  const originGroupSelect = document.getElementById('transportRouteOriginCityGroup');
+  const destinationGroupSelect = document.getElementById('transportRouteDestinationCityGroup');
+  if (!(originGroupSelect instanceof HTMLSelectElement) || !(destinationGroupSelect instanceof HTMLSelectElement)) return;
+
+  const prevOriginGroup = String(originGroupSelect.value || '').trim();
+  const prevDestinationGroup = String(destinationGroupSelect.value || '').trim();
+  const cityGroups = getTransportCityGroupOptions({ onlyActive: true });
+
+  const optionsHtml = '<option value="">Select city category</option>' + cityGroups.map((group) => `
+    <option value="${escapeHtml(group.value)}">${escapeHtml(`${group.label} (${group.count})`)}</option>
+  `).join('');
+
+  originGroupSelect.innerHTML = optionsHtml;
+  destinationGroupSelect.innerHTML = optionsHtml;
+
+  if (prevOriginGroup && cityGroups.some((group) => group.value === prevOriginGroup)) {
+    originGroupSelect.value = prevOriginGroup;
+  }
+  if (prevDestinationGroup && cityGroups.some((group) => group.value === prevDestinationGroup)) {
+    destinationGroupSelect.value = prevDestinationGroup;
+  }
+
+  if (!String(originGroupSelect.value || '').trim()) {
+    const originLocationId = String(document.getElementById('transportRouteOrigin')?.value || '').trim();
+    const originGroup = getTransportLocationCityGroupById(originLocationId);
+    if (originGroup && cityGroups.some((group) => group.value === originGroup)) {
+      originGroupSelect.value = originGroup;
+    }
+  }
+
+  if (!String(destinationGroupSelect.value || '').trim()) {
+    const destinationLocationId = String(document.getElementById('transportRouteDestination')?.value || '').trim();
+    const destinationGroup = getTransportLocationCityGroupById(destinationLocationId);
+    if (destinationGroup && cityGroups.some((group) => group.value === destinationGroup)) {
+      destinationGroupSelect.value = destinationGroup;
+    }
+  }
+}
+
+function applyTransportRouteCityCategoriesToForm() {
+  const originGroup = normalizeTransportCityGroupValue(document.getElementById('transportRouteOriginCityGroup')?.value || '');
+  const destinationGroup = normalizeTransportCityGroupValue(document.getElementById('transportRouteDestinationCityGroup')?.value || '');
+  const originTypePreference = normalizeTransportLocationType(document.getElementById('transportRouteOriginTypePreference')?.value || '', '');
+  const destinationTypePreference = normalizeTransportLocationType(document.getElementById('transportRouteDestinationTypePreference')?.value || '', '');
+
+  if (!originGroup || !destinationGroup) {
+    showToast('Select both origin and destination city categories', 'error');
+    return;
+  }
+
+  const originSelect = document.getElementById('transportRouteOrigin');
+  const destinationSelect = document.getElementById('transportRouteDestination');
+  if (!(originSelect instanceof HTMLSelectElement) || !(destinationSelect instanceof HTMLSelectElement)) return;
+
+  const originLocationId = findTransportLocationIdForCityGroup(originGroup, originTypePreference, { onlyActive: true });
+  let destinationLocationId = findTransportLocationIdForCityGroup(destinationGroup, destinationTypePreference, { onlyActive: true });
+
+  if (!originLocationId || !destinationLocationId) {
+    showToast('No active location found for selected city category/type', 'error');
+    return;
+  }
+
+  if (originLocationId === destinationLocationId) {
+    const destinationCandidates = getTransportLocationRowsForCityGroup(destinationGroup, { onlyActive: true });
+    const preferredDestination = destinationCandidates.find((row) =>
+      String(row?.id || '').trim() !== originLocationId
+      && (!destinationTypePreference || normalizeTransportLocationType(row?.location_type || 'city') === destinationTypePreference),
+    );
+    const fallbackDestination = destinationCandidates.find((row) => String(row?.id || '').trim() !== originLocationId);
+    destinationLocationId = String((preferredDestination || fallbackDestination)?.id || '').trim();
+    if (!destinationLocationId) {
+      showToast('Origin and destination resolved to the same point. Add another type/location in this city category.', 'error');
+      return;
+    }
+  }
+
+  originSelect.value = originLocationId;
+  destinationSelect.value = destinationLocationId;
+
+  const routeSetOriginSelect = document.getElementById('transportRouteSetOrigin');
+  if (routeSetOriginSelect instanceof HTMLSelectElement) {
+    routeSetOriginSelect.value = originLocationId;
+  }
+
+  refreshTransportRouteSetBuilderOptions();
+  showToast('Origin and destination set from city categories', 'success');
 }
 
 function syncTransportLocationTypeControls() {
@@ -11374,12 +11549,61 @@ async function deleteTransportLocation(locationId) {
   if (!client) return;
 
   try {
-    const { error } = await client
+    let { error } = await client
       .from(TRANSPORT_TABLES.locations)
       .delete()
       .eq('id', id);
 
-    if (error) throw error;
+    if (error) {
+      const isRouteFkBlock = String(error.code || '').trim() === '23503'
+        && String(error.message || '').toLowerCase().includes('transport_routes');
+      if (!isRouteFkBlock) throw error;
+
+      const { data: linkedRoutes, error: linkedRoutesError } = await client
+        .from(TRANSPORT_TABLES.routes)
+        .select('id')
+        .or(`origin_location_id.eq.${id},destination_location_id.eq.${id}`)
+        .limit(5000);
+      if (linkedRoutesError) throw linkedRoutesError;
+
+      const routeIds = Array.from(new Set((Array.isArray(linkedRoutes) ? linkedRoutes : [])
+        .map((row) => String(row?.id || '').trim())
+        .filter(Boolean)));
+
+      if (!routeIds.length) throw error;
+
+      const forceDelete = confirm(
+        `This location is used in ${routeIds.length} route(s).\n\nDelete linked routes and pricing rules, then delete this location?\nBookings will stay in DB (linked IDs may be cleared).`,
+      );
+      if (!forceDelete) {
+        showToast('Delete cancelled. Remove linked routes first or use force delete confirmation.', 'info');
+        return;
+      }
+
+      const chunkSize = 200;
+      for (let i = 0; i < routeIds.length; i += chunkSize) {
+        const chunk = routeIds.slice(i, i + chunkSize);
+        const { error: deleteRoutesError } = await client
+          .from(TRANSPORT_TABLES.routes)
+          .delete()
+          .in('id', chunk);
+        if (deleteRoutesError) throw deleteRoutesError;
+      }
+
+      ({ error } = await client
+        .from(TRANSPORT_TABLES.locations)
+        .delete()
+        .eq('id', id));
+      if (error) throw error;
+
+      showToast(`Location deleted with ${routeIds.length} linked route(s)`, 'success');
+      await loadTransportLocationsData({ silent: true });
+      await loadTransportRoutesData({ silent: true });
+      await loadTransportPricingData({ silent: true });
+      await loadTransportBookingsData({ silent: true });
+      return;
+    }
+
     showToast('Transport location deleted', 'success');
     await loadTransportLocationsData({ silent: true });
     await loadTransportRoutesData({ silent: true });
@@ -11719,6 +11943,10 @@ function resetTransportRouteForm() {
   const sortEl = document.getElementById('transportRouteSortOrder');
   const createReverseEl = document.getElementById('transportRouteCreateReversePair');
   const syncReverseEl = document.getElementById('transportRouteSyncReverseRoute');
+  const originGroupEl = document.getElementById('transportRouteOriginCityGroup');
+  const destinationGroupEl = document.getElementById('transportRouteDestinationCityGroup');
+  const originTypePreferenceEl = document.getElementById('transportRouteOriginTypePreference');
+  const destinationTypePreferenceEl = document.getElementById('transportRouteDestinationTypePreference');
   if (idEl) idEl.value = '';
   if (currencyEl) currencyEl.value = 'EUR';
   if (includedPassengersEl) includedPassengersEl.value = '2';
@@ -11731,6 +11959,11 @@ function resetTransportRouteForm() {
   if (activeEl) activeEl.checked = true;
   if (createReverseEl) createReverseEl.checked = true;
   if (syncReverseEl) syncReverseEl.checked = true;
+  if (originGroupEl) originGroupEl.value = '';
+  if (destinationGroupEl) destinationGroupEl.value = '';
+  if (originTypePreferenceEl) originTypePreferenceEl.value = '';
+  if (destinationTypePreferenceEl) destinationTypePreferenceEl.value = '';
+  refreshTransportRouteCityCategoryOptions();
   syncTransportRouteRoundTripControls();
 }
 
@@ -11758,6 +11991,16 @@ function editTransportRoute(routeId) {
   setValue('transportRouteTripMode', transportRouteAllowsRoundTrip(row) ? 'round_trip' : 'one_way');
   setValue('transportRouteRoundTripMultiplier', String(transportRouteRoundTripMultiplier(row)));
   setValue('transportRouteSortOrder', String(Number(row.sort_order || 0)));
+  setValue('transportRouteOriginCityGroup', getTransportLocationCityGroupById(row.origin_location_id));
+  setValue('transportRouteDestinationCityGroup', getTransportLocationCityGroupById(row.destination_location_id));
+  setValue('transportRouteOriginTypePreference', normalizeTransportLocationType(
+    transportAdminState.locationById[String(row.origin_location_id || '').trim()]?.location_type || 'city',
+    '',
+  ));
+  setValue('transportRouteDestinationTypePreference', normalizeTransportLocationType(
+    transportAdminState.locationById[String(row.destination_location_id || '').trim()]?.location_type || 'city',
+    '',
+  ));
 
   const activeEl = document.getElementById('transportRouteActive');
   const createReverseEl = document.getElementById('transportRouteCreateReversePair');
@@ -11765,6 +12008,7 @@ function editTransportRoute(routeId) {
   if (activeEl) activeEl.checked = Boolean(row.is_active !== false);
   if (createReverseEl) createReverseEl.checked = true;
   if (syncReverseEl) syncReverseEl.checked = true;
+  refreshTransportRouteCityCategoryOptions();
   syncTransportRouteRoundTripControls();
 
   transportAdminState.control.routeId = id;
@@ -13503,8 +13747,17 @@ function bindTransportAdminUi() {
       if (routeSetOriginSelect instanceof HTMLSelectElement && !String(routeSetOriginSelect.value || '').trim()) {
         routeSetOriginSelect.value = String(routeOriginSelect.value || '').trim();
       }
+      refreshTransportRouteCityCategoryOptions();
       refreshTransportRouteSetBuilderOptions();
     });
+  }
+  const routeDestinationSelect = document.getElementById('transportRouteDestination');
+  if (routeDestinationSelect) {
+    routeDestinationSelect.addEventListener('change', () => refreshTransportRouteCityCategoryOptions());
+  }
+  const btnApplyRouteCityCategories = document.getElementById('btnTransportRouteApplyCityCategories');
+  if (btnApplyRouteCityCategories) {
+    btnApplyRouteCityCategories.addEventListener('click', () => applyTransportRouteCityCategoriesToForm());
   }
   const routeSetOrigin = document.getElementById('transportRouteSetOrigin');
   if (routeSetOrigin) {
@@ -13536,6 +13789,12 @@ function bindTransportAdminUi() {
   }
   document.querySelectorAll('input[data-transport-route-set-type-filter]').forEach((input) => {
     input.addEventListener('change', () => refreshTransportRouteSetBuilderOptions());
+  });
+  document.querySelectorAll('button[data-transport-route-set-type-preset]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const preset = String(button.getAttribute('data-transport-route-set-type-preset') || '').trim();
+      applyTransportRouteSetTypePreset(preset);
+    });
   });
   const routeSetDestinations = document.getElementById('transportRouteSetDestinations');
   if (routeSetDestinations) {
@@ -13600,6 +13859,12 @@ function bindTransportAdminUi() {
   document.querySelectorAll('input[data-transport-pricing-type-filter]').forEach((input) => {
     input.addEventListener('change', () => refreshTransportPricingAdditionalRoutesOptions());
   });
+  document.querySelectorAll('button[data-transport-pricing-type-preset]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const preset = String(button.getAttribute('data-transport-pricing-type-preset') || '').trim();
+      applyTransportPricingTypePreset(preset);
+    });
+  });
   const pricingBulkOnlyActive = document.getElementById('transportPricingBulkOnlyActiveRoutes');
   if (pricingBulkOnlyActive) {
     pricingBulkOnlyActive.addEventListener('change', () => refreshTransportPricingAdditionalRoutesOptions());
@@ -13638,6 +13903,7 @@ function bindTransportAdminUi() {
   }
 
   syncTransportRouteRoundTripControls();
+  refreshTransportRouteCityCategoryOptions();
   refreshTransportRouteSetBuilderOptions();
   syncTransportRouteSetSummary();
   syncTransportPricingDepositControls();

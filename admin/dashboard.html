@@ -28,7 +28,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="/assets/css/tokens.css?v=20251107" />
   <link rel="stylesheet" href="/assets/css/base.css?v=20251107" />
-  <link rel="stylesheet" href="/admin/admin.css?v=20260223_4" />
+  <link rel="stylesheet" href="/admin/admin.css?v=20260223_5" />
   
   <!-- Auth meta -->
   <meta name="ce-auth" content="required" />
@@ -40,7 +40,7 @@
   <script src="/admin/universal-i18n-component.js?v=20250111"></script>
   <script src="/admin/poi-i18n-form.js?v=20250111"></script>
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
-  <script type="module" src="/admin/admin.js?v=20260223_4"></script>
+  <script type="module" src="/admin/admin.js?v=20260223_5"></script>
   <script src="/admin/admin-pwa.js?v=20260221_4" defer></script>
 </head>
 <body data-admin-panel="true">
@@ -921,6 +921,46 @@
                       <input type="text" id="transportRouteCurrency" value="EUR" maxlength="8" />
                     </label>
                   </div>
+                  <div class="admin-form-grid transport-fields-grid transport-fields-grid--route-category">
+                    <label class="admin-form-field transport-field">
+                      <span>Origin city category</span>
+                      <select id="transportRouteOriginCityGroup" class="form-control"></select>
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Destination city category</span>
+                      <select id="transportRouteDestinationCityGroup" class="form-control"></select>
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Origin type preference</span>
+                      <select id="transportRouteOriginTypePreference" class="form-control">
+                        <option value="">Any type</option>
+                        <option value="city">City</option>
+                        <option value="airport">Airport</option>
+                        <option value="port">Port</option>
+                        <option value="station">Station</option>
+                        <option value="hotel">Hotel</option>
+                        <option value="landmark">Landmark</option>
+                        <option value="custom">Custom</option>
+                      </select>
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Destination type preference</span>
+                      <select id="transportRouteDestinationTypePreference" class="form-control">
+                        <option value="">Any type</option>
+                        <option value="city">City</option>
+                        <option value="airport">Airport</option>
+                        <option value="port">Port</option>
+                        <option value="station">Station</option>
+                        <option value="hotel">Hotel</option>
+                        <option value="landmark">Landmark</option>
+                        <option value="custom">Custom</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="transport-editor-actions" style="justify-content:flex-start;">
+                    <button class="btn-small btn-secondary" type="button" id="btnTransportRouteApplyCityCategories">Apply city categories to origin/destination</button>
+                  </div>
+                  <p class="transport-form-block__hint">Quick setup: pick city categories + preferred types, then apply. Route selects will auto-fill with matching points.</p>
                 </section>
 
                 <section class="transport-form-block">
@@ -1022,6 +1062,13 @@
                   <label class="transport-type-filter-item"><input data-transport-route-set-type-filter type="checkbox" value="hotel" checked /> <span>Hotel</span></label>
                   <label class="transport-type-filter-item"><input data-transport-route-set-type-filter type="checkbox" value="landmark" checked /> <span>Landmark</span></label>
                   <label class="transport-type-filter-item"><input data-transport-route-set-type-filter type="checkbox" value="custom" checked /> <span>Custom</span></label>
+                </div>
+                <div class="transport-type-preset-bar" aria-label="Route set type presets">
+                  <button class="btn-small btn-secondary transport-type-preset-btn" type="button" data-transport-route-set-type-preset="all">All</button>
+                  <button class="btn-small btn-secondary transport-type-preset-btn" type="button" data-transport-route-set-type-preset="airport_hotel">Airport + Hotel</button>
+                  <button class="btn-small btn-secondary transport-type-preset-btn" type="button" data-transport-route-set-type-preset="city_airport">City + Airport</button>
+                  <button class="btn-small btn-secondary transport-type-preset-btn" type="button" data-transport-route-set-type-preset="hotel_only">Hotel only</button>
+                  <button class="btn-small btn-secondary transport-type-preset-btn" type="button" data-transport-route-set-type-preset="airport_only">Airport only</button>
                 </div>
                 <details class="transport-advanced-options" id="transportRouteSetAdvancedPanel">
                   <summary>Advanced options</summary>
@@ -1222,6 +1269,13 @@
                     <label class="transport-type-filter-item"><input data-transport-pricing-type-filter type="checkbox" value="hotel" checked /> <span>Hotel</span></label>
                     <label class="transport-type-filter-item"><input data-transport-pricing-type-filter type="checkbox" value="landmark" checked /> <span>Landmark</span></label>
                     <label class="transport-type-filter-item"><input data-transport-pricing-type-filter type="checkbox" value="custom" checked /> <span>Custom</span></label>
+                  </div>
+                  <div class="transport-type-preset-bar" aria-label="Pricing type presets">
+                    <button class="btn-small btn-secondary transport-type-preset-btn" type="button" data-transport-pricing-type-preset="all">All</button>
+                    <button class="btn-small btn-secondary transport-type-preset-btn" type="button" data-transport-pricing-type-preset="airport_hotel">Airport + Hotel</button>
+                    <button class="btn-small btn-secondary transport-type-preset-btn" type="button" data-transport-pricing-type-preset="city_airport">City + Airport</button>
+                    <button class="btn-small btn-secondary transport-type-preset-btn" type="button" data-transport-pricing-type-preset="hotel_only">Hotel only</button>
+                    <button class="btn-small btn-secondary transport-type-preset-btn" type="button" data-transport-pricing-type-preset="airport_only">Airport only</button>
                   </div>
                   <details class="transport-advanced-options" id="transportPricingBulkAdvancedPanel">
                     <summary>Advanced options</summary>
