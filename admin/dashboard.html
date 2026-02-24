@@ -28,7 +28,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="/assets/css/tokens.css?v=20251107" />
   <link rel="stylesheet" href="/assets/css/base.css?v=20251107" />
-  <link rel="stylesheet" href="/admin/admin.css?v=20260224_2" />
+  <link rel="stylesheet" href="/admin/admin.css?v=20260224_3" />
   
   <!-- Auth meta -->
   <meta name="ce-auth" content="required" />
@@ -40,7 +40,7 @@
   <script src="/admin/universal-i18n-component.js?v=20250111"></script>
   <script src="/admin/poi-i18n-form.js?v=20250111"></script>
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
-  <script type="module" src="/admin/admin.js?v=20260224_2"></script>
+  <script type="module" src="/admin/admin.js?v=20260224_3"></script>
   <script src="/admin/admin-pwa.js?v=20260221_4" defer></script>
 </head>
 <body data-admin-panel="true">
@@ -655,7 +655,10 @@
         <div class="admin-card transport-control-center">
           <div class="transport-control-center__head">
             <div>
-              <h3 class="transport-control-center__title">Transport Control Center</h3>
+              <h3 class="transport-control-center__title transport-title-with-help">
+                Transport Control Center
+                <button class="transport-help-trigger" type="button" data-transport-help="control_center" aria-label="How to use Transport Control Center">?</button>
+              </h3>
               <p class="transport-control-center__subtitle">Choose route and pricing rule, preview customer total and deposit, then jump directly to edit forms.</p>
             </div>
             <div class="transport-control-center__head-right">
@@ -674,7 +677,10 @@
 
           <div class="transport-control-center__grid">
             <section class="transport-control-panel">
-              <h4>Route & rule selector</h4>
+              <h4 class="transport-title-with-help">
+                Route & rule selector
+                <button class="transport-help-trigger" type="button" data-transport-help="selector" aria-label="How to use Route and rule selector">?</button>
+              </h4>
               <p class="transport-control-panel__hint">Pick a route and rule once. Everything below updates automatically.</p>
               <div class="admin-form-grid transport-control-form-grid">
                 <label class="admin-form-field" style="margin: 0;">
@@ -701,7 +707,10 @@
             <section class="transport-control-panel">
               <div class="transport-inline-head">
                 <div>
-                  <h4 style="margin:0;">Fare simulator</h4>
+                  <h4 class="transport-title-with-help transport-title-with-help--compact">
+                    Fare simulator
+                    <button class="transport-help-trigger" type="button" data-transport-help="simulator" aria-label="How to use Fare simulator">?</button>
+                  </h4>
                   <p class="transport-control-panel__hint">Live quote for passengers, bags, seats, oversize luggage, waiting billed per started hour, and deposit.</p>
                 </div>
                 <button class="btn-secondary" type="button" id="btnTransportControlResetScenario">Reset scenario</button>
@@ -769,7 +778,10 @@
 
           <section class="transport-control-panel transport-control-panel--matrix">
             <div class="transport-inline-head">
-              <h4 style="margin:0;">Passengers × bags matrix</h4>
+              <h4 class="transport-title-with-help transport-title-with-help--compact">
+                Passengers × bags matrix
+                <button class="transport-help-trigger" type="button" data-transport-help="matrix" aria-label="How to use Passengers and bags matrix">?</button>
+              </h4>
               <div class="transport-control-panel__hint" id="transportPreviewMatrixMeta">Matrix updates after selecting route.</div>
             </div>
             <div class="admin-table-container transport-table-scroll" style="margin-bottom: 0;" aria-label="Transport pricing matrix">
@@ -780,6 +792,22 @@
               </table>
             </div>
           </section>
+        </div>
+
+        <div class="transport-workflow-strip">
+          <div class="transport-workflow-strip__item">
+            <strong>Single Route</strong>
+            <span>Set one route and one pricing rule, then save.</span>
+          </div>
+          <div class="transport-workflow-strip__item">
+            <strong>City Pair Bulk</strong>
+            <span>Use city categories to update many routes in one step.</span>
+          </div>
+          <div class="transport-workflow-strip__item">
+            <strong>Bundle Apply</strong>
+            <span>Use "Apply route + pricing together" to avoid repeated saves.</span>
+          </div>
+          <button class="transport-help-trigger transport-workflow-strip__help" type="button" data-transport-help="workflow_bundle" aria-label="How to use workflow automation">?</button>
         </div>
 
         <div class="transport-tabs">
@@ -798,9 +826,12 @@
         </div>
 
         <div id="transportTabLocations" class="transport-tab-content">
-          <div class="admin-card" style="margin-bottom: 16px;">
+          <div class="admin-card transport-admin-card">
             <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
-              <h3>Location Editor</h3>
+              <h3 class="transport-title-with-help">
+                Location Editor
+                <button class="transport-help-trigger" type="button" data-transport-help="locations_editor" aria-label="How to use Location Editor">?</button>
+              </h3>
               <button class="btn-secondary" type="button" id="btnRefreshTransportLocations">Refresh</button>
             </div>
             <div class="admin-card-body">
@@ -808,7 +839,10 @@
               <form id="transportLocationForm" class="transport-editor-form" novalidate>
                 <input type="hidden" id="transportLocationId" />
                 <section class="transport-form-block">
-                  <h4 class="transport-form-block__title">Location details</h4>
+                  <h4 class="transport-form-block__title transport-title-with-help">
+                    Location details
+                    <button class="transport-help-trigger" type="button" data-transport-help="locations_details" aria-label="How to use Location details">?</button>
+                  </h4>
                   <div class="admin-form-grid transport-fields-grid transport-fields-grid--location">
                     <label class="admin-form-field transport-field transport-field--wide">
                       <span>Name (English)</span>
@@ -893,9 +927,12 @@
         </div>
 
         <div id="transportTabRoutes" class="transport-tab-content" hidden>
-          <div class="admin-card" style="margin-bottom: 16px;">
+          <div class="admin-card transport-admin-card">
             <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
-              <h3>Route & Base Fare Editor</h3>
+              <h3 class="transport-title-with-help">
+                Route & Base Fare Editor
+                <button class="transport-help-trigger" type="button" data-transport-help="routes_editor" aria-label="How to use Route and Base Fare Editor">?</button>
+              </h3>
               <button class="btn-secondary" type="button" id="btnRefreshTransportRoutes">Refresh</button>
             </div>
             <div class="admin-card-body">
@@ -904,7 +941,10 @@
                 <input type="hidden" id="transportRouteId" />
 
                 <section class="transport-form-block">
-                  <h4 class="transport-form-block__title">Route and base prices</h4>
+                  <h4 class="transport-form-block__title transport-title-with-help">
+                    Route and base prices
+                    <button class="transport-help-trigger" type="button" data-transport-help="route_base" aria-label="How to use Route and base prices">?</button>
+                  </h4>
                   <div class="admin-form-grid transport-fields-grid transport-fields-grid--route-core">
                     <label class="admin-form-field transport-field">
                       <span>Origin</span>
@@ -970,7 +1010,10 @@
                 </section>
 
                 <section class="transport-form-block">
-                  <h4 class="transport-form-block__title">Capacity and limits</h4>
+                  <h4 class="transport-form-block__title transport-title-with-help">
+                    Capacity and limits
+                    <button class="transport-help-trigger" type="button" data-transport-help="route_capacity" aria-label="How to use Capacity and limits">?</button>
+                  </h4>
                   <div class="admin-form-grid transport-fields-grid transport-fields-grid--capacity">
                     <label class="admin-form-field transport-field">
                       <span>Incl. pax</span>
@@ -992,7 +1035,10 @@
                 </section>
 
                 <section class="transport-form-block">
-                  <h4 class="transport-form-block__title">Trip mode and status</h4>
+                  <h4 class="transport-form-block__title transport-title-with-help">
+                    Trip mode and status
+                    <button class="transport-help-trigger" type="button" data-transport-help="route_trip_mode" aria-label="How to use Trip mode and status">?</button>
+                  </h4>
                   <div class="admin-form-grid transport-fields-grid transport-fields-grid--route-meta">
                     <label class="admin-form-field transport-field">
                       <span>Trip mode</span>
@@ -1032,7 +1078,10 @@
 
               <section class="transport-bulk-panel transport-advanced-block" aria-label="Route set builder">
                 <div class="transport-inline-head">
-                  <h4 class="transport-form-block__title">Route Set Builder</h4>
+                  <h4 class="transport-form-block__title transport-title-with-help">
+                    Route Set Builder
+                    <button class="transport-help-trigger" type="button" data-transport-help="route_set_builder" aria-label="How to use Route Set Builder">?</button>
+                  </h4>
                   <span class="transport-inline-badge">Bulk create</span>
                 </div>
                 <ol class="transport-bulk-steps">
@@ -1108,7 +1157,10 @@
 
               <section class="transport-bulk-panel" id="transportRouteCityBulkPanel" aria-label="Route city pair bulk manager">
                 <div class="transport-inline-head">
-                  <h4 class="transport-form-block__title">City Pair Bulk Manager</h4>
+                  <h4 class="transport-form-block__title transport-title-with-help">
+                    City Pair Bulk Manager
+                    <button class="transport-help-trigger" type="button" data-transport-help="route_city_pair_bulk" aria-label="How to use City Pair Bulk Manager">?</button>
+                  </h4>
                   <span class="transport-inline-badge">Mass update / delete</span>
                 </div>
                 <p class="transport-form-block__hint">One panel for both single route and grouped city-pair operations.</p>
@@ -1196,9 +1248,12 @@
         </div>
 
         <div id="transportTabPricing" class="transport-tab-content" hidden>
-          <div class="admin-card" style="margin-bottom: 16px;">
+          <div class="admin-card transport-admin-card">
             <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
-              <h3>Pricing Rules & Extras Editor</h3>
+              <h3 class="transport-title-with-help">
+                Pricing Rules & Extras Editor
+                <button class="transport-help-trigger" type="button" data-transport-help="pricing_editor" aria-label="How to use Pricing Rules and Extras Editor">?</button>
+              </h3>
               <button class="btn-secondary" type="button" id="btnRefreshTransportPricing">Refresh</button>
             </div>
             <div class="admin-card-body">
@@ -1207,7 +1262,10 @@
                 <input type="hidden" id="transportPricingId" />
 
                 <section class="transport-form-block">
-                  <h4 class="transport-form-block__title">Rule scope and extras</h4>
+                  <h4 class="transport-form-block__title transport-title-with-help">
+                    Rule scope and extras
+                    <button class="transport-help-trigger" type="button" data-transport-help="pricing_extras" aria-label="How to use Rule scope and extras">?</button>
+                  </h4>
                   <div class="admin-form-grid transport-fields-grid transport-fields-grid--pricing-core">
                     <label class="admin-form-field transport-field">
                       <span>Route</span>
@@ -1237,7 +1295,10 @@
                 </section>
 
                 <section class="transport-form-block">
-                  <h4 class="transport-form-block__title">Waiting, night window and validity</h4>
+                  <h4 class="transport-form-block__title transport-title-with-help">
+                    Waiting, night window and validity
+                    <button class="transport-help-trigger" type="button" data-transport-help="pricing_time" aria-label="How to use Waiting, night window and validity">?</button>
+                  </h4>
                   <div class="admin-form-grid transport-fields-grid transport-fields-grid--pricing-time">
                     <label class="admin-form-field transport-field">
                       <span>Wait incl. min</span>
@@ -1276,7 +1337,10 @@
 
                 <section class="transport-form-block">
                   <div class="transport-inline-head">
-                    <h4 class="transport-form-block__title">Deposit settings</h4>
+                    <h4 class="transport-form-block__title transport-title-with-help">
+                      Deposit settings
+                      <button class="transport-help-trigger" type="button" data-transport-help="pricing_deposit" aria-label="How to use Deposit settings">?</button>
+                    </h4>
                     <label class="transport-check-field transport-check-field--inline">
                       <input id="transportPricingDepositEnabled" type="checkbox" />
                       <span>Require deposit for this rule</span>
@@ -1301,7 +1365,10 @@
 
                 <section class="transport-bulk-panel transport-advanced-block" aria-label="Apply pricing to additional routes">
                   <div class="transport-inline-head">
-                    <h4 class="transport-form-block__title">Apply to Additional Routes</h4>
+                    <h4 class="transport-form-block__title transport-title-with-help">
+                      Apply to Additional Routes
+                      <button class="transport-help-trigger" type="button" data-transport-help="pricing_additional_routes" aria-label="How to use Apply to Additional Routes">?</button>
+                    </h4>
                     <div class="transport-bulk-primary-toggles">
                       <label class="transport-check-field transport-check-field--inline">
                         <input id="transportPricingAutoReverseRoute" type="checkbox" checked />
@@ -1379,7 +1446,10 @@
 
                 <section class="transport-bulk-panel" id="transportPricingCityBulkPanel" aria-label="Pricing city pair bulk manager">
                   <div class="transport-inline-head">
-                    <h4 class="transport-form-block__title">Pricing City Pair Bulk Manager</h4>
+                    <h4 class="transport-form-block__title transport-title-with-help">
+                      Pricing City Pair Bulk Manager
+                      <button class="transport-help-trigger" type="button" data-transport-help="pricing_city_pair_bulk" aria-label="How to use Pricing City Pair Bulk Manager">?</button>
+                    </h4>
                     <span class="transport-inline-badge">Mass update / delete</span>
                   </div>
                   <p class="transport-form-block__hint">Use one pricing form setup for a single route or full city pair group.</p>
@@ -1540,6 +1610,24 @@
           </header>
           <div class="admin-modal-body" id="transportBookingDetailsContent">
             <div class="table-loading">Loading...</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-modal" id="transportHelpModal" hidden>
+        <div class="admin-modal-overlay" id="transportHelpModalOverlay"></div>
+        <div class="admin-modal-content transport-help-modal-content">
+          <header class="admin-modal-header">
+            <h3 id="transportHelpModalTitle">Transport Help</h3>
+            <button class="btn-modal-close" id="btnCloseTransportHelpModal" aria-label="Close transport help">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </header>
+          <div class="admin-modal-body transport-help-modal-body" id="transportHelpModalBody">
+            <div class="table-loading">Loading help...</div>
           </div>
         </div>
       </div>

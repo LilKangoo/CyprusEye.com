@@ -10907,6 +10907,290 @@ function transportTableMissingHelp(tableName) {
   return `Missing table "${tableName}". Run transport migration first.`;
 }
 
+const TRANSPORT_HELP_TOPICS = Object.freeze({
+  workflow_bundle: {
+    title: 'Workflow Automation',
+    intro: 'Fastest setup flow for consistent prices and less manual work.',
+    steps: [
+      'Create locations once with City group (e.g. larnaca) and required types (city, airport, hotel).',
+      'Set one route template with day/night price, capacity and trip mode.',
+      'Set one pricing template with extras, waiting and deposit.',
+      'Use city pair scope and click "Apply route + pricing together".',
+    ],
+    tips: [
+      'Use presets for repeated city pairs.',
+      'Keep route/pricing scope synced to avoid mismatched updates.',
+    ],
+  },
+  control_center: {
+    title: 'Transport Control Center',
+    intro: 'Main cockpit to preview final customer quote before changing forms.',
+    steps: [
+      'Select route and pricing rule.',
+      'Adjust simulator values (pax, bags, waiting, trip type).',
+      'Use quick buttons to jump to route/pricing editor.',
+    ],
+    tips: [
+      'If no rule is selected, system uses best active rule by priority/date.',
+    ],
+  },
+  selector: {
+    title: 'Route & Rule Selector',
+    intro: 'Locks one route/rule context for preview and quick navigation.',
+    steps: [
+      'Pick route first.',
+      'Pick specific rule only when testing exceptions.',
+      'Use "Open route/pricing editor" to edit matching records.',
+    ],
+  },
+  simulator: {
+    title: 'Fare Simulator',
+    intro: 'Live breakdown of base fare + extras + waiting + deposit.',
+    steps: [
+      'Set travel time and rate mode (auto/day/night).',
+      'Set passengers, bags, seats and waiting minutes.',
+      'Review total and deposit before publishing changes.',
+    ],
+    tips: [
+      'Waiting fee is charged per started hour after included minutes.',
+      'Extra bag fee starts only after included bags limit.',
+    ],
+  },
+  matrix: {
+    title: 'Passengers × Bags Matrix',
+    intro: 'Quick sanity-check for common combinations without manual simulation.',
+    steps: [
+      'Select route in control center.',
+      'Read matrix rows/columns for frequent demand patterns.',
+    ],
+  },
+  locations_editor: {
+    title: 'Location Editor',
+    intro: 'Creates reusable location points grouped by city for mass pricing control.',
+    steps: [
+      'Add EN + PL names, code and city group.',
+      'Set one type or enable multi-type creation.',
+      'Save once and reuse locations in routes and filters.',
+    ],
+    tips: [
+      'Use stable city group keys (e.g. ayia_napa) to keep bulk scopes clean.',
+    ],
+  },
+  locations_details: {
+    title: 'Location Details',
+    intro: 'Defines one pickup/dropoff point used by route builder and pricing scopes.',
+    steps: [
+      'Use unique code per point.',
+      'Set City group to join points into one pricing bundle.',
+      'Use Sort order to control selection order in forms.',
+    ],
+  },
+  routes_editor: {
+    title: 'Route & Base Fare Editor',
+    intro: 'Sets base route prices and operational limits.',
+    steps: [
+      'Choose origin/destination.',
+      'Set day/night prices and included limits.',
+      'Save route and optionally auto-create reverse pair.',
+    ],
+  },
+  route_base: {
+    title: 'Route and Base Prices',
+    intro: 'Base fare layer used before extras and deposit.',
+    steps: [
+      'Set day and night base prices.',
+      'Map city categories and preferred types to simplify route creation.',
+      'Apply city categories to fill origin/destination quickly.',
+    ],
+  },
+  route_capacity: {
+    title: 'Capacity and Limits',
+    intro: 'Controls free allowance and maximum constraints.',
+    steps: [
+      'Set included pax and included bags (free in base fare).',
+      'Set max pax and max bags for validation.',
+    ],
+  },
+  route_trip_mode: {
+    title: 'Trip Mode and Status',
+    intro: 'Controls one-way/round-trip behavior for each route.',
+    steps: [
+      'Enable round trip when both directions are supported.',
+      'Set multiplier for round trip total.',
+      'Use active flag to hide unavailable routes.',
+    ],
+  },
+  route_set_builder: {
+    title: 'Route Set Builder',
+    intro: 'Bulk creates many routes from one route template.',
+    steps: [
+      'Choose base origin.',
+      'Filter destination points and select checkboxes.',
+      'Create route set using current route form values.',
+    ],
+    tips: [
+      'Enable reverse creation if most routes need both directions.',
+    ],
+  },
+  route_city_pair_bulk: {
+    title: 'City Pair Bulk Manager',
+    intro: 'Mass update/delete routes by city pair or current route only.',
+    steps: [
+      'Choose scope mode (city pair or current route).',
+      'Select categories and reverse option.',
+      'Apply update or delete for matched routes.',
+    ],
+    tips: [
+      'Use presets for repeated operations.',
+      'Use "Apply route + pricing together" for one-step rollout.',
+    ],
+  },
+  pricing_editor: {
+    title: 'Pricing Rules & Extras Editor',
+    intro: 'Defines extras, waiting and deposit logic over route base fare.',
+    steps: [
+      'Select route.',
+      'Set extras and waiting logic.',
+      'Set deposit mode/value and save.',
+    ],
+  },
+  pricing_extras: {
+    title: 'Rule Scope and Extras',
+    intro: 'Adds per-rule surcharges on top of route base fare.',
+    steps: [
+      'Configure extra passenger/bag/oversize fees.',
+      'Configure seat surcharges and keep route selected.',
+      'Use priority to control rule order.',
+    ],
+  },
+  pricing_time: {
+    title: 'Waiting, Night Window, Validity',
+    intro: 'Controls time-dependent and date-dependent pricing behavior.',
+    steps: [
+      'Set included waiting minutes and fee per hour.',
+      'Set night window start/end.',
+      'Set valid_from/valid_to for seasonal rules.',
+    ],
+  },
+  pricing_deposit: {
+    title: 'Deposit Settings',
+    intro: 'Controls prepayment for this rule and syncs overrides.',
+    steps: [
+      'Enable deposit for this rule.',
+      'Choose mode: percent_total, fixed_amount or per_person.',
+      'Set deposit value and save.',
+    ],
+    tips: [
+      'If disabled, route falls back to global transport deposit in Partners → Emails.',
+    ],
+  },
+  pricing_additional_routes: {
+    title: 'Apply to Additional Routes',
+    intro: 'Clones same pricing logic to multiple destinations at once.',
+    steps: [
+      'Choose pickup location.',
+      'Filter destination types and tick destinations.',
+      'Save once to clone selected routes.',
+    ],
+    tips: [
+      'Enable mirror to reverse route for two-way offers.',
+    ],
+  },
+  pricing_city_pair_bulk: {
+    title: 'Pricing City Pair Bulk Manager',
+    intro: 'Mass applies one pricing template to all matched city-pair routes.',
+    steps: [
+      'Choose scope mode (city pair or current route).',
+      'Select include reverse and replace existing settings.',
+      'Apply or delete matched pricing rows.',
+    ],
+  },
+});
+
+function getTransportHelpTopic(topicKey) {
+  const key = String(topicKey || '').trim().toLowerCase();
+  if (key && TRANSPORT_HELP_TOPICS[key]) return TRANSPORT_HELP_TOPICS[key];
+  return TRANSPORT_HELP_TOPICS.workflow_bundle;
+}
+
+function renderTransportHelpModal(topicKey) {
+  const topic = getTransportHelpTopic(topicKey);
+  const titleEl = document.getElementById('transportHelpModalTitle');
+  const bodyEl = document.getElementById('transportHelpModalBody');
+  if (!titleEl || !bodyEl) return;
+
+  const steps = Array.isArray(topic.steps) ? topic.steps : [];
+  const tips = Array.isArray(topic.tips) ? topic.tips : [];
+  const renderList = (items) => items.map((item) => `<li>${escapeHtml(String(item || ''))}</li>`).join('');
+
+  titleEl.textContent = String(topic.title || 'Transport Help');
+  bodyEl.innerHTML = `
+    <p class="transport-help-modal-intro">${escapeHtml(String(topic.intro || ''))}</p>
+    ${steps.length ? `
+      <section class="transport-help-modal-panel">
+        <h4>How to use</h4>
+        <ol class="transport-help-modal-list">
+          ${renderList(steps)}
+        </ol>
+      </section>
+    ` : ''}
+    ${tips.length ? `
+      <section class="transport-help-modal-panel">
+        <h4>Tips</h4>
+        <ul class="transport-help-modal-list">
+          ${renderList(tips)}
+        </ul>
+      </section>
+    ` : ''}
+  `;
+}
+
+function openTransportHelpModal(topicKey) {
+  const modal = document.getElementById('transportHelpModal');
+  if (!modal) return;
+  renderTransportHelpModal(topicKey);
+  modal.hidden = false;
+}
+
+function closeTransportHelpModal() {
+  const modal = document.getElementById('transportHelpModal');
+  if (modal) modal.hidden = true;
+}
+
+function bindTransportHelpUi() {
+  document.querySelectorAll('[data-transport-help]').forEach((button) => {
+    if (!(button instanceof HTMLButtonElement)) return;
+    if (button.dataset.transportHelpBound === '1') return;
+    button.dataset.transportHelpBound = '1';
+    button.addEventListener('click', () => {
+      const topicKey = String(button.getAttribute('data-transport-help') || '').trim();
+      openTransportHelpModal(topicKey);
+    });
+  });
+
+  const closeBtn = document.getElementById('btnCloseTransportHelpModal');
+  if (closeBtn instanceof HTMLButtonElement && closeBtn.dataset.transportHelpBound !== '1') {
+    closeBtn.dataset.transportHelpBound = '1';
+    closeBtn.addEventListener('click', () => closeTransportHelpModal());
+  }
+
+  const overlay = document.getElementById('transportHelpModalOverlay');
+  if (overlay && overlay.dataset.transportHelpBound !== '1') {
+    overlay.dataset.transportHelpBound = '1';
+    overlay.addEventListener('click', () => closeTransportHelpModal());
+  }
+
+  if (window.__transportHelpEscBound !== true) {
+    window.__transportHelpEscBound = true;
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      const modal = document.getElementById('transportHelpModal');
+      if (!modal || modal.hidden) return;
+      closeTransportHelpModal();
+    });
+  }
+}
+
 function getSelectedValuesFromMultiSelect(selectElement) {
   if (!(selectElement instanceof HTMLSelectElement)) return [];
   return Array.from(selectElement.options || [])
@@ -15833,6 +16117,8 @@ function bindTransportAdminUi() {
   if (bookingsSearch) {
     bookingsSearch.addEventListener('input', () => renderTransportBookingsTable());
   }
+
+  bindTransportHelpUi();
 
   syncTransportRouteRoundTripControls();
   refreshTransportRouteCityCategoryOptions();

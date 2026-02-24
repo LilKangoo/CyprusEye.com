@@ -4619,6 +4619,44 @@ select#orderStatusFilter:focus {
   min-width: 0;
 }
 
+#viewTransport {
+  position: relative;
+  isolation: isolate;
+}
+
+#viewTransport::before {
+  content: '';
+  position: absolute;
+  inset: -18px -8px auto -8px;
+  height: 180px;
+  background:
+    radial-gradient(520px 160px at 8% 0%, rgba(56, 189, 248, 0.18), transparent 70%),
+    radial-gradient(580px 180px at 92% 0%, rgba(34, 197, 94, 0.12), transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.transport-admin-card {
+  margin-bottom: 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.82), rgba(15, 23, 42, 0.56)),
+    var(--admin-bg-light);
+  box-shadow:
+    0 10px 24px rgba(2, 6, 23, 0.24),
+    inset 0 1px 0 rgba(148, 163, 184, 0.14);
+}
+
+#viewTransport .transport-admin-card .admin-card-header {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(30, 41, 59, 0.32);
+}
+
+#viewTransport .transport-admin-card .admin-card-body {
+  padding: 16px;
+}
+
 .transport-control-center__head {
   display: flex;
   align-items: flex-start;
@@ -4631,6 +4669,91 @@ select#orderStatusFilter:focus {
 .transport-control-center__title {
   margin: 0;
   font-size: 21px;
+}
+
+.transport-title-with-help {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.transport-title-with-help--compact {
+  margin: 0;
+}
+
+.transport-help-trigger {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.42);
+  background: rgba(15, 23, 42, 0.48);
+  color: #c7d2fe;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.14s ease, border-color 0.14s ease, background-color 0.14s ease, color 0.14s ease;
+}
+
+.transport-help-trigger:hover,
+.transport-help-trigger:focus-visible {
+  border-color: rgba(56, 189, 248, 0.74);
+  background: rgba(30, 64, 175, 0.36);
+  color: #e0f2fe;
+  transform: translateY(-1px);
+}
+
+.transport-help-trigger:focus-visible {
+  outline: 2px solid rgba(56, 189, 248, 0.64);
+  outline-offset: 1px;
+}
+
+.transport-workflow-strip {
+  margin: 2px 0 16px;
+  border: 1px solid rgba(56, 189, 248, 0.36);
+  border-radius: 14px;
+  padding: 10px 12px;
+  background:
+    linear-gradient(115deg, rgba(14, 116, 144, 0.22), rgba(30, 58, 138, 0.22)),
+    rgba(15, 23, 42, 0.28);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.transport-workflow-strip__item {
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.3);
+  padding: 8px 10px;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.transport-workflow-strip__item strong {
+  font-size: 12px;
+  color: #dbeafe;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.transport-workflow-strip__item span {
+  font-size: 11px;
+  color: var(--admin-text-muted);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.transport-workflow-strip__help {
+  align-self: center;
+  justify-self: end;
 }
 
 .transport-control-center__subtitle {
@@ -4655,30 +4778,38 @@ select#orderStatusFilter:focus {
 
 .transport-tabs {
   margin-bottom: 24px;
-  border-bottom: 2px solid var(--admin-border);
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.3);
+  padding: 6px;
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
 }
 
 .transport-tab-button {
-  padding: 12px 20px;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
+  padding: 10px 16px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
   cursor: pointer;
   font-weight: 600;
   color: var(--admin-text-muted);
-  transition: color 0.2s ease, border-color 0.2s ease;
+  transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
 }
 
 .transport-tab-button:hover {
   color: var(--admin-text);
+  border-color: rgba(148, 163, 184, 0.28);
 }
 
 .transport-tab-button.active {
-  color: var(--admin-text);
-  border-bottom-color: var(--admin-primary);
+  color: #dbeafe;
+  border-color: rgba(56, 189, 248, 0.58);
+  background:
+    linear-gradient(135deg, rgba(2, 132, 199, 0.25), rgba(30, 64, 175, 0.28)),
+    rgba(15, 23, 42, 0.45);
+  transform: translateY(-1px);
 }
 
 .transport-control-step {
@@ -4821,11 +4952,14 @@ select#orderStatusFilter:focus {
 
 .transport-form-block {
   border: 1px solid rgba(148, 163, 184, 0.22);
-  border-radius: 12px;
-  background: rgba(15, 23, 42, 0.22);
+  border-radius: 14px;
+  background:
+    linear-gradient(170deg, rgba(30, 41, 59, 0.3), rgba(15, 23, 42, 0.2)),
+    rgba(15, 23, 42, 0.22);
   padding: 12px;
   display: grid;
   gap: 10px;
+  box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.1);
 }
 
 .transport-form-block__title {
@@ -4932,6 +5066,52 @@ select#orderStatusFilter:focus {
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.transport-help-modal-content {
+  max-width: 700px;
+}
+
+.transport-help-modal-body {
+  display: grid;
+  gap: 14px;
+}
+
+.transport-help-modal-intro {
+  margin: 0;
+  color: var(--admin-text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.transport-help-modal-panel {
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 11px;
+  background: rgba(15, 23, 42, 0.28);
+  padding: 10px 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.transport-help-modal-panel h4 {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #bfdbfe;
+}
+
+.transport-help-modal-list {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 4px;
+}
+
+.transport-help-modal-list li {
+  color: var(--admin-text);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .transport-bulk-panel {
@@ -5331,6 +5511,14 @@ select#orderStatusFilter:focus {
 }
 
 @media (max-width: 1280px) {
+  .transport-workflow-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .transport-workflow-strip__help {
+    justify-self: start;
+  }
+
   .transport-control-center__grid {
     grid-template-columns: 1fr;
   }
@@ -5364,6 +5552,14 @@ select#orderStatusFilter:focus {
 }
 
 @media (max-width: 900px) {
+  .transport-workflow-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .transport-workflow-strip__help {
+    justify-self: end;
+  }
+
   .transport-simulator-grid,
   .transport-breakdown-grid,
   .transport-control-form-grid {
@@ -5410,6 +5606,16 @@ select#orderStatusFilter:focus {
 }
 
 @media (max-width: 620px) {
+  .transport-title-with-help {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .transport-help-trigger {
+    width: 22px;
+    height: 22px;
+  }
+
   .transport-simulator-grid,
   .transport-breakdown-grid,
   .transport-control-form-grid {
@@ -5453,6 +5659,7 @@ select#orderStatusFilter:focus {
 
   .transport-tabs {
     gap: 4px;
+    padding: 4px;
   }
 
   .transport-tab-button {
