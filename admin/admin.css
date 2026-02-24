@@ -5292,6 +5292,41 @@ select#orderStatusFilter:focus {
   flex-wrap: wrap;
 }
 
+.transport-inline-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.transport-collapsible-body[hidden] {
+  display: none !important;
+}
+
+.transport-collapse-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 30px;
+}
+
+.transport-collapse-toggle::before {
+  content: "▾";
+  font-size: 11px;
+  line-height: 1;
+  color: #bfdbfe;
+}
+
+.transport-collapse-toggle.is-collapsed::before {
+  content: "▸";
+}
+
+.transport-control-panel.is-collapsed {
+  padding-bottom: 10px;
+}
+
 .transport-simple-mode-toggle {
   min-height: 30px;
 }
@@ -6267,6 +6302,11 @@ select#orderStatusFilter:focus {
   .transport-inline-head {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .transport-inline-actions {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .transport-bulk-primary-toggles {

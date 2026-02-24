@@ -9930,6 +9930,7 @@ const TRANSPORT_TYPE_PRESETS = {
 const TRANSPORT_SIMPLE_MODE_STORAGE_KEY = 'ce_transport_admin_simple_mode_v1';
 const TRANSPORT_GUIDED_MODE_STORAGE_KEY = 'ce_transport_admin_guided_mode_v1';
 const TRANSPORT_CITY_PAIR_PRESETS_STORAGE_KEY = 'ce_transport_city_pair_presets_v1';
+const TRANSPORT_CONTROL_COLLAPSE_STORAGE_KEY = 'ce_transport_control_collapse_v1';
 
 function readTransportLocalStorageJson(key, fallbackValue) {
   try {
@@ -9973,6 +9974,79 @@ function getTransportGuidedModePreference() {
 
 function setTransportGuidedModePreference(enabled) {
   writeTransportLocalStorageJson(TRANSPORT_GUIDED_MODE_STORAGE_KEY, Boolean(enabled));
+}
+
+function getTransportControlCollapseStateMap() {
+  const raw = readTransportLocalStorageJson(TRANSPORT_CONTROL_COLLAPSE_STORAGE_KEY, {});
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const normalized = {};
+  Object.entries(raw).forEach(([key, value]) => {
+    const safeKey = String(key || '').trim();
+    if (!safeKey) return;
+    normalized[safeKey] = Boolean(value);
+  });
+  return normalized;
+}
+
+function setTransportControlCollapseStateMap(map) {
+  if (!map || typeof map !== 'object' || Array.isArray(map)) {
+    writeTransportLocalStorageJson(TRANSPORT_CONTROL_COLLAPSE_STORAGE_KEY, {});
+    return;
+  }
+  const normalized = {};
+  Object.entries(map).forEach(([key, value]) => {
+    const safeKey = String(key || '').trim();
+    if (!safeKey) return;
+    normalized[safeKey] = Boolean(value);
+  });
+  writeTransportLocalStorageJson(TRANSPORT_CONTROL_COLLAPSE_STORAGE_KEY, normalized);
+}
+
+function setTransportCollapsiblePanelState(toggleEl, collapsed, options = {}) {
+  if (!(toggleEl instanceof HTMLButtonElement)) return;
+  const targetId = String(toggleEl.getAttribute('data-transport-collapse-target') || '').trim();
+  if (!targetId) return;
+  const bodyEl = document.getElementById(targetId);
+  if (!bodyEl) return;
+
+  const isCollapsed = Boolean(collapsed);
+  bodyEl.hidden = isCollapsed;
+  toggleEl.classList.toggle('is-collapsed', isCollapsed);
+  toggleEl.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+  const expandedLabel = String(toggleEl.getAttribute('data-transport-collapse-label-expanded') || 'Collapse').trim() || 'Collapse';
+  const collapsedLabel = String(toggleEl.getAttribute('data-transport-collapse-label-collapsed') || 'Expand').trim() || 'Expand';
+  toggleEl.textContent = isCollapsed ? collapsedLabel : expandedLabel;
+
+  const panelEl = bodyEl.closest('.transport-control-panel');
+  if (panelEl) panelEl.classList.toggle('is-collapsed', isCollapsed);
+
+  if (options.persist === false) return;
+  const storageKey = String(toggleEl.getAttribute('data-transport-collapse-key') || targetId).trim();
+  if (!storageKey) return;
+  const stateMap = getTransportControlCollapseStateMap();
+  stateMap[storageKey] = isCollapsed;
+  setTransportControlCollapseStateMap(stateMap);
+}
+
+function bindTransportControlCollapsiblePanels() {
+  const stateMap = getTransportControlCollapseStateMap();
+  document.querySelectorAll('button[data-transport-collapse-target]').forEach((toggleEl) => {
+    if (!(toggleEl instanceof HTMLButtonElement)) return;
+    if (toggleEl.dataset.transportCollapseBound === '1') return;
+    toggleEl.dataset.transportCollapseBound = '1';
+
+    const targetId = String(toggleEl.getAttribute('data-transport-collapse-target') || '').trim();
+    const storageKey = String(toggleEl.getAttribute('data-transport-collapse-key') || targetId).trim();
+    const defaultCollapsed = String(toggleEl.getAttribute('data-transport-collapse-default') || '').trim().toLowerCase() === 'collapsed';
+    const hasStoredState = Object.prototype.hasOwnProperty.call(stateMap, storageKey);
+    const initialCollapsed = hasStoredState ? Boolean(stateMap[storageKey]) : defaultCollapsed;
+    setTransportCollapsiblePanelState(toggleEl, initialCollapsed, { persist: false });
+
+    toggleEl.addEventListener('click', () => {
+      const expandedNow = toggleEl.getAttribute('aria-expanded') === 'true';
+      setTransportCollapsiblePanelState(toggleEl, expandedNow, { persist: true });
+    });
+  });
 }
 
 function getTransportGuidedStepHintByTab(tab) {
@@ -16041,6 +16115,7 @@ function bindTransportAdminUi() {
       syncTransportGuidedModeState();
     });
   }
+  bindTransportControlCollapsiblePanels();
   document.querySelectorAll('[data-transport-guided-tab]').forEach((button) => {
     button.addEventListener('click', () => {
       const tab = normalizeTransportTab(button.getAttribute('data-transport-guided-tab') || 'locations');

@@ -28,7 +28,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="/assets/css/tokens.css?v=20251107" />
   <link rel="stylesheet" href="/assets/css/base.css?v=20251107" />
-  <link rel="stylesheet" href="/admin/admin.css?v=20260224_9" />
+  <link rel="stylesheet" href="/admin/admin.css?v=20260224_11" />
   
   <!-- Auth meta -->
   <meta name="ce-auth" content="required" />
@@ -40,7 +40,7 @@
   <script src="/admin/universal-i18n-component.js?v=20250111"></script>
   <script src="/admin/poi-i18n-form.js?v=20250111"></script>
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
-  <script type="module" src="/admin/admin.js?v=20260224_10"></script>
+  <script type="module" src="/admin/admin.js?v=20260224_11"></script>
   <script src="/admin/admin-pwa.js?v=20260221_4" defer></script>
 </head>
 <body data-admin-panel="true">
@@ -681,31 +681,47 @@
 
           <div class="transport-control-center__grid transport-control-center__grid--stacked">
             <section class="transport-control-panel transport-control-panel--compact">
-              <h4 class="transport-title-with-help">
-                Route & rule selector
-                <button class="transport-help-trigger" type="button" data-transport-help="selector" aria-label="How to use Route and rule selector">?</button>
-              </h4>
-              <p class="transport-control-panel__hint">Pick a route and rule once. Everything below updates automatically.</p>
-              <div class="admin-form-grid transport-control-form-grid">
-                <label class="admin-form-field" style="margin: 0;">
-                  <span>Route</span>
-                  <select id="transportControlRouteSelect" class="form-control">
-                    <option value="">Select route</option>
-                  </select>
-                </label>
-                <label class="admin-form-field" style="margin: 0;">
-                  <span>Pricing rule</span>
-                  <select id="transportControlRuleSelect" class="form-control">
-                    <option value="">Auto (best active rule)</option>
-                  </select>
-                </label>
+              <div class="transport-inline-head">
+                <h4 class="transport-title-with-help">
+                  Route & rule selector
+                  <button class="transport-help-trigger" type="button" data-transport-help="selector" aria-label="How to use Route and rule selector">?</button>
+                </h4>
+                <button
+                  class="btn-secondary btn-small transport-collapse-toggle"
+                  type="button"
+                  data-transport-collapse-target="transportCollapseSelectorBody"
+                  data-transport-collapse-key="selector"
+                  data-transport-collapse-label-expanded="Collapse"
+                  data-transport-collapse-label-collapsed="Expand"
+                  aria-expanded="true"
+                  aria-controls="transportCollapseSelectorBody"
+                >
+                  Collapse
+                </button>
               </div>
-              <div class="transport-control-actions">
-                <button class="btn-secondary" type="button" id="btnTransportControlOpenRouteEditor">Open route editor</button>
-                <button class="btn-secondary" type="button" id="btnTransportControlOpenPricingEditor">Open pricing editor</button>
-                <button class="btn-secondary" type="button" id="btnTransportControlCreatePricingRule">Create new pricing rule</button>
+              <div id="transportCollapseSelectorBody" class="transport-collapsible-body">
+                <p class="transport-control-panel__hint">Pick a route and rule once. Everything below updates automatically.</p>
+                <div class="admin-form-grid transport-control-form-grid">
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Route</span>
+                    <select id="transportControlRouteSelect" class="form-control">
+                      <option value="">Select route</option>
+                    </select>
+                  </label>
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Pricing rule</span>
+                    <select id="transportControlRuleSelect" class="form-control">
+                      <option value="">Auto (best active rule)</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="transport-control-actions">
+                  <button class="btn-secondary" type="button" id="btnTransportControlOpenRouteEditor">Open route editor</button>
+                  <button class="btn-secondary" type="button" id="btnTransportControlOpenPricingEditor">Open pricing editor</button>
+                  <button class="btn-secondary" type="button" id="btnTransportControlCreatePricingRule">Create new pricing rule</button>
+                </div>
+                <div class="transport-control-status" id="transportPreviewStatus">Select route to start simulation.</div>
               </div>
-              <div class="transport-control-status" id="transportPreviewStatus">Select route to start simulation.</div>
             </section>
 
             <section class="transport-control-panel transport-control-panel--compact">
@@ -717,70 +733,86 @@
                   </h4>
                   <p class="transport-control-panel__hint">Live quote for passengers, bags, seats, oversize luggage, waiting billed per started hour, and deposit.</p>
                 </div>
-                <button class="btn-secondary" type="button" id="btnTransportControlResetScenario">Reset scenario</button>
-              </div>
-              <div class="admin-form-grid transport-simulator-grid transport-simulator-grid--core">
-                <label class="admin-form-field" style="margin: 0;">
-                  <span>Rate mode</span>
-                  <select id="transportPreviewRateMode" class="form-control" data-transport-preview-input>
-                    <option value="auto">Auto by night window</option>
-                    <option value="day">Force day rate</option>
-                    <option value="night">Force night rate</option>
-                  </select>
-                </label>
-                <label class="admin-form-field" style="margin: 0;">
-                  <span>Trip type</span>
-                  <select id="transportPreviewTripType" class="form-control" data-transport-preview-input>
-                    <option value="one_way">One way</option>
-                    <option value="round_trip">Round trip</option>
-                  </select>
-                </label>
-                <label class="admin-form-field" style="margin: 0;">
-                  <span>Travel time</span>
-                  <input id="transportPreviewTravelTime" type="time" value="12:00" data-transport-preview-input />
-                </label>
-                <label class="admin-form-field" style="margin: 0;">
-                  <span>Passengers</span>
-                  <input id="transportPreviewPassengers" type="number" min="1" step="1" value="2" data-transport-preview-input />
-                </label>
-                <label class="admin-form-field" style="margin: 0;">
-                  <span>Bags</span>
-                  <input id="transportPreviewBags" type="number" min="0" step="1" value="2" data-transport-preview-input />
-                </label>
-              </div>
-              <details class="transport-simulator-advanced" id="transportPreviewAdvancedPanel">
-                <summary>Advanced scenario options</summary>
-                <div class="admin-form-grid transport-simulator-grid transport-simulator-grid--advanced">
-                <label class="admin-form-field" style="margin: 0;">
-                  <span>Oversize bags</span>
-                  <input id="transportPreviewOversizeBags" type="number" min="0" step="1" value="0" data-transport-preview-input />
-                </label>
-                <label class="admin-form-field" style="margin: 0;">
-                  <span>Child seats</span>
-                  <input id="transportPreviewChildSeats" type="number" min="0" step="1" value="0" data-transport-preview-input />
-                </label>
-                <label class="admin-form-field" style="margin: 0;">
-                  <span>Booster seats</span>
-                  <input id="transportPreviewBoosterSeats" type="number" min="0" step="1" value="0" data-transport-preview-input />
-                </label>
-                <label class="admin-form-field" style="margin: 0;">
-                  <span>Waiting minutes</span>
-                  <input id="transportPreviewWaitingMinutes" type="number" min="0" step="1" value="0" data-transport-preview-input />
-                </label>
+                <div class="transport-inline-actions">
+                  <button class="btn-secondary" type="button" id="btnTransportControlResetScenario">Reset scenario</button>
+                  <button
+                    class="btn-secondary btn-small transport-collapse-toggle"
+                    type="button"
+                    data-transport-collapse-target="transportCollapseSimulatorBody"
+                    data-transport-collapse-key="simulator"
+                    data-transport-collapse-label-expanded="Collapse"
+                    data-transport-collapse-label-collapsed="Expand"
+                    aria-expanded="true"
+                    aria-controls="transportCollapseSimulatorBody"
+                  >
+                    Collapse
+                  </button>
                 </div>
-              </details>
-              <div class="transport-breakdown-grid">
-                <div class="transport-breakdown-item"><span>Base fare</span><strong id="transportPreviewBase">—</strong></div>
-                <div class="transport-breakdown-item"><span>Extra passengers</span><strong id="transportPreviewExtraPassengers">—</strong></div>
-                <div class="transport-breakdown-item"><span>Extra bags</span><strong id="transportPreviewExtraBags">—</strong></div>
-                <div class="transport-breakdown-item"><span>Oversize bags</span><strong id="transportPreviewExtraOversize">—</strong></div>
-                <div class="transport-breakdown-item"><span>Seats (child + booster)</span><strong id="transportPreviewExtraSeats">—</strong></div>
-                <div class="transport-breakdown-item"><span>Waiting fee</span><strong id="transportPreviewExtraWaiting">—</strong></div>
-                <div class="transport-breakdown-item"><span>Deposit preview</span><strong id="transportPreviewDeposit">—</strong></div>
               </div>
-              <div class="transport-total-row">
-                <span>Total quote</span>
-                <strong id="transportPreviewTotal">—</strong>
+              <div id="transportCollapseSimulatorBody" class="transport-collapsible-body">
+                <div class="admin-form-grid transport-simulator-grid transport-simulator-grid--core">
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Rate mode</span>
+                    <select id="transportPreviewRateMode" class="form-control" data-transport-preview-input>
+                      <option value="auto">Auto by night window</option>
+                      <option value="day">Force day rate</option>
+                      <option value="night">Force night rate</option>
+                    </select>
+                  </label>
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Trip type</span>
+                    <select id="transportPreviewTripType" class="form-control" data-transport-preview-input>
+                      <option value="one_way">One way</option>
+                      <option value="round_trip">Round trip</option>
+                    </select>
+                  </label>
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Travel time</span>
+                    <input id="transportPreviewTravelTime" type="time" value="12:00" data-transport-preview-input />
+                  </label>
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Passengers</span>
+                    <input id="transportPreviewPassengers" type="number" min="1" step="1" value="2" data-transport-preview-input />
+                  </label>
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Bags</span>
+                    <input id="transportPreviewBags" type="number" min="0" step="1" value="2" data-transport-preview-input />
+                  </label>
+                </div>
+                <details class="transport-simulator-advanced" id="transportPreviewAdvancedPanel">
+                  <summary>Advanced scenario options</summary>
+                  <div class="admin-form-grid transport-simulator-grid transport-simulator-grid--advanced">
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Oversize bags</span>
+                    <input id="transportPreviewOversizeBags" type="number" min="0" step="1" value="0" data-transport-preview-input />
+                  </label>
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Child seats</span>
+                    <input id="transportPreviewChildSeats" type="number" min="0" step="1" value="0" data-transport-preview-input />
+                  </label>
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Booster seats</span>
+                    <input id="transportPreviewBoosterSeats" type="number" min="0" step="1" value="0" data-transport-preview-input />
+                  </label>
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Waiting minutes</span>
+                    <input id="transportPreviewWaitingMinutes" type="number" min="0" step="1" value="0" data-transport-preview-input />
+                  </label>
+                  </div>
+                </details>
+                <div class="transport-breakdown-grid">
+                  <div class="transport-breakdown-item"><span>Base fare</span><strong id="transportPreviewBase">—</strong></div>
+                  <div class="transport-breakdown-item"><span>Extra passengers</span><strong id="transportPreviewExtraPassengers">—</strong></div>
+                  <div class="transport-breakdown-item"><span>Extra bags</span><strong id="transportPreviewExtraBags">—</strong></div>
+                  <div class="transport-breakdown-item"><span>Oversize bags</span><strong id="transportPreviewExtraOversize">—</strong></div>
+                  <div class="transport-breakdown-item"><span>Seats (child + booster)</span><strong id="transportPreviewExtraSeats">—</strong></div>
+                  <div class="transport-breakdown-item"><span>Waiting fee</span><strong id="transportPreviewExtraWaiting">—</strong></div>
+                  <div class="transport-breakdown-item"><span>Deposit preview</span><strong id="transportPreviewDeposit">—</strong></div>
+                </div>
+                <div class="transport-total-row">
+                  <span>Total quote</span>
+                  <strong id="transportPreviewTotal">—</strong>
+                </div>
               </div>
             </section>
           </div>
@@ -792,13 +824,27 @@
                 <button class="transport-help-trigger" type="button" data-transport-help="matrix" aria-label="How to use Passengers and bags matrix">?</button>
               </h4>
               <div class="transport-control-panel__hint" id="transportPreviewMatrixMeta">Matrix updates after selecting route.</div>
+              <button
+                class="btn-secondary btn-small transport-collapse-toggle"
+                type="button"
+                data-transport-collapse-target="transportCollapseMatrixBody"
+                data-transport-collapse-key="matrix"
+                data-transport-collapse-label-expanded="Collapse"
+                data-transport-collapse-label-collapsed="Expand"
+                aria-expanded="true"
+                aria-controls="transportCollapseMatrixBody"
+              >
+                Collapse
+              </button>
             </div>
-            <div class="admin-table-container transport-table-scroll" style="margin-bottom: 0;" aria-label="Transport pricing matrix">
-              <table class="admin-table" id="transportPreviewMatrixTable">
-                <tbody>
-                  <tr><td class="table-loading">Select route to generate matrix</td></tr>
-                </tbody>
-              </table>
+            <div id="transportCollapseMatrixBody" class="transport-collapsible-body">
+              <div class="admin-table-container transport-table-scroll" style="margin-bottom: 0;" aria-label="Transport pricing matrix">
+                <table class="admin-table" id="transportPreviewMatrixTable">
+                  <tbody>
+                    <tr><td class="table-loading">Select route to generate matrix</td></tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </section>
         </div>
