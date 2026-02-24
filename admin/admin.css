@@ -4964,6 +4964,7 @@ select#orderStatusFilter:focus {
   border-radius: 12px;
   background: rgba(15, 23, 42, 0.22);
   padding: 12px;
+  min-width: 0;
 }
 
 .transport-control-panel--compact {
@@ -4986,6 +4987,19 @@ select#orderStatusFilter:focus {
   margin-top: 8px;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
+  min-width: 0;
+}
+
+.transport-control-form-grid > * {
+  min-width: 0;
+}
+
+.transport-control-form-grid .form-control,
+.transport-control-form-grid select,
+.transport-control-form-grid input {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .transport-control-actions {
@@ -4993,6 +5007,15 @@ select#orderStatusFilter:focus {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+  min-width: 0;
+}
+
+.transport-control-actions .btn,
+.transport-control-actions .btn-secondary {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .transport-control-status {
@@ -6307,6 +6330,16 @@ select#orderStatusFilter:focus {
   .transport-inline-actions {
     width: 100%;
     justify-content: flex-start;
+  }
+
+  .transport-control-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .transport-control-actions .btn,
+  .transport-control-actions .btn-secondary {
+    width: 100%;
   }
 
   .transport-bulk-primary-toggles {

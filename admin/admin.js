@@ -10029,22 +10029,17 @@ function setTransportCollapsiblePanelState(toggleEl, collapsed, options = {}) {
 }
 
 function bindTransportControlCollapsiblePanels() {
-  const stateMap = getTransportControlCollapseStateMap();
   document.querySelectorAll('button[data-transport-collapse-target]').forEach((toggleEl) => {
     if (!(toggleEl instanceof HTMLButtonElement)) return;
     if (toggleEl.dataset.transportCollapseBound === '1') return;
     toggleEl.dataset.transportCollapseBound = '1';
 
-    const targetId = String(toggleEl.getAttribute('data-transport-collapse-target') || '').trim();
-    const storageKey = String(toggleEl.getAttribute('data-transport-collapse-key') || targetId).trim();
     const defaultCollapsed = String(toggleEl.getAttribute('data-transport-collapse-default') || '').trim().toLowerCase() === 'collapsed';
-    const hasStoredState = Object.prototype.hasOwnProperty.call(stateMap, storageKey);
-    const initialCollapsed = hasStoredState ? Boolean(stateMap[storageKey]) : defaultCollapsed;
-    setTransportCollapsiblePanelState(toggleEl, initialCollapsed, { persist: false });
+    setTransportCollapsiblePanelState(toggleEl, defaultCollapsed, { persist: false });
 
     toggleEl.addEventListener('click', () => {
       const expandedNow = toggleEl.getAttribute('aria-expanded') === 'true';
-      setTransportCollapsiblePanelState(toggleEl, expandedNow, { persist: true });
+      setTransportCollapsiblePanelState(toggleEl, expandedNow, { persist: false });
     });
   });
 }

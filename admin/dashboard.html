@@ -28,7 +28,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="/assets/css/tokens.css?v=20251107" />
   <link rel="stylesheet" href="/assets/css/base.css?v=20251107" />
-  <link rel="stylesheet" href="/admin/admin.css?v=20260224_11" />
+  <link rel="stylesheet" href="/admin/admin.css?v=20260224_12" />
   
   <!-- Auth meta -->
   <meta name="ce-auth" content="required" />
@@ -40,7 +40,7 @@
   <script src="/admin/universal-i18n-component.js?v=20250111"></script>
   <script src="/admin/poi-i18n-form.js?v=20250111"></script>
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
-  <script type="module" src="/admin/admin.js?v=20260224_11"></script>
+  <script type="module" src="/admin/admin.js?v=20260224_12"></script>
   <script src="/admin/admin-pwa.js?v=20260221_4" defer></script>
 </head>
 <body data-admin-panel="true">
@@ -691,15 +691,16 @@
                   type="button"
                   data-transport-collapse-target="transportCollapseSelectorBody"
                   data-transport-collapse-key="selector"
+                  data-transport-collapse-default="collapsed"
                   data-transport-collapse-label-expanded="Collapse"
                   data-transport-collapse-label-collapsed="Expand"
-                  aria-expanded="true"
+                  aria-expanded="false"
                   aria-controls="transportCollapseSelectorBody"
                 >
-                  Collapse
+                  Expand
                 </button>
               </div>
-              <div id="transportCollapseSelectorBody" class="transport-collapsible-body">
+              <div id="transportCollapseSelectorBody" class="transport-collapsible-body" hidden>
                 <p class="transport-control-panel__hint">Pick a route and rule once. Everything below updates automatically.</p>
                 <div class="admin-form-grid transport-control-form-grid">
                   <label class="admin-form-field" style="margin: 0;">
@@ -740,16 +741,17 @@
                     type="button"
                     data-transport-collapse-target="transportCollapseSimulatorBody"
                     data-transport-collapse-key="simulator"
+                    data-transport-collapse-default="collapsed"
                     data-transport-collapse-label-expanded="Collapse"
                     data-transport-collapse-label-collapsed="Expand"
-                    aria-expanded="true"
+                    aria-expanded="false"
                     aria-controls="transportCollapseSimulatorBody"
                   >
-                    Collapse
+                    Expand
                   </button>
                 </div>
               </div>
-              <div id="transportCollapseSimulatorBody" class="transport-collapsible-body">
+              <div id="transportCollapseSimulatorBody" class="transport-collapsible-body" hidden>
                 <div class="admin-form-grid transport-simulator-grid transport-simulator-grid--core">
                   <label class="admin-form-field" style="margin: 0;">
                     <span>Rate mode</span>
@@ -829,15 +831,16 @@
                 type="button"
                 data-transport-collapse-target="transportCollapseMatrixBody"
                 data-transport-collapse-key="matrix"
+                data-transport-collapse-default="collapsed"
                 data-transport-collapse-label-expanded="Collapse"
                 data-transport-collapse-label-collapsed="Expand"
-                aria-expanded="true"
+                aria-expanded="false"
                 aria-controls="transportCollapseMatrixBody"
               >
-                Collapse
+                Expand
               </button>
             </div>
-            <div id="transportCollapseMatrixBody" class="transport-collapsible-body">
+            <div id="transportCollapseMatrixBody" class="transport-collapsible-body" hidden>
               <div class="admin-table-container transport-table-scroll" style="margin-bottom: 0;" aria-label="Transport pricing matrix">
                 <table class="admin-table" id="transportPreviewMatrixTable">
                   <tbody>
