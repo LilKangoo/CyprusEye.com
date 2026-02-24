@@ -1396,6 +1396,46 @@
                   </div>
                 </section>
 
+                <section class="transport-bulk-panel" aria-label="Global luggage and extras settings">
+                  <div class="transport-inline-head">
+                    <h4 class="transport-form-block__title">Global luggage + extras (all routes)</h4>
+                    <span class="transport-inline-badge">Mass update</span>
+                  </div>
+                  <p class="transport-form-block__hint">Set free luggage allowances and extra luggage fees once, then apply to all routes in one action.</p>
+                  <div class="admin-form-grid transport-fields-grid transport-fields-grid--pricing-global-luggage">
+                    <label class="admin-form-field transport-field">
+                      <span>Free small backpacks (per route)</span>
+                      <input type="number" id="transportPricingGlobalIncludedBags" min="0" step="1" value="2" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Free large bags 15kg+ (per route)</span>
+                      <input type="number" id="transportPricingGlobalIncludedLargeBags" min="0" step="1" value="0" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Extra small backpack fee</span>
+                      <input type="number" id="transportPricingGlobalExtraBagFee" min="0" step="0.01" value="0" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Extra large bag (15kg+) fee</span>
+                      <input type="number" id="transportPricingGlobalOversizeBagFee" min="0" step="0.01" value="0" />
+                    </label>
+                  </div>
+                  <div class="transport-multi-select-toolbar">
+                    <label class="transport-check-field">
+                      <input id="transportPricingGlobalOnlyActiveRoutes" type="checkbox" checked />
+                      <span>Only active routes</span>
+                    </label>
+                    <label class="transport-check-field">
+                      <input id="transportPricingGlobalCreateMissingRules" type="checkbox" checked />
+                      <span>Create pricing rule when route has no pricing row yet</span>
+                    </label>
+                  </div>
+                  <p class="transport-form-block__hint transport-form-block__hint--status" id="transportPricingGlobalSummary" aria-live="polite">Select values to preview global update scope.</p>
+                  <div class="transport-editor-actions">
+                    <button class="btn-secondary" type="button" id="btnTransportPricingGlobalApply">Apply luggage + extras globally</button>
+                  </div>
+                </section>
+
                 <section class="transport-form-block">
                   <h4 class="transport-form-block__title transport-title-with-help">
                     Waiting, night window and validity

@@ -5200,6 +5200,10 @@ select#orderStatusFilter:focus {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
+.transport-fields-grid--pricing-global-luggage {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
 .transport-fields-grid--pricing-bulk-scope {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
@@ -6158,6 +6162,7 @@ select#orderStatusFilter:focus {
   .transport-fields-grid--pricing-core,
   .transport-fields-grid--pricing-time,
   .transport-fields-grid--pricing-deposit,
+  .transport-fields-grid--pricing-global-luggage,
   .transport-fields-grid--pricing-bulk-scope {
     grid-template-columns: repeat(2, minmax(170px, 1fr));
   }
@@ -6195,6 +6200,7 @@ select#orderStatusFilter:focus {
   .transport-fields-grid--pricing-core,
   .transport-fields-grid--pricing-time,
   .transport-fields-grid--pricing-deposit,
+  .transport-fields-grid--pricing-global-luggage,
   .transport-fields-grid--pricing-bulk-scope {
     grid-template-columns: repeat(2, minmax(150px, 1fr));
   }
@@ -6318,6 +6324,7 @@ select#orderStatusFilter:focus {
   .transport-fields-grid--pricing-core,
   .transport-fields-grid--pricing-time,
   .transport-fields-grid--pricing-deposit,
+  .transport-fields-grid--pricing-global-luggage,
   .transport-fields-grid--pricing-bulk-scope {
     grid-template-columns: 1fr;
   }

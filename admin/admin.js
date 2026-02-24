@@ -13327,6 +13327,275 @@ function syncTransportPricingCityBulkSummary() {
   summaryEl.textContent = `${scopeLabel}. ${selection.routeIds.length} route(s) matched. Existing pricing rows: ${matchedRules.length} (${activeRuleCount} active). ${modeText}${previewSuffix}`;
 }
 
+function getTransportPricingGlobalLuggageSelection(options = {}) {
+  const onlyActiveRoutes = options.onlyActiveRoutes == null
+    ? Boolean(document.getElementById('transportPricingGlobalOnlyActiveRoutes')?.checked)
+    : Boolean(options.onlyActiveRoutes);
+  const createMissingRules = options.createMissingRules == null
+    ? Boolean(document.getElementById('transportPricingGlobalCreateMissingRules')?.checked)
+    : Boolean(options.createMissingRules);
+  const includedBags = options.includedBags == null
+    ? transportToNonNegativeInt(transportReadNumberInput('transportPricingGlobalIncludedBags', 2), 2)
+    : transportToNonNegativeInt(options.includedBags, 2);
+  const includedLargeBags = options.includedLargeBags == null
+    ? transportToNonNegativeInt(transportReadNumberInput('transportPricingGlobalIncludedLargeBags', 0), 0)
+    : transportToNonNegativeInt(options.includedLargeBags, 0);
+  const extraBagFee = options.extraBagFee == null
+    ? transportToNonNegativeNumber(transportReadNumberInput('transportPricingGlobalExtraBagFee', 0), 0)
+    : transportToNonNegativeNumber(options.extraBagFee, 0);
+  const oversizeBagFee = options.oversizeBagFee == null
+    ? transportToNonNegativeNumber(transportReadNumberInput('transportPricingGlobalOversizeBagFee', 0), 0)
+    : transportToNonNegativeNumber(options.oversizeBagFee, 0);
+
+  const routes = (transportAdminState.routes || [])
+    .filter((row) => {
+      if (!row?.id) return false;
+      if (!onlyActiveRoutes) return true;
+      return row.is_active !== false;
+    })
+    .slice();
+  const requiredTotalLuggage = includedBags + includedLargeBags;
+  const eligibleRoutes = routes.filter((row) => Number(row?.max_bags || 0) >= requiredTotalLuggage);
+  const blockedByCapacityRoutes = routes.filter((row) => Number(row?.max_bags || 0) < requiredTotalLuggage);
+  const routeIds = routes.map((row) => String(row?.id || '').trim()).filter(Boolean);
+  const eligibleRouteIds = eligibleRoutes.map((row) => String(row?.id || '').trim()).filter(Boolean);
+  const blockedRouteIds = blockedByCapacityRoutes.map((row) => String(row?.id || '').trim()).filter(Boolean);
+
+  const eligibleSet = new Set(eligibleRouteIds);
+  const pricingRows = Array.isArray(transportAdminState.pricingRules) ? transportAdminState.pricingRules : [];
+  const existingPricingRows = pricingRows.filter((row) => eligibleSet.has(String(row?.route_id || '').trim()));
+  const routeIdsWithPricing = new Set(existingPricingRows.map((row) => String(row?.route_id || '').trim()).filter(Boolean));
+  const missingPricingRouteIds = eligibleRouteIds.filter((routeId) => !routeIdsWithPricing.has(routeId));
+
+  return {
+    onlyActiveRoutes,
+    createMissingRules,
+    includedBags,
+    includedLargeBags,
+    extraBagFee,
+    oversizeBagFee,
+    requiredTotalLuggage,
+    routes,
+    routeIds,
+    eligibleRoutes,
+    eligibleRouteIds,
+    blockedByCapacityRoutes,
+    blockedRouteIds,
+    existingPricingRows,
+    missingPricingRouteIds,
+  };
+}
+
+function syncTransportPricingGlobalSummary() {
+  const summaryEl = document.getElementById('transportPricingGlobalSummary');
+  if (!summaryEl) return;
+
+  const selection = getTransportPricingGlobalLuggageSelection();
+  if (!selection.routeIds.length) {
+    summaryEl.textContent = selection.onlyActiveRoutes
+      ? 'No active routes found for global update.'
+      : 'No routes found for global update.';
+    return;
+  }
+
+  const targetLabel = selection.onlyActiveRoutes ? 'active routes' : 'all routes';
+  const blockedSuffix = selection.blockedRouteIds.length
+    ? ` ${selection.blockedRouteIds.length} route(s) skipped because max total luggage is below ${selection.requiredTotalLuggage}.`
+    : '';
+  const missingSuffix = selection.createMissingRules
+    ? ` Missing pricing rules to create: ${selection.missingPricingRouteIds.length}.`
+    : ` Missing pricing rules (not created): ${selection.missingPricingRouteIds.length}.`;
+
+  summaryEl.textContent = `Target: ${selection.routeIds.length} ${targetLabel}. Eligible: ${selection.eligibleRouteIds.length}. Existing pricing rows in scope: ${selection.existingPricingRows.length}.${missingSuffix}${blockedSuffix}`;
+}
+
+async function applyTransportPricingGlobalLuggageUpdate() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const includedBagsRaw = transportReadNumberInput('transportPricingGlobalIncludedBags', 2);
+  const includedLargeBagsRaw = transportReadNumberInput('transportPricingGlobalIncludedLargeBags', 0);
+  const extraBagFeeRaw = transportReadNumberInput('transportPricingGlobalExtraBagFee', 0);
+  const oversizeBagFeeRaw = transportReadNumberInput('transportPricingGlobalOversizeBagFee', 0);
+  const onlyActiveRoutes = Boolean(document.getElementById('transportPricingGlobalOnlyActiveRoutes')?.checked);
+  const createMissingRules = Boolean(document.getElementById('transportPricingGlobalCreateMissingRules')?.checked);
+
+  if (!Number.isFinite(includedBagsRaw) || includedBagsRaw < 0 || !Number.isInteger(includedBagsRaw)) {
+    showToast('Free small backpacks must be an integer >= 0', 'error');
+    return;
+  }
+  if (!Number.isFinite(includedLargeBagsRaw) || includedLargeBagsRaw < 0 || !Number.isInteger(includedLargeBagsRaw)) {
+    showToast('Free large bags (15kg+) must be an integer >= 0', 'error');
+    return;
+  }
+  if (!Number.isFinite(extraBagFeeRaw) || extraBagFeeRaw < 0) {
+    showToast('Extra small backpack fee must be >= 0', 'error');
+    return;
+  }
+  if (!Number.isFinite(oversizeBagFeeRaw) || oversizeBagFeeRaw < 0) {
+    showToast('Extra large bag (15kg+) fee must be >= 0', 'error');
+    return;
+  }
+
+  const includedBags = transportToNonNegativeInt(includedBagsRaw, 0);
+  const includedLargeBags = transportToNonNegativeInt(includedLargeBagsRaw, 0);
+  const extraBagFee = transportToNonNegativeNumber(extraBagFeeRaw, 0);
+  const oversizeBagFee = transportToNonNegativeNumber(oversizeBagFeeRaw, 0);
+  const selection = getTransportPricingGlobalLuggageSelection({
+    onlyActiveRoutes,
+    createMissingRules,
+    includedBags,
+    includedLargeBags,
+    extraBagFee,
+    oversizeBagFee,
+  });
+
+  if (!selection.routeIds.length) {
+    showToast(onlyActiveRoutes ? 'No active routes found for global update' : 'No routes found for global update', 'info');
+    return;
+  }
+  if (!selection.eligibleRouteIds.length) {
+    showToast(`No eligible routes. Increase max total luggage on routes first (required: ${selection.requiredTotalLuggage}).`, 'error');
+    return;
+  }
+
+  const confirmLines = [
+    `Apply global luggage + extras to ${selection.eligibleRouteIds.length} route(s)?`,
+    `Free luggage: ${includedBags} small backpacks + ${includedLargeBags} large bags (15kg+).`,
+    `Extra fees: small ${extraBagFee.toFixed(2)}, large ${oversizeBagFee.toFixed(2)}.`,
+  ];
+  if (selection.blockedRouteIds.length) {
+    confirmLines.push(`${selection.blockedRouteIds.length} route(s) will be skipped (max luggage below ${selection.requiredTotalLuggage}).`);
+  }
+  if (createMissingRules && selection.missingPricingRouteIds.length) {
+    confirmLines.push(`${selection.missingPricingRouteIds.length} route(s) have no pricing rule and will get one.`);
+  }
+  if (!confirm(confirmLines.join('\n'))) {
+    return;
+  }
+
+  try {
+    for (const chunk of chunkTransportList(selection.eligibleRouteIds, 150)) {
+      const { error } = await runTransportMutation(
+        (db) => db
+          .from(TRANSPORT_TABLES.routes)
+          .update({
+            included_bags: includedBags,
+            included_large_bags: includedLargeBags,
+          })
+          .in('id', chunk),
+        { silentAuthNotice: true },
+      );
+      if (error) throw error;
+    }
+
+    for (const chunk of chunkTransportList(selection.eligibleRouteIds, 150)) {
+      const { error } = await runTransportMutation(
+        (db) => db
+          .from(TRANSPORT_TABLES.pricing)
+          .update({
+            extra_bag_fee: extraBagFee,
+            oversize_bag_fee: oversizeBagFee,
+          })
+          .in('route_id', chunk),
+        { silentAuthNotice: true },
+      );
+      if (error && !isMissingTableError(error, TRANSPORT_TABLES.pricing)) throw error;
+    }
+
+    let createdMissingRules = 0;
+    let duplicateMissingRules = 0;
+    let failedMissingRules = 0;
+
+    if (createMissingRules && selection.eligibleRouteIds.length) {
+      const existingRouteIds = new Set();
+      for (const chunk of chunkTransportList(selection.eligibleRouteIds, 200)) {
+        const { data, error } = await runTransportMutation(
+          (db) => db
+            .from(TRANSPORT_TABLES.pricing)
+            .select('route_id')
+            .in('route_id', chunk),
+          { silentAuthNotice: true },
+        );
+        if (error && !isMissingTableError(error, TRANSPORT_TABLES.pricing)) throw error;
+        (Array.isArray(data) ? data : []).forEach((row) => {
+          const routeId = String(row?.route_id || '').trim();
+          if (routeId) existingRouteIds.add(routeId);
+        });
+      }
+
+      const missingRouteIds = selection.eligibleRouteIds.filter((routeId) => !existingRouteIds.has(routeId));
+      const rowsToInsert = missingRouteIds.map((routeId) => ({
+        route_id: routeId,
+        extra_bag_fee: extraBagFee,
+        oversize_bag_fee: oversizeBagFee,
+        is_active: true,
+        priority: 0,
+      }));
+
+      for (const chunkRows of chunkTransportList(rowsToInsert, 120)) {
+        const { error: bulkInsertError } = await runTransportMutation(
+          (db) => db.from(TRANSPORT_TABLES.pricing).insert(chunkRows),
+          { silentAuthNotice: true },
+        );
+        if (!bulkInsertError) {
+          createdMissingRules += chunkRows.length;
+          continue;
+        }
+        if (isTransportRecoverableAuthError(bulkInsertError)) throw bulkInsertError;
+
+        for (const row of chunkRows) {
+          try {
+            const { error: rowError } = await runTransportMutation(
+              (db) => db.from(TRANSPORT_TABLES.pricing).insert(row),
+              { silentAuthNotice: true },
+            );
+            if (!rowError) {
+              createdMissingRules += 1;
+              continue;
+            }
+            if (isTransportRecoverableAuthError(rowError)) throw rowError;
+            const code = String(rowError.code || '').trim();
+            const message = String(rowError.message || '').toLowerCase();
+            if (code === '23505' || message.includes('duplicate')) {
+              duplicateMissingRules += 1;
+              continue;
+            }
+            failedMissingRules += 1;
+            console.warn('Failed to insert missing pricing rule for route:', row.route_id, rowError);
+          } catch (rowError) {
+            failedMissingRules += 1;
+            console.warn('Failed to insert missing pricing rule for route:', row.route_id, rowError);
+          }
+        }
+      }
+    }
+
+    await loadTransportRoutesData({ silent: true });
+    await loadTransportPricingData({ silent: true });
+    syncTransportPricingGlobalSummary();
+
+    const summaryParts = [
+      `routes updated ${selection.eligibleRouteIds.length}`,
+      `pricing rows touched ${selection.existingPricingRows.length}`,
+    ];
+    if (selection.blockedRouteIds.length) summaryParts.push(`skipped ${selection.blockedRouteIds.length}`);
+    if (createMissingRules) {
+      summaryParts.push(`created missing ${createdMissingRules}`);
+      if (duplicateMissingRules) summaryParts.push(`duplicates ${duplicateMissingRules}`);
+      if (failedMissingRules) summaryParts.push(`failed ${failedMissingRules}`);
+    }
+    showToast(`Global luggage update complete (${summaryParts.join(', ')})`, failedMissingRules ? 'error' : 'success');
+  } catch (error) {
+    console.error('Failed to apply global transport luggage update:', error);
+    if (isMissingColumnError(error, 'included_large_bags')) {
+      showToast('Run migration 115_transport_large_bag_base_allowance.sql first', 'error');
+      return;
+    }
+    showToast(String(error?.message || 'Failed to apply global luggage update'), 'error');
+  }
+}
+
 async function buildTransportPricingPayloadFromForm(routeId, options = {}) {
   const id = String(routeId || '').trim();
   if (!id) return { error: 'Route is required' };
@@ -14931,6 +15200,7 @@ async function loadTransportRoutesData(options = {}) {
 
   refreshTransportRouteSelects();
   renderTransportRoutesTable();
+  syncTransportPricingGlobalSummary();
   syncTransportControlCenter();
 }
 
@@ -15346,6 +15616,7 @@ function resetTransportPricingForm() {
   syncTransportPricingBulkApplyControls();
   syncTransportPricingCityBulkScopeControls();
   syncTransportPricingCityBulkSummary();
+  syncTransportPricingGlobalSummary();
 }
 
 function editTransportPricingRule(ruleId) {
@@ -15428,6 +15699,7 @@ function editTransportPricingRule(ruleId) {
   syncTransportPricingBulkApplyControls();
   syncTransportPricingCityBulkScopeControls();
   syncTransportPricingCityBulkSummary();
+  syncTransportPricingGlobalSummary();
 
   transportAdminState.control.routeId = String(row.route_id || '').trim();
   transportAdminState.control.ruleId = id;
@@ -15659,6 +15931,7 @@ async function loadTransportPricingData(options = {}) {
   refreshTransportPricingAdditionalRoutesOptions();
   syncTransportPricingBulkApplyControls();
   syncTransportPricingCityBulkSummary();
+  syncTransportPricingGlobalSummary();
   refreshTransportControlRuleSelect();
   renderTransportPricingPreview();
 }
@@ -17103,6 +17376,31 @@ function bindTransportAdminUi() {
   if (pricingBulkUseCityGroups) {
     pricingBulkUseCityGroups.addEventListener('change', () => syncTransportPricingAdditionalSummary());
   }
+  [
+    'transportPricingGlobalIncludedBags',
+    'transportPricingGlobalIncludedLargeBags',
+    'transportPricingGlobalExtraBagFee',
+    'transportPricingGlobalOversizeBagFee',
+  ].forEach((fieldId) => {
+    const input = document.getElementById(fieldId);
+    if (input) {
+      input.addEventListener('input', () => syncTransportPricingGlobalSummary());
+    }
+  });
+  const pricingGlobalOnlyActive = document.getElementById('transportPricingGlobalOnlyActiveRoutes');
+  if (pricingGlobalOnlyActive) {
+    pricingGlobalOnlyActive.addEventListener('change', () => syncTransportPricingGlobalSummary());
+  }
+  const pricingGlobalCreateMissing = document.getElementById('transportPricingGlobalCreateMissingRules');
+  if (pricingGlobalCreateMissing) {
+    pricingGlobalCreateMissing.addEventListener('change', () => syncTransportPricingGlobalSummary());
+  }
+  const btnPricingGlobalApply = document.getElementById('btnTransportPricingGlobalApply');
+  if (btnPricingGlobalApply) {
+    btnPricingGlobalApply.addEventListener('click', () => {
+      void applyTransportPricingGlobalLuggageUpdate();
+    });
+  }
   const pricingCityBulkScopeMode = document.getElementById('transportPricingCityBulkScopeMode');
   if (pricingCityBulkScopeMode) {
     pricingCityBulkScopeMode.addEventListener('change', () => {
@@ -17190,6 +17488,7 @@ function bindTransportAdminUi() {
   syncTransportRouteCityBulkToPricingManager({ force: true });
   syncTransportRouteCityBulkSummary();
   syncTransportPricingCityBulkSummary();
+  syncTransportPricingGlobalSummary();
   syncTransportSimpleModeState({
     forceEnabled: simpleModeToggle instanceof HTMLInputElement
       ? simpleModeToggle.checked
