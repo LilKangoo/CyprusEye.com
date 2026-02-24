@@ -10201,7 +10201,7 @@ function getTransportCityPairPresets() {
       name: String(row?.name || '').trim(),
       origin_group: normalizeTransportCityGroupValue(row?.origin_group || ''),
       destination_group: normalizeTransportCityGroupValue(row?.destination_group || ''),
-      scope_mode: String(row?.scope_mode || 'city_pair').trim().toLowerCase() === 'single_route' ? 'single_route' : 'city_pair',
+      scope_mode: normalizeTransportBulkScopeMode(row?.scope_mode || 'city_pair'),
       include_reverse: Boolean(row?.include_reverse),
       routes_only_active: Boolean(row?.routes_only_active),
       pricing_only_active: row?.pricing_only_active == null ? true : Boolean(row?.pricing_only_active),
@@ -10209,7 +10209,13 @@ function getTransportCityPairPresets() {
       created_at: String(row?.created_at || '').trim(),
       updated_at: String(row?.updated_at || '').trim(),
     }))
-    .filter((row) => row.id && row.name && row.origin_group && row.destination_group)
+    .filter((row) => {
+      if (!row.id || !row.name) return false;
+      if (row.scope_mode === 'city_pair') {
+        return Boolean(row.origin_group && row.destination_group);
+      }
+      return true;
+    })
     .sort((a, b) => {
       const aTs = new Date(a.updated_at || a.created_at || 0).getTime();
       const bTs = new Date(b.updated_at || b.created_at || 0).getTime();
@@ -10302,6 +10308,14 @@ function normalizeTransportTab(value) {
   const tab = String(value || '').trim().toLowerCase();
   if (tab === 'locations' || tab === 'routes' || tab === 'pricing' || tab === 'bookings') return tab;
   return 'locations';
+}
+
+function normalizeTransportBulkScopeMode(value, fallback = 'city_pair') {
+  const mode = String(value || '').trim().toLowerCase();
+  if (mode === 'all_routes' || mode === 'city_pair' || mode === 'single_route') {
+    return mode;
+  }
+  return fallback;
 }
 
 function getTransportActiveTab() {
@@ -11265,7 +11279,7 @@ const TRANSPORT_HELP_TOPICS = Object.freeze({
       'Create locations once with City group (e.g. larnaca) and required types (city, airport, hotel).',
       'Set one route template with day/night price, capacity and trip mode.',
       'Set one pricing template with extras, waiting and deposit.',
-      'Use city pair scope and click "Apply route + pricing together".',
+      'Choose scope mode (all routes, city pair, or current route) and click "Apply route + pricing together".',
     ],
     tips: [
       'Use presets for repeated city pairs.',
@@ -11387,9 +11401,9 @@ const TRANSPORT_HELP_TOPICS = Object.freeze({
   },
   route_city_pair_bulk: {
     title: 'City Pair Bulk Manager',
-    intro: 'Mass update/delete routes by city pair or current route only.',
+    intro: 'Mass update/delete routes by all routes, city pair, or current route.',
     steps: [
-      'Choose scope mode (city pair or current route).',
+      'Choose scope mode (all routes, city pair, or current route).',
       'Select categories and reverse option.',
       'Apply update or delete for matched routes.',
     ],
@@ -11451,9 +11465,9 @@ const TRANSPORT_HELP_TOPICS = Object.freeze({
   },
   pricing_city_pair_bulk: {
     title: 'Pricing City Pair Bulk Manager',
-    intro: 'Mass applies one pricing template to all matched city-pair routes.',
+    intro: 'Mass applies one pricing template to all matched routes (global, city pair, or current route).',
     steps: [
-      'Choose scope mode (city pair or current route).',
+      'Choose scope mode (all routes, city pair, or current route).',
       'Select include reverse and replace existing settings.',
       'Apply or delete matched pricing rows.',
     ],
@@ -12520,7 +12534,14 @@ function renderTransportCityPairPresetOptions(options = {}) {
   const keepValue = String(options?.selectedId || select.value || '').trim();
   const presets = getTransportCityPairPresets();
   select.innerHTML = '<option value="">No preset selected</option>' + presets.map((preset) => {
-    const label = `${preset.name} (${transportHumanizeCityGroupLabel(preset.origin_group)} -> ${transportHumanizeCityGroupLabel(preset.destination_group)})`;
+    const scopeMode = normalizeTransportBulkScopeMode(preset.scope_mode || 'city_pair');
+    let scopeLabel = 'Current route';
+    if (scopeMode === 'all_routes') {
+      scopeLabel = 'All routes';
+    } else if (scopeMode === 'city_pair') {
+      scopeLabel = `${transportHumanizeCityGroupLabel(preset.origin_group)} -> ${transportHumanizeCityGroupLabel(preset.destination_group)}`;
+    }
+    const label = `${preset.name} (${scopeLabel})`;
     return `<option value="${escapeHtml(preset.id)}">${escapeHtml(label)}</option>`;
   }).join('');
 
@@ -12538,11 +12559,11 @@ function getTransportSelectedCityPairPreset() {
 
 function getTransportCityPairPresetDraftFromUi() {
   const nameInput = document.getElementById('transportCityPairPresetName');
-  const routeScopeMode = String(document.getElementById('transportRouteCityBulkScopeMode')?.value || 'city_pair').trim().toLowerCase() === 'single_route'
-    ? 'single_route'
-    : 'city_pair';
-  const originGroup = normalizeTransportCityGroupValue(document.getElementById('transportRouteCityBulkOriginGroup')?.value || '');
-  const destinationGroup = normalizeTransportCityGroupValue(document.getElementById('transportRouteCityBulkDestinationGroup')?.value || '');
+  const routeScopeMode = normalizeTransportBulkScopeMode(document.getElementById('transportRouteCityBulkScopeMode')?.value || 'city_pair');
+  const originGroupRaw = normalizeTransportCityGroupValue(document.getElementById('transportRouteCityBulkOriginGroup')?.value || '');
+  const destinationGroupRaw = normalizeTransportCityGroupValue(document.getElementById('transportRouteCityBulkDestinationGroup')?.value || '');
+  const originGroup = routeScopeMode === 'city_pair' ? originGroupRaw : '';
+  const destinationGroup = routeScopeMode === 'city_pair' ? destinationGroupRaw : '';
   const includeReverse = Boolean(document.getElementById('transportRouteCityBulkIncludeReverse')?.checked);
   const routesOnlyActive = Boolean(document.getElementById('transportRouteCityBulkOnlyActive')?.checked);
   const pricingOnlyActive = Boolean(document.getElementById('transportPricingCityBulkOnlyActiveRoutes')?.checked);
@@ -12553,7 +12574,7 @@ function getTransportCityPairPresetDraftFromUi() {
     scope_mode: routeScopeMode,
     origin_group: originGroup,
     destination_group: destinationGroup,
-    include_reverse: includeReverse,
+    include_reverse: routeScopeMode === 'city_pair' ? includeReverse : false,
     routes_only_active: routesOnlyActive,
     pricing_only_active: pricingOnlyActive,
     pricing_replace_existing: pricingReplaceExisting,
@@ -12564,6 +12585,7 @@ function applyTransportCityPairPresetToUi(preset, options = {}) {
   if (!preset) return;
 
   const syncPricing = options.syncPricing !== false;
+  const scopeMode = normalizeTransportBulkScopeMode(preset.scope_mode || 'city_pair');
   const routeScopeModeEl = document.getElementById('transportRouteCityBulkScopeMode');
   const routeOriginEl = document.getElementById('transportRouteCityBulkOriginGroup');
   const routeDestinationEl = document.getElementById('transportRouteCityBulkDestinationGroup');
@@ -12571,7 +12593,7 @@ function applyTransportCityPairPresetToUi(preset, options = {}) {
   const routeOnlyActiveEl = document.getElementById('transportRouteCityBulkOnlyActive');
   const presetNameInput = document.getElementById('transportCityPairPresetName');
 
-  if (routeScopeModeEl) routeScopeModeEl.value = preset.scope_mode || 'city_pair';
+  if (routeScopeModeEl) routeScopeModeEl.value = scopeMode;
   if (routeOriginEl) routeOriginEl.value = preset.origin_group || '';
   if (routeDestinationEl) routeDestinationEl.value = preset.destination_group || '';
   if (routeIncludeReverseEl) routeIncludeReverseEl.checked = Boolean(preset.include_reverse);
@@ -12586,7 +12608,7 @@ function applyTransportCityPairPresetToUi(preset, options = {}) {
     const pricingOnlyActiveEl = document.getElementById('transportPricingCityBulkOnlyActiveRoutes');
     const pricingReplaceExistingEl = document.getElementById('transportPricingCityBulkReplaceExisting');
 
-    if (pricingScopeModeEl) pricingScopeModeEl.value = preset.scope_mode || 'city_pair';
+    if (pricingScopeModeEl) pricingScopeModeEl.value = scopeMode;
     if (pricingOriginEl) pricingOriginEl.value = preset.origin_group || '';
     if (pricingDestinationEl) pricingDestinationEl.value = preset.destination_group || '';
     if (pricingIncludeReverseEl) pricingIncludeReverseEl.checked = Boolean(preset.include_reverse);
@@ -12606,7 +12628,7 @@ function saveTransportCityPairPresetFromUi() {
     showToast('Preset name is required', 'error');
     return;
   }
-  if (!draft.origin_group || !draft.destination_group) {
+  if (draft.scope_mode === 'city_pair' && (!draft.origin_group || !draft.destination_group)) {
     showToast('Select origin and destination city categories before saving preset', 'error');
     return;
   }
@@ -12668,12 +12690,16 @@ function syncTransportRouteCityBulkToPricingManager(options = {}) {
   const shouldSync = force || Boolean(document.getElementById('transportCityPairSyncPricing')?.checked);
   if (!shouldSync) return;
 
-  const routeScopeMode = String(document.getElementById('transportRouteCityBulkScopeMode')?.value || 'city_pair').trim().toLowerCase() === 'single_route'
-    ? 'single_route'
-    : 'city_pair';
-  const routeOrigin = String(document.getElementById('transportRouteCityBulkOriginGroup')?.value || '').trim();
-  const routeDestination = String(document.getElementById('transportRouteCityBulkDestinationGroup')?.value || '').trim();
-  const routeIncludeReverse = Boolean(document.getElementById('transportRouteCityBulkIncludeReverse')?.checked);
+  const routeScopeMode = normalizeTransportBulkScopeMode(document.getElementById('transportRouteCityBulkScopeMode')?.value || 'city_pair');
+  const routeOrigin = routeScopeMode === 'all_routes'
+    ? ''
+    : String(document.getElementById('transportRouteCityBulkOriginGroup')?.value || '').trim();
+  const routeDestination = routeScopeMode === 'all_routes'
+    ? ''
+    : String(document.getElementById('transportRouteCityBulkDestinationGroup')?.value || '').trim();
+  const routeIncludeReverse = routeScopeMode === 'all_routes'
+    ? false
+    : Boolean(document.getElementById('transportRouteCityBulkIncludeReverse')?.checked);
   const routeOnlyActive = Boolean(document.getElementById('transportRouteCityBulkOnlyActive')?.checked);
 
   const pricingScopeModeEl = document.getElementById('transportPricingCityBulkScopeMode');
@@ -12693,56 +12719,76 @@ function syncTransportRouteCityBulkToPricingManager(options = {}) {
 }
 
 function syncTransportRouteCityBulkScopeControls() {
-  const mode = String(document.getElementById('transportRouteCityBulkScopeMode')?.value || 'city_pair').trim().toLowerCase();
+  const mode = normalizeTransportBulkScopeMode(document.getElementById('transportRouteCityBulkScopeMode')?.value || 'city_pair');
+  const allRoutesMode = mode === 'all_routes';
   const singleRouteMode = mode === 'single_route';
   const panelEl = document.getElementById('transportRouteCityBulkPanel');
   const cityPairFieldsEl = document.getElementById('transportRouteCityBulkCityPairFields');
   const scopeHintEl = document.getElementById('transportRouteCityBulkScopeHint');
   const originEl = document.getElementById('transportRouteCityBulkOriginGroup');
   const destinationEl = document.getElementById('transportRouteCityBulkDestinationGroup');
+  const includeReverseEl = document.getElementById('transportRouteCityBulkIncludeReverse');
   if (panelEl) {
     panelEl.classList.toggle('is-single-route-mode', singleRouteMode);
+    panelEl.classList.toggle('is-all-routes-mode', allRoutesMode);
   }
   if (cityPairFieldsEl) {
-    cityPairFieldsEl.hidden = singleRouteMode;
+    cityPairFieldsEl.hidden = singleRouteMode || allRoutesMode;
   }
   if (scopeHintEl) {
-    scopeHintEl.textContent = singleRouteMode
-      ? 'Using current origin and destination from Route form. City category selectors are hidden in this mode.'
-      : 'Choose origin and destination city categories to update all matching route variants.';
+    if (allRoutesMode) {
+      scopeHintEl.textContent = 'Applying update to all routes in scope. City category selectors and reverse toggle are hidden in this mode.';
+    } else if (singleRouteMode) {
+      scopeHintEl.textContent = 'Using current origin and destination from Route form. City category selectors are hidden in this mode.';
+    } else {
+      scopeHintEl.textContent = 'Choose origin and destination city categories to update all matching route variants.';
+    }
   }
   if (originEl instanceof HTMLSelectElement) {
-    originEl.disabled = singleRouteMode;
+    originEl.disabled = singleRouteMode || allRoutesMode;
   }
   if (destinationEl instanceof HTMLSelectElement) {
-    destinationEl.disabled = singleRouteMode;
+    destinationEl.disabled = singleRouteMode || allRoutesMode;
+  }
+  if (includeReverseEl instanceof HTMLInputElement) {
+    includeReverseEl.disabled = allRoutesMode;
   }
 }
 
 function syncTransportPricingCityBulkScopeControls() {
-  const mode = String(document.getElementById('transportPricingCityBulkScopeMode')?.value || 'city_pair').trim().toLowerCase();
+  const mode = normalizeTransportBulkScopeMode(document.getElementById('transportPricingCityBulkScopeMode')?.value || 'city_pair');
+  const allRoutesMode = mode === 'all_routes';
   const singleRouteMode = mode === 'single_route';
   const panelEl = document.getElementById('transportPricingCityBulkPanel');
   const cityPairFieldsEl = document.getElementById('transportPricingCityBulkCityPairFields');
   const scopeHintEl = document.getElementById('transportPricingCityBulkScopeHint');
   const originEl = document.getElementById('transportPricingCityBulkOriginGroup');
   const destinationEl = document.getElementById('transportPricingCityBulkDestinationGroup');
+  const includeReverseEl = document.getElementById('transportPricingCityBulkIncludeReverse');
   if (panelEl) {
     panelEl.classList.toggle('is-single-route-mode', singleRouteMode);
+    panelEl.classList.toggle('is-all-routes-mode', allRoutesMode);
   }
   if (cityPairFieldsEl) {
-    cityPairFieldsEl.hidden = singleRouteMode;
+    cityPairFieldsEl.hidden = singleRouteMode || allRoutesMode;
   }
   if (scopeHintEl) {
-    scopeHintEl.textContent = singleRouteMode
-      ? 'Using selected route from Pricing form. City category selectors are hidden in this mode.'
-      : 'Choose origin and destination city categories to apply pricing in bulk to all matching routes.';
+    if (allRoutesMode) {
+      scopeHintEl.textContent = 'Applying pricing update to all routes in scope. City category selectors and reverse toggle are hidden in this mode.';
+    } else if (singleRouteMode) {
+      scopeHintEl.textContent = 'Using selected route from Pricing form. City category selectors are hidden in this mode.';
+    } else {
+      scopeHintEl.textContent = 'Choose origin and destination city categories to apply pricing in bulk to all matching routes.';
+    }
   }
   if (originEl instanceof HTMLSelectElement) {
-    originEl.disabled = singleRouteMode;
+    originEl.disabled = singleRouteMode || allRoutesMode;
   }
   if (destinationEl instanceof HTMLSelectElement) {
-    destinationEl.disabled = singleRouteMode;
+    destinationEl.disabled = singleRouteMode || allRoutesMode;
+  }
+  if (includeReverseEl instanceof HTMLInputElement) {
+    includeReverseEl.disabled = allRoutesMode;
   }
 }
 
@@ -12847,19 +12893,25 @@ function refreshTransportRouteCityBulkOptions() {
 }
 
 function getTransportRouteCityBulkSelection() {
-  const scopeMode = String(document.getElementById('transportRouteCityBulkScopeMode')?.value || 'city_pair').trim().toLowerCase() === 'single_route'
-    ? 'single_route'
-    : 'city_pair';
+  const scopeMode = normalizeTransportBulkScopeMode(document.getElementById('transportRouteCityBulkScopeMode')?.value || 'city_pair');
   const originGroup = normalizeTransportCityGroupValue(document.getElementById('transportRouteCityBulkOriginGroup')?.value || '');
   const destinationGroup = normalizeTransportCityGroupValue(document.getElementById('transportRouteCityBulkDestinationGroup')?.value || '');
-  const includeReverse = Boolean(document.getElementById('transportRouteCityBulkIncludeReverse')?.checked);
+  const includeReverse = scopeMode === 'all_routes'
+    ? false
+    : Boolean(document.getElementById('transportRouteCityBulkIncludeReverse')?.checked);
   const onlyActive = Boolean(document.getElementById('transportRouteCityBulkOnlyActive')?.checked);
 
   let matchedRoutes = [];
   let resolvedOriginGroup = originGroup;
   let resolvedDestinationGroup = destinationGroup;
 
-  if (scopeMode === 'single_route') {
+  if (scopeMode === 'all_routes') {
+    matchedRoutes = (transportAdminState.routes || [])
+      .filter((row) => Boolean(row?.id))
+      .filter((row) => !onlyActive || row?.is_active !== false);
+    resolvedOriginGroup = '';
+    resolvedDestinationGroup = '';
+  } else if (scopeMode === 'single_route') {
     const formOriginId = String(document.getElementById('transportRouteOrigin')?.value || '').trim();
     const formDestinationId = String(document.getElementById('transportRouteDestination')?.value || '').trim();
     resolvedOriginGroup = getTransportLocationCityGroupById(formOriginId);
@@ -12907,6 +12959,18 @@ function syncTransportRouteCityBulkSummary() {
   const singleRouteLabel = formOriginId && formDestinationId
     ? getTransportRouteLabel({ origin_location_id: formOriginId, destination_location_id: formDestinationId })
     : '';
+  if (selection.scopeMode === 'all_routes') {
+    if (!selection.routeIds.length) {
+      summaryEl.textContent = selection.onlyActive
+        ? 'No active routes found for global scope.'
+        : 'No routes found for global scope.';
+      return;
+    }
+    const activeCount = selection.matchedRoutes.filter((row) => row?.is_active !== false).length;
+    const inactiveCount = Math.max(0, selection.matchedRoutes.length - activeCount);
+    summaryEl.textContent = `All routes mode. ${selection.routeIds.length} route variant(s) matched (${activeCount} active, ${inactiveCount} inactive).`;
+    return;
+  }
   if (selection.scopeMode === 'city_pair' && (!selection.originGroup || !selection.destinationGroup)) {
     summaryEl.textContent = 'Select city pair to preview matched routes.';
     return;
@@ -13196,7 +13260,12 @@ async function applyTransportRouteCityBulkUpdate(options = {}) {
     }
   }
   if (!selection.routeIds.length) {
-    showToast(selection.scopeMode === 'single_route' ? 'No matched routes for selected route form pair' : 'No matched routes for selected city pair', 'info');
+    const noRoutesMessage = selection.scopeMode === 'single_route'
+      ? 'No matched routes for selected route form pair'
+      : (selection.scopeMode === 'all_routes'
+        ? (selection.onlyActive ? 'No active routes in global scope' : 'No routes in global scope')
+        : 'No matched routes for selected city pair');
+    showToast(noRoutesMessage, 'info');
     return { ok: false, reason: 'no_routes' };
   }
 
@@ -13208,7 +13277,9 @@ async function applyTransportRouteCityBulkUpdate(options = {}) {
 
   const scopeLabel = selection.scopeMode === 'single_route'
     ? 'single route scope'
-    : getTransportCityPairLabel(selection.originGroup, selection.destinationGroup, selection.includeReverse);
+    : (selection.scopeMode === 'all_routes'
+      ? (selection.onlyActive ? 'global active-routes scope' : 'global all-routes scope')
+      : getTransportCityPairLabel(selection.originGroup, selection.destinationGroup, selection.includeReverse));
   if (!skipConfirm && !confirm(`Apply current route form values to ${selection.routeIds.length} route(s) for ${scopeLabel}?`)) {
     return { ok: false, reason: 'cancelled' };
   }
@@ -13264,7 +13335,12 @@ async function deleteTransportRouteCityBulkMatches() {
     }
   }
   if (!selection.routeIds.length) {
-    showToast(selection.scopeMode === 'single_route' ? 'No matched routes for selected route form pair' : 'No matched routes for selected city pair', 'info');
+    const noRoutesMessage = selection.scopeMode === 'single_route'
+      ? 'No matched routes for selected route form pair'
+      : (selection.scopeMode === 'all_routes'
+        ? (selection.onlyActive ? 'No active routes in global scope' : 'No routes in global scope')
+        : 'No matched routes for selected city pair');
+    showToast(noRoutesMessage, 'info');
     return;
   }
 
@@ -13290,15 +13366,24 @@ async function deleteTransportRouteCityBulkMatches() {
     return;
   }
   if (linkedBookingCount > 0) {
-    showToast(`Cannot delete routes: ${linkedBookingCount} booking(s) are still linked to this city pair`, 'error');
+    showToast(`Cannot delete routes: ${linkedBookingCount} booking(s) are still linked to selected scope`, 'error');
     return;
   }
   const cityPairLabel = selection.scopeMode === 'single_route'
     ? 'single route scope'
-    : getTransportCityPairLabel(selection.originGroup, selection.destinationGroup, selection.includeReverse);
+    : (selection.scopeMode === 'all_routes'
+      ? (selection.onlyActive ? 'global active-routes scope' : 'global all-routes scope')
+      : getTransportCityPairLabel(selection.originGroup, selection.destinationGroup, selection.includeReverse));
 
   if (!confirm(`Delete ${selection.routeIds.length} route(s) for ${cityPairLabel}?\nLinked pricing rules to remove: ${linkedPricingCount}.`)) {
     return;
+  }
+  if (selection.scopeMode === 'all_routes') {
+    const typed = String(prompt('Global scope delete selected. Type DELETE ALL ROUTES to continue.') || '').trim();
+    if (typed !== 'DELETE ALL ROUTES') {
+      showToast('Delete cancelled', 'info');
+      return;
+    }
   }
 
   try {
@@ -13395,12 +13480,12 @@ function refreshTransportPricingCityBulkOptions() {
 }
 
 function getTransportPricingCityBulkSelection() {
-  const scopeMode = String(document.getElementById('transportPricingCityBulkScopeMode')?.value || 'city_pair').trim().toLowerCase() === 'single_route'
-    ? 'single_route'
-    : 'city_pair';
+  const scopeMode = normalizeTransportBulkScopeMode(document.getElementById('transportPricingCityBulkScopeMode')?.value || 'city_pair');
   const originGroup = normalizeTransportCityGroupValue(document.getElementById('transportPricingCityBulkOriginGroup')?.value || '');
   const destinationGroup = normalizeTransportCityGroupValue(document.getElementById('transportPricingCityBulkDestinationGroup')?.value || '');
-  const includeReverse = Boolean(document.getElementById('transportPricingCityBulkIncludeReverse')?.checked);
+  const includeReverse = scopeMode === 'all_routes'
+    ? false
+    : Boolean(document.getElementById('transportPricingCityBulkIncludeReverse')?.checked);
   const onlyActiveRoutes = Boolean(document.getElementById('transportPricingCityBulkOnlyActiveRoutes')?.checked);
   const replaceExisting = Boolean(document.getElementById('transportPricingCityBulkReplaceExisting')?.checked);
 
@@ -13408,7 +13493,13 @@ function getTransportPricingCityBulkSelection() {
   let resolvedOriginGroup = originGroup;
   let resolvedDestinationGroup = destinationGroup;
 
-  if (scopeMode === 'single_route') {
+  if (scopeMode === 'all_routes') {
+    matchedRoutes = (transportAdminState.routes || [])
+      .filter((row) => Boolean(row?.id))
+      .filter((row) => !onlyActiveRoutes || row?.is_active !== false);
+    resolvedOriginGroup = '';
+    resolvedDestinationGroup = '';
+  } else if (scopeMode === 'single_route') {
     const primaryRouteId = String(document.getElementById('transportPricingRoute')?.value || '').trim();
     const primaryRoute = primaryRouteId ? transportAdminState.routeById[primaryRouteId] : null;
     const reverseRoute = includeReverse && primaryRoute
@@ -13456,6 +13547,24 @@ function syncTransportPricingCityBulkSummary() {
   const selection = getTransportPricingCityBulkSelection();
   const primaryRouteId = String(document.getElementById('transportPricingRoute')?.value || '').trim();
   const singleRouteLabel = primaryRouteId ? getTransportRouteLabelById(primaryRouteId) : '';
+  if (selection.scopeMode === 'all_routes') {
+    if (!selection.routeIds.length) {
+      summaryEl.textContent = selection.onlyActiveRoutes
+        ? 'No active routes found for global pricing scope.'
+        : 'No routes found for global pricing scope.';
+      return;
+    }
+    const routeIdSetAll = new Set(selection.routeIds);
+    const matchedRulesAll = (transportAdminState.pricingRules || []).filter((rule) => (
+      routeIdSetAll.has(String(rule?.route_id || '').trim())
+    ));
+    const activeRuleCountAll = matchedRulesAll.filter((rule) => rule?.is_active !== false).length;
+    const modeTextAll = selection.replaceExisting
+      ? 'Existing route pricing will be replaced.'
+      : 'New pricing rows will be added to existing route pricing.';
+    summaryEl.textContent = `All routes mode. ${selection.routeIds.length} route(s) matched. Existing pricing rows: ${matchedRulesAll.length} (${activeRuleCountAll} active). ${modeTextAll}`;
+    return;
+  }
   if (selection.scopeMode === 'city_pair' && (!selection.originGroup || !selection.destinationGroup)) {
     summaryEl.textContent = 'Select city pair to preview matched routes and pricing rules.';
     return;
@@ -13875,7 +13984,12 @@ async function applyTransportPricingCityBulkUpdate(options = {}) {
     }
   }
   if (!selection.routeIds.length) {
-    showToast(selection.scopeMode === 'single_route' ? 'No matched routes for selected pricing route scope' : 'No matched routes for selected city pair', 'info');
+    const noRoutesMessage = selection.scopeMode === 'single_route'
+      ? 'No matched routes for selected pricing route scope'
+      : (selection.scopeMode === 'all_routes'
+        ? (selection.onlyActiveRoutes ? 'No active routes in global pricing scope' : 'No routes in global pricing scope')
+        : 'No matched routes for selected city pair');
+    showToast(noRoutesMessage, 'info');
     return { ok: false, reason: 'no_routes' };
   }
 
@@ -13890,7 +14004,9 @@ async function applyTransportPricingCityBulkUpdate(options = {}) {
 
   const cityPairLabel = selection.scopeMode === 'single_route'
     ? 'single route scope'
-    : getTransportCityPairLabel(selection.originGroup, selection.destinationGroup, selection.includeReverse);
+    : (selection.scopeMode === 'all_routes'
+      ? (selection.onlyActiveRoutes ? 'global active-routes scope' : 'global all-routes scope')
+      : getTransportCityPairLabel(selection.originGroup, selection.destinationGroup, selection.includeReverse));
   const replaceLabel = selection.replaceExisting ? 'replace existing pricing rows' : 'add new pricing rows';
   if (!skipConfirm && !confirm(`Apply current pricing form values to ${selection.routeIds.length} route(s) for ${cityPairLabel} and ${replaceLabel}?`)) {
     return { ok: false, reason: 'cancelled' };
@@ -14009,13 +14125,15 @@ async function applyTransportPricingCityBulkUpdate(options = {}) {
 async function applyTransportRouteAndPricingCityBulkUpdate() {
   const routeSelection = getTransportRouteCityBulkSelection();
   if (!routeSelection.routeIds.length) {
-    showToast('Select valid city pair/scope with matched routes first', 'error');
+    showToast('Select valid bulk scope with matched routes first', 'error');
     return;
   }
 
   const scopeLabel = routeSelection.scopeMode === 'single_route'
     ? 'current route scope'
-    : getTransportCityPairLabel(routeSelection.originGroup, routeSelection.destinationGroup, routeSelection.includeReverse);
+    : (routeSelection.scopeMode === 'all_routes'
+      ? (routeSelection.onlyActive ? 'global active-routes scope' : 'global all-routes scope')
+      : getTransportCityPairLabel(routeSelection.originGroup, routeSelection.destinationGroup, routeSelection.includeReverse));
   if (!confirm(`Apply route values and pricing values together for ${routeSelection.routeIds.length} route(s) in ${scopeLabel}?`)) {
     return;
   }
@@ -14051,7 +14169,12 @@ async function deleteTransportPricingCityBulkMatches() {
     }
   }
   if (!selection.routeIds.length) {
-    showToast(selection.scopeMode === 'single_route' ? 'No matched routes for selected pricing route scope' : 'No matched routes for selected city pair', 'info');
+    const noRoutesMessage = selection.scopeMode === 'single_route'
+      ? 'No matched routes for selected pricing route scope'
+      : (selection.scopeMode === 'all_routes'
+        ? (selection.onlyActiveRoutes ? 'No active routes in global pricing scope' : 'No routes in global pricing scope')
+        : 'No matched routes for selected city pair');
+    showToast(noRoutesMessage, 'info');
     return;
   }
 
@@ -14061,10 +14184,19 @@ async function deleteTransportPricingCityBulkMatches() {
   )).length;
   const cityPairLabel = selection.scopeMode === 'single_route'
     ? 'single route scope'
-    : getTransportCityPairLabel(selection.originGroup, selection.destinationGroup, selection.includeReverse);
+    : (selection.scopeMode === 'all_routes'
+      ? (selection.onlyActiveRoutes ? 'global active-routes scope' : 'global all-routes scope')
+      : getTransportCityPairLabel(selection.originGroup, selection.destinationGroup, selection.includeReverse));
 
   if (!confirm(`Delete pricing rules for ${selection.routeIds.length} route(s) in ${cityPairLabel}?\nMatched pricing rows: ${matchedRuleCount}.`)) {
     return;
+  }
+  if (selection.scopeMode === 'all_routes') {
+    const typed = String(prompt('Global pricing delete selected. Type DELETE ALL PRICING to continue.') || '').trim();
+    if (typed !== 'DELETE ALL PRICING') {
+      showToast('Delete cancelled', 'info');
+      return;
+    }
   }
 
   try {
