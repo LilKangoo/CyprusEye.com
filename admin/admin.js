@@ -10268,7 +10268,7 @@ function applyTransportCityPairToRouteBulkScope(originGroup, destinationGroup, f
   showToast(`Loaded scope: ${getTransportCityPairLabel(origin, destination, includeReverse)}`, 'success');
 }
 
-function applyTransportCityPairToPricingBulkScope(originGroup, destinationGroup) {
+function applyTransportCityPairToPricingBulkScope(originGroup, destinationGroup, forceIncludeReverse = false) {
   const origin = normalizeTransportCityGroupValue(originGroup);
   const destination = normalizeTransportCityGroupValue(destinationGroup);
   if (!origin || !destination) return;
@@ -10276,13 +10276,18 @@ function applyTransportCityPairToPricingBulkScope(originGroup, destinationGroup)
   const scopeModeEl = document.getElementById('transportPricingCityBulkScopeMode');
   const originEl = document.getElementById('transportPricingCityBulkOriginGroup');
   const destinationEl = document.getElementById('transportPricingCityBulkDestinationGroup');
+  const includeReverseEl = document.getElementById('transportPricingCityBulkIncludeReverse');
   if (scopeModeEl) scopeModeEl.value = 'city_pair';
   if (originEl) originEl.value = origin;
   if (destinationEl) destinationEl.value = destination;
+  if (includeReverseEl instanceof HTMLInputElement) {
+    includeReverseEl.checked = Boolean(forceIncludeReverse && origin !== destination);
+  }
 
   syncTransportPricingCityBulkScopeControls();
   syncTransportPricingCityBulkSummary();
-  showToast(`Loaded pricing scope: ${getTransportCityPairLabel(origin, destination, false)}`, 'success');
+  const includeReverse = Boolean(includeReverseEl instanceof HTMLInputElement ? includeReverseEl.checked : false);
+  showToast(`Loaded pricing scope: ${getTransportCityPairLabel(origin, destination, includeReverse)}`, 'success');
 }
 
 function normalizeTransportTripMode(value) {
@@ -14797,6 +14802,13 @@ function renderTransportPricingTable() {
     return;
   }
 
+  const pricingSorter = (a, b) => {
+    const priorityDiff = Number(a?.priority || 0) - Number(b?.priority || 0);
+    if (priorityDiff !== 0) return priorityDiff;
+    const leftRouteLabel = getTransportRouteLabelById(a?.route_id);
+    const rightRouteLabel = getTransportRouteLabelById(b?.route_id);
+    return leftRouteLabel.localeCompare(rightRouteLabel);
+  };
   const grouped = new Map();
   rows.forEach((row) => {
     const route = transportAdminState.routeById[String(row?.route_id || '').trim()] || null;
@@ -14810,12 +14822,57 @@ function renderTransportPricingTable() {
     grouped.get(meta.key).rows.push(row);
   });
 
-  const groups = Array.from(grouped.values())
+  const directionalGroups = Array.from(grouped.values())
     .map((group) => ({
       ...group,
-      rows: group.rows.slice().sort((a, b) => Number(a?.priority || 0) - Number(b?.priority || 0)),
+      rows: group.rows.slice().sort(pricingSorter),
     }))
     .sort((a, b) => a.label.localeCompare(b.label));
+  const directionalByKey = new Map(directionalGroups.map((group) => [group.key, group]));
+  const consumed = new Set();
+  const displayGroups = [];
+
+  directionalGroups.forEach((group) => {
+    if (consumed.has(group.key)) return;
+    consumed.add(group.key);
+
+    const reverseKey = `${group.destinationGroup}:${group.originGroup}`;
+    const reverseGroup = reverseKey !== group.key ? directionalByKey.get(reverseKey) : null;
+    if (reverseGroup && !consumed.has(reverseGroup.key)) {
+      consumed.add(reverseGroup.key);
+      const orderedPair = [group, reverseGroup].sort((left, right) => {
+        const leftOriginLabel = transportHumanizeCityGroupLabel(left.originGroup, left.originGroup);
+        const rightOriginLabel = transportHumanizeCityGroupLabel(right.originGroup, right.originGroup);
+        const originDiff = leftOriginLabel.localeCompare(rightOriginLabel);
+        if (originDiff !== 0) return originDiff;
+        const leftDestinationLabel = transportHumanizeCityGroupLabel(left.destinationGroup, left.destinationGroup);
+        const rightDestinationLabel = transportHumanizeCityGroupLabel(right.destinationGroup, right.destinationGroup);
+        const destinationDiff = leftDestinationLabel.localeCompare(rightDestinationLabel);
+        if (destinationDiff !== 0) return destinationDiff;
+        return left.key.localeCompare(right.key);
+      });
+      const primary = orderedPair[0];
+      const secondary = orderedPair[1];
+      const primaryOriginLabel = transportHumanizeCityGroupLabel(primary.originGroup, 'Origin');
+      const primaryDestinationLabel = transportHumanizeCityGroupLabel(primary.destinationGroup, 'Destination');
+      displayGroups.push({
+        key: `${primary.key}|${secondary.key}`,
+        originGroup: primary.originGroup,
+        destinationGroup: primary.destinationGroup,
+        label: `${primaryOriginLabel} ↔ ${primaryDestinationLabel}`,
+        isBidirectional: true,
+        rows: primary.rows.concat(secondary.rows).sort(pricingSorter),
+      });
+      return;
+    }
+
+    displayGroups.push({
+      ...group,
+      isBidirectional: false,
+    });
+  });
+
+  const groups = displayGroups.sort((a, b) => a.label.localeCompare(b.label));
 
   tbody.innerHTML = groups.map((group) => {
     const currencies = new Set(group.rows.map((row) => {
@@ -14868,7 +14925,10 @@ function renderTransportPricingTable() {
     return `
       <tr class="transport-pricing-summary-row">
         <td data-label="Route">
-          <div class="transport-route-group-title">${escapeHtml(group.label)}</div>
+          <div class="transport-route-group-title-wrap">
+            <div class="transport-route-group-title">${escapeHtml(group.label)}</div>
+            ${group.isBidirectional ? '<span class="transport-route-group-badge">2-WAY</span>' : ''}
+          </div>
         </td>
         <td data-label="Surcharges">${escapeHtml(`Rules ${group.rows.length}`)}</td>
         <td data-label="Night window">${escapeHtml(`${group.rows.length} configured`)}</td>
@@ -14880,7 +14940,7 @@ function renderTransportPricingTable() {
         <td data-label="Actions" style="text-align: right;">
           <div class="transport-summary-actions">
             ${primaryRuleId ? `<button class="btn-small btn-secondary" type="button" onclick="editTransportPricingRule('${escapeHtml(primaryRuleId)}')">Edit</button>` : ''}
-            <button class="btn-small btn-secondary" type="button" onclick="applyTransportCityPairToPricingBulkScope('${escapeHtml(group.originGroup)}','${escapeHtml(group.destinationGroup)}')">Load Scope</button>
+            <button class="btn-small btn-secondary" type="button" onclick="applyTransportCityPairToPricingBulkScope('${escapeHtml(group.originGroup)}','${escapeHtml(group.destinationGroup)}',${group.isBidirectional ? 'true' : 'false'})">Load Scope</button>
           </div>
         </td>
       </tr>
