@@ -28,7 +28,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="/assets/css/tokens.css?v=20251107" />
   <link rel="stylesheet" href="/assets/css/base.css?v=20251107" />
-  <link rel="stylesheet" href="/admin/admin.css?v=20260223_5" />
+  <link rel="stylesheet" href="/admin/admin.css?v=20260224_1" />
   
   <!-- Auth meta -->
   <meta name="ce-auth" content="required" />
@@ -40,7 +40,7 @@
   <script src="/admin/universal-i18n-component.js?v=20250111"></script>
   <script src="/admin/poi-i18n-form.js?v=20250111"></script>
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
-  <script type="module" src="/admin/admin.js?v=20260223_6"></script>
+  <script type="module" src="/admin/admin.js?v=20260224_1"></script>
   <script src="/admin/admin-pwa.js?v=20260221_4" defer></script>
 </head>
 <body data-admin-panel="true">
@@ -658,11 +658,17 @@
               <h3 class="transport-control-center__title">Transport Control Center</h3>
               <p class="transport-control-center__subtitle">Choose route and pricing rule, preview customer total and deposit, then jump directly to edit forms.</p>
             </div>
-            <div class="transport-control-center__steps" aria-label="Setup steps">
-              <span class="transport-control-step">1. Locations</span>
-              <span class="transport-control-step">2. Route base fare</span>
-              <span class="transport-control-step">3. Extras + deposit</span>
-              <span class="transport-control-step">4. Review bookings</span>
+            <div class="transport-control-center__head-right">
+              <label class="transport-check-field transport-check-field--inline transport-simple-mode-toggle">
+                <input id="transportSimpleModeToggle" type="checkbox" checked />
+                <span>Simple mode (hide advanced tools)</span>
+              </label>
+              <div class="transport-control-center__steps" aria-label="Setup steps">
+                <span class="transport-control-step">1. Locations</span>
+                <span class="transport-control-step">2. Route base fare</span>
+                <span class="transport-control-step">3. Extras + deposit</span>
+                <span class="transport-control-step">4. Review bookings</span>
+              </div>
             </div>
           </div>
 
@@ -1024,7 +1030,7 @@
                 </div>
               </form>
 
-              <section class="transport-bulk-panel" aria-label="Route set builder">
+              <section class="transport-bulk-panel transport-advanced-block" aria-label="Route set builder">
                 <div class="transport-inline-head">
                   <h4 class="transport-form-block__title">Route Set Builder</h4>
                   <span class="transport-inline-badge">Bulk create</span>
@@ -1100,13 +1106,39 @@
                 </div>
               </section>
 
-              <section class="transport-bulk-panel" aria-label="Route city pair bulk manager">
+              <section class="transport-bulk-panel" id="transportRouteCityBulkPanel" aria-label="Route city pair bulk manager">
                 <div class="transport-inline-head">
                   <h4 class="transport-form-block__title">City Pair Bulk Manager</h4>
                   <span class="transport-inline-badge">Mass update / delete</span>
                 </div>
-                <p class="transport-form-block__hint">Select origin and destination city categories to manage all route variants (city, airport, hotel, etc.) at once.</p>
-                <div class="admin-form-grid transport-fields-grid transport-fields-grid--route-city-bulk">
+                <p class="transport-form-block__hint">One panel for both single route and grouped city-pair operations.</p>
+                  <div class="admin-form-grid transport-fields-grid transport-fields-grid--route-city-bulk">
+                    <label class="admin-form-field transport-field">
+                      <span>Scope mode</span>
+                      <select id="transportRouteCityBulkScopeMode" class="form-control">
+                        <option value="city_pair">City pair (bulk)</option>
+                        <option value="single_route">Current route only</option>
+                      </select>
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>City pair presets</span>
+                      <select id="transportCityPairPresetSelect" class="form-control">
+                        <option value="">No preset selected</option>
+                      </select>
+                    </label>
+                  </div>
+                <div class="transport-multi-select-toolbar transport-city-preset-toolbar">
+                  <label class="admin-form-field transport-field transport-field--wide">
+                    <span>Preset name</span>
+                    <input id="transportCityPairPresetName" class="form-control" type="text" maxlength="80" placeholder="e.g. Larnaca ↔ Ayia Napa (airport/hotel)" />
+                  </label>
+                  <div class="transport-multi-select-toolbar__actions">
+                    <button class="btn-small btn-secondary" type="button" id="btnTransportCityPairPresetLoad">Load preset</button>
+                    <button class="btn-small btn-secondary" type="button" id="btnTransportCityPairPresetSave">Save current as preset</button>
+                    <button class="btn-small btn-danger" type="button" id="btnTransportCityPairPresetDelete">Delete preset</button>
+                  </div>
+                </div>
+                <div class="admin-form-grid transport-fields-grid transport-fields-grid--route-city-bulk transport-city-pair-fields" id="transportRouteCityBulkCityPairFields">
                   <label class="admin-form-field transport-field">
                     <span>Origin city category</span>
                     <select id="transportRouteCityBulkOriginGroup" class="form-control"></select>
@@ -1116,6 +1148,7 @@
                     <select id="transportRouteCityBulkDestinationGroup" class="form-control"></select>
                   </label>
                 </div>
+                <p class="transport-form-block__hint transport-bulk-scope-hint" id="transportRouteCityBulkScopeHint">Choose city categories to target all matching routes in one action.</p>
                 <div class="transport-multi-select-toolbar">
                   <label class="transport-check-field">
                     <input id="transportRouteCityBulkIncludeReverse" type="checkbox" checked />
@@ -1124,6 +1157,10 @@
                   <label class="transport-check-field">
                     <input id="transportRouteCityBulkOnlyActive" type="checkbox" />
                     <span>Only active routes</span>
+                  </label>
+                  <label class="transport-check-field">
+                    <input id="transportCityPairSyncPricing" type="checkbox" checked />
+                    <span>Sync this scope to Pricing manager</span>
                   </label>
                 </div>
                 <p class="transport-form-block__hint transport-form-block__hint--status" id="transportRouteCityBulkSummary">Select city pair to preview matched routes.</p>
@@ -1261,7 +1298,7 @@
                   </div>
                 </section>
 
-                <section class="transport-bulk-panel" aria-label="Apply pricing to additional routes">
+                <section class="transport-bulk-panel transport-advanced-block" aria-label="Apply pricing to additional routes">
                   <div class="transport-inline-head">
                     <h4 class="transport-form-block__title">Apply to Additional Routes</h4>
                     <div class="transport-bulk-primary-toggles">
@@ -1339,13 +1376,22 @@
                   <p class="transport-form-block__hint transport-form-block__hint--status" id="transportPricingAdditionalSummary" aria-live="polite">Enable bulk clone, choose pickup location, then tick destination boxes.</p>
                 </section>
 
-                <section class="transport-bulk-panel" aria-label="Pricing city pair bulk manager">
+                <section class="transport-bulk-panel" id="transportPricingCityBulkPanel" aria-label="Pricing city pair bulk manager">
                   <div class="transport-inline-head">
                     <h4 class="transport-form-block__title">Pricing City Pair Bulk Manager</h4>
                     <span class="transport-inline-badge">Mass update / delete</span>
                   </div>
-                  <p class="transport-form-block__hint">Use one pricing form setup and apply it to all routes in selected city categories.</p>
+                  <p class="transport-form-block__hint">Use one pricing form setup for a single route or full city pair group.</p>
                   <div class="admin-form-grid transport-fields-grid transport-fields-grid--route-city-bulk">
+                    <label class="admin-form-field transport-field">
+                      <span>Scope mode</span>
+                      <select id="transportPricingCityBulkScopeMode" class="form-control">
+                        <option value="city_pair">City pair (bulk)</option>
+                        <option value="single_route">Current route only</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="admin-form-grid transport-fields-grid transport-fields-grid--route-city-bulk transport-city-pair-fields" id="transportPricingCityBulkCityPairFields">
                     <label class="admin-form-field transport-field">
                       <span>Origin city category</span>
                       <select id="transportPricingCityBulkOriginGroup" class="form-control"></select>
@@ -1355,6 +1401,7 @@
                       <select id="transportPricingCityBulkDestinationGroup" class="form-control"></select>
                     </label>
                   </div>
+                  <p class="transport-form-block__hint transport-bulk-scope-hint" id="transportPricingCityBulkScopeHint">Choose city categories to apply one pricing setup to all matching routes.</p>
                   <div class="transport-multi-select-toolbar">
                     <label class="transport-check-field">
                       <input id="transportPricingCityBulkIncludeReverse" type="checkbox" checked />

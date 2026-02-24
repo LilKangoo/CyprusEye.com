@@ -9645,6 +9645,85 @@ const TRANSPORT_TYPE_PRESETS = {
   city_only: ['city'],
 };
 
+const TRANSPORT_SIMPLE_MODE_STORAGE_KEY = 'ce_transport_admin_simple_mode_v1';
+const TRANSPORT_CITY_PAIR_PRESETS_STORAGE_KEY = 'ce_transport_city_pair_presets_v1';
+
+function readTransportLocalStorageJson(key, fallbackValue) {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return fallbackValue;
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return fallbackValue;
+    const parsed = JSON.parse(raw);
+    return parsed == null ? fallbackValue : parsed;
+  } catch (_error) {
+    return fallbackValue;
+  }
+}
+
+function writeTransportLocalStorageJson(key, value) {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return false;
+    window.localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch (_error) {
+    return false;
+  }
+}
+
+function getTransportSimpleModePreference() {
+  const stored = readTransportLocalStorageJson(TRANSPORT_SIMPLE_MODE_STORAGE_KEY, true);
+  if (typeof stored === 'boolean') return stored;
+  if (stored === 'false') return false;
+  return true;
+}
+
+function setTransportSimpleModePreference(enabled) {
+  writeTransportLocalStorageJson(TRANSPORT_SIMPLE_MODE_STORAGE_KEY, Boolean(enabled));
+}
+
+function getTransportCityPairPresets() {
+  const raw = readTransportLocalStorageJson(TRANSPORT_CITY_PAIR_PRESETS_STORAGE_KEY, []);
+  const rows = Array.isArray(raw) ? raw : [];
+  return rows
+    .map((row) => ({
+      id: String(row?.id || '').trim(),
+      name: String(row?.name || '').trim(),
+      origin_group: normalizeTransportCityGroupValue(row?.origin_group || ''),
+      destination_group: normalizeTransportCityGroupValue(row?.destination_group || ''),
+      scope_mode: String(row?.scope_mode || 'city_pair').trim().toLowerCase() === 'single_route' ? 'single_route' : 'city_pair',
+      include_reverse: Boolean(row?.include_reverse),
+      routes_only_active: Boolean(row?.routes_only_active),
+      pricing_only_active: row?.pricing_only_active == null ? true : Boolean(row?.pricing_only_active),
+      pricing_replace_existing: row?.pricing_replace_existing == null ? true : Boolean(row?.pricing_replace_existing),
+      created_at: String(row?.created_at || '').trim(),
+      updated_at: String(row?.updated_at || '').trim(),
+    }))
+    .filter((row) => row.id && row.name && row.origin_group && row.destination_group)
+    .sort((a, b) => {
+      const aTs = new Date(a.updated_at || a.created_at || 0).getTime();
+      const bTs = new Date(b.updated_at || b.created_at || 0).getTime();
+      return bTs - aTs;
+    });
+}
+
+function setTransportCityPairPresets(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  writeTransportLocalStorageJson(TRANSPORT_CITY_PAIR_PRESETS_STORAGE_KEY, list);
+}
+
+function normalizeTransportCityPairPresetName(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function buildTransportCityPairPresetId(name) {
+  const slug = String(name || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40) || 'preset';
+  return `${slug}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
 function normalizeTransportLocationType(value, fallback = 'city') {
   const raw = String(value || '').trim().toLowerCase();
   if (TRANSPORT_LOCATION_TYPE_VALUES.includes(raw)) return raw;
@@ -9772,16 +9851,31 @@ function transportRouteTripModeLabel(route) {
   return `ROUND TRIP x${multiplier.toFixed(2)}`;
 }
 
+function transportNormalizeNumericInput(value) {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'string' && !value.trim()) return null;
+  return value;
+}
+
 function transportToNonNegativeInt(value, fallback = 0) {
-  const num = Number(value);
+  const normalizedValue = transportNormalizeNumericInput(value);
+  const num = Number(normalizedValue);
   if (!Number.isFinite(num)) return Math.max(0, Math.trunc(fallback));
   return Math.max(0, Math.trunc(num));
 }
 
 function transportToNonNegativeNumber(value, fallback = 0) {
-  const num = Number(value);
+  const normalizedValue = transportNormalizeNumericInput(value);
+  const num = Number(normalizedValue);
   if (!Number.isFinite(num)) return Math.max(0, Number(fallback) || 0);
   return Math.max(0, num);
+}
+
+function transportReadNumberInput(inputId, fallback = 0) {
+  const el = document.getElementById(inputId);
+  const normalizedValue = transportNormalizeNumericInput(el?.value);
+  if (normalizedValue === null) return Number(fallback);
+  return Number(normalizedValue);
 }
 
 function transportParseTimeToMinutes(value) {
@@ -9962,9 +10056,9 @@ function calculateTransportControlQuote(route, rule, scenario) {
   const baseDay = transportToNonNegativeNumber(route?.day_price, 0);
   const baseNight = transportToNonNegativeNumber(route?.night_price, 0);
   const includedPassengers = Math.max(1, transportToNonNegativeInt(route?.included_passengers, 1));
-  const includedBags = transportToNonNegativeInt(route?.included_bags, 0);
+  const includedBags = transportToNonNegativeInt(route?.included_bags, 2);
   const maxPassengers = Math.max(1, transportToNonNegativeInt(route?.max_passengers, includedPassengers));
-  const maxBags = transportToNonNegativeInt(route?.max_bags, includedBags);
+  const maxBags = Math.max(includedBags, transportToNonNegativeInt(route?.max_bags, Math.max(8, includedBags)));
   const allowsRoundTrip = transportRouteAllowsRoundTrip(route);
   const requestedTripType = normalizeTransportTripMode(scenario?.tripType || 'one_way');
   const roundTripMultiplier = transportRouteRoundTripMultiplier(route);
@@ -10088,11 +10182,11 @@ function renderTransportPreviewMatrix(route, quote, rule) {
   }
 
   const maxPassengers = Math.max(1, transportToNonNegativeInt(route?.max_passengers, 1));
-  const maxBags = transportToNonNegativeInt(route?.max_bags, 0);
+  const maxBags = Math.max(0, transportToNonNegativeInt(route?.max_bags, 8));
   const shownPassengers = Math.max(1, Math.min(maxPassengers, 7));
   const shownBags = Math.min(maxBags, 6);
   const includedPassengers = Math.max(1, transportToNonNegativeInt(route?.included_passengers, 1));
-  const includedBags = transportToNonNegativeInt(route?.included_bags, 0);
+  const includedBags = transportToNonNegativeInt(route?.included_bags, 2);
   const extraPassengerFee = transportToNonNegativeNumber(rule?.extra_passenger_fee, 0);
   const extraBagFee = transportToNonNegativeNumber(rule?.extra_bag_fee, 0);
   const baseFare = quote?.baseFare || 0;
@@ -11437,6 +11531,255 @@ function applyTransportRouteCityCategoriesToForm() {
   showToast('Origin and destination set from city categories', 'success');
 }
 
+function syncTransportSimpleModeState(options = {}) {
+  const forceEnabled = options?.forceEnabled;
+  const toggleEl = document.getElementById('transportSimpleModeToggle');
+  const enabled = typeof forceEnabled === 'boolean'
+    ? forceEnabled
+    : Boolean(toggleEl?.checked);
+  if (toggleEl instanceof HTMLInputElement) {
+    toggleEl.checked = enabled;
+  }
+  const viewEl = document.getElementById('viewTransport');
+  if (viewEl) {
+    viewEl.classList.toggle('transport-simple-mode', enabled);
+  }
+  setTransportSimpleModePreference(enabled);
+}
+
+function renderTransportCityPairPresetOptions(options = {}) {
+  const select = document.getElementById('transportCityPairPresetSelect');
+  if (!(select instanceof HTMLSelectElement)) return;
+
+  const keepValue = String(options?.selectedId || select.value || '').trim();
+  const presets = getTransportCityPairPresets();
+  select.innerHTML = '<option value="">No preset selected</option>' + presets.map((preset) => {
+    const label = `${preset.name} (${transportHumanizeCityGroupLabel(preset.origin_group)} -> ${transportHumanizeCityGroupLabel(preset.destination_group)})`;
+    return `<option value="${escapeHtml(preset.id)}">${escapeHtml(label)}</option>`;
+  }).join('');
+
+  if (keepValue && presets.some((preset) => preset.id === keepValue)) {
+    select.value = keepValue;
+  }
+}
+
+function getTransportSelectedCityPairPreset() {
+  const select = document.getElementById('transportCityPairPresetSelect');
+  const selectedId = String(select?.value || '').trim();
+  if (!selectedId) return null;
+  return getTransportCityPairPresets().find((preset) => preset.id === selectedId) || null;
+}
+
+function getTransportCityPairPresetDraftFromUi() {
+  const nameInput = document.getElementById('transportCityPairPresetName');
+  const routeScopeMode = String(document.getElementById('transportRouteCityBulkScopeMode')?.value || 'city_pair').trim().toLowerCase() === 'single_route'
+    ? 'single_route'
+    : 'city_pair';
+  const originGroup = normalizeTransportCityGroupValue(document.getElementById('transportRouteCityBulkOriginGroup')?.value || '');
+  const destinationGroup = normalizeTransportCityGroupValue(document.getElementById('transportRouteCityBulkDestinationGroup')?.value || '');
+  const includeReverse = Boolean(document.getElementById('transportRouteCityBulkIncludeReverse')?.checked);
+  const routesOnlyActive = Boolean(document.getElementById('transportRouteCityBulkOnlyActive')?.checked);
+  const pricingOnlyActive = Boolean(document.getElementById('transportPricingCityBulkOnlyActiveRoutes')?.checked);
+  const pricingReplaceExisting = Boolean(document.getElementById('transportPricingCityBulkReplaceExisting')?.checked);
+
+  return {
+    name: normalizeTransportCityPairPresetName(nameInput?.value || ''),
+    scope_mode: routeScopeMode,
+    origin_group: originGroup,
+    destination_group: destinationGroup,
+    include_reverse: includeReverse,
+    routes_only_active: routesOnlyActive,
+    pricing_only_active: pricingOnlyActive,
+    pricing_replace_existing: pricingReplaceExisting,
+  };
+}
+
+function applyTransportCityPairPresetToUi(preset, options = {}) {
+  if (!preset) return;
+
+  const syncPricing = options.syncPricing !== false;
+  const routeScopeModeEl = document.getElementById('transportRouteCityBulkScopeMode');
+  const routeOriginEl = document.getElementById('transportRouteCityBulkOriginGroup');
+  const routeDestinationEl = document.getElementById('transportRouteCityBulkDestinationGroup');
+  const routeIncludeReverseEl = document.getElementById('transportRouteCityBulkIncludeReverse');
+  const routeOnlyActiveEl = document.getElementById('transportRouteCityBulkOnlyActive');
+  const presetNameInput = document.getElementById('transportCityPairPresetName');
+
+  if (routeScopeModeEl) routeScopeModeEl.value = preset.scope_mode || 'city_pair';
+  if (routeOriginEl) routeOriginEl.value = preset.origin_group || '';
+  if (routeDestinationEl) routeDestinationEl.value = preset.destination_group || '';
+  if (routeIncludeReverseEl) routeIncludeReverseEl.checked = Boolean(preset.include_reverse);
+  if (routeOnlyActiveEl) routeOnlyActiveEl.checked = Boolean(preset.routes_only_active);
+  if (presetNameInput) presetNameInput.value = String(preset.name || '');
+
+  if (syncPricing) {
+    const pricingScopeModeEl = document.getElementById('transportPricingCityBulkScopeMode');
+    const pricingOriginEl = document.getElementById('transportPricingCityBulkOriginGroup');
+    const pricingDestinationEl = document.getElementById('transportPricingCityBulkDestinationGroup');
+    const pricingIncludeReverseEl = document.getElementById('transportPricingCityBulkIncludeReverse');
+    const pricingOnlyActiveEl = document.getElementById('transportPricingCityBulkOnlyActiveRoutes');
+    const pricingReplaceExistingEl = document.getElementById('transportPricingCityBulkReplaceExisting');
+
+    if (pricingScopeModeEl) pricingScopeModeEl.value = preset.scope_mode || 'city_pair';
+    if (pricingOriginEl) pricingOriginEl.value = preset.origin_group || '';
+    if (pricingDestinationEl) pricingDestinationEl.value = preset.destination_group || '';
+    if (pricingIncludeReverseEl) pricingIncludeReverseEl.checked = Boolean(preset.include_reverse);
+    if (pricingOnlyActiveEl) pricingOnlyActiveEl.checked = Boolean(preset.pricing_only_active);
+    if (pricingReplaceExistingEl) pricingReplaceExistingEl.checked = Boolean(preset.pricing_replace_existing);
+  }
+
+  syncTransportRouteCityBulkScopeControls();
+  syncTransportPricingCityBulkScopeControls();
+  syncTransportRouteCityBulkSummary();
+  syncTransportPricingCityBulkSummary();
+}
+
+function saveTransportCityPairPresetFromUi() {
+  const draft = getTransportCityPairPresetDraftFromUi();
+  if (!draft.name) {
+    showToast('Preset name is required', 'error');
+    return;
+  }
+  if (!draft.origin_group || !draft.destination_group) {
+    showToast('Select origin and destination city categories before saving preset', 'error');
+    return;
+  }
+
+  const presets = getTransportCityPairPresets();
+  const nameLower = draft.name.toLowerCase();
+  const selected = getTransportSelectedCityPairPreset();
+  const existing = selected || presets.find((preset) => preset.name.toLowerCase() === nameLower) || null;
+  const nowIso = new Date().toISOString();
+  const nextPreset = {
+    id: existing?.id || buildTransportCityPairPresetId(draft.name),
+    name: draft.name,
+    origin_group: draft.origin_group,
+    destination_group: draft.destination_group,
+    scope_mode: draft.scope_mode,
+    include_reverse: Boolean(draft.include_reverse),
+    routes_only_active: Boolean(draft.routes_only_active),
+    pricing_only_active: Boolean(draft.pricing_only_active),
+    pricing_replace_existing: Boolean(draft.pricing_replace_existing),
+    created_at: existing?.created_at || nowIso,
+    updated_at: nowIso,
+  };
+
+  const filtered = presets.filter((preset) => preset.id !== nextPreset.id);
+  filtered.push(nextPreset);
+  setTransportCityPairPresets(filtered);
+  renderTransportCityPairPresetOptions({ selectedId: nextPreset.id });
+  showToast(existing ? 'City pair preset updated' : 'City pair preset saved', 'success');
+}
+
+function loadTransportCityPairPresetFromUi() {
+  const preset = getTransportSelectedCityPairPreset();
+  if (!preset) {
+    showToast('Select preset first', 'error');
+    return;
+  }
+  applyTransportCityPairPresetToUi(preset, { syncPricing: true });
+  showToast('City pair preset loaded', 'success');
+}
+
+function deleteTransportCityPairPresetFromUi() {
+  const preset = getTransportSelectedCityPairPreset();
+  if (!preset) {
+    showToast('Select preset first', 'error');
+    return;
+  }
+  if (!confirm(`Delete city pair preset "${preset.name}"?`)) return;
+
+  const filtered = getTransportCityPairPresets().filter((row) => row.id !== preset.id);
+  setTransportCityPairPresets(filtered);
+  renderTransportCityPairPresetOptions({ selectedId: '' });
+  const nameInput = document.getElementById('transportCityPairPresetName');
+  if (nameInput) nameInput.value = '';
+  showToast('City pair preset deleted', 'success');
+}
+
+function syncTransportRouteCityBulkToPricingManager(options = {}) {
+  const force = Boolean(options?.force);
+  const shouldSync = force || Boolean(document.getElementById('transportCityPairSyncPricing')?.checked);
+  if (!shouldSync) return;
+
+  const routeScopeMode = String(document.getElementById('transportRouteCityBulkScopeMode')?.value || 'city_pair').trim().toLowerCase() === 'single_route'
+    ? 'single_route'
+    : 'city_pair';
+  const routeOrigin = String(document.getElementById('transportRouteCityBulkOriginGroup')?.value || '').trim();
+  const routeDestination = String(document.getElementById('transportRouteCityBulkDestinationGroup')?.value || '').trim();
+  const routeIncludeReverse = Boolean(document.getElementById('transportRouteCityBulkIncludeReverse')?.checked);
+  const routeOnlyActive = Boolean(document.getElementById('transportRouteCityBulkOnlyActive')?.checked);
+
+  const pricingScopeModeEl = document.getElementById('transportPricingCityBulkScopeMode');
+  const pricingOriginEl = document.getElementById('transportPricingCityBulkOriginGroup');
+  const pricingDestinationEl = document.getElementById('transportPricingCityBulkDestinationGroup');
+  const pricingIncludeReverseEl = document.getElementById('transportPricingCityBulkIncludeReverse');
+  const pricingOnlyActiveEl = document.getElementById('transportPricingCityBulkOnlyActiveRoutes');
+
+  if (pricingScopeModeEl) pricingScopeModeEl.value = routeScopeMode;
+  if (pricingOriginEl) pricingOriginEl.value = routeOrigin;
+  if (pricingDestinationEl) pricingDestinationEl.value = routeDestination;
+  if (pricingIncludeReverseEl) pricingIncludeReverseEl.checked = routeIncludeReverse;
+  if (pricingOnlyActiveEl) pricingOnlyActiveEl.checked = routeOnlyActive;
+
+  syncTransportPricingCityBulkScopeControls();
+  syncTransportPricingCityBulkSummary();
+}
+
+function syncTransportRouteCityBulkScopeControls() {
+  const mode = String(document.getElementById('transportRouteCityBulkScopeMode')?.value || 'city_pair').trim().toLowerCase();
+  const singleRouteMode = mode === 'single_route';
+  const panelEl = document.getElementById('transportRouteCityBulkPanel');
+  const cityPairFieldsEl = document.getElementById('transportRouteCityBulkCityPairFields');
+  const scopeHintEl = document.getElementById('transportRouteCityBulkScopeHint');
+  const originEl = document.getElementById('transportRouteCityBulkOriginGroup');
+  const destinationEl = document.getElementById('transportRouteCityBulkDestinationGroup');
+  if (panelEl) {
+    panelEl.classList.toggle('is-single-route-mode', singleRouteMode);
+  }
+  if (cityPairFieldsEl) {
+    cityPairFieldsEl.hidden = singleRouteMode;
+  }
+  if (scopeHintEl) {
+    scopeHintEl.textContent = singleRouteMode
+      ? 'Using current origin and destination from Route form. City category selectors are hidden in this mode.'
+      : 'Choose origin and destination city categories to update all matching route variants.';
+  }
+  if (originEl instanceof HTMLSelectElement) {
+    originEl.disabled = singleRouteMode;
+  }
+  if (destinationEl instanceof HTMLSelectElement) {
+    destinationEl.disabled = singleRouteMode;
+  }
+}
+
+function syncTransportPricingCityBulkScopeControls() {
+  const mode = String(document.getElementById('transportPricingCityBulkScopeMode')?.value || 'city_pair').trim().toLowerCase();
+  const singleRouteMode = mode === 'single_route';
+  const panelEl = document.getElementById('transportPricingCityBulkPanel');
+  const cityPairFieldsEl = document.getElementById('transportPricingCityBulkCityPairFields');
+  const scopeHintEl = document.getElementById('transportPricingCityBulkScopeHint');
+  const originEl = document.getElementById('transportPricingCityBulkOriginGroup');
+  const destinationEl = document.getElementById('transportPricingCityBulkDestinationGroup');
+  if (panelEl) {
+    panelEl.classList.toggle('is-single-route-mode', singleRouteMode);
+  }
+  if (cityPairFieldsEl) {
+    cityPairFieldsEl.hidden = singleRouteMode;
+  }
+  if (scopeHintEl) {
+    scopeHintEl.textContent = singleRouteMode
+      ? 'Using selected route from Pricing form. City category selectors are hidden in this mode.'
+      : 'Choose origin and destination city categories to apply pricing in bulk to all matching routes.';
+  }
+  if (originEl instanceof HTMLSelectElement) {
+    originEl.disabled = singleRouteMode;
+  }
+  if (destinationEl instanceof HTMLSelectElement) {
+    destinationEl.disabled = singleRouteMode;
+  }
+}
+
 function chunkTransportList(values, chunkSize = 200) {
   const list = Array.isArray(values) ? values : [];
   const safeSize = Math.max(1, Number.isFinite(Number(chunkSize)) ? Number(chunkSize) : 200);
@@ -11532,23 +11875,55 @@ function refreshTransportRouteCityBulkOptions() {
     }
   }
 
+  renderTransportCityPairPresetOptions();
+  syncTransportRouteCityBulkScopeControls();
   syncTransportRouteCityBulkSummary();
 }
 
 function getTransportRouteCityBulkSelection() {
+  const scopeMode = String(document.getElementById('transportRouteCityBulkScopeMode')?.value || 'city_pair').trim().toLowerCase() === 'single_route'
+    ? 'single_route'
+    : 'city_pair';
   const originGroup = normalizeTransportCityGroupValue(document.getElementById('transportRouteCityBulkOriginGroup')?.value || '');
   const destinationGroup = normalizeTransportCityGroupValue(document.getElementById('transportRouteCityBulkDestinationGroup')?.value || '');
   const includeReverse = Boolean(document.getElementById('transportRouteCityBulkIncludeReverse')?.checked);
   const onlyActive = Boolean(document.getElementById('transportRouteCityBulkOnlyActive')?.checked);
 
-  const matchedRoutes = getTransportRoutesForCityPair(originGroup, destinationGroup, { includeReverse, onlyActive });
-  const routeIds = matchedRoutes
-    .map((row) => String(row?.id || '').trim())
-    .filter(Boolean);
+  let matchedRoutes = [];
+  let resolvedOriginGroup = originGroup;
+  let resolvedDestinationGroup = destinationGroup;
+
+  if (scopeMode === 'single_route') {
+    const formOriginId = String(document.getElementById('transportRouteOrigin')?.value || '').trim();
+    const formDestinationId = String(document.getElementById('transportRouteDestination')?.value || '').trim();
+    resolvedOriginGroup = getTransportLocationCityGroupById(formOriginId);
+    resolvedDestinationGroup = getTransportLocationCityGroupById(formDestinationId);
+
+    const directMatch = (transportAdminState.routes || []).find((row) =>
+      String(row?.origin_location_id || '').trim() === formOriginId
+      && String(row?.destination_location_id || '').trim() === formDestinationId,
+    ) || null;
+    const reverseMatch = includeReverse
+      ? findTransportReverseRouteByEndpoints(formOriginId, formDestinationId, { excludeRouteId: String(directMatch?.id || '').trim() })
+      : null;
+
+    matchedRoutes = [directMatch, reverseMatch]
+      .filter(Boolean)
+      .filter((row) => !onlyActive || row?.is_active !== false);
+  } else {
+    matchedRoutes = getTransportRoutesForCityPair(originGroup, destinationGroup, { includeReverse, onlyActive });
+  }
+
+  const routeIds = Array.from(new Set(
+    matchedRoutes
+      .map((row) => String(row?.id || '').trim())
+      .filter(Boolean),
+  ));
 
   return {
-    originGroup,
-    destinationGroup,
+    scopeMode,
+    originGroup: resolvedOriginGroup || originGroup,
+    destinationGroup: resolvedDestinationGroup || destinationGroup,
     includeReverse,
     onlyActive,
     matchedRoutes,
@@ -11561,14 +11936,29 @@ function syncTransportRouteCityBulkSummary() {
   if (!summaryEl) return;
 
   const selection = getTransportRouteCityBulkSelection();
-  if (!selection.originGroup || !selection.destinationGroup) {
+  const formOriginId = String(document.getElementById('transportRouteOrigin')?.value || '').trim();
+  const formDestinationId = String(document.getElementById('transportRouteDestination')?.value || '').trim();
+  const singleRouteLabel = formOriginId && formDestinationId
+    ? getTransportRouteLabel({ origin_location_id: formOriginId, destination_location_id: formDestinationId })
+    : '';
+  if (selection.scopeMode === 'city_pair' && (!selection.originGroup || !selection.destinationGroup)) {
     summaryEl.textContent = 'Select city pair to preview matched routes.';
     return;
   }
+  if (selection.scopeMode === 'single_route') {
+    if (!formOriginId || !formDestinationId) {
+      summaryEl.textContent = 'Select origin and destination in Route form to use single-route mode.';
+      return;
+    }
+  }
 
-  const cityPairLabel = getTransportCityPairLabel(selection.originGroup, selection.destinationGroup, selection.includeReverse);
+  const pairLabel = selection.scopeMode === 'single_route'
+    ? `single route (${singleRouteLabel || 'from route form'})`
+    : getTransportCityPairLabel(selection.originGroup, selection.destinationGroup, selection.includeReverse);
   if (!selection.routeIds.length) {
-    summaryEl.textContent = `No routes found for ${cityPairLabel}.`;
+    summaryEl.textContent = selection.scopeMode === 'single_route'
+      ? `No saved route matches current route form selection${singleRouteLabel ? ` (${singleRouteLabel})` : ''}.`
+      : `No routes found for ${pairLabel}.`;
     return;
   }
 
@@ -11582,21 +11972,23 @@ function syncTransportRouteCityBulkSummary() {
   const previewSuffix = preview
     ? ` Preview: ${preview}${moreCount > 0 ? ` +${moreCount} more` : ''}.`
     : '';
-
-  summaryEl.textContent = `${selection.routeIds.length} route variant(s) matched for ${cityPairLabel} (${activeCount} active, ${inactiveCount} inactive).${previewSuffix}`;
+  const scopeLabel = selection.scopeMode === 'single_route'
+    ? `Single route mode${singleRouteLabel ? `: ${singleRouteLabel}` : ''}`
+    : `City pair mode: ${pairLabel}`;
+  summaryEl.textContent = `${scopeLabel}. ${selection.routeIds.length} route variant(s) matched (${activeCount} active, ${inactiveCount} inactive).${previewSuffix}`;
 }
 
 function buildTransportRouteBulkPayloadFromForm() {
-  const dayPrice = Number(document.getElementById('transportRouteDayPrice')?.value || 0);
-  const nightPrice = Number(document.getElementById('transportRouteNightPrice')?.value || 0);
+  const dayPrice = transportReadNumberInput('transportRouteDayPrice', 0);
+  const nightPrice = transportReadNumberInput('transportRouteNightPrice', 0);
   const currency = String(document.getElementById('transportRouteCurrency')?.value || 'EUR').trim().toUpperCase() || 'EUR';
-  const includedPassengers = Number(document.getElementById('transportRouteIncludedPassengers')?.value || 0);
-  const includedBags = Number(document.getElementById('transportRouteIncludedBags')?.value || 0);
-  const maxPassengers = Number(document.getElementById('transportRouteMaxPassengers')?.value || 0);
-  const maxBags = Number(document.getElementById('transportRouteMaxBags')?.value || 0);
+  const includedPassengers = transportReadNumberInput('transportRouteIncludedPassengers', 2);
+  const includedBags = transportReadNumberInput('transportRouteIncludedBags', 2);
+  const maxPassengers = transportReadNumberInput('transportRouteMaxPassengers', 8);
+  const maxBags = transportReadNumberInput('transportRouteMaxBags', 8);
   const tripMode = normalizeTransportTripMode(document.getElementById('transportRouteTripMode')?.value || 'one_way');
-  const roundTripMultiplierRaw = Number(document.getElementById('transportRouteRoundTripMultiplier')?.value || 2);
-  const sortOrder = Number(document.getElementById('transportRouteSortOrder')?.value || 0);
+  const roundTripMultiplierRaw = transportReadNumberInput('transportRouteRoundTripMultiplier', 2);
+  const sortOrder = transportReadNumberInput('transportRouteSortOrder', 0);
   const isActive = Boolean(document.getElementById('transportRouteActive')?.checked);
 
   if (!(dayPrice >= 0) || !(nightPrice >= 0)) {
@@ -11647,12 +12039,20 @@ async function applyTransportRouteCityBulkUpdate() {
   if (!client) return;
 
   const selection = getTransportRouteCityBulkSelection();
-  if (!selection.originGroup || !selection.destinationGroup) {
+  if (selection.scopeMode === 'city_pair' && (!selection.originGroup || !selection.destinationGroup)) {
     showToast('Select origin and destination city categories first', 'error');
     return;
   }
+  if (selection.scopeMode === 'single_route') {
+    const formOriginId = String(document.getElementById('transportRouteOrigin')?.value || '').trim();
+    const formDestinationId = String(document.getElementById('transportRouteDestination')?.value || '').trim();
+    if (!formOriginId || !formDestinationId) {
+      showToast('Select origin and destination in route form first', 'error');
+      return;
+    }
+  }
   if (!selection.routeIds.length) {
-    showToast('No matched routes for selected city pair', 'info');
+    showToast(selection.scopeMode === 'single_route' ? 'No matched routes for selected route form pair' : 'No matched routes for selected city pair', 'info');
     return;
   }
 
@@ -11662,8 +12062,10 @@ async function applyTransportRouteCityBulkUpdate() {
     return;
   }
 
-  const cityPairLabel = getTransportCityPairLabel(selection.originGroup, selection.destinationGroup, selection.includeReverse);
-  if (!confirm(`Apply current route form values to ${selection.routeIds.length} route(s) for ${cityPairLabel}?`)) {
+  const scopeLabel = selection.scopeMode === 'single_route'
+    ? 'single route scope'
+    : getTransportCityPairLabel(selection.originGroup, selection.destinationGroup, selection.includeReverse);
+  if (!confirm(`Apply current route form values to ${selection.routeIds.length} route(s) for ${scopeLabel}?`)) {
     return;
   }
 
@@ -11678,7 +12080,7 @@ async function applyTransportRouteCityBulkUpdate() {
       updatedCount += chunk.length;
     }
 
-    showToast(`Updated ${updatedCount} route(s) for ${cityPairLabel}`, 'success');
+    showToast(`Updated ${updatedCount} route(s) for ${scopeLabel}`, 'success');
     await loadTransportRoutesData({ silent: true });
     await loadTransportPricingData({ silent: true });
     await loadTransportBookingsData({ silent: true });
@@ -11700,12 +12102,20 @@ async function deleteTransportRouteCityBulkMatches() {
   if (!client) return;
 
   const selection = getTransportRouteCityBulkSelection();
-  if (!selection.originGroup || !selection.destinationGroup) {
+  if (selection.scopeMode === 'city_pair' && (!selection.originGroup || !selection.destinationGroup)) {
     showToast('Select origin and destination city categories first', 'error');
     return;
   }
+  if (selection.scopeMode === 'single_route') {
+    const formOriginId = String(document.getElementById('transportRouteOrigin')?.value || '').trim();
+    const formDestinationId = String(document.getElementById('transportRouteDestination')?.value || '').trim();
+    if (!formOriginId || !formDestinationId) {
+      showToast('Select origin and destination in route form first', 'error');
+      return;
+    }
+  }
   if (!selection.routeIds.length) {
-    showToast('No matched routes for selected city pair', 'info');
+    showToast(selection.scopeMode === 'single_route' ? 'No matched routes for selected route form pair' : 'No matched routes for selected city pair', 'info');
     return;
   }
 
@@ -11735,7 +12145,9 @@ async function deleteTransportRouteCityBulkMatches() {
     showToast(`Cannot delete routes: ${linkedBookingCount} booking(s) are still linked to this city pair`, 'error');
     return;
   }
-  const cityPairLabel = getTransportCityPairLabel(selection.originGroup, selection.destinationGroup, selection.includeReverse);
+  const cityPairLabel = selection.scopeMode === 'single_route'
+    ? 'single route scope'
+    : getTransportCityPairLabel(selection.originGroup, selection.destinationGroup, selection.includeReverse);
 
   if (!confirm(`Delete ${selection.routeIds.length} route(s) for ${cityPairLabel}?\nLinked pricing rules to remove: ${linkedPricingCount}.`)) {
     return;
@@ -11831,27 +12243,57 @@ function refreshTransportPricingCityBulkOptions() {
     }
   }
 
+  syncTransportPricingCityBulkScopeControls();
   syncTransportPricingCityBulkSummary();
 }
 
 function getTransportPricingCityBulkSelection() {
+  const scopeMode = String(document.getElementById('transportPricingCityBulkScopeMode')?.value || 'city_pair').trim().toLowerCase() === 'single_route'
+    ? 'single_route'
+    : 'city_pair';
   const originGroup = normalizeTransportCityGroupValue(document.getElementById('transportPricingCityBulkOriginGroup')?.value || '');
   const destinationGroup = normalizeTransportCityGroupValue(document.getElementById('transportPricingCityBulkDestinationGroup')?.value || '');
   const includeReverse = Boolean(document.getElementById('transportPricingCityBulkIncludeReverse')?.checked);
   const onlyActiveRoutes = Boolean(document.getElementById('transportPricingCityBulkOnlyActiveRoutes')?.checked);
   const replaceExisting = Boolean(document.getElementById('transportPricingCityBulkReplaceExisting')?.checked);
 
-  const matchedRoutes = getTransportRoutesForCityPair(originGroup, destinationGroup, {
-    includeReverse,
-    onlyActive: onlyActiveRoutes,
-  });
-  const routeIds = matchedRoutes
-    .map((row) => String(row?.id || '').trim())
-    .filter(Boolean);
+  let matchedRoutes = [];
+  let resolvedOriginGroup = originGroup;
+  let resolvedDestinationGroup = destinationGroup;
+
+  if (scopeMode === 'single_route') {
+    const primaryRouteId = String(document.getElementById('transportPricingRoute')?.value || '').trim();
+    const primaryRoute = primaryRouteId ? transportAdminState.routeById[primaryRouteId] : null;
+    const reverseRoute = includeReverse && primaryRoute
+      ? findTransportReverseRouteByRouteId(primaryRouteId)
+      : null;
+    const routeIds = [String(primaryRoute?.id || '').trim(), String(reverseRoute?.id || '').trim()]
+      .filter(Boolean);
+
+    matchedRoutes = Array.from(new Set(routeIds))
+      .map((id) => transportAdminState.routeById[id] || null)
+      .filter(Boolean)
+      .filter((row) => !onlyActiveRoutes || row?.is_active !== false);
+
+    resolvedOriginGroup = getTransportLocationCityGroupById(primaryRoute?.origin_location_id);
+    resolvedDestinationGroup = getTransportLocationCityGroupById(primaryRoute?.destination_location_id);
+  } else {
+    matchedRoutes = getTransportRoutesForCityPair(originGroup, destinationGroup, {
+      includeReverse,
+      onlyActive: onlyActiveRoutes,
+    });
+  }
+
+  const routeIds = Array.from(new Set(
+    matchedRoutes
+      .map((row) => String(row?.id || '').trim())
+      .filter(Boolean),
+  ));
 
   return {
-    originGroup,
-    destinationGroup,
+    scopeMode,
+    originGroup: resolvedOriginGroup || originGroup,
+    destinationGroup: resolvedDestinationGroup || destinationGroup,
     includeReverse,
     onlyActiveRoutes,
     replaceExisting,
@@ -11865,14 +12307,26 @@ function syncTransportPricingCityBulkSummary() {
   if (!summaryEl) return;
 
   const selection = getTransportPricingCityBulkSelection();
-  if (!selection.originGroup || !selection.destinationGroup) {
+  const primaryRouteId = String(document.getElementById('transportPricingRoute')?.value || '').trim();
+  const singleRouteLabel = primaryRouteId ? getTransportRouteLabelById(primaryRouteId) : '';
+  if (selection.scopeMode === 'city_pair' && (!selection.originGroup || !selection.destinationGroup)) {
     summaryEl.textContent = 'Select city pair to preview matched routes and pricing rules.';
     return;
   }
+  if (selection.scopeMode === 'single_route') {
+    if (!primaryRouteId) {
+      summaryEl.textContent = 'Select route in Pricing form to use single-route mode.';
+      return;
+    }
+  }
 
-  const cityPairLabel = getTransportCityPairLabel(selection.originGroup, selection.destinationGroup, selection.includeReverse);
+  const cityPairLabel = selection.scopeMode === 'single_route'
+    ? `single route (${singleRouteLabel || 'from pricing form'})`
+    : getTransportCityPairLabel(selection.originGroup, selection.destinationGroup, selection.includeReverse);
   if (!selection.routeIds.length) {
-    summaryEl.textContent = `No routes found for ${cityPairLabel}.`;
+    summaryEl.textContent = selection.scopeMode === 'single_route'
+      ? `No active routes found for selected pricing route${singleRouteLabel ? ` (${singleRouteLabel})` : ''}.`
+      : `No routes found for ${cityPairLabel}.`;
     return;
   }
 
@@ -11892,8 +12346,10 @@ function syncTransportPricingCityBulkSummary() {
   const modeText = selection.replaceExisting
     ? 'Existing route pricing will be replaced.'
     : 'New pricing rows will be added to existing route pricing.';
-
-  summaryEl.textContent = `${selection.routeIds.length} route(s) matched for ${cityPairLabel}. Existing pricing rows: ${matchedRules.length} (${activeRuleCount} active). ${modeText}${previewSuffix}`;
+  const scopeLabel = selection.scopeMode === 'single_route'
+    ? `Single route mode${singleRouteLabel ? `: ${singleRouteLabel}` : ''}`
+    : `City pair mode: ${cityPairLabel}`;
+  summaryEl.textContent = `${scopeLabel}. ${selection.routeIds.length} route(s) matched. Existing pricing rows: ${matchedRules.length} (${activeRuleCount} active). ${modeText}${previewSuffix}`;
 }
 
 function buildTransportPricingPayloadFromForm(routeId) {
@@ -11974,12 +12430,19 @@ async function applyTransportPricingCityBulkUpdate() {
   if (!client) return;
 
   const selection = getTransportPricingCityBulkSelection();
-  if (!selection.originGroup || !selection.destinationGroup) {
+  if (selection.scopeMode === 'city_pair' && (!selection.originGroup || !selection.destinationGroup)) {
     showToast('Select origin and destination city categories first', 'error');
     return;
   }
+  if (selection.scopeMode === 'single_route') {
+    const primaryRouteId = String(document.getElementById('transportPricingRoute')?.value || '').trim();
+    if (!primaryRouteId) {
+      showToast('Select route in pricing form first', 'error');
+      return;
+    }
+  }
   if (!selection.routeIds.length) {
-    showToast('No matched routes for selected city pair', 'info');
+    showToast(selection.scopeMode === 'single_route' ? 'No matched routes for selected pricing route scope' : 'No matched routes for selected city pair', 'info');
     return;
   }
 
@@ -11989,7 +12452,9 @@ async function applyTransportPricingCityBulkUpdate() {
     return;
   }
 
-  const cityPairLabel = getTransportCityPairLabel(selection.originGroup, selection.destinationGroup, selection.includeReverse);
+  const cityPairLabel = selection.scopeMode === 'single_route'
+    ? 'single route scope'
+    : getTransportCityPairLabel(selection.originGroup, selection.destinationGroup, selection.includeReverse);
   const replaceLabel = selection.replaceExisting ? 'replace existing pricing rows' : 'add new pricing rows';
   if (!confirm(`Apply current pricing form values to ${selection.routeIds.length} route(s) for ${cityPairLabel} and ${replaceLabel}?`)) {
     return;
@@ -12089,12 +12554,19 @@ async function deleteTransportPricingCityBulkMatches() {
   if (!client) return;
 
   const selection = getTransportPricingCityBulkSelection();
-  if (!selection.originGroup || !selection.destinationGroup) {
+  if (selection.scopeMode === 'city_pair' && (!selection.originGroup || !selection.destinationGroup)) {
     showToast('Select origin and destination city categories first', 'error');
     return;
   }
+  if (selection.scopeMode === 'single_route') {
+    const primaryRouteId = String(document.getElementById('transportPricingRoute')?.value || '').trim();
+    if (!primaryRouteId) {
+      showToast('Select route in pricing form first', 'error');
+      return;
+    }
+  }
   if (!selection.routeIds.length) {
-    showToast('No matched routes for selected city pair', 'info');
+    showToast(selection.scopeMode === 'single_route' ? 'No matched routes for selected pricing route scope' : 'No matched routes for selected city pair', 'info');
     return;
   }
 
@@ -12102,7 +12574,9 @@ async function deleteTransportPricingCityBulkMatches() {
   const matchedRuleCount = (transportAdminState.pricingRules || []).filter((rule) => (
     routeIdSet.has(String(rule?.route_id || '').trim())
   )).length;
-  const cityPairLabel = getTransportCityPairLabel(selection.originGroup, selection.destinationGroup, selection.includeReverse);
+  const cityPairLabel = selection.scopeMode === 'single_route'
+    ? 'single route scope'
+    : getTransportCityPairLabel(selection.originGroup, selection.destinationGroup, selection.includeReverse);
 
   if (!confirm(`Delete pricing rules for ${selection.routeIds.length} route(s) in ${cityPairLabel}?\nMatched pricing rows: ${matchedRuleCount}.`)) {
     return;
@@ -12653,6 +13127,8 @@ function resetTransportRouteForm() {
   const destinationGroupEl = document.getElementById('transportRouteDestinationCityGroup');
   const originTypePreferenceEl = document.getElementById('transportRouteOriginTypePreference');
   const destinationTypePreferenceEl = document.getElementById('transportRouteDestinationTypePreference');
+  const routeBulkScopeEl = document.getElementById('transportRouteCityBulkScopeMode');
+  const routeCitySyncPricingEl = document.getElementById('transportCityPairSyncPricing');
   if (idEl) idEl.value = '';
   if (currencyEl) currencyEl.value = 'EUR';
   if (includedPassengersEl) includedPassengersEl.value = '2';
@@ -12669,7 +13145,13 @@ function resetTransportRouteForm() {
   if (destinationGroupEl) destinationGroupEl.value = '';
   if (originTypePreferenceEl) originTypePreferenceEl.value = '';
   if (destinationTypePreferenceEl) destinationTypePreferenceEl.value = '';
+  if (routeBulkScopeEl) routeBulkScopeEl.value = 'city_pair';
+  if (routeCitySyncPricingEl) routeCitySyncPricingEl.checked = true;
   refreshTransportRouteCityCategoryOptions();
+  refreshTransportRouteCityBulkOptions();
+  syncTransportRouteCityBulkScopeControls();
+  syncTransportRouteCityBulkSummary();
+  syncTransportRouteCityBulkToPricingManager({ force: true });
   syncTransportRouteRoundTripControls();
 }
 
@@ -12690,10 +13172,10 @@ function editTransportRoute(routeId) {
   setValue('transportRouteDayPrice', String(Number(row.day_price || 0)));
   setValue('transportRouteNightPrice', String(Number(row.night_price || 0)));
   setValue('transportRouteCurrency', String(row.currency || 'EUR'));
-  setValue('transportRouteIncludedPassengers', String(Number(row.included_passengers || 2)));
-  setValue('transportRouteIncludedBags', String(Number(row.included_bags || 2)));
+  setValue('transportRouteIncludedPassengers', String(Number(row.included_passengers ?? 2)));
+  setValue('transportRouteIncludedBags', String(Number(row.included_bags ?? 2)));
   setValue('transportRouteMaxPassengers', String(Number(row.max_passengers || 8)));
-  setValue('transportRouteMaxBags', String(Number(row.max_bags || 8)));
+  setValue('transportRouteMaxBags', String(Number(row.max_bags ?? 8)));
   setValue('transportRouteTripMode', transportRouteAllowsRoundTrip(row) ? 'round_trip' : 'one_way');
   setValue('transportRouteRoundTripMultiplier', String(transportRouteRoundTripMultiplier(row)));
   setValue('transportRouteSortOrder', String(Number(row.sort_order || 0)));
@@ -12714,7 +13196,12 @@ function editTransportRoute(routeId) {
   if (activeEl) activeEl.checked = Boolean(row.is_active !== false);
   if (createReverseEl) createReverseEl.checked = true;
   if (syncReverseEl) syncReverseEl.checked = true;
+  const routeBulkScopeEl = document.getElementById('transportRouteCityBulkScopeMode');
+  if (routeBulkScopeEl) routeBulkScopeEl.value = 'single_route';
   refreshTransportRouteCityCategoryOptions();
+  syncTransportRouteCityBulkScopeControls();
+  syncTransportRouteCityBulkSummary();
+  syncTransportRouteCityBulkToPricingManager();
   syncTransportRouteRoundTripControls();
 
   transportAdminState.control.routeId = id;
@@ -12760,8 +13247,8 @@ function renderTransportRoutesTable() {
 
   tbody.innerHTML = rows.map((row) => {
     const id = String(row.id || '');
-    const included = `${Number(row.included_passengers || 0)} pax / ${Number(row.included_bags || 0)} bags`;
-    const limits = `${Number(row.max_passengers || 0)} pax / ${Number(row.max_bags || 0)} bags`;
+    const included = `${Number(row.included_passengers ?? 2)} pax / ${Number(row.included_bags ?? 2)} bags`;
+    const limits = `${Number(row.max_passengers ?? 8)} pax / ${Number(row.max_bags ?? 8)} bags`;
     const tripModeLabel = transportRouteTripModeLabel(row);
     return `
       <tr>
@@ -12826,16 +13313,16 @@ async function saveTransportRouteForm(event) {
   const id = String(document.getElementById('transportRouteId')?.value || '').trim();
   const originLocationId = String(document.getElementById('transportRouteOrigin')?.value || '').trim();
   const destinationLocationId = String(document.getElementById('transportRouteDestination')?.value || '').trim();
-  const dayPrice = Number(document.getElementById('transportRouteDayPrice')?.value || 0);
-  const nightPrice = Number(document.getElementById('transportRouteNightPrice')?.value || 0);
+  const dayPrice = transportReadNumberInput('transportRouteDayPrice', 0);
+  const nightPrice = transportReadNumberInput('transportRouteNightPrice', 0);
   const currency = String(document.getElementById('transportRouteCurrency')?.value || 'EUR').trim().toUpperCase() || 'EUR';
-  const includedPassengers = Number(document.getElementById('transportRouteIncludedPassengers')?.value || 0);
-  const includedBags = Number(document.getElementById('transportRouteIncludedBags')?.value || 0);
-  const maxPassengers = Number(document.getElementById('transportRouteMaxPassengers')?.value || 0);
-  const maxBags = Number(document.getElementById('transportRouteMaxBags')?.value || 0);
+  const includedPassengers = transportReadNumberInput('transportRouteIncludedPassengers', 2);
+  const includedBags = transportReadNumberInput('transportRouteIncludedBags', 2);
+  const maxPassengers = transportReadNumberInput('transportRouteMaxPassengers', 8);
+  const maxBags = transportReadNumberInput('transportRouteMaxBags', 8);
   const tripMode = normalizeTransportTripMode(document.getElementById('transportRouteTripMode')?.value || 'one_way');
-  const roundTripMultiplierRaw = Number(document.getElementById('transportRouteRoundTripMultiplier')?.value || 2);
-  const sortOrder = Number(document.getElementById('transportRouteSortOrder')?.value || 0);
+  const roundTripMultiplierRaw = transportReadNumberInput('transportRouteRoundTripMultiplier', 2);
+  const sortOrder = transportReadNumberInput('transportRouteSortOrder', 0);
   const isActive = Boolean(document.getElementById('transportRouteActive')?.checked);
   const createReversePair = Boolean(document.getElementById('transportRouteCreateReversePair')?.checked);
   const syncReverseRoute = Boolean(document.getElementById('transportRouteSyncReverseRoute')?.checked);
@@ -12885,10 +13372,10 @@ async function saveTransportRouteForm(event) {
     day_price: dayPrice,
     night_price: nightPrice,
     currency,
-    included_passengers: Number.isFinite(includedPassengers) ? includedPassengers : 0,
-    included_bags: Number.isFinite(includedBags) ? includedBags : 0,
-    max_passengers: Number.isFinite(maxPassengers) ? maxPassengers : 0,
-    max_bags: Number.isFinite(maxBags) ? maxBags : 0,
+    included_passengers: Number.isFinite(includedPassengers) ? includedPassengers : 2,
+    included_bags: Number.isFinite(includedBags) ? includedBags : 2,
+    max_passengers: Number.isFinite(maxPassengers) ? maxPassengers : 8,
+    max_bags: Number.isFinite(maxBags) ? maxBags : 8,
     allows_round_trip: allowsRoundTrip,
     round_trip_multiplier: Number.isFinite(roundTripMultiplier) ? roundTripMultiplier : 2,
     sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
@@ -13006,16 +13493,16 @@ async function createTransportRouteSetFromCurrentForm() {
     return;
   }
 
-  const dayPrice = Number(document.getElementById('transportRouteDayPrice')?.value || 0);
-  const nightPrice = Number(document.getElementById('transportRouteNightPrice')?.value || 0);
+  const dayPrice = transportReadNumberInput('transportRouteDayPrice', 0);
+  const nightPrice = transportReadNumberInput('transportRouteNightPrice', 0);
   const currency = String(document.getElementById('transportRouteCurrency')?.value || 'EUR').trim().toUpperCase() || 'EUR';
-  const includedPassengers = Number(document.getElementById('transportRouteIncludedPassengers')?.value || 0);
-  const includedBags = Number(document.getElementById('transportRouteIncludedBags')?.value || 0);
-  const maxPassengers = Number(document.getElementById('transportRouteMaxPassengers')?.value || 0);
-  const maxBags = Number(document.getElementById('transportRouteMaxBags')?.value || 0);
+  const includedPassengers = transportReadNumberInput('transportRouteIncludedPassengers', 2);
+  const includedBags = transportReadNumberInput('transportRouteIncludedBags', 2);
+  const maxPassengers = transportReadNumberInput('transportRouteMaxPassengers', 8);
+  const maxBags = transportReadNumberInput('transportRouteMaxBags', 8);
   const tripMode = normalizeTransportTripMode(document.getElementById('transportRouteTripMode')?.value || 'one_way');
-  const roundTripMultiplierRaw = Number(document.getElementById('transportRouteRoundTripMultiplier')?.value || 2);
-  const sortOrder = Number(document.getElementById('transportRouteSortOrder')?.value || 0);
+  const roundTripMultiplierRaw = transportReadNumberInput('transportRouteRoundTripMultiplier', 2);
+  const sortOrder = transportReadNumberInput('transportRouteSortOrder', 0);
   const isActive = Boolean(document.getElementById('transportRouteActive')?.checked);
 
   if (!(dayPrice >= 0) || !(nightPrice >= 0)) {
@@ -13175,9 +13662,11 @@ function resetTransportPricingForm() {
   const cityBulkReplaceExistingEl = document.getElementById('transportPricingCityBulkReplaceExisting');
   const cityBulkOriginEl = document.getElementById('transportPricingCityBulkOriginGroup');
   const cityBulkDestinationEl = document.getElementById('transportPricingCityBulkDestinationGroup');
+  const cityBulkScopeModeEl = document.getElementById('transportPricingCityBulkScopeMode');
   if (cityBulkIncludeReverseEl) cityBulkIncludeReverseEl.checked = true;
   if (cityBulkOnlyActiveEl) cityBulkOnlyActiveEl.checked = true;
   if (cityBulkReplaceExistingEl) cityBulkReplaceExistingEl.checked = true;
+  if (cityBulkScopeModeEl) cityBulkScopeModeEl.value = 'city_pair';
   if (cityBulkOriginEl) cityBulkOriginEl.value = '';
   if (cityBulkDestinationEl) cityBulkDestinationEl.value = '';
   bulkTypeFilterEls.forEach((input) => {
@@ -13192,6 +13681,7 @@ function resetTransportPricingForm() {
   refreshTransportPricingAdditionalRoutesOptions();
   syncTransportPricingDepositControls();
   syncTransportPricingBulkApplyControls();
+  syncTransportPricingCityBulkScopeControls();
   syncTransportPricingCityBulkSummary();
 }
 
@@ -13258,6 +13748,8 @@ function editTransportPricingRule(ruleId) {
   }
   const cityBulkOriginEl = document.getElementById('transportPricingCityBulkOriginGroup');
   const cityBulkDestinationEl = document.getElementById('transportPricingCityBulkDestinationGroup');
+  const cityBulkScopeModeEl = document.getElementById('transportPricingCityBulkScopeMode');
+  if (cityBulkScopeModeEl) cityBulkScopeModeEl.value = 'single_route';
   if (cityBulkOriginEl && routeRow?.origin_location_id) {
     const cityGroup = getTransportLocationCityGroupById(routeRow.origin_location_id);
     if (cityGroup) cityBulkOriginEl.value = cityGroup;
@@ -13270,6 +13762,7 @@ function editTransportPricingRule(ruleId) {
   refreshTransportPricingAdditionalRoutesOptions();
   syncTransportPricingDepositControls();
   syncTransportPricingBulkApplyControls();
+  syncTransportPricingCityBulkScopeControls();
   syncTransportPricingCityBulkSummary();
 
   transportAdminState.control.routeId = String(row.route_id || '').trim();
@@ -14364,6 +14857,14 @@ function bindTransportAdminUi() {
     });
   }
 
+  const simpleModeToggle = document.getElementById('transportSimpleModeToggle');
+  if (simpleModeToggle instanceof HTMLInputElement) {
+    simpleModeToggle.checked = getTransportSimpleModePreference();
+    simpleModeToggle.addEventListener('change', () => {
+      syncTransportSimpleModeState();
+    });
+  }
+
   const btnRefreshLocations = document.getElementById('btnRefreshTransportLocations');
   if (btnRefreshLocations) {
     btnRefreshLocations.addEventListener('click', () => {
@@ -14482,6 +14983,8 @@ function bindTransportAdminUi() {
       refreshTransportRouteCityCategoryOptions();
       refreshTransportRouteCityBulkOptions();
       refreshTransportRouteSetBuilderOptions();
+      syncTransportRouteCityBulkSummary();
+      syncTransportRouteCityBulkToPricingManager();
     });
   }
   const routeDestinationSelect = document.getElementById('transportRouteDestination');
@@ -14489,27 +14992,87 @@ function bindTransportAdminUi() {
     routeDestinationSelect.addEventListener('change', () => {
       refreshTransportRouteCityCategoryOptions();
       refreshTransportRouteCityBulkOptions();
+      syncTransportRouteCityBulkSummary();
+      syncTransportRouteCityBulkToPricingManager();
     });
   }
   const btnApplyRouteCityCategories = document.getElementById('btnTransportRouteApplyCityCategories');
   if (btnApplyRouteCityCategories) {
     btnApplyRouteCityCategories.addEventListener('click', () => applyTransportRouteCityCategoriesToForm());
   }
+  const routeCityBulkScopeMode = document.getElementById('transportRouteCityBulkScopeMode');
+  if (routeCityBulkScopeMode) {
+    routeCityBulkScopeMode.addEventListener('change', () => {
+      syncTransportRouteCityBulkScopeControls();
+      syncTransportRouteCityBulkSummary();
+      syncTransportRouteCityBulkToPricingManager();
+    });
+  }
   const routeCityBulkOrigin = document.getElementById('transportRouteCityBulkOriginGroup');
   if (routeCityBulkOrigin) {
-    routeCityBulkOrigin.addEventListener('change', () => syncTransportRouteCityBulkSummary());
+    routeCityBulkOrigin.addEventListener('change', () => {
+      syncTransportRouteCityBulkSummary();
+      syncTransportRouteCityBulkToPricingManager();
+    });
   }
   const routeCityBulkDestination = document.getElementById('transportRouteCityBulkDestinationGroup');
   if (routeCityBulkDestination) {
-    routeCityBulkDestination.addEventListener('change', () => syncTransportRouteCityBulkSummary());
+    routeCityBulkDestination.addEventListener('change', () => {
+      syncTransportRouteCityBulkSummary();
+      syncTransportRouteCityBulkToPricingManager();
+    });
   }
   const routeCityBulkIncludeReverse = document.getElementById('transportRouteCityBulkIncludeReverse');
   if (routeCityBulkIncludeReverse) {
-    routeCityBulkIncludeReverse.addEventListener('change', () => syncTransportRouteCityBulkSummary());
+    routeCityBulkIncludeReverse.addEventListener('change', () => {
+      syncTransportRouteCityBulkSummary();
+      syncTransportRouteCityBulkToPricingManager();
+    });
   }
   const routeCityBulkOnlyActive = document.getElementById('transportRouteCityBulkOnlyActive');
   if (routeCityBulkOnlyActive) {
-    routeCityBulkOnlyActive.addEventListener('change', () => syncTransportRouteCityBulkSummary());
+    routeCityBulkOnlyActive.addEventListener('change', () => {
+      syncTransportRouteCityBulkSummary();
+      syncTransportRouteCityBulkToPricingManager();
+    });
+  }
+  const routeCitySyncPricing = document.getElementById('transportCityPairSyncPricing');
+  if (routeCitySyncPricing) {
+    routeCitySyncPricing.addEventListener('change', () => {
+      if (routeCitySyncPricing.checked) {
+        syncTransportRouteCityBulkToPricingManager({ force: true });
+      }
+    });
+  }
+  const cityPairPresetSelect = document.getElementById('transportCityPairPresetSelect');
+  if (cityPairPresetSelect) {
+    cityPairPresetSelect.addEventListener('change', () => {
+      const preset = getTransportSelectedCityPairPreset();
+      const nameInput = document.getElementById('transportCityPairPresetName');
+      if (nameInput) {
+        nameInput.value = String(preset?.name || '');
+      }
+      if (preset) {
+        applyTransportCityPairPresetToUi(preset, { syncPricing: true });
+      } else {
+        syncTransportRouteCityBulkScopeControls();
+        syncTransportPricingCityBulkScopeControls();
+        syncTransportRouteCityBulkSummary();
+        syncTransportPricingCityBulkSummary();
+      }
+    });
+  }
+  const btnCityPairPresetLoad = document.getElementById('btnTransportCityPairPresetLoad');
+  if (btnCityPairPresetLoad) {
+    btnCityPairPresetLoad.addEventListener('click', () => loadTransportCityPairPresetFromUi());
+  }
+  const btnCityPairPresetSave = document.getElementById('btnTransportCityPairPresetSave');
+  if (btnCityPairPresetSave) {
+    btnCityPairPresetSave.addEventListener('click', () => saveTransportCityPairPresetFromUi());
+  }
+  const btnCityPairPresetDelete = document.getElementById('btnTransportCityPairPresetDelete');
+  if (btnCityPairPresetDelete) {
+    btnCityPairPresetDelete.addEventListener('click', () => deleteTransportCityPairPresetFromUi());
   }
   const btnRouteCityBulkApply = document.getElementById('btnTransportRouteCityBulkApply');
   if (btnRouteCityBulkApply) {
@@ -14591,6 +15154,7 @@ function bindTransportAdminUi() {
       refreshTransportPricingCityBulkOptions();
       refreshTransportPricingAdditionalRoutesOptions();
       syncTransportPricingBulkApplyControls();
+      syncTransportPricingCityBulkScopeControls();
       syncTransportPricingCityBulkSummary();
     });
   }
@@ -14643,13 +15207,24 @@ function bindTransportAdminUi() {
   if (pricingBulkUseCityGroups) {
     pricingBulkUseCityGroups.addEventListener('change', () => syncTransportPricingAdditionalSummary());
   }
+  const pricingCityBulkScopeMode = document.getElementById('transportPricingCityBulkScopeMode');
+  if (pricingCityBulkScopeMode) {
+    pricingCityBulkScopeMode.addEventListener('change', () => {
+      syncTransportPricingCityBulkScopeControls();
+      syncTransportPricingCityBulkSummary();
+    });
+  }
   const pricingCityBulkOrigin = document.getElementById('transportPricingCityBulkOriginGroup');
   if (pricingCityBulkOrigin) {
-    pricingCityBulkOrigin.addEventListener('change', () => syncTransportPricingCityBulkSummary());
+    pricingCityBulkOrigin.addEventListener('change', () => {
+      syncTransportPricingCityBulkSummary();
+    });
   }
   const pricingCityBulkDestination = document.getElementById('transportPricingCityBulkDestinationGroup');
   if (pricingCityBulkDestination) {
-    pricingCityBulkDestination.addEventListener('change', () => syncTransportPricingCityBulkSummary());
+    pricingCityBulkDestination.addEventListener('change', () => {
+      syncTransportPricingCityBulkSummary();
+    });
   }
   const pricingCityBulkIncludeReverse = document.getElementById('transportPricingCityBulkIncludeReverse');
   if (pricingCityBulkIncludeReverse) {
@@ -14703,16 +15278,25 @@ function bindTransportAdminUi() {
   syncTransportRouteRoundTripControls();
   refreshTransportRouteCityCategoryOptions();
   refreshTransportRouteCityBulkOptions();
+  renderTransportCityPairPresetOptions();
+  syncTransportRouteCityBulkScopeControls();
   refreshTransportRouteSetBuilderOptions();
   syncTransportRouteSetSummary();
   syncTransportPricingDepositControls();
   syncTransportLocationTypeControls();
   refreshTransportPricingCityBulkOptions();
+  syncTransportPricingCityBulkScopeControls();
   refreshTransportPricingAdditionalRoutesOptions();
   syncTransportPricingBulkApplyControls();
   syncTransportPricingAdditionalSummary();
+  syncTransportRouteCityBulkToPricingManager({ force: true });
   syncTransportRouteCityBulkSummary();
   syncTransportPricingCityBulkSummary();
+  syncTransportSimpleModeState({
+    forceEnabled: simpleModeToggle instanceof HTMLInputElement
+      ? simpleModeToggle.checked
+      : getTransportSimpleModePreference(),
+  });
   resetTransportControlScenario();
   syncTransportControlCenter();
 

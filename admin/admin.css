@@ -4616,6 +4616,7 @@ select#orderStatusFilter:focus {
     radial-gradient(1200px 260px at 0% -20%, rgba(59, 130, 246, 0.18), transparent 60%),
     radial-gradient(900px 260px at 100% -20%, rgba(16, 185, 129, 0.14), transparent 60%),
     var(--admin-bg-light);
+  min-width: 0;
 }
 
 .transport-control-center__head {
@@ -4643,6 +4644,13 @@ select#orderStatusFilter:focus {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.transport-control-center__head-right {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+  min-width: 0;
 }
 
 .transport-tabs {
@@ -4842,11 +4850,11 @@ select#orderStatusFilter:focus {
 }
 
 .transport-fields-grid--location {
-  grid-template-columns: minmax(220px, 1.2fr) minmax(220px, 1.2fr) minmax(160px, 0.8fr) minmax(160px, 0.8fr) minmax(150px, 0.8fr) minmax(130px, 0.7fr) minmax(130px, 0.8fr);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
 .transport-fields-grid--route-core {
-  grid-template-columns: minmax(220px, 1.2fr) minmax(220px, 1.2fr) repeat(3, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
 .transport-fields-grid--capacity {
@@ -4858,15 +4866,15 @@ select#orderStatusFilter:focus {
 }
 
 .transport-fields-grid--route-builder {
-  grid-template-columns: minmax(220px, 0.8fr) minmax(220px, 1.2fr);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 }
 
 .transport-fields-grid--route-city-bulk {
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 }
 
 .transport-fields-grid--pricing-core {
-  grid-template-columns: minmax(240px, 1.3fr) repeat(5, minmax(130px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
 
 .transport-fields-grid--pricing-time {
@@ -4944,6 +4952,10 @@ select#orderStatusFilter:focus {
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.transport-simple-mode-toggle {
+  min-height: 30px;
 }
 
 .transport-bulk-primary-toggles {
@@ -5039,6 +5051,27 @@ select#orderStatusFilter:focus {
 
 .transport-multi-select-toolbar--actions-only .transport-multi-select-toolbar__actions {
   margin-left: 0;
+}
+
+.transport-city-preset-toolbar {
+  align-items: end;
+}
+
+.transport-city-preset-toolbar .transport-multi-select-toolbar__actions {
+  margin-left: auto;
+}
+
+.transport-city-preset-toolbar .transport-field--wide {
+  min-width: min(420px, 100%);
+}
+
+.transport-bulk-scope-hint {
+  margin-top: -6px;
+  color: #bfdbfe;
+}
+
+.transport-city-pair-fields[hidden] {
+  display: none !important;
 }
 
 .transport-advanced-options {
@@ -5207,6 +5240,15 @@ select#orderStatusFilter:focus {
   word-break: break-word;
 }
 
+#viewTransport.transport-simple-mode .transport-advanced-block {
+  display: none;
+}
+
+#viewTransport {
+  min-width: 0;
+  overflow-x: hidden;
+}
+
 .transport-table-scroll {
   overflow-x: hidden;
 }
@@ -5298,6 +5340,11 @@ select#orderStatusFilter:focus {
 
   .transport-tab-button {
     padding: 10px 14px;
+  }
+
+  .transport-control-center__head-right {
+    justify-items: start;
+    width: 100%;
   }
 
   .transport-bulk-destination-list {
