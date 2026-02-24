@@ -14059,13 +14059,9 @@ function renderTransportRoutesTable() {
     }).join('');
 
     return `
-      <tr>
+      <tr class="transport-routes-summary-row">
         <td data-label="Route">
           <div class="transport-route-group-title">${escapeHtml(group.label)}</div>
-          <details class="transport-stack-details transport-route-variants-details">
-            <summary>Show ${group.rows.length} route variant(s)</summary>
-            <div class="transport-stacked-list transport-route-variant-list">${detailsRows}</div>
-          </details>
         </td>
         <td data-label="Day" style="text-align: right;">${escapeHtml(dayLabel)}</td>
         <td data-label="Night" style="text-align: right;">${escapeHtml(nightLabel)}</td>
@@ -14076,6 +14072,14 @@ function renderTransportRoutesTable() {
         <td data-label="Updated">${latestUpdated ? transportIsoToLabel(latestUpdated) : '—'}</td>
         <td data-label="Actions" style="text-align: right;">
           <button class="btn-small btn-secondary" type="button" onclick="applyTransportCityPairToRouteBulkScope('${escapeHtml(group.originGroup)}','${escapeHtml(group.destinationGroup)}')">Load Scope</button>
+        </td>
+      </tr>
+      <tr class="transport-routes-variants-row">
+        <td colspan="9" data-label="Variants">
+          <details class="transport-stack-details transport-route-variants-details">
+            <summary>Show ${group.rows.length} route variant(s)</summary>
+            <div class="transport-stacked-list transport-route-variant-list">${detailsRows}</div>
+          </details>
         </td>
       </tr>
     `;

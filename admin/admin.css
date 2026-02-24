@@ -5635,20 +5635,37 @@ select#orderStatusFilter:focus {
   justify-content: flex-end;
 }
 
-.transport-routes-table th:first-child,
-.transport-routes-table td:first-child {
-  width: 38%;
+.transport-table-scroll table.transport-routes-table {
+  table-layout: auto;
 }
 
-.transport-routes-table th,
-.transport-routes-table td {
+.transport-table-scroll table.transport-routes-table th,
+.transport-table-scroll table.transport-routes-table td {
   overflow-wrap: normal;
   word-break: normal;
 }
 
-.transport-routes-table td:first-child {
+.transport-routes-table th:first-child,
+.transport-routes-table .transport-routes-summary-row td:first-child {
+  width: 24%;
+  min-width: 240px;
+}
+
+.transport-routes-table .transport-routes-summary-row td {
+  vertical-align: middle;
+}
+
+.transport-routes-table .transport-routes-summary-row td:first-child {
+  white-space: normal;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+@media (min-width: 769px) {
+  .transport-routes-table .transport-routes-summary-row td:not(:first-child) {
+    white-space: nowrap;
+    font-size: 12px;
+  }
 }
 
 .transport-route-group-title {
@@ -5657,7 +5674,7 @@ select#orderStatusFilter:focus {
 }
 
 .transport-route-variants-details {
-  margin-top: 9px;
+  margin-top: 0;
 }
 
 .transport-route-variants-details > summary {
@@ -5682,7 +5699,7 @@ select#orderStatusFilter:focus {
 .transport-route-variant-list {
   margin-top: 10px;
   gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .transport-route-variant-card {
@@ -5798,6 +5815,17 @@ select#orderStatusFilter:focus {
   word-break: normal;
 }
 
+.transport-routes-variants-row td {
+  white-space: normal !important;
+  padding-top: 10px;
+  padding-bottom: 14px;
+  background: rgba(15, 23, 42, 0.14);
+}
+
+.transport-routes-variants-row:hover td {
+  background: rgba(30, 41, 59, 0.24);
+}
+
 #viewTransport.transport-simple-mode .transport-advanced-block {
   display: none;
 }
@@ -5822,23 +5850,13 @@ select#orderStatusFilter:focus {
   word-break: break-word;
 }
 
-.transport-table-scroll .transport-routes-table th,
-.transport-table-scroll .transport-routes-table td {
-  overflow-wrap: normal;
-  word-break: normal;
-}
-
-.transport-table-scroll .transport-routes-table td:first-child {
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
 @media (max-width: 1400px) {
-  .transport-routes-table th:first-child,
-  .transport-routes-table td:first-child {
-    width: 42%;
+  .transport-route-variant-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
 
+@media (max-width: 1180px) {
   .transport-route-variant-card__metrics {
     grid-template-columns: 1fr;
   }
@@ -5965,6 +5983,11 @@ select#orderStatusFilter:focus {
 
   .admin-table-container[aria-label="Transport routes"] .admin-table td[data-label="Route"] > * {
     justify-self: stretch;
+    text-align: left;
+  }
+
+  .admin-table-container[aria-label="Transport routes"] .admin-table .transport-routes-variants-row td {
+    display: block;
     text-align: left;
   }
 
