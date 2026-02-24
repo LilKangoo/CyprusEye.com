@@ -4866,6 +4866,18 @@ select#orderStatusFilter:focus {
   display: none;
 }
 
+#viewTransport.transport-guided-mode .transport-tabs {
+  display: none;
+}
+
+#viewTransport.transport-guided-mode .transport-workflow-strip {
+  display: none;
+}
+
+#viewTransport.transport-guided-mode .transport-control-center__steps {
+  display: none;
+}
+
 .transport-control-center__subtitle {
   margin: 6px 0 0;
   color: var(--admin-text-muted);

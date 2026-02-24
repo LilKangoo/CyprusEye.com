@@ -15773,9 +15773,16 @@ function bindTransportAdminUi() {
     button.addEventListener('click', () => {
       const tab = normalizeTransportTab(button.getAttribute('data-transport-guided-tab') || 'locations');
       void setTransportActiveTab(tab, { load: true });
-      const tabsEl = document.querySelector('#viewTransport .transport-tabs');
-      if (tabsEl && typeof tabsEl.scrollIntoView === 'function') {
-        tabsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const panelMap = {
+        locations: 'transportTabLocations',
+        routes: 'transportTabRoutes',
+        pricing: 'transportTabPricing',
+        bookings: 'transportTabBookings',
+      };
+      const panelId = panelMap[tab] || '';
+      const panelEl = panelId ? document.getElementById(panelId) : null;
+      if (panelEl && typeof panelEl.scrollIntoView === 'function') {
+        panelEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     });
   });
