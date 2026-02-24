@@ -732,7 +732,7 @@
                     Fare simulator
                     <button class="transport-help-trigger" type="button" data-transport-help="simulator" aria-label="How to use Fare simulator">?</button>
                   </h4>
-                  <p class="transport-control-panel__hint">Live quote for passengers, bags, seats, oversize luggage, waiting billed per started hour, and deposit.</p>
+                  <p class="transport-control-panel__hint">Live quote for passengers, small backpacks, large bags (15kg+), seats, waiting billed per started hour, and deposit.</p>
                 </div>
                 <div class="transport-inline-actions">
                   <button class="btn-secondary" type="button" id="btnTransportControlResetScenario">Reset scenario</button>
@@ -777,7 +777,7 @@
                     <input id="transportPreviewPassengers" type="number" min="1" step="1" value="2" data-transport-preview-input />
                   </label>
                   <label class="admin-form-field" style="margin: 0;">
-                    <span>Bags</span>
+                    <span>Small backpacks</span>
                     <input id="transportPreviewBags" type="number" min="0" step="1" value="2" data-transport-preview-input />
                   </label>
                 </div>
@@ -785,7 +785,7 @@
                   <summary>Advanced scenario options</summary>
                   <div class="admin-form-grid transport-simulator-grid transport-simulator-grid--advanced">
                   <label class="admin-form-field" style="margin: 0;">
-                    <span>Oversize bags</span>
+                    <span>Large bags (15kg+)</span>
                     <input id="transportPreviewOversizeBags" type="number" min="0" step="1" value="0" data-transport-preview-input />
                   </label>
                   <label class="admin-form-field" style="margin: 0;">
@@ -805,8 +805,8 @@
                 <div class="transport-breakdown-grid">
                   <div class="transport-breakdown-item"><span>Base fare</span><strong id="transportPreviewBase">—</strong></div>
                   <div class="transport-breakdown-item"><span>Extra passengers</span><strong id="transportPreviewExtraPassengers">—</strong></div>
-                  <div class="transport-breakdown-item"><span>Extra bags</span><strong id="transportPreviewExtraBags">—</strong></div>
-                  <div class="transport-breakdown-item"><span>Oversize bags</span><strong id="transportPreviewExtraOversize">—</strong></div>
+                  <div class="transport-breakdown-item"><span>Extra small backpacks</span><strong id="transportPreviewExtraBags">—</strong></div>
+                  <div class="transport-breakdown-item"><span>Extra large bags (15kg+)</span><strong id="transportPreviewExtraOversize">—</strong></div>
                   <div class="transport-breakdown-item"><span>Seats (child + booster)</span><strong id="transportPreviewExtraSeats">—</strong></div>
                   <div class="transport-breakdown-item"><span>Waiting fee</span><strong id="transportPreviewExtraWaiting">—</strong></div>
                   <div class="transport-breakdown-item"><span>Deposit preview</span><strong id="transportPreviewDeposit">—</strong></div>
@@ -822,8 +822,8 @@
           <section class="transport-control-panel transport-control-panel--matrix">
             <div class="transport-inline-head">
               <h4 class="transport-title-with-help transport-title-with-help--compact">
-                Passengers × bags matrix
-                <button class="transport-help-trigger" type="button" data-transport-help="matrix" aria-label="How to use Passengers and bags matrix">?</button>
+                Passengers × backpacks matrix
+                <button class="transport-help-trigger" type="button" data-transport-help="matrix" aria-label="How to use Passengers and backpacks matrix">?</button>
               </h4>
               <div class="transport-control-panel__hint" id="transportPreviewMatrixMeta">Matrix updates after selecting route.</div>
               <button
@@ -1118,15 +1118,19 @@
                       <input type="number" id="transportRouteIncludedPassengers" min="1" step="1" value="2" />
                     </label>
                     <label class="admin-form-field transport-field">
-                      <span>Incl. bags</span>
+                      <span>Incl. backpacks</span>
                       <input type="number" id="transportRouteIncludedBags" min="0" step="1" value="2" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Incl. large bags (15kg+)</span>
+                      <input type="number" id="transportRouteIncludedLargeBags" min="0" step="1" value="0" />
                     </label>
                     <label class="admin-form-field transport-field">
                       <span>Max pax</span>
                       <input type="number" id="transportRouteMaxPassengers" min="1" step="1" value="8" />
                     </label>
                     <label class="admin-form-field transport-field">
-                      <span>Max bags</span>
+                      <span>Max total luggage</span>
                       <input type="number" id="transportRouteMaxBags" min="0" step="1" value="8" />
                     </label>
                   </div>
@@ -1374,11 +1378,11 @@
                       <input type="number" id="transportPricingExtraPassenger" min="0" step="0.01" value="0" />
                     </label>
                     <label class="admin-form-field transport-field">
-                      <span>Extra bag</span>
+                      <span>Extra small backpack</span>
                       <input type="number" id="transportPricingExtraBag" min="0" step="0.01" value="0" />
                     </label>
                     <label class="admin-form-field transport-field">
-                      <span>Oversize bag</span>
+                      <span>Extra large bag (15kg+)</span>
                       <input type="number" id="transportPricingOversizeBag" min="0" step="0.01" value="0" />
                     </label>
                     <label class="admin-form-field transport-field">
@@ -1685,7 +1689,7 @@
                   <th>Booking</th>
                   <th>Customer</th>
                   <th>Route & Date</th>
-                  <th>Pax / Bags</th>
+                  <th>Pax / Luggage</th>
                   <th>Status</th>
                   <th style="text-align: right;">Amount</th>
                   <th style="text-align: right;">Actions</th>

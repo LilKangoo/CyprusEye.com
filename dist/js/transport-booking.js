@@ -181,13 +181,33 @@ function isMissingColumn(error, columnName) {
 async function loadRoutesSafe() {
   let result = await supabase
     .from('transport_routes')
-    .select('id, origin_location_id, destination_location_id, day_price, night_price, currency, included_passengers, included_bags, max_passengers, max_bags, allows_round_trip, round_trip_multiplier, is_active, sort_order')
+    .select('id, origin_location_id, destination_location_id, day_price, night_price, currency, included_passengers, included_bags, included_large_bags, max_passengers, max_bags, allows_round_trip, round_trip_multiplier, is_active, sort_order')
     .eq('is_active', true)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: false })
     .limit(2000);
 
+  if (result.error && isMissingColumn(result.error, 'included_large_bags')) {
+    result = await supabase
+      .from('transport_routes')
+      .select('id, origin_location_id, destination_location_id, day_price, night_price, currency, included_passengers, included_bags, max_passengers, max_bags, allows_round_trip, round_trip_multiplier, is_active, sort_order')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: false })
+      .limit(2000);
+  }
+
   if (result.error && (isMissingColumn(result.error, 'allows_round_trip') || isMissingColumn(result.error, 'round_trip_multiplier'))) {
+    result = await supabase
+      .from('transport_routes')
+      .select('id, origin_location_id, destination_location_id, day_price, night_price, currency, included_passengers, included_bags, included_large_bags, max_passengers, max_bags, is_active, sort_order')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: false })
+      .limit(2000);
+  }
+
+  if (result.error && isMissingColumn(result.error, 'included_large_bags')) {
     result = await supabase
       .from('transport_routes')
       .select('id, origin_location_id, destination_location_id, day_price, night_price, currency, included_passengers, included_bags, max_passengers, max_bags, is_active, sort_order')
@@ -525,7 +545,8 @@ function getBestPricingRuleForRoute(routeId, travelDateIso) {
 
 function getScenario(route, overrides = {}) {
   const passengersDefault = Math.max(1, toNonNegativeInt(route?.included_passengers, 2));
-  const bagsDefault = toNonNegativeInt(route?.included_bags, 2);
+  const backpacksDefault = toNonNegativeInt(route?.included_bags, 2);
+  const largeBagsDefault = toNonNegativeInt(route?.included_large_bags, 0);
   const scenarioTripType = normalizeTripType(overrides.tripType ?? els.tripTypeSelect?.value ?? 'one_way');
   const scenarioTravelTime = String(overrides.travelTime ?? els.travelTimeInput?.value ?? '12:00').trim().slice(0, 5);
 
@@ -534,8 +555,8 @@ function getScenario(route, overrides = {}) {
     tripType: scenarioTripType,
     travelTime: scenarioTravelTime,
     passengers: Math.max(1, toNonNegativeInt(overrides.passengers ?? els.passengersInput?.value, passengersDefault)),
-    bags: toNonNegativeInt(overrides.bags ?? els.bagsInput?.value, bagsDefault),
-    oversizeBags: toNonNegativeInt(overrides.oversizeBags ?? els.oversizeBagsInput?.value, 0),
+    bags: toNonNegativeInt(overrides.bags ?? els.bagsInput?.value, backpacksDefault),
+    oversizeBags: toNonNegativeInt(overrides.oversizeBags ?? els.oversizeBagsInput?.value, largeBagsDefault),
     childSeats: toNonNegativeInt(overrides.childSeats ?? els.childSeatsInput?.value, 0),
     boosterSeats: toNonNegativeInt(overrides.boosterSeats ?? els.boosterSeatsInput?.value, 0),
     waitingMinutes: toNonNegativeInt(overrides.waitingMinutes ?? els.waitingMinutesInput?.value, 0),
@@ -549,9 +570,11 @@ function calculateQuote(route, rule, scenario) {
   const baseDay = toNonNegativeNumber(route?.day_price, 0);
   const baseNight = toNonNegativeNumber(route?.night_price, 0);
   const includedPassengers = Math.max(1, toNonNegativeInt(route?.included_passengers, 1));
-  const includedBags = toNonNegativeInt(route?.included_bags, 2);
+  const includedBackpacks = toNonNegativeInt(route?.included_bags, 2);
+  const includedLargeBags = toNonNegativeInt(route?.included_large_bags, 0);
   const maxPassengers = Math.max(1, toNonNegativeInt(route?.max_passengers, includedPassengers));
-  const maxBags = Math.max(includedBags, toNonNegativeInt(route?.max_bags, includedBags));
+  const includedTotalLuggage = includedBackpacks + includedLargeBags;
+  const maxBags = Math.max(includedTotalLuggage, toNonNegativeInt(route?.max_bags, includedTotalLuggage));
 
   const nightStartRaw = String(pricingRule?.night_start || '22:00').trim().slice(0, 5) || '22:00';
   const nightEndRaw = String(pricingRule?.night_end || '06:00').trim().slice(0, 5) || '06:00';
@@ -574,13 +597,15 @@ function calculateQuote(route, rule, scenario) {
   }
 
   const extraPassengerCount = Math.max(0, scenario.passengers - includedPassengers);
-  const extraBagCount = Math.max(0, scenario.bags - includedBags);
+  const extraBagCount = Math.max(0, scenario.bags - includedBackpacks);
+  const extraLargeBagCount = Math.max(0, scenario.oversizeBags - includedLargeBags);
+  const totalLuggageCount = toNonNegativeInt(scenario.bags, 0) + toNonNegativeInt(scenario.oversizeBags, 0);
   const waitingChargedMinutes = Math.max(0, scenario.waitingMinutes - waitingIncluded);
   const waitingChargedHours = waitingChargedMinutes > 0 ? Math.ceil(waitingChargedMinutes / 60) : 0;
 
   const extraPassengersCost = round2(extraPassengerCount * extraPassengerFee);
   const extraBagsCost = round2(extraBagCount * extraBagFee);
-  const oversizeCost = round2(scenario.oversizeBags * oversizeBagFee);
+  const oversizeCost = round2(extraLargeBagCount * oversizeBagFee);
   const seatsCost = round2((scenario.childSeats * childSeatFee) + (scenario.boosterSeats * boosterSeatFee));
   const waitingCost = round2(waitingChargedHours * waitingFeePerHour);
   const extrasTotal = round2(extraPassengersCost + extraBagsCost + oversizeCost + seatsCost + waitingCost);
@@ -590,8 +615,8 @@ function calculateQuote(route, rule, scenario) {
   if (scenario.passengers > maxPassengers) {
     warnings.push(`Passengers exceed route limit (${maxPassengers}).`);
   }
-  if (scenario.bags > maxBags) {
-    warnings.push(`Bags exceed route limit (${maxBags}).`);
+  if (totalLuggageCount > maxBags) {
+    warnings.push(`Total luggage exceeds route limit (${maxBags}).`);
   }
 
   let tripType = normalizeTripType(scenario.tripType || 'one_way');
@@ -635,15 +660,18 @@ function calculateQuote(route, rule, scenario) {
     allowsRoundTrip,
     roundTripMultiplier,
     includedPassengers,
-    includedBags,
+    includedBags: includedBackpacks,
+    includedLargeBags,
     maxPassengers,
     maxBags,
+    totalLuggageCount,
     nightStartRaw,
     nightEndRaw,
     waitingIncluded,
     waitingFeePerHour,
     extraPassengersCost,
     extraBagsCost,
+    extraLargeBagCount,
     oversizeCost,
     seatsCost,
     waitingCost,
@@ -798,7 +826,8 @@ function renderQuote(summary) {
 
 function scenarioExceedsCapacity(quote) {
   if (!quote || !quote.scenario) return true;
-  return quote.scenario.passengers > quote.maxPassengers || quote.scenario.bags > quote.maxBags;
+  const totalLuggage = toNonNegativeInt(quote?.scenario?.bags, 0) + toNonNegativeInt(quote?.scenario?.oversizeBags, 0);
+  return quote.scenario.passengers > quote.maxPassengers || totalLuggage > quote.maxBags;
 }
 
 function hasBlockingCapacityWarning(summary) {
@@ -935,7 +964,7 @@ function refreshQuote() {
   }
 
   if (hasBlockingCapacityWarning(summary)) {
-    setStatus('Passengers or bags exceed route limits on at least one leg.', 'error');
+    setStatus('Passengers or total luggage exceed route limits on at least one leg.', 'error');
   } else if (statusMessage) {
     setStatus(statusMessage, statusType);
   } else {
@@ -1111,7 +1140,7 @@ async function handleSubmit(event) {
   }
 
   if (hasBlockingCapacityWarning(quote)) {
-    setStatus('Passengers or bags exceed route limits. Please adjust before submitting.', 'error');
+    setStatus('Passengers or total luggage exceed route limits. Please adjust before submitting.', 'error');
     updateSubmitState();
     return;
   }

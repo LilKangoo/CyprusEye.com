@@ -10663,15 +10663,16 @@ function getTransportPreviewScenario(route) {
   };
 
   const passengersDefault = Math.max(1, transportToNonNegativeInt(route?.included_passengers, 2));
-  const bagsDefault = transportToNonNegativeInt(route?.included_bags, 2);
+  const backpacksDefault = transportToNonNegativeInt(route?.included_bags, 2);
+  const largeBagsDefault = transportToNonNegativeInt(route?.included_large_bags, 0);
 
   return {
     rateMode: String(document.getElementById('transportPreviewRateMode')?.value || 'auto').trim().toLowerCase(),
     tripType: normalizeTransportTripMode(document.getElementById('transportPreviewTripType')?.value || 'one_way'),
     travelTime: String(document.getElementById('transportPreviewTravelTime')?.value || '12:00').trim().slice(0, 5),
     passengers: transportToNonNegativeInt(readNumber('transportPreviewPassengers', passengersDefault), passengersDefault),
-    bags: transportToNonNegativeInt(readNumber('transportPreviewBags', bagsDefault), bagsDefault),
-    oversizeBags: transportToNonNegativeInt(readNumber('transportPreviewOversizeBags', 0), 0),
+    bags: transportToNonNegativeInt(readNumber('transportPreviewBags', backpacksDefault), backpacksDefault),
+    oversizeBags: transportToNonNegativeInt(readNumber('transportPreviewOversizeBags', largeBagsDefault), largeBagsDefault),
     childSeats: transportToNonNegativeInt(readNumber('transportPreviewChildSeats', 0), 0),
     boosterSeats: transportToNonNegativeInt(readNumber('transportPreviewBoosterSeats', 0), 0),
     waitingMinutes: transportToNonNegativeInt(readNumber('transportPreviewWaitingMinutes', 0), 0),
@@ -10688,9 +10689,11 @@ function calculateTransportControlQuote(route, rule, scenario) {
   const baseDay = transportToNonNegativeNumber(route?.day_price, 0);
   const baseNight = transportToNonNegativeNumber(route?.night_price, 0);
   const includedPassengers = Math.max(1, transportToNonNegativeInt(route?.included_passengers, 1));
-  const includedBags = transportToNonNegativeInt(route?.included_bags, 2);
+  const includedBackpacks = transportToNonNegativeInt(route?.included_bags, 2);
+  const includedLargeBags = transportToNonNegativeInt(route?.included_large_bags, 0);
   const maxPassengers = Math.max(1, transportToNonNegativeInt(route?.max_passengers, includedPassengers));
-  const maxBags = Math.max(includedBags, transportToNonNegativeInt(route?.max_bags, Math.max(8, includedBags)));
+  const includedTotalLuggage = includedBackpacks + includedLargeBags;
+  const maxBags = Math.max(includedTotalLuggage, transportToNonNegativeInt(route?.max_bags, Math.max(8, includedTotalLuggage)));
   const allowsRoundTrip = transportRouteAllowsRoundTrip(route);
   const requestedTripType = normalizeTransportTripMode(scenario?.tripType || 'one_way');
   const roundTripMultiplier = transportRouteRoundTripMultiplier(route);
@@ -10723,13 +10726,15 @@ function calculateTransportControlQuote(route, rule, scenario) {
   }
 
   const extraPassengerCount = Math.max(0, scenario.passengers - includedPassengers);
-  const extraBagCount = Math.max(0, scenario.bags - includedBags);
+  const extraBagCount = Math.max(0, scenario.bags - includedBackpacks);
+  const extraLargeBagCount = Math.max(0, scenario.oversizeBags - includedLargeBags);
+  const totalLuggageCount = transportToNonNegativeInt(scenario.bags, 0) + transportToNonNegativeInt(scenario.oversizeBags, 0);
   const waitingChargedMinutes = Math.max(0, scenario.waitingMinutes - waitingIncluded);
   const waitingChargedHours = waitingChargedMinutes > 0 ? Math.ceil(waitingChargedMinutes / 60) : 0;
 
   const extraPassengersCost = round2(extraPassengerCount * extraPassengerFee);
   const extraBagsCost = round2(extraBagCount * extraBagFee);
-  const oversizeCost = round2(scenario.oversizeBags * oversizeBagFee);
+  const oversizeCost = round2(extraLargeBagCount * oversizeBagFee);
   const seatsCost = round2((scenario.childSeats * childSeatFee) + (scenario.boosterSeats * boosterSeatFee));
   const waitingCost = round2(waitingChargedHours * waitingFeePerHour);
   const extrasTotal = round2(extraPassengersCost + extraBagsCost + oversizeCost + seatsCost + waitingCost);
@@ -10737,7 +10742,7 @@ function calculateTransportControlQuote(route, rule, scenario) {
 
   const warnings = [];
   if (scenario.passengers > maxPassengers) warnings.push(`Passengers exceed route limit (${maxPassengers}).`);
-  if (scenario.bags > maxBags) warnings.push(`Bags exceed route limit (${maxBags}).`);
+  if (totalLuggageCount > maxBags) warnings.push(`Total luggage exceeds route limit (${maxBags}).`);
 
   let tripType = requestedTripType;
   if (tripType === 'round_trip' && !allowsRoundTrip) {
@@ -10782,15 +10787,18 @@ function calculateTransportControlQuote(route, rule, scenario) {
     allowsRoundTrip,
     roundTripMultiplier,
     includedPassengers,
-    includedBags,
+    includedBags: includedBackpacks,
+    includedLargeBags,
     maxPassengers,
     maxBags,
+    totalLuggageCount,
     waitingIncluded,
     waitingFeePerHour,
     nightStartRaw,
     nightEndRaw,
     extraPassengerCount,
     extraBagCount,
+    extraLargeBagCount,
     waitingChargedMinutes,
     waitingChargedHours,
     extraPassengersCost,
@@ -10829,6 +10837,7 @@ function renderTransportPreviewMatrix(route, quote, rule) {
   const shownBags = Math.min(maxBags, 6);
   const includedPassengers = Math.max(1, transportToNonNegativeInt(route?.included_passengers, 1));
   const includedBags = transportToNonNegativeInt(route?.included_bags, 2);
+  const includedLargeBags = transportToNonNegativeInt(route?.included_large_bags, 0);
   const extraPassengerFee = transportToNonNegativeNumber(rule?.extra_passenger_fee, 0);
   const extraBagFee = transportToNonNegativeNumber(rule?.extra_bag_fee, 0);
   const baseFare = quote?.baseFare || 0;
@@ -10836,15 +10845,15 @@ function renderTransportPreviewMatrix(route, quote, rule) {
   const tripType = normalizeTransportTripMode(quote?.tripType || 'one_way');
   const currency = quote?.currency || String(route?.currency || 'EUR').trim().toUpperCase() || 'EUR';
   const matrixLimitNote = (shownPassengers < maxPassengers || shownBags < maxBags)
-    ? ` Display capped to ${shownPassengers} pax and ${shownBags} bags for readability.`
+    ? ` Display capped to ${shownPassengers} pax and ${shownBags} backpacks for readability.`
     : '';
 
   const tripText = tripType === 'round_trip' ? `ROUND TRIP x${tripMultiplier.toFixed(2)}` : 'ONE WAY';
-  meta.textContent = `Using ${String(quote?.basePeriod || 'day').toUpperCase()} base fare (${tripText}). Matrix includes base + passenger/bag extras.${matrixLimitNote}`;
+  meta.textContent = `Using ${String(quote?.basePeriod || 'day').toUpperCase()} base fare (${tripText}). Matrix includes base + passenger/small-backpack extras. Large bags (15kg+) are priced separately (${includedLargeBags} included in base).${matrixLimitNote}`;
 
   const headCols = [];
   for (let bag = 0; bag <= shownBags; bag += 1) {
-    headCols.push(`<th style="text-align:right;">${bag} bags</th>`);
+    headCols.push(`<th style="text-align:right;">${bag} backpacks</th>`);
   }
 
   const bodyRows = [];
@@ -10867,7 +10876,7 @@ function renderTransportPreviewMatrix(route, quote, rule) {
   table.innerHTML = `
     <thead>
       <tr>
-        <th style="text-align:left;">Passengers \\ Bags</th>
+        <th style="text-align:left;">Passengers \\ Backpacks</th>
         ${headCols.join('')}
       </tr>
     </thead>
@@ -11268,7 +11277,7 @@ const TRANSPORT_HELP_TOPICS = Object.freeze({
     intro: 'Main cockpit to preview final customer quote before changing forms.',
     steps: [
       'Select route and pricing rule.',
-      'Adjust simulator values (pax, bags, waiting, trip type).',
+      'Adjust simulator values (pax, small backpacks, large bags 15kg+, waiting, trip type).',
       'Use quick buttons to jump to route/pricing editor.',
     ],
     tips: [
@@ -11289,20 +11298,22 @@ const TRANSPORT_HELP_TOPICS = Object.freeze({
     intro: 'Live breakdown of base fare + extras + waiting + deposit.',
     steps: [
       'Set travel time and rate mode (auto/day/night).',
-      'Set passengers, bags, seats and waiting minutes.',
+      'Set passengers, small backpacks, large bags (15kg+), seats and waiting minutes.',
       'Review total and deposit before publishing changes.',
     ],
     tips: [
       'Waiting fee is charged per started hour after included minutes.',
-      'Extra bag fee starts only after included bags limit.',
+      'Extra small-backpack fee starts only after included small-backpack limit.',
+      'Extra large-bag (15kg+) fee starts only after included large-bag limit.',
     ],
   },
   matrix: {
-    title: 'Passengers × Bags Matrix',
-    intro: 'Quick sanity-check for common combinations without manual simulation.',
+    title: 'Passengers × Backpacks Matrix',
+    intro: 'Quick sanity-check for common passenger + small-backpack combinations.',
     steps: [
       'Select route in control center.',
       'Read matrix rows/columns for frequent demand patterns.',
+      'Large bags (15kg+) are configured separately and counted outside this matrix.',
     ],
   },
   locations_editor: {
@@ -11348,8 +11359,8 @@ const TRANSPORT_HELP_TOPICS = Object.freeze({
     title: 'Capacity and Limits',
     intro: 'Controls free allowance and maximum constraints.',
     steps: [
-      'Set included pax and included bags (free in base fare).',
-      'Set max pax and max bags for validation.',
+      'Set included pax, included small backpacks, and included large bags (15kg+) free in base fare.',
+      'Set max pax and max total luggage for validation.',
     ],
   },
   route_trip_mode: {
@@ -11399,7 +11410,7 @@ const TRANSPORT_HELP_TOPICS = Object.freeze({
     title: 'Rule Scope and Extras',
     intro: 'Adds per-rule surcharges on top of route base fare.',
     steps: [
-      'Configure extra passenger/bag/oversize fees.',
+      'Configure extra passenger, extra small backpack, and extra large bag (15kg+) fees.',
       'Configure seat surcharges and keep route selected.',
       'Use priority to control rule order.',
     ],
@@ -12938,6 +12949,7 @@ function buildTransportRouteBulkPayloadFromForm() {
   const currency = String(document.getElementById('transportRouteCurrency')?.value || 'EUR').trim().toUpperCase() || 'EUR';
   const includedPassengers = transportReadNumberInput('transportRouteIncludedPassengers', 2);
   const includedBags = transportReadNumberInput('transportRouteIncludedBags', 2);
+  const includedLargeBags = transportReadNumberInput('transportRouteIncludedLargeBags', 0);
   const maxPassengers = transportReadNumberInput('transportRouteMaxPassengers', 8);
   const maxBags = transportReadNumberInput('transportRouteMaxBags', 8);
   const tripMode = normalizeTransportTripMode(document.getElementById('transportRouteTripMode')?.value || 'one_way');
@@ -12952,13 +12964,16 @@ function buildTransportRouteBulkPayloadFromForm() {
     return { error: 'Included passengers must be at least 1' };
   }
   if (!Number.isFinite(includedBags) || includedBags < 0) {
-    return { error: 'Included bags must be >= 0' };
+    return { error: 'Included small backpacks must be >= 0' };
+  }
+  if (!Number.isFinite(includedLargeBags) || includedLargeBags < 0) {
+    return { error: 'Included large bags (15kg+) must be >= 0' };
   }
   if (!Number.isFinite(maxPassengers) || maxPassengers < includedPassengers) {
     return { error: 'Max passengers must be greater than or equal to included passengers' };
   }
-  if (!Number.isFinite(maxBags) || maxBags < includedBags) {
-    return { error: 'Max bags must be greater than or equal to included bags' };
+  if (!Number.isFinite(maxBags) || maxBags < (includedBags + includedLargeBags)) {
+    return { error: 'Max total luggage must be greater than or equal to included backpacks + included large bags' };
   }
   if (
     tripMode === 'round_trip'
@@ -12978,6 +12993,7 @@ function buildTransportRouteBulkPayloadFromForm() {
       currency,
       included_passengers: includedPassengers,
       included_bags: includedBags,
+      included_large_bags: includedLargeBags,
       max_passengers: maxPassengers,
       max_bags: maxBags,
       allows_round_trip: allowsRoundTrip,
@@ -13048,8 +13064,9 @@ async function applyTransportRouteCityBulkUpdate(options = {}) {
     if (
       isMissingColumnError(error, 'allows_round_trip')
       || isMissingColumnError(error, 'round_trip_multiplier')
+      || isMissingColumnError(error, 'included_large_bags')
     ) {
-      showToast('Run migration 111_transport_round_trip_waiting_hourly_and_deposit_rules.sql first', 'error');
+      showToast('Run migrations 111_transport_round_trip_waiting_hourly_and_deposit_rules.sql and 115_transport_large_bag_base_allowance.sql first', 'error');
       return { ok: false, reason: 'missing_columns', error };
     }
     showToast(String(error?.message || 'Failed to apply route bulk update'), 'error');
@@ -13361,8 +13378,8 @@ async function buildTransportPricingPayloadFromForm(routeId, options = {}) {
 
   const numericCheck = [
     ['Extra passenger fee', payload.extra_passenger_fee],
-    ['Extra bag fee', payload.extra_bag_fee],
-    ['Oversize bag fee', payload.oversize_bag_fee],
+    ['Extra small backpack fee', payload.extra_bag_fee],
+    ['Extra large bag (15kg+) fee', payload.oversize_bag_fee],
     ['Child seat fee', payload.child_seat_fee],
     ['Booster seat fee', payload.booster_seat_fee],
     ['Waiting included minutes', payload.waiting_included_minutes],
@@ -14571,6 +14588,7 @@ function resetTransportRouteForm() {
   const activeEl = document.getElementById('transportRouteActive');
   const includedPassengersEl = document.getElementById('transportRouteIncludedPassengers');
   const includedBagsEl = document.getElementById('transportRouteIncludedBags');
+  const includedLargeBagsEl = document.getElementById('transportRouteIncludedLargeBags');
   const maxPassengersEl = document.getElementById('transportRouteMaxPassengers');
   const maxBagsEl = document.getElementById('transportRouteMaxBags');
   const tripModeEl = document.getElementById('transportRouteTripMode');
@@ -14588,6 +14606,7 @@ function resetTransportRouteForm() {
   if (currencyEl) currencyEl.value = 'EUR';
   if (includedPassengersEl) includedPassengersEl.value = '2';
   if (includedBagsEl) includedBagsEl.value = '2';
+  if (includedLargeBagsEl) includedLargeBagsEl.value = '0';
   if (maxPassengersEl) maxPassengersEl.value = '8';
   if (maxBagsEl) maxBagsEl.value = '8';
   if (tripModeEl) tripModeEl.value = 'one_way';
@@ -14629,6 +14648,7 @@ function editTransportRoute(routeId) {
   setValue('transportRouteCurrency', String(row.currency || 'EUR'));
   setValue('transportRouteIncludedPassengers', String(Number(row.included_passengers ?? 2)));
   setValue('transportRouteIncludedBags', String(Number(row.included_bags ?? 2)));
+  setValue('transportRouteIncludedLargeBags', String(Number(row.included_large_bags ?? 0)));
   setValue('transportRouteMaxPassengers', String(Number(row.max_passengers || 8)));
   setValue('transportRouteMaxBags', String(Number(row.max_bags ?? 8)));
   setValue('transportRouteTripMode', transportRouteAllowsRoundTrip(row) ? 'round_trip' : 'one_way');
@@ -14778,8 +14798,8 @@ function renderTransportRoutesTable() {
     const nightLabel = oneCurrency
       ? formatTransportMoneyRange(group.rows.map((row) => row?.night_price), oneCurrency)
       : `${group.rows.length} mixed routes`;
-    const included = `${formatTransportIntegerRange(group.rows.map((row) => row?.included_passengers ?? 2), 'pax')} / ${formatTransportIntegerRange(group.rows.map((row) => row?.included_bags ?? 2), 'bags')}`;
-    const limits = `${formatTransportIntegerRange(group.rows.map((row) => row?.max_passengers ?? 8), 'pax')} / ${formatTransportIntegerRange(group.rows.map((row) => row?.max_bags ?? 8), 'bags')}`;
+    const included = `${formatTransportIntegerRange(group.rows.map((row) => row?.included_passengers ?? 2), 'pax')} / ${formatTransportIntegerRange(group.rows.map((row) => row?.included_bags ?? 2), 'small')} + ${formatTransportIntegerRange(group.rows.map((row) => row?.included_large_bags ?? 0), 'large 15kg+')}`;
+    const limits = `${formatTransportIntegerRange(group.rows.map((row) => row?.max_passengers ?? 8), 'pax')} / ${formatTransportIntegerRange(group.rows.map((row) => row?.max_bags ?? 8), 'total luggage')}`;
     const tripModes = Array.from(new Set(group.rows.map((row) => transportRouteTripModeLabel(row))));
     const tripModeLabel = tripModes.length === 1 ? tripModes[0] : 'MIXED';
     const activeCount = group.rows.filter((row) => row?.is_active !== false).length;
@@ -14792,8 +14812,8 @@ function renderTransportRoutesTable() {
       if (!id) return '';
       const routeLabel = getTransportRouteLabel(row);
       const rowCurrency = String(row?.currency || 'EUR').trim().toUpperCase() || 'EUR';
-      const rowIncluded = `${Number(row?.included_passengers ?? 2)} pax / ${Number(row?.included_bags ?? 2)} bags`;
-      const rowLimits = `${Number(row?.max_passengers ?? 8)} pax / ${Number(row?.max_bags ?? 8)} bags`;
+      const rowIncluded = `${Number(row?.included_passengers ?? 2)} pax / ${Number(row?.included_bags ?? 2)} small + ${Number(row?.included_large_bags ?? 0)} large 15kg+`;
+      const rowLimits = `${Number(row?.max_passengers ?? 8)} pax / ${Number(row?.max_bags ?? 8)} total luggage`;
       const routeModeLabel = transportRouteTripModeLabel(row);
       const routeIsActive = row?.is_active !== false;
       const routeStateLabel = routeIsActive ? 'ACTIVE' : 'INACTIVE';
@@ -14927,6 +14947,7 @@ async function saveTransportRouteForm(event) {
   const currency = String(document.getElementById('transportRouteCurrency')?.value || 'EUR').trim().toUpperCase() || 'EUR';
   const includedPassengers = transportReadNumberInput('transportRouteIncludedPassengers', 2);
   const includedBags = transportReadNumberInput('transportRouteIncludedBags', 2);
+  const includedLargeBags = transportReadNumberInput('transportRouteIncludedLargeBags', 0);
   const maxPassengers = transportReadNumberInput('transportRouteMaxPassengers', 8);
   const maxBags = transportReadNumberInput('transportRouteMaxBags', 8);
   const tripMode = normalizeTransportTripMode(document.getElementById('transportRouteTripMode')?.value || 'one_way');
@@ -14953,15 +14974,19 @@ async function saveTransportRouteForm(event) {
     return;
   }
   if (!Number.isFinite(includedBags) || includedBags < 0) {
-    showToast('Included bags must be >= 0', 'error');
+    showToast('Included small backpacks must be >= 0', 'error');
+    return;
+  }
+  if (!Number.isFinite(includedLargeBags) || includedLargeBags < 0) {
+    showToast('Included large bags (15kg+) must be >= 0', 'error');
     return;
   }
   if (!Number.isFinite(maxPassengers) || maxPassengers < includedPassengers) {
     showToast('Max passengers must be greater than or equal to included passengers', 'error');
     return;
   }
-  if (!Number.isFinite(maxBags) || maxBags < includedBags) {
-    showToast('Max bags must be greater than or equal to included bags', 'error');
+  if (!Number.isFinite(maxBags) || maxBags < (includedBags + includedLargeBags)) {
+    showToast('Max total luggage must be greater than or equal to included backpacks + included large bags', 'error');
     return;
   }
   if (
@@ -14983,6 +15008,7 @@ async function saveTransportRouteForm(event) {
     currency,
     included_passengers: Number.isFinite(includedPassengers) ? includedPassengers : 2,
     included_bags: Number.isFinite(includedBags) ? includedBags : 2,
+    included_large_bags: Number.isFinite(includedLargeBags) ? includedLargeBags : 0,
     max_passengers: Number.isFinite(maxPassengers) ? maxPassengers : 8,
     max_bags: Number.isFinite(maxBags) ? maxBags : 8,
     allows_round_trip: allowsRoundTrip,
@@ -15086,8 +15112,9 @@ async function saveTransportRouteForm(event) {
     if (
       isMissingColumnError(error, 'allows_round_trip')
       || isMissingColumnError(error, 'round_trip_multiplier')
+      || isMissingColumnError(error, 'included_large_bags')
     ) {
-      showToast('Run migration 111_transport_round_trip_waiting_hourly_and_deposit_rules.sql first', 'error');
+      showToast('Run migrations 111_transport_round_trip_waiting_hourly_and_deposit_rules.sql and 115_transport_large_bag_base_allowance.sql first', 'error');
       return;
     }
     showToast(String(error?.message || 'Failed to save route'), 'error');
@@ -15114,6 +15141,7 @@ async function createTransportRouteSetFromCurrentForm() {
   const currency = String(document.getElementById('transportRouteCurrency')?.value || 'EUR').trim().toUpperCase() || 'EUR';
   const includedPassengers = transportReadNumberInput('transportRouteIncludedPassengers', 2);
   const includedBags = transportReadNumberInput('transportRouteIncludedBags', 2);
+  const includedLargeBags = transportReadNumberInput('transportRouteIncludedLargeBags', 0);
   const maxPassengers = transportReadNumberInput('transportRouteMaxPassengers', 8);
   const maxBags = transportReadNumberInput('transportRouteMaxBags', 8);
   const tripMode = normalizeTransportTripMode(document.getElementById('transportRouteTripMode')?.value || 'one_way');
@@ -15130,15 +15158,19 @@ async function createTransportRouteSetFromCurrentForm() {
     return;
   }
   if (!Number.isFinite(includedBags) || includedBags < 0) {
-    showToast('Included bags must be >= 0', 'error');
+    showToast('Included small backpacks must be >= 0', 'error');
+    return;
+  }
+  if (!Number.isFinite(includedLargeBags) || includedLargeBags < 0) {
+    showToast('Included large bags (15kg+) must be >= 0', 'error');
     return;
   }
   if (!Number.isFinite(maxPassengers) || maxPassengers < includedPassengers) {
     showToast('Max passengers must be greater than or equal to included passengers', 'error');
     return;
   }
-  if (!Number.isFinite(maxBags) || maxBags < includedBags) {
-    showToast('Max bags must be greater than or equal to included bags', 'error');
+  if (!Number.isFinite(maxBags) || maxBags < (includedBags + includedLargeBags)) {
+    showToast('Max total luggage must be greater than or equal to included backpacks + included large bags', 'error');
     return;
   }
   if (
@@ -15177,6 +15209,7 @@ async function createTransportRouteSetFromCurrentForm() {
       currency,
       included_passengers: includedPassengers,
       included_bags: includedBags,
+      included_large_bags: includedLargeBags,
       max_passengers: maxPassengers,
       max_bags: maxBags,
       allows_round_trip: allowsRoundTrip,
@@ -15204,8 +15237,9 @@ async function createTransportRouteSetFromCurrentForm() {
         if (
           isMissingColumnError(error, 'allows_round_trip')
           || isMissingColumnError(error, 'round_trip_multiplier')
+          || isMissingColumnError(error, 'included_large_bags')
         ) {
-          showToast('Run migration 111_transport_round_trip_waiting_hourly_and_deposit_rules.sql first', 'error');
+          showToast('Run migrations 111_transport_round_trip_waiting_hourly_and_deposit_rules.sql and 115_transport_large_bag_base_allowance.sql first', 'error');
           return;
         }
         failedCount += 1;
@@ -15533,8 +15567,8 @@ function renderTransportPricingTable() {
       const rowCurrency = String(route?.currency || 'EUR').trim().toUpperCase() || 'EUR';
       const surcharges = [
         `+pax ${transportMoney(row?.extra_passenger_fee || 0, rowCurrency)}`,
-        `+bag ${transportMoney(row?.extra_bag_fee || 0, rowCurrency)}`,
-        `+oversize ${transportMoney(row?.oversize_bag_fee || 0, rowCurrency)}`,
+        `+small backpack ${transportMoney(row?.extra_bag_fee || 0, rowCurrency)}`,
+        `+large 15kg+ ${transportMoney(row?.oversize_bag_fee || 0, rowCurrency)}`,
       ].join(' · ');
       const depositEnabled = Boolean(row?.deposit_enabled);
       const depositBaseFloor = transportToNonNegativeNumber(row?.deposit_base_floor, 0);
@@ -15690,8 +15724,8 @@ async function saveTransportPricingForm(event) {
 
   const numericCheck = [
     ['Extra passenger fee', payload.extra_passenger_fee],
-    ['Extra bag fee', payload.extra_bag_fee],
-    ['Oversize bag fee', payload.oversize_bag_fee],
+    ['Extra small backpack fee', payload.extra_bag_fee],
+    ['Extra large bag (15kg+) fee', payload.oversize_bag_fee],
     ['Child seat fee', payload.child_seat_fee],
     ['Booster seat fee', payload.booster_seat_fee],
     ['Waiting included minutes', payload.waiting_included_minutes],
@@ -15905,7 +15939,7 @@ function renderTransportBookingsTable() {
     const routeLabel = getTransportRouteLabelById(row.route_id)
       || `${getTransportLocationLabel(row.origin_location_id)} → ${getTransportLocationLabel(row.destination_location_id)}`;
     const whenLabel = `${row.travel_date ? transportDateToLabel(row.travel_date) : '—'} ${row.travel_time ? escapeHtml(String(row.travel_time).slice(0, 5)) : ''}`.trim();
-    const paxBagsLabel = `${Number(row.num_passengers || 0)} pax / ${Number(row.num_bags || 0)} bags${Number(row.num_oversize_bags || 0) ? ` / ${Number(row.num_oversize_bags || 0)} oversize` : ''}`;
+    const paxBagsLabel = `${Number(row.num_passengers || 0)} pax / ${Number(row.num_bags || 0)} small backpacks${Number(row.num_oversize_bags || 0) ? ` / ${Number(row.num_oversize_bags || 0)} large 15kg+` : ''}`;
     const amountLabel = transportMoney(row.total_price, row.currency || 'EUR');
     const assignedPartnerLabel = row.assigned_partner_id
       ? getTransportPartnerDisplayName(row.assigned_partner_id)
@@ -15925,7 +15959,7 @@ function renderTransportBookingsTable() {
           <div>${escapeHtml(routeLabel)}</div>
           <div class="transport-cell-subtle">${whenLabel}</div>
         </td>
-        <td data-label="Pax / Bags">${escapeHtml(paxBagsLabel)}</td>
+        <td data-label="Pax / Luggage">${escapeHtml(paxBagsLabel)}</td>
         <td data-label="Status">
           ${transportStatusBadge(row.status)}
           ${row.payment_status ? `<div class="transport-cell-subtle transport-cell-subtle--xs">${escapeHtml(String(row.payment_status).toUpperCase())}</div>` : ''}
@@ -16208,7 +16242,7 @@ async function viewTransportBookingDetails(bookingId) {
           <div><strong>Route:</strong> ${escapeHtml(routeLabel)}</div>
           <div><strong>Date:</strong> ${travelDate}</div>
           <div><strong>Time:</strong> ${travelTime}</div>
-          <div><strong>Passengers/Bags:</strong> ${Number(booking.num_passengers || 0)} pax / ${Number(booking.num_bags || 0)} bags${Number(booking.num_oversize_bags || 0) ? ` / ${Number(booking.num_oversize_bags || 0)} oversize` : ''}</div>
+          <div><strong>Passengers/Luggage:</strong> ${Number(booking.num_passengers || 0)} pax / ${Number(booking.num_bags || 0)} small backpacks${Number(booking.num_oversize_bags || 0) ? ` / ${Number(booking.num_oversize_bags || 0)} large 15kg+` : ''}</div>
           <div><strong>Payment status:</strong> ${escapeHtml(String(booking.payment_status || 'unknown').toUpperCase())}</div>
         </div>
       </div>
@@ -29253,7 +29287,7 @@ function renderAllOrdersTable() {
         const bags = Number(order.num_bags || order.bags || 0);
         const oversize = Number(order.num_oversize_bags || 0);
         if (!passengers && !bags && !oversize) return '';
-        return `<div style="font-size: 11px; color: var(--admin-text-muted); margin-top: 2px;">👥 ${passengers || 0} · 🧳 ${bags || 0}${oversize ? ` (+${oversize} oversize)` : ''}</div>`;
+        return `<div style="font-size: 11px; color: var(--admin-text-muted); margin-top: 2px;">👥 ${passengers || 0} · 🎒 ${bags || 0}${oversize ? ` (+${oversize} large 15kg+)` : ''}</div>`;
       }
       if (!order.num_adults) return '';
       return `<div style="font-size: 11px; color: var(--admin-text-muted); margin-top: 2px;">👥 ${order.num_adults}${order.num_children ? '+' + order.num_children : ''}</div>`;
