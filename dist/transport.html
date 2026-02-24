@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CyprusEye Transport Booking</title>
+  <meta name="description" content="Book private transport across Cyprus with instant fare calculation and clear deposit preview." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="assets/css/tokens.css" />
+  <link rel="stylesheet" href="assets/css/base.css" />
+  <link rel="stylesheet" href="css/toast.css" />
+  <link rel="stylesheet" href="css/transport-booking.css?v=20260224_1" />
+  <meta name="ce-auth" content="on" />
+  <script type="module" src="js/supabaseClient.js"></script>
+  <script type="module" src="js/toast.js"></script>
+</head>
+<body class="transport-booking-page">
+  <header class="transport-booking-header">
+    <div class="transport-booking-header__inner">
+      <a class="transport-booking-brand" href="index.html" aria-label="CyprusEye home">
+        <span class="transport-booking-brand__logo">CE</span>
+        <span class="transport-booking-brand__text">CyprusEye Transport</span>
+      </a>
+      <nav class="transport-booking-nav" aria-label="Quick navigation">
+        <a href="car-rental-landing.html">Cars</a>
+        <a href="trips.html">Trips</a>
+        <a href="hotels.html">Hotels</a>
+        <a href="transport.html" class="is-active">Transport</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="transport-booking-main">
+    <section class="transport-hero" aria-labelledby="transportBookingTitle">
+      <h1 id="transportBookingTitle">Private transport booking with live price</h1>
+      <p>
+        Choose pickup and destination, set passengers and luggage, and get an automatic quote immediately.
+        Submit one reservation form below and we will confirm your transport quickly.
+      </p>
+    </section>
+
+    <section class="transport-booking-shell" aria-label="Transport booking panel">
+      <div class="transport-booking-grid">
+        <form id="transportBookingForm" class="transport-booking-form" novalidate>
+          <section class="transport-section">
+            <h2>1. Route and schedule</h2>
+            <p class="transport-section__hint">Select available locations and travel date/time.</p>
+            <div class="transport-field-grid">
+              <div class="transport-field">
+                <label for="transportOrigin">Pickup location *</label>
+                <select id="transportOrigin" required>
+                  <option value="">Select pickup</option>
+                </select>
+              </div>
+              <div class="transport-field">
+                <label for="transportDestination">Destination *</label>
+                <select id="transportDestination" required>
+                  <option value="">Select destination</option>
+                </select>
+              </div>
+              <div class="transport-field">
+                <label for="transportTravelDate">Travel date *</label>
+                <input id="transportTravelDate" type="date" required />
+              </div>
+              <div class="transport-field">
+                <label for="transportTravelTime">Travel time *</label>
+                <input id="transportTravelTime" type="time" value="12:00" required />
+              </div>
+              <div class="transport-field transport-field--wide">
+                <label for="transportTripType">Trip type</label>
+                <select id="transportTripType">
+                  <option value="one_way">One way</option>
+                  <option value="round_trip">Round trip</option>
+                </select>
+              </div>
+            </div>
+          </section>
+
+          <section class="transport-section">
+            <h2>2. Passengers and extras</h2>
+            <p class="transport-section__hint">Price updates automatically after every change.</p>
+            <div class="transport-field-grid">
+              <div class="transport-field">
+                <label for="transportPassengers">Passengers *</label>
+                <input id="transportPassengers" type="number" min="1" step="1" value="2" required />
+              </div>
+              <div class="transport-field">
+                <label for="transportBags">Bags</label>
+                <input id="transportBags" type="number" min="0" step="1" value="2" />
+              </div>
+              <div class="transport-field">
+                <label for="transportOversizeBags">Oversize bags</label>
+                <input id="transportOversizeBags" type="number" min="0" step="1" value="0" />
+              </div>
+              <div class="transport-field">
+                <label for="transportChildSeats">Child seats</label>
+                <input id="transportChildSeats" type="number" min="0" step="1" value="0" />
+              </div>
+              <div class="transport-field">
+                <label for="transportBoosterSeats">Booster seats</label>
+                <input id="transportBoosterSeats" type="number" min="0" step="1" value="0" />
+              </div>
+              <div class="transport-field">
+                <label for="transportWaitingMinutes">Driver waiting (minutes)</label>
+                <input id="transportWaitingMinutes" type="number" min="0" step="1" value="0" />
+              </div>
+            </div>
+          </section>
+
+          <section class="transport-section">
+            <h2>3. Contact and trip notes</h2>
+            <p class="transport-section__hint">These details are shared with admin and assigned partner for contact.</p>
+            <div class="transport-field-grid">
+              <div class="transport-field">
+                <label for="transportCustomerName">Full name *</label>
+                <input id="transportCustomerName" type="text" maxlength="120" required />
+              </div>
+              <div class="transport-field">
+                <label for="transportCustomerPhone">Phone *</label>
+                <input id="transportCustomerPhone" type="tel" maxlength="40" required />
+              </div>
+              <div class="transport-field transport-field--wide">
+                <label for="transportCustomerEmail">Email</label>
+                <input id="transportCustomerEmail" type="email" maxlength="160" />
+              </div>
+              <div class="transport-field transport-field--wide">
+                <label for="transportPickupAddress">Pickup address</label>
+                <input id="transportPickupAddress" type="text" maxlength="240" placeholder="Hotel, terminal, exact address" />
+              </div>
+              <div class="transport-field transport-field--wide">
+                <label for="transportDropoffAddress">Dropoff address</label>
+                <input id="transportDropoffAddress" type="text" maxlength="240" placeholder="Hotel, city point, exact address" />
+              </div>
+              <div class="transport-field">
+                <label for="transportFlightNumber">Flight number</label>
+                <input id="transportFlightNumber" type="text" maxlength="40" placeholder="Optional" />
+              </div>
+              <div class="transport-field transport-field--wide">
+                <label for="transportNotes">Extra notes</label>
+                <textarea id="transportNotes" maxlength="1200" placeholder="Any instructions for dispatch or driver"></textarea>
+              </div>
+            </div>
+          </section>
+
+          <div class="transport-submit-row">
+            <button id="transportSubmitBooking" class="transport-submit-btn" type="submit" disabled>
+              Reserve transport
+            </button>
+            <label class="transport-policy-check" for="transportAgreePolicy">
+              <input id="transportAgreePolicy" type="checkbox" required />
+              <span>I confirm the data is correct and agree to be contacted about this booking.</span>
+            </label>
+          </div>
+
+          <div id="transportSubmitSuccess" class="transport-success" hidden></div>
+        </form>
+
+        <aside class="transport-quote" aria-label="Live quote">
+          <h3>Total quote</h3>
+          <div id="transportQuoteStatus" class="transport-status">Loading transport data...</div>
+          <div id="transportRouteMeta" class="transport-route-meta">Route details will appear after selecting pickup and destination.</div>
+
+          <ul class="transport-breakdown">
+            <li><span>Base fare</span><strong id="transportQuoteBase">—</strong></li>
+            <li><span>Extra passengers</span><strong id="transportQuotePassengers">—</strong></li>
+            <li><span>Extra bags</span><strong id="transportQuoteBags">—</strong></li>
+            <li><span>Oversize bags</span><strong id="transportQuoteOversize">—</strong></li>
+            <li><span>Child + booster seats</span><strong id="transportQuoteSeats">—</strong></li>
+            <li><span>Waiting fee</span><strong id="transportQuoteWaiting">—</strong></li>
+            <li class="transport-breakdown--deposit"><span>Deposit to pay now</span><strong id="transportQuoteDeposit">—</strong></li>
+          </ul>
+
+          <div class="transport-total">
+            <span>Total</span>
+            <strong id="transportQuoteTotal">—</strong>
+          </div>
+
+          <ul id="transportQuoteWarnings" class="transport-warning-list"></ul>
+          <p class="transport-footnote">Final confirmation is handled by admin after booking review.</p>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="js/transport-booking.js?v=20260224_1"></script>
+</body>
+</html>

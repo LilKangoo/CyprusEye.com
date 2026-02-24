@@ -124,6 +124,7 @@ async function copyStaticFiles() {
       'cruise.html',
       'hotels.html',
       'hotel.html',
+      'transport.html',
       'trips.html',
       'trip.html',
       'kupon.html',

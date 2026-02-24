@@ -1031,39 +1031,53 @@ async function recoverAdminSessionForTransport(client) {
     const readSession = async (force = true) => {
       if (typeof sbClient.auth.getSessionSafe === 'function') {
         const { data, error } = await sbClient.auth.getSessionSafe({ force });
-        if (error && !isTransportAuthLockTimeoutError(error)) throw error;
+        if (error && !isTransportRecoverableAuthError(error)) throw error;
         return data?.session || null;
       }
       if (typeof sbClient.auth.getSession === 'function') {
         const { data, error } = await sbClient.auth.getSession();
-        if (error && !isTransportAuthLockTimeoutError(error)) throw error;
+        if (error && !isTransportRecoverableAuthError(error)) throw error;
         return data?.session || null;
       }
       return null;
+    };
+
+    const tryRefreshSession = async () => {
+      if (typeof sbClient.auth.refreshSession !== 'function') return false;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          const { data, error } = await sbClient.auth.refreshSession();
+          if (!error && isTransportSessionFresh(data?.session || null, 5000)) {
+            return true;
+          }
+          if (error && !isTransportRecoverableAuthError(error)) {
+            throw error;
+          }
+        } catch (error) {
+          if (!isTransportRecoverableAuthError(error)) throw error;
+        }
+
+        await waitTransportAuthRetry(180 * (attempt + 1));
+
+        try {
+          const refreshed = await readSession(true);
+          if (isTransportSessionFresh(refreshed, 5000)) return true;
+        } catch (error) {
+          if (!isTransportRecoverableAuthError(error)) throw error;
+        }
+      }
+
+      return false;
     };
 
     try {
       let session = await readSession(true);
       if (isTransportSessionFresh(session)) return true;
 
-      if (session?.refresh_token && typeof sbClient.auth.refreshSession === 'function') {
-        for (let attempt = 0; attempt < 2; attempt += 1) {
-          try {
-            const { data, error } = await sbClient.auth.refreshSession();
-            if (!error && isTransportSessionFresh(data?.session || null, 5000)) {
-              return true;
-            }
-            if (error && !isTransportRecoverableAuthError(error)) {
-              throw error;
-            }
-          } catch (error) {
-            if (!isTransportRecoverableAuthError(error)) throw error;
-          }
-
-          await waitTransportAuthRetry(160 * (attempt + 1));
-          session = await readSession(true);
-          if (isTransportSessionFresh(session, 5000)) return true;
-        }
+      // Even with a stale/expired JWT we still try refreshSession().
+      // Some Supabase clients keep refresh token in storage but return auth errors from getSession().
+      if (await tryRefreshSession()) {
+        return true;
       }
 
       session = await readSession(true);
@@ -17589,6 +17603,8 @@ async function viewUserDetails(userId) {
     let carBookings = [];
     let tripBookings = [];
     let hotelBookings = [];
+    let transportBookings = [];
+    let transportRouteLabelById = {};
     let depositRequests = [];
     let commissionEventsByDepositId = {};
     const mergeUniqueRecordsById = (...groups) => {
@@ -17661,7 +17677,7 @@ async function viewUserDetails(userId) {
 
     try {
       if (normalizedEmail) {
-        const [carsByEmailResult, carsByCustomerEmailResult, tripsResult, hotelsResult, depositsResult] = await Promise.all([
+        const [carsByEmailResult, carsByCustomerEmailResult, tripsResult, hotelsResult, transportResult, depositsResult] = await Promise.all([
           client
             .from('car_bookings')
             .select('*')
@@ -17687,6 +17703,12 @@ async function viewUserDetails(userId) {
             .order('created_at', { ascending: false })
             .limit(25),
           client
+            .from('transport_bookings')
+            .select('id, route_id, origin_location_id, destination_location_id, created_at, customer_name, customer_email, customer_phone, travel_date, travel_time, status, payment_status, total_price, currency')
+            .ilike('customer_email', normalizedEmail)
+            .order('created_at', { ascending: false })
+            .limit(50),
+          client
             .from('service_deposit_requests')
             .select('id, status, amount, currency, resource_type, booking_id, fulfillment_id, partner_id, customer_email, customer_name, customer_phone, paid_at, created_at')
             .ilike('customer_email', normalizedEmail)
@@ -17706,6 +17728,9 @@ async function viewUserDetails(userId) {
         }
         if (!hotelsResult.error && Array.isArray(hotelsResult.data)) {
           hotelBookings = hotelsResult.data;
+        }
+        if (!transportResult.error && Array.isArray(transportResult.data)) {
+          transportBookings = transportResult.data;
         }
         if (!depositsResult.error && Array.isArray(depositsResult.data)) {
           depositRequests = depositsResult.data;
@@ -17730,6 +17755,73 @@ async function viewUserDetails(userId) {
             }, {});
           }
         }
+      }
+    } catch (_e) {
+    }
+
+    try {
+      if (transportBookings.length) {
+        const routeIds = Array.from(new Set(
+          transportBookings
+            .map((booking) => String(booking?.route_id || '').trim())
+            .filter(Boolean),
+        ));
+        const fallbackLocationIds = Array.from(new Set(
+          transportBookings
+            .flatMap((booking) => [
+              String(booking?.origin_location_id || '').trim(),
+              String(booking?.destination_location_id || '').trim(),
+            ])
+            .filter(Boolean),
+        ));
+        const routeRows = routeIds.length
+          ? (await client
+              .from('transport_routes')
+              .select('id, origin_location_id, destination_location_id')
+              .in('id', routeIds)
+              .limit(500)).data || []
+          : [];
+        const locationIds = Array.from(new Set(
+          routeRows
+            .flatMap((row) => [
+              String(row?.origin_location_id || '').trim(),
+              String(row?.destination_location_id || '').trim(),
+            ])
+            .concat(fallbackLocationIds)
+            .filter(Boolean),
+        ));
+        const locationRows = locationIds.length
+          ? (await client
+              .from('transport_locations')
+              .select('id, name, name_local, code')
+              .in('id', locationIds)
+              .limit(1000)).data || []
+          : [];
+        const locationLabelById = {};
+        locationRows.forEach((row) => {
+          const id = String(row?.id || '').trim();
+          if (!id) return;
+          const primary = String(row?.name || '').trim();
+          const local = String(row?.name_local || '').trim();
+          const code = String(row?.code || '').trim();
+          locationLabelById[id] = primary || local || code || id.slice(0, 8);
+        });
+        routeRows.forEach((row) => {
+          const id = String(row?.id || '').trim();
+          if (!id) return;
+          const origin = locationLabelById[String(row?.origin_location_id || '').trim()] || String(row?.origin_location_id || '').trim().slice(0, 8);
+          const destination = locationLabelById[String(row?.destination_location_id || '').trim()] || String(row?.destination_location_id || '').trim().slice(0, 8);
+          transportRouteLabelById[id] = `${origin} → ${destination}`;
+        });
+        transportBookings.forEach((booking) => {
+          const routeId = String(booking?.route_id || '').trim();
+          if (routeId && transportRouteLabelById[routeId]) return;
+          const origin = locationLabelById[String(booking?.origin_location_id || '').trim()] || String(booking?.origin_location_id || '').trim().slice(0, 8) || 'Origin';
+          const destination = locationLabelById[String(booking?.destination_location_id || '').trim()] || String(booking?.destination_location_id || '').trim().slice(0, 8) || 'Destination';
+          if (routeId) {
+            transportRouteLabelById[routeId] = `${origin} → ${destination}`;
+          }
+        });
       }
     } catch (_e) {
     }
@@ -17868,6 +17960,17 @@ async function viewUserDetails(userId) {
         });
       }
     });
+    transportBookings.forEach((booking) => {
+      const currency = normalizeCurrency(booking?.currency || 'EUR');
+      addMoney(serviceBookingValueByCurrency, booking?.total_price, currency);
+      const key = normalizeBookingKey('transport', booking?.id);
+      if (key) {
+        serviceBookingValueByKey.set(key, {
+          amount: toMoneyNumber(booking?.total_price),
+          currency,
+        });
+      }
+    });
 
     const serviceDepositsPaidByCurrency = {};
     const servicePaidByDepositRuleByCurrency = {};
@@ -17921,6 +18024,7 @@ async function viewUserDetails(userId) {
     const carPhones = carBookings.map((booking) => booking?.phone || booking?.customer_phone);
     const tripPhones = tripBookings.map((booking) => booking?.customer_phone);
     const hotelPhones = hotelBookings.map((booking) => booking?.customer_phone);
+    const transportPhones = transportBookings.map((booking) => booking?.customer_phone || booking?.phone);
     const depositPhones = depositRequests.map((deposit) => deposit?.customer_phone);
     const allPhones = uniquePhones(
       profile?.phone,
@@ -17930,6 +18034,7 @@ async function viewUserDetails(userId) {
       carPhones,
       tripPhones,
       hotelPhones,
+      transportPhones,
       depositPhones,
     );
     const primaryPhone = allPhones[0] || '';
@@ -17938,7 +18043,7 @@ async function viewUserDetails(userId) {
     const phoneCoverageText = allPhones.length > 1 ? `${allPhones.length} phone numbers captured` : allPhones.length === 1 ? '1 phone number captured' : 'No phone numbers captured';
 
     const totalOrdersCount = shopOrders.length;
-    const totalBookingsCount = carBookings.length + tripBookings.length + hotelBookings.length;
+    const totalBookingsCount = carBookings.length + tripBookings.length + hotelBookings.length + transportBookings.length;
 
     const renderInlineAddress = (address) => {
       if (!address) {
@@ -18126,6 +18231,54 @@ async function viewUserDetails(userId) {
                       <td style="text-align:right;">${total}</td>
                       <td style="text-align:right;">
                         <button class="btn-small btn-secondary" onclick="viewTripBookingDetails('${id}')">View</button>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      if (kind === 'transport') {
+        return `
+          <div class="admin-table-container" style="margin-top: 10px;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Created</th>
+                  <th>Route</th>
+                  <th>Date</th>
+                  <th>Time</th>
+                  <th>Status</th>
+                  <th>Payment</th>
+                  <th style="text-align:right;">Total</th>
+                  <th style="text-align:right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${list.map((b) => {
+                  const created = b.created_at ? escapeHtml(formatDate(b.created_at)) : '—';
+                  const routeId = String(b?.route_id || '').trim();
+                  const route = escapeHtml(transportRouteLabelById[routeId] || routeId.slice(0, 8) || 'Transport route');
+                  const travelDate = formatBookingDate(b.travel_date);
+                  const travelTime = String(b?.travel_time || '').trim().slice(0, 5);
+                  const status = escapeHtml(b.status || '');
+                  const paymentStatus = escapeHtml(b.payment_status || '');
+                  const total = b.total_price == null ? '—' : escapeHtml(formatMoney(b.total_price, b.currency || 'EUR'));
+                  const id = escapeHtml(String(b.id || ''));
+                  return `
+                    <tr>
+                      <td>${created}</td>
+                      <td>${route || '—'}</td>
+                      <td>${travelDate || '—'}</td>
+                      <td>${escapeHtml(travelTime || '—')}</td>
+                      <td>${status || '—'}</td>
+                      <td>${paymentStatus || '—'}</td>
+                      <td style="text-align:right;">${total}</td>
+                      <td style="text-align:right;">
+                        <button class="btn-small btn-secondary" onclick="viewTransportBookingDetails('${id}')">View</button>
                       </td>
                     </tr>
                   `;
@@ -18344,7 +18497,7 @@ async function viewUserDetails(userId) {
             <article class="user-summary-item">
               <p class="user-summary-label">Service booking value</p>
               <p class="user-summary-value">${serviceBookingValueLabel}</p>
-              <p class="user-summary-sub">Indicative value of car/trip/hotel bookings</p>
+              <p class="user-summary-sub">Indicative value of car/trip/hotel/transport bookings</p>
             </article>
             <article class="user-summary-item">
               <p class="user-summary-label">Order volume</p>
@@ -18372,6 +18525,10 @@ async function viewUserDetails(userId) {
             <div style="padding: 12px; background: var(--admin-bg); border-radius: 8px;">
               <h5 style="margin: 0 0 8px; font-size: 13px; color: var(--admin-text-muted);">Hotel bookings</h5>
               ${renderServiceBookingsTable(hotelBookings, 'hotels')}
+            </div>
+            <div style="padding: 12px; background: var(--admin-bg); border-radius: 8px;">
+              <h5 style="margin: 0 0 8px; font-size: 13px; color: var(--admin-text-muted);">Transport bookings</h5>
+              ${renderServiceBookingsTable(transportBookings, 'transport')}
             </div>
           </div>
         </section>
@@ -18892,6 +19049,7 @@ function buildUserDeleteImpactSummary(preview) {
     ['car_bookings', 'car bookings'],
     ['trip_bookings', 'trip bookings'],
     ['hotel_bookings', 'hotel bookings'],
+    ['transport_bookings', 'transport bookings'],
     ['recommendation_views', 'recommendation views'],
     ['recommendation_clicks', 'recommendation clicks'],
     ['recommendations_created_by', 'recommendations authored'],

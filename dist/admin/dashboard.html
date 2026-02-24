@@ -28,19 +28,19 @@
   <!-- Styles -->
   <link rel="stylesheet" href="/assets/css/tokens.css?v=20251107" />
   <link rel="stylesheet" href="/assets/css/base.css?v=20251107" />
-  <link rel="stylesheet" href="/admin/admin.css?v=20260221_4" />
+  <link rel="stylesheet" href="/admin/admin.css?v=20260224_12" />
   
   <!-- Auth meta -->
   <meta name="ce-auth" content="required" />
   <meta name="ce-admin" content="required" />
   
   <!-- Scripts -->
-  <script type="module" src="/js/supabaseClient.js?v=20251107"></script>
+  <script type="module" src="/js/supabaseClient.js?v=20260223_2"></script>
   <script type="module" src="/js/toast.js?v=20251107"></script>
   <script src="/admin/universal-i18n-component.js?v=20250111"></script>
   <script src="/admin/poi-i18n-form.js?v=20250111"></script>
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
-  <script type="module" src="/admin/admin.js?v=20260221_4"></script>
+  <script type="module" src="/admin/admin.js?v=20260224_12"></script>
   <script src="/admin/admin-pwa.js?v=20260221_4" defer></script>
 </head>
 <body data-admin-panel="true">
@@ -183,6 +183,16 @@
             <path d="M6 21v-6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v6"/>
           </svg>
           <span>Hotels</span>
+        </button>
+
+        <button class="admin-nav-item" data-view="transport">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="7" width="14" height="10" rx="2"/>
+            <path d="M16 10h2a4 4 0 0 1 4 4v3h-2"/>
+            <circle cx="6" cy="17" r="2"/>
+            <circle cx="18" cy="17" r="2"/>
+          </svg>
+          <span>Transport</span>
         </button>
         
         <button class="admin-nav-item" data-view="recommendations">
@@ -405,6 +415,7 @@
                 <option value="cars">Cars Only</option>
                 <option value="trips">Trips Only</option>
                 <option value="hotels">Hotels Only</option>
+                <option value="transport">Transport Only</option>
                 <option value="shop">Shop Only</option>
               </select>
               <select id="orderStatusFilter" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--admin-border); background: var(--admin-card-bg); color: var(--admin-text); font-size: 14px;">
@@ -435,6 +446,10 @@
             <div style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); padding: 20px; border-radius: 12px; color: white;">
               <div style="font-size: 13px; opacity: 0.9; margin-bottom: 8px;">Hotels Pending</div>
               <div style="font-size: 28px; font-weight: 700;" id="statHotelsPending">-</div>
+            </div>
+            <div style="background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); padding: 20px; border-radius: 12px; color: white;">
+              <div style="font-size: 13px; opacity: 0.9; margin-bottom: 8px;">Transport Pending</div>
+              <div style="font-size: 28px; font-weight: 700;" id="statTransportPending">-</div>
             </div>
             <div style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); padding: 20px; border-radius: 12px; color: white;">
               <div style="font-size: 13px; opacity: 0.9; margin-bottom: 8px;">Shop Pending</div>
@@ -624,6 +639,1096 @@
           </div>
         </div>
       </section>
+
+      <!-- Transport View -->
+      <section class="admin-view" id="viewTransport" hidden>
+        <header class="admin-view-header">
+          <div>
+            <h2>Transport</h2>
+            <p class="admin-view-subtitle">Manage locations, routes, pricing logic, assignments, and bookings in one place</p>
+          </div>
+          <div class="admin-view-actions">
+            <button class="btn-secondary" type="button" id="btnRefreshTransport">Refresh</button>
+          </div>
+        </header>
+
+        <div class="admin-card transport-control-center">
+          <div class="transport-control-center__head">
+            <div>
+              <h3 class="transport-control-center__title transport-title-with-help">
+                Transport Control Center
+                <button class="transport-help-trigger" type="button" data-transport-help="control_center" aria-label="How to use Transport Control Center">?</button>
+              </h3>
+              <p class="transport-control-center__subtitle">Choose route and pricing rule, preview customer total and deposit, then jump directly to edit forms.</p>
+            </div>
+            <div class="transport-control-center__head-right">
+              <label class="transport-check-field transport-check-field--inline transport-simple-mode-toggle">
+                <input id="transportSimpleModeToggle" type="checkbox" checked />
+                <span>Simple mode (hide advanced tools)</span>
+              </label>
+              <label class="transport-check-field transport-check-field--inline transport-simple-mode-toggle">
+                <input id="transportGuidedModeToggle" type="checkbox" checked />
+                <span>Guided mode (step by step)</span>
+              </label>
+              <div class="transport-control-center__steps" aria-label="Setup steps">
+                <span class="transport-control-step">1. Locations</span>
+                <span class="transport-control-step">2. Route base fare</span>
+                <span class="transport-control-step">3. Extras + deposit</span>
+                <span class="transport-control-step">4. Review bookings</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="transport-control-center__grid transport-control-center__grid--stacked">
+            <section class="transport-control-panel transport-control-panel--compact">
+              <div class="transport-inline-head">
+                <h4 class="transport-title-with-help">
+                  Route & rule selector
+                  <button class="transport-help-trigger" type="button" data-transport-help="selector" aria-label="How to use Route and rule selector">?</button>
+                </h4>
+                <button
+                  class="btn-secondary btn-small transport-collapse-toggle"
+                  type="button"
+                  data-transport-collapse-target="transportCollapseSelectorBody"
+                  data-transport-collapse-key="selector"
+                  data-transport-collapse-default="collapsed"
+                  data-transport-collapse-label-expanded="Collapse"
+                  data-transport-collapse-label-collapsed="Expand"
+                  aria-expanded="false"
+                  aria-controls="transportCollapseSelectorBody"
+                >
+                  Expand
+                </button>
+              </div>
+              <div id="transportCollapseSelectorBody" class="transport-collapsible-body" hidden>
+                <p class="transport-control-panel__hint">Pick a route and rule once. Everything below updates automatically.</p>
+                <div class="admin-form-grid transport-control-form-grid">
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Route</span>
+                    <select id="transportControlRouteSelect" class="form-control">
+                      <option value="">Select route</option>
+                    </select>
+                  </label>
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Pricing rule</span>
+                    <select id="transportControlRuleSelect" class="form-control">
+                      <option value="">Auto (best active rule)</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="transport-control-actions">
+                  <button class="btn-secondary" type="button" id="btnTransportControlOpenRouteEditor">Open route editor</button>
+                  <button class="btn-secondary" type="button" id="btnTransportControlOpenPricingEditor">Open pricing editor</button>
+                  <button class="btn-secondary" type="button" id="btnTransportControlCreatePricingRule">Create new pricing rule</button>
+                </div>
+                <div class="transport-control-status" id="transportPreviewStatus">Select route to start simulation.</div>
+              </div>
+            </section>
+
+            <section class="transport-control-panel transport-control-panel--compact">
+              <div class="transport-inline-head">
+                <div>
+                  <h4 class="transport-title-with-help transport-title-with-help--compact">
+                    Fare simulator
+                    <button class="transport-help-trigger" type="button" data-transport-help="simulator" aria-label="How to use Fare simulator">?</button>
+                  </h4>
+                  <p class="transport-control-panel__hint">Live quote for passengers, bags, seats, oversize luggage, waiting billed per started hour, and deposit.</p>
+                </div>
+                <div class="transport-inline-actions">
+                  <button class="btn-secondary" type="button" id="btnTransportControlResetScenario">Reset scenario</button>
+                  <button
+                    class="btn-secondary btn-small transport-collapse-toggle"
+                    type="button"
+                    data-transport-collapse-target="transportCollapseSimulatorBody"
+                    data-transport-collapse-key="simulator"
+                    data-transport-collapse-default="collapsed"
+                    data-transport-collapse-label-expanded="Collapse"
+                    data-transport-collapse-label-collapsed="Expand"
+                    aria-expanded="false"
+                    aria-controls="transportCollapseSimulatorBody"
+                  >
+                    Expand
+                  </button>
+                </div>
+              </div>
+              <div id="transportCollapseSimulatorBody" class="transport-collapsible-body" hidden>
+                <div class="admin-form-grid transport-simulator-grid transport-simulator-grid--core">
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Rate mode</span>
+                    <select id="transportPreviewRateMode" class="form-control" data-transport-preview-input>
+                      <option value="auto">Auto by night window</option>
+                      <option value="day">Force day rate</option>
+                      <option value="night">Force night rate</option>
+                    </select>
+                  </label>
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Trip type</span>
+                    <select id="transportPreviewTripType" class="form-control" data-transport-preview-input>
+                      <option value="one_way">One way</option>
+                      <option value="round_trip">Round trip</option>
+                    </select>
+                  </label>
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Travel time</span>
+                    <input id="transportPreviewTravelTime" type="time" value="12:00" data-transport-preview-input />
+                  </label>
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Passengers</span>
+                    <input id="transportPreviewPassengers" type="number" min="1" step="1" value="2" data-transport-preview-input />
+                  </label>
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Bags</span>
+                    <input id="transportPreviewBags" type="number" min="0" step="1" value="2" data-transport-preview-input />
+                  </label>
+                </div>
+                <details class="transport-simulator-advanced" id="transportPreviewAdvancedPanel">
+                  <summary>Advanced scenario options</summary>
+                  <div class="admin-form-grid transport-simulator-grid transport-simulator-grid--advanced">
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Oversize bags</span>
+                    <input id="transportPreviewOversizeBags" type="number" min="0" step="1" value="0" data-transport-preview-input />
+                  </label>
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Child seats</span>
+                    <input id="transportPreviewChildSeats" type="number" min="0" step="1" value="0" data-transport-preview-input />
+                  </label>
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Booster seats</span>
+                    <input id="transportPreviewBoosterSeats" type="number" min="0" step="1" value="0" data-transport-preview-input />
+                  </label>
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Waiting minutes</span>
+                    <input id="transportPreviewWaitingMinutes" type="number" min="0" step="1" value="0" data-transport-preview-input />
+                  </label>
+                  </div>
+                </details>
+                <div class="transport-breakdown-grid">
+                  <div class="transport-breakdown-item"><span>Base fare</span><strong id="transportPreviewBase">—</strong></div>
+                  <div class="transport-breakdown-item"><span>Extra passengers</span><strong id="transportPreviewExtraPassengers">—</strong></div>
+                  <div class="transport-breakdown-item"><span>Extra bags</span><strong id="transportPreviewExtraBags">—</strong></div>
+                  <div class="transport-breakdown-item"><span>Oversize bags</span><strong id="transportPreviewExtraOversize">—</strong></div>
+                  <div class="transport-breakdown-item"><span>Seats (child + booster)</span><strong id="transportPreviewExtraSeats">—</strong></div>
+                  <div class="transport-breakdown-item"><span>Waiting fee</span><strong id="transportPreviewExtraWaiting">—</strong></div>
+                  <div class="transport-breakdown-item"><span>Deposit preview</span><strong id="transportPreviewDeposit">—</strong></div>
+                </div>
+                <div class="transport-total-row">
+                  <span>Total quote</span>
+                  <strong id="transportPreviewTotal">—</strong>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <section class="transport-control-panel transport-control-panel--matrix">
+            <div class="transport-inline-head">
+              <h4 class="transport-title-with-help transport-title-with-help--compact">
+                Passengers × bags matrix
+                <button class="transport-help-trigger" type="button" data-transport-help="matrix" aria-label="How to use Passengers and bags matrix">?</button>
+              </h4>
+              <div class="transport-control-panel__hint" id="transportPreviewMatrixMeta">Matrix updates after selecting route.</div>
+              <button
+                class="btn-secondary btn-small transport-collapse-toggle"
+                type="button"
+                data-transport-collapse-target="transportCollapseMatrixBody"
+                data-transport-collapse-key="matrix"
+                data-transport-collapse-default="collapsed"
+                data-transport-collapse-label-expanded="Collapse"
+                data-transport-collapse-label-collapsed="Expand"
+                aria-expanded="false"
+                aria-controls="transportCollapseMatrixBody"
+              >
+                Expand
+              </button>
+            </div>
+            <div id="transportCollapseMatrixBody" class="transport-collapsible-body" hidden>
+              <div class="admin-table-container transport-table-scroll" style="margin-bottom: 0;" aria-label="Transport pricing matrix">
+                <table class="admin-table" id="transportPreviewMatrixTable">
+                  <tbody>
+                    <tr><td class="table-loading">Select route to generate matrix</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="transport-workflow-strip">
+          <div class="transport-workflow-strip__item">
+            <strong>Single Route</strong>
+            <span>Set one route and one pricing rule, then save.</span>
+          </div>
+          <div class="transport-workflow-strip__item">
+            <strong>City Pair Bulk</strong>
+            <span>Use city categories to update many routes in one step.</span>
+          </div>
+          <div class="transport-workflow-strip__item">
+            <strong>Bundle Apply</strong>
+            <span>Use "Apply route + pricing together" to avoid repeated saves.</span>
+          </div>
+          <button class="transport-help-trigger transport-workflow-strip__help" type="button" data-transport-help="workflow_bundle" aria-label="How to use workflow automation">?</button>
+        </div>
+
+        <section class="transport-guided-panel" id="transportGuidedPanel">
+          <header class="transport-guided-panel__head">
+            <h4 class="transport-title-with-help transport-title-with-help--compact">
+              Guided Setup
+              <button class="transport-help-trigger" type="button" data-transport-help="workflow_bundle" aria-label="How to use guided setup">?</button>
+            </h4>
+            <p id="transportGuidedStepHint" class="transport-guided-panel__hint">Follow steps to configure transport without missing fields.</p>
+          </header>
+          <div class="transport-guided-steps" role="list" aria-label="Guided setup steps">
+            <button class="transport-guided-step" type="button" data-transport-guided-tab="locations">
+              <span class="transport-guided-step__number">1</span>
+              <span class="transport-guided-step__meta">
+                <strong>Locations</strong>
+                <small>Create city/airport/hotel points</small>
+              </span>
+            </button>
+            <button class="transport-guided-step" type="button" data-transport-guided-tab="routes">
+              <span class="transport-guided-step__number">2</span>
+              <span class="transport-guided-step__meta">
+                <strong>Routes</strong>
+                <small>Set base fare, capacity, trip mode</small>
+              </span>
+            </button>
+            <button class="transport-guided-step" type="button" data-transport-guided-tab="pricing">
+              <span class="transport-guided-step__number">3</span>
+              <span class="transport-guided-step__meta">
+                <strong>Pricing</strong>
+                <small>Extras, waiting, deposit and bulk apply</small>
+              </span>
+            </button>
+            <button class="transport-guided-step" type="button" data-transport-guided-tab="bookings">
+              <span class="transport-guided-step__number">4</span>
+              <span class="transport-guided-step__meta">
+                <strong>Bookings</strong>
+                <small>Assignments, status and payments</small>
+              </span>
+            </button>
+          </div>
+        </section>
+
+        <div class="transport-tabs">
+          <button class="transport-tab-button active" data-tab="locations" type="button">
+            Locations
+          </button>
+          <button class="transport-tab-button" data-tab="routes" type="button">
+            Routes
+          </button>
+          <button class="transport-tab-button" data-tab="pricing" type="button">
+            Pricing Rules
+          </button>
+          <button class="transport-tab-button" data-tab="bookings" type="button">
+            Bookings
+          </button>
+        </div>
+
+        <div id="transportTabLocations" class="transport-tab-content">
+          <div class="admin-card transport-admin-card">
+            <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <h3 class="transport-title-with-help">
+                Location Editor
+                <button class="transport-help-trigger" type="button" data-transport-help="locations_editor" aria-label="How to use Location Editor">?</button>
+              </h3>
+              <button class="btn-secondary" type="button" id="btnRefreshTransportLocations">Refresh</button>
+            </div>
+            <div class="admin-card-body">
+              <p class="transport-editor-hint">Use unique codes and city groups. Example: <code>larnaca_airport</code> + city group <code>larnaca</code>. This lets city/airport/hotel points share one pricing bundle.</p>
+              <form id="transportLocationForm" class="transport-editor-form" novalidate>
+                <input type="hidden" id="transportLocationId" />
+                <section class="transport-form-block">
+                  <h4 class="transport-form-block__title transport-title-with-help">
+                    Location details
+                    <button class="transport-help-trigger" type="button" data-transport-help="locations_details" aria-label="How to use Location details">?</button>
+                  </h4>
+                  <div class="admin-form-grid transport-fields-grid transport-fields-grid--location">
+                    <label class="admin-form-field transport-field transport-field--wide">
+                      <span>Name (English)</span>
+                      <input type="text" id="transportLocationName" required placeholder="e.g. Larnaca Airport" />
+                    </label>
+                    <label class="admin-form-field transport-field transport-field--wide">
+                      <span>Name (Polish)</span>
+                      <input type="text" id="transportLocationNameLocal" placeholder="e.g. Lotnisko Larnaka" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Code</span>
+                      <input type="text" id="transportLocationCode" required placeholder="e.g. lca_airport" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>City group</span>
+                      <input type="text" id="transportLocationCityGroup" placeholder="e.g. larnaca" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Type</span>
+                      <select id="transportLocationType" class="form-control">
+                        <option value="city">City</option>
+                        <option value="airport">Airport</option>
+                        <option value="port">Port</option>
+                        <option value="station">Station</option>
+                        <option value="hotel">Hotel</option>
+                        <option value="landmark">Landmark</option>
+                        <option value="custom">Custom</option>
+                      </select>
+                    </label>
+                    <label class="transport-check-field transport-check-field--row transport-field">
+                      <input id="transportLocationBulkTypesEnabled" type="checkbox" />
+                      <span>Create multiple types at once</span>
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Sort order</span>
+                      <input type="number" id="transportLocationSortOrder" min="0" step="1" value="0" />
+                    </label>
+                    <label class="transport-check-field transport-check-field--row">
+                      <input id="transportLocationActive" type="checkbox" checked />
+                      <span>Active</span>
+                    </label>
+                  </div>
+                  <div class="transport-type-filter-grid transport-type-filter-grid--location" id="transportLocationBulkTypesGrid" aria-label="Bulk location types">
+                    <label class="transport-type-filter-item"><input data-transport-location-bulk-type type="checkbox" value="city" checked /> <span>City</span></label>
+                    <label class="transport-type-filter-item"><input data-transport-location-bulk-type type="checkbox" value="airport" /> <span>Airport</span></label>
+                    <label class="transport-type-filter-item"><input data-transport-location-bulk-type type="checkbox" value="port" /> <span>Port</span></label>
+                    <label class="transport-type-filter-item"><input data-transport-location-bulk-type type="checkbox" value="station" /> <span>Station</span></label>
+                    <label class="transport-type-filter-item"><input data-transport-location-bulk-type type="checkbox" value="hotel" /> <span>Hotel</span></label>
+                    <label class="transport-type-filter-item"><input data-transport-location-bulk-type type="checkbox" value="landmark" /> <span>Landmark</span></label>
+                    <label class="transport-type-filter-item"><input data-transport-location-bulk-type type="checkbox" value="custom" /> <span>Custom</span></label>
+                  </div>
+                  <p class="transport-form-block__hint">Tip: Keep admin naming in English and Polish. For multi-type create, use base code without suffix (example: <code>larnaca</code>) to generate variants like <code>larnaca_airport</code>, <code>larnaca_hotel</code>.</p>
+                </section>
+                <div class="transport-editor-actions">
+                  <button class="btn-secondary" type="button" id="btnResetTransportLocation">Clear</button>
+                  <button class="btn btn-primary" type="submit" id="btnSaveTransportLocation">Save location</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="admin-table-container transport-table-scroll" aria-label="Transport locations">
+            <table class="admin-table transport-table-modern transport-locations-table">
+              <thead>
+                <tr>
+                  <th>Name (EN)</th>
+                  <th>Name (PL)</th>
+                  <th>Code</th>
+                  <th>City group</th>
+                  <th>Type</th>
+                  <th>Sort</th>
+                  <th>Status</th>
+                  <th>Updated</th>
+                  <th style="text-align: right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="transportLocationsTableBody">
+                <tr><td colspan="9" class="table-loading">Loading transport locations...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="transportTabRoutes" class="transport-tab-content" hidden>
+          <div class="admin-card transport-admin-card">
+            <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <h3 class="transport-title-with-help">
+                Route & Base Fare Editor
+                <button class="transport-help-trigger" type="button" data-transport-help="routes_editor" aria-label="How to use Route and Base Fare Editor">?</button>
+              </h3>
+              <button class="btn-secondary" type="button" id="btnRefreshTransportRoutes">Refresh</button>
+            </div>
+            <div class="admin-card-body">
+              <p class="transport-editor-hint">Set base day/night fare, capacity, and whether this route is one-way only or also supports round trips.</p>
+              <form id="transportRouteForm" class="transport-editor-form" novalidate>
+                <input type="hidden" id="transportRouteId" />
+
+                <section class="transport-form-block">
+                  <h4 class="transport-form-block__title transport-title-with-help">
+                    Route and base prices
+                    <button class="transport-help-trigger" type="button" data-transport-help="route_base" aria-label="How to use Route and base prices">?</button>
+                  </h4>
+                  <div class="admin-form-grid transport-fields-grid transport-fields-grid--route-core">
+                    <label class="admin-form-field transport-field">
+                      <span>Origin</span>
+                      <select id="transportRouteOrigin" class="form-control" required></select>
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Destination</span>
+                      <select id="transportRouteDestination" class="form-control" required></select>
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Day price</span>
+                      <input type="number" id="transportRouteDayPrice" min="0" step="0.01" required />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Night price</span>
+                      <input type="number" id="transportRouteNightPrice" min="0" step="0.01" required />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Currency</span>
+                      <input type="text" id="transportRouteCurrency" value="EUR" maxlength="8" />
+                    </label>
+                  </div>
+                  <div class="admin-form-grid transport-fields-grid transport-fields-grid--route-category">
+                    <label class="admin-form-field transport-field">
+                      <span>Origin city category</span>
+                      <select id="transportRouteOriginCityGroup" class="form-control"></select>
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Destination city category</span>
+                      <select id="transportRouteDestinationCityGroup" class="form-control"></select>
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Origin type preference</span>
+                      <select id="transportRouteOriginTypePreference" class="form-control">
+                        <option value="">Any type</option>
+                        <option value="city">City</option>
+                        <option value="airport">Airport</option>
+                        <option value="port">Port</option>
+                        <option value="station">Station</option>
+                        <option value="hotel">Hotel</option>
+                        <option value="landmark">Landmark</option>
+                        <option value="custom">Custom</option>
+                      </select>
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Destination type preference</span>
+                      <select id="transportRouteDestinationTypePreference" class="form-control">
+                        <option value="">Any type</option>
+                        <option value="city">City</option>
+                        <option value="airport">Airport</option>
+                        <option value="port">Port</option>
+                        <option value="station">Station</option>
+                        <option value="hotel">Hotel</option>
+                        <option value="landmark">Landmark</option>
+                        <option value="custom">Custom</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="transport-editor-actions" style="justify-content:flex-start;">
+                    <button class="btn-small btn-secondary" type="button" id="btnTransportRouteApplyCityCategories">Apply city categories to origin/destination</button>
+                  </div>
+                  <p class="transport-form-block__hint">Quick setup: pick city categories + preferred types, then apply. Route selects will auto-fill with matching points.</p>
+                </section>
+
+                <section class="transport-form-block">
+                  <h4 class="transport-form-block__title transport-title-with-help">
+                    Capacity and limits
+                    <button class="transport-help-trigger" type="button" data-transport-help="route_capacity" aria-label="How to use Capacity and limits">?</button>
+                  </h4>
+                  <div class="admin-form-grid transport-fields-grid transport-fields-grid--capacity">
+                    <label class="admin-form-field transport-field">
+                      <span>Incl. pax</span>
+                      <input type="number" id="transportRouteIncludedPassengers" min="1" step="1" value="2" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Incl. bags</span>
+                      <input type="number" id="transportRouteIncludedBags" min="0" step="1" value="2" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Max pax</span>
+                      <input type="number" id="transportRouteMaxPassengers" min="1" step="1" value="8" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Max bags</span>
+                      <input type="number" id="transportRouteMaxBags" min="0" step="1" value="8" />
+                    </label>
+                  </div>
+                </section>
+
+                <section class="transport-form-block">
+                  <h4 class="transport-form-block__title transport-title-with-help">
+                    Trip mode and status
+                    <button class="transport-help-trigger" type="button" data-transport-help="route_trip_mode" aria-label="How to use Trip mode and status">?</button>
+                  </h4>
+                  <div class="admin-form-grid transport-fields-grid transport-fields-grid--route-meta">
+                    <label class="admin-form-field transport-field">
+                      <span>Trip mode</span>
+                      <select id="transportRouteTripMode" class="form-control">
+                        <option value="one_way">One-way only</option>
+                        <option value="round_trip">One-way + round trip</option>
+                      </select>
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Round-trip multiplier</span>
+                      <input type="number" id="transportRouteRoundTripMultiplier" min="1" step="0.01" value="2" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Sort order</span>
+                      <input type="number" id="transportRouteSortOrder" min="0" step="1" value="0" />
+                    </label>
+                    <label class="transport-check-field">
+                      <input id="transportRouteActive" type="checkbox" checked />
+                      <span>Active</span>
+                    </label>
+                    <label class="transport-check-field transport-check-field--row">
+                      <input id="transportRouteCreateReversePair" type="checkbox" checked />
+                      <span>Create reverse route automatically</span>
+                    </label>
+                    <label class="transport-check-field transport-check-field--row">
+                      <input id="transportRouteSyncReverseRoute" type="checkbox" checked />
+                      <span>Keep reverse route prices synced</span>
+                    </label>
+                  </div>
+                </section>
+
+                <div class="transport-editor-actions">
+                  <button class="btn-secondary" type="button" id="btnResetTransportRoute">Clear</button>
+                  <button class="btn btn-primary" type="submit" id="btnSaveTransportRoute">Save route</button>
+                </div>
+              </form>
+
+              <section class="transport-bulk-panel transport-advanced-block" aria-label="Route set builder">
+                <div class="transport-inline-head">
+                  <h4 class="transport-form-block__title transport-title-with-help">
+                    Route Set Builder
+                    <button class="transport-help-trigger" type="button" data-transport-help="route_set_builder" aria-label="How to use Route Set Builder">?</button>
+                  </h4>
+                  <span class="transport-inline-badge">Bulk create</span>
+                </div>
+                <ol class="transport-bulk-steps">
+                  <li>Choose pickup location.</li>
+                  <li>Tick destination bundles or single destination points.</li>
+                  <li>Save once to create all route combinations with current route settings.</li>
+                </ol>
+                <div class="admin-form-grid transport-fields-grid transport-fields-grid--route-builder">
+                  <label class="admin-form-field transport-field">
+                    <span>Base origin</span>
+                    <select id="transportRouteSetOrigin" class="form-control"></select>
+                  </label>
+                  <label class="admin-form-field transport-field">
+                    <span>Destination search</span>
+                    <input id="transportRouteSetDestinationSearch" class="form-control" type="text" placeholder="Filter destinations..." />
+                  </label>
+                </div>
+                <div class="transport-multi-select-toolbar">
+                  <label class="transport-check-field">
+                    <input id="transportRouteSetGroupByCity" type="checkbox" checked />
+                    <span>Group destinations by city bundle</span>
+                  </label>
+                  <div class="transport-multi-select-toolbar__actions">
+                    <button class="btn-small btn-secondary" type="button" id="btnTransportRouteSetSelectAll">Select all</button>
+                    <button class="btn-small btn-secondary" type="button" id="btnTransportRouteSetClearAll">Clear selection</button>
+                  </div>
+                </div>
+                <div class="transport-type-filter-grid" id="transportRouteSetTypeFilters" aria-label="Route set destination type filters">
+                  <label class="transport-type-filter-item"><input data-transport-route-set-type-filter type="checkbox" value="city" checked /> <span>City</span></label>
+                  <label class="transport-type-filter-item"><input data-transport-route-set-type-filter type="checkbox" value="airport" checked /> <span>Airport</span></label>
+                  <label class="transport-type-filter-item"><input data-transport-route-set-type-filter type="checkbox" value="port" checked /> <span>Port</span></label>
+                  <label class="transport-type-filter-item"><input data-transport-route-set-type-filter type="checkbox" value="station" checked /> <span>Station</span></label>
+                  <label class="transport-type-filter-item"><input data-transport-route-set-type-filter type="checkbox" value="hotel" checked /> <span>Hotel</span></label>
+                  <label class="transport-type-filter-item"><input data-transport-route-set-type-filter type="checkbox" value="landmark" checked /> <span>Landmark</span></label>
+                  <label class="transport-type-filter-item"><input data-transport-route-set-type-filter type="checkbox" value="custom" checked /> <span>Custom</span></label>
+                </div>
+                <div class="transport-type-preset-bar" aria-label="Route set type presets">
+                  <button class="btn-small btn-secondary transport-type-preset-btn" type="button" data-transport-route-set-type-preset="all">All</button>
+                  <button class="btn-small btn-secondary transport-type-preset-btn" type="button" data-transport-route-set-type-preset="airport_hotel">Airport + Hotel</button>
+                  <button class="btn-small btn-secondary transport-type-preset-btn" type="button" data-transport-route-set-type-preset="city_airport">City + Airport</button>
+                  <button class="btn-small btn-secondary transport-type-preset-btn" type="button" data-transport-route-set-type-preset="hotel_only">Hotel only</button>
+                  <button class="btn-small btn-secondary transport-type-preset-btn" type="button" data-transport-route-set-type-preset="airport_only">Airport only</button>
+                </div>
+                <details class="transport-advanced-options" id="transportRouteSetAdvancedPanel">
+                  <summary>Advanced options</summary>
+                  <div class="transport-multi-select-toolbar">
+                  <label class="transport-check-field">
+                    <input id="transportRouteSetIncludeReverse" type="checkbox" checked />
+                    <span>Also create reverse routes</span>
+                  </label>
+                  <label class="transport-check-field">
+                    <input id="transportRouteSetExpandOriginGroup" type="checkbox" checked />
+                    <span>Expand pickup to same city group</span>
+                  </label>
+                  <label class="transport-check-field">
+                    <input id="transportRouteSetUseCityGroups" type="checkbox" checked />
+                    <span>Expand destinations by city group</span>
+                  </label>
+                  <label class="transport-check-field">
+                    <input id="transportRouteSetOnlyActiveLocations" type="checkbox" checked />
+                    <span>Only active destinations</span>
+                  </label>
+                  </div>
+                </details>
+                <div id="transportRouteSetDestinations" class="transport-bulk-destination-list" aria-label="Route set destinations checklist">
+                  <div class="transport-bulk-destination-list__empty">Select pickup location to show destinations.</div>
+                </div>
+                <p class="transport-form-block__hint transport-form-block__hint--status" id="transportRouteSetSummary">Select destinations to prepare route set creation.</p>
+                <div class="transport-editor-actions">
+                  <button class="btn-secondary" type="button" id="btnCreateTransportRouteSet">Create route set from current values</button>
+                </div>
+              </section>
+
+              <section class="transport-bulk-panel" id="transportRouteCityBulkPanel" aria-label="Route city pair bulk manager">
+                <div class="transport-inline-head">
+                  <h4 class="transport-form-block__title transport-title-with-help">
+                    City Pair Bulk Manager
+                    <button class="transport-help-trigger" type="button" data-transport-help="route_city_pair_bulk" aria-label="How to use City Pair Bulk Manager">?</button>
+                  </h4>
+                  <span class="transport-inline-badge">Mass update / delete</span>
+                </div>
+                <p class="transport-form-block__hint">One panel for both single route and grouped city-pair operations.</p>
+                  <div class="admin-form-grid transport-fields-grid transport-fields-grid--route-city-bulk">
+                    <label class="admin-form-field transport-field">
+                      <span>Scope mode</span>
+                      <select id="transportRouteCityBulkScopeMode" class="form-control">
+                        <option value="city_pair">City pair (bulk)</option>
+                        <option value="single_route">Current route only</option>
+                      </select>
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>City pair presets</span>
+                      <select id="transportCityPairPresetSelect" class="form-control">
+                        <option value="">No preset selected</option>
+                      </select>
+                    </label>
+                  </div>
+                <div class="transport-multi-select-toolbar transport-city-preset-toolbar">
+                  <label class="admin-form-field transport-field transport-field--wide">
+                    <span>Preset name</span>
+                    <input id="transportCityPairPresetName" class="form-control" type="text" maxlength="80" placeholder="e.g. Larnaca ↔ Ayia Napa (airport/hotel)" />
+                  </label>
+                  <div class="transport-multi-select-toolbar__actions">
+                    <button class="btn-small btn-secondary" type="button" id="btnTransportCityPairPresetLoad">Load preset</button>
+                    <button class="btn-small btn-secondary" type="button" id="btnTransportCityPairPresetSave">Save current as preset</button>
+                    <button class="btn-small btn-danger" type="button" id="btnTransportCityPairPresetDelete">Delete preset</button>
+                  </div>
+                </div>
+                <div class="admin-form-grid transport-fields-grid transport-fields-grid--route-city-bulk transport-city-pair-fields" id="transportRouteCityBulkCityPairFields">
+                  <label class="admin-form-field transport-field">
+                    <span>Origin city category</span>
+                    <select id="transportRouteCityBulkOriginGroup" class="form-control"></select>
+                  </label>
+                  <label class="admin-form-field transport-field">
+                    <span>Destination city category</span>
+                    <select id="transportRouteCityBulkDestinationGroup" class="form-control"></select>
+                  </label>
+                </div>
+                <p class="transport-form-block__hint transport-bulk-scope-hint" id="transportRouteCityBulkScopeHint">Choose city categories to target all matching routes in one action.</p>
+                <div class="transport-multi-select-toolbar">
+                  <label class="transport-check-field">
+                    <input id="transportRouteCityBulkIncludeReverse" type="checkbox" checked />
+                    <span>Include reverse city pair</span>
+                  </label>
+                  <label class="transport-check-field">
+                    <input id="transportRouteCityBulkOnlyActive" type="checkbox" />
+                    <span>Only active routes</span>
+                  </label>
+                  <label class="transport-check-field">
+                    <input id="transportCityPairSyncPricing" type="checkbox" checked />
+                    <span>Sync this scope to Pricing manager</span>
+                  </label>
+                </div>
+                <p class="transport-form-block__hint transport-form-block__hint--status" id="transportRouteCityBulkSummary">Select city pair to preview matched routes.</p>
+                <div class="transport-editor-actions">
+                  <button class="btn btn-primary" type="button" id="btnTransportRoutePricingBulkApply">Apply route + pricing together</button>
+                  <button class="btn-secondary" type="button" id="btnTransportRouteCityBulkApply">Apply current route form values to matched routes</button>
+                  <button class="btn-danger" type="button" id="btnTransportRouteCityBulkDelete">Delete matched routes</button>
+                </div>
+              </section>
+            </div>
+          </div>
+
+          <div class="admin-table-container transport-table-scroll" aria-label="Transport routes">
+            <table class="admin-table transport-table-modern transport-routes-table">
+              <thead>
+                <tr>
+                  <th>Route</th>
+                  <th style="text-align: right;">Day</th>
+                  <th style="text-align: right;">Night</th>
+                  <th>Included</th>
+                  <th>Limits</th>
+                  <th>Trip mode</th>
+                  <th>Status</th>
+                  <th>Updated</th>
+                  <th style="text-align: right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="transportRoutesTableBody">
+                <tr><td colspan="9" class="table-loading">Loading transport routes...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="transportTabPricing" class="transport-tab-content" hidden>
+          <div class="admin-card transport-admin-card">
+            <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <h3 class="transport-title-with-help">
+                Pricing Rules & Extras Editor
+                <button class="transport-help-trigger" type="button" data-transport-help="pricing_editor" aria-label="How to use Pricing Rules and Extras Editor">?</button>
+              </h3>
+              <button class="btn-secondary" type="button" id="btnRefreshTransportPricing">Refresh</button>
+            </div>
+            <div class="admin-card-body">
+              <p class="transport-editor-hint">Create one or more rules per route. Configure extras, waiting fee per hour, and deposit logic (fixed, percent of total, or per person).</p>
+              <form id="transportPricingForm" class="transport-editor-form" novalidate>
+                <input type="hidden" id="transportPricingId" />
+
+                <section class="transport-form-block">
+                  <h4 class="transport-form-block__title transport-title-with-help">
+                    Rule scope and extras
+                    <button class="transport-help-trigger" type="button" data-transport-help="pricing_extras" aria-label="How to use Rule scope and extras">?</button>
+                  </h4>
+                  <div class="admin-form-grid transport-fields-grid transport-fields-grid--pricing-core">
+                    <label class="admin-form-field transport-field">
+                      <span>Route</span>
+                      <select id="transportPricingRoute" class="form-control" required></select>
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Extra pax</span>
+                      <input type="number" id="transportPricingExtraPassenger" min="0" step="0.01" value="0" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Extra bag</span>
+                      <input type="number" id="transportPricingExtraBag" min="0" step="0.01" value="0" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Oversize bag</span>
+                      <input type="number" id="transportPricingOversizeBag" min="0" step="0.01" value="0" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Child seat</span>
+                      <input type="number" id="transportPricingChildSeat" min="0" step="0.01" value="0" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Booster</span>
+                      <input type="number" id="transportPricingBoosterSeat" min="0" step="0.01" value="0" />
+                    </label>
+                  </div>
+                </section>
+
+                <section class="transport-form-block">
+                  <h4 class="transport-form-block__title transport-title-with-help">
+                    Waiting, night window and validity
+                    <button class="transport-help-trigger" type="button" data-transport-help="pricing_time" aria-label="How to use Waiting, night window and validity">?</button>
+                  </h4>
+                  <div class="admin-form-grid transport-fields-grid transport-fields-grid--pricing-time">
+                    <label class="admin-form-field transport-field">
+                      <span>Wait incl. min</span>
+                      <input type="number" id="transportPricingWaitingIncluded" min="0" step="1" value="0" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Wait / hour</span>
+                      <input type="number" id="transportPricingWaitingPerHour" min="0" step="0.01" value="0" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Night start</span>
+                      <input type="time" id="transportPricingNightStart" value="22:00" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Night end</span>
+                      <input type="time" id="transportPricingNightEnd" value="06:00" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Valid from</span>
+                      <input type="date" id="transportPricingValidFrom" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Valid to</span>
+                      <input type="date" id="transportPricingValidTo" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Priority</span>
+                      <input type="number" id="transportPricingPriority" min="0" step="1" value="0" />
+                    </label>
+                    <label class="transport-check-field">
+                      <input id="transportPricingActive" type="checkbox" checked />
+                      <span>Active</span>
+                    </label>
+                  </div>
+                </section>
+
+                <section class="transport-form-block">
+                  <div class="transport-inline-head">
+                    <h4 class="transport-form-block__title transport-title-with-help">
+                      Deposit settings
+                      <button class="transport-help-trigger" type="button" data-transport-help="pricing_deposit" aria-label="How to use Deposit settings">?</button>
+                    </h4>
+                    <label class="transport-check-field transport-check-field--inline">
+                      <input id="transportPricingDepositEnabled" type="checkbox" />
+                      <span>Require deposit for this rule</span>
+                    </label>
+                  </div>
+                  <p class="transport-form-block__hint">When saved, route deposit is synced to <strong>Partners → Emails → Deposit overrides</strong>. If disabled, this route falls back to default <strong>Transport</strong> deposit rule there.</p>
+                  <div class="admin-form-grid transport-fields-grid transport-fields-grid--pricing-deposit">
+                    <label class="admin-form-field transport-field">
+                      <span>Deposit mode</span>
+                      <select id="transportPricingDepositMode" class="form-control">
+                        <option value="percent_total">% of total</option>
+                        <option value="fixed_amount">Fixed amount</option>
+                        <option value="per_person">Per person</option>
+                      </select>
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Deposit value</span>
+                      <input type="number" id="transportPricingDepositValue" min="0" step="0.01" value="0" />
+                    </label>
+                  </div>
+                </section>
+
+                <section class="transport-bulk-panel transport-advanced-block" aria-label="Apply pricing to additional routes">
+                  <div class="transport-inline-head">
+                    <h4 class="transport-form-block__title transport-title-with-help">
+                      Apply to Additional Routes
+                      <button class="transport-help-trigger" type="button" data-transport-help="pricing_additional_routes" aria-label="How to use Apply to Additional Routes">?</button>
+                    </h4>
+                    <div class="transport-bulk-primary-toggles">
+                      <label class="transport-check-field transport-check-field--inline">
+                        <input id="transportPricingAutoReverseRoute" type="checkbox" checked />
+                        <span>Mirror to reverse route</span>
+                      </label>
+                      <label class="transport-check-field transport-check-field--inline">
+                        <input id="transportPricingApplyToAdditional" type="checkbox" />
+                        <span>Clone to selected destinations</span>
+                      </label>
+                      <label class="transport-check-field transport-check-field--inline">
+                        <input id="transportPricingBulkGroupByCity" type="checkbox" checked />
+                        <span>Group destinations by city bundle</span>
+                      </label>
+                    </div>
+                  </div>
+                  <ol class="transport-bulk-steps">
+                    <li>Choose pickup location.</li>
+                    <li>Tick destination checkboxes.</li>
+                    <li>Save once to apply the same pricing to all selected routes.</li>
+                  </ol>
+                  <div class="admin-form-grid transport-fields-grid transport-fields-grid--pricing-bulk-scope">
+                    <label class="admin-form-field transport-field">
+                      <span>Pickup location (origin)</span>
+                      <select id="transportPricingBulkOrigin" class="form-control"></select>
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Destination search</span>
+                      <input id="transportPricingBulkDestinationSearch" class="form-control" type="text" placeholder="Search destination city/airport..." />
+                    </label>
+                  </div>
+                  <div class="transport-type-filter-grid" id="transportPricingBulkTypeFilters" aria-label="Pricing destination type filters">
+                    <label class="transport-type-filter-item"><input data-transport-pricing-type-filter type="checkbox" value="city" checked /> <span>City</span></label>
+                    <label class="transport-type-filter-item"><input data-transport-pricing-type-filter type="checkbox" value="airport" checked /> <span>Airport</span></label>
+                    <label class="transport-type-filter-item"><input data-transport-pricing-type-filter type="checkbox" value="port" checked /> <span>Port</span></label>
+                    <label class="transport-type-filter-item"><input data-transport-pricing-type-filter type="checkbox" value="station" checked /> <span>Station</span></label>
+                    <label class="transport-type-filter-item"><input data-transport-pricing-type-filter type="checkbox" value="hotel" checked /> <span>Hotel</span></label>
+                    <label class="transport-type-filter-item"><input data-transport-pricing-type-filter type="checkbox" value="landmark" checked /> <span>Landmark</span></label>
+                    <label class="transport-type-filter-item"><input data-transport-pricing-type-filter type="checkbox" value="custom" checked /> <span>Custom</span></label>
+                  </div>
+                  <div class="transport-type-preset-bar" aria-label="Pricing type presets">
+                    <button class="btn-small btn-secondary transport-type-preset-btn" type="button" data-transport-pricing-type-preset="all">All</button>
+                    <button class="btn-small btn-secondary transport-type-preset-btn" type="button" data-transport-pricing-type-preset="airport_hotel">Airport + Hotel</button>
+                    <button class="btn-small btn-secondary transport-type-preset-btn" type="button" data-transport-pricing-type-preset="city_airport">City + Airport</button>
+                    <button class="btn-small btn-secondary transport-type-preset-btn" type="button" data-transport-pricing-type-preset="hotel_only">Hotel only</button>
+                    <button class="btn-small btn-secondary transport-type-preset-btn" type="button" data-transport-pricing-type-preset="airport_only">Airport only</button>
+                  </div>
+                  <details class="transport-advanced-options" id="transportPricingBulkAdvancedPanel">
+                    <summary>Advanced options</summary>
+                    <div class="transport-multi-select-toolbar">
+                      <label class="transport-check-field">
+                        <input id="transportPricingBulkOnlyActiveRoutes" type="checkbox" checked />
+                        <span>Hide inactive routes</span>
+                      </label>
+                      <label class="transport-check-field">
+                        <input id="transportPricingBulkIncludeReverse" type="checkbox" checked />
+                        <span>Create return route prices too</span>
+                      </label>
+                      <label class="transport-check-field">
+                        <input id="transportPricingBulkUseCityGroups" type="checkbox" checked />
+                        <span>Expand by city groups (city/airport/hotel)</span>
+                      </label>
+                    </div>
+                  </details>
+                  <div class="transport-multi-select-toolbar transport-multi-select-toolbar--actions-only">
+                    <div class="transport-multi-select-toolbar__actions">
+                      <button class="btn-small btn-secondary" type="button" id="btnTransportPricingBulkSelectAll">Select all visible</button>
+                      <button class="btn-small btn-secondary" type="button" id="btnTransportPricingBulkClearAll">Clear selection</button>
+                    </div>
+                  </div>
+                  <div id="transportPricingBulkDestinations" class="transport-bulk-destination-list" aria-label="Destination checklist">
+                    <div class="transport-bulk-destination-list__empty">Select pickup location to show destinations.</div>
+                  </div>
+                  <p class="transport-form-block__hint transport-form-block__hint--status" id="transportPricingAdditionalSummary" aria-live="polite">Enable bulk clone, choose pickup location, then tick destination boxes.</p>
+                </section>
+
+                <section class="transport-bulk-panel" id="transportPricingCityBulkPanel" aria-label="Pricing city pair bulk manager">
+                  <div class="transport-inline-head">
+                    <h4 class="transport-form-block__title transport-title-with-help">
+                      Pricing City Pair Bulk Manager
+                      <button class="transport-help-trigger" type="button" data-transport-help="pricing_city_pair_bulk" aria-label="How to use Pricing City Pair Bulk Manager">?</button>
+                    </h4>
+                    <span class="transport-inline-badge">Mass update / delete</span>
+                  </div>
+                  <p class="transport-form-block__hint">Use one pricing form setup for a single route or full city pair group.</p>
+                  <div class="admin-form-grid transport-fields-grid transport-fields-grid--route-city-bulk">
+                    <label class="admin-form-field transport-field">
+                      <span>Scope mode</span>
+                      <select id="transportPricingCityBulkScopeMode" class="form-control">
+                        <option value="city_pair">City pair (bulk)</option>
+                        <option value="single_route">Current route only</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="admin-form-grid transport-fields-grid transport-fields-grid--route-city-bulk transport-city-pair-fields" id="transportPricingCityBulkCityPairFields">
+                    <label class="admin-form-field transport-field">
+                      <span>Origin city category</span>
+                      <select id="transportPricingCityBulkOriginGroup" class="form-control"></select>
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Destination city category</span>
+                      <select id="transportPricingCityBulkDestinationGroup" class="form-control"></select>
+                    </label>
+                  </div>
+                  <p class="transport-form-block__hint transport-bulk-scope-hint" id="transportPricingCityBulkScopeHint">Choose city categories to apply one pricing setup to all matching routes.</p>
+                  <div class="transport-multi-select-toolbar">
+                    <label class="transport-check-field">
+                      <input id="transportPricingCityBulkIncludeReverse" type="checkbox" checked />
+                      <span>Include reverse city pair</span>
+                    </label>
+                    <label class="transport-check-field">
+                      <input id="transportPricingCityBulkOnlyActiveRoutes" type="checkbox" checked />
+                      <span>Only active routes</span>
+                    </label>
+                    <label class="transport-check-field">
+                      <input id="transportPricingCityBulkReplaceExisting" type="checkbox" checked />
+                      <span>Replace existing pricing rules on matched routes</span>
+                    </label>
+                  </div>
+                  <p class="transport-form-block__hint transport-form-block__hint--status" id="transportPricingCityBulkSummary">Select city pair to preview matched routes and pricing rules.</p>
+                  <div class="transport-editor-actions">
+                    <button class="btn-secondary" type="button" id="btnTransportPricingCityBulkApply">Apply current pricing form values to matched routes</button>
+                    <button class="btn-danger" type="button" id="btnTransportPricingCityBulkDelete">Delete pricing rules for matched routes</button>
+                  </div>
+                </section>
+
+                <div class="transport-editor-actions">
+                  <button class="btn-secondary" type="button" id="btnResetTransportPricing">Clear</button>
+                  <button class="btn btn-primary" type="submit" id="btnSaveTransportPricing">Save pricing rule</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="admin-table-container transport-table-scroll" aria-label="Transport pricing rules">
+            <table class="admin-table transport-table-modern transport-pricing-table">
+              <thead>
+                <tr>
+                  <th>Route</th>
+                  <th>Surcharges</th>
+                  <th>Night window</th>
+                  <th>Waiting</th>
+                  <th>Validity</th>
+                  <th>Deposit</th>
+                  <th>Priority</th>
+                  <th>Status</th>
+                  <th style="text-align: right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="transportPricingTableBody">
+                <tr><td colspan="9" class="table-loading">Loading transport pricing rules...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="transportTabBookings" class="transport-tab-content" hidden>
+          <div class="admin-stats-grid">
+            <div class="admin-stat-card">
+              <div class="stat-card-content">
+                <p class="stat-card-label">Total bookings</p>
+                <p class="stat-card-value" id="statTransportBookingsTotal">-</p>
+                <p class="stat-card-change">Loading...</p>
+              </div>
+            </div>
+            <div class="admin-stat-card">
+              <div class="stat-card-content">
+                <p class="stat-card-label">Pending</p>
+                <p class="stat-card-value" id="statTransportBookingsPending">-</p>
+                <p class="stat-card-change">Awaiting review</p>
+              </div>
+            </div>
+            <div class="admin-stat-card">
+              <div class="stat-card-content">
+                <p class="stat-card-label">Awaiting payment</p>
+                <p class="stat-card-value" id="statTransportBookingsAwaitingPayment">-</p>
+                <p class="stat-card-change">Deposit stage</p>
+              </div>
+            </div>
+            <div class="admin-stat-card">
+              <div class="stat-card-content">
+                <p class="stat-card-label">Revenue (confirmed)</p>
+                <p class="stat-card-value" id="statTransportBookingsRevenue">-</p>
+                <p class="stat-card-change">EUR</p>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex; gap: 10px; flex-wrap: wrap; align-items: end; margin-bottom: 12px;">
+            <label class="admin-form-field" style="margin: 0;">
+              <span>Status</span>
+              <select id="transportBookingsStatusFilter" class="form-control">
+                <option value="">All</option>
+                <option value="pending">Pending</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="awaiting_payment">Awaiting payment</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </label>
+            <label class="admin-form-field" style="margin: 0; min-width: min(320px, 100%); flex: 1;">
+              <span>Search</span>
+              <input id="transportBookingsSearch" class="form-control" type="text" placeholder="booking id, customer, route" />
+            </label>
+            <button class="btn-secondary" type="button" id="btnRefreshTransportBookings">Refresh</button>
+          </div>
+
+          <div class="admin-table-container transport-table-scroll" aria-label="Transport bookings">
+            <table class="admin-table transport-table-modern transport-bookings-table">
+              <thead>
+                <tr>
+                  <th>Booking</th>
+                  <th>Customer</th>
+                  <th>Route & Date</th>
+                  <th>Pax / Bags</th>
+                  <th>Status</th>
+                  <th style="text-align: right;">Amount</th>
+                  <th style="text-align: right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="transportBookingsTableBody">
+                <tr><td colspan="7" class="table-loading">Loading transport bookings...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <div class="admin-modal" id="transportBookingDetailsModal" hidden>
+        <div class="admin-modal-overlay" id="transportBookingDetailsModalOverlay"></div>
+        <div class="admin-modal-content" style="max-width: 760px;">
+          <header class="admin-modal-header">
+            <h3>Transport Booking Details</h3>
+            <button class="btn-modal-close" id="btnCloseTransportBookingDetails">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </header>
+          <div class="admin-modal-body" id="transportBookingDetailsContent">
+            <div class="table-loading">Loading...</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-modal" id="transportHelpModal" hidden>
+        <div class="admin-modal-overlay" id="transportHelpModalOverlay"></div>
+        <div class="admin-modal-content transport-help-modal-content">
+          <header class="admin-modal-header">
+            <h3 id="transportHelpModalTitle">Transport Help</h3>
+            <button class="btn-modal-close" id="btnCloseTransportHelpModal" aria-label="Close transport help">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </header>
+          <div class="admin-modal-body transport-help-modal-body" id="transportHelpModalBody">
+            <div class="table-loading">Loading help...</div>
+          </div>
+        </div>
+      </div>
 
       <!-- Hotel Booking Details Modal -->
       <div class="admin-modal" id="hotelBookingDetailsModal" hidden>
@@ -3353,6 +4458,24 @@
                   <input id="depositRuleEnabledHotels" type="checkbox" style="width: 18px; height: 18px;" />
                   <span style="font-size: 13px;">Enabled</span>
                 </label>
+
+                <div style="font-weight: 600;">Transport</div>
+                <select id="depositRuleModeTransport" class="form-control">
+                  <option value="per_person">Per person</option>
+                  <option value="flat">Flat</option>
+                  <option value="percent_total">Percent of total</option>
+                  <option value="per_day">Per day</option>
+                </select>
+                <input id="depositRuleAmountTransport" type="number" step="0.01" min="0" class="form-control" />
+                <input id="depositRuleCurrencyTransport" type="text" class="form-control" value="EUR" />
+                <label style="display:flex; align-items:center; gap: 8px;">
+                  <input id="depositRuleIncludeChildrenTransport" type="checkbox" style="width: 18px; height: 18px;" />
+                  <span style="font-size: 13px;">Include</span>
+                </label>
+                <label style="display:flex; align-items:center; gap: 8px;">
+                  <input id="depositRuleEnabledTransport" type="checkbox" style="width: 18px; height: 18px;" />
+                  <span style="font-size: 13px;">Enabled</span>
+                </label>
               </div>
             </div>
           </div>
@@ -3361,7 +4484,7 @@
             <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
               <div>
                 <h3>Deposit overrides</h3>
-                <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Override deposit rule for a specific car offer / trip / hotel</p>
+                <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Override deposit rule for a specific car offer / trip / hotel / transport route</p>
               </div>
               <button class="btn-secondary" id="btnRefreshDepositOverrides">🔄 Refresh</button>
             </div>
@@ -3373,6 +4496,7 @@
                     <option value="cars">Cars</option>
                     <option value="trips">Trips</option>
                     <option value="hotels">Hotels</option>
+                    <option value="transport">Transport</option>
                   </select>
                 </label>
                 <label class="admin-form-field" style="margin: 0;">
@@ -3857,6 +4981,7 @@
                 <option value="cars">Cars</option>
                 <option value="trips">Trips</option>
                 <option value="hotels">Hotels</option>
+                <option value="transport">Transport</option>
               </select>
               <button class="btn-secondary" id="btnRefreshCalendars">🔄 Refresh</button>
             </div>
@@ -3902,6 +5027,7 @@
                   <option value="cars">Cars</option>
                   <option value="trips">Trips</option>
                   <option value="hotels">Hotels</option>
+                  <option value="transport">Transport</option>
                 </select>
               </label>
               <label class="admin-form-field" style="margin: 0;" hidden>
@@ -3972,7 +5098,7 @@
         <div class="admin-card" style="max-width: 720px;">
           <div class="admin-card-header">
             <h3>🔔 Email notifications</h3>
-            <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Admin email for notifications about new bookings (cars/hotels/trips) and paid shop orders.</p>
+            <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Admin email for notifications about new bookings (cars/hotels/trips/transport) and paid shop orders.</p>
           </div>
           <div class="admin-card-body">
             <form id="adminNotificationSettingsForm">
@@ -4291,6 +5417,7 @@
               <label class="admin-checkbox"><input type="checkbox" id="partnerFormCanManageCars" /><span>Can manage cars</span></label>
               <label class="admin-checkbox"><input type="checkbox" id="partnerFormCanManageTrips" /><span>Can manage trips</span></label>
               <label class="admin-checkbox"><input type="checkbox" id="partnerFormCanManageHotels" /><span>Can manage hotels</span></label>
+              <label class="admin-checkbox"><input type="checkbox" id="partnerFormCanManageTransport" /><span>Can manage transport</span></label>
               <label class="admin-checkbox"><input type="checkbox" id="partnerFormCanCreateOffers" /><span>Can create offers</span></label>
               <label class="admin-checkbox"><input type="checkbox" id="partnerFormCanViewStats" /><span>Can view stats</span></label>
               <label class="admin-checkbox"><input type="checkbox" id="partnerFormCanViewPayouts" /><span>Can view payouts</span></label>
@@ -4335,6 +5462,7 @@
               <button type="button" class="btn-small btn-secondary" data-partner-assign-tab="cars">Cars</button>
               <button type="button" class="btn-small btn-secondary" data-partner-assign-tab="trips">Trips</button>
               <button type="button" class="btn-small btn-secondary" data-partner-assign-tab="hotels">Hotels</button>
+              <button type="button" class="btn-small btn-secondary" data-partner-assign-tab="transport">Transport</button>
               <button type="button" class="btn-small btn-secondary" data-partner-assign-tab="shop">Shop products</button>
             </div>
 
@@ -4417,6 +5545,34 @@
                       </tr>
                     </thead>
                     <tbody id="partnerAssignListHotels">
+                      <tr><td colspan="3" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div data-partner-assign-panel="transport" style="display:none;">
+                <div class="admin-form-grid" style="grid-template-columns: 1fr 240px 120px; gap: 10px; align-items: end;">
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Search</span>
+                    <input id="partnerAssignSearchTransport" type="text" placeholder="e.g. larnaca, airport, limassol" />
+                  </label>
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Result</span>
+                    <select id="partnerAssignSelectTransport" class="form-control"></select>
+                  </label>
+                  <button type="button" class="btn btn-primary" id="btnPartnerAssignAddTransport">Add</button>
+                </div>
+                <div class="admin-table-container" style="margin-top: 12px;">
+                  <table class="admin-table" style="margin:0;">
+                    <thead>
+                      <tr>
+                        <th>Route</th>
+                        <th style="width: 220px;">Details</th>
+                        <th style="width: 160px; text-align: right;">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="partnerAssignListTransport">
                       <tr><td colspan="3" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>
                     </tbody>
                   </table>

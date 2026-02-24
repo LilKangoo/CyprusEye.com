@@ -1,0 +1,440 @@
+:root {
+  --transport-bg: #f5f8ff;
+  --transport-surface: #ffffff;
+  --transport-surface-2: #f8fbff;
+  --transport-text: #0b1324;
+  --transport-muted: #4a5d78;
+  --transport-border: #d7e0ef;
+  --transport-primary: #0f6dff;
+  --transport-primary-strong: #0050cc;
+  --transport-accent: #1db4a5;
+  --transport-danger: #d94848;
+  --transport-warning: #b7791f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+body.transport-booking-page {
+  background:
+    radial-gradient(1200px 500px at 92% -18%, rgba(15, 109, 255, 0.12), transparent 55%),
+    radial-gradient(900px 420px at -8% 30%, rgba(29, 180, 165, 0.12), transparent 52%),
+    var(--transport-bg);
+  color: var(--transport-text);
+  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  line-height: 1.5;
+}
+
+.transport-booking-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  backdrop-filter: blur(10px);
+  background: rgba(245, 248, 255, 0.9);
+  border-bottom: 1px solid rgba(11, 19, 36, 0.08);
+}
+
+.transport-booking-header__inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.transport-booking-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--transport-text);
+  min-width: 0;
+}
+
+.transport-booking-brand__logo {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: linear-gradient(145deg, #0f6dff, #1db4a5);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  flex: 0 0 auto;
+}
+
+.transport-booking-brand__text {
+  font-family: 'Space Grotesk', 'Manrope', sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.transport-booking-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.transport-booking-nav a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--transport-border);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--transport-text);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.transport-booking-nav a.is-active {
+  border-color: rgba(15, 109, 255, 0.42);
+  background: rgba(15, 109, 255, 0.12);
+  color: #0b4ab2;
+}
+
+.transport-booking-main {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 22px 18px 32px;
+  min-width: 0;
+}
+
+.transport-hero {
+  margin-bottom: 14px;
+  border: 1px solid rgba(15, 109, 255, 0.16);
+  background:
+    linear-gradient(135deg, rgba(15, 109, 255, 0.1), rgba(29, 180, 165, 0.06)),
+    #ffffff;
+  border-radius: 20px;
+  padding: 18px 18px 14px;
+}
+
+.transport-hero h1 {
+  margin: 0;
+  font-family: 'Space Grotesk', 'Manrope', sans-serif;
+  font-size: clamp(24px, 3.2vw, 34px);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+.transport-hero p {
+  margin: 8px 0 0;
+  color: var(--transport-muted);
+  font-size: 15px;
+  max-width: 860px;
+}
+
+.transport-booking-shell {
+  border: 1px solid var(--transport-border);
+  border-radius: 22px;
+  background: var(--transport-surface);
+  box-shadow: 0 18px 46px rgba(15, 35, 78, 0.09);
+  overflow: hidden;
+}
+
+.transport-booking-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.85fr);
+  min-width: 0;
+}
+
+.transport-booking-form {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  min-width: 0;
+}
+
+.transport-section {
+  border: 1px solid var(--transport-border);
+  border-radius: 14px;
+  background: var(--transport-surface-2);
+  padding: 12px;
+  min-width: 0;
+}
+
+.transport-section h2 {
+  margin: 0;
+  font-size: 14px;
+  font-family: 'Space Grotesk', 'Manrope', sans-serif;
+  letter-spacing: 0.01em;
+}
+
+.transport-section__hint {
+  margin: 4px 0 0;
+  color: var(--transport-muted);
+  font-size: 12px;
+}
+
+.transport-field-grid {
+  margin-top: 10px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.transport-field {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.transport-field--wide {
+  grid-column: span 2;
+}
+
+.transport-field label {
+  font-size: 12px;
+  color: #243650;
+  font-weight: 600;
+}
+
+.transport-field select,
+.transport-field input,
+.transport-field textarea {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  border: 1px solid #c8d4e8;
+  border-radius: 10px;
+  padding: 10px 11px;
+  font-size: 14px;
+  background: #fff;
+  color: var(--transport-text);
+  font-family: inherit;
+}
+
+.transport-field textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.transport-field select:focus,
+.transport-field input:focus,
+.transport-field textarea:focus {
+  outline: 2px solid rgba(15, 109, 255, 0.25);
+  border-color: #7db3ff;
+}
+
+.transport-submit-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.transport-submit-btn {
+  border: 0;
+  border-radius: 10px;
+  background: linear-gradient(145deg, var(--transport-primary), var(--transport-primary-strong));
+  color: #fff;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.transport-submit-btn[disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.transport-policy-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--transport-muted);
+}
+
+.transport-policy-check input {
+  margin: 0;
+}
+
+.transport-quote {
+  border-left: 1px solid var(--transport-border);
+  background:
+    radial-gradient(600px 280px at 100% -5%, rgba(15, 109, 255, 0.1), transparent 55%),
+    #f8fbff;
+  padding: 16px;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.transport-quote h3 {
+  margin: 0;
+  font-family: 'Space Grotesk', 'Manrope', sans-serif;
+  font-size: 17px;
+}
+
+.transport-status {
+  font-size: 12px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(15, 109, 255, 0.2);
+  background: rgba(15, 109, 255, 0.08);
+  color: #0b4ab2;
+}
+
+.transport-status.is-error {
+  border-color: rgba(217, 72, 72, 0.4);
+  background: rgba(217, 72, 72, 0.12);
+  color: #9a2525;
+}
+
+.transport-route-meta {
+  font-size: 12px;
+  color: var(--transport-muted);
+  line-height: 1.45;
+}
+
+.transport-breakdown {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.transport-breakdown li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  border-bottom: 1px dashed rgba(74, 93, 120, 0.25);
+  padding-bottom: 7px;
+}
+
+.transport-breakdown li strong {
+  font-weight: 700;
+  color: var(--transport-text);
+}
+
+.transport-breakdown li.transport-breakdown--deposit strong {
+  color: #0f7f74;
+}
+
+.transport-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 11px;
+  border: 1px solid rgba(15, 109, 255, 0.35);
+  background: rgba(15, 109, 255, 0.12);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.transport-total strong {
+  font-size: 20px;
+  letter-spacing: -0.01em;
+}
+
+.transport-warning-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.transport-warning-list li {
+  font-size: 12px;
+  color: var(--transport-warning);
+  border: 1px solid rgba(183, 121, 31, 0.35);
+  background: rgba(183, 121, 31, 0.1);
+  border-radius: 9px;
+  padding: 7px 9px;
+}
+
+.transport-success {
+  font-size: 13px;
+  border-radius: 11px;
+  padding: 11px 12px;
+  border: 1px solid rgba(29, 180, 165, 0.35);
+  background: rgba(29, 180, 165, 0.12);
+  color: #13695f;
+}
+
+.transport-footnote {
+  font-size: 12px;
+  color: var(--transport-muted);
+}
+
+@media (max-width: 1080px) {
+  .transport-booking-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .transport-quote {
+    border-left: 0;
+    border-top: 1px solid var(--transport-border);
+  }
+}
+
+@media (max-width: 760px) {
+  .transport-booking-header__inner,
+  .transport-booking-main {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .transport-field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .transport-field--wide {
+    grid-column: span 1;
+  }
+
+  .transport-submit-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .transport-submit-btn {
+    width: 100%;
+  }
+
+  .transport-booking-brand__text {
+    font-size: 15px;
+  }
+
+  .transport-booking-nav {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .transport-booking-nav a {
+    flex: 1 1 auto;
+  }
+}

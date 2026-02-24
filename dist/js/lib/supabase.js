@@ -38,6 +38,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     storageKey: 'cypruseye-auth-token',
     storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     flowType: 'pkce',
+    multiTab: false,
   },
   global: {
     headers: {

@@ -1,6 +1,16 @@
 import { SUPABASE_CONFIG } from './config.js'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+const supabase = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey, {
+  auth: {
+    // Deposit status page does not need authenticated session persistence.
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false,
+    multiTab: false,
+  },
+})
+
 function $(id) {
   return document.getElementById(id)
 }
@@ -118,8 +128,6 @@ async function loadDepositStatusFromDb(lang) {
   const params = new URLSearchParams(window.location.search)
   const depId = String(params.get('deposit_request_id') || '').trim()
   if (!depId) return null
-
-  const supabase = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey)
 
   try {
     // Prefer RPC because service_deposit_requests is protected by RLS (anon cannot SELECT).

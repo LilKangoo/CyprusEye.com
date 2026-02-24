@@ -15,7 +15,7 @@
     formSnapshotsByFulfillmentId: {},
     blocks: [],
     calendar: {
-      resourcesByType: { shop: [], cars: [], trips: [], hotels: [] },
+      resourcesByType: { shop: [], cars: [], trips: [], hotels: [], transport: [] },
       monthValue: '',
       monthBlocks: [],
       monthBusyRanges: [],
@@ -27,6 +27,7 @@
         cars: new Set(),
         trips: new Set(),
         hotels: new Set(),
+        transport: new Set(),
       },
     },
     orders: {
@@ -146,6 +147,7 @@
     partnerNavCars: null,
     partnerNavTrips: null,
     partnerNavHotels: null,
+    partnerNavTransport: null,
     partnerNavCalendar: null,
     partnerNavAnalytics: null,
     partnerNavProfile: null,
@@ -1139,10 +1141,17 @@
     const canCars = Boolean(partner?.can_manage_cars);
     const canTrips = Boolean(partner?.can_manage_trips);
     const canHotels = Boolean(partner?.can_manage_hotels);
-    const hasAnyServicePermission = Boolean(partner?.can_manage_shop || partner?.can_manage_cars || partner?.can_manage_trips || partner?.can_manage_hotels);
+    const canTransport = Boolean(partner?.can_manage_transport);
+    const hasAnyServicePermission = Boolean(
+      partner?.can_manage_shop
+      || partner?.can_manage_cars
+      || partner?.can_manage_trips
+      || partner?.can_manage_hotels
+      || partner?.can_manage_transport
+    );
     const affiliateEnabled = Boolean(partner?.affiliate_enabled);
     const isAffiliateOnly = Boolean(affiliateEnabled && !hasAnyServicePermission);
-    return { partner, canShop, canCars, canTrips, canHotels, hasAnyServicePermission, affiliateEnabled, isAffiliateOnly };
+    return { partner, canShop, canCars, canTrips, canHotels, canTransport, hasAnyServicePermission, affiliateEnabled, isAffiliateOnly };
   }
 
   function updateServiceSectionVisibility() {
@@ -1248,6 +1257,7 @@
       els.partnerNavCars,
       els.partnerNavTrips,
       els.partnerNavHotels,
+      els.partnerNavTransport,
       els.partnerNavCalendar,
       els.partnerNavAnalytics,
       els.partnerNavProfile,
@@ -1437,6 +1447,7 @@
     if (c === 'cars') return 'Cars';
     if (c === 'trips') return 'Trips';
     if (c === 'hotels') return 'Hotels';
+    if (c === 'transport') return 'Transport';
     return 'All';
   }
 
@@ -1504,7 +1515,7 @@
     if (!row) return '';
     if (String(row.__source || '') === 'shop') return 'shop';
     const type = String(row.resource_type || '').trim().toLowerCase();
-    if (type === 'cars' || type === 'trips' || type === 'hotels') return type;
+    if (type === 'cars' || type === 'trips' || type === 'hotels' || type === 'transport') return type;
     return '';
   }
 
@@ -1602,6 +1613,17 @@
         details?.departureDate,
         details?.check_out,
         details?.checkOut,
+      ]);
+    } else if (category === 'transport') {
+      startIso = firstIsoFromCandidates([
+        details?.travel_date,
+        details?.travelDate,
+        row.start_date,
+      ]);
+      endIso = firstIsoFromCandidates([
+        details?.travel_date,
+        details?.travelDate,
+        row.end_date,
       ]);
     } else {
       startIso = firstIsoFromCandidates([
@@ -1929,8 +1951,8 @@
   }
 
   function partnerCanAccessAnalytics() {
-    const { canShop, canCars, canTrips, canHotels } = getSelectedPartnerCapabilities();
-    return Boolean(canShop || canCars || canTrips || canHotels);
+    const { canShop, canCars, canTrips, canHotels, canTransport } = getSelectedPartnerCapabilities();
+    return Boolean(canShop || canCars || canTrips || canHotels || canTransport);
   }
 
   function updateSidebarCategoryVisibility() {
@@ -1940,7 +1962,8 @@
     const canCars = Boolean(partner?.can_manage_cars);
     const canTrips = Boolean(partner?.can_manage_trips);
     const canHotels = Boolean(partner?.can_manage_hotels);
-    const canAnalytics = Boolean(canShop || canCars || canTrips || canHotels);
+    const canTransport = Boolean(partner?.can_manage_transport);
+    const canAnalytics = Boolean(canShop || canCars || canTrips || canHotels || canTransport);
 
     const { isAffiliateOnly } = getSelectedPartnerCapabilities();
     if (isAffiliateOnly) {
@@ -1948,6 +1971,7 @@
       setHidden(els.partnerNavCars, true);
       setHidden(els.partnerNavTrips, true);
       setHidden(els.partnerNavHotels, true);
+      setHidden(els.partnerNavTransport, true);
       setHidden(els.partnerNavAnalytics, true);
       setHidden(els.partnerAnalyticsTopProductsCard, true);
       if (String(state.selectedCategory || 'all') !== 'all') {
@@ -1967,17 +1991,19 @@
     setHidden(els.partnerNavCars, !canCars);
     setHidden(els.partnerNavTrips, !canTrips);
     setHidden(els.partnerNavHotels, !canHotels);
+    setHidden(els.partnerNavTransport, !canTransport);
     setHidden(els.partnerNavAnalytics, !canAnalytics);
     setHidden(els.partnerAnalyticsTopProductsCard, !canShop);
     if (!canAnalytics && els.partnerAnalyticsView && !els.partnerAnalyticsView.hidden) {
       setMainView('portal');
     }
 
-    const allowed = new Set(['all', 'shop', 'cars', 'trips', 'hotels']);
+    const allowed = new Set(['all', 'shop', 'cars', 'trips', 'hotels', 'transport']);
     if (!canShop) allowed.delete('shop');
     if (!canCars) allowed.delete('cars');
     if (!canTrips) allowed.delete('trips');
     if (!canHotels) allowed.delete('hotels');
+    if (!canTransport) allowed.delete('transport');
 
     if (!allowed.has(String(state.selectedCategory || 'all'))) {
       state.selectedCategory = 'all';
@@ -2007,6 +2033,7 @@
       if (cat === 'cars') return els.partnerNavCars;
       if (cat === 'trips') return els.partnerNavTrips;
       if (cat === 'hotels') return els.partnerNavHotels;
+      if (cat === 'transport') return els.partnerNavTransport;
       return els.partnerNavAll;
     };
     setSidebarActive(btnFor(next));
@@ -2507,11 +2534,11 @@
 
       ({ data: partners, error: pErr } = await state.sb
         .from('partners')
-        .select('id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, cars_locations, affiliate_enabled')
+        .select('id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_manage_transport, cars_locations, affiliate_enabled')
         .eq('id', state.selectedPartnerId)
         .limit(1));
 
-      if (pErr && (/cars_locations/i.test(String(pErr.message || '')) || /affiliate_enabled/i.test(String(pErr.message || '')))) {
+      if (pErr && (/cars_locations/i.test(String(pErr.message || '')) || /affiliate_enabled/i.test(String(pErr.message || '')) || /can_manage_transport/i.test(String(pErr.message || '')))) {
         ({ data: partners, error: pErr } = await state.sb
           .from('partners')
           .select('id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels')
@@ -2540,6 +2567,7 @@
     if (t === 'cars') return 'Cars';
     if (t === 'trips') return 'Trips';
     if (t === 'hotels') return 'Hotels';
+    if (t === 'transport') return 'Transport';
     return t;
   }
 
@@ -2635,7 +2663,7 @@
   }
 
   function availabilityTypes() {
-    return ['shop', 'cars', 'trips', 'hotels'];
+    return ['shop', 'cars', 'trips', 'hotels', 'transport'];
   }
 
   function isAvailabilityType(value) {
@@ -2983,6 +3011,25 @@
         } catch (_e) {}
       }
 
+      if (type === 'transport') {
+        try {
+          const { data, error } = await state.sb
+            .from('partner_service_fulfillments')
+            .select('start_date, end_date, status')
+            .eq('resource_type', 'transport')
+            .eq('resource_id', resourceId)
+            .in('status', ['pending_acceptance', 'awaiting_payment', 'accepted'])
+            .lte('start_date', endIso)
+            .gte('end_date', startIso)
+            .limit(500);
+          if (error) throw error;
+          (data || []).forEach((r) => {
+            if (!r.start_date || !r.end_date) return;
+            ranges.push({ start_date: r.start_date, end_date: r.end_date });
+          });
+        } catch (_e) {}
+      }
+
       state.calendar.monthBusyRanges = ranges;
     } catch (error) {
       console.error(error);
@@ -3303,6 +3350,7 @@
       cars: new Set(),
       trips: new Set(),
       hotels: new Set(),
+      transport: new Set(),
     };
 
     rows.forEach((row) => {
@@ -3406,19 +3454,32 @@
       }
     };
 
-    const loadSimpleStatuses = async (type, tableName, ids) => {
+    const loadSimpleStatuses = async (type, tableName, ids, options = {}) => {
       if (!ids.length) return;
+      const includePaymentStatus = Boolean(options?.includePaymentStatus);
       for (const idChunk of chunkArray(ids, 120)) {
         try {
-          const { data, error } = await state.sb
+          let data = null;
+          let error = null;
+
+          ({ data, error } = await state.sb
             .from(tableName)
-            .select('id, status')
+            .select(includePaymentStatus ? 'id, status, payment_status' : 'id, status')
             .in('id', idChunk)
-            .limit(500);
+            .limit(500));
+
+          if (error && includePaymentStatus && /payment_status/i.test(String(error.message || ''))) {
+            ({ data, error } = await state.sb
+              .from(tableName)
+              .select('id, status')
+              .in('id', idChunk)
+              .limit(500));
+          }
+
           if (error) throw error;
           (data || []).forEach((row) => {
             if (!row?.id) return;
-            upsertState(type, row.id, row.status, null);
+            upsertState(type, row.id, row.status, row.payment_status || null);
           });
         } catch (error) {
           console.warn(`Partner panel: failed to load ${type} booking statuses:`, error);
@@ -3430,6 +3491,7 @@
       loadCarsStatuses(Array.from(idsByType.cars || [])),
       loadSimpleStatuses('trips', 'trip_bookings', Array.from(idsByType.trips || [])),
       loadSimpleStatuses('hotels', 'hotel_bookings', Array.from(idsByType.hotels || [])),
+      loadSimpleStatuses('transport', 'transport_bookings', Array.from(idsByType.transport || []), { includePaymentStatus: true }),
     ]);
 
     return out;
@@ -3528,11 +3590,11 @@
 
       ({ data: partners, error: pErr } = await state.sb
         .from('partners')
-        .select('id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, cars_locations, affiliate_enabled')
+        .select('id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_manage_transport, cars_locations, affiliate_enabled')
         .in('id', partnerIds)
         .limit(50));
 
-      if (pErr && (/cars_locations/i.test(String(pErr.message || '')) || /affiliate_enabled/i.test(String(pErr.message || '')))) {
+      if (pErr && (/cars_locations/i.test(String(pErr.message || '')) || /affiliate_enabled/i.test(String(pErr.message || '')) || /can_manage_transport/i.test(String(pErr.message || '')))) {
         ({ data: partners, error: pErr } = await state.sb
           .from('partners')
           .select('id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels')
@@ -3660,6 +3722,8 @@
 
     const assignedTripIds = await loadPartnerResourceIdsForType('trips');
     const assignedTripIdSet = new Set((assignedTripIds || []).map((id) => String(id)));
+    const assignedTransportIds = await loadPartnerResourceIdsForType('transport');
+    const assignedTransportIdSet = new Set((assignedTransportIds || []).map((id) => String(id)));
 
     const serviceCarRows = merged.filter((f) => {
       if (!f || f.__source !== 'service') return false;
@@ -3720,6 +3784,13 @@
         return assignedTripIdSet.has(String(f.resource_id));
       }
 
+      if (rt === 'transport') {
+        if (!partner?.can_manage_transport) return false;
+        if (!assignedTransportIdSet.size) return true;
+        if (!f.resource_id) return false;
+        return assignedTransportIdSet.has(String(f.resource_id));
+      }
+
       return true;
     });
 
@@ -3745,9 +3816,16 @@
         .map((f) => f.resource_id)
         .filter(Boolean)
     ));
+    const transportRouteIds = Array.from(new Set(
+      serviceOnly
+        .filter((f) => String(f.resource_type || '') === 'transport' && f.resource_id)
+        .map((f) => f.resource_id)
+        .filter(Boolean)
+    ));
 
     const tripById = {};
     const hotelById = {};
+    const transportRouteById = {};
 
     if (tripIds.length) {
       try {
@@ -3783,7 +3861,48 @@
       } catch (_e) {}
     }
 
-    if (tripIds.length || hotelIds.length) {
+    if (transportRouteIds.length) {
+      try {
+        const { data: routes, error: routesError } = await state.sb
+          .from('transport_routes')
+          .select('id, origin_location_id, destination_location_id')
+          .in('id', transportRouteIds)
+          .limit(500);
+        if (routesError) throw routesError;
+
+        const routeRows = Array.isArray(routes) ? routes : [];
+        const locationIds = Array.from(new Set(routeRows.flatMap((r) => [r?.origin_location_id, r?.destination_location_id]).filter(Boolean)));
+        const locationById = {};
+
+        if (locationIds.length) {
+          try {
+            const { data: locations, error: locationsError } = await state.sb
+              .from('transport_locations')
+              .select('id, name, code')
+              .in('id', locationIds)
+              .limit(1000);
+            if (locationsError) throw locationsError;
+            (locations || []).forEach((loc) => {
+              if (!loc?.id) return;
+              locationById[loc.id] = loc;
+            });
+          } catch (_e) {
+          }
+        }
+
+        routeRows.forEach((route) => {
+          if (!route?.id) return;
+          const origin = locationById[route.origin_location_id] || null;
+          const destination = locationById[route.destination_location_id] || null;
+          const originLabel = String(origin?.name || route.origin_location_id || '').trim() || String(route.id).slice(0, 8);
+          const destinationLabel = String(destination?.name || route.destination_location_id || '').trim() || String(route.id).slice(0, 8);
+          transportRouteById[route.id] = `${originLabel} → ${destinationLabel}`;
+        });
+      } catch (_e) {
+      }
+    }
+
+    if (tripIds.length || hotelIds.length || transportRouteIds.length) {
       filteredMerged.forEach((f) => {
         if (!f || f.__source !== 'service') return;
         if (String(f.resource_type || '') === 'trips' && f.resource_id && tripById[f.resource_id]) {
@@ -3791,6 +3910,9 @@
         }
         if (String(f.resource_type || '') === 'hotels' && f.resource_id && hotelById[f.resource_id]) {
           f.summary = hotelById[f.resource_id];
+        }
+        if (String(f.resource_type || '') === 'transport' && f.resource_id && transportRouteById[f.resource_id]) {
+          f.summary = transportRouteById[f.resource_id];
         }
       });
     }
@@ -4111,12 +4233,13 @@
   }
 
   function getAnalyticsAllowedCategories() {
-    const { canShop, canCars, canTrips, canHotels } = getSelectedPartnerCapabilities();
+    const { canShop, canCars, canTrips, canHotels, canTransport } = getSelectedPartnerCapabilities();
     const out = [{ value: 'all', label: 'All categories' }];
     if (canShop) out.push({ value: 'shop', label: 'Shop' });
     if (canCars) out.push({ value: 'cars', label: 'Cars' });
     if (canTrips) out.push({ value: 'trips', label: 'Trips' });
     if (canHotels) out.push({ value: 'hotels', label: 'Hotels' });
+    if (canTransport) out.push({ value: 'transport', label: 'Transport' });
     return out;
   }
 
@@ -4440,6 +4563,7 @@
     if (t === 'cars') return 'Cars';
     if (t === 'trips') return 'Trips';
     if (t === 'hotels') return 'Hotels';
+    if (t === 'transport') return 'Transport';
     return 'Other';
   }
 
@@ -5554,7 +5678,7 @@
             ];
           }
 
-          if (category === 'trips' || category === 'hotels') {
+          if (category === 'trips' || category === 'hotels' || category === 'transport') {
             return [
               { label: 'Name', value: contact?.customer_name ?? getField('customer_name', 'full_name') ?? null, key: 'customer_name' },
               { label: 'Email', value: contact?.customer_email ?? getField('customer_email', 'email') ?? null, kind: 'email', key: 'customer_email' },
@@ -5647,6 +5771,23 @@
         ];
       })();
 
+      const transportDetailsPairs = (() => {
+        if (category !== 'transport') return [];
+        return [
+          { label: 'Travel date', value: getField('travel_date') },
+          { label: 'Travel time', value: getField('travel_time') },
+          { label: 'Passengers', value: getField('num_passengers') },
+          { label: 'Bags', value: getField('num_bags') },
+          { label: 'Oversize bags', value: getField('num_oversize_bags') },
+          { label: 'Child seats', value: getField('child_seats') },
+          { label: 'Booster seats', value: getField('booster_seats') },
+          { label: 'Waiting minutes', value: getField('waiting_minutes') },
+          { label: 'Flight number', value: getField('flight_number') },
+          { label: 'Pickup address', value: getField('pickup_address') },
+          { label: 'Dropoff address', value: getField('dropoff_address') },
+        ];
+      })();
+
       const notesPairs = (() => {
         const candidates = ['notes', 'special_requests', 'customer_notes'];
         const v = candidates.map((k) => getField(k)).find((x) => !isEmptyFormValue(x));
@@ -5729,6 +5870,7 @@
         category === 'cars' ? sectionHtml('Return', carsReturnPairs) : '',
         category === 'hotels' ? sectionHtml('Stay details', hotelsStayPairs) : '',
         category === 'trips' ? sectionHtml('Trip details', tripsDetailsPairs) : '',
+        category === 'transport' ? sectionHtml('Transport details', transportDetailsPairs) : '',
         notesPairs.length ? sectionHtml('Notes', notesPairs) : '',
         additionalPairs.length ? sectionHtml('Additional information', additionalPairs) : '',
       ].filter(Boolean).join('');
@@ -6083,6 +6225,7 @@
     if (type === 'cars') return `Car (${prefix})`;
     if (type === 'trips') return `Trip (${prefix})`;
     if (type === 'hotels') return `Hotel (${prefix})`;
+    if (type === 'transport') return `Transport (${prefix})`;
     if (type === 'shop') return `Shop (${prefix})`;
     return `Resource (${prefix})`;
   }
@@ -6333,6 +6476,90 @@
       return Array.from(rowsMap.values());
     }
 
+    if (type === 'transport') {
+      const assignedIds = await loadPartnerResourceIdsForType('transport');
+      const rowsMap = new Map();
+
+      const appendTransportRoutes = async (ids) => {
+        const routeIds = Array.from(new Set((Array.isArray(ids) ? ids : []).map((id) => String(id || '').trim()).filter(Boolean)));
+        if (!routeIds.length) return;
+
+        const { data: routes, error: routesError } = await state.sb
+          .from('transport_routes')
+          .select('id, origin_location_id, destination_location_id')
+          .in('id', routeIds)
+          .limit(1000);
+        if (routesError) throw routesError;
+
+        const routeRows = Array.isArray(routes) ? routes : [];
+        const locationIds = Array.from(new Set(routeRows.flatMap((r) => [r?.origin_location_id, r?.destination_location_id]).filter(Boolean)));
+        const locationById = {};
+
+        if (locationIds.length) {
+          try {
+            const { data: locations, error: locationsError } = await state.sb
+              .from('transport_locations')
+              .select('id, name, code')
+              .in('id', locationIds)
+              .limit(1000);
+            if (locationsError) throw locationsError;
+            (locations || []).forEach((loc) => {
+              if (!loc?.id) return;
+              locationById[loc.id] = loc;
+            });
+          } catch (_e) {
+          }
+        }
+
+        routeRows.forEach((route) => {
+          if (!route?.id) return;
+          const origin = locationById[route.origin_location_id] || null;
+          const destination = locationById[route.destination_location_id] || null;
+          const originLabel = String(origin?.name || route.origin_location_id || '').trim() || String(route.id).slice(0, 8);
+          const destinationLabel = String(destination?.name || route.destination_location_id || '').trim() || String(route.id).slice(0, 8);
+          rowsMap.set(route.id, { id: route.id, label: `${originLabel} → ${destinationLabel}` });
+        });
+      };
+
+      if (assignedIds.length) {
+        try {
+          await appendTransportRoutes(assignedIds);
+        } catch (_e) {
+          assignedIds.forEach((id) => {
+            if (!id) return;
+            if (!rowsMap.has(id)) rowsMap.set(id, { id, label: fallbackLabelForResource('transport', id) });
+          });
+        }
+      }
+
+      if (!rowsMap.size) {
+        try {
+          const { data, error } = await state.sb
+            .from('partner_service_fulfillments')
+            .select('resource_id')
+            .eq('partner_id', state.selectedPartnerId)
+            .eq('resource_type', 'transport')
+            .not('resource_id', 'is', null)
+            .order('created_at', { ascending: false })
+            .limit(500);
+          if (error) throw error;
+          const routeIdsFromFulfillments = Array.from(new Set((data || []).map((r) => String(r?.resource_id || '').trim()).filter(Boolean)));
+          if (routeIdsFromFulfillments.length) {
+            await appendTransportRoutes(routeIdsFromFulfillments);
+          }
+        } catch (_e) {
+        }
+      }
+
+      const fromBlocks = blockResourceIdsForType('transport');
+      fromBlocks.forEach((id) => {
+        if (!id) return;
+        if (!rowsMap.has(id)) rowsMap.set(id, { id, label: fallbackLabelForResource('transport', id) });
+      });
+
+      return Array.from(rowsMap.values());
+    }
+
     return [];
   }
 
@@ -6547,6 +6774,7 @@
     const canCars = Boolean(partner?.can_manage_cars);
     const canTrips = Boolean(partner?.can_manage_trips);
     const canHotels = Boolean(partner?.can_manage_hotels);
+    const canTransport = Boolean(partner?.can_manage_transport);
 
     const blockTypes = new Set();
     (state.blocks || []).forEach((b) => {
@@ -6571,6 +6799,7 @@
     if (canCars) allowed.push('cars');
     if (canTrips) allowed.push('trips');
     if (canHotels) allowed.push('hotels');
+    if (canTransport) allowed.push('transport');
 
     Array.from(blockTypes).forEach((t) => {
       if (!allowed.includes(t)) allowed.push(t);
@@ -6584,6 +6813,7 @@
     if (allowed.includes('cars')) opts.push('<option value="cars">cars</option>');
     if (allowed.includes('trips')) opts.push('<option value="trips">trips</option>');
     if (allowed.includes('hotels')) opts.push('<option value="hotels">hotels</option>');
+    if (allowed.includes('transport')) opts.push('<option value="transport">transport</option>');
 
     setHtml(select, opts.join(''));
 
@@ -6658,7 +6888,7 @@
       const type = String(els.blockResourceType?.value || '').trim();
       const rowsForType = state.calendar.resourcesByType?.[type] || [];
       if (!rowsForType.length) {
-        const preferredTypes = ['shop', 'cars', 'trips', 'hotels'];
+        const preferredTypes = ['shop', 'cars', 'trips', 'hotels', 'transport'];
         const allowed = preferredTypes.filter(t => {
           return Array.from(els.blockResourceType?.options || []).some(o => String(o.value) === t);
         });
@@ -6992,6 +7222,7 @@
     els.partnerNavCars?.addEventListener('click', () => navToCategory('cars'));
     els.partnerNavTrips?.addEventListener('click', () => navToCategory('trips'));
     els.partnerNavHotels?.addEventListener('click', () => navToCategory('hotels'));
+    els.partnerNavTransport?.addEventListener('click', () => navToCategory('transport'));
     els.partnerNavCalendar?.addEventListener('click', () => navToCalendar());
     els.partnerNavAnalytics?.addEventListener('click', () => navToAnalytics());
     els.partnerNavProfile?.addEventListener('click', () => navToProfile());
@@ -7598,6 +7829,7 @@
     els.partnerNavCars = $('partnerNavCars');
     els.partnerNavTrips = $('partnerNavTrips');
     els.partnerNavHotels = $('partnerNavHotels');
+    els.partnerNavTransport = $('partnerNavTransport');
     els.partnerNavCalendar = $('partnerNavCalendar');
     els.partnerNavAnalytics = $('partnerNavAnalytics');
     els.partnerNavProfile = $('partnerNavProfile');
