@@ -14008,30 +14008,63 @@ function renderTransportRoutesTable() {
       const routeLabel = getTransportRouteLabel(row);
       const rowCurrency = String(row?.currency || 'EUR').trim().toUpperCase() || 'EUR';
       const rowIncluded = `${Number(row?.included_passengers ?? 2)} pax / ${Number(row?.included_bags ?? 2)} bags`;
+      const rowLimits = `${Number(row?.max_passengers ?? 8)} pax / ${Number(row?.max_bags ?? 8)} bags`;
+      const routeModeLabel = transportRouteTripModeLabel(row);
+      const routeIsActive = row?.is_active !== false;
+      const routeStateLabel = routeIsActive ? 'ACTIVE' : 'INACTIVE';
+      const routeStateClass = routeIsActive
+        ? 'transport-route-variant-card__state transport-route-variant-card__state--active'
+        : 'transport-route-variant-card__state transport-route-variant-card__state--inactive';
+      const originLocation = transportAdminState.locationById[String(row?.origin_location_id || '').trim()] || null;
+      const destinationLocation = transportAdminState.locationById[String(row?.destination_location_id || '').trim()] || null;
+      const originTypeLabel = getTransportLocationTypeMeta(originLocation?.location_type || 'city')?.label || 'City';
+      const destinationTypeLabel = getTransportLocationTypeMeta(destinationLocation?.location_type || 'city')?.label || 'City';
+      const sortOrderLabel = Number(row?.sort_order || 0);
       return `
-        <div class="transport-stacked-item">
-          <div class="transport-stacked-item__body">
-            <div class="transport-stacked-item__title">${escapeHtml(routeLabel)}</div>
-            <div class="transport-stacked-item__meta">
-              Day ${escapeHtml(transportMoney(row?.day_price, rowCurrency))} · Night ${escapeHtml(transportMoney(row?.night_price, rowCurrency))} · ${escapeHtml(rowIncluded)}
+        <article class="transport-route-variant-card">
+          <div class="transport-route-variant-card__head">
+            <div class="transport-route-variant-card__title">${escapeHtml(routeLabel)}</div>
+            <span class="${routeStateClass}">${routeStateLabel}</span>
+          </div>
+          <div class="transport-route-variant-card__chips">
+            <span class="transport-route-variant-chip">${escapeHtml(originTypeLabel)} → ${escapeHtml(destinationTypeLabel)}</span>
+            <span class="transport-route-variant-chip">${escapeHtml(routeModeLabel)}</span>
+            <span class="transport-route-variant-chip">Sort ${escapeHtml(String(sortOrderLabel))}</span>
+          </div>
+          <div class="transport-route-variant-card__metrics">
+            <div class="transport-route-variant-metric">
+              <span>Day fare</span>
+              <strong>${escapeHtml(transportMoney(row?.day_price, rowCurrency))}</strong>
+            </div>
+            <div class="transport-route-variant-metric">
+              <span>Night fare</span>
+              <strong>${escapeHtml(transportMoney(row?.night_price, rowCurrency))}</strong>
+            </div>
+            <div class="transport-route-variant-metric">
+              <span>Included</span>
+              <strong>${escapeHtml(rowIncluded)}</strong>
+            </div>
+            <div class="transport-route-variant-metric">
+              <span>Capacity</span>
+              <strong>${escapeHtml(rowLimits)}</strong>
             </div>
           </div>
-          <div class="transport-stacked-item__actions">
+          <div class="transport-route-variant-card__actions">
             <button class="btn-small btn-secondary" type="button" onclick="openTransportPricingForRoute('${escapeHtml(id)}')">Pricing</button>
             <button class="btn-small btn-secondary" type="button" onclick="editTransportRoute('${escapeHtml(id)}')">Edit</button>
             <button class="btn-small btn-danger" type="button" onclick="deleteTransportRoute('${escapeHtml(id)}')">Delete</button>
           </div>
-        </div>
+        </article>
       `;
     }).join('');
 
     return `
       <tr>
         <td data-label="Route">
-          <div style="font-weight: 600;">${escapeHtml(group.label)}</div>
-          <details class="transport-stack-details">
+          <div class="transport-route-group-title">${escapeHtml(group.label)}</div>
+          <details class="transport-stack-details transport-route-variants-details">
             <summary>Show ${group.rows.length} route variant(s)</summary>
-            <div class="transport-stacked-list">${detailsRows}</div>
+            <div class="transport-stacked-list transport-route-variant-list">${detailsRows}</div>
           </details>
         </td>
         <td data-label="Day" style="text-align: right;">${escapeHtml(dayLabel)}</td>
