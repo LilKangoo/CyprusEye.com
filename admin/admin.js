@@ -874,16 +874,20 @@ function isJwtExpiredError(err) {
   const code = String(err?.code || '').toUpperCase();
   const status = Number(err?.status || err?.statusCode || 0);
   const msg = String(err?.message || err || '').toLowerCase();
+  const details = String(err?.details || '').toLowerCase();
   return (
     code === 'PGRST303'
     || code === 'PGRST301'
     || code === 'PGRST302'
+    || code === '401'
     || status === 401
     || msg.includes('jwt expired')
     || msg.includes('expired jwt')
     || msg.includes('invalid jwt')
     || msg.includes('token expired')
     || msg.includes('auth session missing')
+    || msg.includes('unauthorized')
+    || details.includes('unauthorized')
   );
 }
 
@@ -945,6 +949,78 @@ function waitTransportAuthRetry(ms = 120) {
 
 let transportAuthRecoveryPromise = null;
 let transportAuthExpiryNoticeAt = 0;
+let transportAuthPreflightAt = 0;
+let transportAuthPreflightPromise = null;
+
+async function ensureTransportSessionReady(client, options = {}) {
+  const sbClient = client || ensureSupabase();
+  if (!sbClient?.auth) return false;
+
+  const force = Boolean(options?.force);
+  const now = Date.now();
+  if (!force && (now - transportAuthPreflightAt) < 12000) {
+    return true;
+  }
+
+  if (transportAuthPreflightPromise) {
+    return transportAuthPreflightPromise;
+  }
+
+  const runner = (async () => {
+    const ok = await recoverAdminSessionForTransport(sbClient);
+    if (ok) transportAuthPreflightAt = Date.now();
+    return ok;
+  })();
+
+  transportAuthPreflightPromise = runner.finally(() => {
+    if (transportAuthPreflightPromise === runner) {
+      transportAuthPreflightPromise = null;
+    }
+  });
+  return transportAuthPreflightPromise;
+}
+
+const ADMIN_SESSION_HEARTBEAT_INTERVAL_MS = 4 * 60 * 1000;
+let adminSessionHeartbeatTimer = null;
+let adminSessionHeartbeatTickInFlight = null;
+
+async function tickAdminSessionHeartbeat(options = {}) {
+  const force = Boolean(options?.force);
+  if (adminSessionHeartbeatTickInFlight && !force) {
+    return adminSessionHeartbeatTickInFlight;
+  }
+
+  const runner = (async () => {
+    const client = ensureSupabase();
+    if (!client?.auth) return false;
+    const ok = await ensureTransportSessionReady(client, { force: true });
+    if (!ok && force) {
+      await handleTransportAuthExpiry(new Error('Session expired'), { silent: false });
+    }
+    return ok;
+  })();
+
+  adminSessionHeartbeatTickInFlight = runner.finally(() => {
+    if (adminSessionHeartbeatTickInFlight === runner) {
+      adminSessionHeartbeatTickInFlight = null;
+    }
+  });
+  return adminSessionHeartbeatTickInFlight;
+}
+
+function startAdminSessionHeartbeat() {
+  if (adminSessionHeartbeatTimer) return;
+  adminSessionHeartbeatTimer = window.setInterval(() => {
+    void tickAdminSessionHeartbeat();
+  }, ADMIN_SESSION_HEARTBEAT_INTERVAL_MS);
+}
+
+function stopAdminSessionHeartbeat() {
+  if (adminSessionHeartbeatTimer) {
+    window.clearInterval(adminSessionHeartbeatTimer);
+    adminSessionHeartbeatTimer = null;
+  }
+}
 
 async function recoverAdminSessionForTransport(client) {
   const sbClient = client || ensureSupabase();
@@ -1050,6 +1126,7 @@ async function handleTransportAuthExpiry(error, options = {}) {
 async function runTransportMutation(operation, options = {}) {
   const client = ensureSupabase();
   if (!client) return { data: null, error: new Error('Database connection not available') };
+  await ensureTransportSessionReady(client, { force: false });
 
   let retried = false;
   while (true) {
@@ -10909,6 +10986,7 @@ async function loadTransportAssignablePartners(options = {}) {
 async function queryTransportTable(tableName, options = {}) {
   const client = ensureSupabase();
   if (!client) return { data: [], error: new Error('Database connection not available') };
+  await ensureTransportSessionReady(client, { force: false });
 
   const limit = Number(options.limit || 500);
   const orderAttempts = Array.isArray(options.orderAttempts) && options.orderAttempts.length
@@ -10934,6 +11012,13 @@ async function queryTransportTable(tableName, options = {}) {
           retriedAuth = true;
           const { recovered } = await handleTransportAuthExpiry(error, { silent: true });
           if (recovered) continue;
+          return {
+            data: [],
+            error: {
+              ...error,
+              message: 'Session expired. Please sign in again.',
+            },
+          };
         }
 
         lastError = error;
@@ -10952,6 +11037,13 @@ async function queryTransportTable(tableName, options = {}) {
         if (recovered) {
           continue;
         }
+        return {
+          data: [],
+          error: {
+            ...error,
+            message: 'Session expired. Please sign in again.',
+          },
+        };
       }
       lastError = error;
       break;
@@ -13163,6 +13255,10 @@ async function applyTransportPricingCityBulkUpdate(options = {}) {
         { silentAuthNotice: true },
       );
 
+      if (bulkInsertError && isTransportRecoverableAuthError(bulkInsertError)) {
+        throw bulkInsertError;
+      }
+
       if (!bulkInsertError) {
         insertedCount += chunkRows.length;
         continue;
@@ -13177,6 +13273,9 @@ async function applyTransportPricingCityBulkUpdate(options = {}) {
           if (!rowError) {
             insertedCount += 1;
             continue;
+          }
+          if (isTransportRecoverableAuthError(rowError)) {
+            throw rowError;
           }
           const code = String(rowError.code || '').trim();
           const message = String(rowError.message || '').toLowerCase();
@@ -13525,13 +13624,14 @@ function renderTransportLocationsTable() {
     const status = row.is_active === false
       ? '<span class="badge">INACTIVE</span>'
       : '<span class="badge badge-success">ACTIVE</span>';
+    const typeLabel = getTransportLocationTypeMeta(row.location_type || 'city')?.label || 'City';
     return `
       <tr>
         <td data-label="Name (EN)">${escapeHtml(String(row.name || '—'))}</td>
         <td data-label="Name (PL)">${escapeHtml(String(row.name_local || '—'))}</td>
         <td data-label="Code"><code>${escapeHtml(String(row.code || ''))}</code></td>
         <td data-label="City group"><code>${escapeHtml(String(row.city_group || deriveTransportCityGroupFromCode(row.code) || ''))}</code></td>
-        <td data-label="Type">${escapeHtml(String(row.location_type || 'city'))}</td>
+        <td data-label="Type"><span class="transport-type-pill">${escapeHtml(typeLabel)}</span></td>
         <td data-label="Sort">${Number(row.sort_order || 0)}</td>
         <td data-label="Status">${status}</td>
         <td data-label="Updated">${transportIsoToLabel(row.updated_at || row.created_at)}</td>
@@ -14057,6 +14157,7 @@ function renderTransportRoutesTable() {
         </article>
       `;
     }).join('');
+    const primaryRouteId = String(group.rows[0]?.id || '').trim();
 
     return `
       <tr class="transport-routes-summary-row">
@@ -14071,7 +14172,11 @@ function renderTransportRoutesTable() {
         <td data-label="Status">${activeCount === group.rows.length ? '<span class="badge badge-success">ALL ACTIVE</span>' : `<span class="badge">${activeCount}/${group.rows.length} ACTIVE</span>`}</td>
         <td data-label="Updated">${latestUpdated ? transportIsoToLabel(latestUpdated) : '—'}</td>
         <td data-label="Actions" style="text-align: right;">
-          <button class="btn-small btn-secondary" type="button" onclick="applyTransportCityPairToRouteBulkScope('${escapeHtml(group.originGroup)}','${escapeHtml(group.destinationGroup)}')">Load Scope</button>
+          <div class="transport-summary-actions">
+            ${primaryRouteId ? `<button class="btn-small btn-secondary" type="button" onclick="editTransportRoute('${escapeHtml(primaryRouteId)}')">Edit</button>` : ''}
+            ${primaryRouteId ? `<button class="btn-small btn-secondary" type="button" onclick="openTransportPricingForRoute('${escapeHtml(primaryRouteId)}')">Pricing</button>` : ''}
+            <button class="btn-small btn-secondary" type="button" onclick="applyTransportCityPairToRouteBulkScope('${escapeHtml(group.originGroup)}','${escapeHtml(group.destinationGroup)}')">Load Scope</button>
+          </div>
         </td>
       </tr>
       <tr class="transport-routes-variants-row">
@@ -14400,6 +14505,10 @@ async function createTransportRouteSetFromCurrentForm() {
       if (error) {
         const code = String(error.code || '').trim();
         const message = String(error.message || '').toLowerCase();
+        if (isTransportRecoverableAuthError(error)) {
+          showToast('Session expired while creating route set. Sign in again and retry.', 'error');
+          return;
+        }
         if (code === '23505' || message.includes('duplicate')) {
           skippedCount += 1;
           continue;
@@ -14418,6 +14527,10 @@ async function createTransportRouteSetFromCurrentForm() {
       createdCount += 1;
       existingKeys.add(routeKey);
     } catch (error) {
+      if (isTransportRecoverableAuthError(error)) {
+        showToast('Session expired while creating route set. Sign in again and retry.', 'error');
+        return;
+      }
       failedCount += 1;
       console.error('Failed to insert route from set:', error, payload);
     }
@@ -14696,15 +14809,12 @@ function renderTransportPricingTable() {
         </div>
       `;
     }).join('');
+    const primaryRuleId = String(group.rows[0]?.id || '').trim();
 
     return `
-      <tr>
+      <tr class="transport-pricing-summary-row">
         <td data-label="Route">
-          <div style="font-weight: 600;">${escapeHtml(group.label)}</div>
-          <details class="transport-stack-details">
-            <summary>Show ${group.rows.length} pricing rule(s)</summary>
-            <div class="transport-stacked-list">${detailsRows}</div>
-          </details>
+          <div class="transport-route-group-title">${escapeHtml(group.label)}</div>
         </td>
         <td data-label="Surcharges">${escapeHtml(`Rules ${group.rows.length}`)}</td>
         <td data-label="Night window">${escapeHtml(`${group.rows.length} configured`)}</td>
@@ -14714,7 +14824,18 @@ function renderTransportPricingTable() {
         <td data-label="Priority">${escapeHtml(priorityLabel)}</td>
         <td data-label="Status">${activeCount === group.rows.length ? '<span class="badge badge-success">ALL ACTIVE</span>' : `<span class="badge">${activeCount}/${group.rows.length} ACTIVE</span>`}</td>
         <td data-label="Actions" style="text-align: right;">
-          <button class="btn-small btn-secondary" type="button" onclick="applyTransportCityPairToPricingBulkScope('${escapeHtml(group.originGroup)}','${escapeHtml(group.destinationGroup)}')">Load Scope</button>
+          <div class="transport-summary-actions">
+            ${primaryRuleId ? `<button class="btn-small btn-secondary" type="button" onclick="editTransportPricingRule('${escapeHtml(primaryRuleId)}')">Edit</button>` : ''}
+            <button class="btn-small btn-secondary" type="button" onclick="applyTransportCityPairToPricingBulkScope('${escapeHtml(group.originGroup)}','${escapeHtml(group.destinationGroup)}')">Load Scope</button>
+          </div>
+        </td>
+      </tr>
+      <tr class="transport-pricing-variants-row">
+        <td colspan="9" data-label="Pricing rules">
+          <details class="transport-stack-details transport-pricing-variants-details">
+            <summary>Show ${group.rows.length} pricing rule(s)</summary>
+            <div class="transport-stacked-list transport-pricing-variant-list">${detailsRows}</div>
+          </details>
         </td>
       </tr>
     `;
@@ -15021,25 +15142,25 @@ function renderTransportBookingsTable() {
     return `
       <tr>
         <td data-label="Booking">
-          <div style="font-weight: 600;">#${escapeHtml(id.slice(0, 8).toUpperCase())}</div>
-          <div style="font-size: 11px; color: var(--admin-text-muted);">${transportIsoToLabel(row.created_at)}</div>
+          <div class="transport-cell-title">#${escapeHtml(id.slice(0, 8).toUpperCase())}</div>
+          <div class="transport-cell-subtle">${transportIsoToLabel(row.created_at)}</div>
         </td>
         <td data-label="Customer">
-          <div style="font-weight: 500;">${escapeHtml(String(row.customer_name || 'N/A'))}</div>
-          <div style="font-size: 11px; color: var(--admin-text-muted);">${escapeHtml(String(row.customer_email || ''))}</div>
-          ${row.customer_phone ? `<div style="font-size: 11px; color: var(--admin-text-muted);">${escapeHtml(String(row.customer_phone))}</div>` : ''}
+          <div class="transport-cell-title">${escapeHtml(String(row.customer_name || 'N/A'))}</div>
+          <div class="transport-cell-subtle">${escapeHtml(String(row.customer_email || ''))}</div>
+          ${row.customer_phone ? `<div class="transport-cell-subtle">${escapeHtml(String(row.customer_phone))}</div>` : ''}
         </td>
         <td data-label="Route & Date">
           <div>${escapeHtml(routeLabel)}</div>
-          <div style="font-size: 11px; color: var(--admin-text-muted);">${whenLabel}</div>
+          <div class="transport-cell-subtle">${whenLabel}</div>
         </td>
         <td data-label="Pax / Bags">${escapeHtml(paxBagsLabel)}</td>
         <td data-label="Status">
           ${transportStatusBadge(row.status)}
-          ${row.payment_status ? `<div style="font-size: 10px; color: var(--admin-text-muted); margin-top: 4px;">${escapeHtml(String(row.payment_status).toUpperCase())}</div>` : ''}
-          ${assignedPartnerLabel ? `<div style="font-size: 10px; color: var(--admin-text-muted); margin-top: 4px;">Assigned: ${escapeHtml(assignedPartnerLabel)}</div>` : ''}
+          ${row.payment_status ? `<div class="transport-cell-subtle transport-cell-subtle--xs">${escapeHtml(String(row.payment_status).toUpperCase())}</div>` : ''}
+          ${assignedPartnerLabel ? `<div class="transport-cell-subtle transport-cell-subtle--xs">Assigned: ${escapeHtml(assignedPartnerLabel)}</div>` : ''}
         </td>
-        <td data-label="Amount" style="text-align: right; font-weight: 600;">${escapeHtml(amountLabel)}</td>
+        <td data-label="Amount" style="text-align: right; font-weight: 600;"><span class="transport-amount-pill">${escapeHtml(amountLabel)}</span></td>
         <td data-label="Actions" style="text-align: right;">
           <button class="btn-small btn-secondary" type="button" onclick="viewTransportBookingDetails('${escapeHtml(id)}')">View</button>
         </td>
@@ -16606,6 +16727,7 @@ async function checkAdminAccess() {
 
 function showLoginScreen() {
   console.log('showLoginScreen() called');
+  stopAdminSessionHeartbeat();
   
   const loading = $('#adminLoading');
   const accessDenied = $('#adminAccessDenied');
@@ -16628,6 +16750,7 @@ function showLoginScreen() {
 }
 
 function showAccessDenied() {
+  stopAdminSessionHeartbeat();
   hideElement($('#adminLoading'));
   hideElement($('#adminLoginScreen'));
   hideElement($('#adminContainer'));
@@ -16639,6 +16762,8 @@ function showAdminPanel() {
   hideElement($('#adminLoginScreen'));
   hideElement($('#adminAccessDenied'));
   showElement($('#adminContainer'));
+  startAdminSessionHeartbeat();
+  void tickAdminSessionHeartbeat();
   
   // Update admin info in header
   updateAdminHeader();
@@ -23911,6 +24036,7 @@ async function handleAdminLogin(email, password) {
 
 async function handleLogout() {
   try {
+    stopAdminSessionHeartbeat();
     const client = ensureSupabase();
     if (client) {
       await client.auth.signOut();
@@ -23926,6 +24052,7 @@ async function handleLogout() {
   } catch (error) {
     console.error('Logout failed:', error);
     // Force redirect anyway
+    stopAdminSessionHeartbeat();
     localStorage.clear();
     sessionStorage.clear();
     window.location.href = '/admin/login.html';
@@ -25082,8 +25209,19 @@ function initEventListeners() {
     }
   });
 
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      void tickAdminSessionHeartbeat({ force: true });
+    }
+  });
+
+  window.addEventListener('focus', () => {
+    void tickAdminSessionHeartbeat({ force: false });
+  });
+
   window.addEventListener('beforeunload', () => {
     stopCarsLiveRefresh();
+    stopAdminSessionHeartbeat();
   });
 
   // Logout

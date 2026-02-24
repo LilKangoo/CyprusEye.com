@@ -5635,14 +5635,89 @@ select#orderStatusFilter:focus {
   justify-content: flex-end;
 }
 
-.transport-table-scroll table.transport-routes-table {
+.transport-table-scroll table.transport-table-modern {
   table-layout: auto;
 }
 
-.transport-table-scroll table.transport-routes-table th,
-.transport-table-scroll table.transport-routes-table td {
+.transport-table-scroll table.transport-table-modern th,
+.transport-table-scroll table.transport-table-modern td {
   overflow-wrap: normal;
   word-break: normal;
+}
+
+.transport-table-modern thead th {
+  padding: 8px 10px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.transport-table-modern tbody td {
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.transport-table-modern tbody tr:hover {
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.transport-summary-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.transport-summary-actions .btn-small {
+  padding: 5px 8px;
+  font-size: 11px;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.transport-type-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  background: rgba(30, 64, 175, 0.2);
+  color: #dbeafe;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.transport-cell-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--admin-text);
+}
+
+.transport-cell-subtle {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--admin-text-muted);
+}
+
+.transport-cell-subtle--xs {
+  margin-top: 4px;
+  font-size: 10px;
+}
+
+.transport-amount-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 2px 9px;
+  background: rgba(16, 185, 129, 0.14);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #a7f3d0;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .transport-routes-table th:first-child,
@@ -5653,12 +5728,18 @@ select#orderStatusFilter:focus {
 
 .transport-routes-table .transport-routes-summary-row td {
   vertical-align: middle;
+  padding-top: 7px;
+  padding-bottom: 7px;
 }
 
 .transport-routes-table .transport-routes-summary-row td:first-child {
   white-space: normal;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.transport-routes-table .transport-routes-summary-row td[data-label="Updated"] {
+  white-space: nowrap;
 }
 
 @media (min-width: 769px) {
@@ -5826,6 +5907,86 @@ select#orderStatusFilter:focus {
   background: rgba(30, 41, 59, 0.24);
 }
 
+.transport-pricing-table th:first-child,
+.transport-pricing-table .transport-pricing-summary-row td:first-child {
+  width: 24%;
+  min-width: 240px;
+}
+
+.transport-pricing-table .transport-pricing-summary-row td {
+  vertical-align: middle;
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+
+.transport-pricing-table .transport-pricing-summary-row td:first-child {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+@media (min-width: 769px) {
+  .transport-pricing-table .transport-pricing-summary-row td:not(:first-child) {
+    white-space: nowrap;
+    font-size: 12px;
+  }
+}
+
+.transport-pricing-variants-details > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.38);
+  background: rgba(30, 64, 175, 0.18);
+  color: #c7d2fe;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.transport-pricing-variants-details {
+  margin-top: 0;
+}
+
+.transport-pricing-variants-details[open] > summary {
+  border-color: rgba(56, 189, 248, 0.55);
+  background: rgba(30, 64, 175, 0.3);
+}
+
+.transport-pricing-variant-list {
+  margin-top: 10px;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.transport-pricing-variant-list .transport-stacked-item {
+  border-radius: 10px;
+  padding: 9px;
+  border-color: rgba(148, 163, 184, 0.26);
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.5), rgba(30, 41, 59, 0.38));
+}
+
+.transport-pricing-variants-row td {
+  white-space: normal !important;
+  padding-top: 10px;
+  padding-bottom: 14px;
+  background: rgba(15, 23, 42, 0.14);
+}
+
+.transport-pricing-variants-row:hover td {
+  background: rgba(30, 41, 59, 0.24);
+}
+
+.transport-locations-table td code,
+.transport-bookings-table td code {
+  font-size: 11px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
 #viewTransport.transport-simple-mode .transport-advanced-block {
   display: none;
 }
@@ -5844,10 +6005,20 @@ select#orderStatusFilter:focus {
   table-layout: fixed;
 }
 
+.transport-table-scroll .admin-table.transport-table-modern {
+  table-layout: auto;
+}
+
 .transport-table-scroll .admin-table th,
 .transport-table-scroll .admin-table td {
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.transport-table-scroll .admin-table.transport-table-modern th,
+.transport-table-scroll .admin-table.transport-table-modern td {
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 @media (max-width: 1400px) {
@@ -5858,6 +6029,10 @@ select#orderStatusFilter:focus {
 
 @media (max-width: 1180px) {
   .transport-route-variant-card__metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .transport-pricing-variant-list {
     grid-template-columns: 1fr;
   }
 }
@@ -5991,13 +6166,36 @@ select#orderStatusFilter:focus {
     text-align: left;
   }
 
+  .admin-table-container[aria-label="Transport pricing rules"] .admin-table .transport-pricing-variants-row td {
+    display: block;
+    text-align: left;
+  }
+
   .transport-route-variant-list {
+    grid-template-columns: 1fr;
+  }
+
+  .transport-pricing-variant-list {
     grid-template-columns: 1fr;
   }
 
   .transport-route-variants-details > summary {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .transport-pricing-variants-details > summary {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .transport-summary-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .transport-summary-actions .btn-small {
+    width: auto !important;
   }
 }
 
@@ -6099,6 +6297,15 @@ select#orderStatusFilter:focus {
   .transport-route-variant-card__actions .btn-small {
     width: 100%;
     justify-content: center;
+  }
+
+  .transport-summary-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .transport-summary-actions .btn-small {
+    width: auto;
   }
 }
 
