@@ -4861,6 +4861,10 @@ select#orderStatusFilter:focus {
   grid-template-columns: minmax(220px, 0.8fr) minmax(220px, 1.2fr);
 }
 
+.transport-fields-grid--route-city-bulk {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
 .transport-fields-grid--pricing-core {
   grid-template-columns: minmax(240px, 1.3fr) repeat(5, minmax(130px, 1fr));
 }

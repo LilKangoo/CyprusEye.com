@@ -40,7 +40,7 @@
   <script src="/admin/universal-i18n-component.js?v=20250111"></script>
   <script src="/admin/poi-i18n-form.js?v=20250111"></script>
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
-  <script type="module" src="/admin/admin.js?v=20260223_5"></script>
+  <script type="module" src="/admin/admin.js?v=20260223_6"></script>
   <script src="/admin/admin-pwa.js?v=20260221_4" defer></script>
 </head>
 <body data-admin-panel="true">
@@ -1099,6 +1099,39 @@
                   <button class="btn-secondary" type="button" id="btnCreateTransportRouteSet">Create route set from current values</button>
                 </div>
               </section>
+
+              <section class="transport-bulk-panel" aria-label="Route city pair bulk manager">
+                <div class="transport-inline-head">
+                  <h4 class="transport-form-block__title">City Pair Bulk Manager</h4>
+                  <span class="transport-inline-badge">Mass update / delete</span>
+                </div>
+                <p class="transport-form-block__hint">Select origin and destination city categories to manage all route variants (city, airport, hotel, etc.) at once.</p>
+                <div class="admin-form-grid transport-fields-grid transport-fields-grid--route-city-bulk">
+                  <label class="admin-form-field transport-field">
+                    <span>Origin city category</span>
+                    <select id="transportRouteCityBulkOriginGroup" class="form-control"></select>
+                  </label>
+                  <label class="admin-form-field transport-field">
+                    <span>Destination city category</span>
+                    <select id="transportRouteCityBulkDestinationGroup" class="form-control"></select>
+                  </label>
+                </div>
+                <div class="transport-multi-select-toolbar">
+                  <label class="transport-check-field">
+                    <input id="transportRouteCityBulkIncludeReverse" type="checkbox" checked />
+                    <span>Include reverse city pair</span>
+                  </label>
+                  <label class="transport-check-field">
+                    <input id="transportRouteCityBulkOnlyActive" type="checkbox" />
+                    <span>Only active routes</span>
+                  </label>
+                </div>
+                <p class="transport-form-block__hint transport-form-block__hint--status" id="transportRouteCityBulkSummary">Select city pair to preview matched routes.</p>
+                <div class="transport-editor-actions">
+                  <button class="btn-secondary" type="button" id="btnTransportRouteCityBulkApply">Apply current route form values to matched routes</button>
+                  <button class="btn-danger" type="button" id="btnTransportRouteCityBulkDelete">Delete matched routes</button>
+                </div>
+              </section>
             </div>
           </div>
 
@@ -1304,6 +1337,43 @@
                     <div class="transport-bulk-destination-list__empty">Select pickup location to show destinations.</div>
                   </div>
                   <p class="transport-form-block__hint transport-form-block__hint--status" id="transportPricingAdditionalSummary" aria-live="polite">Enable bulk clone, choose pickup location, then tick destination boxes.</p>
+                </section>
+
+                <section class="transport-bulk-panel" aria-label="Pricing city pair bulk manager">
+                  <div class="transport-inline-head">
+                    <h4 class="transport-form-block__title">Pricing City Pair Bulk Manager</h4>
+                    <span class="transport-inline-badge">Mass update / delete</span>
+                  </div>
+                  <p class="transport-form-block__hint">Use one pricing form setup and apply it to all routes in selected city categories.</p>
+                  <div class="admin-form-grid transport-fields-grid transport-fields-grid--route-city-bulk">
+                    <label class="admin-form-field transport-field">
+                      <span>Origin city category</span>
+                      <select id="transportPricingCityBulkOriginGroup" class="form-control"></select>
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Destination city category</span>
+                      <select id="transportPricingCityBulkDestinationGroup" class="form-control"></select>
+                    </label>
+                  </div>
+                  <div class="transport-multi-select-toolbar">
+                    <label class="transport-check-field">
+                      <input id="transportPricingCityBulkIncludeReverse" type="checkbox" checked />
+                      <span>Include reverse city pair</span>
+                    </label>
+                    <label class="transport-check-field">
+                      <input id="transportPricingCityBulkOnlyActiveRoutes" type="checkbox" checked />
+                      <span>Only active routes</span>
+                    </label>
+                    <label class="transport-check-field">
+                      <input id="transportPricingCityBulkReplaceExisting" type="checkbox" checked />
+                      <span>Replace existing pricing rules on matched routes</span>
+                    </label>
+                  </div>
+                  <p class="transport-form-block__hint transport-form-block__hint--status" id="transportPricingCityBulkSummary">Select city pair to preview matched routes and pricing rules.</p>
+                  <div class="transport-editor-actions">
+                    <button class="btn-secondary" type="button" id="btnTransportPricingCityBulkApply">Apply current pricing form values to matched routes</button>
+                    <button class="btn-danger" type="button" id="btnTransportPricingCityBulkDelete">Delete pricing rules for matched routes</button>
+                  </div>
                 </section>
 
                 <div class="transport-editor-actions">
