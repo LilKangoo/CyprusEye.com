@@ -746,6 +746,14 @@ function setQuoteBreakdownRow(rowEl, valueEl, options = {}) {
   quoteRowHideTimers.set(rowEl, timerId);
 }
 
+function setDepositNotice(visible, amountText = '—') {
+  if (els.quoteDeposit) {
+    els.quoteDeposit.textContent = visible ? String(amountText || '—') : '—';
+  }
+  if (!els.quoteDepositNotice) return;
+  els.quoteDepositNotice.hidden = !visible;
+}
+
 function resetQuoteBreakdownRows() {
   setQuoteBreakdownRow(els.quoteRowOutbound, els.quoteOutbound, { visible: false });
   setQuoteBreakdownRow(els.quoteRowReturn, els.quoteReturn, { visible: false });
@@ -755,7 +763,7 @@ function resetQuoteBreakdownRows() {
   setQuoteBreakdownRow(els.quoteRowOversize, els.quoteOversize, { visible: false });
   setQuoteBreakdownRow(els.quoteRowSeats, els.quoteSeats, { visible: false });
   setQuoteBreakdownRow(els.quoteRowWaiting, els.quoteWaiting, { visible: false });
-  setQuoteBreakdownRow(els.quoteRowDeposit, els.quoteDeposit, { visible: false });
+  setDepositNotice(false, '—');
 }
 
 function clearQuoteView() {
@@ -874,10 +882,8 @@ function renderQuote(summary) {
     visible: round2(summary.waitingCost) > 0,
     text: money(summary.waitingCost, summary.currency),
   });
-  setQuoteBreakdownRow(els.quoteRowDeposit, els.quoteDeposit, {
-    visible: summary.depositEnabled && round2(summary.depositAmount) > 0,
-    text: money(summary.depositAmount, summary.currency),
-  });
+  const showDepositNotice = summary.depositEnabled && round2(summary.depositAmount) > 0;
+  setDepositNotice(showDepositNotice, money(summary.depositAmount, summary.currency));
   if (els.quoteTotal) els.quoteTotal.textContent = money(summary.total, summary.currency);
 
   if (els.routeMeta) {
@@ -1367,7 +1373,7 @@ function initElements() {
   els.quoteRowOversize = byId('transportQuoteRowOversize');
   els.quoteRowSeats = byId('transportQuoteRowSeats');
   els.quoteRowWaiting = byId('transportQuoteRowWaiting');
-  els.quoteRowDeposit = byId('transportQuoteRowDeposit');
+  els.quoteDepositNotice = byId('transportDepositNotice');
   els.quoteOutbound = byId('transportQuoteOutbound');
   els.quoteReturn = byId('transportQuoteReturn');
   els.quoteBase = byId('transportQuoteBase');

@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="assets/css/tokens.css" />
   <link rel="stylesheet" href="assets/css/base.css" />
   <link rel="stylesheet" href="css/toast.css" />
-  <link rel="stylesheet" href="css/transport-booking.css?v=20260224_3" />
+  <link rel="stylesheet" href="css/transport-booking.css?v=20260224_4" />
   <meta name="ce-auth" content="on" />
   <script type="module" src="js/supabaseClient.js"></script>
   <script type="module" src="js/toast.js"></script>
@@ -202,12 +202,18 @@
             <li id="transportQuoteRowOversize" class="transport-breakdown__row" hidden><span>Extra large bags (15kg+)</span><strong id="transportQuoteOversize">—</strong></li>
             <li id="transportQuoteRowSeats" class="transport-breakdown__row" hidden><span>Child + booster seats</span><strong id="transportQuoteSeats">—</strong></li>
             <li id="transportQuoteRowWaiting" class="transport-breakdown__row" hidden><span>Waiting fee</span><strong id="transportQuoteWaiting">—</strong></li>
-            <li id="transportQuoteRowDeposit" class="transport-breakdown__row transport-breakdown--deposit" hidden><span>Pay now to book</span><strong id="transportQuoteDeposit">—</strong></li>
           </ul>
 
           <div class="transport-total">
             <span>Total</span>
             <strong id="transportQuoteTotal">—</strong>
+          </div>
+          <div id="transportDepositNotice" class="transport-deposit-note" hidden>
+            <p class="transport-deposit-note__title">To confirm this booking</p>
+            <p class="transport-deposit-note__text">
+              After you submit the form, we will send an email with a payment link.
+              Pay <strong id="transportQuoteDeposit">—</strong> to confirm your reservation.
+            </p>
           </div>
 
           <ul id="transportQuoteWarnings" class="transport-warning-list"></ul>
@@ -217,6 +223,6 @@
     </section>
   </main>
 
-  <script type="module" src="js/transport-booking.js?v=20260224_3"></script>
+  <script type="module" src="js/transport-booking.js?v=20260224_4"></script>
 </body>
 </html>
