@@ -696,23 +696,34 @@ function setStatus(message, type = 'info') {
   els.quoteStatus.classList.toggle('is-error', type === 'error');
 }
 
+function setQuoteBreakdownRow(rowEl, valueEl, options = {}) {
+  const visible = Boolean(options?.visible);
+  const text = String(options?.text ?? '—');
+  if (rowEl) {
+    rowEl.hidden = !visible;
+  }
+  if (valueEl) {
+    valueEl.textContent = visible ? text : '—';
+  }
+}
+
+function resetQuoteBreakdownRows() {
+  setQuoteBreakdownRow(els.quoteRowOutbound, els.quoteOutbound, { visible: false });
+  setQuoteBreakdownRow(els.quoteRowReturn, els.quoteReturn, { visible: false });
+  setQuoteBreakdownRow(els.quoteRowBase, els.quoteBase, { visible: false });
+  setQuoteBreakdownRow(els.quoteRowPassengers, els.quotePassengers, { visible: false });
+  setQuoteBreakdownRow(els.quoteRowBags, els.quoteBags, { visible: false });
+  setQuoteBreakdownRow(els.quoteRowOversize, els.quoteOversize, { visible: false });
+  setQuoteBreakdownRow(els.quoteRowSeats, els.quoteSeats, { visible: false });
+  setQuoteBreakdownRow(els.quoteRowWaiting, els.quoteWaiting, { visible: false });
+  setQuoteBreakdownRow(els.quoteRowDeposit, els.quoteDeposit, { visible: false });
+}
+
 function clearQuoteView() {
-  const ids = [
-    'transportQuoteOutbound',
-    'transportQuoteReturn',
-    'transportQuoteBase',
-    'transportQuotePassengers',
-    'transportQuoteBags',
-    'transportQuoteOversize',
-    'transportQuoteSeats',
-    'transportQuoteWaiting',
-    'transportQuoteDeposit',
-    'transportQuoteTotal',
-  ];
-  ids.forEach((id) => {
-    const el = byId(id);
-    if (el) el.textContent = '—';
-  });
+  resetQuoteBreakdownRows();
+  if (els.quoteTotal) {
+    els.quoteTotal.textContent = '—';
+  }
   if (els.routeMeta) {
     els.routeMeta.textContent = 'Route details will appear after selecting pickup and destination.';
   }
@@ -791,20 +802,43 @@ function renderQuote(summary) {
     return;
   }
 
-  if (els.quoteOutbound) {
-    els.quoteOutbound.textContent = money(summary.outboundTotal, summary.currency);
-  }
-  if (els.quoteReturn) {
-    const hasReturnLeg = summary.legs.length > 1;
-    els.quoteReturn.textContent = hasReturnLeg ? money(summary.returnTotal, summary.currency) : '—';
-  }
-  if (els.quoteBase) els.quoteBase.textContent = money(summary.baseFare, summary.currency);
-  if (els.quotePassengers) els.quotePassengers.textContent = money(summary.extraPassengersCost, summary.currency);
-  if (els.quoteBags) els.quoteBags.textContent = money(summary.extraBagsCost, summary.currency);
-  if (els.quoteOversize) els.quoteOversize.textContent = money(summary.oversizeCost, summary.currency);
-  if (els.quoteSeats) els.quoteSeats.textContent = money(summary.seatsCost, summary.currency);
-  if (els.quoteWaiting) els.quoteWaiting.textContent = money(summary.waitingCost, summary.currency);
-  if (els.quoteDeposit) els.quoteDeposit.textContent = summary.depositEnabled ? money(summary.depositAmount, summary.currency) : money(0, summary.currency);
+  const hasReturnLeg = summary.legs.length > 1;
+  setQuoteBreakdownRow(els.quoteRowOutbound, els.quoteOutbound, {
+    visible: hasReturnLeg,
+    text: money(summary.outboundTotal, summary.currency),
+  });
+  setQuoteBreakdownRow(els.quoteRowReturn, els.quoteReturn, {
+    visible: hasReturnLeg,
+    text: money(summary.returnTotal, summary.currency),
+  });
+  setQuoteBreakdownRow(els.quoteRowBase, els.quoteBase, {
+    visible: true,
+    text: money(summary.baseFare, summary.currency),
+  });
+  setQuoteBreakdownRow(els.quoteRowPassengers, els.quotePassengers, {
+    visible: round2(summary.extraPassengersCost) > 0,
+    text: money(summary.extraPassengersCost, summary.currency),
+  });
+  setQuoteBreakdownRow(els.quoteRowBags, els.quoteBags, {
+    visible: round2(summary.extraBagsCost) > 0,
+    text: money(summary.extraBagsCost, summary.currency),
+  });
+  setQuoteBreakdownRow(els.quoteRowOversize, els.quoteOversize, {
+    visible: round2(summary.oversizeCost) > 0,
+    text: money(summary.oversizeCost, summary.currency),
+  });
+  setQuoteBreakdownRow(els.quoteRowSeats, els.quoteSeats, {
+    visible: round2(summary.seatsCost) > 0,
+    text: money(summary.seatsCost, summary.currency),
+  });
+  setQuoteBreakdownRow(els.quoteRowWaiting, els.quoteWaiting, {
+    visible: round2(summary.waitingCost) > 0,
+    text: money(summary.waitingCost, summary.currency),
+  });
+  setQuoteBreakdownRow(els.quoteRowDeposit, els.quoteDeposit, {
+    visible: summary.depositEnabled && round2(summary.depositAmount) > 0,
+    text: money(summary.depositAmount, summary.currency),
+  });
   if (els.quoteTotal) els.quoteTotal.textContent = money(summary.total, summary.currency);
 
   if (els.routeMeta) {
@@ -1286,6 +1320,15 @@ function initElements() {
 
   els.quoteStatus = byId('transportQuoteStatus');
   els.routeMeta = byId('transportRouteMeta');
+  els.quoteRowOutbound = byId('transportQuoteRowOutbound');
+  els.quoteRowReturn = byId('transportQuoteRowReturn');
+  els.quoteRowBase = byId('transportQuoteRowBase');
+  els.quoteRowPassengers = byId('transportQuoteRowPassengers');
+  els.quoteRowBags = byId('transportQuoteRowBags');
+  els.quoteRowOversize = byId('transportQuoteRowOversize');
+  els.quoteRowSeats = byId('transportQuoteRowSeats');
+  els.quoteRowWaiting = byId('transportQuoteRowWaiting');
+  els.quoteRowDeposit = byId('transportQuoteRowDeposit');
   els.quoteOutbound = byId('transportQuoteOutbound');
   els.quoteReturn = byId('transportQuoteReturn');
   els.quoteBase = byId('transportQuoteBase');

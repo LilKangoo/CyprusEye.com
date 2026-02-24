@@ -1,7 +1,8 @@
 :root {
-  --transport-bg: #f5f8ff;
+  --transport-bg: #edf3ff;
   --transport-surface: #ffffff;
-  --transport-surface-2: #f8fbff;
+  --transport-surface-2: #f6faff;
+  --transport-surface-3: #eef4ff;
   --transport-text: #0b1324;
   --transport-muted: #4a5d78;
   --transport-border: #d7e0ef;
@@ -10,6 +11,8 @@
   --transport-accent: #1db4a5;
   --transport-danger: #d94848;
   --transport-warning: #b7791f;
+  --transport-shadow: 0 20px 46px rgba(13, 36, 84, 0.1);
+  --transport-shadow-soft: 0 8px 24px rgba(15, 33, 70, 0.08);
 }
 
 * {
@@ -27,8 +30,9 @@ body {
 
 body.transport-booking-page {
   background:
-    radial-gradient(1200px 500px at 92% -18%, rgba(15, 109, 255, 0.12), transparent 55%),
-    radial-gradient(900px 420px at -8% 30%, rgba(29, 180, 165, 0.12), transparent 52%),
+    radial-gradient(1200px 540px at 95% -20%, rgba(15, 109, 255, 0.16), transparent 56%),
+    radial-gradient(900px 460px at -10% 34%, rgba(29, 180, 165, 0.14), transparent 56%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(237, 243, 255, 0.92)),
     var(--transport-bg);
   color: var(--transport-text);
   font-family: 'Manrope', 'Segoe UI', sans-serif;
@@ -39,9 +43,10 @@ body.transport-booking-page {
   position: sticky;
   top: 0;
   z-index: 40;
-  backdrop-filter: blur(10px);
-  background: rgba(245, 248, 255, 0.9);
-  border-bottom: 1px solid rgba(11, 19, 36, 0.08);
+  backdrop-filter: blur(12px);
+  background: rgba(244, 248, 255, 0.86);
+  border-bottom: 1px solid rgba(11, 19, 36, 0.1);
+  box-shadow: 0 6px 18px rgba(8, 28, 62, 0.08);
 }
 
 .transport-booking-header__inner {
@@ -118,24 +123,25 @@ body.transport-booking-page {
 .transport-booking-main {
   max-width: 1180px;
   margin: 0 auto;
-  padding: 22px 18px 32px;
+  padding: 24px 18px 34px;
   min-width: 0;
 }
 
 .transport-hero {
-  margin-bottom: 14px;
-  border: 1px solid rgba(15, 109, 255, 0.16);
+  margin-bottom: 16px;
+  border: 1px solid rgba(15, 109, 255, 0.2);
   background:
-    linear-gradient(135deg, rgba(15, 109, 255, 0.1), rgba(29, 180, 165, 0.06)),
+    linear-gradient(130deg, rgba(15, 109, 255, 0.15), rgba(29, 180, 165, 0.09)),
     #ffffff;
-  border-radius: 20px;
-  padding: 18px 18px 14px;
+  border-radius: 22px;
+  padding: 22px 22px 18px;
+  box-shadow: var(--transport-shadow-soft);
 }
 
 .transport-hero h1 {
   margin: 0;
   font-family: 'Space Grotesk', 'Manrope', sans-serif;
-  font-size: clamp(24px, 3.2vw, 34px);
+  font-size: clamp(24px, 3.2vw, 36px);
   line-height: 1.15;
   letter-spacing: -0.01em;
 }
@@ -148,47 +154,52 @@ body.transport-booking-page {
 }
 
 .transport-booking-shell {
-  border: 1px solid var(--transport-border);
-  border-radius: 22px;
-  background: var(--transport-surface);
-  box-shadow: 0 18px 46px rgba(15, 35, 78, 0.09);
+  border: 1px solid rgba(15, 109, 255, 0.17);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 255, 0.98)),
+    var(--transport-surface);
+  box-shadow: var(--transport-shadow);
   overflow: hidden;
 }
 
 .transport-booking-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.85fr);
+  grid-template-columns: minmax(0, 1.42fr) minmax(340px, 0.88fr);
   min-width: 0;
 }
 
 .transport-booking-form {
   display: grid;
-  gap: 14px;
-  padding: 16px;
+  gap: 16px;
+  padding: 20px;
   min-width: 0;
 }
 
 .transport-section {
-  border: 1px solid var(--transport-border);
-  border-radius: 14px;
-  background: var(--transport-surface-2);
-  padding: 12px;
+  border: 1px solid rgba(15, 109, 255, 0.14);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, #ffffff, var(--transport-surface-2));
+  padding: 14px;
   min-width: 0;
+  box-shadow: var(--transport-shadow-soft);
 }
 
 .transport-section h2 {
   margin: 0;
-  font-size: 14px;
+  font-size: 15px;
   font-family: 'Space Grotesk', 'Manrope', sans-serif;
-  letter-spacing: 0.01em;
+  letter-spacing: 0;
 }
 
 .transport-return-leg {
   margin-top: 12px;
-  border: 1px solid rgba(15, 109, 255, 0.24);
-  border-radius: 12px;
-  background: rgba(15, 109, 255, 0.05);
-  padding: 10px;
+  border: 1px solid rgba(15, 109, 255, 0.26);
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(15, 109, 255, 0.08), rgba(15, 109, 255, 0.03));
+  padding: 12px;
 }
 
 .transport-return-leg h3 {
@@ -198,15 +209,16 @@ body.transport-booking-page {
 }
 
 .transport-section__hint {
-  margin: 4px 0 0;
+  margin: 5px 0 0;
   color: var(--transport-muted);
   font-size: 12px;
+  line-height: 1.4;
 }
 
 .transport-field-grid {
-  margin-top: 10px;
+  margin-top: 12px;
   display: grid;
-  gap: 10px;
+  gap: 11px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   min-width: 0;
 }
@@ -222,9 +234,11 @@ body.transport-booking-page {
 }
 
 .transport-field label {
-  font-size: 12px;
+  font-size: 11px;
   color: #243650;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 .transport-field select,
@@ -233,86 +247,125 @@ body.transport-booking-page {
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  border: 1px solid #c8d4e8;
-  border-radius: 10px;
-  padding: 10px 11px;
+  border: 1px solid #b9cae5;
+  border-radius: 12px;
+  padding: 11px 12px;
   font-size: 14px;
-  background: #fff;
+  background: #fcfeff;
   color: var(--transport-text);
   font-family: inherit;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
 .transport-field textarea {
-  min-height: 92px;
+  min-height: 96px;
   resize: vertical;
 }
 
 .transport-field select:focus,
 .transport-field input:focus,
 .transport-field textarea:focus {
-  outline: 2px solid rgba(15, 109, 255, 0.25);
-  border-color: #7db3ff;
+  outline: 2px solid rgba(15, 109, 255, 0.2);
+  border-color: #5f9fff;
+  box-shadow: 0 0 0 3px rgba(15, 109, 255, 0.08);
+  background: #ffffff;
 }
 
 .transport-submit-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
+  padding: 14px;
+  border: 1px solid rgba(15, 109, 255, 0.14);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(239, 246, 255, 0.8));
 }
 
 .transport-submit-btn {
   border: 0;
-  border-radius: 10px;
+  border-radius: 12px;
   background: linear-gradient(145deg, var(--transport-primary), var(--transport-primary-strong));
   color: #fff;
-  padding: 12px 16px;
+  padding: 13px 18px;
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
+  box-shadow: 0 10px 22px rgba(10, 81, 197, 0.32);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.transport-submit-btn:hover:not([disabled]) {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(10, 81, 197, 0.36);
 }
 
 .transport-submit-btn[disabled] {
-  opacity: 0.55;
+  opacity: 0.58;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .transport-policy-check {
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   font-size: 12px;
   color: var(--transport-muted);
+  max-width: 560px;
 }
 
 .transport-policy-check input {
-  margin: 0;
+  margin: 2px 0 0;
 }
 
 .transport-quote {
-  border-left: 1px solid var(--transport-border);
+  border-left: 1px solid rgba(15, 109, 255, 0.18);
   background:
-    radial-gradient(600px 280px at 100% -5%, rgba(15, 109, 255, 0.1), transparent 55%),
-    #f8fbff;
-  padding: 16px;
+    radial-gradient(620px 300px at 100% -6%, rgba(15, 109, 255, 0.14), transparent 56%),
+    linear-gradient(180deg, #f7fbff, #f1f7ff);
+  padding: 18px;
   display: grid;
   align-content: start;
   gap: 12px;
   min-width: 0;
+  position: sticky;
+  top: 84px;
+  align-self: start;
+}
+
+.transport-quote__head {
+  display: grid;
+  gap: 6px;
+}
+
+.transport-quote__badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #0b4ab2;
+  background: rgba(15, 109, 255, 0.12);
+  border: 1px solid rgba(15, 109, 255, 0.24);
 }
 
 .transport-quote h3 {
   margin: 0;
   font-family: 'Space Grotesk', 'Manrope', sans-serif;
-  font-size: 17px;
+  font-size: 18px;
 }
 
 .transport-status {
   font-size: 12px;
-  padding: 9px 10px;
+  padding: 10px 11px;
   border-radius: 10px;
-  border: 1px solid rgba(15, 109, 255, 0.2);
-  background: rgba(15, 109, 255, 0.08);
+  border: 1px solid rgba(15, 109, 255, 0.24);
+  background: rgba(15, 109, 255, 0.11);
   color: #0b4ab2;
 }
 
@@ -326,6 +379,10 @@ body.transport-booking-page {
   font-size: 12px;
   color: var(--transport-muted);
   line-height: 1.45;
+  border: 1px solid rgba(15, 109, 255, 0.14);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.82);
 }
 
 .transport-breakdown {
@@ -340,19 +397,26 @@ body.transport-booking-page {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
   font-size: 13px;
-  border-bottom: 1px dashed rgba(74, 93, 120, 0.25);
-  padding-bottom: 7px;
+  border: 1px solid rgba(15, 109, 255, 0.14);
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 9px 10px;
+}
+
+.transport-breakdown li[hidden] {
+  display: none;
 }
 
 .transport-breakdown li strong {
   font-weight: 700;
   color: var(--transport-text);
+  white-space: nowrap;
 }
 
-.transport-breakdown li:nth-child(1) strong,
-.transport-breakdown li:nth-child(2) strong {
+.transport-breakdown li#transportQuoteRowOutbound strong,
+.transport-breakdown li#transportQuoteRowReturn strong {
   color: #0b4ab2;
 }
 
@@ -360,15 +424,20 @@ body.transport-booking-page {
   color: #0f7f74;
 }
 
+.transport-breakdown li.transport-breakdown--deposit {
+  border-color: rgba(29, 180, 165, 0.38);
+  background: rgba(29, 180, 165, 0.08);
+}
+
 .transport-total {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 10px 12px;
-  border-radius: 11px;
-  border: 1px solid rgba(15, 109, 255, 0.35);
-  background: rgba(15, 109, 255, 0.12);
+  padding: 11px 13px;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 109, 255, 0.38);
+  background: linear-gradient(135deg, rgba(15, 109, 255, 0.2), rgba(15, 109, 255, 0.09));
   font-size: 15px;
   font-weight: 700;
 }
@@ -390,17 +459,17 @@ body.transport-booking-page {
   font-size: 12px;
   color: var(--transport-warning);
   border: 1px solid rgba(183, 121, 31, 0.35);
-  background: rgba(183, 121, 31, 0.1);
+  background: rgba(183, 121, 31, 0.09);
   border-radius: 9px;
-  padding: 7px 9px;
+  padding: 8px 10px;
 }
 
 .transport-success {
   font-size: 13px;
-  border-radius: 11px;
-  padding: 11px 12px;
+  border-radius: 12px;
+  padding: 12px 13px;
   border: 1px solid rgba(29, 180, 165, 0.35);
-  background: rgba(29, 180, 165, 0.12);
+  background: rgba(29, 180, 165, 0.14);
   color: #13695f;
 }
 
@@ -415,8 +484,10 @@ body.transport-booking-page {
   }
 
   .transport-quote {
+    position: static;
     border-left: 0;
-    border-top: 1px solid var(--transport-border);
+    border-top: 1px solid rgba(15, 109, 255, 0.18);
+    top: auto;
   }
 }
 
@@ -442,6 +513,23 @@ body.transport-booking-page {
 
   .transport-submit-btn {
     width: 100%;
+  }
+
+  .transport-booking-form {
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .transport-quote {
+    padding: 14px;
+  }
+
+  .transport-hero {
+    padding: 16px 14px 14px;
+  }
+
+  .transport-section {
+    padding: 12px;
   }
 
   .transport-booking-brand__text {

@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="assets/css/tokens.css" />
   <link rel="stylesheet" href="assets/css/base.css" />
   <link rel="stylesheet" href="css/toast.css" />
-  <link rel="stylesheet" href="css/transport-booking.css?v=20260224_1" />
+  <link rel="stylesheet" href="css/transport-booking.css?v=20260224_2" />
   <meta name="ce-auth" content="on" />
   <script type="module" src="js/supabaseClient.js"></script>
   <script type="module" src="js/toast.js"></script>
@@ -187,20 +187,23 @@
         </form>
 
         <aside class="transport-quote" aria-label="Live quote">
-          <h3>Total quote</h3>
+          <div class="transport-quote__head">
+            <span class="transport-quote__badge">Live pricing</span>
+            <h3>Total quote</h3>
+          </div>
           <div id="transportQuoteStatus" class="transport-status">Loading transport data...</div>
           <div id="transportRouteMeta" class="transport-route-meta">Route details will appear after selecting pickup and destination.</div>
 
           <ul class="transport-breakdown">
-            <li><span>Outbound leg total</span><strong id="transportQuoteOutbound">—</strong></li>
-            <li><span>Return leg total</span><strong id="transportQuoteReturn">—</strong></li>
-            <li><span>Base fare</span><strong id="transportQuoteBase">—</strong></li>
-            <li><span>Extra passengers</span><strong id="transportQuotePassengers">—</strong></li>
-            <li><span>Extra small backpacks</span><strong id="transportQuoteBags">—</strong></li>
-            <li><span>Extra large bags (15kg+)</span><strong id="transportQuoteOversize">—</strong></li>
-            <li><span>Child + booster seats</span><strong id="transportQuoteSeats">—</strong></li>
-            <li><span>Waiting fee</span><strong id="transportQuoteWaiting">—</strong></li>
-            <li class="transport-breakdown--deposit"><span>Deposit to pay now</span><strong id="transportQuoteDeposit">—</strong></li>
+            <li id="transportQuoteRowOutbound" class="transport-breakdown__row" hidden><span>Outbound leg total</span><strong id="transportQuoteOutbound">—</strong></li>
+            <li id="transportQuoteRowReturn" class="transport-breakdown__row" hidden><span>Return leg total</span><strong id="transportQuoteReturn">—</strong></li>
+            <li id="transportQuoteRowBase" class="transport-breakdown__row" hidden><span>Base fare</span><strong id="transportQuoteBase">—</strong></li>
+            <li id="transportQuoteRowPassengers" class="transport-breakdown__row" hidden><span>Extra passengers</span><strong id="transportQuotePassengers">—</strong></li>
+            <li id="transportQuoteRowBags" class="transport-breakdown__row" hidden><span>Extra small backpacks</span><strong id="transportQuoteBags">—</strong></li>
+            <li id="transportQuoteRowOversize" class="transport-breakdown__row" hidden><span>Extra large bags (15kg+)</span><strong id="transportQuoteOversize">—</strong></li>
+            <li id="transportQuoteRowSeats" class="transport-breakdown__row" hidden><span>Child + booster seats</span><strong id="transportQuoteSeats">—</strong></li>
+            <li id="transportQuoteRowWaiting" class="transport-breakdown__row" hidden><span>Waiting fee</span><strong id="transportQuoteWaiting">—</strong></li>
+            <li id="transportQuoteRowDeposit" class="transport-breakdown__row transport-breakdown--deposit" hidden><span>Deposit to pay now</span><strong id="transportQuoteDeposit">—</strong></li>
           </ul>
 
           <div class="transport-total">
@@ -215,6 +218,6 @@
     </section>
   </main>
 
-  <script type="module" src="js/transport-booking.js?v=20260224_1"></script>
+  <script type="module" src="js/transport-booking.js?v=20260224_2"></script>
 </body>
 </html>
