@@ -175,6 +175,57 @@ function getRouteLabel(route) {
   return `${origin} → ${destination}`;
 }
 
+function normalizeLocationType(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function getSelectedLocationIdsForRequirements() {
+  const ids = [];
+  const pushId = (value) => {
+    const id = String(value || '').trim();
+    if (id) ids.push(id);
+  };
+
+  pushId(els.originSelect?.value);
+  pushId(els.destinationSelect?.value);
+
+  if (isRoundTripSelected()) {
+    pushId(els.returnOriginSelect?.value);
+    pushId(els.returnDestinationSelect?.value);
+  }
+
+  return Array.from(new Set(ids));
+}
+
+function isAirportLocationById(locationId) {
+  const id = String(locationId || '').trim();
+  if (!id) return false;
+  const row = state.locationById.get(id);
+  return normalizeLocationType(row?.location_type) === 'airport';
+}
+
+function hasAirportInSelectedLocations() {
+  return getSelectedLocationIdsForRequirements().some((id) => isAirportLocationById(id));
+}
+
+function setFieldRequirement(fieldId, labelText, required) {
+  const field = byId(fieldId);
+  if (field && typeof field.required === 'boolean') {
+    field.required = Boolean(required);
+  }
+  const label = document.querySelector(`label[for="${fieldId}"]`);
+  if (label) {
+    label.textContent = required ? `${labelText} *` : labelText;
+  }
+}
+
+function syncTransportContactRequirements() {
+  const airportSelected = hasAirportInSelectedLocations();
+  setFieldRequirement('transportFlightNumber', 'Flight number', airportSelected);
+  setFieldRequirement('transportPickupAddress', 'Pickup address', !airportSelected);
+  setFieldRequirement('transportDropoffAddress', 'Dropoff address', !airportSelected);
+}
+
 function isMissingColumn(error, columnName) {
   const msg = String(error?.message || '').toLowerCase();
   return msg.includes(String(columnName || '').toLowerCase());
@@ -934,6 +985,8 @@ function updateSubmitState() {
 }
 
 function refreshQuote() {
+  syncTransportContactRequirements();
+
   if (state.loading) {
     updateSubmitState();
     return null;
@@ -1082,6 +1135,17 @@ function validateRequiredFields() {
   if (email) {
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailPattern.test(email)) return 'Email format looks invalid.';
+  }
+
+  const airportSelected = hasAirportInSelectedLocations();
+  const flightNumber = String(els.flightNumberInput?.value || '').trim();
+  const pickupAddress = String(els.pickupAddressInput?.value || '').trim();
+  const dropoffAddress = String(els.dropoffAddressInput?.value || '').trim();
+  if (airportSelected) {
+    if (!flightNumber) return 'Flight number is required when an airport location is selected.';
+  } else {
+    if (!pickupAddress) return 'Pickup address is required when no airport location is selected.';
+    if (!dropoffAddress) return 'Dropoff address is required when no airport location is selected.';
   }
 
   if (isRoundTripSelected()) {
