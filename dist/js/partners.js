@@ -62,6 +62,11 @@
   let referralTreeRoot = null;
   let referralTreeQuery = '';
 
+  let bootstrapInFlight = false;
+  let bootstrapPending = false;
+  let authBootstrapTimer = null;
+  let lastAuthBootstrapAt = 0;
+
   const els = {
     warning: null,
     loginPrompt: null,
@@ -798,12 +803,102 @@
     }
   }
 
-  function showToast(message, type) {
-    if (typeof window !== 'undefined' && typeof window.showToast === 'function') {
-      window.showToast(message, type || 'info');
+  const PARTNER_AUTH_ERROR_RE = /jwt expired|expired jwt|invalid jwt|token expired|auth session missing|session expired|unauthorized|forbidden/i;
+  const PARTNER_RATE_LIMIT_RE = /over_request_rate_limit|rate limit reached|too many requests/i;
+
+  function isPartnerAuthError(value) {
+    const authUtils = (typeof window !== 'undefined' && window.CE_AUTH_UTILS && typeof window.CE_AUTH_UTILS.isRecoverableError === 'function')
+      ? window.CE_AUTH_UTILS
+      : null;
+    if (authUtils && authUtils.isRecoverableError(value)) return true;
+    const raw = String(value?.message || value || '').trim().toLowerCase();
+    if (!raw) return false;
+    return PARTNER_AUTH_ERROR_RE.test(raw);
+  }
+
+  function isPartnerRateLimitError(value) {
+    const code = String(value?.code || '').trim().toLowerCase();
+    const raw = String(value?.message || value || '').trim().toLowerCase();
+    if (!raw && !code) return false;
+    if (code === 'over_request_rate_limit') return true;
+    return PARTNER_RATE_LIMIT_RE.test(`${code} ${raw}`);
+  }
+
+  function delay(ms) {
+    return new Promise((resolve) => {
+      setTimeout(resolve, Math.max(0, Number(ms) || 0));
+    });
+  }
+
+  async function withRateLimitRetry(task, options = {}) {
+    const attempts = Math.max(1, Number(options.attempts || 3));
+    const baseDelayMs = Math.max(100, Number(options.baseDelayMs || 400));
+    let lastError = null;
+
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      try {
+        const result = await task(attempt);
+        if (result && typeof result === 'object' && 'error' in result && result.error) {
+          throw result.error;
+        }
+        return result;
+      } catch (error) {
+        lastError = error;
+        const shouldRetry = isPartnerRateLimitError(error) && attempt < attempts - 1;
+        if (!shouldRetry) {
+          throw error;
+        }
+        await delay(baseDelayMs * (attempt + 1));
+      }
+    }
+
+    throw lastError || new Error('Request failed');
+  }
+
+  function queueBootstrapFromAuth() {
+    const now = Date.now();
+    const minGapMs = 1200;
+    const elapsed = now - lastAuthBootstrapAt;
+
+    if (elapsed >= minGapMs) {
+      lastAuthBootstrapAt = now;
+      void bootstrapPortal();
       return;
     }
-    console.log(type || 'info', message);
+
+    if (authBootstrapTimer) return;
+
+    authBootstrapTimer = setTimeout(() => {
+      authBootstrapTimer = null;
+      lastAuthBootstrapAt = Date.now();
+      void bootstrapPortal();
+    }, Math.max(80, minGapMs - elapsed));
+  }
+
+  function partnerUserMessage(value, fallback = '') {
+    const authUtils = (typeof window !== 'undefined' && window.CE_AUTH_UTILS && typeof window.CE_AUTH_UTILS.toUserMessage === 'function')
+      ? window.CE_AUTH_UTILS
+      : null;
+    const raw = String(value?.message || value || '').trim();
+    if (!raw) return fallback;
+    if (authUtils && typeof authUtils.toUserMessage === 'function') {
+      return authUtils.toUserMessage(raw, fallback || 'Session expired. Please sign in again.');
+    }
+    if (isPartnerAuthError(raw)) {
+      return fallback || 'Session expired. Please sign in again.';
+    }
+    return raw;
+  }
+
+  function showToast(message, type) {
+    const normalizedType = type || 'info';
+    const normalizedMessage = partnerUserMessage(message, normalizedType === 'error' ? 'Session expired. Please sign in again.' : '');
+    if (!normalizedMessage) return;
+    if (typeof window !== 'undefined' && typeof window.showToast === 'function') {
+      window.showToast(normalizedMessage, normalizedType);
+      return;
+    }
+    console.log(normalizedType, normalizedMessage);
   }
 
   function supportsPartnerPushNotifications() {
@@ -1270,11 +1365,11 @@
     if (!state.sb || !state.user?.id) return null;
 
     try {
-      const { data, error } = await state.sb
+      const { data, error } = await withRateLimitRetry(() => state.sb
         .from('profiles')
         .select('id,email,name,username')
         .eq('id', state.user.id)
-        .maybeSingle();
+        .maybeSingle());
       if (error) throw error;
       state.profile = data || null;
       return state.profile;
@@ -1358,11 +1453,11 @@
     ensureVisible();
 
     try {
-      const { count, error } = await state.sb
+      const { count, error } = await withRateLimitRetry(() => state.sb
         .from('referrals')
         .select('id', { count: 'exact', head: true })
         .eq('referrer_id', state.user.id)
-        .limit(1);
+        .limit(1));
       if (error) throw error;
       const c = String(count || 0);
       setText(els.partnerReferralCount, c);
@@ -3522,8 +3617,15 @@
       els.warning.textContent = '';
       return;
     }
+
+    const normalizedMessage = partnerUserMessage(message, 'Session expired. Please sign in again.');
+    if (!normalizedMessage) {
+      els.warning.hidden = true;
+      els.warning.textContent = '';
+      return;
+    }
     els.warning.hidden = false;
-    els.warning.textContent = message;
+    els.warning.textContent = normalizedMessage;
   }
 
   async function openAuthModal(tab) {
@@ -3563,19 +3665,62 @@
   }
 
   async function ensureSession() {
-    const { data, error } = await state.sb.auth.getSession();
-    if (error) throw error;
-    state.session = data?.session || null;
-    state.user = state.session?.user || null;
-    return state.session;
+    const readSession = async () => {
+      if (typeof state.sb?.auth?.getSessionSafe === 'function') {
+        return state.sb.auth.getSessionSafe();
+      }
+      return state.sb.auth.getSession();
+    };
+
+    const applySession = (session) => {
+      state.session = session || null;
+      state.user = state.session?.user || null;
+      return state.session;
+    };
+
+    const tryRefresh = async () => {
+      if (typeof state.sb?.auth?.refreshSession !== 'function') return null;
+      try {
+        const { data, error } = await state.sb.auth.refreshSession();
+        if (error) return null;
+        return data?.session || null;
+      } catch (_error) {
+        return null;
+      }
+    };
+
+    const { data, error } = await readSession();
+    if (error) {
+      if (isPartnerAuthError(error)) {
+        const refreshed = await tryRefresh();
+        if (refreshed?.access_token) {
+          return applySession(refreshed);
+        }
+        throw new Error('Session expired. Please sign in again.');
+      }
+      throw error;
+    }
+
+    const current = data?.session || null;
+    if (current?.access_token) {
+      return applySession(current);
+    }
+
+    const refreshed = await tryRefresh();
+    if (refreshed?.access_token) {
+      return applySession(refreshed);
+    }
+
+    return applySession(current);
   }
 
-  async function loadMemberships() {
-    const { data: partnerUsers, error } = await state.sb
+  async function loadMemberships(userIdOverride = '') {
+    const membershipUserId = String(userIdOverride || state.user?.id || '').trim();
+    const { data: partnerUsers, error } = await withRateLimitRetry(() => state.sb
       .from('partner_users')
       .select('partner_id, role')
-      .eq('user_id', state.user?.id || '')
-      .order('created_at', { ascending: true });
+      .eq('user_id', membershipUserId)
+      .order('created_at', { ascending: true }));
 
     if (error) throw error;
 
@@ -3588,18 +3733,18 @@
       let partners = null;
       let pErr = null;
 
-      ({ data: partners, error: pErr } = await state.sb
+      ({ data: partners, error: pErr } = await withRateLimitRetry(() => state.sb
         .from('partners')
         .select('id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_manage_transport, cars_locations, affiliate_enabled')
         .in('id', partnerIds)
-        .limit(50));
+        .limit(50)));
 
       if (pErr && (/cars_locations/i.test(String(pErr.message || '')) || /affiliate_enabled/i.test(String(pErr.message || '')) || /can_manage_transport/i.test(String(pErr.message || '')))) {
-        ({ data: partners, error: pErr } = await state.sb
+        ({ data: partners, error: pErr } = await withRateLimitRetry(() => state.sb
           .from('partners')
           .select('id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels')
           .in('id', partnerIds)
-          .limit(50));
+          .limit(50)));
       }
 
       if (pErr) throw pErr;
@@ -3818,14 +3963,39 @@
     ));
     const transportRouteIds = Array.from(new Set(
       serviceOnly
-        .filter((f) => String(f.resource_type || '') === 'transport' && f.resource_id)
-        .map((f) => f.resource_id)
+        .filter((f) => String(f.resource_type || '') === 'transport')
+        .flatMap((f) => {
+          const details = detailsObjectFromFulfillment(f);
+          return [
+            String(f?.resource_id || '').trim(),
+            String(details?.route_id || '').trim(),
+            String(details?.return_route_id || '').trim(),
+          ];
+        })
         .filter(Boolean)
     ));
 
     const tripById = {};
     const hotelById = {};
     const transportRouteById = {};
+    const transportRouteEndpointsById = {};
+    const transportLocationLabelById = {};
+
+    const cleanTransportLabel = (value) => {
+      const text = String(value || '').trim();
+      if (!text) return '';
+      if (text === '—') return '';
+      if (/^unknown location$/i.test(text)) return '';
+      return text;
+    };
+
+    const joinTransportRouteLabel = (originLabel, destinationLabel) => {
+      const origin = cleanTransportLabel(originLabel);
+      const destination = cleanTransportLabel(destinationLabel);
+      if (!origin && !destination) return '';
+      if (origin && destination) return `${origin} → ${destination}`;
+      return `${origin || 'Origin'} → ${destination || 'Destination'}`;
+    };
 
     if (tripIds.length) {
       try {
@@ -3885,6 +4055,8 @@
             (locations || []).forEach((loc) => {
               if (!loc?.id) return;
               locationById[loc.id] = loc;
+              const label = cleanTransportLabel(loc?.name) || cleanTransportLabel(loc?.code);
+              if (label) transportLocationLabelById[String(loc.id)] = label;
             });
           } catch (_e) {
           }
@@ -3892,15 +4064,88 @@
 
         routeRows.forEach((route) => {
           if (!route?.id) return;
-          const origin = locationById[route.origin_location_id] || null;
-          const destination = locationById[route.destination_location_id] || null;
-          const originLabel = String(origin?.name || route.origin_location_id || '').trim() || String(route.id).slice(0, 8);
-          const destinationLabel = String(destination?.name || route.destination_location_id || '').trim() || String(route.id).slice(0, 8);
-          transportRouteById[route.id] = `${originLabel} → ${destinationLabel}`;
+          const routeId = String(route.id || '').trim();
+          if (!routeId) return;
+          const originId = String(route.origin_location_id || '').trim();
+          const destinationId = String(route.destination_location_id || '').trim();
+          const origin = locationById[originId] || null;
+          const destination = locationById[destinationId] || null;
+          const originLabel = cleanTransportLabel(origin?.name)
+            || cleanTransportLabel(origin?.code)
+            || cleanTransportLabel(transportLocationLabelById[originId]);
+          const destinationLabel = cleanTransportLabel(destination?.name)
+            || cleanTransportLabel(destination?.code)
+            || cleanTransportLabel(transportLocationLabelById[destinationId]);
+          transportRouteEndpointsById[routeId] = {
+            originId,
+            destinationId,
+            originLabel: originLabel || originId,
+            destinationLabel: destinationLabel || destinationId,
+          };
+          transportRouteById[routeId] = joinTransportRouteLabel(originLabel || originId, destinationLabel || destinationId) || String(routeId).slice(0, 8);
         });
       } catch (_e) {
       }
     }
+
+    const resolveTransportRouteSummary = (fulfillment) => {
+      const details = detailsObjectFromFulfillment(fulfillment) || {};
+      const outboundRouteId = String(details?.route_id || fulfillment?.resource_id || '').trim();
+      const returnRouteId = String(details?.return_route_id || '').trim();
+
+      const outboundEndpoints = outboundRouteId ? (transportRouteEndpointsById[outboundRouteId] || null) : null;
+      const returnEndpoints = returnRouteId ? (transportRouteEndpointsById[returnRouteId] || null) : null;
+
+      const outboundOrigin = cleanTransportLabel(outboundEndpoints?.originLabel)
+        || cleanTransportLabel(transportLocationLabelById[String(details?.origin_location_id || '').trim()])
+        || cleanTransportLabel(details?.origin_location_name)
+        || cleanTransportLabel(details?.origin_name);
+      const outboundDestination = cleanTransportLabel(outboundEndpoints?.destinationLabel)
+        || cleanTransportLabel(transportLocationLabelById[String(details?.destination_location_id || '').trim()])
+        || cleanTransportLabel(details?.destination_location_name)
+        || cleanTransportLabel(details?.destination_name);
+      const returnOrigin = cleanTransportLabel(returnEndpoints?.originLabel)
+        || cleanTransportLabel(transportLocationLabelById[String(details?.return_origin_location_id || '').trim()])
+        || cleanTransportLabel(details?.return_origin_location_name)
+        || cleanTransportLabel(details?.return_origin_name);
+      const returnDestination = cleanTransportLabel(returnEndpoints?.destinationLabel)
+        || cleanTransportLabel(transportLocationLabelById[String(details?.return_destination_location_id || '').trim()])
+        || cleanTransportLabel(details?.return_destination_location_name)
+        || cleanTransportLabel(details?.return_destination_name);
+
+      const outboundLabel = joinTransportRouteLabel(outboundOrigin, outboundDestination)
+        || cleanTransportLabel(transportRouteById[outboundRouteId])
+        || cleanTransportLabel(fulfillment?.summary);
+      const returnLabel = joinTransportRouteLabel(returnOrigin, returnDestination)
+        || cleanTransportLabel(transportRouteById[returnRouteId]);
+
+      const tripType = String(details?.trip_type || '').trim().toLowerCase();
+      const hasReturn = tripType === 'round_trip'
+        || Boolean(returnRouteId || details?.return_travel_date || details?.return_travel_time || returnLabel);
+
+      if (!hasReturn) return outboundLabel || 'Transport booking';
+      if (!returnLabel) return outboundLabel ? `${outboundLabel} (Round trip)` : 'Round trip';
+      if (!outboundLabel) return returnLabel;
+
+      const splitRouteLabel = (label) => {
+        const text = String(label || '').trim();
+        if (!text || !text.includes('→')) return null;
+        const parts = text.split('→').map((part) => part.trim()).filter(Boolean);
+        if (parts.length !== 2) return null;
+        return { origin: parts[0], destination: parts[1] };
+      };
+
+      const outboundSplit = splitRouteLabel(outboundLabel);
+      const returnSplit = splitRouteLabel(returnLabel);
+      if (outboundSplit && returnSplit) {
+        if (outboundSplit.origin === returnSplit.destination
+            && outboundSplit.destination === returnSplit.origin) {
+          return `${outboundSplit.origin} ↔ ${outboundSplit.destination}`;
+        }
+      }
+      if (outboundLabel === returnLabel) return `${outboundLabel} (Round trip)`;
+      return `${outboundLabel} | ${returnLabel}`;
+    };
 
     if (tripIds.length || hotelIds.length || transportRouteIds.length) {
       filteredMerged.forEach((f) => {
@@ -3911,8 +4156,8 @@
         if (String(f.resource_type || '') === 'hotels' && f.resource_id && hotelById[f.resource_id]) {
           f.summary = hotelById[f.resource_id];
         }
-        if (String(f.resource_type || '') === 'transport' && f.resource_id && transportRouteById[f.resource_id]) {
-          f.summary = transportRouteById[f.resource_id];
+        if (String(f.resource_type || '') === 'transport') {
+          f.summary = resolveTransportRouteSummary(f);
         }
       });
     }
@@ -5222,16 +5467,21 @@
       });
       renderAnalyticsLiveChart([], range);
       renderAnalyticsResponseChart([], range);
-      setText(els.partnerAnalyticsStatus, `Failed to load analytics: ${error.message || 'Unknown error'}`);
+      setText(els.partnerAnalyticsStatus, partnerUserMessage(error, 'Failed to load analytics.'));
       if (!silent) {
         showToast(`Error: ${error.message || 'Failed to load analytics'}`, 'error');
       }
     }
   }
 
-  async function callFulfillmentAction(fulfillmentId, action, reason) {
+  async function callFulfillmentAction(fulfillmentId, action, reason, reasonCode) {
     const { data, error } = await state.sb.functions.invoke('partner-fulfillment-action', {
-      body: { fulfillment_id: fulfillmentId, action, reason: reason || undefined },
+      body: {
+        fulfillment_id: fulfillmentId,
+        action,
+        reason: reason || undefined,
+        reason_code: reasonCode || undefined,
+      },
     });
     if (error) {
       const msg = error.message || 'Request failed';
@@ -5240,8 +5490,60 @@
     return data;
   }
 
-  async function callServiceFulfillmentAction(fulfillmentId, action, reason) {
-    return callFulfillmentAction(fulfillmentId, action, reason);
+  async function callServiceFulfillmentAction(fulfillmentId, action, reason, reasonCode) {
+    return callFulfillmentAction(fulfillmentId, action, reason, reasonCode);
+  }
+
+  function promptTransportRejectReason() {
+    const optionsText = [
+      'Select reject reason:',
+      '1 - No availability in selected time',
+      '2 - Vehicle unavailable',
+      '3 - Outside operating hours',
+      '4 - Route not supported',
+      '5 - Other (enter custom reason)',
+      '',
+      'Enter 1-5',
+    ].join('\n');
+
+    const choiceRaw = prompt(optionsText);
+    if (choiceRaw == null) return null;
+    const choice = String(choiceRaw || '').trim();
+
+    const codeMap = {
+      '1': 'no_availability',
+      '2': 'vehicle_unavailable',
+      '3': 'outside_operating_hours',
+      '4': 'route_not_supported',
+      '5': 'other',
+      no_availability: 'no_availability',
+      vehicle_unavailable: 'vehicle_unavailable',
+      outside_operating_hours: 'outside_operating_hours',
+      route_not_supported: 'route_not_supported',
+      other: 'other',
+    };
+
+    const reasonCode = codeMap[String(choice).toLowerCase()] || '';
+    if (!reasonCode) {
+      showToast('Select valid reject reason (1-5).', 'error');
+      return null;
+    }
+
+    if (reasonCode === 'other') {
+      const custom = prompt('Provide reject details:');
+      const reason = String(custom || '').trim();
+      if (!reason) {
+        showToast('Custom reject reason is required.', 'error');
+        return null;
+      }
+      return { reason, reasonCode };
+    }
+
+    const note = prompt('Optional note for admin (optional):');
+    return {
+      reason: String(note || '').trim(),
+      reasonCode,
+    };
   }
 
   function messageForFulfillmentAction(action, result) {
@@ -5773,9 +6075,20 @@
 
       const transportDetailsPairs = (() => {
         if (category !== 'transport') return [];
+        const routeSummary = String(f.summary || getField('route_label', 'route_name') || '').trim();
+        const tripTypeLabel = (() => {
+          const raw = String(getField('trip_type') || '').trim().toLowerCase();
+          if (raw === 'round_trip') return 'Round trip (2 rides)';
+          if (raw === 'one_way') return 'One way';
+          return raw ? raw.replace(/_/g, ' ') : '';
+        })();
         return [
+          { label: 'Route', value: routeSummary || null },
+          { label: 'Trip type', value: tripTypeLabel || null },
           { label: 'Travel date', value: getField('travel_date') },
           { label: 'Travel time', value: getField('travel_time') },
+          { label: 'Return date', value: getField('return_travel_date') },
+          { label: 'Return time', value: getField('return_travel_time') },
           { label: 'Passengers', value: getField('num_passengers') },
           { label: 'Bags', value: getField('num_bags') },
           { label: 'Oversize bags', value: getField('num_oversize_bags') },
@@ -5785,6 +6098,9 @@
           { label: 'Flight number', value: getField('flight_number') },
           { label: 'Pickup address', value: getField('pickup_address') },
           { label: 'Dropoff address', value: getField('dropoff_address') },
+          { label: 'Return flight number', value: getField('return_flight_number') },
+          { label: 'Return pickup address', value: getField('return_pickup_address') },
+          { label: 'Return dropoff address', value: getField('return_dropoff_address') },
         ];
       })();
 
@@ -5941,6 +6257,36 @@
 
             const parts = [preferredHtml, stayHtml, participantsHtml].filter(Boolean).join('');
             return parts || '<span class="muted">—</span>';
+          }
+
+          if (String(f.resource_type || '') === 'transport') {
+            const details = detailsObjectFromFulfillment(f) || {};
+            const outboundDate = details?.travel_date || details?.travelDate || f.start_date || null;
+            const outboundTime = details?.travel_time || details?.travelTime || null;
+            const returnDate = details?.return_travel_date || details?.returnTravelDate || f.end_date || null;
+            const returnTime = details?.return_travel_time || details?.returnTravelTime || null;
+            const tripType = String(details?.trip_type || '').trim().toLowerCase();
+            const hasReturn = tripType === 'round_trip'
+              || Boolean(details?.return_route_id || returnDate || returnTime);
+
+            const outboundParts = [
+              outboundDate ? formatDateDmy(outboundDate) : '',
+              outboundTime ? String(outboundTime).slice(0, 5) : '',
+            ].filter(Boolean);
+            const returnParts = [
+              returnDate ? formatDateDmy(returnDate) : '',
+              returnTime ? String(returnTime).slice(0, 5) : '',
+            ].filter(Boolean);
+
+            const outboundLine = outboundParts.length ? outboundParts.join(' · ') : '—';
+            if (!hasReturn) {
+              return `<div class="small"><strong>Outbound:</strong> ${escapeHtml(outboundLine)}</div>`;
+            }
+            const returnLine = returnParts.length ? returnParts.join(' · ') : '—';
+            return `
+              <div class="small"><strong>Outbound:</strong> ${escapeHtml(outboundLine)}</div>
+              <div class="small"><strong>Return:</strong> ${escapeHtml(returnLine)}</div>
+            `;
           }
 
           if (f.start_date && f.end_date) {
@@ -6104,12 +6450,26 @@
 
         try {
           if (action === 'reject') {
-            const reason = prompt('Provide a rejection reason (optional):') || '';
+            const row = (state.fulfillments || []).find((f) => String(f?.id || '') === String(fulfillmentId)) || null;
+            const isTransportServiceReject = source === 'service'
+              && String(row?.resource_type || '').trim().toLowerCase() === 'transport';
+            let reason = '';
+            let reasonCode = '';
+
+            if (isTransportServiceReject) {
+              const picked = promptTransportRejectReason();
+              if (!picked) return;
+              reason = String(picked.reason || '').trim();
+              reasonCode = String(picked.reasonCode || '').trim();
+            } else {
+              reason = String(prompt('Provide a rejection reason (optional):') || '').trim();
+            }
+
             if (!confirm('Are you sure you want to reject this fulfillment?')) return;
             btn.disabled = true;
             let result = null;
             if (source === 'service') {
-              result = await callServiceFulfillmentAction(fulfillmentId, 'reject', reason);
+              result = await callServiceFulfillmentAction(fulfillmentId, 'reject', reason, reasonCode);
             } else {
               result = await callFulfillmentAction(fulfillmentId, 'reject', reason);
             }
@@ -6851,7 +7211,7 @@
     } catch (error) {
       console.error(error);
       setText(els.status, 'Failed to load fulfillments.');
-      showWarning(`Failed to load fulfillments: ${error.message || 'Unknown error'}`);
+      showWarning(partnerUserMessage(error, 'Failed to load fulfillments.'));
       showToast(`Error: ${error.message || 'Failed to load fulfillments'}`, 'error');
     }
   }
@@ -6991,108 +7351,124 @@
   }
 
   async function bootstrapPortal() {
-    showWarning('');
-
-    if (!state.sb) {
-      showWarning('Supabase not available.');
+    if (bootstrapInFlight) {
+      bootstrapPending = true;
       return;
     }
+    bootstrapInFlight = true;
 
     try {
-      await ensureSession();
-    } catch (error) {
-      console.error(error);
-      showWarning('Session error.');
+      showWarning('');
 
-      setMainView('portal');
-      setHidden(els.loginPrompt, false);
-      setHidden(els.app, true);
-      setHidden(els.noPartner, true);
-      setText(els.status, 'Not logged in.');
-      if (els.partnerUserName) els.partnerUserName.textContent = 'Not logged in';
-      setHidden(els.partnerReferralWidget, true);
-      return;
-    }
-
-    if (!state.session || !state.user) {
-      setMainView('portal');
-      setHidden(els.loginPrompt, false);
-      setHidden(els.app, true);
-      setHidden(els.noPartner, true);
-      setText(els.status, 'Not logged in.');
-      if (els.partnerUserName) els.partnerUserName.textContent = 'Not logged in';
-      setHidden(els.partnerReferralWidget, true);
-      setHidden(els.partnerReferralSummary, true);
-      // Ensure the login modal is the primary UX entrypoint
-      openLogin();
-      return;
-    }
-
-    if (els.partnerUserName) {
-      const name = state.user?.email || state.user?.id || 'Partner';
-      els.partnerUserName.textContent = name;
-    }
-
-    await loadMyProfile();
-    renderProfileSettings();
-    await refreshReferralWidget();
-
-    setHidden(els.loginPrompt, true);
-
-    try {
-      await loadMemberships();
-    } catch (error) {
-      console.error(error);
-      showWarning(`Failed to load partner: ${error.message || 'Error'}`);
-      setHidden(els.app, true);
-      setHidden(els.noPartner, true);
-      return;
-    }
-
-    if (!state.selectedPartnerId) {
-      setHidden(els.noPartner, false);
-      setHidden(els.app, true);
-      setText(els.status, 'No partner membership.');
-      return;
-    }
-
-    setHidden(els.noPartner, true);
-    setHidden(els.app, false);
-
-    renderPartnerSelect();
-    renderSuspendedInfo();
-
-    syncResourceTypeOptions();
-    updateSidebarCategoryVisibility();
-    updateAffiliateSummaryCardVisibility();
-    updateServiceSectionVisibility();
-    ensureAnalyticsFilterDefaults();
-    syncAnalyticsCategoryOptions();
-    syncAnalyticsFilterVisibility();
-    ensureCalendarMonthInput();
-
-    const partner = state.selectedPartnerId ? state.partnersById[state.selectedPartnerId] : null;
-    if (partner && els.blockResourceType && els.blockResourceId) {
-      if (els.blockResourceType.value === 'shop' && !els.blockResourceId.value && partner.shop_vendor_id) {
-        els.blockResourceId.value = partner.shop_vendor_id;
+      if (!state.sb) {
+        showWarning('Supabase not available.');
+        return;
       }
-    }
 
-    if (els.partnerAnalyticsView && !els.partnerAnalyticsView.hidden) {
-      await refreshPartnerAnalyticsView({ silent: true });
-    } else {
-      setActiveTab('fulfillments');
-    }
-    setText(els.status, 'Ready.');
+      try {
+        await ensureSession();
+      } catch (error) {
+        console.error(error);
+        showWarning('Session error.');
 
-    try {
-      await refreshAffiliateSummaryCard();
-    } catch (_e) {
-    }
+        setMainView('portal');
+        setHidden(els.loginPrompt, false);
+        setHidden(els.app, true);
+        setHidden(els.noPartner, true);
+        setText(els.status, 'Not logged in.');
+        if (els.partnerUserName) els.partnerUserName.textContent = 'Not logged in';
+        setHidden(els.partnerReferralWidget, true);
+        return;
+      }
 
-    try {
-      await loadPartnerPushNotificationSettings();
-    } catch (_e) {
+      const bootstrapUserId = String(state.user?.id || '').trim();
+
+      if (!state.session || !bootstrapUserId) {
+        setMainView('portal');
+        setHidden(els.loginPrompt, false);
+        setHidden(els.app, true);
+        setHidden(els.noPartner, true);
+        setText(els.status, 'Not logged in.');
+        if (els.partnerUserName) els.partnerUserName.textContent = 'Not logged in';
+        setHidden(els.partnerReferralWidget, true);
+        setHidden(els.partnerReferralSummary, true);
+        // Ensure the login modal is the primary UX entrypoint
+        openLogin();
+        return;
+      }
+
+      if (els.partnerUserName) {
+        const name = state.user?.email || state.user?.id || 'Partner';
+        els.partnerUserName.textContent = name;
+      }
+
+      await loadMyProfile();
+      renderProfileSettings();
+      await refreshReferralWidget();
+
+      setHidden(els.loginPrompt, true);
+
+      try {
+        await loadMemberships(bootstrapUserId);
+      } catch (error) {
+        console.error(error);
+        showWarning(partnerUserMessage(error, 'Failed to load partner.'));
+        setHidden(els.app, true);
+        setHidden(els.noPartner, true);
+        return;
+      }
+
+      if (!state.selectedPartnerId) {
+        setHidden(els.noPartner, false);
+        setHidden(els.app, true);
+        setText(els.status, 'No partner membership.');
+        return;
+      }
+
+      setHidden(els.noPartner, true);
+      setHidden(els.app, false);
+
+      renderPartnerSelect();
+      renderSuspendedInfo();
+
+      syncResourceTypeOptions();
+      updateSidebarCategoryVisibility();
+      updateAffiliateSummaryCardVisibility();
+      updateServiceSectionVisibility();
+      ensureAnalyticsFilterDefaults();
+      syncAnalyticsCategoryOptions();
+      syncAnalyticsFilterVisibility();
+      ensureCalendarMonthInput();
+
+      const partner = state.selectedPartnerId ? state.partnersById[state.selectedPartnerId] : null;
+      if (partner && els.blockResourceType && els.blockResourceId) {
+        if (els.blockResourceType.value === 'shop' && !els.blockResourceId.value && partner.shop_vendor_id) {
+          els.blockResourceId.value = partner.shop_vendor_id;
+        }
+      }
+
+      if (els.partnerAnalyticsView && !els.partnerAnalyticsView.hidden) {
+        await refreshPartnerAnalyticsView({ silent: true });
+      } else {
+        setActiveTab('fulfillments');
+      }
+      setText(els.status, 'Ready.');
+
+      try {
+        await refreshAffiliateSummaryCard();
+      } catch (_e) {
+      }
+
+      try {
+        await loadPartnerPushNotificationSettings();
+      } catch (_e) {
+      }
+    } finally {
+      bootstrapInFlight = false;
+      if (bootstrapPending) {
+        bootstrapPending = false;
+        void bootstrapPortal();
+      }
     }
   }
 
@@ -7728,14 +8104,22 @@
     });
 
     if (state.sb?.auth?.onAuthStateChange) {
-      state.sb.auth.onAuthStateChange((_event, session) => {
+      state.sb.auth.onAuthStateChange((event, session) => {
+        const previousUserId = String(state.user?.id || '').trim();
+        const nextUserId = String(session?.user?.id || '').trim();
         state.session = session;
         state.user = session?.user || null;
         if (!session) {
           stopBlocksRealtime();
           stopAnalyticsRealtime();
         }
-        bootstrapPortal();
+        if (event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+          return;
+        }
+        if (event === 'SIGNED_IN' && previousUserId && previousUserId === nextUserId) {
+          return;
+        }
+        queueBootstrapFromAuth();
       });
     }
 
