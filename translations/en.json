@@ -1746,38 +1746,43 @@
   },
   "shortcuts": {
     "packing": {
-      "title": "🎒 Packing planner",
-      "description": "Plan your luggage with checklists for every season.",
-      "action": "Open planner"
+      "badge": "Checklist",
+      "title": "Packing planner",
+      "description": "Prepare your luggage with a clear checklist before departure.",
+      "action": "Open module"
     },
     "tasks": {
-      "title": "✅ Task list",
-      "description": "Review pre-trip challenges and track your progress.",
-      "action": "Open tasks"
+      "badge": "To-do",
+      "title": "Task list",
+      "description": "Track key travel tasks and preparation progress in one place.",
+      "action": "Open module"
     },
     "car": {
-      "title": "🚗 Cyprus car rental",
-      "description": "See the fleet, compare prices, and reserve a car in the dedicated section.",
-      "action": "Go to car rental"
+      "badge": "Rental",
+      "title": "Car rental",
+      "description": "Compare available cars, prices, and complete reservation details online.",
+      "action": "Open module"
     },
     "transport": {
-      "title": "🚕 Transport booking",
-      "description": "Set route and time, get live price, and reserve in one form.",
-      "badge": "Instant quote",
-      "action": "Open transport"
+      "badge": "Taxi",
+      "title": "Transport booking",
+      "description": "Choose route and time, see live pricing, and book in one form.",
+      "action": "Open module"
     },
     "coupon": {
       "title": "Coupon"
     },
     "plan": {
-      "title": "📅 Planner",
-      "description": "Set up your trip plan.",
-      "action": "Open planner"
+      "badge": "Schedule",
+      "title": "Trip planner",
+      "description": "Build your holiday day by day with a simple, clear timeline.",
+      "action": "Open module"
     },
     "trips": {
-      "title": "🧭 Trips",
-      "description": "Browse trips and make a reservation.",
-      "action": "View trips"
+      "badge": "Tours",
+      "title": "Trips",
+      "description": "Browse excursions, compare options, and send your booking request quickly.",
+      "action": "Open module"
     }
   },
   "discovery": {
@@ -3446,6 +3451,7 @@
   "footer.referral.facebook": "Facebook",
   "footer.referral.copied": "Copied!",
   "footer.app": "© <span data-current-year></span> CyprusEye.com • Play, explore, and plan your holidays at the same time.",
+  "footer.app.tagline": "Play, explore, and plan your holidays at the same time.",
   "sos.embassy.hotlineTitle": "Emergency hotline",
   "sos.embassy.receptionTitle": "Reception",
   "sos.embassy.addressTitle": "Address",

@@ -615,11 +615,11 @@
             href="packing.html"
             data-page-url="packing.html"
           >
-            <div class="shortcut-compact-icon">🎒</div>
-            <h2 data-i18n="shortcuts.packing.title">Pakowanie</h2>
-            <p data-i18n="shortcuts.packing.description">
-              Lista rzeczy na wyjazd
-            </p>
+            <span class="shortcut-compact-badge" data-i18n="shortcuts.packing.badge">Checklist</span>
+            <div class="shortcut-compact-icon" aria-hidden="true">🎒</div>
+            <h2 data-i18n="shortcuts.packing.title">Packing planner</h2>
+            <p data-i18n="shortcuts.packing.description">Prepare your luggage with one clear checklist before departure.</p>
+            <span class="shortcut-compact-meta" data-i18n="shortcuts.packing.action">Open module</span>
           </a>
 
           <!-- Tasks Card -->
@@ -630,29 +630,27 @@
             href="tasks.html"
             data-page-url="tasks.html"
           >
-            <div class="shortcut-compact-icon">✅</div>
-            <h2 data-i18n="shortcuts.tasks.title">Zadania</h2>
-            <p data-i18n="shortcuts.tasks.description">
-              Twoje zadania i cele
-            </p>
+            <span class="shortcut-compact-badge" data-i18n="shortcuts.tasks.badge">To-do</span>
+            <div class="shortcut-compact-icon" aria-hidden="true">✅</div>
+            <h2 data-i18n="shortcuts.tasks.title">Task list</h2>
+            <p data-i18n="shortcuts.tasks.description">Track key travel tasks and keep preparation progress in one place.</p>
+            <span class="shortcut-compact-meta" data-i18n="shortcuts.tasks.action">Open module</span>
           </a>
 
           <!-- Transport Card -->
           <a
-            class="shortcut-compact shortcut-compact--transport"
+            class="shortcut-compact"
             href="transport.html"
             data-page-url="transport.html"
             data-tour-target="coupon-card"
             data-i18n-attrs="aria-label:header.couponAria"
             aria-label="Open transport page"
           >
-            <span class="shortcut-compact-badge" data-i18n="shortcuts.transport.badge">Instant quote</span>
-            <div class="shortcut-compact-icon">🚕</div>
-            <h2 data-i18n="shortcuts.transport.title">🚕 Transport booking</h2>
-            <p data-i18n="shortcuts.transport.description">
-              Set route and time, get live price, and reserve in one form.
-            </p>
-            <span class="shortcut-compact-meta" data-i18n="shortcuts.transport.action">Open transport</span>
+            <span class="shortcut-compact-badge" data-i18n="shortcuts.transport.badge">Taxi</span>
+            <div class="shortcut-compact-icon" aria-hidden="true">🚕</div>
+            <h2 data-i18n="shortcuts.transport.title">Transport booking</h2>
+            <p data-i18n="shortcuts.transport.description">Choose route and time, get live pricing, and book in one form.</p>
+            <span class="shortcut-compact-meta" data-i18n="shortcuts.transport.action">Open module</span>
           </a>
 
           <!-- Car Rental Card -->
@@ -662,11 +660,11 @@
             data-tour-target="car-card"
             href="car-rental.html"
           >
-            <div class="shortcut-compact-icon">🚗</div>
-            <h2 data-i18n="shortcuts.car.title">Samochód</h2>
-            <p data-i18n="shortcuts.car.description">
-              Sprawdź oferty wynajmu
-            </p>
+            <span class="shortcut-compact-badge" data-i18n="shortcuts.car.badge">Rental</span>
+            <div class="shortcut-compact-icon" aria-hidden="true">🚗</div>
+            <h2 data-i18n="shortcuts.car.title">Car rental</h2>
+            <p data-i18n="shortcuts.car.description">Compare available cars, prices, and complete reservation details online.</p>
+            <span class="shortcut-compact-meta" data-i18n="shortcuts.car.action">Open module</span>
           </a>
 
           <!-- Trips Card -->
@@ -676,9 +674,11 @@
             data-page-url="trips.html"
             data-tour-target="trips-section"
           >
-            <div class="shortcut-compact-icon">🧭</div>
-            <h2 data-i18n="shortcuts.trips.title">Wycieczki</h2>
-            <p data-i18n="shortcuts.trips.description">Przeglądaj wycieczki i złóż rezerwację.</p>
+            <span class="shortcut-compact-badge" data-i18n="shortcuts.trips.badge">Tours</span>
+            <div class="shortcut-compact-icon" aria-hidden="true">🧭</div>
+            <h2 data-i18n="shortcuts.trips.title">Trips</h2>
+            <p data-i18n="shortcuts.trips.description">Browse excursions, compare options, and submit your booking request.</p>
+            <span class="shortcut-compact-meta" data-i18n="shortcuts.trips.action">Open module</span>
           </a>
 
           <!-- Plan Card -->
@@ -688,9 +688,11 @@
             data-page-url="plan.html"
             data-tour-target="plan-card"
           >
-            <div class="shortcut-compact-icon">📅</div>
-            <h2 data-i18n="shortcuts.plan.title">Planer</h2>
-            <p data-i18n="shortcuts.plan.description">Ustaw swój plan podróży.</p>
+            <span class="shortcut-compact-badge" data-i18n="shortcuts.plan.badge">Schedule</span>
+            <div class="shortcut-compact-icon" aria-hidden="true">📅</div>
+            <h2 data-i18n="shortcuts.plan.title">Trip planner</h2>
+            <p data-i18n="shortcuts.plan.description">Build your holiday day by day with a simple, structured timeline.</p>
+            <span class="shortcut-compact-meta" data-i18n="shortcuts.plan.action">Open module</span>
           </a>
         </section>
       </div>
@@ -726,7 +728,10 @@
   </div>
 
   <footer class="app-footer">
-    <p data-i18n="footer.app">© <span data-current-year></span> WakacjeCypr.com • Graj, zwiedzaj i planuj wakacje jednocześnie.</p>
+    <p class="app-footer-copy">
+      © <span data-current-year></span> CyprusEye.com •
+      <span data-i18n="footer.app.tagline">Play, explore, and plan your holidays at the same time.</span>
+    </p>
     <div class="footer-links" style="margin-bottom: 8px;">
        <a href="terms.html" class="footer-link" data-i18n="legal.termsLink">Terms of Service</a>
     </div>
@@ -757,6 +762,14 @@
   <script src="js/seo.js" defer></script>
   <script src="js/mobile-nav.js" defer></script>
   <script src="js/header-dropdown.js?v=2" defer></script>
+  <script>
+    (function () {
+      var year = String(new Date().getFullYear());
+      document.querySelectorAll('[data-current-year]').forEach(function (node) {
+        node.textContent = year;
+      });
+    })();
+  </script>
   
   <!-- Leaflet - załaduj bezpośrednio jako fallback -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />

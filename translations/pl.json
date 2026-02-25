@@ -338,22 +338,31 @@
   "objective.next": "Następny",
   "objective.checkIn": "Zamelduj się",
   "objective.hint": "Wskazówka",
-  "shortcuts.packing.title": "Pakowanie",
-  "shortcuts.packing.description": "Lista rzeczy na wyjazd",
-  "shortcuts.packing.action": "Otwórz listę",
-  "shortcuts.tasks.title": "Zadania",
-  "shortcuts.tasks.description": "Twoje zadania i cele",
-  "shortcuts.tasks.action": "Pokaż zadania",
-  "shortcuts.car.title": "Samochód",
-  "shortcuts.car.description": "Sprawdź oferty wynajmu",
-  "shortcuts.car.action": "Zobacz oferty",
+  "shortcuts.packing.badge": "Lista",
+  "shortcuts.packing.title": "Planer pakowania",
+  "shortcuts.packing.description": "Przygotuj bagaż z jedną, czytelną checklistą przed wyjazdem.",
+  "shortcuts.packing.action": "Otwórz moduł",
+  "shortcuts.tasks.badge": "Do zrobienia",
+  "shortcuts.tasks.title": "Lista zadań",
+  "shortcuts.tasks.description": "Śledź kluczowe zadania podróżne i postęp przygotowań w jednym miejscu.",
+  "shortcuts.tasks.action": "Otwórz moduł",
+  "shortcuts.transport.badge": "Taxi",
+  "shortcuts.transport.title": "Rezerwacja transportu",
+  "shortcuts.transport.description": "Wybierz trasę i godzinę, sprawdź cenę na żywo i zarezerwuj jednym formularzem.",
+  "shortcuts.transport.action": "Otwórz moduł",
+  "shortcuts.car.badge": "Wynajem",
+  "shortcuts.car.title": "Wynajem auta",
+  "shortcuts.car.description": "Porównaj dostępne auta, ceny i uzupełnij szczegóły rezerwacji online.",
+  "shortcuts.car.action": "Otwórz moduł",
   "shortcuts.coupon.title": "Kupon",
-  "shortcuts.plan.title": "Planer",
-  "shortcuts.plan.description": "Ustaw swój plan podróży.",
-  "shortcuts.plan.action": "Otwórz planer",
+  "shortcuts.plan.badge": "Plan",
+  "shortcuts.plan.title": "Planer podróży",
+  "shortcuts.plan.description": "Ułóż wakacje dzień po dniu na prostej i czytelnej osi czasu.",
+  "shortcuts.plan.action": "Otwórz moduł",
+  "shortcuts.trips.badge": "Wycieczki",
   "shortcuts.trips.title": "Wycieczki",
-  "shortcuts.trips.description": "Przeglądaj wycieczki i złóż rezerwację.",
-  "shortcuts.trips.action": "Zobacz wycieczki",
+  "shortcuts.trips.description": "Przeglądaj propozycje, porównuj opcje i wyślij zgłoszenie rezerwacji.",
+  "shortcuts.trips.action": "Otwórz moduł",
   "discovery.title": "Atrakcji do odkrycia",
   "discovery.subtitle": "Przeglądaj miejsca w grze i planuj kolejne meldunki z mapy.",
   "discovery.toggle": "Pokaż więcej atrakcji",
@@ -634,7 +643,6 @@
   "mobile.nav.carRental": "Wynajem aut",
   "mobile.nav.coupons": "Kupony",
   "mobile.nav.language": "Język",
-  "footer.app": "Aplikacja",
   "notifications.title": "Powiadomienia",
   "notifications.markAll": "✓ Oznacz wszystkie",
   "notifications.close": "Zamknij powiadomienia",
@@ -2055,30 +2063,40 @@
   },
   "shortcuts": {
     "packing": {
-      "title": "🎒 Planer pakowania",
-      "description": "Zaplanuj bagaż z listami dla każdej pory roku.",
-      "action": "Przejdź do planera"
+      "badge": "Lista",
+      "title": "Planer pakowania",
+      "description": "Przygotuj bagaż z jedną, czytelną checklistą przed wyjazdem.",
+      "action": "Otwórz moduł"
     },
     "tasks": {
-      "title": "✅ Lista zadań",
-      "description": "Przeglądaj wyzwania przed wyjazdem i zapisuj postępy.",
-      "action": "Otwórz zadania"
+      "badge": "Do zrobienia",
+      "title": "Lista zadań",
+      "description": "Śledź kluczowe zadania podróżne i postęp przygotowań w jednym miejscu.",
+      "action": "Otwórz moduł"
     },
     "car": {
-      "title": "🚗 Wynajem auta na Cyprze",
-      "description": "Poznaj flotę, porównaj ceny i zarezerwuj auto w dedykowanej sekcji.",
-      "action": "Przejdź do wynajmu"
+      "badge": "Wynajem",
+      "title": "Wynajem auta",
+      "description": "Porównaj dostępne auta, ceny i uzupełnij szczegóły rezerwacji online.",
+      "action": "Otwórz moduł"
     },
     "transport": {
-      "title": "🚕 Rezerwacja transportu",
-      "description": "Ustaw trasę i godzinę, sprawdź cenę na żywo i zarezerwuj jednym formularzem.",
-      "badge": "Szybka wycena",
-      "action": "Otwórz transport"
+      "badge": "Taxi",
+      "title": "Rezerwacja transportu",
+      "description": "Wybierz trasę i godzinę, sprawdź cenę na żywo i zarezerwuj jednym formularzem.",
+      "action": "Otwórz moduł"
     },
     "trips": {
-      "title": "🧭 Wycieczki",
-      "description": "Przeglądaj wycieczki i złóż rezerwację.",
-      "action": "Zobacz wycieczki"
+      "badge": "Wycieczki",
+      "title": "Wycieczki",
+      "description": "Przeglądaj propozycje, porównuj opcje i wyślij zgłoszenie rezerwacji.",
+      "action": "Otwórz moduł"
+    },
+    "plan": {
+      "badge": "Plan",
+      "title": "Planer podróży",
+      "description": "Ułóż wakacje dzień po dniu na prostej i czytelnej osi czasu.",
+      "action": "Otwórz moduł"
     }
   },
   "packing": {
@@ -4322,6 +4340,7 @@
   "sos.embassy.emailTitle": "E-mail",
   "sos.healthcare.hospitalTitle": "Paphos General Hospital",
   "footer.app": "© <span data-current-year></span> CyprusEye.com • Graj, zwiedzaj i planuj wakacje jednocześnie.",
+  "footer.app.tagline": "Graj, zwiedzaj i planuj wakacje jednocześnie.",
   "carRentalLanding.locations.group.islandWide": "Larnaka / cały Cypr",
   "carRentalLanding.locations.group.paphosOnly": "Pafos (tylko oferta Pafos)",
   "carRentalLanding.locations.paphos.airport": "Pafos Lotnisko (+10€ przy wynajmie < 7 dni)",

@@ -3547,6 +3547,12 @@
 
   function showWarning(message) {
     if (!els.warning) return;
+    if (message == null || (typeof message === 'string' && message.trim() === '')) {
+      els.warning.hidden = true;
+      els.warning.textContent = '';
+      return;
+    }
+
     const normalizedMessage = partnerUserMessage(message, 'Session expired. Please sign in again.');
     if (!normalizedMessage) {
       els.warning.hidden = true;

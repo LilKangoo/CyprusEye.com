@@ -3517,7 +3517,7 @@
 
   function showWarning(message) {
     if (!els.warning) return;
-    if (!message) {
+    if (message == null || (typeof message === 'string' && message.trim() === '')) {
       els.warning.hidden = true;
       els.warning.textContent = '';
       return;
