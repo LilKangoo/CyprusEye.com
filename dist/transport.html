@@ -216,69 +216,69 @@
 
   <main id="main-content" class="transport-booking-main">
     <section class="transport-hero" aria-labelledby="transportBookingTitle">
-      <h1 id="transportBookingTitle">Private transport booking with live price</h1>
-      <p>
+      <h1 id="transportBookingTitle" data-i18n="transport.booking.hero.title">Private transport booking with live price</h1>
+      <p data-i18n="transport.booking.hero.description">
         Choose pickup and destination, set passengers and luggage, and get an automatic quote immediately.
         Submit one reservation form below and we will confirm your transport quickly.
       </p>
     </section>
 
-    <section class="transport-booking-shell" aria-label="Transport booking panel">
+    <section class="transport-booking-shell" aria-label="Transport booking panel" data-i18n-attrs="aria-label:transport.booking.panel.aria">
       <form id="transportBookingForm" class="transport-booking-form" novalidate>
           <section class="transport-section">
-            <h2>1. Route and schedule</h2>
-            <p class="transport-section__hint">Step 1/3: choose route and time first. If you select <strong>Round trip</strong>, complete both outbound and return schedules here.</p>
+            <h2 data-i18n="transport.booking.step1.title">1. Route and schedule</h2>
+            <p class="transport-section__hint" data-i18n="transport.booking.step1.hint">Step 1/3: choose route and time first. If you select Round trip, complete both outbound and return schedules here.</p>
             <div class="transport-field-grid">
               <div class="transport-field">
-                <label for="transportOrigin">Pickup location *</label>
+                <label for="transportOrigin" data-i18n="transport.booking.fields.origin.label">Pickup location *</label>
                 <select id="transportOrigin" required>
-                  <option value="">Select pickup</option>
+                  <option value="" data-i18n="transport.booking.fields.origin.placeholder">Select pickup</option>
                 </select>
               </div>
               <div class="transport-field">
-                <label for="transportDestination">Destination *</label>
+                <label for="transportDestination" data-i18n="transport.booking.fields.destination.label">Destination *</label>
                 <select id="transportDestination" required>
-                  <option value="">Select destination</option>
+                  <option value="" data-i18n="transport.booking.fields.destination.placeholder">Select destination</option>
                 </select>
               </div>
               <div class="transport-field">
-                <label for="transportTravelDate">Travel date *</label>
+                <label for="transportTravelDate" data-i18n="transport.booking.fields.travelDate.label">Travel date *</label>
                 <input id="transportTravelDate" type="date" required />
               </div>
               <div class="transport-field">
-                <label for="transportTravelTime">Travel time *</label>
+                <label for="transportTravelTime" data-i18n="transport.booking.fields.travelTime.label">Travel time *</label>
                 <input id="transportTravelTime" type="time" value="12:00" required />
               </div>
               <div class="transport-field transport-field--wide">
-                <label for="transportTripType">Trip type</label>
+                <label for="transportTripType" data-i18n="transport.booking.fields.tripType.label">Trip type</label>
                 <select id="transportTripType">
-                  <option value="one_way">One way</option>
-                  <option value="round_trip">Round trip</option>
+                  <option value="one_way" data-i18n="transport.booking.fields.tripType.oneWay">One way</option>
+                  <option value="round_trip" data-i18n="transport.booking.fields.tripType.roundTrip">Round trip</option>
                 </select>
               </div>
             </div>
             <div id="transportReturnLegSection" class="transport-return-leg" hidden>
-              <h3>Return leg</h3>
-              <p class="transport-section__hint">Set return pickup, destination, date and time. Address and flight details for return are completed in step 3.</p>
+              <h3 data-i18n="transport.booking.returnLeg.title">Return leg</h3>
+              <p class="transport-section__hint" data-i18n="transport.booking.returnLeg.hint">Set return pickup, destination, date and time. Address and flight details for return are completed in step 3.</p>
               <div class="transport-field-grid">
                 <div class="transport-field">
-                  <label for="transportReturnOrigin">Return pickup *</label>
+                  <label for="transportReturnOrigin" data-i18n="transport.booking.fields.returnOrigin.label">Return pickup *</label>
                   <select id="transportReturnOrigin">
-                    <option value="">Select return pickup</option>
+                    <option value="" data-i18n="transport.booking.fields.returnOrigin.placeholder">Select return pickup</option>
                   </select>
                 </div>
                 <div class="transport-field">
-                  <label for="transportReturnDestination">Return destination *</label>
+                  <label for="transportReturnDestination" data-i18n="transport.booking.fields.returnDestination.label">Return destination *</label>
                   <select id="transportReturnDestination">
-                    <option value="">Select return destination</option>
+                    <option value="" data-i18n="transport.booking.fields.returnDestination.placeholder">Select return destination</option>
                   </select>
                 </div>
                 <div class="transport-field">
-                  <label for="transportReturnDate">Return date *</label>
+                  <label for="transportReturnDate" data-i18n="transport.booking.fields.returnDate.label">Return date *</label>
                   <input id="transportReturnDate" type="date" />
                 </div>
                 <div class="transport-field">
-                  <label for="transportReturnTime">Return time *</label>
+                  <label for="transportReturnTime" data-i18n="transport.booking.fields.returnTime.label">Return time *</label>
                   <input id="transportReturnTime" type="time" />
                 </div>
               </div>
@@ -286,31 +286,31 @@
           </section>
 
           <section class="transport-section">
-            <h2>2. Passengers and extras</h2>
-            <p class="transport-section__hint">Step 2/3: set passengers and extras. Price updates automatically after every change.</p>
+            <h2 data-i18n="transport.booking.step2.title">2. Passengers and extras</h2>
+            <p class="transport-section__hint" data-i18n="transport.booking.step2.hint">Step 2/3: set passengers and extras. Price updates automatically after every change.</p>
             <div class="transport-field-grid">
               <div class="transport-field">
-                <label for="transportPassengers">Passengers *</label>
+                <label for="transportPassengers" data-i18n="transport.booking.fields.passengers.label">Passengers *</label>
                 <input id="transportPassengers" type="number" min="1" step="1" value="2" required />
               </div>
               <div class="transport-field">
-                <label for="transportBags">Small backpacks</label>
+                <label for="transportBags" data-i18n="transport.booking.fields.bags.label">Small backpacks</label>
                 <input id="transportBags" type="number" min="0" step="1" value="2" />
               </div>
               <div class="transport-field">
-                <label for="transportOversizeBags">Large bags (15kg+)</label>
+                <label for="transportOversizeBags" data-i18n="transport.booking.fields.oversizeBags.label">Large bags (15kg+)</label>
                 <input id="transportOversizeBags" type="number" min="0" step="1" value="0" />
               </div>
               <div class="transport-field">
-                <label for="transportChildSeats">Child seats</label>
+                <label for="transportChildSeats" data-i18n="transport.booking.fields.childSeats.label">Child seats</label>
                 <input id="transportChildSeats" type="number" min="0" step="1" value="0" />
               </div>
               <div class="transport-field">
-                <label for="transportBoosterSeats">Booster seats</label>
+                <label for="transportBoosterSeats" data-i18n="transport.booking.fields.boosterSeats.label">Booster seats</label>
                 <input id="transportBoosterSeats" type="number" min="0" step="1" value="0" />
               </div>
               <div class="transport-field">
-                <label for="transportWaitingMinutes">Driver waiting (minutes)</label>
+                <label for="transportWaitingMinutes" data-i18n="transport.booking.fields.waitingMinutes.label">Driver waiting (minutes)</label>
                 <input id="transportWaitingMinutes" type="number" min="0" step="1" value="0" />
               </div>
             </div>
@@ -319,38 +319,38 @@
               <label class="transport-return-extras-toggle" for="transportReturnSameExtras">
                 <input id="transportReturnSameExtras" type="checkbox" checked />
                 <span class="transport-return-extras-toggle__text">
-                  <strong>Use the same passengers and extras for return trip</strong>
-                  <small>Uncheck if return trip should have different values (second transport setup inside the same booking).</small>
+                  <strong data-i18n="transport.booking.returnExtras.toggle.title">Use the same passengers and extras for return trip</strong>
+                  <small data-i18n="transport.booking.returnExtras.toggle.hint">Uncheck if return trip should have different values (second transport setup inside the same booking).</small>
                 </span>
               </label>
             </div>
 
             <div id="transportReturnExtrasSection" class="transport-return-extras" hidden>
-              <h3>Return passengers and extras</h3>
-              <p class="transport-section__hint">Use this only when return trip differs from outbound values.</p>
+              <h3 data-i18n="transport.booking.returnExtras.title">Return passengers and extras</h3>
+              <p class="transport-section__hint" data-i18n="transport.booking.returnExtras.hint">Use this only when return trip differs from outbound values.</p>
               <div class="transport-field-grid">
                 <div class="transport-field">
-                  <label for="transportReturnPassengers">Return passengers *</label>
+                  <label for="transportReturnPassengers" data-i18n="transport.booking.fields.returnPassengers.label">Return passengers *</label>
                   <input id="transportReturnPassengers" type="number" min="1" step="1" value="2" />
                 </div>
                 <div class="transport-field">
-                  <label for="transportReturnBags">Return small backpacks</label>
+                  <label for="transportReturnBags" data-i18n="transport.booking.fields.returnBags.label">Return small backpacks</label>
                   <input id="transportReturnBags" type="number" min="0" step="1" value="2" />
                 </div>
                 <div class="transport-field">
-                  <label for="transportReturnOversizeBags">Return large bags (15kg+)</label>
+                  <label for="transportReturnOversizeBags" data-i18n="transport.booking.fields.returnOversizeBags.label">Return large bags (15kg+)</label>
                   <input id="transportReturnOversizeBags" type="number" min="0" step="1" value="0" />
                 </div>
                 <div class="transport-field">
-                  <label for="transportReturnChildSeats">Return child seats</label>
+                  <label for="transportReturnChildSeats" data-i18n="transport.booking.fields.returnChildSeats.label">Return child seats</label>
                   <input id="transportReturnChildSeats" type="number" min="0" step="1" value="0" />
                 </div>
                 <div class="transport-field">
-                  <label for="transportReturnBoosterSeats">Return booster seats</label>
+                  <label for="transportReturnBoosterSeats" data-i18n="transport.booking.fields.returnBoosterSeats.label">Return booster seats</label>
                   <input id="transportReturnBoosterSeats" type="number" min="0" step="1" value="0" />
                 </div>
                 <div class="transport-field">
-                  <label for="transportReturnWaitingMinutes">Return driver waiting (minutes)</label>
+                  <label for="transportReturnWaitingMinutes" data-i18n="transport.booking.fields.returnWaitingMinutes.label">Return driver waiting (minutes)</label>
                   <input id="transportReturnWaitingMinutes" type="number" min="0" step="1" value="0" />
                 </div>
               </div>
@@ -358,102 +358,106 @@
           </section>
 
           <section class="transport-section">
-            <h2>3. Contact and trip notes</h2>
-            <p class="transport-section__hint">Step 3/3: add contact details and exact trip instructions. Required address/flight fields change automatically based on selected locations.</p>
+            <h2 data-i18n="transport.booking.step3.title">3. Contact and trip notes</h2>
+            <p class="transport-section__hint" data-i18n="transport.booking.step3.hint">Step 3/3: add contact details and exact trip instructions. Required address/flight fields change automatically based on selected locations.</p>
             <div class="transport-field-grid">
               <div class="transport-field">
-                <label for="transportCustomerName">Full name *</label>
+                <label for="transportCustomerName" data-i18n="transport.booking.fields.customerName.label">Full name *</label>
                 <input id="transportCustomerName" type="text" maxlength="120" required />
               </div>
               <div class="transport-field">
-                <label for="transportCustomerPhone">Phone *</label>
+                <label for="transportCustomerPhone" data-i18n="transport.booking.fields.customerPhone.label">Phone *</label>
                 <input id="transportCustomerPhone" type="tel" maxlength="40" required />
               </div>
               <div class="transport-field transport-field--wide">
-                <label for="transportCustomerEmail">Email</label>
+                <label for="transportCustomerEmail" data-i18n="transport.booking.fields.customerEmail.label">Email</label>
                 <input id="transportCustomerEmail" type="email" maxlength="160" />
               </div>
             </div>
 
-            <div class="transport-detail-card" aria-label="Outbound trip contact details">
-              <h3 class="transport-detail-card__title">Outbound trip details</h3>
-              <p id="transportOutboundContactHint" class="transport-detail-card__hint">
+            <div class="transport-detail-card" aria-label="Outbound trip contact details" data-i18n-attrs="aria-label:transport.booking.outboundCard.aria">
+              <h3 class="transport-detail-card__title" data-i18n="transport.booking.outboundCard.title">Outbound trip details</h3>
+              <p id="transportOutboundContactHint" class="transport-detail-card__hint" data-i18n="transport.booking.outboundCard.hint">
                 Add exact location details for outbound trip. Requirements are updated from selected route.
               </p>
               <div class="transport-field-grid">
                 <div class="transport-field transport-field--wide">
-                  <label for="transportPickupAddress">Outbound pickup address</label>
-                  <input id="transportPickupAddress" type="text" maxlength="240" placeholder="Where driver should pick you up (hotel, street, terminal)" />
+                  <label for="transportPickupAddress" data-i18n="transport.booking.fields.pickupAddress.label">Outbound pickup address</label>
+                  <input id="transportPickupAddress" type="text" maxlength="240" placeholder="Where driver should pick you up (hotel, street, terminal)" data-i18n-attrs="placeholder:transport.booking.fields.pickupAddress.placeholder" />
                 </div>
                 <div class="transport-field transport-field--wide">
-                  <label for="transportDropoffAddress">Outbound drop-off address</label>
-                  <input id="transportDropoffAddress" type="text" maxlength="240" placeholder="Where driver should drop you off" />
+                  <label for="transportDropoffAddress" data-i18n="transport.booking.fields.dropoffAddress.label">Outbound drop-off address</label>
+                  <input id="transportDropoffAddress" type="text" maxlength="240" placeholder="Where driver should drop you off" data-i18n-attrs="placeholder:transport.booking.fields.dropoffAddress.placeholder" />
                 </div>
                 <div class="transport-field">
-                  <label for="transportFlightNumber">Outbound flight number</label>
-                  <input id="transportFlightNumber" type="text" maxlength="40" placeholder="Required if outbound includes airport" />
+                  <label for="transportFlightNumber" data-i18n="transport.booking.fields.flightNumber.label">Outbound flight number</label>
+                  <input id="transportFlightNumber" type="text" maxlength="40" placeholder="Required if outbound includes airport" data-i18n-attrs="placeholder:transport.booking.fields.flightNumber.placeholder" />
                 </div>
               </div>
             </div>
 
-            <div id="transportReturnContactSection" class="transport-detail-card transport-detail-card--return" aria-label="Return trip contact details" hidden>
-              <h3 class="transport-detail-card__title">Return trip details</h3>
-              <p id="transportReturnContactHint" class="transport-detail-card__hint">
+            <div id="transportReturnContactSection" class="transport-detail-card transport-detail-card--return" aria-label="Return trip contact details" data-i18n-attrs="aria-label:transport.booking.returnCard.aria" hidden>
+              <h3 class="transport-detail-card__title" data-i18n="transport.booking.returnCard.title">Return trip details</h3>
+              <p id="transportReturnContactHint" class="transport-detail-card__hint" data-i18n="transport.booking.returnCard.hint">
                 Add exact location details for return trip. Requirements are updated from selected return route.
               </p>
               <div class="transport-field-grid">
                 <div class="transport-field transport-field--wide">
-                  <label for="transportReturnPickupAddress">Return pickup address</label>
-                  <input id="transportReturnPickupAddress" type="text" maxlength="240" placeholder="Where driver should pick you up for return trip" />
+                  <label for="transportReturnPickupAddress" data-i18n="transport.booking.fields.returnPickupAddress.label">Return pickup address</label>
+                  <input id="transportReturnPickupAddress" type="text" maxlength="240" placeholder="Where driver should pick you up for return trip" data-i18n-attrs="placeholder:transport.booking.fields.returnPickupAddress.placeholder" />
                 </div>
                 <div class="transport-field transport-field--wide">
-                  <label for="transportReturnDropoffAddress">Return drop-off address</label>
-                  <input id="transportReturnDropoffAddress" type="text" maxlength="240" placeholder="Where driver should drop you off for return trip" />
+                  <label for="transportReturnDropoffAddress" data-i18n="transport.booking.fields.returnDropoffAddress.label">Return drop-off address</label>
+                  <input id="transportReturnDropoffAddress" type="text" maxlength="240" placeholder="Where driver should drop you off for return trip" data-i18n-attrs="placeholder:transport.booking.fields.returnDropoffAddress.placeholder" />
                 </div>
                 <div class="transport-field">
-                  <label for="transportReturnFlightNumber">Return flight number</label>
-                  <input id="transportReturnFlightNumber" type="text" maxlength="40" placeholder="Required if return includes airport" />
+                  <label for="transportReturnFlightNumber" data-i18n="transport.booking.fields.returnFlightNumber.label">Return flight number</label>
+                  <input id="transportReturnFlightNumber" type="text" maxlength="40" placeholder="Required if return includes airport" data-i18n-attrs="placeholder:transport.booking.fields.returnFlightNumber.placeholder" />
                 </div>
               </div>
             </div>
 
             <div class="transport-field-grid">
               <div class="transport-field transport-field--wide">
-                <label for="transportNotes">Extra notes</label>
-                <textarea id="transportNotes" maxlength="1200" placeholder="Any instructions for dispatch or driver"></textarea>
+                <label for="transportNotes" data-i18n="transport.booking.fields.notes.label">Extra notes</label>
+                <textarea id="transportNotes" maxlength="1200" placeholder="Any instructions for dispatch or driver" data-i18n-attrs="placeholder:transport.booking.fields.notes.placeholder"></textarea>
               </div>
             </div>
           </section>
 
-          <section id="transportQuotePanel" class="transport-quote" aria-label="Total quote">
+          <section id="transportQuotePanel" class="transport-quote" aria-label="Total quote" data-i18n-attrs="aria-label:transport.booking.quote.panel.aria">
             <div class="transport-quote__head">
-              <h2>Total quote</h2>
-              <p class="transport-section__hint">Review full price calculation before you reserve transport.</p>
+              <h2 data-i18n="transport.booking.quote.title">Total quote</h2>
+              <p class="transport-section__hint" data-i18n="transport.booking.quote.hint">Review full price calculation before you reserve transport.</p>
             </div>
             <div id="transportQuoteStatus" class="transport-status" hidden></div>
             <div id="transportRouteMeta" class="transport-route-meta" hidden></div>
 
             <ul class="transport-breakdown">
-              <li id="transportQuoteRowOutbound" class="transport-breakdown__row" hidden><span>Outbound leg total</span><strong id="transportQuoteOutbound">—</strong></li>
-              <li id="transportQuoteRowReturn" class="transport-breakdown__row" hidden><span>Return leg total</span><strong id="transportQuoteReturn">—</strong></li>
-              <li id="transportQuoteRowBase" class="transport-breakdown__row" hidden><span>Base fare</span><strong id="transportQuoteBase">—</strong></li>
-              <li id="transportQuoteRowPassengers" class="transport-breakdown__row" hidden><span>Extra passengers</span><strong id="transportQuotePassengers">—</strong></li>
-              <li id="transportQuoteRowBags" class="transport-breakdown__row" hidden><span>Extra small backpacks</span><strong id="transportQuoteBags">—</strong></li>
-              <li id="transportQuoteRowOversize" class="transport-breakdown__row" hidden><span>Extra large bags (15kg+)</span><strong id="transportQuoteOversize">—</strong></li>
-              <li id="transportQuoteRowSeats" class="transport-breakdown__row" hidden><span>Child + booster seats</span><strong id="transportQuoteSeats">—</strong></li>
-              <li id="transportQuoteRowWaiting" class="transport-breakdown__row" hidden><span>Waiting fee</span><strong id="transportQuoteWaiting">—</strong></li>
+              <li id="transportQuoteRowOutbound" class="transport-breakdown__row" hidden><span data-i18n="transport.booking.quote.rows.outbound">Outbound leg total</span><strong id="transportQuoteOutbound">—</strong></li>
+              <li id="transportQuoteRowReturn" class="transport-breakdown__row" hidden><span data-i18n="transport.booking.quote.rows.return">Return leg total</span><strong id="transportQuoteReturn">—</strong></li>
+              <li id="transportQuoteRowBase" class="transport-breakdown__row" hidden><span data-i18n="transport.booking.quote.rows.base">Base fare</span><strong id="transportQuoteBase">—</strong></li>
+              <li id="transportQuoteRowPassengers" class="transport-breakdown__row" hidden><span data-i18n="transport.booking.quote.rows.extraPassengers">Extra passengers</span><strong id="transportQuotePassengers">—</strong></li>
+              <li id="transportQuoteRowBags" class="transport-breakdown__row" hidden><span data-i18n="transport.booking.quote.rows.extraBags">Extra small backpacks</span><strong id="transportQuoteBags">—</strong></li>
+              <li id="transportQuoteRowOversize" class="transport-breakdown__row" hidden><span data-i18n="transport.booking.quote.rows.oversize">Extra large bags (15kg+)</span><strong id="transportQuoteOversize">—</strong></li>
+              <li id="transportQuoteRowSeats" class="transport-breakdown__row" hidden><span data-i18n="transport.booking.quote.rows.seats">Child + booster seats</span><strong id="transportQuoteSeats">—</strong></li>
+              <li id="transportQuoteRowWaiting" class="transport-breakdown__row" hidden><span data-i18n="transport.booking.quote.rows.waiting">Waiting fee</span><strong id="transportQuoteWaiting">—</strong></li>
             </ul>
 
             <div class="transport-total">
-              <span>Total</span>
+              <span data-i18n="transport.booking.quote.total">Total</span>
               <strong id="transportQuoteTotal">—</strong>
             </div>
             <div id="transportDepositNotice" class="transport-deposit-note" hidden>
-              <p class="transport-deposit-note__title">To confirm this booking</p>
+              <p class="transport-deposit-note__title" data-i18n="transport.booking.quote.deposit.title">To confirm this booking</p>
               <p class="transport-deposit-note__text">
-                After driver availability is confirmed, check your email for a payment link.
-                Pay <strong id="transportQuoteDeposit">—</strong> to confirm your reservation.
-                Remaining <strong id="transportQuoteRemainingDue">—</strong> will be paid in cash to the driver on-site.
+                <span data-i18n="transport.booking.quote.deposit.line1">After driver availability is confirmed, check your email for a payment link.</span>
+                <span data-i18n="transport.booking.quote.deposit.line2.prefix">Pay</span>
+                <strong id="transportQuoteDeposit">—</strong>
+                <span data-i18n="transport.booking.quote.deposit.line2.suffix">to confirm your reservation.</span>
+                <span data-i18n="transport.booking.quote.deposit.line3.prefix">Remaining</span>
+                <strong id="transportQuoteRemainingDue">—</strong>
+                <span data-i18n="transport.booking.quote.deposit.line3.suffix">will be paid in cash to the driver on-site.</span>
               </p>
             </div>
 
@@ -461,18 +465,16 @@
           </section>
 
           <div class="transport-submit-row">
-            <button id="transportSubmitBooking" class="transport-submit-btn" type="submit" disabled>
-              Reserve transport
-            </button>
+            <button id="transportSubmitBooking" class="transport-submit-btn" type="submit" disabled data-i18n="transport.booking.submit.button">Reserve transport</button>
             <label class="transport-policy-check" for="transportConfirmQuote">
               <input id="transportConfirmQuote" type="checkbox" />
-              <span>I reviewed full quote and final total before booking.</span>
+              <span data-i18n="transport.booking.submit.confirmQuote">I reviewed full quote and final total before booking.</span>
             </label>
             <label class="transport-policy-check" for="transportAgreePolicy">
               <input id="transportAgreePolicy" type="checkbox" required />
-              <span>I confirm the data is correct and agree to be contacted about this booking.</span>
+              <span data-i18n="transport.booking.submit.consent">I confirm the data is correct and agree to be contacted about this booking.</span>
             </label>
-            <p id="transportSubmitHint" class="transport-submit-hint">Review full quote and confirm it below to unlock booking.</p>
+            <p id="transportSubmitHint" class="transport-submit-hint" data-i18n="transport.booking.submit.hint.reviewQuote">Review full quote and confirm it below to unlock booking.</p>
           </div>
 
           <div id="transportSubmitSuccess" class="transport-success" hidden></div>
@@ -482,11 +484,11 @@
 
   <div id="transportMiniSummary" class="transport-mini-summary" hidden>
     <div class="transport-mini-summary__content">
-      <p class="transport-mini-summary__label">Current total</p>
+      <p class="transport-mini-summary__label" data-i18n="transport.booking.mini.label">Current total</p>
       <p id="transportMiniTotal" class="transport-mini-summary__total">—</p>
-      <p id="transportMiniState" class="transport-mini-summary__state">Complete route details to see your quote.</p>
+      <p id="transportMiniState" class="transport-mini-summary__state" data-i18n="transport.booking.mini.state.default">Complete route details to see your quote.</p>
     </div>
-    <button id="transportMiniOpenQuote" class="transport-mini-summary__btn" type="button">Full quote</button>
+    <button id="transportMiniOpenQuote" class="transport-mini-summary__btn" type="button" data-i18n="transport.booking.mini.button">Full quote</button>
   </div>
 
   <div

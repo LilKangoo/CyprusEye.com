@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient.js';
 
-const LOCATION_TYPE_LABELS = {
+const LOCATION_TYPE_FALLBACK_LABELS = {
   city: 'City',
   airport: 'Airport',
   port: 'Port',
@@ -23,11 +23,52 @@ const state = {
   lastQuote: null,
   lastTripTypeSelection: 'one_way',
   loading: false,
+  languageListenerBound: false,
 };
 
 const els = {};
 const QUOTE_ROW_HIDE_ANIMATION_MS = 240;
 const quoteRowHideTimers = new WeakMap();
+
+function getTranslationEntry(translations, key) {
+  if (!key || !translations || typeof translations !== 'object') return null;
+  if (Object.prototype.hasOwnProperty.call(translations, key)) {
+    return translations[key];
+  }
+  if (!key.includes('.')) return null;
+  const parts = key.split('.');
+  let current = translations;
+  for (const part of parts) {
+    if (!current || typeof current !== 'object' || !Object.prototype.hasOwnProperty.call(current, part)) {
+      return null;
+    }
+    current = current[part];
+  }
+  return current;
+}
+
+function interpolateTemplate(text, params = {}) {
+  let output = String(text ?? '');
+  Object.entries(params || {}).forEach(([key, value]) => {
+    const token = new RegExp(`{{\\s*${String(key)}\\s*}}`, 'g');
+    output = output.replace(token, String(value ?? ''));
+  });
+  return output;
+}
+
+function t(key, fallback, params = {}) {
+  const lang = String(window.appI18n?.language || document.documentElement?.lang || 'en').toLowerCase();
+  const translations = window.appI18n?.translations?.[lang] || null;
+  const entry = getTranslationEntry(translations, key);
+  let value = null;
+  if (typeof entry === 'string') value = entry;
+  if (!value && entry && typeof entry === 'object') {
+    if (typeof entry.text === 'string') value = entry.text;
+    if (!value && typeof entry.html === 'string') value = entry.html;
+  }
+  const resolved = typeof value === 'string' ? value : String(fallback ?? '');
+  return interpolateTemplate(resolved, params);
+}
 
 function byId(id) {
   return document.getElementById(id);
@@ -148,19 +189,21 @@ function routeRoundTripMultiplier(route) {
 }
 
 function getLocationLabel(row) {
-  if (!row || typeof row !== 'object') return 'Location';
+  if (!row || typeof row !== 'object') return t('transport.booking.common.location', 'Location');
   const name = String(row.name || '').trim();
   const local = String(row.name_local || '').trim();
   const code = String(row.code || '').trim();
-  const type = LOCATION_TYPE_LABELS[String(row.location_type || '').trim().toLowerCase()] || 'Point';
-  const base = name || local || code || 'Location';
+  const locationType = String(row.location_type || '').trim().toLowerCase();
+  const typeFallback = LOCATION_TYPE_FALLBACK_LABELS[locationType] || t('transport.booking.locationType.point', 'Point');
+  const type = t(`transport.booking.locationType.${locationType}`, typeFallback);
+  const base = name || local || code || t('transport.booking.common.location', 'Location');
   const localSuffix = local && local.toLowerCase() !== base.toLowerCase() ? ` / ${local}` : '';
   return `${base}${localSuffix} (${type})`;
 }
 
 function getLocationShortLabelById(locationId) {
   const id = String(locationId || '').trim();
-  if (!id) return 'Location';
+  if (!id) return t('transport.booking.common.location', 'Location');
   const row = state.locationById.get(id);
   if (!row) return id.slice(0, 8);
   const name = String(row.name || '').trim();
@@ -169,7 +212,7 @@ function getLocationShortLabelById(locationId) {
 }
 
 function getRouteLabel(route) {
-  if (!route || typeof route !== 'object') return 'Route';
+  if (!route || typeof route !== 'object') return t('transport.booking.common.route', 'Route');
   const origin = getLocationShortLabelById(route.origin_location_id);
   const destination = getLocationShortLabelById(route.destination_location_id);
   return `${origin} → ${destination}`;
@@ -247,39 +290,82 @@ function getLegContactValues(legKey = 'outbound') {
   };
 }
 
-function getLegContactGuidance(requirements, legLabel = 'Outbound') {
-  const label = String(legLabel || '').trim() || 'Trip';
+function getLegLabel(legKey = 'outbound') {
+  const normalizedLeg = String(legKey || '').trim().toLowerCase() === 'return' ? 'return' : 'outbound';
+  if (normalizedLeg === 'return') {
+    return t('transport.booking.legs.return', 'Return');
+  }
+  return t('transport.booking.legs.outbound', 'Outbound');
+}
+
+function getLegContactGuidance(requirements, legKey = 'outbound') {
+  const label = getLegLabel(legKey);
   if (!requirements || typeof requirements !== 'object') {
-    return `${label}: add exact pickup/drop-off details to avoid delays.`;
+    return t(
+      'transport.booking.guidance.generic',
+      '{{leg}}: add exact pickup/drop-off details to avoid delays.',
+      { leg: label },
+    );
   }
 
   if (!requirements.airportSelected) {
-    return `${label}: no airport selected. Add both pickup and drop-off address. Flight number is optional.`;
+    return t(
+      'transport.booking.guidance.noAirport',
+      '{{leg}}: no airport selected. Add both pickup and drop-off address. Flight number is optional.',
+      { leg: label },
+    );
   }
 
   if (requirements.originAirport && requirements.destinationAirport) {
-    return `${label}: airport to airport. Flight number and both addresses are required.`;
+    return t(
+      'transport.booking.guidance.airportToAirport',
+      '{{leg}}: airport to airport. Flight number and both addresses are required.',
+      { leg: label },
+    );
   }
 
   if (requirements.originAirport) {
-    return `${label}: pickup is airport. Flight number and drop-off address are required.`;
+    return t(
+      'transport.booking.guidance.originAirport',
+      '{{leg}}: pickup is airport. Flight number and drop-off address are required.',
+      { leg: label },
+    );
   }
 
   if (requirements.destinationAirport) {
-    return `${label}: destination is airport. Flight number and pickup address are required.`;
+    return t(
+      'transport.booking.guidance.destinationAirport',
+      '{{leg}}: destination is airport. Flight number and pickup address are required.',
+      { leg: label },
+    );
   }
 
-  return `${label}: add exact pickup/drop-off details to avoid delays.`;
+  return t(
+    'transport.booking.guidance.generic',
+    '{{leg}}: add exact pickup/drop-off details to avoid delays.',
+    { leg: label },
+  );
 }
 
-function setFieldRequirement(fieldId, labelText, required) {
+const FIELD_REQUIREMENT_LABELS = {
+  transportFlightNumber: { key: 'transport.booking.fields.flightNumber.label', fallback: 'Outbound flight number' },
+  transportPickupAddress: { key: 'transport.booking.fields.pickupAddress.label', fallback: 'Outbound pickup address' },
+  transportDropoffAddress: { key: 'transport.booking.fields.dropoffAddress.label', fallback: 'Outbound drop-off address' },
+  transportReturnFlightNumber: { key: 'transport.booking.fields.returnFlightNumber.label', fallback: 'Return flight number' },
+  transportReturnPickupAddress: { key: 'transport.booking.fields.returnPickupAddress.label', fallback: 'Return pickup address' },
+  transportReturnDropoffAddress: { key: 'transport.booking.fields.returnDropoffAddress.label', fallback: 'Return drop-off address' },
+};
+
+function setFieldRequirement(fieldId, fallbackLabel, required) {
   const field = byId(fieldId);
   if (field && typeof field.required === 'boolean') {
     field.required = Boolean(required);
   }
   const label = document.querySelector(`label[for="${fieldId}"]`);
   if (label) {
-    label.textContent = required ? `${labelText} *` : labelText;
+    const config = FIELD_REQUIREMENT_LABELS[fieldId] || null;
+    const baseLabel = config ? t(config.key, config.fallback || fallbackLabel) : String(fallbackLabel || '');
+    label.textContent = required ? `${baseLabel} *` : baseLabel;
   }
 }
 
@@ -289,7 +375,7 @@ function syncTransportContactRequirements() {
   setFieldRequirement('transportPickupAddress', 'Outbound pickup address', outboundRequirements.pickupAddressRequired);
   setFieldRequirement('transportDropoffAddress', 'Outbound drop-off address', outboundRequirements.dropoffAddressRequired);
   if (els.outboundContactHint) {
-    els.outboundContactHint.textContent = getLegContactGuidance(outboundRequirements, 'Outbound');
+    els.outboundContactHint.textContent = getLegContactGuidance(outboundRequirements, 'outbound');
   }
 
   if (isRoundTripSelected()) {
@@ -298,7 +384,7 @@ function syncTransportContactRequirements() {
     setFieldRequirement('transportReturnPickupAddress', 'Return pickup address', returnRequirements.pickupAddressRequired);
     setFieldRequirement('transportReturnDropoffAddress', 'Return drop-off address', returnRequirements.dropoffAddressRequired);
     if (els.returnContactHint) {
-      els.returnContactHint.textContent = getLegContactGuidance(returnRequirements, 'Return');
+      els.returnContactHint.textContent = getLegContactGuidance(returnRequirements, 'return');
     }
     return;
   }
@@ -307,7 +393,10 @@ function syncTransportContactRequirements() {
   setFieldRequirement('transportReturnPickupAddress', 'Return pickup address', false);
   setFieldRequirement('transportReturnDropoffAddress', 'Return drop-off address', false);
   if (els.returnContactHint) {
-    els.returnContactHint.textContent = 'Return details are shown only when trip type is set to Round trip.';
+    els.returnContactHint.textContent = t(
+      'transport.booking.guidance.returnOnlyWhenRoundTrip',
+      'Return details are shown only when trip type is set to Round trip.',
+    );
   }
 }
 
@@ -428,7 +517,7 @@ async function loadPricingSafe() {
 
 async function loadTransportCatalog() {
   state.loading = true;
-  setStatus('Loading active transport routes and pricing rules...', 'info');
+  setStatus(t('transport.booking.status.loadingCatalog', 'Loading active transport routes and pricing rules...'), 'info');
 
   const locationsPromise = supabase
     .from('transport_locations')
@@ -469,12 +558,12 @@ async function loadTransportCatalog() {
   state.loading = false;
 
   if (!state.locations.length || !state.routes.length) {
-    setStatus('No active transport routes are available yet. Please try again later.', 'error');
+    setStatus(t('transport.booking.status.noActiveRoutes', 'No active transport routes are available yet. Please try again later.'), 'error');
     updateSubmitState();
     return;
   }
 
-  setStatus('Select route details to calculate your quote.', 'info');
+  setStatus(t('transport.booking.status.selectRouteToQuote', 'Select route details to calculate your quote.'), 'info');
 }
 
 function populateLocationSelects() {
@@ -490,13 +579,13 @@ function populateLocationSelects() {
     return `<option value="${escapeHtml(id)}">${escapeHtml(getLocationLabel(location))}</option>`;
   }).join('');
 
-  els.originSelect.innerHTML = `<option value="">Select pickup</option>${options}`;
-  els.destinationSelect.innerHTML = `<option value="">Select destination</option>${options}`;
+  els.originSelect.innerHTML = `<option value="">${escapeHtml(t('transport.booking.fields.origin.placeholder', 'Select pickup'))}</option>${options}`;
+  els.destinationSelect.innerHTML = `<option value="">${escapeHtml(t('transport.booking.fields.destination.placeholder', 'Select destination'))}</option>${options}`;
   if (els.returnOriginSelect instanceof HTMLSelectElement) {
-    els.returnOriginSelect.innerHTML = `<option value="">Select return pickup</option>${options}`;
+    els.returnOriginSelect.innerHTML = `<option value="">${escapeHtml(t('transport.booking.fields.returnOrigin.placeholder', 'Select return pickup'))}</option>${options}`;
   }
   if (els.returnDestinationSelect instanceof HTMLSelectElement) {
-    els.returnDestinationSelect.innerHTML = `<option value="">Select return destination</option>${options}`;
+    els.returnDestinationSelect.innerHTML = `<option value="">${escapeHtml(t('transport.booking.fields.returnDestination.placeholder', 'Select return destination'))}</option>${options}`;
   }
 
   const ids = new Set(state.locations.map((row) => String(row?.id || '').trim()).filter(Boolean));
@@ -893,10 +982,22 @@ function calculateQuote(route, rule, scenario) {
 
   const warnings = [];
   if (scenario.passengers > maxPassengers) {
-    warnings.push(`Passengers exceed route limit (${maxPassengers}).`);
+    warnings.push(
+      t(
+        'transport.booking.warnings.passengersExceedLimit',
+        'Passengers exceed route limit ({{max}}).',
+        { max: maxPassengers },
+      ),
+    );
   }
   if (totalLuggageCount > maxBags) {
-    warnings.push(`Total luggage exceeds route limit (${maxBags}).`);
+    warnings.push(
+      t(
+        'transport.booking.warnings.luggageExceedLimit',
+        'Total luggage exceeds route limit ({{max}}).',
+        { max: maxBags },
+      ),
+    );
   }
 
   let tripType = normalizeTripType(scenario.tripType || 'one_way');
@@ -904,7 +1005,7 @@ function calculateQuote(route, rule, scenario) {
   const roundTripMultiplier = routeRoundTripMultiplier(route);
   if (tripType === 'round_trip' && !allowsRoundTrip) {
     tripType = 'one_way';
-    warnings.push('Round trip is not enabled for this route.');
+    warnings.push(t('transport.booking.warnings.roundTripNotEnabled', 'Round trip is not enabled for this route.'));
   }
 
   const tripMultiplier = tripType === 'round_trip' ? roundTripMultiplier : 1;
@@ -980,7 +1081,7 @@ function setStatus(message, type = 'info') {
     return;
   }
 
-  const text = String(message || 'Please check booking details.').trim();
+  const text = String(message || t('transport.booking.status.checkDetails', 'Please check booking details.')).trim();
   els.quoteStatus.hidden = false;
   els.quoteStatus.textContent = text;
   els.quoteStatus.classList.add('is-error');
@@ -1121,7 +1222,10 @@ function buildQuoteSummary(legs, options = {}) {
 
   if (mixedCurrencies) {
     summary.isBookable = false;
-    summary.warnings.push('Selected legs use different currencies. Choose routes with the same currency.');
+    summary.warnings.push(t(
+      'transport.booking.warnings.mixedCurrencies',
+      'Selected legs use different currencies. Choose routes with the same currency.',
+    ));
   }
 
   return summary;
@@ -1226,36 +1330,36 @@ function updateSubmitState() {
 
   if (els.submitHint) {
     if (!hasRoute) {
-      els.submitHint.textContent = 'Select route and schedule first.';
+      els.submitHint.textContent = t('transport.booking.submit.hint.selectRoute', 'Select route and schedule first.');
     } else if (!hasQuote) {
-      els.submitHint.textContent = 'Complete all required route fields to calculate final quote.';
+      els.submitHint.textContent = t('transport.booking.submit.hint.completeRoute', 'Complete all required route fields to calculate final quote.');
     } else if (hasBlockingWarning) {
-      els.submitHint.textContent = 'Adjust passengers/luggage: current selection exceeds route limits.';
+      els.submitHint.textContent = t('transport.booking.submit.hint.adjustCapacity', 'Adjust passengers/luggage: current selection exceeds route limits.');
     } else if (!hasQuoteReview) {
-      els.submitHint.textContent = 'Review full quote and confirm it below to unlock booking.';
+      els.submitHint.textContent = t('transport.booking.submit.hint.reviewQuote', 'Review full quote and confirm it below to unlock booking.');
     } else if (!hasPolicy) {
-      els.submitHint.textContent = 'Accept contact consent checkbox to continue.';
+      els.submitHint.textContent = t('transport.booking.submit.hint.acceptConsent', 'Accept contact consent checkbox to continue.');
     } else {
-      els.submitHint.textContent = 'All set. You can submit booking now.';
+      els.submitHint.textContent = t('transport.booking.submit.hint.ready', 'All set. You can submit booking now.');
     }
   }
 
   if (els.miniState) {
     els.miniState.classList.remove('is-ok', 'is-warn');
     if (!hasRoute) {
-      els.miniState.textContent = 'Select route and schedule first.';
+      els.miniState.textContent = t('transport.booking.mini.state.selectRoute', 'Select route and schedule first.');
     } else if (!hasQuote) {
-      els.miniState.textContent = 'Complete route details for final quote.';
+      els.miniState.textContent = t('transport.booking.mini.state.completeRoute', 'Complete route details for final quote.');
       els.miniState.classList.add('is-warn');
     } else if (hasBlockingWarning) {
-      els.miniState.textContent = 'Route limit exceeded. Update passengers/luggage.';
+      els.miniState.textContent = t('transport.booking.mini.state.capacityExceeded', 'Route limit exceeded. Update passengers/luggage.');
       els.miniState.classList.add('is-warn');
     } else if (!hasQuoteReview) {
-      els.miniState.textContent = 'Open full quote and confirm calculation.';
+      els.miniState.textContent = t('transport.booking.mini.state.reviewQuote', 'Open full quote and confirm calculation.');
     } else if (!hasPolicy) {
-      els.miniState.textContent = 'Confirm contact consent to continue.';
+      els.miniState.textContent = t('transport.booking.mini.state.confirmConsent', 'Confirm contact consent to continue.');
     } else {
-      els.miniState.textContent = 'Ready to book.';
+      els.miniState.textContent = t('transport.booking.mini.state.ready', 'Ready to book.');
       els.miniState.classList.add('is-ok');
     }
   }
@@ -1285,14 +1389,14 @@ function refreshQuote() {
   state.lastQuote = null;
 
   if (!originId || !destinationId) {
-    setStatus('Select pickup and destination to start quote calculation.', 'info');
+    setStatus(t('transport.booking.status.selectPickupDestination', 'Select pickup and destination to start quote calculation.'), 'info');
     clearQuoteView();
     updateSubmitState();
     return null;
   }
 
   if (originId === destinationId) {
-    setStatus('Pickup and destination must be different.', 'error');
+    setStatus(t('transport.booking.status.pickupDestinationDifferent', 'Pickup and destination must be different.'), 'error');
     clearQuoteView();
     updateSubmitState();
     return null;
@@ -1300,7 +1404,7 @@ function refreshQuote() {
 
   const outboundRoute = getSelectedRoute();
   if (!outboundRoute) {
-    setStatus('This route is not available yet. Choose another location pair.', 'error');
+    setStatus(t('transport.booking.status.routeUnavailable', 'This route is not available yet. Choose another location pair.'), 'error');
     clearQuoteView();
     updateSubmitState();
     return null;
@@ -1317,7 +1421,7 @@ function refreshQuote() {
 
   const outboundLeg = {
     key: 'outbound',
-    label: 'Outbound',
+    label: t('transport.booking.legs.outbound', 'Outbound'),
     route: outboundRoute,
     rule: outboundRule,
     quote: outboundQuote,
@@ -1342,20 +1446,20 @@ function refreshQuote() {
 
     if (!returnOriginId || !returnDestinationId || !returnDate || !returnTime) {
       summary = buildQuoteSummary([outboundLeg], { isBookable: false });
-      if (summary) summary.warnings.push('Return leg is incomplete. Select pickup, destination, date and time.');
-      statusMessage = 'Complete return leg fields to reserve both rides.';
+      if (summary) summary.warnings.push(t('transport.booking.warnings.returnLegIncomplete', 'Return leg is incomplete. Select pickup, destination, date and time.'));
+      statusMessage = t('transport.booking.status.completeReturnLeg', 'Complete return leg fields to reserve both rides.');
       statusType = 'error';
     } else if (returnOriginId === returnDestinationId) {
       summary = buildQuoteSummary([outboundLeg], { isBookable: false });
-      if (summary) summary.warnings.push('Return pickup and destination must be different.');
-      statusMessage = 'Return pickup and destination must be different.';
+      if (summary) summary.warnings.push(t('transport.booking.warnings.returnPickupDestinationDifferent', 'Return pickup and destination must be different.'));
+      statusMessage = t('transport.booking.status.returnPickupDestinationDifferent', 'Return pickup and destination must be different.');
       statusType = 'error';
     } else {
       const returnRoute = findRouteByLocations(returnOriginId, returnDestinationId);
       if (!returnRoute) {
         summary = buildQuoteSummary([outboundLeg], { isBookable: false });
-        if (summary) summary.warnings.push('Return route is not available for selected locations.');
-        statusMessage = 'Return route is not available yet. Choose another return pair.';
+        if (summary) summary.warnings.push(t('transport.booking.warnings.returnRouteUnavailable', 'Return route is not available for selected locations.'));
+        statusMessage = t('transport.booking.status.returnRouteUnavailable', 'Return route is not available yet. Choose another return pair.');
         statusType = 'error';
       } else {
         const returnRule = getBestPricingRuleForRoute(returnRoute.id, returnDate);
@@ -1368,7 +1472,7 @@ function refreshQuote() {
         const returnQuote = calculateQuote(returnRoute, returnRule, returnScenario);
         const returnLeg = {
           key: 'return',
-          label: 'Return',
+          label: t('transport.booking.legs.return', 'Return'),
           route: returnRoute,
           rule: returnRule,
           quote: returnQuote,
@@ -1386,21 +1490,29 @@ function refreshQuote() {
   renderQuote(summary);
 
   if (!summary) {
-    setStatus('Failed to calculate quote. Check route details.', 'error');
+    setStatus(t('transport.booking.status.quoteFailed', 'Failed to calculate quote. Check route details.'), 'error');
     updateSubmitState();
     return null;
   }
 
   if (hasBlockingCapacityWarning(summary)) {
-    setStatus('Passengers or total luggage exceed route limits on at least one leg.', 'error');
+    setStatus(t('transport.booking.status.capacityExceeded', 'Passengers or total luggage exceed route limits on at least one leg.'), 'error');
   } else if (statusMessage) {
     setStatus(statusMessage, statusType);
   } else {
     const hasReturnLeg = summary.legs.length > 1;
-    const rateLabel = hasReturnLeg ? 'Two-leg quote calculated.' : (outboundQuote.basePeriod === 'night' ? 'Night rate active.' : 'Day rate active.');
+    const rateLabel = hasReturnLeg
+      ? t('transport.booking.status.twoLegQuote', 'Two-leg quote calculated.')
+      : (
+        outboundQuote.basePeriod === 'night'
+          ? t('transport.booking.status.nightRate', 'Night rate active.')
+          : t('transport.booking.status.dayRate', 'Day rate active.')
+      );
     const depositLabel = summary.depositEnabled
-      ? `Deposit due now: ${money(summary.depositAmount, summary.currency)}`
-      : 'No deposit required for selected route(s).';
+      ? t('transport.booking.status.depositDueNow', 'Deposit due now: {{amount}}', {
+        amount: money(summary.depositAmount, summary.currency),
+      })
+      : t('transport.booking.status.noDeposit', 'No deposit required for selected route(s).');
     setStatus(`${rateLabel} ${depositLabel}`, 'info');
   }
 
@@ -1410,24 +1522,26 @@ function refreshQuote() {
 
 function validateContactFieldsForLeg(legKey = 'outbound') {
   const normalizedLeg = String(legKey || '').trim().toLowerCase() === 'return' ? 'return' : 'outbound';
-  const prefix = normalizedLeg === 'return' ? 'Return ' : '';
+  const prefix = normalizedLeg === 'return'
+    ? t('transport.booking.validation.returnPrefix', 'Return trip: ')
+    : t('transport.booking.validation.outboundPrefix', 'Outbound trip: ');
   const requirements = getLegContactRequirements(normalizedLeg);
   const values = getLegContactValues(normalizedLeg);
 
   if (requirements.flightNumberRequired && !values.flightNumber) {
-    return `${prefix}flight number is required when an airport location is selected.`;
+    return `${prefix}${t('transport.booking.validation.flightNumberRequiredAirport', 'flight number is required when an airport location is selected.')}`;
   }
   if (requirements.pickupAddressRequired && !values.pickupAddress) {
     if (requirements.destinationAirport) {
-      return `${prefix}pickup address is required when destination is airport.`;
+      return `${prefix}${t('transport.booking.validation.pickupAddressRequiredDestinationAirport', 'pickup address is required when destination is airport.')}`;
     }
-    return `${prefix}pickup address is required.`;
+    return `${prefix}${t('transport.booking.validation.pickupAddressRequired', 'pickup address is required.')}`;
   }
   if (requirements.dropoffAddressRequired && !values.dropoffAddress) {
     if (requirements.originAirport) {
-      return `${prefix}dropoff address is required when pickup is airport.`;
+      return `${prefix}${t('transport.booking.validation.dropoffAddressRequiredOriginAirport', 'drop-off address is required when pickup is airport.')}`;
     }
-    return `${prefix}dropoff address is required.`;
+    return `${prefix}${t('transport.booking.validation.dropoffAddressRequired', 'drop-off address is required.')}`;
   }
 
   return '';
@@ -1439,15 +1553,15 @@ function validateRequiredFields() {
   const date = String(els.travelDateInput?.value || '').trim();
   const time = String(els.travelTimeInput?.value || '').trim();
 
-  if (!name) return 'Full name is required.';
-  if (!phone) return 'Phone number is required.';
-  if (!date) return 'Travel date is required.';
-  if (!time) return 'Travel time is required.';
+  if (!name) return t('transport.booking.validation.fullNameRequired', 'Full name is required.');
+  if (!phone) return t('transport.booking.validation.phoneRequired', 'Phone number is required.');
+  if (!date) return t('transport.booking.validation.travelDateRequired', 'Travel date is required.');
+  if (!time) return t('transport.booking.validation.travelTimeRequired', 'Travel time is required.');
 
   const email = String(els.customerEmailInput?.value || '').trim();
   if (email) {
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailPattern.test(email)) return 'Email format looks invalid.';
+    if (!emailPattern.test(email)) return t('transport.booking.validation.emailInvalid', 'Email format looks invalid.');
   }
 
   const outboundContactError = validateContactFieldsForLeg('outbound');
@@ -1460,15 +1574,15 @@ function validateRequiredFields() {
     const returnTime = String(els.returnTimeInput?.value || '').trim();
 
     if (!returnOrigin || !returnDestination) {
-      return 'Return pickup and destination are required for round trip.';
+      return t('transport.booking.validation.returnPickupDestinationRequired', 'Return pickup and destination are required for round trip.');
     }
     if (returnOrigin === returnDestination) {
-      return 'Return pickup and destination must be different.';
+      return t('transport.booking.validation.returnPickupDestinationDifferent', 'Return pickup and destination must be different.');
     }
-    if (!returnDate) return 'Return date is required for round trip.';
-    if (!returnTime) return 'Return time is required for round trip.';
+    if (!returnDate) return t('transport.booking.validation.returnDateRequired', 'Return date is required for round trip.');
+    if (!returnTime) return t('transport.booking.validation.returnTimeRequired', 'Return time is required for round trip.');
     if (date && returnDate < date) {
-      return 'Return date cannot be earlier than outbound date.';
+      return t('transport.booking.validation.returnDateBeforeOutbound', 'Return date cannot be earlier than outbound date.');
     }
 
     const returnContactError = validateContactFieldsForLeg('return');
@@ -1476,11 +1590,11 @@ function validateRequiredFields() {
   }
 
   if (!els.quoteReviewCheckbox?.checked) {
-    return 'Please review full quote and confirm it before booking.';
+    return t('transport.booking.validation.quoteReviewRequired', 'Please review full quote and confirm it before booking.');
   }
 
   if (!els.policyCheckbox?.checked) {
-    return 'Please confirm the contact consent checkbox.';
+    return t('transport.booking.validation.contactConsentRequired', 'Please confirm the contact consent checkbox.');
   }
 
   return '';
@@ -1554,13 +1668,13 @@ function scenarioSnapshotKey(snapshot = {}) {
 
 function buildReturnScenarioNotes(snapshot = {}) {
   return [
-    '[Return trip passengers & extras]',
-    `Passengers: ${Math.max(1, toNonNegativeInt(snapshot?.passengers, 1))}`,
-    `Small backpacks: ${toNonNegativeInt(snapshot?.bags, 0)}`,
-    `Large bags (15kg+): ${toNonNegativeInt(snapshot?.oversizeBags, 0)}`,
-    `Child seats: ${toNonNegativeInt(snapshot?.childSeats, 0)}`,
-    `Booster seats: ${toNonNegativeInt(snapshot?.boosterSeats, 0)}`,
-    `Driver waiting (minutes): ${toNonNegativeInt(snapshot?.waitingMinutes, 0)}`,
+    t('transport.booking.returnNotes.title', '[Return trip passengers & extras]'),
+    `${t('transport.booking.returnNotes.passengers', 'Passengers')}: ${Math.max(1, toNonNegativeInt(snapshot?.passengers, 1))}`,
+    `${t('transport.booking.returnNotes.bags', 'Small backpacks')}: ${toNonNegativeInt(snapshot?.bags, 0)}`,
+    `${t('transport.booking.returnNotes.oversizeBags', 'Large bags (15kg+)')}: ${toNonNegativeInt(snapshot?.oversizeBags, 0)}`,
+    `${t('transport.booking.returnNotes.childSeats', 'Child seats')}: ${toNonNegativeInt(snapshot?.childSeats, 0)}`,
+    `${t('transport.booking.returnNotes.boosterSeats', 'Booster seats')}: ${toNonNegativeInt(snapshot?.boosterSeats, 0)}`,
+    `${t('transport.booking.returnNotes.waitingMinutes', 'Driver waiting (minutes)')}: ${toNonNegativeInt(snapshot?.waitingMinutes, 0)}`,
   ].join('\n');
 }
 
@@ -1692,7 +1806,7 @@ async function handleSubmit(event) {
   if (!(els.submitButton instanceof HTMLButtonElement)) return;
 
   if (!state.activeRoute) {
-    setStatus('Select an available route first.', 'error');
+    setStatus(t('transport.booking.submit.error.selectRouteFirst', 'Select an available route first.'), 'error');
     return;
   }
 
@@ -1702,7 +1816,7 @@ async function handleSubmit(event) {
   }
 
   if (!quote.isBookable || !Array.isArray(quote.legs) || !quote.legs.length) {
-    setStatus('Complete route settings before submitting booking.', 'error');
+    setStatus(t('transport.booking.submit.error.completeRouteBeforeSubmit', 'Complete route settings before submitting booking.'), 'error');
     updateSubmitState();
     return;
   }
@@ -1716,21 +1830,21 @@ async function handleSubmit(event) {
   }
 
   if (hasBlockingCapacityWarning(quote)) {
-    setStatus('Passengers or total luggage exceed route limits. Please adjust before submitting.', 'error');
+    setStatus(t('transport.booking.submit.error.capacityExceeded', 'Passengers or total luggage exceed route limits. Please adjust before submitting.'), 'error');
     updateSubmitState();
     return;
   }
 
   const payload = buildTransportBookingPayload(quote);
   if (!payload) {
-    setStatus('Failed to prepare booking payload. Please refresh and try again.', 'error');
+    setStatus(t('transport.booking.submit.error.preparePayloadFailed', 'Failed to prepare booking payload. Please refresh and try again.'), 'error');
     updateSubmitState();
     return;
   }
 
-  const initialButtonText = els.submitButton.textContent || 'Reserve transport';
+  const initialButtonText = els.submitButton.textContent || t('transport.booking.submit.button', 'Reserve transport');
   els.submitButton.disabled = true;
-  els.submitButton.textContent = 'Sending booking...';
+  els.submitButton.textContent = t('transport.booking.submit.sending', 'Sending booking...');
 
   try {
     let data = null;
@@ -1765,7 +1879,12 @@ async function handleSubmit(event) {
     }
 
     if (requiresLegacyMultiInsert) {
-      throw new Error('Round-trip booking requires latest transport schema. Run migration "120_transport_round_trip_columns_schema_cache_fix.sql" and refresh this page.');
+      throw new Error(
+        t(
+          'transport.booking.submit.error.roundTripSchemaRequired',
+          'Round-trip booking requires latest transport schema. Run migration "120_transport_round_trip_columns_schema_cache_fix.sql" and refresh this page.',
+        ),
+      );
     }
 
     if (submitError) throw submitError;
@@ -1778,29 +1897,57 @@ async function handleSubmit(event) {
     const isRoundTripSuccess = quote.legs.length > 1;
     const firstId = shortIds[0] || '--------';
     const strippedColumnsHint = strippedColumns.length
-      ? `<div style="margin-top:6px; font-size:12px; opacity:0.85;">Saved with compatibility mode (missing optional schema columns: ${escapeHtml(strippedColumns.join(', '))}).</div>`
+      ? `<div style="margin-top:6px; font-size:12px; opacity:0.85;">${escapeHtml(t(
+        'transport.booking.submit.success.compatibilityHint',
+        'Saved with compatibility mode (missing optional schema columns: {{columns}}).',
+        { columns: strippedColumns.join(', ') },
+      ))}</div>`
       : '';
 
     if (els.submitSuccess) {
       els.submitSuccess.hidden = false;
       if (isRoundTripSuccess) {
-        els.submitSuccess.innerHTML = `Round-trip booking <strong>#${escapeHtml(firstId)}</strong> was sent successfully. Total: <strong>${escapeHtml(money(quote.total, quote.currency))}</strong>.${strippedColumnsHint}`;
+        els.submitSuccess.innerHTML = t(
+          'transport.booking.submit.success.roundTrip',
+          'Round-trip booking <strong>#{{id}}</strong> was sent successfully. Total: <strong>{{total}}</strong>.',
+          {
+            id: escapeHtml(firstId),
+            total: escapeHtml(money(quote.total, quote.currency)),
+          },
+        ) + strippedColumnsHint;
       } else {
-        els.submitSuccess.innerHTML = `Booking request <strong>#${escapeHtml(firstId)}</strong> was sent successfully. Total: <strong>${escapeHtml(money(quote.total, quote.currency))}</strong>. We will contact you shortly.${strippedColumnsHint}`;
+        els.submitSuccess.innerHTML = t(
+          'transport.booking.submit.success.oneWay',
+          'Booking request <strong>#{{id}}</strong> was sent successfully. Total: <strong>{{total}}</strong>. We will contact you shortly.',
+          {
+            id: escapeHtml(firstId),
+            total: escapeHtml(money(quote.total, quote.currency)),
+          },
+        ) + strippedColumnsHint;
       }
     }
 
     if (isRoundTripSuccess) {
-      notify(`Round-trip transport booking #${firstId} created`, 'success');
+      notify(
+        t('transport.booking.submit.toast.roundTripCreated', 'Round-trip transport booking #{{id}} created', {
+          id: firstId,
+        }),
+        'success',
+      );
     } else {
-      notify(`Transport booking #${firstId} created`, 'success');
+      notify(
+        t('transport.booking.submit.toast.oneWayCreated', 'Transport booking #{{id}} created', {
+          id: firstId,
+        }),
+        'success',
+      );
     }
-    setStatus('Booking submitted successfully. We will review and confirm shortly.', 'info');
+    setStatus(t('transport.booking.submit.success.status', 'Booking submitted successfully. We will review and confirm shortly.'), 'info');
     resetAfterSubmit();
     refreshQuote();
   } catch (error) {
     console.error('Failed to create transport booking:', error);
-    const message = String(error?.message || 'Failed to submit booking request.');
+    const message = String(error?.message || t('transport.booking.submit.error.submitFailed', 'Failed to submit booking request.'));
     setStatus(message, 'error');
     notify(message, 'error');
   } finally {
@@ -2000,6 +2147,16 @@ async function initTransportBookingPage() {
   initElements();
   if (!els.form) return;
 
+  if (!state.languageListenerBound) {
+    document.addEventListener('wakacjecypr:languagechange', () => {
+      populateLocationSelects();
+      syncTransportContactRequirements();
+      refreshQuote();
+      updateSubmitState();
+    });
+    state.languageListenerBound = true;
+  }
+
   setDefaultTravelDateTime();
   bindInputs();
   syncReturnLegVisibility({ force: false });
@@ -2012,7 +2169,7 @@ async function initTransportBookingPage() {
     await prefillCustomerFromSession();
   } catch (error) {
     console.error('Failed to initialize transport booking page:', error);
-    const message = String(error?.message || 'Failed to load transport catalog.');
+    const message = String(error?.message || t('transport.booking.status.catalogLoadFailed', 'Failed to load transport catalog.'));
     setStatus(message, 'error');
     notify(message, 'error');
   }
