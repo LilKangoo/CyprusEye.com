@@ -805,6 +805,7 @@
 
   const PARTNER_AUTH_ERROR_RE = /jwt expired|expired jwt|invalid jwt|token expired|auth session missing|session expired|unauthorized|forbidden/i;
   const PARTNER_RATE_LIMIT_RE = /over_request_rate_limit|rate limit reached|too many requests/i;
+  const PARTNER_PERMISSION_RE = /permission denied|insufficient privilege|row-level security|rls|42501|forbidden/i;
 
   function isPartnerAuthError(value) {
     const authUtils = (typeof window !== 'undefined' && window.CE_AUTH_UTILS && typeof window.CE_AUTH_UTILS.isRecoverableError === 'function')
@@ -822,6 +823,14 @@
     if (!raw && !code) return false;
     if (code === 'over_request_rate_limit') return true;
     return PARTNER_RATE_LIMIT_RE.test(`${code} ${raw}`);
+  }
+
+  function isPartnerPermissionError(value) {
+    const code = String(value?.code || '').trim().toLowerCase();
+    const raw = String(value?.message || value || '').trim().toLowerCase();
+    if (!raw && !code) return false;
+    if (code === '42501' || code === 'insufficient_privilege') return true;
+    return PARTNER_PERMISSION_RE.test(`${code} ${raw}`);
   }
 
   function delay(ms) {
@@ -3714,46 +3723,132 @@
     return applySession(current);
   }
 
-  async function loadMemberships(userIdOverride = '') {
-    const membershipUserId = String(userIdOverride || state.user?.id || '').trim();
-    const { data: partnerUsers, error } = await withRateLimitRetry(() => state.sb
-      .from('partner_users')
-      .select('partner_id, role')
-      .eq('user_id', membershipUserId)
-      .order('created_at', { ascending: true }));
+  async function loadPartnersByIds(partnerIds) {
+    const ids = Array.from(new Set((partnerIds || []).filter(Boolean)));
+    if (!ids.length) return [];
+
+    const fullSelect = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_manage_transport, cars_locations, affiliate_enabled';
+    const legacySelect = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels';
+
+    const fetchWithColumns = async (columns) => withRateLimitRetry(() => {
+      return state.sb
+        .from('partners')
+        .select(columns)
+        .in('id', ids)
+        .limit(Math.max(50, ids.length));
+    });
+
+    let data = null;
+    let error = null;
+    ({ data, error } = await fetchWithColumns(fullSelect));
+
+    if (error && (/cars_locations/i.test(String(error.message || '')) || /affiliate_enabled/i.test(String(error.message || '')) || /can_manage_transport/i.test(String(error.message || '')))) {
+      ({ data, error } = await fetchWithColumns(legacySelect));
+    }
 
     if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  }
 
-    const rows = Array.isArray(partnerUsers) ? partnerUsers : [];
+  async function loadAccessiblePartnersFallback() {
+    const fullSelect = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_manage_transport, cars_locations, affiliate_enabled';
+    const legacySelect = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels';
+
+    const fetchWithColumns = async (columns) => withRateLimitRetry(() => {
+      return state.sb
+        .from('partners')
+        .select(columns)
+        .order('name', { ascending: true })
+        .limit(100);
+    });
+
+    let data = null;
+    let error = null;
+    ({ data, error } = await fetchWithColumns(fullSelect));
+
+    if (error && (/cars_locations/i.test(String(error.message || '')) || /affiliate_enabled/i.test(String(error.message || '')) || /can_manage_transport/i.test(String(error.message || '')))) {
+      ({ data, error } = await fetchWithColumns(legacySelect));
+    }
+
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  }
+
+  async function loadMemberships(userIdOverride = '') {
+    let membershipUserId = String(userIdOverride || state.user?.id || '').trim();
+    if (!membershipUserId && typeof state.sb?.auth?.getUser === 'function') {
+      try {
+        const { data, error } = await state.sb.auth.getUser();
+        if (!error && data?.user?.id) {
+          membershipUserId = String(data.user.id).trim();
+          state.user = data.user || state.user;
+        }
+      } catch (_error) {
+      }
+    }
+
+    let rows = [];
+    let partnerUsersError = null;
+    if (membershipUserId) {
+      const { data: partnerUsers, error } = await withRateLimitRetry(() => state.sb
+        .from('partner_users')
+        .select('partner_id, role')
+        .eq('user_id', membershipUserId)
+        .order('created_at', { ascending: true }));
+
+      if (error) {
+        partnerUsersError = error;
+        if (!isPartnerPermissionError(error)) {
+          throw error;
+        }
+      } else {
+        rows = Array.isArray(partnerUsers) ? partnerUsers : [];
+      }
+    }
+
     state.memberships = rows;
     state.partnersById = {};
 
-    const partnerIds = rows.map((r) => r.partner_id).filter(Boolean);
+    let partnerIds = Array.from(new Set(rows.map((r) => r.partner_id).filter(Boolean)));
+    let partners = [];
+
     if (partnerIds.length) {
-      let partners = null;
-      let pErr = null;
-
-      ({ data: partners, error: pErr } = await withRateLimitRetry(() => state.sb
-        .from('partners')
-        .select('id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_manage_transport, cars_locations, affiliate_enabled')
-        .in('id', partnerIds)
-        .limit(50)));
-
-      if (pErr && (/cars_locations/i.test(String(pErr.message || '')) || /affiliate_enabled/i.test(String(pErr.message || '')) || /can_manage_transport/i.test(String(pErr.message || '')))) {
-        ({ data: partners, error: pErr } = await withRateLimitRetry(() => state.sb
-          .from('partners')
-          .select('id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels')
-          .in('id', partnerIds)
-          .limit(50)));
-      }
-
-      if (pErr) throw pErr;
-
-      (partners || []).forEach((partner) => {
-        if (partner && partner.id) {
-          state.partnersById[partner.id] = partner;
+      partners = await loadPartnersByIds(partnerIds);
+    } else {
+      // Fallback: some environments expose partners via RLS helper policies while partner_users returns empty.
+      const fallbackPartners = await loadAccessiblePartnersFallback();
+      if (fallbackPartners.length) {
+        partners = fallbackPartners;
+        partnerIds = Array.from(new Set(fallbackPartners.map((partner) => partner?.id).filter(Boolean)));
+        if (!state.memberships.length) {
+          state.memberships = partnerIds.map((partnerId) => ({
+            partner_id: partnerId,
+            role: 'staff',
+            source: 'partners_fallback',
+          }));
         }
-      });
+      }
+    }
+
+    (partners || []).forEach((partner) => {
+      if (partner && partner.id) {
+        state.partnersById[partner.id] = partner;
+      }
+    });
+
+    const resolvedPartnerIds = Object.keys(state.partnersById);
+    if (resolvedPartnerIds.length) {
+      partnerIds = partnerIds.filter((id) => resolvedPartnerIds.includes(String(id)));
+      if (state.memberships.length) {
+        state.memberships = state.memberships.filter((m) => resolvedPartnerIds.includes(String(m?.partner_id || '')));
+      }
+    } else {
+      partnerIds = [];
+      state.memberships = [];
+    }
+
+    if (!partnerIds.length && partnerUsersError && !isPartnerPermissionError(partnerUsersError)) {
+      throw partnerUsersError;
     }
 
     const persisted = getPersistedPartnerId();
