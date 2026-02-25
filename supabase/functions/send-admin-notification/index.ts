@@ -1277,42 +1277,51 @@ function normalizeServiceCategory(value: unknown): Category | null {
   return null;
 }
 
-function buildTransportRouteLabel(record: Record<string, unknown>): string {
-  const explicit = getField(record, ["route_label", "route_name", "route_display_name", "summary"]);
-  if (explicit) return explicit;
+function normalizeTransportRouteToken(value: unknown): string {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (text === "—") return "";
+  if (/^unknown$/i.test(text)) return "";
+  if (/^unknown location$/i.test(text)) return "";
+  return text;
+}
 
-  const origin = getField(record, [
+function buildTransportRouteLabel(record: Record<string, unknown>): string {
+  const explicit = normalizeTransportRouteToken(getField(record, ["route_label", "route_name", "route_display_name", "summary"]));
+  if (explicit && !/unknown location/i.test(explicit)) return explicit;
+
+  const origin = normalizeTransportRouteToken(getField(record, [
     "origin_location_name",
     "origin_location_label",
     "origin_name",
     "pickup_location",
     "pickup_place",
-  ]);
-  const destination = getField(record, [
+  ]));
+  const destination = normalizeTransportRouteToken(getField(record, [
     "destination_location_name",
     "destination_location_label",
     "destination_name",
     "dropoff_location",
     "dropoff_place",
-  ]);
+  ]));
   const outboundLabel = origin && destination
     ? `${origin} → ${destination}`
     : (origin || destination || "");
 
-  const returnOrigin = getField(record, [
+  const returnOrigin = normalizeTransportRouteToken(getField(record, [
     "return_origin_location_name",
     "return_origin_location_label",
     "return_origin_name",
     "return_pickup_location",
     "return_pickup_place",
-  ]);
-  const returnDestination = getField(record, [
+  ]));
+  const returnDestination = normalizeTransportRouteToken(getField(record, [
     "return_destination_location_name",
     "return_destination_location_label",
     "return_destination_name",
     "return_dropoff_location",
     "return_dropoff_place",
-  ]);
+  ]));
   const tripType = String(getField(record, ["trip_type"]) || "").trim().toLowerCase();
   const hasReturn = tripType === "round_trip" || Boolean(returnOrigin || returnDestination || getField(record, ["return_route_id", "return_travel_date"]));
 
@@ -1328,6 +1337,7 @@ function buildTransportRouteLabel(record: Record<string, unknown>): string {
 
   const returnLabel = `${returnOrigin || "Origin"} → ${returnDestination || "Destination"}`;
   if (!outboundLabel) return returnLabel;
+  if (outboundLabel === returnLabel) return `${outboundLabel} (Round trip)`;
   return `${outboundLabel} | ${returnLabel}`;
 }
 

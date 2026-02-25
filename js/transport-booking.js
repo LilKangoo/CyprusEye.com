@@ -1477,7 +1477,6 @@ async function handleSubmit(event) {
   try {
     let data = null;
     let submitError = null;
-    let usedLegacyMultiInsert = false;
     let insertPayload = { ...payload };
     const strippedColumns = [];
     const isRoundTrip = Array.isArray(quote?.legs) && quote.legs.length > 1;
@@ -1508,14 +1507,7 @@ async function handleSubmit(event) {
     }
 
     if (requiresLegacyMultiInsert) {
-      const legacyPayloads = quote.legs.map((leg) => buildBookingPayloadForLeg(leg));
-      const legacyResult = await supabase
-        .from('transport_bookings')
-        .insert(legacyPayloads)
-        .select('id, created_at');
-      data = legacyResult.data;
-      submitError = legacyResult.error;
-      usedLegacyMultiInsert = true;
+      throw new Error('Round-trip booking requires latest transport schema. Run migration "120_transport_round_trip_columns_schema_cache_fix.sql" and refresh this page.');
     }
 
     if (submitError) throw submitError;
@@ -1525,28 +1517,22 @@ async function handleSubmit(event) {
       .map((row) => String(row?.id || '').trim())
       .filter(Boolean)
       .map((id) => id.slice(0, 8).toUpperCase());
-    const count = shortIds.length || (usedLegacyMultiInsert ? quote.legs.length : 1);
-    const isRoundTripSuccess = quote.legs.length > 1 && !usedLegacyMultiInsert;
+    const isRoundTripSuccess = quote.legs.length > 1;
     const firstId = shortIds[0] || '--------';
-    const idsLabel = shortIds.length ? shortIds.join(', ') : 'created';
     const strippedColumnsHint = strippedColumns.length
       ? `<div style="margin-top:6px; font-size:12px; opacity:0.85;">Saved with compatibility mode (missing optional schema columns: ${escapeHtml(strippedColumns.join(', '))}).</div>`
       : '';
 
     if (els.submitSuccess) {
       els.submitSuccess.hidden = false;
-      if (usedLegacyMultiInsert && count > 1) {
-        els.submitSuccess.innerHTML = `Booking sent as <strong>${count}</strong> linked legs (<strong>${escapeHtml(idsLabel)}</strong>) because this database still uses legacy schema. Total: <strong>${escapeHtml(money(quote.total, quote.currency))}</strong>.`;
-      } else if (isRoundTripSuccess) {
+      if (isRoundTripSuccess) {
         els.submitSuccess.innerHTML = `Round-trip booking <strong>#${escapeHtml(firstId)}</strong> was sent successfully. Total: <strong>${escapeHtml(money(quote.total, quote.currency))}</strong>.${strippedColumnsHint}`;
       } else {
         els.submitSuccess.innerHTML = `Booking request <strong>#${escapeHtml(firstId)}</strong> was sent successfully. Total: <strong>${escapeHtml(money(quote.total, quote.currency))}</strong>. We will contact you shortly.${strippedColumnsHint}`;
       }
     }
 
-    if (usedLegacyMultiInsert && count > 1) {
-      notify(`Transport booking created as ${count} legacy linked legs`, 'success');
-    } else if (isRoundTripSuccess) {
+    if (isRoundTripSuccess) {
       notify(`Round-trip transport booking #${firstId} created`, 'success');
     } else {
       notify(`Transport booking #${firstId} created`, 'success');

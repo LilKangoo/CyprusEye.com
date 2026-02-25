@@ -3818,14 +3818,39 @@
     ));
     const transportRouteIds = Array.from(new Set(
       serviceOnly
-        .filter((f) => String(f.resource_type || '') === 'transport' && f.resource_id)
-        .map((f) => f.resource_id)
+        .filter((f) => String(f.resource_type || '') === 'transport')
+        .flatMap((f) => {
+          const details = detailsObjectFromFulfillment(f);
+          return [
+            String(f?.resource_id || '').trim(),
+            String(details?.route_id || '').trim(),
+            String(details?.return_route_id || '').trim(),
+          ];
+        })
         .filter(Boolean)
     ));
 
     const tripById = {};
     const hotelById = {};
     const transportRouteById = {};
+    const transportRouteEndpointsById = {};
+    const transportLocationLabelById = {};
+
+    const cleanTransportLabel = (value) => {
+      const text = String(value || '').trim();
+      if (!text) return '';
+      if (text === '—') return '';
+      if (/^unknown location$/i.test(text)) return '';
+      return text;
+    };
+
+    const joinTransportRouteLabel = (originLabel, destinationLabel) => {
+      const origin = cleanTransportLabel(originLabel);
+      const destination = cleanTransportLabel(destinationLabel);
+      if (!origin && !destination) return '';
+      if (origin && destination) return `${origin} → ${destination}`;
+      return `${origin || 'Origin'} → ${destination || 'Destination'}`;
+    };
 
     if (tripIds.length) {
       try {
@@ -3885,6 +3910,8 @@
             (locations || []).forEach((loc) => {
               if (!loc?.id) return;
               locationById[loc.id] = loc;
+              const label = cleanTransportLabel(loc?.name) || cleanTransportLabel(loc?.code);
+              if (label) transportLocationLabelById[String(loc.id)] = label;
             });
           } catch (_e) {
           }
@@ -3892,15 +3919,88 @@
 
         routeRows.forEach((route) => {
           if (!route?.id) return;
-          const origin = locationById[route.origin_location_id] || null;
-          const destination = locationById[route.destination_location_id] || null;
-          const originLabel = String(origin?.name || route.origin_location_id || '').trim() || String(route.id).slice(0, 8);
-          const destinationLabel = String(destination?.name || route.destination_location_id || '').trim() || String(route.id).slice(0, 8);
-          transportRouteById[route.id] = `${originLabel} → ${destinationLabel}`;
+          const routeId = String(route.id || '').trim();
+          if (!routeId) return;
+          const originId = String(route.origin_location_id || '').trim();
+          const destinationId = String(route.destination_location_id || '').trim();
+          const origin = locationById[originId] || null;
+          const destination = locationById[destinationId] || null;
+          const originLabel = cleanTransportLabel(origin?.name)
+            || cleanTransportLabel(origin?.code)
+            || cleanTransportLabel(transportLocationLabelById[originId]);
+          const destinationLabel = cleanTransportLabel(destination?.name)
+            || cleanTransportLabel(destination?.code)
+            || cleanTransportLabel(transportLocationLabelById[destinationId]);
+          transportRouteEndpointsById[routeId] = {
+            originId,
+            destinationId,
+            originLabel: originLabel || originId,
+            destinationLabel: destinationLabel || destinationId,
+          };
+          transportRouteById[routeId] = joinTransportRouteLabel(originLabel || originId, destinationLabel || destinationId) || String(routeId).slice(0, 8);
         });
       } catch (_e) {
       }
     }
+
+    const resolveTransportRouteSummary = (fulfillment) => {
+      const details = detailsObjectFromFulfillment(fulfillment) || {};
+      const outboundRouteId = String(details?.route_id || fulfillment?.resource_id || '').trim();
+      const returnRouteId = String(details?.return_route_id || '').trim();
+
+      const outboundEndpoints = outboundRouteId ? (transportRouteEndpointsById[outboundRouteId] || null) : null;
+      const returnEndpoints = returnRouteId ? (transportRouteEndpointsById[returnRouteId] || null) : null;
+
+      const outboundOrigin = cleanTransportLabel(outboundEndpoints?.originLabel)
+        || cleanTransportLabel(transportLocationLabelById[String(details?.origin_location_id || '').trim()])
+        || cleanTransportLabel(details?.origin_location_name)
+        || cleanTransportLabel(details?.origin_name);
+      const outboundDestination = cleanTransportLabel(outboundEndpoints?.destinationLabel)
+        || cleanTransportLabel(transportLocationLabelById[String(details?.destination_location_id || '').trim()])
+        || cleanTransportLabel(details?.destination_location_name)
+        || cleanTransportLabel(details?.destination_name);
+      const returnOrigin = cleanTransportLabel(returnEndpoints?.originLabel)
+        || cleanTransportLabel(transportLocationLabelById[String(details?.return_origin_location_id || '').trim()])
+        || cleanTransportLabel(details?.return_origin_location_name)
+        || cleanTransportLabel(details?.return_origin_name);
+      const returnDestination = cleanTransportLabel(returnEndpoints?.destinationLabel)
+        || cleanTransportLabel(transportLocationLabelById[String(details?.return_destination_location_id || '').trim()])
+        || cleanTransportLabel(details?.return_destination_location_name)
+        || cleanTransportLabel(details?.return_destination_name);
+
+      const outboundLabel = joinTransportRouteLabel(outboundOrigin, outboundDestination)
+        || cleanTransportLabel(transportRouteById[outboundRouteId])
+        || cleanTransportLabel(fulfillment?.summary);
+      const returnLabel = joinTransportRouteLabel(returnOrigin, returnDestination)
+        || cleanTransportLabel(transportRouteById[returnRouteId]);
+
+      const tripType = String(details?.trip_type || '').trim().toLowerCase();
+      const hasReturn = tripType === 'round_trip'
+        || Boolean(returnRouteId || details?.return_travel_date || details?.return_travel_time || returnLabel);
+
+      if (!hasReturn) return outboundLabel || 'Transport booking';
+      if (!returnLabel) return outboundLabel ? `${outboundLabel} (Round trip)` : 'Round trip';
+      if (!outboundLabel) return returnLabel;
+
+      const splitRouteLabel = (label) => {
+        const text = String(label || '').trim();
+        if (!text || !text.includes('→')) return null;
+        const parts = text.split('→').map((part) => part.trim()).filter(Boolean);
+        if (parts.length !== 2) return null;
+        return { origin: parts[0], destination: parts[1] };
+      };
+
+      const outboundSplit = splitRouteLabel(outboundLabel);
+      const returnSplit = splitRouteLabel(returnLabel);
+      if (outboundSplit && returnSplit) {
+        if (outboundSplit.origin === returnSplit.destination
+            && outboundSplit.destination === returnSplit.origin) {
+          return `${outboundSplit.origin} ↔ ${outboundSplit.destination}`;
+        }
+      }
+      if (outboundLabel === returnLabel) return `${outboundLabel} (Round trip)`;
+      return `${outboundLabel} | ${returnLabel}`;
+    };
 
     if (tripIds.length || hotelIds.length || transportRouteIds.length) {
       filteredMerged.forEach((f) => {
@@ -3911,8 +4011,8 @@
         if (String(f.resource_type || '') === 'hotels' && f.resource_id && hotelById[f.resource_id]) {
           f.summary = hotelById[f.resource_id];
         }
-        if (String(f.resource_type || '') === 'transport' && f.resource_id && transportRouteById[f.resource_id]) {
-          f.summary = transportRouteById[f.resource_id];
+        if (String(f.resource_type || '') === 'transport') {
+          f.summary = resolveTransportRouteSummary(f);
         }
       });
     }
@@ -5830,8 +5930,16 @@
 
       const transportDetailsPairs = (() => {
         if (category !== 'transport') return [];
+        const routeSummary = String(f.summary || getField('route_label', 'route_name') || '').trim();
+        const tripTypeLabel = (() => {
+          const raw = String(getField('trip_type') || '').trim().toLowerCase();
+          if (raw === 'round_trip') return 'Round trip (2 rides)';
+          if (raw === 'one_way') return 'One way';
+          return raw ? raw.replace(/_/g, ' ') : '';
+        })();
         return [
-          { label: 'Trip type', value: getField('trip_type') },
+          { label: 'Route', value: routeSummary || null },
+          { label: 'Trip type', value: tripTypeLabel || null },
           { label: 'Travel date', value: getField('travel_date') },
           { label: 'Travel time', value: getField('travel_time') },
           { label: 'Return date', value: getField('return_travel_date') },
@@ -6004,6 +6112,36 @@
 
             const parts = [preferredHtml, stayHtml, participantsHtml].filter(Boolean).join('');
             return parts || '<span class="muted">—</span>';
+          }
+
+          if (String(f.resource_type || '') === 'transport') {
+            const details = detailsObjectFromFulfillment(f) || {};
+            const outboundDate = details?.travel_date || details?.travelDate || f.start_date || null;
+            const outboundTime = details?.travel_time || details?.travelTime || null;
+            const returnDate = details?.return_travel_date || details?.returnTravelDate || f.end_date || null;
+            const returnTime = details?.return_travel_time || details?.returnTravelTime || null;
+            const tripType = String(details?.trip_type || '').trim().toLowerCase();
+            const hasReturn = tripType === 'round_trip'
+              || Boolean(details?.return_route_id || returnDate || returnTime);
+
+            const outboundParts = [
+              outboundDate ? formatDateDmy(outboundDate) : '',
+              outboundTime ? String(outboundTime).slice(0, 5) : '',
+            ].filter(Boolean);
+            const returnParts = [
+              returnDate ? formatDateDmy(returnDate) : '',
+              returnTime ? String(returnTime).slice(0, 5) : '',
+            ].filter(Boolean);
+
+            const outboundLine = outboundParts.length ? outboundParts.join(' · ') : '—';
+            if (!hasReturn) {
+              return `<div class="small"><strong>Outbound:</strong> ${escapeHtml(outboundLine)}</div>`;
+            }
+            const returnLine = returnParts.length ? returnParts.join(' · ') : '—';
+            return `
+              <div class="small"><strong>Outbound:</strong> ${escapeHtml(outboundLine)}</div>
+              <div class="small"><strong>Return:</strong> ${escapeHtml(returnLine)}</div>
+            `;
           }
 
           if (f.start_date && f.end_date) {

@@ -10359,6 +10359,16 @@ function isLikelyTransportIdentifier(value) {
   return false;
 }
 
+function isTransportUnknownLocationLabel(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return true;
+  return normalized === '—'
+    || normalized === 'unknown'
+    || normalized === 'unknown location'
+    || normalized === 'origin'
+    || normalized === 'destination';
+}
+
 function getTransportLocationDisplayLabel(locationId, options = {}) {
   const named = String(options?.named || '').trim();
   if (named) return named;
@@ -10374,7 +10384,9 @@ function getTransportLocationDisplayLabel(locationId, options = {}) {
   }
 
   const stateLabel = getTransportLocationLabel(id);
-  if (stateLabel && stateLabel !== '—' && !isLikelyTransportIdentifier(stateLabel)) {
+  if (stateLabel
+      && !isTransportUnknownLocationLabel(stateLabel)
+      && !isLikelyTransportIdentifier(stateLabel)) {
     return stateLabel;
   }
   return '';
@@ -10410,7 +10422,10 @@ function getTransportBookingRouteLabel(booking, options = {}) {
       return String(routeLabelById[routeId]).trim();
     }
     const fromStateById = routeId ? getTransportRouteLabelById(routeId) : '';
-    if (fromStateById && fromStateById !== '—' && !isLikelyTransportIdentifier(fromStateById)) {
+    if (fromStateById
+        && fromStateById !== '—'
+        && !isLikelyTransportIdentifier(fromStateById)
+        && !String(fromStateById).toLowerCase().includes('unknown location')) {
       return fromStateById;
     }
     if (origin || destination) return `${origin || 'Origin'} → ${destination || 'Destination'}`;
@@ -10422,7 +10437,10 @@ function getTransportBookingRouteLabel(booking, options = {}) {
       return String(routeLabelById[returnRouteId]).trim();
     }
     const fromStateById = returnRouteId ? getTransportRouteLabelById(returnRouteId) : '';
-    if (fromStateById && fromStateById !== '—' && !isLikelyTransportIdentifier(fromStateById)) {
+    if (fromStateById
+        && fromStateById !== '—'
+        && !isLikelyTransportIdentifier(fromStateById)
+        && !String(fromStateById).toLowerCase().includes('unknown location')) {
       return fromStateById;
     }
     if (returnOrigin || returnDestination) return `${returnOrigin || 'Origin'} → ${returnDestination || 'Destination'}`;
@@ -10436,7 +10454,7 @@ function getTransportBookingRouteLabel(booking, options = {}) {
   ];
   for (const candidate of directRouteLabels) {
     const text = String(candidate || '').trim();
-    if (text && text.includes('→')) {
+    if (text && text.includes('→') && !text.toLowerCase().includes('unknown location')) {
       if (!String(row.trip_type || '').trim().toLowerCase().includes('round')) return text;
       if (returnLabelFromState) return `${text} | ${returnLabelFromState}`;
       return `${text} (ROUND TRIP)`;
@@ -10456,6 +10474,24 @@ function getTransportBookingRouteLabel(booking, options = {}) {
   }
 
   if (outboundLabelFromState && returnLabelFromState) {
+    const splitRouteLabel = (label) => {
+      const text = String(label || '').trim();
+      if (!text || !text.includes('→')) return null;
+      const parts = text.split('→').map((part) => part.trim()).filter(Boolean);
+      if (parts.length !== 2) return null;
+      return { origin: parts[0], destination: parts[1] };
+    };
+    const outboundEndpoints = splitRouteLabel(outboundLabelFromState);
+    const returnEndpoints = splitRouteLabel(returnLabelFromState);
+    if (outboundEndpoints && returnEndpoints) {
+      if (outboundEndpoints.origin === returnEndpoints.destination
+          && outboundEndpoints.destination === returnEndpoints.origin) {
+        return `${outboundEndpoints.origin} ↔ ${outboundEndpoints.destination}`;
+      }
+    }
+    if (outboundLabelFromState === returnLabelFromState) {
+      return `${outboundLabelFromState} (ROUND TRIP)`;
+    }
     return `${outboundLabelFromState} | ${returnLabelFromState}`;
   }
   if (outboundLabelFromState) return `${outboundLabelFromState} (ROUND TRIP)`;
