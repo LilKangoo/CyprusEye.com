@@ -981,6 +981,7 @@ function clearQuoteView() {
   if (els.quoteWarnings) {
     els.quoteWarnings.innerHTML = '';
   }
+  renderMiniSummary(null);
 }
 
 function buildQuoteSummary(legs, options = {}) {
@@ -1108,6 +1109,8 @@ function renderQuote(summary) {
     const warnings = Array.isArray(summary.warnings) ? summary.warnings : [];
     els.quoteWarnings.innerHTML = warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('');
   }
+
+  renderMiniSummary(summary);
 }
 
 function scenarioExceedsCapacity(quote) {
@@ -1119,6 +1122,28 @@ function scenarioExceedsCapacity(quote) {
 function hasBlockingCapacityWarning(summary) {
   if (!summary) return true;
   return Boolean(summary.hasBlockingCapacity);
+}
+
+function renderMiniSummary(summary) {
+  if (!els.miniSummary) return;
+  if (!summary || !Array.isArray(summary.legs) || !summary.legs.length) {
+    els.miniSummary.hidden = true;
+    return;
+  }
+
+  els.miniSummary.hidden = false;
+
+  if (els.miniTotal) {
+    els.miniTotal.textContent = money(summary.total, summary.currency);
+  }
+
+  const showDeposit = Boolean(summary.depositEnabled) && round2(summary.depositAmount) > 0;
+  if (els.miniDepositWrap) {
+    els.miniDepositWrap.hidden = !showDeposit;
+  }
+  if (els.miniDeposit) {
+    els.miniDeposit.textContent = showDeposit ? money(summary.depositAmount, summary.currency) : '—';
+  }
 }
 
 function updateSubmitState() {
@@ -1145,6 +1170,26 @@ function updateSubmitState() {
       els.submitHint.textContent = 'Accept contact consent checkbox to continue.';
     } else {
       els.submitHint.textContent = 'All set. You can submit booking now.';
+    }
+  }
+
+  if (els.miniState) {
+    els.miniState.classList.remove('is-ok', 'is-warn');
+    if (!hasRoute) {
+      els.miniState.textContent = 'Select route and schedule first.';
+    } else if (!hasQuote) {
+      els.miniState.textContent = 'Complete route details for final quote.';
+      els.miniState.classList.add('is-warn');
+    } else if (hasBlockingWarning) {
+      els.miniState.textContent = 'Route limit exceeded. Update passengers/luggage.';
+      els.miniState.classList.add('is-warn');
+    } else if (!hasQuoteReview) {
+      els.miniState.textContent = 'Open full quote and confirm calculation.';
+    } else if (!hasPolicy) {
+      els.miniState.textContent = 'Confirm contact consent to continue.';
+    } else {
+      els.miniState.textContent = 'Ready to book.';
+      els.miniState.classList.add('is-ok');
     }
   }
 }
@@ -1722,6 +1767,15 @@ function bindInputs() {
     });
   }
 
+  if (els.miniOpenQuoteButton) {
+    els.miniOpenQuoteButton.addEventListener('click', () => {
+      const quotePanel = document.querySelector('.transport-quote');
+      if (quotePanel && typeof quotePanel.scrollIntoView === 'function') {
+        quotePanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  }
+
   if (els.form instanceof HTMLFormElement) {
     els.form.addEventListener('submit', handleSubmit);
   }
@@ -1761,6 +1815,12 @@ function initElements() {
   els.policyCheckbox = byId('transportAgreePolicy');
   els.quoteReviewCheckbox = byId('transportConfirmQuote');
   els.submitHint = byId('transportSubmitHint');
+  els.miniSummary = byId('transportMiniSummary');
+  els.miniTotal = byId('transportMiniTotal');
+  els.miniDepositWrap = byId('transportMiniDepositWrap');
+  els.miniDeposit = byId('transportMiniDeposit');
+  els.miniState = byId('transportMiniState');
+  els.miniOpenQuoteButton = byId('transportMiniOpenQuote');
   els.submitButton = byId('transportSubmitBooking');
   els.submitSuccess = byId('transportSubmitSuccess');
 

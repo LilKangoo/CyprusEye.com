@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="assets/css/tokens.css" />
   <link rel="stylesheet" href="assets/css/base.css" />
   <link rel="stylesheet" href="css/toast.css" />
-  <link rel="stylesheet" href="css/transport-booking.css?v=20260225_2" />
+  <link rel="stylesheet" href="css/transport-booking.css?v=20260225_3" />
   <meta name="ce-auth" content="on" />
   <script type="module" src="js/supabaseClient.js"></script>
   <script type="module" src="js/toast.js"></script>
@@ -263,6 +263,18 @@
     </section>
   </main>
 
-  <script type="module" src="js/transport-booking.js?v=20260225_4"></script>
+  <div id="transportMiniSummary" class="transport-mini-summary" hidden>
+    <div class="transport-mini-summary__content">
+      <p class="transport-mini-summary__label">Current total</p>
+      <p id="transportMiniTotal" class="transport-mini-summary__total">—</p>
+      <p id="transportMiniDepositWrap" class="transport-mini-summary__meta" hidden>
+        Deposit: <strong id="transportMiniDeposit">—</strong>
+      </p>
+      <p id="transportMiniState" class="transport-mini-summary__state">Complete route details to see your quote.</p>
+    </div>
+    <button id="transportMiniOpenQuote" class="transport-mini-summary__btn" type="button">Full quote</button>
+  </div>
+
+  <script type="module" src="js/transport-booking.js?v=20260225_5"></script>
 </body>
 </html>
