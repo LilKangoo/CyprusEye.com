@@ -282,6 +282,43 @@ function isMissingColumn(error, columnName) {
   return msg.includes(String(columnName || '').toLowerCase());
 }
 
+function extractMissingColumnName(error) {
+  const candidates = [
+    String(error?.message || ''),
+    String(error?.details || ''),
+    String(error?.hint || ''),
+  ].filter(Boolean);
+
+  const patterns = [
+    /could not find the '([^']+)' column/i,
+    /column ['"]([^'"]+)['"] does not exist/i,
+    /column ([a-zA-Z0-9_]+) does not exist/i,
+  ];
+
+  for (const source of candidates) {
+    for (const pattern of patterns) {
+      const match = source.match(pattern);
+      if (!match || !match[1]) continue;
+      const col = String(match[1] || '').trim();
+      if (col) return col;
+    }
+  }
+
+  return '';
+}
+
+const ROUND_TRIP_CRITICAL_BOOKING_COLUMNS = new Set([
+  'trip_type',
+  'return_route_id',
+  'return_origin_location_id',
+  'return_destination_location_id',
+  'return_travel_date',
+  'return_travel_time',
+  'return_pickup_address',
+  'return_dropoff_address',
+  'return_flight_number',
+]);
+
 async function loadRoutesSafe() {
   let result = await supabase
     .from('transport_routes')
@@ -1441,26 +1478,36 @@ async function handleSubmit(event) {
     let data = null;
     let submitError = null;
     let usedLegacyMultiInsert = false;
+    let insertPayload = { ...payload };
+    const strippedColumns = [];
+    const isRoundTrip = Array.isArray(quote?.legs) && quote.legs.length > 1;
+    let requiresLegacyMultiInsert = false;
 
-    {
+    for (let attempt = 0; attempt < 16; attempt += 1) {
       const insertResult = await supabase
         .from('transport_bookings')
-        .insert([payload])
+        .insert([insertPayload])
         .select('id, created_at');
       data = insertResult.data;
       submitError = insertResult.error;
+
+      if (!submitError) break;
+
+      const missingColumn = extractMissingColumnName(submitError);
+      if (!missingColumn || !Object.prototype.hasOwnProperty.call(insertPayload, missingColumn)) {
+        break;
+      }
+
+      if (isRoundTrip && ROUND_TRIP_CRITICAL_BOOKING_COLUMNS.has(missingColumn)) {
+        requiresLegacyMultiInsert = true;
+        break;
+      }
+
+      delete insertPayload[missingColumn];
+      strippedColumns.push(missingColumn);
     }
 
-    const canFallbackLegacyInsert = submitError && [
-      'trip_type',
-      'return_route_id',
-      'return_travel_date',
-      'return_travel_time',
-      'return_origin_location_id',
-      'return_destination_location_id',
-    ].some((column) => isMissingColumn(submitError, column));
-
-    if (canFallbackLegacyInsert) {
+    if (requiresLegacyMultiInsert) {
       const legacyPayloads = quote.legs.map((leg) => buildBookingPayloadForLeg(leg));
       const legacyResult = await supabase
         .from('transport_bookings')
@@ -1479,24 +1526,27 @@ async function handleSubmit(event) {
       .filter(Boolean)
       .map((id) => id.slice(0, 8).toUpperCase());
     const count = shortIds.length || (usedLegacyMultiInsert ? quote.legs.length : 1);
-    const isRoundTrip = quote.legs.length > 1;
+    const isRoundTripSuccess = quote.legs.length > 1 && !usedLegacyMultiInsert;
     const firstId = shortIds[0] || '--------';
     const idsLabel = shortIds.length ? shortIds.join(', ') : 'created';
+    const strippedColumnsHint = strippedColumns.length
+      ? `<div style="margin-top:6px; font-size:12px; opacity:0.85;">Saved with compatibility mode (missing optional schema columns: ${escapeHtml(strippedColumns.join(', '))}).</div>`
+      : '';
 
     if (els.submitSuccess) {
       els.submitSuccess.hidden = false;
       if (usedLegacyMultiInsert && count > 1) {
         els.submitSuccess.innerHTML = `Booking sent as <strong>${count}</strong> linked legs (<strong>${escapeHtml(idsLabel)}</strong>) because this database still uses legacy schema. Total: <strong>${escapeHtml(money(quote.total, quote.currency))}</strong>.`;
-      } else if (isRoundTrip) {
-        els.submitSuccess.innerHTML = `Round-trip booking <strong>#${escapeHtml(firstId)}</strong> was sent successfully. Total: <strong>${escapeHtml(money(quote.total, quote.currency))}</strong>.`;
+      } else if (isRoundTripSuccess) {
+        els.submitSuccess.innerHTML = `Round-trip booking <strong>#${escapeHtml(firstId)}</strong> was sent successfully. Total: <strong>${escapeHtml(money(quote.total, quote.currency))}</strong>.${strippedColumnsHint}`;
       } else {
-        els.submitSuccess.innerHTML = `Booking request <strong>#${escapeHtml(firstId)}</strong> was sent successfully. Total: <strong>${escapeHtml(money(quote.total, quote.currency))}</strong>. We will contact you shortly.`;
+        els.submitSuccess.innerHTML = `Booking request <strong>#${escapeHtml(firstId)}</strong> was sent successfully. Total: <strong>${escapeHtml(money(quote.total, quote.currency))}</strong>. We will contact you shortly.${strippedColumnsHint}`;
       }
     }
 
     if (usedLegacyMultiInsert && count > 1) {
       notify(`Transport booking created as ${count} legacy linked legs`, 'success');
-    } else if (isRoundTrip) {
+    } else if (isRoundTripSuccess) {
       notify(`Round-trip transport booking #${firstId} created`, 'success');
     } else {
       notify(`Transport booking #${firstId} created`, 'success');
