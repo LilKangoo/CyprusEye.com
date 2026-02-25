@@ -595,8 +595,8 @@
       "description": "Reservations, documents, and formalities in one place. Tick completed tasks and follow your preparation progress."
     },
     "step10": {
-      "title": "Special coupon 🎁",
-      "description": "A quick shortcut to purchase the coupon with secure payment. Perfect if you want to use the offer without extra formalities."
+      "title": "Transport with live quote 🚕",
+      "description": "Set route, time, and passengers to instantly see fare and reserve transport in one flow."
     },
     "step11": {
       "title": "Car rental guide 🚗",
@@ -1759,6 +1759,12 @@
       "title": "🚗 Cyprus car rental",
       "description": "See the fleet, compare prices, and reserve a car in the dedicated section.",
       "action": "Go to car rental"
+    },
+    "transport": {
+      "title": "🚕 Transport booking",
+      "description": "Set route and time, get live price, and reserve in one form.",
+      "badge": "Instant quote",
+      "action": "Open transport"
     },
     "coupon": {
       "title": "Coupon"

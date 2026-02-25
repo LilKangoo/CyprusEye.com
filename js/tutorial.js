@@ -170,9 +170,9 @@
         {
           id: 'step10',
           target: '[data-tour-target="coupon-card"]',
-          fallbackTitle: 'Specjalny kupon 💸',
+          fallbackTitle: 'Transport z szybką wyceną 🚕',
           fallbackDescription:
-            'Szybki skrót do zakupu kuponu z bezpieczną płatnością. Idealny, jeśli chcesz skorzystać z oferty bez dodatkowych formalności.',
+            'Ustaw trasę, godzinę i pasażerów, aby od razu zobaczyć cenę przejazdu i zarezerwować transport.',
           arrow: { icon: '➡️', placement: 'left' },
         },
         {

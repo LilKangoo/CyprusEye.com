@@ -1269,8 +1269,8 @@
   "tutorial.step8.description": "Ten skrót otwiera planer walizki z listami rzeczy dopasowanymi do sezonu.",
   "tutorial.step9.title": "Lista zadań",
   "tutorial.step9.description": "Śledź przygotowania do podróży – rezerwacje, dokumenty i inne obowiązki w jednym miejscu.",
-  "tutorial.step10.title": "Specjalny kupon",
-  "tutorial.step10.description": "Kup kupon w bezpieczny sposób i skorzystaj z oferty bez dodatkowych formalności.",
+  "tutorial.step10.title": "Transport z szybką wyceną",
+  "tutorial.step10.description": "Ustaw trasę, godzinę i pasażerów, aby od razu zobaczyć cenę i zarezerwować przejazd.",
   "tutorial.step11.title": "Przewodnik wynajmu auta",
   "tutorial.step11.description": "Dowiedz się wszystkiego o wynajmie samochodu na Cyprze: porady, ceny i kalkulator kosztów.",
   "tutorial.step12.title": "Usługi i planowanie",
@@ -2068,6 +2068,12 @@
       "title": "🚗 Wynajem auta na Cyprze",
       "description": "Poznaj flotę, porównaj ceny i zarezerwuj auto w dedykowanej sekcji.",
       "action": "Przejdź do wynajmu"
+    },
+    "transport": {
+      "title": "🚕 Rezerwacja transportu",
+      "description": "Ustaw trasę i godzinę, sprawdź cenę na żywo i zarezerwuj jednym formularzem.",
+      "badge": "Szybka wycena",
+      "action": "Otwórz transport"
     },
     "trips": {
       "title": "🧭 Wycieczki",

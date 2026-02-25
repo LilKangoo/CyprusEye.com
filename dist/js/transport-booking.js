@@ -122,6 +122,28 @@ function round2(value) {
   return Math.round(num * 100) / 100;
 }
 
+function toLocalIsoDate(dateObj) {
+  if (!(dateObj instanceof Date) || Number.isNaN(dateObj.getTime())) return '';
+  const yyyy = dateObj.getFullYear();
+  const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const dd = String(dateObj.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function parseIsoDateLocal(value) {
+  const raw = String(value || '').trim();
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const yyyy = Number(match[1]);
+  const mm = Number(match[2]);
+  const dd = Number(match[3]);
+  if (!Number.isFinite(yyyy) || !Number.isFinite(mm) || !Number.isFinite(dd)) return null;
+  const dt = new Date(yyyy, mm - 1, dd);
+  if (Number.isNaN(dt.getTime())) return null;
+  if (dt.getFullYear() !== yyyy || dt.getMonth() !== mm - 1 || dt.getDate() !== dd) return null;
+  return dt;
+}
+
 function money(value, currency = 'EUR') {
   const amount = round2(value);
   const code = String(currency || 'EUR').trim().toUpperCase() || 'EUR';
@@ -145,21 +167,27 @@ function parseTimeToMinutes(value) {
 }
 
 function addDaysToIsoDate(isoDate, days) {
-  const raw = String(isoDate || '').trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return '';
-  const dt = new Date(`${raw}T00:00:00`);
-  if (Number.isNaN(dt.getTime())) return '';
+  const dt = parseIsoDateLocal(isoDate);
+  if (!dt) return '';
   dt.setDate(dt.getDate() + Number(days || 0));
-  return dt.toISOString().slice(0, 10);
+  return toLocalIsoDate(dt);
 }
 
 function dateLabel(value) {
   const raw = String(value || '').trim();
   if (!raw) return '—';
   try {
-    const dt = new Date(`${raw}T00:00:00`);
-    if (Number.isNaN(dt.getTime())) return raw;
-    return dt.toLocaleDateString('en-GB');
+    const dt = parseIsoDateLocal(raw);
+    if (!dt) return raw;
+    const language = String(document.documentElement.lang || window.appI18n?.language || 'en').toLowerCase();
+    const locale = language.startsWith('pl')
+      ? 'pl-PL'
+      : language.startsWith('el')
+        ? 'el-GR'
+        : language.startsWith('he')
+          ? 'he-IL'
+          : 'en-GB';
+    return dt.toLocaleDateString(locale);
   } catch (_error) {
     return raw;
   }
@@ -627,7 +655,7 @@ function syncReturnDateConstraints() {
     return;
   }
 
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = toLocalIsoDate(new Date());
   els.returnDateInput.min = todayIso;
 }
 
@@ -782,12 +810,13 @@ function setDefaultTravelDateTime() {
   if (!(els.travelDateInput instanceof HTMLInputElement) || !(els.travelTimeInput instanceof HTMLInputElement)) return;
 
   const now = new Date();
-  const todayIso = now.toISOString().slice(0, 10);
+  const todayIso = toLocalIsoDate(now);
   els.travelDateInput.min = todayIso;
 
   if (!els.travelDateInput.value) {
-    const nextDay = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    els.travelDateInput.value = nextDay.toISOString().slice(0, 10);
+    const nextDay = new Date(now);
+    nextDay.setDate(nextDay.getDate() + 1);
+    els.travelDateInput.value = toLocalIsoDate(nextDay);
   }
 
   if (!els.travelTimeInput.value) {

@@ -9936,6 +9936,57 @@ body.tutorial-open {
   overflow: hidden;
 }
 
+.shortcut-compact-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 109, 255, 0.28);
+  background: rgba(255, 255, 255, 0.72);
+  color: #0b4ab2;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.shortcut-compact-meta {
+  margin-top: 10px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #0b4ab2;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.shortcut-compact--transport {
+  align-items: flex-start;
+  text-align: left;
+  background:
+    radial-gradient(360px 200px at 100% -20%, rgba(15, 109, 255, 0.16), transparent 58%),
+    radial-gradient(320px 160px at -10% 90%, rgba(29, 180, 165, 0.16), transparent 62%),
+    linear-gradient(150deg, rgba(255, 255, 255, 0.98), rgba(239, 246, 255, 0.96));
+  border-color: rgba(15, 109, 255, 0.34);
+  box-shadow: 0 12px 28px -12px rgba(13, 56, 132, 0.32);
+}
+
+.shortcut-compact--transport:hover {
+  border-color: rgba(15, 109, 255, 0.52);
+  box-shadow: 0 18px 34px -14px rgba(13, 56, 132, 0.42);
+}
+
+.shortcut-compact--transport .shortcut-compact-icon {
+  margin-bottom: 12px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(220, 235, 255, 0.9));
+  border-color: rgba(15, 109, 255, 0.24);
+}
+
+.shortcut-compact--transport h2 {
+  margin-bottom: 6px;
+}
+
 /* Hide old CTA button inside compact card as the whole card is clickable */
 .shortcut-compact .adventure-shortcut-cta {
   display: none;
@@ -9971,6 +10022,17 @@ body.tutorial-open {
     font-size: 0.75rem;
     -webkit-line-clamp: 2;
     line-clamp: 2;
+  }
+
+  .shortcut-compact-badge {
+    margin-bottom: 8px;
+    padding: 3px 8px;
+    font-size: 0.62rem;
+  }
+
+  .shortcut-compact-meta {
+    margin-top: 8px;
+    font-size: 0.65rem;
   }
 }
 

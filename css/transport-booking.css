@@ -127,6 +127,15 @@ body.transport-booking-page {
   min-width: 0;
 }
 
+.transport-booking-page .footer-referral {
+  margin-top: 8px;
+}
+
+.transport-booking-page .app-footer {
+  max-width: 1180px;
+  margin: 10px auto 18px;
+}
+
 .transport-hero {
   margin-bottom: 16px;
   border: 1px solid rgba(15, 109, 255, 0.2);
@@ -750,6 +759,10 @@ body.transport-booking-page {
 
   .transport-booking-main {
     padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 116px);
+  }
+
+  .transport-booking-page .app-footer {
+    margin: 10px 12px 18px;
   }
 }
 
