@@ -135,6 +135,12 @@
       "he": "Hebrew"
     }
   },
+  "seo.transport.title": "Cyprus transport booking | CyprusEye",
+  "seo.transport.description": "Book private transport in Cyprus with instant pricing and easy online reservation.",
+  "seo.transport.ogTitle": "Cyprus transport booking | CyprusEye",
+  "seo.transport.ogDescription": "Plan your Cyprus transfer in minutes with clear fare breakdown and quick booking.",
+  "seo.transport.locale": "en_GB",
+  "seo.transport.localeAlternate": "pl_PL",
   "header": {
     "notifications": "🔔 Notifications",
     "login": "🔐 Sign in",
@@ -143,8 +149,8 @@
     "logoAlt": "HolidayCyprus.com – turtle logo with the Polish flag",
     "profileLabel": "My Profile",
     "statusPlaceholder": "Level 1 • 0 badges",
-    "coupon": "Coupon",
-    "couponAria": "Open coupon page",
+    "coupon": "🚕 Transport",
+    "couponAria": "Open transport page",
     "quickActions": {
       "aria": "Quick actions"
     },

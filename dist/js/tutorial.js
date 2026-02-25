@@ -100,7 +100,7 @@
           target: '[data-tour-target="quick-actions"]',
           fallbackTitle: 'Witaj w CyprusEye Quest! 🎮',
           fallbackDescription:
-            'Poznaj szybkie akcje w nagłówku! Stąd masz błyskawiczny dostęp do: 🎒 Pakowanie, 🎟️ Kupon, 🚗 Wynajem auta, 🚤 Wycieczki, 🏨 Hotele. Wszystko pod ręką!',
+            'Poznaj szybkie akcje w nagłówku! Stąd masz błyskawiczny dostęp do: 🎒 Pakowanie, 🚕 Transport, 🚗 Wynajem auta, 🚤 Wycieczki, 🏨 Hotele. Wszystko pod ręką!',
           arrow: { icon: '⬇️', placement: 'top' },
         },
         {

@@ -14,7 +14,7 @@
     { icon: '✅', label: 'Misje', href: 'tasks.html', page: 'tasks' },
     { icon: '🧭', label: 'Wycieczki', href: 'trips.html', page: 'trips' },
     { icon: '🚗', label: 'Wynajem', href: 'car-rental-landing.html', page: 'carrental' },
-    { icon: '🎟️', label: 'Kupony', href: 'kupon.html', page: 'kupon' }
+    { icon: '🚕', label: 'Transport', href: 'transport.html', page: 'transport' }
   ];
 
   function toRootHref(href) {
@@ -41,7 +41,7 @@
       if (normalized === 'vip' || normalized === 'mediatrips') return 'vip';
       if (normalized === 'trips') return 'trips';
       if (normalized.includes('rental') || normalized === 'carrental') return 'carrental';
-      if (normalized === 'coupon') return 'kupon';
+      if (normalized === 'transport') return 'transport';
     }
     
     // Fallback to URL detection
@@ -51,7 +51,7 @@
     if (path.includes('vip')) return 'vip';
     if (path.includes('trips')) return 'trips';
     if (path.includes('car-rental') || path.includes('rental')) return 'carrental';
-    if (path.includes('kupon') || path.includes('coupon')) return 'kupon';
+    if (path.includes('transport')) return 'transport';
     
     return 'home'; // default
   }
