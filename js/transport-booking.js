@@ -894,18 +894,18 @@ function calculateQuote(route, rule, scenario) {
 
 function setStatus(message, type = 'info') {
   if (!els.quoteStatus) return;
-  const text = String(message || '').trim();
-  if (!text) {
+  const isError = type === 'error';
+  if (!isError) {
     els.quoteStatus.hidden = true;
     els.quoteStatus.textContent = '';
     els.quoteStatus.classList.remove('is-error');
     return;
   }
 
-  const isError = type === 'error';
+  const text = String(message || 'Please check booking details.').trim();
   els.quoteStatus.hidden = false;
   els.quoteStatus.textContent = text;
-  els.quoteStatus.classList.toggle('is-error', isError);
+  els.quoteStatus.classList.add('is-error');
 }
 
 function clearQuoteRowHideTimer(rowEl) {
@@ -981,6 +981,7 @@ function clearQuoteView() {
   if (els.quoteWarnings) {
     els.quoteWarnings.innerHTML = '';
   }
+  renderInlineQuote(null);
   renderMiniSummary(null);
 }
 
@@ -1056,7 +1057,7 @@ function renderQuote(summary) {
 
   const hasReturnLeg = summary.legs.length > 1;
   setQuoteBreakdownRow(els.quoteRowOutbound, els.quoteOutbound, {
-    visible: true,
+    visible: hasReturnLeg,
     text: money(summary.outboundTotal, summary.currency),
   });
   setQuoteBreakdownRow(els.quoteRowReturn, els.quoteReturn, {
@@ -1068,23 +1069,23 @@ function renderQuote(summary) {
     text: money(summary.baseFare, summary.currency),
   });
   setQuoteBreakdownRow(els.quoteRowPassengers, els.quotePassengers, {
-    visible: true,
+    visible: round2(summary.extraPassengersCost) > 0,
     text: money(summary.extraPassengersCost, summary.currency),
   });
   setQuoteBreakdownRow(els.quoteRowBags, els.quoteBags, {
-    visible: true,
+    visible: round2(summary.extraBagsCost) > 0,
     text: money(summary.extraBagsCost, summary.currency),
   });
   setQuoteBreakdownRow(els.quoteRowOversize, els.quoteOversize, {
-    visible: true,
+    visible: round2(summary.oversizeCost) > 0,
     text: money(summary.oversizeCost, summary.currency),
   });
   setQuoteBreakdownRow(els.quoteRowSeats, els.quoteSeats, {
-    visible: true,
+    visible: round2(summary.seatsCost) > 0,
     text: money(summary.seatsCost, summary.currency),
   });
   setQuoteBreakdownRow(els.quoteRowWaiting, els.quoteWaiting, {
-    visible: true,
+    visible: round2(summary.waitingCost) > 0,
     text: money(summary.waitingCost, summary.currency),
   });
   const showDepositNotice = summary.depositEnabled && round2(summary.depositAmount) > 0;
@@ -1099,8 +1100,10 @@ function renderQuote(summary) {
   if (els.routeMeta) {
     const legMeta = summary.legs.map((leg) => {
       const routeLabel = getRouteLabel(leg.route);
-      const period = leg?.quote?.basePeriod === 'night' ? 'Night rate' : 'Day rate';
-      return `${leg.label}: ${routeLabel} · ${dateLabel(leg.travelDate)} ${escapeHtml(String(leg.travelTime || '—'))} · ${period}`;
+      const ruleLabel = leg?.rule?.id
+        ? `Rule #${String(leg.rule.id).slice(0, 8).toUpperCase()}`
+        : 'Default extras';
+      return `${leg.label}: ${routeLabel} · ${dateLabel(leg.travelDate)} ${escapeHtml(String(leg.travelTime || '—'))} · ${ruleLabel}`;
     });
     els.routeMeta.textContent = legMeta.join(' | ');
   }
@@ -1110,6 +1113,7 @@ function renderQuote(summary) {
     els.quoteWarnings.innerHTML = warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('');
   }
 
+  renderInlineQuote(summary);
   renderMiniSummary(summary);
 }
 
@@ -1136,13 +1140,24 @@ function renderMiniSummary(summary) {
   if (els.miniTotal) {
     els.miniTotal.textContent = money(summary.total, summary.currency);
   }
+}
+
+function renderInlineQuote(summary) {
+  if (!els.inlineQuote || !els.inlineQuoteTotal) return;
+  if (!summary || !Array.isArray(summary.legs) || !summary.legs.length) {
+    els.inlineQuote.hidden = true;
+    return;
+  }
+
+  els.inlineQuote.hidden = false;
+  els.inlineQuoteTotal.textContent = money(summary.total, summary.currency);
 
   const showDeposit = Boolean(summary.depositEnabled) && round2(summary.depositAmount) > 0;
-  if (els.miniDepositWrap) {
-    els.miniDepositWrap.hidden = !showDeposit;
+  if (els.inlineQuoteDepositWrap) {
+    els.inlineQuoteDepositWrap.hidden = !showDeposit;
   }
-  if (els.miniDeposit) {
-    els.miniDeposit.textContent = showDeposit ? money(summary.depositAmount, summary.currency) : '—';
+  if (els.inlineQuoteDeposit) {
+    els.inlineQuoteDeposit.textContent = showDeposit ? money(summary.depositAmount, summary.currency) : '—';
   }
 }
 
@@ -1165,7 +1180,7 @@ function updateSubmitState() {
     } else if (hasBlockingWarning) {
       els.submitHint.textContent = 'Adjust passengers/luggage: current selection exceeds route limits.';
     } else if (!hasQuoteReview) {
-      els.submitHint.textContent = 'Review full quote and tick confirmation in pricing panel to unlock booking.';
+      els.submitHint.textContent = 'Review full quote and confirm it below to unlock booking.';
     } else if (!hasPolicy) {
       els.submitHint.textContent = 'Accept contact consent checkbox to continue.';
     } else {
@@ -1815,10 +1830,12 @@ function initElements() {
   els.policyCheckbox = byId('transportAgreePolicy');
   els.quoteReviewCheckbox = byId('transportConfirmQuote');
   els.submitHint = byId('transportSubmitHint');
+  els.inlineQuote = byId('transportInlineQuote');
+  els.inlineQuoteTotal = byId('transportInlineQuoteTotal');
+  els.inlineQuoteDepositWrap = byId('transportInlineQuoteDepositWrap');
+  els.inlineQuoteDeposit = byId('transportInlineQuoteDeposit');
   els.miniSummary = byId('transportMiniSummary');
   els.miniTotal = byId('transportMiniTotal');
-  els.miniDepositWrap = byId('transportMiniDepositWrap');
-  els.miniDeposit = byId('transportMiniDeposit');
   els.miniState = byId('transportMiniState');
   els.miniOpenQuoteButton = byId('transportMiniOpenQuote');
   els.submitButton = byId('transportSubmitBooking');

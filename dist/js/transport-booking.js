@@ -247,6 +247,31 @@ function getLegContactValues(legKey = 'outbound') {
   };
 }
 
+function getLegContactGuidance(requirements, legLabel = 'Outbound') {
+  const label = String(legLabel || '').trim() || 'Trip';
+  if (!requirements || typeof requirements !== 'object') {
+    return `${label}: add exact pickup/drop-off details to avoid delays.`;
+  }
+
+  if (!requirements.airportSelected) {
+    return `${label}: no airport selected. Add both pickup and drop-off address. Flight number is optional.`;
+  }
+
+  if (requirements.originAirport && requirements.destinationAirport) {
+    return `${label}: airport to airport. Flight number and both addresses are required.`;
+  }
+
+  if (requirements.originAirport) {
+    return `${label}: pickup is airport. Flight number and drop-off address are required.`;
+  }
+
+  if (requirements.destinationAirport) {
+    return `${label}: destination is airport. Flight number and pickup address are required.`;
+  }
+
+  return `${label}: add exact pickup/drop-off details to avoid delays.`;
+}
+
 function setFieldRequirement(fieldId, labelText, required) {
   const field = byId(fieldId);
   if (field && typeof field.required === 'boolean') {
@@ -260,27 +285,73 @@ function setFieldRequirement(fieldId, labelText, required) {
 
 function syncTransportContactRequirements() {
   const outboundRequirements = getLegContactRequirements('outbound');
-  setFieldRequirement('transportFlightNumber', 'Flight number', outboundRequirements.flightNumberRequired);
-  setFieldRequirement('transportPickupAddress', 'Pickup address', outboundRequirements.pickupAddressRequired);
-  setFieldRequirement('transportDropoffAddress', 'Dropoff address', outboundRequirements.dropoffAddressRequired);
+  setFieldRequirement('transportFlightNumber', 'Outbound flight number', outboundRequirements.flightNumberRequired);
+  setFieldRequirement('transportPickupAddress', 'Outbound pickup address', outboundRequirements.pickupAddressRequired);
+  setFieldRequirement('transportDropoffAddress', 'Outbound drop-off address', outboundRequirements.dropoffAddressRequired);
+  if (els.outboundContactHint) {
+    els.outboundContactHint.textContent = getLegContactGuidance(outboundRequirements, 'Outbound');
+  }
 
   if (isRoundTripSelected()) {
     const returnRequirements = getLegContactRequirements('return');
     setFieldRequirement('transportReturnFlightNumber', 'Return flight number', returnRequirements.flightNumberRequired);
     setFieldRequirement('transportReturnPickupAddress', 'Return pickup address', returnRequirements.pickupAddressRequired);
-    setFieldRequirement('transportReturnDropoffAddress', 'Return dropoff address', returnRequirements.dropoffAddressRequired);
+    setFieldRequirement('transportReturnDropoffAddress', 'Return drop-off address', returnRequirements.dropoffAddressRequired);
+    if (els.returnContactHint) {
+      els.returnContactHint.textContent = getLegContactGuidance(returnRequirements, 'Return');
+    }
     return;
   }
 
   setFieldRequirement('transportReturnFlightNumber', 'Return flight number', false);
   setFieldRequirement('transportReturnPickupAddress', 'Return pickup address', false);
-  setFieldRequirement('transportReturnDropoffAddress', 'Return dropoff address', false);
+  setFieldRequirement('transportReturnDropoffAddress', 'Return drop-off address', false);
+  if (els.returnContactHint) {
+    els.returnContactHint.textContent = 'Return details are shown only when trip type is set to Round trip.';
+  }
 }
 
 function isMissingColumn(error, columnName) {
   const msg = String(error?.message || '').toLowerCase();
   return msg.includes(String(columnName || '').toLowerCase());
 }
+
+function extractMissingColumnName(error) {
+  const candidates = [
+    String(error?.message || ''),
+    String(error?.details || ''),
+    String(error?.hint || ''),
+  ].filter(Boolean);
+
+  const patterns = [
+    /could not find the '([^']+)' column/i,
+    /column ['"]([^'"]+)['"] does not exist/i,
+    /column ([a-zA-Z0-9_]+) does not exist/i,
+  ];
+
+  for (const source of candidates) {
+    for (const pattern of patterns) {
+      const match = source.match(pattern);
+      if (!match || !match[1]) continue;
+      const col = String(match[1] || '').trim();
+      if (col) return col;
+    }
+  }
+
+  return '';
+}
+
+const ROUND_TRIP_CRITICAL_BOOKING_COLUMNS = new Set([
+  'trip_type',
+  'return_route_id',
+  'return_origin_location_id',
+  'return_destination_location_id',
+  'return_travel_date',
+  'return_travel_time',
+  'return_pickup_address',
+  'return_dropoff_address',
+  'return_flight_number',
+]);
 
 async function loadRoutesSafe() {
   let result = await supabase
@@ -513,15 +584,42 @@ function autoPopulateReturnLeg(options = {}) {
   syncReturnDateConstraints();
 }
 
+function syncReturnContactFromOutbound(options = {}) {
+  if (!isRoundTripSelected()) return;
+  const force = Boolean(options?.force);
+  const outboundPickup = String(els.pickupAddressInput?.value || '').trim();
+  const outboundDropoff = String(els.dropoffAddressInput?.value || '').trim();
+  const returnPickupCurrent = String(els.returnPickupAddressInput?.value || '').trim();
+  const returnDropoffCurrent = String(els.returnDropoffAddressInput?.value || '').trim();
+
+  if (els.returnPickupAddressInput instanceof HTMLInputElement) {
+    const shouldSetReturnPickup = force || !returnPickupCurrent;
+    if (shouldSetReturnPickup && outboundDropoff) {
+      els.returnPickupAddressInput.value = outboundDropoff;
+    }
+  }
+
+  if (els.returnDropoffAddressInput instanceof HTMLInputElement) {
+    const shouldSetReturnDropoff = force || !returnDropoffCurrent;
+    if (shouldSetReturnDropoff && outboundPickup) {
+      els.returnDropoffAddressInput.value = outboundPickup;
+    }
+  }
+}
+
 function syncReturnLegVisibility(options = {}) {
   const roundTrip = isRoundTripSelected();
   if (els.returnLegSection) {
     els.returnLegSection.hidden = !roundTrip;
   }
+  if (els.returnContactSection) {
+    els.returnContactSection.hidden = !roundTrip;
+  }
 
   if (roundTrip) {
     const switchedFromOneWay = state.lastTripTypeSelection !== 'round_trip';
     autoPopulateReturnLeg({ force: Boolean(options?.force || switchedFromOneWay) });
+    syncReturnContactFromOutbound({ force: Boolean(options?.force || switchedFromOneWay) });
   }
 
   state.lastTripTypeSelection = roundTrip ? 'round_trip' : 'one_way';
@@ -804,8 +902,9 @@ function setStatus(message, type = 'info') {
     return;
   }
 
+  const text = String(message || 'Please check booking details.').trim();
   els.quoteStatus.hidden = false;
-  els.quoteStatus.textContent = String(message || 'Please check booking details.').trim();
+  els.quoteStatus.textContent = text;
   els.quoteStatus.classList.add('is-error');
 }
 
@@ -882,6 +981,8 @@ function clearQuoteView() {
   if (els.quoteWarnings) {
     els.quoteWarnings.innerHTML = '';
   }
+  renderInlineQuote(null);
+  renderMiniSummary(null);
 }
 
 function buildQuoteSummary(legs, options = {}) {
@@ -1011,6 +1112,9 @@ function renderQuote(summary) {
     const warnings = Array.isArray(summary.warnings) ? summary.warnings : [];
     els.quoteWarnings.innerHTML = warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('');
   }
+
+  renderInlineQuote(summary);
+  renderMiniSummary(summary);
 }
 
 function scenarioExceedsCapacity(quote) {
@@ -1024,15 +1128,91 @@ function hasBlockingCapacityWarning(summary) {
   return Boolean(summary.hasBlockingCapacity);
 }
 
+function renderMiniSummary(summary) {
+  if (!els.miniSummary) return;
+  if (!summary || !Array.isArray(summary.legs) || !summary.legs.length) {
+    els.miniSummary.hidden = true;
+    return;
+  }
+
+  els.miniSummary.hidden = false;
+
+  if (els.miniTotal) {
+    els.miniTotal.textContent = money(summary.total, summary.currency);
+  }
+}
+
+function renderInlineQuote(summary) {
+  if (!els.inlineQuote || !els.inlineQuoteTotal) return;
+  if (!summary || !Array.isArray(summary.legs) || !summary.legs.length) {
+    els.inlineQuote.hidden = true;
+    return;
+  }
+
+  els.inlineQuote.hidden = false;
+  els.inlineQuoteTotal.textContent = money(summary.total, summary.currency);
+
+  const showDeposit = Boolean(summary.depositEnabled) && round2(summary.depositAmount) > 0;
+  if (els.inlineQuoteDepositWrap) {
+    els.inlineQuoteDepositWrap.hidden = !showDeposit;
+  }
+  if (els.inlineQuoteDeposit) {
+    els.inlineQuoteDeposit.textContent = showDeposit ? money(summary.depositAmount, summary.currency) : '—';
+  }
+}
+
 function updateSubmitState() {
   if (!(els.submitButton instanceof HTMLButtonElement)) return;
 
   const hasRoute = Boolean(state.activeRoute) && (!isRoundTripSelected() || Boolean(state.activeReturnRoute));
   const hasQuote = Boolean(state.lastQuote && state.lastQuote.isBookable);
   const hasPolicy = Boolean(els.policyCheckbox?.checked);
+  const hasQuoteReview = Boolean(els.quoteReviewCheckbox?.checked);
   const hasBlockingWarning = hasBlockingCapacityWarning(state.lastQuote);
 
-  els.submitButton.disabled = !(hasRoute && hasQuote && hasPolicy && !hasBlockingWarning);
+  els.submitButton.disabled = !(hasRoute && hasQuote && hasPolicy && hasQuoteReview && !hasBlockingWarning);
+
+  if (els.submitHint) {
+    if (!hasRoute) {
+      els.submitHint.textContent = 'Select route and schedule first.';
+    } else if (!hasQuote) {
+      els.submitHint.textContent = 'Complete all required route fields to calculate final quote.';
+    } else if (hasBlockingWarning) {
+      els.submitHint.textContent = 'Adjust passengers/luggage: current selection exceeds route limits.';
+    } else if (!hasQuoteReview) {
+      els.submitHint.textContent = 'Review full quote and confirm it below to unlock booking.';
+    } else if (!hasPolicy) {
+      els.submitHint.textContent = 'Accept contact consent checkbox to continue.';
+    } else {
+      els.submitHint.textContent = 'All set. You can submit booking now.';
+    }
+  }
+
+  if (els.miniState) {
+    els.miniState.classList.remove('is-ok', 'is-warn');
+    if (!hasRoute) {
+      els.miniState.textContent = 'Select route and schedule first.';
+    } else if (!hasQuote) {
+      els.miniState.textContent = 'Complete route details for final quote.';
+      els.miniState.classList.add('is-warn');
+    } else if (hasBlockingWarning) {
+      els.miniState.textContent = 'Route limit exceeded. Update passengers/luggage.';
+      els.miniState.classList.add('is-warn');
+    } else if (!hasQuoteReview) {
+      els.miniState.textContent = 'Open full quote and confirm calculation.';
+    } else if (!hasPolicy) {
+      els.miniState.textContent = 'Confirm contact consent to continue.';
+    } else {
+      els.miniState.textContent = 'Ready to book.';
+      els.miniState.classList.add('is-ok');
+    }
+  }
+}
+
+function resetQuoteReviewConfirmation() {
+  if (els.quoteReviewCheckbox instanceof HTMLInputElement) {
+    els.quoteReviewCheckbox.checked = false;
+  }
 }
 
 function refreshQuote() {
@@ -1238,6 +1418,10 @@ function validateRequiredFields() {
     if (returnContactError) return returnContactError;
   }
 
+  if (!els.quoteReviewCheckbox?.checked) {
+    return 'Please review full quote and confirm it before booking.';
+  }
+
   if (!els.policyCheckbox?.checked) {
     return 'Please confirm the contact consent checkbox.';
   }
@@ -1245,7 +1429,7 @@ function validateRequiredFields() {
   return '';
 }
 
-function buildBookingPayloadForLeg(leg, options = {}) {
+function buildBookingPayloadForLeg(leg) {
   const route = leg?.route || null;
   const quote = leg?.quote || {};
   const scenario = quote?.scenario || {};
@@ -1255,13 +1439,8 @@ function buildBookingPayloadForLeg(leg, options = {}) {
   const totalPrice = round2(toNonNegativeNumber(quote?.total, 0));
   const currency = String(quote?.currency || route?.currency || 'EUR').trim().toUpperCase() || 'EUR';
   const baseNotes = String(els.notesInput?.value || '').trim();
-  const bundleToken = String(options.bundleToken || '').trim();
-  const legLabel = String(leg?.label || '').trim();
   const legKey = String(leg?.key || '').trim().toLowerCase() === 'return' ? 'return' : 'outbound';
   const legContact = getLegContactValues(legKey);
-  const notesParts = [];
-  if (baseNotes) notesParts.push(baseNotes);
-  if (bundleToken) notesParts.push(`[transport_bundle:${bundleToken}] ${legLabel || 'Leg'}`);
 
   return {
     route_id: String(route?.id || '').trim() || null,
@@ -1278,7 +1457,7 @@ function buildBookingPayloadForLeg(leg, options = {}) {
     pickup_address: legContact.pickupAddress || null,
     dropoff_address: legContact.dropoffAddress || null,
     flight_number: legContact.flightNumber || null,
-    notes: notesParts.length ? notesParts.join('\n') : null,
+    notes: baseNotes || null,
     customer_name: String(els.customerNameInput?.value || '').trim(),
     customer_email: String(els.customerEmailInput?.value || '').trim() || null,
     customer_phone: String(els.customerPhoneInput?.value || '').trim(),
@@ -1292,6 +1471,68 @@ function buildBookingPayloadForLeg(leg, options = {}) {
     deposit_amount: quote?.depositEnabled ? round2(quote?.depositAmount || 0) : null,
     deposit_currency: quote?.depositEnabled ? currency : null,
   };
+}
+
+function buildTransportBookingPayload(quote) {
+  const legs = Array.isArray(quote?.legs) ? quote.legs.filter(Boolean) : [];
+  if (!legs.length) return null;
+
+  const outboundLeg = legs[0];
+  const outboundPayload = buildBookingPayloadForLeg(outboundLeg);
+  if (!outboundPayload) return null;
+
+  const outboundCurrency = String(outboundPayload.currency || 'EUR').trim().toUpperCase() || 'EUR';
+  const extrasTotal = toNonNegativeNumber(quote?.extraPassengersCost, 0)
+    + toNonNegativeNumber(quote?.extraBagsCost, 0)
+    + toNonNegativeNumber(quote?.oversizeCost, 0)
+    + toNonNegativeNumber(quote?.seatsCost, 0)
+    + toNonNegativeNumber(quote?.waitingCost, 0);
+
+  const payload = {
+    ...outboundPayload,
+    trip_type: legs.length > 1 ? 'round_trip' : 'one_way',
+    base_price: round2(toNonNegativeNumber(quote?.baseFare, outboundPayload.base_price)),
+    extras_price: round2(toNonNegativeNumber(extrasTotal, outboundPayload.extras_price)),
+    total_price: round2(toNonNegativeNumber(quote?.total, outboundPayload.total_price)),
+    currency: String(quote?.currency || outboundCurrency).trim().toUpperCase() || outboundCurrency,
+    payment_status: quote?.depositEnabled ? 'pending' : 'not_required',
+    deposit_amount: quote?.depositEnabled ? round2(toNonNegativeNumber(quote?.depositAmount, 0)) : null,
+    deposit_currency: quote?.depositEnabled
+      ? (String(quote?.currency || outboundCurrency).trim().toUpperCase() || outboundCurrency)
+      : null,
+    return_route_id: null,
+    return_origin_location_id: null,
+    return_destination_location_id: null,
+    return_travel_date: null,
+    return_travel_time: null,
+    return_pickup_address: null,
+    return_dropoff_address: null,
+    return_flight_number: null,
+    return_base_price: null,
+    return_extras_price: null,
+    return_total_price: null,
+  };
+
+  if (legs.length > 1) {
+    const returnLeg = legs[1];
+    const returnRoute = returnLeg?.route || null;
+    const returnQuote = returnLeg?.quote || {};
+    const returnContact = getLegContactValues('return');
+
+    payload.return_route_id = String(returnRoute?.id || '').trim() || null;
+    payload.return_origin_location_id = String(returnRoute?.origin_location_id || '').trim() || null;
+    payload.return_destination_location_id = String(returnRoute?.destination_location_id || '').trim() || null;
+    payload.return_travel_date = String(returnLeg?.travelDate || '').trim() || null;
+    payload.return_travel_time = String(returnLeg?.travelTime || '').trim().slice(0, 5) || null;
+    payload.return_pickup_address = returnContact.pickupAddress || null;
+    payload.return_dropoff_address = returnContact.dropoffAddress || null;
+    payload.return_flight_number = returnContact.flightNumber || null;
+    payload.return_base_price = round2(toNonNegativeNumber(returnQuote?.baseFare, 0));
+    payload.return_extras_price = round2(toNonNegativeNumber(returnQuote?.extrasTotal, 0));
+    payload.return_total_price = round2(toNonNegativeNumber(returnQuote?.total, 0));
+  }
+
+  return payload;
 }
 
 function resetAfterSubmit() {
@@ -1329,6 +1570,9 @@ function resetAfterSubmit() {
   if (els.childSeatsInput) els.childSeatsInput.value = '0';
   if (els.boosterSeatsInput) els.boosterSeatsInput.value = '0';
   if (els.waitingMinutesInput) els.waitingMinutesInput.value = '0';
+  if (els.quoteReviewCheckbox instanceof HTMLInputElement) {
+    els.quoteReviewCheckbox.checked = false;
+  }
 
   syncReturnLegVisibility({ force: false });
   void prefillCustomerFromSession();
@@ -1369,39 +1613,80 @@ async function handleSubmit(event) {
     return;
   }
 
-  const bundleToken = quote.legs.length > 1
-    ? `RT-${Date.now().toString(36).toUpperCase()}`
-    : '';
-  const payloads = quote.legs.map((leg) => buildBookingPayloadForLeg(leg, { bundleToken }));
+  const payload = buildTransportBookingPayload(quote);
+  if (!payload) {
+    setStatus('Failed to prepare booking payload. Please refresh and try again.', 'error');
+    updateSubmitState();
+    return;
+  }
 
   const initialButtonText = els.submitButton.textContent || 'Reserve transport';
   els.submitButton.disabled = true;
   els.submitButton.textContent = 'Sending booking...';
 
   try {
-    const { data, error } = await supabase
-      .from('transport_bookings')
-      .insert(payloads)
-      .select('id, created_at');
+    let data = null;
+    let submitError = null;
+    let insertPayload = { ...payload };
+    const strippedColumns = [];
+    const isRoundTrip = Array.isArray(quote?.legs) && quote.legs.length > 1;
+    let requiresLegacyMultiInsert = false;
 
-    if (error) throw error;
+    for (let attempt = 0; attempt < 16; attempt += 1) {
+      const insertResult = await supabase
+        .from('transport_bookings')
+        .insert([insertPayload])
+        .select('id, created_at');
+      data = insertResult.data;
+      submitError = insertResult.error;
+
+      if (!submitError) break;
+
+      const missingColumn = extractMissingColumnName(submitError);
+      if (!missingColumn || !Object.prototype.hasOwnProperty.call(insertPayload, missingColumn)) {
+        break;
+      }
+
+      if (isRoundTrip && ROUND_TRIP_CRITICAL_BOOKING_COLUMNS.has(missingColumn)) {
+        requiresLegacyMultiInsert = true;
+        break;
+      }
+
+      delete insertPayload[missingColumn];
+      strippedColumns.push(missingColumn);
+    }
+
+    if (requiresLegacyMultiInsert) {
+      throw new Error('Round-trip booking requires latest transport schema. Run migration "120_transport_round_trip_columns_schema_cache_fix.sql" and refresh this page.');
+    }
+
+    if (submitError) throw submitError;
 
     const rows = Array.isArray(data) ? data : [];
     const shortIds = rows
       .map((row) => String(row?.id || '').trim())
       .filter(Boolean)
       .map((id) => id.slice(0, 8).toUpperCase());
-    const count = shortIds.length || payloads.length;
-    const idsLabel = shortIds.length ? shortIds.join(', ') : 'created';
+    const isRoundTripSuccess = quote.legs.length > 1;
+    const firstId = shortIds[0] || '--------';
+    const strippedColumnsHint = strippedColumns.length
+      ? `<div style="margin-top:6px; font-size:12px; opacity:0.85;">Saved with compatibility mode (missing optional schema columns: ${escapeHtml(strippedColumns.join(', '))}).</div>`
+      : '';
 
     if (els.submitSuccess) {
       els.submitSuccess.hidden = false;
-      els.submitSuccess.innerHTML = count > 1
-        ? `Booking bundle <strong>${escapeHtml(bundleToken || 'ROUND TRIP')}</strong> sent successfully with <strong>${count}</strong> rides (<strong>${escapeHtml(idsLabel)}</strong>). Total: <strong>${escapeHtml(money(quote.total, quote.currency))}</strong>.`
-        : `Booking request <strong>#${escapeHtml(shortIds[0] || '--------')}</strong> was sent successfully. Total: <strong>${escapeHtml(money(quote.total, quote.currency))}</strong>. We will contact you shortly.`;
+      if (isRoundTripSuccess) {
+        els.submitSuccess.innerHTML = `Round-trip booking <strong>#${escapeHtml(firstId)}</strong> was sent successfully. Total: <strong>${escapeHtml(money(quote.total, quote.currency))}</strong>.${strippedColumnsHint}`;
+      } else {
+        els.submitSuccess.innerHTML = `Booking request <strong>#${escapeHtml(firstId)}</strong> was sent successfully. Total: <strong>${escapeHtml(money(quote.total, quote.currency))}</strong>. We will contact you shortly.${strippedColumnsHint}`;
+      }
     }
 
-    notify(count > 1 ? `Transport bundle ${bundleToken || ''} created (${count} rides)` : `Transport booking #${shortIds[0] || ''} created`, 'success');
+    if (isRoundTripSuccess) {
+      notify(`Round-trip transport booking #${firstId} created`, 'success');
+    } else {
+      notify(`Transport booking #${firstId} created`, 'success');
+    }
     setStatus('Booking submitted successfully. We will review and confirm shortly.', 'info');
     resetAfterSubmit();
     refreshQuote();
@@ -1435,12 +1720,17 @@ function bindInputs() {
   ].filter(Boolean);
 
   quoteInputs.forEach((input) => {
-    input.addEventListener('input', refreshQuote);
-    input.addEventListener('change', refreshQuote);
+    const onQuoteInputChange = () => {
+      resetQuoteReviewConfirmation();
+      refreshQuote();
+    };
+    input.addEventListener('input', onQuoteInputChange);
+    input.addEventListener('change', onQuoteInputChange);
   });
 
   if (els.tripTypeSelect instanceof HTMLSelectElement) {
     els.tripTypeSelect.addEventListener('change', () => {
+      resetQuoteReviewConfirmation();
       syncReturnLegVisibility();
       refreshQuote();
     });
@@ -1448,6 +1738,7 @@ function bindInputs() {
 
   if (els.travelDateInput instanceof HTMLInputElement) {
     els.travelDateInput.addEventListener('change', () => {
+      resetQuoteReviewConfirmation();
       syncReturnDateConstraints();
       if (isRoundTripSelected() && !String(els.returnDateInput?.value || '').trim()) {
         autoPopulateReturnLeg({ force: false });
@@ -1468,9 +1759,35 @@ function bindInputs() {
     els.originSelect?.addEventListener('change', syncReturnFromOutbound);
   }
 
+  if (els.pickupAddressInput instanceof HTMLInputElement || els.dropoffAddressInput instanceof HTMLInputElement) {
+    const syncReturnContact = () => {
+      if (!isRoundTripSelected()) return;
+      syncReturnContactFromOutbound({ force: false });
+    };
+    els.pickupAddressInput?.addEventListener('input', syncReturnContact);
+    els.dropoffAddressInput?.addEventListener('input', syncReturnContact);
+    els.pickupAddressInput?.addEventListener('change', syncReturnContact);
+    els.dropoffAddressInput?.addEventListener('change', syncReturnContact);
+  }
+
   if (els.policyCheckbox) {
     els.policyCheckbox.addEventListener('change', () => {
       updateSubmitState();
+    });
+  }
+
+  if (els.quoteReviewCheckbox) {
+    els.quoteReviewCheckbox.addEventListener('change', () => {
+      updateSubmitState();
+    });
+  }
+
+  if (els.miniOpenQuoteButton) {
+    els.miniOpenQuoteButton.addEventListener('click', () => {
+      const quotePanel = document.querySelector('.transport-quote');
+      if (quotePanel && typeof quotePanel.scrollIntoView === 'function') {
+        quotePanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     });
   }
 
@@ -1491,6 +1808,7 @@ function initElements() {
   els.returnDestinationSelect = byId('transportReturnDestination');
   els.returnDateInput = byId('transportReturnDate');
   els.returnTimeInput = byId('transportReturnTime');
+  els.returnContactSection = byId('transportReturnContactSection');
   els.returnPickupAddressInput = byId('transportReturnPickupAddress');
   els.returnDropoffAddressInput = byId('transportReturnDropoffAddress');
   els.returnFlightNumberInput = byId('transportReturnFlightNumber');
@@ -1506,8 +1824,20 @@ function initElements() {
   els.pickupAddressInput = byId('transportPickupAddress');
   els.dropoffAddressInput = byId('transportDropoffAddress');
   els.flightNumberInput = byId('transportFlightNumber');
+  els.outboundContactHint = byId('transportOutboundContactHint');
+  els.returnContactHint = byId('transportReturnContactHint');
   els.notesInput = byId('transportNotes');
   els.policyCheckbox = byId('transportAgreePolicy');
+  els.quoteReviewCheckbox = byId('transportConfirmQuote');
+  els.submitHint = byId('transportSubmitHint');
+  els.inlineQuote = byId('transportInlineQuote');
+  els.inlineQuoteTotal = byId('transportInlineQuoteTotal');
+  els.inlineQuoteDepositWrap = byId('transportInlineQuoteDepositWrap');
+  els.inlineQuoteDeposit = byId('transportInlineQuoteDeposit');
+  els.miniSummary = byId('transportMiniSummary');
+  els.miniTotal = byId('transportMiniTotal');
+  els.miniState = byId('transportMiniState');
+  els.miniOpenQuoteButton = byId('transportMiniOpenQuote');
   els.submitButton = byId('transportSubmitBooking');
   els.submitSuccess = byId('transportSubmitSuccess');
 

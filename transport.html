@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="assets/css/tokens.css" />
   <link rel="stylesheet" href="assets/css/base.css" />
   <link rel="stylesheet" href="css/toast.css" />
-  <link rel="stylesheet" href="css/transport-booking.css?v=20260225_3" />
+  <link rel="stylesheet" href="css/transport-booking.css?v=20260225_4" />
   <meta name="ce-auth" content="on" />
   <script type="module" src="js/supabaseClient.js"></script>
   <script type="module" src="js/toast.js"></script>
@@ -207,14 +207,25 @@
           </section>
 
           <div class="transport-submit-row">
+            <div id="transportInlineQuote" class="transport-inline-quote" hidden>
+              <p class="transport-inline-quote__label">Total quote</p>
+              <p id="transportInlineQuoteTotal" class="transport-inline-quote__value">—</p>
+              <p id="transportInlineQuoteDepositWrap" class="transport-inline-quote__meta" hidden>
+                Pay now after confirmation email: <strong id="transportInlineQuoteDeposit">—</strong>
+              </p>
+            </div>
             <button id="transportSubmitBooking" class="transport-submit-btn" type="submit" disabled>
               Reserve transport
             </button>
+            <label class="transport-policy-check" for="transportConfirmQuote">
+              <input id="transportConfirmQuote" type="checkbox" />
+              <span>I reviewed full quote and final total before booking.</span>
+            </label>
             <label class="transport-policy-check" for="transportAgreePolicy">
               <input id="transportAgreePolicy" type="checkbox" required />
               <span>I confirm the data is correct and agree to be contacted about this booking.</span>
             </label>
-            <p id="transportSubmitHint" class="transport-submit-hint">Review full quote in the pricing panel and confirm it to unlock booking.</p>
+            <p id="transportSubmitHint" class="transport-submit-hint">Review full quote and confirm it below to unlock booking.</p>
           </div>
 
           <div id="transportSubmitSuccess" class="transport-success" hidden></div>
@@ -252,11 +263,6 @@
             </p>
           </div>
 
-          <label class="transport-quote-review" for="transportConfirmQuote">
-            <input id="transportConfirmQuote" type="checkbox" />
-            <span>I reviewed full price calculation and final total before booking.</span>
-          </label>
-
           <ul id="transportQuoteWarnings" class="transport-warning-list"></ul>
         </aside>
       </div>
@@ -267,14 +273,11 @@
     <div class="transport-mini-summary__content">
       <p class="transport-mini-summary__label">Current total</p>
       <p id="transportMiniTotal" class="transport-mini-summary__total">—</p>
-      <p id="transportMiniDepositWrap" class="transport-mini-summary__meta" hidden>
-        Deposit: <strong id="transportMiniDeposit">—</strong>
-      </p>
       <p id="transportMiniState" class="transport-mini-summary__state">Complete route details to see your quote.</p>
     </div>
     <button id="transportMiniOpenQuote" class="transport-mini-summary__btn" type="button">Full quote</button>
   </div>
 
-  <script type="module" src="js/transport-booking.js?v=20260225_5"></script>
+  <script type="module" src="js/transport-booking.js?v=20260225_7"></script>
 </body>
 </html>
