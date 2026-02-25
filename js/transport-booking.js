@@ -976,7 +976,8 @@ function clearQuoteView() {
     els.quoteTotal.textContent = '—';
   }
   if (els.routeMeta) {
-    els.routeMeta.textContent = 'Route details will appear after selecting pickup and destination.';
+    els.routeMeta.hidden = true;
+    els.routeMeta.textContent = '';
   }
   if (els.quoteWarnings) {
     els.quoteWarnings.innerHTML = '';
@@ -1098,14 +1099,8 @@ function renderQuote(summary) {
   if (els.quoteTotal) els.quoteTotal.textContent = money(summary.total, summary.currency);
 
   if (els.routeMeta) {
-    const legMeta = summary.legs.map((leg) => {
-      const routeLabel = getRouteLabel(leg.route);
-      const ruleLabel = leg?.rule?.id
-        ? `Rule #${String(leg.rule.id).slice(0, 8).toUpperCase()}`
-        : 'Default extras';
-      return `${leg.label}: ${routeLabel} · ${dateLabel(leg.travelDate)} ${escapeHtml(String(leg.travelTime || '—'))} · ${ruleLabel}`;
-    });
-    els.routeMeta.textContent = legMeta.join(' | ');
+    els.routeMeta.hidden = true;
+    els.routeMeta.textContent = '';
   }
 
   if (els.quoteWarnings) {
