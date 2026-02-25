@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="assets/css/tokens.css" />
   <link rel="stylesheet" href="assets/css/base.css" />
   <link rel="stylesheet" href="css/toast.css" />
-  <link rel="stylesheet" href="css/transport-booking.css?v=20260225_4" />
+  <link rel="stylesheet" href="css/transport-booking.css?v=20260225_5" />
   <meta name="ce-auth" content="on" />
   <script type="module" src="js/supabaseClient.js"></script>
   <script type="module" src="js/toast.js"></script>
@@ -45,8 +45,7 @@
     </section>
 
     <section class="transport-booking-shell" aria-label="Transport booking panel">
-      <div class="transport-booking-grid">
-        <form id="transportBookingForm" class="transport-booking-form" novalidate>
+      <form id="transportBookingForm" class="transport-booking-form" novalidate>
           <section class="transport-section">
             <h2>1. Route and schedule</h2>
             <p class="transport-section__hint">Step 1/3: choose route and time first. If you select <strong>Round trip</strong>, complete both outbound and return schedules here.</p>
@@ -206,14 +205,42 @@
             </div>
           </section>
 
-          <div class="transport-submit-row">
-            <div id="transportInlineQuote" class="transport-inline-quote" hidden>
-              <p class="transport-inline-quote__label">Total quote</p>
-              <p id="transportInlineQuoteTotal" class="transport-inline-quote__value">—</p>
-              <p id="transportInlineQuoteDepositWrap" class="transport-inline-quote__meta" hidden>
-                Pay now after confirmation email: <strong id="transportInlineQuoteDeposit">—</strong>
+          <section id="transportQuotePanel" class="transport-quote" aria-label="Total quote">
+            <div class="transport-quote__head">
+              <h2>Total quote</h2>
+              <p class="transport-section__hint">Review full price calculation before you reserve transport.</p>
+            </div>
+            <div id="transportQuoteStatus" class="transport-status" hidden></div>
+            <div id="transportRouteMeta" class="transport-route-meta" hidden></div>
+
+            <ul class="transport-breakdown">
+              <li id="transportQuoteRowOutbound" class="transport-breakdown__row" hidden><span>Outbound leg total</span><strong id="transportQuoteOutbound">—</strong></li>
+              <li id="transportQuoteRowReturn" class="transport-breakdown__row" hidden><span>Return leg total</span><strong id="transportQuoteReturn">—</strong></li>
+              <li id="transportQuoteRowBase" class="transport-breakdown__row" hidden><span>Base fare</span><strong id="transportQuoteBase">—</strong></li>
+              <li id="transportQuoteRowPassengers" class="transport-breakdown__row" hidden><span>Extra passengers</span><strong id="transportQuotePassengers">—</strong></li>
+              <li id="transportQuoteRowBags" class="transport-breakdown__row" hidden><span>Extra small backpacks</span><strong id="transportQuoteBags">—</strong></li>
+              <li id="transportQuoteRowOversize" class="transport-breakdown__row" hidden><span>Extra large bags (15kg+)</span><strong id="transportQuoteOversize">—</strong></li>
+              <li id="transportQuoteRowSeats" class="transport-breakdown__row" hidden><span>Child + booster seats</span><strong id="transportQuoteSeats">—</strong></li>
+              <li id="transportQuoteRowWaiting" class="transport-breakdown__row" hidden><span>Waiting fee</span><strong id="transportQuoteWaiting">—</strong></li>
+            </ul>
+
+            <div class="transport-total">
+              <span>Total</span>
+              <strong id="transportQuoteTotal">—</strong>
+            </div>
+            <div id="transportDepositNotice" class="transport-deposit-note" hidden>
+              <p class="transport-deposit-note__title">To confirm this booking</p>
+              <p class="transport-deposit-note__text">
+                After driver availability is confirmed, check your email for a payment link.
+                Pay <strong id="transportQuoteDeposit">—</strong> to confirm your reservation.
+                Remaining <strong id="transportQuoteRemainingDue">—</strong> will be paid in cash to the driver on-site.
               </p>
             </div>
+
+            <ul id="transportQuoteWarnings" class="transport-warning-list"></ul>
+          </section>
+
+          <div class="transport-submit-row">
             <button id="transportSubmitBooking" class="transport-submit-btn" type="submit" disabled>
               Reserve transport
             </button>
@@ -229,43 +256,7 @@
           </div>
 
           <div id="transportSubmitSuccess" class="transport-success" hidden></div>
-        </form>
-
-        <aside class="transport-quote" aria-label="Live quote">
-          <div class="transport-quote__head">
-            <span class="transport-quote__badge">Live pricing</span>
-            <h3>Total quote</h3>
-          </div>
-          <div id="transportQuoteStatus" class="transport-status" hidden></div>
-          <div id="transportRouteMeta" class="transport-route-meta" hidden></div>
-
-          <ul class="transport-breakdown">
-            <li id="transportQuoteRowOutbound" class="transport-breakdown__row" hidden><span>Outbound leg total</span><strong id="transportQuoteOutbound">—</strong></li>
-            <li id="transportQuoteRowReturn" class="transport-breakdown__row" hidden><span>Return leg total</span><strong id="transportQuoteReturn">—</strong></li>
-            <li id="transportQuoteRowBase" class="transport-breakdown__row" hidden><span>Base fare</span><strong id="transportQuoteBase">—</strong></li>
-            <li id="transportQuoteRowPassengers" class="transport-breakdown__row" hidden><span>Extra passengers</span><strong id="transportQuotePassengers">—</strong></li>
-            <li id="transportQuoteRowBags" class="transport-breakdown__row" hidden><span>Extra small backpacks</span><strong id="transportQuoteBags">—</strong></li>
-            <li id="transportQuoteRowOversize" class="transport-breakdown__row" hidden><span>Extra large bags (15kg+)</span><strong id="transportQuoteOversize">—</strong></li>
-            <li id="transportQuoteRowSeats" class="transport-breakdown__row" hidden><span>Child + booster seats</span><strong id="transportQuoteSeats">—</strong></li>
-            <li id="transportQuoteRowWaiting" class="transport-breakdown__row" hidden><span>Waiting fee</span><strong id="transportQuoteWaiting">—</strong></li>
-          </ul>
-
-          <div class="transport-total">
-            <span>Total</span>
-            <strong id="transportQuoteTotal">—</strong>
-          </div>
-          <div id="transportDepositNotice" class="transport-deposit-note" hidden>
-            <p class="transport-deposit-note__title">To confirm this booking</p>
-            <p class="transport-deposit-note__text">
-              After driver availability is confirmed, check your email for a payment link.
-              Pay <strong id="transportQuoteDeposit">—</strong> to confirm your reservation.
-              Remaining <strong id="transportQuoteRemainingDue">—</strong> will be paid in cash to the driver on-site.
-            </p>
-          </div>
-
-          <ul id="transportQuoteWarnings" class="transport-warning-list"></ul>
-        </aside>
-      </div>
+      </form>
     </section>
   </main>
 
@@ -278,6 +269,6 @@
     <button id="transportMiniOpenQuote" class="transport-mini-summary__btn" type="button">Full quote</button>
   </div>
 
-  <script type="module" src="js/transport-booking.js?v=20260225_8"></script>
+  <script type="module" src="js/transport-booking.js?v=20260225_9"></script>
 </body>
 </html>

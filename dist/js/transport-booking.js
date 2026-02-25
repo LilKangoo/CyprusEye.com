@@ -982,7 +982,6 @@ function clearQuoteView() {
   if (els.quoteWarnings) {
     els.quoteWarnings.innerHTML = '';
   }
-  renderInlineQuote(null);
   renderMiniSummary(null);
 }
 
@@ -1108,7 +1107,6 @@ function renderQuote(summary) {
     els.quoteWarnings.innerHTML = warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('');
   }
 
-  renderInlineQuote(summary);
   renderMiniSummary(summary);
 }
 
@@ -1134,25 +1132,6 @@ function renderMiniSummary(summary) {
 
   if (els.miniTotal) {
     els.miniTotal.textContent = money(summary.total, summary.currency);
-  }
-}
-
-function renderInlineQuote(summary) {
-  if (!els.inlineQuote || !els.inlineQuoteTotal) return;
-  if (!summary || !Array.isArray(summary.legs) || !summary.legs.length) {
-    els.inlineQuote.hidden = true;
-    return;
-  }
-
-  els.inlineQuote.hidden = false;
-  els.inlineQuoteTotal.textContent = money(summary.total, summary.currency);
-
-  const showDeposit = Boolean(summary.depositEnabled) && round2(summary.depositAmount) > 0;
-  if (els.inlineQuoteDepositWrap) {
-    els.inlineQuoteDepositWrap.hidden = !showDeposit;
-  }
-  if (els.inlineQuoteDeposit) {
-    els.inlineQuoteDeposit.textContent = showDeposit ? money(summary.depositAmount, summary.currency) : '—';
   }
 }
 
@@ -1779,7 +1758,7 @@ function bindInputs() {
 
   if (els.miniOpenQuoteButton) {
     els.miniOpenQuoteButton.addEventListener('click', () => {
-      const quotePanel = document.querySelector('.transport-quote');
+      const quotePanel = byId('transportQuotePanel') || document.querySelector('.transport-quote');
       if (quotePanel && typeof quotePanel.scrollIntoView === 'function') {
         quotePanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
@@ -1825,10 +1804,6 @@ function initElements() {
   els.policyCheckbox = byId('transportAgreePolicy');
   els.quoteReviewCheckbox = byId('transportConfirmQuote');
   els.submitHint = byId('transportSubmitHint');
-  els.inlineQuote = byId('transportInlineQuote');
-  els.inlineQuoteTotal = byId('transportInlineQuoteTotal');
-  els.inlineQuoteDepositWrap = byId('transportInlineQuoteDepositWrap');
-  els.inlineQuoteDeposit = byId('transportInlineQuoteDeposit');
   els.miniSummary = byId('transportMiniSummary');
   els.miniTotal = byId('transportMiniTotal');
   els.miniState = byId('transportMiniState');

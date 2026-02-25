@@ -163,12 +163,6 @@ body.transport-booking-page {
   overflow: hidden;
 }
 
-.transport-booking-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.42fr) minmax(340px, 0.88fr);
-  min-width: 0;
-}
-
 .transport-booking-form {
   display: grid;
   gap: 16px;
@@ -302,14 +296,15 @@ body.transport-booking-page {
 }
 
 .transport-submit-row {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
   gap: 12px;
-  flex-wrap: wrap;
   padding: 14px;
   border: 1px solid rgba(15, 109, 255, 0.14);
   border-radius: 14px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(239, 246, 255, 0.8));
+  min-width: 0;
 }
 
 .transport-submit-btn {
@@ -323,6 +318,8 @@ body.transport-booking-page {
   cursor: pointer;
   box-shadow: 0 10px 22px rgba(10, 81, 197, 0.32);
   transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+  width: 100%;
+  max-width: 100%;
 }
 
 .transport-submit-btn:hover:not([disabled]) {
@@ -337,16 +334,23 @@ body.transport-booking-page {
 }
 
 .transport-policy-check {
-  display: inline-flex;
+  display: flex;
   align-items: flex-start;
   gap: 8px;
   font-size: 12px;
   color: var(--transport-muted);
-  max-width: 560px;
+  max-width: 100%;
+  width: 100%;
+  min-width: 0;
 }
 
 .transport-policy-check input {
   margin: 2px 0 0;
+}
+
+.transport-policy-check span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .transport-submit-hint {
@@ -354,62 +358,21 @@ body.transport-booking-page {
   font-size: 12px;
   color: var(--transport-muted);
   line-height: 1.45;
-}
-
-.transport-inline-quote {
-  flex: 1 1 100%;
-  border: 1px solid rgba(15, 109, 255, 0.2);
-  border-radius: 12px;
-  background: linear-gradient(135deg, rgba(15, 109, 255, 0.11), rgba(15, 109, 255, 0.04));
-  padding: 10px 12px;
-  display: grid;
-  gap: 2px;
-}
-
-.transport-inline-quote[hidden] {
-  display: none;
-}
-
-.transport-inline-quote__label {
-  margin: 0;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 700;
-  color: #2e517a;
-}
-
-.transport-inline-quote__value {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 800;
-  line-height: 1.15;
-  color: #0b1324;
-}
-
-.transport-inline-quote__meta {
-  margin: 0;
-  font-size: 12px;
-  color: #24486f;
-}
-
-.transport-inline-quote__meta strong {
-  color: #0b4ab2;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .transport-quote {
-  border-left: 1px solid rgba(15, 109, 255, 0.18);
+  border: 1px solid rgba(15, 109, 255, 0.18);
+  border-radius: 16px;
   background:
-    radial-gradient(620px 300px at 100% -6%, rgba(15, 109, 255, 0.14), transparent 56%),
-    linear-gradient(180deg, #f7fbff, #f1f7ff);
+    radial-gradient(620px 300px at 100% -6%, rgba(15, 109, 255, 0.12), transparent 56%),
+    linear-gradient(180deg, #f8fbff, #f2f8ff);
   padding: 18px;
   display: grid;
-  align-content: start;
   gap: 12px;
   min-width: 0;
-  position: sticky;
-  top: 84px;
-  align-self: start;
+  box-shadow: var(--transport-shadow-soft);
 }
 
 .transport-quote__head {
@@ -417,21 +380,7 @@ body.transport-booking-page {
   gap: 6px;
 }
 
-.transport-quote__badge {
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #0b4ab2;
-  background: rgba(15, 109, 255, 0.12);
-  border: 1px solid rgba(15, 109, 255, 0.24);
-}
-
+.transport-quote h2,
 .transport-quote h3 {
   margin: 0;
   font-family: 'Space Grotesk', 'Manrope', sans-serif;
@@ -461,23 +410,7 @@ body.transport-booking-page {
   border-radius: 10px;
   padding: 8px 10px;
   background: rgba(255, 255, 255, 0.82);
-}
-
-.transport-quote-review {
-  display: inline-flex;
-  align-items: flex-start;
-  gap: 8px;
-  border: 1px solid rgba(15, 109, 255, 0.22);
-  border-radius: 10px;
-  padding: 9px 10px;
-  background: rgba(255, 255, 255, 0.9);
-  font-size: 12px;
-  color: #214165;
-  line-height: 1.45;
-}
-
-.transport-quote-review input {
-  margin: 2px 0 0;
+  overflow-wrap: anywhere;
 }
 
 .transport-breakdown {
@@ -709,19 +642,6 @@ body.transport-booking-page {
   }
 }
 
-@media (max-width: 1080px) {
-  .transport-booking-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .transport-quote {
-    position: static;
-    border-left: 0;
-    border-top: 1px solid rgba(15, 109, 255, 0.18);
-    top: auto;
-  }
-}
-
 @media (max-width: 760px) {
   .transport-booking-header__inner,
   .transport-booking-main {
@@ -738,8 +658,7 @@ body.transport-booking-page {
   }
 
   .transport-submit-row {
-    flex-direction: column;
-    align-items: stretch;
+    grid-template-columns: 1fr;
   }
 
   .transport-submit-btn {
@@ -781,7 +700,7 @@ body.transport-booking-page {
   }
 }
 
-@media (min-width: 1081px) {
+@media (min-width: 761px) {
   .transport-mini-summary {
     display: none !important;
   }
