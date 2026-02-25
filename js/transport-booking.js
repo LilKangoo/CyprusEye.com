@@ -746,9 +746,12 @@ function setQuoteBreakdownRow(rowEl, valueEl, options = {}) {
   quoteRowHideTimers.set(rowEl, timerId);
 }
 
-function setDepositNotice(visible, amountText = '—') {
+function setDepositNotice(visible, amountText = '—', remainingText = '—') {
   if (els.quoteDeposit) {
     els.quoteDeposit.textContent = visible ? String(amountText || '—') : '—';
+  }
+  if (els.quoteRemainingDue) {
+    els.quoteRemainingDue.textContent = visible ? String(remainingText || '—') : '—';
   }
   if (!els.quoteDepositNotice) return;
   els.quoteDepositNotice.hidden = !visible;
@@ -883,7 +886,12 @@ function renderQuote(summary) {
     text: money(summary.waitingCost, summary.currency),
   });
   const showDepositNotice = summary.depositEnabled && round2(summary.depositAmount) > 0;
-  setDepositNotice(showDepositNotice, money(summary.depositAmount, summary.currency));
+  const remainingDue = round2(Math.max(0, toNonNegativeNumber(summary.total, 0) - toNonNegativeNumber(summary.depositAmount, 0)));
+  setDepositNotice(
+    showDepositNotice,
+    money(summary.depositAmount, summary.currency),
+    money(remainingDue, summary.currency),
+  );
   if (els.quoteTotal) els.quoteTotal.textContent = money(summary.total, summary.currency);
 
   if (els.routeMeta) {
@@ -1383,6 +1391,7 @@ function initElements() {
   els.quoteSeats = byId('transportQuoteSeats');
   els.quoteWaiting = byId('transportQuoteWaiting');
   els.quoteDeposit = byId('transportQuoteDeposit');
+  els.quoteRemainingDue = byId('transportQuoteRemainingDue');
   els.quoteTotal = byId('transportQuoteTotal');
   els.quoteWarnings = byId('transportQuoteWarnings');
 }
