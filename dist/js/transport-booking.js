@@ -179,24 +179,6 @@ function normalizeLocationType(value) {
   return String(value || '').trim().toLowerCase();
 }
 
-function getSelectedLocationIdsForRequirements() {
-  const ids = [];
-  const pushId = (value) => {
-    const id = String(value || '').trim();
-    if (id) ids.push(id);
-  };
-
-  pushId(els.originSelect?.value);
-  pushId(els.destinationSelect?.value);
-
-  if (isRoundTripSelected()) {
-    pushId(els.returnOriginSelect?.value);
-    pushId(els.returnDestinationSelect?.value);
-  }
-
-  return Array.from(new Set(ids));
-}
-
 function isAirportLocationById(locationId) {
   const id = String(locationId || '').trim();
   if (!id) return false;
@@ -204,8 +186,65 @@ function isAirportLocationById(locationId) {
   return normalizeLocationType(row?.location_type) === 'airport';
 }
 
-function hasAirportInSelectedLocations() {
-  return getSelectedLocationIdsForRequirements().some((id) => isAirportLocationById(id));
+function getLegLocationSelection(legKey = 'outbound') {
+  const normalizedLeg = String(legKey || '').trim().toLowerCase() === 'return' ? 'return' : 'outbound';
+  const originId = String(
+    normalizedLeg === 'return'
+      ? (els.returnOriginSelect?.value || '')
+      : (els.originSelect?.value || ''),
+  ).trim();
+  const destinationId = String(
+    normalizedLeg === 'return'
+      ? (els.returnDestinationSelect?.value || '')
+      : (els.destinationSelect?.value || ''),
+  ).trim();
+  const originAirport = isAirportLocationById(originId);
+  const destinationAirport = isAirportLocationById(destinationId);
+
+  return {
+    legKey: normalizedLeg,
+    originId,
+    destinationId,
+    originAirport,
+    destinationAirport,
+    airportSelected: originAirport || destinationAirport,
+  };
+}
+
+function getLegContactRequirements(legKey = 'outbound') {
+  const selection = getLegLocationSelection(legKey);
+
+  if (!selection.airportSelected) {
+    return {
+      ...selection,
+      pickupAddressRequired: true,
+      dropoffAddressRequired: true,
+      flightNumberRequired: false,
+    };
+  }
+
+  return {
+    ...selection,
+    pickupAddressRequired: selection.destinationAirport,
+    dropoffAddressRequired: selection.originAirport,
+    flightNumberRequired: true,
+  };
+}
+
+function getLegContactValues(legKey = 'outbound') {
+  const normalizedLeg = String(legKey || '').trim().toLowerCase() === 'return' ? 'return' : 'outbound';
+  if (normalizedLeg === 'return') {
+    return {
+      pickupAddress: String(els.returnPickupAddressInput?.value || '').trim(),
+      dropoffAddress: String(els.returnDropoffAddressInput?.value || '').trim(),
+      flightNumber: String(els.returnFlightNumberInput?.value || '').trim(),
+    };
+  }
+  return {
+    pickupAddress: String(els.pickupAddressInput?.value || '').trim(),
+    dropoffAddress: String(els.dropoffAddressInput?.value || '').trim(),
+    flightNumber: String(els.flightNumberInput?.value || '').trim(),
+  };
 }
 
 function setFieldRequirement(fieldId, labelText, required) {
@@ -220,10 +259,22 @@ function setFieldRequirement(fieldId, labelText, required) {
 }
 
 function syncTransportContactRequirements() {
-  const airportSelected = hasAirportInSelectedLocations();
-  setFieldRequirement('transportFlightNumber', 'Flight number', airportSelected);
-  setFieldRequirement('transportPickupAddress', 'Pickup address', !airportSelected);
-  setFieldRequirement('transportDropoffAddress', 'Dropoff address', !airportSelected);
+  const outboundRequirements = getLegContactRequirements('outbound');
+  setFieldRequirement('transportFlightNumber', 'Flight number', outboundRequirements.flightNumberRequired);
+  setFieldRequirement('transportPickupAddress', 'Pickup address', outboundRequirements.pickupAddressRequired);
+  setFieldRequirement('transportDropoffAddress', 'Dropoff address', outboundRequirements.dropoffAddressRequired);
+
+  if (isRoundTripSelected()) {
+    const returnRequirements = getLegContactRequirements('return');
+    setFieldRequirement('transportReturnFlightNumber', 'Return flight number', returnRequirements.flightNumberRequired);
+    setFieldRequirement('transportReturnPickupAddress', 'Return pickup address', returnRequirements.pickupAddressRequired);
+    setFieldRequirement('transportReturnDropoffAddress', 'Return dropoff address', returnRequirements.dropoffAddressRequired);
+    return;
+  }
+
+  setFieldRequirement('transportReturnFlightNumber', 'Return flight number', false);
+  setFieldRequirement('transportReturnPickupAddress', 'Return pickup address', false);
+  setFieldRequirement('transportReturnDropoffAddress', 'Return dropoff address', false);
 }
 
 function isMissingColumn(error, columnName) {
@@ -1120,6 +1171,31 @@ function refreshQuote() {
   return summary;
 }
 
+function validateContactFieldsForLeg(legKey = 'outbound') {
+  const normalizedLeg = String(legKey || '').trim().toLowerCase() === 'return' ? 'return' : 'outbound';
+  const prefix = normalizedLeg === 'return' ? 'Return ' : '';
+  const requirements = getLegContactRequirements(normalizedLeg);
+  const values = getLegContactValues(normalizedLeg);
+
+  if (requirements.flightNumberRequired && !values.flightNumber) {
+    return `${prefix}flight number is required when an airport location is selected.`;
+  }
+  if (requirements.pickupAddressRequired && !values.pickupAddress) {
+    if (requirements.destinationAirport) {
+      return `${prefix}pickup address is required when destination is airport.`;
+    }
+    return `${prefix}pickup address is required.`;
+  }
+  if (requirements.dropoffAddressRequired && !values.dropoffAddress) {
+    if (requirements.originAirport) {
+      return `${prefix}dropoff address is required when pickup is airport.`;
+    }
+    return `${prefix}dropoff address is required.`;
+  }
+
+  return '';
+}
+
 function validateRequiredFields() {
   const name = String(els.customerNameInput?.value || '').trim();
   const phone = String(els.customerPhoneInput?.value || '').trim();
@@ -1137,16 +1213,8 @@ function validateRequiredFields() {
     if (!emailPattern.test(email)) return 'Email format looks invalid.';
   }
 
-  const airportSelected = hasAirportInSelectedLocations();
-  const flightNumber = String(els.flightNumberInput?.value || '').trim();
-  const pickupAddress = String(els.pickupAddressInput?.value || '').trim();
-  const dropoffAddress = String(els.dropoffAddressInput?.value || '').trim();
-  if (airportSelected) {
-    if (!flightNumber) return 'Flight number is required when an airport location is selected.';
-  } else {
-    if (!pickupAddress) return 'Pickup address is required when no airport location is selected.';
-    if (!dropoffAddress) return 'Dropoff address is required when no airport location is selected.';
-  }
+  const outboundContactError = validateContactFieldsForLeg('outbound');
+  if (outboundContactError) return outboundContactError;
 
   if (isRoundTripSelected()) {
     const returnOrigin = String(els.returnOriginSelect?.value || '').trim();
@@ -1165,6 +1233,9 @@ function validateRequiredFields() {
     if (date && returnDate < date) {
       return 'Return date cannot be earlier than outbound date.';
     }
+
+    const returnContactError = validateContactFieldsForLeg('return');
+    if (returnContactError) return returnContactError;
   }
 
   if (!els.policyCheckbox?.checked) {
@@ -1186,6 +1257,8 @@ function buildBookingPayloadForLeg(leg, options = {}) {
   const baseNotes = String(els.notesInput?.value || '').trim();
   const bundleToken = String(options.bundleToken || '').trim();
   const legLabel = String(leg?.label || '').trim();
+  const legKey = String(leg?.key || '').trim().toLowerCase() === 'return' ? 'return' : 'outbound';
+  const legContact = getLegContactValues(legKey);
   const notesParts = [];
   if (baseNotes) notesParts.push(baseNotes);
   if (bundleToken) notesParts.push(`[transport_bundle:${bundleToken}] ${legLabel || 'Leg'}`);
@@ -1202,9 +1275,9 @@ function buildBookingPayloadForLeg(leg, options = {}) {
     child_seats: toNonNegativeInt(scenario.childSeats, 0),
     booster_seats: toNonNegativeInt(scenario.boosterSeats, 0),
     waiting_minutes: toNonNegativeInt(scenario.waitingMinutes, 0),
-    pickup_address: String(els.pickupAddressInput?.value || '').trim() || null,
-    dropoff_address: String(els.dropoffAddressInput?.value || '').trim() || null,
-    flight_number: String(els.flightNumberInput?.value || '').trim() || null,
+    pickup_address: legContact.pickupAddress || null,
+    dropoff_address: legContact.dropoffAddress || null,
+    flight_number: legContact.flightNumber || null,
     notes: notesParts.length ? notesParts.join('\n') : null,
     customer_name: String(els.customerNameInput?.value || '').trim(),
     customer_email: String(els.customerEmailInput?.value || '').trim() || null,
@@ -1418,6 +1491,9 @@ function initElements() {
   els.returnDestinationSelect = byId('transportReturnDestination');
   els.returnDateInput = byId('transportReturnDate');
   els.returnTimeInput = byId('transportReturnTime');
+  els.returnPickupAddressInput = byId('transportReturnPickupAddress');
+  els.returnDropoffAddressInput = byId('transportReturnDropoffAddress');
+  els.returnFlightNumberInput = byId('transportReturnFlightNumber');
   els.passengersInput = byId('transportPassengers');
   els.bagsInput = byId('transportBags');
   els.oversizeBagsInput = byId('transportOversizeBags');
