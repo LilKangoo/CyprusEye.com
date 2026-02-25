@@ -798,12 +798,42 @@
     }
   }
 
+  const PARTNER_AUTH_ERROR_RE = /jwt expired|expired jwt|invalid jwt|token expired|auth session missing|session expired|unauthorized|forbidden/i;
+
+  function isPartnerAuthError(value) {
+    const authUtils = (typeof window !== 'undefined' && window.CE_AUTH_UTILS && typeof window.CE_AUTH_UTILS.isRecoverableError === 'function')
+      ? window.CE_AUTH_UTILS
+      : null;
+    if (authUtils && authUtils.isRecoverableError(value)) return true;
+    const raw = String(value?.message || value || '').trim().toLowerCase();
+    if (!raw) return false;
+    return PARTNER_AUTH_ERROR_RE.test(raw);
+  }
+
+  function partnerUserMessage(value, fallback = '') {
+    const authUtils = (typeof window !== 'undefined' && window.CE_AUTH_UTILS && typeof window.CE_AUTH_UTILS.toUserMessage === 'function')
+      ? window.CE_AUTH_UTILS
+      : null;
+    const raw = String(value?.message || value || '').trim();
+    if (!raw) return fallback;
+    if (authUtils && typeof authUtils.toUserMessage === 'function') {
+      return authUtils.toUserMessage(raw, fallback || 'Session expired. Please sign in again.');
+    }
+    if (isPartnerAuthError(raw)) {
+      return fallback || 'Session expired. Please sign in again.';
+    }
+    return raw;
+  }
+
   function showToast(message, type) {
+    const normalizedType = type || 'info';
+    const normalizedMessage = partnerUserMessage(message, normalizedType === 'error' ? 'Session expired. Please sign in again.' : '');
+    if (!normalizedMessage) return;
     if (typeof window !== 'undefined' && typeof window.showToast === 'function') {
-      window.showToast(message, type || 'info');
+      window.showToast(normalizedMessage, normalizedType);
       return;
     }
-    console.log(type || 'info', message);
+    console.log(normalizedType, normalizedMessage);
   }
 
   function supportsPartnerPushNotifications() {
@@ -3517,13 +3547,14 @@
 
   function showWarning(message) {
     if (!els.warning) return;
-    if (!message) {
+    const normalizedMessage = partnerUserMessage(message, 'Session expired. Please sign in again.');
+    if (!normalizedMessage) {
       els.warning.hidden = true;
       els.warning.textContent = '';
       return;
     }
     els.warning.hidden = false;
-    els.warning.textContent = message;
+    els.warning.textContent = normalizedMessage;
   }
 
   async function openAuthModal(tab) {
@@ -3563,11 +3594,53 @@
   }
 
   async function ensureSession() {
-    const { data, error } = await state.sb.auth.getSession();
-    if (error) throw error;
-    state.session = data?.session || null;
-    state.user = state.session?.user || null;
-    return state.session;
+    const readSession = async () => {
+      if (typeof state.sb?.auth?.getSessionSafe === 'function') {
+        return state.sb.auth.getSessionSafe({ force: true });
+      }
+      return state.sb.auth.getSession();
+    };
+
+    const applySession = (session) => {
+      state.session = session || null;
+      state.user = state.session?.user || null;
+      return state.session;
+    };
+
+    const tryRefresh = async () => {
+      if (typeof state.sb?.auth?.refreshSession !== 'function') return null;
+      try {
+        const { data, error } = await state.sb.auth.refreshSession();
+        if (error) return null;
+        return data?.session || null;
+      } catch (_error) {
+        return null;
+      }
+    };
+
+    const { data, error } = await readSession();
+    if (error) {
+      if (isPartnerAuthError(error)) {
+        const refreshed = await tryRefresh();
+        if (refreshed?.access_token) {
+          return applySession(refreshed);
+        }
+        throw new Error('Session expired. Please sign in again.');
+      }
+      throw error;
+    }
+
+    const current = data?.session || null;
+    if (current?.access_token) {
+      return applySession(current);
+    }
+
+    const refreshed = await tryRefresh();
+    if (refreshed?.access_token) {
+      return applySession(refreshed);
+    }
+
+    return applySession(current);
   }
 
   async function loadMemberships() {
@@ -5322,7 +5395,7 @@
       });
       renderAnalyticsLiveChart([], range);
       renderAnalyticsResponseChart([], range);
-      setText(els.partnerAnalyticsStatus, `Failed to load analytics: ${error.message || 'Unknown error'}`);
+      setText(els.partnerAnalyticsStatus, partnerUserMessage(error, 'Failed to load analytics.'));
       if (!silent) {
         showToast(`Error: ${error.message || 'Failed to load analytics'}`, 'error');
       }
@@ -7066,7 +7139,7 @@
     } catch (error) {
       console.error(error);
       setText(els.status, 'Failed to load fulfillments.');
-      showWarning(`Failed to load fulfillments: ${error.message || 'Unknown error'}`);
+      showWarning(partnerUserMessage(error, 'Failed to load fulfillments.'));
       showToast(`Error: ${error.message || 'Failed to load fulfillments'}`, 'error');
     }
   }
@@ -7258,7 +7331,7 @@
       await loadMemberships();
     } catch (error) {
       console.error(error);
-      showWarning(`Failed to load partner: ${error.message || 'Error'}`);
+      showWarning(partnerUserMessage(error, 'Failed to load partner.'));
       setHidden(els.app, true);
       setHidden(els.noPartner, true);
       return;

@@ -18257,23 +18257,44 @@ function setLoading(isLoading) {
 // TOAST NOTIFICATIONS
 // =====================================================
 
+function normalizeAdminUiMessage(message, type = 'info') {
+  const raw = (typeof message === 'string' ? message : String(message?.message || message || '')).trim();
+  if (!raw) return '';
+  if (type !== 'error') return raw;
+
+  const authUtils = (typeof window !== 'undefined' && window.CE_AUTH_UTILS && typeof window.CE_AUTH_UTILS.toUserMessage === 'function')
+    ? window.CE_AUTH_UTILS
+    : null;
+  if (authUtils && typeof authUtils.isRecoverableError === 'function' && authUtils.isRecoverableError(raw)) {
+    return authUtils.toUserMessage(raw, 'Session expired. Please sign in again.');
+  }
+  if (isJwtExpiredError(raw)) {
+    return 'Session expired. Please sign in again.';
+  }
+  return raw;
+}
+
 function showToast(message, type = 'info') {
+  const normalizedType = type || 'info';
+  const normalizedMessage = normalizeAdminUiMessage(message, normalizedType);
+  if (!normalizedMessage) return;
+
   // Use existing toast system if available
   if (window.showToast) {
-    window.showToast(message, type);
+    window.showToast(normalizedMessage, normalizedType);
     return;
   }
 
   // Fallback toast
   const toast = document.createElement('div');
-  toast.className = `toast toast-${type}`;
-  toast.textContent = message;
+  toast.className = `toast toast-${normalizedType}`;
+  toast.textContent = normalizedMessage;
   toast.style.cssText = `
     position: fixed;
     top: 20px;
     right: 20px;
     padding: 12px 24px;
-    background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
+    background: ${normalizedType === 'success' ? '#10b981' : normalizedType === 'error' ? '#ef4444' : '#3b82f6'};
     color: white;
     border-radius: 8px;
     z-index: 10000;

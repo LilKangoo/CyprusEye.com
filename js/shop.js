@@ -3909,20 +3909,26 @@ function escapeHtml(text) {
 }
 
 function showToast(message, type = 'success', ttl = 3500) {
+  const raw = (typeof message === 'string' ? message : String(message?.message || message || '')).trim();
+  if (!raw) return;
+
+  const authUtils = (typeof window !== 'undefined' && window.CE_AUTH_UTILS && typeof window.CE_AUTH_UTILS.toUserMessage === 'function')
+    ? window.CE_AUTH_UTILS
+    : null;
+  const normalizedType = type === 'error' ? 'error' : (type === 'info' || type === 'warning') ? 'info' : 'success';
+  const normalizedMessage = normalizedType === 'error' && authUtils
+    ? authUtils.toUserMessage(raw, 'Session expired. Please sign in again.')
+    : raw;
+
   try {
     const toastApi = window.Toast && typeof window.Toast.show === 'function' ? window.Toast.show : null;
     if (toastApi) {
-      const normalizedType = type === 'error' ? 'error' : (type === 'info' || type === 'warning') ? 'info' : 'success';
-      toastApi(message, normalizedType, ttl);
+      toastApi(normalizedMessage, normalizedType, ttl);
       return;
     }
   } catch (e) {
   }
 
-  const normalizedMessage = typeof message === 'string' ? message.trim() : '';
-  if (!normalizedMessage) return;
-
-  const normalizedType = type === 'error' ? 'error' : (type === 'info' || type === 'warning') ? 'info' : 'success';
   const toast = document.createElement('div');
   toast.className = `ce-toast ce-toast--${normalizedType}`;
   toast.textContent = normalizedMessage;

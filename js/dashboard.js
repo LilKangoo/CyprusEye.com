@@ -1334,11 +1334,25 @@ window.deleteContent = async function(type, filename, id) {
 };
 
 function showToast(message, type = 'info') {
-  if (window.Toast) {
-    new window.Toast(message, type);
-  } else {
-    alert(message);
+  const raw = (typeof message === 'string' ? message : String(message?.message || message || '')).trim();
+  if (!raw) return;
+
+  const authUtils = (typeof window !== 'undefined' && window.CE_AUTH_UTILS && typeof window.CE_AUTH_UTILS.toUserMessage === 'function')
+    ? window.CE_AUTH_UTILS
+    : null;
+  const normalized = (type === 'error' && authUtils)
+    ? authUtils.toUserMessage(raw, 'Session expired. Please sign in again.')
+    : raw;
+
+  if (typeof window.showToast === 'function') {
+    window.showToast(normalized, type);
+    return;
   }
+  if (window.Toast && typeof window.Toast.show === 'function') {
+    window.Toast.show(normalized, type);
+    return;
+  }
+  alert(normalized);
 }
 
 function resolvePoiName(poi) {
