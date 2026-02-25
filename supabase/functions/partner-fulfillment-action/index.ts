@@ -2,8 +2,9 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
 type Action = "accept" | "reject" | "mark_paid";
+type ServiceCategory = "cars" | "trips" | "hotels" | "transport";
 
-const PARTNER_FULFILLMENT_ACTION_VERSION = "2026-01-15-2";
+const PARTNER_FULFILLMENT_ACTION_VERSION = "2026-02-25-1";
 
 type PartnerFulfillmentActionRequest = {
   fulfillment_id?: string;
@@ -244,7 +245,7 @@ async function isDepositEnabled(supabase: any): Promise<boolean> {
 
 async function loadDepositRule(
   supabase: any,
-  params: { resource_type: "cars" | "trips" | "hotels"; resource_id?: string | null },
+  params: { resource_type: ServiceCategory; resource_id?: string | null },
 ): Promise<{
   mode: "per_day" | "per_hour" | "per_person" | "flat" | "percent_total";
   amount: number;
@@ -292,7 +293,7 @@ function buildDepositRedirectUrl(params: {
   lang: "pl" | "en";
   result: "success" | "cancel";
   depositRequestId: string;
-  category: "cars" | "trips" | "hotels";
+  category: ServiceCategory;
   bookingId: string;
   amount: number;
   currency: string;
@@ -315,7 +316,7 @@ function buildDepositRedirectUrl(params: {
 }
 
 async function enqueueCustomerDepositEmail(supabase: any, params: {
-  category: "cars" | "trips" | "hotels";
+  category: ServiceCategory;
   bookingId: string;
   depositRequestId: string;
   fulfillmentId: string;
@@ -400,7 +401,7 @@ async function sendAdminAlertOnAccept(supabase: any, params: {
 async function enqueueAdminAlertOnServiceAccept(
   supabase: any,
   params: {
-    category: "cars" | "trips" | "hotels";
+    category: ServiceCategory;
     bookingId: string;
     fulfillmentId: string;
     partnerId: string;
@@ -432,23 +433,25 @@ async function enqueueAdminAlertOnServiceAccept(
   }
 }
 
-function getServiceTableName(category: "cars" | "trips" | "hotels"): string {
+function getServiceTableName(category: ServiceCategory): string {
   if (category === "cars") return "car_bookings";
   if (category === "trips") return "trip_bookings";
+  if (category === "transport") return "transport_bookings";
   return "hotel_bookings";
 }
 
-function normalizeServiceCategory(value: unknown): "cars" | "trips" | "hotels" | null {
+function normalizeServiceCategory(value: unknown): ServiceCategory | null {
   const v = String(value || "").trim().toLowerCase();
   if (v === "cars" || v === "car") return "cars";
   if (v === "trips" || v === "trip") return "trips";
   if (v === "hotels" || v === "hotel") return "hotels";
+  if (v === "transport" || v === "transports" || v === "transfer" || v === "transfers") return "transport";
   return null;
 }
 
 async function enqueueDepositPaidEmails(supabase: any, params: {
   depositRequestId: string;
-  category: "cars" | "trips" | "hotels";
+  category: ServiceCategory;
   bookingId: string;
   partnerId: string;
   fulfillmentId: string;
@@ -530,7 +533,7 @@ async function enqueueDepositPaidEmails(supabase: any, params: {
 async function enqueueAdminAlertOnServiceReject(
   supabase: any,
   params: {
-    category: "cars" | "trips" | "hotels";
+    category: ServiceCategory;
     bookingId: string;
     fulfillmentId: string;
     partnerId: string;
@@ -579,7 +582,7 @@ async function createDepositCheckoutForServiceFulfillment(params: {
   fulfillment: any;
   partnerId: string;
   bookingId: string;
-  category: "cars" | "trips" | "hotels";
+  category: ServiceCategory;
 }): Promise<{ deposit_request_id: string; checkout_url: string } | null> {
   const { supabase, fulfillment, partnerId, bookingId, category } = params;
 
@@ -614,6 +617,8 @@ async function createDepositCheckoutForServiceFulfillment(params: {
   try {
     const bookingSelect = category === "cars"
       ? "lang, pickup_date, pickup_time, return_date, return_time"
+      : category === "transport"
+      ? "lang, travel_date, travel_time, num_passengers"
       : "lang, arrival_date, departure_date";
     const { data: booking } = await supabase
       .from(tableName)
@@ -670,6 +675,15 @@ async function createDepositCheckoutForServiceFulfillment(params: {
 
         multiplier = diffStartedDays(startDate, endDate, startTime, endTime);
         multiplier = Math.max(3, multiplier);
+      } else if (category === "transport") {
+        const start = (bookingRow as any)?.travel_date
+          ?? fulfillmentDetails?.travel_date
+          ?? fulfillmentDetails?.travelDate
+          ?? fulfillment?.start_date;
+        const end = fulfillmentDetails?.return_travel_date
+          ?? fulfillmentDetails?.returnTravelDate
+          ?? start;
+        multiplier = diffDays(start, end);
       } else {
         const start = (bookingRow as any)?.arrival_date ?? fulfillment?.start_date;
         const end = (bookingRow as any)?.departure_date ?? fulfillment?.end_date;
@@ -694,10 +708,18 @@ async function createDepositCheckoutForServiceFulfillment(params: {
       }
       multiplier = Math.max(1, Number.isFinite(hours) ? Math.round(hours) : 1);
     } else {
-      const adults = fulfillmentDetails?.num_adults ?? fulfillmentDetails?.numAdults ?? 0;
-      const children = fulfillmentDetails?.num_children ?? fulfillmentDetails?.numChildren ?? 0;
-      const people = Number(adults || 0) + Number(rule.include_children ? (children || 0) : 0);
-      multiplier = Math.max(1, Number.isFinite(people) ? people : 1);
+      const passengers = fulfillmentDetails?.num_passengers
+        ?? fulfillmentDetails?.numPassengers
+        ?? (bookingRow as any)?.num_passengers
+        ?? 0;
+      if (category === "transport" && Number(passengers || 0) > 0) {
+        multiplier = Math.max(1, Number.isFinite(Number(passengers)) ? Number(passengers) : 1);
+      } else {
+        const adults = fulfillmentDetails?.num_adults ?? fulfillmentDetails?.numAdults ?? 0;
+        const children = fulfillmentDetails?.num_children ?? fulfillmentDetails?.numChildren ?? 0;
+        const people = Number(adults || 0) + Number(rule.include_children ? (children || 0) : 0);
+        multiplier = Math.max(1, Number.isFinite(people) ? people : 1);
+      }
     }
 
     depositAmount = clampMoney(Number(rule.amount || 0) * multiplier);
@@ -1009,7 +1031,7 @@ serve(async (req) => {
   let partnerId: string | null = null;
   let orderId = "";
   let bookingId = "";
-  let serviceCategory: "cars" | "trips" | "hotels" | "" = "";
+  let serviceCategory: ServiceCategory | "" = "";
 
   {
     const { data, error } = await supabase
@@ -1040,6 +1062,7 @@ serve(async (req) => {
       if (rt === "cars" || rt === "car") serviceCategory = "cars";
       if (rt === "trips" || rt === "trip") serviceCategory = "trips";
       if (rt === "hotels" || rt === "hotel") serviceCategory = "hotels";
+      if (rt === "transport" || rt === "transports" || rt === "transfer" || rt === "transfers") serviceCategory = "transport";
     }
   }
 
@@ -1222,7 +1245,7 @@ serve(async (req) => {
           }
         } catch (_e) {}
 
-        if (!deposit && fulfillmentStatus === "awaiting_payment" && bookingId && (serviceCategory === "cars" || serviceCategory === "trips" || serviceCategory === "hotels")) {
+        if (!deposit && fulfillmentStatus === "awaiting_payment" && bookingId && serviceCategory) {
           try {
             const depositEnabled = await isDepositEnabled(supabase);
             if (depositEnabled) {
@@ -1337,7 +1360,7 @@ serve(async (req) => {
 
       if (kind === "service") {
         let deposit: any = null;
-        if (depositEnabled && bookingId && (serviceCategory === "cars" || serviceCategory === "trips" || serviceCategory === "hotels")) {
+        if (depositEnabled && bookingId && serviceCategory) {
           const { data: fullRow } = await supabase
             .from("partner_service_fulfillments")
             .select("id, partner_id, resource_type, booking_id, resource_id, start_date, end_date, reference, summary, details")
@@ -1354,7 +1377,7 @@ serve(async (req) => {
           }
         }
 
-        if (bookingId && (serviceCategory === "cars" || serviceCategory === "trips" || serviceCategory === "hotels")) {
+        if (bookingId && serviceCategory) {
           await enqueueAdminAlertOnServiceAccept(supabase, {
             category: serviceCategory,
             bookingId,
@@ -1450,7 +1473,7 @@ serve(async (req) => {
       if (orderId) {
         await sendAdminAlertOnReject(supabase, { orderId, fulfillmentId, partnerId, reason: reason || null });
       }
-    } else if (bookingId && (serviceCategory === "cars" || serviceCategory === "trips" || serviceCategory === "hotels")) {
+    } else if (bookingId && serviceCategory) {
       await enqueueAdminAlertOnServiceReject(supabase, {
         category: serviceCategory,
         bookingId,

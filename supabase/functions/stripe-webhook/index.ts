@@ -104,17 +104,21 @@ const corsHeaders = {
 
 const SLA_ACCEPT_HOURS = 4;
 
-function normalizeServiceType(value: unknown): "cars" | "trips" | "hotels" | null {
+type ServiceType = "cars" | "trips" | "hotels" | "transport";
+
+function normalizeServiceType(value: unknown): ServiceType | null {
   const v = String(value || "").trim().toLowerCase();
   if (v === "cars" || v === "car") return "cars";
   if (v === "trips" || v === "trip") return "trips";
   if (v === "hotels" || v === "hotel") return "hotels";
+  if (v === "transport" || v === "transports" || v === "transfer" || v === "transfers") return "transport";
   return null;
 }
 
-function serviceTableName(rt: "cars" | "trips" | "hotels"): string {
+function serviceTableName(rt: ServiceType): string {
   if (rt === "cars") return "car_bookings";
   if (rt === "trips") return "trip_bookings";
+  if (rt === "transport") return "transport_bookings";
   return "hotel_bookings";
 }
 
@@ -158,7 +162,7 @@ async function resolveDepositRequestIdFromSession(supabase: any, session: any): 
 async function enqueuePartnerDepositPaidEmail(supabase: any, params: {
   depositRequestId: string;
   partnerId: string;
-  resourceType: "cars" | "trips" | "hotels";
+  resourceType: ServiceType;
   bookingId: string;
   fulfillmentId: string;
 }) {
@@ -189,7 +193,7 @@ async function enqueuePartnerDepositPaidEmail(supabase: any, params: {
 
 async function enqueueCustomerDepositPaidEmail(supabase: any, params: {
   depositRequestId: string;
-  resourceType: "cars" | "trips" | "hotels";
+  resourceType: ServiceType;
   bookingId: string;
 }) {
   const tableName = serviceTableName(params.resourceType);
@@ -217,7 +221,7 @@ async function enqueueCustomerDepositPaidEmail(supabase: any, params: {
 
 async function enqueueAdminDepositPaidEmail(supabase: any, params: {
   depositRequestId: string;
-  resourceType: "cars" | "trips" | "hotels";
+  resourceType: ServiceType;
   bookingId: string;
   fulfillmentId: string;
   partnerId: string;

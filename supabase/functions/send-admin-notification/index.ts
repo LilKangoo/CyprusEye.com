@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import nodemailer from "npm:nodemailer@6.9.11";
 import * as webpush from "jsr:@negrel/webpush@0.5.0";
 
-type Category = "shop" | "cars" | "hotels" | "trips" | "partners";
+type Category = "shop" | "cars" | "hotels" | "trips" | "transport" | "partners";
 
 type AdminEvent =
   | "created"
@@ -939,6 +939,35 @@ function buildFormDataRows(category: Category, record: Record<string, unknown>):
       "source",
       "status",
     ],
+    transport: [
+      "route_label",
+      "route_name",
+      "route_id",
+      "origin_location_name",
+      "origin_location_id",
+      "destination_location_name",
+      "destination_location_id",
+      "travel_date",
+      "travel_time",
+      "return_travel_date",
+      "return_travel_time",
+      "is_round_trip",
+      "trip_mode",
+      "num_passengers",
+      "num_bags",
+      "num_oversize_bags",
+      "child_seats",
+      "booster_seats",
+      "waiting_minutes",
+      "pickup_address",
+      "dropoff_address",
+      "flight_number",
+      "return_flight_number",
+      "total_price",
+      "currency",
+      "status",
+      "payment_status",
+    ],
     shop: [
       "order_number",
       "customer_name",
@@ -1064,6 +1093,7 @@ function normalizeCategory(category: string | undefined | null): Category | null
   if (c === "car" || c === "cars" || c === "car_bookings") return "cars";
   if (c === "hotel" || c === "hotels" || c === "hotel_bookings") return "hotels";
   if (c === "trip" || c === "trips" || c === "trip_bookings") return "trips";
+  if (c === "transport" || c === "transports" || c === "transport_booking" || c === "transport_bookings") return "transport";
   if (c === "partners" || c === "partner" || c === "affiliate_cashout_requests") return "partners";
   return null;
 }
@@ -1113,7 +1143,7 @@ async function getAdminNotifySecret(supabase: any): Promise<string> {
 function resolveRecipients(category: Category, raw: string): string[] {
   const recipients = parseRecipients(raw);
   if (recipients.length) return recipients;
-  if (category === "cars") return ["kontakt@wakacjecypr.com"];
+  if (category === "cars" || category === "transport") return ["kontakt@wakacjecypr.com"];
   return [];
 }
 
@@ -1242,7 +1272,30 @@ function normalizeServiceCategory(value: unknown): Category | null {
   if (v === "cars" || v === "car") return "cars";
   if (v === "trips" || v === "trip") return "trips";
   if (v === "hotels" || v === "hotel") return "hotels";
+  if (v === "transport" || v === "transports" || v === "transfer" || v === "transfers") return "transport";
   return null;
+}
+
+function buildTransportRouteLabel(record: Record<string, unknown>): string {
+  const explicit = getField(record, ["route_label", "route_name", "route_display_name", "summary"]);
+  if (explicit) return explicit;
+
+  const origin = getField(record, [
+    "origin_location_name",
+    "origin_location_label",
+    "origin_name",
+    "pickup_location",
+    "pickup_place",
+  ]);
+  const destination = getField(record, [
+    "destination_location_name",
+    "destination_location_label",
+    "destination_name",
+    "dropoff_location",
+    "dropoff_place",
+  ]);
+  if (origin && destination) return `${origin} → ${destination}`;
+  return origin || destination || "";
 }
 
 function buildSubject(params: {
@@ -1267,7 +1320,14 @@ function buildSubject(params: {
 
   if (params.event === "partner_pending_acceptance") {
     const reference = getField(params.record, ["reference", "order_number", "orderNumber"]);
-    const service = getField(params.record, ["summary", "car_model", "trip_name", "hotel_name"]);
+    const service = getField(params.record, [
+      "summary",
+      "route_label",
+      "route_name",
+      "car_model",
+      "trip_name",
+      "hotel_name",
+    ]) || buildTransportRouteLabel(params.record);
     const parts = [`[${label}] Action required`];
     if (reference) parts.push(reference);
     if (service) parts.push(service);
@@ -1276,7 +1336,17 @@ function buildSubject(params: {
 
   if (params.event === "partner_accepted") {
     const parts = [`[${label}] Partner accepted #${params.recordId}`];
-    const service = getField(params.record, ["car_model", "trip_name", "trip_title", "hotel_name", "hotel", "order_number"]);
+    const service = getField(params.record, [
+      "summary",
+      "route_label",
+      "route_name",
+      "car_model",
+      "trip_name",
+      "trip_title",
+      "hotel_name",
+      "hotel",
+      "order_number",
+    ]) || buildTransportRouteLabel(params.record);
     if (service) parts.push(service);
     return parts.join(" — ");
   }
@@ -1292,6 +1362,8 @@ function buildSubject(params: {
       "hotel_name",
       "hotel",
       "hotel_slug",
+      "route_label",
+      "route_name",
       "order_number",
     ]);
     if (service) parts.push(service);
@@ -1325,6 +1397,13 @@ function buildSubject(params: {
       const checkOut = formatDate(getField(params.record, ["check_out", "checkout", "end_date", "date_to"]));
       const datePart = [checkIn, checkOut].filter(Boolean).join(" → ");
       return { what: "booking", name: hotelName, date: datePart };
+    }
+    if (params.category === "transport") {
+      const routeName = buildTransportRouteLabel(params.record);
+      const date = formatDate(getField(params.record, ["travel_date"]));
+      const time = formatTime(getField(params.record, ["travel_time"]));
+      const datePart = [date, time].filter(Boolean).join(" ");
+      return { what: "booking", name: routeName, date: datePart };
     }
     return { what: params.category === "shop" ? "order" : "booking", name: "", date: "" };
   })();
@@ -1371,6 +1450,7 @@ function resolveCustomerRecipients(category: Category, record: Record<string, un
   if (category === "shop") return parseRecipients(getField(record, ["customer_email"]));
   if (category === "trips") return parseRecipients(getField(record, ["customer_email"]));
   if (category === "hotels") return parseRecipients(getField(record, ["customer_email"]));
+  if (category === "transport") return parseRecipients(getField(record, ["customer_email", "email"]));
   return [];
 }
 
@@ -1384,6 +1464,7 @@ function buildCustomerReceivedSubject(params: {
     if (params.category === "cars") return getField(params.record, ["car_model", "vehicle", "car"]);
     if (params.category === "trips") return getField(params.record, ["trip_name", "trip_title", "title", "trip_slug"]);
     if (params.category === "hotels") return getField(params.record, ["hotel_name", "hotel_slug", "hotel"]);
+    if (params.category === "transport") return buildTransportRouteLabel(params.record);
     if (params.category === "shop") return getField(params.record, ["order_number"]);
     return "";
   })();
@@ -1483,6 +1564,35 @@ function renderCustomerReceivedEmail(params: {
             .filter(Boolean)
             .join(", "),
         },
+      ]);
+    }
+
+    if (category === "transport") {
+      const travelLine = [
+        formatDate(getField(record, ["travel_date"])),
+        formatTime(getField(record, ["travel_time"])),
+      ]
+        .filter(Boolean)
+        .join(" • ");
+      const returnLine = [
+        formatDate(getField(record, ["return_travel_date"])),
+        formatTime(getField(record, ["return_travel_time"])),
+      ]
+        .filter(Boolean)
+        .join(" • ");
+
+      return buildKeyValueRows(record, [
+        { label: "Reference", value: recordId },
+        { label: "Route", value: buildTransportRouteLabel(record) },
+        { label: "Outbound", value: travelLine },
+        { label: "Return", value: returnLine },
+        { label: "Passengers", value: getField(record, ["num_passengers"]) },
+        { label: "Small backpacks", value: getField(record, ["num_bags"]) },
+        { label: "Large bags (15kg+)", value: getField(record, ["num_oversize_bags"]) },
+        { label: "Pick-up address", value: getField(record, ["pickup_address"]) },
+        { label: "Drop-off address", value: getField(record, ["dropoff_address"]) },
+        { label: "Flight number", value: getField(record, ["flight_number"]) },
+        { label: "Return flight number", value: getField(record, ["return_flight_number"]) },
       ]);
     }
 
@@ -1601,6 +1711,8 @@ async function markCustomerReceivedSentAt(supabase: any, category: Category, rec
     ? "trip_bookings"
     : category === "hotels"
     ? "hotel_bookings"
+    : category === "transport"
+    ? "transport_bookings"
     : "shop_orders";
 
   try {
@@ -1672,7 +1784,7 @@ function renderPartnerPendingEmail(params: {
   const partnerLink = buildPartnerPanelLink(fulfillmentId);
 
   const reference = getField(record, ["reference", "order_number", "orderNumber"]);
-  const summary = getField(record, ["summary"]) || getField(record, ["resource_type"]);
+  const summary = getField(record, ["summary", "route_label", "route_name"]) || buildTransportRouteLabel(record) || getField(record, ["resource_type"]);
   const currency = getField(record, ["currency", "currency_code"]) || "EUR";
 
   const dateBlock = (() => {
@@ -1698,6 +1810,56 @@ function renderPartnerPendingEmail(params: {
           value: `${Number(adults || 0)} adult(s), ${Number(children || 0)} child(ren)`,
         });
       }
+      return parts;
+    }
+
+    if (category === "transport") {
+      const details = (record as any)?.details && typeof (record as any)?.details === "object" ? ((record as any).details as any) : null;
+      const outboundDate = details?.travel_date || details?.travelDate || details?.date || details?.start_date || getField(record, ["travel_date", "start_date"]) || null;
+      const outboundTime = details?.travel_time || details?.travelTime || details?.time || getField(record, ["travel_time", "start_time"]) || null;
+      const returnDate = details?.return_travel_date || details?.returnTravelDate || details?.return_date || details?.returnDate || getField(record, ["return_travel_date", "end_date"]) || null;
+      const returnTime = details?.return_travel_time || details?.returnTravelTime || details?.return_time || details?.returnTime || getField(record, ["return_travel_time", "end_time"]) || null;
+      const passengers = details?.num_passengers ?? details?.numPassengers ?? getField(record, ["num_passengers"]);
+      const bagsSmall = details?.num_bags ?? details?.numBags ?? getField(record, ["num_bags"]);
+      const bagsLarge = details?.num_oversize_bags ?? details?.numOversizeBags ?? getField(record, ["num_oversize_bags"]);
+      const pickupAddress = details?.pickup_address ?? details?.pickupAddress ?? getField(record, ["pickup_address"]);
+      const dropoffAddress = details?.dropoff_address ?? details?.dropoffAddress ?? getField(record, ["dropoff_address"]);
+      const flightNumber = details?.flight_number ?? details?.flightNumber ?? getField(record, ["flight_number"]);
+      const routeLabel = buildTransportRouteLabel(details || record);
+
+      const parts: Array<{ label: string; value: string }> = [];
+      if (routeLabel) parts.push({ label: "Route", value: routeLabel });
+      if (outboundDate || outboundTime) {
+        parts.push({
+          label: "Outbound",
+          value: [formatDate(outboundDate) || valueToString(outboundDate), formatTime(outboundTime) || valueToString(outboundTime)]
+            .filter(Boolean)
+            .join(" • "),
+        });
+      }
+      if (returnDate || returnTime) {
+        parts.push({
+          label: "Return",
+          value: [formatDate(returnDate) || valueToString(returnDate), formatTime(returnTime) || valueToString(returnTime)]
+            .filter(Boolean)
+            .join(" • "),
+        });
+      }
+      if (passengers != null) parts.push({ label: "Passengers", value: valueToString(passengers) });
+      if (bagsSmall != null || bagsLarge != null) {
+        parts.push({
+          label: "Baggage",
+          value: [
+            bagsSmall != null ? `${Number(bagsSmall || 0)} small` : "",
+            bagsLarge != null ? `${Number(bagsLarge || 0)} large (15kg+)` : "",
+          ]
+            .filter(Boolean)
+            .join(", "),
+        });
+      }
+      if (pickupAddress) parts.push({ label: "Pick-up", value: valueToString(pickupAddress) });
+      if (dropoffAddress) parts.push({ label: "Drop-off", value: valueToString(dropoffAddress) });
+      if (flightNumber) parts.push({ label: "Flight number", value: valueToString(flightNumber) });
       return parts;
     }
 
@@ -1871,6 +2033,33 @@ function renderHtmlEmail(params: {
       { label: "Check-in", value: formatDate(getField(record, ["check_in", "checkin", "start_date", "date_from"])) },
       { label: "Check-out", value: formatDate(getField(record, ["check_out", "checkout", "end_date", "date_to"])) },
       { label: "Guests", value: getField(record, ["guests", "people", "adults", "persons"]) },
+      { label: "Total", value: formatMoney(getField(record, ["total_price", "total", "amount_total", "grand_total", "total_amount", "price_total"]), currency) },
+    ],
+    transport: [
+      { label: "Customer", value: getField(record, ["customer_name", "full_name", "name"]) },
+      { label: "Email", value: email },
+      { label: "Phone", value: phone },
+      { label: "Route", value: buildTransportRouteLabel(record) },
+      {
+        label: "Outbound",
+        value: [
+          formatDate(getField(record, ["travel_date"])),
+          formatTime(getField(record, ["travel_time"])),
+        ]
+          .filter(Boolean)
+          .join(" • "),
+      },
+      { label: "Passengers", value: getField(record, ["num_passengers"]) },
+      {
+        label: "Baggage",
+        value: [
+          getField(record, ["num_bags"]) ? `${getField(record, ["num_bags"])} small` : "",
+          getField(record, ["num_oversize_bags"]) ? `${getField(record, ["num_oversize_bags"])} large (15kg+)` : "",
+        ]
+          .filter(Boolean)
+          .join(", "),
+      },
+      { label: "Flight number", value: getField(record, ["flight_number"]) },
       { label: "Total", value: formatMoney(getField(record, ["total_price", "total", "amount_total", "grand_total", "total_amount", "price_total"]), currency) },
     ],
     shop: [
@@ -2124,6 +2313,15 @@ async function loadCategoryRecord(
     return data as any;
   }
 
+  if (category === "transport") {
+    const { data, error } = await supabase.from("transport_bookings").select("*").eq("id", recordId).single();
+    if (error) {
+      console.error("Failed to load transport booking:", error);
+      return null;
+    }
+    return data as any;
+  }
+
   if (category === "partners") {
     const { data, error } = await supabase
       .from("affiliate_cashout_requests")
@@ -2169,6 +2367,66 @@ async function hydrateTripNameForEmail(supabase: any, record: Record<string, unk
 
     (record as any).trip_name = finalName;
     (record as any).trip_title = finalName;
+  } catch (_e) {
+    return;
+  }
+}
+
+function transportLocationLabel(row: any): string {
+  const name = String(row?.name || "").trim();
+  if (name) return name;
+  const local = String(row?.name_local || "").trim();
+  if (local) return local;
+  const code = String(row?.code || "").trim();
+  if (code) return code;
+  return "";
+}
+
+async function hydrateTransportBookingForEmail(supabase: any, record: Record<string, unknown>): Promise<void> {
+  try {
+    let originId = String((record as any)?.origin_location_id || "").trim();
+    let destinationId = String((record as any)?.destination_location_id || "").trim();
+    const routeId = String((record as any)?.route_id || "").trim();
+
+    if (routeId && (!originId || !destinationId)) {
+      const { data: routeRow, error: routeErr } = await supabase
+        .from("transport_routes")
+        .select("origin_location_id, destination_location_id")
+        .eq("id", routeId)
+        .maybeSingle();
+      if (!routeErr && routeRow) {
+        if (!originId) originId = String((routeRow as any)?.origin_location_id || "").trim();
+        if (!destinationId) destinationId = String((routeRow as any)?.destination_location_id || "").trim();
+      }
+    }
+
+    const ids = Array.from(new Set([originId, destinationId].filter(Boolean)));
+    if (!ids.length) return;
+
+    const { data: locations, error: locErr } = await supabase
+      .from("transport_locations")
+      .select("id, name, name_local, code")
+      .in("id", ids);
+    if (locErr || !Array.isArray(locations)) return;
+
+    const byId: Record<string, string> = {};
+    for (const row of locations) {
+      const id = String((row as any)?.id || "").trim();
+      if (!id) continue;
+      const label = transportLocationLabel(row);
+      if (label) byId[id] = label;
+    }
+
+    const originName = byId[originId] || "";
+    const destinationName = byId[destinationId] || "";
+    if (originName) (record as any).origin_location_name = originName;
+    if (destinationName) (record as any).destination_location_name = destinationName;
+
+    const routeLabel = originName && destinationName ? `${originName} → ${destinationName}` : "";
+    if (routeLabel) {
+      if (!(record as any).route_label) (record as any).route_label = routeLabel;
+      if (!(record as any).route_name) (record as any).route_name = routeLabel;
+    }
   } catch (_e) {
     return;
   }
@@ -2817,6 +3075,8 @@ serve(async (req) => {
 
     if (categoryFromBody === "trips") {
       await hydrateTripNameForEmail(supabase, record);
+    } else if (categoryFromBody === "transport") {
+      await hydrateTransportBookingForEmail(supabase, record);
     }
 
     const alreadySent = Boolean((record as any)?.customer_received_email_sent_at);
@@ -2923,6 +3183,10 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 404,
     });
+  }
+
+  if (categoryFromBody === "transport") {
+    await hydrateTransportBookingForEmail(supabase, record);
   }
 
   const extraFulfillmentId = typeof (body as any)?.fulfillment_id === "string" ? (body as any).fulfillment_id : "";
