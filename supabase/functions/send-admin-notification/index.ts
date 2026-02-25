@@ -1462,6 +1462,11 @@ function buildSubject(params: {
     const parts = [`[${label}] Partner rejected #${params.recordId}`];
     if (categoryMeta.name) parts.push(categoryMeta.name);
     if (categoryMeta.date) parts.push(categoryMeta.date);
+    const rejectReason = getField(params.record, ["rejected_reason", "rejection_reason", "reason", "note"]);
+    if (rejectReason) {
+      const shortReason = rejectReason.length > 80 ? `${rejectReason.slice(0, 77)}...` : rejectReason;
+      parts.push(shortReason);
+    }
     return parts.join(" — ");
   }
   if (params.event === "partner_sla") {
@@ -2139,6 +2144,12 @@ function renderHtmlEmail(params: {
   extraDetails.push({ label: "Event", value: eventInfo });
   extraDetails.push({ label: "Record ID", value: recordId });
   extraDetails.push({ label: "Created", value: createdAt });
+  if (event === "partner_rejected") {
+    const rejectedReason = getField(record, ["rejected_reason", "rejection_reason", "reason", "note"]);
+    const rejectedCode = getField(record, ["rejection_code", "reason_code"]);
+    if (rejectedReason) extraDetails.push({ label: "Rejected reason", value: rejectedReason });
+    if (rejectedCode) extraDetails.push({ label: "Rejected code", value: rejectedCode });
+  }
 
   if (link) extraDetails.push({ label: "Admin panel", value: link });
   if (notes) extraDetails.push({ label: "Notes", value: notes });
@@ -2151,6 +2162,7 @@ function renderHtmlEmail(params: {
     if (labelLower === "category" || labelLower === "event" || labelLower === "record id" || labelLower === "created") return false;
     if (labelLower === "id" || labelLower === "created at") return false;
     if (labelLower === "admin panel" || labelLower === "notes") return false;
+    if (labelLower === "rejected reason" || labelLower === "rejected code") return false;
     return true;
   });
 

@@ -5229,9 +5229,14 @@
     }
   }
 
-  async function callFulfillmentAction(fulfillmentId, action, reason) {
+  async function callFulfillmentAction(fulfillmentId, action, reason, reasonCode) {
     const { data, error } = await state.sb.functions.invoke('partner-fulfillment-action', {
-      body: { fulfillment_id: fulfillmentId, action, reason: reason || undefined },
+      body: {
+        fulfillment_id: fulfillmentId,
+        action,
+        reason: reason || undefined,
+        reason_code: reasonCode || undefined,
+      },
     });
     if (error) {
       const msg = error.message || 'Request failed';
@@ -5240,8 +5245,60 @@
     return data;
   }
 
-  async function callServiceFulfillmentAction(fulfillmentId, action, reason) {
-    return callFulfillmentAction(fulfillmentId, action, reason);
+  async function callServiceFulfillmentAction(fulfillmentId, action, reason, reasonCode) {
+    return callFulfillmentAction(fulfillmentId, action, reason, reasonCode);
+  }
+
+  function promptTransportRejectReason() {
+    const optionsText = [
+      'Select reject reason:',
+      '1 - No availability in selected time',
+      '2 - Vehicle unavailable',
+      '3 - Outside operating hours',
+      '4 - Route not supported',
+      '5 - Other (enter custom reason)',
+      '',
+      'Enter 1-5',
+    ].join('\n');
+
+    const choiceRaw = prompt(optionsText);
+    if (choiceRaw == null) return null;
+    const choice = String(choiceRaw || '').trim();
+
+    const codeMap = {
+      '1': 'no_availability',
+      '2': 'vehicle_unavailable',
+      '3': 'outside_operating_hours',
+      '4': 'route_not_supported',
+      '5': 'other',
+      no_availability: 'no_availability',
+      vehicle_unavailable: 'vehicle_unavailable',
+      outside_operating_hours: 'outside_operating_hours',
+      route_not_supported: 'route_not_supported',
+      other: 'other',
+    };
+
+    const reasonCode = codeMap[String(choice).toLowerCase()] || '';
+    if (!reasonCode) {
+      showToast('Select valid reject reason (1-5).', 'error');
+      return null;
+    }
+
+    if (reasonCode === 'other') {
+      const custom = prompt('Provide reject details:');
+      const reason = String(custom || '').trim();
+      if (!reason) {
+        showToast('Custom reject reason is required.', 'error');
+        return null;
+      }
+      return { reason, reasonCode };
+    }
+
+    const note = prompt('Optional note for admin (optional):');
+    return {
+      reason: String(note || '').trim(),
+      reasonCode,
+    };
   }
 
   function messageForFulfillmentAction(action, result) {
@@ -6110,12 +6167,26 @@
 
         try {
           if (action === 'reject') {
-            const reason = prompt('Provide a rejection reason (optional):') || '';
+            const row = (state.fulfillments || []).find((f) => String(f?.id || '') === String(fulfillmentId)) || null;
+            const isTransportServiceReject = source === 'service'
+              && String(row?.resource_type || '').trim().toLowerCase() === 'transport';
+            let reason = '';
+            let reasonCode = '';
+
+            if (isTransportServiceReject) {
+              const picked = promptTransportRejectReason();
+              if (!picked) return;
+              reason = String(picked.reason || '').trim();
+              reasonCode = String(picked.reasonCode || '').trim();
+            } else {
+              reason = String(prompt('Provide a rejection reason (optional):') || '').trim();
+            }
+
             if (!confirm('Are you sure you want to reject this fulfillment?')) return;
             btn.disabled = true;
             let result = null;
             if (source === 'service') {
-              result = await callServiceFulfillmentAction(fulfillmentId, 'reject', reason);
+              result = await callServiceFulfillmentAction(fulfillmentId, 'reject', reason, reasonCode);
             } else {
               result = await callFulfillmentAction(fulfillmentId, 'reject', reason);
             }

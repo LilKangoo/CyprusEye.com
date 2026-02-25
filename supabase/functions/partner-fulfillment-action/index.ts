@@ -3,18 +3,94 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
 type Action = "accept" | "reject" | "mark_paid";
 type ServiceCategory = "cars" | "trips" | "hotels" | "transport";
+type TransportRejectCode =
+  | "no_availability"
+  | "vehicle_unavailable"
+  | "outside_operating_hours"
+  | "route_not_supported"
+  | "other";
 
-const PARTNER_FULFILLMENT_ACTION_VERSION = "2026-02-25-1";
+const PARTNER_FULFILLMENT_ACTION_VERSION = "2026-02-25-2";
 
 type PartnerFulfillmentActionRequest = {
   fulfillment_id?: string;
   action?: Action;
   reason?: string;
+  reason_code?: string;
   stripe_payment_intent_id?: string;
   stripe_checkout_session_id?: string;
   force_emails?: boolean;
   email_dedupe_suffix?: string;
 };
+
+const TRANSPORT_REJECT_REASON_LABELS: Record<TransportRejectCode, string> = {
+  no_availability: "No availability in selected time",
+  vehicle_unavailable: "Vehicle unavailable",
+  outside_operating_hours: "Outside operating hours",
+  route_not_supported: "Route not supported",
+  other: "Other",
+};
+
+function normalizeReasonText(value: unknown, maxLen = 500): string {
+  const s = String(value || "").replace(/\s+/g, " ").trim();
+  if (!s) return "";
+  return s.slice(0, maxLen);
+}
+
+function normalizeTransportRejectCode(value: unknown): TransportRejectCode | "" {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) return "";
+  if (raw === "1" || raw === "no_availability" || raw === "noavailability" || raw === "no_avail" || raw === "no_term") return "no_availability";
+  if (raw === "2" || raw === "vehicle_unavailable" || raw === "vehicle") return "vehicle_unavailable";
+  if (raw === "3" || raw === "outside_operating_hours" || raw === "outside_hours" || raw === "hours") return "outside_operating_hours";
+  if (raw === "4" || raw === "route_not_supported" || raw === "route_unavailable" || raw === "route") return "route_not_supported";
+  if (raw === "5" || raw === "other") return "other";
+  return "";
+}
+
+function resolveTransportRejectReason(params: {
+  reasonCode: unknown;
+  reasonText: unknown;
+}): { ok: true; reason: string; reasonCode: TransportRejectCode; reasonLabel: string } | { ok: false; error: string } {
+  const reasonCode = normalizeTransportRejectCode(params.reasonCode);
+  const reasonText = normalizeReasonText(params.reasonText);
+
+  if (!reasonCode) {
+    if (!reasonText) {
+      return { ok: false, error: "Select rejection reason or provide details." };
+    }
+    return {
+      ok: true,
+      reason: `Other: ${reasonText}`,
+      reasonCode: "other",
+      reasonLabel: TRANSPORT_REJECT_REASON_LABELS.other,
+    };
+  }
+
+  const reasonLabel = TRANSPORT_REJECT_REASON_LABELS[reasonCode];
+  if (reasonCode === "other") {
+    if (!reasonText) {
+      return { ok: false, error: "Provide rejection details for Other reason." };
+    }
+    return { ok: true, reason: `Other: ${reasonText}`, reasonCode, reasonLabel };
+  }
+
+  if (!reasonText) {
+    return { ok: true, reason: reasonLabel, reasonCode, reasonLabel };
+  }
+
+  const normalizedLabel = reasonLabel.toLowerCase();
+  const normalizedText = reasonText.toLowerCase();
+  if (normalizedText === normalizedLabel || normalizedText === `${normalizedLabel}.`) {
+    return { ok: true, reason: reasonLabel, reasonCode, reasonLabel };
+  }
+  return {
+    ok: true,
+    reason: `${reasonLabel} — ${reasonText}`,
+    reasonCode,
+    reasonLabel,
+  };
+}
 
 function buildCorsHeaders(req: Request): Record<string, string> {
   const requested = String(req.headers.get("access-control-request-headers") || "").trim();
@@ -538,9 +614,14 @@ async function enqueueAdminAlertOnServiceReject(
     fulfillmentId: string;
     partnerId: string;
     reason?: string | null;
+    reasonCode?: string | null;
+    reasonLabel?: string | null;
   },
 ) {
   const tableName = getServiceTableName(params.category);
+  const rejectedReason = String(params.reason || "").trim();
+  const rejectionCode = String(params.reasonCode || "").trim() || null;
+  const rejectionLabel = String(params.reasonLabel || "").trim() || null;
 
   const payload = {
     category: params.category,
@@ -549,9 +630,16 @@ async function enqueueAdminAlertOnServiceReject(
     table: tableName,
     fulfillment_id: params.fulfillmentId,
     partner_id: params.partnerId,
+    rejected_reason: rejectedReason || null,
+    rejection_code: rejectionCode,
+    rejection_label: rejectionLabel,
     record: {
       id: params.bookingId,
-      note: `Partner rejected service fulfillment ${params.fulfillmentId}${params.reason ? `: ${params.reason}` : ""}`,
+      note: `Partner rejected service fulfillment ${params.fulfillmentId}${rejectedReason ? `: ${rejectedReason}` : ""}`,
+      rejected_reason: rejectedReason || null,
+      rejection_reason: rejectedReason || null,
+      rejection_code: rejectionCode,
+      rejection_label: rejectionLabel,
     },
   };
 
@@ -1434,7 +1522,30 @@ serve(async (req) => {
       });
     }
 
-    const reason = typeof body.reason === "string" ? body.reason : "";
+    const reasonRaw = typeof body.reason === "string" ? body.reason : "";
+    const reasonCodeRaw = typeof body.reason_code === "string" ? body.reason_code : "";
+    let reason = normalizeReasonText(reasonRaw);
+    let reasonCode: string | null = null;
+    let reasonLabel: string | null = null;
+
+    if (kind === "service" && serviceCategory === "transport" && !callerIsAdmin) {
+      const resolved = resolveTransportRejectReason({ reasonCode: reasonCodeRaw, reasonText: reasonRaw });
+      if (!resolved.ok) {
+        return new Response(JSON.stringify({ error: resolved.error }), {
+          status: 400,
+          headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
+        });
+      }
+      reason = resolved.reason;
+      reasonCode = resolved.reasonCode;
+      reasonLabel = resolved.reasonLabel;
+    } else if (kind === "service" && serviceCategory === "transport") {
+      reason = normalizeReasonText(reasonRaw);
+      reasonCode = normalizeTransportRejectCode(reasonCodeRaw) || null;
+      reasonLabel = reasonCode ? TRANSPORT_REJECT_REASON_LABELS[reasonCode as TransportRejectCode] : null;
+    } else if (reasonCodeRaw) {
+      reasonCode = String(reasonCodeRaw || "").trim() || null;
+    }
 
     const nowIso = new Date().toISOString();
     const { data: rejRows, error: rejErr } = await supabase
@@ -1469,7 +1580,9 @@ serve(async (req) => {
       action: "fulfillment_rejected",
       entity_type: kind === "shop" ? "shop_order_fulfillment" : "service_fulfillment",
       entity_id: fulfillmentId,
-      metadata: kind === "shop" ? { order_id: orderId, reason } : { booking_id: bookingId, resource_type: serviceCategory, reason },
+      metadata: kind === "shop"
+        ? { order_id: orderId, reason, reason_code: reasonCode, reason_label: reasonLabel }
+        : { booking_id: bookingId, resource_type: serviceCategory, reason, reason_code: reasonCode, reason_label: reasonLabel },
     });
 
     if (kind === "shop") {
@@ -1488,10 +1601,23 @@ serve(async (req) => {
         fulfillmentId,
         partnerId,
         reason: reason || null,
+        reasonCode,
+        reasonLabel,
       });
     }
 
-    return new Response(JSON.stringify({ ok: true, data: { order_id: orderId || null, booking_id: bookingId || null, fulfillment_id: fulfillmentId, partner_id: partnerId } }), {
+    return new Response(JSON.stringify({
+      ok: true,
+      data: {
+        order_id: orderId || null,
+        booking_id: bookingId || null,
+        fulfillment_id: fulfillmentId,
+        partner_id: partnerId,
+        rejected_reason: reason || null,
+        reason_code: reasonCode,
+        reason_label: reasonLabel,
+      },
+    }), {
       status: 200,
       headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
     });

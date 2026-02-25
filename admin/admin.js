@@ -16843,11 +16843,13 @@ async function viewTransportBookingDetails(bookingId) {
           const rowPartnerLabel = rowPartnerId ? getTransportPartnerDisplayName(rowPartnerId) : '—';
           const rowCreatedAt = transportIsoToLabel(row?.created_at);
           const rowIsAssigned = assignedPartnerId && rowPartnerId === assignedPartnerId;
+          const rowRejectedReason = String(row?.rejected_reason || '').trim();
           return `
             <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 8px 10px;">
               <div style="display:grid; gap:4px;">
                 <div style="font-size: 13px; font-weight: 600;">${escapeHtml(rowPartnerLabel)}</div>
                 <div style="font-size: 11px; color: var(--admin-text-muted);">${escapeHtml(String(rowCreatedAt || '—'))}</div>
+                ${String(row?.status || '').trim().toLowerCase() === 'rejected' && rowRejectedReason ? `<div style="font-size: 11px; color: #fecaca;">Reason: ${escapeHtml(rowRejectedReason)}</div>` : ''}
               </div>
               <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
                 ${rowIsAssigned ? '<span class="badge badge-info">ASSIGNED</span>' : ''}
@@ -16859,6 +16861,16 @@ async function viewTransportBookingDetails(bookingId) {
       </div>
     `
     : '<div style="margin-top: 10px; font-size: 12px; color: var(--admin-text-muted);">No linked fulfillments yet.</div>';
+
+  const rejectedRows = (fulfillmentRows || []).filter((row) => String(row?.status || '').trim().toLowerCase() === 'rejected');
+  const rejectedRowsNotice = rejectedRows.length
+    ? `
+      <div style="margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.35);">
+        <div style="font-size: 12px; font-weight: 700; color: #fecaca;">Partner rejected this booking (${rejectedRows.length})</div>
+        <div style="margin-top: 4px; font-size: 12px; color: #fde2e2;">Assign another partner/driver below to continue.</div>
+      </div>
+    `
+    : '';
 
   const assignmentHint = assignmentOptions.length
     ? ''
@@ -16895,6 +16907,7 @@ async function viewTransportBookingDetails(bookingId) {
           <strong>Current assignment:</strong> ${assignedPartnerLabel ? escapeHtml(assignedPartnerLabel) : 'Automatic by route'}
           ${booking.assigned_at ? `<div>Assigned at: ${transportIsoToLabel(booking.assigned_at)}</div>` : ''}
         </div>
+        ${rejectedRowsNotice}
       </div>
       ${fulfillmentRowsBlock}
     </div>
