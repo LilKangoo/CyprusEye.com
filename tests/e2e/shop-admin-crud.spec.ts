@@ -13,7 +13,7 @@
 import { test, expect, Page } from '@playwright/test';
 
 // Test configuration
-const ADMIN_URL = 'http://localhost:8080/admin/dashboard.html';
+const ADMIN_URL = '/admin/dashboard.html';
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || '';
 
@@ -24,9 +24,41 @@ async function waitForSupabase(page: Page) {
 
 // Helper to navigate to shop tab
 async function navigateToShopTab(page: Page, tabName: string) {
-  await page.click('[data-section="shop"]');
-  await page.waitForSelector('.admin-shop-tabs', { state: 'visible' });
-  await page.click(`.admin-shop-tabs button:has-text("${tabName}")`);
+  await page.click('button.admin-nav-item[data-view="shop"]');
+  await page.waitForSelector('#viewShop:not([hidden])', { state: 'visible' });
+  await page.waitForSelector('#viewShop .admin-tabs', { state: 'visible' });
+
+  const normalizedName = String(tabName || '').trim().toLowerCase();
+  const tabByName: Record<string, string> = {
+    'zamowienia': 'orders',
+    'zamówienia': 'orders',
+    'orders': 'orders',
+    'produkty': 'products',
+    'products': 'products',
+    'kategorie': 'categories',
+    'categories': 'categories',
+    'vendorzy': 'vendors',
+    'dostawcy': 'vendors',
+    'vendors': 'vendors',
+    'rabaty': 'discounts',
+    'znizki': 'discounts',
+    'zniżki': 'discounts',
+    'discounts': 'discounts',
+    'wysylka': 'shipping',
+    'wysyłka': 'shipping',
+    'shipping': 'shipping',
+    'ustawienia': 'settings',
+    'settings': 'settings',
+  };
+
+  const tabKey = tabByName[normalizedName] || normalizedName;
+  const tabButton = page.locator(`#viewShop .admin-tabs .admin-tab[data-shop-tab="${tabKey}"]`).first();
+  const hasDataTab = (await tabButton.count()) > 0;
+  if (hasDataTab) {
+    await tabButton.click();
+  } else {
+    await page.click(`#viewShop .admin-tabs .admin-tab:has-text("${tabName}")`);
+  }
   await page.waitForTimeout(500);
 }
 

@@ -13840,6 +13840,277 @@ function syncTransportPricingGlobalSummary() {
   summaryEl.textContent = `Target: ${selection.routeIds.length} ${targetLabel}. Eligible: ${selection.eligibleRouteIds.length}. Existing pricing rows in scope: ${selection.existingPricingRows.length}.${missingSuffix}${blockedSuffix}`;
 }
 
+function getTransportPricingGlobalDepositSelection(options = {}) {
+  const onlyActiveRoutes = options.onlyActiveRoutes == null
+    ? Boolean(document.getElementById('transportPricingDepositGlobalOnlyActiveRoutes')?.checked)
+    : Boolean(options.onlyActiveRoutes);
+  const createMissingRules = options.createMissingRules == null
+    ? Boolean(document.getElementById('transportPricingDepositGlobalCreateMissingRules')?.checked)
+    : Boolean(options.createMissingRules);
+
+  const routes = (transportAdminState.routes || [])
+    .filter((row) => {
+      if (!row?.id) return false;
+      if (!onlyActiveRoutes) return true;
+      return row.is_active !== false;
+    })
+    .slice();
+  const routeIds = routes.map((row) => String(row?.id || '').trim()).filter(Boolean);
+  const routeIdSet = new Set(routeIds);
+
+  const pricingRows = Array.isArray(transportAdminState.pricingRules) ? transportAdminState.pricingRules : [];
+  const existingPricingRows = pricingRows.filter((row) => routeIdSet.has(String(row?.route_id || '').trim()));
+  const routeIdsWithPricing = Array.from(new Set(
+    existingPricingRows.map((row) => String(row?.route_id || '').trim()).filter(Boolean),
+  ));
+  const routeIdsWithPricingSet = new Set(routeIdsWithPricing);
+  const missingPricingRouteIds = routeIds.filter((routeId) => !routeIdsWithPricingSet.has(routeId));
+
+  return {
+    onlyActiveRoutes,
+    createMissingRules,
+    routes,
+    routeIds,
+    existingPricingRows,
+    routeIdsWithPricing,
+    missingPricingRouteIds,
+  };
+}
+
+function syncTransportPricingDepositGlobalSummary() {
+  const summaryEl = document.getElementById('transportPricingDepositGlobalSummary');
+  if (!summaryEl) return;
+
+  const selection = getTransportPricingGlobalDepositSelection();
+  if (!selection.routeIds.length) {
+    summaryEl.textContent = selection.onlyActiveRoutes
+      ? 'No active routes found for global deposit update.'
+      : 'No routes found for global deposit update.';
+    return;
+  }
+
+  const depositEnabled = Boolean(document.getElementById('transportPricingDepositEnabled')?.checked);
+  const depositMode = String(document.getElementById('transportPricingDepositMode')?.value || 'percent_total').trim().toLowerCase();
+  const depositValue = transportToNonNegativeNumber(transportReadNumberInput('transportPricingDepositValue', 0), 0);
+  const baseFloor = Number.isFinite(Number(transportAdminState.depositBaseFloor))
+    ? Math.max(0, Number(transportAdminState.depositBaseFloor || 0))
+    : 0;
+  const currency = String(transportAdminState.depositBaseCurrency || 'EUR').trim().toUpperCase() || 'EUR';
+
+  const modeLabel = depositMode === 'percent_total'
+    ? `${depositValue}%`
+    : transportMoney(depositValue, currency);
+  const targetLabel = selection.onlyActiveRoutes ? 'active routes' : 'all routes';
+  const missingSuffix = selection.createMissingRules
+    ? ` Missing pricing rows to create: ${selection.missingPricingRouteIds.length}.`
+    : ` Missing pricing rows (not created): ${selection.missingPricingRouteIds.length}.`;
+  const rulePreview = depositEnabled
+    ? `Rule preview: ${transportDepositModeLabel(depositMode, currency)} = ${modeLabel}.`
+    : 'Rule preview: disabled (route-level override will be removed).';
+
+  summaryEl.textContent = `Target: ${selection.routeIds.length} ${targetLabel}. Existing pricing rows in scope: ${selection.existingPricingRows.length}.${missingSuffix} ${rulePreview} Base floor from Partners Emails: ${transportMoney(baseFloor, currency)}.`;
+}
+
+async function applyTransportPricingGlobalDepositUpdate() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const onlyActiveRoutes = Boolean(document.getElementById('transportPricingDepositGlobalOnlyActiveRoutes')?.checked);
+  const createMissingRules = Boolean(document.getElementById('transportPricingDepositGlobalCreateMissingRules')?.checked);
+  const depositEnabled = Boolean(document.getElementById('transportPricingDepositEnabled')?.checked);
+  const depositMode = String(document.getElementById('transportPricingDepositMode')?.value || 'percent_total').trim().toLowerCase();
+  const depositValueRaw = transportReadNumberInput('transportPricingDepositValue', 0);
+
+  if (!['fixed_amount', 'percent_total', 'per_person'].includes(depositMode)) {
+    showToast('Deposit mode is invalid', 'error');
+    return;
+  }
+  if (!Number.isFinite(depositValueRaw) || depositValueRaw < 0) {
+    showToast('Deposit value must be >= 0', 'error');
+    return;
+  }
+  if (depositEnabled && !(depositValueRaw > 0)) {
+    showToast('Deposit value must be greater than 0 when deposit is enabled', 'error');
+    return;
+  }
+  if (depositMode === 'percent_total' && depositValueRaw > 100) {
+    showToast('Deposit percent must be <= 100', 'error');
+    return;
+  }
+
+  const depositValue = transportToNonNegativeNumber(depositValueRaw, 0);
+  const selection = getTransportPricingGlobalDepositSelection({
+    onlyActiveRoutes,
+    createMissingRules,
+  });
+
+  if (!selection.routeIds.length) {
+    showToast(onlyActiveRoutes ? 'No active routes found for global deposit update' : 'No routes found for global deposit update', 'info');
+    return;
+  }
+  if (!createMissingRules && !selection.routeIdsWithPricing.length) {
+    showToast('No pricing rows found in selected scope. Enable "Create pricing row..." first.', 'error');
+    return;
+  }
+
+  let baseFloor = Number(transportAdminState.depositBaseFloor || 0);
+  let baseMissingDeps = false;
+  try {
+    const baseState = await refreshTransportDepositBaseFloorState(client, { updateUi: true });
+    baseFloor = Number(baseState?.baseFloor || 0);
+    baseMissingDeps = Boolean(baseState?.missingDeps);
+  } catch (_error) {
+    baseFloor = Number(transportAdminState.depositBaseFloor || 0);
+  }
+  const normalizedBaseFloor = Number.isFinite(baseFloor) ? Math.max(0, baseFloor) : 0;
+  const currency = String(transportAdminState.depositBaseCurrency || 'EUR').trim().toUpperCase() || 'EUR';
+
+  const confirmLines = [
+    `Apply global deposit settings to ${selection.routeIds.length} route(s)?`,
+    `Scope: ${onlyActiveRoutes ? 'active routes' : 'all routes'}.`,
+    depositEnabled
+      ? `Rule: ${transportDepositModeLabel(depositMode, currency)} = ${depositMode === 'percent_total' ? `${depositValue}%` : transportMoney(depositValue, currency)}.`
+      : 'Rule: disabled (route-level deposit override will be removed).',
+    `Base floor from Partners Emails: ${transportMoney(normalizedBaseFloor, currency)}.`,
+  ];
+  if (createMissingRules && selection.missingPricingRouteIds.length) {
+    confirmLines.push(`${selection.missingPricingRouteIds.length} missing pricing row(s) will be created first.`);
+  }
+  if (!confirm(confirmLines.join('\n'))) {
+    return;
+  }
+
+  try {
+    if (baseMissingDeps) {
+      showToast('Base transport deposit source is unavailable (service_deposit_rules missing). Using 0 as base floor.', 'error');
+    }
+
+    let createdMissingRules = 0;
+    let duplicateMissingRules = 0;
+    let failedMissingRules = 0;
+
+    if (createMissingRules && selection.missingPricingRouteIds.length) {
+      const rowsToInsert = selection.missingPricingRouteIds.map((routeId) => ({
+        route_id: routeId,
+        deposit_enabled: depositEnabled,
+        deposit_mode: depositMode,
+        deposit_value: depositEnabled ? depositValue : 0,
+        deposit_base_floor: normalizedBaseFloor,
+        is_active: true,
+        priority: 0,
+      }));
+
+      for (const chunkRows of chunkTransportList(rowsToInsert, 120)) {
+        const { error: bulkInsertError } = await runTransportMutation(
+          (db) => db.from(TRANSPORT_TABLES.pricing).insert(chunkRows),
+          { silentAuthNotice: true },
+        );
+        if (!bulkInsertError) {
+          createdMissingRules += chunkRows.length;
+          continue;
+        }
+        if (isTransportRecoverableAuthError(bulkInsertError)) throw bulkInsertError;
+
+        for (const row of chunkRows) {
+          try {
+            const { error: rowError } = await runTransportMutation(
+              (db) => db.from(TRANSPORT_TABLES.pricing).insert(row),
+              { silentAuthNotice: true },
+            );
+            if (!rowError) {
+              createdMissingRules += 1;
+              continue;
+            }
+            if (isTransportRecoverableAuthError(rowError)) throw rowError;
+            const code = String(rowError.code || '').trim();
+            const message = String(rowError.message || '').toLowerCase();
+            if (code === '23505' || message.includes('duplicate')) {
+              duplicateMissingRules += 1;
+              continue;
+            }
+            failedMissingRules += 1;
+            console.warn('Failed to insert missing pricing row for global deposit update:', row.route_id, rowError);
+          } catch (rowError) {
+            failedMissingRules += 1;
+            console.warn('Failed to insert missing pricing row for global deposit update:', row.route_id, rowError);
+          }
+        }
+      }
+    }
+
+    const targetRouteIds = createMissingRules
+      ? selection.routeIds
+      : selection.routeIdsWithPricing;
+    if (!targetRouteIds.length) {
+      showToast('No routes with pricing rows are available for deposit update', 'info');
+      return;
+    }
+
+    const payload = {
+      deposit_enabled: depositEnabled,
+      deposit_mode: depositMode,
+      deposit_value: depositEnabled ? depositValue : 0,
+      deposit_base_floor: normalizedBaseFloor,
+    };
+
+    for (const chunk of chunkTransportList(targetRouteIds, 150)) {
+      const { error } = await runTransportMutation(
+        (db) => db
+          .from(TRANSPORT_TABLES.pricing)
+          .update(payload)
+          .in('route_id', chunk),
+        { silentAuthNotice: true },
+      );
+      if (error) throw error;
+    }
+
+    const depositSync = await syncTransportDepositOverridesForRoutes(client, targetRouteIds, {
+      depositEnabled: payload.deposit_enabled,
+      depositMode: payload.deposit_mode,
+      depositValue: payload.deposit_value,
+    });
+
+    if (partnersUiState.depositLoadedOnce) {
+      await loadDepositOverrides();
+    }
+
+    await loadTransportPricingData({ silent: true });
+    syncTransportControlCenter();
+
+    const summaryParts = [
+      `routes updated ${targetRouteIds.length}`,
+    ];
+    if (createMissingRules) summaryParts.push(`created missing ${createdMissingRules}`);
+    if (duplicateMissingRules) summaryParts.push(`duplicates ${duplicateMissingRules}`);
+    if (failedMissingRules) summaryParts.push(`failed ${failedMissingRules}`);
+    if (depositSync.upserted > 0) summaryParts.push(`overrides set ${depositSync.upserted}`);
+    if (depositSync.removed > 0) summaryParts.push(`overrides removed ${depositSync.removed}`);
+    if (depositSync.failed > 0) summaryParts.push(`override sync failed ${depositSync.failed}`);
+    if (depositSync.missingDeps) summaryParts.push('overrides table missing');
+
+    showToast(
+      `Global deposit update complete (${summaryParts.join(', ')})`,
+      (failedMissingRules || depositSync.failed) ? 'error' : 'success',
+    );
+  } catch (error) {
+    console.error('Failed to apply global transport deposit update:', error);
+    if (
+      isMissingColumnError(error, 'deposit_enabled')
+      || isMissingColumnError(error, 'deposit_mode')
+      || isMissingColumnError(error, 'deposit_value')
+      || isMissingColumnError(error, 'deposit_base_floor')
+    ) {
+      showToast('Run migration 114_transport_deposit_base_floor.sql first', 'error');
+      return;
+    }
+    if (isMissingTableError(error, TRANSPORT_TABLES.pricing)) {
+      showToast('Transport pricing table is missing. Run transport pricing migrations first.', 'error');
+      return;
+    }
+    showToast(String(error?.message || 'Failed to apply global deposit update'), 'error');
+  }
+}
+
 async function applyTransportPricingGlobalLuggageUpdate() {
   const client = ensureSupabase();
   if (!client) return;
@@ -14811,6 +15082,8 @@ function syncTransportPricingDepositControls() {
 
     baseHintEl.textContent = `Final deposit = MAX(base ${transportMoney(normalizedBaseFloor, baseCurrency)} from Partners Emails flat rule, route rule).${crossoverText}${baseModeText}`;
   }
+
+  syncTransportPricingDepositGlobalSummary();
 }
 
 function transportDepositModeLabel(modeRaw, currency = 'EUR') {
@@ -15656,6 +15929,7 @@ async function loadTransportRoutesData(options = {}) {
   renderTransportRoutesTable();
   syncTransportRouteGlobalSummary();
   syncTransportPricingGlobalSummary();
+  syncTransportPricingDepositGlobalSummary();
   syncTransportControlCenter();
 }
 
@@ -16387,6 +16661,7 @@ async function loadTransportPricingData(options = {}) {
   syncTransportPricingBulkApplyControls();
   syncTransportPricingCityBulkSummary();
   syncTransportPricingGlobalSummary();
+  syncTransportPricingDepositGlobalSummary();
   refreshTransportControlRuleSelect();
   renderTransportPricingPreview();
 }
@@ -17923,6 +18198,20 @@ function bindTransportAdminUi() {
   const pricingBulkUseCityGroups = document.getElementById('transportPricingBulkUseCityGroups');
   if (pricingBulkUseCityGroups) {
     pricingBulkUseCityGroups.addEventListener('change', () => syncTransportPricingAdditionalSummary());
+  }
+  const pricingDepositGlobalOnlyActive = document.getElementById('transportPricingDepositGlobalOnlyActiveRoutes');
+  if (pricingDepositGlobalOnlyActive) {
+    pricingDepositGlobalOnlyActive.addEventListener('change', () => syncTransportPricingDepositGlobalSummary());
+  }
+  const pricingDepositGlobalCreateMissing = document.getElementById('transportPricingDepositGlobalCreateMissingRules');
+  if (pricingDepositGlobalCreateMissing) {
+    pricingDepositGlobalCreateMissing.addEventListener('change', () => syncTransportPricingDepositGlobalSummary());
+  }
+  const btnPricingDepositGlobalApply = document.getElementById('btnTransportPricingDepositGlobalApply');
+  if (btnPricingDepositGlobalApply) {
+    btnPricingDepositGlobalApply.addEventListener('click', () => {
+      void applyTransportPricingGlobalDepositUpdate();
+    });
   }
   [
     'transportPricingGlobalIncludedBags',
