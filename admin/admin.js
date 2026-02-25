@@ -136,8 +136,8 @@ async function loadCalendarsCreateResourceOptions() {
       rows = routeRows.map((r) => {
         const origin = locationsById[r.origin_location_id];
         const destination = locationsById[r.destination_location_id];
-        const originLabel = origin ? formatTransportLocationDisplayName(origin, { withCode: false, withLocal: true }) : String(r.origin_location_id || '').slice(0, 8);
-        const destinationLabel = destination ? formatTransportLocationDisplayName(destination, { withCode: false, withLocal: true }) : String(r.destination_location_id || '').slice(0, 8);
+        const originLabel = origin ? formatTransportLocationDisplayName(origin, { withCode: false, withLocal: true }) : 'Origin';
+        const destinationLabel = destination ? formatTransportLocationDisplayName(destination, { withCode: false, withLocal: true }) : 'Destination';
         return { id: r.id, label: `${originLabel} → ${destinationLabel}` };
       });
     } else if (type === 'shop') {
@@ -1594,8 +1594,8 @@ async function loadPartnerAssignments(partnerId) {
         if (!r?.id) return;
         const originRow = locationsById[r.origin_location_id] || null;
         const destinationRow = locationsById[r.destination_location_id] || null;
-        const originLabel = originRow ? formatTransportLocationDisplayName(originRow, { withCode: false, withLocal: true }) : String(r.origin_location_id || '').slice(0, 8);
-        const destinationLabel = destinationRow ? formatTransportLocationDisplayName(destinationRow, { withCode: false, withLocal: true }) : String(r.destination_location_id || '').slice(0, 8);
+        const originLabel = originRow ? formatTransportLocationDisplayName(originRow, { withCode: false, withLocal: true }) : 'Origin';
+        const destinationLabel = destinationRow ? formatTransportLocationDisplayName(destinationRow, { withCode: false, withLocal: true }) : 'Destination';
         partnerAssignmentsState.resourceDetails.transport[r.id] = {
           ...r,
           label: `${originLabel} → ${destinationLabel}`,
@@ -1697,7 +1697,7 @@ function renderPartnerAssignmentsTable(type) {
     }
 
     if (t === 'transport') {
-      const label = d ? (String(d.label || '').trim() || String(rid).slice(0, 8)) : String(rid).slice(0, 8);
+      const label = d ? (String(d.label || '').trim() || 'Origin → Destination') : 'Origin → Destination';
       const details = d?.is_active === false ? 'Inactive route' : 'Active route';
       return `
         <tr>
@@ -2005,8 +2005,8 @@ async function searchPartnerResources(type, term) {
       const rows = routeRows.map((r) => {
         const origin = locationsById[r.origin_location_id];
         const destination = locationsById[r.destination_location_id];
-        const originLabel = origin ? formatTransportLocationDisplayName(origin, { withCode: false, withLocal: true }) : String(r.origin_location_id || '').slice(0, 8);
-        const destinationLabel = destination ? formatTransportLocationDisplayName(destination, { withCode: false, withLocal: true }) : String(r.destination_location_id || '').slice(0, 8);
+        const originLabel = origin ? formatTransportLocationDisplayName(origin, { withCode: false, withLocal: true }) : 'Origin';
+        const destinationLabel = destination ? formatTransportLocationDisplayName(destination, { withCode: false, withLocal: true }) : 'Destination';
         const routeLabel = `${originLabel} → ${destinationLabel}`;
         const status = r?.is_active === false ? ' (inactive)' : '';
         return { id: r.id, label: `${routeLabel}${status}` };
@@ -4889,8 +4889,8 @@ async function loadDepositOverrides() {
     transportRouteRows.forEach((r) => {
       const origin = transportLocationsById[r.origin_location_id];
       const destination = transportLocationsById[r.destination_location_id];
-      const originLabel = origin ? formatTransportLocationDisplayName(origin, { withCode: false, withLocal: true }) : String(r.origin_location_id || '').slice(0, 8);
-      const destinationLabel = destination ? formatTransportLocationDisplayName(destination, { withCode: false, withLocal: true }) : String(r.destination_location_id || '').slice(0, 8);
+      const originLabel = origin ? formatTransportLocationDisplayName(origin, { withCode: false, withLocal: true }) : 'Origin';
+      const destinationLabel = destination ? formatTransportLocationDisplayName(destination, { withCode: false, withLocal: true }) : 'Destination';
       partnersUiState.depositOverrideLabels[`transport:${r.id}`] = `${originLabel} → ${destinationLabel}`;
     });
 
@@ -6459,8 +6459,8 @@ async function loadCalendarsResourceOptions() {
       rows = routeRows.map((r) => {
         const origin = locationsById[r.origin_location_id];
         const destination = locationsById[r.destination_location_id];
-        const originLabel = origin ? formatTransportLocationDisplayName(origin, { withCode: false, withLocal: true }) : String(r.origin_location_id || '').slice(0, 8);
-        const destinationLabel = destination ? formatTransportLocationDisplayName(destination, { withCode: false, withLocal: true }) : String(r.destination_location_id || '').slice(0, 8);
+        const originLabel = origin ? formatTransportLocationDisplayName(origin, { withCode: false, withLocal: true }) : 'Origin';
+        const destinationLabel = destination ? formatTransportLocationDisplayName(destination, { withCode: false, withLocal: true }) : 'Destination';
         return { id: r.id, label: `${originLabel} → ${destinationLabel}` };
       });
     } else if (type === 'shop') {
@@ -10328,11 +10328,11 @@ function getTransportActiveTab() {
 
 function getTransportLocationLabel(locationId) {
   const id = String(locationId || '').trim();
-  if (!id) return '—';
+  if (!id) return '';
   const row = transportAdminState.locationById[id];
-  if (!row) return id.slice(0, 8);
+  if (!row) return 'Unknown location';
   const label = formatTransportLocationDisplayName(row, { withCode: true, withLocal: false });
-  return label || id.slice(0, 8);
+  return label || 'Unknown location';
 }
 
 function getTransportRouteLabel(route) {
@@ -10346,8 +10346,78 @@ function getTransportRouteLabelById(routeId) {
   const id = String(routeId || '').trim();
   if (!id) return '—';
   const row = transportAdminState.routeById[id];
-  if (!row) return id.slice(0, 8);
+  if (!row) return '—';
   return getTransportRouteLabel(row);
+}
+
+function isLikelyTransportIdentifier(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return false;
+  if (/^[0-9a-f]{8}$/i.test(raw)) return true;
+  if (/^[0-9a-f]{32}$/i.test(raw)) return true;
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw)) return true;
+  return false;
+}
+
+function getTransportLocationDisplayLabel(locationId, options = {}) {
+  const named = String(options?.named || '').trim();
+  if (named) return named;
+
+  const id = String(locationId || '').trim();
+  if (!id) return '';
+
+  const externalMap = options?.locationLabelById && typeof options.locationLabelById === 'object'
+    ? options.locationLabelById
+    : null;
+  if (externalMap && String(externalMap[id] || '').trim()) {
+    return String(externalMap[id]).trim();
+  }
+
+  const stateLabel = getTransportLocationLabel(id);
+  if (stateLabel && stateLabel !== '—' && !isLikelyTransportIdentifier(stateLabel)) {
+    return stateLabel;
+  }
+  return '';
+}
+
+function getTransportBookingRouteLabel(booking, options = {}) {
+  const row = booking && typeof booking === 'object' ? booking : {};
+  const directRouteLabels = [
+    row.route_label,
+    row.route_name,
+    row.route,
+  ];
+  for (const candidate of directRouteLabels) {
+    const text = String(candidate || '').trim();
+    if (text && text.includes('→')) return text;
+  }
+
+  const routeId = String(row.route_id || '').trim();
+  const routeLabelById = options?.routeLabelById && typeof options.routeLabelById === 'object'
+    ? options.routeLabelById
+    : null;
+  if (routeId && routeLabelById && String(routeLabelById[routeId] || '').trim()) {
+    return String(routeLabelById[routeId]).trim();
+  }
+
+  const fromStateById = routeId ? getTransportRouteLabelById(routeId) : '';
+  if (fromStateById && fromStateById !== '—' && !isLikelyTransportIdentifier(fromStateById)) {
+    return fromStateById;
+  }
+
+  const origin = getTransportLocationDisplayLabel(row.origin_location_id, {
+    named: row.origin_name || row.origin_label || row.origin || row.origin_location_name,
+    locationLabelById: options?.locationLabelById,
+  });
+  const destination = getTransportLocationDisplayLabel(row.destination_location_id, {
+    named: row.destination_name || row.destination_label || row.destination || row.destination_location_name,
+    locationLabelById: options?.locationLabelById,
+  });
+
+  if (origin || destination) {
+    return `${origin || 'Origin'} → ${destination || 'Destination'}`;
+  }
+  return 'Origin → Destination';
 }
 
 function getTransportRouteCityPairMeta(route) {
@@ -16492,7 +16562,7 @@ function getFilteredTransportBookings() {
       row?.customer_name,
       row?.customer_email,
       row?.customer_phone,
-      getTransportRouteLabelById(row?.route_id),
+      getTransportBookingRouteLabel(row),
       row?.travel_date,
       row?.travel_time,
     ]
@@ -16514,8 +16584,7 @@ function renderTransportBookingsTable() {
 
   tbody.innerHTML = rows.map((row) => {
     const id = String(row.id || '');
-    const routeLabel = getTransportRouteLabelById(row.route_id)
-      || `${getTransportLocationLabel(row.origin_location_id)} → ${getTransportLocationLabel(row.destination_location_id)}`;
+    const routeLabel = getTransportBookingRouteLabel(row);
     const whenLabel = `${row.travel_date ? transportDateToLabel(row.travel_date) : '—'} ${row.travel_time ? escapeHtml(String(row.travel_time).slice(0, 5)) : ''}`.trim();
     const paxBagsLabel = `${Number(row.num_passengers || 0)} pax / ${Number(row.num_bags || 0)} small backpacks${Number(row.num_oversize_bags || 0) ? ` / ${Number(row.num_oversize_bags || 0)} large 15kg+` : ''}`;
     const amountLabel = transportMoney(row.total_price, row.currency || 'EUR');
@@ -16666,10 +16735,7 @@ async function viewTransportBookingDetails(bookingId) {
   const content = document.getElementById('transportBookingDetailsContent');
   if (!modal || !content) return;
 
-  const routeLabelById = getTransportRouteLabelById(booking.route_id);
-  const routeLabel = routeLabelById && routeLabelById !== '—'
-    ? routeLabelById
-    : `${getTransportLocationLabel(booking.origin_location_id)} → ${getTransportLocationLabel(booking.destination_location_id)}`;
+  const routeLabel = getTransportBookingRouteLabel(booking);
   const createdAt = transportIsoToLabel(booking.created_at);
   const travelDate = booking.travel_date ? transportDateToLabel(booking.travel_date) : '—';
   const travelTime = booking.travel_time ? escapeHtml(String(booking.travel_time).slice(0, 5)) : '—';
@@ -16868,10 +16934,7 @@ async function assignTransportBookingPartnerFallback(client, booking, partnerId)
   } catch (_e) {
   }
 
-  const routeLabelById = getTransportRouteLabelById(booking.route_id);
-  const routeLabel = routeLabelById && routeLabelById !== '—'
-    ? routeLabelById
-    : `${getTransportLocationLabel(booking.origin_location_id)} → ${getTransportLocationLabel(booking.destination_location_id)}`;
+  const routeLabel = getTransportBookingRouteLabel(booking);
   const reference = `TRANSPORT-${bookingId.slice(0, 8).toUpperCase()}`;
 
   let fid = null;
@@ -19047,20 +19110,26 @@ async function viewUserDetails(userId) {
           const primary = String(row?.name || '').trim();
           const local = String(row?.name_local || '').trim();
           const code = String(row?.code || '').trim();
-          locationLabelById[id] = primary || local || code || id.slice(0, 8);
+          locationLabelById[id] = primary || local || code || '';
         });
         routeRows.forEach((row) => {
           const id = String(row?.id || '').trim();
           if (!id) return;
-          const origin = locationLabelById[String(row?.origin_location_id || '').trim()] || String(row?.origin_location_id || '').trim().slice(0, 8);
-          const destination = locationLabelById[String(row?.destination_location_id || '').trim()] || String(row?.destination_location_id || '').trim().slice(0, 8);
+          const origin = getTransportLocationDisplayLabel(row?.origin_location_id, { locationLabelById }) || 'Origin';
+          const destination = getTransportLocationDisplayLabel(row?.destination_location_id, { locationLabelById }) || 'Destination';
           transportRouteLabelById[id] = `${origin} → ${destination}`;
         });
         transportBookings.forEach((booking) => {
           const routeId = String(booking?.route_id || '').trim();
           if (routeId && transportRouteLabelById[routeId]) return;
-          const origin = locationLabelById[String(booking?.origin_location_id || '').trim()] || String(booking?.origin_location_id || '').trim().slice(0, 8) || 'Origin';
-          const destination = locationLabelById[String(booking?.destination_location_id || '').trim()] || String(booking?.destination_location_id || '').trim().slice(0, 8) || 'Destination';
+          const origin = getTransportLocationDisplayLabel(booking?.origin_location_id, {
+            named: booking?.origin_name || booking?.origin_label || booking?.origin || booking?.origin_location_name,
+            locationLabelById,
+          }) || 'Origin';
+          const destination = getTransportLocationDisplayLabel(booking?.destination_location_id, {
+            named: booking?.destination_name || booking?.destination_label || booking?.destination || booking?.destination_location_name,
+            locationLabelById,
+          }) || 'Destination';
           if (routeId) {
             transportRouteLabelById[routeId] = `${origin} → ${destination}`;
           }
@@ -19504,7 +19573,10 @@ async function viewUserDetails(userId) {
                 ${list.map((b) => {
                   const created = b.created_at ? escapeHtml(formatDate(b.created_at)) : '—';
                   const routeId = String(b?.route_id || '').trim();
-                  const route = escapeHtml(transportRouteLabelById[routeId] || routeId.slice(0, 8) || 'Transport route');
+                  const route = escapeHtml(getTransportBookingRouteLabel(b, {
+                    routeLabelById: transportRouteLabelById,
+                    locationLabelById,
+                  }));
                   const travelDate = formatBookingDate(b.travel_date);
                   const travelTime = String(b?.travel_time || '').trim().slice(0, 5);
                   const status = escapeHtml(b.status || '');
@@ -29706,12 +29778,94 @@ async function loadAllOrders(opts = {}) {
     });
     });
 
+    const transportRowsRaw = Array.isArray(transportResult.data) ? transportResult.data : [];
+    const transportRouteLabelMap = {};
+    const transportLocationLabelMap = {};
+
+    try {
+      if (transportRowsRaw.length) {
+        const routeIds = Array.from(new Set(
+          transportRowsRaw
+            .map((booking) => String(booking?.route_id || '').trim())
+            .filter(Boolean),
+        ));
+        const fallbackLocationIds = Array.from(new Set(
+          transportRowsRaw
+            .flatMap((booking) => [
+              String(booking?.origin_location_id || '').trim(),
+              String(booking?.destination_location_id || '').trim(),
+            ])
+            .filter(Boolean),
+        ));
+
+        const routeRows = routeIds.length
+          ? (await client
+              .from('transport_routes')
+              .select('id, origin_location_id, destination_location_id')
+              .in('id', routeIds)
+              .limit(1000)).data || []
+          : [];
+
+        const locationIds = Array.from(new Set(
+          routeRows
+            .flatMap((row) => [
+              String(row?.origin_location_id || '').trim(),
+              String(row?.destination_location_id || '').trim(),
+            ])
+            .concat(fallbackLocationIds)
+            .filter(Boolean),
+        ));
+
+        const locationRows = locationIds.length
+          ? (await client
+              .from('transport_locations')
+              .select('id, name, name_local, code')
+              .in('id', locationIds)
+              .limit(2000)).data || []
+          : [];
+
+        locationRows.forEach((row) => {
+          const id = String(row?.id || '').trim();
+          if (!id) return;
+          const primary = String(row?.name || '').trim();
+          const local = String(row?.name_local || '').trim();
+          const code = String(row?.code || '').trim();
+          const label = primary || local || code || '';
+          if (label) {
+            transportLocationLabelMap[id] = label;
+          }
+        });
+
+        routeRows.forEach((row) => {
+          const routeId = String(row?.id || '').trim();
+          if (!routeId) return;
+          const origin = getTransportLocationDisplayLabel(row?.origin_location_id, { locationLabelById: transportLocationLabelMap });
+          const destination = getTransportLocationDisplayLabel(row?.destination_location_id, { locationLabelById: transportLocationLabelMap });
+          if (origin || destination) {
+            transportRouteLabelMap[routeId] = `${origin || 'Origin'} → ${destination || 'Destination'}`;
+          }
+        });
+
+        transportRowsRaw.forEach((booking) => {
+          const routeId = String(booking?.route_id || '').trim();
+          if (!routeId || transportRouteLabelMap[routeId]) return;
+          transportRouteLabelMap[routeId] = getTransportBookingRouteLabel(booking, {
+            routeLabelById: transportRouteLabelMap,
+            locationLabelById: transportLocationLabelMap,
+          });
+        });
+      }
+    } catch (transportRouteLabelError) {
+      console.warn('Failed to resolve transport route labels for all orders:', transportRouteLabelError);
+    }
+
     // Process transport bookings
-    const transportBookings = (transportResult.data || []).map((booking) => {
+    const transportBookings = transportRowsRaw.map((booking) => {
       const f = fulfillmentByKey[`transport:${String(booking?.id || '')}`] || null;
-      const origin = String(booking.origin_name || booking.origin_label || booking.origin || booking.origin_location_name || booking.origin_location_id || '').trim();
-      const destination = String(booking.destination_name || booking.destination_label || booking.destination || booking.destination_location_name || booking.destination_location_id || '').trim();
-      const routeLabel = String(booking.route_name || booking.route_label || '').trim() || ([origin, destination].filter(Boolean).join(' → '));
+      const routeLabel = getTransportBookingRouteLabel(booking, {
+        routeLabelById: transportRouteLabelMap,
+        locationLabelById: transportLocationLabelMap,
+      });
       return ({
         ...booking,
         category: 'transport',
