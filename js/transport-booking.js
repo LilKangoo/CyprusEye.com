@@ -894,17 +894,18 @@ function calculateQuote(route, rule, scenario) {
 
 function setStatus(message, type = 'info') {
   if (!els.quoteStatus) return;
-  const isError = type === 'error';
-  if (!isError) {
+  const text = String(message || '').trim();
+  if (!text) {
     els.quoteStatus.hidden = true;
     els.quoteStatus.textContent = '';
     els.quoteStatus.classList.remove('is-error');
     return;
   }
 
+  const isError = type === 'error';
   els.quoteStatus.hidden = false;
-  els.quoteStatus.textContent = String(message || 'Please check booking details.').trim();
-  els.quoteStatus.classList.add('is-error');
+  els.quoteStatus.textContent = text;
+  els.quoteStatus.classList.toggle('is-error', isError);
 }
 
 function clearQuoteRowHideTimer(rowEl) {
@@ -1054,7 +1055,7 @@ function renderQuote(summary) {
 
   const hasReturnLeg = summary.legs.length > 1;
   setQuoteBreakdownRow(els.quoteRowOutbound, els.quoteOutbound, {
-    visible: hasReturnLeg,
+    visible: true,
     text: money(summary.outboundTotal, summary.currency),
   });
   setQuoteBreakdownRow(els.quoteRowReturn, els.quoteReturn, {
@@ -1066,23 +1067,23 @@ function renderQuote(summary) {
     text: money(summary.baseFare, summary.currency),
   });
   setQuoteBreakdownRow(els.quoteRowPassengers, els.quotePassengers, {
-    visible: round2(summary.extraPassengersCost) > 0,
+    visible: true,
     text: money(summary.extraPassengersCost, summary.currency),
   });
   setQuoteBreakdownRow(els.quoteRowBags, els.quoteBags, {
-    visible: round2(summary.extraBagsCost) > 0,
+    visible: true,
     text: money(summary.extraBagsCost, summary.currency),
   });
   setQuoteBreakdownRow(els.quoteRowOversize, els.quoteOversize, {
-    visible: round2(summary.oversizeCost) > 0,
+    visible: true,
     text: money(summary.oversizeCost, summary.currency),
   });
   setQuoteBreakdownRow(els.quoteRowSeats, els.quoteSeats, {
-    visible: round2(summary.seatsCost) > 0,
+    visible: true,
     text: money(summary.seatsCost, summary.currency),
   });
   setQuoteBreakdownRow(els.quoteRowWaiting, els.quoteWaiting, {
-    visible: round2(summary.waitingCost) > 0,
+    visible: true,
     text: money(summary.waitingCost, summary.currency),
   });
   const showDepositNotice = summary.depositEnabled && round2(summary.depositAmount) > 0;
@@ -1097,10 +1098,8 @@ function renderQuote(summary) {
   if (els.routeMeta) {
     const legMeta = summary.legs.map((leg) => {
       const routeLabel = getRouteLabel(leg.route);
-      const ruleLabel = leg?.rule?.id
-        ? `Rule #${String(leg.rule.id).slice(0, 8).toUpperCase()}`
-        : 'Default extras';
-      return `${leg.label}: ${routeLabel} · ${dateLabel(leg.travelDate)} ${escapeHtml(String(leg.travelTime || '—'))} · ${ruleLabel}`;
+      const period = leg?.quote?.basePeriod === 'night' ? 'Night rate' : 'Day rate';
+      return `${leg.label}: ${routeLabel} · ${dateLabel(leg.travelDate)} ${escapeHtml(String(leg.travelTime || '—'))} · ${period}`;
     });
     els.routeMeta.textContent = legMeta.join(' | ');
   }
@@ -1128,9 +1127,32 @@ function updateSubmitState() {
   const hasRoute = Boolean(state.activeRoute) && (!isRoundTripSelected() || Boolean(state.activeReturnRoute));
   const hasQuote = Boolean(state.lastQuote && state.lastQuote.isBookable);
   const hasPolicy = Boolean(els.policyCheckbox?.checked);
+  const hasQuoteReview = Boolean(els.quoteReviewCheckbox?.checked);
   const hasBlockingWarning = hasBlockingCapacityWarning(state.lastQuote);
 
-  els.submitButton.disabled = !(hasRoute && hasQuote && hasPolicy && !hasBlockingWarning);
+  els.submitButton.disabled = !(hasRoute && hasQuote && hasPolicy && hasQuoteReview && !hasBlockingWarning);
+
+  if (els.submitHint) {
+    if (!hasRoute) {
+      els.submitHint.textContent = 'Select route and schedule first.';
+    } else if (!hasQuote) {
+      els.submitHint.textContent = 'Complete all required route fields to calculate final quote.';
+    } else if (hasBlockingWarning) {
+      els.submitHint.textContent = 'Adjust passengers/luggage: current selection exceeds route limits.';
+    } else if (!hasQuoteReview) {
+      els.submitHint.textContent = 'Review full quote and tick confirmation in pricing panel to unlock booking.';
+    } else if (!hasPolicy) {
+      els.submitHint.textContent = 'Accept contact consent checkbox to continue.';
+    } else {
+      els.submitHint.textContent = 'All set. You can submit booking now.';
+    }
+  }
+}
+
+function resetQuoteReviewConfirmation() {
+  if (els.quoteReviewCheckbox instanceof HTMLInputElement) {
+    els.quoteReviewCheckbox.checked = false;
+  }
 }
 
 function refreshQuote() {
@@ -1336,6 +1358,10 @@ function validateRequiredFields() {
     if (returnContactError) return returnContactError;
   }
 
+  if (!els.quoteReviewCheckbox?.checked) {
+    return 'Please review full quote and confirm it before booking.';
+  }
+
   if (!els.policyCheckbox?.checked) {
     return 'Please confirm the contact consent checkbox.';
   }
@@ -1484,6 +1510,9 @@ function resetAfterSubmit() {
   if (els.childSeatsInput) els.childSeatsInput.value = '0';
   if (els.boosterSeatsInput) els.boosterSeatsInput.value = '0';
   if (els.waitingMinutesInput) els.waitingMinutesInput.value = '0';
+  if (els.quoteReviewCheckbox instanceof HTMLInputElement) {
+    els.quoteReviewCheckbox.checked = false;
+  }
 
   syncReturnLegVisibility({ force: false });
   void prefillCustomerFromSession();
@@ -1631,12 +1660,17 @@ function bindInputs() {
   ].filter(Boolean);
 
   quoteInputs.forEach((input) => {
-    input.addEventListener('input', refreshQuote);
-    input.addEventListener('change', refreshQuote);
+    const onQuoteInputChange = () => {
+      resetQuoteReviewConfirmation();
+      refreshQuote();
+    };
+    input.addEventListener('input', onQuoteInputChange);
+    input.addEventListener('change', onQuoteInputChange);
   });
 
   if (els.tripTypeSelect instanceof HTMLSelectElement) {
     els.tripTypeSelect.addEventListener('change', () => {
+      resetQuoteReviewConfirmation();
       syncReturnLegVisibility();
       refreshQuote();
     });
@@ -1644,6 +1678,7 @@ function bindInputs() {
 
   if (els.travelDateInput instanceof HTMLInputElement) {
     els.travelDateInput.addEventListener('change', () => {
+      resetQuoteReviewConfirmation();
       syncReturnDateConstraints();
       if (isRoundTripSelected() && !String(els.returnDateInput?.value || '').trim()) {
         autoPopulateReturnLeg({ force: false });
@@ -1677,6 +1712,12 @@ function bindInputs() {
 
   if (els.policyCheckbox) {
     els.policyCheckbox.addEventListener('change', () => {
+      updateSubmitState();
+    });
+  }
+
+  if (els.quoteReviewCheckbox) {
+    els.quoteReviewCheckbox.addEventListener('change', () => {
       updateSubmitState();
     });
   }
@@ -1718,6 +1759,8 @@ function initElements() {
   els.returnContactHint = byId('transportReturnContactHint');
   els.notesInput = byId('transportNotes');
   els.policyCheckbox = byId('transportAgreePolicy');
+  els.quoteReviewCheckbox = byId('transportConfirmQuote');
+  els.submitHint = byId('transportSubmitHint');
   els.submitButton = byId('transportSubmitBooking');
   els.submitSuccess = byId('transportSubmitSuccess');
 

@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="assets/css/tokens.css" />
   <link rel="stylesheet" href="assets/css/base.css" />
   <link rel="stylesheet" href="css/toast.css" />
-  <link rel="stylesheet" href="css/transport-booking.css?v=20260225_1" />
+  <link rel="stylesheet" href="css/transport-booking.css?v=20260225_2" />
   <meta name="ce-auth" content="on" />
   <script type="module" src="js/supabaseClient.js"></script>
   <script type="module" src="js/toast.js"></script>
@@ -214,6 +214,7 @@
               <input id="transportAgreePolicy" type="checkbox" required />
               <span>I confirm the data is correct and agree to be contacted about this booking.</span>
             </label>
+            <p id="transportSubmitHint" class="transport-submit-hint">Review full quote in the pricing panel and confirm it to unlock booking.</p>
           </div>
 
           <div id="transportSubmitSuccess" class="transport-success" hidden></div>
@@ -225,6 +226,7 @@
             <h3>Total quote</h3>
           </div>
           <div id="transportQuoteStatus" class="transport-status" hidden></div>
+          <div id="transportRouteMeta" class="transport-route-meta">Route details will appear after selecting pickup and destination.</div>
 
           <ul class="transport-breakdown">
             <li id="transportQuoteRowOutbound" class="transport-breakdown__row" hidden><span>Outbound leg total</span><strong id="transportQuoteOutbound">—</strong></li>
@@ -250,12 +252,17 @@
             </p>
           </div>
 
+          <label class="transport-quote-review" for="transportConfirmQuote">
+            <input id="transportConfirmQuote" type="checkbox" />
+            <span>I reviewed full price calculation and final total before booking.</span>
+          </label>
+
           <ul id="transportQuoteWarnings" class="transport-warning-list"></ul>
         </aside>
       </div>
     </section>
   </main>
 
-  <script type="module" src="js/transport-booking.js?v=20260225_3"></script>
+  <script type="module" src="js/transport-booking.js?v=20260225_4"></script>
 </body>
 </html>

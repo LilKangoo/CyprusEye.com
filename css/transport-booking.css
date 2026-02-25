@@ -349,6 +349,13 @@ body.transport-booking-page {
   margin: 2px 0 0;
 }
 
+.transport-submit-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--transport-muted);
+  line-height: 1.45;
+}
+
 .transport-quote {
   border-left: 1px solid rgba(15, 109, 255, 0.18);
   background:
@@ -413,6 +420,23 @@ body.transport-booking-page {
   border-radius: 10px;
   padding: 8px 10px;
   background: rgba(255, 255, 255, 0.82);
+}
+
+.transport-quote-review {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 8px;
+  border: 1px solid rgba(15, 109, 255, 0.22);
+  border-radius: 10px;
+  padding: 9px 10px;
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  color: #214165;
+  line-height: 1.45;
+}
+
+.transport-quote-review input {
+  margin: 2px 0 0;
 }
 
 .transport-breakdown {
