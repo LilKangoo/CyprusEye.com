@@ -618,7 +618,7 @@ async function createDepositCheckoutForServiceFulfillment(params: {
     const bookingSelect = category === "cars"
       ? "lang, pickup_date, pickup_time, return_date, return_time"
       : category === "transport"
-      ? "lang, travel_date, travel_time, num_passengers"
+      ? "lang, travel_date, travel_time, return_travel_date, num_passengers, deposit_amount"
       : "lang, arrival_date, departure_date";
     const { data: booking } = await supabase
       .from(tableName)
@@ -724,6 +724,14 @@ async function createDepositCheckoutForServiceFulfillment(params: {
 
     depositAmount = clampMoney(Number(rule.amount || 0) * multiplier);
   }
+
+  if (category === "transport") {
+    const quotedDeposit = Number((bookingRow as any)?.deposit_amount || 0);
+    if (Number.isFinite(quotedDeposit) && quotedDeposit > 0) {
+      depositAmount = clampMoney(Math.max(depositAmount, quotedDeposit));
+    }
+  }
+
   if (!(depositAmount > 0)) {
     throw new Error("Deposit amount is 0");
   }

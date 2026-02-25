@@ -210,12 +210,14 @@ serve(async (req) => {
   const dbWorkerSecret = await getAdminNotifySecret(supabase);
   const acceptedWorkerSecrets = Array.from(new Set([requiredWorkerSecretEnv, dbWorkerSecret].filter(Boolean)));
   if (acceptedWorkerSecrets.length > 0) {
-    const authorized = Boolean(providedWorkerSecret) && acceptedWorkerSecrets.includes(providedWorkerSecret);
-    if (!authorized) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (providedWorkerSecret) {
+      const authorized = acceptedWorkerSecrets.includes(providedWorkerSecret);
+      if (!authorized) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
   }
 

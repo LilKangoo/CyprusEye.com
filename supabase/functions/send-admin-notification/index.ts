@@ -272,7 +272,8 @@ async function sendPartnerWebPushNotifications(params: {
 
 function parseRecipients(raw: string): string[] {
   const parts = (raw || "")
-    .split(",")
+    .replace(/\r/g, "\n")
+    .split(/[,\n;]+/)
     .map((p) => p.trim())
     .filter(Boolean);
 
@@ -1294,8 +1295,40 @@ function buildTransportRouteLabel(record: Record<string, unknown>): string {
     "dropoff_location",
     "dropoff_place",
   ]);
-  if (origin && destination) return `${origin} → ${destination}`;
-  return origin || destination || "";
+  const outboundLabel = origin && destination
+    ? `${origin} → ${destination}`
+    : (origin || destination || "");
+
+  const returnOrigin = getField(record, [
+    "return_origin_location_name",
+    "return_origin_location_label",
+    "return_origin_name",
+    "return_pickup_location",
+    "return_pickup_place",
+  ]);
+  const returnDestination = getField(record, [
+    "return_destination_location_name",
+    "return_destination_location_label",
+    "return_destination_name",
+    "return_dropoff_location",
+    "return_dropoff_place",
+  ]);
+  const tripType = String(getField(record, ["trip_type"]) || "").trim().toLowerCase();
+  const hasReturn = tripType === "round_trip" || Boolean(returnOrigin || returnDestination || getField(record, ["return_route_id", "return_travel_date"]));
+
+  if (!hasReturn) return outboundLabel;
+  if (!returnOrigin && !returnDestination) return outboundLabel ? `${outboundLabel} (Round trip)` : "Round trip";
+
+  if (origin && destination && returnOrigin && returnDestination) {
+    if (origin === returnDestination && destination === returnOrigin) {
+      return `${origin} ↔ ${destination}`;
+    }
+    return `${origin} → ${destination} | ${returnOrigin} → ${returnDestination}`;
+  }
+
+  const returnLabel = `${returnOrigin || "Origin"} → ${returnDestination || "Destination"}`;
+  if (!outboundLabel) return returnLabel;
+  return `${outboundLabel} | ${returnLabel}`;
 }
 
 function buildSubject(params: {
@@ -1321,9 +1354,9 @@ function buildSubject(params: {
   if (params.event === "partner_pending_acceptance") {
     const reference = getField(params.record, ["reference", "order_number", "orderNumber"]);
     const service = getField(params.record, [
-      "summary",
       "route_label",
       "route_name",
+      "summary",
       "car_model",
       "trip_name",
       "hotel_name",
@@ -1337,9 +1370,9 @@ function buildSubject(params: {
   if (params.event === "partner_accepted") {
     const parts = [`[${label}] Partner accepted #${params.recordId}`];
     const service = getField(params.record, [
-      "summary",
       "route_label",
       "route_name",
+      "summary",
       "car_model",
       "trip_name",
       "trip_title",
@@ -1487,6 +1520,10 @@ function renderCustomerReceivedEmail(params: {
 
   const greeting = customerName ? `Hi ${customerName},` : "Hello,";
   const receivedWhat = category === "shop" ? "order" : "booking request";
+  const receivedLinePrimary = "Thank you for your message. Your request has been received and is now in our system.";
+  const receivedLineSecondary = category === "transport"
+    ? "We are now checking driver availability. After a driver is confirmed, we will email you with the payment link and next steps."
+    : "We will get back to you shortly with confirmation and next steps.";
 
   const currency = getField(record, ["currency", "currency_code"]) || "EUR";
 
@@ -1670,8 +1707,8 @@ function renderCustomerReceivedEmail(params: {
 
       <div style="font-size:14px; margin: 14px 0 0;">
         <div style="margin:0 0 10px;">${escapeHtml(greeting)}</div>
-        <div style="margin:0 0 10px;">Thank you for your message. Your request has been received and is now in our system.</div>
-        <div style="margin:0 0 10px;">We will get back to you shortly with confirmation and next steps.</div>
+        <div style="margin:0 0 10px;">${escapeHtml(receivedLinePrimary)}</div>
+        <div style="margin:0 0 10px;">${escapeHtml(receivedLineSecondary)}</div>
       </div>
 
       ${summaryTable ? `<h3 style="margin:18px 0 8px; font-size:16px;">Summary</h3>${summaryTable}` : ""}
@@ -1686,8 +1723,8 @@ function renderCustomerReceivedEmail(params: {
   if (createdAt) textLines.push(`Created: ${createdAt}`);
   textLines.push("");
   textLines.push(greeting);
-  textLines.push("Thank you for your message. Your request has been received and is now in our system.");
-  textLines.push("We will get back to you shortly with confirmation and next steps.");
+  textLines.push(receivedLinePrimary);
+  textLines.push(receivedLineSecondary);
   textLines.push("");
   if (summaryRows.length) {
     textLines.push("Summary:");
@@ -1930,6 +1967,9 @@ function renderPartnerPendingEmail(params: {
     : "";
 
   const cta = `<a href="${escapeHtml(partnerLink)}" style="display:inline-block; padding:10px 14px; background:#111827; color:#ffffff; text-decoration:none; border-radius:6px; font-weight:600;">Open Partner Panel</a>`;
+  const actionHeading = category === "transport"
+    ? "You have been assigned a transport booking. Please confirm."
+    : `New ${toTitle(category)} requires your confirmation`;
 
   const brandHeader = `
       <table role="presentation" style="width:100%; border-collapse:collapse; margin: 0 0 14px;">
@@ -1948,7 +1988,7 @@ function renderPartnerPendingEmail(params: {
       <div style="margin:0 0 14px;">
         ${brandHeader}
         <div style="font-size:13px; color:#6b7280; margin-bottom:6px;">${escapeHtml(toTitle(category))} • ${escapeHtml(eventLabel("partner_pending_acceptance"))}</div>
-        <div style="font-size:20px; font-weight:800; margin:0;">New ${escapeHtml(toTitle(category))} requires your confirmation</div>
+        <div style="font-size:20px; font-weight:800; margin:0;">${escapeHtml(actionHeading)}</div>
         <div style="font-size:13px; color:#6b7280; margin-top:6px;">${escapeHtml(createdAt)}</div>
         <div style="margin-top:12px;">${cta}</div>
       </div>
@@ -1959,7 +1999,7 @@ function renderPartnerPendingEmail(params: {
     </div>`;
 
   const textLines: string[] = [];
-  textLines.push(`New ${toTitle(category)} requires your confirmation`);
+  textLines.push(actionHeading);
   if (reference) textLines.push(`Reference: ${reference}`);
   if (summary) textLines.push(`Details: ${summary}`);
   if (createdAt) textLines.push(`Created: ${createdAt}`);
@@ -2387,6 +2427,9 @@ async function hydrateTransportBookingForEmail(supabase: any, record: Record<str
     let originId = String((record as any)?.origin_location_id || "").trim();
     let destinationId = String((record as any)?.destination_location_id || "").trim();
     const routeId = String((record as any)?.route_id || "").trim();
+    let returnOriginId = String((record as any)?.return_origin_location_id || "").trim();
+    let returnDestinationId = String((record as any)?.return_destination_location_id || "").trim();
+    const returnRouteId = String((record as any)?.return_route_id || "").trim();
 
     if (routeId && (!originId || !destinationId)) {
       const { data: routeRow, error: routeErr } = await supabase
@@ -2400,7 +2443,19 @@ async function hydrateTransportBookingForEmail(supabase: any, record: Record<str
       }
     }
 
-    const ids = Array.from(new Set([originId, destinationId].filter(Boolean)));
+    if (returnRouteId && (!returnOriginId || !returnDestinationId)) {
+      const { data: returnRouteRow, error: returnRouteErr } = await supabase
+        .from("transport_routes")
+        .select("origin_location_id, destination_location_id")
+        .eq("id", returnRouteId)
+        .maybeSingle();
+      if (!returnRouteErr && returnRouteRow) {
+        if (!returnOriginId) returnOriginId = String((returnRouteRow as any)?.origin_location_id || "").trim();
+        if (!returnDestinationId) returnDestinationId = String((returnRouteRow as any)?.destination_location_id || "").trim();
+      }
+    }
+
+    const ids = Array.from(new Set([originId, destinationId, returnOriginId, returnDestinationId].filter(Boolean)));
     if (!ids.length) return;
 
     const { data: locations, error: locErr } = await supabase
@@ -2419,13 +2474,17 @@ async function hydrateTransportBookingForEmail(supabase: any, record: Record<str
 
     const originName = byId[originId] || "";
     const destinationName = byId[destinationId] || "";
+    const returnOriginName = byId[returnOriginId] || "";
+    const returnDestinationName = byId[returnDestinationId] || "";
     if (originName) (record as any).origin_location_name = originName;
     if (destinationName) (record as any).destination_location_name = destinationName;
+    if (returnOriginName) (record as any).return_origin_location_name = returnOriginName;
+    if (returnDestinationName) (record as any).return_destination_location_name = returnDestinationName;
 
-    const routeLabel = originName && destinationName ? `${originName} → ${destinationName}` : "";
+    const routeLabel = buildTransportRouteLabel(record);
     if (routeLabel) {
-      if (!(record as any).route_label) (record as any).route_label = routeLabel;
-      if (!(record as any).route_name) (record as any).route_name = routeLabel;
+      (record as any).route_label = routeLabel;
+      (record as any).route_name = routeLabel;
     }
   } catch (_e) {
     return;

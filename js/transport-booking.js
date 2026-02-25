@@ -1245,7 +1245,7 @@ function validateRequiredFields() {
   return '';
 }
 
-function buildBookingPayloadForLeg(leg, options = {}) {
+function buildBookingPayloadForLeg(leg) {
   const route = leg?.route || null;
   const quote = leg?.quote || {};
   const scenario = quote?.scenario || {};
@@ -1255,13 +1255,8 @@ function buildBookingPayloadForLeg(leg, options = {}) {
   const totalPrice = round2(toNonNegativeNumber(quote?.total, 0));
   const currency = String(quote?.currency || route?.currency || 'EUR').trim().toUpperCase() || 'EUR';
   const baseNotes = String(els.notesInput?.value || '').trim();
-  const bundleToken = String(options.bundleToken || '').trim();
-  const legLabel = String(leg?.label || '').trim();
   const legKey = String(leg?.key || '').trim().toLowerCase() === 'return' ? 'return' : 'outbound';
   const legContact = getLegContactValues(legKey);
-  const notesParts = [];
-  if (baseNotes) notesParts.push(baseNotes);
-  if (bundleToken) notesParts.push(`[transport_bundle:${bundleToken}] ${legLabel || 'Leg'}`);
 
   return {
     route_id: String(route?.id || '').trim() || null,
@@ -1278,7 +1273,7 @@ function buildBookingPayloadForLeg(leg, options = {}) {
     pickup_address: legContact.pickupAddress || null,
     dropoff_address: legContact.dropoffAddress || null,
     flight_number: legContact.flightNumber || null,
-    notes: notesParts.length ? notesParts.join('\n') : null,
+    notes: baseNotes || null,
     customer_name: String(els.customerNameInput?.value || '').trim(),
     customer_email: String(els.customerEmailInput?.value || '').trim() || null,
     customer_phone: String(els.customerPhoneInput?.value || '').trim(),
@@ -1292,6 +1287,68 @@ function buildBookingPayloadForLeg(leg, options = {}) {
     deposit_amount: quote?.depositEnabled ? round2(quote?.depositAmount || 0) : null,
     deposit_currency: quote?.depositEnabled ? currency : null,
   };
+}
+
+function buildTransportBookingPayload(quote) {
+  const legs = Array.isArray(quote?.legs) ? quote.legs.filter(Boolean) : [];
+  if (!legs.length) return null;
+
+  const outboundLeg = legs[0];
+  const outboundPayload = buildBookingPayloadForLeg(outboundLeg);
+  if (!outboundPayload) return null;
+
+  const outboundCurrency = String(outboundPayload.currency || 'EUR').trim().toUpperCase() || 'EUR';
+  const extrasTotal = toNonNegativeNumber(quote?.extraPassengersCost, 0)
+    + toNonNegativeNumber(quote?.extraBagsCost, 0)
+    + toNonNegativeNumber(quote?.oversizeCost, 0)
+    + toNonNegativeNumber(quote?.seatsCost, 0)
+    + toNonNegativeNumber(quote?.waitingCost, 0);
+
+  const payload = {
+    ...outboundPayload,
+    trip_type: legs.length > 1 ? 'round_trip' : 'one_way',
+    base_price: round2(toNonNegativeNumber(quote?.baseFare, outboundPayload.base_price)),
+    extras_price: round2(toNonNegativeNumber(extrasTotal, outboundPayload.extras_price)),
+    total_price: round2(toNonNegativeNumber(quote?.total, outboundPayload.total_price)),
+    currency: String(quote?.currency || outboundCurrency).trim().toUpperCase() || outboundCurrency,
+    payment_status: quote?.depositEnabled ? 'pending' : 'not_required',
+    deposit_amount: quote?.depositEnabled ? round2(toNonNegativeNumber(quote?.depositAmount, 0)) : null,
+    deposit_currency: quote?.depositEnabled
+      ? (String(quote?.currency || outboundCurrency).trim().toUpperCase() || outboundCurrency)
+      : null,
+    return_route_id: null,
+    return_origin_location_id: null,
+    return_destination_location_id: null,
+    return_travel_date: null,
+    return_travel_time: null,
+    return_pickup_address: null,
+    return_dropoff_address: null,
+    return_flight_number: null,
+    return_base_price: null,
+    return_extras_price: null,
+    return_total_price: null,
+  };
+
+  if (legs.length > 1) {
+    const returnLeg = legs[1];
+    const returnRoute = returnLeg?.route || null;
+    const returnQuote = returnLeg?.quote || {};
+    const returnContact = getLegContactValues('return');
+
+    payload.return_route_id = String(returnRoute?.id || '').trim() || null;
+    payload.return_origin_location_id = String(returnRoute?.origin_location_id || '').trim() || null;
+    payload.return_destination_location_id = String(returnRoute?.destination_location_id || '').trim() || null;
+    payload.return_travel_date = String(returnLeg?.travelDate || '').trim() || null;
+    payload.return_travel_time = String(returnLeg?.travelTime || '').trim().slice(0, 5) || null;
+    payload.return_pickup_address = returnContact.pickupAddress || null;
+    payload.return_dropoff_address = returnContact.dropoffAddress || null;
+    payload.return_flight_number = returnContact.flightNumber || null;
+    payload.return_base_price = round2(toNonNegativeNumber(returnQuote?.baseFare, 0));
+    payload.return_extras_price = round2(toNonNegativeNumber(returnQuote?.extrasTotal, 0));
+    payload.return_total_price = round2(toNonNegativeNumber(returnQuote?.total, 0));
+  }
+
+  return payload;
 }
 
 function resetAfterSubmit() {
@@ -1369,39 +1426,81 @@ async function handleSubmit(event) {
     return;
   }
 
-  const bundleToken = quote.legs.length > 1
-    ? `RT-${Date.now().toString(36).toUpperCase()}`
-    : '';
-  const payloads = quote.legs.map((leg) => buildBookingPayloadForLeg(leg, { bundleToken }));
+  const payload = buildTransportBookingPayload(quote);
+  if (!payload) {
+    setStatus('Failed to prepare booking payload. Please refresh and try again.', 'error');
+    updateSubmitState();
+    return;
+  }
 
   const initialButtonText = els.submitButton.textContent || 'Reserve transport';
   els.submitButton.disabled = true;
   els.submitButton.textContent = 'Sending booking...';
 
   try {
-    const { data, error } = await supabase
-      .from('transport_bookings')
-      .insert(payloads)
-      .select('id, created_at');
+    let data = null;
+    let submitError = null;
+    let usedLegacyMultiInsert = false;
 
-    if (error) throw error;
+    {
+      const insertResult = await supabase
+        .from('transport_bookings')
+        .insert([payload])
+        .select('id, created_at');
+      data = insertResult.data;
+      submitError = insertResult.error;
+    }
+
+    const canFallbackLegacyInsert = submitError && [
+      'trip_type',
+      'return_route_id',
+      'return_travel_date',
+      'return_travel_time',
+      'return_origin_location_id',
+      'return_destination_location_id',
+    ].some((column) => isMissingColumn(submitError, column));
+
+    if (canFallbackLegacyInsert) {
+      const legacyPayloads = quote.legs.map((leg) => buildBookingPayloadForLeg(leg));
+      const legacyResult = await supabase
+        .from('transport_bookings')
+        .insert(legacyPayloads)
+        .select('id, created_at');
+      data = legacyResult.data;
+      submitError = legacyResult.error;
+      usedLegacyMultiInsert = true;
+    }
+
+    if (submitError) throw submitError;
 
     const rows = Array.isArray(data) ? data : [];
     const shortIds = rows
       .map((row) => String(row?.id || '').trim())
       .filter(Boolean)
       .map((id) => id.slice(0, 8).toUpperCase());
-    const count = shortIds.length || payloads.length;
+    const count = shortIds.length || (usedLegacyMultiInsert ? quote.legs.length : 1);
+    const isRoundTrip = quote.legs.length > 1;
+    const firstId = shortIds[0] || '--------';
     const idsLabel = shortIds.length ? shortIds.join(', ') : 'created';
 
     if (els.submitSuccess) {
       els.submitSuccess.hidden = false;
-      els.submitSuccess.innerHTML = count > 1
-        ? `Booking bundle <strong>${escapeHtml(bundleToken || 'ROUND TRIP')}</strong> sent successfully with <strong>${count}</strong> rides (<strong>${escapeHtml(idsLabel)}</strong>). Total: <strong>${escapeHtml(money(quote.total, quote.currency))}</strong>.`
-        : `Booking request <strong>#${escapeHtml(shortIds[0] || '--------')}</strong> was sent successfully. Total: <strong>${escapeHtml(money(quote.total, quote.currency))}</strong>. We will contact you shortly.`;
+      if (usedLegacyMultiInsert && count > 1) {
+        els.submitSuccess.innerHTML = `Booking sent as <strong>${count}</strong> linked legs (<strong>${escapeHtml(idsLabel)}</strong>) because this database still uses legacy schema. Total: <strong>${escapeHtml(money(quote.total, quote.currency))}</strong>.`;
+      } else if (isRoundTrip) {
+        els.submitSuccess.innerHTML = `Round-trip booking <strong>#${escapeHtml(firstId)}</strong> was sent successfully. Total: <strong>${escapeHtml(money(quote.total, quote.currency))}</strong>.`;
+      } else {
+        els.submitSuccess.innerHTML = `Booking request <strong>#${escapeHtml(firstId)}</strong> was sent successfully. Total: <strong>${escapeHtml(money(quote.total, quote.currency))}</strong>. We will contact you shortly.`;
+      }
     }
 
-    notify(count > 1 ? `Transport bundle ${bundleToken || ''} created (${count} rides)` : `Transport booking #${shortIds[0] || ''} created`, 'success');
+    if (usedLegacyMultiInsert && count > 1) {
+      notify(`Transport booking created as ${count} legacy linked legs`, 'success');
+    } else if (isRoundTrip) {
+      notify(`Round-trip transport booking #${firstId} created`, 'success');
+    } else {
+      notify(`Transport booking #${firstId} created`, 'success');
+    }
     setStatus('Booking submitted successfully. We will review and confirm shortly.', 'info');
     resetAfterSubmit();
     refreshQuote();

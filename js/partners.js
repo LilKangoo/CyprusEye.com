@@ -5774,8 +5774,11 @@
       const transportDetailsPairs = (() => {
         if (category !== 'transport') return [];
         return [
+          { label: 'Trip type', value: getField('trip_type') },
           { label: 'Travel date', value: getField('travel_date') },
           { label: 'Travel time', value: getField('travel_time') },
+          { label: 'Return date', value: getField('return_travel_date') },
+          { label: 'Return time', value: getField('return_travel_time') },
           { label: 'Passengers', value: getField('num_passengers') },
           { label: 'Bags', value: getField('num_bags') },
           { label: 'Oversize bags', value: getField('num_oversize_bags') },
@@ -5785,6 +5788,9 @@
           { label: 'Flight number', value: getField('flight_number') },
           { label: 'Pickup address', value: getField('pickup_address') },
           { label: 'Dropoff address', value: getField('dropoff_address') },
+          { label: 'Return flight number', value: getField('return_flight_number') },
+          { label: 'Return pickup address', value: getField('return_pickup_address') },
+          { label: 'Return dropoff address', value: getField('return_dropoff_address') },
         ];
       })();
 

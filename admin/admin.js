@@ -10382,28 +10382,11 @@ function getTransportLocationDisplayLabel(locationId, options = {}) {
 
 function getTransportBookingRouteLabel(booking, options = {}) {
   const row = booking && typeof booking === 'object' ? booking : {};
-  const directRouteLabels = [
-    row.route_label,
-    row.route_name,
-    row.route,
-  ];
-  for (const candidate of directRouteLabels) {
-    const text = String(candidate || '').trim();
-    if (text && text.includes('→')) return text;
-  }
-
-  const routeId = String(row.route_id || '').trim();
   const routeLabelById = options?.routeLabelById && typeof options.routeLabelById === 'object'
     ? options.routeLabelById
     : null;
-  if (routeId && routeLabelById && String(routeLabelById[routeId] || '').trim()) {
-    return String(routeLabelById[routeId]).trim();
-  }
-
-  const fromStateById = routeId ? getTransportRouteLabelById(routeId) : '';
-  if (fromStateById && fromStateById !== '—' && !isLikelyTransportIdentifier(fromStateById)) {
-    return fromStateById;
-  }
+  const routeId = String(row.route_id || '').trim();
+  const returnRouteId = String(row.return_route_id || '').trim();
 
   const origin = getTransportLocationDisplayLabel(row.origin_location_id, {
     named: row.origin_name || row.origin_label || row.origin || row.origin_location_name,
@@ -10413,11 +10396,72 @@ function getTransportBookingRouteLabel(booking, options = {}) {
     named: row.destination_name || row.destination_label || row.destination || row.destination_location_name,
     locationLabelById: options?.locationLabelById,
   });
+  const returnOrigin = getTransportLocationDisplayLabel(row.return_origin_location_id, {
+    named: row.return_origin_name || row.return_origin_label || row.return_origin || row.return_origin_location_name,
+    locationLabelById: options?.locationLabelById,
+  });
+  const returnDestination = getTransportLocationDisplayLabel(row.return_destination_location_id, {
+    named: row.return_destination_name || row.return_destination_label || row.return_destination || row.return_destination_location_name,
+    locationLabelById: options?.locationLabelById,
+  });
 
-  if (origin || destination) {
-    return `${origin || 'Origin'} → ${destination || 'Destination'}`;
+  const outboundLabelFromState = (() => {
+    if (routeId && routeLabelById && String(routeLabelById[routeId] || '').trim()) {
+      return String(routeLabelById[routeId]).trim();
+    }
+    const fromStateById = routeId ? getTransportRouteLabelById(routeId) : '';
+    if (fromStateById && fromStateById !== '—' && !isLikelyTransportIdentifier(fromStateById)) {
+      return fromStateById;
+    }
+    if (origin || destination) return `${origin || 'Origin'} → ${destination || 'Destination'}`;
+    return '';
+  })();
+
+  const returnLabelFromState = (() => {
+    if (returnRouteId && routeLabelById && String(routeLabelById[returnRouteId] || '').trim()) {
+      return String(routeLabelById[returnRouteId]).trim();
+    }
+    const fromStateById = returnRouteId ? getTransportRouteLabelById(returnRouteId) : '';
+    if (fromStateById && fromStateById !== '—' && !isLikelyTransportIdentifier(fromStateById)) {
+      return fromStateById;
+    }
+    if (returnOrigin || returnDestination) return `${returnOrigin || 'Origin'} → ${returnDestination || 'Destination'}`;
+    return '';
+  })();
+
+  const directRouteLabels = [
+    row.route_label,
+    row.route_name,
+    row.route,
+  ];
+  for (const candidate of directRouteLabels) {
+    const text = String(candidate || '').trim();
+    if (text && text.includes('→')) {
+      if (!String(row.trip_type || '').trim().toLowerCase().includes('round')) return text;
+      if (returnLabelFromState) return `${text} | ${returnLabelFromState}`;
+      return `${text} (ROUND TRIP)`;
+    }
   }
-  return 'Origin → Destination';
+
+  const isRoundTrip = String(row.trip_type || '').trim().toLowerCase() === 'round_trip'
+    || Boolean(returnRouteId || row.return_travel_date || row.return_travel_time || returnOrigin || returnDestination);
+
+  if (!isRoundTrip) {
+    if (outboundLabelFromState) return outboundLabelFromState;
+    return 'Origin → Destination';
+  }
+
+  if (origin && destination && returnOrigin && returnDestination && origin === returnDestination && destination === returnOrigin) {
+    return `${origin} ↔ ${destination}`;
+  }
+
+  if (outboundLabelFromState && returnLabelFromState) {
+    return `${outboundLabelFromState} | ${returnLabelFromState}`;
+  }
+  if (outboundLabelFromState) return `${outboundLabelFromState} (ROUND TRIP)`;
+  if (returnLabelFromState) return returnLabelFromState;
+
+  return 'Round trip';
 }
 
 function getTransportRouteCityPairMeta(route) {
@@ -16565,6 +16609,8 @@ function getFilteredTransportBookings() {
       getTransportBookingRouteLabel(row),
       row?.travel_date,
       row?.travel_time,
+      row?.return_travel_date,
+      row?.return_travel_time,
     ]
       .map((value) => String(value || '').toLowerCase())
       .join(' ');
@@ -16585,7 +16631,13 @@ function renderTransportBookingsTable() {
   tbody.innerHTML = rows.map((row) => {
     const id = String(row.id || '');
     const routeLabel = getTransportBookingRouteLabel(row);
-    const whenLabel = `${row.travel_date ? transportDateToLabel(row.travel_date) : '—'} ${row.travel_time ? escapeHtml(String(row.travel_time).slice(0, 5)) : ''}`.trim();
+    const outboundWhenLabel = `${row.travel_date ? transportDateToLabel(row.travel_date) : '—'} ${row.travel_time ? escapeHtml(String(row.travel_time).slice(0, 5)) : ''}`.trim();
+    const isRoundTrip = String(row.trip_type || '').trim().toLowerCase() === 'round_trip'
+      || Boolean(row.return_travel_date || row.return_travel_time || row.return_route_id);
+    const returnWhenLabel = `${row.return_travel_date ? transportDateToLabel(row.return_travel_date) : '—'} ${row.return_travel_time ? escapeHtml(String(row.return_travel_time).slice(0, 5)) : ''}`.trim();
+    const whenLabel = isRoundTrip
+      ? `Out: ${outboundWhenLabel} | Back: ${returnWhenLabel}`
+      : outboundWhenLabel;
     const paxBagsLabel = `${Number(row.num_passengers || 0)} pax / ${Number(row.num_bags || 0)} small backpacks${Number(row.num_oversize_bags || 0) ? ` / ${Number(row.num_oversize_bags || 0)} large 15kg+` : ''}`;
     const amountLabel = transportMoney(row.total_price, row.currency || 'EUR');
     const assignedPartnerLabel = row.assigned_partner_id
@@ -16739,6 +16791,25 @@ async function viewTransportBookingDetails(bookingId) {
   const createdAt = transportIsoToLabel(booking.created_at);
   const travelDate = booking.travel_date ? transportDateToLabel(booking.travel_date) : '—';
   const travelTime = booking.travel_time ? escapeHtml(String(booking.travel_time).slice(0, 5)) : '—';
+  const tripType = String(booking.trip_type || '').trim().toLowerCase() === 'round_trip' ? 'round_trip' : 'one_way';
+  const returnDate = booking.return_travel_date ? transportDateToLabel(booking.return_travel_date) : '—';
+  const returnTime = booking.return_travel_time ? escapeHtml(String(booking.return_travel_time).slice(0, 5)) : '—';
+  const returnRouteLabel = (() => {
+    const fromNamed = getTransportLocationDisplayLabel(booking.return_origin_location_id, {
+      named: booking.return_origin_name || booking.return_origin_label || booking.return_origin || booking.return_origin_location_name,
+    });
+    const toNamed = getTransportLocationDisplayLabel(booking.return_destination_location_id, {
+      named: booking.return_destination_name || booking.return_destination_label || booking.return_destination || booking.return_destination_location_name,
+    });
+    if (fromNamed || toNamed) return `${fromNamed || 'Origin'} → ${toNamed || 'Destination'}`;
+    const rid = String(booking.return_route_id || '').trim();
+    if (!rid) return '';
+    const label = getTransportRouteLabelById(rid);
+    if (label && label !== '—' && !isLikelyTransportIdentifier(label)) return label;
+    return '';
+  })();
+  const hasRoundTrip = tripType === 'round_trip'
+    || Boolean(booking.return_route_id || booking.return_travel_date || booking.return_travel_time || returnRouteLabel);
   const amountLabel = transportMoney(booking.total_price, booking.currency || 'EUR');
   const fulfillmentStatus = String(fulfillment?.status || '').trim();
   const assignedPartnerId = assignedPartnerIdFromBooking || String(fulfillment?.partner_id || '').trim();
@@ -16884,9 +16955,19 @@ async function viewTransportBookingDetails(bookingId) {
         <h4 style="margin: 0 0 10px; font-size: 14px; font-weight: 600; color: var(--admin-text-muted);">Trip</h4>
         <div style="display:grid; gap: 8px;">
           <div><strong>Route:</strong> ${escapeHtml(routeLabel)}</div>
-          <div><strong>Date:</strong> ${travelDate}</div>
-          <div><strong>Time:</strong> ${travelTime}</div>
+          <div><strong>Trip type:</strong> ${hasRoundTrip ? 'ROUND TRIP' : 'ONE WAY'}</div>
+          <div><strong>Outbound date:</strong> ${travelDate}</div>
+          <div><strong>Outbound time:</strong> ${travelTime}</div>
+          ${hasRoundTrip ? `<div><strong>Return route:</strong> ${escapeHtml(returnRouteLabel || routeLabel)}</div>` : ''}
+          ${hasRoundTrip ? `<div><strong>Return date:</strong> ${returnDate}</div>` : ''}
+          ${hasRoundTrip ? `<div><strong>Return time:</strong> ${returnTime}</div>` : ''}
           <div><strong>Passengers/Luggage:</strong> ${Number(booking.num_passengers || 0)} pax / ${Number(booking.num_bags || 0)} small backpacks${Number(booking.num_oversize_bags || 0) ? ` / ${Number(booking.num_oversize_bags || 0)} large 15kg+` : ''}</div>
+          <div><strong>Outbound pickup:</strong> ${escapeHtml(String(booking.pickup_address || '—'))}</div>
+          <div><strong>Outbound dropoff:</strong> ${escapeHtml(String(booking.dropoff_address || '—'))}</div>
+          <div><strong>Outbound flight number:</strong> ${escapeHtml(String(booking.flight_number || '—'))}</div>
+          ${hasRoundTrip ? `<div><strong>Return pickup:</strong> ${escapeHtml(String(booking.return_pickup_address || '—'))}</div>` : ''}
+          ${hasRoundTrip ? `<div><strong>Return dropoff:</strong> ${escapeHtml(String(booking.return_dropoff_address || '—'))}</div>` : ''}
+          ${hasRoundTrip ? `<div><strong>Return flight number:</strong> ${escapeHtml(String(booking.return_flight_number || '—'))}</div>` : ''}
           <div><strong>Payment status:</strong> ${escapeHtml(String(booking.payment_status || 'unknown').toUpperCase())}</div>
         </div>
       </div>
@@ -16944,7 +17025,7 @@ async function assignTransportBookingPartnerFallback(client, booking, partnerId)
     p_booking_id: booking.id,
     p_resource_id: booking.route_id || null,
     p_start_date: booking.travel_date || null,
-    p_end_date: booking.travel_date || null,
+    p_end_date: booking.return_travel_date || booking.travel_date || null,
     p_total_price: Number(booking.total_price || 0),
     p_currency: String(booking.currency || 'EUR').trim().toUpperCase() || 'EUR',
     p_customer_name: String(booking.customer_name || '').trim() || null,
@@ -17009,6 +17090,7 @@ async function assignTransportBookingPartnerFallback(client, booking, partnerId)
   }
 
   const detailsPayload = {
+    trip_type: booking.trip_type || 'one_way',
     travel_date: booking.travel_date || null,
     travel_time: booking.travel_time || null,
     num_passengers: Number(booking.num_passengers || 0),
@@ -17020,12 +17102,24 @@ async function assignTransportBookingPartnerFallback(client, booking, partnerId)
     pickup_address: booking.pickup_address || null,
     dropoff_address: booking.dropoff_address || null,
     flight_number: booking.flight_number || null,
+    return_route_id: booking.return_route_id || null,
+    return_origin_location_id: booking.return_origin_location_id || null,
+    return_destination_location_id: booking.return_destination_location_id || null,
+    return_travel_date: booking.return_travel_date || null,
+    return_travel_time: booking.return_travel_time || null,
+    return_pickup_address: booking.return_pickup_address || null,
+    return_dropoff_address: booking.return_dropoff_address || null,
+    return_flight_number: booking.return_flight_number || null,
+    return_base_price: Number(booking.return_base_price || 0),
+    return_extras_price: Number(booking.return_extras_price || 0),
+    return_total_price: Number(booking.return_total_price || 0),
     notes: booking.notes || null,
     origin_location_id: booking.origin_location_id || null,
     destination_location_id: booking.destination_location_id || null,
   };
 
   const formPayload = {
+    trip_type: booking.trip_type || 'one_way',
     route_id: booking.route_id || null,
     origin_location_id: booking.origin_location_id || null,
     destination_location_id: booking.destination_location_id || null,
@@ -17040,6 +17134,17 @@ async function assignTransportBookingPartnerFallback(client, booking, partnerId)
     pickup_address: booking.pickup_address || null,
     dropoff_address: booking.dropoff_address || null,
     flight_number: booking.flight_number || null,
+    return_route_id: booking.return_route_id || null,
+    return_origin_location_id: booking.return_origin_location_id || null,
+    return_destination_location_id: booking.return_destination_location_id || null,
+    return_travel_date: booking.return_travel_date || null,
+    return_travel_time: booking.return_travel_time || null,
+    return_pickup_address: booking.return_pickup_address || null,
+    return_dropoff_address: booking.return_dropoff_address || null,
+    return_flight_number: booking.return_flight_number || null,
+    return_base_price: Number(booking.return_base_price || 0),
+    return_extras_price: Number(booking.return_extras_price || 0),
+    return_total_price: Number(booking.return_total_price || 0),
     notes: booking.notes || null,
     customer_name: booking.customer_name || null,
     customer_email: booking.customer_email || null,
