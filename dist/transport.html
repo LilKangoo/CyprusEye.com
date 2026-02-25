@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="assets/css/tokens.css" />
   <link rel="stylesheet" href="assets/css/base.css" />
   <link rel="stylesheet" href="css/toast.css" />
-  <link rel="stylesheet" href="css/transport-booking.css?v=20260225_5" />
+  <link rel="stylesheet" href="css/transport-booking.css?v=20260225_6" />
   <meta name="ce-auth" content="on" />
   <script type="module" src="js/supabaseClient.js"></script>
   <script type="module" src="js/toast.js"></script>
@@ -133,6 +133,47 @@
               <div class="transport-field">
                 <label for="transportWaitingMinutes">Driver waiting (minutes)</label>
                 <input id="transportWaitingMinutes" type="number" min="0" step="1" value="0" />
+              </div>
+            </div>
+
+            <div id="transportReturnExtrasMode" class="transport-return-extras-mode" hidden>
+              <label class="transport-return-extras-toggle" for="transportReturnSameExtras">
+                <input id="transportReturnSameExtras" type="checkbox" checked />
+                <span class="transport-return-extras-toggle__text">
+                  <strong>Use the same passengers and extras for return trip</strong>
+                  <small>Uncheck if return trip should have different values (second transport setup inside the same booking).</small>
+                </span>
+              </label>
+            </div>
+
+            <div id="transportReturnExtrasSection" class="transport-return-extras" hidden>
+              <h3>Return passengers and extras</h3>
+              <p class="transport-section__hint">Use this only when return trip differs from outbound values.</p>
+              <div class="transport-field-grid">
+                <div class="transport-field">
+                  <label for="transportReturnPassengers">Return passengers *</label>
+                  <input id="transportReturnPassengers" type="number" min="1" step="1" value="2" />
+                </div>
+                <div class="transport-field">
+                  <label for="transportReturnBags">Return small backpacks</label>
+                  <input id="transportReturnBags" type="number" min="0" step="1" value="2" />
+                </div>
+                <div class="transport-field">
+                  <label for="transportReturnOversizeBags">Return large bags (15kg+)</label>
+                  <input id="transportReturnOversizeBags" type="number" min="0" step="1" value="0" />
+                </div>
+                <div class="transport-field">
+                  <label for="transportReturnChildSeats">Return child seats</label>
+                  <input id="transportReturnChildSeats" type="number" min="0" step="1" value="0" />
+                </div>
+                <div class="transport-field">
+                  <label for="transportReturnBoosterSeats">Return booster seats</label>
+                  <input id="transportReturnBoosterSeats" type="number" min="0" step="1" value="0" />
+                </div>
+                <div class="transport-field">
+                  <label for="transportReturnWaitingMinutes">Return driver waiting (minutes)</label>
+                  <input id="transportReturnWaitingMinutes" type="number" min="0" step="1" value="0" />
+                </div>
               </div>
             </div>
           </section>
@@ -269,6 +310,6 @@
     <button id="transportMiniOpenQuote" class="transport-mini-summary__btn" type="button">Full quote</button>
   </div>
 
-  <script type="module" src="js/transport-booking.js?v=20260225_9"></script>
+  <script type="module" src="js/transport-booking.js?v=20260225_10"></script>
 </body>
 </html>

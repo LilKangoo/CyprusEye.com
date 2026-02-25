@@ -607,6 +607,64 @@ function syncReturnContactFromOutbound(options = {}) {
   }
 }
 
+function isReturnUsingSameExtras() {
+  if (!(els.returnSameExtrasCheckbox instanceof HTMLInputElement)) return true;
+  return Boolean(els.returnSameExtrasCheckbox.checked);
+}
+
+function syncReturnExtrasFromOutbound(options = {}) {
+  const force = Boolean(options?.force);
+  const mappings = [
+    [els.passengersInput, els.returnPassengersInput, '1'],
+    [els.bagsInput, els.returnBagsInput, '0'],
+    [els.oversizeBagsInput, els.returnOversizeBagsInput, '0'],
+    [els.childSeatsInput, els.returnChildSeatsInput, '0'],
+    [els.boosterSeatsInput, els.returnBoosterSeatsInput, '0'],
+    [els.waitingMinutesInput, els.returnWaitingMinutesInput, '0'],
+  ];
+
+  mappings.forEach(([source, target, fallback]) => {
+    if (!(target instanceof HTMLInputElement)) return;
+    const sourceValue = String(source?.value || fallback).trim();
+    const targetValue = String(target.value || '').trim();
+    if (force || !targetValue) {
+      target.value = sourceValue || fallback;
+    }
+  });
+}
+
+function syncReturnExtrasVisibility(options = {}) {
+  const roundTrip = isRoundTripSelected();
+  if (els.returnExtrasMode) {
+    els.returnExtrasMode.hidden = !roundTrip;
+  }
+
+  if (!roundTrip) {
+    if (els.returnExtrasSection) {
+      els.returnExtrasSection.hidden = true;
+    }
+    if (els.returnSameExtrasCheckbox instanceof HTMLInputElement) {
+      els.returnSameExtrasCheckbox.checked = true;
+    }
+    syncReturnExtrasFromOutbound({ force: true });
+    return;
+  }
+
+  const switchedFromOneWay = Boolean(options?.switchedFromOneWay);
+  if (switchedFromOneWay && els.returnSameExtrasCheckbox instanceof HTMLInputElement) {
+    els.returnSameExtrasCheckbox.checked = true;
+  }
+
+  const sameExtras = isReturnUsingSameExtras();
+  if (els.returnExtrasSection) {
+    els.returnExtrasSection.hidden = sameExtras;
+  }
+
+  if (sameExtras) {
+    syncReturnExtrasFromOutbound({ force: Boolean(options?.force || switchedFromOneWay) });
+  }
+}
+
 function syncReturnLegVisibility(options = {}) {
   const roundTrip = isRoundTripSelected();
   if (els.returnLegSection) {
@@ -616,11 +674,17 @@ function syncReturnLegVisibility(options = {}) {
     els.returnContactSection.hidden = !roundTrip;
   }
 
+  const switchedFromOneWay = state.lastTripTypeSelection !== 'round_trip';
+
   if (roundTrip) {
-    const switchedFromOneWay = state.lastTripTypeSelection !== 'round_trip';
     autoPopulateReturnLeg({ force: Boolean(options?.force || switchedFromOneWay) });
     syncReturnContactFromOutbound({ force: Boolean(options?.force || switchedFromOneWay) });
   }
+
+  syncReturnExtrasVisibility({
+    force: Boolean(options?.force),
+    switchedFromOneWay,
+  });
 
   state.lastTripTypeSelection = roundTrip ? 'round_trip' : 'one_way';
 }
@@ -762,6 +826,20 @@ function getScenario(route, overrides = {}) {
     childSeats: toNonNegativeInt(overrides.childSeats ?? els.childSeatsInput?.value, 0),
     boosterSeats: toNonNegativeInt(overrides.boosterSeats ?? els.boosterSeatsInput?.value, 0),
     waitingMinutes: toNonNegativeInt(overrides.waitingMinutes ?? els.waitingMinutesInput?.value, 0),
+  };
+}
+
+function getReturnScenarioOverrides() {
+  if (!isRoundTripSelected()) return null;
+  if (isReturnUsingSameExtras()) return null;
+
+  return {
+    passengers: Math.max(1, toNonNegativeInt(els.returnPassengersInput?.value, toNonNegativeInt(els.passengersInput?.value, 2))),
+    bags: toNonNegativeInt(els.returnBagsInput?.value, toNonNegativeInt(els.bagsInput?.value, 2)),
+    oversizeBags: toNonNegativeInt(els.returnOversizeBagsInput?.value, toNonNegativeInt(els.oversizeBagsInput?.value, 0)),
+    childSeats: toNonNegativeInt(els.returnChildSeatsInput?.value, toNonNegativeInt(els.childSeatsInput?.value, 0)),
+    boosterSeats: toNonNegativeInt(els.returnBoosterSeatsInput?.value, toNonNegativeInt(els.boosterSeatsInput?.value, 0)),
+    waitingMinutes: toNonNegativeInt(els.returnWaitingMinutesInput?.value, toNonNegativeInt(els.waitingMinutesInput?.value, 0)),
   };
 }
 
@@ -1281,7 +1359,12 @@ function refreshQuote() {
         statusType = 'error';
       } else {
         const returnRule = getBestPricingRuleForRoute(returnRoute.id, returnDate);
-        const returnScenario = getScenario(returnRoute, { tripType: 'one_way', travelTime: returnTime });
+        const returnScenarioOverrides = getReturnScenarioOverrides();
+        const returnScenario = getScenario(returnRoute, {
+          tripType: 'one_way',
+          travelTime: returnTime,
+          ...(returnScenarioOverrides || {}),
+        });
         const returnQuote = calculateQuote(returnRoute, returnRule, returnScenario);
         const returnLeg = {
           key: 'return',
@@ -1447,6 +1530,40 @@ function buildBookingPayloadForLeg(leg) {
   };
 }
 
+function getScenarioSnapshotForBooking(scenario = {}) {
+  return {
+    passengers: Math.max(1, toNonNegativeInt(scenario?.passengers, 1)),
+    bags: toNonNegativeInt(scenario?.bags, 0),
+    oversizeBags: toNonNegativeInt(scenario?.oversizeBags, 0),
+    childSeats: toNonNegativeInt(scenario?.childSeats, 0),
+    boosterSeats: toNonNegativeInt(scenario?.boosterSeats, 0),
+    waitingMinutes: toNonNegativeInt(scenario?.waitingMinutes, 0),
+  };
+}
+
+function scenarioSnapshotKey(snapshot = {}) {
+  return [
+    Math.max(1, toNonNegativeInt(snapshot?.passengers, 1)),
+    toNonNegativeInt(snapshot?.bags, 0),
+    toNonNegativeInt(snapshot?.oversizeBags, 0),
+    toNonNegativeInt(snapshot?.childSeats, 0),
+    toNonNegativeInt(snapshot?.boosterSeats, 0),
+    toNonNegativeInt(snapshot?.waitingMinutes, 0),
+  ].join('|');
+}
+
+function buildReturnScenarioNotes(snapshot = {}) {
+  return [
+    '[Return trip passengers & extras]',
+    `Passengers: ${Math.max(1, toNonNegativeInt(snapshot?.passengers, 1))}`,
+    `Small backpacks: ${toNonNegativeInt(snapshot?.bags, 0)}`,
+    `Large bags (15kg+): ${toNonNegativeInt(snapshot?.oversizeBags, 0)}`,
+    `Child seats: ${toNonNegativeInt(snapshot?.childSeats, 0)}`,
+    `Booster seats: ${toNonNegativeInt(snapshot?.boosterSeats, 0)}`,
+    `Driver waiting (minutes): ${toNonNegativeInt(snapshot?.waitingMinutes, 0)}`,
+  ].join('\n');
+}
+
 function buildTransportBookingPayload(quote) {
   const legs = Array.isArray(quote?.legs) ? quote.legs.filter(Boolean) : [];
   if (!legs.length) return null;
@@ -1504,6 +1621,14 @@ function buildTransportBookingPayload(quote) {
     payload.return_base_price = round2(toNonNegativeNumber(returnQuote?.baseFare, 0));
     payload.return_extras_price = round2(toNonNegativeNumber(returnQuote?.extrasTotal, 0));
     payload.return_total_price = round2(toNonNegativeNumber(returnQuote?.total, 0));
+
+    const outboundScenarioSnapshot = getScenarioSnapshotForBooking(outboundLeg?.quote?.scenario || {});
+    const returnScenarioSnapshot = getScenarioSnapshotForBooking(returnQuote?.scenario || {});
+    if (scenarioSnapshotKey(outboundScenarioSnapshot) !== scenarioSnapshotKey(returnScenarioSnapshot)) {
+      const baseNotes = String(payload.notes || '').trim();
+      const returnNotes = buildReturnScenarioNotes(returnScenarioSnapshot);
+      payload.notes = baseNotes ? `${baseNotes}\n\n${returnNotes}` : returnNotes;
+    }
   }
 
   return payload;
@@ -1544,6 +1669,15 @@ function resetAfterSubmit() {
   if (els.childSeatsInput) els.childSeatsInput.value = '0';
   if (els.boosterSeatsInput) els.boosterSeatsInput.value = '0';
   if (els.waitingMinutesInput) els.waitingMinutesInput.value = '0';
+  if (els.returnPassengersInput) els.returnPassengersInput.value = '2';
+  if (els.returnBagsInput) els.returnBagsInput.value = '2';
+  if (els.returnOversizeBagsInput) els.returnOversizeBagsInput.value = '0';
+  if (els.returnChildSeatsInput) els.returnChildSeatsInput.value = '0';
+  if (els.returnBoosterSeatsInput) els.returnBoosterSeatsInput.value = '0';
+  if (els.returnWaitingMinutesInput) els.returnWaitingMinutesInput.value = '0';
+  if (els.returnSameExtrasCheckbox instanceof HTMLInputElement) {
+    els.returnSameExtrasCheckbox.checked = true;
+  }
   if (els.quoteReviewCheckbox instanceof HTMLInputElement) {
     els.quoteReviewCheckbox.checked = false;
   }
@@ -1691,10 +1825,19 @@ function bindInputs() {
     els.childSeatsInput,
     els.boosterSeatsInput,
     els.waitingMinutesInput,
+    els.returnPassengersInput,
+    els.returnBagsInput,
+    els.returnOversizeBagsInput,
+    els.returnChildSeatsInput,
+    els.returnBoosterSeatsInput,
+    els.returnWaitingMinutesInput,
   ].filter(Boolean);
 
   quoteInputs.forEach((input) => {
     const onQuoteInputChange = () => {
+      if (isRoundTripSelected() && isReturnUsingSameExtras()) {
+        syncReturnExtrasFromOutbound({ force: true });
+      }
       resetQuoteReviewConfirmation();
       refreshQuote();
     };
@@ -1742,6 +1885,14 @@ function bindInputs() {
     els.dropoffAddressInput?.addEventListener('input', syncReturnContact);
     els.pickupAddressInput?.addEventListener('change', syncReturnContact);
     els.dropoffAddressInput?.addEventListener('change', syncReturnContact);
+  }
+
+  if (els.returnSameExtrasCheckbox instanceof HTMLInputElement) {
+    els.returnSameExtrasCheckbox.addEventListener('change', () => {
+      syncReturnExtrasVisibility({ force: true, switchedFromOneWay: false });
+      resetQuoteReviewConfirmation();
+      refreshQuote();
+    });
   }
 
   if (els.policyCheckbox) {
@@ -1792,6 +1943,15 @@ function initElements() {
   els.childSeatsInput = byId('transportChildSeats');
   els.boosterSeatsInput = byId('transportBoosterSeats');
   els.waitingMinutesInput = byId('transportWaitingMinutes');
+  els.returnExtrasMode = byId('transportReturnExtrasMode');
+  els.returnSameExtrasCheckbox = byId('transportReturnSameExtras');
+  els.returnExtrasSection = byId('transportReturnExtrasSection');
+  els.returnPassengersInput = byId('transportReturnPassengers');
+  els.returnBagsInput = byId('transportReturnBags');
+  els.returnOversizeBagsInput = byId('transportReturnOversizeBags');
+  els.returnChildSeatsInput = byId('transportReturnChildSeats');
+  els.returnBoosterSeatsInput = byId('transportReturnBoosterSeats');
+  els.returnWaitingMinutesInput = byId('transportReturnWaitingMinutes');
   els.customerNameInput = byId('transportCustomerName');
   els.customerEmailInput = byId('transportCustomerEmail');
   els.customerPhoneInput = byId('transportCustomerPhone');

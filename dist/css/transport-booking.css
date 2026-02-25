@@ -202,6 +202,59 @@ body.transport-booking-page {
   font-family: 'Space Grotesk', 'Manrope', sans-serif;
 }
 
+.transport-return-extras-mode {
+  margin-top: 12px;
+  border: 1px solid rgba(15, 109, 255, 0.22);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(15, 109, 255, 0.08), rgba(15, 109, 255, 0.02));
+  padding: 10px 12px;
+}
+
+.transport-return-extras-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  color: #24466c;
+  cursor: pointer;
+}
+
+.transport-return-extras-toggle input {
+  margin-top: 2px;
+}
+
+.transport-return-extras-toggle__text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.transport-return-extras-toggle__text strong {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0d2f56;
+}
+
+.transport-return-extras-toggle__text small {
+  font-size: 12px;
+  color: #3b5f85;
+  line-height: 1.4;
+}
+
+.transport-return-extras {
+  margin-top: 12px;
+  border: 1px solid rgba(29, 180, 165, 0.32);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(29, 180, 165, 0.11), rgba(29, 180, 165, 0.04));
+  padding: 12px;
+}
+
+.transport-return-extras h3 {
+  margin: 0;
+  font-size: 13px;
+  font-family: 'Space Grotesk', 'Manrope', sans-serif;
+}
+
 .transport-detail-card {
   margin-top: 12px;
   border: 1px solid rgba(15, 109, 255, 0.2);
