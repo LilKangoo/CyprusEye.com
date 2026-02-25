@@ -551,7 +551,7 @@ function setupSettingsListeners() {
         showToast('Password updated successfully', 'success');
         closeAllModals();
       } catch (err) {
-        errEl.textContent = err.message;
+        errEl.textContent = normalizeDashboardInlineError(err, 'Failed to update password.');
         errEl.hidden = false;
       } finally {
         pwdBtn.disabled = false;
@@ -580,7 +580,7 @@ function setupSettingsListeners() {
         showToast('Confirmation link sent to ' + newEmail, 'success');
         closeAllModals();
       } catch (err) {
-        errEl.textContent = err.message;
+        errEl.textContent = normalizeDashboardInlineError(err, 'Failed to update email.');
         errEl.hidden = false;
       } finally {
         emailBtn.disabled = false;
@@ -1353,6 +1353,18 @@ function showToast(message, type = 'info') {
     return;
   }
   alert(normalized);
+}
+
+function normalizeDashboardInlineError(message, fallback = 'An unexpected error occurred.') {
+  const raw = (typeof message === 'string' ? message : String(message?.message || message || '')).trim();
+  if (!raw) return fallback;
+  const authUtils = (typeof window !== 'undefined' && window.CE_AUTH_UTILS && typeof window.CE_AUTH_UTILS.toUserMessage === 'function')
+    ? window.CE_AUTH_UTILS
+    : null;
+  if (authUtils && typeof authUtils.toUserMessage === 'function') {
+    return authUtils.toUserMessage(raw, 'Session expired. Please sign in again.');
+  }
+  return raw;
 }
 
 function resolvePoiName(poi) {

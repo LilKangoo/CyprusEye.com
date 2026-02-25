@@ -16,6 +16,18 @@ function ceLog(...args) {
 const HOME_TRIPS_CACHE_KEY = 'ce_cache_home_trips_v1';
 const HOME_TRIPS_CACHE_TTL_MS = 10 * 60 * 1000;
 
+function normalizeHomeTripsErrorMessage(message, fallback = 'Wystąpił błąd.') {
+  const raw = (typeof message === 'string' ? message : String(message?.message || message || '')).trim();
+  if (!raw) return fallback;
+  const authUtils = (typeof window !== 'undefined' && window.CE_AUTH_UTILS && typeof window.CE_AUTH_UTILS.toUserMessage === 'function')
+    ? window.CE_AUTH_UTILS
+    : null;
+  if (authUtils && typeof authUtils.toUserMessage === 'function') {
+    return authUtils.toUserMessage(raw, 'Session expired. Please sign in again.');
+  }
+  return raw;
+}
+
 function readHomeTripsCache() {
   try {
     const raw = localStorage.getItem(HOME_TRIPS_CACHE_KEY);
@@ -744,12 +756,13 @@ function initHomeTripsModalHandlers() {
       
     }catch(err){
       console.error('❌ Booking error:', err);
+      const uiMessage = normalizeHomeTripsErrorMessage(err, 'Wystąpił błąd podczas rezerwacji. Spróbuj ponownie.');
       // Show error popup
       if (typeof showErrorPopup === 'function') {
-        showErrorPopup('❌ Błąd rezerwacji', err.message || 'Wystąpił błąd podczas rezerwacji. Spróbuj ponownie.');
+        showErrorPopup('❌ Błąd rezerwacji', uiMessage);
       } else {
         // Fallback to old message
-        if (msg){ msg.textContent= err.message || 'Wystąpił błąd podczas rezerwacji. Spróbuj ponownie.'; msg.className='booking-message error'; msg.style.display='block'; }
+        if (msg){ msg.textContent = uiMessage; msg.className='booking-message error'; msg.style.display='block'; }
       }
     }finally{
       if (btn){ btn.disabled=false; btn.textContent='Zarezerwuj'; }

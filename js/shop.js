@@ -918,12 +918,12 @@ async function initSupabase() {
     }
   }
 
-  // Fallback: create client directly
-  const SUPABASE_URL = window.SUPABASE_URL || 'https://daoohnbnnowmmcizgvrq.supabase.co';
-  const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bW1jaXpndnJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzE4NzYwMDAsImV4cCI6MjA0NzQ1MjAwMH0.mJok0sNdbpNPwVSXNTmLdphWkJfqZJLwwgVyLESkQsk';
-  
-  if (window.supabaseJs?.createClient) {
-    supabase = window.supabaseJs.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  // Retry with shared Supabase module to keep one auth/session pipeline.
+  try {
+    const mod = await import('/js/supabaseClient.js');
+    supabase = mod?.supabase || mod?.sb || window.supabase || null;
+  } catch (_error) {
+    supabase = window.supabase || null;
   }
 }
 

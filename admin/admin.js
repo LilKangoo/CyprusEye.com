@@ -2201,7 +2201,7 @@ async function loadPartnersData() {
   } catch (error) {
     console.error('Failed to load partners:', error);
     const tbodyErr = document.getElementById('partnersTableBody');
-    if (tbodyErr) tbodyErr.innerHTML = `<tr><td colspan="9" style="text-align:center; color:#ef4444; padding: 24px;">Error: ${escapeHtml(error.message || 'Failed to load')}</td></tr>`;
+    if (tbodyErr) tbodyErr.innerHTML = `<tr><td colspan="9" style="text-align:center; color:#ef4444; padding: 24px;">Error: ${escapeHtml(adminErrorDetails(error, 'Failed to load'))}</td></tr>`;
   }
 }
 
@@ -5611,7 +5611,7 @@ async function loadPartnerUsers(partnerId) {
       }).join('');
     }
   } catch (error) {
-    if (tbody) tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding: 24px; color:#ef4444;">${escapeHtml(error.message || 'Failed to load')}</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding: 24px; color:#ef4444;">${escapeHtml(adminErrorDetails(error, 'Failed to load'))}</td></tr>`;
   }
 }
 
@@ -5782,7 +5782,7 @@ async function renderUserPartnerAccess(userId) {
       ${listHtml}
     `;
   } catch (error) {
-    body.innerHTML = `<p class="user-detail-hint" style="color:#ef4444;">${escapeHtml(error.message || 'Failed to load')}</p>`;
+    body.innerHTML = `<p class="user-detail-hint" style="color:#ef4444;">${escapeHtml(adminErrorDetails(error, 'Failed to load'))}</p>`;
   }
 }
 
@@ -6907,7 +6907,7 @@ async function loadAdminCalendarsData() {
   } catch (error) {
     console.error('Failed to load calendars:', error);
     const tbodyErr = document.getElementById('calendarsTableBody');
-    if (tbodyErr) tbodyErr.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#ef4444; padding: 24px;">Error: ${escapeHtml(error.message || 'Failed to load')}</td></tr>`;
+    if (tbodyErr) tbodyErr.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#ef4444; padding: 24px;">Error: ${escapeHtml(adminErrorDetails(error, 'Failed to load'))}</td></tr>`;
   }
 }
 
@@ -7130,7 +7130,7 @@ async function loadTripBookingsData() {
       tableBody.innerHTML = `
         <tr>
           <td colspan="6" class="table-loading" style="color: var(--admin-danger);">
-            ❌ Error loading data: ${escapeHtml(error.message || 'Unknown error')}
+            ❌ Error loading data: ${escapeHtml(adminErrorDetails(error, 'Unknown error'))}
             <br><small style="margin-top: 8px; display: block;">
               Make sure the trip_bookings table exists in Supabase. 
               Run the migration: supabase/migrations/015_trip_bookings_table.sql
@@ -9701,7 +9701,7 @@ async function loadHotelBookingsData() {
       tableBody.innerHTML = `
         <tr>
           <td colspan="6" class="table-loading" style="color: var(--admin-danger);">
-            ❌ Error loading data: ${escapeHtml(error.message || 'Unknown error')}
+            ❌ Error loading data: ${escapeHtml(adminErrorDetails(error, 'Unknown error'))}
             <br><small style="margin-top: 8px; display: block;">
               Make sure the hotel tables exist in Supabase.
             </small>
@@ -18274,6 +18274,13 @@ function normalizeAdminUiMessage(message, type = 'info') {
   return raw;
 }
 
+function adminErrorDetails(error, fallback = 'Unknown error') {
+  const normalized = normalizeAdminUiMessage(error, 'error');
+  if (normalized) return normalized;
+  const fb = String(fallback || '').trim();
+  return fb || 'Unknown error';
+}
+
 function showToast(message, type = 'info') {
   const normalizedType = type || 'info';
   const normalizedMessage = normalizeAdminUiMessage(message, normalizedType);
@@ -22062,7 +22069,7 @@ async function loadCarsData(options = {}) {
       tableBody.innerHTML = `
         <tr>
           <td colspan="7" class="table-loading" style="color: var(--admin-danger);">
-            ❌ Error loading data: ${escapeHtml(error.message || 'Unknown error')}
+            ❌ Error loading data: ${escapeHtml(adminErrorDetails(error, 'Unknown error'))}
             <br><small style="margin-top: 8px; display: block;">
               Make sure the car_bookings table exists in Supabase. 
               Run the migration: supabase/migrations/001_car_rentals_system.sql
@@ -26142,7 +26149,7 @@ function initEventListeners() {
         // Success - checkAdminAccess will handle showing the panel
       } catch (error) {
         // Show error
-        errorDiv.textContent = error.message || 'Login failed';
+        errorDiv.textContent = adminErrorDetails(error, 'Login failed');
         showElement(errorDiv);
       } finally {
         // Re-enable form
@@ -28279,7 +28286,7 @@ async function handlePoiFormSubmit(event) {
   } catch (error) {
     console.error('Failed to save POI:', error);
     if (errorEl) {
-      errorEl.textContent = error.message || 'Failed to save POI';
+      errorEl.textContent = adminErrorDetails(error, 'Failed to save POI');
       showElement(errorEl);
     }
     showToast('Failed to save POI: ' + (error.message || 'Unknown error'), 'error');
@@ -28422,7 +28429,7 @@ async function loadContentData() {
         <tr>
           <td colspan="6" style="padding: 40px; text-align: center;">
             <div style="color: var(--admin-danger); margin-bottom: 16px; font-size: 18px;">❌ Error Loading Content</div>
-            <div style="color: var(--admin-text-muted); margin-bottom: 16px;">${escapeHtml(error.message)}</div>
+            <div style="color: var(--admin-text-muted); margin-bottom: 16px;">${escapeHtml(adminErrorDetails(error, 'Failed to load content'))}</div>
             <div style="background: rgba(239, 68, 68, 0.1); padding: 16px; border-radius: 8px; text-align: left; max-width: 600px; margin: 0 auto;">
               <p style="margin: 0 0 8px; font-weight: 600;">Possible solutions:</p>
               <ol style="margin: 0; padding-left: 20px; color: var(--admin-text);">
@@ -28500,7 +28507,7 @@ async function loadContentStats() {
     if (statsEl) {
       statsEl.innerHTML = `
         <div class="admin-error-message" style="grid-column: 1 / -1;">
-          ⚠️ Statistics unavailable: ${escapeHtml(error.message)}
+          ⚠️ Statistics unavailable: ${escapeHtml(adminErrorDetails(error, 'Statistics unavailable'))}
         </div>
       `;
     }
@@ -28846,7 +28853,7 @@ async function handleCommentEditSubmit(event) {
   } catch (error) {
     console.error('Failed to update comment:', error);
     if (errorEl) {
-      errorEl.textContent = error.message || 'Failed to update comment';
+      errorEl.textContent = adminErrorDetails(error, 'Failed to update comment');
       showElement(errorEl);
     }
     showToast('Failed to update comment', 'error');
@@ -29511,7 +29518,7 @@ async function loadModerationData() {
         <tr>
           <td colspan="7" style="padding: 32px; text-align: center;">
             <div style="color: var(--admin-danger); margin-bottom: 12px;">❌ Error Loading Reports</div>
-            <div style="color: var(--admin-text-muted);">${escapeHtml(error.message)}</div>
+            <div style="color: var(--admin-text-muted);">${escapeHtml(adminErrorDetails(error, 'Failed to load moderation data'))}</div>
             <div style="margin-top: 16px;">
               <small>Make sure reported_content table exists in Supabase</small>
             </div>
@@ -30125,7 +30132,7 @@ async function loadAllOrders(opts = {}) {
       tableBody.innerHTML = `
         <tr>
           <td colspan="8" class="table-loading" style="color: var(--admin-danger);">
-            ❌ Error loading orders: ${escapeHtml(error.message || 'Unknown error')}
+            ❌ Error loading orders: ${escapeHtml(adminErrorDetails(error, 'Unknown error'))}
           </td>
         </tr>
       `;
@@ -31485,7 +31492,7 @@ async function loadXpRules() {
     console.error('Failed to load XP rules:', error);
     const tbody = document.getElementById('xpRulesTableBody');
     if (tbody) {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #ef4444;">Failed to load rules: ${error.message}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #ef4444;">Failed to load rules: ${escapeHtml(adminErrorDetails(error, 'Failed to load rules'))}</td></tr>`;
     }
   }
 }
@@ -31946,7 +31953,7 @@ async function searchXpUsers() {
     
   } catch (error) {
     console.error('Failed to search users:', error);
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #ef4444;">Error: ${error.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #ef4444;">Error: ${escapeHtml(adminErrorDetails(error, 'Failed to search users'))}</td></tr>`;
   }
 }
 
@@ -32111,7 +32118,7 @@ async function loadXpHistory(append = false) {
     
   } catch (error) {
     console.error('Failed to load XP history:', error);
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #ef4444;">Error: ${error.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #ef4444;">Error: ${escapeHtml(adminErrorDetails(error, 'Failed to load XP history'))}</td></tr>`;
   }
 }
 
@@ -32392,7 +32399,7 @@ async function loadShopOrders() {
 
   } catch (error) {
     console.error('Failed to load orders:', error);
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #ef4444;">Error: ${error.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #ef4444;">Error: ${escapeHtml(adminErrorDetails(error, 'Failed to load orders'))}</td></tr>`;
   }
 }
 
@@ -32449,7 +32456,7 @@ async function loadShopProducts() {
 
   } catch (error) {
     console.error('Failed to load products:', error);
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #ef4444;">Error: ${error.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #ef4444;">Error: ${escapeHtml(adminErrorDetails(error, 'Failed to load products'))}</td></tr>`;
   }
 }
 
@@ -32474,7 +32481,7 @@ async function loadShopCategories() {
 
   } catch (error) {
     console.error('Failed to load categories:', error);
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #ef4444;">Błąd: ${error.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #ef4444;">Błąd: ${escapeHtml(adminErrorDetails(error, 'Failed to load categories'))}</td></tr>`;
   }
 }
 
@@ -32566,7 +32573,7 @@ async function loadShopVendors() {
 
   } catch (error) {
     console.error('Failed to load vendors:', error);
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #ef4444;">Błąd: ${error.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #ef4444;">Błąd: ${escapeHtml(adminErrorDetails(error, 'Failed to load vendors'))}</td></tr>`;
   }
 }
 
@@ -32651,7 +32658,7 @@ async function loadShopDiscounts() {
 
   } catch (error) {
     console.error('Failed to load discounts:', error);
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #ef4444;">Błąd: ${error.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #ef4444;">Błąd: ${escapeHtml(adminErrorDetails(error, 'Failed to load discounts'))}</td></tr>`;
   }
 }
 
@@ -32838,7 +32845,7 @@ async function loadShopShipping() {
 
   } catch (error) {
     console.error('Failed to load shipping:', error);
-    container.innerHTML = `<p style="text-align: center; color: #ef4444;">Error: ${error.message}</p>`;
+    container.innerHTML = `<p style="text-align: center; color: #ef4444;">Error: ${escapeHtml(adminErrorDetails(error, 'Failed to load shipping'))}</p>`;
   }
 }
 
@@ -32944,7 +32951,7 @@ async function saveShippingZone() {
     await loadShopShipping();
   } catch (error) {
     console.error('Failed to save zone:', error);
-    errorEl.textContent = error.message;
+    errorEl.textContent = adminErrorDetails(error, 'Failed to save zone');
     errorEl.hidden = false;
   }
 }
@@ -33008,7 +33015,7 @@ async function loadShippingClasses() {
     `).join('');
   } catch (error) {
     console.error('Failed to load shipping classes:', error);
-    tbody.innerHTML = `<tr><td colspan="6" style="color: #ef4444;">Error: ${error.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="color: #ef4444;">Error: ${escapeHtml(adminErrorDetails(error, 'Failed to load shipping classes'))}</td></tr>`;
   }
 }
 
@@ -33075,7 +33082,7 @@ async function saveShippingClass() {
     document.getElementById('shopShippingClassModal').hidden = true;
     await loadShippingClasses();
   } catch (error) {
-    errorEl.textContent = error.message;
+    errorEl.textContent = adminErrorDetails(error, 'Failed to save shipping class');
     errorEl.hidden = false;
   }
 }
@@ -33123,7 +33130,7 @@ async function loadTaxClasses() {
     `).join('');
   } catch (error) {
     console.error('Failed to load tax classes:', error);
-    tbody.innerHTML = `<tr><td colspan="5" style="color: #ef4444;">Error: ${error.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" style="color: #ef4444;">Error: ${escapeHtml(adminErrorDetails(error, 'Failed to load tax classes'))}</td></tr>`;
   }
 }
 
@@ -33197,7 +33204,7 @@ async function saveTaxClass() {
     document.getElementById('shopTaxClassModal').hidden = true;
     await loadTaxClasses();
   } catch (error) {
-    errorEl.textContent = error.message;
+    errorEl.textContent = adminErrorDetails(error, 'Failed to save tax class');
     errorEl.hidden = false;
   }
 }
@@ -33359,7 +33366,7 @@ async function loadCustomerGroups() {
     `).join('');
   } catch (error) {
     console.error('Failed to load customer groups:', error);
-    tbody.innerHTML = `<tr><td colspan="6" style="color: #ef4444;">Error: ${error.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="color: #ef4444;">Error: ${escapeHtml(adminErrorDetails(error, 'Failed to load customer groups'))}</td></tr>`;
   }
 }
 
@@ -33427,7 +33434,7 @@ async function saveCustomerGroup() {
     document.getElementById('shopCustomerGroupModal').hidden = true;
     await loadCustomerGroups();
   } catch (error) {
-    errorEl.textContent = error.message;
+    errorEl.textContent = adminErrorDetails(error, 'Failed to save customer group');
     errorEl.hidden = false;
   }
 }
@@ -33476,7 +33483,7 @@ async function loadAttributes() {
     `).join('');
   } catch (error) {
     console.error('Failed to load attributes:', error);
-    tbody.innerHTML = `<tr><td colspan="6" style="color: #ef4444;">Error: ${error.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="color: #ef4444;">Error: ${escapeHtml(adminErrorDetails(error, 'Failed to load attributes'))}</td></tr>`;
   }
 }
 
@@ -33561,7 +33568,7 @@ async function saveAttribute() {
     document.getElementById('shopAttributeModal').hidden = true;
     await loadAttributes();
   } catch (error) {
-    errorEl.textContent = error.message;
+    errorEl.textContent = adminErrorDetails(error, 'Failed to save attribute');
     errorEl.hidden = false;
   }
 }
@@ -33789,7 +33796,7 @@ async function saveShippingMethod() {
 
   } catch (error) {
     console.error('Failed to save shipping method:', error);
-    errorEl.textContent = error.message;
+    errorEl.textContent = adminErrorDetails(error, 'Failed to save shipping method');
     errorEl.hidden = false;
   }
 }
@@ -34979,7 +34986,7 @@ async function saveProduct() {
 
   } catch (error) {
     console.error('Failed to save product:', error);
-    errorEl.textContent = error.message;
+    errorEl.textContent = adminErrorDetails(error, 'Failed to save product');
     errorEl.hidden = false;
   }
 }
@@ -35198,7 +35205,7 @@ async function saveCategory() {
 
   } catch (error) {
     console.error('Failed to save category:', error);
-    errorEl.textContent = error.message;
+    errorEl.textContent = adminErrorDetails(error, 'Failed to save category');
     errorEl.hidden = false;
   }
 }
@@ -35459,7 +35466,7 @@ async function saveVendor() {
 
   } catch (error) {
     console.error('Failed to save vendor:', error);
-    errorEl.textContent = error.message;
+    errorEl.textContent = adminErrorDetails(error, 'Failed to save vendor');
     errorEl.hidden = false;
   }
 }
@@ -35616,7 +35623,7 @@ async function saveDiscount() {
 
   } catch (error) {
     console.error('Failed to save discount:', error);
-    errorEl.textContent = error.message;
+    errorEl.textContent = adminErrorDetails(error, 'Failed to save discount');
     errorEl.hidden = false;
   }
 }
@@ -35927,7 +35934,7 @@ async function viewShopOrder(orderId) {
 
   } catch (error) {
     console.error('Failed to load order:', error);
-    content.innerHTML = `<p style="color: #ef4444; text-align: center;">Błąd: ${error.message}</p>`;
+    content.innerHTML = `<p style="color: #ef4444; text-align: center;">Błąd: ${escapeHtml(adminErrorDetails(error, 'Failed to load order'))}</p>`;
   }
 }
 

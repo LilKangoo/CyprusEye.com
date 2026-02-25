@@ -7,6 +7,28 @@ let lastFocusedEl = null;
 function qs(sel, root=document) { return root.querySelector(sel); }
 function qsa(sel, root=document) { return Array.from(root.querySelectorAll(sel)); }
 
+function normalizeAuthUiError(message, fallback = 'Wystąpił błąd.') {
+  const raw = (typeof message === 'string' ? message : String(message?.message || message || '')).trim();
+  if (!raw) return fallback;
+  const authUtils = (typeof window !== 'undefined' && window.CE_AUTH_UTILS && typeof window.CE_AUTH_UTILS.toUserMessage === 'function')
+    ? window.CE_AUTH_UTILS
+    : null;
+  if (authUtils && typeof authUtils.toUserMessage === 'function') {
+    return authUtils.toUserMessage(raw, 'Session expired. Please sign in again.');
+  }
+  return raw;
+}
+
+function escapeInlineHtml(value) {
+  const raw = String(value || '');
+  return raw
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function lockScroll(lock){
   document.body.classList.toggle('modal-open', !!lock);
   document.body.style.overflow = lock ? 'hidden' : '';
@@ -59,7 +81,8 @@ export async function openDetailModal(opts){
   }catch(err){
     console.error(err);
     const body = qs('#detailModalBody');
-    body.innerHTML = `<div style="padding:1rem;color:#dc2626;">${err.message||'Nie udało się wczytać danych.'}</div>`;
+    const msg = normalizeAuthUiError(err, 'Nie udało się wczytać danych.');
+    body.innerHTML = `<div style="padding:1rem;color:#dc2626;">${escapeInlineHtml(msg)}</div>`;
   }
 }
 
@@ -350,7 +373,7 @@ function renderDetail(type, vm){
       console.error(err);
       const msg = qs('#detailBookingMsg');
       msg.className = 'booking-message error';
-      msg.textContent = err.message || 'Błąd podczas rezerwacji.';
+      msg.textContent = normalizeAuthUiError(err, 'Błąd podczas rezerwacji.');
       msg.style.display = 'block';
     }finally{
       const btn = form.querySelector('.booking-submit');

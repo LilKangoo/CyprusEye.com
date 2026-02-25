@@ -10,8 +10,10 @@ describe('auth meta configuration', () => {
   });
 
   it('loads Supabase client script before auth scripts', () => {
-    const supabaseClientIndex = html.indexOf('<script type="module" src="/js/supabaseClient.js"');
-    const authScriptIndex = html.indexOf('<script type="module" src="/js/auth.js"');
+    const supabaseMatch = html.match(/<script\s+type="module"\s+src="\/js\/supabaseClient\.js(?:\?[^"]*)?"/i);
+    const authMatch = html.match(/<script\s+type="module"\s+src="\/js\/auth\.js(?:\?[^"]*)?"/i);
+    const supabaseClientIndex = supabaseMatch ? html.indexOf(supabaseMatch[0]) : -1;
+    const authScriptIndex = authMatch ? html.indexOf(authMatch[0]) : -1;
     expect(supabaseClientIndex).toBeGreaterThan(-1);
     expect(authScriptIndex).toBeGreaterThan(-1);
     expect(supabaseClientIndex).toBeLessThan(authScriptIndex);
