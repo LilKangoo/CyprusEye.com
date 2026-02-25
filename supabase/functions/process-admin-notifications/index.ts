@@ -187,17 +187,6 @@ serve(async (req) => {
     return new Response("Method not allowed", { status: 405, headers: corsHeaders });
   }
 
-  const requiredWorkerSecret = (Deno.env.get("ADMIN_NOTIFY_WORKER_SECRET") || "").trim();
-  if (requiredWorkerSecret) {
-    const provided = (req.headers.get("x-admin-notify-worker-secret") || new URL(req.url).searchParams.get("secret") || "").trim();
-    if (!provided || provided !== requiredWorkerSecret) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-  }
-
   const limitParam = new URL(req.url).searchParams.get("limit");
   const limit = Math.max(1, Math.min(50, Number(limitParam || "10") || 10));
 
@@ -216,6 +205,20 @@ serve(async (req) => {
   }
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const providedWorkerSecret = (req.headers.get("x-admin-notify-worker-secret") || new URL(req.url).searchParams.get("secret") || "").trim();
+  const requiredWorkerSecretEnv = (Deno.env.get("ADMIN_NOTIFY_WORKER_SECRET") || "").trim();
+  const dbWorkerSecret = await getAdminNotifySecret(supabase);
+  const acceptedWorkerSecrets = Array.from(new Set([requiredWorkerSecretEnv, dbWorkerSecret].filter(Boolean)));
+  if (acceptedWorkerSecrets.length > 0) {
+    const authorized = Boolean(providedWorkerSecret) && acceptedWorkerSecrets.includes(providedWorkerSecret);
+    if (!authorized) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  }
+
   const base = getFunctionsBaseUrl();
   if (!base) {
     return new Response(JSON.stringify({ ok: false, error: "Unable to determine functions base URL" }), {
@@ -224,7 +227,7 @@ serve(async (req) => {
     });
   }
 
-  const dbSecret = await getAdminNotifySecret(supabase);
+  const dbSecret = dbWorkerSecret;
   const secret = (dbSecret || (Deno.env.get("ADMIN_NOTIFY_SECRET") || "")).trim();
 
   const { data: jobs, error: claimError } = await supabase.rpc("claim_admin_notification_jobs", {

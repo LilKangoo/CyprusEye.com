@@ -24,26 +24,15 @@ jobs:
             exit 1
           fi
 
-          if [ -z "${SUPABASE_ANON_KEY:-}" ]; then
-            echo "Missing secret SUPABASE_ANON_KEY"
-            exit 1
-          fi
-
           URL="${SUPABASE_FUNCTIONS_BASE_URL%/}/process-admin-notifications?limit=25"
+          CURL_HEADERS=(-H "Content-Type: application/json")
+          if [ -n "${SUPABASE_ANON_KEY:-}" ]; then
+            CURL_HEADERS+=(-H "Authorization: Bearer ${SUPABASE_ANON_KEY}")
+            CURL_HEADERS+=(-H "apikey: ${SUPABASE_ANON_KEY}")
+          fi
+          if [ -n "${ADMIN_NOTIFY_WORKER_SECRET:-}" ]; then
+            CURL_HEADERS+=(-H "x-admin-notify-worker-secret: ${ADMIN_NOTIFY_WORKER_SECRET}")
+          fi
 
           echo "Calling: $URL"
-
-          if [ -n "${ADMIN_NOTIFY_WORKER_SECRET:-}" ]; then
-            curl -sS --fail-with-body -X POST "$URL" \
-              -H "Content-Type: application/json" \
-              -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
-              -H "apikey: ${SUPABASE_ANON_KEY}" \
-              -H "x-admin-notify-worker-secret: ${ADMIN_NOTIFY_WORKER_SECRET}" \
-              -d "{}"
-          else
-            curl -sS --fail-with-body -X POST "$URL" \
-              -H "Content-Type: application/json" \
-              -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
-              -H "apikey: ${SUPABASE_ANON_KEY}" \
-              -d "{}"
-          fi
+          curl -sS --fail-with-body -X POST "$URL" "${CURL_HEADERS[@]}" -d "{}"
