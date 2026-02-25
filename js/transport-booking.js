@@ -247,6 +247,31 @@ function getLegContactValues(legKey = 'outbound') {
   };
 }
 
+function getLegContactGuidance(requirements, legLabel = 'Outbound') {
+  const label = String(legLabel || '').trim() || 'Trip';
+  if (!requirements || typeof requirements !== 'object') {
+    return `${label}: add exact pickup/drop-off details to avoid delays.`;
+  }
+
+  if (!requirements.airportSelected) {
+    return `${label}: no airport selected. Add both pickup and drop-off address. Flight number is optional.`;
+  }
+
+  if (requirements.originAirport && requirements.destinationAirport) {
+    return `${label}: airport to airport. Flight number and both addresses are required.`;
+  }
+
+  if (requirements.originAirport) {
+    return `${label}: pickup is airport. Flight number and drop-off address are required.`;
+  }
+
+  if (requirements.destinationAirport) {
+    return `${label}: destination is airport. Flight number and pickup address are required.`;
+  }
+
+  return `${label}: add exact pickup/drop-off details to avoid delays.`;
+}
+
 function setFieldRequirement(fieldId, labelText, required) {
   const field = byId(fieldId);
   if (field && typeof field.required === 'boolean') {
@@ -260,21 +285,30 @@ function setFieldRequirement(fieldId, labelText, required) {
 
 function syncTransportContactRequirements() {
   const outboundRequirements = getLegContactRequirements('outbound');
-  setFieldRequirement('transportFlightNumber', 'Flight number', outboundRequirements.flightNumberRequired);
-  setFieldRequirement('transportPickupAddress', 'Pickup address', outboundRequirements.pickupAddressRequired);
-  setFieldRequirement('transportDropoffAddress', 'Dropoff address', outboundRequirements.dropoffAddressRequired);
+  setFieldRequirement('transportFlightNumber', 'Outbound flight number', outboundRequirements.flightNumberRequired);
+  setFieldRequirement('transportPickupAddress', 'Outbound pickup address', outboundRequirements.pickupAddressRequired);
+  setFieldRequirement('transportDropoffAddress', 'Outbound drop-off address', outboundRequirements.dropoffAddressRequired);
+  if (els.outboundContactHint) {
+    els.outboundContactHint.textContent = getLegContactGuidance(outboundRequirements, 'Outbound');
+  }
 
   if (isRoundTripSelected()) {
     const returnRequirements = getLegContactRequirements('return');
     setFieldRequirement('transportReturnFlightNumber', 'Return flight number', returnRequirements.flightNumberRequired);
     setFieldRequirement('transportReturnPickupAddress', 'Return pickup address', returnRequirements.pickupAddressRequired);
-    setFieldRequirement('transportReturnDropoffAddress', 'Return dropoff address', returnRequirements.dropoffAddressRequired);
+    setFieldRequirement('transportReturnDropoffAddress', 'Return drop-off address', returnRequirements.dropoffAddressRequired);
+    if (els.returnContactHint) {
+      els.returnContactHint.textContent = getLegContactGuidance(returnRequirements, 'Return');
+    }
     return;
   }
 
   setFieldRequirement('transportReturnFlightNumber', 'Return flight number', false);
   setFieldRequirement('transportReturnPickupAddress', 'Return pickup address', false);
-  setFieldRequirement('transportReturnDropoffAddress', 'Return dropoff address', false);
+  setFieldRequirement('transportReturnDropoffAddress', 'Return drop-off address', false);
+  if (els.returnContactHint) {
+    els.returnContactHint.textContent = 'Return details are shown only when trip type is set to Round trip.';
+  }
 }
 
 function isMissingColumn(error, columnName) {
@@ -550,15 +584,42 @@ function autoPopulateReturnLeg(options = {}) {
   syncReturnDateConstraints();
 }
 
+function syncReturnContactFromOutbound(options = {}) {
+  if (!isRoundTripSelected()) return;
+  const force = Boolean(options?.force);
+  const outboundPickup = String(els.pickupAddressInput?.value || '').trim();
+  const outboundDropoff = String(els.dropoffAddressInput?.value || '').trim();
+  const returnPickupCurrent = String(els.returnPickupAddressInput?.value || '').trim();
+  const returnDropoffCurrent = String(els.returnDropoffAddressInput?.value || '').trim();
+
+  if (els.returnPickupAddressInput instanceof HTMLInputElement) {
+    const shouldSetReturnPickup = force || !returnPickupCurrent;
+    if (shouldSetReturnPickup && outboundDropoff) {
+      els.returnPickupAddressInput.value = outboundDropoff;
+    }
+  }
+
+  if (els.returnDropoffAddressInput instanceof HTMLInputElement) {
+    const shouldSetReturnDropoff = force || !returnDropoffCurrent;
+    if (shouldSetReturnDropoff && outboundPickup) {
+      els.returnDropoffAddressInput.value = outboundPickup;
+    }
+  }
+}
+
 function syncReturnLegVisibility(options = {}) {
   const roundTrip = isRoundTripSelected();
   if (els.returnLegSection) {
     els.returnLegSection.hidden = !roundTrip;
   }
+  if (els.returnContactSection) {
+    els.returnContactSection.hidden = !roundTrip;
+  }
 
   if (roundTrip) {
     const switchedFromOneWay = state.lastTripTypeSelection !== 'round_trip';
     autoPopulateReturnLeg({ force: Boolean(options?.force || switchedFromOneWay) });
+    syncReturnContactFromOutbound({ force: Boolean(options?.force || switchedFromOneWay) });
   }
 
   state.lastTripTypeSelection = roundTrip ? 'round_trip' : 'one_way';
@@ -1603,6 +1664,17 @@ function bindInputs() {
     els.originSelect?.addEventListener('change', syncReturnFromOutbound);
   }
 
+  if (els.pickupAddressInput instanceof HTMLInputElement || els.dropoffAddressInput instanceof HTMLInputElement) {
+    const syncReturnContact = () => {
+      if (!isRoundTripSelected()) return;
+      syncReturnContactFromOutbound({ force: false });
+    };
+    els.pickupAddressInput?.addEventListener('input', syncReturnContact);
+    els.dropoffAddressInput?.addEventListener('input', syncReturnContact);
+    els.pickupAddressInput?.addEventListener('change', syncReturnContact);
+    els.dropoffAddressInput?.addEventListener('change', syncReturnContact);
+  }
+
   if (els.policyCheckbox) {
     els.policyCheckbox.addEventListener('change', () => {
       updateSubmitState();
@@ -1626,6 +1698,7 @@ function initElements() {
   els.returnDestinationSelect = byId('transportReturnDestination');
   els.returnDateInput = byId('transportReturnDate');
   els.returnTimeInput = byId('transportReturnTime');
+  els.returnContactSection = byId('transportReturnContactSection');
   els.returnPickupAddressInput = byId('transportReturnPickupAddress');
   els.returnDropoffAddressInput = byId('transportReturnDropoffAddress');
   els.returnFlightNumberInput = byId('transportReturnFlightNumber');
@@ -1641,6 +1714,8 @@ function initElements() {
   els.pickupAddressInput = byId('transportPickupAddress');
   els.dropoffAddressInput = byId('transportDropoffAddress');
   els.flightNumberInput = byId('transportFlightNumber');
+  els.outboundContactHint = byId('transportOutboundContactHint');
+  els.returnContactHint = byId('transportReturnContactHint');
   els.notesInput = byId('transportNotes');
   els.policyCheckbox = byId('transportAgreePolicy');
   els.submitButton = byId('transportSubmitBooking');

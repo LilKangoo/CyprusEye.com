@@ -208,6 +208,36 @@ body.transport-booking-page {
   font-family: 'Space Grotesk', 'Manrope', sans-serif;
 }
 
+.transport-detail-card {
+  margin-top: 12px;
+  border: 1px solid rgba(15, 109, 255, 0.2);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(15, 109, 255, 0.07), rgba(15, 109, 255, 0.03));
+  padding: 12px;
+}
+
+.transport-detail-card--return {
+  border-color: rgba(29, 180, 165, 0.35);
+  background: linear-gradient(135deg, rgba(29, 180, 165, 0.11), rgba(29, 180, 165, 0.04));
+}
+
+.transport-detail-card[hidden] {
+  display: none;
+}
+
+.transport-detail-card__title {
+  margin: 0;
+  font-size: 13px;
+  font-family: 'Space Grotesk', 'Manrope', sans-serif;
+}
+
+.transport-detail-card__hint {
+  margin: 5px 0 0;
+  color: var(--transport-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .transport-section__hint {
   margin: 5px 0 0;
   color: var(--transport-muted);
