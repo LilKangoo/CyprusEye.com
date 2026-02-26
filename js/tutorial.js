@@ -92,6 +92,7 @@
       this.titleEl = null;
       this.descriptionEl = null;
       this.metaEl = null;
+      this.progressBarEl = null;
       this.prevButton = null;
       this.nextButton = null;
       this.skipButton = null;
@@ -109,122 +110,66 @@
         {
           id: 'step1',
           target: '[data-tour-target="top-actions"]',
-          fallbackTitle: 'Welcome to CyprusEye Quest! 👋',
+          fallbackTitle: 'Start: language and safety',
           fallbackDescription:
-            'Top bar actions: sign in/out, SOS, cart, and language switch. Start here to configure the app for your trip.',
+            'Set PL/EN, check SOS access, and use account/cart actions in the top-right control area.',
           arrow: { icon: '⬇️', placement: 'bottom' },
         },
         {
           id: 'step2',
           target: '[data-tour-target="tabs-navigation"]',
-          fallbackTitle: 'Navigation tabs and quick links 🧭',
+          fallbackTitle: 'Navigation and quick links',
           fallbackDescription:
-            'Main tabs switch between Adventure, Community, Recommendations, Tasks and Shop. Quick chips open Packing, Transport, Car Rental, Trips, and Hotels.',
-          arrow: { icon: '⬆️', placement: 'bottom' },
+            'Tabs switch page views. Chips below open key modules instantly: Packing, Transport, Cars, Trips, and Hotels.',
+          arrow: { icon: '⬇️', placement: 'bottom' },
         },
         {
           id: 'step3',
           target: '[data-tour-target="map-section"]',
-          fallbackTitle: 'Interactive Cyprus map 🗺️',
+          fallbackTitle: 'Map and check-ins',
           fallbackDescription:
-            'Browse places on the map, open pins, and move between points. This is the main discovery area used across the app.',
-          arrow: { icon: '⬅️', placement: 'right' },
+            'Use the map to explore points and open details. Then check in to collect XP and track your progress.',
+          arrow: { icon: '➡️', placement: 'left' },
         },
         {
           id: 'step4',
-          target: '[data-tour-target="current-place"]',
-          fallbackTitle: 'Current place and check-in ✅',
+          target: '[data-tour-target="trips-section"]',
+          fallbackTitle: 'Trips and hotels',
           fallbackDescription:
-            'See current point details, XP rewards, check-in button, comments, and map navigation actions in one compact card.',
+            'Compare tours and stays by city, then open full lists to book the best option for your dates.',
           arrow: { icon: '⬅️', placement: 'right' },
         },
         {
           id: 'step5',
-          target: '[data-tour-target="trips-section"]',
-          fallbackTitle: 'Trips and experiences 🚤',
+          target: '[data-tour-target="cars-section"]',
+          fallbackTitle: 'Cars without deposit',
           fallbackDescription:
-            'Compare city offers, check available tours, and open the full trips page to submit a booking request.',
+            'Switch city tabs, compare available cars, and continue to full rental booking with current pricing.',
           arrow: { icon: '⬅️', placement: 'right' },
         },
         {
           id: 'step6',
-          target: '[data-tour-target="hotels-section"]',
-          fallbackTitle: 'Hotels and stays 🏨',
+          target: '[data-tour-target="transport-section"]',
+          fallbackTitle: 'Transport booking in 4 steps',
           fallbackDescription:
-            'Browse hotels, villas, and apartments by area. Open details and continue to full listings when you are ready to book.',
+            'Follow the process: route and schedule -> passengers and extras -> contact details -> final quote and reserve.',
           arrow: { icon: '⬅️', placement: 'right' },
         },
         {
           id: 'step7',
-          target: '[data-tour-target="cars-section"]',
-          fallbackTitle: 'Cars without deposit 🚗',
+          target: '[data-tour-target="shortcut-grid"]',
+          fallbackTitle: 'Quick planning modules',
           fallbackDescription:
-            'Switch city tabs, compare available cars, and open the full rental flow with pricing and reservation options.',
-          arrow: { icon: '⬅️', placement: 'right' },
+            'Use this grid when you want fast access to packing, tasks, transport, car rental, trips, and planner tools.',
+          arrow: { icon: '➡️', placement: 'left' },
         },
         {
           id: 'step8',
-          target: '[data-tour-target="transport-section"]',
-          fallbackTitle: 'Transport booking wizard 🚕',
+          target: '[data-tour-target="login-button"]',
+          fallbackTitle: 'Create account for full access',
           fallbackDescription:
-            'Book airport/city transport in 4 guided steps: route, passengers, contact, and final quote before reservation.',
-          arrow: { icon: '⬅️', placement: 'right' },
-        },
-        {
-          id: 'step9',
-          target: '[data-tour-target="recommendations-section"]',
-          fallbackTitle: 'Our recommendations ✨',
-          fallbackDescription:
-            'Discover verified places with category filters and partner offers. Use it to plan where to eat, visit, and relax.',
-          arrow: { icon: '⬅️', placement: 'right' },
-        },
-        {
-          id: 'step10',
-          target: '[data-tour-target="shortcut-grid"]',
-          fallbackTitle: 'Quick modules grid ⚡',
-          fallbackDescription:
-            'This block gives direct access to planning modules: packing, tasks, transport, car rental, trips, and trip planner.',
-          arrow: { icon: '➡️', placement: 'left' },
-        },
-        {
-          id: 'step11',
-          target: '[data-tour-target="packing-card"]',
-          fallbackTitle: 'Packing planner 🎒',
-          fallbackDescription:
-            'Prepare your luggage with checklists and personal items so you do not miss anything before departure.',
-          arrow: { icon: '➡️', placement: 'left' },
-        },
-        {
-          id: 'step12',
-          target: '[data-tour-target="tasks-card"]',
-          fallbackTitle: 'Task list ✅',
-          fallbackDescription:
-            'Track bookings, documents, and to-dos in one list. Mark progress and stay organized through the trip.',
-          arrow: { icon: '➡️', placement: 'left' },
-        },
-        {
-          id: 'step13',
-          target: '[data-tour-target="coupon-card"]',
-          fallbackTitle: 'Transport shortcut card 🚕',
-          fallbackDescription:
-            'This card opens the dedicated transport page with the same booking logic, useful when you want a full-page workflow.',
-          arrow: { icon: '➡️', placement: 'left' },
-        },
-        {
-          id: 'step14',
-          target: '[data-tour-target="car-card"]',
-          fallbackTitle: 'Car rental shortcut card 🚗',
-          fallbackDescription:
-            'Open the rental module directly from here when you already know what you need and want to move faster.',
-          arrow: { icon: '➡️', placement: 'left' },
-        },
-        {
-          id: 'step15',
-          target: '[data-tour-target="tabs-navigation"]',
-          fallbackTitle: 'You are ready to use CyprusEye ✅',
-          fallbackDescription:
-            'Tutorial ends at the top so you can start immediately. Use "Show instructions" anytime if you need this guide again.',
-          arrow: { icon: '⬇️', placement: 'bottom' },
+            'Click "Login" to register and unlock full offers: saved progress, booking visibility, notifications, and partner bonuses.',
+          arrow: { icon: '⬆️', placement: 'bottom' },
         },
       ];
 
@@ -327,6 +272,13 @@
       this.metaEl = document.createElement('p');
       this.metaEl.className = 'tutorial-step-meta';
       content.appendChild(this.metaEl);
+
+      const progressTrack = document.createElement('div');
+      progressTrack.className = 'tutorial-progress';
+      this.progressBarEl = document.createElement('span');
+      this.progressBarEl.className = 'tutorial-progress__value';
+      progressTrack.appendChild(this.progressBarEl);
+      content.appendChild(progressTrack);
 
       this.titleEl = document.createElement('h2');
       this.titleEl.id = titleId;
@@ -594,7 +546,7 @@
       if (!this.helpButton) {
         return;
       }
-      const label = getTranslation('tutorial.showAgain', '🔁 Pokaż instrukcję');
+      const label = getTranslation('tutorial.showAgain', '🧭 Pokaż instrukcję');
       this.helpButton.textContent = label;
       this.helpButton.setAttribute('aria-label', label);
     }
@@ -608,7 +560,7 @@
       const title = getTranslation(`tutorial.${step.id}.title`, step.fallbackTitle);
       const description = getTranslation(`tutorial.${step.id}.description`, step.fallbackDescription);
       const progress = formatTemplate(
-        getTranslation('tutorial.stepCounter', 'Step {{current}} of {{total}}'),
+        getTranslation('tutorial.stepCounter', 'Quick start · step {{current}} of {{total}}'),
         {
           current: this.currentStepIndex + 1,
           total: this.steps.length,
@@ -616,6 +568,10 @@
       );
       if (this.metaEl) {
         this.metaEl.textContent = progress;
+      }
+      if (this.progressBarEl) {
+        const percent = Math.round(((this.currentStepIndex + 1) / Math.max(1, this.steps.length)) * 100);
+        this.progressBarEl.style.width = `${Math.min(100, Math.max(0, percent))}%`;
       }
       if (this.titleEl) {
         this.titleEl.textContent = title;
