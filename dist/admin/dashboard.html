@@ -40,7 +40,7 @@
   <script src="/admin/universal-i18n-component.js?v=20250111"></script>
   <script src="/admin/poi-i18n-form.js?v=20250111"></script>
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
-  <script type="module" src="/admin/admin.js?v=20260224_12"></script>
+  <script type="module" src="/admin/admin.js?v=20260225_1"></script>
   <script src="/admin/admin-pwa.js?v=20260221_4" defer></script>
 </head>
 <body data-admin-panel="true">
@@ -1552,6 +1552,20 @@
                     </label>
                   </div>
                   <p class="transport-form-block__hint transport-form-block__hint--status" id="transportPricingDepositBaseHint">Final deposit = MAX(base floor from Partners Emails flat rule, route rule calculation).</p>
+                  <div class="transport-multi-select-toolbar">
+                    <label class="transport-check-field">
+                      <input id="transportPricingDepositGlobalOnlyActiveRoutes" type="checkbox" checked />
+                      <span>Only active routes</span>
+                    </label>
+                    <label class="transport-check-field">
+                      <input id="transportPricingDepositGlobalCreateMissingRules" type="checkbox" checked />
+                      <span>Create pricing row when route has no pricing yet</span>
+                    </label>
+                  </div>
+                  <p class="transport-form-block__hint transport-form-block__hint--status" id="transportPricingDepositGlobalSummary" aria-live="polite">Global deposit update scope is shown here.</p>
+                  <div class="transport-editor-actions">
+                    <button class="btn-secondary" type="button" id="btnTransportPricingDepositGlobalApply">Apply deposit settings globally</button>
+                  </div>
                 </section>
 
                 <section class="transport-bulk-panel transport-advanced-block" aria-label="Apply pricing to additional routes">

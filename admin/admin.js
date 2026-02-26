@@ -7204,9 +7204,14 @@ async function loadTripBookingsData() {
             €${Number(booking.total_price || 0).toFixed(2)}
           </td>
           <td>
-            <button class="btn-secondary" onclick="viewTripBookingDetails('${booking.id}')" title="View details">
-              View
-            </button>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn-secondary" onclick="viewTripBookingDetails('${booking.id}')" title="View details">
+                View
+              </button>
+              <button class="btn-danger" onclick="deleteTripBooking('${booking.id}')" title="Delete booking">
+                Delete
+              </button>
+            </div>
           </td>
         </tr>
       `;
@@ -7276,7 +7281,7 @@ async function viewTripBookingDetails(bookingId) {
       const { data: fRows } = await client
         .from('partner_service_fulfillments')
         .select('id, status, contact_revealed_at, rejected_reason, partner_id, created_at, details')
-        .eq('resource_type', 'trips')
+        .in('resource_type', ['trips', 'trip'])
         .eq('booking_id', bookingId)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -7428,7 +7433,7 @@ async function viewTripBookingDetails(bookingId) {
       `;
     })();
 
-    const canDelete = String(booking.source || '') === 'admin';
+    const canDelete = true;
 
     const statusClass = 
       booking.status === 'confirmed' ? 'badge-success' :
@@ -7624,7 +7629,10 @@ async function updateTripBookingStatus(bookingId, newStatus) {
 
 // Delete trip booking
 async function deleteTripBooking(bookingId) {
-  if (!confirm('Are you sure you want to delete this booking? This action cannot be undone.')) {
+  const id = String(bookingId || '').trim();
+  if (!id) return;
+
+  if (!confirm('Delete this trip booking and all linked workflow data (fulfillments, deposits, date-selection)? This action cannot be undone.')) {
     return;
   }
 
@@ -7639,41 +7647,89 @@ async function deleteTripBooking(bookingId) {
     try {
       const res = await client
         .from('trip_bookings')
-        .select('id, source')
-        .eq('id', bookingId)
+        .select('id, source, customer_email')
+        .eq('id', id)
         .single();
       if (res.error) throw res.error;
       bookingRow = res.data;
     } catch (e) {
-      if (/column\s+"source"\s+does\s+not\s+exist/i.test(String(e.message || ''))) {
-        showToast('DB not upgraded: trip_bookings.source missing (run migrations).', 'error');
-        return;
+      const rawMessage = String(e?.message || '');
+      if (/column\s+"source"\s+does\s+not\s+exist/i.test(rawMessage)) {
+        const fallbackRes = await client
+          .from('trip_bookings')
+          .select('id, customer_email')
+          .eq('id', id)
+          .single();
+        if (fallbackRes.error) throw fallbackRes.error;
+        bookingRow = fallbackRes.data || null;
+      } else {
+        throw e;
       }
-      throw e;
     }
 
-    if (!bookingRow || String(bookingRow.source || '') !== 'admin') {
-      showToast('Delete allowed only for admin-created bookings', 'error');
+    if (!bookingRow || !bookingRow.id) {
+      showToast('Booking not found or already deleted', 'error');
       return;
     }
 
+    const { data: linkedFulfillments, error: linkedFulfillmentsError } = await client
+      .from('partner_service_fulfillments')
+      .select('id')
+      .in('resource_type', ['trips', 'trip'])
+      .eq('booking_id', id)
+      .limit(200);
+    if (linkedFulfillmentsError) throw linkedFulfillmentsError;
+
+    const fulfillmentIds = Array.from(new Set(
+      (Array.isArray(linkedFulfillments) ? linkedFulfillments : [])
+        .map((row) => String(row?.id || '').trim())
+        .filter(Boolean)
+    ));
+
     try {
       await client
+        .from('trip_date_selection_requests')
+        .delete()
+        .eq('booking_id', id);
+    } catch (_e) {
+      // best effort for DBs without date-selection table
+    }
+
+    if (fulfillmentIds.length) {
+      try {
+        await client
+          .from('service_deposit_requests')
+          .delete()
+          .in('fulfillment_id', fulfillmentIds);
+      } catch (_e) {
+        // best effort
+      }
+
+      try {
+        await client
+          .from('partner_audit_log')
+          .delete()
+          .eq('entity_type', 'service_fulfillment')
+          .in('entity_id', fulfillmentIds);
+      } catch (_e) {
+        // best effort
+      }
+
+      const { error: fulfillmentDeleteError } = await client
         .from('partner_service_fulfillments')
         .delete()
-        .eq('resource_type', 'trips')
-        .eq('booking_id', bookingId);
-    } catch (_e) {
+        .in('id', fulfillmentIds);
+      if (fulfillmentDeleteError) throw fulfillmentDeleteError;
     }
 
     const { error } = await client
       .from('trip_bookings')
       .delete()
-      .eq('id', bookingId);
+      .eq('id', id);
 
     if (error) throw error;
 
-    showToast('Booking deleted successfully', 'success');
+    showToast('Trip booking and linked workflow data deleted', 'success');
     document.getElementById('tripBookingDetailsModal').hidden = true;
     await loadTripBookingsData(); // Refresh table
     await loadAllOrders({ silent: true });

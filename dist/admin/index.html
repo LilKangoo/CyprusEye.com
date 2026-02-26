@@ -62,40 +62,12 @@
   </div>
   
   <script type="module">
-    // Configuration
-    const SUPABASE_URL = 'https://daoohnbnnowmmcizgvrq.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bW1jaXpndnJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3NjkwNDksImV4cCI6MjA3NjM0NTA0OX0.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM';
+    import { sb as supabase } from '/js/supabaseClient.js';
+
     const ADMIN_USER_ID = '15f3d442-092d-4eb8-9627-db90da0283eb';
     
     async function checkAuth() {
       try {
-        // Load Supabase
-        const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
-        const authLockChains = new Map();
-        const inMemoryAuthLock = (lockName, maybeTimeout, maybeFn) => {
-          const fn = typeof maybeFn === 'function'
-            ? maybeFn
-            : (typeof maybeTimeout === 'function' ? maybeTimeout : null);
-          if (typeof fn !== 'function') return Promise.resolve(null);
-          const key = String(lockName || 'supabase-auth-lock');
-          const previous = authLockChains.get(key) || Promise.resolve();
-          const run = previous.catch(() => {}).then(() => fn());
-          authLockChains.set(key, run);
-          return run.finally(() => {
-            if (authLockChains.get(key) === run) authLockChains.delete(key);
-          });
-        };
-        
-        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-          auth: {
-            persistSession: true,
-            storageKey: 'sb-daoohnbnnowmmcizgvrq-auth-token',
-            storage: window.localStorage,
-            multiTab: false,
-            lock: inMemoryAuthLock
-          }
-        });
-        
         // Check session
         const { data: { session } } = await supabase.auth.getSession();
         

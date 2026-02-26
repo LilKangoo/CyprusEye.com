@@ -4268,6 +4268,78 @@
       });
     }
 
+    const tripFulfillmentIds = Array.from(new Set(
+      filteredMerged
+        .filter((f) => f && f.__source === 'service' && normalizeServiceResourceType(f.resource_type) === 'trips' && f.id)
+        .map((f) => String(f.id))
+        .filter(Boolean)
+    ));
+
+    if (tripFulfillmentIds.length) {
+      try {
+        const requestRows = [];
+        const chunkSize = 120;
+        for (let i = 0; i < tripFulfillmentIds.length; i += chunkSize) {
+          const chunk = tripFulfillmentIds.slice(i, i + chunkSize);
+          const { data, error } = await state.sb
+            .from('trip_date_selection_requests')
+            .select('fulfillment_id, status, selected_date, customer_email_sent_at, selection_token_expires_at, updated_at')
+            .in('fulfillment_id', chunk)
+            .limit(500);
+          if (error) throw error;
+          requestRows.push(...(Array.isArray(data) ? data : []));
+        }
+
+        const latestRequestByFulfillmentId = {};
+        requestRows.forEach((row) => {
+          const fid = String(row?.fulfillment_id || '').trim();
+          if (!fid) return;
+          const currentMs = Date.parse(String(row?.updated_at || ''));
+          const prev = latestRequestByFulfillmentId[fid];
+          const prevMs = Date.parse(String(prev?.updated_at || ''));
+          if (!prev || !Number.isFinite(prevMs) || (Number.isFinite(currentMs) && currentMs >= prevMs)) {
+            latestRequestByFulfillmentId[fid] = row;
+          }
+        });
+
+        filteredMerged.forEach((f) => {
+          if (!f || f.__source !== 'service') return;
+          if (normalizeServiceResourceType(f.resource_type) !== 'trips') return;
+          const fid = String(f.id || '').trim();
+          if (!fid) return;
+
+          const req = latestRequestByFulfillmentId[fid];
+          if (!req) return;
+
+          const details = detailsObjectFromFulfillment(f) || {};
+          const nextDetails = { ...details };
+          const reqStatus = String(req?.status || '').trim().toLowerCase();
+          const selectedDate = normalizeIsoDateValue(req?.selected_date);
+          const sentAtRaw = String(req?.customer_email_sent_at || '').trim();
+          const expiresAtRaw = String(req?.selection_token_expires_at || '').trim();
+          const updatedAtRaw = String(req?.updated_at || '').trim();
+          const sentAt = sentAtRaw || (reqStatus === 'sent_to_customer' ? updatedAtRaw : '');
+
+          if (reqStatus) nextDetails.trip_date_selection_request_status = reqStatus;
+          if (selectedDate && !nextDetails.selected_trip_date) nextDetails.selected_trip_date = selectedDate;
+          if (sentAt) nextDetails.trip_date_options_sent_at = sentAt;
+          if (expiresAtRaw) nextDetails.trip_date_options_expires_at = expiresAtRaw;
+
+          const detailStatus = String(nextDetails.trip_date_selection_status || '').trim().toLowerCase();
+          if (reqStatus === 'sent_to_customer' && (!detailStatus || detailStatus === 'options_proposed')) {
+            nextDetails.trip_date_selection_status = 'options_sent_to_customer';
+          }
+          if (reqStatus === 'selected' && detailStatus !== 'not_required') {
+            nextDetails.trip_date_selection_status = 'selected';
+          }
+
+          f.details = nextDetails;
+        });
+      } catch (error) {
+        console.warn('Partner panel: failed to load trip date-selection request metadata:', error);
+      }
+    }
+
     state.fulfillments = filteredMerged;
 
     const shopIds = filteredMerged.filter((f) => f && f.__source === 'shop').map((f) => f.id).filter(Boolean);
@@ -6408,10 +6480,14 @@
           if (selectionStatusRaw === 'not_required') return 'Date selection not required';
           return selectionStatusRaw ? selectionStatusRaw.replace(/_/g, ' ') : null;
         })();
+        const dateOptionsSentAtRaw = getField('trip_date_options_sent_at', 'trip_date_selection_sent_at');
+        const dateOptionsExpiresAtRaw = getField('trip_date_options_expires_at', 'trip_date_selection_expires_at');
         return [
           { label: 'Preferred date', value: getField('preferred_date', 'trip_date') },
           { label: 'Available options', value: proposedDates.length ? proposedDates.map((iso) => formatDateDmy(iso)).join(', ') : null },
           { label: 'Date selection status', value: selectionStatusLabel },
+          { label: 'Date options sent', value: dateOptionsSentAtRaw ? formatDateTime(dateOptionsSentAtRaw) : null },
+          { label: 'Selection link expires', value: dateOptionsExpiresAtRaw ? formatDateTime(dateOptionsExpiresAtRaw) : null },
           { label: 'Selected date', value: getField('selected_trip_date') || getField('trip_date_selection_date') || null },
           { label: 'Arrival date', value: getField('arrival_date') },
           { label: 'Departure date', value: getField('departure_date') },
@@ -6610,6 +6686,14 @@
               || details?.trip_date_selection_date
               || ''
             );
+            const optionsSentAtLabel = (() => {
+              const raw = details?.trip_date_options_sent_at || details?.trip_date_selection_sent_at || '';
+              return raw ? formatDateTime(raw) : '';
+            })();
+            const optionsExpiryLabel = (() => {
+              const raw = details?.trip_date_options_expires_at || details?.trip_date_selection_expires_at || '';
+              return raw ? formatDateTime(raw) : '';
+            })();
 
             const preferredHtml = preferred
               ? `<div class="small"><strong>Preferred Date:</strong> ${escapeHtml(formatDateDmy(preferred))}</div>`
@@ -6634,8 +6718,14 @@
             const selectedHtml = selectedDate
               ? `<div class="small"><strong>Selected date:</strong> ${escapeHtml(formatDateDmy(selectedDate))}</div>`
               : '';
+            const sentHtml = optionsSentAtLabel
+              ? `<div class="small"><strong>Sent to customer:</strong> ${escapeHtml(optionsSentAtLabel)}</div>`
+              : '';
+            const expiresHtml = optionsExpiryLabel
+              ? `<div class="small"><strong>Selection link expires:</strong> ${escapeHtml(optionsExpiryLabel)}</div>`
+              : '';
 
-            const parts = [preferredHtml, stayHtml, participantsHtml, proposedHtml, selectionHtml, selectedHtml].filter(Boolean).join('');
+            const parts = [preferredHtml, stayHtml, participantsHtml, proposedHtml, selectionHtml, sentHtml, expiresHtml, selectedHtml].filter(Boolean).join('');
             return parts || '<span class="muted">—</span>';
           }
 

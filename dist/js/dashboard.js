@@ -551,7 +551,7 @@ function setupSettingsListeners() {
         showToast('Password updated successfully', 'success');
         closeAllModals();
       } catch (err) {
-        errEl.textContent = err.message;
+        errEl.textContent = normalizeDashboardInlineError(err, 'Failed to update password.');
         errEl.hidden = false;
       } finally {
         pwdBtn.disabled = false;
@@ -580,7 +580,7 @@ function setupSettingsListeners() {
         showToast('Confirmation link sent to ' + newEmail, 'success');
         closeAllModals();
       } catch (err) {
-        errEl.textContent = err.message;
+        errEl.textContent = normalizeDashboardInlineError(err, 'Failed to update email.');
         errEl.hidden = false;
       } finally {
         emailBtn.disabled = false;
@@ -1334,11 +1334,37 @@ window.deleteContent = async function(type, filename, id) {
 };
 
 function showToast(message, type = 'info') {
-  if (window.Toast) {
-    new window.Toast(message, type);
-  } else {
-    alert(message);
+  const raw = (typeof message === 'string' ? message : String(message?.message || message || '')).trim();
+  if (!raw) return;
+
+  const authUtils = (typeof window !== 'undefined' && window.CE_AUTH_UTILS && typeof window.CE_AUTH_UTILS.toUserMessage === 'function')
+    ? window.CE_AUTH_UTILS
+    : null;
+  const normalized = (type === 'error' && authUtils)
+    ? authUtils.toUserMessage(raw, 'Session expired. Please sign in again.')
+    : raw;
+
+  if (typeof window.showToast === 'function') {
+    window.showToast(normalized, type);
+    return;
   }
+  if (window.Toast && typeof window.Toast.show === 'function') {
+    window.Toast.show(normalized, type);
+    return;
+  }
+  alert(normalized);
+}
+
+function normalizeDashboardInlineError(message, fallback = 'An unexpected error occurred.') {
+  const raw = (typeof message === 'string' ? message : String(message?.message || message || '')).trim();
+  if (!raw) return fallback;
+  const authUtils = (typeof window !== 'undefined' && window.CE_AUTH_UTILS && typeof window.CE_AUTH_UTILS.toUserMessage === 'function')
+    ? window.CE_AUTH_UTILS
+    : null;
+  if (authUtils && typeof authUtils.toUserMessage === 'function') {
+    return authUtils.toUserMessage(raw, 'Session expired. Please sign in again.');
+  }
+  return raw;
 }
 
 function resolvePoiName(poi) {

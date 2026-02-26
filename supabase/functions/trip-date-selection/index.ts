@@ -839,6 +839,8 @@ serve(async (req: Request) => {
       partner_proposed_dates: normalized.dates,
       trip_date_selection_status: "options_sent_to_customer",
       trip_date_selection_updated_at: nowIso,
+      trip_date_options_sent_at: nowIso,
+      trip_date_options_expires_at: expiresAt,
     };
 
     await supabase
