@@ -187,6 +187,7 @@ function renderOptions(data) {
   if (!root) return
 
   const options = Array.isArray(data?.proposed_dates) ? data.proposed_dates : []
+  const selectedIso = parseIso(data?.selected_date)
   if (!options.length) {
     root.innerHTML = ''
     return
@@ -197,9 +198,10 @@ function renderOptions(data) {
       const iso = parseIso(raw)
       const value = iso || String(raw || '')
       const label = formatIsoDate(value)
+      const isChecked = selectedIso ? selectedIso === value : idx === 0
       return `
         <label class="option">
-          <input type="radio" name="tripDateOption" value="${value}" ${idx === 0 ? 'checked' : ''} />
+          <input type="radio" name="tripDateOption" value="${value}" ${isChecked ? 'checked' : ''} />
           <strong>${label}</strong>
         </label>
       `

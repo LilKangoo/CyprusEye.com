@@ -912,6 +912,7 @@ serve(async (req: Request) => {
     }
 
     let depositState: any = null;
+    let selectionLocked = false;
     if (fulfillmentId) {
       try {
         const { data: dep } = await supabase
@@ -926,6 +927,22 @@ serve(async (req: Request) => {
             amount: Number((dep as any).amount || 0),
             currency: String((dep as any).currency || "EUR").trim().toUpperCase() || "EUR",
           };
+          if (depositState.status === "paid") selectionLocked = true;
+        }
+      } catch (_e) {
+        // best effort
+      }
+
+      try {
+        const { data: f } = await supabase
+          .from("partner_service_fulfillments")
+          .select("status, contact_revealed_at")
+          .eq("id", fulfillmentId)
+          .maybeSingle();
+        const fStatus = String((f as any)?.status || "").trim().toLowerCase();
+        const contactRevealed = Boolean((f as any)?.contact_revealed_at);
+        if (contactRevealed || (!depositState?.id && fStatus === "accepted")) {
+          selectionLocked = true;
         }
       } catch (_e) {
         // best effort
@@ -950,7 +967,8 @@ serve(async (req: Request) => {
         selected_date: firstIso(requestRow.selected_date, (booking as any)?.selected_trip_date),
         status: requestStatus,
         expires_at: requestRow.selection_token_expires_at || null,
-        can_confirm: requestStatus === "sent_to_customer",
+        can_confirm: !selectionLocked && (requestStatus === "sent_to_customer" || requestStatus === "selected"),
+        selection_locked: selectionLocked,
         deposit: depositState,
       },
     });
@@ -986,24 +1004,12 @@ serve(async (req: Request) => {
     return jsonResponse(req, 400, { error: "Selected date is not in provided options" });
   }
 
-  if (requestStatus === "selected") {
-    return jsonResponse(req, 200, {
-      ok: true,
-      data: {
-        booking_id: String(requestRow.booking_id || ""),
-        fulfillment_id: String(requestRow.fulfillment_id || ""),
-        selected_date: firstIso(requestRow.selected_date, selectedDateIso),
-        already_selected: true,
-      },
-    });
-  }
-
   const bookingId = String(requestRow.booking_id || "").trim();
   const fulfillmentId = String(requestRow.fulfillment_id || "").trim();
 
   const { data: fulfillment, error: fulfillmentErr } = await supabase
     .from("partner_service_fulfillments")
-    .select("id, booking_id, partner_id, resource_type, status, details, resource_id, reference, summary, total_price, currency")
+    .select("id, booking_id, partner_id, resource_type, status, details, resource_id, reference, summary, total_price, currency, contact_revealed_at")
     .eq("id", fulfillmentId)
     .maybeSingle();
 
@@ -1020,6 +1026,36 @@ serve(async (req: Request) => {
 
   if (bookingErr || !booking) return jsonResponse(req, 404, { error: "Trip booking not found" });
 
+  let depStatus = "";
+  let hasDepositRequest = false;
+  try {
+    const { data: dep } = await supabase
+      .from("service_deposit_requests")
+      .select("id, status")
+      .eq("fulfillment_id", fulfillmentId)
+      .maybeSingle();
+    hasDepositRequest = Boolean((dep as any)?.id);
+    depStatus = String((dep as any)?.status || "").trim().toLowerCase();
+  } catch (_e) {
+    // best effort
+  }
+
+  const fulfillmentStatus = String((fulfillment as any)?.status || "").trim().toLowerCase();
+  const contactRevealed = Boolean((fulfillment as any)?.contact_revealed_at);
+  const selectionLocked = depStatus === "paid" || contactRevealed || (!hasDepositRequest && fulfillmentStatus === "accepted");
+  if (selectionLocked) {
+    return jsonResponse(req, 200, {
+      ok: true,
+      data: {
+        booking_id: bookingId,
+        fulfillment_id: fulfillmentId,
+        selected_date: firstIso(requestRow.selected_date, (booking as any)?.selected_trip_date, (booking as any)?.trip_date, selectedDateIso),
+        already_selected: true,
+        locked_after_payment: true,
+      },
+    });
+  }
+
   const { data: updatedReq, error: reqUpdateErr } = await supabase
     .from("trip_date_selection_requests")
     .update({
@@ -1029,7 +1065,7 @@ serve(async (req: Request) => {
       updated_at: nowIso,
     })
     .eq("id", String(requestRow.id))
-    .in("status", ["sent_to_customer", "pending_admin"])
+    .in("status", ["sent_to_customer", "pending_admin", "selected"])
     .select("id, status, selected_date")
     .maybeSingle();
 
