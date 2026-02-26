@@ -1,3 +1,5 @@
+DROP FUNCTION IF EXISTS public.get_service_deposit_status(uuid);
+
 CREATE OR REPLACE FUNCTION public.get_service_deposit_status(p_id uuid)
 RETURNS TABLE(
   id uuid,

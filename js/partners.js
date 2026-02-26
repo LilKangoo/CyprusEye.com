@@ -13,6 +13,7 @@
     itemsByFulfillmentId: {},
     contactsByFulfillmentId: {},
     formSnapshotsByFulfillmentId: {},
+    serviceDepositByFulfillmentId: {},
     blocks: [],
     calendar: {
       resourcesByType: { shop: [], cars: [], trips: [], hotels: [], transport: [] },
@@ -4365,6 +4366,7 @@
     state.itemsByFulfillmentId = {};
     state.contactsByFulfillmentId = {};
     state.formSnapshotsByFulfillmentId = {};
+    state.serviceDepositByFulfillmentId = {};
 
     if (shopIds.length) {
       const { data: items, error: itemsErr } = await state.sb
@@ -4463,6 +4465,10 @@
       } catch (e) {
         console.warn('Failed to load service form snapshots:', e);
       }
+    }
+
+    if (serviceIds.length) {
+      state.serviceDepositByFulfillmentId = await fetchServiceDepositByFulfillment(serviceIds);
     }
   }
 
@@ -6601,6 +6607,42 @@
         return m ? `${m[1]}:${m[2]}` : raw;
       };
 
+      const servicePaymentSummary = (() => {
+        if (isShop) return null;
+
+        const currency = String(f.currency || 'EUR').trim().toUpperCase() || 'EUR';
+        const totalRaw = category === 'cars'
+          ? Number(getCarsFulfillmentPricing(f).amount)
+          : Number(f.total_price);
+        if (!Number.isFinite(totalRaw) || totalRaw <= 0) return null;
+
+        const paidDepositFromState = toNum(state.serviceDepositByFulfillmentId[String(id || '').trim()] || 0);
+        const paidDepositFromDetails = toNum(
+          getField('deposit_amount', 'deposit_paid_amount', 'deposit_to_pay')
+          || detailsPayload?.deposit_amount
+          || detailsPayload?.deposit_paid_amount
+          || detailsPayload?.depositToPay
+          || 0
+        );
+        const paidDeposit = Math.max(0, paidDepositFromState > 0 ? paidDepositFromState : paidDepositFromDetails);
+        const remaining = Math.max(0, Number((totalRaw - paidDeposit).toFixed(2)));
+
+        return {
+          currency,
+          total: Number(totalRaw.toFixed(2)),
+          paidDeposit: Number(paidDeposit.toFixed(2)),
+          remaining,
+        };
+      })();
+
+      const paymentSummaryPairs = servicePaymentSummary
+        ? [
+          { label: 'Total price', value: formatMoney(servicePaymentSummary.total, servicePaymentSummary.currency) },
+          { label: 'Paid deposit', value: formatMoney(servicePaymentSummary.paidDeposit, servicePaymentSummary.currency) },
+          { label: 'Remaining to collect on-site', value: formatMoney(servicePaymentSummary.remaining, servicePaymentSummary.currency), valueClass: 'partner-details-value--highlight-green' },
+        ]
+        : [];
+
       const customerSectionPairs = (() => {
         const pairs = (() => {
           if (category === 'cars') {
@@ -6609,6 +6651,7 @@
               { label: 'Email', value: contact?.customer_email ?? getField('email', 'customer_email') ?? null, kind: 'email', key: 'customer_email' },
               { label: 'Phone', value: contact?.customer_phone ?? getField('phone', 'customer_phone') ?? null, kind: 'tel', key: 'customer_phone' },
               { label: 'Country', value: getField('country') },
+              ...paymentSummaryPairs,
             ];
           }
 
@@ -6668,16 +6711,18 @@
                 { label: 'People', value: peopleLabel },
                 { label: 'Selected date', value: selectedDateLabel, valueClass: 'partner-details-value--highlight-yellow' },
                 { label: 'Pickup address', value: pickupAddress },
+                ...paymentSummaryPairs,
               ];
             }
 
-            return base;
+            return [...base, ...paymentSummaryPairs];
           }
 
           return [
             { label: 'Name', value: contact?.customer_name ?? getField('customer_name', 'full_name') ?? null, key: 'customer_name' },
             { label: 'Email', value: contact?.customer_email ?? getField('customer_email', 'email') ?? null, kind: 'email', key: 'customer_email' },
             { label: 'Phone', value: contact?.customer_phone ?? getField('customer_phone', 'phone') ?? null, kind: 'tel', key: 'customer_phone' },
+            ...paymentSummaryPairs,
           ];
         })();
 
