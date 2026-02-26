@@ -5848,6 +5848,43 @@
       return parsed.values;
     }
 
+    const details = detailsObjectFromFulfillment(row) || {};
+    const previousRaw = Array.isArray(details?.partner_proposed_dates)
+      ? details.partner_proposed_dates
+      : (Array.isArray(details?.proposed_dates) ? details.proposed_dates : []);
+    const previousParsed = normalizeTripProposedDateList(previousRaw, ctx.minIso, ctx.maxIso);
+    const initialSelected = previousParsed.ok && previousParsed.values.length
+      ? previousParsed.values.slice(0, 3)
+      : (preferredInRange ? [ctx.preferredIso] : [ctx.minIso]);
+
+    const buildMonthList = (minIso, maxIso, maxCount = 18) => {
+      const min = String(minIso || '').trim();
+      const max = String(maxIso || '').trim();
+      const minMatch = min.match(/^(\d{4})-(\d{2})-\d{2}$/);
+      const maxMatch = max.match(/^(\d{4})-(\d{2})-\d{2}$/);
+      if (!minMatch || !maxMatch) return [];
+      let year = Number(minMatch[1]);
+      let month = Number(minMatch[2]);
+      const endYear = Number(maxMatch[1]);
+      const endMonth = Number(maxMatch[2]);
+      const list = [];
+      let guard = 0;
+      while (guard < maxCount && (year < endYear || (year === endYear && month <= endMonth))) {
+        list.push(`${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}`);
+        month += 1;
+        if (month > 12) {
+          month = 1;
+          year += 1;
+        }
+        guard += 1;
+      }
+      return list;
+    };
+
+    const monthValues = buildMonthList(ctx.minIso, ctx.maxIso);
+    const weekdayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const monthFormatter = new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+
     return await new Promise((resolve) => {
       const dialog = document.createElement('dialog');
       dialog.style.padding = '0';
@@ -5856,30 +5893,72 @@
       dialog.style.background = 'linear-gradient(180deg,#0f172a 0%,#111f3b 100%)';
       dialog.style.color = '#e5e7eb';
       dialog.style.maxWidth = '520px';
-      dialog.style.width = 'min(92vw, 520px)';
+      dialog.style.width = 'min(94vw, 760px)';
       dialog.style.boxShadow = '0 24px 64px rgba(2,6,23,0.65)';
 
       const preferredNote = preferredInRange
-        ? `<div style="font-size:12px; margin-top:4px; color:#34d399;"><strong>Preferred date:</strong> ${escapeHtml(formatDateDmy(ctx.preferredIso))} (auto-filled in slot 1)</div>`
+        ? `<div style="font-size:12px; margin-top:4px; color:#facc15;"><strong>Preferred date:</strong> ${escapeHtml(formatDateDmy(ctx.preferredIso))} (highlighted in yellow)</div>`
         : '<div style="font-size:12px; margin-top:4px; color:#94a3b8;">Preferred date is outside stay window or missing.</div>';
 
       dialog.innerHTML = `
+        <style>
+          .trip-date-modal-title { font-size: 18px; font-weight: 800; letter-spacing: 0.01em; }
+          .trip-date-legend { display:flex; flex-wrap:wrap; gap:8px; margin-top:2px; font-size:11px; color:#cbd5e1; }
+          .trip-date-legend-chip { display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; border:1px solid rgba(148,163,184,0.4); background:rgba(15,23,42,0.5); }
+          .trip-date-dot { width:9px; height:9px; border-radius:50%; display:inline-block; }
+          .trip-date-dot--range { background:#3b82f6; }
+          .trip-date-dot--preferred { background:#facc15; }
+          .trip-date-dot--selected { background:#22c55e; }
+          .trip-date-months { display:grid; gap:10px; max-height:min(62vh,560px); overflow:auto; padding-right:3px; }
+          .trip-date-month-card { border:1px solid rgba(148,163,184,0.28); border-radius:12px; background:rgba(10,19,42,0.58); padding:10px; }
+          .trip-date-month-header { font-size:12px; color:#dbeafe; font-weight:700; margin-bottom:8px; }
+          .trip-date-weekdays, .trip-date-days { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:6px; }
+          .trip-date-weekdays div { text-align:center; font-size:10px; color:#93c5fd; text-transform:uppercase; letter-spacing:0.04em; font-weight:700; }
+          .trip-date-day {
+            height:34px; border-radius:9px; border:1px solid rgba(148,163,184,0.34);
+            background:rgba(15,23,42,0.62); color:#e2e8f0; font-weight:700; cursor:pointer;
+            display:flex; align-items:center; justify-content:center; transition:all .15s ease;
+          }
+          .trip-date-day:hover { transform:translateY(-1px); border-color:rgba(96,165,250,0.7); }
+          .trip-date-day--blank { height:34px; }
+          .trip-date-day--disabled {
+            background:rgba(15,23,42,0.25); color:rgba(148,163,184,0.55); border-color:rgba(148,163,184,0.18); cursor:not-allowed;
+          }
+          .trip-date-day--preferred { border-color:rgba(250,204,21,0.9); box-shadow:inset 0 0 0 1px rgba(250,204,21,0.52); }
+          .trip-date-day--selected { background:rgba(34,197,94,0.22); border-color:rgba(34,197,94,0.85); color:#dcfce7; }
+          .trip-date-day--selected.trip-date-day--preferred {
+            background:linear-gradient(180deg,rgba(250,204,21,0.28),rgba(34,197,94,0.22));
+            border-color:rgba(250,204,21,0.95);
+            color:#fef9c3;
+          }
+          .trip-date-selected { border:1px dashed rgba(148,163,184,0.35); border-radius:11px; padding:9px; background:rgba(15,23,42,0.35); }
+          .trip-date-selected-label { font-size:11px; color:#bfdbfe; margin-bottom:7px; font-weight:700; letter-spacing:0.02em; text-transform:uppercase; }
+          .trip-date-selected-list { display:flex; flex-wrap:wrap; gap:6px; }
+          .trip-date-selected-pill {
+            display:inline-flex; align-items:center; gap:6px; border-radius:999px;
+            border:1px solid rgba(59,130,246,0.58); background:rgba(30,64,175,0.34); color:#dbeafe;
+            padding:5px 9px; font-size:12px; font-weight:700;
+          }
+          .trip-date-selected-empty { font-size:12px; color:#94a3b8; }
+          @media (max-width: 640px) {
+            .trip-date-months { max-height:min(58vh,460px); }
+            .trip-date-day { height:32px; font-size:12px; }
+          }
+        </style>
         <form method="dialog" style="padding:16px 16px 14px; display:grid; gap:10px;">
-          <div style="font-size:16px; font-weight:800;">Confirm trip with available dates</div>
+          <div class="trip-date-modal-title">Select available trip dates</div>
           <div style="font-size:12px; color:#cbd5e1;">Customer stay window: <strong>${escapeHtml(formatDateDmy(ctx.minIso))}</strong> → <strong>${escapeHtml(formatDateDmy(ctx.maxIso))}</strong></div>
           ${preferredNote}
-          <label style="font-size:12px; color:#cbd5e1; display:grid; gap:6px;">
-            Slot 1 (required)
-            <input type="date" data-trip-date-slot="1" min="${escapeHtml(ctx.minIso)}" max="${escapeHtml(ctx.maxIso)}" value="${escapeHtml(defaultValues[0])}" required style="height:40px; border-radius:10px; border:1px solid rgba(148,163,184,0.4); background:#0b1224; color:#e5e7eb; padding:0 10px;">
-          </label>
-          <label style="font-size:12px; color:#cbd5e1; display:grid; gap:6px;">
-            Slot 2 (optional)
-            <input type="date" data-trip-date-slot="2" min="${escapeHtml(ctx.minIso)}" max="${escapeHtml(ctx.maxIso)}" value="${escapeHtml(defaultValues[1])}" style="height:40px; border-radius:10px; border:1px solid rgba(148,163,184,0.4); background:#0b1224; color:#e5e7eb; padding:0 10px;">
-          </label>
-          <label style="font-size:12px; color:#cbd5e1; display:grid; gap:6px;">
-            Slot 3 (optional)
-            <input type="date" data-trip-date-slot="3" min="${escapeHtml(ctx.minIso)}" max="${escapeHtml(ctx.maxIso)}" value="${escapeHtml(defaultValues[2])}" style="height:40px; border-radius:10px; border:1px solid rgba(148,163,184,0.4); background:#0b1224; color:#e5e7eb; padding:0 10px;">
-          </label>
+          <div class="trip-date-legend">
+            <span class="trip-date-legend-chip"><span class="trip-date-dot trip-date-dot--range"></span>Selectable range</span>
+            <span class="trip-date-legend-chip"><span class="trip-date-dot trip-date-dot--preferred"></span>Preferred date</span>
+            <span class="trip-date-legend-chip"><span class="trip-date-dot trip-date-dot--selected"></span>Selected by partner (max 3)</span>
+          </div>
+          <div class="trip-date-months" data-trip-date-months></div>
+          <div class="trip-date-selected">
+            <div class="trip-date-selected-label">Selected available dates</div>
+            <div class="trip-date-selected-list" data-trip-date-selected></div>
+          </div>
           <div data-trip-date-error style="min-height:18px; font-size:12px; color:#fca5a5;"></div>
           <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:2px;">
             <button type="button" data-trip-date-cancel style="height:36px; padding:0 12px; border-radius:9px; border:1px solid rgba(148,163,184,0.45); background:transparent; color:#e2e8f0; font-weight:700; cursor:pointer;">Cancel</button>
@@ -5904,17 +5983,144 @@
       const form = dialog.querySelector('form');
       const errorEl = dialog.querySelector('[data-trip-date-error]');
       const cancelBtn = dialog.querySelector('[data-trip-date-cancel]');
+      const submitBtn = dialog.querySelector('[data-trip-date-submit]');
+      const monthsWrap = dialog.querySelector('[data-trip-date-months]');
+      const selectedWrap = dialog.querySelector('[data-trip-date-selected]');
+      const selectedSet = new Set(initialSelected.map((raw) => normalizeIsoDateValue(raw)).filter(Boolean));
+
+      const formatMonthLabel = (monthValue) => {
+        const match = String(monthValue || '').trim().match(/^(\d{4})-(\d{2})$/);
+        if (!match) return monthValue;
+        const year = Number(match[1]);
+        const month = Number(match[2]);
+        if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) return monthValue;
+        return monthFormatter.format(new Date(Date.UTC(year, month - 1, 1)));
+      };
+
+      const sortedSelected = () => Array.from(selectedSet).sort();
+
+      const setError = (msg) => {
+        if (errorEl) errorEl.textContent = String(msg || '').trim();
+      };
+
+      const clearError = () => setError('');
+
+      const renderSelected = () => {
+        if (!selectedWrap) return;
+        const dates = sortedSelected();
+        if (!dates.length) {
+          selectedWrap.innerHTML = '<span class="trip-date-selected-empty">Select at least 1 date.</span>';
+          return;
+        }
+        selectedWrap.innerHTML = dates
+          .map((iso) => `<span class="trip-date-selected-pill">${escapeHtml(formatDateDmy(iso))}</span>`)
+          .join('');
+      };
+
+      const renderMonths = () => {
+        if (!monthsWrap) return;
+        let html = '';
+        const rangeStart = ctx.minIso;
+        const rangeEnd = ctx.maxIso;
+
+        for (const monthValue of monthValues) {
+          const match = String(monthValue || '').trim().match(/^(\d{4})-(\d{2})$/);
+          if (!match) continue;
+          const year = Number(match[1]);
+          const month = Number(match[2]);
+          if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) continue;
+
+          const firstDay = new Date(Date.UTC(year, month - 1, 1));
+          const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+          const weekdayOffset = (firstDay.getUTCDay() + 6) % 7;
+
+          let daysHtml = '';
+          for (let blank = 0; blank < weekdayOffset; blank += 1) {
+            daysHtml += '<div class="trip-date-day--blank" aria-hidden="true"></div>';
+          }
+
+          for (let day = 1; day <= daysInMonth; day += 1) {
+            const iso = `${monthValue}-${String(day).padStart(2, '0')}`;
+            const inRange = iso >= rangeStart && iso <= rangeEnd;
+            const isPreferred = Boolean(ctx.preferredIso && iso === ctx.preferredIso);
+            const isSelected = selectedSet.has(iso);
+            const classNames = [
+              'trip-date-day',
+              inRange ? '' : 'trip-date-day--disabled',
+              isPreferred ? 'trip-date-day--preferred' : '',
+              isSelected ? 'trip-date-day--selected' : '',
+            ].filter(Boolean).join(' ');
+            const title = inRange
+              ? `${formatDateDmy(iso)}${isPreferred ? ' · preferred date' : ''}`
+              : `${formatDateDmy(iso)} · outside customer stay range`;
+            const disabledAttr = inRange ? '' : 'disabled';
+            daysHtml += `
+              <button
+                type="button"
+                class="${classNames}"
+                data-trip-date-iso="${escapeHtml(iso)}"
+                title="${escapeHtml(title)}"
+                ${disabledAttr}
+              >${day}</button>
+            `;
+          }
+
+          const weekdaysHtml = weekdayLabels.map((label) => `<div>${escapeHtml(label)}</div>`).join('');
+          html += `
+            <section class="trip-date-month-card">
+              <div class="trip-date-month-header">${escapeHtml(formatMonthLabel(monthValue))}</div>
+              <div class="trip-date-weekdays">${weekdaysHtml}</div>
+              <div class="trip-date-days">${daysHtml}</div>
+            </section>
+          `;
+        }
+
+        monthsWrap.innerHTML = html || '<div style="color:#94a3b8; font-size:12px;">No calendar dates available for this stay range.</div>';
+      };
+
+      const updateSubmitState = () => {
+        if (!submitBtn) return;
+        submitBtn.disabled = selectedSet.size < 1;
+        submitBtn.style.opacity = submitBtn.disabled ? '0.65' : '1';
+        submitBtn.style.cursor = submitBtn.disabled ? 'not-allowed' : 'pointer';
+      };
+
+      const rerender = () => {
+        renderMonths();
+        renderSelected();
+        updateSubmitState();
+      };
 
       const submitHandler = (event) => {
         event.preventDefault();
-        const values = Array.from(dialog.querySelectorAll('input[data-trip-date-slot]')).map((el) => el?.value || '');
+        const values = sortedSelected();
         const parsed = normalizeTripProposedDateList(values, ctx.minIso, ctx.maxIso);
         if (!parsed.ok) {
-          if (errorEl) errorEl.textContent = parsed.error;
+          setError(parsed.error);
           return;
         }
         finish(parsed.values);
       };
+
+      monthsWrap?.addEventListener('click', (event) => {
+        const target = event.target instanceof Element ? event.target.closest('button[data-trip-date-iso]') : null;
+        if (!target) return;
+        const iso = normalizeIsoDateValue(target.getAttribute('data-trip-date-iso') || '');
+        if (!iso || !isIsoWithinRange(iso, ctx.minIso, ctx.maxIso)) return;
+
+        clearError();
+        if (selectedSet.has(iso)) {
+          selectedSet.delete(iso);
+          rerender();
+          return;
+        }
+        if (selectedSet.size >= 3) {
+          setError('You can select maximum 3 available dates.');
+          return;
+        }
+        selectedSet.add(iso);
+        rerender();
+      });
 
       form?.addEventListener('submit', submitHandler);
       cancelBtn?.addEventListener('click', () => finish(null));
@@ -5927,6 +6133,7 @@
       });
 
       document.body.appendChild(dialog);
+      rerender();
       try {
         dialog.showModal();
       } catch (_e) {
