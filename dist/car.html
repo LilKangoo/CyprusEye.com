@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pl" dir="ltr">
+<html lang="en" dir="ltr">
   <head>
 <script>(function(){try{var r=new URLSearchParams(location.search).get('ref');if(r&&r.trim()){localStorage.setItem('cypruseye_referral_code',JSON.stringify({code:r.trim(),capturedAt:Date.now(),expiresAt:Date.now()+12096e5}))}}catch(e){}})();</script>
 <!-- Google tag (gtag.js) -->
@@ -20,27 +20,25 @@
   
   <meta name="theme-color" content="#2563eb" />
     <meta name="robots" content="index,follow" />
-    <title data-i18n="seo.coupon.title">CyprusEye Quest coupon – fast Stripe checkout</title>
+    <title data-i18n="carRental.meta.title">Choose your city – CyprusEye car rental</title>
     <meta
       name="description"
-      content="Purchase a CyprusEye Quest coupon and jump straight to secure Stripe payment in seconds."
-      data-i18n-attrs="content:seo.coupon.description"
+      content="Select your pick-up city and compare CyprusEye car rental offers with no deposit, transparent pricing and concierge support."
     />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="CyprusEye Quest coupon – fast Stripe checkout" data-i18n-attrs="content:seo.coupon.ogTitle" />
+    <meta property="og:title" content="Choose your city – CyprusEye car rental" />
     <meta
       property="og:description"
-      content="Book our offer in moments with a coupon and secure Stripe payment."
-      data-i18n-attrs="content:seo.coupon.ogDescription"
+      content="Pick Larnaca or Paphos to explore our fleets, instant calculators and dedicated support teams."
     />
-    <meta property="og:url" content="https://www.cypruseye.com/kupon.html" />
-    <meta property="og:image" content="https://www.cypruseye.com/assets/cyprus_logo-1000x1054.png" data-i18n-attrs="content:seo.ogImage" />
-    <meta property="og:locale" content="pl_PL" data-i18n-attrs="content:seo.coupon.locale" />
-    <meta property="og:locale:alternate" content="en_GB" data-i18n-attrs="content:seo.coupon.localeAlternate" />
-    <link rel="canonical" href="https://www.cypruseye.com/kupon.html" />
-    <link rel="alternate" hreflang="pl" href="https://www.cypruseye.com/kupon.html?lang=pl" />
-    <link rel="alternate" hreflang="en" href="https://www.cypruseye.com/kupon.html?lang=en" />
-    <link rel="alternate" hreflang="x-default" href="https://www.cypruseye.com/kupon.html" />
+    <meta property="og:url" content="https://www.cypruseye.com/car.html" />
+    <meta property="og:image" content="https://www.cypruseye.com/assets/cyprus_logo-1000x1054.png" />
+    <meta property="og:locale" content="en_GB" />
+    <meta property="og:locale:alternate" content="pl_PL" />
+    <!-- <meta property="og:locale:alternate" content="el_GR" /> -->
+    <link rel="canonical" href="https://www.cypruseye.com/car.html" />
+    <link rel="alternate" hreflang="pl" href="?lang=pl" />
+    <link rel="alternate" hreflang="en" href="?lang=en" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -62,12 +60,11 @@
   </noscript>
     <link rel="stylesheet" href="assets/css/tokens.css" />
     <link rel="stylesheet" href="assets/css/base.css" />
-    <link rel="stylesheet" href="assets/css/components.css?v=12" />
+    <link rel="stylesheet" href="assets/css/components.css?v=13" />
     <link rel="stylesheet" href="assets/css/header-metrics.css" />
     <link rel="stylesheet" href="assets/css/mobile.css" />
     <link rel="stylesheet" href="assets/css/mobile-nav.css" />
     <link rel="stylesheet" href="assets/css/rtl.css" />
-    <link rel="stylesheet" href="assets/css/language-switcher.css" />
     <link rel="stylesheet" href="css/toast.css" />
   
   <meta name="ce-auth" content="on" />
@@ -77,7 +74,7 @@
   <script type="module" src="js/authUi.js?v=2"></script>
   <script src="js/footer-referral.js" defer></script>
 </head>
-<body data-navigation="multi-page" data-initial-view="couponView" data-seo-page="coupon">
+<body data-navigation="multi-page" data-initial-view="carRentalView" data-seo-page="carRentalLanding" data-car-location="larnaca">
   <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
     <header class="app-header nav-modern">
       <div class="nav-modern__top" aria-label="Global header">
@@ -100,7 +97,13 @@
 
         <div class="nav-modern__stats nav-modern__stats-lite" data-auth="user-only">
           <div class="stats-lite__pill">
-            <a href="achievements.html" class="stats-lite__profile" id="profileButton" aria-label="Mój profil">
+            <a
+              href="achievements.html"
+              class="stats-lite__profile"
+              id="profileButton"
+              aria-label="Mój profil"
+              data-i18n-attrs="aria-label:header.profile"
+            >
               <img
                 id="headerUserAvatar"
                 class="profile-avatar"
@@ -111,14 +114,14 @@
                 loading="eager"
               />
               <div class="profile-info">
-                <p class="profile-name">Mój Profil</p>
-                <p class="profile-status">Poziom 1 • 0 odznak</p>
+                <p class="profile-name" data-i18n="header.profileLabel">Mój Profil</p>
+                <p class="profile-status" data-i18n="header.statusPlaceholder">Poziom 1 • 0 odznak</p>
               </div>
             </a>
 
             <div class="stats-lite__panel">
               <div class="stats-lite__level">
-                <span class="stats-lite__label">LVL</span>
+                <span class="stats-lite__label" data-i18n="metrics.level.abbrev">LVL</span>
                 <span class="stats-lite__value" id="headerLevelNumber">1</span>
                 
               </div>
@@ -240,217 +243,417 @@
     <ul id="notificationsPanelList" class="notifications-list" role="list"></ul>
   </div>
 
-  <main id="main-content">
-      <section class="card surface-card coupon-card" aria-describedby="couponSubtitle">
-        <div
-          class="coupon-hero-panel"
-          aria-label="Najważniejsze informacje o kuponie"
-          data-i18n-attrs="aria-label:coupon.hero.aria"
-        >
-          <div class="coupon-hero-copy">
-            <p class="coupon-hero-kicker" data-i18n="coupon.hero_kicker">Limitowana oferta</p>
-            <h1 id="couponTitle" class="coupon-hero-title" data-i18n="coupon.title">Kupon specjalny — szybka rezerwacja</h1>
-            <p id="couponSubtitle" class="coupon-hero-text" data-i18n="coupon.subtitle">
-              Najprostszy sposób, by skorzystać z naszej oferty — bez formalności.
-            </p>
+  <main id="main-content" class="standalone-main">
+    <section class="card surface-card standalone-hero" aria-labelledby="carRentalLandingHeroTitle">
+      <div class="standalone-hero-content">
+        <p class="standalone-hero-badge" data-i18n="carRentalLanding.hero.stepBadge">Krok 1 • Wybierz trasę i termin</p>
+        <h1 id="carRentalLandingHeroTitle" data-i18n="carRentalLanding.hero.title">Wynajem auta na Cyprze z automatycznym doborem oferty</h1>
+        <p data-i18n="carRentalLanding.hero.description">
+          Ustaw odbior i zwrot, a system sam wybierze najlepszą ofertę: Larnaka lub Pafos.
+          Zobaczysz dokładne ceny total na kartach aut i od razu przejdziesz do rezerwacji.
+        </p>
+        <p class="standalone-hero-note" id="landingOfferInfo" aria-live="polite" data-i18n="carRentalLanding.hero.autoOfferNote">
+          Oferta jest wybierana automatycznie na podstawie lokalizacji odbioru/zwrotu i opcji młodego kierowcy.
+        </p>
+      </div>
+      <ul class="standalone-hero-stats" aria-label="Najważniejsze informacje" data-i18n-attrs="aria-label:carRentalLanding.hero.stats.aria">
+        <li>
+          <strong id="landingActiveOfferBadge">Oferta: Larnaka</strong>
+          <span data-i18n="carRentalLanding.hero.stats.offerMode">Przełączanie automatyczne + ręczne porównanie</span>
+        </li>
+        <li>
+          <strong data-minimum-days>3</strong>
+          <span data-i18n="carRentalLanding.hero.stats.minimumDays">Minimalny czas wynajmu (dni)</span>
+        </li>
+        <li>
+          <strong data-i18n="carRentalLanding.hero.stats.noDeposit">Bez kaucji</strong>
+          <span data-i18n="carRentalLanding.hero.stats.noDepositSupport">Wsparcie 24/7 i przejrzysta wycena</span>
+        </li>
+      </ul>
+    </section>
+
+    <section class="card surface-card auto-rental" id="carRentalSection" aria-labelledby="carRentalTitle">
+      <header class="auto-rental-header">
+        <span class="auto-rental-badge" data-i18n="carRentalLanding.config.badge">Bez Kaucji</span>
+        <h2 id="carRentalTitle" data-i18n="carRentalLanding.config.title">Skonfiguruj wynajem i wybierz auto</h2>
+        <p data-i18n="carRentalLanding.config.description">
+          Wybierz daty, godziny i lokalizacje. Ceny na kartach poniżej pokazują dokładną kwotę całkowitą
+          dla Twoich ustawień (z uwzględnieniem opłat lokalizacyjnych i dodatków).
+        </p>
+
+        <div id="landingOfferToggle" hidden style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px;">
+          <span id="landingOfferToggleLabel" style="font-weight:600;color:#334155;">Porównaj oferty:</span>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="button" class="btn btn-secondary secondary" id="offerTogglePaphos" aria-pressed="true">Oferta Pafos</button>
+            <button type="button" class="btn ghost" id="offerToggleLarnaca" aria-pressed="false">Oferta Larnaka</button>
           </div>
-          <div
-            class="coupon-hero-cta"
-            aria-label="Sekcja zakupu kuponu"
-            data-i18n-attrs="aria-label:coupon.hero.ctaAria"
-          >
-            <div
-              class="coupon-hero-price"
-              aria-describedby="couponHeroNote"
-              aria-label="Cena kuponu"
-              data-i18n-attrs="aria-label:coupon.hero.priceAria"
-            >
-              <span class="coupon-hero-price-current" data-i18n="coupon.summary.price_current">7,99€</span>
-              <span class="coupon-hero-price-original" data-i18n="coupon.summary.price_original">12€</span>
+        </div>
+      </header>
+
+      <section class="auto-rental-tools" aria-label="Kalkulator i rezerwacja" data-i18n-attrs="aria-label:carRental.page.tools.aria">
+        <article class="auto-rental-block" id="carRentalCalculatorBlock">
+          <h3 data-i18n="carRental.page.calculator.title">Kalkulator wynajmu</h3>
+          <p data-i18n="carRentalLanding.calculator.description">
+            Wspólny widget dla obu ofert. Gdy wybierzesz lokalizacje Pafos po obu stronach i bez opcji młodego kierowcy,
+            aktywuje się oferta Pafos (z możliwością ręcznego przełączenia na Larnakę).
+          </p>
+
+          <form id="carRentalCalculator" class="auto-calculator" novalidate>
+            <div class="grid auto-calculator-grid">
+              <div class="auto-field">
+                <label for="pickupDate" data-i18n="carRental.calculator.form.pickupDate">Data odbioru</label>
+                <input type="date" id="pickupDate" name="pickupDate" required aria-required="true" />
+              </div>
+              <div class="auto-field">
+                <label for="pickupTime" data-i18n="carRental.calculator.form.pickupTime">Godzina odbioru</label>
+                <input type="time" id="pickupTime" name="pickupTime" value="10:00" />
+              </div>
+              <div class="auto-field">
+                <label for="returnDate" data-i18n="carRental.calculator.form.returnDate">Data zwrotu</label>
+                <input type="date" id="returnDate" name="returnDate" required aria-required="true" />
+              </div>
+              <div class="auto-field">
+                <label for="returnTime" data-i18n="carRental.calculator.form.returnTime">Godzina zwrotu</label>
+                <input type="time" id="returnTime" name="returnTime" value="10:00" />
+              </div>
+
+              <div class="auto-field">
+                <label for="pickupLocation" data-i18n="carRental.calculator.form.pickupLocation">Miejsce odbioru</label>
+                <select id="pickupLocation" name="pickupLocation" required aria-required="true"></select>
+              </div>
+              <div class="auto-field">
+                <label for="returnLocation" data-i18n="carRental.calculator.form.returnLocation">Miejsce zwrotu</label>
+                <select id="returnLocation" name="returnLocation" required aria-required="true"></select>
+              </div>
+
+              <div class="auto-checkbox">
+                <input type="checkbox" id="fullInsurance" name="fullInsurance" />
+                <label for="fullInsurance" data-i18n="carRental.calculator.form.fullInsurance">
+                  Pełne ubezpieczenie AC (+17€/dzień)
+                </label>
+              </div>
+              <div class="auto-checkbox">
+                <input type="checkbox" id="youngDriver" name="youngDriver" />
+                <label for="youngDriver" data-i18n="carRental.calculator.form.youngDriver">
+                  Młody kierowca / staż &lt; 3 lata (+10€/dzień, tylko oferta Larnaka)
+                </label>
+              </div>
+
+              <div class="auto-field" style="grid-column: 1 / -1;">
+                <label for="rentalCarSelect" data-i18n="carRental.calculator.form.car">Wybierz auto</label>
+                <select id="rentalCarSelect" name="car" required aria-required="true"></select>
+              </div>
             </div>
-            <p id="couponHeroNote" class="coupon-hero-note" data-i18n="coupon.hero.savings">Oszczędzasz 4,01€ na starcie</p>
+
+            <p style="font-size:12px;color:#64748b;margin:8px 0 16px;" data-i18n="carRentalLanding.calculator.coralBayHint">
+              Coral Bay / Polis wybierz jako Hotel lub Inne + podaj adres w formularzu rezerwacji.
+            </p>
+
             <button
               type="button"
-              class="coupon-cta coupon-hero-button"
-              data-coupon-cta
-              data-i18n="coupon.cta"
-              data-i18n-attrs="aria-label:coupon.cta_aria"
-              aria-label="Kup kupon — przejdź do bezpiecznej płatności Stripe"
+              class="btn btn-primary primary"
+              id="btnFillFromCalculator"
+              style="width: 100%; padding: 14px; font-size: 16px; font-weight: 600;"
+              data-i18n="carRental.calculator.fillButton"
             >
-              Kup kupon
+              Przenieś do formularza
             </button>
+
+            <p
+              style="font-size: 12px; color: #64748b; margin: 12px 0 0; text-align: center;"
+              data-i18n="carRental.calculator.confirmationNote"
+            >
+              Otrzymasz potwierdzenie na email w ciągu 24h
+            </p>
+          </form>
+
+          <div class="auto-calculator-result" aria-live="polite">
+            <p id="carRentalResult" class="auto-calculator-total"></p>
+            <div id="carRentalBreakdown" class="auto-calculator-breakdown"></div>
+            <p id="carRentalMessage" class="auto-calculator-message" role="status"></p>
+          </div>
+        </article>
+      </section>
+
+      <section class="selected-car-highlight" id="selectedCarHighlight" hidden aria-live="polite">
+        <div class="selected-car-highlight__media">
+          <img id="selectedCarHighlightImage" src="" alt="Wybrane auto" loading="lazy" data-i18n-attrs="alt:carRentalLanding.selectedCar.imageAlt" />
+        </div>
+        <div class="selected-car-highlight__content">
+          <p class="selected-car-highlight__label" data-i18n="carRentalLanding.selectedCar.label">Wybrane auto</p>
+          <h3 id="selectedCarHighlightTitle">—</h3>
+          <p id="selectedCarHighlightMeta">—</p>
+          <div class="selected-car-highlight__meta-row">
+            <span id="selectedCarHighlightPrice" hidden></span>
+            <span id="selectedCarHighlightOffer"></span>
           </div>
         </div>
-        <div class="grid coupon-card-grid" aria-hidden="true">
-          <figure class="coupon-card-media coupon-card-media--hero">
-            <img
-              src="assets/kupon%20logo.jpeg"
-              alt="Wizualizacja kuponu WakacjeCypr"
-              data-i18n-attrs="alt:coupon.image_alt"
-              width="1200"
-              height="800"
-              loading="eager"
-            />
-          </figure>
-        </div>
       </section>
-      <section class="card surface-card coupon-info" aria-labelledby="couponInfoTitle">
-        <div class="coupon-info-header">
-          <h2 id="couponInfoTitle" data-i18n="coupon.info.title">🎟️ Kupon</h2>
-          <p class="coupon-info-lede" data-i18n="coupon.info.subtitle">
-            Zamów swój kupon już dziś i korzystaj z tańszych wakacji na całym Cyprze 🇨🇾
-          </p>
-        </div>
-        <div class="coupon-conditions">
-          <h3 data-i18n="coupon.conditions.title">🏝️ Warunki korzystania z kuponu rabatowego WakacjeCypr</h3>
-          <ul class="coupon-conditions-list">
-            <li data-i18n="coupon.conditions.rules.usage">
-              Każdy kupon jest ważny raz u każdego partnera – możesz wykorzystać zniżki u różnych
-              usługodawców, ale tylko jeden raz w danym miejscu.
-            </li>
-            <li>
-              <p data-i18n="coupon.conditions.rules.groupIntro">
-                Niektóre zniżki dotyczą całej grupy, inne jednej osoby – szczegóły znajdziesz przy każdej ofercie:
-              </p>
-              <ul>
-                <li data-i18n="coupon.conditions.rules.groupMultiple"><strong>✅ Wycieczki –5 €</strong> dotyczy jednej osoby.</li>
-                <li data-i18n="coupon.conditions.rules.groupStay"><strong>✅ Zakwaterowanie Lefkara –15% lub –20%</strong> – zniżka liczona od całkowitej wartości noclegu.</li>
-              </ul>
-            </li>
-            <li data-i18n="coupon.conditions.rules.named">Kupon jest imienny i niepodzielny – nie można dzielić jednej zniżki na kilka transakcji.</li>
-            <li data-i18n="coupon.conditions.rules.show">Kupon należy okazać przed skorzystaniem z usługi – najlepiej na telefonie lub wydrukowany.</li>
-            <li data-i18n="coupon.conditions.rules.combine">Zniżki nie łączą się z innymi promocjami lub kodami – obowiązuje korzystniejsza opcja.</li>
-            <li data-i18n="coupon.conditions.rules.verify">Partnerzy mogą zweryfikować ważność kuponu – po skorzystaniu z danej zniżki zaznaczona zostaje jako „zrealizowana”.</li>
-            <li data-i18n="coupon.conditions.rules.cash">Brak możliwości wymiany kuponu na gotówkę – to forma bonusu, nie środka płatniczego.</li>
-          </ul>
-        </div>
-      </section>
-      <section class="card surface-card coupon-offers" aria-labelledby="couponOffersTitle">
-        <div class="coupon-section-heading">
-          <h2 id="couponOffersTitle" data-i18n="coupon.offers.title">Z kim zrealizujesz zniżkę?</h2>
-          <p data-i18n="coupon.offers.subtitle">
-            Kupon działa u partnerów w całym kraju. Wybierz usługę, pokaż numer kuponu i
-            odbierz rabat na miejscu lub przy rezerwacji online.
-          </p>
-        </div>
-        <div class="coupon-search-meta" data-coupon-search-meta hidden>
-          <p class="coupon-search-summary" data-i18n="coupon.search.summary">
-            Wyniki dla „<span data-coupon-query></span>” — <strong><span data-coupon-results></span></strong>
-            partnerów.
-          </p>
-          <a class="coupon-search-reset" href="kupon.html" data-i18n="coupon.search.reset">Wyczyść filtr</a>
-        </div>
-        <p class="coupon-offers-empty" data-coupon-empty hidden data-i18n="coupon.search.empty">
-          Nie znaleziono partnera dla wpisanej frazy. Spróbuj innego słowa kluczowego.
+
+      <section class="auto-rental-groups" id="carRentalGrid" aria-label="Dostępna flota" data-i18n-attrs="aria-label:carRentalLanding.grid.aria" aria-live="polite"></section>
+
+      <article class="auto-rental-block" id="carReservationForm" style="margin-top:24px;">
+        <h3 data-i18n="carRental.page.reservation.title">Złóż rezerwację</h3>
+        <p data-i18n="carRental.page.reservation.description">
+          Wypełnij formularz poniżej lub napisz do nas na WhatsApp – odpowiadamy najszybciej jak to możliwe.
         </p>
-        <div class="coupon-offers-grid" role="list">
-          <article class="coupon-offer" role="listitem" data-coupon-offer data-partner="Auto Bez Kaucji">
-            <p class="coupon-offer-category" data-i18n="coupon.offers.items.noDeposit.category">Auto Bez Kaucji</p>
-            <h3 data-i18n="coupon.offers.items.noDeposit.title">Cały Cypr</h3>
-            <p class="coupon-offer-benefit" data-i18n="coupon.offers.items.noDeposit.benefit">-10€ na wynajem</p>
-          </article>
-          <article class="coupon-offer" role="listitem" data-coupon-offer data-partner="Auto Bez Kaucji Paphos">
-            <p class="coupon-offer-category" data-i18n="coupon.offers.items.noDepositPaphos.category">Auto Bez Kaucji</p>
-            <h3 data-i18n="coupon.offers.items.noDepositPaphos.title">Paphos</h3>
-            <p class="coupon-offer-benefit" data-i18n="coupon.offers.items.noDepositPaphos.benefit">-10€ na wynajem</p>
-          </article>
-          <article class="coupon-offer" role="listitem" data-coupon-offer data-partner="Rejs Indywidualny Ayia Napa">
-            <p class="coupon-offer-category" data-i18n="coupon.offers.items.privateCruise.category">Rejs Indywidualny Ayia Napa</p>
-            <h3 data-i18n="coupon.offers.items.privateCruise.title">Rejs indywidualny</h3>
-            <p class="coupon-offer-benefit" data-i18n="coupon.offers.items.privateCruise.benefit">-20€ na rejs</p>
-          </article>
-          <article class="coupon-offer" role="listitem" data-coupon-offer data-partner="Transport na Cyprze">
-            <p class="coupon-offer-category" data-i18n="coupon.offers.items.transport.category">Transport na Cyprze</p>
-            <h3 data-i18n="coupon.offers.items.transport.title">Przesyłki i przejazdy</h3>
-            <p class="coupon-offer-benefit" data-i18n="coupon.offers.items.transport.benefit">-5€ za wysyłkę</p>
-          </article>
-          <article class="coupon-offer" role="listitem" data-coupon-offer data-partner="Zakwaterowanie Lefkara 7 Kamares">
-            <p class="coupon-offer-category" data-i18n="coupon.offers.items.lefkaraShort.category">Zakwaterowanie w Lefkara 7 Kamares</p>
-            <h3 data-i18n="coupon.offers.items.lefkaraShort.title">Pobyty do 2 nocy</h3>
-            <p class="coupon-offer-benefit" data-i18n="coupon.offers.items.lefkaraShort.benefit">-15% do 2 nocy</p>
-          </article>
-          <article class="coupon-offer" role="listitem" data-coupon-offer data-partner="Zakwaterowanie Lefkara 7 Kamares">
-            <p class="coupon-offer-category" data-i18n="coupon.offers.items.lefkaraLong.category">Zakwaterowanie w Lefkara 7 Kamares</p>
-            <h3 data-i18n="coupon.offers.items.lefkaraLong.title">Pobyty od 3 nocy</h3>
-            <p class="coupon-offer-benefit" data-i18n="coupon.offers.items.lefkaraLong.benefit">-20% od 3 nocy</p>
-          </article>
-          <article class="coupon-offer" role="listitem" data-coupon-offer data-partner="Restauracja Da Vinci's Garden">
-            <p class="coupon-offer-category" data-i18n="coupon.offers.items.davinci.category">Restauracja Da Vinci's Garden</p>
-            <h3 data-i18n="coupon.offers.items.davinci.title">Kuchnia cypryjska</h3>
-            <p class="coupon-offer-benefit" data-i18n="coupon.offers.items.davinci.benefit">-10% powyżej 50€</p>
-          </article>
-          <article class="coupon-offer" role="listitem" data-coupon-offer data-partner="Srebro w Lefkara">
-            <p class="coupon-offer-category" data-i18n="coupon.offers.items.silver.category">Srebro w Lefkara</p>
-            <h3 data-i18n="coupon.offers.items.silver.title">Biżuteria i pamiątki</h3>
-            <p class="coupon-offer-benefit" data-i18n="coupon.offers.items.silver.benefit">-20% na zakupy</p>
-          </article>
-          <article class="coupon-offer" role="listitem" data-coupon-offer data-partner="Sesje zdjęciowe Lefkara">
-            <p class="coupon-offer-category" data-i18n="coupon.offers.items.photo.category">Sesje zdjęciowe Lefkara</p>
-            <h3 data-i18n="coupon.offers.items.photo.title">Sesje fotograficzne</h3>
-            <p class="coupon-offer-benefit" data-i18n="coupon.offers.items.photo.benefit">od -5% do -20% na sesję</p>
-          </article>
-          <article class="coupon-offer" role="listitem" data-coupon-offer data-partner="WakacjeCypr Wycieczki">
-            <p class="coupon-offer-category" data-i18n="coupon.offers.items.tours.category">Wycieczki na Cyprze</p>
-            <h3 data-i18n="coupon.offers.items.tours.title">Zwiedzanie wyspy</h3>
-            <p class="coupon-offer-benefit" data-i18n="coupon.offers.items.tours.benefit">-5€ za wycieczkę</p>
-          </article>
+        <p id="reservationOfferInfo" class="auto-reservation-offer" aria-live="polite"></p>
+
+        <div class="auto-reservation-actions" style="margin-bottom: 24px;">
+          <a
+            class="ghost"
+            href="https://wa.me/48534073861"
+            target="_blank"
+            rel="noopener"
+            data-i18n="carRental.page.reservation.actions.whatsapp"
+          >
+            Napisz na WhatsApp
+          </a>
         </div>
-      </section>
-      <section class="card surface-card coupon-how" aria-labelledby="couponHowTitle">
-        <div class="coupon-section-heading">
-          <h2 id="couponHowTitle" data-i18n="coupon.how.title">Jak kupić kupon?</h2>
-          <p data-i18n="coupon.how.subtitle">
-            Poniżej znajdziesz instrukcję korzystania ze zniżek i odnośnik do płatności Stripe. Każdy
-            krok zajmie Ci tylko chwilę.
+
+        <form id="localReservationForm" class="auto-reservation-form" novalidate style="background: #f8fafc; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0;">
+          <div style="margin-bottom: 24px;">
+            <h4 style="font-size: 16px; font-weight: 600; margin: 0 0 16px; color: #1e293b;" data-i18n="carRental.page.reservation.sections.contact">
+              Dane kontaktowe
+            </h4>
+            <div style="display: grid; gap: 16px;">
+              <div class="auto-field">
+                <label for="res_full_name" data-i18n="carRental.page.reservation.fields.fullName.label">Imię i nazwisko *</label>
+                <input
+                  type="text"
+                  id="res_full_name"
+                  name="full_name"
+                  required
+                  placeholder="Jan Kowalski"
+                  data-i18n-attrs="placeholder:carRental.page.reservation.fields.fullName.placeholder"
+                >
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="auto-field">
+                  <label for="res_email" data-i18n="carRental.page.reservation.fields.email.label">Email *</label>
+                  <input
+                    type="email"
+                    id="res_email"
+                    name="email"
+                    required
+                    placeholder="jan@example.com"
+                    data-i18n-attrs="placeholder:carRental.page.reservation.fields.email.placeholder"
+                  >
+                </div>
+                <div class="auto-field">
+                  <label for="res_phone" data-i18n="carRental.page.reservation.fields.phone.label">Telefon *</label>
+                  <input
+                    type="tel"
+                    id="res_phone"
+                    name="phone"
+                    required
+                    placeholder="+48 123 456 789"
+                    data-i18n-attrs="placeholder:carRental.page.reservation.fields.phone.placeholder"
+                  >
+                </div>
+              </div>
+              <div class="auto-field">
+                <label for="res_country" data-i18n="carRental.page.reservation.fields.country.label">Kraj</label>
+                <input
+                  type="text"
+                  id="res_country"
+                  name="country"
+                  placeholder="Polska"
+                  data-i18n-attrs="placeholder:carRental.page.reservation.fields.country.placeholder"
+                >
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 24px;">
+            <h4 style="font-size: 16px; font-weight: 600; margin: 0 0 16px; color: #1e293b;" data-i18n="carRental.page.reservation.sections.rental">
+              Szczegóły wynajmu
+            </h4>
+            <div style="display: grid; gap: 16px;">
+              <div class="auto-field">
+                <label for="res_car" data-i18n="carRental.page.reservation.fields.car.label">Wybierz auto *</label>
+                <select id="res_car" name="car" required>
+                  <option value="" data-i18n="carRental.page.reservation.fields.car.loading">Ładowanie...</option>
+                </select>
+              </div>
+
+              <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
+                <div class="auto-field">
+                  <label for="res_pickup_date" data-i18n="carRental.page.reservation.fields.pickupDate.label">Data odbioru *</label>
+                  <input type="date" id="res_pickup_date" name="pickup_date" required>
+                </div>
+                <div class="auto-field">
+                  <label for="res_pickup_time" data-i18n="carRental.page.reservation.fields.pickupTime.label">Godzina</label>
+                  <input type="time" id="res_pickup_time" name="pickup_time" value="10:00">
+                </div>
+              </div>
+
+              <div class="auto-field">
+                <label for="res_pickup_location" data-i18n="carRental.page.reservation.fields.pickupLocation.label">Miejsce odbioru *</label>
+                <select id="res_pickup_location" name="pickup_location" required>
+                  <option value="larnaca">Larnaka (bez opłaty)</option>
+                  <option value="nicosia">Nikozja (+15€)</option>
+                  <option value="ayia-napa">Ayia Napa (+15€)</option>
+                  <option value="protaras">Protaras (+20€)</option>
+                  <option value="limassol">Limassol (+20€)</option>
+                  <option value="paphos">Pafos (+40€)</option>
+                  <option value="airport_pfo">Pafos Lotnisko (+10€ przy wynajmie &lt; 7 dni)</option>
+                  <option value="city_center">Pafos - centrum miasta (bez opłaty)</option>
+                  <option value="hotel">Hotel (Paphos i okolice bez opłaty)</option>
+                  <option value="other">Inne miejsce</option>
+                </select>
+              </div>
+
+              <div class="auto-field" id="pickupAddressField" hidden>
+                <label for="res_pickup_address" data-i18n="carRental.page.reservation.fields.pickupAddress.label">Adres odbioru</label>
+                <input
+                  type="text"
+                  id="res_pickup_address"
+                  name="pickup_address"
+                  placeholder="Nazwa hotelu lub dokładny adres"
+                  data-i18n-attrs="placeholder:carRental.page.reservation.fields.pickupAddress.placeholder"
+                >
+              </div>
+
+              <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
+                <div class="auto-field">
+                  <label for="res_return_date" data-i18n="carRental.page.reservation.fields.returnDate.label">Data zwrotu *</label>
+                  <input type="date" id="res_return_date" name="return_date" required>
+                </div>
+                <div class="auto-field">
+                  <label for="res_return_time" data-i18n="carRental.page.reservation.fields.returnTime.label">Godzina</label>
+                  <input type="time" id="res_return_time" name="return_time" value="10:00">
+                </div>
+              </div>
+
+              <div class="auto-field">
+                <label for="res_return_location" data-i18n="carRental.page.reservation.fields.returnLocation.label">Miejsce zwrotu *</label>
+                <select id="res_return_location" name="return_location" required>
+                  <option value="larnaca">Larnaka (bez opłaty)</option>
+                  <option value="nicosia">Nikozja (+15€)</option>
+                  <option value="ayia-napa">Ayia Napa (+15€)</option>
+                  <option value="protaras">Protaras (+20€)</option>
+                  <option value="limassol">Limassol (+20€)</option>
+                  <option value="paphos">Pafos (+40€)</option>
+                  <option value="airport_pfo">Pafos Lotnisko (+10€ przy wynajmie &lt; 7 dni)</option>
+                  <option value="city_center">Pafos - centrum miasta (bez opłaty)</option>
+                  <option value="hotel">Hotel (Paphos i okolice bez opłaty)</option>
+                  <option value="other">Inne miejsce</option>
+                </select>
+              </div>
+
+              <div class="auto-field" id="returnAddressField" hidden>
+                <label for="res_return_address" data-i18n="carRental.page.reservation.fields.returnAddress.label">Adres zwrotu</label>
+                <input
+                  type="text"
+                  id="res_return_address"
+                  name="return_address"
+                  placeholder="Nazwa hotelu lub dokładny adres"
+                  data-i18n-attrs="placeholder:carRental.page.reservation.fields.returnAddress.placeholder"
+                >
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 24px;">
+            <h4 style="font-size: 16px; font-weight: 600; margin: 0 0 16px; color: #1e293b;" data-i18n="carRental.page.reservation.sections.options">
+              Dodatkowe opcje
+            </h4>
+            <div style="display: grid; gap: 16px;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="auto-field">
+                  <label for="res_passengers" data-i18n="carRental.page.reservation.fields.passengers.label">Liczba pasażerów</label>
+                  <input type="number" id="res_passengers" name="num_passengers" min="1" max="8" value="2">
+                </div>
+                <div class="auto-field">
+                  <label for="res_child_seats" data-i18n="carRental.page.reservation.fields.childSeats.label">Foteliki dziecięce (gratis)</label>
+                  <input type="number" id="res_child_seats" name="child_seats" min="0" max="3" value="0">
+                </div>
+              </div>
+
+              <div class="auto-checkbox">
+                <input type="checkbox" id="res_insurance" name="insurance">
+                <label for="res_insurance" data-i18n="carRental.page.reservation.fields.insurance.label">Pełne ubezpieczenie AC (+17€/dzień)</label>
+              </div>
+
+              <div class="auto-checkbox">
+                <input type="checkbox" id="res_young_driver" name="young_driver">
+                <label for="res_young_driver" data-i18n="carRental.page.reservation.fields.youngDriver.label">Młody kierowca / staż &lt; 3 lata (+10€/dzień)</label>
+              </div>
+
+              <div class="auto-field">
+                <label for="res_flight" data-i18n="carRental.page.reservation.fields.flight.label">Numer lotu (opcjonalnie)</label>
+                <input
+                  type="text"
+                  id="res_flight"
+                  name="flight_number"
+                  placeholder="W1234"
+                  data-i18n-attrs="placeholder:carRental.page.reservation.fields.flight.placeholder"
+                >
+              </div>
+
+              <div class="auto-field">
+                <label for="res_notes" data-i18n="carRental.page.reservation.fields.notes.label">Uwagi specjalne</label>
+                <textarea
+                  id="res_notes"
+                  name="special_requests"
+                  rows="3"
+                  placeholder="Dodatkowe informacje lub prośby..."
+                  data-i18n-attrs="placeholder:carRental.page.reservation.fields.notes.placeholder"
+                ></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="auto-coupon-panel" aria-live="polite">
+            <div class="auto-field">
+              <label for="res_coupon_code">Coupon code</label>
+              <div class="auto-coupon-row">
+                <input
+                  type="text"
+                  id="res_coupon_code"
+                  name="coupon_code"
+                  placeholder="Enter coupon code"
+                  autocomplete="off"
+                  spellcheck="false"
+                >
+                <button type="button" class="btn btn-secondary secondary" id="btnApplyCoupon">Apply</button>
+                <button type="button" class="btn ghost" id="btnClearCoupon" hidden>Clear</button>
+              </div>
+              <p id="couponStatusMessage" class="auto-coupon-status" hidden></p>
+            </div>
+          </div>
+
+          <div id="estimatedPrice" style="background: #f1f5f9; padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; color: #475569;"></div>
+
+          <div id="reservationError" class="admin-error-message" hidden style="margin-bottom: 16px;"></div>
+          <div id="reservationSuccess" hidden></div>
+
+          <button
+            type="submit"
+            class="btn btn-primary primary"
+            id="btnSubmitReservation"
+            style="width: 100%; padding: 14px; font-size: 16px; font-weight: 600;"
+            data-i18n="carRental.page.reservation.submit"
+          >
+            Wyślij rezerwację
+          </button>
+
+          <p
+            style="font-size: 12px; color: #64748b; margin: 12px 0 0; text-align: center;"
+            data-i18n="carRental.page.reservation.confirmationNote"
+          >
+            Otrzymasz potwierdzenie na email w ciągu 24h
           </p>
+        </form>
+
+        <div id="formSubmitConfirmation" hidden style="background: #10b981; color: white; padding: 20px; border-radius: 12px; margin-top: 24px; text-align: center; animation: slideIn 0.3s ease;">
+          <h3 style="margin: 0 0 8px; font-size: 20px;" data-i18n="carRental.calculator.successTitle">🎉 Gratulacje!</h3>
+          <p style="margin: 0; font-size: 16px; opacity: 0.95;" data-i18n="carRental.calculator.successMessage">Twój formularz został wysłany pomyślnie!</p>
         </div>
-        <ol class="coupon-steps">
-          <li>
-            <div class="coupon-step-number" aria-hidden="true">1</div>
-            <div class="coupon-step-content">
-              <h3 data-i18n="coupon.how.step1.title">Zamów kupon</h3>
-              <p data-i18n="coupon.how.step1.description">
-                W linku powyżej znajdziesz opcję zakupu kuponu dla wybranej liczby osób.
-              </p>
-              <ul class="coupon-step-notes">
-                <li data-i18n="coupon.how.step1.noteMultiple">
-                  <strong>Kiedy warto kupić kilka kuponów?</strong> Jeśli masz większą grupę (np.
-                  rejs lub wycieczka) i chcesz wykorzystać zniżkę dla wszystkich.
-                </li>
-                <li data-i18n="coupon.how.step1.noteSingle">
-                  <strong>Kiedy wystarczy jeden kupon?</strong> Gdy planujesz skorzystać jedynie z
-                  rabatów na auta i transport.
-                </li>
-              </ul>
-            </div>
-          </li>
-          <li>
-            <div class="coupon-step-number" aria-hidden="true">2</div>
-            <div class="coupon-step-content">
-              <h3 data-i18n="coupon.how.step2.title">Sprawdź maila</h3>
-              <p data-i18n="coupon.how.step2.description">
-                Podczas płatności podaj swój adres e-mail. Do 5 minut od wpłaty otrzymasz gotowy
-                kupon, który wykorzystasz na różne usługi na wyspie.
-              </p>
-            </div>
-          </li>
-          <li>
-            <div class="coupon-step-number" aria-hidden="true">3</div>
-            <div class="coupon-step-content">
-              <h3 data-i18n="coupon.how.step3.title">Wykorzystaj kupon</h3>
-              <p data-i18n="coupon.how.step3.description">
-                Każdy kupon ma indywidualny numer. Podaj go w formularzach na stronie lub pokaż
-                naszym partnerom na miejscu. Jeden kupon możesz wykorzystać po razie u każdego
-                partnera podczas wyjazdu.
-              </p>
-            </div>
-          </li>
-        </ol>
-      </section>
-      <p class="coupon-smallprint" data-i18n="coupon.smallprint">
-        Kupon otrzymasz w ciągu kilku minut na adres e-mail podany przy płatności.
-      </p>
-    </main>
+      </article>
+    </section>
+  </main>
 
   <!-- Mobile tabbar is dynamically generated by seo.js -->
 
@@ -472,7 +675,7 @@
   </div>
 
   <footer class="app-footer">
-    <p data-i18n="footer.app">© <span data-current-year></span> WakacjeCypr.com • Graj, zwiedzaj i planuj wakacje jednocześnie.</p>
+    <p data-i18n="footer.app">© <span data-current-year"></span> CyprusEye.com • Graj, zwiedzaj i planuj wakacje jednocześnie.</p>
   </footer>
 
   <div
@@ -498,7 +701,8 @@
           class="icon-button"
           id="accountClose"
           aria-label="Zamknij ustawienia konta"
-          data-i18n="account.close"
+          data-i18n="account.close.text"
+          data-i18n-attrs="aria-label:account.close.attributes.aria-label"
         >
           ✕
         </button>
@@ -542,7 +746,7 @@
             data-account-message
             hidden
           ></div>
-          <div data-account-loading hidden>Trwa wczytywanie danych konta…</div>
+          <div data-account-loading hidden data-i18n="account.loading">Trwa wczytywanie danych konta…</div>
         </div>
 
         <div data-account-content>
@@ -555,32 +759,32 @@
           >
             <section class="account-card" aria-labelledby="accountProfileHeading">
               <div>
-                <h3 id="accountProfileHeading">Twój profil</h3>
-                <p>Podstawowe informacje o koncie i postępy w przygodzie.</p>
+                <h3 id="accountProfileHeading" data-i18n="account.profile.heading">Twój profil</h3>
+                <p data-i18n="account.profile.desc">Podstawowe informacje o koncie i postępy w przygodzie.</p>
               </div>
               <dl class="profile-grid">
                 <div>
-                  <dt>E-mail</dt>
+                  <dt data-i18n="account.profile.labels.email">E-mail</dt>
                   <dd data-account-email>—</dd>
                 </div>
                 <div>
-                  <dt>Nazwa użytkownika</dt>
+                  <dt data-i18n="account.profile.labels.username">Nazwa użytkownika</dt>
                   <dd data-account-username>—</dd>
                 </div>
                 <div>
-                  <dt>Imię wyświetlane</dt>
+                  <dt data-i18n="account.profile.labels.displayName">Imię wyświetlane</dt>
                   <dd data-account-name>—</dd>
                 </div>
                 <div>
-                  <dt>XP</dt>
+                  <dt data-i18n="account.profile.labels.xp">XP</dt>
                   <dd data-account-xp>0</dd>
                 </div>
                 <div>
-                  <dt>Poziom</dt>
+                  <dt data-i18n="account.profile.labels.level">Poziom</dt>
                   <dd data-account-level>0</dd>
                 </div>
                 <div>
-                  <dt>Ostatnia aktualizacja</dt>
+                  <dt data-i18n="account.profile.labels.lastUpdated">Ostatnia aktualizacja</dt>
                   <dd data-account-updated>—</dd>
                 </div>
               </dl>
@@ -588,10 +792,10 @@
 
             <section class="account-card" aria-labelledby="accountXpHeading">
               <div>
-                <h3 id="accountXpHeading">Ostatnie zdarzenia XP</h3>
-                <p>Monitoruj, jak zdobywasz doświadczenie w CyprusEye.</p>
+                <h3 id="accountXpHeading" data-i18n="account.xpEvents.title">Ostatnie zdarzenia XP</h3>
+                <p data-i18n="account.xpEvents.desc">Monitoruj, jak zdobywasz doświadczenie w CyprusEye.</p>
               </div>
-              <p id="accountXpEmpty" data-account-xp-empty hidden>Brak zarejestrowanych zdarzeń XP.</p>
+              <p id="accountXpEmpty" data-account-xp-empty hidden data-i18n="account.xpEvents.empty">Brak zarejestrowanych zdarzeń XP.</p>
               <ul id="accountXpEvents" class="xp-list" aria-live="polite"></ul>
             </section>
 
@@ -656,12 +860,12 @@
           >
             <section class="account-card" aria-labelledby="accountUsernameHeading">
               <div>
-                <h3 id="accountUsernameHeading">Zmień nazwę użytkownika</h3>
-                <p>Ustaw identyfikator widoczny w rankingach, komentarzach i dzienniku podróży.</p>
+                <h3 id="accountUsernameHeading" data-i18n="account.security.username.heading">Zmień nazwę użytkownika</h3>
+                <p data-i18n="account.security.username.desc">Ustaw identyfikator widoczny w rankingach, komentarzach i dzienniku podróży.</p>
               </div>
               <form id="accountUsernameForm" class="account-form account-form--stack" novalidate>
                 <label for="accountUsernameInput">
-                  Nowa nazwa użytkownika
+                  <span data-i18n="account.security.username.label">Nowa nazwa użytkownika</span>
                   <input
                     id="accountUsernameInput"
                     name="username"
@@ -672,45 +876,47 @@
                     autocorrect="off"
                     spellcheck="false"
                     placeholder="np. cyprus.explorer"
+                    data-i18n-attrs="placeholder:account.security.username.placeholder"
                     minlength="3"
                     maxlength="30"
                     required
                   />
                 </label>
-                <p class="account-form__hint">
+                <p class="account-form__hint" data-i18n="account.security.username.hint">
                   Dozwolone litery, cyfry, kropki, myślniki i podkreślenia (3–30 znaków).
                 </p>
-                <button type="submit">Zapisz nazwę</button>
+                <button type="submit" data-i18n="account.security.username.submit">Zapisz nazwę</button>
               </form>
             </section>
 
             <section class="account-card" aria-labelledby="accountNameHeading">
               <div>
-                <h3 id="accountNameHeading">Imię wyświetlane</h3>
-                <p>To imię pojawia się w powiadomieniach oraz powitaniach w aplikacji.</p>
+                <h3 id="accountNameHeading" data-i18n="account.security.displayName.heading">Imię wyświetlane</h3>
+                <p data-i18n="account.security.displayName.desc">To imię pojawia się w powiadomieniach oraz powitaniach w aplikacji.</p>
               </div>
               <form id="accountNameForm" class="account-form account-form--stack" novalidate>
                 <label for="accountNameInput">
-                  Imię
+                  <span data-i18n="account.security.displayName.label">Imię</span>
                   <input
                     id="accountNameInput"
                     name="name"
                     type="text"
                     autocomplete="given-name"
                     placeholder="Twoje imię"
+                    data-i18n-attrs="placeholder:account.security.displayName.placeholder"
                     minlength="2"
                     maxlength="60"
                     required
                   />
                 </label>
-                <button type="submit">Zapisz imię</button>
+                <button type="submit" data-i18n="account.security.displayName.submit">Zapisz imię</button>
               </form>
             </section>
 
             <section class="account-card" aria-labelledby="accountPasswordHeading">
               <div>
-                <h3 id="accountPasswordHeading">Aktualizuj hasło</h3>
-                <p>Użyj silnego hasła, aby chronić konto przed niepowołanym dostępem.</p>
+                <h3 id="accountPasswordHeading" data-i18n="account.security.password.heading">Aktualizuj hasło</h3>
+                <p data-i18n="account.security.password.desc">Użyj silnego hasła, aby chronić konto przed niepowołanym dostępem.</p>
               </div>
               <form
                 id="accountPasswordForm"
@@ -719,7 +925,7 @@
                 novalidate
               >
                 <label for="accountCurrentPassword">
-                  Obecne hasło
+                  <span data-i18n="account.security.password.current">Obecne hasło</span>
                   <input
                     id="accountCurrentPassword"
                     name="current_password"
@@ -730,7 +936,7 @@
                   />
                 </label>
                 <label for="accountNewPassword">
-                  Nowe hasło
+                  <span data-i18n="account.security.password.new">Nowe hasło</span>
                   <input
                     id="accountNewPassword"
                     name="new_password"
@@ -738,11 +944,12 @@
                     autocomplete="new-password"
                     minlength="8"
                     placeholder="Minimum 8 znaków"
+                    data-i18n-attrs="placeholder:account.security.password.newPlaceholder"
                     required
                   />
                 </label>
                 <label for="accountConfirmPassword">
-                  Powtórz nowe hasło
+                  <span data-i18n="account.security.password.confirm">Powtórz nowe hasło</span>
                   <input
                     id="accountConfirmPassword"
                     name="confirm_password"
@@ -750,13 +957,14 @@
                     autocomplete="new-password"
                     minlength="8"
                     placeholder="Potwierdź hasło"
+                    data-i18n-attrs="placeholder:account.security.password.confirmPlaceholder"
                     required
                   />
                 </label>
-                <p class="account-form__hint">
+                <p class="account-form__hint" data-i18n="account.security.password.hint">
                   Hasło powinno mieć co najmniej 8 znaków i zawierać mieszankę liter oraz cyfr.
                 </p>
-                <button type="submit">Zmień hasło</button>
+                <button type="submit" data-i18n="account.security.password.submit">Zmień hasło</button>
               </form>
             </section>
 
@@ -766,6 +974,7 @@
               data-account-guest-note
               data-ce-account-enhanced="true"
               hidden
+              data-i18n="account.security.guestNote"
             >
               Goście nie posiadają haseł – zaloguj się, aby zmienić dane konta.
             </p>
@@ -835,25 +1044,25 @@
           <h3 data-i18n="sos.embassy.title">🛡️ Ambasada RP w Nikozji</h3>
           <ul>
             <li>
-              <strong>Telefon alarmowy</strong>
+              <strong data-i18n="sos.embassy.hotlineTitle">Telefon alarmowy</strong>
               <p data-i18n="sos.embassy.hotline">
                 <a href="tel:+35799660451">+357 99 660 451</a> (wsparcie w nagłych wypadkach obywateli RP).
               </p>
             </li>
             <li>
-              <strong>Recepcja</strong>
+              <strong data-i18n="sos.embassy.receptionTitle">Recepcja</strong>
               <p data-i18n="sos.embassy.reception">
                 <a href="tel:+35722751777">+357 22 751 777</a> (pon.–pt. w godz. pracy placówki).
               </p>
             </li>
             <li>
-              <strong>Adres</strong>
+              <strong data-i18n="sos.embassy.addressTitle">Adres</strong>
               <p data-i18n="sos.embassy.address">
                 14, Ifigenias Street, 2007 Nikozja • <a href="https://maps.google.com/?q=Embassy+of+Poland+in+Cyprus" target="_blank" rel="noopener">Wyznacz trasę</a>
               </p>
             </li>
             <li>
-              <strong>E-mail</strong>
+              <strong data-i18n="sos.embassy.emailTitle">E-mail</strong>
               <p data-i18n="sos.embassy.email"><a href="mailto:nicosia.info@msz.gov.pl">nicosia.info@msz.gov.pl</a></p>
             </li>
           </ul>
@@ -863,21 +1072,21 @@
           <h3 data-i18n="sos.healthcare.title">🏥 Najbliższa pomoc medyczna</h3>
           <ul>
             <li>
-              <strong>Paphos General Hospital</strong>
+              <strong data-i18n="sos.healthcare.hospitalTitle">Paphos General Hospital</strong>
               <p data-i18n="sos.healthcare.hospital">
                 Całodobowa izba przyjęć, Anavargos, Pafos. <a href="tel:+35726803000">+357 26 803 000</a> •
                 <a href="https://maps.google.com/?q=Paphos+General+Hospital" target="_blank" rel="noopener">Mapa dojazdu</a>
               </p>
             </li>
             <li>
-              <strong>Wyszukaj szpital w pobliżu</strong>
+              <strong data-i18n="sos.healthcare.searchTitle">Wyszukaj szpital w pobliżu</strong>
               <p data-i18n="sos.healthcare.search">
                 <a href="https://www.google.com/maps/search/hospital+near+me/" target="_blank" rel="noopener">Otwórz listę szpitali na Mapach Google</a>
                 i udostępnij lokalizację, aby zobaczyć najbliższe opcje.
               </p>
             </li>
             <li>
-              <strong>Dyżurna apteka</strong>
+              <strong data-i18n="sos.healthcare.pharmacyTitle">Dyżurna apteka</strong>
               <p data-i18n="sos.healthcare.pharmacy">
                 Sprawdź aktualne dyżury na <a href="https://pharmacy.dl.moh.gov.cy/" target="_blank" rel="noopener">stronie Ministerstwa Zdrowia</a>
                 lub wyszukaj <a href="https://www.google.com/maps/search/pharmacy+near+me/" target="_blank" rel="noopener">aptekę w pobliżu</a>.
@@ -893,18 +1102,40 @@
     </div>
   </div>
 
+  <div
+    class="car-image-modal"
+    id="carImageModal"
+    hidden
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="carImageModalTitle"
+  >
+    <div class="car-image-modal__dialog" role="document" tabindex="-1">
+      <header class="car-image-modal__header">
+        <h3 id="carImageModalTitle" data-i18n="carRentalLanding.imageModal.title">Podgląd auta</h3>
+        <button type="button" class="ghost" id="carImageModalClose" aria-label="Zamknij podgląd" data-i18n-attrs="aria-label:carRentalLanding.imageModal.closeAria">✕</button>
+      </header>
+      <img id="carImageModalImg" src="" alt="Podgląd auta" loading="lazy" data-i18n-attrs="alt:carRentalLanding.imageModal.imageAlt" />
+      <p id="carImageModalCaption"></p>
+    </div>
+  </div>
+
   <script type="module" src="assets/js/account-modal.js?v=2"></script>
 
     <script src="js/i18n.js" defer></script>
-    <script src="js/forms.js" defer></script>
+    <script src="js/languageSwitcher.js" defer></script>
+    <script src="js/languageRefresh.js" defer></script>
     <script src="js/seo.js" defer></script>
     <script src="js/mobile-nav.js" defer></script>
   <script src="js/header-dropdown.js" defer></script>
     <script type="module" src="app.js"></script>
+    <script type="module" src="/js/car-rental-paphos.js?v=20260214a"></script>
+    <script type="module" src="/js/car-reservation.js?v=20260213a"></script>
+    <script type="module" src="/js/car-rental-landing.js?v=20260214a"></script>
     <!-- SOS Emergency Modal -->
   <!-- Header Stats - aktualizacja statystyk na wszystkich stronach -->
     <script src="js/sos.js?v=1" defer></script>
-    <script src="js/coupon.js" defer></script>
+    <script type="module" src="assets/js/auth-ui.js?v=2"></script>
     <script src="assets/js/modal-auth.js" defer></script>
 
   <!-- Auth Modal -->
@@ -924,9 +1155,9 @@
               <section id="authPanelLogin" class="auth-modal__panel is-active" role="tabpanel" aria-labelledby="authTabLogin" data-auth="login" data-auth-panel="login">
                 <form id="form-login" class="auth-form" novalidate data-ce-auth-handler="supabase">
                   <label for="loginEmail" data-i18n="auth.login.username">Email lub nazwa użytkownika</label>
-                  <input id="loginEmail" name="email" type="text" autocomplete="username" required aria-label="Email lub nazwa użytkownika" placeholder="Email lub nazwa użytkownika" />
+                  <input id="loginEmail" name="email" type="text" autocomplete="username" required aria-label="Email lub nazwa użytkownika" data-i18n-attrs="aria-label:auth.login.username,placeholder:auth.login.username" placeholder="Email lub nazwa użytkownika" />
                   <label for="loginPassword" data-i18n="auth.password">Hasło</label>
-                  <input id="loginPassword" name="password" type="password" autocomplete="current-password" required aria-label="Hasło" />
+                  <input id="loginPassword" name="password" type="password" autocomplete="current-password" required aria-label="Hasło" data-i18n-attrs="aria-label:auth.password" />
                   <div class="auth-form__actions">
                     <button type="submit" class="btn btn--primary" data-i18n="auth.login.button" aria-label="Zaloguj się">Zaloguj się</button>
                     <button type="button" class="auth-form__link" id="loginForgotPassword" data-i18n="auth.reset.button" aria-label="🔑 Resetuj hasło">🔑 Resetuj hasło</button>
@@ -956,14 +1187,14 @@
               <form id="form-reset-password" class="auth-form" novalidate>
                 <header class="auth-reset-dialog__header">
                   <h2 data-i18n="auth.reset.title">Resetuj hasło</h2>
-                  <button type="button" class="auth-form__link" id="btn-reset-close" aria-label="Zamknij">✖</button>
+                  <button type="button" class="auth-form__link" id="btn-reset-close" aria-label="Zamknij" data-i18n-attrs="aria-label:auth.reset.close">✖</button>
                 </header>
                 <p data-i18n="auth.reset.description">Podaj adres e-mail powiązany z kontem, a wyślemy link do zmiany hasła.</p>
                 <label for="resetEmail" data-i18n="auth.reset.emailLabel">Adres e-mail</label>
                 <input id="resetEmail" name="email" type="email" autocomplete="email" required />
                 <div class="auth-form__actions">
-                  <button type="submit" class="btn btn--primary">Wyślij link resetujący</button>
-                  <button type="button" class="auth-form__link" id="btn-reset-cancel">Anuluj</button>
+                  <button type="submit" class="btn btn--primary" data-i18n="auth.reset.submitRequest">Wyślij link resetujący</button>
+                  <button type="button" class="auth-form__link" id="btn-reset-cancel" data-i18n="auth.reset.cancel">Anuluj</button>
                 </div>
               </form>
             </dialog>

@@ -25,6 +25,9 @@
 /*.ico             /:splat                 200
 
 # HTML pages - serve as-is (MUST come before SPA fallback)
+/car-rental-landing       /car.html              301
+/car-rental-landing/      /car.html              301
+/car-rental-landing.html  /car.html              301
 /shop              /shop.html             301
 /shop/             /shop.html             301
 /plan              /plan.html             301

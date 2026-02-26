@@ -3012,7 +3012,7 @@ function getCarLink(car) {
   const location = String(car?.location || '').toLowerCase();
   if (location === 'paphos') return 'autopfo.html';
   if (location === 'larnaca') return 'car-rental.html';
-  return 'car-rental-landing.html';
+  return 'car.html';
 }
 
 function getServiceTypeLabel(type) {

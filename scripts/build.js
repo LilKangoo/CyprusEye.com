@@ -119,7 +119,7 @@ async function copyStaticFiles() {
       'advertise.html',
       'attractions.html',
       'autopfo.html',
-      'car-rental-landing.html',
+      'car.html',
       'car-rental.html',
       'community.html',
       'cruise.html',

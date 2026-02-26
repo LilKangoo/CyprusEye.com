@@ -538,7 +538,7 @@ window.calculatePrice = function() {
     return;
   }
 
-  // Landing calculator (car-rental-landing.html)
+  // Landing calculator (car.html)
   const landingCarSelect = document.getElementById('rentalCarSelect');
   if (isLandingCarRentalPage() && landingCarSelect) {
     const car = landingCarSelect.value;

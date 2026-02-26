@@ -13,7 +13,7 @@ PAGES=(
   "packing.html"
   "tasks.html"
   "community.html"
-  "car-rental-landing.html"
+  "car.html"
 )
 
 ERRORS=0

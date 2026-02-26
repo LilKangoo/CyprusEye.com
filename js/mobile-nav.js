@@ -13,7 +13,7 @@
     { icon: '🎒', label: 'Pakowanie', href: 'packing.html', page: 'packing' },
     { icon: '✅', label: 'Misje', href: 'tasks.html', page: 'tasks' },
     { icon: '🧭', label: 'Wycieczki', href: 'trips.html', page: 'trips' },
-    { icon: '🚗', label: 'Wynajem', href: 'car-rental-landing.html', page: 'carrental' },
+    { icon: '🚗', label: 'Wynajem', href: 'car.html', page: 'carrental' },
     { icon: '🚕', label: 'Transport', href: 'transport.html', page: 'transport' }
   ];
 
@@ -50,7 +50,7 @@
     if (path.includes('tasks')) return 'tasks';
     if (path.includes('vip')) return 'vip';
     if (path.includes('trips')) return 'trips';
-    if (path.includes('car-rental') || path.includes('rental')) return 'carrental';
+    if (path.includes('car-rental') || path.includes('rental') || path.endsWith('/car.html') || path === '/car.html') return 'carrental';
     if (path.includes('transport')) return 'transport';
     
     return 'home'; // default
