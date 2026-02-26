@@ -10,6 +10,8 @@
     'textarea:not([disabled])',
     '[tabindex]:not([tabindex="-1"])',
   ].join(', ');
+  const TARGET_READY_MAX_ATTEMPTS = 14;
+  const TARGET_READY_INTERVAL_MS = 120;
 
   function safeLocalStorage(action, key, value) {
     try {
@@ -81,6 +83,18 @@
     });
   }
 
+  function isElementVisible(element) {
+    if (!(element instanceof HTMLElement)) {
+      return false;
+    }
+    const styles = window.getComputedStyle(element);
+    if (styles.display === 'none' || styles.visibility === 'hidden') {
+      return false;
+    }
+    const rect = element.getBoundingClientRect();
+    return rect.width > 2 && rect.height > 2;
+  }
+
   class Tutorial {
     constructor() {
       this.currentStepIndex = 0;
@@ -105,11 +119,14 @@
       this.translationsReady = false;
       this.hasAutoStarted = false;
       this.pendingFrame = null;
+      this.pendingTimeout = null;
+      this.pendingReadyTimeout = null;
 
       this.steps = [
         {
           id: 'step1',
           target: '[data-tour-target="top-actions"]',
+          fallbackTargets: ['[data-tour-target="login-button"]'],
           fallbackTitle: 'Start: set language and safety',
           fallbackDescription:
             'Top-right area: 1) choose PL/EN, 2) note SOS for emergency use only, 3) use login and cart from the same place.',
@@ -118,6 +135,7 @@
         {
           id: 'step2',
           target: '[data-tour-target="tabs-navigation"]',
+          fallbackTargets: ['[data-tour-target="shortcut-grid"]'],
           fallbackTitle: 'Navigation: move between modules',
           fallbackDescription:
             'Use top tabs to change sections. Use quick chips below to jump directly to Transport, Cars, Trips, and Accommodation.',
@@ -133,6 +151,15 @@
         },
         {
           id: 'step4',
+          target: '[data-tour-target="current-place"]',
+          fallbackTargets: ['[data-tour-target="map-section"]'],
+          fallbackTitle: 'Current place quick actions',
+          fallbackDescription:
+            'After selecting a map point, use this card for fast actions: check-in, comments, and direct map navigation.',
+          arrow: { icon: '➡️', placement: 'left' },
+        },
+        {
+          id: 'step5',
           target: '[data-tour-target="trips-section"]',
           fallbackTitle: 'Trips: booking flow',
           fallbackDescription:
@@ -140,7 +167,7 @@
           arrow: { icon: '⬅️', placement: 'right' },
         },
         {
-          id: 'step5',
+          id: 'step6',
           target: '[data-tour-target="hotels-section"]',
           fallbackTitle: 'Accommodation: hotel/apartment/villa',
           fallbackDescription:
@@ -148,7 +175,7 @@
           arrow: { icon: '⬅️', placement: 'right' },
         },
         {
-          id: 'step6',
+          id: 'step7',
           target: '[data-tour-target="cars-section"]',
           fallbackTitle: 'Cars without deposit',
           fallbackDescription:
@@ -156,7 +183,7 @@
           arrow: { icon: '⬅️', placement: 'right' },
         },
         {
-          id: 'step7',
+          id: 'step8',
           target: '[data-tour-target="transport-section"]',
           fallbackTitle: 'Transport: guided quote and booking',
           fallbackDescription:
@@ -164,7 +191,7 @@
           arrow: { icon: '⬅️', placement: 'right' },
         },
         {
-          id: 'step8',
+          id: 'step9',
           target: '[data-tour-target="recommendations-section"]',
           fallbackTitle: 'Recommendations and travel tools',
           fallbackDescription:
@@ -172,7 +199,7 @@
           arrow: { icon: '⬅️', placement: 'right' },
         },
         {
-          id: 'step9',
+          id: 'step10',
           target: '[data-tour-target="login-button"]',
           fallbackTitle: 'Create account for full access',
           fallbackDescription:
@@ -363,14 +390,18 @@
         this.renderCurrentStep({ focusButton: true });
       };
 
+      const startWhenTargetsReady = () => {
+        this.waitForEssentialTargets(startTutorial);
+      };
+
       if (!this.translationsReady) {
         this.waitForTranslations(() => {
-          startTutorial();
+          startWhenTargetsReady();
         });
         return;
       }
 
-      startTutorial();
+      startWhenTargetsReady();
     }
 
     openOverlay() {
@@ -414,6 +445,14 @@
       if (this.pendingFrame) {
         cancelAnimationFrame(this.pendingFrame);
         this.pendingFrame = null;
+      }
+      if (this.pendingTimeout) {
+        clearTimeout(this.pendingTimeout);
+        this.pendingTimeout = null;
+      }
+      if (this.pendingReadyTimeout) {
+        clearTimeout(this.pendingReadyTimeout);
+        this.pendingReadyTimeout = null;
       }
 
       if (this.activeTarget) {
@@ -596,13 +635,75 @@
       }
     }
 
+    getStepSelectors(step) {
+      if (!step) {
+        return [];
+      }
+      const selectors = [];
+      if (typeof step.target === 'string' && step.target.trim()) {
+        selectors.push(step.target.trim());
+      }
+      if (Array.isArray(step.fallbackTargets)) {
+        step.fallbackTargets.forEach((candidate) => {
+          if (typeof candidate === 'string' && candidate.trim()) {
+            selectors.push(candidate.trim());
+          }
+        });
+      }
+      return selectors;
+    }
+
+    resolveStepTarget(step) {
+      const selectors = this.getStepSelectors(step);
+      for (const selector of selectors) {
+        const candidate = document.querySelector(selector);
+        if (isElementVisible(candidate)) {
+          return candidate;
+        }
+      }
+      for (const selector of selectors) {
+        const candidate = document.querySelector(selector);
+        if (candidate instanceof HTMLElement) {
+          return candidate;
+        }
+      }
+      return null;
+    }
+
+    hasEssentialTargetsReady() {
+      const essentialSelectors = [
+        '[data-tour-target="top-actions"]',
+        '[data-tour-target="tabs-navigation"]',
+        '[data-tour-target="map-section"]',
+        '[data-tour-target="trips-section"]',
+        '[data-tour-target="hotels-section"]',
+        '[data-tour-target="cars-section"]',
+        '[data-tour-target="transport-section"]',
+      ];
+      return essentialSelectors.every((selector) => {
+        const node = document.querySelector(selector);
+        return isElementVisible(node) || node instanceof HTMLElement;
+      });
+    }
+
+    waitForEssentialTargets(callback, attempt = 0) {
+      if (this.hasEssentialTargetsReady() || attempt >= TARGET_READY_MAX_ATTEMPTS) {
+        callback();
+        return;
+      }
+      this.pendingReadyTimeout = window.setTimeout(() => {
+        this.pendingReadyTimeout = null;
+        this.waitForEssentialTargets(callback, attempt + 1);
+      }, TARGET_READY_INTERVAL_MS);
+    }
+
     updateHighlight(step, options = {}) {
       const activeStep = step || this.steps[this.currentStepIndex];
       if (!activeStep || !this.highlight || !this.arrowElement) {
         return;
       }
 
-      const target = document.querySelector(activeStep.target);
+      const target = this.resolveStepTarget(activeStep);
       if (this.activeTarget && this.activeTarget !== target) {
         this.activeTarget.classList.remove('tutorial-target-active');
       }
@@ -624,6 +725,16 @@
 
         if (options.ensureVisible && typeof target.scrollIntoView === 'function') {
           target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+          if (this.pendingTimeout) {
+            clearTimeout(this.pendingTimeout);
+          }
+          this.pendingTimeout = window.setTimeout(() => {
+            this.pendingTimeout = null;
+            if (!this.isOpen) {
+              return;
+            }
+            this.updateHighlight(activeStep, { ensureVisible: false });
+          }, 280);
         }
 
         this.positionArrow(rect, activeStep.arrow);
@@ -737,4 +848,12 @@
 
   const tutorialInstance = new Tutorial();
   window.appTutorial = tutorialInstance;
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      tutorialInstance.init();
+    }, { once: true });
+  } else {
+    tutorialInstance.init();
+  }
 })();
