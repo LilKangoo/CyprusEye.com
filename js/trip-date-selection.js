@@ -136,12 +136,15 @@ function getFunctionsBase() {
 async function callTripDateSelection(payload) {
   const base = getFunctionsBase()
   if (!base) throw new Error('Missing Supabase functions URL')
+  const anonKey = String(SUPABASE_CONFIG?.anonKey || '').trim()
+  if (!anonKey) throw new Error('Missing Supabase anon key')
 
   const response = await fetch(`${base}/trip-date-selection`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      apikey: SUPABASE_CONFIG.anonKey,
+      apikey: anonKey,
+      Authorization: `Bearer ${anonKey}`,
     },
     body: JSON.stringify(payload || {}),
   })
