@@ -494,6 +494,18 @@ function buildDepositRedirectUrl(params: {
   return `${base}${base.includes("?") ? "&" : "?"}session_id={CHECKOUT_SESSION_ID}`;
 }
 
+function hasNonEmptyQueryParam(urlValue: string, param: string): boolean {
+  const raw = String(urlValue || "").trim();
+  if (!raw) return false;
+  try {
+    const parsed = new URL(raw);
+    const value = String(parsed.searchParams.get(param) || "").trim();
+    return Boolean(value);
+  } catch (_e) {
+    return false;
+  }
+}
+
 async function enqueueCustomerDepositEmail(supabase: any, params: {
   bookingId: string;
   depositRequestId: string;
@@ -623,11 +635,21 @@ async function createTripDepositCheckout(params: {
   const targetCurrency = String(currency || "EUR").trim().toUpperCase();
   const amountMatches = Math.abs(existingAmount - depositAmount) <= 0.009;
   const currencyMatches = !existingCurrency || existingCurrency === targetCurrency;
+  const existingUrlHasAmount = hasNonEmptyQueryParam(existingUrl, "amount");
+  const existingUrlHasTotal = hasNonEmptyQueryParam(existingUrl, "total");
+  const existingUrlHasRequiredPricingParams = existingUrlHasAmount && existingUrlHasTotal;
 
   if (existingId && existingStatus === "paid") {
     return { deposit_request_id: existingId, checkout_url: existingUrl || "" };
   }
-  if (existingId && existingStatus === "pending" && existingUrl && amountMatches && currencyMatches) {
+  if (
+    existingId &&
+    existingStatus === "pending" &&
+    existingUrl &&
+    amountMatches &&
+    currencyMatches &&
+    existingUrlHasRequiredPricingParams
+  ) {
     return { deposit_request_id: existingId, checkout_url: existingUrl };
   }
 
