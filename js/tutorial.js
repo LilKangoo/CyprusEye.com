@@ -110,81 +110,73 @@
         {
           id: 'step1',
           target: '[data-tour-target="top-actions"]',
-          fallbackTitle: 'Start: language and safety',
+          fallbackTitle: 'Start: set language and safety',
           fallbackDescription:
-            '1) Choose PL or EN. 2) Check SOS for emergency use. 3) Use account and cart controls in the same top-right area.',
+            'Top-right area: 1) choose PL/EN, 2) note SOS for emergency use only, 3) use login and cart from the same place.',
           arrow: { icon: '⬇️', placement: 'bottom' },
         },
         {
           id: 'step2',
           target: '[data-tour-target="tabs-navigation"]',
-          fallbackTitle: 'Navigation and quick links',
+          fallbackTitle: 'Navigation: move between modules',
           fallbackDescription:
-            'Use tabs to switch page views. Use chips below to jump directly to Packing, Transport, Cars, Trips, and Hotels.',
+            'Use top tabs to change sections. Use quick chips below to jump directly to Transport, Cars, Trips, and Accommodation.',
           arrow: { icon: '⬇️', placement: 'bottom' },
         },
         {
           id: 'step3',
           target: '[data-tour-target="map-section"]',
-          fallbackTitle: 'Map and check-ins',
+          fallbackTitle: 'Map and place card',
           fallbackDescription:
-            'Tap map points to see place details. This is where you explore locations before booking anything.',
+            'Click any map point to open place details, check-in actions, and comments. This is the easiest way to decide what to visit first.',
           arrow: { icon: '➡️', placement: 'left' },
         },
         {
           id: 'step4',
-          target: '[data-tour-target="current-place"]',
-          fallbackTitle: 'Current place card',
+          target: '[data-tour-target="trips-section"]',
+          fallbackTitle: 'Trips: booking flow',
           fallbackDescription:
-            'Use this card for quick actions: check-in, comments, and map navigation for the currently selected place.',
-          arrow: { icon: '➡️', placement: 'left' },
+            'Trips section: choose city, compare offers, open full list, complete the form, and send booking request.',
+          arrow: { icon: '⬅️', placement: 'right' },
         },
         {
           id: 'step5',
-          target: '[data-tour-target="trips-section"]',
-          fallbackTitle: 'Trips booking',
+          target: '[data-tour-target="hotels-section"]',
+          fallbackTitle: 'Accommodation: hotel/apartment/villa',
           fallbackDescription:
-            'Choose city tab -> compare trips -> click full list -> send booking request for your preferred date.',
+            'Accommodation section: choose city, compare hotels/apartments/villas, open details, and send reservation request for your stay.',
           arrow: { icon: '⬅️', placement: 'right' },
         },
         {
           id: 'step6',
-          target: '[data-tour-target="hotels-section"]',
-          fallbackTitle: 'Accommodation booking',
+          target: '[data-tour-target="cars-section"]',
+          fallbackTitle: 'Cars without deposit',
           fallbackDescription:
-            'Choose city tab -> compare hotels/apartments/villas -> open full list -> select stay option for your trip.',
+            'Cars section: select location, compare available cars and prices, then continue to the full rental booking form.',
           arrow: { icon: '⬅️', placement: 'right' },
         },
         {
           id: 'step7',
-          target: '[data-tour-target="cars-section"]',
-          fallbackTitle: 'Cars without deposit',
+          target: '[data-tour-target="transport-section"]',
+          fallbackTitle: 'Transport: guided quote and booking',
           fallbackDescription:
-            'Change city tab, compare available cars, and continue to full rental booking with current pricing.',
+            'Transport section flow: route and schedule -> passengers and bags -> contact and notes -> final quote -> reserve transport.',
           arrow: { icon: '⬅️', placement: 'right' },
         },
         {
           id: 'step8',
-          target: '[data-tour-target="transport-section"]',
-          fallbackTitle: 'Transport booking in 4 steps',
+          target: '[data-tour-target="recommendations-section"]',
+          fallbackTitle: 'Recommendations and travel tools',
           fallbackDescription:
-            'Follow this flow exactly: route and schedule -> passengers and extras -> contact and notes -> final quote -> reserve.',
+            'Use verified recommendations, then use tools below (packing list, tasks, planner shortcuts) to organize the full trip.',
           arrow: { icon: '⬅️', placement: 'right' },
         },
         {
           id: 'step9',
-          target: '[data-tour-target="recommendations-section"]',
-          fallbackTitle: 'Recommendations and extra modules',
-          fallbackDescription:
-            'Use recommendations to discover verified places. Below this section, use shortcut cards for packing, tasks, and fast planning tools.',
-          arrow: { icon: '⬅️', placement: 'right' },
-        },
-        {
-          id: 'step10',
           target: '[data-tour-target="login-button"]',
           fallbackTitle: 'Create account for full access',
           fallbackDescription:
-            'Final step: click "Login", register account, and unlock full offers: saved progress, booking history, notifications, and partner bonuses.',
+            'Final step: click "Login", create account, and unlock full offers: booking history, notifications, saved progress, and partner benefits.',
           arrow: { icon: '⬆️', placement: 'bottom' },
         },
       ];

@@ -10,13 +10,14 @@ type TransportRejectCode =
   | "route_not_supported"
   | "other";
 
-const PARTNER_FULFILLMENT_ACTION_VERSION = "2026-02-25-2";
+const PARTNER_FULFILLMENT_ACTION_VERSION = "2026-02-26-1";
 
 type PartnerFulfillmentActionRequest = {
   fulfillment_id?: string;
   action?: Action;
   reason?: string;
   reason_code?: string;
+  proposed_dates?: string[];
   stripe_payment_intent_id?: string;
   stripe_checkout_session_id?: string;
   force_emails?: boolean;
@@ -270,6 +271,50 @@ function extractTimeParts(value: unknown): { hour: number; minute: number; secon
   if (!Number.isFinite(hour) || !Number.isFinite(minute) || !Number.isFinite(second)) return fallback;
   if (hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59) return fallback;
   return { hour, minute, second };
+}
+
+function normalizeIsoDate(value: unknown): string | null {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  const match = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (match) return match[1];
+  const ms = Date.parse(raw);
+  if (!Number.isFinite(ms)) return null;
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+function isIsoDateInRange(valueIso: string, minIso: string | null, maxIso: string | null): boolean {
+  if (!valueIso) return false;
+  if (minIso && valueIso < minIso) return false;
+  if (maxIso && valueIso > maxIso) return false;
+  return true;
+}
+
+function normalizeIsoDateList(values: unknown, minIso: string | null, maxIso: string | null): { ok: true; dates: string[] } | { ok: false; error: string } {
+  if (!Array.isArray(values)) {
+    return { ok: false, error: "proposed_dates must be an array" };
+  }
+
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of values) {
+    const iso = normalizeIsoDate(raw);
+    if (!iso) continue;
+    if (!isIsoDateInRange(iso, minIso, maxIso)) {
+      return { ok: false, error: `Date ${iso} is outside customer stay dates` };
+    }
+    if (seen.has(iso)) continue;
+    seen.add(iso);
+    out.push(iso);
+    if (out.length > 3) {
+      return { ok: false, error: "Maximum 3 proposed dates is allowed" };
+    }
+  }
+
+  if (!out.length) {
+    return { ok: false, error: "Provide at least 1 valid date in proposed_dates" };
+  }
+  return { ok: true, dates: out };
 }
 
 function diffStartedDays(startDate: unknown, endDate: unknown, startTime: unknown, endTime: unknown): number {
@@ -1146,7 +1191,7 @@ serve(async (req) => {
   if (!fulfillment) {
     const { data, error } = await supabase
       .from("partner_service_fulfillments")
-      .select("id, partner_id, status, booking_id, resource_type")
+      .select("id, partner_id, status, booking_id, resource_type, start_date, end_date, details, resource_id, reference, summary")
       .eq("id", fulfillmentId)
       .maybeSingle();
     if (!error && data) {
@@ -1387,9 +1432,83 @@ serve(async (req) => {
   try {
     if (action === "accept") {
       const nowIso = new Date().toISOString();
+      let tripProposedDates: string[] = [];
+      let tripPreferredDate: string | null = null;
+      let tripArrivalDate: string | null = null;
+      let tripDepartureDate: string | null = null;
+      let tripDateSelectionRequired = false;
+
+      if (kind === "service" && serviceCategory === "trips" && bookingId) {
+        const { data: tripBooking, error: tripErr } = await supabase
+          .from("trip_bookings")
+          .select("trip_date, arrival_date, departure_date")
+          .eq("id", bookingId)
+          .maybeSingle();
+
+        if (tripErr) {
+          return new Response(JSON.stringify({ error: "Failed to load trip booking dates" }), {
+            status: 400,
+            headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
+          });
+        }
+
+        const details = (fulfillment as any)?.details && typeof (fulfillment as any).details === "object"
+          ? ((fulfillment as any).details as Record<string, unknown>)
+          : {};
+        tripPreferredDate = normalizeIsoDate((tripBooking as any)?.trip_date)
+          || normalizeIsoDate((details as any)?.preferred_date)
+          || normalizeIsoDate((details as any)?.trip_date)
+          || null;
+        tripArrivalDate = normalizeIsoDate((tripBooking as any)?.arrival_date)
+          || normalizeIsoDate((details as any)?.arrival_date)
+          || normalizeIsoDate((fulfillment as any)?.start_date)
+          || null;
+        tripDepartureDate = normalizeIsoDate((tripBooking as any)?.departure_date)
+          || normalizeIsoDate((details as any)?.departure_date)
+          || normalizeIsoDate((fulfillment as any)?.end_date)
+          || tripArrivalDate
+          || null;
+
+        if (tripArrivalDate && tripDepartureDate && tripArrivalDate > tripDepartureDate) {
+          const tmp = tripArrivalDate;
+          tripArrivalDate = tripDepartureDate;
+          tripDepartureDate = tmp;
+        }
+
+        const proposedInput = Array.isArray((body as any).proposed_dates) ? (body as any).proposed_dates : null;
+        if (proposedInput) {
+          const normalized = normalizeIsoDateList(proposedInput, tripArrivalDate, tripDepartureDate);
+          if (!normalized.ok) {
+            return new Response(JSON.stringify({ error: normalized.error }), {
+              status: 400,
+              headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
+            });
+          }
+          tripProposedDates = normalized.dates;
+          tripDateSelectionRequired = true;
+        } else {
+          const fallback = [tripPreferredDate, tripArrivalDate].filter(Boolean) as string[];
+          const normalized = normalizeIsoDateList(fallback, tripArrivalDate, tripDepartureDate);
+          tripProposedDates = normalized.ok ? normalized.dates : [];
+          tripDateSelectionRequired = tripProposedDates.length > 0;
+        }
+      }
 
       const depositEnabled = kind === "service" ? await isDepositEnabled(supabase) : false;
       const serviceNextStatus = depositEnabled ? "awaiting_payment" : "accepted";
+
+      const mergedTripDetails = (kind === "service" && serviceCategory === "trips")
+        ? {
+          ...(((fulfillment as any)?.details && typeof (fulfillment as any).details === "object") ? (fulfillment as any).details : {}),
+          preferred_date: tripPreferredDate || null,
+          arrival_date: tripArrivalDate || null,
+          departure_date: tripDepartureDate || null,
+          proposed_dates: tripProposedDates,
+          partner_proposed_dates: tripProposedDates,
+          trip_date_selection_status: tripDateSelectionRequired ? "options_proposed" : "not_required",
+          trip_date_selection_updated_at: nowIso,
+        }
+        : null;
 
       const updatePayload = kind === "service"
         ? {
@@ -1400,6 +1519,7 @@ serve(async (req) => {
           rejected_by: null,
           rejected_reason: null,
           contact_revealed_at: depositEnabled ? null : nowIso,
+          ...(mergedTripDetails ? { details: mergedTripDetails } : {}),
         }
         : {
           status: "accepted",
@@ -1451,7 +1571,14 @@ serve(async (req) => {
         action: "fulfillment_accepted",
         entity_type: kind === "shop" ? "shop_order_fulfillment" : "service_fulfillment",
         entity_id: fulfillmentId,
-        metadata: kind === "shop" ? { order_id: orderId } : { booking_id: bookingId, resource_type: serviceCategory },
+        metadata: kind === "shop"
+          ? { order_id: orderId }
+          : {
+            booking_id: bookingId,
+            resource_type: serviceCategory,
+            proposed_dates: serviceCategory === "trips" ? tripProposedDates : undefined,
+            trip_date_selection_required: serviceCategory === "trips" ? tripDateSelectionRequired : undefined,
+          },
       });
 
       if (kind === "service") {
@@ -1481,7 +1608,18 @@ serve(async (req) => {
             partnerId,
           });
         }
-        return new Response(JSON.stringify({ ok: true, data: { booking_id: bookingId, fulfillment_id: fulfillmentId, partner_id: partnerId, deposit } }), {
+        return new Response(JSON.stringify({
+          ok: true,
+          data: {
+            booking_id: bookingId,
+            fulfillment_id: fulfillmentId,
+            partner_id: partnerId,
+            status: serviceNextStatus,
+            deposit,
+            proposed_dates: serviceCategory === "trips" ? tripProposedDates : undefined,
+            trip_date_selection_required: serviceCategory === "trips" ? tripDateSelectionRequired : undefined,
+          },
+        }), {
           status: 200,
           headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
         });

@@ -5569,13 +5569,15 @@
     }
   }
 
-  async function callFulfillmentAction(fulfillmentId, action, reason, reasonCode) {
+  async function callFulfillmentAction(fulfillmentId, action, reason, reasonCode, extraPayload) {
+    const extra = (extraPayload && typeof extraPayload === 'object') ? extraPayload : {};
     const { data, error } = await state.sb.functions.invoke('partner-fulfillment-action', {
       body: {
         fulfillment_id: fulfillmentId,
         action,
         reason: reason || undefined,
         reason_code: reasonCode || undefined,
+        ...extra,
       },
     });
     if (error) {
@@ -5585,8 +5587,8 @@
     return data;
   }
 
-  async function callServiceFulfillmentAction(fulfillmentId, action, reason, reasonCode) {
-    return callFulfillmentAction(fulfillmentId, action, reason, reasonCode);
+  async function callServiceFulfillmentAction(fulfillmentId, action, reason, reasonCode, extraPayload) {
+    return callFulfillmentAction(fulfillmentId, action, reason, reasonCode, extraPayload);
   }
 
   function promptTransportRejectReason() {
@@ -5641,6 +5643,196 @@
     };
   }
 
+  function isIsoWithinRange(iso, minIso, maxIso) {
+    const value = normalizeIsoDateValue(iso);
+    if (!value) return false;
+    const min = normalizeIsoDateValue(minIso);
+    const max = normalizeIsoDateValue(maxIso);
+    if (min && value < min) return false;
+    if (max && value > max) return false;
+    return true;
+  }
+
+  function getTripDateContextFromFulfillment(row) {
+    const details = detailsObjectFromFulfillment(row) || {};
+    const preferredIso = firstIsoFromCandidates([
+      details?.preferred_date,
+      details?.preferredDate,
+      details?.trip_date,
+      details?.tripDate,
+      row?.start_date,
+    ]);
+    const arrivalIso = firstIsoFromCandidates([
+      details?.arrival_date,
+      details?.arrivalDate,
+      details?.start_date,
+      details?.startDate,
+      row?.start_date,
+    ]);
+    const departureIso = firstIsoFromCandidates([
+      details?.departure_date,
+      details?.departureDate,
+      details?.end_date,
+      details?.endDate,
+      row?.end_date,
+      arrivalIso,
+    ]);
+
+    let minIso = arrivalIso || preferredIso || '';
+    let maxIso = departureIso || arrivalIso || preferredIso || '';
+    if (minIso && maxIso && minIso > maxIso) {
+      const tmp = minIso;
+      minIso = maxIso;
+      maxIso = tmp;
+    }
+    return {
+      preferredIso: normalizeIsoDateValue(preferredIso),
+      arrivalIso: normalizeIsoDateValue(arrivalIso),
+      departureIso: normalizeIsoDateValue(departureIso),
+      minIso: normalizeIsoDateValue(minIso),
+      maxIso: normalizeIsoDateValue(maxIso),
+    };
+  }
+
+  function normalizeTripProposedDateList(values, minIso, maxIso) {
+    const out = [];
+    const seen = new Set();
+    const list = Array.isArray(values) ? values : [];
+    for (const raw of list) {
+      const iso = normalizeIsoDateValue(raw);
+      if (!iso) continue;
+      if (!isIsoWithinRange(iso, minIso, maxIso)) {
+        return { ok: false, error: `Date ${iso} is outside customer stay window.` };
+      }
+      if (seen.has(iso)) continue;
+      seen.add(iso);
+      out.push(iso);
+      if (out.length > 3) {
+        return { ok: false, error: 'Select maximum 3 available dates.' };
+      }
+    }
+    if (!out.length) {
+      return { ok: false, error: 'Select at least 1 available date.' };
+    }
+    return { ok: true, values: out };
+  }
+
+  async function promptTripAvailableDates(row) {
+    const ctx = getTripDateContextFromFulfillment(row);
+    if (!ctx.minIso || !ctx.maxIso) {
+      showToast('Missing stay dates on this booking. Cannot set available trip dates.', 'error');
+      return null;
+    }
+
+    const preferredInRange = isIsoWithinRange(ctx.preferredIso, ctx.minIso, ctx.maxIso);
+    const defaultValues = preferredInRange ? [ctx.preferredIso, '', ''] : [ctx.minIso, '', ''];
+
+    const supportsDialog = typeof window.HTMLDialogElement !== 'undefined';
+    const probeDialog = supportsDialog ? document.createElement('dialog') : null;
+    const canShowModal = Boolean(probeDialog && typeof probeDialog.showModal === 'function');
+
+    if (!canShowModal) {
+      const preferredLabel = preferredInRange ? `Preferred: ${ctx.preferredIso}. ` : '';
+      const input = prompt(
+        `${preferredLabel}Enter 1-3 available dates between ${ctx.minIso} and ${ctx.maxIso}, separated by commas:`,
+        defaultValues[0]
+      );
+      if (input == null) return null;
+      const parsed = normalizeTripProposedDateList(String(input || '').split(','), ctx.minIso, ctx.maxIso);
+      if (!parsed.ok) {
+        showToast(parsed.error, 'error');
+        return null;
+      }
+      return parsed.values;
+    }
+
+    return await new Promise((resolve) => {
+      const dialog = document.createElement('dialog');
+      dialog.style.padding = '0';
+      dialog.style.border = '1px solid rgba(148,163,184,0.35)';
+      dialog.style.borderRadius = '14px';
+      dialog.style.background = 'linear-gradient(180deg,#0f172a 0%,#111f3b 100%)';
+      dialog.style.color = '#e5e7eb';
+      dialog.style.maxWidth = '520px';
+      dialog.style.width = 'min(92vw, 520px)';
+      dialog.style.boxShadow = '0 24px 64px rgba(2,6,23,0.65)';
+
+      const preferredNote = preferredInRange
+        ? `<div style="font-size:12px; margin-top:4px; color:#34d399;"><strong>Preferred date:</strong> ${escapeHtml(formatDateDmy(ctx.preferredIso))} (auto-filled in slot 1)</div>`
+        : '<div style="font-size:12px; margin-top:4px; color:#94a3b8;">Preferred date is outside stay window or missing.</div>';
+
+      dialog.innerHTML = `
+        <form method="dialog" style="padding:16px 16px 14px; display:grid; gap:10px;">
+          <div style="font-size:16px; font-weight:800;">Confirm trip with available dates</div>
+          <div style="font-size:12px; color:#cbd5e1;">Customer stay window: <strong>${escapeHtml(formatDateDmy(ctx.minIso))}</strong> → <strong>${escapeHtml(formatDateDmy(ctx.maxIso))}</strong></div>
+          ${preferredNote}
+          <label style="font-size:12px; color:#cbd5e1; display:grid; gap:6px;">
+            Slot 1 (required)
+            <input type="date" data-trip-date-slot="1" min="${escapeHtml(ctx.minIso)}" max="${escapeHtml(ctx.maxIso)}" value="${escapeHtml(defaultValues[0])}" required style="height:40px; border-radius:10px; border:1px solid rgba(148,163,184,0.4); background:#0b1224; color:#e5e7eb; padding:0 10px;">
+          </label>
+          <label style="font-size:12px; color:#cbd5e1; display:grid; gap:6px;">
+            Slot 2 (optional)
+            <input type="date" data-trip-date-slot="2" min="${escapeHtml(ctx.minIso)}" max="${escapeHtml(ctx.maxIso)}" value="${escapeHtml(defaultValues[1])}" style="height:40px; border-radius:10px; border:1px solid rgba(148,163,184,0.4); background:#0b1224; color:#e5e7eb; padding:0 10px;">
+          </label>
+          <label style="font-size:12px; color:#cbd5e1; display:grid; gap:6px;">
+            Slot 3 (optional)
+            <input type="date" data-trip-date-slot="3" min="${escapeHtml(ctx.minIso)}" max="${escapeHtml(ctx.maxIso)}" value="${escapeHtml(defaultValues[2])}" style="height:40px; border-radius:10px; border:1px solid rgba(148,163,184,0.4); background:#0b1224; color:#e5e7eb; padding:0 10px;">
+          </label>
+          <div data-trip-date-error style="min-height:18px; font-size:12px; color:#fca5a5;"></div>
+          <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:2px;">
+            <button type="button" data-trip-date-cancel style="height:36px; padding:0 12px; border-radius:9px; border:1px solid rgba(148,163,184,0.45); background:transparent; color:#e2e8f0; font-weight:700; cursor:pointer;">Cancel</button>
+            <button type="submit" data-trip-date-submit style="height:36px; padding:0 14px; border-radius:9px; border:0; background:#ef4444; color:white; font-weight:800; cursor:pointer;">Save dates</button>
+          </div>
+        </form>
+      `;
+
+      const cleanup = () => {
+        try { dialog.close(); } catch (_e) {}
+        if (dialog.parentNode) dialog.parentNode.removeChild(dialog);
+      };
+
+      let done = false;
+      const finish = (value) => {
+        if (done) return;
+        done = true;
+        cleanup();
+        resolve(value);
+      };
+
+      const form = dialog.querySelector('form');
+      const errorEl = dialog.querySelector('[data-trip-date-error]');
+      const cancelBtn = dialog.querySelector('[data-trip-date-cancel]');
+
+      const submitHandler = (event) => {
+        event.preventDefault();
+        const values = Array.from(dialog.querySelectorAll('input[data-trip-date-slot]')).map((el) => el?.value || '');
+        const parsed = normalizeTripProposedDateList(values, ctx.minIso, ctx.maxIso);
+        if (!parsed.ok) {
+          if (errorEl) errorEl.textContent = parsed.error;
+          return;
+        }
+        finish(parsed.values);
+      };
+
+      form?.addEventListener('submit', submitHandler);
+      cancelBtn?.addEventListener('click', () => finish(null));
+      dialog.addEventListener('cancel', (event) => {
+        event.preventDefault();
+        finish(null);
+      });
+      dialog.addEventListener('close', () => {
+        if (!done) finish(null);
+      });
+
+      document.body.appendChild(dialog);
+      try {
+        dialog.showModal();
+      } catch (_e) {
+        finish(null);
+      }
+    });
+  }
+
   function messageForFulfillmentAction(action, result) {
     const act = String(action || '').trim();
     const ok = Boolean(result && typeof result === 'object' && result.ok !== false);
@@ -5649,6 +5841,13 @@
     const nextStatus = result && typeof result === 'object' && result.data && typeof result.data === 'object'
       ? String(result.data.status || '').trim()
       : '';
+    const tripDateSelectionRequired = Boolean(
+      result
+      && typeof result === 'object'
+      && result.data
+      && typeof result.data === 'object'
+      && result.data.trip_date_selection_required
+    );
 
     if (!ok) {
       return act === 'reject' ? 'Failed to reject fulfillment' : 'Failed to accept fulfillment';
@@ -5663,6 +5862,10 @@
     }
 
     if (act === 'reject') return 'Fulfillment rejected';
+
+    if (tripDateSelectionRequired) {
+      return 'Accepted. Date options saved and waiting for customer date selection.';
+    }
 
     if (nextStatus === 'awaiting_payment') {
       return 'Accepted. Awaiting deposit payment.';
@@ -6159,8 +6362,17 @@
 
       const tripsDetailsPairs = (() => {
         if (category !== 'trips') return [];
+        const proposedRaw = getField('partner_proposed_dates', 'proposed_dates');
+        const proposedDates = Array.isArray(proposedRaw)
+          ? Array.from(new Set(
+            proposedRaw
+              .map((v) => normalizeIsoDateValue(v))
+              .filter(Boolean)
+          )).slice(0, 3)
+          : [];
         return [
-          { label: 'Trip date', value: getField('trip_date') },
+          { label: 'Preferred date', value: getField('preferred_date', 'trip_date') },
+          { label: 'Available options', value: proposedDates.length ? proposedDates.map((iso) => formatDateDmy(iso)).join(', ') : null },
           { label: 'Arrival date', value: getField('arrival_date') },
           { label: 'Departure date', value: getField('departure_date') },
           { label: 'Adults', value: getField('num_adults') },
@@ -6335,6 +6547,16 @@
             const departure = details?.departure_date || details?.departureDate || null;
             const adults = details?.num_adults ?? details?.numAdults ?? null;
             const children = details?.num_children ?? details?.numChildren ?? null;
+            const proposedRaw = Array.isArray(details?.partner_proposed_dates)
+              ? details.partner_proposed_dates
+              : Array.isArray(details?.proposed_dates)
+                ? details.proposed_dates
+                : [];
+            const proposedDates = Array.from(new Set(
+              proposedRaw
+                .map((v) => normalizeIsoDateValue(v))
+                .filter(Boolean)
+            )).slice(0, 3);
 
             const preferredHtml = preferred
               ? `<div class="small"><strong>Preferred Date:</strong> ${escapeHtml(formatDateDmy(preferred))}</div>`
@@ -6350,7 +6572,11 @@
               ? `<div class="small"><strong>Participants:</strong> ${escapeHtml(`${Number(adults || 0)} adult(s), ${Number(children || 0)} child(ren)`)}</div>`
               : '';
 
-            const parts = [preferredHtml, stayHtml, participantsHtml].filter(Boolean).join('');
+            const proposedHtml = proposedDates.length
+              ? `<div class="small"><strong>Available options:</strong> ${escapeHtml(proposedDates.map((iso) => formatDateDmy(iso)).join(', '))}</div>`
+              : '';
+
+            const parts = [preferredHtml, stayHtml, participantsHtml, proposedHtml].filter(Boolean).join('');
             return parts || '<span class="muted">—</span>';
           }
 
@@ -6572,11 +6798,26 @@
             const tone = result && typeof result === 'object' && result.skipped ? 'info' : 'success';
             showToast(msg, tone);
           } else {
-            if (!confirm('Accepting will request a customer deposit payment. Contact details will be revealed after payment confirmation. Continue?')) return;
+            const row = (state.fulfillments || []).find((f) => String(f?.id || '') === String(fulfillmentId)) || null;
+            const isTripServiceAccept = source === 'service'
+              && String(row?.resource_type || '').trim().toLowerCase() === 'trips';
+            let extraPayload = null;
+
+            if (isTripServiceAccept) {
+              const proposedDates = await promptTripAvailableDates(row);
+              if (!proposedDates || !proposedDates.length) return;
+              extraPayload = { proposed_dates: proposedDates };
+            }
+
+            const acceptMessage = isTripServiceAccept
+              ? 'Accepting will send your available dates to admin for this trip. Customer chooses one date after admin review. Continue?'
+              : 'Accepting will request a customer deposit payment. Contact details will be revealed after payment confirmation. Continue?';
+            if (!confirm(acceptMessage)) return;
+
             btn.disabled = true;
             let result = null;
             if (source === 'service') {
-              result = await callServiceFulfillmentAction(fulfillmentId, 'accept');
+              result = await callServiceFulfillmentAction(fulfillmentId, 'accept', '', '', extraPayload);
             } else {
               result = await callFulfillmentAction(fulfillmentId, 'accept');
             }
