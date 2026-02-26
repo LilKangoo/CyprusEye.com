@@ -109,6 +109,7 @@ async function copyStaticFiles() {
     const htmlFiles = [
       '404.html',
       'deposit.html',
+      'trip-date-selection.html',
       'index.html',
       'plan.html',
       'shop.html',
@@ -241,6 +242,7 @@ async function generateSitemap() {
       } else if (e.isFile() && name.endsWith('.html')) {
         if (/^404\.html$/i.test(name)) continue;
         if (/^partners\.html$/i.test(name)) continue;
+        if (/^trip-date-selection\.html$/i.test(name)) continue;
         if (/^(TEST_|test-|debug-|STANDARD_|simple-test)/i.test(name)) continue;
         if (/sos-modal-fragment/i.test(name)) continue;
         urls.push(`/${nextRel}`);

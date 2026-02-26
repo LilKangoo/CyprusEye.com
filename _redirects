@@ -29,6 +29,8 @@
 /shop/             /shop.html             301
 /plan              /plan.html             301
 /plan/             /plan.html             301
+/trip-date-selection      /trip-date-selection.html  301
+/trip-date-selection/     /trip-date-selection.html  301
 /*.html            /:splat                 200
 
 # SPA fallback (main app only - NOT admin)
