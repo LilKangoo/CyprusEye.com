@@ -79,6 +79,15 @@ function readLocalizedText(value: unknown, lang: "pl" | "en"): string {
   return "";
 }
 
+function resolveTripTitleFromRow(row: any, lang: "pl" | "en"): string {
+  if (!row || typeof row !== "object") return "";
+  return readLocalizedText((row as any)?.title_i18n, lang)
+    || readLocalizedText((row as any)?.title, lang)
+    || readLocalizedText((row as any)?.name_i18n, lang)
+    || readLocalizedText((row as any)?.name, lang)
+    || String((row as any)?.slug || "").trim();
+}
+
 function normalizeTripResourceType(value: unknown): string {
   const raw = String(value || "").trim().toLowerCase();
   if (!raw) return "";
@@ -929,24 +938,58 @@ serve(async (req: Request) => {
       .maybeSingle();
 
     const requestedLang = normalizeLang((body as any)?.lang || (booking as any)?.lang);
-    let tripTitle = String((booking as any)?.trip_slug || "").trim();
-    const tripId = String((booking as any)?.trip_id || "").trim();
-    if (tripId) {
+    const bookingTripId = String((booking as any)?.trip_id || "").trim();
+    const bookingTripSlug = String((booking as any)?.trip_slug || "").trim();
+    let tripTitle = "";
+
+    let fulfillmentPreview: any = null;
+    if (fulfillmentId) {
+      try {
+        const { data: f } = await supabase
+          .from("partner_service_fulfillments")
+          .select("status, contact_revealed_at, summary, details, resource_id")
+          .eq("id", fulfillmentId)
+          .maybeSingle();
+        if (f) fulfillmentPreview = f;
+      } catch (_e) {
+        fulfillmentPreview = null;
+      }
+    }
+
+    const lookupTripId = bookingTripId || String((fulfillmentPreview as any)?.resource_id || "").trim();
+    if (lookupTripId) {
       try {
         const { data: tripRow } = await supabase
           .from("trips")
-          .select("name, slug, title, title_i18n")
-          .eq("id", tripId)
+          .select("id, slug, name, name_i18n, title, title_i18n")
+          .eq("id", lookupTripId)
           .maybeSingle();
-        const localizedTitle = readLocalizedText((tripRow as any)?.title_i18n, requestedLang)
-          || readLocalizedText((tripRow as any)?.title, requestedLang)
-          || readLocalizedText((tripRow as any)?.name, requestedLang)
-          || String((tripRow as any)?.slug || "").trim();
-        tripTitle = localizedTitle || tripTitle || "";
+        tripTitle = resolveTripTitleFromRow(tripRow, requestedLang);
       } catch (_e) {
         // keep fallback
       }
     }
+
+    if (!tripTitle && bookingTripSlug) {
+      try {
+        const { data: tripRow } = await supabase
+          .from("trips")
+          .select("id, slug, name, name_i18n, title, title_i18n")
+          .eq("slug", bookingTripSlug)
+          .maybeSingle();
+        tripTitle = resolveTripTitleFromRow(tripRow, requestedLang);
+      } catch (_e) {
+        // keep fallback
+      }
+    }
+
+    if (!tripTitle && fulfillmentPreview) {
+      const fSummary = readLocalizedText((fulfillmentPreview as any)?.summary, requestedLang);
+      const fDetailsTitle = readLocalizedText((fulfillmentPreview as any)?.details, requestedLang);
+      tripTitle = fSummary || fDetailsTitle || "";
+    }
+
+    if (!tripTitle) tripTitle = bookingTripSlug || "Trip booking";
 
     let depositState: any = null;
     let selectionLocked = false;
@@ -971,11 +1014,7 @@ serve(async (req: Request) => {
       }
 
       try {
-        const { data: f } = await supabase
-          .from("partner_service_fulfillments")
-          .select("status, contact_revealed_at")
-          .eq("id", fulfillmentId)
-          .maybeSingle();
+        const f = fulfillmentPreview;
         const fStatus = String((f as any)?.status || "").trim().toLowerCase();
         const contactRevealed = Boolean((f as any)?.contact_revealed_at);
         if (contactRevealed || (!depositState?.id && fStatus === "accepted")) {
