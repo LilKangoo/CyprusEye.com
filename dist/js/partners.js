@@ -5591,6 +5591,25 @@
     return callFulfillmentAction(fulfillmentId, action, reason, reasonCode, extraPayload);
   }
 
+  async function dispatchTripDateOptionsToCustomer(fulfillmentId, bookingId) {
+    const fid = String(fulfillmentId || '').trim();
+    const bid = String(bookingId || '').trim();
+    if (!fid && !bid) return { ok: false, error: 'Missing fulfillment reference' };
+
+    const payload = {
+      action: 'send_options',
+      fulfillment_id: fid || undefined,
+      booking_id: bid || undefined,
+    };
+
+    const { data, error } = await state.sb.functions.invoke('trip-date-selection', { body: payload });
+    if (error) throw new Error(String(error.message || 'Failed to send date options'));
+    if (data && typeof data === 'object' && data.error) {
+      throw new Error(String(data.error || 'Failed to send date options'));
+    }
+    return { ok: true, data: data || null };
+  }
+
   function promptTransportRejectReason() {
     const optionsText = [
       'Select reject reason:',
@@ -5864,7 +5883,7 @@
     if (act === 'reject') return 'Fulfillment rejected';
 
     if (tripDateSelectionRequired) {
-      return 'Accepted. Date options saved and waiting for customer date selection.';
+      return 'Accepted. Date options saved.';
     }
 
     if (nextStatus === 'awaiting_payment') {
@@ -6839,7 +6858,7 @@
             }
 
             const acceptMessage = isTripServiceAccept
-              ? 'Accepting will send your available dates to admin for this trip. Customer chooses one date after admin review. Continue?'
+              ? 'Accepting will send available dates directly to customer email. Customer chooses one date and pays deposit to confirm. Continue?'
               : 'Accepting will request a customer deposit payment. Contact details will be revealed after payment confirmation. Continue?';
             if (!confirm(acceptMessage)) return;
 
@@ -6853,6 +6872,43 @@
             const msg = messageForFulfillmentAction('accept', result);
             const tone = result && typeof result === 'object' && result.skipped ? 'info' : 'success';
             showToast(msg, tone);
+
+            const tripSelectionRequired = Boolean(
+              isTripServiceAccept
+              && result
+              && typeof result === 'object'
+              && result.data
+              && typeof result.data === 'object'
+              && result.data.trip_date_selection_required
+            );
+            const tripSelectionStatus = String(
+              (result && typeof result === 'object' && result.data && typeof result.data === 'object'
+                ? result.data.trip_date_selection_status
+                : '') || ''
+            ).trim().toLowerCase();
+
+            if (
+              isTripServiceAccept
+              && result
+              && typeof result === 'object'
+              && result.ok !== false
+              && (tripSelectionRequired || tripSelectionStatus === 'options_proposed')
+            ) {
+              try {
+                const bookingId = String(result?.data?.booking_id || '').trim();
+                const sendRes = await dispatchTripDateOptionsToCustomer(fulfillmentId, bookingId);
+                const expiresAt = String(sendRes?.data?.data?.expires_at || '').trim();
+                showToast(
+                  expiresAt
+                    ? `Date options sent to customer email (expires ${expiresAt}).`
+                    : 'Date options sent to customer email.',
+                  'success'
+                );
+              } catch (dispatchError) {
+                console.error(dispatchError);
+                showToast(`Accepted, but failed to send date options: ${dispatchError.message || 'unknown error'}`, 'error');
+              }
+            }
           }
 
           await refreshFulfillments();

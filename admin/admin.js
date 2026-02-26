@@ -583,7 +583,7 @@ function messageForServiceFulfillmentAction(action, result) {
   if (act === 'reject') return 'Fulfillment rejected';
   if (act === 'mark_paid') return 'Marked as paid';
   if (tripDateSelectionRequired || tripDateSelectionStatus === 'options_proposed' || tripDateSelectionStatus === 'options_sent_to_customer') {
-    return 'Accepted. Trip date options saved. Send options to customer from Trip booking details.';
+    return 'Accepted. Trip date options flow started.';
   }
   if (nextStatus === 'awaiting_payment') return 'Accepted. Awaiting deposit payment.';
   return 'Fulfillment accepted';
@@ -2738,6 +2738,32 @@ async function adminServiceFulfillmentActionForBooking(category, bookingId, fulf
     const tone = data && typeof data === 'object' && data.skipped ? 'info' : 'success';
     showToast(msg, tone);
 
+    const shouldAutoSendTripDates = (
+      act === 'accept'
+      && cat === 'trips'
+      && data
+      && typeof data === 'object'
+      && data.ok !== false
+      && data.data
+      && typeof data.data === 'object'
+      && (
+        Boolean(data.data.trip_date_selection_required)
+        || String(data.data.trip_date_selection_status || '').trim().toLowerCase() === 'options_proposed'
+      )
+    );
+
+    if (shouldAutoSendTripDates) {
+      try {
+        await adminSendTripDateOptionsToCustomer(
+          String(data?.data?.booking_id || bid || '').trim(),
+          String(data?.data?.fulfillment_id || fid || '').trim(),
+          { confirmPrompt: false, silentSuccess: false }
+        );
+      } catch (_e) {
+        // handled in helper
+      }
+    }
+
     await loadAllOrders({ silent: true });
     if (cat === 'cars') await viewCarBookingDetails(bid);
     if (cat === 'trips') await viewTripBookingDetails(bid);
@@ -2749,7 +2775,7 @@ async function adminServiceFulfillmentActionForBooking(category, bookingId, fulf
   }
 }
 
-async function adminSendTripDateOptionsToCustomer(bookingId, fulfillmentId) {
+async function adminSendTripDateOptionsToCustomer(bookingId, fulfillmentId, options = {}) {
   const client = ensureSupabase();
   if (!client) return;
 
@@ -2757,7 +2783,10 @@ async function adminSendTripDateOptionsToCustomer(bookingId, fulfillmentId) {
   const fid = String(fulfillmentId || '').trim();
   if (!bid || !fid) return;
 
-  if (!confirm('Send available trip date options to customer now?')) return;
+  const askConfirm = options && Object.prototype.hasOwnProperty.call(options, 'confirmPrompt')
+    ? Boolean(options.confirmPrompt)
+    : true;
+  if (askConfirm && !confirm('Send available trip date options to customer now?')) return;
 
   try {
     if (!client.functions || typeof client.functions.invoke !== 'function') {
@@ -2780,7 +2809,10 @@ async function adminSendTripDateOptionsToCustomer(bookingId, fulfillmentId) {
       optionsCount > 0 ? `${optionsCount} option(s)` : '',
       expiresAt ? `expires: ${expiresAt}` : '',
     ].filter(Boolean).join(' • ');
-    showToast(details ? `Date options sent to customer (${details})` : 'Date options sent to customer', 'success');
+    const silentSuccess = Boolean(options && options.silentSuccess);
+    if (!silentSuccess) {
+      showToast(details ? `Date options sent to customer (${details})` : 'Date options sent to customer', 'success');
+    }
 
     await loadAllOrders({ silent: true });
     await viewTripBookingDetails(bid);

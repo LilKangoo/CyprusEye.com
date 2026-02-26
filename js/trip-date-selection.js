@@ -29,6 +29,8 @@ const DICT = {
     required: 'Please select one date option.',
     loading: 'Loading date options…',
     selected_ok: 'Date confirmed. Check your email for the payment link to complete booking confirmation.',
+    redirecting_payment: 'Date confirmed. Redirecting to secure payment…',
+    payment_pending: 'Date confirmed. Payment link is being prepared and will be sent by email shortly.',
     already_selected: 'This date was already selected. If you need changes, contact support.',
     expired: 'This link has expired. Contact support and ask for a new date-selection email.',
     invalid: 'This selection link is invalid or no longer available.',
@@ -51,6 +53,8 @@ const DICT = {
     required: 'Wybierz jedną datę.',
     loading: 'Ładowanie opcji dat…',
     selected_ok: 'Data potwierdzona. Sprawdź email z linkiem płatności, aby zakończyć potwierdzenie rezerwacji.',
+    redirecting_payment: 'Data potwierdzona. Przekierowujemy do bezpiecznej płatności…',
+    payment_pending: 'Data potwierdzona. Link płatności jest przygotowywany i zostanie wysłany na email.',
     already_selected: 'Ta data została już wybrana. Jeśli chcesz zmianę, skontaktuj się z obsługą.',
     expired: 'Ten link wygasł. Poproś obsługę o nowy email z wyborem daty.',
     invalid: 'Ten link jest nieprawidłowy lub nie jest już dostępny.',
@@ -285,9 +289,21 @@ async function main() {
 
       const payload = res?.data || {}
       byId('tripDateSelectionSelectedDate').textContent = formatIsoDate(payload?.selected_date || selected)
+      const checkoutUrl = String(payload?.checkout_url || '').trim()
+      const paymentLinkError = String(payload?.payment_link_error || '').trim()
+      if (checkoutUrl) {
+        if (form) form.hidden = true
+        setBadge(t(lang, 'badge_selected'), 'success')
+        setStatus(t(lang, 'redirecting_payment'), 'success')
+        setTimeout(() => {
+          window.location.href = checkoutUrl
+        }, 450)
+        return
+      }
+
       if (form) form.hidden = true
       setBadge(t(lang, 'badge_selected'), 'success')
-      setStatus(t(lang, 'selected_ok'), 'success')
+      setStatus(paymentLinkError ? t(lang, 'payment_pending') : t(lang, 'selected_ok'), 'success')
     } catch (error) {
       if (error?.status === 410) {
         setBadge(t(lang, 'badge_expired'), 'warn')

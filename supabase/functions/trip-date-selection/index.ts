@@ -697,8 +697,8 @@ serve(async (req: Request) => {
     const { data: authData, error: authError } = await supabase.auth.getUser(token);
     if (authError || !authData?.user) return jsonResponse(req, 401, { error: "Unauthorized" });
 
-    const isAdmin = await isUserAdmin(supabase, authData.user.id);
-    if (!isAdmin) return jsonResponse(req, 403, { error: "Forbidden" });
+    const userId = String(authData.user.id || "").trim();
+    const isAdmin = await isUserAdmin(supabase, userId);
 
     const fulfillmentId = String(body.fulfillment_id || "").trim();
     const bookingIdRaw = String(body.booking_id || "").trim();
@@ -731,6 +731,18 @@ serve(async (req: Request) => {
 
     if (String(fulfillment?.resource_type || "").trim().toLowerCase() !== "trips") {
       return jsonResponse(req, 400, { error: "Fulfillment is not a trip fulfillment" });
+    }
+
+    if (!isAdmin) {
+      const partnerId = String(fulfillment?.partner_id || "").trim();
+      if (!partnerId) return jsonResponse(req, 403, { error: "Forbidden" });
+      const { data: membership, error: mErr } = await supabase
+        .from("partner_users")
+        .select("id")
+        .eq("partner_id", partnerId)
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (mErr || !membership) return jsonResponse(req, 403, { error: "Forbidden" });
     }
 
     const bookingId = String(fulfillment?.booking_id || bookingIdRaw || "").trim();
@@ -1141,6 +1153,7 @@ serve(async (req: Request) => {
       status: "selected",
       deposit_request_id: deposit?.deposit_request_id || null,
       payment_link_ready: Boolean(deposit?.checkout_url),
+      checkout_url: deposit?.checkout_url || null,
       payment_link_error: depositError || null,
     },
   });
