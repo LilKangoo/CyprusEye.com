@@ -17,6 +17,8 @@ type AdminEvent =
   | "customer_deposit_requested"
   | "customer_deposit_paid"
   | "partner_deposit_paid"
+  | "trip_date_options_ready"
+  | "trip_date_selected"
   | "affiliate_cashout_requested";
 
 type AdminNotificationRequest = {
@@ -456,6 +458,147 @@ function renderCustomerDepositRequestedEmail(params: {
   textLines.push("");
   textLines.push(note);
   return { subject, html, text: textLines.join("\n") };
+}
+
+function formatDateOptionList(options: unknown): string[] {
+  if (!Array.isArray(options)) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of options) {
+    const value = valueToString(raw);
+    if (!value) continue;
+    const d = formatDate(value);
+    const normalized = d || value;
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    out.push(normalized);
+    if (out.length >= 3) break;
+  }
+  return out;
+}
+
+function renderTripDateOptionsReadyEmail(params: {
+  lang: "pl" | "en";
+  tripName: string;
+  preferredDate: string;
+  options: string[];
+  selectionUrl: string;
+  expiresAt: string;
+}): { subject: string; html: string; text: string } {
+  const lang = params.lang;
+  const tripName = String(params.tripName || "").trim() || "Trip booking";
+  const preferredDate = String(params.preferredDate || "").trim();
+  const options = Array.isArray(params.options) ? params.options : [];
+  const selectionUrl = String(params.selectionUrl || "").trim();
+  const expiresAt = String(params.expiresAt || "").trim();
+
+  const heading = lang === "pl" ? "Wybierz datę wycieczki" : "Choose your trip date";
+  const intro = lang === "pl"
+    ? "Partner potwierdził dostępność i podał możliwe terminy. Wybierz jedną datę, aby przejść do płatności depozytu."
+    : "The partner confirmed availability and shared possible dates. Choose one date to proceed to deposit payment.";
+  const cta = lang === "pl" ? "Wybierz datę" : "Select date";
+  const expiryText = expiresAt
+    ? (lang === "pl" ? `Link ważny do: ${expiresAt}` : `Link valid until: ${expiresAt}`)
+    : "";
+
+  const subject = lang === "pl"
+    ? `[TRIPS] Wybór terminu — ${tripName}`
+    : `[TRIPS] Date selection — ${tripName}`;
+
+  const optionsHtml = options.length
+    ? `<ul style="margin:8px 0 0 18px; padding:0;">
+        ${options.map((opt) => `<li style="margin:4px 0;">${escapeHtml(opt)}</li>`).join("")}
+      </ul>`
+    : "";
+
+  const html = `
+    <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; color:#111827; line-height:1.45;">
+      <div style="margin:0 0 14px;">
+        <table role="presentation" style="width:100%; border-collapse:collapse; margin: 0 0 14px;">
+          <tr>
+            <td style="padding:0; vertical-align:middle;">
+              <img src="${escapeHtml(BRAND_LOGO_URL)}" alt="CyprusEye.com" width="120" style="display:block; max-width:120px; height:auto; border:0;" />
+            </td>
+            <td style="padding:0; text-align:right; vertical-align:middle; font-size:13px; color:#6b7280;">CyprusEye.com • Trips</td>
+          </tr>
+        </table>
+        <div style="font-size:20px; font-weight:800; margin:0;">${escapeHtml(heading)}</div>
+      </div>
+      <div style="font-size:14px; margin-top:8px;">${escapeHtml(intro)}</div>
+      <div style="margin-top:12px; font-size:14px;"><strong>${escapeHtml(lang === "pl" ? "Wycieczka" : "Trip")}:</strong> ${escapeHtml(tripName)}</div>
+      ${preferredDate ? `<div style="margin-top:8px; font-size:14px;"><strong>${escapeHtml(lang === "pl" ? "Preferowana data" : "Preferred date")}:</strong> ${escapeHtml(preferredDate)}</div>` : ""}
+      ${optionsHtml ? `<div style="margin-top:8px; font-size:14px;"><strong>${escapeHtml(lang === "pl" ? "Dostępne daty" : "Available dates")}:</strong>${optionsHtml}</div>` : ""}
+      ${selectionUrl ? `<div style="margin-top:16px;"><a href="${escapeHtml(selectionUrl)}" style="display:inline-block; padding:10px 14px; background:#111827; color:#ffffff; text-decoration:none; border-radius:6px; font-weight:700;">${escapeHtml(cta)}</a></div>` : ""}
+      ${expiryText ? `<div style="font-size:12px; color:#6b7280; margin-top:12px;">${escapeHtml(expiryText)}</div>` : ""}
+    </div>`;
+
+  const textLines: string[] = [];
+  textLines.push(heading);
+  textLines.push("");
+  textLines.push(intro);
+  textLines.push("");
+  textLines.push(`${lang === "pl" ? "Wycieczka" : "Trip"}: ${tripName}`);
+  if (preferredDate) textLines.push(`${lang === "pl" ? "Preferowana data" : "Preferred date"}: ${preferredDate}`);
+  if (options.length) textLines.push(`${lang === "pl" ? "Dostępne daty" : "Available dates"}: ${options.join(", ")}`);
+  if (selectionUrl) textLines.push(`${lang === "pl" ? "Wybierz datę" : "Select date"}: ${selectionUrl}`);
+  if (expiryText) textLines.push(expiryText);
+
+  return { subject, html, text: textLines.join("\n") };
+}
+
+function renderTripDateSelectedNotice(params: {
+  tripName: string;
+  selectedDate: string;
+  bookingId: string;
+  customerName: string;
+  customerEmail: string;
+  partnerName: string;
+}): { subject: string; html: string; text: string; pushTitle: string; pushBody: string } {
+  const tripName = String(params.tripName || "").trim() || "Trip booking";
+  const selectedDate = String(params.selectedDate || "").trim() || "—";
+  const bookingId = String(params.bookingId || "").trim();
+  const customerName = String(params.customerName || "").trim();
+  const customerEmail = String(params.customerEmail || "").trim();
+  const partnerName = String(params.partnerName || "").trim();
+
+  const subject = `[TRIPS] Customer selected date — ${tripName}`;
+  const heading = "Customer selected trip date";
+
+  const html = `
+    <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; color:#111827; line-height:1.45;">
+      <div style="margin:0 0 14px;">
+        <table role="presentation" style="width:100%; border-collapse:collapse; margin: 0 0 14px;">
+          <tr>
+            <td style="padding:0; vertical-align:middle;">
+              <img src="${escapeHtml(BRAND_LOGO_URL)}" alt="CyprusEye.com" width="120" style="display:block; max-width:120px; height:auto; border:0;" />
+            </td>
+            <td style="padding:0; text-align:right; vertical-align:middle; font-size:13px; color:#6b7280;">CyprusEye.com • Trips</td>
+          </tr>
+        </table>
+        <div style="font-size:20px; font-weight:800; margin:0;">${escapeHtml(heading)}</div>
+      </div>
+      <table style="width:100%; border-collapse:collapse; margin:0;">
+        <tr><td style="padding:8px 10px; border:1px solid #e5e7eb; width:34%; background:#f9fafb;"><strong>Trip</strong></td><td style="padding:8px 10px; border:1px solid #e5e7eb;">${escapeHtml(tripName)}</td></tr>
+        <tr><td style="padding:8px 10px; border:1px solid #e5e7eb; width:34%; background:#f9fafb;"><strong>Selected date</strong></td><td style="padding:8px 10px; border:1px solid #e5e7eb;">${escapeHtml(selectedDate)}</td></tr>
+        ${bookingId ? `<tr><td style="padding:8px 10px; border:1px solid #e5e7eb; width:34%; background:#f9fafb;"><strong>Booking ID</strong></td><td style="padding:8px 10px; border:1px solid #e5e7eb;">${escapeHtml(bookingId)}</td></tr>` : ""}
+        ${customerName ? `<tr><td style="padding:8px 10px; border:1px solid #e5e7eb; width:34%; background:#f9fafb;"><strong>Customer</strong></td><td style="padding:8px 10px; border:1px solid #e5e7eb;">${escapeHtml(customerName)}</td></tr>` : ""}
+        ${customerEmail ? `<tr><td style="padding:8px 10px; border:1px solid #e5e7eb; width:34%; background:#f9fafb;"><strong>Customer email</strong></td><td style="padding:8px 10px; border:1px solid #e5e7eb;">${escapeHtml(customerEmail)}</td></tr>` : ""}
+        ${partnerName ? `<tr><td style="padding:8px 10px; border:1px solid #e5e7eb; width:34%; background:#f9fafb;"><strong>Partner</strong></td><td style="padding:8px 10px; border:1px solid #e5e7eb;">${escapeHtml(partnerName)}</td></tr>` : ""}
+      </table>
+    </div>`;
+
+  const textLines: string[] = [];
+  textLines.push(heading);
+  textLines.push(`Trip: ${tripName}`);
+  textLines.push(`Selected date: ${selectedDate}`);
+  if (bookingId) textLines.push(`Booking ID: ${bookingId}`);
+  if (customerName) textLines.push(`Customer: ${customerName}`);
+  if (customerEmail) textLines.push(`Customer email: ${customerEmail}`);
+  if (partnerName) textLines.push(`Partner: ${partnerName}`);
+
+  const pushTitle = "Trip date selected";
+  const pushBody = `${tripName} • ${selectedDate}`;
+  return { subject, html, text: textLines.join("\n"), pushTitle, pushBody };
 }
 
 function renderPartnerDepositPaidEmail(params: {
@@ -1259,6 +1402,8 @@ function eventLabel(event: AdminEvent): string {
   if (event === "customer_deposit_requested") return "Deposit payment requested";
   if (event === "customer_deposit_paid") return "Deposit paid";
   if (event === "partner_deposit_paid") return "Deposit paid";
+  if (event === "trip_date_options_ready") return "Date options sent to customer";
+  if (event === "trip_date_selected") return "Customer selected trip date";
   if (event === "affiliate_cashout_requested") return "Affiliate cashout requested";
   return "New";
 }
@@ -1410,6 +1555,22 @@ function buildSubject(params: {
       "order_number",
     ]);
     if (service) parts.push(service);
+    return parts.join(" — ");
+  }
+
+  if (params.event === "trip_date_options_ready") {
+    const tripName = getField(params.record, ["trip_name", "trip_title", "title", "trip_slug", "summary"]);
+    const parts = [`[${label}] Date options sent #${params.recordId}`];
+    if (tripName) parts.push(tripName);
+    return parts.join(" — ");
+  }
+
+  if (params.event === "trip_date_selected") {
+    const selectedDate = formatDate(getField(params.record, ["selected_date", "selected_trip_date", "trip_date"]));
+    const tripName = getField(params.record, ["trip_name", "trip_title", "title", "trip_slug", "summary"]);
+    const parts = [`[${label}] Customer selected trip date #${params.recordId}`];
+    if (tripName) parts.push(tripName);
+    if (selectedDate) parts.push(selectedDate);
     return parts.join(" — ");
   }
 
@@ -2766,6 +2927,318 @@ serve(async (req) => {
         });
       }
       return new Response(JSON.stringify({ ok: false, simulated: true, smtp_error: (error as any)?.message || "Email send failed", relay_error: relayed.error || null, push: pushResult }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+  }
+
+  if (event === "trip_date_options_ready") {
+    const requestId = String((body as any)?.trip_date_selection_request_id || "").trim();
+    const selectionUrl = String((body as any)?.selection_url || "").trim();
+    if (!requestId) {
+      return new Response(JSON.stringify({ error: "Missing trip_date_selection_request_id" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!selectionUrl) {
+      return new Response(JSON.stringify({ error: "Missing selection_url" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: reqRow, error: reqErr } = await supabase
+      .from("trip_date_selection_requests")
+      .select("*")
+      .eq("id", requestId)
+      .maybeSingle();
+
+    if (reqErr || !reqRow) {
+      return new Response(JSON.stringify({ error: "Trip date selection request not found" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const reqStatus = String((reqRow as any)?.status || "").trim().toLowerCase();
+    if (reqStatus !== "sent_to_customer") {
+      return new Response(JSON.stringify({ ok: true, skipped: true, reason: `status_${reqStatus || "unknown"}` }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    const alreadySent = Boolean((reqRow as any)?.customer_email_sent_at);
+    if (alreadySent) {
+      return new Response(JSON.stringify({ ok: true, skipped: true, reason: "already_sent" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    const bookingId = String((reqRow as any)?.booking_id || recordId || "").trim();
+    const { data: booking } = await supabase
+      .from("trip_bookings")
+      .select("id, trip_id, trip_slug, customer_name, customer_email, trip_date, preferred_trip_date, arrival_date, departure_date, lang")
+      .eq("id", bookingId)
+      .maybeSingle();
+
+    if (!booking) {
+      return new Response(JSON.stringify({ error: "Trip booking not found" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    let tripName = valueToString((booking as any)?.trip_slug);
+    const tripId = valueToString((booking as any)?.trip_id);
+    if (tripId) {
+      try {
+        const { data: tripRow } = await supabase
+          .from("trips")
+          .select("name, title, slug")
+          .eq("id", tripId)
+          .maybeSingle();
+        tripName = valueToString((tripRow as any)?.name) || valueToString((tripRow as any)?.title) || valueToString((tripRow as any)?.slug) || tripName;
+      } catch (_e) {}
+    }
+
+    const recipients = parseRecipients(String((booking as any)?.customer_email || ""));
+    if (!recipients.length) {
+      return new Response(JSON.stringify({ ok: true, skipped: true, reason: "no_customer_email" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    const lang = normalizeDepositLang((booking as any)?.lang);
+    const preferredDate = formatDate((reqRow as any)?.preferred_date || (booking as any)?.preferred_trip_date || (booking as any)?.trip_date);
+    const options = formatDateOptionList((reqRow as any)?.proposed_dates);
+    const expiresAt = formatDateTime((reqRow as any)?.selection_token_expires_at);
+    const rendered = renderTripDateOptionsReadyEmail({
+      lang,
+      tripName: tripName || "Trip booking",
+      preferredDate,
+      options,
+      selectionUrl,
+      expiresAt,
+    });
+
+    const transport = buildMailTransport();
+    if (!transport) {
+      const relayed = await tryRelayEmail({
+        to: recipients,
+        subject: rendered.subject,
+        text: rendered.text,
+        html: rendered.html,
+        secret: secretRequired,
+      });
+      if (relayed.ok) {
+        await supabase
+          .from("trip_date_selection_requests")
+          .update({ customer_email_sent_at: new Date().toISOString() })
+          .eq("id", requestId);
+        return new Response(JSON.stringify({ ok: true, relayed: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+      return new Response(JSON.stringify({ ok: false, simulated: true, relay_error: relayed.error || null }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    const from = buildFromHeader(Deno.env.get("SMTP_FROM") || "no-reply@wakacjecypr.com");
+    try {
+      await new Promise<void>((resolve, reject) => {
+        transport.sendMail(
+          {
+            from,
+            to: recipients.join(","),
+            subject: rendered.subject,
+            text: rendered.text,
+            html: rendered.html,
+          },
+          (error: any) => {
+            if (error) return reject(error);
+            resolve();
+          },
+        );
+      });
+
+      await supabase
+        .from("trip_date_selection_requests")
+        .update({ customer_email_sent_at: new Date().toISOString() })
+        .eq("id", requestId);
+
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    } catch (error) {
+      const relayed = await tryRelayEmail({
+        to: recipients,
+        subject: rendered.subject,
+        text: rendered.text,
+        html: rendered.html,
+        secret: secretRequired,
+      });
+      if (relayed.ok) {
+        await supabase
+          .from("trip_date_selection_requests")
+          .update({ customer_email_sent_at: new Date().toISOString() })
+          .eq("id", requestId);
+        return new Response(JSON.stringify({ ok: true, relayed: true, smtp_failed: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+      return new Response(JSON.stringify({ ok: false, simulated: true, smtp_error: (error as any)?.message || "Email send failed", relay_error: relayed.error || null }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+  }
+
+  if (event === "trip_date_selected") {
+    const booking = await loadCategoryRecord(supabase, "trips", recordId);
+    if (!booking) {
+      return new Response(JSON.stringify({ error: "Trip booking not found" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 404,
+      });
+    }
+
+    const selectedDate = formatDate(
+      (body as any)?.selected_date
+      || (body as any)?.selected_trip_date
+      || (booking as any)?.selected_trip_date
+      || (booking as any)?.trip_date,
+    );
+    const partnerId = String((body as any)?.partner_id || "").trim();
+    let partnerName = "";
+    if (partnerId) {
+      try {
+        const { data: p } = await supabase.from("partners").select("name, slug").eq("id", partnerId).maybeSingle();
+        partnerName = valueToString((p as any)?.name) || valueToString((p as any)?.slug);
+      } catch (_e) {}
+    }
+
+    let tripName = valueToString((booking as any)?.trip_slug);
+    const tripId = valueToString((booking as any)?.trip_id);
+    if (tripId) {
+      try {
+        const { data: tripRow } = await supabase
+          .from("trips")
+          .select("name, title, slug")
+          .eq("id", tripId)
+          .maybeSingle();
+        tripName = valueToString((tripRow as any)?.name) || valueToString((tripRow as any)?.title) || valueToString((tripRow as any)?.slug) || tripName;
+      } catch (_e) {}
+    }
+
+    const rendered = renderTripDateSelectedNotice({
+      tripName: tripName || "Trip booking",
+      selectedDate: selectedDate || "—",
+      bookingId: String((booking as any)?.id || recordId),
+      customerName: valueToString((booking as any)?.customer_name),
+      customerEmail: valueToString((booking as any)?.customer_email),
+      partnerName,
+    });
+
+    const adminRecipientsRaw = await getAdminNotificationEmails(supabase);
+    const adminRecipients = resolveRecipients("trips", adminRecipientsRaw);
+    const partnerRecipients = partnerId ? await getPartnerNotificationEmails(supabase, partnerId) : [];
+
+    const adminPushUrl = buildAdminPanelLink("trips", String((booking as any)?.id || recordId)) || getDefaultAdminPushUrl();
+    const adminPush = await sendAdminWebPushNotifications({
+      supabase,
+      title: rendered.pushTitle,
+      body: rendered.pushBody,
+      url: adminPushUrl,
+    });
+
+    let partnerPush: any = null;
+    if (partnerId) {
+      const fulfillmentId = String((body as any)?.fulfillment_id || "").trim();
+      const partnerPushUrl = buildPartnerPanelLink(fulfillmentId) || getDefaultPartnerPushUrl();
+      partnerPush = await sendPartnerWebPushNotifications({
+        supabase,
+        partnerId,
+        title: rendered.pushTitle,
+        body: rendered.pushBody,
+        url: partnerPushUrl,
+      });
+    }
+
+    const allRecipients = Array.from(new Set([...adminRecipients, ...partnerRecipients].map((r) => String(r || "").trim()).filter(Boolean)));
+    if (!allRecipients.length) {
+      return new Response(JSON.stringify({ ok: true, skipped: true, reason: "no_recipients", push: { admin: adminPush, partner: partnerPush } }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    const transport = buildMailTransport();
+    if (!transport) {
+      const relayed = await tryRelayEmail({
+        to: allRecipients,
+        subject: rendered.subject,
+        text: rendered.text,
+        html: rendered.html,
+        secret: secretRequired,
+      });
+      if (relayed.ok) {
+        return new Response(JSON.stringify({ ok: true, relayed: true, push: { admin: adminPush, partner: partnerPush } }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+      return new Response(JSON.stringify({ ok: false, simulated: true, relay_error: relayed.error || null, push: { admin: adminPush, partner: partnerPush } }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    const from = buildFromHeader(Deno.env.get("SMTP_FROM") || "no-reply@wakacjecypr.com");
+    try {
+      await new Promise<void>((resolve, reject) => {
+        transport.sendMail(
+          {
+            from,
+            to: allRecipients.join(","),
+            subject: rendered.subject,
+            text: rendered.text,
+            html: rendered.html,
+          },
+          (error: any) => {
+            if (error) return reject(error);
+            resolve();
+          },
+        );
+      });
+      return new Response(JSON.stringify({ ok: true, push: { admin: adminPush, partner: partnerPush } }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    } catch (error) {
+      const relayed = await tryRelayEmail({
+        to: allRecipients,
+        subject: rendered.subject,
+        text: rendered.text,
+        html: rendered.html,
+        secret: secretRequired,
+      });
+      if (relayed.ok) {
+        return new Response(JSON.stringify({ ok: true, relayed: true, smtp_failed: true, push: { admin: adminPush, partner: partnerPush } }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+      return new Response(JSON.stringify({ ok: false, simulated: true, smtp_error: (error as any)?.message || "Email send failed", relay_error: relayed.error || null, push: { admin: adminPush, partner: partnerPush } }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });

@@ -1369,8 +1369,16 @@ serve(async (req) => {
 
     if (action === "accept" && (fulfillmentStatus === "accepted" || (kind === "service" && fulfillmentStatus === "awaiting_payment"))) {
       let deposit: any = null;
+      let tripSelectionStatus = "";
 
       if (kind === "service") {
+        if (serviceCategory === "trips") {
+          const baseDetails = (fulfillment as any)?.details && typeof (fulfillment as any).details === "object"
+            ? ((fulfillment as any).details as Record<string, unknown>)
+            : null;
+          tripSelectionStatus = String(baseDetails?.trip_date_selection_status || "").trim().toLowerCase();
+        }
+
         try {
           const { data: depRow } = await supabase
             .from("service_deposit_requests")
@@ -1395,7 +1403,17 @@ serve(async (req) => {
                 .select("id, partner_id, resource_type, booking_id, resource_id, start_date, end_date, reference, summary, details")
                 .eq("id", fulfillmentId)
                 .maybeSingle();
-              if (fullRow) {
+              const details = fullRow && typeof (fullRow as any)?.details === "object"
+                ? ((fullRow as any).details as Record<string, unknown>)
+                : null;
+              tripSelectionStatus = serviceCategory === "trips"
+                ? String(details?.trip_date_selection_status || "").trim().toLowerCase()
+                : "";
+              const canCreateTripDeposit = serviceCategory !== "trips"
+                || tripSelectionStatus === "selected"
+                || tripSelectionStatus === "not_required";
+
+              if (fullRow && canCreateTripDeposit) {
                 deposit = await createDepositCheckoutForServiceFulfillment({
                   supabase,
                   fulfillment: fullRow,
@@ -1411,7 +1429,20 @@ serve(async (req) => {
         }
       }
       return new Response(
-        JSON.stringify({ ok: true, skipped: true, reason: "already_accepted", data: { order_id: orderId || null, booking_id: bookingId || null, fulfillment_id: fulfillmentId, partner_id: partnerId, all_accepted: false, deposit } }),
+        JSON.stringify({
+          ok: true,
+          skipped: true,
+          reason: "already_accepted",
+          data: {
+            order_id: orderId || null,
+            booking_id: bookingId || null,
+            fulfillment_id: fulfillmentId,
+            partner_id: partnerId,
+            all_accepted: false,
+            deposit,
+            trip_date_selection_status: serviceCategory === "trips" ? (tripSelectionStatus || null) : undefined,
+          },
+        }),
         { status: 200, headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" } },
       );
     }
@@ -1495,6 +1526,9 @@ serve(async (req) => {
       }
 
       const depositEnabled = kind === "service" ? await isDepositEnabled(supabase) : false;
+      const shouldDelayTripDeposit = kind === "service"
+        && serviceCategory === "trips"
+        && tripDateSelectionRequired;
       const serviceNextStatus = depositEnabled ? "awaiting_payment" : "accepted";
 
       const mergedTripDetails = (kind === "service" && serviceCategory === "trips")
@@ -1518,7 +1552,7 @@ serve(async (req) => {
           rejected_at: null,
           rejected_by: null,
           rejected_reason: null,
-          contact_revealed_at: depositEnabled ? null : nowIso,
+          contact_revealed_at: (depositEnabled || shouldDelayTripDeposit) ? null : nowIso,
           ...(mergedTripDetails ? { details: mergedTripDetails } : {}),
         }
         : {
@@ -1583,7 +1617,12 @@ serve(async (req) => {
 
       if (kind === "service") {
         let deposit: any = null;
-        if (depositEnabled && bookingId && serviceCategory) {
+        const shouldCreateDepositNow = depositEnabled
+          && bookingId
+          && serviceCategory
+          && !(serviceCategory === "trips" && tripDateSelectionRequired);
+
+        if (shouldCreateDepositNow) {
           const { data: fullRow } = await supabase
             .from("partner_service_fulfillments")
             .select("id, partner_id, resource_type, booking_id, resource_id, start_date, end_date, reference, summary, details")
@@ -1618,6 +1657,9 @@ serve(async (req) => {
             deposit,
             proposed_dates: serviceCategory === "trips" ? tripProposedDates : undefined,
             trip_date_selection_required: serviceCategory === "trips" ? tripDateSelectionRequired : undefined,
+            trip_date_selection_status: serviceCategory === "trips"
+              ? (tripDateSelectionRequired ? "options_proposed" : "not_required")
+              : undefined,
           },
         }), {
           status: 200,

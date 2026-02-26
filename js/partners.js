@@ -6370,9 +6370,19 @@
               .filter(Boolean)
           )).slice(0, 3)
           : [];
+        const selectionStatusRaw = String(getField('trip_date_selection_status') || '').trim().toLowerCase();
+        const selectionStatusLabel = (() => {
+          if (selectionStatusRaw === 'options_proposed') return 'Options proposed by partner';
+          if (selectionStatusRaw === 'options_sent_to_customer') return 'Options sent to customer';
+          if (selectionStatusRaw === 'selected') return 'Customer selected date';
+          if (selectionStatusRaw === 'not_required') return 'Date selection not required';
+          return selectionStatusRaw ? selectionStatusRaw.replace(/_/g, ' ') : null;
+        })();
         return [
           { label: 'Preferred date', value: getField('preferred_date', 'trip_date') },
           { label: 'Available options', value: proposedDates.length ? proposedDates.map((iso) => formatDateDmy(iso)).join(', ') : null },
+          { label: 'Date selection status', value: selectionStatusLabel },
+          { label: 'Selected date', value: getField('selected_trip_date') || getField('trip_date_selection_date') || null },
           { label: 'Arrival date', value: getField('arrival_date') },
           { label: 'Departure date', value: getField('departure_date') },
           { label: 'Adults', value: getField('num_adults') },
@@ -6557,6 +6567,19 @@
                 .map((v) => normalizeIsoDateValue(v))
                 .filter(Boolean)
             )).slice(0, 3);
+            const selectionStatusRaw = String(details?.trip_date_selection_status || '').trim().toLowerCase();
+            const selectionStatusLabel = (() => {
+              if (selectionStatusRaw === 'options_proposed') return 'Options proposed by partner';
+              if (selectionStatusRaw === 'options_sent_to_customer') return 'Options sent to customer';
+              if (selectionStatusRaw === 'selected') return 'Customer selected date';
+              if (selectionStatusRaw === 'not_required') return 'Date selection not required';
+              return selectionStatusRaw ? selectionStatusRaw.replace(/_/g, ' ') : '';
+            })();
+            const selectedDate = normalizeIsoDateValue(
+              details?.selected_trip_date
+              || details?.trip_date_selection_date
+              || ''
+            );
 
             const preferredHtml = preferred
               ? `<div class="small"><strong>Preferred Date:</strong> ${escapeHtml(formatDateDmy(preferred))}</div>`
@@ -6575,8 +6598,14 @@
             const proposedHtml = proposedDates.length
               ? `<div class="small"><strong>Available options:</strong> ${escapeHtml(proposedDates.map((iso) => formatDateDmy(iso)).join(', '))}</div>`
               : '';
+            const selectionHtml = selectionStatusLabel
+              ? `<div class="small"><strong>Date flow:</strong> ${escapeHtml(selectionStatusLabel)}</div>`
+              : '';
+            const selectedHtml = selectedDate
+              ? `<div class="small"><strong>Selected date:</strong> ${escapeHtml(formatDateDmy(selectedDate))}</div>`
+              : '';
 
-            const parts = [preferredHtml, stayHtml, participantsHtml, proposedHtml].filter(Boolean).join('');
+            const parts = [preferredHtml, stayHtml, participantsHtml, proposedHtml, selectionHtml, selectedHtml].filter(Boolean).join('');
             return parts || '<span class="muted">—</span>';
           }
 

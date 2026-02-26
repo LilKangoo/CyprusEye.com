@@ -551,6 +551,16 @@ function messageForServiceFulfillmentAction(action, result) {
   const nextStatus = result && typeof result === 'object' && result.data && typeof result.data === 'object'
     ? String(result.data.status || '').trim()
     : '';
+  const tripDateSelectionRequired = Boolean(
+    result
+    && typeof result === 'object'
+    && result.data
+    && typeof result.data === 'object'
+    && result.data.trip_date_selection_required
+  );
+  const tripDateSelectionStatus = result && typeof result === 'object' && result.data && typeof result.data === 'object'
+    ? String(result.data.trip_date_selection_status || '').trim().toLowerCase()
+    : '';
 
   if (!ok) {
     return act === 'reject' ? 'Failed to reject fulfillment' : act === 'mark_paid' ? 'Failed to mark paid' : 'Failed to accept fulfillment';
@@ -558,7 +568,13 @@ function messageForServiceFulfillmentAction(action, result) {
 
   if (skipped) {
     if (reason === 'already_claimed') return 'This order was already accepted by another partner.';
-    if (reason === 'already_accepted') return 'This fulfillment is already accepted.';
+    if (reason === 'already_accepted') {
+      const checkoutUrl = result && typeof result === 'object' && result.data && typeof result.data === 'object'
+        ? String(result.data?.deposit?.checkout_url || '').trim()
+        : '';
+      if (act === 'accept' && checkoutUrl) return 'Payment link is ready.';
+      return 'This fulfillment is already accepted.';
+    }
     if (reason === 'already_rejected') return 'This fulfillment is already rejected.';
     if (reason === 'status_changed') return 'This fulfillment status changed. Please refresh.';
     return 'No changes were applied.';
@@ -566,6 +582,9 @@ function messageForServiceFulfillmentAction(action, result) {
 
   if (act === 'reject') return 'Fulfillment rejected';
   if (act === 'mark_paid') return 'Marked as paid';
+  if (tripDateSelectionRequired || tripDateSelectionStatus === 'options_proposed' || tripDateSelectionStatus === 'options_sent_to_customer') {
+    return 'Accepted. Trip date options saved. Send options to customer from Trip booking details.';
+  }
   if (nextStatus === 'awaiting_payment') return 'Accepted. Awaiting deposit payment.';
   return 'Fulfillment accepted';
 }
@@ -2730,9 +2749,51 @@ async function adminServiceFulfillmentActionForBooking(category, bookingId, fulf
   }
 }
 
+async function adminSendTripDateOptionsToCustomer(bookingId, fulfillmentId) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const bid = String(bookingId || '').trim();
+  const fid = String(fulfillmentId || '').trim();
+  if (!bid || !fid) return;
+
+  if (!confirm('Send available trip date options to customer now?')) return;
+
+  try {
+    if (!client.functions || typeof client.functions.invoke !== 'function') {
+      throw new Error('Supabase functions client not available');
+    }
+
+    const { data, error } = await client.functions.invoke('trip-date-selection', {
+      body: {
+        action: 'send_options',
+        booking_id: bid,
+        fulfillment_id: fid,
+      },
+    });
+    if (error) throw error;
+    if (data && typeof data === 'object' && data.error) throw new Error(String(data.error || 'Failed to send date options'));
+
+    const optionsCount = Number(data?.data?.options_count || 0);
+    const expiresAt = String(data?.data?.expires_at || '').trim();
+    const details = [
+      optionsCount > 0 ? `${optionsCount} option(s)` : '',
+      expiresAt ? `expires: ${expiresAt}` : '',
+    ].filter(Boolean).join(' • ');
+    showToast(details ? `Date options sent to customer (${details})` : 'Date options sent to customer', 'success');
+
+    await loadAllOrders({ silent: true });
+    await viewTripBookingDetails(bid);
+  } catch (e) {
+    console.error('Failed to send trip date options:', e);
+    showToast(e.message || 'Failed to send trip date options', 'error');
+  }
+}
+
 window.togglePartnerServices = (partnerId) => togglePartnerServices(partnerId);
 window.adminServiceFulfillmentAction = (partnerId, fulfillmentId, action) => adminServiceFulfillmentAction(partnerId, fulfillmentId, action);
 window.adminServiceFulfillmentActionForBooking = (category, bookingId, fulfillmentId, action) => adminServiceFulfillmentActionForBooking(category, bookingId, fulfillmentId, action);
+window.adminSendTripDateOptionsToCustomer = (bookingId, fulfillmentId) => adminSendTripDateOptionsToCustomer(bookingId, fulfillmentId);
 
 function setPartnersActiveTab(tabName) {
   const next = String(tabName || '').trim() || 'list';
@@ -7182,7 +7243,7 @@ async function viewTripBookingDetails(bookingId) {
     try {
       const { data: fRows } = await client
         .from('partner_service_fulfillments')
-        .select('id, status, contact_revealed_at, rejected_reason, partner_id, created_at')
+        .select('id, status, contact_revealed_at, rejected_reason, partner_id, created_at, details')
         .eq('resource_type', 'trips')
         .eq('booking_id', bookingId)
         .order('created_at', { ascending: false })
@@ -7192,6 +7253,57 @@ async function viewTripBookingDetails(bookingId) {
     }
 
     const fulfillmentStatus = String(fulfillment?.status || '').trim();
+    const fulfillmentDetails = fulfillment?.details && typeof fulfillment.details === 'object'
+      ? fulfillment.details
+      : null;
+    const normalizeTripIso = (value) => {
+      const raw = String(value || '').trim();
+      if (!raw) return '';
+      const match = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (match) return match[1];
+      const parsed = new Date(raw);
+      if (Number.isNaN(parsed.getTime())) return '';
+      return parsed.toISOString().slice(0, 10);
+    };
+    const formatTripIso = (value) => {
+      const iso = normalizeTripIso(value);
+      if (!iso) return '—';
+      try {
+        return new Date(`${iso}T12:00:00`).toLocaleDateString('en-GB');
+      } catch (_e) {
+        return iso;
+      }
+    };
+    const proposedDates = Array.isArray(fulfillmentDetails?.partner_proposed_dates)
+      ? fulfillmentDetails.partner_proposed_dates
+      : Array.isArray(fulfillmentDetails?.proposed_dates)
+        ? fulfillmentDetails.proposed_dates
+        : [];
+    const proposedDateLabels = Array.from(new Set(
+      proposedDates
+        .map((value) => normalizeTripIso(value))
+        .filter(Boolean)
+    ))
+      .slice(0, 3)
+      .map((iso) => formatTripIso(iso));
+    const selectionStatusRaw = String(fulfillmentDetails?.trip_date_selection_status || '').trim().toLowerCase();
+    const selectionStatusLabel = (() => {
+      if (selectionStatusRaw === 'options_proposed') return 'Options proposed by partner (awaiting admin send)';
+      if (selectionStatusRaw === 'options_sent_to_customer') return 'Options sent to customer';
+      if (selectionStatusRaw === 'selected') return 'Customer selected date';
+      if (selectionStatusRaw === 'not_required') return 'Date selection not required';
+      return selectionStatusRaw ? selectionStatusRaw.replace(/_/g, ' ') : 'Not started';
+    })();
+    const selectedDateLabel = formatTripIso(
+      fulfillmentDetails?.selected_trip_date
+      || booking.selected_trip_date
+      || (selectionStatusRaw === 'selected' ? booking.trip_date : '')
+    );
+    const canSendDateOptions = Boolean(
+      fulfillment?.id
+      && proposedDateLabels.length
+      && (selectionStatusRaw === 'options_proposed' || selectionStatusRaw === 'options_sent_to_customer')
+    );
     const fulfillmentPillClass =
       fulfillmentStatus === 'accepted' ? 'badge-success' :
       fulfillmentStatus === 'rejected' ? 'badge-danger' :
@@ -7208,10 +7320,32 @@ async function viewTripBookingDetails(bookingId) {
           </div>
         `;
       }
-      if (fulfillmentStatus === 'awaiting_payment') {
+      if (fulfillmentStatus === 'accepted') {
+        if (!canSendDateOptions) return '';
         return `
           <div style="display:flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
-            <button type="button" class="btn-secondary" onclick="adminServiceFulfillmentActionForBooking('trips','${escapeHtml(booking.id)}','${escapeHtml(fulfillment.id)}','mark_paid')">Mark paid</button>
+            <button type="button" class="btn-secondary" onclick="adminSendTripDateOptionsToCustomer('${escapeHtml(booking.id)}','${escapeHtml(fulfillment.id)}')">
+              ${selectionStatusRaw === 'options_sent_to_customer' ? 'Resend date options' : 'Send date options'}
+            </button>
+          </div>
+        `;
+      }
+      if (fulfillmentStatus === 'awaiting_payment') {
+        const canMarkPaid = !canSendDateOptions || selectionStatusRaw === 'selected' || selectionStatusRaw === 'not_required';
+        const canRetryPaymentLink = selectionStatusRaw === 'selected';
+        return `
+          <div style="display:flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+            ${canSendDateOptions ? `
+              <button type="button" class="btn-secondary" onclick="adminSendTripDateOptionsToCustomer('${escapeHtml(booking.id)}','${escapeHtml(fulfillment.id)}')">
+                ${selectionStatusRaw === 'options_sent_to_customer' ? 'Resend date options' : 'Send date options'}
+              </button>
+            ` : ''}
+            ${canRetryPaymentLink ? `
+              <button type="button" class="btn-secondary" onclick="adminServiceFulfillmentActionForBooking('trips','${escapeHtml(booking.id)}','${escapeHtml(fulfillment.id)}','accept')">Retry payment link</button>
+            ` : ''}
+            ${canMarkPaid ? `
+              <button type="button" class="btn-secondary" onclick="adminServiceFulfillmentActionForBooking('trips','${escapeHtml(booking.id)}','${escapeHtml(fulfillment.id)}','mark_paid')">Mark paid</button>
+            ` : ''}
           </div>
         `;
       }
@@ -7237,6 +7371,13 @@ async function viewTripBookingDetails(bookingId) {
         : (fulfillmentStatus === 'accepted' && fulfillment.contact_revealed_at
           ? `<div style="margin-top: 6px; font-size: 12px; color: var(--admin-text-muted);">Contact revealed</div>`
           : '');
+      const dateSelectionMeta = `
+        <div style="margin-top: 8px; font-size: 12px; color: var(--admin-text-muted);">
+          <div><strong>Date selection:</strong> ${escapeHtml(selectionStatusLabel)}</div>
+          ${proposedDateLabels.length ? `<div><strong>Proposed options:</strong> ${escapeHtml(proposedDateLabels.join(', '))}</div>` : ''}
+          ${selectedDateLabel && selectedDateLabel !== '—' ? `<div><strong>Selected date:</strong> ${escapeHtml(selectedDateLabel)}</div>` : ''}
+        </div>
+      `;
 
       return `
         <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
@@ -7247,6 +7388,7 @@ async function viewTripBookingDetails(bookingId) {
                 <span class="badge ${fulfillmentPillClass}">${escapeHtml(fulfillmentStatus || 'unknown')}</span>
               </div>
               ${extra}
+              ${dateSelectionMeta}
             </div>
             ${fulfillmentActions}
           </div>
@@ -7317,6 +7459,22 @@ async function viewTripBookingDetails(bookingId) {
               <span style="font-weight: 500;">Stay on Cyprus:</span>
               <span>✈️ ${arrivalDate} → ${departureDate}</span>
             </div>
+            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Date flow:</span>
+              <span>${escapeHtml(selectionStatusLabel)}</span>
+            </div>
+            ${proposedDateLabels.length ? `
+            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Options:</span>
+              <span>${escapeHtml(proposedDateLabels.join(', '))}</span>
+            </div>
+            ` : ''}
+            ${selectedDateLabel && selectedDateLabel !== '—' ? `
+            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Selected date:</span>
+              <span>✅ ${escapeHtml(selectedDateLabel)}</span>
+            </div>
+            ` : ''}
             ${booking.num_adults ? `
             <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">
               <span style="font-weight: 500;">Participants:</span>
