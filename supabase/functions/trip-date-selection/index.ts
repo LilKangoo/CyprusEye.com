@@ -88,6 +88,92 @@ function resolveTripTitleFromRow(row: any, lang: "pl" | "en"): string {
     || String((row as any)?.slug || "").trim();
 }
 
+function isGenericTripBookingTitle(value: unknown): boolean {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized) return true;
+  return normalized === "trip booking"
+    || normalized === "rezerwacja wycieczki"
+    || normalized === "booking"
+    || normalized === "rezerwacja";
+}
+
+function cleanTripTitle(value: unknown): string {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (isGenericTripBookingTitle(raw)) return "";
+  return raw;
+}
+
+function resolveTripTitleFromFulfillment(fulfillmentPreview: any, lang: "pl" | "en"): string {
+  if (!fulfillmentPreview || typeof fulfillmentPreview !== "object") return "";
+
+  const details = (fulfillmentPreview as any)?.details;
+  if (details && typeof details === "object") {
+    const keys = ["trip_title", "trip_name", "title", "service_name", "name", "trip_slug", "slug"];
+    for (const key of keys) {
+      const value = cleanTripTitle(readLocalizedText((details as any)[key], lang));
+      if (value) return value;
+    }
+  }
+
+  const summary = cleanTripTitle(readLocalizedText((fulfillmentPreview as any)?.summary, lang));
+  if (summary) return summary;
+  return "";
+}
+
+async function loadTripRowFlexible(
+  supabase: any,
+  params: { id?: string | null; slug?: string | null },
+): Promise<any | null> {
+  const id = String(params?.id || "").trim();
+  const slug = String(params?.slug || "").trim();
+  if (!id && !slug) return null;
+
+  const selects = [
+    "id, slug, name, name_i18n, title, title_i18n",
+    "id, slug, name, title, title_i18n",
+    "id, slug, name, title",
+    "id, slug, title",
+    "id, slug",
+  ];
+
+  const isMissingColumnError = (error: any): boolean => {
+    const code = String(error?.code || "").trim().toUpperCase();
+    const msg = String(error?.message || "").toLowerCase();
+    return code === "42703"
+      || code === "PGRST204"
+      || (msg.includes("column") && msg.includes("does not exist"));
+  };
+
+  const tryMode = async (mode: "id" | "slug_eq" | "slug_ilike"): Promise<any | null> => {
+    for (const select of selects) {
+      let query = supabase.from("trips").select(select);
+      if (mode === "id" && id) query = query.eq("id", id);
+      if (mode === "slug_eq" && slug) query = query.eq("slug", slug);
+      if (mode === "slug_ilike" && slug) query = query.ilike("slug", slug).limit(1);
+
+      const { data, error } = await query.maybeSingle();
+      if (!error) return data || null;
+      if (isMissingColumnError(error)) continue;
+      return null;
+    }
+    return null;
+  };
+
+  if (id) {
+    const byId = await tryMode("id");
+    if (byId) return byId;
+  }
+  if (slug) {
+    const bySlugEq = await tryMode("slug_eq");
+    if (bySlugEq) return bySlugEq;
+    const bySlugIlike = await tryMode("slug_ilike");
+    if (bySlugIlike) return bySlugIlike;
+  }
+
+  return null;
+}
+
 function normalizeTripResourceType(value: unknown): string {
   const raw = String(value || "").trim().toLowerCase();
   if (!raw) return "";
@@ -940,6 +1026,7 @@ serve(async (req: Request) => {
     const requestedLang = normalizeLang((body as any)?.lang || (booking as any)?.lang);
     const bookingTripId = String((booking as any)?.trip_id || "").trim();
     const bookingTripSlug = String((booking as any)?.trip_slug || "").trim();
+    const fallbackTripLabel = requestedLang === "pl" ? "Rezerwacja wycieczki" : "Trip booking";
     let tripTitle = "";
 
     let fulfillmentPreview: any = null;
@@ -957,39 +1044,18 @@ serve(async (req: Request) => {
     }
 
     const lookupTripId = bookingTripId || String((fulfillmentPreview as any)?.resource_id || "").trim();
-    if (lookupTripId) {
-      try {
-        const { data: tripRow } = await supabase
-          .from("trips")
-          .select("id, slug, name, name_i18n, title, title_i18n")
-          .eq("id", lookupTripId)
-          .maybeSingle();
-        tripTitle = resolveTripTitleFromRow(tripRow, requestedLang);
-      } catch (_e) {
-        // keep fallback
-      }
-    }
+    const tripRow = await loadTripRowFlexible(supabase, {
+      id: lookupTripId || null,
+      slug: bookingTripSlug || null,
+    });
+    tripTitle = cleanTripTitle(resolveTripTitleFromRow(tripRow, requestedLang));
 
-    if (!tripTitle && bookingTripSlug) {
-      try {
-        const { data: tripRow } = await supabase
-          .from("trips")
-          .select("id, slug, name, name_i18n, title, title_i18n")
-          .eq("slug", bookingTripSlug)
-          .maybeSingle();
-        tripTitle = resolveTripTitleFromRow(tripRow, requestedLang);
-      } catch (_e) {
-        // keep fallback
-      }
-    }
-
+    if (!tripTitle) tripTitle = cleanTripTitle(bookingTripSlug);
     if (!tripTitle && fulfillmentPreview) {
-      const fSummary = readLocalizedText((fulfillmentPreview as any)?.summary, requestedLang);
-      const fDetailsTitle = readLocalizedText((fulfillmentPreview as any)?.details, requestedLang);
-      tripTitle = fSummary || fDetailsTitle || "";
+      tripTitle = resolveTripTitleFromFulfillment(fulfillmentPreview, requestedLang);
     }
 
-    if (!tripTitle) tripTitle = bookingTripSlug || "Trip booking";
+    if (!tripTitle) tripTitle = fallbackTripLabel;
 
     let depositState: any = null;
     let selectionLocked = false;
@@ -1034,7 +1100,7 @@ serve(async (req: Request) => {
         request_id: String(requestRow.id || ""),
         booking_id: bookingId,
         fulfillment_id: fulfillmentId,
-        trip_title: tripTitle || "Trip booking",
+        trip_title: tripTitle || fallbackTripLabel,
         lang: requestedLang,
         preferred_date: firstIso(requestRow.preferred_date, (booking as any)?.preferred_trip_date, (booking as any)?.trip_date),
         stay_from: firstIso(requestRow.stay_from, (booking as any)?.arrival_date),
