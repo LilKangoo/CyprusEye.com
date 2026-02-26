@@ -204,6 +204,7 @@
           fallbackTitle: 'Create account for full access',
           fallbackDescription:
             'Final step: click "Login", create account, and unlock full offers: booking history, notifications, saved progress, and partner benefits.',
+          scrollBlock: 'start',
           arrow: { icon: '⬆️', placement: 'bottom' },
         },
       ];
@@ -724,7 +725,8 @@
         this.highlight.style.height = `${Math.max(height, 60)}px`;
 
         if (options.ensureVisible && typeof target.scrollIntoView === 'function') {
-          target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+          const scrollBlock = activeStep.scrollBlock === 'start' ? 'start' : 'center';
+          target.scrollIntoView({ behavior: 'smooth', block: scrollBlock, inline: 'center' });
           if (this.pendingTimeout) {
             clearTimeout(this.pendingTimeout);
           }
