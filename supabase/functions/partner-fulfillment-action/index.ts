@@ -417,6 +417,7 @@ function buildDepositRedirectUrl(params: {
   category: ServiceCategory;
   bookingId: string;
   amount: number;
+  total?: number | null;
   currency: string;
   reference?: string | null;
   summary?: string | null;
@@ -429,6 +430,9 @@ function buildDepositRedirectUrl(params: {
   url.searchParams.set("category", params.category);
   url.searchParams.set("booking_id", params.bookingId);
   url.searchParams.set("amount", String(params.amount));
+  if (Number.isFinite(Number(params.total)) && Number(params.total) > 0) {
+    url.searchParams.set("total", String(params.total));
+  }
   url.searchParams.set("currency", String(params.currency || "EUR"));
   if (params.reference) url.searchParams.set("reference", String(params.reference));
   if (params.summary) url.searchParams.set("summary", String(params.summary));
@@ -980,6 +984,7 @@ async function createDepositCheckoutForServiceFulfillment(params: {
     throw new Error("Failed to create deposit request");
   }
 
+  const totalForCheckout = clampMoney(Number((fulfillment as any)?.total_price || (bookingRow as any)?.total_price || 0));
   const successUrl = buildDepositRedirectUrl({
     lang,
     result: "success",
@@ -987,6 +992,7 @@ async function createDepositCheckoutForServiceFulfillment(params: {
     category,
     bookingId,
     amount: depositAmount,
+    total: totalForCheckout > 0 ? totalForCheckout : null,
     currency,
     reference: fulfillmentReference,
     summary: fulfillmentSummary,
@@ -998,6 +1004,7 @@ async function createDepositCheckoutForServiceFulfillment(params: {
     category,
     bookingId,
     amount: depositAmount,
+    total: totalForCheckout > 0 ? totalForCheckout : null,
     currency,
     reference: fulfillmentReference,
     summary: fulfillmentSummary,

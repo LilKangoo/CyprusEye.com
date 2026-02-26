@@ -18,6 +18,7 @@
     .wrap { min-height: 100vh; display:flex; align-items:center; justify-content:center; padding: 36px 16px; }
     .card { width: 100%; max-width: 720px; background: rgba(17,24,39,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 22px; box-shadow: 0 22px 60px rgba(0,0,0,0.35); }
     .header { display:flex; gap: 14px; align-items:center; justify-content:space-between; flex-wrap: wrap; }
+    .header-right { display:flex; gap: 10px; align-items:center; flex-wrap: wrap; }
     .brand { display:flex; gap: 12px; align-items:center; }
     .brand img { width: 42px; height: 42px; object-fit: contain; }
     .brand .title { font-weight: 900; font-size: 18px; letter-spacing: 0.2px; }
@@ -25,6 +26,10 @@
     .badge.success { background: rgba(34,197,94,0.16); color: #bbf7d0; }
     .badge.cancel { background: rgba(245,158,11,0.16); color: #fde68a; }
     .badge.pending { background: rgba(59,130,246,0.16); color: #bfdbfe; }
+    .lang-switch { display:inline-flex; gap: 6px; border: 1px solid rgba(255,255,255,0.14); border-radius: 999px; padding: 4px; background: rgba(255,255,255,0.03); }
+    .lang-btn { border: 0; background: transparent; color: rgba(229,231,235,0.84); font-weight: 800; font-size: 11px; min-width: 36px; height: 28px; border-radius: 999px; cursor: pointer; }
+    .lang-btn[aria-pressed="true"] { background: rgba(37,99,235,0.95); color: #fff; }
+    .lang-btn:focus-visible { outline: 2px solid rgba(147,197,253,0.85); outline-offset: 1px; }
 
     h1 { margin: 16px 0 8px; font-size: 26px; line-height: 1.2; }
     p { margin: 0 0 10px; color: rgba(229,231,235,0.86); }
@@ -44,7 +49,7 @@
     .muted { font-size: 12px; color: rgba(229,231,235,0.62); margin-top: 12px; }
   </style>
 
-  <script type="module" src="/js/deposit.js?v=20260114"></script>
+  <script type="module" src="/js/deposit.js?v=20260226a"></script>
 </head>
 <body>
   <main class="wrap">
@@ -54,7 +59,13 @@
           <img src="/assets/cyprus_logo-1000x1054.png" alt="CyprusEye.com" />
           <div class="title">CyprusEye.com</div>
         </div>
-        <div id="depositBadge" class="badge pending">Deposit</div>
+        <div class="header-right">
+          <div class="lang-switch" aria-label="Language">
+            <button type="button" class="lang-btn" data-lang="en" aria-pressed="false">EN</button>
+            <button type="button" class="lang-btn" data-lang="pl" aria-pressed="false">PL</button>
+          </div>
+          <div id="depositBadge" class="badge pending">Deposit</div>
+        </div>
       </div>
 
       <h1 id="depositTitle">Payment status</h1>
@@ -70,8 +81,16 @@
           <div class="value" id="valueService">—</div>
         </div>
         <div class="box">
-          <div class="label" id="labelAmount">Amount</div>
+          <div class="label" id="labelAmount">Paid now</div>
           <div class="value" id="valueAmount">—</div>
+        </div>
+        <div class="box">
+          <div class="label" id="labelTotal">Trip total</div>
+          <div class="value" id="valueTotal">—</div>
+        </div>
+        <div class="box">
+          <div class="label" id="labelRemaining">Remaining cash on-site</div>
+          <div class="value" id="valueRemaining">—</div>
         </div>
         <div class="box">
           <div class="label" id="labelCategory">Category</div>

@@ -4082,6 +4082,7 @@
     ));
 
     const tripById = {};
+    const tripTitleMetaById = {};
     const hotelById = {};
     const transportRouteById = {};
     const transportRouteEndpointsById = {};
@@ -4113,9 +4114,19 @@
         if (error) throw error;
         (data || []).forEach((r) => {
           if (!r?.id) return;
-          const title = normalizeTitleJson(r.title) || r.slug || String(r.id).slice(0, 8);
+          const titleObj = (r.title && typeof r.title === 'object') ? r.title : null;
+          const titlePl = String((titleObj?.pl || titleObj?.en || normalizeTitleJson(r.title) || r.slug || String(r.id).slice(0, 8)) || '').trim();
+          const titleEn = String((titleObj?.en || titleObj?.pl || normalizeTitleJson(r.title) || r.slug || String(r.id).slice(0, 8)) || '').trim();
+          const title = titleEn && titlePl && titleEn.toLowerCase() !== titlePl.toLowerCase()
+            ? `${titleEn} / ${titlePl}`
+            : (titleEn || titlePl || r.slug || String(r.id).slice(0, 8));
           const city = r.start_city ? ` — ${r.start_city}` : '';
           tripById[r.id] = `${title}${city}`;
+          tripTitleMetaById[r.id] = {
+            en: titleEn || titlePl || '',
+            pl: titlePl || titleEn || '',
+            slug: String(r.slug || '').trim(),
+          };
         });
       } catch (_e) {}
     }
@@ -4258,6 +4269,12 @@
         if (!f || f.__source !== 'service') return;
         if (normalizeServiceResourceType(f.resource_type) === 'trips' && f.resource_id && tripById[f.resource_id]) {
           f.summary = tripById[f.resource_id];
+          const meta = tripTitleMetaById[f.resource_id] || null;
+          if (meta) {
+            f.__tripTitleEn = String(meta.en || '').trim();
+            f.__tripTitlePl = String(meta.pl || '').trim();
+            f.__tripSlug = String(meta.slug || '').trim();
+          }
         }
         if (normalizeServiceResourceType(f.resource_type) === 'hotels' && f.resource_id && hotelById[f.resource_id]) {
           f.summary = hotelById[f.resource_id];
@@ -6441,6 +6458,9 @@
           const label = escapeHtml(String(p.label || ''));
           const value = p.value;
           const rawText = valueTextForModal(value);
+          const valueClassRaw = String(p.valueClass || '').trim();
+          const valueClass = valueClassRaw ? valueClassRaw.replace(/[^a-zA-Z0-9_\-\s]/g, '').trim() : '';
+          const valueClassAttr = valueClass ? ` ${valueClass}` : '';
 
           let valueHtml = '';
           if (p.kind === 'email') {
@@ -6458,7 +6478,7 @@
           return `
             <div class="partner-details-kv-row">
               <div class="partner-details-label">${label}</div>
-              <div class="partner-details-value">${valueHtml}</div>
+              <div class="partner-details-value${valueClassAttr}">${valueHtml}</div>
             </div>
           `;
         })
@@ -6593,11 +6613,65 @@
           }
 
           if (category === 'trips' || category === 'hotels' || category === 'transport') {
-            return [
+            const base = [
               { label: 'Name', value: contact?.customer_name ?? getField('customer_name', 'full_name') ?? null, key: 'customer_name' },
               { label: 'Email', value: contact?.customer_email ?? getField('customer_email', 'email') ?? null, kind: 'email', key: 'customer_email' },
               { label: 'Phone', value: contact?.customer_phone ?? getField('customer_phone', 'phone') ?? null, kind: 'tel', key: 'customer_phone' },
             ];
+
+            if (category === 'trips') {
+              const tripTitleEn = String(
+                f.__tripTitleEn
+                || getField('trip_title_en', 'trip_name_en')
+                || ''
+              ).trim();
+              const tripTitlePl = String(
+                f.__tripTitlePl
+                || getField('trip_title_pl', 'trip_name_pl')
+                || ''
+              ).trim();
+              const tripSlug = String(
+                f.__tripSlug
+                || getField('trip_slug')
+                || ''
+              ).trim();
+              const tripNameLabel = (() => {
+                if (tripTitleEn && tripTitlePl && tripTitleEn.toLowerCase() !== tripTitlePl.toLowerCase()) {
+                  return `${tripTitleEn} / ${tripTitlePl}`;
+                }
+                return tripTitleEn || tripTitlePl || String(f.summary || '').trim() || tripSlug || null;
+              })();
+
+              const adultsRaw = Number(getField('num_adults') || 0);
+              const childrenRaw = Number(getField('num_children') || 0);
+              const adults = Number.isFinite(adultsRaw) ? Math.max(0, adultsRaw) : 0;
+              const children = Number.isFinite(childrenRaw) ? Math.max(0, childrenRaw) : 0;
+              const totalPeople = adults + children;
+              const peopleLabel = (() => {
+                if (!(totalPeople > 0)) return null;
+                if (children > 0) return `${totalPeople} (${adults} adults + ${children} children)`;
+                return `${totalPeople} (${adults} adults)`;
+              })();
+
+              const selectedDateIso = normalizeIsoDateValue(
+                getField('selected_trip_date')
+                || getField('trip_date_selection_date')
+                || getField('trip_date')
+                || ''
+              );
+              const selectedDateLabel = selectedDateIso ? formatDateDmy(selectedDateIso) : null;
+              const pickupAddress = getField('pickup_address');
+
+              return [
+                ...base,
+                { label: 'Trip name (EN / PL)', value: tripNameLabel },
+                { label: 'People', value: peopleLabel },
+                { label: 'Selected date', value: selectedDateLabel, valueClass: 'partner-details-value--highlight-yellow' },
+                { label: 'Pickup address', value: pickupAddress },
+              ];
+            }
+
+            return base;
           }
 
           return [
@@ -6700,7 +6774,7 @@
           { label: 'Date selection status', value: selectionStatusLabel },
           { label: 'Date options sent', value: dateOptionsSentAtRaw ? formatDateTime(dateOptionsSentAtRaw) : null },
           { label: 'Selection link expires', value: dateOptionsExpiresAtRaw ? formatDateTime(dateOptionsExpiresAtRaw) : null },
-          { label: 'Selected date', value: getField('selected_trip_date') || getField('trip_date_selection_date') || null },
+          { label: 'Selected date', value: getField('selected_trip_date') || getField('trip_date_selection_date') || null, valueClass: 'partner-details-value--highlight-yellow' },
           { label: 'Arrival date', value: getField('arrival_date') },
           { label: 'Departure date', value: getField('departure_date') },
           { label: 'Adults', value: getField('num_adults') },

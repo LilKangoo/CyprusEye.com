@@ -471,6 +471,7 @@ function buildDepositRedirectUrl(params: {
   depositRequestId: string;
   bookingId: string;
   amount: number;
+  total?: number | null;
   currency: string;
   reference?: string | null;
   summary?: string | null;
@@ -483,6 +484,9 @@ function buildDepositRedirectUrl(params: {
   url.searchParams.set("category", "trips");
   url.searchParams.set("booking_id", params.bookingId);
   url.searchParams.set("amount", String(params.amount));
+  if (Number.isFinite(Number(params.total)) && Number(params.total) > 0) {
+    url.searchParams.set("total", String(params.total));
+  }
   url.searchParams.set("currency", String(params.currency || "EUR"));
   if (params.reference) url.searchParams.set("reference", String(params.reference));
   if (params.summary) url.searchParams.set("summary", String(params.summary));
@@ -688,12 +692,14 @@ async function createTripDepositCheckout(params: {
   if (!depositRequestId) throw new Error("Failed to create trip deposit request");
 
   const lang = normalizeLang(booking?.lang);
+  const totalForCheckout = clampMoney(Number(fulfillment?.total_price || booking?.total_price || 0));
   const successUrl = buildDepositRedirectUrl({
     lang,
     result: "success",
     depositRequestId,
     bookingId,
     amount: depositAmount,
+    total: totalForCheckout > 0 ? totalForCheckout : null,
     currency,
     reference: fulfillment?.reference ? String(fulfillment.reference) : null,
     summary: fulfillment?.summary ? String(fulfillment.summary) : textSummaryFromTrip(booking),
@@ -704,6 +710,7 @@ async function createTripDepositCheckout(params: {
     depositRequestId,
     bookingId,
     amount: depositAmount,
+    total: totalForCheckout > 0 ? totalForCheckout : null,
     currency,
     reference: fulfillment?.reference ? String(fulfillment.reference) : null,
     summary: fulfillment?.summary ? String(fulfillment.summary) : textSummaryFromTrip(booking),
