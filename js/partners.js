@@ -1562,7 +1562,7 @@
       if (!f) return false;
       if (cat === 'shop') return String(f.__source || '') === 'shop';
       if (String(f.__source || '') === 'shop') return false;
-      return String(f.resource_type || '') === cat;
+      return normalizeServiceResourceType(f.resource_type) === cat;
     });
   }
 
@@ -1615,10 +1615,20 @@
     }
   }
 
+  function normalizeServiceResourceType(value) {
+    const type = String(value || '').trim().toLowerCase();
+    if (!type) return '';
+    if (type === 'car') return 'cars';
+    if (type === 'trip') return 'trips';
+    if (type === 'hotel') return 'hotels';
+    if (type === 'transfer' || type === 'transfers' || type === 'transports') return 'transport';
+    return type;
+  }
+
   function fulfillmentCategoryForOrders(row) {
     if (!row) return '';
     if (String(row.__source || '') === 'shop') return 'shop';
-    const type = String(row.resource_type || '').trim().toLowerCase();
+    const type = normalizeServiceResourceType(row.resource_type);
     if (type === 'cars' || type === 'trips' || type === 'hotels' || type === 'transport') return type;
     return '';
   }
@@ -3459,7 +3469,7 @@
 
     rows.forEach((row) => {
       if (!row) return;
-      const type = String(row.resource_type || '').trim().toLowerCase();
+      const type = normalizeServiceResourceType(row.resource_type);
       const bookingId = String(row.booking_id || '').trim();
       if (!bookingId) return;
       if (!idsByType[type]) return;
@@ -3934,11 +3944,12 @@
     const closedCount = rawServiceRows.filter((f) => String(f?.status || '').trim() === 'closed').length;
     const serviceBookingStateByKey = await loadServiceBookingStateByKey(rawServiceRows);
     const serviceRows = rawServiceRows.map((f) => {
-      const type = String(f?.resource_type || '').trim().toLowerCase();
+      const type = normalizeServiceResourceType(f?.resource_type);
       const bookingId = String(f?.booking_id || '').trim();
       const bookingState = serviceBookingStateByKey[`${type}:${bookingId}`] || null;
       return {
         ...f,
+        resource_type: type || String(f?.resource_type || '').trim().toLowerCase(),
         __source: 'service',
         booking_status: bookingState?.status || null,
         booking_payment_status: bookingState?.paymentStatus || null,
@@ -3999,7 +4010,7 @@
       if (!f) return false;
       if (f.__source !== 'service') return true;
 
-      const rt = String(f.resource_type || '');
+      const rt = normalizeServiceResourceType(f.resource_type);
 
       if (rt === 'cars') {
         if (!partner?.can_manage_cars) return false;
@@ -4046,19 +4057,19 @@
     const serviceOnly = filteredMerged.filter((f) => f && f.__source === 'service');
     const tripIds = Array.from(new Set(
       serviceOnly
-        .filter((f) => String(f.resource_type || '') === 'trips' && f.resource_id)
+        .filter((f) => normalizeServiceResourceType(f.resource_type) === 'trips' && f.resource_id)
         .map((f) => f.resource_id)
         .filter(Boolean)
     ));
     const hotelIds = Array.from(new Set(
       serviceOnly
-        .filter((f) => String(f.resource_type || '') === 'hotels' && f.resource_id)
+        .filter((f) => normalizeServiceResourceType(f.resource_type) === 'hotels' && f.resource_id)
         .map((f) => f.resource_id)
         .filter(Boolean)
     ));
     const transportRouteIds = Array.from(new Set(
       serviceOnly
-        .filter((f) => String(f.resource_type || '') === 'transport')
+        .filter((f) => normalizeServiceResourceType(f.resource_type) === 'transport')
         .flatMap((f) => {
           const details = detailsObjectFromFulfillment(f);
           return [
@@ -4245,13 +4256,13 @@
     if (tripIds.length || hotelIds.length || transportRouteIds.length) {
       filteredMerged.forEach((f) => {
         if (!f || f.__source !== 'service') return;
-        if (String(f.resource_type || '') === 'trips' && f.resource_id && tripById[f.resource_id]) {
+        if (normalizeServiceResourceType(f.resource_type) === 'trips' && f.resource_id && tripById[f.resource_id]) {
           f.summary = tripById[f.resource_id];
         }
-        if (String(f.resource_type || '') === 'hotels' && f.resource_id && hotelById[f.resource_id]) {
+        if (normalizeServiceResourceType(f.resource_type) === 'hotels' && f.resource_id && hotelById[f.resource_id]) {
           f.summary = hotelById[f.resource_id];
         }
-        if (String(f.resource_type || '') === 'transport') {
+        if (normalizeServiceResourceType(f.resource_type) === 'transport') {
           f.summary = resolveTransportRouteSummary(f);
         }
       });
@@ -6569,7 +6580,7 @@
         const datesHtml = (() => {
           if (isShop) return '<span class="muted">—</span>';
 
-          if (String(f.resource_type || '') === 'trips') {
+          if (normalizeServiceResourceType(f.resource_type) === 'trips') {
             const details = (f.details && typeof f.details === 'object') ? f.details : null;
             const preferred = details?.preferred_date || details?.preferredDate || details?.trip_date || details?.tripDate || null;
             const arrival = details?.arrival_date || details?.arrivalDate || null;
@@ -6628,7 +6639,7 @@
             return parts || '<span class="muted">—</span>';
           }
 
-          if (String(f.resource_type || '') === 'transport') {
+          if (normalizeServiceResourceType(f.resource_type) === 'transport') {
             const details = detailsObjectFromFulfillment(f) || {};
             const outboundDate = details?.travel_date || details?.travelDate || f.start_date || null;
             const outboundTime = details?.travel_time || details?.travelTime || null;
@@ -6848,7 +6859,7 @@
           } else {
             const row = (state.fulfillments || []).find((f) => String(f?.id || '') === String(fulfillmentId)) || null;
             const isTripServiceAccept = source === 'service'
-              && String(row?.resource_type || '').trim().toLowerCase() === 'trips';
+              && normalizeServiceResourceType(row?.resource_type) === 'trips';
             let extraPayload = null;
 
             if (isTripServiceAccept) {

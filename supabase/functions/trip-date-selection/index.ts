@@ -47,6 +47,13 @@ function normalizeLang(value: unknown): "pl" | "en" {
   return v === "pl" ? "pl" : "en";
 }
 
+function normalizeTripResourceType(value: unknown): string {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) return "";
+  if (raw === "trip" || raw === "trips") return "trips";
+  return raw;
+}
+
 function normalizeIsoDate(value: unknown): string | null {
   const raw = String(value || "").trim();
   if (!raw) return null;
@@ -727,7 +734,7 @@ serve(async (req: Request) => {
       const { data, error } = await supabase
         .from("partner_service_fulfillments")
         .select("id, booking_id, partner_id, resource_type, status, details, resource_id, summary, total_price, currency, created_at")
-        .eq("resource_type", "trips")
+        .in("resource_type", ["trips", "trip"])
         .eq("booking_id", bookingIdRaw)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -736,7 +743,7 @@ serve(async (req: Request) => {
       fulfillment = data;
     }
 
-    if (String(fulfillment?.resource_type || "").trim().toLowerCase() !== "trips") {
+    if (normalizeTripResourceType(fulfillment?.resource_type) !== "trips") {
       return jsonResponse(req, 400, { error: "Fulfillment is not a trip fulfillment" });
     }
 
@@ -1031,7 +1038,7 @@ serve(async (req: Request) => {
     .maybeSingle();
 
   if (fulfillmentErr || !fulfillment) return jsonResponse(req, 404, { error: "Fulfillment not found" });
-  if (String((fulfillment as any).resource_type || "").trim().toLowerCase() !== "trips") {
+  if (normalizeTripResourceType((fulfillment as any).resource_type) !== "trips") {
     return jsonResponse(req, 400, { error: "Fulfillment is not a trip fulfillment" });
   }
 
