@@ -71,6 +71,16 @@
     return Boolean(language && i18n.translations && i18n.translations[language]);
   }
 
+  function formatTemplate(template, vars) {
+    const input = String(template || '');
+    return input.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+      if (!vars || !Object.prototype.hasOwnProperty.call(vars, key)) {
+        return match;
+      }
+      return String(vars[key] ?? '');
+    });
+  }
+
   class Tutorial {
     constructor() {
       this.currentStepIndex = 0;
@@ -81,6 +91,7 @@
       this.dialog = null;
       this.titleEl = null;
       this.descriptionEl = null;
+      this.metaEl = null;
       this.prevButton = null;
       this.nextButton = null;
       this.skipButton = null;
@@ -97,115 +108,123 @@
       this.steps = [
         {
           id: 'step1',
-          target: '[data-tour-target="quick-actions"]',
-          fallbackTitle: 'Witaj w CyprusEye Quest! 🎮',
+          target: '[data-tour-target="top-actions"]',
+          fallbackTitle: 'Welcome to CyprusEye Quest! 👋',
           fallbackDescription:
-            'Poznaj szybkie akcje w nagłówku! Stąd masz błyskawiczny dostęp do: 🎒 Pakowanie, 🚕 Transport, 🚗 Wynajem auta, 🚤 Wycieczki, 🏨 Hotele. Wszystko pod ręką!',
-          arrow: { icon: '⬇️', placement: 'top' },
+            'Top bar actions: sign in/out, SOS, cart, and language switch. Start here to configure the app for your trip.',
+          arrow: { icon: '⬇️', placement: 'bottom' },
         },
         {
           id: 'step2',
           target: '[data-tour-target="tabs-navigation"]',
-          fallbackTitle: 'Nawigacja po zakładkach 🧭',
+          fallbackTitle: 'Navigation tabs and quick links 🧭',
           fallbackDescription:
-            'Główne zakładki aplikacji: 🎯 Przygoda (mapa i check-iny), 💬 Społeczność, ✨ Polecane, ✅ Zadania. Kliknij zakładkę, aby zmienić widok!',
+            'Main tabs switch between Adventure, Community, Recommendations, Tasks and Shop. Quick chips open Packing, Transport, Car Rental, Trips, and Hotels.',
           arrow: { icon: '⬆️', placement: 'bottom' },
         },
         {
           id: 'step3',
           target: '[data-tour-target="map-section"]',
-          fallbackTitle: 'Interaktywna mapa Cypru 🗺️',
+          fallbackTitle: 'Interactive Cyprus map 🗺️',
           fallbackDescription:
-            'Przeglądaj miejsca na mapie, czytaj opisy, zobacz zdjęcia i komentarze. Zamelduj się w miejscach, aby zdobywać XP, poziomy i odznaki. Kliknij pinezki na mapie!',
+            'Browse places on the map, open pins, and move between points. This is the main discovery area used across the app.',
           arrow: { icon: '⬅️', placement: 'right' },
         },
         {
           id: 'step4',
           target: '[data-tour-target="current-place"]',
-          fallbackTitle: 'Aktualne miejsce i check-in ✅',
+          fallbackTitle: 'Current place and check-in ✅',
           fallbackDescription:
-            'Ten panel pokazuje, gdzie jesteś teraz, ile XP zdobędziesz oraz pozwala szybko się zameldować, otworzyć komentarze lub przybliżyć mapę.',
+            'See current point details, XP rewards, check-in button, comments, and map navigation actions in one compact card.',
           arrow: { icon: '⬅️', placement: 'right' },
         },
         {
           id: 'step5',
           target: '[data-tour-target="trips-section"]',
-          fallbackTitle: 'Wycieczki i atrakcje 🚤',
+          fallbackTitle: 'Trips and experiences 🚤',
           fallbackDescription:
-            'Wybierz miasto, zobacz najlepsze wycieczki i ceny, a następnie przejdź do pełnej listy, aby zarezerwować swoje miejsce.',
+            'Compare city offers, check available tours, and open the full trips page to submit a booking request.',
           arrow: { icon: '⬅️', placement: 'right' },
         },
         {
           id: 'step6',
           target: '[data-tour-target="hotels-section"]',
-          fallbackTitle: 'Zakwaterowania na Cyprze 🏨',
+          fallbackTitle: 'Hotels and stays 🏨',
           fallbackDescription:
-            'Hotele, wille i apartamenty uporządkowane według lokalizacji. Przeglądaj karty i przechodź do szczegółów, aby rezerwować noclegi.',
+            'Browse hotels, villas, and apartments by area. Open details and continue to full listings when you are ready to book.',
           arrow: { icon: '⬅️', placement: 'right' },
         },
         {
           id: 'step7',
-          target: '[data-tour-target="recommendations-section"]',
-          fallbackTitle: 'Nasze rekomendacje ze zniżkami ✨',
+          target: '[data-tour-target="cars-section"]',
+          fallbackTitle: 'Cars without deposit 🚗',
           fallbackDescription:
-            'Sprawdzone miejsca z ekskluzywnymi kodami promocyjnymi. Filtruj według kategorii i otwieraj karty, aby zobaczyć mapę oraz zniżki.',
+            'Switch city tabs, compare available cars, and open the full rental flow with pricing and reservation options.',
           arrow: { icon: '⬅️', placement: 'right' },
         },
         {
           id: 'step8',
-          target: '[data-tour-target="packing-card"]',
-          fallbackTitle: 'Planer pakowania 🎒',
+          target: '[data-tour-target="transport-section"]',
+          fallbackTitle: 'Transport booking wizard 🚕',
           fallbackDescription:
-            'Dostosuj listę do sezonu i długości pobytu. Dodawaj własne rzeczy i odhaczaj spakowane przedmioty, żeby niczego nie zapomnieć.',
-          arrow: { icon: '➡️', placement: 'left' },
+            'Book airport/city transport in 4 guided steps: route, passengers, contact, and final quote before reservation.',
+          arrow: { icon: '⬅️', placement: 'right' },
         },
         {
           id: 'step9',
-          target: '[data-tour-target="tasks-card"]',
-          fallbackTitle: 'Lista zadań przed wyjazdem ✅',
+          target: '[data-tour-target="recommendations-section"]',
+          fallbackTitle: 'Our recommendations ✨',
           fallbackDescription:
-            'Rezerwacje, dokumenty i formalności w jednym miejscu. Odhaczaj wykonane zadania i śledź przygotowania do podróży.',
-          arrow: { icon: '➡️', placement: 'left' },
+            'Discover verified places with category filters and partner offers. Use it to plan where to eat, visit, and relax.',
+          arrow: { icon: '⬅️', placement: 'right' },
         },
         {
           id: 'step10',
-          target: '[data-tour-target="coupon-card"]',
-          fallbackTitle: 'Transport z szybką wyceną 🚕',
+          target: '[data-tour-target="shortcut-grid"]',
+          fallbackTitle: 'Quick modules grid ⚡',
           fallbackDescription:
-            'Ustaw trasę, godzinę i pasażerów, aby od razu zobaczyć cenę przejazdu i zarezerwować transport.',
+            'This block gives direct access to planning modules: packing, tasks, transport, car rental, trips, and trip planner.',
           arrow: { icon: '➡️', placement: 'left' },
         },
         {
           id: 'step11',
-          target: '[data-tour-target="car-card"]',
-          fallbackTitle: 'Przewodnik wynajmu auta 🚗',
+          target: '[data-tour-target="packing-card"]',
+          fallbackTitle: 'Packing planner 🎒',
           fallbackDescription:
-            'Dowiedz się wszystkiego o wynajmie samochodu na Cyprze: porady, ubezpieczenia i kalkulator kosztów – wszystko w jednym miejscu.',
+            'Prepare your luggage with checklists and personal items so you do not miss anything before departure.',
           arrow: { icon: '➡️', placement: 'left' },
         },
         {
           id: 'step12',
-          target: '[data-tour-target="services-panel"]',
-          fallbackTitle: 'Usługi i planowanie podróży 🤝',
+          target: '[data-tour-target="tasks-card"]',
+          fallbackTitle: 'Task list ✅',
           fallbackDescription:
-            'Poznaj nasz zespół na miejscu: prywatne wycieczki, degustacje i wsparcie concierge. Kliknij, aby przejść do oferty WakacjeCypr.com.',
-          arrow: { icon: '⬆️', placement: 'bottom' },
+            'Track bookings, documents, and to-dos in one list. Mark progress and stay organized through the trip.',
+          arrow: { icon: '➡️', placement: 'left' },
         },
         {
           id: 'step13',
-          target: '[data-tour-target="login-button"]',
-          fallbackTitle: 'Zaloguj się i zapisuj postęp! 👤',
+          target: '[data-tour-target="coupon-card"]',
+          fallbackTitle: 'Transport shortcut card 🚕',
           fallbackDescription:
-            'Kliknij "Zaloguj", aby utworzyć konto i zapisywać swój postęp, odznaki i osiągnięcia. Możesz też grać jako gość bez rejestracji.',
-          arrow: { icon: '⬆️', placement: 'bottom' },
+            'This card opens the dedicated transport page with the same booking logic, useful when you want a full-page workflow.',
+          arrow: { icon: '➡️', placement: 'left' },
         },
         {
           id: 'step14',
-          target: '[data-tour-target="help-button"]',
-          fallbackTitle: 'Gotowy na przygodę? 🎉',
+          target: '[data-tour-target="car-card"]',
+          fallbackTitle: 'Car rental shortcut card 🚗',
           fallbackDescription:
-            'Kliknij "🔁 Pokaż instrukcję" w stopce, aby uruchomić ten samouczek ponownie w dowolnym momencie. Miłego zwiedzania Cypru!',
-          arrow: { icon: '⬇️', placement: 'top' },
+            'Open the rental module directly from here when you already know what you need and want to move faster.',
+          arrow: { icon: '➡️', placement: 'left' },
+        },
+        {
+          id: 'step15',
+          target: '[data-tour-target="tabs-navigation"]',
+          fallbackTitle: 'You are ready to use CyprusEye ✅',
+          fallbackDescription:
+            'Tutorial ends at the top so you can start immediately. Use "Show instructions" anytime if you need this guide again.',
+          arrow: { icon: '⬇️', placement: 'bottom' },
         },
       ];
 
@@ -304,6 +323,10 @@
       const content = document.createElement('div');
       content.className = 'tutorial-content';
       content.setAttribute('aria-live', 'polite');
+
+      this.metaEl = document.createElement('p');
+      this.metaEl.className = 'tutorial-step-meta';
+      content.appendChild(this.metaEl);
 
       this.titleEl = document.createElement('h2');
       this.titleEl.id = titleId;
@@ -584,6 +607,16 @@
 
       const title = getTranslation(`tutorial.${step.id}.title`, step.fallbackTitle);
       const description = getTranslation(`tutorial.${step.id}.description`, step.fallbackDescription);
+      const progress = formatTemplate(
+        getTranslation('tutorial.stepCounter', 'Step {{current}} of {{total}}'),
+        {
+          current: this.currentStepIndex + 1,
+          total: this.steps.length,
+        }
+      );
+      if (this.metaEl) {
+        this.metaEl.textContent = progress;
+      }
       if (this.titleEl) {
         this.titleEl.textContent = title;
       }

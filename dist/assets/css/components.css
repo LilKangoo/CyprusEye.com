@@ -9552,7 +9552,7 @@ body.u-lock-scroll {
   align-items: center;
   justify-content: center;
   pointer-events: none;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.22s ease;
   opacity: 0;
 }
 
@@ -9564,13 +9564,14 @@ body.u-lock-scroll {
 .tutorial-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.65);
+  background: rgba(15, 23, 42, 0.56);
+  backdrop-filter: blur(2px);
 }
 
 .tutorial-highlight {
   position: fixed;
-  border-radius: 18px;
-  box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.65), 0 0 0 3px #38bdf8;
+  border-radius: 16px;
+  box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.56), 0 0 0 3px #38bdf8, 0 16px 36px rgba(56, 189, 248, 0.3);
   transition: all 0.24s ease;
   pointer-events: none;
   min-width: 48px;
@@ -9579,7 +9580,7 @@ body.u-lock-scroll {
 
 .tutorial-arrow {
   position: fixed;
-  font-size: 2.5rem;
+  font-size: 2.15rem;
   color: #38bdf8;
   text-shadow: 0 2px 12px rgba(8, 47, 73, 0.6);
   pointer-events: none;
@@ -9594,62 +9595,76 @@ body.u-lock-scroll {
 .tutorial-dialog {
   position: relative;
   z-index: 2;
-  max-width: min(520px, 90vw);
-  background: #0f172a;
-  color: #f8fafc;
-  border-radius: 16px;
-  padding: 24px 28px;
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.35);
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  max-width: min(560px, 92vw);
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+  color: #0f172a;
+  border-radius: 18px;
+  padding: 22px 24px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.28);
+  border: 1px solid rgba(148, 163, 184, 0.34);
   font-family: var(--font-family-base);
 }
 
+.tutorial-step-meta {
+  margin: 0 0 10px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #2563eb;
+}
+
 .tutorial-dialog h2 {
-  font-size: 1.35rem;
-  margin: 0 0 12px;
+  font-size: 1.32rem;
+  line-height: 1.25;
+  margin: 0 0 10px;
+  color: #0f172a;
 }
 
 .tutorial-dialog p {
   margin: 0 0 20px;
-  font-size: 1rem;
-  line-height: 1.5;
-  color: #e2e8f0;
+  font-size: 0.98rem;
+  line-height: 1.55;
+  color: #334155;
 }
 
 .tutorial-controls {
   display: flex;
-  gap: 12px;
-  justify-content: flex-end;
+  gap: 10px;
+  justify-content: space-between;
   flex-wrap: wrap;
 }
 
 .tutorial-controls button {
-  border-radius: 999px;
-  padding: 10px 18px;
-  font-weight: 600;
-  border: none;
+  border-radius: 12px;
+  min-height: 40px;
+  padding: 0 15px;
+  font-weight: 700;
+  border: 1px solid transparent;
   cursor: pointer;
   transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
 }
 
 .tutorial-button-prev,
 .tutorial-button-skip {
-  background: rgba(148, 163, 184, 0.18);
-  color: #e2e8f0;
+  background: rgba(241, 245, 249, 0.95);
+  color: #334155;
+  border-color: rgba(148, 163, 184, 0.45);
 }
 
 .tutorial-button-next {
-  background: #38bdf8;
-  color: #0f172a;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #ffffff;
+  border-color: rgba(29, 78, 216, 0.9);
 }
 
 .tutorial-controls button:hover {
   transform: translateY(-1px);
-  box-shadow: 0 10px 24px rgba(56, 189, 248, 0.35);
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.24);
 }
 
 .tutorial-controls button:focus-visible {
-  outline: 3px solid #fbbf24;
+  outline: 3px solid rgba(37, 99, 235, 0.36);
   outline-offset: 2px;
 }
 
@@ -9675,19 +9690,32 @@ body.tutorial-open {
 
 @media (max-width: 600px) {
   .tutorial-dialog {
-    padding: 20px;
+    max-width: min(560px, calc(100vw - 24px));
+    padding: 18px 16px;
+    border-radius: 14px;
+  }
+
+  .tutorial-step-meta {
+    font-size: 0.7rem;
+    margin-bottom: 8px;
   }
 
   .tutorial-dialog h2 {
-    font-size: 1.2rem;
+    font-size: 1.12rem;
   }
 
   .tutorial-dialog p {
-    font-size: 0.95rem;
+    font-size: 0.9rem;
+    margin-bottom: 16px;
   }
 
   .tutorial-controls {
     justify-content: center;
+    gap: 8px;
+  }
+
+  .tutorial-controls button {
+    flex: 1 1 auto;
   }
 }
 .btn {
