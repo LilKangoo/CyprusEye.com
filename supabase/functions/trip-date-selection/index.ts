@@ -9,6 +9,7 @@ type TripDateSelectionRequest = {
   booking_id?: string;
   token?: string;
   selected_date?: string;
+  lang?: string;
 };
 
 const FUNCTION_VERSION = "2026-02-26-1";
@@ -45,6 +46,37 @@ function extractBearerToken(req: Request): string | null {
 function normalizeLang(value: unknown): "pl" | "en" {
   const v = String(value || "").trim().toLowerCase();
   return v === "pl" ? "pl" : "en";
+}
+
+function readLocalizedText(value: unknown, lang: "pl" | "en"): string {
+  if (value == null) return "";
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return "";
+    if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        return readLocalizedText(parsed, lang);
+      } catch (_e) {
+        return trimmed;
+      }
+    }
+    return trimmed;
+  }
+
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const direct = String(obj[lang] ?? "").trim();
+    if (direct) return direct;
+    const fallback = String(obj[lang === "pl" ? "en" : "pl"] ?? "").trim();
+    if (fallback) return fallback;
+    for (const key of ["title", "name", "label", "value"]) {
+      const nested = readLocalizedText(obj[key], lang);
+      if (nested) return nested;
+    }
+  }
+
+  return "";
 }
 
 function normalizeTripResourceType(value: unknown): string {
@@ -896,16 +928,21 @@ serve(async (req: Request) => {
       .eq("id", bookingId)
       .maybeSingle();
 
+    const requestedLang = normalizeLang((body as any)?.lang || (booking as any)?.lang);
     let tripTitle = String((booking as any)?.trip_slug || "").trim();
     const tripId = String((booking as any)?.trip_id || "").trim();
     if (tripId) {
       try {
         const { data: tripRow } = await supabase
           .from("trips")
-          .select("name, slug, title")
+          .select("name, slug, title, title_i18n")
           .eq("id", tripId)
           .maybeSingle();
-        tripTitle = String((tripRow as any)?.name || (tripRow as any)?.title || (tripRow as any)?.slug || tripTitle || "").trim();
+        const localizedTitle = readLocalizedText((tripRow as any)?.title_i18n, requestedLang)
+          || readLocalizedText((tripRow as any)?.title, requestedLang)
+          || readLocalizedText((tripRow as any)?.name, requestedLang)
+          || String((tripRow as any)?.slug || "").trim();
+        tripTitle = localizedTitle || tripTitle || "";
       } catch (_e) {
         // keep fallback
       }
@@ -959,7 +996,7 @@ serve(async (req: Request) => {
         booking_id: bookingId,
         fulfillment_id: fulfillmentId,
         trip_title: tripTitle || "Trip booking",
-        lang: normalizeLang((booking as any)?.lang),
+        lang: requestedLang,
         preferred_date: firstIso(requestRow.preferred_date, (booking as any)?.preferred_trip_date, (booking as any)?.trip_date),
         stay_from: firstIso(requestRow.stay_from, (booking as any)?.arrival_date),
         stay_to: firstIso(requestRow.stay_to, (booking as any)?.departure_date),

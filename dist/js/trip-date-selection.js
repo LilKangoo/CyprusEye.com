@@ -10,6 +10,30 @@ function getLang() {
   return raw === 'pl' ? 'pl' : 'en'
 }
 
+function setupLanguageSwitcher(currentLang) {
+  const buttons = Array.from(document.querySelectorAll('.lang-btn[data-lang]'))
+  if (!buttons.length) return
+
+  const setPressed = (lang) => {
+    buttons.forEach((btn) => {
+      const value = String(btn.getAttribute('data-lang') || '').trim().toLowerCase()
+      btn.setAttribute('aria-pressed', value === lang ? 'true' : 'false')
+    })
+  }
+
+  setPressed(currentLang)
+
+  buttons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const nextLang = String(btn.getAttribute('data-lang') || '').trim().toLowerCase() === 'pl' ? 'pl' : 'en'
+      if (nextLang === currentLang) return
+      const url = new URL(window.location.href)
+      url.searchParams.set('lang', nextLang)
+      window.location.href = url.toString()
+    })
+  })
+}
+
 const DICT = {
   en: {
     title: 'Choose your trip date',
@@ -216,6 +240,7 @@ function selectedOptionValue() {
 
 async function main() {
   const lang = getLang()
+  setupLanguageSwitcher(lang)
   setLabels(lang)
   setBadge(t(lang, 'badge_loading'))
   setStatus(t(lang, 'loading'))
@@ -230,7 +255,7 @@ async function main() {
 
   let preview = null
   try {
-    const res = await callTripDateSelection({ action: 'preview', token })
+    const res = await callTripDateSelection({ action: 'preview', token, lang })
     preview = res?.data || null
   } catch (error) {
     const msg = String(error?.message || '')
