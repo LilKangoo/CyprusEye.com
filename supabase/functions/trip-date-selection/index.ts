@@ -399,38 +399,6 @@ async function enqueueCustomerDepositEmail(supabase: any, params: {
   }
 }
 
-async function enqueueTripDateSelectedAlerts(supabase: any, params: {
-  bookingId: string;
-  fulfillmentId: string;
-  partnerId: string;
-  selectedDate: string;
-  requestId: string;
-}) {
-  const payload = {
-    category: "trips",
-    record_id: params.bookingId,
-    event: "trip_date_selected",
-    table: "trip_bookings",
-    fulfillment_id: params.fulfillmentId,
-    partner_id: params.partnerId,
-    selected_date: params.selectedDate,
-    trip_date_selection_request_id: params.requestId,
-  };
-
-  try {
-    await supabase.rpc("enqueue_admin_notification", {
-      p_category: "trips",
-      p_event: "trip_date_selected",
-      p_record_id: params.bookingId,
-      p_table_name: "trip_bookings",
-      p_payload: payload,
-      p_dedupe_key: `trip_date_selected:${params.requestId}:${params.selectedDate}`,
-    });
-  } catch (_e) {
-    // best effort
-  }
-}
-
 function textSummaryFromTrip(booking: any): string {
   const slug = String(booking?.trip_slug || "").trim();
   if (slug) return slug;
@@ -1151,14 +1119,6 @@ serve(async (req: Request) => {
         .eq("id", fulfillmentId);
     }
   }
-
-  await enqueueTripDateSelectedAlerts(supabase, {
-    bookingId,
-    fulfillmentId,
-    partnerId: String((fulfillment as any).partner_id || ""),
-    selectedDate: selectedDateIso,
-    requestId: String(updatedReq.id || requestRow.id || ""),
-  });
 
   return jsonResponse(req, 200, {
     ok: true,

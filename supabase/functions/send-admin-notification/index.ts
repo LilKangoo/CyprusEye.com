@@ -296,6 +296,11 @@ function renderCustomerDepositPaidEmail(params: {
   const summary = String((deposit as any)?.fulfillment_summary || "").trim();
   const paidAtIso = String((deposit as any)?.paid_at || new Date().toISOString());
   const paidAt = formatDateTime(paidAtIso);
+  const selectedDate = formatDate(
+    valueToString((deposit as any)?.selected_trip_date)
+    || valueToString((deposit as any)?.selected_date)
+    || valueToString((deposit as any)?.trip_date),
+  );
 
   const subject = (() => {
     const cat = normalizeServiceCategory((deposit as any)?.resource_type);
@@ -323,6 +328,7 @@ function renderCustomerDepositPaidEmail(params: {
   const summaryRows = buildKeyValueRows(deposit, [
     { label: "Reference", value: reference },
     { label: "Service", value: summary },
+    { label: "Selected date", value: selectedDate },
     { label: "Deposit", value: formatMoney(amount, currency) },
     { label: "Paid at", value: paidAt },
   ]);
@@ -362,6 +368,7 @@ function renderCustomerDepositPaidEmail(params: {
   textLines.push("");
   if (summary) textLines.push(`Service: ${summary}`);
   if (reference) textLines.push(`Reference: ${reference}`);
+  if (selectedDate) textLines.push(`Selected date: ${selectedDate}`);
   textLines.push(`Deposit: ${formatMoney(amount, currency)}`);
   return { subject, html, text: textLines.join("\n") };
 }
@@ -613,6 +620,11 @@ function renderPartnerDepositPaidEmail(params: {
   const summary = String((deposit as any)?.fulfillment_summary || "").trim();
   const paidAtIso = String((deposit as any)?.paid_at || new Date().toISOString());
   const paidAt = formatDateTime(paidAtIso);
+  const selectedDate = formatDate(
+    valueToString((deposit as any)?.selected_trip_date)
+    || valueToString((deposit as any)?.selected_date)
+    || valueToString((deposit as any)?.trip_date),
+  );
 
   const subject = (() => {
     const cat = normalizeServiceCategory((deposit as any)?.resource_type);
@@ -640,6 +652,7 @@ function renderPartnerDepositPaidEmail(params: {
   const summaryRows = buildKeyValueRows(deposit, [
     { label: "Reference", value: reference },
     { label: "Service", value: summary },
+    { label: "Selected date", value: selectedDate },
     { label: "Deposit", value: formatMoney(amount, currency) },
     { label: "Paid at", value: paidAt },
   ]);
@@ -698,6 +711,7 @@ function renderPartnerDepositPaidEmail(params: {
   textLines.push("");
   if (summary) textLines.push(`Service: ${summary}`);
   if (reference) textLines.push(`Reference: ${reference}`);
+  if (selectedDate) textLines.push(`Selected date: ${selectedDate}`);
   textLines.push(`Deposit: ${formatMoney(amount, currency)}`);
   textLines.push("");
   textLines.push("Customer contact:");
@@ -3440,6 +3454,26 @@ serve(async (req) => {
       });
     }
 
+    const depResourceType = String((dep as any)?.resource_type || "").trim().toLowerCase();
+    const depBookingId = String((dep as any)?.booking_id || "").trim();
+    if (depResourceType === "trips" && depBookingId) {
+      try {
+        const { data: tripBooking } = await supabase
+          .from("trip_bookings")
+          .select("selected_trip_date, trip_date")
+          .eq("id", depBookingId)
+          .maybeSingle();
+        const selected = valueToString((tripBooking as any)?.selected_trip_date)
+          || valueToString((tripBooking as any)?.trip_date);
+        if (selected) {
+          (dep as any).selected_trip_date = selected;
+          (dep as any).trip_date = selected;
+        }
+      } catch (_e) {
+        // best effort
+      }
+    }
+
     const alreadySent = Boolean((dep as any)?.partner_email_sent_at);
     if (alreadySent) {
       return new Response(JSON.stringify({ ok: true, skipped: true, reason: "already_sent" }), {
@@ -3583,6 +3617,26 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 404,
       });
+    }
+
+    const depResourceType = String((dep as any)?.resource_type || "").trim().toLowerCase();
+    const depBookingId = String((dep as any)?.booking_id || "").trim();
+    if (depResourceType === "trips" && depBookingId) {
+      try {
+        const { data: tripBooking } = await supabase
+          .from("trip_bookings")
+          .select("selected_trip_date, trip_date")
+          .eq("id", depBookingId)
+          .maybeSingle();
+        const selected = valueToString((tripBooking as any)?.selected_trip_date)
+          || valueToString((tripBooking as any)?.trip_date);
+        if (selected) {
+          (dep as any).selected_trip_date = selected;
+          (dep as any).trip_date = selected;
+        }
+      } catch (_e) {
+        // best effort
+      }
     }
 
     const depStatus = String((dep as any)?.status || "").trim().toLowerCase();
