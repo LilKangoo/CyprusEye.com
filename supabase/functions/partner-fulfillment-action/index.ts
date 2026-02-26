@@ -775,6 +775,26 @@ async function createDepositCheckoutForServiceFulfillment(params: {
   }
 
   const fulfillmentDetails = fulfillment?.details && typeof fulfillment.details === "object" ? fulfillment.details : null;
+  if (category === "trips") {
+    const selectionStatus = String((fulfillmentDetails as any)?.trip_date_selection_status || "").trim().toLowerCase();
+    const selectedTripDate = normalizeIsoDate(
+      (fulfillmentDetails as any)?.selected_trip_date
+      ?? (fulfillmentDetails as any)?.trip_date_selection_date
+      ?? null,
+    );
+    const proposedDates = Array.isArray((fulfillmentDetails as any)?.partner_proposed_dates)
+      ? (fulfillmentDetails as any)?.partner_proposed_dates
+      : (Array.isArray((fulfillmentDetails as any)?.proposed_dates) ? (fulfillmentDetails as any)?.proposed_dates : []);
+    const hasProposedDates = Array.isArray(proposedDates) && proposedDates.length > 0;
+    const canCreateWithoutSelection = selectionStatus === "not_required";
+    const hasConfirmedSelection = selectionStatus === "selected" && Boolean(selectedTripDate);
+    const isLegacySelectedTrip = !selectionStatus && Boolean(selectedTripDate) && !hasProposedDates;
+
+    if (!canCreateWithoutSelection && !hasConfirmedSelection && !isLegacySelectedTrip) {
+      throw new Error("Trip date must be selected before creating deposit link");
+    }
+  }
+
   let depositAmount = 0;
   if (rule.mode === "percent_total") {
     const total = Number((fulfillment as any)?.total_price || 0);

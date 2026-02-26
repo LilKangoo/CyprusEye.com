@@ -3283,6 +3283,56 @@ serve(async (req) => {
       });
     }
 
+    const depResourceType = String((dep as any)?.resource_type || "").trim().toLowerCase();
+    if (depResourceType === "trips") {
+      const fulfillmentId = String((dep as any)?.fulfillment_id || "").trim();
+      if (!fulfillmentId) {
+        return new Response(JSON.stringify({ ok: true, skipped: true, reason: "trip_fulfillment_missing" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+
+      const { data: tripFulfillment, error: tripFulfillmentErr } = await supabase
+        .from("partner_service_fulfillments")
+        .select("details")
+        .eq("id", fulfillmentId)
+        .maybeSingle();
+
+      if (tripFulfillmentErr || !tripFulfillment) {
+        return new Response(JSON.stringify({ ok: true, skipped: true, reason: "trip_fulfillment_not_found" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+
+      const details = (tripFulfillment as any)?.details && typeof (tripFulfillment as any).details === "object"
+        ? ((tripFulfillment as any).details as Record<string, unknown>)
+        : null;
+
+      const selectionStatus = String((details as any)?.trip_date_selection_status || "").trim().toLowerCase();
+      const selectedTripDateRaw = (details as any)?.selected_trip_date
+        ?? (details as any)?.trip_date_selection_date
+        ?? (details as any)?.selected_date
+        ?? null;
+      const selectedTripDate = typeof selectedTripDateRaw === "string" ? selectedTripDateRaw.trim() : "";
+      const proposedDates = Array.isArray((details as any)?.partner_proposed_dates)
+        ? (details as any)?.partner_proposed_dates
+        : (Array.isArray((details as any)?.proposed_dates) ? (details as any)?.proposed_dates : []);
+      const hasProposedDates = Array.isArray(proposedDates) && proposedDates.length > 0;
+
+      const canSendTripPaymentLink = selectionStatus === "not_required"
+        || (selectionStatus === "selected" && Boolean(selectedTripDate))
+        || (!selectionStatus && Boolean(selectedTripDate) && !hasProposedDates);
+
+      if (!canSendTripPaymentLink) {
+        return new Response(JSON.stringify({ ok: true, skipped: true, reason: "trip_date_not_selected" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+    }
+
     const checkoutUrl = String((dep as any)?.checkout_url || "").trim();
     if (!checkoutUrl) {
       return new Response(JSON.stringify({ ok: true, skipped: true, reason: "missing_checkout_url" }), {

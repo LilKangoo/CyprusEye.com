@@ -361,7 +361,13 @@ async function enqueueCustomerDepositEmail(supabase: any, params: {
   depositRequestId: string;
   fulfillmentId: string;
   partnerId: string;
+  dedupeSuffix?: string;
 }) {
+  const dedupeSuffix = String(params.dedupeSuffix || "").trim();
+  const dedupeKey = dedupeSuffix
+    ? `deposit_customer_requested:${params.depositRequestId}:${dedupeSuffix}`
+    : `deposit_customer_requested:${params.depositRequestId}`;
+
   const payload = {
     category: "trips",
     record_id: params.bookingId,
@@ -379,7 +385,7 @@ async function enqueueCustomerDepositEmail(supabase: any, params: {
       p_record_id: params.bookingId,
       p_table_name: "trip_bookings",
       p_payload: payload,
-      p_dedupe_key: `deposit_customer_requested:${params.depositRequestId}`,
+      p_dedupe_key: dedupeKey,
     });
   } catch (_e) {
     // best effort
@@ -652,6 +658,7 @@ async function createTripDepositCheckout(params: {
     depositRequestId,
     fulfillmentId,
     partnerId,
+    dedupeSuffix: "trip_date_selected",
   });
 
   return { deposit_request_id: depositRequestId, checkout_url: url };
