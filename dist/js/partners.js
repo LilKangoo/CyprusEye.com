@@ -5948,6 +5948,7 @@
         <form method="dialog" style="padding:16px 16px 14px; display:grid; gap:10px;">
           <div class="trip-date-modal-title">Select available trip dates</div>
           <div style="font-size:12px; color:#cbd5e1;">Customer stay window: <strong>${escapeHtml(formatDateDmy(ctx.minIso))}</strong> → <strong>${escapeHtml(formatDateDmy(ctx.maxIso))}</strong></div>
+          <div style="font-size:12px; color:#93c5fd;">Click a day to select, click again to unselect. Choose up to 3 dates.</div>
           ${preferredNote}
           <div class="trip-date-legend">
             <span class="trip-date-legend-chip"><span class="trip-date-dot trip-date-dot--range"></span>Selectable range</span>
@@ -5962,7 +5963,7 @@
           <div data-trip-date-error style="min-height:18px; font-size:12px; color:#fca5a5;"></div>
           <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:2px;">
             <button type="button" data-trip-date-cancel style="height:36px; padding:0 12px; border-radius:9px; border:1px solid rgba(148,163,184,0.45); background:transparent; color:#e2e8f0; font-weight:700; cursor:pointer;">Cancel</button>
-            <button type="submit" data-trip-date-submit style="height:36px; padding:0 14px; border-radius:9px; border:0; background:#ef4444; color:white; font-weight:800; cursor:pointer;">Save dates</button>
+            <button type="submit" data-trip-date-submit style="height:36px; padding:0 14px; border-radius:9px; border:0; background:#ef4444; color:white; font-weight:800; cursor:pointer;">Save & send options</button>
           </div>
         </form>
       `;
