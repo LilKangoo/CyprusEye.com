@@ -23211,6 +23211,25 @@ async function viewCarBookingDetails(bookingId) {
 
           if (updateError) throw updateError;
 
+          // Force-sync partner fulfillment price snapshot so partner panel refresh
+          // reflects admin override immediately even if DB trigger lagged/failed.
+          try {
+            const fulfillmentSyncPayload = {
+              total_price: typeof pricingTotal === 'number' ? pricingTotal : null,
+              updated_at: new Date().toISOString(),
+            };
+            const { error: fulfillmentSyncError } = await client
+              .from('partner_service_fulfillments')
+              .update(fulfillmentSyncPayload)
+              .eq('resource_type', 'cars')
+              .eq('booking_id', bookingId);
+            if (fulfillmentSyncError) {
+              console.warn('Could not sync partner fulfillment price after car override:', fulfillmentSyncError);
+            }
+          } catch (fulfillmentSyncError) {
+            console.warn('Could not sync partner fulfillment price after car override:', fulfillmentSyncError);
+          }
+
           showToast('Pricing and notes saved successfully!', 'success');
           await loadCarsData(); // Refresh table
 

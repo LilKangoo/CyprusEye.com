@@ -3360,9 +3360,13 @@
     const discountAmountRaw = toFinite(details?.coupon_discount_amount);
     const discountAmount = discountAmountRaw == null ? 0 : Math.max(discountAmountRaw, 0);
     const couponCode = String(details?.coupon_code || '').trim().toUpperCase();
+    const authoritativeTotal = toFinite(fulfillment?.total_price);
+    const resolvedAmount = authoritativeTotal == null
+      ? (finalAmount == null ? fallbackAmount : finalAmount)
+      : authoritativeTotal;
 
     return {
-      amount: finalAmount == null ? fallbackAmount : finalAmount,
+      amount: resolvedAmount,
       currency: defaultCurrency,
       baseAmount,
       discountAmount,
