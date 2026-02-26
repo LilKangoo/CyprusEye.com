@@ -30,6 +30,13 @@ const els = {};
 const QUOTE_ROW_HIDE_ANIMATION_MS = 240;
 const quoteRowHideTimers = new WeakMap();
 
+function dispatchTransportEvent(name, detail = {}) {
+  try {
+    document.dispatchEvent(new CustomEvent(name, { detail }));
+  } catch (_error) {
+  }
+}
+
 function getTranslationEntry(translations, key) {
   if (!key || !translations || typeof translations !== 'object') return null;
   if (Object.prototype.hasOwnProperty.call(translations, key)) {
@@ -1400,11 +1407,21 @@ function resetQuoteReviewConfirmation() {
   }
 }
 
+function emitQuoteUpdated(summary) {
+  dispatchTransportEvent('ce:transport:quote-updated', {
+    quote: summary || null,
+    hasRoute: Boolean(state.activeRoute),
+    hasReturnRoute: Boolean(state.activeReturnRoute),
+    isRoundTrip: isRoundTripSelected(),
+  });
+}
+
 function refreshQuote() {
   syncTransportContactRequirements();
 
   if (state.loading) {
     updateSubmitState();
+    emitQuoteUpdated(null);
     return null;
   }
 
@@ -1421,6 +1438,7 @@ function refreshQuote() {
     setStatus(t('transport.booking.status.selectPickupDestination', 'Select pickup and destination to start quote calculation.'), 'info');
     clearQuoteView();
     updateSubmitState();
+    emitQuoteUpdated(null);
     return null;
   }
 
@@ -1428,6 +1446,7 @@ function refreshQuote() {
     setStatus(t('transport.booking.status.pickupDestinationDifferent', 'Pickup and destination must be different.'), 'error');
     clearQuoteView();
     updateSubmitState();
+    emitQuoteUpdated(null);
     return null;
   }
 
@@ -1436,6 +1455,7 @@ function refreshQuote() {
     setStatus(t('transport.booking.status.routeUnavailable', 'This route is not available yet. Choose another location pair.'), 'error');
     clearQuoteView();
     updateSubmitState();
+    emitQuoteUpdated(null);
     return null;
   }
 
@@ -1521,6 +1541,7 @@ function refreshQuote() {
   if (!summary) {
     setStatus(t('transport.booking.status.quoteFailed', 'Failed to calculate quote. Check route details.'), 'error');
     updateSubmitState();
+    emitQuoteUpdated(null);
     return null;
   }
 
@@ -1546,6 +1567,7 @@ function refreshQuote() {
   }
 
   updateSubmitState();
+  emitQuoteUpdated(summary);
   return summary;
 }
 
@@ -1974,6 +1996,12 @@ async function handleSubmit(event) {
     setStatus(t('transport.booking.submit.success.status', 'Booking submitted successfully. We will review and confirm shortly.'), 'info');
     resetAfterSubmit();
     refreshQuote();
+    dispatchTransportEvent('ce:transport:booking-submitted', {
+      bookingId: firstId,
+      isRoundTrip: isRoundTripSuccess,
+      total: round2(toNonNegativeNumber(quote?.total, 0)),
+      currency: String(quote?.currency || 'EUR').trim().toUpperCase() || 'EUR',
+    });
   } catch (error) {
     console.error('Failed to create transport booking:', error);
     const message = String(error?.message || t('transport.booking.submit.error.submitFailed', 'Failed to submit booking request.'));
@@ -2172,8 +2200,29 @@ function initElements() {
   els.quoteWarnings = byId('transportQuoteWarnings');
 }
 
+function exposeTransportBookingApi() {
+  if (typeof window === 'undefined') return;
+  window.CE_TRANSPORT_BOOKING = {
+    isReady: () => Boolean(els.form),
+    refreshQuote: () => refreshQuote(),
+    updateSubmitState: () => updateSubmitState(),
+    syncReturnLegVisibility: (options = {}) => syncReturnLegVisibility(options),
+    isRoundTripSelected: () => isRoundTripSelected(),
+    getLastQuote: () => state.lastQuote,
+    getActiveRoute: () => state.activeRoute,
+    getActiveReturnRoute: () => state.activeReturnRoute,
+    getStateSnapshot: () => ({
+      hasRoute: Boolean(state.activeRoute),
+      hasReturnRoute: Boolean(state.activeReturnRoute),
+      lastQuote: state.lastQuote || null,
+      isRoundTrip: isRoundTripSelected(),
+    }),
+  };
+}
+
 async function initTransportBookingPage() {
   initElements();
+  exposeTransportBookingApi();
   if (!els.form) return;
 
   if (!state.languageListenerBound) {

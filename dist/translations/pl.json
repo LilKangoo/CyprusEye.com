@@ -2063,30 +2063,40 @@
   },
   "shortcuts": {
     "packing": {
-      "title": "🎒 Planer pakowania",
-      "description": "Zaplanuj bagaż z listami dla każdej pory roku.",
-      "action": "Przejdź do planera"
+      "badge": "Lista",
+      "title": "Planer pakowania",
+      "description": "Przygotuj bagaż z jedną, czytelną checklistą przed wyjazdem.",
+      "action": "Otwórz moduł"
     },
     "tasks": {
-      "title": "✅ Lista zadań",
-      "description": "Przeglądaj wyzwania przed wyjazdem i zapisuj postępy.",
-      "action": "Otwórz zadania"
+      "badge": "Do zrobienia",
+      "title": "Lista zadań",
+      "description": "Śledź kluczowe zadania podróżne i postęp przygotowań w jednym miejscu.",
+      "action": "Otwórz moduł"
     },
     "car": {
-      "title": "🚗 Wynajem auta na Cyprze",
-      "description": "Poznaj flotę, porównaj ceny i zarezerwuj auto w dedykowanej sekcji.",
-      "action": "Przejdź do wynajmu"
+      "badge": "Wynajem",
+      "title": "Wynajem auta",
+      "description": "Porównaj dostępne auta, ceny i uzupełnij szczegóły rezerwacji online.",
+      "action": "Otwórz moduł"
     },
     "transport": {
-      "title": "🚕 Rezerwacja transportu",
-      "description": "Ustaw trasę i godzinę, sprawdź cenę na żywo i zarezerwuj jednym formularzem.",
-      "badge": "Szybka wycena",
-      "action": "Otwórz transport"
+      "badge": "Taxi",
+      "title": "Rezerwacja transportu",
+      "description": "Wybierz trasę i godzinę, sprawdź cenę na żywo i zarezerwuj jednym formularzem.",
+      "action": "Otwórz moduł"
     },
     "trips": {
-      "title": "🧭 Wycieczki",
-      "description": "Przeglądaj wycieczki i złóż rezerwację.",
-      "action": "Zobacz wycieczki"
+      "badge": "Wycieczki",
+      "title": "Wycieczki",
+      "description": "Przeglądaj propozycje, porównuj opcje i wyślij zgłoszenie rezerwacji.",
+      "action": "Otwórz moduł"
+    },
+    "plan": {
+      "badge": "Plan",
+      "title": "Planer podróży",
+      "description": "Ułóż wakacje dzień po dniu na prostej i czytelnej osi czasu.",
+      "action": "Otwórz moduł"
     }
   },
   "packing": {
@@ -4406,7 +4416,28 @@
   "carRental.page.reservation.successBox.checkEmailLabel": "Sprawdź email:",
   "transport.booking.hero.title": "Prywatna rezerwacja transportu z natychmiastową wyceną",
   "transport.booking.hero.description": "Wybierz miejsce odbioru i cel podróży, ustaw liczbę pasażerów i bagażu, a system od razu policzy cenę. Wyślij jeden formularz poniżej, a szybko potwierdzimy transport.",
+  "transport.booking.homePanel.aria": "Sekcja rezerwacji transportu",
+  "transport.booking.homePanel.title": "🚕 Rezerwacja transportu",
+  "transport.booking.homePanel.description": "Uzupełnij 4 proste kroki i zarezerwuj transport bez wychodzenia ze strony głównej.",
   "transport.booking.panel.aria": "Panel rezerwacji transportu",
+  "transport.booking.wizard.progressAria": "Kroki rezerwacji transportu",
+  "transport.booking.wizard.step.route": "Trasa i harmonogram",
+  "transport.booking.wizard.step.passengers": "Pasażerowie i dodatki",
+  "transport.booking.wizard.step.contact": "Kontakt i notatki",
+  "transport.booking.wizard.step.quote": "Podsumowanie i rezerwacja",
+  "transport.booking.wizard.status.step1": "Krok 1 z 4: Trasa i harmonogram",
+  "transport.booking.wizard.status.step2": "Krok 2 z 4: Pasażerowie i dodatki",
+  "transport.booking.wizard.status.step3": "Krok 3 z 4: Kontakt i notatki",
+  "transport.booking.wizard.status.step4": "Krok 4 z 4: Podsumowanie i rezerwacja",
+  "transport.booking.wizard.status.submitted": "Rezerwacja wysłana. Możesz od razu dodać kolejną.",
+  "transport.booking.wizard.next": "Dalej",
+  "transport.booking.wizard.back": "Wstecz",
+  "transport.booking.wizard.toQuote": "Podsumowanie",
+  "transport.booking.wizard.backToEdit": "Wróć do edycji",
+  "transport.booking.wizard.error.locked": "Najpierw uzupełnij wcześniejsze kroki.",
+  "transport.booking.wizard.error.loading": "Opcje transportu jeszcze się ładują. Poczekaj chwilę.",
+  "transport.booking.wizard.error.requiredField": "Pole „{{field}}” jest wymagane.",
+  "transport.booking.wizard.error.nonNegativeField": "Pole „{{field}}” musi mieć wartość 0 lub większą.",
   "transport.booking.step1.title": "1. Trasa i harmonogram",
   "transport.booking.step1.hint": "Krok 1/3: najpierw wybierz trasę i godzinę. Jeśli wybierzesz przejazd w dwie strony, uzupełnij tutaj dane kursu tam i z powrotem.",
   "transport.booking.step2.title": "2. Pasażerowie i dodatki",
