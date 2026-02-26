@@ -5827,17 +5827,26 @@
     }
 
     const preferredInRange = isIsoWithinRange(ctx.preferredIso, ctx.minIso, ctx.maxIso);
-    const defaultValues = preferredInRange ? [ctx.preferredIso, '', ''] : [ctx.minIso, '', ''];
 
     const supportsDialog = typeof window.HTMLDialogElement !== 'undefined';
     const probeDialog = supportsDialog ? document.createElement('dialog') : null;
     const canShowModal = Boolean(probeDialog && typeof probeDialog.showModal === 'function');
 
+    const details = detailsObjectFromFulfillment(row) || {};
+    const previousRaw = Array.isArray(details?.partner_proposed_dates)
+      ? details.partner_proposed_dates
+      : (Array.isArray(details?.proposed_dates) ? details.proposed_dates : []);
+    const previousParsed = normalizeTripProposedDateList(previousRaw, ctx.minIso, ctx.maxIso);
+    const previousValues = previousParsed.ok && previousParsed.values.length
+      ? previousParsed.values.slice(0, 3)
+      : [];
+    const defaultPromptValue = previousValues.join(', ');
+
     if (!canShowModal) {
       const preferredLabel = preferredInRange ? `Preferred: ${ctx.preferredIso}. ` : '';
       const input = prompt(
         `${preferredLabel}Enter 1-3 available dates between ${ctx.minIso} and ${ctx.maxIso}, separated by commas:`,
-        defaultValues[0]
+        defaultPromptValue
       );
       if (input == null) return null;
       const parsed = normalizeTripProposedDateList(String(input || '').split(','), ctx.minIso, ctx.maxIso);
@@ -5848,14 +5857,9 @@
       return parsed.values;
     }
 
-    const details = detailsObjectFromFulfillment(row) || {};
-    const previousRaw = Array.isArray(details?.partner_proposed_dates)
-      ? details.partner_proposed_dates
-      : (Array.isArray(details?.proposed_dates) ? details.proposed_dates : []);
-    const previousParsed = normalizeTripProposedDateList(previousRaw, ctx.minIso, ctx.maxIso);
     const initialSelected = previousParsed.ok && previousParsed.values.length
       ? previousParsed.values.slice(0, 3)
-      : (preferredInRange ? [ctx.preferredIso] : [ctx.minIso]);
+      : [];
 
     const buildMonthList = (minIso, maxIso, maxCount = 18) => {
       const min = String(minIso || '').trim();
