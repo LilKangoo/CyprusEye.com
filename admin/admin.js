@@ -21964,6 +21964,54 @@ const couponConsoleState = {
 };
 
 const COUPON_BUILDER_SERVICES = ['cars', 'trips', 'hotels', 'transport', 'shop'];
+const COUPON_BUILDER_RESOURCE_MAX_ROWS = 600;
+const COUPON_BUILDER_RESOURCE_VISIBLE_ROWS = 60;
+
+const COUPON_BUILDER_RESOURCE_SERVICE_META = {
+  cars: { label: 'Cars offers' },
+  trips: { label: 'Trips' },
+  hotels: { label: 'Hotels' },
+  transport: { label: 'Transport routes' },
+  shop: { label: 'Shop products' },
+};
+
+const couponBuilderResourceScopeState = {
+  rowsByService: {
+    cars: [],
+    trips: [],
+    hotels: [],
+    transport: [],
+    shop: [],
+  },
+  loadedByService: {
+    cars: false,
+    trips: false,
+    hotels: false,
+    transport: false,
+    shop: false,
+  },
+  loadingByService: {
+    cars: false,
+    trips: false,
+    hotels: false,
+    transport: false,
+    shop: false,
+  },
+  selectedByService: {
+    cars: new Set(),
+    trips: new Set(),
+    hotels: new Set(),
+    transport: new Set(),
+    shop: new Set(),
+  },
+  searchByService: {
+    cars: '',
+    trips: '',
+    hotels: '',
+    transport: '',
+    shop: '',
+  },
+};
 
 function normalizeCouponsCenterTabValue(value) {
   const tab = String(value || '').trim().toLowerCase();
@@ -22004,6 +22052,385 @@ function setCouponBuilderServicesSelection(services) {
   });
 }
 
+function getCouponBuilderSelectedResourceIdsByService() {
+  const out = {};
+  COUPON_BUILDER_SERVICES.forEach((serviceType) => {
+    const set = couponBuilderResourceScopeState.selectedByService[serviceType];
+    out[serviceType] = Array.from(set instanceof Set ? set : [])
+      .map((entry) => String(entry || '').trim())
+      .filter(Boolean);
+  });
+  return out;
+}
+
+function clearCouponBuilderResourceScopeSelection() {
+  COUPON_BUILDER_SERVICES.forEach((serviceType) => {
+    couponBuilderResourceScopeState.searchByService[serviceType] = '';
+    const set = couponBuilderResourceScopeState.selectedByService[serviceType];
+    if (set instanceof Set) set.clear();
+    else couponBuilderResourceScopeState.selectedByService[serviceType] = new Set();
+  });
+}
+
+async function loadCouponBuilderResourcesForService(serviceType, options = {}) {
+  const service = normalizeCouponConsoleServiceType(serviceType);
+  if (!service || !COUPON_BUILDER_SERVICES.includes(service)) return [];
+  const { force = false } = options;
+  if (!force && couponBuilderResourceScopeState.loadedByService[service]) {
+    return couponBuilderResourceScopeState.rowsByService[service] || [];
+  }
+  if (couponBuilderResourceScopeState.loadingByService[service]) {
+    return couponBuilderResourceScopeState.rowsByService[service] || [];
+  }
+
+  const client = ensureSupabase();
+  if (!client) throw new Error('Supabase client not available');
+
+  couponBuilderResourceScopeState.loadingByService[service] = true;
+  renderCouponBuilderResourceScopePanel();
+
+  try {
+    let rows = [];
+    if (service === 'cars') {
+      const { data, error } = await client
+        .from('car_offers')
+        .select('id, car_model, car_type, location')
+        .order('updated_at', { ascending: false })
+        .limit(COUPON_BUILDER_RESOURCE_MAX_ROWS);
+      if (error) throw error;
+      rows = (Array.isArray(data) ? data : []).map((row) => {
+        const labelBase = normalizeTitleJson(row?.car_model) || normalizeTitleJson(row?.car_type) || 'Car';
+        const location = String(row?.location || '').trim();
+        return {
+          id: String(row?.id || '').trim(),
+          label: `${labelBase}${location ? ` (${location})` : ''}`,
+          meta: location || 'Cars offer',
+        };
+      });
+    } else if (service === 'trips') {
+      const attempts = [
+        { select: 'id, slug, title, start_city', order: 'updated_at' },
+        { select: 'id, slug, title, start_city', order: 'created_at' },
+        { select: 'id, slug, title', order: 'updated_at' },
+        { select: 'id, slug, title', order: 'created_at' },
+      ];
+      for (const attempt of attempts) {
+        try {
+          const { data, error } = await client
+            .from('trips')
+            .select(attempt.select)
+            .order(attempt.order, { ascending: false })
+            .limit(COUPON_BUILDER_RESOURCE_MAX_ROWS);
+          if (error) throw error;
+          rows = (Array.isArray(data) ? data : []).map((row) => {
+            const title = normalizeTitleJson(row?.title) || row?.slug || String(row?.id || '').slice(0, 8);
+            const city = String(row?.start_city || '').trim();
+            return {
+              id: String(row?.id || '').trim(),
+              label: title,
+              meta: city || 'Trip service',
+            };
+          });
+          break;
+        } catch (_error) {
+        }
+      }
+    } else if (service === 'hotels') {
+      const { data, error } = await client
+        .from('hotels')
+        .select('id, slug, title, city')
+        .order('updated_at', { ascending: false })
+        .limit(COUPON_BUILDER_RESOURCE_MAX_ROWS);
+      if (error) throw error;
+      rows = (Array.isArray(data) ? data : []).map((row) => {
+        const title = normalizeTitleJson(row?.title) || row?.slug || String(row?.id || '').slice(0, 8);
+        const city = String(row?.city || '').trim();
+        return {
+          id: String(row?.id || '').trim(),
+          label: title,
+          meta: city || 'Hotel',
+        };
+      });
+    } else if (service === 'transport') {
+      const { data: routes, error: routesError } = await client
+        .from('transport_routes')
+        .select('id, origin_location_id, destination_location_id, is_active')
+        .order('updated_at', { ascending: false })
+        .limit(COUPON_BUILDER_RESOURCE_MAX_ROWS);
+      if (routesError) throw routesError;
+      const routeRows = Array.isArray(routes) ? routes : [];
+      const locationIds = Array.from(new Set(routeRows.flatMap((row) => [row?.origin_location_id, row?.destination_location_id]).filter(Boolean)));
+      let locationsById = {};
+      if (locationIds.length) {
+        try {
+          locationsById = await loadTransportLocationsByIds(client, locationIds);
+        } catch (_error) {
+        }
+      }
+      rows = routeRows.map((row) => {
+        const origin = locationsById[row?.origin_location_id];
+        const destination = locationsById[row?.destination_location_id];
+        const originLabel = origin ? formatTransportLocationDisplayName(origin, { withCode: false, withLocal: true }) : 'Origin';
+        const destinationLabel = destination ? formatTransportLocationDisplayName(destination, { withCode: false, withLocal: true }) : 'Destination';
+        return {
+          id: String(row?.id || '').trim(),
+          label: `${originLabel} → ${destinationLabel}`,
+          meta: row?.is_active === false ? 'Inactive route' : 'Active route',
+        };
+      });
+    } else if (service === 'shop') {
+      const { data, error } = await client
+        .from('shop_products')
+        .select('id, name, slug, status')
+        .order('updated_at', { ascending: false })
+        .limit(COUPON_BUILDER_RESOURCE_MAX_ROWS);
+      if (error) throw error;
+      rows = (Array.isArray(data) ? data : []).map((row) => {
+        const label = String(row?.name || row?.slug || row?.id || '').trim();
+        const status = String(row?.status || '').trim();
+        return {
+          id: String(row?.id || '').trim(),
+          label,
+          meta: status || 'Shop product',
+        };
+      });
+    }
+
+    const dedup = new Map();
+    rows.forEach((row) => {
+      const id = String(row?.id || '').trim();
+      if (!id) return;
+      dedup.set(id, {
+        id,
+        label: String(row?.label || id).trim(),
+        meta: String(row?.meta || '').trim(),
+      });
+    });
+
+    const normalizedRows = Array.from(dedup.values());
+    couponBuilderResourceScopeState.rowsByService[service] = normalizedRows;
+    couponBuilderResourceScopeState.loadedByService[service] = true;
+
+    const selectedSet = couponBuilderResourceScopeState.selectedByService[service];
+    if (selectedSet instanceof Set) {
+      selectedSet.forEach((id) => {
+        if (!dedup.has(String(id || '').trim())) selectedSet.delete(id);
+      });
+    }
+
+    return normalizedRows;
+  } catch (error) {
+    console.error(`Failed to load coupon builder resources for ${service}:`, error);
+    throw error;
+  } finally {
+    couponBuilderResourceScopeState.loadingByService[service] = false;
+    renderCouponBuilderResourceScopePanel();
+  }
+}
+
+function renderCouponBuilderResourceScopePanel() {
+  const panel = $('#couponBuilderResourceScopePanel');
+  const mount = $('#couponBuilderResourceServicePanels');
+  if (!panel || !mount) return;
+
+  const scopeMode = String($('#couponBuilderScopeMode')?.value || 'all').trim().toLowerCase();
+  const resourceMode = scopeMode === 'resource';
+  panel.hidden = !resourceMode;
+  if (!resourceMode) return;
+
+  const selectedServices = getCouponBuilderSelectedServices();
+  if (!selectedServices.length) {
+    mount.innerHTML = '<p class="coupon-builder-resource-empty">Select at least one service to choose specific products or offers.</p>';
+    return;
+  }
+
+  mount.innerHTML = selectedServices.map((serviceType) => {
+    const serviceMeta = COUPON_BUILDER_RESOURCE_SERVICE_META[serviceType] || { label: serviceType };
+    const rows = Array.isArray(couponBuilderResourceScopeState.rowsByService[serviceType])
+      ? couponBuilderResourceScopeState.rowsByService[serviceType]
+      : [];
+    const loading = Boolean(couponBuilderResourceScopeState.loadingByService[serviceType]);
+    const search = String(couponBuilderResourceScopeState.searchByService[serviceType] || '').trim().toLowerCase();
+    const selectedSet = couponBuilderResourceScopeState.selectedByService[serviceType] instanceof Set
+      ? couponBuilderResourceScopeState.selectedByService[serviceType]
+      : new Set();
+    const filteredRows = search
+      ? rows.filter((row) => {
+        const haystack = `${String(row?.label || '').toLowerCase()} ${String(row?.meta || '').toLowerCase()} ${String(row?.id || '').toLowerCase()}`;
+        return haystack.includes(search);
+      })
+      : rows;
+    const visibleRows = filteredRows.slice(0, COUPON_BUILDER_RESOURCE_VISIBLE_ROWS);
+    const selectedCount = selectedSet.size;
+
+    const rowMarkup = loading
+      ? '<div class="coupon-builder-resource-muted">Loading resources...</div>'
+      : !rows.length
+        ? '<div class="coupon-builder-resource-muted">No resources found for this service.</div>'
+        : !visibleRows.length
+          ? '<div class="coupon-builder-resource-muted">No resources match current search.</div>'
+          : visibleRows.map((row) => {
+            const id = String(row?.id || '').trim();
+            const label = String(row?.label || id).trim();
+            const meta = String(row?.meta || '').trim();
+            return `
+              <label class="coupon-builder-resource-option">
+                <input type="checkbox" data-coupon-builder-resource-checkbox data-service-type="${escapeHtml(serviceType)}" value="${escapeHtml(id)}" ${selectedSet.has(id) ? 'checked' : ''} />
+                <span>
+                  <div class="coupon-builder-resource-option__label">${escapeHtml(label)}</div>
+                  ${meta ? `<div class="coupon-builder-resource-option__meta">${escapeHtml(meta)}</div>` : ''}
+                </span>
+              </label>
+            `;
+          }).join('');
+
+    const selectedRowsById = new Map(rows.map((row) => [String(row.id || '').trim(), row]));
+    const selectedChips = Array.from(selectedSet)
+      .map((id) => String(id || '').trim())
+      .filter(Boolean)
+      .slice(0, 4)
+      .map((id) => {
+        const row = selectedRowsById.get(id);
+        const label = row?.label ? String(row.label) : id.slice(0, 8);
+        return `<span class="coupon-builder-resource-chip">${escapeHtml(label)}</span>`;
+      })
+      .join('');
+
+    const hiddenCount = filteredRows.length - visibleRows.length;
+
+    return `
+      <article class="coupon-builder-resource-service" data-coupon-builder-resource-service="${escapeHtml(serviceType)}">
+        <div class="coupon-builder-resource-service__top">
+          <p class="coupon-builder-resource-service__title">${escapeHtml(serviceMeta.label)}</p>
+          <span class="coupon-builder-resource-service__count">${selectedCount} selected</span>
+        </div>
+        <label class="admin-form-field">
+          <span>Search</span>
+          <input
+            type="text"
+            data-coupon-builder-resource-search
+            data-service-type="${escapeHtml(serviceType)}"
+            value="${escapeHtml(couponBuilderResourceScopeState.searchByService[serviceType] || '')}"
+            placeholder="Search by name, city, slug..."
+          />
+        </label>
+        <div class="coupon-builder-resource-toolbar">
+          <button type="button" class="btn-small btn-secondary" data-coupon-builder-resource-action="select_visible" data-service-type="${escapeHtml(serviceType)}">Select visible</button>
+          <button type="button" class="btn-small btn-secondary" data-coupon-builder-resource-action="clear_service" data-service-type="${escapeHtml(serviceType)}">Clear</button>
+        </div>
+        <div class="coupon-builder-resource-list">${rowMarkup}</div>
+        ${hiddenCount > 0 ? `<div class="coupon-builder-resource-muted">${hiddenCount} more records hidden. Use search to narrow list.</div>` : ''}
+        <div class="coupon-builder-resource-selection">
+          ${selectedChips || '<span class="coupon-builder-resource-muted">No resources selected yet.</span>'}
+          ${selectedCount > 4 ? `<span class="coupon-builder-resource-chip">+${selectedCount - 4} more</span>` : ''}
+        </div>
+      </article>
+    `;
+  }).join('');
+}
+
+async function syncCouponBuilderResourceScopePanel(options = {}) {
+  const { forceReload = false } = options;
+  const scopeMode = String($('#couponBuilderScopeMode')?.value || 'all').trim().toLowerCase();
+  if (scopeMode !== 'resource') {
+    renderCouponBuilderResourceScopePanel();
+    return;
+  }
+
+  const services = getCouponBuilderSelectedServices();
+  const targets = services.filter((serviceType) => {
+    if (!COUPON_BUILDER_SERVICES.includes(serviceType)) return false;
+    if (forceReload) return true;
+    return !couponBuilderResourceScopeState.loadedByService[serviceType];
+  });
+
+  renderCouponBuilderResourceScopePanel();
+  if (!targets.length) return;
+
+  try {
+    await Promise.all(targets.map((serviceType) => loadCouponBuilderResourcesForService(serviceType, { force: forceReload })));
+  } catch (error) {
+    setCouponBuilderFeedback(adminErrorDetails(error, 'Failed to load service resources for coupon scope'), 'error');
+  } finally {
+    renderCouponBuilderResourceScopePanel();
+  }
+}
+
+function handleCouponBuilderResourceScopeInteraction(event) {
+  const target = event?.target;
+  if (!target || typeof target.closest !== 'function') return;
+
+  const searchInput = target.closest('input[data-coupon-builder-resource-search]');
+  if (searchInput) {
+    const serviceType = normalizeCouponConsoleServiceType(searchInput.dataset.serviceType || '');
+    if (!serviceType || !COUPON_BUILDER_SERVICES.includes(serviceType)) return;
+    couponBuilderResourceScopeState.searchByService[serviceType] = String(searchInput.value || '');
+    renderCouponBuilderResourceScopePanel();
+    const focused = document.querySelector(`input[data-coupon-builder-resource-search][data-service-type="${serviceType}"]`);
+    if (focused && typeof focused.focus === 'function') {
+      focused.focus();
+      const len = String(focused.value || '').length;
+      if (typeof focused.setSelectionRange === 'function') {
+        focused.setSelectionRange(len, len);
+      }
+    }
+    return;
+  }
+
+  const checkbox = target.closest('input[data-coupon-builder-resource-checkbox]');
+  if (checkbox) {
+    const serviceType = normalizeCouponConsoleServiceType(checkbox.dataset.serviceType || '');
+    const resourceId = String(checkbox.value || '').trim();
+    if (!serviceType || !resourceId || !COUPON_BUILDER_SERVICES.includes(serviceType)) return;
+    let set = couponBuilderResourceScopeState.selectedByService[serviceType];
+    if (!(set instanceof Set)) {
+      set = new Set();
+      couponBuilderResourceScopeState.selectedByService[serviceType] = set;
+    }
+    if (checkbox.checked) set.add(resourceId);
+    else set.delete(resourceId);
+    renderCouponBuilderResourceScopePanel();
+  }
+}
+
+function handleCouponBuilderResourceScopeClick(event) {
+  const button = event?.target?.closest?.('button[data-coupon-builder-resource-action]');
+  if (!button) return;
+  const action = String(button.dataset.couponBuilderResourceAction || '').trim().toLowerCase();
+  const serviceType = normalizeCouponConsoleServiceType(button.dataset.serviceType || '');
+  if (!action || !serviceType || !COUPON_BUILDER_SERVICES.includes(serviceType)) return;
+
+  let selectedSet = couponBuilderResourceScopeState.selectedByService[serviceType];
+  if (!(selectedSet instanceof Set)) {
+    selectedSet = new Set();
+    couponBuilderResourceScopeState.selectedByService[serviceType] = selectedSet;
+  }
+
+  if (action === 'clear_service') {
+    selectedSet.clear();
+    renderCouponBuilderResourceScopePanel();
+    return;
+  }
+
+  if (action === 'select_visible') {
+    const rows = Array.isArray(couponBuilderResourceScopeState.rowsByService[serviceType])
+      ? couponBuilderResourceScopeState.rowsByService[serviceType]
+      : [];
+    const search = String(couponBuilderResourceScopeState.searchByService[serviceType] || '').trim().toLowerCase();
+    const filteredRows = search
+      ? rows.filter((row) => {
+        const haystack = `${String(row?.label || '').toLowerCase()} ${String(row?.meta || '').toLowerCase()} ${String(row?.id || '').toLowerCase()}`;
+        return haystack.includes(search);
+      })
+      : rows;
+    filteredRows.slice(0, COUPON_BUILDER_RESOURCE_VISIBLE_ROWS).forEach((row) => {
+      const id = String(row?.id || '').trim();
+      if (id) selectedSet.add(id);
+    });
+    renderCouponBuilderResourceScopePanel();
+  }
+}
+
 function setCouponBuilderFeedback(message = '', type = 'info') {
   const el = $('#couponBuilderFeedback');
   if (!el) return;
@@ -22030,6 +22457,7 @@ function syncCouponBuilderScopeFields() {
     ? 'airport, city_tour, suv, paphos, larnaca'
     : 'Enable category scope to use this field';
   if (!categoryMode) categoriesInput.value = '';
+  void syncCouponBuilderResourceScopePanel();
 }
 
 function syncCouponBuilderDiscountValueField() {
@@ -22080,9 +22508,11 @@ function resetCouponBuilderForm(options = {}) {
   if (discountValue) discountValue.value = '10';
   const scopeMode = $('#couponBuilderScopeMode');
   if (scopeMode) scopeMode.value = 'all';
+  clearCouponBuilderResourceScopeSelection();
   syncCouponBuilderScopeFields();
   syncCouponBuilderDiscountValueField();
   syncCouponBuilderSingleUseFields();
+  renderCouponBuilderResourceScopePanel();
   if (!preserveFeedback) setCouponBuilderFeedback('');
 }
 
@@ -22603,12 +23033,23 @@ function collectCouponBuilderPayload() {
   }
 
   const scopeMode = String($('#couponBuilderScopeMode')?.value || 'all').trim().toLowerCase();
-  const normalizedScopeMode = scopeMode === 'category' ? 'category' : 'all';
+  const normalizedScopeMode = (scopeMode === 'category' || scopeMode === 'resource') ? scopeMode : 'all';
   const categoryKeys = parseCouponListInput($('#couponBuilderCategoryKeys')?.value || '')
     .map((entry) => String(entry || '').trim().toLowerCase())
     .filter(Boolean);
   if (normalizedScopeMode === 'category' && categoryKeys.length === 0) {
     throw new Error('Add at least one category key for category scope');
+  }
+  const resourceIdsByService = getCouponBuilderSelectedResourceIdsByService();
+  if (normalizedScopeMode === 'resource') {
+    const missing = services.filter((serviceType) => {
+      const ids = Array.isArray(resourceIdsByService[serviceType]) ? resourceIdsByService[serviceType] : [];
+      return ids.length === 0;
+    });
+    if (missing.length) {
+      const serviceNames = missing.map((serviceType) => (COUPON_BUILDER_RESOURCE_SERVICE_META[serviceType]?.label || serviceType)).join(', ');
+      throw new Error(`Select at least one item for each checked service in resource mode: ${serviceNames}`);
+    }
   }
 
   const partnerId = String($('#couponBuilderPartnerId')?.value || '').trim();
@@ -22647,6 +23088,7 @@ function collectCouponBuilderPayload() {
     discountValue,
     scopeMode: normalizedScopeMode,
     categoryKeys,
+    resourceIdsByService,
     partnerId: partnerId || null,
     startsAt,
     expiresAt,
@@ -22732,6 +23174,7 @@ async function createCouponBuilderEntryForService(client, serviceType, payload) 
     const scope = payload.scopeMode === 'category'
       ? splitCouponBuilderCarScopeFromCategories(payload.categoryKeys)
       : { locations: [], carTypes: [] };
+    const selectedResourceIds = normalizeCouponArray(payload?.resourceIdsByService?.cars);
 
     const row = {
       code: payload.code,
@@ -22751,7 +23194,7 @@ async function createCouponBuilderEntryForService(client, serviceType, payload) 
       min_rental_days: null,
       min_rental_total: payload.minOrderTotal,
       applicable_locations: scope.locations,
-      applicable_offer_ids: [],
+      applicable_offer_ids: payload.scopeMode === 'resource' ? selectedResourceIds : [],
       applicable_car_models: [],
       applicable_car_types: scope.carTypes,
       excluded_offer_ids: [],
@@ -22777,6 +23220,14 @@ async function createCouponBuilderEntryForService(client, serviceType, payload) 
     if (payload.scopeMode === 'category' && payload.categoryKeys.length > 0) {
       rules.scope_mode = 'category';
       rules.category_keys = payload.categoryKeys;
+    }
+    if (payload.scopeMode === 'resource') {
+      const selectedResourceIds = normalizeCouponArray(payload?.resourceIdsByService?.[normalizedService]);
+      if (!selectedResourceIds.length) {
+        throw new Error(`No resources selected for ${normalizedService} scope`);
+      }
+      rules.scope_mode = 'resource';
+      rules.resource_ids = selectedResourceIds;
     }
 
     const row = {
@@ -22815,6 +23266,7 @@ async function createCouponBuilderEntryForService(client, serviceType, payload) 
   if (normalizedService === 'shop') {
     let appliesTo = 'all';
     let applicableCategoryIds = null;
+    let applicableProductIds = null;
     if (payload.scopeMode === 'category') {
       const categoryIds = await resolveShopCategoryIdsFromKeys(client, payload.categoryKeys);
       if (!categoryIds.length) {
@@ -22822,6 +23274,13 @@ async function createCouponBuilderEntryForService(client, serviceType, payload) 
       }
       appliesTo = 'categories';
       applicableCategoryIds = categoryIds;
+    } else if (payload.scopeMode === 'resource') {
+      const selectedProductIds = normalizeCouponArray(payload?.resourceIdsByService?.shop);
+      if (!selectedProductIds.length) {
+        throw new Error('Select at least one shop product for resource scope');
+      }
+      appliesTo = 'products';
+      applicableProductIds = selectedProductIds;
     }
 
     const mappedType = payload.discountType === 'percent' ? 'percentage' : 'fixed';
@@ -22840,6 +23299,8 @@ async function createCouponBuilderEntryForService(client, serviceType, payload) 
       expires_at: payload.expiresAt,
       applies_to: appliesTo,
       applicable_category_ids: applicableCategoryIds,
+      applicable_product_ids: applicableProductIds,
+      exclude_product_ids: [],
       is_active: payload.enabled,
       first_purchase_only: false,
       exclude_sale_items: false,
@@ -23012,9 +23473,11 @@ function normalizeCouponConsoleServiceItem(coupon = {}, usageMap = {}) {
 function normalizeCouponConsoleShopItem(discount = {}) {
   const description = String(discount?.description_en || discount?.description || '').trim();
   const applicableCategoryIds = normalizeCouponArray(discount?.applicable_category_ids);
+  const applicableProductIds = normalizeCouponArray(discount?.applicable_product_ids);
   const categories = normalizeCouponConsoleTextArray([
     discount?.applies_to,
     applicableCategoryIds.length > 0 ? `categories:${applicableCategoryIds.length}` : '',
+    applicableProductIds.length > 0 ? `products:${applicableProductIds.length}` : '',
   ]);
 
   return {
@@ -23034,6 +23497,7 @@ function normalizeCouponConsoleShopItem(discount = {}) {
     scopeSummary: formatCouponConsoleShopScope(discount),
     scopeLines: [
       applicableCategoryIds.length > 0 ? `Category IDs: ${applicableCategoryIds.length}` : '',
+      applicableProductIds.length > 0 ? `Product IDs: ${applicableProductIds.length}` : '',
       Number(discount?.minimum_order_amount) > 0 ? `Min order: ${formatCurrencyEUR(discount.minimum_order_amount)}` : '',
       Number(discount?.usage_limit) > 0 ? `Usage limit: ${discount.usage_limit}` : '',
     ].filter(Boolean),
@@ -23128,6 +23592,7 @@ async function loadCouponConsoleData(options = {}) {
           'is_active',
           'applies_to',
           'applicable_category_ids',
+          'applicable_product_ids',
           'starts_at',
           'expires_at',
           'updated_at',
@@ -29476,6 +29941,7 @@ function initEventListeners() {
   if (btnCouponBuilderSelectAll) {
     btnCouponBuilderSelectAll.addEventListener('click', () => {
       setCouponBuilderServicesSelection(COUPON_BUILDER_SERVICES);
+      void syncCouponBuilderResourceScopePanel();
     });
   }
 
@@ -29483,7 +29949,28 @@ function initEventListeners() {
   if (btnCouponBuilderClearAll) {
     btnCouponBuilderClearAll.addEventListener('click', () => {
       setCouponBuilderServicesSelection([]);
+      void syncCouponBuilderResourceScopePanel();
     });
+  }
+
+  getCouponBuilderServiceInputs().forEach((input) => {
+    input.addEventListener('change', () => {
+      void syncCouponBuilderResourceScopePanel();
+    });
+  });
+
+  const btnCouponBuilderResourceRefresh = $('#btnCouponBuilderResourceRefresh');
+  if (btnCouponBuilderResourceRefresh) {
+    btnCouponBuilderResourceRefresh.addEventListener('click', () => {
+      void syncCouponBuilderResourceScopePanel({ forceReload: true });
+    });
+  }
+
+  const couponBuilderResourceServicePanels = $('#couponBuilderResourceServicePanels');
+  if (couponBuilderResourceServicePanels) {
+    couponBuilderResourceServicePanels.addEventListener('input', handleCouponBuilderResourceScopeInteraction);
+    couponBuilderResourceServicePanels.addEventListener('change', handleCouponBuilderResourceScopeInteraction);
+    couponBuilderResourceServicePanels.addEventListener('click', handleCouponBuilderResourceScopeClick);
   }
 
   const couponBuilderScopeMode = $('#couponBuilderScopeMode');
@@ -29519,6 +30006,7 @@ function initEventListeners() {
   syncCouponBuilderScopeFields();
   syncCouponBuilderDiscountValueField();
   syncCouponBuilderSingleUseFields();
+  renderCouponBuilderResourceScopePanel();
 
   const btnServiceCouponsRefresh = $('#btnServiceCouponsRefresh');
   if (btnServiceCouponsRefresh) {

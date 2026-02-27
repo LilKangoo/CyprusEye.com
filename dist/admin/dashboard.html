@@ -3281,6 +3281,7 @@
                       <select id="couponBuilderScopeMode">
                         <option value="all">All categories / all offers</option>
                         <option value="category">Only selected categories</option>
+                        <option value="resource">Only selected products / offers</option>
                       </select>
                     </label>
                     <label class="admin-form-field">
@@ -3290,6 +3291,19 @@
                   </div>
                 </div>
               </div>
+
+              <section class="coupon-builder-resource-panel" id="couponBuilderResourceScopePanel" hidden aria-label="Selected resource scope">
+                <div class="coupon-builder-resource-panel__header">
+                  <div>
+                    <h4>3. Selected products / offers</h4>
+                    <p>Pick exact items for each checked service. This keeps coupon assignment precise and easy to control.</p>
+                  </div>
+                  <button type="button" class="btn-secondary" id="btnCouponBuilderResourceRefresh">Refresh lists</button>
+                </div>
+                <div class="coupon-builder-resource-panel__services" id="couponBuilderResourceServicePanels">
+                  <p class="coupon-builder-resource-empty">Select at least one service and wait for resources to load.</p>
+                </div>
+              </section>
 
               <details class="coupon-builder-advanced">
                 <summary>Advanced options (optional)</summary>
