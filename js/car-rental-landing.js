@@ -92,6 +92,15 @@ function toDateInputValue(date) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function parsePassengerCount(value, fallback = 2) {
+  const fallbackValue = Number.isFinite(Number(fallback)) && Number(fallback) > 0
+    ? Math.floor(Number(fallback))
+    : 2;
+  const parsed = Math.floor(Number(value));
+  if (!Number.isFinite(parsed) || parsed < 1) return fallbackValue;
+  return parsed;
+}
+
 function ensureDefaultDates() {
   const pickupDate = byId('pickupDate');
   const returnDate = byId('returnDate');
@@ -118,6 +127,7 @@ function bindReservationHandlers() {
     'res_return_time',
     'res_pickup_location',
     'res_return_location',
+    'res_passengers',
     'res_insurance',
     'res_young_driver',
     'res_car',
@@ -236,6 +246,7 @@ function populateReservationLocations() {
 }
 
 function readWidgetState() {
+  const reservationPassengers = parsePassengerCount(byId('res_passengers')?.value, 2);
   return {
     pickupDate: byId('pickupDate')?.value || '',
     pickupTime: byId('pickupTime')?.value || '10:00',
@@ -243,6 +254,7 @@ function readWidgetState() {
     returnTime: byId('returnTime')?.value || '10:00',
     pickupLocation: byId('pickupLocation')?.value || '',
     returnLocation: byId('returnLocation')?.value || '',
+    passengers: parsePassengerCount(byId('rentalPassengers')?.value, reservationPassengers),
     fullInsurance: !!byId('fullInsurance')?.checked,
     youngDriver: !!byId('youngDriver')?.checked,
     carModel: byId('rentalCarSelect')?.value || '',
@@ -361,6 +373,7 @@ function updateLandingQuoteContext(widgetState) {
     returnTime: widgetState.returnTime,
     pickupLocation: widgetState.pickupLocation,
     returnLocation: widgetState.returnLocation,
+    passengers: widgetState.passengers,
     fullInsurance: widgetState.fullInsurance,
     youngDriver: widgetState.youngDriver,
     carModel: widgetState.carModel,
@@ -497,6 +510,7 @@ function syncReservationForm(widgetState) {
   const resReturnTime = byId('res_return_time');
   const resPickupLocation = byId('res_pickup_location');
   const resReturnLocation = byId('res_return_location');
+  const resPassengers = byId('res_passengers');
   const resInsurance = byId('res_insurance');
   const resYoungDriver = byId('res_young_driver');
   const resCar = byId('res_car');
@@ -520,6 +534,10 @@ function syncReservationForm(widgetState) {
 
     setSelectSafe(resPickupLocation, pickupForReservation, 'larnaca');
     setSelectSafe(resReturnLocation, returnForReservation, 'larnaca');
+
+    if (resPassengers) {
+      resPassengers.value = String(parsePassengerCount(widgetState.passengers, 2));
+    }
 
     if (resInsurance) {
       resInsurance.checked = widgetState.fullInsurance;
@@ -549,6 +567,7 @@ function syncReservationForm(widgetState) {
     dispatchChange('res_pickup_time');
     dispatchChange('res_return_date');
     dispatchChange('res_return_time');
+    dispatchChange('res_passengers');
     dispatchChange('res_insurance');
     dispatchChange('res_young_driver');
     dispatchChange('res_car');
@@ -714,6 +733,7 @@ async function syncWidgetFromReservationForm() {
   const calcReturnTime = byId('returnTime');
   const calcPickupLocation = byId('pickupLocation');
   const calcReturnLocation = byId('returnLocation');
+  const calcPassengers = byId('rentalPassengers');
   const calcInsurance = byId('fullInsurance');
   const calcYoungDriver = byId('youngDriver');
   const calcCar = byId('rentalCarSelect');
@@ -724,6 +744,7 @@ async function syncWidgetFromReservationForm() {
   const resReturnTime = byId('res_return_time');
   const resPickupLocation = byId('res_pickup_location');
   const resReturnLocation = byId('res_return_location');
+  const resPassengers = byId('res_passengers');
   const resInsurance = byId('res_insurance');
   const resYoungDriver = byId('res_young_driver');
   const resCar = byId('res_car');
@@ -762,6 +783,7 @@ async function syncWidgetFromReservationForm() {
   syncInputValue(calcReturnTime, resReturnTime);
   syncSelectValue(calcPickupLocation, resPickupLocation);
   syncSelectValue(calcReturnLocation, resReturnLocation);
+  syncInputValue(calcPassengers, resPassengers);
   syncCheckbox(calcInsurance, resInsurance);
   syncCheckbox(calcYoungDriver, resYoungDriver);
   syncSelectValue(calcCar, resCar);
@@ -812,12 +834,12 @@ async function switchOfferIfNeeded() {
 async function refreshLandingFlow({ forceReload = false } = {}) {
   if (!isLandingPage()) return;
 
-  const widgetState = readWidgetState();
+  const initialWidgetState = readWidgetState();
   const previousOffer = state.effectiveOffer;
 
-  evaluateOffer(widgetState);
-  renderOfferIndicators(widgetState);
-  updateLandingQuoteContext(widgetState);
+  evaluateOffer(initialWidgetState);
+  renderOfferIndicators(initialWidgetState);
+  updateLandingQuoteContext(initialWidgetState);
 
   const offerChanged = previousOffer !== state.effectiveOffer;
   if (forceReload || offerChanged) {
@@ -825,6 +847,13 @@ async function refreshLandingFlow({ forceReload = false } = {}) {
   } else if (typeof window.CE_CAR_RERENDER_FLEET === 'function') {
     window.CE_CAR_RERENDER_FLEET();
   }
+
+  if (typeof window.CE_CAR_UPDATE_CALC_OPTIONS === 'function') {
+    window.CE_CAR_UPDATE_CALC_OPTIONS();
+  }
+
+  const widgetState = readWidgetState();
+  updateLandingQuoteContext(widgetState);
 
   if (typeof window.calculatePrice === 'function') {
     window.calculatePrice();
@@ -842,6 +871,7 @@ function bindWidgetHandlers() {
     'returnTime',
     'pickupLocation',
     'returnLocation',
+    'rentalPassengers',
     'fullInsurance',
     'youngDriver',
     'rentalCarSelect',

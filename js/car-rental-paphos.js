@@ -115,6 +115,31 @@ function shortLocationLabel(locationValue) {
   return i18n(`carRental.locations.${locationValue}.short`, null, locationValue || '');
 }
 
+function parsePassengerCount(value, fallback = 1) {
+  const normalizedFallback = Number.isFinite(Number(fallback)) && Number(fallback) > 0
+    ? Math.floor(Number(fallback))
+    : 1;
+  const parsed = Math.floor(Number(value));
+  if (!Number.isFinite(parsed) || parsed < 1) return normalizedFallback;
+  return parsed;
+}
+
+function getRequiredPassengers() {
+  const calculatorValue = document.getElementById('rentalPassengers')?.value;
+  const reservationValue = document.getElementById('res_passengers')?.value;
+  return parsePassengerCount(calculatorValue || reservationValue, 1);
+}
+
+function getFleetFilteredByPassengers() {
+  const requiredPassengers = getRequiredPassengers();
+  const filteredFleet = paphosFleet.filter((car) => {
+    const capacity = Number(car?.max_passengers || 0);
+    if (!Number.isFinite(capacity) || capacity <= 0) return true;
+    return capacity >= requiredPassengers;
+  });
+  return { requiredPassengers, filteredFleet };
+}
+
 window.CE_CAR_COMPUTE_QUOTE = calculateQuoteForSelection;
 window.CE_CAR_LOAD_FLEET = loadPaphosFleet;
 
@@ -213,12 +238,21 @@ function renderFleet() {
     return;
   }
 
+  const { requiredPassengers, filteredFleet } = getFleetFilteredByPassengers();
+  const isEn = getI18nLanguage().startsWith('en');
+  if (filteredFleet.length === 0) {
+    const fallbackMessage = isEn
+      ? `No cars available for ${requiredPassengers} passengers. Reduce passengers or change route.`
+      : `Brak aut dla ${requiredPassengers} pasażerów. Zmniejsz liczbę pasażerów lub zmień trasę.`;
+    grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #64748b;"><p>${escapeHtml(fallbackMessage)}</p></div>`;
+    return;
+  }
+
   const landingQuoteContext = isLandingCarRentalPage() && window.CE_CAR_LANDING_QUOTE_CTX && typeof window.CE_CAR_LANDING_QUOTE_CTX === 'object'
     ? window.CE_CAR_LANDING_QUOTE_CTX
     : null;
-  const isEn = getI18nLanguage().startsWith('en');
 
-  grid.innerHTML = paphosFleet.map(car => {
+  grid.innerHTML = filteredFleet.map(car => {
     // Get translated features using i18n helper
     const features = window.getCarFeatures ? window.getCarFeatures(car) : (Array.isArray(car.features) ? car.features : []);
 
@@ -312,15 +346,30 @@ function renderFleet() {
 }
 
 window.CE_CAR_RERENDER_FLEET = renderFleet;
+window.CE_CAR_UPDATE_CALC_OPTIONS = updateCalculatorOptions;
 
 // Update calculator select options
 function updateCalculatorOptions() {
   const select = document.getElementById('car') || document.getElementById('rentalCarSelect');
   const resSelect = document.getElementById('res_car');
-  
   if (paphosFleet.length === 0) return;
 
-  const optionsHTML = paphosFleet.map(car => {
+  const { requiredPassengers, filteredFleet } = getFleetFilteredByPassengers();
+  const isEn = getI18nLanguage().startsWith('en');
+  const previousSelectValue = String(select?.value || '').trim();
+  const previousReservationValue = String(resSelect?.value || '').trim();
+
+  if (filteredFleet.length === 0) {
+    const noCarsLabel = isEn
+      ? `No cars for ${requiredPassengers} passengers`
+      : `Brak aut dla ${requiredPassengers} pasażerów`;
+    const noCarsOption = `<option value="">${escapeHtml(noCarsLabel)}</option>`;
+    if (select) select.innerHTML = noCarsOption;
+    if (resSelect) resSelect.innerHTML = noCarsOption;
+    return;
+  }
+
+  const optionsHTML = filteredFleet.map(car => {
     const transmission = car.transmission === 'automatic'
       ? i18n('carRental.common.transmission.automatic', null, 'Automat')
       : i18n('carRental.common.transmission.manual', null, 'Manual');
@@ -333,11 +382,26 @@ function updateCalculatorOptions() {
   // Update calculator select
   if (select) {
     select.innerHTML = optionsHTML;
+    const calcOptions = Array.from(select.options || []);
+    const matchedCurrent = calcOptions.find((opt) => opt.value === previousSelectValue);
+    if (matchedCurrent) {
+      select.value = previousSelectValue;
+    } else if (calcOptions.length > 0) {
+      select.value = calcOptions[0].value;
+    }
   }
 
   // Update reservation select
   if (resSelect) {
     resSelect.innerHTML = optionsHTML;
+    const reservationOptions = Array.from(resSelect.options || []);
+    const preferredValue = String(select?.value || previousReservationValue || '').trim();
+    const matchedCurrent = reservationOptions.find((opt) => opt.value === preferredValue);
+    if (matchedCurrent) {
+      resSelect.value = preferredValue;
+    } else if (reservationOptions.length > 0) {
+      resSelect.value = reservationOptions[0].value;
+    }
   }
 
   // Populate Larnaca pickup/return location selects if present
