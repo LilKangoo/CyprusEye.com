@@ -21888,6 +21888,8 @@ const COUPONS_CENTER_ALLOWED_TABS = new Set(['cars', 'trips', 'hotels', 'transpo
 const SERVICE_COUPON_ALLOWED_SERVICES = new Set(['trips', 'hotels', 'transport']);
 const SERVICE_COUPON_ALLOWED_STATUSES = new Set(['draft', 'active', 'paused', 'expired']);
 const SERVICE_COUPON_ALLOWED_DISCOUNT_TYPES = new Set(['percent', 'fixed']);
+const COUPON_CONSOLE_ALLOWED_SERVICES = new Set(['cars', 'trips', 'hotels', 'transport', 'shop']);
+const COUPON_CONSOLE_CACHE_MS = 30000;
 
 const SERVICE_COUPON_SERVICE_META = {
   trips: {
@@ -21902,6 +21904,14 @@ const SERVICE_COUPON_SERVICE_META = {
     title: 'Transport coupons',
     subtitle: 'Manage transport coupon codes and partner assignments in one list.',
   },
+};
+
+const COUPON_CONSOLE_SERVICE_META = {
+  cars: { label: 'Cars', cssClass: 'is-cars' },
+  trips: { label: 'Trips', cssClass: 'is-trips' },
+  hotels: { label: 'Hotels', cssClass: 'is-hotels' },
+  transport: { label: 'Transport', cssClass: 'is-transport' },
+  shop: { label: 'Shop', cssClass: 'is-shop' },
 };
 
 const couponsCenterState = {
@@ -21928,10 +21938,25 @@ const serviceCouponsState = {
   partnersById: {},
   filters: {
     search: '',
+    category: '',
     status: '',
     activity: '',
     discountType: '',
     partnerId: '',
+  },
+};
+
+const couponConsoleState = {
+  loading: false,
+  loadedAt: 0,
+  items: [],
+  filters: {
+    service: '',
+    category: '',
+    status: '',
+    activity: '',
+    partnerId: '',
+    search: '',
   },
 };
 
@@ -21943,6 +21968,721 @@ function normalizeCouponsCenterTabValue(value) {
 function normalizeServiceCouponServiceType(value) {
   const service = String(value || '').trim().toLowerCase();
   return SERVICE_COUPON_ALLOWED_SERVICES.has(service) ? service : 'trips';
+}
+
+function normalizeCouponConsoleServiceType(value) {
+  const service = String(value || '').trim().toLowerCase();
+  return COUPON_CONSOLE_ALLOWED_SERVICES.has(service) ? service : '';
+}
+
+function normalizeServiceCouponRules(coupon = {}) {
+  if (!coupon || typeof coupon !== 'object') return {};
+  const raw = coupon.rules;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  return raw;
+}
+
+function getServiceCouponCategoryKeys(coupon = {}) {
+  const rules = normalizeServiceCouponRules(coupon);
+  return normalizeCouponArray(rules.category_keys)
+    .map((entry) => String(entry || '').trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function getServiceCouponResourceIds(coupon = {}) {
+  const rules = normalizeServiceCouponRules(coupon);
+  return normalizeCouponArray(rules.resource_ids)
+    .map((entry) => String(entry || '').trim())
+    .filter(Boolean);
+}
+
+function getServiceCouponScopeMode(coupon = {}) {
+  const rules = normalizeServiceCouponRules(coupon);
+  const mode = String(rules.scope_mode || '').trim().toLowerCase();
+  if (mode === 'category' || mode === 'resource') return mode;
+  return 'all';
+}
+
+function getServiceCouponScopeSummary(coupon = {}) {
+  const scopeMode = getServiceCouponScopeMode(coupon);
+  const categories = getServiceCouponCategoryKeys(coupon);
+  const resources = getServiceCouponResourceIds(coupon);
+
+  if (scopeMode === 'resource') {
+    if (resources.length === 0) return 'Resource IDs (empty scope)';
+    return `Resource IDs (${resources.length})`;
+  }
+
+  if (scopeMode === 'category') {
+    if (categories.length === 0) return 'Category keys (empty scope)';
+    return categories.slice(0, 3).join(', ') + (categories.length > 3 ? ` +${categories.length - 3}` : '');
+  }
+
+  if (categories.length > 0) {
+    return `All service bookings • categories: ${categories.slice(0, 2).join(', ')}${categories.length > 2 ? ` +${categories.length - 2}` : ''}`;
+  }
+
+  return 'All service bookings';
+}
+
+function normalizeShopDiscountStatusForConsole(discount = {}) {
+  const isActive = Boolean(discount?.is_active);
+  if (!isActive) return 'paused';
+
+  const nowTs = Date.now();
+  const startsAt = discount?.starts_at ? Date.parse(discount.starts_at) : Number.NaN;
+  if (Number.isFinite(startsAt) && startsAt > nowTs) return 'draft';
+
+  const expiresAt = discount?.expires_at ? Date.parse(discount.expires_at) : Number.NaN;
+  if (Number.isFinite(expiresAt) && expiresAt <= nowTs) return 'expired';
+
+  return 'active';
+}
+
+function formatShopDiscountValueForConsole(discount = {}) {
+  const type = String(discount?.discount_type || '').trim().toLowerCase();
+  const value = Number(discount?.discount_value || 0);
+
+  if (type === 'percentage') {
+    return `${Number.isFinite(value) ? value.toFixed(2) : '0.00'}%`;
+  }
+  if (type === 'fixed') {
+    return formatCurrencyEUR(value);
+  }
+  if (type === 'free_shipping') {
+    return 'Free shipping';
+  }
+  return Number.isFinite(value) ? String(value) : '—';
+}
+
+function setCouponConsoleLoadingRow(message = 'Loading coupons...') {
+  const tbody = $('#couponConsoleTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = `
+    <tr>
+      <td colspan="8" class="table-loading">${escapeHtml(String(message || 'Loading coupons...'))}</td>
+    </tr>
+  `;
+}
+
+function renderCouponConsoleErrorRow(message) {
+  const tbody = $('#couponConsoleTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = `
+    <tr>
+      <td colspan="8" class="table-loading" style="color: var(--admin-danger);">
+        ${escapeHtml(String(message || 'Failed to load coupons'))}
+      </td>
+    </tr>
+  `;
+}
+
+function getCouponConsoleServiceMeta(serviceType) {
+  const key = normalizeCouponConsoleServiceType(serviceType);
+  return COUPON_CONSOLE_SERVICE_META[key] || { label: key || 'Unknown', cssClass: '' };
+}
+
+function normalizeCouponConsoleStatusValue(value, options = {}) {
+  const { allowEmpty = false } = options;
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return allowEmpty ? '' : 'draft';
+  if (normalized === 'active' || normalized === 'paused' || normalized === 'expired') return normalized;
+  return 'draft';
+}
+
+function getCouponConsoleStatusClass(status) {
+  const normalized = normalizeCouponConsoleStatusValue(status);
+  if (normalized === 'active') return 'badge-success';
+  if (normalized === 'paused') return 'badge-warning';
+  if (normalized === 'expired') return 'badge-danger';
+  return 'badge-info';
+}
+
+function formatCouponConsoleShopScope(discount = {}) {
+  const appliesTo = String(discount?.applies_to || '').trim().toLowerCase();
+  if (appliesTo === 'category') return 'Shop category';
+  if (appliesTo === 'product') return 'Shop product';
+  if (appliesTo === 'shipping') return 'Shipping';
+  return 'All shop products';
+}
+
+function normalizeCouponConsoleTextArray(values) {
+  return Array.from(new Set(
+    (Array.isArray(values) ? values : [])
+      .map((entry) => String(entry || '').trim())
+      .filter(Boolean),
+  ));
+}
+
+function getCouponConsoleItemKey(item) {
+  const service = normalizeCouponConsoleServiceType(item?.serviceType);
+  const id = String(item?.id || '').trim();
+  return service && id ? `${service}:${id}` : '';
+}
+
+function buildCouponConsoleTableRows(items) {
+  const rows = Array.isArray(items) ? items : [];
+  const tbody = $('#couponConsoleTableBody');
+  if (!tbody) return;
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="table-loading">No coupons found for current filters.</td></tr>';
+    scheduleResponsiveTableHydration();
+    return;
+  }
+
+  tbody.innerHTML = rows.map((item) => {
+    const serviceMeta = getCouponConsoleServiceMeta(item.serviceType);
+    const status = normalizeCouponConsoleStatusValue(item.status);
+    const statusClass = getCouponConsoleStatusClass(status);
+    const activityClass = item.isActive ? 'badge-success' : 'badge-danger';
+    const activityLabel = item.isActive ? 'ENABLED' : 'DISABLED';
+    const key = getCouponConsoleItemKey(item);
+    const scopeLines = normalizeCouponConsoleTextArray(item.scopeLines).slice(0, 3);
+    const categories = normalizeCouponConsoleTextArray(item.categories).slice(0, 4);
+    const partnerLabel = String(item.partnerLabel || 'No partner');
+    const usageCount = Number(item.usageCount || 0);
+    const usageAmount = Number(item.usageAmount || 0);
+    const hasUsageAmount = Number.isFinite(usageAmount) && usageAmount > 0;
+    const usageLimit = Number(item.usageLimit || 0);
+    const hasUsageLimit = Number.isFinite(usageLimit) && usageLimit > 0;
+    const lastRedeemed = item.lastRedeemedAt ? formatCouponDateTime(item.lastRedeemedAt, '—') : 'Never';
+    const editLabel = item.serviceType === 'shop' ? 'Edit in shop' : 'Edit';
+    const toggleAction = item.isActive ? 'deactivate' : 'activate';
+    const toggleLabel = item.isActive ? 'Disable' : 'Enable';
+
+    const scopeMarkup = `
+      <div>${escapeHtml(String(item.scopeSummary || 'All scope'))}</div>
+      ${scopeLines.length ? `<ul class="coupon-console-scope-list">${scopeLines.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>` : ''}
+      ${categories.length ? `<div class="cars-coupon-cell-muted">Categories: ${escapeHtml(categories.join(', '))}</div>` : ''}
+    `;
+
+    const usageSecondaryParts = [];
+    if (hasUsageAmount) usageSecondaryParts.push(formatCurrencyEUR(usageAmount));
+    if (hasUsageLimit) usageSecondaryParts.push(`Limit ${usageLimit}`);
+    if (usageSecondaryParts.length === 0) usageSecondaryParts.push(lastRedeemed);
+
+    return `
+      <tr>
+        <td>
+          <span class="coupon-console-service-badge ${escapeHtml(serviceMeta.cssClass)}">${escapeHtml(serviceMeta.label)}</span>
+        </td>
+        <td>
+          <div style="font-weight: 700;">${escapeHtml(String(item.code || ''))}</div>
+          ${item.name ? `<div class="cars-coupon-cell-muted">${escapeHtml(String(item.name))}</div>` : ''}
+        </td>
+        <td>${scopeMarkup}</td>
+        <td>
+          <div style="font-weight: 600;">${escapeHtml(String(item.discountLabel || '—'))}</div>
+          ${item.discountType ? `<div class="cars-coupon-cell-muted">${escapeHtml(String(item.discountType).toUpperCase())}</div>` : ''}
+        </td>
+        <td>${escapeHtml(partnerLabel)}</td>
+        <td>
+          <span class="badge ${statusClass}" style="display: block; margin-bottom: 4px;">${escapeHtml(status.toUpperCase())}</span>
+          <span class="badge ${activityClass}" style="font-size: 10px;">${activityLabel}</span>
+        </td>
+        <td>
+          <div style="font-weight: 700;">${usageCount}</div>
+          <div class="cars-coupon-cell-muted">${escapeHtml(usageSecondaryParts.join(' · '))}</div>
+        </td>
+        <td>
+          <div class="cars-coupons-table-actions">
+            <button type="button" class="btn-small btn-secondary" data-coupon-console-action="edit" data-coupon-console-key="${escapeHtml(key)}">${escapeHtml(editLabel)}</button>
+            <button type="button" class="btn-small btn-secondary" data-coupon-console-action="${toggleAction}" data-coupon-console-key="${escapeHtml(key)}">${escapeHtml(toggleLabel)}</button>
+            <button type="button" class="btn-small btn-secondary" data-coupon-console-action="delete" data-coupon-console-key="${escapeHtml(key)}" style="color: var(--admin-danger);">Delete</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  scheduleResponsiveTableHydration();
+}
+
+function updateCouponConsoleStats(items) {
+  const rows = Array.isArray(items) ? items : [];
+  const visible = rows.length;
+  const enabled = rows.filter((item) => Boolean(item?.isActive) && normalizeCouponConsoleStatusValue(item?.status) === 'active').length;
+  const redemptions = rows.reduce((sum, item) => sum + Number(item?.usageCount || 0), 0);
+  const services = new Set(rows.map((item) => normalizeCouponConsoleServiceType(item?.serviceType)).filter(Boolean));
+
+  const visibleEl = $('#couponConsoleStatVisible');
+  if (visibleEl) visibleEl.textContent = String(visible);
+  const enabledEl = $('#couponConsoleStatEnabled');
+  if (enabledEl) enabledEl.textContent = String(enabled);
+  const redemptionsEl = $('#couponConsoleStatRedemptions');
+  if (redemptionsEl) redemptionsEl.textContent = String(redemptions);
+  const servicesEl = $('#couponConsoleStatServices');
+  if (servicesEl) servicesEl.textContent = String(services.size);
+}
+
+function getFilteredCouponConsoleItems() {
+  const filters = couponConsoleState.filters || {};
+  const service = normalizeCouponConsoleServiceType(filters.service);
+  const category = String(filters.category || '').trim().toLowerCase();
+  const status = normalizeCouponConsoleStatusValue(filters.status || '', { allowEmpty: true });
+  const activity = String(filters.activity || '').trim().toLowerCase();
+  const partnerId = String(filters.partnerId || '').trim();
+  const search = String(filters.search || '').trim().toLowerCase();
+
+  const rows = Array.isArray(couponConsoleState.items) ? couponConsoleState.items : [];
+  return rows.filter((item) => {
+    if (!item || !item.id) return false;
+    if (service && normalizeCouponConsoleServiceType(item.serviceType) !== service) return false;
+    if (String(filters.status || '').trim() && normalizeCouponConsoleStatusValue(item.status) !== status) return false;
+    if (activity === 'enabled' && !item.isActive) return false;
+    if (activity === 'disabled' && item.isActive) return false;
+    if (partnerId && String(item.partnerId || '') !== partnerId) return false;
+
+    if (category) {
+      const categoryHaystack = [
+        ...(Array.isArray(item.categories) ? item.categories : []),
+        ...(Array.isArray(item.scopeLines) ? item.scopeLines : []),
+        item.scopeSummary,
+      ]
+        .map((entry) => String(entry || '').toLowerCase())
+        .join(' ');
+      if (!categoryHaystack.includes(category)) return false;
+    }
+
+    if (search) {
+      const haystack = [
+        item.code,
+        item.name,
+        item.description,
+        item.internalNotes,
+        item.scopeSummary,
+        item.partnerLabel,
+        item.serviceType,
+        ...(Array.isArray(item.categories) ? item.categories : []),
+      ]
+        .map((entry) => String(entry || '').toLowerCase())
+        .join(' ');
+      if (!haystack.includes(search)) return false;
+    }
+
+    return true;
+  });
+}
+
+function renderCouponConsoleData() {
+  const filtered = getFilteredCouponConsoleItems();
+  updateCouponConsoleStats(filtered);
+  buildCouponConsoleTableRows(filtered);
+}
+
+function clearCouponConsoleFilters() {
+  couponConsoleState.filters = {
+    service: '',
+    category: '',
+    status: '',
+    activity: '',
+    partnerId: '',
+    search: '',
+  };
+
+  const serviceFilter = $('#couponConsoleServiceFilter');
+  if (serviceFilter) serviceFilter.value = '';
+  const categoryFilter = $('#couponConsoleCategoryFilter');
+  if (categoryFilter) categoryFilter.value = '';
+  const statusFilter = $('#couponConsoleStatusFilter');
+  if (statusFilter) statusFilter.value = '';
+  const activityFilter = $('#couponConsoleActivityFilter');
+  if (activityFilter) activityFilter.value = '';
+  const partnerFilter = $('#couponConsolePartnerFilter');
+  if (partnerFilter) partnerFilter.value = '';
+  const searchInput = $('#couponConsoleSearchInput');
+  if (searchInput) searchInput.value = '';
+
+  renderCouponConsoleData();
+}
+
+function normalizeCouponConsoleCarsItem(coupon = {}, usageMap = {}) {
+  const scope = formatCouponScope(coupon);
+  const usage = usageMap[String(coupon?.id || '')] || {
+    redemptionCount: 0,
+    totalDiscountAmount: 0,
+    lastRedeemedAt: null,
+  };
+  const categories = normalizeCouponConsoleTextArray([
+    ...normalizeCouponArray(coupon?.applicable_locations),
+    ...normalizeCouponArray(coupon?.applicable_car_models),
+    ...normalizeCouponArray(coupon?.applicable_car_types),
+  ]);
+
+  return {
+    id: String(coupon?.id || ''),
+    serviceType: 'cars',
+    code: String(coupon?.code || ''),
+    name: String(coupon?.name || ''),
+    description: String(coupon?.description || ''),
+    internalNotes: String(coupon?.internal_notes || ''),
+    status: normalizeCouponConsoleStatusValue(coupon?.status),
+    isActive: Boolean(coupon?.is_active),
+    discountType: String(coupon?.discount_type || ''),
+    discountLabel: formatCouponDiscount(coupon),
+    partnerId: String(coupon?.partner_id || ''),
+    partnerLabel: getCarCouponPartnerLabel(coupon?.partner_id),
+    categories,
+    scopeSummary: scope.includeText || 'All cars/offers',
+    scopeLines: [scope.excludeText].filter(Boolean),
+    usageCount: Number(usage.redemptionCount || 0),
+    usageAmount: Number(usage.totalDiscountAmount || 0),
+    usageLimit: Number(coupon?.usage_limit_total || 0),
+    lastRedeemedAt: usage.lastRedeemedAt || null,
+    updatedAtTs: Date.parse(coupon?.updated_at || coupon?.created_at || '') || 0,
+    createdAtTs: Date.parse(coupon?.created_at || '') || 0,
+  };
+}
+
+function normalizeCouponConsoleServiceItem(coupon = {}, usageMap = {}) {
+  const serviceType = normalizeServiceCouponServiceType(coupon?.service_type);
+  const usage = usageMap[String(coupon?.id || '')] || {
+    redemptionCount: 0,
+    totalDiscountAmount: 0,
+    lastRedeemedAt: null,
+  };
+  const categories = normalizeCouponConsoleTextArray(getServiceCouponCategoryKeys(coupon));
+
+  return {
+    id: String(coupon?.id || ''),
+    serviceType,
+    code: String(coupon?.code || ''),
+    name: String(coupon?.name || ''),
+    description: String(coupon?.description || ''),
+    internalNotes: String(coupon?.internal_notes || ''),
+    status: normalizeCouponConsoleStatusValue(coupon?.status),
+    isActive: Boolean(coupon?.is_active),
+    discountType: String(coupon?.discount_type || ''),
+    discountLabel: formatServiceCouponDiscount(coupon),
+    partnerId: String(coupon?.partner_id || ''),
+    partnerLabel: getServiceCouponPartnerLabel(coupon?.partner_id),
+    categories,
+    scopeSummary: getServiceCouponScopeSummary(coupon),
+    scopeLines: [],
+    usageCount: Number(usage.redemptionCount || 0),
+    usageAmount: Number(usage.totalDiscountAmount || 0),
+    usageLimit: Number(coupon?.usage_limit_total || 0),
+    lastRedeemedAt: usage.lastRedeemedAt || null,
+    updatedAtTs: Date.parse(coupon?.updated_at || coupon?.created_at || '') || 0,
+    createdAtTs: Date.parse(coupon?.created_at || '') || 0,
+  };
+}
+
+function normalizeCouponConsoleShopItem(discount = {}) {
+  const description = String(discount?.description_en || discount?.description || '').trim();
+  const categories = normalizeCouponConsoleTextArray([discount?.applies_to]);
+
+  return {
+    id: String(discount?.id || ''),
+    serviceType: 'shop',
+    code: String(discount?.code || ''),
+    name: description,
+    description,
+    internalNotes: String(discount?.description_internal || ''),
+    status: normalizeShopDiscountStatusForConsole(discount),
+    isActive: Boolean(discount?.is_active),
+    discountType: String(discount?.discount_type || ''),
+    discountLabel: formatShopDiscountValueForConsole(discount),
+    partnerId: '',
+    partnerLabel: 'No partner',
+    categories,
+    scopeSummary: formatCouponConsoleShopScope(discount),
+    scopeLines: [
+      Number(discount?.minimum_order_amount) > 0 ? `Min order: ${formatCurrencyEUR(discount.minimum_order_amount)}` : '',
+      Number(discount?.usage_limit) > 0 ? `Usage limit: ${discount.usage_limit}` : '',
+    ].filter(Boolean),
+    usageCount: Number(discount?.usage_count || 0),
+    usageAmount: 0,
+    usageLimit: Number(discount?.usage_limit || 0),
+    lastRedeemedAt: null,
+    updatedAtTs: Date.parse(discount?.updated_at || discount?.created_at || '') || 0,
+    createdAtTs: Date.parse(discount?.created_at || '') || 0,
+  };
+}
+
+async function loadCouponConsoleData(options = {}) {
+  const { silent = false, forceReload = false } = options;
+  if (couponConsoleState.loading) return;
+
+  const nowTs = Date.now();
+  if (!forceReload && couponConsoleState.loadedAt > 0 && (nowTs - couponConsoleState.loadedAt) < COUPON_CONSOLE_CACHE_MS && couponConsoleState.items.length > 0) {
+    renderCouponConsoleData();
+    return;
+  }
+
+  try {
+    couponConsoleState.loading = true;
+    setCouponConsoleLoadingRow('Loading coupons...');
+
+    await ensureServiceCouponPartnersLoaded({ force: forceReload });
+    populateServiceCouponPartnerOptions();
+
+    const client = ensureSupabase();
+    if (!client) throw new Error('Supabase client not available');
+
+    const [carCouponsResult, serviceCouponsResult, shopDiscountsResult] = await Promise.all([
+      client
+        .from('car_coupons')
+        .select([
+          'id',
+          'code',
+          'name',
+          'description',
+          'internal_notes',
+          'status',
+          'is_active',
+          'discount_type',
+          'discount_value',
+          'currency',
+          'partner_id',
+          'usage_limit_total',
+          'applicable_locations',
+          'applicable_offer_ids',
+          'applicable_car_models',
+          'applicable_car_types',
+          'excluded_offer_ids',
+          'excluded_car_models',
+          'excluded_car_types',
+          'updated_at',
+          'created_at',
+        ].join(', ')),
+      client
+        .from('service_coupons')
+        .select([
+          'id',
+          'service_type',
+          'code',
+          'name',
+          'description',
+          'internal_notes',
+          'status',
+          'is_active',
+          'discount_type',
+          'discount_value',
+          'currency',
+          'partner_id',
+          'usage_limit_total',
+          'rules',
+          'updated_at',
+          'created_at',
+        ].join(', ')),
+      client
+        .from('shop_discounts')
+        .select([
+          'id',
+          'code',
+          'description',
+          'description_en',
+          'description_internal',
+          'discount_type',
+          'discount_value',
+          'minimum_order_amount',
+          'usage_count',
+          'usage_limit',
+          'is_active',
+          'applies_to',
+          'starts_at',
+          'expires_at',
+          'updated_at',
+          'created_at',
+        ].join(', ')),
+    ]);
+
+    if (carCouponsResult.error) throw carCouponsResult.error;
+    if (serviceCouponsResult.error) throw serviceCouponsResult.error;
+    if (shopDiscountsResult.error) throw shopDiscountsResult.error;
+
+    const carCoupons = Array.isArray(carCouponsResult.data) ? carCouponsResult.data : [];
+    const serviceCoupons = Array.isArray(serviceCouponsResult.data) ? serviceCouponsResult.data : [];
+    const shopDiscounts = Array.isArray(shopDiscountsResult.data) ? shopDiscountsResult.data : [];
+
+    const [carUsageResult, serviceUsageResult] = await Promise.all([
+      carCoupons.length
+        ? client
+          .from('car_coupon_usage_stats')
+          .select('coupon_id, redemption_count, total_discount_amount, last_redeemed_at')
+          .in('coupon_id', carCoupons.map((coupon) => String(coupon?.id || '')).filter(Boolean))
+        : Promise.resolve({ data: [], error: null }),
+      serviceCoupons.length
+        ? client
+          .from('service_coupon_usage_stats')
+          .select('coupon_id, redemption_count, total_discount_amount, last_redeemed_at')
+          .in('coupon_id', serviceCoupons.map((coupon) => String(coupon?.id || '')).filter(Boolean))
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+    if (carUsageResult.error) throw carUsageResult.error;
+    if (serviceUsageResult.error) throw serviceUsageResult.error;
+
+    const carUsageById = {};
+    (Array.isArray(carUsageResult.data) ? carUsageResult.data : []).forEach((row) => {
+      const couponId = String(row?.coupon_id || '').trim();
+      if (!couponId) return;
+      carUsageById[couponId] = {
+        redemptionCount: Number(row?.redemption_count || 0),
+        totalDiscountAmount: Number(row?.total_discount_amount || 0),
+        lastRedeemedAt: row?.last_redeemed_at || null,
+      };
+    });
+
+    const serviceUsageById = {};
+    (Array.isArray(serviceUsageResult.data) ? serviceUsageResult.data : []).forEach((row) => {
+      const couponId = String(row?.coupon_id || '').trim();
+      if (!couponId) return;
+      serviceUsageById[couponId] = {
+        redemptionCount: Number(row?.redemption_count || 0),
+        totalDiscountAmount: Number(row?.total_discount_amount || 0),
+        lastRedeemedAt: row?.last_redeemed_at || null,
+      };
+    });
+
+    const items = [
+      ...carCoupons.map((coupon) => normalizeCouponConsoleCarsItem(coupon, carUsageById)),
+      ...serviceCoupons
+        .filter((coupon) => SERVICE_COUPON_ALLOWED_SERVICES.has(normalizeServiceCouponServiceType(coupon?.service_type)))
+        .map((coupon) => normalizeCouponConsoleServiceItem(coupon, serviceUsageById)),
+      ...shopDiscounts.map((discount) => normalizeCouponConsoleShopItem(discount)),
+    ].filter((item) => item.id && item.code && COUPON_CONSOLE_ALLOWED_SERVICES.has(item.serviceType));
+
+    items.sort((left, right) => {
+      const tsDiff = Number(right.updatedAtTs || 0) - Number(left.updatedAtTs || 0);
+      if (tsDiff !== 0) return tsDiff;
+      return String(left.code || '').localeCompare(String(right.code || ''), undefined, { sensitivity: 'base' });
+    });
+
+    couponConsoleState.items = items;
+    couponConsoleState.loadedAt = Date.now();
+    renderCouponConsoleData();
+  } catch (error) {
+    console.error('Failed to load unified coupon console:', error);
+    const raw = adminErrorDetails(error, 'Failed to load coupons console');
+    const friendly = (
+      isMissingTableError(error, 'car_coupons')
+      || isMissingTableError(error, 'service_coupons')
+      || isMissingTableError(error, 'shop_discounts')
+      || isMissingTableError(error, 'car_coupon_usage_stats')
+      || isMissingTableError(error, 'service_coupon_usage_stats')
+    )
+      ? 'Coupons schema is missing. Run latest coupon migrations and refresh.'
+      : raw;
+    renderCouponConsoleErrorRow(friendly);
+    if (!silent) showToast(friendly, 'error');
+  } finally {
+    couponConsoleState.loading = false;
+  }
+}
+
+async function openCouponConsoleItemEditor(item) {
+  const serviceType = normalizeCouponConsoleServiceType(item?.serviceType);
+  const itemId = String(item?.id || '').trim();
+  if (!serviceType || !itemId) return;
+
+  if (serviceType === 'cars') {
+    await openCarCouponModal(itemId);
+    return;
+  }
+
+  if (serviceType === 'shop') {
+    await showDiscountForm(itemId);
+    return;
+  }
+
+  await switchCouponsCenterTab(serviceType, { silent: true, forceReload: true });
+  await openServiceCouponForm(itemId);
+}
+
+async function setCouponConsoleItemActiveState(item, isActive) {
+  const serviceType = normalizeCouponConsoleServiceType(item?.serviceType);
+  const itemId = String(item?.id || '').trim();
+  if (!serviceType || !itemId) return;
+
+  if (serviceType === 'cars') {
+    await setCarCouponActiveState(itemId, isActive);
+    await loadCouponConsoleData({ silent: true, forceReload: true });
+    return;
+  }
+
+  if (serviceType === 'shop') {
+    const client = ensureSupabase();
+    if (!client) throw new Error('Supabase client not available');
+    const { error } = await client
+      .from('shop_discounts')
+      .update({ is_active: Boolean(isActive) })
+      .eq('id', itemId);
+    if (error) throw error;
+    showToast(Boolean(isActive) ? 'Shop coupon enabled' : 'Shop coupon disabled', 'success');
+    await loadShopDiscounts();
+    await loadCouponConsoleData({ silent: true, forceReload: true });
+    return;
+  }
+
+  await setServiceCouponActiveState(itemId, isActive);
+  await loadCouponConsoleData({ silent: true, forceReload: true });
+}
+
+async function deleteCouponConsoleItem(item) {
+  const serviceType = normalizeCouponConsoleServiceType(item?.serviceType);
+  const itemId = String(item?.id || '').trim();
+  if (!serviceType || !itemId) return;
+
+  if (serviceType === 'cars') {
+    await deleteCarCoupon(itemId);
+    await loadCouponConsoleData({ silent: true, forceReload: true });
+    return;
+  }
+
+  if (serviceType === 'shop') {
+    await deleteShopDiscount(itemId, String(item?.code || ''));
+    await loadCouponConsoleData({ silent: true, forceReload: true });
+    return;
+  }
+
+  await deleteServiceCoupon(itemId);
+  await loadCouponConsoleData({ silent: true, forceReload: true });
+}
+
+async function handleCouponConsoleTableClick(event) {
+  const button = event?.target?.closest?.('button[data-coupon-console-action]');
+  if (!button) return;
+
+  const action = String(button.dataset.couponConsoleAction || '').trim().toLowerCase();
+  const key = String(button.dataset.couponConsoleKey || '').trim();
+  if (!action || !key) return;
+
+  const [serviceTypeRaw, ...idParts] = key.split(':');
+  const serviceType = normalizeCouponConsoleServiceType(serviceTypeRaw);
+  const itemId = idParts.join(':').trim();
+  if (!serviceType || !itemId) return;
+
+  const item = (couponConsoleState.items || []).find((row) => {
+    return normalizeCouponConsoleServiceType(row?.serviceType) === serviceType && String(row?.id || '') === itemId;
+  });
+  if (!item) {
+    showToast('Coupon row not found. Refresh console and try again.', 'error');
+    return;
+  }
+
+  try {
+    if (action === 'edit') {
+      await openCouponConsoleItemEditor(item);
+      return;
+    }
+    if (action === 'activate') {
+      await setCouponConsoleItemActiveState(item, true);
+      return;
+    }
+    if (action === 'deactivate') {
+      await setCouponConsoleItemActiveState(item, false);
+      return;
+    }
+    if (action === 'delete') {
+      await deleteCouponConsoleItem(item);
+    }
+  } catch (error) {
+    console.error('Coupon console action failed:', error);
+    showToast(adminErrorDetails(error, 'Coupon action failed'), 'error');
+  }
 }
 
 function setServiceCouponsViewError(message) {
@@ -22049,6 +22789,7 @@ async function switchCouponsCenterTab(tab, options = {}) {
 
   mountCouponsCenterPanels();
   couponsCenterState.activeTab = normalizedTab;
+  void loadCouponConsoleData({ silent: true, forceReload });
 
   document.querySelectorAll('[data-coupons-tab]').forEach((button) => {
     const btnTab = normalizeCouponsCenterTabValue(button.getAttribute('data-coupons-tab'));
@@ -22180,11 +22921,25 @@ function populateServiceCouponPartnerOptions() {
       partnerSelect.value = prev;
     }
   }
+
+  const consolePartnerFilter = $('#couponConsolePartnerFilter');
+  if (consolePartnerFilter) {
+    const prev = String(consolePartnerFilter.value || '');
+    consolePartnerFilter.innerHTML = '<option value="">All partners</option>' + options;
+    const hasPrev = prev && Array.from(consolePartnerFilter.options || []).some((option) => String(option.value || '') === prev);
+    if (hasPrev) {
+      consolePartnerFilter.value = prev;
+    } else if (prev) {
+      consolePartnerFilter.value = '';
+      couponConsoleState.filters.partnerId = '';
+    }
+  }
 }
 
 function clearServiceCouponFilters() {
   serviceCouponsState.filters = {
     search: '',
+    category: '',
     status: '',
     activity: '',
     discountType: '',
@@ -22200,6 +22955,8 @@ function clearServiceCouponFilters() {
   if (typeFilter) typeFilter.value = '';
   const partnerFilter = $('#serviceCouponsPartnerFilter');
   if (partnerFilter) partnerFilter.value = '';
+  const categoryFilter = $('#serviceCouponsCategoryFilter');
+  if (categoryFilter) categoryFilter.value = '';
   renderServiceCouponsData();
 }
 
@@ -22235,6 +22992,8 @@ function formatServiceCouponLimits(coupon) {
   if (Number.isFinite(Number(coupon?.min_order_total))) {
     parts.push(`Min total: ${formatCurrencyEUR(coupon.min_order_total)}`);
   }
+  const scopeSummary = getServiceCouponScopeSummary(coupon);
+  if (scopeSummary) parts.push(`Scope: ${scopeSummary}`);
   return parts.length ? parts.join(' • ') : 'No limits';
 }
 
@@ -22270,6 +23029,7 @@ function getCurrentServiceCoupons() {
 function getFilteredServiceCoupons() {
   const filters = serviceCouponsState.filters || {};
   const search = String(filters.search || '').trim().toLowerCase();
+  const category = String(filters.category || '').trim().toLowerCase();
   const status = String(filters.status || '').trim().toLowerCase();
   const activity = String(filters.activity || '').trim().toLowerCase();
   const discountType = String(filters.discountType || '').trim().toLowerCase();
@@ -22284,6 +23044,16 @@ function getFilteredServiceCoupons() {
     if (activity === 'enabled' && !coupon.is_active) return false;
     if (activity === 'disabled' && coupon.is_active) return false;
 
+    if (category) {
+      const categoryHaystack = [
+        ...getServiceCouponCategoryKeys(coupon),
+        getServiceCouponScopeSummary(coupon),
+      ]
+        .map((item) => String(item || '').toLowerCase())
+        .join(' ');
+      if (!categoryHaystack.includes(category)) return false;
+    }
+
     if (search) {
       const partnerLabel = getServiceCouponPartnerLabel(coupon.partner_id).toLowerCase();
       const haystack = [
@@ -22292,6 +23062,8 @@ function getFilteredServiceCoupons() {
         coupon.description,
         coupon.internal_notes,
         partnerLabel,
+        getServiceCouponScopeSummary(coupon),
+        ...getServiceCouponCategoryKeys(coupon),
       ]
         .map((item) => String(item || '').toLowerCase())
         .join(' ');
@@ -22449,6 +23221,12 @@ function resetServiceCouponForm() {
   if (isActive) isActive.checked = true;
   const singleUse = $('#serviceCouponSingleUse');
   if (singleUse) singleUse.checked = false;
+  const scopeMode = $('#serviceCouponScopeMode');
+  if (scopeMode) scopeMode.value = 'all';
+  const categoryKeys = $('#serviceCouponCategoryKeys');
+  if (categoryKeys) categoryKeys.value = '';
+  const resourceIds = $('#serviceCouponResourceIds');
+  if (resourceIds) resourceIds.value = '';
   syncServiceCouponDiscountTypeFields();
   syncServiceCouponSingleUseFields();
 }
@@ -22498,6 +23276,10 @@ async function openServiceCouponForm(couponId = null) {
     $('#serviceCouponMinOrderTotal').value = coupon.min_order_total ?? '';
     $('#serviceCouponPartnerId').value = String(coupon.partner_id || '');
     $('#serviceCouponPartnerCommissionBps').value = coupon.partner_commission_bps_override ?? '';
+    const rules = normalizeServiceCouponRules(coupon);
+    $('#serviceCouponScopeMode').value = getServiceCouponScopeMode(coupon);
+    $('#serviceCouponCategoryKeys').value = normalizeCouponArray(rules.category_keys).join(', ');
+    $('#serviceCouponResourceIds').value = normalizeCouponArray(rules.resource_ids).join(', ');
     if (formTitle) formTitle.textContent = `Edit coupon ${coupon.code || ''}`;
     if (formSubtitle) formSubtitle.textContent = 'Update coupon rules and save.';
     if (submitBtn) submitBtn.textContent = 'Save changes';
@@ -22510,6 +23292,16 @@ async function openServiceCouponForm(couponId = null) {
   syncServiceCouponDiscountTypeFields();
   syncServiceCouponSingleUseFields();
   card.hidden = false;
+}
+
+function parseServiceCouponUuidList(value, label) {
+  const values = parseCouponListInput(value);
+  values.forEach((entry) => {
+    if (!CAR_COUPON_UUID_PATTERN.test(entry)) {
+      throw new Error(`${label}: invalid UUID "${entry}"`);
+    }
+  });
+  return values;
 }
 
 function collectServiceCouponPayload() {
@@ -22545,6 +23337,24 @@ function collectServiceCouponPayload() {
     throw new Error('Invalid partner id');
   }
 
+  const scopeModeRaw = String($('#serviceCouponScopeMode')?.value || 'all').trim().toLowerCase();
+  const scopeMode = (scopeModeRaw === 'category' || scopeModeRaw === 'resource') ? scopeModeRaw : 'all';
+  const categoryKeys = parseCouponListInput($('#serviceCouponCategoryKeys')?.value || '')
+    .map((entry) => String(entry || '').trim().toLowerCase())
+    .filter(Boolean);
+  const resourceIds = parseServiceCouponUuidList($('#serviceCouponResourceIds')?.value || '', 'Resource IDs');
+
+  const rules = {};
+  if (scopeMode !== 'all') rules.scope_mode = scopeMode;
+  if (categoryKeys.length > 0) rules.category_keys = Array.from(new Set(categoryKeys));
+  if (resourceIds.length > 0) rules.resource_ids = resourceIds;
+  if (scopeMode === 'category' && categoryKeys.length === 0) {
+    throw new Error('At least one category key is required for category scope');
+  }
+  if (scopeMode === 'resource' && resourceIds.length === 0) {
+    throw new Error('At least one resource ID is required for resource scope');
+  }
+
   const payload = {
     service_type: serviceType,
     code,
@@ -22564,6 +23374,7 @@ function collectServiceCouponPayload() {
     min_order_total: parseCouponOptionalNumber($('#serviceCouponMinOrderTotal')?.value, 'Minimum order total', 0),
     partner_id: partnerIdRaw || null,
     partner_commission_bps_override: parseCouponOptionalInteger($('#serviceCouponPartnerCommissionBps')?.value, 'Partner commission override', 0),
+    rules,
     updated_by: adminState?.user?.id || null,
   };
 
@@ -22617,6 +23428,7 @@ async function handleServiceCouponFormSubmit(event) {
     showToast(couponId ? 'Coupon updated successfully' : 'Coupon created successfully', 'success');
     closeServiceCouponForm();
     await loadServiceCouponsData(getActiveServiceCouponType(), { silent: true, forceReload: true });
+    await loadCouponConsoleData({ silent: true, forceReload: true });
   } catch (error) {
     console.error('Failed to save service coupon:', error);
     showToast(adminErrorDetails(error, 'Failed to save coupon'), 'error');
@@ -22646,6 +23458,7 @@ async function setServiceCouponActiveState(couponId, isActive) {
 
     if (error) throw error;
     await loadServiceCouponsData(getActiveServiceCouponType(), { silent: true });
+    await loadCouponConsoleData({ silent: true, forceReload: true });
   } catch (error) {
     console.error('Failed to change service coupon activity:', error);
     const msg = adminErrorDetails(error, 'Failed to update coupon state');
@@ -22675,6 +23488,7 @@ async function deleteServiceCoupon(couponId) {
 
     showToast('Coupon deleted successfully', 'success');
     await loadServiceCouponsData(getActiveServiceCouponType(), { silent: true });
+    await loadCouponConsoleData({ silent: true, forceReload: true });
   } catch (error) {
     console.error('Failed to delete service coupon:', error);
     const msg = adminErrorDetails(error, 'Failed to delete coupon');
@@ -22711,14 +23525,17 @@ async function refreshCouponsCenterCurrentTab() {
   const activeTab = normalizeCouponsCenterTabValue(couponsCenterState.activeTab || 'cars');
   if (activeTab === 'cars') {
     await loadCarCouponsData({ silent: false, showSuccessToast: true, forcePartnersRefresh: true });
+    await loadCouponConsoleData({ silent: true, forceReload: true });
     return;
   }
   if (activeTab === 'shop') {
     await loadShopDiscounts();
+    await loadCouponConsoleData({ silent: true, forceReload: true });
     showToast('Shop discounts refreshed', 'success');
     return;
   }
   await loadServiceCouponsData(getActiveServiceCouponType(), { silent: false, forceReload: true });
+  await loadCouponConsoleData({ silent: true, forceReload: true });
   showToast('Service coupons refreshed', 'success');
 }
 
@@ -27664,10 +28481,85 @@ function initEventListeners() {
     });
   }
 
+  const serviceCouponsCategoryFilter = $('#serviceCouponsCategoryFilter');
+  if (serviceCouponsCategoryFilter) {
+    serviceCouponsCategoryFilter.addEventListener('input', (event) => {
+      serviceCouponsState.filters.category = String(event.target?.value || '');
+      renderServiceCouponsData();
+    });
+  }
+
   const serviceCouponsTableBody = $('#serviceCouponsTableBody');
   if (serviceCouponsTableBody) {
     serviceCouponsTableBody.addEventListener('click', (event) => {
       void handleServiceCouponsTableClick(event);
+    });
+  }
+
+  const couponConsoleServiceFilter = $('#couponConsoleServiceFilter');
+  if (couponConsoleServiceFilter) {
+    couponConsoleServiceFilter.addEventListener('change', (event) => {
+      couponConsoleState.filters.service = normalizeCouponConsoleServiceType(event.target?.value || '');
+      renderCouponConsoleData();
+    });
+  }
+
+  const couponConsoleCategoryFilter = $('#couponConsoleCategoryFilter');
+  if (couponConsoleCategoryFilter) {
+    couponConsoleCategoryFilter.addEventListener('input', (event) => {
+      couponConsoleState.filters.category = String(event.target?.value || '');
+      renderCouponConsoleData();
+    });
+  }
+
+  const couponConsoleStatusFilter = $('#couponConsoleStatusFilter');
+  if (couponConsoleStatusFilter) {
+    couponConsoleStatusFilter.addEventListener('change', (event) => {
+      couponConsoleState.filters.status = normalizeCouponConsoleStatusValue(event.target?.value || '', { allowEmpty: true });
+      renderCouponConsoleData();
+    });
+  }
+
+  const couponConsoleActivityFilter = $('#couponConsoleActivityFilter');
+  if (couponConsoleActivityFilter) {
+    couponConsoleActivityFilter.addEventListener('change', (event) => {
+      couponConsoleState.filters.activity = String(event.target?.value || '').trim().toLowerCase();
+      renderCouponConsoleData();
+    });
+  }
+
+  const couponConsolePartnerFilter = $('#couponConsolePartnerFilter');
+  if (couponConsolePartnerFilter) {
+    couponConsolePartnerFilter.addEventListener('change', (event) => {
+      couponConsoleState.filters.partnerId = String(event.target?.value || '').trim();
+      renderCouponConsoleData();
+    });
+  }
+
+  const couponConsoleSearchInput = $('#couponConsoleSearchInput');
+  if (couponConsoleSearchInput) {
+    couponConsoleSearchInput.addEventListener('input', (event) => {
+      couponConsoleState.filters.search = String(event.target?.value || '');
+      renderCouponConsoleData();
+    });
+  }
+
+  const btnCouponConsoleClearFilters = $('#btnCouponConsoleClearFilters');
+  if (btnCouponConsoleClearFilters) {
+    btnCouponConsoleClearFilters.addEventListener('click', clearCouponConsoleFilters);
+  }
+
+  const btnCouponConsoleRefresh = $('#btnCouponConsoleRefresh');
+  if (btnCouponConsoleRefresh) {
+    btnCouponConsoleRefresh.addEventListener('click', () => {
+      void loadCouponConsoleData({ silent: false, forceReload: true });
+    });
+  }
+
+  const couponConsoleTableBody = $('#couponConsoleTableBody');
+  if (couponConsoleTableBody) {
+    couponConsoleTableBody.addEventListener('click', (event) => {
+      void handleCouponConsoleTableClick(event);
     });
   }
 

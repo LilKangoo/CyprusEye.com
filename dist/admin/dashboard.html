@@ -3207,6 +3207,113 @@
           </div>
         </div>
 
+        <div class="admin-card coupons-console-card">
+          <div class="admin-card-header" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+            <div>
+              <h3>Unified Coupon Console</h3>
+              <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">
+                Full control by service and service category in one table with live stats.
+              </p>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button type="button" class="btn-secondary" id="btnCouponConsoleClearFilters">Clear filters</button>
+              <button type="button" class="btn-secondary" id="btnCouponConsoleRefresh">Refresh all</button>
+            </div>
+          </div>
+          <div class="admin-card-body">
+            <div class="coupons-console-stats">
+              <div class="coupons-console-stat">
+                <p class="coupons-console-stat-label">Visible coupons</p>
+                <p class="coupons-console-stat-value" id="couponConsoleStatVisible">-</p>
+                <p class="coupons-console-stat-sub">After current filters</p>
+              </div>
+              <div class="coupons-console-stat">
+                <p class="coupons-console-stat-label">Enabled</p>
+                <p class="coupons-console-stat-value" id="couponConsoleStatEnabled">-</p>
+                <p class="coupons-console-stat-sub">Ready for booking flow</p>
+              </div>
+              <div class="coupons-console-stat">
+                <p class="coupons-console-stat-label">Redemptions</p>
+                <p class="coupons-console-stat-value" id="couponConsoleStatRedemptions">-</p>
+                <p class="coupons-console-stat-sub">Total usage snapshot</p>
+              </div>
+              <div class="coupons-console-stat">
+                <p class="coupons-console-stat-label">Services in scope</p>
+                <p class="coupons-console-stat-value" id="couponConsoleStatServices">-</p>
+                <p class="coupons-console-stat-sub">Cars / Trips / Hotels / Transport / Shop</p>
+              </div>
+            </div>
+
+            <div class="coupons-console-filters-grid">
+              <label class="admin-form-field">
+                <span>Service</span>
+                <select id="couponConsoleServiceFilter">
+                  <option value="">All services</option>
+                  <option value="cars">Cars</option>
+                  <option value="trips">Trips</option>
+                  <option value="hotels">Hotels</option>
+                  <option value="transport">Transport</option>
+                  <option value="shop">Shop</option>
+                </select>
+              </label>
+              <label class="admin-form-field">
+                <span>Category</span>
+                <input type="text" id="couponConsoleCategoryFilter" placeholder="e.g. airport, suv, city_tour, supplements..." />
+              </label>
+              <label class="admin-form-field">
+                <span>Status</span>
+                <select id="couponConsoleStatusFilter">
+                  <option value="">All statuses</option>
+                  <option value="draft">Draft</option>
+                  <option value="active">Active</option>
+                  <option value="paused">Paused</option>
+                  <option value="expired">Expired</option>
+                </select>
+              </label>
+              <label class="admin-form-field">
+                <span>Activity</span>
+                <select id="couponConsoleActivityFilter">
+                  <option value="">All activity</option>
+                  <option value="enabled">Enabled</option>
+                  <option value="disabled">Disabled</option>
+                </select>
+              </label>
+              <label class="admin-form-field">
+                <span>Partner</span>
+                <select id="couponConsolePartnerFilter">
+                  <option value="">All partners</option>
+                </select>
+              </label>
+              <label class="admin-form-field">
+                <span>Search</span>
+                <input type="text" id="couponConsoleSearchInput" placeholder="Code, name, notes, scope..." />
+              </label>
+            </div>
+
+            <div class="admin-table-container" aria-label="Coupons control table">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Service</th>
+                    <th>Code</th>
+                    <th>Category Scope</th>
+                    <th>Discount</th>
+                    <th>Partner</th>
+                    <th>Status</th>
+                    <th>Usage</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="couponConsoleTableBody">
+                  <tr>
+                    <td colspan="8" class="table-loading">Loading coupons...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         <div class="admin-tabs coupons-center-tabs" id="couponsCenterTabs">
           <button class="admin-tab active" type="button" data-coupons-tab="cars">Cars</button>
           <button class="admin-tab" type="button" data-coupons-tab="trips">Trips</button>
@@ -3273,6 +3380,10 @@
                   <select id="serviceCouponsPartnerFilter">
                     <option value="">All partners</option>
                   </select>
+                </label>
+                <label class="admin-form-field">
+                  <span>Category</span>
+                  <input type="text" id="serviceCouponsCategoryFilter" placeholder="Filter by category key..." />
                 </label>
                 <div class="cars-coupons-filters-actions">
                   <button type="button" class="btn-secondary" id="btnServiceCouponsClearFilters">Clear Filters</button>
@@ -3375,6 +3486,22 @@
                     <select id="serviceCouponPartnerId">
                       <option value="">No partner</option>
                     </select>
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Scope mode</span>
+                    <select id="serviceCouponScopeMode">
+                      <option value="all">All service bookings</option>
+                      <option value="category">Only selected categories</option>
+                      <option value="resource">Selected resource IDs</option>
+                    </select>
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Service category keys</span>
+                    <input type="text" id="serviceCouponCategoryKeys" placeholder="city_tour, airport_transfer, suv, seaside" />
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Resource IDs (optional)</span>
+                    <input type="text" id="serviceCouponResourceIds" placeholder="UUID, UUID..." />
                   </label>
                   <label class="admin-form-field">
                     <span>Partner commission override (bps)</span>

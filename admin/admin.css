@@ -3048,6 +3048,93 @@ body[data-admin-panel="true"].admin-sidebar-open {
   }
 }
 
+@media (max-width: 768px) {
+  .admin-table-container[aria-label="Coupons control table"],
+  .admin-table-container[aria-label="Service coupons table"] {
+    overflow: visible;
+    border: none;
+    background: transparent;
+  }
+
+  .admin-table-container[aria-label="Coupons control table"] .admin-table,
+  .admin-table-container[aria-label="Service coupons table"] .admin-table {
+    min-width: 0;
+  }
+
+  .admin-table-container[aria-label="Coupons control table"] .admin-table thead,
+  .admin-table-container[aria-label="Service coupons table"] .admin-table thead {
+    display: none;
+  }
+
+  .admin-table-container[aria-label="Coupons control table"] .admin-table,
+  .admin-table-container[aria-label="Coupons control table"] .admin-table tbody,
+  .admin-table-container[aria-label="Coupons control table"] .admin-table tr,
+  .admin-table-container[aria-label="Coupons control table"] .admin-table td,
+  .admin-table-container[aria-label="Service coupons table"] .admin-table,
+  .admin-table-container[aria-label="Service coupons table"] .admin-table tbody,
+  .admin-table-container[aria-label="Service coupons table"] .admin-table tr,
+  .admin-table-container[aria-label="Service coupons table"] .admin-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .admin-table-container[aria-label="Coupons control table"] .admin-table tr,
+  .admin-table-container[aria-label="Service coupons table"] .admin-table tr {
+    border: 1px solid var(--admin-border);
+    background: var(--admin-bg-light);
+    border-radius: 14px;
+    overflow: hidden;
+    margin: 0 0 12px;
+  }
+
+  .admin-table-container[aria-label="Coupons control table"] .admin-table td,
+  .admin-table-container[aria-label="Service coupons table"] .admin-table td {
+    border-bottom: 1px solid var(--admin-border);
+    padding: 10px 12px;
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    justify-items: end;
+    text-align: right;
+    white-space: normal !important;
+  }
+
+  .admin-table-container[aria-label="Coupons control table"] .admin-table td::before,
+  .admin-table-container[aria-label="Service coupons table"] .admin-table td::before {
+    content: attr(data-label);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--admin-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .admin-table-container[aria-label="Coupons control table"] .admin-table td:last-child,
+  .admin-table-container[aria-label="Service coupons table"] .admin-table td:last-child {
+    border-bottom: none;
+  }
+
+  .admin-table-container[aria-label="Coupons control table"] .admin-table td[colspan],
+  .admin-table-container[aria-label="Service coupons table"] .admin-table td[colspan] {
+    display: block;
+    text-align: center;
+  }
+
+  .admin-table-container[aria-label="Coupons control table"] .admin-table td[colspan]::before,
+  .admin-table-container[aria-label="Service coupons table"] .admin-table td[colspan]::before {
+    content: none;
+    display: none;
+  }
+
+  .admin-table-container[aria-label="Coupons control table"] .admin-table td:last-child button,
+  .admin-table-container[aria-label="Service coupons table"] .admin-table td:last-child button {
+    width: 100%;
+    margin-top: 8px;
+    justify-content: center;
+  }
+}
+
 /* =====================================================
    ALL ORDERS PANEL - UNIFIED ORDERS MANAGEMENT
    ===================================================== */
@@ -4334,6 +4421,100 @@ select#orderStatusFilter:focus {
 .coupons-center-tabs {
   margin-bottom: 16px;
   flex-wrap: wrap;
+}
+
+.coupons-console-card {
+  margin-bottom: 16px;
+}
+
+.coupons-console-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.coupons-console-stat {
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.04), rgba(17, 24, 39, 0.3));
+  padding: 12px;
+}
+
+.coupons-console-stat-label {
+  margin: 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--admin-text-muted);
+}
+
+.coupons-console-stat-value {
+  margin: 6px 0 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--admin-text);
+}
+
+.coupons-console-stat-sub {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--admin-text-muted);
+}
+
+.coupons-console-filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.coupon-console-service-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+}
+
+.coupon-console-service-badge.is-cars {
+  background: rgba(59, 130, 246, 0.14);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #93c5fd;
+}
+
+.coupon-console-service-badge.is-trips {
+  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #86efac;
+}
+
+.coupon-console-service-badge.is-hotels {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: #fcd34d;
+}
+
+.coupon-console-service-badge.is-transport {
+  background: rgba(99, 102, 241, 0.14);
+  border-color: rgba(99, 102, 241, 0.3);
+  color: #c7d2fe;
+}
+
+.coupon-console-service-badge.is-shop {
+  background: rgba(236, 72, 153, 0.14);
+  border-color: rgba(236, 72, 153, 0.3);
+  color: #f9a8d4;
+}
+
+.coupon-console-scope-list {
+  margin: 0;
+  padding-left: 16px;
+  color: var(--admin-text-muted);
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 /* Stats Grid */
