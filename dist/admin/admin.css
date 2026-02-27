@@ -3133,6 +3133,33 @@ body[data-admin-panel="true"].admin-sidebar-open {
     margin-top: 8px;
     justify-content: center;
   }
+
+  .admin-table-container[aria-label="Coupons control table"] .admin-table td[data-label="Select"] {
+    grid-template-columns: 1fr;
+    justify-items: start;
+    text-align: left;
+  }
+
+  .admin-table-container[aria-label="Coupons control table"] .admin-table td[data-label="Select"] input[type="checkbox"] {
+    margin-top: 2px;
+  }
+
+  .coupons-console-bulk-toolbar,
+  .coupons-console-bulk-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .coupons-console-bulk-toolbar .btn-secondary,
+  .coupons-console-bulk-actions .btn-secondary,
+  .coupons-console-bulk-apply-row .btn-secondary {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .coupons-console-bulk-fields {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* =====================================================
@@ -4641,6 +4668,66 @@ select#orderStatusFilter:focus {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 12px;
+}
+
+.coupons-console-bulk-panel {
+  margin-top: 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.035), rgba(17, 24, 39, 0.32));
+  padding: 12px;
+}
+
+.coupons-console-bulk-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.coupons-console-bulk-select {
+  margin: 0;
+}
+
+.coupons-console-bulk-summary {
+  margin: 0;
+  font-size: 12px;
+  color: var(--admin-text-muted);
+}
+
+.coupons-console-bulk-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.coupons-console-bulk-fields {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.coupons-console-bulk-apply-row {
+  margin-top: 10px;
+}
+
+.coupons-console-bulk-help {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--admin-text-muted);
+}
+
+.coupon-console-select-cell {
+  width: 56px;
+  text-align: center;
+}
+
+.coupon-console-select-cell input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
 }
 
 .coupon-console-service-badge {

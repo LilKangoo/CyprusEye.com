@@ -3430,10 +3430,53 @@
               </label>
             </div>
 
+            <div class="coupons-console-bulk-panel" aria-label="Bulk coupon actions">
+              <div class="coupons-console-bulk-toolbar">
+                <label class="admin-checkbox coupons-console-bulk-select">
+                  <input type="checkbox" id="couponConsoleSelectAllVisible" />
+                  <span>Select all visible</span>
+                </label>
+                <p class="coupons-console-bulk-summary" id="couponConsoleBulkSelectionSummary">0 selected</p>
+                <button type="button" class="btn-secondary" id="btnCouponConsoleClearSelection" disabled>Clear selection</button>
+              </div>
+              <div class="coupons-console-bulk-actions">
+                <button type="button" class="btn-secondary" id="btnCouponConsoleBulkEnable" disabled>Enable selected</button>
+                <button type="button" class="btn-secondary" id="btnCouponConsoleBulkDisable" disabled>Disable selected</button>
+                <button type="button" class="btn-secondary" id="btnCouponConsoleBulkDelete" disabled style="color: var(--admin-danger); border-color: rgba(239, 68, 68, 0.45);">Delete selected</button>
+              </div>
+              <div class="coupons-console-bulk-fields">
+                <label class="admin-form-field">
+                  <span>Starts at</span>
+                  <input type="datetime-local" id="couponConsoleBulkStartsAt" />
+                </label>
+                <label class="admin-form-field">
+                  <span>Expires at</span>
+                  <input type="datetime-local" id="couponConsoleBulkExpiresAt" />
+                </label>
+                <label class="admin-form-field">
+                  <span>Total usage limit</span>
+                  <input type="number" id="couponConsoleBulkUsageLimitTotal" min="1" step="1" placeholder="keep current" />
+                </label>
+                <label class="admin-form-field">
+                  <span>Per-user limit</span>
+                  <input type="number" id="couponConsoleBulkUsageLimitPerUser" min="1" step="1" placeholder="keep current" />
+                </label>
+                <label class="admin-form-field">
+                  <span>Minimum order total</span>
+                  <input type="number" id="couponConsoleBulkMinOrderTotal" min="0" step="0.01" placeholder="keep current" />
+                </label>
+              </div>
+              <div class="coupon-builder-actions coupon-builder-actions-end coupons-console-bulk-apply-row">
+                <button type="button" class="btn-secondary" id="btnCouponConsoleBulkApplyLimits" disabled>Apply dates and limits to selected</button>
+              </div>
+              <p class="coupons-console-bulk-help">Leave field empty to keep current value. Values are mapped safely per service schema.</p>
+            </div>
+
             <div class="admin-table-container" aria-label="Coupons control table">
               <table class="admin-table">
                 <thead>
                   <tr>
+                    <th>Select</th>
                     <th>Service</th>
                     <th>Code</th>
                     <th>Category Scope</th>
@@ -3446,7 +3489,7 @@
                 </thead>
                 <tbody id="couponConsoleTableBody">
                   <tr>
-                    <td colspan="8" class="table-loading">Loading coupons...</td>
+                    <td colspan="9" class="table-loading">Loading coupons...</td>
                   </tr>
                 </tbody>
               </table>

@@ -21950,6 +21950,9 @@ const couponConsoleState = {
   loading: false,
   loadedAt: 0,
   items: [],
+  filteredItems: [],
+  selection: new Set(),
+  bulkBusy: false,
   filters: {
     service: '',
     category: '',
@@ -22196,23 +22199,27 @@ function formatShopDiscountValueForConsole(discount = {}) {
 function setCouponConsoleLoadingRow(message = 'Loading coupons...') {
   const tbody = $('#couponConsoleTableBody');
   if (!tbody) return;
+  couponConsoleState.filteredItems = [];
   tbody.innerHTML = `
     <tr>
-      <td colspan="8" class="table-loading">${escapeHtml(String(message || 'Loading coupons...'))}</td>
+      <td colspan="9" class="table-loading">${escapeHtml(String(message || 'Loading coupons...'))}</td>
     </tr>
   `;
+  updateCouponConsoleSelectionUi();
 }
 
 function renderCouponConsoleErrorRow(message) {
   const tbody = $('#couponConsoleTableBody');
   if (!tbody) return;
+  couponConsoleState.filteredItems = [];
   tbody.innerHTML = `
     <tr>
-      <td colspan="8" class="table-loading" style="color: var(--admin-danger);">
+      <td colspan="9" class="table-loading" style="color: var(--admin-danger);">
         ${escapeHtml(String(message || 'Failed to load coupons'))}
       </td>
     </tr>
   `;
+  updateCouponConsoleSelectionUi();
 }
 
 function getCouponConsoleServiceMeta(serviceType) {
@@ -22259,14 +22266,142 @@ function getCouponConsoleItemKey(item) {
   return service && id ? `${service}:${id}` : '';
 }
 
+function ensureCouponConsoleSelectionSet() {
+  if (couponConsoleState.selection instanceof Set) return couponConsoleState.selection;
+  const fallback = Array.isArray(couponConsoleState.selection) ? couponConsoleState.selection : [];
+  couponConsoleState.selection = new Set(
+    fallback
+      .map((entry) => String(entry || '').trim())
+      .filter(Boolean),
+  );
+  return couponConsoleState.selection;
+}
+
+function pruneCouponConsoleSelection() {
+  const selection = ensureCouponConsoleSelectionSet();
+  if (!selection.size) return;
+  const validKeys = new Set(
+    (Array.isArray(couponConsoleState.items) ? couponConsoleState.items : [])
+      .map((item) => getCouponConsoleItemKey(item))
+      .filter(Boolean),
+  );
+  selection.forEach((key) => {
+    if (!validKeys.has(key)) selection.delete(key);
+  });
+}
+
+function getCouponConsoleVisibleItems() {
+  return Array.isArray(couponConsoleState.filteredItems) ? couponConsoleState.filteredItems : [];
+}
+
+function getCouponConsoleVisibleItemKeys() {
+  return getCouponConsoleVisibleItems()
+    .map((item) => getCouponConsoleItemKey(item))
+    .filter(Boolean);
+}
+
+function getCouponConsoleItemByKey(key) {
+  const normalizedKey = String(key || '').trim();
+  if (!normalizedKey) return null;
+  const [serviceTypeRaw, ...idParts] = normalizedKey.split(':');
+  const serviceType = normalizeCouponConsoleServiceType(serviceTypeRaw);
+  const itemId = idParts.join(':').trim();
+  if (!serviceType || !itemId) return null;
+  return (couponConsoleState.items || []).find((row) => {
+    return normalizeCouponConsoleServiceType(row?.serviceType) === serviceType && String(row?.id || '') === itemId;
+  }) || null;
+}
+
+function getCouponConsoleSelectedItems() {
+  const selection = ensureCouponConsoleSelectionSet();
+  if (!selection.size) return [];
+  const selected = [];
+  selection.forEach((key) => {
+    const item = getCouponConsoleItemByKey(key);
+    if (item) selected.push(item);
+  });
+  return selected;
+}
+
+function updateCouponConsoleSelectionUi() {
+  const selection = ensureCouponConsoleSelectionSet();
+  const visibleKeys = getCouponConsoleVisibleItemKeys();
+  const selectedCount = selection.size;
+  const visibleSelectedCount = visibleKeys.filter((key) => selection.has(key)).length;
+  const hiddenSelectedCount = Math.max(0, selectedCount - visibleSelectedCount);
+
+  const summaryEl = $('#couponConsoleBulkSelectionSummary');
+  if (summaryEl) {
+    const parts = [`${selectedCount} selected`];
+    if (visibleKeys.length > 0) parts.push(`${visibleSelectedCount}/${visibleKeys.length} visible`);
+    if (hiddenSelectedCount > 0) parts.push(`${hiddenSelectedCount} hidden by filters`);
+    summaryEl.textContent = parts.join(' • ');
+  }
+
+  const selectAllVisibleInput = $('#couponConsoleSelectAllVisible');
+  if (selectAllVisibleInput) {
+    const hasVisible = visibleKeys.length > 0;
+    selectAllVisibleInput.disabled = !hasVisible;
+    selectAllVisibleInput.checked = hasVisible && visibleSelectedCount === visibleKeys.length;
+    selectAllVisibleInput.indeterminate = hasVisible && visibleSelectedCount > 0 && visibleSelectedCount < visibleKeys.length;
+  }
+
+  const controlsDisabled = selectedCount === 0 || Boolean(couponConsoleState.bulkBusy);
+  const clearBtn = $('#btnCouponConsoleClearSelection');
+  if (clearBtn) clearBtn.disabled = controlsDisabled;
+  const bulkEnableBtn = $('#btnCouponConsoleBulkEnable');
+  if (bulkEnableBtn) bulkEnableBtn.disabled = controlsDisabled;
+  const bulkDisableBtn = $('#btnCouponConsoleBulkDisable');
+  if (bulkDisableBtn) bulkDisableBtn.disabled = controlsDisabled;
+  const bulkDeleteBtn = $('#btnCouponConsoleBulkDelete');
+  if (bulkDeleteBtn) bulkDeleteBtn.disabled = controlsDisabled;
+  const bulkApplyBtn = $('#btnCouponConsoleBulkApplyLimits');
+  if (bulkApplyBtn) bulkApplyBtn.disabled = controlsDisabled;
+}
+
+function setCouponConsoleItemSelection(key, isSelected, options = {}) {
+  const normalizedKey = String(key || '').trim();
+  if (!normalizedKey) return;
+  const selection = ensureCouponConsoleSelectionSet();
+  if (isSelected) selection.add(normalizedKey);
+  else selection.delete(normalizedKey);
+
+  if (Boolean(options.rerender)) {
+    renderCouponConsoleData();
+    return;
+  }
+  updateCouponConsoleSelectionUi();
+}
+
+function setCouponConsoleVisibleSelection(isSelected) {
+  const selection = ensureCouponConsoleSelectionSet();
+  getCouponConsoleVisibleItemKeys().forEach((key) => {
+    if (isSelected) selection.add(key);
+    else selection.delete(key);
+  });
+  renderCouponConsoleData();
+}
+
+function clearCouponConsoleSelection(options = {}) {
+  const selection = ensureCouponConsoleSelectionSet();
+  selection.clear();
+  if (Boolean(options.rerender)) {
+    renderCouponConsoleData();
+    return;
+  }
+  updateCouponConsoleSelectionUi();
+}
+
 function buildCouponConsoleTableRows(items) {
   const rows = Array.isArray(items) ? items : [];
   const tbody = $('#couponConsoleTableBody');
   if (!tbody) return;
+  const selection = ensureCouponConsoleSelectionSet();
 
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="table-loading">No coupons found for current filters.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="table-loading">No coupons found for current filters.</td></tr>';
     scheduleResponsiveTableHydration();
+    updateCouponConsoleSelectionUi();
     return;
   }
 
@@ -22289,6 +22424,7 @@ function buildCouponConsoleTableRows(items) {
     const editLabel = item.serviceType === 'shop' ? 'Edit in shop' : 'Edit';
     const toggleAction = item.isActive ? 'deactivate' : 'activate';
     const toggleLabel = item.isActive ? 'Disable' : 'Enable';
+    const isSelected = key ? selection.has(key) : false;
 
     const scopeMarkup = `
       <div>${escapeHtml(String(item.scopeSummary || 'All scope'))}</div>
@@ -22303,6 +22439,9 @@ function buildCouponConsoleTableRows(items) {
 
     return `
       <tr>
+        <td class="coupon-console-select-cell">
+          <input type="checkbox" data-coupon-console-select data-coupon-console-key="${escapeHtml(key)}" ${isSelected ? 'checked' : ''} aria-label="Select coupon row" />
+        </td>
         <td>
           <span class="coupon-console-service-badge ${escapeHtml(serviceMeta.cssClass)}">${escapeHtml(serviceMeta.label)}</span>
         </td>
@@ -22336,6 +22475,7 @@ function buildCouponConsoleTableRows(items) {
   }).join('');
 
   scheduleResponsiveTableHydration();
+  updateCouponConsoleSelectionUi();
 }
 
 function updateCouponConsoleStats(items) {
@@ -22405,7 +22545,9 @@ function getFilteredCouponConsoleItems() {
 }
 
 function renderCouponConsoleData() {
+  pruneCouponConsoleSelection();
   const filtered = getFilteredCouponConsoleItems();
+  couponConsoleState.filteredItems = filtered;
   updateCouponConsoleStats(filtered);
   buildCouponConsoleTableRows(filtered);
 }
@@ -23148,6 +23290,383 @@ async function deleteCouponConsoleItem(item) {
   await loadCouponConsoleData({ silent: true, forceReload: true });
 }
 
+function setCouponConsoleBulkBusy(isBusy = false) {
+  couponConsoleState.bulkBusy = Boolean(isBusy);
+  updateCouponConsoleSelectionUi();
+}
+
+function collectCouponConsoleBulkLimitsPayload() {
+  const startsRaw = String($('#couponConsoleBulkStartsAt')?.value || '').trim();
+  const expiresRaw = String($('#couponConsoleBulkExpiresAt')?.value || '').trim();
+  const usageTotalRaw = String($('#couponConsoleBulkUsageLimitTotal')?.value || '').trim();
+  const usagePerUserRaw = String($('#couponConsoleBulkUsageLimitPerUser')?.value || '').trim();
+  const minOrderRaw = String($('#couponConsoleBulkMinOrderTotal')?.value || '').trim();
+
+  const startsAt = startsRaw ? parseCouponDateTimeLocal(startsRaw, 'Starts at') : undefined;
+  const expiresAt = expiresRaw ? parseCouponDateTimeLocal(expiresRaw, 'Expires at') : undefined;
+  if (startsAt && expiresAt && new Date(startsAt).getTime() > new Date(expiresAt).getTime()) {
+    throw new Error('Expires at must be later than starts at');
+  }
+
+  const usageLimitTotal = usageTotalRaw
+    ? parseCouponOptionalInteger(usageTotalRaw, 'Total usage limit', 1)
+    : undefined;
+  const usageLimitPerUser = usagePerUserRaw
+    ? parseCouponOptionalInteger(usagePerUserRaw, 'Per-user limit', 1)
+    : undefined;
+  if (
+    Number.isInteger(usageLimitTotal)
+    && Number.isInteger(usageLimitPerUser)
+    && usageLimitPerUser > usageLimitTotal
+  ) {
+    throw new Error('Per-user usage limit cannot exceed total usage limit');
+  }
+
+  const minOrderTotal = minOrderRaw
+    ? parseCouponOptionalNumber(minOrderRaw, 'Minimum order total', 0)
+    : undefined;
+
+  if (
+    startsAt === undefined
+    && expiresAt === undefined
+    && usageLimitTotal === undefined
+    && usageLimitPerUser === undefined
+    && minOrderTotal === undefined
+  ) {
+    throw new Error('Add at least one value to apply bulk dates and limits');
+  }
+
+  return {
+    startsAt,
+    expiresAt,
+    usageLimitTotal,
+    usageLimitPerUser,
+    minOrderTotal,
+  };
+}
+
+function mapCouponConsoleIdsByService(items = []) {
+  const serviceCouponIds = [];
+  const carsIds = [];
+  const shopIds = [];
+  const touchedServices = new Set();
+
+  (Array.isArray(items) ? items : []).forEach((item) => {
+    const serviceType = normalizeCouponConsoleServiceType(item?.serviceType);
+    const id = String(item?.id || '').trim();
+    if (!serviceType || !id) return;
+    touchedServices.add(serviceType);
+    if (serviceType === 'cars') {
+      carsIds.push(id);
+      return;
+    }
+    if (serviceType === 'shop') {
+      shopIds.push(id);
+      return;
+    }
+    if (SERVICE_COUPON_ALLOWED_SERVICES.has(serviceType)) {
+      serviceCouponIds.push(id);
+    }
+  });
+
+  return {
+    carsIds: Array.from(new Set(carsIds)),
+    serviceCouponIds: Array.from(new Set(serviceCouponIds)),
+    shopIds: Array.from(new Set(shopIds)),
+    touchedServices,
+  };
+}
+
+async function refreshCouponConsoleAfterBulk(touchedServices = new Set()) {
+  const serviceSet = touchedServices instanceof Set
+    ? touchedServices
+    : new Set(Array.isArray(touchedServices) ? touchedServices : []);
+
+  ['trips', 'hotels', 'transport'].forEach((serviceType) => {
+    if (!serviceSet.has(serviceType)) return;
+    if (getActiveServiceCouponType() === serviceType) return;
+    serviceCouponsState.loadedByService[serviceType] = false;
+  });
+
+  const activeTab = normalizeCouponsCenterTabValue(couponsCenterState.activeTab || 'cars');
+  if (activeTab === 'cars' && serviceSet.has('cars')) {
+    await loadCarCouponsData({ silent: true });
+  } else if (activeTab === 'shop' && serviceSet.has('shop')) {
+    await loadShopDiscounts();
+  } else if (SERVICE_COUPON_ALLOWED_SERVICES.has(activeTab) && serviceSet.has(activeTab)) {
+    await loadServiceCouponsData(activeTab, { silent: true, forceReload: true });
+  }
+
+  couponConsoleState.loadedAt = 0;
+  await loadCouponConsoleData({ silent: true, forceReload: true });
+}
+
+async function handleCouponConsoleBulkSetActive(isActive) {
+  const selectedItems = getCouponConsoleSelectedItems();
+  if (!selectedItems.length) {
+    showToast('Select at least one coupon first', 'info');
+    return;
+  }
+
+  const client = ensureSupabase();
+  if (!client) throw new Error('Supabase client not available');
+  const actorId = adminState?.user?.id || null;
+  const { carsIds, serviceCouponIds, shopIds } = mapCouponConsoleIdsByService(selectedItems);
+  const updatedServices = new Set();
+  const failures = [];
+  let updatedCount = 0;
+
+  if (carsIds.length > 0) {
+    const { error } = await client
+      .from('car_coupons')
+      .update({ is_active: Boolean(isActive), updated_by: actorId })
+      .in('id', carsIds);
+    if (error) failures.push(`Cars: ${adminErrorDetails(error, 'update failed')}`);
+    else {
+      updatedCount += carsIds.length;
+      updatedServices.add('cars');
+    }
+  }
+
+  if (serviceCouponIds.length > 0) {
+    const { error } = await client
+      .from('service_coupons')
+      .update({ is_active: Boolean(isActive), updated_by: actorId })
+      .in('id', serviceCouponIds);
+    if (error) failures.push(`Service coupons: ${adminErrorDetails(error, 'update failed')}`);
+    else {
+      updatedCount += serviceCouponIds.length;
+      selectedItems.forEach((item) => {
+        const serviceType = normalizeCouponConsoleServiceType(item?.serviceType);
+        if (SERVICE_COUPON_ALLOWED_SERVICES.has(serviceType)) updatedServices.add(serviceType);
+      });
+    }
+  }
+
+  if (shopIds.length > 0) {
+    const { error } = await client
+      .from('shop_discounts')
+      .update({ is_active: Boolean(isActive) })
+      .in('id', shopIds);
+    if (error) failures.push(`Shop: ${adminErrorDetails(error, 'update failed')}`);
+    else {
+      updatedCount += shopIds.length;
+      updatedServices.add('shop');
+    }
+  }
+
+  if (updatedCount > 0) {
+    await refreshCouponConsoleAfterBulk(updatedServices);
+  }
+
+  if (failures.length > 0) {
+    const msg = `Updated ${updatedCount} coupon(s), but some groups failed: ${failures.join(' | ')}`;
+    showToast(msg, 'error');
+    return;
+  }
+
+  const label = Boolean(isActive) ? 'enabled' : 'disabled';
+  showToast(`Successfully ${label} ${updatedCount} coupon(s)`, 'success');
+}
+
+async function handleCouponConsoleBulkDelete() {
+  const selectedItems = getCouponConsoleSelectedItems();
+  if (!selectedItems.length) {
+    showToast('Select at least one coupon first', 'info');
+    return;
+  }
+
+  if (!confirm(`Delete ${selectedItems.length} selected coupon(s)? This action cannot be undone.`)) return;
+  const typed = prompt('Type DELETE to confirm bulk coupon deletion:');
+  if (String(typed || '').trim().toUpperCase() !== 'DELETE') {
+    showToast('Bulk deletion cancelled', 'info');
+    return;
+  }
+
+  const client = ensureSupabase();
+  if (!client) throw new Error('Supabase client not available');
+  const { carsIds, serviceCouponIds, shopIds } = mapCouponConsoleIdsByService(selectedItems);
+  const deletedServices = new Set();
+  const failures = [];
+  let deletedCount = 0;
+
+  if (carsIds.length > 0) {
+    const { error } = await client
+      .from('car_coupons')
+      .delete()
+      .in('id', carsIds);
+    if (error) failures.push(`Cars: ${adminErrorDetails(error, 'delete failed')}`);
+    else {
+      deletedCount += carsIds.length;
+      deletedServices.add('cars');
+    }
+  }
+
+  if (serviceCouponIds.length > 0) {
+    const { error } = await client
+      .from('service_coupons')
+      .delete()
+      .in('id', serviceCouponIds);
+    if (error) failures.push(`Service coupons: ${adminErrorDetails(error, 'delete failed')}`);
+    else {
+      deletedCount += serviceCouponIds.length;
+      selectedItems.forEach((item) => {
+        const serviceType = normalizeCouponConsoleServiceType(item?.serviceType);
+        if (SERVICE_COUPON_ALLOWED_SERVICES.has(serviceType)) deletedServices.add(serviceType);
+      });
+    }
+  }
+
+  if (shopIds.length > 0) {
+    const { error } = await client
+      .from('shop_discounts')
+      .delete()
+      .in('id', shopIds);
+    if (error) failures.push(`Shop: ${adminErrorDetails(error, 'delete failed')}`);
+    else {
+      deletedCount += shopIds.length;
+      deletedServices.add('shop');
+    }
+  }
+
+  if (deletedCount > 0) {
+    await refreshCouponConsoleAfterBulk(deletedServices);
+  }
+
+  pruneCouponConsoleSelection();
+  updateCouponConsoleSelectionUi();
+
+  if (failures.length > 0) {
+    const msg = `Deleted ${deletedCount} coupon(s), but some groups failed: ${failures.join(' | ')}`;
+    showToast(msg, 'error');
+    return;
+  }
+
+  showToast(`Deleted ${deletedCount} coupon(s)`, 'success');
+}
+
+async function handleCouponConsoleBulkApplyLimits() {
+  const selectedItems = getCouponConsoleSelectedItems();
+  if (!selectedItems.length) {
+    showToast('Select at least one coupon first', 'info');
+    return;
+  }
+
+  const payload = collectCouponConsoleBulkLimitsPayload();
+  const client = ensureSupabase();
+  if (!client) throw new Error('Supabase client not available');
+  const actorId = adminState?.user?.id || null;
+  const { carsIds, serviceCouponIds, shopIds } = mapCouponConsoleIdsByService(selectedItems);
+
+  const updatedServices = new Set();
+  const failures = [];
+  let updatedCount = 0;
+
+  if (carsIds.length > 0) {
+    const carsPatch = { updated_by: actorId };
+    if (payload.startsAt !== undefined) carsPatch.starts_at = payload.startsAt;
+    if (payload.expiresAt !== undefined) carsPatch.expires_at = payload.expiresAt;
+    if (payload.usageLimitTotal !== undefined) carsPatch.usage_limit_total = payload.usageLimitTotal;
+    if (payload.usageLimitPerUser !== undefined) carsPatch.usage_limit_per_user = payload.usageLimitPerUser;
+    if (payload.minOrderTotal !== undefined) carsPatch.min_rental_total = payload.minOrderTotal;
+    const { error } = await client
+      .from('car_coupons')
+      .update(carsPatch)
+      .in('id', carsIds);
+    if (error) failures.push(`Cars: ${adminErrorDetails(error, 'bulk update failed')}`);
+    else {
+      updatedCount += carsIds.length;
+      updatedServices.add('cars');
+    }
+  }
+
+  if (serviceCouponIds.length > 0) {
+    const servicePatch = { updated_by: actorId };
+    if (payload.startsAt !== undefined) servicePatch.starts_at = payload.startsAt;
+    if (payload.expiresAt !== undefined) servicePatch.expires_at = payload.expiresAt;
+    if (payload.usageLimitTotal !== undefined) servicePatch.usage_limit_total = payload.usageLimitTotal;
+    if (payload.usageLimitPerUser !== undefined) servicePatch.usage_limit_per_user = payload.usageLimitPerUser;
+    if (payload.minOrderTotal !== undefined) servicePatch.min_order_total = payload.minOrderTotal;
+    const { error } = await client
+      .from('service_coupons')
+      .update(servicePatch)
+      .in('id', serviceCouponIds);
+    if (error) failures.push(`Service coupons: ${adminErrorDetails(error, 'bulk update failed')}`);
+    else {
+      updatedCount += serviceCouponIds.length;
+      selectedItems.forEach((item) => {
+        const serviceType = normalizeCouponConsoleServiceType(item?.serviceType);
+        if (SERVICE_COUPON_ALLOWED_SERVICES.has(serviceType)) updatedServices.add(serviceType);
+      });
+    }
+  }
+
+  if (shopIds.length > 0) {
+    const shopPatch = {};
+    if (payload.startsAt !== undefined) shopPatch.starts_at = payload.startsAt;
+    if (payload.expiresAt !== undefined) shopPatch.expires_at = payload.expiresAt;
+    if (payload.usageLimitTotal !== undefined) shopPatch.usage_limit = payload.usageLimitTotal;
+    if (payload.usageLimitPerUser !== undefined) shopPatch.usage_limit_per_user = payload.usageLimitPerUser;
+    if (payload.minOrderTotal !== undefined) shopPatch.minimum_order_amount = payload.minOrderTotal;
+    const { error } = await client
+      .from('shop_discounts')
+      .update(shopPatch)
+      .in('id', shopIds);
+    if (error) failures.push(`Shop: ${adminErrorDetails(error, 'bulk update failed')}`);
+    else {
+      updatedCount += shopIds.length;
+      updatedServices.add('shop');
+    }
+  }
+
+  if (updatedCount > 0) {
+    await refreshCouponConsoleAfterBulk(updatedServices);
+  }
+
+  if (failures.length > 0) {
+    const msg = `Updated ${updatedCount} coupon(s), but some groups failed: ${failures.join(' | ')}`;
+    showToast(msg, 'error');
+    return;
+  }
+
+  showToast(`Applied bulk limits to ${updatedCount} coupon(s)`, 'success');
+}
+
+function handleCouponConsoleTableChange(event) {
+  const checkbox = event?.target?.closest?.('input[data-coupon-console-select]');
+  if (!checkbox) return;
+  const key = String(checkbox.dataset.couponConsoleKey || '').trim();
+  if (!key) return;
+  setCouponConsoleItemSelection(key, Boolean(checkbox.checked), { rerender: false });
+}
+
+async function handleCouponConsoleBulkAction(action) {
+  const normalizedAction = String(action || '').trim().toLowerCase();
+  if (!normalizedAction) return;
+  if (couponConsoleState.bulkBusy) return;
+
+  try {
+    setCouponConsoleBulkBusy(true);
+    if (normalizedAction === 'enable') {
+      await handleCouponConsoleBulkSetActive(true);
+      return;
+    }
+    if (normalizedAction === 'disable') {
+      await handleCouponConsoleBulkSetActive(false);
+      return;
+    }
+    if (normalizedAction === 'delete') {
+      await handleCouponConsoleBulkDelete();
+      return;
+    }
+    if (normalizedAction === 'apply_limits') {
+      await handleCouponConsoleBulkApplyLimits();
+    }
+  } finally {
+    setCouponConsoleBulkBusy(false);
+  }
+}
+
 async function handleCouponConsoleTableClick(event) {
   const button = event?.target?.closest?.('button[data-coupon-console-action]');
   if (!button) return;
@@ -23156,14 +23675,7 @@ async function handleCouponConsoleTableClick(event) {
   const key = String(button.dataset.couponConsoleKey || '').trim();
   if (!action || !key) return;
 
-  const [serviceTypeRaw, ...idParts] = key.split(':');
-  const serviceType = normalizeCouponConsoleServiceType(serviceTypeRaw);
-  const itemId = idParts.join(':').trim();
-  if (!serviceType || !itemId) return;
-
-  const item = (couponConsoleState.items || []).find((row) => {
-    return normalizeCouponConsoleServiceType(row?.serviceType) === serviceType && String(row?.id || '') === itemId;
-  });
+  const item = getCouponConsoleItemByKey(key);
   if (!item) {
     showToast('Coupon row not found. Refresh console and try again.', 'error');
     return;
@@ -29142,12 +29654,57 @@ function initEventListeners() {
     });
   }
 
+  const couponConsoleSelectAllVisible = $('#couponConsoleSelectAllVisible');
+  if (couponConsoleSelectAllVisible) {
+    couponConsoleSelectAllVisible.addEventListener('change', (event) => {
+      setCouponConsoleVisibleSelection(Boolean(event.target?.checked));
+    });
+  }
+
+  const btnCouponConsoleClearSelection = $('#btnCouponConsoleClearSelection');
+  if (btnCouponConsoleClearSelection) {
+    btnCouponConsoleClearSelection.addEventListener('click', () => {
+      clearCouponConsoleSelection({ rerender: true });
+    });
+  }
+
+  const btnCouponConsoleBulkEnable = $('#btnCouponConsoleBulkEnable');
+  if (btnCouponConsoleBulkEnable) {
+    btnCouponConsoleBulkEnable.addEventListener('click', () => {
+      void handleCouponConsoleBulkAction('enable');
+    });
+  }
+
+  const btnCouponConsoleBulkDisable = $('#btnCouponConsoleBulkDisable');
+  if (btnCouponConsoleBulkDisable) {
+    btnCouponConsoleBulkDisable.addEventListener('click', () => {
+      void handleCouponConsoleBulkAction('disable');
+    });
+  }
+
+  const btnCouponConsoleBulkDelete = $('#btnCouponConsoleBulkDelete');
+  if (btnCouponConsoleBulkDelete) {
+    btnCouponConsoleBulkDelete.addEventListener('click', () => {
+      void handleCouponConsoleBulkAction('delete');
+    });
+  }
+
+  const btnCouponConsoleBulkApplyLimits = $('#btnCouponConsoleBulkApplyLimits');
+  if (btnCouponConsoleBulkApplyLimits) {
+    btnCouponConsoleBulkApplyLimits.addEventListener('click', () => {
+      void handleCouponConsoleBulkAction('apply_limits');
+    });
+  }
+
   const couponConsoleTableBody = $('#couponConsoleTableBody');
   if (couponConsoleTableBody) {
     couponConsoleTableBody.addEventListener('click', (event) => {
       void handleCouponConsoleTableClick(event);
     });
+    couponConsoleTableBody.addEventListener('change', handleCouponConsoleTableChange);
   }
+
+  updateCouponConsoleSelectionUi();
 
   const serviceCouponDiscountType = $('#serviceCouponDiscountType');
   if (serviceCouponDiscountType) {
