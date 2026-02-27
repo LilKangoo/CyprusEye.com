@@ -453,7 +453,7 @@ body[data-seo-page="home"] .home-carousel-nav.next { right: 6px; }
   background: linear-gradient(145deg, #f8fbff 0%, #eef5ff 100%);
   border: 1px solid rgba(37, 99, 235, 0.18);
   border-radius: 18px;
-  padding: 16px;
+  padding: 14px;
   box-shadow: 0 16px 34px rgba(15, 23, 42, 0.08);
   overflow: hidden;
 }
@@ -470,30 +470,60 @@ body[data-seo-page="home"] .home-carousel-nav.next { right: 6px; }
 }
 
 .home-cars-finder-panel__header p {
-  margin: 6px 0 0;
-  font-size: 0.86rem;
+  margin: 4px 0 0;
+  font-size: 0.82rem;
   color: #334155;
   line-height: 1.35;
 }
 
+.home-cars-finder-zones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.home-cars-finder-zone {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .01em;
+}
+
+.home-cars-finder-zone--larnaca {
+  background: rgba(29, 78, 216, 0.12);
+  color: #1d4ed8;
+  border: 1px solid rgba(29, 78, 216, 0.28);
+}
+
+.home-cars-finder-zone--paphos {
+  background: rgba(15, 118, 110, 0.12);
+  color: #0f766e;
+  border: 1px solid rgba(15, 118, 110, 0.28);
+}
+
 .home-cars-finder-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .home-cars-finder-field {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
-}
-
-.home-cars-finder-field--wide {
   grid-column: span 2;
 }
 
+.home-cars-finder-field--wide {
+  grid-column: span 4;
+}
+
 .home-cars-finder-field > span {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   color: #475569;
 }
@@ -503,12 +533,13 @@ body[data-seo-page="home"] .home-carousel-nav.next { right: 6px; }
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  padding: 9px 10px;
+  padding: 8px 10px;
   border-radius: 12px;
   border: 1px solid #bfdbfe;
   background: #ffffff;
   color: #0f172a;
-  font-weight: 650;
+  font-weight: 700;
+  font-size: 0.95rem;
 }
 
 .home-cars-finder-field input:focus,
@@ -519,18 +550,18 @@ body[data-seo-page="home"] .home-carousel-nav.next { right: 6px; }
 }
 
 .home-cars-finder-actions {
-  margin-top: 10px;
+  margin-top: 8px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .home-cars-finder-checkbox {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
+  gap: 6px;
+  font-size: 11px;
   font-weight: 700;
   color: #334155;
 }
@@ -544,15 +575,33 @@ body[data-seo-page="home"] .home-carousel-nav.next { right: 6px; }
 }
 
 .home-cars-finder-status {
-  margin: 10px 0 0;
-  font-size: 12px;
+  margin: 8px 0 0;
+  font-size: 11px;
   font-weight: 700;
   color: #0f172a;
   line-height: 1.3;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(15, 23, 42, 0.1);
 }
 
 .home-cars-finder-status.is-warning {
   color: #b91c1c;
+  background: rgba(185, 28, 28, 0.08);
+  border-color: rgba(185, 28, 28, 0.24);
+}
+
+.home-cars-finder-status.is-larnaca {
+  background: rgba(29, 78, 216, 0.08);
+  border-color: rgba(29, 78, 216, 0.2);
+  color: #1e3a8a;
+}
+
+.home-cars-finder-status.is-paphos {
+  background: rgba(15, 118, 110, 0.1);
+  border-color: rgba(15, 118, 110, 0.22);
+  color: #115e59;
 }
 
 .recommendations-home-tabs {
@@ -721,15 +770,6 @@ body[data-seo-page="home"] .home-carousel-nav.next { right: 6px; }
   color: #ffffff !important;
   font-weight: 700;
   text-shadow: 0 2px 6px rgba(0,0,0,.6);
-}
-
-.ce-home-card-meta {
-  margin: 4px 0 0;
-  font-size: .72rem;
-  opacity: 1;
-  color: rgba(255, 255, 255, 0.94);
-  font-weight: 700;
-  text-shadow: 0 2px 6px rgba(0,0,0,.55);
 }
 
 .ce-home-card-star {
@@ -919,6 +959,10 @@ body[data-seo-page="home"] .home-carousel-nav.next { right: 6px; }
 @media (max-width: 980px) {
   .home-cars-finder-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home-cars-finder-field {
+    grid-column: span 1;
   }
 
   .home-cars-finder-field--wide {

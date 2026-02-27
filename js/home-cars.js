@@ -146,23 +146,23 @@ function buildFinderLocationOptions(selectedValue) {
   const selected = String(selectedValue || '').trim();
   const options = [
     {
-      label: text('Larnaka / cały Cypr', 'Larnaca / island-wide'),
+      label: text('🚗 Oferta Larnaka / cały Cypr', '🚗 Larnaca offer / island-wide'),
       items: [
-        { value: 'larnaca', label: text('Larnaka (bez opłaty)', 'Larnaca (no fee)') },
-        { value: 'nicosia', label: text('Nikozja (+15€)', 'Nicosia (+15€)') },
-        { value: 'ayia-napa', label: text('Ayia Napa (+15€)', 'Ayia Napa (+15€)') },
-        { value: 'protaras', label: text('Protaras (+20€)', 'Protaras (+20€)') },
-        { value: 'limassol', label: text('Limassol (+20€)', 'Limassol (+20€)') },
-        { value: 'paphos', label: text('Pafos (+40€)', 'Paphos (+40€)') },
+        { value: 'larnaca', label: text('Larnaka • bez opłaty', 'Larnaca • no fee') },
+        { value: 'nicosia', label: text('Nikozja • +15€', 'Nicosia • +15€') },
+        { value: 'ayia-napa', label: text('Ayia Napa • +15€', 'Ayia Napa • +15€') },
+        { value: 'protaras', label: text('Protaras • +20€', 'Protaras • +20€') },
+        { value: 'limassol', label: text('Limassol • +20€', 'Limassol • +20€') },
+        { value: 'paphos', label: text('Pafos • +40€', 'Paphos • +40€') },
       ],
     },
     {
-      label: text('Strefa Pafos', 'Paphos zone'),
+      label: text('🌴 Strefa Pafos', '🌴 Paphos zone'),
       items: [
-        { value: 'airport_pfo', label: text('Lotnisko Pafos', 'Paphos Airport') },
-        { value: 'city_center', label: text('Pafos - centrum', 'Paphos city center') },
-        { value: 'hotel', label: text('Hotel', 'Hotel') },
-        { value: 'other', label: text('Inne miejsce', 'Other place') },
+        { value: 'airport_pfo', label: text('Lotnisko Pafos (PFO)', 'Paphos Airport (PFO)') },
+        { value: 'city_center', label: text('Pafos • centrum', 'Paphos • city center') },
+        { value: 'hotel', label: text('Hotel / resort', 'Hotel / resort') },
+        { value: 'other', label: text('Inne miejsce (Pafos)', 'Other place (Paphos)') },
       ],
     },
   ];
@@ -201,7 +201,7 @@ function renderFinderStatus() {
   const offer = evaluateFinderOffer(state);
   const offerLabel = offer.offer === 'paphos' ? text('Pafos', 'Paphos') : text('Larnaka', 'Larnaca');
 
-  statusEl.classList.remove('is-warning');
+  statusEl.classList.remove('is-warning', 'is-paphos', 'is-larnaca');
 
   if (!duration.ready) {
     if (duration.reason === 'minimum_days') {
@@ -228,6 +228,7 @@ function renderFinderStatus() {
   }
 
   if (homeCarsFinderManualLocation) {
+    statusEl.classList.add(offer.offer === 'paphos' ? 'is-paphos' : 'is-larnaca');
     statusEl.textContent = text(
       `Aktywna oferta: ${offerLabel}. Włączony ręczny podgląd przez zakładki.`,
       `Active offer: ${offerLabel}. Manual tab view is active.`
@@ -235,6 +236,7 @@ function renderFinderStatus() {
     return;
   }
 
+  statusEl.classList.add(offer.offer === 'paphos' ? 'is-paphos' : 'is-larnaca');
   statusEl.textContent = text(
     `Aktywna oferta: ${offerLabel}. Lista aut jest dobierana automatycznie według trasy.`,
     `Active offer: ${offerLabel}. Car list is auto-selected from your route.`
@@ -251,7 +253,12 @@ function renderHomeCarsFinder() {
     <div class="home-cars-finder-panel">
       <div class="home-cars-finder-panel__header">
         <h3>${escapeHtml(text('Znajdź auto w 15 sekund', 'Find your car in 15 seconds'))}</h3>
-        <p>${escapeHtml(text('Podaj trasę i czas. Pokażemy auta z pełną ceną dla Twojego wynajmu.', 'Set route and timing. We will show cars with full live totals for your rental.'))}</p>
+        <p>${escapeHtml(text('Podaj trasę i czas. Pokażemy końcową cenę i czas wynajmu od razu na kartach aut.', 'Set route and timing. We will show final total and rental duration directly on each car card.'))}</p>
+      </div>
+
+      <div class="home-cars-finder-zones" aria-hidden="true">
+        <span class="home-cars-finder-zone home-cars-finder-zone--larnaca">${escapeHtml(text('🚗 Oferta Larnaka / cały Cypr', '🚗 Larnaca offer / island-wide'))}</span>
+        <span class="home-cars-finder-zone home-cars-finder-zone--paphos">${escapeHtml(text('🌴 Strefa Pafos', '🌴 Paphos zone'))}</span>
       </div>
 
       <div class="home-cars-finder-grid">
@@ -494,8 +501,6 @@ function renderHomeCars() {
   const noDepositLabel = text('Bez kaucji', 'No deposit');
   const totalLabel = text('Razem', 'Total');
   const daysLabel = text('dni', 'days');
-  const baseLabel = text('baza', 'base');
-  const extrasLabel = text('dodatki', 'extras');
   const fromLabel = text('Od', 'From');
   const perDayLabel = text('/ dzień', '/ day');
 
@@ -525,15 +530,9 @@ function renderHomeCars() {
     const seatsText = text(`${seats} miejsc`, `${seats} seats`);
 
     const imageUrl = car.image_url || `https://placehold.co/400x250/1e293b/ffffff?text=${encodeURIComponent(title)}`;
-    const quoteHeadline = quote
-      ? `${totalLabel} ${Number(quote.total).toFixed(2)}€`
-      : `${fromLabel} ${Number(getFromPrice(car)).toFixed(0)}€ ${perDayLabel}`;
-    const quoteExtras = quote
-      ? Number((quote.pickupFee || 0) + (quote.returnFee || 0) + (quote.insuranceCost || 0) + (quote.youngDriverCost || 0))
-      : 0;
-    const quoteMeta = quote
-      ? `${quote.days} ${daysLabel} • ${baseLabel} ${Number(quote.basePrice).toFixed(2)}€ • ${extrasLabel} ${quoteExtras.toFixed(2)}€`
-      : `${transmission} • ${seatsText}`;
+    const quoteLine = quote
+      ? `${totalLabel} ${Number(quote.total).toFixed(2)}€ • ${quote.days} ${daysLabel}`
+      : `${fromLabel} ${Number(getFromPrice(car)).toFixed(0)}€ ${perDayLabel} • ${transmission} • ${seatsText}`;
 
     return `
       <a
@@ -555,8 +554,7 @@ function renderHomeCars() {
         <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(title)}" class="ce-home-card-image" loading="lazy" />
         <div class="ce-home-card-overlay">
           <h3 class="ce-home-card-title">${escapeHtml(title)}</h3>
-          <p class="ce-home-card-subtitle">${escapeHtml(quoteHeadline)}</p>
-          <p class="ce-home-card-meta">${escapeHtml(quoteMeta)}</p>
+          <p class="ce-home-card-subtitle">${escapeHtml(quoteLine)}</p>
         </div>
       </a>
     `;
