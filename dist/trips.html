@@ -27,6 +27,7 @@
   <link rel="stylesheet" href="/assets/css/language-selector.css" />
   <link rel="stylesheet" href="/assets/css/mobile.css" />
   <link rel="stylesheet" href="/assets/css/mobile-nav.css" />
+  <link rel="stylesheet" href="/css/modal-ios-fix.css?v=2" />
   <link rel="stylesheet" href="/css/toast.css" />
   <style>
     html, body {
@@ -129,6 +130,36 @@
     .city-card:hover {
       transform: translateY(-8px);
       box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+    }
+    .ce-card-save-btn {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 4;
+      width: 36px;
+      height: 36px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.85);
+      background: rgba(255,255,255,0.88);
+      color: #0f172a;
+      font-size: 20px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .ce-card-save-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 24px rgba(0,0,0,0.24);
+    }
+    .ce-card-save-btn.is-saved {
+      background: rgba(34,197,94,0.96);
+      border-color: #16a34a;
+      color: #fff;
+      box-shadow: 0 10px 24px rgba(22,163,74,0.35);
     }
     .city-card-image {
       width: 100%;
@@ -295,30 +326,36 @@
     }
     .trip-modal {
       position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0,0,0,0.85); /* Dark background for focus */
+      inset: 0;
+      background: rgba(0,0,0,0.75);
       display: none;
-      z-index: 99999; /* Above everything including header */
-      padding: 20px;
-      overflow-y: auto; /* Scrollable container */
+      align-items: center;
+      justify-content: center;
+      z-index: 12000;
+      padding: max(env(safe-area-inset-top, 0px), 20px)
+               max(env(safe-area-inset-right, 0px), 20px)
+               max(env(safe-area-inset-bottom, 0px), 20px)
+               max(env(safe-area-inset-left, 0px), 20px);
+      overflow-y: auto;
       -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      height: 100vh;
+      height: 100dvh;
     }
     .trip-modal.active {
-      display: flex; /* Flexbox for centering */
+      display: flex;
     }
     .trip-modal-content {
       background: white;
       border-radius: 24px;
-      max-width: 900px;
-      width: 100%;
-      /* Remove max-height to allow full content display */
-      /* Remove overflow-y: auto from here */
+      width: min(900px, calc(100vw - 40px));
+      max-height: calc(100vh - max(env(safe-area-inset-top, 0px), 20px) - max(env(safe-area-inset-bottom, 0px), 20px) - 40px);
+      max-height: calc(100dvh - max(env(safe-area-inset-top, 0px), 20px) - max(env(safe-area-inset-bottom, 0px), 20px) - 40px);
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
       position: relative;
       box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-      margin: auto; /* Center vertically and horizontally, allow scroll if taller */
+      margin: auto;
     }
     .trip-modal-image {
       width: 100%;
@@ -387,8 +424,7 @@
     /* Body lock when modal is open */
     body.modal-open {
       overflow: hidden !important;
-      /* Prevent layout shift if scrollbar disappears */
-      padding-right: 15px; /* Assuming ~15px scrollbar width, fine for most */
+      padding-right: 0;
     }
     .trip-modal-title {
       font-size: 2rem;
@@ -772,7 +808,7 @@
     </div>
 
     <!-- Trip Details Modal -->
-    <div class="trip-modal" id="tripModal">
+    <div class="trip-modal" id="tripModal" hidden>
       <div class="trip-modal-content">
         <button
           id="lbClose"
@@ -797,7 +833,20 @@
         >›</button>
         <img class="trip-modal-image" id="modalTripImage" src="" alt="Trip" />
         <div class="trip-modal-header">
-          <h2 class="trip-modal-title" id="modalTripTitle">Trip Title</h2>
+          <div class="ce-modal-title-row">
+            <h2 class="trip-modal-title" id="modalTripTitle">Trip Title</h2>
+            <button
+              type="button"
+              id="modalTripSaveBtn"
+              class="ce-save-star"
+              data-ce-save="1"
+              data-item-type="trip"
+              data-ref-id=""
+              aria-label="Zapisz"
+              title="Zapisz"
+              onclick="event.preventDefault(); event.stopPropagation();"
+            >☆</button>
+          </div>
           <p class="trip-modal-subtitle" id="modalTripSubtitle">Subtitle</p>
         </div>
         <div class="trip-modal-body">
@@ -1277,6 +1326,16 @@
         
         return `
           <div class="city-card" onclick="openTripModal(${index})">
+            <button
+              type="button"
+              class="ce-card-save-btn"
+              data-ce-save="1"
+              data-item-type="trip"
+              data-ref-id="${String(trip.id || '')}"
+              aria-label="Zapisz"
+              title="Zapisz"
+              onclick="event.stopPropagation();"
+            >☆</button>
             ${trip.is_bestseller ? `<div class="trip-bestseller-badge">🔥 ${bestsellerLabel}</div>` : ''}
             <img class="city-card-image" src="${image}" alt="${title}" loading="lazy" />
             <div class="city-card-overlay">
@@ -1286,6 +1345,12 @@
           </div>
         `;
       }).join('');
+
+      try {
+        if (window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.refreshButtons === 'function') {
+          window.CE_SAVED_CATALOG.refreshButtons(grid);
+        }
+      } catch (_) {}
     }
 
     let currentTripIndex = null;
@@ -1577,6 +1642,16 @@
       document.getElementById('modalTripTitle').textContent = title;
       document.getElementById('modalTripSubtitle').textContent = trip.start_city || '';
       document.getElementById('modalTripDescription').innerHTML = desc.replace(/\n/g, '<br/>');
+
+      const saveBtn = document.getElementById('modalTripSaveBtn');
+      if (saveBtn) {
+        saveBtn.setAttribute('data-ref-id', String(trip.id || ''));
+        try {
+          if (window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.refreshButtons === 'function') {
+            window.CE_SAVED_CATALOG.refreshButtons(saveBtn.parentElement || document);
+          }
+        } catch (_) {}
+      }
       
       // Reset form
       document.getElementById('bookingForm').reset();
@@ -1678,10 +1753,14 @@
       addAllEvents(newHoursInput);
       addAllEvents(newDaysInput);
       
-      // Show modal with body lock
-      document.body.classList.add('modal-open');
       const modal = document.getElementById('tripModal');
-      modal.classList.add('active');
+      if (typeof openSheet === 'function') {
+        openSheet(modal);
+      } else {
+        document.body.classList.add('modal-open');
+        modal.hidden = false;
+        modal.classList.add('active');
+      }
       
       // Scroll modal to top
       modal.scrollTop = 0;
@@ -1692,8 +1771,14 @@
     };
 
     window.closeTripModal = function() {
-      document.getElementById('tripModal').classList.remove('active');
-      document.body.classList.remove('modal-open');
+      const modal = document.getElementById('tripModal');
+      if (typeof closeSheet === 'function') {
+        closeSheet(modal);
+      } else {
+        modal.classList.remove('active');
+        modal.hidden = true;
+        document.body.classList.remove('modal-open');
+      }
       currentTripIndex = null;
     };
 
@@ -1934,6 +2019,8 @@
   <script src="/js/languageSwitcher.js"></script>
   <!-- Global Language Refresh System -->
   <script src="/js/languageRefresh.js"></script>
+  <script src="/js/modalUtils.js" defer></script>
+  <script src="/js/saved-catalog.js?v=5" defer></script>
   <script src="/js/seo.js" defer></script>
   <script src="/js/mobile-nav.js" defer></script>
   <script src="/js/header-dropdown.js" defer></script>
