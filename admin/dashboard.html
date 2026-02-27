@@ -3171,7 +3171,8 @@
           </div>
           <div class="admin-view-actions">
             <button class="btn-secondary" type="button" id="btnCouponsRefreshCurrent">Refresh current tab</button>
-            <button class="btn-primary" type="button" id="btnCouponsOpenCreate">Create coupon</button>
+            <button class="btn-primary" type="button" id="btnCouponsOpenCreate">Quick add coupon</button>
+            <button class="btn-secondary" type="button" id="btnCouponsToggleAdvanced">Show advanced editors</button>
           </div>
         </header>
 
@@ -3204,6 +3205,145 @@
                 <p class="coupons-center-kpi-sub">Commerce engine active</p>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div class="admin-card coupons-console-card">
+          <div class="admin-card-header">
+            <div>
+              <h3>Quick Coupon Builder</h3>
+              <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">
+                One form for all services. Select one, many, or all services and save in one click.
+              </p>
+            </div>
+          </div>
+          <div class="admin-card-body">
+            <div id="couponBuilderFeedback" class="coupon-builder-feedback" hidden></div>
+            <form id="couponBuilderForm" class="coupon-builder-form">
+              <div class="coupon-builder-row">
+                <div class="coupon-builder-block">
+                  <h4>1. Services</h4>
+                  <p>Keep all checked for global coupon, or uncheck to target specific services.</p>
+                  <div class="coupon-builder-service-grid" id="couponBuilderServiceGrid">
+                    <label class="coupon-builder-service-option">
+                      <input type="checkbox" id="couponBuilderServiceCars" data-coupon-builder-service="cars" checked />
+                      <span>Cars</span>
+                    </label>
+                    <label class="coupon-builder-service-option">
+                      <input type="checkbox" id="couponBuilderServiceTrips" data-coupon-builder-service="trips" checked />
+                      <span>Trips</span>
+                    </label>
+                    <label class="coupon-builder-service-option">
+                      <input type="checkbox" id="couponBuilderServiceHotels" data-coupon-builder-service="hotels" checked />
+                      <span>Hotels</span>
+                    </label>
+                    <label class="coupon-builder-service-option">
+                      <input type="checkbox" id="couponBuilderServiceTransport" data-coupon-builder-service="transport" checked />
+                      <span>Transport</span>
+                    </label>
+                    <label class="coupon-builder-service-option">
+                      <input type="checkbox" id="couponBuilderServiceShop" data-coupon-builder-service="shop" checked />
+                      <span>Shop</span>
+                    </label>
+                  </div>
+                  <div class="coupon-builder-actions">
+                    <button type="button" class="btn-secondary" id="btnCouponBuilderSelectAll">Select all</button>
+                    <button type="button" class="btn-secondary" id="btnCouponBuilderClearAll">Clear all</button>
+                  </div>
+                </div>
+                <div class="coupon-builder-block">
+                  <h4>2. Coupon</h4>
+                  <p>Core setup used by all selected services.</p>
+                  <div class="coupon-builder-compact-grid">
+                    <label class="admin-form-field">
+                      <span>Code *</span>
+                      <input type="text" id="couponBuilderCode" maxlength="64" required placeholder="SUMMER10" />
+                    </label>
+                    <label class="admin-form-field">
+                      <span>Discount type *</span>
+                      <select id="couponBuilderDiscountType">
+                        <option value="percent">Percent</option>
+                        <option value="fixed">Fixed amount</option>
+                      </select>
+                    </label>
+                    <label class="admin-form-field">
+                      <span>Discount value *</span>
+                      <input type="number" id="couponBuilderDiscountValue" min="0.01" step="0.01" value="10" required />
+                    </label>
+                    <label class="admin-form-field">
+                      <span>Partner attribution</span>
+                      <select id="couponBuilderPartnerId">
+                        <option value="">No partner</option>
+                      </select>
+                    </label>
+                    <label class="admin-form-field">
+                      <span>Scope</span>
+                      <select id="couponBuilderScopeMode">
+                        <option value="all">All categories / all offers</option>
+                        <option value="category">Only selected categories</option>
+                      </select>
+                    </label>
+                    <label class="admin-form-field">
+                      <span>Category keys</span>
+                      <input type="text" id="couponBuilderCategoryKeys" placeholder="airport, city_tour, suv, paphos, larnaca" />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <details class="coupon-builder-advanced">
+                <summary>Advanced options (optional)</summary>
+                <div class="coupon-builder-compact-grid">
+                  <label class="admin-form-field">
+                    <span>Name</span>
+                    <input type="text" id="couponBuilderName" maxlength="140" placeholder="Summer promotion" />
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Description</span>
+                    <input type="text" id="couponBuilderDescription" maxlength="180" placeholder="Visible short description" />
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Internal notes</span>
+                    <input type="text" id="couponBuilderInternalNotes" maxlength="240" placeholder="Ops notes for admin/partners" />
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Starts at</span>
+                    <input type="datetime-local" id="couponBuilderStartsAt" />
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Expires at</span>
+                    <input type="datetime-local" id="couponBuilderExpiresAt" />
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Total usage limit</span>
+                    <input type="number" id="couponBuilderUsageLimitTotal" min="1" step="1" />
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Per-user limit</span>
+                    <input type="number" id="couponBuilderUsageLimitPerUser" min="1" step="1" />
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Minimum order total</span>
+                    <input type="number" id="couponBuilderMinOrderTotal" min="0" step="0.01" />
+                  </label>
+                </div>
+                <div class="coupon-builder-switches">
+                  <label class="admin-checkbox">
+                    <input type="checkbox" id="couponBuilderEnabled" checked />
+                    <span>Enable coupon now</span>
+                  </label>
+                  <label class="admin-checkbox">
+                    <input type="checkbox" id="couponBuilderSingleUse" />
+                    <span>Single use (1 total and 1 per user)</span>
+                  </label>
+                </div>
+              </details>
+
+              <div class="coupon-builder-actions coupon-builder-actions-end">
+                <button type="button" class="btn-secondary" id="btnCouponBuilderReset">Reset form</button>
+                <button type="submit" class="btn-primary" id="couponBuilderSubmit">Create coupon</button>
+              </div>
+            </form>
           </div>
         </div>
 
@@ -3314,132 +3454,49 @@
           </div>
         </div>
 
-        <div class="admin-tabs coupons-center-tabs" id="couponsCenterTabs">
-          <button class="admin-tab active" type="button" data-coupons-tab="cars">Cars</button>
-          <button class="admin-tab" type="button" data-coupons-tab="trips">Trips</button>
-          <button class="admin-tab" type="button" data-coupons-tab="hotels">Hotels</button>
-          <button class="admin-tab" type="button" data-coupons-tab="transport">Transport</button>
-          <button class="admin-tab" type="button" data-coupons-tab="shop">Shop</button>
-        </div>
+        <details class="coupon-advanced-editors" id="couponsAdvancedEditors">
+          <summary>Advanced editors (cars / trips / hotels / transport / shop)</summary>
+          <p>Use this only for special rules. For most cases use Quick Coupon Builder above.</p>
 
-        <div class="admin-tab-content active" id="couponsCenterCarsTab">
-          <div id="couponsCarsMount"></div>
-        </div>
+          <div class="admin-tabs coupons-center-tabs" id="couponsCenterTabs">
+            <button class="admin-tab active" type="button" data-coupons-tab="cars">Cars</button>
+            <button class="admin-tab" type="button" data-coupons-tab="trips">Trips</button>
+            <button class="admin-tab" type="button" data-coupons-tab="hotels">Hotels</button>
+            <button class="admin-tab" type="button" data-coupons-tab="transport">Transport</button>
+            <button class="admin-tab" type="button" data-coupons-tab="shop">Shop</button>
+          </div>
 
-        <div class="admin-tab-content" id="couponsCenterServiceTab" hidden>
-          <div id="serviceCouponsError" class="admin-error-message" hidden style="margin-bottom: 16px;"></div>
+          <div class="admin-tab-content active" id="couponsCenterCarsTab">
+            <div id="couponsCarsMount"></div>
+          </div>
 
-          <div class="admin-card">
-            <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
-              <div>
-                <h3 id="serviceCouponsTitle">Trips coupons</h3>
-                <p id="serviceCouponsSubtitle" style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">
-                  Manage trip coupon codes and partner assignments in one list.
-                </p>
-              </div>
-              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <button class="btn-secondary" type="button" id="btnServiceCouponsRefresh">Refresh</button>
-                <button class="btn-primary" type="button" id="btnServiceCouponsAdd">+ Add coupon</button>
-              </div>
-            </div>
+          <div class="admin-tab-content" id="couponsCenterServiceTab" hidden>
+            <div id="serviceCouponsError" class="admin-error-message" hidden style="margin-bottom: 16px;"></div>
 
-            <div class="admin-card-body">
-              <div class="cars-coupons-filters-grid">
-                <label class="admin-form-field">
-                  <span>Search</span>
-                  <input type="text" id="serviceCouponsSearchInput" placeholder="Code, name, notes, partner..." />
-                </label>
-                <label class="admin-form-field">
-                  <span>Status</span>
-                  <select id="serviceCouponsStatusFilter">
-                    <option value="">All statuses</option>
-                    <option value="draft">Draft</option>
-                    <option value="active">Active</option>
-                    <option value="paused">Paused</option>
-                    <option value="expired">Expired</option>
-                  </select>
-                </label>
-                <label class="admin-form-field">
-                  <span>Activity</span>
-                  <select id="serviceCouponsActivityFilter">
-                    <option value="">All activity</option>
-                    <option value="enabled">Enabled</option>
-                    <option value="disabled">Disabled</option>
-                  </select>
-                </label>
-                <label class="admin-form-field">
-                  <span>Discount type</span>
-                  <select id="serviceCouponsTypeFilter">
-                    <option value="">All discount types</option>
-                    <option value="percent">Percent</option>
-                    <option value="fixed">Fixed</option>
-                  </select>
-                </label>
-                <label class="admin-form-field">
-                  <span>Partner</span>
-                  <select id="serviceCouponsPartnerFilter">
-                    <option value="">All partners</option>
-                  </select>
-                </label>
-                <label class="admin-form-field">
-                  <span>Category</span>
-                  <input type="text" id="serviceCouponsCategoryFilter" placeholder="Filter by category key..." />
-                </label>
-                <div class="cars-coupons-filters-actions">
-                  <button type="button" class="btn-secondary" id="btnServiceCouponsClearFilters">Clear Filters</button>
+            <div class="admin-card">
+              <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
+                <div>
+                  <h3 id="serviceCouponsTitle">Trips coupons</h3>
+                  <p id="serviceCouponsSubtitle" style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">
+                    Manage trip coupon codes and partner assignments in one list.
+                  </p>
+                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                  <button class="btn-secondary" type="button" id="btnServiceCouponsRefresh">Refresh</button>
+                  <button class="btn-primary" type="button" id="btnServiceCouponsAdd">+ Add coupon</button>
                 </div>
               </div>
 
-              <div class="admin-table-container" aria-label="Service coupons table">
-                <table class="admin-table">
-                  <thead>
-                    <tr>
-                      <th>Code</th>
-                      <th>Discount</th>
-                      <th>Window</th>
-                      <th>Limits</th>
-                      <th>Partner</th>
-                      <th>Status</th>
-                      <th>Usage</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody id="serviceCouponsTableBody">
-                    <tr>
-                      <td colspan="8" class="table-loading">Select service tab and load coupons.</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          <div class="admin-card" id="serviceCouponFormCard" hidden>
-            <div class="admin-card-header" style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
-              <div>
-                <h3 id="serviceCouponFormTitle">Create coupon</h3>
-                <p id="serviceCouponFormSubtitle" style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">
-                  English-only labels for admin/partner operations.
-                </p>
-              </div>
-            </div>
-            <div class="admin-card-body">
-              <form id="serviceCouponForm" class="user-detail-form">
-                <input type="hidden" id="serviceCouponId" />
-                <input type="hidden" id="serviceCouponServiceType" />
-
-                <div class="user-detail-form-grid">
+              <div class="admin-card-body">
+                <div class="cars-coupons-filters-grid">
                   <label class="admin-form-field">
-                    <span>Code *</span>
-                    <input type="text" id="serviceCouponCode" maxlength="64" required placeholder="TRIP10" />
-                  </label>
-                  <label class="admin-form-field">
-                    <span>Name</span>
-                    <input type="text" id="serviceCouponName" maxlength="140" placeholder="Spring transfer promo" />
+                    <span>Search</span>
+                    <input type="text" id="serviceCouponsSearchInput" placeholder="Code, name, notes, partner..." />
                   </label>
                   <label class="admin-form-field">
                     <span>Status</span>
-                    <select id="serviceCouponStatus">
+                    <select id="serviceCouponsStatusFilter">
+                      <option value="">All statuses</option>
                       <option value="draft">Draft</option>
                       <option value="active">Active</option>
                       <option value="paused">Paused</option>
@@ -3447,99 +3504,187 @@
                     </select>
                   </label>
                   <label class="admin-form-field">
+                    <span>Activity</span>
+                    <select id="serviceCouponsActivityFilter">
+                      <option value="">All activity</option>
+                      <option value="enabled">Enabled</option>
+                      <option value="disabled">Disabled</option>
+                    </select>
+                  </label>
+                  <label class="admin-form-field">
                     <span>Discount type</span>
-                    <select id="serviceCouponDiscountType">
+                    <select id="serviceCouponsTypeFilter">
+                      <option value="">All discount types</option>
                       <option value="percent">Percent</option>
                       <option value="fixed">Fixed</option>
                     </select>
                   </label>
                   <label class="admin-form-field">
-                    <span>Discount value *</span>
-                    <input type="number" id="serviceCouponDiscountValue" min="0.01" step="0.01" required />
-                  </label>
-                  <label class="admin-form-field">
-                    <span>Currency</span>
-                    <input type="text" id="serviceCouponCurrency" maxlength="3" value="EUR" />
-                  </label>
-                  <label class="admin-form-field">
-                    <span>Starts at</span>
-                    <input type="datetime-local" id="serviceCouponStartsAt" />
-                  </label>
-                  <label class="admin-form-field">
-                    <span>Expires at</span>
-                    <input type="datetime-local" id="serviceCouponExpiresAt" />
-                  </label>
-                  <label class="admin-form-field">
-                    <span>Total usage limit</span>
-                    <input type="number" id="serviceCouponUsageLimitTotal" min="1" step="1" />
-                  </label>
-                  <label class="admin-form-field">
-                    <span>Per-user limit</span>
-                    <input type="number" id="serviceCouponUsageLimitPerUser" min="1" step="1" />
-                  </label>
-                  <label class="admin-form-field">
-                    <span>Minimum order total</span>
-                    <input type="number" id="serviceCouponMinOrderTotal" min="0" step="0.01" />
-                  </label>
-                  <label class="admin-form-field">
-                    <span>Partner attribution</span>
-                    <select id="serviceCouponPartnerId">
-                      <option value="">No partner</option>
+                    <span>Partner</span>
+                    <select id="serviceCouponsPartnerFilter">
+                      <option value="">All partners</option>
                     </select>
                   </label>
                   <label class="admin-form-field">
-                    <span>Scope mode</span>
-                    <select id="serviceCouponScopeMode">
-                      <option value="all">All service bookings</option>
-                      <option value="category">Only selected categories</option>
-                      <option value="resource">Selected resource IDs</option>
-                    </select>
+                    <span>Category</span>
+                    <input type="text" id="serviceCouponsCategoryFilter" placeholder="Filter by category key..." />
                   </label>
-                  <label class="admin-form-field">
-                    <span>Service category keys</span>
-                    <input type="text" id="serviceCouponCategoryKeys" placeholder="city_tour, airport_transfer, suv, seaside" />
-                  </label>
-                  <label class="admin-form-field">
-                    <span>Resource IDs (optional)</span>
-                    <input type="text" id="serviceCouponResourceIds" placeholder="UUID, UUID..." />
-                  </label>
-                  <label class="admin-form-field">
-                    <span>Partner commission override (bps)</span>
-                    <input type="number" id="serviceCouponPartnerCommissionBps" min="0" step="1" placeholder="e.g. 1200 = 12%" />
-                  </label>
+                  <div class="cars-coupons-filters-actions">
+                    <button type="button" class="btn-secondary" id="btnServiceCouponsClearFilters">Clear Filters</button>
+                  </div>
                 </div>
 
-                <label class="admin-checkbox">
-                  <input type="checkbox" id="serviceCouponIsActive" checked />
-                  <span>Enabled in checkout calculations</span>
-                </label>
-
-                <label class="admin-checkbox">
-                  <input type="checkbox" id="serviceCouponSingleUse" />
-                  <span>Single-use coupon (enforces 1 total and 1 per-user redemption)</span>
-                </label>
-
-                <label class="admin-form-field">
-                  <span>Description</span>
-                  <textarea id="serviceCouponDescription" rows="2" placeholder="Visible short description for operations"></textarea>
-                </label>
-                <label class="admin-form-field">
-                  <span>Internal notes</span>
-                  <textarea id="serviceCouponInternalNotes" rows="2" placeholder="Internal operational notes"></textarea>
-                </label>
-
-                <div style="display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;">
-                  <button type="button" class="btn-secondary" id="serviceCouponFormCancel">Cancel</button>
-                  <button type="submit" class="btn-primary" id="serviceCouponFormSubmit">Save coupon</button>
+                <div class="admin-table-container" aria-label="Service coupons table">
+                  <table class="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Code</th>
+                        <th>Discount</th>
+                        <th>Window</th>
+                        <th>Limits</th>
+                        <th>Partner</th>
+                        <th>Status</th>
+                        <th>Usage</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="serviceCouponsTableBody">
+                      <tr>
+                        <td colspan="8" class="table-loading">Select service tab and load coupons.</td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
-              </form>
+              </div>
+            </div>
+
+            <div class="admin-card" id="serviceCouponFormCard" hidden>
+              <div class="admin-card-header" style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+                <div>
+                  <h3 id="serviceCouponFormTitle">Create coupon</h3>
+                  <p id="serviceCouponFormSubtitle" style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">
+                    English-only labels for admin/partner operations.
+                  </p>
+                </div>
+              </div>
+              <div class="admin-card-body">
+                <form id="serviceCouponForm" class="user-detail-form">
+                  <input type="hidden" id="serviceCouponId" />
+                  <input type="hidden" id="serviceCouponServiceType" />
+
+                  <div class="user-detail-form-grid">
+                    <label class="admin-form-field">
+                      <span>Code *</span>
+                      <input type="text" id="serviceCouponCode" maxlength="64" required placeholder="TRIP10" />
+                    </label>
+                    <label class="admin-form-field">
+                      <span>Name</span>
+                      <input type="text" id="serviceCouponName" maxlength="140" placeholder="Spring transfer promo" />
+                    </label>
+                    <label class="admin-form-field">
+                      <span>Status</span>
+                      <select id="serviceCouponStatus">
+                        <option value="draft">Draft</option>
+                        <option value="active">Active</option>
+                        <option value="paused">Paused</option>
+                        <option value="expired">Expired</option>
+                      </select>
+                    </label>
+                    <label class="admin-form-field">
+                      <span>Discount type</span>
+                      <select id="serviceCouponDiscountType">
+                        <option value="percent">Percent</option>
+                        <option value="fixed">Fixed</option>
+                      </select>
+                    </label>
+                    <label class="admin-form-field">
+                      <span>Discount value *</span>
+                      <input type="number" id="serviceCouponDiscountValue" min="0.01" step="0.01" required />
+                    </label>
+                    <label class="admin-form-field">
+                      <span>Currency</span>
+                      <input type="text" id="serviceCouponCurrency" maxlength="3" value="EUR" />
+                    </label>
+                    <label class="admin-form-field">
+                      <span>Starts at</span>
+                      <input type="datetime-local" id="serviceCouponStartsAt" />
+                    </label>
+                    <label class="admin-form-field">
+                      <span>Expires at</span>
+                      <input type="datetime-local" id="serviceCouponExpiresAt" />
+                    </label>
+                    <label class="admin-form-field">
+                      <span>Total usage limit</span>
+                      <input type="number" id="serviceCouponUsageLimitTotal" min="1" step="1" />
+                    </label>
+                    <label class="admin-form-field">
+                      <span>Per-user limit</span>
+                      <input type="number" id="serviceCouponUsageLimitPerUser" min="1" step="1" />
+                    </label>
+                    <label class="admin-form-field">
+                      <span>Minimum order total</span>
+                      <input type="number" id="serviceCouponMinOrderTotal" min="0" step="0.01" />
+                    </label>
+                    <label class="admin-form-field">
+                      <span>Partner attribution</span>
+                      <select id="serviceCouponPartnerId">
+                        <option value="">No partner</option>
+                      </select>
+                    </label>
+                    <label class="admin-form-field">
+                      <span>Scope mode</span>
+                      <select id="serviceCouponScopeMode">
+                        <option value="all">All service bookings</option>
+                        <option value="category">Only selected categories</option>
+                        <option value="resource">Selected resource IDs</option>
+                      </select>
+                    </label>
+                    <label class="admin-form-field">
+                      <span>Service category keys</span>
+                      <input type="text" id="serviceCouponCategoryKeys" placeholder="city_tour, airport_transfer, suv, seaside" />
+                    </label>
+                    <label class="admin-form-field">
+                      <span>Resource IDs (optional)</span>
+                      <input type="text" id="serviceCouponResourceIds" placeholder="UUID, UUID..." />
+                    </label>
+                    <label class="admin-form-field">
+                      <span>Partner commission override (bps)</span>
+                      <input type="number" id="serviceCouponPartnerCommissionBps" min="0" step="1" placeholder="e.g. 1200 = 12%" />
+                    </label>
+                  </div>
+
+                  <label class="admin-checkbox">
+                    <input type="checkbox" id="serviceCouponIsActive" checked />
+                    <span>Enabled in checkout calculations</span>
+                  </label>
+
+                  <label class="admin-checkbox">
+                    <input type="checkbox" id="serviceCouponSingleUse" />
+                    <span>Single-use coupon (enforces 1 total and 1 per-user redemption)</span>
+                  </label>
+
+                  <label class="admin-form-field">
+                    <span>Description</span>
+                    <textarea id="serviceCouponDescription" rows="2" placeholder="Visible short description for operations"></textarea>
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Internal notes</span>
+                    <textarea id="serviceCouponInternalNotes" rows="2" placeholder="Internal operational notes"></textarea>
+                  </label>
+
+                  <div style="display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;">
+                    <button type="button" class="btn-secondary" id="serviceCouponFormCancel">Cancel</button>
+                    <button type="submit" class="btn-primary" id="serviceCouponFormSubmit">Save coupon</button>
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div class="admin-tab-content" id="couponsCenterShopTab" hidden>
-          <div id="couponsShopMount"></div>
-        </div>
+          <div class="admin-tab-content" id="couponsCenterShopTab" hidden>
+            <div id="couponsShopMount"></div>
+          </div>
+        </details>
       </section>
 
       <!-- Cars View -->
