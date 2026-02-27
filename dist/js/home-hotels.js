@@ -1103,8 +1103,15 @@ window.openHotelModalHome = function(index){
   const maxPersons = Number(h.max_persons||0) || null;
   const adultsEl = document.getElementById('hotelBookingAdults');
   const childrenEl = document.getElementById('hotelBookingChildren');
-  if (maxPersons){ adultsEl.max = String(maxPersons); childrenEl.max = String(Math.max(0, maxPersons-1)); }
-  else { adultsEl.removeAttribute('max'); childrenEl.removeAttribute('max'); }
+  if (adultsEl && childrenEl) {
+    if (maxPersons){
+      adultsEl.max = String(maxPersons);
+      childrenEl.max = String(Math.max(0, maxPersons-1));
+    } else {
+      adultsEl.removeAttribute('max');
+      childrenEl.removeAttribute('max');
+    }
+  }
 
   // bind price updates - comprehensive event coverage
   const addAllEvents = (element, isDate = false) => {

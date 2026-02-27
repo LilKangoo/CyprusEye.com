@@ -672,12 +672,12 @@ async function loadAuthSession() {
     const token = typeof snapshotSession?.access_token === 'string' ? snapshotSession.access_token.trim() : '';
     const refresh = typeof snapshotSession?.refresh_token === 'string' ? snapshotSession.refresh_token.trim() : '';
     if (token && refresh) {
-      const { data: currentSessionData } = await sb.auth.getSession();
-      if (!currentSessionData?.session) {
-        const { data: setData } = await sb.auth.setSession({ access_token: token, refresh_token: refresh });
-        if (setData?.session) {
-          persistedSnapshot = { ...(persistedSnapshot || {}), session: setData.session };
-        }
+      // Always hydrate Supabase auth runtime from persisted snapshot.
+      // getSession() can return an app-level fallback session even when Supabase client
+      // does not yet have internal auth state, which leads to "signed in UI + guest API".
+      const { data: setData } = await sb.auth.setSession({ access_token: token, refresh_token: refresh });
+      if (setData?.session) {
+        persistedSnapshot = { ...(persistedSnapshot || {}), session: setData.session };
       }
     }
   } catch (error) {

@@ -5,6 +5,7 @@
   if (page !== 'home') return;
 
   const seen = new Set();
+  let transportBootRequested = false;
 
   function loadScriptOnce(definition) {
     const key = String(definition?.src || '').trim();
@@ -19,6 +20,36 @@
     script.src = key;
     script.async = false;
     document.body.appendChild(script);
+  }
+
+  function loadTransportScripts() {
+    if (transportBootRequested) return;
+    transportBootRequested = true;
+
+    const transportModuleSrc = 'js/transport-booking.js?v=20260227_1';
+    const wizardSrc = 'js/home-transport-wizard.js?v=1';
+
+    if (document.querySelector(`script[data-home-lazy-src="${wizardSrc}"]`)) {
+      return;
+    }
+
+    const loadWizard = () => {
+      loadScriptOnce({ src: wizardSrc });
+    };
+
+    if (document.querySelector(`script[data-home-lazy-src="${transportModuleSrc}"]`)) {
+      loadWizard();
+      return;
+    }
+
+    const moduleScript = document.createElement('script');
+    moduleScript.type = 'module';
+    moduleScript.src = transportModuleSrc;
+    moduleScript.async = false;
+    moduleScript.setAttribute('data-home-lazy-src', transportModuleSrc);
+    moduleScript.addEventListener('load', loadWizard, { once: true });
+    moduleScript.addEventListener('error', loadWizard, { once: true });
+    document.body.appendChild(moduleScript);
   }
 
   function whenSectionNearViewport(selector, callback, fallbackDelay = 4500) {
@@ -66,5 +97,6 @@
   deferredSections.forEach((entry) => {
     whenSectionNearViewport(entry.selector, () => loadScriptOnce(entry));
   });
-})();
 
+  whenSectionNearViewport('#homeTransportBookingPanel', loadTransportScripts);
+})();
