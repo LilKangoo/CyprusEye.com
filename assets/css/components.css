@@ -582,7 +582,7 @@ body[data-seo-page="home"] .home-carousel-nav.next { right: 6px; }
 
 .home-cars-finder-grid {
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-columns: repeat(10, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -595,6 +595,26 @@ body[data-seo-page="home"] .home-carousel-nav.next { right: 6px; }
 
 .home-cars-finder-field--wide {
   grid-column: span 4;
+}
+
+.home-cars-finder-field--location {
+  grid-column: span 3;
+}
+
+.home-cars-finder-field--extras {
+  grid-column: span 4;
+}
+
+.home-cars-finder-inline-options {
+  min-height: 40px;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap;
 }
 
 .home-cars-finder-field > span {
@@ -630,6 +650,7 @@ body[data-seo-page="home"] .home-carousel-nav.next { right: 6px; }
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  justify-content: flex-end;
 }
 
 .home-cars-finder-checkbox {
@@ -639,6 +660,7 @@ body[data-seo-page="home"] .home-carousel-nav.next { right: 6px; }
   font-size: 11px;
   font-weight: 700;
   color: #334155;
+  white-space: nowrap;
 }
 
 .home-cars-finder-checkbox input {
@@ -646,7 +668,7 @@ body[data-seo-page="home"] .home-carousel-nav.next { right: 6px; }
 }
 
 .home-cars-finder-reset {
-  margin-left: auto;
+  margin-left: 0;
 }
 
 .home-cars-finder-status {
@@ -1052,6 +1074,15 @@ body[data-seo-page="home"] .home-carousel-nav.next { right: 6px; }
   .home-cars-finder-field--wide {
     grid-column: span 2;
   }
+
+  .home-cars-finder-field--location,
+  .home-cars-finder-field--extras {
+    grid-column: span 2;
+  }
+
+  .home-cars-finder-inline-options {
+    flex-wrap: wrap;
+  }
 }
 
 @media (max-width: 520px) {
@@ -1091,6 +1122,15 @@ body[data-seo-page="home"] .home-carousel-nav.next { right: 6px; }
 
   .home-cars-finder-field--wide {
     grid-column: span 2;
+  }
+
+  .home-cars-finder-field--location,
+  .home-cars-finder-field--extras {
+    grid-column: span 2;
+  }
+
+  .home-cars-finder-inline-options {
+    flex-wrap: wrap;
   }
 
   .home-cars-finder-actions {

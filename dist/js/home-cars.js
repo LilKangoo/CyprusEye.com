@@ -301,25 +301,30 @@ function renderHomeCarsFinder() {
               <span>${escapeHtml(text('Pasażerowie', 'Passengers'))}</span>
               <input id="carsFinderPassengers" type="number" min="1" max="12" value="${escapeHtml(String(Math.max(1, Number(state.passengers || 2))))}" />
             </label>
-            <label class="home-cars-finder-field home-cars-finder-field--wide">
+            <label class="home-cars-finder-field home-cars-finder-field--location">
               <span>${escapeHtml(text('Miejsce odbioru', 'Pickup location'))}</span>
               <select id="carsFinderPickupLocation">${buildFinderLocationOptions(state.pickupLocation)}</select>
             </label>
-            <label class="home-cars-finder-field home-cars-finder-field--wide">
+            <label class="home-cars-finder-field home-cars-finder-field--location">
               <span>${escapeHtml(text('Miejsce zwrotu', 'Return location'))}</span>
               <select id="carsFinderReturnLocation">${buildFinderLocationOptions(state.returnLocation)}</select>
             </label>
+            <div class="home-cars-finder-field home-cars-finder-field--extras">
+              <span>${escapeHtml(text('Dodatki', 'Extras'))}</span>
+              <div class="home-cars-finder-inline-options">
+                <label class="home-cars-finder-checkbox">
+                  <input id="carsFinderInsurance" type="checkbox" ${state.fullInsurance ? 'checked' : ''} />
+                  <span>${escapeHtml(text('Pełne AC (+17€/dzień)', 'Full insurance (+17€/day)'))}</span>
+                </label>
+                <label class="home-cars-finder-checkbox">
+                  <input id="carsFinderYoungDriver" type="checkbox" ${state.youngDriver ? 'checked' : ''} />
+                  <span>${escapeHtml(text('Młody kierowca (+10€/dzień)', 'Young driver (+10€/day)'))}</span>
+                </label>
+              </div>
+            </div>
           </div>
 
           <div class="home-cars-finder-actions">
-            <label class="home-cars-finder-checkbox">
-              <input id="carsFinderInsurance" type="checkbox" ${state.fullInsurance ? 'checked' : ''} />
-              <span>${escapeHtml(text('Pełne AC (+17€/dzień)', 'Full insurance (+17€/day)'))}</span>
-            </label>
-            <label class="home-cars-finder-checkbox">
-              <input id="carsFinderYoungDriver" type="checkbox" ${state.youngDriver ? 'checked' : ''} />
-              <span>${escapeHtml(text('Młody kierowca (+10€/dzień)', 'Young driver (+10€/day)'))}</span>
-            </label>
             <button id="carsFinderReset" type="button" class="btn ghost home-cars-finder-reset">
               ${escapeHtml(text('Resetuj filtr', 'Reset finder'))}
             </button>
