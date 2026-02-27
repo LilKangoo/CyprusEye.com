@@ -258,8 +258,8 @@ function renderHomeCarsFinder() {
   const offerLabel = offer.offer === 'paphos' ? text('Pafos', 'Paphos') : text('Larnaka', 'Larnaca');
   const duration = getFinderDurationState(state);
   const summaryLine = duration.ready
-    ? text(`${offerLabel} • ${duration.days} dni • ${Math.max(1, Number(state.passengers || 2))} os.`, `${offerLabel} • ${duration.days} days • ${Math.max(1, Number(state.passengers || 2))} pax`)
-    : text(`${offerLabel} • ${Math.max(1, Number(state.passengers || 2))} os.`, `${offerLabel} • ${Math.max(1, Number(state.passengers || 2))} pax`);
+    ? text(`${offerLabel} • ${duration.days} dni • ${Math.max(1, Number(state.passengers || 2))} pasażerów`, `${offerLabel} • ${duration.days} days • ${Math.max(1, Number(state.passengers || 2))} Passengers`)
+    : text(`${offerLabel} • ${Math.max(1, Number(state.passengers || 2))} pasażerów`, `${offerLabel} • ${Math.max(1, Number(state.passengers || 2))} Passengers`);
   const expanded = !!homeCarsFinderExpanded;
 
   root.innerHTML = `
