@@ -476,10 +476,10 @@
     if (detailsLabel) {
       detailsLabel.textContent = type === 'recommendation'
         ? t('currentPlace.details', 'Szczegóły', 'Details')
-        : t('currentPlace.comments', 'Komentarze', 'Comments');
+        : t('currentPlace.info', 'Info', 'Info');
     }
     if (detailsIcon) {
-      detailsIcon.textContent = type === 'recommendation' ? 'ℹ️' : '💬';
+      detailsIcon.textContent = 'ℹ️';
     }
 
     if (mapLabel) {

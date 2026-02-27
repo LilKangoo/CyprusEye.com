@@ -207,35 +207,53 @@ try {
   }
 
   function getUiTranslation(key, fallback = '') {
-    const translations = window.appI18n && window.appI18n.translations
+    const translationsRoot = window.appI18n && window.appI18n.translations
       ? window.appI18n.translations
       : null;
 
-    if (!translations || typeof translations !== 'object') {
+    if (!translationsRoot || typeof translationsRoot !== 'object') {
       return fallback;
     }
 
-    if (Object.prototype.hasOwnProperty.call(translations, key) && typeof translations[key] === 'string') {
-      return translations[key];
-    }
+    const resolveFromScope = (scope, translationKey) => {
+      if (!scope || typeof scope !== 'object') return null;
 
-    if (key.indexOf('.') !== -1) {
-      const parts = key.split('.');
-      let current = translations;
+      if (Object.prototype.hasOwnProperty.call(scope, translationKey) && typeof scope[translationKey] === 'string') {
+        return scope[translationKey];
+      }
 
+      if (translationKey.indexOf('.') === -1) return null;
+
+      const parts = translationKey.split('.');
+      let current = scope;
       for (let i = 0; i < parts.length; i += 1) {
         const part = parts[i];
         if (current && typeof current === 'object' && Object.prototype.hasOwnProperty.call(current, part)) {
           current = current[part];
         } else {
-          current = null;
-          break;
+          return null;
         }
       }
 
-      if (typeof current === 'string') {
-        return current;
-      }
+      return typeof current === 'string' ? current : null;
+    };
+
+    const activeLangRaw = String(
+      (window.appI18n && window.appI18n.language)
+      || document.documentElement?.lang
+      || 'pl'
+    ).toLowerCase();
+    const activeLang = activeLangRaw.split('-')[0] || activeLangRaw;
+    const activeScope = translationsRoot[activeLang] || translationsRoot[activeLangRaw] || null;
+
+    const activeValue = resolveFromScope(activeScope, key);
+    if (typeof activeValue === 'string') {
+      return activeValue;
+    }
+
+    const rootValue = resolveFromScope(translationsRoot, key);
+    if (typeof rootValue === 'string') {
+      return rootValue;
     }
 
     return fallback;
