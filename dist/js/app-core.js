@@ -604,14 +604,17 @@ try {
     }
 
     mapFilterListenersAttached = true;
+    const rerenderMapFilterForLanguage = () => {
+      renderMapMarkerFilterControl();
+      applyMapMarkerFilter();
+    };
     window.addEventListener('mapRecommendationMarkersUpdated', () => {
       updateMapMarkerFilterCounter();
       dispatchVisiblePoiIdsChanged(true);
     });
-    window.addEventListener('languageChanged', () => {
-      renderMapMarkerFilterControl();
-      applyMapMarkerFilter();
-    });
+    // Support both legacy and current i18n events.
+    window.addEventListener('languageChanged', rerenderMapFilterForLanguage);
+    document.addEventListener('wakacjecypr:languagechange', rerenderMapFilterForLanguage);
     window.addEventListener('poisDataRefreshed', () => {
       dispatchVisiblePoiIdsChanged(true);
     });
