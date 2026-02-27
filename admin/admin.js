@@ -7797,7 +7797,187 @@ window.deleteTripBooking = deleteTripBooking;
 // TRIPS MANAGEMENT
 // =====================================================
 
-async function loadTripsAdminData() {
+const tripsAdminState = {
+  filters: {
+    search: '',
+    city: 'all',
+    published: 'all',
+    bestseller: 'all',
+  },
+  filtersBound: false,
+};
+
+function getTripAdminTitle(trip) {
+  if (!trip || typeof trip !== 'object') return 'Untitled trip';
+  const title = trip.title && typeof trip.title === 'object'
+    ? (trip.title.en || trip.title.pl || '')
+    : '';
+  return String(title || trip.slug || trip.id || 'Untitled trip');
+}
+
+function isTripMissingColumn(error, columnName) {
+  const normalizedColumn = String(columnName || '').trim().toLowerCase();
+  const message = String(error?.message || '').toLowerCase();
+  if (!normalizedColumn || !message) return false;
+  return message.includes(`column "${normalizedColumn}"`)
+    || message.includes(`column '${normalizedColumn}'`)
+    || message.includes(`could not find the '${normalizedColumn}' column`)
+    || message.includes(`could not find the "${normalizedColumn}" column`);
+}
+
+function bindTripsFilterControls() {
+  if (tripsAdminState.filtersBound) return;
+  const searchInput = document.getElementById('tripsFilterSearch');
+  const citySelect = document.getElementById('tripsFilterCity');
+  const publishedSelect = document.getElementById('tripsFilterPublished');
+  const bestsellerSelect = document.getElementById('tripsFilterBestseller');
+  const resetBtn = document.getElementById('btnTripsFiltersReset');
+  if (!searchInput || !citySelect || !publishedSelect || !bestsellerSelect || !resetBtn) return;
+
+  const syncAndReload = () => {
+    tripsAdminState.filters.search = String(searchInput.value || '').trim().toLowerCase();
+    tripsAdminState.filters.city = String(citySelect.value || 'all').trim();
+    tripsAdminState.filters.published = String(publishedSelect.value || 'all').trim();
+    tripsAdminState.filters.bestseller = String(bestsellerSelect.value || 'all').trim();
+    loadTripsAdminData({ silent: true });
+  };
+
+  searchInput.addEventListener('input', syncAndReload);
+  citySelect.addEventListener('change', syncAndReload);
+  publishedSelect.addEventListener('change', syncAndReload);
+  bestsellerSelect.addEventListener('change', syncAndReload);
+  resetBtn.addEventListener('click', () => {
+    tripsAdminState.filters = {
+      search: '',
+      city: 'all',
+      published: 'all',
+      bestseller: 'all',
+    };
+    searchInput.value = '';
+    citySelect.value = 'all';
+    publishedSelect.value = 'all';
+    bestsellerSelect.value = 'all';
+    loadTripsAdminData({ silent: true });
+  });
+
+  tripsAdminState.filtersBound = true;
+}
+
+function syncTripsFilterControlsState() {
+  const searchInput = document.getElementById('tripsFilterSearch');
+  const citySelect = document.getElementById('tripsFilterCity');
+  const publishedSelect = document.getElementById('tripsFilterPublished');
+  const bestsellerSelect = document.getElementById('tripsFilterBestseller');
+  if (searchInput) searchInput.value = tripsAdminState.filters.search || '';
+  if (citySelect) citySelect.value = tripsAdminState.filters.city || 'all';
+  if (publishedSelect) publishedSelect.value = tripsAdminState.filters.published || 'all';
+  if (bestsellerSelect) bestsellerSelect.value = tripsAdminState.filters.bestseller || 'all';
+}
+
+function populateTripsCityFilter(rows) {
+  const citySelect = document.getElementById('tripsFilterCity');
+  if (!citySelect) return;
+  const current = String(tripsAdminState.filters.city || 'all');
+  const cities = Array.from(new Set(
+    (Array.isArray(rows) ? rows : [])
+      .map((row) => String(row?.start_city || '').trim())
+      .filter(Boolean),
+  )).sort((a, b) => a.localeCompare(b));
+
+  citySelect.innerHTML = `<option value="all">All cities</option>${cities
+    .map((city) => `<option value="${escapeHtml(city)}">${escapeHtml(city)}</option>`)
+    .join('')}`;
+  citySelect.value = cities.includes(current) || current === 'all' ? current : 'all';
+  tripsAdminState.filters.city = citySelect.value;
+}
+
+function filterTripsAdminRows(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  const search = String(tripsAdminState.filters.search || '').trim().toLowerCase();
+  const city = String(tripsAdminState.filters.city || 'all').trim();
+  const published = String(tripsAdminState.filters.published || 'all').trim();
+  const bestseller = String(tripsAdminState.filters.bestseller || 'all').trim();
+
+  return list.filter((row) => {
+    if (!row || typeof row !== 'object') return false;
+    if (city !== 'all' && String(row.start_city || '').trim() !== city) return false;
+    if (published === 'published' && !row.is_published) return false;
+    if (published === 'draft' && row.is_published) return false;
+    if (bestseller === 'bestseller' && !row.is_bestseller) return false;
+    if (bestseller === 'regular' && row.is_bestseller) return false;
+
+    if (search) {
+      const title = getTripAdminTitle(row).toLowerCase();
+      const slug = String(row.slug || '').toLowerCase();
+      const cityValue = String(row.start_city || '').toLowerCase();
+      if (!title.includes(search) && !slug.includes(search) && !cityValue.includes(search)) {
+        return false;
+      }
+    }
+    return true;
+  });
+}
+
+function renderTripsAdminRows(rows) {
+  const tbody = document.getElementById('tripsTableBody');
+  if (!tbody) return;
+  if (!rows || rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" class="table-loading">No trips match current filters</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map((trip, index) => {
+    const title = getTripAdminTitle(trip);
+    const updated = trip.updated_at ? new Date(trip.updated_at).toLocaleString('en-GB') : '-';
+    const displayMode = String(trip.display_mode || '').trim();
+    const sortOrder = Number.isFinite(Number(trip.sort_order)) ? Number(trip.sort_order) : (index + 1);
+    const safeDeleteTitle = escapeHtml(title).replace(/'/g, "\\'");
+    return `
+      <tr>
+        <td>
+          <div class="trip-row-title">${escapeHtml(title)}</div>
+          <div class="trip-row-meta">
+            ${displayMode ? `<span style="font-size:11px;color:var(--admin-text-muted)">${escapeHtml(displayMode)}</span>` : ''}
+            ${trip.is_bestseller ? '<span class="trip-row-badge">🔥 Bestseller</span>' : ''}
+          </div>
+        </td>
+        <td>
+          <div class="trip-row-order">
+            <div class="trip-row-order-value">#${escapeHtml(String(sortOrder))}</div>
+            <div class="trip-row-order-controls">
+              <button class="btn-secondary" type="button" title="Move up" onclick="moveTripOrder('${trip.id}', 'up')">⬆️</button>
+              <button class="btn-secondary" type="button" title="Move down" onclick="moveTripOrder('${trip.id}', 'down')">⬇️</button>
+            </div>
+          </div>
+        </td>
+        <td>${escapeHtml(trip.slug || '')}</td>
+        <td>${escapeHtml(trip.start_city || '')}</td>
+        <td>
+          <label class="admin-switch" title="Toggle publish">
+            <input type="checkbox" ${trip.is_published ? 'checked' : ''} onchange="toggleTripPublish('${trip.id}', this.checked)">
+            <span></span>
+          </label>
+        </td>
+        <td>
+          <label class="admin-switch" title="Toggle bestseller">
+            <input type="checkbox" ${trip.is_bestseller ? 'checked' : ''} onchange="toggleTripBestseller('${trip.id}', this.checked)">
+            <span></span>
+          </label>
+        </td>
+        <td>${updated}</td>
+        <td>
+          <div class="trips-row-actions">
+            <button class="btn-primary" type="button" onclick="editTrip('${trip.id}')">Edit</button>
+            <a class="btn-secondary" href="/trip.html?slug=${encodeURIComponent(trip.slug || '')}" target="_blank" rel="noopener noreferrer">Preview</a>
+            <button class="btn-danger" type="button" onclick="deleteTripResource('${trip.id}', '${safeDeleteTitle}')">Delete</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function loadTripsAdminData(options = {}) {
   try {
     const client = ensureSupabase();
     if (!client) {
@@ -7805,7 +7985,6 @@ async function loadTripsAdminData() {
       return;
     }
 
-    // Load trips list
     const { data: trips, error } = await client
       .from('trips')
       .select('*')
@@ -7814,72 +7993,45 @@ async function loadTripsAdminData() {
       .limit(200);
 
     if (error) throw error;
+    bindTripsFilterControls();
 
-    // Store list globally for reordering helpers
     window.tripsAdminList = Array.isArray(trips) ? trips.slice() : [];
+    populateTripsCityFilter(window.tripsAdminList);
+    syncTripsFilterControlsState();
+    const filteredTrips = filterTripsAdminRows(window.tripsAdminList);
 
-    // Stats
     const total = window.tripsAdminList?.length || 0;
-    const published = (window.tripsAdminList || []).filter(t => t.is_published).length;
+    const published = (window.tripsAdminList || []).filter((trip) => trip.is_published).length;
+    const bestseller = (window.tripsAdminList || []).filter((trip) => trip.is_bestseller).length;
     const statTotal = document.getElementById('tripsStatTotal');
     const statPub = document.getElementById('tripsStatPublished');
+    const statBest = document.getElementById('tripsStatBestseller');
     const sub = document.getElementById('tripsStatSubtitle');
     if (statTotal) statTotal.textContent = total;
     if (statPub) statPub.textContent = published;
-    if (sub) sub.textContent = total ? `${published} published` : 'No trips yet';
+    if (statBest) statBest.textContent = bestseller;
+    if (sub) sub.textContent = total ? `${published} published • ${bestseller} bestseller` : 'No trips yet';
 
-    // Table
-    const tbody = document.getElementById('tripsTableBody');
-    if (!tbody) return;
-    if (!trips || trips.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="table-loading">No trips found</td></tr>';
-      return;
-    }
+    renderTripsAdminRows(filteredTrips);
 
-    tbody.innerHTML = trips.map(t => {
-      const title = (t.title && (t.title.pl || t.title.en)) || t.slug || t.id;
-      const updated = t.updated_at ? new Date(t.updated_at).toLocaleString('en-GB') : '-';
-      return `
-        <tr>
-          <td>
-            <div style="font-weight:600">${escapeHtml(title)}</div>
-            ${t.display_mode ? `<div style=\"font-size:11px;color:var(--admin-text-muted)\">${escapeHtml(t.display_mode)}</div>` : ''}
-          </td>
-          <td>${escapeHtml(t.slug || '')}</td>
-          <td>${escapeHtml(t.start_city || '')}</td>
-          <td>
-            <label class="admin-switch" title="Toggle publish">
-              <input type="checkbox" ${t.is_published ? 'checked' : ''} onchange="toggleTripPublish('${t.id}', this.checked)">
-              <span></span>
-            </label>
-          </td>
-          <td>${updated}</td>
-          <td>
-            <button class="btn-secondary" onclick="moveTripOrder('${t.id}', 'up')">⬆️</button>
-            <button class="btn-secondary" onclick="moveTripOrder('${t.id}', 'down')">⬇️</button>
-          </td>
-          <td style="display:flex;gap:8px;">
-            <button class="btn-primary" onclick="editTrip('${t.id}')">Edit</button>
-            <a class="btn-secondary" href="/trip.html?slug=${encodeURIComponent(t.slug)}" target="_blank">Preview</a>
-            <button class="btn-danger" onclick="deleteTripResource('${t.id}', '${escapeHtml(String(title)).replace(/'/g, "\\'")}')">Delete</button>
-          </td>
-        </tr>
-      `;
-    }).join('');
-
-    // Button: New Trip
     const addBtn = document.getElementById('btnAddTrip');
     if (addBtn && !addBtn.dataset.bound) {
       addBtn.addEventListener('click', openNewTripModal);
       addBtn.dataset.bound = '1';
     }
 
-    showToast('Trips loaded', 'success');
+    if (!options?.silent) {
+      showToast('Trips loaded', 'success');
+    }
   } catch (e) {
     console.error('Failed to load trips:', e);
-    showToast('Failed to load trips: ' + (e.message || 'Unknown error'), 'error');
+    if (isTripMissingColumn(e, 'is_bestseller')) {
+      showToast('Missing "is_bestseller" column in trips. Run migration 125_trips_bestseller_admin_ui.sql', 'error');
+    } else {
+      showToast('Failed to load trips: ' + (e.message || 'Unknown error'), 'error');
+    }
     const tbody = document.getElementById('tripsTableBody');
-    if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="table-loading" style="color:var(--admin-danger)">Error: ${escapeHtml(e.message||'')}</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="table-loading" style="color:var(--admin-danger)">Error: ${escapeHtml(e.message || '')}</td></tr>`;
   }
 }
 
@@ -7944,6 +8096,28 @@ async function toggleTripPublish(tripId, publish) {
   }
 }
 
+async function toggleTripBestseller(tripId, bestseller) {
+  try {
+    const client = ensureSupabase();
+    if (!client) return;
+    const { error } = await client
+      .from('trips')
+      .update({ is_bestseller: !!bestseller, updated_at: new Date().toISOString() })
+      .eq('id', tripId);
+    if (error) throw error;
+    showToast(bestseller ? 'Trip marked as bestseller' : 'Trip removed from bestseller', 'success');
+    await loadTripsAdminData();
+  } catch (e) {
+    console.error('Bestseller toggle failed:', e);
+    if (isTripMissingColumn(e, 'is_bestseller')) {
+      showToast('Missing "is_bestseller" column in trips. Run migration 125_trips_bestseller_admin_ui.sql', 'error');
+    } else {
+      showToast('Failed to update bestseller state', 'error');
+    }
+    await loadTripsAdminData();
+  }
+}
+
 async function editTrip(tripId) {
   try {
     const client = ensureSupabase();
@@ -7969,6 +8143,8 @@ async function editTrip(tripId) {
     document.getElementById('editTripCoverUrl').value = trip.cover_image_url || '';
     document.getElementById('editTripPricing').value = trip.pricing_model || 'per_person';
     document.getElementById('editTripPublished').checked = !!trip.is_published;
+    const bestsellerField = document.getElementById('editTripBestseller');
+    if (bestsellerField) bestsellerField.checked = !!trip.is_bestseller;
     
     // Check if we should use i18n fields
     // All trips use i18n (title and description are JSONB)
@@ -8130,8 +8306,9 @@ async function handleEditTripSubmit(event, originalTrip) {
       delete payload.description_he;
     }
     
-    // Handle is_published checkbox
+    // Handle visibility flags
     payload.is_published = form.querySelector('#editTripPublished').checked;
+    payload.is_bestseller = Boolean(form.querySelector('#editTripBestseller')?.checked);
     
     // Update timestamp
     payload.updated_at = new Date().toISOString();
@@ -8257,6 +8434,7 @@ function removeTripCoverImage() {
 
 // expose trip helpers for inline handlers
 window.toggleTripPublish = toggleTripPublish;
+window.toggleTripBestseller = toggleTripBestseller;
 window.editTrip = editTrip;
 window.moveTripOrder = moveTripOrder;
 window.handleTripCoverUpload = handleTripCoverUpload;
@@ -8507,6 +8685,7 @@ async function openNewTripModal() {
           payload.created_at = now;
           payload.updated_at = now;
           payload.is_published = false; // New trips start as drafts
+          payload.is_bestseller = Boolean(form.querySelector('#newTripBestseller')?.checked);
 
           console.log('🚀 Inserting trip into database...');
           console.log('   Payload:', payload);

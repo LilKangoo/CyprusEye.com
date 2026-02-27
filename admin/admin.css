@@ -3784,6 +3784,187 @@ select#orderStatusFilter:focus {
   gap: 8px;
 }
 
+.trips-subtabs {
+  margin-bottom: 16px;
+  border-bottom: 2px solid var(--admin-border);
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.trips-tab-button {
+  padding: 12px 24px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--admin-text-muted);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.trips-tab-button:hover {
+  color: var(--admin-text);
+}
+
+.trips-tab-button.active {
+  border-bottom-color: var(--admin-primary);
+  color: var(--admin-text);
+}
+
+.trips-stats-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.trips-filter-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.trips-filter-actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.trip-row-title {
+  font-weight: 700;
+  color: var(--admin-text);
+}
+
+.trip-row-meta {
+  margin-top: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.trip-row-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.trip-row-order {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+}
+
+.trip-row-order-value {
+  font-size: 11px;
+  color: var(--admin-text-muted);
+}
+
+.trip-row-order-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.trips-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.trip-modal-content {
+  width: min(95vw, 920px);
+  max-width: 920px;
+  max-height: min(92dvh, 980px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(9, 17, 33, 0.96));
+  box-shadow: 0 26px 56px rgba(2, 6, 23, 0.52);
+}
+
+.trip-modal-body {
+  flex: 1;
+  min-height: 0;
+  padding: 20px 24px 18px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.trip-admin-form {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.trip-admin-form .lang-tabs {
+  flex-wrap: wrap;
+  overflow: visible;
+}
+
+.trip-form-section {
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.42);
+  padding: 14px;
+}
+
+.trip-form-section--compact {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.trip-form-section-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+
+.trip-form-section-head h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--admin-text);
+}
+
+.trip-form-section-head p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--admin-text-muted);
+}
+
+#editTripModal .admin-modal-header,
+#newTripModal .admin-modal-header {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.88));
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+#editTripModal .admin-modal-actions,
+#newTripModal .admin-modal-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  margin-top: 0;
+  padding: 14px 0 0;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0), rgba(15, 23, 42, 0.95) 36%);
+  border-top: 1px solid rgba(148, 163, 184, 0.22);
+  backdrop-filter: blur(8px);
+}
+
 @media (max-width: 1024px) {
   .hotels-stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3875,6 +4056,93 @@ select#orderStatusFilter:focus {
     margin-top: 8px;
     justify-content: center;
   }
+
+  .trips-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .trips-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-table-container[aria-label="Trips"] {
+    overflow: visible;
+    border: none;
+    background: transparent;
+  }
+
+  .admin-table-container[aria-label="Trips"] .admin-table,
+  .admin-table-container[aria-label="Trips"] .admin-table tbody,
+  .admin-table-container[aria-label="Trips"] .admin-table tr,
+  .admin-table-container[aria-label="Trips"] .admin-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .admin-table-container[aria-label="Trips"] .admin-table thead {
+    display: none;
+  }
+
+  .admin-table-container[aria-label="Trips"] .admin-table tr {
+    border: 1px solid var(--admin-border);
+    background: var(--admin-bg-light);
+    border-radius: 14px;
+    overflow: hidden;
+    margin: 0 0 12px;
+  }
+
+  .admin-table-container[aria-label="Trips"] .admin-table td {
+    border-bottom: 1px solid var(--admin-border);
+    padding: 10px 12px;
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    justify-items: end;
+    text-align: right;
+    white-space: normal !important;
+  }
+
+  .admin-table-container[aria-label="Trips"] .admin-table td:last-child {
+    border-bottom: none;
+    display: block;
+  }
+
+  .admin-table-container[aria-label="Trips"] .admin-table td::before {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--admin-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .admin-table-container[aria-label="Trips"] .admin-table td:nth-of-type(1)::before { content: "Trip"; }
+  .admin-table-container[aria-label="Trips"] .admin-table td:nth-of-type(2)::before { content: "Order"; }
+  .admin-table-container[aria-label="Trips"] .admin-table td:nth-of-type(3)::before { content: "Slug"; }
+  .admin-table-container[aria-label="Trips"] .admin-table td:nth-of-type(4)::before { content: "City"; }
+  .admin-table-container[aria-label="Trips"] .admin-table td:nth-of-type(5)::before { content: "Published"; }
+  .admin-table-container[aria-label="Trips"] .admin-table td:nth-of-type(6)::before { content: "Bestseller"; }
+  .admin-table-container[aria-label="Trips"] .admin-table td:nth-of-type(7)::before { content: "Updated"; }
+  .admin-table-container[aria-label="Trips"] .admin-table td:nth-of-type(8)::before { content: "Actions"; }
+
+  .admin-table-container[aria-label="Trips"] .admin-table td > * {
+    min-width: 0;
+    justify-self: end;
+    text-align: right;
+  }
+
+  .admin-table-container[aria-label="Trips"] .admin-table td:last-child::before {
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .admin-table-container[aria-label="Trips"] .admin-table td:last-child button,
+  .admin-table-container[aria-label="Trips"] .admin-table td:last-child a {
+    width: 100%;
+    margin-top: 8px;
+    justify-content: center;
+  }
 }
 
 @media (max-width: 768px) {
@@ -3950,6 +4218,69 @@ select#orderStatusFilter:focus {
   }
 
   .hotel-form-section-head p {
+    font-size: 11px;
+  }
+
+  #editTripModal,
+  #newTripModal {
+    align-items: flex-start;
+    padding: 6px;
+    overflow-y: auto;
+  }
+
+  .trips-tab-button {
+    flex: 0 0 auto;
+    padding: 9px 12px;
+    font-size: 13px;
+  }
+
+  .trips-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .trips-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .trip-modal-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: calc(100dvh - 12px);
+    border-radius: 14px;
+  }
+
+  .trip-modal-body {
+    padding: 12px 12px max(12px, env(safe-area-inset-bottom));
+  }
+
+  #editTripModal .admin-modal-header,
+  #newTripModal .admin-modal-header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    padding: max(12px, env(safe-area-inset-top)) 14px 12px;
+  }
+
+  .trip-admin-form .lang-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .trip-admin-form {
+    gap: 12px;
+  }
+
+  .trip-form-section {
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .trip-form-section-head h4 {
+    font-size: 14px;
+  }
+
+  .trip-form-section-head p {
     font-size: 11px;
   }
 

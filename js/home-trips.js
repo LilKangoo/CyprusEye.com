@@ -29,6 +29,16 @@ function normalizeHomeTripsErrorMessage(message, fallback = 'Wystąpił błąd.'
   return raw;
 }
 
+function isHomeTripsMissingColumn(error, columnName) {
+  const normalizedColumn = String(columnName || '').trim().toLowerCase();
+  const message = String(error?.message || '').toLowerCase();
+  if (!normalizedColumn || !message) return false;
+  return message.includes(`column "${normalizedColumn}"`)
+    || message.includes(`column '${normalizedColumn}'`)
+    || message.includes(`could not find the '${normalizedColumn}' column`)
+    || message.includes(`could not find the "${normalizedColumn}" column`);
+}
+
 function readHomeTripsCache() {
   try {
     const raw = localStorage.getItem(HOME_TRIPS_CACHE_KEY);
@@ -171,17 +181,27 @@ async function loadHomeTrips() {
       throw new Error('Supabase client not available');
     }
 
-    // Fetch published trips - ordered exactly like trips.html
-    const { data, error } = await supabase
+    // Fetch published trips - bestseller first, then manual order.
+    let queryResult = await supabase
       .from('trips')
       .select('*')
       .eq('is_published', true)
+      .order('is_bestseller', { ascending: false })
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (queryResult.error && isHomeTripsMissingColumn(queryResult.error, 'is_bestseller')) {
+      queryResult = await supabase
+        .from('trips')
+        .select('*')
+        .eq('is_published', true)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: false });
+    }
 
-    homeTripsData = data || [];
+    if (queryResult.error) throw queryResult.error;
+
+    homeTripsData = queryResult.data || [];
     writeHomeTripsCache(homeTripsData);
     ceLog('✅ Loaded trips:', homeTripsData.length);
     renderHomeTripsTabs();
@@ -270,6 +290,8 @@ function renderHomeTrips() {
     return;
   }
 
+  const bestsellerLabel = tripsT('trips.card.bestseller', 'Bestseller');
+
   grid.innerHTML = displayTrips.map((trip, index) => {
     const imageUrl = trip.cover_image_url || '/assets/cyprus_logo-1000x1054.png';
     
@@ -321,6 +343,26 @@ function renderHomeTrips() {
         onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 12px rgba(0,0,0,0.15)'"
         onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 6px rgba(0,0,0,0.1)'"
       >
+        ${trip.is_bestseller ? `
+          <div
+            style="
+              position:absolute;
+              top:10px;
+              left:10px;
+              z-index:5;
+              display:inline-flex;
+              align-items:center;
+              gap:6px;
+              border-radius:999px;
+              padding:5px 10px;
+              font-size:11px;
+              font-weight:700;
+              color:#fff;
+              background:linear-gradient(135deg,#f97316,#f59e0b);
+              box-shadow:0 10px 18px rgba(245,158,11,0.35);
+            "
+          >🔥 ${escapeHtml(bestsellerLabel)}</div>
+        ` : ''}
         <button
           type="button"
           data-ce-save="1"

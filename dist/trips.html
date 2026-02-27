@@ -139,6 +139,22 @@
     .city-card:hover .city-card-image {
       transform: scale(1.05);
     }
+    .trip-bestseller-badge {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      z-index: 3;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      background: linear-gradient(135deg, #f97316, #f59e0b);
+      box-shadow: 0 10px 24px rgba(245, 158, 11, 0.32);
+    }
     .city-card-overlay {
       position: absolute;
       bottom: 0;
@@ -1246,6 +1262,7 @@
         grid.innerHTML = '<p style="text-align:center;color:#6b7280;">Brak dostępnych wycieczek w tej kategorii</p>';
         return;
       }
+      const bestsellerLabel = t('trips.card.bestseller', 'Bestseller');
 
       grid.innerHTML = filteredTrips.map((trip, index) => {
         const title = window.getTripName ? window.getTripName(trip) : (trip.title?.pl || trip.title?.en || trip.slug);
@@ -1260,6 +1277,7 @@
         
         return `
           <div class="city-card" onclick="openTripModal(${index})">
+            ${trip.is_bestseller ? `<div class="trip-bestseller-badge">🔥 ${bestsellerLabel}</div>` : ''}
             <img class="city-card-image" src="${image}" alt="${title}" loading="lazy" />
             <div class="city-card-overlay">
               <h3 class="city-card-title">${title}</h3>
@@ -1840,17 +1858,37 @@
           throw new Error('Supabase client not available');
         }
 
-        // Fetch published trips (ordered by manual sort_order, then created_at)
-        const { data, error } = await supabase
+        function isTripsMissingColumn(error, columnName) {
+          const normalizedColumn = String(columnName || '').trim().toLowerCase();
+          const message = String(error?.message || '').toLowerCase();
+          if (!normalizedColumn || !message) return false;
+          return message.includes(`column "${normalizedColumn}"`)
+            || message.includes(`column '${normalizedColumn}'`)
+            || message.includes(`could not find the '${normalizedColumn}' column`)
+            || message.includes(`could not find the "${normalizedColumn}" column`);
+        }
+
+        // Fetch published trips (bestseller first, then manual order)
+        let queryResult = await supabase
           .from('trips')
           .select('*')
           .eq('is_published', true)
+          .order('is_bestseller', { ascending: false })
           .order('sort_order', { ascending: true })
           .order('created_at', { ascending: false });
 
-        if (error) throw error;
+        if (queryResult.error && isTripsMissingColumn(queryResult.error, 'is_bestseller')) {
+          queryResult = await supabase
+            .from('trips')
+            .select('*')
+            .eq('is_published', true)
+            .order('sort_order', { ascending: true })
+            .order('created_at', { ascending: false });
+        }
 
-        allTrips = data || [];
+        if (queryResult.error) throw queryResult.error;
+
+        allTrips = queryResult.data || [];
         renderTabs();  // Generate tabs from cities
         renderTrips(); // Show all trips initially
       } catch (err) {
