@@ -19,7 +19,12 @@ let homeRecCarouselUpdate = null;
 // ============================================================================
 // INIT
 // ============================================================================
-document.addEventListener('DOMContentLoaded', () => {
+let homeRecommendationsInitialized = false;
+
+function initHomeRecommendations() {
+  if (homeRecommendationsInitialized) return;
+  homeRecommendationsInitialized = true;
+
   console.log('🔵 Home Recommendations: Initializing...');
   loadData();
   setupLanguageListener();
@@ -34,7 +39,13 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
   } catch (_) {}
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initHomeRecommendations);
+} else {
+  initHomeRecommendations();
+}
 
 function initHomeRecommendationsCarousel() {
   const prev = document.querySelector('.home-carousel-container .home-carousel-nav.prev[data-target="#recommendationsHomeGrid"]');

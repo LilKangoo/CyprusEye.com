@@ -1140,7 +1140,12 @@ async function loadHomeCars() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+let homeCarsInitialized = false;
+
+function initHomeCarsModule() {
+  if (homeCarsInitialized) return;
+  homeCarsInitialized = true;
+
   const modal = document.getElementById('carHomeModal');
   if (modal) {
     modal.addEventListener('click', (e) => {
@@ -1179,4 +1184,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   loadHomeCars();
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initHomeCarsModule);
+} else {
+  initHomeCarsModule();
+}
