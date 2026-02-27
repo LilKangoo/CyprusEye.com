@@ -265,6 +265,16 @@ function renderDetail(type, vm){
           <label>Dni<input type="number" name="days" min="1" value="1"></label>
         </div>
         <label>Uwagi<textarea name="notes" rows="3" placeholder="Dodatkowe informacje"></textarea></label>
+        <div class="row">
+          <label>Kod kuponu<input name="coupon_code" id="detailCouponCode" maxlength="64" autocomplete="off" placeholder="Wpisz kod kuponu"></label>
+          <label>Cena końcowa<input id="detailTotalPreview" readonly value="0.00 €"></label>
+        </div>
+        <div class="row">
+          <button class="btn btn-primary" type="button" id="detailApplyCoupon">Zastosuj kupon</button>
+          <button class="btn btn-primary" type="button" id="detailClearCoupon" hidden style="background:#475569;">Wyczyść kupon</button>
+        </div>
+        <p id="detailDiscountPreview" style="margin:0;color:#64748b;font-size:12px;">Brak rabatu</p>
+        <p class="booking-message" id="detailCouponMsg" style="display:none;"></p>
         <p class="booking-message" id="detailBookingMsg"></p>
         <button class="btn btn-primary primary booking-submit" type="submit">Zarezerwuj</button>
       </form>`;
@@ -288,6 +298,16 @@ function renderDetail(type, vm){
           <label>Dzieci<select name="children"><option>0</option><option>1</option><option>2</option></select></label>
         </div>
         <label>Uwagi<textarea name="notes" rows="3" placeholder="Preferencje, pytania..."></textarea></label>
+        <div class="row">
+          <label>Kod kuponu<input name="coupon_code" id="detailCouponCode" maxlength="64" autocomplete="off" placeholder="Wpisz kod kuponu"></label>
+          <label>Cena końcowa<input id="detailTotalPreview" readonly value="0.00 €"></label>
+        </div>
+        <div class="row">
+          <button class="btn btn-primary" type="button" id="detailApplyCoupon">Zastosuj kupon</button>
+          <button class="btn btn-primary" type="button" id="detailClearCoupon" hidden style="background:#475569;">Wyczyść kupon</button>
+        </div>
+        <p id="detailDiscountPreview" style="margin:0;color:#64748b;font-size:12px;">Brak rabatu</p>
+        <p class="booking-message" id="detailCouponMsg" style="display:none;"></p>
         <p class="booking-message" id="detailBookingMsg"></p>
         <button class="btn btn-primary primary booking-submit" type="submit">Zarezerwuj nocleg</button>
       </form>`;
@@ -299,15 +319,249 @@ function renderDetail(type, vm){
   const titleEl = qs('#detailModalTitle');
   titleEl.textContent = vm.title;
 
-  // wire booking submit
   const form = qs('#detailBookingForm');
+  const detailCouponState = { applied: null };
+
+  const normalizeDetailCouponCode = (value) => String(value || '').trim().toUpperCase();
+  const detailMoney = (value) => `${Number(value || 0).toFixed(2)} €`;
+  const extractMissingColumn = (error) => {
+    const message = String(error?.message || '');
+    const match = message.match(/Could not find the ['"]([^'"]+)['"] column/i);
+    return match && match[1] ? String(match[1]).trim() : '';
+  };
+
+  const couponInput = qs('#detailCouponCode', form);
+  const couponApplyBtn = qs('#detailApplyCoupon', form);
+  const couponClearBtn = qs('#detailClearCoupon', form);
+  const couponMsg = qs('#detailCouponMsg', form);
+  const totalPreviewInput = qs('#detailTotalPreview', form);
+  const discountPreviewEl = qs('#detailDiscountPreview', form);
+
+  const setCouponStatus = (message = '', type = 'info') => {
+    if (!couponMsg) return;
+    const text = String(message || '').trim();
+    if (!text) {
+      couponMsg.style.display = 'none';
+      couponMsg.textContent = '';
+      couponMsg.className = 'booking-message';
+      return;
+    }
+    couponMsg.style.display = 'block';
+    couponMsg.textContent = text;
+    if (type === 'error') {
+      couponMsg.className = 'booking-message error';
+    } else if (type === 'success') {
+      couponMsg.className = 'booking-message success';
+    } else {
+      couponMsg.className = 'booking-message';
+    }
+  };
+
+  const syncCouponControls = () => {
+    const code = normalizeDetailCouponCode(couponInput?.value || '');
+    if (couponApplyBtn instanceof HTMLButtonElement) couponApplyBtn.disabled = !code;
+    if (couponClearBtn instanceof HTMLButtonElement) couponClearBtn.hidden = !code && !detailCouponState.applied;
+  };
+
+  const clearCouponState = (options = {}) => {
+    const clearInput = options.clearInput !== false;
+    detailCouponState.applied = null;
+    if (clearInput && couponInput) couponInput.value = '';
+    setCouponStatus('', 'info');
+    syncCouponControls();
+  };
+
+  const getBaseTotal = () => {
+    const fd = new FormData(form);
+    if (form.dataset.type === 'trip') {
+      const t = vm.raw;
+      return calcTripTotal(t, {
+        adults: Number(fd.get('adults') || 1),
+        children: Number(fd.get('children') || 0),
+        hours: Number(fd.get('hours') || 1),
+        days: Number(fd.get('days') || 1),
+      });
+    }
+    const h = vm.raw;
+    const a = fd.get('arrival_date');
+    const d = fd.get('departure_date');
+    const toDate = (value) => new Date(value);
+    const nights = Math.max(1, Math.round((toDate(d) - toDate(a)) / (1000 * 60 * 60 * 24)));
+    const adults = Number(fd.get('adults') || 1);
+    const children = Number(fd.get('children') || 0);
+    return calcHotelTotal(h, adults + children, nights);
+  };
+
+  const getCouponContext = (baseTotal) => {
+    const base = Number(baseTotal || 0);
+    const code = normalizeDetailCouponCode(couponInput?.value || '');
+    const appliedCode = normalizeDetailCouponCode(detailCouponState.applied?.couponCode || '');
+    const hasApplied = Boolean(detailCouponState.applied && code && code === appliedCode);
+    const discount = hasApplied ? Math.min(base, Number(detailCouponState.applied?.discountAmount || 0)) : 0;
+    return {
+      code,
+      hasApplied,
+      discount,
+      baseTotal: base,
+      finalTotal: Math.max(0, base - discount),
+    };
+  };
+
+  const renderQuotePreview = () => {
+    const baseTotal = Number(getBaseTotal() || 0);
+    const coupon = getCouponContext(baseTotal);
+    if (totalPreviewInput) totalPreviewInput.value = detailMoney(coupon.finalTotal);
+    if (discountPreviewEl) {
+      discountPreviewEl.textContent = coupon.hasApplied
+        ? `Rabat: -${detailMoney(coupon.discount)} (cena bazowa ${detailMoney(coupon.baseTotal)})`
+        : `Cena bazowa: ${detailMoney(coupon.baseTotal)}`;
+    }
+    syncCouponControls();
+  };
+
+  const invalidateCouponAfterQuoteChange = () => {
+    if (!detailCouponState.applied) return;
+    detailCouponState.applied = null;
+    const code = normalizeDetailCouponCode(couponInput?.value || '');
+    if (code) {
+      setCouponStatus('Zmieniły się dane rezerwacji. Zastosuj kupon ponownie.', 'info');
+    } else {
+      setCouponStatus('', 'info');
+    }
+  };
+
+  const applyCouponForCurrentForm = async () => {
+    const code = normalizeDetailCouponCode(couponInput?.value || '');
+    if (!code) {
+      setCouponStatus('Wpisz kod kuponu.', 'error');
+      syncCouponControls();
+      return false;
+    }
+
+    const baseTotal = Number(getBaseTotal() || 0);
+    if (!(baseTotal > 0)) {
+      setCouponStatus('Uzupełnij dane rezerwacji, aby przeliczyć kupon.', 'error');
+      syncCouponControls();
+      return false;
+    }
+
+    if (couponApplyBtn instanceof HTMLButtonElement) couponApplyBtn.disabled = true;
+    try {
+      const fd = new FormData(form);
+      const { quoteServiceCoupon } = await import('/js/service-coupons.js');
+      const isTrip = form.dataset.type === 'trip';
+      const row = vm.raw;
+      const response = await quoteServiceCoupon({
+        serviceType: isTrip ? 'trips' : 'hotels',
+        couponCode: code,
+        baseTotal,
+        serviceAt: isTrip ? (fd.get('trip_date') || null) : (fd.get('arrival_date') || null),
+        resourceId: row.id,
+        categoryKeys: isTrip
+          ? [row.slug, row.start_city].map((entry) => String(entry || '').trim().toLowerCase()).filter(Boolean)
+          : [row.slug, row.city].map((entry) => String(entry || '').trim().toLowerCase()).filter(Boolean),
+        userEmail: String(fd.get('email') || '').trim().toLowerCase() || null,
+      });
+      if (!response?.ok || !response.result) {
+        detailCouponState.applied = null;
+        setCouponStatus(String(response?.message || 'Kupon nie działa dla tej rezerwacji.'), 'error');
+        renderQuotePreview();
+        return false;
+      }
+
+      detailCouponState.applied = {
+        couponId: response.result.couponId || null,
+        couponCode: normalizeDetailCouponCode(response.result.couponCode || code),
+        discountAmount: Number(response.result.discountAmount || 0),
+        partnerId: response.result.partnerId || null,
+        partnerCommissionBpsOverride: response.result.partnerCommissionBpsOverride ?? null,
+      };
+      setCouponStatus(`Kupon zastosowany. Zniżka: ${detailMoney(detailCouponState.applied.discountAmount)}`, 'success');
+      renderQuotePreview();
+      return true;
+    } catch (error) {
+      console.error('Failed to validate detail modal coupon:', error);
+      detailCouponState.applied = null;
+      setCouponStatus(normalizeAuthUiError(error, 'Nie udało się zweryfikować kuponu.'), 'error');
+      renderQuotePreview();
+      return false;
+    } finally {
+      syncCouponControls();
+    }
+  };
+
+  const insertWithFallback = async (tableName, payload) => {
+    const { supabase } = await import('/js/supabaseClient.js');
+    let workingPayload = { ...payload };
+    const removedColumns = new Set();
+    while (true) {
+      const { error } = await supabase.from(tableName).insert([workingPayload]);
+      if (!error) return;
+      const missingColumn = extractMissingColumn(error);
+      if (missingColumn && !removedColumns.has(missingColumn) && Object.prototype.hasOwnProperty.call(workingPayload, missingColumn)) {
+        removedColumns.add(missingColumn);
+        delete workingPayload[missingColumn];
+        continue;
+      }
+      throw error;
+    }
+  };
+
+  if (couponInput instanceof HTMLInputElement) {
+    couponInput.addEventListener('input', () => {
+      const normalized = normalizeDetailCouponCode(couponInput.value);
+      if (couponInput.value !== normalized) couponInput.value = normalized;
+      const appliedCode = normalizeDetailCouponCode(detailCouponState.applied?.couponCode || '');
+      if (appliedCode && normalized !== appliedCode) {
+        detailCouponState.applied = null;
+        setCouponStatus('', 'info');
+      }
+      renderQuotePreview();
+    });
+    couponInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        void applyCouponForCurrentForm();
+      }
+    });
+  }
+  couponApplyBtn?.addEventListener('click', () => { void applyCouponForCurrentForm(); });
+  couponClearBtn?.addEventListener('click', () => {
+    clearCouponState({ clearInput: true });
+    renderQuotePreview();
+  });
+
+  form.addEventListener('input', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement)) return;
+    if (target.name === 'coupon_code') return;
+    if (['trip_date', 'arrival_date', 'departure_date', 'adults', 'children', 'hours', 'days', 'email'].includes(target.name)) {
+      invalidateCouponAfterQuoteChange();
+    }
+    renderQuotePreview();
+  });
+  renderQuotePreview();
+
+  // wire booking submit
   form.addEventListener('submit', async (e)=>{
     e.preventDefault();
     const msg = qs('#detailBookingMsg');
     const btn = form.querySelector('.booking-submit');
+    msg.style.display = 'none';
     btn.disabled = true; btn.textContent = 'Wysyłanie...';
     try{
       const fd = new FormData(form);
+      const baseTotal = Number(getBaseTotal() || 0);
+      const enteredCoupon = normalizeDetailCouponCode(fd.get('coupon_code'));
+      const appliedCouponCode = normalizeDetailCouponCode(detailCouponState.applied?.couponCode || '');
+      if (enteredCoupon && enteredCoupon !== appliedCouponCode) {
+        const applied = await applyCouponForCurrentForm();
+        if (!applied) {
+          throw new Error('Zastosuj poprawny kupon albo wyczyść pole kuponu.');
+        }
+      }
+      const coupon = getCouponContext(baseTotal);
+
       if (form.dataset.type==='trip'){
         const t = vm.raw;
         const payload = {
@@ -324,17 +578,17 @@ function renderDetail(type, vm){
           num_hours: Number(fd.get('hours')||1),
           num_days: Number(fd.get('days')||1),
           notes: fd.get('notes'),
-          total_price: calcTripTotal(t, {
-            adults: Number(fd.get('adults')||1),
-            children: Number(fd.get('children')||0),
-            hours: Number(fd.get('hours')||1),
-            days: Number(fd.get('days')||1)
-          }),
+          base_price: coupon.baseTotal,
+          final_price: coupon.finalTotal,
+          total_price: coupon.finalTotal,
+          coupon_id: coupon.hasApplied ? (detailCouponState.applied?.couponId || null) : null,
+          coupon_code: coupon.hasApplied ? (detailCouponState.applied?.couponCode || coupon.code || null) : null,
+          coupon_discount_amount: coupon.hasApplied ? Number(coupon.discount || 0) : 0,
+          coupon_partner_id: coupon.hasApplied ? (detailCouponState.applied?.partnerId || null) : null,
+          coupon_partner_commission_bps: coupon.hasApplied ? (detailCouponState.applied?.partnerCommissionBpsOverride ?? null) : null,
           status: 'pending'
         };
-        const { supabase } = await import('/js/supabaseClient.js');
-        const { error } = await supabase.from('trip_bookings').insert([payload]);
-        if (error) throw error;
+        await insertWithFallback('trip_bookings', payload);
       } else {
         const h = vm.raw;
         const a = fd.get('arrival_date');
@@ -357,17 +611,26 @@ function renderDetail(type, vm){
           num_children: children,
           nights,
           notes: fd.get('notes'),
-          total_price: calcHotelTotal(h, persons, nights),
+          base_price: coupon.baseTotal,
+          final_price: coupon.finalTotal,
+          total_price: coupon.finalTotal,
+          coupon_id: coupon.hasApplied ? (detailCouponState.applied?.couponId || null) : null,
+          coupon_code: coupon.hasApplied ? (detailCouponState.applied?.couponCode || coupon.code || null) : null,
+          coupon_discount_amount: coupon.hasApplied ? Number(coupon.discount || 0) : 0,
+          coupon_partner_id: coupon.hasApplied ? (detailCouponState.applied?.partnerId || null) : null,
+          coupon_partner_commission_bps: coupon.hasApplied ? (detailCouponState.applied?.partnerCommissionBpsOverride ?? null) : null,
           status: 'pending'
         };
-        const { supabase } = await import('/js/supabaseClient.js');
-        const { error } = await supabase.from('hotel_bookings').insert([payload]);
-        if (error) throw error;
+        await insertWithFallback('hotel_bookings', payload);
       }
       msg.className = 'booking-message success';
-      msg.textContent = 'Rezerwacja przyjęta! Skontaktujemy się wkrótce.';
+      msg.textContent = coupon.hasApplied
+        ? `Rezerwacja przyjęta! Cena po kuponie: ${detailMoney(coupon.finalTotal)} (zniżka ${detailMoney(coupon.discount)}).`
+        : `Rezerwacja przyjęta! Suma: ${detailMoney(coupon.finalTotal)}.`;
       msg.style.display = 'block';
       form.reset();
+      clearCouponState({ clearInput: true });
+      renderQuotePreview();
       if (window.dataLayer) window.dataLayer.push({event:'booking_created'});
     }catch(err){
       console.error(err);

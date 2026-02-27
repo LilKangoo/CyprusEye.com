@@ -1146,8 +1146,13 @@
   </div>
 
   <script type="module">
+    import { quoteServiceCoupon } from '/js/service-coupons.js';
+
     let allTrips = [];
     let currentCity = 'all';
+    let tripCouponState = {
+      applied: null,
+    };
 
     function getUniqueCities() {
       const cities = new Set();
@@ -1304,6 +1309,226 @@
       return price;
     }
 
+    function normalizeTripCouponCode(value) {
+      return String(value || '').trim().toUpperCase();
+    }
+
+    function formatTripPrice(value) {
+      const amount = Number(value);
+      if (!Number.isFinite(amount)) return '0.00 €';
+      return `${amount.toFixed(2)} €`;
+    }
+
+    function extractMissingColumnName(error) {
+      const message = String(error?.message || '');
+      const pattern = /Could not find the ['"]([^'"]+)['"] column/i;
+      const match = message.match(pattern);
+      if (match && match[1]) return String(match[1]).trim();
+      return '';
+    }
+
+    function getTripCouponContext(baseTotal) {
+      const base = Number.isFinite(Number(baseTotal)) ? Number(baseTotal) : 0;
+      const codeInput = document.getElementById('bookingCouponCode');
+      const code = normalizeTripCouponCode(codeInput?.value || '');
+      const applied = tripCouponState.applied;
+      const appliedCode = normalizeTripCouponCode(applied?.couponCode || '');
+      const hasApplied = Boolean(applied && code && appliedCode === code);
+      const discount = hasApplied ? Math.min(base, Number(applied?.discountAmount || 0)) : 0;
+      const finalTotal = Math.max(0, base - discount);
+      return {
+        code,
+        hasApplied,
+        discount,
+        finalTotal,
+        baseTotal: base,
+      };
+    }
+
+    function setTripCouponStatus(message = '', type = 'info') {
+      const statusEl = document.getElementById('bookingCouponStatus');
+      if (!statusEl) return;
+      const text = String(message || '').trim();
+      if (!text) {
+        statusEl.hidden = true;
+        statusEl.textContent = '';
+        statusEl.style.color = '#475569';
+        return;
+      }
+      statusEl.hidden = false;
+      statusEl.textContent = text;
+      statusEl.style.color = type === 'error'
+        ? '#b91c1c'
+        : (type === 'success' ? '#0f766e' : '#475569');
+    }
+
+    function syncTripCouponButtons() {
+      const applyBtn = document.getElementById('bookingApplyCoupon');
+      const clearBtn = document.getElementById('bookingClearCoupon');
+      const code = normalizeTripCouponCode(document.getElementById('bookingCouponCode')?.value || '');
+      if (applyBtn) applyBtn.disabled = !code || !currentTrip;
+      if (clearBtn) clearBtn.hidden = !code && !tripCouponState.applied;
+    }
+
+    function clearTripCouponState(options = {}) {
+      const clearInput = options.clearInput !== false;
+      tripCouponState.applied = null;
+      if (clearInput) {
+        const input = document.getElementById('bookingCouponCode');
+        if (input) input.value = '';
+      }
+      setTripCouponStatus('', 'info');
+      syncTripCouponButtons();
+    }
+
+    function invalidateTripCouponAfterChange() {
+      if (!tripCouponState.applied) return;
+      tripCouponState.applied = null;
+      const code = normalizeTripCouponCode(document.getElementById('bookingCouponCode')?.value || '');
+      if (code) {
+        setTripCouponStatus(t('trips.booking.coupon.reapply', 'Szczegóły wycieczki się zmieniły. Zastosuj kupon ponownie.'), 'info');
+      } else {
+        setTripCouponStatus('', 'info');
+      }
+      syncTripCouponButtons();
+    }
+
+    function ensureTripCouponUi() {
+      const form = document.getElementById('bookingForm');
+      if (!form || form.querySelector('[data-trip-coupon-ui]')) return;
+      const notesField = document.getElementById('bookingNotes')?.closest('.form-field');
+      if (!notesField) return;
+
+      const box = document.createElement('div');
+      box.className = 'form-field';
+      box.setAttribute('data-trip-coupon-ui', '1');
+      box.innerHTML = `
+        <label for="bookingCouponCode">${t('trips.booking.coupon.label', 'Kod kuponu')}</label>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;">
+          <input type="text" id="bookingCouponCode" maxlength="64" autocomplete="off" placeholder="${t('trips.booking.coupon.placeholder', 'Wpisz kod kuponu')}" />
+          <button type="button" id="bookingApplyCoupon" class="booking-submit" style="padding:10px 14px;min-height:42px;">${t('trips.booking.coupon.apply', 'Zastosuj')}</button>
+          <button type="button" id="bookingClearCoupon" class="booking-submit" style="padding:10px 14px;min-height:42px;background:#475569;" hidden>${t('trips.booking.coupon.clear', 'Wyczyść')}</button>
+        </div>
+        <p id="bookingCouponStatus" style="margin:6px 0 0;font-size:12px;color:#475569;" hidden></p>
+      `;
+
+      const priceBox = form.querySelector('.trip-price-box');
+      if (priceBox) {
+        form.insertBefore(box, priceBox);
+      } else {
+        notesField.insertAdjacentElement('afterend', box);
+      }
+
+      const codeInput = document.getElementById('bookingCouponCode');
+      const applyBtn = document.getElementById('bookingApplyCoupon');
+      const clearBtn = document.getElementById('bookingClearCoupon');
+
+      codeInput?.addEventListener('input', () => {
+        const normalized = normalizeTripCouponCode(codeInput.value);
+        if (codeInput.value !== normalized) codeInput.value = normalized;
+        const appliedCode = normalizeTripCouponCode(tripCouponState.applied?.couponCode || '');
+        if (appliedCode && normalized !== appliedCode) {
+          tripCouponState.applied = null;
+          setTripCouponStatus('', 'info');
+          updateLivePrice();
+        }
+        syncTripCouponButtons();
+      });
+
+      codeInput?.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          void applyTripCoupon();
+        }
+      });
+
+      applyBtn?.addEventListener('click', () => {
+        void applyTripCoupon();
+      });
+
+      clearBtn?.addEventListener('click', () => {
+        clearTripCouponState({ clearInput: true });
+        updateLivePrice();
+      });
+
+      syncTripCouponButtons();
+    }
+
+    async function applyTripCoupon() {
+      if (!currentTrip) return false;
+      const code = normalizeTripCouponCode(document.getElementById('bookingCouponCode')?.value || '');
+      if (!code) {
+        setTripCouponStatus(t('trips.booking.coupon.enterCode', 'Wpisz kod kuponu.'), 'error');
+        syncTripCouponButtons();
+        return false;
+      }
+
+      const adults = document.getElementById('bookingAdults').value;
+      const children = document.getElementById('bookingChildren').value;
+      const hours = document.getElementById('bookingHours').value;
+      const days = document.getElementById('bookingDays').value;
+      const baseTotal = calculateTripPrice(currentTrip, adults, children, hours, days);
+      if (!(baseTotal > 0)) {
+        setTripCouponStatus(t('trips.booking.coupon.noPrice', 'Najpierw uzupełnij dane rezerwacji.'), 'error');
+        syncTripCouponButtons();
+        return false;
+      }
+
+      const tripDate = String(document.getElementById('bookingDate')?.value || '').trim();
+      const arrivalDate = String(document.getElementById('arrivalDate')?.value || '').trim();
+      const serviceAt = tripDate || arrivalDate || null;
+      const customerEmail = String(document.getElementById('bookingEmail')?.value || '').trim().toLowerCase() || null;
+      const categoryKeys = Array.from(new Set([
+        String(currentTrip?.slug || '').trim().toLowerCase(),
+        String(currentTrip?.start_city || '').trim().toLowerCase(),
+      ].filter(Boolean)));
+
+      const applyBtn = document.getElementById('bookingApplyCoupon');
+      if (applyBtn) applyBtn.disabled = true;
+      try {
+        const response = await quoteServiceCoupon({
+          serviceType: 'trips',
+          couponCode: code,
+          baseTotal,
+          serviceAt,
+          resourceId: currentTrip.id,
+          categoryKeys,
+          userEmail: customerEmail,
+        });
+
+        if (!response?.ok || !response.result) {
+          tripCouponState.applied = null;
+          setTripCouponStatus(String(response?.message || t('trips.booking.coupon.invalid', 'Ten kupon nie działa dla tej rezerwacji.')), 'error');
+          updateLivePrice();
+          return false;
+        }
+
+        tripCouponState.applied = {
+          couponId: response.result.couponId || null,
+          couponCode: normalizeTripCouponCode(response.result.couponCode || code),
+          discountAmount: Number(response.result.discountAmount || 0),
+          partnerId: response.result.partnerId || null,
+          partnerCommissionBpsOverride: response.result.partnerCommissionBpsOverride ?? null,
+        };
+        setTripCouponStatus(
+          t('trips.booking.coupon.applied', 'Kupon zastosowany. Zniżka: {{amount}}', {
+            amount: formatTripPrice(tripCouponState.applied.discountAmount),
+          }),
+          'success',
+        );
+        updateLivePrice();
+        return true;
+      } catch (error) {
+        console.error('Failed to apply trip coupon:', error);
+        tripCouponState.applied = null;
+        setTripCouponStatus(String(error?.message || t('trips.booking.coupon.failed', 'Nie udało się zweryfikować kuponu.')), 'error');
+        updateLivePrice();
+        return false;
+      } finally {
+        syncTripCouponButtons();
+      }
+    }
+
     function updateLivePrice() {
       if (!currentTrip) return;
       
@@ -1311,9 +1536,10 @@
       const children = document.getElementById('bookingChildren').value;
       const hours = document.getElementById('bookingHours').value;
       const days = document.getElementById('bookingDays').value;
-      const totalPrice = calculateTripPrice(currentTrip, adults, children, hours, days);
-      
-      document.getElementById('modalTripPrice').textContent = `${totalPrice.toFixed(2)} €`;
+      const baseTotal = calculateTripPrice(currentTrip, adults, children, hours, days);
+      const coupon = getTripCouponContext(baseTotal);
+      document.getElementById('modalTripPrice').textContent = formatTripPrice(coupon.finalTotal);
+      syncTripCouponButtons();
     }
 
     window.openTripModal = function(tripIndex) {
@@ -1337,6 +1563,8 @@
       // Reset form
       document.getElementById('bookingForm').reset();
       document.getElementById('bookingMessage').style.display = 'none';
+      ensureTripCouponUi();
+      clearTripCouponState({ clearInput: true });
       
       // Show/hide fields based on pricing model
       const peopleFields = document.getElementById('peopleFields');
@@ -1377,12 +1605,26 @@
           departureInput.value = this.value;
         }
         departureInput.min = this.value;
+        invalidateTripCouponAfterChange();
+        updateLivePrice();
       });
       
       departureInput.addEventListener('change', function() {
         if (arrivalInput.value && this.value < arrivalInput.value) {
           this.value = arrivalInput.value;
         }
+        invalidateTripCouponAfterChange();
+        updateLivePrice();
+      });
+
+      const bookingDateInput = document.getElementById('bookingDate');
+      bookingDateInput?.addEventListener('change', () => {
+        invalidateTripCouponAfterChange();
+        updateLivePrice();
+      });
+      const bookingEmailInput = document.getElementById('bookingEmail');
+      bookingEmailInput?.addEventListener('change', () => {
+        invalidateTripCouponAfterChange();
       });
       
       // Remove old listeners and add new ones
@@ -1403,10 +1645,14 @@
       
       // Add comprehensive event listeners for number inputs
       const addAllEvents = (element) => {
-        element.addEventListener('input', updateLivePrice);
-        element.addEventListener('change', updateLivePrice);
-        element.addEventListener('click', updateLivePrice);  // For spinner buttons
-        element.addEventListener('keyup', updateLivePrice);   // For arrow keys
+        const onChange = () => {
+          invalidateTripCouponAfterChange();
+          updateLivePrice();
+        };
+        element.addEventListener('input', onChange);
+        element.addEventListener('change', onChange);
+        element.addEventListener('click', onChange);  // For spinner buttons
+        element.addEventListener('keyup', onChange);   // For arrow keys
       };
       
       addAllEvents(newAdultsInput);
@@ -1502,25 +1748,7 @@
       const children = parseInt(formData.get('children')) || 0;
       const hours = parseInt(formData.get('hours')) || 1;
       const days = parseInt(formData.get('days')) || 1;
-      const calculatedPrice = calculateTripPrice(currentTrip, adults, children, hours, days);
-      
-      const bookingData = {
-        trip_id: currentTrip.id,
-        trip_slug: currentTrip.slug,
-        customer_name: formData.get('name'),
-        customer_email: formData.get('email'),
-        customer_phone: formData.get('phone'),
-        trip_date: formData.get('trip_date'),
-        arrival_date: formData.get('arrival_date'),
-        departure_date: formData.get('departure_date'),
-        num_adults: adults,
-        num_children: children,
-        num_hours: hours,
-        num_days: days,
-        notes: formData.get('notes'),
-        total_price: calculatedPrice,
-        status: 'pending'
-      };
+      const basePrice = calculateTripPrice(currentTrip, adults, children, hours, days);
       
       const submitBtn = e.target.querySelector('.booking-submit');
       const message = document.getElementById('bookingMessage');
@@ -1528,16 +1756,58 @@
       try {
         submitBtn.disabled = true;
         submitBtn.textContent = 'Wysyłanie...';
+
+        const couponCode = normalizeTripCouponCode(document.getElementById('bookingCouponCode')?.value || '');
+        const appliedCode = normalizeTripCouponCode(tripCouponState.applied?.couponCode || '');
+        if (couponCode && couponCode !== appliedCode) {
+          const applied = await applyTripCoupon();
+          if (!applied) {
+            throw new Error(t('trips.booking.coupon.applyBeforeSubmit', 'Zastosuj poprawny kupon lub wyczyść pole kuponu przed rezerwacją.'));
+          }
+        }
+
+        const coupon = getTripCouponContext(basePrice);
+        const bookingData = {
+          trip_id: currentTrip.id,
+          trip_slug: currentTrip.slug,
+          customer_name: formData.get('name'),
+          customer_email: formData.get('email'),
+          customer_phone: formData.get('phone'),
+          trip_date: formData.get('trip_date'),
+          arrival_date: formData.get('arrival_date'),
+          departure_date: formData.get('departure_date'),
+          num_adults: adults,
+          num_children: children,
+          num_hours: hours,
+          num_days: days,
+          notes: formData.get('notes'),
+          base_price: coupon.baseTotal,
+          final_price: coupon.finalTotal,
+          total_price: coupon.finalTotal,
+          coupon_id: coupon.hasApplied ? (tripCouponState.applied?.couponId || null) : null,
+          coupon_code: coupon.hasApplied ? (tripCouponState.applied?.couponCode || coupon.code || null) : null,
+          coupon_discount_amount: coupon.hasApplied ? Number(coupon.discount || 0) : 0,
+          coupon_partner_id: coupon.hasApplied ? (tripCouponState.applied?.partnerId || null) : null,
+          coupon_partner_commission_bps: coupon.hasApplied ? (tripCouponState.applied?.partnerCommissionBpsOverride ?? null) : null,
+          status: 'pending',
+        };
         
         const { supabase } = await import('/js/supabaseClient.js');
         if (!supabase) throw new Error('Database not available');
         
-        // Insert booking into database
-        const { error } = await supabase
-          .from('trip_bookings')
-          .insert([bookingData]);
-        
-        if (error) throw error;
+        let insertPayload = { ...bookingData };
+        let insertError = null;
+        for (let attempt = 0; attempt < 12; attempt += 1) {
+          const { error } = await supabase
+            .from('trip_bookings')
+            .insert([insertPayload]);
+          insertError = error;
+          if (!insertError) break;
+          const missingColumn = extractMissingColumnName(insertError);
+          if (!missingColumn || !Object.prototype.hasOwnProperty.call(insertPayload, missingColumn)) break;
+          delete insertPayload[missingColumn];
+        }
+        if (insertError) throw insertError;
         
         // Show success
         message.textContent = 'Rezerwacja przyjęta! Skontaktujemy się z Tobą wkrótce.';
@@ -1546,6 +1816,8 @@
         
         // Reset form
         e.target.reset();
+        clearTripCouponState({ clearInput: true });
+        updateLivePrice();
         
       } catch (err) {
         console.error('Booking error:', err);

@@ -3325,17 +3325,10 @@
     const resourceType = String(fulfillment?.resource_type || '').trim().toLowerCase();
     const defaultCurrency = String(fulfillment?.currency || 'EUR').trim().toUpperCase() || 'EUR';
     const fallbackAmount = toNum(fulfillment?.total_price);
-    if (resourceType !== 'cars') {
-      return {
-        amount: fallbackAmount,
-        currency: defaultCurrency,
-        baseAmount: null,
-        discountAmount: 0,
-        finalAmount: null,
-        couponCode: '',
-        hasCoupon: false,
-      };
-    }
+    const toFinite = (value) => {
+      const num = Number(value);
+      return Number.isFinite(num) ? num : null;
+    };
 
     const detailsRaw = fulfillment?.details;
     const details = (detailsRaw && typeof detailsRaw === 'object')
@@ -3350,20 +3343,27 @@
         }
       })();
 
-    const toFinite = (value) => {
-      const num = Number(value);
-      return Number.isFinite(num) ? num : null;
-    };
-
-    const finalAmount = toFinite(details?.final_rental_price);
-    const baseAmount = toFinite(details?.base_rental_price);
-    const discountAmountRaw = toFinite(details?.coupon_discount_amount);
+    const finalRentalAmount = toFinite(details?.final_rental_price);
+    const finalServiceAmount = toFinite(details?.final_price ?? details?.total_price);
+    const finalAmount = resourceType === 'cars'
+      ? (finalRentalAmount == null ? finalServiceAmount : finalRentalAmount)
+      : finalServiceAmount;
+    const baseRentalAmount = toFinite(details?.base_rental_price);
+    const baseServiceAmount = toFinite(details?.base_price);
+    const discountAmountRaw = toFinite(details?.coupon_discount_amount ?? fulfillment?.coupon_discount_amount);
     const discountAmount = discountAmountRaw == null ? 0 : Math.max(discountAmountRaw, 0);
-    const couponCode = String(details?.coupon_code || '').trim().toUpperCase();
+    const couponCode = String(details?.coupon_code || fulfillment?.coupon_code || '').trim().toUpperCase();
     const authoritativeTotal = toFinite(fulfillment?.total_price);
     const resolvedAmount = authoritativeTotal == null
       ? (finalAmount == null ? fallbackAmount : finalAmount)
       : authoritativeTotal;
+    const baseAmount = baseRentalAmount == null
+      ? (
+        baseServiceAmount == null
+          ? (resolvedAmount + discountAmount)
+          : baseServiceAmount
+      )
+      : baseRentalAmount;
 
     return {
       amount: resolvedAmount,
@@ -7105,21 +7105,22 @@
 
         const priceHtml = (() => {
           if (!isShop) {
+            const pricing = getCarsFulfillmentPricing(f);
+            const val = escapeHtml(formatMoney(pricing.amount, pricing.currency));
+            const discountLabel = pricing.discountAmount > 0
+              ? ` (−${escapeHtml(formatMoney(pricing.discountAmount, pricing.currency))})`
+              : '';
+            const couponHint = pricing.hasCoupon
+              ? `<div class="small" style="margin-top:4px; opacity:0.9;">Coupon ${escapeHtml(pricing.couponCode || 'applied')}${discountLabel}</div>`
+              : '';
             if (String(f.resource_type || '') === 'cars') {
-              const pricing = getCarsFulfillmentPricing(f);
-              const val = escapeHtml(formatMoney(pricing.amount, pricing.currency));
-              const couponHint = pricing.hasCoupon
-                ? `<div class="small" style="margin-top:4px; opacity:0.9;">Coupon ${escapeHtml(pricing.couponCode || 'applied')}</div>`
-                : '';
               return `
                 <div class="muted small">${pricing.hasCoupon ? 'Final Rental Total' : 'Suggested Total'}</div>
                 <div class="small" style="margin-top:6px; padding:8px 10px; border-radius:10px; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:#fff; font-weight:700; display:inline-block;">${val}</div>
                 ${couponHint}
               `;
             }
-            return f.total_price != null
-              ? `<span class="small">${escapeHtml(formatMoney(f.total_price, f.currency || 'EUR'))}</span>`
-              : '<span class="muted">—</span>';
+            return `<span class="small">${val}</span>${couponHint}`;
           }
 
           const allocated = f.total_allocated != null ? Number(f.total_allocated) : null;

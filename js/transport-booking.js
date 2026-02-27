@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient.js';
+import { quoteServiceCoupon } from './service-coupons.js';
 
 const LOCATION_TYPE_FALLBACK_LABELS = {
   city: 'City',
@@ -21,7 +22,11 @@ const state = {
   activeReturnRoute: null,
   activeReturnRule: null,
   lastQuote: null,
+  lastQuoteRaw: null,
   lastTripTypeSelection: 'one_way',
+  coupon: {
+    applied: null,
+  },
   loading: false,
   languageListenerBound: false,
 };
@@ -1173,6 +1178,271 @@ function setDepositNotice(visible, amountText = '—', remainingText = '—') {
   els.quoteDepositNotice.hidden = !visible;
 }
 
+function normalizeCouponCodeInput(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function getCouponCodeInputValue() {
+  return normalizeCouponCodeInput(els.couponCodeInput?.value || '');
+}
+
+function setCouponStatus(message = '', type = 'info') {
+  if (!els.couponStatus) return;
+  const text = String(message || '').trim();
+  if (!text) {
+    els.couponStatus.hidden = true;
+    els.couponStatus.textContent = '';
+    els.couponStatus.classList.remove('is-error', 'is-success', 'is-info');
+    return;
+  }
+  els.couponStatus.hidden = false;
+  els.couponStatus.textContent = text;
+  els.couponStatus.classList.remove('is-error', 'is-success', 'is-info');
+  if (type === 'error') {
+    els.couponStatus.classList.add('is-error');
+  } else if (type === 'success') {
+    els.couponStatus.classList.add('is-success');
+  } else {
+    els.couponStatus.classList.add('is-info');
+  }
+}
+
+function syncCouponControls() {
+  const hasCode = Boolean(getCouponCodeInputValue());
+  const hasApplied = Boolean(state.coupon?.applied);
+  if (els.couponApplyButton instanceof HTMLButtonElement) {
+    els.couponApplyButton.disabled = !hasCode || !state.lastQuoteRaw || state.loading;
+  }
+  if (els.couponClearButton instanceof HTMLButtonElement) {
+    els.couponClearButton.hidden = !hasCode && !hasApplied;
+  }
+}
+
+function clearAppliedCoupon(options = {}) {
+  const clearInput = options.clearInput !== false;
+  const silent = options.silent === true;
+
+  state.coupon.applied = null;
+  if (clearInput && els.couponCodeInput instanceof HTMLInputElement) {
+    els.couponCodeInput.value = '';
+  }
+  if (!silent) {
+    setCouponStatus('', 'info');
+  }
+  syncCouponControls();
+}
+
+function invalidateAppliedCouponAfterQuoteChange() {
+  if (!state.coupon.applied) return;
+  state.coupon.applied = null;
+  const code = getCouponCodeInputValue();
+  if (code) {
+    setCouponStatus(
+      t('transport.booking.coupon.reapply', 'Route or passengers changed. Re-apply coupon for updated quote.'),
+      'info',
+    );
+  } else {
+    setCouponStatus('', 'info');
+  }
+}
+
+function getPrimaryQuoteLeg(summary) {
+  const legs = Array.isArray(summary?.legs) ? summary.legs : [];
+  return legs[0] || null;
+}
+
+function buildQuoteFingerprint(summary) {
+  if (!summary || !Array.isArray(summary.legs)) return '';
+  const legs = summary.legs.map((leg) => {
+    const routeId = String(leg?.route?.id || '').trim();
+    const travelDate = String(leg?.travelDate || '').trim();
+    const travelTime = String(leg?.travelTime || '').trim().slice(0, 5);
+    const legTotal = round2(toNonNegativeNumber(leg?.quote?.total, 0));
+    return `${routeId}|${travelDate}|${travelTime}|${legTotal}`;
+  });
+  return `${round2(toNonNegativeNumber(summary.total, 0))}|${legs.join('||')}`;
+}
+
+function getTransportCouponCategoryKeys(route) {
+  if (!route || typeof route !== 'object') return [];
+  const origin = state.locationById.get(String(route.origin_location_id || '').trim()) || null;
+  const destination = state.locationById.get(String(route.destination_location_id || '').trim()) || null;
+  const values = [
+    origin?.name,
+    origin?.name_local,
+    origin?.code,
+    destination?.name,
+    destination?.name_local,
+    destination?.code,
+  ];
+  return Array.from(new Set(
+    values
+      .map((entry) => String(entry || '').trim().toLowerCase())
+      .filter(Boolean),
+  ));
+}
+
+function buildTransportCouponQuoteParams(summary, couponCode) {
+  const primaryLeg = getPrimaryQuoteLeg(summary);
+  const route = primaryLeg?.route || state.activeRoute || null;
+  const travelDate = String(primaryLeg?.travelDate || '').trim();
+  const travelTime = String(primaryLeg?.travelTime || '').trim().slice(0, 5);
+  const dateTimeIso = travelDate
+    ? `${travelDate}T${travelTime || '12:00'}:00`
+    : null;
+  const userEmail = String(els.customerEmailInput?.value || '').trim().toLowerCase() || null;
+  return {
+    serviceType: 'transport',
+    couponCode,
+    baseTotal: round2(toNonNegativeNumber(summary?.total, 0)),
+    serviceAt: dateTimeIso,
+    resourceId: String(route?.id || '').trim() || null,
+    categoryKeys: getTransportCouponCategoryKeys(route),
+    userEmail,
+  };
+}
+
+function decorateSummaryWithCoupon(summaryRaw) {
+  if (!summaryRaw || !Array.isArray(summaryRaw.legs) || !summaryRaw.legs.length) {
+    return null;
+  }
+
+  const baseTotal = round2(toNonNegativeNumber(summaryRaw.total, 0));
+  const baseDeposit = round2(toNonNegativeNumber(summaryRaw.depositAmount, 0));
+  const decorated = {
+    ...summaryRaw,
+    totalBeforeCoupon: baseTotal,
+    total: baseTotal,
+    couponId: null,
+    couponCode: '',
+    couponDiscountAmount: 0,
+    couponPartnerId: null,
+    couponPartnerCommissionBps: null,
+    depositAmountBeforeCoupon: baseDeposit,
+    depositAmount: baseDeposit,
+  };
+
+  const applied = state.coupon?.applied;
+  const inputCode = getCouponCodeInputValue();
+  if (!applied || !inputCode || normalizeCouponCodeInput(applied.couponCode) !== inputCode) {
+    decorated.depositEnabled = decorated.depositAmount > 0;
+    return decorated;
+  }
+
+  const discount = round2(Math.min(baseTotal, toNonNegativeNumber(applied.discountAmount, 0)));
+  const finalTotal = round2(Math.max(0, baseTotal - discount));
+  const finalDeposit = round2(Math.min(baseDeposit, finalTotal));
+
+  decorated.total = finalTotal;
+  decorated.couponId = applied.couponId || null;
+  decorated.couponCode = normalizeCouponCodeInput(applied.couponCode || inputCode);
+  decorated.couponDiscountAmount = discount;
+  decorated.couponPartnerId = applied.partnerId || null;
+  decorated.couponPartnerCommissionBps = Number.isFinite(Number(applied.partnerCommissionBpsOverride))
+    ? Number(applied.partnerCommissionBpsOverride)
+    : null;
+  decorated.depositAmount = finalDeposit;
+  decorated.depositEnabled = finalDeposit > 0;
+  return decorated;
+}
+
+function applyCurrentQuoteDecorationAndRender() {
+  const decorated = decorateSummaryWithCoupon(state.lastQuoteRaw);
+  state.lastQuote = decorated;
+  renderQuote(decorated);
+  updateSubmitState();
+  emitQuoteUpdated(decorated);
+}
+
+async function applyCouponForCurrentQuote(options = {}) {
+  const code = normalizeCouponCodeInput(options.code || getCouponCodeInputValue());
+  if (!code) {
+    setCouponStatus(t('transport.booking.coupon.enterCode', 'Enter coupon code first.'), 'error');
+    syncCouponControls();
+    return false;
+  }
+  if (!state.lastQuoteRaw || !state.lastQuoteRaw.isBookable) {
+    setCouponStatus(
+      t('transport.booking.coupon.completeQuoteFirst', 'Complete route and passengers first to validate coupon.'),
+      'error',
+    );
+    syncCouponControls();
+    return false;
+  }
+  if (hasBlockingCapacityWarning(state.lastQuoteRaw)) {
+    setCouponStatus(
+      t('transport.booking.coupon.capacityBlock', 'Adjust passengers or luggage before applying coupon.'),
+      'error',
+    );
+    syncCouponControls();
+    return false;
+  }
+
+  const params = buildTransportCouponQuoteParams(state.lastQuoteRaw, code);
+  if (!Number.isFinite(params.baseTotal) || params.baseTotal <= 0) {
+    setCouponStatus(
+      t('transport.booking.coupon.noBaseTotal', 'Quote total must be above zero to apply coupon.'),
+      'error',
+    );
+    syncCouponControls();
+    return false;
+  }
+
+  if (els.couponApplyButton instanceof HTMLButtonElement) {
+    els.couponApplyButton.disabled = true;
+  }
+  if (els.couponCodeInput instanceof HTMLInputElement) {
+    els.couponCodeInput.value = code;
+  }
+
+  try {
+    const response = await quoteServiceCoupon(params);
+    if (!response?.ok || !response.result) {
+      clearAppliedCoupon({ clearInput: false, silent: true });
+      setCouponStatus(String(response?.message || t('transport.booking.coupon.invalid', 'Coupon is not valid.')), 'error');
+      applyCurrentQuoteDecorationAndRender();
+      return false;
+    }
+
+    state.coupon.applied = {
+      couponId: response.result.couponId || null,
+      couponCode: normalizeCouponCodeInput(response.result.couponCode || code),
+      discountAmount: round2(toNonNegativeNumber(response.result.discountAmount, 0)),
+      baseTotal: round2(toNonNegativeNumber(response.result.baseTotal, params.baseTotal)),
+      finalTotal: round2(toNonNegativeNumber(response.result.finalTotal, params.baseTotal)),
+      partnerId: response.result.partnerId || null,
+      partnerCommissionBpsOverride: response.result.partnerCommissionBpsOverride ?? null,
+    };
+    setCouponStatus(
+      t('transport.booking.coupon.applied', 'Coupon applied. Discount: {{amount}}', {
+        amount: money(state.coupon.applied.discountAmount, state.lastQuoteRaw?.currency || 'EUR'),
+      }),
+      'success',
+    );
+    applyCurrentQuoteDecorationAndRender();
+    return true;
+  } catch (error) {
+    console.error('Failed to apply transport coupon:', error);
+    clearAppliedCoupon({ clearInput: false, silent: true });
+    setCouponStatus(String(error?.message || t('transport.booking.coupon.failed', 'Failed to validate coupon.')), 'error');
+    applyCurrentQuoteDecorationAndRender();
+    return false;
+  } finally {
+    syncCouponControls();
+  }
+}
+
+function handleApplyCouponClick() {
+  void applyCouponForCurrentQuote();
+}
+
+function handleClearCouponClick() {
+  clearAppliedCoupon({ clearInput: true, silent: true });
+  setCouponStatus('', 'info');
+  applyCurrentQuoteDecorationAndRender();
+  syncCouponControls();
+}
+
 function resetQuoteBreakdownRows() {
   setQuoteBreakdownRow(els.quoteRowOutbound, els.quoteOutbound, { visible: false });
   setQuoteBreakdownRow(els.quoteRowReturn, els.quoteReturn, { visible: false });
@@ -1182,14 +1452,12 @@ function resetQuoteBreakdownRows() {
   setQuoteBreakdownRow(els.quoteRowOversize, els.quoteOversize, { visible: false });
   setQuoteBreakdownRow(els.quoteRowSeats, els.quoteSeats, { visible: false });
   setQuoteBreakdownRow(els.quoteRowWaiting, els.quoteWaiting, { visible: false });
+  setQuoteBreakdownRow(els.quoteRowCoupon, els.quoteCoupon, { visible: false });
   setDepositNotice(false, '—');
 }
 
 function clearQuoteView() {
   resetQuoteBreakdownRows();
-  if (els.quoteTotal) {
-    els.quoteTotal.textContent = '—';
-  }
   if (els.routeMeta) {
     els.routeMeta.hidden = true;
     els.routeMeta.textContent = '';
@@ -1197,6 +1465,10 @@ function clearQuoteView() {
   if (els.quoteWarnings) {
     els.quoteWarnings.innerHTML = '';
   }
+  if (els.quoteTotal) {
+    els.quoteTotal.textContent = '—';
+  }
+  syncCouponControls();
   renderMiniSummary(null);
 }
 
@@ -1306,6 +1578,10 @@ function renderQuote(summary) {
     visible: round2(summary.waitingCost) > 0,
     text: money(summary.waitingCost, summary.currency),
   });
+  setQuoteBreakdownRow(els.quoteRowCoupon, els.quoteCoupon, {
+    visible: round2(summary.couponDiscountAmount) > 0,
+    text: `−${money(summary.couponDiscountAmount, summary.currency)}`,
+  });
   const showDepositNotice = summary.depositEnabled && round2(summary.depositAmount) > 0;
   const remainingDue = round2(Math.max(0, toNonNegativeNumber(summary.total, 0) - toNonNegativeNumber(summary.depositAmount, 0)));
   setDepositNotice(
@@ -1325,6 +1601,7 @@ function renderQuote(summary) {
     els.quoteWarnings.innerHTML = warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('');
   }
 
+  syncCouponControls();
   renderMiniSummary(summary);
 }
 
@@ -1418,10 +1695,14 @@ function emitQuoteUpdated(summary) {
 
 function refreshQuote() {
   syncTransportContactRequirements();
+  const previousFingerprint = buildQuoteFingerprint(state.lastQuoteRaw);
 
   if (state.loading) {
+    state.lastQuote = null;
+    state.lastQuoteRaw = null;
     updateSubmitState();
     emitQuoteUpdated(null);
+    syncCouponControls();
     return null;
   }
 
@@ -1433,8 +1714,10 @@ function refreshQuote() {
   state.activeReturnRoute = null;
   state.activeReturnRule = null;
   state.lastQuote = null;
+  state.lastQuoteRaw = null;
 
   if (!originId || !destinationId) {
+    invalidateAppliedCouponAfterQuoteChange();
     setStatus(t('transport.booking.status.selectPickupDestination', 'Select pickup and destination to start quote calculation.'), 'info');
     clearQuoteView();
     updateSubmitState();
@@ -1443,6 +1726,7 @@ function refreshQuote() {
   }
 
   if (originId === destinationId) {
+    invalidateAppliedCouponAfterQuoteChange();
     setStatus(t('transport.booking.status.pickupDestinationDifferent', 'Pickup and destination must be different.'), 'error');
     clearQuoteView();
     updateSubmitState();
@@ -1452,6 +1736,7 @@ function refreshQuote() {
 
   const outboundRoute = getSelectedRoute();
   if (!outboundRoute) {
+    invalidateAppliedCouponAfterQuoteChange();
     setStatus(t('transport.booking.status.routeUnavailable', 'This route is not available yet. Choose another location pair.'), 'error');
     clearQuoteView();
     updateSubmitState();
@@ -1535,13 +1820,15 @@ function refreshQuote() {
     }
   }
 
-  state.lastQuote = summary;
-  renderQuote(summary);
+  const nextFingerprint = buildQuoteFingerprint(summary);
+  if (previousFingerprint !== nextFingerprint) {
+    invalidateAppliedCouponAfterQuoteChange();
+  }
+  state.lastQuoteRaw = summary;
+  applyCurrentQuoteDecorationAndRender();
 
   if (!summary) {
     setStatus(t('transport.booking.status.quoteFailed', 'Failed to calculate quote. Check route details.'), 'error');
-    updateSubmitState();
-    emitQuoteUpdated(null);
     return null;
   }
 
@@ -1566,9 +1853,7 @@ function refreshQuote() {
     setStatus(`${rateLabel} ${depositLabel}`, 'info');
   }
 
-  updateSubmitState();
-  emitQuoteUpdated(summary);
-  return summary;
+  return state.lastQuote;
 }
 
 function validateContactFieldsForLeg(legKey = 'outbound') {
@@ -1751,6 +2036,13 @@ function buildTransportBookingPayload(quote) {
     extras_price: round2(toNonNegativeNumber(extrasTotal, outboundPayload.extras_price)),
     total_price: round2(toNonNegativeNumber(quote?.total, outboundPayload.total_price)),
     currency: String(quote?.currency || outboundCurrency).trim().toUpperCase() || outboundCurrency,
+    coupon_id: quote?.couponId || null,
+    coupon_code: quote?.couponCode || null,
+    coupon_discount_amount: round2(toNonNegativeNumber(quote?.couponDiscountAmount, 0)),
+    coupon_partner_id: quote?.couponPartnerId || null,
+    coupon_partner_commission_bps: Number.isFinite(Number(quote?.couponPartnerCommissionBps))
+      ? Number(quote.couponPartnerCommissionBps)
+      : null,
     payment_status: quote?.depositEnabled ? 'pending' : 'not_required',
     deposit_amount: quote?.depositEnabled ? round2(toNonNegativeNumber(quote?.depositAmount, 0)) : null,
     deposit_currency: quote?.depositEnabled
@@ -1847,6 +2139,9 @@ function resetAfterSubmit() {
     els.quoteReviewCheckbox.checked = false;
   }
 
+  clearAppliedCoupon({ clearInput: true, silent: true });
+  setCouponStatus('', 'info');
+
   syncReturnLegVisibility({ force: false });
   void prefillCustomerFromSession();
 }
@@ -1886,7 +2181,18 @@ async function handleSubmit(event) {
     return;
   }
 
-  const payload = buildTransportBookingPayload(quote);
+  const couponCode = getCouponCodeInputValue();
+  const appliedCouponCode = normalizeCouponCodeInput(state.coupon?.applied?.couponCode || '');
+  if (couponCode && couponCode !== appliedCouponCode) {
+    const applied = await applyCouponForCurrentQuote({ code: couponCode });
+    if (!applied || !state.lastQuote) {
+      updateSubmitState();
+      return;
+    }
+  }
+
+  const latestQuote = state.lastQuote || quote;
+  const payload = buildTransportBookingPayload(latestQuote);
   if (!payload) {
     setStatus(t('transport.booking.submit.error.preparePayloadFailed', 'Failed to prepare booking payload. Please refresh and try again.'), 'error');
     updateSubmitState();
@@ -1902,7 +2208,7 @@ async function handleSubmit(event) {
     let submitError = null;
     let insertPayload = { ...payload };
     const strippedColumns = [];
-    const isRoundTrip = Array.isArray(quote?.legs) && quote.legs.length > 1;
+    const isRoundTrip = Array.isArray(latestQuote?.legs) && latestQuote.legs.length > 1;
     let requiresLegacyMultiInsert = false;
 
     for (let attempt = 0; attempt < 16; attempt += 1) {
@@ -1945,7 +2251,7 @@ async function handleSubmit(event) {
       .map((row) => String(row?.id || '').trim())
       .filter(Boolean)
       .map((id) => id.slice(0, 8).toUpperCase());
-    const isRoundTripSuccess = quote.legs.length > 1;
+    const isRoundTripSuccess = latestQuote.legs.length > 1;
     const firstId = shortIds[0] || '--------';
     const strippedColumnsHint = strippedColumns.length
       ? `<div style="margin-top:6px; font-size:12px; opacity:0.85;">${escapeHtml(t(
@@ -1963,7 +2269,7 @@ async function handleSubmit(event) {
           'Round-trip booking <strong>#{{id}}</strong> was sent successfully. Total: <strong>{{total}}</strong>.',
           {
             id: escapeHtml(firstId),
-            total: escapeHtml(money(quote.total, quote.currency)),
+            total: escapeHtml(money(latestQuote.total, latestQuote.currency)),
           },
         ) + strippedColumnsHint;
       } else {
@@ -1972,7 +2278,7 @@ async function handleSubmit(event) {
           'Booking request <strong>#{{id}}</strong> was sent successfully. Total: <strong>{{total}}</strong>. We will contact you shortly.',
           {
             id: escapeHtml(firstId),
-            total: escapeHtml(money(quote.total, quote.currency)),
+            total: escapeHtml(money(latestQuote.total, latestQuote.currency)),
           },
         ) + strippedColumnsHint;
       }
@@ -1999,8 +2305,8 @@ async function handleSubmit(event) {
     dispatchTransportEvent('ce:transport:booking-submitted', {
       bookingId: firstId,
       isRoundTrip: isRoundTripSuccess,
-      total: round2(toNonNegativeNumber(quote?.total, 0)),
-      currency: String(quote?.currency || 'EUR').trim().toUpperCase() || 'EUR',
+      total: round2(toNonNegativeNumber(latestQuote?.total, 0)),
+      currency: String(latestQuote?.currency || 'EUR').trim().toUpperCase() || 'EUR',
     });
   } catch (error) {
     console.error('Failed to create transport booking:', error);
@@ -2042,6 +2348,7 @@ function bindInputs() {
       if (isRoundTripSelected() && isReturnUsingSameExtras()) {
         syncReturnExtrasFromOutbound({ force: true });
       }
+      invalidateAppliedCouponAfterQuoteChange();
       resetQuoteReviewConfirmation();
       refreshQuote();
     };
@@ -2123,6 +2430,40 @@ function bindInputs() {
   if (els.form instanceof HTMLFormElement) {
     els.form.addEventListener('submit', handleSubmit);
   }
+
+  if (els.couponCodeInput instanceof HTMLInputElement) {
+    const onCouponInput = () => {
+      const normalized = normalizeCouponCodeInput(els.couponCodeInput.value);
+      if (els.couponCodeInput.value !== normalized) {
+        els.couponCodeInput.value = normalized;
+      }
+      const appliedCode = normalizeCouponCodeInput(state.coupon?.applied?.couponCode || '');
+      if (appliedCode && normalized !== appliedCode) {
+        state.coupon.applied = null;
+        applyCurrentQuoteDecorationAndRender();
+      }
+      if (!normalized) {
+        setCouponStatus('', 'info');
+      }
+      syncCouponControls();
+    };
+
+    els.couponCodeInput.addEventListener('input', onCouponInput);
+    els.couponCodeInput.addEventListener('change', onCouponInput);
+    els.couponCodeInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        void applyCouponForCurrentQuote();
+      }
+    });
+  }
+
+  if (els.couponApplyButton instanceof HTMLButtonElement) {
+    els.couponApplyButton.addEventListener('click', handleApplyCouponClick);
+  }
+  if (els.couponClearButton instanceof HTMLButtonElement) {
+    els.couponClearButton.addEventListener('click', handleClearCouponClick);
+  }
 }
 
 function initElements() {
@@ -2185,6 +2526,7 @@ function initElements() {
   els.quoteRowOversize = byId('transportQuoteRowOversize');
   els.quoteRowSeats = byId('transportQuoteRowSeats');
   els.quoteRowWaiting = byId('transportQuoteRowWaiting');
+  els.quoteRowCoupon = byId('transportQuoteRowCoupon');
   els.quoteDepositNotice = byId('transportDepositNotice');
   els.quoteOutbound = byId('transportQuoteOutbound');
   els.quoteReturn = byId('transportQuoteReturn');
@@ -2194,10 +2536,15 @@ function initElements() {
   els.quoteOversize = byId('transportQuoteOversize');
   els.quoteSeats = byId('transportQuoteSeats');
   els.quoteWaiting = byId('transportQuoteWaiting');
+  els.quoteCoupon = byId('transportQuoteCoupon');
   els.quoteDeposit = byId('transportQuoteDeposit');
   els.quoteRemainingDue = byId('transportQuoteRemainingDue');
   els.quoteTotal = byId('transportQuoteTotal');
   els.quoteWarnings = byId('transportQuoteWarnings');
+  els.couponCodeInput = byId('transportCouponCode');
+  els.couponApplyButton = byId('transportApplyCoupon');
+  els.couponClearButton = byId('transportClearCoupon');
+  els.couponStatus = byId('transportCouponStatus');
 }
 
 function exposeTransportBookingApi() {
@@ -2239,6 +2586,9 @@ async function initTransportBookingPage() {
   bindInputs();
   syncReturnLegVisibility({ force: false });
   clearQuoteView();
+  clearAppliedCoupon({ clearInput: true, silent: true });
+  setCouponStatus('', 'info');
+  syncCouponControls();
   updateSubmitState();
 
   try {

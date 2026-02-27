@@ -69,7 +69,7 @@
   <link rel="stylesheet" href="assets/css/language-switcher.css" />
   <link rel="stylesheet" href="assets/css/language-selector.css" />
   <link rel="stylesheet" href="css/toast.css" />
-  <link rel="stylesheet" href="css/transport-booking.css?v=20260225_6" />
+  <link rel="stylesheet" href="css/transport-booking.css?v=20260227_1" />
   <meta name="ce-auth" content="on" />
   <script>
     (function () {
@@ -490,11 +490,22 @@
               <li id="transportQuoteRowOversize" class="transport-breakdown__row" hidden><span data-i18n="transport.booking.quote.rows.oversize">Extra large bags (15kg+)</span><strong id="transportQuoteOversize">—</strong></li>
               <li id="transportQuoteRowSeats" class="transport-breakdown__row" hidden><span data-i18n="transport.booking.quote.rows.seats">Child + booster seats</span><strong id="transportQuoteSeats">—</strong></li>
               <li id="transportQuoteRowWaiting" class="transport-breakdown__row" hidden><span data-i18n="transport.booking.quote.rows.waiting">Waiting fee</span><strong id="transportQuoteWaiting">—</strong></li>
+              <li id="transportQuoteRowCoupon" class="transport-breakdown__row" hidden><span>Coupon discount</span><strong id="transportQuoteCoupon">—</strong></li>
             </ul>
 
             <div class="transport-total">
               <span data-i18n="transport.booking.quote.total">Total</span>
               <strong id="transportQuoteTotal">—</strong>
+            </div>
+
+            <div class="transport-coupon-box">
+              <label for="transportCouponCode">Coupon code</label>
+              <div class="transport-coupon-box__row">
+                <input id="transportCouponCode" type="text" maxlength="64" autocomplete="off" placeholder="Enter coupon code" />
+                <button id="transportApplyCoupon" type="button" class="btn-secondary">Apply</button>
+                <button id="transportClearCoupon" type="button" class="btn-secondary" hidden>Clear</button>
+              </div>
+              <p id="transportCouponStatus" class="transport-coupon-box__status" hidden></p>
             </div>
             <div id="transportDepositNotice" class="transport-deposit-note" hidden>
               <p class="transport-deposit-note__title" data-i18n="transport.booking.quote.deposit.title">To confirm this booking</p>
@@ -911,7 +922,7 @@
   <script src="js/header-stats.js?v=2" defer></script>
   <script src="assets/js/modal-auth.js" defer></script>
   <script type="module" src="assets/js/auth-ui.js?v=2"></script>
-  <script type="module" src="js/transport-booking.js?v=20260225_10"></script>
+  <script type="module" src="js/transport-booking.js?v=20260227_1"></script>
   <script>
     document.querySelectorAll('[data-current-year]').forEach(function (node) {
       node.textContent = String(new Date().getFullYear());

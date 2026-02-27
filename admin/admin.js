@@ -2330,14 +2330,20 @@ function renderPartnersTable() {
         const priceHtml = (() => {
           if (row.price == null) return '<span class="muted">—</span>';
           const val = escapeHtml(formatMoney(row.price, row.currency));
+          const discountValue = Number(row.coupon_discount_amount || 0);
+          const discountLabel = discountValue > 0 ? ` (−${escapeHtml(formatMoney(discountValue, row.currency))})` : '';
+          const couponHint = row.has_coupon
+            ? `<div class="small" style="margin-top:4px; opacity:0.9;">Coupon ${escapeHtml(row.coupon_code || 'applied')}${discountLabel}</div>`
+            : '';
           const t = String(row.resource_type || row.label || '').trim();
           if (t === 'cars') {
             return `
               <div class="muted small">Suggested Total</div>
               <div class="small" style="margin-top:6px; padding:8px 10px; border-radius:10px; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:#fff; font-weight:700; display:inline-block;">${val}</div>
+              ${couponHint}
             `;
           }
-          return `<span class="small">${val}</span>`;
+          return `<span class="small">${val}</span>${couponHint}`;
         })();
 
         const itemsHtml = (() => {
@@ -2456,13 +2462,14 @@ function formatMoney(value, currency) {
 }
 
 function getServiceFulfillmentPriceMeta(row) {
+  const toFinite = (value) => {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+  };
   const currency = String(row?.currency || 'EUR').trim().toUpperCase() || 'EUR';
   const fallback = Number(row?.total_price);
   const fallbackAmount = Number.isFinite(fallback) ? fallback : 0;
-  if (String(row?.resource_type || '').trim().toLowerCase() !== 'cars') {
-    return { amount: fallbackAmount, currency, hasCoupon: false, couponCode: '' };
-  }
-
+  const resourceType = String(row?.resource_type || '').trim().toLowerCase();
   const detailsRaw = row?.details;
   const details = (detailsRaw && typeof detailsRaw === 'object')
     ? detailsRaw
@@ -2476,13 +2483,35 @@ function getServiceFulfillmentPriceMeta(row) {
       }
     })();
 
-  const finalRental = Number(details?.final_rental_price);
-  const finalAmount = Number.isFinite(finalRental) ? finalRental : fallbackAmount;
-  const couponCode = String(details?.coupon_code || '').trim().toUpperCase();
+  const couponCode = String(details?.coupon_code || row?.coupon_code || '').trim().toUpperCase();
+  const discountAmountRaw = toFinite(details?.coupon_discount_amount ?? row?.coupon_discount_amount);
+  const discountAmount = discountAmountRaw == null ? 0 : Math.max(discountAmountRaw, 0);
+  const authoritativeTotal = toFinite(row?.total_price);
+  const finalRental = toFinite(details?.final_rental_price);
+  const finalService = toFinite(details?.final_price ?? details?.total_price);
+  const baseRental = toFinite(details?.base_rental_price);
+  const baseService = toFinite(details?.base_price);
+  const resolvedFinal = resourceType === 'cars'
+    ? (finalRental == null ? finalService : finalRental)
+    : finalService;
+  const resolvedAmount = authoritativeTotal == null
+    ? (resolvedFinal == null ? fallbackAmount : resolvedFinal)
+    : authoritativeTotal;
+  const baseAmount = baseRental == null
+    ? (
+      baseService == null
+        ? (resolvedAmount + discountAmount)
+        : baseService
+    )
+    : baseRental;
+
   return {
-    amount: finalAmount,
+    amount: resolvedAmount,
     currency,
-    hasCoupon: Boolean(couponCode || Number(details?.coupon_discount_amount) > 0),
+    baseAmount,
+    discountAmount,
+    finalAmount: resolvedFinal,
+    hasCoupon: Boolean(couponCode || discountAmount > 0),
     couponCode,
   };
 }
@@ -2553,6 +2582,9 @@ async function loadServiceFulfillmentsForPartner(partnerId) {
       currency: priceMeta.currency || 'EUR',
       has_coupon: priceMeta.hasCoupon,
       coupon_code: priceMeta.couponCode || '',
+      coupon_discount_amount: Number(priceMeta.discountAmount || 0),
+      base_amount: Number(priceMeta.baseAmount || 0),
+      final_amount: Number(priceMeta.amount || 0),
       customer_name: contact.customer_name || '',
       customer_email: contact.customer_email || '',
       customer_phone: contact.customer_phone || '',
@@ -7440,6 +7472,10 @@ async function viewTripBookingDetails(bookingId) {
       booking.status === 'pending' ? 'badge-warning' :
       booking.status === 'cancelled' ? 'badge-danger' :
       booking.status === 'completed' ? 'badge-success' : 'badge';
+    const tripDiscount = Number(booking.coupon_discount_amount || 0);
+    const tripTotal = Number(booking.final_price ?? booking.total_price ?? 0);
+    const tripBase = Number(booking.base_price ?? (tripTotal + (Number.isFinite(tripDiscount) ? tripDiscount : 0)) ?? tripTotal);
+    const tripCouponCode = String(booking.coupon_code || '').trim().toUpperCase();
 
     content.innerHTML = `
       <div style="display: grid; gap: 24px;">
@@ -7542,8 +7578,20 @@ async function viewTripBookingDetails(bookingId) {
         <!-- Pricing -->
         <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
           <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">Price</h4>
+          <div style="display:grid; gap:6px; margin-bottom:10px; font-size:12px; color:var(--admin-text-muted);">
+            <div style="display:flex; justify-content:space-between; gap:12px;">
+              <span>Base:</span>
+              <strong style="color:var(--admin-text-primary);">€${Number.isFinite(tripBase) ? tripBase.toFixed(2) : '0.00'}</strong>
+            </div>
+            ${tripDiscount > 0 || tripCouponCode ? `
+            <div style="display:flex; justify-content:space-between; gap:12px;">
+              <span>Coupon ${tripCouponCode ? `(${escapeHtml(tripCouponCode)})` : ''}:</span>
+              <strong style="color:#2563eb;">−€${Number.isFinite(tripDiscount) ? tripDiscount.toFixed(2) : '0.00'}</strong>
+            </div>
+            ` : ''}
+          </div>
           <div style="padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; text-align: center;">
-            <div style="font-size: 24px; font-weight: 700; color: white;">€${Number(booking.total_price || 0).toFixed(2)}</div>
+            <div style="font-size: 24px; font-weight: 700; color: white;">€${Number.isFinite(tripTotal) ? tripTotal.toFixed(2) : '0.00'}</div>
             <div style="font-size: 12px; color: rgba(255,255,255,0.9); margin-top: 4px;">Total Price</div>
           </div>
         </div>
@@ -10067,6 +10115,10 @@ async function viewHotelBookingDetails(bookingId) {
       booking.status === 'pending' ? 'badge-warning' :
       booking.status === 'cancelled' ? 'badge-danger' :
       booking.status === 'completed' ? 'badge-success' : 'badge';
+    const hotelDiscount = Number(booking.coupon_discount_amount || 0);
+    const hotelTotal = Number(booking.final_price ?? booking.total_price ?? 0);
+    const hotelBase = Number(booking.base_price ?? (hotelTotal + (Number.isFinite(hotelDiscount) ? hotelDiscount : 0)) ?? hotelTotal);
+    const hotelCouponCode = String(booking.coupon_code || '').trim().toUpperCase();
 
     content.innerHTML = `
       <div style="display: grid; gap: 24px;">
@@ -10139,8 +10191,20 @@ async function viewHotelBookingDetails(bookingId) {
 
         <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
           <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">Price</h4>
+          <div style="display:grid; gap:6px; margin-bottom:10px; font-size:12px; color:var(--admin-text-muted);">
+            <div style="display:flex; justify-content:space-between; gap:12px;">
+              <span>Base:</span>
+              <strong style="color:var(--admin-text-primary);">€${Number.isFinite(hotelBase) ? hotelBase.toFixed(2) : '0.00'}</strong>
+            </div>
+            ${hotelDiscount > 0 || hotelCouponCode ? `
+            <div style="display:flex; justify-content:space-between; gap:12px;">
+              <span>Coupon ${hotelCouponCode ? `(${escapeHtml(hotelCouponCode)})` : ''}:</span>
+              <strong style="color:#2563eb;">−€${Number.isFinite(hotelDiscount) ? hotelDiscount.toFixed(2) : '0.00'}</strong>
+            </div>
+            ` : ''}
+          </div>
           <div style="padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; text-align: center;">
-            <div style="font-size: 24px; font-weight: 700; color: white;">€${Number(booking.total_price || 0).toFixed(2)}</div>
+            <div style="font-size: 24px; font-weight: 700; color: white;">€${Number.isFinite(hotelTotal) ? hotelTotal.toFixed(2) : '0.00'}</div>
             <div style="font-size: 12px; color: rgba(255,255,255,0.9); margin-top: 4px;">Total Price</div>
           </div>
         </div>
@@ -17368,6 +17432,15 @@ async function viewTransportBookingDetails(bookingId) {
   const hasRoundTrip = tripType === 'round_trip'
     || Boolean(booking.return_route_id || booking.return_travel_date || booking.return_travel_time || returnRouteLabel);
   const amountLabel = transportMoney(booking.total_price, booking.currency || 'EUR');
+  const transportCurrency = String(booking.currency || 'EUR').trim().toUpperCase() || 'EUR';
+  const transportDiscount = Number(booking.coupon_discount_amount || 0);
+  const transportTotal = Number(booking.total_price || 0);
+  const transportBase = Number(
+    (Number(booking.base_price || 0) + Number(booking.extras_price || 0))
+      || (transportTotal + (Number.isFinite(transportDiscount) ? transportDiscount : 0))
+      || 0,
+  );
+  const transportCouponCode = String(booking.coupon_code || '').trim().toUpperCase();
   const fulfillmentStatus = String(fulfillment?.status || '').trim();
   const assignedPartnerId = assignedPartnerIdFromBooking || String(fulfillment?.partner_id || '').trim();
   const assignedPartnerLabel = assignedPartnerId ? getTransportPartnerDisplayName(assignedPartnerId) : '';
@@ -17544,6 +17617,18 @@ async function viewTransportBookingDetails(bookingId) {
 
       <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
         <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">Total Price</h4>
+        <div style="display:grid; gap:6px; margin-bottom:10px; font-size:12px; color:var(--admin-text-muted);">
+          <div style="display:flex; justify-content:space-between; gap:12px;">
+            <span>Base:</span>
+            <strong style="color:var(--admin-text-primary);">${escapeHtml(transportMoney(transportBase, transportCurrency))}</strong>
+          </div>
+          ${transportDiscount > 0 || transportCouponCode ? `
+          <div style="display:flex; justify-content:space-between; gap:12px;">
+            <span>Coupon ${transportCouponCode ? `(${escapeHtml(transportCouponCode)})` : ''}:</span>
+            <strong style="color:#2563eb;">−${escapeHtml(transportMoney(transportDiscount, transportCurrency))}</strong>
+          </div>
+          ` : ''}
+        </div>
         <div style="font-size: 24px; font-weight: 700;">${escapeHtml(amountLabel)}</div>
       </div>
 
@@ -34611,16 +34696,24 @@ function renderAllOrdersTable() {
     const statusDetail = order.fulfillment_status && String(order.fulfillment_status || '') !== String(order.status || '')
       ? `<div style="font-size: 10px; color: var(--admin-text-muted); margin-top: 3px;">${escapeHtml(String(order.fulfillment_status))}</div>`
       : '';
+    const genericAmount = Number(order.final_price ?? order.total_price ?? order.quoted_price ?? 0);
+    const genericDiscount = Number(order.coupon_discount_amount || 0);
+    const genericCouponCode = String(order.coupon_code || '').trim().toUpperCase();
     const priceMeta = order.category === 'cars'
       ? getCarBookingEffectivePriceMeta(order)
       : {
-        amount: Number(order.total_price || order.quoted_price || order.final_price || 0),
-        hasAmount: true,
+        amount: Number.isFinite(genericAmount) ? genericAmount : 0,
+        hasAmount: Number.isFinite(genericAmount),
         currency: 'EUR',
+        couponCode: genericCouponCode,
+        discountAmount: Number.isFinite(genericDiscount) ? Math.max(genericDiscount, 0) : 0,
       };
     const priceText = Number.isFinite(priceMeta.amount) ? `€${Number(priceMeta.amount).toFixed(2)}` : '—';
-    const couponHint = order.category === 'cars' && String(priceMeta.couponCode || '').trim()
-      ? `<div style="font-size:10px; color:#2563eb; margin-top:2px;">Coupon ${escapeHtml(String(priceMeta.couponCode || '').trim().toUpperCase())}</div>`
+    const couponDiscountLabel = Number(priceMeta.discountAmount || 0) > 0
+      ? ` (−€${Number(priceMeta.discountAmount || 0).toFixed(2)})`
+      : '';
+    const couponHint = String(priceMeta.couponCode || '').trim() || Number(priceMeta.discountAmount || 0) > 0
+      ? `<div style="font-size:10px; color:#2563eb; margin-top:2px;">Coupon ${escapeHtml(String(priceMeta.couponCode || 'applied').trim().toUpperCase())}${couponDiscountLabel}</div>`
       : '';
     const passengersDetail = (() => {
       if (order.category === 'transport') {

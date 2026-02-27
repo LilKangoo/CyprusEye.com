@@ -7,6 +7,7 @@ let homeHotelsDisplay = [];
 let homeCurrentHotel = null;
 let homeCurrentHotelIndex = null;
 let homeHotelsSavedOnly = false;
+let homeHotelCouponState = { applied: null };
 
 const CE_DEBUG_HOME_HOTELS = typeof localStorage !== 'undefined' && localStorage.getItem('CE_DEBUG') === 'true';
 function ceLog(...args) {
@@ -524,7 +525,17 @@ function initHomeHotels() {
       const children = parseInt(fd.get('children')) || 0;
       const nights = nightsBetween(arrivalDate, departureDate);
       const priceResult = calculateHotelPrice(homeCurrentHotel, adults + children, nights);
-      const totalPrice = priceResult.total;
+      const baseTotal = Number(priceResult.total || 0);
+
+      const couponCode = normalizeHomeHotelCouponCode(document.getElementById('hotelBookingCouponCode')?.value || '');
+      const appliedCode = normalizeHomeHotelCouponCode(homeHotelCouponState.applied?.couponCode || '');
+      if (couponCode && couponCode !== appliedCode) {
+        const applied = await applyHomeHotelCoupon();
+        if (!applied) {
+          throw new Error(hotelsT('hotels.booking.coupon.applyBeforeSubmit', 'Zastosuj poprawny kupon lub wyczyść pole kuponu przed rezerwacją.'));
+        }
+      }
+      const coupon = getHomeHotelCouponContext(baseTotal);
       
       const payload = {
         hotel_id: homeCurrentHotel.id,
@@ -539,16 +550,30 @@ function initHomeHotels() {
         num_children: children,
         nights: priceResult.billableNights,
         notes: fd.get('notes'),
-        total_price: totalPrice,
-        status: 'pending'
+        base_price: coupon.baseTotal,
+        final_price: coupon.finalTotal,
+        total_price: coupon.finalTotal,
+        coupon_id: coupon.hasApplied ? (homeHotelCouponState.applied?.couponId || null) : null,
+        coupon_code: coupon.hasApplied ? (homeHotelCouponState.applied?.couponCode || coupon.code || null) : null,
+        coupon_discount_amount: coupon.hasApplied ? Number(coupon.discount || 0) : 0,
+        coupon_partner_id: coupon.hasApplied ? (homeHotelCouponState.applied?.partnerId || null) : null,
+        coupon_partner_commission_bps: coupon.hasApplied ? (homeHotelCouponState.applied?.partnerCommissionBpsOverride ?? null) : null,
+        status: 'pending',
       };
       
-      // Insert to Supabase (same as trips)
-      const { error } = await supabase
-        .from('hotel_bookings')
-        .insert([payload]);
-      
-      if (error) throw error;
+      let insertPayload = { ...payload };
+      let insertError = null;
+      for (let attempt = 0; attempt < 12; attempt += 1) {
+        const { error } = await supabase
+          .from('hotel_bookings')
+          .insert([insertPayload]);
+        insertError = error;
+        if (!insertError) break;
+        const missingColumn = extractHomeHotelMissingColumn(insertError);
+        if (!missingColumn || !Object.prototype.hasOwnProperty.call(insertPayload, missingColumn)) break;
+        delete insertPayload[missingColumn];
+      }
+      if (insertError) throw insertError;
       
       // Success - show beautiful popup
       showSuccessPopup('✅ Rezerwacja przyjęta!', 'Skontaktujemy się z Tobą wkrótce. Dziękujemy!');
@@ -556,6 +581,7 @@ function initHomeHotels() {
       // Reset form and clear validation errors
       form.reset();
       clearFormValidation(form);
+      clearHomeHotelCouponState({ clearInput: true });
       updateHotelLivePrice();
       
       // Optional: close modal after 3 seconds
@@ -705,6 +731,248 @@ function calculateHotelPrice(h, persons, nights){
   return { total, pricePerNight, billableNights, tier: rule };
 }
 
+function normalizeHomeHotelCouponCode(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function formatHomeHotelPrice(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return '0.00 €';
+  return `${amount.toFixed(2)} €`;
+}
+
+function extractHomeHotelMissingColumn(error) {
+  const message = String(error?.message || '');
+  const pattern = /Could not find the ['"]([^'"]+)['"] column/i;
+  const match = message.match(pattern);
+  if (match && match[1]) return String(match[1]).trim();
+  return '';
+}
+
+function normalizeHomeHotelCouponResult(row) {
+  if (!row || typeof row !== 'object') return null;
+  return {
+    isValid: Boolean(row.is_valid),
+    message: String(row.message || ''),
+    couponId: row.coupon_id ? String(row.coupon_id) : null,
+    couponCode: normalizeHomeHotelCouponCode(row.coupon_code || ''),
+    discountAmount: Number(row.discount_amount || 0),
+    baseTotal: Number(row.base_total || 0),
+    finalTotal: Number(row.final_total || 0),
+    partnerId: row.partner_id ? String(row.partner_id) : null,
+    partnerCommissionBpsOverride: row.partner_commission_bps_override ?? null,
+  };
+}
+
+async function quoteHomeHotelCoupon(params) {
+  if (window.CE_SERVICE_COUPONS?.quoteServiceCoupon) {
+    return window.CE_SERVICE_COUPONS.quoteServiceCoupon(params);
+  }
+  const supabase = await waitForSupabaseClientHomeHotels();
+  if (!supabase) return { ok: false, message: 'Supabase client not available', result: null };
+  const payload = {
+    p_service_type: 'hotels',
+    p_coupon_code: normalizeHomeHotelCouponCode(params.couponCode || ''),
+    p_base_total: Number(params.baseTotal || 0),
+    p_service_at: params.serviceAt ? new Date(params.serviceAt).toISOString() : null,
+    p_resource_id: params.resourceId || null,
+    p_category_keys: Array.isArray(params.categoryKeys) ? params.categoryKeys : [],
+    p_user_id: null,
+    p_user_email: params.userEmail || null,
+  };
+  const { data, error } = await supabase.rpc('service_coupon_quote', payload);
+  if (error) return { ok: false, message: String(error.message || 'Coupon validation failed'), result: null };
+  const row = Array.isArray(data) ? data[0] : data;
+  const result = normalizeHomeHotelCouponResult(row);
+  if (!result?.isValid) {
+    return { ok: false, message: result?.message || 'Coupon invalid', result };
+  }
+  return { ok: true, message: result.message || 'Coupon applied', result };
+}
+
+function getHomeHotelCouponContext(baseTotal) {
+  const base = Number(baseTotal) || 0;
+  const code = normalizeHomeHotelCouponCode(document.getElementById('hotelBookingCouponCode')?.value || '');
+  const applied = homeHotelCouponState.applied;
+  const appliedCode = normalizeHomeHotelCouponCode(applied?.couponCode || '');
+  const hasApplied = Boolean(applied && code && appliedCode === code);
+  const discount = hasApplied ? Math.min(base, Number(applied?.discountAmount || 0)) : 0;
+  return {
+    code,
+    hasApplied,
+    discount,
+    baseTotal: base,
+    finalTotal: Math.max(0, base - discount),
+  };
+}
+
+function setHomeHotelCouponStatus(message = '', type = 'info') {
+  const statusEl = document.getElementById('hotelBookingCouponStatus');
+  if (!statusEl) return;
+  const text = String(message || '').trim();
+  if (!text) {
+    statusEl.hidden = true;
+    statusEl.textContent = '';
+    statusEl.style.color = '#475569';
+    return;
+  }
+  statusEl.hidden = false;
+  statusEl.textContent = text;
+  statusEl.style.color = type === 'error'
+    ? '#b91c1c'
+    : (type === 'success' ? '#0f766e' : '#475569');
+}
+
+function syncHomeHotelCouponButtons() {
+  const applyBtn = document.getElementById('hotelBookingApplyCoupon');
+  const clearBtn = document.getElementById('hotelBookingClearCoupon');
+  const code = normalizeHomeHotelCouponCode(document.getElementById('hotelBookingCouponCode')?.value || '');
+  if (applyBtn) applyBtn.disabled = !code || !homeCurrentHotel;
+  if (clearBtn) clearBtn.hidden = !code && !homeHotelCouponState.applied;
+}
+
+function clearHomeHotelCouponState(options = {}) {
+  const clearInput = options.clearInput !== false;
+  homeHotelCouponState.applied = null;
+  if (clearInput) {
+    const input = document.getElementById('hotelBookingCouponCode');
+    if (input) input.value = '';
+  }
+  setHomeHotelCouponStatus('', 'info');
+  syncHomeHotelCouponButtons();
+}
+
+function invalidateHomeHotelCouponAfterChange() {
+  if (!homeHotelCouponState.applied) return;
+  homeHotelCouponState.applied = null;
+  const code = normalizeHomeHotelCouponCode(document.getElementById('hotelBookingCouponCode')?.value || '');
+  if (code) {
+    setHomeHotelCouponStatus(hotelsT('hotels.booking.coupon.reapply', 'Szczegóły noclegu się zmieniły. Zastosuj kupon ponownie.'), 'info');
+  } else {
+    setHomeHotelCouponStatus('', 'info');
+  }
+  syncHomeHotelCouponButtons();
+}
+
+function ensureHomeHotelCouponUi() {
+  const form = document.getElementById('hotelBookingForm');
+  if (!form || form.querySelector('[data-home-hotel-coupon-ui]')) return;
+  const notesField = form.querySelector('textarea[name="notes"]')?.closest('.form-field');
+  if (!notesField) return;
+  const box = document.createElement('div');
+  box.className = 'form-field';
+  box.setAttribute('data-home-hotel-coupon-ui', '1');
+  box.innerHTML = `
+    <label for="hotelBookingCouponCode">${hotelsT('hotels.booking.coupon.label', 'Kod kuponu')}</label>
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;">
+      <input type="text" id="hotelBookingCouponCode" maxlength="64" autocomplete="off" placeholder="${hotelsT('hotels.booking.coupon.placeholder', 'Wpisz kod kuponu')}" />
+      <button type="button" id="hotelBookingApplyCoupon" class="booking-submit" style="padding:10px 14px;min-height:42px;">${hotelsT('hotels.booking.coupon.apply', 'Zastosuj')}</button>
+      <button type="button" id="hotelBookingClearCoupon" class="booking-submit" style="padding:10px 14px;min-height:42px;background:#475569;" hidden>${hotelsT('hotels.booking.coupon.clear', 'Wyczyść')}</button>
+    </div>
+    <p id="hotelBookingCouponStatus" style="margin:6px 0 0;font-size:12px;color:#475569;" hidden></p>
+  `;
+  const priceBox = form.querySelector('.trip-price-box');
+  if (priceBox) form.insertBefore(box, priceBox);
+  else notesField.insertAdjacentElement('afterend', box);
+
+  const codeInput = document.getElementById('hotelBookingCouponCode');
+  codeInput?.addEventListener('input', () => {
+    const normalized = normalizeHomeHotelCouponCode(codeInput.value);
+    if (codeInput.value !== normalized) codeInput.value = normalized;
+    const appliedCode = normalizeHomeHotelCouponCode(homeHotelCouponState.applied?.couponCode || '');
+    if (appliedCode && normalized !== appliedCode) {
+      homeHotelCouponState.applied = null;
+      setHomeHotelCouponStatus('', 'info');
+      updateHotelLivePrice();
+    }
+    syncHomeHotelCouponButtons();
+  });
+  codeInput?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      void applyHomeHotelCoupon();
+    }
+  });
+  document.getElementById('hotelBookingApplyCoupon')?.addEventListener('click', () => { void applyHomeHotelCoupon(); });
+  document.getElementById('hotelBookingClearCoupon')?.addEventListener('click', () => {
+    clearHomeHotelCouponState({ clearInput: true });
+    updateHotelLivePrice();
+  });
+  syncHomeHotelCouponButtons();
+}
+
+async function applyHomeHotelCoupon() {
+  if (!homeCurrentHotel) return false;
+  const code = normalizeHomeHotelCouponCode(document.getElementById('hotelBookingCouponCode')?.value || '');
+  if (!code) {
+    setHomeHotelCouponStatus(hotelsT('hotels.booking.coupon.enterCode', 'Wpisz kod kuponu.'), 'error');
+    syncHomeHotelCouponButtons();
+    return false;
+  }
+
+  const form = document.getElementById('hotelBookingForm');
+  const arrival = form?.querySelector('#hotelArrivalDate')?.value || '';
+  const departure = form?.querySelector('#hotelDepartureDate')?.value || '';
+  const adults = Number(form?.querySelector('#hotelBookingAdults')?.value || 0);
+  const children = Number(form?.querySelector('#hotelBookingChildren')?.value || 0);
+  const nights = nightsBetween(arrival, departure);
+  const result = calculateHotelPrice(homeCurrentHotel, adults + children, nights);
+  const baseTotal = Number(result.total || 0);
+  if (!(baseTotal > 0)) {
+    setHomeHotelCouponStatus(hotelsT('hotels.booking.coupon.noPrice', 'Najpierw uzupełnij dane rezerwacji.'), 'error');
+    syncHomeHotelCouponButtons();
+    return false;
+  }
+
+  const userEmail = String(form?.querySelector('[name="email"]')?.value || '').trim().toLowerCase() || null;
+  const categoryKeys = Array.from(new Set([
+    String(homeCurrentHotel?.slug || '').trim().toLowerCase(),
+    String(homeCurrentHotel?.city || '').trim().toLowerCase(),
+  ].filter(Boolean)));
+
+  const applyBtn = document.getElementById('hotelBookingApplyCoupon');
+  if (applyBtn) applyBtn.disabled = true;
+  try {
+    const response = await quoteHomeHotelCoupon({
+      couponCode: code,
+      baseTotal,
+      serviceAt: arrival || null,
+      resourceId: homeCurrentHotel.id,
+      categoryKeys,
+      userEmail,
+    });
+    if (!response?.ok || !response.result) {
+      homeHotelCouponState.applied = null;
+      setHomeHotelCouponStatus(String(response?.message || hotelsT('hotels.booking.coupon.invalid', 'Ten kupon nie działa dla tej rezerwacji.')), 'error');
+      updateHotelLivePrice();
+      return false;
+    }
+
+    homeHotelCouponState.applied = {
+      couponId: response.result.couponId || null,
+      couponCode: normalizeHomeHotelCouponCode(response.result.couponCode || code),
+      discountAmount: Number(response.result.discountAmount || 0),
+      partnerId: response.result.partnerId || null,
+      partnerCommissionBpsOverride: response.result.partnerCommissionBpsOverride ?? null,
+    };
+    setHomeHotelCouponStatus(
+      hotelsT('hotels.booking.coupon.applied', 'Kupon zastosowany. Zniżka: {{amount}}')
+        .replace('{{amount}}', formatHomeHotelPrice(homeHotelCouponState.applied.discountAmount)),
+      'success',
+    );
+    updateHotelLivePrice();
+    return true;
+  } catch (error) {
+    console.error('Failed to apply home hotel coupon:', error);
+    homeHotelCouponState.applied = null;
+    setHomeHotelCouponStatus(String(error?.message || hotelsT('hotels.booking.coupon.failed', 'Nie udało się zweryfikować kuponu.')), 'error');
+    updateHotelLivePrice();
+    return false;
+  } finally {
+    syncHomeHotelCouponButtons();
+  }
+}
+
 // Backwards compatibility wrapper
 function calculateHotelPriceSimple(h, persons, nights) {
   const result = calculateHotelPrice(h, persons, nights);
@@ -737,8 +1005,9 @@ function updateHotelLivePrice(){
   
   // Oblicz cenę z nowym API
   const result = calculateHotelPrice(homeCurrentHotel, persons, nights);
+  const coupon = getHomeHotelCouponContext(result.total);
   const priceEl = modal ? modal.querySelector('#modalHotelPrice') : null;
-  if (priceEl) priceEl.textContent = `${result.total.toFixed(2)} €`;
+  if (priceEl) priceEl.textContent = formatHomeHotelPrice(coupon.finalTotal);
   
   // Informacja o minimum nocy (translated)
   if (result.tier && result.billableNights > nights) {
@@ -766,6 +1035,7 @@ function updateHotelLivePrice(){
       note.style.display = 'none';
     }
   }
+  syncHomeHotelCouponButtons();
 }
 
 window.openHotelModalHome = function(index){
@@ -809,6 +1079,8 @@ window.openHotelModalHome = function(index){
 
   const form = document.getElementById('hotelBookingForm');
   if (form){ form.reset(); const msg=document.getElementById('hotelBookingMessage'); if(msg) msg.style.display='none'; }
+  ensureHomeHotelCouponUi();
+  clearHomeHotelCouponState({ clearInput: true });
   
   // Prefill user data from session (if logged in)
   prefillHotelFormFromSession(form);
@@ -829,12 +1101,16 @@ window.openHotelModalHome = function(index){
 
   // bind price updates - comprehensive event coverage
   const addAllEvents = (element, isDate = false) => {
-    element.addEventListener('input', updateHotelLivePrice);
-    element.addEventListener('change', updateHotelLivePrice);
+    const onChange = () => {
+      invalidateHomeHotelCouponAfterChange();
+      updateHotelLivePrice();
+    };
+    element.addEventListener('input', onChange);
+    element.addEventListener('change', onChange);
     if (!isDate) {
       // For number inputs, also handle click (spinner buttons) and keyup
-      element.addEventListener('click', updateHotelLivePrice);
-      element.addEventListener('keyup', updateHotelLivePrice);
+      element.addEventListener('click', onChange);
+      element.addEventListener('keyup', onChange);
     }
   };
   
@@ -845,6 +1121,9 @@ window.openHotelModalHome = function(index){
     old.parentNode.replaceChild(clone, old);
     const isDate = id === 'hotelArrivalDate' || id === 'hotelDepartureDate';
     addAllEvents(clone, isDate);
+  });
+  form?.querySelector('[name="email"]')?.addEventListener('change', () => {
+    invalidateHomeHotelCouponAfterChange();
   });
   updateHotelLivePrice();
 

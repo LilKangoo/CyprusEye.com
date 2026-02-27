@@ -51,7 +51,14 @@ export async function onRequest(context) {
       num_children: Number(body.num_children || body.children || 0),
       nights: Number(body.nights || 1),
       notes: body.notes || null,
+      base_price: body.base_price == null ? null : Number(body.base_price || 0),
+      final_price: body.final_price == null ? null : Number(body.final_price || 0),
       total_price: Number(body.total_price || 0),
+      coupon_id: body.coupon_id || null,
+      coupon_code: body.coupon_code || null,
+      coupon_discount_amount: body.coupon_discount_amount == null ? 0 : Number(body.coupon_discount_amount || 0),
+      coupon_partner_id: body.coupon_partner_id || null,
+      coupon_partner_commission_bps: body.coupon_partner_commission_bps == null ? null : Number(body.coupon_partner_commission_bps),
       status: body.status || 'pending'
     };
 

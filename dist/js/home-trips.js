@@ -7,6 +7,7 @@ let homeTripsDisplay = [];
 let homeCurrentTrip = null;
 let homeCurrentIndex = null;
 let homeTripsSavedOnly = false;
+let homeTripCouponState = { applied: null };
 
 const CE_DEBUG_HOME_TRIPS = typeof localStorage !== 'undefined' && localStorage.getItem('CE_DEBUG') === 'true';
 function ceLog(...args) {
@@ -554,6 +555,246 @@ function calculateTripPrice(trip, adults, children, hours, days) {
   return price;
 }
 
+function normalizeHomeTripCouponCode(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function formatHomeTripPrice(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return '0.00 €';
+  return `${amount.toFixed(2)} €`;
+}
+
+function extractHomeTripMissingColumn(error) {
+  const message = String(error?.message || '');
+  const pattern = /Could not find the ['"]([^'"]+)['"] column/i;
+  const match = message.match(pattern);
+  if (match && match[1]) return String(match[1]).trim();
+  return '';
+}
+
+function normalizeHomeTripCouponResult(row) {
+  if (!row || typeof row !== 'object') return null;
+  return {
+    isValid: Boolean(row.is_valid),
+    message: String(row.message || ''),
+    couponId: row.coupon_id ? String(row.coupon_id) : null,
+    couponCode: normalizeHomeTripCouponCode(row.coupon_code || ''),
+    discountAmount: Number(row.discount_amount || 0),
+    finalTotal: Number(row.final_total || 0),
+    baseTotal: Number(row.base_total || 0),
+    partnerId: row.partner_id ? String(row.partner_id) : null,
+    partnerCommissionBpsOverride: row.partner_commission_bps_override ?? null,
+  };
+}
+
+async function quoteHomeTripCoupon(params) {
+  if (window.CE_SERVICE_COUPONS?.quoteServiceCoupon) {
+    return window.CE_SERVICE_COUPONS.quoteServiceCoupon(params);
+  }
+  const supabase = await waitForSupabaseClientHomeTrips();
+  if (!supabase) return { ok: false, message: 'Supabase client not available', result: null };
+  const payload = {
+    p_service_type: 'trips',
+    p_coupon_code: normalizeHomeTripCouponCode(params.couponCode || ''),
+    p_base_total: Number(params.baseTotal || 0),
+    p_service_at: params.serviceAt ? new Date(params.serviceAt).toISOString() : null,
+    p_resource_id: params.resourceId || null,
+    p_category_keys: Array.isArray(params.categoryKeys) ? params.categoryKeys : [],
+    p_user_id: null,
+    p_user_email: params.userEmail || null,
+  };
+  const { data, error } = await supabase.rpc('service_coupon_quote', payload);
+  if (error) return { ok: false, message: String(error.message || 'Coupon validation failed'), result: null };
+  const row = Array.isArray(data) ? data[0] : data;
+  const result = normalizeHomeTripCouponResult(row);
+  if (!result?.isValid) {
+    return { ok: false, message: result?.message || 'Coupon invalid', result };
+  }
+  return { ok: true, message: result.message || 'Coupon applied', result };
+}
+
+function getHomeTripCouponContext(baseTotal) {
+  const base = Number(baseTotal) || 0;
+  const code = normalizeHomeTripCouponCode(document.getElementById('bookingCouponCode')?.value || '');
+  const applied = homeTripCouponState.applied;
+  const appliedCode = normalizeHomeTripCouponCode(applied?.couponCode || '');
+  const hasApplied = Boolean(applied && code && appliedCode === code);
+  const discount = hasApplied ? Math.min(base, Number(applied?.discountAmount || 0)) : 0;
+  return {
+    code,
+    hasApplied,
+    discount,
+    baseTotal: base,
+    finalTotal: Math.max(0, base - discount),
+  };
+}
+
+function setHomeTripCouponStatus(message = '', type = 'info') {
+  const statusEl = document.getElementById('bookingCouponStatus');
+  if (!statusEl) return;
+  const text = String(message || '').trim();
+  if (!text) {
+    statusEl.hidden = true;
+    statusEl.textContent = '';
+    statusEl.style.color = '#475569';
+    return;
+  }
+  statusEl.hidden = false;
+  statusEl.textContent = text;
+  statusEl.style.color = type === 'error'
+    ? '#b91c1c'
+    : (type === 'success' ? '#0f766e' : '#475569');
+}
+
+function syncHomeTripCouponButtons() {
+  const applyBtn = document.getElementById('bookingApplyCoupon');
+  const clearBtn = document.getElementById('bookingClearCoupon');
+  const code = normalizeHomeTripCouponCode(document.getElementById('bookingCouponCode')?.value || '');
+  if (applyBtn) applyBtn.disabled = !code || !homeCurrentTrip;
+  if (clearBtn) clearBtn.hidden = !code && !homeTripCouponState.applied;
+}
+
+function clearHomeTripCouponState(options = {}) {
+  const clearInput = options.clearInput !== false;
+  homeTripCouponState.applied = null;
+  if (clearInput) {
+    const input = document.getElementById('bookingCouponCode');
+    if (input) input.value = '';
+  }
+  setHomeTripCouponStatus('', 'info');
+  syncHomeTripCouponButtons();
+}
+
+function invalidateHomeTripCouponAfterChange() {
+  if (!homeTripCouponState.applied) return;
+  homeTripCouponState.applied = null;
+  const code = normalizeHomeTripCouponCode(document.getElementById('bookingCouponCode')?.value || '');
+  if (code) {
+    setHomeTripCouponStatus(tripsT('trips.booking.coupon.reapply', 'Szczegóły wycieczki się zmieniły. Zastosuj kupon ponownie.'), 'info');
+  } else {
+    setHomeTripCouponStatus('', 'info');
+  }
+  syncHomeTripCouponButtons();
+}
+
+function ensureHomeTripCouponUi() {
+  const form = document.getElementById('bookingForm');
+  if (!form || form.querySelector('[data-trip-coupon-ui]')) return;
+  const notesField = document.getElementById('bookingNotes')?.closest('.form-field');
+  if (!notesField) return;
+  const box = document.createElement('div');
+  box.className = 'form-field';
+  box.setAttribute('data-trip-coupon-ui', '1');
+  box.innerHTML = `
+    <label for="bookingCouponCode">${tripsT('trips.booking.coupon.label', 'Kod kuponu')}</label>
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;">
+      <input type="text" id="bookingCouponCode" maxlength="64" autocomplete="off" placeholder="${tripsT('trips.booking.coupon.placeholder', 'Wpisz kod kuponu')}" />
+      <button type="button" id="bookingApplyCoupon" class="booking-submit" style="padding:10px 14px;min-height:42px;">${tripsT('trips.booking.coupon.apply', 'Zastosuj')}</button>
+      <button type="button" id="bookingClearCoupon" class="booking-submit" style="padding:10px 14px;min-height:42px;background:#475569;" hidden>${tripsT('trips.booking.coupon.clear', 'Wyczyść')}</button>
+    </div>
+    <p id="bookingCouponStatus" style="margin:6px 0 0;font-size:12px;color:#475569;" hidden></p>
+  `;
+  const priceBox = form.querySelector('.trip-price-box');
+  if (priceBox) form.insertBefore(box, priceBox);
+  else notesField.insertAdjacentElement('afterend', box);
+
+  const codeInput = document.getElementById('bookingCouponCode');
+  const applyBtn = document.getElementById('bookingApplyCoupon');
+  const clearBtn = document.getElementById('bookingClearCoupon');
+  codeInput?.addEventListener('input', () => {
+    const normalized = normalizeHomeTripCouponCode(codeInput.value);
+    if (codeInput.value !== normalized) codeInput.value = normalized;
+    const appliedCode = normalizeHomeTripCouponCode(homeTripCouponState.applied?.couponCode || '');
+    if (appliedCode && normalized !== appliedCode) {
+      homeTripCouponState.applied = null;
+      setHomeTripCouponStatus('', 'info');
+      updateLivePriceHome();
+    }
+    syncHomeTripCouponButtons();
+  });
+  codeInput?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      void applyHomeTripCoupon();
+    }
+  });
+  applyBtn?.addEventListener('click', () => { void applyHomeTripCoupon(); });
+  clearBtn?.addEventListener('click', () => {
+    clearHomeTripCouponState({ clearInput: true });
+    updateLivePriceHome();
+  });
+  syncHomeTripCouponButtons();
+}
+
+async function applyHomeTripCoupon() {
+  if (!homeCurrentTrip) return false;
+  const code = normalizeHomeTripCouponCode(document.getElementById('bookingCouponCode')?.value || '');
+  if (!code) {
+    setHomeTripCouponStatus(tripsT('trips.booking.coupon.enterCode', 'Wpisz kod kuponu.'), 'error');
+    syncHomeTripCouponButtons();
+    return false;
+  }
+  const adults = document.getElementById('bookingAdults')?.value;
+  const children = document.getElementById('bookingChildren')?.value;
+  const hours = document.getElementById('bookingHours')?.value;
+  const days = document.getElementById('bookingDays')?.value;
+  const baseTotal = calculateTripPrice(homeCurrentTrip, adults, children, hours, days);
+  if (!(baseTotal > 0)) {
+    setHomeTripCouponStatus(tripsT('trips.booking.coupon.noPrice', 'Najpierw uzupełnij dane rezerwacji.'), 'error');
+    syncHomeTripCouponButtons();
+    return false;
+  }
+  const tripDate = String(document.getElementById('bookingDate')?.value || '').trim();
+  const arrivalDate = String(document.getElementById('arrivalDate')?.value || '').trim();
+  const serviceAt = tripDate || arrivalDate || null;
+  const userEmail = String(document.getElementById('bookingEmail')?.value || '').trim().toLowerCase() || null;
+  const categoryKeys = Array.from(new Set([
+    String(homeCurrentTrip?.slug || '').trim().toLowerCase(),
+    String(homeCurrentTrip?.start_city || '').trim().toLowerCase(),
+  ].filter(Boolean)));
+  const applyBtn = document.getElementById('bookingApplyCoupon');
+  if (applyBtn) applyBtn.disabled = true;
+  try {
+    const response = await quoteHomeTripCoupon({
+      couponCode: code,
+      baseTotal,
+      serviceAt,
+      resourceId: homeCurrentTrip.id,
+      categoryKeys,
+      userEmail,
+    });
+    if (!response?.ok || !response.result) {
+      homeTripCouponState.applied = null;
+      setHomeTripCouponStatus(String(response?.message || tripsT('trips.booking.coupon.invalid', 'Ten kupon nie działa dla tej rezerwacji.')), 'error');
+      updateLivePriceHome();
+      return false;
+    }
+    homeTripCouponState.applied = {
+      couponId: response.result.couponId || null,
+      couponCode: normalizeHomeTripCouponCode(response.result.couponCode || code),
+      discountAmount: Number(response.result.discountAmount || 0),
+      partnerId: response.result.partnerId || null,
+      partnerCommissionBpsOverride: response.result.partnerCommissionBpsOverride ?? null,
+    };
+    setHomeTripCouponStatus(
+      tripsT('trips.booking.coupon.applied', 'Kupon zastosowany. Zniżka: {{amount}}')
+        .replace('{{amount}}', formatHomeTripPrice(homeTripCouponState.applied.discountAmount)),
+      'success',
+    );
+    updateLivePriceHome();
+    return true;
+  } catch (error) {
+    console.error('Failed to apply home trip coupon:', error);
+    homeTripCouponState.applied = null;
+    setHomeTripCouponStatus(String(error?.message || tripsT('trips.booking.coupon.failed', 'Nie udało się zweryfikować kuponu.')), 'error');
+    updateLivePriceHome();
+    return false;
+  } finally {
+    syncHomeTripCouponButtons();
+  }
+}
+
 function updateLivePriceHome() {
   if (!homeCurrentTrip) return;
   
@@ -561,9 +802,10 @@ function updateLivePriceHome() {
   const children = document.getElementById('bookingChildren').value;
   const hours = document.getElementById('bookingHours').value;
   const days = document.getElementById('bookingDays').value;
-  const totalPrice = calculateTripPrice(homeCurrentTrip, adults, children, hours, days);
-  
-  document.getElementById('modalTripPrice').textContent = `${totalPrice.toFixed(2)} €`;
+  const baseTotal = calculateTripPrice(homeCurrentTrip, adults, children, hours, days);
+  const coupon = getHomeTripCouponContext(baseTotal);
+  document.getElementById('modalTripPrice').textContent = formatHomeTripPrice(coupon.finalTotal);
+  syncHomeTripCouponButtons();
 }
 
 window.openTripModalHome = function(index){
@@ -592,6 +834,8 @@ window.openTripModalHome = function(index){
   // Reset form and message
   const form = document.getElementById('bookingForm');
   if (form) { form.reset(); const msg = document.getElementById('bookingMessage'); if (msg) msg.style.display='none'; }
+  ensureHomeTripCouponUi();
+  clearHomeTripCouponState({ clearInput: true });
   
   // Prefill user data from session (if logged in)
   prefillTripFormFromSession(form);
@@ -632,12 +876,26 @@ window.openTripModalHome = function(index){
       departureInput.value = this.value;
     }
     departureInput.min = this.value;
+    invalidateHomeTripCouponAfterChange();
+    updateLivePriceHome();
   });
   
   departureInput.addEventListener('change', function() {
     if (arrivalInput.value && this.value < arrivalInput.value) {
       this.value = arrivalInput.value;
     }
+    invalidateHomeTripCouponAfterChange();
+    updateLivePriceHome();
+  });
+
+  const bookingDateInput = document.getElementById('bookingDate');
+  bookingDateInput?.addEventListener('change', () => {
+    invalidateHomeTripCouponAfterChange();
+    updateLivePriceHome();
+  });
+  const bookingEmailInput = document.getElementById('bookingEmail');
+  bookingEmailInput?.addEventListener('change', () => {
+    invalidateHomeTripCouponAfterChange();
   });
   
   // Remove old listeners and add new ones (EXACT copy from trips.html)
@@ -658,10 +916,14 @@ window.openTripModalHome = function(index){
   
   // Add comprehensive event listeners for number inputs (EXACT copy from trips.html)
   const addAllEvents = (element) => {
-    element.addEventListener('input', updateLivePriceHome);
-    element.addEventListener('change', updateLivePriceHome);
-    element.addEventListener('click', updateLivePriceHome);  // For spinner buttons
-    element.addEventListener('keyup', updateLivePriceHome);   // For arrow keys
+    const onChange = () => {
+      invalidateHomeTripCouponAfterChange();
+      updateLivePriceHome();
+    };
+    element.addEventListener('input', onChange);
+    element.addEventListener('change', onChange);
+    element.addEventListener('click', onChange);  // For spinner buttons
+    element.addEventListener('keyup', onChange);   // For arrow keys
   };
   
   addAllEvents(newAdultsInput);
@@ -705,24 +967,7 @@ function initHomeTripsModalHandlers() {
     const children = parseInt(fd.get('children')) || 0;
     const hours = parseInt(fd.get('hours')) || 1;
     const days = parseInt(fd.get('days')) || 1;
-    const total = calculateTripPrice(homeCurrentTrip, adults, children, hours, days);
-    const payload = {
-      trip_id: homeCurrentTrip.id,
-      trip_slug: homeCurrentTrip.slug,
-      customer_name: fd.get('name'),
-      customer_email: fd.get('email'),
-      customer_phone: fd.get('phone'),
-      trip_date: fd.get('trip_date'),
-      arrival_date: fd.get('arrival_date'),
-      departure_date: fd.get('departure_date'),
-      num_adults: adults,
-      num_children: children,
-      num_hours: hours,
-      num_days: days,
-      notes: fd.get('notes'),
-      total_price: total,
-      status: 'pending'
-    };
+    const baseTotal = calculateTripPrice(homeCurrentTrip, adults, children, hours, days);
     const btn = form.querySelector('.booking-submit');
     const msg = document.getElementById('bookingMessage');
     
@@ -731,10 +976,53 @@ function initHomeTripsModalHandlers() {
     
     try{
       if (btn){ btn.disabled = true; btn.textContent = 'Wysyłanie...'; }
+      const couponCode = normalizeHomeTripCouponCode(document.getElementById('bookingCouponCode')?.value || '');
+      const appliedCode = normalizeHomeTripCouponCode(homeTripCouponState.applied?.couponCode || '');
+      if (couponCode && couponCode !== appliedCode) {
+        const applied = await applyHomeTripCoupon();
+        if (!applied) {
+          throw new Error(tripsT('trips.booking.coupon.applyBeforeSubmit', 'Zastosuj poprawny kupon lub wyczyść pole kuponu przed rezerwacją.'));
+        }
+      }
+
+      const coupon = getHomeTripCouponContext(baseTotal);
+      const payload = {
+        trip_id: homeCurrentTrip.id,
+        trip_slug: homeCurrentTrip.slug,
+        customer_name: fd.get('name'),
+        customer_email: fd.get('email'),
+        customer_phone: fd.get('phone'),
+        trip_date: fd.get('trip_date'),
+        arrival_date: fd.get('arrival_date'),
+        departure_date: fd.get('departure_date'),
+        num_adults: adults,
+        num_children: children,
+        num_hours: hours,
+        num_days: days,
+        notes: fd.get('notes'),
+        base_price: coupon.baseTotal,
+        final_price: coupon.finalTotal,
+        total_price: coupon.finalTotal,
+        coupon_id: coupon.hasApplied ? (homeTripCouponState.applied?.couponId || null) : null,
+        coupon_code: coupon.hasApplied ? (homeTripCouponState.applied?.couponCode || coupon.code || null) : null,
+        coupon_discount_amount: coupon.hasApplied ? Number(coupon.discount || 0) : 0,
+        coupon_partner_id: coupon.hasApplied ? (homeTripCouponState.applied?.partnerId || null) : null,
+        coupon_partner_commission_bps: coupon.hasApplied ? (homeTripCouponState.applied?.partnerCommissionBpsOverride ?? null) : null,
+        status: 'pending',
+      };
       const supabase = await waitForSupabaseClientHomeTrips();
       if (!supabase) throw new Error('Supabase client not available');
-      const { error } = await supabase.from('trip_bookings').insert([payload]);
-      if (error) throw error;
+      let insertPayload = { ...payload };
+      let insertError = null;
+      for (let attempt = 0; attempt < 12; attempt += 1) {
+        const { error } = await supabase.from('trip_bookings').insert([insertPayload]);
+        insertError = error;
+        if (!insertError) break;
+        const missingColumn = extractHomeTripMissingColumn(insertError);
+        if (!missingColumn || !Object.prototype.hasOwnProperty.call(insertPayload, missingColumn)) break;
+        delete insertPayload[missingColumn];
+      }
+      if (insertError) throw insertError;
       
       // Success - show beautiful popup (same as hotels)
       showSuccessPopup('✅ Rezerwacja przyjęta!', 'Skontaktujemy się z Tobą wkrótce. Dziękujemy!');
@@ -744,6 +1032,7 @@ function initHomeTripsModalHandlers() {
       if (typeof clearFormValidation === 'function') {
         clearFormValidation(form);
       }
+      clearHomeTripCouponState({ clearInput: true });
       updateLivePriceHome();
       
       // Optional: close modal after 3 seconds

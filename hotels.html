@@ -489,11 +489,13 @@
 
   <script type="module">
     import { supabase } from '/js/supabaseClient.js';
+    import { quoteServiceCoupon } from '/js/service-coupons.js';
 
     let allHotels = [];
     let currentCity = 'all';
     let currentHotel = null;
     let hotelAmenitiesMap = {};
+    let hotelCouponState = { applied: null };
 
     // Load amenities for display
     async function loadHotelAmenitiesForDisplay() {
@@ -783,6 +785,208 @@
       return { total, pricePerNight, billableNights, tier: rule };
     }
 
+    function normalizeHotelCouponCode(value) {
+      return String(value || '').trim().toUpperCase();
+    }
+
+    function formatHotelPrice(value) {
+      const amount = Number(value);
+      if (!Number.isFinite(amount)) return '0.00 €';
+      return `${amount.toFixed(2)} €`;
+    }
+
+    function extractHotelMissingColumn(error) {
+      const message = String(error?.message || '');
+      const pattern = /Could not find the ['"]([^'"]+)['"] column/i;
+      const match = message.match(pattern);
+      if (match && match[1]) return String(match[1]).trim();
+      return '';
+    }
+
+    function getHotelCouponContext(baseTotal) {
+      const base = Number(baseTotal) || 0;
+      const code = normalizeHotelCouponCode(document.getElementById('hotelBookingCouponCode')?.value || '');
+      const applied = hotelCouponState.applied;
+      const appliedCode = normalizeHotelCouponCode(applied?.couponCode || '');
+      const hasApplied = Boolean(applied && code && appliedCode === code);
+      const discount = hasApplied ? Math.min(base, Number(applied?.discountAmount || 0)) : 0;
+      return {
+        code,
+        hasApplied,
+        discount,
+        baseTotal: base,
+        finalTotal: Math.max(0, base - discount),
+      };
+    }
+
+    function setHotelCouponStatus(message = '', type = 'info') {
+      const statusEl = document.getElementById('hotelBookingCouponStatus');
+      if (!statusEl) return;
+      const text = String(message || '').trim();
+      if (!text) {
+        statusEl.hidden = true;
+        statusEl.textContent = '';
+        statusEl.style.color = '#475569';
+        return;
+      }
+      statusEl.hidden = false;
+      statusEl.textContent = text;
+      statusEl.style.color = type === 'error'
+        ? '#b91c1c'
+        : (type === 'success' ? '#0f766e' : '#475569');
+    }
+
+    function syncHotelCouponButtons() {
+      const applyBtn = document.getElementById('hotelBookingApplyCoupon');
+      const clearBtn = document.getElementById('hotelBookingClearCoupon');
+      const code = normalizeHotelCouponCode(document.getElementById('hotelBookingCouponCode')?.value || '');
+      if (applyBtn) applyBtn.disabled = !code || !currentHotel;
+      if (clearBtn) clearBtn.hidden = !code && !hotelCouponState.applied;
+    }
+
+    function clearHotelCouponState(options = {}) {
+      const clearInput = options.clearInput !== false;
+      hotelCouponState.applied = null;
+      if (clearInput) {
+        const input = document.getElementById('hotelBookingCouponCode');
+        if (input) input.value = '';
+      }
+      setHotelCouponStatus('', 'info');
+      syncHotelCouponButtons();
+    }
+
+    function invalidateHotelCouponAfterChange() {
+      if (!hotelCouponState.applied) return;
+      hotelCouponState.applied = null;
+      const code = normalizeHotelCouponCode(document.getElementById('hotelBookingCouponCode')?.value || '');
+      if (code) {
+        setHotelCouponStatus(t('hotels.booking.coupon.reapply', 'Szczegóły noclegu się zmieniły. Zastosuj kupon ponownie.'), 'info');
+      } else {
+        setHotelCouponStatus('', 'info');
+      }
+      syncHotelCouponButtons();
+    }
+
+    function ensureHotelCouponUi() {
+      const form = document.getElementById('hotelBookingForm');
+      if (!form || form.querySelector('[data-hotel-coupon-ui]')) return;
+      const notesField = form.querySelector('textarea[name="notes"]')?.closest('.form-field');
+      if (!notesField) return;
+      const box = document.createElement('div');
+      box.className = 'form-field';
+      box.setAttribute('data-hotel-coupon-ui', '1');
+      box.innerHTML = `
+        <label for="hotelBookingCouponCode">${t('hotels.booking.coupon.label', 'Kod kuponu')}</label>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;">
+          <input type="text" id="hotelBookingCouponCode" maxlength="64" autocomplete="off" placeholder="${t('hotels.booking.coupon.placeholder', 'Wpisz kod kuponu')}" />
+          <button type="button" id="hotelBookingApplyCoupon" class="booking-submit" style="padding:10px 14px;min-height:42px;">${t('hotels.booking.coupon.apply', 'Zastosuj')}</button>
+          <button type="button" id="hotelBookingClearCoupon" class="booking-submit" style="padding:10px 14px;min-height:42px;background:#475569;" hidden>${t('hotels.booking.coupon.clear', 'Wyczyść')}</button>
+        </div>
+        <p id="hotelBookingCouponStatus" style="margin:6px 0 0;font-size:12px;color:#475569;" hidden></p>
+      `;
+      const priceBox = form.querySelector('.trip-price-box');
+      if (priceBox) form.insertBefore(box, priceBox);
+      else notesField.insertAdjacentElement('afterend', box);
+
+      const codeInput = document.getElementById('hotelBookingCouponCode');
+      codeInput?.addEventListener('input', () => {
+        const normalized = normalizeHotelCouponCode(codeInput.value);
+        if (codeInput.value !== normalized) codeInput.value = normalized;
+        const appliedCode = normalizeHotelCouponCode(hotelCouponState.applied?.couponCode || '');
+        if (appliedCode && normalized !== appliedCode) {
+          hotelCouponState.applied = null;
+          setHotelCouponStatus('', 'info');
+          updateLivePrice();
+        }
+        syncHotelCouponButtons();
+      });
+      codeInput?.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          void applyHotelCoupon();
+        }
+      });
+      document.getElementById('hotelBookingApplyCoupon')?.addEventListener('click', () => { void applyHotelCoupon(); });
+      document.getElementById('hotelBookingClearCoupon')?.addEventListener('click', () => {
+        clearHotelCouponState({ clearInput: true });
+        updateLivePrice();
+      });
+      syncHotelCouponButtons();
+    }
+
+    async function applyHotelCoupon() {
+      if (!currentHotel) return false;
+      const code = normalizeHotelCouponCode(document.getElementById('hotelBookingCouponCode')?.value || '');
+      if (!code) {
+        setHotelCouponStatus(t('hotels.booking.coupon.enterCode', 'Wpisz kod kuponu.'), 'error');
+        syncHotelCouponButtons();
+        return false;
+      }
+
+      const arrival = document.getElementById('arrivalDate')?.value;
+      const departure = document.getElementById('departureDate')?.value;
+      const adults = Number(document.getElementById('bookingAdults')?.value || 0);
+      const children = Number(document.getElementById('bookingChildren')?.value || 0);
+      const nights = nightsBetween(arrival, departure);
+      const priceResult = calculateHotelPrice(currentHotel, adults + children, nights);
+      const baseTotal = Number(priceResult?.total || 0);
+      if (!(baseTotal > 0)) {
+        setHotelCouponStatus(t('hotels.booking.coupon.noPrice', 'Najpierw uzupełnij dane rezerwacji.'), 'error');
+        syncHotelCouponButtons();
+        return false;
+      }
+
+      const userEmail = String(document.querySelector('#hotelBookingForm [name=\"email\"]')?.value || '').trim().toLowerCase() || null;
+      const categoryKeys = Array.from(new Set([
+        String(currentHotel?.slug || '').trim().toLowerCase(),
+        String(currentHotel?.city || '').trim().toLowerCase(),
+      ].filter(Boolean)));
+
+      const applyBtn = document.getElementById('hotelBookingApplyCoupon');
+      if (applyBtn) applyBtn.disabled = true;
+      try {
+        const response = await quoteServiceCoupon({
+          serviceType: 'hotels',
+          couponCode: code,
+          baseTotal,
+          serviceAt: arrival || null,
+          resourceId: currentHotel.id,
+          categoryKeys,
+          userEmail,
+        });
+        if (!response?.ok || !response.result) {
+          hotelCouponState.applied = null;
+          setHotelCouponStatus(String(response?.message || t('hotels.booking.coupon.invalid', 'Ten kupon nie działa dla tej rezerwacji.')), 'error');
+          updateLivePrice();
+          return false;
+        }
+
+        hotelCouponState.applied = {
+          couponId: response.result.couponId || null,
+          couponCode: normalizeHotelCouponCode(response.result.couponCode || code),
+          discountAmount: Number(response.result.discountAmount || 0),
+          partnerId: response.result.partnerId || null,
+          partnerCommissionBpsOverride: response.result.partnerCommissionBpsOverride ?? null,
+        };
+        setHotelCouponStatus(
+          t('hotels.booking.coupon.applied', 'Kupon zastosowany. Zniżka: {{amount}}', {
+            amount: formatHotelPrice(hotelCouponState.applied.discountAmount),
+          }),
+          'success',
+        );
+        updateLivePrice();
+        return true;
+      } catch (error) {
+        console.error('Failed to apply hotel coupon:', error);
+        hotelCouponState.applied = null;
+        setHotelCouponStatus(String(error?.message || t('hotels.booking.coupon.failed', 'Nie udało się zweryfikować kuponu.')), 'error');
+        updateLivePrice();
+        return false;
+      } finally {
+        syncHotelCouponButtons();
+      }
+    }
+
     function updateLivePrice(){
       if(!currentHotel) return;
       const a = document.getElementById('arrivalDate').value;
@@ -803,7 +1007,8 @@
       
       // Oblicz cenę z nowym API
       const result = calculateHotelPrice(currentHotel, persons, nights);
-      document.getElementById('modalHotelPrice').textContent = `${result.total.toFixed(2)} €`;
+      const coupon = getHotelCouponContext(result.total);
+      document.getElementById('modalHotelPrice').textContent = formatHotelPrice(coupon.finalTotal);
       
       // Informacja o minimum nocy
       if (result.tier && result.billableNights > nights) {
@@ -825,6 +1030,7 @@
       } else {
         note.style.display = 'none';
       }
+      syncHotelCouponButtons();
     }
 
     // Prefill form with user data if logged in
@@ -897,6 +1103,8 @@
       renderHotelAmenitiesChips(h);
       document.getElementById('hotelBookingForm').reset();
       document.getElementById('hotelBookingMessage').style.display='none';
+      ensureHotelCouponUi();
+      clearHotelCouponState({ clearInput: true });
       
       // Prefill form with user data if logged in
       prefillUserData();
@@ -932,12 +1140,16 @@
     const addAllEvents = (id, isDate = false) => {
       const element = document.getElementById(id);
       if (!element) return;
-      element.addEventListener('input', updateLivePrice);
-      element.addEventListener('change', updateLivePrice);
+      const onChange = () => {
+        invalidateHotelCouponAfterChange();
+        updateLivePrice();
+      };
+      element.addEventListener('input', onChange);
+      element.addEventListener('change', onChange);
       if (!isDate) {
         // For number inputs, also handle click (spinner buttons) and keyup
-        element.addEventListener('click', updateLivePrice);
-        element.addEventListener('keyup', updateLivePrice);
+        element.addEventListener('click', onChange);
+        element.addEventListener('keyup', onChange);
       }
     };
     
@@ -945,6 +1157,9 @@
     addAllEvents('departureDate', true);
     addAllEvents('bookingAdults', false);
     addAllEvents('bookingChildren', false);
+    document.querySelector('#hotelBookingForm [name="email"]')?.addEventListener('change', () => {
+      invalidateHotelCouponAfterChange();
+    });
     
 
     document.getElementById('hotelBookingForm').addEventListener('submit', async (e)=>{
@@ -968,6 +1183,17 @@
           throw new Error(t('hotels.price.personLimit', `Maksymalna liczba osób: ${maxPersons}`, { max: maxPersons }));
         }
         const priceResult = calculateHotelPrice(currentHotel, persons, nights);
+        const baseTotal = Number(priceResult.total || 0);
+
+        const couponCode = normalizeHotelCouponCode(document.getElementById('hotelBookingCouponCode')?.value || '');
+        const appliedCode = normalizeHotelCouponCode(hotelCouponState.applied?.couponCode || '');
+        if (couponCode && couponCode !== appliedCode) {
+          const applied = await applyHotelCoupon();
+          if (!applied) {
+            throw new Error(t('hotels.booking.coupon.applyBeforeSubmit', 'Zastosuj poprawny kupon lub wyczyść pole kuponu przed rezerwacją.'));
+          }
+        }
+        const coupon = getHotelCouponContext(baseTotal);
         
         // Get current user if logged in
         const { data: { user } } = await supabase.auth.getUser();
@@ -988,16 +1214,33 @@
           num_children: children,
           nights,
           notes: fd.get('notes'),
-          total_price: priceResult.total,
+          base_price: coupon.baseTotal,
+          final_price: coupon.finalTotal,
+          total_price: coupon.finalTotal,
+          coupon_id: coupon.hasApplied ? (hotelCouponState.applied?.couponId || null) : null,
+          coupon_code: coupon.hasApplied ? (hotelCouponState.applied?.couponCode || coupon.code || null) : null,
+          coupon_discount_amount: coupon.hasApplied ? Number(coupon.discount || 0) : 0,
+          coupon_partner_id: coupon.hasApplied ? (hotelCouponState.applied?.partnerId || null) : null,
+          coupon_partner_commission_bps: coupon.hasApplied ? (hotelCouponState.applied?.partnerCommissionBpsOverride ?? null) : null,
           status: 'pending',
           user_id: user?.id || null
         };
-        const { error } = await supabase.from('hotel_bookings').insert([payload]);
-        if(error) throw error;
+        let insertPayload = { ...payload };
+        let insertError = null;
+        for (let attempt = 0; attempt < 12; attempt += 1) {
+          const { error } = await supabase.from('hotel_bookings').insert([insertPayload]);
+          insertError = error;
+          if (!insertError) break;
+          const missingColumn = extractHotelMissingColumn(insertError);
+          if (!missingColumn || !Object.prototype.hasOwnProperty.call(insertPayload, missingColumn)) break;
+          delete insertPayload[missingColumn];
+        }
+        if(insertError) throw insertError;
         msg.className='booking-message success';
         msg.textContent=t('hotels.booking.success', 'Rezerwacja przyjęta! Skontaktujemy się wkrótce.');
         msg.style.display='block';
         e.target.reset();
+        clearHotelCouponState({ clearInput: true });
         updateLivePrice();
       }catch(err){
         console.error(err);
