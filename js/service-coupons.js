@@ -33,15 +33,30 @@ function normalizeQuoteRow(row) {
 }
 
 export async function quoteServiceCoupon(params = {}) {
-  const serviceType = String(params.serviceType || '').trim().toLowerCase();
-  const couponCode = String(params.couponCode || '').trim().toUpperCase();
-  const baseTotal = Number(params.baseTotal || 0);
-  const serviceAt = params.serviceAt ? new Date(params.serviceAt) : null;
+  const serviceType = String(
+    params.serviceType ?? params.service_type ?? params.p_service_type ?? '',
+  ).trim().toLowerCase();
+  const couponCode = String(
+    params.couponCode ?? params.coupon_code ?? params.p_coupon_code ?? '',
+  ).trim().toUpperCase();
+  const baseTotal = Number(
+    params.baseTotal ?? params.base_total ?? params.p_base_total ?? 0,
+  );
+  const serviceAtRaw = params.serviceAt ?? params.service_at ?? params.p_service_at ?? null;
+  const serviceAt = serviceAtRaw ? new Date(serviceAtRaw) : null;
   const serviceAtIso = serviceAt && Number.isFinite(serviceAt.getTime()) ? serviceAt.toISOString() : null;
-  const resourceId = String(params.resourceId || '').trim() || null;
-  const categoryKeys = normalizeTextArray(params.categoryKeys);
-  const userId = String(params.userId || '').trim() || null;
-  const userEmail = String(params.userEmail || '').trim().toLowerCase() || null;
+  const resourceId = String(
+    params.resourceId ?? params.resource_id ?? params.p_resource_id ?? '',
+  ).trim() || null;
+  const categoryKeys = normalizeTextArray(
+    params.categoryKeys ?? params.category_keys ?? params.p_category_keys,
+  );
+  const userId = String(
+    params.userId ?? params.user_id ?? params.p_user_id ?? '',
+  ).trim() || null;
+  const userEmail = String(
+    params.userEmail ?? params.user_email ?? params.p_user_email ?? '',
+  ).trim().toLowerCase() || null;
 
   if (!serviceType) {
     return { ok: false, message: 'Missing service type', result: null };
@@ -106,4 +121,3 @@ if (typeof window !== 'undefined') {
     quoteServiceCoupon,
   };
 }
-

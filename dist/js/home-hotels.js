@@ -766,7 +766,14 @@ function normalizeHomeHotelCouponResult(row) {
 
 async function quoteHomeHotelCoupon(params) {
   if (window.CE_SERVICE_COUPONS?.quoteServiceCoupon) {
-    return window.CE_SERVICE_COUPONS.quoteServiceCoupon(params);
+    return window.CE_SERVICE_COUPONS.quoteServiceCoupon({
+      ...params,
+      serviceType: 'hotels',
+      couponCode: normalizeHomeHotelCouponCode(
+        params?.couponCode || params?.coupon_code || params?.p_coupon_code || '',
+      ),
+      baseTotal: Number(params?.baseTotal ?? params?.base_total ?? params?.p_base_total ?? 0),
+    });
   }
   const supabase = await waitForSupabaseClientHomeHotels();
   if (!supabase) return { ok: false, message: 'Supabase client not available', result: null };
