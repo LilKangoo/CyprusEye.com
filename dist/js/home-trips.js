@@ -17,6 +17,15 @@ function ceLog(...args) {
 const HOME_TRIPS_CACHE_KEY = 'ce_cache_home_trips_v1';
 const HOME_TRIPS_CACHE_TTL_MS = 10 * 60 * 1000;
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function normalizeHomeTripsErrorMessage(message, fallback = 'Wystąpił błąd.') {
   const raw = (typeof message === 'string' ? message : String(message?.message || message || '')).trim();
   if (!raw) return fallback;
