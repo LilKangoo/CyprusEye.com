@@ -10,6 +10,7 @@ let homeCarsSavedOnly = false;
 let homeCarsLastQuoteByCarId = {};
 let homeCarsFinderState = null;
 let homeCarsFinderManualLocation = false;
+let homeCarsFinderExpanded = false;
 
 let homeCarsCarouselUpdate = null;
 let previousBodyCarLocation = null;
@@ -57,6 +58,7 @@ function buildDefaultFinderState() {
     returnLocation: 'larnaca',
     fullInsurance: false,
     youngDriver: false,
+    passengers: 2,
   };
 }
 
@@ -178,8 +180,11 @@ function buildFinderLocationOptions(selectedValue) {
   `).join('');
 }
 
-function readFinderStateFromDom() {
-  const defaults = buildDefaultFinderState();
+function readFinderStateFromDom(baseState = null) {
+  const defaults = {
+    ...buildDefaultFinderState(),
+    ...(baseState && typeof baseState === 'object' ? baseState : {}),
+  };
   return {
     pickupDate: String(document.getElementById('carsFinderPickupDate')?.value || defaults.pickupDate).trim(),
     pickupTime: String(document.getElementById('carsFinderPickupTime')?.value || defaults.pickupTime).trim() || defaults.pickupTime,
@@ -189,6 +194,7 @@ function readFinderStateFromDom() {
     returnLocation: String(document.getElementById('carsFinderReturnLocation')?.value || defaults.returnLocation).trim() || defaults.returnLocation,
     fullInsurance: !!document.getElementById('carsFinderInsurance')?.checked,
     youngDriver: !!document.getElementById('carsFinderYoungDriver')?.checked,
+    passengers: Math.max(1, Number(document.getElementById('carsFinderPassengers')?.value || defaults.passengers || 2)),
   };
 }
 
@@ -248,63 +254,90 @@ function renderHomeCarsFinder() {
   if (!root) return;
 
   const state = homeCarsFinderState || buildDefaultFinderState();
+  const offer = evaluateFinderOffer(state);
+  const offerLabel = offer.offer === 'paphos' ? text('Pafos', 'Paphos') : text('Larnaka', 'Larnaca');
+  const duration = getFinderDurationState(state);
+  const summaryLine = duration.ready
+    ? text(`${offerLabel} • ${duration.days} dni • ${Math.max(1, Number(state.passengers || 2))} os.`, `${offerLabel} • ${duration.days} days • ${Math.max(1, Number(state.passengers || 2))} pax`)
+    : text(`${offerLabel} • ${Math.max(1, Number(state.passengers || 2))} os.`, `${offerLabel} • ${Math.max(1, Number(state.passengers || 2))} pax`);
+  const expanded = !!homeCarsFinderExpanded;
 
   root.innerHTML = `
-    <div class="home-cars-finder-panel">
-      <div class="home-cars-finder-panel__header">
-        <h3>${escapeHtml(text('Znajdź auto w 15 sekund', 'Find your car in 15 seconds'))}</h3>
-        <p>${escapeHtml(text('Podaj trasę i czas. Pokażemy końcową cenę i czas wynajmu od razu na kartach aut.', 'Set route and timing. We will show final total and rental duration directly on each car card.'))}</p>
-      </div>
+    <div class="home-cars-finder-accordion ${expanded ? 'is-open' : ''}">
+      <button type="button" id="carsFinderToggle" class="home-cars-finder-trigger" aria-expanded="${expanded ? 'true' : 'false'}" aria-controls="carsFinderPanelWrap">
+        <span class="home-cars-finder-trigger__copy">
+          <span class="home-cars-finder-trigger__title">Find your car in 15 seconds</span>
+          <span class="home-cars-finder-trigger__subtitle">Set route and timing. We will show final total and rental duration directly on each car card.</span>
+        </span>
+        <span class="home-cars-finder-trigger__meta">${escapeHtml(summaryLine)}</span>
+        <span class="home-cars-finder-trigger__icon" aria-hidden="true">${expanded ? '−' : '+'}</span>
+      </button>
 
-      <div class="home-cars-finder-zones" aria-hidden="true">
-        <span class="home-cars-finder-zone home-cars-finder-zone--larnaca">${escapeHtml(text('🚗 Oferta Larnaka / cały Cypr', '🚗 Larnaca offer / island-wide'))}</span>
-        <span class="home-cars-finder-zone home-cars-finder-zone--paphos">${escapeHtml(text('🌴 Strefa Pafos', '🌴 Paphos zone'))}</span>
-      </div>
+      <div id="carsFinderPanelWrap" class="home-cars-finder-panel-wrap" ${expanded ? '' : 'hidden'}>
+        <div class="home-cars-finder-panel">
+          <div class="home-cars-finder-zones" aria-hidden="true">
+            <span class="home-cars-finder-zone home-cars-finder-zone--larnaca">${escapeHtml(text('🚗 Oferta Larnaka / cały Cypr', '🚗 Larnaca offer / island-wide'))}</span>
+            <span class="home-cars-finder-zone home-cars-finder-zone--paphos">${escapeHtml(text('🌴 Strefa Pafos', '🌴 Paphos zone'))}</span>
+          </div>
 
-      <div class="home-cars-finder-grid">
-        <label class="home-cars-finder-field">
-          <span>${escapeHtml(text('Data odbioru', 'Pickup date'))}</span>
-          <input id="carsFinderPickupDate" type="date" value="${escapeHtml(state.pickupDate)}" />
-        </label>
-        <label class="home-cars-finder-field">
-          <span>${escapeHtml(text('Godzina odbioru', 'Pickup time'))}</span>
-          <input id="carsFinderPickupTime" type="time" value="${escapeHtml(state.pickupTime)}" />
-        </label>
-        <label class="home-cars-finder-field">
-          <span>${escapeHtml(text('Data zwrotu', 'Return date'))}</span>
-          <input id="carsFinderReturnDate" type="date" value="${escapeHtml(state.returnDate)}" />
-        </label>
-        <label class="home-cars-finder-field">
-          <span>${escapeHtml(text('Godzina zwrotu', 'Return time'))}</span>
-          <input id="carsFinderReturnTime" type="time" value="${escapeHtml(state.returnTime)}" />
-        </label>
-        <label class="home-cars-finder-field home-cars-finder-field--wide">
-          <span>${escapeHtml(text('Miejsce odbioru', 'Pickup location'))}</span>
-          <select id="carsFinderPickupLocation">${buildFinderLocationOptions(state.pickupLocation)}</select>
-        </label>
-        <label class="home-cars-finder-field home-cars-finder-field--wide">
-          <span>${escapeHtml(text('Miejsce zwrotu', 'Return location'))}</span>
-          <select id="carsFinderReturnLocation">${buildFinderLocationOptions(state.returnLocation)}</select>
-        </label>
-      </div>
+          <div class="home-cars-finder-grid">
+            <label class="home-cars-finder-field">
+              <span>${escapeHtml(text('Data odbioru', 'Pickup date'))}</span>
+              <input id="carsFinderPickupDate" type="date" value="${escapeHtml(state.pickupDate)}" />
+            </label>
+            <label class="home-cars-finder-field">
+              <span>${escapeHtml(text('Godzina odbioru', 'Pickup time'))}</span>
+              <input id="carsFinderPickupTime" type="time" value="${escapeHtml(state.pickupTime)}" />
+            </label>
+            <label class="home-cars-finder-field">
+              <span>${escapeHtml(text('Data zwrotu', 'Return date'))}</span>
+              <input id="carsFinderReturnDate" type="date" value="${escapeHtml(state.returnDate)}" />
+            </label>
+            <label class="home-cars-finder-field">
+              <span>${escapeHtml(text('Godzina zwrotu', 'Return time'))}</span>
+              <input id="carsFinderReturnTime" type="time" value="${escapeHtml(state.returnTime)}" />
+            </label>
+            <label class="home-cars-finder-field">
+              <span>${escapeHtml(text('Pasażerowie', 'Passengers'))}</span>
+              <input id="carsFinderPassengers" type="number" min="1" max="12" value="${escapeHtml(String(Math.max(1, Number(state.passengers || 2))))}" />
+            </label>
+            <label class="home-cars-finder-field home-cars-finder-field--wide">
+              <span>${escapeHtml(text('Miejsce odbioru', 'Pickup location'))}</span>
+              <select id="carsFinderPickupLocation">${buildFinderLocationOptions(state.pickupLocation)}</select>
+            </label>
+            <label class="home-cars-finder-field home-cars-finder-field--wide">
+              <span>${escapeHtml(text('Miejsce zwrotu', 'Return location'))}</span>
+              <select id="carsFinderReturnLocation">${buildFinderLocationOptions(state.returnLocation)}</select>
+            </label>
+          </div>
 
-      <div class="home-cars-finder-actions">
-        <label class="home-cars-finder-checkbox">
-          <input id="carsFinderInsurance" type="checkbox" ${state.fullInsurance ? 'checked' : ''} />
-          <span>${escapeHtml(text('Pełne AC (+17€/dzień)', 'Full insurance (+17€/day)'))}</span>
-        </label>
-        <label class="home-cars-finder-checkbox">
-          <input id="carsFinderYoungDriver" type="checkbox" ${state.youngDriver ? 'checked' : ''} />
-          <span>${escapeHtml(text('Młody kierowca (+10€/dzień)', 'Young driver (+10€/day)'))}</span>
-        </label>
-        <button id="carsFinderReset" type="button" class="btn ghost home-cars-finder-reset">
-          ${escapeHtml(text('Resetuj filtr', 'Reset finder'))}
-        </button>
-      </div>
+          <div class="home-cars-finder-actions">
+            <label class="home-cars-finder-checkbox">
+              <input id="carsFinderInsurance" type="checkbox" ${state.fullInsurance ? 'checked' : ''} />
+              <span>${escapeHtml(text('Pełne AC (+17€/dzień)', 'Full insurance (+17€/day)'))}</span>
+            </label>
+            <label class="home-cars-finder-checkbox">
+              <input id="carsFinderYoungDriver" type="checkbox" ${state.youngDriver ? 'checked' : ''} />
+              <span>${escapeHtml(text('Młody kierowca (+10€/dzień)', 'Young driver (+10€/day)'))}</span>
+            </label>
+            <button id="carsFinderReset" type="button" class="btn ghost home-cars-finder-reset">
+              ${escapeHtml(text('Resetuj filtr', 'Reset finder'))}
+            </button>
+          </div>
 
-      <p id="carsFinderStatus" class="home-cars-finder-status" aria-live="polite"></p>
+          <p id="carsFinderStatus" class="home-cars-finder-status" aria-live="polite"></p>
+        </div>
+      </div>
     </div>
   `;
+
+  const toggleBtn = document.getElementById('carsFinderToggle');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+      homeCarsFinderExpanded = !homeCarsFinderExpanded;
+      renderHomeCarsFinder();
+    });
+  }
 
   const controls = root.querySelectorAll('input, select');
   controls.forEach((control) => {
@@ -329,7 +362,10 @@ function renderHomeCarsFinder() {
 
 function syncHomeCarsFinderState(options = {}) {
   const { fromUser = false } = options;
-  homeCarsFinderState = readFinderStateFromDom();
+  const hasFinderInputs = !!document.getElementById('carsFinderPickupDate');
+  const current = homeCarsFinderState || buildDefaultFinderState();
+  homeCarsFinderState = hasFinderInputs ? readFinderStateFromDom(current) : current;
+  homeCarsFinderState.passengers = Math.max(1, Number(homeCarsFinderState.passengers || 2));
 
   if (fromUser) {
     homeCarsFinderManualLocation = false;
@@ -476,6 +512,7 @@ function renderHomeCars() {
 
   let list = homeCarsByLocation[homeCarsCurrentLocation] || [];
   const finderState = homeCarsFinderState || buildDefaultFinderState();
+  const passengerCount = Math.max(1, Number(finderState.passengers || 2));
   const finderDuration = getFinderDurationState(finderState);
   const finderReady = finderDuration.ready;
 
@@ -488,10 +525,16 @@ function renderHomeCars() {
     }
   }
 
+  list = list.filter((car) => {
+    const capacity = Number(car?.max_passengers || 0);
+    if (!Number.isFinite(capacity) || capacity <= 0) return true;
+    return capacity >= passengerCount;
+  });
+
   if (!list.length) {
     grid.innerHTML = `
       <div style="flex: 0 0 100%; text-align: center; padding: 40px 20px; color: #9ca3af;">
-        <p>${escapeHtml(text('Brak dostępnych aut w tej chwili', 'No cars available right now'))}</p>
+        <p>${escapeHtml(text(`Brak aut dla ${passengerCount} pasażerów w tym ustawieniu`, `No cars available for ${passengerCount} passengers in current setup`))}</p>
       </div>
     `;
     return;
@@ -531,7 +574,7 @@ function renderHomeCars() {
 
     const imageUrl = car.image_url || `https://placehold.co/400x250/1e293b/ffffff?text=${encodeURIComponent(title)}`;
     const quoteLine = quote
-      ? `${totalLabel} ${Number(quote.total).toFixed(2)}€ • ${quote.days} ${daysLabel}`
+      ? `${totalLabel} ${Number(quote.total).toFixed(2)}€ • ${quote.days} ${daysLabel} • ${seatsText}`
       : `${fromLabel} ${Number(getFromPrice(car)).toFixed(0)}€ ${perDayLabel} • ${transmission} • ${seatsText}`;
 
     return `
@@ -639,6 +682,7 @@ function buildReservationFormHtml({ location, selectedCarId, prefill = null }) {
   const returnTimeValue = String(prefill?.returnTime || '10:00');
   const insuranceChecked = !!prefill?.fullInsurance;
   const youngDriverChecked = loc === 'larnaca' && !!prefill?.youngDriver;
+  const passengersValue = Math.max(1, Number(prefill?.passengers || 2));
 
   const optionsHtml = cars.map((car) => {
     const title = window.getCarName ? window.getCarName(car) : (car.car_model || car.car_type || 'Car');
@@ -793,7 +837,7 @@ function buildReservationFormHtml({ location, selectedCarId, prefill = null }) {
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
             <div class="auto-field">
               <label for="res_passengers" data-i18n="${i18nPrefix}.fields.passengers.label">Liczba pasażerów</label>
-              <input type="number" id="res_passengers" name="num_passengers" min="1" max="8" value="2">
+              <input type="number" id="res_passengers" name="num_passengers" min="1" max="8" value="${escapeHtml(String(passengersValue))}">
             </div>
             <div class="auto-field">
               <label for="res_child_seats" data-i18n="${i18nPrefix}.fields.childSeats.label">Foteliki dziecięce (gratis)</label>
@@ -874,6 +918,7 @@ function buildModalPrefillForLocation(location) {
     returnLocation,
     fullInsurance: !!state.fullInsurance,
     youngDriver: loc === 'larnaca' && !!state.youngDriver,
+    passengers: Math.max(1, Number(state.passengers || defaults.passengers || 2)),
   };
 }
 

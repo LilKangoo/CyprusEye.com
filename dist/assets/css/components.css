@@ -449,6 +449,81 @@ body[data-seo-page="home"] .home-carousel-nav.next { right: 6px; }
   max-width: 100%;
 }
 
+.home-cars-finder-accordion {
+  display: grid;
+  gap: 10px;
+}
+
+.home-cars-finder-trigger {
+  width: 100%;
+  border: 1px solid rgba(37, 99, 235, 0.22);
+  background: linear-gradient(135deg, rgba(219, 234, 254, 0.95) 0%, rgba(186, 230, 253, 0.92) 100%);
+  color: #0f172a;
+  border-radius: 16px;
+  padding: 12px 14px;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 12px;
+  align-items: center;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+}
+
+.home-cars-finder-trigger:hover {
+  border-color: rgba(37, 99, 235, 0.34);
+  box-shadow: 0 20px 36px rgba(37, 99, 235, 0.14);
+}
+
+.home-cars-finder-trigger:focus-visible {
+  outline: 3px solid rgba(56, 189, 248, 0.36);
+  outline-offset: 3px;
+}
+
+.home-cars-finder-trigger__copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.home-cars-finder-trigger__title {
+  font-size: 0.98rem;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.home-cars-finder-trigger__subtitle {
+  font-size: 0.77rem;
+  font-weight: 650;
+  color: #334155;
+  line-height: 1.3;
+}
+
+.home-cars-finder-trigger__meta {
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: #1d4ed8;
+  white-space: nowrap;
+}
+
+.home-cars-finder-trigger__icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(37, 99, 235, 0.28);
+  font-size: 18px;
+  font-weight: 900;
+  color: #1d4ed8;
+}
+
+.home-cars-finder-panel-wrap[hidden] {
+  display: none !important;
+}
+
 .home-cars-finder-panel {
   background: linear-gradient(145deg, #f8fbff 0%, #eef5ff 100%);
   border: 1px solid rgba(37, 99, 235, 0.18);
@@ -957,6 +1032,15 @@ body[data-seo-page="home"] .home-carousel-nav.next { right: 6px; }
 }
 
 @media (max-width: 980px) {
+  .home-cars-finder-trigger {
+    grid-template-columns: 1fr auto;
+  }
+
+  .home-cars-finder-trigger__meta {
+    grid-column: 1 / -1;
+    white-space: normal;
+  }
+
   .home-cars-finder-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -986,6 +1070,19 @@ body[data-seo-page="home"] .home-carousel-nav.next { right: 6px; }
 
   .home-cars-finder-panel {
     padding: 14px;
+  }
+
+  .home-cars-finder-trigger {
+    padding: 11px 12px;
+    gap: 10px;
+  }
+
+  .home-cars-finder-trigger__title {
+    font-size: 0.9rem;
+  }
+
+  .home-cars-finder-trigger__subtitle {
+    font-size: 0.73rem;
   }
 
   .home-cars-finder-grid {
