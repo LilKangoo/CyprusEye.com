@@ -1,14 +1,19 @@
 import { supabase } from '/js/supabaseClient.js';
 import { initCarReservationBindings } from '/js/car-reservation.js?v=20260205f';
+import { calculateCarRentalQuote, normalizeLocationForOffer } from '/js/car-pricing.js';
 
 let allHomeCars = [];
 let homeCarsById = {};
 let homeCarsByLocation = { larnaca: [], paphos: [] };
 let homeCarsCurrentLocation = 'larnaca';
 let homeCarsSavedOnly = false;
+let homeCarsLastQuoteByCarId = {};
+let homeCarsFinderState = null;
+let homeCarsFinderManualLocation = false;
 
 let homeCarsCarouselUpdate = null;
 let previousBodyCarLocation = null;
+const PAPHOS_WIDGET_LOCATIONS = new Set(['airport_pfo', 'city_center', 'hotel', 'other']);
 
 function getLang() {
   const lang = (window.appI18n?.language || document.documentElement?.lang || 'pl').toLowerCase();
@@ -28,6 +33,80 @@ function escapeHtml(unsafe) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+function toDateInputValue(date) {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function buildDefaultFinderState() {
+  const pickup = new Date();
+  pickup.setDate(pickup.getDate() + 7);
+  const ret = new Date(pickup.getTime());
+  ret.setDate(ret.getDate() + 3);
+
+  return {
+    pickupDate: toDateInputValue(pickup),
+    pickupTime: '10:00',
+    returnDate: toDateInputValue(ret),
+    returnTime: '10:00',
+    pickupLocation: 'larnaca',
+    returnLocation: 'larnaca',
+    fullInsurance: false,
+    youngDriver: false,
+  };
+}
+
+function isPaphosWidgetLocation(value) {
+  return PAPHOS_WIDGET_LOCATIONS.has(String(value || '').trim());
+}
+
+function evaluateFinderOffer(state) {
+  const paphosEligible = isPaphosWidgetLocation(state.pickupLocation)
+    && isPaphosWidgetLocation(state.returnLocation)
+    && !state.youngDriver;
+  return {
+    offer: paphosEligible ? 'paphos' : 'larnaca',
+    paphosEligible,
+  };
+}
+
+function normalizePaphosLocation(value) {
+  const normalized = String(value || '').trim();
+  if (isPaphosWidgetLocation(normalized)) return normalized;
+  return 'hotel';
+}
+
+function getFinderDurationState(state) {
+  const pickupDate = String(state?.pickupDate || '').trim();
+  const returnDate = String(state?.returnDate || '').trim();
+  const pickupTime = String(state?.pickupTime || '10:00').trim() || '10:00';
+  const returnTime = String(state?.returnTime || '10:00').trim() || '10:00';
+
+  if (!pickupDate || !returnDate) {
+    return { ready: false, reason: 'missing_dates' };
+  }
+
+  const pickup = new Date(`${pickupDate}T${pickupTime}`);
+  const ret = new Date(`${returnDate}T${returnTime}`);
+  if (Number.isNaN(pickup.getTime()) || Number.isNaN(ret.getTime())) {
+    return { ready: false, reason: 'invalid_dates' };
+  }
+
+  const hours = (ret.getTime() - pickup.getTime()) / 36e5;
+  if (!Number.isFinite(hours) || hours <= 0) {
+    return { ready: false, reason: 'return_before_pickup' };
+  }
+
+  const days = Math.ceil(hours / 24);
+  if (!Number.isFinite(days) || days < 3) {
+    return { ready: false, reason: 'minimum_days', days };
+  }
+
+  return { ready: true, hours, days };
 }
 
 function getFromPrice(car) {
@@ -63,6 +142,254 @@ function buildPricingMapForLocation(location) {
   return out;
 }
 
+function buildFinderLocationOptions(selectedValue) {
+  const selected = String(selectedValue || '').trim();
+  const options = [
+    {
+      label: text('Larnaka / cały Cypr', 'Larnaca / island-wide'),
+      items: [
+        { value: 'larnaca', label: text('Larnaka (bez opłaty)', 'Larnaca (no fee)') },
+        { value: 'nicosia', label: text('Nikozja (+15€)', 'Nicosia (+15€)') },
+        { value: 'ayia-napa', label: text('Ayia Napa (+15€)', 'Ayia Napa (+15€)') },
+        { value: 'protaras', label: text('Protaras (+20€)', 'Protaras (+20€)') },
+        { value: 'limassol', label: text('Limassol (+20€)', 'Limassol (+20€)') },
+        { value: 'paphos', label: text('Pafos (+40€)', 'Paphos (+40€)') },
+      ],
+    },
+    {
+      label: text('Strefa Pafos', 'Paphos zone'),
+      items: [
+        { value: 'airport_pfo', label: text('Lotnisko Pafos', 'Paphos Airport') },
+        { value: 'city_center', label: text('Pafos - centrum', 'Paphos city center') },
+        { value: 'hotel', label: text('Hotel', 'Hotel') },
+        { value: 'other', label: text('Inne miejsce', 'Other place') },
+      ],
+    },
+  ];
+
+  return options.map((group) => `
+    <optgroup label="${escapeHtml(group.label)}">
+      ${group.items.map((item) => `
+        <option value="${escapeHtml(item.value)}" ${item.value === selected ? 'selected' : ''}>
+          ${escapeHtml(item.label)}
+        </option>
+      `).join('')}
+    </optgroup>
+  `).join('');
+}
+
+function readFinderStateFromDom() {
+  const defaults = buildDefaultFinderState();
+  return {
+    pickupDate: String(document.getElementById('carsFinderPickupDate')?.value || defaults.pickupDate).trim(),
+    pickupTime: String(document.getElementById('carsFinderPickupTime')?.value || defaults.pickupTime).trim() || defaults.pickupTime,
+    returnDate: String(document.getElementById('carsFinderReturnDate')?.value || defaults.returnDate).trim(),
+    returnTime: String(document.getElementById('carsFinderReturnTime')?.value || defaults.returnTime).trim() || defaults.returnTime,
+    pickupLocation: String(document.getElementById('carsFinderPickupLocation')?.value || defaults.pickupLocation).trim() || defaults.pickupLocation,
+    returnLocation: String(document.getElementById('carsFinderReturnLocation')?.value || defaults.returnLocation).trim() || defaults.returnLocation,
+    fullInsurance: !!document.getElementById('carsFinderInsurance')?.checked,
+    youngDriver: !!document.getElementById('carsFinderYoungDriver')?.checked,
+  };
+}
+
+function renderFinderStatus() {
+  const statusEl = document.getElementById('carsFinderStatus');
+  if (!statusEl) return;
+
+  const state = homeCarsFinderState || buildDefaultFinderState();
+  const duration = getFinderDurationState(state);
+  const offer = evaluateFinderOffer(state);
+  const offerLabel = offer.offer === 'paphos' ? text('Pafos', 'Paphos') : text('Larnaka', 'Larnaca');
+
+  statusEl.classList.remove('is-warning');
+
+  if (!duration.ready) {
+    if (duration.reason === 'minimum_days') {
+      statusEl.textContent = text(
+        'Minimalny wynajem to 3 dni. Ustaw dłuższy okres, aby zobaczyć pełne wyceny.',
+        'Minimum rental is 3 days. Increase rental length to see full live totals.'
+      );
+      statusEl.classList.add('is-warning');
+      return;
+    }
+    if (duration.reason === 'return_before_pickup') {
+      statusEl.textContent = text(
+        'Data zwrotu musi być późniejsza niż data odbioru.',
+        'Return date/time must be later than pickup date/time.'
+      );
+      statusEl.classList.add('is-warning');
+      return;
+    }
+    statusEl.textContent = text(
+      'Uzupełnij trasę i daty. Lista aut zaktualizuje się automatycznie.',
+      'Complete route and dates. Car list will refresh automatically.'
+    );
+    return;
+  }
+
+  if (homeCarsFinderManualLocation) {
+    statusEl.textContent = text(
+      `Aktywna oferta: ${offerLabel}. Włączony ręczny podgląd przez zakładki.`,
+      `Active offer: ${offerLabel}. Manual tab view is active.`
+    );
+    return;
+  }
+
+  statusEl.textContent = text(
+    `Aktywna oferta: ${offerLabel}. Lista aut jest dobierana automatycznie według trasy.`,
+    `Active offer: ${offerLabel}. Car list is auto-selected from your route.`
+  );
+}
+
+function renderHomeCarsFinder() {
+  const root = document.getElementById('carsHomeFinder');
+  if (!root) return;
+
+  const state = homeCarsFinderState || buildDefaultFinderState();
+
+  root.innerHTML = `
+    <div class="home-cars-finder-panel">
+      <div class="home-cars-finder-panel__header">
+        <h3>${escapeHtml(text('Znajdź auto w 15 sekund', 'Find your car in 15 seconds'))}</h3>
+        <p>${escapeHtml(text('Podaj trasę i czas. Pokażemy auta z pełną ceną dla Twojego wynajmu.', 'Set route and timing. We will show cars with full live totals for your rental.'))}</p>
+      </div>
+
+      <div class="home-cars-finder-grid">
+        <label class="home-cars-finder-field">
+          <span>${escapeHtml(text('Data odbioru', 'Pickup date'))}</span>
+          <input id="carsFinderPickupDate" type="date" value="${escapeHtml(state.pickupDate)}" />
+        </label>
+        <label class="home-cars-finder-field">
+          <span>${escapeHtml(text('Godzina odbioru', 'Pickup time'))}</span>
+          <input id="carsFinderPickupTime" type="time" value="${escapeHtml(state.pickupTime)}" />
+        </label>
+        <label class="home-cars-finder-field">
+          <span>${escapeHtml(text('Data zwrotu', 'Return date'))}</span>
+          <input id="carsFinderReturnDate" type="date" value="${escapeHtml(state.returnDate)}" />
+        </label>
+        <label class="home-cars-finder-field">
+          <span>${escapeHtml(text('Godzina zwrotu', 'Return time'))}</span>
+          <input id="carsFinderReturnTime" type="time" value="${escapeHtml(state.returnTime)}" />
+        </label>
+        <label class="home-cars-finder-field home-cars-finder-field--wide">
+          <span>${escapeHtml(text('Miejsce odbioru', 'Pickup location'))}</span>
+          <select id="carsFinderPickupLocation">${buildFinderLocationOptions(state.pickupLocation)}</select>
+        </label>
+        <label class="home-cars-finder-field home-cars-finder-field--wide">
+          <span>${escapeHtml(text('Miejsce zwrotu', 'Return location'))}</span>
+          <select id="carsFinderReturnLocation">${buildFinderLocationOptions(state.returnLocation)}</select>
+        </label>
+      </div>
+
+      <div class="home-cars-finder-actions">
+        <label class="home-cars-finder-checkbox">
+          <input id="carsFinderInsurance" type="checkbox" ${state.fullInsurance ? 'checked' : ''} />
+          <span>${escapeHtml(text('Pełne AC (+17€/dzień)', 'Full insurance (+17€/day)'))}</span>
+        </label>
+        <label class="home-cars-finder-checkbox">
+          <input id="carsFinderYoungDriver" type="checkbox" ${state.youngDriver ? 'checked' : ''} />
+          <span>${escapeHtml(text('Młody kierowca (+10€/dzień)', 'Young driver (+10€/day)'))}</span>
+        </label>
+        <button id="carsFinderReset" type="button" class="btn ghost home-cars-finder-reset">
+          ${escapeHtml(text('Resetuj filtr', 'Reset finder'))}
+        </button>
+      </div>
+
+      <p id="carsFinderStatus" class="home-cars-finder-status" aria-live="polite"></p>
+    </div>
+  `;
+
+  const controls = root.querySelectorAll('input, select');
+  controls.forEach((control) => {
+    control.addEventListener('change', () => syncHomeCarsFinderState({ fromUser: true }));
+    if (control.tagName === 'INPUT') {
+      control.addEventListener('input', () => syncHomeCarsFinderState({ fromUser: true }));
+    }
+  });
+
+  const resetBtn = document.getElementById('carsFinderReset');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      homeCarsFinderManualLocation = false;
+      homeCarsFinderState = buildDefaultFinderState();
+      renderHomeCarsFinder();
+      syncHomeCarsFinderState({ fromUser: false });
+    });
+  }
+
+  renderFinderStatus();
+}
+
+function syncHomeCarsFinderState(options = {}) {
+  const { fromUser = false } = options;
+  homeCarsFinderState = readFinderStateFromDom();
+
+  if (fromUser) {
+    homeCarsFinderManualLocation = false;
+  }
+
+  const { offer } = evaluateFinderOffer(homeCarsFinderState);
+  if (!homeCarsFinderManualLocation && homeCarsCurrentLocation !== offer) {
+    homeCarsCurrentLocation = offer;
+    renderHomeCarsTabs();
+  }
+
+  renderHomeCars();
+  renderFinderStatus();
+  try {
+    homeCarsCarouselUpdate?.();
+  } catch (_) {}
+}
+
+function buildQuoteForCarWithFinder(car, finderState) {
+  if (!car || !finderState) return null;
+
+  const duration = getFinderDurationState(finderState);
+  if (!duration.ready) return null;
+
+  const location = String(car.location || '').toLowerCase() === 'paphos' ? 'paphos' : 'larnaca';
+  const carModelName = window.getCarName ? window.getCarName(car) : (car.car_model || car.car_type || 'Car');
+  if (!carModelName) return null;
+
+  const pricingMatrix = location === 'larnaca'
+    ? (() => {
+      const perDay = Number(car.price_per_day || car.price_10plus_days || car.price_7_10days || car.price_4_6days || 0);
+      if (!Number.isFinite(perDay) || perDay <= 0) return null;
+      return [perDay * 3, perDay, perDay, perDay];
+    })()
+    : [
+      Number(car.price_3days || 0),
+      Number(car.price_4_6days || 0),
+      Number(car.price_7_10days || 0),
+      Number(car.price_10plus_days || 0),
+    ];
+
+  if (!Array.isArray(pricingMatrix) || pricingMatrix.length < 4 || !pricingMatrix.some((v) => Number.isFinite(v) && v > 0)) {
+    return null;
+  }
+
+  const pickupLocation = location === 'paphos'
+    ? normalizePaphosLocation(finderState.pickupLocation)
+    : (normalizeLocationForOffer(finderState.pickupLocation, 'larnaca') || 'larnaca');
+  const returnLocation = location === 'paphos'
+    ? normalizePaphosLocation(finderState.returnLocation)
+    : (normalizeLocationForOffer(finderState.returnLocation, 'larnaca') || 'larnaca');
+
+  return calculateCarRentalQuote({
+    pricingMatrix,
+    offer: location,
+    carModel: carModelName,
+    pickupDateStr: finderState.pickupDate,
+    returnDateStr: finderState.returnDate,
+    pickupTimeStr: finderState.pickupTime,
+    returnTimeStr: finderState.returnTime,
+    pickupLocation,
+    returnLocation,
+    fullInsurance: !!finderState.fullInsurance,
+    youngDriver: location === 'larnaca' && !!finderState.youngDriver,
+  });
+}
+
 function renderHomeCarsTabs() {
   const tabsWrap = document.getElementById('carsHomeTabs');
   if (!tabsWrap) return;
@@ -81,9 +408,11 @@ function renderHomeCarsTabs() {
     btn.addEventListener('click', () => {
       const loc = String(btn.getAttribute('data-location') || '').trim();
       if (!loc) return;
+      homeCarsFinderManualLocation = true;
       homeCarsCurrentLocation = loc === 'paphos' ? 'paphos' : 'larnaca';
       renderHomeCarsTabs();
       renderHomeCars();
+      renderFinderStatus();
       try {
         homeCarsCarouselUpdate?.();
       } catch (_) {}
@@ -139,6 +468,9 @@ function renderHomeCars() {
   if (!grid) return;
 
   let list = homeCarsByLocation[homeCarsCurrentLocation] || [];
+  const finderState = homeCarsFinderState || buildDefaultFinderState();
+  const finderDuration = getFinderDurationState(finderState);
+  const finderReady = finderDuration.ready;
 
   if (homeCarsSavedOnly) {
     const api = window.CE_SAVED_CATALOG;
@@ -158,20 +490,50 @@ function renderHomeCars() {
     return;
   }
 
+  homeCarsLastQuoteByCarId = {};
+  const noDepositLabel = text('Bez kaucji', 'No deposit');
+  const totalLabel = text('Razem', 'Total');
+  const daysLabel = text('dni', 'days');
+  const baseLabel = text('baza', 'base');
+  const extrasLabel = text('dodatki', 'extras');
   const fromLabel = text('Od', 'From');
   const perDayLabel = text('/ dzień', '/ day');
-  const noDepositLabel = text('Bez kaucji', 'No deposit');
 
-  grid.innerHTML = list.map((car) => {
+  const rows = list.map((car) => {
+    const quote = finderReady ? buildQuoteForCarWithFinder(car, finderState) : null;
+    homeCarsLastQuoteByCarId[String(car.id)] = quote;
+    return { car, quote };
+  });
+
+  if (finderReady) {
+    rows.sort((a, b) => {
+      const aTotal = Number(a.quote?.total || Number.POSITIVE_INFINITY);
+      const bTotal = Number(b.quote?.total || Number.POSITIVE_INFINITY);
+      if (aTotal !== bTotal) return aTotal - bTotal;
+      const aSort = Number(a.car?.sort_order || 0);
+      const bSort = Number(b.car?.sort_order || 0);
+      return aSort - bSort;
+    });
+  }
+
+  grid.innerHTML = rows.map(({ car, quote }) => {
     const title = window.getCarName ? window.getCarName(car) : (car.car_model || car.car_type || 'Car');
     const transmission = String(car.transmission || '').toLowerCase() === 'automatic'
       ? text('Automat', 'Automatic')
       : text('Manual', 'Manual');
     const seats = car.max_passengers || 5;
     const seatsText = text(`${seats} miejsc`, `${seats} seats`);
-    const fromPrice = getFromPrice(car);
 
     const imageUrl = car.image_url || `https://placehold.co/400x250/1e293b/ffffff?text=${encodeURIComponent(title)}`;
+    const quoteHeadline = quote
+      ? `${totalLabel} ${Number(quote.total).toFixed(2)}€`
+      : `${fromLabel} ${Number(getFromPrice(car)).toFixed(0)}€ ${perDayLabel}`;
+    const quoteExtras = quote
+      ? Number((quote.pickupFee || 0) + (quote.returnFee || 0) + (quote.insuranceCost || 0) + (quote.youngDriverCost || 0))
+      : 0;
+    const quoteMeta = quote
+      ? `${quote.days} ${daysLabel} • ${baseLabel} ${Number(quote.basePrice).toFixed(2)}€ • ${extrasLabel} ${quoteExtras.toFixed(2)}€`
+      : `${transmission} • ${seatsText}`;
 
     return `
       <a
@@ -193,7 +555,8 @@ function renderHomeCars() {
         <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(title)}" class="ce-home-card-image" loading="lazy" />
         <div class="ce-home-card-overlay">
           <h3 class="ce-home-card-title">${escapeHtml(title)}</h3>
-          <p class="ce-home-card-subtitle">${escapeHtml(`${fromLabel} ${Number(fromPrice).toFixed(0)}€ ${perDayLabel}`)} • ${escapeHtml(transmission)} • ${escapeHtml(seatsText)}</p>
+          <p class="ce-home-card-subtitle">${escapeHtml(quoteHeadline)}</p>
+          <p class="ce-home-card-meta">${escapeHtml(quoteMeta)}</p>
         </div>
       </a>
     `;
@@ -263,7 +626,7 @@ function setBodyCarLocation(next) {
   }
 }
 
-function buildReservationFormHtml({ location, selectedCarId }) {
+function buildReservationFormHtml({ location, selectedCarId, prefill = null }) {
   const loc = location === 'paphos' ? 'paphos' : 'larnaca';
   const cars = homeCarsByLocation[loc] || [];
 
@@ -272,6 +635,12 @@ function buildReservationFormHtml({ location, selectedCarId }) {
   const returnDefaultDate = new Date(today.getTime());
   returnDefaultDate.setDate(returnDefaultDate.getDate() + 3);
   const returnDefault = returnDefaultDate.toISOString().split('T')[0];
+  const pickupDateValue = String(prefill?.pickupDate || pickupDefault);
+  const returnDateValue = String(prefill?.returnDate || returnDefault);
+  const pickupTimeValue = String(prefill?.pickupTime || '10:00');
+  const returnTimeValue = String(prefill?.returnTime || '10:00');
+  const insuranceChecked = !!prefill?.fullInsurance;
+  const youngDriverChecked = loc === 'larnaca' && !!prefill?.youngDriver;
 
   const optionsHtml = cars.map((car) => {
     const title = window.getCarName ? window.getCarName(car) : (car.car_model || car.car_type || 'Car');
@@ -306,7 +675,7 @@ function buildReservationFormHtml({ location, selectedCarId }) {
   const youngDriverBlock = loc === 'larnaca'
     ? `
       <div class="auto-checkbox">
-        <input type="checkbox" id="res_young_driver" name="young_driver">
+        <input type="checkbox" id="res_young_driver" name="young_driver" ${youngDriverChecked ? 'checked' : ''}>
         <label for="res_young_driver" data-i18n="carRental.page.reservation.fields.youngDriver.label">Młody kierowca / staż &lt; 3 lata (+10€/dzień)</label>
       </div>
     `
@@ -375,11 +744,11 @@ function buildReservationFormHtml({ location, selectedCarId }) {
           <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
             <div class="auto-field">
               <label for="res_pickup_date" data-i18n="${i18nPrefix}.fields.pickupDate.label">Data odbioru *</label>
-              <input type="date" id="res_pickup_date" name="pickup_date" required value="${escapeHtml(pickupDefault)}">
+              <input type="date" id="res_pickup_date" name="pickup_date" required value="${escapeHtml(pickupDateValue)}">
             </div>
             <div class="auto-field">
               <label for="res_pickup_time" data-i18n="${i18nPrefix}.fields.pickupTime.label">Godzina</label>
-              <input type="time" id="res_pickup_time" name="pickup_time" value="10:00">
+              <input type="time" id="res_pickup_time" name="pickup_time" value="${escapeHtml(pickupTimeValue)}">
             </div>
           </div>
 
@@ -398,11 +767,11 @@ function buildReservationFormHtml({ location, selectedCarId }) {
           <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
             <div class="auto-field">
               <label for="res_return_date" data-i18n="${i18nPrefix}.fields.returnDate.label">Data zwrotu *</label>
-              <input type="date" id="res_return_date" name="return_date" required value="${escapeHtml(returnDefault)}">
+              <input type="date" id="res_return_date" name="return_date" required value="${escapeHtml(returnDateValue)}">
             </div>
             <div class="auto-field">
               <label for="res_return_time" data-i18n="${i18nPrefix}.fields.returnTime.label">Godzina</label>
-              <input type="time" id="res_return_time" name="return_time" value="10:00">
+              <input type="time" id="res_return_time" name="return_time" value="${escapeHtml(returnTimeValue)}">
             </div>
           </div>
 
@@ -435,7 +804,7 @@ function buildReservationFormHtml({ location, selectedCarId }) {
           </div>
 
           <div class="auto-checkbox">
-            <input type="checkbox" id="res_insurance" name="insurance">
+            <input type="checkbox" id="res_insurance" name="insurance" ${insuranceChecked ? 'checked' : ''}>
             <label for="res_insurance" data-i18n="${i18nPrefix}.fields.insurance.label">Pełne ubezpieczenie AC (+17€/dzień)</label>
           </div>
 
@@ -486,11 +855,52 @@ function buildReservationFormHtml({ location, selectedCarId }) {
   `;
 }
 
+function buildModalPrefillForLocation(location) {
+  const defaults = buildDefaultFinderState();
+  const state = homeCarsFinderState || defaults;
+  const loc = location === 'paphos' ? 'paphos' : 'larnaca';
+
+  const pickupLocation = loc === 'paphos'
+    ? normalizePaphosLocation(state.pickupLocation)
+    : (normalizeLocationForOffer(state.pickupLocation, 'larnaca') || 'larnaca');
+  const returnLocation = loc === 'paphos'
+    ? normalizePaphosLocation(state.returnLocation)
+    : (normalizeLocationForOffer(state.returnLocation, 'larnaca') || 'larnaca');
+
+  return {
+    pickupDate: String(state.pickupDate || defaults.pickupDate),
+    pickupTime: String(state.pickupTime || defaults.pickupTime),
+    returnDate: String(state.returnDate || defaults.returnDate),
+    returnTime: String(state.returnTime || defaults.returnTime),
+    pickupLocation,
+    returnLocation,
+    fullInsurance: !!state.fullInsurance,
+    youngDriver: loc === 'larnaca' && !!state.youngDriver,
+  };
+}
+
+function setSelectValueIfExists(id, value) {
+  const select = document.getElementById(id);
+  if (!select || !value) return;
+  const hasValue = Array.from(select.options || []).some((opt) => String(opt.value) === String(value));
+  if (hasValue) {
+    select.value = value;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+}
+
+function applyModalPrefill(prefill) {
+  if (!prefill || typeof prefill !== 'object') return;
+  setSelectValueIfExists('res_pickup_location', prefill.pickupLocation);
+  setSelectValueIfExists('res_return_location', prefill.returnLocation);
+}
+
 function openCarHomeModal(carId) {
   const car = homeCarsById[String(carId || '').trim()];
   if (!car) return;
 
   const loc = String(car.location || '').toLowerCase() === 'paphos' ? 'paphos' : 'larnaca';
+  const prefill = buildModalPrefillForLocation(loc);
 
   const modal = document.getElementById('carHomeModal');
   const modalBody = document.getElementById('carHomeModalBody');
@@ -501,7 +911,17 @@ function openCarHomeModal(carId) {
 
   const fromLabel = text('Od', 'From');
   const perDayLabel = text('/ dzień', '/ day');
+  const liveQuote = homeCarsLastQuoteByCarId[String(car.id)] || buildQuoteForCarWithFinder(car, prefill);
   const fromPrice = getFromPrice(car);
+  const heroPrice = liveQuote
+    ? text(`Razem ${Number(liveQuote.total).toFixed(2)}€`, `Total ${Number(liveQuote.total).toFixed(2)}€`)
+    : `${fromLabel} ${Number(fromPrice).toFixed(0)}€ ${perDayLabel}`;
+  const heroMeta = liveQuote
+    ? text(
+      `${liveQuote.days} dni • baza ${Number(liveQuote.basePrice).toFixed(2)}€ • dodatki ${Number((liveQuote.pickupFee || 0) + (liveQuote.returnFee || 0) + (liveQuote.insuranceCost || 0) + (liveQuote.youngDriverCost || 0)).toFixed(2)}€`,
+      `${liveQuote.days} days • base ${Number(liveQuote.basePrice).toFixed(2)}€ • extras ${Number((liveQuote.pickupFee || 0) + (liveQuote.returnFee || 0) + (liveQuote.insuranceCost || 0) + (liveQuote.youngDriverCost || 0)).toFixed(2)}€`
+    )
+    : text('Wsparcie 24/7 • Brak depozytu', '24/7 support • No deposit');
 
   const noDepositLabel = text('Bez kaucji', 'No deposit');
   const transmission = String(car.transmission || '').toLowerCase() === 'automatic'
@@ -546,8 +966,8 @@ function openCarHomeModal(carId) {
             <span class="ce-car-home-pill">❄️ AC</span>
           </div>
           <h2 id="carHomeModalTitle" class="ce-car-home-hero-title">${escapeHtml(title)}</h2>
-          <p class="ce-car-home-hero-price">${escapeHtml(`${fromLabel} ${Number(fromPrice).toFixed(0)}€ ${perDayLabel}`)}</p>
-          <p class="ce-car-home-hero-meta">${escapeHtml(text('Wsparcie 24/7 • Brak depozytu', '24/7 support • No deposit'))}</p>
+          <p class="ce-car-home-hero-price">${escapeHtml(heroPrice)}</p>
+          <p class="ce-car-home-hero-meta">${escapeHtml(heroMeta)}</p>
         </div>
       </div>
 
@@ -584,7 +1004,7 @@ function openCarHomeModal(carId) {
         </div>
 
         <div>
-          ${buildReservationFormHtml({ location: loc, selectedCarId: car.id })}
+          ${buildReservationFormHtml({ location: loc, selectedCarId: car.id, prefill })}
         </div>
       </div>
     </div>
@@ -600,6 +1020,7 @@ function openCarHomeModal(carId) {
 
   try {
     initCarReservationBindings();
+    applyModalPrefill(prefill);
   } catch (e) {
     console.warn('Failed to init reservation form', e);
   }
@@ -650,8 +1071,13 @@ async function loadHomeCars() {
 
     homeCarsByLocation = byLoc;
 
+    if (!homeCarsFinderState) {
+      homeCarsFinderState = buildDefaultFinderState();
+    }
+
+    renderHomeCarsFinder();
     renderHomeCarsTabs();
-    renderHomeCars();
+    syncHomeCarsFinderState({ fromUser: false });
     initHomeCarsCarousel();
 
   } catch (err) {
@@ -693,8 +1119,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (typeof window.registerLanguageChangeHandler === 'function') {
     window.registerLanguageChangeHandler(() => {
+      const previousState = homeCarsFinderState || buildDefaultFinderState();
       renderHomeCarsTabs();
-      renderHomeCars();
+      homeCarsFinderState = previousState;
+      renderHomeCarsFinder();
+      syncHomeCarsFinderState({ fromUser: false });
       try {
         homeCarsCarouselUpdate?.();
       } catch (_) {}
