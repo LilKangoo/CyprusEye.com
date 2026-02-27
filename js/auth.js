@@ -1,4 +1,4 @@
-import { bootAuth, updateAuthUI } from './authUi.js?v=2';
+import { bootAuth, updateAuthUI } from './authUi.js?v=3';
 import { showErr, showInfo, showOk } from './authMessages.js';
 import { loadProfileForUser } from './profile.js';
 import { URLS } from './config.js';
@@ -1877,6 +1877,32 @@ export async function refreshSessionAndProfile() {
     }
   } catch (error) {
     console.warn('Nie udało się pobrać sesji Supabase.', error);
+  }
+
+  // Guard against transient getSession() null right after successful sign-in.
+  // In that window we may already have a valid app session in CE_STATE/persisted snapshot.
+  if (!session?.user?.id) {
+    const stateSession = window.CE_STATE?.session || null;
+    const stateUserId = String(stateSession?.user?.id || '').trim();
+    const stateToken = String(stateSession?.access_token || '').trim();
+    const stateRefresh = String(stateSession?.refresh_token || '').trim();
+
+    if (stateUserId && stateToken) {
+      session = stateSession;
+      if (stateRefresh) {
+        try {
+          const { data: setData } = await sb.auth.setSession({
+            access_token: stateToken,
+            refresh_token: stateRefresh,
+          });
+          if (setData?.session?.user?.id) {
+            session = setData.session;
+          }
+        } catch (syncError) {
+          console.warn('Nie udało się zsynchronizować sesji Supabase z CE_STATE.', syncError);
+        }
+      }
+    }
   }
 
   let guestState = null;
