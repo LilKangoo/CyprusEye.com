@@ -4286,6 +4286,56 @@ select#orderStatusFilter:focus {
   display: none;
 }
 
+.coupons-center-overview {
+  margin-bottom: 18px;
+}
+
+.coupons-center-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+
+.coupons-center-kpi {
+  border: 1px solid var(--admin-border);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.04), rgba(17, 24, 39, 0.38));
+  border-radius: 12px;
+  padding: 12px 14px;
+  min-height: 88px;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.coupons-center-kpi.active {
+  border-color: rgba(59, 130, 246, 0.7);
+  transform: translateY(-1px);
+}
+
+.coupons-center-kpi-label {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--admin-text-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.coupons-center-kpi-value {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--admin-text);
+}
+
+.coupons-center-kpi-sub {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--admin-text-muted);
+}
+
+.coupons-center-tabs {
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
 /* Stats Grid */
 .admin-stat-card {
   background: var(--admin-bg-light);

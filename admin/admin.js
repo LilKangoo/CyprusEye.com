@@ -19093,6 +19093,9 @@ function switchView(viewName) {
     case 'quests':
       loadQuestsData();
       break;
+    case 'coupons':
+      loadCouponsControlCenter();
+      break;
     case 'cars':
       switchCarsTab(getActiveCarsTab());
       break;
@@ -21876,6 +21879,861 @@ document.addEventListener('DOMContentLoaded', () => {
     recSelect.addEventListener('change', handleRecommendationSelect);
   }
 });
+
+// =====================================================
+// COUPONS CONTROL CENTER
+// =====================================================
+
+const COUPONS_CENTER_ALLOWED_TABS = new Set(['cars', 'trips', 'hotels', 'transport', 'shop']);
+const SERVICE_COUPON_ALLOWED_SERVICES = new Set(['trips', 'hotels', 'transport']);
+const SERVICE_COUPON_ALLOWED_STATUSES = new Set(['draft', 'active', 'paused', 'expired']);
+const SERVICE_COUPON_ALLOWED_DISCOUNT_TYPES = new Set(['percent', 'fixed']);
+
+const SERVICE_COUPON_SERVICE_META = {
+  trips: {
+    title: 'Trips coupons',
+    subtitle: 'Manage trip coupon codes and partner assignments in one list.',
+  },
+  hotels: {
+    title: 'Hotels coupons',
+    subtitle: 'Manage hotel coupon codes and partner assignments in one list.',
+  },
+  transport: {
+    title: 'Transport coupons',
+    subtitle: 'Manage transport coupon codes and partner assignments in one list.',
+  },
+};
+
+const couponsCenterState = {
+  activeTab: 'cars',
+  activeServiceType: 'trips',
+  mounted: false,
+};
+
+const serviceCouponsState = {
+  loading: false,
+  loadedByService: {
+    trips: false,
+    hotels: false,
+    transport: false,
+  },
+  itemsByService: {
+    trips: [],
+    hotels: [],
+    transport: [],
+  },
+  usageByCouponId: {},
+  partnersLoaded: false,
+  partners: [],
+  partnersById: {},
+  filters: {
+    search: '',
+    status: '',
+    activity: '',
+    discountType: '',
+    partnerId: '',
+  },
+};
+
+function normalizeCouponsCenterTabValue(value) {
+  const tab = String(value || '').trim().toLowerCase();
+  return COUPONS_CENTER_ALLOWED_TABS.has(tab) ? tab : 'cars';
+}
+
+function normalizeServiceCouponServiceType(value) {
+  const service = String(value || '').trim().toLowerCase();
+  return SERVICE_COUPON_ALLOWED_SERVICES.has(service) ? service : 'trips';
+}
+
+function setServiceCouponsViewError(message) {
+  const el = $('#serviceCouponsError');
+  if (!el) return;
+  const text = String(message || '').trim();
+  if (!text) {
+    el.hidden = true;
+    el.textContent = '';
+    return;
+  }
+  el.textContent = text;
+  el.hidden = false;
+}
+
+function setServiceCouponsLoadingRow(message = 'Loading coupons...') {
+  const tbody = $('#serviceCouponsTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = `
+    <tr>
+      <td colspan="8" class="table-loading">${escapeHtml(String(message || 'Loading coupons...'))}</td>
+    </tr>
+  `;
+}
+
+function renderServiceCouponsErrorRow(message) {
+  const tbody = $('#serviceCouponsTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = `
+    <tr>
+      <td colspan="8" class="table-loading" style="color: var(--admin-danger);">
+        ${escapeHtml(String(message || 'Failed to load coupons'))}
+      </td>
+    </tr>
+  `;
+}
+
+function getActiveServiceCouponType() {
+  couponsCenterState.activeServiceType = normalizeServiceCouponServiceType(couponsCenterState.activeServiceType);
+  return couponsCenterState.activeServiceType;
+}
+
+function renderCouponsCenterKpiState() {
+  const activeTab = normalizeCouponsCenterTabValue(couponsCenterState.activeTab);
+  const activeService = getActiveServiceCouponType();
+  document.querySelectorAll('[data-coupon-kpi]').forEach((card) => {
+    const key = String(card.getAttribute('data-coupon-kpi') || '').trim().toLowerCase();
+    const isActive = key && (activeTab === key || (activeTab === 'trips' && key === activeService) || (activeTab === 'hotels' && key === activeService) || (activeTab === 'transport' && key === activeService));
+    card.classList.toggle('active', Boolean(isActive));
+  });
+}
+
+function mountCouponsCenterPanels() {
+  const carsMount = $('#couponsCarsMount');
+  const carsPanel = $('#carsTabCoupons');
+  if (carsMount && carsPanel && carsPanel.parentElement !== carsMount) {
+    carsMount.appendChild(carsPanel);
+    carsPanel.hidden = false;
+  }
+
+  const shopMount = $('#couponsShopMount');
+  const shopPanel = $('#shopTabDiscounts');
+  if (shopMount && shopPanel && shopPanel.parentElement !== shopMount) {
+    shopMount.appendChild(shopPanel);
+    shopPanel.hidden = false;
+    shopPanel.classList.add('active');
+  }
+
+  couponsCenterState.mounted = true;
+}
+
+function showCouponsCenterTabContent(targetId) {
+  ['couponsCenterCarsTab', 'couponsCenterServiceTab', 'couponsCenterShopTab'].forEach((id) => {
+    const panel = document.getElementById(id);
+    if (!panel) return;
+    const isActive = id === targetId;
+    panel.hidden = !isActive;
+    panel.classList.toggle('active', isActive);
+  });
+}
+
+function syncServiceCouponsServiceMeta(serviceType) {
+  const normalizedService = normalizeServiceCouponServiceType(serviceType);
+  const meta = SERVICE_COUPON_SERVICE_META[normalizedService] || SERVICE_COUPON_SERVICE_META.trips;
+
+  const title = $('#serviceCouponsTitle');
+  if (title) title.textContent = meta.title;
+
+  const subtitle = $('#serviceCouponsSubtitle');
+  if (subtitle) subtitle.textContent = meta.subtitle;
+
+  const serviceInput = $('#serviceCouponServiceType');
+  if (serviceInput) serviceInput.value = normalizedService;
+}
+
+async function loadCouponsControlCenter(options = {}) {
+  const tab = normalizeCouponsCenterTabValue(options?.tab || couponsCenterState.activeTab || 'cars');
+  await switchCouponsCenterTab(tab, { silent: true, forceReload: Boolean(options?.forceReload) });
+}
+
+async function switchCouponsCenterTab(tab, options = {}) {
+  const normalizedTab = normalizeCouponsCenterTabValue(tab);
+  const { silent = true, forceReload = false } = options;
+
+  mountCouponsCenterPanels();
+  couponsCenterState.activeTab = normalizedTab;
+
+  document.querySelectorAll('[data-coupons-tab]').forEach((button) => {
+    const btnTab = normalizeCouponsCenterTabValue(button.getAttribute('data-coupons-tab'));
+    const isActive = btnTab === normalizedTab;
+    button.classList.toggle('active', isActive);
+  });
+
+  if (normalizedTab === 'cars') {
+    closeServiceCouponForm();
+    showCouponsCenterTabContent('couponsCenterCarsTab');
+    renderCouponsCenterKpiState();
+    await loadCarCouponsData({ silent: true, forcePartnersRefresh: forceReload });
+    return;
+  }
+
+  if (normalizedTab === 'shop') {
+    closeServiceCouponForm();
+    showCouponsCenterTabContent('couponsCenterShopTab');
+    renderCouponsCenterKpiState();
+    const addDiscountBtn = document.getElementById('btnAddShopDiscount');
+    if (addDiscountBtn && !addDiscountBtn.dataset.couponsBound) {
+      addDiscountBtn.dataset.couponsBound = '1';
+      addDiscountBtn.addEventListener('click', () => {
+        void showDiscountForm();
+      });
+    }
+    await loadShopDiscounts();
+    return;
+  }
+
+  couponsCenterState.activeServiceType = normalizeServiceCouponServiceType(normalizedTab);
+  syncServiceCouponsServiceMeta(couponsCenterState.activeServiceType);
+  closeServiceCouponForm();
+  showCouponsCenterTabContent('couponsCenterServiceTab');
+  renderCouponsCenterKpiState();
+  await loadServiceCouponsData(couponsCenterState.activeServiceType, { silent, forceReload });
+}
+
+function syncServiceCouponDiscountTypeFields() {
+  const discountType = String($('#serviceCouponDiscountType')?.value || 'percent').trim();
+  const valueInput = $('#serviceCouponDiscountValue');
+  if (!valueInput) return;
+
+  if (discountType === 'percent') {
+    valueInput.min = '0.01';
+    valueInput.max = '100';
+    valueInput.step = '0.01';
+    valueInput.placeholder = '10';
+  } else {
+    valueInput.min = '0.01';
+    valueInput.removeAttribute('max');
+    valueInput.step = '0.01';
+    valueInput.placeholder = '25';
+  }
+}
+
+function syncServiceCouponSingleUseFields() {
+  const singleUse = Boolean($('#serviceCouponSingleUse')?.checked);
+  const totalLimit = $('#serviceCouponUsageLimitTotal');
+  const perUserLimit = $('#serviceCouponUsageLimitPerUser');
+  if (!totalLimit || !perUserLimit) return;
+
+  if (singleUse) {
+    totalLimit.value = '1';
+    perUserLimit.value = '1';
+    totalLimit.disabled = true;
+    perUserLimit.disabled = true;
+  } else {
+    totalLimit.disabled = false;
+    perUserLimit.disabled = false;
+  }
+}
+
+async function ensureServiceCouponPartnersLoaded(options = {}) {
+  const { force = false } = options;
+  if (!force && serviceCouponsState.partnersLoaded && serviceCouponsState.partners.length > 0) {
+    return serviceCouponsState.partners;
+  }
+
+  const rows = await ensureCarCouponPartnersLoaded({ force });
+  serviceCouponsState.partners = Array.isArray(rows) ? rows : [];
+  serviceCouponsState.partnersById = {};
+  serviceCouponsState.partners.forEach((row) => {
+    if (!row?.id) return;
+    serviceCouponsState.partnersById[row.id] = row;
+  });
+  serviceCouponsState.partnersLoaded = true;
+  return serviceCouponsState.partners;
+}
+
+function getServiceCouponPartnerLabel(partnerId) {
+  if (!partnerId) return 'No partner';
+  const row = serviceCouponsState.partnersById[partnerId] || carCouponsState.partnersById[partnerId];
+  if (!row) return `Partner ${String(partnerId).slice(0, 8)}`;
+  const status = String(row.status || '').trim();
+  const suffix = status && status !== 'active' ? ` (${status})` : '';
+  return `${String(row.name || partnerId)}${suffix}`;
+}
+
+function populateServiceCouponPartnerOptions() {
+  const options = (serviceCouponsState.partners || []).map((partner) => {
+    const id = String(partner?.id || '').trim();
+    if (!id) return '';
+    const status = String(partner?.status || '').trim();
+    const suffix = status && status !== 'active' ? ` (${status})` : '';
+    const label = `${String(partner?.name || id)}${suffix}`;
+    return `<option value="${escapeHtml(id)}">${escapeHtml(label)}</option>`;
+  }).join('');
+
+  const filterSelect = $('#serviceCouponsPartnerFilter');
+  if (filterSelect) {
+    const prev = String(filterSelect.value || '');
+    filterSelect.innerHTML = '<option value="">All partners</option>' + options;
+    const hasPrev = prev && Array.from(filterSelect.options || []).some((option) => String(option.value || '') === prev);
+    if (hasPrev) {
+      filterSelect.value = prev;
+    } else if (prev) {
+      filterSelect.value = '';
+      serviceCouponsState.filters.partnerId = '';
+    }
+  }
+
+  const partnerSelect = $('#serviceCouponPartnerId');
+  if (partnerSelect) {
+    const prev = String(partnerSelect.value || '');
+    partnerSelect.innerHTML = '<option value="">No partner</option>' + options;
+    const hasPrev = prev && Array.from(partnerSelect.options || []).some((option) => String(option.value || '') === prev);
+    if (hasPrev) {
+      partnerSelect.value = prev;
+    }
+  }
+}
+
+function clearServiceCouponFilters() {
+  serviceCouponsState.filters = {
+    search: '',
+    status: '',
+    activity: '',
+    discountType: '',
+    partnerId: '',
+  };
+  const searchInput = $('#serviceCouponsSearchInput');
+  if (searchInput) searchInput.value = '';
+  const statusFilter = $('#serviceCouponsStatusFilter');
+  if (statusFilter) statusFilter.value = '';
+  const activityFilter = $('#serviceCouponsActivityFilter');
+  if (activityFilter) activityFilter.value = '';
+  const typeFilter = $('#serviceCouponsTypeFilter');
+  if (typeFilter) typeFilter.value = '';
+  const partnerFilter = $('#serviceCouponsPartnerFilter');
+  if (partnerFilter) partnerFilter.value = '';
+  renderServiceCouponsData();
+}
+
+function normalizeServiceCouponStatusClass(status) {
+  const value = String(status || '').trim().toLowerCase();
+  if (value === 'active') return 'badge-success';
+  if (value === 'paused') return 'badge-warning';
+  if (value === 'expired') return 'badge-danger';
+  return 'badge-info';
+}
+
+function formatServiceCouponDiscount(coupon) {
+  const type = String(coupon?.discount_type || '').trim();
+  const value = Number(coupon?.discount_value || 0);
+  if (!Number.isFinite(value)) return '—';
+  if (type === 'percent') return `${value.toFixed(2)}%`;
+  const currency = String(coupon?.currency || 'EUR').toUpperCase();
+  return `${currency} ${value.toFixed(2)}`;
+}
+
+function formatServiceCouponWindow(coupon) {
+  if (!coupon?.starts_at && !coupon?.expires_at) return 'No time limit';
+  const starts = formatCouponDateTime(coupon?.starts_at, 'Any');
+  const ends = formatCouponDateTime(coupon?.expires_at, 'Any');
+  return `${starts} → ${ends}`;
+}
+
+function formatServiceCouponLimits(coupon) {
+  if (coupon?.single_use) return 'Single use';
+  const parts = [];
+  if (Number.isInteger(coupon?.usage_limit_total)) parts.push(`Total: ${coupon.usage_limit_total}`);
+  if (Number.isInteger(coupon?.usage_limit_per_user)) parts.push(`Per user: ${coupon.usage_limit_per_user}`);
+  if (Number.isFinite(Number(coupon?.min_order_total))) {
+    parts.push(`Min total: ${formatCurrencyEUR(coupon.min_order_total)}`);
+  }
+  return parts.length ? parts.join(' • ') : 'No limits';
+}
+
+function getServiceCouponUsage(couponId) {
+  if (!couponId) {
+    return {
+      redemptionCount: 0,
+      totalDiscountAmount: 0,
+      lastRedeemedAt: null,
+    };
+  }
+  const row = serviceCouponsState.usageByCouponId[couponId];
+  if (!row) {
+    return {
+      redemptionCount: 0,
+      totalDiscountAmount: 0,
+      lastRedeemedAt: null,
+    };
+  }
+  return {
+    redemptionCount: Number(row.redemptionCount || 0),
+    totalDiscountAmount: Number(row.totalDiscountAmount || 0),
+    lastRedeemedAt: row.lastRedeemedAt || null,
+  };
+}
+
+function getCurrentServiceCoupons() {
+  const serviceType = getActiveServiceCouponType();
+  const rows = serviceCouponsState.itemsByService[serviceType];
+  return Array.isArray(rows) ? rows : [];
+}
+
+function getFilteredServiceCoupons() {
+  const filters = serviceCouponsState.filters || {};
+  const search = String(filters.search || '').trim().toLowerCase();
+  const status = String(filters.status || '').trim().toLowerCase();
+  const activity = String(filters.activity || '').trim().toLowerCase();
+  const discountType = String(filters.discountType || '').trim().toLowerCase();
+  const partnerId = String(filters.partnerId || '').trim();
+
+  const list = getCurrentServiceCoupons();
+  return list.filter((coupon) => {
+    if (!coupon || !coupon.id) return false;
+    if (status && String(coupon.status || '').trim().toLowerCase() !== status) return false;
+    if (discountType && String(coupon.discount_type || '').trim().toLowerCase() !== discountType) return false;
+    if (partnerId && String(coupon.partner_id || '').trim() !== partnerId) return false;
+    if (activity === 'enabled' && !coupon.is_active) return false;
+    if (activity === 'disabled' && coupon.is_active) return false;
+
+    if (search) {
+      const partnerLabel = getServiceCouponPartnerLabel(coupon.partner_id).toLowerCase();
+      const haystack = [
+        coupon.code,
+        coupon.name,
+        coupon.description,
+        coupon.internal_notes,
+        partnerLabel,
+      ]
+        .map((item) => String(item || '').toLowerCase())
+        .join(' ');
+      if (!haystack.includes(search)) return false;
+    }
+    return true;
+  });
+}
+
+function renderServiceCouponsTable(coupons) {
+  const tbody = $('#serviceCouponsTableBody');
+  if (!tbody) return;
+  const rows = Array.isArray(coupons) ? coupons : [];
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="table-loading">No coupons found for current filters.</td></tr>';
+    scheduleResponsiveTableHydration();
+    return;
+  }
+
+  tbody.innerHTML = rows.map((coupon) => {
+    const usage = getServiceCouponUsage(coupon.id);
+    const statusClass = normalizeServiceCouponStatusClass(coupon.status);
+    const activeClass = coupon.is_active ? 'badge-success' : 'badge-danger';
+    const activeLabel = coupon.is_active ? 'ENABLED' : 'DISABLED';
+    const lastRedeemed = usage.lastRedeemedAt ? formatCouponDateTime(usage.lastRedeemedAt, '—') : 'Never';
+    return `
+      <tr>
+        <td>
+          <div style="font-weight: 700;">${escapeHtml(String(coupon.code || ''))}</div>
+          ${coupon.name ? `<div class="cars-coupon-cell-muted">${escapeHtml(String(coupon.name))}</div>` : ''}
+        </td>
+        <td>
+          <div style="font-weight: 600;">${escapeHtml(formatServiceCouponDiscount(coupon))}</div>
+          <div class="cars-coupon-cell-muted">${escapeHtml(String(coupon.discount_type || ''))}</div>
+        </td>
+        <td>
+          ${escapeHtml(formatServiceCouponWindow(coupon))}
+        </td>
+        <td>${escapeHtml(formatServiceCouponLimits(coupon))}</td>
+        <td>${escapeHtml(getServiceCouponPartnerLabel(coupon.partner_id))}</td>
+        <td>
+          <span class="badge ${statusClass}" style="display: block; margin-bottom: 4px;">${escapeHtml(String(coupon.status || 'draft').toUpperCase())}</span>
+          <span class="badge ${activeClass}" style="font-size: 10px;">${activeLabel}</span>
+        </td>
+        <td>
+          <div style="font-weight: 700;">${usage.redemptionCount}</div>
+          <div class="cars-coupon-cell-muted">${escapeHtml(lastRedeemed)}</div>
+        </td>
+        <td>
+          <div class="cars-coupons-table-actions">
+            <button type="button" class="btn-small btn-secondary" data-service-coupon-action="edit" data-service-coupon-id="${escapeHtml(String(coupon.id))}">Edit</button>
+            <button type="button" class="btn-small btn-secondary" data-service-coupon-action="${coupon.is_active ? 'deactivate' : 'activate'}" data-service-coupon-id="${escapeHtml(String(coupon.id))}">
+              ${coupon.is_active ? 'Disable' : 'Enable'}
+            </button>
+            <button type="button" class="btn-small btn-secondary" data-service-coupon-action="delete" data-service-coupon-id="${escapeHtml(String(coupon.id))}" style="color: var(--admin-danger);">Delete</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+  scheduleResponsiveTableHydration();
+}
+
+function renderServiceCouponsData() {
+  const filtered = getFilteredServiceCoupons();
+  renderServiceCouponsTable(filtered);
+}
+
+async function loadServiceCouponsData(serviceType, options = {}) {
+  const normalizedService = normalizeServiceCouponServiceType(serviceType);
+  const { silent = false, forceReload = false } = options;
+  if (serviceCouponsState.loading) return;
+
+  try {
+    serviceCouponsState.loading = true;
+    setServiceCouponsViewError('');
+    setServiceCouponsLoadingRow('Loading coupons...');
+
+    await ensureServiceCouponPartnersLoaded({ force: forceReload });
+    populateServiceCouponPartnerOptions();
+
+    const client = ensureSupabase();
+    if (!client) throw new Error('Supabase client not available');
+
+    const { data: coupons, error: couponsError } = await client
+      .from('service_coupons')
+      .select('*')
+      .eq('service_type', normalizedService)
+      .order('created_at', { ascending: false });
+
+    if (couponsError) throw couponsError;
+
+    const rows = Array.isArray(coupons) ? coupons : [];
+    serviceCouponsState.itemsByService[normalizedService] = rows;
+    serviceCouponsState.loadedByService[normalizedService] = true;
+
+    const usageByCouponId = {};
+    const couponIds = rows
+      .map((coupon) => String(coupon?.id || '').trim())
+      .filter(Boolean);
+
+    if (couponIds.length > 0) {
+      const { data: usageRows, error: usageError } = await client
+        .from('service_coupon_usage_stats')
+        .select('coupon_id, redemption_count, total_discount_amount, last_redeemed_at')
+        .in('coupon_id', couponIds);
+
+      if (usageError) {
+        console.warn('Failed to load service coupon usage stats:', usageError);
+      } else if (Array.isArray(usageRows)) {
+        usageRows.forEach((row) => {
+          if (!row?.coupon_id) return;
+          usageByCouponId[row.coupon_id] = {
+            redemptionCount: Number(row.redemption_count || 0),
+            totalDiscountAmount: Number(row.total_discount_amount || 0),
+            lastRedeemedAt: row.last_redeemed_at || null,
+          };
+        });
+      }
+    }
+
+    serviceCouponsState.usageByCouponId = usageByCouponId;
+    renderServiceCouponsData();
+  } catch (error) {
+    console.error('Failed to load service coupons:', error);
+    const raw = adminErrorDetails(error, 'Failed to load service coupons');
+    const friendly = (isMissingTableError(error, 'service_coupons') || isMissingTableError(error, 'service_coupon_usage_stats'))
+      ? 'Service coupons schema is missing. Run migration `123_service_coupons_control_center.sql` in Supabase and refresh.'
+      : raw;
+    setServiceCouponsViewError(friendly);
+    renderServiceCouponsErrorRow(friendly);
+    if (!silent) {
+      showToast(friendly, 'error');
+    }
+  } finally {
+    serviceCouponsState.loading = false;
+  }
+}
+
+function resetServiceCouponForm() {
+  const form = $('#serviceCouponForm');
+  if (form) form.reset();
+  const couponId = $('#serviceCouponId');
+  if (couponId) couponId.value = '';
+  const serviceTypeInput = $('#serviceCouponServiceType');
+  if (serviceTypeInput) serviceTypeInput.value = getActiveServiceCouponType();
+  const status = $('#serviceCouponStatus');
+  if (status) status.value = 'draft';
+  const discountType = $('#serviceCouponDiscountType');
+  if (discountType) discountType.value = 'percent';
+  const currency = $('#serviceCouponCurrency');
+  if (currency) currency.value = 'EUR';
+  const isActive = $('#serviceCouponIsActive');
+  if (isActive) isActive.checked = true;
+  const singleUse = $('#serviceCouponSingleUse');
+  if (singleUse) singleUse.checked = false;
+  syncServiceCouponDiscountTypeFields();
+  syncServiceCouponSingleUseFields();
+}
+
+function closeServiceCouponForm() {
+  const card = $('#serviceCouponFormCard');
+  if (card) card.hidden = true;
+}
+
+async function openServiceCouponForm(couponId = null) {
+  await ensureServiceCouponPartnersLoaded();
+  populateServiceCouponPartnerOptions();
+
+  const card = $('#serviceCouponFormCard');
+  if (!card) return;
+
+  const id = String(couponId || '').trim();
+  const activeService = getActiveServiceCouponType();
+  resetServiceCouponForm();
+
+  const formTitle = $('#serviceCouponFormTitle');
+  const formSubtitle = $('#serviceCouponFormSubtitle');
+  const submitBtn = $('#serviceCouponFormSubmit');
+
+  if (id) {
+    const coupon = getCurrentServiceCoupons().find((row) => String(row?.id || '') === id);
+    if (!coupon) {
+      showToast('Coupon not found in current scope', 'error');
+      return;
+    }
+    $('#serviceCouponId').value = String(coupon.id || '');
+    $('#serviceCouponServiceType').value = normalizeServiceCouponServiceType(coupon.service_type || activeService);
+    $('#serviceCouponCode').value = String(coupon.code || '');
+    $('#serviceCouponName').value = String(coupon.name || '');
+    $('#serviceCouponDescription').value = String(coupon.description || '');
+    $('#serviceCouponInternalNotes').value = String(coupon.internal_notes || '');
+    $('#serviceCouponStatus').value = String(coupon.status || 'draft');
+    $('#serviceCouponIsActive').checked = Boolean(coupon.is_active);
+    $('#serviceCouponDiscountType').value = String(coupon.discount_type || 'percent');
+    $('#serviceCouponDiscountValue').value = Number(coupon.discount_value || 0).toString();
+    $('#serviceCouponCurrency').value = String(coupon.currency || 'EUR');
+    $('#serviceCouponStartsAt').value = toDateTimeLocalInputValue(coupon.starts_at);
+    $('#serviceCouponExpiresAt').value = toDateTimeLocalInputValue(coupon.expires_at);
+    $('#serviceCouponSingleUse').checked = Boolean(coupon.single_use);
+    $('#serviceCouponUsageLimitTotal').value = coupon.usage_limit_total ?? '';
+    $('#serviceCouponUsageLimitPerUser').value = coupon.usage_limit_per_user ?? '';
+    $('#serviceCouponMinOrderTotal').value = coupon.min_order_total ?? '';
+    $('#serviceCouponPartnerId').value = String(coupon.partner_id || '');
+    $('#serviceCouponPartnerCommissionBps').value = coupon.partner_commission_bps_override ?? '';
+    if (formTitle) formTitle.textContent = `Edit coupon ${coupon.code || ''}`;
+    if (formSubtitle) formSubtitle.textContent = 'Update coupon rules and save.';
+    if (submitBtn) submitBtn.textContent = 'Save changes';
+  } else {
+    if (formTitle) formTitle.textContent = `Create ${activeService} coupon`;
+    if (formSubtitle) formSubtitle.textContent = 'English-only labels for admin/partner operations.';
+    if (submitBtn) submitBtn.textContent = 'Save coupon';
+  }
+
+  syncServiceCouponDiscountTypeFields();
+  syncServiceCouponSingleUseFields();
+  card.hidden = false;
+}
+
+function collectServiceCouponPayload() {
+  const serviceType = normalizeServiceCouponServiceType($('#serviceCouponServiceType')?.value || getActiveServiceCouponType());
+  const code = String($('#serviceCouponCode')?.value || '').trim().toUpperCase();
+  if (!code) {
+    throw new Error('Coupon code is required');
+  }
+
+  const status = String($('#serviceCouponStatus')?.value || 'draft').trim().toLowerCase();
+  if (!SERVICE_COUPON_ALLOWED_STATUSES.has(status)) {
+    throw new Error('Invalid coupon status');
+  }
+
+  const discountType = String($('#serviceCouponDiscountType')?.value || 'percent').trim().toLowerCase();
+  if (!SERVICE_COUPON_ALLOWED_DISCOUNT_TYPES.has(discountType)) {
+    throw new Error('Invalid discount type');
+  }
+
+  const discountValue = parseCouponRequiredNumber($('#serviceCouponDiscountValue')?.value, 'Discount value', 0.01);
+  if (discountType === 'percent' && discountValue > 100) {
+    throw new Error('Percent discount cannot exceed 100');
+  }
+
+  const startsAt = parseCouponDateTimeLocal($('#serviceCouponStartsAt')?.value, 'Starts at');
+  const expiresAt = parseCouponDateTimeLocal($('#serviceCouponExpiresAt')?.value, 'Expires at');
+  if (startsAt && expiresAt && new Date(startsAt).getTime() > new Date(expiresAt).getTime()) {
+    throw new Error('Expires at must be later than starts at');
+  }
+
+  const partnerIdRaw = String($('#serviceCouponPartnerId')?.value || '').trim();
+  if (partnerIdRaw && !CAR_COUPON_UUID_PATTERN.test(partnerIdRaw)) {
+    throw new Error('Invalid partner id');
+  }
+
+  const payload = {
+    service_type: serviceType,
+    code,
+    name: String($('#serviceCouponName')?.value || '').trim() || null,
+    description: String($('#serviceCouponDescription')?.value || '').trim() || null,
+    internal_notes: String($('#serviceCouponInternalNotes')?.value || '').trim() || null,
+    status,
+    is_active: Boolean($('#serviceCouponIsActive')?.checked),
+    discount_type: discountType,
+    discount_value: discountValue,
+    currency: String($('#serviceCouponCurrency')?.value || 'EUR').trim().toUpperCase() || 'EUR',
+    starts_at: startsAt,
+    expires_at: expiresAt,
+    single_use: Boolean($('#serviceCouponSingleUse')?.checked),
+    usage_limit_total: parseCouponOptionalInteger($('#serviceCouponUsageLimitTotal')?.value, 'Total usage limit', 1),
+    usage_limit_per_user: parseCouponOptionalInteger($('#serviceCouponUsageLimitPerUser')?.value, 'Per-user limit', 1),
+    min_order_total: parseCouponOptionalNumber($('#serviceCouponMinOrderTotal')?.value, 'Minimum order total', 0),
+    partner_id: partnerIdRaw || null,
+    partner_commission_bps_override: parseCouponOptionalInteger($('#serviceCouponPartnerCommissionBps')?.value, 'Partner commission override', 0),
+    updated_by: adminState?.user?.id || null,
+  };
+
+  if (payload.single_use) {
+    payload.usage_limit_total = 1;
+    payload.usage_limit_per_user = 1;
+  }
+
+  return payload;
+}
+
+async function handleServiceCouponFormSubmit(event) {
+  event.preventDefault();
+  const submitBtn = $('#serviceCouponFormSubmit');
+  const couponId = String($('#serviceCouponId')?.value || '').trim();
+
+  try {
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = couponId ? 'Saving...' : 'Creating...';
+    }
+
+    const client = ensureSupabase();
+    if (!client) throw new Error('Supabase client not available');
+
+    const payload = collectServiceCouponPayload();
+    let error = null;
+
+    if (couponId) {
+      ({ error } = await client
+        .from('service_coupons')
+        .update(payload)
+        .eq('id', couponId));
+    } else {
+      ({ error } = await client
+        .from('service_coupons')
+        .insert({
+          ...payload,
+          created_by: adminState?.user?.id || null,
+        }));
+    }
+
+    if (error) {
+      const msg = String(error?.message || '').toLowerCase();
+      if (String(error?.code || '') === '23505' || /duplicate/i.test(msg) || /service_coupons_service_code_unique_idx/i.test(msg)) {
+        throw new Error('Coupon code already exists for this service type');
+      }
+      throw error;
+    }
+
+    showToast(couponId ? 'Coupon updated successfully' : 'Coupon created successfully', 'success');
+    closeServiceCouponForm();
+    await loadServiceCouponsData(getActiveServiceCouponType(), { silent: true, forceReload: true });
+  } catch (error) {
+    console.error('Failed to save service coupon:', error);
+    showToast(adminErrorDetails(error, 'Failed to save coupon'), 'error');
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = couponId ? 'Save changes' : 'Save coupon';
+    }
+  }
+}
+
+async function setServiceCouponActiveState(couponId, isActive) {
+  const id = String(couponId || '').trim();
+  if (!id) return;
+
+  try {
+    const client = ensureSupabase();
+    if (!client) throw new Error('Supabase client not available');
+
+    const { error } = await client
+      .from('service_coupons')
+      .update({
+        is_active: Boolean(isActive),
+        updated_by: adminState?.user?.id || null,
+      })
+      .eq('id', id);
+
+    if (error) throw error;
+    await loadServiceCouponsData(getActiveServiceCouponType(), { silent: true });
+  } catch (error) {
+    console.error('Failed to change service coupon activity:', error);
+    const msg = adminErrorDetails(error, 'Failed to update coupon state');
+    setServiceCouponsViewError(msg);
+    showToast(msg, 'error');
+  }
+}
+
+async function deleteServiceCoupon(couponId) {
+  const id = String(couponId || '').trim();
+  if (!id) return;
+  if (!confirm('Delete this coupon? This action cannot be undone.')) return;
+  const typed = prompt('Type DELETE to confirm coupon deletion:');
+  if (String(typed || '').trim().toUpperCase() !== 'DELETE') {
+    showToast('Deletion cancelled', 'info');
+    return;
+  }
+
+  try {
+    const client = ensureSupabase();
+    if (!client) throw new Error('Supabase client not available');
+    const { error } = await client
+      .from('service_coupons')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+
+    showToast('Coupon deleted successfully', 'success');
+    await loadServiceCouponsData(getActiveServiceCouponType(), { silent: true });
+  } catch (error) {
+    console.error('Failed to delete service coupon:', error);
+    const msg = adminErrorDetails(error, 'Failed to delete coupon');
+    setServiceCouponsViewError(msg);
+    showToast(msg, 'error');
+  }
+}
+
+async function handleServiceCouponsTableClick(event) {
+  const button = event.target?.closest?.('button[data-service-coupon-action]');
+  if (!button) return;
+  const couponId = String(button.dataset.serviceCouponId || '').trim();
+  const action = String(button.dataset.serviceCouponAction || '').trim();
+  if (!couponId || !action) return;
+
+  if (action === 'edit') {
+    await openServiceCouponForm(couponId);
+    return;
+  }
+  if (action === 'activate') {
+    await setServiceCouponActiveState(couponId, true);
+    return;
+  }
+  if (action === 'deactivate') {
+    await setServiceCouponActiveState(couponId, false);
+    return;
+  }
+  if (action === 'delete') {
+    await deleteServiceCoupon(couponId);
+  }
+}
+
+async function refreshCouponsCenterCurrentTab() {
+  const activeTab = normalizeCouponsCenterTabValue(couponsCenterState.activeTab || 'cars');
+  if (activeTab === 'cars') {
+    await loadCarCouponsData({ silent: false, showSuccessToast: true, forcePartnersRefresh: true });
+    return;
+  }
+  if (activeTab === 'shop') {
+    await loadShopDiscounts();
+    showToast('Shop discounts refreshed', 'success');
+    return;
+  }
+  await loadServiceCouponsData(getActiveServiceCouponType(), { silent: false, forceReload: true });
+  showToast('Service coupons refreshed', 'success');
+}
+
+function openCouponsCenterCreateForActiveTab() {
+  const activeTab = normalizeCouponsCenterTabValue(couponsCenterState.activeTab || 'cars');
+  if (activeTab === 'cars') {
+    void openCarCouponModal();
+    return;
+  }
+  if (activeTab === 'shop') {
+    void showDiscountForm();
+    return;
+  }
+  void openServiceCouponForm();
+}
 
 // =====================================================
 // CARS MANAGEMENT
@@ -25552,6 +26410,14 @@ window.toggleCarAvailability = toggleCarAvailability;
 
 function switchCarsTab(tab) {
   const normalizedTab = normalizeCarsTabValue(tab);
+
+  if (normalizedTab === 'coupons') {
+    carsUiState.activeTab = 'bookings';
+    switchView('coupons');
+    void switchCouponsCenterTab('cars', { silent: true });
+    return;
+  }
+
   carsUiState.activeTab = normalizedTab;
 
   // Update tab buttons
@@ -25590,14 +26456,6 @@ function switchCarsTab(tab) {
       btnAddCar.textContent = 'New Booking';
     }
     loadCarsData({ silent: true });
-    return;
-  }
-
-  if (normalizedTab === 'coupons') {
-    if (btnAddCar) {
-      btnAddCar.textContent = 'Add Coupon';
-    }
-    loadCarCouponsData({ silent: true });
     return;
   }
 
@@ -26724,6 +27582,118 @@ function initEventListeners() {
       }
     });
   });
+
+  document.querySelectorAll('[data-coupons-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const tab = String(btn.getAttribute('data-coupons-tab') || '').trim();
+      if (!tab) return;
+      void switchCouponsCenterTab(tab, { silent: true });
+    });
+  });
+
+  const btnCouponsRefreshCurrent = $('#btnCouponsRefreshCurrent');
+  if (btnCouponsRefreshCurrent) {
+    btnCouponsRefreshCurrent.addEventListener('click', () => {
+      void refreshCouponsCenterCurrentTab();
+    });
+  }
+
+  const btnCouponsOpenCreate = $('#btnCouponsOpenCreate');
+  if (btnCouponsOpenCreate) {
+    btnCouponsOpenCreate.addEventListener('click', () => {
+      openCouponsCenterCreateForActiveTab();
+    });
+  }
+
+  const btnServiceCouponsRefresh = $('#btnServiceCouponsRefresh');
+  if (btnServiceCouponsRefresh) {
+    btnServiceCouponsRefresh.addEventListener('click', () => {
+      void loadServiceCouponsData(getActiveServiceCouponType(), { silent: false, forceReload: true });
+    });
+  }
+
+  const btnServiceCouponsAdd = $('#btnServiceCouponsAdd');
+  if (btnServiceCouponsAdd) {
+    btnServiceCouponsAdd.addEventListener('click', () => {
+      void openServiceCouponForm();
+    });
+  }
+
+  const btnServiceCouponsClearFilters = $('#btnServiceCouponsClearFilters');
+  if (btnServiceCouponsClearFilters) {
+    btnServiceCouponsClearFilters.addEventListener('click', clearServiceCouponFilters);
+  }
+
+  const serviceCouponsSearchInput = $('#serviceCouponsSearchInput');
+  if (serviceCouponsSearchInput) {
+    serviceCouponsSearchInput.addEventListener('input', (event) => {
+      serviceCouponsState.filters.search = String(event.target?.value || '');
+      renderServiceCouponsData();
+    });
+  }
+
+  const serviceCouponsStatusFilter = $('#serviceCouponsStatusFilter');
+  if (serviceCouponsStatusFilter) {
+    serviceCouponsStatusFilter.addEventListener('change', (event) => {
+      serviceCouponsState.filters.status = String(event.target?.value || '');
+      renderServiceCouponsData();
+    });
+  }
+
+  const serviceCouponsActivityFilter = $('#serviceCouponsActivityFilter');
+  if (serviceCouponsActivityFilter) {
+    serviceCouponsActivityFilter.addEventListener('change', (event) => {
+      serviceCouponsState.filters.activity = String(event.target?.value || '');
+      renderServiceCouponsData();
+    });
+  }
+
+  const serviceCouponsTypeFilter = $('#serviceCouponsTypeFilter');
+  if (serviceCouponsTypeFilter) {
+    serviceCouponsTypeFilter.addEventListener('change', (event) => {
+      serviceCouponsState.filters.discountType = String(event.target?.value || '');
+      renderServiceCouponsData();
+    });
+  }
+
+  const serviceCouponsPartnerFilter = $('#serviceCouponsPartnerFilter');
+  if (serviceCouponsPartnerFilter) {
+    serviceCouponsPartnerFilter.addEventListener('change', (event) => {
+      serviceCouponsState.filters.partnerId = String(event.target?.value || '');
+      renderServiceCouponsData();
+    });
+  }
+
+  const serviceCouponsTableBody = $('#serviceCouponsTableBody');
+  if (serviceCouponsTableBody) {
+    serviceCouponsTableBody.addEventListener('click', (event) => {
+      void handleServiceCouponsTableClick(event);
+    });
+  }
+
+  const serviceCouponDiscountType = $('#serviceCouponDiscountType');
+  if (serviceCouponDiscountType) {
+    serviceCouponDiscountType.addEventListener('change', syncServiceCouponDiscountTypeFields);
+  }
+
+  const serviceCouponSingleUse = $('#serviceCouponSingleUse');
+  if (serviceCouponSingleUse) {
+    serviceCouponSingleUse.addEventListener('change', syncServiceCouponSingleUseFields);
+  }
+
+  const serviceCouponForm = $('#serviceCouponForm');
+  if (serviceCouponForm) {
+    serviceCouponForm.addEventListener('submit', (event) => {
+      void handleServiceCouponFormSubmit(event);
+    });
+  }
+
+  const serviceCouponFormCancel = $('#serviceCouponFormCancel');
+  if (serviceCouponFormCancel) {
+    serviceCouponFormCancel.addEventListener('click', () => {
+      closeServiceCouponForm();
+    });
+  }
 
   bindTransportAdminUi();
 
@@ -32791,6 +33761,11 @@ function setupShopTabs() {
   tabs.forEach(tab => {
     tab.onclick = () => {
       const tabName = tab.dataset.shopTab;
+      if (tabName === 'discounts') {
+        switchView('coupons');
+        void switchCouponsCenterTab('shop', { silent: true });
+        return;
+      }
       
       // Update active tab
       tabs.forEach(t => t.classList.remove('active'));
