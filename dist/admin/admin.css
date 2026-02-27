@@ -4459,6 +4459,81 @@ select#orderStatusFilter:focus {
   gap: 14px;
 }
 
+.coupon-builder-quick {
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  padding: 12px;
+  background: linear-gradient(145deg, rgba(59, 130, 246, 0.12), rgba(15, 23, 42, 0.35));
+  display: grid;
+  gap: 10px;
+}
+
+.coupon-builder-quick__head h4 {
+  margin: 0;
+  font-size: 14px;
+  color: var(--admin-text);
+}
+
+.coupon-builder-quick__head p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--admin-text-muted);
+}
+
+.coupon-builder-quick__presets {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.coupon-builder-preset-btn {
+  border: 1px solid var(--admin-border);
+  background: var(--admin-bg-light);
+  color: var(--admin-text);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+.coupon-builder-preset-btn:hover {
+  border-color: rgba(59, 130, 246, 0.5);
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.coupon-builder-preset-btn.is-active {
+  border-color: rgba(59, 130, 246, 0.65);
+  background: rgba(59, 130, 246, 0.2);
+  color: #bfdbfe;
+}
+
+.coupon-builder-quick__single {
+  border: 1px solid rgba(59, 130, 246, 0.32);
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(15, 23, 42, 0.42);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+
+.coupon-builder-quick__single .btn-secondary {
+  min-height: 38px;
+}
+
+.coupon-builder-quick__summary {
+  margin: 0;
+  font-size: 12px;
+  color: #bfdbfe;
+  border: 1px dashed rgba(59, 130, 246, 0.35);
+  border-radius: 9px;
+  padding: 8px 10px;
+  background: rgba(30, 64, 175, 0.13);
+}
+
 .coupon-builder-row {
   display: grid;
   grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.4fr);
@@ -4928,6 +5003,15 @@ select#orderStatusFilter:focus {
 @media (max-width: 960px) {
   .coupon-builder-row {
     grid-template-columns: 1fr;
+  }
+
+  .coupon-builder-quick__single {
+    grid-template-columns: 1fr;
+  }
+
+  .coupon-builder-quick__single .btn-secondary {
+    width: 100%;
+    justify-content: center;
   }
 
   .coupon-builder-resource-panel__header {

@@ -3220,6 +3220,38 @@
           <div class="admin-card-body">
             <div id="couponBuilderFeedback" class="coupon-builder-feedback" hidden></div>
             <form id="couponBuilderForm" class="coupon-builder-form">
+              <section class="coupon-builder-quick" id="couponBuilderQuickSetup" aria-label="Quick coupon setup">
+                <div class="coupon-builder-quick__head">
+                  <h4>Quick setup</h4>
+                  <p>Pick one mode first, then fill coupon details. You can still fine-tune everything below.</p>
+                </div>
+                <div class="coupon-builder-quick__presets" id="couponBuilderQuickPresets" role="group" aria-label="Coupon setup presets">
+                  <button type="button" class="coupon-builder-preset-btn is-active" data-coupon-builder-preset="all">Global</button>
+                  <button type="button" class="coupon-builder-preset-btn" data-coupon-builder-preset="category">Category</button>
+                  <button type="button" class="coupon-builder-preset-btn" data-coupon-builder-preset="single">Single item</button>
+                </div>
+                <div class="coupon-builder-quick__single" id="couponBuilderQuickSinglePanel" hidden>
+                  <label class="admin-form-field">
+                    <span>Service</span>
+                    <select id="couponBuilderQuickSingleService">
+                      <option value="cars">Cars</option>
+                      <option value="trips">Trips</option>
+                      <option value="hotels">Hotels</option>
+                      <option value="transport">Transport</option>
+                      <option value="shop">Shop</option>
+                    </select>
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Item / offer</span>
+                    <select id="couponBuilderQuickSingleResource">
+                      <option value="">Select service first</option>
+                    </select>
+                  </label>
+                  <button type="button" class="btn-secondary" id="btnCouponBuilderApplySingleQuick">Use this item scope</button>
+                </div>
+                <p class="coupon-builder-quick__summary" id="couponBuilderScopeSummary">Scope: all services and all categories/offers.</p>
+              </section>
+
               <div class="coupon-builder-row">
                 <div class="coupon-builder-block">
                   <h4>1. Services</h4>

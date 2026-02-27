@@ -22013,6 +22013,10 @@ const couponBuilderResourceScopeState = {
   },
 };
 
+const couponBuilderQuickState = {
+  mode: 'all',
+};
+
 function normalizeCouponsCenterTabValue(value) {
   const tab = String(value || '').trim().toLowerCase();
   return COUPONS_CENTER_ALLOWED_TABS.has(tab) ? tab : 'cars';
@@ -22050,6 +22054,260 @@ function setCouponBuilderServicesSelection(services) {
     if (!service) return;
     input.checked = selected.has(service);
   });
+  renderCouponBuilderScopeSummary();
+}
+
+function setCouponBuilderQuickMode(mode) {
+  const normalized = String(mode || '').trim().toLowerCase();
+  couponBuilderQuickState.mode = (normalized === 'single' || normalized === 'category') ? normalized : 'all';
+  const buttons = Array.from(document.querySelectorAll('button[data-coupon-builder-preset]'));
+  buttons.forEach((button) => {
+    const preset = String(button?.dataset?.couponBuilderPreset || '').trim().toLowerCase();
+    button.classList.toggle('is-active', preset === couponBuilderQuickState.mode);
+  });
+  syncCouponBuilderQuickPanels();
+}
+
+function getCouponBuilderServiceLabel(serviceType) {
+  const service = normalizeCouponConsoleServiceType(serviceType);
+  if (!service) return '';
+  return String(COUPON_BUILDER_RESOURCE_SERVICE_META[service]?.label || service).trim();
+}
+
+function getCouponBuilderResourceLabel(serviceType, resourceId) {
+  const service = normalizeCouponConsoleServiceType(serviceType);
+  const id = String(resourceId || '').trim();
+  if (!service || !id) return '';
+  const rows = Array.isArray(couponBuilderResourceScopeState.rowsByService[service])
+    ? couponBuilderResourceScopeState.rowsByService[service]
+    : [];
+  const match = rows.find((row) => String(row?.id || '').trim() === id);
+  return String(match?.label || '').trim();
+}
+
+function renderCouponBuilderQuickSingleResourceOptions(options = {}) {
+  const { keepSelection = true } = options;
+  const select = $('#couponBuilderQuickSingleResource');
+  const serviceSelect = $('#couponBuilderQuickSingleService');
+  if (!select || !serviceSelect) return;
+
+  const serviceType = normalizeCouponConsoleServiceType(serviceSelect.value || '');
+  const currentValue = keepSelection ? String(select.value || '').trim() : '';
+  const rows = serviceType && Array.isArray(couponBuilderResourceScopeState.rowsByService[serviceType])
+    ? couponBuilderResourceScopeState.rowsByService[serviceType]
+    : [];
+  const loading = serviceType ? Boolean(couponBuilderResourceScopeState.loadingByService[serviceType]) : false;
+
+  if (!serviceType) {
+    select.innerHTML = '<option value="">Select service first</option>';
+    select.value = '';
+    return;
+  }
+
+  if (loading) {
+    select.innerHTML = '<option value="">Loading items...</option>';
+    select.value = '';
+    return;
+  }
+
+  if (!rows.length) {
+    select.innerHTML = '<option value="">No items available</option>';
+    select.value = '';
+    return;
+  }
+
+  const optionsMarkup = rows.slice(0, COUPON_BUILDER_RESOURCE_MAX_ROWS).map((row) => {
+    const id = String(row?.id || '').trim();
+    if (!id) return '';
+    const label = String(row?.label || id).trim();
+    const meta = String(row?.meta || '').trim();
+    const text = meta ? `${label} - ${meta}` : label;
+    return `<option value="${escapeHtml(id)}">${escapeHtml(text)}</option>`;
+  }).join('');
+
+  select.innerHTML = `<option value="">Choose exact item / offer</option>${optionsMarkup}`;
+  if (currentValue && rows.some((row) => String(row?.id || '').trim() === currentValue)) {
+    select.value = currentValue;
+    return;
+  }
+
+  const selectedSet = couponBuilderResourceScopeState.selectedByService[serviceType];
+  const selectedId = selectedSet instanceof Set ? String(Array.from(selectedSet)[0] || '').trim() : '';
+  if (selectedId && rows.some((row) => String(row?.id || '').trim() === selectedId)) {
+    select.value = selectedId;
+  } else {
+    select.value = '';
+  }
+}
+
+function syncCouponBuilderQuickPanels() {
+  const singlePanel = $('#couponBuilderQuickSinglePanel');
+  if (singlePanel) singlePanel.hidden = couponBuilderQuickState.mode !== 'single';
+  renderCouponBuilderQuickSingleResourceOptions();
+  renderCouponBuilderScopeSummary();
+}
+
+function renderCouponBuilderScopeSummary() {
+  const summaryEl = $('#couponBuilderScopeSummary');
+  if (!summaryEl) return;
+
+  const services = getCouponBuilderSelectedServices();
+  const scopeMode = String($('#couponBuilderScopeMode')?.value || 'all').trim().toLowerCase();
+  const normalizedScope = (scopeMode === 'category' || scopeMode === 'resource') ? scopeMode : 'all';
+
+  if (!services.length) {
+    summaryEl.textContent = 'Scope: no service selected yet.';
+    return;
+  }
+
+  const serviceLabels = services.map((serviceType) => getCouponBuilderServiceLabel(serviceType)).filter(Boolean);
+  const serviceText = serviceLabels.join(', ');
+
+  if (normalizedScope === 'all') {
+    if (services.length === COUPON_BUILDER_SERVICES.length) {
+      summaryEl.textContent = 'Scope: global (all services, all categories, all offers).';
+      return;
+    }
+    summaryEl.textContent = `Scope: all categories/offers in selected services (${serviceText}).`;
+    return;
+  }
+
+  if (normalizedScope === 'category') {
+    const categoryKeys = parseCouponListInput($('#couponBuilderCategoryKeys')?.value || '')
+      .map((entry) => String(entry || '').trim().toLowerCase())
+      .filter(Boolean);
+    if (!categoryKeys.length) {
+      summaryEl.textContent = `Scope: category mode for ${serviceText} (no category keys set yet).`;
+      return;
+    }
+    const preview = categoryKeys.slice(0, 4).join(', ');
+    const moreCount = categoryKeys.length - 4;
+    summaryEl.textContent = `Scope: category mode for ${serviceText} -> ${preview}${moreCount > 0 ? ` +${moreCount} more` : ''}.`;
+    return;
+  }
+
+  const resourceIdsByService = getCouponBuilderSelectedResourceIdsByService();
+  const totalSelected = services.reduce((count, serviceType) => {
+    const rows = Array.isArray(resourceIdsByService[serviceType]) ? resourceIdsByService[serviceType] : [];
+    return count + rows.length;
+  }, 0);
+
+  if (services.length === 1 && totalSelected === 1) {
+    const serviceType = services[0];
+    const resourceId = String(resourceIdsByService[serviceType]?.[0] || '').trim();
+    const label = getCouponBuilderResourceLabel(serviceType, resourceId);
+    if (label) {
+      summaryEl.textContent = `Scope: single item (${getCouponBuilderServiceLabel(serviceType)} -> ${label}).`;
+      return;
+    }
+  }
+
+  if (totalSelected === 0) {
+    summaryEl.textContent = `Scope: resource mode for ${serviceText} (select at least one item per service).`;
+    return;
+  }
+
+  summaryEl.textContent = `Scope: resource mode for ${serviceText} (${totalSelected} selected item${totalSelected === 1 ? '' : 's'}).`;
+}
+
+async function applyCouponBuilderQuickPreset(mode) {
+  const normalized = String(mode || '').trim().toLowerCase();
+  const scopeSelect = $('#couponBuilderScopeMode');
+  const categoryInput = $('#couponBuilderCategoryKeys');
+
+  if (normalized === 'all') {
+    setCouponBuilderQuickMode('all');
+    setCouponBuilderServicesSelection(COUPON_BUILDER_SERVICES);
+    clearCouponBuilderResourceScopeSelection();
+    if (scopeSelect) scopeSelect.value = 'all';
+    if (categoryInput) categoryInput.value = '';
+    syncCouponBuilderScopeFields();
+    renderCouponBuilderQuickSingleResourceOptions({ keepSelection: false });
+    renderCouponBuilderScopeSummary();
+    return;
+  }
+
+  if (normalized === 'category') {
+    setCouponBuilderQuickMode('category');
+    const selectedServices = getCouponBuilderSelectedServices();
+    if (!selectedServices.length) {
+      setCouponBuilderServicesSelection(COUPON_BUILDER_SERVICES);
+    }
+    clearCouponBuilderResourceScopeSelection();
+    if (scopeSelect) scopeSelect.value = 'category';
+    syncCouponBuilderScopeFields();
+    renderCouponBuilderQuickSingleResourceOptions({ keepSelection: false });
+    renderCouponBuilderScopeSummary();
+    return;
+  }
+
+  setCouponBuilderQuickMode('single');
+  const singleServiceSelect = $('#couponBuilderQuickSingleService');
+  const preferredService = normalizeCouponConsoleServiceType(singleServiceSelect?.value || '')
+    || getCouponBuilderSelectedServices()[0]
+    || 'cars';
+  if (singleServiceSelect) singleServiceSelect.value = preferredService;
+  setCouponBuilderServicesSelection([preferredService]);
+  clearCouponBuilderResourceScopeSelection();
+  if (scopeSelect) scopeSelect.value = 'resource';
+  syncCouponBuilderScopeFields();
+  try {
+    await syncCouponBuilderResourceScopePanel();
+  } finally {
+    renderCouponBuilderQuickSingleResourceOptions({ keepSelection: false });
+    renderCouponBuilderScopeSummary();
+  }
+}
+
+async function handleCouponBuilderQuickSingleServiceChange() {
+  const singleServiceSelect = $('#couponBuilderQuickSingleService');
+  const scopeSelect = $('#couponBuilderScopeMode');
+  const serviceType = normalizeCouponConsoleServiceType(singleServiceSelect?.value || '');
+  if (!serviceType) return;
+
+  setCouponBuilderQuickMode('single');
+  setCouponBuilderServicesSelection([serviceType]);
+  clearCouponBuilderResourceScopeSelection();
+  if (scopeSelect) scopeSelect.value = 'resource';
+  syncCouponBuilderScopeFields();
+
+  try {
+    await syncCouponBuilderResourceScopePanel();
+  } finally {
+    renderCouponBuilderQuickSingleResourceOptions({ keepSelection: false });
+    renderCouponBuilderScopeSummary();
+  }
+}
+
+async function applyCouponBuilderSingleQuickScope() {
+  const serviceType = normalizeCouponConsoleServiceType($('#couponBuilderQuickSingleService')?.value || '');
+  const resourceId = String($('#couponBuilderQuickSingleResource')?.value || '').trim();
+  if (!serviceType) {
+    throw new Error('Select a service first');
+  }
+  if (!resourceId) {
+    throw new Error('Select one exact item/offer to continue');
+  }
+
+  const scopeSelect = $('#couponBuilderScopeMode');
+  setCouponBuilderQuickMode('single');
+  setCouponBuilderServicesSelection([serviceType]);
+  clearCouponBuilderResourceScopeSelection();
+  if (scopeSelect) scopeSelect.value = 'resource';
+  syncCouponBuilderScopeFields();
+
+  let set = couponBuilderResourceScopeState.selectedByService[serviceType];
+  if (!(set instanceof Set)) {
+    set = new Set();
+    couponBuilderResourceScopeState.selectedByService[serviceType] = set;
+  }
+  set.add(resourceId);
+
+  await syncCouponBuilderResourceScopePanel();
+  renderCouponBuilderQuickSingleResourceOptions();
+  renderCouponBuilderScopeSummary();
+  const label = getCouponBuilderResourceLabel(serviceType, resourceId) || resourceId;
+  setCouponBuilderFeedback(`Single item scope applied: ${getCouponBuilderServiceLabel(serviceType)} -> ${label}`, 'info');
 }
 
 function getCouponBuilderSelectedResourceIdsByService() {
@@ -22236,11 +22494,15 @@ function renderCouponBuilderResourceScopePanel() {
   const scopeMode = String($('#couponBuilderScopeMode')?.value || 'all').trim().toLowerCase();
   const resourceMode = scopeMode === 'resource';
   panel.hidden = !resourceMode;
-  if (!resourceMode) return;
+  if (!resourceMode) {
+    syncCouponBuilderQuickPanels();
+    return;
+  }
 
   const selectedServices = getCouponBuilderSelectedServices();
   if (!selectedServices.length) {
     mount.innerHTML = '<p class="coupon-builder-resource-empty">Select at least one service to choose specific products or offers.</p>';
+    syncCouponBuilderQuickPanels();
     return;
   }
 
@@ -22327,6 +22589,7 @@ function renderCouponBuilderResourceScopePanel() {
       </article>
     `;
   }).join('');
+  syncCouponBuilderQuickPanels();
 }
 
 async function syncCouponBuilderResourceScopePanel(options = {}) {
@@ -22450,14 +22713,16 @@ function setCouponBuilderFeedback(message = '', type = 'info') {
 function syncCouponBuilderScopeFields() {
   const scopeMode = String($('#couponBuilderScopeMode')?.value || 'all').trim().toLowerCase();
   const categoriesInput = $('#couponBuilderCategoryKeys');
-  if (!categoriesInput) return;
-  const categoryMode = scopeMode === 'category';
-  categoriesInput.disabled = !categoryMode;
-  categoriesInput.placeholder = categoryMode
-    ? 'airport, city_tour, suv, paphos, larnaca'
-    : 'Enable category scope to use this field';
-  if (!categoryMode) categoriesInput.value = '';
+  if (categoriesInput) {
+    const categoryMode = scopeMode === 'category';
+    categoriesInput.disabled = !categoryMode;
+    categoriesInput.placeholder = categoryMode
+      ? 'airport, city_tour, suv, paphos, larnaca'
+      : 'Enable category scope to use this field';
+    if (!categoryMode) categoriesInput.value = '';
+  }
   void syncCouponBuilderResourceScopePanel();
+  renderCouponBuilderScopeSummary();
 }
 
 function syncCouponBuilderDiscountValueField() {
@@ -22508,7 +22773,12 @@ function resetCouponBuilderForm(options = {}) {
   if (discountValue) discountValue.value = '10';
   const scopeMode = $('#couponBuilderScopeMode');
   if (scopeMode) scopeMode.value = 'all';
+  const singleServiceSelect = $('#couponBuilderQuickSingleService');
+  if (singleServiceSelect) singleServiceSelect.value = 'cars';
+  const singleResourceSelect = $('#couponBuilderQuickSingleResource');
+  if (singleResourceSelect) singleResourceSelect.innerHTML = '<option value="">Select service first</option>';
   clearCouponBuilderResourceScopeSelection();
+  setCouponBuilderQuickMode('all');
   syncCouponBuilderScopeFields();
   syncCouponBuilderDiscountValueField();
   syncCouponBuilderSingleUseFields();
@@ -29937,10 +30207,47 @@ function initEventListeners() {
     couponsAdvancedEditors.addEventListener('toggle', syncCouponsAdvancedToggleButton);
   }
 
+  document.querySelectorAll('button[data-coupon-builder-preset]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const preset = String(button?.dataset?.couponBuilderPreset || '').trim().toLowerCase();
+      void applyCouponBuilderQuickPreset(preset);
+    });
+  });
+
+  const couponBuilderQuickSingleService = $('#couponBuilderQuickSingleService');
+  if (couponBuilderQuickSingleService) {
+    couponBuilderQuickSingleService.addEventListener('change', () => {
+      void handleCouponBuilderQuickSingleServiceChange();
+    });
+  }
+
+  const couponBuilderQuickSingleResource = $('#couponBuilderQuickSingleResource');
+  if (couponBuilderQuickSingleResource) {
+    couponBuilderQuickSingleResource.addEventListener('change', renderCouponBuilderScopeSummary);
+  }
+
+  const btnCouponBuilderApplySingleQuick = $('#btnCouponBuilderApplySingleQuick');
+  if (btnCouponBuilderApplySingleQuick) {
+    btnCouponBuilderApplySingleQuick.addEventListener('click', () => {
+      void (async () => {
+        try {
+          await applyCouponBuilderSingleQuickScope();
+        } catch (error) {
+          const message = adminErrorDetails(error, 'Failed to apply single item scope');
+          setCouponBuilderFeedback(message, 'error');
+          showToast(message, 'error');
+        }
+      })();
+    });
+  }
+
   const btnCouponBuilderSelectAll = $('#btnCouponBuilderSelectAll');
   if (btnCouponBuilderSelectAll) {
     btnCouponBuilderSelectAll.addEventListener('click', () => {
       setCouponBuilderServicesSelection(COUPON_BUILDER_SERVICES);
+      const scopeMode = String($('#couponBuilderScopeMode')?.value || 'all').trim().toLowerCase();
+      if (scopeMode === 'category') setCouponBuilderQuickMode('category');
+      else setCouponBuilderQuickMode('all');
       void syncCouponBuilderResourceScopePanel();
     });
   }
@@ -29949,12 +30256,21 @@ function initEventListeners() {
   if (btnCouponBuilderClearAll) {
     btnCouponBuilderClearAll.addEventListener('click', () => {
       setCouponBuilderServicesSelection([]);
+      setCouponBuilderQuickMode('all');
       void syncCouponBuilderResourceScopePanel();
     });
   }
 
   getCouponBuilderServiceInputs().forEach((input) => {
     input.addEventListener('change', () => {
+      if (couponBuilderQuickState.mode === 'single') {
+        const selectedCount = getCouponBuilderSelectedServices().length;
+        if (selectedCount !== 1) {
+          const scopeMode = String($('#couponBuilderScopeMode')?.value || 'all').trim().toLowerCase();
+          if (scopeMode === 'category') setCouponBuilderQuickMode('category');
+          else setCouponBuilderQuickMode('all');
+        }
+      }
       void syncCouponBuilderResourceScopePanel();
     });
   });
@@ -29975,7 +30291,17 @@ function initEventListeners() {
 
   const couponBuilderScopeMode = $('#couponBuilderScopeMode');
   if (couponBuilderScopeMode) {
-    couponBuilderScopeMode.addEventListener('change', syncCouponBuilderScopeFields);
+    couponBuilderScopeMode.addEventListener('change', () => {
+      const scopeMode = String(couponBuilderScopeMode.value || 'all').trim().toLowerCase();
+      if (scopeMode === 'all') setCouponBuilderQuickMode('all');
+      else if (scopeMode === 'category') setCouponBuilderQuickMode('category');
+      syncCouponBuilderScopeFields();
+    });
+  }
+
+  const couponBuilderCategoryKeys = $('#couponBuilderCategoryKeys');
+  if (couponBuilderCategoryKeys) {
+    couponBuilderCategoryKeys.addEventListener('input', renderCouponBuilderScopeSummary);
   }
 
   const couponBuilderDiscountType = $('#couponBuilderDiscountType');
@@ -30003,6 +30329,7 @@ function initEventListeners() {
   }
 
   syncCouponsAdvancedToggleButton();
+  setCouponBuilderQuickMode('all');
   syncCouponBuilderScopeFields();
   syncCouponBuilderDiscountValueField();
   syncCouponBuilderSingleUseFields();
