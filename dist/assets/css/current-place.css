@@ -137,6 +137,22 @@
   font-weight: 700;
 }
 
+/* Lightweight POI marker used by app-core (no external image dependencies) */
+.ce-poi-marker {
+  background: transparent !important;
+  border: 0 !important;
+}
+
+.ce-poi-marker__dot {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #2563eb;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.35);
+}
+
 @media (max-width: 768px) {
   .map-location-prompt {
     top: 12px;

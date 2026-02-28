@@ -17,7 +17,7 @@ Zaimplementowany system wyboru języka przy pierwszym odwiedzeniu strony. Popup 
 - **Storage Key:** `ce_lang_selected` (true po wyborze języka)
 - **Integracja:** Eksponuje `window.languageSelector` dla innych skryptów
 
-### 2. CSS - `/assets/css/language-selector.css`
+### 2. CSS - `/assets/css/language-selector.css?v=2`
 - **Styling:**
   - Overlay z backdrop blur (rgba(0,0,0,0.85))
   - Dialog z animacją slide-in
@@ -31,7 +31,7 @@ Zaimplementowany system wyboru języka przy pierwszym odwiedzeniu strony. Popup 
 
 ### 3. Integracja HTML - `/index.html`
 - **Dodane:**
-  - `<link rel="stylesheet" href="assets/css/language-selector.css" />` w `<head>`
+  - `<link rel="stylesheet" href="assets/css/language-selector.css?v=2" />` w `<head>`
   - `<script src="js/languageSelector.js" defer></script>` PRZED `js/i18n.js`
   
 - **Kolejność skryptów (ważne!):**

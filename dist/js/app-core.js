@@ -699,14 +699,18 @@ try {
     });
   }
 
-  function applyMapMarkerFilter() {
+  function applyMapMarkerFilter(options = {}) {
+    const rerenderPoiMarkers = options.rerenderPoiMarkers !== false;
+    const refreshRecommendationVisibility = options.refreshRecommendationVisibility !== false;
     if (!mapInstance) {
       return;
     }
 
-    addMarkers();
+    if (rerenderPoiMarkers) {
+      addMarkers();
+    }
 
-    if (typeof window.setRecommendationMarkersVisibility === 'function') {
+    if (refreshRecommendationVisibility && typeof window.setRecommendationMarkersVisibility === 'function') {
       window.setRecommendationMarkersVisibility(mapInstance, shouldShowRecommendationMarkers());
     }
 
@@ -732,7 +736,10 @@ try {
     mapFilterListenersAttached = true;
     const rerenderMapFilterForLanguage = () => {
       renderMapMarkerFilterControl();
-      applyMapMarkerFilter();
+      applyMapMarkerFilter({
+        rerenderPoiMarkers: false,
+        refreshRecommendationVisibility: false,
+      });
     };
     window.addEventListener('mapRecommendationMarkersUpdated', () => {
       updateMapMarkerFilterCounter();
@@ -749,11 +756,11 @@ try {
   async function initializeUserLocation({ requestPermission = false } = {}) {
     ceLog('📍 initializeUserLocation() wywołane');
     if (!mapInstance) {
-      console.warn('📍 Brak mapInstance - pomijam lokalizację użytkownika');
+      ceLog('📍 Brak mapInstance - pomijam lokalizację użytkownika');
       return;
     }
     if (!navigator.geolocation) {
-      console.warn('📍 Brak geolocation API');
+      ceLog('📍 Brak geolocation API');
       showMapLocationPrompt('unsupported');
       return;
     }
@@ -831,7 +838,7 @@ try {
         startHighAccuracyTracking(updatePosition);
       },
       (error) => {
-        console.warn('📍 Szybka lokalizacja failed:', error.message);
+        ceLog('📍 Szybka lokalizacja failed:', error?.message || 'unknown');
         if (Number(error?.code) === 1 || permissionState === 'denied') {
           showMapLocationPrompt('denied');
           return;
@@ -858,7 +865,7 @@ try {
       (error) => {
         // Cichy błąd - nie spamuj konsoli przy każdym timeout
         if (error.code !== 3) { // 3 = TIMEOUT
-          console.warn('📍 Tracking error:', error.message);
+          ceLog('📍 Tracking error:', error?.message || 'unknown');
         }
       },
       { enableHighAccuracy: true, maximumAge: 30000, timeout: 60000 }
@@ -1056,14 +1063,13 @@ try {
       return;
     }
     
-    // Custom ikona (niebieski marker)
-    const customIcon = L.icon({
-      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
-      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-      shadowSize: [41, 41]
+    // Lightweight local marker (no external icon downloads)
+    const customIcon = L.divIcon({
+      className: 'ce-poi-marker',
+      html: '<span class="ce-poi-marker__dot" aria-hidden="true"></span>',
+      iconSize: [20, 20],
+      iconAnchor: [10, 10],
+      popupAnchor: [0, -12],
     });
     
     // Dodaj każdy POI z Supabase
