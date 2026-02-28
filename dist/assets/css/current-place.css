@@ -96,6 +96,56 @@
   pointer-events: auto;
 }
 
+/* User location consent prompt */
+.map-location-prompt {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1200;
+  width: min(360px, calc(100% - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(37, 99, 235, 0.28);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.18);
+}
+
+.map-location-prompt__title {
+  margin: 0;
+  font-family: 'Jost', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.map-location-prompt__description {
+  margin: 0;
+  font-family: 'Jost', sans-serif;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #334155;
+}
+
+.map-location-prompt__action {
+  width: 100%;
+  min-height: 36px;
+  font-family: 'Jost', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .map-location-prompt {
+    top: 12px;
+    right: 12px;
+    width: min(380px, calc(100% - 24px));
+    padding: 10px 12px;
+  }
+}
+
 /* ===================================
    FLOATING BOTTOM CARD
    ================================== */

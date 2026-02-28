@@ -198,6 +198,9 @@ try {
   let mapVisiblePoiIds = null;
   let mapVisibleItems = null;
   let lastVisiblePoiIdsSignature = '';
+  let mapLocationPrompt = null;
+  let mapLocationPromptState = 'prompt';
+  let mapLocationPromptListenersAttached = false;
   
   function getPlacesDataNow() {
     if (window.PLACES_DATA && Array.isArray(window.PLACES_DATA)) {
@@ -257,6 +260,129 @@ try {
     }
 
     return fallback;
+  }
+
+  function getUiLanguageCode() {
+    const raw = String(
+      (window.appI18n && window.appI18n.language) ||
+      document.documentElement?.lang ||
+      'pl'
+    ).toLowerCase();
+    const short = raw.split('-')[0] || raw;
+    return short === 'en' ? 'en' : 'pl';
+  }
+
+  function getLocationPromptCopy(state = 'prompt') {
+    const isEn = getUiLanguageCode() === 'en';
+    const copy = {
+      pl: {
+        title: 'Udostępnij lokalizację',
+        prompt: 'Włącz lokalizację, aby mapa mogła pokazać Twoją pozycję i prowadzić dokładniej.',
+        denied: 'Dostęp do lokalizacji jest zablokowany. Odblokuj go w ustawieniach przeglądarki, aby włączyć pełną funkcjonalność mapy.',
+        unsupported: 'Ta przeglądarka nie obsługuje geolokalizacji, więc nie możemy pokazać Twojej pozycji na mapie.',
+        action: 'Włącz lokalizację',
+      },
+      en: {
+        title: 'Share your location',
+        prompt: 'Enable location so the map can show your live position and provide full map functionality.',
+        denied: 'Location access is blocked. Enable it in browser settings to restore full map functionality.',
+        unsupported: 'This browser does not support geolocation, so we cannot show your position on the map.',
+        action: 'Enable location',
+      },
+    };
+
+    const selected = isEn ? copy.en : copy.pl;
+    return {
+      title: selected.title,
+      description:
+        state === 'unsupported'
+          ? selected.unsupported
+          : state === 'denied'
+          ? selected.denied
+          : selected.prompt,
+      action: selected.action,
+    };
+  }
+
+  function ensureMapLocationPrompt() {
+    if (mapLocationPrompt) {
+      return mapLocationPrompt;
+    }
+
+    const mapPanel = document.getElementById('current-objective');
+    if (!mapPanel) {
+      return null;
+    }
+
+    const container = document.createElement('div');
+    container.className = 'map-location-prompt';
+    container.hidden = true;
+    container.setAttribute('role', 'status');
+    container.setAttribute('aria-live', 'polite');
+
+    const title = document.createElement('h3');
+    title.className = 'map-location-prompt__title';
+
+    const description = document.createElement('p');
+    description.className = 'map-location-prompt__description';
+
+    const action = document.createElement('button');
+    action.type = 'button';
+    action.className = 'btn primary map-location-prompt__action';
+    action.addEventListener('click', () => {
+      initializeUserLocation({ requestPermission: true });
+    });
+
+    container.appendChild(title);
+    container.appendChild(description);
+    container.appendChild(action);
+    mapPanel.appendChild(container);
+
+    mapLocationPrompt = { container, title, description, action };
+    return mapLocationPrompt;
+  }
+
+  function updateMapLocationPrompt(state = 'prompt') {
+    const prompt = ensureMapLocationPrompt();
+    if (!prompt) {
+      return;
+    }
+    mapLocationPromptState = state;
+    const copy = getLocationPromptCopy(state);
+    prompt.title.textContent = copy.title;
+    prompt.description.textContent = copy.description;
+    prompt.action.textContent = copy.action;
+    prompt.action.disabled = state === 'unsupported';
+  }
+
+  function showMapLocationPrompt(state = 'prompt') {
+    const prompt = ensureMapLocationPrompt();
+    if (!prompt) {
+      return;
+    }
+    updateMapLocationPrompt(state);
+    prompt.container.hidden = false;
+  }
+
+  function hideMapLocationPrompt() {
+    if (!mapLocationPrompt || !mapLocationPrompt.container) {
+      return;
+    }
+    mapLocationPrompt.container.hidden = true;
+  }
+
+  function attachMapLocationPromptListeners() {
+    if (mapLocationPromptListenersAttached) {
+      return;
+    }
+    mapLocationPromptListenersAttached = true;
+    const rerender = () => {
+      if (mapLocationPrompt && mapLocationPrompt.container && !mapLocationPrompt.container.hidden) {
+        updateMapLocationPrompt(mapLocationPromptState);
+      }
+    };
+    window.addEventListener('languageChanged', rerender);
+    document.addEventListener('wakacjecypr:languagechange', rerender);
   }
 
   function interpolateTemplate(template, values = {}) {
@@ -620,7 +746,7 @@ try {
     });
   }
 
-  async function initializeUserLocation() {
+  async function initializeUserLocation({ requestPermission = false } = {}) {
     ceLog('📍 initializeUserLocation() wywołane');
     if (!mapInstance) {
       console.warn('📍 Brak mapInstance - pomijam lokalizację użytkownika');
@@ -628,16 +754,23 @@ try {
     }
     if (!navigator.geolocation) {
       console.warn('📍 Brak geolocation API');
+      showMapLocationPrompt('unsupported');
       return;
     }
 
-    // Best practice: do not trigger geolocation prompt on initial page load.
-    // Start passive tracking only when permission was already granted earlier.
+    let permissionState = null;
+    const hasPermissionsApi = !!(navigator.permissions && typeof navigator.permissions.query === 'function');
+    if (!requestPermission && !hasPermissionsApi) {
+      showMapLocationPrompt('prompt');
+      return;
+    }
     try {
-      if (navigator.permissions && typeof navigator.permissions.query === 'function') {
+      if (hasPermissionsApi) {
         const permission = await navigator.permissions.query({ name: 'geolocation' });
-        if (permission && permission.state !== 'granted') {
-          ceLog('📍 Geolocation permission is not granted yet - skipping auto-start');
+        permissionState = permission?.state || null;
+        if (!requestPermission && permissionState !== 'granted') {
+          ceLog('📍 Geolocation permission is not granted yet - showing prompt');
+          showMapLocationPrompt(permissionState === 'denied' ? 'denied' : 'prompt');
           return;
         }
       }
@@ -672,6 +805,8 @@ try {
       } else {
         userLocationMarker.setLatLng(latLng);
       }
+
+      hideMapLocationPrompt();
       
       if (!hasCenteredOnUser) {
         hasCenteredOnUser = true;
@@ -697,6 +832,10 @@ try {
       },
       (error) => {
         console.warn('📍 Szybka lokalizacja failed:', error.message);
+        if (Number(error?.code) === 1 || permissionState === 'denied') {
+          showMapLocationPrompt('denied');
+          return;
+        }
         // Spróbuj od razu z wysoką dokładnością
         startHighAccuracyTracking(updatePosition);
       },
@@ -828,6 +967,7 @@ try {
 
     setupMapMarkerFilterControl();
     attachMapFilterListeners();
+    attachMapLocationPromptListeners();
 
     if (!mapInstance._cePopupPanInsideBound) {
       mapInstance._cePopupPanInsideBound = true;
