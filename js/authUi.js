@@ -221,15 +221,11 @@ const AUTH_SUCCESS_OVERLAY_TEMPLATE = `
 `;
 
 function applyAuthConfirmationTranslations(element) {
-  const i18n = window.appI18n;
-  const language = i18n?.language;
-  if (!i18n || typeof i18n.setLanguage !== 'function' || !language) {
+  // Auth confirmation templates are built with localized strings from t().
+  // Running global appI18n.setLanguage() here causes a full-page second language pass
+  // during boot, which can create visible flicker.
+  if (!(element instanceof HTMLElement)) {
     return;
-  }
-  try {
-    i18n.setLanguage(language, { persist: false, updateUrl: false });
-  } catch (error) {
-    console.warn('[auth-ui] Nie udało się odświeżyć tłumaczeń sekcji potwierdzenia.', error);
   }
 }
 

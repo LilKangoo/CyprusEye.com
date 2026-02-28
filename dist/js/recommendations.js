@@ -4,7 +4,7 @@
  */
 
 import { supabase } from '/js/supabaseClient.js';
-import { waitForAuthReady } from '/js/authUi.js?v=3';
+import { waitForAuthReady } from '/js/authUi.js?v=4';
 
 // ============================================================================
 // STATE

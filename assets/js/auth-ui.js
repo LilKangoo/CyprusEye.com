@@ -1,4 +1,4 @@
-import { waitForAuthReady, updateAuthUI } from '/js/authUi.js?v=3';
+import { waitForAuthReady, updateAuthUI } from '/js/authUi.js?v=4';
 
 const ceAuth = typeof window !== 'undefined' && window.CE_AUTH ? window.CE_AUTH : null;
 

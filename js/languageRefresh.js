@@ -6,6 +6,8 @@
 // Per-callback debounce timeouts
 const languageChangeHandlers = new Map();
 let languageRefreshListenersAttached = false;
+let lastLanguageEvent = { code: '', at: 0 };
+const LANGUAGE_EVENT_DEDUPE_MS = 350;
 
 /**
  * Register a callback to be called when language changes
@@ -29,7 +31,20 @@ function registerLanguageChangeHandler(callback, debounceMs = 200) {
     languageRefreshListenersAttached = true;
 
     const handleLanguageChange = (language) => {
-      console.log('🌐 Language changed to:', language);
+      const nextCode = String(language || '').trim().toLowerCase();
+      if (!nextCode) {
+        return;
+      }
+
+      const now = Date.now();
+      if (
+        lastLanguageEvent.code === nextCode &&
+        (now - lastLanguageEvent.at) < LANGUAGE_EVENT_DEDUPE_MS
+      ) {
+        return;
+      }
+
+      lastLanguageEvent = { code: nextCode, at: now };
 
       languageChangeHandlers.forEach((entry) => {
         if (!entry || typeof entry.callback !== 'function') return;
@@ -37,8 +52,7 @@ function registerLanguageChangeHandler(callback, debounceMs = 200) {
           clearTimeout(entry.timeoutId);
         }
         entry.timeoutId = setTimeout(() => {
-          console.log('🔄 Executing language change callback');
-          entry.callback(language);
+          entry.callback(nextCode);
         }, entry.debounceMs);
       });
     };
@@ -55,10 +69,7 @@ function registerLanguageChangeHandler(callback, debounceMs = 200) {
     });
   }
 
-  console.log('✅ Language change handler registered');
 }
 
 // Export globally
 window.registerLanguageChangeHandler = registerLanguageChangeHandler;
-
-console.log('✅ Global Language Refresh System loaded');

@@ -1,4 +1,4 @@
-import { bootAuth, updateAuthUI } from './authUi.js?v=3';
+import { bootAuth, updateAuthUI } from './authUi.js?v=4';
 import { showErr, showInfo, showOk } from './authMessages.js';
 import { loadProfileForUser } from './profile.js';
 import { URLS } from './config.js';
