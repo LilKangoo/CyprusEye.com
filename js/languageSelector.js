@@ -163,6 +163,9 @@
     selectLanguage(code) {
       this.selectedLanguage = code;
       markLanguageAsSelected();
+      try {
+        document.dispatchEvent(new CustomEvent('ce:language-selected', { detail: { language: code } }));
+      } catch (_) {}
 
       // Set language using the i18n system
       if (window.appI18n && typeof window.appI18n.setLanguage === 'function') {
@@ -255,6 +258,13 @@
   }
 
   function initSelector() {
+    if (window.languageSelector && typeof window.languageSelector.shouldShow === 'function') {
+      if (window.languageSelector.shouldShow() && typeof window.languageSelector.show === 'function') {
+        window.languageSelector.show();
+      }
+      return;
+    }
+
     const selector = new LanguageSelector();
 
     // Show selector if needed (before tutorial and i18n init)

@@ -16,6 +16,17 @@ export function initForceRefresh(sb) {
   const DEBUG_KEY = 'CE_FORCE_REFRESH_DEBUG';
   const FORCE_REFRESH_ROW_ID = 1;
 
+  const isHomePage = () => (String(document.body?.dataset?.seoPage || '').toLowerCase() === 'home');
+
+  const isLanguageSelectionPending = () => {
+    if (!isHomePage()) return false;
+    try {
+      return String(window.localStorage.getItem('ce_lang_selected') || '').toLowerCase() !== 'true';
+    } catch (_) {
+      return false;
+    }
+  };
+
   const readApplied = () => {
     try {
       return Number(window.localStorage.getItem(LS_APPLIED) || 0);
@@ -127,6 +138,20 @@ export function initForceRefresh(sb) {
         return { action: 'applied_pending', remote };
       }
 
+      // Do not force-reload homepage during first language selection flow.
+      // Otherwise users can see language modal twice (reload while selector is open).
+      if (isLanguageSelectionPending()) {
+        emitDebug({
+          lastCheckAt: new Date().toISOString(),
+          trigger,
+          action: 'deferred_for_language_selection',
+          remoteVersion: remote,
+          appliedVersion: applied,
+          pendingVersion: pending,
+        });
+        return { action: 'deferred_for_language_selection', remote };
+      }
+
       writePending(remote);
       emitDebug({
         lastCheckAt: new Date().toISOString(),
@@ -160,6 +185,16 @@ export function initForceRefresh(sb) {
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {
       checkAndReloadIfNeeded('visibility');
+    }
+  });
+
+  document.addEventListener('ce:language-selected', () => {
+    checkAndReloadIfNeeded('language-selected');
+  });
+
+  window.addEventListener('storage', (event) => {
+    if (event?.key === 'ce_lang_selected' && String(event.newValue || '').toLowerCase() === 'true') {
+      checkAndReloadIfNeeded('language-storage');
     }
   });
 
