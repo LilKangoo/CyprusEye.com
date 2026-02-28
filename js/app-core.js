@@ -1071,6 +1071,39 @@ try {
       iconAnchor: [10, 10],
       popupAnchor: [0, -12],
     });
+
+    // Some POIs share identical coordinates. Spread only duplicates slightly
+    // so all markers remain visible without changing the actual route logic.
+    const coordinateBuckets = new Map();
+    window.PLACES_DATA.forEach((poi) => {
+      const coordinates = getPoiCoordinates(poi);
+      if (!coordinates) return;
+      const key = `${coordinates.lat.toFixed(6)},${coordinates.lng.toFixed(6)}`;
+      const list = coordinateBuckets.get(key) || [];
+      list.push(poi.id || list.length + 1);
+      coordinateBuckets.set(key, list);
+    });
+    const bucketCursor = new Map();
+    const spreadRadiusDeg = 0.00016;
+    const getMarkerPosition = (lat, lng, key) => {
+      const total = (coordinateBuckets.get(key) || []).length;
+      if (total <= 1) {
+        return [lat, lng];
+      }
+      const idx = bucketCursor.get(key) || 0;
+      bucketCursor.set(key, idx + 1);
+
+      const ring = Math.floor(idx / 6);
+      const ringSize = 6 * (ring + 1);
+      const positionInRing = idx % ringSize;
+      const angle = (positionInRing / ringSize) * Math.PI * 2;
+      const radius = spreadRadiusDeg * (1 + ring * 0.75);
+
+      return [
+        lat + Math.sin(angle) * radius,
+        lng + Math.cos(angle) * radius,
+      ];
+    };
     
     // Dodaj każdy POI z Supabase
     let addedCount = 0;
@@ -1091,6 +1124,8 @@ try {
         return;
       }
       const { lat, lng } = coordinates;
+      const coordinateKey = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+      const [markerLat, markerLng] = getMarkerPosition(lat, lng, coordinateKey);
       
       // Nazwa z Supabase (with i18n support)
       const name = window.getPoiName ? window.getPoiName(poi) : (poi.nameFallback || poi.name || poi.id);
@@ -1098,7 +1133,7 @@ try {
       ceLog(`📍 [${index}] Dodaję marker: ${name} (ID: ${poi.id}) [${lat}, ${lng}]`);
       
       // Stwórz marker
-      const marker = L.marker([lat, lng], { icon: customIcon });
+      const marker = L.marker([markerLat, markerLng], { icon: customIcon });
       
       // Popups are intentionally disabled on map markers.
       marker.unbindPopup();
