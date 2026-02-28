@@ -784,6 +784,7 @@ try {
     } catch (_) {}
     
     let hasCenteredOnUser = false;
+    const USER_MARKER_Z_INDEX = 16000;
     
     // Użyj niebieskiej kropki zamiast avatara (bardziej widoczna)
     const userIcon = L.divIcon({
@@ -875,12 +876,13 @@ try {
         ceLog('📍 Tworzę marker użytkownika');
         userLocationMarker = L.marker(latLng, { 
           icon: userIcon, 
-          zIndexOffset: 2000,
+          zIndexOffset: USER_MARKER_Z_INDEX,
           interactive: false,
           keyboard: false,
         }).addTo(mapInstance);
       } else {
         userLocationMarker.setLatLng(latLng);
+        userLocationMarker.setZIndexOffset(USER_MARKER_Z_INDEX);
       }
 
       hideMapLocationPrompt();
