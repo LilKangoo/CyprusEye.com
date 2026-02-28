@@ -635,12 +635,14 @@
 .user-location-marker {
   background: transparent !important;
   border: none !important;
+  pointer-events: none !important;
 }
 
 .user-dot {
   position: relative;
   width: 24px;
   height: 24px;
+  pointer-events: none !important;
 }
 
 .user-dot-core {

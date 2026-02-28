@@ -795,20 +795,62 @@ try {
       iconSize: [24, 24],
       iconAnchor: [12, 12]
     });
+
+    const toRadians = (value) => (Number(value) * Math.PI) / 180;
+    const metersBetween = (lat1, lng1, lat2, lng2) => {
+      const earthRadius = 6371000;
+      const dLat = toRadians(lat2 - lat1);
+      const dLng = toRadians(lng2 - lng1);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+      return earthRadius * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+    };
+
+    const getSafeUserMarkerLatLng = (lat, lng) => {
+      const places = getPlacesDataNow();
+      if (!Array.isArray(places) || places.length === 0) {
+        return [lat, lng];
+      }
+
+      let overlapsPoi = false;
+      for (let i = 0; i < places.length; i += 1) {
+        const coordinates = getPoiCoordinates(places[i]);
+        if (!coordinates) continue;
+        if (metersBetween(lat, lng, coordinates.lat, coordinates.lng) <= 18) {
+          overlapsPoi = true;
+          break;
+        }
+      }
+
+      if (!overlapsPoi) {
+        return [lat, lng];
+      }
+
+      // Shift only marker visualization so POI marker remains clickable.
+      const offsetMeters = 14;
+      const angle = Math.PI / 4; // 45deg
+      const metersPerLat = 111320;
+      const cosLat = Math.max(Math.cos(toRadians(lat)), 0.25);
+      const latOffset = (offsetMeters / metersPerLat) * Math.sin(angle);
+      const lngOffset = (offsetMeters / (metersPerLat * cosLat)) * Math.cos(angle);
+      return [lat + latOffset, lng + lngOffset];
+    };
     
     const updatePosition = (lat, lng, accuracy) => {
       ceLog('📍 Aktualizacja pozycji:', lat, lng, '(dokładność:', accuracy, 'm)');
       window.currentUserLocation = { lat, lng, accuracy, timestamp: Date.now() };
-      const latLng = [lat, lng];
+      const latLng = getSafeUserMarkerLatLng(lat, lng);
       
       if (!userLocationMarker) {
         ceLog('📍 Tworzę marker użytkownika');
         userLocationMarker = L.marker(latLng, { 
           icon: userIcon, 
           zIndexOffset: 10000,
-          interactive: true
+          interactive: false,
+          keyboard: false,
         }).addTo(mapInstance);
-        userLocationMarker.bindPopup('📍 Twoja lokalizacja');
       } else {
         userLocationMarker.setLatLng(latLng);
       }
