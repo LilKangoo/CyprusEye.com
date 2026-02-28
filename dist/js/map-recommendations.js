@@ -147,40 +147,37 @@ function ensurePromoAuthStateListener() {
   });
 }
 
-let greenIcon = null;
+const recommendationIconCache = new Map();
 
-function getGreenIcon() {
-  if (greenIcon) {
-    return greenIcon;
-  }
+function getRecommendationEmoji(rec) {
+  const category = rec?.recommendation_categories || {};
+  const raw = String(
+    category.icon || rec?.category_icon || rec?.icon || '📍'
+  ).trim();
+  if (!raw) return '📍';
+  const glyph = Array.from(raw).slice(0, 2).join('');
+  return glyph || '📍';
+}
+
+function getRecommendationIcon(rec) {
   if (typeof L === 'undefined' || typeof L.divIcon !== 'function') {
     return null;
   }
-  greenIcon = L.divIcon({
+
+  const emoji = getRecommendationEmoji(rec);
+  if (recommendationIconCache.has(emoji)) {
+    return recommendationIconCache.get(emoji);
+  }
+
+  const icon = L.divIcon({
     className: 'recommendation-marker',
-    html: `<div style="
-      width: 28px;
-      height: 28px;
-      background: #22c55e;
-      border: 3px solid #ffffff;
-      border-radius: 50% 50% 50% 0;
-      transform: rotate(-45deg);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    "><div style="
-      width: 10px;
-      height: 10px;
-      background: #ffffff;
-      border-radius: 50%;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-    "></div></div>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 28],
-    popupAnchor: [0, -28]
+    html: `<span class="recommendation-marker__emoji" aria-hidden="true">${emoji}</span>`,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+    popupAnchor: [0, -16],
   });
-  return greenIcon;
+  recommendationIconCache.set(emoji, icon);
+  return icon;
 }
 
 function getRecommendationMarkersStats(mapInstance = recommendationMapInstance) {
@@ -320,9 +317,8 @@ async function loadRecommendationsForMap() {
 // SYNC MARKERS
 // ============================================================================
 function syncRecommendationMarkers(mapInstance) {
-  const icon = getGreenIcon();
-  if (!mapInstance || !icon) {
-    console.warn('[map-recommendations] Map or icon not ready');
+  if (!mapInstance) {
+    console.warn('[map-recommendations] Map is not ready');
     return;
   }
   recommendationMapInstance = mapInstance;
@@ -337,10 +333,15 @@ function syncRecommendationMarkers(mapInstance) {
   
   mapRecommendations.forEach((rec) => {
     if (!rec.latitude || !rec.longitude) return;
+    const icon = getRecommendationIcon(rec);
+    if (!icon) return;
     
     const hasMarker = recommendationMarkers.has(rec.id);
     if (!hasMarker) {
-      const marker = L.marker([rec.latitude, rec.longitude], { icon });
+      const marker = L.marker([rec.latitude, rec.longitude], {
+        icon,
+        zIndexOffset: 4200,
+      });
       if (recommendationMarkersVisible) {
         marker.addTo(mapInstance);
       }
@@ -358,6 +359,9 @@ function syncRecommendationMarkers(mapInstance) {
       recommendationMarkers.set(rec.id, marker);
     } else {
       const marker = recommendationMarkers.get(rec.id);
+      if (marker && typeof marker.setIcon === 'function') {
+        marker.setIcon(icon);
+      }
       marker.unbindPopup();
       if (recommendationMarkersVisible) {
         if (!mapInstance.hasLayer(marker)) {

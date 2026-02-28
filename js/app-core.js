@@ -809,32 +809,60 @@ try {
     };
 
     const getSafeUserMarkerLatLng = (lat, lng) => {
+      const candidates = [];
       const places = getPlacesDataNow();
-      if (!Array.isArray(places) || places.length === 0) {
-        return [lat, lng];
-      }
-
-      let overlapsPoi = false;
-      for (let i = 0; i < places.length; i += 1) {
-        const coordinates = getPoiCoordinates(places[i]);
-        if (!coordinates) continue;
-        if (metersBetween(lat, lng, coordinates.lat, coordinates.lng) <= 18) {
-          overlapsPoi = true;
-          break;
+      if (Array.isArray(places)) {
+        for (let i = 0; i < places.length; i += 1) {
+          const coordinates = getPoiCoordinates(places[i]);
+          if (!coordinates) continue;
+          candidates.push(coordinates);
         }
       }
 
-      if (!overlapsPoi) {
+      if (typeof window.getMapRecommendationsData === 'function') {
+        const recommendations = window.getMapRecommendationsData();
+        if (Array.isArray(recommendations)) {
+          for (let i = 0; i < recommendations.length; i += 1) {
+            const rec = recommendations[i];
+            const recLat = Number(rec?.latitude);
+            const recLng = Number(rec?.longitude);
+            if (!Number.isFinite(recLat) || !Number.isFinite(recLng)) continue;
+            candidates.push({ lat: recLat, lng: recLng });
+          }
+        }
+      }
+
+      if (candidates.length === 0) {
         return [lat, lng];
       }
 
-      // Shift only marker visualization so POI marker remains clickable.
-      const offsetMeters = 14;
-      const angle = Math.PI / 4; // 45deg
+      let nearest = null;
+      let nearestMeters = Infinity;
+      for (let i = 0; i < candidates.length; i += 1) {
+        const candidate = candidates[i];
+        const distance = metersBetween(lat, lng, candidate.lat, candidate.lng);
+        if (distance < nearestMeters) {
+          nearestMeters = distance;
+          nearest = candidate;
+        }
+      }
+
+      const minClearDistance = 24;
+      if (!nearest || nearestMeters > minClearDistance) {
+        return [lat, lng];
+      }
+
       const metersPerLat = 111320;
-      const cosLat = Math.max(Math.cos(toRadians(lat)), 0.25);
-      const latOffset = (offsetMeters / metersPerLat) * Math.sin(angle);
-      const lngOffset = (offsetMeters / (metersPerLat * cosLat)) * Math.cos(angle);
+      const metersPerLng = metersPerLat * Math.max(Math.cos(toRadians(lat)), 0.25);
+      const dx = (lng - nearest.lng) * metersPerLng;
+      const dy = (lat - nearest.lat) * metersPerLat;
+      const angle = (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001)
+        ? (Math.PI / 4)
+        : Math.atan2(dy, dx);
+
+      const offsetMeters = Math.max(12, Math.min(42, (minClearDistance - nearestMeters) + 12));
+      const latOffset = (offsetMeters * Math.sin(angle)) / metersPerLat;
+      const lngOffset = (offsetMeters * Math.cos(angle)) / metersPerLng;
       return [lat + latOffset, lng + lngOffset];
     };
     
@@ -847,7 +875,7 @@ try {
         ceLog('📍 Tworzę marker użytkownika');
         userLocationMarker = L.marker(latLng, { 
           icon: userIcon, 
-          zIndexOffset: 10000,
+          zIndexOffset: 2000,
           interactive: false,
           keyboard: false,
         }).addTo(mapInstance);
@@ -1175,7 +1203,10 @@ try {
       ceLog(`📍 [${index}] Dodaję marker: ${name} (ID: ${poi.id}) [${lat}, ${lng}]`);
       
       // Stwórz marker
-      const marker = L.marker([markerLat, markerLng], { icon: customIcon });
+      const marker = L.marker([markerLat, markerLng], {
+        icon: customIcon,
+        zIndexOffset: 4000,
+      });
       
       // Popups are intentionally disabled on map markers.
       marker.unbindPopup();
