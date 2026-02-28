@@ -636,7 +636,7 @@
       el.addEventListener('touchend', (e)=>{ if(sx==null) return; const t=e.changedTouches[0]; const dx=t.clientX-sx; const dy=t.clientY-sy; sx=sy=null; if(Math.abs(dx)>60 && Math.abs(dy)<80){ if(dx<0) showLightbox(lbIndex+1); else showLightbox(lbIndex-1);} }, {passive:true});
     })();
   </script>
-  <script src="js/languageSelector.js?v=2" defer></script>
+  <script src="js/languageSelector.js?v=3" defer></script>
   <script src="js/i18n.js" defer></script>
   <script src="js/seo.js" defer></script>
   <script src="js/mobile-nav.js" defer></script>

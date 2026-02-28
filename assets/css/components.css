@@ -5158,6 +5158,15 @@ main::before {
   align-items: start;
 }
 
+/* Performance: defer layout/paint work for below-the-fold home sections */
+body[data-seo-page='home'] .home-panels-2col,
+body[data-seo-page='home'] .cars-home-section,
+body[data-seo-page='home'] .home-transport-section,
+body[data-seo-page='home'] .recommendations-home-section {
+  content-visibility: auto;
+  contain-intrinsic-size: 920px;
+}
+
 /* Remaining shortcuts single-column below */
 .home-panels-1col {
   display: grid;

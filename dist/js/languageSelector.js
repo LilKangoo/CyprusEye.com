@@ -2,6 +2,8 @@
   'use strict';
 
   const STORAGE_KEY = 'ce_lang_selected';
+  const BOOT_FLAG = '__ceLanguageSelectorBooted';
+  const PRESENTED_FLAG = '__ceLanguageSelectorPresented';
   const SUPPORTED_LANGUAGES = {
     pl: { label: 'Wybierz', flag: '🇵🇱', fullName: 'Polski' },
     en: { label: 'Choose', flag: '🇬🇧', fullName: 'English' },
@@ -35,6 +37,20 @@
     return (document.body?.dataset?.seoPage || '') === 'home';
   }
 
+  function hasBeenPresented() {
+    try {
+      return window[PRESENTED_FLAG] === true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function markPresented() {
+    try {
+      window[PRESENTED_FLAG] = true;
+    } catch (_) {}
+  }
+
   class LanguageSelector {
     constructor() {
       this.overlay = null;
@@ -46,7 +62,7 @@
     }
 
     shouldShow() {
-      return !hasSelectedLanguage() && isHomePage();
+      return !hasSelectedLanguage() && isHomePage() && !hasBeenPresented();
     }
 
     createUi() {
@@ -122,9 +138,13 @@
       if (this.isOpen) {
         return;
       }
+      if (hasBeenPresented()) {
+        return;
+      }
 
       this.createUi();
       this.isOpen = true;
+      markPresented();
       this.overlay.classList.add('is-visible');
       document.body.classList.add('language-selector-open');
 
@@ -247,6 +267,11 @@
 
   // Initialize on DOM ready
   function init() {
+    if (window[BOOT_FLAG] === true) {
+      return;
+    }
+    window[BOOT_FLAG] = true;
+
     // Wait for DOM to be ready
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => {

@@ -620,7 +620,7 @@ try {
     });
   }
 
-  function initializeUserLocation() {
+  async function initializeUserLocation() {
     ceLog('📍 initializeUserLocation() wywołane');
     if (!mapInstance) {
       console.warn('📍 Brak mapInstance - pomijam lokalizację użytkownika');
@@ -630,6 +630,18 @@ try {
       console.warn('📍 Brak geolocation API');
       return;
     }
+
+    // Best practice: do not trigger geolocation prompt on initial page load.
+    // Start passive tracking only when permission was already granted earlier.
+    try {
+      if (navigator.permissions && typeof navigator.permissions.query === 'function') {
+        const permission = await navigator.permissions.query({ name: 'geolocation' });
+        if (permission && permission.state !== 'granted') {
+          ceLog('📍 Geolocation permission is not granted yet - skipping auto-start');
+          return;
+        }
+      }
+    } catch (_) {}
     
     let hasCenteredOnUser = false;
     

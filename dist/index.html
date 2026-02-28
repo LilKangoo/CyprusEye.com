@@ -49,6 +49,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="preconnect" href="https://daoohnbnnowmmcizgvrq.supabase.co" crossorigin />
   <link rel="preconnect" href="https://unpkg.com" crossorigin />
+  <link rel="preconnect" href="https://a.tile.openstreetmap.org" crossorigin />
+  <link rel="preconnect" href="https://b.tile.openstreetmap.org" crossorigin />
+  <link rel="preconnect" href="https://c.tile.openstreetmap.org" crossorigin />
   <link
     rel="preload"
     as="style"
@@ -65,19 +68,24 @@
       href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
+    <link rel="stylesheet" href="assets/css/header-metrics.css" />
+    <link rel="stylesheet" href="assets/css/rtl.css" />
+    <link rel="stylesheet" href="css/toast.css" />
+    <link rel="stylesheet" href="css/successPopup.css" />
   </noscript>
   <link rel="stylesheet" href="assets/css/tokens.css" />
   <link rel="stylesheet" href="assets/css/base.css" />
   <link rel="stylesheet" href="assets/css/components.css?v=13" />
-  <link rel="stylesheet" href="assets/css/header-metrics.css" />
+  <link rel="stylesheet" href="assets/css/header-metrics.css" media="print" onload="this.media='all'" />
   <link rel="stylesheet" href="assets/css/current-place.css?v=6" />
   <link rel="stylesheet" href="assets/css/mobile.css" />
   <link rel="stylesheet" href="assets/css/mobile-nav.css" />
-  <link rel="stylesheet" href="assets/css/rtl.css" />
+  <link rel="stylesheet" href="assets/css/rtl.css" media="print" onload="this.media='all'" />
   <link rel="stylesheet" href="assets/css/language-switcher.css" />
   <link rel="stylesheet" href="assets/css/language-selector.css" />
-  <link rel="stylesheet" href="css/toast.css" />
-  <link rel="stylesheet" href="css/successPopup.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <link rel="stylesheet" href="css/toast.css" media="print" onload="this.media='all'" />
+  <link rel="stylesheet" href="css/successPopup.css" media="print" onload="this.media='all'" />
   <link rel="stylesheet" href="css/modal-ios-fix.css?v=2" />
   <link rel="stylesheet" href="assets/css/recommendations.css?v=2" media="print" onload="this.media='all'" />
   <link rel="stylesheet" href="assets/css/home-transport-wizard.css?v=2" media="print" onload="this.media='all'" />
@@ -103,7 +111,7 @@
       } catch(e) {}
     })();
   </script>
-  <script src="js/languageSelector.js?v=2" defer></script>
+  <script src="js/languageSelector.js?v=3" defer></script>
   <script src="js/i18n.js" defer></script>
   <script type="module" src="js/supabaseClient.js"></script>
   <script type="module" src="js/toast.js"></script>
@@ -1104,8 +1112,7 @@
     })();
   </script>
   
-  <!-- Leaflet - załaduj bezpośrednio jako fallback -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="" defer></script>
   
   <!-- Awaryjny skrypt inicjalizacji mapy -->
@@ -1118,7 +1125,7 @@
   <script src="js/poi-loader.js?v=4" defer></script>
   <script src="js/data-tasks.js" defer></script>
   <script src="js/data-packing.js" defer></script>
-  <script src="js/modalUtils.js" defer></script>
+  <script type="module" src="js/modalUtils.js"></script>
   <script src="js/successPopup.js" defer></script>
   
   <!-- Recommendations Detail Modal -->
@@ -1355,7 +1362,7 @@
   
   <!-- Load core application (defer to wait for poi-loader) -->
   <script src="js/map-recommendations.js?v=7" defer></script>
-  <script src="js/app-core.js?v=18" defer></script>
+  <script src="js/app-core.js?v=19" defer></script>
   <!-- SOS Emergency Modal -->
   <script src="js/sos.js?v=1" defer></script>
   <!-- Community UI (module) for comments/ratings modal on this page -->
