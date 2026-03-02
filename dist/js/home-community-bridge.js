@@ -532,11 +532,29 @@
       panelEl.classList.toggle('is-filter-empty', !hasVisiblePois);
     }
 
-    const noPoiMessage = t(
+    const activeMapFilter = typeof window.getMapMarkerFilter === 'function'
+      ? window.getMapMarkerFilter()
+      : 'all';
+    const activePoiCategoryFilter = typeof window.getMapPoiCategoryFilter === 'function'
+      ? window.getMapPoiCategoryFilter()
+      : 'all';
+    const activePoiCategoryLabel = typeof window.getMapPoiCategoryFilterLabel === 'function'
+      ? window.getMapPoiCategoryFilterLabel()
+      : '';
+
+    let noPoiMessage = t(
       'currentPlace.filter.noItems',
       'Brak miejsc w tym filtrze. Wybierz inny widok mapy.',
       'No places available in this filter. Switch to another map view.',
     );
+
+    if (activeMapFilter !== 'recommendations' && activePoiCategoryFilter !== 'all' && activePoiCategoryLabel) {
+      noPoiMessage = t(
+        'currentPlace.filter.noItemsCategory',
+        `Brak miejsc w kategorii „${activePoiCategoryLabel}”. Wybierz inną kategorię.`,
+        `No places in “${activePoiCategoryLabel}”. Select another category.`,
+      );
+    }
 
     if (hintEl) {
       if (!hasVisiblePois) {

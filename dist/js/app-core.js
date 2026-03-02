@@ -189,10 +189,13 @@ try {
     POI: 'poi',
     RECOMMENDATIONS: 'recommendations',
   });
+  const MAP_POI_CATEGORY_ALL = 'all';
   let mapMarkerFilter = MAP_MARKER_FILTERS.ALL;
+  let mapPoiCategoryFilter = MAP_POI_CATEGORY_ALL;
   let mapMarkerFilterControl = null;
   let mapMarkerFilterContainer = null;
   let mapMarkerFilterButtons = new Map();
+  let mapPoiCategoryFilterButtons = new Map();
   let mapMarkerFilterCounter = null;
   let mapFilterListenersAttached = false;
   let mapVisiblePoiIds = null;
@@ -426,6 +429,120 @@ try {
     return glyph || '📍';
   }
 
+  function normalizePoiCategorySlug(value) {
+    const normalized = String(value || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    return normalized || 'uncategorized';
+  }
+
+  function getPoiCategoryLookupMaps() {
+    const categories = Array.isArray(window.POI_CATEGORIES_DATA) ? window.POI_CATEGORIES_DATA : [];
+    const bySlug = new Map();
+    const byId = new Map();
+
+    categories.forEach((category) => {
+      if (!category || typeof category !== 'object') return;
+      const slug = normalizePoiCategorySlug(category.slug || category.name_en || category.name_pl || 'uncategorized');
+      bySlug.set(slug, category);
+      const id = String(category.id || '').trim();
+      if (id) byId.set(id, category);
+    });
+
+    return { bySlug, byId };
+  }
+
+  function resolvePoiCategoryMeta(poi) {
+    if (!poi || typeof poi !== 'object') {
+      return {
+        slug: 'uncategorized',
+        icon: '📍',
+        color: '#1f6feb',
+        name: getUiLanguageCode() === 'en' ? 'Uncategorized' : 'Bez kategorii',
+      };
+    }
+
+    const { bySlug, byId } = getPoiCategoryLookupMaps();
+    const fallbackSlug = normalizePoiCategorySlug(poi.category || 'uncategorized');
+    const categoryId = String(poi.category_id || '').trim();
+    const category = byId.get(categoryId) || bySlug.get(fallbackSlug) || null;
+    const lang = getUiLanguageCode();
+    const slug = normalizePoiCategorySlug(category?.slug || fallbackSlug);
+    const icon = String(category?.icon || poi.category_icon || '📍').trim() || '📍';
+    const color = String(category?.color || poi.category_color || '#1f6feb').trim() || '#1f6feb';
+    const namePl = String(category?.name_pl || '').trim();
+    const nameEn = String(category?.name_en || '').trim();
+    const name = (lang === 'en' ? nameEn || namePl : namePl || nameEn || slug) || slug;
+
+    return { slug, icon, color, name };
+  }
+
+  function getPoiCategoryLabel(slug) {
+    if (slug === MAP_POI_CATEGORY_ALL) {
+      return getUiLanguageCode() === 'en' ? 'All categories' : 'Wszystkie kategorie';
+    }
+    const { bySlug } = getPoiCategoryLookupMaps();
+    const category = bySlug.get(normalizePoiCategorySlug(slug));
+    if (!category) return slug;
+    const namePl = String(category.name_pl || '').trim();
+    const nameEn = String(category.name_en || '').trim();
+    return getUiLanguageCode() === 'en' ? (nameEn || namePl || slug) : (namePl || nameEn || slug);
+  }
+
+  function poiMatchesCategoryFilter(poi) {
+    if (mapPoiCategoryFilter === MAP_POI_CATEGORY_ALL) {
+      return true;
+    }
+    const meta = resolvePoiCategoryMeta(poi);
+    return meta.slug === mapPoiCategoryFilter;
+  }
+
+  function getPoiCategoryFilterOptions() {
+    const places = getPlacesDataNow();
+    const counters = new Map();
+
+    places.forEach((poi) => {
+      if (!getPoiCoordinates(poi)) return;
+      const meta = resolvePoiCategoryMeta(poi);
+      const current = counters.get(meta.slug);
+      if (current) {
+        current.count += 1;
+        return;
+      }
+      counters.set(meta.slug, {
+        value: meta.slug,
+        label: meta.name,
+        icon: meta.icon,
+        color: meta.color,
+        count: 1,
+      });
+    });
+
+    const options = Array.from(counters.values())
+      .sort((a, b) => String(a.label || '').localeCompare(String(b.label || ''), getUiLanguageCode()));
+
+    options.unshift({
+      value: MAP_POI_CATEGORY_ALL,
+      label: getUiLanguageCode() === 'en' ? 'All categories' : 'Wszystkie kategorie',
+      icon: '🧭',
+      color: '#1f6feb',
+      count: places.filter((poi) => !!getPoiCoordinates(poi)).length,
+    });
+
+    return options;
+  }
+
+  function ensureValidPoiCategoryFilter() {
+    if (mapPoiCategoryFilter === MAP_POI_CATEGORY_ALL) return false;
+    const options = getPoiCategoryFilterOptions();
+    const exists = options.some((option) => option.value === mapPoiCategoryFilter);
+    if (exists) return false;
+    mapPoiCategoryFilter = MAP_POI_CATEGORY_ALL;
+    return true;
+  }
+
   function getPoiMarkerIcon(poi) {
     if (typeof L === 'undefined' || typeof L.divIcon !== 'function') {
       return null;
@@ -501,6 +618,9 @@ try {
       if (!getPoiCoordinates(poi)) {
         return;
       }
+      if (!poiMatchesCategoryFilter(poi)) {
+        return;
+      }
       visibleIds.push(String(poi.id));
     });
 
@@ -554,6 +674,8 @@ try {
       window.dispatchEvent(new CustomEvent('mapVisiblePoiIdsChanged', {
         detail: {
           filter: mapMarkerFilter,
+          poiCategoryFilter: mapPoiCategoryFilter,
+          poiCategoryLabel: getPoiCategoryLabel(mapPoiCategoryFilter),
           poiIds: [...nextVisibleIds],
         },
       }));
@@ -563,6 +685,8 @@ try {
       window.dispatchEvent(new CustomEvent('mapVisibleItemsChanged', {
         detail: {
           filter: mapMarkerFilter,
+          poiCategoryFilter: mapPoiCategoryFilter,
+          poiCategoryLabel: getPoiCategoryLabel(mapPoiCategoryFilter),
           poiIds: [...nextVisibleIds],
           recommendationIds: [...nextRecommendationIds],
           items: nextVisibleItems.map((item) => ({ ...item })),
@@ -665,6 +789,7 @@ try {
     mapMarkerFilterContainer.innerHTML = '';
     mapMarkerFilterContainer.setAttribute('aria-label', getUiTranslation('map.filter.aria', 'Map filters'));
     mapMarkerFilterButtons = new Map();
+    mapPoiCategoryFilterButtons = new Map();
 
     const buttonsWrap = document.createElement('div');
     buttonsWrap.className = 'map-filter-control';
@@ -687,6 +812,48 @@ try {
     });
 
     mapMarkerFilterContainer.appendChild(buttonsWrap);
+
+    const poiCategoryWrap = document.createElement('div');
+    poiCategoryWrap.className = 'map-poi-category-filter';
+    if (mapMarkerFilter === MAP_MARKER_FILTERS.RECOMMENDATIONS) {
+      poiCategoryWrap.classList.add('is-disabled');
+    }
+
+    const poiCategoryOptions = getPoiCategoryFilterOptions();
+    poiCategoryOptions.forEach((option) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'map-poi-category-btn';
+      button.dataset.category = option.value;
+      if (option.value === mapPoiCategoryFilter) {
+        button.classList.add('is-active');
+      }
+      button.setAttribute('aria-pressed', option.value === mapPoiCategoryFilter ? 'true' : 'false');
+      button.title = `${option.label} (${option.count})`;
+      const icon = document.createElement('span');
+      icon.className = 'map-poi-category-btn__icon';
+      icon.setAttribute('aria-hidden', 'true');
+      icon.textContent = String(option.icon || '📍');
+
+      const label = document.createElement('span');
+      label.className = 'map-poi-category-btn__label';
+      label.textContent = String(option.label || '');
+
+      const count = document.createElement('span');
+      count.className = 'map-poi-category-btn__count';
+      count.textContent = String(Number(option.count) || 0);
+
+      button.appendChild(icon);
+      button.appendChild(label);
+      button.appendChild(count);
+      button.addEventListener('click', () => {
+        setMapPoiCategoryFilter(option.value);
+      });
+      mapPoiCategoryFilterButtons.set(option.value, button);
+      poiCategoryWrap.appendChild(button);
+    });
+
+    mapMarkerFilterContainer.appendChild(poiCategoryWrap);
     mapMarkerFilterCounter = null;
     updateMapMarkerFilterCounter();
   }
@@ -730,13 +897,34 @@ try {
       button.classList.toggle('is-active', active);
       button.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
+
+    if (mapPoiCategoryFilterButtons && mapPoiCategoryFilterButtons.size > 0) {
+      mapPoiCategoryFilterButtons.forEach((button, value) => {
+        const active = value === mapPoiCategoryFilter;
+        button.classList.toggle('is-active', active);
+        button.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+    }
+
+    if (mapMarkerFilterContainer) {
+      const categoryWrap = mapMarkerFilterContainer.querySelector('.map-poi-category-filter');
+      if (categoryWrap) {
+        categoryWrap.classList.toggle('is-disabled', mapMarkerFilter === MAP_MARKER_FILTERS.RECOMMENDATIONS);
+      }
+    }
   }
 
   function applyMapMarkerFilter(options = {}) {
     const rerenderPoiMarkers = options.rerenderPoiMarkers !== false;
     const refreshRecommendationVisibility = options.refreshRecommendationVisibility !== false;
+    const didResetCategory = ensureValidPoiCategoryFilter();
+
     if (!mapInstance) {
       return;
+    }
+
+    if (didResetCategory) {
+      renderMapMarkerFilterControl();
     }
 
     if (rerenderPoiMarkers) {
@@ -761,6 +949,16 @@ try {
     applyMapMarkerFilter();
   }
 
+  function setMapPoiCategoryFilter(nextCategory) {
+    const normalizedCategory = normalizePoiCategorySlug(nextCategory);
+    const targetCategory = normalizedCategory === MAP_POI_CATEGORY_ALL ? MAP_POI_CATEGORY_ALL : normalizedCategory;
+    if (targetCategory === mapPoiCategoryFilter) {
+      return;
+    }
+    mapPoiCategoryFilter = targetCategory;
+    applyMapMarkerFilter();
+  }
+
   function attachMapFilterListeners() {
     if (mapFilterListenersAttached) {
       return;
@@ -782,6 +980,8 @@ try {
     window.addEventListener('languageChanged', rerenderMapFilterForLanguage);
     document.addEventListener('wakacjecypr:languagechange', rerenderMapFilterForLanguage);
     window.addEventListener('poisDataRefreshed', () => {
+      ensureValidPoiCategoryFilter();
+      renderMapMarkerFilterControl();
       dispatchVisiblePoiIdsChanged(true);
     });
   }
@@ -1228,6 +1428,9 @@ try {
         skippedCount++;
         return;
       }
+      if (!poiMatchesCategoryFilter(poi)) {
+        return;
+      }
       const { lat, lng } = coordinates;
       const coordinateKey = `${lat.toFixed(6)},${lng.toFixed(6)}`;
       const [markerLat, markerLng] = getMarkerPosition(lat, lng, coordinateKey);
@@ -1362,6 +1565,9 @@ try {
   window.markersLayer = markersLayer;
   window.setMapMarkerFilter = setMapMarkerFilter;
   window.getMapMarkerFilter = () => mapMarkerFilter;
+  window.setMapPoiCategoryFilter = setMapPoiCategoryFilter;
+  window.getMapPoiCategoryFilter = () => mapPoiCategoryFilter;
+  window.getMapPoiCategoryFilterLabel = () => getPoiCategoryLabel(mapPoiCategoryFilter);
   window.getVisiblePoiIdsForMap = () => {
     if (Array.isArray(mapVisiblePoiIds)) {
       return [...mapVisiblePoiIds];
