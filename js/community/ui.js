@@ -1050,8 +1050,37 @@ window.openPoiComments = async function(poiId) {
   currentPoiIndex = dataToSearch.findIndex(p => p.id === poi.id);
 
   // Update modal title
-  document.getElementById('commentsModalTitle').textContent = poiName;
-  document.getElementById('commentsModalLocation').textContent = `📍 ${poiDesc}`;
+  const modalTitleEl = document.getElementById('commentsModalTitle');
+  const modalLocationEl = document.getElementById('commentsModalLocation');
+  const modalDescriptionEl = document.getElementById('commentsModalDescription');
+  const modalDescriptionSectionEl = document.getElementById('modalPoiDescriptionSection');
+
+  if (modalTitleEl) {
+    modalTitleEl.textContent = poiName;
+  }
+
+  const normalizedDescription = String(poiDesc || '').trim();
+  const compactLocation = String(
+    poi?.city || poi?.location || poi?.location_name || poi?.region || ''
+  ).trim();
+  const hasDedicatedDescriptionSlot = Boolean(modalDescriptionEl && modalDescriptionSectionEl);
+
+  if (modalLocationEl) {
+    if (hasDedicatedDescriptionSlot) {
+      modalLocationEl.textContent = compactLocation ? `📍 ${compactLocation}` : '';
+      modalLocationEl.hidden = !compactLocation;
+    } else {
+      modalLocationEl.textContent = normalizedDescription ? `📍 ${normalizedDescription}` : '';
+      modalLocationEl.hidden = !normalizedDescription;
+    }
+  }
+
+  if (modalDescriptionEl) {
+    modalDescriptionEl.textContent = normalizedDescription ? `📍 ${normalizedDescription}` : '';
+  }
+  if (modalDescriptionSectionEl) {
+    modalDescriptionSectionEl.hidden = !normalizedDescription;
+  }
   const modalPoiSaveBtn = document.getElementById('modalPoiSaveBtn');
   if (modalPoiSaveBtn) {
     modalPoiSaveBtn.setAttribute('data-ref-id', String(poi.id || ''));
