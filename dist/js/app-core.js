@@ -199,6 +199,7 @@ try {
   let mapPoiCategoryContainer = null;
   let mapPoiCategoryToggleBtn = null;
   let mapPoiCategoryPopover = null;
+  let mapPoiCategoryBoundsListenersAttached = false;
   let mapMarkerFilterCounter = null;
   let mapFilterListenersAttached = false;
   let mapVisiblePoiIds = null;
@@ -368,6 +369,7 @@ try {
     }
     const promptVisible = !!(mapLocationPrompt?.container && !mapLocationPrompt.container.hidden);
     mapPoiCategoryContainer.classList.toggle('is-offset', promptVisible);
+    syncPoiCategoryPopoverBounds();
   }
 
   function showMapLocationPrompt(state = 'prompt') {
@@ -930,6 +932,77 @@ try {
     if (mapPoiCategoryToggleBtn) {
       mapPoiCategoryToggleBtn.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
     }
+    if (nextOpen) {
+      syncPoiCategoryPopoverBounds();
+    } else if (mapPoiCategoryPopover) {
+      mapPoiCategoryPopover.style.removeProperty('--map-poi-picker-max-height');
+      mapPoiCategoryPopover.style.removeProperty('max-height');
+      mapPoiCategoryPopover.style.removeProperty('top');
+      mapPoiCategoryPopover.style.removeProperty('bottom');
+    }
+  }
+
+  function syncPoiCategoryPopoverBounds() {
+    if (!mapPoiCategoryPopover || !mapPoiCategoryContainer) {
+      return;
+    }
+    if (!mapPoiCategoryContainer.classList.contains('is-open')) {
+      return;
+    }
+
+    const viewportHeight = Number(window.visualViewport?.height) || window.innerHeight || 0;
+    if (!viewportHeight) {
+      return;
+    }
+
+    const mapPanel = document.getElementById('current-objective');
+    const placeCard = document.querySelector('.current-place-section');
+    const toggleRect = mapPoiCategoryToggleBtn?.getBoundingClientRect?.() || mapPoiCategoryContainer.getBoundingClientRect();
+    const mapRect = mapPanel?.getBoundingClientRect?.();
+    const cardRect = placeCard?.getBoundingClientRect?.();
+
+    const topLimit = Math.max(8, Number(mapRect?.top) + 8 || 8);
+    let bottomLimit = Math.min(viewportHeight - 8, Number(mapRect?.bottom) - 8 || viewportHeight - 8);
+
+    if (cardRect && Number.isFinite(cardRect.top) && cardRect.top > topLimit + 120) {
+      bottomLimit = Math.min(bottomLimit, cardRect.top - 8);
+    }
+
+    const spaceBelow = Math.max(0, Math.floor(bottomLimit - (toggleRect.bottom + 8)));
+    const spaceAbove = Math.max(0, Math.floor((toggleRect.top - 8) - topLimit));
+    const openDown = spaceBelow >= 120 || spaceBelow >= spaceAbove;
+    const usableSpace = openDown ? spaceBelow : spaceAbove;
+    const maxHeight = Math.max(48, Math.min(usableSpace, 460));
+
+    mapPoiCategoryPopover.style.setProperty('--map-poi-picker-max-height', `${maxHeight}px`);
+    mapPoiCategoryPopover.style.maxHeight = `${maxHeight}px`;
+
+    if (openDown) {
+      mapPoiCategoryPopover.style.top = 'calc(100% + 8px)';
+      mapPoiCategoryPopover.style.bottom = 'auto';
+    } else {
+      mapPoiCategoryPopover.style.top = 'auto';
+      mapPoiCategoryPopover.style.bottom = 'calc(100% + 8px)';
+    }
+  }
+
+  function attachPoiCategoryBoundsListeners() {
+    if (mapPoiCategoryBoundsListenersAttached) {
+      return;
+    }
+    mapPoiCategoryBoundsListenersAttached = true;
+
+    const refreshBounds = () => {
+      if (!mapPoiCategoryContainer || !mapPoiCategoryContainer.classList.contains('is-open')) {
+        return;
+      }
+      window.requestAnimationFrame(syncPoiCategoryPopoverBounds);
+    };
+
+    window.addEventListener('resize', refreshBounds);
+    window.addEventListener('orientationchange', refreshBounds);
+    window.addEventListener('scroll', refreshBounds, { passive: true });
+    window.visualViewport?.addEventListener?.('resize', refreshBounds);
   }
 
   function renderMapPoiCategoryControl() {
@@ -1086,6 +1159,7 @@ try {
 
     if (mapPoiCategoryControl) {
       renderMapPoiCategoryControl();
+      attachPoiCategoryBoundsListeners();
       return;
     }
 
@@ -1099,6 +1173,7 @@ try {
       return container;
     };
     mapPoiCategoryControl.addTo(mapInstance);
+    attachPoiCategoryBoundsListeners();
   }
 
   function setupMapMarkerFilterControl() {
