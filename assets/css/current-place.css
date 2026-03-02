@@ -88,6 +88,7 @@
   margin-top: 14px;
   margin-right: 12px;
   position: relative;
+  z-index: 1400 !important;
 }
 
 .map-poi-dropdown-control.is-offset {
@@ -151,6 +152,8 @@
   width: min(320px, calc(100vw - 26px));
   max-height: min(58vh, 420px);
   overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   border-radius: 14px;
   border: 1px solid rgba(148, 163, 184, 0.42);
   background: rgba(255, 255, 255, 0.97);
@@ -643,6 +646,7 @@
   .map-poi-dropdown-control.leaflet-control {
     margin-top: 10px;
     margin-right: 10px;
+    z-index: 1400 !important;
   }
 
   .map-poi-dropdown-control.is-offset {
@@ -661,7 +665,7 @@
 
   .map-poi-picker__menu {
     width: min(300px, calc(100vw - 22px));
-    max-height: min(54vh, 360px);
+    max-height: min(52vh, 320px);
     padding: 7px;
   }
 

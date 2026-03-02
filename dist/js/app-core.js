@@ -562,24 +562,54 @@ try {
 
   function getPoiCategoryFilterOptions() {
     const places = getPlacesDataNow();
+    const recommendations = typeof window.getMapRecommendationsData === 'function'
+      ? window.getMapRecommendationsData()
+      : [];
     const counters = new Map();
+    let totalCount = 0;
 
-    places.forEach((poi) => {
-      if (!getPoiCoordinates(poi)) return;
-      const meta = resolvePoiCategoryMeta(poi);
+    const addCounter = (meta) => {
+      if (!meta || !meta.slug) return;
       const current = counters.get(meta.slug);
       if (current) {
         current.count += 1;
-        return;
+      } else {
+        counters.set(meta.slug, {
+          value: meta.slug,
+          label: meta.name || meta.slug,
+          icon: meta.icon || '📍',
+          color: meta.color || '#1f6feb',
+          count: 1,
+        });
       }
-      counters.set(meta.slug, {
-        value: meta.slug,
-        label: meta.name,
-        icon: meta.icon,
-        color: meta.color,
-        count: 1,
+      totalCount += 1;
+    };
+
+    if (shouldShowPoiMarkers()) {
+      places.forEach((poi) => {
+        if (!getPoiCoordinates(poi)) return;
+        const meta = resolvePoiCategoryMeta(poi);
+        addCounter(meta);
       });
-    });
+    }
+
+    if (shouldShowRecommendationMarkers()) {
+      recommendations.forEach((recommendation) => {
+        const lat = Number.parseFloat(recommendation?.latitude);
+        const lng = Number.parseFloat(recommendation?.longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+        const recMeta = typeof window.getRecommendationCategoryMeta === 'function'
+          ? window.getRecommendationCategoryMeta(recommendation)
+          : null;
+        if (!recMeta || !recMeta.slug) return;
+        addCounter({
+          slug: normalizePoiCategorySlug(recMeta.slug),
+          icon: recMeta.icon || '📍',
+          color: recMeta.color || '#22c55e',
+          name: recMeta.name || recMeta.slug,
+        });
+      });
+    }
 
     const options = Array.from(counters.values())
       .sort((a, b) => String(a.label || '').localeCompare(String(b.label || ''), getUiLanguageCode()));
@@ -589,7 +619,7 @@ try {
       label: getUiLanguageCode() === 'en' ? 'All categories' : 'Wszystkie kategorie',
       icon: '🧭',
       color: '#1f6feb',
-      count: places.filter((poi) => !!getPoiCoordinates(poi)).length,
+      count: totalCount,
     });
 
     return options;
@@ -1151,6 +1181,12 @@ try {
     if (refreshRecommendationVisibility && typeof window.setRecommendationMarkersVisibility === 'function') {
       window.setRecommendationMarkersVisibility(mapInstance, shouldShowRecommendationMarkers());
     }
+    if (typeof window.setRecommendationCategoryFilter === 'function') {
+      const activeCategoryFilters = mapMarkerFilter === MAP_MARKER_FILTERS.ALL
+        ? getActivePoiCategoryFilters()
+        : [];
+      window.setRecommendationCategoryFilter(mapInstance, activeCategoryFilters);
+    }
 
     updateMapMarkerFilterControlState();
     updateMapMarkerFilterCounter();
@@ -1220,6 +1256,8 @@ try {
       });
     };
     window.addEventListener('mapRecommendationMarkersUpdated', () => {
+      ensureValidPoiCategoryFilter();
+      renderMapPoiCategoryControl();
       updateMapMarkerFilterCounter();
       dispatchVisiblePoiIdsChanged(true);
     });

@@ -8,9 +8,11 @@
 // ============================================================================
 let mapRecommendations = [];
 let recommendationMarkers = new Map();
+let recommendationMapById = new Map();
 let recommendationModalOpen = false;
 let recommendationMapInstance = null;
 let recommendationMarkersVisible = true;
+let recommendationCategoryFilterSlugs = new Set();
 let pendingPromoReveal = null;
 let promoAuthStateListenerAttached = false;
 
@@ -149,11 +151,92 @@ function ensurePromoAuthStateListener() {
 
 const recommendationIconCache = new Map();
 
-function getRecommendationEmoji(rec) {
+function normalizeCategorySlug(value) {
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return normalized || 'uncategorized';
+}
+
+function getRecommendationCategoryMeta(rec) {
   const category = rec?.recommendation_categories || {};
-  const raw = String(
-    category.icon || rec?.category_icon || rec?.icon || '📍'
-  ).trim();
+  const linkedPoiCategoryDirect = category?.poi_categories && typeof category.poi_categories === 'object'
+    ? category.poi_categories
+    : null;
+
+  const fallbackSlug = normalizeCategorySlug(
+    category.slug
+    || category.name_en
+    || category.name_pl
+    || rec?.category_name_en
+    || rec?.category_name_pl
+    || 'uncategorized'
+  );
+  const poiCategories = Array.isArray(window.POI_CATEGORIES_DATA) ? window.POI_CATEGORIES_DATA : [];
+  const linkedPoiCategoryById = (() => {
+    const id = String(category?.poi_category_id || '').trim();
+    if (!id) return null;
+    return poiCategories.find((item) => String(item?.id || '').trim() === id) || null;
+  })();
+  const linkedPoiCategoryBySlug = poiCategories.find((item) => normalizeCategorySlug(item?.slug || '') === fallbackSlug) || null;
+  const linkedPoiCategory = linkedPoiCategoryDirect || linkedPoiCategoryById || linkedPoiCategoryBySlug || null;
+
+  const slug = normalizeCategorySlug(linkedPoiCategory?.slug || fallbackSlug);
+  const icon = String(
+    linkedPoiCategory?.icon
+    || category.icon
+    || rec?.category_icon
+    || rec?.icon
+    || '📍'
+  ).trim() || '📍';
+
+  const lang = String(window.appI18n?.language || document.documentElement?.lang || 'pl').toLowerCase();
+  const isEn = lang.startsWith('en');
+  const namePl = String(linkedPoiCategory?.name_pl || category.name_pl || '').trim();
+  const nameEn = String(linkedPoiCategory?.name_en || category.name_en || '').trim();
+  const name = isEn
+    ? (nameEn || namePl || slug)
+    : (namePl || nameEn || slug);
+  const color = String(linkedPoiCategory?.color || category.color || rec?.category_color || '#22c55e').trim() || '#22c55e';
+
+  return { slug, icon, name, color };
+}
+
+function matchesRecommendationCategoryFilter(rec) {
+  if (!recommendationCategoryFilterSlugs || recommendationCategoryFilterSlugs.size === 0) {
+    return true;
+  }
+  const meta = getRecommendationCategoryMeta(rec);
+  return recommendationCategoryFilterSlugs.has(meta.slug);
+}
+
+function applyRecommendationMarkerVisibility(mapInstance = recommendationMapInstance) {
+  const targetMap = mapInstance || recommendationMapInstance;
+  if (!targetMap || typeof targetMap.hasLayer !== 'function') {
+    return;
+  }
+
+  recommendationMarkers.forEach((marker, recId) => {
+    if (!marker) return;
+    const rec = recommendationMapById.get(String(recId)) || null;
+    const passesCategory = rec ? matchesRecommendationCategoryFilter(rec) : true;
+    const shouldShow = recommendationMarkersVisible && passesCategory;
+
+    if (shouldShow) {
+      if (!targetMap.hasLayer(marker)) {
+        marker.addTo(targetMap);
+      }
+    } else if (targetMap.hasLayer(marker)) {
+      targetMap.removeLayer(marker);
+    }
+  });
+}
+
+function getRecommendationEmoji(rec) {
+  const meta = getRecommendationCategoryMeta(rec);
+  const raw = String(meta.icon || '📍').trim();
   if (!raw) return '📍';
   const glyph = Array.from(raw).slice(0, 2).join('');
   return glyph || '📍';
@@ -262,17 +345,28 @@ function setRecommendationMarkersVisibility(mapInstance, visible = true) {
   }
 
   recommendationMarkersVisible = Boolean(visible);
-  recommendationMarkers.forEach((marker) => {
-    if (!marker) return;
-    if (recommendationMarkersVisible) {
-      if (!targetMap.hasLayer(marker)) {
-        marker.addTo(targetMap);
-      }
-    } else if (targetMap.hasLayer(marker)) {
-      targetMap.removeLayer(marker);
-    }
-  });
+  applyRecommendationMarkerVisibility(targetMap);
   dispatchRecommendationMarkersUpdate(targetMap);
+}
+
+function setRecommendationCategoryFilter(mapInstance, categorySlugs = []) {
+  if (Array.isArray(categorySlugs) && categorySlugs.length > 0) {
+    recommendationCategoryFilterSlugs = new Set(
+      categorySlugs
+        .map((slug) => normalizeCategorySlug(slug))
+        .filter(Boolean)
+    );
+  } else {
+    recommendationCategoryFilterSlugs = new Set();
+  }
+
+  const targetMap = mapInstance || recommendationMapInstance;
+  if (targetMap) {
+    applyRecommendationMarkerVisibility(targetMap);
+    dispatchRecommendationMarkersUpdate(targetMap);
+  } else {
+    dispatchRecommendationMarkersUpdate();
+  }
 }
 
 // ============================================================================
@@ -290,12 +384,31 @@ async function loadRecommendationsForMap() {
     
     console.log('🟢 Loading recommendations for map...');
     
-    const { data, error } = await supabase
+    let data = null;
+    let error = null;
+
+    const primaryQuery = await supabase
       .from('recommendations')
-      .select('*, recommendation_categories(name_pl, name_en, icon, color)')
+      .select('*, recommendation_categories(name_pl, name_en, icon, color, poi_category_id, poi_categories(slug, name_en, name_pl, icon, color))')
       .eq('active', true)
       .not('latitude', 'is', null)
       .not('longitude', 'is', null);
+    data = primaryQuery.data;
+    error = primaryQuery.error;
+
+    if (error) {
+      const message = String(error?.message || error?.details || '');
+      if (/poi_category_id|poi_categories|column .* does not exist|Could not find/i.test(message)) {
+        const fallbackQuery = await supabase
+          .from('recommendations')
+          .select('*, recommendation_categories(name_pl, name_en, icon, color)')
+          .eq('active', true)
+          .not('latitude', 'is', null)
+          .not('longitude', 'is', null);
+        data = fallbackQuery.data;
+        error = fallbackQuery.error;
+      }
+    }
     
     if (error) {
       console.warn('[map-recommendations] Error loading:', error);
@@ -303,6 +416,9 @@ async function loadRecommendationsForMap() {
     }
     
     mapRecommendations = data || [];
+    recommendationMapById = new Map(
+      mapRecommendations.map((rec) => [String(rec?.id || ''), rec]).filter(([id]) => !!id)
+    );
     console.log(`✅ Loaded ${mapRecommendations.length} recommendations with coordinates`);
     dispatchRecommendationMarkersUpdate();
     
@@ -372,7 +488,10 @@ function syncRecommendationMarkers(mapInstance) {
       }
     }
   });
-  
+  recommendationMapById = new Map(
+    mapRecommendations.map((rec) => [String(rec?.id || ''), rec]).filter(([id]) => !!id)
+  );
+  applyRecommendationMarkerVisibility(mapInstance);
   console.log(`✅ Synced ${recommendationMarkers.size} recommendation markers`);
   dispatchRecommendationMarkersUpdate(mapInstance);
 }
@@ -714,7 +833,9 @@ window.loadRecommendationsForMap = loadRecommendationsForMap;
 window.trackRecommendationClick = trackRecommendationClick;
 window.trackRecommendationView = trackRecommendationView;
 window.setRecommendationMarkersVisibility = setRecommendationMarkersVisibility;
+window.setRecommendationCategoryFilter = setRecommendationCategoryFilter;
 window.getRecommendationMarkersStats = getRecommendationMarkersStats;
 window.getMapRecommendationsData = getMapRecommendationsData;
 window.getVisibleRecommendationIdsForMap = getVisibleRecommendationIdsForMap;
 window.openRecommendationMarkerPopup = openRecommendationMarkerPopup;
+window.getRecommendationCategoryMeta = getRecommendationCategoryMeta;

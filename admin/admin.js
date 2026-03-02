@@ -35567,11 +35567,30 @@ async function loadRecommendationsData() {
     console.log('Categories loaded:', recommendationsCategories.length);
 
     // Load recommendations
-    const { data: recommendations, error } = await client
+    let recommendations = null;
+    let error = null;
+
+    const primaryRecommendationsQuery = await client
       .from('recommendations')
-      .select('*, recommendation_categories(name_en, icon, color)')
+      .select('*, recommendation_categories(name_en, name_pl, icon, color, poi_category_id, poi_categories(slug, name_en, name_pl, icon, color))')
       .order('display_order', { ascending: true })
       .order('created_at', { ascending: false });
+
+    recommendations = primaryRecommendationsQuery.data;
+    error = primaryRecommendationsQuery.error;
+
+    if (error) {
+      const message = String(error?.message || error?.details || '');
+      if (/poi_category_id|poi_categories|column .* does not exist|Could not find/i.test(message)) {
+        const fallbackRecommendationsQuery = await client
+          .from('recommendations')
+          .select('*, recommendation_categories(name_en, name_pl, icon, color)')
+          .order('display_order', { ascending: true })
+          .order('created_at', { ascending: false });
+        recommendations = fallbackRecommendationsQuery.data;
+        error = fallbackRecommendationsQuery.error;
+      }
+    }
 
     if (error) {
       console.error('Error loading recommendations:', error);
@@ -35659,6 +35678,10 @@ function updateRecommendationsTable() {
 
   tbody.innerHTML = filtered.map(rec => {
     const category = rec.recommendation_categories || {};
+    const linkedPoiCategory = category.poi_categories || null;
+    const categoryIcon = linkedPoiCategory?.icon || category.icon || '📍';
+    const categoryNamePl = linkedPoiCategory?.name_pl || category.name_pl || category.name_en || 'N/A';
+    const categoryNameEn = linkedPoiCategory?.name_en || category.name_en || '';
     const statusBadge = rec.active ? 
       '<span class="badge badge-success">Active</span>' : 
       '<span class="badge badge-secondary">Inactive</span>';
@@ -35681,10 +35704,10 @@ function updateRecommendationsTable() {
         </td>
         <td>
           <div style="display: flex; align-items: center; gap: 6px;">
-            <span style="font-size: 18px;">${category.icon || '📍'}</span>
+            <span style="font-size: 18px;">${categoryIcon}</span>
             <div>
-              <div>${category.name_pl || category.name_en || 'N/A'}</div>
-              <div style="font-size: 11px; color: var(--admin-text-muted);">${category.name_en || ''}</div>
+              <div>${categoryNamePl}</div>
+              <div style="font-size: 11px; color: var(--admin-text-muted);">${categoryNameEn}</div>
             </div>
           </div>
         </td>
