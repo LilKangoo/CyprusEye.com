@@ -1989,6 +1989,44 @@ body[data-admin-panel="true"].admin-sidebar-open {
   box-shadow: var(--admin-shadow);
 }
 
+.poi-category-form-grid {
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+}
+
+.poi-category-active {
+  grid-column: 1 / -1;
+}
+
+.poi-category-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--admin-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--admin-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.poi-category-pill__icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.poi-category-manager-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.poi-category-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 90px;
+}
+
 /* =====================================================
    CONTENT MANAGEMENT STYLES
    ===================================================== */

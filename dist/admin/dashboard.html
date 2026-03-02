@@ -28,7 +28,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="/assets/css/tokens.css?v=20251107" />
   <link rel="stylesheet" href="/assets/css/base.css?v=20251107" />
-  <link rel="stylesheet" href="/admin/admin.css?v=20260227_1" />
+  <link rel="stylesheet" href="/admin/admin.css?v=20260302_1" />
   
   <!-- Auth meta -->
   <meta name="ce-auth" content="required" />
@@ -40,7 +40,7 @@
   <script src="/admin/universal-i18n-component.js?v=20250111"></script>
   <script src="/admin/poi-i18n-form.js?v=20250111"></script>
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
-  <script type="module" src="/admin/admin.js?v=20260227_1"></script>
+  <script type="module" src="/admin/admin.js?v=20260302_1"></script>
   <script src="/admin/admin-pwa.js?v=20260221_4" defer></script>
 </head>
 <body data-admin-panel="true">
@@ -2971,6 +2971,15 @@
           </div>
           <div class="admin-view-actions">
             <span class="poi-data-source" id="poiDataSourceBadge" hidden></span>
+            <button class="btn-secondary" type="button" id="btnManagePoiCategories" title="Manage POI categories">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 7h-9"/>
+                <path d="M14 17H5"/>
+                <circle cx="17" cy="17" r="3"/>
+                <circle cx="7" cy="7" r="3"/>
+              </svg>
+              Categories
+            </button>
             <button class="btn-secondary" type="button" id="btnRefreshPois" title="Reload POIs">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="23 4 23 10 17 10"/>
@@ -6125,7 +6134,7 @@
             </label>
             <label class="admin-form-field">
               <span>Category</span>
-              <input type="text" id="poiCategory" name="category" placeholder="e.g. heritage" />
+              <select id="poiCategorySlug" name="category_slug"></select>
             </label>
             <label class="admin-form-field">
               <span>Status</span>
@@ -6203,6 +6212,79 @@
             <button type="submit" class="btn-primary" id="poiFormSubmit">Save POI</button>
           </div>
         </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- POI Category Manager Modal -->
+  <div class="admin-modal" id="poiCategoryModal" hidden>
+    <div class="admin-modal-overlay" id="poiCategoryModalOverlay"></div>
+    <div class="admin-modal-content">
+      <header class="admin-modal-header">
+        <h3>POI Categories</h3>
+        <button class="btn-modal-close" id="btnClosePoiCategoryModal">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </header>
+      <div class="admin-modal-body">
+        <form id="poiCategoryForm" class="poi-form" novalidate>
+          <input type="hidden" id="poiCategoryEditId" />
+          <div class="admin-form-grid poi-category-form-grid">
+            <label class="admin-form-field">
+              <span>Slug *</span>
+              <input type="text" id="poiCategoryManagerSlug" placeholder="e.g. airport" required />
+            </label>
+            <label class="admin-form-field">
+              <span>Name (EN) *</span>
+              <input type="text" id="poiCategoryManagerNameEn" placeholder="e.g. Airport" required />
+            </label>
+            <label class="admin-form-field">
+              <span>Name (PL)</span>
+              <input type="text" id="poiCategoryManagerNamePl" placeholder="e.g. Lotnisko" />
+            </label>
+            <label class="admin-form-field">
+              <span>Emoji icon *</span>
+              <input type="text" id="poiCategoryManagerIcon" maxlength="4" placeholder="📍" required />
+            </label>
+            <label class="admin-form-field">
+              <span>Color</span>
+              <input type="color" id="poiCategoryManagerColor" value="#2563eb" />
+            </label>
+            <label class="admin-form-field">
+              <span>Order</span>
+              <input type="number" id="poiCategoryManagerOrder" value="0" />
+            </label>
+            <label class="admin-checkbox poi-category-active">
+              <input type="checkbox" id="poiCategoryManagerActive" checked />
+              <span>Active on map</span>
+            </label>
+          </div>
+          <div class="poi-form-actions">
+            <button type="button" class="btn-secondary" id="poiCategoryFormReset">New category</button>
+            <button type="submit" class="btn-primary" id="poiCategoryFormSubmit">Save category</button>
+          </div>
+        </form>
+
+        <div class="admin-table-container">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Icon</th>
+                <th>Name</th>
+                <th>Slug</th>
+                <th>POIs</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="poiCategoriesTableBody">
+              <tr><td colspan="6" class="table-loading">Loading categories...</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>

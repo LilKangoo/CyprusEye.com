@@ -201,6 +201,7 @@ try {
   let mapLocationPrompt = null;
   let mapLocationPromptState = 'prompt';
   let mapLocationPromptListenersAttached = false;
+  const poiMarkerIconCache = new Map();
   
   function getPlacesDataNow() {
     if (window.PLACES_DATA && Array.isArray(window.PLACES_DATA)) {
@@ -413,6 +414,38 @@ try {
     }
 
     return { lat, lng };
+  }
+
+  function getPoiMarkerEmoji(poi) {
+    const raw = String(
+      poi?.category_icon
+      || poi?.icon
+      || '📍'
+    ).trim();
+    const glyph = Array.from(raw).slice(0, 2).join('');
+    return glyph || '📍';
+  }
+
+  function getPoiMarkerIcon(poi) {
+    if (typeof L === 'undefined' || typeof L.divIcon !== 'function') {
+      return null;
+    }
+
+    const emoji = getPoiMarkerEmoji(poi);
+    if (poiMarkerIconCache.has(emoji)) {
+      return poiMarkerIconCache.get(emoji);
+    }
+
+    const icon = L.divIcon({
+      className: 'ce-poi-marker ce-poi-marker--emoji',
+      html: `<span class="ce-poi-marker__emoji" aria-hidden="true">${emoji}</span>`,
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+      popupAnchor: [0, -14],
+    });
+
+    poiMarkerIconCache.set(emoji, icon);
+    return icon;
   }
 
   function getMapCardBottomPadding(extra = 24) {
@@ -1135,8 +1168,8 @@ try {
       return;
     }
     
-    // Lightweight local marker (no external icon downloads)
-    const customIcon = L.divIcon({
+    // Fallback icon when category emoji is not available.
+    const fallbackIcon = L.divIcon({
       className: 'ce-poi-marker',
       html: '<span class="ce-poi-marker__dot" aria-hidden="true"></span>',
       iconSize: [20, 20],
@@ -1203,10 +1236,11 @@ try {
       const name = window.getPoiName ? window.getPoiName(poi) : (poi.nameFallback || poi.name || poi.id);
       
       ceLog(`📍 [${index}] Dodaję marker: ${name} (ID: ${poi.id}) [${lat}, ${lng}]`);
+      const categoryIcon = getPoiMarkerIcon(poi) || fallbackIcon;
       
       // Stwórz marker
       const marker = L.marker([markerLat, markerLng], {
-        icon: customIcon,
+        icon: categoryIcon,
         zIndexOffset: 4000,
       });
       

@@ -29,6 +29,8 @@ let adminState = {
   poiFilterCategory: 'all',
   poiFilterStatus: 'all',
   poiDataSource: 'supabase',
+  poiCategories: [],
+  poiCategoriesLoaded: false,
   selectedPoi: null,
   poiFormMode: 'create',
   quests: [],
@@ -31344,6 +31346,11 @@ function initEventListeners() {
     refreshPoisBtn.addEventListener('click', () => refreshPoiList());
   }
 
+  const managePoiCategoriesBtn = $('#btnManagePoiCategories');
+  if (managePoiCategoriesBtn) {
+    managePoiCategoriesBtn.addEventListener('click', () => openPoiCategoryManager());
+  }
+
   const poiForm = $('#poiForm');
   if (poiForm) {
     poiForm.addEventListener('submit', handlePoiFormSubmit);
@@ -31372,6 +31379,37 @@ function initEventListeners() {
   const poiDetailOverlay = $('#poiDetailModalOverlay');
   if (poiDetailOverlay) {
     poiDetailOverlay.addEventListener('click', () => closePoiDetail());
+  }
+
+  const poiCategoryModalClose = $('#btnClosePoiCategoryModal');
+  if (poiCategoryModalClose) {
+    poiCategoryModalClose.addEventListener('click', () => closePoiCategoryManager());
+  }
+
+  const poiCategoryModalOverlay = $('#poiCategoryModalOverlay');
+  if (poiCategoryModalOverlay) {
+    poiCategoryModalOverlay.addEventListener('click', () => closePoiCategoryManager());
+  }
+
+  const poiCategoryForm = $('#poiCategoryForm');
+  if (poiCategoryForm) {
+    poiCategoryForm.addEventListener('submit', handlePoiCategoryFormSubmit);
+  }
+
+  const poiCategoryFormReset = $('#poiCategoryFormReset');
+  if (poiCategoryFormReset) {
+    poiCategoryFormReset.addEventListener('click', () => resetPoiCategoryForm());
+  }
+
+  const poiCategoryNameEnInput = $('#poiCategoryManagerNameEn');
+  const poiCategorySlugInput = $('#poiCategoryManagerSlug');
+  if (poiCategoryNameEnInput && poiCategorySlugInput) {
+    poiCategoryNameEnInput.addEventListener('input', () => {
+      const editId = String($('#poiCategoryEditId')?.value || '').trim();
+      if (editId) return;
+      if (poiCategorySlugInput.value.trim()) return;
+      poiCategorySlugInput.value = normalizePoiCategorySlug(poiCategoryNameEnInput.value || '');
+    });
   }
 
   // Cars tab switchers
@@ -31937,10 +31975,161 @@ async function unbanUser(userId) {
 // =====================================================
 
 const DEFAULT_POI_RADIUS = 150;
+const DEFAULT_POI_CATEGORY_SLUG = 'uncategorized';
+const DEFAULT_POI_CATEGORY_ICON = '📍';
+const DEFAULT_POI_CATEGORY_COLOR = '#2563eb';
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+let poiCategoriesMissingTableWarned = false;
 
 function isUuid(value) {
   return typeof value === 'string' && UUID_REGEX.test(value);
+}
+
+function normalizePoiCategorySlug(value) {
+  const slug = slugify(String(value || '').trim());
+  return slug || DEFAULT_POI_CATEGORY_SLUG;
+}
+
+function normalizePoiCategory(rawCategory) {
+  if (!rawCategory || typeof rawCategory !== 'object') return null;
+
+  const id = String(rawCategory.id || '').trim() || null;
+  const slug = normalizePoiCategorySlug(
+    rawCategory.slug
+    || rawCategory.code
+    || rawCategory.name_en
+    || rawCategory.name
+  );
+  const nameEnRaw = String(rawCategory.name_en || rawCategory.name || '').trim();
+  const nameEn = nameEnRaw || formatCategoryLabel(slug);
+  const namePl = String(rawCategory.name_pl || '').trim();
+  const iconRaw = String(rawCategory.icon || rawCategory.emoji || DEFAULT_POI_CATEGORY_ICON).trim();
+  const icon = Array.from(iconRaw).slice(0, 2).join('') || DEFAULT_POI_CATEGORY_ICON;
+  const color = String(rawCategory.color || DEFAULT_POI_CATEGORY_COLOR).trim() || DEFAULT_POI_CATEGORY_COLOR;
+  const displayOrder = Number.parseInt(rawCategory.display_order, 10);
+
+  return {
+    id,
+    slug,
+    name_en: nameEn,
+    name_pl: namePl || null,
+    icon,
+    color,
+    display_order: Number.isFinite(displayOrder) ? displayOrder : 0,
+    active: rawCategory.active !== false,
+    raw: rawCategory,
+  };
+}
+
+function sortPoiCategories(categories = []) {
+  return [...categories].sort((a, b) => {
+    const orderDiff = Number(a?.display_order || 0) - Number(b?.display_order || 0);
+    if (orderDiff !== 0) return orderDiff;
+    return String(a?.name_en || a?.slug || '').localeCompare(String(b?.name_en || b?.slug || ''), 'en', { sensitivity: 'base' });
+  });
+}
+
+function getPoiCategoryBySlug(slugValue) {
+  const slug = normalizePoiCategorySlug(slugValue);
+  return adminState.poiCategories.find((category) => category.slug === slug) || null;
+}
+
+function getPoiCategoryById(categoryId) {
+  const id = String(categoryId || '').trim();
+  if (!id) return null;
+  return adminState.poiCategories.find((category) => String(category.id || '').trim() === id) || null;
+}
+
+function getPoiCategoryDisplayName(category, fallbackSlug = '') {
+  if (category && (category.name_en || category.name_pl)) {
+    return category.name_en || category.name_pl;
+  }
+  return formatCategoryLabel(fallbackSlug || DEFAULT_POI_CATEGORY_SLUG);
+}
+
+function getPoiCategoryIconValue(category) {
+  const raw = String(category?.icon || DEFAULT_POI_CATEGORY_ICON).trim();
+  return Array.from(raw).slice(0, 2).join('') || DEFAULT_POI_CATEGORY_ICON;
+}
+
+function getPoiCategoryUsageMap() {
+  const usage = new Map();
+  adminState.pois.forEach((poi) => {
+    const slug = normalizePoiCategorySlug(poi?.category);
+    usage.set(slug, (usage.get(slug) || 0) + 1);
+  });
+  return usage;
+}
+
+function syncPoiCategoriesFromCurrentPois() {
+  const existingBySlug = new Map(adminState.poiCategories.map((category) => [category.slug, category]));
+  let changed = false;
+
+  adminState.pois.forEach((poi) => {
+    const slug = normalizePoiCategorySlug(poi?.category);
+    if (existingBySlug.has(slug)) return;
+
+    const fallbackCategory = normalizePoiCategory({
+      slug,
+      name_en: formatCategoryLabel(slug),
+      icon: poi?.category_icon || DEFAULT_POI_CATEGORY_ICON,
+      color: poi?.category_color || DEFAULT_POI_CATEGORY_COLOR,
+      active: true,
+      display_order: 999,
+    });
+    if (!fallbackCategory) return;
+
+    existingBySlug.set(slug, fallbackCategory);
+    changed = true;
+  });
+
+  if (changed) {
+    adminState.poiCategories = sortPoiCategories(Array.from(existingBySlug.values()));
+  }
+}
+
+async function loadPoiCategories(forceRefresh = false) {
+  if (!forceRefresh && adminState.poiCategoriesLoaded) {
+    return adminState.poiCategories;
+  }
+
+  const client = ensureSupabase();
+  if (!client) {
+    adminState.poiCategories = [];
+    adminState.poiCategoriesLoaded = true;
+    return adminState.poiCategories;
+  }
+
+  try {
+    const { data, error } = await client
+      .from('poi_categories')
+      .select('*')
+      .order('display_order', { ascending: true })
+      .order('name_en', { ascending: true });
+
+    if (error) throw error;
+
+    adminState.poiCategories = sortPoiCategories(
+      (Array.isArray(data) ? data : [])
+        .map((row) => normalizePoiCategory(row))
+        .filter(Boolean)
+    );
+  } catch (error) {
+    if (isMissingTableError(error, 'poi_categories') || isMissingColumnError(error, 'category_id')) {
+      if (!poiCategoriesMissingTableWarned) {
+        poiCategoriesMissingTableWarned = true;
+        console.warn('[POI] poi_categories not available yet. Run migration 126_poi_categories_with_icons.sql');
+      }
+      adminState.poiCategories = [];
+    } else {
+      console.error('Failed to load POI categories:', error);
+      showToast('Failed to load POI categories', 'warning');
+      adminState.poiCategories = [];
+    }
+  }
+
+  adminState.poiCategoriesLoaded = true;
+  return adminState.poiCategories;
 }
 
 function setPoiTableLoading(isLoading) {
@@ -32076,15 +32265,19 @@ function normalizePoi(rawPoi, source = 'supabase') {
     .toString()
     .toLowerCase();
 
-  const category = (
+  const category = normalizePoiCategorySlug(
     rawPoi.category
-    || rawPoi.badge
     || data.category
-    || data.badge
     || rawPoi.poi_category
     || data.poi_category
-    || 'uncategorized'
-  ).toString().toLowerCase();
+    || rawPoi.badge
+    || data.badge
+    || DEFAULT_POI_CATEGORY_SLUG
+  );
+  const categoryId = String(rawPoi.category_id || data.category_id || '').trim() || null;
+  const categoryMeta = normalizePoiCategory(rawPoi.poi_categories || data.poi_categories || null)
+    || getPoiCategoryById(categoryId)
+    || getPoiCategoryBySlug(category);
 
   // Prefer explicit google_url field; otherwise compute a default Google Maps link
   const googleUrl = (
@@ -32127,6 +32320,11 @@ function normalizePoi(rawPoi, source = 'supabase') {
     xp: Number.isFinite(xp) ? xp : 100,
     requiredLevel: Number.isFinite(requiredLevel) ? requiredLevel : 1,
     category,
+    category_id: categoryMeta?.id || categoryId || null,
+    category_name_en: categoryMeta?.name_en || getPoiCategoryDisplayName(null, category),
+    category_name_pl: categoryMeta?.name_pl || null,
+    category_icon: getPoiCategoryIconValue(categoryMeta),
+    category_color: categoryMeta?.color || DEFAULT_POI_CATEGORY_COLOR,
     badge: rawPoi.badge || data.badge || category,
     status,
     tags,
@@ -32165,7 +32363,8 @@ function getFilteredPois() {
   const filterStatus = adminState.poiFilterStatus;
 
   return adminState.pois.filter(poi => {
-    const matchesCategory = filterCategory === 'all' || (poi.category || 'uncategorized') === filterCategory;
+    const poiCategorySlug = normalizePoiCategorySlug(poi.category);
+    const matchesCategory = filterCategory === 'all' || poiCategorySlug === filterCategory;
     const matchesStatus = filterStatus === 'all' || (poi.status || 'published') === filterStatus;
     const matchesSearch =
       !search ||
@@ -32180,14 +32379,21 @@ function updatePoiFilterOptions() {
   const categorySelect = $('#poiCategoryFilter');
   if (!categorySelect) return;
 
-  const categories = Array.from(
-    new Set(adminState.pois.map(poi => poi.category || 'uncategorized'))
-  ).sort();
+  syncPoiCategoriesFromCurrentPois();
+
+  const categories = sortPoiCategories(adminState.poiCategories);
+  const categoryOptions = categories.length
+    ? categories
+    : [normalizePoiCategory({ slug: DEFAULT_POI_CATEGORY_SLUG, name_en: 'Uncategorized', icon: DEFAULT_POI_CATEGORY_ICON })];
 
   const currentValue = adminState.poiFilterCategory;
-  const options = ['all', ...categories];
-  categorySelect.innerHTML = options
-    .map(category => `<option value="${category}">${category === 'all' ? 'All categories' : formatCategoryLabel(category)}</option>`)
+  const options = ['all', ...categoryOptions.map((category) => category.slug)];
+  categorySelect.innerHTML = ['<option value="all">All categories</option>']
+    .concat(categoryOptions.map((category) => {
+      const icon = escapeHtml(getPoiCategoryIconValue(category));
+      const name = escapeHtml(getPoiCategoryDisplayName(category, category.slug));
+      return `<option value="${escapeHtml(category.slug)}">${icon} ${name}</option>`;
+    }))
     .join('');
 
   if (options.includes(currentValue)) {
@@ -32195,6 +32401,280 @@ function updatePoiFilterOptions() {
   } else {
     categorySelect.value = 'all';
     adminState.poiFilterCategory = 'all';
+  }
+}
+
+function populatePoiCategoryFormOptions(selectedSlug = '') {
+  const categorySelect = $('#poiCategorySlug');
+  if (!categorySelect) return;
+
+  syncPoiCategoriesFromCurrentPois();
+  const categories = sortPoiCategories(adminState.poiCategories);
+  const selected = normalizePoiCategorySlug(selectedSlug || categorySelect.value || DEFAULT_POI_CATEGORY_SLUG);
+
+  const source = categories.length
+    ? categories
+    : [normalizePoiCategory({ slug: DEFAULT_POI_CATEGORY_SLUG, name_en: 'Uncategorized', icon: DEFAULT_POI_CATEGORY_ICON })];
+
+  categorySelect.innerHTML = source.map((category) => {
+    const slug = normalizePoiCategorySlug(category.slug);
+    const icon = escapeHtml(getPoiCategoryIconValue(category));
+    const label = escapeHtml(getPoiCategoryDisplayName(category, slug));
+    return `<option value="${escapeHtml(slug)}">${icon} ${label}</option>`;
+  }).join('');
+
+  if (source.some((category) => normalizePoiCategorySlug(category.slug) === selected)) {
+    categorySelect.value = selected;
+  } else {
+    categorySelect.value = DEFAULT_POI_CATEGORY_SLUG;
+  }
+}
+
+function resetPoiCategoryForm() {
+  const form = $('#poiCategoryForm');
+  if (form) form.reset();
+  const editIdInput = $('#poiCategoryEditId');
+  if (editIdInput) editIdInput.value = '';
+  const slugInput = $('#poiCategoryManagerSlug');
+  const nameEnInput = $('#poiCategoryManagerNameEn');
+  const namePlInput = $('#poiCategoryManagerNamePl');
+  const iconInput = $('#poiCategoryManagerIcon');
+  const colorInput = $('#poiCategoryManagerColor');
+  const orderInput = $('#poiCategoryManagerOrder');
+  const activeInput = $('#poiCategoryManagerActive');
+  const submitBtn = $('#poiCategoryFormSubmit');
+
+  if (slugInput) slugInput.value = '';
+  if (nameEnInput) nameEnInput.value = '';
+  if (namePlInput) namePlInput.value = '';
+  if (iconInput) iconInput.value = DEFAULT_POI_CATEGORY_ICON;
+  if (colorInput) colorInput.value = DEFAULT_POI_CATEGORY_COLOR;
+  if (orderInput) orderInput.value = '0';
+  if (activeInput) activeInput.checked = true;
+  if (submitBtn) submitBtn.textContent = 'Save category';
+}
+
+async function openPoiCategoryManager() {
+  const modal = $('#poiCategoryModal');
+  if (!modal) return;
+
+  if (adminState.poiDataSource !== 'supabase') {
+    showToast('Category manager requires live Supabase mode.', 'warning');
+    return;
+  }
+
+  await loadPoiCategories(false);
+
+  showElement(modal);
+  resetPoiCategoryForm();
+  renderPoiCategoriesManager();
+}
+
+function closePoiCategoryManager() {
+  const modal = $('#poiCategoryModal');
+  if (modal) hideElement(modal);
+}
+
+function renderPoiCategoriesManager() {
+  const tableBody = $('#poiCategoriesTableBody');
+  if (!tableBody) return;
+
+  syncPoiCategoriesFromCurrentPois();
+  const categories = sortPoiCategories(adminState.poiCategories);
+  const usage = getPoiCategoryUsageMap();
+
+  if (!categories.length) {
+    tableBody.innerHTML = '<tr><td colspan="6" class="table-loading">No categories found. Add your first category.</td></tr>';
+    return;
+  }
+
+  tableBody.innerHTML = categories.map((category) => {
+    const slug = normalizePoiCategorySlug(category.slug);
+    const name = getPoiCategoryDisplayName(category, slug);
+    const active = category.active !== false;
+    const categoryUsage = usage.get(slug) || 0;
+    const editDisabled = !category.id ? 'disabled' : '';
+    const deleteDisabled = (!category.id || slug === DEFAULT_POI_CATEGORY_SLUG) ? 'disabled' : '';
+
+    return `
+      <tr>
+        <td style="font-size:20px;">${escapeHtml(getPoiCategoryIconValue(category))}</td>
+        <td>
+          <div style="font-weight:600;">${escapeHtml(name)}</div>
+          <div style="font-size:11px; color: var(--admin-text-muted);">${escapeHtml(category.name_pl || '')}</div>
+        </td>
+        <td><code>${escapeHtml(slug)}</code></td>
+        <td>${categoryUsage}</td>
+        <td>
+          <span class="poi-category-status badge ${active ? 'badge-success' : 'badge-secondary'}">
+            ${active ? 'ACTIVE' : 'INACTIVE'}
+          </span>
+        </td>
+        <td>
+          <div class="poi-category-manager-actions">
+            <button class="btn-secondary" type="button" onclick="editPoiCategory('${escapeHtml(slug)}')" ${editDisabled}>Edit</button>
+            <button class="btn-danger" type="button" onclick="deletePoiCategory('${escapeHtml(slug)}')" ${deleteDisabled}>Delete</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function editPoiCategory(categorySlug) {
+  const category = getPoiCategoryBySlug(categorySlug);
+  if (!category) {
+    showToast('Category not found', 'error');
+    return;
+  }
+
+  await openPoiCategoryManager();
+
+  const editIdInput = $('#poiCategoryEditId');
+  const slugInput = $('#poiCategoryManagerSlug');
+  const nameEnInput = $('#poiCategoryManagerNameEn');
+  const namePlInput = $('#poiCategoryManagerNamePl');
+  const iconInput = $('#poiCategoryManagerIcon');
+  const colorInput = $('#poiCategoryManagerColor');
+  const orderInput = $('#poiCategoryManagerOrder');
+  const activeInput = $('#poiCategoryManagerActive');
+  const submitBtn = $('#poiCategoryFormSubmit');
+
+  if (editIdInput) editIdInput.value = category.id || '';
+  if (slugInput) slugInput.value = category.slug || '';
+  if (nameEnInput) nameEnInput.value = category.name_en || '';
+  if (namePlInput) namePlInput.value = category.name_pl || '';
+  if (iconInput) iconInput.value = getPoiCategoryIconValue(category);
+  if (colorInput) colorInput.value = category.color || DEFAULT_POI_CATEGORY_COLOR;
+  if (orderInput) orderInput.value = String(Number(category.display_order || 0));
+  if (activeInput) activeInput.checked = category.active !== false;
+  if (submitBtn) submitBtn.textContent = 'Update category';
+}
+
+async function deletePoiCategory(categorySlug) {
+  const category = getPoiCategoryBySlug(categorySlug);
+  if (!category || !category.id) {
+    showToast('Only saved categories can be deleted.', 'warning');
+    return;
+  }
+
+  if (category.slug === DEFAULT_POI_CATEGORY_SLUG) {
+    showToast('Default category cannot be deleted.', 'warning');
+    return;
+  }
+
+  const usage = getPoiCategoryUsageMap().get(category.slug) || 0;
+  const warning = usage > 0
+    ? `Category "${category.name_en}" is assigned to ${usage} POI(s). Delete anyway? Assigned POIs will fallback to uncategorized.`
+    : `Delete category "${category.name_en}"?`;
+
+  if (!confirm(warning)) {
+    return;
+  }
+
+  try {
+    const client = ensureSupabase();
+    if (!client) throw new Error('Database connection not available');
+
+    const { error } = await client
+      .from('poi_categories')
+      .delete()
+      .eq('id', category.id);
+
+    if (error) throw error;
+
+    showToast('Category deleted', 'success');
+    adminState.poiCategoriesLoaded = false;
+    await loadPoiCategories(true);
+    await loadPoisData(true);
+    renderPoiCategoriesManager();
+    populatePoiCategoryFormOptions();
+  } catch (error) {
+    console.error('Failed to delete POI category:', error);
+    showToast(`Failed to delete category: ${error.message || 'Unknown error'}`, 'error');
+  }
+}
+
+async function handlePoiCategoryFormSubmit(event) {
+  event.preventDefault();
+
+  if (adminState.poiDataSource !== 'supabase') {
+    showToast('Category manager is read-only in static mode.', 'warning');
+    return;
+  }
+
+  const editIdInput = $('#poiCategoryEditId');
+  const slugInput = $('#poiCategoryManagerSlug');
+  const nameEnInput = $('#poiCategoryManagerNameEn');
+  const namePlInput = $('#poiCategoryManagerNamePl');
+  const iconInput = $('#poiCategoryManagerIcon');
+  const colorInput = $('#poiCategoryManagerColor');
+  const orderInput = $('#poiCategoryManagerOrder');
+  const activeInput = $('#poiCategoryManagerActive');
+  const submitBtn = $('#poiCategoryFormSubmit');
+
+  const editId = String(editIdInput?.value || '').trim();
+  const slug = normalizePoiCategorySlug(slugInput?.value || nameEnInput?.value);
+  const nameEn = String(nameEnInput?.value || '').trim();
+  const namePl = String(namePlInput?.value || '').trim();
+  const icon = getPoiCategoryIconValue({ icon: iconInput?.value || DEFAULT_POI_CATEGORY_ICON });
+  const color = String(colorInput?.value || DEFAULT_POI_CATEGORY_COLOR).trim() || DEFAULT_POI_CATEGORY_COLOR;
+  const displayOrder = Number.parseInt(orderInput?.value || '0', 10);
+  const active = activeInput?.checked !== false;
+
+  if (!slug || !nameEn) {
+    showToast('Slug and English name are required.', 'warning');
+    return;
+  }
+
+  const payload = {
+    slug,
+    name_en: nameEn,
+    name_pl: namePl || null,
+    icon,
+    color,
+    display_order: Number.isFinite(displayOrder) ? displayOrder : 0,
+    active,
+  };
+
+  try {
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = editId ? 'Updating...' : 'Creating...';
+    }
+
+    const client = ensureSupabase();
+    if (!client) throw new Error('Database connection not available');
+
+    let error = null;
+    if (editId) {
+      ({ error } = await client
+        .from('poi_categories')
+        .update(payload)
+        .eq('id', editId));
+    } else {
+      ({ error } = await client
+        .from('poi_categories')
+        .insert(payload));
+    }
+
+    if (error) throw error;
+
+    showToast(editId ? 'Category updated' : 'Category created', 'success');
+    resetPoiCategoryForm();
+    adminState.poiCategoriesLoaded = false;
+    await loadPoiCategories(true);
+    await loadPoisData(true);
+    renderPoiCategoriesManager();
+    populatePoiCategoryFormOptions();
+  } catch (error) {
+    console.error('Failed to save POI category:', error);
+    showToast(`Failed to save category: ${error.message || 'Unknown error'}`, 'error');
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = editId ? 'Update category' : 'Save category';
+    }
   }
 }
 
@@ -32260,6 +32740,9 @@ function renderPoiList() {
   tableBody.innerHTML = filtered.map(poi => {
     const statusPill = `<span class="poi-pill poi-pill--${poi.status}">${poi.status.toUpperCase()}</span>`;
     const sourcePill = poi.source === 'static' ? '<span class="poi-pill poi-pill--static">STATIC</span>' : '';
+    const categoryMeta = getPoiCategoryBySlug(poi.category) || null;
+    const categoryIcon = getPoiCategoryIconValue(categoryMeta);
+    const categoryLabel = getPoiCategoryDisplayName(categoryMeta, poi.category);
     const tags = poi.tags && poi.tags.length
       ? poi.tags.map(tag => `<span class="badge badge-info">${escapeHtml(tag)}</span>`).join(' ')
       : '';
@@ -32289,7 +32772,12 @@ function renderPoiList() {
             ${tags}
           </div>
         </td>
-        <td>${formatCategoryLabel(poi.category)}</td>
+        <td>
+          <span class="poi-category-pill">
+            <span class="poi-category-pill__icon" aria-hidden="true">${escapeHtml(categoryIcon)}</span>
+            <span>${escapeHtml(categoryLabel)}</span>
+          </span>
+        </td>
         <td>${formatCoordinates(poi.latitude, poi.longitude)}</td>
         <td>${poi.radius ? `${poi.radius} m` : '—'}</td>
         <td>${poi.updated_at ? formatDate(poi.updated_at) : poi.created_at ? formatDate(poi.created_at) : '—'}</td>
@@ -32334,6 +32822,8 @@ async function loadPoisData(forceRefresh = false) {
     updatePoiStats();
     updatePoiTableFooter(getFilteredPois().length);
     updatePoiFilterOptions();
+    populatePoiCategoryFormOptions();
+    renderPoiCategoriesManager();
     return;
   }
 
@@ -32345,6 +32835,8 @@ async function loadPoisData(forceRefresh = false) {
 
   if (client) {
     try {
+      await loadPoiCategories(forceRefresh);
+
       const { data: pois, error } = await client
         .from('pois')
         .select('*')
@@ -32355,6 +32847,7 @@ async function loadPoisData(forceRefresh = false) {
       if (Array.isArray(pois)) {
         adminState.pois = pois.map(poi => normalizePoi(poi, 'supabase')).filter(Boolean);
         adminState.poiDataSource = 'supabase';
+        syncPoiCategoriesFromCurrentPois();
         loaded = true;
       }
     } catch (error) {
@@ -32374,6 +32867,7 @@ async function loadPoisData(forceRefresh = false) {
         ? staticPois.map(poi => normalizePoi(poi, 'static')).filter(Boolean)
         : [];
       adminState.poiDataSource = 'static';
+      syncPoiCategoriesFromCurrentPois();
     } catch (error) {
       console.error('Failed to load fallback POIs:', error);
       adminState.pois = [];
@@ -32386,6 +32880,8 @@ async function loadPoisData(forceRefresh = false) {
   adminState.poisLoaded = true;
 
   updatePoiFilterOptions();
+  populatePoiCategoryFormOptions();
+  renderPoiCategoriesManager();
   updatePoiStats();
   renderPoiList();
 }
@@ -32408,6 +32904,9 @@ function viewPoiDetails(poiId) {
   }
 
   if (content) {
+    const categoryMeta = getPoiCategoryBySlug(poi.category) || null;
+    const categoryLabel = getPoiCategoryDisplayName(categoryMeta, poi.category);
+    const categoryIcon = getPoiCategoryIconValue(categoryMeta);
     const tags = poi.tags && poi.tags.length
       ? poi.tags.map(tag => `<span class="badge badge-info">${escapeHtml(tag)}</span>`).join(' ')
       : '<span style="color: var(--admin-text-muted);">No tags</span>';
@@ -32426,7 +32925,7 @@ function viewPoiDetails(poiId) {
           <h4>Overview</h4>
           <div class="poi-detail-list">
             <div><strong>Slug:</strong> ${escapeHtml(poi.slug)}</div>
-            <div><strong>Category:</strong> ${formatCategoryLabel(poi.category)}</div>
+            <div><strong>Category:</strong> ${escapeHtml(categoryIcon)} ${escapeHtml(categoryLabel)}</div>
             <div><strong>Status:</strong> ${poi.status.toUpperCase()}</div>
             <div><strong>Radius:</strong> ${poi.radius ? poi.radius + ' m' : '—'}</div>
             <div><strong>XP Reward:</strong> ${poi.xp ?? 100} XP</div>
@@ -32550,7 +33049,7 @@ function openPoiForm(poiId = null) {
 
   const nameInput = $('#poiName');
   const slugInput = $('#poiSlug');
-  const categoryInput = $('#poiCategory');
+  const categoryInput = $('#poiCategorySlug');
   const statusInput = $('#poiStatus');
   const latitudeInput = $('#poiLatitude');
   const longitudeInput = $('#poiLongitude');
@@ -32566,7 +33065,8 @@ function openPoiForm(poiId = null) {
     slugInput.value = poi?.slug || '';
     slugInput.disabled = Boolean(poi);
   }
-  if (categoryInput) categoryInput.value = poi?.category || '';
+  populatePoiCategoryFormOptions(poi?.category || DEFAULT_POI_CATEGORY_SLUG);
+  if (categoryInput) categoryInput.value = normalizePoiCategorySlug(poi?.category || DEFAULT_POI_CATEGORY_SLUG);
   if (statusInput) statusInput.value = poi?.status || 'published';
   if (latitudeInput) latitudeInput.value = poi?.latitude ?? '';
   if (longitudeInput) longitudeInput.value = poi?.longitude ?? '';
@@ -32701,7 +33201,9 @@ async function handlePoiFormSubmit(event) {
     }
     
     const slugInput = (formData.get('slug') || '').toString().trim();
-    const category = (formData.get('category') || '').toString().trim().toLowerCase() || 'uncategorized';
+    const categorySlug = normalizePoiCategorySlug(formData.get('category_slug') || DEFAULT_POI_CATEGORY_SLUG);
+    const selectedCategory = getPoiCategoryBySlug(categorySlug);
+    const categoryId = selectedCategory?.id || null;
     const status = (formData.get('status') || 'published').toString().toLowerCase();
     const latitude = parseFloat(formData.get('latitude'));
     const longitude = parseFloat(formData.get('longitude'));
@@ -32772,7 +33274,9 @@ async function handlePoiFormSubmit(event) {
         lat: latitude,
         lng: longitude,
         xp: xp || 100,
-        badge: category || badge || 'Explorer',  // badge column
+        badge: badge || selectedCategory?.name_en || categorySlug || 'Explorer',  // badge column
+        category: categorySlug,
+        category_id: categoryId,
         required_level: 1,  // default level
         status: status,
         radius: radius || DEFAULT_POI_RADIUS,
@@ -32805,9 +33309,26 @@ async function handlePoiFormSubmit(event) {
       
       console.log('Creating POI with data:', JSON.stringify(insertData, null, 2));
 
-      const { error } = await client
+      let { error } = await client
         .from('pois')
         .insert(insertData);
+
+      if (error && isMissingColumnError(error, 'category_id')) {
+        const fallbackInsert = { ...insertData };
+        delete fallbackInsert.category_id;
+        ({ error } = await client
+          .from('pois')
+          .insert(fallbackInsert));
+      }
+
+      if (error && isMissingColumnError(error, 'category')) {
+        const fallbackInsert = { ...insertData };
+        delete fallbackInsert.category;
+        delete fallbackInsert.category_id;
+        ({ error } = await client
+          .from('pois')
+          .insert(fallbackInsert));
+      }
 
       if (error) {
         console.error('Insert error:', error);
@@ -32831,8 +33352,9 @@ async function handlePoiFormSubmit(event) {
         google_url: googleUrl || null,
         main_image_url: mainImageUrl || null,
         photos: Array.isArray(poiPhotosState.photos) ? poiPhotosState.photos.slice(0, 10) : [],
-        badge: category || badge || null,
-        category: category,
+        badge: badge || selectedCategory?.name_en || categorySlug || null,
+        category: categorySlug,
+        category_id: categoryId,
         tags: tags,
       };
       
@@ -32883,7 +33405,18 @@ async function handlePoiFormSubmit(event) {
       if (res.error && isMissingColumnError(res.error, 'category')) {
         const fallback = { ...updateData };
         delete fallback.category;
+        delete fallback.category_id;
         delete fallback.tags;
+        res = await client
+          .from('pois')
+          .update(fallback)
+          .eq('id', poiId)
+          .select('id');
+      }
+
+      if (res.error && isMissingColumnError(res.error, 'category_id')) {
+        const fallback = { ...updateData };
+        delete fallback.category_id;
         res = await client
           .from('pois')
           .update(fallback)
@@ -34215,6 +34748,8 @@ window.deleteComment = deleteComment;
 window.viewPoiDetails = viewPoiDetails;
 window.editPoi = editPoi;
 window.deletePoi = deletePoi;
+window.editPoiCategory = editPoiCategory;
+window.deletePoiCategory = deletePoiCategory;
 window.viewCommentDetails = viewCommentDetails;
 window.editComment = editComment;
 window.handleCommentEditSubmit = handleCommentEditSubmit;

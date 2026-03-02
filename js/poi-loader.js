@@ -12,6 +12,7 @@ try {
 // Globalna zmienna dla POI
 window.PLACES_DATA = [];
 window.PLACES_DATA_LOADED = false;
+window.POI_CATEGORIES_DATA = [];
 
 const CE_DEBUG_POI_LOADER = typeof localStorage !== 'undefined' && localStorage.getItem('CE_DEBUG') === 'true';
 function ceLog(...args) {
@@ -20,6 +21,9 @@ function ceLog(...args) {
 
 const POIS_CACHE_KEY = 'ce_cache_pois_transformed_v1';
 const POIS_CACHE_TTL_MS = 10 * 60 * 1000;
+const DEFAULT_POI_CATEGORY_SLUG = 'uncategorized';
+const DEFAULT_POI_CATEGORY_ICON = '📍';
+const DEFAULT_POI_CATEGORY_COLOR = '#2563eb';
 
 function readPoisCache() {
   try {
@@ -91,6 +95,9 @@ async function loadPOIsFromSupabase() {
       console.error('❌ Brak Supabase client - używam fallback');
       return useFallbackData();
     }
+
+    const poiCategoryMap = await loadPoiCategoriesFromSupabase(supabase);
+    window.POI_CATEGORIES_DATA = Array.from(poiCategoryMap.values());
     
     // Pobierz POI z bazy (tylko Published)
     ceLog('🔍 Zapytanie: SELECT * FROM pois WHERE status = published');
@@ -114,7 +121,7 @@ async function loadPOIsFromSupabase() {
     ceLog(`✅ Pobrano ${pois.length} POI z Supabase`);
     
     // Transformuj dane
-    const transformedPOIs = pois.map(poi => transformPOI(poi));
+    const transformedPOIs = pois.map(poi => transformPOI(poi, poiCategoryMap));
     
     ceLog('✅ Transformacja zakończona');
     ceLog('📍 Przykładowy POI:', transformedPOIs[0]);
@@ -142,14 +149,87 @@ function getTranslation(i18nObj, fallback = '') {
   return i18nObj[currentLang] || i18nObj.en || i18nObj.pl || fallback;
 }
 
+function normalizePoiCategorySlug(value) {
+  const slug = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-');
+  return slug || DEFAULT_POI_CATEGORY_SLUG;
+}
+
+function normalizePoiCategoryRecord(row) {
+  if (!row || typeof row !== 'object') return null;
+  const slug = normalizePoiCategorySlug(row.slug || row.name_en || row.name_pl || row.id);
+  const iconRaw = String(row.icon || DEFAULT_POI_CATEGORY_ICON).trim();
+  return {
+    id: String(row.id || '').trim() || null,
+    slug,
+    name_en: String(row.name_en || '').trim() || slug,
+    name_pl: String(row.name_pl || '').trim() || null,
+    icon: Array.from(iconRaw).slice(0, 2).join('') || DEFAULT_POI_CATEGORY_ICON,
+    color: String(row.color || DEFAULT_POI_CATEGORY_COLOR).trim() || DEFAULT_POI_CATEGORY_COLOR,
+    active: row.active !== false,
+  };
+}
+
+function getPoiCategoryMapFromWindow() {
+  const map = new Map();
+  const categories = Array.isArray(window.POI_CATEGORIES_DATA) ? window.POI_CATEGORIES_DATA : [];
+  categories.forEach((row) => {
+    const normalized = normalizePoiCategoryRecord(row);
+    if (!normalized) return;
+    map.set(normalized.slug, normalized);
+    if (normalized.id) map.set(`id:${normalized.id}`, normalized);
+  });
+  return map;
+}
+
+async function loadPoiCategoriesFromSupabase(supabase) {
+  const map = new Map();
+  if (!supabase) return map;
+
+  try {
+    const { data, error } = await supabase
+      .from('poi_categories')
+      .select('id, slug, name_en, name_pl, icon, color, active, display_order')
+      .eq('active', true)
+      .order('display_order', { ascending: true })
+      .order('name_en', { ascending: true });
+
+    if (error) throw error;
+
+    (Array.isArray(data) ? data : []).forEach((row) => {
+      const normalized = normalizePoiCategoryRecord(row);
+      if (!normalized) return;
+      map.set(normalized.slug, normalized);
+      if (normalized.id) map.set(`id:${normalized.id}`, normalized);
+    });
+  } catch (error) {
+    const message = String(error?.message || '');
+    if (!/poi_categories|category_id|does not exist|Could not find the table/i.test(message)) {
+      console.warn('⚠️ Could not load POI categories:', error);
+    }
+  }
+
+  return map;
+}
+
 /**
  * Transformuje POI z formatu bazy do formatu aplikacji
  */
-function transformPOI(dbPoi) {
+function transformPOI(dbPoi, poiCategoryMap = null) {
   // Use i18n fields if available, otherwise fallback to old fields
   const name = getTranslation(dbPoi.name_i18n, dbPoi.name || 'Unnamed Place');
   const description = getTranslation(dbPoi.description_i18n, dbPoi.description || '');
   const badge = getTranslation(dbPoi.badge_i18n, dbPoi.badge || 'Explorer');
+  const categorySlug = normalizePoiCategorySlug(dbPoi.category || dbPoi.poi_category || dbPoi.badge || DEFAULT_POI_CATEGORY_SLUG);
+  const categoryId = String(dbPoi.category_id || '').trim() || null;
+  const categories = poiCategoryMap instanceof Map ? poiCategoryMap : getPoiCategoryMapFromWindow();
+  const categoryMeta = categories.get(`id:${categoryId}`) || categories.get(categorySlug) || null;
+  const categoryIcon = categoryMeta?.icon || DEFAULT_POI_CATEGORY_ICON;
+  const categoryColor = categoryMeta?.color || DEFAULT_POI_CATEGORY_COLOR;
 
   let photos = dbPoi.photos || [];
   if (typeof photos === 'string') {
@@ -189,6 +269,12 @@ function transformPOI(dbPoi) {
     googleMapsURL: dbPoi.google_url || dbPoi.google_maps_url || `https://www.google.com/maps?q=${dbPoi.lat},${dbPoi.lng}`,
     main_image_url: mainImageUrl,
     photos: photos,
+    category: categorySlug,
+    category_id: categoryMeta?.id || categoryId || null,
+    category_icon: categoryIcon,
+    category_name_en: categoryMeta?.name_en || categorySlug,
+    category_name_pl: categoryMeta?.name_pl || null,
+    category_color: categoryColor,
     xp: parseInt(dbPoi.xp) || 100,
     requiredLevel: parseInt(dbPoi.required_level) || 1,
     source: 'supabase',
@@ -313,9 +399,10 @@ document.addEventListener('wakacjecypr:languagechange', (event) => {
   
   // Re-transform POIs with new language
   if (window.PLACES_DATA && window.PLACES_DATA.length > 0) {
+    const categoryMap = getPoiCategoryMapFromWindow();
     window.PLACES_DATA = window.PLACES_DATA.map(poi => {
       if (poi.raw) {
-        return transformPOI(poi.raw);
+        return transformPOI(poi.raw, categoryMap);
       }
       return poi;
     });
