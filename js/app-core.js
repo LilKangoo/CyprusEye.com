@@ -195,7 +195,9 @@ try {
   let mapMarkerFilterControl = null;
   let mapMarkerFilterContainer = null;
   let mapMarkerFilterButtons = new Map();
-  let mapPoiCategoryFilterButtons = new Map();
+  let mapPoiCategoryControl = null;
+  let mapPoiCategoryContainer = null;
+  let mapPoiCategorySelect = null;
   let mapMarkerFilterCounter = null;
   let mapFilterListenersAttached = false;
   let mapVisiblePoiIds = null;
@@ -359,6 +361,14 @@ try {
     prompt.action.disabled = state === 'unsupported';
   }
 
+  function syncPoiCategoryControlOffset() {
+    if (!mapPoiCategoryContainer) {
+      return;
+    }
+    const promptVisible = !!(mapLocationPrompt?.container && !mapLocationPrompt.container.hidden);
+    mapPoiCategoryContainer.classList.toggle('is-offset', promptVisible);
+  }
+
   function showMapLocationPrompt(state = 'prompt') {
     const prompt = ensureMapLocationPrompt();
     if (!prompt) {
@@ -366,6 +376,7 @@ try {
     }
     updateMapLocationPrompt(state);
     prompt.container.hidden = false;
+    syncPoiCategoryControlOffset();
   }
 
   function hideMapLocationPrompt() {
@@ -373,6 +384,7 @@ try {
       return;
     }
     mapLocationPrompt.container.hidden = true;
+    syncPoiCategoryControlOffset();
   }
 
   function attachMapLocationPromptListeners() {
@@ -789,7 +801,6 @@ try {
     mapMarkerFilterContainer.innerHTML = '';
     mapMarkerFilterContainer.setAttribute('aria-label', getUiTranslation('map.filter.aria', 'Map filters'));
     mapMarkerFilterButtons = new Map();
-    mapPoiCategoryFilterButtons = new Map();
 
     const buttonsWrap = document.createElement('div');
     buttonsWrap.className = 'map-filter-control';
@@ -812,50 +823,75 @@ try {
     });
 
     mapMarkerFilterContainer.appendChild(buttonsWrap);
-
-    const poiCategoryWrap = document.createElement('div');
-    poiCategoryWrap.className = 'map-poi-category-filter';
-    if (mapMarkerFilter === MAP_MARKER_FILTERS.RECOMMENDATIONS) {
-      poiCategoryWrap.classList.add('is-disabled');
-    }
-
-    const poiCategoryOptions = getPoiCategoryFilterOptions();
-    poiCategoryOptions.forEach((option) => {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'map-poi-category-btn';
-      button.dataset.category = option.value;
-      if (option.value === mapPoiCategoryFilter) {
-        button.classList.add('is-active');
-      }
-      button.setAttribute('aria-pressed', option.value === mapPoiCategoryFilter ? 'true' : 'false');
-      button.title = `${option.label} (${option.count})`;
-      const icon = document.createElement('span');
-      icon.className = 'map-poi-category-btn__icon';
-      icon.setAttribute('aria-hidden', 'true');
-      icon.textContent = String(option.icon || '📍');
-
-      const label = document.createElement('span');
-      label.className = 'map-poi-category-btn__label';
-      label.textContent = String(option.label || '');
-
-      const count = document.createElement('span');
-      count.className = 'map-poi-category-btn__count';
-      count.textContent = String(Number(option.count) || 0);
-
-      button.appendChild(icon);
-      button.appendChild(label);
-      button.appendChild(count);
-      button.addEventListener('click', () => {
-        setMapPoiCategoryFilter(option.value);
-      });
-      mapPoiCategoryFilterButtons.set(option.value, button);
-      poiCategoryWrap.appendChild(button);
-    });
-
-    mapMarkerFilterContainer.appendChild(poiCategoryWrap);
     mapMarkerFilterCounter = null;
     updateMapMarkerFilterCounter();
+  }
+
+  function renderMapPoiCategoryControl() {
+    if (!mapPoiCategoryContainer) {
+      return;
+    }
+
+    mapPoiCategoryContainer.innerHTML = '';
+    mapPoiCategoryContainer.classList.toggle('is-disabled', mapMarkerFilter === MAP_MARKER_FILTERS.RECOMMENDATIONS);
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'map-poi-dropdown';
+
+    const icon = document.createElement('span');
+    icon.className = 'map-poi-dropdown__icon';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = '🧭';
+
+    const select = document.createElement('select');
+    select.className = 'map-poi-dropdown__select';
+    select.setAttribute('aria-label', getUiTranslation('map.filter.poiCategoryAria', 'POI category filter'));
+    select.disabled = mapMarkerFilter === MAP_MARKER_FILTERS.RECOMMENDATIONS;
+
+    const options = getPoiCategoryFilterOptions();
+    options.forEach((option) => {
+      const item = document.createElement('option');
+      item.value = option.value;
+      item.textContent = `${String(option.icon || '📍')} ${String(option.label || '')} (${Number(option.count) || 0})`;
+      if (option.value === mapPoiCategoryFilter) {
+        item.selected = true;
+      }
+      select.appendChild(item);
+    });
+
+    select.addEventListener('change', (event) => {
+      const target = event.currentTarget;
+      const value = target && typeof target.value === 'string' ? target.value : MAP_POI_CATEGORY_ALL;
+      setMapPoiCategoryFilter(value);
+    });
+
+    wrapper.appendChild(icon);
+    wrapper.appendChild(select);
+    mapPoiCategoryContainer.appendChild(wrapper);
+    mapPoiCategorySelect = select;
+    syncPoiCategoryControlOffset();
+  }
+
+  function setupMapPoiCategoryControl() {
+    if (!mapInstance || typeof L === 'undefined') {
+      return;
+    }
+
+    if (mapPoiCategoryControl) {
+      renderMapPoiCategoryControl();
+      return;
+    }
+
+    mapPoiCategoryControl = L.control({ position: 'topright' });
+    mapPoiCategoryControl.onAdd = () => {
+      const container = L.DomUtil.create('div', 'map-poi-dropdown-control leaflet-control');
+      L.DomEvent.disableClickPropagation(container);
+      L.DomEvent.disableScrollPropagation(container);
+      mapPoiCategoryContainer = container;
+      renderMapPoiCategoryControl();
+      return container;
+    };
+    mapPoiCategoryControl.addTo(mapInstance);
   }
 
   function setupMapMarkerFilterControl() {
@@ -868,10 +904,12 @@ try {
       inlineHost.classList.add('map-filter-panel');
       mapMarkerFilterContainer = inlineHost;
       renderMapMarkerFilterControl();
+      setupMapPoiCategoryControl();
       return;
     }
 
     if (typeof L === 'undefined' || mapMarkerFilterControl) {
+      setupMapPoiCategoryControl();
       return;
     }
 
@@ -885,6 +923,7 @@ try {
       return container;
     };
     mapMarkerFilterControl.addTo(mapInstance);
+    setupMapPoiCategoryControl();
   }
 
   function updateMapMarkerFilterControlState() {
@@ -898,18 +937,13 @@ try {
       button.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
 
-    if (mapPoiCategoryFilterButtons && mapPoiCategoryFilterButtons.size > 0) {
-      mapPoiCategoryFilterButtons.forEach((button, value) => {
-        const active = value === mapPoiCategoryFilter;
-        button.classList.toggle('is-active', active);
-        button.setAttribute('aria-pressed', active ? 'true' : 'false');
-      });
+    if (mapPoiCategoryContainer) {
+      mapPoiCategoryContainer.classList.toggle('is-disabled', mapMarkerFilter === MAP_MARKER_FILTERS.RECOMMENDATIONS);
     }
-
-    if (mapMarkerFilterContainer) {
-      const categoryWrap = mapMarkerFilterContainer.querySelector('.map-poi-category-filter');
-      if (categoryWrap) {
-        categoryWrap.classList.toggle('is-disabled', mapMarkerFilter === MAP_MARKER_FILTERS.RECOMMENDATIONS);
+    if (mapPoiCategorySelect) {
+      mapPoiCategorySelect.disabled = mapMarkerFilter === MAP_MARKER_FILTERS.RECOMMENDATIONS;
+      if (mapPoiCategorySelect.value !== mapPoiCategoryFilter) {
+        mapPoiCategorySelect.value = mapPoiCategoryFilter;
       }
     }
   }
@@ -925,6 +959,7 @@ try {
 
     if (didResetCategory) {
       renderMapMarkerFilterControl();
+      renderMapPoiCategoryControl();
     }
 
     if (rerenderPoiMarkers) {
@@ -967,6 +1002,7 @@ try {
     mapFilterListenersAttached = true;
     const rerenderMapFilterForLanguage = () => {
       renderMapMarkerFilterControl();
+      renderMapPoiCategoryControl();
       applyMapMarkerFilter({
         rerenderPoiMarkers: false,
         refreshRecommendationVisibility: false,
@@ -982,6 +1018,7 @@ try {
     window.addEventListener('poisDataRefreshed', () => {
       ensureValidPoiCategoryFilter();
       renderMapMarkerFilterControl();
+      renderMapPoiCategoryControl();
       dispatchVisiblePoiIdsChanged(true);
     });
   }
