@@ -31,6 +31,7 @@ let adminState = {
   poiDataSource: 'supabase',
   poiCategories: [],
   poiCategoriesLoaded: false,
+  poiRecommendationSyncAt: 0,
   selectedPoi: null,
   poiFormMode: 'create',
   quests: [],
@@ -31980,6 +31981,7 @@ const DEFAULT_POI_CATEGORY_ICON = '📍';
 const DEFAULT_POI_CATEGORY_COLOR = '#2563eb';
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 let poiCategoriesMissingTableWarned = false;
+let poiRecommendationCategories = [];
 
 function isUuid(value) {
   return typeof value === 'string' && UUID_REGEX.test(value);
@@ -32019,6 +32021,392 @@ function normalizePoiCategory(rawCategory) {
     active: rawCategory.active !== false,
     raw: rawCategory,
   };
+}
+
+function normalizeRecommendationCategoryForPoi(rawCategory) {
+  if (!rawCategory || typeof rawCategory !== 'object') return null;
+
+  const id = String(rawCategory.id || '').trim() || null;
+  const nameEn = String(rawCategory.name_en || rawCategory.name_pl || '').trim();
+  const namePl = String(rawCategory.name_pl || '').trim();
+  const icon = getPoiCategoryIconValue({ icon: rawCategory.icon || DEFAULT_POI_CATEGORY_ICON });
+  const color = String(rawCategory.color || DEFAULT_POI_CATEGORY_COLOR).trim() || DEFAULT_POI_CATEGORY_COLOR;
+  const displayOrder = Number.parseInt(rawCategory.display_order, 10);
+  const active = rawCategory.active !== false;
+  const poiCategoryId = String(rawCategory.poi_category_id || '').trim() || null;
+  const linkedPoiCategory = normalizePoiCategory(rawCategory.poi_categories || null);
+  const fallbackSlug = normalizePoiCategorySlug(linkedPoiCategory?.slug || nameEn || namePl || id || DEFAULT_POI_CATEGORY_SLUG);
+
+  return {
+    id,
+    name_en: nameEn || formatCategoryLabel(fallbackSlug),
+    name_pl: namePl || null,
+    icon,
+    color,
+    display_order: Number.isFinite(displayOrder) ? displayOrder : 0,
+    active,
+    poi_category_id: poiCategoryId,
+    poi_categories: linkedPoiCategory,
+    fallback_slug: fallbackSlug,
+    raw: rawCategory,
+  };
+}
+
+function getPoiFallbackCategoryFromRecommendation(recCategory) {
+  if (!recCategory) return null;
+  return normalizePoiCategory({
+    id: recCategory.poi_category_id || null,
+    slug: recCategory.poi_categories?.slug || recCategory.fallback_slug || recCategory.name_en || recCategory.name_pl,
+    name_en: recCategory.poi_categories?.name_en || recCategory.name_en,
+    name_pl: recCategory.poi_categories?.name_pl || recCategory.name_pl,
+    icon: recCategory.poi_categories?.icon || recCategory.icon,
+    color: recCategory.poi_categories?.color || recCategory.color,
+    display_order: recCategory.display_order,
+    active: recCategory.active !== false,
+  });
+}
+
+function getLinkedRecommendationCategoriesForPoi(poiCategory) {
+  if (!poiCategory) return [];
+  const poiId = String(poiCategory.id || '').trim();
+  const poiSlug = normalizePoiCategorySlug(poiCategory.slug || '');
+
+  return poiRecommendationCategories.filter((recCategory) => {
+    const linkedId = String(recCategory.poi_category_id || '').trim();
+    if (poiId && linkedId && poiId === linkedId) return true;
+    const linkedSlug = normalizePoiCategorySlug(
+      recCategory.poi_categories?.slug
+      || recCategory.fallback_slug
+      || recCategory.name_en
+      || recCategory.name_pl
+    );
+    return linkedSlug === poiSlug;
+  });
+}
+
+async function loadRecommendationCategoriesForPoiSync(client) {
+  if (!client) return [];
+
+  let rows = null;
+  let error = null;
+
+  const primary = await client
+    .from('recommendation_categories')
+    .select('id, name_en, name_pl, icon, color, display_order, active, poi_category_id, poi_categories(id, slug, name_en, name_pl, icon, color)')
+    .order('display_order', { ascending: true })
+    .order('name_en', { ascending: true });
+
+  rows = primary.data;
+  error = primary.error;
+
+  if (error) {
+    const message = String(error?.message || error?.details || '');
+    if (/poi_categories|column .* does not exist|Could not find/i.test(message)) {
+      const fallback = await client
+        .from('recommendation_categories')
+        .select('id, name_en, name_pl, icon, color, display_order, active, poi_category_id')
+        .order('display_order', { ascending: true })
+        .order('name_en', { ascending: true });
+      rows = fallback.data;
+      error = fallback.error;
+    }
+  }
+
+  if (error && isMissingColumnError(error, 'poi_category_id')) {
+    const legacy = await client
+      .from('recommendation_categories')
+      .select('id, name_en, name_pl, icon, color, display_order, active')
+      .order('display_order', { ascending: true })
+      .order('name_en', { ascending: true });
+    rows = legacy.data;
+    error = legacy.error;
+  }
+
+  if (error) throw error;
+
+  return (Array.isArray(rows) ? rows : [])
+    .map((row) => normalizeRecommendationCategoryForPoi(row))
+    .filter(Boolean);
+}
+
+async function linkRecommendationCategoryToPoi(client, recommendationCategoryId, poiCategoryId) {
+  const recommendationId = String(recommendationCategoryId || '').trim();
+  const poiId = String(poiCategoryId || '').trim();
+  if (!recommendationId || !poiId) return false;
+
+  const { error } = await client
+    .from('recommendation_categories')
+    .update({ poi_category_id: poiId })
+    .eq('id', recommendationId);
+
+  if (error) {
+    if (isMissingColumnError(error, 'poi_category_id')) return false;
+    throw error;
+  }
+  return true;
+}
+
+async function syncPoiCategoriesWithRecommendations({ silent = true, persistMissing = true } = {}) {
+  const client = ensureSupabase();
+  if (!client) {
+    poiRecommendationCategories = [];
+    return;
+  }
+
+  let recommendationCategories = [];
+  try {
+    recommendationCategories = await loadRecommendationCategoriesForPoiSync(client);
+  } catch (error) {
+    if (!silent) {
+      showToast(`Failed to load recommendation categories: ${error?.message || 'Unknown error'}`, 'warning');
+    } else {
+      console.warn('Failed to load recommendation categories for POI sync:', error);
+    }
+    poiRecommendationCategories = [];
+    return;
+  }
+
+  poiRecommendationCategories = recommendationCategories;
+
+  let poiCategories = [];
+  try {
+    const { data, error } = await client
+      .from('poi_categories')
+      .select('*')
+      .order('display_order', { ascending: true })
+      .order('name_en', { ascending: true });
+    if (error) throw error;
+
+    poiCategories = (Array.isArray(data) ? data : [])
+      .map((row) => normalizePoiCategory(row))
+      .filter(Boolean);
+  } catch (error) {
+    if (!silent && !isMissingTableError(error, 'poi_categories')) {
+      showToast(`Failed to load POI categories for sync: ${error?.message || 'Unknown error'}`, 'warning');
+    }
+    return;
+  }
+
+  const poiById = new Map();
+  const poiBySlug = new Map();
+  poiCategories.forEach((category) => {
+    const id = String(category.id || '').trim();
+    if (id) poiById.set(id, category);
+    poiBySlug.set(normalizePoiCategorySlug(category.slug), category);
+  });
+
+  let changed = false;
+  for (const recCategory of recommendationCategories) {
+    let linkedPoiCategory = null;
+    const linkedId = String(recCategory.poi_category_id || '').trim();
+    if (linkedId && poiById.has(linkedId)) {
+      linkedPoiCategory = poiById.get(linkedId);
+    }
+
+    if (!linkedPoiCategory) {
+      const fallbackSlug = normalizePoiCategorySlug(
+        recCategory.poi_categories?.slug
+        || recCategory.fallback_slug
+        || recCategory.name_en
+        || recCategory.name_pl
+      );
+      linkedPoiCategory = poiBySlug.get(fallbackSlug) || null;
+    }
+
+    if (!linkedPoiCategory && persistMissing) {
+      const baseSlug = normalizePoiCategorySlug(recCategory.fallback_slug || recCategory.name_en || recCategory.name_pl || 'category');
+      let nextSlug = baseSlug;
+      let suffix = 2;
+      while (poiBySlug.has(nextSlug)) {
+        nextSlug = `${baseSlug}-${suffix}`;
+        suffix += 1;
+      }
+
+      const payload = {
+        slug: nextSlug,
+        name_en: recCategory.name_en || formatCategoryLabel(nextSlug),
+        name_pl: recCategory.name_pl || null,
+        icon: recCategory.icon || DEFAULT_POI_CATEGORY_ICON,
+        color: recCategory.color || DEFAULT_POI_CATEGORY_COLOR,
+        display_order: Number.isFinite(recCategory.display_order) ? recCategory.display_order : 0,
+        active: recCategory.active !== false,
+      };
+
+      const insertRes = await client
+        .from('poi_categories')
+        .insert(payload)
+        .select('*')
+        .single();
+
+      if (!insertRes.error && insertRes.data) {
+        linkedPoiCategory = normalizePoiCategory(insertRes.data);
+        const newId = String(linkedPoiCategory?.id || '').trim();
+        if (newId) poiById.set(newId, linkedPoiCategory);
+        if (linkedPoiCategory?.slug) {
+          poiBySlug.set(normalizePoiCategorySlug(linkedPoiCategory.slug), linkedPoiCategory);
+        }
+        changed = true;
+      } else {
+        console.warn('Failed to auto-create POI category from recommendation category:', insertRes.error || payload);
+      }
+    }
+
+    if (linkedPoiCategory) {
+      const nextPoiId = String(linkedPoiCategory.id || '').trim();
+      const desiredPoiNameEn = String(recCategory.name_en || linkedPoiCategory.name_en || formatCategoryLabel(linkedPoiCategory.slug)).trim();
+      const desiredPoiNamePl = String(recCategory.name_pl || linkedPoiCategory.name_pl || '').trim() || null;
+      const desiredPoiIcon = getPoiCategoryIconValue({ icon: recCategory.icon || linkedPoiCategory.icon || DEFAULT_POI_CATEGORY_ICON });
+      const desiredPoiColor = String(recCategory.color || linkedPoiCategory.color || DEFAULT_POI_CATEGORY_COLOR).trim() || DEFAULT_POI_CATEGORY_COLOR;
+      const desiredPoiOrder = Number.isFinite(recCategory.display_order) ? recCategory.display_order : Number(linkedPoiCategory.display_order || 0);
+      const desiredPoiActive = recCategory.active !== false;
+
+      const needsPoiUpdate = (
+        String(linkedPoiCategory.name_en || '').trim() !== desiredPoiNameEn
+        || String(linkedPoiCategory.name_pl || '').trim() !== String(desiredPoiNamePl || '').trim()
+        || getPoiCategoryIconValue(linkedPoiCategory) !== desiredPoiIcon
+        || String(linkedPoiCategory.color || '').trim().toLowerCase() !== desiredPoiColor.toLowerCase()
+        || Number(linkedPoiCategory.display_order || 0) !== Number(desiredPoiOrder || 0)
+        || (linkedPoiCategory.active !== false) !== desiredPoiActive
+      );
+
+      if (needsPoiUpdate) {
+        const updatePayload = {
+          name_en: desiredPoiNameEn,
+          name_pl: desiredPoiNamePl,
+          icon: desiredPoiIcon,
+          color: desiredPoiColor,
+          display_order: Number.isFinite(desiredPoiOrder) ? desiredPoiOrder : 0,
+          active: desiredPoiActive,
+        };
+        const updateRes = await client
+          .from('poi_categories')
+          .update(updatePayload)
+          .eq('id', nextPoiId)
+          .select('*')
+          .single();
+        if (!updateRes.error && updateRes.data) {
+          linkedPoiCategory = normalizePoiCategory(updateRes.data);
+          const refreshedId = String(linkedPoiCategory?.id || '').trim();
+          if (refreshedId) poiById.set(refreshedId, linkedPoiCategory);
+          if (linkedPoiCategory?.slug) {
+            poiBySlug.set(normalizePoiCategorySlug(linkedPoiCategory.slug), linkedPoiCategory);
+          }
+          changed = true;
+        } else {
+          console.warn('Failed to update POI category from recommendation category:', updateRes.error);
+        }
+      }
+
+      if (!linkedId || linkedId !== nextPoiId) {
+        try {
+          const linked = await linkRecommendationCategoryToPoi(client, recCategory.id, nextPoiId);
+          if (linked) changed = true;
+        } catch (error) {
+          console.warn('Failed to link recommendation category to POI category:', error);
+        }
+      }
+    }
+  }
+
+  if (changed) {
+    try {
+      poiRecommendationCategories = await loadRecommendationCategoriesForPoiSync(client);
+    } catch (error) {
+      console.warn('Failed to refresh recommendation category links:', error);
+    }
+  }
+
+  adminState.poiRecommendationSyncAt = Date.now();
+}
+
+async function syncPoiCategoriesFromRecommendationsNow({ silent = true } = {}) {
+  try {
+    await syncPoiCategoriesWithRecommendations({ silent, persistMissing: true });
+    adminState.poiCategoriesLoaded = false;
+    await loadPoiCategories(false);
+    syncPoiCategoriesFromCurrentPois();
+    updatePoiFilterOptions();
+    populatePoiCategoryFormOptions();
+    const categoryModal = $('#poiCategoryModal');
+    if (categoryModal && !categoryModal.hidden) {
+      renderPoiCategoriesManager();
+    }
+  } catch (error) {
+    if (!silent) {
+      showToast(`POI category sync failed: ${error?.message || 'Unknown error'}`, 'warning');
+    } else {
+      console.warn('POI category sync from recommendations failed:', error);
+    }
+  }
+}
+
+async function upsertRecommendationCategoryFromPoiCategory(poiCategory, { silent = true } = {}) {
+  if (!poiCategory || !poiCategory.id) return;
+  const client = ensureSupabase();
+  if (!client) return;
+
+  let recommendationCategories = poiRecommendationCategories;
+  if (!Array.isArray(recommendationCategories) || recommendationCategories.length === 0) {
+    try {
+      recommendationCategories = await loadRecommendationCategoriesForPoiSync(client);
+    } catch (error) {
+      if (!silent) {
+        showToast(`Failed to load recommendation categories: ${error?.message || 'Unknown error'}`, 'warning');
+      }
+      return;
+    }
+  }
+
+  const poiId = String(poiCategory.id || '').trim();
+  const poiSlug = normalizePoiCategorySlug(poiCategory.slug || '');
+  const existing = recommendationCategories.find((category) => {
+    const linkedId = String(category.poi_category_id || '').trim();
+    if (linkedId && linkedId === poiId) return true;
+    const linkedSlug = normalizePoiCategorySlug(
+      category.poi_categories?.slug
+      || category.fallback_slug
+      || category.name_en
+      || category.name_pl
+    );
+    return linkedSlug === poiSlug;
+  }) || null;
+
+  const payload = {
+    name_en: poiCategory.name_en || formatCategoryLabel(poiSlug),
+    name_pl: poiCategory.name_pl || null,
+    icon: getPoiCategoryIconValue(poiCategory),
+    color: poiCategory.color || DEFAULT_POI_CATEGORY_COLOR,
+    display_order: Number.isFinite(Number(poiCategory.display_order)) ? Number(poiCategory.display_order) : 0,
+    active: poiCategory.active !== false,
+    poi_category_id: poiId,
+  };
+
+  if (existing?.id) {
+    const { error } = await client
+      .from('recommendation_categories')
+      .update(payload)
+      .eq('id', existing.id);
+    if (error && !isMissingColumnError(error, 'poi_category_id')) {
+      throw error;
+    }
+  } else {
+    const insertPayload = {
+      ...payload,
+      name_pl: payload.name_pl || payload.name_en,
+    };
+    const { error } = await client
+      .from('recommendation_categories')
+      .insert(insertPayload);
+    if (error && !isMissingColumnError(error, 'poi_category_id')) {
+      throw error;
+    }
+  }
+
+  try {
+    poiRecommendationCategories = await loadRecommendationCategoriesForPoiSync(client);
+  } catch (error) {
+    console.warn('Failed to refresh recommendation categories after POI update:', error);
+  }
 }
 
 function sortPoiCategories(categories = []) {
@@ -32083,21 +32471,38 @@ function syncPoiCategoriesFromCurrentPois() {
     changed = true;
   });
 
+  poiRecommendationCategories.forEach((recCategory) => {
+    const fallbackCategory = getPoiFallbackCategoryFromRecommendation(recCategory);
+    if (!fallbackCategory) return;
+    const slug = normalizePoiCategorySlug(fallbackCategory.slug);
+    if (existingBySlug.has(slug)) return;
+    existingBySlug.set(slug, fallbackCategory);
+    changed = true;
+  });
+
   if (changed) {
     adminState.poiCategories = sortPoiCategories(Array.from(existingBySlug.values()));
   }
 }
 
 async function loadPoiCategories(forceRefresh = false) {
-  if (!forceRefresh && adminState.poiCategoriesLoaded) {
+  const syncNeeded = forceRefresh
+    || !adminState.poiRecommendationSyncAt
+    || (Date.now() - adminState.poiRecommendationSyncAt) > 60_000;
+  if (!forceRefresh && adminState.poiCategoriesLoaded && !syncNeeded) {
     return adminState.poiCategories;
   }
 
   const client = ensureSupabase();
   if (!client) {
     adminState.poiCategories = [];
+    poiRecommendationCategories = [];
     adminState.poiCategoriesLoaded = true;
     return adminState.poiCategories;
+  }
+
+  if (syncNeeded) {
+    await syncPoiCategoriesWithRecommendations({ silent: true, persistMissing: true });
   }
 
   try {
@@ -32463,7 +32868,7 @@ async function openPoiCategoryManager() {
     return;
   }
 
-  await loadPoiCategories(false);
+  await loadPoiCategories(true);
 
   showElement(modal);
   resetPoiCategoryForm();
@@ -32493,6 +32898,14 @@ function renderPoiCategoriesManager() {
     const name = getPoiCategoryDisplayName(category, slug);
     const active = category.active !== false;
     const categoryUsage = usage.get(slug) || 0;
+    const linkedRecommendationCategories = getLinkedRecommendationCategoriesForPoi(category);
+    const linkedRecommendationsCount = linkedRecommendationCategories.length;
+    const linkedRecommendationsLabel = linkedRecommendationsCount
+      ? linkedRecommendationCategories
+          .slice(0, 2)
+          .map((item) => item.name_en || item.name_pl || 'Recommendation')
+          .join(', ')
+      : '';
     const editDisabled = !category.id ? 'disabled' : '';
     const deleteDisabled = (!category.id || slug === DEFAULT_POI_CATEGORY_SLUG) ? 'disabled' : '';
 
@@ -32502,6 +32915,9 @@ function renderPoiCategoriesManager() {
         <td>
           <div style="font-weight:600;">${escapeHtml(name)}</div>
           <div style="font-size:11px; color: var(--admin-text-muted);">${escapeHtml(category.name_pl || '')}</div>
+          <div style="font-size:11px; color: var(--admin-text-muted); margin-top:3px;">
+            Recommendations: ${linkedRecommendationsCount > 0 ? `${linkedRecommendationsCount} (${escapeHtml(linkedRecommendationsLabel)}${linkedRecommendationsCount > 2 ? ', …' : ''})` : '0'}
+          </div>
         </td>
         <td><code>${escapeHtml(slug)}</code></td>
         <td>${categoryUsage}</td>
@@ -32560,6 +32976,15 @@ async function deletePoiCategory(categorySlug) {
 
   if (category.slug === DEFAULT_POI_CATEGORY_SLUG) {
     showToast('Default category cannot be deleted.', 'warning');
+    return;
+  }
+
+  const linkedRecommendations = getLinkedRecommendationCategoriesForPoi(category);
+  if (linkedRecommendations.length > 0) {
+    showToast(
+      `Category is linked to ${linkedRecommendations.length} recommendation categor${linkedRecommendations.length === 1 ? 'y' : 'ies'}. Edit/remove it in POI manager first to keep both modules consistent.`,
+      'warning'
+    );
     return;
   }
 
@@ -32664,6 +33089,15 @@ async function handlePoiCategoryFormSubmit(event) {
     resetPoiCategoryForm();
     adminState.poiCategoriesLoaded = false;
     await loadPoiCategories(true);
+    const savedPoiCategory = getPoiCategoryBySlug(slug);
+    if (savedPoiCategory?.id) {
+      try {
+        await upsertRecommendationCategoryFromPoiCategory(savedPoiCategory, { silent: true });
+      } catch (syncError) {
+        console.warn('POI category saved but recommendation sync failed:', syncError);
+        showToast('POI category saved, but sync to Recommendations failed.', 'warning');
+      }
+    }
     await loadPoisData(true);
     renderPoiCategoriesManager();
     populatePoiCategoryFormOptions();
@@ -32818,6 +33252,7 @@ async function loadPoisData(forceRefresh = false) {
   }
 
   if (!forceRefresh && adminState.poisLoaded) {
+    await syncPoiCategoriesFromRecommendationsNow({ silent: true });
     renderPoiList();
     updatePoiStats();
     updatePoiTableFooter(getFilteredPois().length);
@@ -32975,10 +33410,12 @@ function closePoiDetail() {
   }
 }
 
-function openPoiForm(poiId = null) {
+async function openPoiForm(poiId = null) {
   const form = $('#poiForm');
   const modal = $('#poiFormModal');
   if (!form || !modal) return;
+
+  await syncPoiCategoriesFromRecommendationsNow({ silent: true });
 
   let poi = null;
   if (poiId) {
@@ -33514,8 +33951,8 @@ async function deletePoi(poiId) {
   }
 }
 
-function editPoi(poiId) {
-  openPoiForm(poiId);
+async function editPoi(poiId) {
+  await openPoiForm(poiId);
 }
 
 function refreshPoiList() {
@@ -34750,6 +35187,7 @@ window.editPoi = editPoi;
 window.deletePoi = deletePoi;
 window.editPoiCategory = editPoiCategory;
 window.deletePoiCategory = deletePoiCategory;
+window.syncPoiCategoriesFromRecommendationsNow = syncPoiCategoriesFromRecommendationsNow;
 window.viewCommentDetails = viewCommentDetails;
 window.editComment = editComment;
 window.handleCommentEditSubmit = handleCommentEditSubmit;

@@ -688,6 +688,15 @@ window.handleAddCategory = async function(event) {
     } else {
       window.recommendationsCategories = [data];
     }
+
+    // Keep POI category model in sync immediately after recommendation category create.
+    if (typeof window.syncPoiCategoriesFromRecommendationsNow === 'function') {
+      try {
+        await window.syncPoiCategoriesFromRecommendationsNow({ silent: true });
+      } catch (syncError) {
+        console.warn('Recommendation category created but POI sync failed:', syncError);
+      }
+    }
     
     // Close modal
     closeAddCategoryModal();
