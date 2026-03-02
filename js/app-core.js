@@ -191,13 +191,14 @@ try {
   });
   const MAP_POI_CATEGORY_ALL = 'all';
   let mapMarkerFilter = MAP_MARKER_FILTERS.ALL;
-  let mapPoiCategoryFilter = MAP_POI_CATEGORY_ALL;
+  let mapPoiCategoryFilters = new Set();
   let mapMarkerFilterControl = null;
   let mapMarkerFilterContainer = null;
   let mapMarkerFilterButtons = new Map();
   let mapPoiCategoryControl = null;
   let mapPoiCategoryContainer = null;
-  let mapPoiCategorySelect = null;
+  let mapPoiCategoryToggleBtn = null;
+  let mapPoiCategoryPopover = null;
   let mapMarkerFilterCounter = null;
   let mapFilterListenersAttached = false;
   let mapVisiblePoiIds = null;
@@ -503,12 +504,60 @@ try {
     return getUiLanguageCode() === 'en' ? (nameEn || namePl || slug) : (namePl || nameEn || slug);
   }
 
+  function getPoiCategoryIcon(slug) {
+    if (slug === MAP_POI_CATEGORY_ALL) {
+      return '🧭';
+    }
+    const { bySlug } = getPoiCategoryLookupMaps();
+    const category = bySlug.get(normalizePoiCategorySlug(slug));
+    const icon = String(category?.icon || '').trim();
+    return icon || '📍';
+  }
+
+  function getActivePoiCategoryFilters() {
+    return Array.from(mapPoiCategoryFilters)
+      .map((slug) => normalizePoiCategorySlug(slug))
+      .filter(Boolean);
+  }
+
+  function hasActivePoiCategoryFilters() {
+    return mapPoiCategoryFilters.size > 0;
+  }
+
+  function getPoiCategoryFilterSummaryLabel() {
+    const selected = getActivePoiCategoryFilters();
+    if (selected.length === 0) {
+      return getPoiCategoryLabel(MAP_POI_CATEGORY_ALL);
+    }
+    if (selected.length === 1) {
+      return getPoiCategoryLabel(selected[0]);
+    }
+    const first = getPoiCategoryLabel(selected[0]);
+    const second = getPoiCategoryLabel(selected[1]);
+    const tail = selected.length - 2;
+    if (tail > 0) {
+      return `${first}, ${second} +${tail}`;
+    }
+    return `${first}, ${second}`;
+  }
+
+  function getPoiCategoryTriggerIcon() {
+    const selected = getActivePoiCategoryFilters();
+    if (selected.length === 1) {
+      return getPoiCategoryIcon(selected[0]);
+    }
+    if (selected.length > 1) {
+      return getPoiCategoryIcon(selected[0]) || '🧭';
+    }
+    return '🧭';
+  }
+
   function poiMatchesCategoryFilter(poi) {
-    if (mapPoiCategoryFilter === MAP_POI_CATEGORY_ALL) {
+    if (!hasActivePoiCategoryFilters()) {
       return true;
     }
     const meta = resolvePoiCategoryMeta(poi);
-    return meta.slug === mapPoiCategoryFilter;
+    return mapPoiCategoryFilters.has(meta.slug);
   }
 
   function getPoiCategoryFilterOptions() {
@@ -547,12 +596,23 @@ try {
   }
 
   function ensureValidPoiCategoryFilter() {
-    if (mapPoiCategoryFilter === MAP_POI_CATEGORY_ALL) return false;
+    if (!hasActivePoiCategoryFilters()) return false;
     const options = getPoiCategoryFilterOptions();
-    const exists = options.some((option) => option.value === mapPoiCategoryFilter);
-    if (exists) return false;
-    mapPoiCategoryFilter = MAP_POI_CATEGORY_ALL;
-    return true;
+    const allowed = new Set(options.map((option) => option.value));
+    const next = new Set();
+    let changed = false;
+    mapPoiCategoryFilters.forEach((slug) => {
+      const normalized = normalizePoiCategorySlug(slug);
+      if (allowed.has(normalized)) {
+        next.add(normalized);
+      } else {
+        changed = true;
+      }
+    });
+    if (changed) {
+      mapPoiCategoryFilters = next;
+    }
+    return changed;
   }
 
   function getPoiMarkerIcon(poi) {
@@ -673,9 +733,11 @@ try {
     const nextVisibleIds = getVisiblePoiIdsForCurrentFilter();
     const nextRecommendationIds = getVisibleRecommendationIdsForCurrentFilter();
     const nextVisibleItems = getVisibleMapItemsForCurrentFilter();
+    const activePoiCategoryFilters = getActivePoiCategoryFilters();
+    const poiCategoryFilterSignature = activePoiCategoryFilters.join('|') || MAP_POI_CATEGORY_ALL;
     mapVisiblePoiIds = nextVisibleIds;
     mapVisibleItems = nextVisibleItems;
-    const nextSignature = `${mapMarkerFilter}|poi:${nextVisibleIds.join(',')}|rec:${nextRecommendationIds.join(',')}`;
+    const nextSignature = `${mapMarkerFilter}|poiCats:${poiCategoryFilterSignature}|poi:${nextVisibleIds.join(',')}|rec:${nextRecommendationIds.join(',')}`;
 
     if (!force && nextSignature === lastVisiblePoiIdsSignature) {
       return;
@@ -686,8 +748,9 @@ try {
       window.dispatchEvent(new CustomEvent('mapVisiblePoiIdsChanged', {
         detail: {
           filter: mapMarkerFilter,
-          poiCategoryFilter: mapPoiCategoryFilter,
-          poiCategoryLabel: getPoiCategoryLabel(mapPoiCategoryFilter),
+          poiCategoryFilter: activePoiCategoryFilters.length === 1 ? activePoiCategoryFilters[0] : MAP_POI_CATEGORY_ALL,
+          poiCategoryFilters: [...activePoiCategoryFilters],
+          poiCategoryLabel: getPoiCategoryFilterSummaryLabel(),
           poiIds: [...nextVisibleIds],
         },
       }));
@@ -697,8 +760,9 @@ try {
       window.dispatchEvent(new CustomEvent('mapVisibleItemsChanged', {
         detail: {
           filter: mapMarkerFilter,
-          poiCategoryFilter: mapPoiCategoryFilter,
-          poiCategoryLabel: getPoiCategoryLabel(mapPoiCategoryFilter),
+          poiCategoryFilter: activePoiCategoryFilters.length === 1 ? activePoiCategoryFilters[0] : MAP_POI_CATEGORY_ALL,
+          poiCategoryFilters: [...activePoiCategoryFilters],
+          poiCategoryLabel: getPoiCategoryFilterSummaryLabel(),
           poiIds: [...nextVisibleIds],
           recommendationIds: [...nextRecommendationIds],
           items: nextVisibleItems.map((item) => ({ ...item })),
@@ -827,48 +891,161 @@ try {
     updateMapMarkerFilterCounter();
   }
 
+  function setPoiCategoryPopoverOpen(open) {
+    if (!mapPoiCategoryContainer) {
+      return;
+    }
+    const nextOpen = !!open;
+    mapPoiCategoryContainer.classList.toggle('is-open', nextOpen);
+    if (mapPoiCategoryToggleBtn) {
+      mapPoiCategoryToggleBtn.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
+    }
+  }
+
   function renderMapPoiCategoryControl() {
     if (!mapPoiCategoryContainer) {
       return;
     }
 
+    const wasOpen = mapPoiCategoryContainer.classList.contains('is-open');
     mapPoiCategoryContainer.innerHTML = '';
     mapPoiCategoryContainer.classList.toggle('is-disabled', mapMarkerFilter === MAP_MARKER_FILTERS.RECOMMENDATIONS);
 
     const wrapper = document.createElement('div');
-    wrapper.className = 'map-poi-dropdown';
+    wrapper.className = 'map-poi-picker';
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.type = 'button';
+    toggleBtn.className = 'map-poi-picker__toggle';
+    toggleBtn.setAttribute('aria-label', getUiTranslation('map.filter.poiCategoryAria', 'POI category filter'));
+    toggleBtn.setAttribute('aria-expanded', wasOpen ? 'true' : 'false');
+    toggleBtn.disabled = mapMarkerFilter === MAP_MARKER_FILTERS.RECOMMENDATIONS;
+    toggleBtn.title = getPoiCategoryFilterSummaryLabel();
 
     const icon = document.createElement('span');
-    icon.className = 'map-poi-dropdown__icon';
+    icon.className = 'map-poi-picker__icon';
     icon.setAttribute('aria-hidden', 'true');
-    icon.textContent = '🧭';
+    icon.textContent = getPoiCategoryTriggerIcon();
+    toggleBtn.appendChild(icon);
 
-    const select = document.createElement('select');
-    select.className = 'map-poi-dropdown__select';
-    select.setAttribute('aria-label', getUiTranslation('map.filter.poiCategoryAria', 'POI category filter'));
-    select.disabled = mapMarkerFilter === MAP_MARKER_FILTERS.RECOMMENDATIONS;
+    const selectedCount = getActivePoiCategoryFilters().length;
+    if (selectedCount > 1) {
+      const badge = document.createElement('span');
+      badge.className = 'map-poi-picker__count';
+      badge.textContent = String(selectedCount);
+      toggleBtn.appendChild(badge);
+    }
+
+    toggleBtn.addEventListener('click', () => {
+      if (mapMarkerFilter === MAP_MARKER_FILTERS.RECOMMENDATIONS) return;
+      setPoiCategoryPopoverOpen(!mapPoiCategoryContainer.classList.contains('is-open'));
+    });
+
+    const popover = document.createElement('div');
+    popover.className = 'map-poi-picker__menu';
+    popover.setAttribute('role', 'menu');
 
     const options = getPoiCategoryFilterOptions();
-    options.forEach((option) => {
-      const item = document.createElement('option');
-      item.value = option.value;
-      item.textContent = `${String(option.icon || '📍')} ${String(option.label || '')} (${Number(option.count) || 0})`;
-      if (option.value === mapPoiCategoryFilter) {
-        item.selected = true;
+    const allOption = options.find((option) => option.value === MAP_POI_CATEGORY_ALL) || null;
+    const categoryOptions = options.filter((option) => option.value !== MAP_POI_CATEGORY_ALL);
+
+    if (allOption) {
+      const allRow = document.createElement('button');
+      allRow.type = 'button';
+      allRow.className = 'map-poi-picker__option';
+      allRow.setAttribute('role', 'menuitemcheckbox');
+      const allActive = !hasActivePoiCategoryFilters();
+      allRow.setAttribute('aria-checked', allActive ? 'true' : 'false');
+      if (allActive) {
+        allRow.classList.add('is-active');
       }
-      select.appendChild(item);
+      const allIcon = document.createElement('span');
+      allIcon.className = 'map-poi-picker__option-icon';
+      allIcon.setAttribute('aria-hidden', 'true');
+      allIcon.textContent = String(allOption.icon || '🧭');
+
+      const allLabel = document.createElement('span');
+      allLabel.className = 'map-poi-picker__option-label';
+      allLabel.textContent = String(allOption.label || '');
+
+      const allCount = document.createElement('span');
+      allCount.className = 'map-poi-picker__option-count';
+      allCount.textContent = String(Number(allOption.count) || 0);
+
+      const allCheck = document.createElement('span');
+      allCheck.className = 'map-poi-picker__option-check';
+      allCheck.setAttribute('aria-hidden', 'true');
+      allCheck.textContent = allActive ? '✓' : '';
+
+      allRow.appendChild(allIcon);
+      allRow.appendChild(allLabel);
+      allRow.appendChild(allCount);
+      allRow.appendChild(allCheck);
+      allRow.addEventListener('click', () => {
+        setMapPoiCategoryFilters([]);
+      });
+      popover.appendChild(allRow);
+    }
+
+    const divider = document.createElement('div');
+    divider.className = 'map-poi-picker__divider';
+    popover.appendChild(divider);
+
+    categoryOptions.forEach((option) => {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'map-poi-picker__option';
+      row.dataset.category = option.value;
+      row.setAttribute('role', 'menuitemcheckbox');
+      const active = mapPoiCategoryFilters.has(option.value);
+      row.setAttribute('aria-checked', active ? 'true' : 'false');
+      if (active) {
+        row.classList.add('is-active');
+      }
+
+      const optionIcon = document.createElement('span');
+      optionIcon.className = 'map-poi-picker__option-icon';
+      optionIcon.setAttribute('aria-hidden', 'true');
+      optionIcon.textContent = String(option.icon || '📍');
+
+      const optionLabel = document.createElement('span');
+      optionLabel.className = 'map-poi-picker__option-label';
+      optionLabel.textContent = String(option.label || option.value || '');
+
+      const optionCount = document.createElement('span');
+      optionCount.className = 'map-poi-picker__option-count';
+      optionCount.textContent = String(Number(option.count) || 0);
+
+      const optionCheck = document.createElement('span');
+      optionCheck.className = 'map-poi-picker__option-check';
+      optionCheck.setAttribute('aria-hidden', 'true');
+      optionCheck.textContent = active ? '✓' : '';
+
+      row.appendChild(optionIcon);
+      row.appendChild(optionLabel);
+      row.appendChild(optionCount);
+      row.appendChild(optionCheck);
+
+      row.addEventListener('click', () => {
+        const next = new Set(mapPoiCategoryFilters);
+        if (next.has(option.value)) {
+          next.delete(option.value);
+        } else {
+          next.add(option.value);
+        }
+        setMapPoiCategoryFilters([...next], { keepPopoverOpen: true });
+      });
+
+      popover.appendChild(row);
     });
 
-    select.addEventListener('change', (event) => {
-      const target = event.currentTarget;
-      const value = target && typeof target.value === 'string' ? target.value : MAP_POI_CATEGORY_ALL;
-      setMapPoiCategoryFilter(value);
-    });
-
-    wrapper.appendChild(icon);
-    wrapper.appendChild(select);
+    wrapper.appendChild(toggleBtn);
+    wrapper.appendChild(popover);
     mapPoiCategoryContainer.appendChild(wrapper);
-    mapPoiCategorySelect = select;
+
+    mapPoiCategoryToggleBtn = toggleBtn;
+    mapPoiCategoryPopover = popover;
+    setPoiCategoryPopoverOpen(wasOpen && mapMarkerFilter !== MAP_MARKER_FILTERS.RECOMMENDATIONS);
     syncPoiCategoryControlOffset();
   }
 
@@ -940,11 +1117,16 @@ try {
     if (mapPoiCategoryContainer) {
       mapPoiCategoryContainer.classList.toggle('is-disabled', mapMarkerFilter === MAP_MARKER_FILTERS.RECOMMENDATIONS);
     }
-    if (mapPoiCategorySelect) {
-      mapPoiCategorySelect.disabled = mapMarkerFilter === MAP_MARKER_FILTERS.RECOMMENDATIONS;
-      if (mapPoiCategorySelect.value !== mapPoiCategoryFilter) {
-        mapPoiCategorySelect.value = mapPoiCategoryFilter;
+    if (mapPoiCategoryToggleBtn) {
+      mapPoiCategoryToggleBtn.disabled = mapMarkerFilter === MAP_MARKER_FILTERS.RECOMMENDATIONS;
+      mapPoiCategoryToggleBtn.title = getPoiCategoryFilterSummaryLabel();
+      const iconEl = mapPoiCategoryToggleBtn.querySelector('.map-poi-picker__icon');
+      if (iconEl) {
+        iconEl.textContent = getPoiCategoryTriggerIcon();
       }
+    }
+    if (mapMarkerFilter === MAP_MARKER_FILTERS.RECOMMENDATIONS) {
+      setPoiCategoryPopoverOpen(false);
     }
   }
 
@@ -959,8 +1141,8 @@ try {
 
     if (didResetCategory) {
       renderMapMarkerFilterControl();
-      renderMapPoiCategoryControl();
     }
+    renderMapPoiCategoryControl();
 
     if (rerenderPoiMarkers) {
       addMarkers();
@@ -984,14 +1166,43 @@ try {
     applyMapMarkerFilter();
   }
 
-  function setMapPoiCategoryFilter(nextCategory) {
-    const normalizedCategory = normalizePoiCategorySlug(nextCategory);
-    const targetCategory = normalizedCategory === MAP_POI_CATEGORY_ALL ? MAP_POI_CATEGORY_ALL : normalizedCategory;
-    if (targetCategory === mapPoiCategoryFilter) {
+  function setMapPoiCategoryFilters(nextCategories, options = {}) {
+    const keepPopoverOpen = options.keepPopoverOpen === true;
+    let nextSet;
+
+    if (!Array.isArray(nextCategories) || nextCategories.length === 0) {
+      nextSet = new Set();
+    } else {
+      nextSet = new Set(
+        nextCategories
+          .map((value) => normalizePoiCategorySlug(value))
+          .filter((value) => value && value !== MAP_POI_CATEGORY_ALL)
+      );
+    }
+
+    const current = getActivePoiCategoryFilters();
+    const next = Array.from(nextSet);
+    const sameLength = current.length === next.length;
+    const sameValues = sameLength && current.every((value) => nextSet.has(value));
+    if (sameValues) {
       return;
     }
-    mapPoiCategoryFilter = targetCategory;
+
+    mapPoiCategoryFilters = nextSet;
     applyMapMarkerFilter();
+
+    if (keepPopoverOpen && mapMarkerFilter !== MAP_MARKER_FILTERS.RECOMMENDATIONS) {
+      setPoiCategoryPopoverOpen(true);
+    }
+  }
+
+  function setMapPoiCategoryFilter(nextCategory) {
+    const normalizedCategory = normalizePoiCategorySlug(nextCategory);
+    if (!normalizedCategory || normalizedCategory === MAP_POI_CATEGORY_ALL) {
+      setMapPoiCategoryFilters([]);
+      return;
+    }
+    setMapPoiCategoryFilters([normalizedCategory]);
   }
 
   function attachMapFilterListeners() {
@@ -1020,6 +1231,20 @@ try {
       renderMapMarkerFilterControl();
       renderMapPoiCategoryControl();
       dispatchVisiblePoiIdsChanged(true);
+    });
+    document.addEventListener('pointerdown', (event) => {
+      if (!mapPoiCategoryContainer) return;
+      if (!mapPoiCategoryContainer.classList.contains('is-open')) return;
+      const target = event.target;
+      if (target instanceof Node && mapPoiCategoryContainer.contains(target)) {
+        return;
+      }
+      setPoiCategoryPopoverOpen(false);
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        setPoiCategoryPopoverOpen(false);
+      }
     });
   }
 
@@ -1603,8 +1828,13 @@ try {
   window.setMapMarkerFilter = setMapMarkerFilter;
   window.getMapMarkerFilter = () => mapMarkerFilter;
   window.setMapPoiCategoryFilter = setMapPoiCategoryFilter;
-  window.getMapPoiCategoryFilter = () => mapPoiCategoryFilter;
-  window.getMapPoiCategoryFilterLabel = () => getPoiCategoryLabel(mapPoiCategoryFilter);
+  window.setMapPoiCategoryFilters = setMapPoiCategoryFilters;
+  window.getMapPoiCategoryFilter = () => {
+    const selected = getActivePoiCategoryFilters();
+    return selected.length === 1 ? selected[0] : MAP_POI_CATEGORY_ALL;
+  };
+  window.getMapPoiCategoryFilters = () => getActivePoiCategoryFilters();
+  window.getMapPoiCategoryFilterLabel = () => getPoiCategoryFilterSummaryLabel();
   window.getVisiblePoiIdsForMap = () => {
     if (Array.isArray(mapVisiblePoiIds)) {
       return [...mapVisiblePoiIds];

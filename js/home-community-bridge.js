@@ -535,9 +535,9 @@
     const activeMapFilter = typeof window.getMapMarkerFilter === 'function'
       ? window.getMapMarkerFilter()
       : 'all';
-    const activePoiCategoryFilter = typeof window.getMapPoiCategoryFilter === 'function'
-      ? window.getMapPoiCategoryFilter()
-      : 'all';
+    const activePoiCategoryFilters = typeof window.getMapPoiCategoryFilters === 'function'
+      ? window.getMapPoiCategoryFilters()
+      : [];
     const activePoiCategoryLabel = typeof window.getMapPoiCategoryFilterLabel === 'function'
       ? window.getMapPoiCategoryFilterLabel()
       : '';
@@ -548,7 +548,7 @@
       'No places available in this filter. Switch to another map view.',
     );
 
-    if (activeMapFilter !== 'recommendations' && activePoiCategoryFilter !== 'all' && activePoiCategoryLabel) {
+    if (activeMapFilter !== 'recommendations' && Array.isArray(activePoiCategoryFilters) && activePoiCategoryFilters.length > 0 && activePoiCategoryLabel) {
       noPoiMessage = t(
         'currentPlace.filter.noItemsCategory',
         `Brak miejsc w kategorii „${activePoiCategoryLabel}”. Wybierz inną kategorię.`,
