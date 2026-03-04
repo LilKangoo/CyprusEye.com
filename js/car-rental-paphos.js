@@ -61,6 +61,13 @@ function i18n(key, replacements, fallback = '') {
   return applyReplacements(base, replacements);
 }
 
+function isCarMediaPanorama(url) {
+  if (window.CE_MEDIA_VIEWER?.isPanorama) {
+    return window.CE_MEDIA_VIEWER.isPanorama(url);
+  }
+  return false;
+}
+
 function getPageLocation() {
   const loc = (document.body?.dataset?.carLocation || '').toLowerCase();
   return loc === 'larnaca' ? 'larnaca' : 'paphos';
@@ -271,6 +278,7 @@ function renderFleet() {
     
     // Get image or use placeholder
     const imageUrl = car.image_url || 'https://placehold.co/400x250/1e293b/ffffff?text=' + encodeURIComponent(carModelName);
+    const imageIsPanorama = isCarMediaPanorama(imageUrl);
 
     let priceLabel = i18n('carRental.common.priceFromPerDay', { price: `${fromPrice}€` }, `Od ${fromPrice}€ / dzień`);
     let priceBreakdown = '';
@@ -316,6 +324,7 @@ function renderFleet() {
     
     return `
       <article class="card auto-card">
+        ${imageIsPanorama ? '<span class="ce-media-badge ce-media-badge--auto-card">360°</span>' : ''}
         ${car.image_url ? `<img src="${escapeHtml(car.image_url)}" alt="${escapeHtml(carModelName)}" class="auto-card-image" data-preview-title="${escapeHtml(carModelName)}" role="button" tabindex="0" aria-label="${escapeHtml(reserveLabel)}" aria-haspopup="dialog" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px 8px 0 0;">` : ''}
         <header class="auto-card-header">
           <span class="auto-card-price">${escapeHtml(priceLabel)}</span>

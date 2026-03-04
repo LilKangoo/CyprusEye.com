@@ -36,6 +36,20 @@ function escapeHtml(unsafe) {
     .replace(/'/g, '&#039;');
 }
 
+function getCarMediaDisplayUrl(url) {
+  if (window.CE_MEDIA_VIEWER?.getDisplayUrl) {
+    return window.CE_MEDIA_VIEWER.getDisplayUrl(url);
+  }
+  return String(url || '').split('#')[0];
+}
+
+function isCarPanorama(url) {
+  if (window.CE_MEDIA_VIEWER?.isPanorama) {
+    return window.CE_MEDIA_VIEWER.isPanorama(url);
+  }
+  return false;
+}
+
 function toDateInputValue(date) {
   const yyyy = date.getFullYear();
   const mm = String(date.getMonth() + 1).padStart(2, '0');
@@ -577,7 +591,9 @@ function renderHomeCars() {
     const seats = car.max_passengers || 5;
     const seatsText = text(`${seats} miejsc`, `${seats} seats`);
 
-    const imageUrl = car.image_url || `https://placehold.co/400x250/1e293b/ffffff?text=${encodeURIComponent(title)}`;
+    const imageUrlRaw = car.image_url || `https://placehold.co/400x250/1e293b/ffffff?text=${encodeURIComponent(title)}`;
+    const imageUrl = getCarMediaDisplayUrl(imageUrlRaw);
+    const imageIsPanorama = isCarPanorama(imageUrlRaw);
     const quoteLine = quote
       ? `${totalLabel} ${Number(quote.total).toFixed(2)}€ • ${quote.days} ${daysLabel} • ${seatsText}`
       : `${fromLabel} ${Number(getFromPrice(car)).toFixed(0)}€ ${perDayLabel} • ${transmission} • ${seatsText}`;
@@ -599,6 +615,7 @@ function renderHomeCars() {
           title="Zapisz"
           onclick="event.preventDefault(); event.stopPropagation();"
         >☆</button>
+        ${imageIsPanorama ? '<span class="ce-media-badge ce-media-badge--under-star">360°</span>' : ''}
         <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(title)}" class="ce-home-card-image" loading="lazy" />
         <div class="ce-home-card-overlay">
           <h3 class="ce-home-card-title">${escapeHtml(title)}</h3>

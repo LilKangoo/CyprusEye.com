@@ -659,6 +659,11 @@
       if (viewer?.getDisplayUrl) return viewer.getDisplayUrl(url);
       return String(url || '').split('#')[0];
     }
+    function mediaIsPanorama(url){
+      const viewer = window.CE_MEDIA_VIEWER;
+      if (viewer?.isPanorama) return viewer.isPanorama(url);
+      return false;
+    }
     function mediaCompareUrl(url){
       const viewer = window.CE_MEDIA_VIEWER;
       if (viewer?.normalizeForCompare) return viewer.normalizeForCompare(url);
@@ -785,10 +790,13 @@
       if(!list.length){ grid.innerHTML = `<p style="text-align:center;color:#6b7280;">${emptyText}</p>`; return; }
       grid.innerHTML = list.map((h,idx)=>{
         const title = window.getHotelName ? window.getHotelName(h) : (h.title?.pl || h.title?.en || h.slug);
-        const image = mediaDisplayUrl(h.cover_image_url || (Array.isArray(h.photos)&&h.photos[0]) || '/assets/cyprus_logo-1000x1054.png');
+        const imageRaw = h.cover_image_url || (Array.isArray(h.photos)&&h.photos[0]) || '/assets/cyprus_logo-1000x1054.png';
+        const image = mediaDisplayUrl(imageRaw);
+        const imageIsPanorama = mediaIsPanorama(imageRaw);
         const price = priceSummary(h);
         return `
           <div class="city-card" onclick="openHotelModal(${idx})">
+            ${imageIsPanorama ? `<span class="ce-media-badge ce-media-badge--left">360°</span>` : ''}
             <img class="city-card-image" src="${image}" alt="${title}" loading="lazy" />
             <div class="city-card-overlay">
               <h3 style="margin:0 0 4px">${title}</h3>

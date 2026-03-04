@@ -14,6 +14,20 @@ function ceLog(...args) {
   if (CE_DEBUG_HOME_HOTELS) console.log(...args);
 }
 
+function getHotelCardMediaDisplayUrl(url) {
+  if (window.CE_MEDIA_VIEWER?.getDisplayUrl) {
+    return window.CE_MEDIA_VIEWER.getDisplayUrl(url);
+  }
+  return String(url || '').split('#')[0];
+}
+
+function isHotelCardPanorama(url) {
+  if (window.CE_MEDIA_VIEWER?.isPanorama) {
+    return window.CE_MEDIA_VIEWER.isPanorama(url);
+  }
+  return false;
+}
+
 const HOME_HOTELS_CACHE_KEY = 'ce_cache_home_hotels_v1';
 const HOME_HOTELS_CACHE_TTL_MS = 10 * 60 * 1000;
 
@@ -320,7 +334,9 @@ function renderHomeHotels(){
     return;
   }
   grid.innerHTML = display.map((h, index)=>{
-    const image = h.cover_image_url || (Array.isArray(h.photos)&&h.photos[0]) || '/assets/cyprus_logo-1000x1054.png';
+    const imageRaw = h.cover_image_url || (Array.isArray(h.photos)&&h.photos[0]) || '/assets/cyprus_logo-1000x1054.png';
+    const image = getHotelCardMediaDisplayUrl(imageRaw);
+    const imageIsPanorama = isHotelCardPanorama(imageRaw);
     const title = window.getHotelName ? window.getHotelName(h) : (h.title?.pl || h.title?.en || h.slug || 'Hotel');
     
     // DEBUG: Log what we're rendering
@@ -344,6 +360,7 @@ function renderHomeHotels(){
       <a href="#" onclick="openHotelModalHome(${index}); return false;" class="hotel-home-card" style="position:relative;height:200px;border-radius:12px;overflow:hidden;cursor:pointer;transition:transform .3s,box-shadow .3s;box-shadow:0 4px 6px rgba(0,0,0,.1);text-decoration:none;display:block;"
          onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 12px rgba(0,0,0,0.15)'"
          onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 6px rgba(0,0,0,0.1)'">
+        ${imageIsPanorama ? `<span class="ce-media-badge ce-media-badge--left">360°</span>` : ''}
         <button
           type="button"
           data-ce-save="1"

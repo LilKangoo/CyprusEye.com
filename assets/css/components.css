@@ -950,6 +950,38 @@ body[data-seo-page="home"] .home-carousel-nav.next { right: 6px; }
   text-overflow: ellipsis;
 }
 
+.ce-media-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #2563eb, #38bdf8);
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.32);
+  pointer-events: none;
+}
+
+.ce-media-badge--left {
+  left: 10px;
+  right: auto;
+}
+
+.ce-media-badge--under-star {
+  top: 56px;
+}
+
+.ce-media-badge--auto-card {
+  top: 16px;
+  right: 16px;
+}
+
 .ce-car-home-modal {
   display: flex;
   flex-direction: column;
