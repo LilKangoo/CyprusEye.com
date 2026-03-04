@@ -256,6 +256,29 @@
   border-radius: 28px 28px 0 0;
   background: #f1f5f9;
 }
+.rec-media-wrap {
+  position: relative;
+  width: 100%;
+}
+.rec-panorama-badge {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #2563eb, #38bdf8);
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.32);
+}
+.rec-panorama-badge--home {
+  right: 58px;
+}
 
 /* Card Content */
 .rec-card-content {
@@ -472,7 +495,52 @@
 .modal-close:hover { background: #f1f5f9; transform: scale(1.1); }
 
 .modal-body { padding: 0; }
-.rec-modal-image { width: 100%; height: 450px; object-fit: cover; }
+.rec-modal-media {
+  position: relative;
+  width: 100%;
+  height: 450px;
+  overflow: hidden;
+  background: #0f172a;
+}
+.rec-modal-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.rec-modal-panorama {
+  width: 100%;
+  height: 100%;
+  background: #0f172a;
+}
+.rec-modal-panorama[hidden] {
+  display: none !important;
+}
+.rec-modal-panorama .ce-panorama-stage {
+  width: 100%;
+  height: 100%;
+}
+.rec-modal-panorama-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  z-index: 8;
+  max-width: calc(100% - 24px);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  color: #e2e8f0;
+  background: rgba(15, 23, 42, 0.72);
+  box-shadow: 0 8px 20px rgba(2, 6, 23, 0.35);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .18s ease;
+}
+.rec-modal-panorama-hint.is-visible {
+  opacity: 1;
+}
 .rec-modal-content-section { padding: 40px; }
 .rec-modal-map {
   width: 100%;
@@ -505,7 +573,8 @@
     border-radius: 20px 20px 0 0;
     margin-top: auto;
   }
-  .rec-modal-image { height: 280px; }
+  .rec-modal-media { height: 280px; }
+  .rec-modal-image { height: 100%; }
   .rec-modal-content-section { padding: 24px 20px; }
   .modal-close { top: 16px; right: 16px; }
   

@@ -25,6 +25,42 @@ function safeShowToast(message, type = 'info') {
 // Make it available globally
 window.safeShowToast = safeShowToast;
 
+function recMediaDisplayUrl(url) {
+  if (window.CE_MEDIA_VIEWER?.getDisplayUrl) {
+    return window.CE_MEDIA_VIEWER.getDisplayUrl(url);
+  }
+  return String(url || '').split('#')[0];
+}
+
+function recMediaSetPanorama(url, enabled) {
+  const raw = String(url || '').trim();
+  if (!raw) return '';
+  if (window.CE_MEDIA_VIEWER?.setPanoramaMarker) {
+    return window.CE_MEDIA_VIEWER.setPanoramaMarker(raw, Boolean(enabled));
+  }
+  const [base, hash = ''] = raw.split('#');
+  const tokens = hash
+    .split(/[,&]/)
+    .map((token) => token.trim().toLowerCase())
+    .filter(Boolean)
+    .filter((token) => token !== 'ce360');
+  if (enabled) tokens.push('ce360');
+  return tokens.length ? `${base}#${tokens.join('&')}` : base;
+}
+
+function recMediaIsPanorama(url) {
+  const raw = String(url || '').trim();
+  if (!raw) return false;
+  if (window.CE_MEDIA_VIEWER?.isPanorama) {
+    return window.CE_MEDIA_VIEWER.isPanorama(raw);
+  }
+  const hash = (raw.split('#')[1] || '').toLowerCase();
+  return hash
+    .split(/[,&]/)
+    .map((token) => token.trim())
+    .includes('ce360');
+}
+
 /**
  * Render Recommendation form with i18n tabs
  */
@@ -40,6 +76,9 @@ window.renderRecommendationI18nForm = function(rec = null) {
   const draftKey = `rec_draft_${rec?.id || 'new'}`;
   const draft = localStorage.getItem(draftKey);
   const data = draft ? JSON.parse(draft) : rec;
+  const imageUrlRaw = String(data?.image_url || '').trim();
+  const imageUrlDisplay = recMediaDisplayUrl(imageUrlRaw);
+  const imageIsPanorama = recMediaIsPanorama(imageUrlRaw);
   
   return `
     <form id="recI18nForm" onsubmit="handleRecI18nSubmit(event)" oninput="scheduleRecAutoSave()">
@@ -193,9 +232,9 @@ window.renderRecommendationI18nForm = function(rec = null) {
         <div class="form-field">
           <label>Image</label>
           
-          ${data?.image_url ? `
+          ${imageUrlDisplay ? `
             <div style="margin-bottom: 12px;">
-              <img src="${data.image_url}" alt="Current image" style="max-width: 200px; max-height: 200px; border-radius: 8px; object-fit: cover;">
+              <img src="${imageUrlDisplay}" alt="Current image" style="max-width: 200px; max-height: 200px; border-radius: 8px; object-fit: cover;">
             </div>
           ` : ''}
           
@@ -223,13 +262,20 @@ window.renderRecommendationI18nForm = function(rec = null) {
             <small style="color: var(--admin-text-muted); display: block; margin-top: 4px;">Uploading...</small>
           </div>
           
-          <input type="hidden" name="image_url" id="recImageUrl" value="${data?.image_url || ''}">
+          <label style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+            <input type="checkbox" id="recImageIs360" ${imageIsPanorama ? 'checked' : ''} onchange="toggleRecImagePanorama(this.checked)">
+            <span>Image is 360° panorama</span>
+          </label>
+          
+          <input type="hidden" name="image_url" id="recImageUrl" value="${imageUrlRaw}">
           
           <small style="color: var(--admin-text-muted); display: block; margin-top: 4px;">
             Or paste URL: <input type="url" 
+                                  id="recImageUrlInput"
                                   placeholder="https://..." 
-                                  value="${data?.image_url || ''}"
-                                  onchange="document.getElementById('recImageUrl').value = this.value"
+                                  value="${imageUrlDisplay}"
+                                  oninput="syncRecImageUrl(this.value)"
+                                  onchange="syncRecImageUrl(this.value)"
                                   style="width: 100%; margin-top: 4px; padding: 6px; background: var(--admin-bg-secondary); border: 1px solid var(--admin-border); border-radius: 4px; color: var(--admin-text);">
           </small>
         </div>
@@ -289,6 +335,33 @@ window.switchRecLangTab = function(langCode) {
     div.classList.toggle('active', div.dataset.lang === langCode);
   });
 }
+
+window.syncRecImageUrl = function(rawValue) {
+  const urlInput = document.getElementById('recImageUrl');
+  const toggle = document.getElementById('recImageIs360');
+  const previewImg = document.querySelector('#recI18nForm img[alt="Current image"], #recI18nForm .image-preview img');
+  const displayValue = recMediaDisplayUrl(rawValue || '');
+  const finalValue = recMediaSetPanorama(displayValue, Boolean(toggle?.checked));
+
+  if (urlInput) urlInput.value = finalValue;
+  if (previewImg) {
+    if (displayValue) {
+      previewImg.src = displayValue;
+      previewImg.style.display = 'block';
+    } else {
+      previewImg.removeAttribute('src');
+      previewImg.style.display = 'none';
+    }
+  }
+};
+
+window.toggleRecImagePanorama = function(enabled) {
+  const hiddenInput = document.getElementById('recImageUrl');
+  const visibleInput = document.getElementById('recImageUrlInput');
+  if (!hiddenInput) return;
+  const displayValue = recMediaDisplayUrl(visibleInput?.value || hiddenInput.value || '');
+  hiddenInput.value = recMediaSetPanorama(displayValue, Boolean(enabled));
+};
 
 /**
  * Auto-save draft
@@ -799,8 +872,14 @@ window.handleRecImageUpload = async function(event) {
     
     // Update hidden input and preview
     const imageUrlInput = document.getElementById('recImageUrl');
+    const imageUrlTextInput = document.getElementById('recImageUrlInput');
+    const imageIs360 = document.getElementById('recImageIs360');
+    const finalUrl = recMediaSetPanorama(publicUrl, Boolean(imageIs360?.checked));
     if (imageUrlInput) {
-      imageUrlInput.value = publicUrl;
+      imageUrlInput.value = finalUrl;
+    }
+    if (imageUrlTextInput) {
+      imageUrlTextInput.value = recMediaDisplayUrl(publicUrl);
     }
     
     // Show success message
@@ -822,7 +901,7 @@ window.handleRecImageUpload = async function(event) {
       previewContainer.insertBefore(preview, event.target.parentElement);
     }
     preview.innerHTML = `
-      <img src="${publicUrl}" 
+      <img src="${recMediaDisplayUrl(publicUrl)}" 
            alt="Uploaded image" 
            style="max-width: 200px; max-height: 200px; border-radius: 8px; object-fit: cover; display: block;">
     `;

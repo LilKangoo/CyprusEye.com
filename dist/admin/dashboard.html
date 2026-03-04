@@ -2551,6 +2551,10 @@
                         📤 Upload
                       </button>
                     </div>
+                    <label class="hotel-cover-panorama-toggle">
+                      <input type="checkbox" id="editTripCoverIs360" />
+                      <span>Image is 360° panorama</span>
+                    </label>
                     <div id="editTripCoverPreview" class="image-preview-container" style="display:none;">
                       <img alt="Cover preview" />
                       <button type="button" class="btn-remove-image" onclick="removeTripCoverImage()">✕ Remove</button>
@@ -2651,6 +2655,10 @@
                     <input type="file" id="newTripCoverFile" accept="image/*" />
                     <input type="url" name="cover_image_url" id="newTripCoverUrl" placeholder="https://..." style="flex:1;min-width:240px;" />
                   </div>
+                  <label class="hotel-cover-panorama-toggle">
+                    <input type="checkbox" id="newTripCoverIs360" />
+                    <span>Image is 360° panorama</span>
+                  </label>
                   <div id="newTripCoverPreview" style="margin-top:8px;display:none;">
                     <img alt="Podgląd okładki" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;" />
                   </div>

@@ -8143,11 +8143,15 @@ async function editTrip(tripId) {
     document.getElementById('editTripId').value = trip.id;
     document.getElementById('editTripSlug').value = trip.slug || '';
     document.getElementById('editTripCity').value = trip.start_city || 'Larnaca';
-    document.getElementById('editTripCoverUrl').value = trip.cover_image_url || '';
+    document.getElementById('editTripCoverUrl').value = mediaDisplayUrl(trip.cover_image_url || '');
     document.getElementById('editTripPricing').value = trip.pricing_model || 'per_person';
     document.getElementById('editTripPublished').checked = !!trip.is_published;
     const bestsellerField = document.getElementById('editTripBestseller');
     if (bestsellerField) bestsellerField.checked = !!trip.is_bestseller;
+    const coverIs360Field = document.getElementById('editTripCoverIs360');
+    if (coverIs360Field) {
+      coverIs360Field.checked = isPanoramaMedia(trip.cover_image_url || '');
+    }
     
     // Check if we should use i18n fields
     // All trips use i18n (title and description are JSONB)
@@ -8195,7 +8199,7 @@ async function editTrip(tripId) {
     }
     
     // Show cover preview if URL exists
-    updateTripCoverPreview(trip.cover_image_url || '');
+    updateTripCoverPreview(trip.cover_image_url || '', 'edit');
     
     // Render price fields based on pricing model
     renderEditTripPriceFields(trip.pricing_model, trip);
@@ -8210,7 +8214,12 @@ async function editTrip(tripId) {
     const urlInput = document.getElementById('editTripCoverUrl');
     if (urlInput) {
       urlInput.oninput = () => {
-        updateTripCoverPreview(urlInput.value);
+        updateTripCoverPreview(urlInput.value, 'edit');
+      };
+    }
+    if (coverIs360Field) {
+      coverIs360Field.onchange = () => {
+        updateTripCoverPreview(urlInput?.value || '', 'edit');
       };
     }
     
@@ -8312,6 +8321,9 @@ async function handleEditTripSubmit(event, originalTrip) {
     // Handle visibility flags
     payload.is_published = form.querySelector('#editTripPublished').checked;
     payload.is_bestseller = Boolean(form.querySelector('#editTripBestseller')?.checked);
+    const coverIs360 = Boolean(form.querySelector('#editTripCoverIs360')?.checked);
+    const coverUrlRaw = String(form.querySelector('#editTripCoverUrl')?.value || payload.cover_image_url || '').trim();
+    payload.cover_image_url = coverUrlRaw ? setPanoramaMedia(coverUrlRaw, coverIs360) : null;
     
     // Update timestamp
     payload.updated_at = new Date().toISOString();
@@ -8396,7 +8408,7 @@ async function handleTripCoverUpload(input) {
     if (urlInput) {
       urlInput.value = publicUrl;
       // Trigger preview update
-      updateTripCoverPreview(publicUrl);
+      updateTripCoverPreview(publicUrl, 'edit');
     }
     
     showToast('Image uploaded successfully', 'success');
@@ -8413,15 +8425,16 @@ async function handleTripCoverUpload(input) {
   }
 }
 
-function updateTripCoverPreview(url) {
-  const previewWrap = document.getElementById('editTripCoverPreview');
+function updateTripCoverPreview(url, formType = 'edit') {
+  const previewWrap = document.getElementById(formType === 'new' ? 'newTripCoverPreview' : 'editTripCoverPreview');
   const previewImg = previewWrap?.querySelector('img');
   
   if (!previewWrap || !previewImg) return;
   
-  if (url && url.trim()) {
-    previewImg.src = url;
-    previewWrap.style.display = 'block';
+  const cleanUrl = mediaDisplayUrl(url);
+  if (cleanUrl && cleanUrl.trim()) {
+    previewImg.src = cleanUrl;
+    previewWrap.style.display = '';
   } else {
     previewWrap.style.display = 'none';
   }
@@ -8429,10 +8442,14 @@ function updateTripCoverPreview(url) {
 
 function removeTripCoverImage() {
   const urlInput = document.getElementById('editTripCoverUrl');
+  const coverIs360Input = document.getElementById('editTripCoverIs360');
   if (urlInput) {
     urlInput.value = '';
   }
-  updateTripCoverPreview('');
+  if (coverIs360Input) {
+    coverIs360Input.checked = false;
+  }
+  updateTripCoverPreview('', 'edit');
 }
 
 // expose trip helpers for inline handlers
@@ -8562,8 +8579,13 @@ async function openNewTripModal() {
       // cover preview setup
       const fileInput = document.getElementById('newTripCoverFile');
       const urlInput = document.getElementById('newTripCoverUrl');
+      const coverIs360Input = document.getElementById('newTripCoverIs360');
       const previewWrap = document.getElementById('newTripCoverPreview');
       const previewImg = previewWrap ? previewWrap.querySelector('img') : null;
+      if (coverIs360Input) {
+        coverIs360Input.checked = false;
+      }
+      updateTripCoverPreview((urlInput?.value || '').trim(), 'new');
       if (fileInput && previewWrap && previewImg) {
         fileInput.onchange = () => {
           const f = fileInput.files && fileInput.files[0];
@@ -8571,7 +8593,7 @@ async function openNewTripModal() {
             const reader = new FileReader();
             reader.onload = () => {
               previewImg.src = reader.result;
-              previewWrap.style.display = '';
+              previewWrap.style.display = 'block';
             };
             reader.readAsDataURL(f);
             // Clear URL if file chosen
@@ -8585,14 +8607,13 @@ async function openNewTripModal() {
       if (urlInput && previewWrap && previewImg) {
         urlInput.oninput = () => {
           const v = (urlInput.value || '').trim();
-          if (v) {
-            previewImg.src = v;
-            previewWrap.style.display = '';
-            if (fileInput) fileInput.value = '';
-          } else {
-            previewWrap.style.display = 'none';
-            previewImg.removeAttribute('src');
-          }
+          if (v && fileInput) fileInput.value = '';
+          updateTripCoverPreview(v, 'new');
+        };
+      }
+      if (coverIs360Input) {
+        coverIs360Input.onchange = () => {
+          updateTripCoverPreview((urlInput?.value || '').trim(), 'new');
         };
       }
       // Pricing tiers editor init
@@ -8684,7 +8705,7 @@ async function openNewTripModal() {
             const { data: pub } = client.storage.from('poi-photos').getPublicUrl(path);
             coverUrl = pub?.publicUrl || '';
           }
-          if (coverUrl) payload.cover_image_url = coverUrl; 
+          if (coverUrl) payload.cover_image_url = setPanoramaMedia(coverUrl, Boolean(coverIs360Input?.checked));
           else delete payload.cover_image_url;
 
           // Set timestamps

@@ -8,10 +8,113 @@ let homeCurrentTrip = null;
 let homeCurrentIndex = null;
 let homeTripsSavedOnly = false;
 let homeTripCouponState = { applied: null };
+let homeTripModalPanoramaCleanup = null;
+let homeTripModalPanoramaHintCleanup = null;
 
 const CE_DEBUG_HOME_TRIPS = typeof localStorage !== 'undefined' && localStorage.getItem('CE_DEBUG') === 'true';
 function ceLog(...args) {
   if (CE_DEBUG_HOME_TRIPS) console.log(...args);
+}
+
+function getHomeTripMediaDisplayUrl(url) {
+  if (window.CE_MEDIA_VIEWER?.getDisplayUrl) return window.CE_MEDIA_VIEWER.getDisplayUrl(url);
+  return String(url || '').split('#')[0];
+}
+
+function isHomeTripPanorama(url) {
+  if (window.CE_MEDIA_VIEWER?.isPanorama) return window.CE_MEDIA_VIEWER.isPanorama(url);
+  return false;
+}
+
+function clearHomeTripPanoramaHint() {
+  if (typeof homeTripModalPanoramaHintCleanup === 'function') {
+    try {
+      homeTripModalPanoramaHintCleanup();
+    } catch (_) {
+      // ignore cleanup errors
+    }
+  }
+  homeTripModalPanoramaHintCleanup = null;
+  const hint = document.getElementById('modalTripPanoramaHint');
+  if (hint) {
+    hint.classList.remove('is-visible');
+    hint.hidden = true;
+    hint.textContent = '';
+  }
+}
+
+function showHomeTripPanoramaHint(container) {
+  const hint = document.getElementById('modalTripPanoramaHint');
+  if (!container || !hint) return;
+  clearHomeTripPanoramaHint();
+  const text = typeof tripsT === 'function'
+    ? tripsT('community.gallery.panoramaHint', 'This is a 360° photo. Drag to look around. Tap once to start.')
+    : 'This is a 360° photo. Drag to look around. Tap once to start.';
+  hint.textContent = text;
+  hint.hidden = false;
+  requestAnimationFrame(() => hint.classList.add('is-visible'));
+  const dismiss = () => {
+    hint.classList.remove('is-visible');
+    hint.hidden = true;
+  };
+  container.addEventListener('pointerdown', dismiss, { once: true });
+  homeTripModalPanoramaHintCleanup = () => {
+    container.removeEventListener('pointerdown', dismiss);
+    dismiss();
+  };
+}
+
+function clearHomeTripModalPanorama() {
+  clearHomeTripPanoramaHint();
+  const pano = document.getElementById('modalTripPanorama');
+  if (!pano) return;
+
+  if (typeof homeTripModalPanoramaCleanup === 'function') {
+    try {
+      homeTripModalPanoramaCleanup();
+    } catch (_) {
+      // ignore cleanup errors
+    }
+  } else if (window.CE_MEDIA_VIEWER?.destroyPanorama) {
+    window.CE_MEDIA_VIEWER.destroyPanorama(pano);
+  }
+  homeTripModalPanoramaCleanup = null;
+  pano.hidden = true;
+  pano.dataset.cePanoramaActive = '0';
+}
+
+async function renderHomeTripModalMedia(rawUrl) {
+  const imageEl = document.getElementById('modalTripImage');
+  const pano = document.getElementById('modalTripPanorama');
+  if (!imageEl) return;
+
+  const mediaUrl = String(rawUrl || '').trim();
+  const displayUrl = getHomeTripMediaDisplayUrl(mediaUrl);
+  const canRenderPanorama = Boolean(isHomeTripPanorama(mediaUrl) && pano && window.CE_MEDIA_VIEWER?.mountPanorama);
+
+  clearHomeTripModalPanorama();
+  imageEl.src = displayUrl;
+  imageEl.hidden = canRenderPanorama;
+  if (pano) {
+    pano.hidden = !canRenderPanorama;
+  }
+
+  if (!canRenderPanorama || !pano) return;
+  try {
+    const mounted = await window.CE_MEDIA_VIEWER.mountPanorama(pano, mediaUrl);
+    if (mounted?.isPanorama) {
+      homeTripModalPanoramaCleanup = mounted.destroy;
+      showHomeTripPanoramaHint(pano);
+    } else {
+      pano.hidden = true;
+      imageEl.hidden = false;
+    }
+  } catch (error) {
+    console.warn('Trip panorama mount failed on home modal:', error);
+    pano.hidden = true;
+    pano.dataset.cePanoramaActive = '0';
+    imageEl.hidden = false;
+  }
 }
 
 const HOME_TRIPS_CACHE_KEY = 'ce_cache_home_trips_v1';
@@ -303,6 +406,8 @@ function renderHomeTrips() {
 
   grid.innerHTML = displayTrips.map((trip, index) => {
     const imageUrl = trip.cover_image_url || '/assets/cyprus_logo-1000x1054.png';
+    const imageDisplayUrl = getHomeTripMediaDisplayUrl(imageUrl);
+    const imageIsPanorama = isHomeTripPanorama(imageUrl);
     
     // Get title (support multilingual or slug)
     const title = window.getTripName ? window.getTripName(trip) : (trip.title?.pl || trip.title?.en || trip.title || trip.slug || 'Wycieczka');
@@ -372,6 +477,26 @@ function renderHomeTrips() {
             "
           >🔥 ${escapeHtml(bestsellerLabel)}</div>
         ` : ''}
+        ${imageIsPanorama ? `
+          <div
+            style="
+              position:absolute;
+              top:${trip.is_bestseller ? '46px' : '10px'};
+              left:10px;
+              z-index:5;
+              display:inline-flex;
+              align-items:center;
+              gap:6px;
+              border-radius:999px;
+              padding:5px 10px;
+              font-size:11px;
+              font-weight:700;
+              color:#fff;
+              background:linear-gradient(135deg,#2563eb,#38bdf8);
+              box-shadow:0 10px 18px rgba(37,99,235,0.32);
+            "
+          >360°</div>
+        ` : ''}
         <button
           type="button"
           data-ce-save="1"
@@ -398,7 +523,7 @@ function renderHomeTrips() {
           "
         >☆</button>
         <img 
-          src="${imageUrl}" 
+          src="${imageDisplayUrl}" 
           alt="${title}"
           style="
             width: 100%;
@@ -874,7 +999,7 @@ window.openTripModalHome = function(index){
   const title = window.getTripName ? window.getTripName(trip) : (trip.title?.pl || trip.title?.en || trip.slug);
   const desc = window.getTripDescription ? window.getTripDescription(trip) : (trip.description?.pl || trip.description?.en || '');
   const image = trip.cover_image_url || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&h=600&fit=crop';
-  document.getElementById('modalTripImage').src = image;
+  void renderHomeTripModalMedia(image);
   document.getElementById('modalTripTitle').textContent = title;
   document.getElementById('modalTripSubtitle').textContent = trip.start_city || '';
   document.getElementById('modalTripDescription').innerHTML = desc.replace(/\n/g, '<br/>');
@@ -1001,6 +1126,7 @@ window.openTripModalHome = function(index){
 
 window.closeTripModal = function(){
   const modal = document.getElementById('tripModal');
+  clearHomeTripModalPanorama();
   if (typeof closeSheet === 'function') {
     closeSheet(modal);
   } else {

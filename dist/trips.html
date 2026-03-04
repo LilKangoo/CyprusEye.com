@@ -186,6 +186,25 @@
       background: linear-gradient(135deg, #f97316, #f59e0b);
       box-shadow: 0 10px 24px rgba(245, 158, 11, 0.32);
     }
+    .trip-media-badge {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      z-index: 3;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      background: linear-gradient(135deg, #2563eb, #38bdf8);
+      box-shadow: 0 10px 24px rgba(37, 99, 235, 0.28);
+    }
+    .trip-bestseller-badge + .trip-media-badge {
+      top: 44px;
+    }
     .city-card-overlay {
       position: absolute;
       bottom: 0;
@@ -357,11 +376,55 @@
       box-shadow: 0 20px 60px rgba(0,0,0,0.3);
       margin: auto;
     }
-    .trip-modal-image {
+    .trip-modal-media {
+      position: relative;
       width: 100%;
       height: 300px;
+      border-radius: 24px 24px 0 0;
+      overflow: hidden;
+      background: #0f172a;
+    }
+    .trip-modal-image {
+      width: 100%;
+      height: 100%;
       object-fit: cover;
       border-radius: 24px 24px 0 0;
+    }
+    .trip-modal-panorama {
+      width: 100%;
+      height: 100%;
+      border-radius: 24px 24px 0 0;
+      overflow: hidden;
+      background: #0f172a;
+    }
+    .trip-modal-panorama[hidden] {
+      display: none !important;
+    }
+    .trip-modal-panorama .ce-panorama-stage {
+      width: 100%;
+      height: 100%;
+    }
+    .trip-modal-panorama-hint {
+      position: absolute;
+      left: 50%;
+      bottom: 14px;
+      transform: translateX(-50%);
+      z-index: 12;
+      max-width: calc(100% - 24px);
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      text-align: center;
+      color: #e2e8f0;
+      background: rgba(15, 23, 42, 0.72);
+      box-shadow: 0 8px 20px rgba(2, 6, 23, 0.35);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .18s ease;
+    }
+    .trip-modal-panorama-hint.is-visible {
+      opacity: 1;
     }
     .trip-modal-header {
       padding: 32px;
@@ -606,6 +669,9 @@
         max-width: calc(100vw - 20px);
       }
       .trip-modal-image {
+        height: 100%;
+      }
+      .trip-modal-media {
         height: 200px;
       }
       .trip-modal-header { padding: 20px; }
@@ -832,7 +898,11 @@
           aria-label="Następne"
           data-i18n-attrs="aria-label:lightbox.next"
         >›</button>
-        <img class="trip-modal-image" id="modalTripImage" src="" alt="Trip" />
+        <div class="trip-modal-media">
+          <img class="trip-modal-image" id="modalTripImage" src="" alt="Trip" />
+          <div class="trip-modal-panorama" id="modalTripPanorama" hidden></div>
+          <div class="trip-modal-panorama-hint" id="modalTripPanoramaHint" hidden></div>
+        </div>
         <div class="trip-modal-header">
           <div class="ce-modal-title-row">
             <h2 class="trip-modal-title" id="modalTripTitle">Trip Title</h2>
@@ -1215,6 +1285,8 @@
 
     let allTrips = [];
     let currentCity = 'all';
+    let tripModalPanoramaCleanup = null;
+    let tripModalPanoramaHintCleanup = null;
     let tripCouponState = {
       applied: null,
     };
@@ -1263,6 +1335,112 @@
         text = text.replace(new RegExp(`{{${k}}}`, 'g'), params[k]);
       });
       return text;
+    }
+
+    function getTripMediaDisplayUrl(url) {
+      if (window.CE_MEDIA_VIEWER?.getDisplayUrl) {
+        return window.CE_MEDIA_VIEWER.getDisplayUrl(url);
+      }
+      return String(url || '').split('#')[0];
+    }
+
+    function isTripPanorama(url) {
+      if (window.CE_MEDIA_VIEWER?.isPanorama) {
+        return window.CE_MEDIA_VIEWER.isPanorama(url);
+      }
+      return false;
+    }
+
+    function clearTripPanoramaHint() {
+      if (typeof tripModalPanoramaHintCleanup === 'function') {
+        try {
+          tripModalPanoramaHintCleanup();
+        } catch (_) {
+          // ignore cleanup errors
+        }
+      }
+      tripModalPanoramaHintCleanup = null;
+      const hint = document.getElementById('modalTripPanoramaHint');
+      if (hint) {
+        hint.classList.remove('is-visible');
+        hint.hidden = true;
+        hint.textContent = '';
+      }
+    }
+
+    function showTripPanoramaHint(container) {
+      const hint = document.getElementById('modalTripPanoramaHint');
+      if (!container || !hint) return;
+      clearTripPanoramaHint();
+      hint.textContent = t(
+        'community.gallery.panoramaHint',
+        'This is a 360° photo. Drag to look around. Tap once to start.'
+      );
+      hint.hidden = false;
+      requestAnimationFrame(() => hint.classList.add('is-visible'));
+      const dismiss = () => {
+        hint.classList.remove('is-visible');
+        hint.hidden = true;
+      };
+      container.addEventListener('pointerdown', dismiss, { once: true });
+      tripModalPanoramaHintCleanup = () => {
+        container.removeEventListener('pointerdown', dismiss);
+        dismiss();
+      };
+    }
+
+    function clearTripModalPanorama() {
+      clearTripPanoramaHint();
+      const panorama = document.getElementById('modalTripPanorama');
+      if (!panorama) return;
+
+      if (typeof tripModalPanoramaCleanup === 'function') {
+        try {
+          tripModalPanoramaCleanup();
+        } catch (_) {
+          // ignore cleanup errors
+        }
+      } else if (window.CE_MEDIA_VIEWER?.destroyPanorama) {
+        window.CE_MEDIA_VIEWER.destroyPanorama(panorama);
+      }
+      tripModalPanoramaCleanup = null;
+      panorama.hidden = true;
+      panorama.dataset.cePanoramaActive = '0';
+    }
+
+    async function renderTripModalMedia(rawUrl) {
+      const imageEl = document.getElementById('modalTripImage');
+      const panoramaEl = document.getElementById('modalTripPanorama');
+      if (!imageEl) return;
+
+      const mediaUrl = String(rawUrl || '').trim();
+      const displayUrl = getTripMediaDisplayUrl(mediaUrl);
+      const shouldRenderPanorama = Boolean(isTripPanorama(mediaUrl) && panoramaEl && window.CE_MEDIA_VIEWER?.mountPanorama);
+
+      clearTripModalPanorama();
+
+      imageEl.src = displayUrl;
+      imageEl.hidden = shouldRenderPanorama;
+      if (panoramaEl) {
+        panoramaEl.hidden = !shouldRenderPanorama;
+      }
+
+      if (!shouldRenderPanorama || !panoramaEl) return;
+      try {
+        const mounted = await window.CE_MEDIA_VIEWER.mountPanorama(panoramaEl, mediaUrl);
+        if (mounted?.isPanorama) {
+          tripModalPanoramaCleanup = mounted.destroy;
+          showTripPanoramaHint(panoramaEl);
+        } else {
+          panoramaEl.hidden = true;
+          imageEl.hidden = false;
+        }
+      } catch (error) {
+        console.warn('Trip panorama mount failed:', error);
+        panoramaEl.hidden = true;
+        panoramaEl.dataset.cePanoramaActive = '0';
+        imageEl.hidden = false;
+      }
     }
 
     function renderTabs() {
@@ -1323,6 +1501,8 @@
           ? `${Number(trip.price_base).toFixed(2)} €` 
           : '';
         const image = trip.cover_image_url || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&h=600&fit=crop';
+        const imageDisplay = getTripMediaDisplayUrl(image);
+        const imageIsPanorama = isTripPanorama(image);
         
         return `
           <div class="city-card" onclick="openTripModal(${index})">
@@ -1337,7 +1517,8 @@
               onclick="event.stopPropagation();"
             >☆</button>
             ${trip.is_bestseller ? `<div class="trip-bestseller-badge">🔥 ${bestsellerLabel}</div>` : ''}
-            <img class="city-card-image" src="${image}" alt="${title}" loading="lazy" />
+            ${imageIsPanorama ? `<div class="trip-media-badge">360°</div>` : ''}
+            <img class="city-card-image" src="${imageDisplay}" alt="${title}" loading="lazy" />
             <div class="city-card-overlay">
               <h3 class="city-card-title">${title}</h3>
               <p class="city-card-count">${trip.start_city || ''} ${price ? '• ' + price : ''}</p>
@@ -1638,7 +1819,7 @@
       const desc = window.getTripDescription ? window.getTripDescription(trip) : (trip.description?.pl || trip.description?.en || '');
       const image = trip.cover_image_url || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&h=600&fit=crop';
       
-      document.getElementById('modalTripImage').src = image;
+      void renderTripModalMedia(image);
       document.getElementById('modalTripTitle').textContent = title;
       document.getElementById('modalTripSubtitle').textContent = trip.start_city || '';
       document.getElementById('modalTripDescription').innerHTML = desc.replace(/\n/g, '<br/>');
@@ -1772,6 +1953,7 @@
 
     window.closeTripModal = function() {
       const modal = document.getElementById('tripModal');
+      clearTripModalPanorama();
       if (typeof closeSheet === 'function') {
         closeSheet(modal);
       } else {
@@ -2019,6 +2201,7 @@
   <script src="/js/languageSwitcher.js"></script>
   <!-- Global Language Refresh System -->
   <script src="/js/languageRefresh.js"></script>
+  <script src="/js/media-viewer.js?v=1" defer></script>
   <script type="module" src="/js/modalUtils.js"></script>
   <script src="/js/saved-catalog.js?v=5" defer></script>
   <script src="/js/seo.js" defer></script>

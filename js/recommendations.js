@@ -12,6 +12,8 @@ import { waitForAuthReady } from '/js/authUi.js?v=4';
 let allRecommendations = [];
 let allCategories = [];
 let currentCategoryFilter = '';
+let recommendationsModalPanoramaCleanup = null;
+let recommendationsModalPanoramaHintCleanup = null;
 
 // ============================================================================
 // DEBUG
@@ -129,6 +131,72 @@ function t(key, fallback) {
     console.warn('recommendations.t error', e);
   }
   return fallback;
+}
+
+function getRecommendationMediaDisplayUrl(url) {
+  if (window.CE_MEDIA_VIEWER?.getDisplayUrl) {
+    return window.CE_MEDIA_VIEWER.getDisplayUrl(url);
+  }
+  return String(url || '').split('#')[0];
+}
+
+function isRecommendationPanorama(url) {
+  if (window.CE_MEDIA_VIEWER?.isPanorama) {
+    return window.CE_MEDIA_VIEWER.isPanorama(url);
+  }
+  return false;
+}
+
+function clearRecommendationPanoramaHint() {
+  if (typeof recommendationsModalPanoramaHintCleanup === 'function') {
+    try {
+      recommendationsModalPanoramaHintCleanup();
+    } catch (_) {
+      // ignore cleanup errors
+    }
+  }
+  recommendationsModalPanoramaHintCleanup = null;
+}
+
+function showRecommendationPanoramaHint(container, lang) {
+  const hint = document.getElementById('recModalPanoramaHint');
+  if (!container || !hint) return;
+
+  clearRecommendationPanoramaHint();
+  hint.textContent = lang === 'en'
+    ? 'This is a 360° photo. Drag to look around. Tap once to start.'
+    : 'To zdjęcie 360°. Przeciągnij, aby się rozejrzeć. Dotknij raz, aby zacząć.';
+  hint.hidden = false;
+  requestAnimationFrame(() => hint.classList.add('is-visible'));
+
+  const dismiss = () => {
+    hint.classList.remove('is-visible');
+    hint.hidden = true;
+  };
+
+  container.addEventListener('pointerdown', dismiss, { once: true });
+  recommendationsModalPanoramaHintCleanup = () => {
+    container.removeEventListener('pointerdown', dismiss);
+    dismiss();
+  };
+}
+
+function clearRecommendationModalPanorama() {
+  clearRecommendationPanoramaHint();
+  const pano = document.getElementById('recModalPanorama');
+  if (!pano) return;
+  if (typeof recommendationsModalPanoramaCleanup === 'function') {
+    try {
+      recommendationsModalPanoramaCleanup();
+    } catch (_) {
+      // ignore cleanup errors
+    }
+  } else if (window.CE_MEDIA_VIEWER?.destroyPanorama) {
+    window.CE_MEDIA_VIEWER.destroyPanorama(pano);
+  }
+  recommendationsModalPanoramaCleanup = null;
+  pano.hidden = true;
+  pano.dataset.cePanoramaActive = '0';
 }
 
 function renderCategoryFilters() {
@@ -378,13 +446,20 @@ function createRecommendationCard(rec) {
     'recommendations.card.visitSite',
     isPolish ? 'Strona www' : 'Visit website'
   );
+  const imageUrlRaw = String(rec.image_url || '').trim();
+  const imageUrl = getRecommendationMediaDisplayUrl(imageUrlRaw);
+  const imageIsPanorama = isRecommendationPanorama(imageUrlRaw);
+  const canRenderPanorama = Boolean(imageIsPanorama && window.CE_MEDIA_VIEWER?.mountPanorama);
   
   return `
     <div class="rec-card" onclick="openDetailModal('${rec.id}')">
       ${rec.featured ? `<div class="rec-featured-badge">⭐ ${featuredLabel}</div>` : ''}
       
-      ${rec.image_url ? 
-        `<img src="${rec.image_url}" alt="${title}" class="rec-card-image" loading="lazy" />` :
+      ${imageUrlRaw ? 
+        `<div class="rec-media-wrap">
+          ${imageIsPanorama ? '<span class="rec-panorama-badge">360°</span>' : ''}
+          <img src="${imageUrl}" alt="${title}" class="rec-card-image" loading="lazy" />
+        </div>` :
         '<div class="rec-card-image"></div>'
       }
       
@@ -474,11 +549,18 @@ window.openDetailModal = async function(id) {
     'recommendations.modal.offerLabel',
     isPolish ? '🎁 Specjalna oferta' : '🎁 Special offer'
   );
+  const imageUrlRaw = String(rec.image_url || '').trim();
+  const imageUrl = getRecommendationMediaDisplayUrl(imageUrlRaw);
+  const imageIsPanorama = isRecommendationPanorama(imageUrlRaw);
   
   const modalDetails = document.getElementById('modalDetails');
   modalDetails.innerHTML = `
-    ${rec.image_url ? `
-      <img src="${rec.image_url}" alt="${title}" class="rec-modal-image" />
+    ${imageUrlRaw ? `
+      <div class="rec-modal-media">
+        <img src="${imageUrl}" alt="${title}" class="rec-modal-image" ${canRenderPanorama ? 'hidden' : ''} />
+        <div id="recModalPanorama" class="rec-modal-panorama" ${canRenderPanorama ? '' : 'hidden'}></div>
+        <div id="recModalPanoramaHint" class="rec-modal-panorama-hint" hidden></div>
+      </div>
     ` : ''}
     
     <div class="rec-modal-content-section">
@@ -545,10 +627,30 @@ window.openDetailModal = async function(id) {
   `;
   
   attachPromoCodeHandlers(modalDetails);
-  
+
   // Show modal
   document.getElementById('detailModal').style.display = 'flex';
   document.body.style.overflow = 'hidden';
+
+  clearRecommendationModalPanorama();
+  if (canRenderPanorama) {
+    const panoramaContainer = document.getElementById('recModalPanorama');
+    if (panoramaContainer && window.CE_MEDIA_VIEWER?.mountPanorama) {
+      try {
+        const mounted = await window.CE_MEDIA_VIEWER.mountPanorama(panoramaContainer, imageUrlRaw);
+        if (mounted?.isPanorama) {
+          recommendationsModalPanoramaCleanup = mounted.destroy;
+          showRecommendationPanoramaHint(panoramaContainer, isPolish ? 'pl' : 'en');
+        }
+      } catch (error) {
+        console.warn('Recommendation panorama mount failed:', error);
+        const imageEl = modalDetails.querySelector('.rec-modal-image');
+        if (imageEl) imageEl.hidden = false;
+        panoramaContainer.hidden = true;
+        panoramaContainer.dataset.cePanoramaActive = '0';
+      }
+    }
+  }
   
   // Track view
   trackView(rec.id);
@@ -572,6 +674,7 @@ window.openDetailModal = async function(id) {
 };
 
 window.closeDetailModal = function() {
+  clearRecommendationModalPanorama();
   document.getElementById('detailModal').style.display = 'none';
   document.body.style.overflow = '';
 };

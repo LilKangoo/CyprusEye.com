@@ -2168,7 +2168,11 @@
       <button class="trip-modal-nav prev" type="button" aria-label="Poprzednia" id="tripModalPrev">‹</button>
       <button class="trip-modal-nav next" type="button" aria-label="Następna" id="tripModalNext">›</button>
       <button class="trip-modal-close" onclick="closeTripModal()">✕</button>
-      <img class="trip-modal-image" id="modalTripImage" src="" alt="Trip" />
+      <div class="trip-modal-media">
+        <img class="trip-modal-image" id="modalTripImage" src="" alt="Trip" />
+        <div class="trip-modal-panorama" id="modalTripPanorama" hidden></div>
+        <div class="trip-modal-panorama-hint" id="modalTripPanoramaHint" hidden></div>
+      </div>
       <div class="trip-modal-header">
         <div class="ce-modal-title-row">
           <h2 class="trip-modal-title" id="modalTripTitle">Trip Title</h2>
