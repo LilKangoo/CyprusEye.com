@@ -8486,7 +8486,7 @@ function slugifyTitle(title) {
     .slice(0, 80) || `trip-${Date.now()}`;
 }
 
-function compressToWebp(file, maxWidth = 1920, maxHeight = 1080, quality = 0.82) {
+function compressToWebp(file, maxWidth = 3840, maxHeight = 2160, quality = 0.9) {
   return new Promise((resolve, reject) => {
     try {
       const reader = new FileReader();
@@ -8500,6 +8500,10 @@ function compressToWebp(file, maxWidth = 1920, maxHeight = 1080, quality = 0.82)
           const canvas = document.createElement('canvas');
           canvas.width = w; canvas.height = h;
           const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+          }
           ctx.drawImage(img, 0, 0, w, h);
           canvas.toBlob((blob) => {
             if (!blob) return reject(new Error('Compression failed'));
@@ -8668,7 +8672,7 @@ async function openNewTripModal() {
             const maxSize = 8 * 1024 * 1024;
             if (file.size > maxSize) throw new Error('Plik okładki jest za duży (max 8MB)');
             
-            const compressed = await compressToWebp(file, 1920, 1080, 0.82);
+            const compressed = await compressToWebp(file, 3840, 2160, 0.9);
             const path = `trips/${payload.slug}/cover-${Date.now()}.webp`;
             const { error: upErr } = await client.storage.from('poi-photos').upload(path, compressed, { 
               cacheControl: '3600', 
@@ -9220,14 +9224,17 @@ function removePoiCoverImage() {
   renderPoiPhotoManager();
 }
 
-async function uploadPoiImage(file, poiSlug, kind) {
+async function uploadPoiImage(file, poiSlug, kind, options = {}) {
   if (!file || !file.type || !file.type.startsWith('image/')) return '';
   const client = ensureSupabase();
   if (!client) throw new Error('Database connection not available');
-  const compressed = await compressToWebp(file, 1920, 1080, 0.82);
+  const isPanorama = Boolean(options?.panorama);
+  const compressed = isPanorama
+    ? await compressToWebp(file, 8192, 4096, 0.96)
+    : await compressToWebp(file, 3840, 2160, 0.9);
   const safeSlug = String(poiSlug || 'poi').trim() || 'poi';
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  const path = `pois/${safeSlug}/${kind}-${suffix}.webp`;
+  const path = `pois/${safeSlug}/${kind}-${isPanorama ? 'pano-' : ''}${suffix}.webp`;
   const { error } = await client.storage.from('poi-photos').upload(path, compressed, {
     cacheControl: '3600',
     upsert: false,
@@ -9240,10 +9247,11 @@ async function uploadPoiImage(file, poiSlug, kind) {
 
 async function handlePoiCoverFileUpload(file, poiSlug) {
   try {
-    const url = await uploadPoiImage(file, poiSlug, 'cover');
+    const coverPanoramaToggle = document.getElementById('poiMainImageIs360');
+    const isPanorama = Boolean(coverPanoramaToggle?.checked);
+    const url = await uploadPoiImage(file, poiSlug, 'cover', { panorama: isPanorama });
     if (url) {
-      const coverPanoramaToggle = document.getElementById('poiMainImageIs360');
-      const finalUrl = setPanoramaMedia(url, Boolean(coverPanoramaToggle?.checked));
+      const finalUrl = setPanoramaMedia(url, isPanorama);
       poiPhotosState.coverUrl = finalUrl;
       if (!poiPhotosState.photos.includes(finalUrl)) poiPhotosState.photos.unshift(finalUrl);
       renderPoiPhotoManager();
@@ -9495,7 +9503,11 @@ async function handleCoverFileUpload(formType, file, hotelSlug) {
   
   try {
     const client = ensureSupabase();
-    const compressed = await compressToWebp(file, 1920, 1080, 0.82);
+    const coverIs360Input = getHotelCoverIs360Checkbox(formType);
+    const isPanorama = Boolean(coverIs360Input?.checked);
+    const compressed = isPanorama
+      ? await compressToWebp(file, 8192, 4096, 0.96)
+      : await compressToWebp(file, 3840, 2160, 0.9);
     const path = `hotels/${hotelSlug}/cover-${Date.now()}.webp`;
     
     const { error } = await client.storage.from('poi-photos').upload(path, compressed, {
@@ -9508,7 +9520,6 @@ async function handleCoverFileUpload(formType, file, hotelSlug) {
     
     const { data: pub } = client.storage.from('poi-photos').getPublicUrl(path);
     const rawUrl = pub?.publicUrl || '';
-    const coverIs360Input = getHotelCoverIs360Checkbox(formType);
     const url = setPanoramaMedia(rawUrl, Boolean(coverIs360Input?.checked));
     
     state.coverUrl = url;
@@ -9541,7 +9552,7 @@ async function handlePhotosUpload(formType, files, hotelSlug) {
     for (const file of filesToUpload) {
       if (!file.type.startsWith('image/')) continue;
       
-      const compressed = await compressToWebp(file, 1920, 1080, 0.82);
+      const compressed = await compressToWebp(file, 3840, 2160, 0.9);
       const path = `hotels/${hotelSlug}/photo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.webp`;
       
       const { error } = await client.storage.from('poi-photos').upload(path, compressed, {
@@ -19169,7 +19180,7 @@ async function uploadHotelPhotosBatch(slug, files) {
   const results = [];
   for (const file of files) {
     if (!file || !file.type || !file.type.startsWith('image/')) continue;
-    const compressed = await compressToWebp(file, 1600, 1200, 0.82);
+    const compressed = await compressToWebp(file, 3840, 2160, 0.9);
     const path = `hotels/${slug}/gallery/${Date.now()}-${Math.random().toString(36).slice(2,8)}.webp`;
     const { error: upErr } = await client.storage.from('poi-photos').upload(path, compressed, {
       cacheControl: '3600',
