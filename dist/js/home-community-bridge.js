@@ -421,6 +421,12 @@
     currentId = normalizePoiId(id);
     window.currentMapItem = currentId ? { type: currentItemType, id: currentId } : null;
     window.currentPlaceId = currentItemType === 'poi' ? currentId : null;
+
+    try {
+      window.dispatchEvent(new CustomEvent('ce:map-item-selected', {
+        detail: window.currentMapItem ? { ...window.currentMapItem } : null,
+      }));
+    } catch (_) {}
   }
 
   function getLocalizedRecommendationTitle(recommendation){

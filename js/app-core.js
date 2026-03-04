@@ -209,6 +209,13 @@ try {
   let mapLocationPromptState = 'prompt';
   let mapLocationPromptListenersAttached = false;
   const poiMarkerIconCache = new Map();
+  const poiMarkersById = new Map();
+  let activeMapMarkerSelection = null;
+  let activePoiMarkerId = null;
+  let activeRecommendationMarkerId = null;
+  const MAP_MARKER_Z_INDEX_BASE_POI = 4000;
+  const MAP_MARKER_Z_INDEX_BASE_RECOMMENDATION = 4200;
+  const MAP_MARKER_Z_INDEX_ACTIVE = 7600;
   
   function getPlacesDataNow() {
     if (window.PLACES_DATA && Array.isArray(window.PLACES_DATA)) {
@@ -645,6 +652,90 @@ try {
       mapPoiCategoryFilters = next;
     }
     return changed;
+  }
+
+  function normalizeSelectedMapItem(rawItem) {
+    if (!rawItem || typeof rawItem !== 'object') {
+      return null;
+    }
+    const id = String(rawItem.id || '').trim();
+    if (!id) return null;
+    return {
+      type: rawItem.type === 'recommendation' ? 'recommendation' : 'poi',
+      id,
+    };
+  }
+
+  function getCurrentSelectedMapItem() {
+    const fromGlobal = normalizeSelectedMapItem(window.currentMapItem || null);
+    if (fromGlobal) return fromGlobal;
+    const fallbackPoiId = String(window.currentPlaceId || '').trim();
+    if (!fallbackPoiId) return null;
+    return { type: 'poi', id: fallbackPoiId };
+  }
+
+  function getPoiMarkerById(poiId) {
+    const id = String(poiId || '').trim();
+    if (!id) return null;
+    return poiMarkersById.get(id) || null;
+  }
+
+  function getRecommendationMarkerById(recId) {
+    const id = String(recId || '').trim();
+    if (!id) return null;
+    if (typeof window.getRecommendationMarkerById === 'function') {
+      return window.getRecommendationMarkerById(id) || null;
+    }
+    return null;
+  }
+
+  function setMarkerVisualState(marker, markerType, active) {
+    if (!marker) return;
+    const isRecommendation = markerType === 'recommendation';
+    const baseZ = isRecommendation ? MAP_MARKER_Z_INDEX_BASE_RECOMMENDATION : MAP_MARKER_Z_INDEX_BASE_POI;
+
+    if (typeof marker.setZIndexOffset === 'function') {
+      marker.setZIndexOffset(active ? MAP_MARKER_Z_INDEX_ACTIVE : baseZ);
+    }
+
+    const markerEl = typeof marker.getElement === 'function' ? marker.getElement() : null;
+    if (!markerEl) return;
+    markerEl.classList.toggle('map-marker-active', !!active);
+    markerEl.classList.toggle('map-marker-active--poi', !!active && !isRecommendation);
+    markerEl.classList.toggle('map-marker-active--recommendation', !!active && isRecommendation);
+  }
+
+  function clearActiveMapMarkerVisualState() {
+    if (activePoiMarkerId) {
+      setMarkerVisualState(getPoiMarkerById(activePoiMarkerId), 'poi', false);
+    }
+    if (activeRecommendationMarkerId) {
+      setMarkerVisualState(getRecommendationMarkerById(activeRecommendationMarkerId), 'recommendation', false);
+    }
+    activePoiMarkerId = null;
+    activeRecommendationMarkerId = null;
+  }
+
+  function applyActiveMapMarkerSelection(rawSelection) {
+    const selection = normalizeSelectedMapItem(rawSelection);
+    clearActiveMapMarkerVisualState();
+    activeMapMarkerSelection = selection;
+
+    if (!selection) return;
+
+    if (selection.type === 'recommendation') {
+      activeRecommendationMarkerId = selection.id;
+      setMarkerVisualState(getRecommendationMarkerById(selection.id), 'recommendation', true);
+      return;
+    }
+
+    activePoiMarkerId = selection.id;
+    setMarkerVisualState(getPoiMarkerById(selection.id), 'poi', true);
+  }
+
+  function syncActiveMapMarkerSelection() {
+    const selection = getCurrentSelectedMapItem() || activeMapMarkerSelection;
+    applyActiveMapMarkerSelection(selection);
   }
 
   function getPoiMarkerIcon(poi) {
@@ -1266,6 +1357,7 @@ try {
     updateMapMarkerFilterControlState();
     updateMapMarkerFilterCounter();
     dispatchVisiblePoiIdsChanged();
+    syncActiveMapMarkerSelection();
   }
 
   function setMapMarkerFilter(nextFilter) {
@@ -1335,6 +1427,10 @@ try {
       renderMapPoiCategoryControl();
       updateMapMarkerFilterCounter();
       dispatchVisiblePoiIdsChanged(true);
+      syncActiveMapMarkerSelection();
+    });
+    window.addEventListener('ce:map-item-selected', (event) => {
+      applyActiveMapMarkerSelection(event?.detail || null);
     });
     // Support both legacy and current i18n events.
     window.addEventListener('languageChanged', rerenderMapFilterForLanguage);
@@ -1728,11 +1824,13 @@ try {
       ceLog('ℹ️ Brak PLACES_DATA - markery dodane później');
       updateMapMarkerFilterCounter();
       dispatchVisiblePoiIdsChanged();
+      syncActiveMapMarkerSelection();
       return;
     }
     
     // Wyczyść stare markery
     markersLayer.clearLayers();
+    poiMarkersById.clear();
     ceLog('✅ Wyczyszczono stare markery');
 
     const showPoi = shouldShowPoiMarkers();
@@ -1740,6 +1838,7 @@ try {
       ceLog('ℹ️ POI markers hidden by current map filter');
       updateMapMarkerFilterCounter();
       dispatchVisiblePoiIdsChanged();
+      syncActiveMapMarkerSelection();
       return;
     }
     
@@ -1819,7 +1918,7 @@ try {
       // Stwórz marker
       const marker = L.marker([markerLat, markerLng], {
         icon: categoryIcon,
-        zIndexOffset: 4000,
+        zIndexOffset: MAP_MARKER_Z_INDEX_BASE_POI,
       });
       
       // Popups are intentionally disabled on map markers.
@@ -1828,6 +1927,7 @@ try {
       // Kliknięcie markera - sync z panelem pod mapą
       marker.on('click', () => {
         ceLog('🖱️ Kliknięto marker POI:', poi.id);
+        applyActiveMapMarkerSelection({ type: 'poi', id: String(poi.id) });
         // Manually center map with offset
         window.focusPlaceOnMap(poi.id);
         // Update bottom card content
@@ -1838,6 +1938,7 @@ try {
       
       // Dodaj marker do mapy
       marker.addTo(markersLayer);
+      poiMarkersById.set(String(poi.id), marker);
       addedCount++;
     });
     
@@ -1854,6 +1955,7 @@ try {
 
     updateMapMarkerFilterCounter();
     dispatchVisiblePoiIdsChanged();
+    syncActiveMapMarkerSelection();
   }
   
   /**

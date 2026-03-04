@@ -309,6 +309,83 @@
   box-shadow: 0 3px 10px rgba(15, 23, 42, 0.28);
 }
 
+.ce-poi-marker__dot,
+.ce-poi-marker--emoji .ce-poi-marker__emoji,
+.recommendation-marker__emoji {
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease, background-color 0.22s ease;
+}
+
+.leaflet-marker-icon.map-marker-active {
+  position: relative;
+}
+
+.leaflet-marker-icon.map-marker-active::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 2px solid rgba(96, 165, 250, 0.95);
+  background: rgba(191, 219, 254, 0.24);
+  box-shadow: 0 0 0 0 rgba(96, 165, 250, 0.4);
+  transform: translate(-50%, -50%) scale(0.72);
+  transform-origin: center;
+  pointer-events: none;
+  animation: ceMapMarkerPulseBlue 1.85s ease-out infinite;
+}
+
+.leaflet-marker-icon.map-marker-active.map-marker-active--recommendation::after {
+  width: 44px;
+  height: 44px;
+}
+
+.leaflet-marker-icon.map-marker-active .ce-poi-marker__dot {
+  background: #60a5fa;
+  border-color: #dbeafe;
+  box-shadow:
+    0 0 0 2px rgba(191, 219, 254, 0.88),
+    0 8px 18px rgba(37, 99, 235, 0.34);
+  transform: scale(1.08);
+}
+
+.leaflet-marker-icon.map-marker-active .ce-poi-marker__emoji,
+.leaflet-marker-icon.map-marker-active .recommendation-marker__emoji {
+  border-color: rgba(59, 130, 246, 0.82);
+  box-shadow:
+    0 0 0 2px rgba(191, 219, 254, 0.88),
+    0 10px 22px rgba(30, 64, 175, 0.3);
+  transform: scale(1.08);
+}
+
+@keyframes ceMapMarkerPulseBlue {
+  0% {
+    opacity: 0.92;
+    transform: translate(-50%, -50%) scale(0.74);
+    box-shadow: 0 0 0 0 rgba(96, 165, 250, 0.48);
+  }
+  70% {
+    opacity: 0.22;
+    transform: translate(-50%, -50%) scale(1.42);
+    box-shadow: 0 0 0 12px rgba(96, 165, 250, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.46);
+    box-shadow: 0 0 0 14px rgba(96, 165, 250, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .leaflet-marker-icon.map-marker-active::after {
+    animation: none;
+    opacity: 0.75;
+    transform: translate(-50%, -50%) scale(1);
+    box-shadow: 0 0 0 0 rgba(96, 165, 250, 0);
+  }
+}
+
 @media (max-width: 768px) {
   .map-location-prompt {
     top: 12px;

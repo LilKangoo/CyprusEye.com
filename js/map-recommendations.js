@@ -15,6 +15,7 @@ let recommendationMarkersVisible = true;
 let recommendationCategoryFilterSlugs = new Set();
 let pendingPromoReveal = null;
 let promoAuthStateListenerAttached = false;
+const RECOMMENDATION_MARKER_Z_INDEX_BASE = 4200;
 
 // ============================================================================
 // TRACKING FUNCTIONS
@@ -311,8 +312,14 @@ function getVisibleRecommendationIdsForMap(mapInstance = recommendationMapInstan
   return visibleIds;
 }
 
+function getRecommendationMarkerById(recId) {
+  const id = String(recId || '').trim();
+  if (!id) return null;
+  return recommendationMarkers.get(id) || null;
+}
+
 function openRecommendationMarkerPopup(recId, mapInstance = recommendationMapInstance) {
-  const marker = recommendationMarkers.get(recId);
+  const marker = getRecommendationMarkerById(recId);
   if (!marker) {
     return;
   }
@@ -449,14 +456,16 @@ function syncRecommendationMarkers(mapInstance) {
   
   mapRecommendations.forEach((rec) => {
     if (!rec.latitude || !rec.longitude) return;
+    const recId = String(rec.id || '').trim();
+    if (!recId) return;
     const icon = getRecommendationIcon(rec);
     if (!icon) return;
     
-    const hasMarker = recommendationMarkers.has(rec.id);
+    const hasMarker = recommendationMarkers.has(recId);
     if (!hasMarker) {
       const marker = L.marker([rec.latitude, rec.longitude], {
         icon,
-        zIndexOffset: 4200,
+        zIndexOffset: RECOMMENDATION_MARKER_Z_INDEX_BASE,
       });
       if (recommendationMarkersVisible) {
         marker.addTo(mapInstance);
@@ -464,19 +473,25 @@ function syncRecommendationMarkers(mapInstance) {
       marker.unbindPopup();
 
       marker.on('click', () => {
+        try {
+          window.dispatchEvent(new CustomEvent('ce:map-item-selected', {
+            detail: { type: 'recommendation', id: recId },
+          }));
+        } catch (_) {}
         if (typeof window.setCurrentMapItem === 'function') {
           window.setCurrentMapItem(
-            { type: 'recommendation', id: rec.id },
+            { type: 'recommendation', id: recId },
             { focus: false, scroll: false, force: true }
           );
         }
       });
       
-      recommendationMarkers.set(rec.id, marker);
+      recommendationMarkers.set(recId, marker);
     } else {
-      const marker = recommendationMarkers.get(rec.id);
+      const marker = recommendationMarkers.get(recId);
       if (marker && typeof marker.setIcon === 'function') {
         marker.setIcon(icon);
+        marker.setZIndexOffset(RECOMMENDATION_MARKER_Z_INDEX_BASE);
       }
       marker.unbindPopup();
       if (recommendationMarkersVisible) {
@@ -837,5 +852,6 @@ window.setRecommendationCategoryFilter = setRecommendationCategoryFilter;
 window.getRecommendationMarkersStats = getRecommendationMarkersStats;
 window.getMapRecommendationsData = getMapRecommendationsData;
 window.getVisibleRecommendationIdsForMap = getVisibleRecommendationIdsForMap;
+window.getRecommendationMarkerById = getRecommendationMarkerById;
 window.openRecommendationMarkerPopup = openRecommendationMarkerPopup;
 window.getRecommendationCategoryMeta = getRecommendationCategoryMeta;
