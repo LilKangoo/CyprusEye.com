@@ -1051,18 +1051,18 @@ window.openHotelModalHome = function(index){
   homeCurrentHotel = h;
   homeHotelIndex = index;
   const title = window.getHotelName ? window.getHotelName(h) : (h.title?.pl || h.title?.en || h.slug);
-  const image = h.cover_image_url || (Array.isArray(h.photos)&&h.photos[0]) || '/assets/cyprus_logo-1000x1054.png';
+  const image = getMediaViewerUrl(h.cover_image_url || (Array.isArray(h.photos)&&h.photos[0]) || '/assets/cyprus_logo-1000x1054.png');
   const imgEl = document.getElementById('modalHotelImage');
   imgEl.src = image;
   imgEl.onclick = () => openHotelLightbox();
   const thumbsWrap = document.getElementById('modalHotelThumbs');
   const photos = Array.isArray(h.photos)? h.photos: [];
-  thumbsWrap.innerHTML = photos.map((u,i)=>`<img src="${u}" alt="miniatura" class="${i===0?'active':''}" data-src="${u}" />`).join('');
+  thumbsWrap.innerHTML = photos.map((u,i)=>`<img src="${getMediaViewerUrl(u)}" alt="miniatura" class="${i===0?'active':''}" data-src="${u}" />`).join('');
   thumbsWrap.querySelectorAll('img').forEach(el=>{
     el.addEventListener('click', ()=>{
       thumbsWrap.querySelectorAll('img').forEach(t=>t.classList.remove('active'));
       el.classList.add('active');
-      imgEl.src = el.dataset.src;
+      imgEl.src = getMediaViewerUrl(el.dataset.src);
     });
     el.ondblclick = ()=> openHotelLightbox();
   });
@@ -1165,11 +1165,79 @@ window.closeHotelModal = function(){
 
 // Lightbox (gallery)
 let lbIndex = 0;
+let homeHotelLightboxPanoramaCleanup = null;
 function getHotelPhotos(){ return Array.isArray(homeCurrentHotel?.photos)? homeCurrentHotel.photos: []; }
-function currentHotelPhotoIndex(){ const src=document.getElementById('modalHotelImage').src; const arr=getHotelPhotos(); const i=arr.findIndex(u=>src.includes(u)); return i>=0? i:0; }
-function showHotelLightbox(i){ const arr=getHotelPhotos(); if(!arr.length) return; lbIndex=(i+arr.length)%arr.length; const img=document.getElementById('lbImg'); if(img) img.src=arr[lbIndex]; }
+function getMediaViewerUrl(url) {
+  const viewer = window.CE_MEDIA_VIEWER;
+  if (viewer?.getDisplayUrl) return viewer.getDisplayUrl(url);
+  return String(url || '').split('#')[0];
+}
+
+function normalizeMediaCompareUrl(url) {
+  const viewer = window.CE_MEDIA_VIEWER;
+  if (viewer?.normalizeForCompare) return viewer.normalizeForCompare(url);
+  return String(url || '').split('#')[0];
+}
+
+function clearHomeHotelLightboxPanorama() {
+  const pano = document.getElementById('lbPano');
+  if (!pano) return;
+  if (typeof homeHotelLightboxPanoramaCleanup === 'function') {
+    try {
+      homeHotelLightboxPanoramaCleanup();
+    } catch (_) {
+      // ignore cleanup errors
+    }
+  } else if (window.CE_MEDIA_VIEWER?.destroyPanorama) {
+    window.CE_MEDIA_VIEWER.destroyPanorama(pano);
+  }
+  homeHotelLightboxPanoramaCleanup = null;
+  pano.hidden = true;
+  pano.dataset.cePanoramaActive = '0';
+}
+
+function currentHotelPhotoIndex() {
+  const imageEl = document.getElementById('modalHotelImage');
+  const currentSrc = normalizeMediaCompareUrl(imageEl?.src || '');
+  const arr = getHotelPhotos();
+  const i = arr.findIndex((url) => normalizeMediaCompareUrl(url) === currentSrc);
+  return i >= 0 ? i : 0;
+}
+
+async function showHotelLightbox(i) {
+  const arr = getHotelPhotos();
+  if (!arr.length) return;
+  lbIndex = (i + arr.length) % arr.length;
+  const mediaUrl = arr[lbIndex];
+  const img = document.getElementById('lbImg');
+  const pano = document.getElementById('lbPano');
+  const viewer = window.CE_MEDIA_VIEWER;
+  const isPanorama = Boolean(viewer?.isPanorama?.(mediaUrl));
+
+  clearHomeHotelLightboxPanorama();
+
+  if (img) {
+    img.hidden = isPanorama;
+    img.src = getMediaViewerUrl(mediaUrl);
+  }
+
+  if (isPanorama && pano && viewer?.mountPanorama) {
+    pano.hidden = false;
+    try {
+      const mounted = await viewer.mountPanorama(pano, mediaUrl);
+      if (mounted?.isPanorama) {
+        homeHotelLightboxPanoramaCleanup = mounted.destroy;
+      }
+    } catch (error) {
+      console.warn('Hotel panorama lightbox mount failed:', error);
+      pano.hidden = true;
+      pano.dataset.cePanoramaActive = '0';
+      if (img) img.hidden = false;
+    }
+  }
+}
 function openHotelLightbox(i){ const lb=document.getElementById('imgLightbox'); if(!lb) return; lb.hidden=false; lb.classList.add('active'); showHotelLightbox(typeof i==='number'? i: currentHotelPhotoIndex()); document.addEventListener('keydown', onHotelLbKey); }
-function closeHotelLightbox(){ const lb=document.getElementById('imgLightbox'); if(!lb) return; lb.classList.remove('active'); lb.hidden=true; document.removeEventListener('keydown', onHotelLbKey); }
+function closeHotelLightbox(){ const lb=document.getElementById('imgLightbox'); if(!lb) return; clearHomeHotelLightboxPanorama(); const img=document.getElementById('lbImg'); if(img){ img.hidden=false; img.src=''; } lb.classList.remove('active'); lb.hidden=true; document.removeEventListener('keydown', onHotelLbKey); }
 function onHotelLbKey(e){ if(e.key==='Escape') return closeHotelLightbox(); if(e.key==='ArrowRight') return showHotelLightbox(lbIndex+1); if(e.key==='ArrowLeft') return showHotelLightbox(lbIndex-1); }
 window.openHotelLightbox = openHotelLightbox;
 window.closeHotelLightbox = closeHotelLightbox;

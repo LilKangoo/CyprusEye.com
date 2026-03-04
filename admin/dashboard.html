@@ -28,7 +28,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="/assets/css/tokens.css?v=20251107" />
   <link rel="stylesheet" href="/assets/css/base.css?v=20251107" />
-  <link rel="stylesheet" href="/admin/admin.css?v=20260302_1" />
+  <link rel="stylesheet" href="/admin/admin.css?v=20260304_1" />
   
   <!-- Auth meta -->
   <meta name="ce-auth" content="required" />
@@ -40,7 +40,7 @@
   <script src="/admin/universal-i18n-component.js?v=20250111"></script>
   <script src="/admin/poi-i18n-form.js?v=20250111"></script>
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
-  <script type="module" src="/admin/admin.js?v=20260302_1"></script>
+  <script type="module" src="/admin/admin.js?v=20260304_1"></script>
   <script src="/admin/admin-pwa.js?v=20260221_4" defer></script>
 </head>
 <body data-admin-panel="true">
@@ -1920,6 +1920,10 @@
                     <div class="cover-url-fallback">
                       <label>Or paste URL:</label>
                       <input type="text" id="editHotelCoverUrl" name="cover_image_url" placeholder="https://...">
+                      <label class="hotel-cover-panorama-toggle">
+                        <input type="checkbox" id="editHotelCoverIs360">
+                        <span>Cover is 360°</span>
+                      </label>
                     </div>
                   </div>
                 </div>
@@ -2074,6 +2078,10 @@
                     <div class="cover-url-fallback">
                       <label>Or paste URL:</label>
                       <input type="text" id="newHotelCoverUrl" name="cover_image_url" placeholder="https://...">
+                      <label class="hotel-cover-panorama-toggle">
+                        <input type="checkbox" id="newHotelCoverIs360">
+                        <span>Cover is 360°</span>
+                      </label>
                     </div>
                   </div>
                 </div>
@@ -6168,6 +6176,10 @@
               <span>Main image URL</span>
               <input type="url" id="poiMainImageUrl" name="main_image_url" placeholder="https://..." />
             </label>
+            <label class="admin-form-field admin-form-field-inline">
+              <span>Main image is 360°</span>
+              <input type="checkbox" id="poiMainImageIs360" />
+            </label>
             <label class="admin-form-field">
               <span>Tags</span>
               <input type="text" id="poiTags" name="tags" placeholder="Comma separated" />
@@ -6858,6 +6870,10 @@
             
             <!-- Hidden field for image URL -->
             <input type="hidden" id="fleetCarImageUrl" name="image_url">
+            <label class="hotel-cover-panorama-toggle" style="margin-bottom: 10px; display: inline-flex;">
+              <input type="checkbox" id="fleetCarImageIs360">
+              <span>Image is 360° panorama</span>
+            </label>
             
             <!-- Current image preview -->
             <div id="fleetCarImagePreview" style="margin-bottom: 12px;" hidden>

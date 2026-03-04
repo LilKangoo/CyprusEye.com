@@ -89,7 +89,7 @@
 
   const deferredSections = [
     { selector: '#tripsHomeGrid', src: 'js/home-trips.js?v=16' },
-    { selector: '#hotelsHomeGrid', src: 'js/home-hotels.js?v=16' },
+    { selector: '#hotelsHomeGrid', src: 'js/home-hotels.js?v=17' },
     { selector: '#carsHomeGrid', src: 'js/home-cars.js?v=15', type: 'module' },
     { selector: '#recommendationsHomeGrid', src: 'js/home-recommendations.js?v=9', type: 'module' },
   ];

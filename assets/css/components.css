@@ -274,6 +274,9 @@ button[data-ce-save="1"].is-saved {
 .lightbox.active{display:flex}
 .lightbox-content{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center}
 .lightbox-img{max-width:100vw;max-height:100vh;width:auto;height:auto;object-fit:contain;border-radius:0;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.lightbox-panorama{width:min(96vw,1200px);height:min(80vh,760px);border-radius:10px;overflow:hidden;background:#0f172a;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.lightbox-panorama[hidden]{display:none !important}
+.lightbox-panorama .ce-panorama-stage{width:100%;height:100%}
 .lightbox-close{position:absolute;top:16px;right:16px;width:44px;height:44px;border-radius:50%;border:none;background:#fff;color:#111;cursor:pointer;font-size:1.4rem;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3)}
 .lightbox-arrow{position:absolute;top:50%;transform:translateY(-50%);width:48px;height:48px;border-radius:50%;border:none;background:rgba(255,255,255,.9);color:#111;cursor:pointer;font-size:1.4rem;display:flex;align-items:center;justify-content:center}
 .lightbox-prev{left:16px}
@@ -6057,6 +6060,23 @@ body[data-seo-page='carRentalLanding'] #carRentalGrid .auto-card.is-selected::af
   object-fit: contain;
   background: rgba(226, 232, 240, 0.8);
   border-radius: 14px;
+}
+
+.car-image-modal__panorama {
+  width: 100%;
+  height: min(70vh, 680px);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #0f172a;
+}
+
+.car-image-modal__panorama[hidden] {
+  display: none !important;
+}
+
+.car-image-modal__panorama .ce-panorama-stage {
+  width: 100%;
+  height: 100%;
 }
 
 #carImageModalCaption {

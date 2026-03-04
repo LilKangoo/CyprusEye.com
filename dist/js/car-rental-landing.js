@@ -10,6 +10,7 @@ const state = {
   syncingWidgetToReservation: false,
   lastImageModalTrigger: null,
   lastImageModalFocus: null,
+  carImageModalPanoramaCleanup: null,
 };
 
 function byId(id) {
@@ -579,6 +580,7 @@ function syncReservationForm(widgetState) {
 function openCarImageModalFromImage(imageEl) {
   const modal = byId('carImageModal');
   const modalImage = byId('carImageModalImg');
+  const modalPanorama = byId('carImageModalPano');
   const modalCaption = byId('carImageModalCaption');
   const closeButton = byId('carImageModalClose');
   const modalDialog = modal?.querySelector('.car-image-modal__dialog');
@@ -589,9 +591,28 @@ function openCarImageModalFromImage(imageEl) {
 
   const alt = String(imageEl.getAttribute('alt') || tr('carRentalLanding.imageModal.imageAlt', 'Podgląd auta'));
   const caption = String(imageEl.dataset.previewTitle || alt);
+  const mediaViewer = window.CE_MEDIA_VIEWER;
+  const displayUrl = mediaViewer?.getDisplayUrl?.(src) || src;
+  const isPanorama = Boolean(mediaViewer?.isPanorama?.(src));
 
-  modalImage.src = src;
+  if (state.carImageModalPanoramaCleanup) {
+    try {
+      state.carImageModalPanoramaCleanup();
+    } catch (_) {
+      // ignore cleanup error
+    }
+    state.carImageModalPanoramaCleanup = null;
+  } else if (modalPanorama && mediaViewer?.destroyPanorama) {
+    mediaViewer.destroyPanorama(modalPanorama);
+  }
+
+  modalImage.src = displayUrl;
   modalImage.alt = alt;
+  modalImage.hidden = isPanorama;
+  if (modalPanorama) {
+    modalPanorama.hidden = !isPanorama;
+    modalPanorama.dataset.cePanoramaActive = '0';
+  }
   if (modalCaption) {
     modalCaption.textContent = caption;
   }
@@ -607,6 +628,21 @@ function openCarImageModalFromImage(imageEl) {
     document.body.style.overflow = 'hidden';
   }
 
+  if (isPanorama && modalPanorama && mediaViewer?.mountPanorama) {
+    mediaViewer.mountPanorama(modalPanorama, src)
+      .then((mounted) => {
+        if (mounted?.isPanorama) {
+          state.carImageModalPanoramaCleanup = mounted.destroy;
+        }
+      })
+      .catch((error) => {
+        console.warn('Car modal panorama mount failed:', error);
+        modalPanorama.hidden = true;
+        modalPanorama.dataset.cePanoramaActive = '0';
+        modalImage.hidden = false;
+      });
+  }
+
   if (closeButton instanceof HTMLElement) {
     closeButton.focus({ preventScroll: true });
   } else if (modalDialog instanceof HTMLElement) {
@@ -619,9 +655,26 @@ function closeCarImageModal() {
   if (!modal || modal.hidden) return;
 
   const modalImage = byId('carImageModalImg');
+  const modalPanorama = byId('carImageModalPano');
   const modalCaption = byId('carImageModalCaption');
+  const mediaViewer = window.CE_MEDIA_VIEWER;
+  if (state.carImageModalPanoramaCleanup) {
+    try {
+      state.carImageModalPanoramaCleanup();
+    } catch (_) {
+      // ignore cleanup error
+    }
+    state.carImageModalPanoramaCleanup = null;
+  } else if (modalPanorama && mediaViewer?.destroyPanorama) {
+    mediaViewer.destroyPanorama(modalPanorama);
+  }
   if (modalImage) {
     modalImage.src = '';
+    modalImage.hidden = false;
+  }
+  if (modalPanorama) {
+    modalPanorama.hidden = true;
+    modalPanorama.dataset.cePanoramaActive = '0';
   }
   if (modalCaption) {
     modalCaption.textContent = '';

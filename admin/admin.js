@@ -9076,6 +9076,54 @@ window.addNewAmenity = addNewAmenity;
 // POI PHOTO MANAGER
 // =====================================================
 
+function mediaDisplayUrl(rawUrl) {
+  const url = String(rawUrl || '').trim();
+  if (!url) return '';
+  if (window.CE_MEDIA_VIEWER?.getDisplayUrl) {
+    return window.CE_MEDIA_VIEWER.getDisplayUrl(url);
+  }
+  return url.split('#')[0];
+}
+
+function isPanoramaMedia(rawUrl) {
+  const url = String(rawUrl || '').trim();
+  if (!url) return false;
+  if (window.CE_MEDIA_VIEWER?.isPanorama) {
+    return window.CE_MEDIA_VIEWER.isPanorama(url);
+  }
+  const hash = (url.split('#')[1] || '').toLowerCase();
+  return hash.split(/[,&]/).map((token) => token.trim()).includes('ce360');
+}
+
+function setPanoramaMedia(rawUrl, enabled) {
+  const url = String(rawUrl || '').trim();
+  if (!url) return '';
+  if (window.CE_MEDIA_VIEWER?.setPanoramaMarker) {
+    return window.CE_MEDIA_VIEWER.setPanoramaMarker(url, Boolean(enabled));
+  }
+  const [base, hash = ''] = url.split('#');
+  const tokens = hash
+    .split(/[,&]/)
+    .map((token) => token.trim().toLowerCase())
+    .filter(Boolean)
+    .filter((token) => token !== 'ce360');
+  if (enabled) tokens.push('ce360');
+  return tokens.length ? `${base}#${tokens.join('&')}` : base;
+}
+
+function replaceMediaUrl(list, oldValue, nextValue) {
+  if (!Array.isArray(list) || !oldValue || !nextValue || oldValue === nextValue) return;
+  const index = list.indexOf(oldValue);
+  if (index >= 0) {
+    list[index] = nextValue;
+  }
+}
+
+function getHotelCoverIs360Checkbox(formType) {
+  const id = formType === 'edit' ? 'editHotelCoverIs360' : 'newHotelCoverIs360';
+  return document.getElementById(id);
+}
+
 let poiPhotosState = {
   photos: [],
   coverUrl: '',
@@ -9086,13 +9134,17 @@ function renderPoiPhotoManager() {
   const countEl = document.getElementById('poiPhotosCount');
   const coverImg = document.getElementById('poiCoverPreviewImg');
   const coverUrlInput = document.getElementById('poiMainImageUrl');
+  const coverPanoramaToggle = document.getElementById('poiMainImageIs360');
   if (countEl) countEl.textContent = String(poiPhotosState.photos.length);
   if (coverImg) {
-    coverImg.src = poiPhotosState.coverUrl || '';
+    coverImg.src = mediaDisplayUrl(poiPhotosState.coverUrl || '');
     coverImg.style.display = poiPhotosState.coverUrl ? 'block' : 'none';
   }
   if (coverUrlInput) {
     coverUrlInput.value = poiPhotosState.coverUrl || '';
+  }
+  if (coverPanoramaToggle) {
+    coverPanoramaToggle.checked = isPanoramaMedia(poiPhotosState.coverUrl);
   }
   if (!container) return;
   if (!poiPhotosState.photos.length) {
@@ -9102,12 +9154,14 @@ function renderPoiPhotoManager() {
   container.innerHTML = poiPhotosState.photos
     .map((url, index) => {
       const isCover = url === poiPhotosState.coverUrl;
+      const isPanorama = isPanoramaMedia(url);
       return `
-        <div class="photo-item ${isCover ? 'is-cover' : ''}" data-index="${index}">
-          <img src="${escapeHtml(url)}" alt="Photo ${index + 1}" loading="lazy">
+        <div class="photo-item ${isCover ? 'is-cover' : ''} ${isPanorama ? 'is-panorama' : ''}" data-index="${index}">
+          <img src="${escapeHtml(mediaDisplayUrl(url))}" alt="Photo ${index + 1}" loading="lazy">
           <div class="photo-actions">
             <button type="button" onclick="movePoiPhoto(${index}, -1)" ${index === 0 ? 'disabled' : ''} title="Move left">◀</button>
             <button type="button" onclick="movePoiPhoto(${index}, 1)" ${index === poiPhotosState.photos.length - 1 ? 'disabled' : ''} title="Move right">▶</button>
+            <button type="button" class="btn-360 ${isPanorama ? 'is-on' : ''}" onclick="togglePoiPhotoPanorama(${index})" title="${isPanorama ? 'Disable 360 panorama' : 'Enable 360 panorama'}">360°</button>
             <button type="button" class="btn-cover" onclick="setPoiAsCoverImage(${index})" title="Set as cover">⭐</button>
             <button type="button" class="btn-delete" onclick="deletePoiPhoto(${index})" title="Delete">✕</button>
           </div>
@@ -9143,6 +9197,22 @@ function setPoiAsCoverImage(index) {
   showToast('Cover image updated', 'success');
 }
 
+function togglePoiPhotoPanorama(index) {
+  const currentUrl = poiPhotosState.photos[index];
+  if (!currentUrl) return;
+  const nextUrl = setPanoramaMedia(currentUrl, !isPanoramaMedia(currentUrl));
+  poiPhotosState.photos[index] = nextUrl;
+  if (poiPhotosState.coverUrl === currentUrl) {
+    poiPhotosState.coverUrl = nextUrl;
+  }
+  const mainInput = document.getElementById('poiMainImageUrl');
+  if (mainInput && mainInput.value.trim() === currentUrl) {
+    mainInput.value = nextUrl;
+  }
+  renderPoiPhotoManager();
+  showToast(isPanoramaMedia(nextUrl) ? '360° enabled' : '360° disabled', 'success');
+}
+
 function removePoiCoverImage() {
   poiPhotosState.coverUrl = '';
   const mainInput = document.getElementById('poiMainImageUrl');
@@ -9172,8 +9242,10 @@ async function handlePoiCoverFileUpload(file, poiSlug) {
   try {
     const url = await uploadPoiImage(file, poiSlug, 'cover');
     if (url) {
-      poiPhotosState.coverUrl = url;
-      if (!poiPhotosState.photos.includes(url)) poiPhotosState.photos.unshift(url);
+      const coverPanoramaToggle = document.getElementById('poiMainImageIs360');
+      const finalUrl = setPanoramaMedia(url, Boolean(coverPanoramaToggle?.checked));
+      poiPhotosState.coverUrl = finalUrl;
+      if (!poiPhotosState.photos.includes(finalUrl)) poiPhotosState.photos.unshift(finalUrl);
       renderPoiPhotoManager();
     }
   } catch (e) {
@@ -9185,6 +9257,7 @@ async function handlePoiCoverFileUpload(file, poiSlug) {
 async function handlePoiPhotosUpload(files, poiSlug) {
   const maxPhotos = 10;
   const available = maxPhotos - poiPhotosState.photos.length;
+  const coverPanoramaToggle = document.getElementById('poiMainImageIs360');
   if (available <= 0) {
     showToast('Maximum 10 photos allowed', 'warning');
     return;
@@ -9196,8 +9269,12 @@ async function handlePoiPhotosUpload(files, poiSlug) {
       if (!f || !f.type || !f.type.startsWith('image/')) continue;
       const url = await uploadPoiImage(f, poiSlug, 'photo');
       if (url) {
-        poiPhotosState.photos.push(url);
-        if (!poiPhotosState.coverUrl) poiPhotosState.coverUrl = url;
+        const shouldUseAsCover = !poiPhotosState.coverUrl;
+        const finalUrl = shouldUseAsCover
+          ? setPanoramaMedia(url, Boolean(coverPanoramaToggle?.checked))
+          : url;
+        poiPhotosState.photos.push(finalUrl);
+        if (shouldUseAsCover) poiPhotosState.coverUrl = finalUrl;
       }
     }
     renderPoiPhotoManager();
@@ -9212,6 +9289,7 @@ function setupPoiPhotoManagerBindings(poiSlug) {
   const coverFileInput = document.getElementById('poiCoverFile');
   const photosAddInput = document.getElementById('poiPhotosAdd');
   const mainUrlInput = document.getElementById('poiMainImageUrl');
+  const coverPanoramaToggle = document.getElementById('poiMainImageIs360');
   if (coverFileInput) {
     coverFileInput.onchange = async () => {
       const file = coverFileInput.files?.[0];
@@ -9234,9 +9312,26 @@ function setupPoiPhotoManagerBindings(poiSlug) {
   }
   if (mainUrlInput) {
     mainUrlInput.oninput = () => {
-      poiPhotosState.coverUrl = (mainUrlInput.value || '').trim();
-      if (poiPhotosState.coverUrl && !poiPhotosState.photos.includes(poiPhotosState.coverUrl)) {
-        poiPhotosState.photos.unshift(poiPhotosState.coverUrl);
+      const previous = poiPhotosState.coverUrl || '';
+      const nextCover = setPanoramaMedia((mainUrlInput.value || '').trim(), Boolean(coverPanoramaToggle?.checked));
+      poiPhotosState.coverUrl = nextCover;
+      if (nextCover && !poiPhotosState.photos.includes(nextCover)) {
+        replaceMediaUrl(poiPhotosState.photos, previous, nextCover);
+        if (!poiPhotosState.photos.includes(nextCover)) {
+          poiPhotosState.photos.unshift(nextCover);
+        }
+      }
+      renderPoiPhotoManager();
+    };
+  }
+  if (coverPanoramaToggle) {
+    coverPanoramaToggle.onchange = () => {
+      const previous = poiPhotosState.coverUrl || '';
+      const nextCover = setPanoramaMedia(previous, coverPanoramaToggle.checked);
+      poiPhotosState.coverUrl = nextCover;
+      replaceMediaUrl(poiPhotosState.photos, previous, nextCover);
+      if (mainUrlInput) {
+        mainUrlInput.value = nextCover;
       }
       renderPoiPhotoManager();
     };
@@ -9246,6 +9341,7 @@ function setupPoiPhotoManagerBindings(poiSlug) {
 window.movePoiPhoto = movePoiPhoto;
 window.deletePoiPhoto = deletePoiPhoto;
 window.setPoiAsCoverImage = setPoiAsCoverImage;
+window.togglePoiPhotoPanorama = togglePoiPhotoPanorama;
 window.removePoiCoverImage = removePoiCoverImage;
 
 // Local state for photo management
@@ -9276,6 +9372,7 @@ function renderPhotoManager(formType) {
   const countEl = document.getElementById(countId);
   const coverImg = document.getElementById(coverImgId);
   const coverUrlInput = document.getElementById(coverUrlId);
+  const coverIs360Input = getHotelCoverIs360Checkbox(formType);
   
   if (!container) return;
   
@@ -9284,11 +9381,14 @@ function renderPhotoManager(formType) {
   
   // Update cover preview
   if (coverImg) {
-    coverImg.src = state.coverUrl || '';
+    coverImg.src = mediaDisplayUrl(state.coverUrl || '');
     coverImg.style.display = state.coverUrl ? 'block' : 'none';
   }
   if (coverUrlInput && state.coverUrl) {
     coverUrlInput.value = state.coverUrl;
+  }
+  if (coverIs360Input) {
+    coverIs360Input.checked = isPanoramaMedia(state.coverUrl);
   }
   
   // Render photo grid
@@ -9299,12 +9399,14 @@ function renderPhotoManager(formType) {
   
   container.innerHTML = state.photos.map((url, index) => {
     const isCover = url === state.coverUrl;
+    const isPanorama = isPanoramaMedia(url);
     return `
-      <div class="photo-item ${isCover ? 'is-cover' : ''}" data-index="${index}">
-        <img src="${escapeHtml(url)}" alt="Photo ${index + 1}" loading="lazy">
+      <div class="photo-item ${isCover ? 'is-cover' : ''} ${isPanorama ? 'is-panorama' : ''}" data-index="${index}">
+        <img src="${escapeHtml(mediaDisplayUrl(url))}" alt="Photo ${index + 1}" loading="lazy">
         <div class="photo-actions">
           <button type="button" onclick="moveHotelPhoto('${formType}', ${index}, -1)" ${index === 0 ? 'disabled' : ''} title="Move left">◀</button>
           <button type="button" onclick="moveHotelPhoto('${formType}', ${index}, 1)" ${index === state.photos.length - 1 ? 'disabled' : ''} title="Move right">▶</button>
+          <button type="button" class="btn-360 ${isPanorama ? 'is-on' : ''}" onclick="toggleHotelPhotoPanorama('${formType}', ${index})" title="${isPanorama ? 'Disable 360 panorama' : 'Enable 360 panorama'}">360°</button>
           <button type="button" class="btn-cover" onclick="setAsCoverImage('${formType}', ${index})" title="Set as cover">⭐</button>
           <button type="button" class="btn-delete" onclick="deleteHotelPhoto('${formType}', ${index})" title="Delete">✕</button>
         </div>
@@ -9354,6 +9456,27 @@ function setAsCoverImage(formType, index) {
   showToast('Cover image updated', 'success');
 }
 
+function toggleHotelPhotoPanorama(formType, index) {
+  const state = getPhotoState(formType);
+  const currentUrl = state.photos[index];
+  if (!currentUrl) return;
+  const nextUrl = setPanoramaMedia(currentUrl, !isPanoramaMedia(currentUrl));
+  state.photos[index] = nextUrl;
+
+  if (state.coverUrl === currentUrl) {
+    state.coverUrl = nextUrl;
+  }
+
+  const coverUrlId = formType === 'edit' ? 'editHotelCoverUrl' : 'newHotelCoverUrl';
+  const coverUrlInput = document.getElementById(coverUrlId);
+  if (coverUrlInput && coverUrlInput.value.trim() === currentUrl) {
+    coverUrlInput.value = nextUrl;
+  }
+
+  renderPhotoManager(formType);
+  showToast(isPanoramaMedia(nextUrl) ? '360° enabled' : '360° disabled', 'success');
+}
+
 function removeCoverImage(formType) {
   const state = getPhotoState(formType);
   state.coverUrl = '';
@@ -9384,7 +9507,9 @@ async function handleCoverFileUpload(formType, file, hotelSlug) {
     if (error) throw error;
     
     const { data: pub } = client.storage.from('poi-photos').getPublicUrl(path);
-    const url = pub?.publicUrl || '';
+    const rawUrl = pub?.publicUrl || '';
+    const coverIs360Input = getHotelCoverIs360Checkbox(formType);
+    const url = setPanoramaMedia(rawUrl, Boolean(coverIs360Input?.checked));
     
     state.coverUrl = url;
     renderPhotoManager(formType);
@@ -9401,6 +9526,7 @@ async function handlePhotosUpload(formType, files, hotelSlug) {
   const state = getPhotoState(formType);
   const maxPhotos = 10;
   const available = maxPhotos - state.photos.length;
+  const coverIs360Input = getHotelCoverIs360Checkbox(formType);
   
   if (available <= 0) {
     showToast('Maximum 10 photos allowed', 'warning');
@@ -9433,11 +9559,14 @@ async function handlePhotosUpload(formType, files, hotelSlug) {
       const url = pub?.publicUrl || '';
       
       if (url) {
-        state.photos.push(url);
-        
-        // Set as cover if no cover yet
-        if (!state.coverUrl) {
-          state.coverUrl = url;
+        const shouldUseAsCover = !state.coverUrl;
+        const finalUrl = shouldUseAsCover
+          ? setPanoramaMedia(url, Boolean(coverIs360Input?.checked))
+          : url;
+        state.photos.push(finalUrl);
+
+        if (shouldUseAsCover) {
+          state.coverUrl = finalUrl;
         }
       }
     }
@@ -9459,6 +9588,7 @@ function setupPhotoManagerBindings(formType, hotelSlug) {
   const coverFileInput = document.getElementById(coverFileId);
   const photosAddInput = document.getElementById(photosAddId);
   const coverUrlInput = document.getElementById(coverUrlId);
+  const coverIs360Input = getHotelCoverIs360Checkbox(formType);
   
   // Cover file upload
   if (coverFileInput) {
@@ -9488,7 +9618,23 @@ function setupPhotoManagerBindings(formType, hotelSlug) {
   if (coverUrlInput) {
     coverUrlInput.oninput = () => {
       const state = getPhotoState(formType);
-      state.coverUrl = coverUrlInput.value.trim();
+      const previous = state.coverUrl || '';
+      const nextCover = setPanoramaMedia(coverUrlInput.value.trim(), Boolean(coverIs360Input?.checked));
+      state.coverUrl = nextCover;
+      replaceMediaUrl(state.photos, previous, nextCover);
+      renderPhotoManager(formType);
+    };
+  }
+  if (coverIs360Input) {
+    coverIs360Input.onchange = () => {
+      const state = getPhotoState(formType);
+      const previous = state.coverUrl || '';
+      const nextCover = setPanoramaMedia(previous, coverIs360Input.checked);
+      state.coverUrl = nextCover;
+      replaceMediaUrl(state.photos, previous, nextCover);
+      if (coverUrlInput) {
+        coverUrlInput.value = nextCover;
+      }
       renderPhotoManager(formType);
     };
   }
@@ -9498,6 +9644,7 @@ function setupPhotoManagerBindings(formType, hotelSlug) {
 window.moveHotelPhoto = moveHotelPhoto;
 window.deleteHotelPhoto = deleteHotelPhoto;
 window.setAsCoverImage = setAsCoverImage;
+window.toggleHotelPhotoPanorama = toggleHotelPhotoPanorama;
 window.removeCoverImage = removeCoverImage;
 
 async function loadHotelsAdminData() {
@@ -28817,6 +28964,10 @@ function openFleetCarModal(carData = null) {
     
     // Image and availability
     $('#fleetCarImageUrl').value = carData.image_url || '';
+    const carImageIs360 = $('#fleetCarImageIs360');
+    if (carImageIs360) {
+      carImageIs360.checked = isPanoramaMedia(carData.image_url);
+    }
     $('#fleetCarIsAvailable').checked = carData.is_available !== false;
     
     // Show existing image if available
@@ -28847,6 +28998,10 @@ function openFleetCarModal(carData = null) {
     $('#fleetCarDeposit').value = 200;
     $('#fleetCarInsurance').value = 17;
     $('#fleetCarIsAvailable').checked = true;
+    const carImageIs360 = $('#fleetCarImageIs360');
+    if (carImageIs360) {
+      carImageIs360.checked = false;
+    }
   }
 
   // Show modal
@@ -28894,7 +29049,7 @@ function showImagePreview(imageUrl) {
   const previewImg = $('#fleetCarImagePreviewImg');
   
   if (preview && previewImg && imageUrl) {
-    previewImg.src = imageUrl;
+    previewImg.src = mediaDisplayUrl(imageUrl);
     preview.hidden = false;
   }
 }
@@ -28911,6 +29066,10 @@ function resetImagePreview() {
   if (progress) progress.hidden = true;
   
   $('#fleetCarImageUrl').value = '';
+  const carImageIs360 = $('#fleetCarImageIs360');
+  if (carImageIs360) {
+    carImageIs360.checked = false;
+  }
 }
 
 function removeCarImage() {
@@ -28976,10 +29135,12 @@ async function uploadCarImage(file) {
     console.log('Image uploaded successfully:', urlData.publicUrl);
 
     // Set the URL in hidden field
-    $('#fleetCarImageUrl').value = urlData.publicUrl;
+    const carImageIs360 = $('#fleetCarImageIs360');
+    const finalUrl = setPanoramaMedia(urlData.publicUrl, Boolean(carImageIs360?.checked));
+    $('#fleetCarImageUrl').value = finalUrl;
     
     // Show preview
-    showImagePreview(urlData.publicUrl);
+    showImagePreview(finalUrl);
 
     // Hide progress after a moment
     setTimeout(() => {
@@ -28989,7 +29150,7 @@ async function uploadCarImage(file) {
 
     showToast('Image uploaded successfully!', 'success');
     
-    return urlData.publicUrl;
+    return finalUrl;
 
   } catch (e) {
     if (progressBar) progressBar.style.width = '0%';
@@ -29034,10 +29195,23 @@ function handleUseImageUrl() {
   }
 
   // Set URL and show preview
-  $('#fleetCarImageUrl').value = imageUrl;
-  showImagePreview(imageUrl);
+  const carImageIs360 = $('#fleetCarImageIs360');
+  const finalUrl = setPanoramaMedia(imageUrl, Boolean(carImageIs360?.checked));
+  $('#fleetCarImageUrl').value = finalUrl;
+  showImagePreview(finalUrl);
   urlInput.value = '';
   showToast('Image URL set successfully', 'success');
+}
+
+function handleCarImagePanoramaToggle() {
+  const toggle = $('#fleetCarImageIs360');
+  const hiddenInput = $('#fleetCarImageUrl');
+  if (!toggle || !hiddenInput) return;
+  const currentUrl = (hiddenInput.value || '').trim();
+  if (!currentUrl) return;
+  const nextUrl = setPanoramaMedia(currentUrl, toggle.checked);
+  hiddenInput.value = nextUrl;
+  showImagePreview(nextUrl);
 }
 
 // Make functions global
@@ -31697,6 +31871,11 @@ function initEventListeners() {
   const btnUseImageUrl = $('#btnUseImageUrl');
   if (btnUseImageUrl) {
     btnUseImageUrl.addEventListener('click', handleUseImageUrl);
+  }
+
+  const fleetCarImageIs360 = $('#fleetCarImageIs360');
+  if (fleetCarImageIs360) {
+    fleetCarImageIs360.addEventListener('change', handleCarImagePanoramaToggle);
   }
 
   // Cars actions (will be updated by switchCarsTab)

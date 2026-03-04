@@ -31,6 +31,8 @@ let poisData = [];
 // Lightbox state
 let lightboxPhotos = [];
 let currentLightboxIndex = 0;
+let lightboxPanoramaCleanup = null;
+let lightboxRenderRequestId = 0;
 
 // Default avatar (logo)
 const DEFAULT_AVATAR = '/assets/cyprus_logo-1000x1054.png';
@@ -1899,6 +1901,10 @@ function initLightbox() {
   }, { passive: true });
 
   lightbox?.addEventListener('touchend', (e) => {
+    const panoramaContainer = document.getElementById('lightboxPanorama');
+    if (window.CE_MEDIA_VIEWER?.isPanoramaActive?.(panoramaContainer)) {
+      return;
+    }
     touchEndX = e.changedTouches[0].screenX;
     const swipeDistance = touchEndX - touchStartX;
     
@@ -1927,18 +1933,71 @@ window.openLightbox = function(photos, index = 0) {
   }
 };
 
-function showLightboxPhoto() {
+function getLightboxMediaUrl(photo) {
+  if (!photo) return '';
+  if (typeof photo === 'string') return photo;
+  if (typeof photo === 'object') {
+    return String(photo.photo_url || photo.url || photo.src || '').trim();
+  }
+  return String(photo || '').trim();
+}
+
+function clearLightboxPanorama() {
+  const panoramaContainer = document.getElementById('lightboxPanorama');
+  if (!panoramaContainer) return;
+
+  if (typeof lightboxPanoramaCleanup === 'function') {
+    try {
+      lightboxPanoramaCleanup();
+    } catch (_) {
+      // ignore cleanup failure
+    }
+  } else if (window.CE_MEDIA_VIEWER?.destroyPanorama) {
+    window.CE_MEDIA_VIEWER.destroyPanorama(panoramaContainer);
+  }
+
+  lightboxPanoramaCleanup = null;
+  panoramaContainer.hidden = true;
+  panoramaContainer.dataset.cePanoramaActive = '0';
+}
+
+async function showLightboxPhoto() {
   if (lightboxPhotos.length === 0) return;
   
   const photo = lightboxPhotos[currentLightboxIndex];
+  const photoUrl = getLightboxMediaUrl(photo);
   const image = document.getElementById('lightboxImage');
+  const panoramaContainer = document.getElementById('lightboxPanorama');
   const caption = document.getElementById('lightboxCaption');
   const prevBtn = document.getElementById('lightboxPrev');
   const nextBtn = document.getElementById('lightboxNext');
+  const mediaViewer = window.CE_MEDIA_VIEWER;
+  const renderRequestId = ++lightboxRenderRequestId;
+  const isPanorama = Boolean(mediaViewer?.isPanorama?.(photoUrl));
+
+  clearLightboxPanorama();
   
   if (image) {
-    image.src = photo.photo_url || photo;
+    image.src = mediaViewer?.getDisplayUrl?.(photoUrl) || photoUrl;
     image.alt = `Zdjęcie ${currentLightboxIndex + 1} z ${lightboxPhotos.length}`;
+    image.hidden = isPanorama;
+  }
+
+  if (isPanorama && panoramaContainer && mediaViewer?.mountPanorama) {
+    panoramaContainer.hidden = false;
+    try {
+      const mounted = await mediaViewer.mountPanorama(panoramaContainer, photoUrl);
+      if (renderRequestId !== lightboxRenderRequestId) {
+        mounted?.destroy?.();
+      } else if (mounted?.isPanorama) {
+        lightboxPanoramaCleanup = mounted.destroy;
+      }
+    } catch (error) {
+      console.warn('Lightbox panorama mount failed:', error);
+      panoramaContainer.hidden = true;
+      panoramaContainer.dataset.cePanoramaActive = '0';
+      if (image) image.hidden = false;
+    }
   }
   
   if (caption) {
@@ -1964,6 +2023,12 @@ function navigateLightbox(direction) {
 
 function closeLightbox() {
   const lightbox = document.getElementById('photoLightbox');
+  clearLightboxPanorama();
+  const image = document.getElementById('lightboxImage');
+  if (image) {
+    image.hidden = false;
+    image.src = '';
+  }
   if (lightbox) {
     const wasOpen = !lightbox.hidden;
     lightbox.hidden = true;
