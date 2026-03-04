@@ -46,7 +46,10 @@
     "viewComments": "View comments",
     "gallery": {
       "title": "Place photos",
-      "openPhoto": "Open photo {{index}}"
+      "openPhoto": "Open photo {{index}}",
+      "panoramaBadge": "360°",
+      "panoramaBadgeAria": "360 photo",
+      "panoramaHint": "This is a 360° photo. Drag to look around. Tap once to start."
     },
     "rating": {
       "title": "Rate this place",

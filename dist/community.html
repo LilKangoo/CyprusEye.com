@@ -62,7 +62,7 @@
   <link rel="stylesheet" href="assets/css/rtl.css" />
   <link rel="stylesheet" href="assets/css/language-switcher.css" />
   <link rel="stylesheet" href="css/toast.css" />
-  <link rel="stylesheet" href="assets/css/community.css?v=6" />
+  <link rel="stylesheet" href="assets/css/community.css?v=7" />
   
   
   
@@ -492,6 +492,15 @@
   <div id="photoLightbox" class="photo-lightbox" hidden>
     <div class="lightbox-content">
       <img id="lightboxImage" src="" alt="Zdjęcie" class="lightbox-image" />
+      <div id="lightboxPanorama" class="lightbox-panorama" hidden></div>
+      <button
+        type="button"
+        id="lightboxPanoramaHint"
+        class="lightbox-panorama-hint"
+        hidden
+      >
+        Drag to look around this 360° photo
+      </button>
       <div class="lightbox-caption" id="lightboxCaption"></div>
     </div>
     <div class="lightbox-controls" role="group" aria-label="Photo controls">
@@ -894,7 +903,7 @@
   <script type="module" src="js/community/photos.js"></script>
   <script type="module" src="js/community/notifications.js"></script>
   <script type="module" src="js/community/location-filter.js"></script>
-  <script type="module" src="js/community/ui.js?v=6"></script>
+  <script type="module" src="js/community/ui.js?v=7"></script>
   <script type="module" src="js/community/ranking.js" defer></script>
 </body>
 </html>

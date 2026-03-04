@@ -32,6 +32,7 @@ let poisData = [];
 let lightboxPhotos = [];
 let currentLightboxIndex = 0;
 let lightboxPanoramaCleanup = null;
+let lightboxPanoramaHintCleanup = null;
 let lightboxRenderRequestId = 0;
 
 // Default avatar (logo)
@@ -1139,18 +1140,37 @@ function renderPoiGallerySection(poi, poiName = '') {
   const fallbackName = poiName || t('community.gallery.title');
 
   galleryPhotos.forEach((photoUrl, index) => {
+    const isPanorama = isPanoramaMedia(photoUrl);
     const itemBtn = document.createElement('button');
     itemBtn.type = 'button';
     itemBtn.className = 'modal-poi-gallery-item';
-    itemBtn.setAttribute('aria-label', t('community.gallery.openPhoto', { index: index + 1 }));
+    if (isPanorama) {
+      itemBtn.classList.add('is-panorama');
+    }
+
+    const openLabel = t('community.gallery.openPhoto', { index: index + 1 });
+    const panoramaAria = t('community.gallery.panoramaBadgeAria', '360 photo');
+    itemBtn.setAttribute('aria-label', isPanorama ? `${openLabel} • ${panoramaAria}` : openLabel);
+
+    const thumbWrap = document.createElement('span');
+    thumbWrap.className = 'modal-poi-gallery-thumb';
 
     const imageEl = document.createElement('img');
-    imageEl.src = photoUrl;
+    imageEl.src = getDisplayMediaUrl(photoUrl);
     imageEl.alt = `${fallbackName} ${index + 1}`;
     imageEl.loading = 'lazy';
     imageEl.decoding = 'async';
 
-    itemBtn.appendChild(imageEl);
+    thumbWrap.appendChild(imageEl);
+
+    if (isPanorama) {
+      const badgeEl = document.createElement('span');
+      badgeEl.className = 'modal-poi-gallery-badge';
+      badgeEl.textContent = t('community.gallery.panoramaBadge', '360°');
+      thumbWrap.appendChild(badgeEl);
+    }
+
+    itemBtn.appendChild(thumbWrap);
     itemBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -1942,7 +1962,73 @@ function getLightboxMediaUrl(photo) {
   return String(photo || '').trim();
 }
 
+function isPanoramaMedia(rawUrl) {
+  return Boolean(window.CE_MEDIA_VIEWER?.isPanorama?.(rawUrl));
+}
+
+function getDisplayMediaUrl(rawUrl) {
+  return window.CE_MEDIA_VIEWER?.getDisplayUrl?.(rawUrl) || rawUrl;
+}
+
+function hideLightboxPanoramaHint() {
+  if (typeof lightboxPanoramaHintCleanup === 'function') {
+    try {
+      lightboxPanoramaHintCleanup();
+    } catch (_) {
+      // ignore cleanup failures
+    }
+  }
+
+  lightboxPanoramaHintCleanup = null;
+  const hintEl = document.getElementById('lightboxPanoramaHint');
+  if (!hintEl) return;
+
+  hintEl.hidden = true;
+  hintEl.classList.remove('is-visible');
+}
+
+function showLightboxPanoramaHint(panoramaContainer) {
+  const hintEl = document.getElementById('lightboxPanoramaHint');
+  if (!panoramaContainer || !hintEl) return;
+
+  hideLightboxPanoramaHint();
+
+  hintEl.textContent = t(
+    'community.gallery.panoramaHint',
+    'This is a 360° photo. Drag to look around. Tap once to start.'
+  );
+  hintEl.hidden = false;
+  window.requestAnimationFrame(() => {
+    hintEl.classList.add('is-visible');
+  });
+
+  let detached = false;
+  const detach = () => {
+    if (detached) return;
+    detached = true;
+    panoramaContainer.removeEventListener('pointerdown', dismissPanoramaHint);
+    hintEl.removeEventListener('click', dismissPanoramaHint);
+  };
+
+  const dismissPanoramaHint = (event) => {
+    const fromHint = Boolean(event && (event.currentTarget === hintEl || hintEl.contains(event.target)));
+    if (event && fromHint) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    hintEl.classList.remove('is-visible');
+    hintEl.hidden = true;
+    detach();
+  };
+
+  panoramaContainer.addEventListener('pointerdown', dismissPanoramaHint, { once: true });
+  hintEl.addEventListener('click', dismissPanoramaHint, { once: true });
+
+  lightboxPanoramaHintCleanup = detach;
+}
+
 function clearLightboxPanorama() {
+  hideLightboxPanoramaHint();
   const panoramaContainer = document.getElementById('lightboxPanorama');
   if (!panoramaContainer) return;
 
@@ -1973,17 +2059,18 @@ async function showLightboxPhoto() {
   const nextBtn = document.getElementById('lightboxNext');
   const mediaViewer = window.CE_MEDIA_VIEWER;
   const renderRequestId = ++lightboxRenderRequestId;
-  const isPanorama = Boolean(mediaViewer?.isPanorama?.(photoUrl));
+  const isPanorama = isPanoramaMedia(photoUrl);
+  const canRenderPanorama = Boolean(isPanorama && panoramaContainer && mediaViewer?.mountPanorama);
 
   clearLightboxPanorama();
   
   if (image) {
-    image.src = mediaViewer?.getDisplayUrl?.(photoUrl) || photoUrl;
+    image.src = getDisplayMediaUrl(photoUrl);
     image.alt = `Zdjęcie ${currentLightboxIndex + 1} z ${lightboxPhotos.length}`;
-    image.hidden = isPanorama;
+    image.hidden = canRenderPanorama;
   }
 
-  if (isPanorama && panoramaContainer && mediaViewer?.mountPanorama) {
+  if (canRenderPanorama) {
     panoramaContainer.hidden = false;
     try {
       const mounted = await mediaViewer.mountPanorama(panoramaContainer, photoUrl);
@@ -1991,6 +2078,7 @@ async function showLightboxPhoto() {
         mounted?.destroy?.();
       } else if (mounted?.isPanorama) {
         lightboxPanoramaCleanup = mounted.destroy;
+        showLightboxPanoramaHint(panoramaContainer);
       }
     } catch (error) {
       console.warn('Lightbox panorama mount failed:', error);
@@ -1998,6 +2086,8 @@ async function showLightboxPhoto() {
       panoramaContainer.dataset.cePanoramaActive = '0';
       if (image) image.hidden = false;
     }
+  } else {
+    hideLightboxPanoramaHint();
   }
   
   if (caption) {
