@@ -608,7 +608,20 @@ async function normalizeFunctionsInvokeError(error, fallbackMessage = 'Request f
   try {
     const json = await response.clone().json();
     const message = String(json?.error || json?.message || '').trim();
-    if (message) return new Error(message);
+    if (message) {
+      const version = String(json?.version || '').trim();
+      const receivedAction = String(json?.received?.action || '').trim();
+      const receivedFulfillmentId = String(json?.received?.fulfillment_id || '').trim();
+      if (message === 'Missing fulfillment_id or invalid action') {
+        const hints = [];
+        if (receivedAction) hints.push(`action=${receivedAction}`);
+        if (receivedFulfillmentId) hints.push(`fulfillment_id=${receivedFulfillmentId}`);
+        if (version) hints.push(`backend_version=${version}`);
+        const suffix = hints.length ? ` (${hints.join(', ')})` : '';
+        return new Error(`Backend rejected the action.${suffix}`);
+      }
+      return new Error(message);
+    }
   } catch (_e) {
   }
 

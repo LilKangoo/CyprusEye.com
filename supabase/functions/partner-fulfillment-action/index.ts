@@ -10,7 +10,7 @@ type TransportRejectCode =
   | "route_not_supported"
   | "other";
 
-const PARTNER_FULFILLMENT_ACTION_VERSION = "2026-02-26-1";
+const PARTNER_FULFILLMENT_ACTION_VERSION = "2026-03-11-1";
 
 type PartnerFulfillmentActionRequest = {
   fulfillment_id?: string;
