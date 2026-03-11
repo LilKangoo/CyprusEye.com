@@ -2091,6 +2091,127 @@ function buildTransportBookingPayload(quote) {
   return payload;
 }
 
+const TRANSPORT_BOOKING_ENDPOINT = '/transport/booking';
+
+function formatTransportSubmitErrorMessage(error, fallback) {
+  const direct = [
+    error?.message,
+    error?.error,
+    error?.details,
+    error?.hint,
+  ].map((value) => String(value || '').trim()).find(Boolean);
+  if (direct) return direct;
+  return String(fallback || t('transport.booking.submit.error.submitFailed', 'Failed to submit booking request.'));
+}
+
+async function parseTransportSubmitResponse(response) {
+  try {
+    return await response.json();
+  } catch (_error) {
+    return null;
+  }
+}
+
+function isTransportBookingEndpointUnavailable(response, payload) {
+  const status = Number(response?.status || 0);
+  if (status === 404 || status === 405 || status === 501) {
+    return true;
+  }
+  if (status !== 500) {
+    return false;
+  }
+
+  const message = String(payload?.error || payload?.message || '').toLowerCase();
+  return message.includes('not found') || message.includes('cannot') || message.includes('no route');
+}
+
+async function insertTransportBookingDirect(payload, quote) {
+  let data = null;
+  let submitError = null;
+  let insertPayload = { ...payload };
+  const strippedColumns = [];
+  const isRoundTrip = Array.isArray(quote?.legs) && quote.legs.length > 1;
+  let requiresLegacyMultiInsert = false;
+
+  for (let attempt = 0; attempt < 16; attempt += 1) {
+    const insertResult = await supabase
+      .from('transport_bookings')
+      .insert([insertPayload])
+      .select('id, created_at');
+    data = insertResult.data;
+    submitError = insertResult.error;
+
+    if (!submitError) break;
+
+    const missingColumn = extractMissingColumnName(submitError);
+    if (!missingColumn || !Object.prototype.hasOwnProperty.call(insertPayload, missingColumn)) {
+      break;
+    }
+
+    if (isRoundTrip && ROUND_TRIP_CRITICAL_BOOKING_COLUMNS.has(missingColumn)) {
+      requiresLegacyMultiInsert = true;
+      break;
+    }
+
+    delete insertPayload[missingColumn];
+    strippedColumns.push(missingColumn);
+  }
+
+  if (requiresLegacyMultiInsert) {
+    throw new Error(
+      t(
+        'transport.booking.submit.error.roundTripSchemaRequired',
+        'Round-trip booking requires latest transport schema. Run migration "120_transport_round_trip_columns_schema_cache_fix.sql" and refresh this page.',
+      ),
+    );
+  }
+
+  if (submitError) throw submitError;
+
+  return {
+    data: Array.isArray(data) ? data : [],
+    strippedColumns,
+    source: 'direct',
+  };
+}
+
+async function submitTransportBooking(payload, quote) {
+  if (typeof fetch !== 'function') {
+    return insertTransportBookingDirect(payload, quote);
+  }
+
+  const response = await fetch(TRANSPORT_BOOKING_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+  const responsePayload = await parseTransportSubmitResponse(response);
+
+  if (response.ok) {
+    const rows = Array.isArray(responsePayload?.data)
+      ? responsePayload.data
+      : (responsePayload?.data ? [responsePayload.data] : []);
+    return {
+      data: rows,
+      strippedColumns: Array.isArray(responsePayload?.stripped_columns) ? responsePayload.stripped_columns : [],
+      source: 'endpoint',
+    };
+  }
+
+  if (isTransportBookingEndpointUnavailable(response, responsePayload)) {
+    return insertTransportBookingDirect(payload, quote);
+  }
+
+  throw new Error(
+    formatTransportSubmitErrorMessage(
+      responsePayload,
+      t('transport.booking.submit.error.submitFailed', 'Failed to submit booking request.'),
+    ),
+  );
+}
+
 function resetAfterSubmit() {
   const preserved = {
     origin: String(els.originSelect?.value || '').trim(),
@@ -2204,48 +2325,9 @@ async function handleSubmit(event) {
   els.submitButton.textContent = t('transport.booking.submit.sending', 'Sending booking...');
 
   try {
-    let data = null;
-    let submitError = null;
-    let insertPayload = { ...payload };
-    const strippedColumns = [];
-    const isRoundTrip = Array.isArray(latestQuote?.legs) && latestQuote.legs.length > 1;
-    let requiresLegacyMultiInsert = false;
-
-    for (let attempt = 0; attempt < 16; attempt += 1) {
-      const insertResult = await supabase
-        .from('transport_bookings')
-        .insert([insertPayload])
-        .select('id, created_at');
-      data = insertResult.data;
-      submitError = insertResult.error;
-
-      if (!submitError) break;
-
-      const missingColumn = extractMissingColumnName(submitError);
-      if (!missingColumn || !Object.prototype.hasOwnProperty.call(insertPayload, missingColumn)) {
-        break;
-      }
-
-      if (isRoundTrip && ROUND_TRIP_CRITICAL_BOOKING_COLUMNS.has(missingColumn)) {
-        requiresLegacyMultiInsert = true;
-        break;
-      }
-
-      delete insertPayload[missingColumn];
-      strippedColumns.push(missingColumn);
-    }
-
-    if (requiresLegacyMultiInsert) {
-      throw new Error(
-        t(
-          'transport.booking.submit.error.roundTripSchemaRequired',
-          'Round-trip booking requires latest transport schema. Run migration "120_transport_round_trip_columns_schema_cache_fix.sql" and refresh this page.',
-        ),
-      );
-    }
-
-    if (submitError) throw submitError;
-
+    const submitResult = await submitTransportBooking(payload, latestQuote);
+    const data = Array.isArray(submitResult?.data) ? submitResult.data : [];
+    const strippedColumns = Array.isArray(submitResult?.strippedColumns) ? submitResult.strippedColumns : [];
     const rows = Array.isArray(data) ? data : [];
     const shortIds = rows
       .map((row) => String(row?.id || '').trim())
