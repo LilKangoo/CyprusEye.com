@@ -2112,6 +2112,14 @@ async function parseTransportSubmitResponse(response) {
   }
 }
 
+function isLocalDevelopmentHost() {
+  const host = String(location?.hostname || '').trim().toLowerCase();
+  return host === 'localhost'
+    || host === '127.0.0.1'
+    || host === '[::1]'
+    || host.endsWith('.local');
+}
+
 function isTransportBookingEndpointUnavailable(response, payload) {
   const status = Number(response?.status || 0);
   if (status === 404 || status === 405 || status === 501) {
@@ -2180,13 +2188,21 @@ async function submitTransportBooking(payload, quote) {
     return insertTransportBookingDirect(payload, quote);
   }
 
-  const response = await fetch(TRANSPORT_BOOKING_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
+  let response = null;
+  try {
+    response = await fetch(TRANSPORT_BOOKING_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (error) {
+    if (isLocalDevelopmentHost()) {
+      return insertTransportBookingDirect(payload, quote);
+    }
+    throw error;
+  }
   const responsePayload = await parseTransportSubmitResponse(response);
 
   if (response.ok) {
@@ -2201,7 +2217,15 @@ async function submitTransportBooking(payload, quote) {
   }
 
   if (isTransportBookingEndpointUnavailable(response, responsePayload)) {
-    return insertTransportBookingDirect(payload, quote);
+    if (isLocalDevelopmentHost()) {
+      return insertTransportBookingDirect(payload, quote);
+    }
+    throw new Error(
+      t(
+        'transport.booking.submit.error.endpointUnavailable',
+        'Transport booking endpoint is unavailable on this deployment. Finish Cloudflare Pages deploy and ensure `_routes.json` includes `/transport/*`.',
+      ),
+    );
   }
 
   throw new Error(

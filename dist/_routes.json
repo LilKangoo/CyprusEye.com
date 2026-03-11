@@ -6,7 +6,9 @@
     "/auth/*",
     "/account/*",
     "/reset/*",
+    "/api/*",
     "/hotel/*",
+    "/transport/*",
     "/trips"
   ],
   "exclude": []
