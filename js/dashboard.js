@@ -813,6 +813,22 @@ async function fetchAllBookings(limit = 100) {
     console.warn('Car bookings table not found or error:', e);
   }
 
+  // Fetch Transport Bookings
+  let transportBookings = [];
+  try {
+    const { data, error } = await supabase
+      .from('transport_bookings')
+      .select('*')
+      .ilike('customer_email', currentUser.email)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) console.warn('Transport bookings fetch error:', error);
+    if (data) transportBookings = data;
+  } catch (e) {
+    console.warn('Transport bookings table not found or error:', e);
+  }
+
   // Fetch Hotels data for name lookup (for bookings without hotel_name)
   let hotelsMap = {};
   if (hotelBookings.length > 0) {
@@ -829,6 +845,59 @@ async function fetchAllBookings(limit = 100) {
       }
     } catch (e) {
       console.warn('Could not fetch hotels for name lookup:', e);
+    }
+  }
+
+  let transportRoutesMap = {};
+  let transportLocationsMap = {};
+  if (transportBookings.length > 0) {
+    try {
+      const routeIds = [...new Set(
+        transportBookings.flatMap((booking) => [booking.route_id, booking.return_route_id]).filter(Boolean),
+      )];
+
+      if (routeIds.length > 0) {
+        const { data: transportRoutes, error: transportRoutesError } = await supabase
+          .from('transport_routes')
+          .select('id, origin_location_id, destination_location_id')
+          .in('id', routeIds);
+
+        if (transportRoutesError) console.warn('Transport routes fetch error:', transportRoutesError);
+        if (transportRoutes) {
+          transportRoutes.forEach((route) => {
+            transportRoutesMap[route.id] = route;
+          });
+        }
+      }
+
+      const locationIds = [...new Set(
+        transportBookings.flatMap((booking) => [
+          booking.origin_location_id,
+          booking.destination_location_id,
+          booking.return_origin_location_id,
+          booking.return_destination_location_id,
+          transportRoutesMap[booking.route_id]?.origin_location_id,
+          transportRoutesMap[booking.route_id]?.destination_location_id,
+          transportRoutesMap[booking.return_route_id]?.origin_location_id,
+          transportRoutesMap[booking.return_route_id]?.destination_location_id,
+        ]).filter(Boolean),
+      )];
+
+      if (locationIds.length > 0) {
+        const { data: transportLocations, error: transportLocationsError } = await supabase
+          .from('transport_locations')
+          .select('id, name, name_local, code')
+          .in('id', locationIds);
+
+        if (transportLocationsError) console.warn('Transport locations fetch error:', transportLocationsError);
+        if (transportLocations) {
+          transportLocations.forEach((location) => {
+            transportLocationsMap[location.id] = getTransportLocationLabel(location);
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Could not fetch transport route labels:', e);
     }
   }
 
@@ -911,7 +980,94 @@ async function fetchAllBookings(limit = 100) {
     return carObj;
   });
 
-  return [...trips, ...hotels, ...cars].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, limit);
+  const transports = transportBookings.map((booking) => {
+    const outboundRouteLabel = buildTransportRouteLabel(booking, transportRoutesMap, transportLocationsMap, 'outbound');
+    const returnRouteLabel = buildTransportRouteLabel(booking, transportRoutesMap, transportLocationsMap, 'return');
+
+    return {
+      type: 'transport',
+      id: booking.id,
+      title: outboundRouteLabel || 'Transport Booking',
+      date: booking.travel_date,
+      created_at: booking.created_at,
+      status: booking.status || 'pending',
+      payment_status: booking.payment_status || 'pending',
+      price: booking.total_price,
+      currency: booking.currency || 'EUR',
+      people: booking.num_passengers || 0,
+      trip_type: booking.trip_type || (booking.return_route_id ? 'round_trip' : 'one_way'),
+      route_label: outboundRouteLabel,
+      return_route_label: returnRouteLabel,
+      pickup_address: booking.pickup_address,
+      dropoff_address: booking.dropoff_address,
+      flight_number: booking.flight_number,
+      return_date: booking.return_travel_date,
+      return_pickup_address: booking.return_pickup_address,
+      return_dropoff_address: booking.return_dropoff_address,
+      return_flight_number: booking.return_flight_number
+    };
+  });
+
+  return [...trips, ...hotels, ...cars, ...transports]
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, limit);
+}
+
+function getTransportLocationLabel(location) {
+  if (!location) return '';
+
+  const preferredName = String(location.name || '').trim();
+  if (preferredName) return preferredName;
+
+  const localName = String(location.name_local || '').trim();
+  if (localName) return localName;
+
+  return String(location.code || '').trim();
+}
+
+function buildTransportRouteLabel(booking, transportRoutesMap = {}, transportLocationsMap = {}, leg = 'outbound') {
+  const isReturn = leg === 'return';
+  const routeId = String(isReturn ? booking.return_route_id || '' : booking.route_id || '').trim();
+  const route = routeId ? transportRoutesMap[routeId] : null;
+  const originId = String(
+    isReturn
+      ? booking.return_origin_location_id || route?.origin_location_id || ''
+      : booking.origin_location_id || route?.origin_location_id || '',
+  ).trim();
+  const destinationId = String(
+    isReturn
+      ? booking.return_destination_location_id || route?.destination_location_id || ''
+      : booking.destination_location_id || route?.destination_location_id || '',
+  ).trim();
+
+  const originLabel = transportLocationsMap[originId] || '';
+  const destinationLabel = transportLocationsMap[destinationId] || '';
+  if (originLabel && destinationLabel) {
+    return `${originLabel} → ${destinationLabel}`;
+  }
+
+  return originLabel || destinationLabel || '';
+}
+
+function formatBookingPrice(booking, pendingLabel = 'Pending') {
+  const numericPrice = Number.parseFloat(booking?.price);
+  if (!Number.isFinite(numericPrice) || numericPrice <= 0) {
+    return `<span style="font-size: 0.9em; color: #ea580c;">${pendingLabel}</span>`;
+  }
+
+  const currency = String(booking?.currency || 'EUR').trim().toUpperCase() || 'EUR';
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(numericPrice);
+  } catch (error) {
+    console.warn('Price formatting failed:', error);
+    const prefix = currency === 'EUR' ? '€' : `${currency} `;
+    return `${prefix}${numericPrice.toFixed(2)}`;
+  }
 }
 
 function renderReservations(filter) {
@@ -928,21 +1084,20 @@ function renderReservations(filter) {
 
 function createBookingCard(booking, simple = false) {
   const date = new Date(booking.date || booking.created_at).toLocaleDateString();
-  const icon = booking.type === 'trip' ? '🚤' : (booking.type === 'car' ? '🚗' : '🏨');
+  const icon = booking.type === 'trip'
+    ? '🚤'
+    : (booking.type === 'car' ? '🚗' : (booking.type === 'transport' ? '🚕' : '🏨'));
   const statusClass = booking.status.toLowerCase();
   
   const statusText = {
     pending: 'Pending',
     confirmed: 'Confirmed',
+    awaiting_payment: 'Awaiting Payment',
     completed: 'Completed',
     cancelled: 'Cancelled'
   }[statusClass] || booking.status;
 
-  // Price formatting
-  let priceDisplay = `€${parseFloat(booking.price).toFixed(2)}`;
-  if (!booking.price || booking.price == 0) {
-    priceDisplay = '<span style="font-size: 0.9em; color: #ea580c;">Pending</span>';
-  }
+  const priceDisplay = formatBookingPrice(booking);
 
   return `
     <div class="reservation-card" onclick="window.openBookingDetails('${booking.id}', '${booking.type}')">
@@ -950,7 +1105,7 @@ function createBookingCard(booking, simple = false) {
         <h4>${icon} ${booking.title}</h4>
         <div class="res-meta">
           <span>📅 ${date}</span>
-          <span>👥 ${booking.people} guests</span>
+          <span>👥 ${booking.people}</span>
           <span>💰 ${priceDisplay}</span>
         </div>
       </div>
@@ -972,6 +1127,18 @@ function getBookingLabels() {
       createdAt: 'Utworzono',
       pickupLocation: 'Miejsce odbioru',
       returnLocation: 'Miejsce zwrotu',
+      route: 'Trasa',
+      outboundRoute: 'Trasa tam',
+      returnRoute: 'Trasa powrotna',
+      pickupAddress: 'Adres odbioru',
+      dropoffAddress: 'Adres docelowy',
+      flightNumber: 'Numer lotu',
+      returnPickupAddress: 'Adres odbioru na powrót',
+      returnDropoffAddress: 'Adres docelowy na powrót',
+      returnFlightNumber: 'Numer lotu na powrót',
+      returnDate: 'Data powrotu',
+      tripType: 'Typ przejazdu',
+      paymentStatus: 'Status płatności',
       passengers: 'Pasażerowie',
       guests: 'Goście',
       nights: 'Noce',
@@ -983,6 +1150,8 @@ function getBookingLabels() {
       days: 'dni',
       insurance: 'Pełne ubezpieczenie',
       youngDriver: 'Młody kierowca',
+      oneWay: 'W jedną stronę',
+      roundTrip: 'W dwie strony',
       yes: 'Tak',
       no: 'Nie'
     },
@@ -992,6 +1161,18 @@ function getBookingLabels() {
       createdAt: 'Created At',
       pickupLocation: 'Pickup Location',
       returnLocation: 'Return Location',
+      route: 'Route',
+      outboundRoute: 'Outbound Route',
+      returnRoute: 'Return Route',
+      pickupAddress: 'Pickup Address',
+      dropoffAddress: 'Drop-off Address',
+      flightNumber: 'Flight Number',
+      returnPickupAddress: 'Return Pickup Address',
+      returnDropoffAddress: 'Return Drop-off Address',
+      returnFlightNumber: 'Return Flight Number',
+      returnDate: 'Return Date',
+      tripType: 'Trip Type',
+      paymentStatus: 'Payment Status',
       passengers: 'Passengers',
       guests: 'Guests',
       nights: 'Nights',
@@ -1003,6 +1184,8 @@ function getBookingLabels() {
       days: 'days',
       insurance: 'Full Insurance',
       youngDriver: 'Young Driver',
+      oneWay: 'One way',
+      roundTrip: 'Round trip',
       yes: 'Yes',
       no: 'No'
     },
@@ -1012,6 +1195,18 @@ function getBookingLabels() {
       createdAt: 'Δημιουργήθηκε',
       pickupLocation: 'Τοποθεσία παραλαβής',
       returnLocation: 'Τοποθεσία επιστροφής',
+      route: 'Διαδρομή',
+      outboundRoute: 'Διαδρομή αναχώρησης',
+      returnRoute: 'Διαδρομή επιστροφής',
+      pickupAddress: 'Διεύθυνση παραλαβής',
+      dropoffAddress: 'Διεύθυνση προορισμού',
+      flightNumber: 'Αριθμός πτήσης',
+      returnPickupAddress: 'Διεύθυνση παραλαβής επιστροφής',
+      returnDropoffAddress: 'Διεύθυνση προορισμού επιστροφής',
+      returnFlightNumber: 'Αριθμός πτήσης επιστροφής',
+      returnDate: 'Ημερομηνία επιστροφής',
+      tripType: 'Τύπος διαδρομής',
+      paymentStatus: 'Κατάσταση πληρωμής',
       passengers: 'Επιβάτες',
       guests: 'Επισκέπτες',
       nights: 'Νύχτες',
@@ -1023,6 +1218,8 @@ function getBookingLabels() {
       days: 'ημέρες',
       insurance: 'Πλήρης ασφάλιση',
       youngDriver: 'Νέος οδηγός',
+      oneWay: 'Μονή διαδρομή',
+      roundTrip: 'Με επιστροφή',
       yes: 'Ναι',
       no: 'Όχι'
     },
@@ -1032,6 +1229,18 @@ function getBookingLabels() {
       createdAt: 'נוצר ב',
       pickupLocation: 'מיקום איסוף',
       returnLocation: 'מיקום החזרה',
+      route: 'מסלול',
+      outboundRoute: 'מסלול הלוך',
+      returnRoute: 'מסלול חזור',
+      pickupAddress: 'כתובת איסוף',
+      dropoffAddress: 'כתובת יעד',
+      flightNumber: 'מספר טיסה',
+      returnPickupAddress: 'כתובת איסוף לחזור',
+      returnDropoffAddress: 'כתובת יעד לחזור',
+      returnFlightNumber: 'מספר טיסת חזור',
+      returnDate: 'תאריך חזור',
+      tripType: 'סוג נסיעה',
+      paymentStatus: 'סטטוס תשלום',
       passengers: 'נוסעים',
       guests: 'אורחים',
       nights: 'לילות',
@@ -1043,6 +1252,8 @@ function getBookingLabels() {
       days: 'ימים',
       insurance: 'ביטוח מלא',
       youngDriver: 'נהג צעיר',
+      oneWay: 'כיוון אחד',
+      roundTrip: 'הלוך ושוב',
       yes: 'כן',
       no: 'לא'
     }
@@ -1085,8 +1296,13 @@ function formatStatus(status, lang) {
   const statusLabels = {
     pending: { pl: 'Oczekujące', en: 'Pending', el: 'Εκκρεμεί', he: 'ממתין' },
     confirmed: { pl: 'Potwierdzone', en: 'Confirmed', el: 'Επιβεβαιωμένο', he: 'מאושר' },
+    awaiting_payment: { pl: 'Oczekuje na płatność', en: 'Awaiting payment', el: 'Αναμονή πληρωμής', he: 'ממתין לתשלום' },
     completed: { pl: 'Zakończone', en: 'Completed', el: 'Ολοκληρώθηκε', he: 'הושלם' },
     cancelled: { pl: 'Anulowane', en: 'Cancelled', el: 'Ακυρώθηκε', he: 'בוטל' },
+    paid: { pl: 'Opłacone', en: 'Paid', el: 'Πληρώθηκε', he: 'שולם' },
+    failed: { pl: 'Płatność nieudana', en: 'Payment failed', el: 'Αποτυχία πληρωμής', he: 'התשלום נכשל' },
+    refunded: { pl: 'Zwrot wykonany', en: 'Refunded', el: 'Επιστράφηκε', he: 'הוחזר' },
+    not_required: { pl: 'Nie wymagana', en: 'Not required', el: 'Δεν απαιτείται', he: 'לא נדרש' },
     message_sent: { pl: 'Wiadomość wysłana', en: 'Message Sent', el: 'Μήνυμα εστάλη', he: 'הודעה נשלחה' }
   };
   
@@ -1095,6 +1311,11 @@ function formatStatus(status, lang) {
     return statusLabels[key][lang] || statusLabels[key].en;
   }
   return status;
+}
+
+function formatTransportTripType(tripType, labels) {
+  const normalized = String(tripType || 'one_way').toLowerCase();
+  return normalized === 'round_trip' ? labels.roundTrip : labels.oneWay;
 }
 
 // --- Details Modal Logic ---
@@ -1108,6 +1329,7 @@ window.openBookingDetails = function(id, type) {
   
   const labels = getBookingLabels();
   const lang = (typeof window.getCurrentLanguage === 'function') ? window.getCurrentLanguage() : 'pl';
+  const locale = lang === 'he' ? 'he-IL' : `${lang}-${lang === 'el' ? 'GR' : lang.toUpperCase()}`;
 
   title.textContent = booking.title;
   
@@ -1127,7 +1349,7 @@ window.openBookingDetails = function(id, type) {
     </div>
     <div class="detail-row">
       <span class="detail-label">${labels.date}</span>
-      <span class="detail-value">📅 ${new Date(booking.date).toLocaleDateString(lang === 'he' ? 'he-IL' : lang + '-' + (lang === 'el' ? 'GR' : lang.toUpperCase()))}</span>
+      <span class="detail-value">📅 ${new Date(booking.date).toLocaleDateString(locale)}</span>
     </div>
   `;
 
@@ -1175,6 +1397,75 @@ window.openBookingDetails = function(id, type) {
         <span class="detail-value">🌙 ${booking.nights || '-'}</span>
       </div>
     `;
+  } else if (booking.type === 'transport') {
+    detailsHtml += `
+      <div class="detail-row">
+        <span class="detail-label">${labels.tripType}</span>
+        <span class="detail-value">${formatTransportTripType(booking.trip_type, labels)}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">${labels.paymentStatus}</span>
+        <span class="detail-value">${formatStatus(booking.payment_status, lang)}</span>
+      </div>
+      ${booking.route_label ? `
+      <div class="detail-row">
+        <span class="detail-label">${booking.trip_type === 'round_trip' ? labels.outboundRoute : labels.route}</span>
+        <span class="detail-value">🛣️ ${booking.route_label}</span>
+      </div>
+      ` : ''}
+      <div class="detail-row">
+        <span class="detail-label">${labels.passengers}</span>
+        <span class="detail-value">👥 ${booking.people}</span>
+      </div>
+      ${booking.pickup_address ? `
+      <div class="detail-row">
+        <span class="detail-label">${labels.pickupAddress}</span>
+        <span class="detail-value">📍 ${booking.pickup_address}</span>
+      </div>
+      ` : ''}
+      ${booking.dropoff_address ? `
+      <div class="detail-row">
+        <span class="detail-label">${labels.dropoffAddress}</span>
+        <span class="detail-value">📍 ${booking.dropoff_address}</span>
+      </div>
+      ` : ''}
+      ${booking.flight_number ? `
+      <div class="detail-row">
+        <span class="detail-label">${labels.flightNumber}</span>
+        <span class="detail-value">✈️ ${booking.flight_number}</span>
+      </div>
+      ` : ''}
+      ${booking.return_route_label ? `
+      <div class="detail-row">
+        <span class="detail-label">${labels.returnRoute}</span>
+        <span class="detail-value">🛣️ ${booking.return_route_label}</span>
+      </div>
+      ` : ''}
+      ${booking.return_date ? `
+      <div class="detail-row">
+        <span class="detail-label">${labels.returnDate}</span>
+        <span class="detail-value">📅 ${new Date(booking.return_date).toLocaleDateString(locale)}</span>
+      </div>
+      ` : ''}
+      ${booking.return_pickup_address ? `
+      <div class="detail-row">
+        <span class="detail-label">${labels.returnPickupAddress}</span>
+        <span class="detail-value">📍 ${booking.return_pickup_address}</span>
+      </div>
+      ` : ''}
+      ${booking.return_dropoff_address ? `
+      <div class="detail-row">
+        <span class="detail-label">${labels.returnDropoffAddress}</span>
+        <span class="detail-value">📍 ${booking.return_dropoff_address}</span>
+      </div>
+      ` : ''}
+      ${booking.return_flight_number ? `
+      <div class="detail-row">
+        <span class="detail-label">${labels.returnFlightNumber}</span>
+        <span class="detail-value">✈️ ${booking.return_flight_number}</span>
+      </div>
+      ` : ''}
+    `;
   } else {
     detailsHtml += `
       <div class="detail-row">
@@ -1185,9 +1476,7 @@ window.openBookingDetails = function(id, type) {
   }
 
   // Price
-  const priceText = (!booking.price || booking.price == 0) 
-    ? `<span style="color:#ea580c">${labels.pendingPrice}</span>` 
-    : `€${parseFloat(booking.price).toFixed(2)}`;
+  const priceText = formatBookingPrice(booking, labels.pendingPrice);
   
   detailsHtml += `
     <div class="detail-row detail-row--total">

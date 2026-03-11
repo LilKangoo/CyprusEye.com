@@ -566,7 +566,13 @@ function messageForServiceFulfillmentAction(action, result) {
     : '';
 
   if (!ok) {
-    return act === 'reject' ? 'Failed to reject fulfillment' : act === 'mark_paid' ? 'Failed to mark paid' : 'Failed to accept fulfillment';
+    return act === 'reject'
+      ? 'Failed to reject fulfillment'
+      : act === 'mark_paid'
+        ? 'Failed to mark paid'
+        : act === 'send_deposit_email'
+          ? 'Failed to queue deposit email'
+          : 'Failed to accept fulfillment';
   }
 
   if (skipped) {
@@ -585,6 +591,7 @@ function messageForServiceFulfillmentAction(action, result) {
 
   if (act === 'reject') return 'Fulfillment rejected';
   if (act === 'mark_paid') return 'Marked as paid';
+  if (act === 'send_deposit_email') return 'Deposit email queued';
   if (tripDateSelectionRequired || tripDateSelectionStatus === 'options_proposed' || tripDateSelectionStatus === 'options_sent_to_customer') {
     return 'Accepted. Trip date options flow started.';
   }
@@ -2372,6 +2379,7 @@ function renderPartnersTable() {
           if (st === 'awaiting_payment') {
             return `
               <div class="btn-row">
+                <button class="btn-action btn-secondary" type="button" onclick="adminServiceFulfillmentAction('${escapeHtml(p.id)}','${escapeHtml(row.id)}','send_deposit_email')">Send deposit email</button>
                 <button class="btn-action btn-warning" type="button" onclick="adminServiceFulfillmentAction('${escapeHtml(p.id)}','${escapeHtml(row.id)}','mark_paid')">Mark paid</button>
               </div>
             `;
@@ -2638,7 +2646,7 @@ async function adminServiceFulfillmentAction(partnerId, fulfillmentId, action) {
   const fid = String(fulfillmentId || '').trim();
   const act = String(action || '').trim();
   if (!pid || !fid) return;
-  if (act !== 'accept' && act !== 'reject' && act !== 'mark_paid') return;
+  if (act !== 'accept' && act !== 'reject' && act !== 'mark_paid' && act !== 'send_deposit_email') return;
 
   let reason = '';
   let stripePaymentIntentId = '';
@@ -2665,6 +2673,8 @@ async function adminServiceFulfillmentAction(partnerId, fulfillmentId, action) {
     const input = prompt('Reject reason (optional):', '');
     if (input === null) return;
     reason = String(input || '');
+  } else if (act === 'send_deposit_email') {
+    if (!confirm('Queue deposit email with payment link to the customer now?')) return;
   } else {
     if (!confirm('Accept this fulfillment?')) return;
   }
@@ -2720,7 +2730,7 @@ async function adminServiceFulfillmentActionForBooking(category, bookingId, fulf
   const fid = String(fulfillmentId || '').trim();
   const act = String(action || '').trim();
   if (!fid || !act) return;
-  if (act !== 'accept' && act !== 'reject' && act !== 'mark_paid') return;
+  if (act !== 'accept' && act !== 'reject' && act !== 'mark_paid' && act !== 'send_deposit_email') return;
 
   let reason = '';
   let stripePaymentIntentId = '';
@@ -2747,6 +2757,8 @@ async function adminServiceFulfillmentActionForBooking(category, bookingId, fulf
     const input = prompt('Reject reason (optional):', '');
     if (input === null) return;
     reason = String(input || '');
+  } else if (act === 'send_deposit_email') {
+    if (!confirm('Queue deposit email with payment link to the customer now?')) return;
   } else {
     if (!confirm('Accept this fulfillment?')) return;
   }
@@ -7404,7 +7416,7 @@ async function viewTripBookingDetails(bookingId) {
       }
       if (fulfillmentStatus === 'awaiting_payment') {
         const canMarkPaid = !canSendDateOptions || selectionStatusRaw === 'selected' || selectionStatusRaw === 'not_required';
-        const canRetryPaymentLink = selectionStatusRaw === 'selected';
+        const canRetryPaymentLink = selectionStatusRaw === 'selected' || selectionStatusRaw === 'not_required';
         return `
           <div style="display:flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
             ${canSendDateOptions ? `
@@ -7413,7 +7425,7 @@ async function viewTripBookingDetails(bookingId) {
               </button>
             ` : ''}
             ${canRetryPaymentLink ? `
-              <button type="button" class="btn-secondary" onclick="adminServiceFulfillmentActionForBooking('trips','${escapeHtml(booking.id)}','${escapeHtml(fulfillment.id)}','accept')">Retry payment link</button>
+              <button type="button" class="btn-secondary" onclick="adminServiceFulfillmentActionForBooking('trips','${escapeHtml(booking.id)}','${escapeHtml(fulfillment.id)}','send_deposit_email')">Send deposit email</button>
             ` : ''}
             ${canMarkPaid ? `
               <button type="button" class="btn-secondary" onclick="adminServiceFulfillmentActionForBooking('trips','${escapeHtml(booking.id)}','${escapeHtml(fulfillment.id)}','mark_paid')">Mark paid</button>
@@ -10428,6 +10440,7 @@ async function viewHotelBookingDetails(bookingId) {
       if (fulfillmentStatus === 'awaiting_payment') {
         return `
           <div style="display:flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+            <button type="button" class="btn-secondary" onclick="adminServiceFulfillmentActionForBooking('hotels','${escapeHtml(booking.id)}','${escapeHtml(fulfillment.id)}','send_deposit_email')">Send deposit email</button>
             <button type="button" class="btn-secondary" onclick="adminServiceFulfillmentActionForBooking('hotels','${escapeHtml(booking.id)}','${escapeHtml(fulfillment.id)}','mark_paid')">Mark paid</button>
           </div>
         `;
@@ -17819,6 +17832,7 @@ async function viewTransportBookingDetails(bookingId) {
     if (fulfillmentStatus === 'awaiting_payment') {
       return `
         <div style="display:flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+          <button type="button" class="btn-secondary" onclick="adminServiceFulfillmentActionForBooking('transport','${escapeHtml(id)}','${escapeHtml(String(fulfillment.id))}','send_deposit_email')">Send deposit email</button>
           <button type="button" class="btn-secondary" onclick="adminServiceFulfillmentActionForBooking('transport','${escapeHtml(id)}','${escapeHtml(String(fulfillment.id))}','mark_paid')">Mark paid</button>
         </div>
       `;
@@ -26700,6 +26714,7 @@ async function viewCarBookingDetails(bookingId) {
       if (fulfillmentStatus === 'awaiting_payment') {
         return `
           <div style="display:flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+            <button type="button" class="btn-secondary" onclick="adminServiceFulfillmentActionForBooking('cars','${escapeHtml(booking.id)}','${escapeHtml(fulfillment.id)}','send_deposit_email')">Send deposit email</button>
             <button type="button" class="btn-secondary" onclick="adminServiceFulfillmentActionForBooking('cars','${escapeHtml(booking.id)}','${escapeHtml(fulfillment.id)}','mark_paid')">Mark paid</button>
           </div>
         `;

@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
-type Action = "accept" | "reject" | "mark_paid";
+type Action = "accept" | "reject" | "mark_paid" | "send_deposit_email";
 type ServiceCategory = "cars" | "trips" | "hotels" | "transport";
 type TransportRejectCode =
   | "no_availability"
@@ -364,6 +364,72 @@ async function isDepositEnabled(supabase: any): Promise<boolean> {
   }
 }
 
+async function resolveServiceAcceptanceDepositState(
+  supabase: any,
+  params: {
+    category: ServiceCategory;
+    bookingId?: string | null;
+    tripDateSelectionRequired?: boolean;
+  },
+): Promise<{
+  depositEnabled: boolean;
+  requiresImmediateDeposit: boolean;
+  nextStatus: "accepted" | "awaiting_payment";
+}> {
+  const globalDepositEnabled = await isDepositEnabled(supabase);
+  if (!globalDepositEnabled) {
+    return {
+      depositEnabled: false,
+      requiresImmediateDeposit: false,
+      nextStatus: "accepted",
+    };
+  }
+
+  if (params.category === "trips" && params.tripDateSelectionRequired) {
+    return {
+      depositEnabled: true,
+      requiresImmediateDeposit: false,
+      nextStatus: "awaiting_payment",
+    };
+  }
+
+  if (params.category !== "transport") {
+    return {
+      depositEnabled: true,
+      requiresImmediateDeposit: true,
+      nextStatus: "awaiting_payment",
+    };
+  }
+
+  const bookingId = String(params.bookingId || "").trim();
+  if (!bookingId) {
+    throw new Error("Transport fulfillment missing booking reference");
+  }
+
+  const { data: bookingRow, error: bookingErr } = await supabase
+    .from("transport_bookings")
+    .select("payment_status, deposit_amount")
+    .eq("id", bookingId)
+    .maybeSingle();
+
+  if (bookingErr || !bookingRow) {
+    throw new Error(bookingErr?.message || "Failed to load transport booking deposit state");
+  }
+
+  const paymentStatus = String((bookingRow as any)?.payment_status || "").trim().toLowerCase();
+  const depositAmount = Number((bookingRow as any)?.deposit_amount || 0);
+  const requiresImmediateDeposit = Number.isFinite(depositAmount)
+    && depositAmount > 0
+    && paymentStatus !== "not_required"
+    && paymentStatus !== "paid";
+
+  return {
+    depositEnabled: requiresImmediateDeposit,
+    requiresImmediateDeposit,
+    nextStatus: requiresImmediateDeposit ? "awaiting_payment" : "accepted",
+  };
+}
+
 async function loadDepositRule(
   supabase: any,
   params: { resource_type: ServiceCategory; resource_id?: string | null },
@@ -458,8 +524,14 @@ async function enqueueCustomerDepositEmail(supabase: any, params: {
   depositRequestId: string;
   fulfillmentId: string;
   partnerId: string;
+  dedupeSuffix?: string;
+  forceSend?: boolean;
 }) {
   const tableName = getServiceTableName(params.category);
+  const dedupeSuffix = String(params.dedupeSuffix || "").trim();
+  const dedupeKey = dedupeSuffix
+    ? `deposit_customer_requested:${params.depositRequestId}:${dedupeSuffix}`
+    : `deposit_customer_requested:${params.depositRequestId}`;
   const payload = {
     category: params.category,
     record_id: params.bookingId,
@@ -468,6 +540,7 @@ async function enqueueCustomerDepositEmail(supabase: any, params: {
     deposit_request_id: params.depositRequestId,
     fulfillment_id: params.fulfillmentId,
     partner_id: params.partnerId,
+    ...(params.forceSend ? { force_send: true } : {}),
   };
 
   try {
@@ -477,7 +550,7 @@ async function enqueueCustomerDepositEmail(supabase: any, params: {
       p_record_id: params.bookingId,
       p_table_name: tableName,
       p_payload: payload,
-      p_dedupe_key: `deposit_customer_requested:${params.depositRequestId}`,
+      p_dedupe_key: dedupeKey,
     });
   } catch (_e) {
   }
@@ -753,13 +826,6 @@ async function createDepositCheckoutForServiceFulfillment(params: {
     .eq("fulfillment_id", fulfillmentId)
     .maybeSingle();
 
-  const customerName = String((contactRow as any)?.customer_name || "").trim() || null;
-  const customerEmail = String((contactRow as any)?.customer_email || "").trim();
-  const customerPhone = String((contactRow as any)?.customer_phone || "").trim() || null;
-  if (!customerEmail) {
-    throw new Error("Missing customer email for deposit");
-  }
-
   const tableName = getServiceTableName(category);
   let lang: "pl" | "en" = "en";
   let bookingRow: any = null;
@@ -767,7 +833,7 @@ async function createDepositCheckoutForServiceFulfillment(params: {
     const bookingSelect = category === "cars"
       ? "lang, pickup_date, pickup_time, return_date, return_time"
       : category === "transport"
-      ? "lang, travel_date, travel_time, return_travel_date, num_passengers, deposit_amount"
+      ? "lang, travel_date, travel_time, return_travel_date, num_passengers, deposit_amount, customer_name, customer_email, customer_phone, total_price, currency"
       : "lang, arrival_date, departure_date";
     const { data: booking } = await supabase
       .from(tableName)
@@ -779,6 +845,13 @@ async function createDepositCheckoutForServiceFulfillment(params: {
   } catch (_e) {
     lang = "en";
     bookingRow = null;
+  }
+
+  const customerName = String((contactRow as any)?.customer_name || (bookingRow as any)?.customer_name || "").trim() || null;
+  const customerEmail = String((contactRow as any)?.customer_email || (bookingRow as any)?.customer_email || "").trim();
+  const customerPhone = String((contactRow as any)?.customer_phone || (bookingRow as any)?.customer_phone || "").trim() || null;
+  if (!customerEmail) {
+    throw new Error("Missing customer email for deposit");
   }
 
   const rule = await loadDepositRule(supabase, {
@@ -1183,7 +1256,7 @@ serve(async (req) => {
 
   const fulfillmentId = typeof body.fulfillment_id === "string" ? body.fulfillment_id : "";
   const action = body.action;
-  if (!fulfillmentId || (action !== "accept" && action !== "reject" && action !== "mark_paid")) {
+  if (!fulfillmentId || (action !== "accept" && action !== "reject" && action !== "mark_paid" && action !== "send_deposit_email")) {
     return new Response(
       JSON.stringify({
         ok: false,
@@ -1309,6 +1382,84 @@ serve(async (req) => {
     });
   }
 
+  if (action === "send_deposit_email") {
+    if (!callerIsAdmin) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
+        headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
+      });
+    }
+    if (kind !== "service") {
+      return new Response(JSON.stringify({ error: "send_deposit_email only supported for service fulfillments" }), {
+        status: 400,
+        headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
+      });
+    }
+    if (!bookingId || !serviceCategory) {
+      return new Response(JSON.stringify({ error: "Service fulfillment missing booking references" }), {
+        status: 400,
+        headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
+      });
+    }
+    if (fulfillmentStatus !== "awaiting_payment") {
+      return new Response(JSON.stringify({ error: "Deposit email can only be sent when fulfillment is awaiting_payment" }), {
+        status: 409,
+        headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
+      });
+    }
+
+    try {
+      const { data: fullRow, error: fullErr } = await supabase
+        .from("partner_service_fulfillments")
+        .select("id, partner_id, resource_type, booking_id, resource_id, start_date, end_date, reference, summary, details, total_price, currency")
+        .eq("id", fulfillmentId)
+        .maybeSingle();
+      if (fullErr || !fullRow) {
+        throw new Error(fullErr?.message || "Fulfillment not found");
+      }
+
+      const deposit = await createDepositCheckoutForServiceFulfillment({
+        supabase,
+        fulfillment: fullRow,
+        partnerId,
+        bookingId,
+        category: serviceCategory,
+      });
+      if (!deposit?.deposit_request_id) {
+        throw new Error("Failed to prepare deposit request");
+      }
+
+      await enqueueCustomerDepositEmail(supabase, {
+        category: serviceCategory,
+        bookingId,
+        depositRequestId: String(deposit.deposit_request_id),
+        fulfillmentId,
+        partnerId,
+        dedupeSuffix: `manual_${Date.now()}`,
+        forceSend: true,
+      });
+
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          data: {
+            booking_id: bookingId,
+            fulfillment_id: fulfillmentId,
+            partner_id: partnerId,
+            deposit,
+          },
+        }),
+        { status: 200, headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" } },
+      );
+    } catch (e) {
+      console.error("Failed to queue manual deposit email:", e);
+      return new Response(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }), {
+        status: 500,
+        headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
+      });
+    }
+  }
+
   if (fulfillmentStatus !== "pending_acceptance") {
     if (action === "accept" && fulfillmentStatus === "closed") {
       return new Response(
@@ -1419,6 +1570,8 @@ serve(async (req) => {
     if (action === "accept" && (fulfillmentStatus === "accepted" || (kind === "service" && fulfillmentStatus === "awaiting_payment"))) {
       let deposit: any = null;
       let tripSelectionStatus = "";
+      let shouldHaveImmediateDeposit = false;
+      let depositRecoveryError = "";
 
       if (kind === "service") {
         if (serviceCategory === "trips") {
@@ -1445,13 +1598,24 @@ serve(async (req) => {
 
         if (!deposit && fulfillmentStatus === "awaiting_payment" && bookingId && serviceCategory) {
           try {
-            const depositEnabled = await isDepositEnabled(supabase);
-            if (depositEnabled) {
-              const { data: fullRow } = await supabase
+            const tripDateSelectionPending = serviceCategory === "trips"
+              && tripSelectionStatus !== "selected"
+              && tripSelectionStatus !== "not_required";
+            const depositDecision = await resolveServiceAcceptanceDepositState(supabase, {
+              category: serviceCategory,
+              bookingId,
+              tripDateSelectionRequired: tripDateSelectionPending,
+            });
+            shouldHaveImmediateDeposit = depositDecision.requiresImmediateDeposit;
+            if (shouldHaveImmediateDeposit) {
+              const { data: fullRow, error: fullErr } = await supabase
                 .from("partner_service_fulfillments")
-                .select("id, partner_id, resource_type, booking_id, resource_id, start_date, end_date, reference, summary, details")
+                .select("id, partner_id, resource_type, booking_id, resource_id, start_date, end_date, reference, summary, details, total_price, currency")
                 .eq("id", fulfillmentId)
                 .maybeSingle();
+              if (fullErr || !fullRow) {
+                throw new Error(fullErr?.message || "Accepted fulfillment not found");
+              }
               const details = fullRow && typeof (fullRow as any)?.details === "object"
                 ? ((fullRow as any).details as Record<string, unknown>)
                 : null;
@@ -1472,10 +1636,18 @@ serve(async (req) => {
                 });
               }
             }
-          } catch (_e) {
-            // best-effort
+          } catch (e) {
+            depositRecoveryError = e instanceof Error ? e.message : String(e);
           }
         }
+      }
+      if (!deposit && fulfillmentStatus === "awaiting_payment" && shouldHaveImmediateDeposit) {
+        return new Response(JSON.stringify({
+          error: `Missing deposit request for awaiting_payment fulfillment: ${depositRecoveryError || "recovery failed"}`,
+        }), {
+          status: 500,
+          headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
+        });
       }
       return new Response(
         JSON.stringify({
@@ -1574,11 +1746,18 @@ serve(async (req) => {
         }
       }
 
-      const depositEnabled = kind === "service" ? await isDepositEnabled(supabase) : false;
-      const shouldDelayTripDeposit = kind === "service"
-        && serviceCategory === "trips"
-        && tripDateSelectionRequired;
-      const serviceNextStatus = depositEnabled ? "awaiting_payment" : "accepted";
+      const depositDecision = kind === "service" && serviceCategory
+        ? await resolveServiceAcceptanceDepositState(supabase, {
+          category: serviceCategory,
+          bookingId,
+          tripDateSelectionRequired,
+        })
+        : {
+          depositEnabled: false,
+          requiresImmediateDeposit: false,
+          nextStatus: "accepted" as const,
+        };
+      const serviceNextStatus = depositDecision.nextStatus;
 
       const mergedTripDetails = (kind === "service" && serviceCategory === "trips")
         ? {
@@ -1601,7 +1780,7 @@ serve(async (req) => {
           rejected_at: null,
           rejected_by: null,
           rejected_reason: null,
-          contact_revealed_at: (depositEnabled || shouldDelayTripDeposit) ? null : nowIso,
+          contact_revealed_at: serviceNextStatus === "accepted" ? nowIso : null,
           ...(mergedTripDetails ? { details: mergedTripDetails } : {}),
         }
         : {
@@ -1648,36 +1827,23 @@ serve(async (req) => {
         );
       }
 
-      await supabase.from("partner_audit_log").insert({
-        partner_id: partnerId,
-        actor_user_id: userId,
-        action: "fulfillment_accepted",
-        entity_type: kind === "shop" ? "shop_order_fulfillment" : "service_fulfillment",
-        entity_id: fulfillmentId,
-        metadata: kind === "shop"
-          ? { order_id: orderId }
-          : {
-            booking_id: bookingId,
-            resource_type: serviceCategory,
-            proposed_dates: serviceCategory === "trips" ? tripProposedDates : undefined,
-            trip_date_selection_required: serviceCategory === "trips" ? tripDateSelectionRequired : undefined,
-          },
-      });
-
       if (kind === "service") {
         let deposit: any = null;
-        const shouldCreateDepositNow = depositEnabled
+        const shouldCreateDepositNow = depositDecision.requiresImmediateDeposit
           && bookingId
           && serviceCategory
-          && !(serviceCategory === "trips" && tripDateSelectionRequired);
+          && serviceNextStatus === "awaiting_payment";
 
         if (shouldCreateDepositNow) {
-          const { data: fullRow } = await supabase
-            .from("partner_service_fulfillments")
-            .select("id, partner_id, resource_type, booking_id, resource_id, start_date, end_date, reference, summary, details")
-            .eq("id", fulfillmentId)
-            .maybeSingle();
-          if (fullRow) {
+          try {
+            const { data: fullRow, error: fullErr } = await supabase
+              .from("partner_service_fulfillments")
+              .select("id, partner_id, resource_type, booking_id, resource_id, start_date, end_date, reference, summary, details, total_price, currency")
+              .eq("id", fulfillmentId)
+              .maybeSingle();
+            if (fullErr || !fullRow) {
+              throw new Error(fullErr?.message || "Accepted fulfillment not found");
+            }
             deposit = await createDepositCheckoutForServiceFulfillment({
               supabase,
               fulfillment: fullRow,
@@ -1685,8 +1851,46 @@ serve(async (req) => {
               bookingId,
               category: serviceCategory,
             });
+          } catch (e) {
+            console.error("Failed to create deposit after service acceptance:", e);
+            try {
+              await supabase
+                .from("partner_service_fulfillments")
+                .update({
+                  status: "pending_acceptance",
+                  accepted_at: null,
+                  accepted_by: null,
+                  contact_revealed_at: null,
+                  updated_at: nowIso,
+                })
+                .eq("id", fulfillmentId)
+                .eq("status", serviceNextStatus);
+            } catch (rollbackErr) {
+              console.error("Failed to roll back service acceptance after deposit error:", rollbackErr);
+            }
+
+            return new Response(JSON.stringify({
+              error: `Failed to create deposit payment link: ${e instanceof Error ? e.message : String(e)}`,
+            }), {
+              status: 500,
+              headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
+            });
           }
         }
+
+        await supabase.from("partner_audit_log").insert({
+          partner_id: partnerId,
+          actor_user_id: userId,
+          action: "fulfillment_accepted",
+          entity_type: "service_fulfillment",
+          entity_id: fulfillmentId,
+          metadata: {
+            booking_id: bookingId,
+            resource_type: serviceCategory,
+            proposed_dates: serviceCategory === "trips" ? tripProposedDates : undefined,
+            trip_date_selection_required: serviceCategory === "trips" ? tripDateSelectionRequired : undefined,
+          },
+        });
 
         if (bookingId && serviceCategory) {
           await enqueueAdminAlertOnServiceAccept(supabase, {
@@ -1715,6 +1919,15 @@ serve(async (req) => {
           headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
         });
       }
+
+      await supabase.from("partner_audit_log").insert({
+        partner_id: partnerId,
+        actor_user_id: userId,
+        action: "fulfillment_accepted",
+        entity_type: "shop_order_fulfillment",
+        entity_id: fulfillmentId,
+        metadata: { order_id: orderId },
+      });
 
       // Compute order-level acceptance
       const { data: allRows, error: listErr } = await supabase

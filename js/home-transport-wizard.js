@@ -372,15 +372,14 @@
 
     if (!requireSimpleField('transportCustomerName', 'transport.booking.validation.fullNameRequired', 'Full name is required.', 'Full name')) return false;
     if (!requireSimpleField('transportCustomerPhone', 'transport.booking.validation.phoneRequired', 'Phone number is required.', 'Phone')) return false;
+    if (!requireSimpleField('transportCustomerEmail', 'transport.booking.validation.emailRequired', 'Email is required.', 'Email')) return false;
 
     const email = strValue(byId('transportCustomerEmail'));
-    if (email) {
-      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailPattern.test(email)) {
-        focusField(byId('transportCustomerEmail'));
-        showError(t('transport.booking.validation.emailInvalid', 'Email format looks invalid.'));
-        return false;
-      }
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(email)) {
+      focusField(byId('transportCustomerEmail'));
+      showError(t('transport.booking.validation.emailInvalid', 'Email format looks invalid.'));
+      return false;
     }
 
     if (!validateContactFieldsForLeg('outbound')) return false;

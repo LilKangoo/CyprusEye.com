@@ -11,6 +11,7 @@ const CORS = {
 
 const STATUS_VALUES = new Set(['pending', 'confirmed', 'awaiting_payment', 'completed', 'cancelled']);
 const PAYMENT_STATUS_VALUES = new Set(['pending', 'paid', 'failed', 'refunded', 'not_required']);
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ROUND_TRIP_CRITICAL_BOOKING_COLUMNS = new Set([
   'trip_type',
   'return_route_id',
@@ -41,6 +42,11 @@ function nullableText(value, maxLength = 0) {
 function nullableUuid(value) {
   const text = asTrimmedString(value, 64);
   return text || null;
+}
+
+function normalizeEmail(value) {
+  const text = nullableText(value, 160);
+  return text ? text.toLowerCase() : null;
 }
 
 function nonNegativeInt(value, fallback = 0, minValue = 0) {
@@ -136,7 +142,7 @@ function buildInsertPayload(body = {}) {
     flight_number: nullableText(body.flight_number, 120),
     notes: nullableText(body.notes, 4000),
     customer_name: asTrimmedString(body.customer_name, 160),
-    customer_email: nullableText(body.customer_email, 160),
+    customer_email: normalizeEmail(body.customer_email),
     customer_phone: asTrimmedString(body.customer_phone, 80),
     lang: nullableText(body.lang, 8),
     base_price: nonNegativeMoney(body.base_price, 0),
@@ -176,6 +182,8 @@ function validateInsertPayload(payload) {
   if (!payload.travel_date) return 'Missing field: travel_date';
   if (!payload.travel_time) return 'Missing field: travel_time';
   if (!payload.customer_name) return 'Missing field: customer_name';
+  if (!payload.customer_email) return 'Missing field: customer_email';
+  if (!EMAIL_PATTERN.test(payload.customer_email)) return 'Invalid field: customer_email';
   if (!payload.customer_phone) return 'Missing field: customer_phone';
   if (!(payload.total_price > 0)) return 'Missing or invalid field: total_price';
 

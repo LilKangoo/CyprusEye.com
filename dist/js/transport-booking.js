@@ -1895,10 +1895,9 @@ function validateRequiredFields() {
   if (!time) return t('transport.booking.validation.travelTimeRequired', 'Travel time is required.');
 
   const email = String(els.customerEmailInput?.value || '').trim();
-  if (email) {
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailPattern.test(email)) return t('transport.booking.validation.emailInvalid', 'Email format looks invalid.');
-  }
+  if (!email) return t('transport.booking.validation.emailRequired', 'Email is required.');
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailPattern.test(email)) return t('transport.booking.validation.emailInvalid', 'Email format looks invalid.');
 
   const outboundContactError = validateContactFieldsForLeg('outbound');
   if (outboundContactError) return outboundContactError;
@@ -1966,7 +1965,7 @@ function buildBookingPayloadForLeg(leg) {
     flight_number: legContact.flightNumber || null,
     notes: baseNotes || null,
     customer_name: String(els.customerNameInput?.value || '').trim(),
-    customer_email: String(els.customerEmailInput?.value || '').trim() || null,
+    customer_email: String(els.customerEmailInput?.value || '').trim().toLowerCase() || null,
     customer_phone: String(els.customerPhoneInput?.value || '').trim(),
     lang: String(document.documentElement.lang || navigator.language || 'en').slice(0, 8),
     base_price: basePrice,

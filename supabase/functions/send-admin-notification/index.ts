@@ -3261,6 +3261,7 @@ serve(async (req) => {
 
   if (event === "customer_deposit_requested") {
     const depositRequestId = String((body as any)?.deposit_request_id || (body as any)?.depositRequestId || "").trim();
+    const forceSend = Boolean((body as any)?.force_send || (body as any)?.forceSend);
     if (!depositRequestId) {
       return new Response(JSON.stringify({ error: "Missing deposit_request_id" }), {
         status: 400,
@@ -3282,7 +3283,7 @@ serve(async (req) => {
     }
 
     const alreadySent = Boolean((dep as any)?.email_sent_at);
-    if (alreadySent) {
+    if (alreadySent && !forceSend) {
       return new Response(JSON.stringify({ ok: true, skipped: true, reason: "already_sent" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
