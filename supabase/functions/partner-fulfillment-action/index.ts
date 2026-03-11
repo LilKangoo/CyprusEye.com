@@ -808,9 +808,6 @@ async function createDepositCheckoutForServiceFulfillment(params: {
 }): Promise<{ deposit_request_id: string; checkout_url: string } | null> {
   const { supabase, fulfillment, partnerId, bookingId, category } = params;
 
-  const depositEnabled = await isDepositEnabled(supabase);
-  if (!depositEnabled) return null;
-
   const fulfillmentId = String(fulfillment?.id || "");
   if (!fulfillmentId) return null;
 
@@ -854,12 +851,21 @@ async function createDepositCheckoutForServiceFulfillment(params: {
     throw new Error("Missing customer email for deposit");
   }
 
+  const quotedTransportDeposit = category === "transport"
+    ? clampMoney(Number((bookingRow as any)?.deposit_amount || 0))
+    : 0;
+  const bookingCurrency = String(
+    (bookingRow as any)?.currency
+    || (fulfillment as any)?.currency
+    || "EUR",
+  ).trim() || "EUR";
+
   const rule = await loadDepositRule(supabase, {
     resource_type: category,
     resource_id: fulfillment?.resource_id ? String(fulfillment.resource_id) : null,
   });
 
-  if (!rule) {
+  if (!rule && !(category === "transport" && quotedTransportDeposit > 0)) {
     throw new Error("Deposit rule not configured");
   }
 
@@ -885,102 +891,101 @@ async function createDepositCheckoutForServiceFulfillment(params: {
   }
 
   let depositAmount = 0;
-  if (rule.mode === "percent_total") {
-    const total = Number((fulfillment as any)?.total_price || 0);
-    const pct = Number(rule.amount || 0);
-    if (!(total > 0)) throw new Error("Fulfillment total price missing for percent_total deposit");
-    if (!(pct > 0)) throw new Error("Deposit percent is 0");
-    depositAmount = clampMoney((total * pct) / 100);
-  } else {
-    let multiplier = 1;
-    if (rule.mode === "flat") {
-      multiplier = 1;
-    } else if (rule.mode === "per_day") {
-      if (category === "cars") {
-        const startDate = (bookingRow as any)?.pickup_date
-          ?? fulfillmentDetails?.pickup_date
-          ?? fulfillmentDetails?.pickupDate
-          ?? fulfillment?.start_date;
-        const endDate = (bookingRow as any)?.return_date
-          ?? fulfillmentDetails?.return_date
-          ?? fulfillmentDetails?.returnDate
-          ?? fulfillment?.end_date;
-        const startTime = (bookingRow as any)?.pickup_time
-          ?? fulfillmentDetails?.pickup_time
-          ?? fulfillmentDetails?.pickupTime
-          ?? "10:00";
-        const endTime = (bookingRow as any)?.return_time
-          ?? fulfillmentDetails?.return_time
-          ?? fulfillmentDetails?.returnTime
-          ?? startTime
-          ?? "10:00";
-
-        multiplier = diffStartedDays(startDate, endDate, startTime, endTime);
-        multiplier = Math.max(3, multiplier);
-      } else if (category === "transport") {
-        const start = (bookingRow as any)?.travel_date
-          ?? fulfillmentDetails?.travel_date
-          ?? fulfillmentDetails?.travelDate
-          ?? fulfillment?.start_date;
-        const end = fulfillmentDetails?.return_travel_date
-          ?? fulfillmentDetails?.returnTravelDate
-          ?? start;
-        multiplier = diffDays(start, end);
-      } else {
-        const start = (bookingRow as any)?.arrival_date ?? fulfillment?.start_date;
-        const end = (bookingRow as any)?.departure_date ?? fulfillment?.end_date;
-        multiplier = diffDays(start, end);
-      }
-    } else if (rule.mode === "per_hour") {
-      if (category !== "trips") throw new Error("per_hour deposit only supported for trips");
-      let hours = 0;
-      try {
-        const { data: bookingRow } = await supabase
-          .from("trip_bookings")
-          .select("num_hours")
-          .eq("id", bookingId)
-          .maybeSingle();
-        hours = Number((bookingRow as any)?.num_hours || 0);
-      } catch (_e) {
-        hours = 0;
-      }
-      if (!(hours > 0)) {
-        const raw = fulfillmentDetails?.num_hours ?? fulfillmentDetails?.numHours ?? fulfillmentDetails?.hours ?? 0;
-        hours = Number(raw || 0);
-      }
-      multiplier = Math.max(1, Number.isFinite(hours) ? Math.round(hours) : 1);
+  if (rule) {
+    if (rule.mode === "percent_total") {
+      const total = Number((fulfillment as any)?.total_price || 0);
+      const pct = Number(rule.amount || 0);
+      if (!(total > 0)) throw new Error("Fulfillment total price missing for percent_total deposit");
+      if (!(pct > 0)) throw new Error("Deposit percent is 0");
+      depositAmount = clampMoney((total * pct) / 100);
     } else {
-      const passengers = fulfillmentDetails?.num_passengers
-        ?? fulfillmentDetails?.numPassengers
-        ?? (bookingRow as any)?.num_passengers
-        ?? 0;
-      if (category === "transport" && Number(passengers || 0) > 0) {
-        multiplier = Math.max(1, Number.isFinite(Number(passengers)) ? Number(passengers) : 1);
-      } else {
-        const adults = fulfillmentDetails?.num_adults ?? fulfillmentDetails?.numAdults ?? 0;
-        const children = fulfillmentDetails?.num_children ?? fulfillmentDetails?.numChildren ?? 0;
-        const people = Number(adults || 0) + Number(rule.include_children ? (children || 0) : 0);
-        multiplier = Math.max(1, Number.isFinite(people) ? people : 1);
-      }
-    }
+      let multiplier = 1;
+      if (rule.mode === "flat") {
+        multiplier = 1;
+      } else if (rule.mode === "per_day") {
+        if (category === "cars") {
+          const startDate = (bookingRow as any)?.pickup_date
+            ?? fulfillmentDetails?.pickup_date
+            ?? fulfillmentDetails?.pickupDate
+            ?? fulfillment?.start_date;
+          const endDate = (bookingRow as any)?.return_date
+            ?? fulfillmentDetails?.return_date
+            ?? fulfillmentDetails?.returnDate
+            ?? fulfillment?.end_date;
+          const startTime = (bookingRow as any)?.pickup_time
+            ?? fulfillmentDetails?.pickup_time
+            ?? fulfillmentDetails?.pickupTime
+            ?? "10:00";
+          const endTime = (bookingRow as any)?.return_time
+            ?? fulfillmentDetails?.return_time
+            ?? fulfillmentDetails?.returnTime
+            ?? startTime
+            ?? "10:00";
 
-    depositAmount = clampMoney(Number(rule.amount || 0) * multiplier);
+          multiplier = diffStartedDays(startDate, endDate, startTime, endTime);
+          multiplier = Math.max(3, multiplier);
+        } else if (category === "transport") {
+          const start = (bookingRow as any)?.travel_date
+            ?? fulfillmentDetails?.travel_date
+            ?? fulfillmentDetails?.travelDate
+            ?? fulfillment?.start_date;
+          const end = fulfillmentDetails?.return_travel_date
+            ?? fulfillmentDetails?.returnTravelDate
+            ?? start;
+          multiplier = diffDays(start, end);
+        } else {
+          const start = (bookingRow as any)?.arrival_date ?? fulfillment?.start_date;
+          const end = (bookingRow as any)?.departure_date ?? fulfillment?.end_date;
+          multiplier = diffDays(start, end);
+        }
+      } else if (rule.mode === "per_hour") {
+        if (category !== "trips") throw new Error("per_hour deposit only supported for trips");
+        let hours = 0;
+        try {
+          const { data: bookingRow } = await supabase
+            .from("trip_bookings")
+            .select("num_hours")
+            .eq("id", bookingId)
+            .maybeSingle();
+          hours = Number((bookingRow as any)?.num_hours || 0);
+        } catch (_e) {
+          hours = 0;
+        }
+        if (!(hours > 0)) {
+          const raw = fulfillmentDetails?.num_hours ?? fulfillmentDetails?.numHours ?? fulfillmentDetails?.hours ?? 0;
+          hours = Number(raw || 0);
+        }
+        multiplier = Math.max(1, Number.isFinite(hours) ? Math.round(hours) : 1);
+      } else {
+        const passengers = fulfillmentDetails?.num_passengers
+          ?? fulfillmentDetails?.numPassengers
+          ?? (bookingRow as any)?.num_passengers
+          ?? 0;
+        if (category === "transport" && Number(passengers || 0) > 0) {
+          multiplier = Math.max(1, Number.isFinite(Number(passengers)) ? Number(passengers) : 1);
+        } else {
+          const adults = fulfillmentDetails?.num_adults ?? fulfillmentDetails?.numAdults ?? 0;
+          const children = fulfillmentDetails?.num_children ?? fulfillmentDetails?.numChildren ?? 0;
+          const people = Number(adults || 0) + Number(rule.include_children ? (children || 0) : 0);
+          multiplier = Math.max(1, Number.isFinite(people) ? people : 1);
+        }
+      }
+
+      depositAmount = clampMoney(Number(rule.amount || 0) * multiplier);
+    }
   }
 
-  if (category === "transport") {
-    const quotedDeposit = Number((bookingRow as any)?.deposit_amount || 0);
-    if (Number.isFinite(quotedDeposit) && quotedDeposit > 0) {
-      depositAmount = clampMoney(Math.max(depositAmount, quotedDeposit));
-    }
+  if (category === "transport" && quotedTransportDeposit > 0) {
+    depositAmount = clampMoney(Math.max(depositAmount, quotedTransportDeposit));
   }
 
   if (!(depositAmount > 0)) {
     throw new Error("Deposit amount is 0");
   }
 
-  const currency = (rule.mode === "percent_total"
-    ? String((fulfillment as any)?.currency || rule.currency || "EUR").trim() || "EUR"
-    : String(rule.currency || "EUR").trim() || "EUR");
+  const currency = (rule?.mode === "percent_total"
+    ? String((fulfillment as any)?.currency || rule.currency || bookingCurrency).trim() || bookingCurrency
+    : String(rule?.currency || bookingCurrency).trim() || bookingCurrency);
   const fulfillmentReference = fulfillment?.reference ? String(fulfillment.reference) : null;
   const fulfillmentSummary = fulfillment?.summary ? String(fulfillment.summary) : null;
   const existingRow = existing?.data && typeof existing.data === "object" ? (existing.data as any) : null;

@@ -599,6 +599,28 @@ function messageForServiceFulfillmentAction(action, result) {
   return 'Fulfillment accepted';
 }
 
+async function normalizeFunctionsInvokeError(error, fallbackMessage = 'Request failed') {
+  if (!error) return new Error(fallbackMessage);
+  const err = error instanceof Error ? error : new Error(String(error?.message || fallbackMessage));
+  const response = error && typeof error === 'object' ? error.context : null;
+  if (!response || typeof response.clone !== 'function') return err;
+
+  try {
+    const json = await response.clone().json();
+    const message = String(json?.error || json?.message || '').trim();
+    if (message) return new Error(message);
+  } catch (_e) {
+  }
+
+  try {
+    const text = String(await response.clone().text() || '').trim();
+    if (text) return new Error(text);
+  } catch (_e) {
+  }
+
+  return err;
+}
+
 function renderAdminCalendarsResourceTypePanels() {
   const root = document.getElementById('adminCalendarsResourceTypePanels');
   if (!root) return;
@@ -2714,8 +2736,9 @@ async function adminServiceFulfillmentAction(partnerId, fulfillmentId, action) {
       await loadAllOrders({ silent: true });
     }
   } catch (e) {
-    console.error('Failed to perform fulfillment action:', e);
-    showToast(e.message || 'Failed to perform action', 'error');
+    const normalizedError = await normalizeFunctionsInvokeError(e, 'Failed to perform action');
+    console.error('Failed to perform fulfillment action:', normalizedError, e);
+    showToast(normalizedError.message || 'Failed to perform action', 'error');
     partnersState.servicesLoadingByPartnerId[pid] = false;
     renderPartnersTable();
   }
@@ -2817,8 +2840,9 @@ async function adminServiceFulfillmentActionForBooking(category, bookingId, fulf
     if (cat === 'hotels') await viewHotelBookingDetails(bid);
     if (cat === 'transport') await viewTransportBookingDetails(bid);
   } catch (e) {
-    console.error('Failed to perform fulfillment action:', e);
-    showToast(e.message || 'Failed to perform action', 'error');
+    const normalizedError = await normalizeFunctionsInvokeError(e, 'Failed to perform action');
+    console.error('Failed to perform fulfillment action:', normalizedError, e);
+    showToast(normalizedError.message || 'Failed to perform action', 'error');
   }
 }
 

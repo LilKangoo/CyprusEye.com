@@ -19,6 +19,13 @@ describe('deposit request reliability', () => {
     expect(fulfillmentActionSource).toContain('.select("payment_status, deposit_amount")');
   });
 
+  it('can recover transport deposit links from the quoted booking deposit even without mirrored generic rules', () => {
+    expect(fulfillmentActionSource).toContain('quotedTransportDeposit');
+    expect(fulfillmentActionSource).toContain('Deposit rule not configured');
+    expect(fulfillmentActionSource).toContain('!(category === "transport" && quotedTransportDeposit > 0)');
+    expect(fulfillmentActionSource).toContain('Math.max(depositAmount, quotedTransportDeposit)');
+  });
+
   it('rolls back service acceptance when deposit checkout creation fails', () => {
     expect(fulfillmentActionSource).toContain('Failed to create deposit after service acceptance:');
     expect(fulfillmentActionSource).toContain('status: "pending_acceptance"');
@@ -31,5 +38,6 @@ describe('deposit request reliability', () => {
     expect(notificationSource).toContain('alreadySent && !forceSend');
     expect(adminSource).toContain('Send deposit email');
     expect(adminSource).toContain("'send_deposit_email'");
+    expect(adminSource).toContain('normalizeFunctionsInvokeError');
   });
 });
