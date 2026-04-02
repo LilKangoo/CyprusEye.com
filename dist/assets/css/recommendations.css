@@ -164,7 +164,7 @@
    RECOMMENDATIONS GRID & CARDS
    ============================================================================ */
 .recommendations-section {
-  max-width: 1300px;
+  max-width: 1480px;
   margin: 0 auto;
   padding: 0 20px;
   position: relative;
@@ -173,9 +173,15 @@
 
 .recommendations-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 32px;
   animation: fadeInUp 0.6s ease-out;
+  align-items: stretch;
+}
+
+#recommendationsGrid > .recommendation-home-card {
+  width: 100%;
+  min-width: 0;
 }
 
 /* Home page recommendations grid (index.html) */
@@ -186,18 +192,31 @@
 }
 
 @media (max-width: 1200px) {
+  .recommendations-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   #recommendationsHomeGrid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 900px) {
+  .recommendations-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   #recommendationsHomeGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 640px) {
+  .recommendations-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
   #recommendationsHomeGrid {
     grid-template-columns: 1fr;
   }
