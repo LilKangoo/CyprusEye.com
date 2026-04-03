@@ -9772,11 +9772,9 @@ async function loadHotelsAdminData() {
 
     function formatHotelPriceSummary(h) {
       try {
-        const tiers = h.pricing_tiers && h.pricing_tiers.rules ? h.pricing_tiers.rules : [];
-        if (!tiers || tiers.length === 0) return '-';
-        // prefer price for 2 persons, otherwise min price
-        const by2 = tiers.find(t => Number(t.persons) === 2 && t.price_per_night != null);
-        const price = by2 ? Number(by2.price_per_night) : Math.min(...tiers.map(t => Number(t.price_per_night || Infinity)));
+        const price = getHotelPricingEngine()?.getHotelMinPricePerNight
+          ? getHotelPricingEngine().getHotelMinPricePerNight(h, { preferredPersons: 2 })
+          : null;
         if (!isFinite(price)) return '-';
         return `€${price.toFixed(2)}/night`;
       } catch (_) { return '-'; }
@@ -19173,25 +19171,105 @@ async function deleteHotelResource(hotelId, label) {
 window.deleteTripResource = deleteTripResource;
 window.deleteHotelResource = deleteHotelResource;
 
+function getHotelPricingEngine() {
+  return window.CE_HOTEL_PRICING || null;
+}
+
+function getHotelPricingLabels() {
+  const engine = getHotelPricingEngine();
+  return {
+    weekdayKeys: Array.isArray(engine?.WEEKDAY_KEYS) ? engine.WEEKDAY_KEYS : ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'],
+    weekdayLabels: Array.isArray(engine?.WEEKDAY_LABELS) ? engine.WEEKDAY_LABELS : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+    monthKeys: Array.isArray(engine?.MONTH_KEYS) ? engine.MONTH_KEYS : ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'],
+    monthLabels: Array.isArray(engine?.MONTH_LABELS) ? engine.MONTH_LABELS : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+  };
+}
+
+function getTierWeekdayOverrides(tier) {
+  const engine = getHotelPricingEngine();
+  if (engine?.getRuleWeekdayOverrides) {
+    return engine.getRuleWeekdayOverrides(tier);
+  }
+  return {};
+}
+
+function getTierMonthOverrides(tier) {
+  const engine = getHotelPricingEngine();
+  if (engine?.getRuleMonthOverrides) {
+    return engine.getRuleMonthOverrides(tier);
+  }
+  return {};
+}
+
+function buildPricingScheduleBlock(kind, tier) {
+  const labels = getHotelPricingLabels();
+  const keys = kind === 'weekday' ? labels.weekdayKeys : labels.monthKeys;
+  const readable = kind === 'weekday' ? labels.weekdayLabels : labels.monthLabels;
+  const values = kind === 'weekday' ? getTierWeekdayOverrides(tier) : getTierMonthOverrides(tier);
+  const title = kind === 'weekday' ? 'Weekday overrides' : 'Month overrides';
+  const gridClass = kind === 'weekday' ? 'hotel-tier-schedule-grid--weekdays' : 'hotel-tier-schedule-grid--months';
+
+  return `
+    <div class="hotel-tier-schedule-block">
+      <div class="hotel-tier-schedule-title">${title}</div>
+      <div class="hotel-tier-schedule-caption">Leave blank to use the base price.</div>
+      <div class="hotel-tier-schedule-grid ${gridClass}">
+        ${keys.map((key, index) => `
+          <label class="hotel-tier-schedule-input">
+            <span>${readable[index]}</span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              class="admin-input"
+              data-schedule-kind="${kind}"
+              data-schedule-key="${key}"
+              value="${values[key] != null ? Number(values[key]) : ''}"
+              placeholder="base"
+            />
+          </label>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
 function addPricingTierRow(tbodyId, tier) {
   const tbody = document.getElementById(tbodyId);
   if (!tbody) return;
   if (tbody.querySelector('.table-loading')) tbody.innerHTML = '';
+  const rowId = `tier-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const tr = document.createElement('tr');
+  tr.dataset.tierRow = 'primary';
+  tr.dataset.rowId = rowId;
   tr.innerHTML = `
     <td><input type="number" min="1" class="admin-input" style="width:100px" value="${tier && tier.persons != null ? Number(tier.persons) : ''}" placeholder="2" /></td>
     <td><input type="number" min="0" step="0.01" class="admin-input" style="width:140px" value="${tier && tier.price_per_night != null ? Number(tier.price_per_night) : ''}" placeholder="0.00" /></td>
     <td><input type="number" min="1" class="admin-input" style="width:140px" value="${tier && tier.min_nights != null ? Number(tier.min_nights) : ''}" placeholder="" /></td>
     <td><button type="button" class="btn-danger">Remove</button></td>
   `;
+  const scheduleRow = document.createElement('tr');
+  scheduleRow.dataset.tierRow = 'schedule';
+  scheduleRow.dataset.rowId = rowId;
+  scheduleRow.className = 'hotel-tier-schedule-row';
+  scheduleRow.innerHTML = `
+    <td colspan="4">
+      <div class="hotel-tier-schedule">
+        ${buildPricingScheduleBlock('weekday', tier)}
+        ${buildPricingScheduleBlock('month', tier)}
+      </div>
+    </td>
+  `;
   const btn = tr.querySelector('button');
   btn.addEventListener('click', () => {
     tr.remove();
+    scheduleRow.remove();
     if (!tbody.children.length) {
       tbody.innerHTML = '<tr><td colspan="4" class="table-loading">No tiers yet</td></tr>';
     }
   });
   tbody.appendChild(tr);
+  tbody.appendChild(scheduleRow);
 }
 
 function renderPricingTiers(tbodyId, rules) {
@@ -19209,7 +19287,7 @@ function renderPricingTiers(tbodyId, rules) {
 function collectPricingTiers(tbodyId) {
   const tbody = document.getElementById(tbodyId);
   if (!tbody) return { currency: 'EUR', rules: [] };
-  const rows = Array.from(tbody.querySelectorAll('tr'));
+  const rows = Array.from(tbody.querySelectorAll('tr[data-tier-row="primary"]'));
   const rules = [];
   rows.forEach(tr => {
     const inputs = tr.querySelectorAll('input');
@@ -19220,6 +19298,32 @@ function collectPricingTiers(tbodyId) {
     if (Number.isFinite(persons) && persons > 0 && Number.isFinite(price) && price >= 0) {
       const rule = { persons, price_per_night: price };
       if (Number.isFinite(minNights) && minNights > 0) rule.min_nights = minNights;
+      const rowId = tr.dataset.rowId || '';
+      const scheduleRow = rowId ? tbody.querySelector(`tr[data-tier-row="schedule"][data-row-id="${rowId}"]`) : null;
+      if (scheduleRow) {
+        const weekdayPrices = {};
+        const monthPrices = {};
+        scheduleRow.querySelectorAll('input[data-schedule-kind="weekday"]').forEach(input => {
+          const value = input.value === '' ? null : Number(input.value);
+          const key = String(input.dataset.scheduleKey || '').trim();
+          if (key && Number.isFinite(value) && value >= 0) {
+            weekdayPrices[key] = value;
+          }
+        });
+        scheduleRow.querySelectorAll('input[data-schedule-kind="month"]').forEach(input => {
+          const value = input.value === '' ? null : Number(input.value);
+          const key = String(input.dataset.scheduleKey || '').trim();
+          if (key && Number.isFinite(value) && value >= 0) {
+            monthPrices[key] = value;
+          }
+        });
+        if (Object.keys(weekdayPrices).length) {
+          rule.weekday_prices = weekdayPrices;
+        }
+        if (Object.keys(monthPrices).length) {
+          rule.month_prices = monthPrices;
+        }
+      }
       rules.push(rule);
     }
   });

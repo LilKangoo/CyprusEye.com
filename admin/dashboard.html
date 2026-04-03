@@ -37,6 +37,7 @@
   <!-- Scripts -->
   <script type="module" src="/js/supabaseClient.js?v=20260223_2"></script>
   <script type="module" src="/js/toast.js?v=20251107"></script>
+  <script src="/js/hotel-pricing.js?v=20260403_1"></script>
   <script src="/admin/universal-i18n-component.js?v=20250111"></script>
   <script src="/admin/poi-i18n-form.js?v=20250111"></script>
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
@@ -1953,7 +1954,7 @@
               <section class="hotel-form-section">
                 <header class="hotel-form-section-head">
                   <h4>Pricing</h4>
-                  <p>Pricing model, capacity and tier rules.</p>
+                  <p>Pricing model, capacity, tier rules, and optional weekday/month overrides per night.</p>
                 </header>
                 <div class="admin-form-grid hotel-form-grid">
                   <label class="admin-form-field">
@@ -1972,11 +1973,12 @@
                 <div class="admin-form-field hotel-field-full">
                   <span>Pricing Tiers (per night)</span>
                   <div class="hotel-pricing-tiers-wrap">
+                    <p class="hotel-pricing-helper">Base price is required. Leave weekday/month fields empty to use the base rate automatically.</p>
                     <table class="admin-table">
                       <thead>
                         <tr>
                           <th>Persons</th>
-                          <th>Price / night (€)</th>
+                          <th>Base price / night (€)</th>
                           <th>Min nights (optional)</th>
                           <th></th>
                         </tr>
@@ -2111,7 +2113,7 @@
               <section class="hotel-form-section">
                 <header class="hotel-form-section-head">
                   <h4>Pricing</h4>
-                  <p>Pricing model, capacity and tier rules.</p>
+                  <p>Pricing model, capacity, tier rules, and optional weekday/month overrides per night.</p>
                 </header>
                 <div class="admin-form-grid hotel-form-grid">
                   <label class="admin-form-field">
@@ -2130,11 +2132,12 @@
                 <div class="admin-form-field hotel-field-full">
                   <span>Pricing Tiers (per night)</span>
                   <div class="hotel-pricing-tiers-wrap">
+                    <p class="hotel-pricing-helper">Base price is required. Leave weekday/month fields empty to use the base rate automatically.</p>
                     <table class="admin-table">
                       <thead>
                         <tr>
                           <th>Persons</th>
-                          <th>Price / night (€)</th>
+                          <th>Base price / night (€)</th>
                           <th>Min nights (optional)</th>
                           <th></th>
                         </tr>

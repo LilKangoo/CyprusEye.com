@@ -217,6 +217,7 @@
   </style>
 
   <meta name="ce-auth" content="on" />
+  <script src="/js/hotel-pricing.js?v=20260403_1"></script>
   <script type="module" src="/js/supabaseClient.js"></script>
   <script type="module" src="/js/toast.js"></script>
   <script type="module" src="/js/auth.js?v=7"></script>
@@ -529,6 +530,7 @@
     let currentHotel = null;
     let hotelAmenitiesMap = {};
     let hotelCouponState = { applied: null };
+    const hotelPricing = window.CE_HOTEL_PRICING || null;
 
     // Load amenities for display
     async function loadHotelAmenitiesForDisplay() {
@@ -775,10 +777,9 @@
     })();
 
     function priceSummary(h){
-      const tiers = h.pricing_tiers?.rules || [];
-      if(!tiers.length) return '';
-      const for2 = tiers.find(r=>Number(r.persons)===2 && r.price_per_night!=null);
-      const p = for2? Number(for2.price_per_night): Math.min(...tiers.map(r=>Number(r.price_per_night||Infinity)));
+      const p = hotelPricing?.getHotelMinPricePerNight
+        ? hotelPricing.getHotelMinPricePerNight(h, { preferredPersons: 2 })
+        : null;
       const perNight = t('hotels.card.perNight', '/ noc');
       return isFinite(p)? `${p.toFixed(2)} € ${perNight}` : '';
     }
@@ -851,6 +852,9 @@
     }
 
     function calculateHotelPrice(h, persons, nights){
+      if (hotelPricing?.calculateHotelPrice) {
+        return hotelPricing.calculateHotelPrice(h, persons, nights);
+      }
       const model = h.pricing_model || 'per_person_per_night';
       const tiers = h.pricing_tiers?.rules || [];
       if(!tiers.length) return { total: 0, pricePerNight: 0, billableNights: nights, tier: null };
@@ -1028,7 +1032,9 @@
       const adults = Number(document.getElementById('bookingAdults')?.value || 0);
       const children = Number(document.getElementById('bookingChildren')?.value || 0);
       const nights = nightsBetween(arrival, departure);
-      const priceResult = calculateHotelPrice(currentHotel, adults + children, nights);
+      const priceResult = hotelPricing?.calculateHotelPrice
+        ? hotelPricing.calculateHotelPrice(currentHotel, adults + children, nights, { arrivalDate: arrival, departureDate: departure })
+        : calculateHotelPrice(currentHotel, adults + children, nights);
       const baseTotal = Number(priceResult?.total || 0);
       if (!(baseTotal > 0)) {
         setHotelCouponStatus(t('hotels.booking.coupon.noPrice', 'Najpierw uzupełnij dane rezerwacji.'), 'error');
@@ -1106,7 +1112,9 @@
       }
       
       // Oblicz cenę z nowym API
-      const result = calculateHotelPrice(currentHotel, persons, nights);
+      const result = hotelPricing?.calculateHotelPrice
+        ? hotelPricing.calculateHotelPrice(currentHotel, persons, nights, { arrivalDate: a, departureDate: d })
+        : calculateHotelPrice(currentHotel, persons, nights);
       const coupon = getHotelCouponContext(result.total);
       document.getElementById('modalHotelPrice').textContent = formatHotelPrice(coupon.finalTotal);
       
@@ -1121,6 +1129,14 @@
       if (model === 'tiered_by_nights' && result.tier?.min_nights && result.tier.min_nights > 1) {
         notes.push(t('hotels.price.discount', `Cena: ${result.pricePerNight.toFixed(2)}€/noc (rabat za ${result.tier.min_nights}+ nocy)`,
           { price: result.pricePerNight.toFixed(2), min: result.tier.min_nights }));
+      }
+
+      if (result.hasVariableNightlyRates) {
+        notes.push(t(
+          'hotels.price.variableSchedule',
+          `Stawka za noc zmienia się według dni lub miesięcy: ${result.minimumNightlyPrice.toFixed(2)}-${result.maximumNightlyPrice.toFixed(2)}€/noc.`,
+          { min: result.minimumNightlyPrice.toFixed(2), max: result.maximumNightlyPrice.toFixed(2) }
+        ));
       }
       
       if (notes.length) {
@@ -1292,7 +1308,9 @@
         if (maxPersons && persons > maxPersons) {
           throw new Error(t('hotels.price.personLimit', `Maksymalna liczba osób: ${maxPersons}`, { max: maxPersons }));
         }
-        const priceResult = calculateHotelPrice(currentHotel, persons, nights);
+        const priceResult = hotelPricing?.calculateHotelPrice
+          ? hotelPricing.calculateHotelPrice(currentHotel, persons, nights, { arrivalDate: a, departureDate: d })
+          : calculateHotelPrice(currentHotel, persons, nights);
         const baseTotal = Number(priceResult.total || 0);
 
         const couponCode = normalizeHotelCouponCode(document.getElementById('hotelBookingCouponCode')?.value || '');

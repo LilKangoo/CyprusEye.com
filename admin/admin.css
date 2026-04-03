@@ -3741,9 +3741,77 @@ select#orderStatusFilter:focus {
   background: rgba(15, 23, 42, 0.35);
 }
 
+.hotel-pricing-helper {
+  margin: 0;
+  font-size: 12px;
+  color: var(--admin-text-muted);
+}
+
 .hotel-pricing-tiers-wrap .admin-table {
   margin: 0;
   min-width: 560px;
+}
+
+.hotel-tier-schedule-row td {
+  padding-top: 0;
+}
+
+.hotel-tier-schedule {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.42);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.hotel-tier-schedule-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.hotel-tier-schedule-grid--weekdays {
+  grid-template-columns: repeat(7, minmax(70px, 1fr));
+}
+
+.hotel-tier-schedule-grid--months {
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+}
+
+.hotel-tier-schedule-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hotel-tier-schedule-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted);
+}
+
+.hotel-tier-schedule-caption {
+  font-size: 12px;
+  color: var(--admin-text-muted);
+}
+
+.hotel-tier-schedule-input {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hotel-tier-schedule-input span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--admin-text);
+}
+
+.hotel-tier-schedule-input input {
+  width: 100%;
 }
 
 .hotel-add-tier-btn {
@@ -4406,6 +4474,14 @@ select#orderStatusFilter:focus {
   .hotel-pricing-tiers-wrap .admin-table td::before {
     content: none;
     display: none;
+  }
+
+  .hotel-tier-schedule-grid--weekdays {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hotel-tier-schedule-grid--months {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .hotel-amenities-header {

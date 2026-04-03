@@ -131,10 +131,9 @@ function mapTrip(t){
   };
 }
 function hotelMinPrice(h){
-  const rules = h.pricing_tiers?.rules || [];
-  if (!rules.length) return '';
-  let min = Infinity;
-  rules.forEach(r=>{ const p=Number(r.price_per_night); if(isFinite(p) && p<min) min=p; });
+  const min = window.CE_HOTEL_PRICING?.getHotelMinPricePerNight
+    ? window.CE_HOTEL_PRICING.getHotelMinPricePerNight(h, { preferredPersons: 2 })
+    : null;
   return isFinite(min) ? `${min.toFixed(2)} € / noc` : '';
 }
 function mapHotel(h){
@@ -165,9 +164,12 @@ function calcTripTotal(t, {adults=1, children=0, hours=1, days=1}){
   return 0;
 }
 function calcHotelTotal(h, persons, nights){
+  if (window.CE_HOTEL_PRICING?.calculateHotelPrice) {
+    return window.CE_HOTEL_PRICING.calculateHotelPrice(h, persons, nights);
+  }
   const model = h.pricing_model || 'per_person_per_night';
   const tiers = h.pricing_tiers?.rules || [];
-  if (!tiers.length) return 0;
+  if (!tiers.length) return { total: 0, billableNights: nights, tier: null, hasVariableNightlyRates: false };
   
   persons = Number(persons) || 1;
   nights = Number(nights) || 1;
@@ -225,7 +227,15 @@ function calcHotelTotal(h, persons, nights){
   const minN = Number(rule.min_nights || 0);
   const billableNights = minN ? Math.max(minN, nights) : nights;
   
-  return billableNights * pricePerNight;
+  return {
+    total: billableNights * pricePerNight,
+    pricePerNight,
+    billableNights,
+    tier: rule,
+    hasVariableNightlyRates: false,
+    minimumNightlyPrice: pricePerNight,
+    maximumNightlyPrice: pricePerNight,
+  };
 }
 
 // Render
@@ -389,7 +399,10 @@ function renderDetail(type, vm){
     const nights = Math.max(1, Math.round((toDate(d) - toDate(a)) / (1000 * 60 * 60 * 24)));
     const adults = Number(fd.get('adults') || 1);
     const children = Number(fd.get('children') || 0);
-    return calcHotelTotal(h, adults + children, nights);
+    const result = window.CE_HOTEL_PRICING?.calculateHotelPrice
+      ? window.CE_HOTEL_PRICING.calculateHotelPrice(h, adults + children, nights, { arrivalDate: a, departureDate: d })
+      : calcHotelTotal(h, adults + children, nights);
+    return Number(result?.total || 0);
   };
 
   const getCouponContext = (baseTotal) => {

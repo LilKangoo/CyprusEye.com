@@ -1,6 +1,7 @@
 import { showToast } from './toast.js';
 
 let sb = typeof window !== 'undefined' && typeof window.getSupabase === 'function' ? window.getSupabase() : null;
+const hotelPricingEngine = typeof window !== 'undefined' ? (window.CE_HOTEL_PRICING || null) : null;
 
 let catalogData = {
   trips: [],
@@ -1848,6 +1849,17 @@ function formatPlanLabel(plan) {
   return range ? `${title} · ${range}` : title;
 }
 
+function getPlanDateByDayIndex(dayIndex) {
+  const target = Number(dayIndex || 0) || 0;
+  if (!target) return '';
+  for (const day of planDaysById.values()) {
+    if (Number(day?.day_index || 0) === target) {
+      return String(day?.date || '').trim();
+    }
+  }
+  return '';
+}
+
 function setStatus(targetEl, msg, type) {
   if (!(targetEl instanceof HTMLElement)) return;
   targetEl.textContent = msg || '';
@@ -2294,7 +2306,10 @@ function resolveItemDisplay(it) {
 
   if (itemType === 'hotel' && src) {
     const nights = Math.max(1, rangeDays - 1);
-    const res = calculateHotelPrice(src || {}, people, nights);
+    const arrivalDate = getPlanDateByDayIndex(rangeStart);
+    const res = hotelPricingEngine?.calculateHotelPrice
+      ? hotelPricingEngine.calculateHotelPrice(src || {}, people, nights, { arrivalDate })
+      : calculateHotelPrice(src || {}, people, nights);
     const total = Number(res?.total || 0) || 0;
     const slug = src?.slug ? String(src.slug) : '';
     const urlFallback = slug ? `hotel.html?slug=${encodeURIComponent(slug)}` : 'hotels.html';
@@ -2803,6 +2818,9 @@ function calcTripTotal(trip, { adults = 1, children = 0, hours = 1, days = 1 } =
 }
 
 function calculateHotelPrice(hotel, persons, nights) {
+  if (hotelPricingEngine?.calculateHotelPrice) {
+    return hotelPricingEngine.calculateHotelPrice(hotel, persons, nights);
+  }
   const model = hotel?.pricing_model || 'per_person_per_night';
   const tiers = hotel?.pricing_tiers?.rules || [];
   if (!tiers.length) return { total: 0, pricePerNight: 0, billableNights: nights, tier: null };
@@ -2898,6 +2916,9 @@ function calcCarTotal(carOffer, { location, days } = {}) {
 }
 
 function getHotelMinPricePerNight(hotel) {
+  if (hotelPricingEngine?.getHotelMinPricePerNight) {
+    return hotelPricingEngine.getHotelMinPricePerNight(hotel, { preferredPersons: 2 });
+  }
   const rules = hotel?.pricing_tiers?.rules || [];
   if (!rules.length) return null;
   let min = Infinity;
@@ -2964,7 +2985,10 @@ function computePlanCostSummary() {
     if (it.item_type === 'hotel') {
       const ref = catalogData.hotels.find((h) => String(h?.id) === String(it.ref_id)) || null;
       const nights = Math.max(1, days - 1);
-      const res = calculateHotelPrice(ref || {}, people, nights);
+      const arrivalDate = getPlanDateByDayIndex(start);
+      const res = hotelPricingEngine?.calculateHotelPrice
+        ? hotelPricingEngine.calculateHotelPrice(ref || {}, people, nights, { arrivalDate })
+        : calculateHotelPrice(ref || {}, people, nights);
       hotelsTotal += Number(res.total || 0) || 0;
       return;
     }
@@ -5769,7 +5793,9 @@ async function submitPlannerBookingForm(event) {
 
       const nights = Math.max(1, nightsBetween(arrival, departure));
       const persons = adults + children;
-      const res = calculateHotelPrice(h, Math.max(1, persons), nights);
+      const res = hotelPricingEngine?.calculateHotelPrice
+        ? hotelPricingEngine.calculateHotelPrice(h, Math.max(1, persons), nights, { arrivalDate: arrival, departureDate: departure })
+        : calculateHotelPrice(h, Math.max(1, persons), nights);
       const total = Number(res?.total || 0) || 0;
 
       hotelRows.push({
@@ -5783,7 +5809,7 @@ async function submitPlannerBookingForm(event) {
         departure_date: departure,
         num_adults: adults,
         num_children: children,
-        nights,
+        nights: Number(res?.billableNights || nights),
         notes: mergedNotes || null,
         total_price: total,
         status: 'pending',

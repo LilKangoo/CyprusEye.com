@@ -14,6 +14,10 @@ function ceLog(...args) {
   if (CE_DEBUG_HOME_HOTELS) console.log(...args);
 }
 
+function getHomeHotelPricingEngine() {
+  return window.CE_HOTEL_PRICING || null;
+}
+
 function getHotelCardMediaDisplayUrl(url) {
   if (window.CE_MEDIA_VIEWER?.getDisplayUrl) {
     return window.CE_MEDIA_VIEWER.getDisplayUrl(url);
@@ -349,12 +353,12 @@ function renderHomeHotels(){
       });
     }
     let price = '';
-    const tiers = h.pricing_tiers?.rules || [];
     const perNightLabel = hotelsT('hotels.card.perNight', '/ noc');
-    if(tiers.length){
-      const for2 = tiers.find(r=>Number(r.persons)===2 && r.price_per_night!=null);
-      const p = for2? Number(for2.price_per_night): Math.min(...tiers.map(r=>Number(r.price_per_night||Infinity)));
-      if(isFinite(p)) price = `${p.toFixed(2)} € ${perNightLabel}`;
+    const previewPrice = getHomeHotelPricingEngine()?.getHotelMinPricePerNight
+      ? getHomeHotelPricingEngine().getHotelMinPricePerNight(h, { preferredPersons: 2 })
+      : null;
+    if (isFinite(previewPrice)) {
+      price = `${Number(previewPrice).toFixed(2)} € ${perNightLabel}`;
     }
     return `
       <a href="#" onclick="openHotelModalHome(${index}); return false;" class="hotel-home-card" style="position:relative;height:200px;border-radius:12px;overflow:hidden;cursor:pointer;transition:transform .3s,box-shadow .3s;box-shadow:0 4px 6px rgba(0,0,0,.1);text-decoration:none;display:block;"
@@ -541,7 +545,12 @@ function initHomeHotels() {
       const adults = parseInt(fd.get('adults')) || 2;
       const children = parseInt(fd.get('children')) || 0;
       const nights = nightsBetween(arrivalDate, departureDate);
-      const priceResult = calculateHotelPrice(homeCurrentHotel, adults + children, nights);
+      const priceResult = getHomeHotelPricingEngine()?.calculateHotelPrice
+        ? getHomeHotelPricingEngine().calculateHotelPrice(homeCurrentHotel, adults + children, nights, {
+          arrivalDate,
+          departureDate,
+        })
+        : calculateHotelPrice(homeCurrentHotel, adults + children, nights);
       const baseTotal = Number(priceResult.total || 0);
 
       const couponCode = normalizeHomeHotelCouponCode(document.getElementById('hotelBookingCouponCode')?.value || '');
@@ -714,6 +723,10 @@ function findBestTierByPersonsAndNights(tiers, persons, nights) {
 }
 
 function calculateHotelPrice(h, persons, nights){
+  const engine = getHomeHotelPricingEngine();
+  if (engine?.calculateHotelPrice) {
+    return engine.calculateHotelPrice(h, persons, nights);
+  }
   const model = h.pricing_model || 'per_person_per_night';
   const tiers = h.pricing_tiers?.rules || [];
   if(!tiers.length) return { total: 0, pricePerNight: 0, billableNights: nights, tier: null };
@@ -940,7 +953,12 @@ async function applyHomeHotelCoupon() {
   const adults = Number(form?.querySelector('#hotelBookingAdults')?.value || 0);
   const children = Number(form?.querySelector('#hotelBookingChildren')?.value || 0);
   const nights = nightsBetween(arrival, departure);
-  const result = calculateHotelPrice(homeCurrentHotel, adults + children, nights);
+  const result = getHomeHotelPricingEngine()?.calculateHotelPrice
+    ? getHomeHotelPricingEngine().calculateHotelPrice(homeCurrentHotel, adults + children, nights, {
+      arrivalDate: arrival,
+      departureDate,
+    })
+    : calculateHotelPrice(homeCurrentHotel, adults + children, nights);
   const baseTotal = Number(result.total || 0);
   if (!(baseTotal > 0)) {
     setHomeHotelCouponStatus(hotelsT('hotels.booking.coupon.noPrice', 'Najpierw uzupełnij dane rezerwacji.'), 'error');
@@ -1028,7 +1046,9 @@ function updateHotelLivePrice(){
   }
   
   // Oblicz cenę z nowym API
-  const result = calculateHotelPrice(homeCurrentHotel, persons, nights);
+  const result = getHomeHotelPricingEngine()?.calculateHotelPrice
+    ? getHomeHotelPricingEngine().calculateHotelPrice(homeCurrentHotel, persons, nights, { arrivalDate: a, departureDate: d })
+    : calculateHotelPrice(homeCurrentHotel, persons, nights);
   const coupon = getHomeHotelCouponContext(result.total);
   const priceEl = modal ? modal.querySelector('#modalHotelPrice') : null;
   if (priceEl) priceEl.textContent = formatHomeHotelPrice(coupon.finalTotal);
@@ -1047,6 +1067,14 @@ function updateHotelLivePrice(){
     notes.push(hotelsTWithParams('hotels.price.discount',
       `Cena: ${result.pricePerNight.toFixed(2)}€/noc (rabat za ${result.tier.min_nights}+ nocy)`,
       { price: result.pricePerNight.toFixed(2), min: result.tier.min_nights }
+    ));
+  }
+
+  if (result.hasVariableNightlyRates) {
+    notes.push(hotelsTWithParams(
+      'hotels.price.variableSchedule',
+      `Stawka za noc zmienia się według dni lub miesięcy: ${result.minimumNightlyPrice.toFixed(2)}-${result.maximumNightlyPrice.toFixed(2)}€/noc.`,
+      { min: result.minimumNightlyPrice.toFixed(2), max: result.maximumNightlyPrice.toFixed(2) }
     ));
   }
   

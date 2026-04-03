@@ -32,6 +32,7 @@
   <script type="module" src="/js/toast.js"></script>
   <script type="module" src="/js/auth.js?v=7"></script>
   <script type="module" src="/js/authUi.js?v=4"></script>
+  <script src="/js/hotel-pricing.js?v=20260403_1"></script>
   <script src="/js/footer-referral.js" defer></script>
 </head>
 <body data-seo-page="hotel">
@@ -279,6 +280,7 @@
     const slug = params.get('slug');
     let hotel = null;
     let appliedCoupon = null;
+    const hotelPricing = window.CE_HOTEL_PRICING || null;
 
     function nightsBetween(a,b){
       if(!a||!b) return 1;
@@ -288,8 +290,11 @@
     }
 
     function calcPrice(h, persons, nights){
+      if (hotelPricing?.calculateHotelPrice) {
+        return hotelPricing.calculateHotelPrice(h, persons, nights);
+      }
       const tiers = h.pricing_tiers && h.pricing_tiers.rules ? h.pricing_tiers.rules : [];
-      if(!tiers.length) return 0;
+      if(!tiers.length) return { total: 0, pricePerNight: 0, billableNights: nights, tier: null, hasVariableNightlyRates: false };
       persons = Number(persons)||1; nights = Number(nights)||1;
       let rule = tiers.find(r=>Number(r.persons)===persons);
       if(!rule){
@@ -299,7 +304,15 @@
       if(!rule){ rule = tiers.sort((a,b)=>Number(a.price_per_night)-Number(b.price_per_night))[0]; }
       const minN = Number(rule.min_nights||0);
       const bill = minN? Math.max(minN, nights): nights;
-      return bill * Number(rule.price_per_night||0);
+      return {
+        total: bill * Number(rule.price_per_night||0),
+        pricePerNight: Number(rule.price_per_night||0),
+        billableNights: bill,
+        tier: rule,
+        hasVariableNightlyRates: false,
+        minimumNightlyPrice: Number(rule.price_per_night||0),
+        maximumNightlyPrice: Number(rule.price_per_night||0),
+      };
     }
 
     function normalizeCouponCode(value){
@@ -394,7 +407,10 @@
       const adults = Number($('#adults')?.value || 0);
       const children = Number($('#children')?.value || 0);
       const nights = nightsBetween(arrival, departure);
-      const baseTotal = Number(calcPrice(hotel, adults + children, nights) || 0);
+      const previewResult = hotelPricing?.calculateHotelPrice
+        ? hotelPricing.calculateHotelPrice(hotel, adults + children, nights, { arrivalDate: arrival, departureDate: departure })
+        : calcPrice(hotel, adults + children, nights);
+      const baseTotal = Number(previewResult?.total || 0);
       if (!(baseTotal > 0)){
         setCouponStatus('Najpierw uzupełnij poprawnie dane rezerwacji.', 'error');
         syncCouponButtons();
@@ -452,16 +468,22 @@
       const persons=adults+children;
       const calcN=nightsBetween(a,d);
       nights=calcN;
-      const total=calcPrice(hotel,persons,nights);
+      const result = hotelPricing?.calculateHotelPrice
+        ? hotelPricing.calculateHotelPrice(hotel, persons, nights, { arrivalDate: a, departureDate: d })
+        : calcPrice(hotel,persons,nights);
+      const total = Number(result.total || 0);
       const coupon = getCouponContext(total);
       $('#priceLive').textContent = coupon.hasApplied
         ? `Cena: ${formatMoney(coupon.finalTotal)} (zniżka -${formatMoney(coupon.discount)})`
         : `Cena: ${formatMoney(total)}`;
-      const tiers = hotel.pricing_tiers?.rules || [];
-      const match = tiers.find(r=>Number(r.persons)===persons);
-      if(match && match.min_nights && nights < Number(match.min_nights)){
-        $('#priceNote').textContent = `Uwaga: minimalna liczba nocy dla ${persons} os. to ${match.min_nights}. Cena naliczona za ${match.min_nights} nocy.`;
-      } else $('#priceNote').textContent='';
+      const notes = [];
+      if(result.tier?.min_nights && result.billableNights > nights){
+        notes.push(`Uwaga: minimalna liczba nocy dla ${persons} os. to ${result.tier.min_nights}. Cena naliczona za ${result.billableNights} nocy.`);
+      }
+      if (result.hasVariableNightlyRates) {
+        notes.push(`Stawka za noc zmienia się według dni lub miesięcy: ${result.minimumNightlyPrice.toFixed(2)}-${result.maximumNightlyPrice.toFixed(2)}€/noc.`);
+      }
+      $('#priceNote').textContent = notes.join(' ');
       syncCouponButtons();
     }
 
@@ -539,7 +561,13 @@
       const f=$('#bookForm');
       const payload=Object.fromEntries(new FormData(f).entries());
       const nights=nightsBetween(payload.arrival_date,payload.departure_date);
-      const total=calcPrice(hotel, Number(payload.adults||0)+Number(payload.children||0), nights);
+      const priceResult = hotelPricing?.calculateHotelPrice
+        ? hotelPricing.calculateHotelPrice(hotel, Number(payload.adults||0)+Number(payload.children||0), nights, {
+          arrivalDate: payload.arrival_date,
+          departureDate: payload.departure_date,
+        })
+        : calcPrice(hotel, Number(payload.adults||0)+Number(payload.children||0), nights);
+      const total = Number(priceResult?.total || 0);
       const { supabase } = await import('/js/supabaseClient.js');
       const couponCode = normalizeCouponCode(payload.coupon_code || '');
       const appliedCode = normalizeCouponCode(appliedCoupon?.couponCode || '');
@@ -563,7 +591,7 @@
         departure_date: payload.departure_date,
         num_adults: Number(payload.adults||0),
         num_children: Number(payload.children||0),
-        nights,
+        nights: Number(priceResult?.billableNights || nights),
         notes: payload.note,
         base_price: coupon.baseTotal,
         final_price: coupon.finalTotal,

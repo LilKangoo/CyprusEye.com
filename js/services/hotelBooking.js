@@ -49,7 +49,7 @@ export async function submitHotelBooking(form) {
   const totalPersons = adults + children;
   
   // Calculate price
-  const totalPrice = calculatePrice(currentHotel, totalPersons, nights);
+  const totalPrice = Number(calculatePrice(currentHotel, totalPersons, nights)?.total || 0);
   
   // Build payload matching database schema exactly
   const payload = {
