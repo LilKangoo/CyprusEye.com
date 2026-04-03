@@ -10062,6 +10062,512 @@ function collectHotelBookingSettings(fd, prefix) {
     };
 }
 
+function renderHotelLocationFields(prefix, value) {
+  const location = getHotelPricingAdminHelpers()?.normalizeHotelLocation
+    ? getHotelPricingAdminHelpers().normalizeHotelLocation(value)
+    : {
+      address_line: '',
+      district: '',
+      postal_code: '',
+      city: '',
+      country: 'Cyprus',
+      latitude: null,
+      longitude: null,
+      google_maps_url: '',
+      google_place_id: '',
+    };
+  const mapping = {
+    AddressLine: location.address_line || '',
+    District: location.district || '',
+    PostalCode: location.postal_code || '',
+    Country: location.country || '',
+    GoogleMapsUrl: location.google_maps_url || '',
+    GooglePlaceId: location.google_place_id || '',
+    Latitude: location.latitude != null ? String(location.latitude) : '',
+    Longitude: location.longitude != null ? String(location.longitude) : '',
+  };
+  Object.entries(mapping).forEach(([suffix, fieldValue]) => {
+    const input = document.getElementById(`${prefix}Hotel${suffix}`);
+    if (input) input.value = fieldValue;
+  });
+  updateHotelLocationPreview(prefix);
+}
+
+function collectHotelLocationFields(prefix) {
+  const read = (suffix) => String(document.getElementById(`${prefix}Hotel${suffix}`)?.value || '').trim();
+  const latitudeRaw = read('Latitude');
+  const longitudeRaw = read('Longitude');
+  return {
+    address_line: read('AddressLine') || null,
+    district: read('District') || null,
+    postal_code: read('PostalCode') || null,
+    country: read('Country') || 'Cyprus',
+    google_maps_url: read('GoogleMapsUrl') || null,
+    google_place_id: read('GooglePlaceId') || null,
+    latitude: latitudeRaw ? Number(latitudeRaw) : null,
+    longitude: longitudeRaw ? Number(longitudeRaw) : null,
+  };
+}
+
+function updateHotelLocationPreview(prefix) {
+  const preview = document.getElementById(`${prefix}HotelLocationPreview`);
+  const text = document.getElementById(`${prefix}HotelLocationPreviewText`);
+  const link = document.getElementById(`${prefix}HotelLocationPreviewLink`);
+  if (!preview || !text || !link) return;
+
+  const location = getHotelPricingAdminHelpers()?.normalizeHotelLocation
+    ? getHotelPricingAdminHelpers().normalizeHotelLocation(collectHotelLocationFields(prefix))
+    : collectHotelLocationFields(prefix);
+  const parts = [
+    location.address_line,
+    location.district,
+    location.postal_code,
+    location.country,
+  ].map((value) => String(value || '').trim()).filter(Boolean);
+  const summary = parts.join(', ');
+  const hasCoords = Number.isFinite(location.latitude) && Number.isFinite(location.longitude);
+  const mapsUrl = String(location.google_maps_url || '').trim();
+
+  if (!summary && !mapsUrl && !hasCoords) {
+    preview.hidden = true;
+    text.textContent = 'Add map URL or coordinates to preview the location link.';
+    link.hidden = true;
+    link.removeAttribute('href');
+    return;
+  }
+
+  preview.hidden = false;
+  text.textContent = summary || (hasCoords ? `${location.latitude}, ${location.longitude}` : 'Google Maps link available');
+  if (mapsUrl) {
+    link.href = mapsUrl;
+    link.hidden = false;
+  } else {
+    link.hidden = true;
+    link.removeAttribute('href');
+  }
+}
+
+function bindHotelLocationPreview(prefix) {
+  const suffixes = ['AddressLine', 'District', 'PostalCode', 'Country', 'GoogleMapsUrl', 'GooglePlaceId', 'Latitude', 'Longitude'];
+  suffixes.forEach((suffix) => {
+    const input = document.getElementById(`${prefix}Hotel${suffix}`);
+    if (!input || input.dataset.locationPreviewBound === '1') return;
+    const handler = () => updateHotelLocationPreview(prefix);
+    input.addEventListener('input', handler);
+    input.addEventListener('change', handler);
+    input.dataset.locationPreviewBound = '1';
+  });
+  updateHotelLocationPreview(prefix);
+}
+
+function buildHotelRoomFieldName(prefix, roomId, fieldKey) {
+  return `${prefix}_hotel_room_${roomId}_${fieldKey}`;
+}
+
+function buildHotelRatePlanFieldName(prefix, roomId, planId, fieldKey) {
+  return `${prefix}_hotel_room_${roomId}_plan_${planId}_${fieldKey}`;
+}
+
+function collectScopedI18nValues(root, fieldName) {
+  const out = {};
+  const langs = Array.isArray(window.I18N_LANGUAGES) ? window.I18N_LANGUAGES : [
+    { code: 'pl' },
+    { code: 'en' },
+    { code: 'el' },
+    { code: 'he' },
+  ];
+  langs.forEach((lang) => {
+    const value = String(root.querySelector(`[name="${fieldName}_${lang.code}"]`)?.value || '').trim();
+    if (value) out[lang.code] = value;
+  });
+  return out;
+}
+
+function makeHotelAdminIdentifier(prefix) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function buildHotelRoomNamePreview(room) {
+  const name = room?.name && typeof room.name === 'object'
+    ? (room.name.pl || room.name.en || room.name.el || room.name.he || '')
+    : '';
+  return String(name || '').trim() || 'Room type';
+}
+
+function buildHotelRatePlanNamePreview(plan) {
+  const name = plan?.name && typeof plan.name === 'object'
+    ? (plan.name.pl || plan.name.en || plan.name.el || plan.name.he || '')
+    : '';
+  return String(name || '').trim() || 'Rate plan';
+}
+
+function createHotelAdminRatePlanDraft(plan = {}, index = 0) {
+  const raw = plan && typeof plan === 'object' ? plan : {};
+  return {
+    id: String(raw.id || raw.code || makeHotelAdminIdentifier('plan')).trim(),
+    name: raw.name && typeof raw.name === 'object' ? raw.name : {},
+    summary: raw.summary && typeof raw.summary === 'object' ? raw.summary : {},
+    deposit_note: raw.deposit_note && typeof raw.deposit_note === 'object' ? raw.deposit_note : {},
+    cancellation_policy_type: String(raw.cancellation_policy_type || (raw.non_refundable_before_deposit ? 'non_refundable_before_deposit' : 'standard')).trim() || 'standard',
+    price_adjustment_type: String(raw.price_adjustment_type || 'none').trim() || 'none',
+    price_adjustment_value: Number.isFinite(Number(raw.price_adjustment_value)) ? Number(raw.price_adjustment_value) : 0,
+    is_default: raw.is_default != null ? Boolean(raw.is_default) : index === 0,
+    sort_order: Number.isFinite(Number(raw.sort_order)) ? Number(raw.sort_order) : index,
+  };
+}
+
+function createHotelAdminRoomTypeDraft(room = {}, index = 0, hotelContext = {}) {
+  const raw = room && typeof room === 'object' ? room : {};
+  const pricingApi = getHotelPricingAdminHelpers();
+  const normalizedList = pricingApi?.normalizeHotelRoomTypes
+    ? pricingApi.normalizeHotelRoomTypes([raw], hotelContext)
+    : [];
+  const normalized = normalizedList[0] || raw;
+  const ratePlansRaw = Array.isArray(normalized.rate_plans) && normalized.rate_plans.length
+    ? normalized.rate_plans
+    : [createHotelAdminRatePlanDraft({}, 0)];
+  return {
+    id: String(normalized.id || raw.id || makeHotelAdminIdentifier('room')).trim(),
+    name: normalized.name && typeof normalized.name === 'object' ? normalized.name : {},
+    summary: normalized.summary && typeof normalized.summary === 'object' ? normalized.summary : {},
+    cover_image_url: String(normalized.cover_image_url || raw.cover_image_url || '').trim(),
+    max_persons: Number.isFinite(Number(normalized.max_persons)) ? Number(normalized.max_persons) : '',
+    pricing_model: String(normalized.pricing_model || raw.pricing_model || hotelContext.pricing_model || 'per_person_per_night').trim(),
+    pricing_tiers: normalized.pricing_tiers && typeof normalized.pricing_tiers === 'object'
+      ? normalized.pricing_tiers
+      : { currency: 'EUR', rules: [] },
+    rate_plans: ratePlansRaw.map((plan, planIndex) => createHotelAdminRatePlanDraft(plan, planIndex)),
+    sort_order: Number.isFinite(Number(normalized.sort_order)) ? Number(normalized.sort_order) : index,
+  };
+}
+
+function createHotelRatePlanCard(prefix, roomId, plan = {}, index = 0) {
+  const draft = createHotelAdminRatePlanDraft(plan, index);
+  const card = document.createElement('div');
+  card.className = 'hotel-rate-plan-card';
+  card.dataset.ratePlanId = draft.id;
+
+  const nameField = buildHotelRatePlanFieldName(prefix, roomId, draft.id, 'name');
+  const summaryField = buildHotelRatePlanFieldName(prefix, roomId, draft.id, 'summary');
+  const depositField = buildHotelRatePlanFieldName(prefix, roomId, draft.id, 'deposit_note');
+
+  card.innerHTML = `
+    <div class="hotel-rate-plan-head">
+      <div>
+        <h6 data-rate-plan-title>${escapeHtml(buildHotelRatePlanNamePreview(draft))}</h6>
+        <p>Optional price modifier and cancellation rule for this room.</p>
+      </div>
+      <button type="button" class="btn-secondary btn-danger" data-rate-plan-remove>Remove</button>
+    </div>
+    <div class="hotel-field-full">
+      ${window.renderI18nInput ? window.renderI18nInput({
+        fieldName: nameField,
+        label: 'Rate plan name',
+        type: 'text',
+        currentValues: draft.name || {},
+        placeholder: 'e.g. Standard / Breakfast / Non-refundable',
+      }) : ''}
+    </div>
+    <div class="hotel-field-full">
+      ${window.renderI18nInput ? window.renderI18nInput({
+        fieldName: summaryField,
+        label: 'Plan summary',
+        type: 'textarea',
+        currentValues: draft.summary || {},
+        placeholder: 'What is included or how this plan differs',
+        rows: 2,
+      }) : ''}
+    </div>
+    <div class="hotel-field-full">
+      ${window.renderI18nInput ? window.renderI18nInput({
+        fieldName: depositField,
+        label: 'Deposit / prepayment note',
+        type: 'textarea',
+        currentValues: draft.deposit_note || {},
+        placeholder: 'Optional note shown when prepayment or deposit is required',
+        rows: 2,
+      }) : ''}
+    </div>
+    <div class="hotel-rate-plan-grid">
+      <label class="admin-form-field">
+        <span>Price adjustment</span>
+        <select data-rate-plan="adjustment-type">
+          <option value="none" ${draft.price_adjustment_type === 'none' ? 'selected' : ''}>No change</option>
+          <option value="fixed_per_night" ${draft.price_adjustment_type === 'fixed_per_night' ? 'selected' : ''}>Fixed € / night</option>
+          <option value="percent" ${draft.price_adjustment_type === 'percent' ? 'selected' : ''}>Percent %</option>
+        </select>
+      </label>
+      <label class="admin-form-field">
+        <span>Adjustment value</span>
+        <input type="number" step="0.01" data-rate-plan="adjustment-value" value="${Number(draft.price_adjustment_value || 0)}" placeholder="0.00" />
+      </label>
+      <label class="admin-form-field">
+        <span>Cancellation rule</span>
+        <select data-rate-plan="cancellation-type">
+          <option value="standard" ${draft.cancellation_policy_type === 'standard' ? 'selected' : ''}>Standard</option>
+          <option value="non_refundable_before_deposit" ${draft.cancellation_policy_type === 'non_refundable_before_deposit' ? 'selected' : ''}>Non-refundable before deposit</option>
+        </select>
+      </label>
+      <label class="admin-form-field">
+        <span class="hotel-publish-toggle">
+          <input type="checkbox" data-rate-plan="default" ${draft.is_default ? 'checked' : ''} />
+          Default plan for this room
+        </span>
+      </label>
+    </div>
+    <div class="hotel-rate-plan-highlight" data-rate-plan-highlight ${draft.cancellation_policy_type === 'non_refundable_before_deposit' ? '' : 'hidden'}>
+      Non-refundable before deposit
+    </div>
+  `;
+
+  const removeBtn = card.querySelector('[data-rate-plan-remove]');
+  removeBtn?.addEventListener('click', () => {
+    const wrap = card.parentElement;
+    card.remove();
+    if (wrap && !wrap.querySelector('.hotel-rate-plan-card')) {
+      wrap.innerHTML = '<div class="table-loading">No rate plans yet</div>';
+    }
+  });
+
+  const defaultCheckbox = card.querySelector('[data-rate-plan="default"]');
+  defaultCheckbox?.addEventListener('change', () => {
+    if (!defaultCheckbox.checked) return;
+    card.parentElement?.querySelectorAll('[data-rate-plan="default"]').forEach((checkbox) => {
+      if (checkbox !== defaultCheckbox) checkbox.checked = false;
+    });
+  });
+
+  const cancellationSelect = card.querySelector('[data-rate-plan="cancellation-type"]');
+  const highlight = card.querySelector('[data-rate-plan-highlight]');
+  cancellationSelect?.addEventListener('change', () => {
+    if (!highlight) return;
+    highlight.hidden = cancellationSelect.value !== 'non_refundable_before_deposit';
+  });
+
+  const titleTargets = [
+    card.querySelector(`[name="${nameField}_pl"]`),
+    card.querySelector(`[name="${nameField}_en"]`),
+  ];
+  titleTargets.forEach((input) => {
+    input?.addEventListener('input', () => {
+      const values = collectScopedI18nValues(card, nameField);
+      const titleEl = card.querySelector('[data-rate-plan-title]');
+      if (titleEl) titleEl.textContent = buildHotelRatePlanNamePreview({ name: values });
+    });
+  });
+
+  return card;
+}
+
+function addHotelRoomTypeCard(prefix, room = {}, hotelContext = {}) {
+  const list = document.getElementById(`${prefix}HotelRoomTypesList`);
+  if (!list) return;
+  if (list.querySelector('.table-loading')) list.innerHTML = '';
+
+  const draft = createHotelAdminRoomTypeDraft(room, list.querySelectorAll('.hotel-room-card').length, hotelContext);
+  const roomCard = document.createElement('div');
+  const pricingTbodyId = `${prefix}HotelRoomPricingTiersBody_${draft.id}`;
+  roomCard.className = 'hotel-room-card';
+  roomCard.dataset.hotelRoomId = draft.id;
+  roomCard.dataset.pricingTbodyId = pricingTbodyId;
+
+  const roomNameField = buildHotelRoomFieldName(prefix, draft.id, 'name');
+  const roomSummaryField = buildHotelRoomFieldName(prefix, draft.id, 'summary');
+
+  roomCard.innerHTML = `
+    <div class="hotel-room-card-head">
+      <div>
+        <h5 data-room-title>${escapeHtml(buildHotelRoomNamePreview(draft))}</h5>
+        <p>Room capacity, room-level pricing, and its own rate plans.</p>
+      </div>
+      <button type="button" class="btn-secondary btn-danger" data-room-remove>Remove room</button>
+    </div>
+    <div class="hotel-room-grid">
+      <div class="hotel-field-full">
+        ${window.renderI18nInput ? window.renderI18nInput({
+          fieldName: roomNameField,
+          label: 'Room name',
+          type: 'text',
+          currentValues: draft.name || {},
+          placeholder: 'e.g. Deluxe Sea View Room',
+        }) : ''}
+      </div>
+      <div class="hotel-field-full">
+        ${window.renderI18nInput ? window.renderI18nInput({
+          fieldName: roomSummaryField,
+          label: 'Room summary',
+          type: 'textarea',
+          currentValues: draft.summary || {},
+          placeholder: 'Short room description shown before booking',
+          rows: 2,
+        }) : ''}
+      </div>
+      <label class="admin-form-field">
+        <span>Room cover image URL</span>
+        <input type="url" data-room-field="cover-image" value="${escapeHtml(draft.cover_image_url || '')}" placeholder="https://..." />
+      </label>
+      <label class="admin-form-field">
+        <span>Max persons</span>
+        <input type="number" min="1" data-room-field="max-persons" value="${draft.max_persons || ''}" placeholder="e.g. 3" />
+      </label>
+      <label class="admin-form-field">
+        <span>Pricing model</span>
+        <select data-room-field="pricing-model">
+          <option value="per_person_per_night" ${draft.pricing_model === 'per_person_per_night' ? 'selected' : ''}>Per person per night</option>
+          <option value="tiered_by_nights" ${draft.pricing_model === 'tiered_by_nights' ? 'selected' : ''}>Tiered by nights</option>
+          <option value="flat_per_night" ${draft.pricing_model === 'flat_per_night' ? 'selected' : ''}>Flat per night</option>
+        </select>
+      </label>
+    </div>
+    <div class="admin-form-field hotel-field-full">
+      <span>Room pricing tiers</span>
+      <div class="hotel-pricing-tiers-wrap">
+        <p class="hotel-pricing-helper">If left empty, the system can fall back to the hotel-level pricing for this room.</p>
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Persons</th>
+              <th>Base price / night (€)</th>
+              <th>Min nights (optional)</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="${pricingTbodyId}">
+            <tr><td colspan="4" class="table-loading">No tiers yet</td></tr>
+          </tbody>
+        </table>
+        <button type="button" class="btn-secondary hotel-add-tier-btn" data-room-add-tier>Add tier</button>
+      </div>
+    </div>
+    <div class="admin-form-field hotel-field-full">
+      <div class="hotel-room-card-head">
+        <div>
+          <h5 style="font-size:14px;">Rate plans</h5>
+          <p>Create simple selling plans based on this room.</p>
+        </div>
+        <button type="button" class="btn-secondary" data-room-add-plan>Add rate plan</button>
+      </div>
+      <div class="hotel-room-rate-plans" data-room-rate-plans-wrap>
+        <div class="table-loading">No rate plans yet</div>
+      </div>
+    </div>
+  `;
+
+  const removeBtn = roomCard.querySelector('[data-room-remove]');
+  removeBtn?.addEventListener('click', () => {
+    roomCard.remove();
+    if (!list.querySelector('.hotel-room-card')) {
+      list.innerHTML = '<div class="table-loading">No room types yet</div>';
+    }
+  });
+
+  const addTierBtn = roomCard.querySelector('[data-room-add-tier]');
+  addTierBtn?.addEventListener('click', () => addPricingTierRow(pricingTbodyId));
+  renderPricingTiers(pricingTbodyId, draft.pricing_tiers && Array.isArray(draft.pricing_tiers.rules) ? draft.pricing_tiers.rules : []);
+
+  const ratePlansWrap = roomCard.querySelector('[data-room-rate-plans-wrap]');
+  const renderPlanList = (plans) => {
+    if (!ratePlansWrap) return;
+    ratePlansWrap.innerHTML = '';
+    const items = Array.isArray(plans) ? plans : [];
+    if (!items.length) {
+      ratePlansWrap.innerHTML = '<div class="table-loading">No rate plans yet</div>';
+      return;
+    }
+    items.forEach((plan, planIndex) => {
+      ratePlansWrap.appendChild(createHotelRatePlanCard(prefix, draft.id, plan, planIndex));
+    });
+  };
+  renderPlanList(draft.rate_plans);
+
+  roomCard.querySelector('[data-room-add-plan]')?.addEventListener('click', () => {
+    const currentCount = ratePlansWrap?.querySelectorAll('.hotel-rate-plan-card').length || 0;
+    const nextPlan = createHotelAdminRatePlanDraft({}, currentCount);
+    if (ratePlansWrap?.querySelector('.table-loading')) ratePlansWrap.innerHTML = '';
+    ratePlansWrap?.appendChild(createHotelRatePlanCard(prefix, draft.id, nextPlan, currentCount));
+  });
+
+  const roomTitleInputs = [
+    roomCard.querySelector(`[name="${roomNameField}_pl"]`),
+    roomCard.querySelector(`[name="${roomNameField}_en"]`),
+  ];
+  roomTitleInputs.forEach((input) => {
+    input?.addEventListener('input', () => {
+      const titleEl = roomCard.querySelector('[data-room-title]');
+      if (titleEl) {
+        titleEl.textContent = buildHotelRoomNamePreview({ name: collectScopedI18nValues(roomCard, roomNameField) });
+      }
+    });
+  });
+
+  list.appendChild(roomCard);
+}
+
+function renderHotelRoomTypes(prefix, roomTypesValue, hotelContext = {}) {
+  const list = document.getElementById(`${prefix}HotelRoomTypesList`);
+  if (!list) return;
+  list.innerHTML = '';
+  const rooms = Array.isArray(roomTypesValue) ? roomTypesValue : [];
+  if (!rooms.length) {
+    list.innerHTML = '<div class="table-loading">No room types yet</div>';
+    return;
+  }
+  rooms.forEach((room, index) => addHotelRoomTypeCard(prefix, createHotelAdminRoomTypeDraft(room, index, hotelContext), hotelContext));
+}
+
+function collectHotelRoomTypes(prefix) {
+  const list = document.getElementById(`${prefix}HotelRoomTypesList`);
+  if (!list) return [];
+  const cards = Array.from(list.querySelectorAll('.hotel-room-card'));
+  return cards.map((card, roomIndex) => {
+    const roomId = String(card.dataset.hotelRoomId || '').trim();
+    if (!roomId) return null;
+    const nameField = buildHotelRoomFieldName(prefix, roomId, 'name');
+    const summaryField = buildHotelRoomFieldName(prefix, roomId, 'summary');
+    const name = collectScopedI18nValues(card, nameField);
+    if (!Object.keys(name).length) return null;
+    const summary = collectScopedI18nValues(card, summaryField);
+    const pricingTbodyId = String(card.dataset.pricingTbodyId || '').trim();
+    const ratePlans = Array.from(card.querySelectorAll('.hotel-rate-plan-card')).map((planCard, planIndex) => {
+      const planId = String(planCard.dataset.ratePlanId || '').trim();
+      if (!planId) return null;
+      const planNameField = buildHotelRatePlanFieldName(prefix, roomId, planId, 'name');
+      const planSummaryField = buildHotelRatePlanFieldName(prefix, roomId, planId, 'summary');
+      const planDepositField = buildHotelRatePlanFieldName(prefix, roomId, planId, 'deposit_note');
+      const planName = collectScopedI18nValues(planCard, planNameField);
+      if (!Object.keys(planName).length) return null;
+      return {
+        id: planId,
+        name: planName,
+        summary: collectScopedI18nValues(planCard, planSummaryField),
+        deposit_note: collectScopedI18nValues(planCard, planDepositField),
+        cancellation_policy_type: String(planCard.querySelector('[data-rate-plan="cancellation-type"]')?.value || 'standard').trim() || 'standard',
+        price_adjustment_type: String(planCard.querySelector('[data-rate-plan="adjustment-type"]')?.value || 'none').trim() || 'none',
+        price_adjustment_value: Number(planCard.querySelector('[data-rate-plan="adjustment-value"]')?.value || 0) || 0,
+        is_default: Boolean(planCard.querySelector('[data-rate-plan="default"]')?.checked),
+        sort_order: planIndex,
+      };
+    }).filter(Boolean);
+
+    if (ratePlans.length && !ratePlans.some((plan) => plan.is_default)) {
+      ratePlans[0].is_default = true;
+    }
+
+    const maxPersons = Number(card.querySelector('[data-room-field="max-persons"]')?.value || 0);
+    return {
+      id: roomId,
+      name,
+      summary,
+      cover_image_url: String(card.querySelector('[data-room-field="cover-image"]')?.value || '').trim() || null,
+      max_persons: Number.isFinite(maxPersons) && maxPersons > 0 ? maxPersons : null,
+      pricing_model: String(card.querySelector('[data-room-field="pricing-model"]')?.value || 'per_person_per_night').trim() || 'per_person_per_night',
+      pricing_tiers: pricingTbodyId ? collectPricingTiers(pricingTbodyId) : { currency: 'EUR', rules: [] },
+      rate_plans: ratePlans,
+      sort_order: roomIndex,
+    };
+  }).filter(Boolean);
+}
+
 async function editHotel(hotelId) {
   try {
     const client = ensureSupabase();
@@ -10125,6 +10631,8 @@ async function editHotel(hotelId) {
     }
 
     renderHotelPolicyFields('edit', hotel.booking_settings || {});
+    renderHotelLocationFields('edit', hotel);
+    bindHotelLocationPreview('edit');
     
     document.getElementById('editHotelCoverUrl').value = hotel.cover_image_url || '';
     document.getElementById('editHotelPricing').value = hotel.pricing_model || 'per_person_per_night';
@@ -10165,6 +10673,17 @@ async function editHotel(hotelId) {
     if (btnAddEditExtra && btnAddEditExtra.dataset.boundFor !== hotel.id) {
       btnAddEditExtra.addEventListener('click', () => addHotelExtraRow('editHotelExtraItemsBody'));
       btnAddEditExtra.dataset.boundFor = hotel.id;
+    }
+
+    renderHotelRoomTypes('edit', Array.isArray(hotel.room_types) ? hotel.room_types : [], hotel);
+    const btnAddEditRoomType = document.getElementById('btnAddEditHotelRoomType');
+    if (btnAddEditRoomType && btnAddEditRoomType.dataset.bound !== '1') {
+      btnAddEditRoomType.addEventListener('click', () => addHotelRoomTypeCard('edit', {}, {
+        pricing_model: document.getElementById('editHotelPricing')?.value || 'per_person_per_night',
+        pricing_tiers: collectPricingTiers('editHotelPricingTiersBody'),
+        max_persons: document.getElementById('editHotelMaxPersons')?.value || null,
+      }));
+      btnAddEditRoomType.dataset.bound = '1';
     }
 
     // Max persons
@@ -10268,6 +10787,8 @@ async function handleEditHotelSubmit(event, originalHotel) {
     payload.pricing_tiers = collectPricingTiers('editHotelPricingTiersBody');
     payload.pricing_extras = collectHotelExtraRows('editHotelExtraItemsBody');
     payload.booking_settings = collectHotelBookingSettings(fd, 'edit');
+    payload.room_types = collectHotelRoomTypes('edit');
+    Object.assign(payload, collectHotelLocationFields('edit'));
 
     // max persons
     const maxP = document.getElementById('editHotelMaxPersons');
@@ -10277,6 +10798,8 @@ async function handleEditHotelSubmit(event, originalHotel) {
     } else {
       payload.max_persons = null;
     }
+    if (!Number.isFinite(Number(payload.latitude))) payload.latitude = null;
+    if (!Number.isFinite(Number(payload.longitude))) payload.longitude = null;
 
     // Collect amenities
     payload.amenities = collectSelectedAmenities('editHotelAmenities');
@@ -10356,6 +10879,8 @@ async function openNewHotelModal() {
       }
 
       renderHotelPolicyFields('new', {});
+      renderHotelLocationFields('new', {});
+      bindHotelLocationPreview('new');
 
       // Initialize photo manager state for new hotel
       newHotelPhotosState.photos = [];
@@ -10378,6 +10903,17 @@ async function openNewHotelModal() {
       if (btnAddNewExtra && !btnAddNewExtra.dataset.bound) {
         btnAddNewExtra.addEventListener('click', () => addHotelExtraRow('newHotelExtraItemsBody'));
         btnAddNewExtra.dataset.bound = '1';
+      }
+
+      renderHotelRoomTypes('new', [], {});
+      const btnAddNewRoomType = document.getElementById('btnAddNewHotelRoomType');
+      if (btnAddNewRoomType && !btnAddNewRoomType.dataset.bound) {
+        btnAddNewRoomType.addEventListener('click', () => addHotelRoomTypeCard('new', {}, {
+          pricing_model: document.getElementById('newHotelPricing')?.value || 'per_person_per_night',
+          pricing_tiers: collectPricingTiers('newHotelPricingTiersBody'),
+          max_persons: document.getElementById('newHotelMaxPersons')?.value || null,
+        }));
+        btnAddNewRoomType.dataset.bound = '1';
       }
       
       // Setup temporary slug for uploads (will be updated)
@@ -10442,6 +10978,8 @@ async function openNewHotelModal() {
           payload.pricing_tiers = collectPricingTiers('newHotelPricingTiersBody');
           payload.pricing_extras = collectHotelExtraRows('newHotelExtraItemsBody');
           payload.booking_settings = collectHotelBookingSettings(fd, 'new');
+          payload.room_types = collectHotelRoomTypes('new');
+          Object.assign(payload, collectHotelLocationFields('new'));
 
           // max persons
           const maxPNew = document.getElementById('newHotelMaxPersons');
@@ -10449,6 +10987,8 @@ async function openNewHotelModal() {
             const v = Number(maxPNew.value);
             payload.max_persons = Number.isFinite(v) && v > 0 ? v : null;
           }
+          if (!Number.isFinite(Number(payload.latitude))) payload.latitude = null;
+          if (!Number.isFinite(Number(payload.longitude))) payload.longitude = null;
 
           // Collect amenities
           payload.amenities = collectSelectedAmenities('newHotelAmenities');
@@ -10762,10 +11302,27 @@ async function viewHotelBookingDetails(bookingId) {
       : '';
     const policySnapshotHtml = (() => {
       const lines = [];
+      const roomTypeText = booking.room_type_name && typeof booking.room_type_name === 'object'
+        ? (booking.room_type_name.en || booking.room_type_name.pl || Object.values(booking.room_type_name)[0] || '')
+        : (bookingDetails.room_type_name && typeof bookingDetails.room_type_name === 'object'
+          ? (bookingDetails.room_type_name.en || bookingDetails.room_type_name.pl || Object.values(bookingDetails.room_type_name)[0] || '')
+          : '');
+      const ratePlanText = booking.rate_plan_name && typeof booking.rate_plan_name === 'object'
+        ? (booking.rate_plan_name.en || booking.rate_plan_name.pl || Object.values(booking.rate_plan_name)[0] || '')
+        : (bookingDetails.rate_plan_name && typeof bookingDetails.rate_plan_name === 'object'
+          ? (bookingDetails.rate_plan_name.en || bookingDetails.rate_plan_name.pl || Object.values(bookingDetails.rate_plan_name)[0] || '')
+          : '');
+      const locationSummary = bookingDetails.hotel_location && typeof bookingDetails.hotel_location === 'object'
+        ? String(bookingDetails.hotel_location.summary || '').trim()
+        : '';
+      if (roomTypeText) lines.push(`<div><strong>Room type:</strong> ${escapeHtml(roomTypeText)}</div>`);
+      if (ratePlanText) lines.push(`<div><strong>Rate plan:</strong> ${escapeHtml(ratePlanText)}</div>`);
       if (bookingDetails.check_in_from) lines.push(`<div><strong>Check-in:</strong> ${escapeHtml(String(bookingDetails.check_in_from))}</div>`);
       if (bookingDetails.check_out_until) lines.push(`<div><strong>Check-out:</strong> ${escapeHtml(String(bookingDetails.check_out_until))}</div>`);
       if (bookingDetails.cancellation_policy_text) lines.push(`<div><strong>Cancellation:</strong> ${escapeHtml(String(bookingDetails.cancellation_policy_text))}</div>`);
+      if (bookingDetails.deposit_note_text) lines.push(`<div><strong>Deposit note:</strong> ${escapeHtml(String(bookingDetails.deposit_note_text))}</div>`);
       if (bookingDetails.stay_info_text) lines.push(`<div><strong>Stay info:</strong> ${escapeHtml(String(bookingDetails.stay_info_text))}</div>`);
+      if (locationSummary) lines.push(`<div><strong>Location:</strong> ${escapeHtml(locationSummary)}</div>`);
       if (!lines.length) return '';
       return `
         <div style="margin-top:10px; display:grid; gap:6px; font-size:12px; color:var(--admin-text-muted);">

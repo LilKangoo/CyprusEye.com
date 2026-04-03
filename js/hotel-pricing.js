@@ -6,6 +6,9 @@
   const MONTH_KEYS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
   const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const HOTEL_EXTRA_CHARGE_TYPES = ['per_stay', 'per_night', 'per_person_per_stay', 'per_person_per_night'];
+  const HOTEL_PRICING_MODELS = ['per_person_per_night', 'category_per_night', 'tiered_by_nights', 'flat_per_night'];
+  const HOTEL_RATE_PLAN_ADJUSTMENT_TYPES = ['none', 'fixed_per_night', 'percent'];
+  const HOTEL_RATE_PLAN_CANCELLATION_TYPES = ['standard', 'non_refundable_before_deposit'];
 
   function normalizeNumber(value) {
     if (value === '' || value == null) return null;
@@ -54,6 +57,14 @@
     const num = Number(value);
     if (!Number.isFinite(num)) return 0;
     return Number(num.toFixed(2));
+  }
+
+  function normalizeIdentifier(value, fallback) {
+    const raw = String(value || '').trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    return raw || String(fallback || '').trim() || '';
   }
 
   function buildStayDates(arrivalDate, nights) {
@@ -295,6 +306,249 @@
     };
   }
 
+  function sanitizeCoordinate(value) {
+    const num = Number(value);
+    return Number.isFinite(num) ? Number(num.toFixed(6)) : null;
+  }
+
+  function buildGoogleMapsUrl(latitude, longitude, existingUrl) {
+    const explicit = String(existingUrl || '').trim();
+    if (explicit) return explicit;
+    if (latitude == null || longitude == null) return '';
+    return `https://www.google.com/maps?q=${latitude},${longitude}`;
+  }
+
+  function normalizeHotelLocation(rawValue) {
+    const raw = rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue) ? rawValue : {};
+    const nestedAddress = raw.address && typeof raw.address === 'object' && !Array.isArray(raw.address) ? raw.address : {};
+    const addressLine = String(
+      raw.address_line
+      || raw.addressLine
+      || nestedAddress.line1
+      || nestedAddress.address_line
+      || '',
+    ).trim();
+    const district = String(raw.district || raw.area || nestedAddress.district || '').trim();
+    const postalCode = String(raw.postal_code || raw.postalCode || nestedAddress.postal_code || '').trim();
+    const city = String(raw.city || nestedAddress.city || '').trim();
+    const country = String(raw.country || nestedAddress.country || 'Cyprus').trim();
+    const latitude = sanitizeCoordinate(raw.latitude ?? raw.lat ?? nestedAddress.latitude ?? nestedAddress.lat);
+    const longitude = sanitizeCoordinate(raw.longitude ?? raw.lng ?? raw.lon ?? nestedAddress.longitude ?? nestedAddress.lng ?? nestedAddress.lon);
+    const googleMapsUrl = buildGoogleMapsUrl(
+      latitude,
+      longitude,
+      raw.google_maps_url || raw.googleMapsUrl || raw.google_url || nestedAddress.google_maps_url || nestedAddress.google_url,
+    );
+    const googlePlaceId = String(raw.google_place_id || raw.googlePlaceId || '').trim();
+    const summary = [addressLine, district, postalCode, city, country].filter(Boolean).join(', ');
+    return {
+      address_line: addressLine,
+      district,
+      postal_code: postalCode,
+      city,
+      country,
+      latitude,
+      longitude,
+      google_maps_url: googleMapsUrl,
+      google_place_id: googlePlaceId,
+      summary,
+    };
+  }
+
+  function normalizePricingModel(value, fallback) {
+    const raw = String(value || fallback || 'per_person_per_night').trim().toLowerCase();
+    return HOTEL_PRICING_MODELS.includes(raw) ? raw : 'per_person_per_night';
+  }
+
+  function normalizePricingTierRule(rawRule) {
+    const row = rawRule && typeof rawRule === 'object' ? rawRule : {};
+    const persons = clampPositiveInt(row.persons, 1);
+    const pricePerNight = normalizeNumber(row.price_per_night);
+    if (pricePerNight == null || pricePerNight < 0) return null;
+    const minNights = normalizeNumber(row.min_nights);
+    const weekdayPrices = normalizeOverrideMap(row.weekday_prices, normalizeWeekdayKey);
+    const monthPrices = normalizeOverrideMap(row.month_prices, normalizeMonthKey);
+    const rule = {
+      persons,
+      price_per_night: roundMoney(pricePerNight),
+    };
+    if (Number.isFinite(minNights) && minNights > 0) {
+      rule.min_nights = Math.round(minNights);
+    }
+    if (Object.keys(weekdayPrices).length) {
+      rule.weekday_prices = weekdayPrices;
+    }
+    if (Object.keys(monthPrices).length) {
+      rule.month_prices = monthPrices;
+    }
+    return rule;
+  }
+
+  function normalizePricingTiers(rawValue) {
+    const raw = rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue) ? rawValue : {};
+    const rawRules = Array.isArray(raw.rules)
+      ? raw.rules
+      : (Array.isArray(rawValue) ? rawValue : []);
+    const currency = String(raw.currency || 'EUR').trim().toUpperCase() || 'EUR';
+    const rules = rawRules
+      .map(normalizePricingTierRule)
+      .filter(Boolean)
+      .sort((a, b) => {
+        if (a.persons !== b.persons) return a.persons - b.persons;
+        return (Number(a.min_nights) || 0) - (Number(b.min_nights) || 0);
+      });
+    return { currency, rules };
+  }
+
+  function normalizeRatePlanAdjustmentType(value) {
+    const raw = String(value || '').trim().toLowerCase();
+    return HOTEL_RATE_PLAN_ADJUSTMENT_TYPES.includes(raw) ? raw : 'none';
+  }
+
+  function normalizeRatePlanCancellationType(value) {
+    const raw = String(value || '').trim().toLowerCase();
+    return HOTEL_RATE_PLAN_CANCELLATION_TYPES.includes(raw) ? raw : 'standard';
+  }
+
+  function normalizeHotelRatePlan(rawPlan, index) {
+    const row = rawPlan && typeof rawPlan === 'object' ? rawPlan : {};
+    const name = normalizeLocalizedTextMap(row.name || row.title || row.label);
+    const fallbackLabel = `Rate plan ${index + 1}`;
+    const identifier = normalizeIdentifier(
+      row.id || row.code || getLocalizedTextMapValue(name, 'en', 'pl') || fallbackLabel,
+      `rate-plan-${index + 1}`,
+    );
+    const adjustmentType = normalizeRatePlanAdjustmentType(row.price_adjustment_type || row.rate_adjustment_type);
+    const adjustmentValue = normalizeNumber(row.price_adjustment_value ?? row.rate_adjustment_value);
+    const cancellationType = normalizeRatePlanCancellationType(row.cancellation_policy_type || row.policy_type);
+    const nonRefundableBeforeDeposit = Boolean(row.non_refundable_before_deposit) || cancellationType === 'non_refundable_before_deposit';
+    return {
+      id: identifier,
+      name: Object.keys(name).length ? name : { en: fallbackLabel, pl: fallbackLabel },
+      summary: normalizeLocalizedTextMap(row.summary || row.description),
+      cancellation_policy_type: nonRefundableBeforeDeposit ? 'non_refundable_before_deposit' : 'standard',
+      non_refundable_before_deposit: nonRefundableBeforeDeposit,
+      cancellation_policy: normalizeLocalizedTextMap(row.cancellation_policy),
+      deposit_note: normalizeLocalizedTextMap(row.deposit_note || row.payment_note),
+      price_adjustment_type: adjustmentType,
+      price_adjustment_value: adjustmentValue != null ? roundMoney(adjustmentValue) : 0,
+      sort_order: clampNonNegativeInt(row.sort_order, index),
+      is_default: Boolean(row.is_default),
+    };
+  }
+
+  function createDefaultRatePlan() {
+    return normalizeHotelRatePlan({
+      id: 'standard',
+      name: {
+        pl: 'Standard',
+        en: 'Standard',
+      },
+      summary: {
+        pl: 'Standardowy plan cenowy.',
+        en: 'Standard rate plan.',
+      },
+      cancellation_policy_type: 'standard',
+      price_adjustment_type: 'none',
+      price_adjustment_value: 0,
+      is_default: true,
+    }, 0);
+  }
+
+  function normalizeHotelRoomType(rawRoom, index, hotel) {
+    const row = rawRoom && typeof rawRoom === 'object' ? rawRoom : {};
+    const name = normalizeLocalizedTextMap(row.name || row.title || row.label);
+    const fallbackLabel = `Room ${index + 1}`;
+    const identifier = normalizeIdentifier(
+      row.id || row.code || getLocalizedTextMapValue(name, 'en', 'pl') || fallbackLabel,
+      `room-${index + 1}`,
+    );
+    const pricingTiers = normalizePricingTiers(row.pricing_tiers || row.tiers);
+    const ratePlans = Array.isArray(row.rate_plans)
+      ? row.rate_plans.map((plan, planIndex) => normalizeHotelRatePlan(plan, planIndex)).filter(Boolean)
+      : [];
+    const sortedRatePlans = (ratePlans.length ? ratePlans : [createDefaultRatePlan()])
+      .sort((a, b) => {
+        if (a.is_default !== b.is_default) return a.is_default ? -1 : 1;
+        return a.sort_order - b.sort_order;
+      });
+    return {
+      id: identifier,
+      name: Object.keys(name).length ? name : { en: fallbackLabel, pl: fallbackLabel },
+      summary: normalizeLocalizedTextMap(row.summary || row.description),
+      cover_image_url: String(row.cover_image_url || row.coverImageUrl || '').trim(),
+      photos: Array.isArray(row.photos) ? row.photos.map((entry) => String(entry || '').trim()).filter(Boolean) : [],
+      max_persons: clampPositiveInt(row.max_persons || row.capacity, clampPositiveInt(hotel && hotel.max_persons, 0)) || null,
+      pricing_model: normalizePricingModel(row.pricing_model, hotel && hotel.pricing_model),
+      pricing_tiers: pricingTiers,
+      rate_plans: sortedRatePlans,
+      sort_order: clampNonNegativeInt(row.sort_order, index),
+      is_default: Boolean(row.is_default),
+    };
+  }
+
+  function normalizeHotelRoomTypes(rawValue, hotelFallback) {
+    const hotel = hotelFallback && typeof hotelFallback === 'object'
+      ? hotelFallback
+      : (rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue) ? rawValue : {});
+    const rawList = Array.isArray(rawValue)
+      ? rawValue
+      : (Array.isArray(hotel.room_types) ? hotel.room_types : []);
+    return rawList
+      .map((room, index) => normalizeHotelRoomType(room, index, hotel))
+      .filter(Boolean)
+      .sort((a, b) => {
+        if (a.is_default !== b.is_default) return a.is_default ? -1 : 1;
+        return a.sort_order - b.sort_order;
+      });
+  }
+
+  function resolveHotelRoomSelection(hotel, options) {
+    const opts = options && typeof options === 'object' ? options : {};
+    const roomTypes = normalizeHotelRoomTypes(hotel, hotel);
+    const selectedRoomTypeId = String(opts.selectedRoomTypeId || '').trim();
+    const selectedRatePlanId = String(opts.selectedRatePlanId || '').trim();
+    const roomType = roomTypes.length
+      ? (
+        roomTypes.find((entry) => entry.id === selectedRoomTypeId)
+        || roomTypes.find((entry) => entry.is_default)
+        || roomTypes[0]
+      )
+      : null;
+    const ratePlans = Array.isArray(roomType && roomType.rate_plans) ? roomType.rate_plans : [];
+    const ratePlan = ratePlans.length
+      ? (
+        ratePlans.find((entry) => entry.id === selectedRatePlanId)
+        || ratePlans.find((entry) => entry.is_default)
+        || ratePlans[0]
+      )
+      : null;
+    const roomHasOwnPricing = Boolean(roomType && roomType.pricing_tiers && Array.isArray(roomType.pricing_tiers.rules) && roomType.pricing_tiers.rules.length);
+    const pricingSource = roomType && roomHasOwnPricing
+      ? {
+        pricing_model: roomType.pricing_model || hotel && hotel.pricing_model,
+        pricing_tiers: roomType.pricing_tiers,
+      }
+      : hotel;
+    return {
+      roomTypes,
+      roomType,
+      ratePlans,
+      ratePlan,
+      pricingSource,
+      selectedRoomTypeId: roomType ? roomType.id : '',
+      selectedRatePlanId: ratePlan ? ratePlan.id : '',
+    };
+  }
+
+  function getHotelRoomCapacity(hotel, options) {
+    const selection = resolveHotelRoomSelection(hotel, options);
+    const roomMax = clampPositiveInt(selection.roomType && selection.roomType.max_persons, 0);
+    if (roomMax) return roomMax;
+    const hotelMax = clampPositiveInt(hotel && hotel.max_persons, 0);
+    return hotelMax || null;
+  }
+
   function normalizeSelectedExtraIds(selected) {
     if (Array.isArray(selected)) {
       return Array.from(new Set(selected.map((entry) => String(entry || '').trim()).filter(Boolean)));
@@ -369,10 +623,8 @@
   }
 
   function pickRuleForBooking(hotel, persons, nights) {
-    const model = String(hotel && hotel.pricing_model || 'per_person_per_night');
-    const tiers = hotel && hotel.pricing_tiers && Array.isArray(hotel.pricing_tiers.rules)
-      ? hotel.pricing_tiers.rules
-      : [];
+    const model = normalizePricingModel(hotel && hotel.pricing_model, 'per_person_per_night');
+    const tiers = normalizePricingTiers(hotel && hotel.pricing_tiers).rules;
     if (!tiers.length) return null;
 
     switch (model) {
@@ -388,10 +640,26 @@
   }
 
   function getFallbackRule(hotel) {
-    const tiers = hotel && hotel.pricing_tiers && Array.isArray(hotel.pricing_tiers.rules)
-      ? hotel.pricing_tiers.rules.slice()
-      : [];
+    const tiers = normalizePricingTiers(hotel && hotel.pricing_tiers).rules.slice();
     return tiers.sort((a, b) => Number(a && a.price_per_night) - Number(b && b.price_per_night))[0] || null;
+  }
+
+  function applyRatePlanToNightlyRate(rate, ratePlan) {
+    const baseRate = Math.max(0, Number(rate) || 0);
+    const plan = ratePlan && typeof ratePlan === 'object' ? ratePlan : null;
+    if (!plan) return roundMoney(baseRate);
+    const adjustmentType = normalizeRatePlanAdjustmentType(plan.price_adjustment_type);
+    const adjustmentValue = Number(plan.price_adjustment_value || 0);
+    if (!Number.isFinite(adjustmentValue) || adjustmentValue === 0 || adjustmentType === 'none') {
+      return roundMoney(baseRate);
+    }
+    if (adjustmentType === 'fixed_per_night') {
+      return roundMoney(Math.max(0, baseRate + adjustmentValue));
+    }
+    if (adjustmentType === 'percent') {
+      return roundMoney(Math.max(0, baseRate * (1 + adjustmentValue / 100)));
+    }
+    return roundMoney(baseRate);
   }
 
   function calculateHotelPrice(hotel, persons, nights, options) {
@@ -399,12 +667,15 @@
     const safeNights = clampPositiveInt(nights, 1);
     const opts = options && typeof options === 'object' ? options : {};
     const arrivalDate = String(opts.arrivalDate || '').trim();
-
-    const tier = pickRuleForBooking(hotel, safePersons, safeNights) || getFallbackRule(hotel);
+    const selection = resolveHotelRoomSelection(hotel, opts);
+    const pricingSource = selection.pricingSource || hotel;
+    const tier = pickRuleForBooking(pricingSource, safePersons, safeNights) || getFallbackRule(pricingSource);
     if (!tier) {
       return {
         total: 0,
         actualTotal: 0,
+        baseRoomTotal: 0,
+        ratePlanAdjustmentTotal: 0,
         averageNightlyPrice: 0,
         minimumNightlyPrice: 0,
         maximumNightlyPrice: 0,
@@ -415,16 +686,23 @@
         hasVariableNightlyRates: false,
         usesWeekdayPricing: false,
         usesMonthPricing: false,
+        pricingModel: normalizePricingModel(pricingSource && pricingSource.pricing_model, hotel && hotel.pricing_model),
         tier: null,
+        roomType: selection.roomType || null,
+        ratePlan: selection.ratePlan || null,
+        selectedRoomTypeId: selection.selectedRoomTypeId || '',
+        selectedRatePlanId: selection.selectedRatePlanId || '',
       };
     }
 
     const stayDates = buildStayDates(arrivalDate, safeNights);
     let nightlyRates = stayDates.map((date) => {
       const info = getNightlyRateForDate(tier, date);
+      const finalRate = applyRatePlanToNightlyRate(info.rate, selection.ratePlan);
       return {
         date: formatIsoDate(date),
-        rate: Number(info.rate || 0),
+        baseRate: Number(info.rate || 0),
+        rate: Number(finalRate || 0),
         source: info.source,
         weekdayKey: info.weekdayKey,
         monthKey: info.monthKey,
@@ -433,9 +711,11 @@
 
     if (!nightlyRates.length) {
       const fallbackRate = Math.max(0, Number(tier.price_per_night) || 0);
+      const finalRate = applyRatePlanToNightlyRate(fallbackRate, selection.ratePlan);
       nightlyRates = Array.from({ length: safeNights }, (_, index) => ({
         date: '',
-        rate: fallbackRate,
+        baseRate: fallbackRate,
+        rate: finalRate,
         source: 'base',
         weekdayKey: '',
         monthKey: '',
@@ -443,18 +723,24 @@
       }));
     }
 
+    const baseActualTotal = nightlyRates.reduce((sum, entry) => sum + (Number(entry.baseRate) || 0), 0);
     const actualTotal = nightlyRates.reduce((sum, entry) => sum + (Number(entry.rate) || 0), 0);
-    const averageNightlyPrice = nightlyRates.length ? actualTotal / nightlyRates.length : Math.max(0, Number(tier.price_per_night) || 0);
+    const baseAverageNightlyPrice = nightlyRates.length ? baseActualTotal / nightlyRates.length : Math.max(0, Number(tier.price_per_night) || 0);
+    const averageNightlyPrice = nightlyRates.length ? actualTotal / nightlyRates.length : applyRatePlanToNightlyRate(Math.max(0, Number(tier.price_per_night) || 0), selection.ratePlan);
     const minimumNightlyPrice = nightlyRates.reduce((min, entry) => Math.min(min, Number(entry.rate) || 0), Number.POSITIVE_INFINITY);
     const maximumNightlyPrice = nightlyRates.reduce((max, entry) => Math.max(max, Number(entry.rate) || 0), 0);
     const minNights = clampPositiveInt(tier.min_nights, 0);
     const billableNights = minNights ? Math.max(minNights, safeNights) : safeNights;
     const extraBillableNights = Math.max(0, billableNights - safeNights);
+    const baseRoomTotal = baseActualTotal + extraBillableNights * baseAverageNightlyPrice;
     const total = actualTotal + extraBillableNights * averageNightlyPrice;
+    const ratePlanAdjustmentTotal = roundMoney(total - baseRoomTotal);
 
     return {
       total: Number(total.toFixed(2)),
       actualTotal: Number(actualTotal.toFixed(2)),
+      baseRoomTotal: Number(baseRoomTotal.toFixed(2)),
+      ratePlanAdjustmentTotal,
       averageNightlyPrice: Number(averageNightlyPrice.toFixed(2)),
       minimumNightlyPrice: Number((Number.isFinite(minimumNightlyPrice) ? minimumNightlyPrice : 0).toFixed(2)),
       maximumNightlyPrice: Number(maximumNightlyPrice.toFixed(2)),
@@ -465,7 +751,12 @@
       hasVariableNightlyRates: nightlyRates.some((entry) => Number(entry.rate) !== Number(nightlyRates[0] && nightlyRates[0].rate)),
       usesWeekdayPricing: ruleHasWeekdayOverrides(tier),
       usesMonthPricing: ruleHasMonthOverrides(tier),
+      pricingModel: normalizePricingModel(pricingSource && pricingSource.pricing_model, hotel && hotel.pricing_model),
       tier,
+      roomType: selection.roomType || null,
+      ratePlan: selection.ratePlan || null,
+      selectedRoomTypeId: selection.selectedRoomTypeId || '',
+      selectedRatePlanId: selection.selectedRatePlanId || '',
     };
   }
 
@@ -473,12 +764,16 @@
     const safeContext = context && typeof context === 'object' ? context : {};
     const adults = clampPositiveInt(safeContext.adults, 1);
     const children = clampNonNegativeInt(safeContext.children, 0);
-    const persons = clampPositiveInt(safeContext.persons != null ? safeContext.persons : adults + children, 1);
+    const requestedPersons = clampPositiveInt(safeContext.persons != null ? safeContext.persons : adults + children, 1);
     const nights = clampPositiveInt(safeContext.nights, 1);
     const selectedExtraIds = normalizeSelectedExtraIds(safeContext.selectedExtraIds);
+    const maxPersons = getHotelRoomCapacity(hotel, safeContext);
+    const persons = maxPersons ? Math.min(requestedPersons, maxPersons) : requestedPersons;
     const roomPricing = calculateHotelPrice(hotel, persons, nights, {
       arrivalDate: safeContext.arrivalDate,
       departureDate: safeContext.departureDate,
+      selectedRoomTypeId: safeContext.selectedRoomTypeId,
+      selectedRatePlanId: safeContext.selectedRatePlanId,
     });
     const extrasConfig = normalizeHotelPricingExtras(hotel && hotel.pricing_extras);
     const selectedSet = new Set(selectedExtraIds);
@@ -510,7 +805,10 @@
     return {
       adults,
       children,
+      requestedPersons,
       persons,
+      maxPersons: maxPersons || null,
+      capacityExceeded: Boolean(maxPersons && requestedPersons > maxPersons),
       nights,
       selectedExtraIds,
       roomPricing,
@@ -530,6 +828,8 @@
     const pricing = safeQuote.roomPricing || {};
     return {
       room_total: roundMoney(safeQuote.roomTotal || 0),
+      room_base_total: roundMoney(pricing.baseRoomTotal || 0),
+      rate_plan_adjustment_total: roundMoney(pricing.ratePlanAdjustmentTotal || 0),
       extras_total: roundMoney(safeQuote.extrasTotal || 0),
       mandatory_fees_total: roundMoney(safeQuote.mandatoryFeesTotal || 0),
       optional_extras_total: roundMoney(safeQuote.optionalExtrasTotal || 0),
@@ -537,7 +837,13 @@
       nightly_rates: Array.isArray(pricing.nightlyRates) ? pricing.nightlyRates : [],
       billable_nights: clampPositiveInt(pricing.billableNights || safeQuote.nights, 1),
       requested_nights: clampPositiveInt(safeQuote.nights, 1),
-      pricing_model: String(hotel && hotel.pricing_model || 'per_person_per_night'),
+      pricing_model: String(pricing.pricingModel || hotel && hotel.pricing_model || 'per_person_per_night'),
+      room_type_id: pricing.selectedRoomTypeId || null,
+      room_type_name: pricing.roomType && pricing.roomType.name ? pricing.roomType.name : null,
+      room_max_persons: pricing.roomType && pricing.roomType.max_persons ? clampPositiveInt(pricing.roomType.max_persons, 0) : null,
+      rate_plan_id: pricing.selectedRatePlanId || null,
+      rate_plan_name: pricing.ratePlan && pricing.ratePlan.name ? pricing.ratePlan.name : null,
+      rate_plan_cancellation_policy_type: pricing.ratePlan && pricing.ratePlan.cancellation_policy_type ? pricing.ratePlan.cancellation_policy_type : null,
       selected_extra_ids: normalizeSelectedExtraIds(safeQuote.selectedExtraIds),
       applied_extras: Array.isArray(safeQuote.appliedExtras)
         ? safeQuote.appliedExtras.map((item) => ({
@@ -585,48 +891,91 @@
     };
   }
 
+  function getPricingPreviewSelections(hotel, options) {
+    const opts = options && typeof options === 'object' ? options : {};
+    const roomTypes = normalizeHotelRoomTypes(hotel, hotel);
+    if (!roomTypes.length) {
+      return [{
+        pricingSource: hotel,
+        roomType: null,
+        ratePlan: null,
+      }];
+    }
+
+    const selectedRoomTypeId = String(opts.selectedRoomTypeId || '').trim();
+    const selectedRatePlanId = String(opts.selectedRatePlanId || '').trim();
+    const candidateRooms = selectedRoomTypeId
+      ? roomTypes.filter((room) => room.id === selectedRoomTypeId)
+      : roomTypes;
+
+    const selections = [];
+    candidateRooms.forEach((roomType) => {
+      const ratePlans = Array.isArray(roomType.rate_plans) && roomType.rate_plans.length
+        ? roomType.rate_plans
+        : [createDefaultRatePlan()];
+      const candidatePlans = selectedRoomTypeId && selectedRatePlanId
+        ? ratePlans.filter((plan) => plan.id === selectedRatePlanId)
+        : ratePlans;
+      candidatePlans.forEach((ratePlan) => {
+        selections.push({
+          pricingSource: {
+            pricing_model: roomType.pricing_model,
+            pricing_tiers: roomType.pricing_tiers,
+          },
+          roomType,
+          ratePlan,
+        });
+      });
+    });
+    return selections.length ? selections : [{
+      pricingSource: hotel,
+      roomType: null,
+      ratePlan: null,
+    }];
+  }
+
   function getHotelMinPricePerNight(hotel, options) {
     const opts = options && typeof options === 'object' ? options : {};
-    const rules = hotel && hotel.pricing_tiers && Array.isArray(hotel.pricing_tiers.rules)
-      ? hotel.pricing_tiers.rules
-      : [];
-    if (!rules.length) return null;
-
     const preferredPersons = normalizeNumber(opts.preferredPersons);
-    const candidateRules = preferredPersons != null
-      ? rules.filter((rule) => Number(rule && rule.persons) === preferredPersons)
-      : [];
-    const relevant = candidateRules.length ? candidateRules : rules;
-
     let minRate = Number.POSITIVE_INFINITY;
-    relevant.forEach((rule) => {
-      const rate = getRuleMinNightlyRate(rule);
-      if (rate != null && rate < minRate) {
-        minRate = rate;
-      }
+    getPricingPreviewSelections(hotel, opts).forEach((selection) => {
+      const rules = normalizePricingTiers(selection.pricingSource && selection.pricingSource.pricing_tiers).rules;
+      if (!rules.length) return;
+      const candidateRules = preferredPersons != null
+        ? rules.filter((rule) => Number(rule && rule.persons) === preferredPersons)
+        : [];
+      const relevant = candidateRules.length ? candidateRules : rules;
+      relevant.forEach((rule) => {
+        const rate = getRuleMinNightlyRate(rule);
+        if (rate == null) return;
+        const finalRate = applyRatePlanToNightlyRate(rate, selection.ratePlan);
+        if (finalRate < minRate) {
+          minRate = finalRate;
+        }
+      });
     });
     return Number.isFinite(minRate) ? Number(minRate.toFixed(2)) : null;
   }
 
   function getHotelMaxPricePerNight(hotel, options) {
     const opts = options && typeof options === 'object' ? options : {};
-    const rules = hotel && hotel.pricing_tiers && Array.isArray(hotel.pricing_tiers.rules)
-      ? hotel.pricing_tiers.rules
-      : [];
-    if (!rules.length) return null;
-
     const preferredPersons = normalizeNumber(opts.preferredPersons);
-    const candidateRules = preferredPersons != null
-      ? rules.filter((rule) => Number(rule && rule.persons) === preferredPersons)
-      : [];
-    const relevant = candidateRules.length ? candidateRules : rules;
-
     let maxRate = 0;
-    relevant.forEach((rule) => {
-      const rate = getRuleMaxNightlyRate(rule);
-      if (rate != null && rate > maxRate) {
-        maxRate = rate;
-      }
+    getPricingPreviewSelections(hotel, opts).forEach((selection) => {
+      const rules = normalizePricingTiers(selection.pricingSource && selection.pricingSource.pricing_tiers).rules;
+      if (!rules.length) return;
+      const candidateRules = preferredPersons != null
+        ? rules.filter((rule) => Number(rule && rule.persons) === preferredPersons)
+        : [];
+      const relevant = candidateRules.length ? candidateRules : rules;
+      relevant.forEach((rule) => {
+        const rate = getRuleMaxNightlyRate(rule);
+        if (rate == null) return;
+        const finalRate = applyRatePlanToNightlyRate(rate, selection.ratePlan);
+        if (finalRate > maxRate) {
+          maxRate = finalRate;
+        }
+      });
     });
     return Number.isFinite(maxRate) ? Number(maxRate.toFixed(2)) : null;
   }
@@ -652,12 +1001,16 @@
     calculateHotelQuote,
     getHotelMinPricePerNight,
     getHotelMaxPricePerNight,
+    getHotelRoomCapacity,
     buildPricingPreviewLabel,
     buildHotelBookingBreakdown,
     normalizeHotelBookingSettings,
     normalizeHotelPricingExtras,
+    normalizeHotelLocation,
+    normalizeHotelRoomTypes,
     normalizeSelectedExtraIds,
     getLocalizedTextMapValue,
+    resolveHotelRoomSelection,
     checkHotelAvailability,
     getRuleWeekdayOverrides,
     getRuleMonthOverrides,

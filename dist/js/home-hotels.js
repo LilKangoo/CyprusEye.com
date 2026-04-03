@@ -544,9 +544,20 @@ function initHomeHotels() {
       const departureDate = fd.get('departure_date');
       const adults = parseInt(fd.get('adults')) || 2;
       const children = parseInt(fd.get('children')) || 0;
+      const persons = adults + children;
       const nights = nightsBetween(arrivalDate, departureDate);
       const quote = getHomeHotelQuote();
       const baseTotal = Number(quote.baseTotal || quote.total || 0);
+      const maxPersons = homeHotelBookingUi?.getRoomCapacity
+        ? homeHotelBookingUi.getRoomCapacity(homeCurrentHotel, {
+          form,
+          roomInputName: 'hotel_room_type_id',
+          ratePlanInputName: 'hotel_rate_plan_id',
+        })
+        : (Number(homeCurrentHotel.max_persons || 0) || null);
+      if (maxPersons && persons > maxPersons) {
+        throw new Error(hotelsTWithParams('hotels.price.personLimit', `Maksymalna liczba osób: ${maxPersons}`, { max: maxPersons }));
+      }
 
       const couponCode = normalizeHomeHotelCouponCode(document.getElementById('hotelBookingCouponCode')?.value || '');
       const appliedCode = normalizeHomeHotelCouponCode(homeHotelCouponState.applied?.couponCode || '');
@@ -583,7 +594,11 @@ function initHomeHotels() {
         status: 'pending',
       };
       if (homeHotelBookingUi?.buildBookingSnapshot) {
-        Object.assign(payload, homeHotelBookingUi.buildBookingSnapshot(homeCurrentHotel, quote));
+        Object.assign(payload, homeHotelBookingUi.buildBookingSnapshot(homeCurrentHotel, quote, {
+          form,
+          roomInputName: 'hotel_room_type_id',
+          ratePlanInputName: 'hotel_rate_plan_id',
+        }));
       }
       
       let insertPayload = { ...payload };
@@ -658,6 +673,8 @@ function initHomeHotels() {
           renderHotelAmenitiesChips(homeCurrentHotel);
           renderHomeHotelBookingUiSections({
             selectedExtraIds: homeHotelBookingUi?.getSelectedExtraIds(document.getElementById('hotelBookingForm'), 'hotel_extra_ids') || [],
+            selectedRoomTypeId: homeHotelBookingUi?.getSelectedRoomTypeId(document.getElementById('hotelBookingForm'), 'hotel_room_type_id') || '',
+            selectedRatePlanId: homeHotelBookingUi?.getSelectedRatePlanId(document.getElementById('hotelBookingForm'), 'hotel_rate_plan_id') || '',
           });
           updateHotelLivePrice();
         }
@@ -682,6 +699,8 @@ function initHomeHotels() {
         renderHotelAmenitiesChips(homeCurrentHotel);
         renderHomeHotelBookingUiSections({
           selectedExtraIds: homeHotelBookingUi?.getSelectedExtraIds(document.getElementById('hotelBookingForm'), 'hotel_extra_ids') || [],
+          selectedRoomTypeId: homeHotelBookingUi?.getSelectedRoomTypeId(document.getElementById('hotelBookingForm'), 'hotel_room_type_id') || '',
+          selectedRatePlanId: homeHotelBookingUi?.getSelectedRatePlanId(document.getElementById('hotelBookingForm'), 'hotel_rate_plan_id') || '',
         });
         updateHotelLivePrice();
       }
@@ -703,6 +722,8 @@ function initHomeHotels() {
         renderHotelAmenitiesChips(homeCurrentHotel);
         renderHomeHotelBookingUiSections({
           selectedExtraIds: homeHotelBookingUi?.getSelectedExtraIds(document.getElementById('hotelBookingForm'), 'hotel_extra_ids') || [],
+          selectedRoomTypeId: homeHotelBookingUi?.getSelectedRoomTypeId(document.getElementById('hotelBookingForm'), 'hotel_room_type_id') || '',
+          selectedRatePlanId: homeHotelBookingUi?.getSelectedRatePlanId(document.getElementById('hotelBookingForm'), 'hotel_rate_plan_id') || '',
         });
         updateHotelLivePrice();
       }
@@ -839,7 +860,28 @@ function renderHomeHotelBookingUiSections(options = {}) {
   const selectedExtraIds = Array.isArray(options.selectedExtraIds)
     ? options.selectedExtraIds
     : homeHotelBookingUi.getSelectedExtraIds(form, 'hotel_extra_ids');
-  homeHotelBookingUi.renderPolicySummary(document.getElementById('hotelBookingPolicySummary'), homeCurrentHotel);
+  homeHotelBookingUi.renderLocationSummary(document.getElementById('hotelLocationSummary'), homeCurrentHotel, { form });
+  homeHotelBookingUi.renderRoomTypeOptions(document.getElementById('hotelRoomTypeOptions'), homeCurrentHotel, {
+    form,
+    roomInputName: 'hotel_room_type_id',
+    ratePlanInputName: 'hotel_rate_plan_id',
+    selectedRoomTypeId: options.selectedRoomTypeId,
+    selectedRatePlanId: options.selectedRatePlanId,
+    onChange: () => {
+      invalidateHomeHotelCouponAfterChange();
+      renderHomeHotelBookingUiSections({
+        selectedExtraIds: homeHotelBookingUi.getSelectedExtraIds(form, 'hotel_extra_ids'),
+        selectedRoomTypeId: homeHotelBookingUi.getSelectedRoomTypeId(form, 'hotel_room_type_id'),
+        selectedRatePlanId: homeHotelBookingUi.getSelectedRatePlanId(form, 'hotel_rate_plan_id'),
+      });
+      updateHotelLivePrice();
+    },
+  });
+  homeHotelBookingUi.renderPolicySummary(document.getElementById('hotelBookingPolicySummary'), homeCurrentHotel, {
+    form,
+    roomInputName: 'hotel_room_type_id',
+    ratePlanInputName: 'hotel_rate_plan_id',
+  });
   homeHotelBookingUi.renderExtraOptions(document.getElementById('hotelExtraOptions'), homeCurrentHotel, {
     form,
     inputName: 'hotel_extra_ids',
@@ -848,6 +890,10 @@ function renderHomeHotelBookingUiSections(options = {}) {
       invalidateHomeHotelCouponAfterChange();
       updateHotelLivePrice();
     },
+  });
+  homeHotelBookingUi.syncGuestCapacityInputs(form, homeCurrentHotel, {
+    roomInputName: 'hotel_room_type_id',
+    ratePlanInputName: 'hotel_rate_plan_id',
   });
 }
 
@@ -1102,7 +1148,13 @@ function updateHotelLivePrice(){
   const adults = Number((form.querySelector('#hotelBookingAdults')||{}).value||0);
   const children = Number((form.querySelector('#hotelBookingChildren')||{}).value||0);
   let persons = adults + children;
-  const maxPersons = Number(homeCurrentHotel.max_persons||0) || null;
+  const maxPersons = homeHotelBookingUi?.getRoomCapacity
+    ? homeHotelBookingUi.getRoomCapacity(homeCurrentHotel, {
+      form,
+      roomInputName: 'hotel_room_type_id',
+      ratePlanInputName: 'hotel_rate_plan_id',
+    })
+    : (Number(homeCurrentHotel.max_persons||0) || null);
   const nights = nightsBetween(a,d);
   const note = modal ? modal.querySelector('#hotelPriceNote') : null;
   let notes = [];
@@ -1222,7 +1274,13 @@ window.openHotelModalHome = function(index){
   if (departureEl) departureEl.min = today;
   
   // max persons
-  const maxPersons = Number(h.max_persons||0) || null;
+  const maxPersons = homeHotelBookingUi?.getRoomCapacity
+    ? homeHotelBookingUi.getRoomCapacity(h, {
+      form,
+      roomInputName: 'hotel_room_type_id',
+      ratePlanInputName: 'hotel_rate_plan_id',
+    })
+    : (Number(h.max_persons||0) || null);
   const adultsEl = document.getElementById('hotelBookingAdults');
   const childrenEl = document.getElementById('hotelBookingChildren');
   if (adultsEl && childrenEl) {

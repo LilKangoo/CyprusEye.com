@@ -1942,6 +1942,52 @@
 
               <section class="hotel-form-section">
                 <header class="hotel-form-section-head">
+                  <h4>Location</h4>
+                  <p>Exact address, map link, and coordinates used on customer pages and for partner operations.</p>
+                </header>
+                <div class="admin-form-grid hotel-form-grid">
+                  <label class="admin-form-field hotel-field-full">
+                    <span>Street / address line</span>
+                    <input type="text" id="editHotelAddressLine" placeholder="e.g. 12 Seafront Avenue" />
+                  </label>
+                  <label class="admin-form-field">
+                    <span>District / area</span>
+                    <input type="text" id="editHotelDistrict" placeholder="e.g. Marina district" />
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Postal code</span>
+                    <input type="text" id="editHotelPostalCode" placeholder="e.g. 6023" />
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Country</span>
+                    <input type="text" id="editHotelCountry" placeholder="Cyprus" />
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Google Maps URL</span>
+                    <input type="url" id="editHotelGoogleMapsUrl" placeholder="https://maps.google.com/..." />
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Google Place ID (optional)</span>
+                    <input type="text" id="editHotelGooglePlaceId" placeholder="ChIJ..." />
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Latitude</span>
+                    <input type="number" step="0.000001" id="editHotelLatitude" placeholder="34.685000" />
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Longitude</span>
+                    <input type="number" step="0.000001" id="editHotelLongitude" placeholder="33.043000" />
+                  </label>
+                </div>
+                <div class="hotel-location-preview" id="editHotelLocationPreview" hidden>
+                  <strong>Location preview</strong>
+                  <span id="editHotelLocationPreviewText">Add map URL or coordinates to preview the location link.</span>
+                  <a id="editHotelLocationPreviewLink" href="#" target="_blank" rel="noopener" hidden>Open in Google Maps</a>
+                </div>
+              </section>
+
+              <section class="hotel-form-section">
+                <header class="hotel-form-section-head">
                   <h4>Content</h4>
                   <p>Localized text visible on hotel details pages.</p>
                 </header>
@@ -1954,7 +2000,7 @@
               <section class="hotel-form-section">
                 <header class="hotel-form-section-head">
                   <h4>Pricing</h4>
-                  <p>Pricing model, capacity, tier rules, and optional weekday/month overrides per night.</p>
+                  <p>Fallback hotel-level pricing used when no room types are configured yet.</p>
                 </header>
                 <div class="admin-form-grid hotel-form-grid">
                   <label class="admin-form-field">
@@ -1994,8 +2040,24 @@
 
               <section class="hotel-form-section">
                 <header class="hotel-form-section-head">
+                  <h4>Room Types & Rate Plans</h4>
+                  <p>Create rooms with their own capacity and pricing. Each room can have multiple rate plans with price adjustments and cancellation rules.</p>
+                </header>
+                <div class="admin-form-field hotel-field-full">
+                  <div class="hotel-room-types-wrap">
+                    <p class="hotel-pricing-helper">Room types override the fallback hotel pricing. Rate plans are lighter variations like Standard, Breakfast included, or Non-refundable before deposit.</p>
+                    <div id="editHotelRoomTypesList" class="hotel-room-types-list">
+                      <div class="table-loading">No room types yet</div>
+                    </div>
+                    <button type="button" class="btn-secondary hotel-add-tier-btn" id="btnAddEditHotelRoomType">Add room type</button>
+                  </div>
+                </div>
+              </section>
+
+              <section class="hotel-form-section">
+                <header class="hotel-form-section-head">
                   <h4>Booking Rules</h4>
-                  <p>Check-in/out times and customer-facing stay policies shown during booking.</p>
+                  <p>Check-in/out times and hotel-wide stay policies. A rate plan can additionally mark booking as non-refundable before deposit.</p>
                 </header>
                 <div class="admin-form-grid hotel-form-grid">
                   <label class="admin-form-field">
@@ -2154,6 +2216,52 @@
 
               <section class="hotel-form-section">
                 <header class="hotel-form-section-head">
+                  <h4>Location</h4>
+                  <p>Exact address, map link, and coordinates used on customer pages and for partner operations.</p>
+                </header>
+                <div class="admin-form-grid hotel-form-grid">
+                  <label class="admin-form-field hotel-field-full">
+                    <span>Street / address line</span>
+                    <input type="text" id="newHotelAddressLine" placeholder="e.g. 12 Seafront Avenue" />
+                  </label>
+                  <label class="admin-form-field">
+                    <span>District / area</span>
+                    <input type="text" id="newHotelDistrict" placeholder="e.g. Marina district" />
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Postal code</span>
+                    <input type="text" id="newHotelPostalCode" placeholder="e.g. 6023" />
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Country</span>
+                    <input type="text" id="newHotelCountry" placeholder="Cyprus" />
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Google Maps URL</span>
+                    <input type="url" id="newHotelGoogleMapsUrl" placeholder="https://maps.google.com/..." />
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Google Place ID (optional)</span>
+                    <input type="text" id="newHotelGooglePlaceId" placeholder="ChIJ..." />
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Latitude</span>
+                    <input type="number" step="0.000001" id="newHotelLatitude" placeholder="34.685000" />
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Longitude</span>
+                    <input type="number" step="0.000001" id="newHotelLongitude" placeholder="33.043000" />
+                  </label>
+                </div>
+                <div class="hotel-location-preview" id="newHotelLocationPreview" hidden>
+                  <strong>Location preview</strong>
+                  <span id="newHotelLocationPreviewText">Add map URL or coordinates to preview the location link.</span>
+                  <a id="newHotelLocationPreviewLink" href="#" target="_blank" rel="noopener" hidden>Open in Google Maps</a>
+                </div>
+              </section>
+
+              <section class="hotel-form-section">
+                <header class="hotel-form-section-head">
                   <h4>Content</h4>
                   <p>Localized text visible on hotel details pages.</p>
                 </header>
@@ -2166,7 +2274,7 @@
               <section class="hotel-form-section">
                 <header class="hotel-form-section-head">
                   <h4>Pricing</h4>
-                  <p>Pricing model, capacity, tier rules, and optional weekday/month overrides per night.</p>
+                  <p>Fallback hotel-level pricing used when no room types are configured yet.</p>
                 </header>
                 <div class="admin-form-grid hotel-form-grid">
                   <label class="admin-form-field">
@@ -2206,8 +2314,24 @@
 
               <section class="hotel-form-section">
                 <header class="hotel-form-section-head">
+                  <h4>Room Types & Rate Plans</h4>
+                  <p>Create rooms with their own capacity and pricing. Each room can have multiple rate plans with price adjustments and cancellation rules.</p>
+                </header>
+                <div class="admin-form-field hotel-field-full">
+                  <div class="hotel-room-types-wrap">
+                    <p class="hotel-pricing-helper">Room types override the fallback hotel pricing. Rate plans are lighter variations like Standard, Breakfast included, or Non-refundable before deposit.</p>
+                    <div id="newHotelRoomTypesList" class="hotel-room-types-list">
+                      <div class="table-loading">No room types yet</div>
+                    </div>
+                    <button type="button" class="btn-secondary hotel-add-tier-btn" id="btnAddNewHotelRoomType">Add room type</button>
+                  </div>
+                </div>
+              </section>
+
+              <section class="hotel-form-section">
+                <header class="hotel-form-section-head">
                   <h4>Booking Rules</h4>
-                  <p>Check-in/out times and customer-facing stay policies shown during booking.</p>
+                  <p>Check-in/out times and hotel-wide stay policies. A rate plan can additionally mark booking as non-refundable before deposit.</p>
                 </header>
                 <div class="admin-form-grid hotel-form-grid">
                   <label class="admin-form-field">

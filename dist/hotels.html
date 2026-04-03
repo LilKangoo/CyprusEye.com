@@ -389,6 +389,7 @@
             <h3 class="trip-section-title" data-i18n="hotels.modal.descriptionTitle">Opis</h3>
             <div class="trip-description" id="modalHotelDescription"></div>
             <div class="hotel-amenities-chips" id="hotelAmenitiesChips" style="display:none;"></div>
+            <div id="hotelLocationSummary" hidden></div>
             <div id="hotelBookingPolicySummary" hidden></div>
           </div>
 
@@ -435,6 +436,7 @@
                 <label data-i18n="hotels.booking.fields.notes">Uwagi (opcjonalnie)</label>
                 <textarea name="notes"></textarea>
               </div>
+              <div id="hotelRoomTypeOptions" hidden></div>
               <div id="hotelExtraOptions" hidden></div>
 
               <div class="trip-price-box">
@@ -932,7 +934,28 @@
       const selectedExtraIds = Array.isArray(options.selectedExtraIds)
         ? options.selectedExtraIds
         : hotelBookingUi.getSelectedExtraIds(form, 'hotel_extra_ids');
-      hotelBookingUi.renderPolicySummary(document.getElementById('hotelBookingPolicySummary'), currentHotel);
+      hotelBookingUi.renderLocationSummary(document.getElementById('hotelLocationSummary'), currentHotel, { form });
+      hotelBookingUi.renderRoomTypeOptions(document.getElementById('hotelRoomTypeOptions'), currentHotel, {
+        form,
+        roomInputName: 'hotel_room_type_id',
+        ratePlanInputName: 'hotel_rate_plan_id',
+        selectedRoomTypeId: options.selectedRoomTypeId,
+        selectedRatePlanId: options.selectedRatePlanId,
+        onChange: () => {
+          invalidateHotelCouponAfterChange();
+          renderHotelBookingUiSections({
+            selectedExtraIds: hotelBookingUi.getSelectedExtraIds(form, 'hotel_extra_ids'),
+            selectedRoomTypeId: hotelBookingUi.getSelectedRoomTypeId(form, 'hotel_room_type_id'),
+            selectedRatePlanId: hotelBookingUi.getSelectedRatePlanId(form, 'hotel_rate_plan_id'),
+          });
+          updateLivePrice();
+        },
+      });
+      hotelBookingUi.renderPolicySummary(document.getElementById('hotelBookingPolicySummary'), currentHotel, {
+        form,
+        roomInputName: 'hotel_room_type_id',
+        ratePlanInputName: 'hotel_rate_plan_id',
+      });
       hotelBookingUi.renderExtraOptions(document.getElementById('hotelExtraOptions'), currentHotel, {
         form,
         inputName: 'hotel_extra_ids',
@@ -941,6 +964,10 @@
           invalidateHotelCouponAfterChange();
           updateLivePrice();
         },
+      });
+      hotelBookingUi.syncGuestCapacityInputs(form, currentHotel, {
+        roomInputName: 'hotel_room_type_id',
+        ratePlanInputName: 'hotel_rate_plan_id',
       });
     }
 
@@ -1140,7 +1167,13 @@
       const adults = Number(document.getElementById('bookingAdults').value||0);
       const children = Number(document.getElementById('bookingChildren').value||0);
       let persons = adults + children;
-      const maxPersons = Number(currentHotel.max_persons||0) || null;
+      const maxPersons = hotelBookingUi?.getRoomCapacity
+        ? hotelBookingUi.getRoomCapacity(currentHotel, {
+          form: document.getElementById('hotelBookingForm'),
+          roomInputName: 'hotel_room_type_id',
+          ratePlanInputName: 'hotel_rate_plan_id',
+        })
+        : (Number(currentHotel.max_persons||0) || null);
       const nights = nightsBetween(a,d);
       const note = document.getElementById('hotelPriceNote');
       let notes = [];
@@ -1272,7 +1305,13 @@
       prefillUserData();
       
       // Enforce max persons on inputs
-      const maxPersons = Number(h.max_persons||0) || null;
+      const maxPersons = hotelBookingUi?.getRoomCapacity
+        ? hotelBookingUi.getRoomCapacity(h, {
+          form: document.getElementById('hotelBookingForm'),
+          roomInputName: 'hotel_room_type_id',
+          ratePlanInputName: 'hotel_rate_plan_id',
+        })
+        : (Number(h.max_persons||0) || null);
       const adultsEl = document.getElementById('bookingAdults');
       const childrenEl = document.getElementById('bookingChildren');
       if (maxPersons){
@@ -1350,7 +1389,13 @@
         const adults = Number(fd.get('adults')||0);
         const children = Number(fd.get('children')||0);
         const persons = adults + children;
-        const maxPersons = Number(currentHotel.max_persons||0) || null;
+        const maxPersons = hotelBookingUi?.getRoomCapacity
+          ? hotelBookingUi.getRoomCapacity(currentHotel, {
+            form: e.target,
+            roomInputName: 'hotel_room_type_id',
+            ratePlanInputName: 'hotel_rate_plan_id',
+          })
+          : (Number(currentHotel.max_persons||0) || null);
         if (maxPersons && persons > maxPersons) {
           throw new Error(t('hotels.price.personLimit', `Maksymalna liczba osób: ${maxPersons}`, { max: maxPersons }));
         }
@@ -1399,7 +1444,11 @@
           user_id: user?.id || null
         };
         if (hotelBookingUi?.buildBookingSnapshot) {
-          Object.assign(payload, hotelBookingUi.buildBookingSnapshot(currentHotel, quote));
+          Object.assign(payload, hotelBookingUi.buildBookingSnapshot(currentHotel, quote, {
+            form: e.target,
+            roomInputName: 'hotel_room_type_id',
+            ratePlanInputName: 'hotel_rate_plan_id',
+          }));
         }
         let insertPayload = { ...payload };
         let insertError = null;
@@ -1465,6 +1514,8 @@
         renderHotelAmenitiesChips(currentHotel);
         renderHotelBookingUiSections({
           selectedExtraIds: hotelBookingUi?.getSelectedExtraIds(document.getElementById('hotelBookingForm'), 'hotel_extra_ids') || [],
+          selectedRoomTypeId: hotelBookingUi?.getSelectedRoomTypeId(document.getElementById('hotelBookingForm'), 'hotel_room_type_id') || '',
+          selectedRatePlanId: hotelBookingUi?.getSelectedRatePlanId(document.getElementById('hotelBookingForm'), 'hotel_rate_plan_id') || '',
         });
         updateLivePrice();
       }

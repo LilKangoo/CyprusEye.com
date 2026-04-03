@@ -291,6 +291,7 @@ function renderDetail(type, vm){
       </form>`;
   } else {
     booking = `
+      <div id="detailHotelLocationSummary" hidden></div>
       <div id="detailHotelPolicySummary" hidden></div>
       <form class="detail-booking" id="detailBookingForm" data-type="hotel" novalidate>
         <div class="row">
@@ -309,6 +310,7 @@ function renderDetail(type, vm){
           <label>Dorośli<select name="adults"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
           <label>Dzieci<select name="children"><option>0</option><option>1</option><option>2</option></select></label>
         </div>
+        <div id="detailHotelRoomTypeOptions" hidden></div>
         <div id="detailHotelExtraOptions" hidden></div>
         <label>Uwagi<textarea name="notes" rows="3" placeholder="Preferencje, pytania..."></textarea></label>
         <div class="row">
@@ -399,7 +401,22 @@ function renderDetail(type, vm){
 
   const renderHotelUiSections = () => {
     if (form.dataset.type !== 'hotel' || !detailHotelBookingUi) return;
-    detailHotelBookingUi.renderPolicySummary(qs('#detailHotelPolicySummary'), vm.raw);
+    detailHotelBookingUi.renderLocationSummary(qs('#detailHotelLocationSummary'), vm.raw, { form });
+    detailHotelBookingUi.renderRoomTypeOptions(qs('#detailHotelRoomTypeOptions'), vm.raw, {
+      form,
+      roomInputName: 'hotel_room_type_id',
+      ratePlanInputName: 'hotel_rate_plan_id',
+      onChange: () => {
+        invalidateCouponAfterQuoteChange();
+        renderHotelUiSections();
+        renderQuotePreview();
+      },
+    });
+    detailHotelBookingUi.renderPolicySummary(qs('#detailHotelPolicySummary'), vm.raw, {
+      form,
+      roomInputName: 'hotel_room_type_id',
+      ratePlanInputName: 'hotel_rate_plan_id',
+    });
     detailHotelBookingUi.renderExtraOptions(qs('#detailHotelExtraOptions'), vm.raw, {
       form,
       inputName: 'hotel_extra_ids',
@@ -408,6 +425,10 @@ function renderDetail(type, vm){
         invalidateCouponAfterQuoteChange();
         renderQuotePreview();
       },
+    });
+    detailHotelBookingUi.syncGuestCapacityInputs(form, vm.raw, {
+      roomInputName: 'hotel_room_type_id',
+      ratePlanInputName: 'hotel_rate_plan_id',
     });
   };
 
@@ -637,7 +658,14 @@ function renderDetail(type, vm){
         const adults = Number(fd.get('adults')||1);
         const children = Number(fd.get('children')||0);
         const persons = adults+children;
-        if (h.max_persons && persons > Number(h.max_persons)) throw new Error(`Maksymalna liczba osób: ${h.max_persons}`);
+        const maxPersons = detailHotelBookingUi?.getRoomCapacity
+          ? detailHotelBookingUi.getRoomCapacity(h, {
+            form,
+            roomInputName: 'hotel_room_type_id',
+            ratePlanInputName: 'hotel_rate_plan_id',
+          })
+          : (h.max_persons ? Number(h.max_persons) : null);
+        if (maxPersons && persons > Number(maxPersons)) throw new Error(`Maksymalna liczba osób: ${maxPersons}`);
         const quote = getHotelQuote();
         const payload = {
           hotel_id: h.id,
@@ -663,7 +691,11 @@ function renderDetail(type, vm){
           status: 'pending'
         };
         if (detailHotelBookingUi?.buildBookingSnapshot) {
-          Object.assign(payload, detailHotelBookingUi.buildBookingSnapshot(h, quote));
+          Object.assign(payload, detailHotelBookingUi.buildBookingSnapshot(h, quote, {
+            form,
+            roomInputName: 'hotel_room_type_id',
+            ratePlanInputName: 'hotel_rate_plan_id',
+          }));
         }
         await insertWithFallback('hotel_bookings', payload);
       }
