@@ -18,8 +18,13 @@
 
 html.recommendations-modal-open,
 body.recommendations-modal-open {
-  overflow: hidden;
+  height: 100%;
   overscroll-behavior: none;
+}
+
+body.recommendations-modal-open {
+  overflow: hidden;
+  touch-action: none;
 }
 
 /* Main Container with Subtle Gradient Background */
@@ -458,29 +463,30 @@ body.recommendations-modal-open {
    ============================================================================ */
 .recommendation-modal {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 10000;
+  inset: 0;
+  z-index: 19000;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding:
+    max(env(safe-area-inset-top, 0px), 20px)
+    max(env(safe-area-inset-right, 0px), 20px)
+    max(env(safe-area-inset-bottom, 0px), 20px)
+    max(env(safe-area-inset-left, 0px), 20px);
   overflow: hidden;
   overscroll-behavior: contain;
+  height: 100vh;
+  height: 100dvh;
   animation: fadeIn 0.2s ease-out;
 }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
 .modal-overlay {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(5px);
+  touch-action: none;
 }
 
 .modal-content {
@@ -488,7 +494,8 @@ body.recommendations-modal-open {
   border-radius: 24px;
   max-width: 900px;
   width: 100%;
-  max-height: calc(100vh - 40px);
+  max-height: calc(100vh - max(env(safe-area-inset-top, 0px), 20px) - max(env(safe-area-inset-bottom, 0px), 20px) - 24px);
+  max-height: calc(100dvh - max(env(safe-area-inset-top, 0px), 20px) - max(env(safe-area-inset-bottom, 0px), 20px) - 24px);
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -497,6 +504,8 @@ body.recommendations-modal-open {
   animation: slideUp 0.3s ease-out;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
   outline: none;
+  margin: auto;
+  touch-action: pan-y;
 }
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(20px); }
@@ -599,10 +608,11 @@ body.recommendations-modal-open {
   }
   
   .modal-content {
-    max-height: 100vh;
-    border-radius: 20px 20px 0 0;
-    margin-top: auto;
+    max-height: calc(100vh - max(env(safe-area-inset-top, 0px), 16px) - max(env(safe-area-inset-bottom, 0px), 16px));
+    max-height: calc(100dvh - max(env(safe-area-inset-top, 0px), 16px) - max(env(safe-area-inset-bottom, 0px), 16px));
+    border-radius: 20px;
     width: 100%;
+    margin: auto;
   }
   .rec-modal-media { height: 280px; }
   .rec-modal-image { height: 100%; }

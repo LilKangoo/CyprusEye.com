@@ -1,17 +1,7 @@
 {
   "version": 1,
   "include": [
-    "/admin/*",
-    "/partners/*",
-    "/auth/*",
-    "/account/*",
-    "/reset/*",
-    "/api/*",
-    "/hotel/*",
-    "/transport/*",
-    "/recommendations",
-    "/recommendations.html",
-    "/trips"
+    "/*"
   ],
   "exclude": []
 }

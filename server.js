@@ -5,12 +5,12 @@ import fs from 'fs/promises';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import {
-  applyRecommendationsSeoToHtml,
-  buildRecommendationsSeoPayload,
-  getRecommendationsSeoLanguage,
-  getTranslationValue,
-  isRecommendationsSeoRequest,
-} from './functions/_utils/recommendationsSeo.js';
+  applySeoToHtml,
+  buildSeoPayload,
+  extractSeoFallbacksFromHtml,
+  getSeoLanguage,
+  resolveSeoRoute,
+} from './functions/_utils/pageSeo.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1070,16 +1070,11 @@ async function loadTranslationsFile(language) {
 }
 
 async function localizeHtmlForRequest(filePath, html, requestUrl) {
-  const relativePath = path.relative(__dirname, filePath).replace(/\\/g, '/');
-  if (relativePath !== 'recommendations.html') {
-    return html;
-  }
-
   let url = null;
   try {
-    url = new URL(requestUrl || '/recommendations.html', 'http://localhost');
+    url = new URL(requestUrl || '/index.html', 'http://localhost');
   } catch (_) {
-    url = new URL('/recommendations.html', 'http://localhost');
+    url = new URL('/index.html', 'http://localhost');
   }
 
   let seoPathname = url.pathname;
@@ -1089,27 +1084,28 @@ async function localizeHtmlForRequest(filePath, html, requestUrl) {
     seoPathname = '/';
   }
 
-  if (!isRecommendationsSeoRequest(seoPathname)) {
+  const route = resolveSeoRoute(seoPathname);
+  if (!route) {
     return html;
   }
 
-  const language = getRecommendationsSeoLanguage(url);
-  const translations = await loadTranslationsFile(language);
-  const localeFallback = language === 'en' ? 'en_GB' : 'pl_PL';
+  const relativePath = `/${path.relative(__dirname, filePath).replace(/\\/g, '/')}`;
+  if (relativePath !== route.htmlPath) {
+    return html;
+  }
 
-  const seoPayload = buildRecommendationsSeoPayload({
+  const language = getSeoLanguage(url);
+  const translations = await loadTranslationsFile(language);
+  const seoPayload = buildSeoPayload({
+    route,
     language,
     requestPathname: seoPathname,
     requestSearch: url.search,
-    translations: {
-      ...translations,
-      'seo.locale': getTranslationValue(translations, 'seo.locale') || localeFallback,
-      'seo.ogImage':
-        getTranslationValue(translations, 'seo.ogImage') || 'assets/cyprus_logo-1000x1054.png',
-    },
+    translations,
+    fallbackSeo: extractSeoFallbacksFromHtml(html),
   });
 
-  return applyRecommendationsSeoToHtml(html, seoPayload);
+  return applySeoToHtml(html, seoPayload);
 }
 
 async function tryServeStaticFile(req, url, res) {
@@ -1157,6 +1153,30 @@ async function tryServeStaticFile(req, url, res) {
     }
   } catch (error) {
     if (error.code === 'ENOENT' && !targetPath.endsWith('.html')) {
+      let seoPathname = url.pathname;
+      if (BASE_PATH !== '/' && seoPathname.startsWith(`${BASE_PATH}/`)) {
+        seoPathname = seoPathname.slice(BASE_PATH.length) || '/';
+      } else if (BASE_PATH !== '/' && seoPathname === BASE_PATH) {
+        seoPathname = '/';
+      }
+
+      const seoRoute = resolveSeoRoute(seoPathname);
+      if (seoRoute) {
+        const seoHtmlPath = path.resolve(__dirname, seoRoute.htmlPath.slice(1));
+        if (seoHtmlPath.startsWith(__dirname)) {
+          try {
+            const servedSeoHtml = await serveStaticAsset(req, res, seoHtmlPath);
+            if (servedSeoHtml) {
+              return true;
+            }
+          } catch (seoError) {
+            if (seoError.code !== 'ENOENT') {
+              console.error('Nie udało się odczytać pliku SEO fallback:', seoError);
+            }
+          }
+        }
+      }
+
       // Retry HTML fallback for paths like /app/achievements
       const htmlCandidate = `${targetPath}.html`;
       const htmlPath = path.resolve(__dirname, htmlCandidate);

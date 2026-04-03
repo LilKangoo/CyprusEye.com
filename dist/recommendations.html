@@ -259,17 +259,18 @@
       </div>
     </section>
 
-    <!-- Modal szczegółów rekomendacji -->
-    <div id="detailModal" class="recommendation-modal" style="display:none" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="detailModalTitle">
-      <div class="modal-overlay" onclick="closeDetailModal()"></div>
-      <div class="modal-content" tabindex="-1">
-        <button class="modal-close" type="button" aria-label="Zamknij" onclick="closeDetailModal()">✕</button>
-        <div id="modalDetails" class="modal-body">
-          <!-- Zawartość modalu wypełnia js/recommendations.js (openDetailModal) -->
-        </div>
+  </main>
+
+  <!-- Modal szczegółów rekomendacji -->
+  <div id="detailModal" class="recommendation-modal" style="display:none" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="detailModalTitle">
+    <div class="modal-overlay"></div>
+    <div class="modal-content" tabindex="-1">
+      <button class="modal-close" type="button" aria-label="Zamknij">✕</button>
+      <div id="modalDetails" class="modal-body">
+        <!-- Zawartość modalu wypełnia js/recommendations.js (openDetailModal) -->
       </div>
     </div>
-  </main>
+  </div>
 
   <!-- Footer Referral -->
   <div class="footer-referral" id="footerReferral" style="display:none;">

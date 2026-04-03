@@ -20,9 +20,11 @@ let recommendationsPreviousHtmlOverflow = '';
 let recommendationsPreviousBodyOverflow = '';
 let recommendationsPreviousBodyPosition = '';
 let recommendationsPreviousBodyTop = '';
-let recommendationsPreviousBodyWidth = '';
 let recommendationsPreviousBodyLeft = '';
 let recommendationsPreviousBodyRight = '';
+let recommendationsPreviousBodyWidth = '';
+let recommendationsPreviousBodyPaddingRight = '';
+let recommendationsModalTouchStartY = 0;
 
 const RECOMMENDATION_MODAL_FOCUSABLE_SELECTOR = [
   'a[href]',
@@ -83,6 +85,76 @@ function focusRecommendationModal() {
   }
 }
 
+function closeRecommendationDetailModal() {
+  clearRecommendationModalPanorama();
+  const modal = getRecommendationDetailModal();
+  if (modal) {
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden', 'true');
+    unlockRecommendationBodyScroll();
+  }
+
+  if (recommendationsModalPreviouslyFocused instanceof HTMLElement) {
+    recommendationsModalPreviouslyFocused.focus({ preventScroll: true });
+  }
+  recommendationsModalPreviouslyFocused = null;
+}
+
+function getRecommendationModalScrollableTarget(target) {
+  const dialog = getRecommendationModalDialog();
+  if (!(dialog instanceof HTMLElement) || !(target instanceof Node)) {
+    return null;
+  }
+
+  return dialog.contains(target) ? dialog : null;
+}
+
+function handleRecommendationModalWheel(event) {
+  if (!isRecommendationModalOpen()) {
+    return;
+  }
+
+  if (!getRecommendationModalScrollableTarget(event.target)) {
+    event.preventDefault();
+  }
+}
+
+function handleRecommendationModalTouchStart(event) {
+  if (!isRecommendationModalOpen()) {
+    return;
+  }
+
+  recommendationsModalTouchStartY = event.touches?.[0]?.clientY ?? 0;
+}
+
+function handleRecommendationModalTouchMove(event) {
+  if (!isRecommendationModalOpen()) {
+    return;
+  }
+
+  const dialog = getRecommendationModalScrollableTarget(event.target);
+  if (!(dialog instanceof HTMLElement)) {
+    event.preventDefault();
+    return;
+  }
+
+  const nextTouchY = event.touches?.[0]?.clientY;
+  if (!Number.isFinite(nextTouchY)) {
+    return;
+  }
+
+  const deltaY = recommendationsModalTouchStartY - nextTouchY;
+  const canScroll = dialog.scrollHeight > dialog.clientHeight;
+  const atTop = dialog.scrollTop <= 0;
+  const atBottom = Math.ceil(dialog.scrollTop + dialog.clientHeight) >= dialog.scrollHeight;
+
+  if (!canScroll || (deltaY < 0 && atTop) || (deltaY > 0 && atBottom)) {
+    event.preventDefault();
+  }
+
+  recommendationsModalTouchStartY = nextTouchY;
+}
+
 function lockRecommendationBodyScroll() {
   if (recommendationsScrollLockDepth === 0) {
     recommendationsScrollPositionBeforeLock = window.scrollY || window.pageYOffset || 0;
@@ -90,12 +162,15 @@ function lockRecommendationBodyScroll() {
     recommendationsPreviousBodyOverflow = document.body.style.overflow;
     recommendationsPreviousBodyPosition = document.body.style.position;
     recommendationsPreviousBodyTop = document.body.style.top;
-    recommendationsPreviousBodyWidth = document.body.style.width;
     recommendationsPreviousBodyLeft = document.body.style.left;
     recommendationsPreviousBodyRight = document.body.style.right;
+    recommendationsPreviousBodyWidth = document.body.style.width;
+    recommendationsPreviousBodyPaddingRight = document.body.style.paddingRight;
+
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
 
     document.documentElement.classList.add('recommendations-modal-open');
-    document.body.classList.add('recommendations-modal-open');
+    document.body.classList.add('recommendations-modal-open', 'u-lock-scroll', 'is-modal-open');
     document.documentElement.style.overflow = 'hidden';
     document.body.style.overflow = 'hidden';
     document.body.style.position = 'fixed';
@@ -103,6 +178,9 @@ function lockRecommendationBodyScroll() {
     document.body.style.left = '0';
     document.body.style.right = '0';
     document.body.style.width = '100%';
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
   }
 
   recommendationsScrollLockDepth += 1;
@@ -119,17 +197,27 @@ function unlockRecommendationBodyScroll() {
   }
 
   document.documentElement.classList.remove('recommendations-modal-open');
-  document.body.classList.remove('recommendations-modal-open');
+  document.body.classList.remove('recommendations-modal-open', 'u-lock-scroll', 'is-modal-open');
   document.documentElement.style.overflow = recommendationsPreviousHtmlOverflow;
   document.body.style.overflow = recommendationsPreviousBodyOverflow;
   document.body.style.position = recommendationsPreviousBodyPosition;
   document.body.style.top = recommendationsPreviousBodyTop;
-  document.body.style.width = recommendationsPreviousBodyWidth;
   document.body.style.left = recommendationsPreviousBodyLeft;
   document.body.style.right = recommendationsPreviousBodyRight;
-  window.scrollTo(0, recommendationsScrollPositionBeforeLock);
+  document.body.style.width = recommendationsPreviousBodyWidth;
+  document.body.style.paddingRight = recommendationsPreviousBodyPaddingRight;
+  if (recommendationsScrollPositionBeforeLock > 0) {
+    window.scrollTo(0, recommendationsScrollPositionBeforeLock);
+  }
 
   recommendationsScrollPositionBeforeLock = 0;
+  recommendationsPreviousHtmlOverflow = '';
+  recommendationsPreviousBodyPosition = '';
+  recommendationsPreviousBodyTop = '';
+  recommendationsPreviousBodyLeft = '';
+  recommendationsPreviousBodyRight = '';
+  recommendationsPreviousBodyWidth = '';
+  recommendationsPreviousBodyPaddingRight = '';
 }
 
 function handleRecommendationModalKeydown(event) {
@@ -139,7 +227,7 @@ function handleRecommendationModalKeydown(event) {
 
   if (event.key === 'Escape') {
     event.preventDefault();
-    closeDetailModal();
+    closeRecommendationDetailModal();
     return;
   }
 
@@ -198,6 +286,76 @@ function initRecommendationModalBehavior() {
 
   modal.dataset.recommendationModalInit = 'true';
   modal.addEventListener('keydown', handleRecommendationModalKeydown);
+  modal.addEventListener('wheel', handleRecommendationModalWheel, { passive: false });
+  modal.addEventListener('touchstart', handleRecommendationModalTouchStart, { passive: true });
+  modal.addEventListener('touchmove', handleRecommendationModalTouchMove, { passive: false });
+  modal.addEventListener('click', (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+
+    if (target.closest('.modal-close') || target.classList.contains('modal-overlay')) {
+      event.preventDefault();
+      closeRecommendationDetailModal();
+    }
+  });
+}
+
+function initRecommendationGridBehavior() {
+  const grid = document.getElementById('recommendationsGrid');
+  if (!(grid instanceof HTMLElement) || grid.dataset.recommendationGridInit === 'true') {
+    return;
+  }
+
+  grid.dataset.recommendationGridInit = 'true';
+  grid.addEventListener('click', (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+
+    const card = target.closest('.recommendation-home-card');
+    if (!(card instanceof HTMLElement)) {
+      return;
+    }
+
+    if (target.closest('.ce-save-star') || target.closest('.rec-card-promo-toggle')) {
+      return;
+    }
+
+    const recommendationId = card.dataset.recId || '';
+    if (!recommendationId) {
+      return;
+    }
+
+    event.preventDefault();
+    void openRecommendationDetailModal(recommendationId);
+  });
+
+  grid.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return;
+    }
+
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+
+    const card = target.closest('.recommendation-home-card');
+    if (!(card instanceof HTMLElement)) {
+      return;
+    }
+
+    const recommendationId = card.dataset.recId || '';
+    if (!recommendationId) {
+      return;
+    }
+
+    event.preventDefault();
+    void openRecommendationDetailModal(recommendationId);
+  });
 }
 
 function initRecommendationsPage() {
@@ -206,6 +364,7 @@ function initRecommendationsPage() {
 
   console.log('🔵 Recommendations page: Initializing...');
   initRecommendationModalBehavior();
+  initRecommendationGridBehavior();
   loadData();
   setupLanguageListener();
   subscribeToSavedCatalog();
@@ -673,10 +832,11 @@ function createRecommendationCard(rec) {
   const imageIsPanorama = isRecommendationPanorama(imageRaw);
 
   return `
-    <a
-      href="#"
+    <div
       class="recommendation-home-card"
-      onclick="openDetailModal('${rec.id}'); return false;"
+      role="button"
+      tabindex="0"
+      data-rec-id="${String(rec.id || '')}"
     >
       ${rec.featured ? `<div class="ce-home-featured-badge">⭐ ${featuredLabel}</div>` : ''}
       <button
@@ -702,11 +862,11 @@ function createRecommendationCard(rec) {
         <h3 class="ce-home-card-title">${title}</h3>
         <p class="ce-home-card-subtitle">${subtitle}</p>
       </div>
-    </a>
+    </div>
   `;
 }
 
-window.openDetailModal = async function openDetailModal(id) {
+async function openRecommendationDetailModal(id) {
   const rec = allRecommendations.find((item) => item.id === id);
   if (!rec) return;
 
@@ -894,22 +1054,10 @@ window.openDetailModal = async function openDetailModal(id) {
       }
     }, 200);
   }
-};
+}
 
-window.closeDetailModal = function closeDetailModal() {
-  clearRecommendationModalPanorama();
-  const modal = document.getElementById('detailModal');
-  if (modal) {
-    modal.style.display = 'none';
-    modal.setAttribute('aria-hidden', 'true');
-    unlockRecommendationBodyScroll();
-  }
-
-  if (recommendationsModalPreviouslyFocused instanceof HTMLElement) {
-    recommendationsModalPreviouslyFocused.focus({ preventScroll: true });
-  }
-  recommendationsModalPreviouslyFocused = null;
-};
+window.openRecommendationsDetailModal = openRecommendationDetailModal;
+window.closeRecommendationsDetailModal = closeRecommendationDetailModal;
 
 window.trackView = async function trackView(recId) {
   if (!supabase) return;

@@ -100,7 +100,22 @@
     if (!translations) {
       return null;
     }
-    const entry = translations[key];
+
+    let entry = translations[key];
+    if (typeof entry === 'undefined' && key.indexOf('.') !== -1) {
+      const parts = key.split('.');
+      let cursor = translations;
+      for (const part of parts) {
+        if (cursor && typeof cursor === 'object' && Object.prototype.hasOwnProperty.call(cursor, part)) {
+          cursor = cursor[part];
+        } else {
+          cursor = undefined;
+          break;
+        }
+      }
+      entry = cursor;
+    }
+
     if (typeof entry === 'string') {
       return entry;
     }
@@ -248,7 +263,7 @@
     if (window.appI18n && window.appI18n.language) {
       return window.appI18n.language;
     }
-    return document.documentElement.lang || 'pl';
+    return document.documentElement.lang || 'en';
   }
 
   function applyForCurrentLanguage() {

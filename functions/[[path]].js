@@ -1,10 +1,11 @@
 import { serveStatic } from './_utils/serveStatic.js';
 import {
-  applyRecommendationsSeoToHtml,
-  buildRecommendationsSeoPayload,
-  getRecommendationsSeoLanguage,
-  isRecommendationsSeoRequest,
-} from './_utils/recommendationsSeo.js';
+  applySeoToHtml,
+  buildSeoPayload,
+  extractSeoFallbacksFromHtml,
+  getSeoLanguage,
+  resolveSeoRoute,
+} from './_utils/pageSeo.js';
 
 const translationCache = new Map();
 
@@ -30,22 +31,24 @@ async function loadTranslations(context, language) {
   }
 }
 
-async function serveRecommendationsPage(context, url) {
-  const language = getRecommendationsSeoLanguage(url);
-  const htmlResponse = await serveStatic(context, '/recommendations.html', { method: 'GET' });
+async function serveSeoPage(context, url, route) {
+  const language = getSeoLanguage(url);
+  const htmlResponse = await serveStatic(context, route.htmlPath, { method: 'GET' });
   if (!htmlResponse.ok) {
     return htmlResponse;
   }
 
   const translations = await loadTranslations(context, language);
   const html = await htmlResponse.text();
-  const seoPayload = buildRecommendationsSeoPayload({
+  const seoPayload = buildSeoPayload({
+    route,
     language,
     requestPathname: url.pathname,
     requestSearch: url.search,
     translations,
+    fallbackSeo: extractSeoFallbacksFromHtml(html),
   });
-  const localizedHtml = applyRecommendationsSeoToHtml(html, seoPayload);
+  const localizedHtml = applySeoToHtml(html, seoPayload);
   const headers = new Headers(htmlResponse.headers);
 
   headers.set('content-type', 'text/html; charset=utf-8');
@@ -69,9 +72,10 @@ async function serveRecommendationsPage(context, url) {
 
 export async function onRequest(context) {
   const url = new URL(context.request.url);
+  const route = resolveSeoRoute(url.pathname);
 
-  if (isRecommendationsSeoRequest(url.pathname)) {
-    return serveRecommendationsPage(context, url);
+  if (route) {
+    return serveSeoPage(context, url, route);
   }
 
   // najpierw spróbuj wydać statyczny asset (jeśli istnieje)

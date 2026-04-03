@@ -10,7 +10,7 @@ const SUPPORTED_LANGUAGES = {
   // he: { name: 'עברית', flag: '🇮🇱', dir: 'rtl', locale: 'he_IL' }
 };
 
-const DEFAULT_LANGUAGE = 'pl';
+const DEFAULT_LANGUAGE = 'en';
 const LANGUAGE_STORAGE_KEY = 'cypruseye-language';
 
 /**
@@ -24,16 +24,9 @@ function getCurrentLanguage() {
     return langParam;
   }
 
-  // Check localStorage
-  const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
-  if (stored && SUPPORTED_LANGUAGES[stored]) {
-    return stored;
-  }
-
-  // Detect from browser language
-  const browserLang = navigator.language.split('-')[0];
-  if (SUPPORTED_LANGUAGES[browserLang]) {
-    return browserLang;
+  const htmlLang = (document.documentElement.lang || '').toLowerCase();
+  if (htmlLang && SUPPORTED_LANGUAGES[htmlLang]) {
+    return htmlLang;
   }
 
   return DEFAULT_LANGUAGE;

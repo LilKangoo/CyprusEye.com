@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const DEFAULT_LANGUAGE = 'pl';
+  const DEFAULT_LANGUAGE = 'en';
   const STORAGE_KEY = 'ce_lang';
   const SUPPORTED_LANGUAGES = {
     pl: { label: 'Polski', shortLabel: 'PL', flag: '🇵🇱', dir: 'ltr' },
@@ -46,20 +46,7 @@
       return urlLang;
     }
 
-    const stored = (safeLocalStorage('get', STORAGE_KEY) || '').toLowerCase();
-    if (stored && Object.prototype.hasOwnProperty.call(SUPPORTED_LANGUAGES, stored)) {
-      return stored;
-    }
-
-    try {
-      const nav = String(navigator?.language || '').toLowerCase();
-      if (nav.startsWith('pl')) {
-        return 'pl';
-      }
-      return 'en';
-    } catch (_) {
-      return DEFAULT_LANGUAGE;
-    }
+    return DEFAULT_LANGUAGE;
   }
 
   function persistLanguage(language) {
