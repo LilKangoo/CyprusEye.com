@@ -754,6 +754,7 @@ function initAdminCalendarsRealtime() {
   if (!client) return;
   if (typeof client.channel !== 'function') return;
   if (adminCalendarsRealtimeChannel) return;
+  if (isAdminOffline()) return;
 
   try {
     adminCalendarsRealtimeChannel = client
@@ -934,6 +935,156 @@ function isMissingTableError(err, tableName = '') {
   return normalizedMsg.includes(normalizedTable) || true;
 }
 
+const ADMIN_NETWORK_ERROR_RE = /failed to fetch|networkerror|load failed|internet disconnected|the internet connection appears to be offline|network request failed/i;
+
+function isAdminOffline() {
+  return typeof navigator !== 'undefined' && navigator.onLine === false;
+}
+
+function isAdminNetworkError(error) {
+  const parts = [
+    String(error?.message || ''),
+    String(error?.details || ''),
+    String(error?.hint || ''),
+  ].filter(Boolean);
+  if (!parts.length) return false;
+  return parts.some((part) => ADMIN_NETWORK_ERROR_RE.test(String(part || '')));
+}
+
+function extractAdminMissingColumnName(error) {
+  const candidates = [
+    String(error?.message || ''),
+    String(error?.details || ''),
+    String(error?.hint || ''),
+  ].filter(Boolean);
+
+  const patterns = [
+    /could not find the '([^']+)' column/i,
+    /column ['"]([^'"]+)['"] does not exist/i,
+    /column ([a-zA-Z0-9_]+) does not exist/i,
+  ];
+
+  for (const source of candidates) {
+    for (const pattern of patterns) {
+      const match = source.match(pattern);
+      if (!match || !match[1]) continue;
+      const column = String(match[1] || '').trim();
+      if (column) return column;
+    }
+  }
+
+  return '';
+}
+
+const HOTEL_OPTIONAL_SCHEMA_FIELDS = new Set([
+  'booking_settings',
+  'pricing_extras',
+  'room_types',
+  'address_line',
+  'district',
+  'postal_code',
+  'country',
+  'latitude',
+  'longitude',
+  'google_maps_url',
+  'google_place_id',
+  'max_persons',
+]);
+
+function shouldStripOptionalHotelField(columnName) {
+  const key = String(columnName || '').trim();
+  if (!key) return false;
+  return HOTEL_OPTIONAL_SCHEMA_FIELDS.has(key);
+}
+
+function waitAdmin(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, Math.max(0, Number(ms) || 0));
+  });
+}
+
+function normalizeHotelTitleValue(value) {
+  if (!value) return '';
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'object') {
+    return String(value.pl || value.en || value.el || value.he || '').trim();
+  }
+  return '';
+}
+
+function getHotelAdminTitle(hotel, fallback = '') {
+  const title = normalizeHotelTitleValue(hotel?.title);
+  if (title) return title;
+  const slug = String(hotel?.slug || '').trim();
+  if (slug) return slug;
+  const id = String(hotel?.id || '').trim();
+  if (id) return id;
+  return String(fallback || '').trim();
+}
+
+async function executeHotelMutationWithFallback(client, mode, payload, options = {}) {
+  const sbClient = client || ensureSupabase();
+  if (!sbClient) throw new Error('Database connection not available');
+  if (isAdminOffline()) {
+    throw new Error('No internet connection. Reconnect and try saving the hotel again.');
+  }
+
+  const mutationMode = String(mode || '').trim().toLowerCase();
+  const workingPayload = { ...(payload && typeof payload === 'object' ? payload : {}) };
+  const hotelId = String(options?.hotelId || '').trim();
+  const strippedFields = [];
+  let lastError = null;
+
+  const runMutation = async () => {
+    if (mutationMode === 'update') {
+      return sbClient
+        .from('hotels')
+        .update(workingPayload)
+        .eq('id', hotelId)
+        .select('*')
+        .single();
+    }
+    return sbClient
+      .from('hotels')
+      .insert(workingPayload)
+      .select('*')
+      .single();
+  };
+
+  for (let attempt = 0; attempt < 16; attempt += 1) {
+    if (isAdminOffline()) {
+      throw new Error('No internet connection. Reconnect and try saving the hotel again.');
+    }
+
+    const { data, error } = await runMutation();
+    if (!error) {
+      return { data, strippedFields };
+    }
+
+    lastError = error;
+
+    if (isAdminNetworkError(error)) {
+      throw new Error('Cannot reach Supabase right now. Check your internet connection and try again.');
+    }
+
+    const missingColumn = extractAdminMissingColumnName(error);
+    if (missingColumn && shouldStripOptionalHotelField(missingColumn) && Object.prototype.hasOwnProperty.call(workingPayload, missingColumn)) {
+      delete workingPayload[missingColumn];
+      strippedFields.push(missingColumn);
+      continue;
+    }
+
+    if (isSchemaCacheError(error) && attempt < 2) {
+      await waitAdmin(350 * (attempt + 1));
+      continue;
+    }
+
+    break;
+  }
+
+  throw lastError || new Error(`Failed to ${mutationMode === 'update' ? 'update' : 'create'} hotel`);
+}
+
 function isJwtExpiredError(err) {
   const code = String(err?.code || '').toUpperCase();
   const status = Number(err?.status || err?.statusCode || 0);
@@ -1050,6 +1201,7 @@ let adminSessionHeartbeatTickInFlight = null;
 
 async function tickAdminSessionHeartbeat(options = {}) {
   const force = Boolean(options?.force);
+  if (isAdminOffline()) return false;
   if (adminSessionHeartbeatTickInFlight && !force) {
     return adminSessionHeartbeatTickInFlight;
   }
@@ -1338,11 +1490,79 @@ let adminDashboardOrdersChannel = null;
 
 let dashboardAutoRefreshTimer = null;
 
+let adminConnectivityHandlersBound = false;
+let adminConnectivityToastAt = 0;
+
+function stopAdminRealtimeChannels() {
+  const client = ensureSupabase();
+  const channels = [adminPartnerAuditChannel, adminCalendarsRealtimeChannel, adminDashboardOrdersChannel].filter(Boolean);
+  channels.forEach((channel) => {
+    try {
+      if (client && typeof client.removeChannel === 'function') {
+        client.removeChannel(channel);
+      } else if (typeof channel?.unsubscribe === 'function') {
+        channel.unsubscribe();
+      }
+    } catch (_e) {
+    }
+  });
+  adminPartnerAuditChannel = null;
+  adminCalendarsRealtimeChannel = null;
+  adminDashboardOrdersChannel = null;
+}
+
+async function refreshAdminViewAfterReconnect() {
+  if (!adminState?.user) return;
+  try {
+    if (adminState.currentView === 'hotels') {
+      await loadHotelsAdminData();
+      return;
+    }
+    if (adminState.currentView === 'partners') {
+      await loadPartnersData();
+      return;
+    }
+    if (adminState.currentView === 'calendars') {
+      await loadAdminCalendarsData();
+      return;
+    }
+    if (adminState.currentView === 'dashboard') {
+      await loadAllOrders({ silent: true });
+    }
+  } catch (error) {
+    console.warn('Admin reconnect refresh failed:', error);
+  }
+}
+
+function bindAdminConnectivityHandlers() {
+  if (adminConnectivityHandlersBound || typeof window === 'undefined') return;
+  adminConnectivityHandlersBound = true;
+
+  window.addEventListener('offline', () => {
+    stopAdminRealtimeChannels();
+    const now = Date.now();
+    if ((now - adminConnectivityToastAt) > 3000) {
+      showToast('You are offline. Saving and live updates are paused until the connection returns.', 'info');
+      adminConnectivityToastAt = now;
+    }
+  });
+
+  window.addEventListener('online', () => {
+    adminConnectivityToastAt = Date.now();
+    showToast('Connection restored. Reconnecting admin panel…', 'success');
+    initAdminPartnerRealtime();
+    initAdminCalendarsRealtime();
+    initAdminDashboardRealtime();
+    void refreshAdminViewAfterReconnect();
+  });
+}
+
 function initAdminPartnerRealtime() {
   const client = ensureSupabase();
   if (!client) return;
   if (typeof client.channel !== 'function') return;
   if (adminPartnerAuditChannel) return;
+  if (isAdminOffline()) return;
 
   try {
     adminPartnerAuditChannel = client
@@ -1379,6 +1599,7 @@ function ensurePartnersAutoRefresh() {
 
   partnersAutoRefreshTimer = setInterval(() => {
     try {
+      if (isAdminOffline()) return;
       if (adminState.currentView !== 'partners') return;
       loadPartnersData();
     } catch (_e) {
@@ -1391,6 +1612,7 @@ function initAdminDashboardRealtime() {
   if (!client) return;
   if (typeof client.channel !== 'function') return;
   if (adminDashboardOrdersChannel) return;
+  if (isAdminOffline()) return;
 
   try {
     adminDashboardOrdersChannel = client
@@ -1429,6 +1651,7 @@ function ensureDashboardAutoRefresh() {
   if (dashboardAutoRefreshTimer) return;
   dashboardAutoRefreshTimer = setInterval(() => {
     try {
+      if (isAdminOffline()) return;
       if (adminState.currentView !== 'dashboard') return;
       loadAllOrders({ silent: true });
     } catch (_e) {
@@ -8682,9 +8905,14 @@ async function openNewTripModal() {
 
       form.onsubmit = async (ev) => {
         ev.preventDefault();
+        const submitBtn = form.querySelector('button[type="submit"]');
         try {
           const client = ensureSupabase();
           if (!client) throw new Error('Database connection not available');
+          if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Creating…';
+          }
 
           const fd = new FormData(form);
           const payload = Object.fromEntries(fd.entries());
@@ -9736,6 +9964,14 @@ async function loadHotelsAdminData() {
       return;
     }
 
+    if (isAdminOffline()) {
+      const tbody = document.getElementById('hotelsTableBody');
+      if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="8" class="table-loading">Offline. Reconnect to load hotels.</td></tr>';
+      }
+      return;
+    }
+
     // Load cities and amenities first
     await loadHotelCities();
     await loadHotelAmenities();
@@ -9781,7 +10017,7 @@ async function loadHotelsAdminData() {
     }
 
     tbody.innerHTML = window.hotelsAdminList.map((h, index) => {
-      const title = (h.title && (h.title.pl || h.title.en)) || h.slug || h.id;
+      const title = getHotelAdminTitle(h);
       const updated = h.updated_at ? new Date(h.updated_at).toLocaleString('en-GB') : '-';
       const priceSummary = formatHotelPriceSummary(h);
       const sortOrder = typeof h.sort_order === 'number' ? h.sort_order : (index + 1);
@@ -9841,6 +10077,10 @@ async function moveHotelOrder(hotelId, direction) {
       showToast('Database connection not available', 'error');
       return;
     }
+    if (isAdminOffline()) {
+      showToast('You are offline. Reconnect before reordering hotels.', 'info');
+      return;
+    }
 
     const list = Array.isArray(window.hotelsAdminList) ? window.hotelsAdminList : [];
     const index = list.findIndex(h => h.id === hotelId);
@@ -9881,6 +10121,10 @@ async function toggleHotelPublish(hotelId, publish) {
   try {
     const client = ensureSupabase();
     if (!client) return;
+    if (isAdminOffline()) {
+      showToast('You are offline. Reconnect before changing hotel publication.', 'info');
+      return;
+    }
     const { error } = await client
       .from('hotels')
       .update({ is_published: !!publish, updated_at: new Date().toISOString() })
@@ -10635,6 +10879,10 @@ async function editHotel(hotelId) {
   try {
     const client = ensureSupabase();
     if (!client) return;
+    if (isAdminOffline()) {
+      showToast('You are offline. Reconnect before opening hotel editing.', 'info');
+      return;
+    }
 
     const { data: hotel, error } = await client
       .from('hotels')
@@ -10788,6 +11036,11 @@ async function handleEditHotelSubmit(event, originalHotel) {
     if (!client) throw new Error('Database connection not available');
 
     const form = event.target;
+    const submitBtn = form?.querySelector('button[type="submit"]');
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Saving…';
+    }
     const fd = new FormData(form);
     
     console.log('📋 FormData entries:');
@@ -10878,24 +11131,27 @@ async function handleEditHotelSubmit(event, originalHotel) {
       slug: payload.slug
     });
 
-    const { error } = await client
-      .from('hotels')
-      .update(payload)
-      .eq('id', hotelId);
-
-    if (error) {
-      console.error('❌ Hotel update error:', error);
-      throw error;
-    }
+    const result = await executeHotelMutationWithFallback(client, 'update', payload, { hotelId });
     
     console.log('✅ Hotel updated successfully');
-
-    showToast('Hotel updated successfully', 'success');
+    if (Array.isArray(result?.strippedFields) && result.strippedFields.length) {
+      console.warn('Hotel updated with legacy-schema fallback. Skipped fields:', result.strippedFields);
+      showToast(`Hotel updated, but the remote database skipped unsupported fields: ${result.strippedFields.join(', ')}`, 'info');
+    } else {
+      showToast('Hotel updated successfully', 'success');
+    }
     document.getElementById('editHotelModal').hidden = true;
     await loadHotelsAdminData();
   } catch (err) {
     console.error('Failed to update hotel:', err);
     showToast(err.message || 'Failed to update hotel', 'error');
+  } finally {
+    const form = event.target;
+    const submitBtn = form?.querySelector('button[type="submit"]');
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Save Changes';
+    }
   }
 }
 
@@ -10985,9 +11241,14 @@ async function openNewHotelModal() {
 
       form.onsubmit = async (ev) => {
         ev.preventDefault();
+        const submitBtn = form.querySelector('button[type="submit"]');
         try {
           const client = ensureSupabase();
           if (!client) throw new Error('Database connection not available');
+          if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Creating…';
+          }
 
           const fd = new FormData(form);
           const payload = Object.fromEntries(fd.entries());
@@ -11067,25 +11328,25 @@ async function openNewHotelModal() {
             description: payload.description
           });
 
-          const { data, error } = await client
-            .from('hotels')
-            .insert(payload)
-            .select('*')
-            .single();
-
-          if (error) {
-            console.error('❌ Hotel insert error:', error);
-            throw error;
-          }
+          const { data, strippedFields } = await executeHotelMutationWithFallback(client, 'insert', payload);
           
           console.log('✅ Hotel created successfully:', data);
-
-          showToast('Hotel created successfully', 'success');
+          if (Array.isArray(strippedFields) && strippedFields.length) {
+            console.warn('Hotel created with legacy-schema fallback. Skipped fields:', strippedFields);
+            showToast(`Hotel created, but the remote database skipped unsupported fields: ${strippedFields.join(', ')}`, 'info');
+          } else {
+            showToast('Hotel created successfully', 'success');
+          }
           document.getElementById('newHotelModal').hidden = true;
           await loadHotelsAdminData();
         } catch (err) {
           console.error('Create hotel failed:', err);
           showToast(err.message || 'Failed to create hotel', 'error');
+        } finally {
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Create';
+          }
         }
       };
     }
@@ -20035,6 +20296,10 @@ async function deleteHotelResource(hotelId, label) {
   }
   const client = ensureSupabase();
   if (!client) return;
+  if (isAdminOffline()) {
+    showToast('You are offline. Reconnect before deleting hotels.', 'info');
+    return;
+  }
   try {
     await deletePartnerResourcesFor('hotels', hotelId);
     const { error } = await client.from('hotels').delete().eq('id', hotelId);
@@ -20361,6 +20626,10 @@ function normalizeAdminUiMessage(message, type = 'info') {
   const raw = (typeof message === 'string' ? message : String(message?.message || message || '')).trim();
   if (!raw) return '';
   if (type !== 'error') return raw;
+
+  if (isAdminNetworkError(message) || isAdminOffline()) {
+    return 'Cannot reach Supabase right now. Check your internet connection and try again.';
+  }
 
   const authUtils = (typeof window !== 'undefined' && window.CE_AUTH_UTILS && typeof window.CE_AUTH_UTILS.toUserMessage === 'function')
     ? window.CE_AUTH_UTILS
@@ -36539,6 +36808,7 @@ async function initAdminPanel() {
   
   // Initialize event listeners
   initEventListeners();
+  bindAdminConnectivityHandlers();
   
   // Wait for Supabase client
   let retries = 0;
