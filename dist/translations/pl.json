@@ -1294,6 +1294,7 @@
   "map.filter.all": "Wszystkie",
   "map.filter.poiOnly": "Punkty do odwiedzenia",
   "map.filter.recommendationsOnly": "Polecane miejsca",
+  "map.filter.hotelsOnly": "Hotele",
   "map.filter.aria": "Filtry mapy",
   "map.filter.counter": "Widoczne {{visible}} z {{total}} punktów",
   "map.filter.counterBreakdown": "Punkty do odwiedzenia {{poiVisible}}/{{poiTotal}} • Polecane {{recommendationsVisible}}/{{recommendationsTotal}}",

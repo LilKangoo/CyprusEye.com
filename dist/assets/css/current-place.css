@@ -309,6 +309,12 @@
   box-shadow: 0 3px 10px rgba(15, 23, 42, 0.28);
 }
 
+.ce-poi-marker__emoji--hotel {
+  background: linear-gradient(135deg, rgba(255, 251, 235, 0.98) 0%, rgba(254, 243, 199, 0.96) 100%);
+  border-color: rgba(180, 83, 9, 0.18);
+  box-shadow: 0 4px 12px rgba(146, 64, 14, 0.22);
+}
+
 .ce-poi-marker__dot,
 .ce-poi-marker--emoji .ce-poi-marker__emoji,
 .recommendation-marker__emoji {
@@ -341,6 +347,14 @@
   height: 44px;
 }
 
+.leaflet-marker-icon.map-marker-active.map-marker-active--hotel::after {
+  width: 44px;
+  height: 44px;
+  border-color: rgba(245, 158, 11, 0.92);
+  background: rgba(254, 240, 138, 0.22);
+  animation-name: ceMapMarkerPulseAmber;
+}
+
 .leaflet-marker-icon.map-marker-active .ce-poi-marker__dot {
   background: #60a5fa;
   border-color: #dbeafe;
@@ -359,6 +373,13 @@
   transform: scale(1.08);
 }
 
+.leaflet-marker-icon.map-marker-active .ce-poi-marker__emoji--hotel {
+  border-color: rgba(245, 158, 11, 0.9);
+  box-shadow:
+    0 0 0 2px rgba(254, 240, 138, 0.78),
+    0 12px 24px rgba(146, 64, 14, 0.28);
+}
+
 @keyframes ceMapMarkerPulseBlue {
   0% {
     opacity: 0.92;
@@ -374,6 +395,24 @@
     opacity: 0;
     transform: translate(-50%, -50%) scale(1.46);
     box-shadow: 0 0 0 14px rgba(96, 165, 250, 0);
+  }
+}
+
+@keyframes ceMapMarkerPulseAmber {
+  0% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(0.74);
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.45);
+  }
+  70% {
+    opacity: 0.2;
+    transform: translate(-50%, -50%) scale(1.4);
+    box-shadow: 0 0 0 12px rgba(245, 158, 11, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.45);
+    box-shadow: 0 0 0 14px rgba(245, 158, 11, 0);
   }
 }
 

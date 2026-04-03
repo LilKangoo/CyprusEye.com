@@ -12,6 +12,9 @@
   let checkInBusy = false;
   let checkInUiRefreshToken = 0;
   let visiblePoiIdsFromMap = null;
+  let visibleMapItemsFromMap = null;
+  let homeHotelsModuleLoadPromise = null;
+  const HOME_HOTELS_SCRIPT_SRC = 'js/home-hotels.js?v=17';
   const visitedPoiCacheByUser = new Map();
   const visitedPoiFetchPromiseByUser = new Map();
   const PROGRESS_STORAGE_KEYS = ['wakacjecypr-progress', 'wakacjecypr_progress'];
@@ -72,6 +75,21 @@
 
   function normalizePoiId(value){
     return String(value || '').trim();
+  }
+
+  function normalizeMapItem(rawItem, fallbackType = 'poi') {
+    if (!rawItem) return null;
+    if (typeof rawItem === 'string') {
+      const id = normalizePoiId(rawItem);
+      return id ? { type: fallbackType, id } : null;
+    }
+    const id = normalizePoiId(rawItem.id);
+    if (!id) return null;
+    const rawType = String(rawItem.type || fallbackType || 'poi').trim().toLowerCase();
+    const type = rawType === 'recommendation'
+      ? 'recommendation'
+      : (rawType === 'hotel' ? 'hotel' : 'poi');
+    return { type, id };
   }
 
   function isIgnorableVisitedLookupError(error){
@@ -365,28 +383,58 @@
     }
   }
 
-  function getOrderedPoiIds(){
-    if (!Array.isArray(visiblePoiIdsFromMap) && typeof window.getVisibleMapItemsForMap === 'function') {
+  function getHotelsDataNow() {
+    if (typeof window.getMapHotelsData === 'function') {
+      const hotels = window.getMapHotelsData();
+      if (Array.isArray(hotels)) {
+        return hotels;
+      }
+    }
+    return [];
+  }
+
+  function getOrderedMapItems() {
+    if (!Array.isArray(visibleMapItemsFromMap) && typeof window.getVisibleMapItemsForMap === 'function') {
       const fromMap = window.getVisibleMapItemsForMap();
       if (Array.isArray(fromMap)) {
-        visiblePoiIdsFromMap = fromMap
-          .map((item) => normalizePoiId(item?.id))
+        visibleMapItemsFromMap = fromMap
+          .map((item) => normalizeMapItem(item))
           .filter(Boolean);
       }
     }
 
-    if (Array.isArray(visiblePoiIdsFromMap)) {
+    if (Array.isArray(visibleMapItemsFromMap)) {
       const knownPoiIds = new Set((window.PLACES_DATA || []).map((poi) => normalizePoiId(poi?.id)).filter(Boolean));
       const knownRecommendationIds = new Set(getRecommendationsDataNow().map((rec) => normalizePoiId(rec?.id)).filter(Boolean));
-      return [...new Set(visiblePoiIdsFromMap)].filter((id) => knownPoiIds.has(id) || knownRecommendationIds.has(id));
+      const knownHotelIds = new Set(getHotelsDataNow().map((hotel) => normalizePoiId(hotel?.id)).filter(Boolean));
+      const unique = new Map();
+      visibleMapItemsFromMap.forEach((item) => {
+        const normalized = normalizeMapItem(item);
+        if (!normalized) return;
+        const key = `${normalized.type}:${normalized.id}`;
+        if (unique.has(key)) return;
+        if (normalized.type === 'poi' && !knownPoiIds.has(normalized.id)) return;
+        if (normalized.type === 'recommendation' && !knownRecommendationIds.has(normalized.id)) return;
+        if (normalized.type === 'hotel' && !knownHotelIds.has(normalized.id)) return;
+        unique.set(key, normalized);
+      });
+      return Array.from(unique.values());
     }
 
     const cards = Array.from(document.querySelectorAll('#poisList .poi-card'));
     if (cards.length > 0) {
-      return cards.map(c=>c.dataset.poiId).filter(Boolean);
+      return cards
+        .map((card) => normalizeMapItem({ type: 'poi', id: card.dataset.poiId }))
+        .filter(Boolean);
     }
-    // Fallback to PLACES_DATA order when list is not present on the page
-    return (window.PLACES_DATA||[]).map(p=>p.id).filter(Boolean);
+
+    return (window.PLACES_DATA || [])
+      .map((poi) => normalizeMapItem({ type: 'poi', id: poi?.id }))
+      .filter(Boolean);
+  }
+
+  function getOrderedPoiIds(){
+    return getOrderedMapItems().map((item) => item.id);
   }
 
   function findPoi(id){
@@ -409,6 +457,11 @@
     return getRecommendationsDataNow().find((recommendation) => normalizePoiId(recommendation?.id) === normalizedId);
   }
 
+  function findHotel(id) {
+    const normalizedId = normalizePoiId(id);
+    return getHotelsDataNow().find((hotel) => normalizePoiId(hotel?.id) === normalizedId);
+  }
+
   function getCurrentItem() {
     if (!currentId) {
       return null;
@@ -417,7 +470,9 @@
   }
 
   function setCurrentItem(type, id) {
-    currentItemType = type === 'recommendation' ? 'recommendation' : 'poi';
+    currentItemType = type === 'recommendation'
+      ? 'recommendation'
+      : (type === 'hotel' ? 'hotel' : 'poi');
     currentId = normalizePoiId(id);
     window.currentMapItem = currentId ? { type: currentItemType, id: currentId } : null;
     window.currentPlaceId = currentItemType === 'poi' ? currentId : null;
@@ -456,7 +511,175 @@
     return recommendation.discount_text_pl || recommendation.discount_text_en || '';
   }
 
-  function updateCurrentPlaceActionsForType(type, recommendation = null){
+  function getHotelTitle(hotel) {
+    if (!hotel) return '';
+    if (typeof window.getHotelName === 'function') {
+      return window.getHotelName(hotel);
+    }
+    return hotel?.title?.pl || hotel?.title?.en || hotel?.slug || '';
+  }
+
+  function getHotelDescriptionText(hotel) {
+    if (!hotel) return '';
+    const raw = typeof window.getHotelDescription === 'function'
+      ? window.getHotelDescription(hotel)
+      : (hotel?.description?.pl || hotel?.description?.en || '');
+    return String(raw || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function getHotelMapsUrl(hotel) {
+    const location = typeof window.CE_HOTEL_BOOKING_UI?.getLocation === 'function'
+      ? window.CE_HOTEL_BOOKING_UI.getLocation(hotel)
+      : (hotel || {});
+    const direct = String(location?.google_maps_url || hotel?.google_maps_url || '').trim();
+    if (direct) return direct;
+    const lat = Number(location?.latitude ?? hotel?.latitude);
+    const lng = Number(location?.longitude ?? hotel?.longitude);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      return `https://www.google.com/maps?q=${encodeURIComponent(`${lat},${lng}`)}`;
+    }
+    const address = [
+      location?.address_line,
+      location?.district,
+      location?.postal_code,
+      location?.city || hotel?.city,
+      location?.country,
+    ].map((value) => String(value || '').trim()).filter(Boolean).join(', ');
+    if (address) {
+      return `https://www.google.com/maps?q=${encodeURIComponent(address)}`;
+    }
+    return '';
+  }
+
+  function getHotelPriceBadge(hotel) {
+    const amount = window.CE_HOTEL_PRICING?.getHotelMinPricePerNight
+      ? window.CE_HOTEL_PRICING.getHotelMinPricePerNight(hotel, { preferredPersons: 2 })
+      : null;
+    if (!Number.isFinite(amount)) {
+      return t('currentPlace.hotel.badge', '🏨 HOTEL', '🏨 HOTEL');
+    }
+    return getCurrentLanguage().startsWith('en')
+      ? `From €${amount.toFixed(2)}/night`
+      : `Od €${amount.toFixed(2)}/noc`;
+  }
+
+  function getHotelLocationSummary(hotel) {
+    const location = typeof window.CE_HOTEL_BOOKING_UI?.getLocation === 'function'
+      ? window.CE_HOTEL_BOOKING_UI.getLocation(hotel)
+      : (hotel || {});
+    const parts = [
+      location?.address_line,
+      location?.district,
+      location?.postal_code,
+      location?.city || hotel?.city,
+      location?.country,
+    ].map((value) => String(value || '').trim()).filter(Boolean);
+    return parts.join(', ');
+  }
+
+  function resolveMapItemFromId(id) {
+    const normalizedId = normalizePoiId(id);
+    if (!normalizedId) return null;
+    if (findPoi(normalizedId)) return { type: 'poi', id: normalizedId };
+    if (findRecommendation(normalizedId)) return { type: 'recommendation', id: normalizedId };
+    if (findHotel(normalizedId)) return { type: 'hotel', id: normalizedId };
+    return null;
+  }
+
+  function isPoiFilterActive() {
+    const activeMapFilter = typeof window.getMapMarkerFilter === 'function'
+      ? window.getMapMarkerFilter()
+      : 'all';
+    return activeMapFilter === 'all' || activeMapFilter === 'poi';
+  }
+
+  function waitForCondition(check, { attempts = 80, delay = 100 } = {}) {
+    return new Promise((resolve) => {
+      let iteration = 0;
+      const tick = () => {
+        let passed = false;
+        try {
+          passed = Boolean(check());
+        } catch (_) {}
+        if (passed) {
+          resolve(true);
+          return;
+        }
+        iteration += 1;
+        if (iteration >= attempts) {
+          resolve(false);
+          return;
+        }
+        setTimeout(tick, delay);
+      };
+      tick();
+    });
+  }
+
+  function ensureHomeHotelsModuleLoaded() {
+    if (typeof window.openHotelModalById === 'function' && typeof window.getHomeHotelsData === 'function') {
+      return Promise.resolve(true);
+    }
+
+    if (homeHotelsModuleLoadPromise) {
+      return homeHotelsModuleLoadPromise;
+    }
+
+    homeHotelsModuleLoadPromise = new Promise((resolve) => {
+      let settled = false;
+      const finish = (result) => {
+        if (settled) return;
+        settled = true;
+        resolve(Boolean(result));
+      };
+
+      let script = document.querySelector(`script[data-home-lazy-src="${HOME_HOTELS_SCRIPT_SRC}"], script[src*="js/home-hotels.js"]`);
+      if (!script) {
+        script = document.createElement('script');
+        script.src = HOME_HOTELS_SCRIPT_SRC;
+        script.async = false;
+        script.setAttribute('data-home-lazy-src', HOME_HOTELS_SCRIPT_SRC);
+        document.body.appendChild(script);
+      }
+
+      script.addEventListener('load', () => {
+        if (typeof window.openHotelModalById === 'function') {
+          finish(true);
+        }
+      }, { once: true });
+      script.addEventListener('error', () => finish(false), { once: true });
+
+      waitForCondition(() => typeof window.openHotelModalById === 'function' && typeof window.getHomeHotelsData === 'function')
+        .then(finish);
+    }).finally(() => {
+      homeHotelsModuleLoadPromise = null;
+    });
+
+    return homeHotelsModuleLoadPromise;
+  }
+
+  function setCurrentMapDisplayItem(item, options = {}) {
+    const normalized = normalizeMapItem(item);
+    if (!normalized?.id) return;
+
+    if (normalized.type === 'hotel') {
+      const hotel = findHotel(normalized.id);
+      if (!hotel) return;
+      setCurrentHotel(hotel, options);
+      return;
+    }
+
+    if (normalized.type === 'recommendation') {
+      const recommendation = findRecommendation(normalized.id);
+      if (!recommendation) return;
+      setCurrentRecommendation(recommendation, options);
+      return;
+    }
+
+    setCurrentPlace(normalized.id, options);
+  }
+
+  function updateCurrentPlaceActionsForType(type, entity = null){
     const actionsEl = document.querySelector('.current-place-actions');
     const checkInBtn = document.getElementById('currentPlaceCheckInBtn') || getCheckInButton();
     const detailsBtn = document.getElementById('currentPlaceCommentsBtn');
@@ -467,11 +690,11 @@
     const mapIcon = mapBtn ? mapBtn.querySelector('.btn-icon') : null;
 
     if (actionsEl) {
-      actionsEl.classList.toggle('is-recommendation', type === 'recommendation');
+      actionsEl.classList.toggle('is-recommendation', type === 'recommendation' || type === 'hotel');
     }
 
     if (checkInBtn) {
-      const shouldHideCheckIn = type === 'recommendation';
+      const shouldHideCheckIn = type === 'recommendation' || type === 'hotel';
       checkInBtn.classList.toggle('is-hidden', shouldHideCheckIn);
       checkInBtn.disabled = shouldHideCheckIn;
       if (!shouldHideCheckIn) {
@@ -480,25 +703,31 @@
     }
 
     if (detailsLabel) {
-      detailsLabel.textContent = type === 'recommendation'
-        ? t('currentPlace.details', 'Szczegóły', 'Details')
-        : t('currentPlace.info', 'Info', 'Info');
+      detailsLabel.textContent = type === 'poi'
+        ? t('currentPlace.info', 'Info', 'Info')
+        : t('currentPlace.details', 'Szczegóły', 'Details');
     }
     if (detailsIcon) {
-      detailsIcon.textContent = 'ℹ️';
+      detailsIcon.textContent = type === 'hotel' ? '🏨' : 'ℹ️';
     }
 
     if (mapLabel) {
-      mapLabel.textContent = t('currentPlace.map', 'Mapa', 'Map');
+      mapLabel.textContent = type === 'hotel'
+        ? t('currentPlace.route', 'Trasa', 'Route')
+        : t('currentPlace.map', 'Mapa', 'Map');
     }
     if (mapIcon) {
-      mapIcon.textContent = type === 'recommendation' ? '📍' : '➤';
+      mapIcon.textContent = type === 'poi' ? '➤' : '📍';
     }
 
     if (mapBtn) {
       const hasMapTarget = type === 'poi'
-        || Boolean(recommendation?.google_url)
-        || (Number.isFinite(Number.parseFloat(recommendation?.latitude)) && Number.isFinite(Number.parseFloat(recommendation?.longitude)));
+        || (type === 'hotel'
+          ? Boolean(getHotelMapsUrl(entity))
+          : (
+            Boolean(entity?.google_url)
+            || (Number.isFinite(Number.parseFloat(entity?.latitude)) && Number.isFinite(Number.parseFloat(entity?.longitude)))
+          ));
       mapBtn.disabled = !hasMapTarget;
     }
   }
@@ -509,9 +738,10 @@
   }
 
   function updateCurrentPlacePanelNavigationUi() {
-    const ids = getOrderedPoiIds();
-    const hasVisiblePois = ids.length > 0;
-    const currentIndex = currentId ? ids.indexOf(currentId) : -1;
+    const items = getOrderedMapItems();
+    const hasVisiblePois = items.length > 0;
+    const currentKey = currentId ? `${currentItemType}:${currentId}` : '';
+    const currentIndex = currentKey ? items.findIndex((item) => `${item.type}:${item.id}` === currentKey) : -1;
     const counterEl = document.getElementById('placeCounter');
     const prevBtn = document.getElementById('prevPlaceBtn');
     const nextBtn = document.getElementById('nextPlaceBtn');
@@ -525,14 +755,14 @@
       if (!hasVisiblePois) {
         counterEl.textContent = '0 / 0';
       } else if (currentIndex >= 0) {
-        counterEl.textContent = `${currentIndex + 1} / ${ids.length}`;
+        counterEl.textContent = `${currentIndex + 1} / ${items.length}`;
       } else {
-        counterEl.textContent = `1 / ${ids.length}`;
+        counterEl.textContent = `1 / ${items.length}`;
       }
     }
 
     if (prevBtn) prevBtn.disabled = !hasVisiblePois || currentIndex <= 0;
-    if (nextBtn) nextBtn.disabled = !hasVisiblePois || currentIndex < 0 || currentIndex >= ids.length - 1;
+    if (nextBtn) nextBtn.disabled = !hasVisiblePois || currentIndex < 0 || currentIndex >= items.length - 1;
 
     if (panelEl) {
       panelEl.classList.toggle('is-filter-empty', !hasVisiblePois);
@@ -554,7 +784,13 @@
       'No places available in this filter. Switch to another map view.',
     );
 
-    if (activeMapFilter !== 'recommendations' && Array.isArray(activePoiCategoryFilters) && activePoiCategoryFilters.length > 0 && activePoiCategoryLabel) {
+    if (activeMapFilter === 'hotels') {
+      noPoiMessage = t(
+        'currentPlace.filter.noHotels',
+        'Brak hoteli z przypiętą lokalizacją na mapie. Dodaj współrzędne w panelu admina.',
+        'No hotels with map coordinates are available. Add coordinates in the admin panel.',
+      );
+    } else if (activeMapFilter !== 'recommendations' && Array.isArray(activePoiCategoryFilters) && activePoiCategoryFilters.length > 0 && activePoiCategoryLabel) {
       noPoiMessage = t(
         'currentPlace.filter.noItemsCategory',
         `Brak miejsc w kategorii „${activePoiCategoryLabel}”. Wybierz inną kategorię.`,
@@ -610,21 +846,51 @@
   function handleMapVisiblePoiIdsChanged(event) {
     const detail = event?.detail || {};
     if (Array.isArray(detail.items)) {
-      visiblePoiIdsFromMap = detail.items
-        .map((item) => normalizePoiId(item?.id))
+      visibleMapItemsFromMap = detail.items
+        .map((item) => normalizeMapItem(item))
         .filter(Boolean);
-    } else if (Array.isArray(detail.poiIds)) {
-      visiblePoiIdsFromMap = detail.poiIds.map(normalizePoiId).filter(Boolean);
+      visiblePoiIdsFromMap = visibleMapItemsFromMap
+        .filter((item) => item.type === 'poi')
+        .map((item) => item.id);
+    } else {
+      const items = [];
+      if (Array.isArray(detail.poiIds)) {
+        detail.poiIds.forEach((id) => {
+          const normalized = normalizeMapItem({ type: 'poi', id });
+          if (normalized) items.push(normalized);
+        });
+      }
+      if (Array.isArray(detail.recommendationIds)) {
+        detail.recommendationIds.forEach((id) => {
+          const normalized = normalizeMapItem({ type: 'recommendation', id });
+          if (normalized) items.push(normalized);
+        });
+      }
+      if (Array.isArray(detail.hotelIds)) {
+        detail.hotelIds.forEach((id) => {
+          const normalized = normalizeMapItem({ type: 'hotel', id });
+          if (normalized) items.push(normalized);
+        });
+      }
+      visibleMapItemsFromMap = items.length ? items : null;
+      visiblePoiIdsFromMap = Array.isArray(detail.poiIds)
+        ? detail.poiIds.map(normalizePoiId).filter(Boolean)
+        : null;
     }
 
-    const ids = getOrderedPoiIds();
-    if (ids.length === 0) {
+    const items = getOrderedMapItems();
+    if (items.length === 0) {
       updateCurrentPlacePanelNavigationUi();
       return;
     }
 
-    if (!currentId || !ids.includes(currentId)) {
-      setCurrentPlace(ids[0], { focus: false, scroll: false, force: true });
+    const currentKey = currentId ? `${currentItemType}:${currentId}` : '';
+    const hasCurrent = currentKey
+      ? items.some((item) => `${item.type}:${item.id}` === currentKey)
+      : false;
+
+    if (!hasCurrent) {
+      setCurrentMapDisplayItem(items[0], { focus: false, scroll: false, force: true });
       return;
     }
 
@@ -634,7 +900,9 @@
   function setCurrentPlace(id, options={scroll:false, focus:true}){
     if(!id) return;
     if(currentId===id && !options.force){
-      const targetType = findPoi(id) ? 'poi' : (findRecommendation(id) ? 'recommendation' : currentItemType);
+      const targetType = findPoi(id)
+        ? 'poi'
+        : (findRecommendation(id) ? 'recommendation' : (findHotel(id) ? 'hotel' : currentItemType));
       if (targetType === currentItemType) {
         return;
       }
@@ -642,8 +910,13 @@
     const poi = findPoi(id);
     if(!poi) {
       const recommendation = findRecommendation(id);
-      if (!recommendation) return;
-      setCurrentRecommendation(recommendation, options);
+      if (recommendation) {
+        setCurrentRecommendation(recommendation, options);
+        return;
+      }
+      const hotel = findHotel(id);
+      if (!hotel) return;
+      setCurrentHotel(hotel, options);
       return;
     }
     setCurrentItem('poi', id);
@@ -753,6 +1026,98 @@
     updateCurrentPlacePanelNavigationUi();
     if (getOrderedPoiIds().includes(poi.id)) {
       void syncCurrentPlaceCheckInUi(poi.id, { forceRefresh: false });
+    }
+  }
+
+  function setCurrentHotel(hotel, options = { scroll: false, focus: true }) {
+    if (!hotel || !hotel.id) {
+      return;
+    }
+
+    const hotelId = normalizePoiId(hotel.id);
+    if (currentId === hotelId && currentItemType === 'hotel' && !options.force) {
+      return;
+    }
+
+    setCurrentItem('hotel', hotelId);
+    if (statsTimer) {
+      clearInterval(statsTimer);
+      statsTimer = null;
+    }
+
+    const nameEl = document.getElementById('currentPlaceName');
+    const descEl = document.getElementById('currentPlaceDescription');
+    const saveBtn = document.getElementById('currentPlaceSaveBtn');
+    const xpBadgeEl = document.getElementById('currentPlaceXPBadge');
+    const trophyBadgeEl = document.getElementById('currentPlaceTrophyBadge');
+    const typeBadgeEl = document.querySelector('.badge-type');
+    const commentsEl = document.getElementById('currentPlaceComments');
+    const ratingEl = document.getElementById('currentPlaceRating');
+
+    const hotelTitle = getHotelTitle(hotel) || t('currentPlace.hotel.label', 'Hotel', 'Hotel');
+    const hotelDescription = getHotelDescriptionText(hotel);
+    const hotelLocationSummary = getHotelLocationSummary(hotel);
+    const fallbackDescription = hotelLocationSummary
+      || String(hotel?.city || '').trim()
+      || t('currentPlace.hotel.requestOnly', 'Rezerwacja na zapytanie', 'Booking on request');
+    const resolvedDescription = hotelDescription || fallbackDescription;
+
+    if (nameEl) {
+      nameEl.textContent = hotelTitle;
+      try {
+        if (nameEl.hasAttribute('data-i18n')) nameEl.removeAttribute('data-i18n');
+      } catch (_) {}
+    }
+    if (descEl) {
+      descEl.textContent = resolvedDescription;
+    }
+
+    if (saveBtn) {
+      saveBtn.setAttribute('data-item-type', 'hotel');
+      saveBtn.setAttribute('data-ref-id', hotelId);
+      try {
+        if (window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.refreshButtons === 'function') {
+          const root = saveBtn.closest('.place-badges') || saveBtn.parentElement || document;
+          window.CE_SAVED_CATALOG.refreshButtons(root);
+        }
+      } catch (_) {}
+    }
+
+    if (typeBadgeEl) {
+      typeBadgeEl.textContent = t('currentPlace.hotel.badgeType', 'HOTEL', 'HOTEL');
+    }
+    if (xpBadgeEl) {
+      xpBadgeEl.textContent = getHotelPriceBadge(hotel);
+    }
+    if (trophyBadgeEl) {
+      trophyBadgeEl.style.display = 'none';
+    }
+    if (commentsEl) {
+      commentsEl.textContent = hotelLocationSummary || String(hotel?.city || '').trim();
+    }
+    if (ratingEl) {
+      ratingEl.textContent = t('currentPlace.hotel.requestOnly', 'Rezerwacja na zapytanie', 'Booking on request');
+    }
+
+    updateCurrentPlaceActionsForType('hotel', hotel);
+    setCheckInStatus('');
+    updateCurrentPlacePanelNavigationUi();
+
+    const listRoot = document.getElementById('poisList');
+    if (listRoot) {
+      listRoot.querySelectorAll('.poi-card.active').forEach((el) => el.classList.remove('active'));
+    }
+
+    if (options.focus !== false) {
+      if (typeof window.focusHotelOnMap === 'function') {
+        window.focusHotelOnMap(hotelId, window.mapInstance || null);
+      } else {
+        const latitude = Number(hotel?.latitude);
+        const longitude = Number(hotel?.longitude);
+        if (Number.isFinite(latitude) && Number.isFinite(longitude) && window.mapInstance?.setView) {
+          window.mapInstance.setView([latitude, longitude], 14, { animate: true });
+        }
+      }
     }
   }
 
@@ -944,25 +1309,30 @@
   }
 
   function navigatePlace(delta){
-    const ids = getOrderedPoiIds();
-    if(ids.length===0) {
+    const items = getOrderedMapItems();
+    if(items.length===0) {
       updateCurrentPlacePanelNavigationUi();
       return;
     }
-    let idx = Math.max(0, ids.indexOf(currentId));
+    const currentKey = currentId ? `${currentItemType}:${currentId}` : '';
+    let idx = Math.max(0, items.findIndex((item) => `${item.type}:${item.id}` === currentKey));
     idx = idx + delta;
-    if(idx<0) idx = 0; else if(idx>=ids.length) idx = ids.length-1;
-    setCurrentPlace(ids[idx], {scroll:true, force:true});
+    if(idx<0) idx = 0; else if(idx>=items.length) idx = items.length-1;
+    setCurrentMapDisplayItem(items[idx], {scroll:true, force:true});
   }
 
-  function showCommunity(id){
+  async function showCommunity(id){
     const targetId = id || currentId;
     if (!targetId) {
       return;
     }
 
-    const targetPoi = findPoi(targetId);
-    const targetType = targetPoi ? 'poi' : (findRecommendation(targetId) ? 'recommendation' : currentItemType);
+    const currentItem = getCurrentItem();
+    const targetItem = currentItem && currentItem.id === targetId
+      ? currentItem
+      : (resolveMapItemFromId(targetId) || currentItem);
+    const targetPoi = targetItem?.type === 'poi' ? findPoi(targetId) : null;
+    const targetType = targetItem?.type || currentItemType;
 
     if (targetType === 'recommendation') {
       if (typeof window.openRecommendationDetailModal === 'function') {
@@ -970,6 +1340,24 @@
       } else {
         window.location.href = '/recommendations.html';
       }
+      return;
+    }
+
+    if (targetType === 'hotel') {
+      const hotelLoaded = await ensureHomeHotelsModuleLoaded();
+      const hasHotelData = hotelLoaded
+        ? await waitForCondition(() => {
+          if (typeof window.getHomeHotelsData !== 'function') return false;
+          const hotels = window.getHomeHotelsData();
+          return Array.isArray(hotels) && hotels.some((hotel) => normalizePoiId(hotel?.id) === targetId);
+        }, { attempts: 60, delay: 120 })
+        : false;
+
+      if (hasHotelData && typeof window.openHotelModalById === 'function') {
+        window.openHotelModalById(targetId, { focus: false });
+        return;
+      }
+      window.location.href = '/hotels.html';
       return;
     }
 
@@ -1006,6 +1394,19 @@
       }
       if (typeof window.openRecommendationMarkerPopup === 'function') {
         window.openRecommendationMarkerPopup(currentItem.id, window.mapInstance || null);
+      }
+      return;
+    }
+
+    if (currentItem.type === 'hotel') {
+      const hotel = findHotel(currentItem.id);
+      const mapsUrl = getHotelMapsUrl(hotel);
+      if (mapsUrl) {
+        window.open(mapsUrl, '_blank', 'noopener');
+        return;
+      }
+      if (typeof window.focusHotelOnMap === 'function') {
+        window.focusHotelOnMap(currentItem.id, window.mapInstance || null);
       }
       return;
     }
@@ -1328,6 +1729,9 @@
 
     const entriesMap = new Map();
     observer = new IntersectionObserver((entries)=>{
+      if (!isPoiFilterActive()) {
+        return;
+      }
       for(const e of entries){
         const id = e.target.dataset.poiId;
         entriesMap.set(id, e.intersectionRatio);
@@ -1340,8 +1744,8 @@
     Array.from(list.querySelectorAll('.poi-card')).forEach(el=>observer.observe(el));
     observing = true;
 
-    const firstId = getOrderedPoiIds()[0];
-    if(firstId) setCurrentPlace(firstId, {force:true, focus:false});
+    const firstItem = getOrderedMapItems()[0];
+    if(firstItem) setCurrentMapDisplayItem(firstItem, {force:true, focus:false});
   }
 
   function waitForListThenSetup(){
@@ -1354,9 +1758,9 @@
         return true;
       }
       // No list on this page – select the first POI from PLACES_DATA and update panel + map
-      const firstId = getOrderedPoiIds()[0];
-      if(firstId){
-        setCurrentPlace(firstId, {focus:false, scroll:false, force:true});
+      const firstItem = getOrderedMapItems()[0];
+      if(firstItem){
+        setCurrentMapDisplayItem(firstItem, {focus:false, scroll:false, force:true});
       }
       return true;
     };
@@ -1377,8 +1781,9 @@
     setCurrentPlace(id, Object.assign({scroll:false, force:true}, opts||{}));
   };
   window.setCurrentMapItem = function(item, opts){
-    if (!item || !item.id) return;
-    setCurrentPlace(item.id, Object.assign({scroll:false, force:true}, opts||{}));
+    const normalized = normalizeMapItem(item);
+    if (!normalized?.id) return;
+    setCurrentMapDisplayItem(normalized, Object.assign({scroll:false, force:true}, opts||{}));
   };
 
   window.addEventListener('mapVisibleItemsChanged', handleMapVisiblePoiIdsChanged);
@@ -1415,25 +1820,31 @@
     if (typeof window.getVisibleMapItemsForMap === 'function') {
       const mapItems = window.getVisibleMapItemsForMap();
       if (Array.isArray(mapItems)) {
-        visiblePoiIdsFromMap = mapItems
-          .map((item) => normalizePoiId(item?.id))
+        visibleMapItemsFromMap = mapItems
+          .map((item) => normalizeMapItem(item))
           .filter(Boolean);
+        visiblePoiIdsFromMap = visibleMapItemsFromMap
+          .filter((item) => item.type === 'poi')
+          .map((item) => item.id);
       }
     } else if (typeof window.getVisiblePoiIdsForMap === 'function') {
       const mapIds = window.getVisiblePoiIdsForMap();
       if (Array.isArray(mapIds)) {
         visiblePoiIdsFromMap = mapIds.map(normalizePoiId).filter(Boolean);
+        visibleMapItemsFromMap = visiblePoiIdsFromMap
+          .map((id) => normalizeMapItem({ type: 'poi', id }))
+          .filter(Boolean);
       }
     }
     
-    // Auto-select first POI if not set yet
+    // Auto-select first visible map item if not set yet
     if(!currentId){
-      const firstId = getOrderedPoiIds()[0];
-      if(firstId){
-        ceLog('🎯 Setting initial place:', firstId);
-        setCurrentPlace(firstId, {focus:false, scroll:false, force:true});
+      const firstItem = getOrderedMapItems()[0];
+      if(firstItem){
+        ceLog('🎯 Setting initial place:', firstItem);
+        setCurrentMapDisplayItem(firstItem, {focus:false, scroll:false, force:true});
       } else {
-        console.warn('⚠️ No POI IDs available');
+        console.warn('⚠️ No map items available');
       }
     }
     waitForListThenSetup();
@@ -1445,9 +1856,9 @@
   // Refresh handling when data is reloaded
   window.addEventListener('poisDataRefreshed', () => {
     if(!currentId){
-      const firstId = getOrderedPoiIds()[0];
-      if(firstId){
-        setCurrentPlace(firstId, {focus:false, scroll:false, force:true});
+      const firstItem = getOrderedMapItems()[0];
+      if(firstItem){
+        setCurrentMapDisplayItem(firstItem, {focus:false, scroll:false, force:true});
       }
     }
     updateCurrentPlacePanelNavigationUi();
@@ -1459,7 +1870,7 @@
       ceLog('📍 POI Panel: Re-rendering for language:', language);
       if (currentId) {
         // Re-render current place with new language
-        setCurrentPlace(currentId, {focus:false, scroll:false, force:true});
+        setCurrentMapDisplayItem({ type: currentItemType, id: currentId }, {focus:false, scroll:false, force:true});
         ceLog('✅ POI Panel re-rendered');
       } else {
         updateCurrentPlacePanelNavigationUi();

@@ -402,6 +402,7 @@ function renderDetail(type, vm){
   const renderHotelUiSections = () => {
     if (form.dataset.type !== 'hotel' || !detailHotelBookingUi) return;
     detailHotelBookingUi.renderLocationSummary(qs('#detailHotelLocationSummary'), vm.raw, { form });
+    detailHotelBookingUi.refreshLocationSummaryMap?.(qs('#detailHotelLocationSummary'));
     detailHotelBookingUi.renderRoomTypeOptions(qs('#detailHotelRoomTypeOptions'), vm.raw, {
       form,
       roomInputName: 'hotel_room_type_id',

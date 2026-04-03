@@ -1300,6 +1300,7 @@
       ensureHotelCouponUi();
       clearHotelCouponState({ clearInput: true });
       renderHotelBookingUiSections({ selectedExtraIds: [] });
+      hotelBookingUi?.refreshLocationSummaryMap?.(document.getElementById('hotelLocationSummary'));
       
       // Prefill form with user data if logged in
       prefillUserData();
@@ -1330,6 +1331,7 @@
         modalEl.classList.add('active');
         document.body.classList.add('modal-open');
       }
+      hotelBookingUi?.refreshLocationSummaryMap?.(document.getElementById('hotelLocationSummary'));
     }
 
     window.closeHotelModal = function(){

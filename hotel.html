@@ -612,6 +612,7 @@
       $('#hSub').textContent = hotel.city || '';
       $('#hDesc').innerHTML = (window.getHotelDescription ? window.getHotelDescription(hotel) : (hotel.description?.pl || hotel.description?.en || '')).replace(/\n/g,'<br/>');
       renderHotelPageBookingUi({ selectedExtraIds: [] });
+      hotelPageBookingUi?.refreshLocationSummaryMap?.(document.getElementById('hotelPageLocationSummary'));
       updateLive();
       $('#bookForm').addEventListener('input', (e)=>{
         if (e.target?.name === 'coupon_code'){

@@ -188,6 +188,7 @@ try {
     ALL: 'all',
     POI: 'poi',
     RECOMMENDATIONS: 'recommendations',
+    HOTELS: 'hotels',
   });
   const MAP_POI_CATEGORY_ALL = 'all';
   let mapMarkerFilter = MAP_MARKER_FILTERS.ALL;
@@ -213,7 +214,9 @@ try {
   let activeMapMarkerSelection = null;
   let activePoiMarkerId = null;
   let activeRecommendationMarkerId = null;
+  let activeHotelMarkerId = null;
   const MAP_MARKER_Z_INDEX_BASE_POI = 4000;
+  const MAP_MARKER_Z_INDEX_BASE_HOTEL = 4100;
   const MAP_MARKER_Z_INDEX_BASE_RECOMMENDATION = 4200;
   const MAP_MARKER_Z_INDEX_ACTIVE = 7600;
   
@@ -660,8 +663,11 @@ try {
     }
     const id = String(rawItem.id || '').trim();
     if (!id) return null;
+    const rawType = String(rawItem.type || '').trim().toLowerCase();
     return {
-      type: rawItem.type === 'recommendation' ? 'recommendation' : 'poi',
+      type: rawType === 'recommendation'
+        ? 'recommendation'
+        : (rawType === 'hotel' ? 'hotel' : 'poi'),
       id,
     };
   }
@@ -689,10 +695,22 @@ try {
     return null;
   }
 
+  function getHotelMarkerById(hotelId) {
+    const id = String(hotelId || '').trim();
+    if (!id) return null;
+    if (typeof window.getHotelMarkerById === 'function') {
+      return window.getHotelMarkerById(id) || null;
+    }
+    return null;
+  }
+
   function setMarkerVisualState(marker, markerType, active) {
     if (!marker) return;
     const isRecommendation = markerType === 'recommendation';
-    const baseZ = isRecommendation ? MAP_MARKER_Z_INDEX_BASE_RECOMMENDATION : MAP_MARKER_Z_INDEX_BASE_POI;
+    const isHotel = markerType === 'hotel';
+    const baseZ = isRecommendation
+      ? MAP_MARKER_Z_INDEX_BASE_RECOMMENDATION
+      : (isHotel ? MAP_MARKER_Z_INDEX_BASE_HOTEL : MAP_MARKER_Z_INDEX_BASE_POI);
 
     if (typeof marker.setZIndexOffset === 'function') {
       marker.setZIndexOffset(active ? MAP_MARKER_Z_INDEX_ACTIVE : baseZ);
@@ -701,7 +719,8 @@ try {
     const markerEl = typeof marker.getElement === 'function' ? marker.getElement() : null;
     if (!markerEl) return;
     markerEl.classList.toggle('map-marker-active', !!active);
-    markerEl.classList.toggle('map-marker-active--poi', !!active && !isRecommendation);
+    markerEl.classList.toggle('map-marker-active--poi', !!active && !isRecommendation && !isHotel);
+    markerEl.classList.toggle('map-marker-active--hotel', !!active && isHotel);
     markerEl.classList.toggle('map-marker-active--recommendation', !!active && isRecommendation);
   }
 
@@ -712,8 +731,12 @@ try {
     if (activeRecommendationMarkerId) {
       setMarkerVisualState(getRecommendationMarkerById(activeRecommendationMarkerId), 'recommendation', false);
     }
+    if (activeHotelMarkerId) {
+      setMarkerVisualState(getHotelMarkerById(activeHotelMarkerId), 'hotel', false);
+    }
     activePoiMarkerId = null;
     activeRecommendationMarkerId = null;
+    activeHotelMarkerId = null;
   }
 
   function applyActiveMapMarkerSelection(rawSelection) {
@@ -726,6 +749,12 @@ try {
     if (selection.type === 'recommendation') {
       activeRecommendationMarkerId = selection.id;
       setMarkerVisualState(getRecommendationMarkerById(selection.id), 'recommendation', true);
+      return;
+    }
+
+    if (selection.type === 'hotel') {
+      activeHotelMarkerId = selection.id;
+      setMarkerVisualState(getHotelMarkerById(selection.id), 'hotel', true);
       return;
     }
 
@@ -822,6 +851,21 @@ try {
     return visibleIds;
   }
 
+  function getVisibleHotelIdsForCurrentFilter() {
+    if (!shouldShowHotelMarkers()) {
+      return [];
+    }
+
+    if (typeof window.getVisibleHotelIdsForMap === 'function') {
+      const ids = window.getVisibleHotelIdsForMap(mapInstance);
+      if (Array.isArray(ids)) {
+        return ids.map((id) => String(id)).filter(Boolean);
+      }
+    }
+
+    return [];
+  }
+
   function getVisibleRecommendationIdsForCurrentFilter() {
     if (!shouldShowRecommendationMarkers()) {
       return [];
@@ -841,12 +885,16 @@ try {
     const items = [];
     const poiIds = getVisiblePoiIdsForCurrentFilter();
     const recommendationIds = getVisibleRecommendationIdsForCurrentFilter();
+    const hotelIds = getVisibleHotelIdsForCurrentFilter();
 
     poiIds.forEach((id) => {
       items.push({ type: 'poi', id });
     });
     recommendationIds.forEach((id) => {
       items.push({ type: 'recommendation', id });
+    });
+    hotelIds.forEach((id) => {
+      items.push({ type: 'hotel', id });
     });
 
     return items;
@@ -855,12 +903,13 @@ try {
   function dispatchVisiblePoiIdsChanged(force = false) {
     const nextVisibleIds = getVisiblePoiIdsForCurrentFilter();
     const nextRecommendationIds = getVisibleRecommendationIdsForCurrentFilter();
+    const nextHotelIds = getVisibleHotelIdsForCurrentFilter();
     const nextVisibleItems = getVisibleMapItemsForCurrentFilter();
     const activePoiCategoryFilters = getActivePoiCategoryFilters();
     const poiCategoryFilterSignature = activePoiCategoryFilters.join('|') || MAP_POI_CATEGORY_ALL;
     mapVisiblePoiIds = nextVisibleIds;
     mapVisibleItems = nextVisibleItems;
-    const nextSignature = `${mapMarkerFilter}|poiCats:${poiCategoryFilterSignature}|poi:${nextVisibleIds.join(',')}|rec:${nextRecommendationIds.join(',')}`;
+    const nextSignature = `${mapMarkerFilter}|poiCats:${poiCategoryFilterSignature}|poi:${nextVisibleIds.join(',')}|rec:${nextRecommendationIds.join(',')}|hotel:${nextHotelIds.join(',')}`;
 
     if (!force && nextSignature === lastVisiblePoiIdsSignature) {
       return;
@@ -875,6 +924,7 @@ try {
           poiCategoryFilters: [...activePoiCategoryFilters],
           poiCategoryLabel: getPoiCategoryFilterSummaryLabel(),
           poiIds: [...nextVisibleIds],
+          hotelIds: [...nextHotelIds],
         },
       }));
     } catch (_) {}
@@ -888,6 +938,7 @@ try {
           poiCategoryLabel: getPoiCategoryFilterSummaryLabel(),
           poiIds: [...nextVisibleIds],
           recommendationIds: [...nextRecommendationIds],
+          hotelIds: [...nextHotelIds],
           items: nextVisibleItems.map((item) => ({ ...item })),
         },
       }));
@@ -899,15 +950,24 @@ try {
       value === MAP_MARKER_FILTERS.ALL
       || value === MAP_MARKER_FILTERS.POI
       || value === MAP_MARKER_FILTERS.RECOMMENDATIONS
+      || value === MAP_MARKER_FILTERS.HOTELS
     );
   }
 
   function shouldShowPoiMarkers() {
-    return mapMarkerFilter !== MAP_MARKER_FILTERS.RECOMMENDATIONS;
+    return mapMarkerFilter === MAP_MARKER_FILTERS.ALL || mapMarkerFilter === MAP_MARKER_FILTERS.POI;
   }
 
   function shouldShowRecommendationMarkers() {
-    return mapMarkerFilter !== MAP_MARKER_FILTERS.POI;
+    return mapMarkerFilter === MAP_MARKER_FILTERS.ALL || mapMarkerFilter === MAP_MARKER_FILTERS.RECOMMENDATIONS;
+  }
+
+  function shouldShowHotelMarkers() {
+    return mapMarkerFilter === MAP_MARKER_FILTERS.ALL || mapMarkerFilter === MAP_MARKER_FILTERS.HOTELS;
+  }
+
+  function isPoiCategoryFilterEnabled() {
+    return mapMarkerFilter === MAP_MARKER_FILTERS.ALL || mapMarkerFilter === MAP_MARKER_FILTERS.POI;
   }
 
   function getMapMarkerFilterOptions() {
@@ -924,12 +984,28 @@ try {
         value: MAP_MARKER_FILTERS.RECOMMENDATIONS,
         label: getUiTranslation('map.filter.recommendationsOnly', 'Recommended places'),
       },
+      {
+        value: MAP_MARKER_FILTERS.HOTELS,
+        label: getUiTranslation('map.filter.hotelsOnly', 'Hotels'),
+      },
     ];
   }
 
   function getRecommendationMarkersStats() {
     if (typeof window.getRecommendationMarkersStats === 'function') {
       const raw = window.getRecommendationMarkersStats(mapInstance) || {};
+      return {
+        total: Number.isFinite(raw.total) ? raw.total : 0,
+        visible: Number.isFinite(raw.visible) ? raw.visible : 0,
+      };
+    }
+
+    return { total: 0, visible: 0 };
+  }
+
+  function getHotelMarkersStats() {
+    if (typeof window.getHotelMarkersStats === 'function') {
+      const raw = window.getHotelMarkersStats(mapInstance) || {};
       return {
         total: Number.isFinite(raw.total) ? raw.total : 0,
         visible: Number.isFinite(raw.visible) ? raw.visible : 0,
@@ -951,9 +1027,14 @@ try {
     const recommendationVisible = shouldShowRecommendationMarkers()
       ? recommendationStats.visible
       : 0;
+    const hotelStats = getHotelMarkersStats();
+    const hotelTotal = hotelStats.total;
+    const hotelVisible = shouldShowHotelMarkers()
+      ? hotelStats.visible
+      : 0;
 
-    const visibleCount = poiVisible + recommendationVisible;
-    const totalCount = poiTotal + recommendationTotal;
+    const visibleCount = poiVisible + recommendationVisible + hotelVisible;
+    const totalCount = poiTotal + recommendationTotal + hotelTotal;
 
     const summaryTemplate = getUiTranslation(
       'map.filter.counter',
@@ -966,13 +1047,15 @@ try {
 
     const detailsTemplate = getUiTranslation(
       'map.filter.counterBreakdown',
-      'Visit points {{poiVisible}}/{{poiTotal}} • Recommended {{recommendationsVisible}}/{{recommendationsTotal}}'
+      'Visit points {{poiVisible}}/{{poiTotal}} • Recommended {{recommendationsVisible}}/{{recommendationsTotal}} • Hotels {{hotelsVisible}}/{{hotelsTotal}}'
     );
     const detailsText = interpolateTemplate(detailsTemplate, {
       poiVisible,
       poiTotal,
       recommendationsVisible: recommendationVisible,
       recommendationsTotal: recommendationTotal,
+      hotelsVisible: hotelVisible,
+      hotelsTotal: hotelTotal,
     });
 
     mapMarkerFilterCounter.textContent = summaryText;
@@ -1103,7 +1186,7 @@ try {
 
     const wasOpen = mapPoiCategoryContainer.classList.contains('is-open');
     mapPoiCategoryContainer.innerHTML = '';
-    mapPoiCategoryContainer.classList.toggle('is-disabled', mapMarkerFilter === MAP_MARKER_FILTERS.RECOMMENDATIONS);
+    mapPoiCategoryContainer.classList.toggle('is-disabled', !isPoiCategoryFilterEnabled());
 
     const wrapper = document.createElement('div');
     wrapper.className = 'map-poi-picker';
@@ -1113,7 +1196,7 @@ try {
     toggleBtn.className = 'map-poi-picker__toggle';
     toggleBtn.setAttribute('aria-label', getUiTranslation('map.filter.poiCategoryAria', 'POI category filter'));
     toggleBtn.setAttribute('aria-expanded', wasOpen ? 'true' : 'false');
-    toggleBtn.disabled = mapMarkerFilter === MAP_MARKER_FILTERS.RECOMMENDATIONS;
+    toggleBtn.disabled = !isPoiCategoryFilterEnabled();
     toggleBtn.title = getPoiCategoryFilterSummaryLabel();
 
     const icon = document.createElement('span');
@@ -1131,7 +1214,7 @@ try {
     }
 
     toggleBtn.addEventListener('click', () => {
-      if (mapMarkerFilter === MAP_MARKER_FILTERS.RECOMMENDATIONS) return;
+      if (!isPoiCategoryFilterEnabled()) return;
       setPoiCategoryPopoverOpen(!mapPoiCategoryContainer.classList.contains('is-open'));
     });
 
@@ -1239,7 +1322,7 @@ try {
 
     mapPoiCategoryToggleBtn = toggleBtn;
     mapPoiCategoryPopover = popover;
-    setPoiCategoryPopoverOpen(wasOpen && mapMarkerFilter !== MAP_MARKER_FILTERS.RECOMMENDATIONS);
+    setPoiCategoryPopoverOpen(wasOpen && isPoiCategoryFilterEnabled());
     syncPoiCategoryControlOffset();
   }
 
@@ -1311,17 +1394,17 @@ try {
     });
 
     if (mapPoiCategoryContainer) {
-      mapPoiCategoryContainer.classList.toggle('is-disabled', mapMarkerFilter === MAP_MARKER_FILTERS.RECOMMENDATIONS);
+      mapPoiCategoryContainer.classList.toggle('is-disabled', !isPoiCategoryFilterEnabled());
     }
     if (mapPoiCategoryToggleBtn) {
-      mapPoiCategoryToggleBtn.disabled = mapMarkerFilter === MAP_MARKER_FILTERS.RECOMMENDATIONS;
+      mapPoiCategoryToggleBtn.disabled = !isPoiCategoryFilterEnabled();
       mapPoiCategoryToggleBtn.title = getPoiCategoryFilterSummaryLabel();
       const iconEl = mapPoiCategoryToggleBtn.querySelector('.map-poi-picker__icon');
       if (iconEl) {
         iconEl.textContent = getPoiCategoryTriggerIcon();
       }
     }
-    if (mapMarkerFilter === MAP_MARKER_FILTERS.RECOMMENDATIONS) {
+    if (!isPoiCategoryFilterEnabled()) {
       setPoiCategoryPopoverOpen(false);
     }
   }
@@ -1329,6 +1412,7 @@ try {
   function applyMapMarkerFilter(options = {}) {
     const rerenderPoiMarkers = options.rerenderPoiMarkers !== false;
     const refreshRecommendationVisibility = options.refreshRecommendationVisibility !== false;
+    const refreshHotelVisibility = options.refreshHotelVisibility !== false;
     const didResetCategory = ensureValidPoiCategoryFilter();
 
     if (!mapInstance) {
@@ -1346,6 +1430,9 @@ try {
 
     if (refreshRecommendationVisibility && typeof window.setRecommendationMarkersVisibility === 'function') {
       window.setRecommendationMarkersVisibility(mapInstance, shouldShowRecommendationMarkers());
+    }
+    if (refreshHotelVisibility && typeof window.setHotelMarkersVisibility === 'function') {
+      window.setHotelMarkersVisibility(mapInstance, shouldShowHotelMarkers());
     }
     if (typeof window.setRecommendationCategoryFilter === 'function') {
       const activeCategoryFilters = mapMarkerFilter === MAP_MARKER_FILTERS.ALL
@@ -1394,7 +1481,7 @@ try {
     mapPoiCategoryFilters = nextSet;
     applyMapMarkerFilter();
 
-    if (keepPopoverOpen && mapMarkerFilter !== MAP_MARKER_FILTERS.RECOMMENDATIONS) {
+    if (keepPopoverOpen && isPoiCategoryFilterEnabled()) {
       setPoiCategoryPopoverOpen(true);
     }
   }
@@ -1420,11 +1507,17 @@ try {
       applyMapMarkerFilter({
         rerenderPoiMarkers: false,
         refreshRecommendationVisibility: false,
+        refreshHotelVisibility: false,
       });
     };
     window.addEventListener('mapRecommendationMarkersUpdated', () => {
       ensureValidPoiCategoryFilter();
       renderMapPoiCategoryControl();
+      updateMapMarkerFilterCounter();
+      dispatchVisiblePoiIdsChanged(true);
+      syncActiveMapMarkerSelection();
+    });
+    window.addEventListener('mapHotelMarkersUpdated', () => {
       updateMapMarkerFilterCounter();
       dispatchVisiblePoiIdsChanged(true);
       syncActiveMapMarkerSelection();
@@ -1794,6 +1887,24 @@ try {
             })
             .catch((error) => {
               console.warn('[app-core] Recommendation markers init failed:', error);
+              updateMapMarkerFilterCounter();
+            });
+        } else {
+          applyMapMarkerFilter();
+        }
+      });
+    }
+
+    if (typeof window.initMapHotels === 'function') {
+      runWhenIdle(() => {
+        const hotelInit = window.initMapHotels(mapInstance);
+        if (hotelInit && typeof hotelInit.then === 'function') {
+          hotelInit
+            .then(() => {
+              applyMapMarkerFilter();
+            })
+            .catch((error) => {
+              console.warn('[app-core] Hotel markers init failed:', error);
               updateMapMarkerFilterCounter();
             });
         } else {

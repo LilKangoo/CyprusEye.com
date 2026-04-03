@@ -4,6 +4,7 @@
 let homeHotelsData = [];
 let homeHotelsCurrentCity = 'all';
 let homeHotelsDisplay = [];
+let homeHotelModalList = [];
 let homeCurrentHotel = null;
 let homeHotelIndex = null;
 let homeHotelsSavedOnly = false;
@@ -12,6 +13,16 @@ let homeHotelCouponState = { applied: null };
 const CE_DEBUG_HOME_HOTELS = typeof localStorage !== 'undefined' && localStorage.getItem('CE_DEBUG') === 'true';
 function ceLog(...args) {
   if (CE_DEBUG_HOME_HOTELS) console.log(...args);
+}
+
+function dispatchHomeHotelsDataRefreshed() {
+  try {
+    window.dispatchEvent(new CustomEvent('homeHotelsDataRefreshed', {
+      detail: {
+        total: Array.isArray(homeHotelsData) ? homeHotelsData.length : 0,
+      },
+    }));
+  } catch (_) {}
 }
 
 function getHomeHotelPricingEngine() {
@@ -225,6 +236,7 @@ async function loadHomeHotels(){
     const cached = readHomeHotelsCache();
     if (cached && cached.length > 0) {
       homeHotelsData = cached;
+      dispatchHomeHotelsDataRefreshed();
       renderHomeHotelsTabs();
       renderHomeHotels();
     }
@@ -243,6 +255,7 @@ async function loadHomeHotels(){
     if(error) throw error;
     homeHotelsData = data || [];
     writeHomeHotelsCache(homeHotelsData);
+    dispatchHomeHotelsDataRefreshed();
     
     renderHomeHotelsTabs();
     renderHomeHotels();
@@ -643,8 +656,18 @@ function initHomeHotels() {
   // Nav arrows
   const prevBtn = document.getElementById('hotelModalPrev');
   const nextBtn = document.getElementById('hotelModalNext');
-  if (prevBtn) prevBtn.addEventListener('click', ()=>{ if (homeHotelIndex==null) return; const i=Math.max(0, homeHotelIndex-1); openHotelModalHome(i); });
-  if (nextBtn) nextBtn.addEventListener('click', ()=>{ if (homeHotelIndex==null) return; const i=Math.min(homeHotelsDisplay.length-1, homeHotelIndex+1); openHotelModalHome(i); });
+  if (prevBtn) prevBtn.addEventListener('click', ()=>{
+    if (homeHotelIndex == null) return;
+    const i = Math.max(0, homeHotelIndex - 1);
+    const nextHotel = homeHotelModalList[i];
+    if (nextHotel) openHotelModalByRecord(nextHotel, { list: homeHotelModalList, index: i });
+  });
+  if (nextBtn) nextBtn.addEventListener('click', ()=>{
+    if (homeHotelIndex == null) return;
+    const i = Math.min(homeHotelModalList.length - 1, homeHotelIndex + 1);
+    const nextHotel = homeHotelModalList[i];
+    if (nextHotel) openHotelModalByRecord(nextHotel, { list: homeHotelModalList, index: i });
+  });
 
   // Lightbox controls
   const lb = document.getElementById('imgLightbox');
@@ -1218,11 +1241,18 @@ function updateHotelLivePrice(){
   syncHomeHotelCouponButtons();
 }
 
-window.openHotelModalHome = function(index){
-  const h = homeHotelsDisplay[index];
+function openHotelModalByRecord(hotelRecord, options = {}) {
+  const h = hotelRecord;
   if(!h) return;
+  const modalList = Array.isArray(options.list) && options.list.length
+    ? options.list.filter(Boolean)
+    : (Array.isArray(homeHotelsDisplay) && homeHotelsDisplay.length ? homeHotelsDisplay.slice() : [h]);
+  const derivedIndex = Number.isFinite(Number(options.index))
+    ? Math.max(0, Number(options.index))
+    : Math.max(0, modalList.findIndex((entry) => String(entry?.id || '') === String(h.id || '')));
+  homeHotelModalList = modalList;
   homeCurrentHotel = h;
-  homeHotelIndex = index;
+  homeHotelIndex = derivedIndex >= 0 ? derivedIndex : null;
   const title = window.getHotelName ? window.getHotelName(h) : (h.title?.pl || h.title?.en || h.slug);
   const image = getMediaViewerUrl(h.cover_image_url || (Array.isArray(h.photos)&&h.photos[0]) || '/assets/cyprus_logo-1000x1054.png');
   const imgEl = document.getElementById('modalHotelImage');
@@ -1328,7 +1358,36 @@ window.openHotelModalHome = function(index){
     // Fallback
     if (modalEl){ modalEl.hidden=false; modalEl.classList.add('active'); document.body.style.overflow='hidden'; }
   }
+  homeHotelBookingUi?.refreshLocationSummaryMap?.(document.getElementById('hotelLocationSummary'));
   updateHotelModalArrows();
+}
+
+window.openHotelModalHome = function(index){
+  const h = homeHotelsDisplay[index];
+  if (!h) return;
+  openHotelModalByRecord(h, { list: homeHotelsDisplay, index });
+}
+
+window.openHotelModalByRecord = function(hotelRecord, options = {}) {
+  openHotelModalByRecord(hotelRecord, options);
+}
+
+window.openHotelModalById = function(hotelId, options = {}) {
+  const id = String(hotelId || '').trim();
+  if (!id) return;
+  const list = Array.isArray(options.list) && options.list.length
+    ? options.list.filter(Boolean)
+    : (Array.isArray(homeHotelsData) && homeHotelsData.length ? homeHotelsData.slice() : []);
+  const hotelRecord = list.find((entry) => String(entry?.id || '').trim() === id)
+    || homeHotelsData.find((entry) => String(entry?.id || '').trim() === id)
+    || null;
+  if (!hotelRecord) return;
+  const index = Math.max(0, list.findIndex((entry) => String(entry?.id || '').trim() === id));
+  openHotelModalByRecord(hotelRecord, { list: list.length ? list : [hotelRecord], index });
+}
+
+window.getHomeHotelsData = function() {
+  return Array.isArray(homeHotelsData) ? homeHotelsData.slice() : [];
 }
 
 window.closeHotelModal = function(){
@@ -1341,6 +1400,7 @@ window.closeHotelModal = function(){
   }
   homeCurrentHotel = null;
   homeHotelIndex = null;
+  homeHotelModalList = [];
 }
 
 // Lightbox (gallery)
@@ -1426,7 +1486,7 @@ function updateHotelModalArrows(){
   const prevBtn = document.getElementById('hotelModalPrev');
   const nextBtn = document.getElementById('hotelModalNext');
   if (!prevBtn || !nextBtn) return;
-  const total = homeHotelsDisplay.length;
+  const total = homeHotelModalList.length;
   const i = homeHotelIndex ?? 0;
   prevBtn.disabled = (i <= 0);
   nextBtn.disabled = (i >= total - 1);

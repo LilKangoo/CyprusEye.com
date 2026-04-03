@@ -38,6 +38,21 @@
       .replace(/>/g, '&gt;');
   }
 
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  const HOTEL_LEAFLET_CSS_URL = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+  const HOTEL_LEAFLET_JS_URL = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+  let hotelLeafletLoadPromise = null;
+  let hotelLocationMapCounter = 0;
+  const hotelLocationMapState = new WeakMap();
+
   function dedupeUrls(list) {
     const out = [];
     const seen = new Set();
@@ -117,6 +132,189 @@
         google_place_id: '',
         summary: String(hotel?.city || '').trim(),
       };
+  }
+
+  function buildHotelMapsHref(location) {
+    const direct = String(location?.google_maps_url || '').trim();
+    if (direct) return direct;
+    const latitude = Number(location?.latitude);
+    const longitude = Number(location?.longitude);
+    if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+      return `https://www.google.com/maps?q=${encodeURIComponent(`${latitude},${longitude}`)}`;
+    }
+    const summary = String(location?.summary || '').trim();
+    if (summary) {
+      return `https://www.google.com/maps?q=${encodeURIComponent(summary)}`;
+    }
+    return '';
+  }
+
+  function buildHotelAddressSummary(location) {
+    const parts = [
+      location?.address_line,
+      location?.district,
+      location?.postal_code,
+      location?.city,
+      location?.country,
+    ].map((value) => String(value || '').trim()).filter(Boolean);
+    if (parts.length) {
+      return parts.join(', ');
+    }
+    return String(location?.summary || '').trim();
+  }
+
+  function ensureHotelLeafletStylesheet() {
+    const doc = globalScope.document;
+    if (!doc) return;
+    if (doc.querySelector(`link[data-ce-hotel-leaflet-css="1"]`) || doc.querySelector(`link[href*="leaflet@1.9.4/dist/leaflet.css"]`)) {
+      return;
+    }
+    const link = doc.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = HOTEL_LEAFLET_CSS_URL;
+    link.crossOrigin = '';
+    link.setAttribute('data-ce-hotel-leaflet-css', '1');
+    doc.head?.appendChild(link);
+  }
+
+  function loadLeafletLibrary() {
+    if (globalScope.L && typeof globalScope.L.map === 'function') {
+      return Promise.resolve(globalScope.L);
+    }
+    if (hotelLeafletLoadPromise) {
+      return hotelLeafletLoadPromise;
+    }
+
+    const doc = globalScope.document;
+    if (!doc) {
+      return Promise.reject(new Error('Document unavailable'));
+    }
+
+    ensureHotelLeafletStylesheet();
+
+    hotelLeafletLoadPromise = new Promise((resolve, reject) => {
+      if (globalScope.L && typeof globalScope.L.map === 'function') {
+        resolve(globalScope.L);
+        return;
+      }
+
+      const onReady = () => {
+        if (globalScope.L && typeof globalScope.L.map === 'function') {
+          resolve(globalScope.L);
+          return true;
+        }
+        return false;
+      };
+      if (onReady()) return;
+
+      const existingScript = doc.querySelector('script[data-ce-hotel-leaflet-js="1"], script[src*="leaflet@1.9.4/dist/leaflet.js"]');
+      if (existingScript) {
+        existingScript.addEventListener('load', () => {
+          if (!onReady()) reject(new Error('Leaflet failed to initialize'));
+        }, { once: true });
+        existingScript.addEventListener('error', () => reject(new Error('Leaflet failed to load')), { once: true });
+        return;
+      }
+
+      const script = doc.createElement('script');
+      script.src = HOTEL_LEAFLET_JS_URL;
+      script.crossOrigin = '';
+      script.defer = true;
+      script.setAttribute('data-ce-hotel-leaflet-js', '1');
+      script.addEventListener('load', () => {
+        if (!onReady()) reject(new Error('Leaflet failed to initialize'));
+      }, { once: true });
+      script.addEventListener('error', () => reject(new Error('Leaflet failed to load')), { once: true });
+      doc.head?.appendChild(script);
+    }).catch((error) => {
+      hotelLeafletLoadPromise = null;
+      throw error;
+    });
+
+    return hotelLeafletLoadPromise;
+  }
+
+  function destroyLocationSummaryMap(container) {
+    const target = container instanceof Element ? container : null;
+    if (!target) return;
+    const existing = hotelLocationMapState.get(target);
+    if (existing?.map && typeof existing.map.remove === 'function') {
+      try {
+        existing.map.remove();
+      } catch (_) {}
+    }
+    hotelLocationMapState.delete(target);
+  }
+
+  function scheduleLocationSummaryMapResize(map) {
+    if (!map || typeof map.invalidateSize !== 'function') return;
+    [0, 120, 320, 640].forEach((delay) => {
+      globalScope.setTimeout(() => {
+        try {
+          map.invalidateSize(false);
+        } catch (_) {}
+      }, delay);
+    });
+  }
+
+  function createLocationSummaryMap(target, hotel, location, signature, mapDomId) {
+    const latitude = Number(location?.latitude);
+    const longitude = Number(location?.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+
+    loadLeafletLibrary()
+      .then((L) => {
+        const state = hotelLocationMapState.get(target);
+        if (!state || state.signature !== signature) return;
+        const mapNode = target.querySelector(`[data-hotel-location-map-id="${mapDomId}"]`);
+        if (!(mapNode instanceof Element)) return;
+        if (state.map) {
+          scheduleLocationSummaryMapResize(state.map);
+          return;
+        }
+
+        const map = L.map(mapNode, {
+          zoomControl: false,
+          attributionControl: false,
+          scrollWheelZoom: false,
+          dragging: true,
+          doubleClickZoom: true,
+          boxZoom: false,
+          keyboard: false,
+          tap: true,
+        }).setView([latitude, longitude], 15);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors',
+          maxZoom: 19,
+        }).addTo(map);
+
+        const markerIcon = L.divIcon({
+          className: 'ce-hotel-location-pin',
+          html: '<span class="ce-hotel-location-pin__emoji" aria-hidden="true">🏨</span>',
+          iconSize: [28, 28],
+          iconAnchor: [14, 14],
+          popupAnchor: [0, -14],
+        });
+
+        const marker = L.marker([latitude, longitude], { icon: markerIcon }).addTo(map);
+        const title = localizeText(hotel?.title, getLanguage()) || hotel?.slug || 'Hotel';
+        const address = buildHotelAddressSummary(location);
+        marker.bindTooltip(
+          `${escapeHtml(title)}${address ? `<br><span>${escapeHtml(address)}</span>` : ''}`,
+          { direction: 'top', offset: [0, -10], opacity: 0.92 }
+        );
+
+        hotelLocationMapState.set(target, {
+          signature,
+          map,
+          mapDomId,
+        });
+        scheduleLocationSummaryMapResize(map);
+      })
+      .catch((error) => {
+        console.warn('Hotel location map failed to load:', error);
+      });
   }
 
   function getSelectedExtraIds(form, inputName) {
@@ -282,30 +480,98 @@
     if (!target) return false;
     const language = options?.language || getLanguage();
     const location = getLocation(hotel);
-    const summary = String(location.summary || '').trim();
     const hasCoords = Number.isFinite(location.latitude) && Number.isFinite(location.longitude);
-    const mapsUrl = String(location.google_maps_url || '').trim();
-    if (!summary && !mapsUrl && !hasCoords) {
+    const mapsUrl = buildHotelMapsHref(location);
+    const addressSummary = buildHotelAddressSummary(location);
+    if (!addressSummary && !mapsUrl && !hasCoords) {
+      destroyLocationSummaryMap(target);
       target.hidden = true;
       target.innerHTML = '';
       return false;
     }
 
     const title = language.startsWith('en') ? 'Location' : 'Lokalizacja';
-    const mapLabel = language.startsWith('en') ? 'Open in Google Maps' : 'Otwórz w Google Maps';
-    const coordsLabel = language.startsWith('en') ? 'Coordinates' : 'Współrzędne';
-    const coords = hasCoords ? `${location.latitude}, ${location.longitude}` : '';
+    const addressLabel = language.startsWith('en') ? 'Address' : 'Adres';
+    const mapLabel = language.startsWith('en') ? 'Google Maps' : 'Google Maps';
+    const mapFallback = language.startsWith('en')
+      ? 'Map preview appears after the hotel coordinates are added.'
+      : 'Podgląd mapy pojawi się po uzupełnieniu współrzędnych hotelu.';
+    const signature = [
+      String(hotel?.id || hotel?.slug || ''),
+      language,
+      addressSummary,
+      String(location.latitude ?? ''),
+      String(location.longitude ?? ''),
+      mapsUrl,
+    ].join('|');
+
+    const existing = hotelLocationMapState.get(target);
+    if (existing?.signature === signature && target.innerHTML.trim()) {
+      target.hidden = false;
+      if (existing.map) {
+        scheduleLocationSummaryMapResize(existing.map);
+      }
+      return true;
+    }
+
+    destroyLocationSummaryMap(target);
+    const mapDomId = hasCoords ? `ce-hotel-location-map-${++hotelLocationMapCounter}` : '';
 
     target.hidden = false;
     target.innerHTML = `
-      <div style="display:grid; gap:10px; padding:14px 16px; border:1px solid rgba(148,163,184,.24); border-radius:14px; background:rgba(248,250,252,.92); margin:0 0 16px;">
-        <strong style="font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:#475569;">${title}</strong>
-        ${summary ? `<span style="font-size:14px; color:#0f172a;">${summary}</span>` : ''}
-        ${coords ? `<span style="font-size:12px; color:#64748b;">${coordsLabel}: ${coords}</span>` : ''}
-        ${mapsUrl ? `<a href="${mapsUrl}" target="_blank" rel="noopener" style="display:inline-flex; align-items:center; justify-content:center; width:max-content; padding:10px 14px; border-radius:12px; text-decoration:none; font-weight:600; color:#0f172a; background:#e2e8f0;">${mapLabel}</a>` : ''}
+      <div class="hotel-location-card">
+        <div class="hotel-location-card__copy">
+          <strong class="hotel-location-card__eyebrow">${escapeHtml(title)}</strong>
+          ${addressSummary ? `
+            <div class="hotel-location-card__address-block">
+              <span class="hotel-location-card__address-label">${escapeHtml(addressLabel)}</span>
+              <span class="hotel-location-card__address-value">${escapeHtml(addressSummary)}</span>
+            </div>
+          ` : ''}
+        </div>
+        <div class="hotel-location-card__map-shell">
+          ${hasCoords ? `
+            <div
+              class="hotel-location-card__map"
+              id="${mapDomId}"
+              data-hotel-location-map
+              data-hotel-location-map-id="${mapDomId}"
+              aria-label="${escapeAttribute(addressSummary || title)}"
+            ></div>
+          ` : `
+            <div class="hotel-location-card__map hotel-location-card__map--placeholder">
+              <span>${escapeHtml(mapFallback)}</span>
+            </div>
+          `}
+          ${mapsUrl ? `
+            <a
+              class="hotel-location-card__map-cta"
+              href="${escapeAttribute(mapsUrl)}"
+              target="_blank"
+              rel="noopener"
+            >
+              ${escapeHtml(mapLabel)} ↗
+            </a>
+          ` : ''}
+        </div>
       </div>
     `;
+    hotelLocationMapState.set(target, { signature, map: null, mapDomId });
+    if (hasCoords) {
+      createLocationSummaryMap(target, hotel, location, signature, mapDomId);
+    }
     return true;
+  }
+
+  function refreshLocationSummaryMap(container) {
+    const target = container instanceof Element ? container : null;
+    if (!target) return false;
+    const state = hotelLocationMapState.get(target);
+    if (state?.map) {
+      scheduleLocationSummaryMapResize(state.map);
+      return true;
+    }
+    return false;
   }
 
   function renderRoomTypeOptions(container, hotel, options) {
@@ -677,6 +943,7 @@
     syncGuestCapacityInputs,
     calculateQuoteFromForm,
     renderLocationSummary,
+    refreshLocationSummaryMap,
     renderRoomTypeOptions,
     renderPolicySummary,
     renderExtraOptions,

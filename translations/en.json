@@ -1604,6 +1604,7 @@
   "map.filter.all": "All",
   "map.filter.poiOnly": "Visit points",
   "map.filter.recommendationsOnly": "Recommended places",
+  "map.filter.hotelsOnly": "Hotels",
   "map.filter.aria": "Map filters",
   "map.filter.counter": "Showing {{visible}} of {{total}} points",
   "map.filter.counterBreakdown": "Visit points {{poiVisible}}/{{poiTotal}} • Recommended {{recommendationsVisible}}/{{recommendationsTotal}}",
