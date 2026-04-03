@@ -16,6 +16,12 @@
   --shadow-hover: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
 }
 
+html.recommendations-modal-open,
+body.recommendations-modal-open {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 /* Main Container with Subtle Gradient Background */
 .recommendations-main {
   min-height: 100vh;
@@ -461,6 +467,8 @@
   align-items: center;
   justify-content: center;
   padding: 20px;
+  overflow: hidden;
+  overscroll-behavior: contain;
   animation: fadeIn 0.2s ease-out;
 }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -480,12 +488,15 @@
   border-radius: 24px;
   max-width: 900px;
   width: 100%;
-  max-height: 90vh;
+  max-height: calc(100vh - 40px);
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   position: relative;
   z-index: 1;
   animation: slideUp 0.3s ease-out;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  outline: none;
 }
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(20px); }
@@ -591,6 +602,7 @@
     max-height: 100vh;
     border-radius: 20px 20px 0 0;
     margin-top: auto;
+    width: 100%;
   }
   .rec-modal-media { height: 280px; }
   .rec-modal-image { height: 100%; }

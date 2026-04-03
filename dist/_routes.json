@@ -9,6 +9,8 @@
     "/api/*",
     "/hotel/*",
     "/transport/*",
+    "/recommendations",
+    "/recommendations.html",
     "/trips"
   ],
   "exclude": []

@@ -21,7 +21,17 @@
   <meta name="robots" content="index,follow" />
   <title>Rekomendacje – CyprusEye Quest</title>
   <meta name="description" content="Odkryj nasze sprawdzone rekomendacje – najlepsze miejsca, restauracje, hotele i atrakcje na Cyprze z ekskluzywnymi zniżkami." />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Rekomendacje – CyprusEye Quest" />
+  <meta property="og:description" content="Odkryj nasze sprawdzone rekomendacje – najlepsze miejsca, restauracje, hotele i atrakcje na Cyprze z ekskluzywnymi zniżkami." />
+  <meta property="og:url" content="https://www.cypruseye.com/recommendations.html" />
+  <meta property="og:image" content="https://www.cypruseye.com/assets/cyprus_logo-1000x1054.png" />
+  <meta property="og:locale" content="pl_PL" />
+  <meta property="og:locale:alternate" content="en_GB" />
   <link rel="canonical" href="https://www.cypruseye.com/recommendations.html" />
+  <link rel="alternate" hreflang="pl" href="https://www.cypruseye.com/recommendations.html?lang=pl" />
+  <link rel="alternate" hreflang="en" href="https://www.cypruseye.com/recommendations.html?lang=en" />
+  <link rel="alternate" hreflang="x-default" href="https://www.cypruseye.com/recommendations.html" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -250,9 +260,9 @@
     </section>
 
     <!-- Modal szczegółów rekomendacji -->
-    <div id="detailModal" class="recommendation-modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="detailModalTitle">
+    <div id="detailModal" class="recommendation-modal" style="display:none" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="detailModalTitle">
       <div class="modal-overlay" onclick="closeDetailModal()"></div>
-      <div class="modal-content">
+      <div class="modal-content" tabindex="-1">
         <button class="modal-close" type="button" aria-label="Zamknij" onclick="closeDetailModal()">✕</button>
         <div id="modalDetails" class="modal-body">
           <!-- Zawartość modalu wypełnia js/recommendations.js (openDetailModal) -->

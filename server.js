@@ -4,6 +4,13 @@ import path from 'path';
 import fs from 'fs/promises';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
+import {
+  applyRecommendationsSeoToHtml,
+  buildRecommendationsSeoPayload,
+  getRecommendationsSeoLanguage,
+  getTranslationValue,
+  isRecommendationsSeoRequest,
+} from './functions/_utils/recommendationsSeo.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,6 +30,7 @@ let mailTransport = null;
 let mailTransportInitialized = false;
 
 let cachedNotFoundPage = null;
+const translationCache = new Map();
 
 function applySecurityHeaders(res) {
   res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
@@ -893,7 +901,7 @@ function createServer() {
     }
 
     if (req.method === 'GET' || req.method === 'HEAD') {
-      const served = await tryServeStaticFile(req, url.pathname, res);
+      const served = await tryServeStaticFile(req, url, res);
       if (served) {
         return;
       }
@@ -1009,9 +1017,18 @@ async function serveStaticAsset(req, res, filePath, stats = null) {
     mimeType.startsWith('text/html') ||
     filePath.endsWith(`${path.sep}sw.js`) ||
     filePath.endsWith('.webmanifest');
+  let body = null;
+  let contentLength = fileStats.size;
+
+  if (mimeType.startsWith('text/html')) {
+    const html = await fs.readFile(filePath, 'utf-8');
+    body = await localizeHtmlForRequest(filePath, html, req.url);
+    contentLength = Buffer.byteLength(body);
+  }
+
   const headers = {
     'Content-Type': mimeType,
-    'Content-Length': fileStats.size,
+    'Content-Length': contentLength,
     'Cache-Control': shouldNoCache ? 'no-cache' : 'public, max-age=31536000, immutable',
   };
 
@@ -1023,12 +1040,80 @@ async function serveStaticAsset(req, res, filePath, stats = null) {
     return true;
   }
 
+  if (body !== null) {
+    res.end(body);
+    return true;
+  }
+
   const file = await fs.readFile(filePath);
   res.end(file);
   return true;
 }
 
-async function tryServeStaticFile(req, pathname, res) {
+async function loadTranslationsFile(language) {
+  const cacheKey = language === 'en' ? 'en' : 'pl';
+  if (translationCache.has(cacheKey)) {
+    return translationCache.get(cacheKey);
+  }
+
+  try {
+    const translationsPath = path.join(__dirname, 'translations', `${cacheKey}.json`);
+    const raw = await fs.readFile(translationsPath, 'utf-8');
+    const parsed = JSON.parse(raw);
+    translationCache.set(cacheKey, parsed);
+    return parsed;
+  } catch (error) {
+    console.warn(`Nie udało się wczytać tłumaczeń SEO dla języka ${cacheKey}:`, error);
+    translationCache.set(cacheKey, {});
+    return {};
+  }
+}
+
+async function localizeHtmlForRequest(filePath, html, requestUrl) {
+  const relativePath = path.relative(__dirname, filePath).replace(/\\/g, '/');
+  if (relativePath !== 'recommendations.html') {
+    return html;
+  }
+
+  let url = null;
+  try {
+    url = new URL(requestUrl || '/recommendations.html', 'http://localhost');
+  } catch (_) {
+    url = new URL('/recommendations.html', 'http://localhost');
+  }
+
+  let seoPathname = url.pathname;
+  if (BASE_PATH !== '/' && seoPathname.startsWith(`${BASE_PATH}/`)) {
+    seoPathname = seoPathname.slice(BASE_PATH.length) || '/';
+  } else if (BASE_PATH !== '/' && seoPathname === BASE_PATH) {
+    seoPathname = '/';
+  }
+
+  if (!isRecommendationsSeoRequest(seoPathname)) {
+    return html;
+  }
+
+  const language = getRecommendationsSeoLanguage(url);
+  const translations = await loadTranslationsFile(language);
+  const localeFallback = language === 'en' ? 'en_GB' : 'pl_PL';
+
+  const seoPayload = buildRecommendationsSeoPayload({
+    language,
+    requestPathname: seoPathname,
+    requestSearch: url.search,
+    translations: {
+      ...translations,
+      'seo.locale': getTranslationValue(translations, 'seo.locale') || localeFallback,
+      'seo.ogImage':
+        getTranslationValue(translations, 'seo.ogImage') || 'assets/cyprus_logo-1000x1054.png',
+    },
+  });
+
+  return applyRecommendationsSeoToHtml(html, seoPayload);
+}
+
+async function tryServeStaticFile(req, url, res) {
+  const pathname = url.pathname;
   if (!isWithinBasePath(pathname)) {
     return false;
   }
@@ -1052,8 +1137,8 @@ async function tryServeStaticFile(req, pathname, res) {
   try {
     const stats = await fs.stat(absolutePath);
     if (stats.isDirectory()) {
-      const indexPath = path.join(absolutePath, 'index.html');
-      try {
+        const indexPath = path.join(absolutePath, 'index.html');
+        try {
         const servedIndex = await serveStaticAsset(req, res, indexPath);
         if (servedIndex) {
           return true;

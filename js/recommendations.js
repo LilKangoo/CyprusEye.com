@@ -13,12 +13,199 @@ let recommendationsSavedOnly = false;
 let recommendationsModalPanoramaCleanup = null;
 let recommendationsModalPanoramaHintCleanup = null;
 let recommendationsInitialized = false;
+let recommendationsModalPreviouslyFocused = null;
+let recommendationsScrollLockDepth = 0;
+let recommendationsScrollPositionBeforeLock = 0;
+let recommendationsPreviousHtmlOverflow = '';
+let recommendationsPreviousBodyOverflow = '';
+let recommendationsPreviousBodyPosition = '';
+let recommendationsPreviousBodyTop = '';
+let recommendationsPreviousBodyWidth = '';
+let recommendationsPreviousBodyLeft = '';
+let recommendationsPreviousBodyRight = '';
+
+const RECOMMENDATION_MODAL_FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+  '[contenteditable="true"]',
+].join(', ');
+
+function getRecommendationDetailModal() {
+  return document.getElementById('detailModal');
+}
+
+function getRecommendationModalDialog() {
+  return getRecommendationDetailModal()?.querySelector('.modal-content') || null;
+}
+
+function isRecommendationModalOpen() {
+  const modal = getRecommendationDetailModal();
+  return Boolean(modal && modal.style.display !== 'none');
+}
+
+function getRecommendationFocusableElements() {
+  const container = getRecommendationModalDialog() || getRecommendationDetailModal();
+  if (!(container instanceof HTMLElement)) {
+    return [];
+  }
+
+  return Array.from(container.querySelectorAll(RECOMMENDATION_MODAL_FOCUSABLE_SELECTOR)).filter(
+    (element) => {
+      if (!(element instanceof HTMLElement)) {
+        return false;
+      }
+      if (element.hasAttribute('disabled') || element.getAttribute('aria-hidden') === 'true') {
+        return false;
+      }
+      const style = window.getComputedStyle(element);
+      if (style.display === 'none' || style.visibility === 'hidden') {
+        return false;
+      }
+      return element.offsetParent !== null || style.position === 'fixed';
+    }
+  );
+}
+
+function focusRecommendationModal() {
+  const focusableElements = getRecommendationFocusableElements();
+  if (focusableElements.length > 0) {
+    focusableElements[0].focus({ preventScroll: true });
+    return;
+  }
+
+  const dialog = getRecommendationModalDialog();
+  if (dialog instanceof HTMLElement) {
+    dialog.focus({ preventScroll: true });
+  }
+}
+
+function lockRecommendationBodyScroll() {
+  if (recommendationsScrollLockDepth === 0) {
+    recommendationsScrollPositionBeforeLock = window.scrollY || window.pageYOffset || 0;
+    recommendationsPreviousHtmlOverflow = document.documentElement.style.overflow;
+    recommendationsPreviousBodyOverflow = document.body.style.overflow;
+    recommendationsPreviousBodyPosition = document.body.style.position;
+    recommendationsPreviousBodyTop = document.body.style.top;
+    recommendationsPreviousBodyWidth = document.body.style.width;
+    recommendationsPreviousBodyLeft = document.body.style.left;
+    recommendationsPreviousBodyRight = document.body.style.right;
+
+    document.documentElement.classList.add('recommendations-modal-open');
+    document.body.classList.add('recommendations-modal-open');
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${recommendationsScrollPositionBeforeLock}px`;
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.width = '100%';
+  }
+
+  recommendationsScrollLockDepth += 1;
+}
+
+function unlockRecommendationBodyScroll() {
+  if (recommendationsScrollLockDepth === 0) {
+    return;
+  }
+
+  recommendationsScrollLockDepth -= 1;
+  if (recommendationsScrollLockDepth > 0) {
+    return;
+  }
+
+  document.documentElement.classList.remove('recommendations-modal-open');
+  document.body.classList.remove('recommendations-modal-open');
+  document.documentElement.style.overflow = recommendationsPreviousHtmlOverflow;
+  document.body.style.overflow = recommendationsPreviousBodyOverflow;
+  document.body.style.position = recommendationsPreviousBodyPosition;
+  document.body.style.top = recommendationsPreviousBodyTop;
+  document.body.style.width = recommendationsPreviousBodyWidth;
+  document.body.style.left = recommendationsPreviousBodyLeft;
+  document.body.style.right = recommendationsPreviousBodyRight;
+  window.scrollTo(0, recommendationsScrollPositionBeforeLock);
+
+  recommendationsScrollPositionBeforeLock = 0;
+}
+
+function handleRecommendationModalKeydown(event) {
+  if (!isRecommendationModalOpen()) {
+    return;
+  }
+
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    closeDetailModal();
+    return;
+  }
+
+  if (event.key === 'PageDown' || event.key === 'PageUp') {
+    const dialog = getRecommendationModalDialog();
+    if (!(dialog instanceof HTMLElement) || dialog.scrollHeight <= dialog.clientHeight) {
+      return;
+    }
+
+    event.preventDefault();
+    const direction = event.key === 'PageDown' ? 1 : -1;
+    dialog.scrollBy({
+      top: direction * dialog.clientHeight,
+      behavior: 'auto',
+    });
+    return;
+  }
+
+  if (event.key !== 'Tab') {
+    return;
+  }
+
+  const focusableElements = getRecommendationFocusableElements();
+  const dialog = getRecommendationModalDialog();
+  if (focusableElements.length === 0) {
+    event.preventDefault();
+    if (dialog instanceof HTMLElement) {
+      dialog.focus({ preventScroll: true });
+    }
+    return;
+  }
+
+  const firstElement = focusableElements[0];
+  const lastElement = focusableElements[focusableElements.length - 1];
+  const activeElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+  if (event.shiftKey) {
+    if (activeElement === firstElement || !activeElement || !dialog?.contains(activeElement)) {
+      event.preventDefault();
+      lastElement.focus({ preventScroll: true });
+    }
+    return;
+  }
+
+  if (activeElement === lastElement) {
+    event.preventDefault();
+    firstElement.focus({ preventScroll: true });
+  }
+}
+
+function initRecommendationModalBehavior() {
+  const modal = getRecommendationDetailModal();
+  if (!(modal instanceof HTMLElement) || modal.dataset.recommendationModalInit === 'true') {
+    return;
+  }
+
+  modal.dataset.recommendationModalInit = 'true';
+  modal.addEventListener('keydown', handleRecommendationModalKeydown);
+}
 
 function initRecommendationsPage() {
   if (recommendationsInitialized) return;
   recommendationsInitialized = true;
 
   console.log('🔵 Recommendations page: Initializing...');
+  initRecommendationModalBehavior();
   loadData();
   setupLanguageListener();
   subscribeToSavedCatalog();
@@ -573,7 +760,7 @@ window.openDetailModal = async function openDetailModal(id) {
       </div>
 
       <div style="display:flex; align-items:flex-start; justify-content:space-between; gap: 12px; margin: 0 0 16px;">
-        <h1 style="font-size: 2.25rem; font-weight: 700; margin: 0; color: #111827;">${title}</h1>
+        <h1 id="detailModalTitle" style="font-size: 2.25rem; font-weight: 700; margin: 0; color: #111827;">${title}</h1>
         <button
           type="button"
           class="ce-save-star ce-save-star-sm"
@@ -646,8 +833,25 @@ window.openDetailModal = async function openDetailModal(id) {
 
   const modal = document.getElementById('detailModal');
   if (modal) {
+    const wasClosed = !isRecommendationModalOpen();
+    if (wasClosed) {
+      recommendationsModalPreviouslyFocused =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    }
     modal.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
+    modal.setAttribute('aria-hidden', 'false');
+    if (wasClosed) {
+      lockRecommendationBodyScroll();
+    }
+
+    const dialog = getRecommendationModalDialog();
+    if (dialog instanceof HTMLElement) {
+      dialog.scrollTop = 0;
+    }
+
+    requestAnimationFrame(() => {
+      focusRecommendationModal();
+    });
   }
 
   clearRecommendationModalPanorama();
@@ -697,8 +901,14 @@ window.closeDetailModal = function closeDetailModal() {
   const modal = document.getElementById('detailModal');
   if (modal) {
     modal.style.display = 'none';
-    document.body.style.overflow = '';
+    modal.setAttribute('aria-hidden', 'true');
+    unlockRecommendationBodyScroll();
   }
+
+  if (recommendationsModalPreviouslyFocused instanceof HTMLElement) {
+    recommendationsModalPreviouslyFocused.focus({ preventScroll: true });
+  }
+  recommendationsModalPreviouslyFocused = null;
 };
 
 window.trackView = async function trackView(recId) {

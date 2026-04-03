@@ -1,4 +1,4 @@
-export function serveStatic(context, pathname) {
+export function serveStatic(context, pathname, options = {}) {
   const assetUrl = new URL(context.request.url);
   
   // Handle directory paths - ensure trailing slash and add index.html
@@ -17,10 +17,10 @@ export function serveStatic(context, pathname) {
   
   assetUrl.pathname = pathname;
 
-  const method = context.request.method === 'HEAD' ? 'HEAD' : 'GET';
+  const method = options.method || (context.request.method === 'HEAD' ? 'HEAD' : 'GET');
   const request = new Request(assetUrl.toString(), {
     method,
-    headers: context.request.headers,
+    headers: options.headers || context.request.headers,
   });
 
   return context.env.ASSETS.fetch(request);
