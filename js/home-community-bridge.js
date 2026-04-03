@@ -658,6 +658,69 @@
     return homeHotelsModuleLoadPromise;
   }
 
+  function getHotelModalCandidates(hotelId) {
+    const normalizedId = normalizePoiId(hotelId);
+    if (!normalizedId) {
+      return { primary: null, list: [] };
+    }
+
+    const homeHotels = typeof window.getHomeHotelsData === 'function'
+      ? window.getHomeHotelsData()
+      : [];
+    const mapHotels = typeof window.getMapHotelsData === 'function'
+      ? window.getMapHotelsData()
+      : [];
+
+    const seen = new Set();
+    const list = [];
+    [homeHotels, mapHotels].forEach((source) => {
+      (Array.isArray(source) ? source : []).forEach((hotel) => {
+        const id = normalizePoiId(hotel?.id);
+        if (!id || seen.has(id)) return;
+        seen.add(id);
+        list.push(hotel);
+      });
+    });
+
+    const primary = list.find((hotel) => normalizePoiId(hotel?.id) === normalizedId) || null;
+    return { primary, list };
+  }
+
+  async function openHotelDetailsModal(hotelId) {
+    const normalizedId = normalizePoiId(hotelId);
+    if (!normalizedId) return false;
+
+    const ready = await ensureHomeHotelsModuleLoaded();
+    if (!ready) return false;
+
+    const hasHotelData = await waitForCondition(() => {
+      const candidates = getHotelModalCandidates(normalizedId);
+      return Boolean(candidates.primary);
+    }, { attempts: 60, delay: 120 });
+
+    if (!hasHotelData) return false;
+
+    const { primary, list } = getHotelModalCandidates(normalizedId);
+    if (!primary) return false;
+
+    if (typeof window.openHotelModalByRecord === 'function') {
+      const modalList = list.length ? list : [primary];
+      const index = Math.max(0, modalList.findIndex((entry) => normalizePoiId(entry?.id) === normalizedId));
+      window.openHotelModalByRecord(primary, {
+        list: modalList,
+        index,
+      });
+      return true;
+    }
+
+    if (typeof window.openHotelModalById === 'function') {
+      window.openHotelModalById(normalizedId, { focus: false });
+      return true;
+    }
+
+    return false;
+  }
+
   function setCurrentMapDisplayItem(item, options = {}) {
     const normalized = normalizeMapItem(item);
     if (!normalized?.id) return;
@@ -1344,17 +1407,8 @@
     }
 
     if (targetType === 'hotel') {
-      const hotelLoaded = await ensureHomeHotelsModuleLoaded();
-      const hasHotelData = hotelLoaded
-        ? await waitForCondition(() => {
-          if (typeof window.getHomeHotelsData !== 'function') return false;
-          const hotels = window.getHomeHotelsData();
-          return Array.isArray(hotels) && hotels.some((hotel) => normalizePoiId(hotel?.id) === targetId);
-        }, { attempts: 60, delay: 120 })
-        : false;
-
-      if (hasHotelData && typeof window.openHotelModalById === 'function') {
-        window.openHotelModalById(targetId, { focus: false });
+      const opened = await openHotelDetailsModal(targetId);
+      if (opened) {
         return;
       }
       window.location.href = '/hotels.html';

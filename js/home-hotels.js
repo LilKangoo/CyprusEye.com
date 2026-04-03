@@ -374,7 +374,13 @@ function renderHomeHotels(){
       price = `${Number(previewPrice).toFixed(2)} € ${perNightLabel}`;
     }
     return `
-      <a href="#" onclick="openHotelModalHome(${index}); return false;" class="hotel-home-card" style="position:relative;height:200px;border-radius:12px;overflow:hidden;cursor:pointer;transition:transform .3s,box-shadow .3s;box-shadow:0 4px 6px rgba(0,0,0,.1);text-decoration:none;display:block;"
+      <article
+         class="hotel-home-card"
+         data-home-hotel-index="${index}"
+         role="button"
+         tabindex="0"
+         aria-label="${title}"
+         style="position:relative;height:200px;border-radius:12px;overflow:hidden;cursor:pointer;transition:transform .3s,box-shadow .3s;box-shadow:0 4px 6px rgba(0,0,0,.1);text-decoration:none;display:block;border:none;background:transparent;padding:0;"
          onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 12px rgba(0,0,0,0.15)'"
          onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 6px rgba(0,0,0,0.1)'">
         ${imageIsPanorama ? `<span class="ce-media-badge ce-media-badge--left">360°</span>` : ''}
@@ -408,15 +414,47 @@ function renderHomeHotels(){
           <h3 style="margin:0 0 4px;font-size:1.1rem;font-weight:700;line-height:1.3;">${title}</h3>
           <p style="margin:0;font-size:.85rem;opacity:.98;color:#ffffff;text-shadow:0 1px 2px rgba(0,0,0,.35);">${h.city||''} ${price? '• '+price: ''}</p>
         </div>
-      </a>
+      </article>
     `;
   }).join('');
+
+  bindHomeHotelCardTriggers(grid);
 
   try {
     if (window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.refreshButtons === 'function') {
       window.CE_SAVED_CATALOG.refreshButtons(grid);
     }
   } catch (_) {}
+}
+
+function bindHomeHotelCardTriggers(root) {
+  const scope = root instanceof Element ? root : document;
+  scope.querySelectorAll('.hotel-home-card[data-home-hotel-index]').forEach((card) => {
+    if (card.dataset.boundHotelCard === '1') return;
+    card.dataset.boundHotelCard = '1';
+
+    const openCard = () => {
+      const index = Number(card.getAttribute('data-home-hotel-index'));
+      if (!Number.isFinite(index)) return;
+      const hotel = homeHotelsDisplay[index];
+      if (!hotel) return;
+      openHotelModalRecordInternal(hotel, { list: homeHotelsDisplay, index });
+    };
+
+    card.addEventListener('click', (event) => {
+      const target = event.target;
+      if (target instanceof Element && target.closest('[data-ce-save="1"]')) {
+        return;
+      }
+      openCard();
+    });
+
+    card.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      openCard();
+    });
+  });
 }
 
 function initHomeHotelsTabs(){
@@ -538,6 +576,7 @@ function initHomeHotels() {
   if (form) form.addEventListener('submit', async (e)=>{
     e.preventDefault();
     if(!homeCurrentHotel) return;
+    const homeHotelBookingUi = getHomeHotelBookingUiApi();
     
     const msg = document.getElementById('hotelBookingMessage');
     const btn = e.target.querySelector('.booking-submit');
@@ -660,13 +699,13 @@ function initHomeHotels() {
     if (homeHotelIndex == null) return;
     const i = Math.max(0, homeHotelIndex - 1);
     const nextHotel = homeHotelModalList[i];
-    if (nextHotel) openHotelModalByRecord(nextHotel, { list: homeHotelModalList, index: i });
+    if (nextHotel) openHotelModalRecordInternal(nextHotel, { list: homeHotelModalList, index: i });
   });
   if (nextBtn) nextBtn.addEventListener('click', ()=>{
     if (homeHotelIndex == null) return;
     const i = Math.min(homeHotelModalList.length - 1, homeHotelIndex + 1);
     const nextHotel = homeHotelModalList[i];
-    if (nextHotel) openHotelModalByRecord(nextHotel, { list: homeHotelModalList, index: i });
+    if (nextHotel) openHotelModalRecordInternal(nextHotel, { list: homeHotelModalList, index: i });
   });
 
   // Lightbox controls
@@ -682,6 +721,7 @@ function initHomeHotels() {
   // Register language change handler (legacy method)
   if (typeof window.registerLanguageChangeHandler === 'function') {
     window.registerLanguageChangeHandler((language) => {
+      const homeHotelBookingUi = getHomeHotelBookingUiApi();
       ceLog('🏨 Hotels: Re-rendering for language:', language);
       if (homeHotelsData && homeHotelsData.length > 0) {
         renderHomeHotelsTabs();
@@ -708,6 +748,7 @@ function initHomeHotels() {
   
   // Direct event listeners (backup - more reliable)
   window.addEventListener('languageChanged', (e) => {
+    const homeHotelBookingUi = getHomeHotelBookingUiApi();
     ceLog('🏨 Hotels: languageChanged event, re-rendering for:', e.detail?.language);
     if (homeHotelsData && homeHotelsData.length > 0) {
       renderHomeHotelsTabs();
@@ -731,6 +772,7 @@ function initHomeHotels() {
   });
   
   document.addEventListener('wakacjecypr:languagechange', (e) => {
+    const homeHotelBookingUi = getHomeHotelBookingUiApi();
     ceLog('🏨 Hotels: wakacjecypr:languagechange event, re-rendering for:', e.detail?.language);
     if (homeHotelsData && homeHotelsData.length > 0) {
       renderHomeHotelsTabs();
@@ -843,6 +885,10 @@ function calculateHotelPrice(h, persons, nights){
   return { total, pricePerNight, billableNights, tier: rule };
 }
 
+function getHomeHotelBookingUiApi() {
+  return window.CE_HOTEL_BOOKING_UI || null;
+}
+
 function normalizeHomeHotelCouponCode(value) {
   return String(value || '').trim().toUpperCase();
 }
@@ -853,9 +899,8 @@ function formatHomeHotelPrice(value) {
   return `${amount.toFixed(2)} €`;
 }
 
-const homeHotelBookingUi = window.CE_HOTEL_BOOKING_UI || null;
-
 function getHomeHotelQuote() {
+  const homeHotelBookingUi = getHomeHotelBookingUiApi();
   const form = document.getElementById('hotelBookingForm');
   if (!homeCurrentHotel || !form || !homeHotelBookingUi?.calculateQuoteFromForm) {
     return {
@@ -878,6 +923,7 @@ function getHomeHotelQuote() {
 }
 
 function renderHomeHotelBookingUiSections(options = {}) {
+  const homeHotelBookingUi = getHomeHotelBookingUiApi();
   if (!homeCurrentHotel || !homeHotelBookingUi) return;
   const form = document.getElementById('hotelBookingForm');
   const selectedExtraIds = Array.isArray(options.selectedExtraIds)
@@ -1162,6 +1208,7 @@ function calculateHotelPriceSimple(h, persons, nights) {
 }
 
 function updateHotelLivePrice(){
+  const homeHotelBookingUi = getHomeHotelBookingUiApi();
   if(!homeCurrentHotel) return;
   const modal = document.getElementById('hotelModal');
   const form = modal ? modal.querySelector('#hotelBookingForm') : null;
@@ -1241,7 +1288,8 @@ function updateHotelLivePrice(){
   syncHomeHotelCouponButtons();
 }
 
-function openHotelModalByRecord(hotelRecord, options = {}) {
+function openHotelModalRecordInternal(hotelRecord, options = {}) {
+  const homeHotelBookingUi = getHomeHotelBookingUiApi();
   const h = hotelRecord;
   if(!h) return;
   const modalList = Array.isArray(options.list) && options.list.length
@@ -1365,25 +1413,31 @@ function openHotelModalByRecord(hotelRecord, options = {}) {
 window.openHotelModalHome = function(index){
   const h = homeHotelsDisplay[index];
   if (!h) return;
-  openHotelModalByRecord(h, { list: homeHotelsDisplay, index });
+  openHotelModalRecordInternal(h, { list: homeHotelsDisplay, index });
 }
 
 window.openHotelModalByRecord = function(hotelRecord, options = {}) {
-  openHotelModalByRecord(hotelRecord, options);
+  openHotelModalRecordInternal(hotelRecord, options);
 }
 
 window.openHotelModalById = function(hotelId, options = {}) {
   const id = String(hotelId || '').trim();
   if (!id) return;
+  const mapHotels = typeof window.getMapHotelsData === 'function'
+    ? window.getMapHotelsData()
+    : [];
   const list = Array.isArray(options.list) && options.list.length
     ? options.list.filter(Boolean)
-    : (Array.isArray(homeHotelsData) && homeHotelsData.length ? homeHotelsData.slice() : []);
+    : (Array.isArray(homeHotelsData) && homeHotelsData.length
+      ? homeHotelsData.slice()
+      : (Array.isArray(mapHotels) && mapHotels.length ? mapHotels.slice() : []));
   const hotelRecord = list.find((entry) => String(entry?.id || '').trim() === id)
     || homeHotelsData.find((entry) => String(entry?.id || '').trim() === id)
+    || mapHotels.find((entry) => String(entry?.id || '').trim() === id)
     || null;
   if (!hotelRecord) return;
   const index = Math.max(0, list.findIndex((entry) => String(entry?.id || '').trim() === id));
-  openHotelModalByRecord(hotelRecord, { list: list.length ? list : [hotelRecord], index });
+  openHotelModalRecordInternal(hotelRecord, { list: list.length ? list : [hotelRecord], index });
 }
 
 window.getHomeHotelsData = function() {

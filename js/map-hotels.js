@@ -284,24 +284,12 @@
       if (!client) {
         return getMapHotelsData();
       }
-      const selectFull = 'id, slug, title, description, city, cover_image_url, photos, pricing_tiers, max_persons, address_line, district, postal_code, country, latitude, longitude, google_maps_url, google_place_id, is_published';
-      const selectFallback = 'id, slug, title, description, city, cover_image_url, photos, pricing_tiers, max_persons, latitude, longitude, google_maps_url, is_published';
-
-      let response = await client
+      const response = await client
         .from('hotels')
-        .select(selectFull)
+        .select('*')
         .eq('is_published', true)
         .order('sort_order', { ascending: true })
         .order('updated_at', { ascending: false });
-
-      if (response.error && /(address_line|district|postal_code|country|google_place_id)/i.test(String(response.error.message || ''))) {
-        response = await client
-          .from('hotels')
-          .select(selectFallback)
-          .eq('is_published', true)
-          .order('sort_order', { ascending: true })
-          .order('updated_at', { ascending: false });
-      }
 
       if (response.error) {
         throw response.error;
