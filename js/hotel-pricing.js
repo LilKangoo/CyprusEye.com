@@ -1083,6 +1083,7 @@
     normalizeHotelBookingSettings,
     normalizeHotelPricingExtras,
     normalizeHotelLocation,
+    normalizePricingTiers,
     normalizeHotelRoomTypes,
     normalizeSelectedExtraIds,
     getLocalizedTextMapValue,

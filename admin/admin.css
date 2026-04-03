@@ -3990,6 +3990,10 @@ select#orderStatusFilter:focus {
   gap: 8px;
 }
 
+.hotel-tier-schedule-block--dates {
+  gap: 10px;
+}
+
 .hotel-tier-schedule-title {
   font-size: 12px;
   font-weight: 700;
@@ -4017,6 +4021,104 @@ select#orderStatusFilter:focus {
 
 .hotel-tier-schedule-input input {
   width: 100%;
+}
+
+.hotel-tier-schedule-accordion {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.38);
+  overflow: hidden;
+}
+
+.hotel-tier-schedule-accordion summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+  padding: 12px 14px;
+}
+
+.hotel-tier-schedule-accordion summary::-webkit-details-marker {
+  display: none;
+}
+
+.hotel-tier-schedule-meta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 110px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(96, 165, 250, 0.12);
+  color: #93c5fd;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.hotel-tier-schedule-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 14px 14px;
+}
+
+.hotel-tier-schedule-panel--dates {
+  gap: 12px;
+}
+
+.hotel-tier-schedule-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.hotel-tier-date-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.hotel-tier-month-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 220px;
+}
+
+.hotel-tier-month-picker span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--admin-text);
+}
+
+.hotel-tier-date-calendar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.hotel-tier-calendar-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.44);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.hotel-tier-calendar-row__label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--admin-text);
 }
 
 .hotel-tier-date-list {
@@ -4730,6 +4832,10 @@ select#orderStatusFilter:focus {
   }
 
   .hotel-tier-schedule-grid--months {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hotel-tier-date-calendar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
