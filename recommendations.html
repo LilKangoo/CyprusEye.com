@@ -279,7 +279,10 @@
   </div>
 
   <footer class="app-footer">
-    <p data-i18n="footer.app">© <span data-current-year></span> WakacjeCypr.com</p>
+    <p class="app-footer-copy">
+      © <span data-current-year></span> CyprusEye.com •
+      <span data-i18n="footer.app.tagline">Play, explore, and plan your holidays at the same time.</span>
+    </p>
     <div class="footer-links" style="margin-bottom: 8px;">
        <a href="terms.html" class="footer-link" data-i18n="legal.termsLink">Terms of Service</a>
     </div>
@@ -508,9 +511,125 @@
     </div>
   </div>
 
+  <div
+    class="sos-modal"
+    id="sosModal"
+    hidden
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="sosTitle"
+    aria-describedby="sosDescription"
+  >
+    <div class="sos-dialog" role="document" tabindex="-1">
+      <header class="sos-header">
+        <div>
+          <h2 id="sosTitle" data-i18n="sos.title">SOS</h2>
+          <p id="sosDescription" data-i18n="sos.description">
+            Szybki dostęp do numerów alarmowych, kontaktu z ambasadą oraz wskazówek medycznych.
+          </p>
+        </div>
+        <button
+          type="button"
+          class="icon-button"
+          id="sosClose"
+          aria-label="Zamknij SOS"
+          data-i18n="sos.close"
+        >
+          X
+        </button>
+      </header>
+
+      <div class="sos-grid" aria-describedby="sosDescription">
+        <section class="sos-card">
+          <h3 data-i18n="sos.emergency.title">🚑 Numery alarmowe na Cyprze</h3>
+          <ul>
+            <li>
+              <strong>112</strong>
+              <p data-i18n="sos.emergency.eu">
+                Uniwersalny numer alarmowy UE (policja, pogotowie, straż pożarna). <a href="tel:112">Zadzwoń teraz</a>
+              </p>
+            </li>
+            <li>
+              <strong>199</strong>
+              <p data-i18n="sos.emergency.cyprus">
+                Cypryjski numer alarmowy – działa równolegle z 112. <a href="tel:199">Połącz</a>
+              </p>
+            </li>
+            <li>
+              <strong>+357 22 802 020</strong>
+              <p data-i18n="sos.emergency.police">
+                Całodobowa linia policji (spoza Cypru wybierz pełny numer kierunkowy). <a href="tel:+35722802020">Zadzwoń</a>
+              </p>
+            </li>
+          </ul>
+        </section>
+
+        <section class="sos-card">
+          <h3 data-i18n="sos.embassy.title">🛡️ Ambasada RP w Nikozji</h3>
+          <ul>
+            <li>
+              <strong>Telefon alarmowy</strong>
+              <p data-i18n="sos.embassy.hotline">
+                <a href="tel:+35799660451">+357 99 660 451</a> (wsparcie w nagłych wypadkach obywateli RP).
+              </p>
+            </li>
+            <li>
+              <strong>Recepcja</strong>
+              <p data-i18n="sos.embassy.reception">
+                <a href="tel:+35722751777">+357 22 751 777</a> (pon.–pt. w godz. pracy placówki).
+              </p>
+            </li>
+            <li>
+              <strong>Adres</strong>
+              <p data-i18n="sos.embassy.address">
+                14, Ifigenias Street, 2007 Nikozja • <a href="https://maps.google.com/?q=Embassy+of+Poland+in+Cyprus" target="_blank" rel="noopener">Wyznacz trasę</a>
+              </p>
+            </li>
+            <li>
+              <strong>E-mail</strong>
+              <p data-i18n="sos.embassy.email"><a href="mailto:nicosia.info@msz.gov.pl">nicosia.info@msz.gov.pl</a></p>
+            </li>
+          </ul>
+        </section>
+
+        <section class="sos-card">
+          <h3 data-i18n="sos.healthcare.title">🏥 Najbliższa pomoc medyczna</h3>
+          <ul>
+            <li>
+              <strong>Paphos General Hospital</strong>
+              <p data-i18n="sos.healthcare.hospital">
+                Całodobowa izba przyjęć, Anavargos, Pafos. <a href="tel:+35726803000">+357 26 803 000</a> •
+                <a href="https://maps.google.com/?q=Paphos+General+Hospital" target="_blank" rel="noopener">Mapa dojazdu</a>
+              </p>
+            </li>
+            <li>
+              <strong data-i18n="sos.healthcare.searchTitle">Wyszukaj szpital w pobliżu</strong>
+              <p data-i18n="sos.healthcare.search">
+                <a href="https://www.google.com/maps/search/hospital+near+me/" target="_blank" rel="noopener">Otwórz listę szpitali na Mapach Google</a>
+                i udostępnij lokalizację, aby zobaczyć najbliższe opcje.
+              </p>
+            </li>
+            <li>
+              <strong data-i18n="sos.healthcare.pharmacyTitle">Dyżurna apteka</strong>
+              <p data-i18n="sos.healthcare.pharmacy">
+                Sprawdź aktualne dyżury na <a href="https://pharmacy.dl.moh.gov.cy/" target="_blank" rel="noopener">stronie Ministerstwa Zdrowia</a>
+                lub wyszukaj <a href="https://www.google.com/maps/search/pharmacy+near+me/" target="_blank" rel="noopener">aptekę w pobliżu</a>.
+              </p>
+            </li>
+          </ul>
+          <p class="sos-note" data-i18n="sos.healthcare.note">
+            W sytuacji zagrożenia życia zawsze dzwoń pod 112 i dokładnie podaj lokalizację. W aplikacji włącz udostępnianie
+            lokalizacji, aby szybciej odnaleźć pomoc na mapie.
+          </p>
+        </section>
+      </div>
+    </div>
+  </div>
+
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin data-leaflet-resource="script"></script>
   <script src="/js/media-viewer.js?v=1" defer></script>
   <script src="/js/saved-catalog.js?v=5" defer></script>
+  <script src="/js/sos.js?v=1" defer></script>
   <script type="module" src="/js/recommendations.js?v=1"></script>
   
   <!-- Header & language system -->
@@ -521,6 +640,14 @@
   <script src="/js/seo.js" defer></script>
   <script src="/js/mobile-nav.js" defer></script>
   <script src="/js/header-dropdown.js" defer></script>
+  <script>
+    (function () {
+      var year = String(new Date().getFullYear());
+      document.querySelectorAll('[data-current-year]').forEach(function (node) {
+        node.textContent = year;
+      });
+    })();
+  </script>
   
   <!-- Auth modal controller and UI handlers (same order as index.html) -->
   <script src="/assets/js/modal-auth.js" defer></script>
