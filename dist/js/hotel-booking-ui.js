@@ -30,6 +30,35 @@
     return `${amount.toFixed(2)} ${code}`;
   }
 
+  function escapeAttribute(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function dedupeUrls(list) {
+    const out = [];
+    const seen = new Set();
+    (Array.isArray(list) ? list : []).forEach((entry) => {
+      const url = String(entry || '').trim();
+      if (!url || seen.has(url)) return;
+      seen.add(url);
+      out.push(url);
+    });
+    return out;
+  }
+
+  function getRoomGalleryUrls(roomType) {
+    if (!roomType || typeof roomType !== 'object') return [];
+    return dedupeUrls([
+      roomType.cover_image_url,
+      ...(Array.isArray(roomType.gallery_photos) ? roomType.gallery_photos : []),
+      ...(Array.isArray(roomType.photos) ? roomType.photos : []),
+    ]);
+  }
+
   function localizeText(value, language) {
     const api = getPricingApi();
     if (api?.getLocalizedTextMapValue) {
@@ -176,6 +205,7 @@
     const cancellationText = selection.ratePlan?.non_refundable_before_deposit
       ? (ratePlanCancellationText || getDefaultNonRefundableText(language))
       : (ratePlanCancellationText || localizeText(settings.cancellation_policy, language));
+    const roomGalleryUrls = getRoomGalleryUrls(selection.roomType);
     return {
       selection,
       roomTypeName,
@@ -184,6 +214,8 @@
       ratePlanSummary,
       depositNote,
       cancellationText,
+      roomGalleryUrls,
+      roomInventoryUnits: selection.roomType?.inventory_units || null,
     };
   }
 
@@ -309,6 +341,7 @@
     const roomSummaryLabel = language.startsWith('en') ? 'Room details' : 'Szczegóły pokoju';
     const planSummaryLabel = language.startsWith('en') ? 'Plan details' : 'Szczegóły planu';
     const pricePreviewLabel = language.startsWith('en') ? 'Selected plan from' : 'Plan od';
+    const galleryLabel = language.startsWith('en') ? 'Room gallery' : 'Galeria pokoju';
     const previewPrice = api?.getHotelMinPricePerNight
       ? api.getHotelMinPricePerNight(hotel, {
         preferredPersons: Math.min(Number(roomType.max_persons || 2) || 2, 2),
@@ -316,6 +349,8 @@
         selectedRatePlanId: ratePlan?.id || '',
       })
       : null;
+    const roomGalleryUrls = Array.isArray(summary.roomGalleryUrls) ? summary.roomGalleryUrls : [];
+    const initialGalleryImage = roomGalleryUrls[0] || '';
 
     target.hidden = false;
     target.innerHTML = `
@@ -362,12 +397,55 @@
           </div>
           ` : ''}
           ${Number.isFinite(previewPrice) ? `<span style="font-size:13px; color:#0f172a; font-weight:600;">${pricePreviewLabel}: ${formatMoney(previewPrice, 'EUR')}</span>` : ''}
+          ${roomGalleryUrls.length ? `
+          <div style="display:grid; gap:10px; margin-top:6px;">
+            <strong style="font-size:12px; color:#475569;">${galleryLabel}</strong>
+            <img
+              src="${escapeAttribute(initialGalleryImage)}"
+              alt="${escapeAttribute(summary.roomTypeName || galleryLabel)}"
+              data-room-gallery-main
+              style="width:100%; max-width:420px; aspect-ratio:16/10; object-fit:cover; border-radius:14px; border:1px solid rgba(148,163,184,.24); background:#fff;"
+            />
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              ${roomGalleryUrls.map((url, index) => `
+                <button
+                  type="button"
+                  data-room-gallery-thumb
+                  data-room-gallery-src="${escapeAttribute(url)}"
+                  style="padding:0; border:${index === 0 ? '2px solid #2563eb' : '1px solid rgba(148,163,184,.28)'}; background:#fff; border-radius:10px; overflow:hidden; cursor:pointer;"
+                >
+                  <img
+                    src="${escapeAttribute(url)}"
+                    alt="${escapeAttribute(`${summary.roomTypeName || galleryLabel} ${index + 1}`)}"
+                    style="width:72px; height:72px; object-fit:cover; display:block;"
+                  />
+                </button>
+              `).join('')}
+            </div>
+          </div>
+          ` : ''}
         </div>
       </div>
     `;
 
     const roomSelect = target.querySelector(`select[name="${roomInputName}"]`);
     const ratePlanSelect = target.querySelector(`select[name="${ratePlanInputName}"]`);
+    const galleryMain = target.querySelector('[data-room-gallery-main]');
+    const galleryThumbs = Array.from(target.querySelectorAll('[data-room-gallery-thumb]'));
+
+    galleryThumbs.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const src = String(btn.getAttribute('data-room-gallery-src') || '').trim();
+        if (!src || !(galleryMain instanceof HTMLImageElement)) return;
+        galleryMain.src = src;
+        galleryThumbs.forEach((thumb) => {
+          thumb.style.border = thumb === btn
+            ? '2px solid #2563eb'
+            : '1px solid rgba(148,163,184,.28)';
+        });
+      });
+    });
+
     roomSelect?.addEventListener('change', () => {
       renderRoomTypeOptions(target, hotel, {
         ...options,
@@ -566,6 +644,9 @@
         room_type_name: selection.roomType?.name || null,
         room_type_summary: selection.roomType?.summary || {},
         room_max_persons: selection.roomType?.max_persons || null,
+        room_inventory_units: selection.roomType?.inventory_units || null,
+        room_cover_image_url: selection.roomType?.cover_image_url || null,
+        room_gallery_photos: getRoomGalleryUrls(selection.roomType),
         rate_plan_id: selection.ratePlan?.id || null,
         rate_plan_name: selection.ratePlan?.name || null,
         rate_plan_summary: selection.ratePlan?.summary || {},

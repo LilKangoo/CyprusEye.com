@@ -14,6 +14,9 @@
     contactsByFulfillmentId: {},
     formSnapshotsByFulfillmentId: {},
     serviceDepositByFulfillmentId: {},
+    hotelResourcesById: {},
+    hotelBookingsById: {},
+    hotelDecisionSupportByBookingId: {},
     blocks: [],
     calendar: {
       resourcesByType: { shop: [], cars: [], trips: [], hotels: [], transport: [] },
@@ -89,6 +92,7 @@
     partnerDetailsMeta: null,
     partnerDetailsStatus: null,
     partnerDetailsBody: null,
+    partnerDetailsActions: null,
     tabFulfillments: null,
     tabCalendar: null,
     tabBtnFulfillments: null,
@@ -1624,6 +1628,42 @@
     if (type === 'hotel') return 'hotels';
     if (type === 'transfer' || type === 'transfers' || type === 'transports') return 'transport';
     return type;
+  }
+
+  function localizedLabelFromValue(value, preferred = 'en') {
+    if (value == null) return '';
+    if (typeof value === 'string') return String(value).trim();
+    if (typeof value !== 'object') return String(value || '').trim();
+    const primary = String(preferred || 'en').trim().toLowerCase() || 'en';
+    const candidates = [
+      value[primary],
+      value.en,
+      value.pl,
+      value.el,
+      value.he,
+      ...Object.values(value),
+    ];
+    return String(candidates.find((entry) => String(entry || '').trim()) || '').trim();
+  }
+
+  function hotelDateRangesOverlap(startA, endA, startB, endB) {
+    const aStart = normalizeIsoDateValue(startA);
+    const aEnd = normalizeIsoDateValue(endA);
+    const bStart = normalizeIsoDateValue(startB);
+    const bEnd = normalizeIsoDateValue(endB);
+    if (!aStart || !aEnd || !bStart || !bEnd) return false;
+    return aStart < bEnd && bStart < aEnd;
+  }
+
+  function buildGoogleMapsHref(location = {}) {
+    const direct = String(location.google_maps_url || location.hotel_maps_url || '').trim();
+    if (direct) return direct;
+    const lat = Number(location.latitude);
+    const lng = Number(location.longitude);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      return `https://www.google.com/maps?q=${encodeURIComponent(`${lat},${lng}`)}`;
+    }
+    return '';
   }
 
   function fulfillmentCategoryForOrders(row) {
@@ -3911,6 +3951,9 @@
     if (!state.selectedPartnerId) return;
 
     const limit = 200;
+    state.hotelResourcesById = {};
+    state.hotelBookingsById = {};
+    state.hotelDecisionSupportByBookingId = {};
 
     const [shopRes, serviceRes] = await Promise.all([
       state.sb
@@ -4089,6 +4132,9 @@
     const tripById = {};
     const tripTitleMetaById = {};
     const hotelById = {};
+    const hotelResourceById = {};
+    const hotelBookingById = {};
+    const hotelDecisionSupportByBookingId = {};
     const transportRouteById = {};
     const transportRouteEndpointsById = {};
     const transportLocationLabelById = {};
@@ -4138,19 +4184,160 @@
 
     if (hotelIds.length) {
       try {
-        const { data, error } = await state.sb
+        let data = null;
+        let error = null;
+        ({ data, error } = await state.sb
           .from('hotels')
-          .select('id, slug, title, city')
+          .select('id, slug, title, city, cover_image_url, photos, room_types, address_line, district, postal_code, country, latitude, longitude, google_maps_url, google_place_id')
           .in('id', hotelIds)
-          .limit(500);
+          .limit(500));
+        if (error && /(room_types|address_line|district|postal_code|country|latitude|longitude|google_maps_url|google_place_id)/i.test(String(error.message || ''))) {
+          ({ data, error } = await state.sb
+            .from('hotels')
+            .select('id, slug, title, city, cover_image_url, photos')
+            .in('id', hotelIds)
+            .limit(500));
+        }
         if (error) throw error;
         (data || []).forEach((r) => {
           if (!r?.id) return;
           const title = normalizeTitleJson(r.title) || r.slug || String(r.id).slice(0, 8);
           const city = r.city ? ` — ${r.city}` : '';
           hotelById[r.id] = `${title}${city}`;
+          hotelResourceById[String(r.id)] = r;
         });
       } catch (_e) {}
+    }
+
+    const hotelBookingIds = Array.from(new Set(
+      serviceOnly
+        .filter((f) => normalizeServiceResourceType(f.resource_type) === 'hotels' && f.booking_id)
+        .map((f) => String(f.booking_id || '').trim())
+        .filter(Boolean)
+    ));
+
+    if (hotelBookingIds.length) {
+      try {
+        for (const bookingIdChunk of chunkArray(hotelBookingIds, 120)) {
+          let data = null;
+          let error = null;
+          ({ data, error } = await state.sb
+            .from('hotel_bookings')
+            .select('id, hotel_id, arrival_date, departure_date, nights, num_adults, num_children, total_price, base_price, final_price, extras_price, selected_extras, pricing_breakdown, booking_details, room_type_id, room_type_name, rate_plan_id, rate_plan_name, cancellation_policy_type, status')
+            .in('id', bookingIdChunk)
+            .limit(500));
+          if (error && /(pricing_breakdown|booking_details|room_type_id|room_type_name|rate_plan_id|rate_plan_name|cancellation_policy_type|selected_extras|extras_price|base_price|final_price)/i.test(String(error.message || ''))) {
+            ({ data, error } = await state.sb
+              .from('hotel_bookings')
+              .select('id, hotel_id, arrival_date, departure_date, nights, num_adults, num_children, total_price, status')
+              .in('id', bookingIdChunk)
+              .limit(500));
+          }
+          if (error) throw error;
+          (data || []).forEach((row) => {
+            if (!row?.id) return;
+            hotelBookingById[String(row.id)] = row;
+          });
+        }
+      } catch (error) {
+        console.warn('Partner panel: failed to load hotel booking snapshots:', error);
+      }
+    }
+
+    const hotelBookingsForDecision = Object.values(hotelBookingById);
+    const activeHotelIdsForDecision = Array.from(new Set(
+      hotelBookingsForDecision
+        .map((row) => String(row?.hotel_id || '').trim())
+        .filter(Boolean)
+    ));
+
+    if (activeHotelIdsForDecision.length && hotelBookingsForDecision.length) {
+      const arrivalDates = hotelBookingsForDecision
+        .map((row) => normalizeIsoDateValue(row?.arrival_date))
+        .filter(Boolean)
+        .sort();
+      const departureDates = hotelBookingsForDecision
+        .map((row) => normalizeIsoDateValue(row?.departure_date))
+        .filter(Boolean)
+        .sort();
+      const decisionWindowStart = arrivalDates[0] || '';
+      const decisionWindowEnd = departureDates[departureDates.length - 1] || '';
+
+      if (decisionWindowStart && decisionWindowEnd) {
+        const activeRows = [];
+        for (const hotelIdChunk of chunkArray(activeHotelIdsForDecision, 40)) {
+          try {
+            let data = null;
+            let error = null;
+            ({ data, error } = await state.sb
+              .from('hotel_bookings')
+              .select('id, hotel_id, arrival_date, departure_date, room_type_id, status')
+              .in('hotel_id', hotelIdChunk)
+              .neq('status', 'cancelled')
+              .lt('arrival_date', decisionWindowEnd)
+              .gt('departure_date', decisionWindowStart)
+              .limit(1000));
+            if (error && /room_type_id/i.test(String(error.message || ''))) {
+              ({ data, error } = await state.sb
+                .from('hotel_bookings')
+                .select('id, hotel_id, arrival_date, departure_date, status')
+                .in('hotel_id', hotelIdChunk)
+                .neq('status', 'cancelled')
+                .lt('arrival_date', decisionWindowEnd)
+                .gt('departure_date', decisionWindowStart)
+                .limit(1000));
+            }
+            if (error) throw error;
+            activeRows.push(...(Array.isArray(data) ? data : []));
+          } catch (error) {
+            console.warn('Partner panel: failed to load hotel inventory context:', error);
+          }
+        }
+
+        Object.values(hotelBookingById).forEach((booking) => {
+          if (!booking?.id) return;
+          const bookingId = String(booking.id || '').trim();
+          const hotelId = String(booking.hotel_id || '').trim();
+          const roomTypeId = String(booking.room_type_id || '').trim();
+          if (!bookingId || !hotelId) return;
+
+          const hotelResource = hotelResourceById[hotelId] || null;
+          const roomTypes = Array.isArray(hotelResource?.room_types) ? hotelResource.room_types : [];
+          const roomType = roomTypeId
+            ? roomTypes.find((entry) => String(entry?.id || '').trim() === roomTypeId) || null
+            : null;
+          const configuredUnitsRaw = roomType?.inventory_units
+            ?? booking?.booking_details?.room_inventory_units
+            ?? booking?.room_inventory_units;
+          const configuredUnits = Number(configuredUnitsRaw);
+          const overlappingRows = activeRows.filter((row) => {
+            if (!row) return false;
+            if (String(row.hotel_id || '').trim() !== hotelId) return false;
+            const rowRoomTypeId = String(row.room_type_id || '').trim();
+            if (roomTypeId && rowRoomTypeId && rowRoomTypeId !== roomTypeId) return false;
+            return hotelDateRangesOverlap(
+              booking.arrival_date,
+              booking.departure_date,
+              row.arrival_date,
+              row.departure_date,
+            );
+          });
+          const overlappingOtherRequests = overlappingRows.filter((row) => String(row.id || '').trim() !== bookingId).length;
+          const totalOverlappingIncludingThis = overlappingRows.length;
+          const unitsLeftAfterThis = Number.isFinite(configuredUnits) && configuredUnits > 0
+            ? Math.max(0, configuredUnits - totalOverlappingIncludingThis)
+            : null;
+          const exceedsConfiguredInventory = Boolean(Number.isFinite(configuredUnits) && configuredUnits > 0 && totalOverlappingIncludingThis > configuredUnits);
+
+          hotelDecisionSupportByBookingId[bookingId] = {
+            configuredUnits: Number.isFinite(configuredUnits) && configuredUnits > 0 ? configuredUnits : null,
+            overlappingOtherRequests,
+            totalOverlappingIncludingThis,
+            unitsLeftAfterThis,
+            exceedsConfiguredInventory,
+          };
+        });
+      }
     }
 
     if (transportRouteIds.length) {
@@ -4363,6 +4550,9 @@
     }
 
     state.fulfillments = filteredMerged;
+    state.hotelResourcesById = hotelResourceById;
+    state.hotelBookingsById = hotelBookingById;
+    state.hotelDecisionSupportByBookingId = hotelDecisionSupportByBookingId;
 
     const shopIds = filteredMerged.filter((f) => f && f.__source === 'shop').map((f) => f.id).filter(Boolean);
     const serviceIds = filteredMerged.filter((f) => f && f.__source === 'service').map((f) => f.id).filter(Boolean);
@@ -6479,6 +6669,9 @@
           } else if (p.kind === 'tel') {
             const s = String(value || '').trim();
             valueHtml = s ? `<a href="tel:${encodeURIComponent(s)}">${escapeHtml(s)}</a>` : '<span class="muted">—</span>';
+          } else if (p.kind === 'link') {
+            const s = String(value || '').trim();
+            valueHtml = s ? `<a href="${escapeHtml(s)}" target="_blank" rel="noopener">${escapeHtml(s)}</a>` : '<span class="muted">—</span>';
           } else if (p.kind === 'pre') {
             valueHtml = rawText ? `<pre>${escapeHtml(rawText)}</pre>` : '<span class="muted">—</span>';
           } else {
@@ -6610,6 +6803,104 @@
         const m = raw.match(/^([01]\d|2[0-3]):([0-5]\d)/);
         return m ? `${m[1]}:${m[2]}` : raw;
       };
+      const hotelBooking = category === 'hotels'
+        ? (state.hotelBookingsById[String(f.booking_id || '').trim()] || null)
+        : null;
+      const hotelResourceId = String(hotelBooking?.hotel_id || f.resource_id || '').trim();
+      const hotelResource = category === 'hotels'
+        ? (state.hotelResourcesById[hotelResourceId] || null)
+        : null;
+      const hotelBreakdown = category === 'hotels' && hotelBooking?.pricing_breakdown && typeof hotelBooking.pricing_breakdown === 'object'
+        ? hotelBooking.pricing_breakdown
+        : (detailsPayload?.pricing_breakdown && typeof detailsPayload.pricing_breakdown === 'object'
+          ? detailsPayload.pricing_breakdown
+          : {});
+      const hotelBookingDetails = category === 'hotels' && hotelBooking?.booking_details && typeof hotelBooking.booking_details === 'object'
+        ? hotelBooking.booking_details
+        : (detailsPayload?.booking_details && typeof detailsPayload.booking_details === 'object'
+          ? detailsPayload.booking_details
+          : {});
+      const hotelDecisionSupport = category === 'hotels'
+        ? (state.hotelDecisionSupportByBookingId[String(hotelBooking?.id || '').trim()] || null)
+        : null;
+      const hotelRoomTypes = Array.isArray(hotelResource?.room_types) ? hotelResource.room_types : [];
+      const hotelRoomTypeId = String(
+        hotelBooking?.room_type_id
+        || hotelBookingDetails?.room_type_id
+        || getField('room_type_id')
+        || ''
+      ).trim();
+      const hotelRoomType = hotelRoomTypeId
+        ? (hotelRoomTypes.find((entry) => String(entry?.id || '').trim() === hotelRoomTypeId) || null)
+        : null;
+      const hotelRatePlanId = String(
+        hotelBooking?.rate_plan_id
+        || hotelBookingDetails?.rate_plan_id
+        || getField('rate_plan_id')
+        || ''
+      ).trim();
+      const hotelRatePlan = hotelRatePlanId && Array.isArray(hotelRoomType?.rate_plans)
+        ? (hotelRoomType.rate_plans.find((entry) => String(entry?.id || '').trim() === hotelRatePlanId) || null)
+        : null;
+      const hotelLocation = (() => {
+        const resourceLocation = hotelResource && typeof hotelResource === 'object'
+          ? {
+            address_line: hotelResource.address_line,
+            district: hotelResource.district,
+            postal_code: hotelResource.postal_code,
+            city: hotelResource.city,
+            country: hotelResource.country,
+            latitude: hotelResource.latitude,
+            longitude: hotelResource.longitude,
+            google_maps_url: hotelResource.google_maps_url,
+            google_place_id: hotelResource.google_place_id,
+          }
+          : {};
+        const bookingLocation = hotelBookingDetails?.hotel_location && typeof hotelBookingDetails.hotel_location === 'object'
+          ? hotelBookingDetails.hotel_location
+          : {};
+        return { ...resourceLocation, ...bookingLocation };
+      })();
+      const hotelLocationSummary = (() => {
+        const summary = String(hotelLocation.summary || '').trim();
+        if (summary) return summary;
+        return [
+          hotelLocation.address_line,
+          hotelLocation.district,
+          hotelLocation.postal_code,
+          hotelLocation.city,
+          hotelLocation.country,
+        ].map((value) => String(value || '').trim()).filter(Boolean).join(', ');
+      })();
+      const hotelMapsUrl = buildGoogleMapsHref({
+        ...hotelLocation,
+        hotel_maps_url: hotelBookingDetails?.hotel_maps_url,
+      });
+      const hotelRoomGalleryUrls = (() => {
+        const values = [
+          ...(Array.isArray(hotelBookingDetails?.room_gallery_photos) ? hotelBookingDetails.room_gallery_photos : []),
+          ...(Array.isArray(hotelRoomType?.gallery_photos) ? hotelRoomType.gallery_photos : []),
+          ...(Array.isArray(hotelRoomType?.photos) ? hotelRoomType.photos : []),
+          hotelBookingDetails?.room_cover_image_url,
+          hotelRoomType?.cover_image_url,
+          hotelResource?.cover_image_url,
+          ...(Array.isArray(hotelResource?.photos) ? hotelResource.photos : []),
+        ];
+        return Array.from(new Set(values.map((entry) => String(entry || '').trim()).filter(Boolean)));
+      })();
+      const hotelCurrency = String(hotelBooking?.currency || f.currency || 'EUR').trim().toUpperCase() || 'EUR';
+      const hotelRoomTypeName = localizedLabelFromValue(
+        hotelBooking?.room_type_name
+        || hotelBookingDetails?.room_type_name
+        || hotelRoomType?.name,
+        'en',
+      ) || null;
+      const hotelRatePlanName = localizedLabelFromValue(
+        hotelBooking?.rate_plan_name
+        || hotelBookingDetails?.rate_plan_name
+        || hotelRatePlan?.name,
+        'en',
+      ) || null;
 
       const servicePaymentSummary = (() => {
         if (isShop) return null;
@@ -6617,7 +6908,7 @@
         const currency = String(f.currency || 'EUR').trim().toUpperCase() || 'EUR';
         const totalRaw = category === 'cars'
           ? Number(getCarsFulfillmentPricing(f).amount)
-          : Number(f.total_price);
+          : Number(category === 'hotels' ? (hotelBooking?.total_price ?? f.total_price) : f.total_price);
         if (!Number.isFinite(totalRaw) || totalRaw <= 0) return null;
 
         const paidDepositFromState = toNum(state.serviceDepositByFulfillmentId[String(id || '').trim()] || 0);
@@ -6788,12 +7079,31 @@
 
       const hotelsStayPairs = (() => {
         if (category !== 'hotels') return [];
+        const inventoryUnits = (() => {
+          if (hotelDecisionSupport?.configuredUnits != null) return hotelDecisionSupport.configuredUnits;
+          const fallback = toNum(hotelBookingDetails?.room_inventory_units || 0);
+          return fallback > 0 ? fallback : null;
+        })();
+        const guestsLabel = (() => {
+          const adults = Number(getField('num_adults') || hotelBooking?.num_adults || 0);
+          const children = Number(getField('num_children') || hotelBooking?.num_children || 0);
+          if (!Number.isFinite(adults) && !Number.isFinite(children)) return null;
+          return `${Math.max(0, adults)} adult(s), ${Math.max(0, children)} child(ren)`;
+        })();
         return [
-          { label: 'Arrival date', value: getField('arrival_date') },
-          { label: 'Departure date', value: getField('departure_date') },
-          { label: 'Nights', value: getField('nights') },
-          { label: 'Adults', value: getField('num_adults') },
-          { label: 'Children', value: getField('num_children') },
+          { label: 'Arrival date', value: getField('arrival_date') || hotelBooking?.arrival_date || f.start_date || null },
+          { label: 'Departure date', value: getField('departure_date') || hotelBooking?.departure_date || f.end_date || null },
+          { label: 'Nights', value: getField('nights') || hotelBooking?.nights || null },
+          { label: 'Guests', value: guestsLabel },
+          { label: 'Room type', value: hotelRoomTypeName },
+          { label: 'Rate plan', value: hotelRatePlanName },
+          { label: 'Configured units', value: inventoryUnits },
+          { label: 'Check-in from', value: hotelBookingDetails?.check_in_from || null },
+          { label: 'Check-out until', value: hotelBookingDetails?.check_out_until || null },
+          { label: 'Cancellation', value: hotelBookingDetails?.cancellation_policy_text || null },
+          { label: 'Deposit note', value: hotelBookingDetails?.deposit_note_text || null },
+          { label: 'Hotel location', value: hotelLocationSummary || null },
+          { label: 'Google Maps', value: hotelMapsUrl || null, kind: hotelMapsUrl ? 'link' : undefined },
         ];
       })();
 
@@ -6860,6 +7170,175 @@
           { label: 'Return pickup address', value: getField('return_pickup_address') },
           { label: 'Return dropoff address', value: getField('return_dropoff_address') },
         ];
+      })();
+
+      const hotelOverviewHtml = (() => {
+        if (category !== 'hotels') return '';
+        const arrival = normalizeIsoDateValue(getField('arrival_date') || hotelBooking?.arrival_date || '');
+        const departure = normalizeIsoDateValue(getField('departure_date') || hotelBooking?.departure_date || '');
+        const totalAmount = Number(hotelBooking?.total_price ?? f.total_price ?? hotelBreakdown.base_total ?? 0);
+        const guests = `${Math.max(0, Number(getField('num_adults') || hotelBooking?.num_adults || 0))} adult(s) + ${Math.max(0, Number(getField('num_children') || hotelBooking?.num_children || 0))} child(ren)`;
+        const cards = [
+          { label: 'Hotel', value: String(f.summary || hotelResource?.slug || '').trim() || 'Hotel booking' },
+          { label: 'Stay', value: arrival && departure ? `${formatDateDmy(arrival)} → ${formatDateDmy(departure)}` : '—' },
+          { label: 'Guests', value: guests },
+          { label: 'Quoted total', value: Number.isFinite(totalAmount) && totalAmount > 0 ? formatMoney(totalAmount, hotelCurrency) : '—' },
+        ];
+        return `
+          <div class="partner-details-section">
+            <h3 class="partner-details-section__title">Hotel request snapshot</h3>
+            <div class="partner-details-overview-grid">
+              ${cards.map((card) => `
+                <div class="partner-details-overview-card">
+                  <div class="partner-details-overview-label">${escapeHtml(card.label)}</div>
+                  <div class="partner-details-overview-value">${escapeHtml(card.value)}</div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      })();
+
+      const hotelPricingHtml = (() => {
+        if (category !== 'hotels') return '';
+        const roomTotal = Number(hotelBreakdown.room_total ?? hotelBooking?.total_price ?? f.total_price ?? 0);
+        const roomBaseTotal = Number(hotelBreakdown.room_base_total ?? roomTotal ?? 0);
+        const ratePlanAdjustmentTotal = Number(hotelBreakdown.rate_plan_adjustment_total ?? 0);
+        const extrasTotal = Number(hotelBreakdown.extras_total ?? hotelBooking?.extras_price ?? 0);
+        const mandatoryFeesTotal = Number(hotelBreakdown.mandatory_fees_total ?? 0);
+        const optionalExtrasTotal = Number(hotelBreakdown.optional_extras_total ?? Math.max(0, extrasTotal - mandatoryFeesTotal));
+        const finalTotal = Number(hotelBooking?.total_price ?? f.total_price ?? hotelBreakdown.base_total ?? roomTotal + extrasTotal);
+        const nightlyRates = Array.isArray(hotelBreakdown.nightly_rates) ? hotelBreakdown.nightly_rates : [];
+        const appliedExtras = Array.isArray(hotelBreakdown.applied_extras) ? hotelBreakdown.applied_extras : [];
+        const rows = [
+          { label: 'Room total', value: formatMoney(roomTotal, hotelCurrency), emphasize: false },
+          { label: 'Room base before plan', value: formatMoney(roomBaseTotal, hotelCurrency), emphasize: false },
+          { label: 'Rate plan adjustment', value: formatMoney(ratePlanAdjustmentTotal, hotelCurrency), emphasize: ratePlanAdjustmentTotal !== 0 },
+          { label: 'Mandatory fees', value: formatMoney(mandatoryFeesTotal, hotelCurrency), emphasize: mandatoryFeesTotal > 0 },
+          { label: 'Optional extras', value: formatMoney(optionalExtrasTotal, hotelCurrency), emphasize: optionalExtrasTotal > 0 },
+          { label: 'Final customer quote', value: formatMoney(finalTotal, hotelCurrency), emphasize: true },
+        ];
+        const sourceLabel = (value) => {
+          const raw = String(value || '').trim().toLowerCase();
+          if (raw === 'date') return 'Exact date';
+          if (raw === 'month') return 'Month';
+          if (raw === 'weekday') return 'Weekday';
+          return 'Base';
+        };
+        const extrasHtml = appliedExtras.length ? `
+          <div class="partner-details-breakdown-subsection">
+            <div class="partner-details-breakdown-subtitle">Applied extras</div>
+            <div class="partner-details-extra-list">
+              ${appliedExtras.map((item) => `
+                <div class="partner-details-extra-row">
+                  <span>${escapeHtml(localizedLabelFromValue(item?.label, 'en') || item?.id || 'Extra')}${item?.is_mandatory ? ' (mandatory)' : ''}</span>
+                  <strong>${escapeHtml(formatMoney(item?.total, hotelCurrency))}</strong>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : '';
+        const nightlyHtml = nightlyRates.length ? `
+          <div class="partner-details-breakdown-subsection">
+            <div class="partner-details-breakdown-subtitle">Nightly pricing</div>
+            <div class="partner-details-nightly-list">
+              ${nightlyRates.map((entry) => `
+                <div class="partner-details-nightly-row">
+                  <div>
+                    <div class="partner-details-nightly-date">${escapeHtml(entry?.date ? formatDateDmy(entry.date) : 'Night')}</div>
+                    <span class="partner-details-rate-source partner-details-rate-source--${escapeHtml(String(entry?.source || 'base').trim().toLowerCase() || 'base')}">${escapeHtml(sourceLabel(entry?.source))}</span>
+                  </div>
+                  <div class="partner-details-nightly-price-wrap">
+                    <span class="partner-details-nightly-base">${escapeHtml(formatMoney(entry?.baseRate, hotelCurrency))}</span>
+                    <strong class="partner-details-nightly-final">${escapeHtml(formatMoney(entry?.rate, hotelCurrency))}</strong>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : '';
+        return `
+          <div class="partner-details-section">
+            <h3 class="partner-details-section__title">Quote breakdown</h3>
+            <div class="partner-details-breakdown-grid">
+              ${rows.map((row) => `
+                <div class="partner-details-breakdown-card${row.emphasize ? ' partner-details-breakdown-card--emphasis' : ''}">
+                  <div class="partner-details-breakdown-label">${escapeHtml(row.label)}</div>
+                  <div class="partner-details-breakdown-value">${escapeHtml(row.value)}</div>
+                </div>
+              `).join('')}
+            </div>
+            ${extrasHtml}
+            ${nightlyHtml}
+          </div>
+        `;
+      })();
+
+      const hotelDecisionHtml = (() => {
+        if (category !== 'hotels') return '';
+        const configuredUnits = hotelDecisionSupport?.configuredUnits ?? null;
+        const overlappingOtherRequests = hotelDecisionSupport?.overlappingOtherRequests ?? null;
+        const totalOverlappingIncludingThis = hotelDecisionSupport?.totalOverlappingIncludingThis ?? null;
+        const unitsLeftAfterThis = hotelDecisionSupport?.unitsLeftAfterThis ?? null;
+        const exceedsInventory = Boolean(hotelDecisionSupport?.exceedsConfiguredInventory);
+        const cards = [
+          { label: 'Configured units', value: configuredUnits != null ? String(configuredUnits) : 'Not set' },
+          { label: 'Other overlapping requests', value: overlappingOtherRequests != null ? String(overlappingOtherRequests) : '—' },
+          { label: 'Total units needed incl. this request', value: totalOverlappingIncludingThis != null ? String(totalOverlappingIncludingThis) : '—' },
+          { label: 'Estimated units left', value: unitsLeftAfterThis != null ? String(unitsLeftAfterThis) : '—' },
+        ];
+        const note = exceedsInventory
+          ? 'Configured room inventory is lower than the current overlapping request load. Review before accepting.'
+          : 'Inventory is internal only. Customers do not see this availability; use it only for partner-side decision making.';
+        return `
+          <div class="partner-details-section">
+            <h3 class="partner-details-section__title">Room inventory context</h3>
+            <div class="partner-details-breakdown-grid">
+              ${cards.map((card) => `
+                <div class="partner-details-breakdown-card${exceedsInventory && card.label === 'Estimated units left' ? ' partner-details-breakdown-card--warning' : ''}">
+                  <div class="partner-details-breakdown-label">${escapeHtml(card.label)}</div>
+                  <div class="partner-details-breakdown-value">${escapeHtml(card.value)}</div>
+                </div>
+              `).join('')}
+            </div>
+            <div class="partner-details-inline-note${exceedsInventory ? ' partner-details-inline-note--warning' : ''}">${escapeHtml(note)}</div>
+          </div>
+        `;
+      })();
+
+      const hotelRoomGalleryHtml = (() => {
+        if (category !== 'hotels') return '';
+        const locationHtml = hotelLocationSummary
+          ? `
+            <div class="partner-details-breakdown-subsection">
+              <div class="partner-details-breakdown-subtitle">Location</div>
+              <div class="partner-details-inline-note">
+                <span>${escapeHtml(hotelLocationSummary)}</span>
+                ${hotelMapsUrl ? `<a href="${escapeHtml(hotelMapsUrl)}" target="_blank" rel="noopener">Open in Google Maps</a>` : ''}
+              </div>
+            </div>
+          `
+          : '';
+        const galleryHtml = hotelRoomGalleryUrls.length ? `
+          <div class="partner-details-breakdown-subsection">
+            <div class="partner-details-breakdown-subtitle">Room gallery</div>
+            <div class="partner-details-hotel-gallery">
+              ${hotelRoomGalleryUrls.slice(0, 6).map((url, index) => `
+                <figure class="partner-details-hotel-gallery-item">
+                  <img src="${escapeHtml(url)}" alt="${escapeHtml(`${hotelRoomTypeName || 'Room'} ${index + 1}`)}" loading="lazy" />
+                </figure>
+              `).join('')}
+            </div>
+          </div>
+        ` : '';
+        if (!galleryHtml && !locationHtml) return '';
+        return `
+          <div class="partner-details-section">
+            <h3 class="partner-details-section__title">Room and map</h3>
+            ${galleryHtml}
+            ${locationHtml}
+          </div>
+        `;
       })();
 
       const notesPairs = (() => {
@@ -6936,12 +7415,16 @@
       const html = [
         contactHiddenNotice,
         carsOverviewHtml,
+        hotelOverviewHtml,
         sectionHtml('Customer information', customerSectionPairs),
         category === 'shop' ? sectionHtml('Shipping', shippingSectionPairs) : '',
         category === 'shop' ? sectionHtml('Billing', billingSectionPairs) : '',
         category === 'cars' ? sectionHtml('Rental details', carsRentalPairs) : '',
         category === 'cars' ? sectionHtml('Pickup', carsPickupPairs) : '',
         category === 'cars' ? sectionHtml('Return', carsReturnPairs) : '',
+        category === 'hotels' ? hotelPricingHtml : '',
+        category === 'hotels' ? hotelDecisionHtml : '',
+        category === 'hotels' ? hotelRoomGalleryHtml : '',
         category === 'hotels' ? sectionHtml('Stay details', hotelsStayPairs) : '',
         category === 'trips' ? sectionHtml('Trip details', tripsDetailsPairs) : '',
         category === 'transport' ? sectionHtml('Transport details', transportDetailsPairs) : '',
@@ -6952,6 +7435,47 @@
       if (els.partnerDetailsBody) {
         els.partnerDetailsBody.setAttribute('data-category', category || '');
         els.partnerDetailsBody.innerHTML = html || '<div class="muted">No customer details available.</div>';
+        els.partnerDetailsBody.scrollTop = 0;
+      }
+
+      if (els.partnerDetailsActions) {
+        const source = String(f.__source || 'shop').trim().toLowerCase();
+        const currentFlowStatus = String(f.status || '').trim().toLowerCase();
+        const partner = state.selectedPartnerId ? state.partnersById[state.selectedPartnerId] : null;
+        const isSuspended = Boolean(partner?.status === 'suspended');
+        let actionHtml = '';
+
+        if (currentFlowStatus === 'pending_acceptance') {
+          actionHtml = `
+            <button class="btn-action btn-success" type="button" data-modal-fulfillment-action="accept" ${isSuspended ? 'disabled' : ''}>Accept request</button>
+            <button class="btn-action btn-danger" type="button" data-modal-fulfillment-action="reject" ${isSuspended ? 'disabled' : ''}>Reject request</button>
+            <div class="partner-details-actions-note">Use the full quote and room context above before deciding.</div>
+          `;
+        } else if (currentFlowStatus === 'awaiting_payment') {
+          actionHtml = '<div class="partner-details-actions-note">This request is already accepted and is waiting for payment confirmation.</div>';
+        } else if (currentFlowStatus === 'accepted') {
+          actionHtml = '<div class="partner-details-actions-note">This request has already been accepted.</div>';
+        } else if (currentFlowStatus === 'rejected') {
+          actionHtml = '<div class="partner-details-actions-note">This request has already been rejected.</div>';
+        } else if (currentFlowStatus === 'closed') {
+          actionHtml = '<div class="partner-details-actions-note">This request was accepted by another partner.</div>';
+        } else if (currentFlowStatus === 'expired') {
+          actionHtml = '<div class="partner-details-actions-note">This request expired before acceptance.</div>';
+        }
+
+        els.partnerDetailsActions.hidden = !actionHtml;
+        els.partnerDetailsActions.innerHTML = actionHtml;
+
+        els.partnerDetailsActions.querySelectorAll('[data-modal-fulfillment-action]').forEach((button) => {
+          button.addEventListener('click', () => {
+            const action = String(button.getAttribute('data-modal-fulfillment-action') || '').trim().toLowerCase();
+            if (!action || !els.fulfillmentsBody) return;
+            const rowButton = els.fulfillmentsBody.querySelector(`button[data-action="${action}"][data-source="${source}"][data-id="${id}"]`);
+            if (!(rowButton instanceof HTMLButtonElement)) return;
+            closePartnerDetailsModal({ restoreFocus: false });
+            rowButton.click();
+          });
+        });
       }
     };
 
@@ -7160,7 +7684,13 @@
           const hasContact = Boolean(contact && (contact.customer_name || contact.customer_email || contact.customer_phone || contact.shipping_address || contact.billing_address));
           const hasSnapshot = Boolean(formSnapshot && formSnapshot.payload && typeof formSnapshot.payload === 'object' && Object.keys(formSnapshot.payload).length);
           const hasDetails = Boolean(f.details && typeof f.details === 'object' && Object.keys(f.details).length);
-          if (!hasContact && !hasSnapshot && !hasDetails) return '';
+          const hasHotelContext = !isShop
+            && normalizeServiceResourceType(f.resource_type) === 'hotels'
+            && Boolean(
+              state.hotelBookingsById[String(f.booking_id || '').trim()]
+              || state.hotelResourcesById[String(f.resource_id || '').trim()]
+            );
+          if (!hasContact && !hasSnapshot && !hasDetails && !hasHotelContext) return '';
           return `
             <div style="margin-top: 10px;">
               <button
@@ -9004,6 +9534,7 @@
     els.partnerDetailsMeta = $('partnerDetailsMeta');
     els.partnerDetailsStatus = $('partnerDetailsStatus');
     els.partnerDetailsBody = $('partnerDetailsBody');
+    els.partnerDetailsActions = $('partnerDetailsActions');
 
     els.tabFulfillments = $('partnerTabFulfillments');
     els.tabCalendar = $('partnerTabCalendar');

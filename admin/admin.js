@@ -10201,6 +10201,41 @@ function buildHotelRatePlanNamePreview(plan) {
   return String(name || '').trim() || 'Rate plan';
 }
 
+function parseHotelRoomGalleryUrls(value) {
+  if (Array.isArray(value)) {
+    return Array.from(new Set(
+      value
+        .map((entry) => String(entry || '').trim())
+        .filter(Boolean),
+    ));
+  }
+  return Array.from(new Set(
+    String(value || '')
+      .split(/\r?\n/)
+      .map((entry) => String(entry || '').trim())
+      .filter(Boolean),
+  ));
+}
+
+function renderHotelRoomGalleryPreview(card) {
+  if (!(card instanceof Element)) return;
+  const preview = card.querySelector('[data-room-gallery-preview]');
+  if (!(preview instanceof Element)) return;
+  const coverUrl = String(card.querySelector('[data-room-field="cover-image"]')?.value || '').trim();
+  const galleryUrls = parseHotelRoomGalleryUrls(card.querySelector('[data-room-field="gallery-photos"]')?.value || '');
+  const photos = Array.from(new Set([coverUrl, ...galleryUrls].filter(Boolean)));
+  if (!photos.length) {
+    preview.innerHTML = '<div class="table-loading">No room gallery images yet</div>';
+    return;
+  }
+  preview.innerHTML = photos.map((url, index) => `
+    <figure class="hotel-room-gallery-thumb">
+      <img src="${escapeHtml(url)}" alt="Room photo ${index + 1}" loading="lazy" />
+      <figcaption>${index === 0 && coverUrl ? 'Cover' : `Photo ${index + 1}`}</figcaption>
+    </figure>
+  `).join('');
+}
+
 function createHotelAdminRatePlanDraft(plan = {}, index = 0) {
   const raw = plan && typeof plan === 'object' ? plan : {};
   return {
@@ -10231,6 +10266,8 @@ function createHotelAdminRoomTypeDraft(room = {}, index = 0, hotelContext = {}) 
     name: normalized.name && typeof normalized.name === 'object' ? normalized.name : {},
     summary: normalized.summary && typeof normalized.summary === 'object' ? normalized.summary : {},
     cover_image_url: String(normalized.cover_image_url || raw.cover_image_url || '').trim(),
+    photos: Array.isArray(normalized.photos) ? normalized.photos.slice() : [],
+    inventory_units: Number.isFinite(Number(normalized.inventory_units)) ? Number(normalized.inventory_units) : '',
     max_persons: Number.isFinite(Number(normalized.max_persons)) ? Number(normalized.max_persons) : '',
     pricing_model: String(normalized.pricing_model || raw.pricing_model || hotelContext.pricing_model || 'per_person_per_night').trim(),
     pricing_tiers: normalized.pricing_tiers && typeof normalized.pricing_tiers === 'object'
@@ -10378,7 +10415,7 @@ function addHotelRoomTypeCard(prefix, room = {}, hotelContext = {}) {
     <div class="hotel-room-card-head">
       <div>
         <h5 data-room-title>${escapeHtml(buildHotelRoomNamePreview(draft))}</h5>
-        <p>Room capacity, room-level pricing, and its own rate plans.</p>
+        <p>Room capacity, partner-only inventory, room gallery, exact-date pricing, and its own rate plans.</p>
       </div>
       <button type="button" class="btn-secondary btn-danger" data-room-remove>Remove room</button>
     </div>
@@ -10411,6 +10448,10 @@ function addHotelRoomTypeCard(prefix, room = {}, hotelContext = {}) {
         <input type="number" min="1" data-room-field="max-persons" value="${draft.max_persons || ''}" placeholder="e.g. 3" />
       </label>
       <label class="admin-form-field">
+        <span>Inventory units</span>
+        <input type="number" min="1" data-room-field="inventory-units" value="${draft.inventory_units || ''}" placeholder="e.g. 4" />
+      </label>
+      <label class="admin-form-field">
         <span>Pricing model</span>
         <select data-room-field="pricing-model">
           <option value="per_person_per_night" ${draft.pricing_model === 'per_person_per_night' ? 'selected' : ''}>Per person per night</option>
@@ -10418,6 +10459,16 @@ function addHotelRoomTypeCard(prefix, room = {}, hotelContext = {}) {
           <option value="flat_per_night" ${draft.pricing_model === 'flat_per_night' ? 'selected' : ''}>Flat per night</option>
         </select>
       </label>
+      <label class="admin-form-field hotel-field-full">
+        <span>Room gallery URLs</span>
+        <textarea data-room-field="gallery-photos" rows="3" placeholder="One image URL per line">${escapeHtml((Array.isArray(draft.photos) ? draft.photos : []).join('\n'))}</textarea>
+      </label>
+    </div>
+    <div class="admin-form-field hotel-field-full">
+      <span>Room gallery preview</span>
+      <div class="hotel-room-gallery-preview" data-room-gallery-preview>
+        <div class="table-loading">No room gallery images yet</div>
+      </div>
     </div>
     <div class="admin-form-field hotel-field-full">
       <span>Room pricing tiers</span>
@@ -10500,6 +10551,15 @@ function addHotelRoomTypeCard(prefix, room = {}, hotelContext = {}) {
     });
   });
 
+  roomCard.querySelector('[data-room-field="cover-image"]')?.addEventListener('input', () => {
+    renderHotelRoomGalleryPreview(roomCard);
+  });
+  roomCard.querySelector('[data-room-field="gallery-photos"]')?.addEventListener('input', () => {
+    renderHotelRoomGalleryPreview(roomCard);
+  });
+
+  renderHotelRoomGalleryPreview(roomCard);
+
   list.appendChild(roomCard);
 }
 
@@ -10554,11 +10614,14 @@ function collectHotelRoomTypes(prefix) {
     }
 
     const maxPersons = Number(card.querySelector('[data-room-field="max-persons"]')?.value || 0);
+    const inventoryUnits = Number(card.querySelector('[data-room-field="inventory-units"]')?.value || 0);
     return {
       id: roomId,
       name,
       summary,
       cover_image_url: String(card.querySelector('[data-room-field="cover-image"]')?.value || '').trim() || null,
+      photos: parseHotelRoomGalleryUrls(card.querySelector('[data-room-field="gallery-photos"]')?.value || ''),
+      inventory_units: Number.isFinite(inventoryUnits) && inventoryUnits > 0 ? inventoryUnits : null,
       max_persons: Number.isFinite(maxPersons) && maxPersons > 0 ? maxPersons : null,
       pricing_model: String(card.querySelector('[data-room-field="pricing-model"]')?.value || 'per_person_per_night').trim() || 'per_person_per_night',
       pricing_tiers: pricingTbodyId ? collectPricingTiers(pricingTbodyId) : { currency: 'EUR', rules: [] },
@@ -20017,6 +20080,24 @@ function getTierMonthOverrides(tier) {
   return {};
 }
 
+function getTierDateOverrides(tier) {
+  const engine = getHotelPricingEngine();
+  if (engine?.getRuleDateOverrides) {
+    return engine.getRuleDateOverrides(tier);
+  }
+  const out = {};
+  const raw = tier && typeof tier === 'object' ? (tier.date_prices || tier.date_overrides || {}) : {};
+  if (!raw || typeof raw !== 'object') return out;
+  Object.entries(raw).forEach(([key, value]) => {
+    const iso = String(key || '').trim();
+    const amount = Number(value);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(iso) && Number.isFinite(amount) && amount >= 0) {
+      out[iso] = amount;
+    }
+  });
+  return out;
+}
+
 function buildPricingScheduleBlock(kind, tier) {
   const labels = getHotelPricingLabels();
   const keys = kind === 'weekday' ? labels.weekdayKeys : labels.monthKeys;
@@ -20050,6 +20131,42 @@ function buildPricingScheduleBlock(kind, tier) {
   `;
 }
 
+function buildPricingDateOverrideRowsHtml(tier) {
+  const values = Object.entries(getTierDateOverrides(tier))
+    .sort(([a], [b]) => String(a).localeCompare(String(b)));
+  if (!values.length) {
+    return '<div class="table-loading">No exact date overrides yet</div>';
+  }
+  return values.map(([date, price]) => `
+    <div class="hotel-tier-date-row" data-schedule-date-row>
+      <input type="date" class="admin-input" data-schedule-kind="date" data-schedule-key="date" value="${escapeHtml(date)}" />
+      <input type="number" min="0" step="0.01" class="admin-input" data-schedule-kind="date" data-schedule-key="price" value="${Number(price)}" placeholder="0.00" />
+      <button type="button" class="btn-secondary btn-danger" data-schedule-date-remove>Remove</button>
+    </div>
+  `).join('');
+}
+
+function addPricingDateOverrideRow(container, value = {}) {
+  const wrap = container instanceof Element ? container : null;
+  if (!wrap) return;
+  if (wrap.querySelector('.table-loading')) wrap.innerHTML = '';
+  const row = document.createElement('div');
+  row.className = 'hotel-tier-date-row';
+  row.dataset.scheduleDateRow = '1';
+  row.innerHTML = `
+    <input type="date" class="admin-input" data-schedule-kind="date" data-schedule-key="date" value="${escapeHtml(String(value.date || '').trim())}" />
+    <input type="number" min="0" step="0.01" class="admin-input" data-schedule-kind="date" data-schedule-key="price" value="${value.price != null ? Number(value.price) : ''}" placeholder="0.00" />
+    <button type="button" class="btn-secondary btn-danger" data-schedule-date-remove>Remove</button>
+  `;
+  row.querySelector('[data-schedule-date-remove]')?.addEventListener('click', () => {
+    row.remove();
+    if (!wrap.querySelector('[data-schedule-date-row]')) {
+      wrap.innerHTML = '<div class="table-loading">No exact date overrides yet</div>';
+    }
+  });
+  wrap.appendChild(row);
+}
+
 function addPricingTierRow(tbodyId, tier) {
   const tbody = document.getElementById(tbodyId);
   if (!tbody) return;
@@ -20073,6 +20190,12 @@ function addPricingTierRow(tbodyId, tier) {
       <div class="hotel-tier-schedule">
         ${buildPricingScheduleBlock('weekday', tier)}
         ${buildPricingScheduleBlock('month', tier)}
+        <div class="hotel-tier-schedule-block">
+          <div class="hotel-tier-schedule-title">Exact date overrides</div>
+          <div class="hotel-tier-schedule-caption">These prices win over weekday and month rules for the selected date.</div>
+          <div class="hotel-tier-date-list" data-schedule-date-list>${buildPricingDateOverrideRowsHtml(tier)}</div>
+          <button type="button" class="btn-secondary hotel-add-tier-btn" data-schedule-date-add>Add exact date</button>
+        </div>
       </div>
     </td>
   `;
@@ -20083,6 +20206,19 @@ function addPricingTierRow(tbodyId, tier) {
     if (!tbody.children.length) {
       tbody.innerHTML = '<tr><td colspan="4" class="table-loading">No tiers yet</td></tr>';
     }
+  });
+  scheduleRow.querySelector('[data-schedule-date-add]')?.addEventListener('click', () => {
+    addPricingDateOverrideRow(scheduleRow.querySelector('[data-schedule-date-list]'));
+  });
+  scheduleRow.querySelectorAll('[data-schedule-date-remove]').forEach((removeBtn) => {
+    removeBtn.addEventListener('click', () => {
+      const row = removeBtn.closest('[data-schedule-date-row]');
+      row?.remove();
+      const list = scheduleRow.querySelector('[data-schedule-date-list]');
+      if (list && !list.querySelector('[data-schedule-date-row]')) {
+        list.innerHTML = '<div class="table-loading">No exact date overrides yet</div>';
+      }
+    });
   });
   tbody.appendChild(tr);
   tbody.appendChild(scheduleRow);
@@ -20138,6 +20274,18 @@ function collectPricingTiers(tbodyId) {
         }
         if (Object.keys(monthPrices).length) {
           rule.month_prices = monthPrices;
+        }
+        const datePrices = {};
+        scheduleRow.querySelectorAll('[data-schedule-date-row]').forEach((row) => {
+          const dateValue = String(row.querySelector('[data-schedule-key="date"]')?.value || '').trim();
+          const priceValue = row.querySelector('[data-schedule-key="price"]')?.value;
+          const price = priceValue === '' ? null : Number(priceValue);
+          if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue) && Number.isFinite(price) && price >= 0) {
+            datePrices[dateValue] = price;
+          }
+        });
+        if (Object.keys(datePrices).length) {
+          rule.date_prices = datePrices;
         }
       }
       rules.push(rule);

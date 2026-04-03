@@ -156,12 +156,46 @@
     return out;
   }
 
+  function normalizeExactDateKey(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    const match = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (!match) return '';
+    return parseIsoDate(match[1]) ? match[1] : '';
+  }
+
+  function normalizeDateOverrideMap(value) {
+    const out = {};
+    if (Array.isArray(value)) {
+      value.forEach((entry) => {
+        if (!entry || typeof entry !== 'object') return;
+        const key = normalizeExactDateKey(entry.date || entry.iso || entry.day || entry.key);
+        const amount = normalizeNumber(entry.price_per_night ?? entry.price ?? entry.amount);
+        if (!key || amount == null || amount < 0) return;
+        out[key] = Number(amount);
+      });
+      return out;
+    }
+    if (!value || typeof value !== 'object') return out;
+    Object.entries(value).forEach(([rawKey, rawValue]) => {
+      const key = normalizeExactDateKey(rawKey);
+      const amount = normalizeNumber(rawValue);
+      if (!key || amount == null || amount < 0) return;
+      out[key] = Number(amount);
+    });
+    return out;
+  }
+
   function getRuleWeekdayOverrides(rule) {
     return normalizeOverrideMap(rule && rule.weekday_prices, normalizeWeekdayKey);
   }
 
   function getRuleMonthOverrides(rule) {
     return normalizeOverrideMap(rule && rule.month_prices, normalizeMonthKey);
+  }
+
+  function getRuleDateOverrides(rule) {
+    return normalizeDateOverrideMap(rule && (rule.date_prices || rule.date_overrides || rule.exact_date_prices));
   }
 
   function ruleHasWeekdayOverrides(rule) {
@@ -172,16 +206,26 @@
     return Object.keys(getRuleMonthOverrides(rule)).length > 0;
   }
 
+  function ruleHasDateOverrides(rule) {
+    return Object.keys(getRuleDateOverrides(rule)).length > 0;
+  }
+
   function getNightlyRateForDate(rule, date) {
     const baseRate = Math.max(0, Number(rule && rule.price_per_night) || 0);
     if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
       return { rate: baseRate, source: 'base', weekdayKey: '', monthKey: '' };
     }
 
+    const isoDate = formatIsoDate(date);
     const weekdayKey = WEEKDAY_KEYS[date.getUTCDay()] || '';
     const monthKey = MONTH_KEYS[date.getUTCMonth()] || '';
+    const dateOverrides = getRuleDateOverrides(rule);
     const monthOverrides = getRuleMonthOverrides(rule);
     const weekdayOverrides = getRuleWeekdayOverrides(rule);
+
+    if (isoDate && Object.prototype.hasOwnProperty.call(dateOverrides, isoDate)) {
+      return { rate: dateOverrides[isoDate], source: 'date', weekdayKey, monthKey, dateKey: isoDate };
+    }
 
     let rate = baseRate;
     let source = 'base';
@@ -195,12 +239,18 @@
       source = source === 'month' ? 'month+weekday' : 'weekday';
     }
 
-    return { rate, source, weekdayKey, monthKey };
+    return { rate, source, weekdayKey, monthKey, dateKey: isoDate };
   }
 
   function getRuleMinNightlyRate(rule) {
     const baseRate = Math.max(0, Number(rule && rule.price_per_night) || 0);
     let minRate = baseRate;
+    Object.values(getRuleDateOverrides(rule)).forEach((value) => {
+      const amount = Number(value);
+      if (Number.isFinite(amount) && amount < minRate) {
+        minRate = amount;
+      }
+    });
     for (let monthIndex = 0; monthIndex < MONTH_KEYS.length; monthIndex += 1) {
       for (let weekdayIndex = 0; weekdayIndex < WEEKDAY_KEYS.length; weekdayIndex += 1) {
         const probe = new Date(Date.UTC(2026, monthIndex, 1 + weekdayIndex, 12, 0, 0, 0));
@@ -216,6 +266,12 @@
   function getRuleMaxNightlyRate(rule) {
     const baseRate = Math.max(0, Number(rule && rule.price_per_night) || 0);
     let maxRate = baseRate;
+    Object.values(getRuleDateOverrides(rule)).forEach((value) => {
+      const amount = Number(value);
+      if (Number.isFinite(amount) && amount > maxRate) {
+        maxRate = amount;
+      }
+    });
     for (let monthIndex = 0; monthIndex < MONTH_KEYS.length; monthIndex += 1) {
       for (let weekdayIndex = 0; weekdayIndex < WEEKDAY_KEYS.length; weekdayIndex += 1) {
         const probe = new Date(Date.UTC(2026, monthIndex, 1 + weekdayIndex, 12, 0, 0, 0));
@@ -368,6 +424,7 @@
     const minNights = normalizeNumber(row.min_nights);
     const weekdayPrices = normalizeOverrideMap(row.weekday_prices, normalizeWeekdayKey);
     const monthPrices = normalizeOverrideMap(row.month_prices, normalizeMonthKey);
+    const datePrices = normalizeDateOverrideMap(row.date_prices || row.date_overrides || row.exact_date_prices);
     const rule = {
       persons,
       price_per_night: roundMoney(pricePerNight),
@@ -380,6 +437,9 @@
     }
     if (Object.keys(monthPrices).length) {
       rule.month_prices = monthPrices;
+    }
+    if (Object.keys(datePrices).length) {
+      rule.date_prices = datePrices;
     }
     return rule;
   }
@@ -472,12 +532,27 @@
         if (a.is_default !== b.is_default) return a.is_default ? -1 : 1;
         return a.sort_order - b.sort_order;
       });
+    const roomPhotos = Array.isArray(row.photos)
+      ? row.photos
+      : (Array.isArray(row.gallery_photos) ? row.gallery_photos : []);
+    const normalizedPhotos = roomPhotos
+      .map((entry) => String(entry || '').trim())
+      .filter(Boolean);
+    const inventoryUnits = clampPositiveInt(
+      row.inventory_units
+      ?? row.units
+      ?? row.room_count
+      ?? row.inventory_count,
+      0,
+    ) || null;
     return {
       id: identifier,
       name: Object.keys(name).length ? name : { en: fallbackLabel, pl: fallbackLabel },
       summary: normalizeLocalizedTextMap(row.summary || row.description),
-      cover_image_url: String(row.cover_image_url || row.coverImageUrl || '').trim(),
-      photos: Array.isArray(row.photos) ? row.photos.map((entry) => String(entry || '').trim()).filter(Boolean) : [],
+      cover_image_url: String(row.cover_image_url || row.coverImageUrl || normalizedPhotos[0] || '').trim(),
+      photos: normalizedPhotos,
+      gallery_photos: normalizedPhotos,
+      inventory_units: inventoryUnits,
       max_persons: clampPositiveInt(row.max_persons || row.capacity, clampPositiveInt(hotel && hotel.max_persons, 0)) || null,
       pricing_model: normalizePricingModel(row.pricing_model, hotel && hotel.pricing_model),
       pricing_tiers: pricingTiers,
@@ -751,6 +826,7 @@
       hasVariableNightlyRates: nightlyRates.some((entry) => Number(entry.rate) !== Number(nightlyRates[0] && nightlyRates[0].rate)),
       usesWeekdayPricing: ruleHasWeekdayOverrides(tier),
       usesMonthPricing: ruleHasMonthOverrides(tier),
+      usesDatePricing: ruleHasDateOverrides(tier),
       pricingModel: normalizePricingModel(pricingSource && pricingSource.pricing_model, hotel && hotel.pricing_model),
       tier,
       roomType: selection.roomType || null,
@@ -1012,6 +1088,7 @@
     getLocalizedTextMapValue,
     resolveHotelRoomSelection,
     checkHotelAvailability,
+    getRuleDateOverrides,
     getRuleWeekdayOverrides,
     getRuleMonthOverrides,
     getNightlyRateForDate,
