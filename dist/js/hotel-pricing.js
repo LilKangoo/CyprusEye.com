@@ -5,6 +5,7 @@
   const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const MONTH_KEYS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
   const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const HOTEL_EXTRA_CHARGE_TYPES = ['per_stay', 'per_night', 'per_person_per_stay', 'per_person_per_night'];
 
   function normalizeNumber(value) {
     if (value === '' || value == null) return null;
@@ -15,6 +16,12 @@
   function clampPositiveInt(value, fallback) {
     const num = Number(value);
     if (Number.isFinite(num) && num > 0) return Math.round(num);
+    return fallback;
+  }
+
+  function clampNonNegativeInt(value, fallback) {
+    const num = Number(value);
+    if (Number.isFinite(num) && num >= 0) return Math.round(num);
     return fallback;
   }
 
@@ -41,6 +48,12 @@
     const next = new Date(date.getTime());
     next.setUTCDate(next.getUTCDate() + Number(days || 0));
     return next;
+  }
+
+  function roundMoney(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return 0;
+    return Number(num.toFixed(2));
   }
 
   function buildStayDates(arrivalDate, nights) {
@@ -204,6 +217,117 @@
     return Number.isFinite(maxRate) ? Number(maxRate) : null;
   }
 
+  function normalizeLocalizedTextMap(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      if (typeof value === 'string' && value.trim()) {
+        const text = value.trim();
+        return { en: text, pl: text };
+      }
+      return {};
+    }
+    const out = {};
+    ['pl', 'en', 'el', 'he'].forEach((lang) => {
+      const text = String(value[lang] || '').trim();
+      if (text) out[lang] = text;
+    });
+    return out;
+  }
+
+  function getLocalizedTextMapValue(value, language, fallbackLanguage) {
+    const map = normalizeLocalizedTextMap(value);
+    const lang = String(language || '').trim().toLowerCase();
+    const fallback = String(fallbackLanguage || '').trim().toLowerCase();
+    if (lang && map[lang]) return map[lang];
+    if (fallback && map[fallback]) return map[fallback];
+    if (map.en) return map.en;
+    if (map.pl) return map.pl;
+    const first = Object.values(map).find(Boolean);
+    return first || '';
+  }
+
+  function normalizeChargeType(value) {
+    const raw = String(value || '').trim().toLowerCase();
+    return HOTEL_EXTRA_CHARGE_TYPES.includes(raw) ? raw : 'per_stay';
+  }
+
+  function normalizeExtraItem(rawItem, index) {
+    const row = rawItem && typeof rawItem === 'object' ? rawItem : {};
+    const amount = normalizeNumber(row.amount);
+    if (amount == null || amount < 0) return null;
+    const label = normalizeLocalizedTextMap(row.label || row.name);
+    if (!Object.keys(label).length) return null;
+    const identifier = String(row.id || row.code || `extra-${index + 1}`).trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, '-')
+      .replace(/^-+|-+$/g, '') || `extra-${index + 1}`;
+    return {
+      id: identifier,
+      label,
+      description: normalizeLocalizedTextMap(row.description),
+      amount: roundMoney(amount),
+      charge_type: normalizeChargeType(row.charge_type),
+      is_mandatory: Boolean(row.is_mandatory),
+      sort_order: clampNonNegativeInt(row.sort_order, index),
+    };
+  }
+
+  function normalizeHotelPricingExtras(rawValue) {
+    const raw = rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue) ? rawValue : {};
+    const currency = String(raw.currency || 'EUR').trim().toUpperCase() || 'EUR';
+    const items = Array.isArray(raw.items)
+      ? raw.items.map(normalizeExtraItem).filter(Boolean).sort((a, b) => a.sort_order - b.sort_order)
+      : [];
+    return { currency, items };
+  }
+
+  function sanitizeTimeValue(value) {
+    const raw = String(value || '').trim();
+    return /^\d{2}:\d{2}$/.test(raw) ? raw : '';
+  }
+
+  function normalizeHotelBookingSettings(rawValue) {
+    const raw = rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue) ? rawValue : {};
+    return {
+      check_in_from: sanitizeTimeValue(raw.check_in_from),
+      check_out_until: sanitizeTimeValue(raw.check_out_until),
+      cancellation_policy: normalizeLocalizedTextMap(raw.cancellation_policy),
+      stay_info: normalizeLocalizedTextMap(raw.stay_info),
+    };
+  }
+
+  function normalizeSelectedExtraIds(selected) {
+    if (Array.isArray(selected)) {
+      return Array.from(new Set(selected.map((entry) => String(entry || '').trim()).filter(Boolean)));
+    }
+    if (selected && typeof selected === 'object' && typeof selected.length === 'number') {
+      return Array.from(new Set(Array.from(selected).map((entry) => String(entry || '').trim()).filter(Boolean)));
+    }
+    if (typeof selected === 'string') {
+      const safe = String(selected || '').trim();
+      return safe ? [safe] : [];
+    }
+    return [];
+  }
+
+  function calculateHotelExtraAmount(item, context) {
+    const row = item && typeof item === 'object' ? item : null;
+    if (!row) return 0;
+    const amount = Math.max(0, Number(row.amount) || 0);
+    const nights = clampPositiveInt(context && context.nights, 1);
+    const persons = clampPositiveInt(context && context.persons, 1);
+    switch (normalizeChargeType(row.charge_type)) {
+      case 'per_night':
+        return roundMoney(amount * nights);
+      case 'per_person_per_stay':
+        return roundMoney(amount * persons);
+      case 'per_person_per_night':
+        return roundMoney(amount * persons * nights);
+      case 'per_stay':
+      default:
+        return roundMoney(amount);
+    }
+  }
+
   function cloneRules(rules) {
     return Array.isArray(rules) ? rules.slice() : [];
   }
@@ -345,6 +469,122 @@
     };
   }
 
+  function calculateHotelQuote(hotel, context) {
+    const safeContext = context && typeof context === 'object' ? context : {};
+    const adults = clampPositiveInt(safeContext.adults, 1);
+    const children = clampNonNegativeInt(safeContext.children, 0);
+    const persons = clampPositiveInt(safeContext.persons != null ? safeContext.persons : adults + children, 1);
+    const nights = clampPositiveInt(safeContext.nights, 1);
+    const selectedExtraIds = normalizeSelectedExtraIds(safeContext.selectedExtraIds);
+    const roomPricing = calculateHotelPrice(hotel, persons, nights, {
+      arrivalDate: safeContext.arrivalDate,
+      departureDate: safeContext.departureDate,
+    });
+    const extrasConfig = normalizeHotelPricingExtras(hotel && hotel.pricing_extras);
+    const selectedSet = new Set(selectedExtraIds);
+    const appliedExtras = extrasConfig.items
+      .filter((item) => item.is_mandatory || selectedSet.has(item.id))
+      .map((item) => {
+        const total = calculateHotelExtraAmount(item, { nights, persons });
+        return {
+          id: item.id,
+          label: item.label,
+          description: item.description,
+          amount: item.amount,
+          charge_type: item.charge_type,
+          is_mandatory: item.is_mandatory,
+          total,
+        };
+      });
+
+    const extrasTotal = roundMoney(appliedExtras.reduce((sum, item) => sum + (Number(item.total) || 0), 0));
+    const mandatoryFeesTotal = roundMoney(
+      appliedExtras
+        .filter((item) => item.is_mandatory)
+        .reduce((sum, item) => sum + (Number(item.total) || 0), 0),
+    );
+    const optionalExtrasTotal = roundMoney(Math.max(0, extrasTotal - mandatoryFeesTotal));
+    const roomTotal = roundMoney(roomPricing.total || 0);
+    const baseTotal = roundMoney(roomTotal + extrasTotal);
+
+    return {
+      adults,
+      children,
+      persons,
+      nights,
+      selectedExtraIds,
+      roomPricing,
+      roomTotal,
+      extrasConfig,
+      appliedExtras,
+      extrasTotal,
+      mandatoryFeesTotal,
+      optionalExtrasTotal,
+      total: baseTotal,
+      baseTotal,
+    };
+  }
+
+  function buildHotelBookingBreakdown(hotel, quote, options) {
+    const safeQuote = quote && typeof quote === 'object' ? quote : calculateHotelQuote(hotel, options);
+    const pricing = safeQuote.roomPricing || {};
+    return {
+      room_total: roundMoney(safeQuote.roomTotal || 0),
+      extras_total: roundMoney(safeQuote.extrasTotal || 0),
+      mandatory_fees_total: roundMoney(safeQuote.mandatoryFeesTotal || 0),
+      optional_extras_total: roundMoney(safeQuote.optionalExtrasTotal || 0),
+      base_total: roundMoney(safeQuote.baseTotal || safeQuote.total || 0),
+      nightly_rates: Array.isArray(pricing.nightlyRates) ? pricing.nightlyRates : [],
+      billable_nights: clampPositiveInt(pricing.billableNights || safeQuote.nights, 1),
+      requested_nights: clampPositiveInt(safeQuote.nights, 1),
+      pricing_model: String(hotel && hotel.pricing_model || 'per_person_per_night'),
+      selected_extra_ids: normalizeSelectedExtraIds(safeQuote.selectedExtraIds),
+      applied_extras: Array.isArray(safeQuote.appliedExtras)
+        ? safeQuote.appliedExtras.map((item) => ({
+          id: item.id,
+          label: item.label,
+          amount: roundMoney(item.amount || 0),
+          total: roundMoney(item.total || 0),
+          charge_type: item.charge_type,
+          is_mandatory: Boolean(item.is_mandatory),
+        }))
+        : [],
+    };
+  }
+
+  async function checkHotelAvailability(supabaseClient, hotel, options) {
+    const client = supabaseClient && typeof supabaseClient.rpc === 'function' ? supabaseClient : null;
+    const hotelId = String(hotel && hotel.id || '').trim();
+    const opts = options && typeof options === 'object' ? options : {};
+    const arrivalDate = String(opts.arrivalDate || '').trim();
+    const departureDate = String(opts.departureDate || '').trim();
+    if (!client) {
+      throw new Error('Supabase client not available');
+    }
+    if (!hotelId || !arrivalDate || !departureDate) {
+      return { hasDates: false, available: true, reason: 'missing_dates', booking_conflicts: 0, availability_blocks: 0 };
+    }
+    const arrival = parseIsoDate(arrivalDate);
+    const departure = parseIsoDate(departureDate);
+    if (!arrival || !departure || departure.getTime() <= arrival.getTime()) {
+      return { hasDates: true, available: false, reason: 'invalid_range', booking_conflicts: 0, availability_blocks: 0 };
+    }
+    const { data, error } = await client.rpc('hotel_check_availability', {
+      p_hotel_id: hotelId,
+      p_arrival_date: arrivalDate,
+      p_departure_date: departureDate,
+    });
+    if (error) throw error;
+    const row = Array.isArray(data) ? data[0] : data;
+    return {
+      hasDates: true,
+      available: Boolean(row && row.is_available),
+      reason: String(row && row.reason || '').trim(),
+      booking_conflicts: clampNonNegativeInt(row && row.booking_conflicts, 0),
+      availability_blocks: clampNonNegativeInt(row && row.availability_blocks, 0),
+    };
+  }
+
   function getHotelMinPricePerNight(hotel, options) {
     const opts = options && typeof options === 'object' ? options : {};
     const rules = hotel && hotel.pricing_tiers && Array.isArray(hotel.pricing_tiers.rules)
@@ -409,9 +649,16 @@
     formatIsoDate,
     buildStayDates,
     calculateHotelPrice,
+    calculateHotelQuote,
     getHotelMinPricePerNight,
     getHotelMaxPricePerNight,
     buildPricingPreviewLabel,
+    buildHotelBookingBreakdown,
+    normalizeHotelBookingSettings,
+    normalizeHotelPricingExtras,
+    normalizeSelectedExtraIds,
+    getLocalizedTextMapValue,
+    checkHotelAvailability,
     getRuleWeekdayOverrides,
     getRuleMonthOverrides,
     getNightlyRateForDate,

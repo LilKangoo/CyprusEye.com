@@ -9894,6 +9894,174 @@ async function toggleHotelPublish(hotelId, publish) {
   }
 }
 
+function getHotelPricingAdminHelpers() {
+  return window.CE_HOTEL_PRICING || null;
+}
+
+function renderHotelPolicyFields(prefix, settingsValue) {
+  const settings = getHotelPricingAdminHelpers()?.normalizeHotelBookingSettings
+    ? getHotelPricingAdminHelpers().normalizeHotelBookingSettings(settingsValue)
+    : {
+      check_in_from: '',
+      check_out_until: '',
+      cancellation_policy: {},
+      stay_info: {},
+    };
+
+  const checkInEl = document.getElementById(`${prefix}HotelCheckInFrom`);
+  const checkOutEl = document.getElementById(`${prefix}HotelCheckOutUntil`);
+  if (checkInEl) checkInEl.value = settings.check_in_from || '';
+  if (checkOutEl) checkOutEl.value = settings.check_out_until || '';
+
+  const cancellationContainer = document.getElementById(`${prefix}HotelCancellationPolicyI18n`);
+  if (cancellationContainer && typeof window.renderI18nInput === 'function') {
+    cancellationContainer.innerHTML = window.renderI18nInput({
+      fieldName: 'cancellation_policy',
+      label: 'Cancellation policy',
+      type: 'textarea',
+      currentValues: settings.cancellation_policy || {},
+      placeholder: 'Cancellation policy shown to guests',
+      rows: 3,
+    });
+  }
+
+  const stayInfoContainer = document.getElementById(`${prefix}HotelStayInfoI18n`);
+  if (stayInfoContainer && typeof window.renderI18nInput === 'function') {
+    stayInfoContainer.innerHTML = window.renderI18nInput({
+      fieldName: 'stay_info',
+      label: 'Stay info',
+      type: 'textarea',
+      currentValues: settings.stay_info || {},
+      placeholder: 'Check-in details, parking, breakfast, etc.',
+      rows: 3,
+    });
+  }
+}
+
+function addHotelExtraRow(tbodyId, item = {}) {
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+  if (tbody.querySelector('.table-loading')) tbody.innerHTML = '';
+
+  const normalized = getHotelPricingAdminHelpers()?.normalizeHotelPricingExtras
+    ? getHotelPricingAdminHelpers().normalizeHotelPricingExtras({ items: [item] }).items[0]
+    : null;
+  const row = normalized || {
+    id: String(item.id || item.code || `extra-${Date.now()}`).trim(),
+    label: item.label || {},
+    amount: Number(item.amount || 0),
+    charge_type: String(item.charge_type || 'per_stay'),
+    is_mandatory: Boolean(item.is_mandatory),
+  };
+
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>
+      <label class="hotel-extra-type">
+        <input type="checkbox" data-hotel-extra="mandatory" ${row.is_mandatory ? 'checked' : ''}>
+        <span>Mandatory</span>
+      </label>
+    </td>
+    <td>
+      <div class="hotel-extra-labels">
+        <label class="admin-form-field">
+          <span>Label (PL)</span>
+          <input type="text" data-hotel-extra="label-pl" value="${escapeHtml(row.label?.pl || row.label?.en || '')}" placeholder="np. Opłata sprzątania">
+        </label>
+        <label class="admin-form-field">
+          <span>Label (EN)</span>
+          <input type="text" data-hotel-extra="label-en" value="${escapeHtml(row.label?.en || row.label?.pl || '')}" placeholder="e.g. Cleaning fee">
+        </label>
+      </div>
+    </td>
+    <td>
+      <input type="number" min="0" step="0.01" data-hotel-extra="amount" value="${Number(row.amount || 0)}">
+    </td>
+    <td>
+      <select data-hotel-extra="charge-type">
+        <option value="per_stay" ${row.charge_type === 'per_stay' ? 'selected' : ''}>Per stay</option>
+        <option value="per_night" ${row.charge_type === 'per_night' ? 'selected' : ''}>Per night</option>
+        <option value="per_person_per_stay" ${row.charge_type === 'per_person_per_stay' ? 'selected' : ''}>Per person / stay</option>
+        <option value="per_person_per_night" ${row.charge_type === 'per_person_per_night' ? 'selected' : ''}>Per person / night</option>
+      </select>
+    </td>
+    <td>
+      <div class="hotel-extra-row-actions">
+        <button type="button" class="btn-secondary">Remove</button>
+      </div>
+    </td>
+  `;
+  tr.querySelector('button')?.addEventListener('click', () => {
+    tr.remove();
+    if (!tbody.children.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="table-loading">No charges yet</td></tr>';
+    }
+  });
+  tbody.appendChild(tr);
+}
+
+function renderHotelExtraRows(tbodyId, items) {
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  const list = getHotelPricingAdminHelpers()?.normalizeHotelPricingExtras
+    ? getHotelPricingAdminHelpers().normalizeHotelPricingExtras({ items }).items
+    : (Array.isArray(items) ? items : []);
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="table-loading">No charges yet</td></tr>';
+    return;
+  }
+  list.forEach((item) => addHotelExtraRow(tbodyId, item));
+}
+
+function collectHotelExtraRows(tbodyId) {
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody) return { currency: 'EUR', items: [] };
+  const items = Array.from(tbody.querySelectorAll('tr')).map((tr, index) => {
+    const labelPl = String(tr.querySelector('[data-hotel-extra="label-pl"]')?.value || '').trim();
+    const labelEn = String(tr.querySelector('[data-hotel-extra="label-en"]')?.value || '').trim();
+    const amount = Number(tr.querySelector('[data-hotel-extra="amount"]')?.value || 0);
+    const chargeType = String(tr.querySelector('[data-hotel-extra="charge-type"]')?.value || 'per_stay').trim();
+    const isMandatory = Boolean(tr.querySelector('[data-hotel-extra="mandatory"]')?.checked);
+    if ((!labelPl && !labelEn) || !Number.isFinite(amount) || amount < 0) return null;
+    return {
+      id: `charge-${index + 1}`,
+      label: {
+        pl: labelPl || labelEn,
+        en: labelEn || labelPl,
+      },
+      amount,
+      charge_type: chargeType,
+      is_mandatory: isMandatory,
+      sort_order: index,
+    };
+  }).filter(Boolean);
+
+  return getHotelPricingAdminHelpers()?.normalizeHotelPricingExtras
+    ? getHotelPricingAdminHelpers().normalizeHotelPricingExtras({ currency: 'EUR', items })
+    : { currency: 'EUR', items };
+}
+
+function collectHotelBookingSettings(fd, prefix) {
+  const checkIn = String(document.getElementById(`${prefix}HotelCheckInFrom`)?.value || '').trim();
+  const checkOut = String(document.getElementById(`${prefix}HotelCheckOutUntil`)?.value || '').trim();
+  const cancellationPolicy = window.extractI18nValues ? window.extractI18nValues(fd, 'cancellation_policy') : {};
+  const stayInfo = window.extractI18nValues ? window.extractI18nValues(fd, 'stay_info') : {};
+  return getHotelPricingAdminHelpers()?.normalizeHotelBookingSettings
+    ? getHotelPricingAdminHelpers().normalizeHotelBookingSettings({
+      check_in_from: checkIn,
+      check_out_until: checkOut,
+      cancellation_policy: cancellationPolicy,
+      stay_info: stayInfo,
+    })
+    : {
+      check_in_from: checkIn,
+      check_out_until: checkOut,
+      cancellation_policy: cancellationPolicy,
+      stay_info: stayInfo,
+    };
+}
+
 async function editHotel(hotelId) {
   try {
     const client = ensureSupabase();
@@ -9955,6 +10123,8 @@ async function editHotel(hotelId) {
         rows: 4
       });
     }
+
+    renderHotelPolicyFields('edit', hotel.booking_settings || {});
     
     document.getElementById('editHotelCoverUrl').value = hotel.cover_image_url || '';
     document.getElementById('editHotelPricing').value = hotel.pricing_model || 'per_person_per_night';
@@ -9988,6 +10158,13 @@ async function editHotel(hotelId) {
     if (btnAddEditTier && btnAddEditTier.dataset.boundFor !== hotel.id) {
       btnAddEditTier.addEventListener('click', () => addPricingTierRow('editHotelPricingTiersBody'));
       btnAddEditTier.dataset.boundFor = hotel.id;
+    }
+
+    renderHotelExtraRows('editHotelExtraItemsBody', hotel.pricing_extras && Array.isArray(hotel.pricing_extras.items) ? hotel.pricing_extras.items : []);
+    const btnAddEditExtra = document.getElementById('btnAddEditHotelExtra');
+    if (btnAddEditExtra && btnAddEditExtra.dataset.boundFor !== hotel.id) {
+      btnAddEditExtra.addEventListener('click', () => addHotelExtraRow('editHotelExtraItemsBody'));
+      btnAddEditExtra.dataset.boundFor = hotel.id;
     }
 
     // Max persons
@@ -10073,6 +10250,14 @@ async function handleEditHotelSubmit(event, originalHotel) {
     delete payload.description_en;
     delete payload.description_el;
     delete payload.description_he;
+    delete payload.cancellation_policy_pl;
+    delete payload.cancellation_policy_en;
+    delete payload.cancellation_policy_el;
+    delete payload.cancellation_policy_he;
+    delete payload.stay_info_pl;
+    delete payload.stay_info_en;
+    delete payload.stay_info_el;
+    delete payload.stay_info_he;
 
     payload.is_published = form.querySelector('#editHotelPublished').checked;
     payload.updated_at = new Date().toISOString();
@@ -10081,6 +10266,8 @@ async function handleEditHotelSubmit(event, originalHotel) {
 
     // pricing tiers
     payload.pricing_tiers = collectPricingTiers('editHotelPricingTiersBody');
+    payload.pricing_extras = collectHotelExtraRows('editHotelExtraItemsBody');
+    payload.booking_settings = collectHotelBookingSettings(fd, 'edit');
 
     // max persons
     const maxP = document.getElementById('editHotelMaxPersons');
@@ -10168,6 +10355,8 @@ async function openNewHotelModal() {
         });
       }
 
+      renderHotelPolicyFields('new', {});
+
       // Initialize photo manager state for new hotel
       newHotelPhotosState.photos = [];
       newHotelPhotosState.coverUrl = '';
@@ -10182,6 +10371,13 @@ async function openNewHotelModal() {
       if (btnAddNewTier && !btnAddNewTier.dataset.bound) {
         btnAddNewTier.addEventListener('click', () => addPricingTierRow('newHotelPricingTiersBody'));
         btnAddNewTier.dataset.bound = '1';
+      }
+
+      renderHotelExtraRows('newHotelExtraItemsBody', []);
+      const btnAddNewExtra = document.getElementById('btnAddNewHotelExtra');
+      if (btnAddNewExtra && !btnAddNewExtra.dataset.bound) {
+        btnAddNewExtra.addEventListener('click', () => addHotelExtraRow('newHotelExtraItemsBody'));
+        btnAddNewExtra.dataset.bound = '1';
       }
       
       // Setup temporary slug for uploads (will be updated)
@@ -10225,6 +10421,14 @@ async function openNewHotelModal() {
           delete payload.description_en;
           delete payload.description_el;
           delete payload.description_he;
+          delete payload.cancellation_policy_pl;
+          delete payload.cancellation_policy_en;
+          delete payload.cancellation_policy_el;
+          delete payload.cancellation_policy_he;
+          delete payload.stay_info_pl;
+          delete payload.stay_info_en;
+          delete payload.stay_info_el;
+          delete payload.stay_info_he;
           
           // Generate slug from Polish title (fallback to English)
           const slugSource = titleI18n?.pl || titleI18n?.en || `hotel-${Date.now()}`;
@@ -10236,6 +10440,8 @@ async function openNewHotelModal() {
 
           // pricing tiers
           payload.pricing_tiers = collectPricingTiers('newHotelPricingTiersBody');
+          payload.pricing_extras = collectHotelExtraRows('newHotelExtraItemsBody');
+          payload.booking_settings = collectHotelBookingSettings(fd, 'new');
 
           // max persons
           const maxPNew = document.getElementById('newHotelMaxPersons');
@@ -10528,6 +10734,45 @@ async function viewHotelBookingDetails(bookingId) {
     const hotelTotal = Number(booking.final_price ?? booking.total_price ?? 0);
     const hotelBase = Number(booking.base_price ?? (hotelTotal + (Number.isFinite(hotelDiscount) ? hotelDiscount : 0)) ?? hotelTotal);
     const hotelCouponCode = String(booking.coupon_code || '').trim().toUpperCase();
+    const hotelBreakdown = booking.pricing_breakdown && typeof booking.pricing_breakdown === 'object'
+      ? booking.pricing_breakdown
+      : {};
+    const hotelRoomBase = Number(hotelBreakdown.room_total || 0);
+    const hotelExtrasTotal = Number(booking.extras_price ?? hotelBreakdown.extras_total ?? 0);
+    const appliedExtras = Array.isArray(hotelBreakdown.applied_extras) ? hotelBreakdown.applied_extras : [];
+    const bookingDetails = booking.booking_details && typeof booking.booking_details === 'object'
+      ? booking.booking_details
+      : {};
+    const selectedExtrasHtml = appliedExtras.length
+      ? `
+        <div style="display:grid; gap:6px; margin-bottom:10px; font-size:12px; color:var(--admin-text-muted);">
+          ${appliedExtras.map((item) => {
+            const itemLabel = (item?.label && typeof item.label === 'object')
+              ? (item.label.en || item.label.pl || Object.values(item.label)[0] || item.id || 'Charge')
+              : String(item?.label || item?.id || 'Charge');
+            return `
+              <div style="display:flex; justify-content:space-between; gap:12px;">
+                <span>${escapeHtml(itemLabel)}${item?.is_mandatory ? ' (mandatory)' : ''}</span>
+                <strong style="color:var(--admin-text-primary);">€${Number(item?.total || 0).toFixed(2)}</strong>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `
+      : '';
+    const policySnapshotHtml = (() => {
+      const lines = [];
+      if (bookingDetails.check_in_from) lines.push(`<div><strong>Check-in:</strong> ${escapeHtml(String(bookingDetails.check_in_from))}</div>`);
+      if (bookingDetails.check_out_until) lines.push(`<div><strong>Check-out:</strong> ${escapeHtml(String(bookingDetails.check_out_until))}</div>`);
+      if (bookingDetails.cancellation_policy_text) lines.push(`<div><strong>Cancellation:</strong> ${escapeHtml(String(bookingDetails.cancellation_policy_text))}</div>`);
+      if (bookingDetails.stay_info_text) lines.push(`<div><strong>Stay info:</strong> ${escapeHtml(String(bookingDetails.stay_info_text))}</div>`);
+      if (!lines.length) return '';
+      return `
+        <div style="margin-top:10px; display:grid; gap:6px; font-size:12px; color:var(--admin-text-muted);">
+          ${lines.join('')}
+        </div>
+      `;
+    })();
 
     content.innerHTML = `
       <div style="display: grid; gap: 24px;">
@@ -10601,6 +10846,18 @@ async function viewHotelBookingDetails(bookingId) {
         <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
           <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">Price</h4>
           <div style="display:grid; gap:6px; margin-bottom:10px; font-size:12px; color:var(--admin-text-muted);">
+            ${hotelRoomBase > 0 ? `
+            <div style="display:flex; justify-content:space-between; gap:12px;">
+              <span>Room total:</span>
+              <strong style="color:var(--admin-text-primary);">€${hotelRoomBase.toFixed(2)}</strong>
+            </div>
+            ` : ''}
+            ${hotelExtrasTotal > 0 ? `
+            <div style="display:flex; justify-content:space-between; gap:12px;">
+              <span>Fees & extras:</span>
+              <strong style="color:var(--admin-text-primary);">€${hotelExtrasTotal.toFixed(2)}</strong>
+            </div>
+            ` : ''}
             <div style="display:flex; justify-content:space-between; gap:12px;">
               <span>Base:</span>
               <strong style="color:var(--admin-text-primary);">€${Number.isFinite(hotelBase) ? hotelBase.toFixed(2) : '0.00'}</strong>
@@ -10612,10 +10869,12 @@ async function viewHotelBookingDetails(bookingId) {
             </div>
             ` : ''}
           </div>
+          ${selectedExtrasHtml}
           <div style="padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; text-align: center;">
             <div style="font-size: 24px; font-weight: 700; color: white;">€${Number.isFinite(hotelTotal) ? hotelTotal.toFixed(2) : '0.00'}</div>
             <div style="font-size: 12px; color: rgba(255,255,255,0.9); margin-top: 4px;">Total Price</div>
           </div>
+          ${policySnapshotHtml}
         </div>
 
         ${fulfillmentHtml}

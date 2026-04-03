@@ -6,6 +6,7 @@ let lastFocusedEl = null;
 
 function qs(sel, root=document) { return root.querySelector(sel); }
 function qsa(sel, root=document) { return Array.from(root.querySelectorAll(sel)); }
+const detailHotelBookingUi = typeof window !== 'undefined' ? window.CE_HOTEL_BOOKING_UI || null : null;
 
 function normalizeAuthUiError(message, fallback = 'Wystąpił błąd.') {
   const raw = (typeof message === 'string' ? message : String(message?.message || message || '')).trim();
@@ -290,6 +291,7 @@ function renderDetail(type, vm){
       </form>`;
   } else {
     booking = `
+      <div id="detailHotelPolicySummary" hidden></div>
       <form class="detail-booking" id="detailBookingForm" data-type="hotel" novalidate>
         <div class="row">
           <label>Imię i nazwisko<input name="name" required></label>
@@ -307,6 +309,7 @@ function renderDetail(type, vm){
           <label>Dorośli<select name="adults"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
           <label>Dzieci<select name="children"><option>0</option><option>1</option><option>2</option></select></label>
         </div>
+        <div id="detailHotelExtraOptions" hidden></div>
         <label>Uwagi<textarea name="notes" rows="3" placeholder="Preferencje, pytania..."></textarea></label>
         <div class="row">
           <label>Kod kuponu<input name="coupon_code" id="detailCouponCode" maxlength="64" autocomplete="off" placeholder="Wpisz kod kuponu"></label>
@@ -381,6 +384,33 @@ function renderDetail(type, vm){
     syncCouponControls();
   };
 
+  const getHotelQuote = () => {
+    if (form.dataset.type !== 'hotel' || !detailHotelBookingUi?.calculateQuoteFromForm) return null;
+    const fd = new FormData(form);
+    const a = fd.get('arrival_date');
+    const d = fd.get('departure_date');
+    const toDate = (value) => new Date(value);
+    const nights = Math.max(1, Math.round((toDate(d) - toDate(a)) / (1000 * 60 * 60 * 24)));
+    return detailHotelBookingUi.calculateQuoteFromForm(vm.raw, form, {
+      nights,
+      inputName: 'hotel_extra_ids',
+    });
+  };
+
+  const renderHotelUiSections = () => {
+    if (form.dataset.type !== 'hotel' || !detailHotelBookingUi) return;
+    detailHotelBookingUi.renderPolicySummary(qs('#detailHotelPolicySummary'), vm.raw);
+    detailHotelBookingUi.renderExtraOptions(qs('#detailHotelExtraOptions'), vm.raw, {
+      form,
+      inputName: 'hotel_extra_ids',
+      selectedExtraIds: detailHotelBookingUi.getSelectedExtraIds(form, 'hotel_extra_ids'),
+      onChange: () => {
+        invalidateCouponAfterQuoteChange();
+        renderQuotePreview();
+      },
+    });
+  };
+
   const getBaseTotal = () => {
     const fd = new FormData(form);
     if (form.dataset.type === 'trip') {
@@ -392,17 +422,8 @@ function renderDetail(type, vm){
         days: Number(fd.get('days') || 1),
       });
     }
-    const h = vm.raw;
-    const a = fd.get('arrival_date');
-    const d = fd.get('departure_date');
-    const toDate = (value) => new Date(value);
-    const nights = Math.max(1, Math.round((toDate(d) - toDate(a)) / (1000 * 60 * 60 * 24)));
-    const adults = Number(fd.get('adults') || 1);
-    const children = Number(fd.get('children') || 0);
-    const result = window.CE_HOTEL_PRICING?.calculateHotelPrice
-      ? window.CE_HOTEL_PRICING.calculateHotelPrice(h, adults + children, nights, { arrivalDate: a, departureDate: d })
-      : calcHotelTotal(h, adults + children, nights);
-    return Number(result?.total || 0);
+    const quote = getHotelQuote();
+    return Number(quote?.baseTotal || quote?.total || 0);
   };
 
   const getCouponContext = (baseTotal) => {
@@ -423,11 +444,15 @@ function renderDetail(type, vm){
   const renderQuotePreview = () => {
     const baseTotal = Number(getBaseTotal() || 0);
     const coupon = getCouponContext(baseTotal);
+    const hotelQuote = form.dataset.type === 'hotel' ? getHotelQuote() : null;
     if (totalPreviewInput) totalPreviewInput.value = detailMoney(coupon.finalTotal);
     if (discountPreviewEl) {
       discountPreviewEl.textContent = coupon.hasApplied
         ? `Rabat: -${detailMoney(coupon.discount)} (cena bazowa ${detailMoney(coupon.baseTotal)})`
         : `Cena bazowa: ${detailMoney(coupon.baseTotal)}`;
+      if (hotelQuote?.extrasTotal > 0 && !coupon.hasApplied) {
+        discountPreviewEl.textContent += ` • Dodatki: ${detailMoney(hotelQuote.extrasTotal)}`;
+      }
     }
     syncCouponControls();
   };
@@ -553,6 +578,7 @@ function renderDetail(type, vm){
     }
     renderQuotePreview();
   });
+  renderHotelUiSections();
   renderQuotePreview();
 
   // wire booking submit
@@ -612,6 +638,7 @@ function renderDetail(type, vm){
         const children = Number(fd.get('children')||0);
         const persons = adults+children;
         if (h.max_persons && persons > Number(h.max_persons)) throw new Error(`Maksymalna liczba osób: ${h.max_persons}`);
+        const quote = getHotelQuote();
         const payload = {
           hotel_id: h.id,
           hotel_slug: h.slug,
@@ -625,6 +652,7 @@ function renderDetail(type, vm){
           nights,
           notes: fd.get('notes'),
           base_price: coupon.baseTotal,
+          extras_price: Number(quote?.extrasTotal || 0),
           final_price: coupon.finalTotal,
           total_price: coupon.finalTotal,
           coupon_id: coupon.hasApplied ? (detailCouponState.applied?.couponId || null) : null,
@@ -634,6 +662,9 @@ function renderDetail(type, vm){
           coupon_partner_commission_bps: coupon.hasApplied ? (detailCouponState.applied?.partnerCommissionBpsOverride ?? null) : null,
           status: 'pending'
         };
+        if (detailHotelBookingUi?.buildBookingSnapshot) {
+          Object.assign(payload, detailHotelBookingUi.buildBookingSnapshot(h, quote));
+        }
         await insertWithFallback('hotel_bookings', payload);
       }
       msg.className = 'booking-message success';
@@ -643,6 +674,7 @@ function renderDetail(type, vm){
       msg.style.display = 'block';
       form.reset();
       clearCouponState({ clearInput: true });
+      renderHotelUiSections();
       renderQuotePreview();
       if (window.dataLayer) window.dataLayer.push({event:'booking_created'});
     }catch(err){

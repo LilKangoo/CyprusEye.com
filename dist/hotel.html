@@ -33,6 +33,7 @@
   <script type="module" src="/js/auth.js?v=7"></script>
   <script type="module" src="/js/authUi.js?v=4"></script>
   <script src="/js/hotel-pricing.js?v=20260403_1"></script>
+  <script src="/js/hotel-booking-ui.js?v=20260403_1"></script>
   <script src="/js/footer-referral.js" defer></script>
 </head>
 <body data-seo-page="hotel">
@@ -210,6 +211,7 @@
           <h1 id="hTitle">Hotel</h1>
           <p id="hSub" class="trip-badge"></p>
           <div id="hDesc" style="margin-top:8px;color:#334;line-height:1.5"></div>
+          <div id="hotelPagePolicySummary" hidden></div>
         </div>
       </div>
 
@@ -225,6 +227,7 @@
             <label>Liczba dorosłych<input name="adults" id="adults" type="number" min="1" value="2" required /></label>
             <label>Dzieci<input name="children" id="children" type="number" min="0" value="0" /></label>
             
+            <div id="hotelPageExtraOptions" style="grid-column:1/-1;" hidden></div>
             <label style="grid-column:1/-1">Uwagi (opcjonalnie)<textarea name="note" rows="2"></textarea></label>
             <label style="grid-column:1/-1">
               Kod kuponu (opcjonalnie)
@@ -325,6 +328,53 @@
       return `${amount.toFixed(2)} €`;
     }
 
+    const hotelPageBookingUi = window.CE_HOTEL_BOOKING_UI || null;
+
+    function pageText(pl, en){
+      const lang = String(hotelPageBookingUi?.getLanguage?.() || document.documentElement.lang || 'pl').toLowerCase();
+      return lang.startsWith('en') ? en : pl;
+    }
+
+    function getHotelPageQuote(){
+      const form = $('#bookForm');
+      if (!hotel || !form || !hotelPageBookingUi?.calculateQuoteFromForm) {
+        return {
+          roomPricing: { total: 0, billableNights: 1, tier: null },
+          roomTotal: 0,
+          extrasTotal: 0,
+          total: 0,
+          baseTotal: 0,
+          selectedExtraIds: [],
+          appliedExtras: [],
+        };
+      }
+      const arrival = $('#arrival')?.value || '';
+      const departure = $('#departure')?.value || '';
+      const nights = nightsBetween(arrival, departure);
+      return hotelPageBookingUi.calculateQuoteFromForm(hotel, form, {
+        nights,
+        inputName: 'hotel_extra_ids',
+      });
+    }
+
+    function renderHotelPageBookingUi(options = {}){
+      if (!hotel || !hotelPageBookingUi) return;
+      const form = $('#bookForm');
+      const selectedExtraIds = Array.isArray(options.selectedExtraIds)
+        ? options.selectedExtraIds
+        : hotelPageBookingUi.getSelectedExtraIds(form, 'hotel_extra_ids');
+      hotelPageBookingUi.renderPolicySummary(document.getElementById('hotelPagePolicySummary'), hotel);
+      hotelPageBookingUi.renderExtraOptions(document.getElementById('hotelPageExtraOptions'), hotel, {
+        form,
+        inputName: 'hotel_extra_ids',
+        selectedExtraIds,
+        onChange: () => {
+          invalidateCouponAfterChange();
+          updateLive();
+        },
+      });
+    }
+
     function extractMissingColumn(error){
       const message = String(error?.message || '');
       const pattern = /Could not find the ['"]([^'"]+)['"] column/i;
@@ -403,14 +453,8 @@
       }
 
       const arrival = $('#arrival')?.value || '';
-      const departure = $('#departure')?.value || '';
-      const adults = Number($('#adults')?.value || 0);
-      const children = Number($('#children')?.value || 0);
-      const nights = nightsBetween(arrival, departure);
-      const previewResult = hotelPricing?.calculateHotelPrice
-        ? hotelPricing.calculateHotelPrice(hotel, adults + children, nights, { arrivalDate: arrival, departureDate: departure })
-        : calcPrice(hotel, adults + children, nights);
-      const baseTotal = Number(previewResult?.total || 0);
+      const quote = getHotelPageQuote();
+      const baseTotal = Number(quote?.baseTotal || quote?.total || 0);
       if (!(baseTotal > 0)){
         setCouponStatus('Najpierw uzupełnij poprawnie dane rezerwacji.', 'error');
         syncCouponButtons();
@@ -468,10 +512,9 @@
       const persons=adults+children;
       const calcN=nightsBetween(a,d);
       nights=calcN;
-      const result = hotelPricing?.calculateHotelPrice
-        ? hotelPricing.calculateHotelPrice(hotel, persons, nights, { arrivalDate: a, departureDate: d })
-        : calcPrice(hotel,persons,nights);
-      const total = Number(result.total || 0);
+      const quote = getHotelPageQuote();
+      const result = quote.roomPricing || calcPrice(hotel,persons,nights);
+      const total = Number(quote.baseTotal || quote.total || 0);
       const coupon = getCouponContext(total);
       $('#priceLive').textContent = coupon.hasApplied
         ? `Cena: ${formatMoney(coupon.finalTotal)} (zniżka -${formatMoney(coupon.discount)})`
@@ -482,6 +525,12 @@
       }
       if (result.hasVariableNightlyRates) {
         notes.push(`Stawka za noc zmienia się według dni lub miesięcy: ${result.minimumNightlyPrice.toFixed(2)}-${result.maximumNightlyPrice.toFixed(2)}€/noc.`);
+      }
+      if (quote.extrasTotal > 0) {
+        notes.push(pageText(
+          `Opłaty i dodatki: ${formatMoney(quote.extrasTotal)}. Cena pokoju: ${formatMoney(quote.roomTotal)}.`,
+          `Fees and extras: ${formatMoney(quote.extrasTotal)}. Room total: ${formatMoney(quote.roomTotal)}.`,
+        ));
       }
       $('#priceNote').textContent = notes.join(' ');
       syncCouponButtons();
@@ -506,7 +555,7 @@
         return;
       }
       $('#viewLoading').hidden=true; $('#viewHotel').hidden=false;
-      const title = hotel.title?.pl || hotel.title?.en || hotel.slug;
+      const title = window.getHotelName ? window.getHotelName(hotel) : (hotel.title?.pl || hotel.title?.en || hotel.slug);
       const photos = Array.isArray(hotel.photos)? hotel.photos: [];
       const cover = hotel.cover_image_url || photos[0] || '/assets/cyprus_logo-1000x1054.png';
       $('#mainImg').src = cover;
@@ -520,7 +569,8 @@
       });
       $('#hTitle').textContent = title;
       $('#hSub').textContent = hotel.city || '';
-      $('#hDesc').innerHTML = (hotel.description?.pl || '').replace(/\n/g,'<br/>');
+      $('#hDesc').innerHTML = (window.getHotelDescription ? window.getHotelDescription(hotel) : (hotel.description?.pl || hotel.description?.en || '')).replace(/\n/g,'<br/>');
+      renderHotelPageBookingUi({ selectedExtraIds: [] });
       updateLive();
       $('#bookForm').addEventListener('input', (e)=>{
         if (e.target?.name === 'coupon_code'){
@@ -561,13 +611,8 @@
       const f=$('#bookForm');
       const payload=Object.fromEntries(new FormData(f).entries());
       const nights=nightsBetween(payload.arrival_date,payload.departure_date);
-      const priceResult = hotelPricing?.calculateHotelPrice
-        ? hotelPricing.calculateHotelPrice(hotel, Number(payload.adults||0)+Number(payload.children||0), nights, {
-          arrivalDate: payload.arrival_date,
-          departureDate: payload.departure_date,
-        })
-        : calcPrice(hotel, Number(payload.adults||0)+Number(payload.children||0), nights);
-      const total = Number(priceResult?.total || 0);
+      const quote = getHotelPageQuote();
+      const total = Number(quote?.baseTotal || quote?.total || 0);
       const { supabase } = await import('/js/supabaseClient.js');
       const couponCode = normalizeCouponCode(payload.coupon_code || '');
       const appliedCode = normalizeCouponCode(appliedCoupon?.couponCode || '');
@@ -591,9 +636,10 @@
         departure_date: payload.departure_date,
         num_adults: Number(payload.adults||0),
         num_children: Number(payload.children||0),
-        nights: Number(priceResult?.billableNights || nights),
+        nights,
         notes: payload.note,
         base_price: coupon.baseTotal,
+        extras_price: Number(quote.extrasTotal || 0),
         final_price: coupon.finalTotal,
         total_price: coupon.finalTotal,
         coupon_id: coupon.hasApplied ? (appliedCoupon?.couponId || null) : null,
@@ -603,6 +649,9 @@
         coupon_partner_commission_bps: coupon.hasApplied ? (appliedCoupon?.partnerCommissionBpsOverride ?? null) : null,
         status: 'pending'
       };
+      if (hotelPageBookingUi?.buildBookingSnapshot) {
+        Object.assign(insertPayload, hotelPageBookingUi.buildBookingSnapshot(hotel, quote));
+      }
       let workingPayload = { ...insertPayload };
       const removedColumns = new Set();
       let res = null;
@@ -628,6 +677,18 @@
     }
 
     loadHotel();
+
+    const rerenderHotelPageForLanguage = () => {
+      if (!hotel) return;
+      $('#hTitle').textContent = window.getHotelName ? window.getHotelName(hotel) : (hotel.title?.pl || hotel.title?.en || hotel.slug);
+      $('#hDesc').innerHTML = (window.getHotelDescription ? window.getHotelDescription(hotel) : (hotel.description?.pl || hotel.description?.en || '')).replace(/\n/g,'<br/>');
+      renderHotelPageBookingUi({
+        selectedExtraIds: hotelPageBookingUi?.getSelectedExtraIds($('#bookForm'), 'hotel_extra_ids') || [],
+      });
+      updateLive();
+    };
+    window.addEventListener('languageChanged', rerenderHotelPageForLanguage);
+    document.addEventListener('wakacjecypr:languagechange', rerenderHotelPageForLanguage);
 
     // Lightbox logic
     let lbIndex = 0;

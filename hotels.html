@@ -218,6 +218,7 @@
 
   <meta name="ce-auth" content="on" />
   <script src="/js/hotel-pricing.js?v=20260403_1"></script>
+  <script src="/js/hotel-booking-ui.js?v=20260403_1"></script>
   <script type="module" src="/js/supabaseClient.js"></script>
   <script type="module" src="/js/toast.js"></script>
   <script type="module" src="/js/auth.js?v=7"></script>
@@ -388,6 +389,7 @@
             <h3 class="trip-section-title" data-i18n="hotels.modal.descriptionTitle">Opis</h3>
             <div class="trip-description" id="modalHotelDescription"></div>
             <div class="hotel-amenities-chips" id="hotelAmenitiesChips" style="display:none;"></div>
+            <div id="hotelBookingPolicySummary" hidden></div>
           </div>
 
           <div class="trip-section">
@@ -433,6 +435,7 @@
                 <label data-i18n="hotels.booking.fields.notes">Uwagi (opcjonalnie)</label>
                 <textarea name="notes"></textarea>
               </div>
+              <div id="hotelExtraOptions" hidden></div>
 
               <div class="trip-price-box">
                 <p class="trip-price-label" data-i18n="hotels.booking.priceLabel">Cena</p>
@@ -899,6 +902,48 @@
       return `${amount.toFixed(2)} €`;
     }
 
+    const hotelBookingUi = window.CE_HOTEL_BOOKING_UI || null;
+
+    function getCurrentHotelQuote() {
+      const form = document.getElementById('hotelBookingForm');
+      if (!currentHotel || !form || !hotelBookingUi?.calculateQuoteFromForm) {
+        return {
+          roomPricing: { total: 0, billableNights: 1, tier: null },
+          roomTotal: 0,
+          extrasTotal: 0,
+          total: 0,
+          baseTotal: 0,
+          selectedExtraIds: [],
+          appliedExtras: [],
+        };
+      }
+      const arrival = document.getElementById('arrivalDate')?.value || '';
+      const departure = document.getElementById('departureDate')?.value || '';
+      const nights = nightsBetween(arrival, departure);
+      return hotelBookingUi.calculateQuoteFromForm(currentHotel, form, {
+        nights,
+        inputName: 'hotel_extra_ids',
+      });
+    }
+
+    function renderHotelBookingUiSections(options = {}) {
+      if (!currentHotel || !hotelBookingUi) return;
+      const form = document.getElementById('hotelBookingForm');
+      const selectedExtraIds = Array.isArray(options.selectedExtraIds)
+        ? options.selectedExtraIds
+        : hotelBookingUi.getSelectedExtraIds(form, 'hotel_extra_ids');
+      hotelBookingUi.renderPolicySummary(document.getElementById('hotelBookingPolicySummary'), currentHotel);
+      hotelBookingUi.renderExtraOptions(document.getElementById('hotelExtraOptions'), currentHotel, {
+        form,
+        inputName: 'hotel_extra_ids',
+        selectedExtraIds,
+        onChange: () => {
+          invalidateHotelCouponAfterChange();
+          updateLivePrice();
+        },
+      });
+    }
+
     function extractHotelMissingColumn(error) {
       const message = String(error?.message || '');
       const pattern = /Could not find the ['"]([^'"]+)['"] column/i;
@@ -1029,13 +1074,8 @@
 
       const arrival = document.getElementById('arrivalDate')?.value;
       const departure = document.getElementById('departureDate')?.value;
-      const adults = Number(document.getElementById('bookingAdults')?.value || 0);
-      const children = Number(document.getElementById('bookingChildren')?.value || 0);
-      const nights = nightsBetween(arrival, departure);
-      const priceResult = hotelPricing?.calculateHotelPrice
-        ? hotelPricing.calculateHotelPrice(currentHotel, adults + children, nights, { arrivalDate: arrival, departureDate: departure })
-        : calculateHotelPrice(currentHotel, adults + children, nights);
-      const baseTotal = Number(priceResult?.total || 0);
+      const quote = getCurrentHotelQuote();
+      const baseTotal = Number(quote?.baseTotal || quote?.total || 0);
       if (!(baseTotal > 0)) {
         setHotelCouponStatus(t('hotels.booking.coupon.noPrice', 'Najpierw uzupełnij dane rezerwacji.'), 'error');
         syncHotelCouponButtons();
@@ -1111,11 +1151,9 @@
         notes.push(t('hotels.price.personLimit', `Limit osób: ${maxPersons}. Cena dla ${maxPersons} os.`, { max: maxPersons }));
       }
       
-      // Oblicz cenę z nowym API
-      const result = hotelPricing?.calculateHotelPrice
-        ? hotelPricing.calculateHotelPrice(currentHotel, persons, nights, { arrivalDate: a, departureDate: d })
-        : calculateHotelPrice(currentHotel, persons, nights);
-      const coupon = getHotelCouponContext(result.total);
+      const quote = getCurrentHotelQuote();
+      const result = quote.roomPricing || calculateHotelPrice(currentHotel, persons, nights);
+      const coupon = getHotelCouponContext(quote.baseTotal || quote.total || 0);
       document.getElementById('modalHotelPrice').textContent = formatHotelPrice(coupon.finalTotal);
       
       // Informacja o minimum nocy
@@ -1136,6 +1174,13 @@
           'hotels.price.variableSchedule',
           `Stawka za noc zmienia się według dni lub miesięcy: ${result.minimumNightlyPrice.toFixed(2)}-${result.maximumNightlyPrice.toFixed(2)}€/noc.`,
           { min: result.minimumNightlyPrice.toFixed(2), max: result.maximumNightlyPrice.toFixed(2) }
+        ));
+      }
+      if (quote.extrasTotal > 0) {
+        notes.push(t(
+          'hotels.price.extrasIncluded',
+          `Opłaty i dodatki: ${formatHotelPrice(quote.extrasTotal)}. Cena pokoju: ${formatHotelPrice(quote.roomTotal)}.`,
+          { extras: formatHotelPrice(quote.extrasTotal), room: formatHotelPrice(quote.roomTotal) }
         ));
       }
       
@@ -1221,6 +1266,7 @@
       document.getElementById('hotelBookingMessage').style.display='none';
       ensureHotelCouponUi();
       clearHotelCouponState({ clearInput: true });
+      renderHotelBookingUiSections({ selectedExtraIds: [] });
       
       // Prefill form with user data if logged in
       prefillUserData();
@@ -1308,10 +1354,8 @@
         if (maxPersons && persons > maxPersons) {
           throw new Error(t('hotels.price.personLimit', `Maksymalna liczba osób: ${maxPersons}`, { max: maxPersons }));
         }
-        const priceResult = hotelPricing?.calculateHotelPrice
-          ? hotelPricing.calculateHotelPrice(currentHotel, persons, nights, { arrivalDate: a, departureDate: d })
-          : calculateHotelPrice(currentHotel, persons, nights);
-        const baseTotal = Number(priceResult.total || 0);
+        const quote = getCurrentHotelQuote();
+        const baseTotal = Number(quote.baseTotal || quote.total || 0);
 
         const couponCode = normalizeHotelCouponCode(document.getElementById('hotelBookingCouponCode')?.value || '');
         const appliedCode = normalizeHotelCouponCode(hotelCouponState.applied?.couponCode || '');
@@ -1343,6 +1387,7 @@
           nights,
           notes: fd.get('notes'),
           base_price: coupon.baseTotal,
+          extras_price: Number(quote.extrasTotal || 0),
           final_price: coupon.finalTotal,
           total_price: coupon.finalTotal,
           coupon_id: coupon.hasApplied ? (hotelCouponState.applied?.couponId || null) : null,
@@ -1353,6 +1398,9 @@
           status: 'pending',
           user_id: user?.id || null
         };
+        if (hotelBookingUi?.buildBookingSnapshot) {
+          Object.assign(payload, hotelBookingUi.buildBookingSnapshot(currentHotel, quote));
+        }
         let insertPayload = { ...payload };
         let insertError = null;
         for (let attempt = 0; attempt < 12; attempt += 1) {
@@ -1415,6 +1463,9 @@
         document.getElementById('modalHotelTitle').textContent = title;
         
         renderHotelAmenitiesChips(currentHotel);
+        renderHotelBookingUiSections({
+          selectedExtraIds: hotelBookingUi?.getSelectedExtraIds(document.getElementById('hotelBookingForm'), 'hotel_extra_ids') || [],
+        });
         updateLivePrice();
       }
       

@@ -3752,6 +3752,44 @@ select#orderStatusFilter:focus {
   min-width: 560px;
 }
 
+.hotel-extra-items-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-x: auto;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.hotel-extra-items-wrap .admin-table {
+  margin: 0;
+  min-width: 760px;
+}
+
+.hotel-extra-labels {
+  display: grid;
+  gap: 8px;
+}
+
+.hotel-extra-labels .admin-form-field {
+  min-width: 180px;
+}
+
+.hotel-extra-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--admin-text-muted);
+}
+
+.hotel-extra-row-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .hotel-tier-schedule-row td {
   padding-top: 0;
 }
@@ -4450,15 +4488,36 @@ select#orderStatusFilter:focus {
     border-collapse: collapse;
   }
 
+  .hotel-extra-items-wrap .admin-table {
+    display: table;
+    min-width: 640px;
+    width: max(100%, 640px);
+    border-collapse: collapse;
+  }
+
   .hotel-pricing-tiers-wrap .admin-table thead {
+    display: table-header-group;
+  }
+
+  .hotel-extra-items-wrap .admin-table thead {
     display: table-header-group;
   }
 
   .hotel-pricing-tiers-wrap .admin-table tbody { display: table-row-group; }
   .hotel-pricing-tiers-wrap .admin-table tr { display: table-row; width: auto; }
   .hotel-pricing-tiers-wrap .admin-table td { display: table-cell; width: auto; }
+  .hotel-extra-items-wrap .admin-table tbody { display: table-row-group; }
+  .hotel-extra-items-wrap .admin-table tr { display: table-row; width: auto; }
+  .hotel-extra-items-wrap .admin-table td { display: table-cell; width: auto; }
 
   .hotel-pricing-tiers-wrap .admin-table tr {
+    border: none;
+    border-radius: 0;
+    margin: 0;
+    background: transparent;
+  }
+
+  .hotel-extra-items-wrap .admin-table tr {
     border: none;
     border-radius: 0;
     margin: 0;
@@ -4471,7 +4530,18 @@ select#orderStatusFilter:focus {
     border-bottom: 1px solid var(--admin-border);
   }
 
+  .hotel-extra-items-wrap .admin-table td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--admin-border);
+  }
+
   .hotel-pricing-tiers-wrap .admin-table td::before {
+    content: none;
+    display: none;
+  }
+
+  .hotel-extra-items-wrap .admin-table td::before {
     content: none;
     display: none;
   }
@@ -4492,6 +4562,10 @@ select#orderStatusFilter:focus {
   .hotel-amenities-add-btn {
     width: 100%;
     justify-content: center;
+  }
+
+  .hotel-extra-labels {
+    grid-template-columns: 1fr;
   }
 }
 

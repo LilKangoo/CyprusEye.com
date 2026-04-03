@@ -1994,6 +1994,59 @@
 
               <section class="hotel-form-section">
                 <header class="hotel-form-section-head">
+                  <h4>Booking Rules</h4>
+                  <p>Check-in/out times and customer-facing stay policies shown during booking.</p>
+                </header>
+                <div class="admin-form-grid hotel-form-grid">
+                  <label class="admin-form-field">
+                    <span>Check-in from</span>
+                    <input type="time" id="editHotelCheckInFrom" />
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Check-out until</span>
+                    <input type="time" id="editHotelCheckOutUntil" />
+                  </label>
+                </div>
+                <div class="admin-form-field hotel-field-full">
+                  <label>Cancellation policy (Multilingual)</label>
+                  <div id="editHotelCancellationPolicyI18n"></div>
+                </div>
+                <div class="admin-form-field hotel-field-full">
+                  <label>Stay info (Multilingual)</label>
+                  <div id="editHotelStayInfoI18n"></div>
+                </div>
+              </section>
+
+              <section class="hotel-form-section">
+                <header class="hotel-form-section-head">
+                  <h4>Fees & Extras</h4>
+                  <p>Mandatory fees and optional extras added to the booking quote automatically.</p>
+                </header>
+                <div class="admin-form-field hotel-field-full">
+                  <span>Booking charges</span>
+                  <div class="hotel-extra-items-wrap">
+                    <p class="hotel-pricing-helper">Mandatory items are always added. Optional items appear as customer checkboxes on hotel booking forms.</p>
+                    <table class="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Type</th>
+                          <th>Labels</th>
+                          <th>Amount (€)</th>
+                          <th>Charge rule</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody id="editHotelExtraItemsBody">
+                        <tr><td colspan="5" class="table-loading">No charges yet</td></tr>
+                      </tbody>
+                    </table>
+                    <button type="button" class="btn-secondary hotel-add-tier-btn" id="btnAddEditHotelExtra">Add charge</button>
+                  </div>
+                </div>
+              </section>
+
+              <section class="hotel-form-section">
+                <header class="hotel-form-section-head">
                   <h4>Amenities</h4>
                   <p>Select amenities and order visibility preferences.</p>
                 </header>
@@ -2147,6 +2200,59 @@
                       </tbody>
                     </table>
                     <button type="button" class="btn-secondary hotel-add-tier-btn" id="btnAddNewHotelTier">Add tier</button>
+                  </div>
+                </div>
+              </section>
+
+              <section class="hotel-form-section">
+                <header class="hotel-form-section-head">
+                  <h4>Booking Rules</h4>
+                  <p>Check-in/out times and customer-facing stay policies shown during booking.</p>
+                </header>
+                <div class="admin-form-grid hotel-form-grid">
+                  <label class="admin-form-field">
+                    <span>Check-in from</span>
+                    <input type="time" id="newHotelCheckInFrom" />
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Check-out until</span>
+                    <input type="time" id="newHotelCheckOutUntil" />
+                  </label>
+                </div>
+                <div class="admin-form-field hotel-field-full">
+                  <label>Cancellation policy (Multilingual)</label>
+                  <div id="newHotelCancellationPolicyI18n"></div>
+                </div>
+                <div class="admin-form-field hotel-field-full">
+                  <label>Stay info (Multilingual)</label>
+                  <div id="newHotelStayInfoI18n"></div>
+                </div>
+              </section>
+
+              <section class="hotel-form-section">
+                <header class="hotel-form-section-head">
+                  <h4>Fees & Extras</h4>
+                  <p>Mandatory fees and optional extras added to the booking quote automatically.</p>
+                </header>
+                <div class="admin-form-field hotel-field-full">
+                  <span>Booking charges</span>
+                  <div class="hotel-extra-items-wrap">
+                    <p class="hotel-pricing-helper">Mandatory items are always added. Optional items appear as customer checkboxes on hotel booking forms.</p>
+                    <table class="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Type</th>
+                          <th>Labels</th>
+                          <th>Amount (€)</th>
+                          <th>Charge rule</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody id="newHotelExtraItemsBody">
+                        <tr><td colspan="5" class="table-loading">No charges yet</td></tr>
+                      </tbody>
+                    </table>
+                    <button type="button" class="btn-secondary hotel-add-tier-btn" id="btnAddNewHotelExtra">Add charge</button>
                   </div>
                 </div>
               </section>

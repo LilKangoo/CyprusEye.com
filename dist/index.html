@@ -1389,6 +1389,7 @@
   <!-- Global Language Refresh System -->
   <script src="js/languageRefresh.js?v=3" defer></script>
   <script src="js/hotel-pricing.js?v=20260403_1" defer></script>
+  <script src="js/hotel-booking-ui.js?v=20260403_1" defer></script>
   <script src="js/home-sections-loader.js?v=2" defer></script>
   <script src="js/home-noncritical-loader.js?v=1" defer></script>
   
@@ -2105,6 +2106,7 @@
           <h3 class="trip-section-title" data-i18n="modal.description">Opis</h3>
           <div class="trip-description" id="modalHotelDescription"></div>
           <div class="hotel-amenities-chips" id="hotelAmenitiesChips" style="display:none;"></div>
+          <div id="hotelBookingPolicySummary" hidden></div>
         </div>
 
         <div class="trip-section">
@@ -2150,6 +2152,7 @@
               <label data-i18n="modal.form.notes">Uwagi (opcjonalnie)</label>
               <textarea name="notes"></textarea>
             </div>
+            <div id="hotelExtraOptions" hidden></div>
 
             <div class="trip-price-box">
               <p class="trip-price-label" data-i18n="modal.form.price">Cena</p>
