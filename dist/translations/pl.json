@@ -50,6 +50,8 @@
   "hotels.price.minNights": "Min. {{min}} nocy. Cena za {{billable}} nocy.",
   "hotels.price.discount": "Cena: {{price}}€/noc (rabat za {{min}}+ nocy)",
   "hotels.price.personLimit": "Limit osób: {{max}}. Cena dla {{max}} os.",
+  "hotels.detail.sections.amenities.kicker": "Udogodnienia",
+  "hotels.detail.sections.amenities.title": "Co znajdziesz na miejscu",
   "trips.tabs.allCities": "Wszystkie miasta",
   "trips.card.perHour": "/ godz.",
   "trips.card.perDay": "/ dzień",

@@ -2106,7 +2106,13 @@
         <div class="trip-section">
           <h3 class="trip-section-title" data-i18n="modal.description">Opis</h3>
           <div class="trip-description" id="modalHotelDescription"></div>
-          <div class="hotel-amenities-chips" id="hotelAmenitiesChips" style="display:none;"></div>
+          <section class="hotel-modal-amenities" id="hotelAmenitiesSection" hidden>
+            <div class="hotel-modal-amenities-head">
+              <span class="hotel-modal-amenities-kicker" id="hotelAmenitiesKicker">Udogodnienia</span>
+              <h4 class="hotel-modal-amenities-title" id="hotelAmenitiesTitle">Co znajdziesz na miejscu</h4>
+            </div>
+            <div class="hotel-amenities-chips" id="hotelAmenitiesChips" hidden></div>
+          </section>
           <div id="hotelLocationSummary" hidden></div>
           <div id="hotelBookingPolicySummary" hidden></div>
         </div>

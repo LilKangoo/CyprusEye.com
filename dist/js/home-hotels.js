@@ -167,26 +167,35 @@ async function loadHotelAmenitiesForDisplay() {
 }
 
 function renderHotelAmenitiesChips(hotel) {
+  const section = document.getElementById('hotelAmenitiesSection');
   const container = document.getElementById('hotelAmenitiesChips');
-  if (!container) return;
+  const kicker = document.getElementById('hotelAmenitiesKicker');
+  const title = document.getElementById('hotelAmenitiesTitle');
+  const lang = String((typeof getCurrentLanguage === 'function' ? getCurrentLanguage() : 'pl') || 'pl').toLowerCase();
+  if (kicker) kicker.textContent = hotelsT('hotels.detail.sections.amenities.kicker', lang.startsWith('en') ? 'Amenities' : 'Udogodnienia');
+  if (title) title.textContent = hotelsT('hotels.detail.sections.amenities.title', lang.startsWith('en') ? 'What is included' : 'Co znajdziesz na miejscu');
+  if (!container) {
+    if (section) section.hidden = true;
+    return;
+  }
   const sharedUi = window.CE_HOTEL_BOOKING_UI || null;
   if (sharedUi?.renderAmenitiesChips) {
-    sharedUi.renderAmenitiesChips(container, hotel, {
+    const hasAmenities = sharedUi.renderAmenitiesChips(container, hotel, {
       catalog: hotelAmenitiesMap,
-      language: (typeof getCurrentLanguage === 'function' ? getCurrentLanguage() : 'pl') || 'pl',
+      language: lang || 'pl',
     });
+    if (section) section.hidden = !hasAmenities;
     return;
   }
   
   const amenities = Array.isArray(hotel.amenities) ? hotel.amenities : [];
   if (!amenities.length) {
     container.innerHTML = '';
-    container.style.display = 'none';
+    container.hidden = true;
+    if (section) section.hidden = true;
     return;
   }
-  
-  const lang = (typeof getCurrentLanguage === 'function' ? getCurrentLanguage() : 'pl') || 'pl';
-  
+
   const popularFirst = amenities
     .map(code => hotelAmenitiesMap[code] || {
       code,
@@ -199,15 +208,17 @@ function renderHotelAmenitiesChips(hotel) {
   
   if (!popularFirst.length) {
     container.innerHTML = '';
-    container.style.display = 'none';
+    container.hidden = true;
+    if (section) section.hidden = true;
     return;
   }
   
-  container.style.display = 'flex';
+  container.hidden = false;
   container.innerHTML = popularFirst.map(a => {
     const name = lang === 'en' ? a.name_en : (a.name_pl || a.name_en);
     return `<span class="amenity-chip">${a.icon} ${name}</span>`;
   }).join('');
+  if (section) section.hidden = false;
 }
 
 // Prefill hotel booking form from logged-in user session

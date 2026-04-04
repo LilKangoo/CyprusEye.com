@@ -11109,6 +11109,47 @@ body.auth-page[data-navigation="multi-page"] main {
 }
 
 /* Hotel Amenities Chips */
+.hotel-modal-amenities {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.hotel-modal-amenities[hidden] {
+  display: none !important;
+}
+
+.hotel-modal-amenities-head {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+
+.hotel-modal-amenities-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #2563eb;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hotel-modal-amenities-title {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.hotel-modal-amenities .hotel-amenities-chips {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
 .hotel-amenities-chips {
   display: flex;
   flex-wrap: wrap;
@@ -11145,6 +11186,15 @@ body.auth-page[data-navigation="multi-page"] main {
     gap: 8px;
     margin-top: 12px;
     padding-top: 12px;
+  }
+
+  .hotel-modal-amenities {
+    margin-top: 14px;
+    padding-top: 14px;
+  }
+
+  .hotel-modal-amenities-head {
+    margin-bottom: 12px;
   }
   
   .amenity-chip {

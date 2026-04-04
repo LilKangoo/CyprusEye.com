@@ -127,6 +127,8 @@
       "soon": "Places will appear soon"
     }
   },
+  "hotels.detail.sections.amenities.kicker": "Amenities",
+  "hotels.detail.sections.amenities.title": "What is included",
   "language": {
     "switcher": {
       "label": "Language"
