@@ -1,0 +1,571 @@
+.offer-detail-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(96, 165, 250, 0.12), transparent 30%),
+    radial-gradient(circle at top right, rgba(34, 197, 94, 0.08), transparent 28%),
+    linear-gradient(180deg, #f8fbff 0%, #eef5ff 44%, #ffffff 100%);
+}
+
+.offer-shell {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 28px 20px 72px;
+}
+
+.offer-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 260px;
+  padding: 32px 24px;
+  border-radius: 28px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(255, 255, 255, 0.86);
+  color: #334155;
+  font-size: 1rem;
+  font-weight: 600;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.08);
+}
+
+.offer-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.offer-card {
+  border-radius: 28px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(18px);
+}
+
+.offer-hero-card {
+  padding: 24px;
+}
+
+.offer-hero-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.9fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.offer-gallery-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.offer-main-media-shell {
+  position: relative;
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: linear-gradient(180deg, rgba(226, 232, 240, 0.75), rgba(203, 213, 225, 0.65));
+  aspect-ratio: 16 / 10;
+  min-height: 320px;
+}
+
+.offer-main-media-shell img,
+.offer-main-media {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.offer-thumb-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+  gap: 10px;
+}
+
+.offer-thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.offer-thumb:hover,
+.offer-thumb:focus-visible,
+.offer-thumb.is-active {
+  transform: translateY(-2px);
+  border-color: rgba(59, 130, 246, 0.35);
+  box-shadow: 0 10px 24px rgba(59, 130, 246, 0.12);
+  outline: none;
+}
+
+.offer-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.offer-summary-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.offer-eyebrow,
+.offer-section-kicker,
+.offer-booking-kicker {
+  display: inline-flex;
+  width: max-content;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.08);
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.offer-title {
+  margin: 0;
+  color: #0f172a;
+  font-size: clamp(2rem, 3.2vw, 3.4rem);
+  line-height: 1.04;
+  letter-spacing: -0.04em;
+}
+
+.offer-subtitle {
+  margin: 0;
+  color: #475569;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.offer-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.offer-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.05);
+  color: #1e293b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.offer-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.offer-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 20px;
+  background: rgba(248, 250, 252, 0.96);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.offer-stat-label {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.offer-stat-value {
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.offer-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.offer-main-column,
+.offer-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+
+.offer-sidebar {
+  position: sticky;
+  top: 116px;
+}
+
+.offer-section {
+  padding: 24px;
+}
+
+.offer-section-head {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.offer-section-title,
+.offer-booking-title {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.4rem;
+  line-height: 1.2;
+}
+
+.offer-copy {
+  color: #334155;
+  font-size: 1rem;
+  line-height: 1.8;
+}
+
+.offer-copy p:first-child {
+  margin-top: 0;
+}
+
+.offer-copy p:last-child {
+  margin-bottom: 0;
+}
+
+.offer-bullet-list {
+  margin: 0;
+  padding-left: 1.15rem;
+  color: #334155;
+  line-height: 1.7;
+}
+
+.offer-bullet-list li + li {
+  margin-top: 8px;
+}
+
+.offer-booking-card {
+  padding: 24px;
+}
+
+.offer-booking-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.offer-live-price {
+  color: #0f172a;
+  font-size: clamp(1.5rem, 2vw, 2.1rem);
+  font-weight: 800;
+  line-height: 1;
+  text-align: right;
+}
+
+.offer-booking-note {
+  margin: 0 0 16px;
+  color: #64748b;
+  font-size: 0.93rem;
+  line-height: 1.65;
+}
+
+.offer-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.offer-form > label,
+.offer-form .form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  color: #0f172a;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.offer-form .form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  grid-column: 1 / -1;
+}
+
+.offer-form input,
+.offer-form textarea,
+.offer-form select {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: rgba(248, 250, 252, 0.9);
+  color: #0f172a;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.offer-form textarea {
+  min-height: 112px;
+  resize: vertical;
+}
+
+.offer-form input:focus,
+.offer-form textarea:focus,
+.offer-form select:focus {
+  outline: none;
+  border-color: rgba(37, 99, 235, 0.55);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+  background: #fff;
+}
+
+.offer-form .offer-span-full,
+.offer-form > .offer-span-full {
+  grid-column: 1 / -1;
+}
+
+.offer-form .trip-price-box {
+  grid-column: 1 / -1;
+  margin-top: 2px;
+  padding: 18px 20px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%);
+  border: 1px solid rgba(96, 165, 250, 0.22);
+}
+
+.offer-form .trip-price-label {
+  margin: 0 0 6px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.offer-form .trip-price-value {
+  margin: 0;
+  color: #0f172a;
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.offer-form .booking-submit,
+.offer-form .btn-primary {
+  min-height: 52px;
+}
+
+.offer-form-message,
+.offer-form .booking-message {
+  grid-column: 1 / -1;
+  padding: 12px 14px;
+  border-radius: 16px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.offer-form .booking-message.success,
+.offer-form-message.success {
+  color: #0f766e;
+  background: rgba(20, 184, 166, 0.08);
+  border: 1px solid rgba(20, 184, 166, 0.16);
+}
+
+.offer-form .booking-message.error,
+.offer-form-message.error {
+  color: #b91c1c;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.16);
+}
+
+.offer-form .booking-submit {
+  width: 100%;
+}
+
+.offer-summary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.offer-summary-actions .btn-primary,
+.offer-summary-actions .btn-secondary {
+  min-height: 48px;
+}
+
+.offer-inline-inputs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+}
+
+.offer-hidden {
+  display: none !important;
+}
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.92);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.lightbox.active {
+  display: flex;
+}
+
+.lightbox-content {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lightbox-img {
+  max-width: 95vw;
+  max-height: 94vh;
+  object-fit: contain;
+  border-radius: 18px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+}
+
+.lightbox-close,
+.lightbox-arrow {
+  position: absolute;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.2);
+}
+
+.lightbox-close {
+  top: 18px;
+  right: 18px;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  font-size: 1.4rem;
+}
+
+.lightbox-arrow {
+  top: 50%;
+  transform: translateY(-50%);
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  font-size: 1.5rem;
+}
+
+.lightbox-prev {
+  left: 18px;
+}
+
+.lightbox-next {
+  right: 18px;
+}
+
+@media (max-width: 1100px) {
+  .offer-hero-layout,
+  .offer-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .offer-sidebar {
+    position: static;
+  }
+}
+
+@media (max-width: 768px) {
+  .offer-shell {
+    padding: 18px 12px 42px;
+  }
+
+  .offer-card,
+  .offer-hero-card,
+  .offer-section,
+  .offer-booking-card {
+    border-radius: 22px;
+  }
+
+  .offer-hero-card,
+  .offer-section,
+  .offer-booking-card {
+    padding: 18px;
+  }
+
+  .offer-main-media-shell {
+    min-height: 240px;
+    border-radius: 20px;
+  }
+
+  .offer-stat-grid,
+  .offer-form,
+  .offer-form .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .offer-inline-inputs {
+    grid-template-columns: 1fr;
+  }
+
+  .offer-booking-head {
+    flex-direction: column;
+  }
+
+  .offer-live-price {
+    text-align: left;
+  }
+
+  .offer-thumb-strip {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .lightbox-close {
+    top: 12px;
+    right: 12px;
+  }
+
+  .lightbox-arrow {
+    width: 44px;
+    height: 44px;
+  }
+
+  .lightbox-prev {
+    left: 12px;
+  }
+
+  .lightbox-next {
+    right: 12px;
+  }
+}

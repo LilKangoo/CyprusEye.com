@@ -1,33 +1,25 @@
 <!DOCTYPE html>
-<html lang="pl">
+<html lang="pl" dir="ltr">
 <head>
   <script>(function(){try{var r=new URLSearchParams(location.search).get('ref');if(r&&r.trim()){localStorage.setItem('cypruseye_referral_code',JSON.stringify({code:r.trim(),capturedAt:Date.now(),expiresAt:Date.now()+12096e5}))}}catch(e){}})();</script>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hotel • CyprusEye</title>
-  <link rel="stylesheet" href="/assets/css/base.css" />
-  <link rel="stylesheet" href="/assets/css/components.css?v=12" />
   <link rel="icon" href="/assets/cyprus_logo-1000x1054.png" />
-  <style>
-    .hotel-hero{display:grid;grid-template-columns:320px 1fr;gap:16px;align-items:start}
-    .hotel-hero img{width:100%;height:220px;object-fit:cover;border-radius:12px}
-    .gallery{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-    .gallery img{width:80px;height:80px;object-fit:cover;border-radius:8px;cursor:pointer}
-    .form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
-    .form-grid label{display:grid;gap:6px}
-    .price-live{font-size:20px;font-weight:700;margin-top:8px}
-    @media (max-width:760px){.hotel-hero{grid-template-columns:1fr}}
-
-    /* Lightbox */
-    .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.9);display:none;align-items:center;justify-content:center;z-index:10000}
-    .lightbox.active{display:flex}
-    .lightbox-content{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center}
-    .lightbox-img{max-width:95vw;max-height:95vh;object-fit:contain;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
-    .lightbox-close{position:absolute;top:16px;right:16px;width:44px;height:44px;border:none;border-radius:50%;background:#fff;color:#111;cursor:pointer;font-size:1.4rem;display:flex;align-items:center;justify-content:center}
-    .lightbox-arrow{position:absolute;top:50%;transform:translateY(-50%);width:48px;height:48px;border:none;border-radius:50%;background:rgba(255,255,255,.9);color:#111;cursor:pointer;font-size:1.4rem;display:flex;align-items:center;justify-content:center}
-    .lightbox-prev{left:16px}
-    .lightbox-next{right:16px}
-  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/assets/css/tokens.css" />
+  <link rel="stylesheet" href="/assets/css/base.css?v=2" />
+  <link rel="stylesheet" href="/assets/css/components.css?v=14" />
+  <link rel="stylesheet" href="/assets/css/header-metrics.css" />
+  <link rel="stylesheet" href="/assets/css/rtl.css" />
+  <link rel="stylesheet" href="/assets/css/mobile.css" />
+  <link rel="stylesheet" href="/assets/css/language-switcher.css" />
+  <link rel="stylesheet" href="/assets/css/language-selector.css?v=2" />
+  <link rel="stylesheet" href="/assets/css/offer-detail.css?v=20260405_1" />
+  <link rel="stylesheet" href="/css/modal-ios-fix.css?v=2" />
+  <link rel="stylesheet" href="/css/toast.css" />
   <script type="module" src="/js/supabaseClient.js"></script>
   <script type="module" src="/js/toast.js"></script>
   <script type="module" src="/js/auth.js?v=7"></script>
@@ -36,7 +28,7 @@
   <script src="/js/hotel-booking-ui.js?v=20260403_1"></script>
   <script src="/js/footer-referral.js" defer></script>
 </head>
-<body data-seo-page="hotel">
+<body class="offer-detail-page" data-navigation="multi-page" data-seo-page="hotel">
     <header class="app-header nav-modern">
       <div class="nav-modern__top" aria-label="Global header">
         <div class="brand nav-modern__brand-block">
@@ -197,58 +189,94 @@
     </p>
     <ul id="notificationsPanelList" class="notifications-list" role="list"></ul>
   </div>
-
-
-  <main style="padding:16px;max-width:1000px;margin:0 auto;">
-    <div id="viewLoading">Ładowanie...</div>
-    <section id="viewHotel" hidden>
-      <div class="hotel-hero">
-        <div>
-          <img id="mainImg" alt="Hotel" />
-          <div id="gallery" class="gallery"></div>
-        </div>
-        <div>
-          <h1 id="hTitle">Hotel</h1>
-          <p id="hSub" class="trip-badge"></p>
-          <div id="hDesc" style="margin-top:8px;color:#334;line-height:1.5"></div>
-          <div id="hotelPageLocationSummary" hidden></div>
-          <div id="hotelPagePolicySummary" hidden></div>
-        </div>
-      </div>
-
-      <section class="card" style="margin-top:16px;">
-        <div class="card-body">
-          <h3>Rezerwacja</h3>
-          <form id="bookForm" class="form-grid">
-            <label>Imię i nazwisko<input name="name" required /></label>
-            <label>Email<input name="email" type="email" required /></label>
-            <label>Telefon<input name="phone" /></label>
-            <label>Data przyjazdu<input name="arrival_date" id="arrival" type="date" required /></label>
-            <label>Data wyjazdu<input name="departure_date" id="departure" type="date" required /></label>
-            <label>Liczba dorosłych<input name="adults" id="adults" type="number" min="1" value="2" required /></label>
-            <label>Dzieci<input name="children" id="children" type="number" min="0" value="0" /></label>
-            
-            <div id="hotelPageRoomTypeOptions" style="grid-column:1/-1;" hidden></div>
-            <div id="hotelPageExtraOptions" style="grid-column:1/-1;" hidden></div>
-            <label style="grid-column:1/-1">Uwagi (opcjonalnie)<textarea name="note" rows="2"></textarea></label>
-            <label style="grid-column:1/-1">
-              Kod kuponu (opcjonalnie)
-              <div style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;">
-                <input name="coupon_code" id="couponCode" maxlength="64" autocomplete="off" placeholder="Wpisz kod kuponu" />
-                <button class="btn-primary" type="button" id="applyCouponBtn" style="min-width:120px;">Zastosuj</button>
-                <button class="btn-primary" type="button" id="clearCouponBtn" style="min-width:100px;background:#475569;" hidden>Wyczyść</button>
-              </div>
-            </label>
-            <div id="couponMsg" style="grid-column:1/-1; margin-top:-4px; font-size:12px; color:#475569;" hidden></div>
-            <div style="grid-column:1/-1;display:flex;gap:8px;align-items:center;">
-              <div id="priceLive" class="price-live">Cena: —</div>
-              <button class="btn-primary" type="submit" id="btnBook">Zarezerwuj</button>
+  <main class="offer-shell">
+    <div id="viewLoading" class="offer-loading">Ładowanie oferty...</div>
+    <section id="viewHotel" class="offer-stage" hidden>
+      <section class="offer-card offer-hero-card">
+        <div class="offer-hero-layout">
+          <div class="offer-gallery-panel">
+            <div class="offer-main-media-shell">
+              <img id="mainImg" class="offer-main-media" alt="Hotel" />
             </div>
-          </form>
-          <div id="priceNote" style="margin-top:6px;color:#555"></div>
-          <div id="bookMsg" style="margin-top:8px;color:#0a0"></div>
+            <div id="gallery" class="offer-thumb-strip"></div>
+          </div>
+          <div class="offer-summary-panel">
+            <span class="offer-eyebrow">Zakwaterowanie</span>
+            <h1 id="hTitle" class="offer-title">Hotel</h1>
+            <p id="hSub" class="offer-subtitle"></p>
+            <div id="hMeta" class="offer-meta"></div>
+            <div id="hotelHeroFacts" class="offer-stat-grid"></div>
+            <div class="offer-summary-actions">
+              <a href="#bookingSection" class="btn-primary">Sprawdź cenę i zarezerwuj</a>
+            </div>
+          </div>
         </div>
       </section>
+
+      <div class="offer-layout">
+        <div class="offer-main-column">
+          <section class="offer-card offer-section">
+            <div class="offer-section-head">
+              <span class="offer-section-kicker">Opis</span>
+              <h2 class="offer-section-title">O tym miejscu</h2>
+            </div>
+            <div id="hDesc" class="offer-copy"></div>
+          </section>
+
+          <section class="offer-card offer-section" id="hotelPolicyCard">
+            <div class="offer-section-head">
+              <span class="offer-section-kicker">Pobyt</span>
+              <h2 class="offer-section-title">Zasady i ważne informacje</h2>
+            </div>
+            <div id="hotelPagePolicySummary" hidden></div>
+          </section>
+
+          <section class="offer-card offer-section" id="hotelLocationCard">
+            <div class="offer-section-head">
+              <span class="offer-section-kicker">Lokalizacja</span>
+              <h2 class="offer-section-title">Gdzie znajduje się obiekt</h2>
+            </div>
+            <div id="hotelPageLocationSummary" hidden></div>
+          </section>
+        </div>
+
+        <aside class="offer-sidebar">
+          <section class="offer-card offer-booking-card" id="bookingSection">
+            <div class="offer-booking-head">
+              <div>
+                <span class="offer-booking-kicker">Rezerwacja</span>
+                <h2 class="offer-booking-title">Wyślij zapytanie o pobyt</h2>
+              </div>
+              <div id="priceLive" class="offer-live-price">Cena: —</div>
+            </div>
+            <p id="priceNote" class="offer-booking-note"></p>
+            <form id="bookForm" class="offer-form">
+              <label>Imię i nazwisko<input name="name" required /></label>
+              <label>Email<input name="email" type="email" required /></label>
+              <label>Telefon<input name="phone" /></label>
+              <label>Data przyjazdu<input name="arrival_date" id="arrival" type="date" required /></label>
+              <label>Data wyjazdu<input name="departure_date" id="departure" type="date" required /></label>
+              <label>Liczba dorosłych<input name="adults" id="adults" type="number" min="1" value="2" required /></label>
+              <label>Dzieci<input name="children" id="children" type="number" min="0" value="0" /></label>
+
+              <div id="hotelPageRoomTypeOptions" class="offer-span-full" hidden></div>
+              <div id="hotelPageExtraOptions" class="offer-span-full" hidden></div>
+              <label class="offer-span-full">Uwagi (opcjonalnie)<textarea name="note" rows="3"></textarea></label>
+              <label class="offer-span-full">
+                Kod kuponu (opcjonalnie)
+                <div class="offer-inline-inputs">
+                  <input name="coupon_code" id="couponCode" maxlength="64" autocomplete="off" placeholder="Wpisz kod kuponu" />
+                  <button class="btn-primary" type="button" id="applyCouponBtn">Zastosuj</button>
+                  <button class="btn-primary" type="button" id="clearCouponBtn" style="background:#475569;" hidden>Wyczyść</button>
+                </div>
+              </label>
+              <div id="couponMsg" class="offer-span-full" style="margin-top:-4px; font-size:12px; color:#475569;" hidden></div>
+              <button class="btn-primary offer-span-full" type="submit" id="btnBook">Zarezerwuj</button>
+              <div id="bookMsg" class="offer-form-message offer-span-full" hidden></div>
+            </form>
+          </section>
+        </aside>
+      </div>
     </section>
   </main>
 
@@ -276,6 +304,37 @@
       <img id="lbImg" class="lightbox-img" alt="Podgląd" />
       <button class="lightbox-arrow lightbox-next" id="lbNext" aria-label="Następne">›</button>
       <button class="lightbox-close" id="lbClose" aria-label="Zamknij">✕</button>
+    </div>
+  </div>
+
+  <div class="sos-modal" id="sosModal" role="dialog" aria-labelledby="sosTitle" aria-modal="true" hidden>
+    <div class="sos-dialog">
+      <header class="sos-header">
+        <h2 id="sosTitle">🚨 SOS</h2>
+        <button id="sosClose" class="sos-close" aria-label="Close">✕</button>
+      </header>
+      <div class="sos-grid">
+        <a href="tel:+357 99 005 924" class="sos-card">
+          <span class="sos-icon">📞</span>
+          <span class="sos-label">Call us</span>
+          <span class="sos-detail">+357 99 005 924</span>
+        </a>
+        <a href="https://wa.me/48534073861" target="_blank" rel="noopener" class="sos-card">
+          <span class="sos-icon">💬</span>
+          <span class="sos-label">WhatsApp</span>
+          <span class="sos-detail">Immediate help</span>
+        </a>
+        <a href="tel:112" class="sos-card sos-card-emergency">
+          <span class="sos-icon">🚑</span>
+          <span class="sos-label">Ambulance</span>
+          <span class="sos-detail">112</span>
+        </a>
+        <a href="tel:199" class="sos-card sos-card-emergency">
+          <span class="sos-icon">🚒</span>
+          <span class="sos-label">Fire brigade</span>
+          <span class="sos-detail">199</span>
+        </a>
+      </div>
     </div>
   </div>
 
@@ -337,6 +396,98 @@
       return lang.startsWith('en') ? en : pl;
     }
 
+    function getHotelTitle(entry = hotel){
+      if (!entry) return 'Hotel';
+      return window.getHotelName ? window.getHotelName(entry) : (entry.title?.pl || entry.title?.en || entry.slug || 'Hotel');
+    }
+
+    function getHotelDescriptionHtml(entry = hotel){
+      if (!entry) return '';
+      const description = window.getHotelDescription ? window.getHotelDescription(entry) : (entry.description?.pl || entry.description?.en || '');
+      return String(description || '').replace(/\n/g,'<br/>');
+    }
+
+    function getHotelPreviewLabel(entry = hotel){
+      if (!entry) return '';
+      if (hotelPricing?.getHotelMinPricePerNight) {
+        const min = hotelPricing.getHotelMinPricePerNight(entry, { preferredPersons: 2 });
+        if (Number.isFinite(min)) {
+          return pageText(`Od ${min.toFixed(2)} € / noc`, `From ${min.toFixed(2)} € / night`);
+        }
+      }
+      return '';
+    }
+
+    function buildHotelMetaChips(entry = hotel){
+      if (!entry) return [];
+      const chips = [];
+      if (entry.city) chips.push(entry.city);
+      const preview = getHotelPreviewLabel(entry);
+      if (preview) chips.push(preview);
+      if (Number(entry.max_persons) > 0) {
+        chips.push(pageText(`Do ${Number(entry.max_persons)} gości`, `Up to ${Number(entry.max_persons)} guests`));
+      }
+      return chips;
+    }
+
+    function buildHotelFactItems(entry = hotel){
+      if (!entry) return [];
+      const photosCount = Array.isArray(entry.photos) ? entry.photos.length : 0;
+      const facts = [];
+      if (Number(entry.max_persons) > 0) {
+        facts.push({
+          label: pageText('Maks. gości', 'Guest limit'),
+          value: String(Number(entry.max_persons)),
+        });
+      }
+      if (entry.city) {
+        facts.push({
+          label: pageText('Miasto', 'City'),
+          value: String(entry.city),
+        });
+      }
+      if (photosCount > 0) {
+        facts.push({
+          label: pageText('Zdjęcia', 'Photos'),
+          value: String(photosCount),
+        });
+      }
+      const preview = getHotelPreviewLabel(entry);
+      if (preview) {
+        facts.unshift({
+          label: pageText('Cena startowa', 'Starting price'),
+          value: preview,
+        });
+      }
+      return facts.slice(0, 4);
+    }
+
+    function renderHotelHeroSummary(entry = hotel){
+      if (!entry) return;
+      $('#hTitle').textContent = getHotelTitle(entry);
+      $('#hSub').textContent = entry.city || pageText('Cypr', 'Cyprus');
+      $('#hDesc').innerHTML = getHotelDescriptionHtml(entry);
+
+      const metaWrap = $('#hMeta');
+      if (metaWrap) {
+        const chips = buildHotelMetaChips(entry);
+        metaWrap.innerHTML = chips.map((chip) => `<span class="offer-chip">${chip}</span>`).join('');
+        metaWrap.hidden = !chips.length;
+      }
+
+      const factsWrap = $('#hotelHeroFacts');
+      if (factsWrap) {
+        const facts = buildHotelFactItems(entry);
+        factsWrap.innerHTML = facts.map((fact) => `
+          <div class="offer-stat">
+            <span class="offer-stat-label">${fact.label}</span>
+            <strong class="offer-stat-value">${fact.value}</strong>
+          </div>
+        `).join('');
+        factsWrap.hidden = !facts.length;
+      }
+    }
+
     function getHotelPageQuote(){
       const form = $('#bookForm');
       if (!hotel || !form || !hotelPageBookingUi?.calculateQuoteFromForm) {
@@ -365,7 +516,7 @@
       const selectedExtraIds = Array.isArray(options.selectedExtraIds)
         ? options.selectedExtraIds
         : hotelPageBookingUi.getSelectedExtraIds(form, 'hotel_extra_ids');
-      hotelPageBookingUi.renderLocationSummary(document.getElementById('hotelPageLocationSummary'), hotel, { form });
+      const hasLocation = hotelPageBookingUi.renderLocationSummary(document.getElementById('hotelPageLocationSummary'), hotel, { form });
       hotelPageBookingUi.renderRoomTypeOptions(document.getElementById('hotelPageRoomTypeOptions'), hotel, {
         form,
         roomInputName: 'hotel_room_type_id',
@@ -382,7 +533,7 @@
           updateLive();
         },
       });
-      hotelPageBookingUi.renderPolicySummary(document.getElementById('hotelPagePolicySummary'), hotel, {
+      const hasPolicy = hotelPageBookingUi.renderPolicySummary(document.getElementById('hotelPagePolicySummary'), hotel, {
         form,
         roomInputName: 'hotel_room_type_id',
         ratePlanInputName: 'hotel_rate_plan_id',
@@ -400,6 +551,10 @@
         roomInputName: 'hotel_room_type_id',
         ratePlanInputName: 'hotel_rate_plan_id',
       });
+      const policyCard = document.getElementById('hotelPolicyCard');
+      const locationCard = document.getElementById('hotelLocationCard');
+      if (policyCard) policyCard.hidden = !hasPolicy;
+      if (locationCard) locationCard.hidden = !hasLocation;
     }
 
     function extractMissingColumn(error){
@@ -552,9 +707,15 @@
       const total = Number(quote.baseTotal || quote.total || 0);
       const coupon = getCouponContext(total);
       $('#priceLive').textContent = coupon.hasApplied
-        ? `Cena: ${formatMoney(coupon.finalTotal)} (zniżka -${formatMoney(coupon.discount)})`
-        : `Cena: ${formatMoney(total)}`;
+        ? formatMoney(coupon.finalTotal)
+        : formatMoney(total);
       const notes = [];
+      if (coupon.hasApplied) {
+        notes.push(pageText(
+          `Kupon obniża cenę o ${formatMoney(coupon.discount)}.`,
+          `Coupon discount applied: ${formatMoney(coupon.discount)}.`,
+        ));
+      }
       if (maxPersons && persons > maxPersons) {
         notes.push(pageText(
           `Limit osób dla wybranego pokoju: ${maxPersons}. Cena liczona dla ${maxPersons} os.`,
@@ -573,7 +734,10 @@
           `Fees and extras: ${formatMoney(quote.extrasTotal)}. Room total: ${formatMoney(quote.roomTotal)}.`,
         ));
       }
-      $('#priceNote').textContent = notes.join(' ');
+      $('#priceNote').textContent = notes.join(' ') || pageText(
+        'Cena aktualizuje się na żywo po zmianie dat, liczby osób, pokoju i dodatków.',
+        'Price updates live when you change dates, guests, room type, or extras.',
+      );
       syncCouponButtons();
     }
 
@@ -596,23 +760,34 @@
         return;
       }
       $('#viewLoading').hidden=true; $('#viewHotel').hidden=false;
-      const title = window.getHotelName ? window.getHotelName(hotel) : (hotel.title?.pl || hotel.title?.en || hotel.slug);
       const photos = Array.isArray(hotel.photos)? hotel.photos: [];
       const cover = hotel.cover_image_url || photos[0] || '/assets/cyprus_logo-1000x1054.png';
       $('#mainImg').src = cover;
-      // open lightbox on main image click
-      $('#mainImg').onclick = () => openLightbox( photos.length ? photos.indexOf($('#mainImg').src) : 0 );
+      $('#mainImg').onclick = () => openLightbox(0);
       const gal = $('#gallery');
-      gal.innerHTML = photos.map((u,i)=>`<img src="${u}" alt="photo" />`).join('');
-      Array.from(gal.querySelectorAll('img')).forEach((el,i)=>{
+      gal.innerHTML = photos.map((u,i)=>`
+        <button type="button" class="offer-thumb ${i===0 ? 'is-active' : ''}" data-gallery-index="${i}" data-src="${u}" aria-label="${pageText('Pokaż zdjęcie', 'Show photo')} ${i + 1}">
+          <img src="${u}" alt="photo" />
+        </button>
+      `).join('');
+      gal.hidden = photos.length < 2;
+      Array.from(gal.querySelectorAll('.offer-thumb')).forEach((el,i)=>{
         el.addEventListener('click', ()=>{ $('#mainImg').src = photos[i]; });
+        el.addEventListener('click', ()=>{
+          gal.querySelectorAll('.offer-thumb').forEach((thumb)=>thumb.classList.remove('is-active'));
+          el.classList.add('is-active');
+        });
         el.addEventListener('dblclick', ()=> openLightbox(i));
       });
-      $('#hTitle').textContent = title;
-      $('#hSub').textContent = hotel.city || '';
-      $('#hDesc').innerHTML = (window.getHotelDescription ? window.getHotelDescription(hotel) : (hotel.description?.pl || hotel.description?.en || '')).replace(/\n/g,'<br/>');
+      renderHotelHeroSummary(hotel);
       renderHotelPageBookingUi({ selectedExtraIds: [] });
       hotelPageBookingUi?.refreshLocationSummaryMap?.(document.getElementById('hotelPageLocationSummary'));
+      const bookMsg = $('#bookMsg');
+      if (bookMsg) {
+        bookMsg.hidden = true;
+        bookMsg.textContent = '';
+        bookMsg.className = 'offer-form-message offer-span-full';
+      }
       updateLive();
       $('#bookForm').addEventListener('input', (e)=>{
         if (e.target?.name === 'coupon_code'){
@@ -649,7 +824,9 @@
 
     async function submitBooking(e){
       e.preventDefault();
+      $('#bookMsg').hidden = true;
       $('#bookMsg').textContent='';
+      $('#bookMsg').className = 'offer-form-message offer-span-full';
       const f=$('#bookForm');
       const payload=Object.fromEntries(new FormData(f).entries());
       const nights=nightsBetween(payload.arrival_date,payload.departure_date);
@@ -661,7 +838,8 @@
       if (couponCode && couponCode !== appliedCode){
         const applied = await applyCoupon();
         if (!applied){
-          $('#bookMsg').style.color='#a00';
+          $('#bookMsg').hidden = false;
+          $('#bookMsg').className = 'offer-form-message offer-span-full error';
           $('#bookMsg').textContent='Zastosuj poprawny kupon albo wyczyść pole kuponu.';
           return;
         }
@@ -699,7 +877,8 @@
         })
         : (hotel.max_persons ? Number(hotel.max_persons) : null);
       if (maxPersons && (Number(payload.adults||0) + Number(payload.children||0)) > maxPersons) {
-        $('#bookMsg').style.color='#a00';
+        $('#bookMsg').hidden = false;
+        $('#bookMsg').className = 'offer-form-message offer-span-full error';
         $('#bookMsg').textContent=`Maksymalna liczba osób: ${maxPersons}.`;
         return;
       }
@@ -724,8 +903,14 @@
         }
         break;
       }
-      if(res?.error){ $('#bookMsg').style.color='#a00'; $('#bookMsg').textContent=res.error.message; return; }
-      $('#bookMsg').style.color='#0a0';
+      if(res?.error){
+        $('#bookMsg').hidden = false;
+        $('#bookMsg').className = 'offer-form-message offer-span-full error';
+        $('#bookMsg').textContent = res.error.message;
+        return;
+      }
+      $('#bookMsg').hidden = false;
+      $('#bookMsg').className = 'offer-form-message offer-span-full success';
       $('#bookMsg').textContent = coupon.hasApplied
         ? `Rezerwacja przyjęta. Suma po kuponie: ${formatMoney(coupon.finalTotal)} (zniżka ${formatMoney(coupon.discount)}).`
         : `Rezerwacja przyjęta. Suma: ${formatMoney(total)}.`;
@@ -738,8 +923,7 @@
 
     const rerenderHotelPageForLanguage = () => {
       if (!hotel) return;
-      $('#hTitle').textContent = window.getHotelName ? window.getHotelName(hotel) : (hotel.title?.pl || hotel.title?.en || hotel.slug);
-      $('#hDesc').innerHTML = (window.getHotelDescription ? window.getHotelDescription(hotel) : (hotel.description?.pl || hotel.description?.en || '')).replace(/\n/g,'<br/>');
+      renderHotelHeroSummary(hotel);
       renderHotelPageBookingUi({
         selectedExtraIds: hotelPageBookingUi?.getSelectedExtraIds($('#bookForm'), 'hotel_extra_ids') || [],
         selectedRoomTypeId: hotelPageBookingUi?.getSelectedRoomTypeId($('#bookForm'), 'hotel_room_type_id') || '',
@@ -749,6 +933,7 @@
     };
     window.addEventListener('languageChanged', rerenderHotelPageForLanguage);
     document.addEventListener('wakacjecypr:languagechange', rerenderHotelPageForLanguage);
+    window.addEventListener('load', rerenderHotelPageForLanguage);
 
     // Lightbox logic
     let lbIndex = 0;
@@ -788,9 +973,11 @@
   <script src="js/languageSelector.js?v=3" defer></script>
   <script src="js/i18n.js" defer></script>
   <script src="js/seo.js" defer></script>
-  <script src="js/mobile-nav.js" defer></script>
   <script src="js/header-dropdown.js" defer></script>
   <script src="js/languageSwitcher.js"></script>
+  <script src="js/languageRefresh.js"></script>
+  <script src="js/sos.js?v=1" defer></script>
+  <script src="js/header-stats.js?v=2" defer></script>
   <script src="assets/js/modal-auth.js" defer></script>
 
   <!-- Auth Modal -->
