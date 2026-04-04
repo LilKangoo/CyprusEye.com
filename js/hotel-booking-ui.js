@@ -14,9 +14,14 @@
   }
 
   function getLanguage() {
+    let queryLang = '';
+    try {
+      queryLang = String(new URLSearchParams(globalScope.location?.search || '').get('lang') || '').trim().toLowerCase();
+    } catch (_) {}
     const lang = String(
       globalScope.appI18n?.language
       || globalScope.getCurrentLanguage?.()
+      || queryLang
       || globalScope.document?.documentElement?.lang
       || 'pl'
     ).trim().toLowerCase();
@@ -54,6 +59,56 @@
   const hotelLocationMapState = new WeakMap();
   let hotelAmenitiesCatalog = {};
   let hotelAmenitiesLoadPromise = null;
+  const HOTEL_AMENITY_FALLBACK_LABELS = {
+    accessibility: { pl: 'Dostępność dla niepełnosprawnych', en: 'Wheelchair accessible' },
+    air_conditioning: { pl: 'Klimatyzacja', en: 'Air conditioning' },
+    airport_shuttle: { pl: 'Transfer lotniskowy', en: 'Airport shuttle' },
+    babysitting: { pl: 'Opieka nad dziećmi', en: 'Babysitting' },
+    balcony: { pl: 'Balkon', en: 'Balcony' },
+    bar: { pl: 'Bar', en: 'Bar' },
+    bbq: { pl: 'Grill', en: 'BBQ facilities' },
+    beach_access: { pl: 'Dostęp do plaży', en: 'Beach access' },
+    beachfront: { pl: 'Przy plaży', en: 'Beachfront' },
+    breakfast: { pl: 'Śniadanie w cenie', en: 'Breakfast included' },
+    buffet: { pl: 'Śniadanie bufet', en: 'Breakfast buffet' },
+    car_rental: { pl: 'Wynajem aut', en: 'Car rental' },
+    coffee_maker: { pl: 'Ekspres do kawy', en: 'Coffee maker' },
+    coffee_shop: { pl: 'Kawiarnia', en: 'Coffee shop' },
+    concierge: { pl: 'Concierge', en: 'Concierge' },
+    daily_housekeeping: { pl: 'Codzienne sprzątanie', en: 'Daily housekeeping' },
+    electric_bike: { pl: 'Rower elektryczny', en: 'Electric bike' },
+    elevator: { pl: 'Winda', en: 'Elevator' },
+    family_rooms: { pl: 'Pokoje rodzinne', en: 'Family rooms' },
+    garden: { pl: 'Ogród', en: 'Garden' },
+    gym: { pl: 'Siłownia', en: 'Fitness center' },
+    hairdryer: { pl: 'Suszarka', en: 'Hairdryer' },
+    hot_tub: { pl: 'Jacuzzi', en: 'Hot tub / Jacuzzi' },
+    iron: { pl: 'Żelazko', en: 'Iron' },
+    kids_club: { pl: 'Klub dziecięcy', en: 'Kids club' },
+    kitchen: { pl: 'Kuchnia / Aneks', en: 'Kitchen / Kitchenette' },
+    laundry: { pl: 'Pralnia', en: 'Laundry service' },
+    luggage_storage: { pl: 'Przechowalnia bagażu', en: 'Luggage storage' },
+    massage: { pl: 'Masaż', en: 'Massage' },
+    minibar: { pl: 'Minibar', en: 'Mini-bar' },
+    mountain_view: { pl: 'Widok na góry', en: 'Mountain view' },
+    non_smoking: { pl: 'Dla niepalących', en: 'Non-smoking rooms' },
+    parking: { pl: 'Darmowy parking', en: 'Free parking' },
+    pets_allowed: { pl: 'Zwierzęta dozwolone', en: 'Pets allowed' },
+    playground: { pl: 'Plac zabaw', en: 'Playground' },
+    pool: { pl: 'Basen', en: 'Swimming pool' },
+    private_bathroom: { pl: 'Prywatna łazienka', en: 'Private bathroom' },
+    reception_24h: { pl: 'Recepcja 24h', en: '24h reception' },
+    restaurant: { pl: 'Restauracja', en: 'Restaurant' },
+    room_service: { pl: 'Obsługa pokoju', en: 'Room service' },
+    safe: { pl: 'Sejf', en: 'In-room safe' },
+    sauna: { pl: 'Sauna', en: 'Sauna' },
+    sea_view: { pl: 'Widok na morze', en: 'Sea view' },
+    spa: { pl: 'Spa', en: 'Spa' },
+    tennis: { pl: 'Kort tenisowy', en: 'Tennis court' },
+    terrace: { pl: 'Taras', en: 'Terrace' },
+    tv: { pl: 'Telewizor', en: 'Flat-screen TV' },
+    wifi: { pl: 'Darmowe WiFi', en: 'Free WiFi' },
+  };
 
   function dedupeUrls(list) {
     const out = [];
@@ -140,11 +195,12 @@
     const item = catalog && typeof catalog === 'object'
       ? catalog[normalizedCode]
       : null;
+    const fallbackLabel = HOTEL_AMENITY_FALLBACK_LABELS[normalizedCode] || null;
     const icon = String(item?.icon || '•').trim() || '•';
     const name = String(
       language && language.startsWith('en')
-        ? (item?.name_en || item?.name_pl || humanizeAmenityCode(normalizedCode))
-        : (item?.name_pl || item?.name_en || humanizeAmenityCode(normalizedCode))
+        ? (item?.name_en || fallbackLabel?.en || item?.name_pl || fallbackLabel?.pl || humanizeAmenityCode(normalizedCode))
+        : (item?.name_pl || fallbackLabel?.pl || item?.name_en || fallbackLabel?.en || humanizeAmenityCode(normalizedCode))
     ).trim();
     return {
       code: normalizedCode,

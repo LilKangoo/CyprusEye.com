@@ -199,13 +199,19 @@
             <div id="tripGallery" class="offer-thumb-strip" hidden></div>
           </div>
           <div class="offer-summary-panel">
-            <span class="offer-eyebrow">Wycieczka</span>
+            <span class="offer-eyebrow" id="tripHeroEyebrow">Wycieczka</span>
             <h1 id="tTitle" class="offer-title">Wycieczka</h1>
             <p id="tSub" class="offer-subtitle"></p>
             <div id="tMeta" class="offer-meta"></div>
             <div id="tripFacts" class="offer-stat-grid"></div>
             <div class="offer-summary-actions">
-              <a href="#bookingSection" class="btn-primary">Zarezerwuj wycieczkę</a>
+              <a href="#bookingSection" class="offer-hero-cta" id="tripHeroCta">
+                <span class="offer-hero-cta__copy">
+                  <span class="offer-hero-cta__label" id="tripHeroCtaLabel">Zarezerwuj wycieczkę</span>
+                  <span class="offer-hero-cta__meta" id="tripHeroCtaMeta">Cena aktualizuje się po zmianie osób lub czasu trwania.</span>
+                </span>
+                <span class="offer-hero-cta__icon" aria-hidden="true">↘</span>
+              </a>
             </div>
           </div>
         </div>
@@ -215,16 +221,16 @@
         <div class="offer-main-column">
           <section class="offer-card offer-section">
             <div class="offer-section-head">
-              <span class="offer-section-kicker">Opis</span>
-              <h2 class="offer-section-title">O wycieczce</h2>
+              <span class="offer-section-kicker" id="tripDescriptionKicker">Opis</span>
+              <h2 class="offer-section-title" id="tripDescriptionTitle">O wycieczce</h2>
             </div>
             <div id="tDesc" class="offer-copy"></div>
           </section>
 
           <section class="offer-card offer-section" id="tripHighlightsCard" hidden>
             <div class="offer-section-head">
-              <span class="offer-section-kicker">Najważniejsze</span>
-              <h2 class="offer-section-title">Co warto wiedzieć</h2>
+              <span class="offer-section-kicker" id="tripHighlightsKicker">Najważniejsze</span>
+              <h2 class="offer-section-title" id="tripHighlightsTitle">Co warto wiedzieć</h2>
             </div>
             <ul id="tripHighlights" class="offer-bullet-list"></ul>
           </section>
@@ -234,8 +240,8 @@
           <section class="offer-card offer-booking-card" id="bookingSection">
             <div class="offer-booking-head">
               <div>
-                <span class="offer-booking-kicker">Rezerwacja</span>
-                <h2 class="offer-booking-title">Wyślij zapytanie o termin</h2>
+                <span class="offer-booking-kicker" id="tripBookingKicker">Rezerwacja</span>
+                <h2 class="offer-booking-title" id="tripBookingTitle">Wyślij zapytanie o termin</h2>
               </div>
               <div id="priceLive" class="offer-live-price">0.00 €</div>
             </div>
@@ -350,22 +356,22 @@
       <div class="sos-grid">
         <a href="tel:+357 99 005 924" class="sos-card">
           <span class="sos-icon">📞</span>
-          <span class="sos-label">Call us</span>
+          <span class="sos-label" id="tripSosCallLabel">Call us</span>
           <span class="sos-detail">+357 99 005 924</span>
         </a>
         <a href="https://wa.me/48534073861" target="_blank" rel="noopener" class="sos-card">
           <span class="sos-icon">💬</span>
-          <span class="sos-label">WhatsApp</span>
-          <span class="sos-detail">Immediate help</span>
+          <span class="sos-label" id="tripSosWhatsAppLabel">WhatsApp</span>
+          <span class="sos-detail" id="tripSosWhatsAppDetail">Immediate help</span>
         </a>
         <a href="tel:112" class="sos-card sos-card-emergency">
           <span class="sos-icon">🚑</span>
-          <span class="sos-label">Ambulance</span>
+          <span class="sos-label" id="tripSosAmbulanceLabel">Ambulance</span>
           <span class="sos-detail">112</span>
         </a>
         <a href="tel:199" class="sos-card sos-card-emergency">
           <span class="sos-icon">🚒</span>
-          <span class="sos-label">Fire brigade</span>
+          <span class="sos-label" id="tripSosFireLabel">Fire brigade</span>
           <span class="sos-detail">199</span>
         </a>
       </div>
@@ -381,14 +387,27 @@
     const slug = params.get('slug');
 
     let trip = null;
+    let tripLoadState = 'loading';
     let tripCouponState = { applied: null };
     let tripGalleryItems = [];
     let lightboxIndex = 0;
 
+    function getTripPageLanguage() {
+      const queryLang = String(params.get('lang') || '').trim().toLowerCase();
+      const lang = String(
+        window.appI18n?.language
+        || window.getCurrentLanguage?.()
+        || queryLang
+        || document.documentElement.lang
+        || 'pl'
+      ).trim().toLowerCase();
+      return lang || 'pl';
+    }
+
     function t(key, fallback, values = {}) {
       let text = fallback;
       try {
-        const lang = (window.appI18n?.language) || document.documentElement.lang || 'pl';
+        const lang = getTripPageLanguage();
         const translations = window.appI18n?.translations?.[lang];
         if (translations) {
           if (translations[key]) {
@@ -414,39 +433,105 @@
       return text;
     }
 
+    function tripText(key, plFallback, enFallback, values = {}) {
+      const fallback = getTripPageLanguage().startsWith('en') ? enFallback : plFallback;
+      return t(key, fallback, values);
+    }
+
+    function setNodeText(target, text) {
+      const node = typeof target === 'string' ? $(target) : target;
+      if (node) node.textContent = String(text || '');
+    }
+
+    function setNodeAttr(target, attribute, value) {
+      const node = typeof target === 'string' ? $(target) : target;
+      if (node) node.setAttribute(attribute, String(value || ''));
+    }
+
+    function renderTripStaticCopy() {
+      document.title = tripText('seo.trip.title', 'Wycieczka – CyprusEye', 'Trip • CyprusEye');
+      setNodeAttr('#notificationsClose', 'aria-label', tripText('notifications.close', 'Zamknij powiadomienia', 'Close notifications'));
+      setNodeText('#tripHeroEyebrow', tripText('trips.detail.hero.eyebrow', 'Wycieczka', 'Trip'));
+      setNodeText('#tripHeroCtaLabel', tripText('trips.detail.hero.cta', 'Zarezerwuj wycieczkę', 'Book this trip'));
+      setNodeText('#tripHeroCtaMeta', tripText('trips.detail.hero.ctaMeta', 'Cena aktualizuje się po zmianie osób lub czasu trwania.', 'Price updates when you change guests or duration.'));
+      setNodeText('#tripDescriptionKicker', tripText('trips.detail.sections.description.kicker', 'Opis', 'Overview'));
+      setNodeText('#tripDescriptionTitle', tripText('trips.detail.sections.description.title', 'O wycieczce', 'About the trip'));
+      setNodeText('#tripHighlightsKicker', tripText('trips.detail.sections.highlights.kicker', 'Najważniejsze', 'Highlights'));
+      setNodeText('#tripHighlightsTitle', tripText('trips.detail.sections.highlights.title', 'Co warto wiedzieć', 'What to know'));
+      setNodeText('#tripBookingKicker', tripText('trips.modal.bookingTitle', 'Rezerwacja', 'Booking'));
+      setNodeText('#tripBookingTitle', tripText('trips.detail.booking.title', 'Wyślij zapytanie o termin', 'Send a date request'));
+      setNodeText('label[for="bookingName"]', tripText('trips.booking.fields.name', 'Imię i nazwisko *', 'Full name *'));
+      setNodeText('label[for="bookingEmail"]', tripText('trips.booking.fields.email', 'Email *', 'Email *'));
+      setNodeText('label[for="bookingPhone"]', tripText('trips.booking.fields.phone', 'Telefon', 'Phone'));
+      setNodeText('label[for="bookingDate"]', tripText('trips.booking.fields.tripDate', 'Preferowana data wycieczki', 'Preferred trip date'));
+      setNodeText('label[for="arrivalDate"]', tripText('trips.booking.fields.arrivalDate', 'Data przylotu na Cypr *', 'Arrival date in Cyprus *'));
+      setNodeText('label[for="departureDate"]', tripText('trips.booking.fields.departureDate', 'Data wylotu z Cypru *', 'Departure date from Cyprus *'));
+      setNodeText('label[for="bookingAdults"]', tripText('trips.booking.fields.adults', 'Liczba dorosłych', 'Number of adults'));
+      setNodeText('label[for="bookingChildren"]', tripText('trips.booking.fields.children', 'Dzieci', 'Children'));
+      setNodeText('label[for="bookingHours"]', tripText('trips.booking.fields.hours', 'Liczba godzin', 'Number of hours'));
+      setNodeText('label[for="bookingDays"]', tripText('trips.booking.fields.days', 'Liczba dni', 'Number of days'));
+      setNodeText('label[for="bookingNotes"]', tripText('trips.booking.fields.notes', 'Uwagi (opcjonalnie)', 'Notes (optional)'));
+      setNodeText('.trip-price-label', tripText('trips.booking.priceLabel', 'Cena', 'Price'));
+      setNodeText('#btnBook', tripText('trips.booking.submit', 'Zarezerwuj', 'Book'));
+      setNodeAttr('#lbPrev', 'aria-label', tripText('gallery.previous', 'Poprzednie zdjęcie', 'Previous image'));
+      setNodeAttr('#lbNext', 'aria-label', tripText('gallery.next', 'Następne zdjęcie', 'Next image'));
+      setNodeAttr('#lbClose', 'aria-label', tripText('gallery.close', 'Zamknij galerię', 'Close gallery'));
+      setNodeAttr('#lbImg', 'alt', tripText('gallery.preview', 'Podgląd zdjęcia', 'Image preview'));
+      setNodeAttr('#sosClose', 'aria-label', tripText('sos.modal.close', 'Zamknij SOS', 'Close SOS'));
+      setNodeText('#tripSosCallLabel', tripText('sos.quick.callUs', 'Zadzwoń do nas', 'Call us'));
+      setNodeText('#tripSosWhatsAppLabel', tripText('sos.quick.whatsapp', 'WhatsApp', 'WhatsApp'));
+      setNodeText('#tripSosWhatsAppDetail', tripText('sos.quick.whatsappDetail', 'Natychmiastowa pomoc', 'Immediate help'));
+      setNodeText('#tripSosAmbulanceLabel', tripText('sos.quick.ambulance', 'Pogotowie', 'Ambulance'));
+      setNodeText('#tripSosFireLabel', tripText('sos.quick.fireBrigade', 'Straż pożarna', 'Fire brigade'));
+
+      if (!trip) {
+        const statusText = tripLoadState === 'missing-slug'
+          ? tripText('trips.detail.status.missingSlug', 'Brak parametru slug.', 'Missing slug parameter.')
+          : tripLoadState === 'not-found'
+            ? tripText('trips.detail.status.notFound', 'Nie znaleziono wycieczki.', 'Trip not found.')
+            : tripText('trips.detail.status.loading', 'Ładowanie oferty...', 'Loading offer...');
+        setNodeText('#viewLoading', statusText);
+      }
+    }
+
     function getTripTitle(entry = trip) {
       if (!entry) return 'Trip';
-      return window.getTripName ? window.getTripName(entry) : (entry.title?.pl || entry.title?.en || entry.slug || 'Trip');
+      if (window.getTripName) return window.getTripName(entry);
+      const language = getTripPageLanguage();
+      return entry.title?.[language] || entry.title?.en || entry.title?.pl || entry.slug || 'Trip';
     }
 
     function getTripDescriptionHtml(entry = trip) {
       if (!entry) return '';
-      const description = window.getTripDescription ? window.getTripDescription(entry) : (entry.description?.pl || entry.description?.en || '');
+      const language = getTripPageLanguage();
+      const description = window.getTripDescription
+        ? window.getTripDescription(entry)
+        : (entry.description?.[language] || entry.description?.en || entry.description?.pl || '');
       return String(description || '').replace(/\n/g, '<br/>');
     }
 
     function badgeFor(entry = trip) {
       if (!entry) return '';
       if (entry.display_mode === 'custom_label' && entry.display_label) return entry.display_label;
-      if (entry.display_mode === 'per_hour') return t('trips.labels.perHour', 'Za godzinę');
-      if (entry.display_mode === 'per_person') return t('trips.labels.perPerson', 'Za osobę');
-      if (entry.display_mode === 'from_price') return t('trips.labels.fromPrice', 'Od ceny');
-      if (entry.pricing_model === 'per_hour') return t('trips.labels.perHour', 'Za godzinę');
-      if (entry.pricing_model === 'per_person') return t('trips.labels.perPerson', 'Za osobę');
-      if (entry.pricing_model === 'per_day') return t('trips.labels.perDay', 'Za dzień');
+      if (entry.display_mode === 'per_hour') return tripText('trips.labels.perHour', 'Za godzinę', 'Per hour');
+      if (entry.display_mode === 'per_person') return tripText('trips.labels.perPerson', 'Za osobę', 'Per person');
+      if (entry.display_mode === 'from_price') return tripText('trips.labels.fromPrice', 'Od ceny', 'From price');
+      if (entry.pricing_model === 'per_hour') return tripText('trips.labels.perHour', 'Za godzinę', 'Per hour');
+      if (entry.pricing_model === 'per_person') return tripText('trips.labels.perPerson', 'Za osobę', 'Per person');
+      if (entry.pricing_model === 'per_day') return tripText('trips.labels.perDay', 'Za dzień', 'Per day');
       return '';
     }
 
     function getTripBasePriceLabel(entry = trip) {
       if (!entry) return '';
       if (entry.pricing_model === 'per_person' && Number(entry.price_per_person) > 0) {
-        return `${Number(entry.price_per_person).toFixed(2)} € / ${t('trips.labels.personShort', 'os.')}`;
+        return `${Number(entry.price_per_person).toFixed(2)} € / ${tripText('trips.labels.personShort', 'os.', 'person')}`;
       }
       if (entry.pricing_model === 'per_hour' && Number(entry.price_base) > 0) {
-        return `${Number(entry.price_base).toFixed(2)} € / ${t('trips.labels.hourShort', 'h')}`;
+        return `${Number(entry.price_base).toFixed(2)} € / ${tripText('trips.labels.hourShort', 'h', 'hr')}`;
       }
       if (entry.pricing_model === 'per_day' && Number(entry.price_base) > 0) {
-        return `${Number(entry.price_base).toFixed(2)} € / ${t('trips.labels.dayShort', 'dzień')}`;
+        return `${Number(entry.price_base).toFixed(2)} € / ${tripText('trips.labels.dayShort', 'dzień', 'day')}`;
       }
       if (Number(entry.price_base) > 0) {
         return `${Number(entry.price_base).toFixed(2)} €`;
@@ -511,32 +596,32 @@
       const price = getTripBasePriceLabel(entry);
       if (price) {
         facts.push({
-          label: t('trips.facts.price', 'Cena bazowa'),
+          label: tripText('trips.facts.price', 'Cena bazowa', 'Base price'),
           value: price,
         });
       }
       if (entry.start_city) {
         facts.push({
-          label: t('trips.facts.city', 'Miasto startowe'),
+          label: tripText('trips.facts.city', 'Miasto startowe', 'Starting city'),
           value: String(entry.start_city),
         });
       }
       if (entry.pricing_model === 'base_plus_extra') {
         facts.push({
-          label: t('trips.facts.included', 'W cenie bazowej'),
-          value: t('trips.facts.includedPeople', '{{count}} osób', { count: Number(entry.included_people) || 1 }),
+          label: tripText('trips.facts.included', 'W cenie bazowej', 'Included in base price'),
+          value: tripText('trips.facts.includedPeople', '{{count}} osób', '{{count}} people', { count: Number(entry.included_people) || 1 }),
         });
       }
       if (entry.pricing_model === 'per_hour' && Number(entry.min_hours) > 0) {
         facts.push({
-          label: t('trips.facts.minimum', 'Minimum'),
-          value: t('trips.facts.minimumHours', '{{count}} godzin', { count: Number(entry.min_hours) }),
+          label: tripText('trips.facts.minimum', 'Minimum', 'Minimum'),
+          value: tripText('trips.facts.minimumHours', '{{count}} godzin', '{{count}} hours', { count: Number(entry.min_hours) }),
         });
       }
       if (entry.pricing_model === 'per_day') {
         facts.push({
-          label: t('trips.facts.billing', 'Rozliczenie'),
-          value: t('trips.labels.perDay', 'Za dzień'),
+          label: tripText('trips.facts.billing', 'Rozliczenie', 'Billing'),
+          value: tripText('trips.labels.perDay', 'Za dzień', 'Per day'),
         });
       }
       return facts.slice(0, 4);
@@ -551,7 +636,7 @@
       if (Array.isArray(rawHighlights)) {
         items = rawHighlights.filter(Boolean);
       } else if (rawHighlights && typeof rawHighlights === 'object') {
-        const lang = (window.appI18n?.language) || document.documentElement.lang || 'pl';
+        const lang = getTripPageLanguage();
         const candidate = rawHighlights[lang] || rawHighlights.pl || rawHighlights.en;
         if (Array.isArray(candidate)) {
           items = candidate.filter(Boolean);
@@ -608,7 +693,7 @@
       const gallery = $('#tripGallery');
       if (!gallery) return;
       gallery.innerHTML = tripGalleryItems.map((url, index) => `
-        <button type="button" class="offer-thumb ${index === 0 ? 'is-active' : ''}" data-trip-media-index="${index}" aria-label="${t('gallery.showImage', 'Pokaż zdjęcie')} ${index + 1}">
+        <button type="button" class="offer-thumb ${index === 0 ? 'is-active' : ''}" data-trip-media-index="${index}" aria-label="${tripText('gallery.showImage', 'Pokaż zdjęcie', 'Show image')} ${index + 1}">
           <img src="${url}" alt="${getTripTitle(entry)}" />
         </button>
       `).join('');
@@ -715,7 +800,7 @@
       tripCouponState.applied = null;
       const code = String($('#bookingCouponCode')?.value || '').trim().toUpperCase();
       if (code) {
-        setTripCouponStatus(t('trips.booking.coupon.reapply', 'Szczegóły wycieczki się zmieniły. Zastosuj kupon ponownie.'), 'info');
+        setTripCouponStatus(tripText('trips.booking.coupon.reapply', 'Szczegóły wycieczki się zmieniły. Zastosuj kupon ponownie.', 'Trip details changed. Apply the coupon again.'), 'info');
       } else {
         setTripCouponStatus('', 'info');
       }
@@ -732,11 +817,11 @@
       box.className = 'form-field offer-span-full';
       box.setAttribute('data-trip-coupon-ui', '1');
       box.innerHTML = `
-        <label for="bookingCouponCode">${t('trips.booking.coupon.label', 'Kod kuponu')}</label>
+        <label for="bookingCouponCode">${tripText('trips.booking.coupon.label', 'Kod kuponu', 'Coupon code')}</label>
         <div class="offer-inline-inputs">
-          <input type="text" id="bookingCouponCode" maxlength="64" autocomplete="off" placeholder="${t('trips.booking.coupon.placeholder', 'Wpisz kod kuponu')}" />
-          <button type="button" id="bookingApplyCoupon" class="btn-primary">${t('trips.booking.coupon.apply', 'Zastosuj')}</button>
-          <button type="button" id="bookingClearCoupon" class="btn-primary" style="background:#475569;" hidden>${t('trips.booking.coupon.clear', 'Wyczyść')}</button>
+          <input type="text" id="bookingCouponCode" maxlength="64" autocomplete="off" placeholder="${tripText('trips.booking.coupon.placeholder', 'Wpisz kod kuponu', 'Enter coupon code')}" />
+          <button type="button" id="bookingApplyCoupon" class="btn-primary">${tripText('trips.booking.coupon.apply', 'Zastosuj', 'Apply')}</button>
+          <button type="button" id="bookingClearCoupon" class="btn-primary" style="background:#475569;" hidden>${tripText('trips.booking.coupon.clear', 'Wyczyść', 'Clear')}</button>
         </div>
         <p id="bookingCouponStatus" style="margin:6px 0 0;font-size:12px;color:#475569;" hidden></p>
       `;
@@ -779,14 +864,14 @@
       if (!trip) return false;
       const code = String($('#bookingCouponCode')?.value || '').trim().toUpperCase();
       if (!code) {
-        setTripCouponStatus(t('trips.booking.coupon.enterCode', 'Wpisz kod kuponu.'), 'error');
+        setTripCouponStatus(tripText('trips.booking.coupon.enterCode', 'Wpisz kod kuponu.', 'Enter a coupon code.'), 'error');
         syncTripCouponButtons();
         return false;
       }
 
       const baseTotal = calculateTripPrice();
       if (!(baseTotal > 0)) {
-        setTripCouponStatus(t('trips.booking.coupon.noPrice', 'Najpierw uzupełnij dane rezerwacji.'), 'error');
+        setTripCouponStatus(tripText('trips.booking.coupon.noPrice', 'Najpierw uzupełnij dane rezerwacji.', 'Complete the booking details first.'), 'error');
         syncTripCouponButtons();
         return false;
       }
@@ -816,7 +901,7 @@
 
         if (!response?.ok || !response?.result) {
           tripCouponState.applied = null;
-          setTripCouponStatus(String(response?.message || t('trips.booking.coupon.invalid', 'Ten kupon nie działa dla tej rezerwacji.')), 'error');
+          setTripCouponStatus(String(response?.message || tripText('trips.booking.coupon.invalid', 'Ten kupon nie działa dla tej rezerwacji.', 'This coupon does not apply to this booking.')), 'error');
           updateLivePrice();
           return false;
         }
@@ -829,7 +914,7 @@
           partnerCommissionBpsOverride: response.result.partnerCommissionBpsOverride ?? null,
         };
         setTripCouponStatus(
-          t('trips.booking.coupon.applied', 'Kupon zastosowany. Zniżka: {{amount}}', {
+          tripText('trips.booking.coupon.applied', 'Kupon zastosowany. Zniżka: {{amount}}', 'Coupon applied. Discount: {{amount}}', {
             amount: formatTripPrice(tripCouponState.applied.discountAmount),
           }),
           'success',
@@ -839,7 +924,7 @@
       } catch (error) {
         console.error('Failed to apply trip coupon:', error);
         tripCouponState.applied = null;
-        setTripCouponStatus(String(error?.message || t('trips.booking.coupon.failed', 'Nie udało się zweryfikować kuponu.')), 'error');
+        setTripCouponStatus(String(error?.message || tripText('trips.booking.coupon.failed', 'Nie udało się zweryfikować kuponu.', 'Could not verify the coupon.')), 'error');
         updateLivePrice();
         return false;
       } finally {
@@ -857,24 +942,24 @@
 
       const notes = [];
       if (coupon.hasApplied) {
-        notes.push(t('trips.booking.coupon.appliedShort', 'Kupon obniża cenę o {{amount}}.', {
+        notes.push(tripText('trips.booking.coupon.appliedShort', 'Kupon obniża cenę o {{amount}}.', 'Coupon discount: {{amount}}.', {
           amount: formatTripPrice(coupon.discount),
         }));
       }
       if (trip.pricing_model === 'base_plus_extra') {
-        notes.push(t('trips.booking.note.basePlusExtra', 'Cena bazowa obejmuje {{count}} osób, kolejne osoby są liczone osobno.', {
+        notes.push(tripText('trips.booking.note.basePlusExtra', 'Cena bazowa obejmuje {{count}} osób, kolejne osoby są liczone osobno.', 'Base price includes {{count}} people, extra guests are charged separately.', {
           count: Number(trip.included_people) || 1,
         }));
       } else if (trip.pricing_model === 'per_hour' && Number(trip.min_hours) > 0) {
-        notes.push(t('trips.booking.note.minHours', 'Minimalne rozliczenie: {{count}} godz.', {
+        notes.push(tripText('trips.booking.note.minHours', 'Minimalne rozliczenie: {{count}} godz.', 'Minimum billing: {{count}} hrs.', {
           count: Number(trip.min_hours),
         }));
       } else if (trip.pricing_model === 'per_day') {
-        notes.push(t('trips.booking.note.perDay', 'Cena liczona jest za każdy dzień rezerwacji.'));
+        notes.push(tripText('trips.booking.note.perDay', 'Cena liczona jest za każdy dzień rezerwacji.', 'Price is calculated for each booked day.'));
       } else if (trip.pricing_model === 'per_person') {
-        notes.push(t('trips.booking.note.perPerson', 'Cena liczona jest za każdą osobę.'));
+        notes.push(tripText('trips.booking.note.perPerson', 'Cena liczona jest za każdą osobę.', 'Price is calculated per person.'));
       }
-      $('#tripBookingNote').textContent = notes.join(' ') || t('trips.booking.note.default', 'Cena aktualizuje się na żywo po zmianie liczby osób lub czasu trwania.');
+      $('#tripBookingNote').textContent = notes.join(' ') || tripText('trips.booking.note.default', 'Cena aktualizuje się na żywo po zmianie liczby osób lub czasu trwania.', 'Price updates live when you change guests or duration.');
       syncTripCouponButtons();
     }
 
@@ -940,7 +1025,7 @@
       try {
         if (submitBtn) {
           submitBtn.disabled = true;
-          submitBtn.textContent = t('trips.booking.sending', 'Wysyłanie...');
+          submitBtn.textContent = tripText('trips.booking.sending', 'Wysyłanie...', 'Sending...');
         }
 
         const couponCode = String($('#bookingCouponCode')?.value || '').trim().toUpperCase();
@@ -948,7 +1033,7 @@
         if (couponCode && couponCode !== appliedCode) {
           const applied = await applyTripCoupon();
           if (!applied) {
-            throw new Error(t('trips.booking.coupon.applyBeforeSubmit', 'Zastosuj poprawny kupon lub wyczyść pole kuponu przed rezerwacją.'));
+            throw new Error(tripText('trips.booking.coupon.applyBeforeSubmit', 'Zastosuj poprawny kupon lub wyczyść pole kuponu przed rezerwacją.', 'Apply a valid coupon or clear the coupon field before booking.'));
           }
         }
 
@@ -1054,7 +1139,8 @@
 
     async function loadTrip() {
       if (!slug) {
-        $('#viewLoading').textContent = 'Brak parametru slug';
+        tripLoadState = 'missing-slug';
+        renderTripStaticCopy();
         return;
       }
 
@@ -1070,10 +1156,12 @@
         trip = data;
       } catch (error) {
         console.error('Failed to load trip:', error);
-        $('#viewLoading').textContent = 'Nie znaleziono wycieczki';
+        tripLoadState = 'not-found';
+        renderTripStaticCopy();
         return;
       }
 
+      tripLoadState = 'ready';
       $('#viewLoading').hidden = true;
       $('#viewTrip').hidden = false;
       resetBookingMessage();
@@ -1082,6 +1170,7 @@
     }
 
     function rerenderTripPageForLanguage() {
+      renderTripStaticCopy();
       if (!trip) return;
       renderTripPage(trip);
     }
@@ -1116,6 +1205,7 @@
       }, { passive: true });
     })();
 
+    renderTripStaticCopy();
     window.addEventListener('languageChanged', rerenderTripPageForLanguage);
     document.addEventListener('wakacjecypr:languagechange', rerenderTripPageForLanguage);
     window.addEventListener('load', rerenderTripPageForLanguage);
