@@ -412,6 +412,19 @@
       if (node) node.setAttribute(attribute, String(value || ''));
     }
 
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function escapeAttribute(value) {
+      return escapeHtml(value);
+    }
+
     function nightsBetween(a,b){
       if(!a||!b) return 1;
       const da=new Date(a), db=new Date(b);
