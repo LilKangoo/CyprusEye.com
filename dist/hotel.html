@@ -223,6 +223,14 @@
             <div id="hDesc" class="offer-copy"></div>
           </section>
 
+          <section class="offer-card offer-section" id="hotelAmenitiesCard">
+            <div class="offer-section-head">
+              <span class="offer-section-kicker">Udogodnienia</span>
+              <h2 class="offer-section-title">Co znajdziesz na miejscu</h2>
+            </div>
+            <div id="hotelPageAmenitiesSummary" class="hotel-amenities-chips" hidden></div>
+          </section>
+
           <section class="offer-card offer-section" id="hotelPolicyCard">
             <div class="offer-section-head">
               <span class="offer-section-kicker">Pobyt</span>
@@ -516,6 +524,11 @@
       const selectedExtraIds = Array.isArray(options.selectedExtraIds)
         ? options.selectedExtraIds
         : hotelPageBookingUi.getSelectedExtraIds(form, 'hotel_extra_ids');
+      const hasAmenities = hotelPageBookingUi.renderAmenitiesChips
+        ? hotelPageBookingUi.renderAmenitiesChips(document.getElementById('hotelPageAmenitiesSummary'), hotel, {
+          language: hotelPageBookingUi.getLanguage?.() || document.documentElement.lang || 'pl',
+        })
+        : false;
       const hasLocation = hotelPageBookingUi.renderLocationSummary(document.getElementById('hotelPageLocationSummary'), hotel, { form });
       hotelPageBookingUi.renderRoomTypeOptions(document.getElementById('hotelPageRoomTypeOptions'), hotel, {
         form,
@@ -551,8 +564,10 @@
         roomInputName: 'hotel_room_type_id',
         ratePlanInputName: 'hotel_rate_plan_id',
       });
+      const amenitiesCard = document.getElementById('hotelAmenitiesCard');
       const policyCard = document.getElementById('hotelPolicyCard');
       const locationCard = document.getElementById('hotelLocationCard');
+      if (amenitiesCard) amenitiesCard.hidden = !hasAmenities;
       if (policyCard) policyCard.hidden = !hasPolicy;
       if (locationCard) locationCard.hidden = !hasLocation;
     }
@@ -760,6 +775,7 @@
         return;
       }
       $('#viewLoading').hidden=true; $('#viewHotel').hidden=false;
+      await hotelPageBookingUi?.ensureAmenitiesCatalog?.();
       const photos = Array.isArray(hotel.photos)? hotel.photos: [];
       const cover = hotel.cover_image_url || photos[0] || '/assets/cyprus_logo-1000x1054.png';
       $('#mainImg').src = cover;

@@ -263,6 +263,12 @@
   margin-top: 8px;
 }
 
+.offer-section .hotel-amenities-chips {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
 .offer-booking-card {
   padding: 24px;
 }

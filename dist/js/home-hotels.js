@@ -131,6 +131,21 @@ try {
 } catch (_) {}
 
 async function loadHotelAmenitiesForDisplay() {
+  const sharedUi = window.CE_HOTEL_BOOKING_UI || null;
+  if (sharedUi?.ensureAmenitiesCatalog) {
+    try {
+      hotelAmenitiesMap = await sharedUi.ensureAmenitiesCatalog();
+      if (hotelAmenitiesMap && typeof hotelAmenitiesMap === 'object') {
+        ceLog('✅ Hotel amenities loaded for display:', Object.keys(hotelAmenitiesMap).length);
+      }
+      try {
+        if (homeCurrentHotel) renderHotelAmenitiesChips(homeCurrentHotel);
+      } catch (_) {}
+      return;
+    } catch (e) {
+      console.warn('Failed to load amenities via shared UI:', e);
+    }
+  }
   try {
     const supabase = await waitForSupabaseClientHomeHotels();
     if (!supabase) throw new Error('Supabase client not available');
@@ -154,6 +169,14 @@ async function loadHotelAmenitiesForDisplay() {
 function renderHotelAmenitiesChips(hotel) {
   const container = document.getElementById('hotelAmenitiesChips');
   if (!container) return;
+  const sharedUi = window.CE_HOTEL_BOOKING_UI || null;
+  if (sharedUi?.renderAmenitiesChips) {
+    sharedUi.renderAmenitiesChips(container, hotel, {
+      catalog: hotelAmenitiesMap,
+      language: (typeof getCurrentLanguage === 'function' ? getCurrentLanguage() : 'pl') || 'pl',
+    });
+    return;
+  }
   
   const amenities = Array.isArray(hotel.amenities) ? hotel.amenities : [];
   if (!amenities.length) {
@@ -164,12 +187,15 @@ function renderHotelAmenitiesChips(hotel) {
   
   const lang = (typeof getCurrentLanguage === 'function' ? getCurrentLanguage() : 'pl') || 'pl';
   
-  // Limit to popular or first 8
   const popularFirst = amenities
-    .map(code => hotelAmenitiesMap[code])
-    .filter(Boolean)
-    .sort((a, b) => (b.is_popular ? 1 : 0) - (a.is_popular ? 1 : 0))
-    .slice(0, 8);
+    .map(code => hotelAmenitiesMap[code] || {
+      code,
+      icon: '•',
+      name_en: String(code || '').replace(/[_-]+/g, ' '),
+      name_pl: String(code || '').replace(/[_-]+/g, ' '),
+      is_popular: false,
+    })
+    .filter(Boolean);
   
   if (!popularFirst.length) {
     container.innerHTML = '';

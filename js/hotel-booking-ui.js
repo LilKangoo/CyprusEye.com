@@ -52,6 +52,8 @@
   let hotelLeafletLoadPromise = null;
   let hotelLocationMapCounter = 0;
   const hotelLocationMapState = new WeakMap();
+  let hotelAmenitiesCatalog = {};
+  let hotelAmenitiesLoadPromise = null;
 
   function dedupeUrls(list) {
     const out = [];
@@ -84,6 +86,128 @@
       return value[language] || value.en || value.pl || Object.values(value)[0] || '';
     }
     return '';
+  }
+
+  function humanizeAmenityCode(code) {
+    return String(code || '')
+      .trim()
+      .replace(/[_-]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .replace(/\b\w/g, (match) => match.toUpperCase());
+  }
+
+  async function ensureAmenitiesCatalog() {
+    if (hotelAmenitiesCatalog && Object.keys(hotelAmenitiesCatalog).length) {
+      return hotelAmenitiesCatalog;
+    }
+    if (hotelAmenitiesLoadPromise) {
+      return hotelAmenitiesLoadPromise;
+    }
+
+    hotelAmenitiesLoadPromise = (async () => {
+      try {
+        const module = await import('/js/supabaseClient.js');
+        const supabase = module?.supabase;
+        if (!supabase) {
+          return hotelAmenitiesCatalog;
+        }
+        const { data, error } = await supabase
+          .from('hotel_amenities')
+          .select('code, icon, name_en, name_pl, is_popular')
+          .eq('is_active', true);
+        if (error) throw error;
+
+        hotelAmenitiesCatalog = {};
+        (Array.isArray(data) ? data : []).forEach((item) => {
+          const code = String(item?.code || '').trim();
+          if (!code) return;
+          hotelAmenitiesCatalog[code] = item;
+        });
+      } catch (error) {
+        console.warn('Failed to load hotel amenities catalog:', error);
+      } finally {
+        hotelAmenitiesLoadPromise = null;
+      }
+      return hotelAmenitiesCatalog;
+    })();
+
+    return hotelAmenitiesLoadPromise;
+  }
+
+  function getAmenityViewModel(code, language, catalog) {
+    const normalizedCode = String(code || '').trim();
+    if (!normalizedCode) return null;
+    const item = catalog && typeof catalog === 'object'
+      ? catalog[normalizedCode]
+      : null;
+    const icon = String(item?.icon || '•').trim() || '•';
+    const name = String(
+      language && language.startsWith('en')
+        ? (item?.name_en || item?.name_pl || humanizeAmenityCode(normalizedCode))
+        : (item?.name_pl || item?.name_en || humanizeAmenityCode(normalizedCode))
+    ).trim();
+    return {
+      code: normalizedCode,
+      icon,
+      name: name || humanizeAmenityCode(normalizedCode),
+      isPopular: Boolean(item?.is_popular),
+    };
+  }
+
+  function renderAmenitiesChips(container, hotel, options) {
+    const target = container instanceof Element ? container : null;
+    if (!target) return false;
+
+    const language = String(options?.language || getLanguage()).toLowerCase();
+    const limit = Number(options?.limit);
+    const preserveOrder = options?.preserveOrder !== false;
+    const catalog = options?.catalog && typeof options.catalog === 'object'
+      ? options.catalog
+      : hotelAmenitiesCatalog;
+    const amenities = Array.from(new Set(
+      (Array.isArray(hotel?.amenities) ? hotel.amenities : [])
+        .map((code) => String(code || '').trim())
+        .filter(Boolean)
+    ));
+
+    if (!amenities.length) {
+      target.hidden = true;
+      target.innerHTML = '';
+      return false;
+    }
+
+    let items = amenities
+      .map((code) => getAmenityViewModel(code, language, catalog))
+      .filter(Boolean);
+
+    if (!preserveOrder) {
+      items = items.slice().sort((a, b) => {
+        if (a.isPopular !== b.isPopular) return a.isPopular ? -1 : 1;
+        return a.name.localeCompare(b.name, language);
+      });
+    }
+
+    if (Number.isFinite(limit) && limit > 0) {
+      items = items.slice(0, limit);
+    }
+
+    if (!items.length) {
+      target.hidden = true;
+      target.innerHTML = '';
+      return false;
+    }
+
+    target.hidden = false;
+    if (!target.classList.contains('hotel-amenities-chips')) {
+      target.classList.add('hotel-amenities-chips');
+    }
+    target.innerHTML = items.map((item) => `
+      <span class="amenity-chip" data-amenity-code="${escapeAttribute(item.code)}">
+        <span aria-hidden="true">${escapeHtml(item.icon)}</span>
+        <span>${escapeHtml(item.name)}</span>
+      </span>
+    `).join('');
+    return true;
   }
 
   function getChargeTypeLabel(chargeType, language) {
@@ -931,6 +1055,8 @@
     getLanguage,
     formatMoney,
     localizeText,
+    ensureAmenitiesCatalog,
+    renderAmenitiesChips,
     getChargeTypeLabel,
     getBookingSettings,
     getPricingExtras,
