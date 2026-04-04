@@ -215,6 +215,10 @@ function calcHotelTotal(h, persons, nights){
     case 'tiered_by_nights':
       rule = findByPersonsAndNights();
       break;
+    case 'per_person_per_night':
+    case 'category_per_night':
+      rule = findByPersonsAndNights();
+      break;
     default:
       rule = findByPersons();
       break;

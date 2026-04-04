@@ -2872,7 +2872,7 @@ function calculateHotelPrice(hotel, persons, nights) {
     case 'per_person_per_night':
     case 'category_per_night':
     default:
-      rule = findTierByPersons();
+      rule = findBestTierByPersonsAndNights();
       break;
   }
 

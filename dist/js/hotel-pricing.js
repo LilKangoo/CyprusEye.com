@@ -710,7 +710,7 @@
       case 'per_person_per_night':
       case 'category_per_night':
       default:
-        return findTierByPersons(tiers, persons);
+        return findBestTierByPersonsAndNights(tiers, persons, nights);
     }
   }
 

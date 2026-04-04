@@ -10705,23 +10705,11 @@ function addHotelRoomTypeCard(prefix, room = {}, hotelContext = {}) {
       </div>
     </div>
     <div class="admin-form-field hotel-field-full">
-      <span>Room pricing tiers</span>
+      <span>Room pricing table</span>
       <div class="hotel-pricing-tiers-wrap">
-        <p class="hotel-pricing-helper">If left empty, the system can fall back to the hotel-level pricing for this room.</p>
-        <table class="admin-table">
-          <thead>
-            <tr>
-              <th>Persons</th>
-              <th>Base price / night (€)</th>
-              <th>Min nights (optional)</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="${pricingTbodyId}">
-            <tr><td colspan="4" class="table-loading">No tiers yet</td></tr>
-          </tbody>
-        </table>
-        <button type="button" class="btn-secondary hotel-add-tier-btn" data-room-add-tier>Add tier</button>
+        <p class="hotel-pricing-helper">If left empty, the system falls back to the hotel-level pricing. Use rows for persons and columns for minimum stay, then fine-tune only the selected cell when needed.</p>
+        <div id="${pricingTbodyId}" class="hotel-pricing-matrix-host"></div>
+        <button type="button" class="btn-secondary hotel-add-tier-btn" data-room-add-tier>Add person row</button>
       </div>
     </div>
     <div class="admin-form-field hotel-field-full">
@@ -10975,11 +10963,17 @@ async function editHotel(hotelId) {
     renderHotelRoomTypes('edit', Array.isArray(hotel.room_types) ? hotel.room_types : [], hotel);
     const btnAddEditRoomType = document.getElementById('btnAddEditHotelRoomType');
     if (btnAddEditRoomType && btnAddEditRoomType.dataset.bound !== '1') {
-      btnAddEditRoomType.addEventListener('click', () => addHotelRoomTypeCard('edit', {}, {
-        pricing_model: document.getElementById('editHotelPricing')?.value || 'per_person_per_night',
-        pricing_tiers: collectPricingTiers('editHotelPricingTiersBody'),
-        max_persons: document.getElementById('editHotelMaxPersons')?.value || null,
-      }));
+      btnAddEditRoomType.addEventListener('click', () => {
+        try {
+          addHotelRoomTypeCard('edit', {}, {
+            pricing_model: document.getElementById('editHotelPricing')?.value || 'per_person_per_night',
+            pricing_tiers: collectPricingTiers('editHotelPricingTiersBody'),
+            max_persons: document.getElementById('editHotelMaxPersons')?.value || null,
+          });
+        } catch (error) {
+          showToast(error?.message || 'Fix the hotel pricing table before adding a room type.', 'error');
+        }
+      });
       btnAddEditRoomType.dataset.bound = '1';
     }
 
@@ -11198,7 +11192,6 @@ async function openNewHotelModal() {
       // Pricing tiers editor init
       renderPricingTiers('newHotelPricingTiersBody', []);
       bindPricingTierAddButton('btnAddNewHotelTier', 'newHotelPricingTiersBody');
-      addPricingTierRow('newHotelPricingTiersBody');
 
       renderHotelExtraRows('newHotelExtraItemsBody', []);
       const btnAddNewExtra = document.getElementById('btnAddNewHotelExtra');
@@ -11210,11 +11203,17 @@ async function openNewHotelModal() {
       renderHotelRoomTypes('new', [], {});
       const btnAddNewRoomType = document.getElementById('btnAddNewHotelRoomType');
       if (btnAddNewRoomType && !btnAddNewRoomType.dataset.bound) {
-        btnAddNewRoomType.addEventListener('click', () => addHotelRoomTypeCard('new', {}, {
-          pricing_model: document.getElementById('newHotelPricing')?.value || 'per_person_per_night',
-          pricing_tiers: collectPricingTiers('newHotelPricingTiersBody'),
-          max_persons: document.getElementById('newHotelMaxPersons')?.value || null,
-        }));
+        btnAddNewRoomType.addEventListener('click', () => {
+          try {
+            addHotelRoomTypeCard('new', {}, {
+              pricing_model: document.getElementById('newHotelPricing')?.value || 'per_person_per_night',
+              pricing_tiers: collectPricingTiers('newHotelPricingTiersBody'),
+              max_persons: document.getElementById('newHotelMaxPersons')?.value || null,
+            });
+          } catch (error) {
+            showToast(error?.message || 'Fix the hotel pricing table before adding a room type.', 'error');
+          }
+        });
         btnAddNewRoomType.dataset.bound = '1';
       }
       
@@ -20788,69 +20787,14 @@ function copyPricingDateMonth(scheduleRow) {
   }
 }
 
-function extractPricingTierDraftFromPrimaryRow(tr, tbody) {
-  if (!(tr instanceof Element) || !(tbody instanceof Element)) return null;
-  const inputs = tr.querySelectorAll('input');
-  if (!inputs || inputs.length < 2) return null;
-
-  const personsValue = String(inputs[0]?.value || '').trim();
-  const priceValue = String(inputs[1]?.value || '').trim();
-  const minNightsValue = String(inputs[2]?.value || '').trim();
-  const draft = {};
-
-  if (personsValue !== '') {
-    const persons = Number(personsValue);
-    if (Number.isFinite(persons)) draft.persons = persons;
-  }
-  if (priceValue !== '') {
-    const price = Number(priceValue);
-    if (Number.isFinite(price)) draft.price_per_night = price;
-  }
-  if (minNightsValue !== '') {
-    const minNights = Number(minNightsValue);
-    if (Number.isFinite(minNights)) draft.min_nights = minNights;
-  }
-
-  const rowId = tr.dataset.rowId || '';
-  const scheduleRow = rowId ? tbody.querySelector(`tr[data-tier-row="schedule"][data-row-id="${rowId}"]`) : null;
-  if (scheduleRow instanceof Element) {
-    const weekdayPrices = {};
-    const monthPrices = {};
-    scheduleRow.querySelectorAll('input[data-schedule-kind="weekday"]').forEach((input) => {
-      const value = input.value === '' ? null : Number(input.value);
-      const key = String(input.dataset.scheduleKey || '').trim();
-      if (key && Number.isFinite(value) && value >= 0) {
-        weekdayPrices[key] = value;
-      }
-    });
-    scheduleRow.querySelectorAll('input[data-schedule-kind="month"]').forEach((input) => {
-      const value = input.value === '' ? null : Number(input.value);
-      const key = String(input.dataset.scheduleKey || '').trim();
-      if (key && Number.isFinite(value) && value >= 0) {
-        monthPrices[key] = value;
-      }
-    });
-    const datePrices = capturePricingDateCalendarValues(scheduleRow);
-    if (Object.keys(weekdayPrices).length) {
-      draft.weekday_prices = weekdayPrices;
-    }
-    if (Object.keys(monthPrices).length) {
-      draft.month_prices = monthPrices;
-    }
-    if (Object.keys(datePrices).length) {
-      draft.date_prices = datePrices;
-    }
-  }
-
-  return draft;
-}
-
 function buildPricingTierRuleForSave(draft) {
   if (!draft || typeof draft !== 'object') return null;
   const persons = Number(draft.persons);
-  const price = Number(draft.price_per_night);
+  const hasPrice = !(draft.price_per_night === '' || draft.price_per_night == null);
+  const price = hasPrice ? Number(draft.price_per_night) : null;
   const minNights = draft.min_nights === '' || draft.min_nights == null ? null : Number(draft.min_nights);
   if (!Number.isFinite(persons) || persons <= 0) return null;
+  if (price == null) return null;
   if (!Number.isFinite(price) || price < 0) return null;
 
   const rule = { persons, price_per_night: price };
@@ -20925,103 +20869,659 @@ function bindPricingScheduleRow(scheduleRow, tier) {
   renderPricingDateCalendar(scheduleRow, initialMonth);
 }
 
+function clonePricingMatrixMap(value) {
+  const out = {};
+  if (!value || typeof value !== 'object') return out;
+  Object.entries(value).forEach(([key, rawValue]) => {
+    const amount = Number(rawValue);
+    if (Number.isFinite(amount) && amount >= 0) {
+      out[String(key || '').trim()] = amount;
+    }
+  });
+  return out;
+}
+
+function createPricingMatrixCellDraft(rule = {}) {
+  return {
+    price_per_night: rule && rule.price_per_night != null && Number.isFinite(Number(rule.price_per_night))
+      ? Number(rule.price_per_night)
+      : '',
+    weekday_prices: clonePricingMatrixMap(getTierWeekdayOverrides(rule)),
+    month_prices: clonePricingMatrixMap(getTierMonthOverrides(rule)),
+    date_prices: normalizeAdminExactDateOverrides(getTierDateOverrides(rule)),
+  };
+}
+
+function clonePricingMatrixCellDraft(cell) {
+  const raw = cell && typeof cell === 'object' ? cell : {};
+  return {
+    price_per_night: raw.price_per_night === '' || raw.price_per_night == null
+      ? ''
+      : (Number.isFinite(Number(raw.price_per_night)) ? Number(raw.price_per_night) : ''),
+    weekday_prices: clonePricingMatrixMap(raw.weekday_prices),
+    month_prices: clonePricingMatrixMap(raw.month_prices),
+    date_prices: normalizeAdminExactDateOverrides(raw.date_prices),
+  };
+}
+
+function normalizePricingMatrixPersons(value, fallback = 1) {
+  const num = Math.round(Number(value));
+  if (Number.isFinite(num) && num > 0) return num;
+  return Math.max(1, Number(fallback || 1));
+}
+
+function normalizePricingMatrixMinNights(value, fallback = 1) {
+  const num = Math.round(Number(value));
+  if (Number.isFinite(num) && num > 0) return num;
+  return Math.max(1, Number(fallback || 1));
+}
+
+function createPricingMatrixDraft(rawValue) {
+  const normalized = normalizePricingTiersForAdmin(rawValue);
+  const rules = Array.isArray(normalized.rules) ? normalized.rules : [];
+  const personValues = Array.from(new Set(
+    rules
+      .map((rule) => normalizePricingMatrixPersons(rule?.persons, 0))
+      .filter((value) => value > 0)
+  )).sort((a, b) => a - b);
+  const bandValues = Array.from(new Set(
+    rules
+      .map((rule) => normalizePricingMatrixMinNights(rule?.min_nights, 1))
+      .filter((value) => value > 0)
+  )).sort((a, b) => a - b);
+
+  const bands = (bandValues.length ? bandValues : [1]).map((minNights, index) => ({
+    id: `band-${index + 1}`,
+    min_nights: minNights,
+  }));
+  const rows = (personValues.length ? personValues : [2]).map((persons, index) => ({
+    id: `row-${index + 1}`,
+    persons,
+    cells: {},
+  }));
+
+  rows.forEach((row) => {
+    bands.forEach((band) => {
+      row.cells[band.id] = createPricingMatrixCellDraft();
+    });
+  });
+
+  rules.forEach((rule) => {
+    const persons = normalizePricingMatrixPersons(rule?.persons, 0);
+    const minNights = normalizePricingMatrixMinNights(rule?.min_nights, 1);
+    const row = rows.find((entry) => entry.persons === persons);
+    const band = bands.find((entry) => entry.min_nights === minNights);
+    if (!row || !band) return;
+    row.cells[band.id] = createPricingMatrixCellDraft(rule);
+  });
+
+  return {
+    currency: String(normalized.currency || 'EUR').trim().toUpperCase() || 'EUR',
+    rows,
+    bands,
+    selectedRowId: rows[0]?.id || '',
+    selectedBandId: bands[0]?.id || '',
+    rowCounter: rows.length,
+    bandCounter: bands.length,
+  };
+}
+
+function getPricingMatrixRoot(containerId) {
+  const root = document.getElementById(containerId);
+  return root instanceof Element ? root : null;
+}
+
+function sortPricingMatrixState(state) {
+  if (!state || typeof state !== 'object') return state;
+  if (Array.isArray(state.rows)) {
+    state.rows.sort((a, b) => normalizePricingMatrixPersons(a?.persons, 1) - normalizePricingMatrixPersons(b?.persons, 1));
+  }
+  if (Array.isArray(state.bands)) {
+    state.bands.sort((a, b) => normalizePricingMatrixMinNights(a?.min_nights, 1) - normalizePricingMatrixMinNights(b?.min_nights, 1));
+  }
+  return state;
+}
+
+function ensurePricingMatrixState(state) {
+  if (!state || typeof state !== 'object') return createPricingMatrixDraft([]);
+  if (!Array.isArray(state.rows)) state.rows = [];
+  if (!Array.isArray(state.bands)) state.bands = [];
+  if (!state.rows.length) {
+    state.rows.push({ id: 'row-1', persons: 2, cells: {} });
+  }
+  if (!state.bands.length) {
+    state.bands.push({ id: 'band-1', min_nights: 1 });
+  }
+  state.rowCounter = Math.max(
+    Number(state.rowCounter || 0),
+    state.rows.reduce((max, row) => {
+      const match = String(row?.id || '').match(/(\d+)$/);
+      return Math.max(max, match ? Number(match[1]) : 0);
+    }, 0),
+    state.rows.length,
+  );
+  state.bandCounter = Math.max(
+    Number(state.bandCounter || 0),
+    state.bands.reduce((max, band) => {
+      const match = String(band?.id || '').match(/(\d+)$/);
+      return Math.max(max, match ? Number(match[1]) : 0);
+    }, 0),
+    state.bands.length,
+  );
+
+  state.rows = state.rows.map((row, index) => ({
+    id: String(row?.id || `row-${index + 1}`).trim() || `row-${index + 1}`,
+    persons: normalizePricingMatrixPersons(row?.persons, index + 1),
+    cells: row?.cells && typeof row.cells === 'object' ? row.cells : {},
+  }));
+  state.bands = state.bands.map((band, index) => ({
+    id: String(band?.id || `band-${index + 1}`).trim() || `band-${index + 1}`,
+    min_nights: normalizePricingMatrixMinNights(band?.min_nights, index === 0 ? 1 : index + 1),
+  }));
+
+  state.rows.forEach((row) => {
+    if (!row.cells || typeof row.cells !== 'object') row.cells = {};
+    state.bands.forEach((band) => {
+      if (!row.cells[band.id]) {
+        row.cells[band.id] = createPricingMatrixCellDraft();
+      } else {
+        row.cells[band.id] = clonePricingMatrixCellDraft(row.cells[band.id]);
+      }
+    });
+    Object.keys(row.cells).forEach((cellKey) => {
+      if (!state.bands.some((band) => band.id === cellKey)) delete row.cells[cellKey];
+    });
+  });
+
+  sortPricingMatrixState(state);
+  if (!state.rows.some((row) => row.id === state.selectedRowId)) {
+    state.selectedRowId = state.rows[0]?.id || '';
+  }
+  if (!state.bands.some((band) => band.id === state.selectedBandId)) {
+    state.selectedBandId = state.bands[0]?.id || '';
+  }
+  return state;
+}
+
+function getPricingMatrixState(root) {
+  if (!(root instanceof Element)) return createPricingMatrixDraft([]);
+  root.__pricingMatrixState = ensurePricingMatrixState(root.__pricingMatrixState || createPricingMatrixDraft([]));
+  return root.__pricingMatrixState;
+}
+
+function resolvePricingMatrixSelection(state) {
+  const safeState = ensurePricingMatrixState(state);
+  const row = safeState.rows.find((entry) => entry.id === safeState.selectedRowId) || safeState.rows[0] || null;
+  const band = safeState.bands.find((entry) => entry.id === safeState.selectedBandId) || safeState.bands[0] || null;
+  if (!row || !band) return null;
+  if (!row.cells[band.id]) row.cells[band.id] = createPricingMatrixCellDraft();
+  safeState.selectedRowId = row.id;
+  safeState.selectedBandId = band.id;
+  return { row, band, cell: row.cells[band.id] };
+}
+
+function countPricingMatrixCellRules(cell) {
+  const raw = cell && typeof cell === 'object' ? cell : {};
+  return Object.keys(raw.weekday_prices || {}).length
+    + Object.keys(raw.month_prices || {}).length
+    + Object.keys(raw.date_prices || {}).length;
+}
+
+function syncPricingMatrixInputsToState(root) {
+  if (!(root instanceof Element)) return;
+  const state = getPricingMatrixState(root);
+
+  root.querySelectorAll('[data-pricing-row-persons]').forEach((input) => {
+    const rowId = String(input.getAttribute('data-row-id') || '').trim();
+    const row = state.rows.find((entry) => entry.id === rowId);
+    if (!row) return;
+    row.persons = normalizePricingMatrixPersons(input.value, row.persons);
+  });
+
+  root.querySelectorAll('[data-pricing-band-value]').forEach((input) => {
+    const bandId = String(input.getAttribute('data-band-id') || '').trim();
+    const band = state.bands.find((entry) => entry.id === bandId);
+    if (!band) return;
+    band.min_nights = normalizePricingMatrixMinNights(input.value, band.min_nights);
+  });
+
+  root.querySelectorAll('[data-pricing-cell-price]').forEach((input) => {
+    const rowId = String(input.getAttribute('data-row-id') || '').trim();
+    const bandId = String(input.getAttribute('data-band-id') || '').trim();
+    const row = state.rows.find((entry) => entry.id === rowId);
+    if (!row || !row.cells[bandId]) return;
+    const rawValue = String(input.value || '').trim();
+    if (!rawValue) {
+      row.cells[bandId].price_per_night = '';
+      return;
+    }
+    const amount = Number(rawValue);
+    row.cells[bandId].price_per_night = Number.isFinite(amount) && amount >= 0 ? amount : row.cells[bandId].price_per_night;
+  });
+}
+
+function getPricingMatrixDuplicatePersons(state, rowId, nextPersons) {
+  return state.rows.find((row) => row.id !== rowId && normalizePricingMatrixPersons(row.persons, 0) === normalizePricingMatrixPersons(nextPersons, 0)) || null;
+}
+
+function getPricingMatrixDuplicateBand(state, bandId, nextMinNights) {
+  return state.bands.find((band) => band.id !== bandId && normalizePricingMatrixMinNights(band.min_nights, 1) === normalizePricingMatrixMinNights(nextMinNights, 1)) || null;
+}
+
+function buildPricingMatrixAdvancedRule(row, band, cell) {
+  return {
+    persons: normalizePricingMatrixPersons(row?.persons, 1),
+    price_per_night: cell?.price_per_night === '' || cell?.price_per_night == null ? 0 : Number(cell.price_per_night || 0),
+    min_nights: normalizePricingMatrixMinNights(band?.min_nights, 1),
+    weekday_prices: clonePricingMatrixMap(cell?.weekday_prices),
+    month_prices: clonePricingMatrixMap(cell?.month_prices),
+    date_prices: normalizeAdminExactDateOverrides(cell?.date_prices),
+  };
+}
+
+function persistPricingMatrixAdvancedPanel(root) {
+  if (!(root instanceof Element)) return;
+  syncPricingMatrixInputsToState(root);
+  const state = getPricingMatrixState(root);
+  const selection = resolvePricingMatrixSelection(state);
+  const panel = root.querySelector('[data-pricing-advanced-panel-body]');
+  if (!selection || !(panel instanceof Element)) return;
+
+  const weekdayPrices = {};
+  const monthPrices = {};
+  panel.querySelectorAll('input[data-schedule-kind="weekday"]').forEach((input) => {
+    const key = String(input.dataset.scheduleKey || '').trim();
+    const value = input.value === '' ? null : Number(input.value);
+    if (key && Number.isFinite(value) && value >= 0) {
+      weekdayPrices[key] = value;
+    }
+  });
+  panel.querySelectorAll('input[data-schedule-kind="month"]').forEach((input) => {
+    const key = String(input.dataset.scheduleKey || '').trim();
+    const value = input.value === '' ? null : Number(input.value);
+    if (key && Number.isFinite(value) && value >= 0) {
+      monthPrices[key] = value;
+    }
+  });
+  const datePrices = capturePricingDateCalendarValues(panel);
+
+  selection.cell.weekday_prices = weekdayPrices;
+  selection.cell.month_prices = monthPrices;
+  selection.cell.date_prices = datePrices;
+}
+
+function renderPricingMatrixAdvancedPanel(root) {
+  if (!(root instanceof Element)) return;
+  const state = getPricingMatrixState(root);
+  const shell = root.querySelector('[data-pricing-advanced-panel]');
+  if (!(shell instanceof Element)) return;
+  const selection = resolvePricingMatrixSelection(state);
+  if (!selection) {
+    shell.innerHTML = '<div class="table-loading">Select a price cell to configure weekday, month, or exact-date rules.</div>';
+    return;
+  }
+
+  const personsLabel = `${normalizePricingMatrixPersons(selection.row.persons, 1)} ${normalizePricingMatrixPersons(selection.row.persons, 1) === 1 ? 'person' : 'persons'}`;
+  const nightsLabel = normalizePricingMatrixMinNights(selection.band.min_nights, 1) <= 1
+    ? '1+ night'
+    : `${normalizePricingMatrixMinNights(selection.band.min_nights, 1)}+ nights`;
+  const cellPrice = selection.cell.price_per_night === '' || selection.cell.price_per_night == null
+    ? 'base price not set yet'
+    : `${Number(selection.cell.price_per_night).toFixed(2)} € / night`;
+  const tier = buildPricingMatrixAdvancedRule(selection.row, selection.band, selection.cell);
+
+  shell.innerHTML = `
+    <div class="hotel-pricing-matrix-advanced-head">
+      <div>
+        <h5>Advanced rules for ${escapeHtml(personsLabel)} · ${escapeHtml(nightsLabel)}</h5>
+        <p>These rules affect only the selected price cell. Leave everything blank if the base nightly rate is enough.</p>
+      </div>
+      <div class="hotel-pricing-matrix-advanced-badge">${escapeHtml(cellPrice)}</div>
+    </div>
+    <div class="hotel-tier-schedule hotel-pricing-matrix-advanced-body" data-pricing-advanced-panel-body>
+      ${buildPricingScheduleBlock('weekday', tier)}
+      ${buildPricingScheduleBlock('month', tier)}
+      ${buildPricingExactDateBlock(tier)}
+    </div>
+  `;
+
+  const panelBody = shell.querySelector('[data-pricing-advanced-panel-body]');
+  if (panelBody instanceof Element) {
+    bindPricingScheduleRow(panelBody, tier);
+  }
+}
+
+function renderPricingMatrixEditor(root) {
+  if (!(root instanceof Element)) return;
+  const state = getPricingMatrixState(root);
+  const selection = resolvePricingMatrixSelection(state);
+  const selectedKey = selection ? `${selection.row.id}:${selection.band.id}` : '';
+
+  const headerHtml = state.bands.map((band) => `
+    <th>
+      <div class="hotel-pricing-matrix-band">
+        <div class="hotel-pricing-matrix-band-top">
+          <span class="hotel-pricing-matrix-band-label">${escapeHtml(normalizePricingMatrixMinNights(band.min_nights, 1) <= 1 ? '1+ night' : `${normalizePricingMatrixMinNights(band.min_nights, 1)}+ nights`)}</span>
+          ${state.bands.length > 1 ? `<button type="button" class="btn-danger hotel-pricing-matrix-remove" data-pricing-remove-band="${escapeHtml(band.id)}">Remove</button>` : ''}
+        </div>
+        <label class="hotel-pricing-matrix-band-field">
+          <span>Min nights</span>
+          <input
+            type="number"
+            min="1"
+            step="1"
+            class="admin-input"
+            data-pricing-band-value
+            data-band-id="${escapeHtml(band.id)}"
+            value="${normalizePricingMatrixMinNights(band.min_nights, 1)}"
+          />
+        </label>
+      </div>
+    </th>
+  `).join('');
+
+  const rowsHtml = state.rows.map((row) => `
+    <tr data-pricing-row="${escapeHtml(row.id)}">
+      <td class="hotel-pricing-matrix-person-cell">
+        <label class="hotel-pricing-matrix-person-field">
+          <span>Persons</span>
+          <input
+            type="number"
+            min="1"
+            step="1"
+            class="admin-input"
+            data-pricing-row-persons
+            data-row-id="${escapeHtml(row.id)}"
+            value="${normalizePricingMatrixPersons(row.persons, 1)}"
+          />
+        </label>
+      </td>
+      ${state.bands.map((band) => {
+        const cell = row.cells[band.id] || createPricingMatrixCellDraft();
+        const cellKey = `${row.id}:${band.id}`;
+        const selected = cellKey === selectedKey;
+        const rulesCount = countPricingMatrixCellRules(cell);
+        const priceValue = cell.price_per_night === '' || cell.price_per_night == null ? '' : Number(cell.price_per_night);
+        return `
+          <td>
+            <div class="hotel-pricing-matrix-cell${selected ? ' is-selected' : ''}">
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                class="admin-input"
+                data-pricing-cell-price
+                data-row-id="${escapeHtml(row.id)}"
+                data-band-id="${escapeHtml(band.id)}"
+                value="${priceValue}"
+                placeholder="0.00"
+              />
+              <div class="hotel-pricing-matrix-cell-actions">
+                <span class="hotel-pricing-matrix-cell-note">${priceValue === '' ? 'empty' : 'base rate'}</span>
+                <button
+                  type="button"
+                  class="btn-secondary hotel-pricing-matrix-configure"
+                  data-pricing-cell-open
+                  data-row-id="${escapeHtml(row.id)}"
+                  data-band-id="${escapeHtml(band.id)}"
+                >
+                  ${rulesCount ? `${rulesCount} rules` : 'Rules'}
+                </button>
+              </div>
+            </div>
+          </td>
+        `;
+      }).join('')}
+      <td class="hotel-pricing-matrix-actions">
+        ${state.rows.length > 1 ? `<button type="button" class="btn-danger hotel-pricing-matrix-remove" data-pricing-remove-row="${escapeHtml(row.id)}">Remove</button>` : ''}
+      </td>
+    </tr>
+  `).join('');
+
+  root.classList.add('hotel-pricing-matrix-host');
+  root.innerHTML = `
+    <div class="hotel-pricing-matrix">
+      <div class="hotel-pricing-matrix-toolbar">
+        <div class="hotel-pricing-matrix-toolbar-copy">
+          <strong>Rows = persons.</strong> <strong>Columns = minimum stay.</strong> Fill only the combinations you sell. Use <em>Rules</em> on the selected cell when that exact combination needs weekday, month, or exact-date pricing.
+        </div>
+        <div class="hotel-pricing-matrix-toolbar-actions">
+          <button type="button" class="btn-secondary" data-pricing-add-band>Add stay band</button>
+          <button type="button" class="btn-secondary" data-pricing-add-row>Add person row</button>
+        </div>
+      </div>
+      <div class="hotel-pricing-matrix-scroll">
+        <table class="admin-table hotel-pricing-matrix-table">
+          <thead>
+            <tr>
+              <th>Persons</th>
+              ${headerHtml}
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+      </div>
+      <div class="hotel-pricing-matrix-advanced" data-pricing-advanced-panel></div>
+    </div>
+  `;
+
+  root.querySelector('[data-pricing-add-row]')?.addEventListener('click', () => {
+    persistPricingMatrixAdvancedPanel(root);
+    const nextRowId = `row-${++state.rowCounter}`;
+    const nextPersons = Math.max(1, ...state.rows.map((row) => normalizePricingMatrixPersons(row.persons, 1))) + 1;
+    const row = { id: nextRowId, persons: nextPersons, cells: {} };
+    state.bands.forEach((band) => {
+      row.cells[band.id] = createPricingMatrixCellDraft();
+    });
+    state.rows.push(row);
+    state.selectedRowId = row.id;
+    state.selectedBandId = state.bands[0]?.id || '';
+    renderPricingMatrixEditor(root);
+  });
+
+  root.querySelector('[data-pricing-add-band]')?.addEventListener('click', () => {
+    persistPricingMatrixAdvancedPanel(root);
+    const nextBandId = `band-${++state.bandCounter}`;
+    const nextMinNights = Math.max(1, ...state.bands.map((band) => normalizePricingMatrixMinNights(band.min_nights, 1))) + 1;
+    const band = { id: nextBandId, min_nights: nextMinNights };
+    state.bands.push(band);
+    state.rows.forEach((row) => {
+      row.cells[band.id] = createPricingMatrixCellDraft();
+    });
+    state.selectedBandId = band.id;
+    state.selectedRowId = state.rows[0]?.id || '';
+    renderPricingMatrixEditor(root);
+  });
+
+  root.querySelectorAll('[data-pricing-remove-row]').forEach((button) => {
+    button.addEventListener('click', () => {
+      persistPricingMatrixAdvancedPanel(root);
+      const rowId = String(button.getAttribute('data-pricing-remove-row') || '').trim();
+      state.rows = state.rows.filter((row) => row.id !== rowId);
+      ensurePricingMatrixState(state);
+      renderPricingMatrixEditor(root);
+    });
+  });
+
+  root.querySelectorAll('[data-pricing-remove-band]').forEach((button) => {
+    button.addEventListener('click', () => {
+      persistPricingMatrixAdvancedPanel(root);
+      const bandId = String(button.getAttribute('data-pricing-remove-band') || '').trim();
+      state.bands = state.bands.filter((band) => band.id !== bandId);
+      state.rows.forEach((row) => {
+        delete row.cells[bandId];
+      });
+      ensurePricingMatrixState(state);
+      renderPricingMatrixEditor(root);
+    });
+  });
+
+  root.querySelectorAll('[data-pricing-row-persons]').forEach((input) => {
+    input.addEventListener('change', () => {
+      persistPricingMatrixAdvancedPanel(root);
+      const rowId = String(input.getAttribute('data-row-id') || '').trim();
+      const row = state.rows.find((entry) => entry.id === rowId);
+      if (!row) return;
+      const nextPersons = normalizePricingMatrixPersons(input.value, row.persons);
+      if (getPricingMatrixDuplicatePersons(state, rowId, nextPersons)) {
+        showToast('Each person row must be unique.', 'error');
+        renderPricingMatrixEditor(root);
+        return;
+      }
+      row.persons = nextPersons;
+      renderPricingMatrixEditor(root);
+    });
+  });
+
+  root.querySelectorAll('[data-pricing-band-value]').forEach((input) => {
+    input.addEventListener('change', () => {
+      persistPricingMatrixAdvancedPanel(root);
+      const bandId = String(input.getAttribute('data-band-id') || '').trim();
+      const band = state.bands.find((entry) => entry.id === bandId);
+      if (!band) return;
+      const nextMinNights = normalizePricingMatrixMinNights(input.value, band.min_nights);
+      if (getPricingMatrixDuplicateBand(state, bandId, nextMinNights)) {
+        showToast('Each stay band must have a unique minimum-night value.', 'error');
+        renderPricingMatrixEditor(root);
+        return;
+      }
+      band.min_nights = nextMinNights;
+      renderPricingMatrixEditor(root);
+    });
+  });
+
+  root.querySelectorAll('[data-pricing-cell-price]').forEach((input) => {
+    input.addEventListener('input', () => {
+      const rowId = String(input.getAttribute('data-row-id') || '').trim();
+      const bandId = String(input.getAttribute('data-band-id') || '').trim();
+      const row = state.rows.find((entry) => entry.id === rowId);
+      if (!row || !row.cells[bandId]) return;
+      const rawValue = String(input.value || '').trim();
+      if (!rawValue) {
+        row.cells[bandId].price_per_night = '';
+        return;
+      }
+      const amount = Number(rawValue);
+      if (Number.isFinite(amount) && amount >= 0) {
+        row.cells[bandId].price_per_night = amount;
+      }
+    });
+  });
+
+  root.querySelectorAll('[data-pricing-cell-open]').forEach((button) => {
+    button.addEventListener('click', () => {
+      persistPricingMatrixAdvancedPanel(root);
+      state.selectedRowId = String(button.getAttribute('data-row-id') || '').trim();
+      state.selectedBandId = String(button.getAttribute('data-band-id') || '').trim();
+      renderPricingMatrixEditor(root);
+    });
+  });
+
+  renderPricingMatrixAdvancedPanel(root);
+}
+
 function bindPricingTierAddButton(buttonId, tbodyId) {
   const button = document.getElementById(buttonId);
   if (!button) return;
   button.onclick = (event) => {
     event.preventDefault();
-    addPricingTierRow(tbodyId);
+    const root = getPricingMatrixRoot(tbodyId);
+    if (!root) return;
+    const state = getPricingMatrixState(root);
+    persistPricingMatrixAdvancedPanel(root);
+    const nextRowId = `row-${++state.rowCounter}`;
+    const nextPersons = Math.max(1, ...state.rows.map((row) => normalizePricingMatrixPersons(row.persons, 1))) + 1;
+    const row = { id: nextRowId, persons: nextPersons, cells: {} };
+    state.bands.forEach((band) => {
+      row.cells[band.id] = createPricingMatrixCellDraft();
+    });
+    state.rows.push(row);
+    state.selectedRowId = row.id;
+    state.selectedBandId = state.bands[0]?.id || '';
+    renderPricingMatrixEditor(root);
   };
 }
 
-function insertPricingTierRows(tbody, primaryRow, scheduleRow, afterRowId = '') {
-  if (!(tbody instanceof Element) || !(primaryRow instanceof Element) || !(scheduleRow instanceof Element)) return;
-  if (afterRowId) {
-    const anchorRow = tbody.querySelector(`tr[data-tier-row="schedule"][data-row-id="${afterRowId}"]`);
-    if (anchorRow instanceof Element) {
-      const nextNode = anchorRow.nextSibling;
-      if (nextNode) {
-        tbody.insertBefore(primaryRow, nextNode);
-        tbody.insertBefore(scheduleRow, nextNode);
-        return;
-      }
-    }
-  }
-  tbody.appendChild(primaryRow);
-  tbody.appendChild(scheduleRow);
-}
-
-function addPricingTierRow(tbodyId, tier, options = {}) {
-  const tbody = document.getElementById(tbodyId);
-  if (!tbody) return;
-  if (tbody.querySelector('.table-loading')) tbody.innerHTML = '';
-  const afterRowId = String(options.afterRowId || '').trim();
-  const rowId = `tier-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const tr = document.createElement('tr');
-  tr.dataset.tierRow = 'primary';
-  tr.dataset.rowId = rowId;
-  tr.innerHTML = `
-    <td><input type="number" min="1" class="admin-input" style="width:100px" value="${tier && tier.persons != null ? Number(tier.persons) : ''}" placeholder="2" /></td>
-    <td><input type="number" min="0" step="0.01" class="admin-input" style="width:140px" value="${tier && tier.price_per_night != null ? Number(tier.price_per_night) : ''}" placeholder="0.00" /></td>
-    <td><input type="number" min="1" class="admin-input" style="width:140px" value="${tier && tier.min_nights != null ? Number(tier.min_nights) : ''}" placeholder="" /></td>
-    <td class="hotel-tier-actions-cell">
-      <div class="hotel-tier-row-actions">
-        <button type="button" class="btn-secondary" data-tier-clone>Clone</button>
-        <button type="button" class="btn-danger" data-tier-remove>Remove</button>
-      </div>
-    </td>
-  `;
-  const scheduleRow = document.createElement('tr');
-  scheduleRow.dataset.tierRow = 'schedule';
-  scheduleRow.dataset.rowId = rowId;
-  scheduleRow.className = 'hotel-tier-schedule-row';
-  scheduleRow.innerHTML = `
-    <td colspan="4">
-      <div class="hotel-tier-schedule">
-        ${buildPricingScheduleBlock('weekday', tier)}
-        ${buildPricingScheduleBlock('month', tier)}
-        ${buildPricingExactDateBlock(tier)}
-      </div>
-    </td>
-  `;
-  tr.querySelector('[data-tier-remove]')?.addEventListener('click', () => {
-    tr.remove();
-    scheduleRow.remove();
-    if (!tbody.children.length) {
-      tbody.innerHTML = '<tr><td colspan="4" class="table-loading">No tiers yet</td></tr>';
-    }
+function addPricingTierRow(tbodyId) {
+  const root = getPricingMatrixRoot(tbodyId);
+  if (!root) return;
+  const state = getPricingMatrixState(root);
+  persistPricingMatrixAdvancedPanel(root);
+  const nextRowId = `row-${++state.rowCounter}`;
+  const nextPersons = Math.max(1, ...state.rows.map((row) => normalizePricingMatrixPersons(row.persons, 1))) + 1;
+  const row = { id: nextRowId, persons: nextPersons, cells: {} };
+  state.bands.forEach((band) => {
+    row.cells[band.id] = createPricingMatrixCellDraft();
   });
-  tr.querySelector('[data-tier-clone]')?.addEventListener('click', () => {
-    const draft = extractPricingTierDraftFromPrimaryRow(tr, tbody) || {};
-    addPricingTierRow(tbodyId, draft, { afterRowId: rowId });
-  });
-  bindPricingScheduleRow(scheduleRow, tier);
-  insertPricingTierRows(tbody, tr, scheduleRow, afterRowId);
+  state.rows.push(row);
+  state.selectedRowId = row.id;
+  state.selectedBandId = state.bands[0]?.id || '';
+  renderPricingMatrixEditor(root);
 }
 
 function renderPricingTiers(tbodyId, rules) {
-  const tbody = document.getElementById(tbodyId);
-  if (!tbody) return;
-  tbody.innerHTML = '';
-  const list = normalizePricingTiersForAdmin(rules).rules;
-  if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="4" class="table-loading">No tiers yet</td></tr>';
-    return;
-  }
-  list.forEach(r => addPricingTierRow(tbodyId, r));
+  const root = getPricingMatrixRoot(tbodyId);
+  if (!root) return;
+  root.__pricingMatrixState = createPricingMatrixDraft(rules);
+  renderPricingMatrixEditor(root);
 }
 
 function collectPricingTiers(tbodyId) {
-  const tbody = document.getElementById(tbodyId);
-  if (!tbody) return { currency: 'EUR', rules: [] };
-  const rows = Array.from(tbody.querySelectorAll('tr[data-tier-row="primary"]'));
-  const rules = [];
-  rows.forEach(tr => {
-    const draft = extractPricingTierDraftFromPrimaryRow(tr, tbody);
-    const rule = buildPricingTierRuleForSave(draft);
-    if (rule) rules.push(rule);
+  const root = getPricingMatrixRoot(tbodyId);
+  if (!root) return { currency: 'EUR', rules: [] };
+  persistPricingMatrixAdvancedPanel(root);
+  syncPricingMatrixInputsToState(root);
+  const state = getPricingMatrixState(root);
+
+  const seenPersons = new Set();
+  state.rows.forEach((row) => {
+    const persons = normalizePricingMatrixPersons(row.persons, 1);
+    if (seenPersons.has(persons)) {
+      throw new Error('Pricing table contains duplicate person rows. Each row must be unique.');
+    }
+    seenPersons.add(persons);
   });
-  rules.sort((a, b) => a.persons - b.persons);
+  const seenBands = new Set();
+  state.bands.forEach((band) => {
+    const minNights = normalizePricingMatrixMinNights(band.min_nights, 1);
+    if (seenBands.has(minNights)) {
+      throw new Error('Pricing table contains duplicate stay bands. Each column must have a unique minimum-night value.');
+    }
+    seenBands.add(minNights);
+  });
+
+  const sortedRows = state.rows.slice().sort((a, b) => normalizePricingMatrixPersons(a.persons, 1) - normalizePricingMatrixPersons(b.persons, 1));
+  const sortedBands = state.bands.slice().sort((a, b) => normalizePricingMatrixMinNights(a.min_nights, 1) - normalizePricingMatrixMinNights(b.min_nights, 1));
+  const rules = [];
+  sortedRows.forEach((row) => {
+    sortedBands.forEach((band) => {
+      const cell = row.cells[band.id] || createPricingMatrixCellDraft();
+      const hasAdvancedRules = Object.keys(cell.weekday_prices || {}).length
+        || Object.keys(cell.month_prices || {}).length
+        || Object.keys(cell.date_prices || {}).length;
+      if ((cell.price_per_night === '' || cell.price_per_night == null) && hasAdvancedRules) {
+        throw new Error(`Set a base price for ${normalizePricingMatrixPersons(row.persons, 1)} person(s) and ${normalizePricingMatrixMinNights(band.min_nights, 1)}+ night(s) before adding advanced rules.`);
+      }
+      const rule = buildPricingTierRuleForSave({
+        persons: normalizePricingMatrixPersons(row.persons, 1),
+        price_per_night: cell.price_per_night,
+        min_nights: normalizePricingMatrixMinNights(band.min_nights, 1) > 1 ? normalizePricingMatrixMinNights(band.min_nights, 1) : null,
+        weekday_prices: clonePricingMatrixMap(cell.weekday_prices),
+        month_prices: clonePricingMatrixMap(cell.month_prices),
+        date_prices: normalizeAdminExactDateOverrides(cell.date_prices),
+      });
+      if (rule) rules.push(rule);
+    });
+  });
+
+  rules.sort((a, b) => {
+    const personsDiff = normalizePricingMatrixPersons(a.persons, 1) - normalizePricingMatrixPersons(b.persons, 1);
+    if (personsDiff !== 0) return personsDiff;
+    return normalizePricingMatrixMinNights(a.min_nights, 1) - normalizePricingMatrixMinNights(b.min_nights, 1);
+  });
   return { currency: 'EUR', rules };
 }
 

@@ -3752,6 +3752,203 @@ select#orderStatusFilter:focus {
   min-width: 560px;
 }
 
+.hotel-pricing-matrix-host {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hotel-pricing-matrix {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hotel-pricing-matrix-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.hotel-pricing-matrix-toolbar-copy {
+  flex: 1 1 320px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--admin-text-muted);
+  line-height: 1.6;
+}
+
+.hotel-pricing-matrix-toolbar-copy strong {
+  color: var(--admin-text);
+}
+
+.hotel-pricing-matrix-toolbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.hotel-pricing-matrix-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-radius: 12px;
+}
+
+.hotel-pricing-matrix-table {
+  min-width: 720px;
+}
+
+.hotel-pricing-matrix-table th,
+.hotel-pricing-matrix-table td {
+  vertical-align: top;
+}
+
+.hotel-pricing-matrix-table thead th {
+  background: rgba(15, 23, 42, 0.65);
+}
+
+.hotel-pricing-matrix-band {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 160px;
+}
+
+.hotel-pricing-matrix-band-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.hotel-pricing-matrix-band-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--admin-text);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.hotel-pricing-matrix-band-field,
+.hotel-pricing-matrix-person-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hotel-pricing-matrix-band-field span,
+.hotel-pricing-matrix-person-field span {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--admin-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.hotel-pricing-matrix-person-cell {
+  min-width: 120px;
+}
+
+.hotel-pricing-matrix-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 160px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(15, 23, 42, 0.38);
+  transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+}
+
+.hotel-pricing-matrix-cell.is-selected {
+  border-color: rgba(96, 165, 250, 0.65);
+  background: rgba(30, 41, 59, 0.82);
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.18) inset;
+}
+
+.hotel-pricing-matrix-cell-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.hotel-pricing-matrix-cell-note {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--admin-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.hotel-pricing-matrix-configure {
+  padding-left: 10px;
+  padding-right: 10px;
+  min-height: 34px;
+}
+
+.hotel-pricing-matrix-actions {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.hotel-pricing-matrix-remove {
+  min-height: 34px;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.hotel-pricing-matrix-advanced {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.24);
+}
+
+.hotel-pricing-matrix-advanced-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.hotel-pricing-matrix-advanced-head h5 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--admin-text);
+}
+
+.hotel-pricing-matrix-advanced-head p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--admin-text-muted);
+}
+
+.hotel-pricing-matrix-advanced-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(96, 165, 250, 0.25);
+  color: #bfdbfe;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .hotel-extra-items-wrap {
   display: flex;
   flex-direction: column;
@@ -4892,7 +5089,10 @@ select#orderStatusFilter:focus {
   .hotel-tier-schedule-toolbar,
   .hotel-tier-date-toolbar,
   .hotel-tier-date-toolbar-actions,
-  .hotel-tier-row-actions {
+  .hotel-tier-row-actions,
+  .hotel-pricing-matrix-toolbar,
+  .hotel-pricing-matrix-cell-actions,
+  .hotel-pricing-matrix-advanced-head {
     flex-direction: column;
     align-items: stretch;
   }
@@ -4902,6 +5102,15 @@ select#orderStatusFilter:focus {
   .hotel-tier-month-picker,
   .hotel-tier-month-picker--compact {
     min-width: 100%;
+  }
+
+  .hotel-pricing-matrix-table {
+    min-width: 640px;
+  }
+
+  .hotel-pricing-matrix-cell,
+  .hotel-pricing-matrix-band {
+    min-width: 140px;
   }
 
   .hotel-tier-date-row {

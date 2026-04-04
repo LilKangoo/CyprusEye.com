@@ -2017,23 +2017,11 @@
                   </label>
                 </div>
                 <div class="admin-form-field hotel-field-full">
-                  <span>Pricing Tiers (per night)</span>
+                  <span>Pricing Table (per night)</span>
                   <div class="hotel-pricing-tiers-wrap">
-                    <p class="hotel-pricing-helper">Base price is required. You can clone tiers, quick-fill weekdays/weekends, copy month values, and copy exact-date calendars only when needed.</p>
-                    <table class="admin-table">
-                      <thead>
-                        <tr>
-                          <th>Persons</th>
-                          <th>Base price / night (€)</th>
-                          <th>Min nights (optional)</th>
-                          <th></th>
-                        </tr>
-                      </thead>
-                      <tbody id="editHotelPricingTiersBody">
-                        <tr><td colspan="4" class="table-loading">No tiers yet</td></tr>
-                      </tbody>
-                    </table>
-                    <button type="button" class="btn-secondary hotel-add-tier-btn" id="btnAddEditHotelTier">Add tier</button>
+                    <p class="hotel-pricing-helper">Use rows for persons and columns for minimum stay. Fill only the combinations you need, then open advanced rules for a selected price cell if that exact combination needs weekday, month, or exact-date pricing.</p>
+                    <div id="editHotelPricingTiersBody" class="hotel-pricing-matrix-host"></div>
+                    <button type="button" class="btn-secondary hotel-add-tier-btn" id="btnAddEditHotelTier">Add person row</button>
                   </div>
                 </div>
               </section>
@@ -2291,23 +2279,11 @@
                   </label>
                 </div>
                 <div class="admin-form-field hotel-field-full">
-                  <span>Pricing Tiers (per night)</span>
+                  <span>Pricing Table (per night)</span>
                   <div class="hotel-pricing-tiers-wrap">
-                    <p class="hotel-pricing-helper">Base price is required. You can clone tiers, quick-fill weekdays/weekends, copy month values, and copy exact-date calendars only when needed.</p>
-                    <table class="admin-table">
-                      <thead>
-                        <tr>
-                          <th>Persons</th>
-                          <th>Base price / night (€)</th>
-                          <th>Min nights (optional)</th>
-                          <th></th>
-                        </tr>
-                      </thead>
-                      <tbody id="newHotelPricingTiersBody">
-                        <tr><td colspan="4" class="table-loading">No tiers yet</td></tr>
-                      </tbody>
-                    </table>
-                    <button type="button" class="btn-secondary hotel-add-tier-btn" id="btnAddNewHotelTier">Add tier</button>
+                    <p class="hotel-pricing-helper">Use rows for persons and columns for minimum stay. Fill only the combinations you need, then open advanced rules for a selected price cell if that exact combination needs weekday, month, or exact-date pricing.</p>
+                    <div id="newHotelPricingTiersBody" class="hotel-pricing-matrix-host"></div>
+                    <button type="button" class="btn-secondary hotel-add-tier-btn" id="btnAddNewHotelTier">Add person row</button>
                   </div>
                 </div>
               </section>

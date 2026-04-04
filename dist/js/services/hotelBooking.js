@@ -207,7 +207,7 @@ function calculatePrice(hotel, persons, nights) {
     case 'per_person_per_night':
     case 'category_per_night':
     default:
-      rule = findTierByPersons(tiers, persons);
+      rule = findBestTierByPersonsAndNights(tiers, persons, nights);
       break;
   }
   
