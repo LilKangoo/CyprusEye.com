@@ -17,6 +17,7 @@
     hotelResourcesById: {},
     hotelBookingsById: {},
     hotelDecisionSupportByBookingId: {},
+    transportBookingsById: {},
     blocks: [],
     calendar: {
       resourcesByType: { shop: [], cars: [], trips: [], hotels: [], transport: [] },
@@ -1716,6 +1717,9 @@
     if (!row) return null;
     const category = fulfillmentCategoryForOrders(row);
     const details = detailsObjectFromFulfillment(row);
+    const transportBooking = category === 'transport'
+      ? (state.transportBookingsById[String(row?.booking_id || '').trim()] || null)
+      : null;
     let startIso = '';
     let endIso = '';
     if (category === 'cars') {
@@ -1771,11 +1775,16 @@
       ]);
     } else if (category === 'transport') {
       startIso = firstIsoFromCandidates([
+        transportBooking?.travel_date,
         details?.travel_date,
         details?.travelDate,
         row.start_date,
       ]);
       endIso = firstIsoFromCandidates([
+        transportBooking?.return_travel_date,
+        transportBooking?.travel_date,
+        details?.return_travel_date,
+        details?.returnTravelDate,
         details?.travel_date,
         details?.travelDate,
         row.end_date,
@@ -3954,6 +3963,7 @@
     state.hotelResourcesById = {};
     state.hotelBookingsById = {};
     state.hotelDecisionSupportByBookingId = {};
+    state.transportBookingsById = {};
 
     const [shopRes, serviceRes] = await Promise.all([
       state.sb
@@ -4115,17 +4125,10 @@
         .map((f) => f.resource_id)
         .filter(Boolean)
     ));
-    const transportRouteIds = Array.from(new Set(
+    const transportBookingIds = Array.from(new Set(
       serviceOnly
         .filter((f) => normalizeServiceResourceType(f.resource_type) === 'transport')
-        .flatMap((f) => {
-          const details = detailsObjectFromFulfillment(f);
-          return [
-            String(f?.resource_id || '').trim(),
-            String(details?.route_id || '').trim(),
-            String(details?.return_route_id || '').trim(),
-          ];
-        })
+        .map((f) => String(f?.booking_id || '').trim())
         .filter(Boolean)
     ));
 
@@ -4135,6 +4138,7 @@
     const hotelResourceById = {};
     const hotelBookingById = {};
     const hotelDecisionSupportByBookingId = {};
+    const transportBookingById = {};
     const transportRouteById = {};
     const transportRouteEndpointsById = {};
     const transportLocationLabelById = {};
@@ -4243,6 +4247,49 @@
         console.warn('Partner panel: failed to load hotel booking snapshots:', error);
       }
     }
+
+    if (transportBookingIds.length) {
+      try {
+        for (const bookingIdChunk of chunkArray(transportBookingIds, 120)) {
+          let data = null;
+          let error = null;
+          ({ data, error } = await state.sb
+            .from('transport_bookings')
+            .select('id, route_id, origin_location_id, destination_location_id, travel_date, travel_time, trip_type, num_passengers, num_bags, num_oversize_bags, child_seats, booster_seats, waiting_minutes, pickup_address, dropoff_address, flight_number, return_route_id, return_origin_location_id, return_destination_location_id, return_travel_date, return_travel_time, return_pickup_address, return_dropoff_address, return_flight_number, total_price, deposit_amount, currency, customer_name, customer_email, customer_phone')
+            .in('id', bookingIdChunk)
+            .limit(500));
+          if (error && /(return_route_id|return_origin_location_id|return_destination_location_id|return_pickup_address|return_dropoff_address|return_flight_number|trip_type|waiting_minutes|currency|customer_name|customer_email|customer_phone)/i.test(String(error.message || ''))) {
+            ({ data, error } = await state.sb
+              .from('transport_bookings')
+              .select('id, route_id, origin_location_id, destination_location_id, travel_date, travel_time, return_route_id, return_origin_location_id, return_destination_location_id, return_travel_date, return_travel_time, pickup_address, dropoff_address, flight_number, return_pickup_address, return_dropoff_address, return_flight_number, num_passengers, num_bags, num_oversize_bags, child_seats, booster_seats, total_price, deposit_amount')
+              .in('id', bookingIdChunk)
+              .limit(500));
+          }
+          if (error) throw error;
+          (data || []).forEach((row) => {
+            if (!row?.id) return;
+            transportBookingById[String(row.id)] = row;
+          });
+        }
+      } catch (error) {
+        console.warn('Partner panel: failed to load transport booking snapshots:', error);
+      }
+    }
+
+    const transportRouteIds = Array.from(new Set(
+      serviceOnly
+        .filter((f) => normalizeServiceResourceType(f.resource_type) === 'transport')
+        .flatMap((f) => {
+          const details = detailsObjectFromFulfillment(f) || {};
+          const booking = transportBookingById[String(f?.booking_id || '').trim()] || null;
+          return [
+            String(f?.resource_id || '').trim(),
+            String(details?.route_id || booking?.route_id || '').trim(),
+            String(details?.return_route_id || booking?.return_route_id || '').trim(),
+          ];
+        })
+        .filter(Boolean)
+    ));
 
     const hotelBookingsForDecision = Object.values(hotelBookingById);
     const activeHotelIdsForDecision = Array.from(new Set(
@@ -4397,30 +4444,61 @@
       }
     }
 
-    const resolveTransportRouteSummary = (fulfillment) => {
-      const details = detailsObjectFromFulfillment(fulfillment) || {};
-      const outboundRouteId = String(details?.route_id || fulfillment?.resource_id || '').trim();
-      const returnRouteId = String(details?.return_route_id || '').trim();
+    const transportLookupVariants = (key) => {
+      const k = String(key || '').trim();
+      if (!k) return [];
+      const out = new Set([k]);
+      if (k.includes('_')) {
+        const camel = k.replace(/_([a-z0-9])/g, (_m, c) => String(c || '').toUpperCase());
+        if (camel) out.add(camel);
+      } else if (/[A-Z]/.test(k)) {
+        const snake = k.replace(/([A-Z])/g, '_$1').toLowerCase();
+        if (snake) out.add(snake);
+      }
+      return Array.from(out);
+    };
+
+    const readTransportField = (fulfillment, ...keys) => {
+      const details = detailsObjectFromFulfillment(fulfillment) || null;
+      const booking = transportBookingById[String(fulfillment?.booking_id || '').trim()] || null;
+      for (const key of keys) {
+        const variants = transportLookupVariants(key);
+        for (const source of [details, booking]) {
+          if (!source || typeof source !== 'object') continue;
+          for (const variant of variants) {
+            const value = source[variant];
+            if (value === undefined || value === null) continue;
+            if (typeof value === 'string' && !value.trim()) continue;
+            return value;
+          }
+        }
+      }
+      return null;
+    };
+
+    const resolveTransportRouteContext = (fulfillment) => {
+      const outboundRouteId = String(readTransportField(fulfillment, 'route_id') || fulfillment?.resource_id || '').trim();
+      const returnRouteId = String(readTransportField(fulfillment, 'return_route_id') || '').trim();
 
       const outboundEndpoints = outboundRouteId ? (transportRouteEndpointsById[outboundRouteId] || null) : null;
       const returnEndpoints = returnRouteId ? (transportRouteEndpointsById[returnRouteId] || null) : null;
 
       const outboundOrigin = cleanTransportLabel(outboundEndpoints?.originLabel)
-        || cleanTransportLabel(transportLocationLabelById[String(details?.origin_location_id || '').trim()])
-        || cleanTransportLabel(details?.origin_location_name)
-        || cleanTransportLabel(details?.origin_name);
+        || cleanTransportLabel(transportLocationLabelById[String(readTransportField(fulfillment, 'origin_location_id') || '').trim()])
+        || cleanTransportLabel(readTransportField(fulfillment, 'origin_location_name'))
+        || cleanTransportLabel(readTransportField(fulfillment, 'origin_name'));
       const outboundDestination = cleanTransportLabel(outboundEndpoints?.destinationLabel)
-        || cleanTransportLabel(transportLocationLabelById[String(details?.destination_location_id || '').trim()])
-        || cleanTransportLabel(details?.destination_location_name)
-        || cleanTransportLabel(details?.destination_name);
+        || cleanTransportLabel(transportLocationLabelById[String(readTransportField(fulfillment, 'destination_location_id') || '').trim()])
+        || cleanTransportLabel(readTransportField(fulfillment, 'destination_location_name'))
+        || cleanTransportLabel(readTransportField(fulfillment, 'destination_name'));
       const returnOrigin = cleanTransportLabel(returnEndpoints?.originLabel)
-        || cleanTransportLabel(transportLocationLabelById[String(details?.return_origin_location_id || '').trim()])
-        || cleanTransportLabel(details?.return_origin_location_name)
-        || cleanTransportLabel(details?.return_origin_name);
+        || cleanTransportLabel(transportLocationLabelById[String(readTransportField(fulfillment, 'return_origin_location_id') || '').trim()])
+        || cleanTransportLabel(readTransportField(fulfillment, 'return_origin_location_name'))
+        || cleanTransportLabel(readTransportField(fulfillment, 'return_origin_name'));
       const returnDestination = cleanTransportLabel(returnEndpoints?.destinationLabel)
-        || cleanTransportLabel(transportLocationLabelById[String(details?.return_destination_location_id || '').trim()])
-        || cleanTransportLabel(details?.return_destination_location_name)
-        || cleanTransportLabel(details?.return_destination_name);
+        || cleanTransportLabel(transportLocationLabelById[String(readTransportField(fulfillment, 'return_destination_location_id') || '').trim()])
+        || cleanTransportLabel(readTransportField(fulfillment, 'return_destination_location_name'))
+        || cleanTransportLabel(readTransportField(fulfillment, 'return_destination_name'));
 
       const outboundLabel = joinTransportRouteLabel(outboundOrigin, outboundDestination)
         || cleanTransportLabel(transportRouteById[outboundRouteId])
@@ -4428,35 +4506,55 @@
       const returnLabel = joinTransportRouteLabel(returnOrigin, returnDestination)
         || cleanTransportLabel(transportRouteById[returnRouteId]);
 
-      const tripType = String(details?.trip_type || '').trim().toLowerCase();
+      const tripType = String(readTransportField(fulfillment, 'trip_type') || '').trim().toLowerCase();
       const hasReturn = tripType === 'round_trip'
-        || Boolean(returnRouteId || details?.return_travel_date || details?.return_travel_time || returnLabel);
+        || Boolean(
+          returnRouteId
+          || readTransportField(fulfillment, 'return_travel_date')
+          || readTransportField(fulfillment, 'return_travel_time')
+          || readTransportField(fulfillment, 'return_pickup_address')
+          || readTransportField(fulfillment, 'return_dropoff_address')
+          || readTransportField(fulfillment, 'return_flight_number')
+          || returnLabel
+        );
 
-      if (!hasReturn) return outboundLabel || 'Transport booking';
-      if (!returnLabel) return outboundLabel ? `${outboundLabel} (Round trip)` : 'Round trip';
-      if (!outboundLabel) return returnLabel;
+      let combinedLabel = '';
+      if (!hasReturn) {
+        combinedLabel = outboundLabel || 'Transport booking';
+      } else if (!returnLabel) {
+        combinedLabel = outboundLabel ? `${outboundLabel} (Round trip)` : 'Round trip';
+      } else if (!outboundLabel) {
+        combinedLabel = returnLabel;
+      } else {
+        const splitRouteLabel = (label) => {
+          const text = String(label || '').trim();
+          if (!text || !text.includes('→')) return null;
+          const parts = text.split('→').map((part) => part.trim()).filter(Boolean);
+          if (parts.length !== 2) return null;
+          return { origin: parts[0], destination: parts[1] };
+        };
 
-      const splitRouteLabel = (label) => {
-        const text = String(label || '').trim();
-        if (!text || !text.includes('→')) return null;
-        const parts = text.split('→').map((part) => part.trim()).filter(Boolean);
-        if (parts.length !== 2) return null;
-        return { origin: parts[0], destination: parts[1] };
-      };
-
-      const outboundSplit = splitRouteLabel(outboundLabel);
-      const returnSplit = splitRouteLabel(returnLabel);
-      if (outboundSplit && returnSplit) {
-        if (outboundSplit.origin === returnSplit.destination
+        const outboundSplit = splitRouteLabel(outboundLabel);
+        const returnSplit = splitRouteLabel(returnLabel);
+        if (outboundSplit && returnSplit
+            && outboundSplit.origin === returnSplit.destination
             && outboundSplit.destination === returnSplit.origin) {
-          return `${outboundSplit.origin} ↔ ${outboundSplit.destination}`;
+          combinedLabel = `${outboundSplit.origin} ↔ ${outboundSplit.destination}`;
         }
+        if (!combinedLabel && outboundLabel === returnLabel) combinedLabel = `${outboundLabel} (Round trip)`;
+        if (!combinedLabel) combinedLabel = `${outboundLabel} | ${returnLabel}`;
       }
-      if (outboundLabel === returnLabel) return `${outboundLabel} (Round trip)`;
-      return `${outboundLabel} | ${returnLabel}`;
+
+      return {
+        tripType,
+        hasReturn,
+        outboundLabel: outboundLabel || '',
+        returnLabel: returnLabel || '',
+        combinedLabel,
+      };
     };
 
-    if (tripIds.length || hotelIds.length || transportRouteIds.length) {
+    if (tripIds.length || hotelIds.length || transportRouteIds.length || transportBookingIds.length) {
       filteredMerged.forEach((f) => {
         if (!f || f.__source !== 'service') return;
         if (normalizeServiceResourceType(f.resource_type) === 'trips' && f.resource_id && tripById[f.resource_id]) {
@@ -4472,7 +4570,9 @@
           f.summary = hotelById[f.resource_id];
         }
         if (normalizeServiceResourceType(f.resource_type) === 'transport') {
-          f.summary = resolveTransportRouteSummary(f);
+          const routeContext = resolveTransportRouteContext(f);
+          f.__transportRouteContext = routeContext;
+          f.summary = routeContext.combinedLabel;
         }
       });
     }
@@ -4553,6 +4653,7 @@
     state.hotelResourcesById = hotelResourceById;
     state.hotelBookingsById = hotelBookingById;
     state.hotelDecisionSupportByBookingId = hotelDecisionSupportByBookingId;
+    state.transportBookingsById = transportBookingById;
 
     const shopIds = filteredMerged.filter((f) => f && f.__source === 'shop').map((f) => f.id).filter(Boolean);
     const serviceIds = filteredMerged.filter((f) => f && f.__source === 'service').map((f) => f.id).filter(Boolean);
@@ -6708,7 +6809,13 @@
       const snapshotPayload = (state.formSnapshotsByFulfillmentId[id]?.payload && typeof state.formSnapshotsByFulfillmentId[id].payload === 'object')
         ? state.formSnapshotsByFulfillmentId[id].payload
         : null;
-      const detailsPayload = (f.details && typeof f.details === 'object') ? f.details : null;
+      const detailsPayload = detailsObjectFromFulfillment(f) || null;
+      const transportBooking = category === 'transport'
+        ? (state.transportBookingsById[String(f.booking_id || '').trim()] || null)
+        : null;
+      const transportRouteContext = category === 'transport' && f.__transportRouteContext && typeof f.__transportRouteContext === 'object'
+        ? f.__transportRouteContext
+        : null;
       const isContactRevealed = Boolean(f.contact_revealed_at);
 
       const title = isShop ? 'Shop order details' : 'Booking details';
@@ -6742,6 +6849,11 @@
         usedKeys.add(key);
         return v;
       };
+      const markKeysUsed = (...keys) => {
+        keys.forEach((key) => {
+          keyVariants(key).forEach((variant) => usedKeys.add(variant));
+        });
+      };
       const keyVariants = (key) => {
         const k = String(key || '').trim();
         if (!k) return [];
@@ -6766,9 +6878,18 @@
             if (!detailsPayload) break;
             const detailsValue = detailsPayload[variant];
             if (detailsValue !== undefined && detailsValue !== null) {
+              if (typeof detailsValue === 'string' && !detailsValue.trim()) continue;
               usedKeys.add(variant);
               return detailsValue;
             }
+          }
+          for (const variant of variants) {
+            if (!transportBooking) break;
+            const bookingValue = transportBooking[variant];
+            if (bookingValue === undefined || bookingValue === null) continue;
+            if (typeof bookingValue === 'string' && !bookingValue.trim()) continue;
+            usedKeys.add(variant);
+            return bookingValue;
           }
         }
 
@@ -6908,7 +7029,11 @@
         const currency = String(f.currency || 'EUR').trim().toUpperCase() || 'EUR';
         const totalRaw = category === 'cars'
           ? Number(getCarsFulfillmentPricing(f).amount)
-          : Number(category === 'hotels' ? (hotelBooking?.total_price ?? f.total_price) : f.total_price);
+          : Number(
+            category === 'hotels'
+              ? (hotelBooking?.total_price ?? f.total_price)
+              : (category === 'transport' ? (transportBooking?.total_price ?? f.total_price) : f.total_price)
+          );
         if (!Number.isFinite(totalRaw) || totalRaw <= 0) return null;
 
         const paidDepositFromState = toNum(state.serviceDepositByFulfillmentId[String(id || '').trim()] || 0);
@@ -6923,7 +7048,9 @@
         const remaining = Math.max(0, Number((totalRaw - paidDeposit).toFixed(2)));
 
         return {
-          currency,
+          currency: category === 'transport'
+            ? (String(transportBooking?.currency || currency).trim().toUpperCase() || 'EUR')
+            : currency,
           total: Number(totalRaw.toFixed(2)),
           paidDeposit: Number(paidDeposit.toFixed(2)),
           remaining,
@@ -7141,34 +7268,133 @@
         ];
       })();
 
-      const transportDetailsPairs = (() => {
+      const transportRouteSummary = category === 'transport'
+        ? String(transportRouteContext?.combinedLabel || f.summary || getField('route_label', 'route_name') || '').trim()
+        : '';
+      const transportTripTypeRaw = category === 'transport'
+        ? String(transportRouteContext?.tripType || getField('trip_type') || '').trim().toLowerCase()
+        : '';
+      const transportHasReturn = category === 'transport'
+        ? Boolean(
+          transportRouteContext?.hasReturn
+          || transportTripTypeRaw === 'round_trip'
+          || getField('return_route_id')
+          || getField('return_travel_date')
+          || getField('return_travel_time')
+          || getField('return_pickup_address')
+          || getField('return_dropoff_address')
+          || getField('return_flight_number')
+        )
+        : false;
+      const transportTripTypeLabel = (() => {
+        if (category !== 'transport') return '';
+        if (transportTripTypeRaw === 'round_trip') return 'Round trip (2 rides)';
+        if (transportTripTypeRaw === 'one_way') return 'One way';
+        return transportHasReturn ? 'Round trip (2 rides)' : 'One way';
+      })();
+      if (category === 'transport') {
+        markKeysUsed(
+          'route_id',
+          'route_label',
+          'route_name',
+          'origin_location_id',
+          'destination_location_id',
+          'origin_location_name',
+          'destination_location_name',
+          'origin_name',
+          'destination_name',
+          'return_route_id',
+          'return_origin_location_id',
+          'return_destination_location_id',
+          'return_origin_location_name',
+          'return_destination_location_name',
+          'return_origin_name',
+          'return_destination_name'
+        );
+      }
+      const transportOverviewHtml = (() => {
+        if (category !== 'transport') return '';
+        const outboundWhen = [
+          formatDateLabel(getField('travel_date')),
+          formatTimeLabel(getField('travel_time')),
+        ].filter(Boolean).join(' · ') || '—';
+        const returnWhen = [
+          formatDateLabel(getField('return_travel_date')),
+          formatTimeLabel(getField('return_travel_time')),
+        ].filter(Boolean).join(' · ');
+        const cards = [
+          { label: 'Route', value: transportRouteSummary || 'Transport booking' },
+          { label: 'Trip type', value: transportTripTypeLabel || (transportHasReturn ? 'Round trip (2 rides)' : 'One way') },
+          { label: 'Outbound', value: outboundWhen },
+        ];
+        if (transportHasReturn) cards.push({ label: 'Return', value: returnWhen || 'Return leg configured' });
+        return `
+          <div class="partner-details-section">
+            <h3 class="partner-details-section__title">Trip overview</h3>
+            <div class="partner-details-overview-grid">
+              ${cards.map((card) => `
+                <div class="partner-details-overview-card">
+                  <div class="partner-details-overview-label">${escapeHtml(card.label)}</div>
+                  <div class="partner-details-overview-value">${escapeHtml(card.value)}</div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      })();
+      const transportTripPairs = (() => {
         if (category !== 'transport') return [];
-        const routeSummary = String(f.summary || getField('route_label', 'route_name') || '').trim();
-        const tripTypeLabel = (() => {
-          const raw = String(getField('trip_type') || '').trim().toLowerCase();
-          if (raw === 'round_trip') return 'Round trip (2 rides)';
-          if (raw === 'one_way') return 'One way';
-          return raw ? raw.replace(/_/g, ' ') : '';
-        })();
+        const outboundRouteLabel = String(
+          transportRouteContext?.outboundLabel
+          || transportRouteSummary
+          || getField('route_label', 'route_name')
+          || ''
+        ).trim();
+        const returnRouteLabel = String(
+          transportRouteContext?.returnLabel
+          || transportRouteContext?.outboundLabel
+          || transportRouteSummary
+          || ''
+        ).trim();
+        const pairs = [
+          { label: 'Outbound route', value: outboundRouteLabel || null },
+          { label: 'Outbound date', value: getField('travel_date') },
+          { label: 'Outbound time', value: getField('travel_time') },
+        ];
+        if (transportHasReturn) {
+          pairs.push(
+            { label: 'Return route', value: returnRouteLabel || null },
+            { label: 'Return date', value: getField('return_travel_date') },
+            { label: 'Return time', value: getField('return_travel_time') },
+          );
+        }
+        return pairs;
+      })();
+      const transportPassengersPairs = (() => {
+        if (category !== 'transport') return [];
         return [
-          { label: 'Route', value: routeSummary || null },
-          { label: 'Trip type', value: tripTypeLabel || null },
-          { label: 'Travel date', value: getField('travel_date') },
-          { label: 'Travel time', value: getField('travel_time') },
-          { label: 'Return date', value: getField('return_travel_date') },
-          { label: 'Return time', value: getField('return_travel_time') },
           { label: 'Passengers', value: getField('num_passengers') },
           { label: 'Bags', value: getField('num_bags') },
           { label: 'Oversize bags', value: getField('num_oversize_bags') },
           { label: 'Child seats', value: getField('child_seats') },
           { label: 'Booster seats', value: getField('booster_seats') },
           { label: 'Waiting minutes', value: getField('waiting_minutes') },
-          { label: 'Flight number', value: getField('flight_number') },
+        ];
+      })();
+      const transportOutboundPairs = (() => {
+        if (category !== 'transport') return [];
+        return [
           { label: 'Pickup address', value: getField('pickup_address') },
           { label: 'Dropoff address', value: getField('dropoff_address') },
-          { label: 'Return flight number', value: getField('return_flight_number') },
-          { label: 'Return pickup address', value: getField('return_pickup_address') },
-          { label: 'Return dropoff address', value: getField('return_dropoff_address') },
+          { label: 'Flight number', value: getField('flight_number') },
+        ];
+      })();
+      const transportReturnPairs = (() => {
+        if (category !== 'transport' || !transportHasReturn) return [];
+        return [
+          { label: 'Pickup address', value: getField('return_pickup_address') },
+          { label: 'Dropoff address', value: getField('return_dropoff_address') },
+          { label: 'Flight number', value: getField('return_flight_number') },
         ];
       })();
 
@@ -7427,7 +7653,11 @@
         category === 'hotels' ? hotelRoomGalleryHtml : '',
         category === 'hotels' ? sectionHtml('Stay details', hotelsStayPairs) : '',
         category === 'trips' ? sectionHtml('Trip details', tripsDetailsPairs) : '',
-        category === 'transport' ? sectionHtml('Transport details', transportDetailsPairs) : '',
+        category === 'transport' ? transportOverviewHtml : '',
+        category === 'transport' ? sectionHtml('Trip details', transportTripPairs) : '',
+        category === 'transport' ? sectionHtml('Passengers and luggage', transportPassengersPairs) : '',
+        category === 'transport' ? sectionHtml('Outbound trip', transportOutboundPairs) : '',
+        category === 'transport' ? sectionHtml('Return trip', transportReturnPairs) : '',
         notesPairs.length ? sectionHtml('Notes', notesPairs) : '',
         additionalPairs.length ? sectionHtml('Additional information', additionalPairs) : '',
       ].filter(Boolean).join('');
@@ -7590,13 +7820,21 @@
 
           if (normalizeServiceResourceType(f.resource_type) === 'transport') {
             const details = detailsObjectFromFulfillment(f) || {};
-            const outboundDate = details?.travel_date || details?.travelDate || f.start_date || null;
-            const outboundTime = details?.travel_time || details?.travelTime || null;
-            const returnDate = details?.return_travel_date || details?.returnTravelDate || f.end_date || null;
-            const returnTime = details?.return_travel_time || details?.returnTravelTime || null;
-            const tripType = String(details?.trip_type || '').trim().toLowerCase();
+            const booking = state.transportBookingsById[String(f?.booking_id || '').trim()] || null;
+            const outboundDate = booking?.travel_date || details?.travel_date || details?.travelDate || f.start_date || null;
+            const outboundTime = booking?.travel_time || details?.travel_time || details?.travelTime || null;
+            const returnDate = booking?.return_travel_date || details?.return_travel_date || details?.returnTravelDate || f.end_date || null;
+            const returnTime = booking?.return_travel_time || details?.return_travel_time || details?.returnTravelTime || null;
+            const tripType = String(booking?.trip_type || details?.trip_type || '').trim().toLowerCase();
             const hasReturn = tripType === 'round_trip'
-              || Boolean(details?.return_route_id || returnDate || returnTime);
+              || Boolean(
+                booking?.return_route_id
+                || details?.return_route_id
+                || returnDate
+                || returnTime
+                || booking?.return_pickup_address
+                || details?.return_pickup_address
+              );
 
             const outboundParts = [
               outboundDate ? formatDateDmy(outboundDate) : '',
@@ -7683,14 +7921,18 @@
         const detailsBtnHtml = (() => {
           const hasContact = Boolean(contact && (contact.customer_name || contact.customer_email || contact.customer_phone || contact.shipping_address || contact.billing_address));
           const hasSnapshot = Boolean(formSnapshot && formSnapshot.payload && typeof formSnapshot.payload === 'object' && Object.keys(formSnapshot.payload).length);
-          const hasDetails = Boolean(f.details && typeof f.details === 'object' && Object.keys(f.details).length);
+          const parsedDetails = detailsObjectFromFulfillment(f);
+          const hasDetails = Boolean(parsedDetails && Object.keys(parsedDetails).length);
           const hasHotelContext = !isShop
             && normalizeServiceResourceType(f.resource_type) === 'hotels'
             && Boolean(
               state.hotelBookingsById[String(f.booking_id || '').trim()]
               || state.hotelResourcesById[String(f.resource_id || '').trim()]
             );
-          if (!hasContact && !hasSnapshot && !hasDetails && !hasHotelContext) return '';
+          const hasTransportContext = !isShop
+            && normalizeServiceResourceType(f.resource_type) === 'transport'
+            && Boolean(state.transportBookingsById[String(f.booking_id || '').trim()]);
+          if (!hasContact && !hasSnapshot && !hasDetails && !hasHotelContext && !hasTransportContext) return '';
           return `
             <div style="margin-top: 10px;">
               <button
