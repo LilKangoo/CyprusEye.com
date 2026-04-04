@@ -4066,6 +4066,32 @@ select#orderStatusFilter:focus {
   padding: 0 14px 14px;
 }
 
+.hotel-tier-schedule-toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.hotel-tier-schedule-toolbar--weekday {
+  margin-bottom: 2px;
+}
+
+.hotel-tier-inline-select,
+.hotel-tier-quick-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 132px;
+}
+
+.hotel-tier-inline-select span,
+.hotel-tier-quick-field span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--admin-text);
+}
+
 .hotel-tier-schedule-panel--dates {
   gap: 12px;
 }
@@ -4093,10 +4119,22 @@ select#orderStatusFilter:focus {
   min-width: 220px;
 }
 
+.hotel-tier-month-picker--compact {
+  min-width: 180px;
+}
+
 .hotel-tier-month-picker span {
   font-size: 12px;
   font-weight: 600;
   color: var(--admin-text);
+}
+
+.hotel-tier-date-toolbar-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .hotel-tier-date-calendar {
@@ -4136,6 +4174,18 @@ select#orderStatusFilter:focus {
 .hotel-add-tier-btn {
   margin-top: 2px;
   align-self: flex-start;
+}
+
+.hotel-tier-actions-cell {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.hotel-tier-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .hotel-amenities-header {
@@ -4837,6 +4887,21 @@ select#orderStatusFilter:focus {
 
   .hotel-tier-date-calendar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hotel-tier-schedule-toolbar,
+  .hotel-tier-date-toolbar,
+  .hotel-tier-date-toolbar-actions,
+  .hotel-tier-row-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hotel-tier-inline-select,
+  .hotel-tier-quick-field,
+  .hotel-tier-month-picker,
+  .hotel-tier-month-picker--compact {
+    min-width: 100%;
   }
 
   .hotel-tier-date-row {

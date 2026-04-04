@@ -20459,6 +20459,58 @@ function buildPricingScheduleBlock(kind, tier) {
   const gridClass = kind === 'weekday' ? 'hotel-tier-schedule-grid--weekdays' : 'hotel-tier-schedule-grid--months';
   const count = Object.keys(values).length;
 
+  if (kind === 'weekday') {
+    return `
+      <div class="hotel-tier-schedule-block">
+        <div class="hotel-tier-schedule-title">${title}</div>
+        <div class="hotel-tier-schedule-caption">Leave blank to use the base price. Quick fill lets you set Mon-Fri or Sat-Sun in one action.</div>
+        <div class="hotel-tier-schedule-toolbar hotel-tier-schedule-toolbar--weekday">
+          <label class="hotel-tier-quick-field">
+            <span>Weekdays</span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              class="admin-input"
+              data-schedule-bulk-input="weekdays"
+              placeholder="base"
+            />
+          </label>
+          <button type="button" class="btn-secondary" data-schedule-bulk-apply="weekdays">Fill Mon-Fri</button>
+          <label class="hotel-tier-quick-field">
+            <span>Weekend</span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              class="admin-input"
+              data-schedule-bulk-input="weekend"
+              placeholder="base"
+            />
+          </label>
+          <button type="button" class="btn-secondary" data-schedule-bulk-apply="weekend">Fill Sat-Sun</button>
+        </div>
+        <div class="hotel-tier-schedule-grid ${gridClass}">
+          ${keys.map((key, index) => `
+            <label class="hotel-tier-schedule-input">
+              <span>${readable[index]}</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                class="admin-input"
+                data-schedule-kind="${kind}"
+                data-schedule-key="${key}"
+                value="${values[key] != null ? Number(values[key]) : ''}"
+                placeholder="base"
+              />
+            </label>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
   if (kind === 'month') {
     return `
       <details class="hotel-tier-schedule-accordion" data-schedule-accordion="${kind}" ${count ? 'open' : ''}>
@@ -20468,6 +20520,25 @@ function buildPricingScheduleBlock(kind, tier) {
         </summary>
         <div class="hotel-tier-schedule-panel">
           <div class="hotel-tier-schedule-caption">Leave blank to use the base price.</div>
+          <div class="hotel-tier-schedule-toolbar">
+            <label class="hotel-tier-inline-select">
+              <span>Copy from</span>
+              <select class="admin-input" data-schedule-month-copy-from>
+                ${keys.map((key, index) => `
+                  <option value="${key}" ${index === 0 ? 'selected' : ''}>${readable[index]}</option>
+                `).join('')}
+              </select>
+            </label>
+            <label class="hotel-tier-inline-select">
+              <span>Copy to</span>
+              <select class="admin-input" data-schedule-month-copy-to>
+                ${keys.map((key, index) => `
+                  <option value="${key}" ${index === 1 ? 'selected' : ''}>${readable[index]}</option>
+                `).join('')}
+              </select>
+            </label>
+            <button type="button" class="btn-secondary" data-schedule-month-copy-apply>Copy value</button>
+          </div>
           <div class="hotel-tier-schedule-grid ${gridClass}">
             ${keys.map((key, index) => `
               <label class="hotel-tier-schedule-input">
@@ -20540,7 +20611,14 @@ function buildPricingExactDateBlock(tier) {
               <span>Month</span>
               <input type="month" class="admin-input" data-schedule-exact-month value="${defaultMonth}" />
             </label>
-            <button type="button" class="btn-secondary" data-schedule-month-clear>Clear selected month</button>
+            <div class="hotel-tier-date-toolbar-actions">
+              <label class="hotel-tier-month-picker hotel-tier-month-picker--compact">
+                <span>Copy to</span>
+                <input type="month" class="admin-input" data-schedule-date-copy-target value="${defaultMonth}" />
+              </label>
+              <button type="button" class="btn-secondary" data-schedule-date-copy-apply>Copy selected month</button>
+              <button type="button" class="btn-secondary" data-schedule-month-clear>Clear selected month</button>
+            </div>
           </div>
           <div class="hotel-tier-date-calendar" data-schedule-date-list>
             ${buildPricingDateCalendarRowsHtml(defaultMonth, overrides)}
@@ -20593,6 +20671,37 @@ function updateExactDateScheduleMeta(scheduleRow) {
   meta.textContent = buildScheduleMetaLabel(Object.keys(overrides).length, 'No dates yet');
 }
 
+function applyWeekdayBulkOverride(scheduleRow, group) {
+  if (!(scheduleRow instanceof Element)) return;
+  const normalizedGroup = String(group || '').trim().toLowerCase();
+  const keys = normalizedGroup === 'weekend'
+    ? ['sat', 'sun']
+    : ['mon', 'tue', 'wed', 'thu', 'fri'];
+  const input = scheduleRow.querySelector(`[data-schedule-bulk-input="${normalizedGroup}"]`);
+  const rawValue = input instanceof HTMLInputElement ? String(input.value || '').trim() : '';
+  scheduleRow.querySelectorAll('input[data-schedule-kind="weekday"]').forEach((weekdayInput) => {
+    const key = String(weekdayInput.dataset.scheduleKey || '').trim();
+    if (!keys.includes(key) || !(weekdayInput instanceof HTMLInputElement)) return;
+    weekdayInput.value = rawValue;
+  });
+}
+
+function applyMonthValueCopy(scheduleRow) {
+  if (!(scheduleRow instanceof Element)) return;
+  const sourceSelect = scheduleRow.querySelector('[data-schedule-month-copy-from]');
+  const targetSelect = scheduleRow.querySelector('[data-schedule-month-copy-to]');
+  const sourceKey = String(sourceSelect instanceof HTMLSelectElement ? sourceSelect.value : '').trim();
+  const targetKey = String(targetSelect instanceof HTMLSelectElement ? targetSelect.value : '').trim();
+  if (!sourceKey || !targetKey || sourceKey === targetKey) return;
+
+  const sourceInput = scheduleRow.querySelector(`input[data-schedule-kind="month"][data-schedule-key="${sourceKey}"]`);
+  const targetInput = scheduleRow.querySelector(`input[data-schedule-kind="month"][data-schedule-key="${targetKey}"]`);
+  if (!(sourceInput instanceof HTMLInputElement) || !(targetInput instanceof HTMLInputElement)) return;
+
+  targetInput.value = sourceInput.value;
+  updateMonthScheduleMeta(scheduleRow);
+}
+
 function capturePricingDateCalendarValues(scheduleRow) {
   if (!(scheduleRow instanceof Element)) return {};
   const overrides = getScheduleDateOverridesFromRow(scheduleRow);
@@ -20638,6 +20747,123 @@ function renderPricingDateCalendar(scheduleRow, monthValue) {
   updateExactDateScheduleMeta(scheduleRow);
 }
 
+function copyPricingDateMonth(scheduleRow) {
+  if (!(scheduleRow instanceof Element)) return;
+  const sourceInput = scheduleRow.querySelector('[data-schedule-exact-month]');
+  const targetInput = scheduleRow.querySelector('[data-schedule-date-copy-target]');
+  const sourceMonth = normalizeAdminMonthValue(sourceInput instanceof HTMLInputElement ? sourceInput.value : scheduleRow.dataset.selectedMonth);
+  const rawTargetMonth = String(targetInput instanceof HTMLInputElement ? targetInput.value : '').trim();
+  if (!/^\d{4}-\d{2}$/.test(rawTargetMonth)) return;
+  const targetMonth = rawTargetMonth;
+  if (!sourceMonth || !targetMonth || sourceMonth === targetMonth) return;
+
+  const overrides = { ...capturePricingDateCalendarValues(scheduleRow) };
+  Object.keys(overrides).forEach((date) => {
+    if (date.startsWith(`${targetMonth}-`)) {
+      delete overrides[date];
+    }
+  });
+
+  const [sourceYear, sourceMonthNumber] = sourceMonth.split('-');
+  const [targetYear, targetMonthNumber] = targetMonth.split('-');
+  const targetDays = new Date(Number(targetYear), Number(targetMonthNumber), 0).getDate();
+  for (let day = 1; day <= targetDays; day += 1) {
+    const dayKey = String(day).padStart(2, '0');
+    const sourceDate = `${sourceYear}-${sourceMonthNumber}-${dayKey}`;
+    const targetDate = `${targetYear}-${targetMonthNumber}-${dayKey}`;
+    if (Object.prototype.hasOwnProperty.call(overrides, sourceDate)) {
+      overrides[targetDate] = overrides[sourceDate];
+    }
+  }
+
+  setScheduleDateOverridesForRow(scheduleRow, overrides);
+  renderPricingDateCalendar(scheduleRow, targetMonth);
+  if (targetInput instanceof HTMLInputElement) {
+    targetInput.value = targetMonth;
+  }
+}
+
+function extractPricingTierDraftFromPrimaryRow(tr, tbody) {
+  if (!(tr instanceof Element) || !(tbody instanceof Element)) return null;
+  const inputs = tr.querySelectorAll('input');
+  if (!inputs || inputs.length < 2) return null;
+
+  const personsValue = String(inputs[0]?.value || '').trim();
+  const priceValue = String(inputs[1]?.value || '').trim();
+  const minNightsValue = String(inputs[2]?.value || '').trim();
+  const draft = {};
+
+  if (personsValue !== '') {
+    const persons = Number(personsValue);
+    if (Number.isFinite(persons)) draft.persons = persons;
+  }
+  if (priceValue !== '') {
+    const price = Number(priceValue);
+    if (Number.isFinite(price)) draft.price_per_night = price;
+  }
+  if (minNightsValue !== '') {
+    const minNights = Number(minNightsValue);
+    if (Number.isFinite(minNights)) draft.min_nights = minNights;
+  }
+
+  const rowId = tr.dataset.rowId || '';
+  const scheduleRow = rowId ? tbody.querySelector(`tr[data-tier-row="schedule"][data-row-id="${rowId}"]`) : null;
+  if (scheduleRow instanceof Element) {
+    const weekdayPrices = {};
+    const monthPrices = {};
+    scheduleRow.querySelectorAll('input[data-schedule-kind="weekday"]').forEach((input) => {
+      const value = input.value === '' ? null : Number(input.value);
+      const key = String(input.dataset.scheduleKey || '').trim();
+      if (key && Number.isFinite(value) && value >= 0) {
+        weekdayPrices[key] = value;
+      }
+    });
+    scheduleRow.querySelectorAll('input[data-schedule-kind="month"]').forEach((input) => {
+      const value = input.value === '' ? null : Number(input.value);
+      const key = String(input.dataset.scheduleKey || '').trim();
+      if (key && Number.isFinite(value) && value >= 0) {
+        monthPrices[key] = value;
+      }
+    });
+    const datePrices = capturePricingDateCalendarValues(scheduleRow);
+    if (Object.keys(weekdayPrices).length) {
+      draft.weekday_prices = weekdayPrices;
+    }
+    if (Object.keys(monthPrices).length) {
+      draft.month_prices = monthPrices;
+    }
+    if (Object.keys(datePrices).length) {
+      draft.date_prices = datePrices;
+    }
+  }
+
+  return draft;
+}
+
+function buildPricingTierRuleForSave(draft) {
+  if (!draft || typeof draft !== 'object') return null;
+  const persons = Number(draft.persons);
+  const price = Number(draft.price_per_night);
+  const minNights = draft.min_nights === '' || draft.min_nights == null ? null : Number(draft.min_nights);
+  if (!Number.isFinite(persons) || persons <= 0) return null;
+  if (!Number.isFinite(price) || price < 0) return null;
+
+  const rule = { persons, price_per_night: price };
+  if (Number.isFinite(minNights) && minNights > 0) {
+    rule.min_nights = minNights;
+  }
+  if (draft.weekday_prices && Object.keys(draft.weekday_prices).length) {
+    rule.weekday_prices = draft.weekday_prices;
+  }
+  if (draft.month_prices && Object.keys(draft.month_prices).length) {
+    rule.month_prices = draft.month_prices;
+  }
+  if (draft.date_prices && Object.keys(draft.date_prices).length) {
+    rule.date_prices = draft.date_prices;
+  }
+  return rule;
+}
+
 function bindPricingScheduleRow(scheduleRow, tier) {
   if (!(scheduleRow instanceof Element)) return;
 
@@ -20648,6 +20874,14 @@ function bindPricingScheduleRow(scheduleRow, tier) {
   scheduleRow.querySelectorAll('input[data-schedule-kind="month"]').forEach((input) => {
     input.addEventListener('input', () => updateMonthScheduleMeta(scheduleRow));
     input.addEventListener('change', () => updateMonthScheduleMeta(scheduleRow));
+  });
+  scheduleRow.querySelectorAll('[data-schedule-bulk-apply]').forEach((button) => {
+    button.addEventListener('click', () => {
+      applyWeekdayBulkOverride(scheduleRow, button.dataset.scheduleBulkApply || '');
+    });
+  });
+  scheduleRow.querySelector('[data-schedule-month-copy-apply]')?.addEventListener('click', () => {
+    applyMonthValueCopy(scheduleRow);
   });
 
   const exactMonthInput = scheduleRow.querySelector('[data-schedule-exact-month]');
@@ -20678,6 +20912,9 @@ function bindPricingScheduleRow(scheduleRow, tier) {
     setScheduleDateOverridesForRow(scheduleRow, overrides);
     renderPricingDateCalendar(scheduleRow, monthValue);
   });
+  scheduleRow.querySelector('[data-schedule-date-copy-apply]')?.addEventListener('click', () => {
+    copyPricingDateMonth(scheduleRow);
+  });
 
   updateMonthScheduleMeta(scheduleRow);
   renderPricingDateCalendar(scheduleRow, initialMonth);
@@ -20692,10 +20929,28 @@ function bindPricingTierAddButton(buttonId, tbodyId) {
   };
 }
 
-function addPricingTierRow(tbodyId, tier) {
+function insertPricingTierRows(tbody, primaryRow, scheduleRow, afterRowId = '') {
+  if (!(tbody instanceof Element) || !(primaryRow instanceof Element) || !(scheduleRow instanceof Element)) return;
+  if (afterRowId) {
+    const anchorRow = tbody.querySelector(`tr[data-tier-row="schedule"][data-row-id="${afterRowId}"]`);
+    if (anchorRow instanceof Element) {
+      const nextNode = anchorRow.nextSibling;
+      if (nextNode) {
+        tbody.insertBefore(primaryRow, nextNode);
+        tbody.insertBefore(scheduleRow, nextNode);
+        return;
+      }
+    }
+  }
+  tbody.appendChild(primaryRow);
+  tbody.appendChild(scheduleRow);
+}
+
+function addPricingTierRow(tbodyId, tier, options = {}) {
   const tbody = document.getElementById(tbodyId);
   if (!tbody) return;
   if (tbody.querySelector('.table-loading')) tbody.innerHTML = '';
+  const afterRowId = String(options.afterRowId || '').trim();
   const rowId = `tier-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const tr = document.createElement('tr');
   tr.dataset.tierRow = 'primary';
@@ -20704,7 +20959,12 @@ function addPricingTierRow(tbodyId, tier) {
     <td><input type="number" min="1" class="admin-input" style="width:100px" value="${tier && tier.persons != null ? Number(tier.persons) : ''}" placeholder="2" /></td>
     <td><input type="number" min="0" step="0.01" class="admin-input" style="width:140px" value="${tier && tier.price_per_night != null ? Number(tier.price_per_night) : ''}" placeholder="0.00" /></td>
     <td><input type="number" min="1" class="admin-input" style="width:140px" value="${tier && tier.min_nights != null ? Number(tier.min_nights) : ''}" placeholder="" /></td>
-    <td><button type="button" class="btn-danger">Remove</button></td>
+    <td class="hotel-tier-actions-cell">
+      <div class="hotel-tier-row-actions">
+        <button type="button" class="btn-secondary" data-tier-clone>Clone</button>
+        <button type="button" class="btn-danger" data-tier-remove>Remove</button>
+      </div>
+    </td>
   `;
   const scheduleRow = document.createElement('tr');
   scheduleRow.dataset.tierRow = 'schedule';
@@ -20719,17 +20979,19 @@ function addPricingTierRow(tbodyId, tier) {
       </div>
     </td>
   `;
-  const btn = tr.querySelector('button');
-  btn.addEventListener('click', () => {
+  tr.querySelector('[data-tier-remove]')?.addEventListener('click', () => {
     tr.remove();
     scheduleRow.remove();
     if (!tbody.children.length) {
       tbody.innerHTML = '<tr><td colspan="4" class="table-loading">No tiers yet</td></tr>';
     }
   });
+  tr.querySelector('[data-tier-clone]')?.addEventListener('click', () => {
+    const draft = extractPricingTierDraftFromPrimaryRow(tr, tbody) || {};
+    addPricingTierRow(tbodyId, draft, { afterRowId: rowId });
+  });
   bindPricingScheduleRow(scheduleRow, tier);
-  tbody.appendChild(tr);
-  tbody.appendChild(scheduleRow);
+  insertPricingTierRows(tbody, tr, scheduleRow, afterRowId);
 }
 
 function renderPricingTiers(tbodyId, rules) {
@@ -20750,46 +21012,9 @@ function collectPricingTiers(tbodyId) {
   const rows = Array.from(tbody.querySelectorAll('tr[data-tier-row="primary"]'));
   const rules = [];
   rows.forEach(tr => {
-    const inputs = tr.querySelectorAll('input');
-    if (!inputs || inputs.length < 2) return;
-    const persons = Number(inputs[0].value);
-    const price = Number(inputs[1].value);
-    const minNights = inputs[2] && inputs[2].value ? Number(inputs[2].value) : null;
-    if (Number.isFinite(persons) && persons > 0 && Number.isFinite(price) && price >= 0) {
-      const rule = { persons, price_per_night: price };
-      if (Number.isFinite(minNights) && minNights > 0) rule.min_nights = minNights;
-      const rowId = tr.dataset.rowId || '';
-      const scheduleRow = rowId ? tbody.querySelector(`tr[data-tier-row="schedule"][data-row-id="${rowId}"]`) : null;
-      if (scheduleRow) {
-        const weekdayPrices = {};
-        const monthPrices = {};
-        scheduleRow.querySelectorAll('input[data-schedule-kind="weekday"]').forEach(input => {
-          const value = input.value === '' ? null : Number(input.value);
-          const key = String(input.dataset.scheduleKey || '').trim();
-          if (key && Number.isFinite(value) && value >= 0) {
-            weekdayPrices[key] = value;
-          }
-        });
-        scheduleRow.querySelectorAll('input[data-schedule-kind="month"]').forEach(input => {
-          const value = input.value === '' ? null : Number(input.value);
-          const key = String(input.dataset.scheduleKey || '').trim();
-          if (key && Number.isFinite(value) && value >= 0) {
-            monthPrices[key] = value;
-          }
-        });
-        if (Object.keys(weekdayPrices).length) {
-          rule.weekday_prices = weekdayPrices;
-        }
-        if (Object.keys(monthPrices).length) {
-          rule.month_prices = monthPrices;
-        }
-        const datePrices = capturePricingDateCalendarValues(scheduleRow);
-        if (Object.keys(datePrices).length) {
-          rule.date_prices = datePrices;
-        }
-      }
-      rules.push(rule);
-    }
+    const draft = extractPricingTierDraftFromPrimaryRow(tr, tbody);
+    const rule = buildPricingTierRuleForSave(draft);
+    if (rule) rules.push(rule);
   });
   rules.sort((a, b) => a.persons - b.persons);
   return { currency: 'EUR', rules };
