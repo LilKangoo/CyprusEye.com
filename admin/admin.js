@@ -9411,6 +9411,8 @@ function getHotelCoverIs360Checkbox(formType) {
   return document.getElementById(id);
 }
 
+const HOTEL_MAX_GALLERY_PHOTOS = 50;
+
 let poiPhotosState = {
   photos: [],
   coverUrl: '',
@@ -9818,16 +9820,19 @@ async function handleCoverFileUpload(formType, file, hotelSlug) {
 
 async function handlePhotosUpload(formType, files, hotelSlug) {
   const state = getPhotoState(formType);
-  const maxPhotos = 10;
+  const maxPhotos = HOTEL_MAX_GALLERY_PHOTOS;
   const available = maxPhotos - state.photos.length;
   const coverIs360Input = getHotelCoverIs360Checkbox(formType);
   
   if (available <= 0) {
-    showToast('Maximum 10 photos allowed', 'warning');
+    showToast(`Maximum ${HOTEL_MAX_GALLERY_PHOTOS} photos allowed`, 'warning');
     return;
   }
   
   const filesToUpload = Array.from(files).slice(0, available);
+  if (filesToUpload.length < Array.from(files).length) {
+    showToast(`Only ${available} more photo(s) can be added. The rest were skipped.`, 'warning');
+  }
   
   try {
     const client = ensureSupabase();
@@ -11102,7 +11107,7 @@ async function handleEditHotelSubmit(event, originalHotel) {
     payload.amenities = collectSelectedAmenities('editHotelAmenities');
 
     // Get photos and cover from state
-    payload.photos = editHotelPhotosState.photos.slice(0, 10);
+    payload.photos = editHotelPhotosState.photos.slice();
     payload.cover_image_url = editHotelPhotosState.coverUrl || null;
 
     console.log('💾 Updating hotel with payload:', {
@@ -11273,7 +11278,7 @@ async function openNewHotelModal() {
           payload.slug = slugifyHotelTitle(slugSource);
 
           // Get photos and cover from state (already uploaded via photo manager)
-          payload.photos = newHotelPhotosState.photos.slice(0, 10);
+          payload.photos = newHotelPhotosState.photos.slice();
           payload.cover_image_url = newHotelPhotosState.coverUrl || null;
 
           // pricing tiers
