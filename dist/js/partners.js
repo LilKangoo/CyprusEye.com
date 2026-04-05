@@ -8907,6 +8907,13 @@
     els.partnerBlogFormCoverPreview.hidden = false;
   }
 
+  function ensurePartnerBlogModalPortal() {
+    if (!els.partnerBlogModal || typeof document === 'undefined' || !document.body) return;
+    if (els.partnerBlogModal.parentElement !== document.body) {
+      document.body.appendChild(els.partnerBlogModal);
+    }
+  }
+
   async function handlePartnerBlogCoverUpload() {
     const file = els.partnerBlogFormCoverFile?.files?.[0];
     if (!file) return;
@@ -9044,6 +9051,7 @@
   }
 
   function openPartnerBlogModal(postId = '') {
+    ensurePartnerBlogModalPortal();
     const post = postId ? (state.partnerBlog.items || []).find((entry) => entry.id === postId) || null : null;
     if (els.partnerBlogModalTitle) {
       els.partnerBlogModalTitle.textContent = post ? 'Edit partner blog post' : 'Create partner blog post';
@@ -9056,6 +9064,8 @@
     if (els.partnerBlogModal) {
       els.partnerBlogModal.hidden = false;
     }
+    document.body.classList.add('partner-blog-modal-open');
+    closeSidebar();
     switchPartnerBlogLanguage('pl');
     void initializePartnerBlogEditors(translations);
   }
@@ -9064,6 +9074,7 @@
     if (els.partnerBlogModal) {
       els.partnerBlogModal.hidden = true;
     }
+    document.body.classList.remove('partner-blog-modal-open');
     resetPartnerBlogForm();
   }
 
@@ -11224,6 +11235,7 @@
     els.partnerBlogModalOverlay = $('partnerBlogModalOverlay');
     els.btnClosePartnerBlogModal = $('btnClosePartnerBlogModal');
     els.partnerBlogModalTitle = $('partnerBlogModalTitle');
+    ensurePartnerBlogModalPortal();
     els.partnerBlogForm = $('partnerBlogForm');
     els.partnerBlogFormId = $('partnerBlogFormId');
     els.partnerBlogFormStatus = $('partnerBlogFormStatus');
