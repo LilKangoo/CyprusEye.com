@@ -8,7 +8,7 @@
 }
 
 .blog-shell {
-  width: min(1240px, calc(100% - 32px));
+  width: min(1380px, calc(100% - 32px));
   margin: 24px auto 72px;
   display: grid;
   gap: 24px;
@@ -454,8 +454,12 @@
   align-items: start;
 }
 
+.blog-post-content-wrap.is-single-column {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .blog-article-card {
-  padding: 30px;
+  padding: 34px 40px;
 }
 
 .blog-post-lead {
@@ -692,7 +696,7 @@
 
 @media (max-width: 720px) {
   .blog-shell {
-    width: min(100% - 20px, 1240px);
+    width: min(100% - 20px, 1380px);
     margin: 18px auto 56px;
     gap: 18px;
   }

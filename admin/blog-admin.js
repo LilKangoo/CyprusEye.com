@@ -135,6 +135,7 @@ const blogAdminState = {
   editors: new Map(),
   tiptapModules: null,
   tiptapFallback: false,
+  taxonomySchemaMode: 'unknown',
 };
 
 const BLOG_FORM_SECTIONS = {
@@ -225,10 +226,20 @@ function isMissingBlogTaxonomySchemaError(error) {
 }
 
 async function executeBlogQueryWithTaxonomyFallback(primaryFactory, legacyFactory) {
+  if (blogAdminState.taxonomySchemaMode === 'legacy' && typeof legacyFactory === 'function') {
+    return legacyFactory();
+  }
   const primary = await primaryFactory();
-  if (!primary?.error || !isMissingBlogTaxonomySchemaError(primary.error) || typeof legacyFactory !== 'function') {
+  if (!primary?.error) {
+    if (blogAdminState.taxonomySchemaMode === 'unknown') {
+      blogAdminState.taxonomySchemaMode = 'localized';
+    }
     return primary;
   }
+  if (!isMissingBlogTaxonomySchemaError(primary.error) || typeof legacyFactory !== 'function') {
+    return primary;
+  }
+  blogAdminState.taxonomySchemaMode = 'legacy';
   return legacyFactory();
 }
 
@@ -393,6 +404,61 @@ function getTaxonomyIdPrefix(kind, lang) {
 
 function getTaxonomyElement(kind, lang, suffix = '') {
   return $(`#${getTaxonomyIdPrefix(kind, lang)}${suffix}`, getBlogFormRoot());
+}
+
+function getTaxonomyCard(kind, lang) {
+  return getTaxonomyElement(kind, lang)?.closest('.blog-taxonomy-card') || null;
+}
+
+async function ensureTaxonomySchemaMode(client = getSupabaseClient()) {
+  if (!client || blogAdminState.taxonomySchemaMode !== 'unknown') {
+    return blogAdminState.taxonomySchemaMode;
+  }
+
+  try {
+    const { data, error } = await client
+      .from('blog_posts')
+      .select('*')
+      .order('updated_at', { ascending: false })
+      .limit(1);
+
+    if (!error && Array.isArray(data) && data[0]) {
+      blogAdminState.taxonomySchemaMode = Object.prototype.hasOwnProperty.call(data[0], 'categories_pl')
+        ? 'localized'
+        : 'legacy';
+    }
+  } catch (_error) {
+    // keep "unknown" and let runtime fallback resolve it
+  }
+
+  return blogAdminState.taxonomySchemaMode;
+}
+
+function syncTaxonomyModeUi() {
+  const localized = blogAdminState.taxonomySchemaMode !== 'legacy';
+  const categoriesPlCard = getTaxonomyCard('categories', 'pl');
+  const categoriesEnCard = getTaxonomyCard('categories', 'en');
+  const tagsPlCard = getTaxonomyCard('tags', 'pl');
+  const tagsEnCard = getTaxonomyCard('tags', 'en');
+
+  if (categoriesEnCard) categoriesEnCard.hidden = !localized;
+  if (tagsEnCard) tagsEnCard.hidden = !localized;
+
+  const applyCardCopy = (card, title, help) => {
+    if (!card) return;
+    const titleNode = card.querySelector(':scope > span');
+    const helpNode = card.querySelector(':scope > small');
+    if (titleNode) titleNode.textContent = title;
+    if (helpNode) helpNode.textContent = help;
+  };
+
+  if (localized) {
+    applyCardCopy(categoriesPlCard, 'Categories (PL)', 'Visible on the Polish blog list and Polish category filters.');
+    applyCardCopy(tagsPlCard, 'Tags (PL)', 'Used in Polish topic chips and Polish tag filters.');
+  } else {
+    applyCardCopy(categoriesPlCard, 'Categories', 'Shared across the whole blog until localized taxonomy columns are available in the database.');
+    applyCardCopy(tagsPlCard, 'Tags', 'Shared across the whole blog. Use tags only when they add extra search meaning beyond categories.');
+  }
 }
 
 function normalizeBlogRow(row) {
@@ -595,8 +661,22 @@ function renderTaxonomyPicker(kind, lang) {
 function setTaxonomyValues(kind, lang, values) {
   const input = getTaxonomyElement(kind, lang);
   if (!input) return;
-  input.value = Array.from(new Set(safeArray(values).map((entry) => String(entry || '').trim()).filter(Boolean))).join(', ');
+  const normalized = Array.from(new Set(safeArray(values).map((entry) => String(entry || '').trim()).filter(Boolean)));
+  input.value = normalized.join(', ');
+  if (blogAdminState.taxonomySchemaMode === 'legacy') {
+    BLOG_TAXONOMY_LANGUAGES.forEach((code) => {
+      const mirror = getTaxonomyElement(kind, code);
+      if (mirror && mirror !== input) {
+        mirror.value = normalized.join(', ');
+      }
+    });
+  }
   renderTaxonomyPicker(kind, lang);
+  if (blogAdminState.taxonomySchemaMode === 'legacy') {
+    BLOG_TAXONOMY_LANGUAGES.filter((code) => code !== lang).forEach((code) => {
+      renderTaxonomyPicker(kind, code);
+    });
+  }
   refreshFormUi();
 }
 
@@ -1066,6 +1146,7 @@ async function loadBlogAdminData() {
   }
 
   try {
+    await ensureTaxonomySchemaMode(client);
     if (!blogAdminState.partners.length) {
       await loadPartners();
     }
@@ -1092,6 +1173,7 @@ async function loadBlogAdminData() {
     }
 
     blogAdminState.items = safeArray(data).map(normalizeBlogRow);
+    syncTaxonomyModeUi();
     blogAdminState.loaded = true;
     renderTable();
   } catch (error) {
@@ -1557,6 +1639,7 @@ function copyTranslationSection(sourceLang, targetLang, mode) {
 }
 
 function populateForm(post = null) {
+  syncTaxonomyModeUi();
   $('#blogFormId').value = post?.id || '';
   $('#blogFormStatus').value = post?.status || 'draft';
   $('#blogFormSubmissionStatus').value = post?.submission_status || 'draft';
@@ -1567,8 +1650,14 @@ function populateForm(post = null) {
   BLOG_TAXONOMY_LANGUAGES.forEach((lang) => {
     const categoryInput = getTaxonomyElement('categories', lang);
     const tagInput = getTaxonomyElement('tags', lang);
-    if (categoryInput) categoryInput.value = getPostTaxonomyValues(post, 'categories', lang).join(', ');
-    if (tagInput) tagInput.value = getPostTaxonomyValues(post, 'tags', lang).join(', ');
+    const categoryValues = blogAdminState.taxonomySchemaMode === 'legacy'
+      ? normalizeTaxonomyList(post?.categories)
+      : getPostTaxonomyValues(post, 'categories', lang);
+    const tagValues = blogAdminState.taxonomySchemaMode === 'legacy'
+      ? normalizeTaxonomyList(post?.tags)
+      : getPostTaxonomyValues(post, 'tags', lang);
+    if (categoryInput) categoryInput.value = categoryValues.join(', ');
+    if (tagInput) tagInput.value = tagValues.join(', ');
   });
   $('#blogFormRejectionReason').value = post?.rejection_reason || '';
   setReviewMeta(post);
@@ -1589,6 +1678,7 @@ function populateForm(post = null) {
 async function openBlogForm(postId = '') {
   try {
     await ensureFormOptionsLoaded();
+    await ensureTaxonomySchemaMode();
 
     const post = postId
       ? blogAdminState.items.find((item) => item.id === postId) || null
@@ -1830,18 +1920,30 @@ async function saveBlogForm(event) {
     }, {}),
     featured: Boolean($('#blogFormFeatured')?.checked),
     allow_comments: Boolean($('#blogFormAllowComments')?.checked),
-    categories: Array.from(new Set([
-      ...getTaxonomyValues('categories', 'pl'),
-      ...getTaxonomyValues('categories', 'en'),
-    ])),
+    categories: Array.from(new Set(
+      blogAdminState.taxonomySchemaMode === 'legacy'
+        ? getTaxonomyValues('categories', 'pl')
+        : [
+          ...getTaxonomyValues('categories', 'pl'),
+          ...getTaxonomyValues('categories', 'en'),
+        ]
+    )),
     categories_pl: getTaxonomyValues('categories', 'pl'),
-    categories_en: getTaxonomyValues('categories', 'en'),
-    tags: Array.from(new Set([
-      ...getTaxonomyValues('tags', 'pl'),
-      ...getTaxonomyValues('tags', 'en'),
-    ])),
+    categories_en: blogAdminState.taxonomySchemaMode === 'legacy'
+      ? getTaxonomyValues('categories', 'pl')
+      : getTaxonomyValues('categories', 'en'),
+    tags: Array.from(new Set(
+      blogAdminState.taxonomySchemaMode === 'legacy'
+        ? getTaxonomyValues('tags', 'pl')
+        : [
+          ...getTaxonomyValues('tags', 'pl'),
+          ...getTaxonomyValues('tags', 'en'),
+        ]
+    )),
     tags_pl: getTaxonomyValues('tags', 'pl'),
-    tags_en: getTaxonomyValues('tags', 'en'),
+    tags_en: blogAdminState.taxonomySchemaMode === 'legacy'
+      ? getTaxonomyValues('tags', 'pl')
+      : getTaxonomyValues('tags', 'en'),
     cta_services: collectCtaRows(),
     author_profile_id: String($('#blogFormAuthorProfile')?.value || '').trim() || null,
     owner_partner_id: ownerPartnerId || null,
@@ -1859,16 +1961,21 @@ async function saveBlogForm(event) {
     }
 
     let blogPostId = blogAdminState.editingId;
+    const writePayload = blogAdminState.taxonomySchemaMode === 'legacy'
+      ? stripBlogTaxonomyPayload(basePayload)
+      : basePayload;
 
     if (blogPostId) {
-      let updateResult = await client.from('blog_posts').update(basePayload).eq('id', blogPostId);
+      let updateResult = await client.from('blog_posts').update(writePayload).eq('id', blogPostId);
       if (updateResult.error && isMissingBlogTaxonomySchemaError(updateResult.error)) {
+        blogAdminState.taxonomySchemaMode = 'legacy';
+        syncTaxonomyModeUi();
         updateResult = await client.from('blog_posts').update(stripBlogTaxonomyPayload(basePayload)).eq('id', blogPostId);
       }
       if (updateResult.error) throw new Error(updateResult.error.message || 'Failed to update blog post');
     } else {
       const payload = {
-        ...basePayload,
+        ...writePayload,
         created_by: currentUserId,
       };
       let insertResult = await client
@@ -1877,6 +1984,8 @@ async function saveBlogForm(event) {
         .select('id')
         .single();
       if (insertResult.error && isMissingBlogTaxonomySchemaError(insertResult.error)) {
+        blogAdminState.taxonomySchemaMode = 'legacy';
+        syncTaxonomyModeUi();
         insertResult = await client
           .from('blog_posts')
           .insert(stripBlogTaxonomyPayload(payload))

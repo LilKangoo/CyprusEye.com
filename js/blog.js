@@ -159,10 +159,12 @@ const state = {
   facets: {
     categories: [],
     tags: [],
+    topics: [],
     featuredCount: 0,
   },
   activeFilter: getInitialFilter(),
   preload: window.__BLOG_LIST__ || null,
+  taxonomySchemaMode: 'unknown',
 };
 
 function detectLanguage() {
@@ -244,11 +246,49 @@ function isMissingTaxonomySchemaError(error) {
 }
 
 async function executeTaxonomyAwareQuery(primaryFactory, legacyFactory) {
+  if (state.taxonomySchemaMode === 'legacy' && typeof legacyFactory === 'function') {
+    return legacyFactory();
+  }
   const primary = await primaryFactory();
-  if (!primary?.error || !isMissingTaxonomySchemaError(primary.error) || typeof legacyFactory !== 'function') {
+  if (!primary?.error) {
+    if (state.taxonomySchemaMode === 'unknown') {
+      state.taxonomySchemaMode = 'localized';
+    }
     return primary;
   }
+  if (!isMissingTaxonomySchemaError(primary.error) || typeof legacyFactory !== 'function') {
+    return primary;
+  }
+  state.taxonomySchemaMode = 'legacy';
   return legacyFactory();
+}
+
+async function ensureTaxonomySchemaMode() {
+  if (state.taxonomySchemaMode !== 'unknown') {
+    return state.taxonomySchemaMode;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('blog_posts')
+      .select('*')
+      .eq('status', 'published')
+      .eq('submission_status', 'approved')
+      .not('published_at', 'is', null)
+      .lte('published_at', new Date().toISOString())
+      .order('published_at', { ascending: false })
+      .limit(1);
+
+    if (!error && Array.isArray(data) && data[0]) {
+      state.taxonomySchemaMode = Object.prototype.hasOwnProperty.call(data[0], 'categories_pl')
+        ? 'localized'
+        : 'legacy';
+    }
+  } catch (_error) {
+    // keep unknown and let runtime fallback handle it
+  }
+
+  return state.taxonomySchemaMode;
 }
 
 function pickLocalizedText(value, language) {
@@ -392,6 +432,21 @@ function getLocalizedPost(post, language) {
   };
 }
 
+function buildTopicFacets(categories = [], tags = []) {
+  const seen = new Map();
+  categories.forEach((value) => {
+    const normalizedKey = String(value || '').trim().toLowerCase();
+    if (!normalizedKey || seen.has(normalizedKey)) return;
+    seen.set(normalizedKey, { kind: 'category', value: String(value || '').trim() });
+  });
+  tags.forEach((value) => {
+    const normalizedKey = String(value || '').trim().toLowerCase();
+    if (!normalizedKey || seen.has(normalizedKey)) return;
+    seen.set(normalizedKey, { kind: 'tag', value: String(value || '').trim() });
+  });
+  return Array.from(seen.values()).sort((left, right) => left.value.localeCompare(right.value, 'en', { sensitivity: 'base' }));
+}
+
 function formatDate(value) {
   const date = value ? new Date(value) : null;
   if (!date || Number.isNaN(date.getTime())) {
@@ -522,6 +577,7 @@ async function fetchBlogFacets() {
   return {
     categories: Array.from(categories).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' })),
     tags: Array.from(tags).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' })),
+    topics: buildTopicFacets(Array.from(categories), Array.from(tags)),
     featuredCount,
   };
 }
@@ -545,8 +601,7 @@ function collectFilters() {
   const filters = [
     { kind: 'all', value: 'all' },
     { kind: 'featured', value: 'featured' },
-    ...state.facets.categories.slice(0, 12).map((value) => ({ kind: 'category', value })),
-    ...state.facets.tags.slice(0, 12).map((value) => ({ kind: 'tag', value })),
+    ...state.facets.topics.slice(0, 12),
   ];
 
   const hasActive = filters.some((filter) => filter.kind === state.activeFilter.kind && filter.value === state.activeFilter.value);
@@ -631,11 +686,8 @@ function renderStaticCopy() {
   $('#blogHeroSubtitle').textContent = t('heroSubtitle');
   $('#blogMetricCount').textContent = String(state.totalCount);
   $('#blogMetricCountLabel').textContent = t('metricArticles');
-  $('#blogMetricTagCount').textContent = String(state.facets.tags.length + state.facets.categories.length);
+  $('#blogMetricTagCount').textContent = String(state.facets.topics.length);
   $('#blogMetricTagLabel').textContent = t('metricTopics');
-  $('#blogMetricServiceCount').textContent = String(state.items.reduce((sum, item) => sum + safeArray(item.ctaServices).length, 0));
-  $('#blogMetricServiceLabel').textContent = t('metricServices');
-  $('#blogMetricLanguageLabel').textContent = t('metricLanguages');
   updateListMeta();
 }
 
@@ -646,10 +698,8 @@ function renderFilters() {
     let label = t('all');
     if (filter.kind === 'featured') {
       label = t('featured');
-    } else if (filter.kind === 'category') {
+    } else if (filter.kind === 'category' || filter.kind === 'tag') {
       label = filter.value;
-    } else if (filter.kind === 'tag') {
-      label = `#${filter.value}`;
     }
 
     return `<button class="blog-filter-chip${isFilterActive(filter) ? ' is-active' : ''}" type="button" data-filter-kind="${escapeHtml(filter.kind)}" data-filter-value="${escapeHtml(filter.value)}">${escapeHtml(label)}</button>`;
@@ -770,7 +820,9 @@ async function ensureData(force = false) {
     stateNode.textContent = t('loading');
   }
 
-  if (!state.facets.categories.length && !state.facets.tags.length) {
+  await ensureTaxonomySchemaMode();
+
+  if (!state.facets.topics.length) {
     try {
       state.facets = await fetchBlogFacets();
     } catch (error) {
@@ -851,7 +903,13 @@ function bindEvents() {
   const handleLanguageChange = (language) => {
     state.language = normalizeBlogUiLanguage(language);
     updateUrlState();
-    render();
+    state.facets = {
+      categories: [],
+      tags: [],
+      topics: [],
+      featuredCount: 0,
+    };
+    void ensureData(true);
   };
 
   document.addEventListener('wakacjecypr:languagechange', (event) => {

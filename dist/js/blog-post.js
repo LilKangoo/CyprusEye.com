@@ -234,6 +234,7 @@ const state = {
   loading: !window.__BLOG_POST__?.post,
   error: '',
   slug: getInitialSlug(),
+  taxonomySchemaMode: 'unknown',
 };
 
 function detectLanguage() {
@@ -277,11 +278,49 @@ function isMissingTaxonomySchemaError(error) {
 }
 
 async function executeTaxonomyAwareQuery(primaryFactory, legacyFactory) {
+  if (state.taxonomySchemaMode === 'legacy' && typeof legacyFactory === 'function') {
+    return legacyFactory();
+  }
   const primary = await primaryFactory();
-  if (!primary?.error || !isMissingTaxonomySchemaError(primary.error) || typeof legacyFactory !== 'function') {
+  if (!primary?.error) {
+    if (state.taxonomySchemaMode === 'unknown') {
+      state.taxonomySchemaMode = 'localized';
+    }
     return primary;
   }
+  if (!isMissingTaxonomySchemaError(primary.error) || typeof legacyFactory !== 'function') {
+    return primary;
+  }
+  state.taxonomySchemaMode = 'legacy';
   return legacyFactory();
+}
+
+async function ensureTaxonomySchemaMode() {
+  if (state.taxonomySchemaMode !== 'unknown') {
+    return state.taxonomySchemaMode;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('blog_posts')
+      .select('*')
+      .eq('status', 'published')
+      .eq('submission_status', 'approved')
+      .not('published_at', 'is', null)
+      .lte('published_at', new Date().toISOString())
+      .order('published_at', { ascending: false })
+      .limit(1);
+
+    if (!error && Array.isArray(data) && data[0]) {
+      state.taxonomySchemaMode = Object.prototype.hasOwnProperty.call(data[0], 'categories_pl')
+        ? 'localized'
+        : 'legacy';
+    }
+  } catch (_error) {
+    // keep unknown and let runtime fallback resolve it
+  }
+
+  return state.taxonomySchemaMode;
 }
 
 function escapeHtml(value) {
@@ -547,6 +586,7 @@ async function fetchSiblingTranslations(blogPostId) {
 }
 
 async function fetchPost(language, slug) {
+  await ensureTaxonomySchemaMode();
   const normalizedSlug = normalizeSlug(slug);
   if (!normalizedSlug) return null;
 
@@ -753,10 +793,14 @@ function renderTokens(container, values) {
 
 function renderQuickOverview(localized) {
   const card = $('#blogOverviewCard');
+  const wrap = document.querySelector('.blog-post-content-wrap');
   if (!(card instanceof HTMLElement)) {
     return;
   }
   card.hidden = true;
+  if (wrap) {
+    wrap.classList.add('is-single-column');
+  }
 }
 
 function setErrorState(message, tone = 'error') {
@@ -809,6 +853,7 @@ async function renderCtas(post) {
 }
 
 async function fetchRelatedPosts(post) {
+  await ensureTaxonomySchemaMode();
   if (!post?.id) {
     return [];
   }
