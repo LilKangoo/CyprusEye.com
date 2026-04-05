@@ -77,6 +77,10 @@ function $$(selector, root = document) {
   return Array.from(root.querySelectorAll(selector));
 }
 
+function getBlogFormRoot() {
+  return $('#blogForm') || $('#blogFormModal') || document;
+}
+
 function getSupabaseClient() {
   if (typeof window.getSupabase === 'function') {
     return window.getSupabase();
@@ -822,7 +826,7 @@ function getEditorContentValue(lang) {
       content_html: entry.editor.getHTML(),
     };
   }
-  const textarea = document.querySelector(`[data-blog-editor-fallback="${lang}"]`);
+  const textarea = $(`[data-blog-editor-fallback="${lang}"]`, getBlogFormRoot());
   return {
     content_json: {
       type: 'doc',
@@ -835,10 +839,11 @@ function getEditorContentValue(lang) {
 async function initializeEditors(translations) {
   destroyEditors();
   const modules = await ensureTiptapModules();
+  const formRoot = getBlogFormRoot();
 
   window.BLOG_TRANSLATION_LANGUAGES.forEach((lang) => {
-    const host = document.querySelector(`[data-blog-editor-host="${lang.code}"]`);
-    const fallback = document.querySelector(`[data-blog-editor-fallback="${lang.code}"]`);
+    const host = $(`[data-blog-editor-host="${lang.code}"]`, formRoot);
+    const fallback = $(`[data-blog-editor-fallback="${lang.code}"]`, formRoot);
     const initial = translations?.[lang.code] || {};
     if (!host || !fallback) return;
 
@@ -944,9 +949,10 @@ function runEditorCommand(lang, action) {
 }
 
 function attachTranslationFieldListeners() {
+  const formRoot = getBlogFormRoot();
   window.BLOG_TRANSLATION_LANGUAGES.forEach((lang) => {
-    const titleInput = document.querySelector(`[data-blog-title-input="${lang.code}"]`);
-    const slugInput = document.querySelector(`[data-blog-slug-input="${lang.code}"]`);
+    const titleInput = $(`[data-blog-title-input="${lang.code}"]`, formRoot);
+    const slugInput = $(`[data-blog-slug-input="${lang.code}"]`, formRoot);
     if (!titleInput || !slugInput) return;
 
     titleInput.addEventListener('input', () => {
@@ -1035,7 +1041,8 @@ async function handleCoverUpload() {
     return;
   }
 
-  const slugEn = slugify(document.querySelector('[name="slug_en"]')?.value || document.querySelector('[name="title_en"]')?.value || 'blog-post');
+  const formRoot = getBlogFormRoot();
+  const slugEn = slugify($('[name="slug_en"]', formRoot)?.value || $('[name="title_en"]', formRoot)?.value || 'blog-post');
   const fileName = `blog/${slugEn || `post-${Date.now()}`}/cover-${Date.now()}.webp`;
 
   try {
@@ -1114,19 +1121,20 @@ async function getCurrentUserId(client) {
 }
 
 function collectTranslations() {
+  const formRoot = getBlogFormRoot();
   return window.BLOG_TRANSLATION_LANGUAGES.reduce((accumulator, lang) => {
     const content = getEditorContentValue(lang.code);
     accumulator[lang.code] = {
-      slug: slugify(document.querySelector(`[name="slug_${lang.code}"]`)?.value || ''),
-      title: String(document.querySelector(`[name="title_${lang.code}"]`)?.value || '').trim(),
-      meta_title: String(document.querySelector(`[name="meta_title_${lang.code}"]`)?.value || '').trim(),
-      meta_description: String(document.querySelector(`[name="meta_description_${lang.code}"]`)?.value || '').trim(),
-      summary: String(document.querySelector(`[name="summary_${lang.code}"]`)?.value || '').trim(),
-      lead: String(document.querySelector(`[name="lead_${lang.code}"]`)?.value || '').trim(),
-      author_name: String(document.querySelector(`[name="author_name_${lang.code}"]`)?.value || '').trim(),
-      author_url: String(document.querySelector(`[name="author_url_${lang.code}"]`)?.value || '').trim(),
-      og_image_url: String(document.querySelector(`[name="og_image_url_${lang.code}"]`)?.value || '').trim(),
-      cover_alt: String(document.querySelector(`[name="cover_alt_${lang.code}"]`)?.value || '').trim(),
+      slug: slugify($(`[name="slug_${lang.code}"]`, formRoot)?.value || ''),
+      title: String($(`[name="title_${lang.code}"]`, formRoot)?.value || '').trim(),
+      meta_title: String($(`[name="meta_title_${lang.code}"]`, formRoot)?.value || '').trim(),
+      meta_description: String($(`[name="meta_description_${lang.code}"]`, formRoot)?.value || '').trim(),
+      summary: String($(`[name="summary_${lang.code}"]`, formRoot)?.value || '').trim(),
+      lead: String($(`[name="lead_${lang.code}"]`, formRoot)?.value || '').trim(),
+      author_name: String($(`[name="author_name_${lang.code}"]`, formRoot)?.value || '').trim(),
+      author_url: String($(`[name="author_url_${lang.code}"]`, formRoot)?.value || '').trim(),
+      og_image_url: String($(`[name="og_image_url_${lang.code}"]`, formRoot)?.value || '').trim(),
+      cover_alt: String($(`[name="cover_alt_${lang.code}"]`, formRoot)?.value || '').trim(),
       content_json: content.content_json,
       content_html: content.content_html,
     };

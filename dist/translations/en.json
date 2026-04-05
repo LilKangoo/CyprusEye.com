@@ -1521,13 +1521,14 @@
       "car": "🚗 Car rental",
       "attractions": "📚 Attractions",
       "tasks": "✅ Task list",
-      "recommendations": "✨ Recommendations",
-      "community": "💬 Community",
-      "trips": "🧭 Trips",
-      "hotels": "🏨 Hotels",
-      "mediaTrips": {
-        "label": "Media Trips",
-        "ariaLabel": "Open the VIP individual trips page"
+    "recommendations": "✨ Recommendations",
+    "community": "💬 Community",
+    "trips": "🧭 Trips",
+    "hotels": "🏨 Hotels",
+    "blog": "📰 Blog",
+    "mediaTrips": {
+      "label": "Media Trips",
+      "ariaLabel": "Open the VIP individual trips page"
       }
     },
     "recommendations": {
@@ -1835,6 +1836,7 @@
     "packing": "🎒 Packing planner",
     "trips": "🧭 Trips",
     "hotels": "🏨 Hotels",
+    "blog": "📰 Blog",
     "toggle": "☰ Navigation"
   },
   "shortcuts": {

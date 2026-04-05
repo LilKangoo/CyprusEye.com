@@ -7,6 +7,11 @@ Kompletny szkielet aplikacji Expo (TypeScript) z MapLibre, monitorowaniem geostr
 Repozytorium zawiera również gotową wersję strony internetowej, dzięki której doświadczenie z aplikacji mobilnej można uruchomić pod domeną `CyprusEye.com` lub dowolnym innym hostem statycznym.
 
 - Wejściem strony jest plik `index.html` (wcześniej `app.html`). Wraz z nim należy wdrożyć `app.js`, zestaw arkuszy z `assets/css/` (`tokens.css`, `base.css`, `components.css`, `mobile.css`, `rtl.css`, `language-switcher.css`), katalog `assets/`, podstrony (`packing.html`, `tasks.html`, `vip.html`, `cruise.html`, `kupon.html`, `car-rental-landing.html`, itp.) oraz katalogi `auth/`, `account/`, `reset/` dla funkcji uwierzytelniania.
+- Blog publiczny działa pod:
+  - `/blog` - lista wpisów
+  - `/blog/<slug>` - pojedynczy wpis
+  - język: `?lang=pl`, brak parametru = `EN`
+- Moduł bloga wymaga migracji `supabase/migrations/130_blog_posts_and_translations.sql` oraz routingu Functions/`server.js` dla dynamicznego SEO wpisów.
 - Na potrzeby dynamicznych funkcji (rejestracja, dziennik społeczności) można uruchomić prosty backend z `server.js`. Dostępny jest skrypt `npm run serve:web`, który startuje serwer na porcie `3001` (można go zmienić przez zmienną `PORT`).
 - Jeżeli strona ma być serwowana spod subścieżki, ustaw `BASE_PATH` (np. `/app`). Linki i serwowanie statycznych plików zostaną automatycznie dopasowane.
 - Do obsługi resetu hasła ustaw `PASSWORD_RESET_URL` z pełnym adresem formularza, który otrzyma użytkownik w e-mailu.
@@ -68,6 +73,7 @@ npm install
 - Lint: `npm run lint`
 - TypeScript: `npm run typecheck`
 - Testy jednostkowe: `npm test`
+- Smoke test bloga/admina: `npx playwright test tests/e2e/blog-admin-smoke.spec.ts`
 
 ## EAS / prebuild
 1. `cp .env.example .env` i uzupełnij wartości.

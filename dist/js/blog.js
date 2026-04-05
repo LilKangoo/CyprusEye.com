@@ -324,6 +324,10 @@ function buildQueryState() {
 function preloadMatchesRequest() {
   const preload = state.preload;
   if (!preload || !Array.isArray(preload.items)) return false;
+  const preloadCount = Number.parseInt(preload.totalCount || '0', 10) || 0;
+  if (preload.items.length === 0 && preloadCount === 0) {
+    return false;
+  }
   const query = buildQueryState();
   return (
     Number.parseInt(preload.page || '1', 10) === query.page

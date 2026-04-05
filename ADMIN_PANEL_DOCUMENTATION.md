@@ -148,7 +148,31 @@ Przygotowane do rozbudowy:
 - Zarządzanie zdjęciami
 - Ratings overview
 
-### 5. Diagnostyka systemu
+### 5. Blog
+- **Lista wpisów**
+  - status publikacji (`draft`, `scheduled`, `published`, `archived`)
+  - status workflow (`draft`, `pending`, `approved`, `rejected`)
+  - owner partner / admin
+  - szybkie akcje `Approve`, `Reject`, `Preview`, `Edit`
+
+- **Formularz create/edit**
+  - tłumaczenia `PL/EN`
+  - osobny slug per język
+  - cover image upload
+  - kategorie i tagi
+  - byline autora:
+    - fallback z profilu
+    - nadpisanie `author_name` i `author_url` per język
+  - maksymalnie 3 CTA usług (`pois`, `trips`, `hotels`, `cars`, `recommendations`)
+  - TipTap z fallbackiem HTML, jeśli runtime edytora nie załaduje się
+
+- **Workflow partnerów**
+  - partner z `can_manage_blog` może zarządzać własnymi wpisami
+  - partner z `can_auto_publish_blog` może przejść od razu do `approved`
+  - admin widzi i moderuje wpisy partnerów z poziomu tej samej sekcji
+  - publicznie widoczne są tylko wpisy `published + approved + published_at <= now()`
+
+### 6. Diagnostyka systemu
 - **Status checks**
   - Database connection
   - API status
@@ -162,7 +186,7 @@ Przygotowane do rozbudowy:
   - Total ratings
   - Total visits
 
-### 6. Settings (Placeholder)
+### 7. Settings (Placeholder)
 Przygotowane do rozbudowy:
 - Admin panel settings
 - Notification preferences

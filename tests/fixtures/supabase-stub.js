@@ -8,6 +8,8 @@ function createEmptyState() {
     currentSession: null,
     users: {},
     profiles: {},
+    tables: {},
+    storageObjects: {},
     xpEvents: {},
     lastResetRequests: [],
     lastVerificationRequests: [],
@@ -154,6 +156,8 @@ function hydrateState(source) {
   state.currentSession = source.currentSession ?? null;
   state.users = source.users ? { ...source.users } : {};
   state.profiles = source.profiles ? { ...source.profiles } : {};
+  state.tables = source.tables ? clone(source.tables) : {};
+  state.storageObjects = source.storageObjects ? clone(source.storageObjects) : {};
   state.xpEvents = source.xpEvents ? { ...source.xpEvents } : {};
   state.lastResetRequests = Array.isArray(source.lastResetRequests)
     ? [...source.lastResetRequests]
@@ -175,6 +179,8 @@ function resetState() {
   state.currentSession = null;
   state.users = {};
   state.profiles = {};
+  state.tables = {};
+  state.storageObjects = {};
   state.xpEvents = {};
   state.lastResetRequests = [];
   state.lastVerificationRequests = [];
@@ -403,6 +409,317 @@ function selectXpEventsOrdered(column, { ascending } = {}) {
   return { data: clone(events), error: null };
 }
 
+function getTableRows(table) {
+  const rows = state.tables?.[table];
+  return Array.isArray(rows) ? rows : [];
+}
+
+function setTableRows(table, rows) {
+  if (!state.tables || typeof state.tables !== 'object') {
+    state.tables = {};
+  }
+  state.tables[table] = Array.isArray(rows) ? clone(rows) : [];
+  persistState();
+}
+
+function upsertTableRows(table, rows, onConflict = '') {
+  const list = getTableRows(table).slice();
+  const keys = String(onConflict || '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  rows.forEach((row) => {
+    const payload = clone(row);
+    if (!keys.length) {
+      list.push(payload);
+      return;
+    }
+    const index = list.findIndex((candidate) => keys.every((key) => candidate?.[key] === payload?.[key]));
+    if (index >= 0) {
+      list[index] = { ...list[index], ...payload };
+    } else {
+      list.push(payload);
+    }
+  });
+
+  setTableRows(table, list);
+  return getTableRows(table);
+}
+
+function getProfileRows() {
+  return Object.values(state.profiles || {}).map((profile) => clone(profile));
+}
+
+function enrichBlogPostRow(row) {
+  if (!row || typeof row !== 'object') {
+    return row;
+  }
+  const authorProfile = row.author_profile_id ? clone((state.profiles || {})[row.author_profile_id] || null) : null;
+  return {
+    ...clone(row),
+    author_profile: authorProfile
+      ? {
+        id: authorProfile.id || null,
+        name: authorProfile.name || '',
+        username: authorProfile.username || '',
+        avatar_url: authorProfile.avatar_url || '',
+      }
+      : null,
+    translations: getTableRows('blog_post_translations')
+      .filter((translation) => translation.blog_post_id === row.id)
+      .map((translation) => clone(translation)),
+  };
+}
+
+function enrichBlogTranslationRow(row) {
+  if (!row || typeof row !== 'object') {
+    return row;
+  }
+  const blogPost = getTableRows('blog_posts').find((post) => post.id === row.blog_post_id) || null;
+  return {
+    ...clone(row),
+    blog_post: blogPost ? enrichBlogPostRow(blogPost) : null,
+  };
+}
+
+function materializeRows(table) {
+  if (table === 'profiles') {
+    return getProfileRows();
+  }
+  if (table === 'blog_posts') {
+    return getTableRows('blog_posts').map((row) => enrichBlogPostRow(row));
+  }
+  if (table === 'blog_post_translations') {
+    return getTableRows('blog_post_translations').map((row) => enrichBlogTranslationRow(row));
+  }
+  return getTableRows(table).map((row) => clone(row));
+}
+
+function compareValues(a, b) {
+  if (typeof a === 'string' && typeof b === 'string') {
+    return a.localeCompare(b, 'en', { sensitivity: 'base' });
+  }
+  const aNumber = Number(a);
+  const bNumber = Number(b);
+  if (Number.isFinite(aNumber) && Number.isFinite(bNumber)) {
+    return aNumber - bNumber;
+  }
+  return String(a ?? '').localeCompare(String(b ?? ''), 'en', { sensitivity: 'base' });
+}
+
+function applyGenericFilters(rows, filters) {
+  return rows.filter((row) => filters.every((filter) => {
+    const value = row?.[filter.column];
+    switch (filter.type) {
+      case 'eq':
+        return value === filter.value;
+      case 'neq':
+        return value !== filter.value;
+      case 'lte':
+        return String(value || '') <= String(filter.value || '');
+      case 'gte':
+        return String(value || '') >= String(filter.value || '');
+      case 'in':
+        return Array.isArray(filter.value) && filter.value.includes(value);
+      case 'contains':
+        return Array.isArray(value) && Array.isArray(filter.value)
+          ? filter.value.every((entry) => value.includes(entry))
+          : false;
+      case 'not':
+        if (filter.operator === 'is') {
+          return !(filter.value === null ? value == null : value === filter.value);
+        }
+        return true;
+      case 'is':
+        return filter.value === null ? value == null : value === filter.value;
+      default:
+        return true;
+    }
+  }));
+}
+
+function createGenericSelectBuilder(table) {
+  const stateBag = {
+    filters: [],
+    order: null,
+    limit: null,
+    range: null,
+    count: null,
+  };
+
+  function execute() {
+    let rows = materializeRows(table);
+    rows = applyGenericFilters(rows, stateBag.filters);
+
+    if (stateBag.order?.column) {
+      const { column, ascending } = stateBag.order;
+      rows.sort((a, b) => {
+        const result = compareValues(a?.[column], b?.[column]);
+        return ascending ? result : -result;
+      });
+    }
+
+    const count = rows.length;
+    if (stateBag.range) {
+      rows = rows.slice(stateBag.range.from, stateBag.range.to + 1);
+    } else if (Number.isFinite(stateBag.limit)) {
+      rows = rows.slice(0, stateBag.limit);
+    }
+
+    return { data: clone(rows), error: null, count };
+  }
+
+  const builder = {
+    eq(column, value) {
+      stateBag.filters.push({ type: 'eq', column, value });
+      return builder;
+    },
+    neq(column, value) {
+      stateBag.filters.push({ type: 'neq', column, value });
+      return builder;
+    },
+    lte(column, value) {
+      stateBag.filters.push({ type: 'lte', column, value });
+      return builder;
+    },
+    gte(column, value) {
+      stateBag.filters.push({ type: 'gte', column, value });
+      return builder;
+    },
+    in(column, value) {
+      stateBag.filters.push({ type: 'in', column, value });
+      return builder;
+    },
+    contains(column, value) {
+      stateBag.filters.push({ type: 'contains', column, value });
+      return builder;
+    },
+    not(column, operator, value) {
+      const normalized = operator === 'null' ? null : value;
+      stateBag.filters.push({ type: 'not', column, operator, value: normalized });
+      return builder;
+    },
+    is(column, value) {
+      stateBag.filters.push({ type: 'is', column, value: value === 'null' ? null : value });
+      return builder;
+    },
+    order(column, options = {}) {
+      stateBag.order = { column, ascending: options.ascending !== false };
+      return builder;
+    },
+    limit(count) {
+      stateBag.limit = Number(count);
+      return builder;
+    },
+    range(from, to) {
+      stateBag.range = { from: Number(from) || 0, to: Number(to) || 0 };
+      return builder;
+    },
+    async single() {
+      const result = execute();
+      return { data: result.data?.[0] ?? null, error: null, count: result.count };
+    },
+    async maybeSingle() {
+      const result = execute();
+      return { data: result.data?.[0] ?? null, error: null, count: result.count };
+    },
+    then(resolve, reject) {
+      return Promise.resolve(execute()).then(resolve, reject);
+    },
+  };
+
+  return builder;
+}
+
+function createGenericUpdateBuilder(table, values) {
+  const filters = [];
+  function applyUpdate() {
+    const current = getTableRows(table);
+    const matchingIds = new Set(applyGenericFilters(current, filters).map((row) => row.id));
+    const updatedRows = [];
+    const nextRows = current.map((row) => {
+      if (!matchingIds.has(row.id)) {
+        return row;
+      }
+      const next = { ...row, ...clone(values) };
+      if (!next.updated_at) {
+        next.updated_at = new Date().toISOString();
+      }
+      updatedRows.push(next);
+      return next;
+    });
+    setTableRows(table, nextRows);
+    return { data: clone(updatedRows), error: null };
+  }
+
+  const builder = {
+    eq(column, value) {
+      filters.push({ type: 'eq', column, value });
+      return builder;
+    },
+    select() {
+      return {
+        async single() {
+          const result = applyUpdate();
+          return { data: clone(result.data[0] || null), error: result.error };
+        },
+      };
+    },
+    then(resolve, reject) {
+      return Promise.resolve(applyUpdate()).then(resolve, reject);
+    },
+  };
+  return builder;
+}
+
+function createGenericDeleteBuilder(table) {
+  const filters = [];
+  const builder = {
+    eq(column, value) {
+      filters.push({ type: 'eq', column, value });
+      return builder;
+    },
+    then(resolve, reject) {
+      const current = getTableRows(table);
+      const toDelete = applyGenericFilters(current, filters);
+      const remaining = current.filter((row) => !toDelete.some((candidate) => candidate.id === row.id));
+      setTableRows(table, remaining);
+      if (table === 'blog_posts') {
+        const remainingIds = new Set(remaining.map((row) => row.id));
+        setTableRows(
+          'blog_post_translations',
+          getTableRows('blog_post_translations').filter((row) => remainingIds.has(row.blog_post_id))
+        );
+      }
+      return Promise.resolve({ error: null }).then(resolve, reject);
+    },
+  };
+  return builder;
+}
+
+function createStorageBucket(bucket) {
+  return {
+    async upload(path, _payload, _options = {}) {
+      const key = `${bucket}/${path}`;
+      state.storageObjects[key] = {
+        bucket,
+        path,
+        uploaded_at: new Date().toISOString(),
+      };
+      persistState();
+      return { data: { path }, error: null };
+    },
+    getPublicUrl(path) {
+      return {
+        data: {
+          publicUrl: `https://stub.local/${bucket}/${path}`,
+        },
+      };
+    },
+  };
+}
+
 export function createClient() {
   return {
     auth: {
@@ -523,24 +840,16 @@ export function createClient() {
         };
       },
     },
+    storage: {
+      from(bucket) {
+        return createStorageBucket(bucket);
+      },
+    },
     from(table) {
       if (table === 'profiles') {
         return {
           select() {
-            const filters = [];
-            const builder = {
-              eq(column, value) {
-                filters.push({ column, value });
-                return builder;
-              },
-              async single() {
-                return selectProfilesSingle(filters);
-              },
-              async maybeSingle() {
-                return selectProfilesSingle(filters);
-              },
-            };
-            return builder;
+            return createGenericSelectBuilder('profiles');
           },
           update(values) {
             const filters = [];
@@ -577,39 +886,44 @@ export function createClient() {
       }
       // Generic table handler with full chainable API
       return {
-        select(columns) {
-          const builder = {
-            eq: (col, val) => builder,
-            neq: (col, val) => builder,
-            gt: (col, val) => builder,
-            gte: (col, val) => builder,
-            lt: (col, val) => builder,
-            lte: (col, val) => builder,
-            like: (col, val) => builder,
-            ilike: (col, val) => builder,
-            is: (col, val) => builder,
-            in: (col, val) => builder,
-            contains: (col, val) => builder,
-            order: (col, opts) => builder,
-            limit: (count) => builder,
-            range: (from, to) => builder,
-            single: async () => ({ data: null, error: null }),
-            maybeSingle: async () => ({ data: null, error: null }),
-            then: (resolve) => resolve({ data: [], error: null }),
-          };
-          return builder;
+        select(_columns) {
+          return createGenericSelectBuilder(table);
         },
-        insert: async (rows) => ({ data: rows, error: null }),
-        update: (values) => ({
-          eq: (col, val) => ({
-            select: () => ({
-              single: async () => ({ data: null, error: null }),
-            }),
-          }),
-        }),
-        delete: () => ({
-          eq: (col, val) => ({ then: (resolve) => resolve({ error: null }) }),
-        }),
+        insert(rows) {
+          const payloads = Array.isArray(rows) ? rows : [rows];
+          const normalized = payloads.map((row) => {
+            const next = clone(row);
+            if (!next.id) {
+              next.id = `${table}-${Math.random().toString(36).slice(2, 10)}`;
+            }
+            if (!next.created_at) next.created_at = new Date().toISOString();
+            if (!next.updated_at) next.updated_at = new Date().toISOString();
+            return next;
+          });
+          setTableRows(table, [...getTableRows(table), ...normalized]);
+          return {
+            select(_columns) {
+              return {
+                async single() {
+                  return { data: clone(normalized[0] || null), error: null };
+                },
+              };
+            },
+            data: clone(normalized),
+            error: null,
+          };
+        },
+        upsert(rows, options = {}) {
+          const payloads = Array.isArray(rows) ? rows : [rows];
+          const merged = upsertTableRows(table, payloads, options.onConflict || '');
+          return { data: clone(merged), error: null };
+        },
+        update(values) {
+          return createGenericUpdateBuilder(table, values);
+        },
+        delete() {
+          return createGenericDeleteBuilder(table);
+        },
       };
     },
   };
@@ -651,6 +965,12 @@ stubApi.setSession = function setSession(user) {
     },
   };
   persistState();
+};
+stubApi.seedTable = function seedTable(table, rows) {
+  setTableRows(table, rows);
+};
+stubApi.getTableRows = function getTableRowsPublic(table) {
+  return clone(getTableRows(table));
 };
 stubApi.clearPersistence = clearPersistedStateStorage;
 

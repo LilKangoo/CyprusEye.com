@@ -39,11 +39,21 @@ dist/
 │   ├── admin.css (30KB)
 │   └── admin.js (146KB)
 ├── assets/
+├── blog.html
+├── blog-post.html
 ├── js/
 ├── _headers
 ├── _redirects
 └── ...
 ```
+
+### 3. **Blog rollout included**
+- Public routes:
+  - `/blog`
+  - `/blog/<slug>`
+- Dynamic SEO for blog list and blog post is served through Functions/local `server.js`.
+- Before deployment, make sure blog migration `supabase/migrations/130_blog_posts_and_translations.sql` has been applied.
+- Admin panel now includes a `Blog` section for bilingual post management and partner approval workflow.
 
 ## Deployment Instructions for Cloudflare Pages
 
@@ -100,6 +110,12 @@ After deployment, test the admin panel:
    - Use admin credentials: `lilkangoomedia@gmail.com`
    - Should successfully authenticate and show admin dashboard
 
+4. **Test blog routes**
+   - `https://cypruseye.com/blog`
+   - `https://cypruseye.com/blog/<slug>`
+   - Verify title/description/canonical/hreflang in raw HTML
+   - Verify CTA cards and author byline on the public post
+
 ## Common Issues & Solutions
 
 ### Issue: Still getting 404s after deployment
@@ -151,6 +167,7 @@ The build script (`scripts/build.js`):
 - ✅ `.cloudflare-pages.toml` - Created new Cloudflare config
 - ✅ `_headers` - Fixed admin panel path formatting
 - ✅ `dist/` - Complete rebuild with all files
+- ✅ Blog public pages, Functions SEO handlers and admin blog workflow
 
 ## Next Steps
 
