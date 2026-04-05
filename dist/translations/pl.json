@@ -3812,6 +3812,12 @@
     }
   },
   "seo": {
+    "blog": {
+      "title": "Blog CyprusEye | Przewodniki, porady i inspiracje z Cypru",
+      "description": "Czytaj przewodniki CyprusEye, lokalne porady i inspiracje z Cypru wraz z polecanymi usługami, noclegami i wycieczkami.",
+      "ogTitle": "Blog CyprusEye | Przewodniki, porady i inspiracje z Cypru",
+      "ogDescription": "Przewodniki po Cyprze, praktyczne wskazówki i wybrane usługi od CyprusEye."
+    },
     "tasks": {
       "description": "Planuj swoje przygotowania do podróży, misje i przypomnienia w ramach listy zadań CyprusEye Quest.",
       "ogDescription": "Bądź na bieżąco z przygotowaniami i zrealizuj każdy cel przed lotem na Cypr."
@@ -3819,6 +3825,42 @@
     "packing": {
       "description": "Wybierz sezon podróży na Cypr i odhacz wszystko, co musisz spakować z planerem CyprusEye Quest.",
       "ogDescription": "Skorzystaj z gotowych list pakowania na każdy sezon na Cyprze i zachowaj porządek przed wyjazdem."
+    }
+  },
+  "blogUi": {
+    "list": {
+      "heroEyebrow": "Dziennik CyprusEye",
+      "heroTitle": "Historie, przewodniki i praktyczne wskazówki z Cypru.",
+      "heroSubtitle": "Dwujęzyczny blog połączony z realnymi usługami, noclegami i wycieczkami dostępnymi w aplikacji.",
+      "all": "Wszystkie wpisy",
+      "featured": "Wyróżnione",
+      "readMore": "Czytaj dalej",
+      "loading": "Ładowanie artykułów...",
+      "empty": "Nie ma jeszcze opublikowanych wpisów blogowych.",
+      "filteredEmpty": "Brak wpisów dla wybranego filtra.",
+      "error": "Nie udało się teraz wczytać bloga.",
+      "previous": "Poprzednia",
+      "next": "Następna"
+    },
+    "post": {
+      "kicker": "Artykuł CyprusEye",
+      "byline": "Autor",
+      "sidebarHeading": "Szybki przegląd",
+      "ctaEyebrow": "Kontynuuj z CyprusEye",
+      "ctaTitle": "Usługi powiązane z tym artykułem.",
+      "missingSlug": "Ten link do artykułu jest niekompletny.",
+      "notFound": "Nie udało się znaleźć tego wpisu blogowego.",
+      "error": "Artykuł nie może zostać teraz wczytany."
+    },
+    "admin": {
+      "title": "Blog",
+      "newPost": "Nowy wpis",
+      "status": "Status",
+      "submissionStatus": "Moderacja",
+      "approve": "Zatwierdź",
+      "reject": "Odrzuć",
+      "featured": "Wyróżnij",
+      "allowComments": "Zezwól na komentarze"
     }
   },
   "language": {

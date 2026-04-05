@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
+import { SUPABASE_CONFIG } from './js/config.js';
 import {
   applySeoToHtml,
   buildSeoPayload,
@@ -11,6 +12,13 @@ import {
   getSeoLanguage,
   resolveSeoRoute,
 } from './functions/_utils/pageSeo.js';
+import { getPublishedBlogListPage, getPublishedBlogPostBySlug } from './functions/_utils/blogData.js';
+import {
+  buildBlogListSeoPayload,
+  buildBlogPostSeoPayload,
+  createBlogPlaceholderHtml,
+  injectWindowPayload,
+} from './functions/_utils/blogSeo.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -901,6 +909,11 @@ function createServer() {
     }
 
     if (req.method === 'GET' || req.method === 'HEAD') {
+      const servedBlog = await tryServeBlogPage(req, url, res);
+      if (servedBlog) {
+        return;
+      }
+
       const served = await tryServeStaticFile(req, url, res);
       if (served) {
         return;
@@ -1106,6 +1119,169 @@ async function localizeHtmlForRequest(filePath, html, requestUrl) {
   });
 
   return applySeoToHtml(html, seoPayload);
+}
+
+function getBlogRuntimeEnv() {
+  const supabaseUrl = process.env.SUPABASE_URL || SUPABASE_CONFIG.url;
+  const anonKey = process.env.SUPABASE_ANON_KEY || SUPABASE_CONFIG.anonKey;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || anonKey;
+
+  return {
+    SUPABASE_URL: supabaseUrl,
+    SUPABASE_ANON_KEY: anonKey,
+    SUPABASE_SERVICE_ROLE_KEY: serviceKey,
+  };
+}
+
+function resolveBlogRequest(pathname) {
+  const relativePath = extractPathRelativeToBase(pathname);
+  if (relativePath === null) {
+    return null;
+  }
+
+  const normalized = String(relativePath || '').trim().replace(/^\/+|\/+$/g, '');
+  if (normalized === 'blog' || normalized === 'blog.html' || normalized === 'blog/index.html') {
+    return { kind: 'list' };
+  }
+
+  if (!normalized.startsWith('blog/')) {
+    return null;
+  }
+
+  const slug = normalized.slice('blog/'.length).trim().replace(/^\/+|\/+$/g, '');
+  if (!slug || slug === 'index.html' || slug.includes('/')) {
+    return null;
+  }
+
+  return { kind: 'post', slug };
+}
+
+async function loadBlogTemplate(templateName, fallbackHtml) {
+  try {
+    const templatePath = path.join(__dirname, templateName);
+    return await fs.readFile(templatePath, 'utf-8');
+  } catch (error) {
+    if (error?.code !== 'ENOENT') {
+      console.error(`Nie udało się odczytać szablonu bloga ${templateName}:`, error);
+    }
+    return fallbackHtml;
+  }
+}
+
+async function serveBlogHtml(req, res, html, statusCode = 200) {
+  const body = typeof html === 'string' ? html : '';
+  applySecurityHeaders(res);
+  res.writeHead(statusCode, {
+    'Content-Type': 'text/html; charset=utf-8',
+    'Content-Length': Buffer.byteLength(body),
+    'Cache-Control': 'no-cache',
+  });
+
+  if (req.method === 'HEAD') {
+    res.end();
+    return true;
+  }
+
+  res.end(body);
+  return true;
+}
+
+async function tryServeBlogPage(req, url, res) {
+  const blogRoute = resolveBlogRequest(url.pathname);
+  if (!blogRoute) {
+    return false;
+  }
+
+  const language = getSeoLanguage(url);
+  const runtimeEnv = getBlogRuntimeEnv();
+
+  if (blogRoute.kind === 'list') {
+    const page = Math.max(1, Number.parseInt(url.searchParams.get('page') || '1', 10) || 1);
+    const category = String(url.searchParams.get('category') || '').trim();
+    const tag = String(url.searchParams.get('tag') || '').trim();
+    const featured = String(url.searchParams.get('featured') || '').trim() === '1';
+    const templateHtml = await loadBlogTemplate(
+      'blog.html',
+      createBlogPlaceholderHtml({ language, kind: 'list' })
+    );
+
+    let preload = {
+      language,
+      items: [],
+      page,
+      pageSize: 12,
+      totalCount: 0,
+      filter: {
+        featured,
+        category,
+        tag,
+      },
+    };
+    try {
+      preload = {
+        language,
+        ...(await getPublishedBlogListPage(runtimeEnv, {
+          language,
+          page,
+          category,
+          tag,
+          featured,
+        })),
+      };
+    } catch (error) {
+      console.error('Nie udało się wczytać listy bloga na lokalnym serwerze:', error);
+    }
+
+    let html = injectWindowPayload(templateHtml, '__BLOG_LIST__', preload);
+    html = applySeoToHtml(
+      html,
+      buildBlogListSeoPayload({
+        language,
+        requestPathname: url.pathname,
+        requestSearch: url.search,
+      })
+    );
+
+    return serveBlogHtml(req, res, html, 200);
+  }
+
+  const templateHtml = await loadBlogTemplate(
+    'blog-post.html',
+    createBlogPlaceholderHtml({ language, kind: 'post' })
+  );
+
+  let post = null;
+  let statusCode = 200;
+
+  try {
+    post = await getPublishedBlogPostBySlug(runtimeEnv, {
+      language,
+      slug: blogRoute.slug,
+    });
+    if (!post) {
+      statusCode = 404;
+    }
+  } catch (error) {
+    console.error(`Nie udało się wczytać wpisu bloga "${blogRoute.slug}" na lokalnym serwerze:`, error);
+    statusCode = 500;
+  }
+
+  let html = injectWindowPayload(templateHtml, '__BLOG_POST__', {
+    language,
+    slug: blogRoute.slug,
+    post,
+  });
+  html = applySeoToHtml(
+    html,
+    buildBlogPostSeoPayload({
+      language,
+      requestPathname: url.pathname,
+      requestSearch: url.search,
+      post,
+    })
+  );
+
+  return serveBlogHtml(req, res, html, statusCode);
 }
 
 async function tryServeStaticFile(req, url, res) {

@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <script>(function(){try{var r=new URLSearchParams(location.search).get('ref');if(r&&r.trim()){localStorage.setItem('cypruseye_referral_code',JSON.stringify({code:r.trim(),capturedAt:Date.now(),expiresAt:Date.now()+12096e5}))}}catch(e){}})();</script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CyprusEye Blog</title>
+  <meta name="description" content="Read CyprusEye guides, local tips and travel inspiration for Cyprus." />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="CyprusEye Blog" />
+  <meta property="og:description" content="Read CyprusEye guides, local tips and travel inspiration for Cyprus." />
+  <meta property="og:url" content="https://www.cypruseye.com/blog" />
+  <meta property="og:image" content="https://www.cypruseye.com/assets/cyprus_logo-1000x1054.png" />
+  <meta property="og:locale" content="en_GB" />
+  <meta property="og:locale:alternate" content="pl_PL" />
+  <link rel="canonical" href="https://www.cypruseye.com/blog" />
+  <link rel="alternate" hreflang="pl" href="https://www.cypruseye.com/blog?lang=pl" />
+  <link rel="alternate" hreflang="en" href="https://www.cypruseye.com/blog?lang=en" />
+  <link rel="alternate" hreflang="x-default" href="https://www.cypruseye.com/blog" />
+  <link rel="icon" href="/assets/cyprus_logo-1000x1054.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/assets/css/tokens.css" />
+  <link rel="stylesheet" href="/assets/css/base.css?v=2" />
+  <link rel="stylesheet" href="/assets/css/components.css?v=14" />
+  <link rel="stylesheet" href="/assets/css/header-metrics.css" />
+  <link rel="stylesheet" href="/assets/css/rtl.css" />
+  <link rel="stylesheet" href="/assets/css/mobile.css" />
+  <link rel="stylesheet" href="/assets/css/language-switcher.css" />
+  <link rel="stylesheet" href="/assets/css/language-selector.css?v=2" />
+  <link rel="stylesheet" href="/assets/css/blog.css?v=20260405_2" />
+  <link rel="stylesheet" href="/css/modal-ios-fix.css?v=2" />
+  <link rel="stylesheet" href="/css/toast.css" />
+  <script type="module" src="/js/supabaseClient.js"></script>
+  <script type="module" src="/js/toast.js"></script>
+  <script type="module" src="/js/auth.js?v=7"></script>
+  <script type="module" src="/js/authUi.js?v=4"></script>
+  <script src="/js/footer-referral.js" defer></script>
+</head>
+<body class="blog-page" data-navigation="multi-page">
+  <header class="app-header nav-modern">
+    <div class="nav-modern__top" aria-label="Global header">
+      <div class="brand nav-modern__brand-block">
+        <a href="/index.html" class="nav-modern__brand-link" aria-label="CyprusEye Quest home">
+          <img
+            src="/assets/cyprus_logo-1000x1054.png"
+            alt="WakacjeCypr.com – logo żółwia z flagą Polski"
+            data-i18n-attrs="alt:header.logoAlt"
+            width="1000"
+            height="1054"
+            loading="eager"
+            fetchpriority="high"
+          />
+          <div class="brand-title" data-i18n="header.brand">
+            <p class="brand-name">CyprusEye Quest &amp; Travel</p>
+          </div>
+        </a>
+      </div>
+
+      <div class="nav-modern__stats nav-modern__stats-lite" data-auth="user-only">
+        <div class="stats-lite__pill">
+          <a href="/achievements.html" class="stats-lite__profile" id="profileButton" aria-label="Mój profil">
+            <img
+              id="headerUserAvatar"
+              class="profile-avatar"
+              src="/assets/cyprus_logo-1000x1054.png"
+              alt="Avatar"
+              width="48"
+              height="48"
+              loading="eager"
+            />
+            <div class="profile-info">
+              <p class="profile-name">Mój Profil</p>
+              <p class="profile-status">Poziom 1 • 0 odznak</p>
+            </div>
+          </a>
+
+          <div class="stats-lite__panel">
+            <div class="stats-lite__level">
+              <span class="stats-lite__label">LVL</span>
+              <span class="stats-lite__value" id="headerLevelNumber">1</span>
+            </div>
+
+            <div class="stats-lite__xp" role="img" aria-label="Postęp doświadczenia" data-i18n-attrs="aria-label:metrics.xp.aria">
+              <span class="stats-lite__xp-current"><span id="headerXpPoints">0</span> XP</span>
+              <div class="stats-lite__xp-bar">
+                <div class="stats-lite__xp-fill is-width-zero" id="headerXpFill"></div>
+              </div>
+            </div>
+
+            <div class="stats-lite__badges">
+              <span class="stats-lite__label">🏆</span>
+              <span class="stats-lite__value" id="headerBadgesCount">0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="nav-modern__top-actions">
+        <div class="nav-modern__auth">
+          <div id="auth-actions" class="auth-actions-inline" aria-live="polite">
+            <button
+              class="nav-modern__login"
+              data-open-auth
+              data-auth="anon-only"
+              data-tour-target="login-button"
+              data-i18n="header.login"
+              data-i18n-attrs="aria-label:auth.login.aria"
+              aria-label="Zaloguj do konta"
+            >
+              Zaloguj
+            </button>
+            <button class="btn btn-sm" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta" hidden>Wyloguj</button>
+          </div>
+          <div data-auth="spinner" class="auth-spinner-inline" aria-live="polite" data-i18n="auth.status.spinner" hidden>Łączenie...</div>
+        </div>
+
+        <button
+          id="sosToggle"
+          class="nav-modern__sos"
+          type="button"
+          aria-haspopup="dialog"
+          aria-controls="sosModal"
+          data-i18n="header.sosToggle"
+        >
+          ⚠️ SOS
+        </button>
+
+        <div class="language-pill-group" data-language-toggle aria-label="Language selector" data-i18n-attrs="aria-label:language.switcher.label">
+          <button type="button" class="language-pill" data-language-pill="pl" aria-pressed="false">PL</button>
+          <button type="button" class="language-pill" data-language-pill="en" aria-pressed="false">EN</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-modern__shell">
+      <div class="nav-modern__bars" data-tour-target="tabs-navigation">
+        <button class="nav-modern__toggle-btn" id="navToggleBtn" aria-expanded="false" aria-controls="navLinksRow" data-i18n="nav.toggle">
+          ☰ Nawigacja
+        </button>
+        <div class="nav-modern__links-row" id="navLinksRow" aria-label="Główna nawigacja i skróty" data-i18n-attrs="aria-label:header.quickActions.aria">
+          <nav class="nav-modern__tabs" role="tablist" data-i18n-attrs="aria-label:header.tabs.aria" aria-label="Nawigacja główna">
+            <a href="/index.html" class="nav-modern__tab is-active" id="headerAdventureTab" data-i18n="nav.adventure">🎯 Przygoda</a>
+            <a href="/community.html" class="nav-modern__tab" id="headerPackingTab" data-i18n="nav.community">💬 Społeczność</a>
+            <a href="/recommendations.html" class="nav-modern__tab" id="headerRecommendationsTab" data-i18n="nav.recommendations">✨ Polecane</a>
+            <a href="/tasks.html" class="nav-modern__tab" id="headerTasksTab" data-i18n="nav.tasks">☑️ Zadania</a>
+            <a href="/shop.html" class="nav-modern__tab" id="headerShopTab" data-i18n="nav.shop">🛍️ Sklep</a>
+          </nav>
+
+          <div class="nav-modern__chips">
+            <a class="nav-chip" href="/packing.html" data-i18n="nav.packing">🎒 Pakowanie</a>
+            <a class="nav-chip" href="/transport.html" data-i18n="header.coupon">🚕 Transport</a>
+            <a class="nav-chip" href="/car.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
+            <a class="nav-chip" href="/trips.html" data-i18n="nav.trips">🧭 Wycieczki</a>
+            <a class="nav-chip" href="/hotels.html" data-i18n="nav.hotels">🏨 Hotele</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div id="notificationsPanel" class="notifications-panel" hidden aria-live="polite">
+    <div class="notifications-panel-header">
+      <h3 data-i18n="notifications.title">Powiadomienia</h3>
+      <div class="notifications-panel-actions">
+        <button type="button" class="ghost" id="notificationsMarkAll" data-i18n="notifications.markAll">Oznacz wszystkie jako przeczytane</button>
+        <button type="button" class="ghost notifications-close" id="notificationsClose" aria-label="Zamknij powiadomienia" data-i18n="notifications.close">✕</button>
+      </div>
+    </div>
+    <p id="notificationsPanelEmpty" class="notifications-empty" data-i18n="notifications.empty">Zaloguj się, aby zobaczyć swoje powiadomienia.</p>
+    <ul id="notificationsPanelList" class="notifications-list" role="list"></ul>
+  </div>
+
+  <main class="blog-shell" id="blogShell">
+    <section class="blog-list-hero">
+      <div>
+        <span class="blog-list-hero__eyebrow" id="blogHeroEyebrow">CyprusEye Journal</span>
+        <h1 class="blog-list-hero__title" id="blogHeroTitle">Stories, guides and practical tips from Cyprus.</h1>
+        <p class="blog-list-hero__subtitle" id="blogHeroSubtitle">Curated blog posts in two languages, connected to the real services you can book in the app.</p>
+      </div>
+      <div class="blog-list-hero__metrics">
+        <article class="blog-hero-metric">
+          <span class="blog-hero-metric__value" id="blogMetricCount">0</span>
+          <span class="blog-hero-metric__label" id="blogMetricCountLabel">published articles</span>
+        </article>
+        <article class="blog-hero-metric">
+          <span class="blog-hero-metric__value" id="blogMetricTagCount">0</span>
+          <span class="blog-hero-metric__label" id="blogMetricTagLabel">topics to explore</span>
+        </article>
+        <article class="blog-hero-metric">
+          <span class="blog-hero-metric__value" id="blogMetricServiceCount">0</span>
+          <span class="blog-hero-metric__label" id="blogMetricServiceLabel">linked services</span>
+        </article>
+        <article class="blog-hero-metric">
+          <span class="blog-hero-metric__value" id="blogMetricLanguageCount">2</span>
+          <span class="blog-hero-metric__label" id="blogMetricLanguageLabel">languages</span>
+        </article>
+      </div>
+    </section>
+
+    <section class="blog-filter-bar">
+      <div id="blogFilters"></div>
+    </section>
+
+    <section id="blogFeaturedSection" class="blog-featured" hidden>
+      <div class="blog-featured__media">
+        <img id="blogFeaturedImage" src="/assets/cyprus_logo-1000x1054.png" alt="Featured article cover" />
+      </div>
+      <div class="blog-featured__body">
+        <div class="blog-meta-row">
+          <span class="blog-meta-pill" id="blogFeaturedBadge">Featured</span>
+          <span id="blogFeaturedDate"></span>
+        </div>
+        <h2 class="blog-featured__title" id="blogFeaturedTitle">Featured story</h2>
+        <p class="blog-featured__summary" id="blogFeaturedSummary"></p>
+        <a id="blogFeaturedLink" class="blog-featured__link" href="/blog">
+          <span id="blogFeaturedLinkLabel">Read article</span>
+          <span aria-hidden="true">→</span>
+        </a>
+      </div>
+    </section>
+
+    <div id="blogState" class="blog-state">Loading articles...</div>
+    <section id="blogGrid" class="blog-grid" hidden></section>
+    <nav id="blogPagination" class="blog-pagination" aria-label="Blog pagination" hidden></nav>
+  </main>
+
+  <div class="footer-referral" id="footerReferral" style="display:none;">
+    <p class="footer-referral-text">
+      <span style="font-size:1.25rem;">🎁</span>
+      <span data-i18n="footer.referral.invite">Zaproś znajomych i zdobądź bonusy!</span>
+    </p>
+    <div class="footer-referral-actions">
+      <button class="btn-ref btn-copy" id="footerCopyRef">
+        <span>📋</span> <span data-i18n="footer.referral.copy">Kopiuj link</span>
+      </button>
+      <button class="btn-ref btn-facebook" id="footerShareFb">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+        <span data-i18n="footer.referral.facebook">Facebook</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="sos-modal" id="sosModal" role="dialog" aria-labelledby="sosTitle" aria-modal="true" hidden>
+    <div class="sos-dialog">
+      <header class="sos-header">
+        <h2 id="sosTitle">🚨 SOS</h2>
+        <button id="sosClose" class="sos-close" aria-label="Close">✕</button>
+      </header>
+      <div class="sos-grid">
+        <a href="tel:+357 99 005 924" class="sos-card">
+          <span class="sos-icon">📞</span>
+          <span class="sos-label" id="blogSosCallLabel">Call us</span>
+          <span class="sos-detail">+357 99 005 924</span>
+        </a>
+        <a href="https://wa.me/48534073861" target="_blank" rel="noopener" class="sos-card">
+          <span class="sos-icon">💬</span>
+          <span class="sos-label" id="blogSosWhatsAppLabel">WhatsApp</span>
+          <span class="sos-detail" id="blogSosWhatsAppDetail">Immediate help</span>
+        </a>
+        <a href="tel:112" class="sos-card sos-card-emergency">
+          <span class="sos-icon">🚑</span>
+          <span class="sos-label" id="blogSosAmbulanceLabel">Ambulance</span>
+          <span class="sos-detail">112</span>
+        </a>
+        <a href="tel:199" class="sos-card sos-card-emergency">
+          <span class="sos-icon">🚒</span>
+          <span class="sos-label" id="blogSosFireLabel">Fire brigade</span>
+          <span class="sos-detail">199</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/languageSelector.js" defer></script>
+  <script src="/js/i18n.js" defer></script>
+  <script src="/js/header-dropdown.js" defer></script>
+  <script src="/js/languageSwitcher.js"></script>
+  <script src="/js/languageRefresh.js"></script>
+  <script src="/js/sos.js?v=1" defer></script>
+  <script src="/js/header-stats.js?v=2" defer></script>
+  <script type="module" src="/js/blog.js?v=20260405_2"></script>
+  <script src="/assets/js/modal-auth.js" defer></script>
+
+  <div id="auth-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="auth-title" aria-hidden="true">
+    <div class="modal__dialog" tabindex="-1" role="document">
+      <button class="modal__close" type="button" aria-label="Zamknij" data-close data-i18n-attrs="aria-label:auth.close.label">×</button>
+      <h2 id="auth-title" data-i18n="auth.title">Dołącz do przygody</h2>
+      <p class="auth-intro" data-i18n="auth.intro">Zaloguj się, utwórz konto lub graj jako gość.</p>
+      <div class="auth-modal__content" data-auth-view-root>
+        <div data-auth="login">
+          <div role="presentation">
+            <div class="auth-modal__tabs" role="tablist">
+              <button type="button" class="auth-modal__tab is-active" role="tab" id="authTabLogin" aria-selected="true" aria-controls="authPanelLogin" data-auth-tab="login" data-i18n="auth.tab.login">Logowanie</button>
+              <button type="button" class="auth-modal__tab" role="tab" id="authTabRegister" aria-selected="false" aria-controls="authPanelRegister" data-auth-tab="register" data-i18n="auth.tab.register" tabindex="-1">Rejestracja</button>
+            </div>
+            <div class="auth-modal__panels">
+              <section id="authPanelLogin" class="auth-modal__panel is-active" role="tabpanel" aria-labelledby="authTabLogin" data-auth="login" data-auth-panel="login">
+                <form id="form-login" class="auth-form" novalidate data-ce-auth-handler="supabase">
+                  <label for="loginEmail" data-i18n="auth.login.username">Email lub nazwa użytkownika</label>
+                  <input id="loginEmail" name="email" type="text" autocomplete="username" required aria-label="Email lub nazwa użytkownika" placeholder="Email lub nazwa użytkownika" />
+                  <label for="loginPassword" data-i18n="auth.password">Hasło</label>
+                  <input id="loginPassword" name="password" type="password" autocomplete="current-password" required aria-label="Hasło" />
+                  <div class="auth-form__actions">
+                    <button type="submit" class="btn btn--primary" data-i18n="auth.login.button" aria-label="Zaloguj się">Zaloguj się</button>
+                    <button type="button" class="auth-form__link" id="loginForgotPassword" data-i18n="auth.reset.button" aria-label="🔑 Resetuj hasło">🔑 Resetuj hasło</button>
+                  </div>
+                  <div data-auth="message" aria-live="polite"></div>
+                </form>
+              </section>
+              <section id="authPanelRegister" class="auth-modal__panel" role="tabpanel" aria-labelledby="authTabRegister" data-auth="login" data-auth-panel="register" hidden>
+                <form id="form-register" class="auth-form" novalidate data-auth="register" data-ce-auth-handler="supabase">
+                  <label for="registerFirstName" data-i18n="auth.firstName">Imię</label>
+                  <input id="registerFirstName" name="firstName" type="text" autocomplete="given-name" maxlength="60" required aria-label="Imię" />
+                  <label for="registerUsername" data-i18n="auth.username">Nazwa użytkownika</label>
+                  <input id="registerUsername" name="username" type="text" autocomplete="username" minlength="3" maxlength="20" pattern="[a-zA-Z0-9_]+" required aria-label="Nazwa użytkownika" placeholder="3-20 znaków, litery i cyfry" />
+                  <label for="registerEmail" data-i18n="auth.email">Adres e-mail</label>
+                  <input id="registerEmail" name="email" type="email" autocomplete="email" required aria-label="Adres e-mail" />
+                  <label for="registerPassword" data-i18n="auth.password">Hasło</label>
+                  <input id="registerPassword" name="password" type="password" autocomplete="new-password" minlength="8" required aria-label="Hasło" />
+                  <label for="registerPasswordConfirm" data-i18n="auth.confirmPassword">Powtórz hasło</label>
+                  <input id="registerPasswordConfirm" name="passwordConfirm" type="password" autocomplete="new-password" minlength="8" aria-label="Powtórz hasło" />
+                  <div data-auth="message" aria-live="polite"></div>
+                  <p class="form-hint" data-i18n="auth.register.hint">Po rejestracji sprawdź skrzynkę e-mail, aby potwierdzić konto.</p>
+                  <button type="submit" class="btn btn--primary" data-i18n="auth.register.button" aria-label="Utwórz konto">Utwórz konto</button>
+                </form>
+              </section>
+            </div>
+            <dialog id="resetPasswordDialog" class="auth-reset-dialog">
+              <form id="form-reset-password" class="auth-form" novalidate>
+                <header class="auth-reset-dialog__header">
+                  <h2 data-i18n="auth.reset.title">Resetuj hasło</h2>
+                  <button type="button" class="auth-form__link" id="btn-reset-close" aria-label="Zamknij">✖</button>
+                </header>
+                <p data-i18n="auth.reset.description">Podaj adres e-mail powiązany z kontem, a wyślemy link do zmiany hasła.</p>
+                <label for="resetEmail" data-i18n="auth.reset.emailLabel">Adres e-mail</label>
+                <input id="resetEmail" name="email" type="email" autocomplete="email" required />
+                <div class="auth-form__actions">
+                  <button type="submit" class="btn btn--primary">Wyślij link resetujący</button>
+                  <button type="button" class="auth-form__link" id="btn-reset-cancel">Anuluj</button>
+                </div>
+              </form>
+            </dialog>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

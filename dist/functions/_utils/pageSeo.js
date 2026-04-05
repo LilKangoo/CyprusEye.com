@@ -3,6 +3,12 @@ const DEFAULT_OG_IMAGE = 'assets/cyprus_logo-1000x1054.png';
 
 const PAGE_ROUTES = [
   {
+    seoPage: 'blog',
+    htmlPath: '/blog.html',
+    canonicalPath: '/blog',
+    exactPaths: ['/blog', '/blog/', '/blog.html'],
+  },
+  {
     seoPage: 'home',
     htmlPath: '/index.html',
     canonicalPath: '/index.html',
@@ -421,6 +427,7 @@ export function applySeoToHtml(html, payload) {
   const safePlUrl = escapeHtml(payload.languageUrls?.pl || '');
   const safeEnUrl = escapeHtml(payload.languageUrls?.en || '');
   const safeDefaultUrl = escapeHtml(payload.languageUrls?.xDefault || '');
+  const safeAuthor = escapeHtml(payload.authorName || '');
 
   nextHtml = nextHtml.replace(
     /<html([^>]*)lang=["'][^"']*["']([^>]*)>/i,
@@ -433,6 +440,13 @@ export function applySeoToHtml(html, payload) {
     /<meta\s+name=["']description["'][^>]*>/i,
     `  <meta name="description" content="${safeDescription}" />`
   );
+  if (safeAuthor) {
+    nextHtml = replaceOrInject(
+      nextHtml,
+      /<meta\s+name=["']author["'][^>]*>/i,
+      `  <meta name="author" content="${safeAuthor}" />`
+    );
+  }
   nextHtml = replaceOrInject(
     nextHtml,
     /<meta\s+property=["']og:type["'][^>]*>/i,

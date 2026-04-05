@@ -1397,10 +1397,19 @@ function stripTransportPartnerPayload(payload) {
   return next;
 }
 
+function stripBlogPartnerPayload(payload) {
+  const next = { ...(payload || {}) };
+  delete next.can_manage_blog;
+  delete next.can_auto_publish_blog;
+  return next;
+}
+
 function isPartnerPayloadSchemaError(error) {
   const msg = String(error?.message || '');
   return (
     isMissingColumnError(error, 'can_manage_transport')
+    || isMissingColumnError(error, 'can_manage_blog')
+    || isMissingColumnError(error, 'can_auto_publish_blog')
     || isMissingColumnError(error, 'affiliate_enabled')
     || /affiliate_/i.test(msg)
   );
@@ -1410,9 +1419,13 @@ function buildPartnerPayloadVariants(payload) {
   const base = { ...(payload || {}) };
   const variants = [
     base,
+    stripBlogPartnerPayload(base),
     stripTransportPartnerPayload(base),
     stripAffiliatePartnerPayload(base),
+    stripTransportPartnerPayload(stripBlogPartnerPayload(base)),
+    stripAffiliatePartnerPayload(stripBlogPartnerPayload(base)),
     stripAffiliatePartnerPayload(stripTransportPartnerPayload(base)),
+    stripAffiliatePartnerPayload(stripTransportPartnerPayload(stripBlogPartnerPayload(base))),
   ];
   const seen = new Set();
   return variants.filter((variant) => {
@@ -5778,14 +5791,14 @@ async function openPartnerForm(partnerId = null) {
     let partner = null;
     let error = null;
 
-    const selectFull = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_manage_transport, can_create_offers, can_view_stats, can_view_payouts, cars_locations, affiliate_enabled, affiliate_level1_bps_override, affiliate_level2_bps_override, affiliate_level3_bps_override';
-    const selectFullNoTransport = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_create_offers, can_view_stats, can_view_payouts, cars_locations, affiliate_enabled, affiliate_level1_bps_override, affiliate_level2_bps_override, affiliate_level3_bps_override';
-    const selectNoCars = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_manage_transport, can_create_offers, can_view_stats, can_view_payouts, affiliate_enabled, affiliate_level1_bps_override, affiliate_level2_bps_override, affiliate_level3_bps_override';
-    const selectNoCarsNoTransport = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_create_offers, can_view_stats, can_view_payouts, affiliate_enabled, affiliate_level1_bps_override, affiliate_level2_bps_override, affiliate_level3_bps_override';
-    const selectBase = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_manage_transport, can_create_offers, can_view_stats, can_view_payouts, cars_locations';
-    const selectBaseNoTransport = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_create_offers, can_view_stats, can_view_payouts, cars_locations';
-    const selectBaseNoCars = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_manage_transport, can_create_offers, can_view_stats, can_view_payouts';
-    const selectBaseNoCarsNoTransport = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_create_offers, can_view_stats, can_view_payouts';
+    const selectFull = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_manage_blog, can_auto_publish_blog, can_manage_transport, can_create_offers, can_view_stats, can_view_payouts, cars_locations, affiliate_enabled, affiliate_level1_bps_override, affiliate_level2_bps_override, affiliate_level3_bps_override';
+    const selectFullNoTransport = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_manage_blog, can_auto_publish_blog, can_create_offers, can_view_stats, can_view_payouts, cars_locations, affiliate_enabled, affiliate_level1_bps_override, affiliate_level2_bps_override, affiliate_level3_bps_override';
+    const selectNoCars = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_manage_blog, can_auto_publish_blog, can_manage_transport, can_create_offers, can_view_stats, can_view_payouts, affiliate_enabled, affiliate_level1_bps_override, affiliate_level2_bps_override, affiliate_level3_bps_override';
+    const selectNoCarsNoTransport = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_manage_blog, can_auto_publish_blog, can_create_offers, can_view_stats, can_view_payouts, affiliate_enabled, affiliate_level1_bps_override, affiliate_level2_bps_override, affiliate_level3_bps_override';
+    const selectBase = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_manage_blog, can_auto_publish_blog, can_manage_transport, can_create_offers, can_view_stats, can_view_payouts, cars_locations';
+    const selectBaseNoTransport = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_manage_blog, can_auto_publish_blog, can_create_offers, can_view_stats, can_view_payouts, cars_locations';
+    const selectBaseNoCars = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_manage_blog, can_auto_publish_blog, can_manage_transport, can_create_offers, can_view_stats, can_view_payouts';
+    const selectBaseNoCarsNoTransport = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_manage_blog, can_auto_publish_blog, can_create_offers, can_view_stats, can_view_payouts';
 
     const selectAttempts = [
       selectFull,
@@ -5810,6 +5823,8 @@ async function openPartnerForm(partnerId = null) {
       const recoverable =
         isMissingColumnError(error, 'cars_locations')
         || isMissingColumnError(error, 'can_manage_transport')
+        || isMissingColumnError(error, 'can_manage_blog')
+        || isMissingColumnError(error, 'can_auto_publish_blog')
         || isMissingColumnError(error, 'affiliate_enabled')
         || /affiliate_/i.test(msg);
       if (!recoverable) break;
@@ -5830,6 +5845,8 @@ async function openPartnerForm(partnerId = null) {
     setPartnerFormChecked('partnerFormCanManageCars', partner.can_manage_cars);
     setPartnerFormChecked('partnerFormCanManageTrips', partner.can_manage_trips);
     setPartnerFormChecked('partnerFormCanManageHotels', partner.can_manage_hotels);
+    setPartnerFormChecked('partnerFormCanManageBlog', partner.can_manage_blog);
+    setPartnerFormChecked('partnerFormCanAutoPublishBlog', partner.can_auto_publish_blog);
     let canManageTransport = Boolean(partner.can_manage_transport);
     if (partner.can_manage_transport == null) {
       try {
@@ -5862,6 +5879,8 @@ async function openPartnerForm(partnerId = null) {
     if (title) title.textContent = 'New partner';
     setPartnerFormValue('partnerFormStatus', 'active');
     setPartnerFormChecked('partnerFormCanViewStats', true);
+    setPartnerFormChecked('partnerFormCanManageBlog', false);
+    setPartnerFormChecked('partnerFormCanAutoPublishBlog', false);
     setPartnerFormChecked('partnerFormCanManageTransport', false);
 
     setPartnerFormCarsLocations([]);
@@ -5906,6 +5925,8 @@ async function savePartnerFromForm() {
     return;
   }
 
+  const canManageBlog = Boolean(document.getElementById('partnerFormCanManageBlog')?.checked);
+
   const payload = {
     name,
     slug,
@@ -5915,6 +5936,8 @@ async function savePartnerFromForm() {
     can_manage_cars: Boolean(document.getElementById('partnerFormCanManageCars')?.checked),
     can_manage_trips: Boolean(document.getElementById('partnerFormCanManageTrips')?.checked),
     can_manage_hotels: Boolean(document.getElementById('partnerFormCanManageHotels')?.checked),
+    can_manage_blog: canManageBlog,
+    can_auto_publish_blog: canManageBlog && Boolean(document.getElementById('partnerFormCanAutoPublishBlog')?.checked),
     can_manage_transport: Boolean(document.getElementById('partnerFormCanManageTransport')?.checked),
     can_create_offers: Boolean(document.getElementById('partnerFormCanCreateOffers')?.checked),
     can_view_stats: Boolean(document.getElementById('partnerFormCanViewStats')?.checked),
@@ -21916,6 +21939,11 @@ function switchView(viewName) {
       break;
     case 'content':
       loadContentData();
+      break;
+    case 'blog':
+      if (typeof window.loadBlogAdminData === 'function') {
+        window.loadBlogAdminData();
+      }
       break;
     case 'moderation':
       loadModerationData();

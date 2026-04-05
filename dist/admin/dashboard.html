@@ -28,7 +28,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="/assets/css/tokens.css?v=20251107" />
   <link rel="stylesheet" href="/assets/css/base.css?v=20251107" />
-  <link rel="stylesheet" href="/admin/admin.css?v=20260304_1" />
+  <link rel="stylesheet" href="/admin/admin.css?v=20260405_2" />
   
   <!-- Auth meta -->
   <meta name="ce-auth" content="required" />
@@ -41,7 +41,9 @@
   <script src="/admin/universal-i18n-component.js?v=20250111"></script>
   <script src="/admin/poi-i18n-form.js?v=20250111"></script>
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
-  <script type="module" src="/admin/admin.js?v=20260304_1"></script>
+  <script src="/admin/blog-i18n-form.js?v=20260405_2"></script>
+  <script type="module" src="/admin/blog-admin.js?v=20260405_2"></script>
+  <script type="module" src="/admin/admin.js?v=20260405_2"></script>
   <script src="/admin/admin-pwa.js?v=20260221_4" defer></script>
 </head>
 <body data-admin-panel="true">
@@ -221,6 +223,17 @@
             <polyline points="10 9 9 9 8 9"/>
           </svg>
           <span>Content</span>
+        </button>
+
+        <button class="admin-nav-item" data-view="blog">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+            <path d="M8 7h8"/>
+            <path d="M8 11h8"/>
+            <path d="M8 15h5"/>
+          </svg>
+          <span>Blog</span>
         </button>
 
         <button class="admin-nav-item" data-view="moderation">
@@ -3398,6 +3411,115 @@
           <span class="pagination-info">Page 1</span>
           <button class="btn-pagination" disabled>Next</button>
         </div>
+      </section>
+
+      <section class="admin-view" id="viewBlog" hidden>
+        <header class="admin-view-header">
+          <div>
+            <h2>Blog</h2>
+            <p class="admin-view-subtitle">Bilingual articles, service CTAs, author bylines and partner approval workflow</p>
+          </div>
+          <div class="admin-view-actions">
+            <button class="btn-secondary" type="button" id="btnRefreshBlog">Refresh</button>
+            <button class="btn-primary" type="button" id="btnAddBlog">New post</button>
+          </div>
+        </header>
+
+        <div class="admin-stats-grid">
+          <div class="admin-stat-card">
+            <div class="stat-card-content">
+              <p class="stat-card-label">Total posts</p>
+              <p class="stat-card-value" id="blogStatTotal">-</p>
+              <p class="stat-card-change">All records</p>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="stat-card-content">
+              <p class="stat-card-label">Published</p>
+              <p class="stat-card-value" id="blogStatPublished">-</p>
+              <p class="stat-card-change">Live on site</p>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="stat-card-content">
+              <p class="stat-card-label">Pending approval</p>
+              <p class="stat-card-value" id="blogStatPending">-</p>
+              <p class="stat-card-change">Needs review</p>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="stat-card-content">
+              <p class="stat-card-label">Partner-owned</p>
+              <p class="stat-card-value" id="blogStatPartnerOwned">-</p>
+              <p class="stat-card-change">Partner workflow</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <h3>Filters</h3>
+          </div>
+          <div class="admin-card-body">
+            <div class="admin-form-grid blog-admin-toolbar">
+              <label class="admin-form-field">
+                <span>Search</span>
+                <input id="blogAdminSearch" type="text" placeholder="title, slug, tag, partner, author" />
+              </label>
+              <label class="admin-form-field">
+                <span>Status</span>
+                <select id="blogAdminStatusFilter">
+                  <option value="">All</option>
+                  <option value="draft">Draft</option>
+                  <option value="scheduled">Scheduled</option>
+                  <option value="published">Published</option>
+                  <option value="archived">Archived</option>
+                </select>
+              </label>
+              <label class="admin-form-field">
+                <span>Submission</span>
+                <select id="blogAdminSubmissionFilter">
+                  <option value="">All</option>
+                  <option value="draft">Draft</option>
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </label>
+              <label class="admin-form-field">
+                <span>Partner</span>
+                <select id="blogAdminPartnerFilter">
+                  <option value="">All</option>
+                </select>
+              </label>
+              <div class="admin-form-field blog-admin-toolbar__reset">
+                <span>&nbsp;</span>
+                <button class="btn-secondary" type="button" id="btnClearBlogFilters">Clear filters</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-table-container">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Article</th>
+                <th>Owner</th>
+                <th>Status</th>
+                <th>Submission</th>
+                <th>Published</th>
+                <th>Updated</th>
+                <th style="text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="blogTableBody">
+              <tr><td colspan="7" class="table-loading">Loading blog posts...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="blog-admin-pagination" id="blogAdminPagination"></div>
       </section>
 
       <!-- Diagnostics View -->
@@ -6584,6 +6706,8 @@
               <label class="admin-checkbox"><input type="checkbox" id="partnerFormCanManageCars" /><span>Can manage cars</span></label>
               <label class="admin-checkbox"><input type="checkbox" id="partnerFormCanManageTrips" /><span>Can manage trips</span></label>
               <label class="admin-checkbox"><input type="checkbox" id="partnerFormCanManageHotels" /><span>Can manage hotels</span></label>
+              <label class="admin-checkbox"><input type="checkbox" id="partnerFormCanManageBlog" /><span>Can manage blog</span></label>
+              <label class="admin-checkbox"><input type="checkbox" id="partnerFormCanAutoPublishBlog" /><span>Can auto-publish blog</span></label>
               <label class="admin-checkbox"><input type="checkbox" id="partnerFormCanManageTransport" /><span>Can manage transport</span></label>
               <label class="admin-checkbox"><input type="checkbox" id="partnerFormCanCreateOffers" /><span>Can create offers</span></label>
               <label class="admin-checkbox"><input type="checkbox" id="partnerFormCanViewStats" /><span>Can view stats</span></label>
@@ -6830,6 +6954,153 @@
             </tbody>
           </table>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="admin-modal" id="blogFormModal" hidden>
+    <div class="admin-modal-overlay" id="blogFormModalOverlay"></div>
+    <div class="admin-modal-content blog-modal-content">
+      <header class="admin-modal-header">
+        <h3 id="blogFormModalTitle">New blog post</h3>
+        <button class="btn-modal-close" id="btnCloseBlogForm">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </header>
+      <div class="admin-modal-body blog-modal-body">
+        <form id="blogForm" class="admin-form blog-admin-form" novalidate>
+          <input type="hidden" id="blogFormId" />
+
+          <section class="blog-form-section">
+            <header class="blog-form-section__head">
+              <div>
+                <h4>Workflow</h4>
+                <p>Publication lifecycle, moderation state and partner ownership.</p>
+              </div>
+            </header>
+            <div class="admin-form-grid blog-form-grid">
+              <label class="admin-form-field">
+                <span>Status</span>
+                <select id="blogFormStatus">
+                  <option value="draft">Draft</option>
+                  <option value="scheduled">Scheduled</option>
+                  <option value="published">Published</option>
+                  <option value="archived">Archived</option>
+                </select>
+              </label>
+              <label class="admin-form-field">
+                <span>Submission status</span>
+                <select id="blogFormSubmissionStatus">
+                  <option value="draft">Draft</option>
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </label>
+              <label class="admin-form-field">
+                <span>Published at</span>
+                <input id="blogFormPublishedAt" type="datetime-local" />
+              </label>
+              <label class="admin-form-field">
+                <span>Owner partner</span>
+                <select id="blogFormOwnerPartner">
+                  <option value="">Admin-owned</option>
+                </select>
+              </label>
+              <label class="admin-form-field">
+                <span>Fallback author profile</span>
+                <select id="blogFormAuthorProfile">
+                  <option value="">No profile fallback</option>
+                </select>
+              </label>
+              <label class="admin-form-field">
+                <span>Review details</span>
+                <div class="blog-review-meta" id="blogReviewMeta">Not reviewed yet.</div>
+              </label>
+            </div>
+            <div class="blog-inline-checks">
+              <label class="admin-checkbox"><input type="checkbox" id="blogFormFeatured" /><span>Featured on blog list</span></label>
+              <label class="admin-checkbox"><input type="checkbox" id="blogFormAllowComments" /><span>Allow comments later</span></label>
+            </div>
+          </section>
+
+          <section class="blog-form-section">
+            <header class="blog-form-section__head">
+              <div>
+                <h4>Cover and taxonomy</h4>
+                <p>Upload the hero image, then set categories and tags used by filters and SEO.</p>
+              </div>
+            </header>
+            <div class="admin-form-grid blog-form-grid">
+              <label class="admin-form-field blog-form-grid__wide">
+                <span>Cover image URL</span>
+                <div class="blog-cover-input-row">
+                  <input id="blogFormCoverUrl" type="url" placeholder="https://..." />
+                  <button class="btn-upload-image" type="button" id="btnBlogCoverUpload">Upload cover</button>
+                  <input id="blogFormCoverFile" type="file" accept="image/jpeg,image/png,image/webp,image/jpg" hidden />
+                </div>
+              </label>
+              <label class="admin-form-field">
+                <span>Categories</span>
+                <input id="blogFormCategories" type="text" placeholder="Guides, Lefkara, Transport" />
+                <small>Comma separated. Used in filters and badges.</small>
+              </label>
+              <label class="admin-form-field">
+                <span>Tags</span>
+                <input id="blogFormTags" type="text" placeholder="cyprus, day-trip, local-tip" />
+                <small>Comma separated. Used in filters and article discovery.</small>
+              </label>
+            </div>
+            <div class="blog-cover-preview" id="blogFormCoverPreview" hidden>
+              <img id="blogFormCoverPreviewImage" src="/assets/cyprus_logo-1000x1054.png" alt="Blog cover preview" />
+            </div>
+          </section>
+
+          <section class="blog-form-section">
+            <header class="blog-form-section__head">
+              <div>
+                <h4>Linked service CTA</h4>
+                <p>Choose up to 3 real services shown under the article.</p>
+              </div>
+              <button class="btn-secondary" type="button" id="btnBlogAddCta">Add service</button>
+            </header>
+            <div id="blogFormCtaRows" class="blog-cta-rows"></div>
+          </section>
+
+          <section class="blog-form-section">
+            <header class="blog-form-section__head">
+              <div>
+                <h4>Translations and editor</h4>
+                <p>PL and EN are required. Slugs are per-language and can be edited manually.</p>
+              </div>
+              <div class="blog-editor-runtime-note" id="blogEditorRuntimeNote">TipTap loading…</div>
+            </header>
+            <div id="blogFormTranslations"></div>
+          </section>
+
+          <section class="blog-form-section">
+            <header class="blog-form-section__head">
+              <div>
+                <h4>Moderation note</h4>
+                <p>Visible only when a submission is rejected. Admin can explain what needs to be fixed.</p>
+              </div>
+            </header>
+            <label class="admin-form-field">
+              <span>Rejection reason</span>
+              <textarea id="blogFormRejectionReason" rows="3" placeholder="Optional moderation note for partner submissions"></textarea>
+            </label>
+          </section>
+
+          <div class="admin-modal-actions">
+            <button class="btn-secondary" type="button" id="btnDeleteBlogPost" hidden>Delete post</button>
+            <div class="blog-modal-actions-spacer"></div>
+            <button class="btn-secondary" type="button" id="btnCancelBlogForm">Cancel</button>
+            <button class="btn-primary" type="submit" id="btnSaveBlogForm">Save post</button>
+          </div>
+        </form>
       </div>
     </div>
   </div>

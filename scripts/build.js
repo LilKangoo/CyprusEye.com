@@ -108,6 +108,8 @@ async function copyStaticFiles() {
     // Kopiuj HTML files
     const htmlFiles = [
       '404.html',
+      'blog.html',
+      'blog-post.html',
       'deposit.html',
       'trip-date-selection.html',
       'index.html',
@@ -241,6 +243,7 @@ async function generateSitemap() {
         urls.push(...(await walk(nextAbs, nextRel)));
       } else if (e.isFile() && name.endsWith('.html')) {
         if (/^404\.html$/i.test(name)) continue;
+        if (/^blog-post\.html$/i.test(name)) continue;
         if (/^partners\.html$/i.test(name)) continue;
         if (/^trip-date-selection\.html$/i.test(name)) continue;
         if (/^(TEST_|test-|debug-|STANDARD_|simple-test)/i.test(name)) continue;

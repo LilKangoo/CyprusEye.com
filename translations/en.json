@@ -547,6 +547,12 @@
       "ogTitle": "Recommendations – CyprusEye Quest",
       "ogDescription": "Discover curated recommendations – the best places, restaurants, hotels and attractions in Cyprus with exclusive discounts."
     },
+    "blog": {
+      "title": "CyprusEye Blog | Cyprus travel guides, tips and ideas",
+      "description": "Read CyprusEye guides, local tips and travel inspiration for Cyprus, with helpful links to trips, stays and services.",
+      "ogTitle": "CyprusEye Blog | Cyprus travel guides, tips and ideas",
+      "ogDescription": "Cyprus travel stories, practical tips and curated services from CyprusEye."
+    },
     "notFound": {
       "title": "Page not found – CyprusEye",
       "description": "Sorry, the CyprusEye page you requested could not be found. Please check the address or explore our offers.",
@@ -567,6 +573,42 @@
     },
     "community": {
       "title": "Community - Comments and photos from Cyprus | CyprusEye Quest"
+    }
+  },
+  "blogUi": {
+    "list": {
+      "heroEyebrow": "CyprusEye Journal",
+      "heroTitle": "Stories, guides and practical tips from Cyprus.",
+      "heroSubtitle": "Curated blog posts in two languages, connected to the real services you can book in the app.",
+      "all": "All posts",
+      "featured": "Featured",
+      "readMore": "Read article",
+      "loading": "Loading articles...",
+      "empty": "No blog posts are published yet.",
+      "filteredEmpty": "No posts match this filter yet.",
+      "error": "We could not load blog posts right now.",
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "post": {
+      "kicker": "CyprusEye story",
+      "byline": "Written by",
+      "sidebarHeading": "Quick overview",
+      "ctaEyebrow": "Continue with CyprusEye",
+      "ctaTitle": "Useful services linked to this article.",
+      "missingSlug": "This article link is incomplete.",
+      "notFound": "We could not find this blog post.",
+      "error": "The article could not be loaded right now."
+    },
+    "admin": {
+      "title": "Blog",
+      "newPost": "New post",
+      "status": "Status",
+      "submissionStatus": "Submission",
+      "approve": "Approve",
+      "reject": "Reject",
+      "featured": "Featured",
+      "allowComments": "Allow comments"
     }
   },
   "home": {
