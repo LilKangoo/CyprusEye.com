@@ -4226,17 +4226,26 @@ select#orderStatusFilter:focus {
 }
 
 .blog-modal-content {
-  width: min(1200px, calc(100vw - 36px));
-  max-height: calc(100vh - 32px);
+  width: min(1360px, calc(100vw - 24px));
+  height: min(94dvh, 1100px);
+  max-height: calc(100dvh - 12px);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
 }
 
 .blog-modal-body {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding: 22px 24px;
+}
+
+.blog-admin-form {
   display: grid;
   gap: 16px;
-  overflow: auto;
-  padding: 22px 24px;
+  min-height: 0;
 }
 
 .blog-form-section {
@@ -4326,6 +4335,7 @@ select#orderStatusFilter:focus {
 .blog-form-section__body {
   display: grid;
   gap: 16px;
+  min-width: 0;
   padding: 0 18px 18px;
 }
 
@@ -4567,6 +4577,7 @@ select#orderStatusFilter:focus {
 .blog-editor-shell {
   display: grid;
   gap: 10px;
+  min-height: 0;
 }
 
 .blog-editor-toolbar {
@@ -4593,15 +4604,20 @@ select#orderStatusFilter:focus {
 
 .blog-editor-host,
 .blog-editor-fallback {
-  min-height: 280px;
+  min-height: 320px;
+  max-height: min(58dvh, 640px);
   border-radius: 16px;
   border: 1px solid rgba(148, 163, 184, 0.2);
   background: rgba(15, 23, 42, 0.3);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .blog-editor-surface,
 .blog-editor-surface__inner {
-  min-height: 280px;
+  min-height: 320px;
+  height: 100%;
 }
 
 .blog-editor-surface__inner {
@@ -4609,6 +4625,9 @@ select#orderStatusFilter:focus {
   color: var(--admin-text);
   outline: none;
   line-height: 1.7;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
 }
 
 .blog-editor-surface__inner h2,
@@ -4663,15 +4682,34 @@ select#orderStatusFilter:focus {
   grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.8fr);
   gap: 18px;
   align-items: start;
+  min-width: 0;
 }
 
 .blog-form-content-layout__main {
   min-width: 0;
 }
 
+.blog-form-content-layout__main .lang-content,
+#blogFormTranslationSeo .lang-content,
+#blogFormTranslationAuthor .lang-content {
+  display: none;
+  max-height: none;
+  overflow: visible;
+  opacity: 1;
+  padding: 0;
+  transition: none;
+}
+
+.blog-form-content-layout__main .lang-content.active,
+#blogFormTranslationSeo .lang-content.active,
+#blogFormTranslationAuthor .lang-content.active {
+  display: block;
+  padding-top: 16px;
+}
+
 .blog-preview-card {
   position: sticky;
-  top: 0;
+  top: 4px;
   display: grid;
   gap: 12px;
   border-radius: 18px;
@@ -9064,7 +9102,8 @@ select#orderStatusFilter:focus {
   .blog-modal-content {
     width: 100% !important;
     max-width: 100% !important;
-    max-height: calc(100dvh - 12px);
+    height: calc(100dvh - 8px);
+    max-height: calc(100dvh - 8px);
     border-radius: 14px;
   }
 
@@ -9087,6 +9126,12 @@ select#orderStatusFilter:focus {
     overflow-x: auto;
     flex-wrap: nowrap;
     -webkit-overflow-scrolling: touch;
+  }
+
+  .blog-editor-host,
+  .blog-editor-fallback {
+    min-height: min(42dvh, 340px);
+    max-height: min(48dvh, 420px);
   }
 
   .blog-admin-actions {
