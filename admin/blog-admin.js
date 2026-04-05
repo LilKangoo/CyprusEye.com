@@ -56,6 +56,10 @@ const blogAdminState = {
   profiles: [],
   profilesById: {},
   resourcesByType: {},
+  taxonomySuggestions: {
+    categories: [],
+    tags: [],
+  },
   currentPage: 1,
   filterSearch: '',
   filterStatus: '',
@@ -64,9 +68,28 @@ const blogAdminState = {
   formMode: 'create',
   editingId: '',
   slugDirtyByLang: { pl: false, en: false },
+  autoFillLocks: {},
+  sessionDirty: {},
+  activeTranslationLang: 'pl',
+  pendingSubmitAction: 'save',
   editors: new Map(),
   tiptapModules: null,
   tiptapFallback: false,
+};
+
+const BLOG_FORM_SECTIONS = {
+  basic: { defaultOpen: true },
+  content: { defaultOpen: true },
+  seo: { defaultOpen: false },
+  ownership: { defaultOpen: false },
+  cta: { defaultOpen: false },
+  moderation: { defaultOpen: false },
+};
+
+const BLOG_COPY_FIELDS = {
+  content: ['title', 'summary', 'lead', 'content_html'],
+  seo: ['meta_title', 'meta_description', 'og_image_url', 'cover_alt'],
+  author: ['author_name', 'author_url'],
 };
 
 function $(selector, root = document) {
@@ -127,6 +150,93 @@ function parseCsvList(value) {
       .map((entry) => entry.trim())
       .filter(Boolean)
   ));
+}
+
+function createTranslationState(seed = false) {
+  const base = {};
+  const fields = ['title', 'slug', 'summary', 'lead', 'meta_title', 'meta_description', 'author_name', 'author_url', 'og_image_url', 'cover_alt', 'content_html'];
+  const initial = Boolean(seed);
+  (window.BLOG_TRANSLATION_LANGUAGES || []).forEach((lang) => {
+    base[lang.code] = fields.reduce((accumulator, field) => {
+      accumulator[field] = initial;
+      return accumulator;
+    }, {});
+  });
+  return base;
+}
+
+function getTranslationFieldSelector(field, lang) {
+  if (field === 'content_html') {
+    return `[data-blog-editor-fallback="${lang}"]`;
+  }
+  return `[name="${field}_${lang}"]`;
+}
+
+function getTranslationFieldNode(field, lang) {
+  return $(getTranslationFieldSelector(field, lang), getBlogFormRoot());
+}
+
+function getTranslationFieldValue(field, lang) {
+  if (field === 'content_html') {
+    return String(getEditorContentValue(lang)?.content_html || '').trim();
+  }
+  return String(getTranslationFieldNode(field, lang)?.value || '').trim();
+}
+
+function setTranslationFieldValue(field, lang, value, options = {}) {
+  const normalized = String(value || '');
+  if (field === 'content_html') {
+    const entry = blogAdminState.editors.get(lang);
+    if (entry?.editor) {
+      entry.programmaticUpdate = (entry.programmaticUpdate || 0) + 1;
+      entry.editor.commands.setContent(normalized || '<p></p>', false);
+      entry.programmaticUpdate = Math.max(0, (entry.programmaticUpdate || 1) - 1);
+    }
+    const textarea = getTranslationFieldNode(field, lang);
+    if (textarea) {
+      textarea.value = normalized;
+    }
+  } else {
+    const node = getTranslationFieldNode(field, lang);
+    if (node) {
+      node.value = normalized;
+    }
+  }
+
+  if (options.markDirty) {
+    blogAdminState.sessionDirty[lang] = blogAdminState.sessionDirty[lang] || {};
+    blogAdminState.sessionDirty[lang][field] = true;
+  }
+}
+
+function setAutoFillLock(lang, field, value = true) {
+  blogAdminState.autoFillLocks[lang] = blogAdminState.autoFillLocks[lang] || {};
+  blogAdminState.autoFillLocks[lang][field] = Boolean(value);
+}
+
+function isAutoFillLocked(lang, field) {
+  return Boolean(blogAdminState.autoFillLocks?.[lang]?.[field]);
+}
+
+function markSessionDirty(lang, field) {
+  blogAdminState.sessionDirty[lang] = blogAdminState.sessionDirty[lang] || {};
+  blogAdminState.sessionDirty[lang][field] = true;
+}
+
+function isSessionDirty(lang, field) {
+  return Boolean(blogAdminState.sessionDirty?.[lang]?.[field]);
+}
+
+function firstSentence(value) {
+  const text = String(value || '').trim().replace(/\s+/g, ' ');
+  if (!text) return '';
+  const match = text.match(/^.*?[.!?](?:\s|$)/);
+  return (match ? match[0] : text).trim();
+}
+
+function getActiveTranslationLang() {
+  const active = $('.lang-tab[data-field="blogTranslation"].active', getBlogFormRoot());
+  return String(active?.dataset.lang || blogAdminState.activeTranslationLang || 'pl').trim() || 'pl';
 }
 
 function formatDateTime(value) {
@@ -244,16 +354,21 @@ function closeModal() {
   blogAdminState.editingId = '';
   blogAdminState.formMode = 'create';
   blogAdminState.slugDirtyByLang = { pl: false, en: false };
-  const translationsMount = $('#blogFormTranslations');
-  if (translationsMount) {
-    translationsMount.innerHTML = '';
-  }
   const ctaRows = $('#blogFormCtaRows');
   if (ctaRows) {
     ctaRows.innerHTML = '';
   }
+  ['blogFormTranslationContent', 'blogFormTranslationSeo', 'blogFormTranslationAuthor'].forEach((id) => {
+    const node = document.getElementById(id);
+    if (node) node.innerHTML = '';
+  });
   setCoverPreview('');
   setReviewMeta(null);
+  blogAdminState.pendingSubmitAction = 'save';
+  blogAdminState.activeTranslationLang = 'pl';
+  blogAdminState.sessionDirty = createTranslationState(false);
+  blogAdminState.autoFillLocks = createTranslationState(false);
+  resetSectionState();
 }
 
 function setReviewMeta(post = null) {
@@ -267,6 +382,247 @@ function setReviewMeta(post = null) {
     ? ` • reason: ${post.rejection_reason}`
     : '';
   node.textContent = `Reviewed ${formatDateTime(post.reviewed_at)} • reviewer ${String(post.reviewed_by || '').slice(0, 8) || 'unknown'}${rejection}`;
+}
+
+function setSectionOpen(sectionKey, open) {
+  const section = $(`[data-blog-section="${sectionKey}"]`, getBlogFormRoot());
+  const body = $(`#blogSection${sectionKey.charAt(0).toUpperCase()}${sectionKey.slice(1)}Body`, getBlogFormRoot());
+  const toggle = $(`[data-blog-section-toggle="${sectionKey}"]`, getBlogFormRoot());
+  const nextOpen = Boolean(open);
+  if (section) {
+    section.classList.toggle('is-open', nextOpen);
+  }
+  if (toggle) {
+    toggle.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
+  }
+  if (body) {
+    body.hidden = !nextOpen;
+  }
+}
+
+function resetSectionState() {
+  Object.entries(BLOG_FORM_SECTIONS).forEach(([sectionKey, config]) => {
+    setSectionOpen(sectionKey, Boolean(config.defaultOpen));
+  });
+}
+
+function setSectionStatus(sectionKey, tone, text) {
+  const node = $(`[data-blog-section-status="${sectionKey}"]`, getBlogFormRoot());
+  if (!node) return;
+  node.textContent = text;
+  node.dataset.tone = tone || 'muted';
+}
+
+function collectTaxonomySuggestions(kind) {
+  const bag = new Set();
+  blogAdminState.items.forEach((item) => {
+    safeArray(item?.[kind]).forEach((entry) => {
+      const value = String(entry || '').trim();
+      if (value) bag.add(value);
+    });
+  });
+  blogAdminState.taxonomySuggestions[kind] = Array.from(bag).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
+}
+
+function getTaxonomyValues(kind) {
+  return parseCsvList($(`#blogForm${kind.charAt(0).toUpperCase()}${kind.slice(1)}`)?.value || '');
+}
+
+function renderTaxonomyPicker(kind) {
+  const selectedNode = $(`#blogForm${kind.charAt(0).toUpperCase()}${kind.slice(1)}Selected`, getBlogFormRoot());
+  const suggestionsNode = $(`#blogForm${kind.charAt(0).toUpperCase()}${kind.slice(1)}Suggestions`, getBlogFormRoot());
+  const values = getTaxonomyValues(kind);
+  const suggestions = (blogAdminState.taxonomySuggestions[kind] || []).filter((value) => !values.includes(value)).slice(0, 16);
+  if (selectedNode) {
+    selectedNode.innerHTML = values.length
+      ? values.map((value) => `
+        <button class="blog-chip blog-chip--selected" type="button" data-blog-taxonomy-remove="${kind}" data-value="${escapeHtml(value)}">
+          <span>${escapeHtml(value)}</span>
+          <span aria-hidden="true">×</span>
+        </button>
+      `).join('')
+      : '<span class="blog-chip-picker__empty">No items selected yet.</span>';
+  }
+  if (suggestionsNode) {
+    suggestionsNode.innerHTML = suggestions.map((value) => `
+      <button class="blog-chip" type="button" data-blog-taxonomy-pick="${kind}" data-value="${escapeHtml(value)}">${escapeHtml(value)}</button>
+    `).join('');
+  }
+}
+
+function setTaxonomyValues(kind, values) {
+  const input = $(`#blogForm${kind.charAt(0).toUpperCase()}${kind.slice(1)}`, getBlogFormRoot());
+  if (!input) return;
+  input.value = Array.from(new Set(safeArray(values).map((entry) => String(entry || '').trim()).filter(Boolean))).join(', ');
+  renderTaxonomyPicker(kind);
+  refreshFormUi();
+}
+
+function addTaxonomyValue(kind, rawValue) {
+  const value = String(rawValue || '').trim();
+  if (!value) return;
+  const current = getTaxonomyValues(kind);
+  if (current.includes(value)) {
+    const composer = $(`#blogForm${kind.charAt(0).toUpperCase()}${kind.slice(1)}Input`, getBlogFormRoot());
+    if (composer) composer.value = '';
+    return;
+  }
+  setTaxonomyValues(kind, [...current, value]);
+  const composer = $(`#blogForm${kind.charAt(0).toUpperCase()}${kind.slice(1)}Input`, getBlogFormRoot());
+  if (composer) composer.value = '';
+}
+
+function removeTaxonomyValue(kind, rawValue) {
+  const value = String(rawValue || '').trim();
+  setTaxonomyValues(kind, getTaxonomyValues(kind).filter((entry) => entry !== value));
+}
+
+function renderAllTaxonomyPickers() {
+  collectTaxonomySuggestions('categories');
+  collectTaxonomySuggestions('tags');
+  renderTaxonomyPicker('categories');
+  renderTaxonomyPicker('tags');
+}
+
+function setFieldInvalid(field, lang, invalid) {
+  const node = getTranslationFieldNode(field, lang);
+  const shell = field === 'content_html'
+    ? $(`[data-blog-editor-shell="${lang}"]`, getBlogFormRoot())
+    : node?.closest('.admin-form-field');
+  if (shell) {
+    shell.classList.toggle('is-invalid', Boolean(invalid));
+  }
+}
+
+function updateCharCounts() {
+  (window.BLOG_TRANSLATION_LANGUAGES || []).forEach((lang) => {
+    const value = getTranslationFieldValue('meta_description', lang.code);
+    const node = $(`[data-blog-char-count="meta_description:${lang.code}"]`, getBlogFormRoot());
+    if (node) {
+      node.textContent = `${value.length} / 160`;
+      node.dataset.tone = value.length > 160 ? 'warning' : 'muted';
+    }
+  });
+}
+
+function updatePreviewCard() {
+  const lang = getActiveTranslationLang();
+  const title = getTranslationFieldValue('title', lang) || 'Untitled article';
+  const summary = getTranslationFieldValue('summary', lang) || getTranslationFieldValue('lead', lang) || 'Summary will appear here as you edit the article.';
+  const cover = String($('#blogFormCoverUrl')?.value || '').trim() || '/assets/cyprus_logo-1000x1054.png';
+  const category = getTaxonomyValues('categories')[0] || 'No category';
+  const author = getTranslationFieldValue('author_name', lang)
+    || getProfileLabel(String($('#blogFormAuthorProfile')?.value || '').trim())
+    || 'No author';
+  $('#blogPreviewImage').src = cover;
+  $('#blogPreviewTitle').textContent = title;
+  $('#blogPreviewSummary').textContent = summary;
+  $('#blogPreviewCategory').textContent = category;
+  $('#blogPreviewAuthor').textContent = author;
+  $('#blogPreviewEyebrow').textContent = lang === 'pl' ? 'Podgląd' : 'Preview';
+}
+
+function updateDynamicVisibility() {
+  const status = String($('#blogFormStatus')?.value || 'draft').trim();
+  const submissionStatus = String($('#blogFormSubmissionStatus')?.value || 'draft').trim();
+  const ownerPartnerId = String($('#blogFormOwnerPartner')?.value || '').trim();
+  const partnerOwned = Boolean(ownerPartnerId);
+
+  const publishedField = $('#blogPublishedAtField');
+  if (publishedField) {
+    publishedField.hidden = !(status === 'scheduled' || status === 'published');
+  }
+
+  const moderationSection = $('#blogModerationSection');
+  if (moderationSection) {
+    const showModeration = Boolean(partnerOwned || submissionStatus === 'rejected');
+    moderationSection.hidden = !showModeration;
+    if (!showModeration) {
+      setSectionOpen('moderation', false);
+    }
+  }
+
+  const rejectionField = $('#blogRejectionReasonField');
+  if (rejectionField) {
+    rejectionField.hidden = submissionStatus !== 'rejected';
+  }
+
+  const approveButton = $('#btnApproveBlogPost');
+  if (approveButton) {
+    approveButton.hidden = !(partnerOwned && submissionStatus !== 'approved');
+  }
+
+  const rejectButton = $('#btnRejectBlogPost');
+  if (rejectButton) {
+    rejectButton.hidden = !(partnerOwned && submissionStatus !== 'rejected');
+  }
+
+  const publishButton = $('#btnPublishBlog');
+  if (publishButton) {
+    publishButton.hidden = status === 'published' && submissionStatus === 'approved' && !partnerOwned;
+  }
+}
+
+function buildValidationSnapshot() {
+  const translations = collectTranslations();
+  const status = String($('#blogFormStatus')?.value || 'draft').trim();
+  const submissionStatus = String($('#blogFormSubmissionStatus')?.value || 'draft').trim();
+  const publishedAt = String($('#blogFormPublishedAt')?.value || '').trim();
+  const ownerPartnerId = String($('#blogFormOwnerPartner')?.value || '').trim();
+  const rejectionReason = String($('#blogFormRejectionReason')?.value || '').trim();
+
+  let contentMissing = 0;
+  let seoMissing = 0;
+
+  (window.BLOG_TRANSLATION_LANGUAGES || []).forEach((lang) => {
+    const code = lang.code;
+    const translation = translations?.[code] || {};
+    const titleMissing = !translation.title;
+    const slugMissing = !translation.slug;
+    const summaryMissing = !translation.summary;
+    const contentMissingForLang = !String(translation.content_html || '').trim();
+    const metaDescriptionMissing = !translation.meta_description;
+    setFieldInvalid('title', code, titleMissing);
+    setFieldInvalid('slug', code, slugMissing);
+    setFieldInvalid('summary', code, summaryMissing);
+    setFieldInvalid('content_html', code, contentMissingForLang);
+    setFieldInvalid('meta_description', code, metaDescriptionMissing);
+    contentMissing += [titleMissing, slugMissing, summaryMissing, contentMissingForLang].filter(Boolean).length;
+    seoMissing += metaDescriptionMissing ? 1 : 0;
+  });
+
+  const scheduledMissingDate = status === 'scheduled' && !publishedAt;
+  $('#blogPublishedAtField')?.classList.toggle('is-invalid', scheduledMissingDate);
+  $('#blogRejectionReasonField')?.classList.toggle('is-invalid', submissionStatus === 'rejected' && !rejectionReason);
+
+  const ctaCount = collectCtaRows().length;
+  const moderationHidden = Boolean($('#blogModerationSection')?.hidden);
+
+  setSectionStatus('basic', scheduledMissingDate ? 'warning' : 'success', scheduledMissingDate ? 'Needs publish date' : 'Ready');
+  setSectionStatus('content', contentMissing ? 'danger' : 'success', contentMissing ? `${contentMissing} required field${contentMissing === 1 ? '' : 's'} missing` : 'Ready');
+  setSectionStatus('seo', seoMissing ? 'warning' : 'muted', seoMissing ? `${seoMissing} meta description${seoMissing === 1 ? '' : 's'} missing` : 'Uses defaults');
+  setSectionStatus('ownership', ownerPartnerId ? 'warning' : 'muted', ownerPartnerId ? 'Partner-owned' : 'Optional');
+  setSectionStatus('cta', ctaCount ? 'success' : 'muted', ctaCount ? `${ctaCount} service link${ctaCount === 1 ? '' : 's'}` : 'Optional');
+  if (!moderationHidden) {
+    const rejectionMissing = submissionStatus === 'rejected' && !rejectionReason;
+    setSectionStatus('moderation', rejectionMissing ? 'danger' : 'warning', submissionStatus === 'rejected' ? (rejectionMissing ? 'Add rejection note' : 'Rejected') : submissionStatus);
+  } else {
+    setSectionStatus('moderation', 'muted', 'Hidden');
+  }
+
+  return {
+    contentMissing,
+    seoMissing,
+    scheduledMissingDate,
+    submissionStatus,
+  };
+}
+
+function refreshFormUi() {
+  updateDynamicVisibility();
+  updateCharCounts();
+  updatePreviewCard();
+  buildValidationSnapshot();
 }
 
 function setCoverPreview(url) {
@@ -625,6 +981,11 @@ function renderCtaRows(rows = []) {
   const normalized = safeArray(rows).slice(0, 3);
   if (!normalized.length) {
     container.innerHTML = '<div class="blog-empty-state">No linked services yet. Add up to 3 CTA cards.</div>';
+    const addButton = $('#btnBlogAddCta');
+    if (addButton) {
+      addButton.disabled = false;
+    }
+    refreshFormUi();
     return;
   }
 
@@ -656,6 +1017,8 @@ function renderCtaRows(rows = []) {
   if (addButton) {
     addButton.disabled = normalized.length >= 3;
   }
+
+  refreshFormUi();
 }
 
 function addCtaRow() {
@@ -882,9 +1245,21 @@ async function initializeEditors(translations) {
           spellcheck: 'true',
         },
       },
+      onUpdate: ({ editor: currentEditor }) => {
+        const stateEntry = blogAdminState.editors.get(lang.code);
+        if (stateEntry?.programmaticUpdate) {
+          return;
+        }
+        const fallbackNode = $(`[data-blog-editor-fallback="${lang.code}"]`, formRoot);
+        if (fallbackNode) {
+          fallbackNode.value = currentEditor.getHTML();
+        }
+        markSessionDirty(lang.code, 'content_html');
+        refreshFormUi();
+      },
     });
 
-    blogAdminState.editors.set(lang.code, { editor });
+    blogAdminState.editors.set(lang.code, { editor, programmaticUpdate: 0 });
   });
 }
 
@@ -948,31 +1323,86 @@ function runEditorCommand(lang, action) {
   }
 }
 
-function attachTranslationFieldListeners() {
-  const formRoot = getBlogFormRoot();
-  window.BLOG_TRANSLATION_LANGUAGES.forEach((lang) => {
-    const titleInput = $(`[data-blog-title-input="${lang.code}"]`, formRoot);
-    const slugInput = $(`[data-blog-slug-input="${lang.code}"]`, formRoot);
-    if (!titleInput || !slugInput) return;
+function renderTranslationMounts(translations) {
+  const contentMount = $('#blogFormTranslationContent');
+  const seoMount = $('#blogFormTranslationSeo');
+  const authorMount = $('#blogFormTranslationAuthor');
+  if (contentMount && typeof window.renderBlogTranslationFields === 'function') {
+    contentMount.innerHTML = window.renderBlogTranslationFields(translations, 'content');
+  }
+  if (seoMount && typeof window.renderBlogTranslationFields === 'function') {
+    seoMount.innerHTML = window.renderBlogTranslationFields(translations, 'seo');
+  }
+  if (authorMount && typeof window.renderBlogTranslationFields === 'function') {
+    authorMount.innerHTML = window.renderBlogTranslationFields(translations, 'author');
+  }
+}
 
-    titleInput.addEventListener('input', () => {
-      if (blogAdminState.slugDirtyByLang[lang.code]) return;
-      slugInput.value = slugify(titleInput.value || '');
-    });
+function initializeTranslationState(post, translations) {
+  blogAdminState.activeTranslationLang = 'pl';
+  blogAdminState.pendingSubmitAction = 'save';
+  blogAdminState.sessionDirty = createTranslationState(false);
+  blogAdminState.autoFillLocks = createTranslationState(false);
 
-    slugInput.addEventListener('input', () => {
-      blogAdminState.slugDirtyByLang[lang.code] = Boolean(String(slugInput.value || '').trim());
-      slugInput.value = slugify(slugInput.value || '');
-    });
+  (window.BLOG_TRANSLATION_LANGUAGES || []).forEach((lang) => {
+    const code = lang.code;
+    const current = translations?.[code] || {};
+    blogAdminState.slugDirtyByLang[code] = Boolean(current.slug);
+    setAutoFillLock(code, 'slug', Boolean(current.slug));
+    setAutoFillLock(code, 'meta_title', Boolean(current.meta_title));
+    setAutoFillLock(code, 'meta_description', Boolean(current.meta_description));
   });
 }
 
-function populateForm(post = null) {
-  blogAdminState.slugDirtyByLang = {
-    pl: Boolean(post?.translations?.pl?.slug),
-    en: Boolean(post?.translations?.en?.slug),
-  };
+function applySmartDefaultsForLang(lang, changedField = '') {
+  const title = getTranslationFieldValue('title', lang);
+  const lead = getTranslationFieldValue('lead', lang);
 
+  if ((changedField === 'title' || changedField === 'copy:content') && !isAutoFillLocked(lang, 'slug')) {
+    setTranslationFieldValue('slug', lang, slugify(title));
+  }
+
+  if ((changedField === 'title' || changedField === 'copy:seo' || changedField === 'copy:content') && !isAutoFillLocked(lang, 'meta_title')) {
+    setTranslationFieldValue('meta_title', lang, title);
+  }
+
+  if ((changedField === 'lead' || changedField === 'copy:content' || changedField === 'copy:seo') && !isAutoFillLocked(lang, 'meta_description')) {
+    setTranslationFieldValue('meta_description', lang, firstSentence(lead));
+  }
+}
+
+function copyTranslationSection(sourceLang, targetLang, mode) {
+  const fields = BLOG_COPY_FIELDS[mode] || [];
+  if (!fields.length) return;
+
+  let copied = 0;
+  let skipped = 0;
+
+  fields.forEach((field) => {
+    if (isSessionDirty(targetLang, field)) {
+      skipped += 1;
+      return;
+    }
+    setTranslationFieldValue(field, targetLang, getTranslationFieldValue(field, sourceLang));
+    copied += 1;
+  });
+
+  if (mode === 'content') {
+    applySmartDefaultsForLang(targetLang, 'copy:content');
+  }
+  if (mode === 'seo') {
+    applySmartDefaultsForLang(targetLang, 'copy:seo');
+  }
+
+  refreshFormUi();
+  if (copied) {
+    showToastSafe(`Copied ${copied} field${copied === 1 ? '' : 's'} from ${sourceLang.toUpperCase()} to ${targetLang.toUpperCase()}${skipped ? ` • skipped ${skipped} edited field${skipped === 1 ? '' : 's'}` : ''}`, 'success');
+  } else {
+    showToastSafe(`Nothing copied from ${sourceLang.toUpperCase()} to ${targetLang.toUpperCase()} because the target fields were already edited.`, 'warning');
+  }
+}
+
+function populateForm(post = null) {
   $('#blogFormId').value = post?.id || '';
   $('#blogFormStatus').value = post?.status || 'draft';
   $('#blogFormSubmissionStatus').value = post?.submission_status || 'draft';
@@ -989,12 +1419,12 @@ function populateForm(post = null) {
   setCoverPreview(post?.cover_image_url || '');
 
   const translations = getInitialTranslationValues(post);
-  const translationsMount = $('#blogFormTranslations');
-  if (translationsMount && typeof window.renderBlogTranslationFields === 'function') {
-    translationsMount.innerHTML = window.renderBlogTranslationFields(translations);
-  }
+  initializeTranslationState(post, translations);
+  renderTranslationMounts(translations);
   renderCtaRows(post?.cta_services || []);
-  attachTranslationFieldListeners();
+  renderAllTaxonomyPickers();
+  resetSectionState();
+  refreshFormUi();
   return translations;
 }
 
@@ -1014,6 +1444,7 @@ async function openBlogForm(postId = '') {
     const translations = populateForm(post);
     openModal();
     await initializeEditors(translations);
+    refreshFormUi();
   } catch (error) {
     console.error('[blog-admin] Failed to open form:', error);
     showToastSafe(error.message || 'Failed to open blog form', 'error');
@@ -1172,33 +1603,62 @@ async function saveBlogForm(event) {
     return;
   }
 
+  const submitIntent = String(blogAdminState.pendingSubmitAction || 'save').trim() || 'save';
+  blogAdminState.pendingSubmitAction = 'save';
   const translations = collectTranslations();
   try {
     validateTranslations(translations);
   } catch (error) {
     showToastSafe(error.message, 'error');
+    refreshFormUi();
     return;
   }
 
   const ownerPartnerId = String($('#blogFormOwnerPartner')?.value || '').trim();
-  const status = String($('#blogFormStatus')?.value || 'draft').trim();
-  const submissionStatus = String($('#blogFormSubmissionStatus')?.value || 'draft').trim();
-  const publishedAtRaw = String($('#blogFormPublishedAt')?.value || '').trim();
+  let status = String($('#blogFormStatus')?.value || 'draft').trim();
+  let submissionStatus = String($('#blogFormSubmissionStatus')?.value || 'draft').trim();
+  let publishedAtRaw = String($('#blogFormPublishedAt')?.value || '').trim();
   const currentUserId = await getCurrentUserId(client);
+
+  if (submitIntent === 'draft') {
+    status = 'draft';
+  } else if (submitIntent === 'publish') {
+    status = 'published';
+  } else if (submitIntent === 'approve') {
+    submissionStatus = 'approved';
+  } else if (submitIntent === 'reject') {
+    submissionStatus = 'rejected';
+  }
+
+  $('#blogFormStatus').value = status;
+  $('#blogFormSubmissionStatus').value = submissionStatus;
 
   if (status === 'scheduled' && !publishedAtRaw) {
     showToastSafe('Scheduled posts require a publish date.', 'error');
+    setSectionOpen('basic', true);
+    refreshFormUi();
     return;
   }
 
-  await ensureUniqueSlugs(client, blogAdminState.editingId, translations);
-
   const nowIso = new Date().toISOString();
+  if (status === 'published' && !publishedAtRaw) {
+    publishedAtRaw = nowIso;
+    $('#blogFormPublishedAt').value = toDatetimeLocalValue(nowIso);
+  }
   const effectivePublishedAt = status === 'published'
     ? (publishedAtRaw ? new Date(publishedAtRaw).toISOString() : nowIso)
     : (publishedAtRaw ? new Date(publishedAtRaw).toISOString() : null);
   const reviewActive = submissionStatus === 'approved' || submissionStatus === 'rejected';
   const rejectionReason = String($('#blogFormRejectionReason')?.value || '').trim();
+
+  if (submissionStatus === 'rejected' && !rejectionReason) {
+    showToastSafe('Rejected submissions need a moderation note.', 'error');
+    setSectionOpen('moderation', true);
+    refreshFormUi();
+    return;
+  }
+
+  await ensureUniqueSlugs(client, blogAdminState.editingId, translations);
 
   const basePayload = {
     status,
@@ -1270,17 +1730,27 @@ async function saveBlogForm(event) {
       .upsert(translationPayloads, { onConflict: 'blog_post_id,lang' });
     if (translationError) throw new Error(translationError.message || 'Failed to save blog translations');
 
-    showToastSafe(blogAdminState.formMode === 'edit' ? 'Blog post updated' : 'Blog post created', 'success');
+    const successLabel = submitIntent === 'draft'
+      ? 'Draft saved'
+      : submitIntent === 'publish'
+        ? 'Blog post published'
+        : submitIntent === 'approve'
+          ? 'Blog post approved'
+          : submitIntent === 'reject'
+            ? 'Blog post rejected'
+            : (blogAdminState.formMode === 'edit' ? 'Blog post updated' : 'Blog post created');
+    showToastSafe(successLabel, 'success');
     closeModal();
     await loadBlogAdminData();
   } catch (error) {
     console.error('[blog-admin] Failed to save post:', error);
     showToastSafe(error.message || 'Failed to save blog post', 'error');
+    refreshFormUi();
   } finally {
     const saveButton = $('#btnSaveBlogForm');
     if (saveButton) {
       saveButton.disabled = false;
-      saveButton.textContent = 'Save post';
+      saveButton.textContent = 'Save changes';
     }
   }
 }
@@ -1337,6 +1807,11 @@ async function quickUpdateSubmission(postId, submissionStatus, rejectionReason =
     console.error('[blog-admin] Failed to update submission state:', error);
     showToastSafe(error.message || 'Failed to update review state', 'error');
   }
+}
+
+function queueBlogFormAction(action) {
+  blogAdminState.pendingSubmitAction = action;
+  $('#blogForm')?.requestSubmit();
 }
 
 function bindListControls() {
@@ -1397,8 +1872,70 @@ function bindModalControls() {
   $('#blogForm')?.addEventListener('submit', (event) => {
     void saveBlogForm(event);
   });
+  $('#btnSaveBlogDraft')?.addEventListener('click', () => queueBlogFormAction('draft'));
+  $('#btnPublishBlog')?.addEventListener('click', () => queueBlogFormAction('publish'));
+  $('#btnApproveBlogPost')?.addEventListener('click', () => queueBlogFormAction('approve'));
+  $('#btnRejectBlogPost')?.addEventListener('click', () => queueBlogFormAction('reject'));
   $('#btnDeleteBlogPost')?.addEventListener('click', () => {
     void deleteBlogPost();
+  });
+  $('#blogForm')?.addEventListener('click', (event) => {
+    if (!(event.target instanceof Element)) return;
+
+    const sectionToggle = event.target.closest('[data-blog-section-toggle]');
+    if (sectionToggle instanceof HTMLElement) {
+      const key = String(sectionToggle.dataset.blogSectionToggle || '').trim();
+      if (key) {
+        const expanded = sectionToggle.getAttribute('aria-expanded') === 'true';
+        setSectionOpen(key, !expanded);
+      }
+      return;
+    }
+
+    const copyButton = event.target.closest('[data-blog-copy-mode]');
+    if (copyButton instanceof HTMLElement) {
+      copyTranslationSection(
+        String(copyButton.dataset.blogCopySource || '').trim(),
+        String(copyButton.dataset.blogCopyTarget || '').trim(),
+        String(copyButton.dataset.blogCopyMode || '').trim(),
+      );
+      return;
+    }
+
+    const langTab = event.target.closest('.lang-tab[data-field="blogTranslation"]');
+    if (langTab instanceof HTMLElement) {
+      blogAdminState.activeTranslationLang = String(langTab.dataset.lang || 'pl').trim() || 'pl';
+      window.requestAnimationFrame(() => {
+        refreshFormUi();
+      });
+      return;
+    }
+
+    const removeChip = event.target.closest('[data-blog-taxonomy-remove]');
+    if (removeChip instanceof HTMLElement) {
+      removeTaxonomyValue(
+        String(removeChip.dataset.blogTaxonomyRemove || '').trim(),
+        String(removeChip.dataset.value || '').trim(),
+      );
+      return;
+    }
+
+    const pickChip = event.target.closest('[data-blog-taxonomy-pick]');
+    if (pickChip instanceof HTMLElement) {
+      addTaxonomyValue(
+        String(pickChip.dataset.blogTaxonomyPick || '').trim(),
+        String(pickChip.dataset.value || '').trim(),
+      );
+      return;
+    }
+
+    const addTaxonomy = event.target.closest('[data-blog-taxonomy-add]');
+    if (addTaxonomy instanceof HTMLElement) {
+      const kind = String(addTaxonomy.dataset.blogTaxonomyAdd || '').trim();
+      const input = $(`#blogForm${kind.charAt(0).toUpperCase()}${kind.slice(1)}Input`, getBlogFormRoot());
+      addTaxonomyValue(kind, input?.value || '');
+      return;
+    }
   });
   $('#btnBlogAddCta')?.addEventListener('click', addCtaRow);
   $('#blogFormCtaRows')?.addEventListener('click', (event) => {
@@ -1422,13 +1959,61 @@ function bindModalControls() {
   $('#btnBlogCoverUpload')?.addEventListener('click', () => {
     $('#blogFormCoverFile')?.click();
   });
+  $('#blogForm')?.addEventListener('input', (event) => {
+    if (!(event.target instanceof HTMLElement)) return;
+
+    if (event.target.matches('[data-blog-field][data-blog-lang]')) {
+      const lang = String(event.target.dataset.blogLang || '').trim();
+      const field = String(event.target.dataset.blogField || '').trim();
+      if (lang && field) {
+        if (field === 'slug') {
+          event.target.value = slugify(event.target.value || '');
+          blogAdminState.slugDirtyByLang[lang] = Boolean(String(event.target.value || '').trim());
+          setAutoFillLock(lang, 'slug', blogAdminState.slugDirtyByLang[lang]);
+        }
+        if (field === 'meta_title' || field === 'meta_description') {
+          setAutoFillLock(lang, field, true);
+        }
+        markSessionDirty(lang, field);
+        if (field === 'title') {
+          applySmartDefaultsForLang(lang, 'title');
+        } else if (field === 'lead') {
+          applySmartDefaultsForLang(lang, 'lead');
+        }
+      }
+    }
+
+    if (event.target.id === 'blogFormCoverUrl') {
+      setCoverPreview(event.target.value || '');
+    }
+
+    refreshFormUi();
+  });
+  $('#blogForm')?.addEventListener('change', (event) => {
+    if (!(event.target instanceof HTMLElement)) return;
+    if (event.target.matches('.lang-tab[data-field="blogTranslation"]')) {
+      blogAdminState.activeTranslationLang = String(event.target.dataset.lang || 'pl').trim() || 'pl';
+    }
+    refreshFormUi();
+  });
+  $('#blogForm')?.addEventListener('keydown', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const isTaxonomyInput = target.id === 'blogFormCategoriesInput' || target.id === 'blogFormTagsInput';
+    if (!isTaxonomyInput) return;
+    if (event.key === 'Enter' || event.key === ',') {
+      event.preventDefault();
+      const kind = target.id.includes('Categories') ? 'categories' : 'tags';
+      addTaxonomyValue(kind, target.value || '');
+    }
+  });
   $('#blogFormCoverFile')?.addEventListener('change', () => {
     void handleCoverUpload();
   });
   $('#blogFormCoverUrl')?.addEventListener('input', (event) => {
     setCoverPreview(event.target.value || '');
   });
-  $('#blogFormTranslations')?.addEventListener('click', (event) => {
+  $('#blogForm')?.addEventListener('click', (event) => {
     if (!(event.target instanceof Element)) return;
     const button = event.target.closest('[data-blog-editor-action]');
     if (!(button instanceof HTMLElement)) return;

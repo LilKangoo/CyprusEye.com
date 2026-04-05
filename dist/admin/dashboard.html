@@ -6974,131 +6974,272 @@
         <form id="blogForm" class="admin-form blog-admin-form" novalidate>
           <input type="hidden" id="blogFormId" />
 
-          <section class="blog-form-section">
-            <header class="blog-form-section__head">
+          <section class="blog-form-section blog-form-section--accordion is-open" data-blog-section="basic">
+            <button
+              class="blog-form-section__toggle"
+              type="button"
+              data-blog-section-toggle="basic"
+              aria-expanded="true"
+              aria-controls="blogSectionBasicBody"
+            >
               <div>
-                <h4>Workflow</h4>
-                <p>Publication lifecycle, moderation state and partner ownership.</p>
+                <h4>Basic information</h4>
+                <p>Status, publication timing, cover image, categories and tags.</p>
               </div>
-            </header>
-            <div class="admin-form-grid blog-form-grid">
-              <label class="admin-form-field">
-                <span>Status</span>
-                <select id="blogFormStatus">
-                  <option value="draft">Draft</option>
-                  <option value="scheduled">Scheduled</option>
-                  <option value="published">Published</option>
-                  <option value="archived">Archived</option>
-                </select>
-              </label>
-              <label class="admin-form-field">
-                <span>Submission status</span>
-                <select id="blogFormSubmissionStatus">
-                  <option value="draft">Draft</option>
-                  <option value="pending">Pending</option>
-                  <option value="approved">Approved</option>
-                  <option value="rejected">Rejected</option>
-                </select>
-              </label>
-              <label class="admin-form-field">
-                <span>Published at</span>
-                <input id="blogFormPublishedAt" type="datetime-local" />
-              </label>
-              <label class="admin-form-field">
-                <span>Owner partner</span>
-                <select id="blogFormOwnerPartner">
-                  <option value="">Admin-owned</option>
-                </select>
-              </label>
-              <label class="admin-form-field">
-                <span>Fallback author profile</span>
-                <select id="blogFormAuthorProfile">
-                  <option value="">No profile fallback</option>
-                </select>
-              </label>
-              <label class="admin-form-field">
-                <span>Review details</span>
-                <div class="blog-review-meta" id="blogReviewMeta">Not reviewed yet.</div>
+              <div class="blog-form-section__toggle-meta">
+                <span class="blog-form-section__status" data-blog-section-status="basic">Ready</span>
+                <span class="blog-form-section__chevron" aria-hidden="true">⌄</span>
+              </div>
+            </button>
+            <div class="blog-form-section__body" id="blogSectionBasicBody">
+              <div class="admin-form-grid blog-form-grid">
+                <label class="admin-form-field">
+                  <span>Status</span>
+                  <select id="blogFormStatus">
+                    <option value="draft">Draft</option>
+                    <option value="scheduled">Scheduled</option>
+                    <option value="published">Published</option>
+                    <option value="archived">Archived</option>
+                  </select>
+                  <small>Use Draft while writing. Scheduled and Published unlock publish date.</small>
+                </label>
+                <label class="admin-form-field" id="blogPublishedAtField" hidden>
+                  <span>Published at</span>
+                  <input id="blogFormPublishedAt" type="datetime-local" />
+                  <small>Required for scheduled posts. Published posts default to now if left blank.</small>
+                </label>
+              </div>
+
+              <div class="blog-inline-checks">
+                <label class="admin-checkbox"><input type="checkbox" id="blogFormFeatured" /><span>Featured on blog list</span></label>
+                <label class="admin-checkbox"><input type="checkbox" id="blogFormAllowComments" /><span>Allow comments later</span></label>
+              </div>
+
+              <div class="admin-form-grid blog-form-grid">
+                <label class="admin-form-field blog-form-grid__wide">
+                  <span>Cover image URL</span>
+                  <div class="blog-cover-input-row">
+                    <input id="blogFormCoverUrl" type="url" placeholder="https://..." />
+                    <button class="btn-upload-image" type="button" id="btnBlogCoverUpload">Upload cover</button>
+                    <input id="blogFormCoverFile" type="file" accept="image/jpeg,image/png,image/webp,image/jpg" hidden />
+                  </div>
+                  <small>Recommended landscape image. Used on the article hero and blog cards.</small>
+                </label>
+              </div>
+
+              <div class="blog-cover-preview" id="blogFormCoverPreview" hidden>
+                <img id="blogFormCoverPreviewImage" src="/assets/cyprus_logo-1000x1054.png" alt="Blog cover preview" />
+              </div>
+
+              <div class="admin-form-grid blog-form-grid">
+                <label class="admin-form-field blog-form-grid__wide">
+                  <span>Categories</span>
+                  <input id="blogFormCategories" type="hidden" />
+                  <div class="blog-chip-picker" data-blog-taxonomy-picker="categories">
+                    <div class="blog-chip-picker__selected" id="blogFormCategoriesSelected"></div>
+                    <div class="blog-chip-picker__composer">
+                      <input id="blogFormCategoriesInput" type="text" placeholder="Choose from suggestions or type a new category" />
+                      <button class="btn-secondary" type="button" data-blog-taxonomy-add="categories">Add</button>
+                    </div>
+                    <div class="blog-chip-picker__suggestions" id="blogFormCategoriesSuggestions"></div>
+                  </div>
+                  <small>Choose existing categories or add a new one. Categories appear as visible filters.</small>
+                </label>
+                <label class="admin-form-field blog-form-grid__wide">
+                  <span>Tags</span>
+                  <input id="blogFormTags" type="hidden" />
+                  <div class="blog-chip-picker" data-blog-taxonomy-picker="tags">
+                    <div class="blog-chip-picker__selected" id="blogFormTagsSelected"></div>
+                    <div class="blog-chip-picker__composer">
+                      <input id="blogFormTagsInput" type="text" placeholder="Type keywords and press Add" />
+                      <button class="btn-secondary" type="button" data-blog-taxonomy-add="tags">Add</button>
+                    </div>
+                    <div class="blog-chip-picker__suggestions" id="blogFormTagsSuggestions"></div>
+                  </div>
+                  <small>Tags help discovery. Popular values are suggested automatically.</small>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <section class="blog-form-section blog-form-section--accordion is-open" data-blog-section="content">
+            <button
+              class="blog-form-section__toggle"
+              type="button"
+              data-blog-section-toggle="content"
+              aria-expanded="true"
+              aria-controls="blogSectionContentBody"
+            >
+              <div>
+                <h4>Content and translations</h4>
+                <p>PL and EN article copy, slug, summary, lead and editor with copy helpers.</p>
+              </div>
+              <div class="blog-form-section__toggle-meta">
+                <span class="blog-form-section__status" data-blog-section-status="content">Needs content</span>
+                <span class="blog-form-section__chevron" aria-hidden="true">⌄</span>
+              </div>
+            </button>
+            <div class="blog-form-section__body" id="blogSectionContentBody">
+              <div class="blog-form-section__head blog-form-section__head--inline">
+                <div class="blog-editor-runtime-note" id="blogEditorRuntimeNote">TipTap loading…</div>
+              </div>
+              <div class="blog-form-content-layout">
+                <div class="blog-form-content-layout__main" id="blogFormTranslationContent"></div>
+                <aside class="blog-preview-card" id="blogPreviewCard">
+                  <div class="blog-preview-card__image-wrap">
+                    <img id="blogPreviewImage" src="/assets/cyprus_logo-1000x1054.png" alt="Preview cover" />
+                  </div>
+                  <div class="blog-preview-card__body">
+                    <div class="blog-preview-card__eyebrow" id="blogPreviewEyebrow">Preview</div>
+                    <h5 id="blogPreviewTitle">Untitled article</h5>
+                    <p id="blogPreviewSummary">Summary will appear here as you edit the article.</p>
+                    <div class="blog-preview-card__meta">
+                      <span id="blogPreviewCategory">No category</span>
+                      <span id="blogPreviewAuthor">No author</span>
+                    </div>
+                  </div>
+                </aside>
+              </div>
+            </div>
+          </section>
+
+          <section class="blog-form-section blog-form-section--accordion" data-blog-section="seo">
+            <button
+              class="blog-form-section__toggle"
+              type="button"
+              data-blog-section-toggle="seo"
+              aria-expanded="false"
+              aria-controls="blogSectionSeoBody"
+            >
+              <div>
+                <h4>SEO and social</h4>
+                <p>Meta title, meta description, social image and cover alt text.</p>
+              </div>
+              <div class="blog-form-section__toggle-meta">
+                <span class="blog-form-section__status" data-blog-section-status="seo">Uses defaults</span>
+                <span class="blog-form-section__chevron" aria-hidden="true">⌄</span>
+              </div>
+            </button>
+            <div class="blog-form-section__body" id="blogSectionSeoBody" hidden>
+              <div id="blogFormTranslationSeo"></div>
+            </div>
+          </section>
+
+          <section class="blog-form-section blog-form-section--accordion" data-blog-section="ownership">
+            <button
+              class="blog-form-section__toggle"
+              type="button"
+              data-blog-section-toggle="ownership"
+              aria-expanded="false"
+              aria-controls="blogSectionOwnershipBody"
+            >
+              <div>
+                <h4>Author and ownership</h4>
+                <p>Fallback profile, public byline override and optional partner owner.</p>
+              </div>
+              <div class="blog-form-section__toggle-meta">
+                <span class="blog-form-section__status" data-blog-section-status="ownership">Optional</span>
+                <span class="blog-form-section__chevron" aria-hidden="true">⌄</span>
+              </div>
+            </button>
+            <div class="blog-form-section__body" id="blogSectionOwnershipBody" hidden>
+              <div class="admin-form-grid blog-form-grid">
+                <label class="admin-form-field">
+                  <span>Owner partner</span>
+                  <select id="blogFormOwnerPartner">
+                    <option value="">Admin-owned</option>
+                  </select>
+                  <small>Assign a partner only when the post belongs to a partner workflow.</small>
+                </label>
+                <label class="admin-form-field">
+                  <span>Fallback author profile</span>
+                  <select id="blogFormAuthorProfile">
+                    <option value="">No profile fallback</option>
+                  </select>
+                  <small>If Author name stays empty, the public byline falls back to this profile.</small>
+                </label>
+              </div>
+              <div id="blogFormTranslationAuthor"></div>
+            </div>
+          </section>
+
+          <section class="blog-form-section blog-form-section--accordion" data-blog-section="cta">
+            <button
+              class="blog-form-section__toggle"
+              type="button"
+              data-blog-section-toggle="cta"
+              aria-expanded="false"
+              aria-controls="blogSectionCtaBody"
+            >
+              <div>
+                <h4>CTA services</h4>
+                <p>Connect up to 3 real services shown below the article.</p>
+              </div>
+              <div class="blog-form-section__toggle-meta">
+                <span class="blog-form-section__status" data-blog-section-status="cta">Optional</span>
+                <span class="blog-form-section__chevron" aria-hidden="true">⌄</span>
+              </div>
+            </button>
+            <div class="blog-form-section__body" id="blogSectionCtaBody" hidden>
+              <div class="blog-form-section__head blog-form-section__head--inline">
+                <div></div>
+                <button class="btn-secondary" type="button" id="btnBlogAddCta">Add service</button>
+              </div>
+              <div id="blogFormCtaRows" class="blog-cta-rows"></div>
+            </div>
+          </section>
+
+          <section class="blog-form-section blog-form-section--accordion" data-blog-section="moderation" id="blogModerationSection" hidden>
+            <button
+              class="blog-form-section__toggle"
+              type="button"
+              data-blog-section-toggle="moderation"
+              aria-expanded="false"
+              aria-controls="blogSectionModerationBody"
+            >
+              <div>
+                <h4>Moderation and workflow</h4>
+                <p>Partner review state, reviewer info and moderation note.</p>
+              </div>
+              <div class="blog-form-section__toggle-meta">
+                <span class="blog-form-section__status" data-blog-section-status="moderation">Review state</span>
+                <span class="blog-form-section__chevron" aria-hidden="true">⌄</span>
+              </div>
+            </button>
+            <div class="blog-form-section__body" id="blogSectionModerationBody" hidden>
+              <div class="admin-form-grid blog-form-grid">
+                <label class="admin-form-field">
+                  <span>Submission status</span>
+                  <select id="blogFormSubmissionStatus">
+                    <option value="draft">Draft</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+                  <small>Visible publicly only after approval and publication.</small>
+                </label>
+                <label class="admin-form-field">
+                  <span>Review details</span>
+                  <div class="blog-review-meta" id="blogReviewMeta">Not reviewed yet.</div>
+                </label>
+              </div>
+              <label class="admin-form-field" id="blogRejectionReasonField" hidden>
+                <span>Rejection reason</span>
+                <textarea id="blogFormRejectionReason" rows="3" placeholder="Optional moderation note for partner submissions"></textarea>
+                <small>Shown to the reviewer/admin only. Use it when the submission needs changes.</small>
               </label>
             </div>
-            <div class="blog-inline-checks">
-              <label class="admin-checkbox"><input type="checkbox" id="blogFormFeatured" /><span>Featured on blog list</span></label>
-              <label class="admin-checkbox"><input type="checkbox" id="blogFormAllowComments" /><span>Allow comments later</span></label>
-            </div>
           </section>
 
-          <section class="blog-form-section">
-            <header class="blog-form-section__head">
-              <div>
-                <h4>Cover and taxonomy</h4>
-                <p>Upload the hero image, then set categories and tags used by filters and SEO.</p>
-              </div>
-            </header>
-            <div class="admin-form-grid blog-form-grid">
-              <label class="admin-form-field blog-form-grid__wide">
-                <span>Cover image URL</span>
-                <div class="blog-cover-input-row">
-                  <input id="blogFormCoverUrl" type="url" placeholder="https://..." />
-                  <button class="btn-upload-image" type="button" id="btnBlogCoverUpload">Upload cover</button>
-                  <input id="blogFormCoverFile" type="file" accept="image/jpeg,image/png,image/webp,image/jpg" hidden />
-                </div>
-              </label>
-              <label class="admin-form-field">
-                <span>Categories</span>
-                <input id="blogFormCategories" type="text" placeholder="Guides, Lefkara, Transport" />
-                <small>Comma separated. Used in filters and badges.</small>
-              </label>
-              <label class="admin-form-field">
-                <span>Tags</span>
-                <input id="blogFormTags" type="text" placeholder="cyprus, day-trip, local-tip" />
-                <small>Comma separated. Used in filters and article discovery.</small>
-              </label>
-            </div>
-            <div class="blog-cover-preview" id="blogFormCoverPreview" hidden>
-              <img id="blogFormCoverPreviewImage" src="/assets/cyprus_logo-1000x1054.png" alt="Blog cover preview" />
-            </div>
-          </section>
-
-          <section class="blog-form-section">
-            <header class="blog-form-section__head">
-              <div>
-                <h4>Linked service CTA</h4>
-                <p>Choose up to 3 real services shown under the article.</p>
-              </div>
-              <button class="btn-secondary" type="button" id="btnBlogAddCta">Add service</button>
-            </header>
-            <div id="blogFormCtaRows" class="blog-cta-rows"></div>
-          </section>
-
-          <section class="blog-form-section">
-            <header class="blog-form-section__head">
-              <div>
-                <h4>Translations and editor</h4>
-                <p>PL and EN are required. Slugs are per-language and can be edited manually.</p>
-              </div>
-              <div class="blog-editor-runtime-note" id="blogEditorRuntimeNote">TipTap loading…</div>
-            </header>
-            <div id="blogFormTranslations"></div>
-          </section>
-
-          <section class="blog-form-section">
-            <header class="blog-form-section__head">
-              <div>
-                <h4>Moderation note</h4>
-                <p>Visible only when a submission is rejected. Admin can explain what needs to be fixed.</p>
-              </div>
-            </header>
-            <label class="admin-form-field">
-              <span>Rejection reason</span>
-              <textarea id="blogFormRejectionReason" rows="3" placeholder="Optional moderation note for partner submissions"></textarea>
-            </label>
-          </section>
-
-          <div class="admin-modal-actions">
+          <div class="admin-modal-actions blog-modal-actions">
             <button class="btn-secondary" type="button" id="btnDeleteBlogPost" hidden>Delete post</button>
             <div class="blog-modal-actions-spacer"></div>
             <button class="btn-secondary" type="button" id="btnCancelBlogForm">Cancel</button>
-            <button class="btn-primary" type="submit" id="btnSaveBlogForm">Save post</button>
+            <button class="btn-secondary" type="button" id="btnSaveBlogDraft">Save draft</button>
+            <button class="btn-secondary" type="button" id="btnApproveBlogPost" hidden>Approve</button>
+            <button class="btn-secondary" type="button" id="btnRejectBlogPost" hidden>Reject</button>
+            <button class="btn-secondary" type="button" id="btnPublishBlog">Publish</button>
+            <button class="btn-primary" type="submit" id="btnSaveBlogForm">Save changes</button>
           </div>
         </form>
       </div>

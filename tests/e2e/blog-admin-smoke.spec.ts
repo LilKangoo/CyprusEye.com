@@ -320,27 +320,36 @@ test.describe('Blog smoke', () => {
     await page.click('#btnAddBlog');
     await page.waitForSelector('#blogFormModal:not([hidden])');
 
-    await page.selectOption('#blogFormStatus', 'published');
-    await page.selectOption('#blogFormSubmissionStatus', 'approved');
-    await page.fill('#blogFormCategories', 'Guides, Testing');
-    await page.fill('#blogFormTags', 'blog, smoke');
-
     const blogModal = page.locator('#blogFormModal');
 
+    await blogModal.locator('#blogFormCategoriesInput').fill('Guides');
+    await blogModal.locator('[data-blog-taxonomy-add="categories"]').click();
+    await blogModal.locator('#blogFormCategoriesInput').fill('Testing');
+    await blogModal.locator('[data-blog-taxonomy-add="categories"]').click();
+
+    await blogModal.locator('#blogFormTagsInput').fill('blog');
+    await blogModal.locator('[data-blog-taxonomy-add="tags"]').click();
+    await blogModal.locator('#blogFormTagsInput').fill('smoke');
+    await blogModal.locator('[data-blog-taxonomy-add="tags"]').click();
+
     await blogModal.locator('[name="title_pl"]').fill('Nowy wpis testowy');
-    await blogModal.locator('[name="meta_description_pl"]').fill('Meta opis PL');
     await blogModal.locator('[name="summary_pl"]').fill('Podsumowanie PL');
+    await blogModal.locator('[name="lead_pl"]').fill('Lead PL. Dalsza część leadu.');
     await expect(blogModal.locator('[data-blog-editor-fallback="pl"]')).toBeVisible();
     await blogModal.locator('[data-blog-editor-fallback="pl"]').fill('<p>Treść PL</p>');
 
-    await blogModal.locator('.lang-tab[data-field="blogTranslation"][data-lang="en"]').click();
+    await blogModal.locator('[data-blog-section-toggle="seo"]').click();
+    await blogModal.locator('[name="meta_description_pl"]').fill('Meta opis PL');
+
+    await blogModal.locator('#blogFormTranslationContent .lang-tab[data-field="blogTranslation"][data-lang="en"]').click();
     await blogModal.locator('[name="title_en"]').fill('New smoke post');
-    await blogModal.locator('[name="meta_description_en"]').fill('Meta description EN');
     await blogModal.locator('[name="summary_en"]').fill('Summary EN');
+    await blogModal.locator('[name="lead_en"]').fill('Lead EN. More copy follows.');
     await expect(blogModal.locator('[data-blog-editor-fallback="en"]')).toBeVisible();
     await blogModal.locator('[data-blog-editor-fallback="en"]').fill('<p>Content EN</p>');
+    await blogModal.locator('[name="meta_description_en"]').fill('Meta description EN');
 
-    await page.click('#btnSaveBlogForm');
+    await page.click('#btnPublishBlog');
     await expect(blogModal).toBeHidden();
     await expect(page.locator('#blogTableBody')).toContainText('New smoke post');
   });
