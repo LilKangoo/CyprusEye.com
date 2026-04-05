@@ -60,8 +60,8 @@
       filterStatus: '',
       resourcesByType: {},
       taxonomySuggestions: {
-        categories: [],
-        tags: [],
+        categories: { pl: [], en: [] },
+        tags: { pl: [], en: [] },
       },
       editors: new Map(),
       tiptapModules: null,
@@ -217,14 +217,22 @@
     partnerBlogFormCoverFile: null,
     partnerBlogFormCoverPreview: null,
     partnerBlogFormCoverPreviewImage: null,
-    partnerBlogFormCategories: null,
-    partnerBlogFormCategoriesSelected: null,
-    partnerBlogFormCategoriesInput: null,
-    partnerBlogFormCategoriesSuggestions: null,
-    partnerBlogFormTags: null,
-    partnerBlogFormTagsSelected: null,
-    partnerBlogFormTagsInput: null,
-    partnerBlogFormTagsSuggestions: null,
+    partnerBlogFormCategoriesPl: null,
+    partnerBlogFormCategoriesPlSelected: null,
+    partnerBlogFormCategoriesPlInput: null,
+    partnerBlogFormCategoriesPlSuggestions: null,
+    partnerBlogFormCategoriesEn: null,
+    partnerBlogFormCategoriesEnSelected: null,
+    partnerBlogFormCategoriesEnInput: null,
+    partnerBlogFormCategoriesEnSuggestions: null,
+    partnerBlogFormTagsPl: null,
+    partnerBlogFormTagsPlSelected: null,
+    partnerBlogFormTagsPlInput: null,
+    partnerBlogFormTagsPlSuggestions: null,
+    partnerBlogFormTagsEn: null,
+    partnerBlogFormTagsEnSelected: null,
+    partnerBlogFormTagsEnInput: null,
+    partnerBlogFormTagsEnSuggestions: null,
     partnerBlogEditorRuntimeNote: null,
     btnPartnerBlogAddCta: null,
     partnerBlogFormCtaRows: null,
@@ -364,6 +372,7 @@
     { code: 'pl', label: 'Polish' },
     { code: 'en', label: 'English' },
   ];
+  const PARTNER_BLOG_TAXONOMY_LANGUAGES = ['pl', 'en'];
 
   const PARTNER_BLOG_SERVICE_TYPES = [
     { type: 'trips', label: 'Trips' },
@@ -372,6 +381,65 @@
     { type: 'pois', label: 'POIs' },
     { type: 'recommendations', label: 'Recommendations' },
   ];
+  const PARTNER_BLOG_SERVICE_TYPE_ALIASES = {
+    trips: ['trip', 'trips', 'tour', 'tours', 'wycieczka', 'wycieczki'],
+    hotels: ['hotel', 'hotels', 'stay', 'stays', 'accommodation', 'accommodations', 'nocleg', 'noclegi'],
+    cars: ['car', 'cars', 'car_offer', 'car_offers', 'car-rental', 'car_rental', 'auto', 'auta'],
+    pois: ['poi', 'pois', 'place', 'places', 'attraction', 'attractions', 'miejsce', 'miejsca'],
+    recommendations: ['recommendation', 'recommendations', 'recommended', 'restaurant', 'restaurants', 'restauracja', 'restauracje'],
+  };
+
+  const PARTNER_BLOG_TABLE_SELECT = `
+    id,
+    status,
+    submission_status,
+    published_at,
+    cover_image_url,
+    categories,
+    categories_pl,
+    categories_en,
+    tags,
+    tags_pl,
+    tags_en,
+    cta_services,
+    owner_partner_id,
+    created_at,
+    updated_at,
+    translations:blog_post_translations (
+      id,
+      blog_post_id,
+      lang,
+      slug,
+      title,
+      lead,
+      content_json,
+      content_html
+    )
+  `;
+
+  const PARTNER_BLOG_TABLE_SELECT_LEGACY = `
+    id,
+    status,
+    submission_status,
+    published_at,
+    cover_image_url,
+    categories,
+    tags,
+    cta_services,
+    owner_partner_id,
+    created_at,
+    updated_at,
+    translations:blog_post_translations (
+      id,
+      blog_post_id,
+      lang,
+      slug,
+      title,
+      lead,
+      content_json,
+      content_html
+    )
+  `;
 
   let partnerDetailsLastFocusedElement = null;
   let partnerDetailsPreviousBodyOverflow = '';
@@ -8285,6 +8353,71 @@
     ));
   }
 
+  function normalizePartnerBlogTaxonomyList(value) {
+    return Array.isArray(value) ? value.map((entry) => String(entry || '').trim()).filter(Boolean) : [];
+  }
+
+  function normalizePartnerBlogServiceType(value) {
+    const raw = String(value || '').trim().toLowerCase().replace(/[\s_]+/g, '-');
+    if (!raw) return '';
+    if (PARTNER_BLOG_SERVICE_TYPE_ALIASES[raw]) return raw;
+    for (const [canonical, aliases] of Object.entries(PARTNER_BLOG_SERVICE_TYPE_ALIASES)) {
+      if (aliases.includes(raw)) return canonical;
+    }
+    return '';
+  }
+
+  function isMissingPartnerBlogTaxonomySchemaError(error) {
+    const combined = [
+      String(error?.code || ''),
+      String(error?.message || ''),
+      String(error?.details || ''),
+      String(error?.hint || ''),
+    ].join(' ').toLowerCase();
+    return (
+      combined.includes('42703')
+      || combined.includes('does not exist')
+      || combined.includes('could not find')
+      || combined.includes('column')
+    ) && /(categories_pl|categories_en|tags_pl|tags_en)/i.test(combined);
+  }
+
+  async function executePartnerBlogTaxonomyFallback(primaryFactory, legacyFactory) {
+    const primary = await primaryFactory();
+    if (!primary?.error || !isMissingPartnerBlogTaxonomySchemaError(primary.error) || typeof legacyFactory !== 'function') {
+      return primary;
+    }
+    return legacyFactory();
+  }
+
+  function stripPartnerBlogTaxonomyPayload(payload) {
+    const next = { ...(payload || {}) };
+    delete next.categories_pl;
+    delete next.categories_en;
+    delete next.tags_pl;
+    delete next.tags_en;
+    return next;
+  }
+
+  function getPartnerBlogTaxonomyValuesFromPost(post, kind, lang) {
+    const direct = normalizePartnerBlogTaxonomyList(post?.[`${kind}_${lang}`]);
+    if (direct.length) {
+      return direct;
+    }
+    return normalizePartnerBlogTaxonomyList(post?.[kind]);
+  }
+
+  function getPartnerBlogTaxonomyRefs(kind, lang) {
+    const kindLabel = kind === 'categories' ? 'Categories' : 'Tags';
+    const langLabel = lang === 'pl' ? 'Pl' : 'En';
+    return {
+      input: els[`partnerBlogForm${kindLabel}${langLabel}`],
+      selected: els[`partnerBlogForm${kindLabel}${langLabel}Selected`],
+      composer: els[`partnerBlogForm${kindLabel}${langLabel}Input`],
+      suggestions: els[`partnerBlogForm${kindLabel}${langLabel}Suggestions`],
+    };
+  }
+
   function firstSentenceText(value) {
     const text = String(value || '').trim().replace(/\s+/g, ' ');
     if (!text) return '';
@@ -8341,9 +8474,13 @@
       submission_status: String(row?.submission_status || 'draft').trim(),
       cover_image_url: String(row?.cover_image_url || '').trim(),
       categories: Array.isArray(row?.categories) ? row.categories.map((entry) => String(entry || '').trim()).filter(Boolean) : [],
+      categories_pl: getPartnerBlogTaxonomyValuesFromPost(row, 'categories', 'pl'),
+      categories_en: getPartnerBlogTaxonomyValuesFromPost(row, 'categories', 'en'),
       tags: Array.isArray(row?.tags) ? row.tags.map((entry) => String(entry || '').trim()).filter(Boolean) : [],
+      tags_pl: getPartnerBlogTaxonomyValuesFromPost(row, 'tags', 'pl'),
+      tags_en: getPartnerBlogTaxonomyValuesFromPost(row, 'tags', 'en'),
       cta_services: Array.isArray(row?.cta_services) ? row.cta_services.slice(0, 3).map((entry) => ({
-        type: String(entry?.type || '').trim(),
+        type: normalizePartnerBlogServiceType(entry?.type),
         resource_id: String(entry?.resource_id || '').trim(),
       })).filter((entry) => entry.type && entry.resource_id) : [],
       owner_partner_id: String(row?.owner_partner_id || '').trim(),
@@ -8382,37 +8519,42 @@
   }
 
   function collectPartnerBlogTaxonomySuggestions() {
-    const categories = new Set();
-    const tags = new Set();
+    const categories = { pl: new Set(), en: new Set() };
+    const tags = { pl: new Set(), en: new Set() };
     (state.partnerBlog.items || []).forEach((post) => {
-      (post.categories || []).forEach((entry) => {
-        const value = String(entry || '').trim();
-        if (value) categories.add(value);
-      });
-      (post.tags || []).forEach((entry) => {
-        const value = String(entry || '').trim();
-        if (value) tags.add(value);
+      PARTNER_BLOG_TAXONOMY_LANGUAGES.forEach((lang) => {
+        getPartnerBlogTaxonomyValuesFromPost(post, 'categories', lang).forEach((entry) => {
+          const value = String(entry || '').trim();
+          if (value) categories[lang].add(value);
+        });
+        getPartnerBlogTaxonomyValuesFromPost(post, 'tags', lang).forEach((entry) => {
+          const value = String(entry || '').trim();
+          if (value) tags[lang].add(value);
+        });
       });
     });
-    state.partnerBlog.taxonomySuggestions.categories = Array.from(categories).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
-    state.partnerBlog.taxonomySuggestions.tags = Array.from(tags).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
+    PARTNER_BLOG_TAXONOMY_LANGUAGES.forEach((lang) => {
+      state.partnerBlog.taxonomySuggestions.categories[lang] = Array.from(categories[lang]).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
+      state.partnerBlog.taxonomySuggestions.tags[lang] = Array.from(tags[lang]).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
+    });
   }
 
-  function getPartnerBlogTaxonomyValues(kind) {
-    const input = kind === 'categories' ? els.partnerBlogFormCategories : els.partnerBlogFormTags;
-    return parsePartnerBlogCsv(input?.value || '');
+  function getPartnerBlogTaxonomyValues(kind, lang) {
+    const refs = getPartnerBlogTaxonomyRefs(kind, lang);
+    return parsePartnerBlogCsv(refs.input?.value || '');
   }
 
-  function renderPartnerBlogTaxonomyPicker(kind) {
-    const values = getPartnerBlogTaxonomyValues(kind);
-    const selectedNode = kind === 'categories' ? els.partnerBlogFormCategoriesSelected : els.partnerBlogFormTagsSelected;
-    const suggestionsNode = kind === 'categories' ? els.partnerBlogFormCategoriesSuggestions : els.partnerBlogFormTagsSuggestions;
-    const suggestions = (state.partnerBlog.taxonomySuggestions[kind] || []).filter((entry) => !values.includes(entry)).slice(0, 16);
+  function renderPartnerBlogTaxonomyPicker(kind, lang) {
+    const values = getPartnerBlogTaxonomyValues(kind, lang);
+    const refs = getPartnerBlogTaxonomyRefs(kind, lang);
+    const selectedNode = refs.selected;
+    const suggestionsNode = refs.suggestions;
+    const suggestions = (state.partnerBlog.taxonomySuggestions[kind]?.[lang] || []).filter((entry) => !values.includes(entry)).slice(0, 16);
 
     if (selectedNode) {
       selectedNode.innerHTML = values.length
         ? values.map((value) => `
-          <button class="partner-blog-chip partner-blog-chip--selected" type="button" data-partner-blog-taxonomy-remove="${kind}" data-value="${escapeHtml(value)}">
+          <button class="partner-blog-chip partner-blog-chip--selected" type="button" data-partner-blog-taxonomy-remove="${kind}" data-partner-blog-taxonomy-lang="${lang}" data-value="${escapeHtml(value)}">
             <span>${escapeHtml(value)}</span>
             <span aria-hidden="true">×</span>
           </button>
@@ -8422,32 +8564,32 @@
 
     if (suggestionsNode) {
       suggestionsNode.innerHTML = suggestions.map((value) => `
-        <button class="partner-blog-chip" type="button" data-partner-blog-taxonomy-pick="${kind}" data-value="${escapeHtml(value)}">${escapeHtml(value)}</button>
+        <button class="partner-blog-chip" type="button" data-partner-blog-taxonomy-pick="${kind}" data-partner-blog-taxonomy-lang="${lang}" data-value="${escapeHtml(value)}">${escapeHtml(value)}</button>
       `).join('');
     }
   }
 
-  function setPartnerBlogTaxonomyValues(kind, values) {
+  function setPartnerBlogTaxonomyValues(kind, lang, values) {
     const next = Array.from(new Set((Array.isArray(values) ? values : []).map((entry) => String(entry || '').trim()).filter(Boolean)));
-    const input = kind === 'categories' ? els.partnerBlogFormCategories : els.partnerBlogFormTags;
-    if (input) input.value = next.join(', ');
-    renderPartnerBlogTaxonomyPicker(kind);
+    const refs = getPartnerBlogTaxonomyRefs(kind, lang);
+    if (refs.input) refs.input.value = next.join(', ');
+    renderPartnerBlogTaxonomyPicker(kind, lang);
   }
 
-  function addPartnerBlogTaxonomyValue(kind, rawValue) {
+  function addPartnerBlogTaxonomyValue(kind, lang, rawValue) {
     const value = String(rawValue || '').trim();
     if (!value) return;
-    const current = getPartnerBlogTaxonomyValues(kind);
+    const current = getPartnerBlogTaxonomyValues(kind, lang);
     if (!current.includes(value)) {
-      setPartnerBlogTaxonomyValues(kind, current.concat(value));
+      setPartnerBlogTaxonomyValues(kind, lang, current.concat(value));
     }
-    const composer = kind === 'categories' ? els.partnerBlogFormCategoriesInput : els.partnerBlogFormTagsInput;
-    if (composer) composer.value = '';
+    const refs = getPartnerBlogTaxonomyRefs(kind, lang);
+    if (refs.composer) refs.composer.value = '';
   }
 
-  function removePartnerBlogTaxonomyValue(kind, rawValue) {
+  function removePartnerBlogTaxonomyValue(kind, lang, rawValue) {
     const value = String(rawValue || '').trim();
-    setPartnerBlogTaxonomyValues(kind, getPartnerBlogTaxonomyValues(kind).filter((entry) => entry !== value));
+    setPartnerBlogTaxonomyValues(kind, lang, getPartnerBlogTaxonomyValues(kind, lang).filter((entry) => entry !== value));
   }
 
   function getPartnerBlogTranslationField(field, lang) {
@@ -8681,7 +8823,7 @@
   function collectPartnerBlogCtaRows() {
     const includeIncomplete = arguments.length > 0 ? Boolean(arguments[0]) : false;
     return Array.from(document.querySelectorAll('.partner-blog-cta-row')).map((row) => ({
-      type: String(row.querySelector('[data-partner-blog-cta-type]')?.value || '').trim(),
+      type: normalizePartnerBlogServiceType(row.querySelector('[data-partner-blog-cta-type]')?.value),
       resource_id: String(row.querySelector('[data-partner-blog-cta-resource]')?.value || '').trim(),
     })).filter((entry) => includeIncomplete || (entry.type && entry.resource_id)).slice(0, 3);
   }
@@ -8723,7 +8865,7 @@
   }
 
   async function loadPartnerBlogResourcesForType(type) {
-    const normalizedType = String(type || '').trim();
+    const normalizedType = normalizePartnerBlogServiceType(type);
     if (!normalizedType || !state.selectedPartnerId) return [];
     if (Array.isArray(state.partnerBlog.resourcesByType[normalizedType])) {
       return state.partnerBlog.resourcesByType[normalizedType];
@@ -8789,7 +8931,7 @@
   async function populatePartnerBlogResourceOptions(rowNode, type, selectedId = '') {
     const select = rowNode?.querySelector('[data-partner-blog-cta-resource]');
     if (!select) return;
-    const normalizedType = String(type || '').trim();
+    const normalizedType = normalizePartnerBlogServiceType(type);
     if (!normalizedType) {
       select.innerHTML = '<option value="">Select item</option>';
       return;
@@ -8810,7 +8952,10 @@
 
   function renderPartnerBlogCtaRows(rows = []) {
     if (!els.partnerBlogFormCtaRows) return;
-    const normalized = Array.isArray(rows) ? rows.slice(0, 3) : [];
+    const normalized = Array.isArray(rows) ? rows.slice(0, 3).map((row) => ({
+      type: normalizePartnerBlogServiceType(row?.type),
+      resource_id: String(row?.resource_id || row?.resourceId || '').trim(),
+    })) : [];
     if (!normalized.length) {
       els.partnerBlogFormCtaRows.innerHTML = '<div class="partner-blog-empty-state">No linked services yet. Add up to 3 CTA cards.</div>';
       if (els.btnPartnerBlogAddCta) els.btnPartnerBlogAddCta.disabled = false;
@@ -9013,8 +9158,12 @@
     if (els.partnerBlogFormId) els.partnerBlogFormId.value = post?.id || '';
     if (els.partnerBlogFormStatus) els.partnerBlogFormStatus.value = post?.status === 'archived' ? 'archived' : 'draft';
     if (els.partnerBlogFormCoverUrl) els.partnerBlogFormCoverUrl.value = post?.cover_image_url || '';
-    if (els.partnerBlogFormCategories) els.partnerBlogFormCategories.value = (post?.categories || []).join(', ');
-    if (els.partnerBlogFormTags) els.partnerBlogFormTags.value = (post?.tags || []).join(', ');
+    PARTNER_BLOG_TAXONOMY_LANGUAGES.forEach((lang) => {
+      const categoryRefs = getPartnerBlogTaxonomyRefs('categories', lang);
+      const tagRefs = getPartnerBlogTaxonomyRefs('tags', lang);
+      if (categoryRefs.input) categoryRefs.input.value = getPartnerBlogTaxonomyValuesFromPost(post, 'categories', lang).join(', ');
+      if (tagRefs.input) tagRefs.input.value = getPartnerBlogTaxonomyValuesFromPost(post, 'tags', lang).join(', ');
+    });
     setPartnerBlogCoverPreview(post?.cover_image_url || '');
 
     const translations = createPartnerBlogTranslations(post?.translations || null);
@@ -9026,8 +9175,10 @@
       state.partnerBlog.slugDirtyByLang[lang.code] = Boolean(translations[lang.code].slug);
     });
 
-    renderPartnerBlogTaxonomyPicker('categories');
-    renderPartnerBlogTaxonomyPicker('tags');
+    PARTNER_BLOG_TAXONOMY_LANGUAGES.forEach((lang) => {
+      renderPartnerBlogTaxonomyPicker('categories', lang);
+      renderPartnerBlogTaxonomyPicker('tags', lang);
+    });
     renderPartnerBlogCtaRows(post?.cta_services || []);
     return translations;
   }
@@ -9039,12 +9190,18 @@
     state.partnerBlog.pendingAction = 'save';
     state.partnerBlog.activeLang = 'pl';
     if (els.partnerBlogFormId) els.partnerBlogFormId.value = '';
-    if (els.partnerBlogFormCategories) els.partnerBlogFormCategories.value = '';
-    if (els.partnerBlogFormTags) els.partnerBlogFormTags.value = '';
+    PARTNER_BLOG_TAXONOMY_LANGUAGES.forEach((lang) => {
+      const categoryRefs = getPartnerBlogTaxonomyRefs('categories', lang);
+      const tagRefs = getPartnerBlogTaxonomyRefs('tags', lang);
+      if (categoryRefs.input) categoryRefs.input.value = '';
+      if (tagRefs.input) tagRefs.input.value = '';
+    });
     if (els.partnerBlogFormCtaRows) els.partnerBlogFormCtaRows.innerHTML = '';
     if (els.btnPartnerBlogDelete) els.btnPartnerBlogDelete.hidden = true;
-    setPartnerBlogTaxonomyValues('categories', []);
-    setPartnerBlogTaxonomyValues('tags', []);
+    PARTNER_BLOG_TAXONOMY_LANGUAGES.forEach((lang) => {
+      setPartnerBlogTaxonomyValues('categories', lang, []);
+      setPartnerBlogTaxonomyValues('tags', lang, []);
+    });
     renderPartnerBlogCtaRows([]);
     setPartnerBlogCoverPreview('');
     switchPartnerBlogLanguage('pl');
@@ -9101,8 +9258,8 @@
         post.id,
         post.status,
         post.submission_status,
-        post.categories.join(' '),
-        post.tags.join(' '),
+        (post.categories || []).join(' '),
+        (post.tags || []).join(' '),
         en.title,
         en.slug,
         pl.title,
@@ -9147,34 +9304,20 @@
 
   async function loadPartnerBlogPosts() {
     if (!state.sb || !state.selectedPartnerId) return [];
-    const { data, error } = await state.sb
-      .from('blog_posts')
-      .select(`
-        id,
-        status,
-        submission_status,
-        published_at,
-        cover_image_url,
-        categories,
-        tags,
-        cta_services,
-        owner_partner_id,
-        created_at,
-        updated_at,
-        translations:blog_post_translations (
-          id,
-          blog_post_id,
-          lang,
-          slug,
-          title,
-          lead,
-          content_json,
-          content_html
-        )
-      `)
-      .eq('owner_partner_id', state.selectedPartnerId)
-      .order('updated_at', { ascending: false })
-      .limit(200);
+    const { data, error } = await executePartnerBlogTaxonomyFallback(
+      () => state.sb
+        .from('blog_posts')
+        .select(PARTNER_BLOG_TABLE_SELECT)
+        .eq('owner_partner_id', state.selectedPartnerId)
+        .order('updated_at', { ascending: false })
+        .limit(200),
+      () => state.sb
+        .from('blog_posts')
+        .select(PARTNER_BLOG_TABLE_SELECT_LEGACY)
+        .eq('owner_partner_id', state.selectedPartnerId)
+        .order('updated_at', { ascending: false })
+        .limit(200)
+    );
     if (error) throw error;
     state.partnerBlog.items = Array.isArray(data) ? data.map(normalizePartnerBlogRow) : [];
     collectPartnerBlogTaxonomySuggestions();
@@ -9243,8 +9386,18 @@
         cover_image_alt: {},
         featured: false,
         allow_comments: false,
-        categories: getPartnerBlogTaxonomyValues('categories'),
-        tags: getPartnerBlogTaxonomyValues('tags'),
+        categories: Array.from(new Set([
+          ...getPartnerBlogTaxonomyValues('categories', 'pl'),
+          ...getPartnerBlogTaxonomyValues('categories', 'en'),
+        ])),
+        categories_pl: getPartnerBlogTaxonomyValues('categories', 'pl'),
+        categories_en: getPartnerBlogTaxonomyValues('categories', 'en'),
+        tags: Array.from(new Set([
+          ...getPartnerBlogTaxonomyValues('tags', 'pl'),
+          ...getPartnerBlogTaxonomyValues('tags', 'en'),
+        ])),
+        tags_pl: getPartnerBlogTaxonomyValues('tags', 'pl'),
+        tags_en: getPartnerBlogTaxonomyValues('tags', 'en'),
         cta_services: collectPartnerBlogCtaRows(),
         author_profile_id: null,
         owner_partner_id: state.selectedPartnerId,
@@ -9256,10 +9409,18 @@
 
       let blogPostId = editingId;
       if (editingId) {
-        const { error } = await state.sb.from('blog_posts').update(payload).eq('id', editingId).eq('owner_partner_id', state.selectedPartnerId);
+        let updateResult = await state.sb.from('blog_posts').update(payload).eq('id', editingId).eq('owner_partner_id', state.selectedPartnerId);
+        if (updateResult.error && isMissingPartnerBlogTaxonomySchemaError(updateResult.error)) {
+          updateResult = await state.sb
+            .from('blog_posts')
+            .update(stripPartnerBlogTaxonomyPayload(payload))
+            .eq('id', editingId)
+            .eq('owner_partner_id', state.selectedPartnerId);
+        }
+        const { error } = updateResult;
         if (error) throw error;
       } else {
-        const { data, error } = await state.sb
+        let insertResult = await state.sb
           .from('blog_posts')
           .insert({
             ...payload,
@@ -9267,6 +9428,17 @@
           })
           .select('id')
           .single();
+        if (insertResult.error && isMissingPartnerBlogTaxonomySchemaError(insertResult.error)) {
+          insertResult = await state.sb
+            .from('blog_posts')
+            .insert({
+              ...stripPartnerBlogTaxonomyPayload(payload),
+              created_by: currentUserId,
+            })
+            .select('id')
+            .single();
+        }
+        const { data, error } = insertResult;
         if (error) throw error;
         blogPostId = data?.id || '';
       }
@@ -9437,6 +9609,7 @@
       if (removeChip instanceof HTMLElement) {
         removePartnerBlogTaxonomyValue(
           String(removeChip.dataset.partnerBlogTaxonomyRemove || '').trim(),
+          String(removeChip.dataset.partnerBlogTaxonomyLang || '').trim() || 'pl',
           String(removeChip.dataset.value || '').trim(),
         );
         return;
@@ -9446,6 +9619,7 @@
       if (pickChip instanceof HTMLElement) {
         addPartnerBlogTaxonomyValue(
           String(pickChip.dataset.partnerBlogTaxonomyPick || '').trim(),
+          String(pickChip.dataset.partnerBlogTaxonomyLang || '').trim() || 'pl',
           String(pickChip.dataset.value || '').trim(),
         );
         return;
@@ -9454,8 +9628,9 @@
       const addTaxonomy = event.target.closest('[data-partner-blog-taxonomy-add]');
       if (addTaxonomy instanceof HTMLElement) {
         const kind = String(addTaxonomy.dataset.partnerBlogTaxonomyAdd || '').trim();
-        const input = kind === 'categories' ? els.partnerBlogFormCategoriesInput : els.partnerBlogFormTagsInput;
-        addPartnerBlogTaxonomyValue(kind, input?.value || '');
+        const lang = String(addTaxonomy.dataset.partnerBlogTaxonomyLang || '').trim() || 'pl';
+        const refs = getPartnerBlogTaxonomyRefs(kind, lang);
+        addPartnerBlogTaxonomyValue(kind, lang, refs.composer?.value || '');
         return;
       }
 
@@ -9512,12 +9687,13 @@
     els.partnerBlogForm?.addEventListener('keydown', (event) => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) return;
-      const isTaxonomyInput = target === els.partnerBlogFormCategoriesInput || target === els.partnerBlogFormTagsInput;
-      if (!isTaxonomyInput) return;
+      const match = target.id.match(/^partnerBlogForm(Categories|Tags)(Pl|En)Input$/);
+      if (!match) return;
       if (event.key === 'Enter' || event.key === ',') {
         event.preventDefault();
-        const kind = target === els.partnerBlogFormCategoriesInput ? 'categories' : 'tags';
-        addPartnerBlogTaxonomyValue(kind, (target instanceof HTMLInputElement ? target.value : ''));
+        const kind = match[1] === 'Categories' ? 'categories' : 'tags';
+        const lang = match[2] === 'Pl' ? 'pl' : 'en';
+        addPartnerBlogTaxonomyValue(kind, lang, (target instanceof HTMLInputElement ? target.value : ''));
       }
     });
 
@@ -11244,14 +11420,22 @@
     els.partnerBlogFormCoverFile = $('partnerBlogFormCoverFile');
     els.partnerBlogFormCoverPreview = $('partnerBlogFormCoverPreview');
     els.partnerBlogFormCoverPreviewImage = $('partnerBlogFormCoverPreviewImage');
-    els.partnerBlogFormCategories = $('partnerBlogFormCategories');
-    els.partnerBlogFormCategoriesSelected = $('partnerBlogFormCategoriesSelected');
-    els.partnerBlogFormCategoriesInput = $('partnerBlogFormCategoriesInput');
-    els.partnerBlogFormCategoriesSuggestions = $('partnerBlogFormCategoriesSuggestions');
-    els.partnerBlogFormTags = $('partnerBlogFormTags');
-    els.partnerBlogFormTagsSelected = $('partnerBlogFormTagsSelected');
-    els.partnerBlogFormTagsInput = $('partnerBlogFormTagsInput');
-    els.partnerBlogFormTagsSuggestions = $('partnerBlogFormTagsSuggestions');
+    els.partnerBlogFormCategoriesPl = $('partnerBlogFormCategoriesPl');
+    els.partnerBlogFormCategoriesPlSelected = $('partnerBlogFormCategoriesPlSelected');
+    els.partnerBlogFormCategoriesPlInput = $('partnerBlogFormCategoriesPlInput');
+    els.partnerBlogFormCategoriesPlSuggestions = $('partnerBlogFormCategoriesPlSuggestions');
+    els.partnerBlogFormCategoriesEn = $('partnerBlogFormCategoriesEn');
+    els.partnerBlogFormCategoriesEnSelected = $('partnerBlogFormCategoriesEnSelected');
+    els.partnerBlogFormCategoriesEnInput = $('partnerBlogFormCategoriesEnInput');
+    els.partnerBlogFormCategoriesEnSuggestions = $('partnerBlogFormCategoriesEnSuggestions');
+    els.partnerBlogFormTagsPl = $('partnerBlogFormTagsPl');
+    els.partnerBlogFormTagsPlSelected = $('partnerBlogFormTagsPlSelected');
+    els.partnerBlogFormTagsPlInput = $('partnerBlogFormTagsPlInput');
+    els.partnerBlogFormTagsPlSuggestions = $('partnerBlogFormTagsPlSuggestions');
+    els.partnerBlogFormTagsEn = $('partnerBlogFormTagsEn');
+    els.partnerBlogFormTagsEnSelected = $('partnerBlogFormTagsEnSelected');
+    els.partnerBlogFormTagsEnInput = $('partnerBlogFormTagsEnInput');
+    els.partnerBlogFormTagsEnSuggestions = $('partnerBlogFormTagsEnSuggestions');
     els.partnerBlogEditorRuntimeNote = $('partnerBlogEditorRuntimeNote');
     els.btnPartnerBlogAddCta = $('btnPartnerBlogAddCta');
     els.partnerBlogFormCtaRows = $('partnerBlogFormCtaRows');

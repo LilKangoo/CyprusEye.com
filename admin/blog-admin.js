@@ -6,8 +6,68 @@ const BLOG_SERVICE_TYPES = [
   { type: 'pois', label: 'POIs' },
   { type: 'recommendations', label: 'Recommendations' },
 ];
+const BLOG_SERVICE_TYPE_ALIASES = {
+  trips: ['trip', 'trips', 'tour', 'tours', 'wycieczka', 'wycieczki'],
+  hotels: ['hotel', 'hotels', 'stay', 'stays', 'accommodation', 'accommodations', 'nocleg', 'noclegi'],
+  cars: ['car', 'cars', 'car_offer', 'car_offers', 'car-rental', 'car_rental', 'auto', 'auta'],
+  pois: ['poi', 'pois', 'place', 'places', 'attraction', 'attractions', 'miejsce', 'miejsca'],
+  recommendations: [
+    'recommendation',
+    'recommendations',
+    'recommended',
+    'restaurant',
+    'restaurants',
+    'restauracja',
+    'restauracje',
+  ],
+};
 
 const BLOG_TABLE_SELECT = `
+  id,
+  status,
+  submission_status,
+  published_at,
+  cover_image_url,
+  cover_image_alt,
+  featured,
+  allow_comments,
+  categories,
+  categories_pl,
+  categories_en,
+  tags,
+  tags_pl,
+  tags_en,
+  cta_services,
+  author_profile_id,
+  owner_partner_id,
+  reviewed_at,
+  reviewed_by,
+  rejection_reason,
+  created_by,
+  updated_by,
+  created_at,
+  updated_at,
+  translations:blog_post_translations (
+    id,
+    blog_post_id,
+    lang,
+    slug,
+    title,
+    meta_title,
+    meta_description,
+    summary,
+    lead,
+    author_name,
+    author_url,
+    content_json,
+    content_html,
+    og_image_url,
+    created_at,
+    updated_at
+  )
+`;
+
+const BLOG_TABLE_SELECT_LEGACY = `
   id,
   status,
   submission_status,
@@ -57,8 +117,8 @@ const blogAdminState = {
   profilesById: {},
   resourcesByType: {},
   taxonomySuggestions: {
-    categories: [],
-    tags: [],
+    categories: { pl: [], en: [] },
+    tags: { pl: [], en: [] },
   },
   currentPage: 1,
   filterSearch: '',
@@ -85,6 +145,7 @@ const BLOG_FORM_SECTIONS = {
   cta: { defaultOpen: false },
   moderation: { defaultOpen: false },
 };
+const BLOG_TAXONOMY_LANGUAGES = ['pl', 'en'];
 
 const BLOG_COPY_FIELDS = {
   content: ['title', 'summary', 'lead', 'content_html'],
@@ -119,6 +180,22 @@ function showToastSafe(message, type = 'info') {
   console[type === 'error' ? 'error' : 'log'](`[blog-admin:${type}] ${message}`);
 }
 
+function normalizeBlogServiceType(value) {
+  const raw = String(value || '').trim().toLowerCase().replace(/[\s_]+/g, '-');
+  if (!raw) {
+    return '';
+  }
+  if (BLOG_SERVICE_TYPE_ALIASES[raw]) {
+    return raw;
+  }
+  for (const [canonical, aliases] of Object.entries(BLOG_SERVICE_TYPE_ALIASES)) {
+    if (aliases.includes(raw)) {
+      return canonical;
+    }
+  }
+  return '';
+}
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -130,6 +207,38 @@ function escapeHtml(value) {
 
 function safeArray(value) {
   return Array.isArray(value) ? value : [];
+}
+
+function isMissingBlogTaxonomySchemaError(error) {
+  const combined = [
+    String(error?.code || ''),
+    String(error?.message || ''),
+    String(error?.details || ''),
+    String(error?.hint || ''),
+  ].join(' ').toLowerCase();
+  return (
+    combined.includes('42703')
+    || combined.includes('does not exist')
+    || combined.includes('could not find')
+    || combined.includes('column')
+  ) && /(categories_pl|categories_en|tags_pl|tags_en)/i.test(combined);
+}
+
+async function executeBlogQueryWithTaxonomyFallback(primaryFactory, legacyFactory) {
+  const primary = await primaryFactory();
+  if (!primary?.error || !isMissingBlogTaxonomySchemaError(primary.error) || typeof legacyFactory !== 'function') {
+    return primary;
+  }
+  return legacyFactory();
+}
+
+function stripBlogTaxonomyPayload(payload) {
+  const next = { ...(payload || {}) };
+  delete next.categories_pl;
+  delete next.categories_en;
+  delete next.tags_pl;
+  delete next.tags_en;
+  return next;
 }
 
 function slugify(value) {
@@ -264,6 +373,28 @@ function normalizeI18nText(value, fallback = '') {
   return String(value.en || value.pl || Object.values(value).find((entry) => typeof entry === 'string') || fallback).trim();
 }
 
+function normalizeTaxonomyList(value) {
+  return safeArray(value).map((entry) => String(entry || '').trim()).filter(Boolean);
+}
+
+function getPostTaxonomyValues(post, kind, lang) {
+  const direct = normalizeTaxonomyList(post?.[`${kind}_${lang}`]);
+  if (direct.length) {
+    return direct;
+  }
+  return normalizeTaxonomyList(post?.[kind]);
+}
+
+function getTaxonomyIdPrefix(kind, lang) {
+  const kindLabel = `${kind.charAt(0).toUpperCase()}${kind.slice(1)}`;
+  const langLabel = lang === 'pl' ? 'Pl' : 'En';
+  return `blogForm${kindLabel}${langLabel}`;
+}
+
+function getTaxonomyElement(kind, lang, suffix = '') {
+  return $(`#${getTaxonomyIdPrefix(kind, lang)}${suffix}`, getBlogFormRoot());
+}
+
 function normalizeBlogRow(row) {
   const translations = safeArray(row?.translations).reduce((accumulator, translation) => {
     const lang = String(translation?.lang || '').trim().toLowerCase();
@@ -296,9 +427,13 @@ function normalizeBlogRow(row) {
     featured: Boolean(row?.featured),
     allow_comments: Boolean(row?.allow_comments),
     categories: safeArray(row?.categories).map((entry) => String(entry || '').trim()).filter(Boolean),
+    categories_pl: getPostTaxonomyValues(row, 'categories', 'pl'),
+    categories_en: getPostTaxonomyValues(row, 'categories', 'en'),
     tags: safeArray(row?.tags).map((entry) => String(entry || '').trim()).filter(Boolean),
+    tags_pl: getPostTaxonomyValues(row, 'tags', 'pl'),
+    tags_en: getPostTaxonomyValues(row, 'tags', 'en'),
     cta_services: safeArray(row?.cta_services).slice(0, 3).map((entry) => ({
-      type: String(entry?.type || '').trim(),
+      type: normalizeBlogServiceType(entry?.type),
       resource_id: String(entry?.resource_id || entry?.resourceId || '').trim(),
     })).filter((entry) => entry.type && entry.resource_id),
     author_profile_id: row?.author_profile_id || '',
@@ -414,29 +549,36 @@ function setSectionStatus(sectionKey, tone, text) {
 }
 
 function collectTaxonomySuggestions(kind) {
-  const bag = new Set();
+  const bag = {
+    pl: new Set(),
+    en: new Set(),
+  };
   blogAdminState.items.forEach((item) => {
-    safeArray(item?.[kind]).forEach((entry) => {
-      const value = String(entry || '').trim();
-      if (value) bag.add(value);
+    BLOG_TAXONOMY_LANGUAGES.forEach((lang) => {
+      getPostTaxonomyValues(item, kind, lang).forEach((entry) => {
+        const value = String(entry || '').trim();
+        if (value) bag[lang].add(value);
+      });
     });
   });
-  blogAdminState.taxonomySuggestions[kind] = Array.from(bag).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
+  BLOG_TAXONOMY_LANGUAGES.forEach((lang) => {
+    blogAdminState.taxonomySuggestions[kind][lang] = Array.from(bag[lang]).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
+  });
 }
 
-function getTaxonomyValues(kind) {
-  return parseCsvList($(`#blogForm${kind.charAt(0).toUpperCase()}${kind.slice(1)}`)?.value || '');
+function getTaxonomyValues(kind, lang) {
+  return parseCsvList(getTaxonomyElement(kind, lang)?.value || '');
 }
 
-function renderTaxonomyPicker(kind) {
-  const selectedNode = $(`#blogForm${kind.charAt(0).toUpperCase()}${kind.slice(1)}Selected`, getBlogFormRoot());
-  const suggestionsNode = $(`#blogForm${kind.charAt(0).toUpperCase()}${kind.slice(1)}Suggestions`, getBlogFormRoot());
-  const values = getTaxonomyValues(kind);
-  const suggestions = (blogAdminState.taxonomySuggestions[kind] || []).filter((value) => !values.includes(value)).slice(0, 16);
+function renderTaxonomyPicker(kind, lang) {
+  const selectedNode = getTaxonomyElement(kind, lang, 'Selected');
+  const suggestionsNode = getTaxonomyElement(kind, lang, 'Suggestions');
+  const values = getTaxonomyValues(kind, lang);
+  const suggestions = (blogAdminState.taxonomySuggestions[kind]?.[lang] || []).filter((value) => !values.includes(value)).slice(0, 16);
   if (selectedNode) {
     selectedNode.innerHTML = values.length
       ? values.map((value) => `
-        <button class="blog-chip blog-chip--selected" type="button" data-blog-taxonomy-remove="${kind}" data-value="${escapeHtml(value)}">
+        <button class="blog-chip blog-chip--selected" type="button" data-blog-taxonomy-remove="${kind}" data-blog-taxonomy-lang="${lang}" data-value="${escapeHtml(value)}">
           <span>${escapeHtml(value)}</span>
           <span aria-hidden="true">×</span>
         </button>
@@ -445,43 +587,45 @@ function renderTaxonomyPicker(kind) {
   }
   if (suggestionsNode) {
     suggestionsNode.innerHTML = suggestions.map((value) => `
-      <button class="blog-chip" type="button" data-blog-taxonomy-pick="${kind}" data-value="${escapeHtml(value)}">${escapeHtml(value)}</button>
+      <button class="blog-chip" type="button" data-blog-taxonomy-pick="${kind}" data-blog-taxonomy-lang="${lang}" data-value="${escapeHtml(value)}">${escapeHtml(value)}</button>
     `).join('');
   }
 }
 
-function setTaxonomyValues(kind, values) {
-  const input = $(`#blogForm${kind.charAt(0).toUpperCase()}${kind.slice(1)}`, getBlogFormRoot());
+function setTaxonomyValues(kind, lang, values) {
+  const input = getTaxonomyElement(kind, lang);
   if (!input) return;
   input.value = Array.from(new Set(safeArray(values).map((entry) => String(entry || '').trim()).filter(Boolean))).join(', ');
-  renderTaxonomyPicker(kind);
+  renderTaxonomyPicker(kind, lang);
   refreshFormUi();
 }
 
-function addTaxonomyValue(kind, rawValue) {
+function addTaxonomyValue(kind, lang, rawValue) {
   const value = String(rawValue || '').trim();
   if (!value) return;
-  const current = getTaxonomyValues(kind);
+  const current = getTaxonomyValues(kind, lang);
   if (current.includes(value)) {
-    const composer = $(`#blogForm${kind.charAt(0).toUpperCase()}${kind.slice(1)}Input`, getBlogFormRoot());
+    const composer = getTaxonomyElement(kind, lang, 'Input');
     if (composer) composer.value = '';
     return;
   }
-  setTaxonomyValues(kind, [...current, value]);
-  const composer = $(`#blogForm${kind.charAt(0).toUpperCase()}${kind.slice(1)}Input`, getBlogFormRoot());
+  setTaxonomyValues(kind, lang, [...current, value]);
+  const composer = getTaxonomyElement(kind, lang, 'Input');
   if (composer) composer.value = '';
 }
 
-function removeTaxonomyValue(kind, rawValue) {
+function removeTaxonomyValue(kind, lang, rawValue) {
   const value = String(rawValue || '').trim();
-  setTaxonomyValues(kind, getTaxonomyValues(kind).filter((entry) => entry !== value));
+  setTaxonomyValues(kind, lang, getTaxonomyValues(kind, lang).filter((entry) => entry !== value));
 }
 
 function renderAllTaxonomyPickers() {
   collectTaxonomySuggestions('categories');
   collectTaxonomySuggestions('tags');
-  renderTaxonomyPicker('categories');
-  renderTaxonomyPicker('tags');
+  BLOG_TAXONOMY_LANGUAGES.forEach((lang) => {
+    renderTaxonomyPicker('categories', lang);
+    renderTaxonomyPicker('tags', lang);
+  });
 }
 
 function setFieldInvalid(field, lang, invalid) {
@@ -510,7 +654,7 @@ function updatePreviewCard() {
   const title = getTranslationFieldValue('title', lang) || 'Untitled article';
   const summary = getTranslationFieldValue('summary', lang) || getTranslationFieldValue('lead', lang) || 'Summary will appear here as you edit the article.';
   const cover = String($('#blogFormCoverUrl')?.value || '').trim() || '/assets/cyprus_logo-1000x1054.png';
-  const category = getTaxonomyValues('categories')[0] || 'No category';
+  const category = getTaxonomyValues('categories', lang)[0] || 'No category';
   const author = getTranslationFieldValue('author_name', lang)
     || getProfileLabel(String($('#blogFormAuthorProfile')?.value || '').trim())
     || 'No author';
@@ -930,11 +1074,18 @@ async function loadBlogAdminData() {
     }
     renderPartnerFilterOptions();
 
-    const { data, error } = await client
-      .from('blog_posts')
-      .select(BLOG_TABLE_SELECT)
-      .order('updated_at', { ascending: false })
-      .limit(300);
+    const { data, error } = await executeBlogQueryWithTaxonomyFallback(
+      () => client
+        .from('blog_posts')
+        .select(BLOG_TABLE_SELECT)
+        .order('updated_at', { ascending: false })
+        .limit(300),
+      () => client
+        .from('blog_posts')
+        .select(BLOG_TABLE_SELECT_LEGACY)
+        .order('updated_at', { ascending: false })
+        .limit(300)
+    );
 
     if (error) {
       throw new Error(error.message || 'Failed to load blog posts');
@@ -978,7 +1129,10 @@ function renderCtaRows(rows = []) {
   const container = $('#blogFormCtaRows');
   if (!container) return;
 
-  const normalized = safeArray(rows).slice(0, 3);
+  const normalized = safeArray(rows).slice(0, 3).map((row) => ({
+    type: normalizeBlogServiceType(row?.type),
+    resource_id: String(row?.resource_id || row?.resourceId || '').trim(),
+  }));
   if (!normalized.length) {
     container.innerHTML = '<div class="blog-empty-state">No linked services yet. Add up to 3 CTA cards.</div>';
     const addButton = $('#btnBlogAddCta');
@@ -1110,7 +1264,7 @@ async function loadResourcesForType(type) {
 async function populateServiceResourceOptions(rowNode, type, selectedId = '') {
   const select = $('[data-blog-cta-resource]', rowNode);
   if (!select) return;
-  const normalizedType = String(type || '').trim();
+  const normalizedType = normalizeBlogServiceType(type);
   if (!normalizedType) {
     select.innerHTML = '<option value="">Select item</option>';
     return;
@@ -1133,7 +1287,7 @@ async function populateServiceResourceOptions(rowNode, type, selectedId = '') {
 
 function collectCtaRows() {
   return $$('.blog-cta-row').map((row) => ({
-    type: String($('[data-blog-cta-type]', row)?.value || '').trim(),
+    type: normalizeBlogServiceType($('[data-blog-cta-type]', row)?.value),
     resource_id: String($('[data-blog-cta-resource]', row)?.value || '').trim(),
   })).filter((row) => row.type && row.resource_id).slice(0, 3);
 }
@@ -1410,8 +1564,12 @@ function populateForm(post = null) {
   $('#blogFormFeatured').checked = Boolean(post?.featured);
   $('#blogFormAllowComments').checked = Boolean(post?.allow_comments);
   $('#blogFormCoverUrl').value = post?.cover_image_url || '';
-  $('#blogFormCategories').value = safeArray(post?.categories).join(', ');
-  $('#blogFormTags').value = safeArray(post?.tags).join(', ');
+  BLOG_TAXONOMY_LANGUAGES.forEach((lang) => {
+    const categoryInput = getTaxonomyElement('categories', lang);
+    const tagInput = getTaxonomyElement('tags', lang);
+    if (categoryInput) categoryInput.value = getPostTaxonomyValues(post, 'categories', lang).join(', ');
+    if (tagInput) tagInput.value = getPostTaxonomyValues(post, 'tags', lang).join(', ');
+  });
   $('#blogFormRejectionReason').value = post?.rejection_reason || '';
   setReviewMeta(post);
   populateOwnerPartnerSelect(post?.owner_partner_id || '');
@@ -1672,8 +1830,18 @@ async function saveBlogForm(event) {
     }, {}),
     featured: Boolean($('#blogFormFeatured')?.checked),
     allow_comments: Boolean($('#blogFormAllowComments')?.checked),
-    categories: parseCsvList($('#blogFormCategories')?.value || ''),
-    tags: parseCsvList($('#blogFormTags')?.value || ''),
+    categories: Array.from(new Set([
+      ...getTaxonomyValues('categories', 'pl'),
+      ...getTaxonomyValues('categories', 'en'),
+    ])),
+    categories_pl: getTaxonomyValues('categories', 'pl'),
+    categories_en: getTaxonomyValues('categories', 'en'),
+    tags: Array.from(new Set([
+      ...getTaxonomyValues('tags', 'pl'),
+      ...getTaxonomyValues('tags', 'en'),
+    ])),
+    tags_pl: getTaxonomyValues('tags', 'pl'),
+    tags_en: getTaxonomyValues('tags', 'en'),
     cta_services: collectCtaRows(),
     author_profile_id: String($('#blogFormAuthorProfile')?.value || '').trim() || null,
     owner_partner_id: ownerPartnerId || null,
@@ -1693,18 +1861,29 @@ async function saveBlogForm(event) {
     let blogPostId = blogAdminState.editingId;
 
     if (blogPostId) {
-      const { error } = await client.from('blog_posts').update(basePayload).eq('id', blogPostId);
-      if (error) throw new Error(error.message || 'Failed to update blog post');
+      let updateResult = await client.from('blog_posts').update(basePayload).eq('id', blogPostId);
+      if (updateResult.error && isMissingBlogTaxonomySchemaError(updateResult.error)) {
+        updateResult = await client.from('blog_posts').update(stripBlogTaxonomyPayload(basePayload)).eq('id', blogPostId);
+      }
+      if (updateResult.error) throw new Error(updateResult.error.message || 'Failed to update blog post');
     } else {
       const payload = {
         ...basePayload,
         created_by: currentUserId,
       };
-      const { data, error } = await client
+      let insertResult = await client
         .from('blog_posts')
         .insert(payload)
         .select('id')
         .single();
+      if (insertResult.error && isMissingBlogTaxonomySchemaError(insertResult.error)) {
+        insertResult = await client
+          .from('blog_posts')
+          .insert(stripBlogTaxonomyPayload(payload))
+          .select('id')
+          .single();
+      }
+      const { data, error } = insertResult;
       if (error) throw new Error(error.message || 'Failed to create blog post');
       blogPostId = data?.id || '';
     }
@@ -1915,6 +2094,7 @@ function bindModalControls() {
     if (removeChip instanceof HTMLElement) {
       removeTaxonomyValue(
         String(removeChip.dataset.blogTaxonomyRemove || '').trim(),
+        String(removeChip.dataset.blogTaxonomyLang || '').trim() || 'pl',
         String(removeChip.dataset.value || '').trim(),
       );
       return;
@@ -1924,6 +2104,7 @@ function bindModalControls() {
     if (pickChip instanceof HTMLElement) {
       addTaxonomyValue(
         String(pickChip.dataset.blogTaxonomyPick || '').trim(),
+        String(pickChip.dataset.blogTaxonomyLang || '').trim() || 'pl',
         String(pickChip.dataset.value || '').trim(),
       );
       return;
@@ -1932,8 +2113,9 @@ function bindModalControls() {
     const addTaxonomy = event.target.closest('[data-blog-taxonomy-add]');
     if (addTaxonomy instanceof HTMLElement) {
       const kind = String(addTaxonomy.dataset.blogTaxonomyAdd || '').trim();
-      const input = $(`#blogForm${kind.charAt(0).toUpperCase()}${kind.slice(1)}Input`, getBlogFormRoot());
-      addTaxonomyValue(kind, input?.value || '');
+      const lang = String(addTaxonomy.dataset.blogTaxonomyLang || '').trim() || 'pl';
+      const input = getTaxonomyElement(kind, lang, 'Input');
+      addTaxonomyValue(kind, lang, input?.value || '');
       return;
     }
   });
@@ -1999,12 +2181,13 @@ function bindModalControls() {
   $('#blogForm')?.addEventListener('keydown', (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
-    const isTaxonomyInput = target.id === 'blogFormCategoriesInput' || target.id === 'blogFormTagsInput';
-    if (!isTaxonomyInput) return;
+    const match = target.id.match(/^blogForm(Categories|Tags)(Pl|En)Input$/);
+    if (!match) return;
     if (event.key === 'Enter' || event.key === ',') {
       event.preventDefault();
-      const kind = target.id.includes('Categories') ? 'categories' : 'tags';
-      addTaxonomyValue(kind, target.value || '');
+      const kind = match[1] === 'Categories' ? 'categories' : 'tags';
+      const lang = match[2] === 'Pl' ? 'pl' : 'en';
+      addTaxonomyValue(kind, lang, target.value || '');
     }
   });
   $('#blogFormCoverFile')?.addEventListener('change', () => {

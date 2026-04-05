@@ -3185,27 +3185,51 @@
                   <img id="partnerBlogFormCoverPreviewImage" src="/assets/cyprus_logo-1000x1054.png" alt="Partner blog cover preview" />
                 </div>
                 <label class="admin-form-field partner-blog-form-grid__wide">
-                  <span>Categories</span>
-                  <input id="partnerBlogFormCategories" type="hidden" />
+                  <span>Categories (PL)</span>
+                  <input id="partnerBlogFormCategoriesPl" type="hidden" />
                   <div class="partner-blog-chip-picker">
-                    <div class="partner-blog-chip-picker__selected" id="partnerBlogFormCategoriesSelected"></div>
+                    <div class="partner-blog-chip-picker__selected" id="partnerBlogFormCategoriesPlSelected"></div>
                     <div class="partner-blog-chip-picker__composer">
-                      <input id="partnerBlogFormCategoriesInput" type="text" placeholder="Choose from suggestions or type a new category" />
-                      <button class="btn-secondary" type="button" data-partner-blog-taxonomy-add="categories">Add</button>
+                      <input id="partnerBlogFormCategoriesPlInput" type="text" placeholder="Choose from suggestions or type a new Polish category" />
+                      <button class="btn-secondary" type="button" data-partner-blog-taxonomy-add="categories" data-partner-blog-taxonomy-lang="pl">Add</button>
                     </div>
-                    <div class="partner-blog-chip-picker__suggestions" id="partnerBlogFormCategoriesSuggestions"></div>
+                    <div class="partner-blog-chip-picker__suggestions" id="partnerBlogFormCategoriesPlSuggestions"></div>
                   </div>
                 </label>
                 <label class="admin-form-field partner-blog-form-grid__wide">
-                  <span>Tags</span>
-                  <input id="partnerBlogFormTags" type="hidden" />
+                  <span>Categories (EN)</span>
+                  <input id="partnerBlogFormCategoriesEn" type="hidden" />
                   <div class="partner-blog-chip-picker">
-                    <div class="partner-blog-chip-picker__selected" id="partnerBlogFormTagsSelected"></div>
+                    <div class="partner-blog-chip-picker__selected" id="partnerBlogFormCategoriesEnSelected"></div>
                     <div class="partner-blog-chip-picker__composer">
-                      <input id="partnerBlogFormTagsInput" type="text" placeholder="Type keywords and press Add" />
-                      <button class="btn-secondary" type="button" data-partner-blog-taxonomy-add="tags">Add</button>
+                      <input id="partnerBlogFormCategoriesEnInput" type="text" placeholder="Choose from suggestions or type a new English category" />
+                      <button class="btn-secondary" type="button" data-partner-blog-taxonomy-add="categories" data-partner-blog-taxonomy-lang="en">Add</button>
                     </div>
-                    <div class="partner-blog-chip-picker__suggestions" id="partnerBlogFormTagsSuggestions"></div>
+                    <div class="partner-blog-chip-picker__suggestions" id="partnerBlogFormCategoriesEnSuggestions"></div>
+                  </div>
+                </label>
+                <label class="admin-form-field partner-blog-form-grid__wide">
+                  <span>Tags (PL)</span>
+                  <input id="partnerBlogFormTagsPl" type="hidden" />
+                  <div class="partner-blog-chip-picker">
+                    <div class="partner-blog-chip-picker__selected" id="partnerBlogFormTagsPlSelected"></div>
+                    <div class="partner-blog-chip-picker__composer">
+                      <input id="partnerBlogFormTagsPlInput" type="text" placeholder="Type Polish keywords and press Add" />
+                      <button class="btn-secondary" type="button" data-partner-blog-taxonomy-add="tags" data-partner-blog-taxonomy-lang="pl">Add</button>
+                    </div>
+                    <div class="partner-blog-chip-picker__suggestions" id="partnerBlogFormTagsPlSuggestions"></div>
+                  </div>
+                </label>
+                <label class="admin-form-field partner-blog-form-grid__wide">
+                  <span>Tags (EN)</span>
+                  <input id="partnerBlogFormTagsEn" type="hidden" />
+                  <div class="partner-blog-chip-picker">
+                    <div class="partner-blog-chip-picker__selected" id="partnerBlogFormTagsEnSelected"></div>
+                    <div class="partner-blog-chip-picker__composer">
+                      <input id="partnerBlogFormTagsEnInput" type="text" placeholder="Type English keywords and press Add" />
+                      <button class="btn-secondary" type="button" data-partner-blog-taxonomy-add="tags" data-partner-blog-taxonomy-lang="en">Add</button>
+                    </div>
+                    <div class="partner-blog-chip-picker__suggestions" id="partnerBlogFormTagsEnSuggestions"></div>
                   </div>
                 </label>
               </div>

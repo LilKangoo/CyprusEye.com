@@ -4364,6 +4364,14 @@ select#orderStatusFilter:focus {
   grid-column: 1 / -1;
 }
 
+.blog-taxonomy-grid .blog-form-grid__wide {
+  grid-column: auto;
+}
+
+.blog-taxonomy-card {
+  align-self: stretch;
+}
+
 .blog-inline-checks {
   display: flex;
   align-items: center;

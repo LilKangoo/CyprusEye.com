@@ -6,10 +6,38 @@ function safeArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
+const CTA_TYPE_ALIASES = {
+  trips: ['trip', 'trips', 'tour', 'tours', 'wycieczka', 'wycieczki'],
+  hotels: ['hotel', 'hotels', 'stay', 'stays', 'accommodation', 'accommodations', 'nocleg', 'noclegi'],
+  cars: ['car', 'cars', 'car_offer', 'car_offers', 'car-rental', 'car_rental', 'auto', 'auta'],
+  pois: ['poi', 'pois', 'place', 'places', 'attraction', 'attractions', 'miejsce', 'miejsca'],
+  recommendations: [
+    'recommendation',
+    'recommendations',
+    'recommended',
+    'restaurant',
+    'restaurants',
+    'restauracja',
+    'restauracje',
+  ],
+};
+
+function normalizeServiceType(value) {
+  const raw = String(value || '').trim().toLowerCase().replace(/[\s_]+/g, '-');
+  if (!raw) return '';
+  if (CTA_TYPE_ALIASES[raw]) return raw;
+  for (const [canonical, aliases] of Object.entries(CTA_TYPE_ALIASES)) {
+    if (aliases.includes(raw)) {
+      return canonical;
+    }
+  }
+  return '';
+}
+
 function normalizeCtaServices(ctaServices) {
   return safeArray(ctaServices)
     .map((entry) => ({
-      type: String(entry?.type || '').trim(),
+      type: normalizeServiceType(entry?.type),
       resourceId: String(entry?.resource_id || entry?.resourceId || '').trim(),
     }))
     .filter((entry) => entry.type && entry.resourceId)

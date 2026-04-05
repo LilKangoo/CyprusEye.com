@@ -11,6 +11,53 @@ const BLOG_LIST_SELECT = `
   featured,
   allow_comments,
   categories,
+  categories_pl,
+  categories_en,
+  tags,
+  tags_pl,
+  tags_en,
+  cta_services,
+  author_profile_id,
+  owner_partner_id,
+  reviewed_at,
+  reviewed_by,
+  rejection_reason,
+  created_at,
+  updated_at,
+  author_profile:profiles!blog_posts_author_profile_id_fkey (
+    id,
+    name,
+    username,
+    avatar_url
+  ),
+  translations:blog_post_translations (
+    id,
+    blog_post_id,
+    lang,
+    slug,
+    title,
+    meta_title,
+    meta_description,
+    summary,
+    lead,
+    author_name,
+    author_url,
+    og_image_url,
+    created_at,
+    updated_at
+  )
+`;
+
+const BLOG_LIST_SELECT_LEGACY = `
+  id,
+  status,
+  submission_status,
+  published_at,
+  cover_image_url,
+  cover_image_alt,
+  featured,
+  allow_comments,
+  categories,
   tags,
   cta_services,
   author_profile_id,
@@ -177,6 +224,33 @@ function safeArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function normalizeTaxonomyArray(value) {
+  return safeArray(value).map((entry) => String(entry || '').trim()).filter(Boolean);
+}
+
+function isMissingTaxonomySchemaError(error) {
+  const combined = [
+    String(error?.code || ''),
+    String(error?.message || ''),
+    String(error?.details || ''),
+    String(error?.hint || ''),
+  ].join(' ').toLowerCase();
+  return (
+    combined.includes('42703')
+    || combined.includes('does not exist')
+    || combined.includes('could not find')
+    || combined.includes('column')
+  ) && /(categories_pl|categories_en|tags_pl|tags_en)/i.test(combined);
+}
+
+async function executeTaxonomyAwareQuery(primaryFactory, legacyFactory) {
+  const primary = await primaryFactory();
+  if (!primary?.error || !isMissingTaxonomySchemaError(primary.error) || typeof legacyFactory !== 'function') {
+    return primary;
+  }
+  return legacyFactory();
+}
+
 function pickLocalizedText(value, language) {
   if (typeof value === 'string') {
     return value;
@@ -191,6 +265,16 @@ function pickLocalizedText(value, language) {
     || Object.values(value).find((entry) => typeof entry === 'string')
     || ''
   ).trim();
+}
+
+function getTaxonomyByLang(source, kind) {
+  const legacy = normalizeTaxonomyArray(source?.[kind]);
+  const pl = normalizeTaxonomyArray(source?.[`${kind}_pl`] || source?.[`${kind}Pl`]);
+  const en = normalizeTaxonomyArray(source?.[`${kind}_en`] || source?.[`${kind}En`]);
+  return {
+    pl: pl.length ? pl : legacy,
+    en: en.length ? en : legacy,
+  };
 }
 
 function mapTranslation(row) {
@@ -232,8 +316,10 @@ function mapListRow(row) {
       coverImageAlt: row.coverImageAlt || row.cover_image_alt || {},
       featured: Boolean(row.featured),
       allowComments: Boolean(row.allowComments || row.allow_comments),
-      categories: safeArray(row.categories).map((entry) => String(entry || '').trim()).filter(Boolean),
-      tags: safeArray(row.tags).map((entry) => String(entry || '').trim()).filter(Boolean),
+      categories: normalizeTaxonomyArray(row.categories),
+      categoriesByLang: row.categoriesByLang || getTaxonomyByLang(row, 'categories'),
+      tags: normalizeTaxonomyArray(row.tags),
+      tagsByLang: row.tagsByLang || getTaxonomyByLang(row, 'tags'),
       ctaServices: safeArray(row.ctaServices || row.cta_services),
       authorProfile: row.authorProfile || row.author_profile || null,
       translationsByLang: row.translationsByLang,
@@ -250,8 +336,10 @@ function mapListRow(row) {
     coverImageAlt: row.cover_image_alt || {},
     featured: Boolean(row.featured),
     allowComments: Boolean(row.allow_comments),
-    categories: safeArray(row.categories).map((entry) => String(entry || '').trim()).filter(Boolean),
-    tags: safeArray(row.tags).map((entry) => String(entry || '').trim()).filter(Boolean),
+    categories: normalizeTaxonomyArray(row.categories),
+    categoriesByLang: getTaxonomyByLang(row, 'categories'),
+    tags: normalizeTaxonomyArray(row.tags),
+    tagsByLang: getTaxonomyByLang(row, 'tags'),
     ctaServices: safeArray(row.cta_services),
     authorProfile: row.author_profile ? {
       id: row.author_profile.id || null,
@@ -286,6 +374,8 @@ function resolveAuthor(post, language) {
 
 function getLocalizedPost(post, language) {
   const translation = pickTranslation(post, language);
+  const categoriesByLang = post?.categoriesByLang || getTaxonomyByLang(post, 'categories');
+  const tagsByLang = post?.tagsByLang || getTaxonomyByLang(post, 'tags');
   return {
     ...post,
     translation,
@@ -296,6 +386,8 @@ function getLocalizedPost(post, language) {
     metaTitle: String(translation?.metaTitle || '').trim(),
     metaDescription: String(translation?.metaDescription || '').trim(),
     slug: String(translation?.slug || '').trim(),
+    categories: categoriesByLang[language] || categoriesByLang.en || categoriesByLang.pl || [],
+    tags: tagsByLang[language] || tagsByLang.en || tagsByLang.pl || [],
     coverImageAlt: pickLocalizedText(post?.coverImageAlt, language) || String(translation?.title || t('untitled')).trim(),
   };
 }
@@ -338,28 +430,38 @@ function preloadMatchesRequest() {
 }
 
 async function fetchBlogListPage() {
-  let query = supabase
-    .from('blog_posts')
-    .select(BLOG_LIST_SELECT, { count: 'exact' })
-    .eq('status', 'published')
-    .eq('submission_status', 'approved')
-    .not('published_at', 'is', null)
-    .lte('published_at', new Date().toISOString());
-
-  if (state.activeFilter.kind === 'featured') {
-    query = query.eq('featured', true);
-  } else if (state.activeFilter.kind === 'category') {
-    query = query.contains('categories', [state.activeFilter.value]);
-  } else if (state.activeFilter.kind === 'tag') {
-    query = query.contains('tags', [state.activeFilter.value]);
-  }
-
+  const categoryColumn = state.language === 'pl' ? 'categories_pl' : 'categories_en';
+  const tagColumn = state.language === 'pl' ? 'tags_pl' : 'tags_en';
   const from = (state.page - 1) * state.pageSize;
   const to = from + state.pageSize - 1;
+  const buildQuery = (useLegacyTaxonomy = false) => {
+    const activeCategoryColumn = useLegacyTaxonomy ? 'categories' : categoryColumn;
+    const activeTagColumn = useLegacyTaxonomy ? 'tags' : tagColumn;
+    let query = supabase
+      .from('blog_posts')
+      .select(useLegacyTaxonomy ? BLOG_LIST_SELECT_LEGACY : BLOG_LIST_SELECT, { count: 'exact' })
+      .eq('status', 'published')
+      .eq('submission_status', 'approved')
+      .not('published_at', 'is', null)
+      .lte('published_at', new Date().toISOString());
 
-  const { data, error, count } = await query
-    .order('published_at', { ascending: false })
-    .range(from, to);
+    if (state.activeFilter.kind === 'featured') {
+      query = query.eq('featured', true);
+    } else if (state.activeFilter.kind === 'category') {
+      query = query.contains(activeCategoryColumn, [state.activeFilter.value]);
+    } else if (state.activeFilter.kind === 'tag') {
+      query = query.contains(activeTagColumn, [state.activeFilter.value]);
+    }
+
+    return query
+      .order('published_at', { ascending: false })
+      .range(from, to);
+  };
+
+  const { data, error, count } = await executeTaxonomyAwareQuery(
+    () => buildQuery(false),
+    () => buildQuery(true)
+  );
 
   if (error) {
     throw new Error(error.message || 'Failed to load blog list');
@@ -372,14 +474,25 @@ async function fetchBlogListPage() {
 }
 
 async function fetchBlogFacets() {
-  const { data, error } = await supabase
-    .from('blog_posts')
-    .select('categories, tags, featured')
-    .eq('status', 'published')
-    .eq('submission_status', 'approved')
-    .not('published_at', 'is', null)
-    .lte('published_at', new Date().toISOString())
-    .limit(500);
+  const categoryColumn = state.language === 'pl' ? 'categories_pl' : 'categories_en';
+  const tagColumn = state.language === 'pl' ? 'tags_pl' : 'tags_en';
+  const buildQuery = (useLegacyTaxonomy = false) => {
+    const activeCategoryColumn = useLegacyTaxonomy ? 'categories' : categoryColumn;
+    const activeTagColumn = useLegacyTaxonomy ? 'tags' : tagColumn;
+    return supabase
+      .from('blog_posts')
+      .select(`${activeCategoryColumn}, ${activeTagColumn}, featured`)
+      .eq('status', 'published')
+      .eq('submission_status', 'approved')
+      .not('published_at', 'is', null)
+      .lte('published_at', new Date().toISOString())
+      .limit(500);
+  };
+
+  const { data, error } = await executeTaxonomyAwareQuery(
+    () => buildQuery(false),
+    () => buildQuery(true)
+  );
 
   if (error) {
     throw new Error(error.message || 'Failed to load blog facets');
@@ -388,16 +501,19 @@ async function fetchBlogFacets() {
   const categories = new Set();
   const tags = new Set();
   let featuredCount = 0;
+  const useLegacyTaxonomy = safeArray(data).some((row) => !Object.prototype.hasOwnProperty.call(row || {}, categoryColumn));
 
   safeArray(data).forEach((row) => {
     if (row?.featured) {
       featuredCount += 1;
     }
-    safeArray(row?.categories).forEach((entry) => {
+    const categoryValues = useLegacyTaxonomy ? row?.categories : row?.[categoryColumn];
+    const tagValues = useLegacyTaxonomy ? row?.tags : row?.[tagColumn];
+    normalizeTaxonomyArray(categoryValues).forEach((entry) => {
       const value = String(entry || '').trim();
       if (value) categories.add(value);
     });
-    safeArray(row?.tags).forEach((entry) => {
+    normalizeTaxonomyArray(tagValues).forEach((entry) => {
       const value = String(entry || '').trim();
       if (value) tags.add(value);
     });
@@ -485,10 +601,10 @@ function updateListMeta() {
   const ogDescription = document.querySelector('meta[property="og:description"]');
   if (ogDescription) ogDescription.setAttribute('content', description);
   const canonical = document.querySelector('link[rel="canonical"]');
-  if (canonical) canonical.setAttribute('href', `${window.location.origin}/blog`);
+  if (canonical) canonical.setAttribute('href', state.language === 'pl' ? `${window.location.origin}/blog?lang=pl` : `${window.location.origin}/blog`);
   const alternates = {
     pl: `${window.location.origin}/blog?lang=pl`,
-    en: `${window.location.origin}/blog?lang=en`,
+    en: `${window.location.origin}/blog`,
     'x-default': `${window.location.origin}/blog`,
   };
   Object.entries(alternates).forEach(([code, url]) => {
@@ -498,6 +614,14 @@ function updateListMeta() {
   const ogUrl = document.querySelector('meta[property="og:url"]');
   if (ogUrl) {
     ogUrl.setAttribute('content', state.language === 'pl' ? `${window.location.origin}/blog?lang=pl` : `${window.location.origin}/blog`);
+  }
+  const ogLocale = document.querySelector('meta[property="og:locale"]');
+  if (ogLocale) {
+    ogLocale.setAttribute('content', state.language === 'pl' ? 'pl_PL' : 'en_US');
+  }
+  const ogLocaleAlt = document.querySelector('meta[property="og:locale:alternate"]');
+  if (ogLocaleAlt) {
+    ogLocaleAlt.setAttribute('content', state.language === 'pl' ? 'en_US' : 'pl_PL');
   }
 }
 

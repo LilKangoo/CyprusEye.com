@@ -86,10 +86,58 @@ function normalizeImageUrl(input) {
 
 function buildLanguageUrl(pathname, language) {
   const url = new URL(pathname || '/', CANONICAL_ORIGIN);
-  if (language) {
+  if (language && language !== 'en') {
     url.searchParams.set('lang', language);
   }
   return url.toString();
+}
+
+function normalizeComparableText(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function pickMetaDescription(translation, fallbackDescription, siblingTranslation = null) {
+  const direct = normalizeComparableText(translation?.metaDescription || translation?.meta_description || '');
+  const lead = normalizeComparableText(translation?.lead || '');
+  const summary = normalizeComparableText(translation?.summary || '');
+  const localizedFallback = lead || summary || normalizeComparableText(fallbackDescription);
+
+  if (direct) {
+    const siblingCandidates = new Set([
+      siblingTranslation?.metaTitle,
+      siblingTranslation?.meta_title,
+      siblingTranslation?.metaDescription,
+      siblingTranslation?.meta_description,
+      siblingTranslation?.lead,
+      siblingTranslation?.summary,
+      siblingTranslation?.title,
+    ].map(normalizeComparableText).filter(Boolean));
+    if (localizedFallback && siblingCandidates.has(direct) && direct !== localizedFallback) {
+      return localizedFallback;
+    }
+    return direct;
+  }
+
+  return localizedFallback;
+}
+
+function pickMetaTitle(translation, fallbackTitle, siblingTranslation = null) {
+  const direct = normalizeComparableText(translation?.metaTitle || translation?.meta_title || '');
+  const localizedFallback = normalizeComparableText(translation?.title || fallbackTitle);
+
+  if (direct) {
+    const siblingCandidates = new Set([
+      siblingTranslation?.metaTitle,
+      siblingTranslation?.meta_title,
+      siblingTranslation?.title,
+    ].map(normalizeComparableText).filter(Boolean));
+    if (localizedFallback && siblingCandidates.has(direct) && direct !== localizedFallback) {
+      return localizedFallback;
+    }
+    return direct;
+  }
+
+  return localizedFallback;
 }
 
 function serializeForScript(data) {
@@ -104,6 +152,7 @@ function buildBasePayload({
   ogDescription,
   ogImage,
   canonicalUrl,
+  ogUrl,
   languageUrls,
   ogType = 'article',
   authorName = '',
@@ -117,10 +166,10 @@ function buildBasePayload({
     ogTitle: ogTitle || title,
     ogDescription: ogDescription || description,
     ogType,
-    ogUrl: canonicalUrl,
+    ogUrl: ogUrl || canonicalUrl,
     ogImage: normalizeImageUrl(ogImage),
-    ogLocale: resolvedLanguage === 'pl' ? 'pl_PL' : 'en_GB',
-    ogLocaleAlternate: resolvedLanguage === 'pl' ? 'en_GB' : 'pl_PL',
+    ogLocale: resolvedLanguage === 'pl' ? 'pl_PL' : 'en_US',
+    ogLocaleAlternate: resolvedLanguage === 'pl' ? 'en_US' : 'pl_PL',
     canonicalUrl,
     languageUrls,
     authorName,
@@ -145,7 +194,7 @@ export function buildBlogAuthorByline(post) {
 export function buildBlogListSeoPayload({ language, requestPathname = '/blog', requestSearch = '' } = {}) {
   const resolvedLanguage = normalizeBlogLanguage(language);
   const copy = BLOG_SEO_COPY[resolvedLanguage].list;
-  const canonicalUrl = toAbsoluteUrl(requestPathname);
+  const canonicalUrl = buildLanguageUrl(requestPathname, resolvedLanguage);
 
   return buildBasePayload({
     language: resolvedLanguage,
@@ -156,10 +205,11 @@ export function buildBlogListSeoPayload({ language, requestPathname = '/blog', r
     ogImage: DEFAULT_OG_IMAGE,
     ogType: 'website',
     canonicalUrl,
+    ogUrl: canonicalUrl,
     languageUrls: {
       pl: buildLanguageUrl(requestPathname, 'pl'),
       en: buildLanguageUrl(requestPathname, 'en'),
-      xDefault: toAbsoluteUrl(requestPathname, requestSearch ? '' : ''),
+      xDefault: toAbsoluteUrl(requestPathname),
     },
   });
 }
@@ -169,17 +219,18 @@ export function buildBlogPostSeoPayload({ language, requestPathname = '/blog', r
   const localizedCopy = BLOG_SEO_COPY[resolvedLanguage];
 
   if (!post?.translation) {
-    const canonicalUrl = toAbsoluteUrl(requestPathname);
+    const canonicalUrl = buildLanguageUrl(requestPathname, resolvedLanguage);
     return buildBasePayload({
       language: resolvedLanguage,
       title: localizedCopy.notFound.title,
       description: localizedCopy.notFound.description,
       ogImage: DEFAULT_OG_IMAGE,
       canonicalUrl,
+      ogUrl: canonicalUrl,
       languageUrls: {
         pl: buildLanguageUrl(requestPathname, 'pl'),
         en: buildLanguageUrl(requestPathname, 'en'),
-        xDefault: toAbsoluteUrl(requestPathname, requestSearch ? '' : ''),
+        xDefault: toAbsoluteUrl(requestPathname),
       },
     });
   }
@@ -188,9 +239,12 @@ export function buildBlogPostSeoPayload({ language, requestPathname = '/blog', r
   const translationsByLang = post.translationsByLang || {};
   const plSlug = translationsByLang.pl?.slug || translation.slug;
   const enSlug = translationsByLang.en?.slug || translation.slug;
-  const canonicalUrl = toAbsoluteUrl(requestPathname);
-  const title = translation.metaTitle || translation.title || localizedCopy.postFallback.title;
-  const description = translation.metaDescription || translation.summary || localizedCopy.postFallback.description;
+  const plUrl = buildLanguageUrl(`/blog/${plSlug}`, 'pl');
+  const enUrl = buildLanguageUrl(`/blog/${enSlug}`, 'en');
+  const canonicalUrl = resolvedLanguage === 'pl' ? plUrl : enUrl;
+  const siblingTranslation = resolvedLanguage === 'pl' ? translationsByLang.en : translationsByLang.pl;
+  const title = pickMetaTitle(translation, localizedCopy.postFallback.title, siblingTranslation);
+  const description = pickMetaDescription(translation, localizedCopy.postFallback.description, siblingTranslation);
   const byline = buildBlogAuthorByline(post);
 
   return buildBasePayload({
@@ -202,9 +256,10 @@ export function buildBlogPostSeoPayload({ language, requestPathname = '/blog', r
     ogImage: translation.ogImageUrl || post.coverImageUrl || DEFAULT_OG_IMAGE,
     ogType: 'article',
     canonicalUrl,
+    ogUrl: canonicalUrl,
     languageUrls: {
-      pl: buildLanguageUrl(`/blog/${plSlug}`, 'pl'),
-      en: buildLanguageUrl(`/blog/${enSlug}`, 'en'),
+      pl: plUrl,
+      en: enUrl,
       xDefault: toAbsoluteUrl(`/blog/${enSlug || translation.slug}`),
     },
     authorName: byline?.name || '',
@@ -240,8 +295,8 @@ export function createBlogPlaceholderHtml({ language = 'en', kind = 'list' } = {
   <meta property="og:description" content="${escapeHtml(description)}" />
   <meta property="og:url" content="${escapeHtml(toAbsoluteUrl('/blog'))}" />
   <meta property="og:image" content="${escapeHtml(toAbsoluteUrl(DEFAULT_OG_IMAGE))}" />
-  <meta property="og:locale" content="${resolvedLanguage === 'pl' ? 'pl_PL' : 'en_GB'}" />
-  <meta property="og:locale:alternate" content="${resolvedLanguage === 'pl' ? 'en_GB' : 'pl_PL'}" />
+  <meta property="og:locale" content="${resolvedLanguage === 'pl' ? 'pl_PL' : 'en_US'}" />
+  <meta property="og:locale:alternate" content="${resolvedLanguage === 'pl' ? 'en_US' : 'pl_PL'}" />
   <link rel="canonical" href="${escapeHtml(toAbsoluteUrl('/blog'))}" />
   <link rel="alternate" hreflang="pl" href="${escapeHtml(buildLanguageUrl('/blog', 'pl'))}" />
   <link rel="alternate" hreflang="en" href="${escapeHtml(buildLanguageUrl('/blog', 'en'))}" />

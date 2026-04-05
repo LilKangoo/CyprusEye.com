@@ -28,6 +28,55 @@ const POST_SELECT = `
     featured,
     allow_comments,
     categories,
+    categories_pl,
+    categories_en,
+    tags,
+    tags_pl,
+    tags_en,
+    cta_services,
+    author_profile_id,
+    owner_partner_id,
+    reviewed_at,
+    reviewed_by,
+    rejection_reason,
+    created_at,
+    updated_at,
+    author_profile:profiles!blog_posts_author_profile_id_fkey (
+      id,
+      name,
+      username,
+      avatar_url
+    )
+  )
+`;
+
+const POST_SELECT_LEGACY = `
+  id,
+  blog_post_id,
+  lang,
+  slug,
+  title,
+  meta_title,
+  meta_description,
+  summary,
+  lead,
+  author_name,
+  author_url,
+  content_json,
+  content_html,
+  og_image_url,
+  created_at,
+  updated_at,
+  blog_post:blog_posts (
+    id,
+    status,
+    submission_status,
+    published_at,
+    cover_image_url,
+    cover_image_alt,
+    featured,
+    allow_comments,
+    categories,
     tags,
     cta_services,
     author_profile_id,
@@ -64,6 +113,84 @@ const SIBLING_TRANSLATIONS_SELECT = `
   updated_at
 `;
 
+const RELATED_POSTS_SELECT = `
+  id,
+  status,
+  submission_status,
+  published_at,
+  cover_image_url,
+  cover_image_alt,
+  featured,
+  allow_comments,
+  categories,
+  categories_pl,
+  categories_en,
+  tags,
+  tags_pl,
+  tags_en,
+  cta_services,
+  author_profile_id,
+  owner_partner_id,
+  reviewed_at,
+  reviewed_by,
+  rejection_reason,
+  created_at,
+  updated_at,
+  translations:blog_post_translations (
+    id,
+    blog_post_id,
+    lang,
+    slug,
+    title,
+    meta_title,
+    meta_description,
+    summary,
+    lead,
+    author_name,
+    author_url,
+    og_image_url,
+    created_at,
+    updated_at
+  )
+`;
+
+const RELATED_POSTS_SELECT_LEGACY = `
+  id,
+  status,
+  submission_status,
+  published_at,
+  cover_image_url,
+  cover_image_alt,
+  featured,
+  allow_comments,
+  categories,
+  tags,
+  cta_services,
+  author_profile_id,
+  owner_partner_id,
+  reviewed_at,
+  reviewed_by,
+  rejection_reason,
+  created_at,
+  updated_at,
+  translations:blog_post_translations (
+    id,
+    blog_post_id,
+    lang,
+    slug,
+    title,
+    meta_title,
+    meta_description,
+    summary,
+    lead,
+    author_name,
+    author_url,
+    og_image_url,
+    created_at,
+    updated_at
+  )
+`;
+
 const COPY = {
   en: {
     loading: 'Loading article...',
@@ -73,8 +200,13 @@ const COPY = {
     kicker: 'CyprusEye story',
     byline: 'Written by',
     sidebarHeading: 'Quick overview',
+    sidebarTags: 'Tags',
     ctaEyebrow: 'Continue with CyprusEye',
     ctaTitle: 'Useful services linked to this article.',
+    relatedEyebrow: 'See also',
+    relatedTitle: 'Related articles you may want to read next.',
+    relatedLink: 'Read article',
+    backToList: '← Back to blog list',
     untitled: 'Untitled article',
   },
   pl: {
@@ -85,8 +217,13 @@ const COPY = {
     kicker: 'Artykuł CyprusEye',
     byline: 'Autor',
     sidebarHeading: 'Szybki przegląd',
+    sidebarTags: 'Tagi',
     ctaEyebrow: 'Kontynuuj z CyprusEye',
     ctaTitle: 'Usługi powiązane z tym artykułem.',
+    relatedEyebrow: 'Zobacz także',
+    relatedTitle: 'Powiązane artykuły, które warto przeczytać dalej.',
+    relatedLink: 'Czytaj artykuł',
+    backToList: '← Powrót do listy blogów',
     untitled: 'Artykuł bez tytułu',
   },
 };
@@ -120,6 +257,33 @@ function safeArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function normalizeTaxonomyArray(value) {
+  return safeArray(value).map((entry) => String(entry || '').trim()).filter(Boolean);
+}
+
+function isMissingTaxonomySchemaError(error) {
+  const combined = [
+    String(error?.code || ''),
+    String(error?.message || ''),
+    String(error?.details || ''),
+    String(error?.hint || ''),
+  ].join(' ').toLowerCase();
+  return (
+    combined.includes('42703')
+    || combined.includes('does not exist')
+    || combined.includes('could not find')
+    || combined.includes('column')
+  ) && /(categories_pl|categories_en|tags_pl|tags_en)/i.test(combined);
+}
+
+async function executeTaxonomyAwareQuery(primaryFactory, legacyFactory) {
+  const primary = await primaryFactory();
+  if (!primary?.error || !isMissingTaxonomySchemaError(primary.error) || typeof legacyFactory !== 'function') {
+    return primary;
+  }
+  return legacyFactory();
+}
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -149,6 +313,29 @@ function normalizeSlug(value) {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/-{2,}/g, '-')
     .replace(/^-+|-+$/g, '');
+}
+
+function buildMetaDescription(localized) {
+  return String(
+    localized?.metaDescription
+    || localized?.lead
+    || localized?.summary
+    || ''
+  ).trim();
+}
+
+function normalizeComparableText(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function getTaxonomyByLang(source, kind) {
+  const legacy = normalizeTaxonomyArray(source?.[kind]);
+  const pl = normalizeTaxonomyArray(source?.[`${kind}_pl`] || source?.[`${kind}Pl`]);
+  const en = normalizeTaxonomyArray(source?.[`${kind}_en`] || source?.[`${kind}En`]);
+  return {
+    pl: pl.length ? pl : legacy,
+    en: en.length ? en : legacy,
+  };
 }
 
 function pickLocalizedText(value, language) {
@@ -207,8 +394,10 @@ function mapPostFromTranslation(row, siblings = []) {
     publishedAt: base.published_at || null,
     coverImageUrl: String(base.cover_image_url || '').trim(),
     coverImageAlt: base.cover_image_alt || {},
-    categories: safeArray(base.categories).map((entry) => String(entry || '').trim()).filter(Boolean),
-    tags: safeArray(base.tags).map((entry) => String(entry || '').trim()).filter(Boolean),
+    categories: normalizeTaxonomyArray(base.categories),
+    categoriesByLang: getTaxonomyByLang(base, 'categories'),
+    tags: normalizeTaxonomyArray(base.tags),
+    tagsByLang: getTaxonomyByLang(base, 'tags'),
     ctaServices: safeArray(base.cta_services),
     authorProfile: base.author_profile ? {
       id: base.author_profile.id || null,
@@ -216,6 +405,8 @@ function mapPostFromTranslation(row, siblings = []) {
       username: String(base.author_profile.username || '').trim(),
       avatarUrl: String(base.author_profile.avatar_url || '').trim(),
     } : null,
+    resolvedCtaServices: safeArray(row?.resolvedCtaServices || row?.resolved_cta_services),
+    relatedPosts: safeArray(row?.relatedPosts || row?.related_posts),
     translationsByLang,
     translation: currentTranslation,
   };
@@ -247,6 +438,8 @@ function resolveAuthor(post, language) {
 
 function getLocalizedPost(post, language) {
   const translation = pickTranslation(post, language);
+  const categoriesByLang = post?.categoriesByLang || getTaxonomyByLang(post, 'categories');
+  const tagsByLang = post?.tagsByLang || getTaxonomyByLang(post, 'tags');
   return {
     ...post,
     translation,
@@ -258,8 +451,75 @@ function getLocalizedPost(post, language) {
     contentHtml: String(translation?.contentHtml || '').trim(),
     slug: String(translation?.slug || '').trim(),
     ogImageUrl: String(translation?.ogImageUrl || '').trim(),
+    categories: categoriesByLang[language] || categoriesByLang.en || categoriesByLang.pl || [],
+    tags: tagsByLang[language] || tagsByLang.en || tagsByLang.pl || [],
     coverImageAlt: pickLocalizedText(post?.coverImageAlt, language) || String(translation?.title || t('untitled')).trim(),
     author: resolveAuthor(post, language),
+  };
+}
+
+function pickLocalizedMetaTitle(post, language) {
+  const translation = pickTranslation(post, language);
+  const sibling = pickTranslation(post, language === 'pl' ? 'en' : 'pl');
+  const direct = normalizeComparableText(translation?.metaTitle || '');
+  const localizedFallback = normalizeComparableText(translation?.title || t('untitled'));
+  if (direct) {
+    const siblingCandidates = new Set([
+      sibling?.metaTitle,
+      sibling?.title,
+    ].map(normalizeComparableText).filter(Boolean));
+    if (localizedFallback && siblingCandidates.has(direct) && direct !== localizedFallback) {
+      return localizedFallback;
+    }
+    return direct;
+  }
+  return localizedFallback;
+}
+
+function pickLocalizedMetaDescription(post, language) {
+  const translation = pickTranslation(post, language);
+  const sibling = pickTranslation(post, language === 'pl' ? 'en' : 'pl');
+  const direct = normalizeComparableText(translation?.metaDescription || '');
+  const localizedFallback = normalizeComparableText(translation?.lead || translation?.summary || '');
+  if (direct) {
+    const siblingCandidates = new Set([
+      sibling?.metaTitle,
+      sibling?.metaDescription,
+      sibling?.lead,
+      sibling?.summary,
+      sibling?.title,
+    ].map(normalizeComparableText).filter(Boolean));
+    if (localizedFallback && siblingCandidates.has(direct) && direct !== localizedFallback) {
+      return localizedFallback;
+    }
+    return direct;
+  }
+  return localizedFallback;
+}
+
+function createHeadingId(value, usedIds) {
+  const base = normalizeSlug(value) || 'section';
+  let candidate = base;
+  let counter = 2;
+  while (usedIds.has(candidate)) {
+    candidate = `${base}-${counter}`;
+    counter += 1;
+  }
+  usedIds.add(candidate);
+  return candidate;
+}
+
+function localizeRelatedPost(post, language) {
+  const translation = pickTranslation(post, language);
+  return {
+    id: post?.id || null,
+    slug: String(translation?.slug || '').trim(),
+    title: String(translation?.title || t('untitled')).trim(),
+    summary: String(translation?.summary || translation?.lead || '').trim(),
+    publishedAt: post?.publishedAt || null,
+    coverImageUrl: String(post?.coverImageUrl || '').trim() || '/assets/cyprus_logo-1000x1054.png',
+    coverImageAlt: pickLocalizedText(post?.coverImageAlt, language) || String(translation?.title || t('untitled')).trim(),
+    categories: (post?.categoriesByLang?.[language] || post?.categories || []).map((entry) => String(entry || '').trim()).filter(Boolean),
   };
 }
 
@@ -290,28 +550,47 @@ async function fetchPost(language, slug) {
   const normalizedSlug = normalizeSlug(slug);
   if (!normalizedSlug) return null;
 
-  let result = await supabase
-    .from('blog_post_translations')
-    .select(POST_SELECT)
-    .eq('lang', language)
-    .eq('slug', normalizedSlug)
-    .maybeSingle();
+  let result = await executeTaxonomyAwareQuery(
+    () => supabase
+      .from('blog_post_translations')
+      .select(POST_SELECT)
+      .eq('lang', language)
+      .eq('slug', normalizedSlug)
+      .maybeSingle(),
+    () => supabase
+      .from('blog_post_translations')
+      .select(POST_SELECT_LEGACY)
+      .eq('lang', language)
+      .eq('slug', normalizedSlug)
+      .maybeSingle()
+  );
 
   if (result.error) {
     throw new Error(result.error.message || 'Failed to load blog post');
   }
 
   if (!result.data) {
-    result = await supabase
-      .from('blog_post_translations')
-      .select(POST_SELECT)
-      .eq('slug', normalizedSlug)
-      .limit(1)
-      .maybeSingle();
+    const fallback = await executeTaxonomyAwareQuery(
+      () => supabase
+        .from('blog_post_translations')
+        .select(POST_SELECT)
+        .eq('slug', normalizedSlug)
+        .limit(2),
+      () => supabase
+        .from('blog_post_translations')
+        .select(POST_SELECT_LEGACY)
+        .eq('slug', normalizedSlug)
+        .limit(2)
+    );
 
-    if (result.error) {
-      throw new Error(result.error.message || 'Failed to load blog post');
+    if (fallback.error) {
+      throw new Error(fallback.error.message || 'Failed to load blog post');
     }
+
+    result = {
+      data: safeArray(fallback.data)[0] || null,
+      error: null,
+    };
   }
 
   if (!result.data?.blog_post?.id) {
@@ -320,12 +599,20 @@ async function fetchPost(language, slug) {
 
   let primary = result.data;
   if (normalizeBlogUiLanguage(primary.lang) !== language) {
-    const localized = await supabase
-      .from('blog_post_translations')
-      .select(POST_SELECT)
-      .eq('blog_post_id', primary.blog_post.id)
-      .eq('lang', language)
-      .maybeSingle();
+    const localized = await executeTaxonomyAwareQuery(
+      () => supabase
+        .from('blog_post_translations')
+        .select(POST_SELECT)
+        .eq('blog_post_id', primary.blog_post.id)
+        .eq('lang', language)
+        .maybeSingle(),
+      () => supabase
+        .from('blog_post_translations')
+        .select(POST_SELECT_LEGACY)
+        .eq('blog_post_id', primary.blog_post.id)
+        .eq('lang', language)
+        .maybeSingle()
+    );
     if (localized.error) {
       throw new Error(localized.error.message || 'Failed to load translated blog post');
     }
@@ -349,14 +636,16 @@ function ensureMetaNode(selector, build) {
 
 function updateHead(post) {
   const localized = getLocalizedPost(post, state.language);
-  const title = localized.metaTitle || localized.title || t('untitled');
-  const description = localized.metaDescription || localized.summary || '';
+  const title = pickLocalizedMetaTitle(post, state.language) || localized.title || t('untitled');
+  const description = pickLocalizedMetaDescription(post, state.language) || buildMetaDescription(localized);
   const plSlug = post?.translationsByLang?.pl?.slug || localized.slug;
   const enSlug = post?.translationsByLang?.en?.slug || localized.slug;
   const canonicalSlug = state.language === 'pl' ? plSlug || enSlug : enSlug || plSlug;
-  const canonicalUrl = `${window.location.origin}/blog/${encodeURIComponent(canonicalSlug || localized.slug)}`;
+  const canonicalUrl = state.language === 'pl'
+    ? `${window.location.origin}/blog/${encodeURIComponent(canonicalSlug || localized.slug)}?lang=pl`
+    : `${window.location.origin}/blog/${encodeURIComponent(canonicalSlug || localized.slug)}`;
   const plUrl = `${window.location.origin}/blog/${encodeURIComponent(plSlug || localized.slug)}?lang=pl`;
-  const enUrl = `${window.location.origin}/blog/${encodeURIComponent(enSlug || localized.slug)}?lang=en`;
+  const enUrl = `${window.location.origin}/blog/${encodeURIComponent(enSlug || localized.slug)}`;
   const ogUrl = state.language === 'pl'
     ? `${window.location.origin}/blog/${encodeURIComponent(localized.slug || canonicalSlug || '')}?lang=pl`
     : `${window.location.origin}/blog/${encodeURIComponent(localized.slug || canonicalSlug || '')}`;
@@ -402,12 +691,12 @@ function updateHead(post) {
     const node = document.createElement('meta');
     node.setAttribute('property', 'og:locale');
     return node;
-  }).setAttribute('content', state.language === 'pl' ? 'pl_PL' : 'en_GB');
+  }).setAttribute('content', state.language === 'pl' ? 'pl_PL' : 'en_US');
   ensureMetaNode('meta[property="og:locale:alternate"]', () => {
     const node = document.createElement('meta');
     node.setAttribute('property', 'og:locale:alternate');
     return node;
-  }).setAttribute('content', state.language === 'pl' ? 'en_GB' : 'pl_PL');
+  }).setAttribute('content', state.language === 'pl' ? 'en_US' : 'pl_PL');
 
   ensureMetaNode('link[rel="canonical"]', () => {
     const node = document.createElement('link');
@@ -462,6 +751,14 @@ function renderTokens(container, values) {
     : '';
 }
 
+function renderQuickOverview(localized) {
+  const card = $('#blogOverviewCard');
+  if (!(card instanceof HTMLElement)) {
+    return;
+  }
+  card.hidden = true;
+}
+
 function setErrorState(message, tone = 'error') {
   const stateNode = $('#blogPostState');
   const view = $('#blogPostView');
@@ -480,7 +777,14 @@ async function renderCtas(post) {
   const grid = $('#blogCtaGrid');
   if (!section || !grid) return;
 
-  const cards = await resolveBlogCtaServices(supabase, post.ctaServices, state.language);
+  const preloaded = safeArray(post?.resolvedCtaServices).filter((card) => String(card?.language || '').trim() === state.language);
+  let cards = preloaded;
+  if (cards.length < safeArray(post?.ctaServices).length) {
+    const resolved = await resolveBlogCtaServices(supabase, post.ctaServices, state.language);
+    if (resolved.length >= cards.length) {
+      cards = resolved;
+    }
+  }
   if (!cards.length) {
     section.hidden = true;
     grid.innerHTML = '';
@@ -504,6 +808,143 @@ async function renderCtas(post) {
   section.hidden = false;
 }
 
+async function fetchRelatedPosts(post) {
+  if (!post?.id) {
+    return [];
+  }
+
+  const { data, error } = await executeTaxonomyAwareQuery(
+    () => supabase
+      .from('blog_posts')
+      .select(RELATED_POSTS_SELECT)
+      .eq('status', 'published')
+      .eq('submission_status', 'approved')
+      .not('published_at', 'is', null)
+      .lte('published_at', new Date().toISOString())
+      .neq('id', post.id)
+      .order('published_at', { ascending: false })
+      .limit(24),
+    () => supabase
+      .from('blog_posts')
+      .select(RELATED_POSTS_SELECT_LEGACY)
+      .eq('status', 'published')
+      .eq('submission_status', 'approved')
+      .not('published_at', 'is', null)
+      .lte('published_at', new Date().toISOString())
+      .neq('id', post.id)
+      .order('published_at', { ascending: false })
+      .limit(24)
+  );
+
+  if (error) {
+    throw new Error(error.message || 'Failed to load related blog posts');
+  }
+
+  const localizedSource = getLocalizedPost(post, state.language);
+  const categorySet = new Set(safeArray(localizedSource.categories).map((entry) => String(entry || '').trim()).filter(Boolean));
+  const tagSet = new Set(safeArray(localizedSource.tags).map((entry) => String(entry || '').trim()).filter(Boolean));
+
+  const items = safeArray(data).map((row) => {
+    const translations = buildTranslationsByLang(row.translations);
+    return {
+      id: row.id || null,
+      status: row.status || 'draft',
+      submissionStatus: row.submission_status || 'draft',
+      publishedAt: row.published_at || null,
+      coverImageUrl: String(row.cover_image_url || '').trim(),
+      coverImageAlt: row.cover_image_alt || {},
+      categories: normalizeTaxonomyArray(row.categories),
+      categoriesByLang: getTaxonomyByLang(row, 'categories'),
+      tags: normalizeTaxonomyArray(row.tags),
+      tagsByLang: getTaxonomyByLang(row, 'tags'),
+      translationsByLang: translations,
+      translation: pickTranslation({ translationsByLang: translations }, state.language),
+    };
+  });
+
+  const scored = items.map((item, index) => {
+    const itemCategories = item.categoriesByLang?.[state.language] || item.categories || [];
+    const itemTags = item.tagsByLang?.[state.language] || item.tags || [];
+    const categoryMatches = itemCategories.filter((entry) => categorySet.has(entry)).length;
+    const tagMatches = itemTags.filter((entry) => tagSet.has(entry)).length;
+    return {
+      item,
+      index,
+      score: categoryMatches * 4 + tagMatches * 5,
+    };
+  });
+
+  scored.sort((left, right) => {
+    if (right.score !== left.score) {
+      return right.score - left.score;
+    }
+    const leftDate = new Date(left.item.publishedAt || 0).getTime();
+    const rightDate = new Date(right.item.publishedAt || 0).getTime();
+    if (rightDate !== leftDate) {
+      return rightDate - leftDate;
+    }
+    return left.index - right.index;
+  });
+
+  const preferred = scored.filter((entry) => entry.score > 0).slice(0, 3);
+  const fallback = scored.filter((entry) => entry.score === 0).slice(0, Math.max(0, 3 - preferred.length));
+  return [...preferred, ...fallback].slice(0, 3).map((entry) => entry.item);
+}
+
+async function renderRelatedPosts(post) {
+  const section = $('#blogRelatedSection');
+  const grid = $('#blogRelatedGrid');
+  if (!section || !grid) return;
+
+  let relatedPosts = safeArray(post?.relatedPosts);
+  if (!relatedPosts.length) {
+    try {
+      relatedPosts = await fetchRelatedPosts(post);
+    } catch (error) {
+      console.warn('[blog-post] Failed to load related posts:', error);
+      relatedPosts = [];
+    }
+  }
+
+  if (!relatedPosts.length) {
+    section.hidden = true;
+    grid.innerHTML = '';
+    return;
+  }
+
+  $('#blogRelatedEyebrow').textContent = t('relatedEyebrow');
+  $('#blogRelatedTitle').textContent = t('relatedTitle');
+
+  grid.innerHTML = relatedPosts.map((postItem) => {
+    const localizedItem = localizeRelatedPost(postItem, state.language);
+    const href = state.language === 'pl'
+      ? `/blog/${encodeURIComponent(localizedItem.slug)}?lang=pl`
+      : `/blog/${encodeURIComponent(localizedItem.slug)}`;
+
+    return `
+      <article class="blog-card">
+        <img class="blog-card__image" src="${escapeHtml(localizedItem.coverImageUrl)}" alt="${escapeHtml(localizedItem.coverImageAlt || localizedItem.title)}" loading="lazy" />
+        <div class="blog-card__body">
+          <div class="blog-meta-row">
+            ${localizedItem.categories[0] ? `<span class="blog-meta-pill">${escapeHtml(localizedItem.categories[0])}</span>` : ''}
+            ${localizedItem.publishedAt ? `<span>${escapeHtml(formatDate(localizedItem.publishedAt))}</span>` : ''}
+          </div>
+          <h3 class="blog-card__title">${escapeHtml(localizedItem.title)}</h3>
+          <p class="blog-card__summary">${escapeHtml(localizedItem.summary)}</p>
+          <div class="blog-card__footer">
+            <a class="blog-card__link" href="${escapeHtml(href)}">
+              <span>${escapeHtml(t('relatedLink'))}</span>
+              <span aria-hidden="true">→</span>
+            </a>
+          </div>
+        </div>
+      </article>
+    `;
+  }).join('');
+
+  section.hidden = false;
+}
+
 async function render() {
   if (!state.post) {
     setErrorState(state.slug ? t('notFound') : t('missingSlug'));
@@ -520,11 +961,15 @@ async function render() {
   $('#blogPostSummary').textContent = localized.summary || '';
   $('#blogPostCover').src = localized.coverImageUrl || '/assets/cyprus_logo-1000x1054.png';
   $('#blogPostCover').alt = localized.coverImageAlt || localized.title;
+  const backLink = $('#blogBackLink');
+  if (backLink) {
+    backLink.textContent = t('backToList');
+    backLink.href = state.language === 'pl' ? '/blog?lang=pl' : '/blog';
+  }
   $('#blogSidebarHeading').textContent = t('sidebarHeading');
   $('#blogCtaEyebrow').textContent = t('ctaEyebrow');
   $('#blogCtaTitle').textContent = t('ctaTitle');
   renderTokens($('#blogPostCategoryList'), localized.categories);
-  renderTokens($('#blogPostTagList'), localized.tags);
 
   const leadNode = $('#blogPostLead');
   if (leadNode) {
@@ -538,6 +983,7 @@ async function render() {
   }
 
   $('#blogPostContent').innerHTML = localized.contentHtml || '';
+  renderQuickOverview(localized);
 
   const byline = $('#blogPostByline');
   const authorLink = $('#blogPostAuthorLink');
@@ -572,6 +1018,7 @@ async function render() {
   $('#blogPostState').hidden = true;
   $('#blogPostView').hidden = false;
   await renderCtas(state.post);
+  await renderRelatedPosts(state.post);
 }
 
 async function loadPost(slugOverride = state.slug) {

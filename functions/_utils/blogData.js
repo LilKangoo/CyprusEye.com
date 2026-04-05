@@ -4,8 +4,69 @@ export const BLOG_DEFAULT_LANGUAGE = 'en';
 export const BLOG_SUPPORTED_LANGUAGES = ['pl', 'en'];
 export const BLOG_ALLOWED_CTA_TYPES = ['pois', 'trips', 'hotels', 'cars', 'recommendations'];
 export const BLOG_LIST_PAGE_SIZE = 12;
+const BLOG_CTA_TYPE_ALIASES = {
+  trips: ['trip', 'trips', 'tour', 'tours', 'wycieczka', 'wycieczki'],
+  hotels: ['hotel', 'hotels', 'stay', 'stays', 'accommodation', 'accommodations', 'nocleg', 'noclegi'],
+  cars: ['car', 'cars', 'car_offer', 'car_offers', 'car-rental', 'car_rental', 'auto', 'auta'],
+  pois: ['poi', 'pois', 'place', 'places', 'attraction', 'attractions', 'miejsce', 'miejsca'],
+  recommendations: [
+    'recommendation',
+    'recommendations',
+    'recommended',
+    'restaurant',
+    'restaurants',
+    'restauracja',
+    'restauracje',
+  ],
+};
 
 const BLOG_LIST_SELECT = `
+  id,
+  status,
+  submission_status,
+  published_at,
+  cover_image_url,
+  cover_image_alt,
+  featured,
+  allow_comments,
+  categories,
+  categories_pl,
+  categories_en,
+  tags,
+  tags_pl,
+  tags_en,
+  cta_services,
+  author_profile_id,
+  owner_partner_id,
+  reviewed_at,
+  reviewed_by,
+  rejection_reason,
+  created_at,
+  updated_at,
+  author_profile:profiles!blog_posts_author_profile_id_fkey (
+    id,
+    name,
+    username,
+    avatar_url
+  ),
+  translations:blog_post_translations (
+    id,
+    lang,
+    slug,
+    title,
+    meta_title,
+    meta_description,
+    summary,
+    lead,
+    author_name,
+    author_url,
+    og_image_url,
+    created_at,
+    updated_at
+  )
+`;
+
+const BLOG_LIST_SELECT_LEGACY = `
   id,
   status,
   submission_status,
@@ -74,6 +135,55 @@ const BLOG_POST_SELECT = `
     featured,
     allow_comments,
     categories,
+    categories_pl,
+    categories_en,
+    tags,
+    tags_pl,
+    tags_en,
+    cta_services,
+    author_profile_id,
+    owner_partner_id,
+    reviewed_at,
+    reviewed_by,
+    rejection_reason,
+    created_at,
+    updated_at,
+    author_profile:profiles!blog_posts_author_profile_id_fkey (
+      id,
+      name,
+      username,
+      avatar_url
+    )
+  )
+`;
+
+const BLOG_POST_SELECT_LEGACY = `
+  id,
+  blog_post_id,
+  lang,
+  slug,
+  title,
+  meta_title,
+  meta_description,
+  summary,
+  lead,
+  author_name,
+  author_url,
+  content_json,
+  content_html,
+  og_image_url,
+  created_at,
+  updated_at,
+  blog_post:blog_posts (
+    id,
+    status,
+    submission_status,
+    published_at,
+    cover_image_url,
+    cover_image_alt,
+    featured,
+    allow_comments,
+    categories,
     tags,
     cta_services,
     author_profile_id,
@@ -106,6 +216,25 @@ export function normalizeBlogSlug(value) {
     .replace(/^-+|-+$/g, '');
 }
 
+export function normalizeBlogServiceType(value) {
+  const raw = String(value || '').trim().toLowerCase().replace(/[\s_]+/g, '-');
+  if (!raw) {
+    return '';
+  }
+
+  if (BLOG_ALLOWED_CTA_TYPES.includes(raw)) {
+    return raw;
+  }
+
+  for (const [canonical, aliases] of Object.entries(BLOG_CTA_TYPE_ALIASES)) {
+    if (aliases.includes(raw)) {
+      return canonical;
+    }
+  }
+
+  return '';
+}
+
 export function normalizeCtaServices(input) {
   if (!Array.isArray(input)) {
     return [];
@@ -113,17 +242,52 @@ export function normalizeCtaServices(input) {
 
   return input
     .map((entry) => ({
-      type: String(entry?.type || '').trim(),
+      type: normalizeBlogServiceType(entry?.type),
       resource_id: String(entry?.resource_id || entry?.resourceId || '').trim(),
     }))
     .filter((entry) => BLOG_ALLOWED_CTA_TYPES.includes(entry.type) && entry.resource_id)
     .slice(0, 3);
 }
 
+function safeArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function isMissingBlogTaxonomyColumnError(error) {
+  const parts = [
+    String(error?.code || ''),
+    String(error?.message || ''),
+    String(error?.details || ''),
+    String(error?.hint || ''),
+  ].filter(Boolean);
+  if (!parts.length) {
+    return false;
+  }
+  const combined = parts.join(' ').toLowerCase();
+  return (
+    combined.includes('42703')
+    || combined.includes('does not exist')
+    || combined.includes('could not find')
+    || combined.includes('column')
+  ) && /(categories_pl|categories_en|tags_pl|tags_en)/i.test(combined);
+}
+
+async function executeBlogQueryWithTaxonomyFallback(primaryFactory, legacyFactory) {
+  const primary = await primaryFactory();
+  if (!primary?.error || !isMissingBlogTaxonomyColumnError(primary.error) || typeof legacyFactory !== 'function') {
+    return primary;
+  }
+  return legacyFactory();
+}
+
 function applyPublishedBlogFilters(query, options = {}) {
+  const language = normalizeBlogLanguage(options.language);
   const normalizedCategory = String(options.category || '').trim();
   const normalizedTag = String(options.tag || '').trim();
   const featuredOnly = String(options.featured || '').trim() === '1' || options.featured === true;
+  const useLegacyTaxonomy = options.useLegacyTaxonomy === true;
+  const categoryColumn = useLegacyTaxonomy ? 'categories' : (language === 'pl' ? 'categories_pl' : 'categories_en');
+  const tagColumn = useLegacyTaxonomy ? 'tags' : (language === 'pl' ? 'tags_pl' : 'tags_en');
 
   let nextQuery = query
     .eq('status', 'published')
@@ -135,10 +299,10 @@ function applyPublishedBlogFilters(query, options = {}) {
     nextQuery = nextQuery.eq('featured', true);
   }
   if (normalizedCategory) {
-    nextQuery = nextQuery.contains('categories', [normalizedCategory]);
+    nextQuery = nextQuery.contains(categoryColumn, [normalizedCategory]);
   }
   if (normalizedTag) {
-    nextQuery = nextQuery.contains('tags', [normalizedTag]);
+    nextQuery = nextQuery.contains(tagColumn, [normalizedTag]);
   }
 
   return nextQuery;
@@ -185,6 +349,221 @@ function pickLocalizedText(value, language) {
     || Object.values(value).find((entry) => typeof entry === 'string')
     || ''
   );
+}
+
+function normalizeTaxonomyArray(value) {
+  return Array.isArray(value) ? value.map((entry) => String(entry || '').trim()).filter(Boolean) : [];
+}
+
+function getTaxonomyByLang(row, kind) {
+  const legacy = normalizeTaxonomyArray(row?.[kind]);
+  const pl = normalizeTaxonomyArray(row?.[`${kind}_pl`]);
+  const en = normalizeTaxonomyArray(row?.[`${kind}_en`]);
+  return {
+    pl: pl.length ? pl : legacy,
+    en: en.length ? en : legacy,
+  };
+}
+
+function pickLocalizedObjectField(source, language) {
+  if (typeof source === 'string') {
+    return source;
+  }
+  if (!source || typeof source !== 'object') {
+    return '';
+  }
+  return String(
+    source[language]
+    || source.en
+    || source.pl
+    || Object.values(source).find((entry) => typeof entry === 'string')
+    || ''
+  ).trim();
+}
+
+function pickMedia(source) {
+  if (!source || typeof source !== 'object') {
+    return '/assets/cyprus_logo-1000x1054.png';
+  }
+  const candidates = [
+    source.cover_image_url,
+    source.image_url,
+    source.main_image_url,
+    source.thumbnail_url,
+    ...(Array.isArray(source.photos) ? source.photos : []),
+  ];
+  return String(candidates.find((entry) => String(entry || '').trim()) || '/assets/cyprus_logo-1000x1054.png').trim();
+}
+
+function truncateText(value, maxLength = 140) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength - 1).trim()}…`;
+}
+
+function buildCarHref(row, language) {
+  const location = String(row?.location || '').trim().toLowerCase();
+  if (location === 'paphos') {
+    return `/autopfo.html?lang=${language}`;
+  }
+  if (location === 'larnaca') {
+    return `/car-rental.html?lang=${language}`;
+  }
+  return `/car.html?lang=${language}`;
+}
+
+function buildServiceMeta(type, language) {
+  const copy = {
+    en: {
+      trips: { label: 'Trip', cta: 'Check trip' },
+      hotels: { label: 'Stay', cta: 'Check stay' },
+      cars: { label: 'Car rental', cta: 'Check cars' },
+      pois: { label: 'Place', cta: 'Explore place' },
+      recommendations: { label: 'Recommendation', cta: 'View recommendation' },
+    },
+    pl: {
+      trips: { label: 'Wycieczka', cta: 'Sprawdź wycieczkę' },
+      hotels: { label: 'Nocleg', cta: 'Sprawdź nocleg' },
+      cars: { label: 'Auto', cta: 'Sprawdź auta' },
+      pois: { label: 'Miejsce', cta: 'Poznaj miejsce' },
+      recommendations: { label: 'Polecane', cta: 'Zobacz polecenie' },
+    },
+  };
+  return copy[normalizeBlogLanguage(language)][type] || copy[normalizeBlogLanguage(language)].recommendations;
+}
+
+function mapTripCta(row, language) {
+  const meta = buildServiceMeta('trips', language);
+  const title = pickLocalizedObjectField(row?.title, language) || String(row?.slug || 'Trip').trim();
+  const description = truncateText(
+    pickLocalizedObjectField(row?.description, language)
+    || String(row?.start_city || '').trim()
+  );
+  const slug = String(row?.slug || '').trim();
+  return {
+    id: row?.id || null,
+    type: 'trips',
+    title,
+    description,
+    imageUrl: pickMedia(row),
+    href: slug ? `/trip.html?slug=${encodeURIComponent(slug)}&lang=${language}` : `/trips.html?lang=${language}`,
+    ctaLabel: meta.cta,
+    label: meta.label,
+    meta: String(row?.start_city || '').trim(),
+    language,
+    resolved: true,
+  };
+}
+
+function mapHotelCta(row, language) {
+  const meta = buildServiceMeta('hotels', language);
+  const title = pickLocalizedObjectField(row?.title, language) || String(row?.slug || 'Hotel').trim();
+  const description = truncateText(
+    pickLocalizedObjectField(row?.description, language)
+    || String(row?.city || '').trim()
+  );
+  const slug = String(row?.slug || '').trim();
+  return {
+    id: row?.id || null,
+    type: 'hotels',
+    title,
+    description,
+    imageUrl: pickMedia(row),
+    href: slug ? `/hotel.html?slug=${encodeURIComponent(slug)}&lang=${language}` : `/hotels.html?lang=${language}`,
+    ctaLabel: meta.cta,
+    label: meta.label,
+    meta: String(row?.city || '').trim(),
+    language,
+    resolved: true,
+  };
+}
+
+function mapCarCta(row, language) {
+  const meta = buildServiceMeta('cars', language);
+  const title = pickLocalizedObjectField(row?.car_model, language) || pickLocalizedObjectField(row?.car_type, language) || 'Car rental';
+  const price = Number(row?.price_per_day || row?.price_10plus_days || row?.price_7_10days || row?.price_4_6days || 0);
+  return {
+    id: row?.id || null,
+    type: 'cars',
+    title,
+    description: truncateText(pickLocalizedObjectField(row?.description, language) || ''),
+    imageUrl: pickMedia(row),
+    href: buildCarHref(row, language),
+    ctaLabel: meta.cta,
+    label: meta.label,
+    meta: price > 0 ? `${price.toFixed(2)} €` : String(row?.location || '').trim(),
+    language,
+    resolved: true,
+  };
+}
+
+function mapPoiCta(row, language) {
+  const meta = buildServiceMeta('pois', language);
+  const title = String(
+    language === 'pl'
+      ? row?.name_pl || row?.name_en || row?.slug || 'Place'
+      : row?.name_en || row?.name_pl || row?.slug || 'Place'
+  ).trim();
+  const description = truncateText(
+    language === 'pl'
+      ? row?.description_pl || row?.description_en || ''
+      : row?.description_en || row?.description_pl || ''
+  );
+  return {
+    id: row?.id || null,
+    type: 'pois',
+    title,
+    description,
+    imageUrl: pickMedia(row),
+    href: row?.id ? `/community.html?poi=${encodeURIComponent(String(row.id))}&lang=${language}` : `/community.html?lang=${language}`,
+    ctaLabel: meta.cta,
+    label: meta.label,
+    meta: String(row?.city || row?.location_name || '').trim(),
+    language,
+    resolved: true,
+  };
+}
+
+function mapRecommendationCta(row, language) {
+  const meta = buildServiceMeta('recommendations', language);
+  const title = String(
+    language === 'pl'
+      ? row?.title_pl || row?.title_en || 'Recommendation'
+      : row?.title_en || row?.title_pl || 'Recommendation'
+  ).trim();
+  const description = truncateText(
+    language === 'pl'
+      ? row?.description_pl || row?.description_en || ''
+      : row?.description_en || row?.description_pl || ''
+  );
+  return {
+    id: row?.id || null,
+    type: 'recommendations',
+    title,
+    description,
+    imageUrl: pickMedia(row),
+    href: `/recommendations.html?lang=${language}`,
+    ctaLabel: meta.cta,
+    label: meta.label,
+    meta: String(row?.location_name || '').trim(),
+    language,
+    resolved: true,
+  };
+}
+
+async function fetchRowsByIds(client, table, ids, select) {
+  if (!client || !ids.length) return [];
+  const { data, error } = await client
+    .from(table)
+    .select(select)
+    .in('id', ids);
+
+  if (error) {
+    throw new Error(error.message || `Failed to load ${table}`);
+  }
+
+  return safeArray(data);
 }
 
 function mapTranslation(translation) {
@@ -256,6 +635,8 @@ function resolveAuthor(translation, authorProfile) {
 function mapBlogBase(row, translationsByLang, language) {
   const translation = pickTranslation(translationsByLang, language);
   const authorProfile = mapAuthorProfile(row.author_profile);
+  const categoriesByLang = getTaxonomyByLang(row, 'categories');
+  const tagsByLang = getTaxonomyByLang(row, 'tags');
 
   return {
     id: row.id,
@@ -266,8 +647,10 @@ function mapBlogBase(row, translationsByLang, language) {
     coverImageAlt: pickLocalizedText(row.cover_image_alt, language),
     featured: Boolean(row.featured),
     allowComments: Boolean(row.allow_comments),
-    categories: Array.isArray(row.categories) ? row.categories : [],
-    tags: Array.isArray(row.tags) ? row.tags : [],
+    categories: categoriesByLang[language] || categoriesByLang.en || categoriesByLang.pl || [],
+    categoriesByLang,
+    tags: tagsByLang[language] || tagsByLang.en || tagsByLang.pl || [],
+    tagsByLang,
     ctaServices: normalizeCtaServices(row.cta_services),
     authorProfileId: row.author_profile_id || null,
     ownerPartnerId: row.owner_partner_id || null,
@@ -295,12 +678,20 @@ export async function getPublishedBlogListPage(env, options = {}) {
   const offset = (page - 1) * limit;
   const client = getReadClient(env);
 
-  const { data, error, count } = await applyPublishedBlogFilters(
-    client.from('blog_posts').select(BLOG_LIST_SELECT, { count: 'exact' }),
-    options
-  )
-    .order('published_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+  const { data, error, count } = await executeBlogQueryWithTaxonomyFallback(
+    () => applyPublishedBlogFilters(
+      client.from('blog_posts').select(BLOG_LIST_SELECT, { count: 'exact' }),
+      { ...options, language }
+    )
+      .order('published_at', { ascending: false })
+      .range(offset, offset + limit - 1),
+    () => applyPublishedBlogFilters(
+      client.from('blog_posts').select(BLOG_LIST_SELECT_LEGACY, { count: 'exact' }),
+      { ...options, language, useLegacyTaxonomy: true }
+    )
+      .order('published_at', { ascending: false })
+      .range(offset, offset + limit - 1)
+  );
 
   if (error) {
     throw new Error(error.message || 'Failed to load blog list');
@@ -333,15 +724,47 @@ export async function getPublishedBlogPostBySlug(env, options = {}) {
   }
 
   const client = getReadClient(env);
-  const { data, error } = await client
-    .from('blog_post_translations')
-    .select(BLOG_POST_SELECT)
-    .eq('lang', language)
-    .eq('slug', slug)
-    .maybeSingle();
+  let data = null;
+  let { data: localizedMatch, error } = await executeBlogQueryWithTaxonomyFallback(
+    () => client
+      .from('blog_post_translations')
+      .select(BLOG_POST_SELECT)
+      .eq('lang', language)
+      .eq('slug', slug)
+      .maybeSingle(),
+    () => client
+      .from('blog_post_translations')
+      .select(BLOG_POST_SELECT_LEGACY)
+      .eq('lang', language)
+      .eq('slug', slug)
+      .maybeSingle()
+  );
 
   if (error) {
     throw new Error(error.message || 'Failed to load blog post');
+  }
+
+  data = localizedMatch || null;
+
+  if (!data?.blog_post) {
+    const fallbackResult = await executeBlogQueryWithTaxonomyFallback(
+      () => client
+        .from('blog_post_translations')
+        .select(BLOG_POST_SELECT)
+        .eq('slug', slug)
+        .limit(2),
+      () => client
+        .from('blog_post_translations')
+        .select(BLOG_POST_SELECT_LEGACY)
+        .eq('slug', slug)
+        .limit(2)
+    );
+
+    if (fallbackResult.error) {
+      throw new Error(fallbackResult.error.message || 'Failed to load blog post');
+    }
+
+    data = safeArray(fallbackResult.data).find((row) => row?.blog_post && isPublishedRow(row.blog_post)) || null;
   }
 
   if (!data?.blog_post) {
@@ -379,26 +802,138 @@ export async function getPublishedBlogPostBySlug(env, options = {}) {
 
   const translationsByLang = buildTranslationsByLang(siblingTranslations);
   const blogPost = mapBlogBase(data.blog_post, translationsByLang, language);
+  const translation = blogPost.translation || mapTranslation(data);
+  const resolvedCtaServices = await resolveBlogCtaServices(env, blogPost.ctaServices, language);
+  const relatedPosts = await getRelatedBlogPosts(env, {
+    language,
+    postId: blogPost.id,
+    categories: blogPost.categories,
+    tags: blogPost.tags,
+    limit: 3,
+  });
 
   return {
     ...blogPost,
-    translation: {
-      ...mapTranslation(data),
-      lang: language,
-    },
-    author: resolveAuthor(mapTranslation(data), blogPost.authorProfile),
+    translation: translation
+      ? {
+        ...translation,
+        lang: translation.lang || language,
+      }
+      : null,
+    author: resolveAuthor(translation, blogPost.authorProfile),
+    resolvedCtaServices,
+    relatedPosts,
   };
 }
 
-export async function resolveBlogCtaServices(_env, ctaServices = [], language = BLOG_DEFAULT_LANGUAGE) {
-  return normalizeCtaServices(ctaServices).map((entry) => ({
-    type: entry.type,
-    resourceId: entry.resource_id,
-    language: normalizeBlogLanguage(language),
-    title: '',
-    description: '',
-    imageUrl: '',
-    href: '',
-    resolved: false,
-  }));
+export async function getRelatedBlogPosts(env, options = {}) {
+  const language = normalizeBlogLanguage(options.language);
+  const postId = String(options.postId || '').trim();
+  const limit = Math.min(6, Math.max(1, Number.parseInt(options.limit || '3', 10) || 3));
+  const categories = new Set(safeArray(options.categories).map((entry) => String(entry || '').trim()).filter(Boolean));
+  const tags = new Set(safeArray(options.tags).map((entry) => String(entry || '').trim()).filter(Boolean));
+  const client = getReadClient(env);
+
+  const { data, error } = await executeBlogQueryWithTaxonomyFallback(
+    () => applyPublishedBlogFilters(
+      client.from('blog_posts').select(BLOG_LIST_SELECT),
+      { language }
+    )
+      .neq('id', postId)
+      .order('published_at', { ascending: false })
+      .limit(Math.max(18, limit * 8)),
+    () => applyPublishedBlogFilters(
+      client.from('blog_posts').select(BLOG_LIST_SELECT_LEGACY),
+      { language, useLegacyTaxonomy: true }
+    )
+      .neq('id', postId)
+      .order('published_at', { ascending: false })
+      .limit(Math.max(18, limit * 8))
+  );
+
+  if (error) {
+    throw new Error(error.message || 'Failed to load related blog posts');
+  }
+
+  const items = safeArray(data).map((row) => {
+    const translationsByLang = buildTranslationsByLang(row.translations);
+    return mapBlogBase(row, translationsByLang, language);
+  });
+
+  const scored = items.map((item, index) => {
+    const sharedCategories = item.categories.filter((entry) => categories.has(entry)).length;
+    const sharedTags = item.tags.filter((entry) => tags.has(entry)).length;
+    const score = sharedCategories * 4 + sharedTags * 5 + (item.featured ? 1 : 0);
+    return { item, index, score };
+  });
+
+  scored.sort((left, right) => {
+    if (right.score !== left.score) {
+      return right.score - left.score;
+    }
+    const leftDate = new Date(left.item.publishedAt || 0).getTime();
+    const rightDate = new Date(right.item.publishedAt || 0).getTime();
+    if (rightDate !== leftDate) {
+      return rightDate - leftDate;
+    }
+    return left.index - right.index;
+  });
+
+  const preferred = scored.filter((entry) => entry.score > 0).slice(0, limit);
+  const fallback = scored.filter((entry) => entry.score === 0).slice(0, Math.max(0, limit - preferred.length));
+  return [...preferred, ...fallback].slice(0, limit).map((entry) => entry.item);
+}
+
+export async function resolveBlogCtaServices(env, ctaServices = [], language = BLOG_DEFAULT_LANGUAGE) {
+  const client = getReadClient(env);
+  const localized = normalizeBlogLanguage(language);
+  const normalized = normalizeCtaServices(ctaServices);
+  if (!normalized.length) {
+    return [];
+  }
+
+  const idsByType = normalized.reduce((accumulator, entry) => {
+    if (!accumulator[entry.type]) {
+      accumulator[entry.type] = [];
+    }
+    accumulator[entry.type].push(entry.resource_id);
+    return accumulator;
+  }, {});
+
+  const [trips, hotels, cars, pois, recommendations] = await Promise.all([
+    fetchRowsByIds(client, 'trips', idsByType.trips || [], 'id, slug, title, description, cover_image_url, photos, price_base, price_per_person, pricing_model, start_city'),
+    fetchRowsByIds(client, 'hotels', idsByType.hotels || [], 'id, slug, title, description, city, cover_image_url, photos'),
+    fetchRowsByIds(client, 'car_offers', idsByType.cars || [], 'id, car_model, car_type, description, location, image_url, price_per_day, price_10plus_days, price_7_10days, price_4_6days'),
+    fetchRowsByIds(client, 'pois', idsByType.pois || [], 'id, slug, name_pl, name_en, description_pl, description_en, main_image_url, photos, city, location_name'),
+    fetchRowsByIds(client, 'recommendations', idsByType.recommendations || [], 'id, title_pl, title_en, description_pl, description_en, image_url, photos, location_name'),
+  ]);
+
+  const lookups = {
+    trips: new Map(trips.map((row) => [String(row.id), row])),
+    hotels: new Map(hotels.map((row) => [String(row.id), row])),
+    cars: new Map(cars.map((row) => [String(row.id), row])),
+    pois: new Map(pois.map((row) => [String(row.id), row])),
+    recommendations: new Map(recommendations.map((row) => [String(row.id), row])),
+  };
+
+  return normalized
+    .map((entry) => {
+      const row = lookups[entry.type]?.get(entry.resource_id);
+      if (!row) return null;
+      switch (entry.type) {
+        case 'trips':
+          return mapTripCta(row, localized);
+        case 'hotels':
+          return mapHotelCta(row, localized);
+        case 'cars':
+          return mapCarCta(row, localized);
+        case 'pois':
+          return mapPoiCta(row, localized);
+        case 'recommendations':
+          return mapRecommendationCta(row, localized);
+        default:
+          return null;
+      }
+    })
+    .filter(Boolean);
 }

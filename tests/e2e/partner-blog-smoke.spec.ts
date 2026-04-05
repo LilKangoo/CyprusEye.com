@@ -55,7 +55,11 @@ function buildSeedScript() {
             featured: false,
             allow_comments: false,
             categories: ['Local stories'],
+            categories_pl: ['Lokalne historie'],
+            categories_en: ['Local stories'],
             tags: ['village-life'],
+            tags_pl: ['zycie-wioski'],
+            tags_en: ['village-life'],
             cta_services: [{ type: 'trips', resource_id: 'trip-partner-1' }],
             author_profile_id: null,
             owner_partner_id: 'partner-blog-1',
@@ -202,10 +206,10 @@ test.describe('Partner blog smoke', () => {
     const modal = page.locator('#partnerBlogModal');
     await expect(modal).toBeVisible();
 
-    await modal.locator('#partnerBlogFormCategoriesInput').fill('Guides');
-    await modal.locator('[data-partner-blog-taxonomy-add="categories"]').click();
-    await modal.locator('#partnerBlogFormTagsInput').fill('smoke-test');
-    await modal.locator('[data-partner-blog-taxonomy-add="tags"]').click();
+    await modal.locator('#partnerBlogFormCategoriesPlInput').fill('Przewodniki');
+    await modal.locator('[data-partner-blog-taxonomy-add="categories"][data-partner-blog-taxonomy-lang="pl"]').click();
+    await modal.locator('#partnerBlogFormTagsEnInput').fill('smoke-test');
+    await modal.locator('[data-partner-blog-taxonomy-add="tags"][data-partner-blog-taxonomy-lang="en"]').click();
 
     await modal.locator('#partnerBlogTitlePl').fill('Nowa historia partnera');
     await modal.locator('#partnerBlogLeadPl').fill('Lead PL. Dalsza część tekstu.');

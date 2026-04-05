@@ -7031,32 +7031,58 @@
                 <img id="blogFormCoverPreviewImage" src="/assets/cyprus_logo-1000x1054.png" alt="Blog cover preview" />
               </div>
 
-              <div class="admin-form-grid blog-form-grid">
-                <label class="admin-form-field blog-form-grid__wide">
-                  <span>Categories</span>
-                  <input id="blogFormCategories" type="hidden" />
-                  <div class="blog-chip-picker" data-blog-taxonomy-picker="categories">
-                    <div class="blog-chip-picker__selected" id="blogFormCategoriesSelected"></div>
+              <div class="admin-form-grid blog-form-grid blog-taxonomy-grid">
+                <label class="admin-form-field blog-form-grid__wide blog-taxonomy-card">
+                  <span>Categories (PL)</span>
+                  <input id="blogFormCategoriesPl" type="hidden" />
+                  <div class="blog-chip-picker" data-blog-taxonomy-picker="categories:pl">
+                    <div class="blog-chip-picker__selected" id="blogFormCategoriesPlSelected"></div>
                     <div class="blog-chip-picker__composer">
-                      <input id="blogFormCategoriesInput" type="text" placeholder="Choose from suggestions or type a new category" />
-                      <button class="btn-secondary" type="button" data-blog-taxonomy-add="categories">Add</button>
+                      <input id="blogFormCategoriesPlInput" type="text" placeholder="Choose from suggestions or type a new category" />
+                      <button class="btn-secondary" type="button" data-blog-taxonomy-add="categories" data-blog-taxonomy-lang="pl">Add</button>
                     </div>
-                    <div class="blog-chip-picker__suggestions" id="blogFormCategoriesSuggestions"></div>
+                    <div class="blog-chip-picker__suggestions" id="blogFormCategoriesPlSuggestions"></div>
                   </div>
-                  <small>Choose existing categories or add a new one. Categories appear as visible filters.</small>
+                  <small>Visible on the Polish blog list and Polish category filters.</small>
                 </label>
-                <label class="admin-form-field blog-form-grid__wide">
-                  <span>Tags</span>
-                  <input id="blogFormTags" type="hidden" />
-                  <div class="blog-chip-picker" data-blog-taxonomy-picker="tags">
-                    <div class="blog-chip-picker__selected" id="blogFormTagsSelected"></div>
+                <label class="admin-form-field blog-form-grid__wide blog-taxonomy-card">
+                  <span>Categories (EN)</span>
+                  <input id="blogFormCategoriesEn" type="hidden" />
+                  <div class="blog-chip-picker" data-blog-taxonomy-picker="categories:en">
+                    <div class="blog-chip-picker__selected" id="blogFormCategoriesEnSelected"></div>
                     <div class="blog-chip-picker__composer">
-                      <input id="blogFormTagsInput" type="text" placeholder="Type keywords and press Add" />
-                      <button class="btn-secondary" type="button" data-blog-taxonomy-add="tags">Add</button>
+                      <input id="blogFormCategoriesEnInput" type="text" placeholder="Choose from suggestions or type a new category" />
+                      <button class="btn-secondary" type="button" data-blog-taxonomy-add="categories" data-blog-taxonomy-lang="en">Add</button>
                     </div>
-                    <div class="blog-chip-picker__suggestions" id="blogFormTagsSuggestions"></div>
+                    <div class="blog-chip-picker__suggestions" id="blogFormCategoriesEnSuggestions"></div>
                   </div>
-                  <small>Tags help discovery. Popular values are suggested automatically.</small>
+                  <small>Visible on the English blog list and English category filters.</small>
+                </label>
+                <label class="admin-form-field blog-form-grid__wide blog-taxonomy-card">
+                  <span>Tags (PL)</span>
+                  <input id="blogFormTagsPl" type="hidden" />
+                  <div class="blog-chip-picker" data-blog-taxonomy-picker="tags:pl">
+                    <div class="blog-chip-picker__selected" id="blogFormTagsPlSelected"></div>
+                    <div class="blog-chip-picker__composer">
+                      <input id="blogFormTagsPlInput" type="text" placeholder="Type Polish keywords and press Add" />
+                      <button class="btn-secondary" type="button" data-blog-taxonomy-add="tags" data-blog-taxonomy-lang="pl">Add</button>
+                    </div>
+                    <div class="blog-chip-picker__suggestions" id="blogFormTagsPlSuggestions"></div>
+                  </div>
+                  <small>Used in Polish tag chips and Polish tag filters.</small>
+                </label>
+                <label class="admin-form-field blog-form-grid__wide blog-taxonomy-card">
+                  <span>Tags (EN)</span>
+                  <input id="blogFormTagsEn" type="hidden" />
+                  <div class="blog-chip-picker" data-blog-taxonomy-picker="tags:en">
+                    <div class="blog-chip-picker__selected" id="blogFormTagsEnSelected"></div>
+                    <div class="blog-chip-picker__composer">
+                      <input id="blogFormTagsEnInput" type="text" placeholder="Type English keywords and press Add" />
+                      <button class="btn-secondary" type="button" data-blog-taxonomy-add="tags" data-blog-taxonomy-lang="en">Add</button>
+                    </div>
+                    <div class="blog-chip-picker__suggestions" id="blogFormTagsEnSuggestions"></div>
+                  </div>
+                  <small>Used in English tag chips and English tag filters.</small>
                 </label>
               </div>
             </div>

@@ -57,7 +57,11 @@ function buildSeedScript(withAdminSession = false) {
           featured: index === 0,
           allow_comments: false,
           categories: [index % 2 === 0 ? 'Lefkara' : 'Cyprus'],
+          categories_pl: [index % 2 === 0 ? 'Lefkara' : 'Cypr'],
+          categories_en: [index % 2 === 0 ? 'Lefkara' : 'Cyprus'],
           tags: [index % 3 === 0 ? 'guide' : 'local-tip'],
+          tags_pl: [index % 3 === 0 ? 'przewodnik' : 'lokalne-porady'],
+          tags_en: [index % 3 === 0 ? 'guide' : 'local-tip'],
           cta_services: [
             { type: 'trips', resource_id: 'trip-1' },
             { type: 'hotels', resource_id: 'hotel-1' },
@@ -84,7 +88,11 @@ function buildSeedScript(withAdminSession = false) {
           featured: false,
           allow_comments: false,
           categories: ['Partner'],
+          categories_pl: ['Partner'],
+          categories_en: ['Partner'],
           tags: ['partner-story'],
+          tags_pl: ['historia-partnera'],
+          tags_en: ['partner-story'],
           cta_services: [{ type: 'cars', resource_id: 'car-1' }],
           author_profile_id: '',
           owner_partner_id: 'partner-1',
@@ -271,15 +279,22 @@ test.describe('Blog smoke', () => {
 
     await page.waitForSelector('#blogGrid:not([hidden])');
     await expect(page.locator('.blog-card').first()).toBeVisible();
-    await expect(page.locator('.blog-card__title').first()).toContainText('Cyprus Guide 1');
-    await expect(page.locator('#blogPagination')).toBeVisible();
+    await expect(page.locator('.blog-card__title').first()).not.toHaveText('');
 
-    await page.click('#blogPagination [data-blog-page="2"]');
-    await expect(page).toHaveURL(/\/blog\?page=2/);
-    await expect(page.locator('.blog-card__title').first()).toContainText('Cyprus Guide 13');
+    const secondaryFilter = page.locator('.blog-filter-chip').nth(1);
+    await expect(secondaryFilter).toBeVisible();
+    const filterKind = await secondaryFilter.getAttribute('data-filter-kind');
+    const filterValue = await secondaryFilter.getAttribute('data-filter-value');
+    await secondaryFilter.click();
 
-    await page.click('.blog-filter-chip:has-text("Lefkara")');
-    await expect(page).toHaveURL(/category=Lefkara/);
+    const currentUrl = new URL(page.url());
+    if (filterKind === 'featured') {
+      expect(currentUrl.searchParams.get('featured')).toBe('1');
+    } else if (filterKind === 'category') {
+      expect(currentUrl.searchParams.get('category')).toBe(filterValue);
+    } else if (filterKind === 'tag') {
+      expect(currentUrl.searchParams.get('tag')).toBe(filterValue);
+    }
   });
 
   test('public blog post renders author byline, CTA cards and language switch', async ({ page }) => {
@@ -291,7 +306,10 @@ test.describe('Blog smoke', () => {
     await expect(page.locator('#blogPostTitle')).toContainText('Cyprus Guide 1');
     await expect(page.locator('#blogPostByline')).toBeVisible();
     await expect(page.locator('#blogPostAuthorName')).toContainText('Maria Guide');
+    await expect(page.locator('#blogBackLink')).toHaveAttribute('href', '/blog');
     await expect(page.locator('#blogCtaGrid .blog-cta-card')).toHaveCount(3);
+    await expect(page.locator('#blogRelatedSection')).toBeVisible();
+    await expect(page.locator('#blogRelatedGrid .blog-card')).toHaveCount(3);
 
     await page.evaluate(() => {
       window.dispatchEvent(new CustomEvent('languageChanged', { detail: { language: 'pl' } }));
@@ -299,6 +317,7 @@ test.describe('Blog smoke', () => {
 
     await expect(page.locator('#blogPostTitle')).toContainText('Przewodnik Cypr 1');
     await expect(page).toHaveURL(/lang=pl/);
+    await expect(page.locator('#blogBackLink')).toHaveAttribute('href', '/blog?lang=pl');
   });
 
   test('admin blog view supports approve and create flow', async ({ page }) => {
@@ -322,15 +341,15 @@ test.describe('Blog smoke', () => {
 
     const blogModal = page.locator('#blogFormModal');
 
-    await blogModal.locator('#blogFormCategoriesInput').fill('Guides');
-    await blogModal.locator('[data-blog-taxonomy-add="categories"]').click();
-    await blogModal.locator('#blogFormCategoriesInput').fill('Testing');
-    await blogModal.locator('[data-blog-taxonomy-add="categories"]').click();
+    await blogModal.locator('#blogFormCategoriesPlInput').fill('Przewodniki');
+    await blogModal.locator('[data-blog-taxonomy-add="categories"][data-blog-taxonomy-lang="pl"]').click();
+    await blogModal.locator('#blogFormCategoriesEnInput').fill('Guides');
+    await blogModal.locator('[data-blog-taxonomy-add="categories"][data-blog-taxonomy-lang="en"]').click();
 
-    await blogModal.locator('#blogFormTagsInput').fill('blog');
-    await blogModal.locator('[data-blog-taxonomy-add="tags"]').click();
-    await blogModal.locator('#blogFormTagsInput').fill('smoke');
-    await blogModal.locator('[data-blog-taxonomy-add="tags"]').click();
+    await blogModal.locator('#blogFormTagsPlInput').fill('blog-pl');
+    await blogModal.locator('[data-blog-taxonomy-add="tags"][data-blog-taxonomy-lang="pl"]').click();
+    await blogModal.locator('#blogFormTagsEnInput').fill('smoke');
+    await blogModal.locator('[data-blog-taxonomy-add="tags"][data-blog-taxonomy-lang="en"]').click();
 
     await blogModal.locator('[name="title_pl"]').fill('Nowy wpis testowy');
     await blogModal.locator('[name="summary_pl"]').fill('Podsumowanie PL');

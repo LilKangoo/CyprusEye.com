@@ -381,6 +381,32 @@
   padding: 30px;
 }
 
+.blog-post-nav {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.blog-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  padding: 12px 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  color: #1d4ed8;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.08);
+}
+
+.blog-back-link:hover,
+.blog-back-link:focus-visible {
+  color: #1e40af;
+  transform: translateY(-1px);
+}
+
 .blog-post-cover {
   display: block;
   width: 100%;
@@ -493,6 +519,59 @@
   color: #0f172a;
 }
 
+.blog-sidebar-group + .blog-sidebar-group {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.blog-sidebar-group h4 {
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+  color: #334155;
+}
+
+.blog-overview-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.blog-overview-item {
+  display: block;
+}
+
+.blog-overview-item--depth-3 {
+  padding-left: 14px;
+}
+
+.blog-overview-link {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #1e293b;
+  text-decoration: none;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.blog-overview-link::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  margin-top: 0.5em;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #2563eb, #38bdf8);
+  flex: 0 0 auto;
+}
+
+.blog-overview-link:hover,
+.blog-overview-link:focus-visible {
+  color: #1d4ed8;
+}
+
 .blog-token-list {
   display: flex;
   flex-wrap: wrap;
@@ -529,6 +608,12 @@
 }
 
 .blog-cta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.blog-related-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
@@ -595,7 +680,8 @@
   }
 
   .blog-grid,
-  .blog-cta-grid {
+  .blog-cta-grid,
+  .blog-related-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -622,7 +708,8 @@
 
   .blog-list-hero__metrics,
   .blog-grid,
-  .blog-cta-grid {
+  .blog-cta-grid,
+  .blog-related-grid {
     grid-template-columns: 1fr;
   }
 

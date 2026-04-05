@@ -12,7 +12,7 @@
   <meta property="og:description" content="Travel guides, local tips and curated service links from CyprusEye." />
   <meta property="og:url" content="https://www.cypruseye.com/blog" />
   <meta property="og:image" content="https://www.cypruseye.com/assets/cyprus_logo-1000x1054.png" />
-  <meta property="og:locale" content="en_GB" />
+  <meta property="og:locale" content="en_US" />
   <meta property="og:locale:alternate" content="pl_PL" />
   <link rel="canonical" href="https://www.cypruseye.com/blog" />
   <link rel="alternate" hreflang="pl" href="https://www.cypruseye.com/blog?lang=pl" />
@@ -178,6 +178,10 @@
     <div id="blogPostState" class="blog-state">Loading article...</div>
 
     <article id="blogPostView" hidden>
+      <nav class="blog-post-nav">
+        <a id="blogBackLink" class="blog-back-link" href="/blog">← Back to blog list</a>
+      </nav>
+
       <section class="blog-post-hero">
         <div>
           <img id="blogPostCover" class="blog-post-cover" src="/assets/cyprus_logo-1000x1054.png" alt="Blog article cover" />
@@ -207,9 +211,15 @@
           <div id="blogPostContent" class="blog-richtext"></div>
         </section>
 
-        <aside class="blog-sidebar-card">
+        <aside id="blogOverviewCard" class="blog-sidebar-card" hidden>
           <h3 id="blogSidebarHeading">Quick overview</h3>
-          <div class="blog-token-list" id="blogPostTagList"></div>
+          <div id="blogOverviewBody" class="blog-sidebar-group" hidden>
+            <ol id="blogOverviewList" class="blog-overview-list"></ol>
+          </div>
+          <div id="blogSidebarTagsGroup" class="blog-sidebar-group" hidden>
+            <h4 id="blogSidebarTagsHeading">Tags</h4>
+            <div class="blog-token-list" id="blogPostTagList"></div>
+          </div>
         </aside>
       </div>
 
@@ -221,6 +231,16 @@
           </div>
         </div>
         <div id="blogCtaGrid" class="blog-cta-grid"></div>
+      </section>
+
+      <section id="blogRelatedSection" class="blog-cta-section" hidden>
+        <div class="blog-cta-head">
+          <div>
+            <span class="blog-section-eyebrow" id="blogRelatedEyebrow">See also</span>
+            <h2 id="blogRelatedTitle">Related articles you may want to read next.</h2>
+          </div>
+        </div>
+        <div id="blogRelatedGrid" class="blog-related-grid"></div>
       </section>
     </article>
   </main>
