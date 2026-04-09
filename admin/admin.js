@@ -8515,7 +8515,7 @@ async function editTrip(tripId) {
     document.getElementById('editTripCoverUrl').value = mediaDisplayUrl(trip.cover_image_url || '');
     const tripMetaImageInput = document.getElementById('editTripMetaImageUrl');
     if (tripMetaImageInput) {
-      tripMetaImageInput.value = String(trip.meta_image_url || '');
+      tripMetaImageInput.value = normalizeMetaImageValue(trip.meta_image_url || '');
     }
     document.getElementById('editTripPricing').value = trip.pricing_model || 'per_person';
     document.getElementById('editTripPublished').checked = !!trip.is_published;
@@ -8606,6 +8606,8 @@ async function editTrip(tripId) {
         updateTripCoverPreview(urlInput?.value || '', 'edit');
       };
     }
+
+    bindServiceMetaImageInput('trip', 'edit');
     
     // Setup form submit handler
     form.onsubmit = async (e) => {
@@ -8714,7 +8716,7 @@ async function handleEditTripSubmit(event, originalTrip) {
     const coverIs360 = Boolean(form.querySelector('#editTripCoverIs360')?.checked);
     const coverUrlRaw = String(form.querySelector('#editTripCoverUrl')?.value || payload.cover_image_url || '').trim();
     payload.cover_image_url = coverUrlRaw ? setPanoramaMedia(coverUrlRaw, coverIs360) : null;
-    payload.meta_image_url = String(form.querySelector('#editTripMetaImageUrl')?.value || payload.meta_image_url || '').trim() || null;
+    payload.meta_image_url = normalizeMetaImageValue(form.querySelector('#editTripMetaImageUrl')?.value || payload.meta_image_url || '') || null;
     
     // Update timestamp
     payload.updated_at = new Date().toISOString();
@@ -8852,8 +8854,17 @@ function copyTripCoverToMetaImage(formType = 'edit') {
     return;
   }
 
-  metaInput.value = coverUrl;
+  metaInput.value = normalizeMetaImageValue(coverUrl);
+  updateServiceMetaImagePreview('trip', formType, metaInput.value);
   showToast('Trip cover copied to meta image', 'success');
+}
+
+async function handleTripMetaImageUpload(formType = 'edit', input) {
+  await uploadServiceMetaImage('trip', formType, input);
+}
+
+function removeTripMetaImage(formType = 'edit') {
+  removeServiceMetaImage('trip', formType);
 }
 
 // expose trip helpers for inline handlers
@@ -8865,6 +8876,8 @@ window.handleTripCoverUpload = handleTripCoverUpload;
 window.removeTripCoverImage = removeTripCoverImage;
 window.updateTripCoverPreview = updateTripCoverPreview;
 window.copyTripCoverToMetaImage = copyTripCoverToMetaImage;
+window.handleTripMetaImageUpload = handleTripMetaImageUpload;
+window.removeTripMetaImage = removeTripMetaImage;
 
 // =====================================================
 // NEW TRIP MODAL (create + link to POI)
@@ -8995,6 +9008,7 @@ async function openNewTripModal() {
       if (metaImageInput) {
         metaImageInput.value = '';
       }
+      bindServiceMetaImageInput('trip', 'new');
       
       // cover preview setup
       const fileInput = document.getElementById('newTripCoverFile');
@@ -9123,7 +9137,7 @@ async function openNewTripModal() {
           }
           if (coverUrl) payload.cover_image_url = setPanoramaMedia(coverUrl, Boolean(coverIs360Input?.checked));
           else delete payload.cover_image_url;
-          payload.meta_image_url = String(form.querySelector('#newTripMetaImageUrl')?.value || payload.meta_image_url || '').trim() || null;
+          payload.meta_image_url = normalizeMetaImageValue(form.querySelector('#newTripMetaImageUrl')?.value || payload.meta_image_url || '') || null;
 
           // Set timestamps
           const now = new Date().toISOString();
@@ -9548,6 +9562,137 @@ function setPanoramaMedia(rawUrl, enabled) {
   return tokens.length ? `${base}#${tokens.join('&')}` : base;
 }
 
+function normalizeMetaImageValue(rawUrl) {
+  return String(mediaDisplayUrl(rawUrl) || '').trim();
+}
+
+function getServiceMetaImageDomIds(kind, formType = 'edit') {
+  const normalizedKind = String(kind || '').trim().toLowerCase();
+  const prefix = formType === 'new' ? 'new' : 'edit';
+  const servicePart = normalizedKind === 'hotel' ? 'Hotel' : 'Trip';
+  return {
+    inputId: `${prefix}${servicePart}MetaImageUrl`,
+    fileId: `${prefix}${servicePart}MetaImageFile`,
+    previewId: `${prefix}${servicePart}MetaImagePreview`,
+    previewImgId: `${prefix}${servicePart}MetaImagePreviewImg`,
+    uploadBtnId: `${prefix}${servicePart}MetaImageUploadBtn`,
+  };
+}
+
+function updateServiceMetaImagePreview(kind, formType = 'edit', rawUrl = '') {
+  const { previewId, previewImgId, inputId } = getServiceMetaImageDomIds(kind, formType);
+  const previewWrap = document.getElementById(previewId);
+  const previewImg = document.getElementById(previewImgId);
+  const input = document.getElementById(inputId);
+  if (!previewWrap || !previewImg) return;
+
+  const normalizedUrl = normalizeMetaImageValue(rawUrl || input?.value || '');
+  if (input && input.value !== normalizedUrl) {
+    input.value = normalizedUrl;
+  }
+
+  if (normalizedUrl) {
+    previewImg.src = normalizedUrl;
+    previewWrap.style.display = '';
+  } else {
+    previewImg.removeAttribute('src');
+    previewWrap.style.display = 'none';
+  }
+}
+
+function bindServiceMetaImageInput(kind, formType = 'edit') {
+  const { inputId } = getServiceMetaImageDomIds(kind, formType);
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  input.oninput = () => updateServiceMetaImagePreview(kind, formType, input.value);
+  updateServiceMetaImagePreview(kind, formType, input.value);
+}
+
+function getServiceMetaImageUploadSlug(kind, formType = 'edit') {
+  if (kind === 'hotel') {
+    const existing = String(document.getElementById('editHotelSlug')?.value || '').trim();
+    if (formType === 'edit' && existing) return existing;
+    return `hotel-meta-${Date.now()}`;
+  }
+
+  const existing = String(document.getElementById('editTripSlug')?.value || '').trim();
+  if (formType === 'edit' && existing) return existing;
+  return `trip-meta-${Date.now()}`;
+}
+
+async function uploadServiceMetaImage(kind, formType = 'edit', fileInput) {
+  const file = fileInput?.files?.[0];
+  if (!file) return null;
+
+  if (!file.type.startsWith('image/')) {
+    showToast('Please select an image file', 'error');
+    return null;
+  }
+
+  if (file.size > 8 * 1024 * 1024) {
+    showToast('Meta image must be smaller than 8MB', 'error');
+    return null;
+  }
+
+  const normalizedKind = kind === 'hotel' ? 'hotel' : 'trip';
+  const dom = getServiceMetaImageDomIds(normalizedKind, formType);
+  const uploadBtn = document.getElementById(dom.uploadBtnId);
+  const input = document.getElementById(dom.inputId);
+
+  try {
+    const client = ensureSupabase();
+    if (!client) throw new Error('Database not available');
+
+    if (uploadBtn) {
+      uploadBtn.disabled = true;
+      uploadBtn.textContent = 'Uploading…';
+    }
+
+    const compressed = await compressToWebp(file, 2400, 1350, 0.9);
+    const slugSeed = getServiceMetaImageUploadSlug(normalizedKind, formType);
+    const folder = normalizedKind === 'hotel' ? 'hotels' : 'trips';
+    const path = `${folder}/${slugSeed}/meta-${Date.now()}.webp`;
+
+    const { error } = await client.storage.from('poi-photos').upload(path, compressed, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: 'image/webp',
+    });
+
+    if (error) throw error;
+
+    const { data: pub } = client.storage.from('poi-photos').getPublicUrl(path);
+    const publicUrl = normalizeMetaImageValue(pub?.publicUrl || '');
+    if (input) {
+      input.value = publicUrl;
+    }
+    updateServiceMetaImagePreview(normalizedKind, formType, publicUrl);
+    showToast('Meta image uploaded', 'success');
+    return publicUrl;
+  } catch (error) {
+    console.error(`Failed to upload ${normalizedKind} meta image:`, error);
+    showToast('Failed to upload meta image', 'error');
+    return null;
+  } finally {
+    if (uploadBtn) {
+      uploadBtn.disabled = false;
+      uploadBtn.textContent = 'Upload';
+    }
+    if (fileInput) {
+      fileInput.value = '';
+    }
+  }
+}
+
+function removeServiceMetaImage(kind, formType = 'edit') {
+  const { inputId, fileId } = getServiceMetaImageDomIds(kind, formType);
+  const input = document.getElementById(inputId);
+  const fileInput = document.getElementById(fileId);
+  if (input) input.value = '';
+  if (fileInput) fileInput.value = '';
+  updateServiceMetaImagePreview(kind, formType, '');
+}
+
 function replaceMediaUrl(list, oldValue, nextValue) {
   if (!Array.isArray(list) || !oldValue || !nextValue || oldValue === nextValue) return;
   const index = list.indexOf(oldValue);
@@ -9967,8 +10112,17 @@ function copyHotelCoverToMetaImage(formType = 'edit') {
     return;
   }
 
-  metaInput.value = coverUrl;
+  metaInput.value = normalizeMetaImageValue(coverUrl);
+  updateServiceMetaImagePreview('hotel', formType, metaInput.value);
   showToast('Hotel cover copied to meta image', 'success');
+}
+
+async function handleHotelMetaImageUpload(formType = 'edit', input) {
+  await uploadServiceMetaImage('hotel', formType, input);
+}
+
+function removeHotelMetaImage(formType = 'edit') {
+  removeServiceMetaImage('hotel', formType);
 }
 
 async function handleCoverFileUpload(formType, file, hotelSlug) {
@@ -10136,6 +10290,8 @@ window.setAsCoverImage = setAsCoverImage;
 window.toggleHotelPhotoPanorama = toggleHotelPhotoPanorama;
 window.removeCoverImage = removeCoverImage;
 window.copyHotelCoverToMetaImage = copyHotelCoverToMetaImage;
+window.handleHotelMetaImageUpload = handleHotelMetaImageUpload;
+window.removeHotelMetaImage = removeHotelMetaImage;
 
 async function loadHotelsAdminData() {
   try {
@@ -11128,7 +11284,7 @@ async function editHotel(hotelId) {
     document.getElementById('editHotelCoverUrl').value = hotel.cover_image_url || '';
     const editHotelMetaImageInput = document.getElementById('editHotelMetaImageUrl');
     if (editHotelMetaImageInput) {
-      editHotelMetaImageInput.value = String(hotel.meta_image_url || '');
+      editHotelMetaImageInput.value = normalizeMetaImageValue(hotel.meta_image_url || '');
     }
     document.getElementById('editHotelPricing').value = hotel.pricing_model || 'per_person_per_night';
     document.getElementById('editHotelPublished').checked = !!hotel.is_published;
@@ -11200,6 +11356,8 @@ async function editHotel(hotelId) {
     // Render amenities checkboxes with currently selected values
     const hotelAmenities = Array.isArray(hotel.amenities) ? hotel.amenities : [];
     renderAmenitiesCheckboxes('editHotelAmenities', hotelAmenities);
+
+    bindServiceMetaImageInput('hotel', 'edit');
 
     form.onsubmit = async (e) => {
       e.preventDefault();
@@ -11315,7 +11473,7 @@ async function handleEditHotelSubmit(event, originalHotel) {
     // Get photos and cover from state
     payload.photos = editHotelPhotosState.photos.slice();
     payload.cover_image_url = editHotelPhotosState.coverUrl || null;
-    payload.meta_image_url = String(form.querySelector('#editHotelMetaImageUrl')?.value || payload.meta_image_url || '').trim() || null;
+    payload.meta_image_url = normalizeMetaImageValue(form.querySelector('#editHotelMetaImageUrl')?.value || payload.meta_image_url || '') || null;
     validateHotelGalleryPhotoCount(payload.photos);
 
     console.log('💾 Updating hotel with payload:', {
@@ -11405,6 +11563,7 @@ async function openNewHotelModal() {
       if (newMetaImageInput) {
         newMetaImageInput.value = '';
       }
+      bindServiceMetaImageInput('hotel', 'new');
 
       renderHotelPolicyFields('new', {});
       renderHotelLocationFields('new', {});
@@ -11514,7 +11673,7 @@ async function openNewHotelModal() {
           // Get photos and cover from state (already uploaded via photo manager)
           payload.photos = newHotelPhotosState.photos.slice();
           payload.cover_image_url = newHotelPhotosState.coverUrl || null;
-          payload.meta_image_url = String(form.querySelector('#newHotelMetaImageUrl')?.value || payload.meta_image_url || '').trim() || null;
+          payload.meta_image_url = normalizeMetaImageValue(form.querySelector('#newHotelMetaImageUrl')?.value || payload.meta_image_url || '') || null;
           validateHotelGalleryPhotoCount(payload.photos);
 
           // pricing tiers

@@ -1214,6 +1214,13 @@ body[data-admin-panel="true"].admin-sidebar-open {
   background: var(--admin-danger);
 }
 
+.service-meta-image-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 /* Modal actions */
 .admin-modal-actions {
   display: flex;

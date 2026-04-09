@@ -2023,9 +2023,15 @@
                   </div>
                   <label class="admin-form-field hotel-field-full">
                     <span>Meta image URL</span>
-                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <div class="service-meta-image-row">
                       <input type="url" id="editHotelMetaImageUrl" name="meta_image_url" placeholder="https://... (leave blank to use cover image)" style="flex:1;min-width:240px;" />
                       <button type="button" class="btn-secondary btn-sm" onclick="copyHotelCoverToMetaImage('edit')">Use cover</button>
+                      <button type="button" class="btn-upload-image" id="editHotelMetaImageUploadBtn" onclick="document.getElementById('editHotelMetaImageFile').click()">Upload</button>
+                    </div>
+                    <input type="file" id="editHotelMetaImageFile" accept="image/*" hidden onchange="handleHotelMetaImageUpload('edit', this)" />
+                    <div id="editHotelMetaImagePreview" class="image-preview-container" style="display:none;">
+                      <img id="editHotelMetaImagePreviewImg" src="" alt="Meta image preview" />
+                      <button type="button" class="btn-remove-image" onclick="removeHotelMetaImage('edit')">✕ Remove</button>
                     </div>
                     <small style="color: var(--admin-text-muted);">Used in WhatsApp, Facebook and other social previews.</small>
                   </label>
@@ -2307,9 +2313,15 @@
                   </div>
                   <label class="admin-form-field hotel-field-full">
                     <span>Meta image URL</span>
-                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <div class="service-meta-image-row">
                       <input type="url" id="newHotelMetaImageUrl" name="meta_image_url" placeholder="https://... (leave blank to use cover image)" style="flex:1;min-width:240px;" />
                       <button type="button" class="btn-secondary btn-sm" onclick="copyHotelCoverToMetaImage('new')">Use cover</button>
+                      <button type="button" class="btn-upload-image" id="newHotelMetaImageUploadBtn" onclick="document.getElementById('newHotelMetaImageFile').click()">Upload</button>
+                    </div>
+                    <input type="file" id="newHotelMetaImageFile" accept="image/*" hidden onchange="handleHotelMetaImageUpload('new', this)" />
+                    <div id="newHotelMetaImagePreview" class="image-preview-container" style="display:none;">
+                      <img id="newHotelMetaImagePreviewImg" src="" alt="Meta image preview" />
+                      <button type="button" class="btn-remove-image" onclick="removeHotelMetaImage('new')">✕ Remove</button>
                     </div>
                     <small style="color: var(--admin-text-muted);">Used in WhatsApp, Facebook and other social previews.</small>
                   </label>
@@ -2814,9 +2826,15 @@
                   </div>
                   <div class="admin-form-field" style="grid-column:1/-1;">
                     <span>Meta image URL</span>
-                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <div class="service-meta-image-row">
                       <input type="url" name="meta_image_url" id="editTripMetaImageUrl" placeholder="https://... (leave blank to use cover image)" style="flex:1;min-width:240px;" />
                       <button type="button" class="btn-secondary btn-sm" onclick="copyTripCoverToMetaImage('edit')">Use cover</button>
+                      <button type="button" class="btn-upload-image" id="editTripMetaImageUploadBtn" onclick="document.getElementById('editTripMetaImageFile').click()">Upload</button>
+                    </div>
+                    <input type="file" id="editTripMetaImageFile" accept="image/*" hidden onchange="handleTripMetaImageUpload('edit', this)" />
+                    <div id="editTripMetaImagePreview" class="image-preview-container" style="display:none;">
+                      <img id="editTripMetaImagePreviewImg" src="" alt="Meta image preview" />
+                      <button type="button" class="btn-remove-image" onclick="removeTripMetaImage('edit')">✕ Remove</button>
                     </div>
                     <small style="color: var(--admin-text-muted);">Used in WhatsApp, Facebook and other social previews.</small>
                   </div>
@@ -2944,9 +2962,15 @@
                   </div>
                   <div class="admin-form-field" style="grid-column:1/-1;">
                     <span>Meta image URL</span>
-                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <div class="service-meta-image-row">
                       <input type="url" name="meta_image_url" id="newTripMetaImageUrl" placeholder="https://... (leave blank to use cover image)" style="flex:1;min-width:240px;" />
                       <button type="button" class="btn-secondary btn-sm" onclick="copyTripCoverToMetaImage('new')">Use cover</button>
+                      <button type="button" class="btn-upload-image" id="newTripMetaImageUploadBtn" onclick="document.getElementById('newTripMetaImageFile').click()">Upload</button>
+                    </div>
+                    <input type="file" id="newTripMetaImageFile" accept="image/*" hidden onchange="handleTripMetaImageUpload('new', this)" />
+                    <div id="newTripMetaImagePreview" class="image-preview-container" style="display:none;">
+                      <img id="newTripMetaImagePreviewImg" src="" alt="Meta image preview" />
+                      <button type="button" class="btn-remove-image" onclick="removeTripMetaImage('new')">✕ Remove</button>
                     </div>
                     <small style="color: var(--admin-text-muted);">Used in WhatsApp, Facebook and other social previews.</small>
                   </div>
