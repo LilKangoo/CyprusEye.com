@@ -1,6 +1,5 @@
 import { setAria, showErr } from './authMessages.js';
 import { loadProfileForUser } from './profile.js';
-import { getStoredReferralCode, processReferralAfterRegistration } from './referral.js';
 
 // Guest mode removed
 
@@ -596,28 +595,6 @@ function ensureAuthSubscription() {
   try {
     const { data } = sb.auth.onAuthStateChange((event, sessionChange) => {
       handleAuthStateChange(sessionChange, { reason: 'subscription', event });
-
-      if (event === 'SIGNED_IN') {
-        try {
-          const provider = String(sessionChange?.user?.app_metadata?.provider || '').trim().toLowerCase();
-          const providers = Array.isArray(sessionChange?.user?.app_metadata?.providers)
-            ? sessionChange.user.app_metadata.providers
-            : [];
-          const isGoogleUser =
-            provider === 'google' ||
-            providers.some((entry) => String(entry || '').trim().toLowerCase() === 'google');
-          if (isGoogleUser) {
-            return;
-          }
-
-          const referralCode = getStoredReferralCode();
-          const userId = sessionChange?.user?.id;
-          if (referralCode && userId) {
-            void processReferralAfterRegistration(userId);
-          }
-        } catch (_e) {
-        }
-      }
     });
     authSubscription = data?.subscription || null;
   } catch (error) {

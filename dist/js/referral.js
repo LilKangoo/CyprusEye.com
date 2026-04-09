@@ -1,72 +1,52 @@
-/**
- * Referral System - CyprusEye
- * Handles referral link capture and storage
- */
-
-const REFERRAL_STORAGE_KEY = 'cypruseye_referral_code';
-const REFERRAL_EXPIRY_DAYS = 30;
-const REFERRAL_CODE_PATTERN = /^[a-zA-Z0-9_]+$/;
+const bootstrap = typeof window !== 'undefined' ? window.CE_REFERRAL_BOOTSTRAP || null : null;
+const REFERRAL_STORAGE_KEY = bootstrap?.STORAGE_KEY || 'cypruseye_referral_code';
+const REFERRAL_EXPIRY_DAYS = Number(bootstrap?.TTL_DAYS || 90);
+const REFERRAL_CODE_PATTERN = /^[A-Za-z0-9_]+$/;
 
 function normalizeReferralCode(code) {
+  if (bootstrap?.normalizeCode) {
+    return bootstrap.normalizeCode(code);
+  }
   const raw = String(code || '').trim();
-  if (!raw) return '';
-  if (!REFERRAL_CODE_PATTERN.test(raw)) return '';
+  if (!raw || !REFERRAL_CODE_PATTERN.test(raw)) return '';
   return raw;
 }
 
 function buildReferralData(code) {
+  const now = Date.now();
   return {
     code,
-    capturedAt: Date.now(),
-    expiresAt: Date.now() + (REFERRAL_EXPIRY_DAYS * 24 * 60 * 60 * 1000),
+    capturedAt: now,
+    expiresAt: now + REFERRAL_EXPIRY_DAYS * 24 * 60 * 60 * 1000,
   };
 }
 
-// IMMEDIATE CAPTURE - runs as soon as script parses, before anything else can redirect
-(function immediateCapture() {
+function readLocalStorageData() {
   try {
-    const urlParams = new URLSearchParams(window.location.search);
-    const refCode = urlParams.get('ref');
-    
-    const cleanCode = normalizeReferralCode(refCode);
-    if (cleanCode) {
-      const existingRaw = localStorage.getItem(REFERRAL_STORAGE_KEY);
-      if (existingRaw) {
-        try {
-          const existing = JSON.parse(existingRaw);
-          if (existing?.expiresAt && Date.now() <= existing.expiresAt && existing?.code) {
-            return;
-          }
-        } catch (_e) {
-        }
-      }
-
-      const referralData = buildReferralData(cleanCode);
-      
-      localStorage.setItem(REFERRAL_STORAGE_KEY, JSON.stringify(referralData));
-      console.log(`✅ [IMMEDIATE] Referral code captured and saved: ${cleanCode}`);
-    }
-  } catch (e) {
-    console.warn('Immediate referral capture failed:', e);
+    const stored = localStorage.getItem(REFERRAL_STORAGE_KEY);
+    if (!stored) return null;
+    const parsed = JSON.parse(stored);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch (_err) {
+    return null;
   }
-})();
+}
 
 /**
- * Capture referral code from URL parameter (?ref=username)
+ * Capture referral code from URL parameter (?ref=code)
  * Called on every page load
  */
 export function captureReferralFromUrl() {
   try {
-    const urlParams = new URLSearchParams(window.location.search);
-    const refCode = urlParams.get('ref');
-    
-    const cleanCode = normalizeReferralCode(refCode);
+    const cleanCode = bootstrap?.captureFromCurrentUrl
+      ? bootstrap.captureFromCurrentUrl({ overwrite: true })
+      : normalizeReferralCode(new URLSearchParams(window.location.search).get('ref'));
+
     if (cleanCode) {
-      const referralData = buildReferralData(cleanCode);
-      
-      localStorage.setItem(REFERRAL_STORAGE_KEY, JSON.stringify(referralData));
-      console.log(`✅ Referral code captured: ${cleanCode}`);
-      
+      if (!bootstrap) {
+        localStorage.setItem(REFERRAL_STORAGE_KEY, JSON.stringify(buildReferralData(cleanCode)));
+      }
+
       // Clean URL (remove ref parameter) - delay to ensure storage completes
       setTimeout(() => {
         try {
@@ -89,20 +69,16 @@ export function captureReferralFromUrl() {
  */
 export function getStoredReferralCode() {
   try {
-    const stored = localStorage.getItem(REFERRAL_STORAGE_KEY);
-    if (!stored) return null;
-    
-    const referralData = JSON.parse(stored);
+    const referralData = bootstrap?.getStoredData ? bootstrap.getStoredData() : readLocalStorageData();
+    if (!referralData) return null;
     const cleanCode = normalizeReferralCode(referralData?.code);
-    
-    // Check if expired
+
     if (referralData.expiresAt && Date.now() > referralData.expiresAt) {
-      localStorage.removeItem(REFERRAL_STORAGE_KEY);
-      console.log('⏰ Referral code expired, removed');
+      clearStoredReferralCode();
       return null;
     }
     if (!cleanCode) {
-      localStorage.removeItem(REFERRAL_STORAGE_KEY);
+      clearStoredReferralCode();
       return null;
     }
     return cleanCode;
@@ -128,9 +104,11 @@ export function setStoredReferralCode(code, options = {}) {
       if (existing) return true;
     }
 
-    const referralData = buildReferralData(cleanCode);
+    if (bootstrap?.storeReferralCode) {
+      return bootstrap.storeReferralCode(cleanCode, { overwrite });
+    }
 
-    localStorage.setItem(REFERRAL_STORAGE_KEY, JSON.stringify(referralData));
+    localStorage.setItem(REFERRAL_STORAGE_KEY, JSON.stringify(buildReferralData(cleanCode)));
     return true;
   } catch (err) {
     console.warn('Could not store referral code:', err);
@@ -143,195 +121,44 @@ export function setStoredReferralCode(code, options = {}) {
  */
 export function clearStoredReferralCode() {
   try {
+    if (bootstrap?.clearReferralCode) {
+      bootstrap.clearReferralCode();
+      return;
+    }
     localStorage.removeItem(REFERRAL_STORAGE_KEY);
-    console.log('🗑️ Referral code cleared');
   } catch (err) {
     console.warn('Could not clear referral code:', err);
   }
 }
 
 /**
- * Wait for profile to exist in database
+ * Kept only as a compatibility hook during rollout.
+ * Profile referral assignment is handled server-side via auth metadata and DB triggers.
  */
-async function waitForProfile(sb, userId, maxAttempts = 5) {
-  for (let i = 0; i < maxAttempts; i++) {
-    const { data } = await sb
-      .from('profiles')
-      .select('id')
-      .eq('id', userId)
-      .maybeSingle();
-    
-    if (data) return true;
-    
-    // Wait before next attempt (500ms, 1s, 1.5s, 2s, 2.5s)
-    await new Promise(resolve => setTimeout(resolve, 500 * (i + 1)));
-  }
-  return false;
-}
-
-async function findReferrerByCode(sb, referralCode) {
-  const code = String(referralCode || '').trim();
-  if (!code) return null;
-
-  const exact = await sb
-    .from('profiles')
-    .select('id, username')
-    .eq('username', code)
-    .maybeSingle();
-  if (!exact.error && exact.data) return exact.data;
-
-  const normalized = await sb
-    .from('profiles')
-    .select('id, username')
-    .eq('username_normalized', code.toLowerCase())
-    .maybeSingle();
-  if (!normalized.error && normalized.data) return normalized.data;
-
-  const insensitive = await sb
-    .from('profiles')
-    .select('id, username')
-    .ilike('username', code)
-    .maybeSingle();
-  if (!insensitive.error && insensitive.data) return insensitive.data;
-
-  return null;
-}
-
-/**
- * Process referral after user registration
- * Links the new user to the referrer
- */
-export async function processReferralAfterRegistration(newUserId) {
+export async function processReferralAfterRegistration(_newUserId) {
   const referralCode = getStoredReferralCode();
   if (!referralCode) return null;
-  
-  try {
-    const sb = window.getSupabase();
-    if (!sb) {
-      console.warn('Supabase not available for referral processing');
-      return null;
-    }
-
-    try {
-      const { data: sessionData } = await sb.auth.getSession();
-      const sessionUserId = sessionData?.session?.user?.id;
-      if (!sessionUserId) {
-        console.log('ℹ️ No auth session yet, deferring referral processing');
-        return null;
-      }
-    } catch (_e) {
-      return null;
-    }
-    
-    // Wait for the profile to be created by the database trigger
-    console.log('⏳ Waiting for profile to be created...');
-    const profileExists = await waitForProfile(sb, newUserId);
-    if (!profileExists) {
-      console.warn('Profile not created in time, saving referral for later');
-      // Don't clear the code - user might need to retry
-      return null;
-    }
-    console.log('✅ Profile found, processing referral...');
-
-    try {
-      const { data: existingProfile, error: existingProfileError } = await sb
-        .from('profiles')
-        .select('id, referred_by')
-        .eq('id', newUserId)
-        .maybeSingle();
-
-      if (!existingProfileError && existingProfile?.referred_by) {
-        console.log('ℹ️ User already has referred_by set, skipping referral link');
-        clearStoredReferralCode();
-        return null;
-      }
-    } catch (_e) {
-    }
-    
-    // Find referrer by username
-    const referrer = await findReferrerByCode(sb, referralCode);
-    if (!referrer) {
-      console.warn('Referrer not found:', referralCode);
-      clearStoredReferralCode();
-      return null;
-    }
-    
-    // Don't allow self-referral
-    if (referrer.id === newUserId) {
-      console.warn('Self-referral not allowed');
-      clearStoredReferralCode();
-      return null;
-    }
-    
-    // Create referral record
-    const { error: insertError } = await sb
-      .from('referrals')
-      .insert({
-        referrer_id: referrer.id,
-        referred_id: newUserId,
-        status: 'pending'
-      });
-    
-    if (insertError) {
-      // Might be duplicate (user already has referrer)
-      console.warn('Could not create referral:', insertError);
-      clearStoredReferralCode();
-      return null;
-    }
-    
-    // Update new user's profile with referred_by
-    try {
-      const { error: updateError } = await sb
-        .from('profiles')
-        .update({ referred_by: referrer.id })
-        .eq('id', newUserId);
-      if (updateError) {
-        console.warn('Could not set referred_by on profile:', updateError);
-      }
-    } catch (updateErr) {
-      console.warn('Could not set referred_by on profile:', updateErr);
-    }
-    
-    console.log(`✅ Referral processed: ${referralCode} -> new user`);
-    clearStoredReferralCode();
-    
-    // Auto-confirm the referral (awards XP to referrer)
-    try {
-      const { data: confirmResult } = await sb.rpc('confirm_referral', {
-        referral_id: (await sb
-          .from('referrals')
-          .select('id')
-          .eq('referred_id', newUserId)
-          .single()
-        ).data?.id
-      });
-      console.log('Referral confirmation:', confirmResult);
-    } catch (confirmErr) {
-      console.warn('Auto-confirm failed, will be confirmed manually:', confirmErr);
-    }
-    
-    return referrer;
-  } catch (err) {
-    console.error('Error processing referral:', err);
-    clearStoredReferralCode();
-    return null;
-  }
+  return {
+    ok: true,
+    handledBy: 'backend',
+    referralCode,
+  };
 }
 
 /**
  * Generate referral link for current user
  */
-export function generateReferralLink(username) {
-  if (!username) return '';
+export function generateReferralLink(referralCode) {
+  const code = normalizeReferralCode(referralCode);
+  if (!code) return '';
   const baseUrl = window.location.origin || 'https://cypruseye.com';
-  return `${baseUrl}/?ref=${encodeURIComponent(username)}`;
+  return `${baseUrl}/?ref=${encodeURIComponent(code)}`;
 }
 
 /**
  * Initialize referral capture on page load
  */
 export function initReferralCapture() {
-  // Run on DOMContentLoaded or immediately if already loaded
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', captureReferralFromUrl);
   } else {
@@ -339,5 +166,4 @@ export function initReferralCapture() {
   }
 }
 
-// Auto-initialize
 initReferralCapture();

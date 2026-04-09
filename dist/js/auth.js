@@ -3,10 +3,8 @@ import { showErr, showInfo, showOk } from './authMessages.js';
 import { loadProfileForUser } from './profile.js';
 import { URLS } from './config.js';
 import {
-  processReferralAfterRegistration,
   getStoredReferralCode,
   setStoredReferralCode,
-  clearStoredReferralCode,
 } from './referral.js';
 
 const sb = window.getSupabase();
@@ -1202,7 +1200,7 @@ function ensureRegisterReferralField(form) {
   );
   const referralPlaceholder = getI18nString(
     'auth.referralCode.placeholder',
-    t('Partner username', 'Nazwa użytkownika partnera'),
+    t('Referral code', 'Kod polecający'),
   );
   const referralHint = getI18nString(
     'auth.referralCode.hint',
@@ -1506,11 +1504,12 @@ function ensureOAuthCompletionModal() {
           if (effectiveReferralCode) {
             setStoredReferralCode(effectiveReferralCode, { overwrite: true });
             try {
-              await processReferralAfterRegistration(userId);
+              await sb.rpc('apply_referral_code_to_profile_if_missing', {
+                p_user_id: userId,
+                p_referral_code: effectiveReferralCode,
+              });
             } catch (_refErr) {
             }
-          } else {
-            clearStoredReferralCode();
           }
         } else {
           const userId = window.CE_STATE?.session?.user?.id || null;
@@ -1519,7 +1518,6 @@ function ensureOAuthCompletionModal() {
           } catch (syncError) {
             console.warn('OAuth completion: profile sync after RPC success failed.', syncError);
           }
-          clearStoredReferralCode();
         }
 
         try {
@@ -2091,8 +2089,6 @@ $('#form-register')?.addEventListener('submit', async (event) => {
       const effectiveReferralCode = (payload.referralCode || validStoredReferralCode || '').trim();
       if (effectiveReferralCode) {
         setStoredReferralCode(effectiveReferralCode, { overwrite: true });
-      } else {
-        clearStoredReferralCode();
       }
 
       const { data, error } = await sb.auth.signUp({
@@ -2129,22 +2125,6 @@ $('#form-register')?.addEventListener('submit', async (event) => {
           console.warn('Nie udało się ponownie zainicjalizować bootAuth po rejestracji.', bootError);
         }
         
-        // Process referral if exists
-        try {
-          const referralCode = getStoredReferralCode();
-          if (referralCode) {
-            try {
-              const { data: sessionData } = await sb.auth.getSession();
-              const sessionUserId = sessionData?.session?.user?.id;
-              if (sessionUserId) {
-                await processReferralAfterRegistration(data.user.id);
-              }
-            } catch (_e) {
-            }
-          }
-        } catch (referralError) {
-          console.warn('Nie udało się przetworzyć polecenia:', referralError);
-        }
       }
 
       showOk(t('Verification email sent.', 'E-mail potwierdzający wysłany.'));

@@ -733,7 +733,7 @@
   "auth.username": "Nazwa użytkownika",
   "auth.username.placeholder": "3-20 znaków, litery i cyfry",
   "auth.referralCode": "Kod polecający (opcjonalnie)",
-  "auth.referralCode.placeholder": "Nazwa użytkownika partnera",
+  "auth.referralCode.placeholder": "Kod polecający",
   "auth.referralCode.hint": "Jeśli masz kod polecający od partnera, wpisz go tutaj.",
   "auth.email": "Adres e-mail",
   "auth.password": "Hasło",
