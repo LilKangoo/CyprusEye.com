@@ -6,6 +6,11 @@ import {
   getSeoLanguage,
   resolveSeoRoute,
 } from './_utils/pageSeo.js';
+import {
+  getPublishedServiceOfferBySlug,
+  resolveServiceOfferRequest,
+} from './_utils/serviceOfferData.js';
+import { buildServiceOfferSeoPayload } from './_utils/serviceOfferSeo.js';
 
 const translationCache = new Map();
 
@@ -70,8 +75,66 @@ async function serveSeoPage(context, url, route) {
   });
 }
 
+async function serveServiceOfferPage(context, url, serviceRequest) {
+  const language = getSeoLanguage(url);
+  const htmlResponse = await serveStatic(context, serviceRequest.templatePath, { method: 'GET' });
+  if (!htmlResponse.ok) {
+    return htmlResponse;
+  }
+
+  let offer = null;
+  let status = null;
+  try {
+    offer = await getPublishedServiceOfferBySlug(context.env, {
+      kind: serviceRequest.kind,
+      slug: serviceRequest.slug,
+    });
+    if (!offer) {
+      status = 404;
+    }
+  } catch (error) {
+    console.error(`Failed to preload ${serviceRequest.kind} offer "${serviceRequest.slug}":`, error);
+    status = 500;
+  }
+
+  const html = await htmlResponse.text();
+  const localizedHtml = applySeoToHtml(
+    html,
+    buildServiceOfferSeoPayload({
+      kind: serviceRequest.kind,
+      language,
+      requestPathname: serviceRequest.requestPathname,
+      pathStyle: serviceRequest.pathStyle,
+      offer,
+    })
+  );
+  const headers = new Headers(htmlResponse.headers);
+
+  headers.set('content-type', 'text/html; charset=utf-8');
+  headers.set('cache-control', 'no-cache');
+
+  if (context.request.method === 'HEAD') {
+    headers.delete('content-length');
+    return new Response(null, {
+      status: status || htmlResponse.status,
+      statusText: htmlResponse.statusText,
+      headers,
+    });
+  }
+
+  return new Response(localizedHtml, {
+    status: status || htmlResponse.status,
+    statusText: htmlResponse.statusText,
+    headers,
+  });
+}
+
 export async function onRequest(context) {
   const url = new URL(context.request.url);
+  const serviceRequest = resolveServiceOfferRequest(url.pathname, url.search);
+  if (serviceRequest) {
+    return serveServiceOfferPage(context, url, serviceRequest);
+  }
   const route = resolveSeoRoute(url.pathname);
 
   if (route) {

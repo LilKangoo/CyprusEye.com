@@ -19,6 +19,11 @@ import {
   createBlogPlaceholderHtml,
   injectWindowPayload,
 } from './functions/_utils/blogSeo.js';
+import {
+  getPublishedServiceOfferBySlug,
+  resolveServiceOfferRequest,
+} from './functions/_utils/serviceOfferData.js';
+import { buildServiceOfferSeoPayload } from './functions/_utils/serviceOfferSeo.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -914,6 +919,11 @@ function createServer() {
         return;
       }
 
+      const servedServiceOffer = await tryServeServiceOfferPage(req, url, res);
+      if (servedServiceOffer) {
+        return;
+      }
+
       const served = await tryServeStaticFile(req, url, res);
       if (served) {
         return;
@@ -1133,6 +1143,10 @@ function getBlogRuntimeEnv() {
   };
 }
 
+function getServiceOfferRuntimeEnv() {
+  return getBlogRuntimeEnv();
+}
+
 function resolveBlogRequest(pathname) {
   const relativePath = extractPathRelativeToBase(pathname);
   if (relativePath === null) {
@@ -1278,6 +1292,55 @@ async function tryServeBlogPage(req, url, res) {
       requestPathname: url.pathname,
       requestSearch: url.search,
       post,
+    })
+  );
+
+  return serveBlogHtml(req, res, html, statusCode);
+}
+
+async function tryServeServiceOfferPage(req, url, res) {
+  const relativePath = extractPathRelativeToBase(url.pathname);
+  if (relativePath === null) {
+    return false;
+  }
+
+  const serviceRoute = resolveServiceOfferRequest(`/${relativePath}`, url.search);
+  if (!serviceRoute) {
+    return false;
+  }
+
+  const language = getSeoLanguage(url);
+  const runtimeEnv = getServiceOfferRuntimeEnv();
+  const templateName = serviceRoute.kind === 'hotel' ? 'hotel.html' : 'trip.html';
+  const templateHtml = await loadBlogTemplate(
+    templateName,
+    `<!doctype html><html lang="${language}"><head><meta charset="utf-8"><title>CyprusEye</title></head><body></body></html>`
+  );
+
+  let offer = null;
+  let statusCode = 200;
+
+  try {
+    offer = await getPublishedServiceOfferBySlug(runtimeEnv, {
+      kind: serviceRoute.kind,
+      slug: serviceRoute.slug,
+    });
+    if (!offer) {
+      statusCode = 404;
+    }
+  } catch (error) {
+    console.error(`Nie udało się wczytać oferty ${serviceRoute.kind} "${serviceRoute.slug}" na lokalnym serwerze:`, error);
+    statusCode = 500;
+  }
+
+  const html = applySeoToHtml(
+    templateHtml,
+    buildServiceOfferSeoPayload({
+      kind: serviceRoute.kind,
+      language,
+      requestPathname: serviceRoute.requestPathname,
+      pathStyle: serviceRoute.pathStyle,
+      offer,
     })
   );
 

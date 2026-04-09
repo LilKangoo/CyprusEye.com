@@ -997,6 +997,17 @@ function shouldStripOptionalHotelField(columnName) {
   return HOTEL_OPTIONAL_SCHEMA_FIELDS.has(key);
 }
 
+const TRIP_OPTIONAL_SCHEMA_FIELDS = new Set([
+  'meta_description',
+  'meta_image_url',
+]);
+
+function shouldStripOptionalTripField(columnName) {
+  const key = String(columnName || '').trim();
+  if (!key) return false;
+  return TRIP_OPTIONAL_SCHEMA_FIELDS.has(key);
+}
+
 function waitAdmin(ms) {
   return new Promise((resolve) => {
     window.setTimeout(resolve, Math.max(0, Number(ms) || 0));
@@ -1083,6 +1094,69 @@ async function executeHotelMutationWithFallback(client, mode, payload, options =
   }
 
   throw lastError || new Error(`Failed to ${mutationMode === 'update' ? 'update' : 'create'} hotel`);
+}
+
+async function executeTripMutationWithFallback(client, mode, payload, options = {}) {
+  const sbClient = client || ensureSupabase();
+  if (!sbClient) throw new Error('Database connection not available');
+  if (isAdminOffline()) {
+    throw new Error('No internet connection. Reconnect and try saving the trip again.');
+  }
+
+  const mutationMode = String(mode || '').trim().toLowerCase();
+  const workingPayload = { ...(payload && typeof payload === 'object' ? payload : {}) };
+  const tripId = String(options?.tripId || '').trim();
+  const strippedFields = [];
+  let lastError = null;
+
+  const runMutation = async () => {
+    if (mutationMode === 'update') {
+      return sbClient
+        .from('trips')
+        .update(workingPayload)
+        .eq('id', tripId)
+        .select('*')
+        .single();
+    }
+    return sbClient
+      .from('trips')
+      .insert(workingPayload)
+      .select('*')
+      .single();
+  };
+
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    if (isAdminOffline()) {
+      throw new Error('No internet connection. Reconnect and try saving the trip again.');
+    }
+
+    const { data, error } = await runMutation();
+    if (!error) {
+      return { data, strippedFields };
+    }
+
+    lastError = error;
+
+    if (isAdminNetworkError(error)) {
+      throw new Error('Cannot reach Supabase right now. Check your internet connection and try again.');
+    }
+
+    const missingColumn = extractAdminMissingColumnName(error);
+    if (missingColumn && shouldStripOptionalTripField(missingColumn) && Object.prototype.hasOwnProperty.call(workingPayload, missingColumn)) {
+      delete workingPayload[missingColumn];
+      strippedFields.push(missingColumn);
+      continue;
+    }
+
+    if (isSchemaCacheError(error) && attempt < 2) {
+      await waitAdmin(350 * (attempt + 1));
+      continue;
+    }
+
+    break;
+  }
+
+  throw lastError || new Error(`Failed to ${mutationMode === 'update' ? 'update' : 'create'} trip`);
 }
 
 function isJwtExpiredError(err) {
@@ -8439,6 +8513,10 @@ async function editTrip(tripId) {
     document.getElementById('editTripSlug').value = trip.slug || '';
     document.getElementById('editTripCity').value = trip.start_city || 'Larnaca';
     document.getElementById('editTripCoverUrl').value = mediaDisplayUrl(trip.cover_image_url || '');
+    const tripMetaImageInput = document.getElementById('editTripMetaImageUrl');
+    if (tripMetaImageInput) {
+      tripMetaImageInput.value = String(trip.meta_image_url || '');
+    }
     document.getElementById('editTripPricing').value = trip.pricing_model || 'per_person';
     document.getElementById('editTripPublished').checked = !!trip.is_published;
     const bestsellerField = document.getElementById('editTripBestseller');
@@ -8458,6 +8536,7 @@ async function editTrip(tripId) {
       // Render i18n fields
       const titleContainer = document.getElementById('tripTitleI18n');
       const descContainer = document.getElementById('tripDescriptionI18n');
+      const metaDescContainer = document.getElementById('editTripMetaDescriptionI18n');
       
       if (titleContainer) {
         titleContainer.innerHTML = window.renderI18nInput({
@@ -8477,6 +8556,16 @@ async function editTrip(tripId) {
           rows: 4,
           placeholder: 'Trip description',
           currentValues: trip?.description || {}
+        });
+      }
+      if (metaDescContainer) {
+        metaDescContainer.innerHTML = window.renderI18nInput({
+          fieldName: 'meta_description',
+          label: 'Meta description',
+          type: 'textarea',
+          rows: 3,
+          placeholder: 'Short share preview description',
+          currentValues: trip?.meta_description || {}
         });
       }
       
@@ -8582,8 +8671,9 @@ async function handleEditTripSubmit(event, originalTrip) {
     if (window.extractI18nValues) {
       const titleI18n = window.extractI18nValues(fd, 'title');
       const descriptionI18n = window.extractI18nValues(fd, 'description');
+      const metaDescriptionI18n = window.extractI18nValues(fd, 'meta_description');
       
-      console.log('🔍 Extracted i18n values:', { titleI18n, descriptionI18n });
+      console.log('🔍 Extracted i18n values:', { titleI18n, descriptionI18n, metaDescriptionI18n });
       
       // Validate i18n fields
       if (window.validateI18nField) {
@@ -8598,6 +8688,7 @@ async function handleEditTripSubmit(event, originalTrip) {
       // Save directly to title and description (JSONB columns, like Hotels)
       if (titleI18n) payload.title = titleI18n;
       if (descriptionI18n) payload.description = descriptionI18n;
+      payload.meta_description = metaDescriptionI18n || {};
       
       console.log('💾 Payload title:', payload.title);
       console.log('💾 Payload description:', payload.description);
@@ -8611,6 +8702,10 @@ async function handleEditTripSubmit(event, originalTrip) {
       delete payload.description_en;
       delete payload.description_el;
       delete payload.description_he;
+      delete payload.meta_description_pl;
+      delete payload.meta_description_en;
+      delete payload.meta_description_el;
+      delete payload.meta_description_he;
     }
     
     // Handle visibility flags
@@ -8619,6 +8714,7 @@ async function handleEditTripSubmit(event, originalTrip) {
     const coverIs360 = Boolean(form.querySelector('#editTripCoverIs360')?.checked);
     const coverUrlRaw = String(form.querySelector('#editTripCoverUrl')?.value || payload.cover_image_url || '').trim();
     payload.cover_image_url = coverUrlRaw ? setPanoramaMedia(coverUrlRaw, coverIs360) : null;
+    payload.meta_image_url = String(form.querySelector('#editTripMetaImageUrl')?.value || payload.meta_image_url || '').trim() || null;
     
     // Update timestamp
     payload.updated_at = new Date().toISOString();
@@ -8629,19 +8725,15 @@ async function handleEditTripSubmit(event, originalTrip) {
     console.log('   Trip ID:', tripId);
     console.log('   Payload:', payload);
     
-    // Update via Supabase client
-    const { error } = await client
-      .from('trips')
-      .update(payload)
-      .eq('id', tripId);
-    
-    if (error) {
-      console.error('❌ Trip update error:', error);
-      throw error;
-    }
+    const result = await executeTripMutationWithFallback(client, 'update', payload, { tripId });
     
     console.log('✅ Trip updated successfully');
-    showToast('Trip updated successfully', 'success');
+    if (Array.isArray(result?.strippedFields) && result.strippedFields.length) {
+      console.warn('Trip updated with legacy-schema fallback. Skipped fields:', result.strippedFields);
+      showToast(`Trip updated, but the remote database skipped unsupported fields: ${result.strippedFields.join(', ')}`, 'info');
+    } else {
+      showToast('Trip updated successfully', 'success');
+    }
     document.getElementById('editTripModal').hidden = true;
     await loadTripsAdminData();
     
@@ -8747,6 +8839,23 @@ function removeTripCoverImage() {
   updateTripCoverPreview('', 'edit');
 }
 
+function copyTripCoverToMetaImage(formType = 'edit') {
+  const metaInputId = formType === 'new' ? 'newTripMetaImageUrl' : 'editTripMetaImageUrl';
+  const coverInputId = formType === 'new' ? 'newTripCoverUrl' : 'editTripCoverUrl';
+  const metaInput = document.getElementById(metaInputId);
+  const coverInput = document.getElementById(coverInputId);
+  if (!metaInput) return;
+
+  const coverUrl = String(coverInput?.value || '').trim();
+  if (!coverUrl) {
+    showToast('Set the trip cover image URL first, or leave meta image blank to reuse the cover automatically.', 'info');
+    return;
+  }
+
+  metaInput.value = coverUrl;
+  showToast('Trip cover copied to meta image', 'success');
+}
+
 // expose trip helpers for inline handlers
 window.toggleTripPublish = toggleTripPublish;
 window.toggleTripBestseller = toggleTripBestseller;
@@ -8755,6 +8864,7 @@ window.moveTripOrder = moveTripOrder;
 window.handleTripCoverUpload = handleTripCoverUpload;
 window.removeTripCoverImage = removeTripCoverImage;
 window.updateTripCoverPreview = updateTripCoverPreview;
+window.copyTripCoverToMetaImage = copyTripCoverToMetaImage;
 
 // =====================================================
 // NEW TRIP MODAL (create + link to POI)
@@ -8870,6 +8980,21 @@ async function openNewTripModal() {
           currentValues: {}
         });
       }
+      const metaDescContainer = document.getElementById('newTripMetaDescriptionI18n');
+      if (metaDescContainer && window.renderI18nInput) {
+        metaDescContainer.innerHTML = window.renderI18nInput({
+          fieldName: 'meta_description',
+          label: 'Meta description',
+          type: 'textarea',
+          rows: 3,
+          placeholder: 'Short share preview description',
+          currentValues: {}
+        });
+      }
+      const metaImageInput = document.getElementById('newTripMetaImageUrl');
+      if (metaImageInput) {
+        metaImageInput.value = '';
+      }
       
       // cover preview setup
       const fileInput = document.getElementById('newTripCoverFile');
@@ -8937,8 +9062,9 @@ async function openNewTripModal() {
           if (window.extractI18nValues) {
             const titleI18n = window.extractI18nValues(fd, 'title');
             const descriptionI18n = window.extractI18nValues(fd, 'description');
+            const metaDescriptionI18n = window.extractI18nValues(fd, 'meta_description');
             
-            console.log('🔍 Extracted i18n values:', { titleI18n, descriptionI18n });
+            console.log('🔍 Extracted i18n values:', { titleI18n, descriptionI18n, metaDescriptionI18n });
             
             // Validate i18n fields
             if (window.validateI18nField) {
@@ -8953,6 +9079,7 @@ async function openNewTripModal() {
             // Save directly to title and description (JSONB columns, like Hotels)
             if (titleI18n) payload.title = titleI18n;
             if (descriptionI18n) payload.description = descriptionI18n;
+            payload.meta_description = metaDescriptionI18n || {};
             
             // Clean up legacy fields from payload
             delete payload.title_pl;
@@ -8963,6 +9090,10 @@ async function openNewTripModal() {
             delete payload.description_en;
             delete payload.description_el;
             delete payload.description_he;
+            delete payload.meta_description_pl;
+            delete payload.meta_description_en;
+            delete payload.meta_description_el;
+            delete payload.meta_description_he;
             
             // Auto-generate slug from Polish title
             payload.slug = slugifyTitle(titleI18n?.pl || 'trip');
@@ -8992,6 +9123,7 @@ async function openNewTripModal() {
           }
           if (coverUrl) payload.cover_image_url = setPanoramaMedia(coverUrl, Boolean(coverIs360Input?.checked));
           else delete payload.cover_image_url;
+          payload.meta_image_url = String(form.querySelector('#newTripMetaImageUrl')?.value || payload.meta_image_url || '').trim() || null;
 
           // Set timestamps
           const now = new Date().toISOString();
@@ -9003,20 +9135,15 @@ async function openNewTripModal() {
           console.log('🚀 Inserting trip into database...');
           console.log('   Payload:', payload);
 
-          // Insert directly via Supabase client (like Cars does)
-          const { data, error } = await client
-            .from('trips')
-            .insert(payload)
-            .select('*')
-            .single();
-
-          if (error) {
-            console.error('❌ Trip insert error:', error);
-            throw error;
-          }
+          const { data, strippedFields } = await executeTripMutationWithFallback(client, 'insert', payload);
 
           console.log('✅ Trip created successfully:', data);
-          showToast('Trip created successfully', 'success');
+          if (Array.isArray(strippedFields) && strippedFields.length) {
+            console.warn('Trip created with legacy-schema fallback. Skipped fields:', strippedFields);
+            showToast(`Trip created, but the remote database skipped unsupported fields: ${strippedFields.join(', ')}`, 'info');
+          } else {
+            showToast('Trip created successfully', 'success');
+          }
           document.getElementById('newTripModal').hidden = true;
           await loadTripsAdminData();
           
@@ -9436,6 +9563,30 @@ function getHotelCoverIs360Checkbox(formType) {
 
 const HOTEL_MAX_GALLERY_PHOTOS = 50;
 
+function getHotelGalleryPhotoCount(photos) {
+  return Array.isArray(photos) ? photos.filter(Boolean).length : 0;
+}
+
+function validateHotelGalleryPhotoCount(photos) {
+  const count = getHotelGalleryPhotoCount(photos);
+  if (count > HOTEL_MAX_GALLERY_PHOTOS) {
+    throw new Error(`Maximum ${HOTEL_MAX_GALLERY_PHOTOS} gallery photos allowed per hotel.`);
+  }
+  return count;
+}
+
+function getHotelMutationFriendlyError(error) {
+  const rawMessage = String(error?.message || error || '').trim();
+  if (!rawMessage) return '';
+
+  const photoLimitMatch = rawMessage.match(/photos array can contain at most (\d+) items/i);
+  if (photoLimitMatch?.[1]) {
+    return `This hotel gallery exceeds the current database limit of ${photoLimitMatch[1]} photos. Reduce the gallery or apply the latest hotel gallery migration.`;
+  }
+
+  return '';
+}
+
 let poiPhotosState = {
   photos: [],
   coverUrl: '',
@@ -9804,6 +9955,22 @@ function removeCoverImage(formType) {
   renderPhotoManager(formType);
 }
 
+function copyHotelCoverToMetaImage(formType = 'edit') {
+  const state = getPhotoState(formType);
+  const metaInputId = formType === 'edit' ? 'editHotelMetaImageUrl' : 'newHotelMetaImageUrl';
+  const metaInput = document.getElementById(metaInputId);
+  if (!metaInput) return;
+
+  const coverUrl = String(state.coverUrl || '').trim();
+  if (!coverUrl) {
+    showToast('Set the hotel cover image first, or leave meta image blank to reuse the cover automatically.', 'info');
+    return;
+  }
+
+  metaInput.value = coverUrl;
+  showToast('Hotel cover copied to meta image', 'success');
+}
+
 async function handleCoverFileUpload(formType, file, hotelSlug) {
   if (!file || !file.type.startsWith('image/')) return null;
   
@@ -9968,6 +10135,7 @@ window.deleteHotelPhoto = deleteHotelPhoto;
 window.setAsCoverImage = setAsCoverImage;
 window.toggleHotelPhotoPanorama = toggleHotelPhotoPanorama;
 window.removeCoverImage = removeCoverImage;
+window.copyHotelCoverToMetaImage = copyHotelCoverToMetaImage;
 
 async function loadHotelsAdminData() {
   try {
@@ -10941,12 +11109,27 @@ async function editHotel(hotelId) {
         rows: 4
       });
     }
+    const metaDescContainer = document.getElementById('editHotelMetaDescriptionI18n');
+    if (metaDescContainer && typeof window.renderI18nInput === 'function') {
+      metaDescContainer.innerHTML = window.renderI18nInput({
+        fieldName: 'meta_description',
+        label: 'Meta description',
+        type: 'textarea',
+        currentValues: hotel.meta_description || {},
+        placeholder: 'Short share preview description',
+        rows: 3
+      });
+    }
 
     renderHotelPolicyFields('edit', hotel.booking_settings || {});
     renderHotelLocationFields('edit', hotel);
     bindHotelLocationPreview('edit');
     
     document.getElementById('editHotelCoverUrl').value = hotel.cover_image_url || '';
+    const editHotelMetaImageInput = document.getElementById('editHotelMetaImageUrl');
+    if (editHotelMetaImageInput) {
+      editHotelMetaImageInput.value = String(hotel.meta_image_url || '');
+    }
     document.getElementById('editHotelPricing').value = hotel.pricing_model || 'per_person_per_night';
     document.getElementById('editHotelPublished').checked = !!hotel.is_published;
 
@@ -11063,8 +11246,9 @@ async function handleEditHotelSubmit(event, originalHotel) {
     
     const titleI18n = window.extractI18nValues ? window.extractI18nValues(fd, 'title') : null;
     const descriptionI18n = window.extractI18nValues ? window.extractI18nValues(fd, 'description') : null;
+    const metaDescriptionI18n = window.extractI18nValues ? window.extractI18nValues(fd, 'meta_description') : null;
     
-    console.log('🔍 Hotel i18n extracted:', { titleI18n, descriptionI18n });
+    console.log('🔍 Hotel i18n extracted:', { titleI18n, descriptionI18n, metaDescriptionI18n });
     
     // Validate required fields (PL and EN)
     if (window.validateI18nField) {
@@ -11078,6 +11262,7 @@ async function handleEditHotelSubmit(event, originalHotel) {
     // Assign i18n fields
     if (titleI18n) payload.title = titleI18n;
     if (descriptionI18n) payload.description = descriptionI18n;
+    payload.meta_description = metaDescriptionI18n || {};
     
     // Clean up legacy fields from payload
     delete payload.title_pl;
@@ -11088,6 +11273,10 @@ async function handleEditHotelSubmit(event, originalHotel) {
     delete payload.description_en;
     delete payload.description_el;
     delete payload.description_he;
+    delete payload.meta_description_pl;
+    delete payload.meta_description_en;
+    delete payload.meta_description_el;
+    delete payload.meta_description_he;
     delete payload.cancellation_policy_pl;
     delete payload.cancellation_policy_en;
     delete payload.cancellation_policy_el;
@@ -11126,6 +11315,8 @@ async function handleEditHotelSubmit(event, originalHotel) {
     // Get photos and cover from state
     payload.photos = editHotelPhotosState.photos.slice();
     payload.cover_image_url = editHotelPhotosState.coverUrl || null;
+    payload.meta_image_url = String(form.querySelector('#editHotelMetaImageUrl')?.value || payload.meta_image_url || '').trim() || null;
+    validateHotelGalleryPhotoCount(payload.photos);
 
     console.log('💾 Updating hotel with payload:', {
       hotelId,
@@ -11147,7 +11338,7 @@ async function handleEditHotelSubmit(event, originalHotel) {
     await loadHotelsAdminData();
   } catch (err) {
     console.error('Failed to update hotel:', err);
-    showToast(err.message || 'Failed to update hotel', 'error');
+    showToast(getHotelMutationFriendlyError(err) || err.message || 'Failed to update hotel', 'error');
   } finally {
     const form = event.target;
     const submitBtn = form?.querySelector('button[type="submit"]');
@@ -11198,6 +11389,21 @@ async function openNewHotelModal() {
           placeholder: 'Hotel description',
           rows: 3
         });
+      }
+      const newMetaDescContainer = document.getElementById('newHotelMetaDescriptionI18n');
+      if (newMetaDescContainer && typeof window.renderI18nInput === 'function') {
+        newMetaDescContainer.innerHTML = window.renderI18nInput({
+          fieldName: 'meta_description',
+          label: 'Meta description',
+          type: 'textarea',
+          currentValues: {},
+          placeholder: 'Short share preview description',
+          rows: 3
+        });
+      }
+      const newMetaImageInput = document.getElementById('newHotelMetaImageUrl');
+      if (newMetaImageInput) {
+        newMetaImageInput.value = '';
       }
 
       renderHotelPolicyFields('new', {});
@@ -11261,8 +11467,9 @@ async function openNewHotelModal() {
           // Extract i18n values
           const titleI18n = window.extractI18nValues ? window.extractI18nValues(fd, 'title') : null;
           const descriptionI18n = window.extractI18nValues ? window.extractI18nValues(fd, 'description') : null;
+          const metaDescriptionI18n = window.extractI18nValues ? window.extractI18nValues(fd, 'meta_description') : null;
           
-          console.log('🔍 New Hotel i18n extracted:', { titleI18n, descriptionI18n });
+          console.log('🔍 New Hotel i18n extracted:', { titleI18n, descriptionI18n, metaDescriptionI18n });
           
           // Validate required fields (PL and EN)
           if (window.validateI18nField) {
@@ -11276,6 +11483,7 @@ async function openNewHotelModal() {
           // Assign i18n fields
           if (titleI18n) payload.title = titleI18n;
           if (descriptionI18n) payload.description = descriptionI18n;
+          payload.meta_description = metaDescriptionI18n || {};
           
           // Clean up legacy fields from payload
           delete payload.title_pl;
@@ -11286,6 +11494,10 @@ async function openNewHotelModal() {
           delete payload.description_en;
           delete payload.description_el;
           delete payload.description_he;
+          delete payload.meta_description_pl;
+          delete payload.meta_description_en;
+          delete payload.meta_description_el;
+          delete payload.meta_description_he;
           delete payload.cancellation_policy_pl;
           delete payload.cancellation_policy_en;
           delete payload.cancellation_policy_el;
@@ -11302,6 +11514,8 @@ async function openNewHotelModal() {
           // Get photos and cover from state (already uploaded via photo manager)
           payload.photos = newHotelPhotosState.photos.slice();
           payload.cover_image_url = newHotelPhotosState.coverUrl || null;
+          payload.meta_image_url = String(form.querySelector('#newHotelMetaImageUrl')?.value || payload.meta_image_url || '').trim() || null;
+          validateHotelGalleryPhotoCount(payload.photos);
 
           // pricing tiers
           payload.pricing_tiers = collectPricingTiers('newHotelPricingTiersBody');
@@ -11346,7 +11560,7 @@ async function openNewHotelModal() {
           await loadHotelsAdminData();
         } catch (err) {
           console.error('Create hotel failed:', err);
-          showToast(err.message || 'Failed to create hotel', 'error');
+          showToast(getHotelMutationFriendlyError(err) || err.message || 'Failed to create hotel', 'error');
         } finally {
           if (submitBtn) {
             submitBtn.disabled = false;

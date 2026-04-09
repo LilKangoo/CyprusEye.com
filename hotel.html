@@ -32,9 +32,9 @@
     <header class="app-header nav-modern">
       <div class="nav-modern__top" aria-label="Global header">
         <div class="brand nav-modern__brand-block">
-          <a href="index.html" class="nav-modern__brand-link" aria-label="CyprusEye Quest home">
+          <a href="/index.html" class="nav-modern__brand-link" aria-label="CyprusEye Quest home">
             <img
-              src="assets/cyprus_logo-1000x1054.png"
+              src="/assets/cyprus_logo-1000x1054.png"
               alt="WakacjeCypr.com – logo żółwia z flagą Polski"
               data-i18n-attrs="alt:header.logoAlt"
               width="1000"
@@ -50,11 +50,11 @@
 
         <div class="nav-modern__stats nav-modern__stats-lite" data-auth="user-only">
           <div class="stats-lite__pill">
-            <a href="achievements.html" class="stats-lite__profile" id="profileButton" aria-label="Mój profil">
+            <a href="/achievements.html" class="stats-lite__profile" id="profileButton" aria-label="Mój profil">
               <img
                 id="headerUserAvatar"
                 class="profile-avatar"
-                src="assets/cyprus_logo-1000x1054.png"
+                src="/assets/cyprus_logo-1000x1054.png"
                 alt="Avatar"
                 width="48"
                 height="48"
@@ -137,29 +137,29 @@
         </button>
         <div class="nav-modern__links-row" id="navLinksRow" aria-label="Główna nawigacja i skróty" data-i18n-attrs="aria-label:header.quickActions.aria">
           <nav class="nav-modern__tabs" role="tablist" data-i18n-attrs="aria-label:header.tabs.aria" aria-label="Nawigacja główna">
-            <a href="index.html" class="nav-modern__tab is-active" id="headerAdventureTab" data-i18n="nav.adventure">
+            <a href="/index.html" class="nav-modern__tab is-active" id="headerAdventureTab" data-i18n="nav.adventure">
               🎯 Przygoda
             </a>
-            <a href="community.html" class="nav-modern__tab" id="headerPackingTab" data-i18n="nav.community">
+            <a href="/community.html" class="nav-modern__tab" id="headerPackingTab" data-i18n="nav.community">
               💬 Społeczność
             </a>
-            <a href="recommendations.html" class="nav-modern__tab" id="headerRecommendationsTab" data-i18n="nav.recommendations">
+            <a href="/recommendations.html" class="nav-modern__tab" id="headerRecommendationsTab" data-i18n="nav.recommendations">
               ✨ Polecane
             </a>
-            <a href="tasks.html" class="nav-modern__tab" id="headerTasksTab" data-i18n="nav.tasks">
+            <a href="/tasks.html" class="nav-modern__tab" id="headerTasksTab" data-i18n="nav.tasks">
               ☑️ Zadania
             </a>
-            <a href="shop.html" class="nav-modern__tab" id="headerShopTab" data-i18n="nav.shop">
+            <a href="/shop.html" class="nav-modern__tab" id="headerShopTab" data-i18n="nav.shop">
               🛍️ Sklep
             </a>
           </nav>
 
           <div class="nav-modern__chips">
-            <a class="nav-chip" href="packing.html" data-i18n="nav.packing">🎒 Pakowanie</a>
-            <a class="nav-chip" href="transport.html" data-i18n="header.coupon">🚕 Transport</a>
-            <a class="nav-chip" href="car.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
-            <a class="nav-chip" href="trips.html" data-i18n="nav.trips">🧭 Wycieczki</a>
-            <a class="nav-chip" href="hotels.html" data-i18n="nav.hotels">🏨 Hotele</a>
+            <a class="nav-chip" href="/packing.html" data-i18n="nav.packing">🎒 Pakowanie</a>
+            <a class="nav-chip" href="/transport.html" data-i18n="header.coupon">🚕 Transport</a>
+            <a class="nav-chip" href="/car.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
+            <a class="nav-chip" href="/trips.html" data-i18n="nav.trips">🧭 Wycieczki</a>
+            <a class="nav-chip" href="/hotels.html" data-i18n="nav.hotels">🏨 Hotele</a>
             <a class="nav-chip" href="/blog" data-i18n="nav.blog">📰 Blog</a>
           </div>
         </div>
@@ -355,15 +355,27 @@
 
   <script>
     const $ = (s,r=document)=>r.querySelector(s);
+    function extractHotelSlugFromLocation() {
+      const querySlug = new URLSearchParams(window.location.search).get('slug');
+      if (querySlug && querySlug.trim()) return querySlug.trim();
+      const pathname = String(window.location.pathname || '').replace(/\/+$/g, '');
+      if (!pathname.startsWith('/hotel/')) return '';
+      const candidate = pathname.slice('/hotel/'.length).split('/')[0];
+      try {
+        return decodeURIComponent(String(candidate || '').trim());
+      } catch (_) {
+        return String(candidate || '').trim();
+      }
+    }
     const params = new URLSearchParams(location.search);
-    const slug = params.get('slug');
+    const slug = extractHotelSlugFromLocation();
     let hotel = null;
     let appliedCoupon = null;
     let hotelLoadState = 'loading';
     const hotelPricing = window.CE_HOTEL_PRICING || null;
 
     function getHotelPageLanguage() {
-      const queryLang = String(params.get('lang') || '').trim().toLowerCase();
+      const queryLang = String(new URLSearchParams(window.location.search).get('lang') || '').trim().toLowerCase();
       const lang = String(
         window.appI18n?.language
         || window.getCurrentLanguage?.()
@@ -424,6 +436,140 @@
 
     function escapeAttribute(value) {
       return escapeHtml(value);
+    }
+
+    function ensureMetaNode(selector, build) {
+      let node = document.head.querySelector(selector);
+      if (!node) {
+        node = build();
+        document.head.appendChild(node);
+      }
+      return node;
+    }
+
+    function normalizeSeoText(value, maxLength = 180) {
+      const text = String(value || '')
+        .replace(/<br\s*\/?>/gi, ' ')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (!text) return '';
+      if (text.length <= maxLength) return text;
+      return `${text.slice(0, maxLength - 1).trim()}…`;
+    }
+
+    function getHotelLinkUrls(entry = hotel) {
+      const offerSlug = String(entry?.slug || slug || '').trim();
+      const build = (language) => {
+        const url = new URL('/hotel.html', window.location.origin);
+        if (offerSlug) {
+          url.searchParams.set('slug', offerSlug);
+        }
+        if (language === 'pl') {
+          url.searchParams.set('lang', 'pl');
+        } else {
+          url.searchParams.delete('lang');
+        }
+        return url.toString();
+      };
+      return { pl: build('pl'), en: build('en'), xDefault: build('en') };
+    }
+
+    function buildHotelSeoDescription(entry = hotel) {
+      if (!entry) return '';
+      const language = getHotelPageLanguage();
+      const localizedMeta = entry?.meta_description?.[language]
+        || entry?.meta_description?.en
+        || entry?.meta_description?.pl
+        || '';
+      if (localizedMeta) {
+        return normalizeSeoText(localizedMeta);
+      }
+      const localizedDescription = window.getHotelDescription
+        ? window.getHotelDescription(entry)
+        : (entry?.description?.[language] || entry?.description?.en || entry?.description?.pl || '');
+      return normalizeSeoText(localizedDescription);
+    }
+
+    function updateHotelSeo(entry = hotel) {
+      if (!entry) return;
+      const titleBase = getHotelTitle(entry);
+      const description = buildHotelSeoDescription(entry) || pageText(
+        'Poznaj ten nocleg na Cyprze wraz ze szczegółami pobytu, galerią i lokalizacją.',
+        'Discover this Cyprus stay with booking details, gallery and location.',
+      );
+      const urls = getHotelLinkUrls(entry);
+      const language = getHotelPageLanguage();
+      const activeUrl = language.startsWith('en') ? urls.en : urls.pl;
+      const imageUrl = new URL(
+        String(entry.meta_image_url || entry.cover_image_url || '/assets/cyprus_logo-1000x1054.png'),
+        window.location.origin,
+      ).toString();
+
+      document.title = `${titleBase} • CyprusEye`;
+      ensureMetaNode('meta[name="description"]', () => {
+        const node = document.createElement('meta');
+        node.name = 'description';
+        return node;
+      }).setAttribute('content', description);
+      ensureMetaNode('meta[property="og:title"]', () => {
+        const node = document.createElement('meta');
+        node.setAttribute('property', 'og:title');
+        return node;
+      }).setAttribute('content', titleBase);
+      ensureMetaNode('meta[property="og:description"]', () => {
+        const node = document.createElement('meta');
+        node.setAttribute('property', 'og:description');
+        return node;
+      }).setAttribute('content', description);
+      ensureMetaNode('meta[property="og:url"]', () => {
+        const node = document.createElement('meta');
+        node.setAttribute('property', 'og:url');
+        return node;
+      }).setAttribute('content', activeUrl);
+      ensureMetaNode('meta[property="og:image"]', () => {
+        const node = document.createElement('meta');
+        node.setAttribute('property', 'og:image');
+        return node;
+      }).setAttribute('content', imageUrl);
+      ensureMetaNode('meta[property="og:type"]', () => {
+        const node = document.createElement('meta');
+        node.setAttribute('property', 'og:type');
+        return node;
+      }).setAttribute('content', 'website');
+      ensureMetaNode('meta[property="og:locale"]', () => {
+        const node = document.createElement('meta');
+        node.setAttribute('property', 'og:locale');
+        return node;
+      }).setAttribute('content', language.startsWith('en') ? 'en_GB' : 'pl_PL');
+      ensureMetaNode('meta[property="og:locale:alternate"]', () => {
+        const node = document.createElement('meta');
+        node.setAttribute('property', 'og:locale:alternate');
+        return node;
+      }).setAttribute('content', language.startsWith('en') ? 'pl_PL' : 'en_GB');
+      ensureMetaNode('link[rel="canonical"]', () => {
+        const node = document.createElement('link');
+        node.rel = 'canonical';
+        return node;
+      }).setAttribute('href', activeUrl);
+      ensureMetaNode('link[rel="alternate"][hreflang="pl"]', () => {
+        const node = document.createElement('link');
+        node.rel = 'alternate';
+        node.hreflang = 'pl';
+        return node;
+      }).setAttribute('href', urls.pl);
+      ensureMetaNode('link[rel="alternate"][hreflang="en"]', () => {
+        const node = document.createElement('link');
+        node.rel = 'alternate';
+        node.hreflang = 'en';
+        return node;
+      }).setAttribute('href', urls.en);
+      ensureMetaNode('link[rel="alternate"][hreflang="x-default"]', () => {
+        const node = document.createElement('link');
+        node.rel = 'alternate';
+        node.hreflang = 'x-default';
+        return node;
+      }).setAttribute('href', urls.xDefault);
     }
 
     function nightsBetween(a,b){
@@ -633,6 +779,7 @@
         `).join('');
         factsWrap.hidden = !facts.length;
       }
+      updateHotelSeo(entry);
     }
 
     function getHotelPageQuote(){
@@ -1150,15 +1297,15 @@
       el.addEventListener('touchend', (e)=>{ if(sx==null) return; const t=e.changedTouches[0]; const dx=t.clientX-sx; const dy=t.clientY-sy; sx=sy=null; if(Math.abs(dx)>60 && Math.abs(dy)<80){ if(dx<0) showLightbox(lbIndex+1); else showLightbox(lbIndex-1);} }, {passive:true});
     })();
   </script>
-  <script src="js/languageSelector.js?v=3" defer></script>
-  <script src="js/i18n.js" defer></script>
-  <script src="js/seo.js" defer></script>
-  <script src="js/header-dropdown.js" defer></script>
-  <script src="js/languageSwitcher.js"></script>
-  <script src="js/languageRefresh.js"></script>
-  <script src="js/sos.js?v=1" defer></script>
-  <script src="js/header-stats.js?v=2" defer></script>
-  <script src="assets/js/modal-auth.js" defer></script>
+  <script src="/js/languageSelector.js?v=3" defer></script>
+  <script src="/js/i18n.js" defer></script>
+  <script src="/js/seo.js" defer></script>
+  <script src="/js/header-dropdown.js" defer></script>
+  <script src="/js/languageSwitcher.js"></script>
+  <script src="/js/languageRefresh.js"></script>
+  <script src="/js/sos.js?v=1" defer></script>
+  <script src="/js/header-stats.js?v=2" defer></script>
+  <script src="/assets/js/modal-auth.js" defer></script>
 
   <!-- Auth Modal -->
   <div id="auth-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="auth-title" aria-hidden="true">

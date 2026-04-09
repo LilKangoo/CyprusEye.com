@@ -2012,6 +2012,28 @@
 
               <section class="hotel-form-section">
                 <header class="hotel-form-section-head">
+                  <h4>SEO Preview</h4>
+                  <p>Localized share description and optional preview image for direct hotel links.</p>
+                </header>
+                <div class="admin-form-grid hotel-form-grid">
+                  <div class="admin-form-field hotel-field-full">
+                    <label>Meta description (Multilingual)</label>
+                    <div id="editHotelMetaDescriptionI18n"></div>
+                    <small style="color: var(--admin-text-muted);">Leave blank to use the beginning of the hotel description in link previews.</small>
+                  </div>
+                  <label class="admin-form-field hotel-field-full">
+                    <span>Meta image URL</span>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                      <input type="url" id="editHotelMetaImageUrl" name="meta_image_url" placeholder="https://... (leave blank to use cover image)" style="flex:1;min-width:240px;" />
+                      <button type="button" class="btn-secondary btn-sm" onclick="copyHotelCoverToMetaImage('edit')">Use cover</button>
+                    </div>
+                    <small style="color: var(--admin-text-muted);">Used in WhatsApp, Facebook and other social previews.</small>
+                  </label>
+                </div>
+              </section>
+
+              <section class="hotel-form-section">
+                <header class="hotel-form-section-head">
                   <h4>Pricing</h4>
                   <p>Fallback hotel-level pricing used when no room types are configured yet. Keep base tiers simple, then expand month or exact-date pricing only when needed.</p>
                 </header>
@@ -2269,6 +2291,28 @@
                 <div class="admin-form-field hotel-field-full">
                   <label>Description (Multilingual)</label>
                   <div id="newHotelDescriptionI18n"></div>
+                </div>
+              </section>
+
+              <section class="hotel-form-section">
+                <header class="hotel-form-section-head">
+                  <h4>SEO Preview</h4>
+                  <p>Localized share description and optional preview image for direct hotel links.</p>
+                </header>
+                <div class="admin-form-grid hotel-form-grid">
+                  <div class="admin-form-field hotel-field-full">
+                    <label>Meta description (Multilingual)</label>
+                    <div id="newHotelMetaDescriptionI18n"></div>
+                    <small style="color: var(--admin-text-muted);">Leave blank to use the beginning of the hotel description in link previews.</small>
+                  </div>
+                  <label class="admin-form-field hotel-field-full">
+                    <span>Meta image URL</span>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                      <input type="url" id="newHotelMetaImageUrl" name="meta_image_url" placeholder="https://... (leave blank to use cover image)" style="flex:1;min-width:240px;" />
+                      <button type="button" class="btn-secondary btn-sm" onclick="copyHotelCoverToMetaImage('new')">Use cover</button>
+                    </div>
+                    <small style="color: var(--admin-text-muted);">Used in WhatsApp, Facebook and other social previews.</small>
+                  </label>
                 </div>
               </section>
 
@@ -2759,6 +2803,28 @@
 
               <section class="trip-form-section">
                 <header class="trip-form-section-head">
+                  <h4>SEO preview</h4>
+                  <p>Localized share description and optional preview image for direct trip links.</p>
+                </header>
+                <div class="admin-form-grid">
+                  <div class="admin-form-field" style="grid-column:1/-1;">
+                    <span>Meta description (Multilingual)</span>
+                    <div id="editTripMetaDescriptionI18n"></div>
+                    <small style="color: var(--admin-text-muted);">Leave blank to use the beginning of the trip description for link previews.</small>
+                  </div>
+                  <div class="admin-form-field" style="grid-column:1/-1;">
+                    <span>Meta image URL</span>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                      <input type="url" name="meta_image_url" id="editTripMetaImageUrl" placeholder="https://... (leave blank to use cover image)" style="flex:1;min-width:240px;" />
+                      <button type="button" class="btn-secondary btn-sm" onclick="copyTripCoverToMetaImage('edit')">Use cover</button>
+                    </div>
+                    <small style="color: var(--admin-text-muted);">Used in WhatsApp, Facebook and other social previews.</small>
+                  </div>
+                </div>
+              </section>
+
+              <section class="trip-form-section">
+                <header class="trip-form-section-head">
                   <h4>Media</h4>
                   <p>Upload or paste cover image URL.</p>
                 </header>
@@ -2862,6 +2928,28 @@
                   <div id="newTripTitleI18n"></div>
                   <div id="newTripDescriptionI18n"></div>
                 </div>
+                </div>
+              </section>
+
+              <section class="trip-form-section">
+                <header class="trip-form-section-head">
+                  <h4>SEO preview</h4>
+                  <p>Localized share description and optional preview image for direct trip links.</p>
+                </header>
+                <div class="admin-form-grid">
+                  <div class="admin-form-field" style="grid-column:1/-1;">
+                    <span>Meta description (Multilingual)</span>
+                    <div id="newTripMetaDescriptionI18n"></div>
+                    <small style="color: var(--admin-text-muted);">Leave blank to use the beginning of the trip description for link previews.</small>
+                  </div>
+                  <div class="admin-form-field" style="grid-column:1/-1;">
+                    <span>Meta image URL</span>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                      <input type="url" name="meta_image_url" id="newTripMetaImageUrl" placeholder="https://... (leave blank to use cover image)" style="flex:1;min-width:240px;" />
+                      <button type="button" class="btn-secondary btn-sm" onclick="copyTripCoverToMetaImage('new')">Use cover</button>
+                    </div>
+                    <small style="color: var(--admin-text-muted);">Used in WhatsApp, Facebook and other social previews.</small>
+                  </div>
                 </div>
               </section>
 
