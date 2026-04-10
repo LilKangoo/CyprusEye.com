@@ -382,7 +382,7 @@
   <script type="module">
     import { supabase } from '/js/supabaseClient.js';
     import { quoteServiceCoupon } from '/js/service-coupons.js';
-    import { createReferralFieldController } from '/js/referral-ui.js';
+    import { createReferralFieldController, shouldHideReferralEntryUi } from '/js/referral-ui.js';
 
     const $ = (s, r = document) => r.querySelector(s);
     function extractTripSlugFromLocation() {
@@ -1014,8 +1014,19 @@
     function ensureTripReferralUi() {
       const form = $('#bookingForm');
       if (!form) return;
+      if (form.dataset.ceReferralVisibilityBound !== '1') {
+        form.dataset.ceReferralVisibilityBound = '1';
+        document.addEventListener('ce-auth:state', () => {
+          ensureTripReferralUi();
+        });
+      }
 
       let box = form.querySelector('[data-trip-referral-ui]');
+      if (shouldHideReferralEntryUi()) {
+        if (box instanceof HTMLElement) box.remove();
+        tripReferralController = null;
+        return;
+      }
       if (!(box instanceof HTMLElement)) {
         const couponBox = form.querySelector('[data-trip-coupon-ui]');
         box = document.createElement('div');

@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient.js';
 import { quoteServiceCoupon } from './service-coupons.js';
-import { createReferralFieldController } from './referral-ui.js';
+import { createReferralFieldController, shouldHideReferralEntryUi } from './referral-ui.js';
 
 const LOCATION_TYPE_FALLBACK_LABELS = {
   city: 'City',
@@ -28,6 +28,8 @@ const state = {
   coupon: {
     applied: null,
   },
+  deepLinkRouteId: '',
+  deepLinkApplied: false,
   loading: false,
   languageListenerBound: false,
 };
@@ -86,6 +88,15 @@ function t(key, fallback, params = {}) {
 
 function byId(id) {
   return document.getElementById(id);
+}
+
+function getDeepLinkedRouteId() {
+  try {
+    const url = new URL(window.location.href);
+    return String(url.searchParams.get('route_id') || '').trim();
+  } catch (_error) {
+    return '';
+  }
 }
 
 function notify(message, type = 'info') {
@@ -910,6 +921,27 @@ function getSelectedRoute() {
   return findRouteByLocations(originId, destinationId);
 }
 
+function applyRouteDeepLinkSelection() {
+  if (state.deepLinkApplied || !state.deepLinkRouteId) return;
+  const route = state.routeById.get(state.deepLinkRouteId) || null;
+  if (!route) {
+    state.deepLinkApplied = true;
+    return;
+  }
+
+  const originId = String(route.origin_location_id || '').trim();
+  const destinationId = String(route.destination_location_id || '').trim();
+  if (els.originSelect instanceof HTMLSelectElement && originId) {
+    els.originSelect.value = originId;
+  }
+  if (els.destinationSelect instanceof HTMLSelectElement && destinationId) {
+    els.destinationSelect.value = destinationId;
+  }
+
+  syncReturnLegVisibility({ force: true });
+  state.deepLinkApplied = true;
+}
+
 function isRuleValidForDate(rule, dateIso) {
   const date = String(dateIso || '').trim();
   if (!date) return true;
@@ -1223,7 +1255,22 @@ function syncCouponControls() {
 function ensureTransportReferralUi() {
   if (!(els.form instanceof HTMLFormElement)) return null;
 
+  if (els.form.dataset.ceReferralVisibilityBound !== '1') {
+    els.form.dataset.ceReferralVisibilityBound = '1';
+    document.addEventListener('ce-auth:state', () => {
+      ensureTransportReferralUi();
+    });
+  }
+
   let box = byId('transportReferralBox');
+  if (shouldHideReferralEntryUi()) {
+    if (box instanceof HTMLElement) box.remove();
+    referralController = null;
+    els.referralCodeInput = null;
+    els.referralStatus = null;
+    els.referralBadge = null;
+    return null;
+  }
   if (!(box instanceof HTMLElement)) {
     const couponBox = els.couponCodeInput?.closest('.transport-coupon-box');
     box = document.createElement('div');
@@ -2756,6 +2803,7 @@ async function initTransportBookingPage() {
   initElements();
   exposeTransportBookingApi();
   if (!els.form) return;
+  state.deepLinkRouteId = getDeepLinkedRouteId();
   ensureTransportReferralUi();
 
   if (!state.languageListenerBound) {
@@ -2779,6 +2827,7 @@ async function initTransportBookingPage() {
 
   try {
     await loadTransportCatalog();
+    applyRouteDeepLinkSelection();
     syncReturnLegVisibility({ force: false });
     await prefillCustomerFromSession();
   } catch (error) {

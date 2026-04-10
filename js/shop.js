@@ -57,7 +57,11 @@ const shopState = {
     total: 0
   },
   lang: 'pl', // Current language
-  pendingCheckoutAfterLogin: false
+  pendingCheckoutAfterLogin: false,
+  deepLink: {
+    productId: null,
+    consumed: false
+  }
 };
 
 // Supabase client
@@ -432,6 +436,16 @@ function getUrlCategorySlug() {
     const url = new URL(window.location.href);
     const slug = String(url.searchParams.get('cat') || '').trim();
     return slug || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function getUrlProductId() {
+  try {
+    const url = new URL(window.location.href);
+    const productId = String(url.searchParams.get('product') || '').trim();
+    return productId || null;
   } catch (e) {
     return null;
   }
@@ -844,6 +858,7 @@ async function init() {
   // Set current language
   shopState.lang = getCurrentLang();
   shopState.pendingCategorySlug = getUrlCategorySlug();
+  shopState.deepLink.productId = getUrlProductId();
   hydrateFiltersFromUrl();
   
   await initSupabase();
@@ -1754,10 +1769,46 @@ async function loadProducts() {
 
     renderProducts();
     renderPagination();
+    await consumeProductDeepLinkIfNeeded();
 
   } catch (error) {
     console.error('Failed to load products:', error);
     showProductsError('Nie udało się załadować produktów');
+  }
+}
+
+async function fetchDeepLinkedProduct(productId) {
+  if (!supabase || !productId) return null;
+  try {
+    const { data, error } = await supabase
+      .from('shop_products')
+      .select('*, category:shop_categories(name, name_en, slug)')
+      .eq('id', productId)
+      .eq('status', 'active')
+      .maybeSingle();
+    if (error) throw error;
+    return data || null;
+  } catch (error) {
+    console.error('Failed to fetch deep-linked product:', error);
+    return null;
+  }
+}
+
+async function consumeProductDeepLinkIfNeeded() {
+  const productId = String(shopState.deepLink?.productId || '').trim();
+  if (!productId || shopState.deepLink?.consumed) return;
+
+  let product = shopState.products.find((row) => String(row?.id || '').trim() === productId) || null;
+  if (!product) {
+    product = await fetchDeepLinkedProduct(productId);
+    if (product && !shopState.products.some((row) => String(row?.id || '').trim() === productId)) {
+      shopState.products.push(product);
+    }
+  }
+
+  shopState.deepLink.consumed = true;
+  if (product) {
+    await openProductModal(productId);
   }
 }
 

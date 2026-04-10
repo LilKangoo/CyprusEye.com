@@ -922,7 +922,19 @@ function ensureHomeTripCouponUi() {
 async function ensureHomeTripReferralUi() {
   const form = document.getElementById('bookingForm');
   if (!form) return null;
+  if (form.dataset.ceReferralVisibilityBound !== '1') {
+    form.dataset.ceReferralVisibilityBound = '1';
+    document.addEventListener('ce-auth:state', () => {
+      void ensureHomeTripReferralUi();
+    });
+  }
   let box = form.querySelector('[data-trip-referral-ui]');
+  const { createReferralFieldController, shouldHideReferralEntryUi } = await getHomeTripReferralUiModule();
+  if (shouldHideReferralEntryUi()) {
+    if (box instanceof HTMLElement) box.remove();
+    homeTripReferralController = null;
+    return null;
+  }
   if (!(box instanceof HTMLElement)) {
     const couponBox = form.querySelector('[data-trip-coupon-ui]');
     box = document.createElement('div');
@@ -947,7 +959,6 @@ async function ensureHomeTripReferralUi() {
   const status = box.querySelector('#bookingReferralStatus');
   const badge = box.querySelector('#bookingReferralBadge');
   if (!(input instanceof HTMLInputElement)) return null;
-  const { createReferralFieldController } = await getHomeTripReferralUiModule();
   if (!homeTripReferralController) {
     homeTripReferralController = createReferralFieldController({
       input,

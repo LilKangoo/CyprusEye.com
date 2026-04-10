@@ -1013,8 +1013,20 @@
     async function ensureHotelReferralUi() {
       const form = $('#bookForm');
       if (!form) return null;
+      if (form.dataset.ceReferralVisibilityBound !== '1') {
+        form.dataset.ceReferralVisibilityBound = '1';
+        document.addEventListener('ce-auth:state', () => {
+          void ensureHotelReferralUi();
+        });
+      }
 
       let row = form.querySelector('[data-hotel-referral-ui]');
+      const { createReferralFieldController, shouldHideReferralEntryUi } = await getHotelReferralUiModule();
+      if (shouldHideReferralEntryUi()) {
+        if (row instanceof HTMLElement) row.remove();
+        hotelReferralController = null;
+        return null;
+      }
       if (!(row instanceof HTMLElement)) {
         const couponWrap = $('#couponCode')?.closest('.offer-span-full');
         row = document.createElement('div');
@@ -1044,8 +1056,6 @@
         label.textContent = hotelT('referral.label', 'Kod polecający', 'Referral code');
       }
       input.placeholder = hotelT('referral.placeholder', 'Wpisz kod polecający', 'Enter referral code');
-
-      const { createReferralFieldController } = await getHotelReferralUiModule();
       if (!hotelReferralController) {
         hotelReferralController = createReferralFieldController({
           input,

@@ -11,10 +11,60 @@ const state = {
   lastImageModalTrigger: null,
   lastImageModalFocus: null,
   carImageModalPanoramaCleanup: null,
+  deepLink: {
+    offerId: null,
+    offerLocation: null,
+    applied: false,
+  },
 };
 
 function byId(id) {
   return document.getElementById(id);
+}
+
+function readCarDeepLink() {
+  try {
+    const url = new URL(window.location.href);
+    const offerId = String(url.searchParams.get('offer_id') || '').trim() || null;
+    const rawLocation = String(url.searchParams.get('offer_location') || '').trim().toLowerCase();
+    const offerLocation = rawLocation === 'paphos' || rawLocation === 'larnaca' ? rawLocation : null;
+    return { offerId, offerLocation };
+  } catch (_error) {
+    return { offerId: null, offerLocation: null };
+  }
+}
+
+function applyCarDeepLinkSelection() {
+  if (state.deepLink.applied || !state.deepLink.offerId) return false;
+  const targetOfferId = String(state.deepLink.offerId || '').trim();
+  if (!targetOfferId) {
+    state.deepLink.applied = true;
+    return false;
+  }
+
+  const selectByOfferId = (selectEl) => {
+    if (!(selectEl instanceof HTMLSelectElement)) return false;
+    const options = Array.from(selectEl.options || []);
+    const match = options.find((opt) => String(opt?.dataset?.offerId || '').trim() === targetOfferId);
+    if (!match) return false;
+    selectEl.value = match.value;
+    return true;
+  };
+
+  const calculatorSelect = byId('rentalCarSelect');
+  const reservationSelect = byId('res_car');
+  const matched =
+    selectByOfferId(calculatorSelect)
+    || selectByOfferId(reservationSelect);
+
+  if (!matched) return false;
+
+  if (reservationSelect instanceof HTMLSelectElement && calculatorSelect instanceof HTMLSelectElement) {
+    reservationSelect.value = calculatorSelect.value;
+  }
+
+  state.deepLink.applied = true;
+  return true;
 }
 
 function isLandingPage() {
@@ -891,6 +941,10 @@ async function refreshLandingFlow({ forceReload = false } = {}) {
   const previousOffer = state.effectiveOffer;
 
   evaluateOffer(initialWidgetState);
+  if (!state.deepLink.applied && state.deepLink.offerLocation) {
+    state.manualOffer = state.deepLink.offerLocation;
+    state.effectiveOffer = state.deepLink.offerLocation;
+  }
   renderOfferIndicators(initialWidgetState);
   updateLandingQuoteContext(initialWidgetState);
 
@@ -903,6 +957,11 @@ async function refreshLandingFlow({ forceReload = false } = {}) {
 
   if (typeof window.CE_CAR_UPDATE_CALC_OPTIONS === 'function') {
     window.CE_CAR_UPDATE_CALC_OPTIONS();
+  }
+
+  const deepLinkSelected = applyCarDeepLinkSelection();
+  if (deepLinkSelected && typeof window.calculatePrice === 'function') {
+    window.calculatePrice();
   }
 
   const widgetState = readWidgetState();
@@ -969,6 +1028,8 @@ function bindWidgetHandlers() {
 
 function initLandingController() {
   if (!isLandingPage()) return;
+
+  state.deepLink = readCarDeepLink();
 
   populateWidgetLocations();
   populateReservationLocations();

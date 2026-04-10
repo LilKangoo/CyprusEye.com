@@ -9,6 +9,7 @@ import {
 import {
   createReferralFieldController,
   normalizeReferralCode,
+  shouldHideReferralEntryUi,
 } from './referral-ui.js';
 
 const sb = window.getSupabase();
@@ -1200,6 +1201,13 @@ function ensureGoogleButtons() {
 function ensureRegisterReferralField(form) {
   if (!(form instanceof HTMLFormElement) || form.id !== 'form-register') return;
 
+  if (form.dataset.ceReferralVisibilityBound !== '1') {
+    form.dataset.ceReferralVisibilityBound = '1';
+    document.addEventListener('ce-auth:state', () => {
+      ensureRegisterReferralField(form);
+    });
+  }
+
   const referralLabelText = getI18nString(
     'auth.referralCode',
     t('Referral code (optional)', 'Kod polecający (opcjonalnie)'),
@@ -1239,6 +1247,11 @@ function ensureRegisterReferralField(form) {
   const changeText = getI18nString('referral.change', t('Change', 'Zmień'));
 
   let field = form.querySelector('[data-auth-referral-field="1"]');
+  if (shouldHideReferralEntryUi()) {
+    if (field instanceof HTMLElement) field.remove();
+    registerReferralControllers.delete(form);
+    return;
+  }
   if (!(field instanceof HTMLElement)) {
     field = document.createElement('div');
     field.className = 'referral-field referral-field--auth';
@@ -1456,8 +1469,18 @@ function ensureOAuthCompletionModal() {
   const referralStatus = overlay.querySelector('#oauthCompletionReferralStatus');
   const referralBadge = overlay.querySelector('#oauthCompletionReferralBadge');
   const referralChange = overlay.querySelector('#oauthCompletionReferralChange');
+  const referralField = overlay.querySelector('[data-auth-referral-field="oauth"]');
 
-  oauthReferralController = referralInput instanceof HTMLInputElement
+  if (shouldHideReferralEntryUi()) {
+    if (referralField instanceof HTMLElement) {
+      referralField.hidden = true;
+    }
+    oauthReferralController = null;
+  } else {
+    if (referralField instanceof HTMLElement) {
+      referralField.hidden = false;
+    }
+    oauthReferralController = referralInput instanceof HTMLInputElement
     ? createReferralFieldController({
         input: referralInput,
         status: referralStatus,
@@ -1476,6 +1499,7 @@ function ensureOAuthCompletionModal() {
         },
       })
     : null;
+  }
 
   const setError = (message) => {
     if (!(errorEl instanceof HTMLElement)) return;

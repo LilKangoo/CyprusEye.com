@@ -54,6 +54,12 @@
       liveTrendRows: [],
       liveTrendRange: null,
     },
+    linksDiscounts: {
+      items: [],
+      filter: 'all',
+      selectedKey: '',
+      discountCodes: [],
+    },
     partnerBlog: {
       items: [],
       filterSearch: '',
@@ -184,6 +190,7 @@
     partnerNavAnalytics: null,
     partnerNavProfile: null,
     partnerNavReferrals: null,
+    partnerNavLinksDiscounts: null,
     partnerUserName: null,
     partnerBreadcrumb: null,
 
@@ -193,6 +200,21 @@
     partnerProfileView: null,
 
     partnerReferralsView: null,
+    partnerLinksDiscountsView: null,
+
+    partnerLinksFilters: null,
+    btnPartnerLinksRefresh: null,
+    partnerLinksGrid: null,
+    partnerLinksPreviewCard: null,
+    partnerLinksPreviewImage: null,
+    partnerLinksPreviewCategory: null,
+    partnerLinksPreviewTitle: null,
+    partnerLinksPreviewMeta: null,
+    partnerLinksPreviewDescription: null,
+    partnerLinksPreviewLink: null,
+    btnPartnerLinksCopyPreview: null,
+    btnPartnerLinksOpenPreview: null,
+    partnerDiscountCodesList: null,
 
     partnerBlogCurrentPartner: null,
     partnerBlogStatusHint: null,
@@ -387,6 +409,14 @@
     { type: 'cars', label: 'Cars' },
     { type: 'pois', label: 'POIs' },
     { type: 'recommendations', label: 'Recommendations' },
+  ];
+  const PARTNER_LINKS_FILTERS = [
+    { key: 'all', label: 'All' },
+    { key: 'cars', label: 'Cars' },
+    { key: 'trips', label: 'Trips' },
+    { key: 'hotels', label: 'Hotels' },
+    { key: 'transport', label: 'Transport' },
+    { key: 'shop', label: 'Shop' },
   ];
   const PARTNER_BLOG_SERVICE_TYPE_ALIASES = {
     trips: ['trip', 'trips', 'tour', 'tours', 'wycieczka', 'wycieczki'],
@@ -1823,13 +1853,15 @@
     const isBlog = view === 'blog';
     const isProfile = view === 'profile';
     const isReferrals = view === 'referrals';
-    const isPortal = !isProfile && !isReferrals && !isAnalytics && !isBlog;
+    const isLinksDiscounts = view === 'links-discounts';
+    const isPortal = !isProfile && !isReferrals && !isAnalytics && !isBlog && !isLinksDiscounts;
 
     setHidden(els.partnerPortalView, !isPortal);
     setHidden(els.partnerBlogView, !isBlog);
     setHidden(els.partnerAnalyticsView, !isAnalytics);
     setHidden(els.partnerProfileView, !isProfile);
     setHidden(els.partnerReferralsView, !isReferrals);
+    setHidden(els.partnerLinksDiscountsView, !isLinksDiscounts);
 
     updateAnalyticsCardVisibility();
     updateAffiliateSummaryCardVisibility();
@@ -1849,6 +1881,7 @@
       els.partnerNavAnalytics,
       els.partnerNavProfile,
       els.partnerNavReferrals,
+      els.partnerNavLinksDiscounts,
     ].filter(Boolean);
     btns.forEach((b) => b.classList.toggle('active', b === targetBtn));
   }
@@ -1859,7 +1892,7 @@
     try {
       const { data, error } = await withRateLimitRetry(() => state.sb
         .from('profiles')
-        .select('id,email,name,username,referral_code')
+        .select('id,email,name,username,referral_code,referred_by')
         .eq('id', state.user.id)
         .maybeSingle());
       if (error) throw error;
@@ -2759,6 +2792,479 @@
     } catch (e) {
       console.error(e);
     }
+    closeSidebar();
+  }
+
+  function partnerLinksTypeLabel(type) {
+    const normalized = String(type || '').trim().toLowerCase();
+    if (normalized === 'cars') return 'Cars';
+    if (normalized === 'trips') return 'Trips';
+    if (normalized === 'hotels') return 'Hotels';
+    if (normalized === 'transport') return 'Transport';
+    if (normalized === 'shop') return 'Shop';
+    return 'Service';
+  }
+
+  function normalizePreviewText(value) {
+    if (!value) return '';
+    if (typeof value === 'string') return value.trim();
+    if (typeof value === 'object') return String(value.en || value.pl || value.text || '').trim();
+    return '';
+  }
+
+  function getFirstMediaUrl(value) {
+    if (typeof value === 'string') {
+      return value.trim();
+    }
+    if (Array.isArray(value)) {
+      const first = value.find((entry) => typeof entry === 'string' && entry.trim());
+      return String(first || '').trim();
+    }
+    return '';
+  }
+
+  function buildPartnerLinksBaseUrl(item) {
+    const baseUrl = (typeof window !== 'undefined' && window.location && window.location.origin)
+      ? window.location.origin
+      : 'https://cypruseye.com';
+    const url = new URL('/', baseUrl);
+    const type = String(item?.type || '').trim().toLowerCase();
+
+    if (type === 'trips') {
+      url.pathname = '/trip.html';
+      if (item?.slug) url.searchParams.set('slug', item.slug);
+      url.searchParams.set('lang', 'en');
+      return url.toString();
+    }
+    if (type === 'hotels') {
+      url.pathname = '/hotel.html';
+      if (item?.slug) url.searchParams.set('slug', item.slug);
+      url.searchParams.set('lang', 'en');
+      return url.toString();
+    }
+    if (type === 'cars') {
+      url.pathname = '/car.html';
+      if (item?.resourceId) url.searchParams.set('offer_id', item.resourceId);
+      if (item?.offerLocation) url.searchParams.set('offer_location', item.offerLocation);
+      url.searchParams.set('lang', 'en');
+      return url.toString();
+    }
+    if (type === 'transport') {
+      url.pathname = '/transport.html';
+      if (item?.resourceId) url.searchParams.set('route_id', item.resourceId);
+      url.searchParams.set('lang', 'en');
+      return url.toString();
+    }
+    if (type === 'shop') {
+      url.pathname = '/shop.html';
+      if (item?.resourceId) url.searchParams.set('product', item.resourceId);
+      url.searchParams.set('lang', 'en');
+      return url.toString();
+    }
+    return `${baseUrl}/`;
+  }
+
+  function buildPartnerLinksReferralUrl(item) {
+    const code = getProfileReferralCode(state.profile);
+    if (!code) return '';
+    return buildReferralLink(code, buildPartnerLinksBaseUrl(item));
+  }
+
+  function normalizePartnerLinksItem(type, row, extra = {}) {
+    const normalizedType = String(type || '').trim().toLowerCase();
+    const resourceId = String(row?.id || '').trim();
+    if (!resourceId) return null;
+
+    if (normalizedType === 'trips') {
+      const title = normalizeTitleJson(row?.title) || String(row?.title_en || row?.title_pl || row?.slug || resourceId).trim();
+      return {
+        key: `trips:${resourceId}`,
+        type: 'trips',
+        resourceId,
+        slug: String(row?.slug || '').trim(),
+        title,
+        meta: String(row?.start_city || '').trim(),
+        description: normalizePreviewText(row?.short_description || row?.description),
+        imageUrl: getFirstMediaUrl(row?.main_image_url || row?.cover_image_url || row?.image_url || row?.photos),
+      };
+    }
+
+    if (normalizedType === 'hotels') {
+      const title = normalizeTitleJson(row?.title) || String(row?.title_en || row?.title_pl || row?.slug || resourceId).trim();
+      return {
+        key: `hotels:${resourceId}`,
+        type: 'hotels',
+        resourceId,
+        slug: String(row?.slug || '').trim(),
+        title,
+        meta: String(row?.city || row?.country || '').trim(),
+        description: normalizePreviewText(row?.summary || row?.description || row?.short_description),
+        imageUrl: getFirstMediaUrl(row?.cover_image_url || row?.photos || row?.image_url),
+      };
+    }
+
+    if (normalizedType === 'cars') {
+      const title = normalizeTitleJson(row?.car_model) || normalizeTitleJson(row?.car_type) || String(row?.name || resourceId).trim();
+      return {
+        key: `cars:${resourceId}`,
+        type: 'cars',
+        resourceId,
+        title,
+        meta: String(row?.location || row?.car_type || '').trim(),
+        description: normalizePreviewText(row?.description),
+        imageUrl: getFirstMediaUrl(row?.image_url || row?.thumbnail_url),
+        offerLocation: String(row?.location || '').trim(),
+      };
+    }
+
+    if (normalizedType === 'transport') {
+      const routeLabel = extra.routeLabel || `Route ${resourceId.slice(0, 8)}`;
+      return {
+        key: `transport:${resourceId}`,
+        type: 'transport',
+        resourceId,
+        title: routeLabel,
+        meta: String(extra.routeMeta || '').trim(),
+        description: normalizePreviewText(extra.description || ''),
+        imageUrl: '',
+      };
+    }
+
+    if (normalizedType === 'shop') {
+      const title = String(row?.name || row?.title || resourceId).trim();
+      return {
+        key: `shop:${resourceId}`,
+        type: 'shop',
+        resourceId,
+        title,
+        meta: row?.price != null ? `€${Number(row.price || 0).toFixed(2)}` : '',
+        description: normalizePreviewText(row?.short_description || row?.description),
+        imageUrl: getFirstMediaUrl(row?.thumbnail_url || row?.image_url),
+      };
+    }
+
+    return null;
+  }
+
+  function getFilteredPartnerLinksItems() {
+    const filter = String(state.linksDiscounts.filter || 'all').trim().toLowerCase();
+    const rows = Array.isArray(state.linksDiscounts.items) ? state.linksDiscounts.items : [];
+    if (filter === 'all') return rows;
+    return rows.filter((item) => String(item?.type || '').trim().toLowerCase() === filter);
+  }
+
+  function ensurePartnerLinksSelectedItem() {
+    const filtered = getFilteredPartnerLinksItems();
+    if (!filtered.length) {
+      state.linksDiscounts.selectedKey = '';
+      return null;
+    }
+    const current = filtered.find((item) => item.key === state.linksDiscounts.selectedKey) || null;
+    if (current) return current;
+    state.linksDiscounts.selectedKey = filtered[0].key;
+    return filtered[0];
+  }
+
+  function formatPartnerDiscountScope(row) {
+    const type = String(row?.type || '').trim().toLowerCase();
+    if (type === 'cars') {
+      const parts = [];
+      const locations = Array.isArray(row?.applicable_locations) ? row.applicable_locations.filter(Boolean) : [];
+      const models = Array.isArray(row?.applicable_car_models) ? row.applicable_car_models.filter(Boolean) : [];
+      const offerIds = Array.isArray(row?.applicable_offer_ids) ? row.applicable_offer_ids.filter(Boolean) : [];
+      if (locations.length) parts.push(`Locations: ${locations.join(', ')}`);
+      if (models.length) parts.push(`Models: ${models.join(', ')}`);
+      if (offerIds.length) parts.push(`Offers: ${offerIds.length}`);
+      return parts.join(' · ') || 'Cars';
+    }
+    return partnerLinksTypeLabel(row?.service_type || row?.type);
+  }
+
+  function renderPartnerLinksFilters() {
+    if (!els.partnerLinksFilters) return;
+    els.partnerLinksFilters.innerHTML = PARTNER_LINKS_FILTERS.map((filter) => `
+      <button
+        type="button"
+        class="partner-tab ${String(state.linksDiscounts.filter || 'all') === filter.key ? 'is-active' : ''}"
+        data-partner-links-filter="${escapeHtml(filter.key)}"
+      >${escapeHtml(filter.label)}</button>
+    `).join('');
+  }
+
+  function renderPartnerLinksGrid() {
+    if (!els.partnerLinksGrid) return;
+    const filtered = getFilteredPartnerLinksItems();
+    if (!filtered.length) {
+      els.partnerLinksGrid.innerHTML = '<div class="partner-links-empty">No services available for this filter.</div>';
+      return;
+    }
+
+    els.partnerLinksGrid.innerHTML = filtered.map((item) => {
+      const imageHtml = item.imageUrl
+        ? `<img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.title)}" loading="lazy" />`
+        : `<div class="partner-links-card__placeholder">${escapeHtml(partnerLinksTypeLabel(item.type))}</div>`;
+      return `
+        <article class="partner-links-card ${item.key === state.linksDiscounts.selectedKey ? 'is-active' : ''}" data-partner-link-card="${escapeHtml(item.key)}">
+          <div class="partner-links-card__media">${imageHtml}</div>
+          <div class="partner-links-card__body">
+            <span class="partner-links-card__category">${escapeHtml(partnerLinksTypeLabel(item.type))}</span>
+            <h3>${escapeHtml(item.title)}</h3>
+            <p class="partner-links-card__meta">${escapeHtml(item.meta || '—')}</p>
+            <div class="partner-links-card__actions">
+              <button type="button" class="btn-sm" data-partner-link-preview="${escapeHtml(item.key)}">Preview</button>
+              <button type="button" class="btn-sm primary" data-partner-link-copy="${escapeHtml(item.key)}">Copy link</button>
+            </div>
+          </div>
+        </article>
+      `;
+    }).join('');
+  }
+
+  function renderPartnerLinksPreview() {
+    if (!els.partnerLinksPreviewCard) return;
+    const item = ensurePartnerLinksSelectedItem();
+    const referralUrl = item ? buildPartnerLinksReferralUrl(item) : '';
+    const baseUrl = item ? buildPartnerLinksBaseUrl(item) : '';
+
+    if (!item) {
+      setHidden(els.partnerLinksPreviewCard, true);
+      return;
+    }
+
+    setHidden(els.partnerLinksPreviewCard, false);
+    if (els.partnerLinksPreviewCategory) {
+      els.partnerLinksPreviewCategory.textContent = partnerLinksTypeLabel(item.type);
+    }
+    if (els.partnerLinksPreviewTitle) {
+      els.partnerLinksPreviewTitle.textContent = item.title;
+    }
+    if (els.partnerLinksPreviewMeta) {
+      els.partnerLinksPreviewMeta.textContent = item.meta || 'Ready to share';
+    }
+    if (els.partnerLinksPreviewDescription) {
+      els.partnerLinksPreviewDescription.textContent = item.description || 'Use this direct link to send the selected service with your referral code attached.';
+    }
+    if (els.partnerLinksPreviewLink instanceof HTMLInputElement) {
+      els.partnerLinksPreviewLink.value = referralUrl || baseUrl || '';
+    }
+    if (els.partnerLinksPreviewImage instanceof HTMLImageElement) {
+      if (item.imageUrl) {
+        els.partnerLinksPreviewImage.src = item.imageUrl;
+        els.partnerLinksPreviewImage.alt = item.title;
+        els.partnerLinksPreviewImage.hidden = false;
+      } else {
+        els.partnerLinksPreviewImage.hidden = true;
+        els.partnerLinksPreviewImage.removeAttribute('src');
+        els.partnerLinksPreviewImage.alt = '';
+      }
+    }
+    if (els.btnPartnerLinksCopyPreview) {
+      els.btnPartnerLinksCopyPreview.disabled = !referralUrl;
+      els.btnPartnerLinksCopyPreview.dataset.partnerLinkCopy = item.key;
+    }
+    if (els.btnPartnerLinksOpenPreview) {
+      els.btnPartnerLinksOpenPreview.disabled = !(referralUrl || baseUrl);
+      els.btnPartnerLinksOpenPreview.dataset.partnerLinkOpen = referralUrl || baseUrl;
+    }
+  }
+
+  function renderPartnerDiscountCodes() {
+    if (!els.partnerDiscountCodesList) return;
+    const rows = Array.isArray(state.linksDiscounts.discountCodes) ? state.linksDiscounts.discountCodes : [];
+    if (!rows.length) {
+      els.partnerDiscountCodesList.innerHTML = '<div class="partner-links-empty">No active discount codes assigned to this partner.</div>';
+      return;
+    }
+
+    els.partnerDiscountCodesList.innerHTML = rows.map((row) => `
+      <article class="partner-discount-card">
+        <div class="partner-discount-card__head">
+          <strong>${escapeHtml(String(row?.code || '—'))}</strong>
+          <span class="partner-links-card__category">${escapeHtml(formatPartnerDiscountScope(row))}</span>
+        </div>
+        <div class="partner-discount-card__body">
+          <div>${escapeHtml(String(row?.description || row?.name || 'Active partner discount code').trim())}</div>
+          ${row?.whereWorks ? `<div class="partner-discount-card__scope">${escapeHtml(row.whereWorks)}</div>` : ''}
+        </div>
+      </article>
+    `).join('');
+  }
+
+  async function loadPartnerLinksServiceItems() {
+    if (!state.sb) return [];
+    const safeRows = async (tableName, limit = 160) => {
+      const runQuery = async (orderColumn = 'updated_at') => {
+        let query = state.sb
+          .from(tableName)
+          .select('*');
+        if (orderColumn) {
+          query = query.order(orderColumn, { ascending: false });
+        }
+        query = query.limit(limit);
+        return withRateLimitRetry(() => query);
+      };
+
+      let response = await runQuery('updated_at');
+      if (response.error && /column .*updated_at|could not find.*updated_at/i.test(String(response.error.message || ''))) {
+        response = await runQuery('created_at');
+      }
+      if (response.error && /column .*created_at|could not find.*created_at/i.test(String(response.error.message || ''))) {
+        response = await runQuery(null);
+      }
+      if (response.error) throw response.error;
+      return Array.isArray(response.data) ? response.data : [];
+    };
+
+    const [trips, hotels, cars, routes, locations, products] = await Promise.all([
+      safeRows('trips', 120),
+      safeRows('hotels', 120),
+      safeRows('car_offers', 120),
+      safeRows('transport_routes', 120),
+      safeRows('transport_locations', 240),
+      safeRows('shop_products', 120),
+    ]);
+
+    const locationById = new Map((Array.isArray(locations) ? locations : []).map((row) => [String(row?.id || '').trim(), row]));
+    const items = [];
+
+    trips.forEach((row) => {
+      const item = normalizePartnerLinksItem('trips', row);
+      if (item?.slug) items.push(item);
+    });
+    hotels.forEach((row) => {
+      const item = normalizePartnerLinksItem('hotels', row);
+      if (item?.slug) items.push(item);
+    });
+    cars.forEach((row) => {
+      const item = normalizePartnerLinksItem('cars', row);
+      if (item) items.push(item);
+    });
+    routes.forEach((row) => {
+      const origin = locationById.get(String(row?.origin_location_id || '').trim()) || null;
+      const destination = locationById.get(String(row?.destination_location_id || '').trim()) || null;
+      const originLabel = String(origin?.name || origin?.name_local || origin?.code || 'Origin').trim();
+      const destinationLabel = String(destination?.name || destination?.name_local || destination?.code || 'Destination').trim();
+      const item = normalizePartnerLinksItem('transport', row, {
+        routeLabel: `${originLabel} → ${destinationLabel}`,
+        routeMeta: String(row?.currency || 'EUR').trim() || 'EUR',
+      });
+      if (item) items.push(item);
+    });
+    products.forEach((row) => {
+      const item = normalizePartnerLinksItem('shop', row);
+      if (item) items.push(item);
+    });
+
+    return items;
+  }
+
+  async function loadPartnerDiscountCodes() {
+    if (!state.sb || !state.selectedPartnerId) return [];
+
+    const rows = [];
+    try {
+      const [{ data: serviceCoupons, error: serviceError }, { data: carCoupons, error: carError }] = await Promise.all([
+        withRateLimitRetry(() => state.sb
+          .from('service_coupons')
+          .select('id, service_type, code, name, description, status, is_active, starts_at, expires_at')
+          .eq('partner_id', state.selectedPartnerId)
+          .eq('status', 'active')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(50)),
+        withRateLimitRetry(() => state.sb
+          .from('car_coupons')
+          .select('id, code, name, description, status, is_active, starts_at, expires_at, applicable_locations, applicable_offer_ids, applicable_car_models, applicable_car_types')
+          .eq('partner_id', state.selectedPartnerId)
+          .eq('status', 'active')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(50)),
+      ]);
+      if (serviceError) throw serviceError;
+      if (carError) throw carError;
+
+      (Array.isArray(serviceCoupons) ? serviceCoupons : []).forEach((row) => {
+        rows.push({
+          ...row,
+          type: String(row?.service_type || '').trim().toLowerCase(),
+          whereWorks: partnerLinksTypeLabel(row?.service_type),
+        });
+      });
+      (Array.isArray(carCoupons) ? carCoupons : []).forEach((row) => {
+        rows.push({
+          ...row,
+          type: 'cars',
+          whereWorks: formatPartnerDiscountScope({ ...row, type: 'cars' }),
+        });
+      });
+    } catch (error) {
+      const message = String(error?.message || '').toLowerCase();
+      if (!message.includes('service_coupons') && !message.includes('car_coupons')) {
+        throw error;
+      }
+    }
+
+    return rows;
+  }
+
+  async function refreshPartnerLinksDiscountsView() {
+    if (!state.session || !state.user) {
+      showToast('Please log in to view Links / Discounts.', 'error');
+      openAuthModal('login');
+      return;
+    }
+    if (!state.selectedPartnerId) {
+      showToast('Select partner first.', 'error');
+      return;
+    }
+
+    renderPartnerLinksFilters();
+    if (els.partnerLinksGrid) {
+      els.partnerLinksGrid.innerHTML = '<div class="partner-links-empty">Loading services…</div>';
+    }
+    if (els.partnerDiscountCodesList) {
+      els.partnerDiscountCodesList.innerHTML = '<div class="partner-links-empty">Loading discount codes…</div>';
+    }
+
+    try {
+      const [items, discountCodes] = await Promise.all([
+        loadPartnerLinksServiceItems(),
+        loadPartnerDiscountCodes(),
+      ]);
+      state.linksDiscounts.items = items;
+      state.linksDiscounts.discountCodes = discountCodes;
+      ensurePartnerLinksSelectedItem();
+      renderPartnerLinksFilters();
+      renderPartnerLinksGrid();
+      renderPartnerLinksPreview();
+      renderPartnerDiscountCodes();
+    } catch (error) {
+      console.error(error);
+      showToast(error?.message || 'Failed to load Links / Discounts', 'error');
+      if (els.partnerLinksGrid) {
+        els.partnerLinksGrid.innerHTML = '<div class="partner-links-empty">Failed to load services.</div>';
+      }
+      if (els.partnerDiscountCodesList) {
+        els.partnerDiscountCodesList.innerHTML = '<div class="partner-links-empty">Failed to load discount codes.</div>';
+      }
+    }
+  }
+
+  async function navToLinksDiscounts() {
+    if (!state.session || !state.user) {
+      showToast('Please log in to view Links / Discounts.', 'error');
+      openAuthModal('login');
+      return;
+    }
+
+    setMainView('links-discounts');
+    setSidebarActive(els.partnerNavLinksDiscounts);
+    if (els.partnerBreadcrumb) {
+      const crumb = els.partnerBreadcrumb.querySelector('span');
+      if (crumb) crumb.textContent = 'Partner Portal — Links / Discounts';
+    }
+    await refreshPartnerLinksDiscountsView();
     closeSidebar();
   }
 
@@ -10860,6 +11366,11 @@
       return;
     }
 
+    if (els.partnerLinksDiscountsView && !els.partnerLinksDiscountsView.hidden) {
+      await refreshPartnerLinksDiscountsView();
+      return;
+    }
+
     setActiveTab(els.tabBtnCalendar?.classList.contains('is-active') ? 'calendar' : 'fulfillments');
   }
 
@@ -11121,6 +11632,71 @@
     els.partnerNavAnalytics?.addEventListener('click', () => navToAnalytics());
     els.partnerNavProfile?.addEventListener('click', () => navToProfile());
     els.partnerNavReferrals?.addEventListener('click', () => navToReferrals());
+    els.partnerNavLinksDiscounts?.addEventListener('click', () => {
+      void navToLinksDiscounts();
+    });
+
+    els.btnPartnerLinksRefresh?.addEventListener('click', () => {
+      void refreshPartnerLinksDiscountsView();
+    });
+    els.partnerLinksFilters?.addEventListener('click', (event) => {
+      const button = event.target instanceof Element ? event.target.closest('[data-partner-links-filter]') : null;
+      if (!(button instanceof HTMLElement)) return;
+      const next = String(button.getAttribute('data-partner-links-filter') || 'all').trim().toLowerCase() || 'all';
+      state.linksDiscounts.filter = next;
+      ensurePartnerLinksSelectedItem();
+      renderPartnerLinksFilters();
+      renderPartnerLinksGrid();
+      renderPartnerLinksPreview();
+    });
+    els.partnerLinksGrid?.addEventListener('click', (event) => {
+      const target = event.target instanceof Element ? event.target : null;
+      const copyButton = target?.closest('[data-partner-link-copy]');
+      if (copyButton instanceof HTMLElement) {
+        const key = String(copyButton.getAttribute('data-partner-link-copy') || '').trim();
+        const item = (state.linksDiscounts.items || []).find((entry) => entry.key === key) || null;
+        const link = item ? buildPartnerLinksReferralUrl(item) : '';
+        if (!link) {
+          showToast('Referral code is unavailable for this account.', 'error');
+          return;
+        }
+        void copyTextToClipboard(link).then((ok) => {
+          showToast(ok ? 'Referral link copied' : 'Failed to copy referral link', ok ? 'success' : 'error');
+        });
+        return;
+      }
+
+      const previewButton = target?.closest('[data-partner-link-preview]');
+      if (previewButton instanceof HTMLElement) {
+        state.linksDiscounts.selectedKey = String(previewButton.getAttribute('data-partner-link-preview') || '').trim();
+        renderPartnerLinksGrid();
+        renderPartnerLinksPreview();
+        return;
+      }
+
+      const card = target?.closest('[data-partner-link-card]');
+      if (card instanceof HTMLElement) {
+        state.linksDiscounts.selectedKey = String(card.getAttribute('data-partner-link-card') || '').trim();
+        renderPartnerLinksGrid();
+        renderPartnerLinksPreview();
+      }
+    });
+    els.btnPartnerLinksCopyPreview?.addEventListener('click', () => {
+      const item = (state.linksDiscounts.items || []).find((entry) => entry.key === state.linksDiscounts.selectedKey) || null;
+      const link = item ? buildPartnerLinksReferralUrl(item) : '';
+      if (!link) {
+        showToast('Referral code is unavailable for this account.', 'error');
+        return;
+      }
+      void copyTextToClipboard(link).then((ok) => {
+        showToast(ok ? 'Referral link copied' : 'Failed to copy referral link', ok ? 'success' : 'error');
+      });
+    });
+    els.btnPartnerLinksOpenPreview?.addEventListener('click', () => {
+      const href = String(els.btnPartnerLinksOpenPreview?.dataset?.partnerLinkOpen || '').trim();
+      if (!href) return;
+      window.open(href, '_blank', 'noopener');
+    });
 
     const handleAnalyticsPeriodChange = async (nextRaw) => {
       const next = String(nextRaw || 'year').trim().toLowerCase() === 'month' ? 'month' : 'year';
@@ -11747,6 +12323,7 @@
     els.partnerNavAnalytics = $('partnerNavAnalytics');
     els.partnerNavProfile = $('partnerNavProfile');
     els.partnerNavReferrals = $('partnerNavReferrals');
+    els.partnerNavLinksDiscounts = $('partnerNavLinksDiscounts');
     els.partnerUserName = $('partnerUserName');
     els.partnerBreadcrumb = $('partnerBreadcrumb');
 
@@ -11755,6 +12332,20 @@
     els.partnerAnalyticsView = $('partnerAnalyticsView');
     els.partnerProfileView = $('partnerProfileView');
     els.partnerReferralsView = $('partnerReferralsView');
+    els.partnerLinksDiscountsView = $('partnerLinksDiscountsView');
+    els.partnerLinksFilters = $('partnerLinksFilters');
+    els.btnPartnerLinksRefresh = $('btnPartnerLinksRefresh');
+    els.partnerLinksGrid = $('partnerLinksGrid');
+    els.partnerLinksPreviewCard = $('partnerLinksPreviewCard');
+    els.partnerLinksPreviewImage = $('partnerLinksPreviewImage');
+    els.partnerLinksPreviewCategory = $('partnerLinksPreviewCategory');
+    els.partnerLinksPreviewTitle = $('partnerLinksPreviewTitle');
+    els.partnerLinksPreviewMeta = $('partnerLinksPreviewMeta');
+    els.partnerLinksPreviewDescription = $('partnerLinksPreviewDescription');
+    els.partnerLinksPreviewLink = $('partnerLinksPreviewLink');
+    els.btnPartnerLinksCopyPreview = $('btnPartnerLinksCopyPreview');
+    els.btnPartnerLinksOpenPreview = $('btnPartnerLinksOpenPreview');
+    els.partnerDiscountCodesList = $('partnerDiscountCodesList');
 
     els.partnerBlogCurrentPartner = $('partnerBlogCurrentPartner');
     els.partnerBlogStatusHint = $('partnerBlogStatusHint');

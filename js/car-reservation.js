@@ -2,7 +2,7 @@
 import { supabase } from './supabaseClient.js';
 import { showToast } from './toast.js';
 import { calculateCarRentalQuote, normalizeLocationForOffer } from './car-pricing.js';
-import { createReferralFieldController } from './referral-ui.js';
+import { createReferralFieldController, shouldHideReferralEntryUi } from './referral-ui.js';
 
 let reservationData = {};
 const COUPON_RPC_NAME = 'car_coupon_quote';
@@ -718,7 +718,19 @@ function ensureReservationReferralField() {
   const form = document.getElementById('localReservationForm');
   if (!form) return;
 
+  if (form.dataset.ceReferralVisibilityBound !== '1') {
+    form.dataset.ceReferralVisibilityBound = '1';
+    document.addEventListener('ce-auth:state', () => {
+      ensureReservationReferralField();
+    });
+  }
+
   let panel = form.querySelector('[data-car-referral-ui]');
+  if (shouldHideReferralEntryUi()) {
+    if (panel instanceof HTMLElement) panel.remove();
+    referralController = null;
+    return;
+  }
   if (!(panel instanceof HTMLElement)) {
     const couponPanel = document.querySelector('.auto-coupon-panel');
     panel = document.createElement('div');

@@ -68,6 +68,23 @@ export function getProfileReferralCode(profile) {
   return isUuid ? '' : normalizeReferralCode(username);
 }
 
+export function getCurrentAuthProfile() {
+  if (typeof window === 'undefined') return null;
+  return window.CE_STATE?.profile || null;
+}
+
+export function hasPermanentReferralAssignment(profile = null) {
+  const currentProfile = profile || getCurrentAuthProfile();
+  return Boolean(String(currentProfile?.referred_by || '').trim());
+}
+
+export function shouldHideReferralEntryUi(profile = null) {
+  if (typeof window === 'undefined') return false;
+  const session = window.CE_STATE?.session || null;
+  if (!session?.user) return false;
+  return hasPermanentReferralAssignment(profile);
+}
+
 async function getSupabaseClient(explicitClient = null) {
   if (explicitClient) return explicitClient;
   if (typeof window !== 'undefined' && typeof window.getSupabase === 'function') {
@@ -443,6 +460,9 @@ if (typeof window !== 'undefined') {
     storeReferralData,
     buildReferralLink,
     getProfileReferralCode,
+    getCurrentAuthProfile,
+    hasPermanentReferralAssignment,
+    shouldHideReferralEntryUi,
     validateReferralCodePublic,
     createReferralFieldController,
   };

@@ -1193,7 +1193,19 @@ function ensureHomeHotelCouponUi() {
 async function ensureHomeHotelReferralUi() {
   const form = document.getElementById('hotelBookingForm');
   if (!form) return null;
+  if (form.dataset.ceReferralVisibilityBound !== '1') {
+    form.dataset.ceReferralVisibilityBound = '1';
+    document.addEventListener('ce-auth:state', () => {
+      void ensureHomeHotelReferralUi();
+    });
+  }
   let box = form.querySelector('[data-home-hotel-referral-ui]');
+  const { createReferralFieldController, shouldHideReferralEntryUi } = await getHomeHotelReferralUiModule();
+  if (shouldHideReferralEntryUi()) {
+    if (box instanceof HTMLElement) box.remove();
+    homeHotelReferralController = null;
+    return null;
+  }
   if (!(box instanceof HTMLElement)) {
     const couponBox = form.querySelector('[data-home-hotel-coupon-ui]');
     box = document.createElement('div');
@@ -1218,7 +1230,6 @@ async function ensureHomeHotelReferralUi() {
   const status = box.querySelector('#hotelBookingReferralStatus');
   const badge = box.querySelector('#hotelBookingReferralBadge');
   if (!(input instanceof HTMLInputElement)) return null;
-  const { createReferralFieldController } = await getHomeHotelReferralUiModule();
   if (!homeHotelReferralController) {
     homeHotelReferralController = createReferralFieldController({
       input,
