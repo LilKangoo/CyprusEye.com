@@ -9,6 +9,7 @@ const SERVICE_CONFIG = {
     table: 'hotels',
     templatePath: '/hotel.html',
     queryPath: '/hotel.html',
+    compatibilityQueryPaths: ['/hotels', '/hotels.html'],
     pathPrefix: '/hotel/',
     primarySelect: 'id, slug, title, description, meta_description, meta_image_url, cover_image_url, city, is_published',
     legacySelect: 'id, slug, title, description, cover_image_url, city, is_published',
@@ -89,9 +90,16 @@ export function resolveServiceOfferRequest(pathname, requestSearch = '') {
   const querySlug = normalizeOfferSlug(searchParams.get('slug'));
 
   for (const [kind, config] of Object.entries(SERVICE_CONFIG)) {
-    if (
+    const compatibilityPaths = Array.isArray(config.compatibilityQueryPaths)
+      ? config.compatibilityQueryPaths.map((entry) => normalizePathname(entry))
+      : [];
+    const matchesQueryStylePath = (
       normalizedPath === normalizePathname(config.queryPath)
       || normalizedPath === `/${kind}`
+      || compatibilityPaths.includes(normalizedPath)
+    );
+    if (
+      matchesQueryStylePath
     ) {
       if (!querySlug) {
         return null;
@@ -100,7 +108,9 @@ export function resolveServiceOfferRequest(pathname, requestSearch = '') {
         kind,
         slug: querySlug,
         templatePath: config.templatePath,
-        requestPathname: normalizedPath === `/${kind}` ? `/${kind}` : config.queryPath,
+        requestPathname: normalizedPath === `/${kind}` ? `/${kind}` : (
+          compatibilityPaths.includes(normalizedPath) ? normalizedPath : config.queryPath
+        ),
         pathStyle: 'query',
       };
     }

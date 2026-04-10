@@ -395,6 +395,17 @@
       return lang || 'pl';
     }
 
+    function buildHotelsListingUrl() {
+      const url = new URL('/hotels.html', window.location.origin);
+      const language = getHotelPageLanguage();
+      if (language === 'pl') {
+        url.searchParams.set('lang', 'pl');
+      } else {
+        url.searchParams.set('lang', 'en');
+      }
+      return url.toString();
+    }
+
     function resolveHotelTranslation(key, language){
       const translations = window.appI18n?.translations?.[language];
       if (!translations || !key) return null;
@@ -1133,7 +1144,7 @@
     async function loadHotel(){
       if(!slug){
         hotelLoadState = 'missing-slug';
-        renderHotelStaticCopy();
+        window.location.replace(buildHotelsListingUrl());
         return;
       }
       try{
