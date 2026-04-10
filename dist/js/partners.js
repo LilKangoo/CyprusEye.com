@@ -57,6 +57,7 @@
     linksDiscounts: {
       items: [],
       filter: 'all',
+      view: 'services',
       selectedKey: '',
       discountCodes: [],
     },
@@ -202,10 +203,15 @@
     partnerReferralsView: null,
     partnerLinksDiscountsView: null,
 
+    partnerLinksViewTabs: null,
     partnerLinksFilters: null,
     btnPartnerLinksRefresh: null,
+    partnerLinksServicesPanel: null,
+    partnerLinksDiscountsPanel: null,
     partnerLinksGrid: null,
-    partnerLinksPreviewCard: null,
+    partnerLinksPreviewModal: null,
+    partnerLinksPreviewModalOverlay: null,
+    btnClosePartnerLinksPreview: null,
     partnerLinksPreviewImage: null,
     partnerLinksPreviewCategory: null,
     partnerLinksPreviewTitle: null,
@@ -1873,6 +1879,9 @@
     setHidden(els.partnerProfileView, !isProfile);
     setHidden(els.partnerReferralsView, !isReferrals);
     setHidden(els.partnerLinksDiscountsView, !isLinksDiscounts);
+    if (!isLinksDiscounts && els.partnerLinksPreviewModal && !els.partnerLinksPreviewModal.hidden) {
+      closePartnerLinksPreview();
+    }
 
     updateAnalyticsCardVisibility();
     updateAffiliateSummaryCardVisibility();
@@ -3136,7 +3145,7 @@
         meta: [location, priceFrom > 0 ? `from ${formatPartnerMoneyCompact(priceFrom, 'EUR')}` : ''].filter(Boolean).join(' · '),
         description: normalizePreviewText(row?.description),
         descriptionByLang: normalizePartnerLinksTextMap(row?.description),
-        imageUrl: getFirstMediaUrl([row?.image_url, row?.thumbnail_url]),
+        imageUrl: getFirstMediaUrl([row?.image_url, row?.images, row?.photos]),
         offerLocation: location.toLowerCase(),
       };
     }
@@ -3166,17 +3175,24 @@
     }
 
     if (normalizedType === 'shop') {
-      const title = String(localizedLabelFromValue({ en: row?.name_en, pl: row?.name }) || row?.name || row?.title || resourceId).trim();
+      const titleByLang = {
+        pl: String(row?.name || row?.name_en || row?.slug || resourceId).trim(),
+        en: String(row?.name_en || row?.name || row?.slug || resourceId).trim(),
+      };
+      const descriptionByLang = {
+        pl: normalizePreviewText(row?.short_description || row?.description || row?.short_description_en || row?.description_en),
+        en: normalizePreviewText(row?.short_description_en || row?.description_en || row?.short_description || row?.description),
+      };
       return {
         key: `shop:${resourceId}`,
         type: 'shop',
         resourceId,
-        title,
-        titleByLang: { pl: title, en: title },
+        title: titleByLang.en || titleByLang.pl,
+        titleByLang,
         meta: row?.price != null ? formatPartnerMoneyCompact(row.price, 'EUR') : '',
-        description: normalizePreviewText(row?.short_description || row?.description),
-        descriptionByLang: normalizePartnerLinksTextMap(row?.short_description || row?.description),
-        imageUrl: getFirstMediaUrl([row?.thumbnail_url, row?.image_url]),
+        description: descriptionByLang.en || descriptionByLang.pl,
+        descriptionByLang,
+        imageUrl: getFirstMediaUrl([row?.thumbnail_url, row?.images]),
       };
     }
 
@@ -3228,6 +3244,12 @@
     return rows.filter((item) => String(item?.type || '').trim().toLowerCase() === filter);
   }
 
+  function getPartnerLinksSelectedItem() {
+    const key = String(state.linksDiscounts.selectedKey || '').trim();
+    if (!key) return null;
+    return (state.linksDiscounts.items || []).find((item) => item?.key === key) || null;
+  }
+
   function ensurePartnerLinksSelectedItem() {
     const filtered = getFilteredPartnerLinksItems();
     if (!filtered.length) {
@@ -3238,6 +3260,35 @@
     if (current) return current;
     state.linksDiscounts.selectedKey = filtered[0].key;
     return filtered[0];
+  }
+
+  function renderPartnerLinksViewTabs() {
+    if (!els.partnerLinksViewTabs) return;
+    const servicesCount = Array.isArray(state.linksDiscounts.items) ? state.linksDiscounts.items.length : 0;
+    const discountCount = Array.isArray(state.linksDiscounts.discountCodes) ? state.linksDiscounts.discountCodes.length : 0;
+    els.partnerLinksViewTabs.innerHTML = `
+      <button
+        type="button"
+        class="partner-tab ${state.linksDiscounts.view === 'services' ? 'is-active' : ''}"
+        data-partner-links-view="services"
+      >
+        Service links
+        <span class="partner-links-tab-count">${escapeHtml(String(servicesCount))}</span>
+      </button>
+      <button
+        type="button"
+        class="partner-tab ${state.linksDiscounts.view === 'discounts' ? 'is-active' : ''}"
+        data-partner-links-view="discounts"
+      >
+        Discounts
+        <span class="partner-links-tab-count">${escapeHtml(String(discountCount))}</span>
+      </button>
+    `;
+  }
+
+  function syncPartnerLinksViewPanels() {
+    setHidden(els.partnerLinksServicesPanel, state.linksDiscounts.view !== 'services');
+    setHidden(els.partnerLinksDiscountsPanel, state.linksDiscounts.view !== 'discounts');
   }
 
   function formatPartnerDiscountScope(row) {
@@ -3251,6 +3302,16 @@
       if (models.length) parts.push(`Models: ${models.join(', ')}`);
       if (offerIds.length) parts.push(`Offers: ${offerIds.length}`);
       return parts.join(' · ') || 'Cars';
+    }
+    if (type === 'shop') {
+      const parts = [];
+      const productCount = Array.isArray(row?.applicable_product_ids) ? row.applicable_product_ids.filter(Boolean).length : 0;
+      const categoryCount = Array.isArray(row?.applicable_category_ids) ? row.applicable_category_ids.filter(Boolean).length : 0;
+      const vendorCount = Array.isArray(row?.applicable_vendor_ids) ? row.applicable_vendor_ids.filter(Boolean).length : 0;
+      if (productCount) parts.push(`Products: ${productCount}`);
+      if (categoryCount) parts.push(`Categories: ${categoryCount}`);
+      if (vendorCount) parts.push(`Vendors: ${vendorCount}`);
+      return parts.join(' · ') || 'Shop';
     }
     return partnerLinksTypeLabel(row?.service_type || row?.type);
   }
@@ -3278,10 +3339,13 @@
     els.partnerLinksGrid.innerHTML = filtered.map((item) => {
       const title = getPartnerLinksLocalizedText(item, 'title', uiLanguage, 'title') || item.title;
       const description = getPartnerLinksLocalizedText(item, 'description', uiLanguage, 'description') || '';
+      const landingPl = buildPartnerLinksReferralUrl(item, { lang: 'pl', kind: 'landing' });
+      const landingEn = buildPartnerLinksReferralUrl(item, { lang: 'en', kind: 'landing' });
+      const offerPl = buildPartnerLinksReferralUrl(item, { lang: 'pl', kind: 'detail' });
       const imageHtml = item.imageUrl
         ? `<img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(title || item.title)}" loading="lazy" />`
         : (item.type === 'transport' && item.transportFromPrice
-          ? `<div class="partner-links-card__placeholder"><span class="partner-links-card__transport-price">${escapeHtml(`from ${item.transportFromPrice}`)}</span></div>`
+          ? `<div class="partner-links-card__placeholder"><span class="partner-links-card__transport-price">${escapeHtml(`from ${item.transportFromPrice}`)}</span><small>Transport route</small></div>`
           : `<div class="partner-links-card__placeholder">${escapeHtml(partnerLinksTypeLabel(item.type))}</div>`);
       const englishOfferLink = buildPartnerLinksReferralUrl(item, { lang: 'en', kind: 'detail' });
       return `
@@ -3293,8 +3357,11 @@
             <p class="partner-links-card__meta">${escapeHtml(item.meta || '—')}</p>
             ${description ? `<p class="partner-links-card__summary">${escapeHtml(description)}</p>` : ''}
             <div class="partner-links-card__actions">
-              <button type="button" class="btn-sm" data-partner-link-preview="${escapeHtml(item.key)}">Preview</button>
-              <button type="button" class="btn-sm primary" data-partner-link-copy="${escapeHtml(item.key)}" data-partner-link-copy-url="${escapeHtml(englishOfferLink)}">Copy EN</button>
+              <button type="button" class="btn-sm partner-links-action partner-links-action--preview" data-partner-link-preview="${escapeHtml(item.key)}">Preview</button>
+              <button type="button" class="btn-sm partner-links-action" data-partner-link-copy-url="${escapeHtml(landingPl)}">Copy PL landing</button>
+              <button type="button" class="btn-sm partner-links-action" data-partner-link-copy-url="${escapeHtml(landingEn)}">Copy EN landing</button>
+              <button type="button" class="btn-sm partner-links-action" data-partner-link-copy-url="${escapeHtml(offerPl)}">Copy PL offer</button>
+              <button type="button" class="btn-sm partner-links-action partner-links-action--primary" data-partner-link-copy-url="${escapeHtml(englishOfferLink)}">Copy EN offer</button>
             </div>
           </div>
         </article>
@@ -3302,12 +3369,30 @@
     }).join('');
   }
 
+  function openPartnerLinksPreview(itemKey) {
+    const key = String(itemKey || '').trim();
+    if (!key || !els.partnerLinksPreviewModal) return;
+    state.linksDiscounts.selectedKey = key;
+    renderPartnerLinksGrid();
+    renderPartnerLinksPreview();
+    setHidden(els.partnerLinksPreviewModal, false);
+    document.body.classList.add('partner-links-modal-open');
+  }
+
+  function closePartnerLinksPreview() {
+    setHidden(els.partnerLinksPreviewModal, true);
+    document.body.classList.remove('partner-links-modal-open');
+  }
+
   function renderPartnerLinksPreview() {
-    if (!els.partnerLinksPreviewCard) return;
-    const item = ensurePartnerLinksSelectedItem();
+    if (!els.partnerLinksPreviewModal) return;
+    let item = getPartnerLinksSelectedItem();
+    if (!item) {
+      item = ensurePartnerLinksSelectedItem();
+    }
 
     if (!item) {
-      setHidden(els.partnerLinksPreviewCard, true);
+      closePartnerLinksPreview();
       return;
     }
 
@@ -3321,7 +3406,6 @@
     const title = getPartnerLinksLocalizedText(item, 'title', uiLanguage, 'title') || item.title;
     const description = getPartnerLinksLocalizedText(item, 'description', uiLanguage, 'description') || item.description;
 
-    setHidden(els.partnerLinksPreviewCard, false);
     if (els.partnerLinksPreviewCategory) {
       els.partnerLinksPreviewCategory.textContent = partnerLinksTypeLabel(item.type);
     }
@@ -3397,19 +3481,24 @@
   function renderPartnerDiscountCodes() {
     if (!els.partnerDiscountCodesList) return;
     const rows = Array.isArray(state.linksDiscounts.discountCodes) ? state.linksDiscounts.discountCodes : [];
+    const uiLanguage = getPartnerUiLanguage();
     if (!rows.length) {
       els.partnerDiscountCodesList.innerHTML = '<div class="partner-links-empty">No discount codes assigned to this partner.</div>';
       return;
     }
 
-    els.partnerDiscountCodesList.innerHTML = rows.map((row) => `
+    els.partnerDiscountCodesList.innerHTML = rows.map((row) => {
+      const description = uiLanguage === 'pl'
+        ? String(row?.description || row?.description_en || row?.name || 'Partner discount code').trim()
+        : String(row?.description_en || row?.description || row?.name || 'Partner discount code').trim();
+      return `
       <article class="partner-discount-card">
         <div class="partner-discount-card__head">
           <strong>${escapeHtml(String(row?.code || '—'))}</strong>
           <span class="partner-links-card__category">${escapeHtml(formatPartnerDiscountScope(row))}</span>
         </div>
         <div class="partner-discount-card__body">
-          <div>${escapeHtml(String(row?.description || row?.name || 'Partner discount code').trim())}</div>
+          <div>${escapeHtml(description)}</div>
           <div class="partner-discount-card__meta">
             <span class="partner-discount-status partner-discount-status--${escapeHtml(row?.statusKey || 'inactive')}">${escapeHtml(row?.statusLabel || 'Inactive')}</span>
             ${row?.whereWorks ? `<span class="partner-discount-card__scope">${escapeHtml(row.whereWorks)}</span>` : ''}
@@ -3417,7 +3506,8 @@
           ${row?.validity ? `<div class="partner-discount-card__validity">${escapeHtml(row.validity)}</div>` : ''}
         </div>
       </article>
-    `).join('');
+    `;
+    }).join('');
   }
 
   async function loadPartnerLinksServiceItems() {
@@ -3483,17 +3573,17 @@
 
     const settled = await Promise.allSettled([
       safeRows('trips', {
-        select: 'id, slug, title, start_city, description, short_description, cover_image_url, main_image_url, image_url, photos, is_published',
+        select: '*',
         limit: 120,
         filters: [(query) => query.eq('is_published', true)],
       }),
       safeRows('hotels', {
-        select: 'id, slug, title, city, country, summary, description, short_description, cover_image_url, photos, room_types, is_published',
+        select: '*',
         limit: 120,
         filters: [(query) => query.eq('is_published', true)],
       }),
       safeRows('car_offers', {
-        select: 'id, car_model, car_type, description, location, image_url, thumbnail_url, price_per_day, price_10plus_days, price_7_10days, price_4_6days, is_available, is_published',
+        select: '*',
         limit: 120,
         filters: [
           (query) => query.eq('is_published', true),
@@ -3512,7 +3602,7 @@
         orderColumns: ['sort_order', 'updated_at', 'created_at', null],
       }),
       safeRows('shop_products', {
-        select: 'id, name, name_en, description, short_description, thumbnail_url, image_url, price, status',
+        select: '*',
         limit: 120,
         filters: [(query) => query.eq('status', 'active')],
       }),
@@ -3586,7 +3676,7 @@
 
     const rows = [];
     try {
-      const [{ data: serviceCoupons, error: serviceError }, { data: carCoupons, error: carError }] = await Promise.all([
+      const [{ data: serviceCoupons, error: serviceError }, { data: carCoupons, error: carError }, { data: shopDiscounts, error: shopError }] = await Promise.all([
         withRateLimitRetry(() => state.sb
           .from('service_coupons')
           .select('id, service_type, code, name, description, status, is_active, starts_at, expires_at')
@@ -3599,9 +3689,18 @@
           .eq('partner_id', state.selectedPartnerId)
           .order('created_at', { ascending: false })
           .limit(80)),
+        state.user?.id
+          ? withRateLimitRetry(() => state.sb
+            .from('shop_discounts')
+            .select('id, code, description, description_en, is_active, starts_at, expires_at, applicable_product_ids, applicable_category_ids, applicable_vendor_ids, user_ids')
+            .contains('user_ids', [state.user.id])
+            .order('created_at', { ascending: false })
+            .limit(80))
+          : Promise.resolve({ data: [], error: null }),
       ]);
       if (serviceError) throw serviceError;
       if (carError) throw carError;
+      if (shopError) throw shopError;
 
       (Array.isArray(serviceCoupons) ? serviceCoupons : []).forEach((row) => {
         const statusMeta = summarizePartnerDiscountStatus(row);
@@ -3626,9 +3725,21 @@
           validity: formatPartnerDiscountValidity(row),
         });
       });
+      (Array.isArray(shopDiscounts) ? shopDiscounts : []).forEach((row) => {
+        const statusMeta = summarizePartnerDiscountStatus(row);
+        rows.push({
+          ...row,
+          type: 'shop',
+          whereWorks: formatPartnerDiscountScope({ ...row, type: 'shop' }),
+          description: String(row?.description_en || row?.description || '').trim(),
+          statusKey: statusMeta.key,
+          statusLabel: statusMeta.label,
+          validity: formatPartnerDiscountValidity(row),
+        });
+      });
     } catch (error) {
       const message = String(error?.message || '').toLowerCase();
-      if (!message.includes('service_coupons') && !message.includes('car_coupons')) {
+      if (!message.includes('service_coupons') && !message.includes('car_coupons') && !message.includes('shop_discounts')) {
         throw error;
       }
     }
@@ -3649,10 +3760,26 @@
       return;
     }
     if (!state.selectedPartnerId) {
-      showToast('Select partner first.', 'error');
+      const fallbackPartnerId = Object.keys(state.partnersById || {})[0] || null;
+      if (fallbackPartnerId) {
+        state.selectedPartnerId = fallbackPartnerId;
+        renderPartnerSelect();
+      }
+    }
+    if (!state.selectedPartnerId) {
+      renderPartnerLinksViewTabs();
+      syncPartnerLinksViewPanels();
+      if (els.partnerLinksGrid) {
+        els.partnerLinksGrid.innerHTML = '<div class="partner-links-empty">No partner context is available for this account yet.</div>';
+      }
+      if (els.partnerDiscountCodesList) {
+        els.partnerDiscountCodesList.innerHTML = '<div class="partner-links-empty">No partner discount data is available for this account yet.</div>';
+      }
       return;
     }
 
+    renderPartnerLinksViewTabs();
+    syncPartnerLinksViewPanels();
     renderPartnerLinksFilters();
     if (els.partnerLinksGrid) {
       els.partnerLinksGrid.innerHTML = '<div class="partner-links-empty">Loading services…</div>';
@@ -3669,13 +3796,19 @@
       state.linksDiscounts.items = items;
       state.linksDiscounts.discountCodes = discountCodes;
       ensurePartnerLinksSelectedItem();
+      renderPartnerLinksViewTabs();
+      syncPartnerLinksViewPanels();
       renderPartnerLinksFilters();
       renderPartnerLinksGrid();
-      renderPartnerLinksPreview();
       renderPartnerDiscountCodes();
+      if (!els.partnerLinksPreviewModal?.hidden) {
+        renderPartnerLinksPreview();
+      }
     } catch (error) {
       console.error(error);
       showToast(error?.message || 'Failed to load Links / Discounts', 'error');
+      renderPartnerLinksViewTabs();
+      syncPartnerLinksViewPanels();
       if (els.partnerLinksGrid) {
         els.partnerLinksGrid.innerHTML = '<div class="partner-links-empty">Failed to load services.</div>';
       }
@@ -3698,6 +3831,8 @@
       const crumb = els.partnerBreadcrumb.querySelector('span');
       if (crumb) crumb.textContent = 'Partner Portal — Links / Discounts';
     }
+    renderPartnerLinksViewTabs();
+    syncPartnerLinksViewPanels();
     await refreshPartnerLinksDiscountsView();
     closeSidebar();
   }
@@ -11756,6 +11891,9 @@
     if (els.partnerBlogModal && !els.partnerBlogModal.hidden) {
       closePartnerBlogModal();
     }
+    if (els.partnerLinksPreviewModal && !els.partnerLinksPreviewModal.hidden) {
+      closePartnerLinksPreview();
+    }
 
     if (els.partnerProfileView && !els.partnerProfileView.hidden) {
       try {
@@ -12073,6 +12211,17 @@
     els.btnPartnerLinksRefresh?.addEventListener('click', () => {
       void refreshPartnerLinksDiscountsView();
     });
+    els.partnerLinksViewTabs?.addEventListener('click', (event) => {
+      const button = event.target instanceof Element ? event.target.closest('[data-partner-links-view]') : null;
+      if (!(button instanceof HTMLElement)) return;
+      const next = String(button.getAttribute('data-partner-links-view') || 'services').trim().toLowerCase();
+      state.linksDiscounts.view = next === 'discounts' ? 'discounts' : 'services';
+      if (state.linksDiscounts.view !== 'services') {
+        closePartnerLinksPreview();
+      }
+      renderPartnerLinksViewTabs();
+      syncPartnerLinksViewPanels();
+    });
     els.partnerLinksFilters?.addEventListener('click', (event) => {
       const button = event.target instanceof Element ? event.target.closest('[data-partner-links-filter]') : null;
       if (!(button instanceof HTMLElement)) return;
@@ -12081,11 +12230,13 @@
       ensurePartnerLinksSelectedItem();
       renderPartnerLinksFilters();
       renderPartnerLinksGrid();
-      renderPartnerLinksPreview();
+      if (!els.partnerLinksPreviewModal?.hidden) {
+        renderPartnerLinksPreview();
+      }
     });
     els.partnerLinksGrid?.addEventListener('click', (event) => {
       const target = event.target instanceof Element ? event.target : null;
-      const copyButton = target?.closest('[data-partner-link-copy]');
+      const copyButton = target?.closest('[data-partner-link-copy-url]');
       if (copyButton instanceof HTMLElement) {
         const link = String(copyButton.getAttribute('data-partner-link-copy-url') || '').trim();
         if (!link) {
@@ -12100,17 +12251,15 @@
 
       const previewButton = target?.closest('[data-partner-link-preview]');
       if (previewButton instanceof HTMLElement) {
-        state.linksDiscounts.selectedKey = String(previewButton.getAttribute('data-partner-link-preview') || '').trim();
+        const key = String(previewButton.getAttribute('data-partner-link-preview') || '').trim();
         renderPartnerLinksGrid();
-        renderPartnerLinksPreview();
+        openPartnerLinksPreview(key);
         return;
       }
 
       const card = target?.closest('[data-partner-link-card]');
       if (card instanceof HTMLElement) {
         state.linksDiscounts.selectedKey = String(card.getAttribute('data-partner-link-card') || '').trim();
-        renderPartnerLinksGrid();
-        renderPartnerLinksPreview();
       }
     });
     const bindPartnerLinksCopy = (button, input) => {
@@ -12129,6 +12278,17 @@
     bindPartnerLinksCopy(els.btnPartnerLinksCopyLandingEn, els.partnerLinksPreviewLandingLinkEn);
     bindPartnerLinksCopy(els.btnPartnerLinksCopyOfferPl, els.partnerLinksPreviewOfferLinkPl);
     bindPartnerLinksCopy(els.btnPartnerLinksCopyOfferEn, els.partnerLinksPreviewOfferLinkEn);
+    els.partnerLinksPreviewModalOverlay?.addEventListener('click', () => {
+      closePartnerLinksPreview();
+    });
+    els.btnClosePartnerLinksPreview?.addEventListener('click', () => {
+      closePartnerLinksPreview();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      if (els.partnerLinksPreviewModal?.hidden) return;
+      closePartnerLinksPreview();
+    });
 
     const bindPartnerLinksOpen = (button) => {
       button?.addEventListener('click', () => {
@@ -12775,10 +12935,15 @@
     els.partnerProfileView = $('partnerProfileView');
     els.partnerReferralsView = $('partnerReferralsView');
     els.partnerLinksDiscountsView = $('partnerLinksDiscountsView');
+    els.partnerLinksViewTabs = $('partnerLinksViewTabs');
     els.partnerLinksFilters = $('partnerLinksFilters');
     els.btnPartnerLinksRefresh = $('btnPartnerLinksRefresh');
+    els.partnerLinksServicesPanel = $('partnerLinksServicesPanel');
+    els.partnerLinksDiscountsPanel = $('partnerLinksDiscountsPanel');
     els.partnerLinksGrid = $('partnerLinksGrid');
-    els.partnerLinksPreviewCard = $('partnerLinksPreviewCard');
+    els.partnerLinksPreviewModal = $('partnerLinksPreviewModal');
+    els.partnerLinksPreviewModalOverlay = $('partnerLinksPreviewModalOverlay');
+    els.btnClosePartnerLinksPreview = $('btnClosePartnerLinksPreview');
     els.partnerLinksPreviewImage = $('partnerLinksPreviewImage');
     els.partnerLinksPreviewCategory = $('partnerLinksPreviewCategory');
     els.partnerLinksPreviewTitle = $('partnerLinksPreviewTitle');
