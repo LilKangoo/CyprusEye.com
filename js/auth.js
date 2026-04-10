@@ -6,6 +6,10 @@ import {
   getStoredReferralCode,
   setStoredReferralCode,
 } from './referral.js';
+import {
+  createReferralFieldController,
+  normalizeReferralCode,
+} from './referral-ui.js';
 
 const sb = window.getSupabase();
 const ceAuthGlobal = typeof window !== 'undefined' ? (window.CE_AUTH = window.CE_AUTH || {}) : null;
@@ -23,6 +27,8 @@ const OAUTH_COMPLETION_LOCAL_PREFIX = 'ce_oauth_completed_user_';
 let oauthCompletionModal = null;
 let oauthCompletionSubmitting = false;
 let oauthCompletionRedirectTarget = POST_AUTH_REDIRECT;
+const registerReferralControllers = new WeakMap();
+let oauthReferralController = null;
 
 function isOAuthCompletionMarked(user) {
   const value = user?.user_metadata?.[OAUTH_COMPLETION_META_KEY];
@@ -1209,55 +1215,111 @@ function ensureRegisterReferralField(form) {
       'Jeśli masz kod polecający od partnera, wpisz go tutaj.',
     ),
   );
+  const approvedText = getI18nString('referral.approved', t('Approved', 'Zatwierdzony'));
+  const invalidText = getI18nString(
+    'referral.invalid',
+    t('This referral code is not valid.', 'Ten kod polecający jest nieprawidłowy.'),
+  );
+  const checkingText = getI18nString(
+    'referral.checking',
+    t('Checking referral code…', 'Sprawdzanie kodu polecającego…'),
+  );
+  const fromUrlText = getI18nString(
+    'referral.fromLink',
+    t('Applied automatically from the referral link you opened.', 'Kod został wpisany automatycznie z otwartego linku polecającego.'),
+  );
+  const fromStorageText = getI18nString(
+    'referral.fromStorage',
+    t('Saved from your previous referral link.', 'Kod został zapisany z Twojego wcześniejszego linku polecającego.'),
+  );
+  const fromManualText = getI18nString(
+    'referral.fromManual',
+    t('This code will be checked during registration.', 'Ten kod zostanie użyty przy rejestracji.'),
+  );
+  const changeText = getI18nString('referral.change', t('Change', 'Zmień'));
 
-  const existingInput = form.querySelector('input[name="referralCode"]');
-  if (existingInput instanceof HTMLInputElement) {
-    existingInput.placeholder = referralPlaceholder;
-    existingInput.setAttribute('aria-label', referralLabelText);
-    const existingStored = getStoredReferralCode();
-    if (!existingInput.value && existingStored) {
-      existingInput.value = existingStored;
+  let field = form.querySelector('[data-auth-referral-field="1"]');
+  if (!(field instanceof HTMLElement)) {
+    field = document.createElement('div');
+    field.className = 'referral-field referral-field--auth';
+    field.dataset.authReferralField = '1';
+    field.innerHTML = `
+      <label for="registerReferralCode" data-i18n="auth.referralCode">${referralLabelText}</label>
+      <div class="referral-field__input-row">
+        <input
+          id="registerReferralCode"
+          name="referralCode"
+          type="text"
+          autocomplete="off"
+          maxlength="64"
+          pattern="[a-zA-Z0-9_]+"
+          data-i18n-attrs="aria-label:auth.referralCode,placeholder:auth.referralCode.placeholder"
+          aria-label="${referralLabelText}"
+          placeholder="${referralPlaceholder}"
+        />
+        <span class="referral-field__badge" id="registerReferralBadge" hidden></span>
+        <button type="button" class="auth-form__link referral-field__change" id="registerReferralChange" hidden>${changeText}</button>
+      </div>
+      <p class="form-hint referral-field__status" id="registerReferralStatus" hidden></p>
+    `;
+    const submitButton = form.querySelector('button[type="submit"]');
+    if (submitButton instanceof HTMLElement && submitButton.parentNode) {
+      submitButton.parentNode.insertBefore(field, submitButton);
+    } else {
+      form.appendChild(field);
     }
-    return;
   }
 
-  const label = document.createElement('label');
-  label.setAttribute('for', 'registerReferralCode');
-  label.dataset.i18n = 'auth.referralCode';
+  const input = field.querySelector('input[name="referralCode"]');
+  const label = field.querySelector('label[for="registerReferralCode"]');
+  const status = field.querySelector('#registerReferralStatus');
+  const badge = field.querySelector('#registerReferralBadge');
+  const changeButton = field.querySelector('#registerReferralChange');
+  if (!(input instanceof HTMLInputElement) || !(label instanceof HTMLElement)) return;
+
   label.textContent = referralLabelText;
-
-  const input = document.createElement('input');
-  input.id = 'registerReferralCode';
-  input.name = 'referralCode';
-  input.type = 'text';
-  input.autocomplete = 'off';
-  input.maxLength = 64;
-  input.pattern = '[a-zA-Z0-9_]+';
-  input.dataset.i18nAttrs = 'aria-label:auth.referralCode,placeholder:auth.referralCode.placeholder';
-  input.setAttribute('aria-label', referralLabelText);
   input.placeholder = referralPlaceholder;
-
-  const hint = document.createElement('p');
-  hint.className = 'form-hint';
-  hint.style.marginTop = '6px';
-  hint.style.marginBottom = '4px';
-  hint.dataset.i18n = 'auth.referralCode.hint';
-  hint.textContent = referralHint;
-
-  const emailLabel = form.querySelector('label[for="registerEmail"]');
-  if (emailLabel instanceof HTMLElement && emailLabel.parentNode) {
-    emailLabel.parentNode.insertBefore(label, emailLabel);
-    emailLabel.parentNode.insertBefore(input, emailLabel);
-    emailLabel.parentNode.insertBefore(hint, emailLabel);
-  } else {
-    form.appendChild(label);
-    form.appendChild(input);
-    form.appendChild(hint);
+  input.setAttribute('aria-label', referralLabelText);
+  if (changeButton instanceof HTMLElement) {
+    changeButton.textContent = changeText;
   }
 
-  const storedCode = getStoredReferralCode();
-  if (storedCode) {
-    input.value = storedCode;
+  let controller = registerReferralControllers.get(form);
+  if (!controller) {
+    controller = createReferralFieldController({
+      input,
+      status,
+      badge,
+      changeButton,
+      readOnlyFromUrl: true,
+      messages: {
+        baseHint: referralHint,
+        approved: approvedText,
+        invalid: invalidText,
+        checking: checkingText,
+        fromUrl: fromUrlText,
+        fromStorage: fromStorageText,
+        fromManual: fromManualText,
+        change: changeText,
+      },
+    });
+    registerReferralControllers.set(form, controller);
+  } else {
+    controller.updateMessages({
+      baseHint: referralHint,
+      approved: approvedText,
+      invalid: invalidText,
+      checking: checkingText,
+      fromUrl: fromUrlText,
+      fromStorage: fromStorageText,
+      fromManual: fromManualText,
+      change: changeText,
+    });
+  }
+
+  const existingValue = normalizeReferralCode(input.value || '');
+  if (!existingValue) {
+    controller.bootstrapInitialValue({ readOnlyFromUrl: true });
   }
 }
 
@@ -1364,8 +1426,15 @@ function ensureOAuthCompletionModal() {
       <input id="oauthCompletionFirstName" name="firstName" type="text" required maxlength="60" autocomplete="given-name" style="width:100%;margin:6px 0 12px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" />
       <label for="oauthCompletionUsername">${t('Username', 'Nazwa użytkownika')}</label>
       <input id="oauthCompletionUsername" name="username" type="text" required minlength="3" maxlength="15" pattern="[a-zA-Z0-9_]+" autocomplete="username" style="width:100%;margin:6px 0 12px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" />
-      <label for="oauthCompletionReferral">${t('Referral code (optional)', 'Kod polecający (opcjonalnie)')}</label>
-      <input id="oauthCompletionReferral" name="referralCode" type="text" maxlength="64" pattern="[a-zA-Z0-9_]+" autocomplete="off" style="width:100%;margin:6px 0 12px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" />
+      <div class="referral-field referral-field--auth referral-field--oauth" data-auth-referral-field="oauth">
+        <label for="oauthCompletionReferral">${t('Referral code (optional)', 'Kod polecający (opcjonalnie)')}</label>
+        <div class="referral-field__input-row">
+          <input id="oauthCompletionReferral" name="referralCode" type="text" maxlength="64" pattern="[a-zA-Z0-9_]+" autocomplete="off" style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" />
+          <span class="referral-field__badge" id="oauthCompletionReferralBadge" hidden></span>
+          <button type="button" class="auth-form__link referral-field__change" id="oauthCompletionReferralChange" hidden>${t('Change', 'Zmień')}</button>
+        </div>
+        <p id="oauthCompletionReferralStatus" class="form-hint referral-field__status" hidden></p>
+      </div>
       <label for="oauthCompletionPassword">${t('Password', 'Hasło')}</label>
       <input id="oauthCompletionPassword" name="password" type="password" required minlength="8" autocomplete="new-password" style="width:100%;margin:6px 0 12px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" />
       <label for="oauthCompletionPasswordConfirm">${t('Confirm password', 'Potwierdź hasło')}</label>
@@ -1383,6 +1452,30 @@ function ensureOAuthCompletionModal() {
   const errorEl = overlay.querySelector('#oauthCompletionError');
   const submitBtn = overlay.querySelector('#oauthCompletionSubmit');
   const logoutBtn = overlay.querySelector('#oauthCompletionLogout');
+  const referralInput = overlay.querySelector('#oauthCompletionReferral');
+  const referralStatus = overlay.querySelector('#oauthCompletionReferralStatus');
+  const referralBadge = overlay.querySelector('#oauthCompletionReferralBadge');
+  const referralChange = overlay.querySelector('#oauthCompletionReferralChange');
+
+  oauthReferralController = referralInput instanceof HTMLInputElement
+    ? createReferralFieldController({
+        input: referralInput,
+        status: referralStatus,
+        badge: referralBadge,
+        changeButton: referralChange,
+        readOnlyFromUrl: true,
+        messages: {
+          baseHint: t('If you got a referral code from a partner, enter it here.', 'Jeśli masz kod polecający od partnera, wpisz go tutaj.'),
+          approved: t('Approved', 'Zatwierdzony'),
+          invalid: t('This referral code is not valid.', 'Ten kod polecający jest nieprawidłowy.'),
+          checking: t('Checking referral code…', 'Sprawdzanie kodu polecającego…'),
+          fromUrl: t('Applied automatically from the referral link you opened.', 'Kod został wpisany automatycznie z otwartego linku polecającego.'),
+          fromStorage: t('Saved from your previous referral link.', 'Kod został zapisany z Twojego wcześniejszego linku polecającego.'),
+          fromManual: t('This code will be checked during registration.', 'Ten kod zostanie użyty przy rejestracji.'),
+          change: t('Change', 'Zmień'),
+        },
+      })
+    : null;
 
   const setError = (message) => {
     if (!(errorEl instanceof HTMLElement)) return;
@@ -1403,7 +1496,14 @@ function ensureOAuthCompletionModal() {
 
       const firstName = String(form.firstName?.value || '').trim();
       const username = String(form.username?.value || '').trim();
-      const referralCodeInput = String(form.referralCode?.value || '').trim();
+      if (oauthReferralController) {
+        const ready = await oauthReferralController.ensureReadyForSubmit();
+        if (!ready) {
+          return;
+        }
+      }
+      const referralCodeInput = oauthReferralController?.getPayload?.().referral_code
+        || String(form.referralCode?.value || '').trim();
       const password = String(form.password?.value || '');
       const passwordConfirm = String(form.passwordConfirm?.value || '');
 
@@ -1618,6 +1718,13 @@ function fillOAuthCompletionFormDefaults(state) {
   if (form.firstName instanceof HTMLInputElement) form.firstName.value = String(firstName || '').trim();
   if (form.username instanceof HTMLInputElement) form.username.value = String(username || '').trim();
   if (form.referralCode instanceof HTMLInputElement) form.referralCode.value = String(referralCode || '').trim();
+  if (oauthReferralController) {
+    oauthReferralController.bootstrapInitialValue({
+      code: referralCode,
+      source: draft?.referralCode ? 'manual' : undefined,
+      readOnlyFromUrl: true,
+    });
+  }
   if (form.password instanceof HTMLInputElement) form.password.value = '';
   if (form.passwordConfirm instanceof HTMLInputElement) form.passwordConfirm.value = '';
 }
@@ -1845,7 +1952,7 @@ function initGoogleOAuthHandlers() {
           return;
         }
         if (referralCode) {
-          setStoredReferralCode(referralCode, { overwrite: true });
+          setStoredReferralCode(referralCode, { overwrite: true, source: 'manual', locked: false });
         }
         saveOAuthCompletionDraft({ firstName, username, referralCode });
       }
@@ -2050,6 +2157,18 @@ $('#form-register')?.addEventListener('submit', async (event) => {
     referralField.value = referralField.value.trim();
   }
 
+  const referralController = registerReferralControllers.get(form) || null;
+  if (referralController) {
+    const ready = await referralController.ensureReadyForSubmit();
+    if (!ready) {
+      return;
+    }
+    const referralState = referralController.getState();
+    if (referralField instanceof HTMLInputElement) {
+      referralField.value = String(referralState.code || '').trim();
+    }
+  }
+
   const payload = parseRegisterPayload(form);
   if (!payload) {
     return;
@@ -2086,9 +2205,19 @@ $('#form-register')?.addEventListener('submit', async (event) => {
       const storedReferralCode = String(getStoredReferralCode() || '').trim();
       const validStoredReferralCode =
         storedReferralCode && /^[a-zA-Z0-9_]+$/.test(storedReferralCode) ? storedReferralCode : '';
-      const effectiveReferralCode = (payload.referralCode || validStoredReferralCode || '').trim();
+      const referralPayload = referralController?.getPayload ? referralController.getPayload() : null;
+      const effectiveReferralCode = normalizeReferralCode(
+        payload.referralCode
+        || referralPayload?.referral_code
+        || validStoredReferralCode
+        || '',
+      );
       if (effectiveReferralCode) {
-        setStoredReferralCode(effectiveReferralCode, { overwrite: true });
+        setStoredReferralCode(effectiveReferralCode, {
+          overwrite: true,
+          source: referralPayload?.referral_source || 'manual',
+          locked: referralPayload?.referral_source === 'url',
+        });
       }
 
       const { data, error } = await sb.auth.signUp({

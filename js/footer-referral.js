@@ -6,6 +6,39 @@
 const SHARE_TEXT = "🌴 Dołącz do CyprusEye Quest & Travel przez mój link polecający i odkryj Cypr jak nigdy wcześniej!";
 const SHARE_TEXT_EN = "🌴 Join us in the CyprusEye Quest & Travel and explore Cyprus like never before!";
 
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value || '').trim());
+}
+
+function normalizeReferralCode(value) {
+  const bootstrap = window.CE_REFERRAL_BOOTSTRAP || null;
+  if (bootstrap?.normalizeCode) {
+    return bootstrap.normalizeCode(value);
+  }
+  const raw = String(value || '').trim();
+  return /^[A-Za-z0-9_]+$/.test(raw) ? raw : '';
+}
+
+function getProfileReferralCode(profile) {
+  const referralCode = normalizeReferralCode(profile?.referral_code || '');
+  if (referralCode) return referralCode;
+  const username = String(profile?.username || '').trim();
+  if (!username || isUuid(username)) return '';
+  return normalizeReferralCode(username);
+}
+
+function buildReferralLink(code, targetUrl) {
+  const referralCode = normalizeReferralCode(code);
+  if (!referralCode) return '';
+  try {
+    const url = new URL(String(targetUrl || window.location.href), window.location.origin);
+    url.searchParams.set('ref', referralCode);
+    return url.toString();
+  } catch (_error) {
+    return `${window.location.origin || 'https://cypruseye.com'}/?ref=${encodeURIComponent(referralCode)}`;
+  }
+}
+
 /**
  * Update translations for footer referral elements
  * @param {string} forceLang - Optional language code to force (from event)
@@ -150,20 +183,17 @@ async function checkUserAndShowReferral(container, copyBtn, fbBtn) {
       return;
     }
     
-    // Get username from profile
+    // Get immutable referral code first, then fallback to username for legacy accounts
     const { data: profile } = await supabase
       .from('profiles')
-      .select('username')
+      .select('username, referral_code')
       .eq('id', user.id)
       .single();
     
-    const username = profile?.username;
-    console.log('Footer referral: username =', username);
+    const referralCode = getProfileReferralCode(profile);
+    console.log('Footer referral: referral code =', referralCode);
     
-    // Check if username is valid (not UUID)
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(username);
-    
-    if (!username || isUUID) {
+    if (!referralCode) {
       container.style.display = 'none';
       return;
     }
@@ -174,7 +204,7 @@ async function checkUserAndShowReferral(container, copyBtn, fbBtn) {
     // Apply translations to the section
     updateFooterReferralTranslations();
     
-    const refLink = `https://cypruseye.com/?ref=${encodeURIComponent(username)}`;
+    const refLink = buildReferralLink(referralCode, window.location.href);
     
     // Setup copy button
     if (copyBtn) {
@@ -232,23 +262,25 @@ function shareOnFacebook(refLink) {
 }
 
 /**
- * Show referral section with given username (no supabase call needed)
+ * Show referral section using already loaded profile state (no supabase call needed)
  */
-function showReferralWithUsername(username) {
+function showReferralForProfile(profile) {
   const container = document.getElementById('footerReferral');
   const copyBtn = document.getElementById('footerCopyRef');
   const fbBtn = document.getElementById('footerShareFb');
   
-  if (!container || !username) return;
-  
-  // Check if username is valid (not UUID)
-  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(username);
-  if (isUUID) {
-    console.log('Footer referral: username is UUID, hiding');
+  const referralCode = getProfileReferralCode(profile);
+  if (!container || !referralCode) {
+    if (container) container.style.display = 'none';
     return;
   }
   
-  const refLink = `https://cypruseye.com/?ref=${encodeURIComponent(username)}`;
+  if (isUuid(referralCode)) {
+    console.log('Footer referral: referral code is invalid, hiding');
+    return;
+  }
+  
+  const refLink = buildReferralLink(referralCode, window.location.href);
   console.log('Footer referral: showing with link =', refLink);
   
   // Show referral section
@@ -275,11 +307,10 @@ function setupAuthListener() {
   // Listen for custom CyprusEye auth event (fires immediately on login)
   document.addEventListener('ce-auth:state', (e) => {
     const state = e.detail;
-    console.log('Footer referral: ce-auth:state =', state?.status, 'profile =', state?.profile?.username);
+    console.log('Footer referral: ce-auth:state =', state?.status, 'profile =', state?.profile?.referral_code || state?.profile?.username);
     
-    if (state?.status === 'authenticated' && state?.profile?.username) {
-      // User logged in - show referral immediately using profile from state
-      showReferralWithUsername(state.profile.username);
+    if (state?.status === 'authenticated' && state?.profile) {
+      showReferralForProfile(state.profile);
     } else if (state?.status === 'anonymous') {
       // User logged out - hide referral
       const container = document.getElementById('footerReferral');

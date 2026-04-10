@@ -2,6 +2,7 @@ import { getMyProfile, updateMyUsername, updateMyName, uploadAvatar, removeAvata
 import { supabase } from './supabaseClient.js';
 import { getUserPhotos } from './community/photos.js';
 import { TASKS_DATA } from './tasks-data-module.js';
+import { buildReferralLink, getProfileReferralCode } from './referral-ui.js';
 
 // --- State ---
 let currentUser = null;
@@ -12,6 +13,14 @@ let carPricingData = []; // Cache for car offers
 // --- Constants ---
 const SECTIONS = ['overview', 'reservations', 'content', 'achievements', 'settings'];
 const INSURANCE_RATE = 17;
+
+function buildDashboardReferralTarget() {
+  const origin = window.location.origin || 'https://cypruseye.com';
+  const lang = String(document.documentElement.lang || window.appI18n?.language || 'en').trim().toLowerCase();
+  const base = new URL('/', origin);
+  if (lang && lang !== 'en') base.searchParams.set('lang', lang);
+  return base.toString();
+}
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -357,15 +366,14 @@ function loadSettings() {
   const emailInput = document.getElementById('settingsEmail');
   if (emailInput) emailInput.value = currentUser.email || '';
 
-  // Referral Link - use username, not user ID
+  // Referral link - use immutable referral_code with username as legacy fallback
   const referralInput = document.getElementById('referralLink');
-  if (referralInput && currentProfile?.username) {
-    // Check if username is not a UUID
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentProfile.username);
-    if (!isUUID) {
-      referralInput.value = `https://cypruseye.com/?ref=${encodeURIComponent(currentProfile.username)}`;
+  if (referralInput) {
+    const referralCode = getProfileReferralCode(currentProfile || null);
+    if (referralCode) {
+      referralInput.value = buildReferralLink(buildDashboardReferralTarget(), referralCode);
     } else {
-      referralInput.value = 'Ustaw nazwę użytkownika w ustawieniach';
+      referralInput.value = 'Referral code unavailable';
     }
   }
   
@@ -511,6 +519,12 @@ function setupSettingsListeners() {
   const referralInput = document.getElementById('referralLink');
   if (copyBtn && referralInput) {
     copyBtn.addEventListener('click', () => {
+      if (!referralInput.value || referralInput.value === 'Referral code unavailable') {
+        const originalText = copyBtn.textContent;
+        copyBtn.textContent = 'Unavailable';
+        setTimeout(() => copyBtn.textContent = originalText, 2000);
+        return;
+      }
       referralInput.select();
       navigator.clipboard.writeText(referralInput.value);
       const originalText = copyBtn.textContent;

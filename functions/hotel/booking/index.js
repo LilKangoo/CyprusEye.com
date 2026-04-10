@@ -1,5 +1,11 @@
 import { createSupabaseClients } from '../../_utils/supabaseAdmin.js';
 
+function normalizeReferralSource(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (raw === 'manual' || raw === 'url' || raw === 'stored') return raw;
+  return null;
+}
+
 const CORS = {
   'access-control-allow-origin': '*',
   'access-control-allow-methods': 'POST, OPTIONS',
@@ -59,6 +65,9 @@ export async function onRequest(context) {
       coupon_discount_amount: body.coupon_discount_amount == null ? 0 : Number(body.coupon_discount_amount || 0),
       coupon_partner_id: body.coupon_partner_id || null,
       coupon_partner_commission_bps: body.coupon_partner_commission_bps == null ? null : Number(body.coupon_partner_commission_bps),
+      referral_code: body.referral_code || null,
+      referral_source: normalizeReferralSource(body.referral_source),
+      referral_captured_at: body.referral_captured_at || null,
       status: body.status || 'pending'
     };
 

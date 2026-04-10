@@ -8,6 +8,8 @@ let homeCurrentTrip = null;
 let homeCurrentIndex = null;
 let homeTripsSavedOnly = false;
 let homeTripCouponState = { applied: null };
+let homeTripReferralController = null;
+let homeTripReferralUiPromise = null;
 let homeTripModalPanoramaCleanup = null;
 let homeTripModalPanoramaHintCleanup = null;
 
@@ -81,6 +83,13 @@ function clearHomeTripModalPanorama() {
   homeTripModalPanoramaCleanup = null;
   pano.hidden = true;
   pano.dataset.cePanoramaActive = '0';
+}
+
+function getHomeTripReferralUiModule() {
+  if (!homeTripReferralUiPromise) {
+    homeTripReferralUiPromise = import('/js/referral-ui.js');
+  }
+  return homeTripReferralUiPromise;
 }
 
 async function renderHomeTripModalMedia(rawUrl) {
@@ -910,6 +919,64 @@ function ensureHomeTripCouponUi() {
   syncHomeTripCouponButtons();
 }
 
+async function ensureHomeTripReferralUi() {
+  const form = document.getElementById('bookingForm');
+  if (!form) return null;
+  let box = form.querySelector('[data-trip-referral-ui]');
+  if (!(box instanceof HTMLElement)) {
+    const couponBox = form.querySelector('[data-trip-coupon-ui]');
+    box = document.createElement('div');
+    box.className = 'form-field referral-field referral-field--booking';
+    box.setAttribute('data-trip-referral-ui', '1');
+    box.innerHTML = `
+      <label for="bookingReferralCode">${tripsT('referral.label', 'Kod polecający')}</label>
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;" class="referral-field__input-row">
+        <input type="text" id="bookingReferralCode" maxlength="64" autocomplete="off" placeholder="${tripsT('referral.placeholder', 'Wpisz kod polecający')}" />
+        <span class="referral-field__badge" id="bookingReferralBadge" hidden></span>
+      </div>
+      <p id="bookingReferralStatus" class="referral-field__status" style="margin:6px 0 0;font-size:12px;color:#475569;" hidden></p>
+    `;
+    if (couponBox instanceof HTMLElement) {
+      couponBox.insertAdjacentElement('afterend', box);
+    } else {
+      form.appendChild(box);
+    }
+  }
+
+  const input = box.querySelector('#bookingReferralCode');
+  const status = box.querySelector('#bookingReferralStatus');
+  const badge = box.querySelector('#bookingReferralBadge');
+  if (!(input instanceof HTMLInputElement)) return null;
+  const { createReferralFieldController } = await getHomeTripReferralUiModule();
+  if (!homeTripReferralController) {
+    homeTripReferralController = createReferralFieldController({
+      input,
+      status,
+      badge,
+      messages: {
+        baseHint: tripsT('referral.bookingHint', 'Opcjonalnie. Kod polecający działa niezależnie od kuponu.'),
+        approved: tripsT('referral.approved', 'Zatwierdzony'),
+        invalid: tripsT('referral.invalid', 'Ten kod polecający jest nieprawidłowy.'),
+        checking: tripsT('referral.checking', 'Sprawdzanie kodu polecającego…'),
+        fromUrl: tripsT('referral.fromLink', 'Kod został uzupełniony z linku polecającego.'),
+        fromStorage: tripsT('referral.fromStorage', 'Używamy zapisanego kodu polecającego.'),
+        fromManual: tripsT('referral.fromManual', 'Kod polecający został zatwierdzony.'),
+      },
+    });
+  } else {
+    homeTripReferralController.updateMessages({
+      baseHint: tripsT('referral.bookingHint', 'Opcjonalnie. Kod polecający działa niezależnie od kuponu.'),
+      approved: tripsT('referral.approved', 'Zatwierdzony'),
+      invalid: tripsT('referral.invalid', 'Ten kod polecający jest nieprawidłowy.'),
+      checking: tripsT('referral.checking', 'Sprawdzanie kodu polecającego…'),
+      fromUrl: tripsT('referral.fromLink', 'Kod został uzupełniony z linku polecającego.'),
+      fromStorage: tripsT('referral.fromStorage', 'Używamy zapisanego kodu polecającego.'),
+      fromManual: tripsT('referral.fromManual', 'Kod polecający został zatwierdzony.'),
+    });
+  }
+  return homeTripReferralController;
+}
+
 async function applyHomeTripCoupon() {
   if (!homeCurrentTrip) return false;
   const code = normalizeHomeTripCouponCode(document.getElementById('bookingCouponCode')?.value || '');
@@ -1018,6 +1085,7 @@ window.openTripModalHome = function(index){
   const form = document.getElementById('bookingForm');
   if (form) { form.reset(); const msg = document.getElementById('bookingMessage'); if (msg) msg.style.display='none'; }
   ensureHomeTripCouponUi();
+  void ensureHomeTripReferralUi().then((controller) => controller?.bootstrapInitialValue());
   clearHomeTripCouponState({ clearInput: true });
   
   // Prefill user data from session (if logged in)
@@ -1170,6 +1238,14 @@ function initHomeTripsModalHandlers() {
       }
 
       const coupon = getHomeTripCouponContext(baseTotal);
+      const referralController = await ensureHomeTripReferralUi();
+      if (referralController) {
+        const ready = await referralController.ensureReadyForSubmit();
+        if (!ready) {
+          throw new Error(tripsT('referral.invalid', 'Ten kod polecający jest nieprawidłowy.'));
+        }
+      }
+      const referralPayload = referralController?.getPayload ? referralController.getPayload() : null;
       const payload = {
         trip_id: homeCurrentTrip.id,
         trip_slug: homeCurrentTrip.slug,
@@ -1192,6 +1268,9 @@ function initHomeTripsModalHandlers() {
         coupon_discount_amount: coupon.hasApplied ? Number(coupon.discount || 0) : 0,
         coupon_partner_id: coupon.hasApplied ? (homeTripCouponState.applied?.partnerId || null) : null,
         coupon_partner_commission_bps: coupon.hasApplied ? (homeTripCouponState.applied?.partnerCommissionBpsOverride ?? null) : null,
+        referral_code: referralPayload?.referral_code || null,
+        referral_source: referralPayload?.referral_source || null,
+        referral_captured_at: referralPayload?.referral_captured_at || null,
         status: 'pending',
       };
       const supabase = await waitForSupabaseClientHomeTrips();

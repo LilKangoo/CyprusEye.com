@@ -190,7 +190,7 @@ BEGIN
       3 AS priority,
       p.created_at
     FROM public.profiles p
-    WHERE COALESCE(p.username_normalized, '') = lower(v_code)
+    WHERE COALESCE(to_jsonb(p)->>'username_normalized', '') = lower(v_code)
   )
   SELECT
     m.referrer_user_id,

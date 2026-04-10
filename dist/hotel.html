@@ -373,6 +373,15 @@
     let appliedCoupon = null;
     let hotelLoadState = 'loading';
     const hotelPricing = window.CE_HOTEL_PRICING || null;
+    let hotelReferralController = null;
+    let hotelReferralUiPromise = null;
+
+    function getHotelReferralUiModule() {
+      if (!hotelReferralUiPromise) {
+        hotelReferralUiPromise = import('/js/referral-ui.js');
+      }
+      return hotelReferralUiPromise;
+    }
 
     function getHotelPageLanguage() {
       const queryLang = String(new URLSearchParams(window.location.search).get('lang') || '').trim().toLowerCase();
@@ -856,6 +865,7 @@
       if (amenitiesCard) amenitiesCard.hidden = !hasAmenities;
       if (policyCard) policyCard.hidden = !hasPolicy;
       if (locationCard) locationCard.hidden = !hasLocation;
+      void ensureHotelReferralUi();
     }
 
     function extractMissingColumn(error){
@@ -987,6 +997,72 @@
       } finally {
         syncCouponButtons();
       }
+    }
+
+    async function ensureHotelReferralUi() {
+      const form = $('#bookForm');
+      if (!form) return null;
+
+      let row = form.querySelector('[data-hotel-referral-ui]');
+      if (!(row instanceof HTMLElement)) {
+        const couponWrap = $('#couponCode')?.closest('.offer-span-full');
+        row = document.createElement('div');
+        row.className = 'offer-span-full referral-field referral-field--booking';
+        row.setAttribute('data-hotel-referral-ui', '1');
+        row.innerHTML = `
+          <label id="hotelReferralLabel" for="referralCode">${hotelT('referral.label', 'Kod polecający', 'Referral code')}</label>
+          <div class="referral-field__input-row">
+            <input name="referral_code" id="referralCode" maxlength="64" autocomplete="off" placeholder="${hotelT('referral.placeholder', 'Wpisz kod polecający', 'Enter referral code')}" />
+            <span id="hotelReferralBadge" class="referral-field__badge" hidden></span>
+          </div>
+          <div id="hotelReferralMsg" class="offer-span-full referral-field__status" hidden></div>
+        `;
+        if (couponWrap instanceof HTMLElement) {
+          couponWrap.insertAdjacentElement('afterend', row);
+        } else {
+          form.appendChild(row);
+        }
+      }
+
+      const input = row.querySelector('#referralCode');
+      const status = row.querySelector('#hotelReferralMsg');
+      const badge = row.querySelector('#hotelReferralBadge');
+      const label = row.querySelector('#hotelReferralLabel');
+      if (!(input instanceof HTMLInputElement)) return null;
+      if (label instanceof HTMLElement) {
+        label.textContent = hotelT('referral.label', 'Kod polecający', 'Referral code');
+      }
+      input.placeholder = hotelT('referral.placeholder', 'Wpisz kod polecający', 'Enter referral code');
+
+      const { createReferralFieldController } = await getHotelReferralUiModule();
+      if (!hotelReferralController) {
+        hotelReferralController = createReferralFieldController({
+          input,
+          status,
+          badge,
+          messages: {
+            baseHint: hotelT('referral.bookingHint', 'Opcjonalnie. Kod polecający działa niezależnie od kuponu.', 'Optional. Referral code is separate from coupon discounts.'),
+            approved: hotelT('referral.approved', 'Zatwierdzony', 'Approved'),
+            invalid: hotelT('referral.invalid', 'Ten kod polecający jest nieprawidłowy.', 'This referral code is not valid.'),
+            checking: hotelT('referral.checking', 'Sprawdzanie kodu polecającego…', 'Checking referral code…'),
+            fromUrl: hotelT('referral.fromLink', 'Kod został uzupełniony z linku polecającego.', 'Filled automatically from the referral link.'),
+            fromStorage: hotelT('referral.fromStorage', 'Używamy zapisanego kodu polecającego.', 'Using the referral code saved in your browser.'),
+            fromManual: hotelT('referral.fromManual', 'Kod polecający został zatwierdzony.', 'Referral code approved.'),
+          },
+        });
+      } else {
+        hotelReferralController.updateMessages({
+          baseHint: hotelT('referral.bookingHint', 'Opcjonalnie. Kod polecający działa niezależnie od kuponu.', 'Optional. Referral code is separate from coupon discounts.'),
+          approved: hotelT('referral.approved', 'Zatwierdzony', 'Approved'),
+          invalid: hotelT('referral.invalid', 'Ten kod polecający jest nieprawidłowy.', 'This referral code is not valid.'),
+          checking: hotelT('referral.checking', 'Sprawdzanie kodu polecającego…', 'Checking referral code…'),
+          fromUrl: hotelT('referral.fromLink', 'Kod został uzupełniony z linku polecającego.', 'Filled automatically from the referral link.'),
+          fromStorage: hotelT('referral.fromStorage', 'Używamy zapisanego kodu polecającego.', 'Using the referral code saved in your browser.'),
+          fromManual: hotelT('referral.fromManual', 'Kod polecający został zatwierdzony.', 'Referral code approved.'),
+        });
+      }
+
+      return hotelReferralController;
     }
 
     function updateLive(){
@@ -1166,6 +1242,17 @@
       }
 
       const coupon = getCouponContext(total);
+      const referralController = await ensureHotelReferralUi();
+      if (referralController) {
+        const referralReady = await referralController.ensureReadyForSubmit();
+        if (!referralReady) {
+          $('#bookMsg').hidden = false;
+          $('#bookMsg').className = 'offer-form-message offer-span-full error';
+          $('#bookMsg').textContent = hotelT('referral.invalid', 'Ten kod polecający jest nieprawidłowy.', 'This referral code is not valid.');
+          return;
+        }
+      }
+      const referralPayload = referralController?.getPayload?.() || {};
       const insertPayload = {
         hotel_id: hotel.id,
         hotel_slug: hotel.slug,
@@ -1187,6 +1274,9 @@
         coupon_discount_amount: coupon.hasApplied ? Number(coupon.discount || 0) : 0,
         coupon_partner_id: coupon.hasApplied ? (appliedCoupon?.partnerId || null) : null,
         coupon_partner_commission_bps: coupon.hasApplied ? (appliedCoupon?.partnerCommissionBpsOverride ?? null) : null,
+        referral_code: referralPayload.referral_code || null,
+        referral_source: referralPayload.referral_source || null,
+        referral_captured_at: referralPayload.referral_captured_at || null,
         status: 'pending'
       };
       const maxPersons = hotelPageBookingUi?.getRoomCapacity

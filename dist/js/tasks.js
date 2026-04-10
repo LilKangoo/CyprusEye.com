@@ -34,6 +34,36 @@
     return (fallback || '').replace(/\{\{(\w+)\}\}/g, (m, p) => (p in repl ? String(repl[p]) : m));
   }
 
+  function normalizeReferralCode(value) {
+    const bootstrap = window.CE_REFERRAL_BOOTSTRAP || null;
+    if (bootstrap?.normalizeCode) return bootstrap.normalizeCode(value);
+    const raw = String(value || '').trim();
+    return /^[A-Za-z0-9_]+$/.test(raw) ? raw : '';
+  }
+
+  function isUuid(value) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value || '').trim());
+  }
+
+  function getProfileReferralCode(profile) {
+    const referralCode = normalizeReferralCode(profile?.referral_code || '');
+    if (referralCode) return referralCode;
+    const username = String(profile?.username || '').trim();
+    if (!username || isUuid(username)) return '';
+    return normalizeReferralCode(username);
+  }
+
+  function buildTasksReferralLink(code) {
+    const referralCode = normalizeReferralCode(code);
+    if (!referralCode) return '';
+    const origin = window.location.origin || 'https://cypruseye.com';
+    const base = new URL('/', origin);
+    const lang = String(document.documentElement.lang || window.appI18n?.language || 'en').trim().toLowerCase();
+    if (lang && lang !== 'en') base.searchParams.set('lang', lang);
+    base.searchParams.set('ref', referralCode);
+    return base.toString();
+  }
+
   // --- Data source ---
   const TASKS = (function(){
     try { if (typeof TASKS_DATA !== 'undefined') return TASKS_DATA; } catch(_) {}
@@ -930,7 +960,7 @@
       // Get user's username for referral link
       const { data: profile, error: profileError } = await sb
         .from('profiles')
-        .select('username, name')
+        .select('username, name, referral_code')
         .eq('id', state.auth.userId)
         .single();
       
@@ -940,14 +970,11 @@
       
       console.log('🎁 Profile loaded:', profile);
       
-      // Use username, or name, or part of ID as fallback
-      let refIdentifier = profile?.username || profile?.name || state.auth.userId.split('-')[0];
-      
-      // Set referral link
-      const refLink = `https://cypruseye.com/?ref=${encodeURIComponent(refIdentifier)}`;
+      const refIdentifier = getProfileReferralCode(profile) || normalizeReferralCode(profile?.name || '');
+      const refLink = buildTasksReferralLink(refIdentifier);
       console.log('🎁 Referral link:', refLink);
       
-      if (linkEl) linkEl.value = refLink;
+      if (linkEl) linkEl.value = refLink || t('tasks.referral.unavailable', 'Kod polecający jest obecnie niedostępny');
       
       // Setup copy button (remove old listener first by cloning)
       if (copyBtn) {

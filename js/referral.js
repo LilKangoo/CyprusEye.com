@@ -105,10 +105,23 @@ export function setStoredReferralCode(code, options = {}) {
     }
 
     if (bootstrap?.storeReferralCode) {
-      return bootstrap.storeReferralCode(cleanCode, { overwrite });
+      return bootstrap.storeReferralCode(cleanCode, {
+        overwrite,
+        source: options?.source || 'manual',
+        locked: options?.locked === true,
+        capturedAt: Number(options?.capturedAt || 0) || undefined,
+      });
     }
 
-    localStorage.setItem(REFERRAL_STORAGE_KEY, JSON.stringify(buildReferralData(cleanCode)));
+    localStorage.setItem(
+      REFERRAL_STORAGE_KEY,
+      JSON.stringify({
+        ...buildReferralData(cleanCode),
+        source: String(options?.source || 'manual').trim().toLowerCase() || 'manual',
+        locked: options?.locked === true,
+        capturedAt: Number(options?.capturedAt || 0) || Date.now(),
+      }),
+    );
     return true;
   } catch (err) {
     console.warn('Could not store referral code:', err);

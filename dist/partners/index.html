@@ -172,6 +172,66 @@
     .partner-affiliate-table .admin-table th,
     .partner-affiliate-table .admin-table td { padding: 8px 8px; font-size: 12px; }
     .partner-affiliate-table .admin-table td:last-child { font-weight: 800; }
+    .partner-referral-orders-card { max-width: 980px; }
+    .partner-referral-orders-subtitle {
+      color: var(--admin-text-muted);
+      font-size: 12px;
+      line-height: 1.5;
+      margin-top: 4px;
+    }
+    .partner-referral-orders-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .partner-referral-orders-source-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 76px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: 10px;
+      line-height: 1;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+    .partner-referral-orders-source-badge--manual {
+      background: rgba(34, 197, 94, 0.14);
+      color: #86efac;
+      border-color: rgba(34, 197, 94, 0.3);
+    }
+    .partner-referral-orders-source-badge--url,
+    .partner-referral-orders-source-badge--stored {
+      background: rgba(59, 130, 246, 0.14);
+      color: #93c5fd;
+      border-color: rgba(59, 130, 246, 0.3);
+    }
+    .partner-referral-orders-source-badge--unknown {
+      background: rgba(148, 163, 184, 0.14);
+      color: #cbd5e1;
+      border-color: rgba(148, 163, 184, 0.28);
+    }
+    .partner-referral-orders-service {
+      display: grid;
+      gap: 2px;
+    }
+    .partner-referral-orders-service strong {
+      font-weight: 800;
+    }
+    .partner-referral-orders-service span {
+      color: var(--admin-text-muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .partner-referral-orders-empty {
+      padding: 16px 8px;
+      color: var(--admin-text-muted);
+    }
     .partner-affiliate-status-badge {
       display: inline-flex;
       align-items: center;
@@ -1033,6 +1093,9 @@
       .partner-chart-switch {
         width: 100%;
       }
+      .partner-referral-orders-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
 
     @media (max-width: 640px) {
@@ -1047,6 +1110,7 @@
       .partner-affiliate-progress { align-items: stretch; }
       .partner-affiliate-progress__actions { width: 100%; align-items: stretch; }
       .partner-affiliate-progress__actions .btn-sm { width: 100%; }
+      .partner-referral-orders-grid { grid-template-columns: 1fr 1fr; }
       .partner-toolbar { width: 100%; }
       .partner-toolbar select { width: 100%; }
       .partner-toolbar input { width: 100%; }
@@ -3119,6 +3183,45 @@
             </thead>
             <tbody id="partnerAffiliateEarningsBody">
               <tr><td colspan="5" class="muted" style="padding: 16px 8px;">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <div style="height: 16px;"></div>
+
+      <section id="partnerReferralOrdersCard" class="partner-card partner-referral-orders-card" hidden>
+        <div class="partner-insight-head">
+          <div>
+            <h2 class="partner-insight-title">Referral-attributed orders</h2>
+            <p class="partner-referral-orders-subtitle">Order-level attribution captured from referral links or manual referral codes. This is separate from the referral tree and affiliate payout events.</p>
+          </div>
+          <button id="btnPartnerReferralOrdersRefresh" class="btn-sm" type="button">Refresh</button>
+        </div>
+
+        <div class="partner-referral-orders-grid">
+          <div class="partner-metric"><div class="partner-metric__label">Orders attributed</div><div class="partner-metric__value" id="partnerReferralOrdersTotal">0</div></div>
+          <div class="partner-metric"><div class="partner-metric__label">Gross booking value</div><div class="partner-metric__value" id="partnerReferralOrdersGross">€0.00</div></div>
+          <div class="partner-metric"><div class="partner-metric__label">Manual code</div><div class="partner-metric__value" id="partnerReferralOrdersManual">0</div></div>
+          <div class="partner-metric"><div class="partner-metric__label">Link / saved code</div><div class="partner-metric__value" id="partnerReferralOrdersLink">0</div></div>
+        </div>
+
+        <div class="partner-insight-divider"></div>
+
+        <div class="admin-table-container partner-affiliate-table" aria-label="Referral attributed orders">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Service</th>
+                <th>Source</th>
+                <th>Status</th>
+                <th>Code</th>
+                <th style="text-align:right;">Total</th>
+              </tr>
+            </thead>
+            <tbody id="partnerReferralOrdersBody">
+              <tr><td colspan="6" class="partner-referral-orders-empty">Loading…</td></tr>
             </tbody>
           </table>
         </div>

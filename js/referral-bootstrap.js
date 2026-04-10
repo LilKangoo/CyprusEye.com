@@ -16,12 +16,24 @@
     return raw;
   }
 
-  function buildData(code) {
+  function normalizeSource(source) {
+    var raw = String(source || '').trim().toLowerCase();
+    if (raw === 'url' || raw === 'manual' || raw === 'stored') {
+      return raw;
+    }
+    return 'stored';
+  }
+
+  function buildData(code, options) {
     var now = Date.now();
+    var opts = options && typeof options === 'object' ? options : {};
+    var capturedAt = Number(opts.capturedAt);
     return {
       code: code,
-      capturedAt: now,
+      capturedAt: Number.isFinite(capturedAt) && capturedAt > 0 ? capturedAt : now,
       expiresAt: now + TTL_DAYS * 24 * 60 * 60 * 1000,
+      source: normalizeSource(opts.source),
+      locked: opts.locked === true,
     };
   }
 
@@ -96,11 +108,15 @@
   function getStoredData() {
     var localData = readLocalStorage();
     if (isValidData(localData)) {
+      if (!localData.source) localData.source = 'stored';
+      if (typeof localData.locked !== 'boolean') localData.locked = false;
       return localData;
     }
 
     var cookieData = readCookie();
     if (isValidData(cookieData)) {
+      if (!cookieData.source) cookieData.source = 'stored';
+      if (typeof cookieData.locked !== 'boolean') cookieData.locked = false;
       writeLocalStorage(cookieData);
       return cookieData;
     }
@@ -126,7 +142,7 @@
       return true;
     }
 
-    var data = buildData(cleanCode);
+    var data = buildData(cleanCode, options);
     writeLocalStorage(data);
     writeCookie(data);
     return true;
@@ -139,7 +155,11 @@
       if (!code) {
         return null;
       }
-      storeReferralCode(code, { overwrite: !options || options.overwrite !== false });
+      storeReferralCode(code, {
+        overwrite: !options || options.overwrite !== false,
+        source: 'url',
+        locked: true,
+      });
       return code;
     } catch (_error) {
       return null;

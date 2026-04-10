@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient.js';
 import { quoteServiceCoupon } from './service-coupons.js';
+import { createReferralFieldController } from './referral-ui.js';
 
 const LOCATION_TYPE_FALLBACK_LABELS = {
   city: 'City',
@@ -30,6 +31,7 @@ const state = {
   loading: false,
   languageListenerBound: false,
 };
+let referralController = null;
 
 const els = {};
 const QUOTE_ROW_HIDE_ANIMATION_MS = 240;
@@ -1218,6 +1220,67 @@ function syncCouponControls() {
   }
 }
 
+function ensureTransportReferralUi() {
+  if (!(els.form instanceof HTMLFormElement)) return null;
+
+  let box = byId('transportReferralBox');
+  if (!(box instanceof HTMLElement)) {
+    const couponBox = els.couponCodeInput?.closest('.transport-coupon-box');
+    box = document.createElement('div');
+    box.id = 'transportReferralBox';
+    box.className = 'transport-coupon-box referral-field referral-field--booking';
+    box.innerHTML = `
+      <label for="transportReferralCode">${t('referral.label', 'Referral code')}</label>
+      <div class="transport-coupon-box__row referral-field__input-row">
+        <input id="transportReferralCode" type="text" maxlength="64" autocomplete="off" placeholder="${t('referral.placeholder', 'Enter referral code')}" />
+        <span id="transportReferralBadge" class="referral-field__badge" hidden></span>
+      </div>
+      <p id="transportReferralStatus" class="transport-coupon-box__status referral-field__status" hidden></p>
+    `;
+    if (couponBox instanceof HTMLElement) {
+      couponBox.insertAdjacentElement('afterend', box);
+    } else {
+      els.form.appendChild(box);
+    }
+  }
+
+  els.referralCodeInput = byId('transportReferralCode');
+  els.referralStatus = byId('transportReferralStatus');
+  els.referralBadge = byId('transportReferralBadge');
+
+  if (!(els.referralCodeInput instanceof HTMLInputElement)) return null;
+
+  if (!referralController) {
+    referralController = createReferralFieldController({
+      input: els.referralCodeInput,
+      status: els.referralStatus,
+      badge: els.referralBadge,
+      supabase,
+      messages: {
+        baseHint: t('referral.bookingHint', 'Optional. Referral code is separate from coupon discounts.'),
+        approved: t('referral.approved', 'Approved'),
+        invalid: t('referral.invalid', 'This referral code is not valid.'),
+        checking: t('referral.checking', 'Checking referral code…'),
+        fromUrl: t('referral.fromLink', 'Filled automatically from the referral link.'),
+        fromStorage: t('referral.fromStorage', 'Using the referral code saved in your browser.'),
+        fromManual: t('referral.fromManual', 'Referral code approved.'),
+      },
+    });
+  } else {
+    referralController.updateMessages({
+      baseHint: t('referral.bookingHint', 'Optional. Referral code is separate from coupon discounts.'),
+      approved: t('referral.approved', 'Approved'),
+      invalid: t('referral.invalid', 'This referral code is not valid.'),
+      checking: t('referral.checking', 'Checking referral code…'),
+      fromUrl: t('referral.fromLink', 'Filled automatically from the referral link.'),
+      fromStorage: t('referral.fromStorage', 'Using the referral code saved in your browser.'),
+      fromManual: t('referral.fromManual', 'Referral code approved.'),
+    });
+  }
+
+  return referralController;
+}
+
 function clearAppliedCoupon(options = {}) {
   const clearInput = options.clearInput !== false;
   const silent = options.silent === true;
@@ -2016,6 +2079,7 @@ function buildReturnScenarioNotes(snapshot = {}) {
 function buildTransportBookingPayload(quote) {
   const legs = Array.isArray(quote?.legs) ? quote.legs.filter(Boolean) : [];
   if (!legs.length) return null;
+  const referralPayload = referralController?.getPayload?.() || {};
 
   const outboundLeg = legs[0];
   const outboundPayload = buildBookingPayloadForLeg(outboundLeg);
@@ -2042,6 +2106,9 @@ function buildTransportBookingPayload(quote) {
     coupon_partner_commission_bps: Number.isFinite(Number(quote?.couponPartnerCommissionBps))
       ? Number(quote.couponPartnerCommissionBps)
       : null,
+    referral_code: referralPayload.referral_code || null,
+    referral_source: referralPayload.referral_source || null,
+    referral_captured_at: referralPayload.referral_captured_at || null,
     payment_status: quote?.depositEnabled ? 'pending' : 'not_required',
     deposit_amount: quote?.depositEnabled ? round2(toNonNegativeNumber(quote?.depositAmount, 0)) : null,
     deposit_currency: quote?.depositEnabled
@@ -2330,6 +2397,16 @@ async function handleSubmit(event) {
   if (couponCode && couponCode !== appliedCouponCode) {
     const applied = await applyCouponForCurrentQuote({ code: couponCode });
     if (!applied || !state.lastQuote) {
+      updateSubmitState();
+      return;
+    }
+  }
+
+  ensureTransportReferralUi();
+  if (referralController) {
+    const referralReady = await referralController.ensureReadyForSubmit();
+    if (!referralReady) {
+      setStatus(t('referral.invalid', 'This referral code is not valid.'), 'error');
       updateSubmitState();
       return;
     }
@@ -2650,6 +2727,9 @@ function initElements() {
   els.couponApplyButton = byId('transportApplyCoupon');
   els.couponClearButton = byId('transportClearCoupon');
   els.couponStatus = byId('transportCouponStatus');
+  els.referralCodeInput = byId('transportReferralCode');
+  els.referralStatus = byId('transportReferralStatus');
+  els.referralBadge = byId('transportReferralBadge');
 }
 
 function exposeTransportBookingApi() {
@@ -2676,6 +2756,7 @@ async function initTransportBookingPage() {
   initElements();
   exposeTransportBookingApi();
   if (!els.form) return;
+  ensureTransportReferralUi();
 
   if (!state.languageListenerBound) {
     document.addEventListener('wakacjecypr:languagechange', () => {

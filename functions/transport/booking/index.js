@@ -49,6 +49,11 @@ function normalizeEmail(value) {
   return text ? text.toLowerCase() : null;
 }
 
+function normalizeReferralSource(value) {
+  const normalized = asTrimmedString(value, 24).toLowerCase();
+  return ['manual', 'url', 'stored'].includes(normalized) ? normalized : null;
+}
+
 function nonNegativeInt(value, fallback = 0, minValue = 0) {
   const num = Number(value);
   if (!Number.isFinite(num)) return Math.max(minValue, Math.trunc(fallback));
@@ -161,6 +166,9 @@ function buildInsertPayload(body = {}) {
     coupon_partner_commission_bps: body.coupon_partner_commission_bps == null
       ? null
       : nonNegativeInt(body.coupon_partner_commission_bps, 0, 0),
+    referral_code: nullableText(body.referral_code, 64),
+    referral_source: normalizeReferralSource(body.referral_source),
+    referral_captured_at: nullableText(body.referral_captured_at, 64),
     return_route_id: nullableUuid(body.return_route_id),
     return_origin_location_id: nullableUuid(body.return_origin_location_id),
     return_destination_location_id: nullableUuid(body.return_destination_location_id),

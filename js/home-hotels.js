@@ -9,6 +9,8 @@ let homeCurrentHotel = null;
 let homeHotelIndex = null;
 let homeHotelsSavedOnly = false;
 let homeHotelCouponState = { applied: null };
+let homeHotelReferralController = null;
+let homeHotelReferralUiPromise = null;
 
 const CE_DEBUG_HOME_HOTELS = typeof localStorage !== 'undefined' && localStorage.getItem('CE_DEBUG') === 'true';
 function ceLog(...args) {
@@ -27,6 +29,13 @@ function dispatchHomeHotelsDataRefreshed() {
 
 function getHomeHotelPricingEngine() {
   return window.CE_HOTEL_PRICING || null;
+}
+
+function getHomeHotelReferralUiModule() {
+  if (!homeHotelReferralUiPromise) {
+    homeHotelReferralUiPromise = import('/js/referral-ui.js');
+  }
+  return homeHotelReferralUiPromise;
 }
 
 function getHotelCardMediaDisplayUrl(url) {
@@ -656,7 +665,15 @@ function initHomeHotels() {
           throw new Error(hotelsT('hotels.booking.coupon.applyBeforeSubmit', 'Zastosuj poprawny kupon lub wyczyść pole kuponu przed rezerwacją.'));
         }
       }
+      const referralController = await ensureHomeHotelReferralUi();
+      if (referralController) {
+        const ready = await referralController.ensureReadyForSubmit();
+        if (!ready) {
+          throw new Error(hotelsT('referral.invalid', 'Ten kod polecający jest nieprawidłowy.'));
+        }
+      }
       const coupon = getHomeHotelCouponContext(baseTotal);
+      const referralPayload = referralController?.getPayload ? referralController.getPayload() : null;
       
       const payload = {
         hotel_id: homeCurrentHotel.id,
@@ -680,6 +697,9 @@ function initHomeHotels() {
         coupon_discount_amount: coupon.hasApplied ? Number(coupon.discount || 0) : 0,
         coupon_partner_id: coupon.hasApplied ? (homeHotelCouponState.applied?.partnerId || null) : null,
         coupon_partner_commission_bps: coupon.hasApplied ? (homeHotelCouponState.applied?.partnerCommissionBpsOverride ?? null) : null,
+        referral_code: referralPayload?.referral_code || null,
+        referral_source: referralPayload?.referral_source || null,
+        referral_captured_at: referralPayload?.referral_captured_at || null,
         status: 'pending',
       };
       if (homeHotelBookingUi?.buildBookingSnapshot) {
@@ -1170,6 +1190,64 @@ function ensureHomeHotelCouponUi() {
   syncHomeHotelCouponButtons();
 }
 
+async function ensureHomeHotelReferralUi() {
+  const form = document.getElementById('hotelBookingForm');
+  if (!form) return null;
+  let box = form.querySelector('[data-home-hotel-referral-ui]');
+  if (!(box instanceof HTMLElement)) {
+    const couponBox = form.querySelector('[data-home-hotel-coupon-ui]');
+    box = document.createElement('div');
+    box.className = 'form-field referral-field referral-field--booking';
+    box.setAttribute('data-home-hotel-referral-ui', '1');
+    box.innerHTML = `
+      <label for="hotelBookingReferralCode">${hotelsT('referral.label', 'Kod polecający')}</label>
+      <div class="referral-field__input-row">
+        <input type="text" id="hotelBookingReferralCode" maxlength="64" autocomplete="off" placeholder="${hotelsT('referral.placeholder', 'Wpisz kod polecający')}" />
+        <span class="referral-field__badge" id="hotelBookingReferralBadge" hidden></span>
+      </div>
+      <p id="hotelBookingReferralStatus" class="referral-field__status" hidden></p>
+    `;
+    if (couponBox instanceof HTMLElement) {
+      couponBox.insertAdjacentElement('afterend', box);
+    } else {
+      form.appendChild(box);
+    }
+  }
+
+  const input = box.querySelector('#hotelBookingReferralCode');
+  const status = box.querySelector('#hotelBookingReferralStatus');
+  const badge = box.querySelector('#hotelBookingReferralBadge');
+  if (!(input instanceof HTMLInputElement)) return null;
+  const { createReferralFieldController } = await getHomeHotelReferralUiModule();
+  if (!homeHotelReferralController) {
+    homeHotelReferralController = createReferralFieldController({
+      input,
+      status,
+      badge,
+      messages: {
+        baseHint: hotelsT('referral.bookingHint', 'Opcjonalnie. Kod polecający działa niezależnie od kuponu.'),
+        approved: hotelsT('referral.approved', 'Zatwierdzony'),
+        invalid: hotelsT('referral.invalid', 'Ten kod polecający jest nieprawidłowy.'),
+        checking: hotelsT('referral.checking', 'Sprawdzanie kodu polecającego…'),
+        fromUrl: hotelsT('referral.fromLink', 'Kod został uzupełniony z linku polecającego.'),
+        fromStorage: hotelsT('referral.fromStorage', 'Używamy zapisanego kodu polecającego.'),
+        fromManual: hotelsT('referral.fromManual', 'Kod polecający został zatwierdzony.'),
+      },
+    });
+  } else {
+    homeHotelReferralController.updateMessages({
+      baseHint: hotelsT('referral.bookingHint', 'Opcjonalnie. Kod polecający działa niezależnie od kuponu.'),
+      approved: hotelsT('referral.approved', 'Zatwierdzony'),
+      invalid: hotelsT('referral.invalid', 'Ten kod polecający jest nieprawidłowy.'),
+      checking: hotelsT('referral.checking', 'Sprawdzanie kodu polecającego…'),
+      fromUrl: hotelsT('referral.fromLink', 'Kod został uzupełniony z linku polecającego.'),
+      fromStorage: hotelsT('referral.fromStorage', 'Używamy zapisanego kodu polecającego.'),
+      fromManual: hotelsT('referral.fromManual', 'Kod polecający został zatwierdzony.'),
+    });
+  }
+  return homeHotelReferralController;
+}
+
 async function applyHomeHotelCoupon() {
   if (!homeCurrentHotel) return false;
   const code = normalizeHomeHotelCouponCode(document.getElementById('hotelBookingCouponCode')?.value || '');
@@ -1375,6 +1453,7 @@ function openHotelModalRecordInternal(hotelRecord, options = {}) {
   const form = document.getElementById('hotelBookingForm');
   if (form){ form.reset(); const msg=document.getElementById('hotelBookingMessage'); if(msg) msg.style.display='none'; }
   ensureHomeHotelCouponUi();
+  void ensureHomeHotelReferralUi().then((controller) => controller?.bootstrapInitialValue());
   clearHomeHotelCouponState({ clearInput: true });
   renderHomeHotelBookingUiSections({ selectedExtraIds: [] });
   

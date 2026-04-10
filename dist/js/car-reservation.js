@@ -2,6 +2,7 @@
 import { supabase } from './supabaseClient.js';
 import { showToast } from './toast.js';
 import { calculateCarRentalQuote, normalizeLocationForOffer } from './car-pricing.js';
+import { createReferralFieldController } from './referral-ui.js';
 
 let reservationData = {};
 const COUPON_RPC_NAME = 'car_coupon_quote';
@@ -12,6 +13,7 @@ const couponState = {
   requestSeq: 0,
   revalidateTimer: null,
 };
+let referralController = null;
 
 function currentLang() {
   const lang = (typeof window.getCurrentLanguage === 'function'
@@ -76,6 +78,10 @@ function tr(key, fallback = '', replacements = {}) {
   }
 
   return interpolateText(text, replacements);
+}
+
+function referralMessage(key, fallback = '', replacements = {}) {
+  return tr(`referral.${key}`, fallback, replacements);
 }
 
 function couponMessage(key, fallback = '', replacements = {}) {
@@ -683,6 +689,7 @@ export function initReservationForm() {
 
   clearCouponApplication({ silent: true });
   syncCouponButtons();
+  ensureReservationReferralField();
 
   // Form submission
   form.addEventListener('submit', handleReservationSubmit);
@@ -705,6 +712,65 @@ export function initReservationForm() {
   try {
     calculateEstimatedPrice();
   } catch (_) {}
+}
+
+function ensureReservationReferralField() {
+  const form = document.getElementById('localReservationForm');
+  if (!form) return;
+
+  let panel = form.querySelector('[data-car-referral-ui]');
+  if (!(panel instanceof HTMLElement)) {
+    const couponPanel = document.querySelector('.auto-coupon-panel');
+    panel = document.createElement('div');
+    panel.className = 'auto-coupon-panel referral-field referral-field--booking';
+    panel.setAttribute('data-car-referral-ui', '1');
+    panel.innerHTML = `
+      <label for="res_referral_code">${referralMessage('label', 'Referral code')}</label>
+      <div class="auto-coupon-row referral-field__input-row">
+        <input id="res_referral_code" name="referral_code" type="text" maxlength="64" autocomplete="off" placeholder="${referralMessage('placeholder', 'Enter referral code')}" />
+        <span id="carReferralBadge" class="referral-field__badge" hidden></span>
+      </div>
+      <p id="carReferralStatus" class="auto-coupon-status referral-field__status" hidden></p>
+    `;
+    if (couponPanel instanceof HTMLElement) {
+      couponPanel.insertAdjacentElement('afterend', panel);
+    } else {
+      form.appendChild(panel);
+    }
+  }
+
+  const input = panel.querySelector('#res_referral_code');
+  const status = panel.querySelector('#carReferralStatus');
+  const badge = panel.querySelector('#carReferralBadge');
+  if (!(input instanceof HTMLInputElement)) return;
+
+  if (!referralController) {
+    referralController = createReferralFieldController({
+      input,
+      status,
+      badge,
+      supabase,
+      messages: {
+        baseHint: referralMessage('bookingHint', 'Optional. Referral code is separate from coupon discounts.'),
+        approved: referralMessage('approved', 'Approved'),
+        invalid: referralMessage('invalid', 'This referral code is not valid.'),
+        checking: referralMessage('checking', 'Checking referral code…'),
+        fromUrl: referralMessage('fromLink', 'Filled automatically from the referral link.'),
+        fromStorage: referralMessage('fromStorage', 'Using the referral code saved in your browser.'),
+        fromManual: referralMessage('fromManual', 'Referral code approved.'),
+      },
+    });
+  } else {
+    referralController.updateMessages({
+      baseHint: referralMessage('bookingHint', 'Optional. Referral code is separate from coupon discounts.'),
+      approved: referralMessage('approved', 'Approved'),
+      invalid: referralMessage('invalid', 'This referral code is not valid.'),
+      checking: referralMessage('checking', 'Checking referral code…'),
+      fromUrl: referralMessage('fromLink', 'Filled automatically from the referral link.'),
+      fromStorage: referralMessage('fromStorage', 'Using the referral code saved in your browser.'),
+      fromManual: referralMessage('fromManual', 'Referral code approved.'),
+    });
+  }
 }
 
 // Populate form from calculator
@@ -1144,6 +1210,14 @@ async function handleReservationSubmit(event) {
     }
 
     const quoteWithCoupon = computedQuote ? buildQuoteWithCoupon(computedQuote) : null;
+    ensureReservationReferralField();
+    if (referralController) {
+      const referralReady = await referralController.ensureReadyForSubmit();
+      if (!referralReady) {
+        throw new Error(referralMessage('invalid', 'This referral code is not valid.'));
+      }
+    }
+    const referralPayload = referralController?.getPayload?.() || {};
 
     const rawPickupLocation = String(formData.get('pickup_location') || '').trim();
     const rawReturnLocation = String(formData.get('return_location') || '').trim();
@@ -1170,7 +1244,10 @@ async function handleReservationSubmit(event) {
       // Metadata
       location: pageLocation,
       status: 'pending',
-      source: pageLocation === 'paphos' ? 'website_autopfo' : 'website_autolca'
+      source: pageLocation === 'paphos' ? 'website_autopfo' : 'website_autolca',
+      referral_code: referralPayload.referral_code || null,
+      referral_source: referralPayload.referral_source || null,
+      referral_captured_at: referralPayload.referral_captured_at || null,
     };
 
     if (quoteWithCoupon && typeof quoteWithCoupon.final_total === 'number' && quoteWithCoupon.final_total > 0) {

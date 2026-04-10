@@ -305,6 +305,13 @@
     btnPartnerCopyReferralCodeLarge: null,
 
     partnerReferralStatDirect: null,
+    partnerReferralOrdersCard: null,
+    btnPartnerReferralOrdersRefresh: null,
+    partnerReferralOrdersTotal: null,
+    partnerReferralOrdersGross: null,
+    partnerReferralOrdersManual: null,
+    partnerReferralOrdersLink: null,
+    partnerReferralOrdersBody: null,
 
     partnerReferralTreeContainer: null,
     partnerReferralTreeSearch: null,
@@ -768,6 +775,307 @@
       if (els.partnerAffiliateEarningsBody) {
         setHtml(els.partnerAffiliateEarningsBody, '<tr><td colspan="5" class="muted" style="padding: 16px 8px;">Failed to load earnings.</td></tr>');
       }
+    }
+  }
+
+  function normalizeReferralAttributionSource(value) {
+    const source = String(value || '').trim().toLowerCase();
+    if (source === 'manual') return 'manual';
+    if (source === 'url' || source === 'stored') return source;
+    return 'unknown';
+  }
+
+  function referralAttributionSourceLabel(source) {
+    const normalized = normalizeReferralAttributionSource(source);
+    if (normalized === 'manual') return 'Manual';
+    if (normalized === 'url') return 'Link';
+    if (normalized === 'stored') return 'Saved';
+    return 'Unknown';
+  }
+
+  function cleanPartnerTransportLabel(value) {
+    const text = String(value || '').trim();
+    if (!text || text === '—' || /^unknown location$/i.test(text)) return '';
+    return text;
+  }
+
+  function joinPartnerTransportRoute(originLabel, destinationLabel) {
+    const origin = cleanPartnerTransportLabel(originLabel);
+    const destination = cleanPartnerTransportLabel(destinationLabel);
+    if (!origin && !destination) return '';
+    if (origin && destination) return `${origin} → ${destination}`;
+    return `${origin || 'Origin'} → ${destination || 'Destination'}`;
+  }
+
+  async function loadReferralAttributedOrdersViaRpc(limit = 40) {
+    if (!state.sb || !state.selectedPartnerId) return [];
+    const { data, error } = await withRateLimitRetry(() => state.sb.rpc('partner_get_referral_attributed_orders', {
+      p_partner_id: state.selectedPartnerId,
+      p_limit: limit,
+    }));
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  }
+
+  async function loadReferralAttributedOrdersDirect(limit = 40) {
+    if (!state.sb || !state.selectedPartnerId) return [];
+
+    const loadTable = async (serviceType, tableName, select) => {
+      try {
+        const { data, error } = await withRateLimitRetry(() => state.sb
+          .from(tableName)
+          .select(select)
+          .eq('referral_partner_id', state.selectedPartnerId)
+          .order('created_at', { ascending: false })
+          .limit(limit));
+        if (error) throw error;
+        return (Array.isArray(data) ? data : []).map((row) => ({
+          ...row,
+          service_type: serviceType,
+        }));
+      } catch (_error) {
+        return [];
+      }
+    };
+
+    const [hotelRows, tripRows, carRows, transportRows] = await Promise.all([
+      loadTable('hotels', 'hotel_bookings', 'id,created_at,hotel_id,hotel_slug,arrival_date,departure_date,customer_name,total_price,status,referral_code,referral_source,referral_captured_at'),
+      loadTable('trips', 'trip_bookings', 'id,created_at,trip_id,trip_slug,trip_date,arrival_date,departure_date,customer_name,total_price,status,referral_code,referral_source,referral_captured_at'),
+      loadTable('cars', 'car_bookings', 'id,created_at,offer_id,location,pickup_date,return_date,customer_name,total_price,status,referral_code,referral_source,referral_captured_at'),
+      loadTable('transport', 'transport_bookings', 'id,created_at,route_id,travel_date,travel_time,customer_name,total_price,status,payment_status,currency,referral_code,referral_source,referral_captured_at'),
+    ]);
+
+    return [...hotelRows, ...tripRows, ...carRows, ...transportRows]
+      .sort((a, b) => {
+        const aTs = new Date(a?.created_at || 0).getTime() || 0;
+        const bTs = new Date(b?.created_at || 0).getTime() || 0;
+        return bTs - aTs;
+      })
+      .slice(0, limit);
+  }
+
+  async function enrichReferralAttributedOrders(rows) {
+    const items = Array.isArray(rows) ? rows.map((row) => ({ ...row })) : [];
+    if (!items.length || !state.sb) return items;
+
+    const hotelIds = Array.from(new Set(items
+      .filter((row) => normalizeServiceResourceType(row?.service_type) === 'hotels' && (row?.hotel_id || row?.service_id))
+      .map((row) => String(row.hotel_id || row.service_id))));
+    const tripIds = Array.from(new Set(items
+      .filter((row) => normalizeServiceResourceType(row?.service_type) === 'trips' && (row?.trip_id || row?.service_id))
+      .map((row) => String(row.trip_id || row.service_id))));
+    const carIds = Array.from(new Set(items
+      .filter((row) => normalizeServiceResourceType(row?.service_type) === 'cars' && (row?.offer_id || row?.service_id))
+      .map((row) => String(row.offer_id || row.service_id))));
+    const routeIds = Array.from(new Set(items
+      .filter((row) => normalizeServiceResourceType(row?.service_type) === 'transport' && (row?.route_id || row?.service_id))
+      .map((row) => String(row.route_id || row.service_id))));
+
+    const hotelById = {};
+    const tripById = {};
+    const carById = {};
+    const routeById = {};
+    const locationById = {};
+
+    if (hotelIds.length) {
+      try {
+        const { data, error } = await state.sb
+          .from('hotels')
+          .select('id,slug,title,city')
+          .in('id', hotelIds)
+          .limit(Math.min(500, hotelIds.length));
+        if (error) throw error;
+        (data || []).forEach((row) => {
+          if (row?.id) hotelById[String(row.id)] = row;
+        });
+      } catch (_e) {}
+    }
+
+    if (tripIds.length) {
+      try {
+        const { data, error } = await state.sb
+          .from('trips')
+          .select('id,slug,title,start_city')
+          .in('id', tripIds)
+          .limit(Math.min(500, tripIds.length));
+        if (error) throw error;
+        (data || []).forEach((row) => {
+          if (row?.id) tripById[String(row.id)] = row;
+        });
+      } catch (_e) {}
+    }
+
+    if (carIds.length) {
+      try {
+        const { data, error } = await state.sb
+          .from('car_offers')
+          .select('id,car_model,car_type,location')
+          .in('id', carIds)
+          .limit(Math.min(500, carIds.length));
+        if (error) throw error;
+        (data || []).forEach((row) => {
+          if (row?.id) carById[String(row.id)] = row;
+        });
+      } catch (_e) {}
+    }
+
+    if (routeIds.length) {
+      try {
+        const { data: routes, error: routesError } = await state.sb
+          .from('transport_routes')
+          .select('id,origin_location_id,destination_location_id')
+          .in('id', routeIds)
+          .limit(Math.min(500, routeIds.length));
+        if (routesError) throw routesError;
+        (routes || []).forEach((row) => {
+          if (row?.id) routeById[String(row.id)] = row;
+        });
+
+        const locationIds = Array.from(new Set(
+          (routes || []).flatMap((row) => [row?.origin_location_id, row?.destination_location_id]).filter(Boolean).map(String)
+        ));
+        if (locationIds.length) {
+          const { data: locations, error: locationsError } = await state.sb
+            .from('transport_locations')
+            .select('id,name,code')
+            .in('id', locationIds)
+            .limit(Math.min(1000, locationIds.length));
+          if (locationsError) throw locationsError;
+          (locations || []).forEach((row) => {
+            if (row?.id) locationById[String(row.id)] = row;
+          });
+        }
+      } catch (_e) {}
+    }
+
+    return items.map((row) => {
+      const type = normalizeServiceResourceType(row?.service_type);
+      const next = { ...row };
+
+      if (type === 'hotels') {
+        const hotel = hotelById[String(row?.hotel_id || row?.service_id || '')] || null;
+        next.service_title = localizedLabelFromValue(hotel?.title, 'en') || row?.hotel_slug || row?.service_slug || 'Hotel booking';
+        next.service_subtitle = String(hotel?.city || '').trim() || String(row?.hotel_slug || row?.service_slug || '').trim();
+        next.service_date = String(row?.service_date || row?.arrival_date || row?.created_at || '').trim();
+      } else if (type === 'trips') {
+        const trip = tripById[String(row?.trip_id || row?.service_id || '')] || null;
+        next.service_title = localizedLabelFromValue(trip?.title, 'en') || row?.trip_slug || row?.service_slug || 'Trip booking';
+        next.service_subtitle = String(trip?.start_city || '').trim() || String(row?.trip_slug || row?.service_slug || '').trim();
+        next.service_date = String(row?.service_date || row?.trip_date || row?.arrival_date || row?.created_at || '').trim();
+      } else if (type === 'cars') {
+        const car = carById[String(row?.offer_id || row?.service_id || '')] || null;
+        const carModel = String(car?.car_model || '').trim();
+        const carType = String(car?.car_type || '').trim();
+        next.service_title = [carModel, carType].filter(Boolean).join(' • ') || 'Car booking';
+        next.service_subtitle = String(car?.location || row?.location || '').trim();
+        next.service_date = String(row?.service_date || row?.pickup_date || row?.created_at || '').trim();
+      } else if (type === 'transport') {
+        const route = routeById[String(row?.route_id || row?.service_id || '')] || null;
+        const origin = cleanPartnerTransportLabel(locationById[String(route?.origin_location_id || '')]?.name)
+          || cleanPartnerTransportLabel(locationById[String(route?.origin_location_id || '')]?.code);
+        const destination = cleanPartnerTransportLabel(locationById[String(route?.destination_location_id || '')]?.name)
+          || cleanPartnerTransportLabel(locationById[String(route?.destination_location_id || '')]?.code);
+        next.service_title = joinPartnerTransportRoute(origin, destination) || 'Transport booking';
+        next.service_subtitle = String(row?.travel_time || '').trim();
+        next.service_date = String(row?.service_date || row?.travel_date || row?.created_at || '').trim();
+      } else {
+        next.service_title = 'Booking';
+        next.service_subtitle = '';
+        next.service_date = String(row?.created_at || '').trim();
+      }
+
+      next.currency = String(row?.currency || 'EUR').trim() || 'EUR';
+      return next;
+    });
+  }
+
+  function renderReferralAttributedOrders(rows) {
+    const items = Array.isArray(rows) ? rows : [];
+
+    if (els.partnerReferralOrdersTotal) {
+      els.partnerReferralOrdersTotal.textContent = String(items.length);
+    }
+
+    const totalGross = items.reduce((sum, row) => sum + (Number(row?.total_amount ?? row?.total_price ?? 0) || 0), 0);
+    if (els.partnerReferralOrdersGross) {
+      els.partnerReferralOrdersGross.textContent = formatMoney(totalGross, items[0]?.currency || 'EUR');
+    }
+
+    const manualCount = items.filter((row) => normalizeReferralAttributionSource(row?.referral_source) === 'manual').length;
+    const linkCount = items.filter((row) => {
+      const source = normalizeReferralAttributionSource(row?.referral_source);
+      return source === 'url' || source === 'stored';
+    }).length;
+
+    if (els.partnerReferralOrdersManual) els.partnerReferralOrdersManual.textContent = String(manualCount);
+    if (els.partnerReferralOrdersLink) els.partnerReferralOrdersLink.textContent = String(linkCount);
+
+    if (!els.partnerReferralOrdersBody) return;
+    if (!items.length) {
+      setHtml(els.partnerReferralOrdersBody, '<tr><td colspan="6" class="partner-referral-orders-empty">No referral-attributed orders yet.</td></tr>');
+      return;
+    }
+
+    const bodyHtml = items.map((row) => {
+      const created = row?.created_at ? formatDateDmy(String(row.created_at)) : '—';
+      const serviceTitle = String(row?.service_title || '').trim() || 'Booking';
+      const serviceSubtitle = String(row?.service_subtitle || '').trim();
+      const typeLabel = categoryLabel(normalizeServiceResourceType(row?.service_type) || 'all');
+      const source = normalizeReferralAttributionSource(row?.referral_source);
+      const sourceBadge = `<span class="partner-referral-orders-source-badge partner-referral-orders-source-badge--${escapeHtml(source)}">${escapeHtml(referralAttributionSourceLabel(source))}</span>`;
+      const statusRaw = String(row?.booking_status || row?.status || 'pending').trim();
+      const paymentStatus = String(row?.payment_status || '').trim();
+      const statusLabel = paymentStatus ? `${statusRaw} / ${paymentStatus}` : statusRaw;
+      const codeLabel = String(row?.referral_code || '—').trim() || '—';
+      const total = formatMoney(Number(row?.total_amount ?? row?.total_price ?? 0) || 0, row?.currency || 'EUR');
+
+      return `
+        <tr>
+          <td>${escapeHtml(created)}</td>
+          <td>
+            <div class="partner-referral-orders-service">
+              <strong>${escapeHtml(serviceTitle)}</strong>
+              <span>${escapeHtml([typeLabel, serviceSubtitle].filter(Boolean).join(' • '))}</span>
+            </div>
+          </td>
+          <td>${sourceBadge}</td>
+          <td>${escapeHtml(statusLabel)}</td>
+          <td>${escapeHtml(codeLabel)}</td>
+          <td style="text-align:right;">${escapeHtml(total)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    setHtml(els.partnerReferralOrdersBody, bodyHtml);
+  }
+
+  async function refreshReferralOrdersPanel() {
+    if (!els.partnerReferralOrdersCard) return;
+    if (!state.sb || !state.user?.id || !state.selectedPartnerId) {
+      els.partnerReferralOrdersCard.hidden = true;
+      return;
+    }
+
+    els.partnerReferralOrdersCard.hidden = false;
+    if (els.partnerReferralOrdersBody) {
+      setHtml(els.partnerReferralOrdersBody, '<tr><td colspan="6" class="partner-referral-orders-empty">Loading…</td></tr>');
+    }
+
+    let rows = [];
+    let rpcFailed = false;
+    try {
+      rows = await loadReferralAttributedOrdersViaRpc(40);
+    } catch (error) {
+      rpcFailed = true;
+      console.warn('Referral attributed orders RPC unavailable, falling back to direct reads.', error);
+      rows = await loadReferralAttributedOrdersDirect(40);
+    }
+
+    const enrichedRows = await enrichReferralAttributedOrders(rows);
+    renderReferralAttributedOrders(enrichedRows);
+
+    if (!enrichedRows.length && rpcFailed && els.partnerReferralOrdersBody) {
+      setHtml(els.partnerReferralOrdersBody, '<tr><td colspan="6" class="partner-referral-orders-empty">No referral-attributed orders yet, or the attribution RPC is not deployed on this database.</td></tr>');
     }
   }
 
@@ -1475,13 +1783,34 @@
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
   }
 
-  function buildReferralLink(username) {
-    const u = String(username || '').trim();
-    if (!u) return '';
+  function normalizeReferralCode(value) {
+    const bootstrap = window.CE_REFERRAL_BOOTSTRAP || null;
+    if (bootstrap?.normalizeCode) return bootstrap.normalizeCode(value);
+    const raw = String(value || '').trim();
+    return /^[A-Za-z0-9_]+$/.test(raw) ? raw : '';
+  }
+
+  function getProfileReferralCode(profile) {
+    const referralCode = normalizeReferralCode(profile?.referral_code || '');
+    if (referralCode) return referralCode;
+    const username = String(profile?.username || '').trim();
+    if (!username || isUuid(username)) return '';
+    return normalizeReferralCode(username);
+  }
+
+  function buildReferralLink(code, targetUrl) {
+    const referralCode = normalizeReferralCode(code);
+    if (!referralCode) return '';
     const baseUrl = (typeof window !== 'undefined' && window.location && window.location.origin)
       ? window.location.origin
       : 'https://cypruseye.com';
-    return `${baseUrl}/?ref=${encodeURIComponent(u)}`;
+    try {
+      const url = new URL(String(targetUrl || `${baseUrl}/`), baseUrl);
+      url.searchParams.set('ref', referralCode);
+      return url.toString();
+    } catch (_error) {
+      return `${baseUrl}/?ref=${encodeURIComponent(referralCode)}`;
+    }
   }
 
   function setProfileMessage(text) {
@@ -1530,7 +1859,7 @@
     try {
       const { data, error } = await withRateLimitRetry(() => state.sb
         .from('profiles')
-        .select('id,email,name,username')
+        .select('id,email,name,username,referral_code')
         .eq('id', state.user.id)
         .maybeSingle());
       if (error) throw error;
@@ -1630,10 +1959,9 @@
       setText(els.partnerReferralCountSummary, '0');
     }
 
-    const username = String(state.profile?.username || '').trim();
-    const canUse = username && !isUuid(username);
-    const link = canUse ? buildReferralLink(username) : 'Set your username to enable referral link';
-    const referralCode = canUse ? username : '';
+    const referralCode = getProfileReferralCode(state.profile || null);
+    const canUse = Boolean(referralCode);
+    const link = canUse ? buildReferralLink(referralCode) : 'Set your referral code to enable referral link';
     if (els.partnerReferralLink) {
       els.partnerReferralLink.value = link;
     }
@@ -2416,6 +2744,12 @@
 
     try {
       await refreshAffiliatePanel();
+    } catch (e) {
+      console.error(e);
+    }
+
+    try {
+      await refreshReferralOrdersPanel();
     } catch (e) {
       console.error(e);
     }
@@ -10509,6 +10843,23 @@
       return;
     }
 
+    if (els.partnerReferralsView && !els.partnerReferralsView.hidden) {
+      await refreshReferralWidget();
+      try {
+        await refreshAffiliatePanel();
+      } catch (_e) {
+      }
+      try {
+        await refreshReferralOrdersPanel();
+      } catch (_e) {
+      }
+      try {
+        await refreshReferralStatsAndTree();
+      } catch (_e) {
+      }
+      return;
+    }
+
     setActiveTab(els.tabBtnCalendar?.classList.contains('is-active') ? 'calendar' : 'fulfillments');
   }
 
@@ -10904,8 +11255,8 @@
 
     const handleCopyReferral = async (value) => {
       const link = String(value || '').trim();
-      if (!link || link.toLowerCase().includes('set your username')) {
-        showToast('Set your username to enable referral link.', 'error');
+      if (!link || link.toLowerCase().includes('set your referral code')) {
+        showToast('Set your referral code to enable referral link.', 'error');
         return;
       }
       try {
@@ -10921,7 +11272,7 @@
     const handleCopyReferralCode = async (value) => {
       const code = String(value || '').trim();
       if (!code) {
-        showToast('Set your username to enable referral code.', 'error');
+        showToast('Set your referral code to enable referral code.', 'error');
         return;
       }
       try {
@@ -10952,6 +11303,15 @@
 
     els.btnPartnerCopyReferralCodeLarge?.addEventListener('click', async () => {
       await handleCopyReferralCode(els.partnerReferralCodeLarge?.value);
+    });
+
+    els.btnPartnerReferralOrdersRefresh?.addEventListener('click', async () => {
+      try {
+        await refreshReferralOrdersPanel();
+      } catch (error) {
+        console.error(error);
+        showToast('Failed to refresh referral-attributed orders', 'error');
+      }
     });
 
     els.partnerReferralTreeSearch?.addEventListener('input', () => {
@@ -11508,6 +11868,13 @@
     els.btnPartnerCopyReferralCodeLarge = $('btnPartnerCopyReferralCodeLarge');
 
     els.partnerReferralStatDirect = $('partnerReferralStatDirect');
+    els.partnerReferralOrdersCard = $('partnerReferralOrdersCard');
+    els.btnPartnerReferralOrdersRefresh = $('btnPartnerReferralOrdersRefresh');
+    els.partnerReferralOrdersTotal = $('partnerReferralOrdersTotal');
+    els.partnerReferralOrdersGross = $('partnerReferralOrdersGross');
+    els.partnerReferralOrdersManual = $('partnerReferralOrdersManual');
+    els.partnerReferralOrdersLink = $('partnerReferralOrdersLink');
+    els.partnerReferralOrdersBody = $('partnerReferralOrdersBody');
 
     els.partnerReferralTreeContainer = $('partnerReferralTreeContainer');
     els.partnerReferralTreeSearch = $('partnerReferralTreeSearch');

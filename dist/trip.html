@@ -382,6 +382,7 @@
   <script type="module">
     import { supabase } from '/js/supabaseClient.js';
     import { quoteServiceCoupon } from '/js/service-coupons.js';
+    import { createReferralFieldController } from '/js/referral-ui.js';
 
     const $ = (s, r = document) => r.querySelector(s);
     function extractTripSlugFromLocation() {
@@ -402,6 +403,7 @@
     let trip = null;
     let tripLoadState = 'loading';
     let tripCouponState = { applied: null };
+    let tripReferralController = null;
     let tripGalleryItems = [];
     let lightboxIndex = 0;
 
@@ -1009,6 +1011,64 @@
       syncTripCouponButtons();
     }
 
+    function ensureTripReferralUi() {
+      const form = $('#bookingForm');
+      if (!form) return;
+
+      let box = form.querySelector('[data-trip-referral-ui]');
+      if (!(box instanceof HTMLElement)) {
+        const couponBox = form.querySelector('[data-trip-coupon-ui]');
+        box = document.createElement('div');
+        box.className = 'form-field offer-span-full referral-field referral-field--booking';
+        box.setAttribute('data-trip-referral-ui', '1');
+        box.innerHTML = `
+          <label for="bookingReferralCode">${tripText('referral.label', 'Kod polecający', 'Referral code')}</label>
+          <div class="referral-field__input-row">
+            <input type="text" id="bookingReferralCode" maxlength="64" autocomplete="off" placeholder="${tripText('referral.placeholder', 'Wpisz kod polecający', 'Enter referral code')}" />
+            <span class="referral-field__badge" id="bookingReferralBadge" hidden></span>
+          </div>
+          <p id="bookingReferralStatus" class="referral-field__status" hidden></p>
+        `;
+        if (couponBox instanceof HTMLElement) {
+          couponBox.insertAdjacentElement('afterend', box);
+        } else {
+          form.appendChild(box);
+        }
+      }
+
+      const input = box.querySelector('#bookingReferralCode');
+      const status = box.querySelector('#bookingReferralStatus');
+      const badge = box.querySelector('#bookingReferralBadge');
+      if (!(input instanceof HTMLInputElement)) return;
+
+      if (!tripReferralController) {
+        tripReferralController = createReferralFieldController({
+          input,
+          status,
+          badge,
+          messages: {
+            baseHint: tripText('referral.bookingHint', 'Opcjonalnie. Kod polecający działa niezależnie od kuponu.', 'Optional. Referral code is separate from coupon discounts.'),
+            approved: tripText('referral.approved', 'Zatwierdzony', 'Approved'),
+            invalid: tripText('referral.invalid', 'Ten kod polecający jest nieprawidłowy.', 'This referral code is not valid.'),
+            checking: tripText('referral.checking', 'Sprawdzanie kodu polecającego…', 'Checking referral code…'),
+            fromUrl: tripText('referral.fromLink', 'Kod został uzupełniony z linku polecającego.', 'Filled automatically from the referral link.'),
+            fromStorage: tripText('referral.fromStorage', 'Używamy zapisanego kodu polecającego.', 'Using the referral code saved in your browser.'),
+            fromManual: tripText('referral.fromManual', 'Kod polecający został zatwierdzony.', 'Referral code approved.'),
+          },
+        });
+      } else {
+        tripReferralController.updateMessages({
+          baseHint: tripText('referral.bookingHint', 'Opcjonalnie. Kod polecający działa niezależnie od kuponu.', 'Optional. Referral code is separate from coupon discounts.'),
+          approved: tripText('referral.approved', 'Zatwierdzony', 'Approved'),
+          invalid: tripText('referral.invalid', 'Ten kod polecający jest nieprawidłowy.', 'This referral code is not valid.'),
+          checking: tripText('referral.checking', 'Sprawdzanie kodu polecającego…', 'Checking referral code…'),
+          fromUrl: tripText('referral.fromLink', 'Kod został uzupełniony z linku polecającego.', 'Filled automatically from the referral link.'),
+          fromStorage: tripText('referral.fromStorage', 'Używamy zapisanego kodu polecającego.', 'Using the referral code saved in your browser.'),
+          fromManual: tripText('referral.fromManual', 'Kod polecający został zatwierdzony.', 'Referral code approved.'),
+        });
+      }
+    }
+
     async function applyTripCoupon() {
       if (!trip) return false;
       const code = String($('#bookingCouponCode')?.value || '').trim().toUpperCase();
@@ -1154,6 +1214,7 @@
       renderTripGallery(entry);
       configureBookingFields();
       ensureTripCouponUi();
+      ensureTripReferralUi();
       updateLivePrice();
     }
 
@@ -1187,6 +1248,13 @@
         }
 
         const coupon = getTripCouponContext(basePrice);
+        if (tripReferralController) {
+          const referralReady = await tripReferralController.ensureReadyForSubmit();
+          if (!referralReady) {
+            throw new Error(tripText('referral.invalid', 'Ten kod polecający jest nieprawidłowy.', 'This referral code is not valid.'));
+          }
+        }
+        const referralPayload = tripReferralController?.getPayload?.() || {};
         const bookingData = {
           trip_id: trip.id,
           trip_slug: trip.slug,
@@ -1209,6 +1277,9 @@
           coupon_discount_amount: coupon.hasApplied ? Number(coupon.discount || 0) : 0,
           coupon_partner_id: coupon.hasApplied ? (tripCouponState.applied?.partnerId || null) : null,
           coupon_partner_commission_bps: coupon.hasApplied ? (tripCouponState.applied?.partnerCommissionBpsOverride ?? null) : null,
+          referral_code: referralPayload.referral_code || null,
+          referral_source: referralPayload.referral_source || null,
+          referral_captured_at: referralPayload.referral_captured_at || null,
           status: 'pending',
         };
 
