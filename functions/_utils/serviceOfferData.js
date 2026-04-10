@@ -18,6 +18,7 @@ const SERVICE_CONFIG = {
     table: 'trips',
     templatePath: '/trip.html',
     queryPath: '/trip.html',
+    compatibilityQueryPaths: ['/trips', '/trips.html'],
     pathPrefix: '/trip/',
     primarySelect: 'id, slug, title, description, meta_description, meta_image_url, cover_image_url, start_city, is_published',
     legacySelect: 'id, slug, title, description, cover_image_url, start_city, is_published',

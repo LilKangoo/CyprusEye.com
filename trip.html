@@ -419,6 +419,17 @@
       return lang || 'pl';
     }
 
+    function buildTripsListingUrl() {
+      const url = new URL('/trips.html', window.location.origin);
+      const language = getTripPageLanguage();
+      if (language === 'pl') {
+        url.searchParams.set('lang', 'pl');
+      } else {
+        url.searchParams.set('lang', 'en');
+      }
+      return url.toString();
+    }
+
     function t(key, fallback, values = {}) {
       let text = fallback;
       try {
@@ -1371,7 +1382,7 @@
     async function loadTrip() {
       if (!slug) {
         tripLoadState = 'missing-slug';
-        renderTripStaticCopy();
+        window.location.replace(buildTripsListingUrl());
         return;
       }
 

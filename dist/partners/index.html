@@ -331,7 +331,7 @@
     }
     .partner-links-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
       gap: 12px;
       align-content: start;
       max-height: min(72vh, 920px);
@@ -344,8 +344,11 @@
       background: rgba(255, 255, 255, 0.025);
       overflow: hidden;
       display: grid;
-      min-height: 100%;
+      grid-template-rows: auto 1fr;
+      min-height: 318px;
+      height: 100%;
       transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+      cursor: pointer;
     }
     .partner-links-card:hover,
     .partner-links-card:focus-within,
@@ -355,13 +358,14 @@
       box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18);
     }
     .partner-links-card__media {
-      aspect-ratio: 16 / 9;
+      aspect-ratio: 16 / 8.8;
       background: linear-gradient(135deg, rgba(15, 23, 42, 0.45), rgba(30, 41, 59, 0.28));
       display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
-      min-height: 112px;
+      min-height: 104px;
+      max-height: 142px;
     }
     .partner-links-card__media img {
       width: 100%;
@@ -386,8 +390,10 @@
     }
     .partner-links-card__body {
       display: grid;
+      grid-template-rows: auto auto auto 1fr auto;
       gap: 8px;
       padding: 12px;
+      min-height: 0;
     }
     .partner-links-card__body h3 {
       margin: 0;
@@ -430,9 +436,6 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .partner-links-action--preview {
-      grid-column: 1 / -1;
-    }
     .partner-links-action--primary {
       border-color: rgba(239, 68, 68, 0.42);
       background: rgba(239, 68, 68, 0.12);
@@ -444,15 +447,14 @@
       font-size: 12px;
       line-height: 1.55;
       display: -webkit-box;
-      -webkit-line-clamp: 2;
+      -webkit-line-clamp: 3;
       -webkit-box-orient: vertical;
       overflow: hidden;
+      min-height: calc(1.55em * 3);
     }
-    .partner-links-card--transport .partner-links-card__media {
-      display: none;
-    }
-    .partner-links-card--transport .partner-links-card__body {
-      padding-top: 14px;
+    .partner-links-card__summary.is-empty {
+      color: transparent;
+      user-select: none;
     }
     .partner-links-card__transport-price {
       font-size: 18px;
@@ -469,30 +471,73 @@
       font-size: 14px;
       background: rgba(15, 23, 42, 0.12);
     }
+    #partnerLinksPreviewModal {
+      z-index: 4500;
+      padding-top: calc(72px + env(safe-area-inset-top));
+      padding-right: max(12px, env(safe-area-inset-right));
+      padding-bottom: max(12px, env(safe-area-inset-bottom));
+      padding-left: max(12px, env(safe-area-inset-left));
+    }
+    #partnerLinksPreviewModal .admin-modal-overlay {
+      z-index: 0;
+    }
     .partner-links-modal-content {
-      width: min(920px, calc(100vw - 32px));
-      max-width: min(920px, calc(100vw - 32px)) !important;
-      max-height: calc(100dvh - 32px);
+      position: relative;
+      z-index: 1;
+      width: min(860px, calc(100vw - 32px));
+      max-width: min(860px, calc(100vw - 32px)) !important;
+      max-height: min(calc(100dvh - 96px - env(safe-area-inset-top)), 760px);
       margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .partner-links-modal-content .admin-modal-header {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: #121b2f;
+    }
+    .partner-links-modal-content .admin-modal-close {
+      z-index: 3;
+      top: max(10px, env(safe-area-inset-top));
+      right: max(10px, env(safe-area-inset-right));
     }
     .partner-links-modal-body {
       display: grid;
       gap: 16px;
-      max-height: calc(100dvh - 160px);
       overflow: auto;
     }
     .partner-links-preview {
       display: grid;
       gap: 14px;
     }
+    .partner-links-preview__intro {
+      display: grid;
+      grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
+      gap: 14px;
+      align-items: start;
+    }
+    .partner-links-preview__intro.is-no-image {
+      grid-template-columns: 1fr;
+    }
     .partner-links-preview__image {
       width: 100%;
       aspect-ratio: 16 / 9;
-      max-height: 240px;
+      max-height: 180px;
       object-fit: cover;
       border-radius: 14px;
       border: 1px solid rgba(148, 163, 184, 0.2);
       background: rgba(15, 23, 42, 0.22);
+    }
+    .partner-links-preview__summary {
+      display: grid;
+      gap: 12px;
+      min-height: 0;
+    }
+    .partner-links-preview__description-wrap {
+      max-height: 168px;
+      overflow: auto;
+      padding-right: 4px;
     }
     .partner-links-preview__meta {
       color: var(--admin-text-muted);
@@ -2663,13 +2708,55 @@
         flex: 1 1 0;
         justify-content: center;
       }
+      .partner-links-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        max-height: none;
+      }
+      .partner-links-card {
+        min-height: 268px;
+      }
+      .partner-links-card__media {
+        aspect-ratio: 16 / 7.6;
+        min-height: 88px;
+        max-height: 108px;
+      }
+      .partner-links-card__body h3 {
+        font-size: 15px;
+      }
+      .partner-links-card__summary {
+        -webkit-line-clamp: 2;
+        min-height: calc(1.55em * 2);
+      }
       .partner-links-preview__field-grid {
         grid-template-columns: 1fr;
+      }
+      .partner-links-preview__intro {
+        grid-template-columns: 1fr;
+      }
+      .partner-links-preview__description-wrap {
+        max-height: none;
+      }
+      #partnerLinksPreviewModal {
+        padding-top: calc(84px + env(safe-area-inset-top));
       }
       .partner-links-modal-content {
         width: calc(100vw - 16px);
         max-width: calc(100vw - 16px) !important;
-        max-height: calc(100dvh - 16px);
+        max-height: calc(100dvh - 96px - env(safe-area-inset-top));
+      }
+    }
+
+    @media (max-width: 520px) {
+      .partner-links-grid {
+        grid-template-columns: 1fr;
+      }
+      .partner-links-card {
+        min-height: 252px;
+      }
+      .partner-links-card__media {
+        aspect-ratio: 16 / 7;
+        min-height: 86px;
+        max-height: 100px;
       }
     }
 
@@ -3712,32 +3799,38 @@
         </header>
         <div class="admin-modal-body partner-links-modal-body">
           <div class="partner-links-preview">
-            <img id="partnerLinksPreviewImage" class="partner-links-preview__image" hidden alt="" />
-            <p id="partnerLinksPreviewDescription" class="partner-links-preview__description">—</p>
-            <div id="partnerLinksPreviewTransportBox" class="partner-links-preview__transport" hidden>
-              <div id="partnerLinksPreviewTransportPrice" class="partner-links-preview__transport-price">—</div>
-              <div id="partnerLinksPreviewTransportNote" class="partner-links-preview__transport-note">—</div>
+            <div id="partnerLinksPreviewIntro" class="partner-links-preview__intro">
+              <img id="partnerLinksPreviewImage" class="partner-links-preview__image" hidden alt="" />
+              <div class="partner-links-preview__summary">
+                <div class="partner-links-preview__description-wrap">
+                  <p id="partnerLinksPreviewDescription" class="partner-links-preview__description">—</p>
+                </div>
+                <div id="partnerLinksPreviewTransportBox" class="partner-links-preview__transport" hidden>
+                  <div id="partnerLinksPreviewTransportPrice" class="partner-links-preview__transport-price">—</div>
+                  <div id="partnerLinksPreviewTransportNote" class="partner-links-preview__transport-note">—</div>
+                </div>
+              </div>
             </div>
             <div class="partner-links-preview__block">
               <div class="partner-links-section-head" style="margin: 0;">
                 <div>
-                  <h2 style="font-size: 15px;">Category landing</h2>
-                  <p>Share the main public page for this category with your referral code attached.</p>
+                  <h2 style="font-size: 15px;">Category page</h2>
+                  <p>Optional fallback links to the main public landing page for this category.</p>
                 </div>
               </div>
               <div class="partner-links-preview__field-grid">
                 <div class="partner-links-preview__field">
-                  <label for="partnerLinksPreviewLandingLinkPl">Landing PL</label>
+                  <label for="partnerLinksPreviewLandingLinkPl">Category page PL</label>
                   <input id="partnerLinksPreviewLandingLinkPl" type="text" readonly value="" aria-label="Landing PL referral link preview" />
                   <div class="partner-links-preview__field-actions">
-                    <button id="btnPartnerLinksCopyLandingPl" class="btn-sm primary" type="button">Copy PL link</button>
+                    <button id="btnPartnerLinksCopyLandingPl" class="btn-sm primary" type="button">Copy category page PL</button>
                   </div>
                 </div>
                 <div class="partner-links-preview__field">
-                  <label for="partnerLinksPreviewLandingLinkEn">Landing EN</label>
+                  <label for="partnerLinksPreviewLandingLinkEn">Category page EN</label>
                   <input id="partnerLinksPreviewLandingLinkEn" type="text" readonly value="" aria-label="Landing EN referral link preview" />
                   <div class="partner-links-preview__field-actions">
-                    <button id="btnPartnerLinksCopyLandingEn" class="btn-sm primary" type="button">Copy EN link</button>
+                    <button id="btnPartnerLinksCopyLandingEn" class="btn-sm primary" type="button">Copy category page EN</button>
                   </div>
                 </div>
               </div>
@@ -3767,7 +3860,7 @@
               </div>
             </div>
             <div class="partner-links-preview__actions">
-              <button id="btnPartnerLinksOpenLanding" class="btn-sm" type="button">Open landing</button>
+              <button id="btnPartnerLinksOpenLanding" class="btn-sm" type="button">Open category page</button>
               <button id="btnPartnerLinksOpenOffer" class="btn-sm" type="button">Open offer</button>
             </div>
           </div>

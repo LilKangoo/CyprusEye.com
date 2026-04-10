@@ -212,6 +212,7 @@
     partnerLinksPreviewModal: null,
     partnerLinksPreviewModalOverlay: null,
     btnClosePartnerLinksPreview: null,
+    partnerLinksPreviewIntro: null,
     partnerLinksPreviewImage: null,
     partnerLinksPreviewCategory: null,
     partnerLinksPreviewTitle: null,
@@ -3339,29 +3340,32 @@
     els.partnerLinksGrid.innerHTML = filtered.map((item) => {
       const title = getPartnerLinksLocalizedText(item, 'title', uiLanguage, 'title') || item.title;
       const description = getPartnerLinksLocalizedText(item, 'description', uiLanguage, 'description') || '';
-      const landingPl = buildPartnerLinksReferralUrl(item, { lang: 'pl', kind: 'landing' });
-      const landingEn = buildPartnerLinksReferralUrl(item, { lang: 'en', kind: 'landing' });
+      const summaryText = description || (item.type === 'transport' ? (item.transportNote || '') : '');
       const offerPl = buildPartnerLinksReferralUrl(item, { lang: 'pl', kind: 'detail' });
+      const offerEn = buildPartnerLinksReferralUrl(item, { lang: 'en', kind: 'detail' });
       const imageHtml = item.imageUrl
         ? `<img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(title || item.title)}" loading="lazy" />`
         : (item.type === 'transport' && item.transportFromPrice
           ? `<div class="partner-links-card__placeholder"><span class="partner-links-card__transport-price">${escapeHtml(`from ${item.transportFromPrice}`)}</span><small>Transport route</small></div>`
           : `<div class="partner-links-card__placeholder">${escapeHtml(partnerLinksTypeLabel(item.type))}</div>`);
-      const englishOfferLink = buildPartnerLinksReferralUrl(item, { lang: 'en', kind: 'detail' });
       return `
-        <article class="partner-links-card partner-links-card--${escapeHtml(item.type)} ${item.key === state.linksDiscounts.selectedKey ? 'is-active' : ''}" data-partner-link-card="${escapeHtml(item.key)}">
+        <article
+          class="partner-links-card partner-links-card--${escapeHtml(item.type)} ${item.key === state.linksDiscounts.selectedKey ? 'is-active' : ''}"
+          data-partner-link-card="${escapeHtml(item.key)}"
+          data-partner-link-preview="${escapeHtml(item.key)}"
+          role="button"
+          tabindex="0"
+          aria-label="${escapeHtml(`Preview ${title}`)}"
+        >
           <div class="partner-links-card__media">${imageHtml}</div>
           <div class="partner-links-card__body">
             <span class="partner-links-card__category">${escapeHtml(partnerLinksTypeLabel(item.type))}</span>
             <h3>${escapeHtml(title)}</h3>
             <p class="partner-links-card__meta">${escapeHtml(item.meta || '—')}</p>
-            ${description ? `<p class="partner-links-card__summary">${escapeHtml(description)}</p>` : ''}
+            <p class="partner-links-card__summary ${summaryText ? '' : 'is-empty'}">${summaryText ? escapeHtml(summaryText) : '&nbsp;'}</p>
             <div class="partner-links-card__actions">
-              <button type="button" class="btn-sm partner-links-action partner-links-action--preview" data-partner-link-preview="${escapeHtml(item.key)}">Preview</button>
-              <button type="button" class="btn-sm partner-links-action" data-partner-link-copy-url="${escapeHtml(landingPl)}">Copy PL landing</button>
-              <button type="button" class="btn-sm partner-links-action" data-partner-link-copy-url="${escapeHtml(landingEn)}">Copy EN landing</button>
-              <button type="button" class="btn-sm partner-links-action" data-partner-link-copy-url="${escapeHtml(offerPl)}">Copy PL offer</button>
-              <button type="button" class="btn-sm partner-links-action partner-links-action--primary" data-partner-link-copy-url="${escapeHtml(englishOfferLink)}">Copy EN offer</button>
+              <button type="button" class="btn-sm partner-links-action" data-partner-link-copy-url="${escapeHtml(offerPl)}" data-partner-link-stop="1">Copy PL 🇵🇱</button>
+              <button type="button" class="btn-sm partner-links-action partner-links-action--primary" data-partner-link-copy-url="${escapeHtml(offerEn)}" data-partner-link-stop="1">Copy EN 🇬🇧</button>
             </div>
           </div>
         </article>
@@ -3428,6 +3432,9 @@
         els.partnerLinksPreviewImage.removeAttribute('src');
         els.partnerLinksPreviewImage.alt = '';
       }
+    }
+    if (els.partnerLinksPreviewIntro instanceof HTMLElement) {
+      els.partnerLinksPreviewIntro.classList.toggle('is-no-image', !(item.imageUrl && item.type !== 'transport'));
     }
 
     const setInputValue = (input, value) => {
@@ -12249,9 +12256,9 @@
         return;
       }
 
-      const previewButton = target?.closest('[data-partner-link-preview]');
-      if (previewButton instanceof HTMLElement) {
-        const key = String(previewButton.getAttribute('data-partner-link-preview') || '').trim();
+      const previewTarget = target?.closest('[data-partner-link-preview]');
+      if (previewTarget instanceof HTMLElement) {
+        const key = String(previewTarget.getAttribute('data-partner-link-preview') || '').trim();
         renderPartnerLinksGrid();
         openPartnerLinksPreview(key);
         return;
@@ -12261,6 +12268,18 @@
       if (card instanceof HTMLElement) {
         state.linksDiscounts.selectedKey = String(card.getAttribute('data-partner-link-card') || '').trim();
       }
+    });
+    els.partnerLinksGrid?.addEventListener('keydown', (event) => {
+      const stopTarget = event.target instanceof Element ? event.target.closest('[data-partner-link-stop="1"]') : null;
+      if (stopTarget) return;
+      const target = event.target instanceof Element ? event.target.closest('[data-partner-link-card]') : null;
+      if (!(target instanceof HTMLElement)) return;
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      const key = String(target.getAttribute('data-partner-link-card') || '').trim();
+      if (!key) return;
+      renderPartnerLinksGrid();
+      openPartnerLinksPreview(key);
     });
     const bindPartnerLinksCopy = (button, input) => {
       button?.addEventListener('click', () => {
@@ -12944,6 +12963,7 @@
     els.partnerLinksPreviewModal = $('partnerLinksPreviewModal');
     els.partnerLinksPreviewModalOverlay = $('partnerLinksPreviewModalOverlay');
     els.btnClosePartnerLinksPreview = $('btnClosePartnerLinksPreview');
+    els.partnerLinksPreviewIntro = $('partnerLinksPreviewIntro');
     els.partnerLinksPreviewImage = $('partnerLinksPreviewImage');
     els.partnerLinksPreviewCategory = $('partnerLinksPreviewCategory');
     els.partnerLinksPreviewTitle = $('partnerLinksPreviewTitle');
