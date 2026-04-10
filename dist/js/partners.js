@@ -2978,11 +2978,16 @@
     return fallbackValue;
   }
 
-  function getCarLandingPath(locationValue) {
-    const location = String(locationValue || '').trim().toLowerCase();
-    if (location === 'paphos') return '/autopfo.html';
-    if (location === 'larnaca') return '/car-rental.html';
-    return '/car.html';
+  function getPartnerLinksTypeSortOrder(type) {
+    const order = PARTNER_LINKS_FILTERS.findIndex((entry) => entry.key === type);
+    return order >= 0 ? order : 999;
+  }
+
+  function getCarReadableSlug(item) {
+    const raw = getPartnerLinksLocalizedText(item, 'title', 'en', 'title')
+      || getPartnerLinksLocalizedText(item, 'title', 'pl', 'title')
+      || String(item?.title || '').trim();
+    return slugifyText(raw || 'car-offer');
   }
 
   function buildPartnerLinksPageUrl(item, options = {}) {
@@ -3009,8 +3014,11 @@
       return url.toString();
     }
     if (type === 'cars') {
-      url.pathname = getCarLandingPath(item?.offerLocation);
-      if (kind === 'detail' && item?.resourceId) url.searchParams.set('offer_id', item.resourceId);
+      url.pathname = '/car.html';
+      if (kind === 'detail' && item?.resourceId) {
+        url.searchParams.set('offer_id', item.resourceId);
+        url.searchParams.set('car', getCarReadableSlug(item));
+      }
       if (kind === 'detail' && item?.offerLocation) url.searchParams.set('offer_location', item.offerLocation);
       url.searchParams.set('lang', language);
       return url.toString();
@@ -3359,7 +3367,17 @@
         >
           <div class="partner-links-card__media">${imageHtml}</div>
           <div class="partner-links-card__body">
-            <span class="partner-links-card__category">${escapeHtml(partnerLinksTypeLabel(item.type))}</span>
+            <div class="partner-links-card__top">
+              <span class="partner-links-card__category">${escapeHtml(partnerLinksTypeLabel(item.type))}</span>
+              <button
+                type="button"
+                class="partner-links-info-btn"
+                data-partner-link-preview="${escapeHtml(item.key)}"
+                data-partner-link-stop="1"
+                aria-label="${escapeHtml(`Preview ${title}`)}"
+                title="Preview"
+              >ℹ️</button>
+            </div>
             <h3>${escapeHtml(title)}</h3>
             <p class="partner-links-card__meta">${escapeHtml(item.meta || '—')}</p>
             <p class="partner-links-card__summary ${summaryText ? '' : 'is-empty'}">${summaryText ? escapeHtml(summaryText) : '&nbsp;'}</p>
@@ -3671,11 +3689,36 @@
     });
 
     return items.sort((left, right) => {
-      const leftType = String(left?.type || '');
-      const rightType = String(right?.type || '');
-      if (leftType !== rightType) return leftType.localeCompare(rightType);
+      const leftType = String(left?.type || '').trim().toLowerCase();
+      const rightType = String(right?.type || '').trim().toLowerCase();
+      const leftOrder = getPartnerLinksTypeSortOrder(leftType);
+      const rightOrder = getPartnerLinksTypeSortOrder(rightType);
+      if (leftOrder !== rightOrder) return leftOrder - rightOrder;
       return String(left?.title || '').localeCompare(String(right?.title || ''), 'en', { sensitivity: 'base' });
     });
+  }
+
+  async function waitForPartnerLinksContextReady(timeoutMs = 2600) {
+    const deadline = Date.now() + Math.max(200, Number(timeoutMs) || 2600);
+    while (Date.now() < deadline) {
+      if (state.selectedPartnerId) return true;
+      const fallbackPartnerId = Object.keys(state.partnersById || {})[0] || null;
+      if (fallbackPartnerId) {
+        state.selectedPartnerId = fallbackPartnerId;
+        renderPartnerSelect();
+        return true;
+      }
+      if (!bootstrapInFlight) break;
+      await new Promise((resolve) => setTimeout(resolve, 120));
+    }
+
+    const finalFallbackPartnerId = Object.keys(state.partnersById || {})[0] || null;
+    if (finalFallbackPartnerId) {
+      state.selectedPartnerId = finalFallbackPartnerId;
+      renderPartnerSelect();
+      return true;
+    }
+    return false;
   }
 
   async function loadPartnerDiscountCodes() {
@@ -3767,11 +3810,7 @@
       return;
     }
     if (!state.selectedPartnerId) {
-      const fallbackPartnerId = Object.keys(state.partnersById || {})[0] || null;
-      if (fallbackPartnerId) {
-        state.selectedPartnerId = fallbackPartnerId;
-        renderPartnerSelect();
-      }
+      await waitForPartnerLinksContextReady();
     }
     if (!state.selectedPartnerId) {
       renderPartnerLinksViewTabs();
@@ -12065,6 +12104,14 @@
       try {
         await loadPartnerPushNotificationSettings();
       } catch (_e) {
+      }
+
+      if (els.partnerLinksDiscountsView && !els.partnerLinksDiscountsView.hidden) {
+        setTimeout(() => {
+          if (els.partnerLinksDiscountsView && !els.partnerLinksDiscountsView.hidden) {
+            void refreshPartnerLinksDiscountsView();
+          }
+        }, 0);
       }
     } finally {
       bootstrapInFlight = false;

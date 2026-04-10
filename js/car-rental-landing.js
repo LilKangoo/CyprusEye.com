@@ -16,6 +16,7 @@ const state = {
     offerLocation: null,
     applied: false,
   },
+  defaultSeo: null,
 };
 
 function byId(id) {
@@ -77,6 +78,100 @@ function currentLang() {
     : (window.appI18n?.language || 'pl'));
   const normalized = String(lang || 'pl').toLowerCase();
   return normalized.startsWith('en') ? 'en' : 'pl';
+}
+
+function slugifyCarLabel(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    || 'car-offer';
+}
+
+function setMetaValue(selector, value) {
+  const element = document.querySelector(selector);
+  if (!element || typeof value !== 'string') return;
+  element.setAttribute('content', value);
+}
+
+function captureDefaultSeo() {
+  if (state.defaultSeo) return state.defaultSeo;
+  state.defaultSeo = {
+    title: String(document.title || '').trim(),
+    description: String(document.querySelector('meta[name="description"]')?.getAttribute('content') || '').trim(),
+    ogTitle: String(document.querySelector('meta[property="og:title"]')?.getAttribute('content') || '').trim(),
+    ogDescription: String(document.querySelector('meta[property="og:description"]')?.getAttribute('content') || '').trim(),
+    ogImage: String(document.querySelector('meta[property="og:image"]')?.getAttribute('content') || '').trim(),
+    canonical: String(document.querySelector('link[rel="canonical"]')?.getAttribute('href') || '').trim(),
+    ogUrl: String(document.querySelector('meta[property="og:url"]')?.getAttribute('content') || '').trim(),
+  };
+  return state.defaultSeo;
+}
+
+function getSelectedCarOfferMeta() {
+  const selectEl = byId('rentalCarSelect') || byId('res_car');
+  if (!(selectEl instanceof HTMLSelectElement)) return null;
+  const selectedOption = selectEl.selectedOptions?.[0] || null;
+  const offerId = String(selectedOption?.dataset?.offerId || '').trim();
+  const title = String(selectEl.value || '').trim();
+  if (!offerId || !title) return null;
+  return {
+    offerId,
+    title,
+  };
+}
+
+function buildCarOfferDeepLink(language = currentLang()) {
+  const meta = getSelectedCarOfferMeta();
+  if (!meta) return '';
+  const url = new URL('/car.html', window.location.origin);
+  url.searchParams.set('offer_id', meta.offerId);
+  url.searchParams.set('car', slugifyCarLabel(meta.title));
+  if (state.effectiveOffer) {
+    url.searchParams.set('offer_location', state.effectiveOffer);
+  }
+  url.searchParams.set('lang', language === 'en' ? 'en' : 'pl');
+  return url.toString();
+}
+
+function updateCarLandingSeo(selectedCarName, cardMetaText, imageUrl) {
+  const defaults = captureDefaultSeo();
+  const canonicalLink = document.querySelector('link[rel="canonical"]');
+  const deepLink = buildCarOfferDeepLink(currentLang());
+  if (!selectedCarName || !deepLink) {
+    if (defaults.title) document.title = defaults.title;
+    if (defaults.description) setMetaValue('meta[name="description"]', defaults.description);
+    if (defaults.ogTitle) setMetaValue('meta[property="og:title"]', defaults.ogTitle);
+    if (defaults.ogDescription) setMetaValue('meta[property="og:description"]', defaults.ogDescription);
+    if (defaults.ogImage) setMetaValue('meta[property="og:image"]', defaults.ogImage);
+    if (defaults.ogUrl) setMetaValue('meta[property="og:url"]', defaults.ogUrl);
+    if (canonicalLink && defaults.canonical) canonicalLink.setAttribute('href', defaults.canonical);
+    return;
+  }
+
+  const english = currentLang() === 'en';
+  const title = english
+    ? `${selectedCarName} – CyprusEye car rental`
+    : `${selectedCarName} – wynajem auta CyprusEye`;
+  const description = String(cardMetaText || '').trim()
+    || (english
+      ? `Book ${selectedCarName} directly in the CyprusEye car rental calculator.`
+      : `Zarezerwuj ${selectedCarName} bezpośrednio w kalkulatorze wynajmu CyprusEye.`);
+
+  document.title = title;
+  setMetaValue('meta[name="description"]', description);
+  setMetaValue('meta[property="og:title"]', title);
+  setMetaValue('meta[property="og:description"]', description);
+  setMetaValue('meta[property="og:url"]', deepLink);
+  if (imageUrl) {
+    setMetaValue('meta[property="og:image"]', imageUrl);
+  } else if (defaults.ogImage) {
+    setMetaValue('meta[property="og:image"]', defaults.ogImage);
+  }
+  if (canonicalLink) canonicalLink.setAttribute('href', deepLink);
 }
 
 function getTranslationEntry(translations, key) {
@@ -504,6 +599,7 @@ function renderSelectedCarHighlight() {
   const selectedCar = String(byId('rentalCarSelect')?.value || byId('res_car')?.value || '').trim();
   if (!selectedCar) {
     panel.hidden = true;
+    updateCarLandingSeo('', '', '');
     return;
   }
 
@@ -552,6 +648,11 @@ function renderSelectedCarHighlight() {
   }
 
   panel.hidden = false;
+  updateCarLandingSeo(
+    selectedCar,
+    cardMeta || '',
+    cardImage?.getAttribute('src') ? String(cardImage.getAttribute('src')) : ''
+  );
 }
 
 function syncReservationForm(widgetState) {
@@ -1029,6 +1130,7 @@ function bindWidgetHandlers() {
 function initLandingController() {
   if (!isLandingPage()) return;
 
+  captureDefaultSeo();
   state.deepLink = readCarDeepLink();
 
   populateWidgetLocations();
