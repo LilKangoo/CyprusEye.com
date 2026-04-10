@@ -14,6 +14,8 @@ const couponState = {
   revalidateTimer: null,
 };
 let referralController = null;
+let lastCalculatorPrefillSignature = '';
+let lastCalculatorPrefillToastAt = 0;
 
 function currentLang() {
   const lang = (typeof window.getCurrentLanguage === 'function'
@@ -788,6 +790,22 @@ function ensureReservationReferralField() {
 // Populate form from calculator
 function populateFromCalculator() {
   let didSetAny = false;
+  const setFieldValue = (id, nextValue) => {
+    const field = document.getElementById(id);
+    if (!field) return;
+    const normalized = String(nextValue || '');
+    if (String(field.value || '') === normalized) return;
+    field.value = normalized;
+    didSetAny = true;
+  };
+  const setFieldChecked = (id, nextChecked) => {
+    const field = document.getElementById(id);
+    if (!field) return;
+    const normalized = !!nextChecked;
+    if (!!field.checked === normalized) return;
+    field.checked = normalized;
+    didSetAny = true;
+  };
   // Autopfo calculator IDs
   const calcCarPfo = document.getElementById('car')?.value;
   const calcPickupDatePfo = document.getElementById('pickup_date')?.value;
@@ -816,56 +834,74 @@ function populateFromCalculator() {
   const calcReturnDate = calcReturnDateLca || calcReturnDatePfo;
   const calcReturnTime = calcReturnTimeLca || calcReturnTimePfo;
 
-  if (calcCar) { document.getElementById('res_car').value = calcCar; didSetAny = true; }
-  if (calcPickupDate) { document.getElementById('res_pickup_date').value = calcPickupDate; didSetAny = true; }
-  if (calcPickupTime) { document.getElementById('res_pickup_time').value = calcPickupTime; didSetAny = true; }
-  if (calcReturnDate) { document.getElementById('res_return_date').value = calcReturnDate; didSetAny = true; }
-  if (calcReturnTime) { document.getElementById('res_return_time').value = calcReturnTime; didSetAny = true; }
+  if (calcCar) setFieldValue('res_car', calcCar);
+  if (calcPickupDate) setFieldValue('res_pickup_date', calcPickupDate);
+  if (calcPickupTime) setFieldValue('res_pickup_time', calcPickupTime);
+  if (calcReturnDate) setFieldValue('res_return_date', calcReturnDate);
+  if (calcReturnTime) setFieldValue('res_return_time', calcReturnTime);
 
   // Map locations
   const pageLocation = getActiveOfferLocation();
+  let normalizedPickupValue = '';
+  let normalizedReturnValue = '';
   if (calcPickupLocLca) {
     const normalizedPickup = normalizeLocationForOffer(calcPickupLocLca, pageLocation);
-    document.getElementById('res_pickup_location').value = normalizedPickup || calcPickupLocLca;
-    didSetAny = true;
+    normalizedPickupValue = normalizedPickup || calcPickupLocLca;
+    setFieldValue('res_pickup_location', normalizedPickupValue);
   } else if (calcAirportPickupPfo) {
     const normalizedPickup = normalizeLocationForOffer('airport_pfo', pageLocation);
-    document.getElementById('res_pickup_location').value = normalizedPickup || 'airport_pfo';
-    didSetAny = true;
+    normalizedPickupValue = normalizedPickup || 'airport_pfo';
+    setFieldValue('res_pickup_location', normalizedPickupValue);
   }
   if (calcReturnLocLca) {
     const normalizedReturn = normalizeLocationForOffer(calcReturnLocLca, pageLocation);
-    document.getElementById('res_return_location').value = normalizedReturn || calcReturnLocLca;
-    didSetAny = true;
+    normalizedReturnValue = normalizedReturn || calcReturnLocLca;
+    setFieldValue('res_return_location', normalizedReturnValue);
   } else if (calcAirportReturnPfo) {
     const normalizedReturn = normalizeLocationForOffer('airport_pfo', pageLocation);
-    document.getElementById('res_return_location').value = normalizedReturn || 'airport_pfo';
-    didSetAny = true;
+    normalizedReturnValue = normalizedReturn || 'airport_pfo';
+    setFieldValue('res_return_location', normalizedReturnValue);
   }
 
   // Insurance
   const insuranceChecked = !!(calcInsuranceLca || calcInsurancePfo);
   if (insuranceChecked) {
-    document.getElementById('res_insurance').checked = true;
-    didSetAny = true;
+    setFieldChecked('res_insurance', true);
   }
   
   // Young driver
   if (calcYoungDriverLca) {
-    const youngDriverField = document.getElementById('res_young_driver');
-    if (youngDriverField) {
-      youngDriverField.checked = true;
-      didSetAny = true;
-    }
+    setFieldChecked('res_young_driver', true);
   }
 
   // Calculate and show estimated price
   if (didSetAny) {
     calculateEstimatedPrice();
-    showToast(
-      tr('carRental.page.reservation.toast.prefilledFromCalculator', 'Dane z kalkulatora zostały przeniesione!'),
-      'success'
-    );
+    const prefillSignature = JSON.stringify({
+      calcCar,
+      calcPickupDate,
+      calcPickupTime,
+      calcReturnDate,
+      calcReturnTime,
+      normalizedPickupValue,
+      normalizedReturnValue,
+      insuranceChecked,
+      youngDriver: !!calcYoungDriverLca,
+    });
+    const now = Date.now();
+    const shouldShowToast =
+      prefillSignature !== lastCalculatorPrefillSignature
+      || now - lastCalculatorPrefillToastAt > 5000;
+    lastCalculatorPrefillSignature = prefillSignature;
+    lastCalculatorPrefillToastAt = now;
+
+    if (shouldShowToast) {
+      showToast(
+        tr('carRental.page.reservation.toast.prefilledFromCalculator', 'Dane z kalkulatora zostały przeniesione!'),
+        'success',
+        4000,
+      );
+    }
   }
 }
 

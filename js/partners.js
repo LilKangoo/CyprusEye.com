@@ -4109,99 +4109,151 @@
     try {
       const partner = state.partnersById[state.selectedPartnerId] || null;
       const partnerVendorId = String(partner?.shop_vendor_id || '').trim();
-      const shopDiscountRequests = [];
+      const partnerUserIds = new Set();
       if (state.user?.id) {
-        shopDiscountRequests.push(
-          withRateLimitRetry(() => state.sb
-            .from('shop_discounts')
-            .select('id, code, description, description_en, description_internal, discount_type, discount_value, is_active, starts_at, expires_at, applies_to, minimum_order_amount, applicable_product_ids, applicable_category_ids, applicable_vendor_ids, user_ids')
-            .contains('user_ids', [state.user.id])
-            .order('created_at', { ascending: false })
-            .limit(80))
-        );
+        partnerUserIds.add(String(state.user.id).trim());
       }
-      if (partnerVendorId) {
-        shopDiscountRequests.push(
-          withRateLimitRetry(() => state.sb
+
+      try {
+        const { data: partnerUsers, error: partnerUsersError } = await withRateLimitRetry(() => state.sb
+          .from('partner_users')
+          .select('user_id')
+          .eq('partner_id', state.selectedPartnerId)
+          .limit(100));
+        if (partnerUsersError) {
+          console.warn('[partners] Failed to load partner user IDs for discount fallback:', partnerUsersError);
+        } else {
+          (Array.isArray(partnerUsers) ? partnerUsers : []).forEach((row) => {
+            const userId = String(row?.user_id || '').trim();
+            if (userId) partnerUserIds.add(userId);
+          });
+        }
+      } catch (partnerUsersError) {
+        console.warn('[partners] Failed to resolve partner members for discount fallback:', partnerUsersError);
+      }
+
+      const shopDiscountSelect = 'id, code, description, description_en, description_internal, discount_type, discount_value, is_active, starts_at, expires_at, applies_to, minimum_order_amount, applicable_product_ids, applicable_category_ids, applicable_vendor_ids, user_ids';
+      const queryTasks = [
+        {
+          kind: 'service',
+          label: 'service_coupons',
+          run: () => withRateLimitRetry(() => state.sb
+            .from('service_coupons')
+            .select('id, service_type, code, name, description, status, is_active, starts_at, expires_at, discount_type, discount_value, currency, rules')
+            .eq('partner_id', state.selectedPartnerId)
+            .order('created_at', { ascending: false })
+            .limit(80)),
+        },
+        {
+          kind: 'car',
+          label: 'car_coupons',
+          run: () => withRateLimitRetry(() => state.sb
+            .from('car_coupons')
+            .select('id, code, name, description, status, is_active, starts_at, expires_at, discount_type, discount_value, currency, applicable_locations, applicable_offer_ids, applicable_car_models, applicable_car_types')
+            .eq('partner_id', state.selectedPartnerId)
+            .order('created_at', { ascending: false })
+            .limit(80)),
+        },
+      ];
+
+      Array.from(partnerUserIds).forEach((userId) => {
+        if (!userId) return;
+        queryTasks.push({
+          kind: 'shop',
+          label: `shop_discounts.user_ids:${userId.slice(0, 8)}`,
+          run: () => withRateLimitRetry(() => state.sb
             .from('shop_discounts')
-            .select('id, code, description, description_en, description_internal, discount_type, discount_value, is_active, starts_at, expires_at, applies_to, minimum_order_amount, applicable_product_ids, applicable_category_ids, applicable_vendor_ids, user_ids')
+            .select(shopDiscountSelect)
+            .contains('user_ids', [userId])
+            .order('created_at', { ascending: false })
+            .limit(80)),
+        });
+      });
+
+      if (partnerVendorId) {
+        queryTasks.push({
+          kind: 'shop',
+          label: `shop_discounts.applicable_vendor_ids:${partnerVendorId.slice(0, 8)}`,
+          run: () => withRateLimitRetry(() => state.sb
+            .from('shop_discounts')
+            .select(shopDiscountSelect)
             .contains('applicable_vendor_ids', [partnerVendorId])
             .order('created_at', { ascending: false })
-            .limit(80))
-        );
+            .limit(80)),
+        });
       }
 
-      const [
-        { data: serviceCoupons, error: serviceError },
-        { data: carCoupons, error: carError },
-        shopDiscountResponses,
-      ] = await Promise.all([
-        withRateLimitRetry(() => state.sb
-          .from('service_coupons')
-          .select('id, service_type, code, name, description, status, is_active, starts_at, expires_at, discount_type, discount_value, currency, rules')
-          .eq('partner_id', state.selectedPartnerId)
-          .order('created_at', { ascending: false })
-          .limit(80)),
-        withRateLimitRetry(() => state.sb
-          .from('car_coupons')
-          .select('id, code, name, description, status, is_active, starts_at, expires_at, discount_type, discount_value, currency, applicable_locations, applicable_offer_ids, applicable_car_models, applicable_car_types')
-          .eq('partner_id', state.selectedPartnerId)
-          .order('created_at', { ascending: false })
-          .limit(80)),
-        Promise.all(shopDiscountRequests),
-      ]);
-      if (serviceError) throw serviceError;
-      if (carError) throw carError;
-      const shopDiscounts = [];
-      shopDiscountResponses.forEach((response) => {
-        if (response?.error) throw response.error;
-        (Array.isArray(response?.data) ? response.data : []).forEach((row) => {
+      const settled = await Promise.allSettled(queryTasks.map((task) => task.run()));
+      const shopDiscountsById = new Map();
+
+      settled.forEach((result, index) => {
+        const task = queryTasks[index];
+        if (result.status !== 'fulfilled') {
+          console.warn(`[partners] Failed to load ${task.label} for Discounts:`, result.reason);
+          return;
+        }
+
+        const response = result.value || {};
+        if (response?.error) {
+          console.warn(`[partners] Failed to load ${task.label} for Discounts:`, response.error);
+          return;
+        }
+
+        const dataRows = Array.isArray(response?.data) ? response.data : [];
+        if (task.kind === 'service') {
+          dataRows.forEach((row) => {
+            const statusMeta = summarizePartnerDiscountStatus(row);
+            const serviceType = String(row?.service_type || '').trim().toLowerCase();
+            rows.push({
+              ...row,
+              type: serviceType,
+              whereWorks: formatPartnerDiscountScope({ ...row, type: serviceType }),
+              scopeLabel: row?.rules && typeof row.rules === 'object'
+                ? (row.rules.scope_mode === 'resource' ? 'Specific offers' : row.rules.scope_mode === 'category' ? 'Selected categories' : 'Service scope')
+                : 'Service scope',
+              statusKey: statusMeta.key,
+              statusLabel: statusMeta.label,
+              validity: formatPartnerDiscountValidity(row),
+            });
+          });
+          return;
+        }
+
+        if (task.kind === 'car') {
+          dataRows.forEach((row) => {
+            const statusMeta = summarizePartnerDiscountStatus(row);
+            rows.push({
+              ...row,
+              type: 'cars',
+              whereWorks: formatPartnerDiscountScope({ ...row, type: 'cars' }),
+              scopeLabel: 'Car coupon',
+              statusKey: statusMeta.key,
+              statusLabel: statusMeta.label,
+              validity: formatPartnerDiscountValidity(row),
+            });
+          });
+          return;
+        }
+
+        dataRows.forEach((row) => {
           if (!row?.id) return;
-          if (shopDiscounts.some((entry) => String(entry.id) === String(row.id))) return;
-          shopDiscounts.push(row);
+          if (shopDiscountsById.has(String(row.id))) return;
+          shopDiscountsById.set(String(row.id), row);
         });
       });
 
-      (Array.isArray(serviceCoupons) ? serviceCoupons : []).forEach((row) => {
+      Array.from(shopDiscountsById.values()).forEach((row) => {
         const statusMeta = summarizePartnerDiscountStatus(row);
-        const serviceType = String(row?.service_type || '').trim().toLowerCase();
-        rows.push({
-          ...row,
-          type: serviceType,
-          whereWorks: formatPartnerDiscountScope({ ...row, type: serviceType }),
-          scopeLabel: row?.rules && typeof row.rules === 'object'
-            ? (row.rules.scope_mode === 'resource' ? 'Specific offers' : row.rules.scope_mode === 'category' ? 'Selected categories' : 'Service scope')
-            : 'Service scope',
-          statusKey: statusMeta.key,
-          statusLabel: statusMeta.label,
-          validity: formatPartnerDiscountValidity(row),
-        });
-      });
-      (Array.isArray(carCoupons) ? carCoupons : []).forEach((row) => {
-        const statusMeta = summarizePartnerDiscountStatus(row);
-        rows.push({
-          ...row,
-          type: 'cars',
-          whereWorks: formatPartnerDiscountScope({ ...row, type: 'cars' }),
-          scopeLabel: 'Car coupon',
-          statusKey: statusMeta.key,
-          statusLabel: statusMeta.label,
-          validity: formatPartnerDiscountValidity(row),
-        });
-      });
-      (Array.isArray(shopDiscounts) ? shopDiscounts : []).forEach((row) => {
-        const statusMeta = summarizePartnerDiscountStatus(row);
-        const appliesTo = String(row?.applies_to || '').trim().toLowerCase();
         rows.push({
           ...row,
           type: 'shop',
           whereWorks: formatPartnerDiscountScope({ ...row, type: 'shop' }),
           description: String(row?.description_en || row?.description || '').trim(),
-          scopeLabel: appliesTo === 'products'
+          scopeLabel: String(row?.applies_to || '').trim().toLowerCase() === 'products'
             ? 'Selected products'
-            : appliesTo === 'categories'
+            : String(row?.applies_to || '').trim().toLowerCase() === 'categories'
               ? 'Selected categories'
-              : appliesTo === 'vendors'
+              : String(row?.applies_to || '').trim().toLowerCase() === 'vendors'
                 ? 'Selected vendors'
                 : 'Shop scope',
           statusKey: statusMeta.key,

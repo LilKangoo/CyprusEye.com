@@ -4,6 +4,9 @@ import { calculateCarRentalQuote } from './car-pricing.js';
 
 let paphosFleet = [];
 let pricing = {};
+const deepLinkSelectionState = {
+  appliedOfferId: '',
+};
 
 function getI18nLanguage() {
   const fromApp = (window.appI18n?.language || '').toLowerCase();
@@ -86,7 +89,11 @@ function getRequestedOfferId() {
   }
 }
 
-function applyDeepLinkedOfferSelection() {
+function applyDeepLinkedOfferSelection({ allowOnLanding = false, notifyLanding = false } = {}) {
+  if (isLandingCarRentalPage() && !allowOnLanding) {
+    return false;
+  }
+
   const offerId = getRequestedOfferId();
   if (!offerId) return false;
 
@@ -95,6 +102,14 @@ function applyDeepLinkedOfferSelection() {
     document.getElementById('rentalCarSelect'),
     document.getElementById('res_car'),
   ].filter(Boolean);
+
+  const alreadySelected = selectCandidates.some((selectEl) => {
+    const selectedOption = selectEl.selectedOptions?.[0] || null;
+    return String(selectedOption?.dataset?.offerId || '').trim() === offerId;
+  });
+  if (alreadySelected && deepLinkSelectionState.appliedOfferId === offerId) {
+    return false;
+  }
 
   let matchedValue = '';
   let applied = false;
@@ -108,10 +123,11 @@ function applyDeepLinkedOfferSelection() {
   });
 
   if (!applied) return false;
+  deepLinkSelectionState.appliedOfferId = offerId;
 
-  if (isLandingCarRentalPage() && typeof window.CE_CAR_ON_CARD_SELECT === 'function') {
+  if (notifyLanding && isLandingCarRentalPage() && typeof window.CE_CAR_ON_CARD_SELECT === 'function') {
     try {
-      window.CE_CAR_ON_CARD_SELECT({ carName: matchedValue, offerId });
+      window.CE_CAR_ON_CARD_SELECT({ carName: matchedValue, offerId, source: 'deep-link' });
     } catch (error) {
       console.warn('Landing deep-link select callback failed:', error);
     }
@@ -197,7 +213,6 @@ window.CE_CAR_LOAD_FLEET = loadPaphosFleet;
 async function loadPaphosFleet() {
   try {
     const pageLocation = getPageLocation();
-    console.log(`Loading ${pageLocation} fleet from database...`);
 
     const requireNorthAllowed = pageLocation === 'larnaca';
 
@@ -234,7 +249,6 @@ async function loadPaphosFleet() {
     }
 
     paphosFleet = cars || [];
-    console.log(`Loaded ${paphosFleet.length} cars from ${pageLocation}`);
 
     // Build pricing object for calculator (tiered for paphos, per-day for larnaca)
     pricing = {};
@@ -274,9 +288,7 @@ function renderFleet() {
     (loc === 'larnaca' ? (document.getElementById('larnacaCarsGrid') || document.getElementById('carRentalGrid')) : null) ||
     document.getElementById('paphosCarsGrid') ||
     document.getElementById('carRentalGrid');
-  
-  console.log('🚗 renderFleet() called - Location:', loc, 'Grid found:', !!grid);
-  
+
   if (!grid) {
     console.error('❌ Could not find fleet grid element for location', loc);
     return;
@@ -491,8 +503,6 @@ function updateCalculatorOptions() {
     pickupSelect.innerHTML = locHTML;
     returnSelect.innerHTML = locHTML;
   }
-
-  applyDeepLinkedOfferSelection();
 }
 
 // Update stats in hero
@@ -978,7 +988,7 @@ function attachCarSelectButtons() {
       }
       if (isLandingCarRentalPage() && typeof window.CE_CAR_ON_CARD_SELECT === 'function') {
         try {
-          window.CE_CAR_ON_CARD_SELECT({ carName, offerId });
+          window.CE_CAR_ON_CARD_SELECT({ carName, offerId, source: 'user' });
         } catch (e) {
           console.warn('Landing card select callback failed:', e);
         }
@@ -1022,21 +1032,17 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Register language change handler (uses global helper if available)
   if (typeof window.registerLanguageChangeHandler === 'function') {
-    window.registerLanguageChangeHandler((language) => {
-      console.log('🚗 Car rental: Re-rendering for language:', language);
-      
+    window.registerLanguageChangeHandler(() => {
       // Only re-render if fleet is loaded
       if (paphosFleet && paphosFleet.length > 0) {
         renderFleet();
         updateCalculatorOptions();
         applyDeepLinkedOfferSelection();
-        
+
         // Re-calculate prices if calculator exists
         if (typeof window.calculatePrice === 'function') {
           window.calculatePrice();
         }
-        
-        console.log('✅ Car rental re-rendered');
       }
     });
   }

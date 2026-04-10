@@ -15,8 +15,12 @@ const state = {
     offerId: null,
     offerLocation: null,
     applied: false,
+    applying: false,
   },
   defaultSeo: null,
+  refreshInFlight: false,
+  refreshQueued: false,
+  refreshQueuedForceReload: false,
 };
 
 function byId(id) {
@@ -36,36 +40,41 @@ function readCarDeepLink() {
 }
 
 function applyCarDeepLinkSelection() {
-  if (state.deepLink.applied || !state.deepLink.offerId) return false;
+  if (state.deepLink.applied || state.deepLink.applying || !state.deepLink.offerId) return false;
   const targetOfferId = String(state.deepLink.offerId || '').trim();
   if (!targetOfferId) {
     state.deepLink.applied = true;
     return false;
   }
 
-  const selectByOfferId = (selectEl) => {
-    if (!(selectEl instanceof HTMLSelectElement)) return false;
-    const options = Array.from(selectEl.options || []);
-    const match = options.find((opt) => String(opt?.dataset?.offerId || '').trim() === targetOfferId);
-    if (!match) return false;
-    selectEl.value = match.value;
+  state.deepLink.applying = true;
+  try {
+    const selectByOfferId = (selectEl) => {
+      if (!(selectEl instanceof HTMLSelectElement)) return false;
+      const options = Array.from(selectEl.options || []);
+      const match = options.find((opt) => String(opt?.dataset?.offerId || '').trim() === targetOfferId);
+      if (!match) return false;
+      selectEl.value = match.value;
+      return true;
+    };
+
+    const calculatorSelect = byId('rentalCarSelect');
+    const reservationSelect = byId('res_car');
+    const matched =
+      selectByOfferId(calculatorSelect)
+      || selectByOfferId(reservationSelect);
+
+    if (!matched) return false;
+
+    if (reservationSelect instanceof HTMLSelectElement && calculatorSelect instanceof HTMLSelectElement) {
+      reservationSelect.value = calculatorSelect.value;
+    }
+
+    state.deepLink.applied = true;
     return true;
-  };
-
-  const calculatorSelect = byId('rentalCarSelect');
-  const reservationSelect = byId('res_car');
-  const matched =
-    selectByOfferId(calculatorSelect)
-    || selectByOfferId(reservationSelect);
-
-  if (!matched) return false;
-
-  if (reservationSelect instanceof HTMLSelectElement && calculatorSelect instanceof HTMLSelectElement) {
-    reservationSelect.value = calculatorSelect.value;
+  } finally {
+    state.deepLink.applying = false;
   }
-
-  state.deepLink.applied = true;
-  return true;
 }
 
 function isLandingPage() {
@@ -285,6 +294,9 @@ function bindReservationHandlers() {
 
     el.dataset.ceLandingReservationBound = '1';
     el.addEventListener('change', () => {
+      if (id === 'res_car') {
+        state.deepLink.applied = true;
+      }
       void syncWidgetFromReservationForm();
     });
 
@@ -346,17 +358,20 @@ function buildLocationOptionsHtml() {
 }
 
 function setSelectSafe(selectEl, value, fallback) {
-  if (!selectEl) return;
+  if (!selectEl) return false;
+  const previousValue = String(selectEl.value || '');
   const options = Array.from(selectEl.options || []);
   const hasValue = options.some((opt) => opt.value === value);
   if (hasValue) {
     selectEl.value = value;
-    return;
+    return previousValue !== String(selectEl.value || '');
   }
   const hasFallback = options.some((opt) => opt.value === fallback);
   if (hasFallback) {
     selectEl.value = fallback;
+    return previousValue !== String(selectEl.value || '');
   }
+  return false;
 }
 
 function populateWidgetLocations() {
@@ -672,10 +687,26 @@ function syncReservationForm(widgetState) {
 
   state.syncingWidgetToReservation = true;
   try {
-    if (resPickupDate) resPickupDate.value = widgetState.pickupDate;
-    if (resPickupTime) resPickupTime.value = widgetState.pickupTime;
-    if (resReturnDate) resReturnDate.value = widgetState.returnDate;
-    if (resReturnTime) resReturnTime.value = widgetState.returnTime;
+    const changedFieldIds = [];
+    const setInputIfChanged = (inputEl, nextValue, fieldId) => {
+      if (!inputEl) return;
+      const normalized = String(nextValue || '');
+      if (String(inputEl.value || '') === normalized) return;
+      inputEl.value = normalized;
+      if (fieldId) changedFieldIds.push(fieldId);
+    };
+    const setCheckboxIfChanged = (checkboxEl, nextValue, fieldId) => {
+      if (!checkboxEl) return;
+      const normalized = !!nextValue;
+      if (!!checkboxEl.checked === normalized) return;
+      checkboxEl.checked = normalized;
+      if (fieldId) changedFieldIds.push(fieldId);
+    };
+
+    setInputIfChanged(resPickupDate, widgetState.pickupDate, 'res_pickup_date');
+    setInputIfChanged(resPickupTime, widgetState.pickupTime, 'res_pickup_time');
+    setInputIfChanged(resReturnDate, widgetState.returnDate, 'res_return_date');
+    setInputIfChanged(resReturnTime, widgetState.returnTime, 'res_return_time');
 
     const pickupForReservation = state.effectiveOffer === 'larnaca'
       ? mapToLarnacaLocation(widgetState.pickupLocation)
@@ -684,26 +715,36 @@ function syncReservationForm(widgetState) {
       ? mapToLarnacaLocation(widgetState.returnLocation)
       : widgetState.returnLocation;
 
-    setSelectSafe(resPickupLocation, pickupForReservation, 'larnaca');
-    setSelectSafe(resReturnLocation, returnForReservation, 'larnaca');
+    if (setSelectSafe(resPickupLocation, pickupForReservation, 'larnaca')) {
+      changedFieldIds.push('res_pickup_location');
+    }
+    if (setSelectSafe(resReturnLocation, returnForReservation, 'larnaca')) {
+      changedFieldIds.push('res_return_location');
+    }
 
     if (resPassengers) {
-      resPassengers.value = String(parsePassengerCount(widgetState.passengers, 2));
+      setInputIfChanged(resPassengers, String(parsePassengerCount(widgetState.passengers, 2)), 'res_passengers');
     }
 
     if (resInsurance) {
-      resInsurance.checked = widgetState.fullInsurance;
+      setCheckboxIfChanged(resInsurance, widgetState.fullInsurance, 'res_insurance');
     }
 
     if (resYoungDriver) {
       const canUseYoungDriver = state.effectiveOffer === 'larnaca';
-      resYoungDriver.checked = canUseYoungDriver && widgetState.youngDriver;
+      setCheckboxIfChanged(resYoungDriver, canUseYoungDriver && widgetState.youngDriver, 'res_young_driver');
+      const previousDisabled = !!resYoungDriver.disabled;
       resYoungDriver.disabled = !canUseYoungDriver;
       resYoungDriver.setAttribute('aria-disabled', canUseYoungDriver ? 'false' : 'true');
+      if (previousDisabled !== !!resYoungDriver.disabled) {
+        changedFieldIds.push('res_young_driver');
+      }
     }
 
     if (resCar && calcCar && calcCar.value) {
-      setSelectSafe(resCar, calcCar.value, resCar.value || '');
+      if (setSelectSafe(resCar, calcCar.value, resCar.value || '')) {
+        changedFieldIds.push('res_car');
+      }
     }
 
     const reservationForm = byId('localReservationForm');
@@ -713,16 +754,9 @@ function syncReservationForm(widgetState) {
 
     renderReservationOfferIndicator(widgetState);
 
-    dispatchChange('res_pickup_location');
-    dispatchChange('res_return_location');
-    dispatchChange('res_pickup_date');
-    dispatchChange('res_pickup_time');
-    dispatchChange('res_return_date');
-    dispatchChange('res_return_time');
-    dispatchChange('res_passengers');
-    dispatchChange('res_insurance');
-    dispatchChange('res_young_driver');
-    dispatchChange('res_car');
+    Array.from(new Set(changedFieldIds)).forEach((fieldId) => {
+      dispatchChange(fieldId);
+    });
   } finally {
     state.syncingWidgetToReservation = false;
   }
@@ -1035,7 +1069,7 @@ async function switchOfferIfNeeded() {
   }
 }
 
-async function refreshLandingFlow({ forceReload = false } = {}) {
+async function runLandingFlow({ forceReload = false } = {}) {
   if (!isLandingPage()) return;
 
   const initialWidgetState = readWidgetState();
@@ -1056,14 +1090,12 @@ async function refreshLandingFlow({ forceReload = false } = {}) {
     window.CE_CAR_RERENDER_FLEET();
   }
 
-  if (typeof window.CE_CAR_UPDATE_CALC_OPTIONS === 'function') {
+  const fleetReloadedViaLoader = (forceReload || offerChanged) && typeof window.CE_CAR_LOAD_FLEET === 'function';
+  if (!fleetReloadedViaLoader && typeof window.CE_CAR_UPDATE_CALC_OPTIONS === 'function') {
     window.CE_CAR_UPDATE_CALC_OPTIONS();
   }
 
-  const deepLinkSelected = applyCarDeepLinkSelection();
-  if (deepLinkSelected && typeof window.calculatePrice === 'function') {
-    window.calculatePrice();
-  }
+  applyCarDeepLinkSelection();
 
   const widgetState = readWidgetState();
   updateLandingQuoteContext(widgetState);
@@ -1074,6 +1106,32 @@ async function refreshLandingFlow({ forceReload = false } = {}) {
 
   syncReservationForm(widgetState);
   renderSelectedCarHighlight();
+}
+
+async function refreshLandingFlow({ forceReload = false } = {}) {
+  if (!isLandingPage()) return;
+
+  const normalizedForceReload = !!forceReload;
+  if (state.refreshInFlight) {
+    state.refreshQueued = true;
+    state.refreshQueuedForceReload = state.refreshQueuedForceReload || normalizedForceReload;
+    return;
+  }
+
+  state.refreshInFlight = true;
+  try {
+    await runLandingFlow({ forceReload: normalizedForceReload });
+  } finally {
+    state.refreshInFlight = false;
+    if (state.refreshQueued) {
+      const nextForceReload = state.refreshQueuedForceReload;
+      state.refreshQueued = false;
+      state.refreshQueuedForceReload = false;
+      queueMicrotask(() => {
+        void refreshLandingFlow({ forceReload: nextForceReload });
+      });
+    }
+  }
 }
 
 function bindWidgetHandlers() {
@@ -1096,11 +1154,17 @@ function bindWidgetHandlers() {
 
     el.dataset.ceLandingBound = '1';
     el.addEventListener('change', () => {
+      if (id === 'rentalCarSelect') {
+        state.deepLink.applied = true;
+      }
       void refreshLandingFlow();
     });
 
     if (el.tagName === 'INPUT') {
       el.addEventListener('input', () => {
+        if (id === 'rentalCarSelect') {
+          state.deepLink.applied = true;
+        }
         void refreshLandingFlow();
       });
     }
@@ -1137,7 +1201,14 @@ function initLandingController() {
   populateReservationLocations();
   ensureDefaultDates();
 
-  window.CE_CAR_ON_CARD_SELECT = () => {
+  window.CE_CAR_ON_CARD_SELECT = (payload = {}) => {
+    const source = String(payload?.source || '').trim().toLowerCase();
+    if (source === 'user') {
+      state.deepLink.applied = true;
+    }
+    if (source === 'deep-link' && state.deepLink.applied) {
+      return;
+    }
     void refreshLandingFlow();
   };
 
