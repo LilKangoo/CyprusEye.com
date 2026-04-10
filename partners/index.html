@@ -269,14 +269,16 @@
     }
     .partner-links-layout {
       display: grid;
-      grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.9fr);
+      grid-template-columns: minmax(0, 1.18fr) minmax(340px, 420px);
       gap: 16px;
       align-items: start;
-      max-width: 1240px;
+      max-width: 1260px;
+      min-height: 0;
     }
     .partner-links-panel {
       display: grid;
       gap: 14px;
+      min-height: 0;
     }
     .partner-links-section-head {
       display: flex;
@@ -304,8 +306,12 @@
     }
     .partner-links-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 14px;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 12px;
+      align-content: start;
+      max-height: min(72vh, 980px);
+      overflow: auto;
+      padding-right: 4px;
     }
     .partner-links-card {
       border: 1px solid var(--admin-border);
@@ -325,12 +331,13 @@
       box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18);
     }
     .partner-links-card__media {
-      aspect-ratio: 16 / 10;
+      aspect-ratio: 16 / 9;
       background: linear-gradient(135deg, rgba(15, 23, 42, 0.45), rgba(30, 41, 59, 0.28));
       display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
+      min-height: 124px;
     }
     .partner-links-card__media img {
       width: 100%;
@@ -347,12 +354,12 @@
     }
     .partner-links-card__body {
       display: grid;
-      gap: 10px;
-      padding: 14px;
+      gap: 8px;
+      padding: 12px;
     }
     .partner-links-card__body h3 {
       margin: 0;
-      font-size: 17px;
+      font-size: 16px;
       line-height: 1.25;
       font-weight: 800;
       letter-spacing: -0.01em;
@@ -374,7 +381,7 @@
     .partner-links-card__meta {
       margin: 0;
       color: var(--admin-text-muted);
-      font-size: 13px;
+      font-size: 12px;
       min-height: 18px;
     }
     .partner-links-card__actions {
@@ -383,15 +390,40 @@
       flex-wrap: wrap;
       margin-top: auto;
     }
+    .partner-links-card__summary {
+      margin: 0;
+      color: var(--admin-text);
+      font-size: 12px;
+      line-height: 1.55;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .partner-links-card--transport .partner-links-card__media {
+      display: none;
+    }
+    .partner-links-card--transport .partner-links-card__body {
+      padding-top: 14px;
+    }
+    .partner-links-card__transport-price {
+      font-size: 18px;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      color: #f8fafc;
+    }
     .partner-links-preview {
       position: sticky;
       top: 18px;
       display: grid;
       gap: 14px;
+      max-height: calc(100vh - 110px);
+      overflow: auto;
     }
     .partner-links-preview__image {
       width: 100%;
-      aspect-ratio: 16 / 10;
+      aspect-ratio: 16 / 9;
+      max-height: 220px;
       object-fit: cover;
       border-radius: 14px;
       border: 1px solid rgba(148, 163, 184, 0.2);
@@ -407,6 +439,18 @@
       font-size: 14px;
       line-height: 1.65;
     }
+    .partner-links-preview__block {
+      display: grid;
+      gap: 12px;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      background: rgba(15, 23, 42, 0.14);
+    }
+    .partner-links-preview__field-grid {
+      display: grid;
+      gap: 10px;
+    }
     .partner-links-preview__field label {
       display: block;
       margin-bottom: 6px;
@@ -416,10 +460,38 @@
       color: var(--admin-text-muted);
       font-weight: 700;
     }
+    .partner-links-preview__field input {
+      width: 100%;
+    }
+    .partner-links-preview__field-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
     .partner-links-preview__actions {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
+    }
+    .partner-links-preview__transport {
+      display: grid;
+      gap: 6px;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      background: rgba(15, 23, 42, 0.14);
+    }
+    .partner-links-preview__transport-price {
+      font-size: 24px;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      color: #f8fafc;
+    }
+    .partner-links-preview__transport-note {
+      color: var(--admin-text-muted);
+      font-size: 12px;
+      line-height: 1.5;
     }
     .partner-links-empty {
       border: 1px dashed rgba(148, 163, 184, 0.28);
@@ -465,9 +537,53 @@
       font-size: 14px;
       line-height: 1.6;
     }
+    .partner-discount-card__meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
     .partner-discount-card__scope {
       color: var(--admin-text-muted);
       font-size: 12px;
+    }
+    .partner-discount-card__validity {
+      color: var(--admin-text-muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .partner-discount-status {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 4px 9px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+    .partner-discount-status--active {
+      background: rgba(34, 197, 94, 0.14);
+      border-color: rgba(34, 197, 94, 0.3);
+      color: #86efac;
+    }
+    .partner-discount-status--scheduled {
+      background: rgba(59, 130, 246, 0.14);
+      border-color: rgba(59, 130, 246, 0.3);
+      color: #93c5fd;
+    }
+    .partner-discount-status--expired,
+    .partner-discount-status--inactive {
+      background: rgba(148, 163, 184, 0.14);
+      border-color: rgba(148, 163, 184, 0.3);
+      color: #cbd5e1;
+    }
+    .partner-discount-status--draft {
+      background: rgba(245, 158, 11, 0.14);
+      border-color: rgba(245, 158, 11, 0.3);
+      color: #fcd34d;
     }
 
     .partner-form { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 12px; }
@@ -2474,6 +2590,11 @@
 
       .partner-links-preview {
         position: static;
+        max-height: none;
+        overflow: visible;
+      }
+      .partner-links-grid {
+        max-height: none;
       }
     }
 
@@ -3491,13 +3612,61 @@
             <div id="partnerLinksPreviewMeta" class="partner-links-preview__meta">—</div>
           </div>
           <p id="partnerLinksPreviewDescription" class="partner-links-preview__description">—</p>
-          <div class="partner-links-preview__field">
-            <label for="partnerLinksPreviewLink">Referral link</label>
-            <input id="partnerLinksPreviewLink" type="text" readonly value="" aria-label="Referral link preview" />
+          <div id="partnerLinksPreviewTransportBox" class="partner-links-preview__transport" hidden>
+            <div id="partnerLinksPreviewTransportPrice" class="partner-links-preview__transport-price">—</div>
+            <div id="partnerLinksPreviewTransportNote" class="partner-links-preview__transport-note">—</div>
+          </div>
+          <div class="partner-links-preview__block">
+            <div class="partner-links-section-head" style="margin: 0;">
+              <div>
+                <h2 style="font-size: 15px;">Category landing</h2>
+                <p>Share the main public page for this category with your referral code attached.</p>
+              </div>
+            </div>
+            <div class="partner-links-preview__field-grid">
+              <div class="partner-links-preview__field">
+                <label for="partnerLinksPreviewLandingLinkPl">Landing PL</label>
+                <input id="partnerLinksPreviewLandingLinkPl" type="text" readonly value="" aria-label="Landing PL referral link preview" />
+                <div class="partner-links-preview__field-actions">
+                  <button id="btnPartnerLinksCopyLandingPl" class="btn-sm primary" type="button">Copy PL link</button>
+                </div>
+              </div>
+              <div class="partner-links-preview__field">
+                <label for="partnerLinksPreviewLandingLinkEn">Landing EN</label>
+                <input id="partnerLinksPreviewLandingLinkEn" type="text" readonly value="" aria-label="Landing EN referral link preview" />
+                <div class="partner-links-preview__field-actions">
+                  <button id="btnPartnerLinksCopyLandingEn" class="btn-sm primary" type="button">Copy EN link</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="partner-links-preview__block">
+            <div class="partner-links-section-head" style="margin: 0;">
+              <div>
+                <h2 style="font-size: 15px;">Specific offer</h2>
+                <p>Use these links to send the exact selected offer, route, product or article.</p>
+              </div>
+            </div>
+            <div class="partner-links-preview__field-grid">
+              <div class="partner-links-preview__field">
+                <label for="partnerLinksPreviewOfferLinkPl">Offer PL</label>
+                <input id="partnerLinksPreviewOfferLinkPl" type="text" readonly value="" aria-label="Offer PL referral link preview" />
+                <div class="partner-links-preview__field-actions">
+                  <button id="btnPartnerLinksCopyOfferPl" class="btn-sm primary" type="button">Copy PL link</button>
+                </div>
+              </div>
+              <div class="partner-links-preview__field">
+                <label for="partnerLinksPreviewOfferLinkEn">Offer EN</label>
+                <input id="partnerLinksPreviewOfferLinkEn" type="text" readonly value="" aria-label="Offer EN referral link preview" />
+                <div class="partner-links-preview__field-actions">
+                  <button id="btnPartnerLinksCopyOfferEn" class="btn-sm primary" type="button">Copy EN link</button>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="partner-links-preview__actions">
-            <button id="btnPartnerLinksCopyPreview" class="btn-sm primary" type="button">Copy link</button>
-            <button id="btnPartnerLinksOpenPreview" class="btn-sm" type="button">Open page</button>
+            <button id="btnPartnerLinksOpenLanding" class="btn-sm" type="button">Open landing</button>
+            <button id="btnPartnerLinksOpenOffer" class="btn-sm" type="button">Open offer</button>
           </div>
         </aside>
       </section>
@@ -3506,7 +3675,7 @@
         <div class="partner-links-section-head">
           <div>
             <h2>Discount codes</h2>
-            <p>Active discount codes assigned to this partner. Display only for now, without edit actions.</p>
+            <p>Discount codes assigned to this partner, with scope, status and validity.</p>
           </div>
         </div>
         <div id="partnerDiscountCodesList" class="partner-discount-codes__grid">

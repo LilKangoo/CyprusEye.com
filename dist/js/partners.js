@@ -211,9 +211,19 @@
     partnerLinksPreviewTitle: null,
     partnerLinksPreviewMeta: null,
     partnerLinksPreviewDescription: null,
-    partnerLinksPreviewLink: null,
-    btnPartnerLinksCopyPreview: null,
-    btnPartnerLinksOpenPreview: null,
+    partnerLinksPreviewTransportBox: null,
+    partnerLinksPreviewTransportPrice: null,
+    partnerLinksPreviewTransportNote: null,
+    partnerLinksPreviewLandingLinkPl: null,
+    partnerLinksPreviewLandingLinkEn: null,
+    partnerLinksPreviewOfferLinkPl: null,
+    partnerLinksPreviewOfferLinkEn: null,
+    btnPartnerLinksCopyLandingPl: null,
+    btnPartnerLinksCopyLandingEn: null,
+    btnPartnerLinksCopyOfferPl: null,
+    btnPartnerLinksCopyOfferEn: null,
+    btnPartnerLinksOpenLanding: null,
+    btnPartnerLinksOpenOffer: null,
     partnerDiscountCodesList: null,
 
     partnerBlogCurrentPartner: null,
@@ -417,6 +427,7 @@
     { key: 'hotels', label: 'Hotels' },
     { key: 'transport', label: 'Transport' },
     { key: 'shop', label: 'Shop' },
+    { key: 'blog', label: 'Blog' },
   ];
   const PARTNER_BLOG_SERVICE_TYPE_ALIASES = {
     trips: ['trip', 'trips', 'tour', 'tours', 'wycieczka', 'wycieczki'],
@@ -2802,72 +2813,271 @@
     if (normalized === 'hotels') return 'Hotels';
     if (normalized === 'transport') return 'Transport';
     if (normalized === 'shop') return 'Shop';
+    if (normalized === 'blog') return 'Blog';
     return 'Service';
+  }
+
+  function getPartnerUiLanguage() {
+    const lang = String(
+      (typeof window.getCurrentLanguage === 'function' ? window.getCurrentLanguage() : '')
+      || window.appI18n?.language
+      || 'en'
+    ).trim().toLowerCase();
+    return lang.startsWith('pl') ? 'pl' : 'en';
   }
 
   function normalizePreviewText(value) {
     if (!value) return '';
     if (typeof value === 'string') return value.trim();
-    if (typeof value === 'object') return String(value.en || value.pl || value.text || '').trim();
+    if (typeof value === 'object') return localizedLabelFromValue(value, 'en');
     return '';
+  }
+
+  function formatPartnerShortDate(value) {
+    const iso = String(value || '').trim();
+    if (!iso) return '';
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  }
+
+  function formatPartnerMoneyCompact(value, currency = 'EUR') {
+    const amount = Number(value || 0);
+    if (!Number.isFinite(amount) || amount <= 0) return '';
+    const code = String(currency || 'EUR').trim().toUpperCase() || 'EUR';
+    try {
+      return new Intl.NumberFormat('en-GB', {
+        style: 'currency',
+        currency: code,
+        minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
+        maximumFractionDigits: 2,
+      }).format(amount);
+    } catch (_error) {
+      return `${amount.toFixed(amount % 1 === 0 ? 0 : 2)} ${code}`;
+    }
+  }
+
+  function getPartnerLinksDisplayUrl(url) {
+    const raw = String(url || '').trim();
+    if (!raw) return '';
+    const viewer = window.CE_MEDIA_VIEWER;
+    if (viewer?.getDisplayUrl) {
+      try {
+        return String(viewer.getDisplayUrl(raw) || raw).trim();
+      } catch (_error) {
+        return raw;
+      }
+    }
+    return raw;
+  }
+
+  function collectMediaUrls(value, depth = 0) {
+    if (depth > 4 || value == null) return [];
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed ? [trimmed] : [];
+    }
+    if (Array.isArray(value)) {
+      return value.flatMap((entry) => collectMediaUrls(entry, depth + 1));
+    }
+    if (typeof value === 'object') {
+      const direct = [
+        value.url,
+        value.src,
+        value.publicUrl,
+        value.public_url,
+        value.image_url,
+        value.photo_url,
+        value.thumbnail_url,
+        value.cover_image_url,
+        value.main_image_url,
+      ].flatMap((entry) => collectMediaUrls(entry, depth + 1));
+
+      const nested = [
+        value.photos,
+        value.gallery,
+        value.gallery_photos,
+        value.images,
+        value.media,
+        value.items,
+      ].flatMap((entry) => collectMediaUrls(entry, depth + 1));
+
+      return [...direct, ...nested];
+    }
+    return [];
   }
 
   function getFirstMediaUrl(value) {
-    if (typeof value === 'string') {
-      return value.trim();
-    }
-    if (Array.isArray(value)) {
-      const first = value.find((entry) => typeof entry === 'string' && entry.trim());
-      return String(first || '').trim();
+    const seen = new Set();
+    for (const candidate of collectMediaUrls(value)) {
+      const normalized = String(candidate || '').trim();
+      if (!normalized || seen.has(normalized)) continue;
+      seen.add(normalized);
+      return getPartnerLinksDisplayUrl(normalized);
     }
     return '';
   }
 
-  function buildPartnerLinksBaseUrl(item) {
+  function getHotelPreviewImageUrl(row) {
+    const roomTypeMedia = Array.isArray(row?.room_types)
+      ? row.room_types.flatMap((roomType) => collectMediaUrls([
+        roomType?.cover_image_url,
+        roomType?.gallery_photos,
+        roomType?.photos,
+      ]))
+      : [];
+    return getFirstMediaUrl([
+      row?.cover_image_url,
+      row?.main_image_url,
+      row?.thumbnail_url,
+      row?.image_url,
+      row?.photos,
+      row?.gallery_photos,
+      row?.gallery,
+      row?.media,
+      roomTypeMedia,
+    ]);
+  }
+
+  function normalizePartnerLinksTextMap(value, fallback = '') {
+    const direct = String(fallback || '').trim();
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      return {
+        pl: String(value.pl || value.en || direct).trim(),
+        en: String(value.en || value.pl || direct).trim(),
+      };
+    }
+    const normalized = String(value || direct).trim();
+    return { pl: normalized, en: normalized };
+  }
+
+  function getPartnerLinksLocalizedText(item, field, preferred = 'en', fallbackField = '') {
+    const key = `${field}ByLang`;
+    const pack = item && typeof item === 'object' ? item[key] : null;
+    const fallbackValue = fallbackField && item && typeof item === 'object'
+      ? String(item[fallbackField] || '').trim()
+      : '';
+    if (pack && typeof pack === 'object') {
+      const lang = String(preferred || 'en').trim().toLowerCase() === 'pl' ? 'pl' : 'en';
+      return String(pack[lang] || pack.en || pack.pl || fallbackValue).trim();
+    }
+    return fallbackValue;
+  }
+
+  function getCarLandingPath(locationValue) {
+    const location = String(locationValue || '').trim().toLowerCase();
+    if (location === 'paphos') return '/autopfo.html';
+    if (location === 'larnaca') return '/car-rental.html';
+    return '/car.html';
+  }
+
+  function buildPartnerLinksPageUrl(item, options = {}) {
     const baseUrl = (typeof window !== 'undefined' && window.location && window.location.origin)
       ? window.location.origin
       : 'https://cypruseye.com';
     const url = new URL('/', baseUrl);
     const type = String(item?.type || '').trim().toLowerCase();
+    const language = String(options.lang || 'en').trim().toLowerCase() === 'pl' ? 'pl' : 'en';
+    const kind = String(options.kind || 'detail').trim().toLowerCase() === 'landing' ? 'landing' : 'detail';
 
     if (type === 'trips') {
-      url.pathname = '/trip.html';
-      if (item?.slug) url.searchParams.set('slug', item.slug);
-      url.searchParams.set('lang', 'en');
+      url.pathname = kind === 'landing' ? '/trips.html' : '/trip.html';
+      const slug = String(item?.slugByLang?.[language] || item?.slugByLang?.en || item?.slugByLang?.pl || item?.slug || '').trim();
+      if (kind === 'detail' && slug) url.searchParams.set('slug', slug);
+      url.searchParams.set('lang', language);
       return url.toString();
     }
     if (type === 'hotels') {
-      url.pathname = '/hotel.html';
-      if (item?.slug) url.searchParams.set('slug', item.slug);
-      url.searchParams.set('lang', 'en');
+      url.pathname = kind === 'landing' ? '/hotels.html' : '/hotel.html';
+      const slug = String(item?.slugByLang?.[language] || item?.slugByLang?.en || item?.slugByLang?.pl || item?.slug || '').trim();
+      if (kind === 'detail' && slug) url.searchParams.set('slug', slug);
+      url.searchParams.set('lang', language);
       return url.toString();
     }
     if (type === 'cars') {
-      url.pathname = '/car.html';
-      if (item?.resourceId) url.searchParams.set('offer_id', item.resourceId);
-      if (item?.offerLocation) url.searchParams.set('offer_location', item.offerLocation);
-      url.searchParams.set('lang', 'en');
+      url.pathname = getCarLandingPath(item?.offerLocation);
+      if (kind === 'detail' && item?.resourceId) url.searchParams.set('offer_id', item.resourceId);
+      if (kind === 'detail' && item?.offerLocation) url.searchParams.set('offer_location', item.offerLocation);
+      url.searchParams.set('lang', language);
       return url.toString();
     }
     if (type === 'transport') {
       url.pathname = '/transport.html';
-      if (item?.resourceId) url.searchParams.set('route_id', item.resourceId);
-      url.searchParams.set('lang', 'en');
+      if (kind === 'detail' && item?.resourceId) url.searchParams.set('route_id', item.resourceId);
+      url.searchParams.set('lang', language);
       return url.toString();
     }
     if (type === 'shop') {
       url.pathname = '/shop.html';
-      if (item?.resourceId) url.searchParams.set('product', item.resourceId);
-      url.searchParams.set('lang', 'en');
+      if (kind === 'detail' && item?.resourceId) url.searchParams.set('product', item.resourceId);
+      url.searchParams.set('lang', language);
+      return url.toString();
+    }
+    if (type === 'blog') {
+      if (kind === 'landing') {
+        url.pathname = '/blog';
+        url.searchParams.set('lang', language);
+        return url.toString();
+      }
+      const slug = String(item?.slugByLang?.[language] || item?.slugByLang?.en || item?.slugByLang?.pl || '').trim();
+      if (!slug) {
+        url.pathname = '/blog';
+        url.searchParams.set('lang', language);
+        return url.toString();
+      }
+      url.pathname = `/blog/${encodeURIComponent(slug)}`;
+      url.searchParams.set('lang', language);
       return url.toString();
     }
     return `${baseUrl}/`;
   }
 
-  function buildPartnerLinksReferralUrl(item) {
+  function buildPartnerLinksReferralUrl(item, options = {}) {
     const code = getProfileReferralCode(state.profile);
-    if (!code) return '';
-    return buildReferralLink(code, buildPartnerLinksBaseUrl(item));
+    const baseUrl = buildPartnerLinksPageUrl(item, options);
+    if (!code) return baseUrl;
+    return buildReferralLink(code, baseUrl) || baseUrl;
+  }
+
+  function getPartnerLinksFallbackDescription(type) {
+    if (type === 'blog') return 'Share this article with your referral code attached.';
+    if (type === 'transport') return 'Share this route with your referral code attached.';
+    return 'Use this direct link to send the selected service with your referral code attached.';
+  }
+
+  function summarizePartnerDiscountStatus(row) {
+    const rawStatus = String(row?.status || '').trim().toLowerCase();
+    const isActiveFlag = row?.is_active !== false;
+    const now = Date.now();
+    const startsAt = row?.starts_at ? new Date(row.starts_at).getTime() : 0;
+    const expiresAt = row?.expires_at ? new Date(row.expires_at).getTime() : 0;
+
+    if (expiresAt && Number.isFinite(expiresAt) && expiresAt < now) {
+      return { key: 'expired', label: 'Expired' };
+    }
+    if (isActiveFlag && rawStatus === 'active' && startsAt && Number.isFinite(startsAt) && startsAt > now) {
+      return { key: 'scheduled', label: 'Scheduled' };
+    }
+    if (isActiveFlag && (rawStatus === 'active' || !rawStatus)) {
+      return { key: 'active', label: 'Active' };
+    }
+    if (rawStatus === 'draft' || rawStatus === 'pending') {
+      return { key: 'draft', label: rawStatus === 'pending' ? 'Pending' : 'Draft' };
+    }
+    return { key: 'inactive', label: 'Inactive' };
+  }
+
+  function formatPartnerDiscountValidity(row) {
+    const parts = [];
+    const startsAt = formatPartnerShortDate(row?.starts_at);
+    const expiresAt = formatPartnerShortDate(row?.expires_at);
+    if (startsAt) parts.push(`From ${startsAt}`);
+    if (expiresAt) parts.push(`Until ${expiresAt}`);
+    return parts.join(' · ');
   }
 
   function normalizePartnerLinksItem(type, row, extra = {}) {
@@ -2876,70 +3086,135 @@
     if (!resourceId) return null;
 
     if (normalizedType === 'trips') {
-      const title = normalizeTitleJson(row?.title) || String(row?.title_en || row?.title_pl || row?.slug || resourceId).trim();
+      const titleByLang = normalizePartnerLinksTextMap(row?.title, String(row?.title_en || row?.title_pl || row?.slug || resourceId).trim());
+      const descriptionByLang = normalizePartnerLinksTextMap(row?.short_description || row?.description);
+      const slug = String(row?.slug || '').trim();
       return {
         key: `trips:${resourceId}`,
         type: 'trips',
         resourceId,
-        slug: String(row?.slug || '').trim(),
-        title,
+        slug,
+        slugByLang: { pl: slug, en: slug },
+        title: titleByLang.en || titleByLang.pl,
+        titleByLang,
         meta: String(row?.start_city || '').trim(),
-        description: normalizePreviewText(row?.short_description || row?.description),
-        imageUrl: getFirstMediaUrl(row?.main_image_url || row?.cover_image_url || row?.image_url || row?.photos),
+        description: descriptionByLang.en || descriptionByLang.pl,
+        descriptionByLang,
+        imageUrl: getFirstMediaUrl([row?.main_image_url, row?.cover_image_url, row?.image_url, row?.photos]),
       };
     }
 
     if (normalizedType === 'hotels') {
-      const title = normalizeTitleJson(row?.title) || String(row?.title_en || row?.title_pl || row?.slug || resourceId).trim();
+      const titleByLang = normalizePartnerLinksTextMap(row?.title, String(row?.title_en || row?.title_pl || row?.slug || resourceId).trim());
+      const descriptionByLang = normalizePartnerLinksTextMap(row?.summary || row?.description || row?.short_description);
+      const slug = String(row?.slug || '').trim();
       return {
         key: `hotels:${resourceId}`,
         type: 'hotels',
         resourceId,
-        slug: String(row?.slug || '').trim(),
-        title,
+        slug,
+        slugByLang: { pl: slug, en: slug },
+        title: titleByLang.en || titleByLang.pl,
+        titleByLang,
         meta: String(row?.city || row?.country || '').trim(),
-        description: normalizePreviewText(row?.summary || row?.description || row?.short_description),
-        imageUrl: getFirstMediaUrl(row?.cover_image_url || row?.photos || row?.image_url),
+        description: descriptionByLang.en || descriptionByLang.pl,
+        descriptionByLang,
+        imageUrl: getHotelPreviewImageUrl(row),
       };
     }
 
     if (normalizedType === 'cars') {
       const title = normalizeTitleJson(row?.car_model) || normalizeTitleJson(row?.car_type) || String(row?.name || resourceId).trim();
+      const location = String(row?.location || '').trim();
+      const priceFrom = Number(row?.price_per_day || row?.price_10plus_days || row?.price_7_10days || row?.price_4_6days || 0);
       return {
         key: `cars:${resourceId}`,
         type: 'cars',
         resourceId,
         title,
-        meta: String(row?.location || row?.car_type || '').trim(),
+        titleByLang: { pl: title, en: title },
+        meta: [location, priceFrom > 0 ? `from ${formatPartnerMoneyCompact(priceFrom, 'EUR')}` : ''].filter(Boolean).join(' · '),
         description: normalizePreviewText(row?.description),
-        imageUrl: getFirstMediaUrl(row?.image_url || row?.thumbnail_url),
-        offerLocation: String(row?.location || '').trim(),
+        descriptionByLang: normalizePartnerLinksTextMap(row?.description),
+        imageUrl: getFirstMediaUrl([row?.image_url, row?.thumbnail_url]),
+        offerLocation: location.toLowerCase(),
       };
     }
 
     if (normalizedType === 'transport') {
       const routeLabel = extra.routeLabel || `Route ${resourceId.slice(0, 8)}`;
+      const currency = String(row?.currency || 'EUR').trim().toUpperCase() || 'EUR';
+      const prices = [Number(row?.day_price || 0), Number(row?.night_price || 0)].filter((value) => Number.isFinite(value) && value > 0);
+      const fromPrice = prices.length ? Math.min(...prices) : 0;
+      const capacityBits = [
+        Number(row?.included_passengers || 0) > 0 ? `${row.included_passengers} pax` : '',
+        Number(row?.included_bags || 0) > 0 ? `${row.included_bags} bags` : '',
+      ].filter(Boolean);
       return {
         key: `transport:${resourceId}`,
         type: 'transport',
         resourceId,
         title: routeLabel,
-        meta: String(extra.routeMeta || '').trim(),
-        description: normalizePreviewText(extra.description || ''),
+        titleByLang: { pl: routeLabel, en: routeLabel },
+        meta: fromPrice > 0 ? `from ${formatPartnerMoneyCompact(fromPrice, currency)}` : String(extra.routeMeta || currency).trim(),
+        description: capacityBits.join(' · ') || normalizePreviewText(extra.description || ''),
+        descriptionByLang: normalizePartnerLinksTextMap(capacityBits.join(' · ') || normalizePreviewText(extra.description || '')),
         imageUrl: '',
+        transportFromPrice: fromPrice > 0 ? formatPartnerMoneyCompact(fromPrice, currency) : '',
+        transportNote: capacityBits.join(' · ') || `Currency: ${currency}`,
       };
     }
 
     if (normalizedType === 'shop') {
-      const title = String(row?.name || row?.title || resourceId).trim();
+      const title = String(localizedLabelFromValue({ en: row?.name_en, pl: row?.name }) || row?.name || row?.title || resourceId).trim();
       return {
         key: `shop:${resourceId}`,
         type: 'shop',
         resourceId,
         title,
-        meta: row?.price != null ? `€${Number(row.price || 0).toFixed(2)}` : '',
+        titleByLang: { pl: title, en: title },
+        meta: row?.price != null ? formatPartnerMoneyCompact(row.price, 'EUR') : '',
         description: normalizePreviewText(row?.short_description || row?.description),
-        imageUrl: getFirstMediaUrl(row?.thumbnail_url || row?.image_url),
+        descriptionByLang: normalizePartnerLinksTextMap(row?.short_description || row?.description),
+        imageUrl: getFirstMediaUrl([row?.thumbnail_url, row?.image_url]),
+      };
+    }
+
+    if (normalizedType === 'blog') {
+      const translations = Array.isArray(row?.translations) ? row.translations : [];
+      const byLang = { pl: null, en: null };
+      translations.forEach((translation) => {
+        const lang = String(translation?.lang || '').trim().toLowerCase();
+        if (lang === 'pl' || lang === 'en') {
+          byLang[lang] = translation;
+        }
+      });
+      const titlePl = String(byLang.pl?.title || byLang.en?.title || '').trim();
+      const titleEn = String(byLang.en?.title || byLang.pl?.title || '').trim();
+      const summaryPl = String(byLang.pl?.summary || byLang.pl?.lead || byLang.en?.summary || byLang.en?.lead || '').trim();
+      const summaryEn = String(byLang.en?.summary || byLang.en?.lead || byLang.pl?.summary || byLang.pl?.lead || '').trim();
+      const slugPl = String(byLang.pl?.slug || byLang.en?.slug || '').trim();
+      const slugEn = String(byLang.en?.slug || byLang.pl?.slug || '').trim();
+      return {
+        key: `blog:${resourceId}`,
+        type: 'blog',
+        resourceId,
+        title: titleEn || titlePl || `Blog post ${resourceId.slice(0, 8)}`,
+        titleByLang: {
+          pl: titlePl || titleEn,
+          en: titleEn || titlePl,
+        },
+        meta: formatPartnerShortDate(row?.published_at) || 'Published',
+        description: summaryEn || summaryPl,
+        descriptionByLang: {
+          pl: summaryPl || summaryEn,
+          en: summaryEn || summaryPl,
+        },
+        imageUrl: getFirstMediaUrl(row?.cover_image_url),
+        slugByLang: {
+          pl: slugPl,
+          en: slugEn,
+        },
       };
     }
 
@@ -2994,25 +3269,32 @@
   function renderPartnerLinksGrid() {
     if (!els.partnerLinksGrid) return;
     const filtered = getFilteredPartnerLinksItems();
+    const uiLanguage = getPartnerUiLanguage();
     if (!filtered.length) {
       els.partnerLinksGrid.innerHTML = '<div class="partner-links-empty">No services available for this filter.</div>';
       return;
     }
 
     els.partnerLinksGrid.innerHTML = filtered.map((item) => {
+      const title = getPartnerLinksLocalizedText(item, 'title', uiLanguage, 'title') || item.title;
+      const description = getPartnerLinksLocalizedText(item, 'description', uiLanguage, 'description') || '';
       const imageHtml = item.imageUrl
-        ? `<img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.title)}" loading="lazy" />`
-        : `<div class="partner-links-card__placeholder">${escapeHtml(partnerLinksTypeLabel(item.type))}</div>`;
+        ? `<img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(title || item.title)}" loading="lazy" />`
+        : (item.type === 'transport' && item.transportFromPrice
+          ? `<div class="partner-links-card__placeholder"><span class="partner-links-card__transport-price">${escapeHtml(`from ${item.transportFromPrice}`)}</span></div>`
+          : `<div class="partner-links-card__placeholder">${escapeHtml(partnerLinksTypeLabel(item.type))}</div>`);
+      const englishOfferLink = buildPartnerLinksReferralUrl(item, { lang: 'en', kind: 'detail' });
       return `
-        <article class="partner-links-card ${item.key === state.linksDiscounts.selectedKey ? 'is-active' : ''}" data-partner-link-card="${escapeHtml(item.key)}">
+        <article class="partner-links-card partner-links-card--${escapeHtml(item.type)} ${item.key === state.linksDiscounts.selectedKey ? 'is-active' : ''}" data-partner-link-card="${escapeHtml(item.key)}">
           <div class="partner-links-card__media">${imageHtml}</div>
           <div class="partner-links-card__body">
             <span class="partner-links-card__category">${escapeHtml(partnerLinksTypeLabel(item.type))}</span>
-            <h3>${escapeHtml(item.title)}</h3>
+            <h3>${escapeHtml(title)}</h3>
             <p class="partner-links-card__meta">${escapeHtml(item.meta || '—')}</p>
+            ${description ? `<p class="partner-links-card__summary">${escapeHtml(description)}</p>` : ''}
             <div class="partner-links-card__actions">
               <button type="button" class="btn-sm" data-partner-link-preview="${escapeHtml(item.key)}">Preview</button>
-              <button type="button" class="btn-sm primary" data-partner-link-copy="${escapeHtml(item.key)}">Copy link</button>
+              <button type="button" class="btn-sm primary" data-partner-link-copy="${escapeHtml(item.key)}" data-partner-link-copy-url="${escapeHtml(englishOfferLink)}">Copy EN</button>
             </div>
           </div>
         </article>
@@ -3023,34 +3305,39 @@
   function renderPartnerLinksPreview() {
     if (!els.partnerLinksPreviewCard) return;
     const item = ensurePartnerLinksSelectedItem();
-    const referralUrl = item ? buildPartnerLinksReferralUrl(item) : '';
-    const baseUrl = item ? buildPartnerLinksBaseUrl(item) : '';
 
     if (!item) {
       setHidden(els.partnerLinksPreviewCard, true);
       return;
     }
 
+    const uiLanguage = getPartnerUiLanguage();
+    const landingPl = buildPartnerLinksReferralUrl(item, { lang: 'pl', kind: 'landing' });
+    const landingEn = buildPartnerLinksReferralUrl(item, { lang: 'en', kind: 'landing' });
+    const offerPl = buildPartnerLinksReferralUrl(item, { lang: 'pl', kind: 'detail' });
+    const offerEn = buildPartnerLinksReferralUrl(item, { lang: 'en', kind: 'detail' });
+    const landingCurrent = buildPartnerLinksReferralUrl(item, { lang: uiLanguage, kind: 'landing' });
+    const offerCurrent = buildPartnerLinksReferralUrl(item, { lang: uiLanguage, kind: 'detail' });
+    const title = getPartnerLinksLocalizedText(item, 'title', uiLanguage, 'title') || item.title;
+    const description = getPartnerLinksLocalizedText(item, 'description', uiLanguage, 'description') || item.description;
+
     setHidden(els.partnerLinksPreviewCard, false);
     if (els.partnerLinksPreviewCategory) {
       els.partnerLinksPreviewCategory.textContent = partnerLinksTypeLabel(item.type);
     }
     if (els.partnerLinksPreviewTitle) {
-      els.partnerLinksPreviewTitle.textContent = item.title;
+      els.partnerLinksPreviewTitle.textContent = title || item.title;
     }
     if (els.partnerLinksPreviewMeta) {
       els.partnerLinksPreviewMeta.textContent = item.meta || 'Ready to share';
     }
     if (els.partnerLinksPreviewDescription) {
-      els.partnerLinksPreviewDescription.textContent = item.description || 'Use this direct link to send the selected service with your referral code attached.';
-    }
-    if (els.partnerLinksPreviewLink instanceof HTMLInputElement) {
-      els.partnerLinksPreviewLink.value = referralUrl || baseUrl || '';
+      els.partnerLinksPreviewDescription.textContent = description || getPartnerLinksFallbackDescription(item.type);
     }
     if (els.partnerLinksPreviewImage instanceof HTMLImageElement) {
-      if (item.imageUrl) {
+      if (item.imageUrl && item.type !== 'transport') {
         els.partnerLinksPreviewImage.src = item.imageUrl;
-        els.partnerLinksPreviewImage.alt = item.title;
+        els.partnerLinksPreviewImage.alt = title || item.title;
         els.partnerLinksPreviewImage.hidden = false;
       } else {
         els.partnerLinksPreviewImage.hidden = true;
@@ -3058,13 +3345,52 @@
         els.partnerLinksPreviewImage.alt = '';
       }
     }
-    if (els.btnPartnerLinksCopyPreview) {
-      els.btnPartnerLinksCopyPreview.disabled = !referralUrl;
-      els.btnPartnerLinksCopyPreview.dataset.partnerLinkCopy = item.key;
-    }
-    if (els.btnPartnerLinksOpenPreview) {
-      els.btnPartnerLinksOpenPreview.disabled = !(referralUrl || baseUrl);
-      els.btnPartnerLinksOpenPreview.dataset.partnerLinkOpen = referralUrl || baseUrl;
+
+    const setInputValue = (input, value) => {
+      if (input instanceof HTMLInputElement) {
+        input.value = value || '';
+      }
+    };
+
+    setInputValue(els.partnerLinksPreviewLandingLinkPl, landingPl);
+    setInputValue(els.partnerLinksPreviewLandingLinkEn, landingEn);
+    setInputValue(els.partnerLinksPreviewOfferLinkPl, offerPl);
+    setInputValue(els.partnerLinksPreviewOfferLinkEn, offerEn);
+
+    const setButtonUrl = (button, value) => {
+      if (!(button instanceof HTMLElement)) return;
+      const href = String(value || '').trim();
+      button.dataset.partnerLinkOpen = href;
+      button.disabled = !href;
+    };
+
+    setButtonUrl(els.btnPartnerLinksOpenLanding, landingCurrent);
+    setButtonUrl(els.btnPartnerLinksOpenOffer, offerCurrent);
+
+    const setCopyDisabled = (button, value) => {
+      if (button instanceof HTMLButtonElement) {
+        button.disabled = !String(value || '').trim();
+      }
+    };
+
+    setCopyDisabled(els.btnPartnerLinksCopyLandingPl, landingPl);
+    setCopyDisabled(els.btnPartnerLinksCopyLandingEn, landingEn);
+    setCopyDisabled(els.btnPartnerLinksCopyOfferPl, offerPl);
+    setCopyDisabled(els.btnPartnerLinksCopyOfferEn, offerEn);
+
+    if (els.partnerLinksPreviewTransportBox) {
+      const showTransportBox = item.type === 'transport';
+      setHidden(els.partnerLinksPreviewTransportBox, !showTransportBox);
+      if (showTransportBox) {
+        if (els.partnerLinksPreviewTransportPrice) {
+          els.partnerLinksPreviewTransportPrice.textContent = item.transportFromPrice
+            ? `from ${item.transportFromPrice}`
+            : (item.meta || 'Transport route');
+        }
+        if (els.partnerLinksPreviewTransportNote) {
+          els.partnerLinksPreviewTransportNote.textContent = item.transportNote || item.description || 'Share this route with your referral code attached.';
+        }
+      }
     }
   }
 
@@ -3072,7 +3398,7 @@
     if (!els.partnerDiscountCodesList) return;
     const rows = Array.isArray(state.linksDiscounts.discountCodes) ? state.linksDiscounts.discountCodes : [];
     if (!rows.length) {
-      els.partnerDiscountCodesList.innerHTML = '<div class="partner-links-empty">No active discount codes assigned to this partner.</div>';
+      els.partnerDiscountCodesList.innerHTML = '<div class="partner-links-empty">No discount codes assigned to this partner.</div>';
       return;
     }
 
@@ -3083,8 +3409,12 @@
           <span class="partner-links-card__category">${escapeHtml(formatPartnerDiscountScope(row))}</span>
         </div>
         <div class="partner-discount-card__body">
-          <div>${escapeHtml(String(row?.description || row?.name || 'Active partner discount code').trim())}</div>
-          ${row?.whereWorks ? `<div class="partner-discount-card__scope">${escapeHtml(row.whereWorks)}</div>` : ''}
+          <div>${escapeHtml(String(row?.description || row?.name || 'Partner discount code').trim())}</div>
+          <div class="partner-discount-card__meta">
+            <span class="partner-discount-status partner-discount-status--${escapeHtml(row?.statusKey || 'inactive')}">${escapeHtml(row?.statusLabel || 'Inactive')}</span>
+            ${row?.whereWorks ? `<span class="partner-discount-card__scope">${escapeHtml(row.whereWorks)}</span>` : ''}
+          </div>
+          ${row?.validity ? `<div class="partner-discount-card__validity">${escapeHtml(row.validity)}</div>` : ''}
         </div>
       </article>
     `).join('');
@@ -3092,11 +3422,22 @@
 
   async function loadPartnerLinksServiceItems() {
     if (!state.sb) return [];
-    const safeRows = async (tableName, limit = 160) => {
+    const safeRows = async (tableName, options = {}) => {
+      const {
+        select = '*',
+        limit = 160,
+        filters = [],
+        orderColumns = ['updated_at', 'created_at', null],
+      } = options;
       const runQuery = async (orderColumn = 'updated_at') => {
         let query = state.sb
           .from(tableName)
-          .select('*');
+          .select(select);
+        filters.forEach((applyFilter) => {
+          if (typeof applyFilter === 'function') {
+            query = applyFilter(query) || query;
+          }
+        });
         if (orderColumn) {
           query = query.order(orderColumn, { ascending: false });
         }
@@ -3104,36 +3445,109 @@
         return withRateLimitRetry(() => query);
       };
 
-      let response = await runQuery('updated_at');
-      if (response.error && /column .*updated_at|could not find.*updated_at/i.test(String(response.error.message || ''))) {
-        response = await runQuery('created_at');
+      let response = null;
+      for (const orderColumn of orderColumns) {
+        response = await runQuery(orderColumn);
+        if (!response.error) break;
+        const message = String(response.error.message || '');
+        const isMissingOrderColumn = orderColumn && new RegExp(`column .*${orderColumn}|could not find.*${orderColumn}`, 'i').test(message);
+        if (!isMissingOrderColumn) {
+          throw response.error;
+        }
       }
-      if (response.error && /column .*created_at|could not find.*created_at/i.test(String(response.error.message || ''))) {
-        response = await runQuery(null);
-      }
+      if (!response) return [];
       if (response.error) throw response.error;
       return Array.isArray(response.data) ? response.data : [];
     };
 
-    const [trips, hotels, cars, routes, locations, products] = await Promise.all([
-      safeRows('trips', 120),
-      safeRows('hotels', 120),
-      safeRows('car_offers', 120),
-      safeRows('transport_routes', 120),
-      safeRows('transport_locations', 240),
-      safeRows('shop_products', 120),
+    const blogRowsPromise = withRateLimitRetry(() => state.sb
+      .from('blog_posts')
+      .select(`
+        id,
+        published_at,
+        cover_image_url,
+        translations:blog_post_translations (
+          lang,
+          slug,
+          title,
+          summary,
+          lead
+        )
+      `)
+      .eq('status', 'published')
+      .eq('submission_status', 'approved')
+      .not('published_at', 'is', null)
+      .lte('published_at', new Date().toISOString())
+      .order('published_at', { ascending: false })
+      .limit(120));
+
+    const settled = await Promise.allSettled([
+      safeRows('trips', {
+        select: 'id, slug, title, start_city, description, short_description, cover_image_url, main_image_url, image_url, photos, is_published',
+        limit: 120,
+        filters: [(query) => query.eq('is_published', true)],
+      }),
+      safeRows('hotels', {
+        select: 'id, slug, title, city, country, summary, description, short_description, cover_image_url, photos, room_types, is_published',
+        limit: 120,
+        filters: [(query) => query.eq('is_published', true)],
+      }),
+      safeRows('car_offers', {
+        select: 'id, car_model, car_type, description, location, image_url, thumbnail_url, price_per_day, price_10plus_days, price_7_10days, price_4_6days, is_available, is_published',
+        limit: 120,
+        filters: [
+          (query) => query.eq('is_published', true),
+          (query) => query.eq('is_available', true),
+        ],
+      }),
+      safeRows('transport_routes', {
+        select: 'id, origin_location_id, destination_location_id, day_price, night_price, currency, included_passengers, included_bags, max_passengers, max_bags, is_active, sort_order',
+        limit: 120,
+        filters: [(query) => query.eq('is_active', true)],
+        orderColumns: ['sort_order', 'updated_at', 'created_at', null],
+      }),
+      safeRows('transport_locations', {
+        select: 'id, name, name_local, code, is_active, sort_order',
+        limit: 240,
+        orderColumns: ['sort_order', 'updated_at', 'created_at', null],
+      }),
+      safeRows('shop_products', {
+        select: 'id, name, name_en, description, short_description, thumbnail_url, image_url, price, status',
+        limit: 120,
+        filters: [(query) => query.eq('status', 'active')],
+      }),
+      blogRowsPromise,
     ]);
+
+    const getSettledRows = (entry, label) => {
+      if (entry.status === 'fulfilled') {
+        const value = entry.value;
+        if (Array.isArray(value)) return value;
+        if (Array.isArray(value?.data)) return value.data;
+        return [];
+      }
+      console.warn(`[partners] Failed to load ${label} for Links / Discounts:`, entry.reason);
+      return [];
+    };
+
+    const trips = getSettledRows(settled[0], 'trips');
+    const hotels = getSettledRows(settled[1], 'hotels');
+    const cars = getSettledRows(settled[2], 'cars');
+    const routes = getSettledRows(settled[3], 'transport_routes');
+    const locations = getSettledRows(settled[4], 'transport_locations');
+    const products = getSettledRows(settled[5], 'shop_products');
+    const blogRows = getSettledRows(settled[6], 'blog_posts');
 
     const locationById = new Map((Array.isArray(locations) ? locations : []).map((row) => [String(row?.id || '').trim(), row]));
     const items = [];
 
     trips.forEach((row) => {
       const item = normalizePartnerLinksItem('trips', row);
-      if (item?.slug) items.push(item);
+      if (item?.slugByLang?.en || item?.slugByLang?.pl || item?.slug) items.push(item);
     });
     hotels.forEach((row) => {
       const item = normalizePartnerLinksItem('hotels', row);
-      if (item?.slug) items.push(item);
+      if (item?.slugByLang?.en || item?.slugByLang?.pl || item?.slug) items.push(item);
     });
     cars.forEach((row) => {
       const item = normalizePartnerLinksItem('cars', row);
@@ -3146,7 +3560,7 @@
       const destinationLabel = String(destination?.name || destination?.name_local || destination?.code || 'Destination').trim();
       const item = normalizePartnerLinksItem('transport', row, {
         routeLabel: `${originLabel} → ${destinationLabel}`,
-        routeMeta: String(row?.currency || 'EUR').trim() || 'EUR',
+        routeMeta: String(row?.currency || 'EUR').trim().toUpperCase() || 'EUR',
       });
       if (item) items.push(item);
     });
@@ -3154,8 +3568,17 @@
       const item = normalizePartnerLinksItem('shop', row);
       if (item) items.push(item);
     });
+    blogRows.forEach((row) => {
+      const item = normalizePartnerLinksItem('blog', row);
+      if (item?.slugByLang?.pl || item?.slugByLang?.en) items.push(item);
+    });
 
-    return items;
+    return items.sort((left, right) => {
+      const leftType = String(left?.type || '');
+      const rightType = String(right?.type || '');
+      if (leftType !== rightType) return leftType.localeCompare(rightType);
+      return String(left?.title || '').localeCompare(String(right?.title || ''), 'en', { sensitivity: 'base' });
+    });
   }
 
   async function loadPartnerDiscountCodes() {
@@ -3168,34 +3591,39 @@
           .from('service_coupons')
           .select('id, service_type, code, name, description, status, is_active, starts_at, expires_at')
           .eq('partner_id', state.selectedPartnerId)
-          .eq('status', 'active')
-          .eq('is_active', true)
           .order('created_at', { ascending: false })
-          .limit(50)),
+          .limit(80)),
         withRateLimitRetry(() => state.sb
           .from('car_coupons')
           .select('id, code, name, description, status, is_active, starts_at, expires_at, applicable_locations, applicable_offer_ids, applicable_car_models, applicable_car_types')
           .eq('partner_id', state.selectedPartnerId)
-          .eq('status', 'active')
-          .eq('is_active', true)
           .order('created_at', { ascending: false })
-          .limit(50)),
+          .limit(80)),
       ]);
       if (serviceError) throw serviceError;
       if (carError) throw carError;
 
       (Array.isArray(serviceCoupons) ? serviceCoupons : []).forEach((row) => {
+        const statusMeta = summarizePartnerDiscountStatus(row);
+        const serviceType = String(row?.service_type || '').trim().toLowerCase();
         rows.push({
           ...row,
-          type: String(row?.service_type || '').trim().toLowerCase(),
-          whereWorks: partnerLinksTypeLabel(row?.service_type),
+          type: serviceType,
+          whereWorks: formatPartnerDiscountScope({ ...row, type: serviceType }),
+          statusKey: statusMeta.key,
+          statusLabel: statusMeta.label,
+          validity: formatPartnerDiscountValidity(row),
         });
       });
       (Array.isArray(carCoupons) ? carCoupons : []).forEach((row) => {
+        const statusMeta = summarizePartnerDiscountStatus(row);
         rows.push({
           ...row,
           type: 'cars',
           whereWorks: formatPartnerDiscountScope({ ...row, type: 'cars' }),
+          statusKey: statusMeta.key,
+          statusLabel: statusMeta.label,
+          validity: formatPartnerDiscountValidity(row),
         });
       });
     } catch (error) {
@@ -3205,7 +3633,13 @@
       }
     }
 
-    return rows;
+    const priority = { active: 0, scheduled: 1, draft: 2, inactive: 3, expired: 4 };
+    return rows.sort((left, right) => {
+      const leftPriority = priority[left?.statusKey] ?? 9;
+      const rightPriority = priority[right?.statusKey] ?? 9;
+      if (leftPriority !== rightPriority) return leftPriority - rightPriority;
+      return String(left?.code || '').localeCompare(String(right?.code || ''), 'en', { sensitivity: 'base' });
+    });
   }
 
   async function refreshPartnerLinksDiscountsView() {
@@ -11653,9 +12087,7 @@
       const target = event.target instanceof Element ? event.target : null;
       const copyButton = target?.closest('[data-partner-link-copy]');
       if (copyButton instanceof HTMLElement) {
-        const key = String(copyButton.getAttribute('data-partner-link-copy') || '').trim();
-        const item = (state.linksDiscounts.items || []).find((entry) => entry.key === key) || null;
-        const link = item ? buildPartnerLinksReferralUrl(item) : '';
+        const link = String(copyButton.getAttribute('data-partner-link-copy-url') || '').trim();
         if (!link) {
           showToast('Referral code is unavailable for this account.', 'error');
           return;
@@ -11681,22 +12113,32 @@
         renderPartnerLinksPreview();
       }
     });
-    els.btnPartnerLinksCopyPreview?.addEventListener('click', () => {
-      const item = (state.linksDiscounts.items || []).find((entry) => entry.key === state.linksDiscounts.selectedKey) || null;
-      const link = item ? buildPartnerLinksReferralUrl(item) : '';
-      if (!link) {
-        showToast('Referral code is unavailable for this account.', 'error');
-        return;
-      }
-      void copyTextToClipboard(link).then((ok) => {
-        showToast(ok ? 'Referral link copied' : 'Failed to copy referral link', ok ? 'success' : 'error');
+    const bindPartnerLinksCopy = (button, input) => {
+      button?.addEventListener('click', () => {
+        const value = input instanceof HTMLInputElement ? String(input.value || '').trim() : '';
+        if (!value) {
+          showToast('Referral code is unavailable for this account.', 'error');
+          return;
+        }
+        void copyTextToClipboard(value).then((ok) => {
+          showToast(ok ? 'Referral link copied' : 'Failed to copy referral link', ok ? 'success' : 'error');
+        });
       });
-    });
-    els.btnPartnerLinksOpenPreview?.addEventListener('click', () => {
-      const href = String(els.btnPartnerLinksOpenPreview?.dataset?.partnerLinkOpen || '').trim();
-      if (!href) return;
-      window.open(href, '_blank', 'noopener');
-    });
+    };
+    bindPartnerLinksCopy(els.btnPartnerLinksCopyLandingPl, els.partnerLinksPreviewLandingLinkPl);
+    bindPartnerLinksCopy(els.btnPartnerLinksCopyLandingEn, els.partnerLinksPreviewLandingLinkEn);
+    bindPartnerLinksCopy(els.btnPartnerLinksCopyOfferPl, els.partnerLinksPreviewOfferLinkPl);
+    bindPartnerLinksCopy(els.btnPartnerLinksCopyOfferEn, els.partnerLinksPreviewOfferLinkEn);
+
+    const bindPartnerLinksOpen = (button) => {
+      button?.addEventListener('click', () => {
+        const href = String(button?.dataset?.partnerLinkOpen || '').trim();
+        if (!href) return;
+        window.open(href, '_blank', 'noopener');
+      });
+    };
+    bindPartnerLinksOpen(els.btnPartnerLinksOpenLanding);
+    bindPartnerLinksOpen(els.btnPartnerLinksOpenOffer);
 
     const handleAnalyticsPeriodChange = async (nextRaw) => {
       const next = String(nextRaw || 'year').trim().toLowerCase() === 'month' ? 'month' : 'year';
@@ -12342,9 +12784,19 @@
     els.partnerLinksPreviewTitle = $('partnerLinksPreviewTitle');
     els.partnerLinksPreviewMeta = $('partnerLinksPreviewMeta');
     els.partnerLinksPreviewDescription = $('partnerLinksPreviewDescription');
-    els.partnerLinksPreviewLink = $('partnerLinksPreviewLink');
-    els.btnPartnerLinksCopyPreview = $('btnPartnerLinksCopyPreview');
-    els.btnPartnerLinksOpenPreview = $('btnPartnerLinksOpenPreview');
+    els.partnerLinksPreviewTransportBox = $('partnerLinksPreviewTransportBox');
+    els.partnerLinksPreviewTransportPrice = $('partnerLinksPreviewTransportPrice');
+    els.partnerLinksPreviewTransportNote = $('partnerLinksPreviewTransportNote');
+    els.partnerLinksPreviewLandingLinkPl = $('partnerLinksPreviewLandingLinkPl');
+    els.partnerLinksPreviewLandingLinkEn = $('partnerLinksPreviewLandingLinkEn');
+    els.partnerLinksPreviewOfferLinkPl = $('partnerLinksPreviewOfferLinkPl');
+    els.partnerLinksPreviewOfferLinkEn = $('partnerLinksPreviewOfferLinkEn');
+    els.btnPartnerLinksCopyLandingPl = $('btnPartnerLinksCopyLandingPl');
+    els.btnPartnerLinksCopyLandingEn = $('btnPartnerLinksCopyLandingEn');
+    els.btnPartnerLinksCopyOfferPl = $('btnPartnerLinksCopyOfferPl');
+    els.btnPartnerLinksCopyOfferEn = $('btnPartnerLinksCopyOfferEn');
+    els.btnPartnerLinksOpenLanding = $('btnPartnerLinksOpenLanding');
+    els.btnPartnerLinksOpenOffer = $('btnPartnerLinksOpenOffer');
     els.partnerDiscountCodesList = $('partnerDiscountCodesList');
 
     els.partnerBlogCurrentPartner = $('partnerBlogCurrentPartner');

@@ -77,6 +77,49 @@ function isLandingCarRentalPage() {
   return String(document.body?.dataset?.seoPage || '').toLowerCase() === 'carrentallanding';
 }
 
+function getRequestedOfferId() {
+  try {
+    const url = new URL(window.location.href);
+    return String(url.searchParams.get('offer_id') || '').trim();
+  } catch (_error) {
+    return '';
+  }
+}
+
+function applyDeepLinkedOfferSelection() {
+  const offerId = getRequestedOfferId();
+  if (!offerId) return false;
+
+  const selectCandidates = [
+    document.getElementById('car'),
+    document.getElementById('rentalCarSelect'),
+    document.getElementById('res_car'),
+  ].filter(Boolean);
+
+  let matchedValue = '';
+  let applied = false;
+  selectCandidates.forEach((selectEl) => {
+    const options = Array.from(selectEl.options || []);
+    const match = options.find((option) => String(option?.dataset?.offerId || '').trim() === offerId);
+    if (!match) return;
+    selectEl.value = match.value;
+    matchedValue = match.value || matchedValue;
+    applied = true;
+  });
+
+  if (!applied) return false;
+
+  if (isLandingCarRentalPage() && typeof window.CE_CAR_ON_CARD_SELECT === 'function') {
+    try {
+      window.CE_CAR_ON_CARD_SELECT({ carName: matchedValue, offerId });
+    } catch (error) {
+      console.warn('Landing deep-link select callback failed:', error);
+    }
+  }
+
+  return true;
+}
+
 function calculateQuoteForSelection({
   offer,
   carModel,
@@ -216,6 +259,7 @@ async function loadPaphosFleet() {
     // Render fleet
     renderFleet();
     updateCalculatorOptions();
+    applyDeepLinkedOfferSelection();
     updateStats();
 
   } catch (e) {
@@ -447,6 +491,8 @@ function updateCalculatorOptions() {
     pickupSelect.innerHTML = locHTML;
     returnSelect.innerHTML = locHTML;
   }
+
+  applyDeepLinkedOfferSelection();
 }
 
 // Update stats in hero
@@ -983,6 +1029,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (paphosFleet && paphosFleet.length > 0) {
         renderFleet();
         updateCalculatorOptions();
+        applyDeepLinkedOfferSelection();
         
         // Re-calculate prices if calculator exists
         if (typeof window.calculatePrice === 'function') {
