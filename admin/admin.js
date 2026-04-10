@@ -26737,6 +26737,14 @@ async function createCouponBuilderEntryForService(client, serviceType, payload) 
     let appliesTo = 'all';
     let applicableCategoryIds = null;
     let applicableProductIds = null;
+    const selectedPartnerId = String(payload.partnerId || '').trim();
+    const partnerVendorId = selectedPartnerId
+      ? String(
+        serviceCouponsState.partnersById?.[selectedPartnerId]?.shop_vendor_id
+        || carCouponsState.partnersById?.[selectedPartnerId]?.shop_vendor_id
+        || ''
+      ).trim()
+      : '';
     if (payload.scopeMode === 'category') {
       const categoryIds = await resolveShopCategoryIdsFromKeys(client, payload.categoryKeys);
       if (!categoryIds.length) {
@@ -26770,6 +26778,7 @@ async function createCouponBuilderEntryForService(client, serviceType, payload) 
       applies_to: appliesTo,
       applicable_category_ids: applicableCategoryIds,
       applicable_product_ids: applicableProductIds,
+      applicable_vendor_ids: partnerVendorId ? [partnerVendorId] : [],
       exclude_product_ids: [],
       is_active: payload.enabled,
       first_purchase_only: false,

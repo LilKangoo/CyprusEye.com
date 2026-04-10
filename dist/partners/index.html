@@ -329,6 +329,28 @@
       flex-wrap: wrap;
       gap: 8px;
     }
+    .partner-links-context-controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      align-items: end;
+    }
+    .partner-links-control {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+    .partner-links-control label {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--admin-text-muted);
+    }
+    .partner-links-control select {
+      width: 100%;
+      min-width: 0;
+    }
     .partner-links-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -674,6 +696,24 @@
       gap: 6px;
       font-size: 14px;
       line-height: 1.6;
+    }
+    .partner-discount-card__value {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.28);
+      color: #fecaca;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .partner-discount-card__type {
+      color: var(--admin-text-muted);
+      font-size: 12px;
     }
     .partner-discount-card__meta {
       display: flex;
@@ -2746,6 +2786,9 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
         max-height: none;
       }
+      .partner-links-context-controls {
+        grid-template-columns: 1fr;
+      }
       .partner-links-card {
         min-height: 244px;
       }
@@ -3801,6 +3844,7 @@
 
         <section id="partnerLinksServicesPanel" class="partner-links-content">
           <div id="partnerLinksFilters" class="partner-links-filters"></div>
+          <div id="partnerLinksContextControls" class="partner-links-context-controls" hidden></div>
           <div id="partnerLinksGrid" class="partner-links-grid">
             <div class="partner-links-empty">Loading services…</div>
           </div>
