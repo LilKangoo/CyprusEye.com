@@ -191,9 +191,6 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
       <option value="protaras" data-i18n="carRental.locations.protaras.label">Protaras (+20€)</option>
       <option value="limassol" data-i18n="carRental.locations.limassol.label">Limassol (+20€)</option>
       <option value="paphos" data-i18n="carRental.locations.paphos.label">Pafos (+40€)</option>
-      <option value="hotel" data-i18n="carRental.page.reservation.fields.pickupLocation.hotel">Hotel</option>
-      <option value="city_center" data-i18n="carRental.page.reservation.fields.pickupLocation.city">Centrum miasta</option>
-      <option value="other" data-i18n="carRental.page.reservation.fields.other">Inne</option>
     `;
 
   const youngDriverBlock = loc === 'larnaca'

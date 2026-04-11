@@ -450,6 +450,14 @@ function setSelectSafe(selectEl, value, fallback) {
   return false;
 }
 
+function isCarOfferModalOpen() {
+  const modal = byId('carHomeModal');
+  if (!(modal instanceof HTMLElement)) return false;
+  if (modal.hidden) return false;
+  const display = String(modal.style.display || '').trim().toLowerCase();
+  return display !== '' && display !== 'none';
+}
+
 function populateWidgetLocations() {
   const pickup = byId('pickupLocation');
   const ret = byId('returnLocation');
@@ -853,7 +861,10 @@ function syncReservationForm(widgetState) {
   const resCar = byId('res_car');
   const calcCar = byId('rentalCarSelect');
 
-  populateReservationLocations();
+  const modalOpen = isCarOfferModalOpen();
+  if (!modalOpen) {
+    populateReservationLocations();
+  }
 
   state.syncingWidgetToReservation = true;
   try {
@@ -885,10 +896,12 @@ function syncReservationForm(widgetState) {
       ? mapToLarnacaLocation(widgetState.returnLocation)
       : widgetState.returnLocation;
 
-    if (setSelectSafe(resPickupLocation, pickupForReservation, 'larnaca')) {
+    const reservationFallback = state.effectiveOffer === 'paphos' ? '' : 'larnaca';
+
+    if (setSelectSafe(resPickupLocation, pickupForReservation, reservationFallback)) {
       changedFieldIds.push('res_pickup_location');
     }
-    if (setSelectSafe(resReturnLocation, returnForReservation, 'larnaca')) {
+    if (setSelectSafe(resReturnLocation, returnForReservation, reservationFallback)) {
       changedFieldIds.push('res_return_location');
     }
 
