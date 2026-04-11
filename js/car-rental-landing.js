@@ -1,7 +1,5 @@
 import { openCarOfferModal } from './car-offer-modal.js';
 import {
-  buildBlankFinderState,
-  buildDeepLinkFinderState,
   coerceReturnLocationForPickup,
   getFinderDurationState,
   isFinderSelectionComplete,
@@ -134,7 +132,10 @@ function maybeOpenDeepLinkModal() {
 
   state.deepLink.modalOpened = true;
   requestAnimationFrame(() => {
-    openSelectedLandingCarModal();
+    openSelectedLandingCarModal({
+      bypassFinder: true,
+      prefillOverride: buildDeepLinkModalPrefill(),
+    });
   });
 }
 
@@ -344,22 +345,7 @@ function parsePassengerCount(value, fallback = 2) {
 }
 
 function ensureDefaultDates() {
-  const pickupDate = byId('pickupDate');
-  const returnDate = byId('returnDate');
-  const pickupLocation = byId('pickupLocation');
-  const returnLocation = byId('returnLocation');
-  if (!pickupDate || !returnDate || !pickupLocation || !returnLocation) return;
-
-  const hasDeepLink = !!(state.deepLink.offerId || state.deepLink.offerLocation);
-  if (!hasDeepLink) {
-    return;
-  }
-
-  const deepLinkState = buildDeepLinkFinderState(state.deepLink.offerLocation || 'larnaca');
-  if (!pickupDate.value) pickupDate.value = deepLinkState.pickupDate;
-  if (!returnDate.value) returnDate.value = deepLinkState.returnDate;
-  if (!pickupLocation.value) pickupLocation.value = deepLinkState.pickupLocation;
-  if (!returnLocation.value) returnLocation.value = deepLinkState.returnLocation;
+  return;
 }
 
 function bindReservationHandlers() {
@@ -525,7 +511,9 @@ function mapToLarnacaLocation(locationValue) {
 }
 
 function evaluateOffer(widgetState) {
-  const resolvedOffer = resolveOfferFromRoute(widgetState.pickupLocation, widgetState.returnLocation);
+  const resolvedOffer = (!isFinderSelectionComplete(widgetState) && state.deepLink.offerLocation)
+    ? state.deepLink.offerLocation
+    : resolveOfferFromRoute(widgetState.pickupLocation, widgetState.returnLocation);
   state.autoOffer = resolvedOffer;
   state.paphosEligible = resolvedOffer === 'paphos';
   state.manualOffer = null;
@@ -815,9 +803,24 @@ function buildLandingModalPrefill(widgetState) {
   };
 }
 
-function openSelectedLandingCarModal() {
+function buildDeepLinkModalPrefill() {
+  return {
+    pickupDate: '',
+    pickupTime: '10:00',
+    returnDate: '',
+    returnTime: '10:00',
+    pickupLocation: '',
+    returnLocation: '',
+    fullInsurance: false,
+    youngDriver: false,
+    passengers: 2,
+  };
+}
+
+function openSelectedLandingCarModal(options = {}) {
+  const { bypassFinder = false, prefillOverride = null } = options;
   const widgetState = readWidgetState();
-  if (!applyLandingVisibility(widgetState)) return;
+  if (!bypassFinder && !applyLandingVisibility(widgetState)) return;
 
   const selectedMeta = getSelectedCarOfferMeta();
   const selectedModel = String(selectedMeta?.title || widgetState.carModel || byId('rentalCarSelect')?.value || '').trim();
@@ -833,7 +836,7 @@ function openSelectedLandingCarModal() {
     fleetByLocation: {
       [state.effectiveOffer]: getCurrentFleetRows(),
     },
-    prefill: buildLandingModalPrefill(widgetState),
+    prefill: prefillOverride || buildLandingModalPrefill(widgetState),
   });
 }
 
@@ -1196,6 +1199,60 @@ async function syncWidgetFromReservationForm() {
   await refreshLandingFlow();
 }
 
+function applyWidgetStateFromModal(prefill = {}) {
+  const hasAnyFinderInput = Boolean(
+    String(prefill?.pickupDate || '').trim()
+    || String(prefill?.returnDate || '').trim()
+    || String(prefill?.pickupLocation || '').trim()
+    || String(prefill?.returnLocation || '').trim()
+  );
+  if (!hasAnyFinderInput) return;
+
+  const setValue = (id, value) => {
+    const el = byId(id);
+    if (!el) return;
+    el.value = String(value || '');
+  };
+
+  const setChecked = (id, value) => {
+    const el = byId(id);
+    if (!(el instanceof HTMLInputElement)) return;
+    el.checked = !!value;
+  };
+
+  setValue('pickupDate', prefill.pickupDate);
+  setValue('pickupTime', prefill.pickupTime || '10:00');
+  setValue('returnDate', prefill.returnDate);
+  setValue('returnTime', prefill.returnTime || '10:00');
+  setValue('pickupLocation', prefill.pickupLocation);
+  applyLandingLocationRules();
+  setValue('returnLocation', prefill.returnLocation);
+  setValue('rentalPassengers', parsePassengerCount(prefill.passengers, 2));
+  setChecked('fullInsurance', prefill.fullInsurance);
+  setChecked('youngDriver', prefill.youngDriver);
+
+  const carSelect = byId('rentalCarSelect');
+  if (carSelect instanceof HTMLSelectElement) {
+    const preferredOfferId = String(prefill.offerId || '').trim();
+    const preferredCarModel = String(prefill.carModel || '').trim();
+
+    if (preferredOfferId) {
+      const matchedOption = Array.from(carSelect.options || []).find((opt) => String(opt?.dataset?.offerId || '').trim() === preferredOfferId);
+      if (matchedOption) {
+        carSelect.value = matchedOption.value;
+        return;
+      }
+    }
+
+    if (preferredCarModel) {
+      const matchedByName = Array.from(carSelect.options || []).find((opt) => String(opt.value || '').trim() === preferredCarModel);
+      if (matchedByName) {
+        carSelect.value = matchedByName.value;
+      }
+    }
+  }
+}
+
 async function switchOfferIfNeeded() {
   const targetOffer = state.effectiveOffer;
   const bodyOffer = String(document.body?.dataset?.carLocation || '').toLowerCase();
@@ -1254,7 +1311,7 @@ async function runLandingFlow({ forceReload = false } = {}) {
     window.CE_CAR_UPDATE_CALC_OPTIONS();
   }
 
-  if (finderReady) {
+  if (state.deepLink.offerId || state.deepLink.carSlug) {
     applyCarDeepLinkSelection();
   }
 
@@ -1269,8 +1326,8 @@ async function runLandingFlow({ forceReload = false } = {}) {
   syncReservationForm(widgetState);
   if (canRenderFleet) {
     renderSelectedCarHighlight();
-    maybeOpenDeepLinkModal();
   }
+  maybeOpenDeepLinkModal();
 }
 
 async function refreshLandingFlow({ forceReload = false } = {}) {
@@ -1368,6 +1425,12 @@ function initLandingController() {
   bindReservationHandlers();
   bindImagePreviewModal();
   window.addEventListener('ce:car-fleet-ready', () => {
+    void refreshLandingFlow();
+  });
+  window.addEventListener('ce:car-modal-closed', (event) => {
+    const detail = event?.detail && typeof event.detail === 'object' ? event.detail : null;
+    if (!detail) return;
+    applyWidgetStateFromModal(detail);
     void refreshLandingFlow();
   });
   void refreshLandingFlow();

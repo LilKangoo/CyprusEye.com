@@ -124,6 +124,36 @@ function applyModalPrefill(prefill) {
   setSelectValueIfExists('res_return_location', prefill.returnLocation);
 }
 
+function normalizeOptionalLocation(location, offerLocation) {
+  const rawValue = String(location || '').trim();
+  if (!rawValue) return '';
+
+  return offerLocation === 'paphos'
+    ? normalizePaphosWidgetLocation(rawValue)
+    : (normalizeLocationForOffer(rawValue, 'larnaca') || '');
+}
+
+function readModalFinderPrefill() {
+  const carSelect = document.getElementById('res_car');
+  const selectedOption = carSelect instanceof HTMLSelectElement
+    ? (carSelect.selectedOptions?.[0] || null)
+    : null;
+
+  return {
+    pickupDate: String(document.getElementById('res_pickup_date')?.value || '').trim(),
+    pickupTime: String(document.getElementById('res_pickup_time')?.value || '10:00').trim() || '10:00',
+    returnDate: String(document.getElementById('res_return_date')?.value || '').trim(),
+    returnTime: String(document.getElementById('res_return_time')?.value || '10:00').trim() || '10:00',
+    pickupLocation: String(document.getElementById('res_pickup_location')?.value || '').trim(),
+    returnLocation: String(document.getElementById('res_return_location')?.value || '').trim(),
+    fullInsurance: !!document.getElementById('res_insurance')?.checked,
+    youngDriver: !!document.getElementById('res_young_driver')?.checked,
+    passengers: Math.max(1, Number(document.getElementById('res_passengers')?.value || 2)),
+    carModel: String(carSelect?.value || '').trim(),
+    offerId: String(selectedOption?.dataset?.offerId || '').trim(),
+  };
+}
+
 function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, prefill = null }) {
   const loc = location === 'paphos' ? 'paphos' : 'larnaca';
   const cars = Array.isArray(fleetByLocation?.[loc]) ? fleetByLocation[loc] : [];
@@ -186,6 +216,7 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
   const couponPlaceholder = text('Wpisz kod kuponu', 'Enter coupon code');
   const couponApplyLabel = text('Zastosuj', 'Apply');
   const couponClearLabel = text('Wyczyść', 'Clear');
+  const locationPlaceholder = text('Wybierz lokalizację', 'Choose location');
 
   return `
     <div style="margin-bottom: 18px;">
@@ -249,6 +280,7 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
           <div class="auto-field">
             <label for="res_pickup_location" data-i18n="${i18nPrefix}.fields.pickupLocation.label">Miejsce odbioru *</label>
             <select id="res_pickup_location" name="pickup_location" required>
+              <option value="">${escapeHtml(locationPlaceholder)}</option>
               ${pickupOptions}
             </select>
           </div>
@@ -272,6 +304,7 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
           <div class="auto-field">
             <label for="res_return_location" data-i18n="${i18nPrefix}.fields.returnLocation.label">Miejsce zwrotu *</label>
             <select id="res_return_location" name="return_location" required>
+              <option value="">${escapeHtml(locationPlaceholder)}</option>
               ${pickupOptions}
             </select>
           </div>
@@ -387,6 +420,7 @@ function ensureCarOfferModalMarkup() {
 export function closeCarOfferModal() {
   const modal = ensureCarOfferModalMarkup();
   const modalBody = document.getElementById('carHomeModalBody');
+  const modalPrefill = readModalFinderPrefill();
   modal.style.display = 'none';
   if (modalBody) modalBody.innerHTML = '';
 
@@ -396,6 +430,14 @@ export function closeCarOfferModal() {
     delete window.CE_CAR_PRICING;
     delete window.CE_CAR_PRICE_QUOTE;
   } catch (_) {}
+
+  try {
+    window.dispatchEvent(new CustomEvent('ce:car-modal-closed', {
+      detail: modalPrefill,
+    }));
+  } catch (_) {
+    // no-op
+  }
 
   previousBodyCarLocation = null;
 }
@@ -459,6 +501,12 @@ export function openCarOfferModal({
   window.CE_CAR_PRICING = buildPricingMapForLocation(loc, pricingSource);
   setBodyCarLocation(loc);
 
+  const normalizedPrefill = {
+    ...(prefill || {}),
+    pickupLocation: normalizeOptionalLocation(prefill?.pickupLocation, loc),
+    returnLocation: normalizeOptionalLocation(prefill?.returnLocation, loc),
+  };
+
   modalBody.innerHTML = `
     <div class="ce-car-home-modal">
       <div class="ce-car-home-hero">
@@ -515,15 +563,7 @@ export function openCarOfferModal({
             location: loc,
             fleetByLocation,
             selectedCarId: car.id,
-            prefill: {
-              ...(prefill || {}),
-              pickupLocation: loc === 'paphos'
-                ? normalizePaphosWidgetLocation(prefill?.pickupLocation)
-                : (normalizeLocationForOffer(prefill?.pickupLocation || 'larnaca', 'larnaca') || 'larnaca'),
-              returnLocation: loc === 'paphos'
-                ? normalizePaphosWidgetLocation(prefill?.returnLocation)
-                : (normalizeLocationForOffer(prefill?.returnLocation || 'larnaca', 'larnaca') || 'larnaca'),
-            },
+            prefill: normalizedPrefill,
           })}
         </div>
       </div>
@@ -540,15 +580,7 @@ export function openCarOfferModal({
 
   try {
     initCarReservationBindings();
-    applyModalPrefill({
-      ...prefill,
-      pickupLocation: loc === 'paphos'
-        ? normalizePaphosWidgetLocation(prefill?.pickupLocation)
-        : (normalizeLocationForOffer(prefill?.pickupLocation || 'larnaca', 'larnaca') || 'larnaca'),
-      returnLocation: loc === 'paphos'
-        ? normalizePaphosWidgetLocation(prefill?.returnLocation)
-        : (normalizeLocationForOffer(prefill?.returnLocation || 'larnaca', 'larnaca') || 'larnaca'),
-    });
+    applyModalPrefill(normalizedPrefill);
   } catch (error) {
     console.warn('Failed to init reservation form', error);
   }
