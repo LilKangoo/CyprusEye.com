@@ -1,4 +1,17 @@
-const PAPHOS_WIDGET_LOCATIONS = new Set(['airport_pfo', 'city_center', 'hotel', 'other']);
+import { openCarOfferModal } from './car-offer-modal.js';
+import {
+  buildBlankFinderState,
+  buildDeepLinkFinderState,
+  coerceReturnLocationForPickup,
+  getFinderDurationState,
+  isFinderSelectionComplete,
+  isPaphosWidgetLocation as isPaphosRouteLocation,
+  resolveOfferFromRoute,
+} from './car-rental-flow.js';
+import {
+  findCurrentFleetCarByModel,
+  getCurrentFleetRows,
+} from './car-rental-paphos.js';
 
 const state = {
   manualOffer: null,
@@ -259,19 +272,20 @@ function parsePassengerCount(value, fallback = 2) {
 function ensureDefaultDates() {
   const pickupDate = byId('pickupDate');
   const returnDate = byId('returnDate');
-  if (!pickupDate || !returnDate) return;
+  const pickupLocation = byId('pickupLocation');
+  const returnLocation = byId('returnLocation');
+  if (!pickupDate || !returnDate || !pickupLocation || !returnLocation) return;
 
-  if (!pickupDate.value) {
-    const start = new Date();
-    start.setDate(start.getDate() + 7);
-    pickupDate.value = toDateInputValue(start);
+  const hasDeepLink = !!(state.deepLink.offerId || state.deepLink.offerLocation);
+  if (!hasDeepLink) {
+    return;
   }
 
-  if (!returnDate.value) {
-    const end = new Date(pickupDate.value ? `${pickupDate.value}T10:00` : Date.now());
-    end.setDate(end.getDate() + 3);
-    returnDate.value = toDateInputValue(end);
-  }
+  const deepLinkState = buildDeepLinkFinderState(state.deepLink.offerLocation || 'larnaca');
+  if (!pickupDate.value) pickupDate.value = deepLinkState.pickupDate;
+  if (!returnDate.value) returnDate.value = deepLinkState.returnDate;
+  if (!pickupLocation.value) pickupLocation.value = deepLinkState.pickupLocation;
+  if (!returnLocation.value) returnLocation.value = deepLinkState.returnLocation;
 }
 
 function bindReservationHandlers() {
@@ -308,7 +322,7 @@ function bindReservationHandlers() {
   });
 }
 
-function buildLocationOptionsHtml() {
+function buildLocationOptionsHtml({ restrictToPaphos = false, includePlaceholder = false } = {}) {
   const larnacaLabel = tr('carRentalLanding.locations.group.islandWide', 'Larnaka / cały Cypr');
   const paphosLabel = tr('carRentalLanding.locations.group.paphosOnly', 'Pafos (tylko oferta Pafos)');
 
@@ -348,9 +362,11 @@ function buildLocationOptionsHtml() {
     .join('');
 
   return `
+    ${includePlaceholder ? `<option value="">${tr('carRentalLanding.locations.placeholder', 'Wybierz lokalizację')}</option>` : ''}
+    ${restrictToPaphos ? '' : `
     <optgroup label="${larnacaLabel}">
       ${renderOptions(larnacaOptions)}
-    </optgroup>
+    </optgroup>`}
     <optgroup label="${paphosLabel}">
       ${renderOptions(paphosOptions)}
     </optgroup>
@@ -381,13 +397,15 @@ function populateWidgetLocations() {
 
   const previousPickup = pickup.value;
   const previousReturn = ret.value;
-  const html = buildLocationOptionsHtml();
+  pickup.innerHTML = buildLocationOptionsHtml({ includePlaceholder: true });
+  setSelectSafe(pickup, previousPickup || '', '');
 
-  pickup.innerHTML = html;
-  ret.innerHTML = html;
-
-  setSelectSafe(pickup, previousPickup || 'larnaca', 'larnaca');
-  setSelectSafe(ret, previousReturn || 'larnaca', 'larnaca');
+  const normalizedReturn = coerceReturnLocationForPickup(pickup.value, previousReturn || '');
+  ret.innerHTML = buildLocationOptionsHtml({
+    includePlaceholder: true,
+    restrictToPaphos: isPaphosRouteLocation(pickup.value),
+  });
+  setSelectSafe(ret, normalizedReturn || previousReturn || '', '');
 }
 
 function populateReservationLocations() {
@@ -397,13 +415,15 @@ function populateReservationLocations() {
 
   const previousPickup = pickup.value;
   const previousReturn = ret.value;
-  const html = buildLocationOptionsHtml();
+  pickup.innerHTML = buildLocationOptionsHtml({ includePlaceholder: true });
+  setSelectSafe(pickup, previousPickup || '', '');
 
-  pickup.innerHTML = html;
-  ret.innerHTML = html;
-
-  setSelectSafe(pickup, previousPickup || 'larnaca', 'larnaca');
-  setSelectSafe(ret, previousReturn || 'larnaca', 'larnaca');
+  const normalizedReturn = coerceReturnLocationForPickup(pickup.value, previousReturn || '');
+  ret.innerHTML = buildLocationOptionsHtml({
+    includePlaceholder: true,
+    restrictToPaphos: isPaphosRouteLocation(pickup.value),
+  });
+  setSelectSafe(ret, normalizedReturn || previousReturn || '', '');
 }
 
 function readWidgetState() {
@@ -423,7 +443,7 @@ function readWidgetState() {
 }
 
 function isPaphosWidgetLocation(locationValue) {
-  return PAPHOS_WIDGET_LOCATIONS.has(String(locationValue || '').trim());
+  return isPaphosRouteLocation(locationValue);
 }
 
 function mapToLarnacaLocation(locationValue) {
@@ -431,32 +451,16 @@ function mapToLarnacaLocation(locationValue) {
 }
 
 function evaluateOffer(widgetState) {
-  const paphosEligible =
-    isPaphosWidgetLocation(widgetState.pickupLocation)
-    && isPaphosWidgetLocation(widgetState.returnLocation)
-    && !widgetState.youngDriver;
-
-  state.autoOffer = paphosEligible ? 'paphos' : 'larnaca';
-  state.paphosEligible = paphosEligible;
-
-  if (!paphosEligible || widgetState.youngDriver) {
-    state.manualOffer = null;
-  }
-
-  if (paphosEligible && state.manualOffer === 'larnaca') {
-    state.effectiveOffer = 'larnaca';
-  } else {
-    state.effectiveOffer = state.autoOffer;
-  }
+  const resolvedOffer = resolveOfferFromRoute(widgetState.pickupLocation, widgetState.returnLocation);
+  state.autoOffer = resolvedOffer;
+  state.paphosEligible = resolvedOffer === 'paphos';
+  state.manualOffer = null;
+  state.effectiveOffer = resolvedOffer;
 }
 
 function renderOfferIndicators(widgetState) {
   const badge = byId('landingActiveOfferBadge');
   const info = byId('landingOfferInfo');
-  const toggleWrap = byId('landingOfferToggle');
-  const toggleLabel = byId('landingOfferToggleLabel');
-  const togglePaphos = byId('offerTogglePaphos');
-  const toggleLarnaca = byId('offerToggleLarnaca');
 
   const offerName = state.effectiveOffer === 'paphos'
     ? tr('carRentalLanding.offer.name.paphos', 'Pafos')
@@ -466,63 +470,41 @@ function renderOfferIndicators(widgetState) {
     badge.textContent = tr('carRentalLanding.offer.badge', 'Oferta: {{offer}}', { offer: offerName });
   }
 
-  if (toggleWrap) {
-    const showToggle = state.paphosEligible;
-    toggleWrap.hidden = !showToggle;
-    toggleWrap.style.display = showToggle ? 'flex' : 'none';
-  }
-
-  if (toggleLabel) {
-    toggleLabel.textContent = tr('carRentalLanding.offer.compareLabel', 'Porównaj oferty:');
-  }
-
-  if (togglePaphos) {
-    const active = state.effectiveOffer === 'paphos';
-    togglePaphos.textContent = tr('carRentalLanding.offer.button.paphos', 'Oferta Pafos');
-    togglePaphos.setAttribute('aria-pressed', active ? 'true' : 'false');
-    togglePaphos.classList.toggle('ghost', !active);
-    togglePaphos.classList.toggle('btn-secondary', active);
-    togglePaphos.classList.toggle('secondary', active);
-  }
-
-  if (toggleLarnaca) {
-    const active = state.effectiveOffer === 'larnaca';
-    toggleLarnaca.textContent = tr('carRentalLanding.offer.button.larnaca', 'Oferta Larnaka');
-    toggleLarnaca.setAttribute('aria-pressed', active ? 'true' : 'false');
-    toggleLarnaca.classList.toggle('ghost', !active);
-    toggleLarnaca.classList.toggle('btn-secondary', active);
-    toggleLarnaca.classList.toggle('secondary', active);
-  }
-
   if (!info) return;
 
-  if (widgetState.youngDriver) {
+  if (!isFinderSelectionComplete(widgetState)) {
     info.textContent = tr(
-      'carRentalLanding.offer.info.youngDriverOnlyLarnaca',
-      'Młody kierowca jest dostępny tylko w ofercie Larnaka. Oferta została przełączona automatycznie.',
+      'carRentalLanding.offer.info.incomplete',
+      'Wybierz daty i trasę. Oferta oraz lista aut odblokują się automatycznie po uzupełnieniu finderu.',
     );
     return;
   }
 
-  if (state.paphosEligible && state.effectiveOffer === 'paphos') {
+  const duration = getFinderDurationState(widgetState);
+  if (!duration.ready) {
+    info.textContent = duration.reason === 'minimum_days'
+      ? tr(
+        'carRentalLanding.offer.info.minimumDays',
+        'Minimalny wynajem to 3 dni. Wydłuż termin, aby zobaczyć dostępne auta.',
+      )
+      : tr(
+        'carRentalLanding.offer.info.invalidRange',
+        'Data zwrotu musi być późniejsza niż data odbioru, aby pokazać auta.',
+      );
+    return;
+  }
+
+  if (state.effectiveOffer === 'paphos') {
     info.textContent = tr(
       'carRentalLanding.offer.info.paphosActive',
-      'Aktywna oferta Pafos. Możesz ręcznie porównać ceny z ofertą Larnaka.',
-    );
-    return;
-  }
-
-  if (state.paphosEligible && state.effectiveOffer === 'larnaca') {
-    info.textContent = tr(
-      'carRentalLanding.offer.info.larnacaManual',
-      'Aktywna oferta Larnaka (wybór ręczny). Zmienisz ją w przełączniku „Porównaj oferty”.',
+      'Aktywna oferta Pafos. Ta lokalna flota działa tylko przy odbiorze i zwrocie w strefie Pafos.',
     );
     return;
   }
 
   info.textContent = tr(
     'carRentalLanding.offer.info.larnacaAuto',
-    'Aktywna oferta Larnaka (auto-switch). Oferta Pafos włącza się tylko przy odbiorze i zwrocie w strefie Pafos.',
+    'Aktywna oferta Larnaka / cały Cypr. To domyślna flota dla wszystkich tras poza lokalną strefą Pafos.',
   );
 }
 
@@ -670,6 +652,121 @@ function renderSelectedCarHighlight() {
   );
 }
 
+function applyLandingLocationRules() {
+  const pickup = byId('pickupLocation');
+  const ret = byId('returnLocation');
+  if (!pickup || !ret) return;
+
+  const previousReturn = ret.value;
+  ret.innerHTML = buildLocationOptionsHtml({
+    includePlaceholder: true,
+    restrictToPaphos: isPaphosRouteLocation(pickup.value),
+  });
+  const normalizedReturn = coerceReturnLocationForPickup(pickup.value, previousReturn || '');
+  setSelectSafe(ret, normalizedReturn || previousReturn || '', '');
+}
+
+function isLandingFinderReady(widgetState) {
+  return isFinderSelectionComplete(widgetState) && getFinderDurationState(widgetState).ready;
+}
+
+function applyLandingVisibility(widgetState) {
+  const finderReady = isLandingFinderReady(widgetState);
+  const grid = byId('carRentalGrid');
+  const select = byId('rentalCarSelect');
+  const triggerButton = byId('btnFillFromCalculator');
+  const highlight = byId('selectedCarHighlight');
+  const result = byId('carRentalResult');
+  const breakdown = byId('carRentalBreakdown');
+  const message = byId('carRentalMessage');
+
+  if (grid) {
+    grid.hidden = !finderReady;
+  }
+
+  if (select) {
+    select.disabled = !finderReady;
+  }
+
+  if (triggerButton) {
+    triggerButton.disabled = !finderReady || !String(select?.value || '').trim();
+    triggerButton.setAttribute('aria-disabled', triggerButton.disabled ? 'true' : 'false');
+  }
+
+  if (!finderReady) {
+    if (highlight) highlight.hidden = true;
+    if (result) result.textContent = '';
+    if (breakdown) breakdown.innerHTML = '';
+    if (message) {
+      const duration = getFinderDurationState(widgetState);
+      if (!isFinderSelectionComplete(widgetState)) {
+        message.textContent = tr(
+          'carRentalLanding.calculator.selectRouteFirst',
+          'Wybierz daty oraz trasę, aby zobaczyć dostępne auta.',
+        );
+      } else if (duration.reason === 'minimum_days') {
+        message.textContent = tr(
+          'carRentalLanding.offer.info.minimumDays',
+          'Minimalny wynajem to 3 dni. Wydłuż termin, aby zobaczyć dostępne auta.',
+        );
+      } else if (duration.reason === 'return_before_pickup') {
+        message.textContent = tr(
+          'carRentalLanding.offer.info.invalidRange',
+          'Data zwrotu musi być późniejsza niż data odbioru, aby pokazać auta.',
+        );
+      }
+      message.classList.toggle('is-error', true);
+    }
+    updateCarLandingSeo('', '', '');
+    return false;
+  }
+
+  if (message && message.classList.contains('is-error')) {
+    message.textContent = '';
+    message.classList.remove('is-error');
+  }
+
+  return true;
+}
+
+function buildLandingModalPrefill(widgetState) {
+  return {
+    pickupDate: widgetState.pickupDate,
+    pickupTime: widgetState.pickupTime,
+    returnDate: widgetState.returnDate,
+    returnTime: widgetState.returnTime,
+    pickupLocation: state.effectiveOffer === 'paphos'
+      ? widgetState.pickupLocation
+      : mapToLarnacaLocation(widgetState.pickupLocation),
+    returnLocation: state.effectiveOffer === 'paphos'
+      ? widgetState.returnLocation
+      : mapToLarnacaLocation(widgetState.returnLocation),
+    fullInsurance: !!widgetState.fullInsurance,
+    youngDriver: state.effectiveOffer === 'larnaca' && !!widgetState.youngDriver,
+    passengers: parsePassengerCount(widgetState.passengers, 2),
+  };
+}
+
+function openSelectedLandingCarModal() {
+  const widgetState = readWidgetState();
+  if (!applyLandingVisibility(widgetState)) return;
+
+  const selectedModel = String(widgetState.carModel || byId('rentalCarSelect')?.value || '').trim();
+  if (!selectedModel) return;
+
+  const selectedCar = findCurrentFleetCarByModel(selectedModel);
+  if (!selectedCar) return;
+
+  openCarOfferModal({
+    car: selectedCar,
+    location: state.effectiveOffer,
+    fleetByLocation: {
+      [state.effectiveOffer]: getCurrentFleetRows(),
+    },
+    prefill: buildLandingModalPrefill(widgetState),
+  });
+}
+
 function syncReservationForm(widgetState) {
   const resPickupDate = byId('res_pickup_date');
   const resPickupTime = byId('res_pickup_time');
@@ -745,11 +842,6 @@ function syncReservationForm(widgetState) {
       if (setSelectSafe(resCar, calcCar.value, resCar.value || '')) {
         changedFieldIds.push('res_car');
       }
-    }
-
-    const reservationForm = byId('localReservationForm');
-    if (reservationForm) {
-      reservationForm.dataset.activeOffer = state.effectiveOffer;
     }
 
     renderReservationOfferIndicator(widgetState);
@@ -1076,12 +1168,9 @@ async function runLandingFlow({ forceReload = false } = {}) {
   const previousOffer = state.effectiveOffer;
 
   evaluateOffer(initialWidgetState);
-  if (!state.deepLink.applied && state.deepLink.offerLocation) {
-    state.manualOffer = state.deepLink.offerLocation;
-    state.effectiveOffer = state.deepLink.offerLocation;
-  }
   renderOfferIndicators(initialWidgetState);
   updateLandingQuoteContext(initialWidgetState);
+  const finderReady = applyLandingVisibility(initialWidgetState);
 
   const offerChanged = previousOffer !== state.effectiveOffer;
   if (forceReload || offerChanged) {
@@ -1095,17 +1184,22 @@ async function runLandingFlow({ forceReload = false } = {}) {
     window.CE_CAR_UPDATE_CALC_OPTIONS();
   }
 
-  applyCarDeepLinkSelection();
+  if (finderReady) {
+    applyCarDeepLinkSelection();
+  }
 
   const widgetState = readWidgetState();
   updateLandingQuoteContext(widgetState);
 
-  if (typeof window.calculatePrice === 'function') {
+  const canRenderFleet = applyLandingVisibility(widgetState);
+  if (canRenderFleet && typeof window.calculatePrice === 'function') {
     window.calculatePrice();
   }
 
   syncReservationForm(widgetState);
-  renderSelectedCarHighlight();
+  if (canRenderFleet) {
+    renderSelectedCarHighlight();
+  }
 }
 
 async function refreshLandingFlow({ forceReload = false } = {}) {
@@ -1154,6 +1248,9 @@ function bindWidgetHandlers() {
 
     el.dataset.ceLandingBound = '1';
     el.addEventListener('change', () => {
+      if (id === 'pickupLocation') {
+        applyLandingLocationRules();
+      }
       if (id === 'rentalCarSelect') {
         state.deepLink.applied = true;
       }
@@ -1170,23 +1267,11 @@ function bindWidgetHandlers() {
     }
   });
 
-  const offerPaphos = byId('offerTogglePaphos');
-  if (offerPaphos && offerPaphos.dataset.ceLandingBound !== '1') {
-    offerPaphos.dataset.ceLandingBound = '1';
-    offerPaphos.addEventListener('click', () => {
-      if (!state.paphosEligible) return;
-      state.manualOffer = 'paphos';
-      void refreshLandingFlow();
-    });
-  }
-
-  const offerLarnaca = byId('offerToggleLarnaca');
-  if (offerLarnaca && offerLarnaca.dataset.ceLandingBound !== '1') {
-    offerLarnaca.dataset.ceLandingBound = '1';
-    offerLarnaca.addEventListener('click', () => {
-      if (!state.paphosEligible) return;
-      state.manualOffer = 'larnaca';
-      void refreshLandingFlow();
+  const fillButton = byId('btnFillFromCalculator');
+  if (fillButton && fillButton.dataset.ceLandingModalBound !== '1') {
+    fillButton.dataset.ceLandingModalBound = '1';
+    fillButton.addEventListener('click', () => {
+      openSelectedLandingCarModal();
     });
   }
 }
@@ -1200,6 +1285,7 @@ function initLandingController() {
   populateWidgetLocations();
   populateReservationLocations();
   ensureDefaultDates();
+  applyLandingLocationRules();
 
   window.CE_CAR_ON_CARD_SELECT = (payload = {}) => {
     const source = String(payload?.source || '').trim().toLowerCase();
@@ -1221,6 +1307,7 @@ function initLandingController() {
     window.registerLanguageChangeHandler(() => {
       populateWidgetLocations();
       populateReservationLocations();
+      applyLandingLocationRules();
       void refreshLandingFlow();
     });
   }

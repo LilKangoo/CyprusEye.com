@@ -1,6 +1,8 @@
 // Car Rental Paphos - Dynamic Fleet Loading
 import { supabase } from './supabaseClient.js';
-import { calculateCarRentalQuote } from './car-pricing.js';
+import { calculateCarRentalQuote, normalizeLocationForOffer } from './car-pricing.js';
+import { openCarOfferModal } from './car-offer-modal.js';
+import { normalizePaphosWidgetLocation } from './car-rental-flow.js';
 
 let paphosFleet = [];
 let pricing = {};
@@ -13,6 +15,10 @@ function getI18nLanguage() {
   if (fromApp) return fromApp;
   const fromGlobal = (typeof window.getCurrentLanguage === 'function' ? window.getCurrentLanguage() : '').toLowerCase();
   return fromGlobal || 'pl';
+}
+
+function getCarName(car) {
+  return window.getCarName ? window.getCarName(car) : (car?.car_model || car?.car_type || 'Car');
 }
 
 function getI18nTranslations() {
@@ -87,6 +93,22 @@ function getRequestedOfferId() {
   } catch (_error) {
     return '';
   }
+}
+
+export function getCurrentFleetRows() {
+  return Array.isArray(paphosFleet) ? [...paphosFleet] : [];
+}
+
+export function findCurrentFleetCarByOfferId(offerId) {
+  const requested = String(offerId || '').trim();
+  if (!requested) return null;
+  return paphosFleet.find((car) => String(car?.id || '').trim() === requested) || null;
+}
+
+export function findCurrentFleetCarByModel(carModel) {
+  const requested = String(carModel || '').trim();
+  if (!requested) return null;
+  return paphosFleet.find((car) => getCarName(car) === requested) || null;
 }
 
 function applyDeepLinkedOfferSelection({ allowOnLanding = false, notifyLanding = false } = {}) {
@@ -679,6 +701,20 @@ window.calculatePrice = function() {
     const returnLoc = document.getElementById('returnLocation')?.value || '';
     const fullInsurance = document.getElementById('fullInsurance')?.checked || false;
     const youngDriver = document.getElementById('youngDriver')?.checked || false;
+    const resultEl = document.getElementById('carRentalResult');
+    const breakdownEl = document.getElementById('carRentalBreakdown');
+    const messageEl = document.getElementById('carRentalMessage');
+
+    if (!pickupDateStr || !returnDateStr || !pickupLoc || !returnLoc) {
+      window.CE_CAR_PRICE_QUOTE = null;
+      if (resultEl) resultEl.textContent = '';
+      if (breakdownEl) breakdownEl.innerHTML = '';
+      if (messageEl) {
+        messageEl.textContent = '';
+        messageEl.classList.remove('is-error');
+      }
+      return;
+    }
 
     const pickupDate = new Date(`${pickupDateStr || ''}T${pickupTimeStr}`);
     const returnDate = new Date(`${returnDateStr || ''}T${returnTimeStr}`);
@@ -695,9 +731,26 @@ window.calculatePrice = function() {
       return;
     }
 
+    if (!car) {
+      window.CE_CAR_PRICE_QUOTE = null;
+      if (resultEl) resultEl.textContent = '';
+      if (breakdownEl) breakdownEl.innerHTML = '';
+      if (messageEl) {
+        messageEl.textContent = '';
+        messageEl.classList.remove('is-error');
+      }
+      return;
+    }
+
     const carPricing = pricing[car];
     if (!carPricing) {
-      setCalculatorMessage(i18n('carRental.calculator.errors.selectCar', null, 'Proszę wybrać auto z listy'), true);
+      window.CE_CAR_PRICE_QUOTE = null;
+      if (resultEl) resultEl.textContent = '';
+      if (breakdownEl) breakdownEl.innerHTML = '';
+      if (messageEl) {
+        messageEl.textContent = '';
+        messageEl.classList.remove('is-error');
+      }
       return;
     }
 
@@ -736,10 +789,6 @@ window.calculatePrice = function() {
         returnLoc: quote.returnLoc,
       },
     };
-
-    const resultEl = document.getElementById('carRentalResult');
-    const breakdownEl = document.getElementById('carRentalBreakdown');
-    const messageEl = document.getElementById('carRentalMessage');
 
     if (resultEl) {
       resultEl.textContent = i18n('carRental.calculator.total', { price: `${quote.total.toFixed(2)}€` }, `Całkowita cena wynajmu: ${quote.total.toFixed(2)}€`);
@@ -953,6 +1002,45 @@ function setCalculatorMessage(text, isError) {
   messageEl.classList.toggle('is-error', !!isError);
 }
 
+function buildLandingModalPrefill(location) {
+  const loc = location === 'paphos' ? 'paphos' : 'larnaca';
+  const pickupLocationValue = String(document.getElementById('pickupLocation')?.value || '').trim();
+  const returnLocationValue = String(document.getElementById('returnLocation')?.value || '').trim();
+
+  return {
+    pickupDate: String(document.getElementById('pickupDate')?.value || '').trim(),
+    pickupTime: String(document.getElementById('pickupTime')?.value || '10:00').trim() || '10:00',
+    returnDate: String(document.getElementById('returnDate')?.value || '').trim(),
+    returnTime: String(document.getElementById('returnTime')?.value || '10:00').trim() || '10:00',
+    pickupLocation: loc === 'paphos'
+      ? normalizePaphosWidgetLocation(pickupLocationValue)
+      : (normalizeLocationForOffer(pickupLocationValue || 'larnaca', 'larnaca') || 'larnaca'),
+    returnLocation: loc === 'paphos'
+      ? normalizePaphosWidgetLocation(returnLocationValue)
+      : (normalizeLocationForOffer(returnLocationValue || 'larnaca', 'larnaca') || 'larnaca'),
+    fullInsurance: !!document.getElementById('fullInsurance')?.checked,
+    youngDriver: loc === 'larnaca' && !!document.getElementById('youngDriver')?.checked,
+    passengers: parsePassengerCount(document.getElementById('rentalPassengers')?.value || 2, 2),
+  };
+}
+
+function buildLandingQuoteForCar(carName, location) {
+  const loc = location === 'paphos' ? 'paphos' : 'larnaca';
+  const quote = calculateQuoteForSelection({
+    offer: loc,
+    carModel: carName,
+    pickupDateStr: document.getElementById('pickupDate')?.value || '',
+    returnDateStr: document.getElementById('returnDate')?.value || '',
+    pickupTimeStr: document.getElementById('pickupTime')?.value || '10:00',
+    returnTimeStr: document.getElementById('returnTime')?.value || '10:00',
+    pickupLocation: document.getElementById('pickupLocation')?.value || '',
+    returnLocation: document.getElementById('returnLocation')?.value || '',
+    fullInsurance: !!document.getElementById('fullInsurance')?.checked,
+    youngDriver: loc === 'larnaca' && !!document.getElementById('youngDriver')?.checked,
+  });
+  return quote || null;
+}
+
 // Attach car select buttons
 function attachCarSelectButtons() {
   document.querySelectorAll('[data-select-car]').forEach((button) => {
@@ -994,9 +1082,22 @@ function attachCarSelectButtons() {
         }
       }
       window.calculatePrice();
-      const scrollTarget = isLandingCarRentalPage()
-        ? (document.getElementById('carReservationForm') || document.getElementById('carRentalCalculatorBlock'))
-        : document.getElementById('carRentalCalculatorBlock');
+      if (isLandingCarRentalPage()) {
+        const selectedCar = findCurrentFleetCarByOfferId(offerId) || findCurrentFleetCarByModel(carName);
+        if (selectedCar) {
+          openCarOfferModal({
+            car: selectedCar,
+            location: getPageLocation(),
+            fleetByLocation: {
+              [getPageLocation()]: getCurrentFleetRows(),
+            },
+            prefill: buildLandingModalPrefill(getPageLocation()),
+            quote: buildLandingQuoteForCar(carName, getPageLocation()),
+          });
+        }
+        return;
+      }
+      const scrollTarget = document.getElementById('carRentalCalculatorBlock');
       if (scrollTarget) {
         scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
@@ -1022,7 +1123,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadPaphosFleet().then(() => {
     // Wire Larnaca calculator events, if present
     const lcaForm = document.getElementById('carRentalCalculator');
-    if (lcaForm) {
+    if (lcaForm && !isLandingCarRentalPage()) {
       lcaForm.addEventListener('submit', (e) => { e.preventDefault(); window.calculatePrice(); });
       lcaForm.addEventListener('change', () => window.calculatePrice());
       // Initial calculation when data ready
@@ -1033,6 +1134,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Register language change handler (uses global helper if available)
   if (typeof window.registerLanguageChangeHandler === 'function') {
     window.registerLanguageChangeHandler(() => {
+      if (isLandingCarRentalPage()) {
+        return;
+      }
       // Only re-render if fleet is loaded
       if (paphosFleet && paphosFleet.length > 0) {
         renderFleet();

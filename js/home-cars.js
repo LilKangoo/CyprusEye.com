@@ -1,6 +1,13 @@
 import { supabase } from '/js/supabaseClient.js';
-import { initCarReservationBindings } from '/js/car-reservation.js?v=20260205f';
 import { calculateCarRentalQuote, normalizeLocationForOffer } from '/js/car-pricing.js';
+import { openCarOfferModal } from '/js/car-offer-modal.js';
+import {
+  buildBlankFinderState,
+  coerceReturnLocationForPickup,
+  isPaphosWidgetLocation,
+  normalizePaphosWidgetLocation,
+  resolveOfferFromRoute,
+} from '/js/car-rental-flow.js';
 
 let allHomeCars = [];
 let homeCarsById = {};
@@ -9,12 +16,9 @@ let homeCarsCurrentLocation = 'larnaca';
 let homeCarsSavedOnly = false;
 let homeCarsLastQuoteByCarId = {};
 let homeCarsFinderState = null;
-let homeCarsFinderManualLocation = false;
-let homeCarsFinderExpanded = false;
 
 let homeCarsCarouselUpdate = null;
 let previousBodyCarLocation = null;
-const PAPHOS_WIDGET_LOCATIONS = new Set(['airport_pfo', 'city_center', 'hotel', 'other']);
 
 function getLang() {
   const lang = (window.appI18n?.language || document.documentElement?.lang || 'pl').toLowerCase();
@@ -58,42 +62,18 @@ function toDateInputValue(date) {
 }
 
 function buildDefaultFinderState() {
-  const pickup = new Date();
-  pickup.setDate(pickup.getDate() + 7);
-  const ret = new Date(pickup.getTime());
-  ret.setDate(ret.getDate() + 3);
-
-  return {
-    pickupDate: toDateInputValue(pickup),
-    pickupTime: '10:00',
-    returnDate: toDateInputValue(ret),
-    returnTime: '10:00',
-    pickupLocation: 'larnaca',
-    returnLocation: 'larnaca',
-    fullInsurance: false,
-    youngDriver: false,
-    passengers: 2,
-  };
-}
-
-function isPaphosWidgetLocation(value) {
-  return PAPHOS_WIDGET_LOCATIONS.has(String(value || '').trim());
+  return buildBlankFinderState();
 }
 
 function evaluateFinderOffer(state) {
-  const paphosEligible = isPaphosWidgetLocation(state.pickupLocation)
-    && isPaphosWidgetLocation(state.returnLocation)
-    && !state.youngDriver;
   return {
-    offer: paphosEligible ? 'paphos' : 'larnaca',
-    paphosEligible,
+    offer: resolveOfferFromRoute(state.pickupLocation, state.returnLocation),
+    paphosEligible: resolveOfferFromRoute(state.pickupLocation, state.returnLocation) === 'paphos',
   };
 }
 
 function normalizePaphosLocation(value) {
-  const normalized = String(value || '').trim();
-  if (isPaphosWidgetLocation(normalized)) return normalized;
-  return 'hotel';
+  return normalizePaphosWidgetLocation(value);
 }
 
 function getFinderDurationState(state) {
@@ -158,10 +138,11 @@ function buildPricingMapForLocation(location) {
   return out;
 }
 
-function buildFinderLocationOptions(selectedValue) {
+function buildFinderLocationOptions(selectedValue, options = {}) {
+  const { restrictToPaphos = false, includePlaceholder = false } = options;
   const selected = String(selectedValue || '').trim();
-  const options = [
-    {
+  const groups = [
+    ...(!restrictToPaphos ? [{
       label: text('🚗 Oferta Larnaka / cały Cypr', '🚗 Larnaca offer / island-wide'),
       items: [
         { value: 'larnaca', label: text('Larnaka • bez opłaty', 'Larnaca • no fee') },
@@ -171,7 +152,7 @@ function buildFinderLocationOptions(selectedValue) {
         { value: 'limassol', label: text('Limassol • +20€', 'Limassol • +20€') },
         { value: 'paphos', label: text('Pafos • +40€', 'Paphos • +40€') },
       ],
-    },
+    }] : []),
     {
       label: text('🌴 Strefa Pafos', '🌴 Paphos zone'),
       items: [
@@ -180,10 +161,14 @@ function buildFinderLocationOptions(selectedValue) {
         { value: 'hotel', label: text('Hotel / resort', 'Hotel / resort') },
         { value: 'other', label: text('Inne miejsce (Pafos)', 'Other place (Paphos)') },
       ],
-    },
+    }
   ];
 
-  return options.map((group) => `
+  const placeholder = includePlaceholder
+    ? `<option value="">${escapeHtml(text('Wybierz lokalizację', 'Choose location'))}</option>`
+    : '';
+
+  return `${placeholder}${groups.map((group) => `
     <optgroup label="${escapeHtml(group.label)}">
       ${group.items.map((item) => `
         <option value="${escapeHtml(item.value)}" ${item.value === selected ? 'selected' : ''}>
@@ -191,7 +176,7 @@ function buildFinderLocationOptions(selectedValue) {
         </option>
       `).join('')}
     </optgroup>
-  `).join('');
+  `).join('')}`;
 }
 
 function readFinderStateFromDom(baseState = null) {
@@ -219,9 +204,19 @@ function renderFinderStatus() {
   const state = homeCarsFinderState || buildDefaultFinderState();
   const duration = getFinderDurationState(state);
   const offer = evaluateFinderOffer(state);
-  const offerLabel = offer.offer === 'paphos' ? text('Pafos', 'Paphos') : text('Larnaka', 'Larnaca');
+  const offerLabel = offer.offer === 'paphos'
+    ? text('Pafos zone', 'Paphos zone')
+    : text('Island-wide', 'Island-wide');
 
   statusEl.classList.remove('is-warning', 'is-paphos', 'is-larnaca');
+
+  if (!String(state.pickupLocation || '').trim() || !String(state.returnLocation || '').trim()) {
+    statusEl.textContent = text(
+      'Wybierz odbiór i zwrot, aby system dobrał właściwą ofertę i odblokował auta.',
+      'Choose pickup and return so the system can resolve the correct offer and unlock cars.'
+    );
+    return;
+  }
 
   if (!duration.ready) {
     if (duration.reason === 'minimum_days') {
@@ -247,19 +242,10 @@ function renderFinderStatus() {
     return;
   }
 
-  if (homeCarsFinderManualLocation) {
-    statusEl.classList.add(offer.offer === 'paphos' ? 'is-paphos' : 'is-larnaca');
-    statusEl.textContent = text(
-      `Aktywna oferta: ${offerLabel}. Włączony ręczny podgląd przez zakładki.`,
-      `Active offer: ${offerLabel}. Manual tab view is active.`
-    );
-    return;
-  }
-
   statusEl.classList.add(offer.offer === 'paphos' ? 'is-paphos' : 'is-larnaca');
   statusEl.textContent = text(
-    `Aktywna oferta: ${offerLabel}. Lista aut jest dobierana automatycznie według trasy.`,
-    `Active offer: ${offerLabel}. Car list is auto-selected from your route.`
+    `Aktywna oferta: ${offerLabel}. Lista aut jest dobierana automatycznie wyłącznie z trasy.`,
+    `Active offer: ${offerLabel}. Car list is selected automatically from your route only.`
   );
 }
 
@@ -269,94 +255,86 @@ function renderHomeCarsFinder() {
 
   const state = homeCarsFinderState || buildDefaultFinderState();
   const offer = evaluateFinderOffer(state);
-  const offerLabel = offer.offer === 'paphos' ? text('Pafos', 'Paphos') : text('Larnaka', 'Larnaca');
+  const offerLabel = offer.offer === 'paphos'
+    ? text('Strefa Pafos', 'Paphos zone')
+    : text('Cały Cypr', 'Island-wide');
   const duration = getFinderDurationState(state);
   const summaryLine = duration.ready
-    ? text(`${offerLabel} • ${duration.days} dni • ${Math.max(1, Number(state.passengers || 2))} pasażerów`, `${offerLabel} • ${duration.days} days • ${Math.max(1, Number(state.passengers || 2))} Passengers`)
-    : text(`${offerLabel} • ${Math.max(1, Number(state.passengers || 2))} pasażerów`, `${offerLabel} • ${Math.max(1, Number(state.passengers || 2))} Passengers`);
-  const expanded = !!homeCarsFinderExpanded;
+    ? text(`${offerLabel} • ${duration.days} dni • ${Math.max(1, Number(state.passengers || 2))} pasażerów`, `${offerLabel} • ${duration.days} days • ${Math.max(1, Number(state.passengers || 2))} passengers`)
+    : text(`${offerLabel} • ${Math.max(1, Number(state.passengers || 2))} pasażerów`, `${offerLabel} • ${Math.max(1, Number(state.passengers || 2))} passengers`);
+  const restrictReturnToPaphos = isPaphosWidgetLocation(state.pickupLocation);
 
   root.innerHTML = `
-    <div class="home-cars-finder-accordion ${expanded ? 'is-open' : ''}">
-      <button type="button" id="carsFinderToggle" class="home-cars-finder-trigger" aria-expanded="${expanded ? 'true' : 'false'}" aria-controls="carsFinderPanelWrap">
-        <span class="home-cars-finder-trigger__copy">
-          <span class="home-cars-finder-trigger__title">Find your car in 15 seconds</span>
-          <span class="home-cars-finder-trigger__subtitle">Set route and timing. We will show final total and rental duration directly on each car card.</span>
-        </span>
-        <span class="home-cars-finder-trigger__meta">${escapeHtml(summaryLine)}</span>
-        <span class="home-cars-finder-trigger__icon" aria-hidden="true">${expanded ? '−' : '+'}</span>
-      </button>
+    <div class="home-cars-finder-accordion is-open">
+      <div class="home-cars-finder-panel">
+        <div class="home-cars-finder-panel__header">
+          <h3>${escapeHtml(text('Znajdź auto w 15 sekund', 'Find your car in 15 seconds'))}</h3>
+          <p>${escapeHtml(text(
+            'Najpierw wybierz trasę i termin. Dopiero potem pokażemy dostępne auta z właściwej oferty.',
+            'Choose route and timing first. We will unlock matching cars only after the route is complete.'
+          ))}</p>
+        </div>
 
-      <div id="carsFinderPanelWrap" class="home-cars-finder-panel-wrap" ${expanded ? '' : 'hidden'}>
-        <div class="home-cars-finder-panel">
-          <div class="home-cars-finder-zones" aria-hidden="true">
-            <span class="home-cars-finder-zone home-cars-finder-zone--larnaca">${escapeHtml(text('🚗 Oferta Larnaka / cały Cypr', '🚗 Larnaca offer / island-wide'))}</span>
-            <span class="home-cars-finder-zone home-cars-finder-zone--paphos">${escapeHtml(text('🌴 Strefa Pafos', '🌴 Paphos zone'))}</span>
-          </div>
+        <div class="home-cars-finder-zones" aria-hidden="true">
+          <span class="home-cars-finder-zone home-cars-finder-zone--larnaca">${escapeHtml(text('🚗 Oferta Larnaka / cały Cypr', '🚗 Larnaca offer / island-wide'))}</span>
+          <span class="home-cars-finder-zone home-cars-finder-zone--paphos">${escapeHtml(text('🌴 Strefa Pafos', '🌴 Paphos zone'))}</span>
+          <span class="home-cars-finder-zone">${escapeHtml(summaryLine)}</span>
+        </div>
 
-          <div class="home-cars-finder-grid">
-            <label class="home-cars-finder-field">
-              <span>${escapeHtml(text('Data odbioru', 'Pickup date'))}</span>
-              <input id="carsFinderPickupDate" type="date" value="${escapeHtml(state.pickupDate)}" />
-            </label>
-            <label class="home-cars-finder-field">
-              <span>${escapeHtml(text('Godzina odbioru', 'Pickup time'))}</span>
-              <input id="carsFinderPickupTime" type="time" value="${escapeHtml(state.pickupTime)}" />
-            </label>
-            <label class="home-cars-finder-field">
-              <span>${escapeHtml(text('Data zwrotu', 'Return date'))}</span>
-              <input id="carsFinderReturnDate" type="date" value="${escapeHtml(state.returnDate)}" />
-            </label>
-            <label class="home-cars-finder-field">
-              <span>${escapeHtml(text('Godzina zwrotu', 'Return time'))}</span>
-              <input id="carsFinderReturnTime" type="time" value="${escapeHtml(state.returnTime)}" />
-            </label>
-            <label class="home-cars-finder-field">
-              <span>${escapeHtml(text('Pasażerowie', 'Passengers'))}</span>
-              <input id="carsFinderPassengers" type="number" min="1" max="12" value="${escapeHtml(String(Math.max(1, Number(state.passengers || 2))))}" />
-            </label>
-            <label class="home-cars-finder-field home-cars-finder-field--location">
-              <span>${escapeHtml(text('Miejsce odbioru', 'Pickup location'))}</span>
-              <select id="carsFinderPickupLocation">${buildFinderLocationOptions(state.pickupLocation)}</select>
-            </label>
-            <label class="home-cars-finder-field home-cars-finder-field--location">
-              <span>${escapeHtml(text('Miejsce zwrotu', 'Return location'))}</span>
-              <select id="carsFinderReturnLocation">${buildFinderLocationOptions(state.returnLocation)}</select>
-            </label>
-            <div class="home-cars-finder-field home-cars-finder-field--extras">
-              <span>${escapeHtml(text('Dodatki', 'Extras'))}</span>
-              <div class="home-cars-finder-inline-options">
-                <label class="home-cars-finder-checkbox">
-                  <input id="carsFinderInsurance" type="checkbox" ${state.fullInsurance ? 'checked' : ''} />
-                  <span>${escapeHtml(text('Pełne AC (+17€/dzień)', 'Full insurance (+17€/day)'))}</span>
-                </label>
-                <label class="home-cars-finder-checkbox">
-                  <input id="carsFinderYoungDriver" type="checkbox" ${state.youngDriver ? 'checked' : ''} />
-                  <span>${escapeHtml(text('Młody kierowca (+10€/dzień)', 'Young driver (+10€/day)'))}</span>
-                </label>
-              </div>
+        <div class="home-cars-finder-grid">
+          <label class="home-cars-finder-field">
+            <span>${escapeHtml(text('Data odbioru', 'Pickup date'))}</span>
+            <input id="carsFinderPickupDate" type="date" value="${escapeHtml(state.pickupDate)}" />
+          </label>
+          <label class="home-cars-finder-field">
+            <span>${escapeHtml(text('Godzina odbioru', 'Pickup time'))}</span>
+            <input id="carsFinderPickupTime" type="time" value="${escapeHtml(state.pickupTime)}" />
+          </label>
+          <label class="home-cars-finder-field">
+            <span>${escapeHtml(text('Data zwrotu', 'Return date'))}</span>
+            <input id="carsFinderReturnDate" type="date" value="${escapeHtml(state.returnDate)}" />
+          </label>
+          <label class="home-cars-finder-field">
+            <span>${escapeHtml(text('Godzina zwrotu', 'Return time'))}</span>
+            <input id="carsFinderReturnTime" type="time" value="${escapeHtml(state.returnTime)}" />
+          </label>
+          <label class="home-cars-finder-field">
+            <span>${escapeHtml(text('Pasażerowie', 'Passengers'))}</span>
+            <input id="carsFinderPassengers" type="number" min="1" max="12" value="${escapeHtml(String(Math.max(1, Number(state.passengers || 2))))}" />
+          </label>
+          <label class="home-cars-finder-field home-cars-finder-field--location">
+            <span>${escapeHtml(text('Miejsce odbioru', 'Pickup location'))}</span>
+            <select id="carsFinderPickupLocation">${buildFinderLocationOptions(state.pickupLocation, { includePlaceholder: true })}</select>
+          </label>
+          <label class="home-cars-finder-field home-cars-finder-field--location">
+            <span>${escapeHtml(text('Miejsce zwrotu', 'Return location'))}</span>
+            <select id="carsFinderReturnLocation">${buildFinderLocationOptions(state.returnLocation, { includePlaceholder: true, restrictToPaphos: restrictReturnToPaphos })}</select>
+          </label>
+          <div class="home-cars-finder-field home-cars-finder-field--extras">
+            <span>${escapeHtml(text('Dodatki', 'Extras'))}</span>
+            <div class="home-cars-finder-inline-options">
+              <label class="home-cars-finder-checkbox">
+                <input id="carsFinderInsurance" type="checkbox" ${state.fullInsurance ? 'checked' : ''} />
+                <span>${escapeHtml(text('Pełne AC (+17€/dzień)', 'Full insurance (+17€/day)'))}</span>
+              </label>
+              <label class="home-cars-finder-checkbox">
+                <input id="carsFinderYoungDriver" type="checkbox" ${state.youngDriver ? 'checked' : ''} />
+                <span>${escapeHtml(text('Młody kierowca (+10€/dzień)', 'Young driver (+10€/day)'))}</span>
+              </label>
             </div>
           </div>
-
-          <div class="home-cars-finder-actions">
-            <button id="carsFinderReset" type="button" class="btn ghost home-cars-finder-reset">
-              ${escapeHtml(text('Resetuj filtr', 'Reset finder'))}
-            </button>
-          </div>
-
-          <p id="carsFinderStatus" class="home-cars-finder-status" aria-live="polite"></p>
         </div>
+
+        <div class="home-cars-finder-actions">
+          <button id="carsFinderReset" type="button" class="btn ghost home-cars-finder-reset">
+            ${escapeHtml(text('Resetuj filtr', 'Reset finder'))}
+          </button>
+        </div>
+
+        <p id="carsFinderStatus" class="home-cars-finder-status" aria-live="polite"></p>
       </div>
     </div>
   `;
-
-  const toggleBtn = document.getElementById('carsFinderToggle');
-  if (toggleBtn) {
-    toggleBtn.addEventListener('click', () => {
-      homeCarsFinderExpanded = !homeCarsFinderExpanded;
-      renderHomeCarsFinder();
-    });
-  }
 
   const controls = root.querySelectorAll('input, select');
   controls.forEach((control) => {
@@ -369,7 +347,6 @@ function renderHomeCarsFinder() {
   const resetBtn = document.getElementById('carsFinderReset');
   if (resetBtn) {
     resetBtn.addEventListener('click', () => {
-      homeCarsFinderManualLocation = false;
       homeCarsFinderState = buildDefaultFinderState();
       renderHomeCarsFinder();
       syncHomeCarsFinderState({ fromUser: false });
@@ -386,16 +363,24 @@ function syncHomeCarsFinderState(options = {}) {
   homeCarsFinderState = hasFinderInputs ? readFinderStateFromDom(current) : current;
   homeCarsFinderState.passengers = Math.max(1, Number(homeCarsFinderState.passengers || 2));
 
-  if (fromUser) {
-    homeCarsFinderManualLocation = false;
+  const normalizedReturnLocation = coerceReturnLocationForPickup(
+    homeCarsFinderState.pickupLocation,
+    homeCarsFinderState.returnLocation,
+  );
+  if (normalizedReturnLocation !== homeCarsFinderState.returnLocation) {
+    homeCarsFinderState.returnLocation = normalizedReturnLocation;
+    renderHomeCarsFinder();
   }
 
   const { offer } = evaluateFinderOffer(homeCarsFinderState);
-  if (!homeCarsFinderManualLocation && homeCarsCurrentLocation !== offer) {
+  if (homeCarsCurrentLocation !== offer) {
     homeCarsCurrentLocation = offer;
-    renderHomeCarsTabs();
   }
 
+  if (fromUser) {
+    renderHomeCarsFinder();
+  }
+  renderHomeCarsTabs();
   renderHomeCars();
   renderFinderStatus();
   try {
@@ -456,30 +441,20 @@ function renderHomeCarsTabs() {
   const tabsWrap = document.getElementById('carsHomeTabs');
   if (!tabsWrap) return;
 
-  const lang = String((window.appI18n && window.appI18n.language) || document.documentElement?.lang || 'pl').toLowerCase();
-  const savedLabel = lang.startsWith('en') ? 'Saved' : 'Zapisane';
+  const offer = evaluateFinderOffer(homeCarsFinderState || buildDefaultFinderState());
+  const routeReady = String(homeCarsFinderState?.pickupLocation || '').trim() && String(homeCarsFinderState?.returnLocation || '').trim();
+  const offerLabel = !routeReady
+    ? text('Wybierz trasę, aby odblokować auta', 'Choose route to unlock cars')
+    : offer.offer === 'paphos'
+      ? text('Aktywna oferta: strefa Pafos', 'Active offer: Paphos zone')
+      : text('Aktywna oferta: cały Cypr', 'Active offer: island-wide');
+  const savedLabel = text('Zapisane', 'Saved');
   const savedStar = homeCarsSavedOnly ? '★' : '☆';
 
   tabsWrap.innerHTML = [
-    `<button class="recommendations-home-tab ce-home-pill ${homeCarsCurrentLocation === 'larnaca' ? 'active' : ''}" type="button" data-location="larnaca">${escapeHtml(text('Larnaka', 'Larnaca'))}</button>`,
-    `<button class="recommendations-home-tab ce-home-pill ${homeCarsCurrentLocation === 'paphos' ? 'active' : ''}" type="button" data-location="paphos">${escapeHtml(text('Pafos', 'Paphos'))}</button>`,
+    `<span class="recommendations-home-tab ce-home-pill active" aria-live="polite">${escapeHtml(offerLabel)}</span>`,
     `<button class="recommendations-home-tab ce-home-pill ${homeCarsSavedOnly ? 'active' : ''}" type="button" data-filter="saved" aria-pressed="${homeCarsSavedOnly ? 'true' : 'false'}">${escapeHtml(savedLabel)} ${savedStar}</button>`,
   ].join('');
-
-  tabsWrap.querySelectorAll('button[data-location]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const loc = String(btn.getAttribute('data-location') || '').trim();
-      if (!loc) return;
-      homeCarsFinderManualLocation = true;
-      homeCarsCurrentLocation = loc === 'paphos' ? 'paphos' : 'larnaca';
-      renderHomeCarsTabs();
-      renderHomeCars();
-      renderFinderStatus();
-      try {
-        homeCarsCarouselUpdate?.();
-      } catch (_) {}
-    });
-  });
 
   const savedBtn = tabsWrap.querySelector('button[data-filter="saved"]');
   if (savedBtn) {
@@ -533,7 +508,21 @@ function renderHomeCars() {
   const finderState = homeCarsFinderState || buildDefaultFinderState();
   const passengerCount = Math.max(1, Number(finderState.passengers || 2));
   const finderDuration = getFinderDurationState(finderState);
-  const finderReady = finderDuration.ready;
+  const finderReady = finderDuration.ready
+    && String(finderState.pickupLocation || '').trim()
+    && String(finderState.returnLocation || '').trim();
+
+  if (!finderReady) {
+    grid.innerHTML = `
+      <div style="flex: 0 0 100%; text-align: center; padding: 40px 20px; color: #64748b;">
+        <p>${escapeHtml(text(
+          'Uzupełnij trasę i termin, aby zobaczyć dostępne auta oraz finalne ceny.',
+          'Complete the route and dates to unlock matching cars and final prices.'
+        ))}</p>
+      </div>
+    `;
+    return;
+  }
 
   if (homeCarsSavedOnly) {
     const api = window.CE_SAVED_CATALOG;
@@ -966,129 +955,14 @@ function openCarHomeModal(carId) {
 
   const loc = String(car.location || '').toLowerCase() === 'paphos' ? 'paphos' : 'larnaca';
   const prefill = buildModalPrefillForLocation(loc);
-
-  const modal = document.getElementById('carHomeModal');
-  const modalBody = document.getElementById('carHomeModalBody');
-  if (!modal || !modalBody) return;
-
-  const title = window.getCarName ? window.getCarName(car) : (car.car_model || car.car_type || 'Car');
-  const imageUrl = car.image_url || `https://placehold.co/900x500/1e293b/ffffff?text=${encodeURIComponent(title)}`;
-
-  const fromLabel = text('Od', 'From');
-  const perDayLabel = text('/ dzień', '/ day');
   const liveQuote = homeCarsLastQuoteByCarId[String(car.id)] || buildQuoteForCarWithFinder(car, prefill);
-  const fromPrice = getFromPrice(car);
-  const heroPrice = liveQuote
-    ? text(`Razem ${Number(liveQuote.total).toFixed(2)}€`, `Total ${Number(liveQuote.total).toFixed(2)}€`)
-    : `${fromLabel} ${Number(fromPrice).toFixed(0)}€ ${perDayLabel}`;
-  const heroMeta = liveQuote
-    ? text(
-      `${liveQuote.days} dni • baza ${Number(liveQuote.basePrice).toFixed(2)}€ • dodatki ${Number((liveQuote.pickupFee || 0) + (liveQuote.returnFee || 0) + (liveQuote.insuranceCost || 0) + (liveQuote.youngDriverCost || 0)).toFixed(2)}€`,
-      `${liveQuote.days} days • base ${Number(liveQuote.basePrice).toFixed(2)}€ • extras ${Number((liveQuote.pickupFee || 0) + (liveQuote.returnFee || 0) + (liveQuote.insuranceCost || 0) + (liveQuote.youngDriverCost || 0)).toFixed(2)}€`
-    )
-    : text('Wsparcie 24/7 • Brak depozytu', '24/7 support • No deposit');
-
-  const noDepositLabel = text('Bez kaucji', 'No deposit');
-  const transmission = String(car.transmission || '').toLowerCase() === 'automatic'
-    ? text('Automat', 'Automatic')
-    : text('Manual', 'Manual');
-  const seats = car.max_passengers || 5;
-  const seatsText = text(`${seats} miejsc`, `${seats} seats`);
-  const fuelType = String(car.fuel_type || '').toLowerCase();
-  const fuelText = fuelType === 'petrol'
-    ? text('Benzyna 95', 'Petrol 95')
-    : fuelType === 'diesel'
-      ? text('Diesel', 'Diesel')
-      : fuelType === 'hybrid'
-        ? text('Hybryda', 'Hybrid')
-        : fuelType === 'electric'
-          ? text('Elektryczny', 'Electric')
-          : (car.fuel_type || '');
-  const features = window.getCarFeatures ? window.getCarFeatures(car) : (Array.isArray(car.features) ? car.features : []);
-  const description = window.getCarDescription ? window.getCarDescription(car) : (car.description || '');
-  const detailsTitle = text('Szczegóły auta', 'Car details');
-  const labelTransmission = text('Skrzynia', 'Transmission');
-  const labelSeats = text('Miejsca', 'Seats');
-  const labelFuel = text('Paliwo', 'Fuel');
-  const labelLocation = text('Oferta', 'Offer');
-  const locLabel = loc === 'paphos' ? text('Pafos', 'Paphos') : text('Larnaka', 'Larnaca');
-
-  const pricing = buildPricingMapForLocation(loc);
-  window.CE_CAR_PRICING = pricing;
-
-  setBodyCarLocation(loc);
-
-  modalBody.innerHTML = `
-    <div class="ce-car-home-modal">
-      <div class="ce-car-home-hero">
-        <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(title)}" class="ce-car-home-hero-image" />
-        <div class="ce-car-home-hero-overlay">
-          <div class="ce-car-home-hero-badges">
-            <span class="ce-car-home-pill ce-car-home-pill--light">🚗 ${escapeHtml(noDepositLabel)}</span>
-            <span class="ce-car-home-pill">⚙️ ${escapeHtml(transmission)}</span>
-            <span class="ce-car-home-pill">👥 ${escapeHtml(seatsText)}</span>
-            ${fuelText ? `<span class="ce-car-home-pill">⛽ ${escapeHtml(fuelText)}</span>` : ''}
-            <span class="ce-car-home-pill">❄️ AC</span>
-          </div>
-          <h2 id="carHomeModalTitle" class="ce-car-home-hero-title">${escapeHtml(title)}</h2>
-          <p class="ce-car-home-hero-price">${escapeHtml(heroPrice)}</p>
-          <p class="ce-car-home-hero-meta">${escapeHtml(heroMeta)}</p>
-        </div>
-      </div>
-
-      <div class="ce-car-home-body">
-        <div class="ce-car-home-details">
-          <h3 class="ce-car-home-section-title">${escapeHtml(detailsTitle)}</h3>
-          <div class="ce-car-home-specs">
-            <div class="ce-car-home-spec">
-              <div class="ce-car-home-spec-label">${escapeHtml(labelTransmission)}</div>
-              <div class="ce-car-home-spec-value">${escapeHtml(transmission)}</div>
-            </div>
-            <div class="ce-car-home-spec">
-              <div class="ce-car-home-spec-label">${escapeHtml(labelSeats)}</div>
-              <div class="ce-car-home-spec-value">${escapeHtml(seatsText)}</div>
-            </div>
-            ${fuelText ? `
-              <div class="ce-car-home-spec">
-                <div class="ce-car-home-spec-label">${escapeHtml(labelFuel)}</div>
-                <div class="ce-car-home-spec-value">${escapeHtml(fuelText)}</div>
-              </div>
-            ` : ''}
-            <div class="ce-car-home-spec">
-              <div class="ce-car-home-spec-label">${escapeHtml(labelLocation)}</div>
-              <div class="ce-car-home-spec-value">${escapeHtml(locLabel)}</div>
-            </div>
-          </div>
-
-          ${description ? `<p class="ce-car-home-note">${escapeHtml(description)}</p>` : ''}
-
-          ${Array.isArray(features) && features.length
-            ? `<ul class="ce-car-home-features">${features.slice(0, 6).map(f => `<li><span>✓</span>${escapeHtml(f)}</li>`).join('')}</ul>`
-            : ''
-          }
-        </div>
-
-        <div>
-          ${buildReservationFormHtml({ location: loc, selectedCarId: car.id, prefill })}
-        </div>
-      </div>
-    </div>
-  `;
-
-  try {
-    if (window.appI18n && typeof window.appI18n.setLanguage === 'function') {
-      window.appI18n.setLanguage(window.appI18n.language || 'pl', { persist: false, updateUrl: false });
-    }
-  } catch (_) {}
-
-  modal.style.display = 'flex';
-
-  try {
-    initCarReservationBindings();
-    applyModalPrefill(prefill);
-  } catch (e) {
-    console.warn('Failed to init reservation form', e);
-  }
+  openCarOfferModal({
+    car,
+    location: loc,
+    fleetByLocation: homeCarsByLocation,
+    prefill,
+    quote: liveQuote,
+  });
 }
 
 function closeCarHomeModal() {
