@@ -402,15 +402,49 @@ function truncateText(value, maxLength = 140) {
   return `${text.slice(0, maxLength - 1).trim()}…`;
 }
 
+function slugifyText(value) {
+  return String(value || '')
+    .normalize('NFKD')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function getCarReadableSlug(row) {
+  const raw = pickLocalizedObjectField(row?.car_model, 'en')
+    || pickLocalizedObjectField(row?.car_model, 'pl')
+    || pickLocalizedObjectField(row?.car_type, 'en')
+    || pickLocalizedObjectField(row?.car_type, 'pl')
+    || String(row?.car_model || row?.car_type || '').trim();
+  return slugifyText(raw || 'car-offer');
+}
+
 function buildCarHref(row, language) {
-  const location = String(row?.location || '').trim().toLowerCase();
-  if (location === 'paphos') {
-    return `/autopfo.html?lang=${language}`;
+  const params = new URLSearchParams();
+  const resourceId = String(row?.id || '').trim();
+  const offerLocation = String(row?.location || '').trim().toLowerCase();
+  if (resourceId) {
+    params.set('offer_id', resourceId);
+    params.set('car', getCarReadableSlug(row));
   }
-  if (location === 'larnaca') {
-    return `/car-rental.html?lang=${language}`;
+  if (offerLocation) {
+    params.set('offer_location', offerLocation);
   }
-  return `/car.html?lang=${language}`;
+  params.set('lang', normalizeBlogLanguage(language));
+  return `/car.html?${params.toString()}`;
+}
+
+function buildRecommendationHref(row, language) {
+  const params = new URLSearchParams();
+  const resourceId = String(row?.id || '').trim();
+  if (resourceId) {
+    params.set('recommendation', resourceId);
+  }
+  params.set('lang', normalizeBlogLanguage(language));
+  return `/recommendations.html?${params.toString()}`;
 }
 
 function buildServiceMeta(type, language) {
@@ -493,6 +527,8 @@ function mapCarCta(row, language) {
     ctaLabel: meta.cta,
     label: meta.label,
     meta: price > 0 ? `${price.toFixed(2)} €` : String(row?.location || '').trim(),
+    resourceId: row?.id || null,
+    offerLocation: String(row?.location || '').trim().toLowerCase(),
     language,
     resolved: true,
   };
@@ -543,7 +579,7 @@ function mapRecommendationCta(row, language) {
     title,
     description,
     imageUrl: pickMedia(row),
-    href: `/recommendations.html?lang=${language}`,
+    href: buildRecommendationHref(row, language),
     ctaLabel: meta.cta,
     label: meta.label,
     meta: String(row?.location_name || '').trim(),
@@ -552,15 +588,22 @@ function mapRecommendationCta(row, language) {
   };
 }
 
-async function fetchRowsByIds(client, table, ids, select) {
+async function fetchRowsByIds(client, table, ids, select, filters = []) {
   if (!client || !ids.length) return [];
-  const { data, error } = await client
+  let query = client
     .from(table)
-    .select(select)
-    .in('id', ids);
+    .select(select);
+
+  for (const applyFilter of safeArray(filters)) {
+    if (typeof applyFilter !== 'function') continue;
+    query = applyFilter(query) || query;
+  }
+
+  const { data, error } = await query.in('id', ids);
 
   if (error) {
-    throw new Error(error.message || `Failed to load ${table}`);
+    console.warn(`[blog-data] Failed to load CTA rows from ${table}:`, error);
+    return [];
   }
 
   return safeArray(data);
@@ -901,11 +944,38 @@ export async function resolveBlogCtaServices(env, ctaServices = [], language = B
   }, {});
 
   const [trips, hotels, cars, pois, recommendations] = await Promise.all([
-    fetchRowsByIds(client, 'trips', idsByType.trips || [], 'id, slug, title, description, cover_image_url, photos, price_base, price_per_person, pricing_model, start_city'),
-    fetchRowsByIds(client, 'hotels', idsByType.hotels || [], 'id, slug, title, description, city, cover_image_url, photos'),
-    fetchRowsByIds(client, 'car_offers', idsByType.cars || [], 'id, car_model, car_type, description, location, image_url, price_per_day, price_10plus_days, price_7_10days, price_4_6days'),
+    fetchRowsByIds(
+      client,
+      'trips',
+      idsByType.trips || [],
+      'id, slug, title, description, cover_image_url, photos, price_base, price_per_person, pricing_model, start_city',
+      [(query) => query.eq('is_published', true)]
+    ),
+    fetchRowsByIds(
+      client,
+      'hotels',
+      idsByType.hotels || [],
+      'id, slug, title, description, city, cover_image_url, photos',
+      [(query) => query.eq('is_published', true)]
+    ),
+    fetchRowsByIds(
+      client,
+      'car_offers',
+      idsByType.cars || [],
+      'id, car_model, car_type, description, location, image_url, price_per_day, price_10plus_days, price_7_10days, price_4_6days',
+      [
+        (query) => query.eq('is_published', true),
+        (query) => query.eq('is_available', true),
+      ]
+    ),
     fetchRowsByIds(client, 'pois', idsByType.pois || [], 'id, slug, name_pl, name_en, description_pl, description_en, main_image_url, photos, city, location_name'),
-    fetchRowsByIds(client, 'recommendations', idsByType.recommendations || [], 'id, title_pl, title_en, description_pl, description_en, image_url, photos, location_name'),
+    fetchRowsByIds(
+      client,
+      'recommendations',
+      idsByType.recommendations || [],
+      'id, title_pl, title_en, description_pl, description_en, image_url, photos, location_name',
+      [(query) => query.eq('active', true)]
+    ),
   ]);
 
   const lookups = {

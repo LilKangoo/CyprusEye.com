@@ -1323,22 +1323,49 @@ async function loadResourcesForType(type) {
   let error = null;
 
   if (normalizedType === 'trips') {
-    ({ data, error } = await client.from('trips').select('id, slug, title, start_city').order('updated_at', { ascending: false }).limit(300));
+    ({ data, error } = await client
+      .from('trips')
+      .select('id, slug, title, start_city')
+      .eq('is_published', true)
+      .order('updated_at', { ascending: false })
+      .limit(300));
   } else if (normalizedType === 'hotels') {
-    ({ data, error } = await client.from('hotels').select('id, slug, title, city').order('updated_at', { ascending: false }).limit(300));
+    ({ data, error } = await client
+      .from('hotels')
+      .select('id, slug, title, city')
+      .eq('is_published', true)
+      .order('updated_at', { ascending: false })
+      .limit(300));
   } else if (normalizedType === 'cars') {
-    ({ data, error } = await client.from('car_offers').select('id, car_model, car_type, location').order('updated_at', { ascending: false }).limit(300));
+    ({ data, error } = await client
+      .from('car_offers')
+      .select('id, car_model, car_type, location')
+      .eq('is_published', true)
+      .eq('is_available', true)
+      .order('updated_at', { ascending: false })
+      .limit(300));
   } else if (normalizedType === 'pois') {
     ({ data, error } = await client.from('pois').select('*').order('updated_at', { ascending: false }).limit(300));
   } else if (normalizedType === 'recommendations') {
-    ({ data, error } = await client.from('recommendations').select('*').order('updated_at', { ascending: false }).limit(300));
+    ({ data, error } = await client
+      .from('recommendations')
+      .select('*')
+      .eq('active', true)
+      .order('updated_at', { ascending: false })
+      .limit(300));
   }
 
   if (error) {
     throw new Error(error.message || `Failed to load ${normalizedType}`);
   }
 
-  const rows = safeArray(data).map((row) => normalizeResourceRow(normalizedType, row)).filter((row) => row.id);
+  const rows = safeArray(data)
+    .filter((row) => {
+      if (normalizedType !== 'pois') return true;
+      return String(row?.status || 'published').trim().toLowerCase() === 'published';
+    })
+    .map((row) => normalizeResourceRow(normalizedType, row))
+    .filter((row) => row.id);
   blogAdminState.resourcesByType[normalizedType] = rows;
   return rows;
 }

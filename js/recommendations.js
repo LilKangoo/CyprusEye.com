@@ -25,6 +25,7 @@ let recommendationsPreviousBodyRight = '';
 let recommendationsPreviousBodyWidth = '';
 let recommendationsPreviousBodyPaddingRight = '';
 let recommendationsModalTouchStartY = 0;
+let recommendationDeepLinkOpened = false;
 
 const RECOMMENDATION_MODAL_FOCUSABLE_SELECTOR = [
   'a[href]',
@@ -35,6 +36,40 @@ const RECOMMENDATION_MODAL_FOCUSABLE_SELECTOR = [
   '[tabindex]:not([tabindex="-1"])',
   '[contenteditable="true"]',
 ].join(', ');
+
+function getRecommendationDeepLinkId() {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+  try {
+    const url = new URL(window.location.href);
+    return String(
+      url.searchParams.get('recommendation')
+      || url.searchParams.get('rec')
+      || ''
+    ).trim();
+  } catch (_) {
+    return '';
+  }
+}
+
+function maybeOpenRecommendationDeepLink() {
+  if (recommendationDeepLinkOpened) {
+    return;
+  }
+  const recommendationId = getRecommendationDeepLinkId();
+  if (!recommendationId) {
+    return;
+  }
+  const matchedRecommendation = allRecommendations.find((item) => String(item?.id || '').trim() === recommendationId);
+  if (!matchedRecommendation) {
+    return;
+  }
+  recommendationDeepLinkOpened = true;
+  requestAnimationFrame(() => {
+    void openRecommendationDetailModal(matchedRecommendation.id);
+  });
+}
 
 function getRecommendationDetailModal() {
   return document.getElementById('detailModal');
@@ -548,6 +583,7 @@ async function loadData() {
 
     renderCategoryFilters();
     renderRecommendations();
+    maybeOpenRecommendationDeepLink();
   } catch (error) {
     console.error('❌ Error loading recommendations:', error);
     const loadingEl = document.getElementById('loadingState');
