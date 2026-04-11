@@ -3520,6 +3520,7 @@
   "carRentalLanding.config.badge": "No Deposit",
   "carRentalLanding.config.title": "Configure rental and choose a car",
   "carRentalLanding.config.description": "Choose dates, times, and locations. Cars unlock only after the finder is complete, and each card then shows the exact total for your route.",
+  "carRentalLanding.deepLink.backToListing": "Back to all cars",
   "carRentalLanding.calculator.description": "This finder resolves the correct offer automatically: Paphos local fleet only for Paphos-to-Paphos routes, otherwise the island-wide Larnaca offer.",
   "carRentalLanding.calculator.coralBayHint": "For Coral Bay / Polis choose Hotel or Other + provide the address in the reservation form.",
   "carRentalLanding.calculator.selectRouteFirst": "Choose dates and route to unlock available cars.",

@@ -5800,6 +5800,13 @@ body[data-seo-page='home'] .recommendations-home-section {
   line-height: 1.55;
 }
 
+.auto-rental-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
 .auto-rental-benefits {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));

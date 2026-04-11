@@ -9,6 +9,7 @@ import {
   resolveOfferFromRoute,
 } from './car-rental-flow.js';
 import {
+  findCurrentFleetCarByOfferId,
   findCurrentFleetCarByModel,
   getCurrentFleetRows,
 } from './car-rental-paphos.js';
@@ -27,6 +28,7 @@ const state = {
   deepLink: {
     offerId: null,
     offerLocation: null,
+    carSlug: null,
     applied: false,
     applying: false,
     modalOpened: false,
@@ -47,16 +49,19 @@ function readCarDeepLink() {
     const offerId = String(url.searchParams.get('offer_id') || '').trim() || null;
     const rawLocation = String(url.searchParams.get('offer_location') || '').trim().toLowerCase();
     const offerLocation = rawLocation === 'paphos' || rawLocation === 'larnaca' ? rawLocation : null;
-    return { offerId, offerLocation };
+    const rawCar = String(url.searchParams.get('car') || '').trim();
+    const carSlug = rawCar ? slugifyCarLabel(rawCar) : null;
+    return { offerId, offerLocation, carSlug: carSlug || null };
   } catch (_error) {
-    return { offerId: null, offerLocation: null };
+    return { offerId: null, offerLocation: null, carSlug: null };
   }
 }
 
 function applyCarDeepLinkSelection() {
-  if (state.deepLink.applied || state.deepLink.applying || !state.deepLink.offerId) return false;
+  if (state.deepLink.applied || state.deepLink.applying) return false;
   const targetOfferId = String(state.deepLink.offerId || '').trim();
-  if (!targetOfferId) {
+  const targetCarSlug = String(state.deepLink.carSlug || '').trim();
+  if (!targetOfferId && !targetCarSlug) {
     state.deepLink.applied = true;
     return false;
   }
@@ -69,14 +74,29 @@ function applyCarDeepLinkSelection() {
       const match = options.find((opt) => String(opt?.dataset?.offerId || '').trim() === targetOfferId);
       if (!match) return false;
       selectEl.value = match.value;
+      state.deepLink.offerId = String(match?.dataset?.offerId || targetOfferId || '').trim() || state.deepLink.offerId;
+      state.deepLink.carSlug = slugifyCarLabel(match.value || targetCarSlug);
+      return true;
+    };
+
+    const selectByCarSlug = (selectEl) => {
+      if (!(selectEl instanceof HTMLSelectElement) || !targetCarSlug) return false;
+      const options = Array.from(selectEl.options || []);
+      const match = options.find((opt) => slugifyCarLabel(opt.value || opt.textContent || '') === targetCarSlug);
+      if (!match) return false;
+      selectEl.value = match.value;
+      state.deepLink.offerId = String(match?.dataset?.offerId || '').trim() || state.deepLink.offerId;
+      state.deepLink.carSlug = slugifyCarLabel(match.value || targetCarSlug);
       return true;
     };
 
     const calculatorSelect = byId('rentalCarSelect');
     const reservationSelect = byId('res_car');
     const matched =
-      selectByOfferId(calculatorSelect)
-      || selectByOfferId(reservationSelect);
+      (targetOfferId && selectByOfferId(calculatorSelect))
+      || (targetOfferId && selectByOfferId(reservationSelect))
+      || selectByCarSlug(calculatorSelect)
+      || selectByCarSlug(reservationSelect);
 
     if (!matched) return false;
 
@@ -92,17 +112,30 @@ function applyCarDeepLinkSelection() {
 }
 
 function maybeOpenDeepLinkModal() {
-  if (!state.deepLink.offerId || !state.deepLink.applied || state.deepLink.modalOpened) {
+  if (!state.deepLink.applied || state.deepLink.modalOpened) {
     return;
   }
 
   const selectedMeta = getSelectedCarOfferMeta();
-  if (!selectedMeta || String(selectedMeta.offerId || '').trim() !== String(state.deepLink.offerId || '').trim()) {
+  if (!selectedMeta) {
+    return;
+  }
+
+  const selectedOfferId = String(selectedMeta.offerId || '').trim();
+  const selectedCarSlug = slugifyCarLabel(selectedMeta.title || '');
+  const targetOfferId = String(state.deepLink.offerId || '').trim();
+  const targetCarSlug = String(state.deepLink.carSlug || '').trim();
+  const isMatch = (targetOfferId && selectedOfferId === targetOfferId)
+    || (targetCarSlug && selectedCarSlug === targetCarSlug);
+
+  if (!isMatch) {
     return;
   }
 
   state.deepLink.modalOpened = true;
-  openSelectedLandingCarModal();
+  requestAnimationFrame(() => {
+    openSelectedLandingCarModal();
+  });
 }
 
 function isLandingPage() {
@@ -172,6 +205,32 @@ function buildCarOfferDeepLink(language = currentLang()) {
   }
   url.searchParams.set('lang', language === 'en' ? 'en' : 'pl');
   return url.toString();
+}
+
+function buildCarListingUrl(language = currentLang()) {
+  const url = new URL('/car.html', window.location.origin);
+  url.searchParams.set('lang', language === 'en' ? 'en' : 'pl');
+
+  try {
+    const currentUrl = new URL(window.location.href);
+    const ref = String(currentUrl.searchParams.get('ref') || '').trim();
+    if (ref) {
+      url.searchParams.set('ref', ref);
+    }
+  } catch (_) {
+    // ignore
+  }
+
+  return url.toString();
+}
+
+function syncBackToListingLink() {
+  const link = byId('carLandingBackToListing');
+  if (!(link instanceof HTMLAnchorElement)) return;
+
+  const hasDeepLink = !!(state.deepLink.offerId || state.deepLink.carSlug);
+  link.href = buildCarListingUrl(currentLang());
+  link.hidden = !hasDeepLink;
 }
 
 function updateCarLandingSeo(selectedCarName, cardMetaText, imageUrl) {
@@ -760,10 +819,12 @@ function openSelectedLandingCarModal() {
   const widgetState = readWidgetState();
   if (!applyLandingVisibility(widgetState)) return;
 
-  const selectedModel = String(widgetState.carModel || byId('rentalCarSelect')?.value || '').trim();
+  const selectedMeta = getSelectedCarOfferMeta();
+  const selectedModel = String(selectedMeta?.title || widgetState.carModel || byId('rentalCarSelect')?.value || '').trim();
   if (!selectedModel) return;
 
-  const selectedCar = findCurrentFleetCarByModel(selectedModel);
+  const selectedCar = findCurrentFleetCarByOfferId(selectedMeta?.offerId)
+    || findCurrentFleetCarByModel(selectedModel);
   if (!selectedCar) return;
 
   openCarOfferModal({
@@ -1285,6 +1346,7 @@ function initLandingController() {
   captureDefaultSeo();
   state.deepLink = readCarDeepLink();
   state.deepLink.modalOpened = false;
+  syncBackToListingLink();
 
   populateWidgetLocations();
   populateReservationLocations();
@@ -1305,10 +1367,14 @@ function initLandingController() {
   bindWidgetHandlers();
   bindReservationHandlers();
   bindImagePreviewModal();
+  window.addEventListener('ce:car-fleet-ready', () => {
+    void refreshLandingFlow();
+  });
   void refreshLandingFlow();
 
   if (typeof window.registerLanguageChangeHandler === 'function') {
     window.registerLanguageChangeHandler(() => {
+      syncBackToListingLink();
       populateWidgetLocations();
       populateReservationLocations();
       applyLandingLocationRules();

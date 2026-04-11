@@ -4434,6 +4434,7 @@
   "carRentalLanding.config.badge": "Bez Kaucji",
   "carRentalLanding.config.title": "Skonfiguruj wynajem i wybierz auto",
   "carRentalLanding.config.description": "Wybierz daty, godziny i lokalizacje. Auta odblokują się dopiero po uzupełnieniu finderu, a każda karta pokaże wtedy dokładną cenę całkowitą dla Twojej trasy.",
+  "carRentalLanding.deepLink.backToListing": "Wróć do wszystkich aut",
   "carRentalLanding.calculator.description": "Finder sam dobiera właściwą ofertę: lokalną flotę Pafos tylko dla tras Pafos → Pafos, a w każdym innym przypadku flotę island-wide z Larnaki.",
   "carRentalLanding.calculator.coralBayHint": "Coral Bay / Polis wybierz jako Hotel lub Inne + podaj adres w formularzu rezerwacji.",
   "carRentalLanding.calculator.selectRouteFirst": "Wybierz daty i trasę, aby odblokować dostępne auta.",

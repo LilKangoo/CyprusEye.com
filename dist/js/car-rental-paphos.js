@@ -297,6 +297,16 @@ async function loadPaphosFleet() {
     updateCalculatorOptions();
     applyDeepLinkedOfferSelection();
     updateStats();
+    try {
+      window.dispatchEvent(new CustomEvent('ce:car-fleet-ready', {
+        detail: {
+          location: pageLocation,
+          count: Array.isArray(paphosFleet) ? paphosFleet.length : 0,
+        },
+      }));
+    } catch (_) {
+      // no-op
+    }
 
   } catch (e) {
     console.error('Failed to load fleet:', e);
