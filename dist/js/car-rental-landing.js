@@ -29,6 +29,7 @@ const state = {
     offerLocation: null,
     applied: false,
     applying: false,
+    modalOpened: false,
   },
   defaultSeo: null,
   refreshInFlight: false,
@@ -88,6 +89,20 @@ function applyCarDeepLinkSelection() {
   } finally {
     state.deepLink.applying = false;
   }
+}
+
+function maybeOpenDeepLinkModal() {
+  if (!state.deepLink.offerId || !state.deepLink.applied || state.deepLink.modalOpened) {
+    return;
+  }
+
+  const selectedMeta = getSelectedCarOfferMeta();
+  if (!selectedMeta || String(selectedMeta.offerId || '').trim() !== String(state.deepLink.offerId || '').trim()) {
+    return;
+  }
+
+  state.deepLink.modalOpened = true;
+  openSelectedLandingCarModal();
 }
 
 function isLandingPage() {
@@ -674,7 +689,6 @@ function applyLandingVisibility(widgetState) {
   const finderReady = isLandingFinderReady(widgetState);
   const grid = byId('carRentalGrid');
   const select = byId('rentalCarSelect');
-  const triggerButton = byId('btnFillFromCalculator');
   const highlight = byId('selectedCarHighlight');
   const result = byId('carRentalResult');
   const breakdown = byId('carRentalBreakdown');
@@ -686,11 +700,6 @@ function applyLandingVisibility(widgetState) {
 
   if (select) {
     select.disabled = !finderReady;
-  }
-
-  if (triggerButton) {
-    triggerButton.disabled = !finderReady || !String(select?.value || '').trim();
-    triggerButton.setAttribute('aria-disabled', triggerButton.disabled ? 'true' : 'false');
   }
 
   if (!finderReady) {
@@ -1199,6 +1208,7 @@ async function runLandingFlow({ forceReload = false } = {}) {
   syncReservationForm(widgetState);
   if (canRenderFleet) {
     renderSelectedCarHighlight();
+    maybeOpenDeepLinkModal();
   }
 }
 
@@ -1267,13 +1277,6 @@ function bindWidgetHandlers() {
     }
   });
 
-  const fillButton = byId('btnFillFromCalculator');
-  if (fillButton && fillButton.dataset.ceLandingModalBound !== '1') {
-    fillButton.dataset.ceLandingModalBound = '1';
-    fillButton.addEventListener('click', () => {
-      openSelectedLandingCarModal();
-    });
-  }
 }
 
 function initLandingController() {
@@ -1281,6 +1284,7 @@ function initLandingController() {
 
   captureDefaultSeo();
   state.deepLink = readCarDeepLink();
+  state.deepLink.modalOpened = false;
 
   populateWidgetLocations();
   populateReservationLocations();

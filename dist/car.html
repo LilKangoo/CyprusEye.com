@@ -66,6 +66,8 @@
     <link rel="stylesheet" href="assets/css/mobile-nav.css" />
     <link rel="stylesheet" href="assets/css/rtl.css" />
     <link rel="stylesheet" href="css/toast.css" />
+    <link rel="stylesheet" href="css/modal-ios-fix.css?v=2" />
+    <link rel="stylesheet" href="assets/css/recommendations.css?v=3" media="print" onload="this.media='all'" />
   
   <meta name="ce-auth" content="on" />
   <script type="module" src="js/supabaseClient.js"></script>
@@ -336,31 +338,14 @@
                 </label>
               </div>
 
-              <div class="auto-field" style="grid-column: 1 / -1;">
+              <div class="auto-field auto-field--car-choice" style="grid-column: 1 / -1;" hidden aria-hidden="true">
                 <label for="rentalCarSelect" data-i18n="carRental.calculator.form.car">Wybierz auto</label>
-                <select id="rentalCarSelect" name="car" required aria-required="true"></select>
+                <select id="rentalCarSelect" name="car" tabindex="-1"></select>
               </div>
             </div>
 
             <p style="font-size:12px;color:#64748b;margin:8px 0 16px;" data-i18n="carRentalLanding.calculator.coralBayHint">
               Coral Bay / Polis wybierz jako Hotel lub Inne + podaj adres w formularzu rezerwacji.
-            </p>
-
-            <button
-              type="button"
-              class="btn btn-primary primary"
-              id="btnFillFromCalculator"
-              style="width: 100%; padding: 14px; font-size: 16px; font-weight: 600;"
-              data-i18n="carRental.calculator.fillButton"
-            >
-              Przenieś do formularza
-            </button>
-
-            <p
-              style="font-size: 12px; color: #64748b; margin: 12px 0 0; text-align: center;"
-              data-i18n="carRental.calculator.confirmationNote"
-            >
-              Otrzymasz potwierdzenie na email w ciągu 24h
             </p>
           </form>
 
