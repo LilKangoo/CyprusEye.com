@@ -3,13 +3,18 @@ const BLOG_SERVICE_TYPES = [
   { type: 'trips', label: 'Trips' },
   { type: 'hotels', label: 'Hotels' },
   { type: 'cars', label: 'Cars' },
+  { type: 'transport', label: 'Transport' },
+  { type: 'shop', label: 'Shop' },
   { type: 'pois', label: 'POIs' },
   { type: 'recommendations', label: 'Recommendations' },
+  { type: 'blog', label: 'Blog' },
 ];
 const BLOG_SERVICE_TYPE_ALIASES = {
   trips: ['trip', 'trips', 'tour', 'tours', 'wycieczka', 'wycieczki'],
   hotels: ['hotel', 'hotels', 'stay', 'stays', 'accommodation', 'accommodations', 'nocleg', 'noclegi'],
   cars: ['car', 'cars', 'car_offer', 'car_offers', 'car-rental', 'car_rental', 'auto', 'auta'],
+  transport: ['transport', 'route', 'routes', 'transfer', 'transfers', 'ride', 'rides', 'przejazd', 'trasa'],
+  shop: ['shop', 'store', 'product', 'products', 'sklep', 'produkt', 'produkty'],
   pois: ['poi', 'pois', 'place', 'places', 'attraction', 'attractions', 'miejsce', 'miejsca'],
   recommendations: [
     'recommendation',
@@ -20,6 +25,7 @@ const BLOG_SERVICE_TYPE_ALIASES = {
     'restauracja',
     'restauracje',
   ],
+  blog: ['blog', 'post', 'posts', 'article', 'articles', 'blog-post', 'blog_article', 'artykul', 'artykuly'],
 };
 
 const BLOG_TABLE_SELECT = `
@@ -1295,11 +1301,37 @@ function normalizeResourceRow(type, row) {
       meta: String(row.location || '').trim(),
     };
   }
+  if (type === 'transport') {
+    return {
+      id: row.id,
+      label: String(row.route_label || row.label || row.id).trim(),
+      meta: String(row.meta_label || '').trim(),
+    };
+  }
+  if (type === 'shop') {
+    return {
+      id: row.id,
+      label: String(row.name_en || row.name || row.slug || row.id).trim(),
+      meta: [String(row.category_label || '').trim(), Number(row.price || row.sale_price || 0) > 0 ? `${Number(row.price || row.sale_price || 0).toFixed(2)} €` : '']
+        .filter(Boolean)
+        .join(' — '),
+    };
+  }
   if (type === 'pois') {
     return {
       id: row.id,
       label: normalizeI18nText(row.title, row.name_en || row.name_pl || row.slug || row.id),
       meta: String(row.location_name || row.city || '').trim(),
+    };
+  }
+  if (type === 'blog') {
+    const translations = Array.isArray(row?.translations) ? row.translations : [];
+    const pl = translations.find((entry) => String(entry?.lang || '').trim().toLowerCase() === 'pl') || null;
+    const en = translations.find((entry) => String(entry?.lang || '').trim().toLowerCase() === 'en') || null;
+    return {
+      id: row.id,
+      label: String(en?.title || pl?.title || row.id).trim(),
+      meta: formatDateTime(row?.published_at).split(',')[0] || '',
     };
   }
   return {
@@ -1344,6 +1376,64 @@ async function loadResourcesForType(type) {
       .eq('is_available', true)
       .order('updated_at', { ascending: false })
       .limit(300));
+  } else if (normalizedType === 'transport') {
+    const [{ data: routeRows, error: routeError }, { data: locationRows, error: locationError }] = await Promise.all([
+      client
+        .from('transport_routes')
+        .select('id, origin_location_id, destination_location_id, day_price, night_price, currency')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+        .limit(300),
+      client
+        .from('transport_locations')
+        .select('id, name, name_local, code')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+        .limit(600),
+    ]);
+    error = routeError || locationError;
+    if (!error) {
+      const locationById = new Map(safeArray(locationRows).map((row) => [String(row?.id || '').trim(), row]));
+      data = safeArray(routeRows).map((row) => {
+        const origin = locationById.get(String(row?.origin_location_id || '').trim()) || null;
+        const destination = locationById.get(String(row?.destination_location_id || '').trim()) || null;
+        const originLabel = String(origin?.name || origin?.name_local || origin?.code || 'Origin').trim();
+        const destinationLabel = String(destination?.name || destination?.name_local || destination?.code || 'Destination').trim();
+        const prices = [Number(row?.day_price || 0), Number(row?.night_price || 0)].filter((value) => Number.isFinite(value) && value > 0);
+        const fromPrice = prices.length ? Math.min(...prices) : 0;
+        return {
+          ...row,
+          route_label: `${originLabel} → ${destinationLabel}`,
+          meta_label: fromPrice > 0 ? `${fromPrice.toFixed(2)} ${String(row?.currency || 'EUR').trim().toUpperCase() || 'EUR'}` : '',
+        };
+      });
+    }
+  } else if (normalizedType === 'shop') {
+    const [{ data: categoryRows, error: categoryError }, { data: productRows, error: productError }] = await Promise.all([
+      client
+        .from('shop_categories')
+        .select('id, name, name_en')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+        .limit(500),
+      client
+        .from('shop_products')
+        .select('id, name, name_en, slug, price, sale_price, category_id, status')
+        .eq('status', 'active')
+        .order('updated_at', { ascending: false })
+        .limit(300),
+    ]);
+    error = categoryError || productError;
+    if (!error) {
+      const categoryById = new Map(safeArray(categoryRows).map((row) => [String(row?.id || '').trim(), row]));
+      data = safeArray(productRows).map((row) => {
+        const category = categoryById.get(String(row?.category_id || '').trim()) || null;
+        return {
+          ...row,
+          category_label: String(category?.name_en || category?.name || '').trim(),
+        };
+      });
+    }
   } else if (normalizedType === 'pois') {
     ({ data, error } = await client.from('pois').select('*').order('updated_at', { ascending: false }).limit(300));
   } else if (normalizedType === 'recommendations') {
@@ -1352,6 +1442,26 @@ async function loadResourcesForType(type) {
       .select('*')
       .eq('active', true)
       .order('updated_at', { ascending: false })
+      .limit(300));
+  } else if (normalizedType === 'blog') {
+    ({ data, error } = await client
+      .from('blog_posts')
+      .select(`
+        id,
+        published_at,
+        translations:blog_post_translations (
+          lang,
+          slug,
+          title,
+          summary,
+          lead
+        )
+      `)
+      .eq('status', 'published')
+      .eq('submission_status', 'approved')
+      .not('published_at', 'is', null)
+      .lte('published_at', new Date().toISOString())
+      .order('published_at', { ascending: false })
       .limit(300));
   }
 
@@ -1363,6 +1473,10 @@ async function loadResourcesForType(type) {
     .filter((row) => {
       if (normalizedType !== 'pois') return true;
       return String(row?.status || 'published').trim().toLowerCase() === 'published';
+    })
+    .filter((row) => {
+      if (normalizedType !== 'blog') return true;
+      return String(row?.id || '').trim() !== String(blogAdminState.editingId || '').trim();
     })
     .map((row) => normalizeResourceRow(normalizedType, row))
     .filter((row) => row.id);

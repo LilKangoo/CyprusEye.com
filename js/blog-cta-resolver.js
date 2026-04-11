@@ -10,6 +10,8 @@ const CTA_TYPE_ALIASES = {
   trips: ['trip', 'trips', 'tour', 'tours', 'wycieczka', 'wycieczki'],
   hotels: ['hotel', 'hotels', 'stay', 'stays', 'accommodation', 'accommodations', 'nocleg', 'noclegi'],
   cars: ['car', 'cars', 'car_offer', 'car_offers', 'car-rental', 'car_rental', 'auto', 'auta'],
+  transport: ['transport', 'route', 'routes', 'transfer', 'transfers', 'ride', 'rides', 'przejazd', 'trasa'],
+  shop: ['shop', 'store', 'product', 'products', 'sklep', 'produkt', 'produkty'],
   pois: ['poi', 'pois', 'place', 'places', 'attraction', 'attractions', 'miejsce', 'miejsca'],
   recommendations: [
     'recommendation',
@@ -20,6 +22,7 @@ const CTA_TYPE_ALIASES = {
     'restauracja',
     'restauracje',
   ],
+  blog: ['blog', 'post', 'posts', 'article', 'articles', 'blog-post', 'blog_article', 'artykul', 'artykuly'],
 };
 
 function normalizeServiceType(value) {
@@ -64,12 +67,26 @@ function pickMedia(source) {
   if (!source || typeof source !== 'object') {
     return '/assets/cyprus_logo-1000x1054.png';
   }
+  const arrayMedia = [];
+  const pushMedia = (entry) => {
+    if (!entry) return;
+    if (typeof entry === 'string') {
+      const normalized = entry.trim();
+      if (normalized) arrayMedia.push(normalized);
+      return;
+    }
+    if (typeof entry === 'object') {
+      pushMedia(entry.url || entry.src || entry.image_url || entry.photo_url);
+    }
+  };
+  safeArray(source.photos).forEach(pushMedia);
+  safeArray(source.images).forEach(pushMedia);
   const candidates = [
     source.cover_image_url,
     source.image_url,
     source.main_image_url,
     source.thumbnail_url,
-    ...(Array.isArray(source.photos) ? source.photos : []),
+    ...arrayMedia,
   ];
   return String(candidates.find((entry) => String(entry || '').trim()) || '/assets/cyprus_logo-1000x1054.png').trim();
 }
@@ -126,6 +143,40 @@ function buildRecommendationHref(row, language) {
   return `/recommendations.html?${params.toString()}`;
 }
 
+function buildTransportHref(row, language) {
+  const params = new URLSearchParams();
+  const resourceId = String(row?.id || '').trim();
+  if (resourceId) {
+    params.set('route_id', resourceId);
+  }
+  params.set('lang', normalizeLanguage(language));
+  return `/transport.html?${params.toString()}`;
+}
+
+function buildShopHref(row, language) {
+  const params = new URLSearchParams();
+  const resourceId = String(row?.id || '').trim();
+  if (resourceId) {
+    params.set('product', resourceId);
+  }
+  params.set('lang', normalizeLanguage(language));
+  return `/shop.html?${params.toString()}`;
+}
+
+function buildBlogHref(row, language) {
+  const translations = safeArray(row?.translations);
+  const preferred = translations.find((entry) => normalizeLanguage(entry?.lang) === normalizeLanguage(language)) || null;
+  const fallback = translations.find((entry) => normalizeLanguage(entry?.lang) === 'en')
+    || translations.find((entry) => normalizeLanguage(entry?.lang) === 'pl')
+    || translations[0]
+    || null;
+  const slug = String(preferred?.slug || fallback?.slug || '').trim();
+  if (!slug) {
+    return `/blog?lang=${normalizeLanguage(language)}`;
+  }
+  return `/blog/${encodeURIComponent(slug)}?lang=${normalizeLanguage(language)}`;
+}
+
 function buildServiceMeta(type, language) {
   const localized = normalizeLanguage(language);
   const copy = {
@@ -133,15 +184,21 @@ function buildServiceMeta(type, language) {
       trips: { label: 'Trip', cta: 'Check trip' },
       hotels: { label: 'Stay', cta: 'Check stay' },
       cars: { label: 'Car rental', cta: 'Check cars' },
+      transport: { label: 'Transport', cta: 'Check route' },
+      shop: { label: 'Product', cta: 'Check product' },
       pois: { label: 'Place', cta: 'Explore place' },
       recommendations: { label: 'Recommendation', cta: 'View recommendation' },
+      blog: { label: 'Article', cta: 'Read article' },
     },
     pl: {
       trips: { label: 'Wycieczka', cta: 'Sprawdź wycieczkę' },
       hotels: { label: 'Nocleg', cta: 'Sprawdź nocleg' },
       cars: { label: 'Auto', cta: 'Sprawdź auta' },
+      transport: { label: 'Transport', cta: 'Sprawdź trasę' },
+      shop: { label: 'Produkt', cta: 'Zobacz produkt' },
       pois: { label: 'Miejsce', cta: 'Poznaj miejsce' },
       recommendations: { label: 'Polecane', cta: 'Zobacz polecenie' },
+      blog: { label: 'Artykuł', cta: 'Czytaj artykuł' },
     },
   };
   return copy[localized][type] || copy[localized].recommendations;
@@ -240,6 +297,12 @@ function mapPoi(row, language) {
   };
 }
 
+function formatMoney(value, currency = 'EUR') {
+  const amount = Number(value || 0);
+  if (!Number.isFinite(amount) || amount <= 0) return '';
+  return `${amount.toFixed(2)} ${String(currency || 'EUR').trim().toUpperCase() || 'EUR'}`;
+}
+
 function mapRecommendation(row, language) {
   const meta = buildServiceMeta('recommendations', language);
   const title = String(
@@ -267,6 +330,102 @@ function mapRecommendation(row, language) {
   };
 }
 
+function mapTransport(row, language) {
+  const meta = buildServiceMeta('transport', language);
+  const origin = row?.origin_location || null;
+  const destination = row?.destination_location || null;
+  const originLabel = String(origin?.name || origin?.name_local || origin?.code || 'Origin').trim();
+  const destinationLabel = String(destination?.name || destination?.name_local || destination?.code || 'Destination').trim();
+  const prices = [Number(row?.day_price || 0), Number(row?.night_price || 0)].filter((value) => Number.isFinite(value) && value > 0);
+  const fromPrice = prices.length ? Math.min(...prices) : 0;
+  const currency = String(row?.currency || 'EUR').trim().toUpperCase() || 'EUR';
+  const capacityBits = [
+    Number(row?.included_passengers || 0) > 0 ? `${row.included_passengers} pax` : '',
+    Number(row?.included_bags || 0) > 0 ? `${row.included_bags} bags` : '',
+  ].filter(Boolean);
+  const title = `${originLabel} → ${destinationLabel}`;
+  return {
+    id: row?.id || null,
+    type: 'transport',
+    title,
+    description: truncateText(capacityBits.join(' · ') || `${originLabel} → ${destinationLabel}`),
+    imageUrl: pickMedia({}),
+    href: buildTransportHref(row, language),
+    ctaLabel: meta.cta,
+    label: meta.label,
+    meta: fromPrice > 0 ? `from ${formatMoney(fromPrice, currency)}` : '',
+    resourceId: row?.id || null,
+    language,
+  };
+}
+
+function mapShop(row, language) {
+  const meta = buildServiceMeta('shop', language);
+  const title = String(
+    language === 'pl'
+      ? row?.name || row?.name_en || row?.slug || 'Product'
+      : row?.name_en || row?.name || row?.slug || 'Product'
+  ).trim();
+  const description = truncateText(
+    language === 'pl'
+      ? row?.short_description || row?.description || row?.short_description_en || row?.description_en || ''
+      : row?.short_description_en || row?.description_en || row?.short_description || row?.description || ''
+  );
+  const category = row?.category || {};
+  const categoryLabel = String(
+    language === 'pl'
+      ? category?.name || category?.name_en || ''
+      : category?.name_en || category?.name || ''
+  ).trim();
+  const price = Number(row?.price || row?.sale_price || 0);
+  return {
+    id: row?.id || null,
+    type: 'shop',
+    title,
+    description,
+    imageUrl: pickMedia(row),
+    href: buildShopHref(row, language),
+    ctaLabel: meta.cta,
+    label: meta.label,
+    meta: [categoryLabel, price > 0 ? formatMoney(price, 'EUR') : ''].filter(Boolean).join(' · '),
+    resourceId: row?.id || null,
+    language,
+  };
+}
+
+function mapBlog(row, language) {
+  const meta = buildServiceMeta('blog', language);
+  const translations = safeArray(row?.translations);
+  const preferred = translations.find((entry) => normalizeLanguage(entry?.lang) === normalizeLanguage(language)) || null;
+  const fallback = translations.find((entry) => normalizeLanguage(entry?.lang) === 'en')
+    || translations.find((entry) => normalizeLanguage(entry?.lang) === 'pl')
+    || translations[0]
+    || null;
+  const title = String(preferred?.title || fallback?.title || 'Blog post').trim();
+  const description = truncateText(preferred?.summary || preferred?.lead || fallback?.summary || fallback?.lead || '');
+  const publishedAt = row?.published_at ? new Date(row.published_at) : null;
+  const metaLabel = publishedAt && !Number.isNaN(publishedAt.getTime())
+    ? new Intl.DateTimeFormat(language === 'pl' ? 'pl-PL' : 'en-GB', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    }).format(publishedAt)
+    : '';
+  return {
+    id: row?.id || null,
+    type: 'blog',
+    title,
+    description,
+    imageUrl: pickMedia(row),
+    href: buildBlogHref(row, language),
+    ctaLabel: meta.cta,
+    label: meta.label,
+    meta: metaLabel,
+    resourceId: row?.id || null,
+    language,
+  };
+}
+
 async function fetchRowsByIds(supabase, table, ids, select, filters = []) {
   if (!supabase || !ids.length) return [];
   let query = supabase
@@ -288,6 +447,74 @@ async function fetchRowsByIds(supabase, table, ids, select, filters = []) {
   return Array.isArray(data) ? data : [];
 }
 
+async function fetchTransportRowsByIds(supabase, ids) {
+  if (!supabase || !ids.length) return [];
+  const { data: routes, error: routeError } = await supabase
+    .from('transport_routes')
+    .select('id, origin_location_id, destination_location_id, day_price, night_price, currency, included_passengers, included_bags')
+    .eq('is_active', true)
+    .in('id', ids);
+
+  if (routeError) {
+    console.warn('[blog-cta] Failed to load transport_routes:', routeError);
+    return [];
+  }
+
+  const locationIds = Array.from(new Set(
+    safeArray(routes).flatMap((row) => [String(row?.origin_location_id || '').trim(), String(row?.destination_location_id || '').trim()]).filter(Boolean)
+  ));
+  let locationById = new Map();
+  if (locationIds.length) {
+    const { data: locations, error: locationError } = await supabase
+      .from('transport_locations')
+      .select('id, name, name_local, code')
+      .eq('is_active', true)
+      .in('id', locationIds);
+
+    if (locationError) {
+      console.warn('[blog-cta] Failed to load transport_locations:', locationError);
+    } else {
+      locationById = new Map(safeArray(locations).map((row) => [String(row?.id || '').trim(), row]));
+    }
+  }
+
+  return safeArray(routes).map((row) => ({
+    ...row,
+    origin_location: locationById.get(String(row?.origin_location_id || '').trim()) || null,
+    destination_location: locationById.get(String(row?.destination_location_id || '').trim()) || null,
+  }));
+}
+
+async function fetchBlogRowsByIds(supabase, ids) {
+  if (!supabase || !ids.length) return [];
+  const { data, error } = await supabase
+    .from('blog_posts')
+    .select(`
+      id,
+      published_at,
+      cover_image_url,
+      translations:blog_post_translations (
+        lang,
+        slug,
+        title,
+        summary,
+        lead
+      )
+    `)
+    .eq('status', 'published')
+    .eq('submission_status', 'approved')
+    .not('published_at', 'is', null)
+    .lte('published_at', new Date().toISOString())
+    .in('id', ids);
+
+  if (error) {
+    console.warn('[blog-cta] Failed to load blog_posts:', error);
+    return [];
+  }
+
+  return safeArray(data);
+}
+
 export async function resolveBlogCtaServices(supabase, ctaServices = [], language = 'en') {
   const localized = normalizeLanguage(language);
   const normalized = normalizeCtaServices(ctaServices);
@@ -303,7 +530,7 @@ export async function resolveBlogCtaServices(supabase, ctaServices = [], languag
     return accumulator;
   }, {});
 
-  const [trips, hotels, cars, pois, recommendations] = await Promise.all([
+  const [trips, hotels, cars, transport, shop, pois, recommendations, blog] = await Promise.all([
     fetchRowsByIds(
       supabase,
       'trips',
@@ -328,22 +555,34 @@ export async function resolveBlogCtaServices(supabase, ctaServices = [], languag
         (query) => query.eq('is_available', true),
       ]
     ),
+    fetchTransportRowsByIds(supabase, idsByType.transport || []),
+    fetchRowsByIds(
+      supabase,
+      'shop_products',
+      idsByType.shop || [],
+      'id, name, name_en, slug, short_description, short_description_en, description, description_en, thumbnail_url, images, price, sale_price, category_id, category:shop_categories(name, name_en, slug)',
+      [(query) => query.eq('status', 'active')]
+    ),
     fetchRowsByIds(supabase, 'pois', idsByType.pois || [], 'id, slug, name_pl, name_en, description_pl, description_en, main_image_url, photos, city, location_name'),
     fetchRowsByIds(
       supabase,
       'recommendations',
       idsByType.recommendations || [],
-      'id, title_pl, title_en, description_pl, description_en, image_url, photos, location_name',
+      'id, title_pl, title_en, description_pl, description_en, image_url, images, location_name',
       [(query) => query.eq('active', true)]
     ),
+    fetchBlogRowsByIds(supabase, idsByType.blog || []),
   ]);
 
   const lookups = {
     trips: new Map(trips.map((row) => [String(row.id), row])),
     hotels: new Map(hotels.map((row) => [String(row.id), row])),
     cars: new Map(cars.map((row) => [String(row.id), row])),
+    transport: new Map(transport.map((row) => [String(row.id), row])),
+    shop: new Map(shop.map((row) => [String(row.id), row])),
     pois: new Map(pois.map((row) => [String(row.id), row])),
     recommendations: new Map(recommendations.map((row) => [String(row.id), row])),
+    blog: new Map(blog.map((row) => [String(row.id), row])),
   };
 
   return normalized
@@ -357,10 +596,16 @@ export async function resolveBlogCtaServices(supabase, ctaServices = [], languag
           return mapHotel(row, localized);
         case 'cars':
           return mapCar(row, localized);
+        case 'transport':
+          return mapTransport(row, localized);
+        case 'shop':
+          return mapShop(row, localized);
         case 'pois':
           return mapPoi(row, localized);
         case 'recommendations':
           return mapRecommendation(row, localized);
+        case 'blog':
+          return mapBlog(row, localized);
         default:
           return null;
       }
