@@ -535,7 +535,7 @@ export async function resolveBlogCtaServices(supabase, ctaServices = [], languag
       supabase,
       'trips',
       idsByType.trips || [],
-      'id, slug, title, description, cover_image_url, photos, price_base, price_per_person, pricing_model, start_city',
+      'id, slug, title, description, cover_image_url, price_base, price_per_person, pricing_model, start_city',
       [(query) => query.eq('is_published', true)]
     ),
     fetchRowsByIds(
