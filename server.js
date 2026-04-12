@@ -24,6 +24,11 @@ import {
   resolveServiceOfferRequest,
 } from './functions/_utils/serviceOfferData.js';
 import { buildServiceOfferSeoPayload } from './functions/_utils/serviceOfferSeo.js';
+import {
+  getSitemapEntries,
+  getStaticSitemapEntries,
+  renderSitemapXml,
+} from './functions/_utils/sitemap.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -871,6 +876,31 @@ function resolveRoute(method, pathname) {
   return null;
 }
 
+async function serveSitemap(req, res) {
+  const runtimeEnv = getBlogRuntimeEnv();
+  let body = '';
+  try {
+    body = renderSitemapXml(await getSitemapEntries(runtimeEnv));
+  } catch (error) {
+    console.error('Nie udało się wygenerować dynamicznego sitemap:', error);
+    body = renderSitemapXml(getStaticSitemapEntries());
+  }
+
+  applySecurityHeaders(res);
+  res.writeHead(200, {
+    'Content-Type': 'application/xml; charset=utf-8',
+    'Content-Length': Buffer.byteLength(body),
+    'Cache-Control': 'public, max-age=900',
+  });
+
+  if (req.method === 'HEAD') {
+    res.end();
+    return;
+  }
+
+  res.end(body);
+}
+
 function createServer() {
   return http.createServer(async (req, res) => {
     if (!req.url || !req.method) {
@@ -881,6 +911,7 @@ function createServer() {
 
     const isHealthRequest =
       url.pathname === '/health' || (BASE_PATH !== '/' && url.pathname === `${BASE_PATH}/health`);
+    const sitemapPath = BASE_PATH === '/' ? '/sitemap.xml' : `${BASE_PATH}/sitemap.xml`;
 
     if ((req.method === 'GET' || req.method === 'HEAD') && isHealthRequest) {
       if (req.method === 'HEAD') {
@@ -895,6 +926,11 @@ function createServer() {
       }
 
       return jsonResponse(res, 200, { status: 'ok' });
+    }
+
+    if ((req.method === 'GET' || req.method === 'HEAD') && (url.pathname === '/sitemap.xml' || url.pathname === sitemapPath)) {
+      await serveSitemap(req, res);
+      return;
     }
 
     const faviconPath = BASE_PATH === '/' ? '/favicon.ico' : `${BASE_PATH}/favicon.ico`;

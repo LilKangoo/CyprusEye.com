@@ -3,6 +3,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { minify } from 'terser';
 import { existsSync } from 'fs';
+import { getStaticSitemapEntries, renderSitemapXml } from '../functions/_utils/sitemap.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -193,9 +194,6 @@ async function copyStaticFiles() {
     if (existsSync(join(ROOT, 'ads.txt'))) {
       await cp(join(ROOT, 'ads.txt'), join(DIST, 'ads.txt'));
     }
-    if (existsSync(join(ROOT, 'sitemap.xml'))) {
-      await cp(join(ROOT, 'sitemap.xml'), join(DIST, 'sitemap.xml'));
-    }
     if (existsSync(join(ROOT, '_headers'))) {
       await cp(join(ROOT, '_headers'), join(DIST, '_headers'));
     }
@@ -224,47 +222,7 @@ async function copyStaticFiles() {
 }
 
 async function generateSitemap() {
-  const baseUrl = 'https://www.cypruseye.com';
-
-  async function walk(dirAbs, dirRel) {
-    const entries = await readdir(dirAbs, { withFileTypes: true });
-    const urls = [];
-    for (const e of entries) {
-      const name = e.name;
-      const nextAbs = join(dirAbs, name);
-      const nextRel = dirRel ? `${dirRel}/${name}` : name;
-
-      if (e.isDirectory()) {
-        if (/(^|\/)admin(\/|$)/.test(nextRel)) continue;
-        if (/(^|\/)partners(\/|$)/.test(nextRel)) continue;
-        if (/(^|\/)auth(\/|$)/.test(nextRel)) continue;
-        if (/(^|\/)account(\/|$)/.test(nextRel)) continue;
-        if (/(^|\/)reset(\/|$)/.test(nextRel)) continue;
-        urls.push(...(await walk(nextAbs, nextRel)));
-      } else if (e.isFile() && name.endsWith('.html')) {
-        if (/^404\.html$/i.test(name)) continue;
-        if (/^blog-post\.html$/i.test(name)) continue;
-        if (/^partners\.html$/i.test(name)) continue;
-        if (/^trip-date-selection\.html$/i.test(name)) continue;
-        if (/^(TEST_|test-|debug-|STANDARD_|simple-test)/i.test(name)) continue;
-        if (/sos-modal-fragment/i.test(name)) continue;
-        urls.push(`/${nextRel}`);
-      }
-    }
-    return urls;
-  }
-
-  const htmlPaths = await walk(DIST, '');
-  const unique = Array.from(new Set(htmlPaths)).sort();
-
-  const lines = [
-    '<?xml version="1.0" encoding="UTF-8"?>',
-    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-    ...unique.map((p) => `  <url><loc>${baseUrl}${p}</loc></url>`),
-    '</urlset>'
-  ];
-
-  const xml = lines.join('\n');
+  const xml = renderSitemapXml(getStaticSitemapEntries());
   await writeFile(join(DIST, 'sitemap.xml'), xml, 'utf-8');
 }
 

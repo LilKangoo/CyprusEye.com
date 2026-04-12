@@ -11,6 +11,7 @@ import {
   resolveServiceOfferRequest,
 } from './_utils/serviceOfferData.js';
 import { buildServiceOfferSeoPayload } from './_utils/serviceOfferSeo.js';
+import { getSitemapEntries, getStaticSitemapEntries, renderSitemapXml } from './_utils/sitemap.js';
 
 const translationCache = new Map();
 
@@ -129,8 +130,41 @@ async function serveServiceOfferPage(context, url, serviceRequest) {
   });
 }
 
+async function serveDynamicSitemap(context) {
+  let xml = '';
+  try {
+    xml = renderSitemapXml(await getSitemapEntries(context.env));
+  } catch (error) {
+    console.error('[sitemap] Failed to generate sitemap from catch-all route:', error);
+    xml = renderSitemapXml(getStaticSitemapEntries());
+  }
+
+  const headers = new Headers({
+    'content-type': 'application/xml; charset=utf-8',
+    'cache-control': 'public, max-age=900, s-maxage=900, stale-while-revalidate=86400',
+  });
+
+  if (context.request.method === 'HEAD') {
+    return new Response(null, { status: 200, headers });
+  }
+
+  return new Response(xml, { status: 200, headers });
+}
+
 export async function onRequest(context) {
   const url = new URL(context.request.url);
+  if (url.pathname === '/sitemap.xml') {
+    if (!['GET', 'HEAD'].includes(context.request.method)) {
+      return new Response('Method not allowed', {
+        status: 405,
+        headers: {
+          allow: 'GET, HEAD',
+          'content-type': 'text/plain; charset=utf-8',
+        },
+      });
+    }
+    return serveDynamicSitemap(context);
+  }
   const serviceRequest = resolveServiceOfferRequest(url.pathname, url.search);
   if (serviceRequest) {
     return serveServiceOfferPage(context, url, serviceRequest);
