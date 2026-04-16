@@ -10847,7 +10847,20 @@
     } else if (normalizedType === 'cars') {
       data = await fetchRows('car_offers', 'id, car_model, car_type, location');
     } else if (normalizedType === 'pois') {
-      const { data: poiData, error } = await state.sb.from('pois').select('*').order('updated_at', { ascending: false }).limit(300);
+      let poiResponse = await state.sb
+        .from('pois')
+        .select('id, slug, name_pl, name_en, description_pl, description_en, city, location_name, status')
+        .eq('status', 'published')
+        .order('updated_at', { ascending: false })
+        .limit(300);
+      if (poiResponse.error && String(poiResponse.error?.message || '').toLowerCase().includes('status')) {
+        poiResponse = await state.sb
+          .from('pois')
+          .select('id, slug, name_pl, name_en, description_pl, description_en, city, location_name')
+          .order('updated_at', { ascending: false })
+          .limit(300);
+      }
+      const { data: poiData, error } = poiResponse;
       if (error) throw error;
       data = Array.isArray(poiData) ? poiData : [];
     } else if (normalizedType === 'recommendations') {

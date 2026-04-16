@@ -41,6 +41,10 @@
       ['blockquote', 'Quote'],
       ['link', 'Link'],
       ['image', 'Add photo'],
+      ['gallery', 'Gallery'],
+      ['size-compact', 'Compact'],
+      ['size-standard', 'Standard'],
+      ['size-wide', 'Wide'],
       ['clear', 'Clear'],
     ];
 
@@ -170,10 +174,12 @@
             type="file"
             class="blog-editor-upload-input"
             data-blog-editor-file-input="${code}"
+            data-blog-editor-upload-mode="image"
             accept="image/jpeg,image/png,image/webp,image/jpg"
+            multiple
             hidden
           />
-          <div class="blog-editor-drop-hint">Add photo from device or drag and drop directly into the editor.</div>
+          <div class="blog-editor-drop-hint">Add photo from device, build a swipe gallery, or drag and drop images directly into the editor.</div>
           <div class="blog-editor-host" data-blog-editor-host="${code}"></div>
           <textarea
             class="blog-editor-fallback"

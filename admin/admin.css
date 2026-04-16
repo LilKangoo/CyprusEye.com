@@ -4619,6 +4619,12 @@ select#orderStatusFilter:focus {
   cursor: pointer;
 }
 
+.blog-editor-toolbar__btn.is-active {
+  border-color: rgba(96, 165, 250, 0.54);
+  background: rgba(37, 99, 235, 0.18);
+  color: #dbeafe;
+}
+
 .blog-editor-host,
 .blog-editor-fallback {
   min-height: 320px;
@@ -4681,6 +4687,25 @@ select#orderStatusFilter:focus {
 .blog-editor-surface__inner img {
   max-width: 100%;
   border-radius: 14px;
+  display: block;
+  margin: 18px auto;
+}
+
+.blog-editor-surface__inner img[data-ce-size="compact"] {
+  max-width: min(48%, 320px);
+}
+
+.blog-editor-surface__inner img[data-ce-size="standard"] {
+  max-width: min(100%, 760px);
+}
+
+.blog-editor-surface__inner img[data-ce-size="wide"] {
+  max-width: 100%;
+}
+
+.blog-editor-surface__inner img[data-ce-gallery] {
+  outline: 2px solid rgba(96, 165, 250, 0.28);
+  outline-offset: 2px;
 }
 
 .blog-field-row {

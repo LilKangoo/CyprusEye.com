@@ -19,6 +19,7 @@ let currentUserLocation = null;
 let selectedPhotos = [];
 let isEditMode = false;
 let editingCommentId = null;
+let poiQueryHandled = false;
 const hydratedPoiMedia = new Set();
 const visitedPoiCacheByUser = new Map();
 const visitedPoiFetchPromiseByUser = new Map();
@@ -176,6 +177,15 @@ function initScrollLockObserver() {
   });
 }
 
+async function openPoiFromUrlIfNeeded() {
+  if (poiQueryHandled) return;
+  const params = new URLSearchParams(window.location.search);
+  const poiId = String(params.get('poi') || '').trim();
+  if (!poiId) return;
+  poiQueryHandled = true;
+  await window.openPoiComments?.(poiId);
+}
+
 // ===================================
 // INITIALIZATION
 // ===================================
@@ -229,6 +239,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initSavedCatalogBridge();
     renderPoisList();
     await syncSavedCatalogState();
+    await openPoiFromUrlIfNeeded();
     
     // Map view removed. Ranking initialized on demand.
 

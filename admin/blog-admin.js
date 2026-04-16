@@ -139,6 +139,7 @@ const blogAdminState = {
   activeTranslationLang: 'pl',
   pendingSubmitAction: 'save',
   editors: new Map(),
+  editorMediaSizeByLang: { pl: 'standard', en: 'standard' },
   tiptapModules: null,
   tiptapFallback: false,
   taxonomySchemaMode: 'unknown',
@@ -159,6 +160,7 @@ const BLOG_COPY_FIELDS = {
   seo: ['meta_title', 'meta_description', 'og_image_url', 'cover_alt'],
   author: ['author_name', 'author_url'],
 };
+const BLOG_EDITOR_MEDIA_SIZES = ['compact', 'standard', 'wide'];
 
 function $(selector, root = document) {
   return root.querySelector(selector);
@@ -205,6 +207,11 @@ function normalizeBlogServiceType(value) {
     }
   }
   return '';
+}
+
+function normalizeBlogMediaSize(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return BLOG_EDITOR_MEDIA_SIZES.includes(normalized) ? normalized : 'standard';
 }
 
 function escapeHtml(value) {
@@ -1439,7 +1446,19 @@ async function loadResourcesForType(type) {
       });
     }
   } else if (normalizedType === 'pois') {
-    ({ data, error } = await client.from('pois').select('*').order('updated_at', { ascending: false }).limit(300));
+    let poiQuery = client
+      .from('pois')
+      .select('id, slug, name_pl, name_en, description_pl, description_en, city, location_name, status')
+      .order('updated_at', { ascending: false })
+      .limit(300);
+    ({ data, error } = await poiQuery.eq('status', 'published'));
+    if (error && String(error?.message || '').toLowerCase().includes('status')) {
+      ({ data, error } = await client
+        .from('pois')
+        .select('id, slug, name_pl, name_en, description_pl, description_en, city, location_name')
+        .order('updated_at', { ascending: false })
+        .limit(300));
+    }
   } else if (normalizedType === 'recommendations') {
     ({ data, error } = await client
       .from('recommendations')
@@ -1529,6 +1548,87 @@ function destroyEditors() {
   blogAdminState.editors.clear();
 }
 
+function createBlogImageExtension(imageModule) {
+  if (!imageModule?.extend) {
+    return imageModule;
+  }
+  return imageModule.extend({
+    addAttributes() {
+      const parentAttributes = typeof this.parent === 'function' ? this.parent() : {};
+      return {
+        ...parentAttributes,
+        ceSize: {
+          default: 'standard',
+          parseHTML: (element) => normalizeBlogMediaSize(element.getAttribute('data-ce-size')),
+          renderHTML: (attributes) => {
+            const size = normalizeBlogMediaSize(attributes?.ceSize);
+            return size ? { 'data-ce-size': size } : {};
+          },
+        },
+        ceGallery: {
+          default: null,
+          parseHTML: (element) => {
+            const value = String(element.getAttribute('data-ce-gallery') || '').trim();
+            return value || null;
+          },
+          renderHTML: (attributes) => {
+            const value = String(attributes?.ceGallery || '').trim();
+            return value ? { 'data-ce-gallery': value } : {};
+          },
+        },
+      };
+    },
+  });
+}
+
+function createBlogGalleryId() {
+  return `gallery-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function getPreferredEditorMediaSize(lang) {
+  return normalizeBlogMediaSize(blogAdminState.editorMediaSizeByLang?.[lang]);
+}
+
+function syncEditorToolbarState(lang) {
+  const root = getBlogFormRoot();
+  const entry = blogAdminState.editors.get(lang);
+  const activeSize = entry?.editor?.isActive?.('image')
+    ? normalizeBlogMediaSize(entry.editor.getAttributes('image')?.ceSize)
+    : getPreferredEditorMediaSize(lang);
+
+  $$(`[data-blog-editor-action^="size-"][data-blog-editor-lang="${lang}"]`, root).forEach((button) => {
+    const nextSize = normalizeBlogMediaSize(String(button.dataset.blogEditorAction || '').replace('size-', ''));
+    button.classList.toggle('is-active', nextSize === activeSize);
+  });
+}
+
+function setPreferredEditorMediaSize(lang, size, options = {}) {
+  const normalizedSize = normalizeBlogMediaSize(size);
+  blogAdminState.editorMediaSizeByLang[lang] = normalizedSize;
+
+  const shouldApplyToSelection = options.applyToSelection !== false;
+  const entry = blogAdminState.editors.get(lang);
+  if (shouldApplyToSelection && entry?.editor?.isActive?.('image')) {
+    entry.editor.chain().focus().updateAttributes('image', { ceSize: normalizedSize }).run();
+    const fallbackNode = $(`[data-blog-editor-fallback="${lang}"]`, getBlogFormRoot());
+    if (fallbackNode) {
+      fallbackNode.value = entry.editor.getHTML();
+    }
+    markSessionDirty(lang, 'content_html');
+  }
+
+  syncEditorToolbarState(lang);
+  refreshFormUi();
+}
+
+function setEditorUploadMode(lang, mode = 'image') {
+  const input = $(`[data-blog-editor-file-input="${lang}"]`, getBlogFormRoot());
+  if (!(input instanceof HTMLInputElement)) return;
+  const normalizedMode = String(mode || '').trim() === 'gallery' ? 'gallery' : 'image';
+  input.dataset.blogEditorUploadMode = normalizedMode;
+  input.multiple = normalizedMode === 'gallery';
+}
+
 async function ensureTiptapModules() {
   if (blogAdminState.tiptapModules) {
     return blogAdminState.tiptapModules;
@@ -1549,7 +1649,7 @@ async function ensureTiptapModules() {
       Editor: coreModule.Editor,
       StarterKit: starterKitModule.default,
       Link: linkModule.default,
-      Image: imageModule.default,
+      Image: createBlogImageExtension(imageModule.default),
     };
     blogAdminState.tiptapFallback = false;
     if (runtimeNote) runtimeNote.textContent = 'TipTap editor active';
@@ -1669,44 +1769,98 @@ async function uploadBlogImageFile(file, options = {}) {
 }
 
 function insertImageIntoEditorContent(lang, imageUrl, altText = '') {
+  const size = getPreferredEditorMediaSize(lang);
+  insertMediaIntoEditorContent(lang, [{
+    imageUrl,
+    altText,
+    size,
+    galleryId: '',
+  }]);
+}
+
+function buildInlineImageMarkup(imageUrl, altText = '', options = {}) {
+  const size = normalizeBlogMediaSize(options.size);
+  const galleryId = String(options.galleryId || '').trim();
+  const attributes = [
+    `src="${escapeAttribute(imageUrl)}"`,
+    `alt="${escapeAttribute(String(altText || '').trim())}"`,
+    `data-ce-size="${escapeAttribute(size)}"`,
+  ];
+  if (galleryId) {
+    attributes.push(`data-ce-gallery="${escapeAttribute(galleryId)}"`);
+  }
+  return `<img ${attributes.join(' ')} />`;
+}
+
+function insertMediaIntoEditorContent(lang, items = []) {
   const entry = blogAdminState.editors.get(lang);
-  const safeAlt = String(altText || '').trim();
+  const normalizedItems = safeArray(items).map((item) => ({
+    imageUrl: String(item?.imageUrl || '').trim(),
+    altText: String(item?.altText || '').trim(),
+    size: normalizeBlogMediaSize(item?.size),
+    galleryId: String(item?.galleryId || '').trim(),
+  })).filter((item) => item.imageUrl);
+  if (!normalizedItems.length) {
+    return;
+  }
+
+  const markup = normalizedItems.map((item) => buildInlineImageMarkup(item.imageUrl, item.altText, item)).join('');
   if (entry?.editor) {
-    entry.editor.chain().focus().setImage({ src: imageUrl, alt: safeAlt }).run();
+    entry.editor.chain().focus().insertContent(markup).run();
     const fallbackNode = $(`[data-blog-editor-fallback="${lang}"]`, getBlogFormRoot());
     if (fallbackNode) {
       fallbackNode.value = entry.editor.getHTML();
     }
+    syncEditorToolbarState(lang);
     return;
   }
 
   const textarea = $(`[data-blog-editor-fallback="${lang}"]`, getBlogFormRoot());
   if (!textarea) return;
-  const snippet = `<p><img src="${escapeAttribute(imageUrl)}" alt="${escapeAttribute(safeAlt)}" /></p>`;
   const existing = String(textarea.value || '').trim();
-  textarea.value = existing ? `${existing}\n${snippet}` : snippet;
+  textarea.value = existing ? `${existing}\n${markup}` : markup;
 }
 
-async function insertUploadedImageForLang(lang, file) {
-  const button = $(`[data-blog-editor-action="image"][data-blog-editor-lang="${lang}"]`, getBlogFormRoot());
-  const originalLabel = button?.textContent || 'Add photo';
+async function insertUploadedImagesForLang(lang, files, options = {}) {
+  const validFiles = safeArray(files).filter((file) => isValidImageFile(file));
+  if (!validFiles.length) {
+    return;
+  }
+
+  const size = normalizeBlogMediaSize(options.size || getPreferredEditorMediaSize(lang));
+  const isGallery = Boolean(options.gallery || validFiles.length > 1);
+  const action = isGallery ? 'gallery' : 'image';
+  const galleryId = isGallery ? createBlogGalleryId() : '';
+  const button = $(`[data-blog-editor-action="${action}"][data-blog-editor-lang="${lang}"]`, getBlogFormRoot());
+  const originalLabel = button?.textContent || (isGallery ? 'Gallery' : 'Add photo');
+
   try {
     if (button) {
       button.disabled = true;
       button.textContent = 'Uploading…';
     }
-    const imageUrl = await uploadBlogImageFile(file, {
-      kind: 'inline',
-      lang,
-      maxWidth: 2200,
-      maxHeight: 2200,
-      quality: 0.88,
-    });
-    const altText = String(file?.name || '').replace(/\.[^.]+$/, '').trim();
-    insertImageIntoEditorContent(lang, imageUrl, altText);
+
+    const uploads = [];
+    for (const file of validFiles) {
+      const imageUrl = await uploadBlogImageFile(file, {
+        kind: isGallery ? 'gallery' : 'inline',
+        lang,
+        maxWidth: 2200,
+        maxHeight: 2200,
+        quality: 0.88,
+      });
+      uploads.push({
+        imageUrl,
+        altText: String(file?.name || '').replace(/\.[^.]+$/, '').trim(),
+        size,
+        galleryId,
+      });
+    }
+
+    insertMediaIntoEditorContent(lang, uploads);
     markSessionDirty(lang, 'content_html');
     refreshFormUi();
-    showToastSafe('Photo added to article', 'success');
+    showToastSafe(isGallery ? 'Gallery added to article' : 'Photo added to article', 'success');
   } catch (error) {
     console.error('[blog-admin] Inline image upload failed:', error);
     showToastSafe(error.message || 'Failed to upload image', 'error');
@@ -1718,6 +1872,8 @@ async function insertUploadedImageForLang(lang, file) {
     const input = $(`[data-blog-editor-file-input="${lang}"]`, getBlogFormRoot());
     if (input) {
       input.value = '';
+      input.dataset.blogEditorUploadMode = 'image';
+      input.multiple = false;
     }
   }
 }
@@ -1748,9 +1904,12 @@ function bindEditorShellInteractions() {
       if (!hasImage(event.dataTransfer)) return;
       event.preventDefault();
       clearDropState();
-      const file = Array.from(event.dataTransfer.files || []).find((item) => isValidImageFile(item));
-      if (file) {
-        void insertUploadedImageForLang(lang, file);
+      const files = Array.from(event.dataTransfer.files || []).filter((item) => isValidImageFile(item));
+      if (files.length) {
+        void insertUploadedImagesForLang(lang, files, {
+          gallery: files.length > 1,
+          size: getPreferredEditorMediaSize(lang),
+        });
       }
     });
   });
@@ -1774,6 +1933,8 @@ async function initializeEditors(translations) {
       fallback.hidden = false;
       fallback.value = String(initial.content_html || '').trim();
       host.hidden = true;
+      setEditorUploadMode(lang.code, 'image');
+      syncEditorToolbarState(lang.code);
       return;
     }
 
@@ -1814,16 +1975,31 @@ async function initializeEditors(translations) {
         markSessionDirty(lang.code, 'content_html');
         refreshFormUi();
       },
+      onSelectionUpdate: () => {
+        syncEditorToolbarState(lang.code);
+      },
     });
 
     blogAdminState.editors.set(lang.code, { editor, programmaticUpdate: 0 });
+    setEditorUploadMode(lang.code, 'image');
+    syncEditorToolbarState(lang.code);
   });
   bindEditorShellInteractions();
 }
 
 function runEditorCommand(lang, action) {
   if (action === 'image') {
+    setEditorUploadMode(lang, 'image');
     $(`[data-blog-editor-file-input="${lang}"]`, getBlogFormRoot())?.click();
+    return;
+  }
+  if (action === 'gallery') {
+    setEditorUploadMode(lang, 'gallery');
+    $(`[data-blog-editor-file-input="${lang}"]`, getBlogFormRoot())?.click();
+    return;
+  }
+  if (action.startsWith('size-')) {
+    setPreferredEditorMediaSize(lang, action.replace('size-', ''));
     return;
   }
 
@@ -1884,6 +2060,7 @@ function runEditorCommand(lang, action) {
   }
   if (action === 'clear') {
     editor.chain().focus().clearContent(true).run();
+    syncEditorToolbarState(lang);
   }
 }
 
@@ -1907,6 +2084,7 @@ function initializeTranslationState(post, translations) {
   blogAdminState.pendingSubmitAction = 'save';
   blogAdminState.sessionDirty = createTranslationState(false);
   blogAdminState.autoFillLocks = createTranslationState(false);
+  blogAdminState.editorMediaSizeByLang = { pl: 'standard', en: 'standard' };
 
   (window.BLOG_TRANSLATION_LANGUAGES || []).forEach((lang) => {
     const code = lang.code;
@@ -2596,9 +2774,13 @@ function bindModalControls() {
     const imageInput = event.target.closest('[data-blog-editor-file-input]');
     if (!(imageInput instanceof HTMLInputElement)) return;
     const lang = String(imageInput.dataset.blogEditorFileInput || '').trim();
-    const file = imageInput.files?.[0];
-    if (!lang || !file) return;
-    void insertUploadedImageForLang(lang, file);
+    const mode = String(imageInput.dataset.blogEditorUploadMode || 'image').trim();
+    const files = Array.from(imageInput.files || []).filter((file) => isValidImageFile(file));
+    if (!lang || !files.length) return;
+    void insertUploadedImagesForLang(lang, files, {
+      gallery: mode === 'gallery' || files.length > 1,
+      size: getPreferredEditorMediaSize(lang),
+    });
   });
   $('#blogFormCoverUrl')?.addEventListener('input', (event) => {
     setCoverPreview(event.target.value || '');

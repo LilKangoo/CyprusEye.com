@@ -439,6 +439,17 @@ async function fetchRowsByIds(supabase, table, ids, select, filters = []) {
 
   const { data, error } = await query.in('id', ids);
 
+  if (error && table === 'pois' && String(error?.message || '').toLowerCase().includes('status')) {
+    const fallbackSelect = String(select || '').replace(/\s*,?\s*status\s*/i, '');
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from(table)
+      .select(fallbackSelect)
+      .in('id', ids);
+    if (!fallbackError) {
+      return Array.isArray(fallbackData) ? fallbackData : [];
+    }
+  }
+
   if (error) {
     console.warn(`[blog-cta] Failed to load ${table}:`, error);
     return [];
@@ -563,7 +574,13 @@ export async function resolveBlogCtaServices(supabase, ctaServices = [], languag
       'id, name, name_en, slug, short_description, short_description_en, description, description_en, thumbnail_url, images, price, sale_price, category_id, category:shop_categories(name, name_en, slug)',
       [(query) => query.eq('status', 'active')]
     ),
-    fetchRowsByIds(supabase, 'pois', idsByType.pois || [], 'id, slug, name_pl, name_en, description_pl, description_en, main_image_url, photos, city, location_name'),
+    fetchRowsByIds(
+      supabase,
+      'pois',
+      idsByType.pois || [],
+      'id, slug, name_pl, name_en, description_pl, description_en, main_image_url, photos, city, location_name, status',
+      [(query) => query.eq('status', 'published')]
+    ),
     fetchRowsByIds(
       supabase,
       'recommendations',
