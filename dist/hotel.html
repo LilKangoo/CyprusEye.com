@@ -386,9 +386,9 @@
     function getHotelPageLanguage() {
       const queryLang = String(new URLSearchParams(window.location.search).get('lang') || '').trim().toLowerCase();
       const lang = String(
-        window.appI18n?.language
+        queryLang
         || window.getCurrentLanguage?.()
-        || queryLang
+        || window.appI18n?.language
         || document.documentElement.lang
         || 'pl'
       ).trim().toLowerCase();

@@ -239,8 +239,9 @@ const state = {
 
 function detectLanguage() {
   return normalizeBlogUiLanguage(
-    window.appI18n?.language
-    || new URLSearchParams(window.location.search).get('lang')
+    new URLSearchParams(window.location.search).get('lang')
+    || window.appI18n?.language
+    || window.getCurrentLanguage?.()
     || document.documentElement.lang
     || 'en'
   );

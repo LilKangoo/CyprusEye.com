@@ -18,7 +18,47 @@
     translations: {},
   };
 
+  function normalizeSupportedLanguage(value) {
+    const normalized = String(value || '').trim().toLowerCase();
+    return Object.prototype.hasOwnProperty.call(SUPPORTED_LANGUAGES, normalized) ? normalized : '';
+  }
+
+  function getForcedLanguage() {
+    return normalizeSupportedLanguage(document.body?.dataset?.forceLanguage || '');
+  }
+
+  function getUrlLanguage() {
+    try {
+      return normalizeSupportedLanguage(new URL(window.location.href).searchParams.get('lang') || '');
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function getStoredLanguage() {
+    return (
+      normalizeSupportedLanguage(safeLocalStorage('get', STORAGE_KEY))
+      || normalizeSupportedLanguage(safeLocalStorage('get', 'cypruseye-language'))
+      || normalizeSupportedLanguage(safeLocalStorage('get', 'selectedLanguage'))
+      || ''
+    );
+  }
+
+  function resolvePreferredLanguage() {
+    return getForcedLanguage() || getUrlLanguage() || getStoredLanguage() || DEFAULT_LANGUAGE;
+  }
+
   window.appI18n = appI18n;
+  appI18n.language = resolvePreferredLanguage();
+  const initialLanguageInfo = SUPPORTED_LANGUAGES[appI18n.language] || SUPPORTED_LANGUAGES[DEFAULT_LANGUAGE];
+  document.documentElement.lang = appI18n.language;
+  document.documentElement.dir = initialLanguageInfo.dir;
+
+  if (typeof window.getCurrentLanguage !== 'function') {
+    window.getCurrentLanguage = function getCurrentLanguage() {
+      return resolvePreferredLanguage();
+    };
+  }
 
   function safeLocalStorage(action, key, value) {
     try {
@@ -35,18 +75,7 @@
   }
 
   function detectLanguage() {
-    const forced = (document.body?.dataset?.forceLanguage || '').toLowerCase();
-    if (forced && Object.prototype.hasOwnProperty.call(SUPPORTED_LANGUAGES, forced)) {
-      return forced;
-    }
-
-    const url = new URL(window.location.href);
-    const urlLang = (url.searchParams.get('lang') || '').toLowerCase();
-    if (urlLang && Object.prototype.hasOwnProperty.call(SUPPORTED_LANGUAGES, urlLang)) {
-      return urlLang;
-    }
-
-    return DEFAULT_LANGUAGE;
+    return resolvePreferredLanguage();
   }
 
   function persistLanguage(language) {

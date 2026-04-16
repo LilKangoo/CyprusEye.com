@@ -19,9 +19,9 @@
       queryLang = String(new URLSearchParams(globalScope.location?.search || '').get('lang') || '').trim().toLowerCase();
     } catch (_) {}
     const lang = String(
-      globalScope.appI18n?.language
+      queryLang
       || globalScope.getCurrentLanguage?.()
-      || queryLang
+      || globalScope.appI18n?.language
       || globalScope.document?.documentElement?.lang
       || 'pl'
     ).trim().toLowerCase();

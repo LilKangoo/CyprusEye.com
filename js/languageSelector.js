@@ -29,6 +29,15 @@
     return safeLocalStorage('get', STORAGE_KEY) === 'true';
   }
 
+  function getUrlLanguage() {
+    try {
+      const lang = String(new URL(window.location.href).searchParams.get('lang') || '').trim().toLowerCase();
+      return Object.prototype.hasOwnProperty.call(SUPPORTED_LANGUAGES, lang) ? lang : '';
+    } catch (_) {
+      return '';
+    }
+  }
+
   function markLanguageAsSelected() {
     safeLocalStorage('set', STORAGE_KEY, 'true');
   }
@@ -62,6 +71,11 @@
     }
 
     shouldShow() {
+      const urlLang = getUrlLanguage();
+      if (urlLang) {
+        markLanguageAsSelected();
+        return false;
+      }
       return !hasSelectedLanguage() && isHomePage() && !hasBeenPresented();
     }
 
