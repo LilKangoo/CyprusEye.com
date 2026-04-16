@@ -40,7 +40,7 @@
       ['orderedList', '1. List'],
       ['blockquote', 'Quote'],
       ['link', 'Link'],
-      ['image', 'Image'],
+      ['image', 'Add photo'],
       ['clear', 'Clear'],
     ];
 
@@ -166,6 +166,14 @@
         </div>
         <div class="blog-editor-shell" data-blog-editor-shell="${code}">
           ${renderToolbar(code)}
+          <input
+            type="file"
+            class="blog-editor-upload-input"
+            data-blog-editor-file-input="${code}"
+            accept="image/jpeg,image/png,image/webp,image/jpg"
+            hidden
+          />
+          <div class="blog-editor-drop-hint">Add photo from device or drag and drop directly into the editor.</div>
           <div class="blog-editor-host" data-blog-editor-host="${code}"></div>
           <textarea
             class="blog-editor-fallback"

@@ -4425,9 +4425,13 @@ select#orderStatusFilter:focus {
   flex: 1 1 auto;
 }
 
-.blog-modal-actions {
-  flex-wrap: wrap;
+.blog-modal-footer {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.94), rgba(15, 23, 42, 0.98));
+  border-top: 1px solid rgba(148, 163, 184, 0.18);
+  padding: 14px 18px;
   gap: 10px;
+  position: relative;
+  z-index: 2;
 }
 
 .blog-cover-input-row {
@@ -4593,6 +4597,12 @@ select#orderStatusFilter:focus {
   gap: 8px;
 }
 
+.blog-editor-drop-hint {
+  margin-top: -2px;
+  color: var(--admin-text-muted);
+  font-size: 12px;
+}
+
 .blog-editor-toolbar__btn {
   display: inline-flex;
   align-items: center;
@@ -4619,6 +4629,13 @@ select#orderStatusFilter:focus {
   overflow: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+}
+
+.blog-editor-shell.is-drop-target .blog-editor-host,
+.blog-editor-shell.is-drop-target .blog-editor-fallback {
+  border-color: rgba(59, 130, 246, 0.72);
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.24);
+  background: rgba(30, 64, 175, 0.14);
 }
 
 .blog-editor-surface,
@@ -8825,12 +8842,12 @@ select#orderStatusFilter:focus {
     display: none;
   }
 
-  .blog-modal-actions {
+  .blog-modal-footer {
     justify-content: stretch;
   }
 
-  .blog-modal-actions > .btn-secondary,
-  .blog-modal-actions > .btn-primary {
+  .blog-modal-footer > .btn-secondary,
+  .blog-modal-footer > .btn-primary {
     flex: 1 1 calc(50% - 10px);
   }
 
@@ -8900,8 +8917,8 @@ select#orderStatusFilter:focus {
     padding-right: 14px;
   }
 
-  .blog-modal-actions > .btn-secondary,
-  .blog-modal-actions > .btn-primary {
+  .blog-modal-footer > .btn-secondary,
+  .blog-modal-footer > .btn-primary {
     flex-basis: 100%;
   }
 
@@ -9115,7 +9132,7 @@ select#orderStatusFilter:focus {
   }
 
   .blog-modal-body {
-    padding: 12px 12px max(12px, env(safe-area-inset-bottom));
+    padding: 12px;
   }
 
   #blogFormModal .admin-modal-header {
@@ -9141,13 +9158,11 @@ select#orderStatusFilter:focus {
     max-height: min(48dvh, 420px);
   }
 
-  .blog-admin-actions {
-    justify-content: stretch;
-  }
-
-  .blog-admin-actions .btn-small,
-  .blog-admin-actions a {
-    flex: 1 1 calc(50% - 8px);
-    justify-content: center;
+  .blog-modal-footer {
+    padding:
+      12px
+      max(12px, env(safe-area-inset-right))
+      max(12px, env(safe-area-inset-bottom))
+      max(12px, env(safe-area-inset-left));
   }
 }

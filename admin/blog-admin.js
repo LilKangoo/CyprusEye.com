@@ -187,6 +187,10 @@ function showToastSafe(message, type = 'info') {
   console[type === 'error' ? 'error' : 'log'](`[blog-admin:${type}] ${message}`);
 }
 
+function escapeAttribute(value) {
+  return escapeHtml(value).replace(/`/g, '&#96;');
+}
+
 function normalizeBlogServiceType(value) {
   const raw = String(value || '').trim().toLowerCase().replace(/[\s_]+/g, '-');
   if (!raw) {
@@ -1576,6 +1580,182 @@ function getEditorContentValue(lang) {
   };
 }
 
+function isValidImageFile(file) {
+  return file instanceof File && String(file.type || '').startsWith('image/');
+}
+
+function getBlogImageBasePath() {
+  const formRoot = getBlogFormRoot();
+  const slugEn = slugify(
+    $('[name="slug_en"]', formRoot)?.value
+    || $('[name="title_en"]', formRoot)?.value
+    || $('[name="slug_pl"]', formRoot)?.value
+    || $('[name="title_pl"]', formRoot)?.value
+    || 'blog-post'
+  );
+  return `blog/${slugEn || `post-${Date.now()}`}`;
+}
+
+async function prepareBlogImageBlob(file, options = {}) {
+  const maxWidth = Number.isFinite(options.maxWidth) ? options.maxWidth : 2560;
+  const maxHeight = Number.isFinite(options.maxHeight) ? options.maxHeight : 1600;
+  const quality = Number.isFinite(options.quality) ? options.quality : 0.9;
+  let objectUrl = '';
+  try {
+    const sourceBitmap = typeof createImageBitmap === 'function'
+      ? await createImageBitmap(file)
+      : await new Promise((resolve, reject) => {
+        const img = new Image();
+        objectUrl = URL.createObjectURL(file);
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = objectUrl;
+      });
+    const canvas = document.createElement('canvas');
+    const ratio = Math.min(1, maxWidth / sourceBitmap.width, maxHeight / sourceBitmap.height);
+    canvas.width = Math.max(1, Math.round(sourceBitmap.width * ratio));
+    canvas.height = Math.max(1, Math.round(sourceBitmap.height * ratio));
+    const context = canvas.getContext('2d');
+    if (!context) {
+      throw new Error('Failed to prepare image canvas');
+    }
+    context.drawImage(sourceBitmap, 0, 0, canvas.width, canvas.height);
+    return await new Promise((resolve, reject) => {
+      canvas.toBlob((out) => {
+        if (out) {
+          resolve(out);
+          return;
+        }
+        reject(new Error('Failed to convert image'));
+      }, 'image/webp', quality);
+    });
+  } finally {
+    if (objectUrl) {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
+}
+
+async function uploadBlogImageFile(file, options = {}) {
+  if (!isValidImageFile(file)) {
+    throw new Error('Please select an image file');
+  }
+  if (file.size > 8 * 1024 * 1024) {
+    throw new Error('Image must be smaller than 8MB');
+  }
+
+  const client = getSupabaseClient();
+  if (!client) {
+    throw new Error('Database connection not available');
+  }
+
+  const pathBase = getBlogImageBasePath();
+  const kind = String(options.kind || 'inline').trim() || 'inline';
+  const lang = String(options.lang || 'en').trim() || 'en';
+  const fileName = `${pathBase}/${kind}-${lang}-${Date.now()}.webp`;
+  const blob = await prepareBlogImageBlob(file, options);
+
+  const { error } = await client.storage.from('poi-photos').upload(fileName, blob, {
+    cacheControl: '3600',
+    upsert: false,
+    contentType: 'image/webp',
+  });
+  if (error) {
+    throw error;
+  }
+
+  const { data } = client.storage.from('poi-photos').getPublicUrl(fileName);
+  return String(data?.publicUrl || '').trim();
+}
+
+function insertImageIntoEditorContent(lang, imageUrl, altText = '') {
+  const entry = blogAdminState.editors.get(lang);
+  const safeAlt = String(altText || '').trim();
+  if (entry?.editor) {
+    entry.editor.chain().focus().setImage({ src: imageUrl, alt: safeAlt }).run();
+    const fallbackNode = $(`[data-blog-editor-fallback="${lang}"]`, getBlogFormRoot());
+    if (fallbackNode) {
+      fallbackNode.value = entry.editor.getHTML();
+    }
+    return;
+  }
+
+  const textarea = $(`[data-blog-editor-fallback="${lang}"]`, getBlogFormRoot());
+  if (!textarea) return;
+  const snippet = `<p><img src="${escapeAttribute(imageUrl)}" alt="${escapeAttribute(safeAlt)}" /></p>`;
+  const existing = String(textarea.value || '').trim();
+  textarea.value = existing ? `${existing}\n${snippet}` : snippet;
+}
+
+async function insertUploadedImageForLang(lang, file) {
+  const button = $(`[data-blog-editor-action="image"][data-blog-editor-lang="${lang}"]`, getBlogFormRoot());
+  const originalLabel = button?.textContent || 'Add photo';
+  try {
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Uploading…';
+    }
+    const imageUrl = await uploadBlogImageFile(file, {
+      kind: 'inline',
+      lang,
+      maxWidth: 2200,
+      maxHeight: 2200,
+      quality: 0.88,
+    });
+    const altText = String(file?.name || '').replace(/\.[^.]+$/, '').trim();
+    insertImageIntoEditorContent(lang, imageUrl, altText);
+    markSessionDirty(lang, 'content_html');
+    refreshFormUi();
+    showToastSafe('Photo added to article', 'success');
+  } catch (error) {
+    console.error('[blog-admin] Inline image upload failed:', error);
+    showToastSafe(error.message || 'Failed to upload image', 'error');
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = originalLabel;
+    }
+    const input = $(`[data-blog-editor-file-input="${lang}"]`, getBlogFormRoot());
+    if (input) {
+      input.value = '';
+    }
+  }
+}
+
+function bindEditorShellInteractions() {
+  const formRoot = getBlogFormRoot();
+  $$('[data-blog-editor-shell]', formRoot).forEach((shell) => {
+    if (!(shell instanceof HTMLElement) || shell.dataset.dropBound === '1') {
+      return;
+    }
+    shell.dataset.dropBound = '1';
+    const lang = String(shell.dataset.blogEditorShell || '').trim();
+    if (!lang) return;
+
+    const clearDropState = () => shell.classList.remove('is-drop-target');
+    const hasImage = (transfer) => Array.from(transfer?.files || []).some((file) => isValidImageFile(file));
+
+    shell.addEventListener('dragover', (event) => {
+      if (!hasImage(event.dataTransfer)) return;
+      event.preventDefault();
+      shell.classList.add('is-drop-target');
+    });
+    shell.addEventListener('dragleave', (event) => {
+      if (shell.contains(event.relatedTarget)) return;
+      clearDropState();
+    });
+    shell.addEventListener('drop', (event) => {
+      if (!hasImage(event.dataTransfer)) return;
+      event.preventDefault();
+      clearDropState();
+      const file = Array.from(event.dataTransfer.files || []).find((item) => isValidImageFile(item));
+      if (file) {
+        void insertUploadedImageForLang(lang, file);
+      }
+    });
+  });
+}
+
 async function initializeEditors(translations) {
   destroyEditors();
   const modules = await ensureTiptapModules();
@@ -1638,12 +1818,25 @@ async function initializeEditors(translations) {
 
     blogAdminState.editors.set(lang.code, { editor, programmaticUpdate: 0 });
   });
+  bindEditorShellInteractions();
 }
 
 function runEditorCommand(lang, action) {
+  if (action === 'image') {
+    $(`[data-blog-editor-file-input="${lang}"]`, getBlogFormRoot())?.click();
+    return;
+  }
+
   const entry = blogAdminState.editors.get(lang);
   const editor = entry?.editor;
-  if (!editor) return;
+  if (!editor) {
+    if (action === 'clear') {
+      setTranslationFieldValue('content_html', lang, '');
+      markSessionDirty(lang, 'content_html');
+      refreshFormUi();
+    }
+    return;
+  }
 
   if (action === 'paragraph') {
     editor.chain().focus().setParagraph().run();
@@ -1687,12 +1880,6 @@ function runEditorCommand(lang, action) {
       return;
     }
     editor.chain().focus().setLink({ href: clean }).run();
-    return;
-  }
-  if (action === 'image') {
-    const src = window.prompt('Enter image URL');
-    if (!src) return;
-    editor.chain().focus().setImage({ src: String(src).trim() }).run();
     return;
   }
   if (action === 'clear') {
@@ -1845,55 +2032,16 @@ async function handleCoverUpload() {
   const file = input?.files?.[0];
   if (!file) return;
 
-  if (!file.type.startsWith('image/')) {
-    showToastSafe('Please select an image file', 'error');
-    return;
-  }
-
-  if (file.size > 8 * 1024 * 1024) {
-    showToastSafe('Image must be smaller than 8MB', 'error');
-    return;
-  }
-
-  const client = getSupabaseClient();
-  if (!client) {
-    showToastSafe('Database connection not available', 'error');
-    return;
-  }
-
-  const formRoot = getBlogFormRoot();
-  const slugEn = slugify($('[name="slug_en"]', formRoot)?.value || $('[name="title_en"]', formRoot)?.value || 'blog-post');
-  const fileName = `blog/${slugEn || `post-${Date.now()}`}/cover-${Date.now()}.webp`;
-
   try {
     $('#btnBlogCoverUpload').disabled = true;
     $('#btnBlogCoverUpload').textContent = 'Uploading…';
-
-    const sourceBitmap = typeof createImageBitmap === 'function'
-      ? await createImageBitmap(file)
-      : await new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error('Failed to load image'));
-        img.src = URL.createObjectURL(file);
-      });
-    const canvas = document.createElement('canvas');
-    const ratio = Math.min(1, 2560 / sourceBitmap.width, 1600 / sourceBitmap.height);
-    canvas.width = Math.round(sourceBitmap.width * ratio);
-    canvas.height = Math.round(sourceBitmap.height * ratio);
-    const context = canvas.getContext('2d');
-    context.drawImage(sourceBitmap, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise((resolve, reject) => canvas.toBlob((out) => out ? resolve(out) : reject(new Error('Failed to convert image')), 'image/webp', 0.9));
-
-    const { error } = await client.storage.from('poi-photos').upload(fileName, blob, {
-      cacheControl: '3600',
-      upsert: false,
-      contentType: 'image/webp',
+    const url = await uploadBlogImageFile(file, {
+      kind: 'cover',
+      lang: 'cover',
+      maxWidth: 2560,
+      maxHeight: 1600,
+      quality: 0.9,
     });
-    if (error) throw error;
-
-    const { data } = client.storage.from('poi-photos').getPublicUrl(fileName);
-    const url = String(data?.publicUrl || '').trim();
     $('#blogFormCoverUrl').value = url;
     setCoverPreview(url);
     showToastSafe('Cover uploaded', 'success');
@@ -2442,6 +2590,15 @@ function bindModalControls() {
   });
   $('#blogFormCoverFile')?.addEventListener('change', () => {
     void handleCoverUpload();
+  });
+  $('#blogForm')?.addEventListener('change', (event) => {
+    if (!(event.target instanceof HTMLElement)) return;
+    const imageInput = event.target.closest('[data-blog-editor-file-input]');
+    if (!(imageInput instanceof HTMLInputElement)) return;
+    const lang = String(imageInput.dataset.blogEditorFileInput || '').trim();
+    const file = imageInput.files?.[0];
+    if (!lang || !file) return;
+    void insertUploadedImageForLang(lang, file);
   });
   $('#blogFormCoverUrl')?.addEventListener('input', (event) => {
     setCoverPreview(event.target.value || '');
