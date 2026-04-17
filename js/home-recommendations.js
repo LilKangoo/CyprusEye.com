@@ -199,8 +199,7 @@ async function loadData() {
       .eq('active', true)
       .order('featured', { ascending: false })
       .order('display_order', { ascending: true })
-      .order('created_at', { ascending: false })
-      .limit(60);
+      .order('created_at', { ascending: false });
     
     if (recError) throw recError;
     
@@ -365,10 +364,6 @@ function renderRecommendations() {
       filtered = [];
     }
   }
-
-  if (!homeRecommendationsSavedOnly) {
-    filtered = filtered.slice(0, 6);
-  }
   
   if (filtered.length === 0) {
     grid.innerHTML = `
@@ -379,17 +374,45 @@ function renderRecommendations() {
     if (typeof homeRecCarouselUpdate === 'function') homeRecCarouselUpdate();
     return;
   }
-  
-  // Render cards
-  grid.innerHTML = filtered.map(rec => createRecommendationCard(rec)).join('');
-  attachPromoCodeHandlers(grid);
-  try {
-    if (window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.refreshButtons === 'function') {
-      window.CE_SAVED_CATALOG.refreshButtons(grid);
-    }
-  } catch (_) {}
-  initHomeRecommendationsCarousel();
-  if (typeof homeRecCarouselUpdate === 'function') homeRecCarouselUpdate();
+
+  const progressive = window.CE_HOME_PROGRESSIVE;
+  if (progressive?.mount) {
+    progressive.mount({
+      grid,
+      items: filtered,
+      batchByViewport: { mobile: 2, tablet: 4, desktop: 6 },
+      emptyHtml: `
+        <div style="flex: 0 0 100%; text-align: center; padding: 40px 20px; color: #9ca3af;">
+          <p>Brak rekomendacji w wybranej kategorii</p>
+        </div>
+      `,
+      renderItems: (visible) => visible.map((rec) => createRecommendationCard(rec)).join(''),
+      onRendered: () => {
+        attachPromoCodeHandlers(grid);
+        try {
+          if (window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.refreshButtons === 'function') {
+            window.CE_SAVED_CATALOG.refreshButtons(grid);
+          }
+        } catch (_) {}
+        initHomeRecommendationsCarousel();
+        if (typeof homeRecCarouselUpdate === 'function') homeRecCarouselUpdate();
+      },
+      updateArrows: () => {
+        if (typeof homeRecCarouselUpdate === 'function') homeRecCarouselUpdate();
+      },
+    });
+  } else {
+    grid.innerHTML = filtered.map((rec) => createRecommendationCard(rec)).join('');
+    attachPromoCodeHandlers(grid);
+    try {
+      if (window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.refreshButtons === 'function') {
+        window.CE_SAVED_CATALOG.refreshButtons(grid);
+      }
+    } catch (_) {}
+    initHomeRecommendationsCarousel();
+    if (typeof homeRecCarouselUpdate === 'function') homeRecCarouselUpdate();
+  }
+
   console.log('✅ Rendered', filtered.length, 'recommendations');
 }
 

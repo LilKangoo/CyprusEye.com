@@ -11,6 +11,7 @@ let homeHotelsSavedOnly = false;
 let homeHotelCouponState = { applied: null };
 let homeHotelReferralController = null;
 let homeHotelReferralUiPromise = null;
+let homeHotelsCarouselUpdate = null;
 
 const CE_DEBUG_HOME_HOTELS = typeof localStorage !== 'undefined' && localStorage.getItem('CE_DEBUG') === 'true';
 function ceLog(...args) {
@@ -389,14 +390,15 @@ function renderHomeHotels(){
       list = [];
     }
   }
-  const display = homeHotelsSavedOnly ? list : list.slice(0,6);
+  const display = list;
   homeHotelsDisplay = display;
   if(!display.length){
     const emptyText = hotelsT('hotels.empty', 'Brak ofert');
     grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px 20px;color:#9ca3af;">${emptyText}</div>`;
+    homeHotelsCarouselUpdate?.();
     return;
   }
-  grid.innerHTML = display.map((h, index)=>{
+  const renderCards = (visibleHotels) => visibleHotels.map((h, index)=>{
     const imageRaw = h.cover_image_url || (Array.isArray(h.photos)&&h.photos[0]) || '/assets/cyprus_logo-1000x1054.png';
     const image = getHotelCardMediaDisplayUrl(imageRaw);
     const imageIsPanorama = isHotelCardPanorama(imageRaw);
@@ -464,13 +466,36 @@ function renderHomeHotels(){
     `;
   }).join('');
 
-  bindHomeHotelCardTriggers(grid);
+  const progressive = window.CE_HOME_PROGRESSIVE;
+  if (progressive?.mount) {
+    progressive.mount({
+      grid,
+      items: display,
+      batchByViewport: { mobile: 2, tablet: 4, desktop: 6 },
+      emptyHtml: `<div style="grid-column:1/-1;text-align:center;padding:40px 20px;color:#9ca3af;">${hotelsT('hotels.empty', 'Brak ofert')}</div>`,
+      renderItems: renderCards,
+      onRendered: () => {
+        bindHomeHotelCardTriggers(grid);
+        try {
+          if (window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.refreshButtons === 'function') {
+            window.CE_SAVED_CATALOG.refreshButtons(grid);
+          }
+        } catch (_) {}
+        homeHotelsCarouselUpdate?.();
+      },
+      updateArrows: () => homeHotelsCarouselUpdate?.(),
+    });
+    return;
+  }
 
+  grid.innerHTML = renderCards(display);
+  bindHomeHotelCardTriggers(grid);
   try {
     if (window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.refreshButtons === 'function') {
       window.CE_SAVED_CATALOG.refreshButtons(grid);
     }
   } catch (_) {}
+  homeHotelsCarouselUpdate?.();
 }
 
 function bindHomeHotelCardTriggers(root) {
@@ -581,6 +606,7 @@ function initHomeHotels() {
     const noOverflow = grid.scrollWidth <= grid.clientWidth + 1;
     if (noOverflow) { prev.hidden = true; next.hidden = true; }
   };
+  homeHotelsCarouselUpdate = updateArrows;
   if (prev && grid) prev.addEventListener('click', () => { grid.scrollBy({left: -scrollBy(), behavior: 'smooth'}); setTimeout(updateArrows, 350); });
   if (next && grid) next.addEventListener('click', () => { grid.scrollBy({left: scrollBy(), behavior: 'smooth'}); setTimeout(updateArrows, 350); });
   if (grid) grid.addEventListener('scroll', updateArrows, { passive: true });

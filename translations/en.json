@@ -1837,6 +1837,14 @@
   "carRental.locations.paphos.short": "Paphos",
   "carRental.locations.paphos-airport.label": "Paphos Airport (free)",
   "carRental.locations.paphos-airport.short": "Paphos Airport",
+  "home.blog.title": "📰 From the CyprusEye blog",
+  "home.blog.description": "Latest guides, tips and practical articles you can open and read right away.",
+  "home.blog.loading": "Loading blog posts...",
+  "home.blog.empty": "No blog posts have been published yet.",
+  "home.blog.error": "We could not load blog posts right now.",
+  "home.blog.readMore": "Read article",
+  "home.blog.badge": "Blog",
+  "home.blog.cta": "View all posts →",
   "nav": {
     "shop": "🛍️ Shop",
     "adventure": "🎯 Adventure",
@@ -1881,6 +1889,12 @@
       "badge": "Schedule",
       "title": "Trip planner",
       "description": "Build your holiday day by day with a simple, clear timeline.",
+      "action": "Open module"
+    },
+    "blog": {
+      "badge": "Blog",
+      "title": "Blog",
+      "description": "Read guides, local tips and travel inspiration prepared for Cyprus visitors.",
       "action": "Open module"
     },
     "trips": {

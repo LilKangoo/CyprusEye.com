@@ -521,6 +521,7 @@ function renderHomeCars() {
         ))}</p>
       </div>
     `;
+    homeCarsCarouselUpdate?.();
     return;
   }
 
@@ -545,6 +546,7 @@ function renderHomeCars() {
         <p>${escapeHtml(text(`Brak aut dla ${passengerCount} pasażerów w tym ustawieniu`, `No cars available for ${passengerCount} passengers in current setup`))}</p>
       </div>
     `;
+    homeCarsCarouselUpdate?.();
     return;
   }
 
@@ -572,7 +574,7 @@ function renderHomeCars() {
     });
   }
 
-  grid.innerHTML = rows.map(({ car, quote }) => {
+  const renderCards = (visibleRows) => visibleRows.map(({ car, quote }) => {
     const title = window.getCarName ? window.getCarName(car) : (car.car_model || car.car_type || 'Car');
     const transmission = String(car.transmission || '').toLowerCase() === 'automatic'
       ? text('Automat', 'Automatic')
@@ -614,11 +616,38 @@ function renderHomeCars() {
     `;
   }).join('');
 
+  const progressive = window.CE_HOME_PROGRESSIVE;
+  if (progressive?.mount) {
+    progressive.mount({
+      grid,
+      items: rows,
+      batchByViewport: { mobile: 2, tablet: 4, desktop: 6 },
+      emptyHtml: `
+        <div style="flex: 0 0 100%; text-align: center; padding: 40px 20px; color: #9ca3af;">
+          <p>${escapeHtml(text(`Brak aut dla ${passengerCount} pasażerów w tym ustawieniu`, `No cars available for ${passengerCount} passengers in current setup`))}</p>
+        </div>
+      `,
+      renderItems: renderCards,
+      onRendered: () => {
+        try {
+          if (window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.refreshButtons === 'function') {
+            window.CE_SAVED_CATALOG.refreshButtons(grid);
+          }
+        } catch (_) {}
+        homeCarsCarouselUpdate?.();
+      },
+      updateArrows: () => homeCarsCarouselUpdate?.(),
+    });
+    return;
+  }
+
+  grid.innerHTML = renderCards(rows);
   try {
     if (window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.refreshButtons === 'function') {
       window.CE_SAVED_CATALOG.refreshButtons(grid);
     }
   } catch (_) {}
+  homeCarsCarouselUpdate?.();
 }
 
 function initHomeCarsCarousel() {

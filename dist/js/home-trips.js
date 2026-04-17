@@ -12,6 +12,7 @@ let homeTripReferralController = null;
 let homeTripReferralUiPromise = null;
 let homeTripModalPanoramaCleanup = null;
 let homeTripModalPanoramaHintCleanup = null;
+let homeTripsCarouselUpdate = null;
 
 const CE_DEBUG_HOME_TRIPS = typeof localStorage !== 'undefined' && localStorage.getItem('CE_DEBUG') === 'true';
 function ceLog(...args) {
@@ -408,12 +409,12 @@ function renderHomeTrips() {
         Brak wycieczek w tym mieście
       </div>
     `;
+    homeTripsCarouselUpdate?.();
     return;
   }
 
   const bestsellerLabel = tripsT('trips.card.bestseller', 'Bestseller');
-
-  grid.innerHTML = displayTrips.map((trip, index) => {
+  const renderCards = (visibleTrips) => visibleTrips.map((trip, index) => {
     const imageUrl = trip.cover_image_url || '/assets/cyprus_logo-1000x1054.png';
     const imageDisplayUrl = getHomeTripMediaDisplayUrl(imageUrl);
     const imageIsPanorama = isHomeTripPanorama(imageUrl);
@@ -568,11 +569,38 @@ function renderHomeTrips() {
     `;
   }).join('');
 
+  const progressive = window.CE_HOME_PROGRESSIVE;
+  if (progressive?.mount) {
+    progressive.mount({
+      grid,
+      items: displayTrips,
+      batchByViewport: { mobile: 2, tablet: 4, desktop: 6 },
+      emptyHtml: `
+        <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; color: #9ca3af;">
+          Brak wycieczek w tym mieście
+        </div>
+      `,
+      renderItems: renderCards,
+      onRendered: () => {
+        try {
+          if (window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.refreshButtons === 'function') {
+            window.CE_SAVED_CATALOG.refreshButtons(grid);
+          }
+        } catch (_) {}
+        homeTripsCarouselUpdate?.();
+      },
+      updateArrows: () => homeTripsCarouselUpdate?.(),
+    });
+    return;
+  }
+
+  grid.innerHTML = renderCards(displayTrips);
   try {
     if (window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.refreshButtons === 'function') {
       window.CE_SAVED_CATALOG.refreshButtons(grid);
     }
   } catch (_) {}
+  homeTripsCarouselUpdate?.();
 }
 
 // Handle city tab clicks
@@ -666,6 +694,7 @@ function initHomeTrips() {
     const noOverflow = grid.scrollWidth <= grid.clientWidth + 1;
     if (noOverflow) { prev.hidden = true; next.hidden = true; }
   };
+  homeTripsCarouselUpdate = updateArrows;
   if (prev && grid) prev.addEventListener('click', () => { grid.scrollBy({left: -scrollBy(), behavior: 'smooth'}); setTimeout(updateArrows, 350); });
   if (next && grid) next.addEventListener('click', () => { grid.scrollBy({left: scrollBy(), behavior: 'smooth'}); setTimeout(updateArrows, 350); });
   if (grid) grid.addEventListener('scroll', updateArrows, { passive: true });

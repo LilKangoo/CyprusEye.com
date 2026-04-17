@@ -96,7 +96,7 @@
   </noscript>
   <link rel="stylesheet" href="assets/css/tokens.css" />
   <link rel="stylesheet" href="assets/css/base.css?v=2" />
-  <link rel="stylesheet" href="assets/css/components.css?v=14" />
+  <link rel="stylesheet" href="assets/css/components.css?v=15" />
   <link rel="stylesheet" href="assets/css/header-metrics.css" media="print" onload="this.media='all'" />
   <link rel="stylesheet" href="assets/css/current-place.css?v=16" />
   <link rel="stylesheet" href="assets/css/mobile.css" />
@@ -960,6 +960,48 @@
           </div>
         </section>
 
+        <section class="home-blog-section" data-tour-target="blog-section" aria-label="Blog CyprusEye" style="margin-top: 24px;">
+          <div class="adventure-shortcut-card card surface-card home-blog-panel">
+            <h2 style="margin: 0 0 16px; font-size: 1.5rem; font-weight: 700;" data-i18n="home.blog.title">📰 Z bloga CyprusEye</h2>
+            <p style="margin: 0 0 20px; color: #6b7280; font-size: 0.95rem;" data-i18n="home.blog.description">
+              Najnowsze przewodniki, porady i praktyczne wpisy, które możesz od razu otworzyć i przeczytać.
+            </p>
+
+            <div class="home-carousel-container">
+              <button
+                class="home-carousel-nav prev"
+                aria-label="Poprzednie"
+                data-target="#blogHomeGrid"
+                data-i18n-attrs="aria-label:home.carousel.prev"
+              >
+                ‹
+              </button>
+              <button
+                class="home-carousel-nav next"
+                aria-label="Następne"
+                data-target="#blogHomeGrid"
+                data-i18n-attrs="aria-label:home.carousel.next"
+              >
+                ›
+              </button>
+            </div>
+            <div id="blogHomeGrid" class="home-carousel" style="gap: 16px; margin-bottom: 20px;">
+              <div style="flex: 0 0 100%; text-align: center; padding: 40px 20px; color: #9ca3af;" data-i18n="home.blog.loading">
+                Ładowanie wpisów bloga...
+              </div>
+            </div>
+
+            <a
+              href="/blog"
+              class="btn btn-cta-blue"
+              style="width: 100%; text-align: center; padding: 12px; font-weight: 600;"
+              data-i18n="home.blog.cta"
+            >
+              Zobacz wszystkie wpisy →
+            </a>
+          </div>
+        </section>
+
         <!-- Shortcuts Grid Section -->
         <section class="shortcuts-grid" aria-label="Skróty do funkcji" data-tour-target="shortcut-grid">
           <!-- Packing Card -->
@@ -1048,6 +1090,20 @@
             <h2 data-i18n="shortcuts.plan.title">Trip planner</h2>
             <p data-i18n="shortcuts.plan.description">Build your holiday day by day with a simple, structured timeline.</p>
             <span class="shortcut-compact-meta" data-i18n="shortcuts.plan.action">Open module</span>
+          </a>
+
+          <!-- Blog Card -->
+          <a
+            class="shortcut-compact"
+            href="/blog"
+            data-page-url="/blog"
+            data-tour-target="blog-card"
+          >
+            <span class="shortcut-compact-badge" data-i18n="shortcuts.blog.badge">Blog</span>
+            <div class="shortcut-compact-icon" aria-hidden="true">📰</div>
+            <h2 data-i18n="shortcuts.blog.title">Blog</h2>
+            <p data-i18n="shortcuts.blog.description">Read guides, local tips and travel inspiration prepared for Cyprus visitors.</p>
+            <span class="shortcut-compact-meta" data-i18n="shortcuts.blog.action">Open module</span>
           </a>
         </section>
       </div>
@@ -1375,7 +1431,7 @@
   <script src="js/languageRefresh.js?v=3" defer></script>
   <script src="js/hotel-pricing.js?v=20260403_1" defer></script>
   <script src="js/hotel-booking-ui.js?v=20260403_1" defer></script>
-  <script src="js/home-sections-loader.js?v=2" defer></script>
+  <script src="js/home-sections-loader.js?v=3" defer></script>
   <script src="js/home-noncritical-loader.js?v=1" defer></script>
   
   <script src="js/saved-catalog.js?v=5" defer></script>
