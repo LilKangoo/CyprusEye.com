@@ -384,6 +384,40 @@ function pickLocalizedObjectField(source, language) {
   ).trim();
 }
 
+function pickLocalizedPoiField(row, fieldBase, language) {
+  const i18nValue = row?.[`${fieldBase}_i18n`];
+  if (i18nValue && typeof i18nValue === 'object') {
+    const localized = String(
+      i18nValue[language]
+      || i18nValue.en
+      || i18nValue.pl
+      || Object.values(i18nValue).find((entry) => typeof entry === 'string')
+      || ''
+    ).trim();
+    if (localized) return localized;
+  }
+
+  const localizedLegacy = String(
+    language === 'pl'
+      ? row?.[`${fieldBase}_pl`] || row?.[`${fieldBase}_en`] || ''
+      : row?.[`${fieldBase}_en`] || row?.[`${fieldBase}_pl`] || ''
+  ).trim();
+  if (localizedLegacy) return localizedLegacy;
+
+  return String(row?.[fieldBase] || row?.title || row?.slug || '').trim();
+}
+
+function getPoiMetaLabel(row) {
+  return String(
+    row?.city
+    || row?.location_name
+    || row?.location
+    || row?.region
+    || row?.category
+    || ''
+  ).trim();
+}
+
 function pickMedia(source) {
   if (!source || typeof source !== 'object') {
     return '/assets/cyprus_logo-1000x1054.png';
@@ -593,16 +627,8 @@ function mapCarCta(row, language) {
 
 function mapPoiCta(row, language) {
   const meta = buildServiceMeta('pois', language);
-  const title = String(
-    language === 'pl'
-      ? row?.name_pl || row?.name_en || row?.slug || 'Place'
-      : row?.name_en || row?.name_pl || row?.slug || 'Place'
-  ).trim();
-  const description = truncateText(
-    language === 'pl'
-      ? row?.description_pl || row?.description_en || ''
-      : row?.description_en || row?.description_pl || ''
-  );
+  const title = pickLocalizedPoiField(row, 'name', language) || 'Place';
+  const description = truncateText(pickLocalizedPoiField(row, 'description', language) || '');
   return {
     id: row?.id || null,
     type: 'pois',
@@ -612,7 +638,7 @@ function mapPoiCta(row, language) {
     href: row?.id ? `/community.html?poi=${encodeURIComponent(String(row.id))}&lang=${language}` : `/community.html?lang=${language}`,
     ctaLabel: meta.cta,
     label: meta.label,
-    meta: String(row?.city || row?.location_name || '').trim(),
+    meta: getPoiMetaLabel(row),
     language,
     resolved: true,
   };
@@ -780,6 +806,30 @@ async function fetchRowsByIds(client, table, ids, select, filters = []) {
   }
 
   return safeArray(data);
+}
+
+async function fetchPoiRowsByIds(client, ids) {
+  if (!client || !ids.length) return [];
+
+  let { data, error } = await client
+    .from('pois')
+    .select('*')
+    .eq('status', 'published')
+    .in('id', ids);
+
+  if (error && /status/i.test(String(error?.message || ''))) {
+    ({ data, error } = await client
+      .from('pois')
+      .select('*')
+      .in('id', ids));
+  }
+
+  if (error) {
+    console.warn('[blog-data] Failed to load CTA rows from pois:', error);
+    return [];
+  }
+
+  return safeArray(data).filter((row) => String(row?.status || 'published').trim().toLowerCase() === 'published');
 }
 
 async function fetchTransportRowsByIds(client, ids) {
@@ -1217,13 +1267,7 @@ export async function resolveBlogCtaServices(env, ctaServices = [], language = B
       'id, name, name_en, slug, short_description, short_description_en, description, description_en, thumbnail_url, images, price, sale_price, category_id, category:shop_categories(name, name_en, slug)',
       [(query) => query.eq('status', 'active')]
     ),
-    fetchRowsByIds(
-      client,
-      'pois',
-      idsByType.pois || [],
-      'id, slug, name_pl, name_en, description_pl, description_en, main_image_url, photos, city, location_name, status',
-      [(query) => query.eq('status', 'published')]
-    ),
+    fetchPoiRowsByIds(client, idsByType.pois || []),
     fetchRowsByIds(
       client,
       'recommendations',

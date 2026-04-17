@@ -401,6 +401,76 @@ function normalizeI18nText(value, fallback = '') {
   return String(value.en || value.pl || Object.values(value).find((entry) => typeof entry === 'string') || fallback).trim();
 }
 
+function getAdminUiLanguage() {
+  return String(window.appI18n?.language || 'en').trim().toLowerCase() === 'pl' ? 'pl' : 'en';
+}
+
+function pickPoiLocalizedText(row, fieldBase, language = getAdminUiLanguage()) {
+  const i18nValue = row?.[`${fieldBase}_i18n`];
+  if (i18nValue && typeof i18nValue === 'object') {
+    const localized = String(
+      i18nValue[language]
+      || i18nValue.en
+      || i18nValue.pl
+      || Object.values(i18nValue).find((entry) => typeof entry === 'string')
+      || ''
+    ).trim();
+    if (localized) return localized;
+  }
+
+  const localizedLegacy = String(
+    language === 'pl'
+      ? row?.[`${fieldBase}_pl`] || row?.[`${fieldBase}_en`] || ''
+      : row?.[`${fieldBase}_en`] || row?.[`${fieldBase}_pl`] || ''
+  ).trim();
+  if (localizedLegacy) return localizedLegacy;
+
+  return String(row?.[fieldBase] || row?.title || row?.slug || '').trim();
+}
+
+function getPoiResourceMeta(row) {
+  return String(
+    row?.location_name
+    || row?.city
+    || row?.location
+    || row?.region
+    || row?.category
+    || ''
+  ).trim();
+}
+
+async function loadPoiResources(client, limit = 300) {
+  if (!client) return { data: [], error: new Error('Database connection not available') };
+
+  let response = await client
+    .from('pois')
+    .select('*')
+    .eq('status', 'published')
+    .limit(limit);
+
+  if (response.error && /status/i.test(String(response.error?.message || ''))) {
+    response = await client
+      .from('pois')
+      .select('*')
+      .limit(limit);
+  }
+
+  if (response.error) {
+    return response;
+  }
+
+  const rows = safeArray(response.data)
+    .filter((row) => String(row?.status || 'published').trim().toLowerCase() === 'published')
+    .sort((left, right) => {
+      const leftTime = new Date(left?.updated_at || left?.created_at || 0).getTime();
+      const rightTime = new Date(right?.updated_at || right?.created_at || 0).getTime();
+      return rightTime - leftTime;
+    })
+    .slice(0, limit);
+
+  return { data: rows, error: null };
+}
+
 function normalizeTaxonomyList(value) {
   return safeArray(value).map((entry) => String(entry || '').trim()).filter(Boolean);
 }
@@ -1331,8 +1401,8 @@ function normalizeResourceRow(type, row) {
   if (type === 'pois') {
     return {
       id: row.id,
-      label: normalizeI18nText(row.title, row.name_en || row.name_pl || row.slug || row.id),
-      meta: String(row.location_name || row.city || '').trim(),
+      label: pickPoiLocalizedText(row, 'name'),
+      meta: getPoiResourceMeta(row),
     };
   }
   if (type === 'blog') {
@@ -1446,19 +1516,7 @@ async function loadResourcesForType(type) {
       });
     }
   } else if (normalizedType === 'pois') {
-    let poiQuery = client
-      .from('pois')
-      .select('id, slug, name_pl, name_en, description_pl, description_en, city, location_name, status')
-      .order('updated_at', { ascending: false })
-      .limit(300);
-    ({ data, error } = await poiQuery.eq('status', 'published'));
-    if (error && String(error?.message || '').toLowerCase().includes('status')) {
-      ({ data, error } = await client
-        .from('pois')
-        .select('id, slug, name_pl, name_en, description_pl, description_en, city, location_name')
-        .order('updated_at', { ascending: false })
-        .limit(300));
-    }
+    ({ data, error } = await loadPoiResources(client, 300));
   } else if (normalizedType === 'recommendations') {
     ({ data, error } = await client
       .from('recommendations')
