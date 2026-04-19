@@ -6,6 +6,11 @@
   box-shadow: none !important;
 }
 
+body.standalone-body[data-seo-page='advertise'],
+body.standalone-body[data-seo-page='notFound'] {
+  padding-top: clamp(0.55rem, 1.6vw, 1rem);
+}
+
 .nav-modern--compact .nav-modern__top {
   min-height: auto;
   padding-top: 0.8rem;
@@ -359,17 +364,28 @@
   padding-inline: 0.72rem;
 }
 
+.nav-modern--compact .language-pill-group .language-pill[aria-pressed='true'],
+.nav-modern--compact .language-pill-group .language-pill.is-active {
+  background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+  color: #166534;
+  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.28), 0 6px 16px rgba(34, 197, 94, 0.12);
+}
+
 .nav-modern--compact .nav-modern__bars {
-  padding: 0.55rem 0.8rem;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid rgba(226, 232, 240, 0.92);
-  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.08);
+  padding: 0.2rem 0 0.15rem;
+  border-radius: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 .nav-modern--compact .nav-modern__links-row {
   gap: 1rem;
-  padding: 0;
+  padding: 0.42rem 0.68rem;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid rgba(226, 232, 240, 0.92);
+  border-radius: 999px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
 }
 
 .nav-modern--compact .nav-modern__tabs {
@@ -439,8 +455,8 @@
   }
 
   .nav-modern--compact .auth-actions-inline {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     width: 100%;
   }
 
@@ -527,18 +543,34 @@
   .nav-modern--compact .nav-modern__chips {
     grid-template-columns: 1fr 1fr;
   }
+
+  .nav-modern--compact .nav-modern__links-row {
+    padding: 0.5rem;
+    border-radius: 16px;
+  }
 }
 
 @media (max-width: 640px) {
+  body.standalone-body[data-seo-page='advertise'],
+  body.standalone-body[data-seo-page='notFound'] {
+    padding-top: 0.35rem;
+  }
+
   .nav-modern--compact .nav-modern__top-actions {
     grid-template-columns: 1fr 1fr 1fr;
   }
 
   .nav-modern--compact .auth-actions-inline {
     grid-column: 1 / -1;
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
   .nav-modern--compact .compact-profile__menu-header {
     margin-bottom: 0.75rem;
+  }
+
+  .nav-modern--compact .nav-modern__toggle-btn {
+    margin-bottom: 0;
   }
 }

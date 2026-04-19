@@ -192,7 +192,7 @@
               </div>
 
               <div class="compact-profile__actions">
-                <a class="compact-profile__link" href="/account/" data-i18n="header.profileLabel">Mój Profil</a>
+                <a class="compact-profile__link" href="achievements.html" data-i18n="header.profileLabel">Mój Profil</a>
                 <a class="compact-profile__link compact-profile__partner-link" href="/partners/" data-compact-partner-link data-i18n="header.partnerPortal" hidden>Panel partnera</a>
                 <button
                   class="compact-profile__logout"
@@ -380,14 +380,345 @@
         </p>
       </footer>
     </div>
+
+    <div
+      id="auth-modal"
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="auth-title"
+      aria-hidden="true"
+    >
+      <div class="modal__dialog" tabindex="-1" role="document">
+        <button
+          class="modal__close"
+          type="button"
+          aria-label="Zamknij"
+          data-close
+          data-i18n-attrs="aria-label:auth.close.label"
+        >
+          ×
+        </button>
+        <h2 id="auth-title" data-i18n="auth.title">Dołącz do przygody</h2>
+        <p class="auth-intro" data-i18n="auth.intro">Zaloguj się, utwórz konto lub graj jako gość.</p>
+        <div class="auth-modal__content" data-auth-view-root>
+          <div data-auth="login">
+            <div role="presentation">
+              <div class="auth-modal__tabs" role="tablist">
+                <button
+                  type="button"
+                  class="auth-modal__tab is-active"
+                  role="tab"
+                  id="authTabLogin"
+                  aria-selected="true"
+                  aria-controls="authPanelLogin"
+                  data-auth-tab="login"
+                  data-i18n="auth.tab.login"
+                >
+                  Logowanie
+                </button>
+                <button
+                  type="button"
+                  class="auth-modal__tab"
+                  role="tab"
+                  id="authTabRegister"
+                  aria-selected="false"
+                  aria-controls="authPanelRegister"
+                  data-auth-tab="register"
+                  data-i18n="auth.tab.register"
+                  tabindex="-1"
+                >
+                  Rejestracja
+                </button>
+              </div>
+              <div class="auth-modal__panels">
+                <section
+                  id="authPanelLogin"
+                  class="auth-modal__panel is-active"
+                  role="tabpanel"
+                  aria-labelledby="authTabLogin"
+                  data-auth="login"
+                  data-auth-panel="login"
+                >
+                  <form id="form-login" class="auth-form" novalidate data-ce-auth-handler="supabase">
+                    <label for="loginEmail" data-i18n="auth.login.username">Email lub nazwa użytkownika</label>
+                    <input
+                      id="loginEmail"
+                      name="email"
+                      type="text"
+                      autocomplete="username"
+                      required
+                      aria-label="Email lub nazwa użytkownika"
+                      data-i18n-attrs="aria-label:auth.login.username,placeholder:auth.login.username"
+                      placeholder="Email lub nazwa użytkownika"
+                    />
+                    <label for="loginPassword" data-i18n="auth.password">Hasło</label>
+                    <input
+                      id="loginPassword"
+                      name="password"
+                      type="password"
+                      autocomplete="current-password"
+                      required
+                      aria-label="Hasło"
+                      data-i18n-attrs="aria-label:auth.password"
+                    />
+                    <div class="auth-form__actions">
+                      <button
+                        type="submit"
+                        class="btn btn--primary"
+                        data-i18n="auth.login.button"
+                        data-i18n-attrs="aria-label:auth.login.button"
+                        aria-label="Zaloguj się"
+                      >
+                        Zaloguj się
+                      </button>
+                      <button
+                        type="button"
+                        class="auth-form__link"
+                        id="loginForgotPassword"
+                        data-i18n="auth.reset.button"
+                        data-i18n-attrs="aria-label:auth.reset.button"
+                        aria-label="🔑 Resetuj hasło"
+                      >
+                        🔑 Resetuj hasło
+                      </button>
+                    </div>
+                    <div data-auth="message" aria-live="polite"></div>
+                    <p class="auth-form__meta" id="authResendVerification" hidden>
+                      Nie otrzymałeś wiadomości z potwierdzeniem?
+                      <button type="button" class="auth-form__link" id="btn-resend-verification">
+                        Wyślij ponownie link weryfikacyjny
+                      </button>
+                    </p>
+                  </form>
+                </section>
+                <section
+                  id="authPanelRegister"
+                  class="auth-modal__panel"
+                  role="tabpanel"
+                  aria-labelledby="authTabRegister"
+                  data-auth="login"
+                  data-auth-panel="register"
+                  hidden
+                >
+                  <form
+                    id="form-register"
+                    class="auth-form"
+                    novalidate
+                    data-auth="register"
+                    data-ce-auth-handler="supabase"
+                  >
+                    <label for="registerFirstName" data-i18n="auth.firstName">Imię</label>
+                    <input
+                      id="registerFirstName"
+                      name="firstName"
+                      type="text"
+                      autocomplete="given-name"
+                      maxlength="60"
+                      required
+                      data-i18n-attrs="aria-label:auth.firstName"
+                    />
+                    <label for="registerUsername" data-i18n="auth.username">Nazwa użytkownika</label>
+                    <input
+                      id="registerUsername"
+                      name="username"
+                      type="text"
+                      autocomplete="username"
+                      minlength="3"
+                      maxlength="20"
+                      pattern="[a-zA-Z0-9_]+"
+                      required
+                      data-i18n-attrs="aria-label:auth.username,placeholder:auth.username.hint"
+                      placeholder="3-20 znaków, litery i cyfry"
+                    />
+                    <label for="registerEmail" data-i18n="auth.email">Adres e-mail</label>
+                    <input
+                      id="registerEmail"
+                      name="email"
+                      type="email"
+                      autocomplete="email"
+                      required
+                      data-i18n-attrs="aria-label:auth.email"
+                    />
+                    <label for="registerPassword" data-i18n="auth.password">Hasło</label>
+                    <input
+                      id="registerPassword"
+                      name="password"
+                      type="password"
+                      autocomplete="new-password"
+                      minlength="8"
+                      required
+                      data-i18n-attrs="aria-label:auth.password"
+                    />
+                    <label for="registerPasswordConfirm" data-i18n="auth.confirmPassword">Powtórz hasło</label>
+                    <input
+                      id="registerPasswordConfirm"
+                      name="passwordConfirm"
+                      type="password"
+                      autocomplete="new-password"
+                      minlength="8"
+                      data-i18n-attrs="aria-label:auth.confirmPassword"
+                    />
+                    <div data-auth="message" aria-live="polite"></div>
+                    <p class="form-hint" data-i18n="auth.register.hint">
+                      Po rejestracji sprawdź skrzynkę e-mail, aby potwierdzić konto.
+                    </p>
+                    <button
+                      type="submit"
+                      class="btn btn--primary"
+                      data-i18n="auth.register.button"
+                      data-i18n-attrs="aria-label:auth.register.button"
+                      aria-label="Utwórz konto"
+                    >
+                      Utwórz konto
+                    </button>
+                  </form>
+                </section>
+              </div>
+              <dialog id="resetPasswordDialog" class="auth-reset-dialog">
+                <form id="form-reset-password" class="auth-form" novalidate>
+                  <header class="auth-reset-dialog__header">
+                    <h2 data-i18n="auth.reset.title">Resetuj hasło</h2>
+                    <button type="button" class="auth-form__link" id="btn-reset-close" data-i18n-attrs="aria-label:auth.reset.close" aria-label="Zamknij">✖</button>
+                  </header>
+                  <p data-i18n="auth.reset.description">Podaj adres e-mail powiązany z kontem, a wyślemy link do zmiany hasła.</p>
+                  <label for="resetEmail" data-i18n="auth.reset.emailLabel">Adres e-mail</label>
+                  <input id="resetEmail" name="email" type="email" autocomplete="email" required />
+                  <div class="auth-form__actions">
+                    <button type="submit" class="btn btn--primary">Wyślij link resetujący</button>
+                    <button type="button" class="auth-form__link" id="btn-reset-cancel">Anuluj</button>
+                  </div>
+                </form>
+              </dialog>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="sos-modal"
+      id="sosModal"
+      hidden
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="sosTitle"
+      aria-describedby="sosDescription"
+    >
+      <div class="sos-dialog" role="document" tabindex="-1">
+        <header class="sos-header">
+          <div>
+            <h2 id="sosTitle" data-i18n="sos.title">SOS</h2>
+            <p id="sosDescription" data-i18n="sos.description">
+              Szybki dostęp do numerów alarmowych, kontaktu z ambasadą oraz wskazówek medycznych.
+            </p>
+          </div>
+          <button
+            type="button"
+            class="icon-button"
+            id="sosClose"
+            aria-label="Zamknij SOS"
+            data-i18n="sos.close"
+          >
+            X
+          </button>
+        </header>
+
+        <div class="sos-grid" aria-describedby="sosDescription">
+          <section class="sos-card">
+            <h3 data-i18n="sos.emergency.title">🚑 Numery alarmowe na Cyprze</h3>
+            <ul>
+              <li>
+                <strong>112</strong>
+                <p data-i18n="sos.emergency.eu">
+                  Uniwersalny numer alarmowy UE (policja, pogotowie, straż pożarna). <a href="tel:112">Zadzwoń teraz</a>
+                </p>
+              </li>
+              <li>
+                <strong>199</strong>
+                <p data-i18n="sos.emergency.cyprus">
+                  Cypryjski numer alarmowy – działa równolegle z 112. <a href="tel:199">Połącz</a>
+                </p>
+              </li>
+              <li>
+                <strong>+357 22 802 020</strong>
+                <p data-i18n="sos.emergency.police">
+                  Całodobowa linia policji (spoza Cypru wybierz pełny numer kierunkowy). <a href="tel:+35722802020">Zadzwoń</a>
+                </p>
+              </li>
+            </ul>
+          </section>
+          <section class="sos-card">
+            <h3 data-i18n="sos.embassy.title">🛡️ Ambasada RP w Nikozji</h3>
+            <ul>
+              <li>
+                <strong>Telefon alarmowy</strong>
+                <p data-i18n="sos.embassy.hotline">
+                  <a href="tel:+35799660451">+357 99 660 451</a> (wsparcie w nagłych wypadkach obywateli RP).
+                </p>
+              </li>
+              <li>
+                <strong>Recepcja</strong>
+                <p data-i18n="sos.embassy.reception">
+                  <a href="tel:+35722751777">+357 22 751 777</a> (pon.–pt. w godz. pracy placówki).
+                </p>
+              </li>
+              <li>
+                <strong>Adres</strong>
+                <p data-i18n="sos.embassy.address">
+                  14, Ifigenias Street, 2007 Nikozja • <a href="https://maps.google.com/?q=Embassy+of+Poland+in+Cyprus" target="_blank" rel="noopener">Wyznacz trasę</a>
+                </p>
+              </li>
+              <li>
+                <strong>E-mail</strong>
+                <p data-i18n="sos.embassy.email"><a href="mailto:nicosia.info@msz.gov.pl">nicosia.info@msz.gov.pl</a></p>
+              </li>
+            </ul>
+          </section>
+          <section class="sos-card">
+            <h3 data-i18n="sos.healthcare.title">🏥 Najbliższa pomoc medyczna</h3>
+            <ul>
+              <li>
+                <strong>Paphos General Hospital</strong>
+                <p data-i18n="sos.healthcare.hospital">
+                  Całodobowa izba przyjęć, Anavargos, Pafos. <a href="tel:+35726803000">+357 26 803 000</a> •
+                  <a href="https://maps.google.com/?q=Paphos+General+Hospital" target="_blank" rel="noopener">Mapa dojazdu</a>
+                </p>
+              </li>
+              <li>
+                <strong data-i18n="sos.healthcare.searchTitle">Wyszukaj szpital w pobliżu</strong>
+                <p data-i18n="sos.healthcare.search">
+                  <a href="https://www.google.com/maps/search/hospital+near+me/" target="_blank" rel="noopener">Otwórz listę szpitali na Mapach Google</a>
+                  i udostępnij lokalizację, aby zobaczyć najbliższe opcje.
+                </p>
+              </li>
+              <li>
+                <strong data-i18n="sos.healthcare.pharmacyTitle">Dyżurna apteka</strong>
+                <p data-i18n="sos.healthcare.pharmacy">
+                  Sprawdź aktualne dyżury na <a href="https://pharmacy.dl.moh.gov.cy/" target="_blank" rel="noopener">stronie Ministerstwa Zdrowia</a>
+                  lub wyszukaj <a href="https://www.google.com/maps/search/pharmacy+near+me/" target="_blank" rel="noopener">aptekę w pobliżu</a>.
+                </p>
+              </li>
+            </ul>
+            <p class="sos-note" data-i18n="sos.healthcare.note">
+              W sytuacji zagrożenia życia zawsze dzwoń pod 112 i dokładnie podaj lokalizację. W aplikacji włącz udostępnianie
+              lokalizacji, aby szybciej odnaleźć pomoc na mapie.
+            </p>
+          </section>
+        </div>
+      </div>
+    </div>
+
     <script src="js/forms.js" defer></script>
     <script src="js/languageSelector.js?v=3" defer></script>
   <script src="js/i18n.js" defer></script>
   <script src="js/seo.js" defer></script>
   <script src="js/mobile-nav.js" defer></script>
+  <script src="js/sos.js?v=1" defer></script>
   <script src="js/header-dropdown.js?v=2" defer></script>
   <script src="js/header-stats.js?v=2" defer></script>
   <script src="js/compact-header.js?v=1" defer></script>
+  <script src="assets/js/modal-auth.js" defer></script>
   <script src="js/languageSwitcher.js" defer></script>
   </body>
 </html>
