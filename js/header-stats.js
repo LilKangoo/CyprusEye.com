@@ -353,7 +353,7 @@
         xp: xpValue,
         level: levelValue,
         badges: badgesCount,
-        name: profile?.name || profile?.username || 'Gracz',
+        name: profile?.name || profile?.username || translateHeader('header.profileLabel', {}, 'Mój Profil'),
         avatar_url: profile?.avatar_url || null,
         userId: user.id
       };
@@ -499,7 +499,7 @@
             xp: 0,
             level: 1,
             badges: 0,
-            name: 'Mój Profil',
+            name: translateHeader('header.profileLabel', {}, 'Mój Profil'),
             avatar_url: null
           });
         }

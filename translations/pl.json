@@ -2610,8 +2610,11 @@
     "nav": {
       "aria": "Nawigacja dolna",
       "adventure": "Przygoda",
+      "community": "Społeczność",
       "packing": "Pakowanie",
       "tasks": "Misje",
+      "trips": "Wycieczki",
+      "transport": "Transport",
       "mediaTrips": "VIP",
       "carRental": "Wynajem aut",
       "coupons": "Kupony",

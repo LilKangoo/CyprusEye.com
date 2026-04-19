@@ -3574,6 +3574,21 @@
   "footer.referral.copy": "Copy link",
   "footer.referral.facebook": "Facebook",
   "footer.referral.copied": "Copied!",
+  "mobile": {
+    "nav": {
+      "aria": "Bottom navigation",
+      "adventure": "Adventure",
+      "community": "Community",
+      "packing": "Packing",
+      "tasks": "Missions",
+      "trips": "Trips",
+      "mediaTrips": "VIP",
+      "carRental": "Cars",
+      "transport": "Transport",
+      "coupons": "Coupons",
+      "language": "Language"
+    }
+  },
   "footer.app": "© <span data-current-year></span> CyprusEye.com • Play, explore, and plan your holidays at the same time.",
   "footer.app.tagline": "Play, explore, and plan your holidays at the same time.",
   "sos.embassy.hotlineTitle": "Emergency hotline",
