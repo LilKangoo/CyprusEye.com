@@ -65,7 +65,7 @@ function buildSeedScript(withAdminSession = false) {
           cta_services: [
             { type: 'trips', resource_id: 'trip-1' },
             { type: 'hotels', resource_id: 'hotel-1' },
-            { type: 'recommendations', resource_id: 'rec-1' },
+            { type: 'pois', resource_id: 'poi-1' },
           ],
           author_profile_id: 'profile-author',
           owner_partner_id: null,
@@ -196,6 +196,7 @@ function buildSeedScript(withAdminSession = false) {
             photos: [],
             pricing_model: 'per_person',
             start_city: 'Larnaca',
+            is_published: true,
             updated_at: isoDaysAgo(1),
           },
         ]);
@@ -208,6 +209,7 @@ function buildSeedScript(withAdminSession = false) {
             city: 'Lefkara',
             cover_image_url: 'https://stub.local/hotel.webp',
             photos: [],
+            is_published: true,
             updated_at: isoDaysAgo(1),
           },
         ]);
@@ -219,6 +221,8 @@ function buildSeedScript(withAdminSession = false) {
             location: 'Larnaca',
             image_url: 'https://stub.local/car.webp',
             price_per_day: 40,
+            is_published: true,
+            is_available: true,
             updated_at: isoDaysAgo(1),
           },
         ]);
@@ -233,6 +237,7 @@ function buildSeedScript(withAdminSession = false) {
             main_image_url: 'https://stub.local/poi.webp',
             photos: [],
             city: 'Lefkara',
+            status: 'published',
             updated_at: isoDaysAgo(1),
           },
         ]);
@@ -246,6 +251,7 @@ function buildSeedScript(withAdminSession = false) {
             image_url: 'https://stub.local/rec.webp',
             photos: [],
             location_name: 'Lefkara',
+            active: true,
             updated_at: isoDaysAgo(1),
           },
         ]);
@@ -308,6 +314,8 @@ test.describe('Blog smoke', () => {
     await expect(page.locator('#blogPostAuthorName')).toContainText('Maria Guide');
     await expect(page.locator('#blogBackLink')).toHaveAttribute('href', '/blog');
     await expect(page.locator('#blogCtaGrid .blog-cta-card')).toHaveCount(3);
+    const poiCtaLink = page.locator('#blogCtaGrid .blog-cta-card a[href*="/community.html?poi=poi-1"]').first();
+    await expect(poiCtaLink).toHaveCount(1);
     await expect(page.locator('#blogRelatedSection')).toBeVisible();
     await expect(page.locator('#blogRelatedGrid .blog-card')).toHaveCount(3);
 
@@ -318,6 +326,11 @@ test.describe('Blog smoke', () => {
     await expect(page.locator('#blogPostTitle')).toContainText('Przewodnik Cypr 1');
     await expect(page).toHaveURL(/lang=pl/);
     await expect(page.locator('#blogBackLink')).toHaveAttribute('href', '/blog?lang=pl');
+
+    await poiCtaLink.click();
+    await expect(page).toHaveURL(/\/community\.html\?poi=poi-1&lang=pl/);
+    await page.waitForSelector('#commentsModal:not([hidden])');
+    await expect(page.locator('#commentsModalTitle')).toContainText('Centrum Lefkary');
   });
 
   test('admin blog view supports approve and create flow', async ({ page }) => {

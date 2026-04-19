@@ -221,9 +221,12 @@ async function loadPoiCategoriesFromSupabase(supabase) {
  */
 function transformPOI(dbPoi, poiCategoryMap = null) {
   // Use i18n fields if available, otherwise fallback to old fields
-  const name = getTranslation(dbPoi.name_i18n, dbPoi.name || 'Unnamed Place');
-  const description = getTranslation(dbPoi.description_i18n, dbPoi.description || '');
-  const badge = getTranslation(dbPoi.badge_i18n, dbPoi.badge || 'Explorer');
+  const nameFallback = String(dbPoi.name || dbPoi.name_pl || dbPoi.name_en || dbPoi.title || 'Unnamed Place').trim() || 'Unnamed Place';
+  const descriptionFallback = String(dbPoi.description || dbPoi.description_pl || dbPoi.description_en || '').trim();
+  const badgeFallback = String(dbPoi.badge || dbPoi.badge_pl || dbPoi.badge_en || 'Explorer').trim() || 'Explorer';
+  const name = getTranslation(dbPoi.name_i18n, nameFallback);
+  const description = getTranslation(dbPoi.description_i18n, descriptionFallback);
+  const badge = getTranslation(dbPoi.badge_i18n, badgeFallback);
   const categorySlug = normalizePoiCategorySlug(dbPoi.category || dbPoi.poi_category || dbPoi.badge || DEFAULT_POI_CATEGORY_SLUG);
   const categoryId = String(dbPoi.category_id || '').trim() || null;
   const categories = poiCategoryMap instanceof Map ? poiCategoryMap : getPoiCategoryMapFromWindow();

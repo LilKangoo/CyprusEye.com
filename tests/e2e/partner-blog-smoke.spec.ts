@@ -119,6 +119,7 @@ function buildSeedScript() {
             slug: 'lefkara-escape',
             title: { en: 'Lefkara Escape', pl: 'Wypad do Lefkary' },
             start_city: 'Larnaca',
+            is_published: true,
             updated_at: isoDaysAgo(1),
           },
         ]);
@@ -130,6 +131,7 @@ function buildSeedScript() {
             slug: 'lefkara-house',
             title: { en: 'Lefkara House', pl: 'Dom w Lefkarze' },
             city: 'Lefkara',
+            is_published: true,
             updated_at: isoDaysAgo(1),
           },
         ]);
@@ -141,6 +143,8 @@ function buildSeedScript() {
             car_model: 'Suzuki Swift',
             car_type: 'Economy',
             location: 'Larnaca',
+            is_published: true,
+            is_available: true,
             updated_at: isoDaysAgo(1),
           },
         ]);
@@ -152,6 +156,7 @@ function buildSeedScript() {
             name_en: 'Lefkara Square',
             name_pl: 'Plac Lefkara',
             city: 'Lefkara',
+            status: 'published',
             updated_at: isoDaysAgo(1),
           },
         ]);
@@ -162,6 +167,7 @@ function buildSeedScript() {
             title_en: 'Local bakery',
             title_pl: 'Lokalna piekarnia',
             location_name: 'Lefkara',
+            active: true,
             updated_at: isoDaysAgo(1),
           },
         ]);
