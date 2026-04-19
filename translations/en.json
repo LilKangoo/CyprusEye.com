@@ -692,16 +692,16 @@
       "description": "Adjust the list to the season and length of stay. Add your own items and tick off what you have already packed so you don’t forget anything."
     },
     "step9": {
-      "title": "Pre-trip task list 📝",
-      "description": "Reservations, documents, and formalities in one place. Tick completed tasks and follow your preparation progress."
+      "title": "Our recommendations 🎁",
+      "description": "Use this section to discover trusted places, local brands, and curated offers before choosing the rest of your trip."
     },
     "step10": {
-      "title": "Transport with live quote 🚕",
-      "description": "Set route, time, and passengers to instantly see fare and reserve transport in one flow."
+      "title": "CyprusEye blog 📰",
+      "description": "Read practical guides, route ideas, and local tips. Open an article when you want more context before booking services."
     },
     "step11": {
-      "title": "Car rental guide 🚗",
-      "description": "Learn everything about renting a car in Cyprus: tips, insurance, and cost calculator 📊 – all in one place."
+      "title": "Done. Start from the top 🎉",
+      "description": "The guide ends back at the top, so you can switch language, sign in if needed, and start using the services from the beginning."
     },
     "step12": {
       "title": "Services and trip planning 🗺️",
@@ -3887,12 +3887,12 @@
   "tutorial.step7.description": "Switch city, compare available cars and prices, then continue to the full car booking process.",
   "tutorial.step8.title": "Transport in 4 clear steps",
   "tutorial.step8.description": "Step 1 route/time -> Step 2 passengers/extras -> Step 3 contact/notes -> Step 4 final quote and reserve.",
-  "tutorial.step9.title": "Recommendations + extra modules",
-  "tutorial.step9.description": "Use recommendations to discover verified places and offers. Below, shortcut cards open packing, tasks, and planner tools.",
-  "tutorial.step10.title": "Create account for full access",
-  "tutorial.step10.description": "Final step: click \"Login\" and register. You unlock full offers: saved progress, booking history, notifications, and partner bonuses.",
-  "tutorial.step11.title": "Packing planner",
-  "tutorial.step11.description": "Prepare your luggage with practical checklists and custom items before departure.",
+  "tutorial.step9.title": "Our recommendations",
+  "tutorial.step9.description": "Use this section to discover trusted places, local brands, and curated offers before choosing the rest of your trip.",
+  "tutorial.step10.title": "CyprusEye blog",
+  "tutorial.step10.description": "Read practical guides, route ideas, and local tips. Open an article when you want more context before booking services.",
+  "tutorial.step11.title": "Done. Start from the top",
+  "tutorial.step11.description": "The guide ends back at the top, so you can switch language, sign in if needed, and start using the services from the beginning.",
   "tutorial.step12.title": "Task list",
   "tutorial.step12.description": "Track bookings, documents, and travel to-dos with clear progress in one place.",
   "tutorial.step13.title": "Shortcut: transport page",

@@ -195,16 +195,26 @@
           target: '[data-tour-target="recommendations-section"]',
           fallbackTitle: 'Recommendations and travel tools',
           fallbackDescription:
-            'Use verified recommendations, then use tools below (packing list, tasks, planner shortcuts) to organize the full trip.',
+            'Use verified recommendations to discover trusted places, local brands, and exclusive offers before planning the rest of your stay.',
           arrow: { icon: '⬅️', placement: 'right' },
         },
         {
           id: 'step10',
-          target: '[data-tour-target="login-button"]',
-          fallbackTitle: 'Create account for full access',
+          target: '[data-tour-target="blog-section"]',
+          fallbackTitle: 'Blog: practical guides and tips',
           fallbackDescription:
-            'Final step: click "Login", create account, and unlock full offers: booking history, notifications, saved progress, and partner benefits.',
+            'Open the CyprusEye blog to read practical guides, route ideas, and local advice before you book services or start your trip.',
+          arrow: { icon: '⬅️', placement: 'right' },
+        },
+        {
+          id: 'step11',
+          target: '[data-tour-target="top-actions"]',
+          fallbackTargets: ['[data-tour-target="login-button"]'],
+          fallbackTitle: 'Done. Start from the top',
+          fallbackDescription:
+            'The guide ends back at the top so you can change language, sign in if needed, and start using the services from the beginning.',
           scrollBlock: 'start',
+          forcePageTop: true,
           arrow: { icon: '⬆️', placement: 'bottom' },
         },
       ];
@@ -724,9 +734,13 @@
         this.highlight.style.width = `${Math.max(width, 60)}px`;
         this.highlight.style.height = `${Math.max(height, 60)}px`;
 
-        if (options.ensureVisible && typeof target.scrollIntoView === 'function') {
-          const scrollBlock = activeStep.scrollBlock === 'start' ? 'start' : 'center';
-          target.scrollIntoView({ behavior: 'smooth', block: scrollBlock, inline: 'center' });
+        if (options.ensureVisible) {
+          if (activeStep.forcePageTop) {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          } else if (typeof target.scrollIntoView === 'function') {
+            const scrollBlock = activeStep.scrollBlock === 'start' ? 'start' : 'center';
+            target.scrollIntoView({ behavior: 'smooth', block: scrollBlock, inline: 'center' });
+          }
           if (this.pendingTimeout) {
             clearTimeout(this.pendingTimeout);
           }
@@ -839,6 +853,7 @@
 
     finishTutorial() {
       this.markAsSeen();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       this.closeOverlay();
     }
 
