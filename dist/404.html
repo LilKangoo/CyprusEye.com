@@ -101,6 +101,83 @@
           </a>
         </div>
 
+        <div class="compact-header__profile" data-auth="user-only">
+          <button
+            type="button"
+            class="compact-profile__trigger"
+            data-compact-profile-trigger
+            aria-expanded="false"
+            aria-haspopup="menu"
+            aria-controls="compactProfileMenu"
+          >
+            <img
+              id="headerUserAvatar"
+              class="profile-avatar"
+              src="assets/cyprus_logo-1000x1054.png"
+              alt="Avatar"
+              width="48"
+              height="48"
+              loading="eager"
+            />
+            <span class="compact-profile__summary">
+              <span class="profile-name" data-i18n="header.profileLabel">Mój Profil</span>
+              <span class="profile-status" data-i18n="header.statusPlaceholder">Poziom 1 • 0 odznak</span>
+            </span>
+            <span class="compact-profile__chevron" aria-hidden="true">▾</span>
+          </button>
+
+          <div class="compact-profile__menu" id="compactProfileMenu" data-compact-profile-menu hidden>
+            <div class="compact-profile__menu-header">
+              <img
+                class="compact-profile__avatar"
+                data-compact-user-avatar
+                src="assets/cyprus_logo-1000x1054.png"
+                alt="Avatar"
+                width="48"
+                height="48"
+                loading="lazy"
+              />
+              <div class="compact-profile__identity">
+                <p class="compact-profile__menu-name" data-compact-user-name data-i18n="header.profileLabel">Mój Profil</p>
+                <p class="compact-profile__menu-status" data-compact-user-status data-i18n="header.statusPlaceholder">Poziom 1 • 0 odznak</p>
+              </div>
+            </div>
+
+            <div class="compact-profile__stats">
+              <div class="compact-profile__stat">
+                <span class="compact-profile__stat-label" data-i18n="metrics.level.abbrev">LVL</span>
+                <span class="compact-profile__stat-value" id="headerLevelNumber">1</span>
+              </div>
+              <div class="compact-profile__stat compact-profile__xp-card">
+                <span class="compact-profile__stat-label" data-i18n="account.profile.labels.xp">XP</span>
+                <span class="compact-profile__xp-points"><span id="headerXpPoints">0</span> XP</span>
+                <div class="compact-profile__xp-bar" role="img" aria-label="Postęp doświadczenia" data-i18n-attrs="aria-label:metrics.xp.aria">
+                  <div class="compact-profile__xp-fill stats-lite__xp-fill is-width-zero" id="headerXpFill"></div>
+                </div>
+              </div>
+              <div class="compact-profile__stat">
+                <span class="compact-profile__stat-label" data-i18n="metrics.badges.label">Odznaki</span>
+                <span class="compact-profile__stat-value" id="headerBadgesCount">0</span>
+              </div>
+            </div>
+
+            <div class="compact-profile__actions">
+              <a class="compact-profile__link" href="achievements.html" data-i18n="header.profileLabel">Mój Profil</a>
+              <a class="compact-profile__link compact-profile__partner-link" href="/partners/" data-compact-partner-link data-i18n="header.partnerPortal" hidden>Panel partnera</a>
+              <button
+                class="compact-profile__logout"
+                type="button"
+                data-auth="logout"
+                data-i18n="header.logout"
+                data-i18n-attrs="aria-label:auth.logout.aria"
+                aria-label="Wyloguj z konta"
+              >
+                Wyloguj
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div class="nav-modern__top-actions">
           <div class="nav-modern__auth">
             <div id="auth-actions" class="auth-actions-inline" aria-live="polite" data-auth="anon-only">
@@ -126,83 +203,6 @@
               </button>
             </div>
             <div data-auth="spinner" class="auth-spinner-inline" aria-live="polite" data-i18n="auth.status.spinner" hidden>Łączenie...</div>
-          </div>
-
-          <div class="compact-header__profile" data-auth="user-only">
-            <button
-              type="button"
-              class="compact-profile__trigger"
-              data-compact-profile-trigger
-              aria-expanded="false"
-              aria-haspopup="menu"
-              aria-controls="compactProfileMenu"
-            >
-              <img
-                id="headerUserAvatar"
-                class="profile-avatar"
-                src="assets/cyprus_logo-1000x1054.png"
-                alt="Avatar"
-                width="48"
-                height="48"
-                loading="eager"
-              />
-              <span class="compact-profile__summary">
-                <span class="profile-name" data-i18n="header.profileLabel">Mój Profil</span>
-                <span class="profile-status" data-i18n="header.statusPlaceholder">Poziom 1 • 0 odznak</span>
-              </span>
-              <span class="compact-profile__chevron" aria-hidden="true">▾</span>
-            </button>
-
-            <div class="compact-profile__menu" id="compactProfileMenu" data-compact-profile-menu hidden>
-              <div class="compact-profile__menu-header">
-                <img
-                  class="compact-profile__avatar"
-                  data-compact-user-avatar
-                  src="assets/cyprus_logo-1000x1054.png"
-                  alt="Avatar"
-                  width="48"
-                  height="48"
-                  loading="lazy"
-                />
-                <div class="compact-profile__identity">
-                  <p class="compact-profile__menu-name" data-compact-user-name data-i18n="header.profileLabel">Mój Profil</p>
-                  <p class="compact-profile__menu-status" data-compact-user-status data-i18n="header.statusPlaceholder">Poziom 1 • 0 odznak</p>
-                </div>
-              </div>
-
-              <div class="compact-profile__stats">
-                <div class="compact-profile__stat">
-                  <span class="compact-profile__stat-label" data-i18n="metrics.level.abbrev">LVL</span>
-                  <span class="compact-profile__stat-value" id="headerLevelNumber">1</span>
-                </div>
-                <div class="compact-profile__stat compact-profile__xp-card">
-                  <span class="compact-profile__stat-label" data-i18n="account.profile.labels.xp">XP</span>
-                  <span class="compact-profile__xp-points"><span id="headerXpPoints">0</span> XP</span>
-                  <div class="compact-profile__xp-bar" role="img" aria-label="Postęp doświadczenia" data-i18n-attrs="aria-label:metrics.xp.aria">
-                    <div class="compact-profile__xp-fill stats-lite__xp-fill is-width-zero" id="headerXpFill"></div>
-                  </div>
-                </div>
-                <div class="compact-profile__stat">
-                  <span class="compact-profile__stat-label" data-i18n="metrics.badges.label">Odznaki</span>
-                  <span class="compact-profile__stat-value" id="headerBadgesCount">0</span>
-                </div>
-              </div>
-
-              <div class="compact-profile__actions">
-                <a class="compact-profile__link" href="achievements.html" data-i18n="header.profileLabel">Mój Profil</a>
-                <a class="compact-profile__link compact-profile__partner-link" href="/partners/" data-compact-partner-link data-i18n="header.partnerPortal" hidden>Panel partnera</a>
-                <button
-                  class="compact-profile__logout"
-                  type="button"
-                  data-auth="logout"
-                  data-i18n="header.logout"
-                  data-i18n-attrs="aria-label:auth.logout.aria"
-                  aria-label="Wyloguj z konta"
-                >
-                  Wyloguj
-                </button>
-              </div>
-            </div>
           </div>
 
           <button

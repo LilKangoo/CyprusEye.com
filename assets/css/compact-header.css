@@ -8,16 +8,16 @@
 
 body.standalone-body[data-seo-page='advertise'],
 body.standalone-body[data-seo-page='notFound'] {
-  padding-top: clamp(0.55rem, 1.6vw, 1rem);
+  padding: clamp(0.55rem, 1.3vw, 0.95rem) clamp(0.75rem, 2vw, 1.35rem) clamp(1rem, 2.2vw, 1.6rem);
 }
 
 .nav-modern--compact .nav-modern__top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   min-height: auto;
   padding-top: 0.8rem;
   padding-bottom: 0.45rem;
   align-items: center;
-  flex-wrap: nowrap;
-  justify-content: flex-start;
   gap: 0.85rem;
 }
 
@@ -57,11 +57,14 @@ body.standalone-body[data-seo-page='notFound'] {
 }
 
 .nav-modern--compact .nav-modern__top-actions {
+  display: flex;
   flex: 0 1 auto;
   gap: 0.5rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
-  margin-left: auto;
+  align-items: center;
+  margin-left: 0;
+  justify-self: end;
 }
 
 .nav-modern--compact .nav-modern__auth {
@@ -108,6 +111,9 @@ body.standalone-body[data-seo-page='notFound'] {
 .compact-header__profile {
   position: relative;
   min-width: 0;
+  justify-self: center;
+  align-self: center;
+  margin-inline: auto;
 }
 
 .compact-profile__trigger {
@@ -182,7 +188,9 @@ body.standalone-body[data-seo-page='notFound'] {
 .compact-profile__menu {
   position: absolute;
   top: calc(100% + 0.65rem);
-  right: 0;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
   width: min(360px, calc(100vw - 2rem));
   padding: 1rem;
   border-radius: 22px;
@@ -404,13 +412,18 @@ body.standalone-body[data-seo-page='notFound'] {
 
 @media (max-width: 1180px) {
   .nav-modern--compact .nav-modern__top {
-    flex-wrap: wrap;
-    align-items: flex-start;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
   }
 
   .nav-modern--compact .nav-modern__brand-block,
+  .nav-modern--compact .compact-header__profile,
   .nav-modern--compact .nav-modern__top-actions {
     width: 100%;
+  }
+
+  .nav-modern--compact .compact-header__profile {
+    justify-self: stretch;
   }
 
   .nav-modern--compact .nav-modern__top-actions {
@@ -420,8 +433,12 @@ body.standalone-body[data-seo-page='notFound'] {
 
 @media (max-width: 1024px) {
   .nav-modern--compact .nav-modern__top {
-    padding-top: 0.85rem !important;
-    padding-bottom: 0.45rem !important;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+    padding-top: 0.2rem !important;
+    padding-bottom: 0.3rem !important;
   }
 
   .nav-modern--compact .nav-modern__brand-block {
@@ -446,12 +463,18 @@ body.standalone-body[data-seo-page='notFound'] {
     align-items: stretch;
     width: 100%;
     gap: 0.45rem;
+    order: 2;
   }
 
-  .nav-modern--compact .nav-modern__auth,
-  .nav-modern--compact .compact-header__profile {
+  .nav-modern--compact .nav-modern__auth {
     grid-column: 1 / -1;
     grid-row: 2;
+  }
+
+  .nav-modern--compact .compact-header__profile {
+    order: 3;
+    width: 100%;
+    justify-self: stretch;
   }
 
   .nav-modern--compact .auth-actions-inline {
@@ -503,6 +526,7 @@ body.standalone-body[data-seo-page='notFound'] {
     left: 1rem;
     right: 1rem;
     width: auto;
+    transform: none;
     max-height: calc(100vh - env(safe-area-inset-top, 0px) - 2rem);
     overflow-y: auto;
     z-index: 1200;
@@ -553,7 +577,7 @@ body.standalone-body[data-seo-page='notFound'] {
 @media (max-width: 640px) {
   body.standalone-body[data-seo-page='advertise'],
   body.standalone-body[data-seo-page='notFound'] {
-    padding-top: 0.35rem;
+    padding: 0.2rem 0.7rem 0.95rem;
   }
 
   .nav-modern--compact .nav-modern__top-actions {

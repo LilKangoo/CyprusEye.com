@@ -14,6 +14,8 @@
   let partnerLookupUserId = '';
   let partnerAccess = false;
   let partnerLookupPromise = null;
+  const PARTNER_FULL_SELECT = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_manage_blog, can_auto_publish_blog, can_manage_transport, cars_locations, affiliate_enabled';
+  const PARTNER_LEGACY_SELECT = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_manage_blog, can_auto_publish_blog';
 
   function getRoot() {
     return document.querySelector(SELECTORS.root);
@@ -112,6 +114,32 @@
     }
   }
 
+  async function loadAccessiblePartnersFallback(sb) {
+    if (!sb) return [];
+
+    const fetchWithColumns = async (columns) => {
+      const { data, error } = await sb
+        .from('partners')
+        .select(columns)
+        .order('name', { ascending: true })
+        .limit(100);
+
+      return { data, error };
+    };
+
+    let { data, error } = await fetchWithColumns(PARTNER_FULL_SELECT);
+
+    if (error && (/cars_locations/i.test(String(error.message || '')) || /affiliate_enabled/i.test(String(error.message || '')) || /can_manage_transport/i.test(String(error.message || '')))) {
+      ({ data, error } = await fetchWithColumns(PARTNER_LEGACY_SELECT));
+    }
+
+    if (error) {
+      throw error;
+    }
+
+    return Array.isArray(data) ? data : [];
+  }
+
   function setMenuOpen(open) {
     const trigger = getTrigger();
     const menu = getMenu();
@@ -163,10 +191,15 @@
         if (error) {
           console.warn('[compact-header] Failed to resolve partner access.', error);
           partnerAccess = false;
-          return false;
+        } else {
+          partnerAccess = Array.isArray(data) && data.length > 0;
         }
 
-        partnerAccess = Array.isArray(data) && data.length > 0;
+        if (!partnerAccess) {
+          const fallbackPartners = await loadAccessiblePartnersFallback(sb);
+          partnerAccess = Array.isArray(fallbackPartners) && fallbackPartners.length > 0;
+        }
+
         return partnerAccess;
       } catch (error) {
         console.warn('[compact-header] Partner access lookup failed.', error);
