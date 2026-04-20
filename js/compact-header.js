@@ -15,6 +15,7 @@
     compactProfile: '.compact-header__profile',
     trigger: '[data-compact-profile-trigger]',
     menu: '[data-compact-profile-menu]',
+    close: '[data-compact-profile-close]',
     name: '[data-compact-user-name]',
     status: '[data-compact-user-status]',
     partnerLink: '[data-compact-partner-link]',
@@ -90,6 +91,40 @@
       }
     } catch (_error) {}
     return fallback;
+  }
+
+  function toFiniteNumber(value, fallback) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : fallback;
+  }
+
+  function countVisitedPlaces(value) {
+    if (Array.isArray(value)) {
+      return value.filter(Boolean).length;
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return 0;
+
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.filter(Boolean).length;
+        }
+      } catch (_error) {}
+
+      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        const inner = trimmed.slice(1, -1).trim();
+        if (!inner) return 0;
+        return inner
+          .split(',')
+          .map((part) => String(part).trim().replace(/^"|"$/g, ''))
+          .filter(Boolean).length;
+      }
+    }
+
+    return 0;
   }
 
   function setHidden(element, hidden) {
@@ -545,8 +580,17 @@
       text: status.textContent || getText('header.statusPlaceholder', 'Level 1 • 0 badges'),
       attributes: { 'data-compact-user-status': true, 'data-i18n': 'header.statusPlaceholder' },
     }));
+    const closeButton = createElement('button', 'compact-profile__menu-close', {
+      text: 'X',
+      attributes: {
+        type: 'button',
+        'data-compact-profile-close': true,
+        'aria-label': getText('common.close', 'Close'),
+      },
+    });
     menuHeader.appendChild(menuAvatar);
     menuHeader.appendChild(identity);
+    menuHeader.appendChild(closeButton);
 
     let stats = menu.querySelector('.compact-profile__stats');
     if (!stats) {
@@ -680,11 +724,100 @@
     });
   }
 
+  function getDisplayName(state) {
+    const profile = state?.profile || {};
+    const user = state?.session?.user || {};
+    const metadata = user?.user_metadata || {};
+
+    const candidates = [
+      profile.username,
+      metadata.username,
+      profile.name,
+      metadata.display_name,
+      metadata.name,
+      metadata.full_name,
+      user.email,
+    ];
+
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string' && candidate.trim()) {
+        return candidate.trim();
+      }
+    }
+
+    return getText('header.profileLabel', 'My profile');
+  }
+
+  function getHeaderStats(state) {
+    const profile = state?.profile || {};
+    const level = Math.max(1, toFiniteNumber(profile.level, 1));
+    const xp = Math.max(0, toFiniteNumber(profile.xp, 0));
+    const badges = Number.isFinite(Number(profile.badges))
+      ? Math.max(0, Number(profile.badges))
+      : countVisitedPlaces(profile.visited_places);
+    const avatarUrl = typeof profile.avatar_url === 'string' && profile.avatar_url.trim()
+      ? profile.avatar_url.trim()
+      : '';
+
+    return { level, xp, badges, avatarUrl };
+  }
+
+  function syncMetricFields(scope, state = getState()) {
+    if (!(scope instanceof HTMLElement)) {
+      return;
+    }
+
+    const { level, xp, badges, avatarUrl } = getHeaderStats(state);
+    const levelEl = scope.querySelector('#headerLevelNumber');
+    const xpEl = scope.querySelector('#headerXpPoints');
+    const xpFillEl = scope.querySelector('#headerXpFill');
+    const badgesEl = scope.querySelector('#headerBadgesCount');
+    const triggerAvatar = scope.querySelector('#headerUserAvatar');
+    const menuAvatar = scope.querySelector('[data-compact-user-avatar]');
+
+    if (levelEl instanceof HTMLElement) {
+      levelEl.textContent = String(level);
+    }
+
+    if (xpEl instanceof HTMLElement) {
+      xpEl.textContent = String(xp);
+    }
+
+    if (badgesEl instanceof HTMLElement) {
+      badgesEl.textContent = String(badges);
+    }
+
+    if (xpFillEl instanceof HTMLElement) {
+      const XP_PER_LEVEL = 150;
+      const currentLevelXP = xp % XP_PER_LEVEL;
+      const progressPercent = Math.max(0, Math.min(100, Math.round((currentLevelXP / XP_PER_LEVEL) * 100)));
+      xpFillEl.style.width = `${progressPercent}%`;
+      xpFillEl.classList.toggle('is-width-zero', progressPercent <= 0);
+    }
+
+    if (avatarUrl) {
+      if (triggerAvatar instanceof HTMLImageElement) {
+        triggerAvatar.src = avatarUrl;
+      }
+      if (menuAvatar instanceof HTMLImageElement) {
+        menuAvatar.src = avatarUrl;
+      }
+    }
+  }
+
   function bindProfileMenus() {
     if (menuListenersBound) return;
     menuListenersBound = true;
 
     document.addEventListener('click', (event) => {
+      const closeButton = event.target instanceof Element
+        ? event.target.closest(SELECTORS.close)
+        : null;
+      if (closeButton instanceof HTMLElement) {
+        closeAllMenus();
+        return;
+      }
+
       const trigger = event.target instanceof Element
         ? event.target.closest(SELECTORS.trigger)
         : null;
@@ -720,30 +853,6 @@
     });
   }
 
-  function getDisplayName(state) {
-    const profile = state?.profile || {};
-    const user = state?.session?.user || {};
-    const metadata = user?.user_metadata || {};
-
-    const candidates = [
-      profile.name,
-      profile.username,
-      metadata.full_name,
-      metadata.name,
-      metadata.display_name,
-      metadata.username,
-      user.email,
-    ];
-
-    for (const candidate of candidates) {
-      if (typeof candidate === 'string' && candidate.trim()) {
-        return candidate.trim();
-      }
-    }
-
-    return getText('header.profileLabel', 'My profile');
-  }
-
   function getStatusText(state) {
     const profile = state?.profile || {};
     const level = Number.isFinite(Number(profile.level)) ? Math.max(1, Number(profile.level)) : 1;
@@ -766,7 +875,7 @@
     const triggerStatus = trigger?.querySelector('.profile-status');
 
     const displayName = getDisplayName(state);
-    const statusText = triggerStatus?.textContent?.trim() || getStatusText(state);
+    const statusText = getStatusText(state);
 
     if (triggerName instanceof HTMLElement) {
       triggerName.textContent = displayName;
@@ -783,6 +892,8 @@
     if (menuAvatar instanceof HTMLImageElement && triggerAvatar instanceof HTMLImageElement && triggerAvatar.getAttribute('src')) {
       menuAvatar.setAttribute('src', triggerAvatar.getAttribute('src'));
     }
+
+    syncMetricFields(profile.closest(SELECTORS.compactHeader) || profile, state);
   }
 
   async function loadAccessiblePartnersFallback(sb) {
