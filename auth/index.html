@@ -17,11 +17,12 @@
     <!-- Security: Content Security Policy -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://esm.sh https://unpkg.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://*.supabase.co wss://daoohnbnnowmmcizgvrq.supabase.co wss://*.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://*.tile.openstreetmap.org https://esm.sh; frame-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;">
     
-    <title>WakacjeCypr Quest – logowanie</title>
+    <title data-i18n="seo.auth.title">CyprusEye Save &amp; Travel – logowanie</title>
     <meta name="ce-auth" content="on" />
     <meta
       name="description"
-      content="Zaloguj się do WakacjeCypr Quest, aby synchronizować postępy, odblokowywać nagrody i kontynuować przygodę na każdym urządzeniu."
+      content="Zaloguj się do CyprusEye Save &amp; Travel, aby synchronizować postępy i kontynuować planowanie podróży na każdym urządzeniu."
+      data-i18n-attrs="content:seo.auth.description"
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -184,12 +185,13 @@
       <div class="auth-page__container">
       <a class="auth-page__return" href="/index.html">
         <span aria-hidden="true">⬅️</span>
-        <span>Wróć do strony głównej</span>
+        <span data-i18n="auth.backHome">Wróć do strony głównej</span>
       </a>
       <header class="auth-page__header">
         <img
           src="/assets/cyprus_logo-1000x1054.png"
-          alt="WakacjeCypr Quest – logo"
+          alt="CyprusEye.com - eye with a Cyprus island outline inside."
+          data-i18n-attrs="alt:header.logoAlt"
           width="1000"
           height="1054"
           class="auth-page__logo"
@@ -219,7 +221,7 @@
             <strong data-auth="user-name"></strong>
           </p>
           <p class="auth-confirmation__message" data-i18n="auth.confirmation.info">
-            Możesz teraz korzystać z wszystkich funkcji WakacjeCypr Quest.
+            Możesz teraz korzystać z wszystkich funkcji CyprusEye Save &amp; Travel.
           </p>
           <p class="auth-confirmation__hint" data-i18n="auth.confirmation.dismissHint">
             Kliknij gdziekolwiek, aby zamknąć to powiadomienie.

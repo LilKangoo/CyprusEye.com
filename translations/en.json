@@ -146,9 +146,9 @@
   "seo.transport.ogDescription": "Plan your Cyprus transfer in minutes with clear fare breakdown and quick booking.",
   "seo.transport.locale": "en_GB",
   "seo.transport.localeAlternate": "pl_PL",
-  "seo.community.title": "Community - Comments and photos from Cyprus | CyprusEye Quest",
-  "seo.community.description": "Join the CyprusEye Quest community, browse comments and photos from places in Cyprus, and share your own experiences.",
-  "seo.community.ogTitle": "Community - Comments and photos from Cyprus | CyprusEye Quest",
+  "seo.community.title": "Community - Comments and photos from Cyprus | CyprusEye Save & Travel",
+  "seo.community.description": "Join the CyprusEye Save & Travel community, browse comments and photos from places in Cyprus, and share your own experiences.",
+  "seo.community.ogTitle": "Community - Comments and photos from Cyprus | CyprusEye Save & Travel",
   "seo.community.ogDescription": "See what other travellers say, discover photos from Cyprus, and post your own comments from visited places.",
   "seo.shop.title": "CyprusEye Shop – Traditional products from Cyprus",
   "seo.shop.description": "Discover authentic Cypriot products. Olive oil, wine, halloumi, cosmetics, and more with delivery in Cyprus and worldwide.",
@@ -166,18 +166,18 @@
   "seo.plan.description": "Build a day-by-day Cyprus itinerary and keep attractions, stays, and services in one place.",
   "seo.plan.ogTitle": "CyprusEye – Trip planner",
   "seo.plan.ogDescription": "Plan your Cyprus holiday in one place and organise attractions, stays, and reservations with ease.",
-  "seo.terms.title": "Terms of Service - CyprusEye Quest",
-  "seo.terms.description": "Read the CyprusEye Quest terms of service and learn the rules for using the app, bookings, and your account.",
-  "seo.terms.ogTitle": "Terms of Service - CyprusEye Quest",
-  "seo.terms.ogDescription": "Review the rules for using CyprusEye Quest, our booking services, and your player account.",
-  "seo.auth.title": "CyprusEye Quest – Sign in",
-  "seo.auth.description": "Sign in to CyprusEye Quest to sync progress, unlock rewards, and continue your adventure on every device.",
-  "seo.auth.ogTitle": "CyprusEye Quest – Sign in",
-  "seo.auth.ogDescription": "Access your CyprusEye Quest account and continue planning your trip around Cyprus.",
-  "seo.reset.title": "Set new password | CyprusEye Quest",
-  "seo.reset.description": "Reset your CyprusEye Quest password and regain access to your trips, bookings, and progress.",
-  "seo.reset.ogTitle": "Set new password | CyprusEye Quest",
-  "seo.reset.ogDescription": "Create a new password and get back into your CyprusEye Quest account without losing progress.",
+  "seo.terms.title": "Terms of Service - CyprusEye Save & Travel",
+  "seo.terms.description": "Read the CyprusEye Save & Travel terms of service and learn the rules for using the app, bookings, and your account.",
+  "seo.terms.ogTitle": "Terms of Service - CyprusEye Save & Travel",
+  "seo.terms.ogDescription": "Review the rules for using CyprusEye Save & Travel, our booking services, and your player account.",
+  "seo.auth.title": "CyprusEye Save & Travel – Sign in",
+  "seo.auth.description": "Sign in to CyprusEye Save & Travel to sync progress, unlock rewards, and continue your adventure on every device.",
+  "seo.auth.ogTitle": "CyprusEye Save & Travel – Sign in",
+  "seo.auth.ogDescription": "Access your CyprusEye Save & Travel account and continue planning your trip around Cyprus.",
+  "seo.reset.title": "Set new password | CyprusEye Save & Travel",
+  "seo.reset.description": "Reset your CyprusEye Save & Travel password and regain access to your trips, bookings, and progress.",
+  "seo.reset.ogTitle": "Set new password | CyprusEye Save & Travel",
+  "seo.reset.ogDescription": "Create a new password and get back into your CyprusEye Save & Travel account without losing progress.",
   "seo.account.title": "Player dashboard – CyprusEye",
   "seo.account.description": "Manage your profile, XP, and CyprusEye account settings.",
   "seo.account.ogTitle": "Player dashboard – CyprusEye",
@@ -341,9 +341,11 @@
   "referral.fromStorage": "Using your saved referral code.",
   "referral.fromManual": "Referral code approved.",
   "referral.change": "Change",
+  "common.save": "Save",
   "auth.username.placeholder": "3-20 characters, letters and numbers",
   "auth.reset.submitRequest": "Send reset link",
   "auth.reset.cancel": "Cancel",
+  "auth.backHome": "Back to home",
   "auth": {
     "bar": {
       "aria": "Account panel"
@@ -354,7 +356,7 @@
     "confirmation": {
       "title": "You're signed in!",
       "userLabel": "Signed in as",
-      "info": "You can use every Cyprus Eye Quest feature.",
+      "info": "You can now use all features of CyprusEye Save & Travel.",
       "cta": "Continue the adventure",
       "account": "Open player panel",
       "dismissHint": "Click anywhere to close this message."
@@ -460,6 +462,8 @@
   "resetPage": {
     "title": "Reset your password",
     "description": "Enter your email to receive a reset link or set a new password if you already opened the reset link.",
+    "backHome": "Back to home",
+    "recoverySubtitle": "Enter a new password to finish recovering your account.",
     "emailLegend": "Send reset link",
     "emailLabel": "E-mail",
     "passwordLegend": "Set a new password",
@@ -467,6 +471,7 @@
     "confirmPasswordLabel": "Confirm new password",
     "submitRequest": "Send reset link",
     "submitConfirm": "Set new password",
+    "backToAuth": "Back to sign in",
     "linkConfirmed": "Link confirmed. Set a new password.",
     "errorNewPasswordTooShort": "Enter a new password (min. 6 characters).",
     "errorPasswordsMismatch": "Passwords do not match.",
@@ -474,6 +479,7 @@
     "successPasswordUpdated": "Password has been updated. You can sign in.",
     "errorMissingEmail": "Enter your email to reset the password.",
     "statusSendingEmail": "Sending reset link…",
+    "statusChecking": "Checking recovery link…",
     "successEmailSent": "Check your inbox and follow the instructions.",
     "genericError": "We couldn't send the password reset. Please try again."
   },
@@ -481,81 +487,81 @@
     "locale": "en_GB",
     "ogImage": "assets/cyprus_logo-1000x1054.png",
     "home": {
-      "title": "Cyprus Eye Quest – Interactive Cyprus travel app",
-      "description": "Plan Cyprus attractions, manage packing lists and tasks, and earn badges with the Cyprus Eye Quest companion app.",
-      "ogTitle": "Cyprus Eye Quest – Interactive Cyprus travel app",
-      "ogDescription": "Join Cyprus Eye Quest to explore Cyprus attractions, track your adventure progress, and unlock new rewards."
+      "title": "CyprusEye Save & Travel – Interactive Cyprus travel app",
+      "description": "Plan Cyprus attractions, manage packing lists and tasks, and earn badges with the CyprusEye Save & Travel companion app.",
+      "ogTitle": "CyprusEye Save & Travel – Interactive Cyprus travel app",
+      "ogDescription": "Join CyprusEye Save & Travel to explore Cyprus attractions, track your adventure progress, and unlock new rewards."
     },
     "achievements": {
-      "title": "Cyprus Eye Quest – Your achievements",
-      "description": "Review earned badges, visited places, and experience levels in the Cyprus Eye Quest achievements hub.",
-      "ogTitle": "Cyprus Eye Quest – Your achievements",
+      "title": "CyprusEye Save & Travel – Your achievements",
+      "description": "Review earned badges, visited places, and experience levels in the CyprusEye Save & Travel achievements hub.",
+      "ogTitle": "CyprusEye Save & Travel – Your achievements",
       "ogDescription": "See your adventure statistics, revisit completed locations, and plan your next quests in Cyprus."
     },
     "attractions": {
-      "title": "Cyprus Eye Quest – Attractions catalogue",
-      "description": "Browse the Cyprus Eye Quest attractions catalogue, filter Cyprus locations, and plan your next check-ins.",
-      "ogTitle": "Cyprus Eye Quest – Attractions catalogue",
+      "title": "CyprusEye Save & Travel – Attractions catalogue",
+      "description": "Browse the CyprusEye Save & Travel attractions catalogue, filter Cyprus locations, and plan your next check-ins.",
+      "ogTitle": "CyprusEye Save & Travel – Attractions catalogue",
       "ogDescription": "Discover beaches, heritage sites, and hidden spots across Cyprus to explore during your quest."
     },
     "packing": {
-      "title": "Cyprus Eye Quest – Packing planner",
+      "title": "CyprusEye Save & Travel – Packing planner",
       "description": "Use the Cyprus packing planner to choose your travel season and tick everything you need before departure.",
-      "ogTitle": "Cyprus Eye Quest – Packing planner",
+      "ogTitle": "CyprusEye Save & Travel – Packing planner",
       "ogDescription": "Get a curated checklist for every Cyprus season and keep your luggage organised for the trip."
     },
     "tasks": {
-      "title": "Cyprus Eye Quest – Task list",
-      "description": "Manage pre-trip challenges, missions, and reminders inside the Cyprus Eye Quest task list.",
-      "ogTitle": "Cyprus Eye Quest – Task list",
+      "title": "CyprusEye Save & Travel – Task list",
+      "description": "Manage pre-trip challenges, missions, and reminders inside the CyprusEye Save & Travel task list.",
+      "ogTitle": "CyprusEye Save & Travel – Task list",
       "ogDescription": "Stay on track with travel preparations and complete every quest objective before heading to Cyprus."
     },
     "mediaTrips": {
-      "title": "Cyprus Eye Quest – VIP individual trips",
-      "description": "Plan private cruises, wine tastings, and bespoke itineraries with the Cyprus Eye Quest VIP concierge team.",
-      "ogTitle": "Cyprus Eye Quest – VIP individual trips",
+      "title": "CyprusEye Save & Travel – VIP individual trips",
+      "description": "Plan private cruises, wine tastings, and bespoke itineraries with the CyprusEye Save & Travel VIP concierge team.",
+      "ogTitle": "CyprusEye Save & Travel – VIP individual trips",
       "ogDescription": "Enjoy tailor-made Cyprus experiences with 24/7 concierge care and professional photo & video storytelling.",
       "locale": "en_GB",
       "localeAlternate": "pl_PL"
     },
     "carRentalLanding": {
-      "title": "Choose city – Car rental | HolidayCyprus",
-      "description": "Select your starting city and compare HolidayCyprus no-deposit car rental offers across the island.",
-      "ogTitle": "Choose city – Car rental | HolidayCyprus",
+      "title": "Choose city – Car rental | CyprusEye",
+      "description": "Select your starting city and compare CyprusEye no-deposit car rental offers across the island.",
+      "ogTitle": "Choose city – Car rental | CyprusEye",
       "ogDescription": "Pick Larnaca or Paphos to view dedicated fleets, price calculators, and booking options with Polish support."
     },
     "carRental": {
-      "title": "HolidayCyprus – Car rental across Cyprus",
-      "description": "Rent a car anywhere in Cyprus with no deposit, airport or hotel delivery, and transparent pricing from HolidayCyprus.",
-      "ogTitle": "HolidayCyprus – Car rental across Cyprus",
+      "title": "CyprusEye – Car rental across Cyprus",
+      "description": "Rent a car anywhere in Cyprus with no deposit, airport or hotel delivery, and transparent pricing from CyprusEye.",
+      "ogTitle": "CyprusEye – Car rental across Cyprus",
       "ogDescription": "Explore Cyprus freely with an island-wide fleet, full insurance, and Polish assistance 24/7."
     },
     "carRentalPfo": {
-      "title": "HolidayCyprus – Paphos car rental offer",
+      "title": "CyprusEye – Paphos car rental offer",
       "description": "Book a car in Paphos with airport pickup or hotel delivery, no hidden fees, and round-the-clock Polish support.",
-      "ogTitle": "HolidayCyprus – Paphos car rental offer",
+      "ogTitle": "CyprusEye – Paphos car rental offer",
       "ogDescription": "Discover the dedicated Paphos fleet, instant pricing, and included extras tailored to your stay."
     },
     "vip": {
-      "title": "HolidayCyprus Quest – VIP individual trips",
+      "title": "CyprusEye – VIP individual trips",
       "description": "Create a private Cyprus journey with concierge planning, exclusive experiences, and premium on-trip media.",
-      "ogTitle": "HolidayCyprus Quest – VIP individual trips",
+      "ogTitle": "CyprusEye – VIP individual trips",
       "ogDescription": "Secure bespoke itineraries, luxury services, and discreet 24/7 support for your Cyprus adventure.",
       "locale": "en_GB",
       "localeAlternate": "pl_PL"
     },
     "coupon": {
-      "title": "HolidayCyprus Coupon – quick Stripe checkout",
-      "description": "Purchase the HolidayCyprus special coupon and jump straight to secure Stripe payment.",
-      "ogTitle": "HolidayCyprus Coupon – quick Stripe checkout",
+      "title": "CyprusEye coupon – quick Stripe checkout",
+      "description": "Purchase the CyprusEye special coupon and jump straight to secure Stripe payment.",
+      "ogTitle": "CyprusEye coupon – quick Stripe checkout",
       "ogDescription": "Reserve our offer in seconds with the coupon and secure Stripe payment.",
       "locale": "en_GB",
       "localeAlternate": "pl_PL"
     },
     "recommendations": {
-      "title": "Recommendations – CyprusEye Quest",
+      "title": "Recommendations – CyprusEye Save & Travel",
       "description": "Discover curated recommendations – the best places, restaurants, hotels and attractions in Cyprus with exclusive discounts.",
-      "ogTitle": "Recommendations – CyprusEye Quest",
+      "ogTitle": "Recommendations – CyprusEye Save & Travel",
       "ogDescription": "Discover curated recommendations – the best places, restaurants, hotels and attractions in Cyprus with exclusive discounts."
     },
     "blog": {
@@ -583,7 +589,7 @@
       "ogDescription": "Private cruises, sunset sails, and coastal tours curated by the CyprusEye team."
     },
     "community": {
-      "title": "Community - Comments and photos from Cyprus | CyprusEye Quest"
+      "title": "Community - Comments and photos from Cyprus | CyprusEye Save & Travel"
     }
   },
   "blogUi": {
@@ -623,7 +629,7 @@
     }
   },
   "home": {
-    "pageTitle": "Cyprus Eye Quest – interactive Cyprus travel companion",
+    "pageTitle": "CyprusEye Save & Travel – interactive Cyprus travel companion",
     "trips": {
       "title": "🚤 Trips",
       "description": "Select a city and explore the best trips in Cyprus",
@@ -649,7 +655,7 @@
   },
   "services": {
     "title": "Discover Cyprus with us",
-    "description": "WakacjeCypr.com are local experts ready to organize unforgettable holidays, private tours, wine tastings and cruises for you.",
+    "description": "CyprusEye.com is run by local experts ready to organize unforgettable holidays, private tours, wine tastings, and cruises for you.",
     "itemOne": "Individual itineraries tailored to your check-ins.",
     "itemTwo": "Guided tours in places you've already unlocked.",
     "itemThree": "Contact us directly from the app – click the button below.",
@@ -661,7 +667,7 @@
     "next": "Next",
     "skip": "Skip",
     "step1": {
-      "title": "Welcome to CyprusEye Quest! 🎉",
+      "title": "Welcome to CyprusEye Save & Travel! 🎉",
       "description": "Discover the quick actions in the header. From here you have instant access to: 📦 Packing, 🎁 Coupon, 🚗 Car rental, 🗺️ Trips, 🏨 Hotels. Everything is one tap away."
     },
     "step2": {
@@ -706,7 +712,7 @@
     },
     "step12": {
       "title": "Services and trip planning 🗺️",
-      "description": "Meet our on-site team: private trips, tastings, and concierge support. Click to go to the WakacjeCypr.com offer."
+      "description": "Meet our on-site team: private trips, tastings, and concierge support. Click to open the CyprusEye.com offer."
     },
     "step13": {
       "title": "Sign in and save your progress! 🔒",
@@ -966,7 +972,7 @@
     }
   },
   "tasks": {
-    "pageTitle": "Cyprus Eye Quest task list",
+    "pageTitle": "CyprusEye Save & Travel task list",
     "header": {
       "title": "Tasks to complete",
       "subtitle": "Prepare for the trip with missions that grant XP and keep your planning organised.",
@@ -1043,7 +1049,7 @@
       },
       "troodos-wine-route": {
         "title": "Wine tasting in the mountains",
-        "description": "Use our Troodos Wine Route offer and book a tasting with driver through WakacjeCypr.com."
+        "description": "Use our Troodos Wine Route offer and book a tasting with driver through CyprusEye.com."
       },
       "sea-adventure": {
         "title": "Sea adventure in Cape Greco",
@@ -1059,7 +1065,7 @@
       },
       "akamas-jeep-safari": {
         "title": "Akamas 4x4 safari",
-        "description": "Use our 4x4 safari and visit Avakas Gorge and Lara Beach with a WakacjeCypr.com guide."
+        "description": "Use our 4x4 safari and visit Avakas Gorge and Lara Beach with a CyprusEye.com guide."
       },
       "zenobia-dive-challenge": {
         "title": "Zenobia wreck dive challenge",
@@ -1083,7 +1089,7 @@
       },
       "halloumi-farm-visit": {
         "title": "Halloumi farm visit",
-        "description": "Book a halloumi farm visit via WakacjeCypr.com and learn the process from herding to tasting."
+        "description": "Book a halloumi farm visit via CyprusEye.com and learn the process from herding to tasting."
       },
       "sunset-yoga-nissi": {
         "title": "Sunset yoga at Nissi Beach",
@@ -1095,7 +1101,7 @@
       },
       "private-blue-lagoon-charter": {
         "title": "Private Blue Lagoon charter",
-        "description": "Book an exclusive cruise or yacht from WakacjeCypr.com and explore Blue Lagoon with your own crew."
+        "description": "Book an exclusive cruise or yacht from CyprusEye.com and explore Blue Lagoon with your own crew."
       },
       "troodos-private-tour": {
         "title": "Private Troodos tour",
@@ -1103,7 +1109,7 @@
       },
       "nicosia-famagusta-combo": {
         "title": "Nicosia & Famagusta combo tour",
-        "description": "Pick our combined package with a WakacjeCypr.com guide and see both sides of the island in one day."
+        "description": "Pick our combined package with a CyprusEye.com guide and see both sides of the island in one day."
       },
       "family-waterpark-day": {
         "title": "Family day at the waterpark",
@@ -1111,7 +1117,7 @@
       },
       "ayia-napa-sunset-cruise": {
         "title": "Ayia Napa sunset cruise",
-        "description": "Book a romantic cruise with dinner and live music via WakacjeCypr.com."
+        "description": "Book a romantic cruise with dinner and live music via CyprusEye.com."
       },
       "wedding-photoshoot-cyprus": {
         "title": "Wedding photoshoot in Cyprus",
@@ -1123,8 +1129,8 @@
     "pageTitle": "Cyprus Eye VIP individual trips",
     "header": {
       "title": "Media trips and VIP experiences",
-      "description": "Private photo and video sessions by LilKangooMedia, a HolidayCyprus.com guide, and comfortable transport across the island.",
-      "subtitle": "Book individual photo or video packages with the WakacjeCypr.com crew and instantly see the per-person cost for your group.",
+      "description": "Private photo and video sessions by LilKangooMedia, with CyprusEye.com guidance and comfortable transport across the island.",
+      "subtitle": "Book individual photo or video packages with the CyprusEye.com team and instantly see the per-person cost for your group.",
       "back": "← Back to adventure"
     },
     "hero": {
@@ -1517,13 +1523,13 @@
     "smallprint": "You'll receive the coupon within a few minutes at the email used during payment.",
     "cta_aria": "Buy coupon — proceed to secure Stripe checkout",
     "cta": "Buy coupon",
-    "image_alt": "HolidayCyprus coupon artwork",
+    "image_alt": "CyprusEye.com coupon artwork",
     "header": {
       "aria": "Coupon navigation"
     },
     "brand": {
       "logoAlt": "CyprusEye.com - eye with a Cyprus island outline inside.",
-      "overline": "HolidayCyprus Quest",
+      "overline": "CyprusEye Save & Travel",
       "title": "Coupon hub"
     },
     "nav": {
@@ -1573,7 +1579,7 @@
     "recommendations.error.title": "Couldn't load recommendations",
     "recommendations.error.message": "Something went wrong. Please try again in a moment.",
     "recommendations.error.retry": "Try again",
-    "recommendations.seo.title": "HolidayCyprus Quest – Recommendations",
+    "recommendations.seo.title": "CyprusEye – Recommendations",
     "recommendations.seo.description": "Discover trusted Cyprus partners with exclusive discounts and bonuses for you. Browse our curated recommendations and plan your trip."
   },
   "recommendations": {
@@ -1621,7 +1627,7 @@
       "retry": "Try again"
     },
     "seo": {
-      "title": "CyprusEye Quest – Recommendations",
+      "title": "CyprusEye Save & Travel – Recommendations",
       "description": "Discover trusted Cyprus partners with exclusive discounts and bonuses for you. Browse our curated recommendations and plan your trip."
     }
   },
@@ -1665,7 +1671,7 @@
   "map.filter.counter": "Showing {{visible}} of {{total}} points",
   "map.filter.counterBreakdown": "Visit points {{poiVisible}}/{{poiTotal}} • Recommended {{recommendationsVisible}}/{{recommendationsTotal}}",
   "carRental.meta.title": "Choose your city – CyprusEye car rental",
-  "carRental.brand.overline": "CyprusEye Quest",
+  "carRental.brand.overline": "CyprusEye Save & Travel",
   "carRental.brand.title": "Car rental",
   "carRental.nav.aria": "Back navigation",
   "carRental.back": "← Back to app",
@@ -1700,7 +1706,7 @@
   "carRental.offers.paphos.ctaAria": "Go to the Paphos offer",
   "carRental.footer": "Contact us in the app or by phone – we will help you choose the best car.",
   "carRental.page.brand.logoAlt": "CyprusEye.com - eye with a Cyprus island outline inside.",
-  "carRental.page.brand.overline": "WakacjeCypr Quest",
+  "carRental.page.brand.overline": "CyprusEye Save & Travel",
   "carRental.page.brand.title": "Car rental",
   "carRental.page.nav.aria": "Car rental navigation",
   "carRental.page.nav.switchCity": "Choose another city",
@@ -1708,7 +1714,7 @@
   "carRental.page.nav.book": "Place a reservation",
   "carRental.page.hero.badge": "No deposit • Polish support 24/7",
   "carRental.page.hero.title": "Car rental across Cyprus",
-  "carRental.page.hero.description": "Discover the WakacjeCypr.com fleet, order a car with pickup at the airport or at your hotel, and calculate the cost with a transparent calculator.",
+  "carRental.page.hero.description": "Discover the CyprusEye.com fleet, order a car with pickup at the airport or at your hotel, and calculate the cost with a transparent calculator.",
   "carRental.page.hero.ctaFleet": "View fleet",
   "carRental.page.hero.ctaCalculator": "Calculate rental cost",
   "carRental.page.hero.paphosNote.prefix": "Looking for a car in Paphos with no pickup surcharge? Use the \"Paphos offer\" button at the top of the page or",
@@ -1795,7 +1801,7 @@
   "carRental.page.reservation.confirmationNote": "You will receive confirmation by email within 24 hours.",
   "carRental.page.reservation.successTitle": "🎉 Thank you!",
   "carRental.page.reservation.successMessage": "Your reservation form has been sent successfully.",
-  "carRental.page.footer": "© <span data-current-year></span> WakacjeCypr.com • Car rental in Cyprus with Polish support.",
+  "carRental.page.footer": "© <span data-current-year></span> CyprusEye.com • Car rental in Cyprus with Polish support.",
   "carRental.common.pricePerDay": "{{price}} / day",
   "carRental.common.priceFromPerDay": "From {{price}} / day",
   "carRental.common.seats": "{{count}} seats",
@@ -2356,14 +2362,14 @@
       "current": "📚 Attractions catalogue"
     },
     "meta": {
-      "title": "HolidayCyprus Quest – Attractions catalogue"
+      "title": "CyprusEye – Attractions catalogue"
     },
     "brand": {
       "overline": "Explore the island location by location",
-      "title": "HolidayCyprus Quest"
+      "title": "CyprusEye Save & Travel"
     },
     "back": "← Back to the app",
-    "title": "Discover every HolidayCyprus Quest location",
+    "title": "Discover every CyprusEye location",
     "subtitle": "Filter places according to your travel plans, check distances, and see unlock status. Clicking any card opens the map with the highlighted point in the main app.",
     "loading": "Loading catalogue…",
     "search": {
@@ -2378,24 +2384,24 @@
       "subtitle": "From beaches and national parks to archaeological sites and viewpoints—the catalogue covers every place available in the game. Allow location access to see estimated distances.",
       "empty": "No attractions match your filters. Try another phrase or clear the search."
     },
-    "footer": "© <span id=\"year\"></span> HolidayCyprus.com – Find your next adventure in Cyprus."
+    "footer": "© <span id=\"year\"></span> CyprusEye.com – Find your next adventure in Cyprus."
   },
   "vip": {
     "brand": {
       "logoAlt": "CyprusEye.com - eye with a Cyprus island outline inside.",
       "overline": "Your Cyprus concierge",
-      "title": "HolidayCyprus Quest"
+      "title": "CyprusEye Save & Travel"
     },
     "back": "← Back to the app",
-    "backAria": "Return to the HolidayCyprus Quest app",
+    "backAria": "Return to the CyprusEye app",
     "hero": {
       "badge": "VIP concierge in Cyprus",
       "title": "VIP individual trips",
       "intro": "Every itinerary is tailored to your expectations—from private cruises and wine tastings to villa weekends with 24/7 support.",
       "ctaPrimary": "Book a concierge call",
-      "ctaPrimaryAria": "Book a call with the HolidayCyprus concierge",
+      "ctaPrimaryAria": "Book a call with the CyprusEye concierge",
       "ctaSecondary": "Email our team",
-      "ctaSecondaryAria": "Send an email to the HolidayCyprus team",
+      "ctaSecondaryAria": "Send an email to the CyprusEye team",
       "visualLabel": "Illustration of a private trip in Cyprus"
     },
     "offers": {
@@ -2534,7 +2540,7 @@
         "email": "✉️ Email: kontakt@wakacjecypr.com"
       }
     },
-    "footer": "© <span id=\"year\"></span> HolidayCyprus.com – Your private journey across Cyprus."
+    "footer": "© <span id=\"year\"></span> CyprusEye.com – Your private journey across Cyprus."
   },
   "level": {
     "toast": {
@@ -2548,7 +2554,7 @@
     "page": {
       "brand": {
         "logoAlt": "CyprusEye.com - eye with a Cyprus island outline inside.",
-        "overline": "HolidayCyprus Quest",
+        "overline": "CyprusEye Save & Travel",
         "title": "Car rental"
       },
       "nav": {
@@ -2734,7 +2740,7 @@
         "successTitle": "🎉 Thank you!",
         "successMessage": "Your reservation form has been sent successfully."
       },
-      "footer": "© <span data-current-year></span> HolidayCyprus.com • Car rental with Polish support in Cyprus."
+      "footer": "© <span data-current-year></span> CyprusEye.com • Car rental with Polish support in Cyprus."
     },
     "footer": {
       "hours": "Hours: Mon–Fri 10:00–23:00; Sat–Sun 10:00–18:00",
@@ -2942,13 +2948,13 @@
       "description": "We publish guides, task lists, and coupons used by thousands of Polish and international travellers. Complete the form and our team will prepare a package tailored to your brand."
     },
     "stats": {
-      "group": "members in the HolidayCyprus community",
+      "group": "members in the CyprusEye.com community",
       "guides": "active themed guides",
       "languages": "content languages"
     },
     "form": {
       "title": "Introduce your brand",
-      "subtitle": "Tell us about your service and we will prepare a visibility proposal across CyprusEye and WakacjeCypr.",
+      "subtitle": "Tell us about your service and we will prepare a visibility proposal across CyprusEye.com.",
       "name": "Full name*",
       "email": "Email address*",
       "service": "Brand or service name",
@@ -3087,7 +3093,7 @@
   },
   "dashboard": {
     "meta": {
-      "title": "User Dashboard – CyprusEye Quest"
+      "title": "User Dashboard – CyprusEye Save & Travel"
     },
     "nav": {
       "overview": "Overview",

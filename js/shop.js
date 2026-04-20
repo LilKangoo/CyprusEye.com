@@ -370,13 +370,17 @@ function ensureShopLightbox() {
   root.id = 'shopImageLightbox';
   root.className = 'shop-lightbox';
   root.hidden = true;
+  const lang = shopState.lang || getCurrentLang();
+  const closeLabel = lang === 'en' ? 'Close' : 'Zamknij';
+  const previousLabel = lang === 'en' ? 'Previous' : 'Poprzednie';
+  const nextLabel = lang === 'en' ? 'Next' : 'Następne';
   root.innerHTML = `
     <div class="shop-lightbox__backdrop" data-lightbox-close></div>
     <div class="shop-lightbox__dialog" role="dialog" aria-modal="true">
-      <button type="button" class="shop-lightbox__close" aria-label="Close" data-lightbox-close>×</button>
-      <button type="button" class="shop-lightbox__nav shop-lightbox__nav--prev" aria-label="Previous" data-lightbox-prev>‹</button>
+      <button type="button" class="shop-lightbox__close" aria-label="${closeLabel}" data-lightbox-close>×</button>
+      <button type="button" class="shop-lightbox__nav shop-lightbox__nav--prev" aria-label="${previousLabel}" data-lightbox-prev>‹</button>
       <img class="shop-lightbox__img" alt="" />
-      <button type="button" class="shop-lightbox__nav shop-lightbox__nav--next" aria-label="Next" data-lightbox-next>›</button>
+      <button type="button" class="shop-lightbox__nav shop-lightbox__nav--next" aria-label="${nextLabel}" data-lightbox-next>›</button>
     </div>
   `;
   document.body.appendChild(root);

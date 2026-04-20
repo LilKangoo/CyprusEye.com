@@ -10,6 +10,13 @@
   const SEARCH_ID = 'attractionsSearch';
 
   function $(id){ return document.getElementById(id); }
+  function getLang() {
+    const lang = String(window.appI18n?.language || document.documentElement?.lang || 'pl').toLowerCase();
+    return lang.startsWith('en') ? 'en' : 'pl';
+  }
+  function text(pl, en) {
+    return getLang() === 'en' ? en : pl;
+  }
 
   async function waitForPOIs(max = 100){
     for (let i=0;i<max;i++){
@@ -22,7 +29,7 @@
   }
 
   function toName(p){
-    return p.nameFallback || p.name || p.id || 'Unnamed';
+    return p.nameFallback || p.name || p.id || text('Bez nazwy', 'Unnamed');
   }
 
   function toDesc(p){
@@ -43,12 +50,12 @@
 
     if (!pois.length){
       if (empty) empty.hidden = false;
-      if (results) results.textContent = 'Brak atrakcji do wyświetlenia';
+      if (results) results.textContent = text('Brak atrakcji do wyświetlenia', 'No attractions to display');
       return;
     }
 
     if (empty) empty.hidden = true;
-    if (results) results.textContent = `Znaleziono ${pois.length} atrakcji`;
+    if (results) results.textContent = text(`Znaleziono ${pois.length} atrakcji`, `Found ${pois.length} attractions`);
 
     const frag = document.createDocumentFragment();
     pois.forEach(p => {
@@ -59,6 +66,9 @@
       const badge = toBadge(p);
       const xp = p.xp || 0;
       const maps = p.googleMapsUrl || p.googleMapsURL || `https://maps.google.com/?q=${p.lat},${p.lng}`;
+      const openOnMapLabel = text('Pokaż na mapie', 'Show on map');
+      const googleMapsLabel = text('Google Maps', 'Google Maps');
+      const commentsLabel = text('Komentarze', 'Comments');
       li.innerHTML = `
         <article class="attraction">
           <header class="attraction-header">
@@ -71,9 +81,9 @@
             <span class="summary-comments">💬 <span data-field="comments">0</span></span>
           </div>
           <div class="attraction-actions">
-            <a class="btn btn-sm" href="index.html?focus=${encodeURIComponent(p.id)}" aria-label="Pokaż na mapie">📍 Pokaż na mapie</a>
-            <a class="ghost btn-sm" href="${maps}" target="_blank" rel="noopener">Google Maps →</a>
-            <button type="button" class="btn btn-sm" data-action="comments" data-poi-id="${p.id}">💬 Komentarze</button>
+            <a class="btn btn-sm" href="index.html?focus=${encodeURIComponent(p.id)}" aria-label="${openOnMapLabel}">📍 ${openOnMapLabel}</a>
+            <a class="ghost btn-sm" href="${maps}" target="_blank" rel="noopener">${googleMapsLabel} →</a>
+            <button type="button" class="btn btn-sm" data-action="comments" data-poi-id="${p.id}">💬 ${commentsLabel}</button>
           </div>
         </article>
       `;

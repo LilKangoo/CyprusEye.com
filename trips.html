@@ -8,9 +8,9 @@
   <meta name="theme-color" content="#2563eb" />
   <meta name="robots" content="index,follow" />
   <title data-i18n="seo.trips.title">Wycieczki – CyprusEye</title>
-  <meta name="description" content="Przeglądaj wycieczki i rezerwuj online.">
-  <meta property="og:title" content="Wycieczki – CyprusEye" />
-  <meta property="og:description" content="Przeglądaj wycieczki i rezerwuj online." />
+  <meta name="description" content="Przeglądaj wycieczki po Cyprze, porównuj oferty i rezerwuj online z CyprusEye." data-i18n-attrs="content:seo.trips.description">
+  <meta property="og:title" content="Wycieczki – CyprusEye" data-i18n-attrs="content:seo.trips.ogTitle" />
+  <meta property="og:description" content="Odkrywaj wycieczki po Cyprze, sprawdzaj szczegóły programów i rezerwuj wygodnie online." data-i18n-attrs="content:seo.trips.ogDescription" />
   <meta property="og:url" content="https://www.cypruseye.com/trips.html" />
   <meta property="og:image" content="https://www.cypruseye.com/assets/cyprus_logo-1000x1054.png" />
   <link rel="icon" href="/assets/cyprus_logo-1000x1054.png" type="image/png" />
@@ -917,6 +917,7 @@
               data-ref-id=""
               aria-label="Zapisz"
               title="Zapisz"
+              data-i18n-attrs="aria-label:common.save,title:common.save"
               onclick="event.preventDefault(); event.stopPropagation();"
             >☆</button>
           </div>
@@ -1023,7 +1024,7 @@
   </div>
 
   <footer class="app-footer">
-    <p>© <span data-current-year></span> WakacjeCypr.com</p>
+    <p data-i18n="footer.app">© <span data-current-year></span> WakacjeCypr.com • Graj, zwiedzaj i planuj wakacje jednocześnie.</p>
     <div class="footer-links" style="margin-bottom: 8px;">
        <a href="terms.html" class="footer-link" data-i18n="legal.termsLink">Terms of Service</a>
     </div>
@@ -1516,6 +1517,7 @@
               data-ref-id="${String(trip.id || '')}"
               aria-label="Zapisz"
               title="Zapisz"
+              data-i18n-attrs="aria-label:common.save,title:common.save"
               onclick="event.stopPropagation();"
             >☆</button>
             ${trip.is_bestseller ? `<div class="trip-bestseller-badge">🔥 ${bestsellerLabel}</div>` : ''}
