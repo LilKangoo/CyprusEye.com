@@ -1,4 +1,4 @@
-const PROFILE_COLUMNS = 'id,email,name,username,avatar_url,xp,level,referral_code,referred_by,updated_at';
+const PROFILE_COLUMNS = 'id,email,name,username,avatar_url,xp,level,visited_places,referral_code,referred_by,updated_at';
 
 function getSupabaseClient() {
   if (typeof window !== 'undefined' && typeof window.getSupabase === 'function') {
@@ -64,6 +64,7 @@ function normalizeProfile(user, record) {
 
   profile.xp = toNumber(record?.xp ?? profile.xp, 0);
   profile.level = toNumber(record?.level ?? profile.level, 0);
+  profile.visited_places = record?.visited_places ?? profile.visited_places ?? [];
   profile.updated_at = record?.updated_at || record?.updatedAt || profile.updated_at || null;
   profile.avatar_url = record?.avatar_url || null;
 

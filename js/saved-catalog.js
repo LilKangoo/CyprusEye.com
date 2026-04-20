@@ -41,6 +41,23 @@
     }
   }
 
+  async function getConfirmedSessionUserId() {
+    const supabase = window.getSupabase ? window.getSupabase() : (window.sb || null);
+    if (!supabase?.auth) {
+      return getSessionUserId();
+    }
+
+    try {
+      const result = typeof supabase.auth.getSessionSafe === 'function'
+        ? await supabase.auth.getSessionSafe()
+        : await supabase.auth.getSession();
+      const uid = result?.data?.session?.user?.id ? String(result.data.session.user.id).trim() : '';
+      return uid;
+    } catch (_) {
+      return '';
+    }
+  }
+
   function openAuthModalForSavedCatalog(tabId = 'login') {
     const attemptOpen = () => {
       try {
@@ -184,6 +201,11 @@
     const id = String(refId || '').trim();
     if (!uid || !type || !id) return true;
 
+    const confirmedUid = await getConfirmedSessionUserId();
+    if (!confirmedUid || confirmedUid !== uid) {
+      return true;
+    }
+
     try {
       if (saved) {
         const { error } = await supabase
@@ -252,6 +274,14 @@
     if (toInsert.length) {
       const supabase = window.getSupabase ? window.getSupabase() : (window.sb || null);
       if (supabase) {
+        const confirmedUid = await getConfirmedSessionUserId();
+        if (!confirmedUid || confirmedUid !== uid) {
+          saveSavedCatalogMapForUid(uid, merged);
+          try {
+            localStorage.removeItem(savedCatalogStorageKeyForUid('anon'));
+          } catch (_) {}
+          return;
+        }
         try {
           const { error } = await supabase
             .from('user_saved_catalog_items')

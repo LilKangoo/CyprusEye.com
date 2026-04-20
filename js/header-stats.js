@@ -354,20 +354,19 @@
         : null;
 
       if (stateProfile) {
-        const snapshot = window.__CE_HEADER_STATS_SNAPSHOT || {};
         const stateXp = Math.max(0, toFiniteNumber(stateProfile.xp, 0));
         const stateLevel = Math.max(1, toFiniteNumber(stateProfile.level, 1));
         const stateBadges = Object.prototype.hasOwnProperty.call(stateProfile, 'visited_places')
           ? countVisitedPlaces(stateProfile.visited_places)
           : Object.prototype.hasOwnProperty.call(stateProfile, 'badges')
             ? countVisitedPlaces(stateProfile.badges)
-            : (Number.isFinite(Number(snapshot.badges)) ? Math.max(0, Number(snapshot.badges)) : null);
+            : null;
 
-        if (stateBadges !== null || stateXp > 0 || stateLevel > 1) {
+        if (stateBadges !== null) {
           return {
             xp: stateXp,
             level: stateLevel,
-            badges: stateBadges !== null ? stateBadges : 0,
+            badges: stateBadges,
             name: stateProfile.username || stateProfile.name || translateHeader('header.profileLabel', {}, 'Mój Profil'),
             avatar_url: stateProfile.avatar_url || null,
             userId: user.id
@@ -420,7 +419,7 @@
         xp: xpValue,
         level: levelValue,
         badges: badgesCount,
-        name: profile?.name || profile?.username || translateHeader('header.profileLabel', {}, 'Mój Profil'),
+        name: profile?.username || profile?.name || translateHeader('header.profileLabel', {}, 'Mój Profil'),
         avatar_url: profile?.avatar_url || null,
         userId: user.id
       };
