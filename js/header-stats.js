@@ -20,6 +20,10 @@
   }
 
   function countVisitedPlaces(value) {
+    if (Number.isFinite(Number(value))) {
+      return Math.max(0, Number(value));
+    }
+
     if (Array.isArray(value)) {
       return value.filter(Boolean).length;
     }
@@ -180,6 +184,11 @@
     } catch (_) {}
 
     while (Date.now() - start < timeoutMs) {
+      const state = window.CE_STATE || {};
+      if (!state.session && (state.status === 'anonymous' || state.status === 'guest')) {
+        return null;
+      }
+
       try {
         const stateUser = window?.CE_STATE?.session?.user || null;
         if (stateUser) return stateUser;
@@ -203,6 +212,7 @@
   let elements = null;
   let profileChannel = null;
   let profileChannelUserId = '';
+  let profileChannelNonce = 0;
 
   function teardownProfileRealtime(sb) {
     if (!profileChannel) {
@@ -339,6 +349,32 @@
 
       console.log('👤 Pobieram statystyki użytkownika:', user.id);
 
+      const stateProfile = (window.CE_STATE && window.CE_STATE.profile && typeof window.CE_STATE.profile === 'object')
+        ? window.CE_STATE.profile
+        : null;
+
+      if (stateProfile) {
+        const snapshot = window.__CE_HEADER_STATS_SNAPSHOT || {};
+        const stateXp = Math.max(0, toFiniteNumber(stateProfile.xp, 0));
+        const stateLevel = Math.max(1, toFiniteNumber(stateProfile.level, 1));
+        const stateBadges = Object.prototype.hasOwnProperty.call(stateProfile, 'visited_places')
+          ? countVisitedPlaces(stateProfile.visited_places)
+          : Object.prototype.hasOwnProperty.call(stateProfile, 'badges')
+            ? countVisitedPlaces(stateProfile.badges)
+            : (Number.isFinite(Number(snapshot.badges)) ? Math.max(0, Number(snapshot.badges)) : null);
+
+        if (stateBadges !== null || stateXp > 0 || stateLevel > 1) {
+          return {
+            xp: stateXp,
+            level: stateLevel,
+            badges: stateBadges !== null ? stateBadges : 0,
+            name: stateProfile.username || stateProfile.name || translateHeader('header.profileLabel', {}, 'Mój Profil'),
+            avatar_url: stateProfile.avatar_url || null,
+            userId: user.id
+          };
+        }
+      }
+
       // Pobierz profil i odwiedzone miejsca
       let profile = null;
       let profileError = null;
@@ -409,27 +445,28 @@
       teardownProfileRealtime(sb);
 
       profileChannelUserId = userId;
-      profileChannel = sb
-        .channel(`header-profile-rt-${userId}-${Date.now()}`)
-        .on(
-          'postgres_changes',
-          { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` },
-          (payload) => {
-            const newRow = payload && payload.new ? payload.new : null;
-            if (!newRow) {
-              return;
-            }
-            const badgesCount = countVisitedPlaces(newRow.visited_places);
-            updateHeaderStats({
-              xp: newRow.xp || 0,
-              level: newRow.level || 1,
-              badges: badgesCount,
-              name: newRow.name || newRow.username || 'Gracz',
-              avatar_url: newRow.avatar_url || null
-            });
+      const channelName = `header-profile-rt-${userId}-${++profileChannelNonce}`;
+      const channel = sb.channel(channelName);
+      channel.on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` },
+        (payload) => {
+          const newRow = payload && payload.new ? payload.new : null;
+          if (!newRow) {
+            return;
           }
-        )
-        .subscribe();
+          const badgesCount = countVisitedPlaces(newRow.visited_places);
+          updateHeaderStats({
+            xp: newRow.xp || 0,
+            level: newRow.level || 1,
+            badges: badgesCount,
+            name: newRow.username || newRow.name || 'Gracz',
+            avatar_url: newRow.avatar_url || null
+          });
+        }
+      );
+      profileChannel = channel;
+      channel.subscribe();
     } catch (error) {
       console.warn('⚠️ Nie udało się włączyć nasłuchu zmian profilu w headerze:', error);
       profileChannel = null;
@@ -456,6 +493,12 @@
     };
 
     const refreshStatsWithRetry = async ({ attempts: max = 16, stepMs = 250, userTimeoutMs = 15000 } = {}) => {
+      const state = window.CE_STATE || {};
+      if (!state.session && (state.status === 'anonymous' || state.status === 'guest')) {
+        teardownProfileRealtime(typeof window.getSupabase === 'function' ? window.getSupabase() : null);
+        return false;
+      }
+
       const user = await waitForSupabaseUser({ timeoutMs: userTimeoutMs, stepMs });
       if (!user) {
         return false;
@@ -505,7 +548,7 @@
     }
 
     await waitForAuthReady();
-    await refreshStatsWithRetry({ userTimeoutMs: 15000 });
+    await refreshStatsWithRetry({ userTimeoutMs: 3500, attempts: 8, stepMs: 180 });
 
     // Nasłuchuj zmian sesji
     try {
@@ -519,7 +562,7 @@
             subscribeProfileRealtime(userId);
           }
           await waitForAuthReady();
-          await refreshStatsWithRetry({ attempts: 8, stepMs: 200, userTimeoutMs: 15000 });
+          await refreshStatsWithRetry({ attempts: 8, stepMs: 180, userTimeoutMs: 5000 });
         } else if (event === 'SIGNED_OUT') {
           teardownProfileRealtime(sb);
           // Resetuj do wartości domyślnych

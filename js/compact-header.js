@@ -32,6 +32,9 @@
   let partnerLookupUserId = '';
   let partnerAccess = false;
   let partnerLookupPromise = null;
+  let partnerLookupResolved = false;
+  let partnerRefreshTicket = 0;
+  let partnerLookupNonce = 0;
   let authFallbackBound = false;
   let menuListenersBound = false;
 
@@ -118,6 +121,10 @@
   }
 
   function countVisitedPlaces(value) {
+    if (Number.isFinite(Number(value))) {
+      return Math.max(0, Number(value));
+    }
+
     if (Array.isArray(value)) {
       return value.filter(Boolean).length;
     }
@@ -157,6 +164,16 @@
     } else {
       element.removeAttribute('aria-hidden');
     }
+  }
+
+  function resetPartnerAccessCache() {
+    partnerRefreshTicket += 1;
+    partnerLookupNonce += 1;
+    partnerLookupUserId = '';
+    partnerAccess = false;
+    partnerLookupPromise = null;
+    partnerLookupResolved = false;
+    document.querySelectorAll(SELECTORS.partnerLink).forEach((link) => setHidden(link, true));
   }
 
   function createElement(tag, className, options = {}) {
@@ -640,11 +657,11 @@
 
     let xpFill = root.querySelector('#headerXpFill');
     if (!(xpFill instanceof HTMLElement)) {
-      xpFill = createElement('div', 'compact-profile__xp-fill stats-lite__xp-fill is-width-zero', {
+      xpFill = createElement('div', 'compact-profile__xp-fill is-width-zero', {
         attributes: { id: 'headerXpFill' },
       });
     } else {
-      xpFill.className = 'compact-profile__xp-fill stats-lite__xp-fill';
+      xpFill.className = 'compact-profile__xp-fill';
       if (!xpFill.style.width) {
         xpFill.classList.add('is-width-zero');
       }
@@ -962,30 +979,36 @@
     return Array.isArray(data) ? data : [];
   }
 
-  async function lookupPartnerAccess() {
+  async function lookupPartnerAccess(options = {}) {
     const state = getState();
     const userId = String(state?.session?.user?.id || '').trim();
-    const links = Array.from(document.querySelectorAll(SELECTORS.partnerLink));
+    const force = options.force === true;
 
-    if (!links.length) return false;
+    if (!document.querySelector(SELECTORS.partnerLink)) return false;
 
     if (!userId) {
-      partnerLookupUserId = '';
-      partnerAccess = false;
-      links.forEach((link) => setHidden(link, true));
+      resetPartnerAccessCache();
       return false;
     }
 
-    if (partnerLookupPromise && partnerLookupUserId === userId) {
+    const sameUser = partnerLookupUserId === userId;
+
+    if (force && sameUser) {
+      partnerLookupPromise = null;
+      partnerLookupResolved = false;
+    }
+
+    if (partnerLookupPromise && sameUser && !force) {
       return partnerLookupPromise;
     }
 
-    if (partnerLookupUserId === userId) {
-      links.forEach((link) => setHidden(link, !partnerAccess));
+    if (sameUser && partnerLookupResolved && !force) {
+      document.querySelectorAll(SELECTORS.partnerLink).forEach((link) => setHidden(link, !partnerAccess));
       return partnerAccess;
     }
 
     partnerLookupUserId = userId;
+    const lookupNonce = ++partnerLookupNonce;
     partnerLookupPromise = (async () => {
       try {
         const sb = typeof window.getSupabase === 'function' ? window.getSupabase() : null;
@@ -1018,11 +1041,48 @@
         partnerAccess = false;
         return false;
       } finally {
-        links.forEach((link) => setHidden(link, !partnerAccess));
+        if (lookupNonce !== partnerLookupNonce || partnerLookupUserId !== userId) {
+          return;
+        }
+        partnerLookupResolved = true;
+        document.querySelectorAll(SELECTORS.partnerLink).forEach((link) => setHidden(link, !partnerAccess));
       }
     })();
 
     return partnerLookupPromise;
+  }
+
+  async function refreshPartnerAccessWhenReady({ force = false, retries = 1, delayMs = 650 } = {}) {
+    const ticket = ++partnerRefreshTicket;
+    const userId = String(getState()?.session?.user?.id || '').trim();
+
+    if (!userId) {
+      resetPartnerAccessCache();
+      return false;
+    }
+
+    if (typeof window.waitForAuthReady === 'function') {
+      try {
+        await Promise.race([
+          Promise.resolve().then(() => window.waitForAuthReady()),
+          new Promise((resolve) => window.setTimeout(resolve, 2500)),
+        ]);
+      } catch (_error) {}
+    }
+
+    let hasAccess = await lookupPartnerAccess({ force });
+    let attempt = 0;
+
+    while (!hasAccess && attempt < retries) {
+      if (ticket !== partnerRefreshTicket || String(getState()?.session?.user?.id || '').trim() !== userId) {
+        return false;
+      }
+      attempt += 1;
+      await new Promise((resolve) => window.setTimeout(resolve, delayMs));
+      hasAccess = await lookupPartnerAccess({ force: true });
+    }
+
+    return hasAccess;
   }
 
   function enforceAuthVisibility(root, state = getState()) {
@@ -1053,11 +1113,18 @@
       return;
     }
 
+    const alreadyCompactMarkup = root.classList.contains('nav-modern--compact')
+      && root.querySelector(SELECTORS.compactProfile)
+      && !root.querySelector(SELECTORS.oldStats);
+
     root.classList.add('nav-modern--compact');
     root.dataset.compactUpgraded = 'true';
 
-    ensureAuthActions(topActions);
-    ensureCompactProfile(root, top, topActions);
+    if (!alreadyCompactMarkup) {
+      ensureAuthActions(topActions);
+      ensureCompactProfile(root, top, topActions);
+    }
+
     normalizeBranding(root);
     enforceAuthVisibility(root);
   }
@@ -1077,12 +1144,12 @@
     });
 
     if (state?.session?.user) {
-      void lookupPartnerAccess();
+      void refreshPartnerAccessWhenReady({ force: !partnerLookupResolved, retries: 1 });
       return;
     }
 
+    resetPartnerAccessCache();
     closeAllMenus();
-    document.querySelectorAll(SELECTORS.partnerLink).forEach((link) => setHidden(link, true));
   }
 
   function init() {
@@ -1097,8 +1164,18 @@
     ensureSupportScripts();
     syncCompactHeader();
 
+    if (getState()?.session?.user?.id) {
+      void refreshPartnerAccessWhenReady({ force: true, retries: 1 });
+    }
+
     document.addEventListener('ce-auth:state', (event) => {
-      syncCompactHeader(event?.detail || getState());
+      const state = event?.detail || getState();
+      syncCompactHeader(state);
+      if (state?.session?.user?.id) {
+        void refreshPartnerAccessWhenReady({ force: true, retries: 2, delayMs: 550 });
+      } else {
+        resetPartnerAccessCache();
+      }
     });
 
     document.addEventListener('wakacjecypr:languagechange', () => {
@@ -1108,6 +1185,9 @@
 
     document.addEventListener('ce:header-stats', () => {
       syncCompactHeader();
+      if (getState()?.session?.user?.id && !partnerAccess) {
+        void refreshPartnerAccessWhenReady({ force: true, retries: 1, delayMs: 450 });
+      }
     });
   }
 
