@@ -196,7 +196,7 @@
     "accountSettings": "⚙️ Account settings",
     "logout": "Log out",
     "partnerPortal": "Partner portal",
-    "logoAlt": "HolidayCyprus.com – turtle logo with the Polish flag",
+    "logoAlt": "CyprusEye.com - eye with a Cyprus island outline inside.",
     "profileLabel": "My Profile",
     "statusPlaceholder": "Level 1 • 0 badges",
     "coupon": "🚕 Transport",
@@ -208,7 +208,7 @@
       "aria": "Main navigation"
     },
     "brand": {
-      "html": "<p class=\"brand-name\">CyprusEye Quest &amp; Travel</p>"
+      "html": "<p class=\"brand-name\">CyprusEye Save &amp; Travel</p>"
     },
     "jumpToObjective": "Jump to current objective",
     "carRentalLink": "🚗 Car rental",
@@ -1522,7 +1522,7 @@
       "aria": "Coupon navigation"
     },
     "brand": {
-      "logoAlt": "HolidayCyprus logo",
+      "logoAlt": "CyprusEye.com - eye with a Cyprus island outline inside.",
       "overline": "HolidayCyprus Quest",
       "title": "Coupon hub"
     },
@@ -1699,7 +1699,7 @@
   "carRental.offers.paphos.cta": "View Paphos offer",
   "carRental.offers.paphos.ctaAria": "Go to the Paphos offer",
   "carRental.footer": "Contact us in the app or by phone – we will help you choose the best car.",
-  "carRental.page.brand.logoAlt": "WakacjeCypr.com – turtle logo with Polish flag",
+  "carRental.page.brand.logoAlt": "CyprusEye.com - eye with a Cyprus island outline inside.",
   "carRental.page.brand.overline": "WakacjeCypr Quest",
   "carRental.page.brand.title": "Car rental",
   "carRental.page.nav.aria": "Car rental navigation",
@@ -2382,7 +2382,7 @@
   },
   "vip": {
     "brand": {
-      "logoAlt": "HolidayCyprus.com – turtle logo with the Polish flag",
+      "logoAlt": "CyprusEye.com - eye with a Cyprus island outline inside.",
       "overline": "Your Cyprus concierge",
       "title": "HolidayCyprus Quest"
     },
@@ -2547,7 +2547,7 @@
   "carRentalPfo": {
     "page": {
       "brand": {
-        "logoAlt": "HolidayCyprus.com – turtle logo with the Polish flag",
+        "logoAlt": "CyprusEye.com - eye with a Cyprus island outline inside.",
         "overline": "HolidayCyprus Quest",
         "title": "Car rental"
       },

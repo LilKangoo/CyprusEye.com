@@ -3,8 +3,8 @@
  * Handles referral sharing in footer (only for logged-in users)
  */
 
-const SHARE_TEXT = "🌴 Dołącz do CyprusEye Quest & Travel przez mój link polecający i odkryj Cypr jak nigdy wcześniej!";
-const SHARE_TEXT_EN = "🌴 Join us in the CyprusEye Quest & Travel and explore Cyprus like never before!";
+const SHARE_TEXT = "🌴 Dołącz do CyprusEye Save & Travel przez mój link polecający i odkryj Cypr jak nigdy wcześniej!";
+const SHARE_TEXT_EN = "🌴 Join us in the CyprusEye Save & Travel and explore Cyprus like never before!";
 
 function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value || '').trim());

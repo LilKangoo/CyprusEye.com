@@ -6,6 +6,17 @@
   box-shadow: none !important;
 }
 
+.nav-modern--compact .nav-modern__shell {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0;
+  width: 100%;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  gap: 0;
+}
+
 body.standalone-body[data-seo-page='advertise'],
 body.standalone-body[data-seo-page='notFound'] {
   padding: clamp(0.55rem, 1.3vw, 0.95rem) clamp(0.75rem, 2vw, 1.35rem) clamp(1rem, 2.2vw, 1.6rem);

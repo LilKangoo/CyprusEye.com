@@ -3,6 +3,11 @@
  * Handles the toggle behavior for the mobile navigation menu.
  */
 
+const COMPACT_HEADER_CSS_ID = 'ce-compact-header-css';
+const COMPACT_HEADER_SCRIPT_ID = 'ce-compact-header-js';
+const COMPACT_HEADER_CSS_SRC = '/assets/css/compact-header.css?v=2';
+const COMPACT_HEADER_SCRIPT_SRC = '/js/compact-header.js?v=2';
+
 function safeReadCartCount() {
   try {
     const raw = localStorage.getItem('shop_cart');
@@ -135,6 +140,47 @@ function ensureHeaderCartButton() {
   updateCartAriaLabel();
 }
 
+function ensureStylesheet(id, href) {
+  if (!href) return;
+  const existing = document.getElementById(id)
+    || Array.from(document.querySelectorAll('link[rel="stylesheet"]')).find((node) => {
+      const src = node.getAttribute('href') || '';
+      return src.includes('/assets/css/compact-header.css') || src.includes('assets/css/compact-header.css');
+    });
+  if (existing) return;
+
+  const link = document.createElement('link');
+  link.id = id;
+  link.rel = 'stylesheet';
+  link.href = href;
+  document.head.appendChild(link);
+}
+
+function ensureScript(id, src) {
+  if (!src) return;
+  const existing = document.getElementById(id)
+    || Array.from(document.scripts).find((node) => {
+      const current = node.getAttribute('src') || '';
+      return current.includes('/js/compact-header.js') || current.includes('js/compact-header.js');
+    });
+  if (existing) return;
+
+  const script = document.createElement('script');
+  script.id = id;
+  script.src = src;
+  script.defer = true;
+  document.body.appendChild(script);
+}
+
+function ensureCompactHeaderAssets() {
+  if (!document.querySelector('.app-header.nav-modern')) {
+    return;
+  }
+
+  ensureStylesheet(COMPACT_HEADER_CSS_ID, COMPACT_HEADER_CSS_SRC);
+  ensureScript(COMPACT_HEADER_SCRIPT_ID, COMPACT_HEADER_SCRIPT_SRC);
+}
+
 function initHeaderDropdown() {
   const toggleBtn = document.getElementById('navToggleBtn');
   const linksRow = document.getElementById('navLinksRow');
@@ -163,6 +209,7 @@ function initHeaderDropdown() {
 }
 
 function initGlobalHeaderEnhancements() {
+  ensureCompactHeaderAssets();
   ensureHeaderCartButton();
 
   window.addEventListener('storage', (event) => {

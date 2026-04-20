@@ -842,9 +842,21 @@ function setupAuthTabs() {
   });
 
   let activeTab =
-    tabButtons.find((button) => button.classList.contains('is-active'))?.dataset.authTab ||
-    tabButtons[0]?.dataset.authTab ||
-    null;
+    (() => {
+      try {
+        const url = new URL(window.location.href);
+        const requested = (url.searchParams.get('tab') || url.hash.replace(/^#/, '') || '').trim().toLowerCase();
+        if (requested && panels.has(requested)) {
+          return requested;
+        }
+      } catch (_error) {}
+
+      return (
+        tabButtons.find((button) => button.classList.contains('is-active'))?.dataset.authTab ||
+        tabButtons[0]?.dataset.authTab ||
+        null
+      );
+    })();
 
   const activate = (tabId, { focus = false } = {}) => {
     if (!tabId || !panels.has(tabId)) {

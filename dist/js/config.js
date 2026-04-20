@@ -13,7 +13,7 @@ export const SUPABASE_CONFIG = {
 };
 
 export const APP_CONFIG = {
-  name: 'CyprusEye Quest',
+  name: 'CyprusEye Save',
   version: '1.0.0',
   debug: typeof localStorage !== 'undefined' && localStorage.getItem('CE_DEBUG') === 'true',
 };
