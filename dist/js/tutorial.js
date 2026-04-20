@@ -443,6 +443,16 @@
         return;
       }
 
+      const focusTarget = this.launchSource || this.previouslyFocusedElement;
+      const activeElement = document.activeElement;
+      if (activeElement instanceof HTMLElement && this.overlay.contains(activeElement)) {
+        if (focusTarget instanceof HTMLElement) {
+          focusTarget.focus({ preventScroll: true });
+        } else {
+          activeElement.blur();
+        }
+      }
+
       this.isOpen = false;
       this.overlay.classList.remove('is-visible');
       this.overlay.setAttribute('aria-hidden', 'true');
@@ -480,7 +490,6 @@
         this.highlight.style.height = '0';
       }
 
-      const focusTarget = this.launchSource || this.previouslyFocusedElement;
       if (focusTarget instanceof HTMLElement) {
         focusTarget.focus({ preventScroll: true });
       }

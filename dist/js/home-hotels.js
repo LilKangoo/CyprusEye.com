@@ -117,6 +117,11 @@ function scheduleHotelsRerenderWhenI18nReady() {
   setTimeout(tick, 100);
 }
 
+function getHomeHotelSaveLabel() {
+  const lang = String(window.appI18n?.language || document.documentElement?.lang || 'pl').toLowerCase();
+  return lang.startsWith('en') ? 'Save' : 'Zapisz';
+}
+
 async function waitForSupabaseClientHomeHotels(maxAttempts = 50) {
   for (let i = 0; i < maxAttempts; i++) {
     const client =
@@ -437,8 +442,8 @@ function renderHomeHotels(){
           data-ce-save="1"
           data-item-type="hotel"
           data-ref-id="${String(h.id || '')}"
-          aria-label="Zapisz"
-          title="Zapisz"
+          aria-label="${getHomeHotelSaveLabel()}"
+          title="${getHomeHotelSaveLabel()}"
           onclick="event.preventDefault(); event.stopPropagation();"
           style="
             position: absolute;

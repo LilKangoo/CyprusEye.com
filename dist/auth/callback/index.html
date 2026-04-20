@@ -1,16 +1,16 @@
 <!DOCTYPE html>
-<html lang="pl">
+<html lang="pl" data-seo-page="reset">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>WakacjeCypr Quest – zmiana hasła</title>
+    <title data-i18n="seo.reset.title">Reset hasła | CyprusEye Save &amp; Travel</title>
     <meta name="ce-auth" content="on" />
     <meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co" />
     <meta
       name="supabase-anon"
       content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bW1jaXpndnJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3NjkwNDksImV4cCI6MjA3NjM0NTA0OX0.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM"
     />
-    <meta name="description" content="Ustaw nowe hasło do swojego konta WakacjeCypr Quest." />
+    <meta name="description" content="Zresetuj hasło do konta CyprusEye Save &amp; Travel i odzyskaj dostęp do swoich podróży, rezerwacji oraz postępów." data-i18n-attrs="content:seo.reset.description" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -22,6 +22,7 @@
     <link rel="stylesheet" href="/assets/css/components.css?v=12" />
     <link rel="stylesheet" href="/assets/css/mobile.css" />
     <link rel="stylesheet" href="/css/toast.css" />
+    <script src="/js/i18n.js" defer></script>
     <script type="module" src="/js/supabaseClient.js"></script>
     <script type="module" src="/js/toast.js"></script>
     <script type="module" src="/js/authCallback.js"></script>
@@ -31,17 +32,18 @@
       <header class="auth-page__header">
         <a class="auth-page__return" href="/">
           <span aria-hidden="true">⬅️</span>
-          <span>Wróć do strony głównej</span>
+          <span data-i18n="resetPage.backHome">Wróć do strony głównej</span>
         </a>
         <img
           src="/assets/cyprus_logo-1000x1054.png"
-          alt="WakacjeCypr Quest – logo"
+          alt="CyprusEye.com - eye with a Cyprus island outline inside."
+          data-i18n-attrs="alt:header.logoAlt"
           width="1000"
           height="1054"
           class="auth-page__logo"
         />
-        <h1 class="auth-page__title">Ustaw nowe hasło</h1>
-        <p class="auth-page__subtitle">
+        <h1 class="auth-page__title" data-i18n="resetPage.passwordLegend">Ustaw nowe hasło</h1>
+        <p class="auth-page__subtitle" data-i18n="resetPage.recoverySubtitle">
           Wpisz nowe hasło, aby zakończyć proces odzyskiwania konta.
         </p>
       </header>
@@ -49,9 +51,9 @@
         <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
         <form id="form-password-update" class="auth-form" novalidate>
           <p id="resetMessage" class="auth-message" role="status" aria-live="polite">
-            Sprawdzamy link odzyskiwania…
+            <span data-i18n="resetPage.statusChecking">Sprawdzamy link odzyskiwania…</span>
           </p>
-          <label for="resetNewPassword">Nowe hasło</label>
+          <label for="resetNewPassword" data-i18n="resetPage.newPasswordLabel">Nowe hasło</label>
           <input
             id="resetNewPassword"
             name="password"
@@ -60,7 +62,7 @@
             minlength="8"
             autocomplete="new-password"
           />
-          <label for="resetNewPasswordConfirm">Powtórz hasło</label>
+          <label for="resetNewPasswordConfirm" data-i18n="resetPage.confirmPasswordLabel">Powtórz hasło</label>
           <input
             id="resetNewPasswordConfirm"
             name="passwordConfirm"
@@ -70,9 +72,9 @@
             autocomplete="new-password"
           />
           <div class="auth-form__actions">
-            <button type="submit" class="btn btn--primary">Zapisz nowe hasło</button>
+            <button type="submit" class="btn btn--primary" data-i18n="resetPage.submitConfirm">Zapisz nowe hasło</button>
             <button type="button" class="auth-form__link" id="resetBackToAuth">
-              Wróć do logowania
+              <span data-i18n="resetPage.backToAuth">Wróć do logowania</span>
             </button>
           </div>
         </form>

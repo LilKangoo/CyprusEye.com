@@ -521,6 +521,7 @@ function createPromoSection(rec, lang, options = {}) {
 function createRecommendationCard(rec) {
   const category = rec.recommendation_categories || {};
   const lang = getCurrentLanguage();
+  const saveLabel = lang === 'en' ? 'Save' : 'Zapisz';
 
   const title =
     lang === 'en'
@@ -551,8 +552,8 @@ function createRecommendationCard(rec) {
         data-ce-save="1"
         data-item-type="recommendation"
         data-ref-id="${String(rec.id || '')}"
-        aria-label="Zapisz"
-        title="Zapisz"
+        aria-label="${saveLabel}"
+        title="${saveLabel}"
         onclick="event.preventDefault(); event.stopPropagation();"
       >☆</button>
 
@@ -606,6 +607,7 @@ window.openDetailModal = async function(id) {
     lang === 'en'
       ? (category.name_en || category.name_pl)
       : (category.name_pl || category.name_en);
+  const saveLabel = lang === 'en' ? 'Save' : 'Zapisz';
   const imageUrlRaw = String(rec.image_url || '').trim();
   const imageUrl = getHomeRecommendationMediaDisplayUrl(imageUrlRaw);
   const imageIsPanorama = isHomeRecommendationPanorama(imageUrlRaw);
@@ -640,8 +642,8 @@ window.openDetailModal = async function(id) {
           data-ce-save="1"
           data-item-type="recommendation"
           data-ref-id="${String(rec.id || '')}"
-          aria-label="Zapisz"
-          title="Zapisz"
+          aria-label="${saveLabel}"
+          title="${saveLabel}"
           onclick="event.preventDefault(); event.stopPropagation();"
         >☆</button>
       </div>

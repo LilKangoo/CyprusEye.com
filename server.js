@@ -130,19 +130,46 @@ function escapeHtml(value) {
 }
 
 async function sendContactNotification(entry) {
+  const isPartnerLead = entry.context === 'advertise-partner';
+  const intro = isPartnerLead
+    ? 'Otrzymaliśmy nowe zgłoszenie współpracy partnerskiej.'
+    : 'Otrzymaliśmy nowe zgłoszenie z formularza kontaktowego.';
+  const subject = isPartnerLead
+    ? 'Nowe zgłoszenie współpracy partnerskiej'
+    : 'Nowe zgłoszenie z formularza kontaktowego';
+
+  const optionalFields = [
+    ['Firma / marka / obiekt', entry.service],
+    ['Typ partnera', entry.partnerType],
+    ['Wybrany pakiet', entry.packageTier],
+    ['Telefon / WhatsApp', entry.phone],
+    ['Lokalizacja', entry.location],
+    ['Strona / social media', entry.website],
+    ['Opis usługi', entry.serviceDescription],
+    ['Rodzaj wycieczek', entry.tourTypes],
+    ['Języki obsługi', entry.tourLanguages],
+    ['Obszar działania', entry.tourArea],
+    ['Rodzaj obiektu', entry.accommodationType],
+    ['Liczba miejsc / skala oferty', entry.accommodationCapacity],
+    ['Język interfejsu', entry.language],
+  ].filter(([, value]) => typeof value === 'string' && value.trim());
+
   const textLines = [
-    'Otrzymaliśmy nowe zgłoszenie z formularza wycieczek WakacjeCypr.',
+    intro,
     `Imię i nazwisko: ${entry.name}`,
     `Adres e-mail: ${entry.email}`,
-    `Preferowana usługa: ${entry.service || 'nie podano'}`,
-    `Język interfejsu: ${entry.language || 'nie podano'}`,
-    '',
-    'Wiadomość:',
-    entry.message,
-    '',
     `ID zgłoszenia: ${entry.id}`,
     `Data zgłoszenia: ${entry.createdAt}`,
   ];
+
+  optionalFields.forEach(([label, value]) => {
+    textLines.splice(textLines.length - 2, 0, `${label}: ${value}`);
+  });
+
+  textLines.push('');
+  textLines.push('Dodatkowe informacje:');
+  textLines.push(entry.message || 'nie podano');
+  textLines.push('');
 
   if (entry.referer) {
     textLines.push(`Strona źródłowa: ${entry.referer}`);
@@ -153,18 +180,25 @@ async function sendContactNotification(entry) {
 
   const text = textLines.join('\n');
   const htmlParts = [
-    '<p>Otrzymaliśmy nowe zgłoszenie z formularza wycieczek WakacjeCypr.</p>',
+    `<p>${escapeHtml(intro)}</p>`,
     '<ul>',
     `<li><strong>Imię i nazwisko:</strong> ${escapeHtml(entry.name)}</li>`,
     `<li><strong>Adres e-mail:</strong> ${escapeHtml(entry.email)}</li>`,
-    `<li><strong>Preferowana usługa:</strong> ${escapeHtml(entry.service || 'nie podano')}</li>`,
-    `<li><strong>Język interfejsu:</strong> ${escapeHtml(entry.language || 'nie podano')}</li>`,
     `<li><strong>ID zgłoszenia:</strong> ${escapeHtml(entry.id)}</li>`,
     `<li><strong>Data zgłoszenia:</strong> ${escapeHtml(entry.createdAt)}</li>`,
     '</ul>',
-    '<p><strong>Wiadomość:</strong></p>',
-    `<p>${escapeHtml(entry.message).replace(/\n/g, '<br />')}</p>`,
   ];
+
+  if (optionalFields.length) {
+    htmlParts.push('<ul>');
+    optionalFields.forEach(([label, value]) => {
+      htmlParts.push(`<li><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</li>`);
+    });
+    htmlParts.push('</ul>');
+  }
+
+  htmlParts.push('<p><strong>Dodatkowe informacje:</strong></p>');
+  htmlParts.push(`<p>${escapeHtml(entry.message || 'nie podano').replace(/\n/g, '<br />')}</p>`);
 
   if (entry.referer) {
     htmlParts.push(`<p><strong>Strona źródłowa:</strong> ${escapeHtml(entry.referer)}</p>`);
@@ -174,7 +208,6 @@ async function sendContactNotification(entry) {
   }
 
   const html = htmlParts.join('');
-  const subject = 'Nowe zgłoszenie z formularza wycieczek';
 
   const transport = getMailTransport();
   if (!transport) {
@@ -749,11 +782,23 @@ async function handleContactForm(req, res) {
     const message = sanitizeContactField(body?.message, { maxLength: 2000 });
     const service = sanitizeContactField(body?.service, { maxLength: 120 });
     const language = sanitizeContactField(body?.lang, { maxLength: 10 });
+    const context = sanitizeContactField(body?.context, { maxLength: 60 });
+    const partnerType = sanitizeContactField(body?.partner_type, { maxLength: 40 });
+    const packageTier = sanitizeContactField(body?.package_tier, { maxLength: 40 });
+    const phone = sanitizeContactField(body?.phone, { maxLength: 80 });
+    const location = sanitizeContactField(body?.location, { maxLength: 140 });
+    const website = sanitizeContactField(body?.website, { maxLength: 240 });
+    const serviceDescription = sanitizeContactField(body?.service_description, { maxLength: 1500 });
+    const tourTypes = sanitizeContactField(body?.tour_types, { maxLength: 240 });
+    const tourLanguages = sanitizeContactField(body?.tour_languages, { maxLength: 240 });
+    const tourArea = sanitizeContactField(body?.tour_area, { maxLength: 240 });
+    const accommodationType = sanitizeContactField(body?.accommodation_type, { maxLength: 140 });
+    const accommodationCapacity = sanitizeContactField(body?.accommodation_capacity, { maxLength: 140 });
 
-    if (!name || !email || !message) {
+    if (!name || !email) {
       const acceptHeader = req.headers.accept || '';
       if (acceptHeader.includes('application/json')) {
-        return jsonResponse(res, 422, { error: 'Wypełnij imię, e-mail oraz wiadomość.' });
+        return jsonResponse(res, 422, { error: 'Wypełnij imię i adres e-mail.' });
       }
       const referer = req.headers.referer ? buildRedirectTarget(req.headers.referer) : null;
       const target = referer ? `${referer}${referer.includes('?') ? '&' : '?'}error=1` : '/index.html?error=1';
@@ -771,9 +816,21 @@ async function handleContactForm(req, res) {
       type: 'contact',
       name,
       email,
-      message,
+      message: message || null,
       service: service || null,
       language: language || null,
+      context: context || null,
+      partnerType: partnerType || null,
+      packageTier: packageTier || null,
+      phone: phone || null,
+      location: location || null,
+      website: website || null,
+      serviceDescription: serviceDescription || null,
+      tourTypes: tourTypes || null,
+      tourLanguages: tourLanguages || null,
+      tourArea: tourArea || null,
+      accommodationType: accommodationType || null,
+      accommodationCapacity: accommodationCapacity || null,
       userAgent: req.headers['user-agent'] || null,
       referer: req.headers.referer || null,
       createdAt: new Date().toISOString(),

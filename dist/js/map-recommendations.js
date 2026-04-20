@@ -523,6 +523,7 @@ function createRecommendationPopup(rec) {
   const category = rec.recommendation_categories || {};
   const lang = getCurrentLanguage();
   const isPolish = lang === 'pl';
+  const saveLabel = isPolish ? 'Zapisz' : 'Save';
   
   const title = isPolish
     ? (rec.title_pl || rec.title_en || 'Bez tytułu')
@@ -588,8 +589,8 @@ function createRecommendationPopup(rec) {
           data-ce-save="1"
           data-item-type="recommendation"
           data-ref-id="${String(rec.id || '')}"
-          aria-label="Zapisz"
-          title="Zapisz"
+          aria-label="${saveLabel}"
+          title="${saveLabel}"
           onclick="event.preventDefault(); event.stopPropagation();"
         >☆</button>
       </div>
@@ -635,6 +636,7 @@ window.openRecommendationDetailModal = function(id) {
   const callLabel = isPolish ? 'Zadzwoń' : 'Call';
   const offerLabel = isPolish ? '🎁 Specjalna oferta' : '🎁 Special offer';
   const showCodeLabel = isPolish ? 'Pokaż kod' : 'Show code';
+  const saveLabel = isPolish ? 'Zapisz' : 'Save';
   
   // Create or get modal
   let modal = document.getElementById('recMapModal');
@@ -671,8 +673,8 @@ window.openRecommendationDetailModal = function(id) {
             data-ce-save="1"
             data-item-type="recommendation"
             data-ref-id="${String(rec.id || '')}"
-            aria-label="Zapisz"
-            title="Zapisz"
+            aria-label="${saveLabel}"
+            title="${saveLabel}"
             onclick="event.preventDefault(); event.stopPropagation();"
           >☆</button>
         </div>

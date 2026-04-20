@@ -186,7 +186,7 @@ const AUTH_CONFIRMATION_TEMPLATE = `
     <strong data-auth="user-name"></strong>
   </p>
   <p class="auth-confirmation__message" data-i18n="auth.confirmation.info">
-    ${t('You can now use all features of WakacjeCypr Quest.', 'Możesz teraz korzystać z wszystkich funkcji WakacjeCypr Quest.')}
+    ${t('You can now use all features of CyprusEye Save & Travel.', 'Możesz teraz korzystać z wszystkich funkcji CyprusEye Save & Travel.')}
   </p>
   <p class="auth-confirmation__hint" data-i18n="auth.confirmation.dismissHint">
     ${t('Click anywhere to dismiss this message.', 'Kliknij gdziekolwiek, aby zamknąć to powiadomienie.')}
@@ -211,7 +211,7 @@ const AUTH_SUCCESS_OVERLAY_TEMPLATE = `
       <strong data-auth-success-name></strong>
     </p>
     <p class="auth-success-overlay__message" data-i18n="auth.confirmation.info">
-      ${t('You can now use all features of WakacjeCypr Quest.', 'Możesz teraz korzystać z wszystkich funkcji WakacjeCypr Quest.')}
+      ${t('You can now use all features of CyprusEye Save & Travel.', 'Możesz teraz korzystać z wszystkich funkcji CyprusEye Save & Travel.')}
     </p>
     <p class="auth-success-overlay__hint" data-i18n="auth.confirmation.dismissHint">
       ${t('Click anywhere to dismiss this message.', 'Kliknij gdziekolwiek, aby zamknąć to powiadomienie.')}

@@ -20,7 +20,11 @@
   
   <meta name="theme-color" content="#2563eb" />
   <meta name="robots" content="noindex,follow" />
-  <title>Terms of Service - CyprusEye Quest</title>
+  <title data-i18n="seo.terms.title">Terms of Service - CyprusEye Save &amp; Travel</title>
+  <meta name="description" content="Read the CyprusEye Save &amp; Travel terms of service and learn the rules for using the app, bookings, and your account." data-i18n-attrs="content:seo.terms.description" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Terms of Service - CyprusEye Save &amp; Travel" data-i18n-attrs="content:seo.terms.ogTitle" />
+  <meta property="og:description" content="Review the rules for using CyprusEye Save &amp; Travel, our booking services, and your player account." data-i18n-attrs="content:seo.terms.ogDescription" />
   
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -32,7 +36,6 @@
   <link rel="stylesheet" href="assets/css/tokens.css" />
   <link rel="stylesheet" href="assets/css/base.css" />
   <link rel="stylesheet" href="assets/css/components.css?v=12" />
-  <link rel="stylesheet" href="assets/css/header-metrics.css" />
   <link rel="stylesheet" href="assets/css/mobile.css" />
   <link rel="stylesheet" href="assets/css/mobile-nav.css" />
   <link rel="stylesheet" href="assets/css/rtl.css" />
@@ -50,14 +53,13 @@
   <link rel="stylesheet" href="/assets/css/compact-header.css?v=2" />
 </head>
 <body data-navigation="multi-page" data-seo-page="terms">
-  <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
   
-  <header class="app-header nav-modern">
+  <header class="app-header nav-modern nav-modern--compact">
       <div class="nav-modern__top" aria-label="Global header">
         <div class="brand nav-modern__brand-block">
-          <a href="index.html" class="nav-modern__brand-link" aria-label="CyprusEye Save & Travel home">
+          <a href="/index.html" class="nav-modern__brand-link" aria-label="CyprusEye Save & Travel home">
             <img
-              src="assets/cyprus_logo-1000x1054.png"
+              src="/assets/cyprus_logo-1000x1054.png"
               alt="CyprusEye.com - eye with a Cyprus island outline inside."
               data-i18n-attrs="alt:header.logoAlt"
               width="1000"
@@ -71,56 +73,98 @@
           </a>
         </div>
 
-        <div class="nav-modern__stats nav-modern__stats-lite" data-auth="user-only">
-          <div class="stats-lite__pill">
-            <a href="achievements.html" class="stats-lite__profile" id="profileButton" aria-label="Mój profil">
+        <div class="compact-header__profile" data-auth="user-only">
+          <button
+            type="button"
+            class="compact-profile__trigger"
+            data-compact-profile-trigger
+            aria-expanded="false"
+            aria-haspopup="menu"
+            aria-controls="compactProfileMenu"
+          >
+            <img
+              id="headerUserAvatar"
+              class="profile-avatar"
+              src="/assets/cyprus_logo-1000x1054.png"
+              alt="Avatar"
+              width="48"
+              height="48"
+              loading="eager"
+            />
+            <span class="compact-profile__summary">
+              <span class="profile-name" data-i18n="header.profileLabel">Mój Profil</span>
+              <span class="profile-status" data-i18n="header.statusPlaceholder">Poziom 1 • 0 odznak</span>
+            </span>
+            <span class="compact-profile__chevron" aria-hidden="true">▾</span>
+          </button>
+
+          <div class="compact-profile__menu" id="compactProfileMenu" data-compact-profile-menu hidden>
+            <div class="compact-profile__menu-header">
               <img
-                id="headerUserAvatar"
-                class="profile-avatar"
-                src="assets/cyprus_logo-1000x1054.png"
+                class="compact-profile__avatar"
+                data-compact-user-avatar
+                src="/assets/cyprus_logo-1000x1054.png"
                 alt="Avatar"
                 width="48"
                 height="48"
-                loading="eager"
+                loading="lazy"
               />
-              <div class="profile-info">
-                <p class="profile-name">Mój Profil</p>
-                <p class="profile-status">Poziom 1 • 0 odznak</p>
+              <div class="compact-profile__identity">
+                <p class="compact-profile__menu-name" data-compact-user-name data-i18n="header.profileLabel">Mój Profil</p>
+                <p class="compact-profile__menu-status" data-compact-user-status data-i18n="header.statusPlaceholder">Poziom 1 • 0 odznak</p>
               </div>
-            </a>
+              <button
+                type="button"
+                class="compact-profile__menu-close"
+                data-compact-profile-close
+                aria-label="Close"
+              >
+                X
+              </button>
+            </div>
 
-            <div class="stats-lite__panel">
-              <div class="stats-lite__level">
-                <span class="stats-lite__label">LVL</span>
-                <span class="stats-lite__value" id="headerLevelNumber">1</span>
-                
+            <div class="compact-profile__stats">
+              <div class="compact-profile__stat compact-profile__stat--level">
+                <span class="compact-profile__stat-label" data-i18n="metrics.level.abbrev">LVL</span>
+                <span class="compact-profile__stat-value" id="headerLevelNumber">1</span>
               </div>
-
-              <div class="stats-lite__xp" role="img" aria-label="Postęp doświadczenia" data-i18n-attrs="aria-label:metrics.xp.aria">
-                <span class="stats-lite__xp-current"><span id="headerXpPoints">0</span> XP</span>
-                <div class="stats-lite__xp-bar">
-                  <div class="stats-lite__xp-fill is-width-zero" id="headerXpFill"></div>
+              <div class="compact-profile__stat compact-profile__stat--xp compact-profile__xp-card">
+                <span class="compact-profile__stat-label" data-i18n="account.profile.labels.xp">XP</span>
+                <span class="compact-profile__xp-points"><span id="headerXpPoints">0</span> XP</span>
+                <div class="compact-profile__xp-bar" role="img" aria-label="Postęp doświadczenia" data-i18n-attrs="aria-label:metrics.xp.aria">
+                  <div class="compact-profile__xp-fill is-width-zero" id="headerXpFill"></div>
                 </div>
-                
-                  
-                </span>
               </div>
+              <div class="compact-profile__stat compact-profile__stat--badges">
+                <span class="compact-profile__stat-label" data-i18n="metrics.badges.label">Odznaki</span>
+                <span class="compact-profile__stat-value" id="headerBadgesCount">0</span>
+              </div>
+            </div>
 
-              <div class="stats-lite__badges">
-                <span class="stats-lite__label">🏆</span>
-                <span class="stats-lite__value" id="headerBadgesCount">0</span>
-              </div>
+            <div class="compact-profile__actions">
+              <a class="compact-profile__link" href="/achievements.html" data-i18n="header.profileLabel">Mój Profil</a>
+              <a class="compact-profile__link compact-profile__partner-link" href="/partners/" data-compact-partner-link data-i18n="header.partnerPortal" hidden>Panel partnera</a>
+              <button
+                class="compact-profile__logout"
+                type="button"
+                data-auth="logout"
+                data-i18n="header.logout"
+                data-i18n-attrs="aria-label:auth.logout.aria"
+                aria-label="Wyloguj z konta"
+              >
+                Wyloguj
+              </button>
             </div>
           </div>
         </div>
 
-        <div class="nav-modern__top-actions">
+        <div class="nav-modern__top-actions" data-tour-target="top-actions">
           <div class="nav-modern__auth">
-            <div id="auth-actions" class="auth-actions-inline" aria-live="polite">
+            <div id="auth-actions" class="auth-actions-inline" aria-live="polite" data-auth="anon-only">
               <button
-                class="nav-modern__login"
+                class="compact-header__auth-btn compact-header__auth-btn--primary"
                 data-open-auth
-                data-auth="anon-only"
+                data-auth-target="login"
                 data-tour-target="login-button"
                 data-i18n="header.login"
                 data-i18n-attrs="aria-label:auth.login.aria"
@@ -128,7 +172,15 @@
               >
                 Zaloguj
               </button>
-<button class="btn btn-sm" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta" hidden>Wyloguj</button>
+              <button
+                class="compact-header__auth-btn"
+                type="button"
+                data-open-auth
+                data-auth-target="register"
+                data-i18n="auth.tab.register"
+              >
+                Rejestracja
+              </button>
             </div>
             <div data-auth="spinner" class="auth-spinner-inline" aria-live="polite" data-i18n="auth.status.spinner" hidden>Łączenie...</div>
           </div>
@@ -144,11 +196,19 @@
             ⚠️ SOS
           </button>
 
+          <button
+            id="btnOpenCart"
+            type="button"
+            aria-label="Koszyk"
+            data-i18n-attrs="aria-label:shop.cart.aria"
+          >
+            🛒
+            <span id="cartCount" class="cart-count" hidden>0</span>
+          </button>
+
           <div class="language-pill-group" data-language-toggle aria-label="Language selector" data-i18n-attrs="aria-label:language.switcher.label">
             <button type="button" class="language-pill" data-language-pill="pl" aria-pressed="false">PL</button>
             <button type="button" class="language-pill" data-language-pill="en" aria-pressed="false">EN</button>
-            <!-- <button type="button" class="language-pill" data-language-pill="el" aria-pressed="false">EL</button> -->
-            <!-- <button type="button" class="language-pill" data-language-pill="he" aria-pressed="false">HE</button> -->
           </div>
         </div>
       </div>
@@ -202,7 +262,7 @@
         <p>By accessing and using the CyprusEye.com Services, you accept and agree to be bound by the terms and provisions of the TOS. In addition, when using particular CyprusEye.com owned or operated services, you and LilKangooMedia LTD shall be subject to any posted guidelines or rules applicable to such services, which may be posted and modified from time to time. All such guidelines or rules (including but not limited to our Privacy Policy) are hereby incorporated by reference into the TOS.</p>
 
         <h2>2. DESCRIPTION OF SERVICES AND GAME FEATURES</h2>
-        <p>CyprusEye.com is a hybrid platform combining a travel guide with an interactive gamified experience ("CyprusEye Quest"). The services include connection to travel providers, location-based challenges, experience points (XP) tracking, virtual achievements, and community features (collectively the "CyprusEye.com Services").</p>
+        <p>CyprusEye.com is a hybrid platform combining a travel guide with an interactive gamified experience ("CyprusEye Save &amp; Travel"). The services include connection to travel providers, location-based challenges, experience points (XP) tracking, virtual achievements, and community features (collectively the "CyprusEye.com Services").</p>
         <p>CyprusEye.com acts as an intermediary platform for bookings and is not responsible for the quality, safety, or legality of the services offered by third-party providers. Users are advised to perform due diligence prior to engaging with any service provider.</p>
 
         <h2>2A. CYPRUSEYE SHOP (E-COMMERCE) TERMS</h2>
@@ -258,7 +318,7 @@
         <p>For Shop-related questions (orders, shipping, issues), contact: <a href="mailto:kontakt@wakacjecypr.com">kontakt@wakacjecypr.com</a>.</p>
 
         <h2>3. PHYSICAL SAFETY AND ASSUMPTION OF RISK (CRITICAL)</h2>
-        <p><strong>PLEASE READ CAREFULLY:</strong> The CyprusEye Quest game encourages users to visit physical locations in the real world. You explicitly acknowledge and agree that:</p>
+        <p><strong>PLEASE READ CAREFULLY:</strong> The CyprusEye Save &amp; Travel experience encourages users to visit physical locations in the real world. You explicitly acknowledge and agree that:</p>
         <ul>
             <li>Your movement, travel, and interaction with real-world environments while using the App is entirely at your own risk.</li>
             <li>You are solely responsible for your safety and the safety of those around you. You must pay attention to your surroundings, traffic, obstacles, pedestrians, and changing weather conditions at all times.</li>
@@ -275,7 +335,7 @@
         </ul>
 
         <h2>5. FAIR PLAY AND ANTI-CHEAT</h2>
-        <p>To maintain the integrity of the CyprusEye Quest experience, you agree NOT to:</p>
+        <p>To maintain the integrity of the CyprusEye Save &amp; Travel experience, you agree NOT to:</p>
         <ul>
             <li>Use any techniques to alter or falsify a device's location (GPS Spoofing).</li>
             <li>Use automation software (bots), emulators, or third-party software to modify the Service or game progress.</li>
@@ -440,6 +500,7 @@
   <!-- Leaflet - załaduj bezpośrednio jako fallback (dla spójności nagłówka) -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
 
+  <script src="js/header-stats.js?v=2" defer></script>
   <script src="/js/compact-header.js?v=2" defer></script>
 </body>
 </html>

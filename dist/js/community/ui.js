@@ -672,8 +672,8 @@ async function renderPoisList() {
               data-ce-save="1"
               data-item-type="poi"
               data-ref-id="${String(poi.id || '')}"
-              aria-label="Save"
-              title="Save"
+              aria-label="${t('common.save', 'Save')}"
+              title="${t('common.save', 'Save')}"
               onclick="event.preventDefault(); event.stopPropagation();"
             >☆</button>
           </div>

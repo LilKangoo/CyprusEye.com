@@ -24,6 +24,15 @@ function getHomeTripMediaDisplayUrl(url) {
   return String(url || '').split('#')[0];
 }
 
+function getHomeTripLang() {
+  const lang = String(window.appI18n?.language || document.documentElement?.lang || 'pl').toLowerCase();
+  return lang.startsWith('en') ? 'en' : 'pl';
+}
+
+function getHomeTripSaveLabel() {
+  return getHomeTripLang() === 'en' ? 'Save' : 'Zapisz';
+}
+
 function isHomeTripPanorama(url) {
   if (window.CE_MEDIA_VIEWER?.isPanorama) return window.CE_MEDIA_VIEWER.isPanorama(url);
   return false;
@@ -512,8 +521,8 @@ function renderHomeTrips() {
           data-ce-save="1"
           data-item-type="trip"
           data-ref-id="${String(trip.id || '')}"
-          aria-label="Zapisz"
-          title="Zapisz"
+          aria-label="${getHomeTripSaveLabel()}"
+          title="${getHomeTripSaveLabel()}"
           onclick="event.preventDefault(); event.stopPropagation();"
           style="
             position: absolute;

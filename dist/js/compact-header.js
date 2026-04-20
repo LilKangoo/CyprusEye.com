@@ -15,6 +15,7 @@
     compactProfile: '.compact-header__profile',
     trigger: '[data-compact-profile-trigger]',
     menu: '[data-compact-profile-menu]',
+    close: '[data-compact-profile-close]',
     name: '[data-compact-user-name]',
     status: '[data-compact-user-status]',
     partnerLink: '[data-compact-partner-link]',
@@ -31,6 +32,9 @@
   let partnerLookupUserId = '';
   let partnerAccess = false;
   let partnerLookupPromise = null;
+  let partnerLookupResolved = false;
+  let partnerRefreshTicket = 0;
+  let partnerLookupNonce = 0;
   let authFallbackBound = false;
   let menuListenersBound = false;
 
@@ -92,6 +96,63 @@
     return fallback;
   }
 
+  function toFiniteNumber(value, fallback) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : fallback;
+  }
+
+  function hasOwn(source, key) {
+    return !!source && typeof source === 'object' && Object.prototype.hasOwnProperty.call(source, key);
+  }
+
+  function readMetricFromDom(scope, selector, fallback) {
+    if (!(scope instanceof HTMLElement)) {
+      return fallback;
+    }
+    const element = scope.querySelector(selector);
+    if (!(element instanceof HTMLElement)) {
+      return fallback;
+    }
+    const raw = String(element.textContent || '').replace(/[^\d.-]/g, '').trim();
+    if (!raw) {
+      return fallback;
+    }
+    return toFiniteNumber(raw, fallback);
+  }
+
+  function countVisitedPlaces(value) {
+    if (Number.isFinite(Number(value))) {
+      return Math.max(0, Number(value));
+    }
+
+    if (Array.isArray(value)) {
+      return value.filter(Boolean).length;
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return 0;
+
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.filter(Boolean).length;
+        }
+      } catch (_error) {}
+
+      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        const inner = trimmed.slice(1, -1).trim();
+        if (!inner) return 0;
+        return inner
+          .split(',')
+          .map((part) => String(part).trim().replace(/^"|"$/g, ''))
+          .filter(Boolean).length;
+      }
+    }
+
+    return 0;
+  }
+
   function setHidden(element, hidden) {
     if (!(element instanceof HTMLElement)) {
       return;
@@ -103,6 +164,16 @@
     } else {
       element.removeAttribute('aria-hidden');
     }
+  }
+
+  function resetPartnerAccessCache() {
+    partnerRefreshTicket += 1;
+    partnerLookupNonce += 1;
+    partnerLookupUserId = '';
+    partnerAccess = false;
+    partnerLookupPromise = null;
+    partnerLookupResolved = false;
+    document.querySelectorAll(SELECTORS.partnerLink).forEach((link) => setHidden(link, true));
   }
 
   function createElement(tag, className, options = {}) {
@@ -545,8 +616,17 @@
       text: status.textContent || getText('header.statusPlaceholder', 'Level 1 • 0 badges'),
       attributes: { 'data-compact-user-status': true, 'data-i18n': 'header.statusPlaceholder' },
     }));
+    const closeButton = createElement('button', 'compact-profile__menu-close', {
+      text: 'X',
+      attributes: {
+        type: 'button',
+        'data-compact-profile-close': true,
+        'aria-label': getText('common.close', 'Close'),
+      },
+    });
     menuHeader.appendChild(menuAvatar);
     menuHeader.appendChild(identity);
+    menuHeader.appendChild(closeButton);
 
     let stats = menu.querySelector('.compact-profile__stats');
     if (!stats) {
@@ -577,11 +657,11 @@
 
     let xpFill = root.querySelector('#headerXpFill');
     if (!(xpFill instanceof HTMLElement)) {
-      xpFill = createElement('div', 'compact-profile__xp-fill stats-lite__xp-fill is-width-zero', {
+      xpFill = createElement('div', 'compact-profile__xp-fill is-width-zero', {
         attributes: { id: 'headerXpFill' },
       });
     } else {
-      xpFill.className = 'compact-profile__xp-fill stats-lite__xp-fill';
+      xpFill.className = 'compact-profile__xp-fill';
       if (!xpFill.style.width) {
         xpFill.classList.add('is-width-zero');
       }
@@ -674,10 +754,112 @@
       const trigger = profile.querySelector(SELECTORS.trigger);
       const menu = profile.querySelector(SELECTORS.menu);
       if (trigger instanceof HTMLElement && menu instanceof HTMLElement) {
+        const activeElement = document.activeElement;
+        if (activeElement instanceof HTMLElement && menu.contains(activeElement)) {
+          trigger.focus({ preventScroll: true });
+        }
         trigger.setAttribute('aria-expanded', 'false');
         setHidden(menu, true);
       }
     });
+  }
+
+  function getDisplayName(state) {
+    const profile = state?.profile || {};
+    const user = state?.session?.user || {};
+    const metadata = user?.user_metadata || {};
+
+    const candidates = [
+      profile.username,
+      metadata.username,
+      profile.name,
+      metadata.display_name,
+      metadata.name,
+      metadata.full_name,
+      user.email,
+    ];
+
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string' && candidate.trim()) {
+        return candidate.trim();
+      }
+    }
+
+    return getText('header.profileLabel', 'My profile');
+  }
+
+  function getHeaderStats(scope, state = getState()) {
+    const profile = state?.profile || {};
+    const snapshot = window.__CE_HEADER_STATS_SNAPSHOT || {};
+    const domLevel = readMetricFromDom(scope, '#headerLevelNumber', 1);
+    const domXp = readMetricFromDom(scope, '#headerXpPoints', 0);
+    const domBadges = readMetricFromDom(scope, '#headerBadgesCount', 0);
+
+    const level = hasOwn(profile, 'level')
+      ? Math.max(1, toFiniteNumber(profile.level, 1))
+      : Math.max(1, toFiniteNumber(snapshot.level, domLevel));
+
+    const xp = hasOwn(profile, 'xp')
+      ? Math.max(0, toFiniteNumber(profile.xp, 0))
+      : Math.max(0, toFiniteNumber(snapshot.xp, domXp));
+
+    let badges = domBadges;
+    if (hasOwn(profile, 'badges') && Number.isFinite(Number(profile.badges))) {
+      badges = Math.max(0, Number(profile.badges));
+    } else if (hasOwn(profile, 'visited_places')) {
+      badges = Math.max(0, countVisitedPlaces(profile.visited_places));
+    } else if (Number.isFinite(Number(snapshot.badges))) {
+      badges = Math.max(0, Number(snapshot.badges));
+    }
+
+    const avatarUrl = typeof profile.avatar_url === 'string' && profile.avatar_url.trim()
+      ? profile.avatar_url.trim()
+      : (typeof snapshot.avatar_url === 'string' && snapshot.avatar_url.trim() ? snapshot.avatar_url.trim() : '');
+
+    return { level, xp, badges, avatarUrl };
+  }
+
+  function syncMetricFields(scope, state = getState()) {
+    if (!(scope instanceof HTMLElement)) {
+      return;
+    }
+
+    const { level, xp, badges, avatarUrl } = getHeaderStats(scope, state);
+    const levelEl = scope.querySelector('#headerLevelNumber');
+    const xpEl = scope.querySelector('#headerXpPoints');
+    const xpFillEl = scope.querySelector('#headerXpFill');
+    const badgesEl = scope.querySelector('#headerBadgesCount');
+    const triggerAvatar = scope.querySelector('#headerUserAvatar');
+    const menuAvatar = scope.querySelector('[data-compact-user-avatar]');
+
+    if (levelEl instanceof HTMLElement) {
+      levelEl.textContent = String(level);
+    }
+
+    if (xpEl instanceof HTMLElement) {
+      xpEl.textContent = String(xp);
+    }
+
+    if (badgesEl instanceof HTMLElement) {
+      badgesEl.textContent = String(badges);
+    }
+
+    if (xpFillEl instanceof HTMLElement) {
+      const XP_PER_LEVEL = 150;
+      const currentLevelXP = xp % XP_PER_LEVEL;
+      const progressPercent = Math.max(0, Math.min(100, Math.round((currentLevelXP / XP_PER_LEVEL) * 100)));
+      xpFillEl.style.width = `${progressPercent}%`;
+      xpFillEl.classList.toggle('is-width-zero', progressPercent <= 0);
+    }
+
+    if (avatarUrl) {
+      if (triggerAvatar instanceof HTMLImageElement) {
+        triggerAvatar.src = avatarUrl;
+      }
+      if (menuAvatar instanceof HTMLImageElement) {
+        menuAvatar.src = avatarUrl;
+      }
+    }
   }
 
   function bindProfileMenus() {
@@ -685,6 +867,14 @@
     menuListenersBound = true;
 
     document.addEventListener('click', (event) => {
+      const closeButton = event.target instanceof Element
+        ? event.target.closest(SELECTORS.close)
+        : null;
+      if (closeButton instanceof HTMLElement) {
+        closeAllMenus();
+        return;
+      }
+
       const trigger = event.target instanceof Element
         ? event.target.closest(SELECTORS.trigger)
         : null;
@@ -720,34 +910,10 @@
     });
   }
 
-  function getDisplayName(state) {
-    const profile = state?.profile || {};
-    const user = state?.session?.user || {};
-    const metadata = user?.user_metadata || {};
-
-    const candidates = [
-      profile.name,
-      profile.username,
-      metadata.full_name,
-      metadata.name,
-      metadata.display_name,
-      metadata.username,
-      user.email,
-    ];
-
-    for (const candidate of candidates) {
-      if (typeof candidate === 'string' && candidate.trim()) {
-        return candidate.trim();
-      }
-    }
-
-    return getText('header.profileLabel', 'My profile');
-  }
-
   function getStatusText(state) {
-    const profile = state?.profile || {};
-    const level = Number.isFinite(Number(profile.level)) ? Math.max(1, Number(profile.level)) : 1;
-    const badges = Number.isFinite(Number(profile.badges)) ? Math.max(0, Number(profile.badges)) : 0;
+    const metrics = getHeaderStats(document.querySelector(SELECTORS.compactHeader), state);
+    const level = metrics.level;
+    const badges = metrics.badges;
     const isPl = getLanguage() === 'pl';
     return isPl ? `Poziom ${level} • ${badges} odznak` : `Level ${level} • ${badges} badges`;
   }
@@ -766,7 +932,7 @@
     const triggerStatus = trigger?.querySelector('.profile-status');
 
     const displayName = getDisplayName(state);
-    const statusText = triggerStatus?.textContent?.trim() || getStatusText(state);
+    const statusText = getStatusText(state);
 
     if (triggerName instanceof HTMLElement) {
       triggerName.textContent = displayName;
@@ -783,6 +949,8 @@
     if (menuAvatar instanceof HTMLImageElement && triggerAvatar instanceof HTMLImageElement && triggerAvatar.getAttribute('src')) {
       menuAvatar.setAttribute('src', triggerAvatar.getAttribute('src'));
     }
+
+    syncMetricFields(profile.closest(SELECTORS.compactHeader) || profile, state);
   }
 
   async function loadAccessiblePartnersFallback(sb) {
@@ -811,30 +979,36 @@
     return Array.isArray(data) ? data : [];
   }
 
-  async function lookupPartnerAccess() {
+  async function lookupPartnerAccess(options = {}) {
     const state = getState();
     const userId = String(state?.session?.user?.id || '').trim();
-    const links = Array.from(document.querySelectorAll(SELECTORS.partnerLink));
+    const force = options.force === true;
 
-    if (!links.length) return false;
+    if (!document.querySelector(SELECTORS.partnerLink)) return false;
 
     if (!userId) {
-      partnerLookupUserId = '';
-      partnerAccess = false;
-      links.forEach((link) => setHidden(link, true));
+      resetPartnerAccessCache();
       return false;
     }
 
-    if (partnerLookupPromise && partnerLookupUserId === userId) {
+    const sameUser = partnerLookupUserId === userId;
+
+    if (force && sameUser) {
+      partnerLookupPromise = null;
+      partnerLookupResolved = false;
+    }
+
+    if (partnerLookupPromise && sameUser && !force) {
       return partnerLookupPromise;
     }
 
-    if (partnerLookupUserId === userId) {
-      links.forEach((link) => setHidden(link, !partnerAccess));
+    if (sameUser && partnerLookupResolved && !force) {
+      document.querySelectorAll(SELECTORS.partnerLink).forEach((link) => setHidden(link, !partnerAccess));
       return partnerAccess;
     }
 
     partnerLookupUserId = userId;
+    const lookupNonce = ++partnerLookupNonce;
     partnerLookupPromise = (async () => {
       try {
         const sb = typeof window.getSupabase === 'function' ? window.getSupabase() : null;
@@ -867,11 +1041,48 @@
         partnerAccess = false;
         return false;
       } finally {
-        links.forEach((link) => setHidden(link, !partnerAccess));
+        if (lookupNonce !== partnerLookupNonce || partnerLookupUserId !== userId) {
+          return;
+        }
+        partnerLookupResolved = true;
+        document.querySelectorAll(SELECTORS.partnerLink).forEach((link) => setHidden(link, !partnerAccess));
       }
     })();
 
     return partnerLookupPromise;
+  }
+
+  async function refreshPartnerAccessWhenReady({ force = false, retries = 1, delayMs = 650 } = {}) {
+    const ticket = ++partnerRefreshTicket;
+    const userId = String(getState()?.session?.user?.id || '').trim();
+
+    if (!userId) {
+      resetPartnerAccessCache();
+      return false;
+    }
+
+    if (typeof window.waitForAuthReady === 'function') {
+      try {
+        await Promise.race([
+          Promise.resolve().then(() => window.waitForAuthReady()),
+          new Promise((resolve) => window.setTimeout(resolve, 2500)),
+        ]);
+      } catch (_error) {}
+    }
+
+    let hasAccess = await lookupPartnerAccess({ force });
+    let attempt = 0;
+
+    while (!hasAccess && attempt < retries) {
+      if (ticket !== partnerRefreshTicket || String(getState()?.session?.user?.id || '').trim() !== userId) {
+        return false;
+      }
+      attempt += 1;
+      await new Promise((resolve) => window.setTimeout(resolve, delayMs));
+      hasAccess = await lookupPartnerAccess({ force: true });
+    }
+
+    return hasAccess;
   }
 
   function enforceAuthVisibility(root, state = getState()) {
@@ -902,11 +1113,18 @@
       return;
     }
 
+    const alreadyCompactMarkup = root.classList.contains('nav-modern--compact')
+      && root.querySelector(SELECTORS.compactProfile)
+      && !root.querySelector(SELECTORS.oldStats);
+
     root.classList.add('nav-modern--compact');
     root.dataset.compactUpgraded = 'true';
 
-    ensureAuthActions(topActions);
-    ensureCompactProfile(root, top, topActions);
+    if (!alreadyCompactMarkup) {
+      ensureAuthActions(topActions);
+      ensureCompactProfile(root, top, topActions);
+    }
+
     normalizeBranding(root);
     enforceAuthVisibility(root);
   }
@@ -926,12 +1144,12 @@
     });
 
     if (state?.session?.user) {
-      void lookupPartnerAccess();
+      void refreshPartnerAccessWhenReady({ force: !partnerLookupResolved, retries: 1 });
       return;
     }
 
+    resetPartnerAccessCache();
     closeAllMenus();
-    document.querySelectorAll(SELECTORS.partnerLink).forEach((link) => setHidden(link, true));
   }
 
   function init() {
@@ -946,13 +1164,30 @@
     ensureSupportScripts();
     syncCompactHeader();
 
+    if (getState()?.session?.user?.id) {
+      void refreshPartnerAccessWhenReady({ force: true, retries: 1 });
+    }
+
     document.addEventListener('ce-auth:state', (event) => {
-      syncCompactHeader(event?.detail || getState());
+      const state = event?.detail || getState();
+      syncCompactHeader(state);
+      if (state?.session?.user?.id) {
+        void refreshPartnerAccessWhenReady({ force: true, retries: 2, delayMs: 550 });
+      } else {
+        resetPartnerAccessCache();
+      }
     });
 
     document.addEventListener('wakacjecypr:languagechange', () => {
       normalizeBranding();
       syncCompactHeader();
+    });
+
+    document.addEventListener('ce:header-stats', () => {
+      syncCompactHeader();
+      if (getState()?.session?.user?.id && !partnerAccess) {
+        void refreshPartnerAccessWhenReady({ force: true, retries: 1, delayMs: 450 });
+      }
     });
   }
 

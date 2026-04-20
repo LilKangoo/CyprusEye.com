@@ -161,28 +161,36 @@ function displayProfileHeader(profile) {
  * Update meta tags for SEO with user data
  */
 function updateMetaTags(username, profile) {
+  const lang = String(window.appI18n?.language || document.documentElement?.lang || 'pl').toLowerCase();
+  const isEnglish = lang.startsWith('en');
+  const brand = 'CyprusEye Save & Travel';
+
   // Update page title
-  document.title = `${username} - Profil CyprusEye Quest`;
+  document.title = isEnglish ? `${username} - ${brand} profile` : `${username} - Profil ${brand}`;
   
   // Update meta description
   const metaDesc = document.querySelector('meta[name="description"]');
   if (metaDesc) {
     metaDesc.setAttribute('content', 
-      `Profil użytkownika ${username} w CyprusEye Quest. Poziom ${profile.level || 1}, ${profile.xp || 0} XP doświadczenia.`
+      isEnglish
+        ? `User profile of ${username} in ${brand}. Level ${profile.level || 1}, ${profile.xp || 0} XP earned.`
+        : `Profil użytkownika ${username} w ${brand}. Poziom ${profile.level || 1}, ${profile.xp || 0} XP doświadczenia.`
     );
   }
   
   // Update Open Graph title
   const ogTitle = document.querySelector('meta[property="og:title"]');
   if (ogTitle) {
-    ogTitle.setAttribute('content', `${username} - Profil CyprusEye Quest`);
+    ogTitle.setAttribute('content', isEnglish ? `${username} - ${brand} profile` : `${username} - Profil ${brand}`);
   }
   
   // Update Open Graph description
   const ogDesc = document.querySelector('meta[property="og:description"]');
   if (ogDesc) {
     ogDesc.setAttribute('content', 
-      `Zobacz statystyki użytkownika ${username} w CyprusEye Quest: poziom ${profile.level || 1}, ${profile.xp || 0} punktów doświadczenia.`
+      isEnglish
+        ? `See ${username}'s ${brand} stats: level ${profile.level || 1}, ${profile.xp || 0} XP earned.`
+        : `Zobacz statystyki użytkownika ${username} w ${brand}: poziom ${profile.level || 1}, ${profile.xp || 0} punktów doświadczenia.`
     );
   }
   

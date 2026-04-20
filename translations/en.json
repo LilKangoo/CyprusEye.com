@@ -577,10 +577,10 @@
       "ogDescription": "We could not find the page you were looking for. Return to the homepage or browse the site map."
     },
     "advertise": {
-      "title": "CyprusEye – Advertising partnerships",
-      "description": "Partner with CyprusEye advertising to reach travellers planning holidays in Cyprus.",
-      "ogTitle": "CyprusEye – Advertising partnerships",
-      "ogDescription": "Work with CyprusEye to reach thousands of travellers using our guides and services."
+      "title": "Partner with CyprusEye | Premium plans for tours and accommodation",
+      "description": "Present your tours or accommodation across CyprusEye and WakacjeCypr, access the partner panel, control your orders and unlock lifetime affiliate earning potential.",
+      "ogTitle": "Partner with CyprusEye | Premium plans for tours and accommodation",
+      "ogDescription": "Explore 4 partner packages, featured placement options, partner panel access and lifetime affiliate earning potential in the CyprusEye ecosystem."
     },
     "cruise": {
       "title": "CyprusEye – Private cruises in Cyprus",
@@ -2940,28 +2940,299 @@
   },
   "advertise": {
     "overline": "CyprusEye",
-    "title": "Advertising partnerships",
+    "title": "Partner plans",
     "back": "← Back to homepage",
     "hero": {
       "badge": "Premium partners",
-      "title": "Reach travellers before they land in Cyprus",
-      "description": "We publish guides, task lists, and coupons used by thousands of Polish and international travellers. Complete the form and our team will prepare a package tailored to your brand."
+      "title": "Grow sales inside the CyprusEye travel ecosystem",
+      "description": "Join the CyprusEye / WakacjeCypr ecosystem and present your service to travellers who are actively planning their Cyprus trip, comparing offers and getting ready to book.",
+      "primaryCta": "View packages",
+      "secondaryCta": "Apply for partnership",
+      "highlights": {
+        "visibility": "Visibility on CyprusEye.com and WakacjeCypr.com.",
+        "dashboard": "Access to the partner panel and control over your own orders.",
+        "facebook": "Optional individual promotion on our Facebook groups and social profiles.",
+        "affiliate": "An extra profit layer through affiliate links and lifetime earning potential."
+      }
     },
     "stats": {
-      "group": "members in the CyprusEye.com community",
+      "group": "members in the WakacjeCypr community",
       "guides": "active themed guides",
       "languages": "content languages"
     },
-    "form": {
-      "title": "Introduce your brand",
-      "subtitle": "Tell us about your service and we will prepare a visibility proposal across CyprusEye.com.",
-      "name": "Full name*",
-      "email": "Email address*",
-      "service": "Brand or service name",
-      "message": "Message*",
-      "submit": "Send enquiry"
+    "ecosystem": {
+      "badge": "CyprusEye ecosystem",
+      "title": "More than a standard ad placement.",
+      "description": "The partner becomes visible where the user is actually planning the trip, choosing services, comparing options and moving towards a booking.",
+      "steps": {
+        "plan": {
+          "title": "1. Trip planning",
+          "description": "The traveller lands on guides, task lists, blog articles and planning tools."
+        },
+        "discovery": {
+          "title": "2. Service discovery",
+          "description": "They browse recommendations, accommodation, trips, transport and other services inside one ecosystem."
+        },
+        "control": {
+          "title": "3. Partner-side control",
+          "description": "The partner manages visibility, links and incoming orders from one panel."
+        },
+        "affiliate": {
+          "title": "4. Extra earning layer",
+          "description": "Besides promoting your own service, you can additionally earn through affiliate links across the whole ecosystem."
+        }
+      }
     },
-    "footer": "We collaborate with transport providers, hotels, attractions, and lifestyle brands. We will make sure your offer is visible to travellers choosing Cyprus."
+    "why": {
+      "badge": "Why it is worth it",
+      "title": "A partnership designed around real commercial value.",
+      "description": "The packages are built around actual product capabilities: service visibility, order control, additional promotion and affiliate monetisation.",
+      "cards": {
+        "visibility": {
+          "title": "Service visibility",
+          "description": "Your offer is visible where travellers genuinely look for services before arrival and during their stay."
+        },
+        "ecosystem": {
+          "title": "Presence inside the travel ecosystem",
+          "description": "This is not just a banner. Your business becomes part of guides, recommendations and the trip-planning journey."
+        },
+        "orders": {
+          "title": "Order control",
+          "description": "The partner panel helps you track your own orders and react faster to real leads."
+        },
+        "featured": {
+          "title": "Featured placement",
+          "description": "Higher plans increase visibility and reduce competing offers in the same category or location."
+        },
+        "social": {
+          "title": "Extra promotion",
+          "description": "Every package includes the option of individual promotion on our Facebook groups and social profiles."
+        },
+        "affiliate": {
+          "title": "Lifetime earning potential",
+          "description": "Besides promoting your own offer, you can earn on services available in the wider CyprusEye ecosystem."
+        }
+      }
+    },
+    "platform": {
+      "badge": "How partner presence works",
+      "title": "Your offer becomes part of the customer decision flow, not a separate add-on.",
+      "description": "CyprusEye users plan their trip, compare accommodation, transport, experiences and recommendations. This places your service where the buying decision actually happens.",
+      "points": {
+        "discovery": "Presentation of your services across CyprusEye.com and WakacjeCypr.com.",
+        "partnerPanel": "Access to the partner panel for visibility management and sales links.",
+        "orders": "Direct control over your own orders and incoming leads.",
+        "affiliate": "Affiliate access as an additional earning layer on services available in our ecosystem."
+      },
+      "cards": {
+        "presentation": {
+          "title": "Offer presentation",
+          "description": "Your service can appear in recommendation areas, category pages and planning-focused content."
+        },
+        "operations": {
+          "title": "Operational convenience",
+          "description": "The partner panel gives fast access to links, orders and day-to-day sales actions."
+        },
+        "retention": {
+          "title": "Retention and affiliate revenue",
+          "description": "The value does not end with one placement. You can build an ongoing affiliate income channel."
+        }
+      }
+    },
+    "packages": {
+      "badge": "Subscription packages",
+      "title": "Choose the visibility level that matches your brand.",
+      "description": "Every package gives access to the ecosystem, partner panel and affiliate system. The difference lies in placement strength and competition limits.",
+      "monthly": "/ month",
+      "cta": "Choose package",
+      "50": {
+        "label": "50€ / month",
+        "title": "Entry into the ecosystem",
+        "description": "A starter package for partners who want visibility plus immediate access to the partner panel and affiliate options.",
+        "features": {
+          "visibility": "Promotion inside recommendations on CyprusEye.com and WakacjeCypr.com.",
+          "panel": "Access to the partner panel.",
+          "orders": "Control over your own orders.",
+          "affiliate": "Affiliate access and lifetime earning potential across services in the ecosystem.",
+          "social": "Optional individual promotion on our Facebook groups and social profiles."
+        }
+      },
+      "100": {
+        "label": "100€ / month",
+        "title": "Stronger exposure",
+        "description": "Everything from the 50€ package plus stronger positioning inside featured recommendation areas.",
+        "features": {
+          "base": "Everything from the 50€ package.",
+          "featured": "Featured placement inside recommended places on our websites.",
+          "social": "Optional individual promotion on our Facebook groups and social profiles."
+        }
+      },
+      "250": {
+        "label": "250€ / month",
+        "title": "Featured placement with limited competition",
+        "description": "For brands that want stronger visibility and a reduced number of competing partners in the same category and location.",
+        "features": {
+          "base": "Everything from the 100€ package.",
+          "featured": "Featured placement.",
+          "competition": "Minimal competition in your category and location.",
+          "social": "Optional individual promotion on our Facebook groups and social profiles."
+        },
+        "note": "Business logic example: if a partner has accommodation in Ayia Napa, we show at most one additional partner in the same category and location."
+      },
+      "450": {
+        "label": "450€ / month",
+        "title": "Maximum exposure without competition",
+        "description": "The strongest option for partners who want top placement and no competing partner shown in the same category and nearby area.",
+        "features": {
+          "base": "Everything from the 250€ package.",
+          "featured": "Featured placement.",
+          "exclusive": "No competition in the same category and area on our website.",
+          "social": "Optional individual promotion on our Facebook groups and social profiles."
+        },
+        "note": "Business logic example: if a partner has accommodation in Ayia Napa, no other partner from the same category is shown in that location."
+      }
+    },
+    "affiliate": {
+      "badge": "Affiliate layer",
+      "title": "Promoting your own service is only one part of the model.",
+      "description": "Every partner package includes affiliate access. This means your brand can generate additional income on services available across the CyprusEye ecosystem.",
+      "points": {
+        "access": "Affiliate access is included in the partner package.",
+        "lifetime": "Lifetime earning potential on services available in the ecosystem.",
+        "links": "Ready-to-use sales links and materials available through the partner panel."
+      },
+      "cardBadge": "Learn more",
+      "cardTitle": "How does the CyprusEye affiliate system work?",
+      "cardDescription": "We explain the affiliate logic in a dedicated blog article. The button below automatically points to the correct language version.",
+      "cta": "Read about affiliate",
+      "secondaryCta": "Go to the form"
+    },
+    "fit": {
+      "badge": "Who it is for",
+      "title": "Two main partner models.",
+      "description": "At the moment the partnership flow supports two main partner types: tours and accommodation.",
+      "cta": "Choose this type",
+      "tours": {
+        "title": "Tours partner",
+        "description": "For tour operators and experience providers who want to promote their offer and also benefit from affiliate sales.",
+        "points": {
+          "offer": "Presentation of tours and experiences.",
+          "languages": "Space for languages and service area details.",
+          "panel": "Partner panel, direct links and order control."
+        }
+      },
+      "accommodation": {
+        "title": "Accommodation partner",
+        "description": "For accommodation providers who want more visibility, reduced competition and better lead handling.",
+        "points": {
+          "offer": "Accommodation visibility inside the travel ecosystem.",
+          "location": "A model based on category and location.",
+          "panel": "Partner panel, order control and affiliate access."
+        }
+      }
+    },
+    "faq": {
+      "badge": "FAQ",
+      "title": "Most common partnership questions.",
+      "description": "The answers below are based on the current partner model and the package structure shown on this page.",
+      "items": {
+        "scope": {
+          "question": "What is included in every package?",
+          "answer": "Every package includes visibility inside the ecosystem, access to the partner panel, control over your own orders, affiliate access and the option of individual promotion on our Facebook groups and social profiles."
+        },
+        "difference": {
+          "question": "What is the difference between 250€ and 450€?",
+          "answer": "The 250€ package reduces competition in your category and location to a minimum. The 450€ package gives featured placement and no competing partner shown in the same category and nearby area on our website."
+        },
+        "singleService": {
+          "question": "Can I promote just one service?",
+          "answer": "Yes. The form is designed to submit one specific brand, property or service. During follow-up we can refine the final scope and the best package level."
+        },
+        "affiliate": {
+          "question": "Is affiliate an extra income option?",
+          "answer": "Yes. Affiliate works as an additional earning layer on top of promoting your own service and is part of the overall partner model."
+        },
+        "apply": {
+          "question": "How do I apply?",
+          "answer": "Choose a package, select partner type and complete the form. After reviewing the enquiry, we will return with a matching partnership proposal."
+        },
+        "partnerType": {
+          "question": "Can I choose tours or accommodation?",
+          "answer": "Yes. The current form supports two partner types: Tours and Accommodation. The additional fields adjust to the type you select."
+        }
+      }
+    },
+    "form": {
+      "badge": "Partner form",
+      "title": "Send your brand into the CyprusEye ecosystem.",
+      "subtitle": "Choose partner type, package and the key details about your service. We will come back with a partnership proposal tailored to your offer.",
+      "feedback": {
+        "success": "Thank you. We will contact you regarding the partnership.",
+        "error": "The form could not be sent. Please try again."
+      },
+      "summary": {
+        "packageLabel": "Selected package",
+        "packageEmpty": "Not selected yet",
+        "typeLabel": "Partner type",
+        "typeEmpty": "Choose partner type"
+      },
+      "partnerTypes": {
+        "tours": "Tours",
+        "accommodation": "Accommodation"
+      },
+      "packages": {
+        "50": "50€ / month",
+        "100": "100€ / month",
+        "250": "250€ / month",
+        "450": "450€ / month"
+      },
+      "fields": {
+        "partnerType": "Partner type*",
+        "package": "Selected package*",
+        "service": "Company / property / brand name*",
+        "name": "Contact person full name*",
+        "email": "Email address*",
+        "phone": "Phone / WhatsApp",
+        "location": "Location*",
+        "website": "Website / social media",
+        "serviceDescription": "Short service description*",
+        "tourTypes": "Tour types",
+        "tourLanguages": "Languages",
+        "tourArea": "Service area",
+        "accommodationType": "Property type",
+        "accommodationCapacity": "Capacity / scale of offer",
+        "message": "Additional details"
+      },
+      "placeholders": {
+        "partnerType": "Choose partner type",
+        "package": "Choose package",
+        "service": "For example: your property or brand name",
+        "name": "Full name",
+        "email": "contact@yourbrand.com",
+        "phone": "+357...",
+        "location": "For example: Ayia Napa, Paphos, Larnaca",
+        "website": "https://...",
+        "serviceDescription": "Explain what you offer and who the service is for.",
+        "tourTypes": "For example: private, group, photo tours",
+        "tourLanguages": "For example: PL, EN",
+        "tourArea": "For example: western Cyprus, Ayia Napa area",
+        "accommodationType": "For example: apartment, villa, hotel",
+        "accommodationCapacity": "For example: 12 apartments or 4 guests",
+        "message": "Additional expectations, notes or collaboration context."
+      },
+      "toursPanelTitle": "Additional information for tours partners",
+      "accommodationPanelTitle": "Additional information for accommodation partners",
+      "hints": {
+        "package": "Clicking a package card above selects it here automatically.",
+        "type": "Once you choose the partner type, we will reveal fields tailored to that offer.",
+        "tours": "Add your tour types, languages and service area so we can match the visibility setup.",
+        "accommodation": "Add the property type, location and scale of the offer so we can match the visibility model.",
+        "trust": "After you send the form, we will return with a proposal matched to the selected package and partner type."
+      },
+      "submit": "Send enquiry",
+      "affiliateCta": "Read about affiliate"
+    },
+    "footer": "We collaborate with transport providers, hotels, attractions and lifestyle brands. We make sure your offer becomes visible to travellers choosing Cyprus."
   },
   "cruise": {
     "overline": "CyprusEye",

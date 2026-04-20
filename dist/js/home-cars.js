@@ -29,6 +29,10 @@ function text(pl, en) {
   return getLang() === 'en' ? en : pl;
 }
 
+function getSaveLabel() {
+  return text('Zapisz', 'Save');
+}
+
 function escapeHtml(unsafe) {
   if (!unsafe) return '';
   return unsafe
@@ -602,8 +606,8 @@ function renderHomeCars() {
           data-ce-save="1"
           data-item-type="car"
           data-ref-id="${escapeHtml(car.id)}"
-          aria-label="Zapisz"
-          title="Zapisz"
+          aria-label="${getSaveLabel()}"
+          title="${getSaveLabel()}"
           onclick="event.preventDefault(); event.stopPropagation();"
         >☆</button>
         ${imageIsPanorama ? '<span class="ce-media-badge ce-media-badge--under-star">360°</span>' : ''}
