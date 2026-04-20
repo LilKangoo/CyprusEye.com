@@ -78,8 +78,7 @@ body.standalone-body[data-seo-page='notFound'] {
   justify-self: end;
 }
 
-.nav-modern--compact .compact-header__profile[data-auth='user-only'],
-.nav-modern--compact [data-auth='logout'] {
+.nav-modern--compact .compact-header__profile[data-auth='user-only'] {
   display: none !important;
 }
 
@@ -96,6 +95,10 @@ html[data-auth-state='authenticated'] .nav-modern--compact .compact-header__prof
   display: block !important;
 }
 
+html[data-auth-state='authenticated'] .nav-modern--compact [data-auth='logout'] {
+  display: inline-flex !important;
+}
+
 html[data-auth-state='authenticated'] .nav-modern--compact .nav-modern__auth,
 html[data-auth-state='authenticated'] .nav-modern--compact [data-auth='anon-only'] {
   display: none !important;
@@ -103,7 +106,10 @@ html[data-auth-state='authenticated'] .nav-modern--compact [data-auth='anon-only
 
 html[data-auth-state='anonymous'] .nav-modern--compact .compact-header__profile[data-auth='user-only'],
 html[data-auth-state='guest'] .nav-modern--compact .compact-header__profile[data-auth='user-only'],
-html[data-auth-state='loading'] .nav-modern--compact .compact-header__profile[data-auth='user-only'] {
+html[data-auth-state='loading'] .nav-modern--compact .compact-header__profile[data-auth='user-only'],
+html[data-auth-state='anonymous'] .nav-modern--compact [data-auth='logout'],
+html[data-auth-state='guest'] .nav-modern--compact [data-auth='logout'],
+html[data-auth-state='loading'] .nav-modern--compact [data-auth='logout'] {
   display: none !important;
 }
 
