@@ -98,6 +98,25 @@
     return Number.isFinite(number) ? number : fallback;
   }
 
+  function hasOwn(source, key) {
+    return !!source && typeof source === 'object' && Object.prototype.hasOwnProperty.call(source, key);
+  }
+
+  function readMetricFromDom(scope, selector, fallback) {
+    if (!(scope instanceof HTMLElement)) {
+      return fallback;
+    }
+    const element = scope.querySelector(selector);
+    if (!(element instanceof HTMLElement)) {
+      return fallback;
+    }
+    const raw = String(element.textContent || '').replace(/[^\d.-]/g, '').trim();
+    if (!raw) {
+      return fallback;
+    }
+    return toFiniteNumber(raw, fallback);
+  }
+
   function countVisitedPlaces(value) {
     if (Array.isArray(value)) {
       return value.filter(Boolean).length;
@@ -718,6 +737,10 @@
       const trigger = profile.querySelector(SELECTORS.trigger);
       const menu = profile.querySelector(SELECTORS.menu);
       if (trigger instanceof HTMLElement && menu instanceof HTMLElement) {
+        const activeElement = document.activeElement;
+        if (activeElement instanceof HTMLElement && menu.contains(activeElement)) {
+          trigger.focus({ preventScroll: true });
+        }
         trigger.setAttribute('aria-expanded', 'false');
         setHidden(menu, true);
       }
@@ -748,16 +771,33 @@
     return getText('header.profileLabel', 'My profile');
   }
 
-  function getHeaderStats(state) {
+  function getHeaderStats(scope, state = getState()) {
     const profile = state?.profile || {};
-    const level = Math.max(1, toFiniteNumber(profile.level, 1));
-    const xp = Math.max(0, toFiniteNumber(profile.xp, 0));
-    const badges = Number.isFinite(Number(profile.badges))
-      ? Math.max(0, Number(profile.badges))
-      : countVisitedPlaces(profile.visited_places);
+    const snapshot = window.__CE_HEADER_STATS_SNAPSHOT || {};
+    const domLevel = readMetricFromDom(scope, '#headerLevelNumber', 1);
+    const domXp = readMetricFromDom(scope, '#headerXpPoints', 0);
+    const domBadges = readMetricFromDom(scope, '#headerBadgesCount', 0);
+
+    const level = hasOwn(profile, 'level')
+      ? Math.max(1, toFiniteNumber(profile.level, 1))
+      : Math.max(1, toFiniteNumber(snapshot.level, domLevel));
+
+    const xp = hasOwn(profile, 'xp')
+      ? Math.max(0, toFiniteNumber(profile.xp, 0))
+      : Math.max(0, toFiniteNumber(snapshot.xp, domXp));
+
+    let badges = domBadges;
+    if (hasOwn(profile, 'badges') && Number.isFinite(Number(profile.badges))) {
+      badges = Math.max(0, Number(profile.badges));
+    } else if (hasOwn(profile, 'visited_places')) {
+      badges = Math.max(0, countVisitedPlaces(profile.visited_places));
+    } else if (Number.isFinite(Number(snapshot.badges))) {
+      badges = Math.max(0, Number(snapshot.badges));
+    }
+
     const avatarUrl = typeof profile.avatar_url === 'string' && profile.avatar_url.trim()
       ? profile.avatar_url.trim()
-      : '';
+      : (typeof snapshot.avatar_url === 'string' && snapshot.avatar_url.trim() ? snapshot.avatar_url.trim() : '');
 
     return { level, xp, badges, avatarUrl };
   }
@@ -767,7 +807,7 @@
       return;
     }
 
-    const { level, xp, badges, avatarUrl } = getHeaderStats(state);
+    const { level, xp, badges, avatarUrl } = getHeaderStats(scope, state);
     const levelEl = scope.querySelector('#headerLevelNumber');
     const xpEl = scope.querySelector('#headerXpPoints');
     const xpFillEl = scope.querySelector('#headerXpFill');
@@ -854,9 +894,9 @@
   }
 
   function getStatusText(state) {
-    const profile = state?.profile || {};
-    const level = Number.isFinite(Number(profile.level)) ? Math.max(1, Number(profile.level)) : 1;
-    const badges = Number.isFinite(Number(profile.badges)) ? Math.max(0, Number(profile.badges)) : 0;
+    const metrics = getHeaderStats(document.querySelector(SELECTORS.compactHeader), state);
+    const level = metrics.level;
+    const badges = metrics.badges;
     const isPl = getLanguage() === 'pl';
     return isPl ? `Poziom ${level} • ${badges} odznak` : `Level ${level} • ${badges} badges`;
   }
@@ -1063,6 +1103,10 @@
 
     document.addEventListener('wakacjecypr:languagechange', () => {
       normalizeBranding();
+      syncCompactHeader();
+    });
+
+    document.addEventListener('ce:header-stats', () => {
       syncCompactHeader();
     });
   }

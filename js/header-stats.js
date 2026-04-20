@@ -202,6 +202,27 @@
   // Cache elementów DOM
   let elements = null;
   let profileChannel = null;
+  let profileChannelUserId = '';
+
+  function teardownProfileRealtime(sb) {
+    if (!profileChannel) {
+      profileChannelUserId = '';
+      return;
+    }
+
+    try {
+      if (sb && typeof sb.removeChannel === 'function') {
+        sb.removeChannel(profileChannel);
+      } else if (typeof profileChannel.unsubscribe === 'function') {
+        profileChannel.unsubscribe();
+      }
+    } catch (error) {
+      console.warn('⚠️ Błąd podczas odpinania kanału profilu w headerze:', error);
+    }
+
+    profileChannel = null;
+    profileChannelUserId = '';
+  }
 
   function getElements() {
     if (elements) return elements;
@@ -235,6 +256,14 @@
     const xpValue = Math.max(0, toFiniteNumber(xp, 0));
     const levelValue = Math.max(1, toFiniteNumber(level, 1));
     const badgesValue = Math.max(0, toFiniteNumber(badges, 0));
+    const snapshot = {
+      xp: xpValue,
+      level: levelValue,
+      badges: badgesValue,
+      name: name || null,
+      avatar_url: avatar_url || null,
+    };
+    window.__CE_HEADER_STATS_SNAPSHOT = snapshot;
 
     console.log('📈 Aktualizuję statystyki headera:', { xp: xpValue, level: levelValue, badges: badgesValue, name });
 
@@ -282,6 +311,8 @@
     if (el.userAvatar && avatar_url) {
       el.userAvatar.src = avatar_url;
     }
+
+    document.dispatchEvent(new CustomEvent('ce:header-stats', { detail: snapshot }));
 
     console.log('✅ Statystyki headera zaktualizowane');
   }
@@ -371,13 +402,15 @@
         return;
       }
 
-      if (profileChannel && typeof profileChannel.unsubscribe === 'function') {
-        profileChannel.unsubscribe();
-        profileChannel = null;
+      if (profileChannel && profileChannelUserId === userId) {
+        return;
       }
 
+      teardownProfileRealtime(sb);
+
+      profileChannelUserId = userId;
       profileChannel = sb
-        .channel(`header-profile-rt-${userId}`)
+        .channel(`header-profile-rt-${userId}-${Date.now()}`)
         .on(
           'postgres_changes',
           { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` },
@@ -399,6 +432,8 @@
         .subscribe();
     } catch (error) {
       console.warn('⚠️ Nie udało się włączyć nasłuchu zmian profilu w headerze:', error);
+      profileChannel = null;
+      profileChannelUserId = '';
     }
   }
 
@@ -486,14 +521,7 @@
           await waitForAuthReady();
           await refreshStatsWithRetry({ attempts: 8, stepMs: 200, userTimeoutMs: 15000 });
         } else if (event === 'SIGNED_OUT') {
-          if (profileChannel && typeof profileChannel.unsubscribe === 'function') {
-            try {
-              profileChannel.unsubscribe();
-            } catch (e) {
-              console.warn('⚠️ Błąd podczas odpinania kanału profilu w headerze:', e);
-            }
-            profileChannel = null;
-          }
+          teardownProfileRealtime(sb);
           // Resetuj do wartości domyślnych
           updateHeaderStats({
             xp: 0,
