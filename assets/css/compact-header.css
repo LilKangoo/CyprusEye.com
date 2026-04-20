@@ -486,11 +486,15 @@ html[data-auth-state='loading'] .nav-modern--compact .compact-header__profile[da
 
   .nav-modern--compact .nav-modern__top-actions {
     display: grid !important;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.12fr);
     align-items: stretch;
     width: 100%;
     gap: 0.45rem;
     order: 2;
+  }
+
+  .nav-modern--compact .nav-modern__top-actions > * {
+    min-width: 0;
   }
 
   .nav-modern--compact .nav-modern__auth {
@@ -540,11 +544,24 @@ html[data-auth-state='loading'] .nav-modern--compact .compact-header__profile[da
   }
 
   .nav-modern--compact .language-pill-group {
-    width: auto;
-    justify-self: end;
-    max-width: 100%;
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    justify-self: stretch;
+    max-width: none;
+    min-width: 0;
     grid-column: 3;
     grid-row: 1;
+    gap: 0.18rem;
+    padding: 0.18rem;
+    align-items: stretch;
+  }
+
+  .nav-modern--compact .language-pill-group .language-pill {
+    width: 100%;
+    min-width: 0;
+    justify-content: center;
+    padding-inline: 0.42rem;
   }
 
   .nav-modern--compact .compact-profile__menu {
@@ -608,7 +625,7 @@ html[data-auth-state='loading'] .nav-modern--compact .compact-header__profile[da
   }
 
   .nav-modern--compact .nav-modern__top-actions {
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.12fr);
   }
 
   .nav-modern--compact .nav-modern__top {
@@ -619,6 +636,22 @@ html[data-auth-state='loading'] .nav-modern--compact .compact-header__profile[da
     grid-column: 1 / -1;
     display: grid !important;
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .nav-modern--compact .nav-modern__sos,
+  .nav-modern--compact #btnOpenCart {
+    font-size: 0.86rem;
+    padding-inline: 0.45rem;
+  }
+
+  .nav-modern--compact .language-pill-group {
+    height: 100%;
+  }
+
+  .nav-modern--compact .language-pill-group .language-pill {
+    min-height: 100%;
+    font-size: 0.72rem;
+    padding-inline: 0.32rem;
   }
 
   .nav-modern--compact .compact-profile__menu-header {
