@@ -151,6 +151,8 @@ async function sendContactNotification(entry) {
     ['Obszar działania', entry.tourArea],
     ['Rodzaj obiektu', entry.accommodationType],
     ['Liczba miejsc / skala oferty', entry.accommodationCapacity],
+    ['Kategoria miejsca / usługi', entry.localServiceCategory],
+    ['Rabat / benefit / oferta', entry.localServiceOffer],
     ['Język interfejsu', entry.language],
   ].filter(([, value]) => typeof value === 'string' && value.trim());
 
@@ -794,6 +796,8 @@ async function handleContactForm(req, res) {
     const tourArea = sanitizeContactField(body?.tour_area, { maxLength: 240 });
     const accommodationType = sanitizeContactField(body?.accommodation_type, { maxLength: 140 });
     const accommodationCapacity = sanitizeContactField(body?.accommodation_capacity, { maxLength: 140 });
+    const localServiceCategory = sanitizeContactField(body?.local_service_category, { maxLength: 180 });
+    const localServiceOffer = sanitizeContactField(body?.local_service_offer, { maxLength: 240 });
 
     if (!name || !email) {
       const acceptHeader = req.headers.accept || '';
@@ -831,6 +835,8 @@ async function handleContactForm(req, res) {
       tourArea: tourArea || null,
       accommodationType: accommodationType || null,
       accommodationCapacity: accommodationCapacity || null,
+      localServiceCategory: localServiceCategory || null,
+      localServiceOffer: localServiceOffer || null,
       userAgent: req.headers['user-agent'] || null,
       referer: req.headers.referer || null,
       createdAt: new Date().toISOString(),

@@ -577,10 +577,10 @@
       "ogDescription": "We could not find the page you were looking for. Return to the homepage or browse the site map."
     },
     "advertise": {
-      "title": "Partner with CyprusEye | Premium plans for tours and accommodation",
-      "description": "Present your tours or accommodation across CyprusEye and WakacjeCypr, access the partner panel, control your orders and unlock lifetime affiliate earning potential.",
-      "ogTitle": "Partner with CyprusEye | Premium plans for tours and accommodation",
-      "ogDescription": "Explore 4 partner packages, featured placement options, partner panel access and lifetime affiliate earning potential in the CyprusEye ecosystem."
+      "title": "Partner with CyprusEye | Premium plans for tours, stays and local services",
+      "description": "Present tours, accommodation and local services across CyprusEye and WakacjeCypr, manage orders in the partner panel and unlock lifetime affiliate earning potential.",
+      "ogTitle": "Partner with CyprusEye | Premium plans for tours, stays and local services",
+      "ogDescription": "Explore 4 CyprusEye partner plans, Facebook promotion options, partner panel access and lifetime affiliate earning potential."
     },
     "cruise": {
       "title": "CyprusEye – Private cruises in Cyprus",
@@ -2944,15 +2944,15 @@
     "back": "← Back to homepage",
     "hero": {
       "badge": "Premium partners",
-      "title": "Grow sales inside the CyprusEye travel ecosystem",
-      "description": "Join the CyprusEye / WakacjeCypr ecosystem and present your service to travellers who are actively planning their Cyprus trip, comparing offers and getting ready to book.",
+      "title": "Present your service before travellers choose what to book in Cyprus.",
+      "description": "Join the CyprusEye / WakacjeCypr ecosystem and place your tours, accommodation, restaurants, wineries, shops and other local services in front of users who are already planning their stay.",
       "primaryCta": "View packages",
       "secondaryCta": "Apply for partnership",
       "highlights": {
         "visibility": "Visibility on CyprusEye.com and WakacjeCypr.com.",
         "dashboard": "Access to the partner panel and control over your own orders.",
         "facebook": "Optional individual promotion on our Facebook groups and social profiles.",
-        "affiliate": "An extra profit layer through affiliate links and lifetime earning potential."
+        "affiliate": "An extra revenue layer through affiliate links and lifetime earning potential."
       }
     },
     "stats": {
@@ -3039,16 +3039,50 @@
         }
       }
     },
+    "social": {
+      "badge": "Facebook promotion",
+      "title": "Add another visibility layer through our Facebook channels.",
+      "description": "Every package can be supported with individual promotion on our Facebook groups and on the WakacjeCypr.com profile. This gives your brand extra reach beyond the on-site ecosystem placement.",
+      "metrics": {
+        "views": "average organic views in 28 days on the WakacjeCypr.com profile.",
+        "channels": "Facebook channels available for partner promotion: 3 groups plus the main profile."
+      },
+      "channels": {
+        "group1": {
+          "badge": "Facebook group",
+          "title": "Community channel 1",
+          "description": "An additional channel for promoting services, special offers and highlighted places."
+        },
+        "group2": {
+          "badge": "Facebook group",
+          "title": "Community channel 2",
+          "description": "A space for increasing the visibility of partner offers and extending their reach."
+        },
+        "group3": {
+          "badge": "Facebook group",
+          "title": "Community channel 3",
+          "description": "A supplementary place for campaigns, discounts and ecosystem-related service promotions."
+        },
+        "profile": {
+          "badge": "Facebook profile",
+          "title": "WakacjeCypr.com",
+          "description": "The profile we use to promote partner services and publish content that generates real organic reach."
+        }
+      },
+      "openGroup": "Open group",
+      "openProfile": "View profile"
+    },
     "packages": {
       "badge": "Subscription packages",
-      "title": "Choose the visibility level that matches your brand.",
-      "description": "Every package gives access to the ecosystem, partner panel and affiliate system. The difference lies in placement strength and competition limits.",
+      "title": "Four clear tiers of visibility and category protection.",
+      "description": "Every package includes the ecosystem, partner panel, affiliate access and optional Facebook promotion. The difference lies in exposure strength and competition rules.",
       "monthly": "/ month",
       "cta": "Choose package",
       "50": {
-        "label": "50€ / month",
+        "eyebrow": "Starter tier",
+        "tagline": "For entering the ecosystem and getting the first sales tools in place.",
         "title": "Entry into the ecosystem",
-        "description": "A starter package for partners who want visibility plus immediate access to the partner panel and affiliate options.",
+        "description": "A base package for brands that want to become visible quickly and start using the partner panel, order flow and affiliate system.",
         "features": {
           "visibility": "Promotion inside recommendations on CyprusEye.com and WakacjeCypr.com.",
           "panel": "Access to the partner panel.",
@@ -3058,9 +3092,10 @@
         }
       },
       "100": {
-        "label": "100€ / month",
+        "eyebrow": "Featured tier",
+        "tagline": "For services that want stronger recommendation placement than the base tier.",
         "title": "Stronger exposure",
-        "description": "Everything from the 50€ package plus stronger positioning inside featured recommendation areas.",
+        "description": "Everything from the 50€ tier plus stronger positioning inside highlighted recommendation areas on our websites.",
         "features": {
           "base": "Everything from the 50€ package.",
           "featured": "Featured placement inside recommended places on our websites.",
@@ -3068,7 +3103,8 @@
         }
       },
       "250": {
-        "label": "250€ / month",
+        "eyebrow": "Limited competition",
+        "tagline": "For brands that want stronger local dominance in one category and location.",
         "title": "Featured placement with limited competition",
         "description": "For brands that want stronger visibility and a reduced number of competing partners in the same category and location.",
         "features": {
@@ -3080,7 +3116,8 @@
         "note": "Business logic example: if a partner has accommodation in Ayia Napa, we show at most one additional partner in the same category and location."
       },
       "450": {
-        "label": "450€ / month",
+        "eyebrow": "Exclusive tier",
+        "tagline": "For partners who want to be the only visible choice in their category nearby.",
         "title": "Maximum exposure without competition",
         "description": "The strongest option for partners who want top placement and no competing partner shown in the same category and nearby area.",
         "features": {
@@ -3109,8 +3146,8 @@
     },
     "fit": {
       "badge": "Who it is for",
-      "title": "Two main partner models.",
-      "description": "At the moment the partnership flow supports two main partner types: tours and accommodation.",
+      "title": "Three main partner paths.",
+      "description": "The current partnership flow supports tours, accommodation and local places or services shown inside recommendations and on the map.",
       "cta": "Choose this type",
       "tours": {
         "title": "Tours partner",
@@ -3128,6 +3165,15 @@
           "offer": "Accommodation visibility inside the travel ecosystem.",
           "location": "A model based on category and location.",
           "panel": "Partner panel, order control and affiliate access."
+        }
+      },
+      "localServices": {
+        "title": "Local services & places partner",
+        "description": "For restaurants, wineries, olive farms, shops and other local businesses that want to be shown on the map, in recommendations and in planning content.",
+        "points": {
+          "offer": "Visibility on the map, inside recommendations and across trip-planning content.",
+          "discount": "A place to promote a discount, benefit or special reason to visit your business first.",
+          "panel": "Partner panel, lead visibility and affiliate access as an extra revenue path."
         }
       }
     },
@@ -3157,8 +3203,12 @@
           "answer": "Choose a package, select partner type and complete the form. After reviewing the enquiry, we will return with a matching partnership proposal."
         },
         "partnerType": {
-          "question": "Can I choose tours or accommodation?",
-          "answer": "Yes. The current form supports two partner types: Tours and Accommodation. The additional fields adjust to the type you select."
+          "question": "Can I choose tours, accommodation or local services?",
+          "answer": "Yes. The current form supports three partner types: Tours, Accommodation, and Local services & places. The additional fields adjust to the type you select."
+        },
+        "local": {
+          "question": "Can I promote a restaurant, winery, olive farm or shop?",
+          "answer": "Yes. Local businesses can apply through the Local services & places path. This model is designed for recommended places on the island, special offers and businesses that want to attract travellers first."
         }
       }
     },
@@ -3178,7 +3228,8 @@
       },
       "partnerTypes": {
         "tours": "Tours",
-        "accommodation": "Accommodation"
+        "accommodation": "Accommodation",
+        "localServices": "Local services & places"
       },
       "packages": {
         "50": "50€ / month",
@@ -3189,7 +3240,7 @@
       "fields": {
         "partnerType": "Partner type*",
         "package": "Selected package*",
-        "service": "Company / property / brand name*",
+        "service": "Company / property / place name*",
         "name": "Contact person full name*",
         "email": "Email address*",
         "phone": "Phone / WhatsApp",
@@ -3201,12 +3252,14 @@
         "tourArea": "Service area",
         "accommodationType": "Property type",
         "accommodationCapacity": "Capacity / scale of offer",
+        "localServiceCategory": "Place or service category",
+        "localServiceOffer": "Discount / benefit / offer for users",
         "message": "Additional details"
       },
       "placeholders": {
         "partnerType": "Choose partner type",
         "package": "Choose package",
-        "service": "For example: your property or brand name",
+        "service": "For example: your property, place or brand name",
         "name": "Full name",
         "email": "contact@yourbrand.com",
         "phone": "+357...",
@@ -3218,15 +3271,19 @@
         "tourArea": "For example: western Cyprus, Ayia Napa area",
         "accommodationType": "For example: apartment, villa, hotel",
         "accommodationCapacity": "For example: 12 apartments or 4 guests",
+        "localServiceCategory": "For example: restaurant, winery, olive farm, shop",
+        "localServiceOffer": "For example: discount, voucher, tasting, bonus",
         "message": "Additional expectations, notes or collaboration context."
       },
       "toursPanelTitle": "Additional information for tours partners",
       "accommodationPanelTitle": "Additional information for accommodation partners",
+      "localServicesPanelTitle": "Additional information for local places and services",
       "hints": {
         "package": "Clicking a package card above selects it here automatically.",
         "type": "Once you choose the partner type, we will reveal fields tailored to that offer.",
         "tours": "Add your tour types, languages and service area so we can match the visibility setup.",
         "accommodation": "Add the property type, location and scale of the offer so we can match the visibility model.",
+        "localServices": "Add the place category and the discount, benefit or main reason why travellers should choose your business first.",
         "trust": "After you send the form, we will return with a proposal matched to the selected package and partner type."
       },
       "submit": "Send enquiry",
