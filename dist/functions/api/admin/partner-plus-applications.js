@@ -12,6 +12,11 @@ function normalizeEmail(value) {
   return String(value || '').trim().toLowerCase();
 }
 
+function isValidEmail(value) {
+  const email = normalizeEmail(value);
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -150,9 +155,9 @@ function buildAccountInviteEmail(application, request, env) {
   return { subject, text, html, signupUrl };
 }
 
-async function sendEmail(env, { to, subject, text, html }) {
+async function sendMailChannelsEmail(env, { to, subject, text, html }) {
   const recipient = normalizeEmail(to);
-  if (!recipient || !subject || (!text && !html)) {
+  if (!isValidEmail(recipient) || !subject || (!text && !html)) {
     throw new Error('Invalid email payload');
   }
 
@@ -179,8 +184,55 @@ async function sendEmail(env, { to, subject, text, html }) {
 
   if (!response.ok) {
     const details = await response.text().catch(() => '');
-    throw new Error(details || `Email send failed (${response.status})`);
+    throw new Error(details || `MailChannels failed (${response.status})`);
   }
+
+  return { channel: 'mailchannels' };
+}
+
+async function sendSupabaseInviteEmail(adminClient, email, redirectTo) {
+  const recipient = normalizeEmail(email);
+  if (!isValidEmail(recipient)) {
+    throw new Error('Invalid invite email');
+  }
+
+  const { error } = await adminClient.auth.admin.inviteUserByEmail(recipient, {
+    redirectTo,
+  });
+
+  if (error) throw error;
+  return { channel: 'supabase_auth_invite' };
+}
+
+async function sendPartnerPlusAccountInviteEmail(adminClient, env, emailPayload, application) {
+  const errors = [];
+
+  try {
+    return await sendMailChannelsEmail(env, {
+      to: application.email,
+      subject: emailPayload.subject,
+      text: emailPayload.text,
+      html: emailPayload.html,
+    });
+  } catch (error) {
+    errors.push(`MailChannels: ${error?.message || error}`);
+    console.error('[admin-partner-plus-applications] MailChannels invite failed:', error);
+  }
+
+  try {
+    return await sendSupabaseInviteEmail(adminClient, application.email, emailPayload.signupUrl);
+  } catch (error) {
+    errors.push(`Supabase Auth invite: ${error?.message || error}`);
+    console.error('[admin-partner-plus-applications] Supabase Auth invite failed:', error);
+  }
+
+  throw new Error(`Partner+ invite email failed. ${errors.join(' | ')}`);
+}
+
+function isMissingInviteTrackingColumnError(error) {
+  const message = String(error?.message || error?.details || error?.hint || '');
+  return error?.code === '42703'
+    || /account_invite_sent_at|account_invite_sent_to|column .* does not exist|schema cache/i.test(message);
 }
 
 async function requirePartnerPlusAdmin(request, env) {
@@ -292,13 +344,12 @@ export async function onRequestPost(context) {
     }
 
     if (action === 'send_account_invite') {
+      if (!isValidEmail(application.email)) {
+        return json({ error: 'Application has invalid e-mail address' }, 422);
+      }
+
       const emailPayload = buildAccountInviteEmail(application, request, env);
-      await sendEmail(env, {
-        to: application.email,
-        subject: emailPayload.subject,
-        text: emailPayload.text,
-        html: emailPayload.html,
-      });
+      const delivery = await sendPartnerPlusAccountInviteEmail(auth.adminClient, env, emailPayload, application);
 
       const now = new Date().toISOString();
       const { data: updated, error: updateError } = await auth.adminClient
@@ -312,9 +363,27 @@ export async function onRequestPost(context) {
         .select('*')
         .maybeSingle();
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        if (isMissingInviteTrackingColumnError(updateError)) {
+          console.warn('[admin-partner-plus-applications] invite sent but tracking columns are missing. Deploy migration 146.', updateError);
+          const rows = await attachMatchedProfiles(auth.adminClient, [application]);
+          return json({
+            ok: true,
+            data: rows[0] || application,
+            signup_url: emailPayload.signupUrl,
+            delivery_channel: delivery.channel,
+            warning: 'Invite sent, but tracking columns are missing. Deploy migration 146.',
+          });
+        }
+        throw updateError;
+      }
       const rows = await attachMatchedProfiles(auth.adminClient, updated ? [updated] : []);
-      return json({ ok: true, data: rows[0] || updated || application, signup_url: emailPayload.signupUrl });
+      return json({
+        ok: true,
+        data: rows[0] || updated || application,
+        signup_url: emailPayload.signupUrl,
+        delivery_channel: delivery.channel,
+      });
     }
 
     if (action === 'approve_partner_created') {
