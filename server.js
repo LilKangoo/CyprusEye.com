@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
+import { createClient } from '@supabase/supabase-js';
 import { SUPABASE_CONFIG } from './js/config.js';
 import {
   applySeoToHtml,
@@ -46,6 +47,7 @@ const SMTP_FROM = process.env.SMTP_FROM || 'WakacjeCypr Quest <no-reply@wakacjec
 
 let mailTransport = null;
 let mailTransportInitialized = false;
+let supabaseAdminClient = null;
 
 let cachedNotFoundPage = null;
 const translationCache = new Map();
@@ -252,6 +254,106 @@ async function sendAdminNotificationEmail(params) {
     text,
     html,
   });
+}
+
+function getSupabaseAdminClient() {
+  if (supabaseAdminClient) return supabaseAdminClient;
+
+  const supabaseUrl = process.env.SUPABASE_URL || SUPABASE_CONFIG.url;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  if (!supabaseUrl || !serviceKey) {
+    return null;
+  }
+
+  supabaseAdminClient = createClient(supabaseUrl, serviceKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+  return supabaseAdminClient;
+}
+
+async function enqueuePartnerPlusAdminNotification(adminClient, application) {
+  if (!adminClient || !application?.id) return false;
+
+  const recordId = String(application.id || '').trim();
+  const payload = {
+    category: 'partners',
+    event: 'partner_plus_application_created',
+    record_id: recordId,
+    table: 'partner_plus_applications',
+    record: application,
+  };
+
+  try {
+    const { error } = await adminClient.rpc('enqueue_admin_notification', {
+      p_category: 'partners',
+      p_event: 'partner_plus_application_created',
+      p_record_id: recordId,
+      p_table_name: 'partner_plus_applications',
+      p_payload: payload,
+      p_dedupe_key: `partner_plus_application_created:${recordId}`,
+    });
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Nie udało się dodać powiadomienia admina Partner+:', error);
+    return false;
+  }
+}
+
+async function persistPartnerPlusApplication(entry) {
+  const adminClient = getSupabaseAdminClient();
+  if (!adminClient) {
+    throw new Error('Brak SUPABASE_SERVICE_ROLE_KEY dla zapisu zgłoszenia Partner+.');
+  }
+
+  const { data, error } = await adminClient
+    .from('partner_plus_applications')
+    .insert({
+      source_context: entry.context || 'advertise-partner',
+      workflow_status: 'pending',
+      language: entry.language || null,
+      partner_type: entry.partnerType || null,
+      package_tier: entry.packageTier || null,
+      service: entry.service || 'Partner application',
+      name: entry.name,
+      email: entry.email,
+      phone: entry.phone || null,
+      location: entry.location || null,
+      website: entry.website || null,
+      service_description: entry.serviceDescription || null,
+      tour_types: entry.tourTypes || null,
+      tour_languages: entry.tourLanguages || null,
+      tour_area: entry.tourArea || null,
+      accommodation_type: entry.accommodationType || null,
+      accommodation_capacity: entry.accommodationCapacity || null,
+      local_service_category: entry.localServiceCategory || null,
+      local_service_offer: entry.localServiceOffer || null,
+      message: entry.message || null,
+      referer: entry.referer || null,
+      user_agent: entry.userAgent || null,
+    })
+    .select('*')
+    .single();
+
+  if (error) throw error;
+
+  if (data?.id) entry.id = data.id;
+  if (data?.created_at) entry.createdAt = data.created_at;
+
+  await enqueuePartnerPlusAdminNotification(adminClient, data || {
+    ...entry,
+    source_context: entry.context || 'advertise-partner',
+    partner_type: entry.partnerType || null,
+    package_tier: entry.packageTier || null,
+    service_description: entry.serviceDescription || null,
+    user_agent: entry.userAgent || null,
+    created_at: entry.createdAt,
+  });
+
+  return data;
 }
 
 async function ensureSpreadsheetFile() {
@@ -815,6 +917,23 @@ async function handleContactForm(req, res) {
       return;
     }
 
+    const isPartnerLead = context === 'advertise-partner';
+    if (isPartnerLead && (!partnerType || !packageTier || !service || !location || !serviceDescription)) {
+      const acceptHeader = req.headers.accept || '';
+      if (acceptHeader.includes('application/json')) {
+        return jsonResponse(res, 422, { error: 'Wypełnij wymagane pola zgłoszenia partnera.' });
+      }
+      const referer = req.headers.referer ? buildRedirectTarget(req.headers.referer) : null;
+      const target = referer ? `${referer}${referer.includes('?') ? '&' : '?'}error=1` : '/advertise.html?error=1';
+      applySecurityHeaders(res);
+      res.writeHead(303, {
+        Location: target,
+        'Cache-Control': 'no-cache',
+      });
+      res.end();
+      return;
+    }
+
     const entry = {
       id: `contact-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
       type: 'contact',
@@ -842,12 +961,21 @@ async function handleContactForm(req, res) {
       createdAt: new Date().toISOString(),
     };
 
-    await appendFormSubmission(entry);
+    if (isPartnerLead) {
+      await persistPartnerPlusApplication(entry);
+    } else {
+      await appendFormSubmission(entry);
+    }
+
     await sendContactNotification(entry);
 
     const acceptHeader = req.headers.accept || '';
     if (acceptHeader.includes('application/json')) {
-      return jsonResponse(res, 200, { message: 'Dziękujemy za zgłoszenie. Skontaktujemy się wkrótce.' });
+      return jsonResponse(res, 200, {
+        ok: true,
+        message: 'Dziękujemy za zgłoszenie. Skontaktujemy się wkrótce.',
+        application_id: isPartnerLead ? entry.id : null,
+      });
     }
 
     const referer = req.headers.referer ? buildRedirectTarget(req.headers.referer) : null;

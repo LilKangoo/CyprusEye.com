@@ -19,7 +19,8 @@ type AdminEvent =
   | "partner_deposit_paid"
   | "trip_date_options_ready"
   | "trip_date_selected"
-  | "affiliate_cashout_requested";
+  | "affiliate_cashout_requested"
+  | "partner_plus_application_created";
 
 type AdminNotificationRequest = {
   category?: Category;
@@ -1419,6 +1420,7 @@ function eventLabel(event: AdminEvent): string {
   if (event === "trip_date_options_ready") return "Date options sent to customer";
   if (event === "trip_date_selected") return "Customer selected trip date";
   if (event === "affiliate_cashout_requested") return "Affiliate cashout requested";
+  if (event === "partner_plus_application_created") return "Partner+ application";
   return "New";
 }
 
@@ -1517,6 +1519,17 @@ function buildSubject(params: {
     const parts = [`[${label}] Affiliate cashout requested`];
     if (partnerName) parts.push(String(partnerName));
     if (amount) parts.push(String(amount));
+    return parts.join(" — ");
+  }
+
+  if (params.event === "partner_plus_application_created") {
+    const service = getField(params.record, ["service", "company", "brand", "business_name"]);
+    const applicant = getField(params.record, ["name", "customer_name", "full_name"]);
+    const packageTier = getField(params.record, ["package_tier", "package", "plan"]);
+    const parts = [`[${label}] New Partner+ application`];
+    if (service) parts.push(service);
+    if (applicant) parts.push(applicant);
+    if (packageTier) parts.push(packageTier);
     return parts.join(" — ");
   }
 

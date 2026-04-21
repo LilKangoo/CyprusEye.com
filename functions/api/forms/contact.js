@@ -151,6 +151,35 @@ async function sendAdminEmail(env, { subject, text, html, replyTo }) {
   return true;
 }
 
+async function enqueuePartnerPlusAdminNotification(adminClient, application) {
+  if (!adminClient || !application?.id) return false;
+
+  const recordId = String(application.id || '').trim();
+  const payload = {
+    category: 'partners',
+    event: 'partner_plus_application_created',
+    record_id: recordId,
+    table: 'partner_plus_applications',
+    record: application,
+  };
+
+  try {
+    const { error } = await adminClient.rpc('enqueue_admin_notification', {
+      p_category: 'partners',
+      p_event: 'partner_plus_application_created',
+      p_record_id: recordId,
+      p_table_name: 'partner_plus_applications',
+      p_payload: payload,
+      p_dedupe_key: `partner_plus_application_created:${recordId}`,
+    });
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('[contact-form] failed to enqueue Partner+ admin notification:', error);
+    return false;
+  }
+}
+
 function buildPartnerEmailPayload(entry) {
   const optionalFields = [
     ['Firma / marka / obiekt', entry.service],
@@ -302,6 +331,7 @@ export async function onRequestPost(context) {
       return Response.redirect(buildRedirectUrl(request, body, 'error'), 303);
     }
 
+    let adminNotificationQueued = false;
     if (isPartnerLead) {
       const { adminClient } = createSupabaseClients(env, request.headers.get('Authorization'));
       const { data: insertedApplication, error } = await adminClient
@@ -330,7 +360,7 @@ export async function onRequestPost(context) {
           referer: entry.referer,
           user_agent: entry.user_agent,
         })
-        .select('id, created_at')
+        .select('*')
         .single();
       if (error) throw error;
       if (insertedApplication?.id) {
@@ -339,16 +369,27 @@ export async function onRequestPost(context) {
       if (insertedApplication?.created_at) {
         entry.created_at = insertedApplication.created_at;
       }
+      adminNotificationQueued = await enqueuePartnerPlusAdminNotification(adminClient, {
+        ...entry,
+        id: insertedApplication?.id || entry.id,
+        created_at: insertedApplication?.created_at || entry.created_at,
+      });
     }
 
     const emailPayload = isPartnerLead ? buildPartnerEmailPayload(entry) : buildGenericEmailPayload(entry);
-    await sendAdminEmail(env, {
+    const adminEmailSent = await sendAdminEmail(env, {
       ...emailPayload,
       replyTo: entry.email,
     });
 
     if (wantsJson(request)) {
-      return json({ ok: true, message: getLocalizedMessage(language, 'success') });
+      return json({
+        ok: true,
+        message: getLocalizedMessage(language, 'success'),
+        application_id: isPartnerLead ? entry.id : null,
+        admin_email_sent: adminEmailSent,
+        admin_notification_queued: adminNotificationQueued,
+      });
     }
 
     return Response.redirect(buildRedirectUrl(request, body, 'success'), 303);
