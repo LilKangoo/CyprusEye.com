@@ -1518,11 +1518,14 @@ const partnersState = {
   servicesByPartnerId: {},
   servicesLoadingByPartnerId: {},
   expandedServicesPartnerId: null,
+  partnerPlusApplications: [],
+  partnerPlusProfilesByEmail: {},
 };
 
 const partnersUiState = {
   activeTab: 'list',
   depositLoadedOnce: false,
+  partnerPlusLoadedOnce: false,
   affiliateLoadedOnce: false,
   affiliateEligibleLoadedOnce: false,
   affiliatePayoutOverviewLoadedOnce: false,
@@ -1543,6 +1546,12 @@ const partnersUiState = {
   depositRequests: [],
   affiliateSettings: null,
   affiliateOverrides: [],
+};
+
+const partnerPlusApprovalState = {
+  applicationId: null,
+  matchedProfileId: null,
+  matchedProfileEmail: '',
 };
 
 const transportAdminState = {
@@ -1606,6 +1615,10 @@ async function refreshAdminViewAfterReconnect() {
       return;
     }
     if (adminState.currentView === 'partners') {
+      if (partnersUiState.activeTab === 'partner-plus') {
+        await loadPartnerPlusApplications(true);
+        return;
+      }
       await loadPartnersData();
       return;
     }
@@ -1688,6 +1701,10 @@ function ensurePartnersAutoRefresh() {
     try {
       if (isAdminOffline()) return;
       if (adminState.currentView !== 'partners') return;
+      if (partnersUiState.activeTab === 'partner-plus') {
+        loadPartnerPlusApplications(true);
+        return;
+      }
       loadPartnersData();
     } catch (_e) {
     }
@@ -3221,6 +3238,428 @@ window.adminServiceFulfillmentAction = (partnerId, fulfillmentId, action) => adm
 window.adminServiceFulfillmentActionForBooking = (category, bookingId, fulfillmentId, action) => adminServiceFulfillmentActionForBooking(category, bookingId, fulfillmentId, action);
 window.adminSendTripDateOptionsToCustomer = (bookingId, fulfillmentId) => adminSendTripDateOptionsToCustomer(bookingId, fulfillmentId);
 
+function getPartnerPlusTypeLabel(value) {
+  const type = String(value || '').trim();
+  if (type === 'tours') return 'Tours';
+  if (type === 'accommodation') return 'Accommodation';
+  if (type === 'local-services') return 'Local services';
+  return type || '—';
+}
+
+function getPartnerPlusPackageLabel(value) {
+  const tier = String(value || '').trim();
+  return tier ? `€${tier}/month` : '—';
+}
+
+function getPartnerPlusStatusHtml(statusRaw) {
+  const status = String(statusRaw || 'pending').trim().toLowerCase() || 'pending';
+  const safeStatus = escapeHtml(status);
+  return `<span class="partner-plus-status partner-plus-status--${safeStatus}">${safeStatus}</span>`;
+}
+
+function getPartnerPlusApplicationById(applicationId) {
+  const id = String(applicationId || '').trim();
+  return (partnersState.partnerPlusApplications || []).find((row) => String(row?.id || '') === id) || null;
+}
+
+function getPartnerPlusProfileForApplication(application) {
+  if (!application) return null;
+  const email = String(application.email || '').trim().toLowerCase();
+  return partnersState.partnerPlusProfilesByEmail[email] || null;
+}
+
+function isPartnerPlusUnavailableError(error) {
+  const message = String(error?.message || error?.details || '');
+  return error?.code === '42P01' || /partner_plus_applications|does not exist|schema cache/i.test(message);
+}
+
+async function fetchPartnerPlusApplications(client) {
+  const { data, error } = await client
+    .from('partner_plus_applications')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(500);
+
+  if (error) {
+    if (isPartnerPlusUnavailableError(error)) return [];
+    throw error;
+  }
+
+  return Array.isArray(data) ? data : [];
+}
+
+async function loadPartnerPlusProfiles(client, applications) {
+  const emails = Array.from(new Set(
+    (applications || [])
+      .map((row) => String(row?.email || '').trim().toLowerCase())
+      .filter(Boolean),
+  ));
+
+  partnersState.partnerPlusProfilesByEmail = {};
+  if (!emails.length) return;
+
+  try {
+    const { data, error } = await client
+      .from('profiles')
+      .select('id, email, username, name')
+      .in('email', emails)
+      .limit(500);
+    if (error) throw error;
+
+    (data || []).forEach((profile) => {
+      const email = String(profile?.email || '').trim().toLowerCase();
+      if (email) partnersState.partnerPlusProfilesByEmail[email] = profile;
+    });
+  } catch (error) {
+    console.warn('Failed to load matching profiles for Partner+ applications:', error);
+  }
+}
+
+async function loadPartnerPlusApplications(force = false) {
+  const client = ensureSupabase();
+  if (!client) return;
+  if (partnersUiState.partnerPlusLoadedOnce && !force) {
+    renderPartnerPlusApplications();
+    return;
+  }
+
+  partnersUiState.partnerPlusLoadedOnce = true;
+  const grid = document.getElementById('partnerPlusApplicationsGrid');
+  if (grid) {
+    grid.innerHTML = '<div class="partner-plus-empty">Loading Partner+ applications...</div>';
+  }
+
+  try {
+    const applications = await fetchPartnerPlusApplications(client);
+    partnersState.partnerPlusApplications = applications;
+    await loadPartnerPlusProfiles(client, applications);
+    renderPartnerPlusApplications();
+  } catch (error) {
+    console.error('Failed to load Partner+ applications:', error);
+    if (grid) {
+      grid.innerHTML = `<div class="partner-plus-empty" style="color:#fca5a5;">${escapeHtml(adminErrorDetails(error, 'Failed to load Partner+ applications'))}</div>`;
+    }
+  }
+}
+
+function updatePartnerPlusStats(applications) {
+  const rows = Array.isArray(applications) ? applications : [];
+  const pending = rows.filter((row) => String(row.workflow_status || '').toLowerCase() === 'pending').length;
+  const approved = rows.filter((row) => String(row.workflow_status || '').toLowerCase() === 'approved').length;
+  const rejected = rows.filter((row) => String(row.workflow_status || '').toLowerCase() === 'rejected').length;
+
+  const setText = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = String(value);
+  };
+
+  setText('partnerPlusStatPending', pending);
+  setText('partnerPlusStatApproved', approved);
+  setText('partnerPlusStatRejected', rejected);
+  setText('partnerPlusStatTotal', rows.length);
+}
+
+function renderPartnerPlusApplications() {
+  const grid = document.getElementById('partnerPlusApplicationsGrid');
+  if (!grid) return;
+
+  const search = String(document.getElementById('partnerPlusSearch')?.value || '').trim().toLowerCase();
+  const statusFilter = String(document.getElementById('partnerPlusStatusFilter')?.value || '').trim();
+  const typeFilter = String(document.getElementById('partnerPlusTypeFilter')?.value || '').trim();
+  const rows = Array.isArray(partnersState.partnerPlusApplications) ? partnersState.partnerPlusApplications : [];
+
+  updatePartnerPlusStats(rows);
+
+  const filtered = rows.filter((row) => {
+    const status = String(row.workflow_status || '').trim();
+    const type = String(row.partner_type || '').trim();
+    const text = [
+      row.service,
+      row.name,
+      row.email,
+      row.phone,
+      row.location,
+      row.website,
+      row.service_description,
+      row.message,
+    ].join(' ').toLowerCase();
+
+    if (statusFilter && status !== statusFilter) return false;
+    if (typeFilter && type !== typeFilter) return false;
+    if (search && !text.includes(search)) return false;
+    return true;
+  });
+
+  if (!filtered.length) {
+    grid.innerHTML = '<div class="partner-plus-empty">No Partner+ applications match current filters.</div>';
+    return;
+  }
+
+  grid.innerHTML = filtered.map((row) => {
+    const profile = getPartnerPlusProfileForApplication(row);
+    const createdAt = row.created_at ? formatDateTimeValue(row.created_at) : '—';
+    const packageLabel = getPartnerPlusPackageLabel(row.package_tier);
+    const typeLabel = getPartnerPlusTypeLabel(row.partner_type);
+    const statusHtml = getPartnerPlusStatusHtml(row.workflow_status);
+    const service = escapeHtml(row.service || 'Partner application');
+    const name = escapeHtml(row.name || '—');
+    const email = escapeHtml(row.email || '—');
+    const phone = escapeHtml(row.phone || '—');
+    const location = escapeHtml(row.location || '—');
+    const matched = profile ? escapeHtml(profile.username || profile.name || profile.email || profile.id) : 'No matching user';
+    const description = escapeHtml(String(row.service_description || row.message || '').slice(0, 180));
+
+    return `
+      <article class="partner-plus-card">
+        <div class="partner-plus-card__top">
+          <div>
+            <h4>${service}</h4>
+            <p>${typeLabel} · ${packageLabel}</p>
+          </div>
+          ${statusHtml}
+        </div>
+        ${description ? `<p>${description}${String(row.service_description || row.message || '').length > 180 ? '…' : ''}</p>` : ''}
+        <div class="partner-plus-card__meta">
+          <div class="partner-plus-meta-item"><span>Contact</span><strong>${name}</strong></div>
+          <div class="partner-plus-meta-item"><span>Email</span><strong>${email}</strong></div>
+          <div class="partner-plus-meta-item"><span>Phone</span><strong>${phone}</strong></div>
+          <div class="partner-plus-meta-item"><span>Location</span><strong>${location}</strong></div>
+          <div class="partner-plus-meta-item"><span>User match</span><strong>${matched}</strong></div>
+          <div class="partner-plus-meta-item"><span>Created</span><strong>${escapeHtml(createdAt)}</strong></div>
+        </div>
+        <div style="display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap;">
+          <button class="btn-secondary" type="button" onclick="viewPartnerPlusApplication('${row.id}')">View</button>
+          ${String(row.workflow_status || '') === 'pending' ? `<button class="btn btn-primary" type="button" onclick="approvePartnerPlusApplication('${row.id}')">Approve</button>` : ''}
+        </div>
+      </article>
+    `;
+  }).join('');
+}
+
+function closePartnerPlusApplicationModal() {
+  hideElement(document.getElementById('partnerPlusApplicationModal'));
+}
+
+function renderPartnerPlusApplicationDetails(application) {
+  const body = document.getElementById('partnerPlusApplicationBody');
+  const title = document.getElementById('partnerPlusApplicationTitle');
+  const rejectBtn = document.getElementById('btnPartnerPlusReject');
+  const approveBtn = document.getElementById('btnPartnerPlusApprove');
+  if (!body || !application) return;
+
+  const status = String(application.workflow_status || 'pending').trim();
+  const profile = getPartnerPlusProfileForApplication(application);
+  if (title) title.textContent = `Partner+ — ${application.service || application.email || 'application'}`;
+  if (rejectBtn) rejectBtn.disabled = status !== 'pending';
+  if (approveBtn) approveBtn.disabled = status !== 'pending';
+  if (rejectBtn) rejectBtn.dataset.applicationId = application.id;
+  if (approveBtn) approveBtn.dataset.applicationId = application.id;
+
+  const fields = [
+    ['Status', getPartnerPlusStatusHtml(application.workflow_status), true],
+    ['Partner type', escapeHtml(getPartnerPlusTypeLabel(application.partner_type)), true],
+    ['Package', escapeHtml(getPartnerPlusPackageLabel(application.package_tier)), true],
+    ['Language', escapeHtml(application.language || '—'), true],
+    ['Service / brand', escapeHtml(application.service || '—'), true],
+    ['Contact person', escapeHtml(application.name || '—'), true],
+    ['Email', application.email ? `<a href="mailto:${encodeURIComponent(application.email)}">${escapeHtml(application.email)}</a>` : '—', true],
+    ['Phone / WhatsApp', application.phone ? `<a href="tel:${encodeURIComponent(application.phone)}">${escapeHtml(application.phone)}</a>` : '—', true],
+    ['Location', escapeHtml(application.location || '—'), true],
+    ['Website / social', application.website ? `<a href="${escapeHtml(application.website)}" target="_blank" rel="noopener">${escapeHtml(application.website)}</a>` : '—', true],
+    ['Matched user', profile ? escapeHtml(profile.username || profile.name || profile.email || profile.id) : 'No matching user by e-mail', true],
+    ['Created', escapeHtml(application.created_at ? formatDateTimeValue(application.created_at) : '—'), true],
+  ];
+
+  const extraRows = [
+    ['Tour types', application.tour_types],
+    ['Tour languages', application.tour_languages],
+    ['Tour area', application.tour_area],
+    ['Accommodation type', application.accommodation_type],
+    ['Accommodation capacity', application.accommodation_capacity],
+    ['Local service category', application.local_service_category],
+    ['Local service offer', application.local_service_offer],
+    ['Approved partner', application.approved_partner_id],
+    ['Access granted', application.access_granted ? 'Yes' : 'No'],
+  ].filter(([, value]) => value !== null && value !== undefined && String(value).trim());
+
+  body.innerHTML = `
+    <div class="partner-plus-detail-grid">
+      ${fields.map(([label, value, html]) => `
+        <div class="partner-plus-meta-item">
+          <span>${escapeHtml(label)}</span>
+          <strong>${html ? value : escapeHtml(value)}</strong>
+        </div>
+      `).join('')}
+      ${extraRows.map(([label, value]) => `
+        <div class="partner-plus-meta-item">
+          <span>${escapeHtml(label)}</span>
+          <strong>${escapeHtml(value)}</strong>
+        </div>
+      `).join('')}
+    </div>
+    <div style="height: 12px;"></div>
+    <div class="partner-plus-detail-note"><strong>Service description</strong><br>${escapeHtml(application.service_description || '—')}</div>
+    <div style="height: 12px;"></div>
+    <div class="partner-plus-detail-note"><strong>Additional message</strong><br>${escapeHtml(application.message || '—')}</div>
+    ${application.review_note ? `<div style="height: 12px;"></div><div class="partner-plus-detail-note"><strong>Review note</strong><br>${escapeHtml(application.review_note)}</div>` : ''}
+  `;
+}
+
+async function viewPartnerPlusApplication(applicationId) {
+  const app = getPartnerPlusApplicationById(applicationId);
+  if (!app) {
+    showToast('Partner+ application not found', 'error');
+    return;
+  }
+  renderPartnerPlusApplicationDetails(app);
+  showElement(document.getElementById('partnerPlusApplicationModal'));
+}
+
+function prefillPartnerPermissionsFromPartnerPlus(application) {
+  const type = String(application?.partner_type || '').trim();
+  setPartnerFormChecked('partnerFormCanViewStats', true);
+  setPartnerFormChecked('partnerFormCanViewPayouts', true);
+  setPartnerFormChecked('partnerFormAffiliateEnabled', true);
+  setPartnerFormChecked('partnerFormCanCreateOffers', type === 'local-services');
+  setPartnerFormChecked('partnerFormCanManageTrips', type === 'tours');
+  setPartnerFormChecked('partnerFormCanManageHotels', type === 'accommodation');
+  setPartnerFormChecked('partnerFormCanManageShop', false);
+  setPartnerFormChecked('partnerFormCanManageCars', false);
+  setPartnerFormChecked('partnerFormCanManageBlog', false);
+  setPartnerFormChecked('partnerFormCanAutoPublishBlog', false);
+  setPartnerFormChecked('partnerFormCanManageTransport', false);
+}
+
+function syncPartnerPlusApprovalPanel(application, profile) {
+  const panel = document.getElementById('partnerPlusApprovalPanel');
+  const summary = document.getElementById('partnerPlusApprovalSummary');
+  const grant = document.getElementById('partnerPlusGrantAccess');
+  const hint = document.getElementById('partnerPlusApprovalUserHint');
+  if (!panel) return;
+
+  panel.hidden = false;
+  if (summary) {
+    summary.textContent = `${application.service || 'Partner application'} · ${getPartnerPlusTypeLabel(application.partner_type)} · ${getPartnerPlusPackageLabel(application.package_tier)}`;
+  }
+  if (grant) {
+    grant.checked = Boolean(profile?.id);
+    grant.disabled = !profile?.id;
+  }
+  if (hint) {
+    hint.textContent = profile?.id
+      ? `Matched user: ${profile.username || profile.name || profile.email || profile.id}. Saving will grant owner access.`
+      : 'No user profile matched this e-mail yet. Partner can be created now, but panel access must be granted later from Partner users.';
+  }
+}
+
+async function approvePartnerPlusApplication(applicationId) {
+  const app = getPartnerPlusApplicationById(applicationId);
+  if (!app) {
+    showToast('Partner+ application not found', 'error');
+    return;
+  }
+
+  closePartnerPlusApplicationModal();
+  const profile = getPartnerPlusProfileForApplication(app);
+  partnerPlusApprovalState.applicationId = app.id;
+  partnerPlusApprovalState.matchedProfileId = profile?.id || null;
+  partnerPlusApprovalState.matchedProfileEmail = String(app.email || '').trim().toLowerCase();
+
+  await openPartnerForm(null);
+  setPartnerFormValue('partnerFormName', app.service || app.name || '');
+  setPartnerFormValue('partnerFormSlug', slugify(app.service || app.name || 'partner'));
+  setPartnerFormValue('partnerFormStatus', 'active');
+  prefillPartnerPermissionsFromPartnerPlus(app);
+  syncPartnerPlusApprovalPanel(app, profile);
+}
+
+async function rejectPartnerPlusApplication(applicationId) {
+  const app = getPartnerPlusApplicationById(applicationId);
+  if (!app) {
+    showToast('Partner+ application not found', 'error');
+    return;
+  }
+
+  const note = prompt('Rejection reason / internal note (optional):', app.review_note || '');
+  if (note === null) return;
+
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const { error } = await client
+      .from('partner_plus_applications')
+      .update({
+        workflow_status: 'rejected',
+        review_note: String(note || '').trim() || null,
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: adminState.user?.id || null,
+      })
+      .eq('id', app.id);
+    if (error) throw error;
+    showToast('Partner+ application rejected', 'success');
+    closePartnerPlusApplicationModal();
+    await loadPartnerPlusApplications(true);
+    if (typeof loadAllOrders === 'function') await loadAllOrders({ silent: true });
+  } catch (error) {
+    showToast(error.message || 'Failed to reject Partner+ application', 'error');
+  }
+}
+
+async function finalizePartnerPlusApproval(partnerId) {
+  const appId = String(partnerPlusApprovalState.applicationId || '').trim();
+  if (!appId || !partnerId) return;
+
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const application = getPartnerPlusApplicationById(appId);
+  const grantAccess = Boolean(document.getElementById('partnerPlusGrantAccess')?.checked);
+  const profileId = grantAccess ? String(partnerPlusApprovalState.matchedProfileId || '').trim() : '';
+  let accessGranted = false;
+
+  if (profileId) {
+    const { data: existing, error: existingError } = await client
+      .from('partner_users')
+      .select('id')
+      .eq('partner_id', partnerId)
+      .eq('user_id', profileId)
+      .maybeSingle();
+    if (existingError) throw existingError;
+
+    if (existing?.id) {
+      accessGranted = true;
+    } else {
+      const { error: insertError } = await client
+        .from('partner_users')
+        .insert({ partner_id: partnerId, user_id: profileId, role: 'owner' });
+      if (insertError) throw insertError;
+      accessGranted = true;
+    }
+  }
+
+  const { error: updateError } = await client
+    .from('partner_plus_applications')
+    .update({
+      workflow_status: 'approved',
+      matched_profile_id: profileId || application?.matched_profile_id || null,
+      approved_partner_id: partnerId,
+      approved_partner_user_id: profileId || null,
+      access_granted: accessGranted,
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: adminState.user?.id || null,
+    })
+    .eq('id', appId);
+  if (updateError) throw updateError;
+
+  partnerPlusApprovalState.applicationId = null;
+  partnerPlusApprovalState.matchedProfileId = null;
+  partnerPlusApprovalState.matchedProfileEmail = '';
+  showToast(accessGranted ? 'Partner+ approved and panel access granted' : 'Partner+ approved. No matched user access was granted.', 'success');
+  await loadPartnerPlusApplications(true);
+  if (typeof loadAllOrders === 'function') await loadAllOrders({ silent: true });
+}
+
 function setPartnersActiveTab(tabName) {
   const next = String(tabName || '').trim() || 'list';
   partnersUiState.activeTab = next;
@@ -3233,6 +3672,7 @@ function setPartnersActiveTab(tabName) {
   const listEl = document.getElementById('partnersTabList');
   const emailsEl = document.getElementById('partnersTabEmails');
   const affiliateEl = document.getElementById('partnersTabAffiliate');
+  const partnerPlusEl = document.getElementById('partnersTabPartnerPlus');
 
   if (listEl) {
     listEl.hidden = next !== 'list';
@@ -3246,6 +3686,10 @@ function setPartnersActiveTab(tabName) {
     affiliateEl.hidden = next !== 'affiliate';
     affiliateEl.classList.toggle('active', next === 'affiliate');
   }
+  if (partnerPlusEl) {
+    partnerPlusEl.hidden = next !== 'partner-plus';
+    partnerPlusEl.classList.toggle('active', next === 'partner-plus');
+  }
 
   if (next === 'emails') {
     loadPartnersDepositAdminData();
@@ -3253,6 +3697,10 @@ function setPartnersActiveTab(tabName) {
 
   if (next === 'affiliate') {
     loadPartnersAffiliateAdminData();
+  }
+
+  if (next === 'partner-plus') {
+    loadPartnerPlusApplications();
   }
 }
 
@@ -5827,6 +6275,12 @@ function closePartnerForm() {
   const modal = document.getElementById('partnerFormModal');
   hideElement(modal);
 
+  const approvalPanel = document.getElementById('partnerPlusApprovalPanel');
+  if (approvalPanel) approvalPanel.hidden = true;
+  partnerPlusApprovalState.applicationId = null;
+  partnerPlusApprovalState.matchedProfileId = null;
+  partnerPlusApprovalState.matchedProfileEmail = '';
+
   partnerAssignmentsState.partnerId = null;
   partnerAssignmentsState.partnerVendorId = null;
   setPartnerAssignmentsHint('');
@@ -6057,6 +6511,10 @@ async function savePartnerFromForm() {
     try {
       await refreshPartnerAssignments();
     } catch (_e) {
+    }
+
+    if (partnerPlusApprovalState.applicationId && effectivePartnerId) {
+      await finalizePartnerPlusApproval(effectivePartnerId);
     }
 
     closePartnerForm();
@@ -6490,6 +6948,8 @@ window.removePartnerUser = (partnerUserId, partnerId) => removePartnerUserById(p
 window.addUserToPartner = (userId) => addUserToPartnerFromUserModal(userId);
 window.removeUserFromPartner = (partnerUserId, userId) => removeUserFromPartnerFromUserModal(partnerUserId, userId);
 window.enableAffiliateOnlyUser = (userId) => enableAffiliateOnlyUserFromUserModal(userId);
+window.viewPartnerPlusApplication = (applicationId) => viewPartnerPlusApplication(applicationId);
+window.approvePartnerPlusApplication = (applicationId) => approvePartnerPlusApplication(applicationId);
 
 const calendarsState = {
   partnersById: {},
@@ -33796,6 +34256,18 @@ function initEventListeners() {
   const partnersStatusFilter = document.getElementById('partnersStatusFilter');
   if (partnersStatusFilter) partnersStatusFilter.addEventListener('change', () => renderPartnersTable());
 
+  const partnerPlusSearch = document.getElementById('partnerPlusSearch');
+  if (partnerPlusSearch) partnerPlusSearch.addEventListener('input', () => renderPartnerPlusApplications());
+
+  const partnerPlusStatusFilter = document.getElementById('partnerPlusStatusFilter');
+  if (partnerPlusStatusFilter) partnerPlusStatusFilter.addEventListener('change', () => renderPartnerPlusApplications());
+
+  const partnerPlusTypeFilter = document.getElementById('partnerPlusTypeFilter');
+  if (partnerPlusTypeFilter) partnerPlusTypeFilter.addEventListener('change', () => renderPartnerPlusApplications());
+
+  const refreshPartnerPlusBtn = document.getElementById('btnRefreshPartnerPlus');
+  if (refreshPartnerPlusBtn) refreshPartnerPlusBtn.addEventListener('click', () => loadPartnerPlusApplications(true));
+
   document.querySelectorAll('[data-partners-tab]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const tab = String(btn.getAttribute('data-partners-tab') || '').trim();
@@ -34041,6 +34513,28 @@ function initEventListeners() {
 
   const partnerFormOverlay = document.getElementById('partnerFormModalOverlay');
   if (partnerFormOverlay) partnerFormOverlay.addEventListener('click', () => closePartnerForm());
+
+  const partnerPlusModalClose = document.getElementById('btnClosePartnerPlusApplication');
+  if (partnerPlusModalClose) partnerPlusModalClose.addEventListener('click', () => closePartnerPlusApplicationModal());
+
+  const partnerPlusModalOverlay = document.getElementById('partnerPlusApplicationModalOverlay');
+  if (partnerPlusModalOverlay) partnerPlusModalOverlay.addEventListener('click', () => closePartnerPlusApplicationModal());
+
+  const partnerPlusRejectBtn = document.getElementById('btnPartnerPlusReject');
+  if (partnerPlusRejectBtn) {
+    partnerPlusRejectBtn.addEventListener('click', () => {
+      const id = String(partnerPlusRejectBtn.dataset.applicationId || '').trim();
+      if (id) rejectPartnerPlusApplication(id);
+    });
+  }
+
+  const partnerPlusApproveBtn = document.getElementById('btnPartnerPlusApprove');
+  if (partnerPlusApproveBtn) {
+    partnerPlusApproveBtn.addEventListener('click', () => {
+      const id = String(partnerPlusApproveBtn.dataset.applicationId || '').trim();
+      if (id) approvePartnerPlusApplication(id);
+    });
+  }
 
   const partnerVendorSelect = document.getElementById('partnerFormVendor');
   if (partnerVendorSelect) {
@@ -38386,6 +38880,12 @@ function getAllOrdersNormalizedStatus(order) {
     if (fulfillmentStatus) return fulfillmentStatus;
     return bookingStatus;
   }
+  if (cat === 'partner-plus') {
+    const status = String(order.workflow_status || order.status || '').trim().toLowerCase();
+    if (status === 'approved') return 'confirmed';
+    if (status === 'rejected') return 'cancelled';
+    return status || 'pending';
+  }
   return String(order.status || '').trim().toLowerCase();
 }
 
@@ -38441,7 +38941,7 @@ async function loadAllOrders(opts = {}) {
     console.log('Loading all orders from all categories...');
 
     // Fetch all bookings in parallel
-    const [carsResult, tripsResult, hotelsResult, transportResult, shopResult] = await Promise.all([
+    const [carsResult, tripsResult, hotelsResult, transportResult, shopResult, partnerPlusRows] = await Promise.all([
       client.from('car_bookings').select('*').order('created_at', { ascending: false }).limit(200),
       client.from('trip_bookings').select('*').order('created_at', { ascending: false }).limit(200),
       client.from('hotel_bookings').select('*').order('created_at', { ascending: false }).limit(200),
@@ -38450,7 +38950,11 @@ async function loadAllOrders(opts = {}) {
         .from('shop_orders')
         .select('id, order_number, created_at, total, currency, status, payment_status, customer_name, customer_email, customer_phone, shipping_address')
         .order('created_at', { ascending: false })
-        .limit(200)
+        .limit(200),
+      fetchPartnerPlusApplications(client).catch((error) => {
+        console.warn('Partner+ applications are not available in All Orders:', error);
+        return [];
+      })
     ]);
 
     const carIds = (carsResult.data || []).map((b) => b && b.id).filter(Boolean);
@@ -38459,6 +38963,13 @@ async function loadAllOrders(opts = {}) {
     const transportIds = (transportResult.data || []).map((b) => b && b.id).filter(Boolean);
     const serviceBookingIds = [...carIds, ...tripIds, ...hotelIds, ...transportIds];
     const carPaidDepositMap = await fetchCarsPaidDepositMap(client, carIds);
+    if (Array.isArray(partnerPlusRows)) {
+      partnersState.partnerPlusApplications = partnerPlusRows;
+      await loadPartnerPlusProfiles(client, partnerPlusRows);
+      if (partnersUiState.activeTab === 'partner-plus') {
+        renderPartnerPlusApplications();
+      }
+    }
 
     const fulfillmentByKey = {};
     if (serviceBookingIds.length) {
@@ -38667,8 +39178,23 @@ async function loadAllOrders(opts = {}) {
       viewFunction: 'viewShopOrder'
     }));
 
+    const partnerPlusOrders = (Array.isArray(partnerPlusRows) ? partnerPlusRows : []).map((application) => ({
+      ...application,
+      status: application.workflow_status || 'pending',
+      category: 'partner-plus',
+      categoryLabel: 'Partner+',
+      categoryIcon: '🤝',
+      categoryColor: '#dc2626',
+      customer_name: application.name || 'N/A',
+      customer_email: application.email || '',
+      customer_phone: application.phone || '',
+      displayName: application.service || 'Partner application',
+      total_price: null,
+      viewFunction: 'viewPartnerPlusApplication',
+    }));
+
     // Combine all orders
-    allOrdersCache = [...carBookings, ...tripBookings, ...hotelBookings, ...transportBookings, ...shopOrders];
+    allOrdersCache = [...carBookings, ...tripBookings, ...hotelBookings, ...transportBookings, ...shopOrders, ...partnerPlusOrders];
 
     // Sort: pending/confirmed first, then by created_at descending
     allOrdersCache.sort((a, b) => {
@@ -38816,6 +39342,8 @@ function renderAllOrdersTable() {
       const travelDate = order.travel_date ? new Date(order.travel_date).toLocaleDateString('en-GB') : 'N/A';
       const travelTime = String(order.travel_time || '').trim();
       dateInfo = travelTime ? `${travelDate} ${travelTime.slice(0, 5)}` : travelDate;
+    } else if (order.category === 'partner-plus') {
+      dateInfo = `${getPartnerPlusTypeLabel(order.partner_type)} · ${getPartnerPlusPackageLabel(order.package_tier)}`;
     }
 
     const createdAt = order.created_at ? new Date(order.created_at).toLocaleDateString('en-GB') : 'N/A';
@@ -38836,7 +39364,11 @@ function renderAllOrdersTable() {
         couponCode: genericCouponCode,
         discountAmount: Number.isFinite(genericDiscount) ? Math.max(genericDiscount, 0) : 0,
       };
-    const priceText = Number.isFinite(priceMeta.amount) ? `€${Number(priceMeta.amount).toFixed(2)}` : '—';
+    const priceText = order.category === 'partner-plus'
+      ? getPartnerPlusPackageLabel(order.package_tier)
+      : Number.isFinite(priceMeta.amount)
+        ? `€${Number(priceMeta.amount).toFixed(2)}`
+        : '—';
     const couponDiscountLabel = Number(priceMeta.discountAmount || 0) > 0
       ? ` (−€${Number(priceMeta.discountAmount || 0).toFixed(2)})`
       : '';

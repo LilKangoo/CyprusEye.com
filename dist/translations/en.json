@@ -3234,6 +3234,11 @@
         "success": "Thank you. We will contact you regarding the partnership.",
         "error": "The form could not be sent. Please try again."
       },
+      "successPopup": {
+        "title": "Application received",
+        "body": "We will review your application and contact you soon using the phone number or e-mail address provided.",
+        "close": "Close"
+      },
       "summary": {
         "packageLabel": "Selected package",
         "packageEmpty": "Not selected yet",
@@ -3300,6 +3305,7 @@
         "localServices": "Add the place category and the discount, benefit or main reason why travellers should choose your business first.",
         "trust": "After you send the form, we will return with a proposal matched to the selected package and partner type."
       },
+      "sending": "Sending...",
       "submit": "Send enquiry",
       "affiliateCta": "Read about affiliate"
     },

@@ -703,6 +703,81 @@
   font-size: 0.9rem;
 }
 
+.advertise-form.is-submitting {
+  opacity: 0.82;
+  pointer-events: none;
+}
+
+.advertise-success-popup {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background: rgba(15, 23, 42, 0.52);
+  backdrop-filter: blur(10px);
+}
+
+.advertise-success-popup__panel {
+  width: min(100%, 460px);
+  position: relative;
+  display: grid;
+  gap: 0.85rem;
+  padding: clamp(1.35rem, 4vw, 1.8rem);
+  border-radius: 28px;
+  border: 1px solid rgba(187, 247, 208, 0.46);
+  background:
+    radial-gradient(circle at top left, rgba(34, 197, 94, 0.14), transparent 42%),
+    rgba(255, 255, 255, 0.98);
+  box-shadow: 0 30px 70px rgba(15, 23, 42, 0.24);
+  color: var(--ink);
+}
+
+.advertise-success-popup__panel h2 {
+  margin: 0;
+  font-size: clamp(1.35rem, 5vw, 1.8rem);
+}
+
+.advertise-success-popup__panel p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.advertise-success-popup__icon {
+  width: 3.2rem;
+  height: 3.2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #16a34a, #22c55e);
+  color: white;
+  font-size: 1.65rem;
+  font-weight: 900;
+}
+
+.advertise-success-popup__close {
+  position: absolute;
+  top: 0.8rem;
+  right: 0.8rem;
+  width: 2.45rem;
+  height: 2.45rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(239, 246, 255, 0.86);
+  color: var(--primary-dark);
+  font-size: 1.35rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.advertise-success-popup__button {
+  justify-content: center;
+  margin-top: 0.3rem;
+}
+
 .advertise-divider {
   width: 100%;
   height: 1px;

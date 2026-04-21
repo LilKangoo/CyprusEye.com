@@ -440,6 +440,7 @@
                 <option value="hotels">Hotels Only</option>
                 <option value="transport">Transport Only</option>
                 <option value="shop">Shop Only</option>
+                <option value="partner-plus">Partner+ Only</option>
               </select>
               <select id="orderStatusFilter" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--admin-border); background: var(--admin-card-bg); color: var(--admin-text); font-size: 14px;">
                 <option value="all">All Statuses</option>
@@ -5644,6 +5645,7 @@
           <button class="admin-tab active" data-partners-tab="list">👥 Partners</button>
           <button class="admin-tab" data-partners-tab="emails">📧 Emails</button>
           <button class="admin-tab" data-partners-tab="affiliate">💸 Affiliate</button>
+          <button class="admin-tab" data-partners-tab="partner-plus">🤝 Partner+</button>
         </div>
 
         <div class="admin-tab-content active" id="partnersTabList">
@@ -5682,6 +5684,44 @@
                     <tr><td colspan="9" style="text-align:center; padding: 24px;">Loading partners...</td></tr>
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-tab-content" id="partnersTabPartnerPlus" hidden>
+          <div class="admin-card" style="margin-top: 16px;">
+            <div class="admin-card-header partner-plus-header">
+              <div>
+                <h3>Partner+ applications</h3>
+                <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Review advertise form submissions, inspect full details and create partner access.</p>
+              </div>
+              <div class="partner-plus-controls">
+                <input id="partnerPlusSearch" class="form-control" type="text" placeholder="Search applications..." />
+                <select id="partnerPlusStatusFilter" class="form-control">
+                  <option value="">All statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+                <select id="partnerPlusTypeFilter" class="form-control">
+                  <option value="">All partner types</option>
+                  <option value="tours">Tours</option>
+                  <option value="accommodation">Accommodation</option>
+                  <option value="local-services">Local services</option>
+                </select>
+                <button class="btn-secondary" id="btnRefreshPartnerPlus" type="button">🔄 Refresh</button>
+              </div>
+            </div>
+            <div class="admin-card-body">
+              <div class="partner-plus-stats" aria-label="Partner+ application stats">
+                <div><span>Pending</span><strong id="partnerPlusStatPending">-</strong></div>
+                <div><span>Approved</span><strong id="partnerPlusStatApproved">-</strong></div>
+                <div><span>Rejected</span><strong id="partnerPlusStatRejected">-</strong></div>
+                <div><span>Total</span><strong id="partnerPlusStatTotal">-</strong></div>
+              </div>
+              <div id="partnerPlusApplicationsGrid" class="partner-plus-grid">
+                <div class="partner-plus-empty">Loading Partner+ applications...</div>
               </div>
             </div>
           </div>
@@ -6771,6 +6811,28 @@
     </div>
   </div>
 
+  <div class="admin-modal" id="partnerPlusApplicationModal" hidden>
+    <div class="admin-modal-overlay" id="partnerPlusApplicationModalOverlay"></div>
+    <div class="admin-modal-content" style="max-width: 860px;">
+      <header class="admin-modal-header">
+        <h3 id="partnerPlusApplicationTitle">Partner+ application</h3>
+        <button class="btn-modal-close" id="btnClosePartnerPlusApplication">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </header>
+      <div class="admin-modal-body" id="partnerPlusApplicationBody">
+        <p>Loading application...</p>
+      </div>
+      <footer class="admin-modal-footer partner-plus-modal-actions">
+        <button type="button" class="btn btn-secondary" id="btnPartnerPlusReject">Reject</button>
+        <button type="button" class="btn btn-primary" id="btnPartnerPlusApprove">Approve and create partner</button>
+      </footer>
+    </div>
+  </div>
+
   <div class="admin-modal" id="partnerFormModal" hidden>
     <div class="admin-modal-overlay" id="partnerFormModalOverlay"></div>
     <div class="admin-modal-content" style="max-width: 760px;">
@@ -6786,6 +6848,17 @@
       <div class="admin-modal-body">
         <form id="partnerForm" class="admin-form" novalidate>
           <input type="hidden" id="partnerFormId" />
+          <section id="partnerPlusApprovalPanel" class="partner-plus-approval-panel" hidden>
+            <div>
+              <strong>Partner+ approval</strong>
+              <p id="partnerPlusApprovalSummary">This partner is being created from a Partner+ application.</p>
+            </div>
+            <label class="admin-checkbox partner-plus-approval-panel__access">
+              <input type="checkbox" id="partnerPlusGrantAccess" />
+              <span>Grant Partner Panel access to matched user</span>
+            </label>
+            <p id="partnerPlusApprovalUserHint" class="partner-plus-approval-panel__hint"></p>
+          </section>
           <div class="admin-form-grid" style="grid-template-columns: repeat(2, 1fr); gap: 16px;">
             <label class="admin-form-field">
               <span>Name</span>

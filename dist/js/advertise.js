@@ -146,6 +146,137 @@
     });
   }
 
+  function setFormSubmitting(form, isSubmitting) {
+    if (!(form instanceof HTMLFormElement)) return;
+    form.classList.toggle('is-submitting', Boolean(isSubmitting));
+    form.querySelectorAll('button[type="submit"]').forEach((button) => {
+      if (!(button instanceof HTMLButtonElement)) return;
+      if (isSubmitting) {
+        button.dataset.originalText = button.textContent || '';
+        button.textContent = getText('advertise.form.sending', 'Sending...');
+        button.disabled = true;
+      } else {
+        button.disabled = false;
+        if (button.dataset.originalText) {
+          button.textContent = button.dataset.originalText;
+          delete button.dataset.originalText;
+        }
+      }
+    });
+  }
+
+  function setFormFeedback(message, type = 'status') {
+    const feedback = document.querySelector('[data-form-feedback]');
+    if (!(feedback instanceof HTMLElement)) return;
+    feedback.hidden = false;
+    feedback.textContent = message || '';
+    feedback.setAttribute('role', type === 'error' ? 'alert' : 'status');
+    feedback.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
+  }
+
+  function closePartnerSuccessPopup() {
+    const popup = document.querySelector('[data-advertise-success-popup]');
+    if (popup instanceof HTMLElement) {
+      popup.remove();
+    }
+  }
+
+  function showPartnerSuccessPopup() {
+    closePartnerSuccessPopup();
+
+    const title = getText('advertise.form.successPopup.title', 'Application received');
+    const body = getText(
+      'advertise.form.successPopup.body',
+      'We will review your application and contact you soon using the phone number or e-mail address provided.',
+    );
+    const closeLabel = getText('advertise.form.successPopup.close', 'Close');
+
+    const overlay = document.createElement('div');
+    overlay.className = 'advertise-success-popup';
+    overlay.setAttribute('data-advertise-success-popup', '');
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.innerHTML = `
+      <div class="advertise-success-popup__panel" role="document" tabindex="-1">
+        <button type="button" class="advertise-success-popup__close" aria-label="${closeLabel}">×</button>
+        <div class="advertise-success-popup__icon" aria-hidden="true">✓</div>
+        <h2>${title}</h2>
+        <p>${body}</p>
+        <button type="button" class="btn btn-primary advertise-success-popup__button">${closeLabel}</button>
+      </div>
+    `;
+
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) closePartnerSuccessPopup();
+    });
+    overlay.querySelectorAll('button').forEach((button) => {
+      button.addEventListener('click', closePartnerSuccessPopup);
+    });
+    document.addEventListener('keydown', function onEscape(event) {
+      if (event.key !== 'Escape') return;
+      document.removeEventListener('keydown', onEscape);
+      closePartnerSuccessPopup();
+    });
+
+    document.body.appendChild(overlay);
+    const panel = overlay.querySelector('.advertise-success-popup__panel');
+    if (panel instanceof HTMLElement) {
+      panel.focus({ preventScroll: true });
+    }
+  }
+
+  async function submitPartnerForm(form) {
+    const formData = new FormData(form);
+    formData.set('lang', getLanguage());
+
+    const response = await fetch(form.action || '/api/forms/contact', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+      },
+      body: new URLSearchParams(formData),
+    });
+
+    let payload = {};
+    try {
+      payload = await response.json();
+    } catch (_) {
+      payload = {};
+    }
+
+    if (!response.ok || payload?.error) {
+      throw new Error(payload?.error || getText('advertise.form.feedback.error', 'Could not send the form. Please try again.'));
+    }
+
+    return payload;
+  }
+
+  async function handlePartnerFormSubmit(event) {
+    const form = event.currentTarget;
+    if (!(form instanceof HTMLFormElement)) return;
+
+    if (!form.checkValidity()) {
+      return;
+    }
+
+    event.preventDefault();
+    setFormSubmitting(form, true);
+
+    try {
+      const payload = await submitPartnerForm(form);
+      const message = String(payload?.message || '').trim() || getText('advertise.form.feedback.success', 'Thank you. We will contact you soon.');
+      setFormFeedback(message, 'status');
+      showPartnerSuccessPopup();
+      form.reset();
+      syncPackageCards();
+      syncTypePanels();
+    } catch (error) {
+      setFormFeedback(error?.message || getText('advertise.form.feedback.error', 'Could not send the form. Please try again.'), 'error');
+    } finally {
+      setFormSubmitting(form, false);
+    }
+  }
+
   function applyQueryState() {
     const params = new URLSearchParams(window.location.search);
     const packageValue = String(params.get('package') || '').trim();
@@ -189,9 +320,10 @@
     });
 
     if (form instanceof HTMLFormElement) {
-      form.addEventListener('submit', () => {
+      form.addEventListener('submit', (event) => {
         syncPackageSummary();
         syncTypeSummary();
+        void handlePartnerFormSubmit(event);
       });
     }
 

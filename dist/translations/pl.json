@@ -4018,6 +4018,11 @@
         "success": "Dziękujemy. Skontaktujemy się w sprawie partnerstwa.",
         "error": "Nie udało się wysłać formularza. Spróbuj ponownie."
       },
+      "successPopup": {
+        "title": "Zgłoszenie zostało wysłane",
+        "body": "Sprawdzimy zgłoszenie i odezwiemy się w najbliższym czasie na podany telefon lub adres e-mail.",
+        "close": "Zamknij"
+      },
       "summary": {
         "packageLabel": "Wybrany pakiet",
         "packageEmpty": "Jeszcze nie wybrano",
@@ -4084,6 +4089,7 @@
         "localServices": "Podaj kategorię miejsca lub usługi oraz opisz rabat, benefit albo główny powód, dla którego podróżny ma wybrać właśnie Twój biznes.",
         "trust": "Po wysłaniu zgłoszenia wrócimy z propozycją dopasowaną do wybranego pakietu i typu partnera."
       },
+      "sending": "Wysyłanie...",
       "submit": "Wyślij zgłoszenie",
       "affiliateCta": "Przeczytaj o afiliacji"
     },
