@@ -3313,7 +3313,47 @@ async function fetchPartnerPlusApplicationsViaApi() {
   return Array.isArray(payload?.data) ? payload.data : [];
 }
 
-async function fetchPartnerPlusApplications(client) {
+async function deletePartnerPlusApplicationViaApi(applicationId) {
+  const id = String(applicationId || '').trim();
+  if (!id) throw new Error('Missing Partner+ application id');
+
+  const token = await getAdminAccessToken();
+  if (!token) {
+    throw new Error('Missing admin session token');
+  }
+
+  const response = await fetch(`/api/admin/partner-plus-applications?id=${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  let payload = {};
+  try {
+    payload = await response.json();
+  } catch (_) {
+    payload = {};
+  }
+
+  if (!response.ok || payload?.error) {
+    throw new Error(payload?.error || `Partner+ delete failed (${response.status})`);
+  }
+
+  return payload;
+}
+
+async function fetchPartnerPlusApplications(client, options = {}) {
+  const preferApi = options?.preferApi !== false;
+  if (preferApi) {
+    try {
+      return await fetchPartnerPlusApplicationsViaApi();
+    } catch (apiError) {
+      console.warn('Partner+ admin API load failed, falling back to Supabase client:', apiError);
+    }
+  }
+
   let lastError = null;
 
   try {
@@ -3500,6 +3540,7 @@ function renderPartnerPlusApplications() {
         </div>
         <div style="display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap;">
           <button class="btn-secondary" type="button" onclick="viewPartnerPlusApplication('${row.id}')">View</button>
+          <button class="btn-secondary" type="button" onclick="deletePartnerPlusApplication('${row.id}')">Delete</button>
           ${String(row.workflow_status || '') === 'pending' ? `<button class="btn btn-primary" type="button" onclick="approvePartnerPlusApplication('${row.id}')">Approve</button>` : ''}
         </div>
       </article>
@@ -3516,6 +3557,7 @@ function renderPartnerPlusApplicationDetails(application) {
   const title = document.getElementById('partnerPlusApplicationTitle');
   const rejectBtn = document.getElementById('btnPartnerPlusReject');
   const approveBtn = document.getElementById('btnPartnerPlusApprove');
+  const deleteBtn = document.getElementById('btnPartnerPlusDelete');
   if (!body || !application) return;
 
   const status = String(application.workflow_status || 'pending').trim();
@@ -3525,6 +3567,7 @@ function renderPartnerPlusApplicationDetails(application) {
   if (approveBtn) approveBtn.disabled = status !== 'pending';
   if (rejectBtn) rejectBtn.dataset.applicationId = application.id;
   if (approveBtn) approveBtn.dataset.applicationId = application.id;
+  if (deleteBtn) deleteBtn.dataset.applicationId = application.id;
 
   const fields = [
     ['Status', getPartnerPlusStatusHtml(application.workflow_status), true],
@@ -3674,6 +3717,25 @@ async function rejectPartnerPlusApplication(applicationId) {
     if (typeof loadAllOrders === 'function') await loadAllOrders({ silent: true });
   } catch (error) {
     showToast(error.message || 'Failed to reject Partner+ application', 'error');
+  }
+}
+
+async function deletePartnerPlusApplication(applicationId) {
+  const app = getPartnerPlusApplicationById(applicationId);
+  const label = app?.service || app?.email || applicationId;
+  const ok = confirm(`Delete Partner+ application "${label}"?\n\nThis action cannot be undone.`);
+  if (!ok) return;
+
+  try {
+    await deletePartnerPlusApplicationViaApi(applicationId);
+    partnersState.partnerPlusApplications = (partnersState.partnerPlusApplications || [])
+      .filter((row) => String(row?.id || '') !== String(applicationId || ''));
+    showToast('Partner+ application deleted', 'success');
+    closePartnerPlusApplicationModal();
+    renderPartnerPlusApplications();
+    if (typeof loadAllOrders === 'function') await loadAllOrders({ silent: true });
+  } catch (error) {
+    showToast(error?.message || 'Failed to delete Partner+ application', 'error');
   }
 }
 
@@ -7021,6 +7083,7 @@ window.removeUserFromPartner = (partnerUserId, userId) => removeUserFromPartnerF
 window.enableAffiliateOnlyUser = (userId) => enableAffiliateOnlyUserFromUserModal(userId);
 window.viewPartnerPlusApplication = (applicationId) => viewPartnerPlusApplication(applicationId);
 window.approvePartnerPlusApplication = (applicationId) => approvePartnerPlusApplication(applicationId);
+window.deletePartnerPlusApplication = (applicationId) => deletePartnerPlusApplication(applicationId);
 
 const calendarsState = {
   partnersById: {},
@@ -34604,6 +34667,14 @@ function initEventListeners() {
     partnerPlusApproveBtn.addEventListener('click', () => {
       const id = String(partnerPlusApproveBtn.dataset.applicationId || '').trim();
       if (id) approvePartnerPlusApplication(id);
+    });
+  }
+
+  const partnerPlusDeleteBtn = document.getElementById('btnPartnerPlusDelete');
+  if (partnerPlusDeleteBtn) {
+    partnerPlusDeleteBtn.addEventListener('click', () => {
+      const id = String(partnerPlusDeleteBtn.dataset.applicationId || '').trim();
+      if (id) deletePartnerPlusApplication(id);
     });
   }
 

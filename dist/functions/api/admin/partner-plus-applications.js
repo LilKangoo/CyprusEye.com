@@ -61,7 +61,7 @@ export async function onRequestOptions() {
   return new Response(null, {
     status: 204,
     headers: {
-      Allow: 'GET, OPTIONS',
+      Allow: 'GET, DELETE, OPTIONS',
     },
   });
 }
@@ -88,6 +88,39 @@ export async function onRequestGet(context) {
     return json({ ok: true, data: Array.isArray(data) ? data : [] });
   } catch (error) {
     console.error('[admin-partner-plus-applications] failed:', error);
+    return json({ error: error?.message || 'Server error' }, 500);
+  }
+}
+
+export async function onRequestDelete(context) {
+  try {
+    const { request, env } = context;
+    const auth = await requirePartnerPlusAdmin(request, env);
+    if (!auth.ok) {
+      return json({ error: auth.error }, auth.status);
+    }
+
+    const url = new URL(request.url);
+    const id = String(url.searchParams.get('id') || '').trim();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+      return json({ error: 'Invalid Partner+ application id' }, 400);
+    }
+
+    const { data, error } = await auth.adminClient
+      .from('partner_plus_applications')
+      .delete()
+      .eq('id', id)
+      .select('id')
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data?.id) {
+      return json({ error: 'Partner+ application not found' }, 404);
+    }
+
+    return json({ ok: true, id: data.id });
+  } catch (error) {
+    console.error('[admin-partner-plus-applications:delete] failed:', error);
     return json({ error: error?.message || 'Server error' }, 500);
   }
 }
