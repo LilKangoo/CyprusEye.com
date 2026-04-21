@@ -204,6 +204,43 @@ async function sendSupabaseInviteEmail(adminClient, email, redirectTo) {
   return { channel: 'supabase_auth_invite' };
 }
 
+async function sendSupabaseOtpEmail(env, email, redirectTo) {
+  const recipient = normalizeEmail(email);
+  const supabaseUrl = String(env?.SUPABASE_URL || '').trim().replace(/\/+$/, '');
+  const anonKey = String(env?.SUPABASE_ANON_KEY || '').trim();
+  if (!isValidEmail(recipient)) {
+    throw new Error('Invalid OTP email');
+  }
+  if (!supabaseUrl || !anonKey) {
+    throw new Error('Missing Supabase public auth configuration');
+  }
+
+  const endpoint = `${supabaseUrl}/auth/v1/otp?redirect_to=${encodeURIComponent(redirectTo)}`;
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: anonKey,
+      Authorization: `Bearer ${anonKey}`,
+    },
+    body: JSON.stringify({
+      email: recipient,
+      create_user: true,
+      data: {
+        source: 'partner_plus_account_invite',
+      },
+      gotrue_meta_security: {},
+    }),
+  });
+
+  if (!response.ok) {
+    const details = await response.text().catch(() => '');
+    throw new Error(details || `Supabase OTP failed (${response.status})`);
+  }
+
+  return { channel: 'supabase_auth_otp' };
+}
+
 async function sendPartnerPlusAccountInviteEmail(adminClient, env, emailPayload, application) {
   const errors = [];
 
@@ -224,6 +261,13 @@ async function sendPartnerPlusAccountInviteEmail(adminClient, env, emailPayload,
   } catch (error) {
     errors.push(`Supabase Auth invite: ${error?.message || error}`);
     console.error('[admin-partner-plus-applications] Supabase Auth invite failed:', error);
+  }
+
+  try {
+    return await sendSupabaseOtpEmail(env, application.email, emailPayload.signupUrl);
+  } catch (error) {
+    errors.push(`Supabase OTP: ${error?.message || error}`);
+    console.error('[admin-partner-plus-applications] Supabase OTP invite failed:', error);
   }
 
   throw new Error(`Partner+ invite email failed. ${errors.join(' | ')}`);
