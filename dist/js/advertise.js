@@ -228,6 +228,7 @@
   async function submitPartnerForm(form) {
     const formData = new FormData(form);
     formData.set('lang', getLanguage());
+    const isPartnerLead = String(formData.get('context') || '').trim() === 'advertise-partner';
 
     const response = await fetch(form.action || '/api/forms/contact', {
       method: 'POST',
@@ -246,6 +247,13 @@
 
     if (!response.ok || payload?.error) {
       throw new Error(payload?.error || getText('advertise.form.feedback.error', 'Could not send the form. Please try again.'));
+    }
+
+    if (isPartnerLead && !String(payload?.application_id || '').trim()) {
+      throw new Error(getText(
+        'advertise.form.feedback.error',
+        'Could not save the partner application. Please try again.',
+      ));
     }
 
     return payload;

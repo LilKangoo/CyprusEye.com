@@ -3274,6 +3274,21 @@ function isPartnerPlusUnavailableError(error) {
 }
 
 async function fetchPartnerPlusApplications(client) {
+  try {
+    const { data, error } = await client.rpc('admin_list_partner_plus_applications', { p_limit: 500 });
+    if (!error) {
+      return Array.isArray(data) ? data : [];
+    }
+
+    const message = String(error?.message || error?.details || '');
+    const missingRpc = error?.code === '42883' || /admin_list_partner_plus_applications|function .* does not exist|schema cache/i.test(message);
+    if (!missingRpc) {
+      console.warn('Partner+ RPC load failed, falling back to direct table select:', error);
+    }
+  } catch (rpcError) {
+    console.warn('Partner+ RPC load threw, falling back to direct table select:', rpcError);
+  }
+
   const { data, error } = await client
     .from('partner_plus_applications')
     .select('*')
@@ -3700,7 +3715,7 @@ function setPartnersActiveTab(tabName) {
   }
 
   if (next === 'partner-plus') {
-    loadPartnerPlusApplications();
+    loadPartnerPlusApplications(true);
   }
 }
 
