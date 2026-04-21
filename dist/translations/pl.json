@@ -3834,18 +3834,18 @@
       "channels": {
         "group1": {
           "badge": "Grupa Facebook",
-          "title": "Kanał społecznościowy 1",
-          "description": "Dodatkowa przestrzeń do promowania usług, ofert specjalnych i wyróżnionych miejsc."
+          "title": "Wakacje Cypr",
+          "description": "Największa polska grupa turystyczna o Cyprze, w której promujemy partnerów, oferty specjalne i wyróżnione miejsca."
         },
         "group2": {
           "badge": "Grupa Facebook",
-          "title": "Kanał społecznościowy 2",
-          "description": "Miejsce do zwiększania widoczności oferty partnera i poszerzania zasięgu działań sprzedażowych."
+          "title": "Holiday in Cyprus",
+          "description": "Anglojęzyczna grupa dla osób planujących pobyt na wyspie i szukających sprawdzonych usług jeszcze przed przylotem."
         },
         "group3": {
           "badge": "Grupa Facebook",
-          "title": "Kanał społecznościowy 3",
-          "description": "Dodatkowy kanał do kampanii, rabatów i promocji usług obecnych w ekosystemie."
+          "title": "Cypr | Cyprus",
+          "description": "Dwujęzyczna grupa PL/EN do dodatkowej ekspozycji usług, rabatów i lokalnych rekomendacji."
         },
         "profile": {
           "badge": "Profil Facebook",
@@ -3855,6 +3855,20 @@
       },
       "openGroup": "Otwórz grupę",
       "openProfile": "Zobacz profil"
+    },
+    "stats": {
+      "community": {
+        "value": "73 500+",
+        "label": "członków grupy Wakacje Cypr"
+      },
+      "groups": {
+        "value": "3",
+        "label": "grupy Facebook dostępne do promocji partnerów"
+      },
+      "views": {
+        "value": "1.5M",
+        "label": "średnich organicznych wyświetleń w 28 dni na profilu WakacjeCypr.com"
+      }
     },
     "packages": {
       "badge": "Pakiety subskrypcyjne",

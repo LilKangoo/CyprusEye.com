@@ -3050,18 +3050,18 @@
       "channels": {
         "group1": {
           "badge": "Facebook group",
-          "title": "Community channel 1",
-          "description": "An additional channel for promoting services, special offers and highlighted places."
+          "title": "Wakacje Cypr",
+          "description": "The main Polish travel community about Cyprus where we promote partner offers, highlighted places and limited campaigns."
         },
         "group2": {
           "badge": "Facebook group",
-          "title": "Community channel 2",
-          "description": "A space for increasing the visibility of partner offers and extending their reach."
+          "title": "Holiday in Cyprus",
+          "description": "An English-speaking community for travellers planning their stay in Cyprus and looking for trusted services before arrival."
         },
         "group3": {
           "badge": "Facebook group",
-          "title": "Community channel 3",
-          "description": "A supplementary place for campaigns, discounts and ecosystem-related service promotions."
+          "title": "Cypr | Cyprus",
+          "description": "A bilingual PL/EN group used for extra visibility, service promotion and discount-led campaigns across the ecosystem."
         },
         "profile": {
           "badge": "Facebook profile",
@@ -3071,6 +3071,20 @@
       },
       "openGroup": "Open group",
       "openProfile": "View profile"
+    },
+    "stats": {
+      "community": {
+        "value": "9 000+",
+        "label": "members across CyprusEye English-speaking Facebook communities"
+      },
+      "groups": {
+        "value": "3",
+        "label": "Facebook groups available for partner promotion"
+      },
+      "views": {
+        "value": "1.5M",
+        "label": "average organic views in 28 days on the WakacjeCypr.com profile"
+      }
     },
     "packages": {
       "badge": "Subscription packages",
