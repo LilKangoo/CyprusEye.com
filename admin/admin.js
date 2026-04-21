@@ -1745,6 +1745,18 @@ function initAdminDashboardRealtime() {
           loadAllOrders({ silent: true });
         },
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'partner_plus_applications' },
+        () => {
+          if (adminState.currentView === 'dashboard') {
+            loadAllOrders({ silent: true });
+          }
+          if (adminState.currentView === 'partners' && partnersUiState.activeTab === 'partner-plus') {
+            loadPartnerPlusApplications(true);
+          }
+        },
+      )
       .subscribe();
   } catch (e) {
     console.warn('Failed to init dashboard realtime:', e);
@@ -3273,7 +3285,37 @@ function isPartnerPlusUnavailableError(error) {
   return error?.code === '42P01' || /partner_plus_applications|does not exist|schema cache/i.test(message);
 }
 
+async function fetchPartnerPlusApplicationsViaApi() {
+  const token = await getAdminAccessToken();
+  if (!token) {
+    throw new Error('Missing admin session token');
+  }
+
+  const response = await fetch('/api/admin/partner-plus-applications?limit=500', {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  let payload = {};
+  try {
+    payload = await response.json();
+  } catch (_) {
+    payload = {};
+  }
+
+  if (!response.ok || payload?.error) {
+    throw new Error(payload?.error || `Partner+ API failed (${response.status})`);
+  }
+
+  return Array.isArray(payload?.data) ? payload.data : [];
+}
+
 async function fetchPartnerPlusApplications(client) {
+  let lastError = null;
+
   try {
     const { data, error } = await client.rpc('admin_list_partner_plus_applications', { p_limit: 500 });
     if (!error) {
@@ -3285,22 +3327,36 @@ async function fetchPartnerPlusApplications(client) {
     if (!missingRpc) {
       console.warn('Partner+ RPC load failed, falling back to direct table select:', error);
     }
+    lastError = error;
   } catch (rpcError) {
     console.warn('Partner+ RPC load threw, falling back to direct table select:', rpcError);
+    lastError = rpcError;
   }
 
-  const { data, error } = await client
-    .from('partner_plus_applications')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(500);
+  try {
+    const { data, error } = await client
+      .from('partner_plus_applications')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(500);
 
-  if (error) {
-    if (isPartnerPlusUnavailableError(error)) return [];
-    throw error;
+    if (error) {
+      if (isPartnerPlusUnavailableError(error)) return [];
+      throw error;
+    }
+
+    return Array.isArray(data) ? data : [];
+  } catch (tableError) {
+    lastError = tableError;
+    console.warn('Partner+ direct table load failed, falling back to admin API:', tableError);
   }
 
-  return Array.isArray(data) ? data : [];
+  try {
+    return await fetchPartnerPlusApplicationsViaApi();
+  } catch (apiError) {
+    console.warn('Partner+ admin API fallback failed:', apiError);
+    throw lastError || apiError;
+  }
 }
 
 async function loadPartnerPlusProfiles(client, applications) {
@@ -39281,6 +39337,7 @@ function updateAllOrdersStats() {
   const hotelsPending = allOrdersCache.filter(o => o.category === 'hotels' && isPending(o)).length;
   const transportPending = allOrdersCache.filter(o => o.category === 'transport' && isPending(o)).length;
   const shopPending = allOrdersCache.filter(o => o.category === 'shop' && isPending(o)).length;
+  const partnerPlusPending = allOrdersCache.filter(o => o.category === 'partner-plus' && isPending(o)).length;
   const totalOrders = allOrdersCache.length;
 
   const statCarsPendingEl = $('#statCarsPending');
@@ -39288,6 +39345,7 @@ function updateAllOrdersStats() {
   const statHotelsPendingEl = $('#statHotelsPending');
   const statTransportPendingEl = $('#statTransportPending');
   const statShopPendingEl = $('#statShopPending');
+  const statPartnerPlusPendingEl = $('#statPartnerPlusPending');
   const statTotalOrdersEl = $('#statTotalOrders');
 
   if (statCarsPendingEl) statCarsPendingEl.textContent = carsPending;
@@ -39295,6 +39353,7 @@ function updateAllOrdersStats() {
   if (statHotelsPendingEl) statHotelsPendingEl.textContent = hotelsPending;
   if (statTransportPendingEl) statTransportPendingEl.textContent = transportPending;
   if (statShopPendingEl) statShopPendingEl.textContent = shopPending;
+  if (statPartnerPlusPendingEl) statPartnerPlusPendingEl.textContent = partnerPlusPending;
   if (statTotalOrdersEl) statTotalOrdersEl.textContent = totalOrders;
 }
 

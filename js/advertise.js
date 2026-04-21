@@ -174,6 +174,86 @@
     feedback.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
   }
 
+  function formDataText(formData, name) {
+    return String(formData?.get(name) || '').trim();
+  }
+
+  function getAdvertiseSupabaseClient() {
+    if (typeof window.getSupabase === 'function') {
+      const client = window.getSupabase();
+      if (client && typeof client.rpc === 'function') return client;
+    }
+    if (window.sb && typeof window.sb.rpc === 'function') return window.sb;
+    if (window.supabase && typeof window.supabase.rpc === 'function') return window.supabase;
+    if (window.__SB__ && typeof window.__SB__.rpc === 'function') return window.__SB__;
+    return null;
+  }
+
+  async function waitForAdvertiseSupabaseClient(timeoutMs = 2500) {
+    const started = Date.now();
+    let client = getAdvertiseSupabaseClient();
+    while (!client && (Date.now() - started) < timeoutMs) {
+      await new Promise((resolve) => window.setTimeout(resolve, 80));
+      client = getAdvertiseSupabaseClient();
+    }
+    return client;
+  }
+
+  function buildPartnerPlusRpcParams(formData) {
+    return {
+      p_source_context: formDataText(formData, 'context') || 'advertise-partner',
+      p_language: getLanguage(),
+      p_partner_type: formDataText(formData, 'partner_type'),
+      p_package_tier: formDataText(formData, 'package_tier'),
+      p_service: formDataText(formData, 'service'),
+      p_name: formDataText(formData, 'name'),
+      p_email: formDataText(formData, 'email'),
+      p_phone: formDataText(formData, 'phone') || null,
+      p_location: formDataText(formData, 'location'),
+      p_website: formDataText(formData, 'website') || null,
+      p_service_description: formDataText(formData, 'service_description'),
+      p_tour_types: formDataText(formData, 'tour_types') || null,
+      p_tour_languages: formDataText(formData, 'tour_languages') || null,
+      p_tour_area: formDataText(formData, 'tour_area') || null,
+      p_accommodation_type: formDataText(formData, 'accommodation_type') || null,
+      p_accommodation_capacity: formDataText(formData, 'accommodation_capacity') || null,
+      p_local_service_category: formDataText(formData, 'local_service_category') || null,
+      p_local_service_offer: formDataText(formData, 'local_service_offer') || null,
+      p_message: formDataText(formData, 'message') || null,
+      p_referer: window.location.href,
+      p_user_agent: navigator.userAgent || null,
+    };
+  }
+
+  async function savePartnerPlusApplicationDirectly(formData) {
+    const client = await waitForAdvertiseSupabaseClient();
+    if (!client || typeof client.rpc !== 'function') {
+      throw new Error(getText(
+        'advertise.form.feedback.error',
+        'Could not save the partner application. Please try again.',
+      ));
+    }
+
+    const { data, error } = await client.rpc('submit_partner_plus_application', buildPartnerPlusRpcParams(formData));
+    if (error) throw error;
+
+    const row = Array.isArray(data) ? data[0] : data;
+    const applicationId = String(row?.id || '').trim();
+    if (!applicationId) {
+      throw new Error(getText(
+        'advertise.form.feedback.error',
+        'Could not save the partner application. Please try again.',
+      ));
+    }
+
+    return {
+      ok: true,
+      application_id: applicationId,
+      message: getText('advertise.form.feedback.success', 'Thank you. We will contact you soon.'),
+      saved_via: 'supabase_rpc',
+    };
+  }
+
   function closePartnerSuccessPopup() {
     const popup = document.querySelector('[data-advertise-success-popup]');
     if (popup instanceof HTMLElement) {
@@ -230,26 +310,45 @@
     formData.set('lang', getLanguage());
     const isPartnerLead = String(formData.get('context') || '').trim() === 'advertise-partner';
 
-    const response = await fetch(form.action || '/api/forms/contact', {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-      },
-      body: new URLSearchParams(formData),
-    });
-
+    let response = null;
     let payload = {};
+    let requestError = null;
+
     try {
-      payload = await response.json();
-    } catch (_) {
-      payload = {};
+      response = await fetch(form.action || '/api/forms/contact', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+        },
+        body: new URLSearchParams(formData),
+      });
+
+      try {
+        payload = await response.json();
+      } catch (_) {
+        payload = {};
+      }
+    } catch (error) {
+      requestError = error;
     }
 
-    if (!response.ok || payload?.error) {
+    const savedApplicationId = String(payload?.application_id || '').trim();
+    if (isPartnerLead && (!response || !response.ok || payload?.error || !savedApplicationId)) {
+      try {
+        return await savePartnerPlusApplicationDirectly(formData);
+      } catch (fallbackError) {
+        if (payload?.error || requestError) {
+          console.warn('Partner+ contact endpoint failed before direct save fallback:', payload?.error || requestError);
+        }
+        throw fallbackError;
+      }
+    }
+
+    if (!response || !response.ok || payload?.error) {
       throw new Error(payload?.error || getText('advertise.form.feedback.error', 'Could not send the form. Please try again.'));
     }
 
-    if (isPartnerLead && !String(payload?.application_id || '').trim()) {
+    if (isPartnerLead && !savedApplicationId) {
       throw new Error(getText(
         'advertise.form.feedback.error',
         'Could not save the partner application. Please try again.',
