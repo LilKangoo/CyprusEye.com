@@ -12,9 +12,175 @@ function normalizeEmail(value) {
   return String(value || '').trim().toLowerCase();
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || '').trim());
+}
+
 function isTruthyFlag(value) {
   const normalized = String(value || '').trim().toLowerCase();
   return normalized === 'true' || normalized === '1' || normalized === 'yes';
+}
+
+async function findProfileByEmail(adminClient, email) {
+  const normalized = normalizeEmail(email);
+  if (!normalized) return null;
+
+  const { data, error } = await adminClient
+    .from('profiles')
+    .select('id, email, username, name')
+    .ilike('email', normalized)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data || null;
+}
+
+async function attachMatchedProfiles(adminClient, rows) {
+  const applications = Array.isArray(rows) ? rows : [];
+  const emails = Array.from(new Set(
+    applications
+      .map((row) => normalizeEmail(row?.email))
+      .filter(Boolean),
+  ));
+
+  if (!emails.length) {
+    return applications.map((row) => ({ ...row, matched_profile: null }));
+  }
+
+  const { data, error } = await adminClient
+    .from('profiles')
+    .select('id, email, username, name')
+    .in('email', emails)
+    .limit(1000);
+
+  if (error) throw error;
+
+  const profilesByEmail = {};
+  (data || []).forEach((profile) => {
+    const email = normalizeEmail(profile?.email);
+    if (email) profilesByEmail[email] = profile;
+  });
+
+  const missingEmails = emails.filter((email) => !profilesByEmail[email]);
+  for (const email of missingEmails.slice(0, 50)) {
+    const profile = await findProfileByEmail(adminClient, email);
+    if (profile?.id) profilesByEmail[email] = profile;
+  }
+
+  return applications.map((row) => ({
+    ...row,
+    matched_profile: profilesByEmail[normalizeEmail(row?.email)] || null,
+  }));
+}
+
+function getPublicBaseUrl(request, env) {
+  const configured = String(env?.PUBLIC_SITE_URL || env?.SITE_URL || '').trim().replace(/\/+$/, '');
+  if (configured) return configured;
+  const url = new URL(request.url);
+  return `${url.protocol}//${url.host}`.replace(/\/+$/, '');
+}
+
+function buildAccountInviteEmail(application, request, env) {
+  const lang = String(application?.language || '').trim().toLowerCase().startsWith('pl') ? 'pl' : 'en';
+  const email = normalizeEmail(application?.email);
+  const service = String(application?.service || 'Partner+').trim();
+  const baseUrl = getPublicBaseUrl(request, env);
+  const signupUrl = `${baseUrl}/index.html?lang=${lang}&auth=register&email=${encodeURIComponent(email)}`;
+  const partnerName = String(application?.name || '').trim();
+  const approved = String(application?.workflow_status || '').trim().toLowerCase() === 'approved';
+
+  if (lang === 'pl') {
+    const subject = 'CyprusEye Partner+ - utwórz konto do panelu partnera';
+    const text = [
+      `Cześć${partnerName ? ` ${partnerName}` : ''},`,
+      '',
+      approved
+        ? `Twoje zgłoszenie Partner+ dla "${service}" zostało zaakceptowane, ale nie znaleźliśmy jeszcze konta użytkownika dla adresu ${email}.`
+        : `Otrzymaliśmy Twoje zgłoszenie Partner+ dla "${service}", ale nie znaleźliśmy jeszcze konta użytkownika dla adresu ${email}.`,
+      'Utwórz konto na ten sam adres e-mail, aby administrator mógł prawidłowo przypisać dostęp do panelu partnera.',
+      '',
+      `Link do rejestracji: ${signupUrl}`,
+      '',
+      'CyprusEye.com / WakacjeCypr.com',
+    ].join('\n');
+    const html = `
+      <div style="font-family:Arial,sans-serif;line-height:1.55;color:#111827">
+        <h2>Utwórz konto do panelu partnera</h2>
+        <p>Cześć${partnerName ? ` ${escapeHtml(partnerName)}` : ''},</p>
+        <p>${approved ? 'Twoje zgłoszenie Partner+ dla' : 'Otrzymaliśmy Twoje zgłoszenie Partner+ dla'} <strong>${escapeHtml(service)}</strong>${approved ? ' zostało zaakceptowane' : ''}, ale nie znaleźliśmy jeszcze konta użytkownika dla adresu <strong>${escapeHtml(email)}</strong>.</p>
+        <p>Utwórz konto na ten sam adres e-mail, aby administrator mógł prawidłowo przypisać dostęp do panelu partnera.</p>
+        <p><a href="${escapeHtml(signupUrl)}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 18px;border-radius:12px;font-weight:700">Utwórz konto</a></p>
+        <p style="color:#6b7280">CyprusEye.com / WakacjeCypr.com</p>
+      </div>`;
+    return { subject, text, html, signupUrl };
+  }
+
+  const subject = 'CyprusEye Partner+ - create your partner panel account';
+  const text = [
+    `Hi${partnerName ? ` ${partnerName}` : ''},`,
+    '',
+    approved
+      ? `Your Partner+ application for "${service}" has been approved, but we have not found a user account for ${email} yet.`
+      : `We received your Partner+ application for "${service}", but we have not found a user account for ${email} yet.`,
+    'Create an account with the same e-mail address so an admin can attach partner panel access correctly.',
+    '',
+    `Sign up link: ${signupUrl}`,
+    '',
+    'CyprusEye.com',
+  ].join('\n');
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.55;color:#111827">
+      <h2>Create your partner panel account</h2>
+      <p>Hi${partnerName ? ` ${escapeHtml(partnerName)}` : ''},</p>
+      <p>${approved ? 'Your Partner+ application for' : 'We received your Partner+ application for'} <strong>${escapeHtml(service)}</strong>${approved ? ' has been approved' : ''}, but we have not found a user account for <strong>${escapeHtml(email)}</strong> yet.</p>
+      <p>Create an account with the same e-mail address so an admin can attach partner panel access correctly.</p>
+      <p><a href="${escapeHtml(signupUrl)}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 18px;border-radius:12px;font-weight:700">Create account</a></p>
+      <p style="color:#6b7280">CyprusEye.com</p>
+    </div>`;
+  return { subject, text, html, signupUrl };
+}
+
+async function sendEmail(env, { to, subject, text, html }) {
+  const recipient = normalizeEmail(to);
+  if (!recipient || !subject || (!text && !html)) {
+    throw new Error('Invalid email payload');
+  }
+
+  const rawFrom = String(env?.SMTP_FROM || env?.MAIL_FROM || 'CyprusEye.com <no-reply@wakacjecypr.com>').trim();
+  const match = rawFrom.match(/^(.*)<([^>]+)>\s*$/);
+  const fromEmail = match ? match[2].trim() : rawFrom;
+  const fromName = match ? String(match[1] || '').trim() || 'CyprusEye.com' : 'CyprusEye.com';
+
+  const payload = {
+    personalizations: [{ to: [{ email: recipient }] }],
+    from: { email: fromEmail, name: fromName },
+    subject,
+    content: [
+      { type: 'text/plain', value: text || (html ? html.replace(/<[^>]*>/g, ' ') : '') },
+      ...(html ? [{ type: 'text/html', value: html }] : []),
+    ],
+  };
+
+  const response = await fetch('https://api.mailchannels.net/tx/v1/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const details = await response.text().catch(() => '');
+    throw new Error(details || `Email send failed (${response.status})`);
+  }
 }
 
 async function requirePartnerPlusAdmin(request, env) {
@@ -61,7 +227,7 @@ export async function onRequestOptions() {
   return new Response(null, {
     status: 204,
     headers: {
-      Allow: 'GET, DELETE, OPTIONS',
+      Allow: 'GET, POST, DELETE, OPTIONS',
     },
   });
 }
@@ -85,9 +251,179 @@ export async function onRequestGet(context) {
 
     if (error) throw error;
 
-    return json({ ok: true, data: Array.isArray(data) ? data : [] });
+    const rows = await attachMatchedProfiles(auth.adminClient, data || []);
+    return json({ ok: true, data: rows });
   } catch (error) {
     console.error('[admin-partner-plus-applications] failed:', error);
+    return json({ error: error?.message || 'Server error' }, 500);
+  }
+}
+
+export async function onRequestPost(context) {
+  try {
+    const { request, env } = context;
+    const auth = await requirePartnerPlusAdmin(request, env);
+    if (!auth.ok) {
+      return json({ error: auth.error }, auth.status);
+    }
+
+    let body = {};
+    try {
+      body = await request.json();
+    } catch (_) {
+      body = {};
+    }
+
+    const action = String(body?.action || '').trim();
+    const id = String(body?.id || '').trim();
+    if (!isUuid(id)) {
+      return json({ error: 'Invalid Partner+ application id' }, 400);
+    }
+
+    const { data: application, error: appError } = await auth.adminClient
+      .from('partner_plus_applications')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (appError) throw appError;
+    if (!application?.id) {
+      return json({ error: 'Partner+ application not found' }, 404);
+    }
+
+    if (action === 'send_account_invite') {
+      const emailPayload = buildAccountInviteEmail(application, request, env);
+      await sendEmail(env, {
+        to: application.email,
+        subject: emailPayload.subject,
+        text: emailPayload.text,
+        html: emailPayload.html,
+      });
+
+      const now = new Date().toISOString();
+      const { data: updated, error: updateError } = await auth.adminClient
+        .from('partner_plus_applications')
+        .update({
+          account_invite_sent_at: now,
+          account_invite_sent_to: normalizeEmail(application.email),
+          updated_at: now,
+        })
+        .eq('id', id)
+        .select('*')
+        .maybeSingle();
+
+      if (updateError) throw updateError;
+      const rows = await attachMatchedProfiles(auth.adminClient, updated ? [updated] : []);
+      return json({ ok: true, data: rows[0] || updated || application, signup_url: emailPayload.signupUrl });
+    }
+
+    if (action === 'approve_partner_created') {
+      const partnerId = String(body?.partner_id || '').trim();
+      const grantAccess = Boolean(body?.grant_access);
+      if (!isUuid(partnerId)) {
+        return json({ error: 'Missing approved partner id' }, 400);
+      }
+
+      let profile = null;
+      let accessGranted = false;
+      if (grantAccess) {
+        profile = await findProfileByEmail(auth.adminClient, application.email);
+        if (!profile?.id) {
+          return json({ error: 'No user account exists for this application e-mail yet' }, 409);
+        }
+
+        const { data: existing, error: existingError } = await auth.adminClient
+          .from('partner_users')
+          .select('id')
+          .eq('partner_id', partnerId)
+          .eq('user_id', profile.id)
+          .maybeSingle();
+        if (existingError) throw existingError;
+
+        if (!existing?.id) {
+          const { error: insertError } = await auth.adminClient
+            .from('partner_users')
+            .insert({ partner_id: partnerId, user_id: profile.id, role: 'owner' });
+          if (insertError) throw insertError;
+        }
+        accessGranted = true;
+      } else {
+        profile = await findProfileByEmail(auth.adminClient, application.email).catch(() => null);
+      }
+
+      const now = new Date().toISOString();
+      const { data: updated, error: updateError } = await auth.adminClient
+        .from('partner_plus_applications')
+        .update({
+          workflow_status: 'approved',
+          matched_profile_id: profile?.id || application.matched_profile_id || null,
+          approved_partner_id: partnerId,
+          approved_partner_user_id: accessGranted ? profile.id : null,
+          access_granted: accessGranted,
+          access_granted_at: accessGranted ? now : null,
+          reviewed_at: now,
+          reviewed_by: auth.user?.id || null,
+          updated_at: now,
+        })
+        .eq('id', id)
+        .select('*')
+        .maybeSingle();
+
+      if (updateError) throw updateError;
+      const rows = await attachMatchedProfiles(auth.adminClient, updated ? [updated] : []);
+      return json({ ok: true, data: rows[0] || updated || application });
+    }
+
+    if (action === 'grant_access') {
+      const partnerId = String(application.approved_partner_id || body?.partner_id || '').trim();
+      if (!isUuid(partnerId)) {
+        return json({ error: 'Approve/create the partner before granting panel access' }, 409);
+      }
+
+      const profile = await findProfileByEmail(auth.adminClient, application.email);
+      if (!profile?.id) {
+        return json({ error: 'No user account exists for this application e-mail yet' }, 409);
+      }
+
+      const { data: existing, error: existingError } = await auth.adminClient
+        .from('partner_users')
+        .select('id')
+        .eq('partner_id', partnerId)
+        .eq('user_id', profile.id)
+        .maybeSingle();
+      if (existingError) throw existingError;
+
+      if (!existing?.id) {
+        const { error: insertError } = await auth.adminClient
+          .from('partner_users')
+          .insert({ partner_id: partnerId, user_id: profile.id, role: 'owner' });
+        if (insertError) throw insertError;
+      }
+
+      const now = new Date().toISOString();
+      const { data: updated, error: updateError } = await auth.adminClient
+        .from('partner_plus_applications')
+        .update({
+          matched_profile_id: profile.id,
+          approved_partner_user_id: profile.id,
+          access_granted: true,
+          access_granted_at: now,
+          reviewed_at: application.reviewed_at || now,
+          reviewed_by: application.reviewed_by || auth.user?.id || null,
+          updated_at: now,
+        })
+        .eq('id', id)
+        .select('*')
+        .maybeSingle();
+
+      if (updateError) throw updateError;
+      const rows = await attachMatchedProfiles(auth.adminClient, updated ? [updated] : []);
+      return json({ ok: true, data: rows[0] || updated || application });
+    }
+
+    return json({ error: 'Unsupported Partner+ action' }, 400);
+  } catch (error) {
+    console.error('[admin-partner-plus-applications:post] failed:', error);
     return json({ error: error?.message || 'Server error' }, 500);
   }
 }

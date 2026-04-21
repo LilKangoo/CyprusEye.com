@@ -3276,8 +3276,27 @@ function getPartnerPlusApplicationById(applicationId) {
 
 function getPartnerPlusProfileForApplication(application) {
   if (!application) return null;
+  if (application.matched_profile?.id) return application.matched_profile;
   const email = String(application.email || '').trim().toLowerCase();
   return partnersState.partnerPlusProfilesByEmail[email] || null;
+}
+
+function getPartnerPlusAccountBadgeHtml(application) {
+  const profile = getPartnerPlusProfileForApplication(application);
+  if (profile?.id) {
+    return '<span class="badge badge-success">Account found</span>';
+  }
+  return '<span class="badge badge-warning">No account yet</span>';
+}
+
+function getPartnerPlusAccessBadgeHtml(application) {
+  if (application?.access_granted) {
+    return '<span class="badge badge-success">Access granted</span>';
+  }
+  if (String(application?.workflow_status || '').toLowerCase() === 'approved') {
+    return '<span class="badge badge-warning">Access pending</span>';
+  }
+  return '<span class="badge">Access not started</span>';
 }
 
 function isPartnerPlusUnavailableError(error) {
@@ -3344,6 +3363,39 @@ async function deletePartnerPlusApplicationViaApi(applicationId) {
   return payload;
 }
 
+async function postPartnerPlusApplicationAction(applicationId, action, extra = {}) {
+  const id = String(applicationId || '').trim();
+  if (!id) throw new Error('Missing Partner+ application id');
+
+  const token = await getAdminAccessToken();
+  if (!token) {
+    throw new Error('Missing admin session token');
+  }
+
+  const response = await fetch('/api/admin/partner-plus-applications', {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ id, action, ...extra }),
+  });
+
+  let payload = {};
+  try {
+    payload = await response.json();
+  } catch (_) {
+    payload = {};
+  }
+
+  if (!response.ok || payload?.error) {
+    throw new Error(payload?.error || `Partner+ action failed (${response.status})`);
+  }
+
+  return payload;
+}
+
 async function fetchPartnerPlusApplications(client, options = {}) {
   const preferApi = options?.preferApi !== false;
   if (preferApi) {
@@ -3400,13 +3452,21 @@ async function fetchPartnerPlusApplications(client, options = {}) {
 }
 
 async function loadPartnerPlusProfiles(client, applications) {
+  partnersState.partnerPlusProfilesByEmail = {};
+  (applications || []).forEach((row) => {
+    const profile = row?.matched_profile;
+    const appEmail = String(row?.email || '').trim().toLowerCase();
+    const profileEmail = String(profile?.email || '').trim().toLowerCase();
+    if (profile?.id && appEmail) partnersState.partnerPlusProfilesByEmail[appEmail] = profile;
+    if (profile?.id && profileEmail) partnersState.partnerPlusProfilesByEmail[profileEmail] = profile;
+  });
+
   const emails = Array.from(new Set(
     (applications || [])
       .map((row) => String(row?.email || '').trim().toLowerCase())
-      .filter(Boolean),
+      .filter((email) => email && !partnersState.partnerPlusProfilesByEmail[email]),
   ));
 
-  partnersState.partnerPlusProfilesByEmail = {};
   if (!emails.length) return;
 
   try {
@@ -3519,6 +3579,12 @@ function renderPartnerPlusApplications() {
     const location = escapeHtml(row.location || '—');
     const matched = profile ? escapeHtml(profile.username || profile.name || profile.email || profile.id) : 'No matching user';
     const description = escapeHtml(String(row.service_description || row.message || '').slice(0, 180));
+    const workflowStatus = String(row.workflow_status || 'pending').toLowerCase();
+    const accountBadge = getPartnerPlusAccountBadgeHtml(row);
+    const accessBadge = getPartnerPlusAccessBadgeHtml(row);
+    const hasApprovedPartner = Boolean(String(row.approved_partner_id || '').trim());
+    const canGrantAccess = workflowStatus === 'approved' && hasApprovedPartner && !row.access_granted && Boolean(profile?.id);
+    const canSendInvite = workflowStatus !== 'rejected' && !row.access_granted && !profile?.id;
 
     return `
       <article class="partner-plus-card">
@@ -3529,6 +3595,7 @@ function renderPartnerPlusApplications() {
           </div>
           ${statusHtml}
         </div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; margin: 8px 0 10px;">${accountBadge}${accessBadge}</div>
         ${description ? `<p>${description}${String(row.service_description || row.message || '').length > 180 ? '…' : ''}</p>` : ''}
         <div class="partner-plus-card__meta">
           <div class="partner-plus-meta-item"><span>Contact</span><strong>${name}</strong></div>
@@ -3541,7 +3608,9 @@ function renderPartnerPlusApplications() {
         <div style="display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap;">
           <button class="btn-secondary" type="button" onclick="viewPartnerPlusApplication('${row.id}')">View</button>
           <button class="btn-secondary" type="button" onclick="deletePartnerPlusApplication('${row.id}')">Delete</button>
-          ${String(row.workflow_status || '') === 'pending' ? `<button class="btn btn-primary" type="button" onclick="approvePartnerPlusApplication('${row.id}')">Approve</button>` : ''}
+          ${canSendInvite ? `<button class="btn-secondary" type="button" onclick="sendPartnerPlusAccountInvite('${row.id}')">Send invite</button>` : ''}
+          ${canGrantAccess ? `<button class="btn btn-primary" type="button" onclick="grantPartnerPlusPanelAccess('${row.id}')">Grant access</button>` : ''}
+          ${workflowStatus === 'pending' ? `<button class="btn btn-primary" type="button" onclick="approvePartnerPlusApplication('${row.id}')">${profile?.id ? 'Approve + access' : 'Approve'}</button>` : ''}
         </div>
       </article>
     `;
@@ -3558,19 +3627,41 @@ function renderPartnerPlusApplicationDetails(application) {
   const rejectBtn = document.getElementById('btnPartnerPlusReject');
   const approveBtn = document.getElementById('btnPartnerPlusApprove');
   const deleteBtn = document.getElementById('btnPartnerPlusDelete');
+  const sendInviteBtn = document.getElementById('btnPartnerPlusSendInvite');
+  const grantAccessBtn = document.getElementById('btnPartnerPlusGrantAccess');
   if (!body || !application) return;
 
   const status = String(application.workflow_status || 'pending').trim();
   const profile = getPartnerPlusProfileForApplication(application);
+  const workflowStatus = status.toLowerCase();
+  const hasApprovedPartner = Boolean(String(application.approved_partner_id || '').trim());
+  const accountFound = Boolean(profile?.id);
+  const canGrantAccess = workflowStatus === 'approved' && hasApprovedPartner && !application.access_granted && accountFound;
+  const canSendInvite = workflowStatus !== 'rejected' && !application.access_granted && !accountFound;
   if (title) title.textContent = `Partner+ — ${application.service || application.email || 'application'}`;
   if (rejectBtn) rejectBtn.disabled = status !== 'pending';
   if (approveBtn) approveBtn.disabled = status !== 'pending';
   if (rejectBtn) rejectBtn.dataset.applicationId = application.id;
   if (approveBtn) approveBtn.dataset.applicationId = application.id;
   if (deleteBtn) deleteBtn.dataset.applicationId = application.id;
+  if (sendInviteBtn) {
+    sendInviteBtn.dataset.applicationId = application.id;
+    sendInviteBtn.hidden = !canSendInvite;
+  }
+  if (grantAccessBtn) {
+    grantAccessBtn.dataset.applicationId = application.id;
+    grantAccessBtn.hidden = !canGrantAccess;
+  }
+  if (approveBtn) {
+    approveBtn.hidden = workflowStatus !== 'pending';
+    approveBtn.textContent = accountFound ? 'Approve and grant access' : 'Approve without access';
+  }
+  if (rejectBtn) rejectBtn.hidden = workflowStatus !== 'pending';
 
   const fields = [
     ['Status', getPartnerPlusStatusHtml(application.workflow_status), true],
+    ['Account', getPartnerPlusAccountBadgeHtml(application), true],
+    ['Partner panel', getPartnerPlusAccessBadgeHtml(application), true],
     ['Partner type', escapeHtml(getPartnerPlusTypeLabel(application.partner_type)), true],
     ['Package', escapeHtml(getPartnerPlusPackageLabel(application.package_tier)), true],
     ['Language', escapeHtml(application.language || '—'), true],
@@ -3581,6 +3672,7 @@ function renderPartnerPlusApplicationDetails(application) {
     ['Location', escapeHtml(application.location || '—'), true],
     ['Website / social', application.website ? `<a href="${escapeHtml(application.website)}" target="_blank" rel="noopener">${escapeHtml(application.website)}</a>` : '—', true],
     ['Matched user', profile ? escapeHtml(profile.username || profile.name || profile.email || profile.id) : 'No matching user by e-mail', true],
+    ['Account invite', application.account_invite_sent_at ? `Sent ${escapeHtml(formatDateTimeValue(application.account_invite_sent_at))}` : 'Not sent', true],
     ['Created', escapeHtml(application.created_at ? formatDateTimeValue(application.created_at) : '—'), true],
   ];
 
@@ -3594,9 +3686,16 @@ function renderPartnerPlusApplicationDetails(application) {
     ['Local service offer', application.local_service_offer],
     ['Approved partner', application.approved_partner_id],
     ['Access granted', application.access_granted ? 'Yes' : 'No'],
+    ['Access granted at', application.access_granted_at ? formatDateTimeValue(application.access_granted_at) : ''],
   ].filter(([, value]) => value !== null && value !== undefined && String(value).trim());
 
   body.innerHTML = `
+    <div class="partner-plus-detail-note" style="margin-bottom:12px;">
+      <strong>Account workflow</strong><br>
+      ${accountFound
+        ? `Account exists for this e-mail. ${application.access_granted ? 'Partner panel access is already granted.' : hasApprovedPartner ? 'Use Grant access to attach this user to the approved partner.' : 'Approving can grant owner access immediately.'}`
+        : `No user account exists for this e-mail yet. You can approve the business partner now, then send an account invite and grant access after the account exists.`}
+    </div>
     <div class="partner-plus-detail-grid">
       ${fields.map(([label, value, html]) => `
         <div class="partner-plus-meta-item">
@@ -3739,56 +3838,95 @@ async function deletePartnerPlusApplication(applicationId) {
   }
 }
 
+function updatePartnerPlusApplicationInState(updatedApplication) {
+  if (!updatedApplication?.id) return;
+  const rows = Array.isArray(partnersState.partnerPlusApplications) ? partnersState.partnerPlusApplications : [];
+  const id = String(updatedApplication.id || '');
+  const index = rows.findIndex((row) => String(row?.id || '') === id);
+  if (index >= 0) {
+    rows[index] = updatedApplication;
+  } else {
+    rows.unshift(updatedApplication);
+  }
+  partnersState.partnerPlusApplications = rows;
+  const email = String(updatedApplication.email || '').trim().toLowerCase();
+  if (email && updatedApplication.matched_profile?.id) {
+    partnersState.partnerPlusProfilesByEmail[email] = updatedApplication.matched_profile;
+  }
+}
+
+async function sendPartnerPlusAccountInvite(applicationId) {
+  const app = getPartnerPlusApplicationById(applicationId);
+  const label = app?.email || applicationId;
+  const ok = confirm(`Send account setup invite to "${label}"?`);
+  if (!ok) return false;
+
+  try {
+    const payload = await postPartnerPlusApplicationAction(applicationId, 'send_account_invite');
+    if (payload?.data?.id) updatePartnerPlusApplicationInState(payload.data);
+    showToast('Partner+ account invite sent', 'success');
+    renderPartnerPlusApplications();
+    if (payload?.data?.id) renderPartnerPlusApplicationDetails(payload.data);
+    return true;
+  } catch (error) {
+    showToast(error?.message || 'Failed to send Partner+ account invite', 'error');
+    return false;
+  }
+}
+
+async function sendPartnerPlusAccountInviteSilently(applicationId) {
+  try {
+    const payload = await postPartnerPlusApplicationAction(applicationId, 'send_account_invite');
+    if (payload?.data?.id) updatePartnerPlusApplicationInState(payload.data);
+    return true;
+  } catch (error) {
+    console.warn('Partner+ account invite could not be sent:', error);
+    return false;
+  }
+}
+
+async function grantPartnerPlusPanelAccess(applicationId) {
+  const app = getPartnerPlusApplicationById(applicationId);
+  const label = app?.email || applicationId;
+  const ok = confirm(`Grant partner panel access to the account for "${label}"?`);
+  if (!ok) return;
+
+  try {
+    const payload = await postPartnerPlusApplicationAction(applicationId, 'grant_access');
+    if (payload?.data?.id) updatePartnerPlusApplicationInState(payload.data);
+    showToast('Partner+ panel access granted', 'success');
+    renderPartnerPlusApplications();
+    if (payload?.data?.id) renderPartnerPlusApplicationDetails(payload.data);
+    if (typeof loadAllOrders === 'function') await loadAllOrders({ silent: true });
+  } catch (error) {
+    showToast(error?.message || 'Failed to grant Partner+ panel access', 'error');
+  }
+}
+
 async function finalizePartnerPlusApproval(partnerId) {
   const appId = String(partnerPlusApprovalState.applicationId || '').trim();
   if (!appId || !partnerId) return;
 
-  const client = ensureSupabase();
-  if (!client) return;
-
-  const application = getPartnerPlusApplicationById(appId);
   const grantAccess = Boolean(document.getElementById('partnerPlusGrantAccess')?.checked);
-  const profileId = grantAccess ? String(partnerPlusApprovalState.matchedProfileId || '').trim() : '';
-  let accessGranted = false;
-
-  if (profileId) {
-    const { data: existing, error: existingError } = await client
-      .from('partner_users')
-      .select('id')
-      .eq('partner_id', partnerId)
-      .eq('user_id', profileId)
-      .maybeSingle();
-    if (existingError) throw existingError;
-
-    if (existing?.id) {
-      accessGranted = true;
-    } else {
-      const { error: insertError } = await client
-        .from('partner_users')
-        .insert({ partner_id: partnerId, user_id: profileId, role: 'owner' });
-      if (insertError) throw insertError;
-      accessGranted = true;
-    }
-  }
-
-  const { error: updateError } = await client
-    .from('partner_plus_applications')
-    .update({
-      workflow_status: 'approved',
-      matched_profile_id: profileId || application?.matched_profile_id || null,
-      approved_partner_id: partnerId,
-      approved_partner_user_id: profileId || null,
-      access_granted: accessGranted,
-      reviewed_at: new Date().toISOString(),
-      reviewed_by: adminState.user?.id || null,
-    })
-    .eq('id', appId);
-  if (updateError) throw updateError;
+  const payload = await postPartnerPlusApplicationAction(appId, 'approve_partner_created', {
+    partner_id: partnerId,
+    grant_access: grantAccess,
+  });
+  if (payload?.data?.id) updatePartnerPlusApplicationInState(payload.data);
+  const accessGranted = Boolean(payload?.data?.access_granted);
 
   partnerPlusApprovalState.applicationId = null;
   partnerPlusApprovalState.matchedProfileId = null;
   partnerPlusApprovalState.matchedProfileEmail = '';
-  showToast(accessGranted ? 'Partner+ approved and panel access granted' : 'Partner+ approved. No matched user access was granted.', 'success');
+  const inviteSent = accessGranted ? false : await sendPartnerPlusAccountInviteSilently(appId);
+  showToast(
+    accessGranted
+      ? 'Partner+ approved and panel access granted'
+      : inviteSent
+        ? 'Partner+ approved without account access. Account invite sent.'
+        : 'Partner+ approved without account access. Use Send invite when needed.',
+    'success',
+  );
   await loadPartnerPlusApplications(true);
   if (typeof loadAllOrders === 'function') await loadAllOrders({ silent: true });
 }
@@ -7084,6 +7222,8 @@ window.enableAffiliateOnlyUser = (userId) => enableAffiliateOnlyUserFromUserModa
 window.viewPartnerPlusApplication = (applicationId) => viewPartnerPlusApplication(applicationId);
 window.approvePartnerPlusApplication = (applicationId) => approvePartnerPlusApplication(applicationId);
 window.deletePartnerPlusApplication = (applicationId) => deletePartnerPlusApplication(applicationId);
+window.sendPartnerPlusAccountInvite = (applicationId) => sendPartnerPlusAccountInvite(applicationId);
+window.grantPartnerPlusPanelAccess = (applicationId) => grantPartnerPlusPanelAccess(applicationId);
 
 const calendarsState = {
   partnersById: {},
@@ -34675,6 +34815,22 @@ function initEventListeners() {
     partnerPlusDeleteBtn.addEventListener('click', () => {
       const id = String(partnerPlusDeleteBtn.dataset.applicationId || '').trim();
       if (id) deletePartnerPlusApplication(id);
+    });
+  }
+
+  const partnerPlusSendInviteBtn = document.getElementById('btnPartnerPlusSendInvite');
+  if (partnerPlusSendInviteBtn) {
+    partnerPlusSendInviteBtn.addEventListener('click', () => {
+      const id = String(partnerPlusSendInviteBtn.dataset.applicationId || '').trim();
+      if (id) sendPartnerPlusAccountInvite(id);
+    });
+  }
+
+  const partnerPlusGrantAccessBtn = document.getElementById('btnPartnerPlusGrantAccess');
+  if (partnerPlusGrantAccessBtn) {
+    partnerPlusGrantAccessBtn.addEventListener('click', () => {
+      const id = String(partnerPlusGrantAccessBtn.dataset.applicationId || '').trim();
+      if (id) grantPartnerPlusPanelAccess(id);
     });
   }
 
