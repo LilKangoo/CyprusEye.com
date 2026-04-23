@@ -5979,7 +5979,15 @@
         </div>
 
         <div class="admin-tab-content" id="partnersTabAffiliate" hidden>
-          <div class="admin-card" style="margin-top: 16px;">
+          <div class="affiliate-workspace-tabs" role="tablist" aria-label="Affiliate workspace">
+            <button class="affiliate-workspace-tab active" type="button" data-affiliate-panel="overview">Overview</button>
+            <button class="affiliate-workspace-tab" type="button" data-affiliate-panel="attribution">Attribution queue</button>
+            <button class="affiliate-workspace-tab" type="button" data-affiliate-panel="payouts">Payouts</button>
+            <button class="affiliate-workspace-tab" type="button" data-affiliate-panel="ledger">Ledger</button>
+            <button class="affiliate-workspace-tab" type="button" data-affiliate-panel="rules">Rules</button>
+          </div>
+
+          <div class="admin-card affiliate-panel-card" data-affiliate-panel-section="rules" style="margin-top: 16px;" hidden>
             <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
               <div>
                 <h3>Affiliate program settings</h3>
@@ -6012,7 +6020,7 @@
             </div>
           </div>
 
-          <div class="admin-card" style="margin-top: 16px;">
+          <div class="admin-card affiliate-panel-card" data-affiliate-panel-section="rules" style="margin-top: 16px;" hidden>
             <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
               <div>
                 <h3>Referrer promotions (overrides)</h3>
@@ -6065,7 +6073,7 @@
             </div>
           </div>
 
-          <div class="admin-card" style="margin-top: 16px;">
+          <div class="admin-card affiliate-panel-card" data-affiliate-panel-section="overview payouts" style="margin-top: 16px;">
             <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
               <div>
                 <h3>Affiliate cashout requests</h3>
@@ -6094,7 +6102,7 @@
             </div>
           </div>
 
-          <div class="admin-card" style="margin-top: 16px;">
+          <div class="admin-card affiliate-panel-card" data-affiliate-panel-section="overview payouts" style="margin-top: 16px;">
             <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
               <div>
                 <h3>Affiliate payout overview</h3>
@@ -6123,7 +6131,7 @@
             </div>
           </div>
 
-          <div class="admin-card" id="affiliateAdjustmentsCard" style="margin-top: 16px;">
+          <div class="admin-card affiliate-panel-card" id="affiliateAdjustmentsCard" data-affiliate-panel-section="payouts" style="margin-top: 16px;" hidden>
             <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
               <div>
                 <h3>Affiliate adjustments (bonus / deduction)</h3>
@@ -6171,7 +6179,7 @@
             </div>
           </div>
 
-          <div class="admin-card" style="margin-top: 16px;">
+          <div class="admin-card affiliate-panel-card" data-affiliate-panel-section="payouts" style="margin-top: 16px;" hidden>
             <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
               <div>
                 <h3>Affiliate payouts</h3>
@@ -6216,7 +6224,7 @@
             </div>
           </div>
 
-          <div class="admin-card" style="margin-top: 16px;">
+          <div class="admin-card affiliate-panel-card" data-affiliate-panel-section="overview ledger" style="margin-top: 16px;">
             <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
               <div>
                 <h3>Affiliate earnings (events)</h3>
@@ -6263,36 +6271,35 @@
             </div>
           </div>
 
-          <div class="admin-card" style="margin-top: 16px;">
+          <div class="admin-card affiliate-panel-card" data-affiliate-panel-section="overview attribution" style="margin-top: 16px;">
             <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
               <div>
-                <h3>Unattributed deposits</h3>
-                <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Paid deposits that did not generate affiliate commission events.</p>
+                <h3>Affiliate attribution queue</h3>
+                <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Paid deposits without commission events. The system suggests lifetime or order-level referral attribution when possible.</p>
               </div>
               <button class="btn-secondary" id="btnRefreshAffiliateUnattributed" type="button">🔄 Refresh</button>
             </div>
             <div class="admin-card-body">
-              <div class="admin-form-grid" style="grid-template-columns: 1fr 1fr 1fr 220px; gap: 10px; align-items: end;">
-                <label class="admin-form-field" style="margin: 0;">
-                  <span>Deposit request ID</span>
-                  <input id="affiliateAttributionDepositId" type="text" class="form-control" placeholder="UUID" />
-                </label>
-                <label class="admin-form-field" style="margin: 0;">
-                  <span>Attach to affiliate user</span>
-                  <select id="affiliateAttributionReferrerUserId" class="form-control"></select>
-                </label>
-                <label class="admin-form-field" style="margin: 0;">
-                  <span>Partner override (optional)</span>
-                  <select id="affiliateAttributionPartnerId" class="form-control"></select>
-                </label>
-                <div style="display:flex; justify-content:flex-end; gap: 8px;">
-                  <button class="btn-secondary" id="btnClearAffiliateAttribution" type="button">Clear</button>
-                  <button class="btn btn-primary" id="btnApplyAffiliateAttribution" type="button">✅ Apply</button>
+              <details class="affiliate-manual-repair">
+                <summary>Manual repair / override</summary>
+                <div class="admin-form-grid" style="grid-template-columns: 1fr 1fr 1fr 220px; gap: 10px; align-items: end; margin-top: 12px;">
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Deposit request ID</span>
+                    <input id="affiliateAttributionDepositId" type="text" class="form-control" placeholder="UUID" />
+                  </label>
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Attach to affiliate user</span>
+                    <select id="affiliateAttributionReferrerUserId" class="form-control"></select>
+                  </label>
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Partner override (optional)</span>
+                    <select id="affiliateAttributionPartnerId" class="form-control"></select>
+                  </label>
+                  <div style="display:flex; justify-content:flex-end; gap: 8px;">
+                    <button class="btn-secondary" id="btnClearAffiliateAttribution" type="button">Clear</button>
+                    <button class="btn btn-primary" id="btnApplyAffiliateAttribution" type="button">✅ Apply</button>
+                  </div>
                 </div>
-              </div>
-
-              <details style="margin-top: 10px;">
-                <summary style="cursor: pointer; color: var(--admin-text-muted); font-size: 13px;">Advanced</summary>
                 <div class="admin-form-grid" style="grid-template-columns: 1fr; gap: 10px; align-items: end; margin-top: 10px;">
                   <label class="admin-form-field" style="margin: 0;">
                     <span>Payer user override (only if customer email can’t be matched)</span>
@@ -6300,9 +6307,9 @@
                   </label>
                   <label style="display:flex; align-items:center; gap: 10px; cursor: pointer; justify-content:flex-start; padding-bottom: 6px;">
                     <input type="checkbox" id="affiliateAttributionReplaceExisting" style="width: 18px; height: 18px;">
-                    <span style="font-size: 13px;">Replace existing events (only if unpaid)</span>
-                  </label>
-                </div>
+                      <span style="font-size: 13px;">Replace existing events (only if unpaid)</span>
+                    </label>
+                  </div>
               </details>
 
               <div class="admin-table-container" style="margin-top: 12px;">
@@ -6311,14 +6318,15 @@
                     <tr>
                       <th>Paid at</th>
                       <th>Type</th>
-                      <th>Booking</th>
                       <th>Customer</th>
                       <th style="text-align:right;">Amount</th>
+                      <th>Suggested attribution</th>
+                      <th>Reason</th>
                       <th style="text-align:right;">Actions</th>
                     </tr>
                   </thead>
                   <tbody id="affiliateUnattributedTableBody">
-                    <tr><td colspan="6" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>
+                    <tr><td colspan="7" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>
                   </tbody>
                 </table>
               </div>

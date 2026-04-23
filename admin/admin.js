@@ -1524,6 +1524,7 @@ const partnersState = {
 
 const partnersUiState = {
   activeTab: 'list',
+  affiliateActivePanel: 'overview',
   depositLoadedOnce: false,
   partnerPlusLoadedOnce: false,
   affiliateLoadedOnce: false,
@@ -3967,6 +3968,7 @@ function setPartnersActiveTab(tabName) {
   }
 
   if (next === 'affiliate') {
+    setAffiliateActivePanel(partnersUiState.affiliateActivePanel || 'overview');
     loadPartnersAffiliateAdminData();
   }
 
@@ -3975,12 +3977,34 @@ function setPartnersActiveTab(tabName) {
   }
 }
 
+function setAffiliateActivePanel(panelName) {
+  const next = String(panelName || '').trim() || 'overview';
+  partnersUiState.affiliateActivePanel = next;
+
+  document.querySelectorAll('[data-affiliate-panel]').forEach((btn) => {
+    const key = String(btn.getAttribute('data-affiliate-panel') || '').trim();
+    const active = key === next;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+
+  document.querySelectorAll('[data-affiliate-panel-section]').forEach((section) => {
+    const keys = String(section.getAttribute('data-affiliate-panel-section') || '')
+      .split(/\s+/)
+      .filter(Boolean);
+    section.hidden = !keys.includes(next);
+  });
+}
+
 async function loadPartnersAffiliateAdminData(force = false) {
   const client = ensureSupabase();
   if (!client) return;
 
   if (partnersUiState.affiliateLoadedOnce && !force) return;
   partnersUiState.affiliateLoadedOnce = true;
+
+  setAffiliateActivePanel(partnersUiState.affiliateActivePanel || 'overview');
+  await loadAffiliateEligibleUsers(force);
 
   await Promise.all([
     loadAffiliateSettings(),
@@ -3991,7 +4015,6 @@ async function loadPartnersAffiliateAdminData(force = false) {
     loadAffiliatePayoutAdminData(),
     loadAffiliateLedgerAdminData(),
     loadAffiliateUnattributedDepositsAdminData(),
-    loadAffiliateEligibleUsers(),
   ]);
 }
 
@@ -4623,41 +4646,62 @@ async function refreshAffiliateUnattributedDeposits({ force = false } = {}) {
   const tbody = document.getElementById('affiliateUnattributedTableBody');
   if (!tbody) return;
 
-  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 18px;">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 18px;">Loading…</td></tr>';
 
   try {
-    const { data: deposits, error } = await client
-      .from('service_deposit_requests')
-      .select('id, status, amount, currency, resource_type, booking_id, fulfillment_id, partner_id, customer_email, customer_name, paid_at, created_at')
-      .eq('status', 'paid')
-      .order('paid_at', { ascending: false })
-      .limit(200);
-    if (error) throw error;
+    let unattributed = [];
+    const { data: rpcRows, error: rpcError } = await client.rpc('affiliate_admin_list_unattributed_deposits_v1', {
+      p_limit: 200,
+    });
 
-    const depRows = Array.isArray(deposits) ? deposits : [];
-    const depIds = depRows.map((d) => d?.id).filter(Boolean);
-    let hasEvents = {};
-
-    if (depIds.length) {
-      const { data: events, error: eventsError } = await client
-        .from('affiliate_commission_events')
-        .select('deposit_request_id')
-        .in('deposit_request_id', depIds)
-        .limit(5000);
-      if (!eventsError && Array.isArray(events)) {
-        hasEvents = events.reduce((acc, ev) => {
-          const id = String(ev.deposit_request_id || '');
-          if (id) acc[id] = true;
-          return acc;
-        }, {});
+    if (rpcError) {
+      if (!isSchemaCacheError(rpcError) && !String(rpcError.message || '').toLowerCase().includes('function')) {
+        throw rpcError;
       }
+
+      const { data: deposits, error } = await client
+        .from('service_deposit_requests')
+        .select('id, status, amount, currency, resource_type, booking_id, fulfillment_id, partner_id, customer_email, customer_name, paid_at, created_at')
+        .eq('status', 'paid')
+        .order('paid_at', { ascending: false })
+        .limit(200);
+      if (error) throw error;
+
+      const depRows = Array.isArray(deposits) ? deposits : [];
+      const depIds = depRows.map((d) => d?.id).filter(Boolean);
+      let hasEvents = {};
+
+      if (depIds.length) {
+        const { data: events, error: eventsError } = await client
+          .from('affiliate_commission_events')
+          .select('deposit_request_id')
+          .in('deposit_request_id', depIds)
+          .limit(5000);
+        if (!eventsError && Array.isArray(events)) {
+          hasEvents = events.reduce((acc, ev) => {
+            const id = String(ev.deposit_request_id || '');
+            if (id) acc[id] = true;
+            return acc;
+          }, {});
+        }
+      }
+
+      unattributed = depRows
+        .filter((d) => !hasEvents[String(d.id || '')])
+        .map((d) => ({
+          ...d,
+          attribution_reason: 'migration_147_required',
+          attribution_source: 'unknown',
+          can_auto_apply: false,
+        }));
+    } else {
+      unattributed = Array.isArray(rpcRows) ? rpcRows : [];
     }
 
-    const unattributed = depRows.filter((d) => !hasEvents[String(d.id || '')]);
     renderAffiliateUnattributedDepositsTable(unattributed);
   } catch (e) {
     console.error('Failed to load unattributed deposits:', e);
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 18px; color:#ef4444;">${escapeHtml(e.message || 'Failed to load')}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 18px; color:#ef4444;">${escapeHtml(e.message || 'Failed to load')}</td></tr>`;
   }
 }
 
@@ -4667,7 +4711,7 @@ function renderAffiliateUnattributedDepositsTable(rows) {
 
   const list = Array.isArray(rows) ? rows : [];
   if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">No unattributed deposits 🎉</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">No unattributed deposits 🎉</td></tr>';
     return;
   }
 
@@ -4692,6 +4736,12 @@ function renderAffiliateUnattributedDepositsTable(rows) {
     const bookingId = escapeHtml(String(d.booking_id || ''));
     const customer = escapeHtml(String(d.customer_email || d.customer_name || '—'));
     const amount = escapeHtml(fmtMoney(d.amount, d.currency || 'EUR'));
+    const suggestedPartner = String(d.suggested_partner_name || '').trim();
+    const suggestedReferrer = String(d.suggested_referrer_label || '').trim();
+    const suggestedPayer = String(d.suggested_payer_label || '').trim();
+    const source = String(d.attribution_source || 'unknown').trim();
+    const reason = String(d.attribution_reason || '').trim();
+    const canAutoApply = Boolean(d.can_auto_apply);
 
     let bookingAction = '';
     if (String(d.resource_type) === 'cars') {
@@ -4704,16 +4754,37 @@ function renderAffiliateUnattributedDepositsTable(rows) {
       bookingAction = `<button class="btn-small btn-secondary" type="button" onclick="viewTransportBookingDetails('${bookingId}')">Booking</button>`;
     }
 
-    const selectAction = `<button class="btn-small btn-primary" type="button" onclick="selectAffiliateAttributionDeposit('${id}')">Use</button>`;
+    const autoAction = canAutoApply
+      ? `<button class="btn-small btn-primary" type="button" data-action="affiliate-attribution-auto" data-deposit-id="${id}">Auto apply</button>`
+      : '';
+    const manualAction = `<button class="btn-small btn-secondary" type="button" data-action="affiliate-attribution-manual" data-deposit-id="${id}">Manual</button>`;
+
+    const suggestion = canAutoApply
+      ? `
+        <div class="affiliate-suggestion">
+          <strong>${escapeHtml(suggestedPartner || 'Affiliate partner')}</strong>
+          <span>${escapeHtml(suggestedReferrer || 'Referrer owner')}</span>
+          ${suggestedPayer ? `<small>Payer: ${escapeHtml(suggestedPayer)}</small>` : '<small>Guest / no matched account</small>'}
+        </div>
+      `
+      : '<span class="muted">No safe suggestion</span>';
+
+    const reasonHtml = `
+      <div class="affiliate-reason">
+        <span class="affiliate-source-badge">${escapeHtml(source)}</span>
+        <small>${escapeHtml(reason || '—')}</small>
+      </div>
+    `;
 
     return `
       <tr>
         <td>${paidAt}</td>
         <td>${type || '—'}</td>
-        <td><code>${bookingId ? bookingId.slice(0, 8) : ''}</code></td>
         <td>${customer}</td>
         <td style="text-align:right;">${amount}</td>
-        <td style="text-align:right;">${selectAction} ${bookingAction || ''}</td>
+        <td>${suggestion}</td>
+        <td>${reasonHtml}</td>
+        <td style="text-align:right;">${autoAction} ${manualAction} ${bookingAction || ''}</td>
       </tr>
     `;
   }).join('');
@@ -4753,11 +4824,6 @@ async function applyAffiliateAttributionFromForm() {
     if (best?.user_id) {
       referrerUserId = String(best.user_id);
     }
-  }
-
-  if (!referrerUserId && !partnerId) {
-    showToast('Select affiliate user or partner', 'error');
-    return;
   }
 
   const ok = confirm(replaceExisting
@@ -4809,10 +4875,59 @@ async function applyAffiliateAttributionFromForm() {
   }
 }
 
+async function autoApplyAffiliateAttribution(depositId) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const depId = String(depositId || '').trim();
+  if (!depId) return;
+
+  const ok = confirm('Apply the suggested affiliate attribution for this paid deposit?');
+  if (!ok) return;
+
+  try {
+    const { data, error } = await client.rpc('affiliate_admin_recompute_commissions_for_deposit', {
+      p_deposit_request_id: depId,
+      p_force_referrer_user_id: null,
+      p_force_payer_user_id: null,
+      p_force_partner_id: null,
+    });
+    if (error) throw error;
+
+    if (data?.ok) {
+      showToast(`Affiliate attribution applied (inserted: ${data.inserted || 0})`, 'success');
+    } else {
+      showToast(`Attribution not applied: ${data?.reason || 'unknown'}`, 'error');
+    }
+
+    await Promise.all([
+      refreshAffiliateUnattributedDeposits({ force: true }),
+      refreshAffiliateLedgerPartnerData({ force: true }),
+      refreshAffiliatePayoutOverview({ force: true }),
+      refreshAffiliatePayoutPartnerData({ force: true }),
+    ]);
+  } catch (e) {
+    console.error('Failed to auto-apply affiliate attribution:', e);
+    showToast(e.message || 'Failed to apply attribution', 'error');
+  }
+}
+
 window.selectAffiliateAttributionDeposit = (depositId) => {
   const depId = document.getElementById('affiliateAttributionDepositId');
   if (depId) depId.value = String(depositId || '').trim();
 };
+
+function startManualAffiliateAttribution(depositId) {
+  const dep = String(depositId || '').trim();
+  if (!dep) return;
+
+  window.selectAffiliateAttributionDeposit(dep);
+  const manual = document.querySelector('.affiliate-manual-repair');
+  if (manual) {
+    manual.open = true;
+    manual.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
 
 window.startAffiliateReassign = (depositId) => {
   const dep = String(depositId || '').trim();
@@ -34692,6 +34807,14 @@ function initEventListeners() {
     });
   });
 
+  document.querySelectorAll('[data-affiliate-panel]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const panel = String(btn.getAttribute('data-affiliate-panel') || '').trim();
+      if (!panel) return;
+      setAffiliateActivePanel(panel);
+    });
+  });
+
   const btnRefreshAffiliateSettings = document.getElementById('btnRefreshAffiliateSettings');
   if (btnRefreshAffiliateSettings) {
     btnRefreshAffiliateSettings.addEventListener('click', () => loadAffiliateSettings());
@@ -34780,6 +34903,18 @@ function initEventListeners() {
     if (action === 'affiliate-cashout-reject') {
       const rid = String(btn.getAttribute('data-request-id') || '').trim();
       if (rid) updateAffiliateCashoutRequestStatus(rid, 'rejected');
+      return;
+    }
+
+    if (action === 'affiliate-attribution-auto') {
+      const did = String(btn.getAttribute('data-deposit-id') || '').trim();
+      if (did) autoApplyAffiliateAttribution(did);
+      return;
+    }
+
+    if (action === 'affiliate-attribution-manual') {
+      const did = String(btn.getAttribute('data-deposit-id') || '').trim();
+      if (did) startManualAffiliateAttribution(did);
       return;
     }
   });
