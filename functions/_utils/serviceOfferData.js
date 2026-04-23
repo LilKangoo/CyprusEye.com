@@ -116,8 +116,10 @@ export function resolveServiceOfferRequest(pathname, requestSearch = '') {
       };
     }
 
-    if (normalizedPath.startsWith(normalizePathname(config.pathPrefix))) {
-      const remainder = normalizedPath.slice(normalizePathname(config.pathPrefix).length).replace(/^\/+|\/+$/g, '');
+    const normalizedPrefix = normalizePathname(config.pathPrefix);
+    const matchesPathPrefix = normalizedPath === normalizedPrefix || normalizedPath.startsWith(`${normalizedPrefix}/`);
+    if (matchesPathPrefix) {
+      const remainder = normalizedPath.slice(normalizedPrefix.length).replace(/^\/+|\/+$/g, '');
       if (!remainder || remainder.includes('/')) {
         return null;
       }

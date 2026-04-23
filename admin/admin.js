@@ -8519,7 +8519,7 @@ async function viewTripBookingDetails(bookingId) {
               <button type="button" class="btn-secondary" onclick="adminServiceFulfillmentActionForBooking('trips','${escapeHtml(booking.id)}','${escapeHtml(fulfillment.id)}','send_deposit_email')">Send deposit email</button>
             ` : ''}
             ${canMarkPaid ? `
-              <button type="button" class="btn-secondary" onclick="adminServiceFulfillmentActionForBooking('trips','${escapeHtml(booking.id)}','${escapeHtml(fulfillment.id)}','mark_paid')">Mark paid</button>
+              <button type="button" class="btn-secondary" onclick="adminServiceFulfillmentActionForBooking('trips','${escapeHtml(booking.id)}','${escapeHtml(fulfillment.id)}','mark_paid')">Mark paid manually</button>
             ` : ''}
           </div>
         `;

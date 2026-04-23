@@ -805,8 +805,10 @@ async function createDepositCheckoutForServiceFulfillment(params: {
   partnerId: string;
   bookingId: string;
   category: ServiceCategory;
+  createCheckout?: boolean;
 }): Promise<{ deposit_request_id: string; checkout_url: string } | null> {
   const { supabase, fulfillment, partnerId, bookingId, category } = params;
+  const shouldCreateCheckout = params.createCheckout !== false;
 
   const fulfillmentId = String(fulfillment?.id || "");
   if (!fulfillmentId) return null;
@@ -831,6 +833,8 @@ async function createDepositCheckoutForServiceFulfillment(params: {
       ? "lang, pickup_date, pickup_time, return_date, return_time"
       : category === "transport"
       ? "lang, travel_date, travel_time, return_travel_date, num_passengers, deposit_amount, customer_name, customer_email, customer_phone, total_price, currency"
+      : category === "trips"
+      ? "lang, arrival_date, departure_date, num_adults, num_children, num_hours, customer_name, customer_email, customer_phone, total_price, currency"
       : "lang, arrival_date, departure_date";
     const { data: booking } = await supabase
       .from(tableName)
@@ -1005,6 +1009,14 @@ async function createDepositCheckoutForServiceFulfillment(params: {
     return { deposit_request_id: existingId, checkout_url: existingUrl || "" };
   }
   if (
+    !shouldCreateCheckout &&
+    existingId &&
+    amountMatches &&
+    currencyMatches
+  ) {
+    return { deposit_request_id: existingId, checkout_url: existingUrl || "" };
+  }
+  if (
     existingId &&
     existingStatus === "pending" &&
     existingUrl &&
@@ -1082,6 +1094,10 @@ async function createDepositCheckoutForServiceFulfillment(params: {
 
   if (!depositRequestId) {
     throw new Error("Failed to create deposit request");
+  }
+
+  if (!shouldCreateCheckout) {
+    return { deposit_request_id: depositRequestId, checkout_url: "" };
   }
 
   const totalForCheckout = clampMoney(Number((fulfillment as any)?.total_price || (bookingRow as any)?.total_price || 0));
@@ -1491,14 +1507,58 @@ serve(async (req) => {
           headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
         });
       }
+      if (!bookingId || !serviceCategory) {
+        return new Response(JSON.stringify({ error: "Service fulfillment missing booking references" }), {
+          status: 400,
+          headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
+        });
+      }
 
       const nowIso = new Date().toISOString();
 
-      const { data: depRow, error: depErr } = await supabase
+      let { data: depRow, error: depErr } = await supabase
         .from("service_deposit_requests")
         .select("id, status, booking_id, partner_id, resource_type, amount, currency")
         .eq("fulfillment_id", fulfillmentId)
         .maybeSingle();
+
+      if (!depErr && !depRow) {
+        try {
+          const { data: fullRow, error: fullErr } = await supabase
+            .from("partner_service_fulfillments")
+            .select("id, partner_id, resource_type, booking_id, resource_id, start_date, end_date, reference, summary, details, total_price, currency")
+            .eq("id", fulfillmentId)
+            .maybeSingle();
+          if (fullErr || !fullRow) {
+            throw new Error(fullErr?.message || "Fulfillment not found");
+          }
+
+          const preparedDeposit = await createDepositCheckoutForServiceFulfillment({
+            supabase,
+            fulfillment: fullRow,
+            partnerId,
+            bookingId,
+            category: serviceCategory,
+            createCheckout: false,
+          });
+
+          const preparedId = String(preparedDeposit?.deposit_request_id || "").trim();
+          if (preparedId) {
+            const reload = await supabase
+              .from("service_deposit_requests")
+              .select("id, status, booking_id, partner_id, resource_type, amount, currency")
+              .eq("id", preparedId)
+              .maybeSingle();
+            depRow = reload.data || null;
+            depErr = reload.error || null;
+          }
+        } catch (e) {
+          return new Response(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }), {
+            status: 400,
+            headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
+          });
+        }
+      }
 
       if (depErr || !depRow) {
         return new Response(JSON.stringify({ error: "Deposit request not found for fulfillment" }), {
