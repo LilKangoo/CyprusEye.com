@@ -1545,6 +1545,8 @@ const partnersUiState = {
   depositOverrides: [],
   depositOverrideLabels: {},
   depositRequests: [],
+  depositRequestHighlightedId: '',
+  focusCardTimer: null,
   affiliateSettings: null,
   affiliateOverrides: [],
 };
@@ -3996,6 +3998,80 @@ function setAffiliateActivePanel(panelName) {
   });
 }
 
+function focusAdminCard(cardId, options = {}) {
+  const id = String(cardId || '').trim();
+  if (!id) return;
+
+  const card = document.getElementById(id);
+  if (!card) return;
+
+  if (partnersUiState.focusCardTimer) {
+    clearTimeout(partnersUiState.focusCardTimer);
+    partnersUiState.focusCardTimer = null;
+  }
+
+  document.querySelectorAll('.admin-card.is-focus-target').forEach((node) => {
+    node.classList.remove('is-focus-target');
+  });
+
+  card.classList.add('is-focus-target');
+  if (options.scroll !== false) {
+    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  partnersUiState.focusCardTimer = setTimeout(() => {
+    card.classList.remove('is-focus-target');
+    partnersUiState.focusCardTimer = null;
+  }, 2600);
+}
+
+async function openAffiliatePayoutWorkspaceForPartner(partnerId, options = {}) {
+  const pid = String(partnerId || '').trim();
+  if (!pid) return;
+
+  const panel = String(options.panel || 'payouts').trim() || 'payouts';
+  const targetCardId = String(options.cardId || 'affiliatePayoutsCard').trim() || 'affiliatePayoutsCard';
+
+  setPartnersActiveTab('affiliate');
+  setAffiliateActivePanel(panel);
+
+  const payoutSelect = document.getElementById('affiliatePayoutPartnerSelect');
+  if (payoutSelect) {
+    payoutSelect.value = pid;
+  }
+
+  await refreshAffiliatePayoutPartnerData({ force: true });
+  focusAdminCard(targetCardId);
+}
+
+async function openAffiliateDepositRequest(depositRequestId) {
+  const depId = String(depositRequestId || '').trim();
+  if (!depId) return;
+
+  setPartnersActiveTab('emails');
+  await loadPartnersDepositAdminData(true);
+
+  const statusSelect = document.getElementById('depositRequestsStatus');
+  if (statusSelect) {
+    statusSelect.value = '';
+  }
+
+  const searchInput = document.getElementById('depositRequestsSearch');
+  if (searchInput) {
+    searchInput.value = depId;
+  }
+
+  partnersUiState.depositRequestHighlightedId = depId;
+  renderDepositRequestsTable();
+  focusAdminCard('partnersDepositRequestsCard');
+
+  const selector = `[data-deposit-request-id="${depId}"]`;
+  const row = document.querySelector(selector);
+  if (row && typeof row.scrollIntoView === 'function') {
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
 async function loadPartnersAffiliateAdminData(force = false) {
   const client = ensureSupabase();
   if (!client) return;
@@ -4584,7 +4660,7 @@ function renderAffiliateLedgerTable(rows, profilesById, payoutStatusById) {
 
     const depositId = escapeHtml(String(row.deposit_request_id || ''));
     const linkDeposit = depositId
-      ? `<button class="btn-small btn-secondary" type="button" onclick="selectAffiliateAttributionDeposit('${depositId}')">Deposit</button>`
+      ? `<button class="btn-small btn-secondary" type="button" onclick="openAffiliateDepositRequest('${depositId}')">Open deposit</button>`
       : '';
 
     const reassignAction = depositId
@@ -4921,12 +4997,14 @@ function startManualAffiliateAttribution(depositId) {
   const dep = String(depositId || '').trim();
   if (!dep) return;
 
+  setPartnersActiveTab('affiliate');
+  setAffiliateActivePanel('attribution');
   window.selectAffiliateAttributionDeposit(dep);
   const manual = document.querySelector('.affiliate-manual-repair');
   if (manual) {
     manual.open = true;
-    manual.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
+  focusAdminCard('affiliateAttributionCard');
 }
 
 window.startAffiliateReassign = (depositId) => {
@@ -4936,6 +5014,10 @@ window.startAffiliateReassign = (depositId) => {
   if (depEl) depEl.value = dep;
   const replace = document.getElementById('affiliateAttributionReplaceExisting');
   if (replace) replace.checked = true;
+  startManualAffiliateAttribution(dep);
+};
+window.openAffiliateDepositRequest = (depositId) => {
+  void openAffiliateDepositRequest(depositId);
 };
 
 async function loadUserAffiliateReferralOptions(userId, currentReferredBy) {
@@ -5146,7 +5228,7 @@ function renderAffiliateCashoutRequestsTable(rows, profilesById) {
     const reqBy = uid ? escapeHtml(p.username || p.email || p.name || uid.slice(0, 8)) : '—';
 
     const openBtn = pid
-      ? `<button class="btn-small btn-secondary" type="button" data-action="affiliate-cashout-open" data-partner-id="${escapeHtml(pid)}">Open</button>`
+      ? `<button class="btn-small btn-secondary" type="button" data-action="affiliate-cashout-open" data-partner-id="${escapeHtml(pid)}">Open payouts</button>`
       : '<span class="muted">—</span>';
 
     const approveBtn = rawStatus === 'pending' && rid
@@ -5260,7 +5342,7 @@ function renderAffiliatePayoutOverviewTable(rows) {
     const canCreate = thrMet && pending <= 0.0001;
 
     const openBtn = pid
-      ? `<button class="btn-small btn-secondary" type="button" data-action="affiliate-overview-open" data-partner-id="${escapeHtml(pid)}">Open</button>`
+      ? `<button class="btn-small btn-secondary" type="button" data-action="affiliate-overview-open" data-partner-id="${escapeHtml(pid)}">Open payouts</button>`
       : '<span class="muted">—</span>';
 
     const createBtn = canCreate && pid
@@ -6495,6 +6577,7 @@ function renderDepositRequestsTable() {
   const q = String(document.getElementById('depositRequestsSearch')?.value || '').toLowerCase().trim();
 
   const rows = Array.isArray(partnersUiState.depositRequests) ? partnersUiState.depositRequests : [];
+  const highlightedId = String(partnersUiState.depositRequestHighlightedId || '').trim();
   const filtered = rows.filter((r) => {
     if (statusFilter && String(r.status || '') !== statusFilter) return false;
     if (!q) return true;
@@ -6517,6 +6600,7 @@ function renderDepositRequestsTable() {
   }
 
   tbody.innerHTML = filtered.map((r) => {
+    const requestId = String(r.id || '').trim();
     const created = r.created_at ? escapeHtml(formatDateTimeValue(r.created_at)) : '—';
     const type = escapeHtml(String(r.resource_type || ''));
     const ref = escapeHtml(String(r.fulfillment_reference || '').trim() || String(r.booking_id || '').slice(0, 8));
@@ -6550,7 +6634,7 @@ function renderDepositRequestsTable() {
     })();
 
     return `
-      <tr>
+      <tr data-deposit-request-id="${escapeHtml(requestId)}" class="${highlightedId && highlightedId === requestId ? 'is-focus-target' : ''}">
         <td style="white-space: nowrap;">${created}</td>
         <td>${type}</td>
         <td><code>${ref}</code></td>
@@ -34872,7 +34956,10 @@ function initEventListeners() {
 
     if (action === 'affiliate-overview-open') {
       const pid = String(btn.getAttribute('data-partner-id') || '').trim();
-      if (pid) selectAffiliatePayoutPartner(pid);
+      if (pid) void openAffiliatePayoutWorkspaceForPartner(pid, {
+        panel: 'payouts',
+        cardId: 'affiliatePayoutsCard',
+      });
       return;
     }
 
@@ -34890,7 +34977,10 @@ function initEventListeners() {
 
     if (action === 'affiliate-cashout-open') {
       const pid = String(btn.getAttribute('data-partner-id') || '').trim();
-      if (pid) selectAffiliatePayoutPartner(pid);
+      if (pid) void openAffiliatePayoutWorkspaceForPartner(pid, {
+        panel: 'payouts',
+        cardId: 'affiliatePayoutsCard',
+      });
       return;
     }
 
@@ -34947,13 +35037,14 @@ function initEventListeners() {
   const btnAffiliateLedgerViewBalance = document.getElementById('btnAffiliateLedgerViewBalance');
   if (btnAffiliateLedgerViewBalance) {
     btnAffiliateLedgerViewBalance.addEventListener('click', () => {
-      const payoutSelect = document.getElementById('affiliatePayoutPartnerSelect');
       const ledgerSelect = document.getElementById('affiliateLedgerPartnerSelect');
       const ledgerPartnerId = String(ledgerSelect?.value || '').trim();
-      if (payoutSelect && ledgerPartnerId) {
-        payoutSelect.value = ledgerPartnerId;
+      if (ledgerPartnerId && ledgerPartnerId !== '__all__') {
+        void openAffiliatePayoutWorkspaceForPartner(ledgerPartnerId, {
+          panel: 'payouts',
+          cardId: 'affiliatePayoutOverviewCard',
+        });
       }
-      refreshAffiliatePayoutPartnerData({ force: true });
     });
   }
 

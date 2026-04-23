@@ -1552,6 +1552,15 @@ body[data-admin-panel="true"].admin-sidebar-open {
   text-transform: uppercase;
 }
 
+.admin-card.is-focus-target {
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.55), 0 14px 36px rgba(15, 23, 42, 0.28);
+  transition: box-shadow 0.22s ease;
+}
+
+.admin-table tr.is-focus-target td {
+  background: rgba(59, 130, 246, 0.1);
+}
+
 @media (max-width: 720px) {
   .affiliate-workspace-tabs {
     overflow-x: auto;
