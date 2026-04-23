@@ -1,6 +1,10 @@
 // Car Rental Paphos - Dynamic Fleet Loading
 import { supabase } from './supabaseClient.js';
-import { calculateCarRentalQuote, normalizeLocationForOffer } from './car-pricing.js';
+import {
+  buildPricingMatrixForOfferRow,
+  calculateCarRentalQuote,
+  normalizeLocationForOffer,
+} from './car-pricing.js';
 import { openCarOfferModal } from './car-offer-modal.js';
 import { normalizePaphosWidgetLocation } from './car-rental-flow.js';
 
@@ -111,6 +115,36 @@ export function findCurrentFleetCarByModel(carModel) {
   return paphosFleet.find((car) => getCarName(car) === requested) || null;
 }
 
+function getCurrentYoungDriverSelected() {
+  return !!(
+    document.getElementById('youngDriver')?.checked
+    || document.getElementById('carsFinderYoungDriver')?.checked
+    || document.getElementById('res_young_driver')?.checked
+  );
+}
+
+function findFleetCarForQuote({ offerId = '', carModel = '' } = {}) {
+  const normalizedOfferId = String(offerId || '').trim();
+  if (normalizedOfferId) {
+    const byId = findCurrentFleetCarByOfferId(normalizedOfferId);
+    if (byId) return byId;
+  }
+  return findCurrentFleetCarByModel(carModel);
+}
+
+function getSelectedOfferIdFromSelect(selectId) {
+  const selectEl = document.getElementById(selectId);
+  const selectedOption = selectEl?.selectedOptions?.[0] || null;
+  const raw = String(selectedOption?.dataset?.offerId || '').trim();
+  return raw || '';
+}
+
+function formatEuroRateLabel(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount <= 0) return '0€';
+  return `${Number.isInteger(amount) ? amount.toFixed(0) : amount.toFixed(2)}€`;
+}
+
 function applyDeepLinkedOfferSelection({ allowOnLanding = false, notifyLanding = false } = {}) {
   if (isLandingCarRentalPage() && !allowOnLanding) {
     return false;
@@ -160,6 +194,7 @@ function applyDeepLinkedOfferSelection({ allowOnLanding = false, notifyLanding =
 
 function calculateQuoteForSelection({
   offer,
+  offerId = '',
   carModel,
   pickupDateStr,
   returnDateStr,
@@ -171,7 +206,10 @@ function calculateQuoteForSelection({
   youngDriver = false,
 }) {
   const selectedCar = String(carModel || '').trim();
-  const carPricing = selectedCar ? pricing[selectedCar] : null;
+  const offerRow = findFleetCarForQuote({ offerId, carModel: selectedCar });
+  const carPricing = offerRow
+    ? buildPricingMatrixForOfferRow(offerRow, offer)
+    : (selectedCar ? pricing[selectedCar] : null);
   return calculateCarRentalQuote({
     pricingMatrix: carPricing,
     offer,
@@ -184,6 +222,7 @@ function calculateQuoteForSelection({
     returnLocation,
     fullInsurance,
     youngDriver,
+    offerRow,
   });
 }
 
@@ -220,12 +259,15 @@ function getRequiredPassengers() {
 
 function getFleetFilteredByPassengers() {
   const requiredPassengers = getRequiredPassengers();
+  const requireYoungDriver = getCurrentYoungDriverSelected();
   const filteredFleet = paphosFleet.filter((car) => {
     const capacity = Number(car?.max_passengers || 0);
-    if (!Number.isFinite(capacity) || capacity <= 0) return true;
-    return capacity >= requiredPassengers;
+    const capacityOk = !Number.isFinite(capacity) || capacity <= 0 || capacity >= requiredPassengers;
+    if (!capacityOk) return false;
+    if (!requireYoungDriver) return true;
+    return Boolean(car?.young_driver_fee);
   });
-  return { requiredPassengers, filteredFleet };
+  return { requiredPassengers, filteredFleet, requireYoungDriver };
 }
 
 window.CE_CAR_COMPUTE_QUOTE = calculateQuoteForSelection;
@@ -291,6 +333,8 @@ async function loadPaphosFleet() {
 
     window.CE_CAR_PRICING = pricing;
     window.CE_CAR_LOCATION = pageLocation;
+    window.CE_CAR_FIND_CURRENT_FLEET_CAR = ({ offerId = '', carModel = '' } = {}) => findFleetCarForQuote({ offerId, carModel });
+    window.CE_CAR_GET_CURRENT_FLEET = () => getCurrentFleetRows();
 
     // Render fleet
     renderFleet();
@@ -333,12 +377,16 @@ function renderFleet() {
     return;
   }
 
-  const { requiredPassengers, filteredFleet } = getFleetFilteredByPassengers();
+  const { requiredPassengers, filteredFleet, requireYoungDriver } = getFleetFilteredByPassengers();
   const isEn = getI18nLanguage().startsWith('en');
   if (filteredFleet.length === 0) {
-    const fallbackMessage = isEn
-      ? `No cars available for ${requiredPassengers} passengers. Reduce passengers or change route.`
-      : `Brak aut dla ${requiredPassengers} pasażerów. Zmniejsz liczbę pasażerów lub zmień trasę.`;
+    const fallbackMessage = requireYoungDriver
+      ? (isEn
+        ? `No cars available for ${requiredPassengers} passengers with young driver enabled. Change car setup or route.`
+        : `Brak aut dla ${requiredPassengers} pasażerów z opcją młodego kierowcy. Zmień ustawienie auta lub trasę.`)
+      : (isEn
+        ? `No cars available for ${requiredPassengers} passengers. Reduce passengers or change route.`
+        : `Brak aut dla ${requiredPassengers} pasażerów. Zmniejsz liczbę pasażerów lub zmień trasę.`);
     grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #64748b;"><p>${escapeHtml(fallbackMessage)}</p></div>`;
     return;
   }
@@ -374,6 +422,7 @@ function renderFleet() {
     if (landingQuoteContext) {
       const quote = calculateQuoteForSelection({
         offer: loc,
+        offerId: car.id,
         carModel: carModelName,
         pickupDateStr: landingQuoteContext.pickupDate,
         returnDateStr: landingQuoteContext.returnDate,
@@ -451,15 +500,19 @@ function updateCalculatorOptions() {
   const resSelect = document.getElementById('res_car');
   if (paphosFleet.length === 0) return;
 
-  const { requiredPassengers, filteredFleet } = getFleetFilteredByPassengers();
+  const { requiredPassengers, filteredFleet, requireYoungDriver } = getFleetFilteredByPassengers();
   const isEn = getI18nLanguage().startsWith('en');
   const previousSelectValue = String(select?.value || '').trim();
   const previousReservationValue = String(resSelect?.value || '').trim();
 
   if (filteredFleet.length === 0) {
-    const noCarsLabel = isEn
-      ? `No cars for ${requiredPassengers} passengers`
-      : `Brak aut dla ${requiredPassengers} pasażerów`;
+    const noCarsLabel = requireYoungDriver
+      ? (isEn
+        ? `No young driver cars for ${requiredPassengers} passengers`
+        : `Brak aut z młodym kierowcą dla ${requiredPassengers} pasażerów`)
+      : (isEn
+        ? `No cars for ${requiredPassengers} passengers`
+        : `Brak aut dla ${requiredPassengers} pasażerów`);
     const noCarsOption = `<option value="">${escapeHtml(noCarsLabel)}</option>`;
     if (select) select.innerHTML = noCarsOption;
     if (resSelect) resSelect.innerHTML = noCarsOption;
@@ -592,14 +645,17 @@ window.calculatePrice = function() {
       return;
     }
 
-    const carPricing = pricing[car];
-    if (!carPricing) {
+    const offerId = getSelectedOfferIdFromSelect('car');
+    const selectedOffer = findFleetCarForQuote({ offerId, carModel: car });
+    const carPricing = selectedOffer ? buildPricingMatrixForOfferRow(selectedOffer, loc) : pricing[car];
+    if (!carPricing && !selectedOffer) {
       alert(i18n('carRental.calculator.errors.selectCar', null, 'Proszę wybrać auto z listy'));
       return;
     }
 
     const quote = calculateQuoteForSelection({
       offer: loc,
+      offerId,
       carModel: car,
       pickupDateStr,
       returnDateStr,
@@ -634,6 +690,7 @@ window.calculatePrice = function() {
         returnFee,
         insuranceCost,
         youngDriverCost: quote.youngDriverCost,
+        youngDriverDailyRate: quote.youngDriverDailyRate,
         car: quote.car,
       },
     };
@@ -752,8 +809,10 @@ window.calculatePrice = function() {
       return;
     }
 
-    const carPricing = pricing[car];
-    if (!carPricing) {
+    const offerId = getSelectedOfferIdFromSelect('rentalCarSelect');
+    const selectedOffer = findFleetCarForQuote({ offerId, carModel: car });
+    const carPricing = selectedOffer ? buildPricingMatrixForOfferRow(selectedOffer, loc) : pricing[car];
+    if (!carPricing && !selectedOffer) {
       window.CE_CAR_PRICE_QUOTE = null;
       if (resultEl) resultEl.textContent = '';
       if (breakdownEl) breakdownEl.innerHTML = '';
@@ -766,6 +825,7 @@ window.calculatePrice = function() {
 
     const quote = calculateQuoteForSelection({
       offer: loc,
+      offerId,
       carModel: car,
       pickupDateStr,
       returnDateStr,
@@ -794,6 +854,7 @@ window.calculatePrice = function() {
         returnFee: quote.returnFee,
         insuranceCost: quote.insuranceCost,
         youngDriverCost: quote.youngDriverCost,
+        youngDriverDailyRate: quote.youngDriverDailyRate,
         car: quote.car,
         pickupLoc: quote.pickupLoc,
         returnLoc: quote.returnLoc,
@@ -847,7 +908,11 @@ window.calculatePrice = function() {
     }
 
     if (quote.youngDriverCost) {
-      const youngDriverPerDay = i18n('carRental.common.pricePerDay', { price: '10€' }, '10€/dzień');
+      const youngDriverPerDay = i18n(
+        'carRental.common.pricePerDay',
+        { price: formatEuroRateLabel(quote.youngDriverDailyRate) },
+        `${formatEuroRateLabel(quote.youngDriverDailyRate)}/dzień`
+      );
       parts.push(
         i18n(
           'carRental.calculator.breakdown.youngDriver',
@@ -893,14 +958,17 @@ window.calculatePrice = function() {
     return;
   }
 
-  const carPricing = pricing[car];
-  if (!carPricing) {
+  const offerId = getSelectedOfferIdFromSelect('rentalCarSelect');
+  const selectedOffer = findFleetCarForQuote({ offerId, carModel: car });
+  const carPricing = selectedOffer ? buildPricingMatrixForOfferRow(selectedOffer, loc) : pricing[car];
+  if (!carPricing && !selectedOffer) {
     setCalculatorMessage(i18n('carRental.calculator.errors.selectCar', null, 'Proszę wybrać auto z listy'), true);
     return;
   }
 
   const quote = calculateQuoteForSelection({
     offer: loc,
+    offerId,
     carModel: car,
     pickupDateStr,
     returnDateStr,
@@ -936,6 +1004,7 @@ window.calculatePrice = function() {
       returnFee,
       insuranceCost,
       youngDriverCost,
+      youngDriverDailyRate: quote.youngDriverDailyRate,
       car: quote.car,
       pickupLoc: quote.pickupLoc,
       returnLoc: quote.returnLoc,
@@ -992,7 +1061,11 @@ window.calculatePrice = function() {
     );
   }
   if (youngDriverCost) {
-    const youngDriverPerDay = i18n('carRental.common.pricePerDay', { price: '10€' }, '10€/dzień');
+    const youngDriverPerDay = i18n(
+      'carRental.common.pricePerDay',
+      { price: formatEuroRateLabel(quote.youngDriverDailyRate) },
+      `${formatEuroRateLabel(quote.youngDriverDailyRate)}/dzień`
+    );
     parts.push(
       i18n(
         'carRental.calculator.breakdown.youngDriver',
@@ -1034,10 +1107,11 @@ function buildLandingModalPrefill(location) {
   };
 }
 
-function buildLandingQuoteForCar(carName, location) {
+function buildLandingQuoteForCar(carName, location, offerId = '') {
   const loc = location === 'paphos' ? 'paphos' : 'larnaca';
   const quote = calculateQuoteForSelection({
     offer: loc,
+    offerId,
     carModel: carName,
     pickupDateStr: document.getElementById('pickupDate')?.value || '',
     returnDateStr: document.getElementById('returnDate')?.value || '',
@@ -1102,7 +1176,7 @@ function attachCarSelectButtons() {
               [getPageLocation()]: getCurrentFleetRows(),
             },
             prefill: buildLandingModalPrefill(getPageLocation()),
-            quote: buildLandingQuoteForCar(carName, getPageLocation()),
+            quote: buildLandingQuoteForCar(carName, getPageLocation(), offerId),
           });
         }
         return;

@@ -11,6 +11,7 @@ import {
   resolveServiceOfferRequest,
 } from './_utils/serviceOfferData.js';
 import { buildServiceOfferSeoPayload } from './_utils/serviceOfferSeo.js';
+import { buildCarOfferSeoPayload, getPublishedCarOfferById } from './_utils/carOfferSeo.js';
 import { getSitemapEntries, getStaticSitemapEntries, renderSitemapXml } from './_utils/sitemap.js';
 
 const translationCache = new Map();
@@ -130,6 +131,60 @@ async function serveServiceOfferPage(context, url, serviceRequest) {
   });
 }
 
+async function serveCarOfferPage(context, url) {
+  const language = getSeoLanguage(url);
+  const htmlResponse = await serveStatic(context, '/car.html', { method: 'GET' });
+  if (!htmlResponse.ok) {
+    return htmlResponse;
+  }
+
+  const offerId = String(url.searchParams.get('offer_id') || '').trim();
+  const requestedCarSlug = String(url.searchParams.get('car') || '').trim();
+  const requestedOfferLocation = String(url.searchParams.get('offer_location') || '').trim();
+
+  let offer = null;
+  let status = null;
+  try {
+    offer = await getPublishedCarOfferById(context.env, { offerId });
+    if (!offer) {
+      status = 404;
+    }
+  } catch (error) {
+    console.error(`Failed to preload car offer "${offerId}":`, error);
+    status = 500;
+  }
+
+  const html = await htmlResponse.text();
+  const localizedHtml = applySeoToHtml(
+    html,
+    buildCarOfferSeoPayload({
+      language,
+      offer,
+      requestedCarSlug,
+      requestedOfferLocation,
+    })
+  );
+  const headers = new Headers(htmlResponse.headers);
+
+  headers.set('content-type', 'text/html; charset=utf-8');
+  headers.set('cache-control', 'no-cache');
+
+  if (context.request.method === 'HEAD') {
+    headers.delete('content-length');
+    return new Response(null, {
+      status: status || htmlResponse.status,
+      statusText: htmlResponse.statusText,
+      headers,
+    });
+  }
+
+  return new Response(localizedHtml, {
+    status: status || htmlResponse.status,
+    statusText: htmlResponse.statusText,
+    headers,
+  });
+}
+
 async function serveDynamicSitemap(context) {
   let xml = '';
   try {
@@ -164,6 +219,12 @@ export async function onRequest(context) {
       });
     }
     return serveDynamicSitemap(context);
+  }
+  if (
+    url.searchParams.get('offer_id')
+    && ['/car', '/car/', '/car.html'].includes(url.pathname)
+  ) {
+    return serveCarOfferPage(context, url);
   }
   const serviceRequest = resolveServiceOfferRequest(url.pathname, url.search);
   if (serviceRequest) {

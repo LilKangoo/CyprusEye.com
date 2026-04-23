@@ -18,9 +18,23 @@ export function normalizePaphosWidgetLocation(value, fallback = 'hotel') {
 }
 
 export function resolveOfferFromRoute(pickupLocation, returnLocation) {
-  return isPaphosWidgetLocation(pickupLocation) && isPaphosWidgetLocation(returnLocation)
+  return resolveOfferState(pickupLocation, returnLocation).routeOffer;
+}
+
+export function resolveOfferState(pickupLocation, returnLocation, options = {}) {
+  const routeOffer = isPaphosWidgetLocation(pickupLocation) && isPaphosWidgetLocation(returnLocation)
     ? 'paphos'
     : 'larnaca';
+  const youngDriver = !!options?.youngDriver;
+  const forcedToLarnaca = youngDriver && routeOffer === 'paphos';
+  const effectiveOffer = forcedToLarnaca ? 'larnaca' : routeOffer;
+
+  return {
+    routeOffer,
+    effectiveOffer,
+    paphosEligible: routeOffer === 'paphos',
+    forcedToLarnaca,
+  };
 }
 
 export function buildBlankFinderState() {

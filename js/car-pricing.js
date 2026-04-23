@@ -1,5 +1,17 @@
 const PAPHOS_WIDGET_LOCATION_VALUES = new Set(['airport_pfo', 'city_center', 'hotel', 'other']);
 
+function parseNumeric(value, fallback = 0) {
+  const normalized = Number(value);
+  return Number.isFinite(normalized) ? normalized : fallback;
+}
+
+function parseBoolean(value) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value > 0;
+  const normalized = String(value || '').trim().toLowerCase();
+  return ['true', '1', 'yes', 'y', 'on', 't'].includes(normalized);
+}
+
 export function normalizeOfferLocation(offer) {
   return String(offer || '').toLowerCase() === 'larnaca' ? 'larnaca' : 'paphos';
 }
@@ -54,6 +66,35 @@ export function buildPricingMatrixForOfferRow(offerRow, offerLocation) {
   return matrix;
 }
 
+export function resolveCarYoungDriverConfig({
+  offerLocation,
+  offerRow = null,
+  youngDriverAllowed = null,
+  youngDriverDailyCost = null,
+} = {}) {
+  const normalizedOffer = normalizeOfferLocation(offerLocation);
+  if (normalizedOffer !== 'larnaca') {
+    return {
+      allowed: false,
+      dailyCost: 0,
+    };
+  }
+
+  const rawAllowed = youngDriverAllowed == null
+    ? offerRow?.young_driver_fee
+    : youngDriverAllowed;
+  const allowed = parseBoolean(rawAllowed);
+  const rawDailyCost = youngDriverDailyCost == null
+    ? offerRow?.young_driver_cost
+    : youngDriverDailyCost;
+  const dailyCost = allowed ? Math.max(0, parseNumeric(rawDailyCost, 0)) : 0;
+
+  return {
+    allowed,
+    dailyCost: Number(dailyCost.toFixed(2)),
+  };
+}
+
 export function calculateCarRentalQuote({
   pricingMatrix,
   offer,
@@ -66,6 +107,9 @@ export function calculateCarRentalQuote({
   returnLocation = '',
   fullInsurance = false,
   youngDriver = false,
+  offerRow = null,
+  youngDriverAllowed = null,
+  youngDriverDailyCost = null,
 }) {
   const normalizedOffer = normalizeOfferLocation(offer);
   const selectedCar = String(carModel || '').trim();
@@ -112,7 +156,14 @@ export function calculateCarRentalQuote({
     ? (returnLoc === 'airport_pfo' && days < 7 ? 10 : 0)
     : getLocationFeeForLarnaca(returnLoc);
   const insuranceCost = fullInsurance ? 17 * days : 0;
-  const youngDriverCost = normalizedOffer === 'larnaca' && youngDriver ? 10 * days : 0;
+  const youngDriverConfig = resolveCarYoungDriverConfig({
+    offerLocation: normalizedOffer,
+    offerRow,
+    youngDriverAllowed,
+    youngDriverDailyCost,
+  });
+  const youngDriverApplied = normalizedOffer === 'larnaca' && !!youngDriver && youngDriverConfig.allowed;
+  const youngDriverCost = youngDriverApplied ? youngDriverConfig.dailyCost * days : 0;
 
   const total = basePrice + pickupFee + returnFee + insuranceCost + youngDriverCost;
   if (!Number.isFinite(total) || total <= 0) return null;
@@ -126,6 +177,9 @@ export function calculateCarRentalQuote({
     returnFee,
     insuranceCost,
     youngDriverCost,
+    youngDriverAllowed: youngDriverConfig.allowed,
+    youngDriverApplied,
+    youngDriverDailyRate: youngDriverConfig.dailyCost,
     total: Number(total.toFixed(2)),
     car: selectedCar,
     pickupLoc,

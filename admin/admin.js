@@ -32823,6 +32823,16 @@ function openFleetCarModal(carData = null) {
     
     $('#fleetCarDeposit').value = carData.deposit_amount || 200;
     $('#fleetCarInsurance').value = carData.insurance_per_day || 17;
+    const fleetCarYoungDriverAllowed = $('#fleetCarYoungDriverAllowed');
+    const fleetCarYoungDriverCost = $('#fleetCarYoungDriverCost');
+    if (fleetCarYoungDriverAllowed) {
+      fleetCarYoungDriverAllowed.checked = !!carData.young_driver_fee;
+    }
+    if (fleetCarYoungDriverCost) {
+      fleetCarYoungDriverCost.value = Number.isFinite(Number(carData.young_driver_cost))
+        ? String(Number(carData.young_driver_cost))
+        : String(DEFAULT_CAR_YOUNG_DRIVER_DAILY_COST);
+    }
     
     // Specs
     $('#fleetCarTransmission').value = carData.transmission || 'manual';
@@ -32850,8 +32860,12 @@ function openFleetCarModal(carData = null) {
     // No need to manually set #fleetCarFeatures as it doesn't exist anymore
     // Features are loaded in the i18n rendering section above (lines 4264-4274)
     
-    // Trigger location change to show correct pricing fields
+    // Trigger location change to show correct pricing fields and young driver rules
     handleLocationChange(carData.location);
+    syncFleetCarYoungDriverControls(carData.location, {
+      allowed: !!carData.young_driver_fee,
+      cost: carData.young_driver_cost,
+    });
     
   } else {
     // Add mode
@@ -32869,10 +32883,19 @@ function openFleetCarModal(carData = null) {
     $('#fleetCarDeposit').value = 200;
     $('#fleetCarInsurance').value = 17;
     $('#fleetCarIsAvailable').checked = true;
+    const fleetCarYoungDriverAllowed = $('#fleetCarYoungDriverAllowed');
+    const fleetCarYoungDriverCost = $('#fleetCarYoungDriverCost');
+    if (fleetCarYoungDriverAllowed) {
+      fleetCarYoungDriverAllowed.checked = false;
+    }
+    if (fleetCarYoungDriverCost) {
+      fleetCarYoungDriverCost.value = String(DEFAULT_CAR_YOUNG_DRIVER_DAILY_COST);
+    }
     const carImageIs360 = $('#fleetCarImageIs360');
     if (carImageIs360) {
       carImageIs360.checked = false;
     }
+    syncFleetCarYoungDriverControls('', { forceResetCost: true });
   }
 
   // Show modal
@@ -33095,6 +33118,63 @@ function closeFleetCarModal() {
   if (modal) modal.hidden = true;
 }
 
+const DEFAULT_CAR_YOUNG_DRIVER_DAILY_COST = 10;
+
+function syncFleetCarYoungDriverControls(location, options = {}) {
+  const toggle = $('#fleetCarYoungDriverAllowed');
+  const costInput = $('#fleetCarYoungDriverCost');
+  const note = $('#fleetCarYoungDriverNote');
+  if (!toggle || !costInput) return;
+
+  const normalizedLocation = String(location || '').trim().toLowerCase();
+  const isPaphos = normalizedLocation === 'paphos';
+  const allowed = options.allowed == null
+    ? !isPaphos
+    : Boolean(options.allowed);
+  const nextCost = Number.isFinite(Number(options.cost))
+    ? Math.max(0, Number(options.cost))
+    : DEFAULT_CAR_YOUNG_DRIVER_DAILY_COST;
+
+  if (isPaphos) {
+    toggle.checked = false;
+    toggle.disabled = true;
+    costInput.value = '0';
+    costInput.disabled = true;
+    costInput.required = false;
+    if (note) {
+      note.textContent = 'Paphos offer does not support young driver. Saving this car will always force disabled / 0€ here.';
+    }
+    return;
+  }
+
+  if (normalizedLocation === 'larnaca') {
+    toggle.disabled = false;
+    toggle.checked = allowed;
+    costInput.disabled = !toggle.checked;
+    costInput.required = toggle.checked;
+    if (!costInput.value || options.forceResetCost) {
+      costInput.value = String(nextCost);
+    } else if (Number(costInput.value) < 0) {
+      costInput.value = String(nextCost);
+    }
+    if (note) {
+      note.textContent = 'Larnaca cars can optionally allow young driver. The selected daily surcharge is used in index, car.html, booking and admin breakdowns.';
+    }
+    return;
+  }
+
+  toggle.checked = false;
+  toggle.disabled = true;
+  costInput.disabled = true;
+  costInput.required = false;
+  if (!costInput.value) {
+    costInput.value = String(DEFAULT_CAR_YOUNG_DRIVER_DAILY_COST);
+  }
+  if (note) {
+    note.textContent = 'Select a location first. Larnaca supports young driver configuration, Paphos disables it automatically.';
+  }
+}
+
 function handleLocationChange(location) {
   const larnacaPricing = $('#larnacaPricing');
   const paphosPricing = $('#paphosPricing');
@@ -33111,6 +33191,7 @@ function handleLocationChange(location) {
     
     // Remove Paphos field requirements
     $('#fleetCarPrice3Days').required = false;
+    syncFleetCarYoungDriverControls(location);
     
   } else if (location === 'paphos') {
     larnacaPricing.hidden = true;
@@ -33122,11 +33203,13 @@ function handleLocationChange(location) {
     
     // Make Paphos 3-day price required
     $('#fleetCarPrice3Days').required = true;
+    syncFleetCarYoungDriverControls(location);
     
   } else {
     // No location selected
     larnacaPricing.hidden = true;
     paphosPricing.hidden = true;
+    syncFleetCarYoungDriverControls(location);
   }
 }
 
@@ -33147,6 +33230,8 @@ async function handleFleetCarSubmit(event) {
     // Get form data
     const carId = $('#fleetCarId').value;
     const location = $('#fleetCarLocation').value;
+    const fleetCarYoungDriverAllowed = $('#fleetCarYoungDriverAllowed');
+    const fleetCarYoungDriverCost = $('#fleetCarYoungDriverCost');
     
     // Check if using i18n fields
     const usingI18n = $('#carI18nFields')?.style.display !== 'none';
@@ -33198,6 +33283,10 @@ async function handleFleetCarSubmit(event) {
       sort_order: parseInt($('#fleetCarSortOrder').value) || 1000,
       deposit_amount: parseFloat($('#fleetCarDeposit').value) || 0,
       insurance_per_day: parseFloat($('#fleetCarInsurance').value) || 0,
+      young_driver_fee: location === 'larnaca' ? !!fleetCarYoungDriverAllowed?.checked : false,
+      young_driver_cost: location === 'larnaca'
+        ? Math.max(0, parseFloat(fleetCarYoungDriverCost?.value) || 0)
+        : 0,
       image_url: $('#fleetCarImageUrl').value || null,
       is_available: $('#fleetCarIsAvailable').checked
     };
@@ -35642,6 +35731,23 @@ function initEventListeners() {
   const fleetCarFormCancel = $('#fleetCarFormCancel');
   if (fleetCarFormCancel) {
     fleetCarFormCancel.addEventListener('click', closeFleetCarModal);
+  }
+
+  const fleetCarLocation = $('#fleetCarLocation');
+  if (fleetCarLocation) {
+    fleetCarLocation.addEventListener('change', (event) => {
+      handleLocationChange(event.target.value);
+    });
+  }
+
+  const fleetCarYoungDriverAllowed = $('#fleetCarYoungDriverAllowed');
+  if (fleetCarYoungDriverAllowed) {
+    fleetCarYoungDriverAllowed.addEventListener('change', () => {
+      const location = $('#fleetCarLocation')?.value || '';
+      syncFleetCarYoungDriverControls(location, {
+        allowed: fleetCarYoungDriverAllowed.checked,
+      });
+    });
   }
 
   // Cars coupon modal controls

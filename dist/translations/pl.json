@@ -1408,7 +1408,7 @@
   "carRental.page.requirements.license": {
     "html": "Prawo jazdy od minimum 3 lat <strong>lub</strong> ukończone 25 lat."
   },
-  "carRental.page.requirements.youngDriver": "Młodszy kierowca lub staż poniżej 3 lat: +10 €/dzień.",
+  "carRental.page.requirements.youngDriver": "Dopłata dla młodego kierowcy zależy od wybranego auta i jest dostępna tylko dla wspieranych aut z oferty Larnaka.",
   "carRental.page.grid.aria": "Pełna flota",
   "carRental.page.tools.aria": "Kalkulator i rezerwacja",
   "carRental.page.calculator.title": "Kalkulator wynajmu",
@@ -1421,7 +1421,7 @@
   "carRental.calculator.form.pickupLocation": "Miejsce odbioru",
   "carRental.calculator.form.returnLocation": "Miejsce zwrotu",
   "carRental.calculator.form.fullInsurance": "Pełne ubezpieczenie AC (+17 €/dzień)",
-  "carRental.calculator.form.youngDriver": "Młody kierowca / staż < 3 lata (+10 €/dzień)",
+  "carRental.calculator.form.youngDriver": "Młody kierowca / staż < 3 lata",
   "carRental.calculator.form.submit": "Oblicz cenę",
   "carRental.page.reservation.title": "Złóż rezerwację",
   "carRental.page.reservation.description": "Wypełnij formularz online, aby potwierdzić dostępność i otrzymać umowę. Możesz też napisać do nas na WhatsApp – odpowiadamy najszybciej jak to możliwe.",
@@ -1547,7 +1547,7 @@
   "carRentalPfo.page.requirements.license": {
     "html": "Prawo jazdy od minimum 3 lat <strong>lub</strong> ukończone 25 lat."
   },
-  "carRentalPfo.page.requirements.youngDriver": "Młodszy kierowca lub staż poniżej 3 lat: +10 €/dzień.",
+  "carRentalPfo.page.requirements.youngDriver": "Opcja młodego kierowcy nie jest dostępna w ofercie Pafos.",
   "carRentalPfo.page.grid.aria": "Pełna flota",
   "carRentalPfo.page.fleetGrid.title": "Flota Pafos",
   "carRentalPfo.page.fleetGrid.description": "Skrzynia automatyczna i manualna, klimatyzacja w standardzie. Ceny są regularnie aktualizowane.",
@@ -3423,7 +3423,7 @@
       "requirements": {
         "title": "Wymagania kierowcy",
         "license": "Prawo jazdy min. 3 lata <strong>lub</strong> wiek 25+.",
-        "youngDriver": "Młodszy kierowca lub staż < 3 lata: +10 €/dzień."
+        "youngDriver": "Opcja młodego kierowcy nie jest dostępna w ofercie Pafos."
       },
       "grid": {
         "aria": "Pełna flota"
@@ -4774,7 +4774,7 @@
   "account.security.username.placeholder": "np. cyprus.explorer",
   "account.security.password.newPlaceholder": "Minimum 8 znaków",
   "account.security.password.confirmPlaceholder": "Potwierdź hasło",
-  "carRental.page.reservation.fields.youngDriver.label": "Młody kierowca / staż < 3 lata (+10€/dzień)",
+  "carRental.page.reservation.fields.youngDriver.label": "Młody kierowca / staż < 3 lata",
   "carRentalLanding.hero.stepBadge": "Krok 1 • Wybierz trasę i termin",
   "carRentalLanding.hero.title": "Wynajem auta na Cyprze z automatycznym doborem oferty",
   "carRentalLanding.hero.description": "Ustaw odbiór i zwrot, a system sam wybierze najlepszą ofertę: Larnaka lub Pafos. Zobaczysz dokładne ceny total na kartach aut i od razu przejdziesz do rezerwacji.",
@@ -4825,6 +4825,7 @@
   "carRentalLanding.offer.name.larnaca": "Larnaka",
   "carRentalLanding.reservation.offerIndicator": "Aktywna oferta: {{offer}} • {{mode}}",
   "carRentalLanding.reservation.offerMode.youngDriver": "młody kierowca aktywny",
+  "carRentalLanding.reservation.offerMode.youngDriverForcedLarnaca": "młody kierowca • wymuszona flota Larnaka",
   "carRentalLanding.reservation.offerMode.paphosZone": "strefa Pafos",
   "carRentalLanding.reservation.offerMode.manualChoice": "wybór ręczny",
   "carRentalLanding.reservation.offerMode.autoSwitch": "auto-switch",

@@ -1,12 +1,16 @@
 import { supabase } from '/js/supabaseClient.js';
-import { calculateCarRentalQuote, normalizeLocationForOffer } from '/js/car-pricing.js';
+import {
+  buildPricingMatrixForOfferRow,
+  calculateCarRentalQuote,
+  normalizeLocationForOffer,
+} from '/js/car-pricing.js';
 import { openCarOfferModal } from '/js/car-offer-modal.js';
 import {
   buildBlankFinderState,
   coerceReturnLocationForPickup,
   isPaphosWidgetLocation,
   normalizePaphosWidgetLocation,
-  resolveOfferFromRoute,
+  resolveOfferState,
 } from '/js/car-rental-flow.js';
 
 let allHomeCars = [];
@@ -70,9 +74,16 @@ function buildDefaultFinderState() {
 }
 
 function evaluateFinderOffer(state) {
+  const resolved = resolveOfferState(
+    state?.pickupLocation,
+    state?.returnLocation,
+    { youngDriver: !!state?.youngDriver }
+  );
   return {
-    offer: resolveOfferFromRoute(state.pickupLocation, state.returnLocation),
-    paphosEligible: resolveOfferFromRoute(state.pickupLocation, state.returnLocation) === 'paphos',
+    offer: resolved.effectiveOffer,
+    routeOffer: resolved.routeOffer,
+    paphosEligible: resolved.paphosEligible,
+    forcedToLarnaca: resolved.forcedToLarnaca,
   };
 }
 
@@ -246,6 +257,15 @@ function renderFinderStatus() {
     return;
   }
 
+  if (offer.forcedToLarnaca) {
+    statusEl.textContent = text(
+      'Młody kierowca jest dostępny tylko w ofercie Larnaka / cały Cypr, dlatego flota została automatycznie przełączona z Pafos.',
+      'Young driver is available only in the Larnaca / island-wide offer, so the fleet was switched automatically from Paphos.'
+    );
+    statusEl.classList.add('is-warning');
+    return;
+  }
+
   statusEl.classList.add(offer.offer === 'paphos' ? 'is-paphos' : 'is-larnaca');
   statusEl.textContent = text(
     `Aktywna oferta: ${offerLabel}. Lista aut jest dobierana automatycznie wyłącznie z trasy.`,
@@ -323,7 +343,7 @@ function renderHomeCarsFinder() {
               </label>
               <label class="home-cars-finder-checkbox">
                 <input id="carsFinderYoungDriver" type="checkbox" ${state.youngDriver ? 'checked' : ''} />
-                <span>${escapeHtml(text('Młody kierowca (+10€/dzień)', 'Young driver (+10€/day)'))}</span>
+                <span>${escapeHtml(text('Młody kierowca (cena zależy od wybranego auta)', 'Young driver (price depends on the selected car)'))}</span>
               </label>
             </div>
           </div>
@@ -402,18 +422,7 @@ function buildQuoteForCarWithFinder(car, finderState) {
   const carModelName = window.getCarName ? window.getCarName(car) : (car.car_model || car.car_type || 'Car');
   if (!carModelName) return null;
 
-  const pricingMatrix = location === 'larnaca'
-    ? (() => {
-      const perDay = Number(car.price_per_day || car.price_10plus_days || car.price_7_10days || car.price_4_6days || 0);
-      if (!Number.isFinite(perDay) || perDay <= 0) return null;
-      return [perDay * 3, perDay, perDay, perDay];
-    })()
-    : [
-      Number(car.price_3days || 0),
-      Number(car.price_4_6days || 0),
-      Number(car.price_7_10days || 0),
-      Number(car.price_10plus_days || 0),
-    ];
+  const pricingMatrix = buildPricingMatrixForOfferRow(car, location);
 
   if (!Array.isArray(pricingMatrix) || pricingMatrix.length < 4 || !pricingMatrix.some((v) => Number.isFinite(v) && v > 0)) {
     return null;
@@ -438,6 +447,7 @@ function buildQuoteForCarWithFinder(car, finderState) {
     returnLocation,
     fullInsurance: !!finderState.fullInsurance,
     youngDriver: location === 'larnaca' && !!finderState.youngDriver,
+    offerRow: car,
   });
 }
 
@@ -544,10 +554,21 @@ function renderHomeCars() {
     return capacity >= passengerCount;
   });
 
+  if (finderState.youngDriver) {
+    list = list.filter((car) => !!car?.young_driver_fee);
+  }
+
   if (!list.length) {
     grid.innerHTML = `
       <div style="flex: 0 0 100%; text-align: center; padding: 40px 20px; color: #9ca3af;">
-        <p>${escapeHtml(text(`Brak aut dla ${passengerCount} pasażerów w tym ustawieniu`, `No cars available for ${passengerCount} passengers in current setup`))}</p>
+        <p>${escapeHtml(
+          finderState.youngDriver
+            ? text(
+              `Brak aut dla ${passengerCount} pasażerów z opcją młodego kierowcy w tym ustawieniu`,
+              `No cars available for ${passengerCount} passengers with young driver enabled in the current setup`
+            )
+            : text(`Brak aut dla ${passengerCount} pasażerów w tym ustawieniu`, `No cars available for ${passengerCount} passengers in current setup`)
+        )}</p>
       </div>
     `;
     homeCarsCarouselUpdate?.();
@@ -762,7 +783,7 @@ function buildReservationFormHtml({ location, selectedCarId, prefill = null }) {
     ? `
       <div class="auto-checkbox">
         <input type="checkbox" id="res_young_driver" name="young_driver" ${youngDriverChecked ? 'checked' : ''}>
-        <label for="res_young_driver" data-i18n="carRental.page.reservation.fields.youngDriver.label">Młody kierowca / staż &lt; 3 lata (+10€/dzień)</label>
+        <label for="res_young_driver" data-i18n="carRental.page.reservation.fields.youngDriver.label">Młody kierowca / staż &lt; 3 lata</label>
       </div>
     `
     : '';

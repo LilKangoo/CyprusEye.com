@@ -1743,7 +1743,7 @@
   "carRental.page.requirements.license": {
     "html": "Driving licence held for at least 3 years <strong>or</strong> age 25+."
   },
-  "carRental.page.requirements.youngDriver": "Younger driver or driving for less than 3 years: +€10/day.",
+  "carRental.page.requirements.youngDriver": "The young driver surcharge depends on the selected car and is available only for supported cars in the Larnaca offer.",
   "carRental.page.grid.aria": "Full fleet",
   "carRental.page.tools.aria": "Calculator and booking",
   "carRental.page.calculator.title": "Rental calculator",
@@ -1756,7 +1756,7 @@
   "carRental.calculator.form.pickupLocation": "Pickup location",
   "carRental.calculator.form.returnLocation": "Return location",
   "carRental.calculator.form.fullInsurance": "Full comprehensive insurance (+€17/day)",
-  "carRental.calculator.form.youngDriver": "Young driver / driving < 3 years (+€10/day)",
+  "carRental.calculator.form.youngDriver": "Young driver / driving < 3 years",
   "carRental.calculator.form.submit": "Calculate price",
   "carRental.page.reservation.title": "Place a reservation",
   "carRental.page.reservation.description": "Fill in the online form to confirm availability and receive the contract. You can also write to us on WhatsApp – we reply as quickly as possible.",
@@ -2626,7 +2626,7 @@
       "requirements": {
         "title": "Driver requirements",
         "license": "Driving licence held for at least 3 years <strong>or</strong> age 25+.",
-        "youngDriver": "Young driver or licence under 3 years: +€10/day."
+        "youngDriver": "Young driver is not available in the Paphos offer."
       },
       "grid": {
         "aria": "Full fleet"
@@ -3876,7 +3876,7 @@
   "carRental.calculator.successMessage": "Your form has been sent successfully!",
   "carRental.calculator.total": "Total rental price: {{price}}",
   "carRental.calculator.breakdown.title": "Quote includes:",
-  "carRental.page.reservation.fields.youngDriver.label": "Young driver / driving < 3 years (+€10/day)",
+  "carRental.page.reservation.fields.youngDriver.label": "Young driver / driving < 3 years",
   "carRentalLanding.hero.stepBadge": "Step 1 • Choose your route and dates",
   "carRentalLanding.hero.title": "Car rental in Cyprus with automatic offer selection",
   "carRentalLanding.hero.description": "Set pickup and return, and the system will choose the best offer automatically: Larnaca or Paphos. You will see exact total prices on car cards and move straight to booking.",
@@ -3922,6 +3922,7 @@
   "carRentalLanding.offer.name.larnaca": "Larnaca",
   "carRentalLanding.reservation.offerIndicator": "Active offer: {{offer}} • {{mode}}",
   "carRentalLanding.reservation.offerMode.youngDriver": "young driver active",
+  "carRentalLanding.reservation.offerMode.youngDriverForcedLarnaca": "young driver • forced Larnaca fleet",
   "carRentalLanding.reservation.offerMode.paphosZone": "Paphos zone",
   "carRentalLanding.reservation.offerMode.manualChoice": "manual choice",
   "carRentalLanding.reservation.offerMode.autoSwitch": "auto-switch",

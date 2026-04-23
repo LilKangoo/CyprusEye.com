@@ -3,6 +3,7 @@ import {
   buildPricingMatrixForOfferRow,
   calculateCarRentalQuote,
   normalizeLocationForOffer,
+  resolveCarYoungDriverConfig,
 } from '/js/car-pricing.js';
 import { normalizePaphosWidgetLocation } from '/js/car-rental-flow.js';
 
@@ -106,6 +107,7 @@ function resolveQuoteForCar({ car, location, prefill, quote }) {
     returnLocation: prefill.returnLocation,
     fullInsurance: !!prefill.fullInsurance,
     youngDriver: location === 'larnaca' && !!prefill.youngDriver,
+    offerRow: car,
   });
 }
 
@@ -157,6 +159,7 @@ function readModalFinderPrefill() {
 function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, prefill = null }) {
   const loc = location === 'paphos' ? 'paphos' : 'larnaca';
   const cars = Array.isArray(fleetByLocation?.[loc]) ? fleetByLocation[loc] : [];
+  const selectedCar = cars.find((car) => String(car?.id || '') === String(selectedCarId || '')) || cars[0] || null;
 
   const pickupDateValue = String(prefill?.pickupDate || '');
   const returnDateValue = String(prefill?.returnDate || '');
@@ -193,11 +196,30 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
       <option value="paphos" data-i18n="carRental.locations.paphos.label">Pafos (+40€)</option>
     `;
 
+  const youngDriverConfig = resolveCarYoungDriverConfig({
+    offerLocation: loc,
+    offerRow: selectedCar,
+  });
+  const youngDriverLabel = youngDriverConfig.allowed
+    ? (youngDriverConfig.dailyCost > 0
+      ? text(
+        `Młody kierowca / staż < 3 lata (+${youngDriverConfig.dailyCost}€/dzień)`,
+        `Young driver / license < 3 years (+${youngDriverConfig.dailyCost}€/day)`
+      )
+      : text(
+        'Młody kierowca / staż < 3 lata (dostępny dla tego auta)',
+        'Young driver / license < 3 years (available for this car)'
+      ))
+    : text(
+      'Młody kierowca niedostępny dla tego auta',
+      'Young driver is not available for this car'
+    );
+
   const youngDriverBlock = loc === 'larnaca'
     ? `
       <div class="auto-checkbox">
-        <input type="checkbox" id="res_young_driver" name="young_driver" ${youngDriverChecked ? 'checked' : ''}>
-        <label for="res_young_driver" data-i18n="carRental.page.reservation.fields.youngDriver.label">Młody kierowca / staż &lt; 3 lata (+10€/dzień)</label>
+        <input type="checkbox" id="res_young_driver" name="young_driver" ${youngDriverChecked && youngDriverConfig.allowed ? 'checked' : ''} ${youngDriverConfig.allowed ? '' : 'disabled'}>
+        <label for="res_young_driver">${escapeHtml(youngDriverLabel)}</label>
       </div>
     `
     : '';

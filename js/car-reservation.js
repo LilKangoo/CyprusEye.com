@@ -1,7 +1,7 @@
 // Car Reservation Form Handler
 import { supabase } from './supabaseClient.js';
 import { showToast } from './toast.js';
-import { calculateCarRentalQuote, normalizeLocationForOffer } from './car-pricing.js';
+import { buildPricingMatrixForOfferRow, calculateCarRentalQuote, normalizeLocationForOffer } from './car-pricing.js';
 import { createReferralFieldController, shouldHideReferralEntryUi } from './referral-ui.js';
 
 let reservationData = {};
@@ -178,6 +178,7 @@ function getCurrentSelectedOfferId() {
 function buildReservationQuoteInputFromFormData(formData, pageLocation = getActiveOfferLocation()) {
   return {
     carModel: String(formData.get('car') || '').trim(),
+    offerId: getCurrentSelectedOfferId(),
     pickupDateStr: String(formData.get('pickup_date') || '').trim(),
     returnDateStr: String(formData.get('return_date') || '').trim(),
     pickupTimeStr: String(formData.get('pickup_time') || '10:00').trim() || '10:00',
@@ -219,7 +220,15 @@ function computeReservationQuote(quoteInput) {
 
     const carModel = String(quoteInput?.carModel || '').trim();
     if (!carModel) return null;
-    const carPricing = pricing[carModel];
+    const offerRow = typeof window.CE_CAR_FIND_CURRENT_FLEET_CAR === 'function'
+      ? window.CE_CAR_FIND_CURRENT_FLEET_CAR({
+        offerId: String(quoteInput?.offerId || '').trim(),
+        carModel,
+      })
+      : null;
+    const carPricing = offerRow
+      ? buildPricingMatrixForOfferRow(offerRow, quoteInput?.offer || getActiveOfferLocation())
+      : pricing[carModel];
     if (!Array.isArray(carPricing) || carPricing.length < 4) return null;
 
     const computed = calculateCarRentalQuote({
@@ -234,6 +243,7 @@ function computeReservationQuote(quoteInput) {
       returnLocation: quoteInput?.returnLocation || '',
       fullInsurance: !!quoteInput?.fullInsurance,
       youngDriver: !!quoteInput?.youngDriver,
+      offerRow,
     });
     if (!computed || typeof computed.total !== 'number' || computed.total <= 0) return null;
 
@@ -1350,8 +1360,9 @@ async function handleReservationSubmit(event) {
     const insurance = formData.get('insurance');
     if (insurance === 'on') data.full_insurance = true;
     
-    const youngDriver = formData.get('young_driver');
-    if (youngDriver === 'on' && pageLocation === 'larnaca') data.young_driver = true;
+    if (computedQuote?.breakdown?.youngDriverCost > 0 && pageLocation === 'larnaca') {
+      data.young_driver = true;
+    }
     
     const flightNum = formData.get('flight_number');
     if (flightNum) data.flight_number = flightNum;

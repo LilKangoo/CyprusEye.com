@@ -7665,6 +7665,24 @@
                 <input type="number" id="fleetCarInsurance" name="insurance_per_day" step="0.01" min="0" value="17" placeholder="17.00">
               </label>
             </div>
+
+            <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 12px; margin-top: 12px; align-items: end;">
+              <label class="admin-form-field" style="margin-bottom: 0;">
+                <span>Young driver</span>
+                <label style="display: flex; align-items: center; gap: 10px; min-height: 42px; padding: 10px 12px; border: 1px solid var(--admin-border); border-radius: 8px; background: var(--admin-bg-secondary);">
+                  <input type="checkbox" id="fleetCarYoungDriverAllowed" name="young_driver_fee" />
+                  <span>Allow young driver / license &lt; 3 years</span>
+                </label>
+              </label>
+              <label class="admin-form-field">
+                <span>Young driver surcharge / day (€)</span>
+                <input type="number" id="fleetCarYoungDriverCost" name="young_driver_cost" step="0.01" min="0" value="10" placeholder="10.00">
+              </label>
+            </div>
+
+            <p id="fleetCarYoungDriverNote" style="margin: 10px 0 0; font-size: 12px; line-height: 1.5; color: var(--admin-text-muted);">
+              Configure per-car young driver availability here. Paphos offer always disables this option automatically.
+            </p>
           </div>
 
           <!-- Specifications -->

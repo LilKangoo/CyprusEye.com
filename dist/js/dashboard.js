@@ -205,8 +205,10 @@ function calculateEstimatedPrice(booking) {
       basePrice += (days * INSURANCE_RATE);
     }
     
-    // Add young driver surcharge (€10/day)
-    if (booking.young_driver) {
+    const storedYoungDriverCost = Number(booking.young_driver_cost || 0);
+    if (Number.isFinite(storedYoungDriverCost) && storedYoungDriverCost > 0) {
+      basePrice += storedYoungDriverCost;
+    } else if (booking.young_driver) {
       basePrice += (days * 10);
     }
     
@@ -1396,7 +1398,7 @@ window.openBookingDetails = function(id, type) {
       ${booking.young_driver !== undefined ? `
       <div class="detail-row">
         <span class="detail-label">${labels.youngDriver}</span>
-        <span class="detail-value">${booking.young_driver ? '✅ ' + labels.yes + ' (+10€/' + labels.days.slice(0, -1) + ')' : '❌ ' + labels.no}</span>
+        <span class="detail-value">${booking.young_driver ? '✅ ' + labels.yes + ((Number(booking.young_driver_cost || 0) > 0) ? ` (+${Number(booking.young_driver_cost).toFixed(2)}€)` : ' (+10€/' + labels.days.slice(0, -1) + ')') : '❌ ' + labels.no}</span>
       </div>
       ` : ''}
     `;

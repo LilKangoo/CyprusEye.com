@@ -4,7 +4,7 @@ import {
   getFinderDurationState,
   isFinderSelectionComplete,
   isPaphosWidgetLocation as isPaphosRouteLocation,
-  resolveOfferFromRoute,
+  resolveOfferState,
 } from './car-rental-flow.js';
 import {
   findCurrentFleetCarByOfferId,
@@ -17,6 +17,7 @@ const state = {
   autoOffer: 'larnaca',
   effectiveOffer: 'larnaca',
   paphosEligible: false,
+  forcedToLarnaca: false,
   offerSwitchInFlight: false,
   queuedOffer: null,
   syncingWidgetToReservation: false,
@@ -519,13 +520,18 @@ function mapToLarnacaLocation(locationValue) {
 }
 
 function evaluateOffer(widgetState) {
-  const resolvedOffer = (!isFinderSelectionComplete(widgetState) && state.deepLink.offerLocation)
+  const routeOffer = (!isFinderSelectionComplete(widgetState) && state.deepLink.offerLocation)
     ? state.deepLink.offerLocation
-    : resolveOfferFromRoute(widgetState.pickupLocation, widgetState.returnLocation);
-  state.autoOffer = resolvedOffer;
-  state.paphosEligible = resolvedOffer === 'paphos';
+    : resolveOfferState(
+      widgetState.pickupLocation,
+      widgetState.returnLocation,
+      { youngDriver: !!widgetState.youngDriver }
+    ).routeOffer;
+  state.autoOffer = routeOffer;
+  state.paphosEligible = routeOffer === 'paphos';
+  state.forcedToLarnaca = !!widgetState.youngDriver && routeOffer === 'paphos';
   state.manualOffer = null;
-  state.effectiveOffer = resolvedOffer;
+  state.effectiveOffer = state.forcedToLarnaca ? 'larnaca' : routeOffer;
 }
 
 function renderOfferIndicators(widgetState) {
@@ -572,6 +578,14 @@ function renderOfferIndicators(widgetState) {
     return;
   }
 
+  if (state.forcedToLarnaca) {
+    info.textContent = tr(
+      'carRentalLanding.offer.info.youngDriverOnlyLarnaca',
+      'Młody kierowca jest dostępny tylko dla floty Larnaka / cały Cypr, dlatego oferta została przełączona automatycznie.',
+    );
+    return;
+  }
+
   info.textContent = tr(
     'carRentalLanding.offer.info.larnacaAuto',
     'Aktywna oferta Larnaka / cały Cypr. To domyślna flota dla wszystkich tras poza lokalną strefą Pafos.',
@@ -591,6 +605,7 @@ function updateLandingQuoteContext(widgetState) {
     youngDriver: widgetState.youngDriver,
     carModel: widgetState.carModel,
     effectiveOffer: state.effectiveOffer,
+    forcedToLarnaca: state.forcedToLarnaca,
   };
 }
 
@@ -627,7 +642,11 @@ function renderReservationOfferIndicator(widgetState) {
     : tr('carRentalLanding.offer.name.larnaca', 'Larnaka');
 
   const modeDescription = widgetState.youngDriver
-    ? tr('carRentalLanding.reservation.offerMode.youngDriver', 'młody kierowca aktywny')
+    ? (
+      state.forcedToLarnaca
+        ? tr('carRentalLanding.reservation.offerMode.youngDriverForcedLarnaca', 'młody kierowca • wymuszona flota Larnaka')
+        : tr('carRentalLanding.reservation.offerMode.youngDriver', 'młody kierowca aktywny')
+    )
     : state.paphosEligible && state.effectiveOffer === 'paphos'
       ? tr('carRentalLanding.reservation.offerMode.paphosZone', 'strefa Pafos')
       : state.paphosEligible && state.effectiveOffer === 'larnaca'
@@ -728,11 +747,14 @@ function applyLandingLocationRules() {
   if (!pickup || !ret) return;
 
   const previousReturn = ret.value;
+  const youngDriverActive = !!byId('youngDriver')?.checked;
   ret.innerHTML = buildLocationOptionsHtml({
     includePlaceholder: true,
-    restrictToPaphos: isPaphosRouteLocation(pickup.value),
+    restrictToPaphos: isPaphosRouteLocation(pickup.value) && !youngDriverActive,
   });
-  const normalizedReturn = coerceReturnLocationForPickup(pickup.value, previousReturn || '');
+  const normalizedReturn = youngDriverActive
+    ? String(previousReturn || '').trim()
+    : coerceReturnLocationForPickup(pickup.value, previousReturn || '');
   setSelectSafe(ret, normalizedReturn || previousReturn || '', '');
 }
 
