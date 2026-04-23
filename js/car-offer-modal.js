@@ -238,26 +238,28 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
   const locationPlaceholder = text('Wybierz lokalizację', 'Choose location');
 
   return `
-    <div style="margin-bottom: 18px;">
-      <h3 style="margin: 0 0 8px; font-size: 18px; font-weight: 700;" data-i18n="${i18nPrefix}.title">Złóż rezerwację</h3>
-      <p style="margin: 0 0 16px; color: #6b7280;" data-i18n="${i18nPrefix}.description">Wypełnij formularz poniżej lub napisz do nas na WhatsApp – odpowiadamy najszybciej jak to możliwe.</p>
-      <div style="margin: 0 0 16px; padding: 12px 14px; border-radius: 14px; background: #eff6ff; border: 1px solid #bfdbfe; color: #0f172a; font-weight: 700; line-height: 1.35;">
+    <div class="auto-reservation-intro">
+      <h3 class="auto-reservation-title" data-i18n="${i18nPrefix}.title">Złóż rezerwację</h3>
+      <p class="auto-reservation-description" data-i18n="${i18nPrefix}.description">Wypełnij formularz poniżej lub napisz do nas na WhatsApp – odpowiadamy najszybciej jak to możliwe.</p>
+      <div class="auto-reservation-banner">
         ${escapeHtml(minBanner)}
       </div>
-      <div class="auto-reservation-actions" style="margin-bottom: 16px;">
+      <div class="auto-reservation-actions">
         <a class="ghost" href="https://wa.me/48534073861" target="_blank" rel="noopener" data-i18n="${whatsappKey}">Napisz na WhatsApp</a>
       </div>
     </div>
 
-    <form id="localReservationForm" class="auto-reservation-form" novalidate style="background: #f8fafc; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0;">
-      <div style="margin-bottom: 24px;">
-        <h4 style="font-size: 16px; font-weight: 600; margin: 0 0 16px; color: #1e293b;" data-i18n="${i18nPrefix}.sections.contact">Dane kontaktowe</h4>
-        <div style="display: grid; gap: 16px;">
+    <form id="localReservationForm" class="auto-reservation-form" novalidate>
+      <section class="auto-form-section">
+        <div class="auto-form-section__header">
+          <h4 class="auto-form-section__title" data-i18n="${i18nPrefix}.sections.contact">Dane kontaktowe</h4>
+        </div>
+        <div class="auto-form-grid">
           <div class="auto-field">
             <label for="res_full_name" data-i18n="${i18nPrefix}.fields.fullName.label">Imię i nazwisko *</label>
             <input type="text" id="res_full_name" name="full_name" required placeholder="Jan Kowalski" data-i18n-attrs="placeholder:${i18nPrefix}.fields.fullName.placeholder">
           </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div class="auto-form-columns">
             <div class="auto-field">
               <label for="res_email" data-i18n="${i18nPrefix}.fields.email.label">Email *</label>
               <input type="email" id="res_email" name="email" required placeholder="jan@example.com" data-i18n-attrs="placeholder:${i18nPrefix}.fields.email.placeholder">
@@ -272,11 +274,13 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
             <input type="text" id="res_country" name="country" placeholder="Polska" data-i18n-attrs="placeholder:${i18nPrefix}.fields.country.placeholder">
           </div>
         </div>
-      </div>
+      </section>
 
-      <div style="margin-bottom: 24px;">
-        <h4 style="font-size: 16px; font-weight: 600; margin: 0 0 16px; color: #1e293b;" data-i18n="${i18nPrefix}.sections.rental">Szczegóły wynajmu</h4>
-        <div style="display: grid; gap: 16px;">
+      <section class="auto-form-section">
+        <div class="auto-form-section__header">
+          <h4 class="auto-form-section__title" data-i18n="${i18nPrefix}.sections.rental">Szczegóły wynajmu</h4>
+        </div>
+        <div class="auto-form-grid">
           <div class="auto-field">
             <label for="res_car" data-i18n="${i18nPrefix}.fields.car.label">Wybierz auto *</label>
             <select id="res_car" name="car" required>
@@ -285,7 +289,7 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
             </select>
           </div>
 
-          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
+          <div class="auto-form-date-row">
             <div class="auto-field">
               <label for="res_pickup_date" data-i18n="${i18nPrefix}.fields.pickupDate.label">Data odbioru *</label>
               <input type="date" id="res_pickup_date" name="pickup_date" required value="${escapeHtml(pickupDateValue)}">
@@ -309,7 +313,7 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
             <input type="text" id="res_pickup_address" name="pickup_address" placeholder="Nazwa hotelu lub dokładny adres" data-i18n-attrs="placeholder:${i18nPrefix}.fields.pickupAddress.placeholder">
           </div>
 
-          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
+          <div class="auto-form-date-row">
             <div class="auto-field">
               <label for="res_return_date" data-i18n="${i18nPrefix}.fields.returnDate.label">Data zwrotu *</label>
               <input type="date" id="res_return_date" name="return_date" required value="${escapeHtml(returnDateValue)}">
@@ -333,12 +337,14 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
             <input type="text" id="res_return_address" name="return_address" placeholder="Nazwa hotelu lub dokładny adres" data-i18n-attrs="placeholder:${i18nPrefix}.fields.returnAddress.placeholder">
           </div>
         </div>
-      </div>
+      </section>
 
-      <div style="margin-bottom: 24px;">
-        <h4 style="font-size: 16px; font-weight: 600; margin: 0 0 16px; color: #1e293b;" data-i18n="${i18nPrefix}.sections.options">Dodatkowe opcje</h4>
-        <div style="display: grid; gap: 16px;">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+      <section class="auto-form-section">
+        <div class="auto-form-section__header">
+          <h4 class="auto-form-section__title" data-i18n="${i18nPrefix}.sections.options">Dodatkowe opcje</h4>
+        </div>
+        <div class="auto-form-grid">
+          <div class="auto-form-columns">
             <div class="auto-field">
               <label for="res_passengers" data-i18n="${i18nPrefix}.fields.passengers.label">Liczba pasażerów</label>
               <input type="number" id="res_passengers" name="num_passengers" min="1" max="8" value="${escapeHtml(String(passengersValue))}">
@@ -366,7 +372,7 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
             <textarea id="res_notes" name="special_requests" rows="3" placeholder="Dodatkowe informacje lub prośby..." data-i18n-attrs="placeholder:${i18nPrefix}.fields.notes.placeholder"></textarea>
           </div>
         </div>
-      </div>
+      </section>
 
       <div class="auto-coupon-panel" aria-live="polite">
         <div class="auto-field">
@@ -380,23 +386,23 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
         </div>
       </div>
 
-      <div id="estimatedPrice" style="background: #f1f5f9; padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; color: #475569;"></div>
+      <div id="estimatedPrice" class="auto-estimated-price"></div>
 
-      <div id="reservationError" class="admin-error-message" hidden style="margin-bottom: 16px;"></div>
+      <div id="reservationError" class="admin-error-message" hidden></div>
       <div id="reservationSuccess" hidden></div>
 
-      <button type="submit" class="btn btn-primary primary" id="btnSubmitReservation" style="width: 100%; padding: 14px; font-size: 16px; font-weight: 600;" data-i18n="${i18nPrefix}.submit">
+      <button type="submit" class="btn btn-primary primary auto-submit-btn" id="btnSubmitReservation" data-i18n="${i18nPrefix}.submit">
         Wyślij rezerwację
       </button>
 
-      <p style="font-size: 12px; color: #64748b; margin: 12px 0 0; text-align: center;" data-i18n="${i18nPrefix}.confirmationNote">
+      <p class="auto-reservation-note" data-i18n="${i18nPrefix}.confirmationNote">
         Otrzymasz potwierdzenie na email w ciągu 24h
       </p>
     </form>
 
-    <div id="formSubmitConfirmation" hidden style="background: #10b981; color: white; padding: 20px; border-radius: 12px; margin-top: 24px; text-align: center; animation: slideIn 0.3s ease;">
-      <h3 style="margin: 0 0 8px; font-size: 20px;">🎉 Gratulacje!</h3>
-      <p style="margin: 0; font-size: 16px; opacity: 0.95;">Twój formularz został wysłany pomyślnie!</p>
+    <div id="formSubmitConfirmation" class="auto-success-card" hidden>
+      <h3>🎉 Gratulacje!</h3>
+      <p>Twój formularz został wysłany pomyślnie!</p>
     </div>
   `;
 }
