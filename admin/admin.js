@@ -8418,7 +8418,7 @@ async function viewTripBookingDetails(bookingId) {
     try {
       const { data: fRows } = await client
         .from('partner_service_fulfillments')
-        .select('id, status, contact_revealed_at, rejected_reason, partner_id, created_at, details')
+        .select('id, status, contact_revealed_at, rejected_reason, partner_id, total_price, currency, created_at, details')
         .in('resource_type', ['trips', 'trip'])
         .eq('booking_id', bookingId)
         .order('created_at', { ascending: false })
@@ -8579,9 +8579,15 @@ async function viewTripBookingDetails(bookingId) {
       booking.status === 'cancelled' ? 'badge-danger' :
       booking.status === 'completed' ? 'badge-success' : 'badge';
     const tripDiscount = Number(booking.coupon_discount_amount || 0);
-    const tripTotal = Number(booking.final_price ?? booking.total_price ?? 0);
+    const fulfillmentTotal = normalizeAdminMoney(fulfillment?.total_price);
+    const tripTotal = fulfillmentTotal ?? Number(booking.final_price ?? booking.total_price ?? 0);
     const tripBase = Number(booking.base_price ?? (tripTotal + (Number.isFinite(tripDiscount) ? tripDiscount : 0)) ?? tripTotal);
     const tripCouponCode = String(booking.coupon_code || '').trim().toUpperCase();
+    const tripCurrency = String(fulfillment?.currency || booking.currency || 'EUR').trim().toUpperCase() || 'EUR';
+    const fulfillmentPriceNote = fulfillmentTotal !== null
+      ? '<div style="font-size: 11px; color: rgba(255,255,255,0.9); margin-top: 4px;">Partner workflow price</div>'
+      : '<div style="font-size: 11px; color: rgba(255,255,255,0.9); margin-top: 4px;">Booking price</div>';
+    const canEditTripWorkflowPrice = Boolean(fulfillment?.id);
 
     content.innerHTML = `
       <div style="display: grid; gap: 24px;">
@@ -8697,8 +8703,37 @@ async function viewTripBookingDetails(bookingId) {
             ` : ''}
           </div>
           <div style="padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; text-align: center;">
-            <div style="font-size: 24px; font-weight: 700; color: white;">€${Number.isFinite(tripTotal) ? tripTotal.toFixed(2) : '0.00'}</div>
-            <div style="font-size: 12px; color: rgba(255,255,255,0.9); margin-top: 4px;">Total Price</div>
+            <div style="font-size: 24px; font-weight: 700; color: white;">${formatMoney(Number.isFinite(tripTotal) ? tripTotal : 0, tripCurrency)}</div>
+            ${fulfillmentPriceNote}
+          </div>
+          <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--admin-border); display: grid; gap: 8px;">
+            <label for="tripBookingFinalPrice" style="font-size: 12px; font-weight: 600; color: var(--admin-text-muted);">
+              Admin final price override (${escapeHtml(tripCurrency)})
+            </label>
+            <div style="display:flex; gap: 8px; align-items:center; flex-wrap: wrap;">
+              <input
+                id="tripBookingFinalPrice"
+                type="number"
+                step="0.01"
+                min="0"
+                value="${Number.isFinite(tripTotal) ? Number(tripTotal).toFixed(2) : ''}"
+                ${canEditTripWorkflowPrice ? '' : 'disabled'}
+                style="flex: 1 1 180px; min-width: 0; padding: 8px 12px; border: 1px solid var(--admin-border); border-radius: 6px; background: var(--admin-bg); color: var(--admin-text);"
+              />
+              <button
+                id="btnSaveTripBookingPrice"
+                type="button"
+                class="btn-secondary"
+                ${canEditTripWorkflowPrice ? '' : 'disabled'}
+                style="white-space: nowrap;"
+              >
+                Save price
+              </button>
+            </div>
+            <div style="font-size: 11px; color: var(--admin-text-muted); line-height: 1.45;">
+              Updates the partner workflow price and dashboard totals. Existing unpaid deposit checkout links are invalidated, then you can resend the deposit email.
+            </div>
+            ${canEditTripWorkflowPrice ? '' : '<div style="font-size: 11px; color: var(--admin-danger);">No linked partner fulfillment found, so workflow price cannot be synced.</div>'}
           </div>
         </div>
 
@@ -8730,6 +8765,113 @@ async function viewTripBookingDetails(bookingId) {
 
     // Show modal
     modal.hidden = false;
+
+    const btnSaveTripPrice = $('#btnSaveTripBookingPrice');
+    if (btnSaveTripPrice && canEditTripWorkflowPrice) {
+      btnSaveTripPrice.addEventListener('click', async () => {
+        const priceInput = $('#tripBookingFinalPrice');
+        const nextAmount = normalizeAdminMoney(priceInput?.value);
+        if (nextAmount === null) {
+          showToast('Enter a valid price', 'error');
+          return;
+        }
+
+        const currentAmount = normalizeAdminMoney(tripTotal);
+        if (currentAmount !== null && Math.abs(currentAmount - nextAmount) <= 0.009) {
+          showToast('Price is unchanged', 'info');
+          return;
+        }
+
+        if (!confirm(`Update this trip order price to ${formatMoney(nextAmount, tripCurrency)}?\n\nThis will sync the partner workflow price and invalidate existing unpaid deposit checkout links.`)) {
+          return;
+        }
+
+        try {
+          btnSaveTripPrice.disabled = true;
+          btnSaveTripPrice.textContent = 'Saving...';
+
+          const nowIso = new Date().toISOString();
+          const discount = Number.isFinite(tripDiscount) ? Math.max(tripDiscount, 0) : 0;
+          const hasCoupon = Boolean(String(booking.coupon_code || '').trim() || booking.coupon_id);
+          const bookingUpdate = {
+            total_price: nextAmount,
+            final_price: nextAmount,
+            updated_at: nowIso,
+          };
+          if (!hasCoupon) {
+            bookingUpdate.base_price = nextAmount;
+          }
+
+          let bookingUpdateError = null;
+          for (let i = 0; i < 4; i += 1) {
+            const { error: updateError } = await client
+              .from('trip_bookings')
+              .update(bookingUpdate)
+              .eq('id', booking.id);
+            bookingUpdateError = updateError;
+            if (!bookingUpdateError) break;
+
+            const msg = String(bookingUpdateError.message || '');
+            const match = msg.match(/column\s+([a-zA-Z0-9_]+)\s+does not exist/i);
+            if (!match || !match[1]) break;
+            const unknownColumn = match[1];
+            if (!(unknownColumn in bookingUpdate)) break;
+            delete bookingUpdate[unknownColumn];
+          }
+          if (bookingUpdateError) throw bookingUpdateError;
+
+          const nextDetails = {
+            ...(fulfillmentDetails || {}),
+            base_price: hasCoupon ? Number((nextAmount + discount).toFixed(2)) : nextAmount,
+            final_price: nextAmount,
+            total_price: nextAmount,
+            admin_price_override: true,
+            admin_price_override_at: nowIso,
+            admin_price_override_by: adminState.user?.id || null,
+          };
+
+          const { error: fulfillmentUpdateError } = await client
+            .from('partner_service_fulfillments')
+            .update({
+              total_price: nextAmount,
+              currency: tripCurrency,
+              details: nextDetails,
+              updated_at: nowIso,
+            })
+            .eq('id', fulfillment.id);
+          if (fulfillmentUpdateError) throw fulfillmentUpdateError;
+
+          try {
+            const { error: depositInvalidateError } = await client
+              .from('service_deposit_requests')
+              .update({
+                checkout_url: null,
+                stripe_checkout_session_id: null,
+                stripe_payment_intent_id: null,
+                updated_at: nowIso,
+              })
+              .eq('fulfillment_id', fulfillment.id)
+              .neq('status', 'paid');
+            if (depositInvalidateError) {
+              console.warn('Could not invalidate unpaid trip deposit checkout link:', depositInvalidateError);
+            }
+          } catch (depositInvalidateError) {
+            console.warn('Could not invalidate unpaid trip deposit checkout link:', depositInvalidateError);
+          }
+
+          showToast('Trip price updated. Resend deposit email if the customer needs a new payment link.', 'success');
+          await loadTripBookingsData();
+          await loadAllOrders({ silent: true });
+          await viewTripBookingDetails(booking.id);
+        } catch (priceUpdateError) {
+          console.error('Failed to update trip price:', priceUpdateError);
+          showToast('Failed to update trip price: ' + (priceUpdateError.message || 'Unknown error'), 'error');
+        } finally {
+          btnSaveTripPrice.disabled = false;
+          btnSaveTripPrice.textContent = 'Save price';
+        }
+      });
+    }
 
   } catch (e) {
     console.error('Failed to load trip booking details:', e);
@@ -39225,6 +39367,83 @@ function pickBestServiceFulfillment(rows) {
   return best;
 }
 
+function parseJsonObjectSafe(value) {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+  if (typeof value !== 'string') return null;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+  } catch (_e) {
+    return null;
+  }
+}
+
+function normalizeAdminMoney(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return null;
+  return Math.round(Math.max(0, num) * 100) / 100;
+}
+
+function getAllOrdersServiceAmount(order) {
+  if (!order) return null;
+  const fAmount = normalizeAdminMoney(order.fulfillment_total_price);
+  if (fAmount !== null) return fAmount;
+  const genericAmount = normalizeAdminMoney(order.final_price ?? order.total_price ?? order.quoted_price);
+  return genericAmount;
+}
+
+function canShowAllOrdersManualPaidAction(order) {
+  const category = String(order?.category || '').trim();
+  if (!['cars', 'trips', 'hotels', 'transport'].includes(category)) return false;
+  if (!order?.fulfillment_id) return false;
+  const fulfillmentStatus = String(order.fulfillment_status || '').trim().toLowerCase();
+  if (fulfillmentStatus !== 'awaiting_payment') return false;
+
+  if (category === 'trips') {
+    const details = parseJsonObjectSafe(order.fulfillment_details);
+    const selectionStatus = String(details?.trip_date_selection_status || '').trim().toLowerCase();
+    const selectedDate = String(details?.selected_trip_date || details?.trip_date_selection_date || '').trim();
+    const proposedDates = Array.isArray(details?.partner_proposed_dates)
+      ? details.partner_proposed_dates
+      : (Array.isArray(details?.proposed_dates) ? details.proposed_dates : []);
+
+    if (selectionStatus === 'options_proposed' || selectionStatus === 'options_sent_to_customer') return false;
+    if (selectionStatus === 'selected') return Boolean(selectedDate);
+    if (selectionStatus === 'not_required') return true;
+    if (!selectionStatus && selectedDate && !proposedDates.length) return true;
+  }
+
+  return true;
+}
+
+function renderAllOrdersInlineActions(order) {
+  const viewButton = `
+    <button class="btn-secondary" onclick="${order.viewFunction}('${order.id}')" title="View details" style="font-size: 13px; padding: 6px 12px;">
+      View
+    </button>
+  `;
+
+  if (!canShowAllOrdersManualPaidAction(order)) return viewButton;
+
+  const category = escapeHtml(String(order.category || ''));
+  const bookingId = escapeHtml(String(order.id || ''));
+  const fulfillmentId = escapeHtml(String(order.fulfillment_id || ''));
+  return `
+    <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+      ${viewButton}
+      <button
+        class="btn-secondary"
+        type="button"
+        onclick="adminServiceFulfillmentActionForBooking('${category}','${bookingId}','${fulfillmentId}','mark_paid')"
+        title="Mark deposit as paid manually"
+        style="font-size: 12px; padding: 6px 10px; white-space: nowrap;"
+      >
+        Mark paid manually
+      </button>
+    </div>
+  `;
+}
+
 /**
  * Load all orders from car_bookings, trip_bookings, hotel_bookings, and transport_bookings
  */
@@ -39274,7 +39493,7 @@ async function loadAllOrders(opts = {}) {
       try {
         const { data: fData, error: fErr } = await client
           .from('partner_service_fulfillments')
-          .select('id, resource_type, booking_id, status, partner_id, contact_revealed_at, rejected_reason, created_at')
+          .select('id, resource_type, booking_id, status, partner_id, contact_revealed_at, rejected_reason, total_price, currency, details, created_at')
           .in('resource_type', ['cars', 'trips', 'hotels', 'transport'])
           .in('booking_id', serviceBookingIds)
           .order('created_at', { ascending: false })
@@ -39321,6 +39540,9 @@ async function loadAllOrders(opts = {}) {
       viewFunction: 'viewCarBookingDetails',
       fulfillment_id: f ? f.id : null,
       fulfillment_status: f ? f.status : null,
+      fulfillment_total_price: f ? f.total_price : null,
+      fulfillment_currency: f ? f.currency : null,
+      fulfillment_details: f ? f.details : null,
     });
     });
 
@@ -39337,6 +39559,9 @@ async function loadAllOrders(opts = {}) {
       viewFunction: 'viewTripBookingDetails',
       fulfillment_id: f ? f.id : null,
       fulfillment_status: f ? f.status : null,
+      fulfillment_total_price: f ? f.total_price : null,
+      fulfillment_currency: f ? f.currency : null,
+      fulfillment_details: f ? f.details : null,
     });
     });
 
@@ -39353,6 +39578,9 @@ async function loadAllOrders(opts = {}) {
       viewFunction: 'viewHotelBookingDetails',
       fulfillment_id: f ? f.id : null,
       fulfillment_status: f ? f.status : null,
+      fulfillment_total_price: f ? f.total_price : null,
+      fulfillment_currency: f ? f.currency : null,
+      fulfillment_details: f ? f.details : null,
     });
     });
 
@@ -39458,6 +39686,9 @@ async function loadAllOrders(opts = {}) {
         viewFunction: 'viewTransportBookingDetails',
         fulfillment_id: f ? f.id : null,
         fulfillment_status: f ? f.status : null,
+        fulfillment_total_price: f ? f.total_price : null,
+        fulfillment_currency: f ? f.currency : null,
+        fulfillment_details: f ? f.details : null,
       });
     });
 
@@ -39653,7 +39884,8 @@ function renderAllOrdersTable() {
     const statusDetail = order.fulfillment_status && String(order.fulfillment_status || '') !== String(order.status || '')
       ? `<div style="font-size: 10px; color: var(--admin-text-muted); margin-top: 3px;">${escapeHtml(String(order.fulfillment_status))}</div>`
       : '';
-    const genericAmount = Number(order.final_price ?? order.total_price ?? order.quoted_price ?? 0);
+    const serviceAmount = getAllOrdersServiceAmount(order);
+    const genericAmount = serviceAmount === null ? Number(order.final_price ?? order.total_price ?? order.quoted_price ?? 0) : serviceAmount;
     const genericDiscount = Number(order.coupon_discount_amount || 0);
     const genericCouponCode = String(order.coupon_code || '').trim().toUpperCase();
     const priceMeta = order.category === 'cars'
@@ -39661,14 +39893,14 @@ function renderAllOrdersTable() {
       : {
         amount: Number.isFinite(genericAmount) ? genericAmount : 0,
         hasAmount: Number.isFinite(genericAmount),
-        currency: 'EUR',
+        currency: order.fulfillment_currency || 'EUR',
         couponCode: genericCouponCode,
         discountAmount: Number.isFinite(genericDiscount) ? Math.max(genericDiscount, 0) : 0,
       };
     const priceText = order.category === 'partner-plus'
       ? getPartnerPlusPackageLabel(order.package_tier)
       : Number.isFinite(priceMeta.amount)
-        ? `€${Number(priceMeta.amount).toFixed(2)}`
+        ? formatMoney(priceMeta.amount, priceMeta.currency || 'EUR')
         : '—';
     const couponDiscountLabel = Number(priceMeta.discountAmount || 0) > 0
       ? ` (−€${Number(priceMeta.discountAmount || 0).toFixed(2)})`
@@ -39728,9 +39960,7 @@ function renderAllOrdersTable() {
           <div style="font-size: 11px; color: var(--admin-text-muted);">${createdTime}</div>
         </td>
         <td>
-          <button class="btn-secondary" onclick="${order.viewFunction}('${order.id}')" title="View details" style="font-size: 13px; padding: 6px 12px;">
-            View
-          </button>
+          ${renderAllOrdersInlineActions(order)}
         </td>
       </tr>
     `;
