@@ -6797,9 +6797,14 @@ body[data-seo-page='carRentalLanding'] #carRentalGrid .auto-card.is-selected::af
     grid-template-columns: 1fr;
   }
 
-  .auto-form-columns,
-  .auto-form-date-row {
+  .auto-form-columns {
     grid-template-columns: 1fr;
+  }
+
+  .auto-form-date-row {
+    grid-template-columns: minmax(0, 1.2fr) minmax(92px, 0.8fr);
+    gap: 0.7rem;
+    align-items: end;
   }
 
   .auto-reservation-actions {
