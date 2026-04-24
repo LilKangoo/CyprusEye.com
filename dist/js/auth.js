@@ -3,6 +3,8 @@ import { showErr, showInfo, showOk } from './authMessages.js';
 import { loadProfileForUser } from './profile.js';
 import { URLS } from './config.js';
 import {
+  clearStoredReferralCode,
+  getStoredReferralData,
   getStoredReferralCode,
   setStoredReferralCode,
 } from './referral.js';
@@ -30,6 +32,8 @@ let oauthCompletionSubmitting = false;
 let oauthCompletionRedirectTarget = POST_AUTH_REDIRECT;
 const registerReferralControllers = new WeakMap();
 let oauthReferralController = null;
+let referralRepairPromise = null;
+let referralRepairKey = '';
 
 function isOAuthCompletionMarked(user) {
   const value = user?.user_metadata?.[OAUTH_COMPLETION_META_KEY];
@@ -424,6 +428,194 @@ function emitAuthState(detail) {
   }
 }
 
+async function handleExternalSessionApplied(session, profile = null, detail = {}) {
+  emitAuthState(window.CE_STATE);
+
+  if (!session?.user?.id) {
+    return window.CE_STATE;
+  }
+
+  let currentProfile = profile || window.CE_STATE?.profile || null;
+  const refreshReason = String(detail?.reason || detail?.event || 'auth-ui-sync').trim() || 'auth-ui-sync';
+
+  try {
+    const repairResult = await maybeRepairStoredReferralAssignment({
+      reason: refreshReason,
+      sessionUser: session.user,
+      profile: currentProfile,
+    });
+
+    if (repairResult?.ok && repairResult?.applied) {
+      currentProfile = await loadProfileForUser(session.user);
+      setState({ session, profile: currentProfile || null, status: 'authenticated' });
+      persistAuthSession(session, currentProfile || null);
+    }
+  } catch (error) {
+    console.warn('Nie udało się zsynchronizować referral po zewnętrznym odświeżeniu sesji.', error);
+  }
+
+  emitAuthState(window.CE_STATE);
+  return window.CE_STATE;
+}
+
+function parseReferralCapturedAt(value) {
+  if (!value) return null;
+  const dateValue = new Date(value);
+  const timestamp = dateValue.getTime();
+  return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : null;
+}
+
+function resolveEffectiveReferralContext({ inputCode = '', referralPayload = null } = {}) {
+  const storedData = getStoredReferralData();
+  const payloadCode = normalizeReferralCode(referralPayload?.referral_code || '');
+  const manualCode = normalizeReferralCode(inputCode || '');
+  const storedCode = normalizeReferralCode(storedData?.code || '');
+
+  if (payloadCode) {
+    return {
+      code: payloadCode,
+      source: String(referralPayload?.referral_source || storedData?.source || 'manual').trim().toLowerCase() || 'manual',
+      locked: referralPayload?.referral_source === 'url' || storedData?.locked === true,
+      capturedAt: parseReferralCapturedAt(referralPayload?.referral_captured_at) || storedData?.capturedAt || Date.now(),
+      storedData,
+    };
+  }
+
+  if (manualCode) {
+    return {
+      code: manualCode,
+      source: 'manual',
+      locked: false,
+      capturedAt: Date.now(),
+      storedData,
+    };
+  }
+
+  if (storedCode) {
+    return {
+      code: storedCode,
+      source: storedData?.source || 'stored',
+      locked: storedData?.locked === true,
+      capturedAt: storedData?.capturedAt || Date.now(),
+      storedData,
+    };
+  }
+
+  return {
+    code: '',
+    source: null,
+    locked: false,
+    capturedAt: null,
+    storedData: null,
+  };
+}
+
+function persistEffectiveReferralContext(context) {
+  const code = normalizeReferralCode(context?.code || '');
+  if (!code) return false;
+  return setStoredReferralCode(code, {
+    overwrite: true,
+    source: context?.source || 'manual',
+    locked: context?.locked === true,
+    capturedAt: Number(context?.capturedAt || 0) || undefined,
+  });
+}
+
+function isSelfReferralCodeForUser(code, profile, sessionUser) {
+  const normalizedCode = normalizeReferralCode(code);
+  if (!normalizedCode) return false;
+
+  const ownCandidates = [
+    normalizeReferralCode(profile?.referral_code || ''),
+    normalizeReferralCode(profile?.username || ''),
+    normalizeReferralCode(sessionUser?.user_metadata?.referral_code || ''),
+    normalizeReferralCode(sessionUser?.user_metadata?.username || ''),
+  ].filter(Boolean);
+
+  return ownCandidates.some((candidate) => candidate.toLowerCase() === normalizedCode.toLowerCase());
+}
+
+async function maybeRepairStoredReferralAssignment({ reason = 'unknown', sessionUser = null, profile = null, referralContext = null } = {}) {
+  const user = sessionUser || window.CE_STATE?.session?.user || null;
+  if (!user?.id) {
+    return { ok: false, applied: false, reason: 'missing_user_session' };
+  }
+
+  const context = referralContext?.code
+    ? referralContext
+    : resolveEffectiveReferralContext();
+  const code = normalizeReferralCode(context?.code || '');
+  if (!code) {
+    return { ok: false, applied: false, reason: 'missing_referral_code' };
+  }
+
+  if (String(profile?.referred_by || '').trim()) {
+    clearStoredReferralCode();
+    return { ok: true, applied: false, reason: 'already_assigned', referred_by: profile.referred_by };
+  }
+
+  if (isSelfReferralCodeForUser(code, profile, user)) {
+    clearStoredReferralCode();
+    return { ok: false, applied: false, reason: 'self_referral_blocked_local' };
+  }
+
+  const currentKey = `${user.id}:${code.toLowerCase()}`;
+  if (referralRepairPromise && referralRepairKey === currentKey) {
+    return referralRepairPromise;
+  }
+
+  referralRepairKey = currentKey;
+  referralRepairPromise = (async () => {
+    const hasProfileRow = await waitForProfileRow(user.id, 1);
+    if (!hasProfileRow) {
+      const ensured = await ensureProfileReadyForCompletion(user);
+      if (!ensured) {
+        return { ok: false, applied: false, reason: 'profile_not_ready' };
+      }
+    }
+
+    console.info('[referral] Attempting stored referral repair', {
+      reason,
+      userId: user.id,
+      referralCode: code,
+      source: context?.source || 'stored',
+    });
+
+    const { data, error } = await sb.rpc('apply_referral_code_to_profile_if_missing', {
+      p_user_id: user.id,
+      p_referral_code: code,
+    });
+    if (error) {
+      throw error;
+    }
+
+    const payload = data && typeof data === 'object'
+      ? data
+      : { ok: false, applied: false, reason: 'invalid_response' };
+
+    if (payload.ok && (payload.applied || payload.reason === 'already_assigned')) {
+      clearStoredReferralCode();
+    } else if (!payload.ok && payload.reason === 'invalid_referral_code') {
+      clearStoredReferralCode();
+    }
+
+    console.info('[referral] Stored referral repair result', {
+      reason,
+      userId: user.id,
+      referralCode: code,
+      ok: payload.ok,
+      applied: payload.applied === true,
+      resultReason: payload.reason || '',
+    });
+
+    return payload;
+  })().finally(() => {
+    referralRepairPromise = null;
+  });
+
+  return referralRepairPromise;
+}
+
 const AUTH_SESSION_STORAGE_KEY = 'ce_auth_session_v1';
 
 function getAuthStorage() {
@@ -716,6 +908,10 @@ function applyPersistedAuthSessionSnapshot(snapshot, { emitEvent = true } = {}) 
 }
 
 if (ceAuthGlobal) {
+  ceAuthGlobal.updateSession = () => {
+    emitAuthState(window.CE_STATE);
+  };
+  ceAuthGlobal.handleSessionApplied = handleExternalSessionApplied;
   ceAuthGlobal.persistSession = persistAuthSession;
   ceAuthGlobal.readPersistedSession = readPersistedAuthSession;
   ceAuthGlobal.applyPersistedSession = (snapshot, options) =>
@@ -939,7 +1135,7 @@ async function handleAuth(result, okMsg, redirectHint) {
     updateAuthUI();
   }
   try {
-    await refreshSessionAndProfile();
+    await refreshSessionAndProfile({ reason: 'signin' });
     updateAuthUI();
   } catch (refreshError) {
     const message = friendlyErrorMessage(
@@ -1526,8 +1722,7 @@ function ensureOAuthCompletionModal() {
           return;
         }
       }
-      const referralCodeInput = oauthReferralController?.getPayload?.().referral_code
-        || String(form.referralCode?.value || '').trim();
+      const referralCodeInput = String(form.referralCode?.value || '').trim();
       const password = String(form.password?.value || '');
       const passwordConfirm = String(form.passwordConfirm?.value || '');
 
@@ -1548,9 +1743,11 @@ function ensureOAuthCompletionModal() {
         return;
       }
 
-      const storedReferralCode = String(getStoredReferralCode() || '').trim();
-      const validStoredReferralCode = storedReferralCode && /^[a-zA-Z0-9_]+$/.test(storedReferralCode) ? storedReferralCode : '';
-      const effectiveReferralCode = referralCodeInput || validStoredReferralCode;
+      const referralContext = resolveEffectiveReferralContext({
+        inputCode: referralCodeInput,
+        referralPayload: oauthReferralController?.getPayload?.() || null,
+      });
+      const effectiveReferralCode = referralContext.code;
       if (!password || password.length < 8) {
         setError(t('Password must have at least 8 characters.', 'Hasło musi mieć co najmniej 8 znaków.'));
         return;
@@ -1566,6 +1763,10 @@ function ensureOAuthCompletionModal() {
       if (logoutBtn instanceof HTMLButtonElement) logoutBtn.disabled = true;
 
       try {
+        if (effectiveReferralCode) {
+          persistEffectiveReferralContext(referralContext);
+        }
+
         const currentUser = window.CE_STATE?.session?.user || null;
         await ensureProfileReadyForCompletion(currentUser);
 
@@ -1626,7 +1827,6 @@ function ensureOAuthCompletionModal() {
           await syncOAuthCompletionProfile(userId, firstName, username);
 
           if (effectiveReferralCode) {
-            setStoredReferralCode(effectiveReferralCode, { overwrite: true });
             try {
               await sb.rpc('apply_referral_code_to_profile_if_missing', {
                 p_user_id: userId,
@@ -1659,7 +1859,7 @@ function ensureOAuthCompletionModal() {
         clearOAuthCompletionDraft();
 
         try {
-          await refreshSessionAndProfile();
+          await refreshSessionAndProfile({ reason: 'oauth-completion', referralContext });
           updateAuthUI();
           emitAuthState(window.CE_STATE);
         } catch (postCompletionRefreshError) {
@@ -1919,7 +2119,7 @@ async function handleGoogleOAuthCallbackIfPresent() {
     if (userError) {
       throw userError;
     }
-    await refreshSessionAndProfile();
+    await refreshSessionAndProfile({ reason: 'oauth-callback' });
     updateAuthUI();
 
     const requiresCompletion = await maybeRequireOAuthCompletion(window.CE_STATE, {
@@ -1968,7 +2168,12 @@ function initGoogleOAuthHandlers() {
       const parentForm = target.closest('form');
       const isRegisterFlow = parentForm instanceof HTMLFormElement && parentForm.id === 'form-register';
       if (isRegisterFlow) {
-        const referralCode = String(parentForm.referralCode?.value || '').trim();
+        const referralController = registerReferralControllers.get(parentForm) || null;
+        const referralContext = resolveEffectiveReferralContext({
+          inputCode: String(parentForm.referralCode?.value || '').trim(),
+          referralPayload: referralController?.getPayload?.() || null,
+        });
+        const referralCode = referralContext.code;
         const firstName = String(parentForm.firstName?.value || '').trim();
         const username = String(parentForm.username?.value || '').trim();
         if (referralCode && !/^[a-zA-Z0-9_]+$/.test(referralCode)) {
@@ -1976,7 +2181,7 @@ function initGoogleOAuthHandlers() {
           return;
         }
         if (referralCode) {
-          setStoredReferralCode(referralCode, { overwrite: true, source: 'manual', locked: false });
+          persistEffectiveReferralContext(referralContext);
         }
         saveOAuthCompletionDraft({ firstName, username, referralCode });
       }
@@ -1996,7 +2201,10 @@ function initGoogleOAuthHandlers() {
   });
 }
 
-export async function refreshSessionAndProfile() {
+export async function refreshSessionAndProfile(options = {}) {
+  const referralContext = options?.referralContext || null;
+  const skipReferralRepair = options?.skipReferralRepair === true;
+  const refreshReason = String(options?.reason || 'refresh').trim() || 'refresh';
   let session = null;
 
   try {
@@ -2058,13 +2266,34 @@ export async function refreshSessionAndProfile() {
     persistAuthSession(session, null);
     emitAuthState(window.CE_STATE);
 
+    let loadedProfile = null;
     try {
-      const profile = await loadProfileForUser(session.user);
-      setState({ session, profile: profile || null, status: 'authenticated' });
-      persistAuthSession(session, profile || null);
+      loadedProfile = await loadProfileForUser(session.user);
+      setState({ session, profile: loadedProfile || null, status: 'authenticated' });
+      persistAuthSession(session, loadedProfile || null);
       emitAuthState(window.CE_STATE);
     } catch (profileError) {
       console.warn('Nie udało się pobrać profilu użytkownika.', profileError);
+    }
+
+    if (!skipReferralRepair) {
+      try {
+        const repairResult = await maybeRepairStoredReferralAssignment({
+          reason: refreshReason,
+          sessionUser: session.user,
+          profile: loadedProfile,
+          referralContext,
+        });
+
+        if (repairResult?.ok && repairResult?.applied) {
+          const repairedProfile = await loadProfileForUser(session.user);
+          setState({ session, profile: repairedProfile || null, status: 'authenticated' });
+          persistAuthSession(session, repairedProfile || null);
+          emitAuthState(window.CE_STATE);
+        }
+      } catch (repairError) {
+        console.warn('Nie udało się naprawić przypięcia referral po zalogowaniu.', repairError);
+      }
     }
 
     return window.CE_STATE;
@@ -2226,22 +2455,14 @@ $('#form-register')?.addEventListener('submit', async (event) => {
         return;
       }
 
-      const storedReferralCode = String(getStoredReferralCode() || '').trim();
-      const validStoredReferralCode =
-        storedReferralCode && /^[a-zA-Z0-9_]+$/.test(storedReferralCode) ? storedReferralCode : '';
       const referralPayload = referralController?.getPayload ? referralController.getPayload() : null;
-      const effectiveReferralCode = normalizeReferralCode(
-        payload.referralCode
-        || referralPayload?.referral_code
-        || validStoredReferralCode
-        || '',
-      );
+      const effectiveReferralContext = resolveEffectiveReferralContext({
+        inputCode: payload.referralCode,
+        referralPayload,
+      });
+      const effectiveReferralCode = effectiveReferralContext.code;
       if (effectiveReferralCode) {
-        setStoredReferralCode(effectiveReferralCode, {
-          overwrite: true,
-          source: referralPayload?.referral_source || 'manual',
-          locked: referralPayload?.referral_source === 'url',
-        });
+        persistEffectiveReferralContext(effectiveReferralContext);
       }
 
       const { data, error } = await sb.auth.signUp({
@@ -2251,7 +2472,11 @@ $('#form-register')?.addEventListener('submit', async (event) => {
           data: { 
             name: payload.firstName?.trim() || '',
             username: payload.username?.trim() || '',
-            referral_code: effectiveReferralCode || undefined
+            referral_code: effectiveReferralCode || undefined,
+            referral_source: effectiveReferralContext.source || undefined,
+            referral_captured_at: effectiveReferralContext.capturedAt
+              ? new Date(effectiveReferralContext.capturedAt).toISOString()
+              : undefined,
           },
           emailRedirectTo: VERIFICATION_REDIRECT,
         },
@@ -2266,8 +2491,19 @@ $('#form-register')?.addEventListener('submit', async (event) => {
       }
 
       if (data?.user) {
+        const returnedMetaReferralCode = normalizeReferralCode(data.user?.user_metadata?.referral_code || '');
+        if (effectiveReferralCode && !returnedMetaReferralCode) {
+          console.warn('[referral] signUp completed without referral_code in auth metadata, relying on stored repair path.', {
+            email: payload.email,
+            referralCode: effectiveReferralCode,
+            source: effectiveReferralContext.source || 'stored',
+          });
+        }
         try {
-          await refreshSessionAndProfile();
+          await refreshSessionAndProfile({
+            reason: 'signup',
+            referralContext: effectiveReferralContext,
+          });
           updateAuthUI();
         } catch (profileError) {
           console.warn('Nie udało się odświeżyć stanu po rejestracji.', profileError);
@@ -2620,7 +2856,7 @@ function initResetPage() {
           }
 
           try {
-            await refreshSessionAndProfile();
+            await refreshSessionAndProfile({ reason: 'password-update' });
             updateAuthUI();
           } catch (refreshError) {
             console.warn('Nie udało się odświeżyć stanu po zmianie hasła.', refreshError);

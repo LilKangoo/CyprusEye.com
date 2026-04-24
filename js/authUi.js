@@ -22,12 +22,14 @@ function t(en, pl) {
 }
 
 const sb = window.getSupabase();
-const ceAuth = typeof window !== 'undefined' && window.CE_AUTH ? window.CE_AUTH : null;
+function getCeAuth() {
+  return typeof window !== 'undefined' && window.CE_AUTH ? window.CE_AUTH : null;
+}
 
-if (ceAuth?.setSupabaseClient) {
-  ceAuth.setSupabaseClient(sb || null);
-} else if (ceAuth) {
-  ceAuth.supabase = sb || null;
+if (getCeAuth()?.setSupabaseClient) {
+  getCeAuth().setSupabaseClient(sb || null);
+} else if (getCeAuth()) {
+  getCeAuth().supabase = sb || null;
 }
 
 let booting = false;
@@ -559,6 +561,7 @@ function syncSession(session, detail = {}) {
 }
 
 async function applySession(session, detail = {}) {
+  const ceAuth = getCeAuth();
   const state = (window.CE_STATE = window.CE_STATE || {});
   state.session = session || null;
   state.profile = null;
@@ -574,9 +577,17 @@ async function applySession(session, detail = {}) {
     } catch (profileError) {
       console.warn('Nie udało się pobrać profilu użytkownika.', profileError);
     }
-
-    updateAuthUI();
   }
+
+  if (typeof ceAuth?.handleSessionApplied === 'function') {
+    try {
+      await ceAuth.handleSessionApplied(state.session, state.profile || null, detail);
+    } catch (error) {
+      console.warn('Nie udało się zakończyć synchronizacji sesji po stronie auth.', error);
+    }
+  }
+
+  updateAuthUI();
   return state.session;
 }
 
@@ -603,6 +614,7 @@ function ensureAuthSubscription() {
 }
 
 async function loadAuthSession() {
+  const ceAuth = getCeAuth();
   if (isOffline()) {
     const state = (window.CE_STATE = window.CE_STATE || {});
     state.session = null;
@@ -992,6 +1004,7 @@ document.querySelectorAll('[data-auth=logout]').forEach((el) => {
   }
   el.dataset.authLogoutReady = 'true';
   el.addEventListener('click', async () => {
+    const ceAuth = getCeAuth();
     await sb.auth.signOut();
     ceAuth?.persistSession?.(null);
     try {

@@ -64,15 +64,12 @@ export function captureReferralFromUrl() {
   return null;
 }
 
-/**
- * Get stored referral code if not expired
- */
-export function getStoredReferralCode() {
+export function getStoredReferralData() {
   try {
     const referralData = bootstrap?.getStoredData ? bootstrap.getStoredData() : readLocalStorageData();
     if (!referralData) return null;
-    const cleanCode = normalizeReferralCode(referralData?.code);
 
+    const cleanCode = normalizeReferralCode(referralData?.code);
     if (referralData.expiresAt && Date.now() > referralData.expiresAt) {
       clearStoredReferralCode();
       return null;
@@ -81,11 +78,25 @@ export function getStoredReferralCode() {
       clearStoredReferralCode();
       return null;
     }
-    return cleanCode;
+
+    return {
+      code: cleanCode,
+      capturedAt: Number(referralData.capturedAt || 0) || Date.now(),
+      expiresAt: Number(referralData.expiresAt || 0) || null,
+      source: String(referralData.source || 'stored').trim().toLowerCase() || 'stored',
+      locked: referralData.locked === true,
+    };
   } catch (err) {
-    console.warn('Could not get stored referral code:', err);
+    console.warn('Could not get stored referral data:', err);
     return null;
   }
+}
+
+/**
+ * Get stored referral code if not expired
+ */
+export function getStoredReferralCode() {
+  return getStoredReferralData()?.code || null;
 }
 
 /**
@@ -130,7 +141,7 @@ export function setStoredReferralCode(code, options = {}) {
 }
 
 /**
- * Clear stored referral code (after successful registration)
+ * Clear stored referral code
  */
 export function clearStoredReferralCode() {
   try {
