@@ -402,9 +402,10 @@ function renderHomeCarsFinder() {
 
   const controls = root.querySelectorAll('input, select');
   controls.forEach((control) => {
-    control.addEventListener('change', () => syncHomeCarsFinderState({ fromUser: true }));
+    const sourceId = String(control.id || '').trim();
+    control.addEventListener('change', () => syncHomeCarsFinderState({ fromUser: true, sourceId }));
     if (control.tagName === 'INPUT') {
-      control.addEventListener('input', () => syncHomeCarsFinderState({ fromUser: true }));
+      control.addEventListener('input', () => syncHomeCarsFinderState({ fromUser: true, sourceId }));
     }
   });
 
@@ -421,13 +422,18 @@ function renderHomeCarsFinder() {
 }
 
 function syncHomeCarsFinderState(options = {}) {
-  const { fromUser = false } = options;
+  const { fromUser = false, sourceId = '' } = options;
   const hasFinderInputs = !!document.getElementById('carsFinderPickupDate');
   const current = homeCarsFinderState || buildDefaultFinderState();
   homeCarsFinderState = hasFinderInputs ? readFinderStateFromDom(current) : current;
   homeCarsFinderState.passengers = Math.max(1, Number(homeCarsFinderState.passengers || 2));
 
-  if (hasFinderInputs) {
+  const shouldApplyLocationRules = hasFinderInputs && (
+    !fromUser
+    || sourceId === 'carsFinderPickupLocation'
+  );
+
+  if (shouldApplyLocationRules) {
     const locationState = applyHomeCarsFinderLocationRules(homeCarsFinderState);
     if (locationState) {
       homeCarsFinderState.returnLocation = locationState.returnLocation;
