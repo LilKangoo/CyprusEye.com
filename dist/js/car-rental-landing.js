@@ -11,6 +11,7 @@ import {
   findCurrentFleetCarByModel,
   getCurrentFleetRows,
 } from './car-rental-paphos.js';
+import { buildCarLocationOptionsHtml } from './car-location-options.js';
 
 const state = {
   manualOffer: null,
@@ -383,57 +384,6 @@ function bindReservationHandlers() {
   });
 }
 
-function buildLocationOptionsHtml({ restrictToPaphos = false, includePlaceholder = false } = {}) {
-  const larnacaLabel = tr('carRentalLanding.locations.group.islandWide', 'Larnaka / cały Cypr');
-  const paphosLabel = tr('carRentalLanding.locations.group.paphosOnly', 'Pafos (tylko oferta Pafos)');
-
-  const larnacaOptions = [
-    { value: 'larnaca', label: tr('carRental.locations.larnaca.label', 'Larnaka (bez opłaty)') },
-    { value: 'nicosia', label: tr('carRental.locations.nicosia.label', 'Nikozja (+15€)') },
-    { value: 'ayia-napa', label: tr('carRental.locations.ayia-napa.label', 'Ayia Napa (+15€)') },
-    { value: 'protaras', label: tr('carRental.locations.protaras.label', 'Protaras (+20€)') },
-    { value: 'limassol', label: tr('carRental.locations.limassol.label', 'Limassol (+20€)') },
-    { value: 'paphos', label: tr('carRental.locations.paphos.label', 'Pafos (+40€)') },
-  ];
-
-  const paphosOptions = [
-    {
-      value: 'airport_pfo',
-      label: tr(
-        'carRentalLanding.locations.paphos.airport',
-        'Pafos Airport (+10€ przy wynajmie < 7 dni)'
-      ),
-    },
-    {
-      value: 'city_center',
-      label: tr('carRentalLanding.locations.paphos.cityCenter', 'Pafos - centrum miasta'),
-    },
-    {
-      value: 'hotel',
-      label: tr('carRentalLanding.locations.paphos.hotel', 'Hotel (w tym Coral Bay / Polis)'),
-    },
-    {
-      value: 'other',
-      label: tr('carRentalLanding.locations.paphos.other', 'Inne miejsce (np. Coral Bay / Polis)'),
-    },
-  ];
-
-  const renderOptions = (items) => items
-    .map((item) => `<option value="${item.value}">${item.label}</option>`)
-    .join('');
-
-  return `
-    ${includePlaceholder ? `<option value="">${tr('carRentalLanding.locations.placeholder', 'Wybierz lokalizację')}</option>` : ''}
-    ${restrictToPaphos ? '' : `
-    <optgroup label="${larnacaLabel}">
-      ${renderOptions(larnacaOptions)}
-    </optgroup>`}
-    <optgroup label="${paphosLabel}">
-      ${renderOptions(paphosOptions)}
-    </optgroup>
-  `;
-}
-
 function setSelectSafe(selectEl, value, fallback) {
   if (!selectEl) return false;
   const previousValue = String(selectEl.value || '');
@@ -466,11 +416,11 @@ function populateWidgetLocations() {
 
   const previousPickup = pickup.value;
   const previousReturn = ret.value;
-  pickup.innerHTML = buildLocationOptionsHtml({ includePlaceholder: true });
+  pickup.innerHTML = buildCarLocationOptionsHtml({ includePlaceholder: true });
   setSelectSafe(pickup, previousPickup || '', '');
 
   const normalizedReturn = coerceReturnLocationForPickup(pickup.value, previousReturn || '');
-  ret.innerHTML = buildLocationOptionsHtml({
+  ret.innerHTML = buildCarLocationOptionsHtml({
     includePlaceholder: true,
     restrictToPaphos: isPaphosRouteLocation(pickup.value),
   });
@@ -484,11 +434,11 @@ function populateReservationLocations() {
 
   const previousPickup = pickup.value;
   const previousReturn = ret.value;
-  pickup.innerHTML = buildLocationOptionsHtml({ includePlaceholder: true });
+  pickup.innerHTML = buildCarLocationOptionsHtml({ includePlaceholder: true });
   setSelectSafe(pickup, previousPickup || '', '');
 
   const normalizedReturn = coerceReturnLocationForPickup(pickup.value, previousReturn || '');
-  ret.innerHTML = buildLocationOptionsHtml({
+  ret.innerHTML = buildCarLocationOptionsHtml({
     includePlaceholder: true,
     restrictToPaphos: isPaphosRouteLocation(pickup.value),
   });
@@ -748,7 +698,7 @@ function applyLandingLocationRules() {
 
   const previousReturn = ret.value;
   const youngDriverActive = !!byId('youngDriver')?.checked;
-  ret.innerHTML = buildLocationOptionsHtml({
+  ret.innerHTML = buildCarLocationOptionsHtml({
     includePlaceholder: true,
     restrictToPaphos: isPaphosRouteLocation(pickup.value) && !youngDriverActive,
   });

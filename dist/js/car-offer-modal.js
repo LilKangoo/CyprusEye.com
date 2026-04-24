@@ -5,7 +5,15 @@ import {
   normalizeLocationForOffer,
   resolveCarYoungDriverConfig,
 } from '/js/car-pricing.js';
-import { normalizePaphosWidgetLocation } from '/js/car-rental-flow.js';
+import {
+  coerceReturnLocationForPickup,
+  isPaphosWidgetLocation,
+  normalizePaphosWidgetLocation,
+} from '/js/car-rental-flow.js';
+import {
+  buildCarLocationOptionsHtml,
+  isPaphosSpecificCarLocationValue,
+} from '/js/car-location-options.js';
 
 let previousBodyCarLocation = null;
 
@@ -130,9 +138,54 @@ function normalizeOptionalLocation(location, offerLocation) {
   const rawValue = String(location || '').trim();
   if (!rawValue) return '';
 
-  return offerLocation === 'paphos'
-    ? normalizePaphosWidgetLocation(rawValue)
-    : (normalizeLocationForOffer(rawValue, 'larnaca') || '');
+  if (offerLocation === 'paphos') {
+    return normalizePaphosWidgetLocation(rawValue);
+  }
+
+  if (isPaphosSpecificCarLocationValue(rawValue)) {
+    return rawValue;
+  }
+
+  return normalizeLocationForOffer(rawValue, 'larnaca') || '';
+}
+
+function rebuildModalReturnLocationOptions() {
+  const pickup = document.getElementById('res_pickup_location');
+  const ret = document.getElementById('res_return_location');
+  if (!(pickup instanceof HTMLSelectElement) || !(ret instanceof HTMLSelectElement)) return;
+
+  const previousReturn = String(ret.value || '').trim();
+  const youngDriverActive = !!document.getElementById('res_young_driver')?.checked;
+  const restrictToPaphos = isPaphosWidgetLocation(String(pickup.value || '').trim()) && !youngDriverActive;
+
+  ret.innerHTML = buildCarLocationOptionsHtml({
+    includePlaceholder: true,
+    restrictToPaphos,
+    selectedValue: restrictToPaphos
+      ? coerceReturnLocationForPickup(String(pickup.value || '').trim(), previousReturn || '')
+      : previousReturn,
+  });
+
+  ret.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function bindModalLocationSync() {
+  const pickup = document.getElementById('res_pickup_location');
+  const youngDriver = document.getElementById('res_young_driver');
+
+  if (pickup instanceof HTMLSelectElement && pickup.dataset.ceLocationSyncBound !== '1') {
+    pickup.dataset.ceLocationSyncBound = '1';
+    pickup.addEventListener('change', () => {
+      rebuildModalReturnLocationOptions();
+    });
+  }
+
+  if (youngDriver instanceof HTMLInputElement && youngDriver.dataset.ceLocationSyncBound !== '1') {
+    youngDriver.dataset.ceLocationSyncBound = '1';
+    youngDriver.addEventListener('change', () => {
+      rebuildModalReturnLocationOptions();
+    });
+  }
 }
 
 function readModalFinderPrefill() {
@@ -180,22 +233,6 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
     return `<option value="${escapeHtml(title)}" data-offer-id="${escapeHtml(car.id)}" ${String(car.id) === String(selectedCarId) ? 'selected' : ''}>${escapeHtml(title)} — ${escapeHtml(transmission)} • ${escapeHtml(seatsText)}</option>`;
   }).join('');
 
-  const pickupOptions = loc === 'paphos'
-    ? `
-      <option value="airport_pfo" data-i18n="carRentalPfo.page.reservation.fields.locations.airport">Lotnisko Paphos (PFO)</option>
-      <option value="hotel" data-i18n="carRentalPfo.page.reservation.fields.locations.hotel">Hotel</option>
-      <option value="city_center" data-i18n="carRentalPfo.page.reservation.fields.locations.city">Centrum miasta</option>
-      <option value="other" data-i18n="carRentalPfo.page.reservation.fields.locations.other">Inne</option>
-    `
-    : `
-      <option value="larnaca" data-i18n="carRental.locations.larnaca.label">Larnaka (bez opłaty)</option>
-      <option value="nicosia" data-i18n="carRental.locations.nicosia.label">Nikozja (+15€)</option>
-      <option value="ayia-napa" data-i18n="carRental.locations.ayia-napa.label">Ayia Napa (+15€)</option>
-      <option value="protaras" data-i18n="carRental.locations.protaras.label">Protaras (+20€)</option>
-      <option value="limassol" data-i18n="carRental.locations.limassol.label">Limassol (+20€)</option>
-      <option value="paphos" data-i18n="carRental.locations.paphos.label">Pafos (+40€)</option>
-    `;
-
   const youngDriverConfig = resolveCarYoungDriverConfig({
     offerLocation: loc,
     offerRow: selectedCar,
@@ -235,7 +272,20 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
   const couponPlaceholder = text('Wpisz kod kuponu', 'Enter coupon code');
   const couponApplyLabel = text('Zastosuj', 'Apply');
   const couponClearLabel = text('Wyczyść', 'Clear');
-  const locationPlaceholder = text('Wybierz lokalizację', 'Choose location');
+  const selectedPickupLocation = normalizeOptionalLocation(prefill?.pickupLocation, loc);
+  const selectedReturnLocation = normalizeOptionalLocation(prefill?.returnLocation, loc);
+  const restrictReturnToPaphos = isPaphosWidgetLocation(selectedPickupLocation) && !youngDriverChecked;
+  const pickupOptionsHtml = buildCarLocationOptionsHtml({
+    includePlaceholder: true,
+    selectedValue: selectedPickupLocation,
+  });
+  const returnOptionsHtml = buildCarLocationOptionsHtml({
+    includePlaceholder: true,
+    restrictToPaphos: restrictReturnToPaphos,
+    selectedValue: restrictReturnToPaphos
+      ? coerceReturnLocationForPickup(selectedPickupLocation, selectedReturnLocation || '')
+      : selectedReturnLocation,
+  });
 
   return `
     <div class="auto-reservation-intro">
@@ -303,8 +353,7 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
           <div class="auto-field">
             <label for="res_pickup_location" data-i18n="${i18nPrefix}.fields.pickupLocation.label">Miejsce odbioru *</label>
             <select id="res_pickup_location" name="pickup_location" required>
-              <option value="">${escapeHtml(locationPlaceholder)}</option>
-              ${pickupOptions}
+              ${pickupOptionsHtml}
             </select>
           </div>
 
@@ -327,8 +376,7 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
           <div class="auto-field">
             <label for="res_return_location" data-i18n="${i18nPrefix}.fields.returnLocation.label">Miejsce zwrotu *</label>
             <select id="res_return_location" name="return_location" required>
-              <option value="">${escapeHtml(locationPlaceholder)}</option>
-              ${pickupOptions}
+              ${returnOptionsHtml}
             </select>
           </div>
 
@@ -606,6 +654,8 @@ export function openCarOfferModal({
   try {
     initCarReservationBindings();
     applyModalPrefill(normalizedPrefill);
+    bindModalLocationSync();
+    rebuildModalReturnLocationOptions();
   } catch (error) {
     console.warn('Failed to init reservation form', error);
   }

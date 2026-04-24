@@ -6,6 +6,10 @@ import {
 } from '/js/car-pricing.js';
 import { openCarOfferModal } from '/js/car-offer-modal.js';
 import {
+  buildCarLocationOptionsHtml,
+  isPaphosSpecificCarLocationValue,
+} from '/js/car-location-options.js';
+import {
   buildBlankFinderState,
   coerceReturnLocationForPickup,
   isPaphosWidgetLocation,
@@ -154,44 +158,11 @@ function buildPricingMapForLocation(location) {
 }
 
 function buildFinderLocationOptions(selectedValue, options = {}) {
-  const { restrictToPaphos = false, includePlaceholder = false } = options;
-  const selected = String(selectedValue || '').trim();
-  const groups = [
-    ...(!restrictToPaphos ? [{
-      label: text('🚗 Oferta Larnaka / cały Cypr', '🚗 Larnaca offer / island-wide'),
-      items: [
-        { value: 'larnaca', label: text('Larnaka • bez opłaty', 'Larnaca • no fee') },
-        { value: 'nicosia', label: text('Nikozja • +15€', 'Nicosia • +15€') },
-        { value: 'ayia-napa', label: text('Ayia Napa • +15€', 'Ayia Napa • +15€') },
-        { value: 'protaras', label: text('Protaras • +20€', 'Protaras • +20€') },
-        { value: 'limassol', label: text('Limassol • +20€', 'Limassol • +20€') },
-        { value: 'paphos', label: text('Pafos • +40€', 'Paphos • +40€') },
-      ],
-    }] : []),
-    {
-      label: text('🌴 Strefa Pafos', '🌴 Paphos zone'),
-      items: [
-        { value: 'airport_pfo', label: text('Lotnisko Pafos (PFO)', 'Paphos Airport (PFO)') },
-        { value: 'city_center', label: text('Pafos • centrum', 'Paphos • city center') },
-        { value: 'hotel', label: text('Hotel / resort', 'Hotel / resort') },
-        { value: 'other', label: text('Inne miejsce (Pafos)', 'Other place (Paphos)') },
-      ],
-    }
-  ];
-
-  const placeholder = includePlaceholder
-    ? `<option value="">${escapeHtml(text('Wybierz lokalizację', 'Choose location'))}</option>`
-    : '';
-
-  return `${placeholder}${groups.map((group) => `
-    <optgroup label="${escapeHtml(group.label)}">
-      ${group.items.map((item) => `
-        <option value="${escapeHtml(item.value)}" ${item.value === selected ? 'selected' : ''}>
-          ${escapeHtml(item.label)}
-        </option>
-      `).join('')}
-    </optgroup>
-  `).join('')}`;
+  return buildCarLocationOptionsHtml({
+    selectedValue,
+    restrictToPaphos: !!options.restrictToPaphos,
+    includePlaceholder: !!options.includePlaceholder,
+  });
 }
 
 function readFinderStateFromDom(baseState = null) {
@@ -286,7 +257,7 @@ function renderHomeCarsFinder() {
   const summaryLine = duration.ready
     ? text(`${offerLabel} • ${duration.days} dni • ${Math.max(1, Number(state.passengers || 2))} pasażerów`, `${offerLabel} • ${duration.days} days • ${Math.max(1, Number(state.passengers || 2))} passengers`)
     : text(`${offerLabel} • ${Math.max(1, Number(state.passengers || 2))} pasażerów`, `${offerLabel} • ${Math.max(1, Number(state.passengers || 2))} passengers`);
-  const restrictReturnToPaphos = isPaphosWidgetLocation(state.pickupLocation);
+  const restrictReturnToPaphos = isPaphosWidgetLocation(state.pickupLocation) && !state.youngDriver;
 
   root.innerHTML = `
     <div class="home-cars-finder-accordion is-open">
@@ -387,10 +358,12 @@ function syncHomeCarsFinderState(options = {}) {
   homeCarsFinderState = hasFinderInputs ? readFinderStateFromDom(current) : current;
   homeCarsFinderState.passengers = Math.max(1, Number(homeCarsFinderState.passengers || 2));
 
-  const normalizedReturnLocation = coerceReturnLocationForPickup(
-    homeCarsFinderState.pickupLocation,
-    homeCarsFinderState.returnLocation,
-  );
+  const normalizedReturnLocation = homeCarsFinderState.youngDriver
+    ? String(homeCarsFinderState.returnLocation || '').trim()
+    : coerceReturnLocationForPickup(
+      homeCarsFinderState.pickupLocation,
+      homeCarsFinderState.returnLocation,
+    );
   if (normalizedReturnLocation !== homeCarsFinderState.returnLocation) {
     homeCarsFinderState.returnLocation = normalizedReturnLocation;
     renderHomeCarsFinder();
@@ -760,25 +733,6 @@ function buildReservationFormHtml({ location, selectedCarId, prefill = null }) {
     return `<option value="${escapeHtml(title)}" data-offer-id="${escapeHtml(car.id)}" ${String(car.id) === String(selectedCarId) ? 'selected' : ''}>${escapeHtml(title)} — ${escapeHtml(transmission)} • ${escapeHtml(seatsText)}</option>`;
   }).join('');
 
-  const pickupOptions = loc === 'paphos'
-    ? `
-      <option value="airport_pfo" data-i18n="carRentalPfo.page.reservation.fields.locations.airport">Lotnisko Paphos (PFO)</option>
-      <option value="hotel" data-i18n="carRentalPfo.page.reservation.fields.locations.hotel">Hotel</option>
-      <option value="city_center" data-i18n="carRentalPfo.page.reservation.fields.locations.city">Centrum miasta</option>
-      <option value="other" data-i18n="carRentalPfo.page.reservation.fields.locations.other">Inne</option>
-    `
-    : `
-      <option value="larnaca" data-i18n="carRental.locations.larnaca.label">Larnaka (bez opłaty)</option>
-      <option value="nicosia" data-i18n="carRental.locations.nicosia.label">Nikozja (+15€)</option>
-      <option value="ayia-napa" data-i18n="carRental.locations.ayia-napa.label">Ayia Napa (+15€)</option>
-      <option value="protaras" data-i18n="carRental.locations.protaras.label">Protaras (+20€)</option>
-      <option value="limassol" data-i18n="carRental.locations.limassol.label">Limassol (+20€)</option>
-      <option value="paphos" data-i18n="carRental.locations.paphos.label">Pafos (+40€)</option>
-      <option value="hotel" data-i18n="carRental.page.reservation.fields.pickupLocation.hotel">Hotel</option>
-      <option value="city_center" data-i18n="carRental.page.reservation.fields.pickupLocation.city">Centrum miasta</option>
-      <option value="other" data-i18n="carRental.page.reservation.fields.other">Inne</option>
-    `;
-
   const youngDriverBlock = loc === 'larnaca'
     ? `
       <div class="auto-checkbox">
@@ -799,6 +753,28 @@ function buildReservationFormHtml({ location, selectedCarId, prefill = null }) {
   const couponPlaceholder = text('Wpisz kod kuponu', 'Enter coupon code');
   const couponApplyLabel = text('Zastosuj', 'Apply');
   const couponClearLabel = text('Wyczyść', 'Clear');
+  const selectedPickupLocation = loc === 'paphos'
+    ? normalizePaphosLocation(prefill?.pickupLocation)
+    : (isPaphosSpecificCarLocationValue(prefill?.pickupLocation)
+      ? String(prefill?.pickupLocation || '').trim()
+      : (normalizeLocationForOffer(prefill?.pickupLocation, 'larnaca') || ''));
+  const selectedReturnLocation = loc === 'paphos'
+    ? normalizePaphosLocation(prefill?.returnLocation)
+    : (isPaphosSpecificCarLocationValue(prefill?.returnLocation)
+      ? String(prefill?.returnLocation || '').trim()
+      : (normalizeLocationForOffer(prefill?.returnLocation, 'larnaca') || ''));
+  const restrictReturnToPaphos = isPaphosWidgetLocation(selectedPickupLocation) && !youngDriverChecked;
+  const pickupOptionsHtml = buildCarLocationOptionsHtml({
+    includePlaceholder: true,
+    selectedValue: selectedPickupLocation,
+  });
+  const returnOptionsHtml = buildCarLocationOptionsHtml({
+    includePlaceholder: true,
+    restrictToPaphos: restrictReturnToPaphos,
+    selectedValue: restrictReturnToPaphos
+      ? coerceReturnLocationForPickup(selectedPickupLocation, selectedReturnLocation || '')
+      : selectedReturnLocation,
+  });
 
   return `
     <div class="auto-reservation-intro">
@@ -866,7 +842,7 @@ function buildReservationFormHtml({ location, selectedCarId, prefill = null }) {
           <div class="auto-field">
             <label for="res_pickup_location" data-i18n="${i18nPrefix}.fields.pickupLocation.label">Miejsce odbioru *</label>
             <select id="res_pickup_location" name="pickup_location" required>
-              ${pickupOptions}
+              ${pickupOptionsHtml}
             </select>
           </div>
 
@@ -889,7 +865,7 @@ function buildReservationFormHtml({ location, selectedCarId, prefill = null }) {
           <div class="auto-field">
             <label for="res_return_location" data-i18n="${i18nPrefix}.fields.returnLocation.label">Miejsce zwrotu *</label>
             <select id="res_return_location" name="return_location" required>
-              ${pickupOptions}
+              ${returnOptionsHtml}
             </select>
           </div>
 
@@ -975,10 +951,14 @@ function buildModalPrefillForLocation(location) {
 
   const pickupLocation = loc === 'paphos'
     ? normalizePaphosLocation(state.pickupLocation)
-    : (normalizeLocationForOffer(state.pickupLocation, 'larnaca') || 'larnaca');
+    : (isPaphosSpecificCarLocationValue(state.pickupLocation)
+      ? String(state.pickupLocation || '').trim()
+      : (normalizeLocationForOffer(state.pickupLocation, 'larnaca') || 'larnaca'));
   const returnLocation = loc === 'paphos'
     ? normalizePaphosLocation(state.returnLocation)
-    : (normalizeLocationForOffer(state.returnLocation, 'larnaca') || 'larnaca');
+    : (isPaphosSpecificCarLocationValue(state.returnLocation)
+      ? String(state.returnLocation || '').trim()
+      : (normalizeLocationForOffer(state.returnLocation, 'larnaca') || 'larnaca'));
 
   return {
     pickupDate: String(state.pickupDate || defaults.pickupDate),
