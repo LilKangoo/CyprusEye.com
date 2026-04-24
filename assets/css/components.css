@@ -6710,6 +6710,11 @@ body[data-seo-page='carRentalLanding'] #carRentalGrid .auto-card.is-selected::af
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(120px, 0.85fr);
   gap: 1rem;
+  align-items: end;
+}
+
+.auto-form-date-row .auto-field {
+  min-width: 0;
 }
 
 .auto-estimated-price {
@@ -6802,9 +6807,19 @@ body[data-seo-page='carRentalLanding'] #carRentalGrid .auto-card.is-selected::af
   }
 
   .auto-form-date-row {
-    grid-template-columns: minmax(0, 1.2fr) minmax(92px, 0.8fr);
-    gap: 0.7rem;
+    grid-template-columns: minmax(0, 1fr) minmax(94px, 108px);
+    gap: 0.65rem;
     align-items: end;
+  }
+
+  .auto-form-date-row .auto-field input[type='date'],
+  .auto-form-date-row .auto-field input[type='time'] {
+    min-height: 48px;
+    padding-inline: 0.8rem;
+  }
+
+  .auto-form-date-row .auto-field input[type='time'] {
+    text-align: center;
   }
 
   .auto-reservation-actions {
@@ -6839,6 +6854,13 @@ body[data-seo-page='carRentalLanding'] #carRentalGrid .auto-card.is-selected::af
 
   .auto-reservation-frame iframe {
     height: 460px;
+  }
+}
+
+@media (max-width: 420px) {
+  .auto-form-date-row {
+    grid-template-columns: minmax(0, 1fr) 92px;
+    gap: 0.55rem;
   }
 }
 
