@@ -1337,7 +1337,10 @@ function initHomeTripsModalHandlers() {
       if (insertError) throw insertError;
       
       // Success - show beautiful popup (same as hotels)
-      showSuccessPopup('✅ Rezerwacja przyjęta!', 'Skontaktujemy się z Tobą wkrótce. Dziękujemy!');
+      showSuccessPopup(
+        tripsT('trips.booking.successTitle', '✅ Rezerwacja przyjęta!'),
+        tripsT('trips.booking.success', 'Rezerwacja przyjęta! Sprawdź email i folder Spam w ciągu 24h.')
+      );
       
       // Reset form and clear validation errors
       form.reset();
@@ -1366,7 +1369,7 @@ function initHomeTripsModalHandlers() {
         if (msg){ msg.textContent = uiMessage; msg.className='booking-message error'; msg.style.display='block'; }
       }
     }finally{
-      if (btn){ btn.disabled=false; btn.textContent='Zarezerwuj'; }
+      if (btn){ btn.disabled=false; btn.textContent=tripsT('trips.booking.submit', 'Zarezerwuj'); }
     }
   });
 

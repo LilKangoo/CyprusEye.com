@@ -2504,7 +2504,7 @@ async function handleSubmit(event) {
       } else {
         els.submitSuccess.innerHTML = t(
           'transport.booking.submit.success.oneWay',
-          'Booking request <strong>#{{id}}</strong> was sent successfully. Total: <strong>{{total}}</strong>. We will contact you shortly.',
+          'Booking request <strong>#{{id}}</strong> was sent successfully. Total: <strong>{{total}}</strong>. Please check your email and Spam folder within 24 hours.',
           {
             id: escapeHtml(firstId),
             total: escapeHtml(money(latestQuote.total, latestQuote.currency)),
@@ -2528,7 +2528,7 @@ async function handleSubmit(event) {
         'success',
       );
     }
-    setStatus(t('transport.booking.submit.success.status', 'Booking submitted successfully. We will review and confirm shortly.'), 'info');
+    setStatus(t('transport.booking.submit.success.status', 'Booking submitted successfully. We will review and confirm it. Please check your email and Spam folder within 24 hours.'), 'info');
     resetAfterSubmit();
     refreshQuote();
     dispatchTransportEvent('ce:transport:booking-submitted', {

@@ -2155,7 +2155,7 @@
         if (insertError) throw insertError;
         
         // Show success
-        message.textContent = 'Rezerwacja przyjęta! Skontaktujemy się z Tobą wkrótce.';
+        message.textContent = t('trips.booking.success', 'Rezerwacja przyjęta! Sprawdź email i folder Spam w ciągu 24h.');
         message.className = 'booking-message success';
         message.style.display = 'block';
         

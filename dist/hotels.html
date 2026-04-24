@@ -1564,7 +1564,7 @@
         }
         if(insertError) throw insertError;
         msg.className='booking-message success';
-        msg.textContent=t('hotels.booking.success', 'Rezerwacja przyjęta! Skontaktujemy się wkrótce.');
+        msg.textContent=t('hotels.booking.success', 'Rezerwacja przyjęta! Sprawdź email i folder Spam w ciągu 24h.');
         msg.style.display='block';
         e.target.reset();
         clearHotelCouponState({ clearInput: true });

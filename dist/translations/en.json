@@ -1798,9 +1798,9 @@
   "carRental.page.reservation.fields.notes.label": "Special requests",
   "carRental.page.reservation.fields.notes.placeholder": "Additional information or requests...",
   "carRental.page.reservation.submit": "Send reservation",
-  "carRental.page.reservation.confirmationNote": "You will receive confirmation by email within 24 hours.",
+  "carRental.page.reservation.confirmationNote": "You will receive confirmation by email within 24 hours. Please check your Spam folder as well.",
   "carRental.page.reservation.successTitle": "🎉 Thank you!",
-  "carRental.page.reservation.successMessage": "Your reservation form has been sent successfully.",
+  "carRental.page.reservation.successMessage": "Your reservation form has been sent successfully. Please check your email and Spam folder within 24 hours.",
   "carRental.page.footer": "© <span data-current-year></span> CyprusEye.com • Car rental in Cyprus with Polish support.",
   "carRental.common.pricePerDay": "{{price}} / day",
   "carRental.common.priceFromPerDay": "From {{price}} / day",
@@ -2736,9 +2736,9 @@
           }
         },
         "submit": "Send reservation",
-        "confirmationNote": "You will receive confirmation by email within 24 hours.",
+        "confirmationNote": "You will receive confirmation by email within 24 hours. Please check your Spam folder as well.",
         "successTitle": "🎉 Thank you!",
-        "successMessage": "Your reservation form has been sent successfully."
+        "successMessage": "Your reservation form has been sent successfully. Please check your email and Spam folder within 24 hours."
       },
       "footer": "© <span data-current-year></span> CyprusEye.com • Car rental with Polish support in Cyprus."
     },
@@ -2882,7 +2882,9 @@
         "notes": "Notes (optional)"
       },
       "priceLabel": "Price",
-      "submit": "Book"
+      "submit": "Book",
+      "successTitle": "✅ Booking received!",
+      "success": "Booking received! Please check your email and Spam folder within 24 hours."
     }
   },
   "hotels": {
@@ -2920,7 +2922,10 @@
       "priceLabel": "Price",
       "submit": "Book",
       "sending": "Sending...",
-      "success": "Booking received! We will contact you soon.",
+      "successTitle": "✅ Booking received!",
+      "success": "Booking received! Please check your email and Spam folder within 24 hours.",
+      "successTotal": "Booking received. Total: {{total}}. Please check your email and Spam folder within 24 hours.",
+      "successWithCoupon": "Booking received. Total after coupon: {{total}} (discount {{discount}}). Please check your email and Spam folder within 24 hours.",
       "error": "Booking failed."
     },
     "empty": "No offers available"
@@ -3836,7 +3841,7 @@
       },
       "booking": {
         "collectedPrefix": "Collected:",
-        "requestSent": "Request sent. We will contact you shortly."
+        "requestSent": "Request sent. Please check your email and Spam folder within 24 hours."
       }
     },
     "footer": {
@@ -3871,9 +3876,9 @@
   "account.security.password.newPlaceholder": "Minimum 8 characters",
   "account.security.password.confirmPlaceholder": "Confirm password",
   "carRental.calculator.fillButton": "Open booking popup",
-  "carRental.calculator.confirmationNote": "You will receive confirmation by email within 24 hours",
+  "carRental.calculator.confirmationNote": "You will receive confirmation by email within 24 hours. Please check your Spam folder as well.",
   "carRental.calculator.successTitle": "🎉 Congratulations!",
-  "carRental.calculator.successMessage": "Your form has been sent successfully!",
+  "carRental.calculator.successMessage": "Your form has been sent successfully. Please check your email and Spam folder within 24 hours!",
   "carRental.calculator.total": "Total rental price: {{price}}",
   "carRental.calculator.breakdown.title": "Quote includes:",
   "carRental.page.reservation.fields.youngDriver.label": "Young driver / driving < 3 years",
@@ -4011,8 +4016,8 @@
   "carRental.page.reservation.coupon.messages.invalidSelectedDetails": "Coupon is not valid for selected rental details",
   "carRental.page.reservation.successBox.title": "✅ Reservation sent!",
   "carRental.page.reservation.successBox.bookingNumberLabel": "Booking number:",
-  "carRental.page.reservation.successBox.contactWithin24h": "We will contact you within 24 hours to confirm availability and send the agreement.",
-  "carRental.page.reservation.successBox.checkEmailLabel": "Check email:",
+  "carRental.page.reservation.successBox.contactWithin24h": "We will contact you within 24 hours to confirm availability and send the agreement. Please check your Spam folder as well.",
+  "carRental.page.reservation.successBox.checkEmailLabel": "Check email and Spam folder:",
   "transport.booking.hero.title": "Private transport booking with live price",
   "transport.booking.hero.description": "Choose pickup and destination, set passengers and luggage, and get an automatic quote immediately. Submit one reservation form below and we will confirm your transport quickly.",
   "transport.booking.homePanel.aria": "Transport booking section",
@@ -4090,9 +4095,9 @@
   "transport.booking.submit.error.roundTripSchemaRequired": "Round-trip booking requires latest transport schema. Run migration \"120_transport_round_trip_columns_schema_cache_fix.sql\" and refresh this page.",
   "transport.booking.submit.error.submitFailed": "Failed to submit booking request.",
   "transport.booking.submit.success.compatibilityHint": "Saved with compatibility mode (missing optional schema columns: {{columns}}).",
-  "transport.booking.submit.success.roundTrip": "Round-trip booking <strong>#{{id}}</strong> was sent successfully. Total: <strong>{{total}}</strong>.",
-  "transport.booking.submit.success.oneWay": "Booking request <strong>#{{id}}</strong> was sent successfully. Total: <strong>{{total}}</strong>. We will contact you shortly.",
-  "transport.booking.submit.success.status": "Booking submitted successfully. We will review and confirm shortly.",
+  "transport.booking.submit.success.roundTrip": "Round-trip booking <strong>#{{id}}</strong> was sent successfully. Total: <strong>{{total}}</strong>. Please check your email and Spam folder within 24 hours.",
+  "transport.booking.submit.success.oneWay": "Booking request <strong>#{{id}}</strong> was sent successfully. Total: <strong>{{total}}</strong>. Please check your email and Spam folder within 24 hours.",
+  "transport.booking.submit.success.status": "Booking submitted successfully. We will review and confirm it. Please check your email and Spam folder within 24 hours.",
   "transport.booking.submit.toast.roundTripCreated": "Round-trip transport booking #{{id}} created",
   "transport.booking.submit.toast.oneWayCreated": "Transport booking #{{id}} created",
   "transport.booking.mini.label": "Current total",

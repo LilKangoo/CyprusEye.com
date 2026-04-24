@@ -1460,9 +1460,9 @@
   "carRental.calculator.breakdown.title": "Wycena obejmuje:",
   "carRental.calculator.total": "Całkowita cena wynajmu: {{price}}",
   "carRental.calculator.fillButton": "Otwórz popup rezerwacji",
-  "carRental.calculator.confirmationNote": "Otrzymasz potwierdzenie na email w ciągu 24h",
+  "carRental.calculator.confirmationNote": "Otrzymasz potwierdzenie na email w ciągu 24h. Sprawdź też folder Spam.",
   "carRental.calculator.successTitle": "🎉 Gratulacje!",
-  "carRental.calculator.successMessage": "Twój formularz został wysłany pomyślnie!",
+  "carRental.calculator.successMessage": "Twój formularz został wysłany pomyślnie. Sprawdź email i folder Spam w ciągu 24h!",
   "carRental.included.feature1.short": "brak kaucji",
   "carRental.included.feature1.description": "Brak kaucji i blokad na karcie.",
   "carRental.included.feature2.short": "OC + Assistance 24/7",
@@ -3515,7 +3515,7 @@
           }
         },
         "submit": "Wyślij rezerwację",
-        "confirmationNote": "Otrzymasz potwierdzenie na email w ciągu 24h"
+        "confirmationNote": "Otrzymasz potwierdzenie na email w ciągu 24h. Sprawdź też folder Spam."
       }
     },
     "common": {
@@ -3549,9 +3549,9 @@
       },
       "total": "Całkowita cena wynajmu: {{price}}",
       "fillButton": "Przenieś do formularza",
-      "confirmationNote": "Otrzymasz potwierdzenie na email w ciągu 24h",
+      "confirmationNote": "Otrzymasz potwierdzenie na email w ciągu 24h. Sprawdź też folder Spam.",
       "successTitle": "🎉 Gratulacje!",
-      "successMessage": "Twój formularz został wysłany pomyślnie!"
+      "successMessage": "Twój formularz został wysłany pomyślnie. Sprawdź email i folder Spam w ciągu 24h!"
     },
     "included": {
       "feature1": {
@@ -3716,9 +3716,9 @@
           }
         },
         "submit": "Wyślij rezerwację",
-        "confirmationNote": "Otrzymasz potwierdzenie na email w ciągu 24h",
+        "confirmationNote": "Otrzymasz potwierdzenie na email w ciągu 24h. Sprawdź też folder Spam.",
         "successTitle": "🎉 Gratulacje!",
-        "successMessage": "Twój formularz został wysłany pomyślnie!"
+        "successMessage": "Twój formularz został wysłany pomyślnie. Sprawdź email i folder Spam w ciągu 24h!"
       }
     }
   },
@@ -4119,7 +4119,9 @@
         "notes": "Uwagi (opcjonalnie)"
       },
       "priceLabel": "Cena",
-      "submit": "Zarezerwuj"
+      "submit": "Zarezerwuj",
+      "successTitle": "✅ Rezerwacja przyjęta!",
+      "success": "Rezerwacja przyjęta! Sprawdź email i folder Spam w ciągu 24h."
     }
   },
   "hotels": {
@@ -4145,7 +4147,10 @@
       "priceLabel": "Cena",
       "submit": "Zarezerwuj",
       "sending": "Wysyłanie...",
-      "success": "Rezerwacja przyjęta! Skontaktujemy się wkrótce.",
+      "successTitle": "✅ Rezerwacja przyjęta!",
+      "success": "Rezerwacja przyjęta! Sprawdź email i folder Spam w ciągu 24h.",
+      "successTotal": "Rezerwacja przyjęta. Suma: {{total}}. Sprawdź email i folder Spam w ciągu 24h.",
+      "successWithCoupon": "Rezerwacja przyjęta. Suma po kuponie: {{total}} (zniżka {{discount}}). Sprawdź email i folder Spam w ciągu 24h.",
       "error": "Błąd podczas rezerwacji."
     },
     "card": {
@@ -4756,7 +4761,7 @@
   "plan.ui.toast.failedToDeletePlan": "Nie udało się usunąć planu",
   "plan.ui.toast.bookingRequestSent": "Prośba o rezerwację została wysłana.",
   "plan.ui.booking.collectedPrefix": "Zebrano:",
-  "plan.ui.booking.requestSent": "Prośba wysłana. Skontaktujemy się z Tobą wkrótce.",
+  "plan.ui.booking.requestSent": "Prośba wysłana. Sprawdź email i folder Spam w ciągu 24h.",
   "plan.ui.toast.failedToSendRequest": "Nie udało się wysłać prośby.",
   "plan.ui.toast.bookingFormUnavailable": "Formularz rezerwacji jest niedostępny w tej przeglądarce.",
   "plan.ui.toast.supabaseNotReady": "Supabase nie jest gotowe. Odśwież stronę.",
@@ -4879,8 +4884,8 @@
   "carRental.page.reservation.coupon.messages.invalidSelectedDetails": "Kupon nie jest ważny dla wybranych szczegółów wynajmu",
   "carRental.page.reservation.successBox.title": "✅ Rezerwacja wysłana!",
   "carRental.page.reservation.successBox.bookingNumberLabel": "Numer rezerwacji:",
-  "carRental.page.reservation.successBox.contactWithin24h": "Skontaktujemy się z Tobą w ciągu 24h, aby potwierdzić dostępność i przesłać umowę.",
-  "carRental.page.reservation.successBox.checkEmailLabel": "Sprawdź email:",
+  "carRental.page.reservation.successBox.contactWithin24h": "Skontaktujemy się z Tobą w ciągu 24h, aby potwierdzić dostępność i przesłać umowę. Sprawdź też folder Spam.",
+  "carRental.page.reservation.successBox.checkEmailLabel": "Sprawdź email i folder Spam:",
   "transport.booking.hero.title": "Prywatna rezerwacja transportu z natychmiastową wyceną",
   "transport.booking.hero.description": "Wybierz miejsce odbioru i cel podróży, ustaw liczbę pasażerów i bagażu, a system od razu policzy cenę. Wyślij jeden formularz poniżej, a szybko potwierdzimy transport.",
   "transport.booking.homePanel.aria": "Sekcja rezerwacji transportu",
@@ -4958,9 +4963,9 @@
   "transport.booking.submit.error.roundTripSchemaRequired": "Rezerwacja w dwie strony wymaga aktualnego schematu transportu. Uruchom migrację \"120_transport_round_trip_columns_schema_cache_fix.sql\" i odśwież stronę.",
   "transport.booking.submit.error.submitFailed": "Nie udało się wysłać rezerwacji.",
   "transport.booking.submit.success.compatibilityHint": "Zapisano w trybie zgodności (brak opcjonalnych kolumn schematu: {{columns}}).",
-  "transport.booking.submit.success.roundTrip": "Rezerwacja w dwie strony <strong>#{{id}}</strong> została wysłana pomyślnie. Suma: <strong>{{total}}</strong>.",
-  "transport.booking.submit.success.oneWay": "Prośba o rezerwację <strong>#{{id}}</strong> została wysłana pomyślnie. Suma: <strong>{{total}}</strong>. Skontaktujemy się z Tobą wkrótce.",
-  "transport.booking.submit.success.status": "Rezerwacja została wysłana pomyślnie. Zweryfikujemy ją i potwierdzimy wkrótce.",
+  "transport.booking.submit.success.roundTrip": "Rezerwacja w dwie strony <strong>#{{id}}</strong> została wysłana pomyślnie. Suma: <strong>{{total}}</strong>. Sprawdź email i folder Spam w ciągu 24h.",
+  "transport.booking.submit.success.oneWay": "Prośba o rezerwację <strong>#{{id}}</strong> została wysłana pomyślnie. Suma: <strong>{{total}}</strong>. Sprawdź email i folder Spam w ciągu 24h.",
+  "transport.booking.submit.success.status": "Rezerwacja została wysłana pomyślnie. Zweryfikujemy ją i potwierdzimy. Sprawdź email i folder Spam w ciągu 24h.",
   "transport.booking.submit.toast.roundTripCreated": "Utworzono rezerwację transportu w dwie strony #{{id}}",
   "transport.booking.submit.toast.oneWayCreated": "Utworzono rezerwację transportu #{{id}}",
   "transport.booking.mini.label": "Aktualna suma",

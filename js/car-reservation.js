@@ -1484,9 +1484,9 @@ function showSuccessMessage(booking) {
   const bookingNumberLabel = tr('carRental.page.reservation.successBox.bookingNumberLabel', 'Numer rezerwacji:');
   const contactWithin24h = tr(
     'carRental.page.reservation.successBox.contactWithin24h',
-    'Skontaktujemy się z Tobą w ciągu 24h, aby potwierdzić dostępność i przesłać umowę.'
+    'Skontaktujemy się z Tobą w ciągu 24h, aby potwierdzić dostępność i przesłać umowę. Sprawdź też folder Spam.'
   );
-  const checkEmailLabel = tr('carRental.page.reservation.successBox.checkEmailLabel', 'Sprawdź email:');
+  const checkEmailLabel = tr('carRental.page.reservation.successBox.checkEmailLabel', 'Sprawdź email i folder Spam:');
 
   successDiv.innerHTML = `
     <div style="background: #10b981; color: white; padding: 20px; border-radius: 8px; margin-top: 16px;">

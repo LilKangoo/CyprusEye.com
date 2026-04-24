@@ -1403,11 +1403,11 @@
       $('#bookMsg').textContent = coupon.hasApplied
         ? hotelT(
           'hotels.booking.successWithCoupon',
-          'Rezerwacja przyjęta. Suma po kuponie: {{total}} (zniżka {{discount}}).',
-          'Booking received. Total after coupon: {{total}} (discount {{discount}}).',
+          'Rezerwacja przyjęta. Suma po kuponie: {{total}} (zniżka {{discount}}). Sprawdź email i folder Spam w ciągu 24h.',
+          'Booking received. Total after coupon: {{total}} (discount {{discount}}). Please check your email and Spam folder within 24 hours.',
           { total: formatMoney(coupon.finalTotal), discount: formatMoney(coupon.discount) }
         )
-        : hotelT('hotels.booking.successTotal', 'Rezerwacja przyjęta. Suma: {{total}}.', 'Booking received. Total: {{total}}.', { total: formatMoney(total) });
+        : hotelT('hotels.booking.successTotal', 'Rezerwacja przyjęta. Suma: {{total}}. Sprawdź email i folder Spam w ciągu 24h.', 'Booking received. Total: {{total}}. Please check your email and Spam folder within 24 hours.', { total: formatMoney(total) });
       f.reset();
       clearCouponState({ clearInput: true });
       updateLive();

@@ -396,13 +396,13 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
       </button>
 
       <p class="auto-reservation-note" data-i18n="${i18nPrefix}.confirmationNote">
-        Otrzymasz potwierdzenie na email w ciągu 24h
+        Otrzymasz potwierdzenie na email w ciągu 24h. Sprawdź też folder Spam.
       </p>
     </form>
 
     <div id="formSubmitConfirmation" class="auto-success-card" hidden>
-      <h3>🎉 Gratulacje!</h3>
-      <p>Twój formularz został wysłany pomyślnie!</p>
+      <h3 data-i18n="${i18nPrefix}.successTitle">🎉 Gratulacje!</h3>
+      <p data-i18n="${i18nPrefix}.successMessage">Twój formularz został wysłany pomyślnie. Sprawdź email i folder Spam w ciągu 24h!</p>
     </div>
   `;
 }

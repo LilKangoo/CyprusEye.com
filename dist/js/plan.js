@@ -5883,7 +5883,7 @@ async function submitPlannerBookingForm(event) {
       if (error) throw error;
     }
 
-    setStatus(statusEl, t('plan.ui.booking.requestSent', 'Request sent. We will contact you shortly.'), 'success');
+    setStatus(statusEl, t('plan.ui.booking.requestSent', 'Request sent. Please check your email and Spam folder within 24 hours.'), 'success');
     showToast(t('plan.ui.toast.bookingRequestSent', 'Booking request sent.'), 'success');
     const dialog = bookingDialogEl();
     if (dialog && typeof dialog.close === 'function') dialog.close();

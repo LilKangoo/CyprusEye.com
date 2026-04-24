@@ -756,7 +756,10 @@ function initHomeHotels() {
       if (insertError) throw insertError;
       
       // Success - show beautiful popup
-      showSuccessPopup('✅ Rezerwacja przyjęta!', 'Skontaktujemy się z Tobą wkrótce. Dziękujemy!');
+      showSuccessPopup(
+        hotelsT('hotels.booking.successTitle', '✅ Rezerwacja przyjęta!'),
+        hotelsT('hotels.booking.success', 'Rezerwacja przyjęta! Sprawdź email i folder Spam w ciągu 24h.')
+      );
       
       // Reset form and clear validation errors
       form.reset();
@@ -776,7 +779,7 @@ function initHomeHotels() {
       console.error('❌ Booking error:', err);
       showErrorPopup('❌ Błąd rezerwacji', err.message || 'Wystąpił błąd. Spróbuj ponownie.');
     }finally{
-      btn.disabled=false; btn.textContent='Zarezerwuj';
+      btn.disabled=false; btn.textContent=hotelsT('hotels.booking.submit', 'Zarezerwuj');
     }
   });
 
