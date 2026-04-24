@@ -183,6 +183,75 @@ function readFinderStateFromDom(baseState = null) {
   };
 }
 
+function setFinderSelectSafe(selectEl, value, fallback = '') {
+  if (!(selectEl instanceof HTMLSelectElement)) return false;
+  const previousValue = String(selectEl.value || '');
+  const options = Array.from(selectEl.options || []);
+  const hasValue = options.some((opt) => String(opt.value || '') === String(value || ''));
+  if (hasValue) {
+    selectEl.value = value;
+    return previousValue !== String(selectEl.value || '');
+  }
+
+  const hasFallback = options.some((opt) => String(opt.value || '') === String(fallback || ''));
+  if (hasFallback) {
+    selectEl.value = fallback;
+    return previousValue !== String(selectEl.value || '');
+  }
+
+  return false;
+}
+
+function updateHomeCarsFinderSummary(state = null) {
+  const summaryEl = document.getElementById('carsFinderSummary');
+  if (!summaryEl) return;
+
+  const activeState = state || homeCarsFinderState || buildDefaultFinderState();
+  const offer = evaluateFinderOffer(activeState);
+  const offerLabel = offer.offer === 'paphos'
+    ? text('Strefa Pafos', 'Paphos zone')
+    : text('Cały Cypr', 'Island-wide');
+  const duration = getFinderDurationState(activeState);
+  const passengers = Math.max(1, Number(activeState.passengers || 2));
+
+  summaryEl.textContent = duration.ready
+    ? text(
+      `${offerLabel} • ${duration.days} dni • ${passengers} pasażerów`,
+      `${offerLabel} • ${duration.days} days • ${passengers} passengers`
+    )
+    : text(
+      `${offerLabel} • ${passengers} pasażerów`,
+      `${offerLabel} • ${passengers} passengers`
+    );
+}
+
+function applyHomeCarsFinderLocationRules(state = null) {
+  const pickup = document.getElementById('carsFinderPickupLocation');
+  const ret = document.getElementById('carsFinderReturnLocation');
+  if (!(pickup instanceof HTMLSelectElement) || !(ret instanceof HTMLSelectElement)) {
+    return null;
+  }
+
+  const activeState = state || homeCarsFinderState || buildDefaultFinderState();
+  const previousReturn = String(activeState.returnLocation || ret.value || '').trim();
+  const restrictToPaphos = isPaphosWidgetLocation(pickup.value) && !activeState.youngDriver;
+
+  ret.innerHTML = buildFinderLocationOptions('', {
+    includePlaceholder: true,
+    restrictToPaphos,
+  });
+
+  const normalizedReturn = activeState.youngDriver
+    ? previousReturn
+    : coerceReturnLocationForPickup(pickup.value, previousReturn);
+
+  setFinderSelectSafe(ret, normalizedReturn || previousReturn || '', '');
+  return {
+    restrictToPaphos,
+    returnLocation: String(ret.value || '').trim(),
+  };
+}
+
 function renderFinderStatus() {
   const statusEl = document.getElementById('carsFinderStatus');
   if (!statusEl) return;
@@ -273,7 +342,7 @@ function renderHomeCarsFinder() {
         <div class="home-cars-finder-zones" aria-hidden="true">
           <span class="home-cars-finder-zone home-cars-finder-zone--larnaca">${escapeHtml(text('🚗 Oferta Larnaka / cały Cypr', '🚗 Larnaca offer / island-wide'))}</span>
           <span class="home-cars-finder-zone home-cars-finder-zone--paphos">${escapeHtml(text('🌴 Strefa Pafos', '🌴 Paphos zone'))}</span>
-          <span class="home-cars-finder-zone">${escapeHtml(summaryLine)}</span>
+          <span id="carsFinderSummary" class="home-cars-finder-zone">${escapeHtml(summaryLine)}</span>
         </div>
 
         <div class="home-cars-finder-grid">
@@ -358,15 +427,11 @@ function syncHomeCarsFinderState(options = {}) {
   homeCarsFinderState = hasFinderInputs ? readFinderStateFromDom(current) : current;
   homeCarsFinderState.passengers = Math.max(1, Number(homeCarsFinderState.passengers || 2));
 
-  const normalizedReturnLocation = homeCarsFinderState.youngDriver
-    ? String(homeCarsFinderState.returnLocation || '').trim()
-    : coerceReturnLocationForPickup(
-      homeCarsFinderState.pickupLocation,
-      homeCarsFinderState.returnLocation,
-    );
-  if (normalizedReturnLocation !== homeCarsFinderState.returnLocation) {
-    homeCarsFinderState.returnLocation = normalizedReturnLocation;
-    renderHomeCarsFinder();
+  if (hasFinderInputs) {
+    const locationState = applyHomeCarsFinderLocationRules(homeCarsFinderState);
+    if (locationState) {
+      homeCarsFinderState.returnLocation = locationState.returnLocation;
+    }
   }
 
   const { offer } = evaluateFinderOffer(homeCarsFinderState);
@@ -374,9 +439,7 @@ function syncHomeCarsFinderState(options = {}) {
     homeCarsCurrentLocation = offer;
   }
 
-  if (fromUser) {
-    renderHomeCarsFinder();
-  }
+  updateHomeCarsFinderSummary(homeCarsFinderState);
   renderHomeCarsTabs();
   renderHomeCars();
   renderFinderStatus();
