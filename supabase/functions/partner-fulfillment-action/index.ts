@@ -526,7 +526,7 @@ async function enqueueCustomerDepositEmail(supabase: any, params: {
   partnerId: string;
   dedupeSuffix?: string;
   forceSend?: boolean;
-}) {
+}): Promise<string | null> {
   const tableName = getServiceTableName(params.category);
   const dedupeSuffix = String(params.dedupeSuffix || "").trim();
   const dedupeKey = dedupeSuffix
@@ -543,17 +543,20 @@ async function enqueueCustomerDepositEmail(supabase: any, params: {
     ...(params.forceSend ? { force_send: true } : {}),
   };
 
-  try {
-    await supabase.rpc("enqueue_admin_notification", {
-      p_category: params.category,
-      p_event: "customer_deposit_requested",
-      p_record_id: params.bookingId,
-      p_table_name: tableName,
-      p_payload: payload,
-      p_dedupe_key: dedupeKey,
-    });
-  } catch (_e) {
+  const { data, error } = await supabase.rpc("enqueue_admin_notification", {
+    p_category: params.category,
+    p_event: "customer_deposit_requested",
+    p_record_id: params.bookingId,
+    p_table_name: tableName,
+    p_payload: payload,
+    p_dedupe_key: dedupeKey,
+  });
+
+  if (error) {
+    throw new Error(`Failed to enqueue customer deposit email: ${error.message || "unknown error"}`);
   }
+
+  return data ? String(data) : null;
 }
 
 function getFunctionsBaseUrl(): string {
@@ -806,9 +809,11 @@ async function createDepositCheckoutForServiceFulfillment(params: {
   bookingId: string;
   category: ServiceCategory;
   createCheckout?: boolean;
+  enqueueEmail?: boolean;
 }): Promise<{ deposit_request_id: string; checkout_url: string } | null> {
   const { supabase, fulfillment, partnerId, bookingId, category } = params;
   const shouldCreateCheckout = params.createCheckout !== false;
+  const shouldEnqueueEmail = params.enqueueEmail !== false;
 
   const fulfillmentId = String(fulfillment?.id || "");
   if (!fulfillmentId) return null;
@@ -1024,6 +1029,16 @@ async function createDepositCheckoutForServiceFulfillment(params: {
     currencyMatches &&
     existingUrlHasRequiredPricingParams
   ) {
+    if (shouldEnqueueEmail) {
+      await enqueueCustomerDepositEmail(supabase, {
+        category,
+        bookingId,
+        depositRequestId: existingId,
+        fulfillmentId,
+        partnerId,
+        dedupeSuffix: "checkout_ready",
+      });
+    }
     return { deposit_request_id: existingId, checkout_url: existingUrl };
   }
 
@@ -1176,13 +1191,16 @@ async function createDepositCheckoutForServiceFulfillment(params: {
       .eq("id", depositRequestId);
   }
 
-  await enqueueCustomerDepositEmail(supabase, {
-    category,
-    bookingId,
-    depositRequestId,
-    fulfillmentId,
-    partnerId,
-  });
+  if (shouldEnqueueEmail) {
+    await enqueueCustomerDepositEmail(supabase, {
+      category,
+      bookingId,
+      depositRequestId,
+      fulfillmentId,
+      partnerId,
+      dedupeSuffix: "checkout_ready",
+    });
+  }
 
   return { deposit_request_id: depositRequestId, checkout_url: url };
 }
@@ -1445,6 +1463,7 @@ serve(async (req) => {
         partnerId,
         bookingId,
         category: serviceCategory,
+        enqueueEmail: false,
       });
       if (!deposit?.deposit_request_id) {
         throw new Error("Failed to prepare deposit request");

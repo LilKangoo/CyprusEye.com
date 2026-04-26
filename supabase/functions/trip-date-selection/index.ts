@@ -512,7 +512,7 @@ async function enqueueCustomerDepositEmail(supabase: any, params: {
   fulfillmentId: string;
   partnerId: string;
   dedupeSuffix?: string;
-}) {
+}): Promise<string | null> {
   const dedupeSuffix = String(params.dedupeSuffix || "").trim();
   const dedupeKey = dedupeSuffix
     ? `deposit_customer_requested:${params.depositRequestId}:${dedupeSuffix}`
@@ -528,18 +528,20 @@ async function enqueueCustomerDepositEmail(supabase: any, params: {
     partner_id: params.partnerId,
   };
 
-  try {
-    await supabase.rpc("enqueue_admin_notification", {
-      p_category: "trips",
-      p_event: "customer_deposit_requested",
-      p_record_id: params.bookingId,
-      p_table_name: "trip_bookings",
-      p_payload: payload,
-      p_dedupe_key: dedupeKey,
-    });
-  } catch (_e) {
-    // best effort
+  const { data, error } = await supabase.rpc("enqueue_admin_notification", {
+    p_category: "trips",
+    p_event: "customer_deposit_requested",
+    p_record_id: params.bookingId,
+    p_table_name: "trip_bookings",
+    p_payload: payload,
+    p_dedupe_key: dedupeKey,
+  });
+
+  if (error) {
+    throw new Error(`Failed to enqueue customer deposit email: ${error.message || "unknown error"}`);
   }
+
+  return data ? String(data) : null;
 }
 
 function textSummaryFromTrip(booking: any): string {
@@ -650,6 +652,13 @@ async function createTripDepositCheckout(params: {
     currencyMatches &&
     existingUrlHasRequiredPricingParams
   ) {
+    await enqueueCustomerDepositEmail(supabase, {
+      bookingId,
+      depositRequestId: existingId,
+      fulfillmentId,
+      partnerId,
+      dedupeSuffix: "trip_date_selected",
+    });
     return { deposit_request_id: existingId, checkout_url: existingUrl };
   }
 
