@@ -157,7 +157,9 @@ create index if not exists idx_recommendation_clicks_recommendation
 
 -- Funkcja do automatycznego tworzenia geography z lat/lng
 create or replace function public.sync_recommendation_geography() 
-returns trigger language plpgsql as $$
+returns trigger language plpgsql
+set search_path = public
+as $$
 begin
   if new.latitude is not null and new.longitude is not null then
     new.geography := ST_SetSRID(ST_MakePoint(new.longitude, new.latitude), 4326)::geography;
@@ -170,7 +172,9 @@ $$;
 
 -- Funkcja do inkrementacji licznika wyświetleń
 create or replace function public.increment_recommendation_views(rec_id uuid)
-returns void language plpgsql security definer as $$
+returns void language plpgsql security definer
+set search_path = public
+as $$
 begin
   update public.recommendations
   set view_count = view_count + 1
@@ -180,7 +184,9 @@ $$;
 
 -- Funkcja do inkrementacji licznika kliknięć
 create or replace function public.increment_recommendation_clicks(rec_id uuid)
-returns void language plpgsql security definer as $$
+returns void language plpgsql security definer
+set search_path = public
+as $$
 begin
   update public.recommendations
   set click_count = click_count + 1
@@ -212,7 +218,9 @@ returns table (
   display_order int,
   priority int,
   distance_meters numeric
-) language sql stable as $$
+) language sql stable
+set search_path = public
+as $$
   select 
     r.id,
     r.category_id,

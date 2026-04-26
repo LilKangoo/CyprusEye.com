@@ -123,6 +123,7 @@ create index if not exists idx_blog_post_translations_lang_slug
 create or replace function public.blog_set_updated_at()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 begin
   new.updated_at := now();

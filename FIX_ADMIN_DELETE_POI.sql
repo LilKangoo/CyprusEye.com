@@ -16,6 +16,7 @@ CREATE OR REPLACE FUNCTION admin_delete_poi(
 RETURNS JSON
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
   IF NOT is_current_user_admin() THEN

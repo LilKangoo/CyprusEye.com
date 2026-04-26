@@ -55,7 +55,11 @@ USING (bucket_id = 'car-images');
 
 -- 7. Function to generate storage URL for uploaded image
 CREATE OR REPLACE FUNCTION get_car_image_storage_url(p_filename text)
-RETURNS text AS $$
+RETURNS text
+LANGUAGE plpgsql
+IMMUTABLE
+SET search_path = public
+AS $$
 DECLARE
   project_url text;
 BEGIN
@@ -70,11 +74,14 @@ BEGIN
   
   RETURN project_url || '/storage/v1/object/public/car-images/' || p_filename;
 END;
-$$ LANGUAGE plpgsql IMMUTABLE;
+$$;
 
 -- 8. Trigger to clean up old images when car image is updated
 CREATE OR REPLACE FUNCTION cleanup_old_car_image()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
 DECLARE
   old_filename text;
 BEGIN
@@ -89,7 +96,7 @@ BEGIN
   
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- Create trigger
 DROP TRIGGER IF EXISTS cleanup_old_car_image_trigger ON car_offers;

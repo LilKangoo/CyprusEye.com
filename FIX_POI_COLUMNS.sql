@@ -21,6 +21,7 @@ CREATE OR REPLACE FUNCTION admin_create_poi(
 RETURNS JSON
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   new_poi_id TEXT;
@@ -101,6 +102,7 @@ CREATE OR REPLACE FUNCTION admin_update_poi(
 RETURNS JSON
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
   IF NOT is_current_user_admin() THEN

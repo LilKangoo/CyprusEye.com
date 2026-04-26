@@ -27,6 +27,7 @@ returns boolean
 language plpgsql
 stable
 security definer
+set search_path = public
 as $$
 declare
   uid uuid;
@@ -51,6 +52,7 @@ returns boolean
 language plpgsql
 stable
 security definer
+set search_path = public
 as $$
 declare
   uid uuid;
@@ -74,6 +76,7 @@ create or replace function public.is_user_banned(u_id uuid)
 returns boolean
 language sql
 stable
+set search_path = public
 as $$
   select coalesce(p.ban_permanent, false) or (p.banned_until is not null and now() < p.banned_until)
   from public.profiles p
@@ -85,6 +88,7 @@ create or replace function public.admin_adjust_user_xp(target_user_id uuid, delt
 returns void
 language plpgsql
 security definer
+set search_path = public
 as $$
 begin
   if not public.is_current_user_staff() then
@@ -101,16 +105,17 @@ create or replace function public.admin_set_user_xp_level(target_user_id uuid, x
 returns void
 language plpgsql
 security definer
+set search_path = public
 as $$
 begin
   if not public.is_current_user_staff() then
     raise exception 'forbidden';
   end if;
-  update public.profiles set 
-    xp = case when xp is null or xp < 0 then 0 else xp end,
-    level = case when level is null or level < 0 then 0 else level end
+  update public.profiles
+  set
+    xp = greatest(0, coalesce($2, public.profiles.xp, 0)),
+    level = greatest(0, coalesce($3, public.profiles.level, 0))
   where id = target_user_id;
-  update public.profiles set xp = greatest(0, coalesce($2, xp)), level = greatest(0, coalesce($3, level)) where id = target_user_id;
   insert into public.admin_activity_log(actor_id, target_user_id, action, details)
   values (auth.uid(), target_user_id, 'xp_level_set', jsonb_build_object('xp', xp, 'level', level));
 end;
@@ -132,6 +137,7 @@ create or replace function public.admin_update_user_profile(
 returns void
 language plpgsql
 security definer
+set search_path = public
 as $$
 begin
   if not public.is_current_user_staff() then
@@ -172,14 +178,15 @@ create or replace function public.admin_set_user_enforcement(
 returns void
 language plpgsql
 security definer
+set search_path = public
 as $$
 begin
   if not public.is_current_user_staff() then
     raise exception 'forbidden';
   end if;
   update public.profiles set
-    require_password_change = coalesce($2, require_password_change),
-    require_email_update = coalesce($3, require_email_update)
+    require_password_change = coalesce($2, public.profiles.require_password_change),
+    require_email_update = coalesce($3, public.profiles.require_email_update)
   where id = target_user_id;
   insert into public.admin_activity_log(actor_id, target_user_id, action, details)
   values (auth.uid(), target_user_id, 'enforcement_update', jsonb_build_object('require_password_change', $2, 'require_email_update', $3));
@@ -193,6 +200,7 @@ create or replace function public.admin_get_user_details(target_user_id uuid)
 returns jsonb
 language plpgsql
 security definer
+set search_path = public
 as $$
 declare
   p public.profiles%rowtype;

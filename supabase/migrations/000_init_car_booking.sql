@@ -4,7 +4,7 @@
 create extension if not exists pgcrypto;
 
 -- Helper: check admin flag from JWT user_metadata.is_admin
-create or replace function public.is_admin() returns boolean language sql stable as $$
+create or replace function public.is_admin() returns boolean language sql stable set search_path = public as $$
   select coalesce(((auth.jwt() ->> 'user_metadata')::jsonb ->> 'is_admin')::boolean, false);
 $$;
 
@@ -81,7 +81,7 @@ drop policy if exists payments_all_admin on public.payments;
 create policy payments_all_admin on public.payments for all using (public.is_admin()) with check (public.is_admin());
 
 -- Triggers updated_at
-create or replace function public.set_updated_at() returns trigger language plpgsql as $$
+create or replace function public.set_updated_at() returns trigger language plpgsql set search_path = public as $$
 begin
   new.updated_at = now();
   return new;

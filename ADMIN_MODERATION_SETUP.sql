@@ -34,6 +34,7 @@ CREATE OR REPLACE FUNCTION is_current_user_admin()
 RETURNS boolean
 LANGUAGE sql
 STABLE
+SET search_path = public
 AS $$
   SELECT EXISTS (
     SELECT 1 FROM profiles p
@@ -82,6 +83,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
   IF NOT is_current_user_admin() THEN
@@ -121,6 +123,7 @@ CREATE OR REPLACE FUNCTION admin_approve_report(
 RETURNS json
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
   IF NOT is_current_user_admin() THEN
@@ -145,6 +148,7 @@ CREATE OR REPLACE FUNCTION admin_delete_reported_comment(
 RETURNS json
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
   IF NOT is_current_user_admin() THEN
@@ -152,12 +156,13 @@ BEGIN
   END IF;
 
   -- delete the comment
-  DELETE FROM poi_comments WHERE id = comment_id;
+  DELETE FROM poi_comments WHERE id = admin_delete_reported_comment.comment_id;
 
   -- resolve related open reports
   UPDATE reported_content
   SET status = 'deleted', resolved_at = now(), resolved_by = auth.uid()
-  WHERE comment_id = comment_id AND status = 'open';
+  WHERE reported_content.comment_id = admin_delete_reported_comment.comment_id
+    AND status = 'open';
 
   RETURN json_build_object('success', true);
 END;

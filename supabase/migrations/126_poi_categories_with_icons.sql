@@ -30,6 +30,7 @@ alter table public.poi_categories
 create or replace function public.trg_poi_categories_set_updated_at()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 begin
   new.updated_at := now();

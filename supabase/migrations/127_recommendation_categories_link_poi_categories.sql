@@ -35,6 +35,7 @@ where rc.poi_category_id is null
 create or replace function public.sync_recommendation_category_poi_link()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 declare
   normalized_slug text;
