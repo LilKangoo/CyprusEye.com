@@ -8836,6 +8836,11 @@ a:focus-visible {
   display: grid;
 }
 
+#auth-modal {
+  /* Recommendation detail modals use z-index 19000; auth must stay actionable above them. */
+  z-index: 19500;
+}
+
 .modal__dialog {
   position: relative;
   width: min(400px, 90vw);
