@@ -16,6 +16,7 @@ import {
 } from '/js/car-location-options.js';
 
 let previousBodyCarLocation = null;
+let previousCarPricingContext = null;
 
 function getLang() {
   const lang = (window.appI18n?.language || document.documentElement?.lang || 'pl').toLowerCase();
@@ -77,6 +78,53 @@ function setBodyCarLocation(next) {
   } else {
     delete document.body.dataset.carLocation;
   }
+}
+
+function captureCarPricingContext() {
+  if (previousCarPricingContext) return;
+  previousCarPricingContext = {
+    hasPricing: Object.prototype.hasOwnProperty.call(window, 'CE_CAR_PRICING'),
+    pricing: window.CE_CAR_PRICING,
+    hasQuote: Object.prototype.hasOwnProperty.call(window, 'CE_CAR_PRICE_QUOTE'),
+    quote: window.CE_CAR_PRICE_QUOTE,
+    hasFinder: Object.prototype.hasOwnProperty.call(window, 'CE_CAR_FIND_CURRENT_FLEET_CAR'),
+    finder: window.CE_CAR_FIND_CURRENT_FLEET_CAR,
+  };
+}
+
+function restoreCarPricingContext() {
+  const context = previousCarPricingContext;
+  previousCarPricingContext = null;
+  if (!context) {
+    delete window.CE_CAR_PRICING;
+    delete window.CE_CAR_PRICE_QUOTE;
+    delete window.CE_CAR_FIND_CURRENT_FLEET_CAR;
+    return;
+  }
+
+  if (context.hasPricing) window.CE_CAR_PRICING = context.pricing;
+  else delete window.CE_CAR_PRICING;
+
+  if (context.hasQuote) window.CE_CAR_PRICE_QUOTE = context.quote;
+  else delete window.CE_CAR_PRICE_QUOTE;
+
+  if (context.hasFinder) window.CE_CAR_FIND_CURRENT_FLEET_CAR = context.finder;
+  else delete window.CE_CAR_FIND_CURRENT_FLEET_CAR;
+}
+
+function installCarOfferLookup(fleet) {
+  const cars = Array.isArray(fleet) ? fleet.filter(Boolean) : [];
+  window.CE_CAR_FIND_CURRENT_FLEET_CAR = ({ offerId, carModel } = {}) => {
+    const normalizedOfferId = String(offerId || '').trim();
+    if (normalizedOfferId) {
+      const byId = cars.find((item) => String(item?.id || '') === normalizedOfferId);
+      if (byId) return byId;
+    }
+
+    const normalizedModel = String(carModel || '').trim().toLowerCase();
+    if (!normalizedModel) return null;
+    return cars.find((item) => getCarName(item).trim().toLowerCase() === normalizedModel) || null;
+  };
 }
 
 function buildPricingMapForLocation(location, fleet) {
@@ -500,8 +548,7 @@ export function closeCarOfferModal() {
   setBodyCarLocation('');
 
   try {
-    delete window.CE_CAR_PRICING;
-    delete window.CE_CAR_PRICE_QUOTE;
+    restoreCarPricingContext();
   } catch (_) {}
 
   try {
@@ -571,7 +618,9 @@ export function openCarOfferModal({
   const locLabel = loc === 'paphos' ? text('Pafos', 'Paphos') : text('Larnaka', 'Larnaca');
 
   const pricingSource = Array.isArray(fleetByLocation?.[loc]) ? fleetByLocation[loc] : [car];
+  captureCarPricingContext();
   window.CE_CAR_PRICING = buildPricingMapForLocation(loc, pricingSource);
+  installCarOfferLookup(pricingSource);
   setBodyCarLocation(loc);
 
   const normalizedPrefill = {
