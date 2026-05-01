@@ -45,7 +45,7 @@ body.modal-open {
 /* Auth modal must be above recommendation/details overlays */
 #auth-modal,
 #auth-modal.is-open {
-  z-index: 13000 !important;
+  z-index: 19500 !important;
 }
 
 /* Detail modal */

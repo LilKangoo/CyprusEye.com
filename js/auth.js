@@ -30,6 +30,7 @@ const OAUTH_COMPLETION_LOCAL_PREFIX = 'ce_oauth_completed_user_';
 let oauthCompletionModal = null;
 let oauthCompletionSubmitting = false;
 let oauthCompletionRedirectTarget = POST_AUTH_REDIRECT;
+let oauthCompletionCheckPromise = null;
 const registerReferralControllers = new WeakMap();
 let oauthReferralController = null;
 let referralRepairPromise = null;
@@ -62,6 +63,27 @@ function clearOAuthCompletionLocal(userId) {
     if (!id) return;
     window.localStorage.removeItem(`${OAUTH_COMPLETION_LOCAL_PREFIX}${id}`);
   } catch (_e) {
+  }
+}
+
+async function markOAuthCompletionStateComplete(user) {
+  const userId = String(user?.id || '').trim();
+  if (!userId) return;
+
+  const alreadyMarked = isOAuthCompletionMarked(user);
+  markOAuthCompletionLocal(userId);
+  if (alreadyMarked) return;
+
+  try {
+    await sb.auth.updateUser({ data: { [OAUTH_COMPLETION_META_KEY]: true } });
+  } catch (_metaErr) {
+  }
+}
+
+function hideOAuthCompletionModal() {
+  if (oauthCompletionModal instanceof HTMLElement && oauthCompletionModal.style.display !== 'none') {
+    oauthCompletionModal.style.display = 'none';
+    document.body.style.overflow = '';
   }
 }
 
@@ -1579,7 +1601,9 @@ function clearOAuthCompletionDraft() {
 }
 
 async function fetchOAuthCompletionSnapshot(userId) {
-  if (!userId) return null;
+  if (!userId) {
+    return { available: false, reason: 'missing_user' };
+  }
   try {
     const { data, error } = await sb
       .from('profiles')
@@ -1589,24 +1613,34 @@ async function fetchOAuthCompletionSnapshot(userId) {
     if (error) {
       const msg = String(error.message || '').toLowerCase();
       if (msg.includes('registration_completed') || String(error.code || '') === 'PGRST204') {
-        return null;
+        return { available: false, reason: 'missing_registration_column' };
       }
       throw error;
     }
-    if (!data || typeof data !== 'object') return null;
+    if (!data || typeof data !== 'object') {
+      return {
+        available: true,
+        exists: false,
+        registrationCompleted: false,
+        name: '',
+        username: '',
+      };
+    }
     const registrationCompleted = Object.prototype.hasOwnProperty.call(data, 'registration_completed')
       ? data.registration_completed === true
       : null;
     const name = typeof data.name === 'string' ? data.name.trim() : '';
     const username = typeof data.username === 'string' ? data.username.trim() : '';
     return {
+      available: true,
+      exists: true,
       registrationCompleted,
       name,
       username,
     };
   } catch (error) {
     console.warn('Could not fetch OAuth completion snapshot:', error);
-    return null;
+    return { available: false, reason: 'fetch_failed' };
   }
 }
 
@@ -1982,27 +2016,48 @@ function fillOAuthCompletionFormDefaults(state) {
 }
 
 async function maybeRequireOAuthCompletion(state, { redirectTarget = POST_AUTH_REDIRECT } = {}) {
+  if (oauthCompletionCheckPromise) {
+    return oauthCompletionCheckPromise;
+  }
+
+  const checkPromise = runOAuthCompletionGuard(state, { redirectTarget });
+  const trackedPromise = checkPromise.finally(() => {
+    if (oauthCompletionCheckPromise === trackedPromise) {
+      oauthCompletionCheckPromise = null;
+    }
+  });
+  oauthCompletionCheckPromise = trackedPromise;
+  return trackedPromise;
+}
+
+async function runOAuthCompletionGuard(state, { redirectTarget = POST_AUTH_REDIRECT } = {}) {
   const user = state?.session?.user || null;
   if (!user?.id) return false;
   if (!isGoogleProviderUser(user)) return false;
 
   const completionSnapshot = await fetchOAuthCompletionSnapshot(user.id);
+  if (!completionSnapshot?.available) {
+    // Do not block an already signed-in user when the profile read fails during
+    // token refresh or temporary network/auth errors.
+    return false;
+  }
+
   const completed = completionSnapshot?.registrationCompleted === true;
   const hasRequiredProfileData = Boolean(completionSnapshot?.name && completionSnapshot?.username);
 
+  if (completed) {
+    hideOAuthCompletionModal();
+    await markOAuthCompletionStateComplete(user);
+    return false;
+  }
+
   if (hasRequiredProfileData) {
-    const profileMarkedComplete = completed || await markOAuthCompletionProfileComplete(user.id);
+    const profileMarkedComplete = await markOAuthCompletionProfileComplete(user.id);
     if (profileMarkedComplete) {
-      const alreadyMarked = isOAuthCompletionMarked(user);
-      markOAuthCompletionLocal(user.id);
-      if (!alreadyMarked) {
-        try {
-          await sb.auth.updateUser({ data: { [OAUTH_COMPLETION_META_KEY]: true } });
-        } catch (_metaErr) {
-        }
-      }
-      return false;
+      hideOAuthCompletionModal();
+      await markOAuthCompletionStateComplete(user);
     }
+    return false;
   }
 
   clearOAuthCompletionLocal(user.id);

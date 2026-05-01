@@ -30,6 +30,7 @@ const OAUTH_COMPLETION_LOCAL_PREFIX = 'ce_oauth_completed_user_';
 let oauthCompletionModal = null;
 let oauthCompletionSubmitting = false;
 let oauthCompletionRedirectTarget = POST_AUTH_REDIRECT;
+let oauthCompletionCheckPromise = null;
 const registerReferralControllers = new WeakMap();
 let oauthReferralController = null;
 let referralRepairPromise = null;
@@ -62,6 +63,27 @@ function clearOAuthCompletionLocal(userId) {
     if (!id) return;
     window.localStorage.removeItem(`${OAUTH_COMPLETION_LOCAL_PREFIX}${id}`);
   } catch (_e) {
+  }
+}
+
+async function markOAuthCompletionStateComplete(user) {
+  const userId = String(user?.id || '').trim();
+  if (!userId) return;
+
+  const alreadyMarked = isOAuthCompletionMarked(user);
+  markOAuthCompletionLocal(userId);
+  if (alreadyMarked) return;
+
+  try {
+    await sb.auth.updateUser({ data: { [OAUTH_COMPLETION_META_KEY]: true } });
+  } catch (_metaErr) {
+  }
+}
+
+function hideOAuthCompletionModal() {
+  if (oauthCompletionModal instanceof HTMLElement && oauthCompletionModal.style.display !== 'none') {
+    oauthCompletionModal.style.display = 'none';
+    document.body.style.overflow = '';
   }
 }
 
@@ -1579,7 +1601,9 @@ function clearOAuthCompletionDraft() {
 }
 
 async function fetchOAuthCompletionSnapshot(userId) {
-  if (!userId) return null;
+  if (!userId) {
+    return { available: false, reason: 'missing_user' };
+  }
   try {
     const { data, error } = await sb
       .from('profiles')
@@ -1589,24 +1613,62 @@ async function fetchOAuthCompletionSnapshot(userId) {
     if (error) {
       const msg = String(error.message || '').toLowerCase();
       if (msg.includes('registration_completed') || String(error.code || '') === 'PGRST204') {
-        return null;
+        return { available: false, reason: 'missing_registration_column' };
       }
       throw error;
     }
-    if (!data || typeof data !== 'object') return null;
+    if (!data || typeof data !== 'object') {
+      return {
+        available: true,
+        exists: false,
+        registrationCompleted: false,
+        name: '',
+        username: '',
+      };
+    }
     const registrationCompleted = Object.prototype.hasOwnProperty.call(data, 'registration_completed')
       ? data.registration_completed === true
       : null;
     const name = typeof data.name === 'string' ? data.name.trim() : '';
     const username = typeof data.username === 'string' ? data.username.trim() : '';
     return {
+      available: true,
+      exists: true,
       registrationCompleted,
       name,
       username,
     };
   } catch (error) {
     console.warn('Could not fetch OAuth completion snapshot:', error);
-    return null;
+    return { available: false, reason: 'fetch_failed' };
+  }
+}
+
+async function markOAuthCompletionProfileComplete(userId) {
+  const id = String(userId || '').trim();
+  if (!id) return false;
+
+  try {
+    const { data, error } = await sb
+      .from('profiles')
+      .update({
+        registration_completed: true,
+        registration_completed_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select('id')
+      .maybeSingle();
+    if (error) {
+      const msg = String(error.message || '').toLowerCase();
+      if (msg.includes('registration_completed') || String(error.code || '') === 'PGRST204') {
+        return true;
+      }
+      throw error;
+    }
+    return data?.id === id;
+  } catch (error) {
+    console.warn('Could not mark OAuth profile as complete:', error);
+    return false;
   }
 }
 
@@ -1628,30 +1690,30 @@ function ensureOAuthCompletionModal() {
   overlay.style.padding = '18px';
   overlay.style.background = 'rgba(2, 6, 23, 0.62)';
   overlay.innerHTML = `
-    <form id="oauthCompletionForm" style="width:min(560px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:16px;padding:20px;box-shadow:0 20px 50px rgba(0,0,0,0.35);">
-      <h2 id="oauthCompletionTitle" style="margin:0 0 8px;font-size:24px;line-height:1.2;">${t('Complete registration', 'Dokończ rejestrację')}</h2>
+    <form id="oauthCompletionForm" style="width:min(560px,100%);max-height:90vh;overflow:auto;background:#fff;color:#0f172a;border-radius:16px;padding:20px;box-shadow:0 20px 50px rgba(0,0,0,0.35);">
+      <h2 id="oauthCompletionTitle" style="margin:0 0 8px;color:#0f172a;font-size:24px;line-height:1.2;">${t('Complete registration', 'Dokończ rejestrację')}</h2>
       <p style="margin:0 0 14px;color:#475569;font-size:14px;">${t('To continue, complete your account details.', 'Aby kontynuować, uzupełnij dane konta.')}</p>
-      <label for="oauthCompletionFirstName">${t('First name', 'Imię')}</label>
-      <input id="oauthCompletionFirstName" name="firstName" type="text" required maxlength="60" autocomplete="given-name" style="width:100%;margin:6px 0 12px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" />
-      <label for="oauthCompletionUsername">${t('Username', 'Nazwa użytkownika')}</label>
-      <input id="oauthCompletionUsername" name="username" type="text" required minlength="3" maxlength="15" pattern="[a-zA-Z0-9_]+" autocomplete="username" style="width:100%;margin:6px 0 12px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" />
+      <label for="oauthCompletionFirstName" style="display:block;color:#334155;font-size:13px;font-weight:700;">${t('First name', 'Imię')}</label>
+      <input id="oauthCompletionFirstName" name="firstName" type="text" required maxlength="60" autocomplete="given-name" style="width:100%;margin:6px 0 12px;padding:10px 12px;background:#fff;color:#0f172a;caret-color:#0f172a;border:1px solid #cbd5e1;border-radius:10px;" />
+      <label for="oauthCompletionUsername" style="display:block;color:#334155;font-size:13px;font-weight:700;">${t('Username', 'Nazwa użytkownika')}</label>
+      <input id="oauthCompletionUsername" name="username" type="text" required minlength="3" maxlength="15" pattern="[a-zA-Z0-9_]+" autocomplete="username" style="width:100%;margin:6px 0 12px;padding:10px 12px;background:#fff;color:#0f172a;caret-color:#0f172a;border:1px solid #cbd5e1;border-radius:10px;" />
       <div class="referral-field referral-field--auth referral-field--oauth" data-auth-referral-field="oauth">
-        <label for="oauthCompletionReferral">${t('Referral code (optional)', 'Kod polecający (opcjonalnie)')}</label>
+        <label for="oauthCompletionReferral" style="display:block;color:#334155;font-size:13px;font-weight:700;">${t('Referral code (optional)', 'Kod polecający (opcjonalnie)')}</label>
         <div class="referral-field__input-row">
-          <input id="oauthCompletionReferral" name="referralCode" type="text" maxlength="64" pattern="[a-zA-Z0-9_]+" autocomplete="off" style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" />
+          <input id="oauthCompletionReferral" name="referralCode" type="text" maxlength="64" pattern="[a-zA-Z0-9_]+" autocomplete="off" style="width:100%;padding:10px 12px;background:#fff;color:#0f172a;caret-color:#0f172a;border:1px solid #cbd5e1;border-radius:10px;" />
           <span class="referral-field__badge" id="oauthCompletionReferralBadge" hidden></span>
           <button type="button" class="auth-form__link referral-field__change" id="oauthCompletionReferralChange" hidden>${t('Change', 'Zmień')}</button>
         </div>
-        <p id="oauthCompletionReferralStatus" class="form-hint referral-field__status" hidden></p>
+        <p id="oauthCompletionReferralStatus" class="form-hint referral-field__status" style="color:#475569;" hidden></p>
       </div>
-      <label for="oauthCompletionPassword">${t('Password', 'Hasło')}</label>
-      <input id="oauthCompletionPassword" name="password" type="password" required minlength="8" autocomplete="new-password" style="width:100%;margin:6px 0 12px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" />
-      <label for="oauthCompletionPasswordConfirm">${t('Confirm password', 'Potwierdź hasło')}</label>
-      <input id="oauthCompletionPasswordConfirm" name="passwordConfirm" type="password" required minlength="8" autocomplete="new-password" style="width:100%;margin:6px 0 12px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" />
+      <label for="oauthCompletionPassword" style="display:block;color:#334155;font-size:13px;font-weight:700;">${t('Password', 'Hasło')}</label>
+      <input id="oauthCompletionPassword" name="password" type="password" required minlength="8" autocomplete="new-password" style="width:100%;margin:6px 0 12px;padding:10px 12px;background:#fff;color:#0f172a;caret-color:#0f172a;border:1px solid #cbd5e1;border-radius:10px;" />
+      <label for="oauthCompletionPasswordConfirm" style="display:block;color:#334155;font-size:13px;font-weight:700;">${t('Confirm password', 'Potwierdź hasło')}</label>
+      <input id="oauthCompletionPasswordConfirm" name="passwordConfirm" type="password" required minlength="8" autocomplete="new-password" style="width:100%;margin:6px 0 12px;padding:10px 12px;background:#fff;color:#0f172a;caret-color:#0f172a;border:1px solid #cbd5e1;border-radius:10px;" />
       <p id="oauthCompletionError" style="display:none;margin:2px 0 10px;color:#b91c1c;font-size:13px;"></p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
         <button id="oauthCompletionSubmit" type="submit" class="btn btn--primary" style="flex:1;min-width:180px;">${t('Save and continue', 'Zapisz i kontynuuj')}</button>
-        <button id="oauthCompletionLogout" type="button" class="auth-form__link" style="min-width:120px;">${t('Log out', 'Wyloguj')}</button>
+        <button id="oauthCompletionLogout" type="button" class="auth-form__link" style="min-width:120px;color:#334155;font-weight:700;">${t('Log out', 'Wyloguj')}</button>
       </div>
     </form>
   `;
@@ -1954,21 +2016,46 @@ function fillOAuthCompletionFormDefaults(state) {
 }
 
 async function maybeRequireOAuthCompletion(state, { redirectTarget = POST_AUTH_REDIRECT } = {}) {
+  if (oauthCompletionCheckPromise) {
+    return oauthCompletionCheckPromise;
+  }
+
+  const checkPromise = runOAuthCompletionGuard(state, { redirectTarget });
+  const trackedPromise = checkPromise.finally(() => {
+    if (oauthCompletionCheckPromise === trackedPromise) {
+      oauthCompletionCheckPromise = null;
+    }
+  });
+  oauthCompletionCheckPromise = trackedPromise;
+  return trackedPromise;
+}
+
+async function runOAuthCompletionGuard(state, { redirectTarget = POST_AUTH_REDIRECT } = {}) {
   const user = state?.session?.user || null;
   if (!user?.id) return false;
   if (!isGoogleProviderUser(user)) return false;
 
   const completionSnapshot = await fetchOAuthCompletionSnapshot(user.id);
+  if (!completionSnapshot?.available) {
+    // Do not block an already signed-in user when the profile read fails during
+    // token refresh or temporary network/auth errors.
+    return false;
+  }
+
   const completed = completionSnapshot?.registrationCompleted === true;
   const hasRequiredProfileData = Boolean(completionSnapshot?.name && completionSnapshot?.username);
 
-  if (completed && hasRequiredProfileData) {
-    markOAuthCompletionLocal(user.id);
-    if (!isOAuthCompletionMarked(user)) {
-      try {
-        await sb.auth.updateUser({ data: { [OAUTH_COMPLETION_META_KEY]: true } });
-      } catch (_metaErr) {
-      }
+  if (completed) {
+    hideOAuthCompletionModal();
+    await markOAuthCompletionStateComplete(user);
+    return false;
+  }
+
+  if (hasRequiredProfileData) {
+    const profileMarkedComplete = await markOAuthCompletionProfileComplete(user.id);
+    if (profileMarkedComplete) {
+      hideOAuthCompletionModal();
+      await markOAuthCompletionStateComplete(user);
     }
     return false;
   }

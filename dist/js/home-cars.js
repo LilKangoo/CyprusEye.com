@@ -4,7 +4,7 @@ import {
   calculateCarRentalQuote,
   normalizeLocationForOffer,
 } from '/js/car-pricing.js';
-import { openCarOfferModal } from '/js/car-offer-modal.js';
+import { openCarOfferModal } from '/js/car-offer-modal.js?v=20260427';
 import {
   buildCarLocationOptionsHtml,
   isPaphosSpecificCarLocationValue,
@@ -1085,6 +1085,7 @@ function closeCarHomeModal() {
   try {
     delete window.CE_CAR_PRICING;
     delete window.CE_CAR_PRICE_QUOTE;
+    delete window.CE_CAR_FIND_CURRENT_FLEET_CAR;
   } catch (_) {}
 
   previousBodyCarLocation = null;
