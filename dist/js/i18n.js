@@ -679,10 +679,10 @@
   }
 
   function init() {
-    // Check if language selector is active (first visit)
+    // First-visit language choice owns initial i18n application.
+    // This keeps the page loading in the background without auto-selecting English.
     const languageSelector = window.languageSelector;
-    if (languageSelector && typeof languageSelector.shouldShow === 'function' && languageSelector.shouldShow()) {
-      // Language selector will handle initialization
+    if (languageSelector && typeof languageSelector.requiresSelection === 'function' && languageSelector.requiresSelection()) {
       return;
     }
 

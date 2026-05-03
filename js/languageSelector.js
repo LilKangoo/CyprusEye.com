@@ -29,15 +29,6 @@
     return safeLocalStorage('get', STORAGE_KEY) === 'true';
   }
 
-  function getUrlLanguage() {
-    try {
-      const lang = String(new URL(window.location.href).searchParams.get('lang') || '').trim().toLowerCase();
-      return Object.prototype.hasOwnProperty.call(SUPPORTED_LANGUAGES, lang) ? lang : '';
-    } catch (_) {
-      return '';
-    }
-  }
-
   function markLanguageAsSelected() {
     safeLocalStorage('set', STORAGE_KEY, 'true');
   }
@@ -71,12 +62,19 @@
     }
 
     shouldShow() {
-      const urlLang = getUrlLanguage();
-      if (urlLang) {
-        markLanguageAsSelected();
-        return false;
-      }
-      return !hasSelectedLanguage() && isHomePage() && !hasBeenPresented();
+      return !this.hasSelectedLanguage() && isHomePage() && !hasBeenPresented();
+    }
+
+    requiresSelection() {
+      return !this.hasSelectedLanguage() && isHomePage();
+    }
+
+    hasSelectedLanguage() {
+      return hasSelectedLanguage() || Boolean(this.selectedLanguage);
+    }
+
+    isActive() {
+      return this.isOpen;
     }
 
     createUi() {
@@ -197,9 +195,6 @@
     selectLanguage(code) {
       this.selectedLanguage = code;
       markLanguageAsSelected();
-      try {
-        document.dispatchEvent(new CustomEvent('ce:language-selected', { detail: { language: code } }));
-      } catch (_) {}
 
       // Set language using the i18n system
       if (window.appI18n && typeof window.appI18n.setLanguage === 'function') {
@@ -211,7 +206,12 @@
 
       // Wait for language to be set, then initialize tutorial if needed
       setTimeout(() => {
-        if (window.appTutorial && typeof window.appTutorial.init === 'function') {
+        try {
+          document.dispatchEvent(new CustomEvent('ce:language-selected', { detail: { language: code } }));
+        } catch (_) {}
+        if (window.appTutorial && typeof window.appTutorial.startAfterLanguageSelection === 'function') {
+          window.appTutorial.startAfterLanguageSelection();
+        } else if (window.appTutorial && typeof window.appTutorial.init === 'function') {
           window.appTutorial.init();
         }
       }, 100);

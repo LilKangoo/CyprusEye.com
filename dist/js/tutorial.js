@@ -2,6 +2,7 @@
   'use strict';
 
   const STORAGE_KEY = 'seenTutorial';
+  const LANGUAGE_SELECTED_KEY = 'ce_lang_selected';
   const FOCUSABLE_SELECTORS = [
     'a[href]',
     'button:not([disabled])',
@@ -25,6 +26,29 @@
       console.warn('Local storage unavailable for tutorial state.', error);
     }
     return null;
+  }
+
+  function hasConfirmedLanguageSelection() {
+    return safeLocalStorage('get', LANGUAGE_SELECTED_KEY) === 'true';
+  }
+
+  function isHomePage() {
+    return (document.body?.dataset?.seoPage || '') === 'home';
+  }
+
+  function isLanguageSelectionPending() {
+    if (!isHomePage() || hasConfirmedLanguageSelection()) {
+      return false;
+    }
+
+    const selector = window.languageSelector;
+    if (selector && typeof selector.requiresSelection === 'function') {
+      return selector.requiresSelection();
+    }
+    if (selector && typeof selector.isActive === 'function') {
+      return selector.isActive();
+    }
+    return true;
   }
 
   function getTranslation(key, fallback) {
@@ -220,6 +244,7 @@
       ];
 
       this.handleLanguageChange = this.handleLanguageChange.bind(this);
+      this.handleLanguageSelected = this.handleLanguageSelected.bind(this);
       this.handleKeydown = this.handleKeydown.bind(this);
       this.handleViewportChange = this.handleViewportChange.bind(this);
       this.handleBackdropClick = this.handleBackdropClick.bind(this);
@@ -227,7 +252,9 @@
 
     init() {
       if (this.initialized) {
+        this.translationsReady = areTranslationsReady();
         this.updateHelpButtonLabel();
+        this.attemptAutoStart({ waitForTranslations: true });
         return;
       }
 
@@ -246,18 +273,12 @@
       }
 
       document.addEventListener('wakacjecypr:languagechange', this.handleLanguageChange);
+      document.addEventListener('ce:language-selected', this.handleLanguageSelected);
       this.translationsReady = areTranslationsReady();
       this.updateUiText();
       this.updateHelpButtonLabel();
 
-      // Check if language selector is active - if so, don't auto-start yet
-      const languageSelector = window.languageSelector;
-      const selectorActive = languageSelector && typeof languageSelector.shouldShow === 'function' && languageSelector.shouldShow();
-
-      if (this.shouldAutoStart() && this.translationsReady && !selectorActive) {
-        this.start();
-        this.hasAutoStarted = true;
-      }
+      this.attemptAutoStart({ waitForTranslations: true });
     }
 
     shouldAutoStart() {
@@ -265,7 +286,23 @@
     }
 
     isHomePage() {
-      return (document.body?.dataset?.seoPage || '') === 'home';
+      return isHomePage();
+    }
+
+    attemptAutoStart({ waitForTranslations = false } = {}) {
+      if (this.hasAutoStarted || !this.shouldAutoStart() || isLanguageSelectionPending()) {
+        return false;
+      }
+      if (waitForTranslations && !this.translationsReady) {
+        return false;
+      }
+      this.hasAutoStarted = true;
+      this.start();
+      return true;
+    }
+
+    startAfterLanguageSelection() {
+      this.handleLanguageSelected();
     }
 
     hasSeenTutorial() {
@@ -579,16 +616,25 @@
       this.updateUiText();
       this.updateHelpButtonLabel();
 
-      if (!this.hasAutoStarted && this.shouldAutoStart() && this.translationsReady) {
-        this.start();
-        this.hasAutoStarted = true;
-      }
+      this.attemptAutoStart({ waitForTranslations: true });
 
       if (this.isOpen && this.translationsReady) {
         this.renderCurrentStep();
       } else if (!readyBefore && this.translationsReady) {
         this.updateUiText();
       }
+    }
+
+    handleLanguageSelected() {
+      if (!this.initialized) {
+        this.init();
+        return;
+      }
+
+      this.translationsReady = areTranslationsReady();
+      this.updateUiText();
+      this.updateHelpButtonLabel();
+      this.attemptAutoStart({ waitForTranslations: false });
     }
 
     updateUiText() {
