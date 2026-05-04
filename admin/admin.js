@@ -36925,9 +36925,11 @@ function normalizePoi(rawPoi, source = 'supabase') {
     || getPoiCategoryById(categoryId)
     || getPoiCategoryBySlug(category);
 
-  // Prefer explicit google_url field; otherwise compute a default Google Maps link
+  // Prefer the current POI column, but keep google_url as a legacy fallback.
   const googleUrl = (
-    rawPoi.google_url
+    rawPoi.google_maps_url
+    || data.google_maps_url
+    || rawPoi.google_url
     || data.google_url
     || (Number.isFinite(latitude) && Number.isFinite(longitude)
       ? `https://www.google.com/maps?q=${latitude},${longitude}`
@@ -36974,6 +36976,7 @@ function normalizePoi(rawPoi, source = 'supabase') {
     badge: rawPoi.badge || data.badge || category,
     status,
     tags,
+    google_maps_url: googleUrl,
     google_url: googleUrl,
     main_image_url: mainImageUrl,
     photos,
@@ -37750,7 +37753,7 @@ async function openPoiForm(poiId = null) {
   if (longitudeInput) longitudeInput.value = poi?.longitude ?? '';
   if (radiusInput) radiusInput.value = poi?.radius ?? '';
   if (xpInput) xpInput.value = poi?.xp ?? '';
-  if (googleUrlInput) googleUrlInput.value = poi?.google_url || '';
+  if (googleUrlInput) googleUrlInput.value = poi?.google_maps_url || poi?.google_url || '';
   if (mainImageUrlInput) mainImageUrlInput.value = poi?.main_image_url || '';
   if (tagsInput) tagsInput.value = poi?.tags?.join(', ') ?? '';
   if (descriptionInput) descriptionInput.value = poi?.description || '';
@@ -37889,7 +37892,7 @@ async function handlePoiFormSubmit(event) {
     const radius = radiusValue ? parseInt(radiusValue, 10) : null;
     const xpValue = formData.get('xp');
     const xp = xpValue ? parseInt(xpValue, 10) : null;
-    const googleUrl = (formData.get('google_url') || '').toString().trim();
+    const googleUrl = (formData.get('google_maps_url') || formData.get('google_url') || '').toString().trim();
     const mainImageUrl = (formData.get('main_image_url') || '').toString().trim();
     const tagsValue = (formData.get('tags') || '').toString().trim();
     const tags = tagsValue ? tagsValue.split(',').map(tag => tag.trim()).filter(Boolean) : [];
@@ -37939,7 +37942,7 @@ async function handlePoiFormSubmit(event) {
       radius: radius || DEFAULT_POI_RADIUS,
       xp: xp || 100,
       tags,
-      ...(googleUrl ? { google_url: googleUrl } : {}),
+      ...(googleUrl ? { google_maps_url: googleUrl, google_url: googleUrl } : {}),
       ...(mainImageUrl ? { main_image_url: mainImageUrl } : {}),
     };
 
@@ -37958,6 +37961,7 @@ async function handlePoiFormSubmit(event) {
         required_level: 1,  // default level
         status: status,
         radius: radius || DEFAULT_POI_RADIUS,
+        google_maps_url: googleUrl || null,
         google_url: googleUrl || null,
         main_image_url: mainImageUrl || null,
         photos: Array.isArray(poiPhotosState.photos) ? poiPhotosState.photos.slice(0, 10) : [],
@@ -38027,6 +38031,7 @@ async function handlePoiFormSubmit(event) {
         xp: xp,
         status: status,
         radius: radius || DEFAULT_POI_RADIUS,
+        google_maps_url: googleUrl || null,
         google_url: googleUrl || null,
         main_image_url: mainImageUrl || null,
         photos: Array.isArray(poiPhotosState.photos) ? poiPhotosState.photos.slice(0, 10) : [],

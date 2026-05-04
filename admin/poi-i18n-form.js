@@ -64,7 +64,7 @@ function renderPOII18nForm(poi = null) {
         </div>
         <div class="form-field">
           <label>Google Maps URL</label>
-          <input type="url" name="google_url" value="${data?.google_url || ''}">
+          <input type="url" name="google_maps_url" value="${data?.google_maps_url || data?.google_url || ''}">
         </div>
       </div>
       
@@ -154,6 +154,7 @@ function schedulePoiAutoSave() {
     if (!form) return;
     
     const formData = new FormData(form);
+    const googleUrl = formData.get('google_maps_url') || formData.get('google_url') || '';
     const draft = {
       id: formData.get('id'),
       lat: formData.get('lat'),
@@ -161,7 +162,8 @@ function schedulePoiAutoSave() {
       xp: formData.get('xp'),
       radius: formData.get('radius'),
       status: formData.get('status'),
-      google_url: formData.get('google_url'),
+      google_maps_url: googleUrl,
+      google_url: googleUrl,
       name_i18n: {},
       description_i18n: {},
       badge_i18n: {},
@@ -199,6 +201,7 @@ function clearPoiDraft(key) {
 async function handlePOII18nSubmit(event) {
   event.preventDefault();
   const formData = new FormData(event.target);
+  const googleUrl = formData.get('google_maps_url') || formData.get('google_url') || '';
   
   // Build payload
   const payload = {
@@ -207,7 +210,8 @@ async function handlePOII18nSubmit(event) {
     xp: parseInt(formData.get('xp')) || 100,
     radius: parseInt(formData.get('radius')) || 500,
     status: formData.get('status') || 'published',
-    google_url: formData.get('google_url') || null,
+    google_maps_url: googleUrl || null,
+    google_url: googleUrl || null,
     name_i18n: {},
     description_i18n: {},
     badge_i18n: {}

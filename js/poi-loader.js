@@ -266,10 +266,10 @@ function transformPOI(dbPoi, poiCategoryMap = null) {
     lat: parseFloat(dbPoi.lat) || 0,
     lng: parseFloat(dbPoi.lng) || 0,
     // Canonical Google link: prefer dedicated column, fallback to lat/lng
-    google_url: dbPoi.google_url || dbPoi.google_maps_url || `https://www.google.com/maps?q=${dbPoi.lat},${dbPoi.lng}`,
+    google_url: dbPoi.google_maps_url || dbPoi.google_url || `https://www.google.com/maps?q=${dbPoi.lat},${dbPoi.lng}`,
     // Backwards-compatible aliases commonly used around the site
-    googleMapsUrl: dbPoi.google_url || dbPoi.google_maps_url || `https://www.google.com/maps?q=${dbPoi.lat},${dbPoi.lng}`,
-    googleMapsURL: dbPoi.google_url || dbPoi.google_maps_url || `https://www.google.com/maps?q=${dbPoi.lat},${dbPoi.lng}`,
+    googleMapsUrl: dbPoi.google_maps_url || dbPoi.google_url || `https://www.google.com/maps?q=${dbPoi.lat},${dbPoi.lng}`,
+    googleMapsURL: dbPoi.google_maps_url || dbPoi.google_url || `https://www.google.com/maps?q=${dbPoi.lat},${dbPoi.lng}`,
     main_image_url: mainImageUrl,
     photos: photos,
     category: categorySlug,
