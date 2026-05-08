@@ -901,6 +901,505 @@ function showElement(element) {
   }
 }
 
+// =====================================================
+// EMAIL TEMPLATE CATALOG - READ ONLY STEP
+// =====================================================
+
+const EMAIL_TEMPLATE_CATALOG = [
+  {
+    key: 'customer_deposit_requested',
+    group: 'Bookings',
+    label: 'Customer deposit request',
+    recipient: 'Customer',
+    source: 'send-admin-notification:event=customer_deposit_requested',
+    description: 'Payment link sent after partner/admin acceptance when a deposit is required.',
+    requiredVars: ['booking_reference', 'customer_name', 'deposit_amount', 'currency', 'payment_url'],
+    sample: {
+      pl: {
+        subject: 'Link do płatności depozytu - {{booking_reference}}',
+        heading: 'Twoja rezerwacja jest zaakceptowana',
+        intro: 'Partner potwierdził dostępność. Opłać depozyt, aby dokończyć rezerwację.',
+        cta: 'Opłać depozyt'
+      },
+      en: {
+        subject: 'Deposit payment link - {{booking_reference}}',
+        heading: 'Your booking is accepted',
+        intro: 'The partner confirmed availability. Pay the deposit to complete your booking.',
+        cta: 'Pay deposit'
+      }
+    }
+  },
+  {
+    key: 'customer_received',
+    group: 'Bookings',
+    label: 'Customer booking received',
+    recipient: 'Customer',
+    source: 'send-admin-notification:event=customer_received',
+    description: 'Initial confirmation that the request was received and is waiting for processing.',
+    requiredVars: ['booking_reference', 'customer_name', 'service_name', 'booking_summary'],
+    sample: {
+      pl: {
+        subject: 'Otrzymaliśmy Twoją rezerwację - {{booking_reference}}',
+        heading: 'Rezerwacja przyjęta',
+        intro: 'Dziękujemy. Weryfikujemy dostępność i wrócimy z potwierdzeniem.',
+        cta: 'Zobacz szczegóły'
+      },
+      en: {
+        subject: 'We received your booking - {{booking_reference}}',
+        heading: 'Booking received',
+        intro: 'Thank you. We are checking availability and will follow up with confirmation.',
+        cta: 'View details'
+      }
+    }
+  },
+  {
+    key: 'admin_generic_notification',
+    group: 'Bookings',
+    label: 'Admin new booking notice',
+    recipient: 'Admin',
+    source: 'send-admin-notification:generic admin notification',
+    description: 'Internal notification for a newly submitted booking or service request.',
+    requiredVars: ['booking_reference', 'service_type', 'customer_name', 'customer_email', 'admin_url'],
+    sample: {
+      pl: {
+        subject: 'Nowa rezerwacja - {{booking_reference}}',
+        heading: 'Nowa rezerwacja w panelu admin',
+        intro: 'Klient wysłał nowe zapytanie. Sprawdź szczegóły i dostępność.',
+        cta: 'Otwórz admin'
+      },
+      en: {
+        subject: 'New booking - {{booking_reference}}',
+        heading: 'New admin booking',
+        intro: 'A customer submitted a new request. Check details and availability.',
+        cta: 'Open admin'
+      }
+    }
+  },
+  {
+    key: 'partner_pending_acceptance',
+    group: 'Partner fulfillment',
+    label: 'Partner pending booking',
+    recipient: 'Partner',
+    source: 'send-admin-notification:event=partner_pending_acceptance',
+    description: 'Partner request to accept or reject a booking before customer payment.',
+    requiredVars: ['booking_reference', 'partner_name', 'service_name', 'accept_url', 'reject_url'],
+    sample: {
+      pl: {
+        subject: 'Nowa rezerwacja do akceptacji - {{booking_reference}}',
+        heading: 'Masz nową rezerwację',
+        intro: 'Sprawdź dostępność i zaakceptuj albo odrzuć zapytanie.',
+        cta: 'Otwórz portal partnera'
+      },
+      en: {
+        subject: 'New booking to accept - {{booking_reference}}',
+        heading: 'You have a new booking',
+        intro: 'Check availability and accept or reject the request.',
+        cta: 'Open partner portal'
+      }
+    }
+  },
+  {
+    key: 'partner_accepted',
+    group: 'Partner fulfillment',
+    label: 'Partner accepted notice',
+    recipient: 'Admin',
+    source: 'send-admin-notification:event=partner_accepted',
+    description: 'Internal notice after a partner accepts a booking or fulfillment.',
+    requiredVars: ['booking_reference', 'service_type', 'partner_name', 'service_name', 'admin_url'],
+    sample: {
+      pl: {
+        subject: 'Partner zaakceptował rezerwację - {{booking_reference}}',
+        heading: 'Partner zaakceptował rezerwację',
+        intro: 'Partner potwierdził realizację. System może przejść do kolejnego kroku płatności lub potwierdzenia.',
+        cta: 'Otwórz admin'
+      },
+      en: {
+        subject: 'Partner accepted booking - {{booking_reference}}',
+        heading: 'Partner accepted the booking',
+        intro: 'The partner confirmed fulfillment. The system can continue to payment or confirmation.',
+        cta: 'Open admin'
+      }
+    }
+  },
+  {
+    key: 'partner_rejected',
+    group: 'Partner fulfillment',
+    label: 'Partner rejected notice',
+    recipient: 'Admin',
+    source: 'send-admin-notification:event=partner_rejected',
+    description: 'Internal notice after a partner rejects a booking or fulfillment.',
+    requiredVars: ['booking_reference', 'service_type', 'partner_name', 'reason', 'admin_url'],
+    sample: {
+      pl: {
+        subject: 'Partner odrzucił rezerwację - {{booking_reference}}',
+        heading: 'Partner odrzucił rezerwację',
+        intro: 'Sprawdź powód odrzucenia i zdecyduj o dalszej obsłudze klienta.',
+        cta: 'Otwórz admin'
+      },
+      en: {
+        subject: 'Partner rejected booking - {{booking_reference}}',
+        heading: 'Partner rejected the booking',
+        intro: 'Check the rejection reason and decide the next customer handling step.',
+        cta: 'Open admin'
+      }
+    }
+  },
+  {
+    key: 'partner_sla',
+    group: 'Partner fulfillment',
+    label: 'Partner SLA reminder',
+    recipient: 'Admin',
+    source: 'send-admin-notification:event=partner_sla',
+    description: 'Internal warning when partner acceptance SLA passes without response.',
+    requiredVars: ['booking_reference', 'service_type', 'partner_name', 'admin_url'],
+    sample: {
+      pl: {
+        subject: 'Brak odpowiedzi partnera - {{booking_reference}}',
+        heading: 'Partner nie odpowiedział w SLA',
+        intro: 'Partner nie zaakceptował rezerwacji w wymaganym czasie.',
+        cta: 'Otwórz admin'
+      },
+      en: {
+        subject: 'Partner response missing - {{booking_reference}}',
+        heading: 'Partner SLA passed',
+        intro: 'The partner did not accept the booking within the expected time.',
+        cta: 'Open admin'
+      }
+    }
+  },
+  {
+    key: 'customer_deposit_paid',
+    group: 'Payments',
+    label: 'Customer payment confirmation',
+    recipient: 'Customer',
+    source: 'send-admin-notification:event=customer_deposit_paid',
+    description: 'Confirmation after successful deposit or full payment.',
+    requiredVars: ['booking_reference', 'customer_name', 'paid_amount', 'currency', 'booking_summary'],
+    sample: {
+      pl: {
+        subject: 'Płatność potwierdzona - {{booking_reference}}',
+        heading: 'Płatność zakończona',
+        intro: 'Otrzymaliśmy płatność. Twoja rezerwacja została potwierdzona.',
+        cta: 'Zobacz rezerwację'
+      },
+      en: {
+        subject: 'Payment confirmed - {{booking_reference}}',
+        heading: 'Payment complete',
+        intro: 'We received the payment. Your booking has been confirmed.',
+        cta: 'View booking'
+      }
+    }
+  },
+  {
+    key: 'partner_deposit_paid',
+    group: 'Payments',
+    label: 'Partner payment confirmation',
+    recipient: 'Partner',
+    source: 'send-admin-notification:event=partner_deposit_paid',
+    description: 'Partner notification after the customer pays and fulfillment should proceed.',
+    requiredVars: ['booking_reference', 'partner_name', 'customer_name', 'service_name', 'booking_summary'],
+    sample: {
+      pl: {
+        subject: 'Klient opłacił rezerwację - {{booking_reference}}',
+        heading: 'Płatność klienta potwierdzona',
+        intro: 'Klient zapłacił. Możesz przygotować realizację usługi.',
+        cta: 'Otwórz portal partnera'
+      },
+      en: {
+        subject: 'Customer paid - {{booking_reference}}',
+        heading: 'Customer payment confirmed',
+        intro: 'The customer paid. You can prepare the service fulfillment.',
+        cta: 'Open partner portal'
+      }
+    }
+  },
+  {
+    key: 'trip_date_options_ready',
+    group: 'Trips',
+    label: 'Trip date options',
+    recipient: 'Customer',
+    source: 'send-admin-notification:event=trip_date_options_ready',
+    description: 'Email with available dates when a trip requires customer date selection.',
+    requiredVars: ['booking_reference', 'customer_name', 'trip_name', 'date_options_url'],
+    sample: {
+      pl: {
+        subject: 'Wybierz termin wycieczki - {{booking_reference}}',
+        heading: 'Wybierz dostępny termin',
+        intro: 'Przygotowaliśmy dostępne terminy dla Twojej wycieczki.',
+        cta: 'Wybierz termin'
+      },
+      en: {
+        subject: 'Choose your trip date - {{booking_reference}}',
+        heading: 'Choose an available date',
+        intro: 'We prepared available dates for your trip.',
+        cta: 'Choose date'
+      }
+    }
+  },
+  {
+    key: 'trip_date_selected',
+    group: 'Trips',
+    label: 'Trip selected date notice',
+    recipient: 'Admin / Partner',
+    source: 'send-admin-notification:event=trip_date_selected',
+    description: 'Internal notification after the customer selects a trip date.',
+    requiredVars: ['booking_reference', 'customer_name', 'selected_date', 'trip_name'],
+    sample: {
+      pl: {
+        subject: 'Klient wybrał termin - {{booking_reference}}',
+        heading: 'Wybrano termin wycieczki',
+        intro: 'Klient potwierdził preferowany termin. Sprawdź szczegóły w panelu.',
+        cta: 'Otwórz szczegóły'
+      },
+      en: {
+        subject: 'Customer selected a date - {{booking_reference}}',
+        heading: 'Trip date selected',
+        intro: 'The customer confirmed the preferred date. Check details in the panel.',
+        cta: 'Open details'
+      }
+    }
+  },
+  {
+    key: 'shop_customer_payment_received',
+    group: 'Shop',
+    label: 'Shop payment received',
+    recipient: 'Customer',
+    source: 'send-customer-notification:type=payment_received',
+    description: 'Customer notification after a shop payment is received and the order waits for confirmation.',
+    requiredVars: ['order_reference', 'customer_name'],
+    sample: {
+      pl: {
+        subject: 'Płatność otrzymana - zamówienie {{order_reference}}',
+        heading: 'Płatność otrzymana',
+        intro: 'Otrzymaliśmy płatność. Zamówienie czeka teraz na potwierdzenie.',
+        cta: 'Zobacz zamówienie'
+      },
+      en: {
+        subject: 'Payment received - Order {{order_reference}}',
+        heading: 'Payment received',
+        intro: 'We received your payment. Your order is now waiting for confirmation.',
+        cta: 'View order'
+      }
+    }
+  },
+  {
+    key: 'shop_customer_order_confirmed',
+    group: 'Shop',
+    label: 'Shop order confirmed',
+    recipient: 'Customer',
+    source: 'send-customer-notification:type=order_confirmed',
+    description: 'Confirmation after a shop order is paid and accepted.',
+    requiredVars: ['order_reference', 'customer_name'],
+    sample: {
+      pl: {
+        subject: 'Zamówienie potwierdzone - {{order_reference}}',
+        heading: 'Zamówienie potwierdzone',
+        intro: 'Płatność została przyjęta. Przygotujemy Twoje zamówienie.',
+        cta: 'Zobacz zamówienie'
+      },
+      en: {
+        subject: 'Order confirmed - {{order_reference}}',
+        heading: 'Order confirmed',
+        intro: 'Payment was received. We will prepare your order.',
+        cta: 'View order'
+      }
+    }
+  },
+  {
+    key: 'shop_paid_admin_notice',
+    group: 'Shop',
+    label: 'Shop paid admin notice',
+    recipient: 'Admin',
+    source: 'send-admin-notification:category=shop,event=paid',
+    description: 'Internal notification when a shop order is paid.',
+    requiredVars: ['order_reference', 'customer_name', 'order_total', 'currency', 'admin_url'],
+    sample: {
+      pl: {
+        subject: 'Opłacone zamówienie sklepu - {{order_reference}}',
+        heading: 'Zamówienie opłacone',
+        intro: 'Klient opłacił zamówienie w sklepie. Sprawdź szczegóły w panelu.',
+        cta: 'Otwórz admin'
+      },
+      en: {
+        subject: 'Paid shop order - {{order_reference}}',
+        heading: 'Shop order paid',
+        intro: 'The customer paid for a shop order. Check details in the panel.',
+        cta: 'Open admin'
+      }
+    }
+  },
+  {
+    key: 'affiliate_cashout_requested',
+    group: 'Affiliate',
+    label: 'Affiliate cashout requested',
+    recipient: 'Admin',
+    source: 'send-admin-notification:event=affiliate_cashout_requested',
+    description: 'Internal notification when a partner requests affiliate payout.',
+    requiredVars: ['partner_name', 'requested_amount', 'currency', 'admin_url'],
+    sample: {
+      pl: {
+        subject: 'Wniosek o wypłatę afiliacyjną - {{partner_name}}',
+        heading: 'Partner poprosił o wypłatę',
+        intro: 'Sprawdź saldo, historię poleceń i zatwierdź albo odrzuć wypłatę.',
+        cta: 'Otwórz admin'
+      },
+      en: {
+        subject: 'Affiliate cashout request - {{partner_name}}',
+        heading: 'Partner requested payout',
+        intro: 'Check balance, referral history and approve or reject the payout.',
+        cta: 'Open admin'
+      }
+    }
+  },
+  {
+    key: 'partner_plus_application_created',
+    group: 'Partner+',
+    label: 'Partner+ application',
+    recipient: 'Admin',
+    source: 'send-admin-notification:event=partner_plus_application_created',
+    description: 'Internal notification when a Partner+ application is created.',
+    requiredVars: ['applicant_name', 'business_name', 'package_tier', 'admin_url'],
+    sample: {
+      pl: {
+        subject: 'Nowa aplikacja Partner+ - {{business_name}}',
+        heading: 'Nowa aplikacja Partner+',
+        intro: 'Kandydat wysłał formularz Partner+. Sprawdź szczegóły i pakiet.',
+        cta: 'Otwórz admin'
+      },
+      en: {
+        subject: 'New Partner+ application - {{business_name}}',
+        heading: 'New Partner+ application',
+        intro: 'An applicant submitted a Partner+ form. Check details and selected package.',
+        cta: 'Open admin'
+      }
+    }
+  },
+  {
+    key: 'trip_plan_email',
+    group: 'Trip planner',
+    label: 'Trip plan email',
+    recipient: 'Customer',
+    source: 'send-plan-email',
+    description: 'Email with generated or saved trip plan details.',
+    requiredVars: ['customer_name', 'plan_title', 'plan_summary', 'plan_url'],
+    sample: {
+      pl: {
+        subject: 'Twój plan podróży po Cyprze',
+        heading: 'Plan podróży gotowy',
+        intro: 'Przygotowaliśmy plan zwiedzania. Możesz go otworzyć i kontynuować później.',
+        cta: 'Otwórz plan'
+      },
+      en: {
+        subject: 'Your Cyprus trip plan',
+        heading: 'Your trip plan is ready',
+        intro: 'We prepared your itinerary. You can open it and continue later.',
+        cta: 'Open plan'
+      }
+    }
+  }
+];
+
+const emailsAdminState = {
+  selectedKey: 'customer_deposit_requested',
+  language: 'pl'
+};
+
+function getEmailsCatalogTemplate(key) {
+  return EMAIL_TEMPLATE_CATALOG.find((template) => template.key === key) || EMAIL_TEMPLATE_CATALOG[0];
+}
+
+function getEmailsSample(template) {
+  return template.sample?.[emailsAdminState.language] || template.sample?.pl || template.sample?.en || {};
+}
+
+function renderEmailsLanguageButtons() {
+  $$('[data-email-lang]').forEach((button) => {
+    const lang = button.dataset.emailLang;
+    button.classList.toggle('is-active', lang === emailsAdminState.language);
+    button.onclick = () => {
+      emailsAdminState.language = lang || 'pl';
+      renderEmailsLanguageButtons();
+      renderEmailsPreview();
+    };
+  });
+}
+
+function renderEmailsTemplateList() {
+  const container = $('#emailsTemplateList');
+  if (!container) return;
+
+  container.innerHTML = EMAIL_TEMPLATE_CATALOG.map((template) => {
+    const active = template.key === emailsAdminState.selectedKey ? ' is-active' : '';
+    return `
+      <button class="emails-template-card${active}" type="button" data-email-template-key="${escapeHtml(template.key)}">
+        <span class="emails-template-group">${escapeHtml(template.group)}</span>
+        <strong>${escapeHtml(template.label)}</strong>
+        <span>${escapeHtml(template.recipient)}</span>
+      </button>
+    `;
+  }).join('');
+
+  $$('[data-email-template-key]', container).forEach((button) => {
+    button.onclick = () => {
+      emailsAdminState.selectedKey = button.dataset.emailTemplateKey || EMAIL_TEMPLATE_CATALOG[0].key;
+      renderEmailsTemplateList();
+      renderEmailsPreview();
+    };
+  });
+}
+
+function renderEmailsPreview() {
+  const template = getEmailsCatalogTemplate(emailsAdminState.selectedKey);
+  const sample = getEmailsSample(template);
+
+  const title = $('#emailsPreviewTitle');
+  if (title) title.textContent = template.label;
+
+  const description = $('#emailsPreviewDescription');
+  if (description) description.textContent = template.description;
+
+  const subject = $('#emailsPreviewSubject');
+  if (subject) subject.textContent = sample.subject || '';
+
+  const meta = $('#emailsPreviewMeta');
+  if (meta) {
+    meta.innerHTML = `
+      <div><span>Group</span><strong>${escapeHtml(template.group)}</strong></div>
+      <div><span>Recipient</span><strong>${escapeHtml(template.recipient)}</strong></div>
+      <div><span>Current source</span><strong>${escapeHtml(template.source)}</strong></div>
+      <div><span>Language</span><strong>${escapeHtml(emailsAdminState.language.toUpperCase())}</strong></div>
+    `;
+  }
+
+  const variables = $('#emailsRequiredVariables');
+  if (variables) {
+    variables.innerHTML = template.requiredVars.map((variableName) => (
+      `<span class="emails-variable-pill">{{${escapeHtml(variableName)}}}</span>`
+    )).join('');
+  }
+
+  const frame = $('#emailsPreviewFrame');
+  if (frame) {
+    frame.innerHTML = `
+      <article class="emails-sample-email">
+        <div class="emails-sample-brand">CyprusEye</div>
+        <h4>${escapeHtml(sample.heading || template.label)}</h4>
+        <p>${escapeHtml(sample.intro || template.description)}</p>
+        <a href="#" aria-disabled="true">${escapeHtml(sample.cta || 'Open')}</a>
+        <div class="emails-sample-footer">
+          Sample only. Production emails still use the existing hardcoded fallback templates.
+        </div>
+      </article>
+    `;
+  }
+}
+
+function loadEmailsAdminData() {
+  renderEmailsLanguageButtons();
+  renderEmailsTemplateList();
+  renderEmailsPreview();
+}
+
 function isSchemaCacheError(err) {
   const code = String(err?.code || '');
   const msg = String(err?.message || '');
@@ -23414,6 +23913,9 @@ function switchView(viewName) {
       break;
     case 'calendars':
       loadAdminCalendarsData();
+      break;
+    case 'emails':
+      loadEmailsAdminData();
       break;
     case 'settings':
       loadAdminNotificationSettings();
