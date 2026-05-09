@@ -6,6 +6,16 @@
 
 import { supabase } from '../lib/supabase.js';
 
+function getHotelBookingLanguage() {
+  const raw = String(
+    window.getCurrentLanguage?.()
+    || window.appI18n?.language
+    || document.documentElement?.lang
+    || 'pl'
+  ).trim().toLowerCase();
+  return raw.startsWith('en') ? 'en' : 'pl';
+}
+
 /**
  * Submit hotel booking form to Supabase
  * @param {HTMLFormElement} form - The booking form element
@@ -75,6 +85,7 @@ export async function submitHotelBooking(form) {
     total_price: totalPrice,
     
     // Status
+    lang: getHotelBookingLanguage(),
     status: 'pending'
   };
   

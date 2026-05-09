@@ -227,7 +227,7 @@ async function stripeFindCustomerIdByEmail(email: string): Promise<string | null
 
 function normalizeLang(value: unknown): "pl" | "en" {
   const v = String(value || "").trim().toLowerCase();
-  return v === "pl" ? "pl" : "en";
+  return v === "pl" || v.startsWith("pl-") || v.startsWith("pl_") ? "pl" : "en";
 }
 
 function clampMoney(value: number): number {

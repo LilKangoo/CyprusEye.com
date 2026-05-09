@@ -24,7 +24,7 @@
   <script type="module" src="/js/auth.js?v=8"></script>
   <script type="module" src="/js/authUi.js?v=4"></script>
   <script src="/js/hotel-pricing.js?v=20260403_1"></script>
-  <script src="/js/hotel-booking-ui.js?v=20260403_1"></script>
+  <script src="/js/hotel-booking-ui.js?v=20260509_lang1"></script>
   <script src="/js/footer-referral.js" defer></script>
   <link rel="stylesheet" href="/assets/css/compact-header.css?v=2" />
 </head>
@@ -451,6 +451,10 @@
         || 'pl'
       ).trim().toLowerCase();
       return lang || 'pl';
+    }
+
+    function getHotelBookingLanguage() {
+      return String(getHotelPageLanguage() || 'pl').startsWith('en') ? 'en' : 'pl';
     }
 
     function buildHotelsListingUrl() {
@@ -1356,6 +1360,7 @@
         referral_code: referralPayload.referral_code || null,
         referral_source: referralPayload.referral_source || null,
         referral_captured_at: referralPayload.referral_captured_at || null,
+        lang: getHotelBookingLanguage(),
         status: 'pending'
       };
       const maxPersons = hotelPageBookingUi?.getRoomCapacity

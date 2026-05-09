@@ -217,7 +217,7 @@
 
   <meta name="ce-auth" content="on" />
   <script src="/js/hotel-pricing.js?v=20260403_1"></script>
-  <script src="/js/hotel-booking-ui.js?v=20260403_1"></script>
+  <script src="/js/hotel-booking-ui.js?v=20260509_lang1"></script>
   <script type="module" src="/js/supabaseClient.js"></script>
   <script type="module" src="/js/toast.js"></script>
   <script type="module" src="/js/auth.js?v=8"></script>
@@ -737,6 +737,16 @@
         text = text.replace(new RegExp(`{{${k}}}`, 'g'), params[k]);
       });
       return text;
+    }
+
+    function getHotelsPageBookingLanguage() {
+      const raw = String(
+        window.getCurrentLanguage?.()
+        || window.appI18n?.language
+        || document.documentElement.lang
+        || 'pl'
+      ).trim().toLowerCase();
+      return raw.startsWith('en') ? 'en' : 'pl';
     }
 
     function renderTabs(){
@@ -1542,6 +1552,7 @@
           coupon_discount_amount: coupon.hasApplied ? Number(coupon.discount || 0) : 0,
           coupon_partner_id: coupon.hasApplied ? (hotelCouponState.applied?.partnerId || null) : null,
           coupon_partner_commission_bps: coupon.hasApplied ? (hotelCouponState.applied?.partnerCommissionBpsOverride ?? null) : null,
+          lang: getHotelsPageBookingLanguage(),
           status: 'pending',
           user_id: user?.id || null
         };

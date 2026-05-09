@@ -538,7 +538,14 @@ function buildCustomerDepositTemplateVariables(deposit: Record<string, unknown>)
 }
 
 function getCustomerReceivedTemplateLanguage(record: Record<string, unknown>): "pl" | "en" {
-  return normalizeDepositLang(getField(record, ["lang", "language", "locale"]));
+  const directLanguage = getField(record, ["lang", "language", "locale", "booking_language"]);
+  if (directLanguage) return normalizeDepositLang(directLanguage);
+
+  const bookingDetails = asRecord((record as any)?.booking_details);
+  const detailsLanguage = bookingDetails
+    ? getField(bookingDetails, ["booking_language", "lang", "language", "locale"])
+    : "";
+  return normalizeDepositLang(detailsLanguage);
 }
 
 function buildCustomerReceivedTemplateVariables(params: {
@@ -1679,7 +1686,7 @@ function eventLabel(event: AdminEvent): string {
 
 function normalizeDepositLang(value: unknown): "pl" | "en" {
   const v = String(value || "").trim().toLowerCase();
-  return v === "pl" ? "pl" : "en";
+  return v === "pl" || v.startsWith("pl-") || v.startsWith("pl_") ? "pl" : "en";
 }
 
 function normalizeServiceCategory(value: unknown): Category | null {

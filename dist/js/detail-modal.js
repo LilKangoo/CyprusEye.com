@@ -8,6 +8,16 @@ function qs(sel, root=document) { return root.querySelector(sel); }
 function qsa(sel, root=document) { return Array.from(root.querySelectorAll(sel)); }
 const detailHotelBookingUi = typeof window !== 'undefined' ? window.CE_HOTEL_BOOKING_UI || null : null;
 
+function getDetailBookingLanguage() {
+  const raw = String(
+    window.getCurrentLanguage?.()
+    || window.appI18n?.language
+    || document.documentElement?.lang
+    || 'pl'
+  ).trim().toLowerCase();
+  return raw.startsWith('en') ? 'en' : 'pl';
+}
+
 function normalizeAuthUiError(message, fallback = 'Wystąpił błąd.') {
   const raw = (typeof message === 'string' ? message : String(message?.message || message || '')).trim();
   if (!raw) return fallback;
@@ -651,6 +661,7 @@ function renderDetail(type, vm){
           coupon_discount_amount: coupon.hasApplied ? Number(coupon.discount || 0) : 0,
           coupon_partner_id: coupon.hasApplied ? (detailCouponState.applied?.partnerId || null) : null,
           coupon_partner_commission_bps: coupon.hasApplied ? (detailCouponState.applied?.partnerCommissionBpsOverride ?? null) : null,
+          lang: getDetailBookingLanguage(),
           status: 'pending'
         };
         await insertWithFallback('trip_bookings', payload);
@@ -693,6 +704,7 @@ function renderDetail(type, vm){
           coupon_discount_amount: coupon.hasApplied ? Number(coupon.discount || 0) : 0,
           coupon_partner_id: coupon.hasApplied ? (detailCouponState.applied?.partnerId || null) : null,
           coupon_partner_commission_bps: coupon.hasApplied ? (detailCouponState.applied?.partnerCommissionBpsOverride ?? null) : null,
+          lang: getDetailBookingLanguage(),
           status: 'pending'
         };
         if (detailHotelBookingUi?.buildBookingSnapshot) {

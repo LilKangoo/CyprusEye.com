@@ -1,4 +1,4 @@
-import { initCarReservationBindings } from '/js/car-reservation.js?v=20260205f';
+import { initCarReservationBindings } from '/js/car-reservation.js?v=20260509_lang1';
 import {
   buildPricingMatrixForOfferRow,
   calculateCarRentalQuote,

@@ -118,8 +118,12 @@ function scheduleHotelsRerenderWhenI18nReady() {
 }
 
 function getHomeHotelSaveLabel() {
+  return getHomeHotelLang() === 'en' ? 'Save' : 'Zapisz';
+}
+
+function getHomeHotelLang() {
   const lang = String(window.appI18n?.language || document.documentElement?.lang || 'pl').toLowerCase();
-  return lang.startsWith('en') ? 'Save' : 'Zapisz';
+  return lang.startsWith('en') ? 'en' : 'pl';
 }
 
 async function waitForSupabaseClientHomeHotels(maxAttempts = 50) {
@@ -731,6 +735,7 @@ function initHomeHotels() {
         referral_code: referralPayload?.referral_code || null,
         referral_source: referralPayload?.referral_source || null,
         referral_captured_at: referralPayload?.referral_captured_at || null,
+        lang: getHomeHotelLang(),
         status: 'pending',
       };
       if (homeHotelBookingUi?.buildBookingSnapshot) {

@@ -1396,6 +1396,16 @@
       return text;
     }
 
+    function getTripsPageBookingLanguage() {
+      const raw = String(
+        window.getCurrentLanguage?.()
+        || window.appI18n?.language
+        || document.documentElement.lang
+        || 'pl'
+      ).trim().toLowerCase();
+      return raw.startsWith('en') ? 'en' : 'pl';
+    }
+
     function getTripMediaDisplayUrl(url) {
       if (window.CE_MEDIA_VIEWER?.getDisplayUrl) {
         return window.CE_MEDIA_VIEWER.getDisplayUrl(url);
@@ -2134,6 +2144,7 @@
           coupon_discount_amount: coupon.hasApplied ? Number(coupon.discount || 0) : 0,
           coupon_partner_id: coupon.hasApplied ? (tripCouponState.applied?.partnerId || null) : null,
           coupon_partner_commission_bps: coupon.hasApplied ? (tripCouponState.applied?.partnerCommissionBpsOverride ?? null) : null,
+          lang: getTripsPageBookingLanguage(),
           status: 'pending',
         };
         

@@ -1320,6 +1320,7 @@ function initHomeTripsModalHandlers() {
         referral_code: referralPayload?.referral_code || null,
         referral_source: referralPayload?.referral_source || null,
         referral_captured_at: referralPayload?.referral_captured_at || null,
+        lang: getHomeTripLang(),
         status: 'pending',
       };
       const supabase = await waitForSupabaseClientHomeTrips();

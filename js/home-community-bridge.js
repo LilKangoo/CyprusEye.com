@@ -14,7 +14,7 @@
   let visiblePoiIdsFromMap = null;
   let visibleMapItemsFromMap = null;
   let homeHotelsModuleLoadPromise = null;
-  const HOME_HOTELS_SCRIPT_SRC = 'js/home-hotels.js?v=17';
+  const HOME_HOTELS_SCRIPT_SRC = 'js/home-hotels.js?v=20260509_lang1';
   const visitedPoiCacheByUser = new Map();
   const visitedPoiFetchPromiseByUser = new Map();
   const PROGRESS_STORAGE_KEYS = ['wakacjecypr-progress', 'wakacjecypr_progress'];

@@ -1300,6 +1300,7 @@ async function handleReservationSubmit(event) {
       return_location: normalizedReturnLocation,
       
       // Metadata
+      lang: currentLang(),
       location: pageLocation,
       status: 'pending',
       source: pageLocation === 'paphos' ? 'website_autopfo' : 'website_autolca',

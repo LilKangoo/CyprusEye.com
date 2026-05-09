@@ -45,7 +45,7 @@ function extractBearerToken(req: Request): string | null {
 
 function normalizeLang(value: unknown): "pl" | "en" {
   const v = String(value || "").trim().toLowerCase();
-  return v === "pl" ? "pl" : "en";
+  return v === "pl" || v.startsWith("pl-") || v.startsWith("pl_") ? "pl" : "en";
 }
 
 function readLocalizedText(value: unknown, lang: "pl" | "en"): string {

@@ -28,6 +28,11 @@
     return lang || 'pl';
   }
 
+  function normalizeBookingLanguage(value) {
+    const raw = String(value || '').trim().toLowerCase();
+    return raw.startsWith('en') ? 'en' : 'pl';
+  }
+
   function formatMoney(value, currency) {
     const amount = Number(value || 0);
     const code = String(currency || 'EUR').trim().toUpperCase() || 'EUR';
@@ -1046,6 +1051,7 @@
   function buildBookingSnapshot(hotel, quote, options) {
     const api = getPricingApi();
     const language = options?.language || getLanguage();
+    const bookingLanguage = normalizeBookingLanguage(language);
     const settings = getBookingSettings(hotel);
     const roomInputName = String(options?.roomInputName || 'hotel_room_type_id').trim() || 'hotel_room_type_id';
     const ratePlanInputName = String(options?.ratePlanInputName || 'hotel_rate_plan_id').trim() || 'hotel_rate_plan_id';
@@ -1069,6 +1075,7 @@
       ? api.buildHotelBookingBreakdown(hotel, quote, options)
       : {};
     return {
+      lang: bookingLanguage,
       room_type_id: selection.roomType?.id || null,
       room_type_name: selection.roomType?.name || null,
       rate_plan_id: selection.ratePlan?.id || null,
@@ -1085,7 +1092,7 @@
         cancellation_policy_type: selection.ratePlan?.cancellation_policy_type || null,
         stay_info: settings.stay_info || {},
         stay_info_text: localizeText(settings.stay_info, language) || null,
-        booking_language: language,
+        booking_language: bookingLanguage,
         room_type_id: selection.roomType?.id || null,
         room_type_name: selection.roomType?.name || null,
         room_type_summary: selection.roomType?.summary || {},

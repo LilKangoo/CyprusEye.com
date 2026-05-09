@@ -477,6 +477,10 @@
       return lang || 'pl';
     }
 
+    function getTripBookingLanguage() {
+      return String(getTripPageLanguage() || 'pl').startsWith('en') ? 'en' : 'pl';
+    }
+
     function buildTripsListingUrl() {
       const url = new URL('/trips.html', window.location.origin);
       const language = getTripPageLanguage();
@@ -1360,6 +1364,7 @@
           referral_code: referralPayload.referral_code || null,
           referral_source: referralPayload.referral_source || null,
           referral_captured_at: referralPayload.referral_captured_at || null,
+          lang: getTripBookingLanguage(),
           status: 'pending',
         };
 

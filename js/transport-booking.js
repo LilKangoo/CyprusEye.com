@@ -86,6 +86,17 @@ function t(key, fallback, params = {}) {
   return interpolateTemplate(resolved, params);
 }
 
+function getTransportBookingLanguage() {
+  const raw = String(
+    window.getCurrentLanguage?.()
+    || window.appI18n?.language
+    || document.documentElement?.lang
+    || navigator.language
+    || 'en'
+  ).trim().toLowerCase();
+  return raw.startsWith('pl') ? 'pl' : 'en';
+}
+
 function byId(id) {
   return document.getElementById(id);
 }
@@ -2077,7 +2088,7 @@ function buildBookingPayloadForLeg(leg) {
     customer_name: String(els.customerNameInput?.value || '').trim(),
     customer_email: String(els.customerEmailInput?.value || '').trim().toLowerCase() || null,
     customer_phone: String(els.customerPhoneInput?.value || '').trim(),
-    lang: String(document.documentElement.lang || navigator.language || 'en').slice(0, 8),
+    lang: getTransportBookingLanguage(),
     base_price: basePrice,
     extras_price: extrasPrice,
     total_price: totalPrice,
