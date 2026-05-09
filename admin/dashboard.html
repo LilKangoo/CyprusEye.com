@@ -6487,8 +6487,9 @@
         </header>
 
         <div class="emails-safety-note" role="status">
-          <strong>Step 1 safety mode:</strong>
-          this page only displays a catalog and sample previews. It does not read or write database email templates and does not change any live email sending flow.
+          <strong>Email safety mode:</strong>
+          this page only displays a catalog and sample previews. It may read template metadata when the database table exists, but it does not write templates and does not change any live email sending flow.
+          <span id="emailsCatalogSource" class="emails-source-pill">Static fallback</span>
         </div>
 
         <div class="emails-admin-grid">

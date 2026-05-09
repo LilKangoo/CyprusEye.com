@@ -609,6 +609,10 @@ body[data-admin-panel="true"].admin-sidebar-open {
 }
 
 .emails-safety-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
   margin: 0 0 18px;
   padding: 14px 16px;
   border: 1px solid rgba(59, 130, 246, 0.28);
@@ -619,6 +623,17 @@ body[data-admin-panel="true"].admin-sidebar-open {
 
 .emails-safety-note strong {
   color: #bfdbfe;
+}
+
+.emails-source-pill {
+  margin-left: auto;
+  padding: 5px 9px;
+  color: #dbeafe;
+  background: rgba(15, 23, 42, 0.42);
+  border: 1px solid rgba(147, 197, 253, 0.24);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .emails-admin-grid {

@@ -1301,11 +1301,20 @@ const EMAIL_TEMPLATE_CATALOG = [
 
 const emailsAdminState = {
   selectedKey: 'customer_deposit_requested',
-  language: 'pl'
+  language: 'pl',
+  templates: EMAIL_TEMPLATE_CATALOG,
+  catalogSource: 'static'
 };
 
+function getEmailsCatalog() {
+  return Array.isArray(emailsAdminState.templates) && emailsAdminState.templates.length
+    ? emailsAdminState.templates
+    : EMAIL_TEMPLATE_CATALOG;
+}
+
 function getEmailsCatalogTemplate(key) {
-  return EMAIL_TEMPLATE_CATALOG.find((template) => template.key === key) || EMAIL_TEMPLATE_CATALOG[0];
+  const catalog = getEmailsCatalog();
+  return catalog.find((template) => template.key === key) || catalog[0] || EMAIL_TEMPLATE_CATALOG[0];
 }
 
 function getEmailsSample(template) {
@@ -1328,7 +1337,12 @@ function renderEmailsTemplateList() {
   const container = $('#emailsTemplateList');
   if (!container) return;
 
-  container.innerHTML = EMAIL_TEMPLATE_CATALOG.map((template) => {
+  const catalog = getEmailsCatalog();
+  if (!catalog.some((template) => template.key === emailsAdminState.selectedKey)) {
+    emailsAdminState.selectedKey = catalog[0]?.key || EMAIL_TEMPLATE_CATALOG[0].key;
+  }
+
+  container.innerHTML = catalog.map((template) => {
     const active = template.key === emailsAdminState.selectedKey ? ' is-active' : '';
     return `
       <button class="emails-template-card${active}" type="button" data-email-template-key="${escapeHtml(template.key)}">
@@ -1341,7 +1355,7 @@ function renderEmailsTemplateList() {
 
   $$('[data-email-template-key]', container).forEach((button) => {
     button.onclick = () => {
-      emailsAdminState.selectedKey = button.dataset.emailTemplateKey || EMAIL_TEMPLATE_CATALOG[0].key;
+      emailsAdminState.selectedKey = button.dataset.emailTemplateKey || getEmailsCatalog()[0]?.key || EMAIL_TEMPLATE_CATALOG[0].key;
       renderEmailsTemplateList();
       renderEmailsPreview();
     };
@@ -1351,6 +1365,13 @@ function renderEmailsTemplateList() {
 function renderEmailsPreview() {
   const template = getEmailsCatalogTemplate(emailsAdminState.selectedKey);
   const sample = getEmailsSample(template);
+
+  const source = $('#emailsCatalogSource');
+  if (source) {
+    source.textContent = emailsAdminState.catalogSource === 'database'
+      ? 'Database catalog'
+      : 'Static fallback';
+  }
 
   const title = $('#emailsPreviewTitle');
   if (title) title.textContent = template.label;
@@ -1394,7 +1415,64 @@ function renderEmailsPreview() {
   }
 }
 
-function loadEmailsAdminData() {
+function normalizeEmailTemplateDbRow(row) {
+  const previewContent = row?.preview_content && typeof row.preview_content === 'object'
+    ? row.preview_content
+    : {};
+  return {
+    key: String(row?.key || '').trim(),
+    group: String(row?.group_key || row?.group || 'Other').trim(),
+    label: String(row?.label || row?.key || 'Email template').trim(),
+    recipient: String(row?.recipient || 'Admin').trim(),
+    source: String(row?.source_key || row?.source || '').trim(),
+    description: String(row?.description || '').trim(),
+    requiredVars: Array.isArray(row?.required_variables)
+      ? row.required_variables.map((value) => String(value || '').trim()).filter(Boolean)
+      : [],
+    sample: previewContent
+  };
+}
+
+async function loadEmailsCatalogFromDatabase() {
+  const client = ensureSupabase();
+  if (!client) return false;
+
+  try {
+    const { data, error } = await client
+      .from('email_template_catalog')
+      .select('key, group_key, label, recipient, source_key, description, required_variables, preview_content')
+      .eq('is_active', true)
+      .order('group_key', { ascending: true })
+      .order('label', { ascending: true });
+
+    if (error) {
+      if (isMissingTableError(error, 'email_template_catalog')) {
+        return false;
+      }
+      throw error;
+    }
+
+    const templates = (Array.isArray(data) ? data : [])
+      .map(normalizeEmailTemplateDbRow)
+      .filter((template) => template.key);
+
+    if (!templates.length) return false;
+
+    emailsAdminState.templates = templates;
+    emailsAdminState.catalogSource = 'database';
+    return true;
+  } catch (error) {
+    console.warn('Email template catalog fallback:', error);
+    emailsAdminState.templates = EMAIL_TEMPLATE_CATALOG;
+    emailsAdminState.catalogSource = 'static';
+    return false;
+  }
+}
+
+async function loadEmailsAdminData() {
+  emailsAdminState.templates = EMAIL_TEMPLATE_CATALOG;
+  emailsAdminState.catalogSource = 'static';
+  await loadEmailsCatalogFromDatabase();
   renderEmailsLanguageButtons();
   renderEmailsTemplateList();
   renderEmailsPreview();
