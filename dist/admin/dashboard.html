@@ -28,7 +28,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="/assets/css/tokens.css?v=20251107" />
   <link rel="stylesheet" href="/assets/css/base.css?v=20251107" />
-  <link rel="stylesheet" href="/admin/admin.css?v=20260509_1" />
+  <link rel="stylesheet" href="/admin/admin.css?v=20260509_2" />
   
   <!-- Auth meta -->
   <meta name="ce-auth" content="required" />
@@ -43,7 +43,7 @@
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
   <script src="/admin/blog-i18n-form.js?v=20260405_2"></script>
   <script type="module" src="/admin/blog-admin.js?v=20260405_2"></script>
-  <script type="module" src="/admin/admin.js?v=20260509_1"></script>
+  <script type="module" src="/admin/admin.js?v=20260509_2"></script>
   <script src="/admin/admin-pwa.js?v=20260221_4" defer></script>
 </head>
 <body data-admin-panel="true">
@@ -6478,7 +6478,7 @@
         <header class="admin-view-header emails-view-header">
           <div>
             <h2>Emails</h2>
-            <p class="admin-view-subtitle">Read-only catalog for outgoing emails. Editing and production overrides will be enabled in later safe steps.</p>
+            <p class="admin-view-subtitle">Safe draft workspace for outgoing emails. Drafts are not connected to live sending yet.</p>
           </div>
           <div class="emails-language-toggle" aria-label="Email preview language">
             <button class="emails-language-button is-active" type="button" data-email-lang="pl">PL</button>
@@ -6488,7 +6488,7 @@
 
         <div class="emails-safety-note" role="status">
           <strong>Email safety mode:</strong>
-          this page only displays a catalog and sample previews. It may read template metadata when the database table exists, but it does not write templates and does not change any live email sending flow.
+          this page can save draft template versions only. Drafts are not published and do not change any live email sending flow.
           <span id="emailsCatalogSource" class="emails-source-pill">Static fallback</span>
         </div>
 
@@ -6509,7 +6509,7 @@
                 <h3 id="emailsPreviewTitle">Email preview</h3>
                 <p id="emailsPreviewDescription">Select a template from the catalog.</p>
               </div>
-              <div class="emails-status-pill">Read-only</div>
+              <div id="emailsTemplateStatus" class="emails-status-pill">Draft safe</div>
             </div>
             <div class="admin-card-body">
               <div id="emailsPreviewMeta" class="emails-preview-meta"></div>
@@ -6520,9 +6520,42 @@
               </div>
 
               <div class="emails-actions">
-                <button class="btn-secondary" type="button" disabled>Visual editor in step 2</button>
-                <button class="btn-secondary" type="button" disabled>Custom HTML in step 2</button>
-                <button class="btn-secondary" type="button" disabled>Send test in step 3</button>
+                <button class="btn-secondary" id="btnEmailsEditDraft" type="button">Edit draft</button>
+                <button class="btn-secondary" id="btnEmailsCancelDraft" type="button" hidden>Cancel</button>
+                <button class="btn-primary" id="btnEmailsSaveDraft" type="button" hidden>Save draft</button>
+                <button class="btn-secondary" type="button" disabled>Send test in later step</button>
+              </div>
+
+              <div id="emailsEditorPanel" class="emails-editor-panel" hidden>
+                <div class="emails-editor-header">
+                  <div>
+                    <h4>Draft editor</h4>
+                    <p id="emailsDraftStatus">Edits are saved as draft versions only. They do not change production email sending.</p>
+                  </div>
+                </div>
+
+                <div class="emails-editor-grid">
+                  <label class="emails-editor-field">
+                    <span>Subject</span>
+                    <input id="emailsDraftSubject" type="text" placeholder="Email subject">
+                  </label>
+                  <label class="emails-editor-field">
+                    <span>Heading</span>
+                    <input id="emailsDraftHeading" type="text" placeholder="Main heading">
+                  </label>
+                  <label class="emails-editor-field emails-editor-field-wide">
+                    <span>Intro text</span>
+                    <textarea id="emailsDraftIntro" rows="3" placeholder="Main message"></textarea>
+                  </label>
+                  <label class="emails-editor-field">
+                    <span>CTA label</span>
+                    <input id="emailsDraftCta" type="text" placeholder="Button text">
+                  </label>
+                  <label class="emails-editor-field emails-editor-field-wide">
+                    <span>Custom HTML draft (optional, not rendered in production yet)</span>
+                    <textarea id="emailsDraftHtml" rows="7" placeholder="<p>Optional custom HTML for this language...</p>"></textarea>
+                  </label>
+                </div>
               </div>
 
               <div class="emails-preview-shell">

@@ -1303,7 +1303,10 @@ const emailsAdminState = {
   selectedKey: 'customer_deposit_requested',
   language: 'pl',
   templates: EMAIL_TEMPLATE_CATALOG,
-  catalogSource: 'static'
+  catalogSource: 'static',
+  draftVersions: {},
+  draftMode: false,
+  draftSaveInProgress: false
 };
 
 function getEmailsCatalog() {
@@ -1317,8 +1320,21 @@ function getEmailsCatalogTemplate(key) {
   return catalog.find((template) => template.key === key) || catalog[0] || EMAIL_TEMPLATE_CATALOG[0];
 }
 
+function getEmailsDraftRecord(templateKey = emailsAdminState.selectedKey) {
+  return emailsAdminState.draftVersions?.[templateKey] || null;
+}
+
 function getEmailsSample(template) {
-  return template.sample?.[emailsAdminState.language] || template.sample?.pl || template.sample?.en || {};
+  const fallbackSample = template.sample?.[emailsAdminState.language] || template.sample?.pl || template.sample?.en || {};
+  const draftRecord = getEmailsDraftRecord(template.key);
+  const draftContent = draftRecord?.content && typeof draftRecord.content === 'object'
+    ? draftRecord.content
+    : null;
+  const draftSample = draftContent?.[emailsAdminState.language];
+  if (draftSample && typeof draftSample === 'object') {
+    return { ...fallbackSample, ...draftSample };
+  }
+  return fallbackSample;
 }
 
 function renderEmailsLanguageButtons() {
@@ -1329,6 +1345,7 @@ function renderEmailsLanguageButtons() {
       emailsAdminState.language = lang || 'pl';
       renderEmailsLanguageButtons();
       renderEmailsPreview();
+      renderEmailsEditor();
     };
   });
 }
@@ -1344,20 +1361,31 @@ function renderEmailsTemplateList() {
 
   container.innerHTML = catalog.map((template) => {
     const active = template.key === emailsAdminState.selectedKey ? ' is-active' : '';
+    const draftRecord = getEmailsDraftRecord(template.key);
+    const draftBadge = draftRecord?.status === 'draft'
+      ? '<span class="emails-template-draft">Draft saved</span>'
+      : '';
     return `
       <button class="emails-template-card${active}" type="button" data-email-template-key="${escapeHtml(template.key)}">
         <span class="emails-template-group">${escapeHtml(template.group)}</span>
         <strong>${escapeHtml(template.label)}</strong>
         <span>${escapeHtml(template.recipient)}</span>
+        ${draftBadge}
       </button>
     `;
   }).join('');
 
   $$('[data-email-template-key]', container).forEach((button) => {
-    button.onclick = () => {
+    button.onclick = async () => {
       emailsAdminState.selectedKey = button.dataset.emailTemplateKey || getEmailsCatalog()[0]?.key || EMAIL_TEMPLATE_CATALOG[0].key;
+      emailsAdminState.draftMode = false;
       renderEmailsTemplateList();
       renderEmailsPreview();
+      renderEmailsEditor();
+      await loadEmailTemplateDraftState(emailsAdminState.selectedKey);
+      renderEmailsTemplateList();
+      renderEmailsPreview();
+      renderEmailsEditor();
     };
   });
 }
@@ -1365,12 +1393,26 @@ function renderEmailsTemplateList() {
 function renderEmailsPreview() {
   const template = getEmailsCatalogTemplate(emailsAdminState.selectedKey);
   const sample = getEmailsSample(template);
+  const draftRecord = getEmailsDraftRecord(template.key);
 
   const source = $('#emailsCatalogSource');
   if (source) {
     source.textContent = emailsAdminState.catalogSource === 'database'
       ? 'Database catalog'
       : 'Static fallback';
+  }
+
+  const status = $('#emailsTemplateStatus');
+  if (status) {
+    if (emailsAdminState.draftMode) {
+      status.textContent = 'Editing draft';
+    } else if (draftRecord?.status === 'draft') {
+      status.textContent = `Draft #${draftRecord.versionNumber || ''}`.trim();
+    } else if (draftRecord?.versionNumber) {
+      status.textContent = `${String(draftRecord.status || 'Seed').toUpperCase()} #${draftRecord.versionNumber}`;
+    } else {
+      status.textContent = 'Draft safe';
+    }
   }
 
   const title = $('#emailsPreviewTitle');
@@ -1401,6 +1443,9 @@ function renderEmailsPreview() {
 
   const frame = $('#emailsPreviewFrame');
   if (frame) {
+    const previewNotice = draftRecord?.status === 'draft'
+      ? `Preview is showing draft version #${draftRecord.versionNumber || ''}. Production emails still use the existing live templates.`
+      : 'Sample only. Production emails still use the existing live templates.';
     frame.innerHTML = `
       <article class="emails-sample-email">
         <div class="emails-sample-brand">CyprusEye</div>
@@ -1408,11 +1453,66 @@ function renderEmailsPreview() {
         <p>${escapeHtml(sample.intro || template.description)}</p>
         <a href="#" aria-disabled="true">${escapeHtml(sample.cta || 'Open')}</a>
         <div class="emails-sample-footer">
-          Sample only. Production emails still use the existing hardcoded fallback templates.
+          ${escapeHtml(previewNotice)}
         </div>
       </article>
     `;
   }
+}
+
+function getEmailsEditorFields() {
+  return {
+    panel: $('#emailsEditorPanel'),
+    editButton: $('#btnEmailsEditDraft'),
+    cancelButton: $('#btnEmailsCancelDraft'),
+    saveButton: $('#btnEmailsSaveDraft'),
+    status: $('#emailsDraftStatus'),
+    subject: $('#emailsDraftSubject'),
+    heading: $('#emailsDraftHeading'),
+    intro: $('#emailsDraftIntro'),
+    cta: $('#emailsDraftCta'),
+    html: $('#emailsDraftHtml')
+  };
+}
+
+function renderEmailsEditor() {
+  const fields = getEmailsEditorFields();
+  const template = getEmailsCatalogTemplate(emailsAdminState.selectedKey);
+  const sample = getEmailsSample(template);
+  const draftRecord = getEmailsDraftRecord(template.key);
+  const canPersistDrafts = emailsAdminState.catalogSource === 'database';
+
+  if (fields.panel) fields.panel.hidden = !emailsAdminState.draftMode;
+  if (fields.editButton) {
+    fields.editButton.hidden = emailsAdminState.draftMode;
+    fields.editButton.disabled = !canPersistDrafts || emailsAdminState.draftSaveInProgress;
+  }
+  if (fields.cancelButton) fields.cancelButton.hidden = !emailsAdminState.draftMode;
+  if (fields.saveButton) {
+    fields.saveButton.hidden = !emailsAdminState.draftMode;
+    fields.saveButton.disabled = emailsAdminState.draftSaveInProgress;
+    fields.saveButton.textContent = emailsAdminState.draftSaveInProgress ? 'Saving...' : 'Save draft';
+  }
+
+  if (fields.status) {
+    if (!canPersistDrafts) {
+      fields.status.textContent = 'Draft saving requires the email template database tables. Production sending is still unchanged.';
+    } else if (draftRecord?.status === 'draft') {
+      fields.status.textContent = `Editing draft version #${draftRecord.versionNumber || ''}. It is not published and does not affect live sending.`;
+    } else if (draftRecord?.versionNumber) {
+      fields.status.textContent = `Base version #${draftRecord.versionNumber}. Saving creates a separate draft version.`;
+    } else {
+      fields.status.textContent = 'Saving creates a draft version only. It does not affect live sending.';
+    }
+  }
+
+  if (!emailsAdminState.draftMode) return;
+
+  if (fields.subject) fields.subject.value = sample.subject || '';
+  if (fields.heading) fields.heading.value = sample.heading || '';
+  if (fields.intro) fields.intro.value = sample.intro || '';
+  if (fields.cta) fields.cta.value = sample.cta || '';
+  if (fields.html) fields.html.value = sample.html || '';
 }
 
 function normalizeEmailTemplateDbRow(row) {
@@ -1431,6 +1531,198 @@ function normalizeEmailTemplateDbRow(row) {
       : [],
     sample: previewContent
   };
+}
+
+function normalizeEmailTemplateVersionRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id || null,
+    templateKey: String(row.template_key || '').trim(),
+    versionNumber: Number(row.version_number || 0),
+    status: String(row.status || '').trim(),
+    content: row.content && typeof row.content === 'object' ? row.content : {},
+    requiredVars: Array.isArray(row.required_variables)
+      ? row.required_variables.map((value) => String(value || '').trim()).filter(Boolean)
+      : [],
+    updatedAt: row.updated_at || null
+  };
+}
+
+async function loadEmailTemplateDraftState(templateKey = emailsAdminState.selectedKey) {
+  if (!templateKey || emailsAdminState.catalogSource !== 'database') return null;
+  const client = ensureSupabase();
+  if (!client) return null;
+
+  try {
+    const { data, error } = await client
+      .from('email_template_versions')
+      .select('id, template_key, version_number, status, content, required_variables, updated_at')
+      .eq('template_key', templateKey)
+      .order('version_number', { ascending: false })
+      .limit(1);
+
+    if (error) {
+      if (isMissingTableError(error, 'email_template_versions')) return null;
+      throw error;
+    }
+
+    const record = normalizeEmailTemplateVersionRow(Array.isArray(data) ? data[0] : null);
+    if (record?.templateKey) {
+      emailsAdminState.draftVersions[record.templateKey] = record;
+      return record;
+    }
+    return null;
+  } catch (error) {
+    console.warn('Email template draft fallback:', error);
+    return null;
+  }
+}
+
+function cloneEmailTemplateContent(template, draftRecord) {
+  const source = draftRecord?.content && typeof draftRecord.content === 'object'
+    ? draftRecord.content
+    : template.sample || {};
+  try {
+    return JSON.parse(JSON.stringify(source));
+  } catch {
+    return { ...(template.sample || {}) };
+  }
+}
+
+function collectEmailsDraftContent() {
+  const template = getEmailsCatalogTemplate(emailsAdminState.selectedKey);
+  const draftRecord = getEmailsDraftRecord(template.key);
+  const fields = getEmailsEditorFields();
+  const subject = fields.subject?.value?.trim() || '';
+  const heading = fields.heading?.value?.trim() || '';
+  const intro = fields.intro?.value?.trim() || '';
+  const cta = fields.cta?.value?.trim() || '';
+  const html = fields.html?.value?.trim() || '';
+
+  if (!subject || !heading || !intro || !cta) {
+    showToast('Subject, heading, intro text and CTA label are required for a safe draft.', 'error');
+    return null;
+  }
+
+  const content = cloneEmailTemplateContent(template, draftRecord);
+  content[emailsAdminState.language] = {
+    ...(content[emailsAdminState.language] || {}),
+    subject,
+    heading,
+    intro,
+    cta
+  };
+  if (html) {
+    content[emailsAdminState.language].html = html;
+  } else {
+    delete content[emailsAdminState.language].html;
+  }
+
+  return {
+    template,
+    draftRecord,
+    content
+  };
+}
+
+async function enableEmailsDraftEditor() {
+  if (emailsAdminState.catalogSource !== 'database') {
+    showToast('Email template database tables are required before drafts can be saved.', 'error');
+    return;
+  }
+  await loadEmailTemplateDraftState(emailsAdminState.selectedKey);
+  emailsAdminState.draftMode = true;
+  renderEmailsPreview();
+  renderEmailsEditor();
+}
+
+async function saveEmailsDraft() {
+  if (emailsAdminState.draftSaveInProgress) return;
+  if (emailsAdminState.catalogSource !== 'database') {
+    showToast('Email template database tables are required before drafts can be saved.', 'error');
+    return;
+  }
+
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const draft = collectEmailsDraftContent();
+  if (!draft) return;
+
+  emailsAdminState.draftSaveInProgress = true;
+  renderEmailsEditor();
+
+  try {
+    const latestRecord = await loadEmailTemplateDraftState(draft.template.key);
+    const payload = {
+      content: draft.content,
+      required_variables: draft.template.requiredVars || [],
+      notes: 'Admin draft saved from Emails panel.',
+      updated_at: new Date().toISOString()
+    };
+
+    let result;
+    if (latestRecord?.id && latestRecord.status === 'draft') {
+      result = await client
+        .from('email_template_versions')
+        .update(payload)
+        .eq('id', latestRecord.id)
+        .select('id, template_key, version_number, status, content, required_variables, updated_at')
+        .single();
+    } else {
+      result = await client
+        .from('email_template_versions')
+        .insert([{
+          template_key: draft.template.key,
+          version_number: (latestRecord?.versionNumber || 0) + 1,
+          status: 'draft',
+          content: draft.content,
+          required_variables: draft.template.requiredVars || [],
+          notes: 'Admin draft saved from Emails panel.',
+          created_by: adminState.user?.id || null
+        }])
+        .select('id, template_key, version_number, status, content, required_variables, updated_at')
+        .single();
+    }
+
+    if (result.error) throw result.error;
+
+    const savedRecord = normalizeEmailTemplateVersionRow(result.data);
+    if (savedRecord?.templateKey) {
+      emailsAdminState.draftVersions[savedRecord.templateKey] = savedRecord;
+    }
+    emailsAdminState.draftMode = false;
+    showToast('Draft saved. Live email sending is unchanged.', 'success');
+    renderEmailsTemplateList();
+    renderEmailsPreview();
+  } catch (error) {
+    console.error('Failed to save email template draft:', error);
+    showToast(error.message || 'Failed to save draft', 'error');
+  } finally {
+    emailsAdminState.draftSaveInProgress = false;
+    renderEmailsEditor();
+  }
+}
+
+function bindEmailsDraftActions() {
+  const fields = getEmailsEditorFields();
+  if (fields.editButton) {
+    fields.editButton.onclick = () => {
+      enableEmailsDraftEditor();
+    };
+  }
+  if (fields.cancelButton) {
+    fields.cancelButton.onclick = () => {
+      emailsAdminState.draftMode = false;
+      renderEmailsPreview();
+      renderEmailsEditor();
+    };
+  }
+  if (fields.saveButton) {
+    fields.saveButton.onclick = () => {
+      saveEmailsDraft();
+    };
+  }
 }
 
 async function loadEmailsCatalogFromDatabase() {
@@ -1472,10 +1764,18 @@ async function loadEmailsCatalogFromDatabase() {
 async function loadEmailsAdminData() {
   emailsAdminState.templates = EMAIL_TEMPLATE_CATALOG;
   emailsAdminState.catalogSource = 'static';
+  emailsAdminState.draftVersions = {};
+  emailsAdminState.draftMode = false;
   await loadEmailsCatalogFromDatabase();
+  bindEmailsDraftActions();
   renderEmailsLanguageButtons();
   renderEmailsTemplateList();
   renderEmailsPreview();
+  renderEmailsEditor();
+  await loadEmailTemplateDraftState(emailsAdminState.selectedKey);
+  renderEmailsTemplateList();
+  renderEmailsPreview();
+  renderEmailsEditor();
 }
 
 function isSchemaCacheError(err) {
