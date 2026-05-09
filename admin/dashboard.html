@@ -28,7 +28,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="/assets/css/tokens.css?v=20251107" />
   <link rel="stylesheet" href="/assets/css/base.css?v=20251107" />
-  <link rel="stylesheet" href="/admin/admin.css?v=20260509_3" />
+  <link rel="stylesheet" href="/admin/admin.css?v=20260509_4" />
   
   <!-- Auth meta -->
   <meta name="ce-auth" content="required" />
@@ -43,7 +43,7 @@
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
   <script src="/admin/blog-i18n-form.js?v=20260405_2"></script>
   <script type="module" src="/admin/blog-admin.js?v=20260405_2"></script>
-  <script type="module" src="/admin/admin.js?v=20260509_3"></script>
+  <script type="module" src="/admin/admin.js?v=20260509_4"></script>
   <script src="/admin/admin-pwa.js?v=20260221_4" defer></script>
 </head>
 <body data-admin-panel="true">
@@ -6478,7 +6478,7 @@
         <header class="admin-view-header emails-view-header">
           <div>
             <h2>Emails</h2>
-            <p class="admin-view-subtitle">Safe draft workspace for outgoing emails. Drafts are not connected to live sending yet.</p>
+            <p class="admin-view-subtitle">Safe workspace for outgoing emails. Database templates are not connected to live sending yet.</p>
           </div>
           <div class="emails-language-toggle" aria-label="Email preview language">
             <button class="emails-language-button is-active" type="button" data-email-lang="pl">PL</button>
@@ -6488,7 +6488,7 @@
 
         <div class="emails-safety-note" role="status">
           <strong>Email safety mode:</strong>
-          this page can save draft template versions only. Drafts are not published and do not change any live email sending flow.
+          this page can save drafts, send tests and mark a database active version. Live email sending remains unchanged until DB templates are explicitly enabled.
           <span id="emailsCatalogSource" class="emails-source-pill">Static fallback</span>
         </div>
 
@@ -6523,6 +6523,7 @@
                 <button class="btn-secondary" id="btnEmailsEditDraft" type="button">Edit draft</button>
                 <button class="btn-secondary" id="btnEmailsCancelDraft" type="button" hidden>Cancel</button>
                 <button class="btn-primary" id="btnEmailsSaveDraft" type="button" hidden>Save draft</button>
+                <button class="btn-secondary" id="btnEmailsPublishDraft" type="button" hidden>Publish draft</button>
               </div>
 
               <div class="emails-test-panel">
