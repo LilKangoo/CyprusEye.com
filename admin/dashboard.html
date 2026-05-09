@@ -28,7 +28,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="/assets/css/tokens.css?v=20251107" />
   <link rel="stylesheet" href="/assets/css/base.css?v=20251107" />
-  <link rel="stylesheet" href="/admin/admin.css?v=20260509_2" />
+  <link rel="stylesheet" href="/admin/admin.css?v=20260509_3" />
   
   <!-- Auth meta -->
   <meta name="ce-auth" content="required" />
@@ -43,7 +43,7 @@
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
   <script src="/admin/blog-i18n-form.js?v=20260405_2"></script>
   <script type="module" src="/admin/blog-admin.js?v=20260405_2"></script>
-  <script type="module" src="/admin/admin.js?v=20260509_2"></script>
+  <script type="module" src="/admin/admin.js?v=20260509_3"></script>
   <script src="/admin/admin-pwa.js?v=20260221_4" defer></script>
 </head>
 <body data-admin-panel="true">
@@ -6523,7 +6523,18 @@
                 <button class="btn-secondary" id="btnEmailsEditDraft" type="button">Edit draft</button>
                 <button class="btn-secondary" id="btnEmailsCancelDraft" type="button" hidden>Cancel</button>
                 <button class="btn-primary" id="btnEmailsSaveDraft" type="button" hidden>Save draft</button>
-                <button class="btn-secondary" type="button" disabled>Send test in later step</button>
+              </div>
+
+              <div class="emails-test-panel">
+                <div>
+                  <h4>Test send</h4>
+                  <p id="emailsTestStatus">Send the selected saved draft/base preview to an admin-controlled email. This does not publish the template.</p>
+                </div>
+                <label class="emails-test-recipient">
+                  <span>Recipient email</span>
+                  <input id="emailsTestRecipient" type="email" autocomplete="email" placeholder="admin@example.com">
+                </label>
+                <button class="btn-secondary" id="btnEmailsSendTest" type="button">Send test</button>
               </div>
 
               <div id="emailsEditorPanel" class="emails-editor-panel" hidden>

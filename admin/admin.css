@@ -795,6 +795,53 @@ body[data-admin-panel="true"].admin-sidebar-open {
   cursor: not-allowed;
 }
 
+.emails-test-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(240px, 360px) auto;
+  gap: 12px;
+  align-items: end;
+  margin: 0 0 18px;
+  padding: 14px;
+  background: rgba(15, 23, 42, 0.42);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 14px;
+}
+
+.emails-test-panel h4 {
+  margin: 0 0 5px;
+  color: var(--admin-text);
+}
+
+.emails-test-panel p {
+  margin: 0;
+  color: var(--admin-text-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.emails-test-recipient {
+  display: grid;
+  gap: 6px;
+  color: var(--admin-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.emails-test-recipient input {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  color: var(--admin-text);
+  background: rgba(15, 23, 42, 0.74);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 10px;
+}
+
+.emails-test-panel .btn-secondary[disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .emails-editor-panel {
   margin: 0 0 18px;
   padding: 16px;
@@ -9848,6 +9895,7 @@ select#orderStatusFilter:focus {
 
   .emails-admin-grid,
   .emails-editor-grid,
+  .emails-test-panel,
   .emails-preview-meta {
     grid-template-columns: 1fr;
   }

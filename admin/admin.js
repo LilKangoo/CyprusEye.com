@@ -1306,7 +1306,9 @@ const emailsAdminState = {
   catalogSource: 'static',
   draftVersions: {},
   draftMode: false,
-  draftSaveInProgress: false
+  draftSaveInProgress: false,
+  testSendInProgress: false,
+  testStatusMessage: ''
 };
 
 function getEmailsCatalog() {
@@ -1343,9 +1345,11 @@ function renderEmailsLanguageButtons() {
     button.classList.toggle('is-active', lang === emailsAdminState.language);
     button.onclick = () => {
       emailsAdminState.language = lang || 'pl';
+      emailsAdminState.testStatusMessage = '';
       renderEmailsLanguageButtons();
       renderEmailsPreview();
       renderEmailsEditor();
+      renderEmailsTestPanel();
     };
   });
 }
@@ -1379,13 +1383,16 @@ function renderEmailsTemplateList() {
     button.onclick = async () => {
       emailsAdminState.selectedKey = button.dataset.emailTemplateKey || getEmailsCatalog()[0]?.key || EMAIL_TEMPLATE_CATALOG[0].key;
       emailsAdminState.draftMode = false;
+      emailsAdminState.testStatusMessage = '';
       renderEmailsTemplateList();
       renderEmailsPreview();
       renderEmailsEditor();
+      renderEmailsTestPanel();
       await loadEmailTemplateDraftState(emailsAdminState.selectedKey);
       renderEmailsTemplateList();
       renderEmailsPreview();
       renderEmailsEditor();
+      renderEmailsTestPanel();
     };
   });
 }
@@ -1515,6 +1522,45 @@ function renderEmailsEditor() {
   if (fields.html) fields.html.value = sample.html || '';
 }
 
+function getEmailsTestFields() {
+  return {
+    panel: $('.emails-test-panel'),
+    recipient: $('#emailsTestRecipient'),
+    button: $('#btnEmailsSendTest'),
+    status: $('#emailsTestStatus')
+  };
+}
+
+function renderEmailsTestPanel() {
+  const fields = getEmailsTestFields();
+  if (!fields.panel && !fields.button && !fields.status) return;
+
+  const canUseDatabaseTemplates = emailsAdminState.catalogSource === 'database';
+  const canSend = canUseDatabaseTemplates && !emailsAdminState.draftMode && !emailsAdminState.testSendInProgress;
+
+  if (fields.recipient && !fields.recipient.value) {
+    const fallbackEmail = adminState.user?.email || ADMIN_CONFIG.requiredEmail || '';
+    fields.recipient.value = fallbackEmail;
+  }
+
+  if (fields.button) {
+    fields.button.disabled = !canSend;
+    fields.button.textContent = emailsAdminState.testSendInProgress ? 'Sending test...' : 'Send test';
+  }
+
+  if (fields.status) {
+    if (emailsAdminState.testStatusMessage) {
+      fields.status.textContent = emailsAdminState.testStatusMessage;
+    } else if (!canUseDatabaseTemplates) {
+      fields.status.textContent = 'Database email catalog is required before test sends are available.';
+    } else if (emailsAdminState.draftMode) {
+      fields.status.textContent = 'Save or cancel the current draft before sending a test email.';
+    } else {
+      fields.status.textContent = 'Send the selected saved draft/base preview to an admin-controlled email. This does not publish the template.';
+    }
+  }
+}
+
 function normalizeEmailTemplateDbRow(row) {
   const previewContent = row?.preview_content && typeof row.preview_content === 'object'
     ? row.preview_content
@@ -1632,8 +1678,10 @@ async function enableEmailsDraftEditor() {
   }
   await loadEmailTemplateDraftState(emailsAdminState.selectedKey);
   emailsAdminState.draftMode = true;
+  emailsAdminState.testStatusMessage = '';
   renderEmailsPreview();
   renderEmailsEditor();
+  renderEmailsTestPanel();
 }
 
 async function saveEmailsDraft() {
@@ -1692,15 +1740,18 @@ async function saveEmailsDraft() {
       emailsAdminState.draftVersions[savedRecord.templateKey] = savedRecord;
     }
     emailsAdminState.draftMode = false;
+    emailsAdminState.testStatusMessage = '';
     showToast('Draft saved. Live email sending is unchanged.', 'success');
     renderEmailsTemplateList();
     renderEmailsPreview();
+    renderEmailsTestPanel();
   } catch (error) {
     console.error('Failed to save email template draft:', error);
     showToast(error.message || 'Failed to save draft', 'error');
   } finally {
     emailsAdminState.draftSaveInProgress = false;
     renderEmailsEditor();
+    renderEmailsTestPanel();
   }
 }
 
@@ -1714,13 +1765,109 @@ function bindEmailsDraftActions() {
   if (fields.cancelButton) {
     fields.cancelButton.onclick = () => {
       emailsAdminState.draftMode = false;
+      emailsAdminState.testStatusMessage = '';
       renderEmailsPreview();
       renderEmailsEditor();
+      renderEmailsTestPanel();
     };
   }
   if (fields.saveButton) {
     fields.saveButton.onclick = () => {
       saveEmailsDraft();
+    };
+  }
+}
+
+async function getCurrentSupabaseAccessToken(client) {
+  try {
+    if (client?.auth && typeof client.auth.getSession === 'function') {
+      const { data } = await client.auth.getSession();
+      return String(data?.session?.access_token || '').trim();
+    }
+  } catch (_error) {
+  }
+  return '';
+}
+
+function isValidEmailAddress(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+}
+
+async function sendEmailsTemplateTest() {
+  if (emailsAdminState.testSendInProgress) return;
+
+  if (emailsAdminState.catalogSource !== 'database') {
+    showToast('Email template database catalog is required before test sends are available.', 'error');
+    return;
+  }
+
+  if (emailsAdminState.draftMode) {
+    showToast('Save or cancel the draft before sending a test email.', 'error');
+    return;
+  }
+
+  const client = ensureSupabase();
+  if (!client) return;
+  if (!client.functions || typeof client.functions.invoke !== 'function') {
+    showToast('Supabase functions are not available in this browser session.', 'error');
+    return;
+  }
+
+  const fields = getEmailsTestFields();
+  const recipientEmail = String(fields.recipient?.value || '').trim();
+  if (!isValidEmailAddress(recipientEmail)) {
+    showToast('Enter a valid recipient email for the test send.', 'error');
+    fields.recipient?.focus();
+    return;
+  }
+
+  emailsAdminState.testSendInProgress = true;
+  emailsAdminState.testStatusMessage = `Sending test email to ${recipientEmail}...`;
+  renderEmailsTestPanel();
+
+  try {
+    const token = await getCurrentSupabaseAccessToken(client);
+    const { data, error, response } = await client.functions.invoke('send-email-template-test', {
+      body: {
+        template_key: emailsAdminState.selectedKey,
+        language: emailsAdminState.language,
+        recipient_email: recipientEmail
+      },
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+
+    if (error) {
+      const status = Number(response?.status || 0);
+      let details = '';
+      try {
+        details = response ? await response.clone().text() : '';
+      } catch (_error) {
+      }
+      throw new Error(details || error.message || (status ? `Test send failed (${status})` : 'Test send failed'));
+    }
+
+    if (!data?.ok) {
+      throw new Error(data?.error || 'Test send failed');
+    }
+
+    const simulatedLabel = data.simulated ? 'SMTP not configured, simulation completed' : 'Test email sent';
+    emailsAdminState.testStatusMessage = `${simulatedLabel}: ${recipientEmail}`;
+    showToast(data.simulated ? 'Test email simulated. SMTP is not configured for this function.' : 'Test email sent', 'success');
+  } catch (error) {
+    console.error('Failed to send email template test:', error);
+    emailsAdminState.testStatusMessage = error.message || 'Test send failed';
+    showToast(error.message || 'Test send failed', 'error');
+  } finally {
+    emailsAdminState.testSendInProgress = false;
+    renderEmailsTestPanel();
+  }
+}
+
+function bindEmailsTestActions() {
+  const fields = getEmailsTestFields();
+  if (fields.button) {
+    fields.button.onclick = () => {
+      sendEmailsTemplateTest();
     };
   }
 }
@@ -1768,14 +1915,17 @@ async function loadEmailsAdminData() {
   emailsAdminState.draftMode = false;
   await loadEmailsCatalogFromDatabase();
   bindEmailsDraftActions();
+  bindEmailsTestActions();
   renderEmailsLanguageButtons();
   renderEmailsTemplateList();
   renderEmailsPreview();
   renderEmailsEditor();
+  renderEmailsTestPanel();
   await loadEmailTemplateDraftState(emailsAdminState.selectedKey);
   renderEmailsTemplateList();
   renderEmailsPreview();
   renderEmailsEditor();
+  renderEmailsTestPanel();
 }
 
 function isSchemaCacheError(err) {

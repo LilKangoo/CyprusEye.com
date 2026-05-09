@@ -42,5 +42,8 @@ verify_jwt = false
 [functions.send-plan-email]
 verify_jwt = false
 
+[functions.send-email-template-test]
+verify_jwt = true
+
 [functions.process-admin-notifications]
 verify_jwt = false
