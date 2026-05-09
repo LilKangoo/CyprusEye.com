@@ -1304,6 +1304,9 @@ const emailsAdminState = {
   language: 'pl',
   recipientFilter: 'all',
   searchQuery: '',
+  advancedHtmlVisible: false,
+  draftEditorKey: '',
+  focusedEditorFieldId: '',
   templates: EMAIL_TEMPLATE_CATALOG,
   catalogSource: 'static',
   draftVersions: {},
@@ -1391,6 +1394,30 @@ function getEmailsSample(template) {
     return { ...fallbackSample, ...draftSample };
   }
   return fallbackSample;
+}
+
+function getEmailsEditorLiveSample(template) {
+  const sample = getEmailsSample(template);
+  if (!emailsAdminState.draftMode) return sample;
+
+  const fields = getEmailsEditorFields();
+  return {
+    ...sample,
+    subject: fields.subject?.value || sample.subject || '',
+    heading: fields.heading?.value || sample.heading || '',
+    intro: fields.intro?.value || sample.intro || '',
+    cta: fields.cta?.value || sample.cta || '',
+    html: fields.html?.value || sample.html || ''
+  };
+}
+
+function getEmailsDraftEditorKey(template, draftRecord) {
+  return [
+    template?.key || '',
+    emailsAdminState.language || 'pl',
+    draftRecord?.id || 'base',
+    draftRecord?.versionNumber || 0
+  ].join(':');
 }
 
 function confirmEmailsDraftNavigation() {
@@ -1543,9 +1570,27 @@ function renderEmailsTemplateControls(totalCount, visibleCount) {
   }
 }
 
+function renderEmailsCustomHtmlPreviewDocument(html, previewNotice) {
+  return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <base target="_blank">
+    <style>
+      body { margin: 0; padding: 24px; background: #eef2ff; font-family: Arial, sans-serif; }
+      .preview-note { max-width: 680px; margin: 18px auto 0; padding: 12px 14px; color: #475569; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; font-size: 12px; line-height: 1.5; }
+    </style>
+  </head>
+  <body>
+    ${html}
+    <div class="preview-note">${escapeHtml(previewNotice)}</div>
+  </body>
+</html>`;
+}
+
 function renderEmailsPreview() {
   const template = getEmailsCatalogTemplate(emailsAdminState.selectedKey);
-  const sample = getEmailsSample(template);
+  const sample = getEmailsEditorLiveSample(template);
   const draftRecord = getEmailsDraftRecord(template.key);
 
   const source = $('#emailsCatalogSource');
@@ -1616,6 +1661,17 @@ function renderEmailsPreview() {
           `Preview is showing database published version #${draftRecord.versionNumber || ''}. Production emails still use live templates until DB sending is enabled.`;
       }
     }
+
+    const customHtml = String(sample.html || '').trim();
+    if (customHtml) {
+      frame.innerHTML = '<iframe class="emails-custom-html-preview" title="Custom HTML email preview" sandbox></iframe>';
+      const iframe = frame.querySelector('iframe');
+      if (iframe) {
+        iframe.srcdoc = renderEmailsCustomHtmlPreviewDocument(customHtml, previewNotice);
+      }
+      return;
+    }
+
     frame.innerHTML = `
       <article class="emails-sample-email">
         <div class="emails-sample-brand">CyprusEye</div>
@@ -1639,12 +1695,120 @@ function getEmailsEditorFields() {
     publishButton: $('#btnEmailsPublishDraft'),
     liveButton: $('#btnEmailsToggleLive'),
     status: $('#emailsDraftStatus'),
+    validation: $('#emailsDraftValidation'),
+    variables: $('#emailsEditorVariables'),
+    advancedButton: $('#btnEmailsToggleAdvancedHtml'),
+    advancedPanel: $('#emailsAdvancedHtmlPanel'),
+    advancedStatus: $('#emailsAdvancedHtmlStatus'),
     subject: $('#emailsDraftSubject'),
     heading: $('#emailsDraftHeading'),
     intro: $('#emailsDraftIntro'),
     cta: $('#emailsDraftCta'),
     html: $('#emailsDraftHtml')
   };
+}
+
+function getEmailsEditableFields(fields = getEmailsEditorFields()) {
+  return [fields.subject, fields.heading, fields.intro, fields.cta, fields.html].filter(Boolean);
+}
+
+function renderEmailsDraftValidation() {
+  const fields = getEmailsEditorFields();
+  if (!fields.validation) return;
+
+  if (!emailsAdminState.draftMode) {
+    fields.validation.textContent = '';
+    fields.validation.hidden = true;
+    return;
+  }
+
+  const missing = [
+    [fields.subject, 'subject'],
+    [fields.heading, 'heading'],
+    [fields.intro, 'intro text'],
+    [fields.cta, 'CTA label']
+  ].filter(([field]) => !String(field?.value || '').trim()).map(([, label]) => label);
+
+  fields.validation.hidden = false;
+  if (missing.length) {
+    fields.validation.classList.remove('is-ready');
+    fields.validation.textContent = `Missing required visual fields: ${missing.join(', ')}.`;
+  } else {
+    fields.validation.classList.add('is-ready');
+    fields.validation.textContent = 'Visual draft is complete. Save draft before sending a test email.';
+  }
+}
+
+function updateEmailsAdvancedHtmlStatus() {
+  const fields = getEmailsEditorFields();
+  if (!fields.advancedStatus) return;
+  const hasHtml = Boolean(String(fields.html?.value || '').trim());
+  fields.advancedStatus.textContent = hasHtml ? 'Custom HTML active' : 'Visual template active';
+  fields.advancedStatus.classList.toggle('is-warning', hasHtml);
+}
+
+function updateEmailsDraftPreviewFromEditor() {
+  if (!emailsAdminState.draftMode) return;
+  updateEmailsAdvancedHtmlStatus();
+  renderEmailsPreview();
+  renderEmailsDraftValidation();
+}
+
+function insertEmailVariableIntoFocusedField(variableName) {
+  const token = `{{${String(variableName || '').trim()}}}`;
+  if (!token || token === '{{}}') return;
+
+  const fields = getEmailsEditorFields();
+  const editableFields = getEmailsEditableFields(fields);
+  const activeElement = document.activeElement;
+  const target = editableFields.includes(activeElement)
+    ? activeElement
+    : (emailsAdminState.focusedEditorFieldId
+      ? editableFields.find((field) => field.id === emailsAdminState.focusedEditorFieldId)
+      : null) || fields.subject;
+
+  if (!target) return;
+
+  const currentValue = String(target.value || '');
+  const start = Number.isInteger(target.selectionStart) ? target.selectionStart : currentValue.length;
+  const end = Number.isInteger(target.selectionEnd) ? target.selectionEnd : currentValue.length;
+  const prefix = currentValue.slice(0, start);
+  const suffix = currentValue.slice(end);
+  const separatorBefore = prefix && !/\s$/.test(prefix) ? ' ' : '';
+  const separatorAfter = suffix && !/^\s/.test(suffix) ? ' ' : '';
+  target.value = `${prefix}${separatorBefore}${token}${separatorAfter}${suffix}`;
+  const cursor = `${prefix}${separatorBefore}${token}`.length;
+  target.focus();
+  try {
+    target.setSelectionRange(cursor, cursor);
+  } catch (_error) {
+  }
+  updateEmailsDraftPreviewFromEditor();
+}
+
+function bindEmailsEditorFieldEvents() {
+  const fields = getEmailsEditorFields();
+  getEmailsEditableFields(fields).forEach((field) => {
+    field.onfocus = () => {
+      emailsAdminState.focusedEditorFieldId = field.id;
+    };
+    field.oninput = updateEmailsDraftPreviewFromEditor;
+  });
+
+  if (fields.advancedButton) {
+    fields.advancedButton.onclick = () => {
+      emailsAdminState.advancedHtmlVisible = !emailsAdminState.advancedHtmlVisible;
+      renderEmailsEditor();
+    };
+  }
+
+  if (fields.variables) {
+    $$('[data-email-editor-variable]', fields.variables).forEach((button) => {
+      button.onclick = () => {
+        insertEmailVariableIntoFocusedField(button.dataset.emailEditorVariable || '');
+      };
+    });
+  }
 }
 
 function renderEmailsEditor() {
@@ -1713,13 +1877,45 @@ function renderEmailsEditor() {
     }
   }
 
-  if (!emailsAdminState.draftMode) return;
+  if (!emailsAdminState.draftMode) {
+    emailsAdminState.draftEditorKey = '';
+    if (fields.validation) fields.validation.hidden = true;
+    return;
+  }
 
-  if (fields.subject) fields.subject.value = sample.subject || '';
-  if (fields.heading) fields.heading.value = sample.heading || '';
-  if (fields.intro) fields.intro.value = sample.intro || '';
-  if (fields.cta) fields.cta.value = sample.cta || '';
-  if (fields.html) fields.html.value = sample.html || '';
+  if (fields.variables) {
+    fields.variables.innerHTML = template.requiredVars.map((variableName) => `
+      <button class="emails-variable-pill emails-variable-button" type="button" data-email-editor-variable="${escapeHtml(variableName)}">
+        {{${escapeHtml(variableName)}}}
+      </button>
+    `).join('');
+  }
+
+  if (fields.advancedPanel) {
+    fields.advancedPanel.hidden = !emailsAdminState.advancedHtmlVisible;
+  }
+  if (fields.advancedButton) {
+    fields.advancedButton.textContent = emailsAdminState.advancedHtmlVisible
+      ? 'Hide advanced HTML'
+      : 'Show advanced HTML';
+  }
+  if (fields.advancedStatus) {
+    updateEmailsAdvancedHtmlStatus();
+  }
+
+  const editorKey = getEmailsDraftEditorKey(template, draftRecord);
+  if (emailsAdminState.draftEditorKey !== editorKey) {
+    if (fields.subject) fields.subject.value = sample.subject || '';
+    if (fields.heading) fields.heading.value = sample.heading || '';
+    if (fields.intro) fields.intro.value = sample.intro || '';
+    if (fields.cta) fields.cta.value = sample.cta || '';
+    if (fields.html) fields.html.value = sample.html || '';
+    emailsAdminState.draftEditorKey = editorKey;
+  }
+
+  bindEmailsEditorFieldEvents();
+  updateEmailsAdvancedHtmlStatus();
+  renderEmailsDraftValidation();
 }
 
 function getEmailsTestFields() {
@@ -1884,10 +2080,15 @@ async function enableEmailsDraftEditor() {
     return;
   }
   await loadEmailTemplateDraftState(emailsAdminState.selectedKey);
+  const template = getEmailsCatalogTemplate(emailsAdminState.selectedKey);
+  const sample = getEmailsSample(template);
   emailsAdminState.draftMode = true;
+  emailsAdminState.advancedHtmlVisible = Boolean(String(sample.html || '').trim());
+  emailsAdminState.draftEditorKey = '';
+  emailsAdminState.focusedEditorFieldId = '';
   emailsAdminState.testStatusMessage = '';
-  renderEmailsPreview();
   renderEmailsEditor();
+  renderEmailsPreview();
   renderEmailsTestPanel();
 }
 
@@ -2147,6 +2348,9 @@ function bindEmailsDraftActions() {
   if (fields.cancelButton) {
     fields.cancelButton.onclick = () => {
       emailsAdminState.draftMode = false;
+      emailsAdminState.advancedHtmlVisible = false;
+      emailsAdminState.draftEditorKey = '';
+      emailsAdminState.focusedEditorFieldId = '';
       emailsAdminState.testStatusMessage = '';
       renderEmailsPreview();
       renderEmailsEditor();
