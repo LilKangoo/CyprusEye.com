@@ -497,11 +497,12 @@ function renderSimpleTemplateEmailHtml(params: {
   heading: string;
   intro: string;
   cta: string;
-  paymentUrl: string;
+  paymentUrl?: string;
+  actionUrl?: string;
 }): string {
-  const paymentUrl = String(params.paymentUrl || "").trim();
-  const button = paymentUrl
-    ? `<a href="${escapeHtml(paymentUrl)}" style="display:inline-block; padding:12px 18px; background:#ef4444; color:#ffffff; text-decoration:none; border-radius:10px; font-weight:800;">${escapeHtml(params.cta)}</a>`
+  const actionUrl = String(params.actionUrl || params.paymentUrl || "").trim();
+  const button = actionUrl
+    ? `<a href="${escapeHtml(actionUrl)}" style="display:inline-block; padding:12px 18px; background:#ef4444; color:#ffffff; text-decoration:none; border-radius:10px; font-weight:800;">${escapeHtml(params.cta)}</a>`
     : "";
 
   return `
@@ -533,6 +534,107 @@ function buildCustomerDepositTemplateVariables(deposit: Record<string, unknown>)
     payment_url: checkoutUrl,
     service_name: summary,
     booking_summary: summary,
+  };
+}
+
+function getCustomerReceivedTemplateLanguage(record: Record<string, unknown>): "pl" | "en" {
+  return normalizeDepositLang(getField(record, ["lang", "language", "locale"]));
+}
+
+function buildCustomerReceivedTemplateVariables(params: {
+  category: Category;
+  recordId: string;
+  record: Record<string, unknown>;
+}): Record<string, string> {
+  const { category, record, recordId } = params;
+  const lang = getCustomerReceivedTemplateLanguage(record);
+  const reference = getField(record, ["booking_reference", "reference", "order_number", "id"]) || recordId;
+  const customerName = getField(record, ["customer_name", "full_name", "name", "customerName"])
+    || (lang === "pl" ? "Klient" : "Customer");
+
+  const serviceName = (() => {
+    if (category === "cars") return getField(record, ["car_model", "vehicle", "car"]);
+    if (category === "trips") return getField(record, ["trip_name", "trip_title", "title", "trip_slug"]);
+    if (category === "hotels") return getField(record, ["hotel_name", "hotel_slug", "hotel"]);
+    if (category === "transport") return buildTransportRouteLabel(record);
+    if (category === "shop") return getField(record, ["order_number"]) || (lang === "pl" ? "Zamowienie" : "Order");
+    return category;
+  })();
+
+  const summaryParts = (() => {
+    if (category === "cars") {
+      return [
+        serviceName,
+        [
+          formatDate(getField(record, ["pickup_date"])),
+          formatTime(getField(record, ["pickup_time"])),
+          getField(record, ["pickup_location", "pickup_address"]),
+        ].filter(Boolean).join(" "),
+        [
+          formatDate(getField(record, ["return_date"])),
+          formatTime(getField(record, ["return_time"])),
+          getField(record, ["return_location", "return_address"]),
+        ].filter(Boolean).join(" "),
+      ];
+    }
+
+    if (category === "trips") {
+      return [
+        serviceName,
+        formatDate(getField(record, ["trip_date", "preferred_trip_date"])),
+        [
+          getField(record, ["num_adults"]) ? `${getField(record, ["num_adults"])} adult(s)` : "",
+          getField(record, ["num_children"]) ? `${getField(record, ["num_children"])} child(ren)` : "",
+        ].filter(Boolean).join(", "),
+      ];
+    }
+
+    if (category === "hotels") {
+      return [
+        serviceName,
+        [
+          formatDate(getField(record, ["arrival_date"])),
+          formatDate(getField(record, ["departure_date"])),
+        ].filter(Boolean).join(" -> "),
+        [
+          getField(record, ["num_adults"]) ? `${getField(record, ["num_adults"])} adult(s)` : "",
+          getField(record, ["num_children"]) ? `${getField(record, ["num_children"])} child(ren)` : "",
+        ].filter(Boolean).join(", "),
+      ];
+    }
+
+    if (category === "transport") {
+      return [
+        serviceName,
+        [
+          formatDate(getField(record, ["travel_date"])),
+          formatTime(getField(record, ["travel_time"])),
+        ].filter(Boolean).join(" "),
+        getField(record, ["num_passengers"]) ? `${getField(record, ["num_passengers"])} passenger(s)` : "",
+      ];
+    }
+
+    if (category === "shop") {
+      return [
+        serviceName,
+        formatMoney(getField(record, ["total", "amount_total", "grand_total", "total_amount", "price_total"]), getField(record, ["currency", "currency_code"]) || "EUR"),
+      ];
+    }
+
+    return [serviceName];
+  })();
+
+  const bookingSummary = summaryParts.map((part) => String(part || "").trim()).filter(Boolean).join(" | ")
+    || serviceName
+    || reference;
+
+  return {
+    booking_reference: reference,
+    customer_name: customerName,
+    service_name: serviceName || bookingSummary,
+    booking_summary: bookingSummary,
+    action_url: CUSTOMER_HOMEPAGE_URL,
+    homepage_url: CUSTOMER_HOMEPAGE_URL,
   };
 }
 
@@ -596,17 +698,22 @@ async function renderEnabledDatabaseEmailTemplate(params: {
     const customHtml = String(localized.html || "").trim();
     if (!subject || !heading || !intro || !cta) return null;
 
+    const actionUrl = params.variables.payment_url
+      || params.variables.action_url
+      || params.variables.homepage_url
+      || "";
+
     const html = customHtml
       ? replaceEmailTemplateVariables(customHtml, params.variables, { escapeValues: true })
       : renderSimpleTemplateEmailHtml({
         heading,
         intro,
         cta,
-        paymentUrl: params.variables.payment_url || "",
+        actionUrl,
       });
 
     const textLines = [heading, "", intro];
-    if (params.variables.payment_url) textLines.push("", `${cta}: ${params.variables.payment_url}`);
+    if (actionUrl) textLines.push("", `${cta}: ${actionUrl}`);
     return { subject, html, text: textLines.join("\n") };
   } catch (error) {
     console.warn("Email template DB render failed, falling back to hardcoded template:", error);
@@ -3920,7 +4027,14 @@ serve(async (req) => {
       });
     }
 
-    const rendered = renderCustomerReceivedEmail({ category: categoryFromBody, recordId, record });
+    const fallbackRendered = renderCustomerReceivedEmail({ category: categoryFromBody, recordId, record });
+    const databaseRendered = await renderEnabledDatabaseEmailTemplate({
+      supabase,
+      templateKey: "customer_received",
+      lang: getCustomerReceivedTemplateLanguage(record),
+      variables: buildCustomerReceivedTemplateVariables({ category: categoryFromBody, recordId, record }),
+    });
+    const rendered = databaseRendered || fallbackRendered;
     const subject = rendered.subject;
     const html = rendered.html;
     const text = rendered.text;
