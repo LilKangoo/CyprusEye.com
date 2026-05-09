@@ -1148,12 +1148,26 @@ body[data-admin-panel="true"].admin-sidebar-open {
 }
 
 .emails-sample-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   margin-bottom: 18px;
   color: #dc2626;
   font-size: 13px;
   font-weight: 900;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+.emails-sample-brand img {
+  display: block;
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+.emails-sample-brand span {
+  line-height: 1;
 }
 
 .emails-sample-email h4 {

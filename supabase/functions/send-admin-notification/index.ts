@@ -493,6 +493,20 @@ function replaceEmailTemplateVariables(
   });
 }
 
+function renderSmallBrandHeader(): string {
+  return `
+    <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 18px;">
+      <tr>
+        <td style="padding:0 7px 0 0; vertical-align:middle;">
+          <img src="${escapeHtml(BRAND_LOGO_URL)}" alt="" width="16" height="16" style="display:block; width:16px; height:16px; max-width:16px; border:0; outline:none; text-decoration:none;" />
+        </td>
+        <td style="padding:0; vertical-align:middle; font-size:12px; font-weight:900; letter-spacing:0.14em; text-transform:uppercase; color:#ef4444;">
+          CyprusEye
+        </td>
+      </tr>
+    </table>`;
+}
+
 function renderSimpleTemplateEmailHtml(params: {
   heading: string;
   intro: string;
@@ -508,7 +522,7 @@ function renderSimpleTemplateEmailHtml(params: {
   return `
     <div style="margin:0; padding:32px; background:#eef4ff; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; color:#0f172a;">
       <div style="max-width:560px; margin:0 auto; background:#ffffff; border-radius:18px; padding:32px; box-shadow:0 16px 40px rgba(15,23,42,0.10);">
-        <div style="font-size:12px; font-weight:900; letter-spacing:0.14em; text-transform:uppercase; color:#ef4444; margin-bottom:18px;">CyprusEye</div>
+        ${renderSmallBrandHeader()}
         <h1 style="margin:0 0 14px; font-size:26px; line-height:1.2; font-weight:900;">${escapeHtml(params.heading)}</h1>
         <p style="margin:0 0 22px; font-size:16px; line-height:1.55; color:#475569;">${escapeHtml(params.intro)}</p>
         ${button}

@@ -39,6 +39,7 @@ const corsHeaders = {
 
 const REQUIRED_ADMIN_EMAIL = "lilkangoomedia@gmail.com";
 const REQUIRED_ADMIN_USER_ID = "15f3d442-092d-4eb8-9627-db90da0283eb";
+const BRAND_LOGO_URL = "https://cypruseye.com/assets/cyprus_logo-1000x1054.png";
 
 function json(body: Record<string, unknown>, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -65,6 +66,20 @@ function escapeHtml(value: unknown): string {
         return character;
     }
   });
+}
+
+function renderSmallBrandHeader(): string {
+  return `
+    <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 14px;">
+      <tr>
+        <td style="padding:0 7px 0 0; vertical-align:middle;">
+          <img src="${escapeHtml(BRAND_LOGO_URL)}" alt="" width="16" height="16" style="display:block; width:16px; height:16px; max-width:16px; border:0; outline:none; text-decoration:none;" />
+        </td>
+        <td style="padding:0; vertical-align:middle; font-size:12px; font-weight:800; color:#ef4444; letter-spacing:.1em; text-transform:uppercase;">
+          CyprusEye
+        </td>
+      </tr>
+    </table>`;
 }
 
 function stripHtml(value: unknown): string {
@@ -245,7 +260,7 @@ function renderTemplateTestEmail(params: {
                 </tr>
                 <tr>
                   <td style="padding:24px 22px;">
-                    <div style="font-size:12px; font-weight:800; color:#ef4444; letter-spacing:.1em; text-transform:uppercase; margin-bottom:14px;">CyprusEye</div>
+                    ${renderSmallBrandHeader()}
                     <h1 style="margin:0 0 12px; font-size:24px; line-height:1.2; color:#111827;">${escapeHtml(heading)}</h1>
                     ${intro ? `<p style="margin:0 0 18px; color:#475569; font-size:15px; line-height:1.6;">${escapeHtml(intro)}</p>` : ""}
                     <a href="#" style="display:inline-block; background:#ef4444; color:#ffffff; text-decoration:none; border-radius:10px; padding:12px 16px; font-weight:800;">${escapeHtml(cta)}</a>

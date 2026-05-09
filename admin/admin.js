@@ -14,6 +14,8 @@ const ADMIN_CONFIG = {
   usersPerPage: 20,
 };
 
+const EMAIL_BRAND_LOGO_URL = '/assets/cyprus_logo-1000x1054.png';
+
 let adminState = {
   user: null,
   profile: null,
@@ -1674,7 +1676,10 @@ function renderEmailsPreview() {
 
     frame.innerHTML = `
       <article class="emails-sample-email">
-        <div class="emails-sample-brand">CyprusEye</div>
+        <div class="emails-sample-brand">
+          <img src="${escapeHtml(EMAIL_BRAND_LOGO_URL)}" alt="" aria-hidden="true">
+          <span>CyprusEye</span>
+        </div>
         <h4>${escapeHtml(sample.heading || template.label)}</h4>
         <p>${escapeHtml(sample.intro || template.description)}</p>
         <a href="#" aria-disabled="true">${escapeHtml(sample.cta || 'Open')}</a>
