@@ -468,6 +468,152 @@ function renderCustomerDepositRequestedEmail(params: {
   return { subject, html, text: textLines.join("\n") };
 }
 
+type RenderedEmail = { subject: string; html: string; text: string };
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function asStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => String(item || "").trim()).filter(Boolean);
+}
+
+function replaceEmailTemplateVariables(
+  value: unknown,
+  variables: Record<string, string>,
+  options: { escapeValues?: boolean } = {},
+): string {
+  const source = String(value || "");
+  return source.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_match, rawKey) => {
+    const key = String(rawKey || "").trim();
+    const replacement = String(variables[key] ?? "");
+    return options.escapeValues ? escapeHtml(replacement) : replacement;
+  });
+}
+
+function renderSimpleTemplateEmailHtml(params: {
+  heading: string;
+  intro: string;
+  cta: string;
+  paymentUrl: string;
+}): string {
+  const paymentUrl = String(params.paymentUrl || "").trim();
+  const button = paymentUrl
+    ? `<a href="${escapeHtml(paymentUrl)}" style="display:inline-block; padding:12px 18px; background:#ef4444; color:#ffffff; text-decoration:none; border-radius:10px; font-weight:800;">${escapeHtml(params.cta)}</a>`
+    : "";
+
+  return `
+    <div style="margin:0; padding:32px; background:#eef4ff; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; color:#0f172a;">
+      <div style="max-width:560px; margin:0 auto; background:#ffffff; border-radius:18px; padding:32px; box-shadow:0 16px 40px rgba(15,23,42,0.10);">
+        <div style="font-size:12px; font-weight:900; letter-spacing:0.14em; text-transform:uppercase; color:#ef4444; margin-bottom:18px;">CyprusEye</div>
+        <h1 style="margin:0 0 14px; font-size:26px; line-height:1.2; font-weight:900;">${escapeHtml(params.heading)}</h1>
+        <p style="margin:0 0 22px; font-size:16px; line-height:1.55; color:#475569;">${escapeHtml(params.intro)}</p>
+        ${button}
+      </div>
+    </div>`;
+}
+
+function buildCustomerDepositTemplateVariables(deposit: Record<string, unknown>): Record<string, string> {
+  const lang = normalizeDepositLang((deposit as any)?.lang);
+  const amount = Number((deposit as any)?.amount || 0) || 0;
+  const currency = String((deposit as any)?.currency || "EUR").trim() || "EUR";
+  const checkoutUrl = String((deposit as any)?.checkout_url || "").trim();
+  const reference = getField(deposit, ["fulfillment_reference", "reference", "booking_reference", "id"]);
+  const summary = getField(deposit, ["fulfillment_summary", "service_name", "booking_summary", "resource_name"]);
+  const customerName = getField(deposit, ["customer_name", "name", "full_name"]) || (lang === "pl" ? "Klient" : "Customer");
+  const depositAmount = formatMoney(amount, currency) || `${amount.toFixed(2)} ${currency}`;
+
+  return {
+    booking_reference: reference,
+    customer_name: customerName,
+    deposit_amount: depositAmount,
+    currency,
+    payment_url: checkoutUrl,
+    service_name: summary,
+    booking_summary: summary,
+  };
+}
+
+async function renderEnabledDatabaseEmailTemplate(params: {
+  supabase: any;
+  templateKey: string;
+  lang: "pl" | "en";
+  variables: Record<string, string>;
+}): Promise<RenderedEmail | null> {
+  const templateKey = String(params.templateKey || "").trim();
+  if (!templateKey) return null;
+
+  try {
+    const { data: catalog, error: catalogError } = await params.supabase
+      .from("email_template_catalog")
+      .select("key, active_version_id, production_enabled, required_variables")
+      .eq("key", templateKey)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (catalogError) {
+      console.warn("Email template catalog lookup failed:", catalogError);
+      return null;
+    }
+
+    const activeVersionId = String((catalog as any)?.active_version_id || "").trim();
+    if (!catalog || !(catalog as any).production_enabled || !activeVersionId) return null;
+
+    const { data: version, error: versionError } = await params.supabase
+      .from("email_template_versions")
+      .select("id, version_number, status, content, required_variables")
+      .eq("id", activeVersionId)
+      .eq("template_key", templateKey)
+      .eq("status", "published")
+      .maybeSingle();
+
+    if (versionError || !version) {
+      console.warn("Email template active version lookup failed:", versionError);
+      return null;
+    }
+
+    const requiredVariables = asStringList((version as any)?.required_variables);
+    const fallbackRequiredVariables = asStringList((catalog as any)?.required_variables);
+    const required = requiredVariables.length ? requiredVariables : fallbackRequiredVariables;
+    const missing = required.filter((name) => !String(params.variables[name] || "").trim());
+    if (missing.length) {
+      console.warn(`Email template ${templateKey} skipped. Missing variables: ${missing.join(", ")}`);
+      return null;
+    }
+
+    const contentRoot = asRecord((version as any)?.content);
+    const localized = asRecord(contentRoot?.[params.lang])
+      || asRecord(contentRoot?.en)
+      || asRecord(contentRoot?.pl);
+    if (!localized) return null;
+
+    const subject = replaceEmailTemplateVariables(localized.subject, params.variables).trim();
+    const heading = replaceEmailTemplateVariables(localized.heading, params.variables).trim();
+    const intro = replaceEmailTemplateVariables(localized.intro, params.variables).trim();
+    const cta = replaceEmailTemplateVariables(localized.cta, params.variables).trim();
+    const customHtml = String(localized.html || "").trim();
+    if (!subject || !heading || !intro || !cta) return null;
+
+    const html = customHtml
+      ? replaceEmailTemplateVariables(customHtml, params.variables, { escapeValues: true })
+      : renderSimpleTemplateEmailHtml({
+        heading,
+        intro,
+        cta,
+        paymentUrl: params.variables.payment_url || "",
+      });
+
+    const textLines = [heading, "", intro];
+    if (params.variables.payment_url) textLines.push("", `${cta}: ${params.variables.payment_url}`);
+    return { subject, html, text: textLines.join("\n") };
+  } catch (error) {
+    console.warn("Email template DB render failed, falling back to hardcoded template:", error);
+    return null;
+  }
+}
+
 function formatDateOptionList(options: unknown): string[] {
   if (!Array.isArray(options)) return [];
   const out: string[] = [];
@@ -3377,7 +3523,14 @@ serve(async (req) => {
       });
     }
 
-    const rendered = renderCustomerDepositRequestedEmail({ deposit: dep as any });
+    const fallbackRendered = renderCustomerDepositRequestedEmail({ deposit: dep as any });
+    const databaseRendered = await renderEnabledDatabaseEmailTemplate({
+      supabase,
+      templateKey: "customer_deposit_requested",
+      lang: normalizeDepositLang((dep as any)?.lang),
+      variables: buildCustomerDepositTemplateVariables(dep as any),
+    });
+    const rendered = databaseRendered || fallbackRendered;
     const subject = rendered.subject;
     const html = rendered.html;
     const text = rendered.text;

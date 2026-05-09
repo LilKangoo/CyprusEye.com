@@ -28,7 +28,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="/assets/css/tokens.css?v=20251107" />
   <link rel="stylesheet" href="/assets/css/base.css?v=20251107" />
-  <link rel="stylesheet" href="/admin/admin.css?v=20260509_4" />
+  <link rel="stylesheet" href="/admin/admin.css?v=20260509_5" />
   
   <!-- Auth meta -->
   <meta name="ce-auth" content="required" />
@@ -43,7 +43,7 @@
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
   <script src="/admin/blog-i18n-form.js?v=20260405_2"></script>
   <script type="module" src="/admin/blog-admin.js?v=20260405_2"></script>
-  <script type="module" src="/admin/admin.js?v=20260509_4"></script>
+  <script type="module" src="/admin/admin.js?v=20260509_5"></script>
   <script src="/admin/admin-pwa.js?v=20260221_4" defer></script>
 </head>
 <body data-admin-panel="true">
@@ -6478,7 +6478,7 @@
         <header class="admin-view-header emails-view-header">
           <div>
             <h2>Emails</h2>
-            <p class="admin-view-subtitle">Safe workspace for outgoing emails. Database templates are not connected to live sending yet.</p>
+            <p class="admin-view-subtitle">Safe workspace for outgoing emails. Database templates affect live sending only when enabled per template.</p>
           </div>
           <div class="emails-language-toggle" aria-label="Email preview language">
             <button class="emails-language-button is-active" type="button" data-email-lang="pl">PL</button>
@@ -6488,7 +6488,7 @@
 
         <div class="emails-safety-note" role="status">
           <strong>Email safety mode:</strong>
-          this page can save drafts, send tests and mark a database active version. Live email sending remains unchanged until DB templates are explicitly enabled.
+          this page can save drafts, send tests, publish a database active version and enable live DB sending per template. Unenabled templates keep the existing live emails.
           <span id="emailsCatalogSource" class="emails-source-pill">Static fallback</span>
         </div>
 
@@ -6524,6 +6524,7 @@
                 <button class="btn-secondary" id="btnEmailsCancelDraft" type="button" hidden>Cancel</button>
                 <button class="btn-primary" id="btnEmailsSaveDraft" type="button" hidden>Save draft</button>
                 <button class="btn-secondary" id="btnEmailsPublishDraft" type="button" hidden>Publish draft</button>
+                <button class="btn-secondary" id="btnEmailsToggleLive" type="button" hidden>Enable live DB</button>
               </div>
 
               <div class="emails-test-panel">
