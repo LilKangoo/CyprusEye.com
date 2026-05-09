@@ -6499,6 +6499,14 @@
               <p>Known outgoing emails grouped by current business flow.</p>
             </div>
             <div class="admin-card-body">
+              <div class="emails-catalog-controls" aria-label="Email catalog filters">
+                <div id="emailsTemplateFilters" class="emails-template-filters" role="group" aria-label="Filter emails by recipient"></div>
+                <label class="emails-template-search">
+                  <span>Search templates</span>
+                  <input id="emailsTemplateSearch" type="search" placeholder="Search by name, group or source">
+                </label>
+                <div id="emailsTemplateCount" class="emails-template-count" aria-live="polite"></div>
+              </div>
               <div id="emailsTemplateList" class="emails-template-list"></div>
             </div>
           </aside>

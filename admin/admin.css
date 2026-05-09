@@ -653,6 +653,66 @@ body[data-admin-panel="true"].admin-sidebar-open {
   gap: 10px;
 }
 
+.emails-catalog-controls {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.emails-template-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.emails-template-filter {
+  min-height: 36px;
+  padding: 8px 10px;
+  color: var(--admin-text-muted);
+  background: rgba(15, 23, 42, 0.64);
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.emails-template-filter:hover,
+.emails-template-filter.is-active {
+  color: #fff;
+  background: rgba(239, 68, 68, 0.88);
+  border-color: rgba(248, 113, 113, 0.72);
+}
+
+.emails-template-search {
+  display: grid;
+  gap: 6px;
+  color: var(--admin-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.emails-template-search input {
+  width: 100%;
+  min-height: 40px;
+  padding: 10px 12px;
+  color: var(--admin-text);
+  background: rgba(15, 23, 42, 0.74);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 11px;
+}
+
+.emails-template-search input:focus {
+  outline: none;
+  border-color: rgba(96, 165, 250, 0.72);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
+}
+
+.emails-template-count {
+  color: var(--admin-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .emails-template-card {
   display: grid;
   gap: 6px;
@@ -678,9 +738,22 @@ body[data-admin-panel="true"].admin-sidebar-open {
   font-size: 15px;
 }
 
-.emails-template-card span:last-child {
+.emails-template-card-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.emails-template-recipient {
+  width: max-content;
+  padding: 4px 8px;
   color: var(--admin-text-muted);
-  font-size: 12px;
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .emails-template-draft {
@@ -705,6 +778,20 @@ body[data-admin-panel="true"].admin-sidebar-open {
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.emails-template-empty {
+  display: grid;
+  gap: 5px;
+  padding: 16px;
+  color: var(--admin-text-muted);
+  background: rgba(15, 23, 42, 0.54);
+  border: 1px dashed rgba(148, 163, 184, 0.3);
+  border-radius: 14px;
+}
+
+.emails-template-empty strong {
+  color: var(--admin-text);
 }
 
 .emails-preview-header {

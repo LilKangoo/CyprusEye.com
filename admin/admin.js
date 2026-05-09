@@ -1302,6 +1302,8 @@ const EMAIL_TEMPLATE_CATALOG = [
 const emailsAdminState = {
   selectedKey: 'customer_deposit_requested',
   language: 'pl',
+  recipientFilter: 'all',
+  searchQuery: '',
   templates: EMAIL_TEMPLATE_CATALOG,
   catalogSource: 'static',
   draftVersions: {},
@@ -1317,6 +1319,13 @@ const EMAIL_LIVE_DB_TEMPLATE_KEYS = new Set([
   'customer_deposit_requested',
   'customer_received'
 ]);
+
+const EMAIL_RECIPIENT_FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'customer', label: 'Customer' },
+  { key: 'partner', label: 'Partner' },
+  { key: 'admin', label: 'Admin' }
+];
 
 function isEmailLiveDbSupported(templateKey) {
   return EMAIL_LIVE_DB_TEMPLATE_KEYS.has(String(templateKey || '').trim());
@@ -1337,6 +1346,36 @@ function getEmailsCatalogTemplate(key) {
   return catalog.find((template) => template.key === key) || catalog[0] || EMAIL_TEMPLATE_CATALOG[0];
 }
 
+function getEmailRecipientTags(template) {
+  const recipient = String(template?.recipient || '').toLowerCase();
+  const tags = [];
+  if (recipient.includes('customer')) tags.push('customer');
+  if (recipient.includes('partner')) tags.push('partner');
+  if (recipient.includes('admin')) tags.push('admin');
+  return tags.length ? tags : ['admin'];
+}
+
+function getFilteredEmailsCatalog() {
+  const filter = emailsAdminState.recipientFilter || 'all';
+  const query = String(emailsAdminState.searchQuery || '').trim().toLowerCase();
+
+  return getEmailsCatalog().filter((template) => {
+    if (filter !== 'all' && !getEmailRecipientTags(template).includes(filter)) {
+      return false;
+    }
+
+    if (!query) return true;
+
+    return [
+      template.label,
+      template.group,
+      template.recipient,
+      template.source,
+      template.description
+    ].some((value) => String(value || '').toLowerCase().includes(query));
+  });
+}
+
 function getEmailsDraftRecord(templateKey = emailsAdminState.selectedKey) {
   return emailsAdminState.draftVersions?.[templateKey] || null;
 }
@@ -1354,11 +1393,19 @@ function getEmailsSample(template) {
   return fallbackSample;
 }
 
+function confirmEmailsDraftNavigation() {
+  if (!emailsAdminState.draftMode) return true;
+  return window.confirm('You are editing a draft. Continue without saving and discard current editor changes?');
+}
+
 function renderEmailsLanguageButtons() {
   $$('[data-email-lang]').forEach((button) => {
     const lang = button.dataset.emailLang;
     button.classList.toggle('is-active', lang === emailsAdminState.language);
     button.onclick = () => {
+      if (lang === emailsAdminState.language) return;
+      if (!confirmEmailsDraftNavigation()) return;
+      emailsAdminState.draftMode = false;
       emailsAdminState.language = lang || 'pl';
       emailsAdminState.testStatusMessage = '';
       renderEmailsLanguageButtons();
@@ -1373,9 +1420,24 @@ function renderEmailsTemplateList() {
   const container = $('#emailsTemplateList');
   if (!container) return;
 
-  const catalog = getEmailsCatalog();
-  if (!catalog.some((template) => template.key === emailsAdminState.selectedKey)) {
-    emailsAdminState.selectedKey = catalog[0]?.key || EMAIL_TEMPLATE_CATALOG[0].key;
+  const fullCatalog = getEmailsCatalog();
+  const catalog = getFilteredEmailsCatalog();
+  renderEmailsTemplateControls(fullCatalog.length, catalog.length);
+
+  if (catalog.length && !catalog.some((template) => template.key === emailsAdminState.selectedKey)) {
+    emailsAdminState.selectedKey = catalog[0].key;
+  } else if (!fullCatalog.some((template) => template.key === emailsAdminState.selectedKey)) {
+    emailsAdminState.selectedKey = fullCatalog[0]?.key || EMAIL_TEMPLATE_CATALOG[0].key;
+  }
+
+  if (!catalog.length) {
+    container.innerHTML = `
+      <div class="emails-template-empty">
+        <strong>No email templates found</strong>
+        <span>Change the recipient filter or search phrase.</span>
+      </div>
+    `;
+    return;
   }
 
   container.innerHTML = catalog.map((template) => {
@@ -1393,9 +1455,11 @@ function renderEmailsTemplateList() {
     }
     return `
       <button class="emails-template-card${active}" type="button" data-email-template-key="${escapeHtml(template.key)}">
-        <span class="emails-template-group">${escapeHtml(template.group)}</span>
+        <span class="emails-template-card-row">
+          <span class="emails-template-group">${escapeHtml(template.group)}</span>
+          <span class="emails-template-recipient">${escapeHtml(template.recipient)}</span>
+        </span>
         <strong>${escapeHtml(template.label)}</strong>
-        <span>${escapeHtml(template.recipient)}</span>
         ${draftBadge}
       </button>
     `;
@@ -1403,6 +1467,9 @@ function renderEmailsTemplateList() {
 
   $$('[data-email-template-key]', container).forEach((button) => {
     button.onclick = async () => {
+      const nextKey = button.dataset.emailTemplateKey || getEmailsCatalog()[0]?.key || EMAIL_TEMPLATE_CATALOG[0].key;
+      if (nextKey === emailsAdminState.selectedKey) return;
+      if (!confirmEmailsDraftNavigation()) return;
       emailsAdminState.selectedKey = button.dataset.emailTemplateKey || getEmailsCatalog()[0]?.key || EMAIL_TEMPLATE_CATALOG[0].key;
       emailsAdminState.draftMode = false;
       emailsAdminState.testStatusMessage = '';
@@ -1417,6 +1484,63 @@ function renderEmailsTemplateList() {
       renderEmailsTestPanel();
     };
   });
+}
+
+function renderEmailsTemplateControls(totalCount, visibleCount) {
+  const filters = $('#emailsTemplateFilters');
+  if (filters) {
+    filters.innerHTML = EMAIL_RECIPIENT_FILTERS.map((filter) => {
+      const active = filter.key === emailsAdminState.recipientFilter ? ' is-active' : '';
+      return `
+        <button class="emails-template-filter${active}" type="button" data-email-recipient-filter="${escapeHtml(filter.key)}">
+          ${escapeHtml(filter.label)}
+        </button>
+      `;
+    }).join('');
+
+    $$('[data-email-recipient-filter]', filters).forEach((button) => {
+      button.onclick = () => {
+        const nextFilter = button.dataset.emailRecipientFilter || 'all';
+        if (nextFilter === emailsAdminState.recipientFilter) return;
+        if (!confirmEmailsDraftNavigation()) return;
+        emailsAdminState.recipientFilter = button.dataset.emailRecipientFilter || 'all';
+        emailsAdminState.draftMode = false;
+        emailsAdminState.testStatusMessage = '';
+        renderEmailsTemplateList();
+        renderEmailsPreview();
+        renderEmailsEditor();
+        renderEmailsTestPanel();
+      };
+    });
+  }
+
+  const search = $('#emailsTemplateSearch');
+  if (search) {
+    if (document.activeElement !== search) {
+      search.value = emailsAdminState.searchQuery || '';
+    }
+    search.oninput = () => {
+      if (emailsAdminState.draftMode && !confirmEmailsDraftNavigation()) {
+        search.value = emailsAdminState.searchQuery || '';
+        return;
+      }
+      emailsAdminState.searchQuery = search.value || '';
+      emailsAdminState.draftMode = false;
+      emailsAdminState.testStatusMessage = '';
+      renderEmailsTemplateList();
+      renderEmailsPreview();
+      renderEmailsEditor();
+      renderEmailsTestPanel();
+    };
+  }
+
+  const count = $('#emailsTemplateCount');
+  if (count) {
+    const label = visibleCount === totalCount
+      ? `${visibleCount} templates`
+      : `${visibleCount} of ${totalCount} templates`;
+    count.textContent = label;
+  }
 }
 
 function renderEmailsPreview() {
