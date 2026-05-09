@@ -198,7 +198,7 @@
 
       // Set language using the i18n system
       if (window.appI18n && typeof window.appI18n.setLanguage === 'function') {
-        window.appI18n.setLanguage(code);
+        window.appI18n.setLanguage(code, { syncProfile: true });
       }
 
       // Hide the selector

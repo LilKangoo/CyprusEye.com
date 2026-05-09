@@ -44,6 +44,12 @@
     );
   }
 
+  const profileLanguageSync = {
+    disabled: false,
+    lastKey: '',
+    timer: 0,
+  };
+
   function resolvePreferredLanguage() {
     return getForcedLanguage() || getUrlLanguage() || getStoredLanguage() || DEFAULT_LANGUAGE;
   }
@@ -80,6 +86,116 @@
 
   function persistLanguage(language) {
     safeLocalStorage('set', STORAGE_KEY, language);
+  }
+
+  function getSupabaseClientForLanguageSync() {
+    const candidates = [];
+    try {
+      if (typeof window.getSupabase === 'function') {
+        candidates.push(window.getSupabase());
+      }
+    } catch (_error) {
+    }
+    candidates.push(
+      window.supabaseClient,
+      window.sb,
+      window.CE_STATE?.supabase,
+      window.CE_STATE?.sb,
+      window.supabase,
+    );
+
+    return candidates.find((client) => (
+      client
+      && typeof client.from === 'function'
+      && client.auth
+      && (typeof client.auth.getUser === 'function' || typeof client.auth.getSession === 'function')
+    )) || null;
+  }
+
+  async function getCurrentUserIdForLanguageSync(client) {
+    const stateUserId = String(window.CE_STATE?.session?.user?.id || '').trim();
+    if (stateUserId) {
+      return stateUserId;
+    }
+
+    try {
+      if (typeof client.auth.getUser === 'function') {
+        const { data, error } = await client.auth.getUser();
+        if (!error && data?.user?.id) {
+          return String(data.user.id);
+        }
+      }
+    } catch (_error) {
+    }
+
+    try {
+      if (typeof client.auth.getSession === 'function') {
+        const { data, error } = await client.auth.getSession();
+        if (!error && data?.session?.user?.id) {
+          return String(data.session.user.id);
+        }
+      }
+    } catch (_error) {
+    }
+
+    return '';
+  }
+
+  function shouldDisableProfileLanguageSync(error) {
+    const text = `${error?.code || ''} ${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`.toLowerCase();
+    return (
+      text.includes('preferred_language')
+      || text.includes('schema cache')
+      || text.includes('permission denied')
+      || text.includes('row-level security')
+      || text.includes('rls')
+    );
+  }
+
+  function syncProfileLanguagePreference(language, attempt = 0) {
+    const target = normalizeSupportedLanguage(language);
+    if (!target || profileLanguageSync.disabled) {
+      return;
+    }
+
+    window.clearTimeout(profileLanguageSync.timer);
+    profileLanguageSync.timer = window.setTimeout(async () => {
+      const client = getSupabaseClientForLanguageSync();
+      if (!client) {
+        if (attempt < 6) {
+          syncProfileLanguagePreference(target, attempt + 1);
+        }
+        return;
+      }
+
+      const userId = await getCurrentUserIdForLanguageSync(client);
+      if (!userId) {
+        return;
+      }
+
+      const syncKey = `${userId}:${target}`;
+      if (profileLanguageSync.lastKey === syncKey) {
+        return;
+      }
+
+      try {
+        const { error } = await client
+          .from('profiles')
+          .update({ preferred_language: target })
+          .eq('id', userId);
+        if (error) {
+          if (shouldDisableProfileLanguageSync(error)) {
+            profileLanguageSync.disabled = true;
+          }
+          return;
+        }
+        profileLanguageSync.lastKey = syncKey;
+      } catch (error) {
+        if (shouldDisableProfileLanguageSync(error)) {
+          profileLanguageSync.disabled = true;
+        }
+      }
+    }, 300);
   }
 
   function syncUrl(language) {
@@ -369,7 +485,7 @@
           return;
         }
 
-        setLanguage(lang);
+        setLanguage(lang, { syncProfile: true });
       });
     });
 
@@ -598,7 +714,7 @@
       option.addEventListener('click', () => {
         closeMenu();
         if (code !== appI18n.language) {
-          setLanguage(code);
+          setLanguage(code, { syncProfile: true });
         }
       });
 
@@ -632,7 +748,7 @@
     setOptionsTabIndex(-1);
   }
 
-  function setLanguage(language, { persist = true, updateUrl = true } = {}) {
+  function setLanguage(language, { persist = true, updateUrl = true, syncProfile = false } = {}) {
     let target = language;
     if (!Object.prototype.hasOwnProperty.call(SUPPORTED_LANGUAGES, target)) {
       target = DEFAULT_LANGUAGE;
@@ -640,6 +756,9 @@
 
     if (persist) {
       persistLanguage(target);
+    }
+    if (persist && syncProfile) {
+      syncProfileLanguagePreference(target);
     }
     if (updateUrl) {
       syncUrl(target);

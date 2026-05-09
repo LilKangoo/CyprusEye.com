@@ -62,7 +62,7 @@ function setLanguage(lang) {
   // all [data-i18n] elements and internal modules switch language too.
   if (window.appI18n && typeof window.appI18n.setLanguage === 'function') {
     try {
-      window.appI18n.setLanguage(lang);
+      window.appI18n.setLanguage(lang, { syncProfile: true });
     } catch (error) {
       console.error('Failed to delegate language change to appI18n:', error);
     }
