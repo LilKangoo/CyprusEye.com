@@ -15,6 +15,7 @@ const ADMIN_CONFIG = {
 };
 
 const EMAIL_BRAND_LOGO_URL = '/assets/cyprus_logo-1000x1054.png';
+const EMAIL_BRAND_LOGO_PUBLIC_URL = 'https://cypruseye.com/assets/cyprus_logo-1000x1054.png';
 
 let adminState = {
   user: null,
@@ -1705,6 +1706,7 @@ function getEmailsEditorFields() {
     advancedButton: $('#btnEmailsToggleAdvancedHtml'),
     advancedPanel: $('#emailsAdvancedHtmlPanel'),
     advancedStatus: $('#emailsAdvancedHtmlStatus'),
+    insertBrandButton: $('#btnEmailsInsertBrandHeader'),
     subject: $('#emailsDraftSubject'),
     heading: $('#emailsDraftHeading'),
     intro: $('#emailsDraftIntro'),
@@ -1791,6 +1793,44 @@ function insertEmailVariableIntoFocusedField(variableName) {
   updateEmailsDraftPreviewFromEditor();
 }
 
+function getEmailBrandHeaderHtmlSnippet() {
+  return [
+    '<table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 18px;">',
+    '  <tr>',
+    '    <td style="padding:0 7px 0 0; vertical-align:middle;">',
+    `      <img src="${EMAIL_BRAND_LOGO_PUBLIC_URL}" alt="" width="16" height="16" style="display:block; width:16px; height:16px; max-width:16px; border:0; outline:none; text-decoration:none;">`,
+    '    </td>',
+    '    <td style="padding:0; vertical-align:middle; font-size:12px; font-weight:900; letter-spacing:0.14em; text-transform:uppercase; color:#ef4444;">',
+    '      CyprusEye',
+    '    </td>',
+    '  </tr>',
+    '</table>'
+  ].join('\n');
+}
+
+function insertEmailHtmlSnippet(snippet) {
+  const fields = getEmailsEditorFields();
+  const target = fields.html;
+  if (!target) return;
+
+  const currentValue = String(target.value || '');
+  const start = Number.isInteger(target.selectionStart) ? target.selectionStart : currentValue.length;
+  const end = Number.isInteger(target.selectionEnd) ? target.selectionEnd : currentValue.length;
+  const prefix = currentValue.slice(0, start);
+  const suffix = currentValue.slice(end);
+  const separatorBefore = prefix && !/\n$/.test(prefix) ? '\n' : '';
+  const separatorAfter = suffix && !/^\n/.test(suffix) ? '\n' : '';
+  target.value = `${prefix}${separatorBefore}${snippet}${separatorAfter}${suffix}`;
+  const cursor = `${prefix}${separatorBefore}${snippet}`.length;
+  target.focus();
+  try {
+    target.setSelectionRange(cursor, cursor);
+  } catch (_error) {
+  }
+  emailsAdminState.focusedEditorFieldId = target.id;
+  updateEmailsDraftPreviewFromEditor();
+}
+
 function bindEmailsEditorFieldEvents() {
   const fields = getEmailsEditorFields();
   getEmailsEditableFields(fields).forEach((field) => {
@@ -1804,6 +1844,12 @@ function bindEmailsEditorFieldEvents() {
     fields.advancedButton.onclick = () => {
       emailsAdminState.advancedHtmlVisible = !emailsAdminState.advancedHtmlVisible;
       renderEmailsEditor();
+    };
+  }
+
+  if (fields.insertBrandButton) {
+    fields.insertBrandButton.onclick = () => {
+      insertEmailHtmlSnippet(getEmailBrandHeaderHtmlSnippet());
     };
   }
 
