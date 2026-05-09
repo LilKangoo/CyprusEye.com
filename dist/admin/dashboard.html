@@ -6555,6 +6555,16 @@
                   </div>
                 </div>
 
+                <div class="emails-editor-helper">
+                  <div>
+                    <strong>Available variables</strong>
+                    <span>Click a variable to insert it into the active field.</span>
+                  </div>
+                  <div id="emailsEditorVariables" class="emails-variable-list emails-editor-variable-list"></div>
+                </div>
+
+                <div id="emailsDraftValidation" class="emails-draft-validation" role="status"></div>
+
                 <div class="emails-editor-grid">
                   <label class="emails-editor-field">
                     <span>Subject</span>
@@ -6572,10 +6582,23 @@
                     <span>CTA label</span>
                     <input id="emailsDraftCta" type="text" placeholder="Button text">
                   </label>
-                  <label class="emails-editor-field emails-editor-field-wide">
-                    <span>Custom HTML draft (optional, not rendered in production yet)</span>
-                    <textarea id="emailsDraftHtml" rows="7" placeholder="<p>Optional custom HTML for this language...</p>"></textarea>
-                  </label>
+                </div>
+
+                <div class="emails-advanced-html">
+                  <div class="emails-advanced-html-header">
+                    <button class="btn-secondary" id="btnEmailsToggleAdvancedHtml" type="button">Show advanced HTML</button>
+                    <span id="emailsAdvancedHtmlStatus" class="emails-advanced-html-status">Visual template active</span>
+                  </div>
+                  <div id="emailsAdvancedHtmlPanel" class="emails-advanced-html-panel" hidden>
+                    <p>
+                      Advanced HTML overrides the visual template for this language when this DB template is live.
+                      Keep required variables available and test before publishing.
+                    </p>
+                    <label class="emails-editor-field emails-editor-field-wide">
+                      <span>Custom HTML draft</span>
+                      <textarea id="emailsDraftHtml" rows="8" placeholder="<p>Optional custom HTML for this language...</p>"></textarea>
+                    </label>
+                  </div>
                 </div>
               </div>
 
