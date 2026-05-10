@@ -16,6 +16,7 @@ const ADMIN_CONFIG = {
 
 const EMAIL_BRAND_LOGO_URL = '/assets/cyprus_logo-1000x1054.png';
 const EMAIL_BRAND_LOGO_PUBLIC_URL = 'https://cypruseye.com/assets/cyprus_logo-1000x1054.png';
+const EMAIL_EDITABLE_LANGUAGES = ['pl', 'en'];
 
 let adminState = {
   user: null,
@@ -1309,6 +1310,8 @@ const emailsAdminState = {
   searchQuery: '',
   advancedHtmlVisible: false,
   draftEditorKey: '',
+  draftWorkingKey: '',
+  draftWorkingContent: null,
   focusedEditorFieldId: '',
   templates: EMAIL_TEMPLATE_CATALOG,
   catalogSource: 'static',
@@ -1386,13 +1389,24 @@ function getEmailsDraftRecord(templateKey = emailsAdminState.selectedKey) {
   return emailsAdminState.draftVersions?.[templateKey] || null;
 }
 
+function normalizeEmailsLanguage(value) {
+  const lang = String(value || '').trim().toLowerCase();
+  return EMAIL_EDITABLE_LANGUAGES.includes(lang) ? lang : 'pl';
+}
+
 function getEmailsSample(template) {
-  const fallbackSample = template.sample?.[emailsAdminState.language] || template.sample?.pl || template.sample?.en || {};
+  const lang = normalizeEmailsLanguage(emailsAdminState.language);
+  const fallbackSample = template.sample?.[lang] || template.sample?.pl || template.sample?.en || {};
   const draftRecord = getEmailsDraftRecord(template.key);
-  const draftContent = draftRecord?.content && typeof draftRecord.content === 'object'
-    ? draftRecord.content
+  const workingContent = emailsAdminState.draftMode
+    && emailsAdminState.draftWorkingContent
+    && emailsAdminState.draftWorkingKey === getEmailsDraftWorkingKey(template, draftRecord)
+    ? emailsAdminState.draftWorkingContent
     : null;
-  const draftSample = draftContent?.[emailsAdminState.language];
+  const draftContent = workingContent || (draftRecord?.content && typeof draftRecord.content === 'object'
+    ? draftRecord.content
+    : null);
+  const draftSample = draftContent?.[lang];
   if (draftSample && typeof draftSample === 'object') {
     return { ...fallbackSample, ...draftSample };
   }
@@ -1417,7 +1431,15 @@ function getEmailsEditorLiveSample(template) {
 function getEmailsDraftEditorKey(template, draftRecord) {
   return [
     template?.key || '',
-    emailsAdminState.language || 'pl',
+    normalizeEmailsLanguage(emailsAdminState.language),
+    draftRecord?.id || 'base',
+    draftRecord?.versionNumber || 0
+  ].join(':');
+}
+
+function getEmailsDraftWorkingKey(template, draftRecord) {
+  return [
+    template?.key || '',
     draftRecord?.id || 'base',
     draftRecord?.versionNumber || 0
   ].join(':');
@@ -1434,6 +1456,10 @@ function renderEmailsLanguageButtons() {
     button.classList.toggle('is-active', lang === emailsAdminState.language);
     button.onclick = () => {
       if (lang === emailsAdminState.language) return;
+      if (emailsAdminState.draftMode) {
+        switchEmailsEditorLanguage(lang);
+        return;
+      }
       if (!confirmEmailsDraftNavigation()) return;
       emailsAdminState.draftMode = false;
       emailsAdminState.language = lang || 'pl';
@@ -1729,12 +1755,8 @@ function renderEmailsDraftValidation() {
     return;
   }
 
-  const missing = [
-    [fields.subject, 'subject'],
-    [fields.heading, 'heading'],
-    [fields.intro, 'intro text'],
-    [fields.cta, 'CTA label']
-  ].filter(([field]) => !String(field?.value || '').trim()).map(([, label]) => label);
+  const { content } = getEmailsDraftContentSnapshot();
+  const missing = getEmailsContentMissingFields(content);
 
   fields.validation.hidden = false;
   if (missing.length) {
@@ -1742,7 +1764,7 @@ function renderEmailsDraftValidation() {
     fields.validation.textContent = `Missing required visual fields: ${missing.join(', ')}.`;
   } else {
     fields.validation.classList.add('is-ready');
-    fields.validation.textContent = 'Visual draft is complete. Save draft before sending a test email.';
+    fields.validation.textContent = 'PL and EN drafts are complete. Save draft before sending a test email.';
   }
 }
 
@@ -1756,6 +1778,7 @@ function updateEmailsAdvancedHtmlStatus() {
 
 function updateEmailsDraftPreviewFromEditor() {
   if (!emailsAdminState.draftMode) return;
+  syncCurrentEmailsEditorLanguage();
   updateEmailsAdvancedHtmlStatus();
   renderEmailsPreview();
   renderEmailsDraftValidation();
@@ -1831,6 +1854,30 @@ function insertEmailHtmlSnippet(snippet) {
   updateEmailsDraftPreviewFromEditor();
 }
 
+function renderEmailsEditorLanguageButtons() {
+  $$('[data-email-editor-lang]').forEach((button) => {
+    const lang = normalizeEmailsLanguage(button.dataset.emailEditorLang);
+    button.classList.toggle('is-active', lang === normalizeEmailsLanguage(emailsAdminState.language));
+    button.onclick = () => switchEmailsEditorLanguage(lang);
+  });
+}
+
+function switchEmailsEditorLanguage(nextLanguage) {
+  if (!emailsAdminState.draftMode) return;
+  const lang = normalizeEmailsLanguage(nextLanguage);
+  if (lang === normalizeEmailsLanguage(emailsAdminState.language)) return;
+
+  syncCurrentEmailsEditorLanguage();
+  emailsAdminState.language = lang;
+  emailsAdminState.draftEditorKey = '';
+  emailsAdminState.focusedEditorFieldId = '';
+  emailsAdminState.testStatusMessage = '';
+  renderEmailsLanguageButtons();
+  renderEmailsEditor();
+  renderEmailsPreview();
+  renderEmailsTestPanel();
+}
+
 function bindEmailsEditorFieldEvents() {
   const fields = getEmailsEditorFields();
   getEmailsEditableFields(fields).forEach((field) => {
@@ -1865,8 +1912,11 @@ function bindEmailsEditorFieldEvents() {
 function renderEmailsEditor() {
   const fields = getEmailsEditorFields();
   const template = getEmailsCatalogTemplate(emailsAdminState.selectedKey);
-  const sample = getEmailsSample(template);
   const draftRecord = getEmailsDraftRecord(template.key);
+  if (emailsAdminState.draftMode) {
+    ensureEmailsDraftWorkingContent(template, draftRecord);
+  }
+  const sample = getEmailsSample(template);
   const canPersistDrafts = emailsAdminState.catalogSource === 'database';
   const liveDbSupported = isEmailLiveDbSupported(template.key);
   const liveDbEnabled = isEmailLiveDbEnabled(template);
@@ -1930,9 +1980,12 @@ function renderEmailsEditor() {
 
   if (!emailsAdminState.draftMode) {
     emailsAdminState.draftEditorKey = '';
+    renderEmailsEditorLanguageButtons();
     if (fields.validation) fields.validation.hidden = true;
     return;
   }
+
+  renderEmailsEditorLanguageButtons();
 
   if (fields.variables) {
     fields.variables.innerHTML = template.requiredVars.map((variableName) => `
@@ -2079,43 +2132,120 @@ async function loadEmailTemplateDraftState(templateKey = emailsAdminState.select
 }
 
 function cloneEmailTemplateContent(template, draftRecord) {
-  const source = draftRecord?.content && typeof draftRecord.content === 'object'
-    ? draftRecord.content
-    : template.sample || {};
+  const baseContent = template.sample && typeof template.sample === 'object' ? template.sample : {};
+  const draftContent = draftRecord?.content && typeof draftRecord.content === 'object' ? draftRecord.content : {};
+  const source = { ...baseContent, ...draftContent };
+
+  EMAIL_EDITABLE_LANGUAGES.forEach((lang) => {
+    source[lang] = {
+      ...(baseContent[lang] && typeof baseContent[lang] === 'object' ? baseContent[lang] : {}),
+      ...(draftContent[lang] && typeof draftContent[lang] === 'object' ? draftContent[lang] : {})
+    };
+  });
+
   try {
     return JSON.parse(JSON.stringify(source));
   } catch {
-    return { ...(template.sample || {}) };
+    return { ...source };
   }
 }
 
-function collectEmailsDraftContent() {
+function ensureEmailsDraftWorkingContent(template, draftRecord) {
+  const workingKey = getEmailsDraftWorkingKey(template, draftRecord);
+  if (!emailsAdminState.draftWorkingContent || emailsAdminState.draftWorkingKey !== workingKey) {
+    emailsAdminState.draftWorkingKey = workingKey;
+    emailsAdminState.draftWorkingContent = cloneEmailTemplateContent(template, draftRecord);
+  }
+  return emailsAdminState.draftWorkingContent;
+}
+
+function getEmailsEditorFieldValues(fields = getEmailsEditorFields(), options = {}) {
+  const normalize = (value) => {
+    const text = String(value || '');
+    return options.trim ? text.trim() : text;
+  };
+  return {
+    subject: normalize(fields.subject?.value),
+    heading: normalize(fields.heading?.value),
+    intro: normalize(fields.intro?.value),
+    cta: normalize(fields.cta?.value),
+    html: normalize(fields.html?.value)
+  };
+}
+
+function writeEmailsLanguageContent(content, lang, values) {
+  const normalizedLang = normalizeEmailsLanguage(lang);
+  content[normalizedLang] = {
+    ...(content[normalizedLang] && typeof content[normalizedLang] === 'object' ? content[normalizedLang] : {}),
+    subject: values.subject,
+    heading: values.heading,
+    intro: values.intro,
+    cta: values.cta
+  };
+  if (String(values.html || '').trim()) {
+    content[normalizedLang].html = values.html;
+  } else {
+    delete content[normalizedLang].html;
+  }
+}
+
+function syncCurrentEmailsEditorLanguage(options = {}) {
+  if (!emailsAdminState.draftMode) return null;
   const template = getEmailsCatalogTemplate(emailsAdminState.selectedKey);
   const draftRecord = getEmailsDraftRecord(template.key);
-  const fields = getEmailsEditorFields();
-  const subject = fields.subject?.value?.trim() || '';
-  const heading = fields.heading?.value?.trim() || '';
-  const intro = fields.intro?.value?.trim() || '';
-  const cta = fields.cta?.value?.trim() || '';
-  const html = fields.html?.value?.trim() || '';
+  const content = ensureEmailsDraftWorkingContent(template, draftRecord);
+  writeEmailsLanguageContent(
+    content,
+    emailsAdminState.language,
+    getEmailsEditorFieldValues(getEmailsEditorFields(), { trim: Boolean(options.trim) })
+  );
+  return content;
+}
 
-  if (!subject || !heading || !intro || !cta) {
-    showToast('Subject, heading, intro text and CTA label are required for a safe draft.', 'error');
-    return null;
+function getEmailsDraftContentSnapshot(options = {}) {
+  const template = getEmailsCatalogTemplate(emailsAdminState.selectedKey);
+  const draftRecord = getEmailsDraftRecord(template.key);
+  const baseContent = ensureEmailsDraftWorkingContent(template, draftRecord);
+  let content;
+  try {
+    content = JSON.parse(JSON.stringify(baseContent || {}));
+  } catch {
+    content = { ...(baseContent || {}) };
   }
+  if (emailsAdminState.draftMode) {
+    writeEmailsLanguageContent(
+      content,
+      emailsAdminState.language,
+      getEmailsEditorFieldValues(getEmailsEditorFields(), { trim: Boolean(options.trim) })
+    );
+  }
+  return { template, draftRecord, content };
+}
 
-  const content = cloneEmailTemplateContent(template, draftRecord);
-  content[emailsAdminState.language] = {
-    ...(content[emailsAdminState.language] || {}),
-    subject,
-    heading,
-    intro,
-    cta
-  };
-  if (html) {
-    content[emailsAdminState.language].html = html;
-  } else {
-    delete content[emailsAdminState.language].html;
+function getEmailsContentMissingFields(content) {
+  const missing = [];
+  EMAIL_EDITABLE_LANGUAGES.forEach((lang) => {
+    const entry = content?.[lang] && typeof content[lang] === 'object' ? content[lang] : {};
+    [
+      ['subject', 'subject'],
+      ['heading', 'heading'],
+      ['intro', 'intro text'],
+      ['cta', 'CTA label']
+    ].forEach(([key, label]) => {
+      if (!String(entry[key] || '').trim()) missing.push(`${lang.toUpperCase()} ${label}`);
+    });
+  });
+  return missing;
+}
+
+function collectEmailsDraftContent() {
+  syncCurrentEmailsEditorLanguage({ trim: true });
+  const { template, draftRecord, content } = getEmailsDraftContentSnapshot({ trim: true });
+  const missing = getEmailsContentMissingFields(content);
+
+  if (missing.length) {
+    showToast(`Complete required fields before saving: ${missing.join(', ')}.`, 'error');
+    return null;
   }
 
   return {
@@ -2132,8 +2262,12 @@ async function enableEmailsDraftEditor() {
   }
   await loadEmailTemplateDraftState(emailsAdminState.selectedKey);
   const template = getEmailsCatalogTemplate(emailsAdminState.selectedKey);
-  const sample = getEmailsSample(template);
+  const draftRecord = getEmailsDraftRecord(template.key);
+  emailsAdminState.draftWorkingKey = '';
+  emailsAdminState.draftWorkingContent = cloneEmailTemplateContent(template, draftRecord);
+  emailsAdminState.draftWorkingKey = getEmailsDraftWorkingKey(template, draftRecord);
   emailsAdminState.draftMode = true;
+  const sample = getEmailsSample(template);
   emailsAdminState.advancedHtmlVisible = Boolean(String(sample.html || '').trim());
   emailsAdminState.draftEditorKey = '';
   emailsAdminState.focusedEditorFieldId = '';
@@ -2199,6 +2333,8 @@ async function saveEmailsDraft() {
       emailsAdminState.draftVersions[savedRecord.templateKey] = savedRecord;
     }
     emailsAdminState.draftMode = false;
+    emailsAdminState.draftWorkingKey = '';
+    emailsAdminState.draftWorkingContent = null;
     emailsAdminState.testStatusMessage = '';
     showToast('Draft saved. Live email sending is unchanged.', 'success');
     renderEmailsTemplateList();
@@ -2401,6 +2537,8 @@ function bindEmailsDraftActions() {
       emailsAdminState.draftMode = false;
       emailsAdminState.advancedHtmlVisible = false;
       emailsAdminState.draftEditorKey = '';
+      emailsAdminState.draftWorkingKey = '';
+      emailsAdminState.draftWorkingContent = null;
       emailsAdminState.focusedEditorFieldId = '';
       emailsAdminState.testStatusMessage = '';
       renderEmailsPreview();
