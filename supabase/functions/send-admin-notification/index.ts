@@ -669,6 +669,7 @@ function firstNonEmpty(...values: unknown[]): string {
 
 function getTemplateServiceName(category: Category, record: Record<string, unknown>): string {
   if (category === "cars") return firstNonEmpty(getField(record, ["car_model", "vehicle", "car"]));
+  if (category === "trips") return firstNonEmpty(getField(record, ["trip_name", "trip_title", "title", "trip_slug", "summary"]));
   if (category === "hotels") return firstNonEmpty(getField(record, ["hotel_name", "hotel_slug", "hotel", "summary"]));
   if (category === "transport") return firstNonEmpty(buildTransportRouteLabel(record), getField(record, ["route_label", "route_name", "summary"]));
   if (category === "shop") return firstNonEmpty(getField(record, ["order_number", "summary"]), "Shop order");
