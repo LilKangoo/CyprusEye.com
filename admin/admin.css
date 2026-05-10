@@ -759,12 +759,33 @@ body[data-admin-panel="true"].admin-sidebar-open {
 .emails-template-draft {
   width: max-content;
   padding: 4px 8px;
-  color: #bbf7d0 !important;
-  background: rgba(34, 197, 94, 0.12);
-  border: 1px solid rgba(34, 197, 94, 0.22);
   border-radius: 999px;
   font-size: 11px !important;
   font-weight: 800;
+}
+
+.emails-template-draft.is-live-on {
+  color: #bbf7d0 !important;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.24);
+}
+
+.emails-template-draft.is-live-off {
+  color: #cbd5e1 !important;
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.emails-template-draft.is-draft {
+  color: #bfdbfe !important;
+  background: rgba(59, 130, 246, 0.14);
+  border: 1px solid rgba(59, 130, 246, 0.26);
+}
+
+.emails-template-draft.is-flag {
+  color: #fde68a !important;
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.26);
 }
 
 .emails-template-group {

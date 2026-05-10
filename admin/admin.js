@@ -1324,10 +1324,7 @@ const emailsAdminState = {
   testStatusMessage: ''
 };
 
-const EMAIL_LIVE_DB_TEMPLATE_KEYS = new Set([
-  'customer_deposit_requested',
-  'customer_received'
-]);
+const EMAIL_LIVE_DB_TEMPLATE_KEYS = new Set(EMAIL_TEMPLATE_CATALOG.map((template) => template.key));
 
 const EMAIL_RECIPIENT_FILTERS = [
   { key: 'all', label: 'All' },
@@ -1501,13 +1498,13 @@ function renderEmailsTemplateList() {
     const draftRecord = getEmailsDraftRecord(template.key);
     let draftBadge = '';
     if (draftRecord?.status === 'draft') {
-      draftBadge = '<span class="emails-template-draft">Draft saved</span>';
+      draftBadge = '<span class="emails-template-draft is-draft">Draft saved</span>';
     } else if (draftRecord?.status === 'published' && draftRecord.id && draftRecord.id === template.activeVersionId) {
       draftBadge = isEmailLiveDbEnabled(template)
-        ? '<span class="emails-template-draft">Live DB</span>'
+        ? '<span class="emails-template-draft is-live-on">Live ON</span>'
         : (template.productionEnabled
-          ? '<span class="emails-template-draft">DB flag on</span>'
-          : '<span class="emails-template-draft">DB active</span>');
+          ? '<span class="emails-template-draft is-flag">Flag only</span>'
+          : '<span class="emails-template-draft is-live-off">Live OFF</span>');
     }
     return `
       <button class="emails-template-card${active}" type="button" data-email-template-key="${escapeHtml(template.key)}">
@@ -1638,10 +1635,10 @@ function renderEmailsPreview() {
       status.textContent = `Draft #${draftRecord.versionNumber || ''}`.trim();
     } else if (draftRecord?.status === 'published' && draftRecord.id && draftRecord.id === template.activeVersionId) {
       status.textContent = liveDbEnabled
-        ? `Live DB #${draftRecord.versionNumber || ''}`.trim()
+        ? `Live ON #${draftRecord.versionNumber || ''}`.trim()
         : (template.productionEnabled
-          ? `DB flag on #${draftRecord.versionNumber || ''}`.trim()
-          : `DB active #${draftRecord.versionNumber || ''}`.trim());
+          ? `Flag only #${draftRecord.versionNumber || ''}`.trim()
+          : `Live OFF #${draftRecord.versionNumber || ''}`.trim());
     } else if (draftRecord?.versionNumber) {
       status.textContent = `${String(draftRecord.status || 'Seed').toUpperCase()} #${draftRecord.versionNumber}`;
     } else {
@@ -1687,7 +1684,7 @@ function renderEmailsPreview() {
         previewNotice = `Preview is showing database published version #${draftRecord.versionNumber || ''}. DB flag is enabled, but this template is not connected to live DB rendering yet. Production falls back to the existing live template.`;
       } else {
         previewNotice =
-          `Preview is showing database published version #${draftRecord.versionNumber || ''}. Production emails still use live templates until DB sending is enabled.`;
+          `Preview is showing database published version #${draftRecord.versionNumber || ''}. Production emails still use the existing hardcoded template until Live DB is enabled.`;
       }
     }
 
@@ -1929,7 +1926,7 @@ function renderEmailsEditor() {
     && draftRecord?.status === 'published'
     && draftRecord?.id
     && draftRecord.id === template.activeVersionId;
-  const canToggleLive = hasActivePublishedVersion && (liveDbSupported || template.productionEnabled);
+  const canToggleLive = hasActivePublishedVersion && liveDbSupported;
 
   if (fields.panel) fields.panel.hidden = !emailsAdminState.draftMode;
   if (fields.editButton) {
@@ -1956,8 +1953,8 @@ function renderEmailsEditor() {
     fields.liveButton.textContent = emailsAdminState.liveToggleInProgress
       ? 'Updating live...'
       : (template.productionEnabled
-        ? (liveDbSupported ? 'Disable live DB' : 'Disable unused DB flag')
-        : 'Enable live DB');
+        ? 'Turn live DB OFF'
+        : 'Turn live DB ON');
   }
 
   if (fields.status) {
@@ -1970,7 +1967,7 @@ function renderEmailsEditor() {
         ? `Database active version #${draftRecord.versionNumber || ''} is enabled for live sending for this template.`
         : (template.productionEnabled
           ? `Database active version #${draftRecord.versionNumber || ''} has a DB flag, but this template is not connected to live DB rendering yet. Production falls back to the existing template.`
-          : `Database active version #${draftRecord.versionNumber || ''}. Production sending is still unchanged until DB templates are enabled.`);
+          : `Database active version #${draftRecord.versionNumber || ''}. Production still uses the existing hardcoded template until Live DB is turned on.`);
     } else if (draftRecord?.versionNumber) {
       fields.status.textContent = `Base version #${draftRecord.versionNumber}. Saving creates a separate draft version.`;
     } else {
@@ -2485,8 +2482,8 @@ async function toggleEmailsLiveTemplate() {
 
   const confirmed = window.confirm(
     nextEnabled
-      ? `Enable database template version #${draftRecord.versionNumber || ''} for live production sending?\n\nThis changes only this one email template. If the live function cannot render the DB template, it will fall back to the existing hardcoded email.`
-      : `Disable database live sending for this template?\n\nProduction will return to the existing hardcoded email template.`
+      ? `Turn live DB ON for database template version #${draftRecord.versionNumber || ''}?\n\nThis changes only this one email template. If the live function cannot render the DB template, it will fall back to the existing hardcoded email.`
+      : `Turn live DB OFF for this template?\n\nProduction will return to the existing hardcoded email template.`
   );
   if (!confirmed) return;
 
@@ -2512,7 +2509,7 @@ async function toggleEmailsLiveTemplate() {
 
     await loadEmailsCatalogFromDatabase();
     await loadEmailTemplateDraftState(template.key);
-    showToast(nextEnabled ? 'Live DB template enabled for this email.' : 'Live DB template disabled for this email.', 'success');
+    showToast(nextEnabled ? 'Live DB turned ON for this email.' : 'Live DB turned OFF for this email.', 'success');
     renderEmailsTemplateList();
     renderEmailsPreview();
   } catch (error) {

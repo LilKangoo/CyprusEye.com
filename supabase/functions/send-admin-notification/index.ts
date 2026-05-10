@@ -659,6 +659,233 @@ function buildCustomerReceivedTemplateVariables(params: {
   };
 }
 
+function firstNonEmpty(...values: unknown[]): string {
+  for (const value of values) {
+    const text = valueToString(value);
+    if (text) return text;
+  }
+  return "";
+}
+
+function getTemplateServiceName(category: Category, record: Record<string, unknown>): string {
+  if (category === "cars") return firstNonEmpty(getField(record, ["car_model", "vehicle", "car"]));
+  if (category === "hotels") return firstNonEmpty(getField(record, ["hotel_name", "hotel_slug", "hotel", "summary"]));
+  if (category === "transport") return firstNonEmpty(buildTransportRouteLabel(record), getField(record, ["route_label", "route_name", "summary"]));
+  if (category === "shop") return firstNonEmpty(getField(record, ["order_number", "summary"]), "Shop order");
+  if (category === "partners") return firstNonEmpty(getField(record, ["business_name", "partner_name", "name"]), "Partner request");
+  return toTitle(category);
+}
+
+function getTemplateBookingReference(record: Record<string, unknown>, recordId: string): string {
+  return firstNonEmpty(
+    getField(record, ["booking_reference", "fulfillment_reference", "reference", "order_number", "orderNumber", "id"]),
+    recordId,
+  );
+}
+
+function getTemplateCustomerName(record: Record<string, unknown>, lang: "pl" | "en" = "en"): string {
+  return firstNonEmpty(
+    getField(record, ["customer_name", "customerName", "full_name", "name", "shipping_name", "billing_name"]),
+    lang === "pl" ? "Klient" : "Customer",
+  );
+}
+
+function getTemplateBookingSummary(category: Category, record: Record<string, unknown>, fallback: string): string {
+  const serviceName = fallback || getTemplateServiceName(category, record);
+  const currency = getField(record, ["currency", "currency_code"]) || "EUR";
+
+  if (category === "shop") {
+    const total = formatMoney(
+      getField(record, ["total", "amount_total", "grand_total", "total_amount", "price_total", "subtotal"]),
+      currency,
+    );
+    return [serviceName, total].filter(Boolean).join(" | ") || serviceName;
+  }
+
+  if (category === "transport") {
+    return [
+      serviceName,
+      [formatDate(getField(record, ["travel_date", "start_date"])), formatTime(getField(record, ["travel_time", "start_time"]))].filter(Boolean).join(" "),
+      getField(record, ["num_passengers"]) ? `${getField(record, ["num_passengers"])} passenger(s)` : "",
+    ].filter(Boolean).join(" | ") || serviceName;
+  }
+
+  if (category === "cars") {
+    return [
+      serviceName,
+      [formatDate(getField(record, ["pickup_date"])), formatTime(getField(record, ["pickup_time"])), getField(record, ["pickup_location"])].filter(Boolean).join(" "),
+      [formatDate(getField(record, ["return_date"])), formatTime(getField(record, ["return_time"])), getField(record, ["return_location"])].filter(Boolean).join(" "),
+    ].filter(Boolean).join(" | ") || serviceName;
+  }
+
+  if (category === "trips") {
+    return [
+      serviceName,
+      formatDate(getField(record, ["selected_trip_date", "trip_date", "preferred_trip_date"])),
+      getField(record, ["num_adults"]) ? `${getField(record, ["num_adults"])} adult(s)` : "",
+    ].filter(Boolean).join(" | ") || serviceName;
+  }
+
+  if (category === "hotels") {
+    return [
+      serviceName,
+      [formatDate(getField(record, ["arrival_date", "check_in"])), formatDate(getField(record, ["departure_date", "check_out"]))].filter(Boolean).join(" -> "),
+    ].filter(Boolean).join(" | ") || serviceName;
+  }
+
+  return firstNonEmpty(serviceName, getField(record, ["summary", "description"]), getTemplateBookingReference(record, ""));
+}
+
+function getTemplateLanguage(record: Record<string, unknown> | null | undefined): "pl" | "en" {
+  if (!record) return "en";
+  return getCustomerReceivedTemplateLanguage(record);
+}
+
+function buildAdminNotificationTemplateVariables(params: {
+  category: Category;
+  event: AdminEvent;
+  recordId: string;
+  record: Record<string, unknown>;
+  actionUrl?: string;
+}): Record<string, string> {
+  const { category, event, record, recordId } = params;
+  const lang = getTemplateLanguage(record);
+  const serviceName = getTemplateServiceName(category, record);
+  const bookingReference = getTemplateBookingReference(record, recordId);
+  const adminUrl = buildAdminPanelLink(category, recordId) || getDefaultAdminPushUrl();
+  const partnerUrl = buildPartnerPanelLink(getField(record, ["fulfillment_id", "fulfillmentId"]));
+  const currency = getField(record, ["currency", "currency_code"]) || "EUR";
+  const orderTotal = formatMoney(
+    getField(record, ["total", "amount_total", "grand_total", "total_amount", "price_total", "subtotal"]),
+    currency,
+  );
+  const requestedAmount = formatMoney(
+    getField(record, ["requested_amount", "amount", "requestedAmount"]),
+    currency,
+  );
+  const businessName = firstNonEmpty(getField(record, ["business_name", "businessName", "company", "service", "brand"]), serviceName);
+  const actionUrl = firstNonEmpty(params.actionUrl, adminUrl, partnerUrl, CUSTOMER_HOMEPAGE_URL);
+
+  return {
+    booking_reference: bookingReference,
+    order_reference: firstNonEmpty(getField(record, ["order_number", "orderNumber"]), bookingReference),
+    service_type: toTitle(category),
+    service_name: serviceName,
+    booking_summary: getTemplateBookingSummary(category, record, serviceName),
+    customer_name: getTemplateCustomerName(record, lang),
+    customer_email: firstNonEmpty(getField(record, ["customer_email", "email", "shipping_email", "billing_email"]), "unknown@cypruseye.com"),
+    customer_phone: getField(record, ["customer_phone", "phone", "shipping_phone", "billing_phone"]),
+    partner_name: firstNonEmpty(getField(record, ["partner_name", "partner", "partnerName", "name"]), "Partner"),
+    reason: firstNonEmpty(getField(record, ["reason", "reject_reason", "rejection_reason", "note"]), "No reason provided"),
+    admin_url: adminUrl,
+    partner_url: partnerUrl,
+    accept_url: actionUrl,
+    reject_url: actionUrl,
+    action_url: actionUrl,
+    homepage_url: CUSTOMER_HOMEPAGE_URL,
+    order_total: orderTotal,
+    requested_amount: requestedAmount,
+    currency,
+    applicant_name: firstNonEmpty(getField(record, ["applicant_name", "customer_name", "name", "full_name"]), getTemplateCustomerName(record, lang)),
+    business_name: businessName,
+    package_tier: firstNonEmpty(getField(record, ["package_tier", "package", "plan", "tier"]), "Standard"),
+    selected_date: formatDate(getField(record, ["selected_date", "selected_trip_date", "trip_date"])),
+    trip_name: firstNonEmpty(getField(record, ["trip_name", "trip_title", "title", "trip_slug"]), serviceName),
+    event: eventLabel(event),
+  };
+}
+
+function buildTripDateOptionsTemplateVariables(params: {
+  booking: Record<string, unknown>;
+  request: Record<string, unknown>;
+  bookingId: string;
+  tripName: string;
+  selectionUrl: string;
+}): Record<string, string> {
+  const lang = normalizeDepositLang((params.booking as any)?.lang);
+  const reference = firstNonEmpty(
+    getField(params.booking, ["booking_reference", "reference", "id"]),
+    params.bookingId,
+  );
+  return {
+    booking_reference: reference,
+    customer_name: getTemplateCustomerName(params.booking, lang),
+    trip_name: firstNonEmpty(params.tripName, getField(params.booking, ["trip_slug"]), "Trip booking"),
+    date_options_url: params.selectionUrl,
+    action_url: params.selectionUrl,
+    homepage_url: CUSTOMER_HOMEPAGE_URL,
+    selected_date: formatDate(getField(params.request, ["selected_date", "preferred_date"])),
+    booking_summary: [
+      firstNonEmpty(params.tripName, getField(params.booking, ["trip_slug"])),
+      formatDate(getField(params.request, ["preferred_date"]) || getField(params.booking, ["preferred_trip_date", "trip_date"])),
+    ].filter(Boolean).join(" | "),
+  };
+}
+
+function buildTripDateSelectedTemplateVariables(params: {
+  booking: Record<string, unknown>;
+  bookingId: string;
+  tripName: string;
+  selectedDate: string;
+  actionUrl: string;
+}): Record<string, string> {
+  const reference = firstNonEmpty(getField(params.booking, ["booking_reference", "reference", "id"]), params.bookingId);
+  return {
+    booking_reference: reference,
+    customer_name: getTemplateCustomerName(params.booking, getTemplateLanguage(params.booking)),
+    selected_date: params.selectedDate,
+    trip_name: firstNonEmpty(params.tripName, getField(params.booking, ["trip_slug"]), "Trip booking"),
+    action_url: params.actionUrl,
+    admin_url: params.actionUrl,
+    homepage_url: CUSTOMER_HOMEPAGE_URL,
+  };
+}
+
+function buildDepositPaidTemplateVariables(params: {
+  deposit: Record<string, unknown>;
+  contact?: Record<string, unknown> | null;
+  actionUrl?: string;
+}): Record<string, string> {
+  const deposit = params.deposit;
+  const contact = params.contact || {};
+  const lang = normalizeDepositLang((deposit as any)?.lang);
+  const currency = firstNonEmpty((deposit as any)?.currency, "EUR");
+  const amount = Number((deposit as any)?.amount || 0) || 0;
+  const paidAmount = formatMoney(amount, currency) || `${amount.toFixed(2)} ${currency}`;
+  const reference = firstNonEmpty(getField(deposit, ["fulfillment_reference", "reference", "booking_reference", "id"]));
+  const summary = firstNonEmpty(getField(deposit, ["fulfillment_summary", "service_name", "booking_summary", "resource_name"]), "Service booking");
+  const customerName = firstNonEmpty(getField(contact, ["customer_name", "name"]), getField(deposit, ["customer_name", "name"]), lang === "pl" ? "Klient" : "Customer");
+  const partnerUrl = params.actionUrl || buildPartnerPanelLink(getField(deposit, ["fulfillment_id"]));
+
+  return {
+    booking_reference: reference,
+    customer_name: customerName,
+    customer_email: firstNonEmpty(getField(contact, ["customer_email"]), getField(deposit, ["customer_email"])),
+    customer_phone: firstNonEmpty(getField(contact, ["customer_phone"]), getField(deposit, ["customer_phone"])),
+    partner_name: firstNonEmpty(getField(deposit, ["partner_name", "partner"]), "Partner"),
+    service_name: summary,
+    booking_summary: summary,
+    paid_amount: paidAmount,
+    deposit_amount: paidAmount,
+    currency,
+    payment_url: firstNonEmpty((deposit as any)?.checkout_url),
+    action_url: firstNonEmpty(params.actionUrl, partnerUrl, CUSTOMER_HOMEPAGE_URL),
+    partner_url: partnerUrl,
+    homepage_url: CUSTOMER_HOMEPAGE_URL,
+  };
+}
+
+function getAdminNotificationTemplateKey(category: Category, event: AdminEvent): string | null {
+  if (category === "shop" && event === "paid") return "shop_paid_admin_notice";
+  if (event === "partner_accepted") return "partner_accepted";
+  if (event === "partner_rejected") return "partner_rejected";
+  if (event === "partner_sla") return "partner_sla";
+  if (event === "affiliate_cashout_requested") return "affiliate_cashout_requested";
+  if (event === "partner_plus_application_created") return "partner_plus_application_created";
+  if (event === "created") return "admin_generic_notification";
+  return null;
+}
+
 async function renderEnabledDatabaseEmailTemplate(params: {
   supabase: any;
   templateKey: string;
@@ -721,7 +948,12 @@ async function renderEnabledDatabaseEmailTemplate(params: {
 
     const actionUrl = params.variables.payment_url
       || params.variables.action_url
+      || params.variables.date_options_url
+      || params.variables.plan_url
+      || params.variables.accept_url
       || params.variables.homepage_url
+      || params.variables.admin_url
+      || params.variables.partner_url
       || "";
 
     const html = customHtml
@@ -3143,15 +3375,29 @@ serve(async (req) => {
 
     const partnerId = String(getField(record, ["partner_id", "partnerId"]) || "").trim();
 
-    const { subject } = buildGenericEmail({
+    const { subject: fallbackSubject } = buildGenericEmail({
       category: categoryFromBody,
       event,
       recordId,
       record,
     });
-    const rendered = renderPartnerPendingEmail({ category: categoryFromBody, fulfillmentId: recordId, record });
-    const html = rendered.html;
-    const text = rendered.text;
+    const fallbackRendered = renderPartnerPendingEmail({ category: categoryFromBody, fulfillmentId: recordId, record });
+    const pushUrl = buildPartnerPanelLink(recordId) || getDefaultPartnerPushUrl();
+    const databaseRendered = await renderEnabledDatabaseEmailTemplate({
+      supabase,
+      templateKey: "partner_pending_acceptance",
+      lang: getTemplateLanguage(record),
+      variables: buildAdminNotificationTemplateVariables({
+        category: categoryFromBody,
+        event,
+        recordId,
+        record,
+        actionUrl: pushUrl,
+      }),
+    });
+    const subject = databaseRendered?.subject || fallbackSubject;
+    const html = databaseRendered?.html || fallbackRendered.html;
+    const text = databaseRendered?.text || fallbackRendered.text;
 
     const pushBody = (() => {
       const lines = String(text || "")
@@ -3161,7 +3407,6 @@ serve(async (req) => {
       return lines.slice(0, 3).join(" • ");
     })();
 
-    const pushUrl = buildPartnerPanelLink(recordId) || getDefaultPartnerPushUrl();
     const pushResult = await sendPartnerWebPushNotifications({
       supabase,
       partnerId,
@@ -3318,7 +3563,7 @@ serve(async (req) => {
     const preferredDate = formatDate((reqRow as any)?.preferred_date || (booking as any)?.preferred_trip_date || (booking as any)?.trip_date);
     const options = formatDateOptionList((reqRow as any)?.proposed_dates);
     const expiresAt = formatDateTime((reqRow as any)?.selection_token_expires_at);
-    const rendered = renderTripDateOptionsReadyEmail({
+    const fallbackRendered = renderTripDateOptionsReadyEmail({
       lang,
       tripName: tripName || "Trip booking",
       preferredDate,
@@ -3326,6 +3571,19 @@ serve(async (req) => {
       selectionUrl,
       expiresAt,
     });
+    const databaseRendered = await renderEnabledDatabaseEmailTemplate({
+      supabase,
+      templateKey: "trip_date_options_ready",
+      lang,
+      variables: buildTripDateOptionsTemplateVariables({
+        booking: booking as any,
+        request: reqRow as any,
+        bookingId,
+        tripName: tripName || "Trip booking",
+        selectionUrl,
+      }),
+    });
+    const rendered = databaseRendered || fallbackRendered;
 
     const transport = buildMailTransport();
     if (!transport) {
@@ -3441,7 +3699,7 @@ serve(async (req) => {
       } catch (_e) {}
     }
 
-    const rendered = renderTripDateSelectedNotice({
+    const fallbackRendered = renderTripDateSelectedNotice({
       tripName: tripName || "Trip booking",
       selectedDate: selectedDate || "—",
       bookingId: String((booking as any)?.id || recordId),
@@ -3449,17 +3707,44 @@ serve(async (req) => {
       customerEmail: valueToString((booking as any)?.customer_email),
       partnerName,
     });
+    const actionUrl = buildAdminPanelLink("trips", String((booking as any)?.id || recordId)) || getDefaultAdminPushUrl();
+    const databaseRendered = await renderEnabledDatabaseEmailTemplate({
+      supabase,
+      templateKey: "trip_date_selected",
+      lang: getTemplateLanguage(booking as any),
+      variables: buildTripDateSelectedTemplateVariables({
+        booking: booking as any,
+        bookingId: String((booking as any)?.id || recordId),
+        tripName: tripName || "Trip booking",
+        selectedDate: selectedDate || "—",
+        actionUrl,
+      }),
+    });
+    const rendered = databaseRendered
+      ? {
+        ...fallbackRendered,
+        subject: databaseRendered.subject,
+        html: databaseRendered.html,
+        text: databaseRendered.text,
+        pushTitle: databaseRendered.subject,
+        pushBody: databaseRendered.text
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .slice(0, 3)
+          .join(" • "),
+      }
+      : fallbackRendered;
 
     const adminRecipientsRaw = await getAdminNotificationEmails(supabase);
     const adminRecipients = resolveRecipients("trips", adminRecipientsRaw);
     const partnerRecipients = partnerId ? await getPartnerNotificationEmails(supabase, partnerId) : [];
 
-    const adminPushUrl = buildAdminPanelLink("trips", String((booking as any)?.id || recordId)) || getDefaultAdminPushUrl();
     const adminPush = await sendAdminWebPushNotifications({
       supabase,
       title: rendered.pushTitle,
       body: rendered.pushBody,
-      url: adminPushUrl,
+      url: actionUrl,
     });
 
     let partnerPush: any = null;
@@ -3787,8 +4072,32 @@ serve(async (req) => {
 
     const partnerId = String((dep as any)?.partner_id || "").trim();
     const fulfillmentId = String((dep as any)?.fulfillment_id || "").trim();
+    const pushUrl = buildPartnerPanelLink(fulfillmentId) || getDefaultPartnerPushUrl();
 
-    const rendered = renderPartnerDepositPaidEmail({ deposit: dep as any, contact: null });
+    let contact: Record<string, unknown> | null = null;
+    if (fulfillmentId) {
+      try {
+        const { data: c, error: cErr } = await supabase
+          .from("partner_service_fulfillment_contacts")
+          .select("customer_name, customer_email, customer_phone")
+          .eq("fulfillment_id", fulfillmentId)
+          .maybeSingle();
+        if (!cErr && c) contact = c as any;
+      } catch (_e) {}
+    }
+
+    const fallbackRendered = renderPartnerDepositPaidEmail({ deposit: dep as any, contact });
+    const databaseRendered = await renderEnabledDatabaseEmailTemplate({
+      supabase,
+      templateKey: "partner_deposit_paid",
+      lang: getTemplateLanguage(dep as any),
+      variables: buildDepositPaidTemplateVariables({
+        deposit: dep as any,
+        contact,
+        actionUrl: pushUrl,
+      }),
+    });
+    const rendered = databaseRendered || fallbackRendered;
     const pushBody = (() => {
       const lines = String(rendered.text || "")
         .split("\n")
@@ -3797,7 +4106,6 @@ serve(async (req) => {
       return lines.slice(0, 3).join(" • ");
     })();
 
-    const pushUrl = buildPartnerPanelLink(fulfillmentId) || getDefaultPartnerPushUrl();
     const pushResult = await sendPartnerWebPushNotifications({
       supabase,
       partnerId,
@@ -3814,21 +4122,9 @@ serve(async (req) => {
       });
     }
 
-    let contact: Record<string, unknown> | null = null;
-    if (fulfillmentId) {
-      try {
-        const { data: c, error: cErr } = await supabase
-          .from("partner_service_fulfillment_contacts")
-          .select("customer_name, customer_email, customer_phone")
-          .eq("fulfillment_id", fulfillmentId)
-          .maybeSingle();
-        if (!cErr && c) contact = c as any;
-      } catch (_e) {}
-    }
-
     const subject = rendered.subject;
-    const html = renderPartnerDepositPaidEmail({ deposit: dep as any, contact }).html;
-    const text = renderPartnerDepositPaidEmail({ deposit: dep as any, contact }).text;
+    const html = rendered.html;
+    const text = rendered.text;
 
     const transport = buildMailTransport();
     if (!transport) {
@@ -3950,7 +4246,17 @@ serve(async (req) => {
       });
     }
 
-    const rendered = renderCustomerDepositPaidEmail({ deposit: dep as any });
+    const fallbackRendered = renderCustomerDepositPaidEmail({ deposit: dep as any });
+    const databaseRendered = await renderEnabledDatabaseEmailTemplate({
+      supabase,
+      templateKey: "customer_deposit_paid",
+      lang: normalizeDepositLang((dep as any)?.lang),
+      variables: buildDepositPaidTemplateVariables({
+        deposit: dep as any,
+        actionUrl: CUSTOMER_HOMEPAGE_URL,
+      }),
+    });
+    const rendered = databaseRendered || fallbackRendered;
     const subject = rendered.subject;
     const html = rendered.html;
     const text = rendered.text;
@@ -4158,12 +4464,28 @@ serve(async (req) => {
   if (extraAllAccepted !== undefined) (record as any).all_accepted = extraAllAccepted;
   if (extraNote) (record as any).note = extraNote;
 
-  const { subject, text, html } = buildGenericEmail({
+  const fallbackRendered = buildGenericEmail({
     category: categoryFromBody,
     event,
     recordId,
     record,
   });
+  const databaseTemplateKey = getAdminNotificationTemplateKey(categoryFromBody, event);
+  const databaseRendered = databaseTemplateKey
+    ? await renderEnabledDatabaseEmailTemplate({
+      supabase,
+      templateKey: databaseTemplateKey,
+      lang: getTemplateLanguage(record),
+      variables: buildAdminNotificationTemplateVariables({
+        category: categoryFromBody,
+        event,
+        recordId,
+        record,
+        actionUrl: buildAdminPanelLink(categoryFromBody, recordId) || getDefaultAdminPushUrl(),
+      }),
+    })
+    : null;
+  const { subject, text, html } = databaseRendered || fallbackRendered;
 
   const pushBody = (() => {
     const lines = String(text || "")

@@ -9,6 +9,12 @@ type SendPlanEmailRequest = {
 
 type SupportedLang = "pl" | "en";
 
+type RenderedEmail = {
+  subject: string;
+  text: string;
+  html: string;
+};
+
 function normalizeLang(value: unknown): SupportedLang {
   const raw = String(value || "").trim().toLowerCase();
   if (raw.startsWith("pl")) return "pl";
@@ -71,6 +77,151 @@ function escapeHtml(value: unknown): string {
         return character;
     }
   });
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function asStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => String(item || "").trim()).filter(Boolean);
+}
+
+function replaceEmailTemplateVariables(
+  template: unknown,
+  variables: Record<string, string>,
+  options: { escapeValues?: boolean } = {},
+): string {
+  const source = String(template || "");
+  return source.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_match, key) => {
+    const raw = variables[String(key)] || "";
+    return options.escapeValues === false ? raw : escapeHtml(raw);
+  });
+}
+
+function renderSmallBrandHeader(): string {
+  return `
+    <div style="margin:0 0 16px 0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; font-size:11px; font-weight:900; letter-spacing:.14em; color:#ef4444; text-transform:uppercase;">
+      <img src="${escapeHtml(BRAND_LOGO_URL)}" alt="" width="14" height="14" style="display:inline-block; width:14px; height:14px; object-fit:contain; vertical-align:-2px; margin-right:6px; border:0;" />
+      CyprusEye
+    </div>
+  `.trim();
+}
+
+function renderSimpleTemplateEmailHtml(params: {
+  heading: string;
+  intro: string;
+  cta: string;
+  actionUrl?: string;
+}): string {
+  const actionUrl = String(params.actionUrl || "").trim();
+  const button = actionUrl
+    ? `<a href="${escapeHtml(actionUrl)}" style="display:inline-block; margin-top:18px; padding:12px 18px; border-radius:10px; background:#ef4444; color:#ffffff; text-decoration:none; font-weight:800;">${escapeHtml(params.cta)}</a>`
+    : "";
+  return `
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+      </head>
+      <body style="margin:0; padding:0; background:#eef2ff;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef2ff;">
+          <tr>
+            <td align="center" style="padding:32px 14px;">
+              <table role="presentation" width="520" cellspacing="0" cellpadding="0" style="width:100%; max-width:520px; background:#ffffff; border-radius:18px; border:1px solid #e2e8f0;">
+                <tr>
+                  <td style="padding:32px; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; color:#0f172a;">
+                    ${renderSmallBrandHeader()}
+                    <h1 style="margin:0; font-size:26px; line-height:1.2; color:#0f172a;">${escapeHtml(params.heading)}</h1>
+                    <p style="margin:16px 0 0 0; font-size:15px; line-height:1.6; color:#475569;">${escapeHtml(params.intro)}</p>
+                    ${button}
+                    ${actionUrl ? `<p style="margin:20px 0 0 0; font-size:12px; line-height:1.5; color:#64748b; word-break:break-word;">${escapeHtml(actionUrl)}</p>` : ""}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+    </html>
+  `.trim();
+}
+
+async function renderEnabledDatabaseEmailTemplate(params: {
+  supabase: any;
+  templateKey: string;
+  lang: SupportedLang;
+  variables: Record<string, string>;
+}): Promise<RenderedEmail | null> {
+  const templateKey = String(params.templateKey || "").trim();
+  if (!templateKey) return null;
+
+  try {
+    const { data: catalog, error: catalogError } = await params.supabase
+      .from("email_template_catalog")
+      .select("key, active_version_id, production_enabled, required_variables")
+      .eq("key", templateKey)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (catalogError) {
+      console.warn("Email template catalog lookup failed:", catalogError);
+      return null;
+    }
+
+    const activeVersionId = String((catalog as any)?.active_version_id || "").trim();
+    if (!catalog || !(catalog as any).production_enabled || !activeVersionId) return null;
+
+    const { data: version, error: versionError } = await params.supabase
+      .from("email_template_versions")
+      .select("id, version_number, status, content, required_variables")
+      .eq("id", activeVersionId)
+      .eq("template_key", templateKey)
+      .eq("status", "published")
+      .maybeSingle();
+
+    if (versionError || !version) {
+      console.warn("Email template active version lookup failed:", versionError);
+      return null;
+    }
+
+    const requiredVariables = asStringList((version as any)?.required_variables);
+    const fallbackRequiredVariables = asStringList((catalog as any)?.required_variables);
+    const required = requiredVariables.length ? requiredVariables : fallbackRequiredVariables;
+    const missing = required.filter((name) => !String(params.variables[name] || "").trim());
+    if (missing.length) {
+      console.warn(`Email template ${templateKey} skipped. Missing variables: ${missing.join(", ")}`);
+      return null;
+    }
+
+    const contentRoot = asRecord((version as any)?.content);
+    const localized = asRecord(contentRoot?.[params.lang])
+      || asRecord(contentRoot?.en)
+      || asRecord(contentRoot?.pl);
+    if (!localized) return null;
+
+    const subject = replaceEmailTemplateVariables(localized.subject, params.variables).trim();
+    const heading = replaceEmailTemplateVariables(localized.heading, params.variables).trim();
+    const intro = replaceEmailTemplateVariables(localized.intro, params.variables).trim();
+    const cta = replaceEmailTemplateVariables(localized.cta, params.variables).trim();
+    const customHtml = String(localized.html || "").trim();
+    if (!subject || !heading || !intro || !cta) return null;
+
+    const actionUrl = params.variables.plan_url || params.variables.action_url || params.variables.homepage_url || CUSTOMER_HOMEPAGE_URL;
+    const html = customHtml
+      ? replaceEmailTemplateVariables(customHtml, params.variables, { escapeValues: true })
+      : renderSimpleTemplateEmailHtml({ heading, intro, cta, actionUrl });
+
+    const textLines = [heading, "", intro];
+    if (actionUrl) textLines.push("", `${cta}: ${actionUrl}`);
+    return { subject, html, text: textLines.join("\n") };
+  } catch (error) {
+    console.warn("Email template DB render failed, falling back to hardcoded template:", error);
+    return null;
+  }
 }
 
 function buildMailTransport() {
@@ -505,6 +656,31 @@ serve(async (req) => {
       itemsByDayId,
       lang,
     });
+    const planUrl = `${CUSTOMER_HOMEPAGE_URL}/#plan:${encodeURIComponent(planId)}`;
+    const planTitle = String((plan as any)?.title || "Your trip plan").trim() || "Your trip plan";
+    const planDateRange = [(plan as any)?.start_date || "", (plan as any)?.end_date || ""]
+      .map((value) => String(value || "").trim())
+      .filter(Boolean)
+      .join(" -> ");
+    const planSummary = [
+      (plan as any)?.base_city ? `${t(lang, "base")}: ${(plan as any).base_city}` : "",
+      planDateRange ? `${t(lang, "dates")}: ${planDateRange}` : "",
+      Array.isArray(days) ? `${days.length} ${lang === "pl" ? "dni" : "days"}` : "",
+    ].filter(Boolean).join(" | ") || planTitle;
+    const databaseEmail = await renderEnabledDatabaseEmailTemplate({
+      supabase,
+      templateKey: "trip_plan_email",
+      lang,
+      variables: {
+        customer_name: String(user.user_metadata?.name || user.user_metadata?.full_name || recipientEmail.split("@")[0] || "Customer").trim(),
+        plan_title: planTitle,
+        plan_summary: planSummary,
+        plan_url: planUrl,
+        action_url: planUrl,
+        homepage_url: CUSTOMER_HOMEPAGE_URL,
+      },
+    });
+    const finalEmail = databaseEmail || email;
 
     const transport = buildMailTransport();
     if (!transport) {
@@ -528,9 +704,9 @@ serve(async (req) => {
     await transport.sendMail({
       from,
       to: recipientEmail,
-      subject: email.subject,
-      text: email.text,
-      html: email.html,
+      subject: finalEmail.subject,
+      text: finalEmail.text,
+      html: finalEmail.html,
     });
 
     return new Response(JSON.stringify({ ok: true }), {
