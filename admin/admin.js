@@ -14684,6 +14684,12 @@ async function loadHotelBookingsData() {
         booking.status === 'cancelled' ? 'badge-danger' : 'badge';
       const arr = booking.arrival_date ? new Date(booking.arrival_date).toLocaleDateString('en-GB') : '';
       const dep = booking.departure_date ? new Date(booking.departure_date).toLocaleDateString('en-GB') : '';
+      const listManualAdjustment = parseJsonObjectSafe(booking.admin_manual_adjustment)
+        || parseJsonObjectSafe(booking.pricing_breakdown?.admin_manual_adjustment);
+      const hasListManualAdjustment = !!(
+        listManualAdjustment
+        && String(listManualAdjustment.enabled ?? '').toLowerCase() !== 'false'
+      );
       return `
         <tr>
           <td>
@@ -14711,6 +14717,7 @@ async function loadHotelBookingsData() {
           </td>
           <td style="font-weight: 600; color: var(--admin-success);">
             €${Number(booking.total_price || 0).toFixed(2)}
+            ${hasListManualAdjustment ? '<div style="font-size:10px; color:#f59e0b; margin-top:2px;">Manual adjustment</div>' : ''}
           </td>
           <td>
             <button class="btn-secondary" onclick="viewHotelBookingDetails('${booking.id}')" title="View details">
@@ -14779,13 +14786,26 @@ async function viewHotelBookingDetails(bookingId) {
     try {
       const { data: fRows } = await client
         .from('partner_service_fulfillments')
-        .select('id, status, contact_revealed_at, rejected_reason, partner_id, created_at')
+        .select('id, status, contact_revealed_at, rejected_reason, partner_id, total_price, currency, details, created_at')
         .eq('resource_type', 'hotels')
         .eq('booking_id', bookingId)
         .order('created_at', { ascending: false })
         .limit(50);
       fulfillment = pickBestServiceFulfillment(fRows || []) || null;
     } catch (_e) {
+    }
+
+    let depositRequest = null;
+    if (fulfillment?.id) {
+      try {
+        const { data: depRow } = await client
+          .from('service_deposit_requests')
+          .select('id, status, amount, currency, checkout_url, email_sent_at, paid_at')
+          .eq('fulfillment_id', fulfillment.id)
+          .maybeSingle();
+        depositRequest = depRow || null;
+      } catch (_e) {
+      }
     }
 
     const fulfillmentStatus = String(fulfillment?.status || '').trim();
@@ -14864,6 +14884,44 @@ async function viewHotelBookingDetails(bookingId) {
     const hotelBreakdown = booking.pricing_breakdown && typeof booking.pricing_breakdown === 'object'
       ? booking.pricing_breakdown
       : {};
+    const fulfillmentDetails = fulfillment?.details && typeof fulfillment.details === 'object'
+      ? fulfillment.details
+      : parseJsonObjectSafe(fulfillment?.details);
+    const hotelManualAdjustment = parseJsonObjectSafe(booking.admin_manual_adjustment)
+      || parseJsonObjectSafe(hotelBreakdown.admin_manual_adjustment)
+      || parseJsonObjectSafe(fulfillmentDetails?.admin_manual_adjustment);
+    const hasHotelManualAdjustment = !!(
+      hotelManualAdjustment
+      && String(hotelManualAdjustment.enabled ?? '').toLowerCase() !== 'false'
+    );
+    const hotelCurrency = String(fulfillment?.currency || depositRequest?.currency || 'EUR').trim().toUpperCase() || 'EUR';
+    const depositStatus = String(depositRequest?.status || '').trim().toLowerCase();
+    const depositPaid = depositStatus === 'paid' || Boolean(depositRequest?.paid_at);
+    const hotelManualAdjustmentHtml = hasHotelManualAdjustment
+      ? `
+        <div style="margin-top:10px; padding:10px 12px; border:1px solid rgba(245,158,11,0.35); background:rgba(245,158,11,0.10); border-radius:8px; font-size:12px; color:var(--admin-text-muted);">
+          <strong style="color:#f59e0b;">Manual admin adjustment</strong>
+          <div style="margin-top:4px;">
+            Previous: ${formatMoney(hotelManualAdjustment.previous_total, hotelManualAdjustment.currency || hotelCurrency)}
+            → Current: ${formatMoney(hotelManualAdjustment.manual_total, hotelManualAdjustment.currency || hotelCurrency)}
+          </div>
+          ${hotelManualAdjustment.reason ? `<div style="margin-top:4px;">Reason: ${escapeHtml(hotelManualAdjustment.reason)}</div>` : ''}
+          ${hotelManualAdjustment.adjusted_at ? `<div style="margin-top:4px;">Adjusted: ${escapeHtml(formatDateTimeValue(hotelManualAdjustment.adjusted_at))}</div>` : ''}
+        </div>
+      `
+      : '';
+    const hotelDepositNote = (() => {
+      if (!depositRequest) {
+        return 'No deposit request exists yet. If a deposit is required, the next accept/send action will use the adjusted total.';
+      }
+      if (depositPaid) {
+        return 'Deposit is already paid. This saves a manual admin adjustment for booking/partner totals and keeps the paid payment record unchanged.';
+      }
+      if (depositRequest.checkout_url || depositRequest.email_sent_at) {
+        return 'Unpaid deposit link exists. Saving a new price will invalidate the checkout link; resend the deposit email afterwards.';
+      }
+      return 'Unpaid deposit request exists. Saving a new price will prepare it for regeneration on the next deposit email.';
+    })();
     const hotelRoomBase = Number(hotelBreakdown.room_total || 0);
     const hotelExtrasTotal = Number(booking.extras_price ?? hotelBreakdown.extras_total ?? 0);
     const appliedExtras = Array.isArray(hotelBreakdown.applied_extras) ? hotelBreakdown.applied_extras : [];
@@ -15018,6 +15076,41 @@ async function viewHotelBookingDetails(bookingId) {
             <div style="font-size: 24px; font-weight: 700; color: white;">€${Number.isFinite(hotelTotal) ? hotelTotal.toFixed(2) : '0.00'}</div>
             <div style="font-size: 12px; color: rgba(255,255,255,0.9); margin-top: 4px;">Total Price</div>
           </div>
+          ${hotelManualAdjustmentHtml}
+          ${canDelete ? `
+          <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--admin-border); display: grid; gap: 8px;">
+            <label for="hotelBookingManualTotal" style="font-size: 12px; font-weight: 600; color: var(--admin-text-muted);">
+              Manual admin adjustment (${escapeHtml(hotelCurrency)})
+            </label>
+            <div style="display:flex; gap: 8px; align-items:center; flex-wrap: wrap;">
+              <input
+                id="hotelBookingManualTotal"
+                type="number"
+                step="0.01"
+                min="0"
+                value="${Number.isFinite(hotelTotal) ? Number(hotelTotal).toFixed(2) : ''}"
+                style="flex: 1 1 180px; min-width: 0; padding: 8px 12px; border: 1px solid var(--admin-border); border-radius: 6px; background: var(--admin-bg); color: var(--admin-text);"
+              />
+              <button
+                id="btnSaveHotelBookingManualAdjustment"
+                type="button"
+                class="btn-secondary"
+                style="white-space: nowrap;"
+              >
+                Save adjustment
+              </button>
+            </div>
+            <textarea
+              id="hotelBookingManualReason"
+              rows="2"
+              placeholder="Required reason for audit, e.g. partner confirmed special rate"
+              style="width: 100%; padding: 8px 12px; border: 1px solid var(--admin-border); border-radius: 6px; background: var(--admin-bg); color: var(--admin-text); resize: vertical;"
+            ></textarea>
+            <div style="font-size: 11px; color: var(--admin-text-muted); line-height: 1.45;">
+              ${escapeHtml(hotelDepositNote)}
+            </div>
+          </div>
+          ` : ''}
           ${policySnapshotHtml}
         </div>
 
@@ -15031,6 +15124,73 @@ async function viewHotelBookingDetails(bookingId) {
     `;
 
     modal.hidden = false;
+
+    const btnSaveHotelAdjustment = $('#btnSaveHotelBookingManualAdjustment');
+    if (btnSaveHotelAdjustment && canDelete) {
+      btnSaveHotelAdjustment.addEventListener('click', async () => {
+        const priceInput = $('#hotelBookingManualTotal');
+        const reasonInput = $('#hotelBookingManualReason');
+        const nextAmount = normalizeAdminMoney(priceInput?.value);
+        const reason = String(reasonInput?.value || '').trim();
+
+        if (nextAmount === null) {
+          showToast('Enter a valid hotel total price', 'error');
+          return;
+        }
+        if (reason.length < 3) {
+          showToast('Enter a reason for the manual adjustment', 'error');
+          return;
+        }
+
+        const currentAmount = normalizeAdminMoney(hotelTotal);
+        if (currentAmount !== null && Math.abs(currentAmount - nextAmount) <= 0.009) {
+          showToast('Hotel price is unchanged', 'info');
+          return;
+        }
+
+        const paidWarning = depositPaid
+          ? '\n\nDeposit is already paid. The paid payment record will NOT be changed; this will be saved as a manual admin adjustment only.'
+          : '';
+        const resendWarning = (!depositPaid && depositRequest && (depositRequest.checkout_url || depositRequest.email_sent_at))
+          ? '\n\nExisting unpaid checkout link will be invalidated. Send the deposit email again after saving.'
+          : '';
+
+        if (!confirm(`Save manual hotel price adjustment to ${formatMoney(nextAmount, hotelCurrency)}?${paidWarning}${resendWarning}`)) {
+          return;
+        }
+
+        try {
+          btnSaveHotelAdjustment.disabled = true;
+          btnSaveHotelAdjustment.textContent = 'Saving...';
+
+          const { data: result, error: rpcError } = await client.rpc('admin_apply_hotel_booking_manual_adjustment', {
+            p_booking_id: booking.id,
+            p_manual_total: nextAmount,
+            p_reason: reason,
+          });
+          if (rpcError) throw rpcError;
+
+          const payload = result && typeof result === 'object' ? result : {};
+          if (payload.deposit_paid) {
+            showToast('Hotel price saved as manual adjustment. Paid deposit record was preserved.', 'success');
+          } else if (payload.deposit_checkout_invalidated) {
+            showToast('Hotel price saved. Resend the deposit email to generate a fresh payment link.', 'success');
+          } else {
+            showToast('Hotel price adjustment saved', 'success');
+          }
+
+          await loadHotelBookingsData();
+          await loadAllOrders({ silent: true });
+          await viewHotelBookingDetails(booking.id);
+        } catch (adjustmentError) {
+          console.error('Failed to save hotel manual adjustment:', adjustmentError);
+          showToast('Failed to save hotel price adjustment: ' + (adjustmentError.message || 'Unknown error'), 'error');
+        } finally {
+          btnSaveHotelAdjustment.disabled = false;
+          btnSaveHotelAdjustment.textContent = 'Save adjustment';
+        }
+      });
+    }
   } catch (e) {
     console.error('Failed to load hotel booking details:', e);
     showToast('Failed to load booking details', 'error');
