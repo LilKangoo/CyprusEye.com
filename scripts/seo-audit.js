@@ -12,6 +12,9 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
+const SEO_AUDIT_LANGUAGES = ['en', 'pl'];
+const TITLE_MAX_LENGTH = 70;
+const DESCRIPTION_MAX_LENGTH = 170;
 
 const EXCLUDED_DIRS = new Set([
   '.git',
@@ -54,6 +57,26 @@ function stripHtmlComments(html) {
 function firstMatch(html, pattern) {
   const match = pattern.exec(stripHtmlComments(html));
   return match ? String(match[1] || '').trim() : '';
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function extractTitle(html) {
+  return firstMatch(html, /<title\b[^>]*>([\s\S]*?)<\/title>/i);
+}
+
+function extractMetaContent(html, name) {
+  const safeName = escapeRegExp(name);
+  const pattern = new RegExp(`<meta\\b(?=[^>]*\\bname=["']${safeName}["'])(?=[^>]*\\bcontent=["']([^"']*)["'])[^>]*>`, 'i');
+  return firstMatch(html, pattern);
+}
+
+function extractLinkHref(html, rel) {
+  const safeRel = escapeRegExp(rel);
+  const pattern = new RegExp(`<link\\b(?=[^>]*\\brel=["']${safeRel}["'])(?=[^>]*\\bhref=["']([^"']*)["'])[^>]*>`, 'i');
+  return firstMatch(html, pattern);
 }
 
 function normalizePathFromUrl(rawValue) {
@@ -136,29 +159,56 @@ async function collectHtmlFiles() {
   return results.sort();
 }
 
-async function readPageMeta(relativePath) {
+async function loadAuditTranslations() {
+  const entries = await Promise.all(SEO_AUDIT_LANGUAGES.map(async (language) => {
+    try {
+      const source = await readFile(join(ROOT, 'translations', `${language}.json`), 'utf8');
+      return [language, JSON.parse(source)];
+    } catch {
+      return [language, {}];
+    }
+  }));
+  return Object.fromEntries(entries);
+}
+
+async function readPageMeta(relativePath, translationsByLanguage) {
   const html = await readFile(join(ROOT, relativePath), 'utf8');
   const urlPath = pathToUrlPath(relativePath);
   const route = resolveSeoRoute(urlPath);
-  const renderedHtml = route
-    ? applySeoToHtml(
-      html,
-      buildSeoPayload({
-        route,
-        language: 'en',
-        requestPathname: urlPath,
-        translations: {},
-        fallbackSeo: extractSeoFallbacksFromHtml(html),
-      })
-    )
-    : html;
+  const fallbackSeo = extractSeoFallbacksFromHtml(html);
+  const renderedByLanguage = Object.fromEntries(SEO_AUDIT_LANGUAGES.map((language) => [
+    language,
+    route
+      ? applySeoToHtml(
+        html,
+        buildSeoPayload({
+          route,
+          language,
+          requestPathname: urlPath,
+          translations: translationsByLanguage[language] || {},
+          fallbackSeo,
+        })
+      )
+      : html,
+  ]));
+  const renderedHtml = renderedByLanguage.en || html;
+  const localized = Object.fromEntries(SEO_AUDIT_LANGUAGES.map((language) => {
+    const rendered = renderedByLanguage[language] || html;
+    return [language, {
+      title: extractTitle(rendered),
+      description: extractMetaContent(rendered, 'description'),
+      robots: extractMetaContent(rendered, 'robots'),
+      canonical: normalizePathFromUrl(extractLinkHref(rendered, 'canonical')),
+    }];
+  }));
   const jsonLd = parseJsonLdScripts(relativePath, extractJsonLdScripts(renderedHtml));
   return {
     relativePath,
     urlPath,
-    robots: firstMatch(html, /<meta\s+name=["']robots["']\s+content=["']([^"']+)["'][^>]*>/i),
-    canonical: normalizePathFromUrl(firstMatch(html, /<link\s+rel=["']canonical["']\s+href=["']([^"']+)["'][^>]*>/i)),
+    robots: localized.en?.robots || '',
+    canonical: localized.en?.canonical || '',
     seoPage: firstMatch(html, /<body\b[^>]*\bdata-seo-page=["']([^"']+)["']/i),
+    localized,
     jsonLdTypes: jsonLd.types,
     jsonLdIssues: jsonLd.issues,
   };
@@ -185,7 +235,8 @@ function printSection(title, rows) {
 
 async function main() {
   const htmlFiles = await collectHtmlFiles();
-  const pageMeta = await Promise.all(htmlFiles.map(readPageMeta));
+  const translationsByLanguage = await loadAuditTranslations();
+  const pageMeta = await Promise.all(htmlFiles.map((relativePath) => readPageMeta(relativePath, translationsByLanguage)));
   const pageByPath = new Map(pageMeta.map((page) => [page.urlPath, page]));
   for (const [routePath, filePath] of LOCAL_ROUTE_ALIASES.entries()) {
     const page = pageByPath.get(filePath);
@@ -225,6 +276,29 @@ async function main() {
     ? [`/ canonical -> ${homePage.canonical}`]
     : [];
 
+  const publicMetaWarnings = sitemapPaths
+    .filter((urlPath) => !urlPath.startsWith('/blog?'))
+    .filter((urlPath) => !isPrivatePath(urlPath))
+    .flatMap((urlPath) => {
+      const page = pageByPath.get(urlPath);
+      if (!page) return [];
+      return SEO_AUDIT_LANGUAGES.flatMap((language) => {
+        const meta = page.localized?.[language] || {};
+        const rows = [];
+        if (!meta.title) {
+          rows.push(`${urlPath} [${language}] is missing a rendered title`);
+        } else if (meta.title.length > TITLE_MAX_LENGTH) {
+          rows.push(`${urlPath} [${language}] title is ${meta.title.length} chars (max ${TITLE_MAX_LENGTH}): ${meta.title}`);
+        }
+        if (!meta.description) {
+          rows.push(`${urlPath} [${language}] is missing a rendered meta description`);
+        } else if (meta.description.length > DESCRIPTION_MAX_LENGTH) {
+          rows.push(`${urlPath} [${language}] description is ${meta.description.length} chars (max ${DESCRIPTION_MAX_LENGTH}): ${meta.description}`);
+        }
+        return rows;
+      });
+    });
+
   const carFlowRows = [
     `${MAIN_CAR_FLOW_URL}: ${sitemapPathSet.has(MAIN_CAR_FLOW_URL) ? 'in sitemap' : 'not in sitemap'}, canonical ${pageByPath.get(MAIN_CAR_FLOW_URL)?.canonical || 'missing'}`,
     ...LEGACY_CAR_FLOW_URLS.map((urlPath) => {
@@ -246,6 +320,7 @@ async function main() {
   printSection('Sitemap URLs that point to noindex pages', sitemapNoindexConflicts);
   printSection('Static sitemap URLs without matching local HTML', sitemapMissingLocalPages);
   printSection('Private/account pages without explicit noindex', indexablePrivatePages);
+  printSection('Public sitemap meta quality', publicMetaWarnings);
   printSection('Home canonical warnings', homeCanonicalWarning);
   printSection('Canonical mismatches in static HTML', canonicalWarnings);
   printSection('JSON-LD syntax issues', invalidJsonLd);
@@ -255,6 +330,7 @@ async function main() {
   const issueCount = sitemapNoindexConflicts.length
     + sitemapMissingLocalPages.length
     + indexablePrivatePages.length
+    + publicMetaWarnings.length
     + homeCanonicalWarning.length
     + canonicalWarnings.length
     + invalidJsonLd.length

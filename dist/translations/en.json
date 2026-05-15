@@ -146,9 +146,9 @@
   "seo.transport.ogDescription": "Plan your Cyprus transfer in minutes with clear fare breakdown and quick booking.",
   "seo.transport.locale": "en_GB",
   "seo.transport.localeAlternate": "pl_PL",
-  "seo.community.title": "Community - Comments and photos from Cyprus | CyprusEye Save & Travel",
+  "seo.community.title": "Cyprus community photos and comments | CyprusEye",
   "seo.community.description": "Join the CyprusEye Save & Travel community, browse comments and photos from places in Cyprus, and share your own experiences.",
-  "seo.community.ogTitle": "Community - Comments and photos from Cyprus | CyprusEye Save & Travel",
+  "seo.community.ogTitle": "Cyprus community photos and comments | CyprusEye",
   "seo.community.ogDescription": "See what other travellers say, discover photos from Cyprus, and post your own comments from visited places.",
   "seo.shop.title": "CyprusEye Shop – Traditional products from Cyprus",
   "seo.shop.description": "Discover authentic Cypriot products. Olive oil, wine, halloumi, cosmetics, and more with delivery in Cyprus and worldwide.",
@@ -577,9 +577,9 @@
       "ogDescription": "We could not find the page you were looking for. Return to the homepage or browse the site map."
     },
     "advertise": {
-      "title": "Partner with CyprusEye | Premium plans for tours, stays and local services",
-      "description": "Present tours, accommodation and local services across CyprusEye and WakacjeCypr, manage orders in the partner panel and unlock lifetime affiliate earning potential.",
-      "ogTitle": "Partner with CyprusEye | Premium plans for tours, stays and local services",
+      "title": "Partner with CyprusEye | Tours, stays and services",
+      "description": "Promote tours, stays and local services on CyprusEye, manage partner orders and unlock lifetime affiliate earning potential.",
+      "ogTitle": "Partner with CyprusEye | Tours, stays and services",
       "ogDescription": "Explore 4 CyprusEye partner plans, Facebook promotion options, partner panel access and lifetime affiliate earning potential."
     },
     "cruise": {
@@ -589,7 +589,7 @@
       "ogDescription": "Private cruises, sunset sails, and coastal tours curated by the CyprusEye team."
     },
     "community": {
-      "title": "Community - Comments and photos from Cyprus | CyprusEye Save & Travel"
+      "title": "Cyprus community photos and comments | CyprusEye"
     }
   },
   "blogUi": {
