@@ -11,7 +11,7 @@ const PAGE_ROUTES = [
   {
     seoPage: 'home',
     htmlPath: '/index.html',
-    canonicalPath: '/index.html',
+    canonicalPath: '/',
     exactPaths: ['/', '/index.html'],
   },
   {
@@ -53,13 +53,13 @@ const PAGE_ROUTES = [
   {
     seoPage: 'carRental',
     htmlPath: '/car-rental.html',
-    canonicalPath: '/car-rental.html',
+    canonicalPath: '/car.html',
     exactPaths: ['/car-rental', '/car-rental/', '/car-rental.html'],
   },
   {
     seoPage: 'carRentalPfo',
     htmlPath: '/autopfo.html',
-    canonicalPath: '/autopfo.html',
+    canonicalPath: '/car.html',
     exactPaths: ['/autopfo', '/autopfo/', '/autopfo.html'],
   },
   {
@@ -300,8 +300,8 @@ function buildAbsoluteUrl(pathname, search = '') {
 
 function buildLanguageUrl(pathname, language) {
   const url = new URL(pathname || '/', CANONICAL_ORIGIN);
-  if (language) {
-    url.searchParams.set('lang', language);
+  if (language === 'pl') {
+    url.searchParams.set('lang', 'pl');
   }
   return url.toString();
 }

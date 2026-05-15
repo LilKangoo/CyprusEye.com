@@ -29,6 +29,18 @@ const EXPECTED_PRIVATE_PREFIXES = [
 const MAIN_CAR_FLOW_URL = '/car.html';
 const LEGACY_CAR_FLOW_URLS = ['/car-rental.html', '/autopfo.html'];
 
+const LOCAL_ROUTE_ALIASES = new Map([
+  ['/blog', '/blog.html'],
+]);
+
+const INTENTIONAL_CANONICALS = new Map([
+  ['/autopfo.html', '/car.html'],
+  ['/blog-post.html', '/blog'],
+  ['/blog.html', '/blog'],
+  ['/car-rental-landing.html', '/car.html'],
+  ['/car-rental.html', '/car.html'],
+]);
+
 function stripHtmlComments(html) {
   return String(html || '').replace(/<!--[\s\S]*?-->/g, '');
 }
@@ -115,6 +127,12 @@ async function main() {
   const htmlFiles = await collectHtmlFiles();
   const pageMeta = await Promise.all(htmlFiles.map(readPageMeta));
   const pageByPath = new Map(pageMeta.map((page) => [page.urlPath, page]));
+  for (const [routePath, filePath] of LOCAL_ROUTE_ALIASES.entries()) {
+    const page = pageByPath.get(filePath);
+    if (page) {
+      pageByPath.set(routePath, page);
+    }
+  }
   const sitemapPaths = getStaticSitemapEntries().map((entry) => normalizePathFromUrl(entry.loc));
   const sitemapPathSet = new Set(sitemapPaths);
 
@@ -138,6 +156,7 @@ async function main() {
   const canonicalWarnings = pageMeta
     .filter((page) => page.canonical)
     .filter((page) => page.urlPath !== '/' && !isPrivatePath(page.urlPath))
+    .filter((page) => INTENTIONAL_CANONICALS.get(page.urlPath) !== page.canonical)
     .filter((page) => page.canonical !== page.urlPath)
     .map((page) => `${page.urlPath} canonical -> ${page.canonical}`);
 

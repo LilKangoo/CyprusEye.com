@@ -3,18 +3,14 @@ import { createSupabaseClients } from './supabaseAdmin.js';
 export const SITEMAP_ORIGIN = 'https://www.cypruseye.com';
 
 const STATIC_PUBLIC_URLS = [
-  '/index.html',
-  '/achievements.html',
+  '/',
   '/advertise.html',
   '/attractions.html',
-  '/autopfo.html',
-  '/blog?lang=en',
+  '/blog',
   '/blog?lang=pl',
-  '/car-rental.html',
   '/car.html',
   '/community.html',
   '/cruise.html',
-  '/deposit.html',
   '/hotels.html',
   '/kupon.html',
   '/packing.html',
@@ -22,7 +18,6 @@ const STATIC_PUBLIC_URLS = [
   '/recommendations.html',
   '/shop.html',
   '/tasks.html',
-  '/terms.html',
   '/transport.html',
   '/trips.html',
   '/vip.html',
@@ -59,7 +54,9 @@ function buildBlogPostUrl(slug, language) {
     return '';
   }
   const url = new URL(`/blog/${encodeURIComponent(normalizedSlug)}`, SITEMAP_ORIGIN);
-  url.searchParams.set('lang', language === 'pl' ? 'pl' : 'en');
+  if (language === 'pl') {
+    url.searchParams.set('lang', 'pl');
+  }
   return url.toString();
 }
 
