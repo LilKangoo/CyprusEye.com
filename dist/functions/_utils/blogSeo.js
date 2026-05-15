@@ -1,4 +1,9 @@
 import { normalizeBlogLanguage } from './blogData.js';
+import {
+  buildArticleJsonLd,
+  buildBreadcrumbJsonLd,
+  buildOrganizationJsonLd,
+} from './structuredData.js';
 
 const CANONICAL_ORIGIN = 'https://www.cypruseye.com';
 const DEFAULT_OG_IMAGE = '/assets/cyprus_logo-1000x1054.png';
@@ -174,7 +179,52 @@ function buildBasePayload({
     languageUrls,
     authorName,
     authorUrl,
+    structuredData: [],
   };
+}
+
+function buildBlogListStructuredData({ language, canonicalUrl } = {}) {
+  return [
+    buildBreadcrumbJsonLd([
+      { name: 'CyprusEye', item: '/' },
+      { name: 'Blog', item: canonicalUrl || '/blog' },
+    ]),
+  ];
+}
+
+function buildBlogPostStructuredData({
+  language,
+  canonicalUrl,
+  title,
+  description,
+  ogImage,
+  post,
+  authorName,
+  authorUrl,
+} = {}) {
+  const translation = post?.translation || {};
+  const publishedAt = post?.publishedAt || translation.createdAt || post?.createdAt || '';
+  const modifiedAt = translation.updatedAt || post?.updatedAt || publishedAt;
+
+  return [
+    buildOrganizationJsonLd(),
+    buildBreadcrumbJsonLd([
+      { name: 'CyprusEye', item: '/' },
+      { name: 'Blog', item: '/blog' },
+      { name: title, item: canonicalUrl },
+    ]),
+    buildArticleJsonLd({
+      language,
+      headline: title,
+      description,
+      image: ogImage,
+      url: canonicalUrl,
+      datePublished: publishedAt,
+      dateModified: modifiedAt,
+      authorName,
+      authorUrl,
+    }),
+  ];
 }
 
 export function buildBlogAuthorByline(post) {
@@ -196,7 +246,7 @@ export function buildBlogListSeoPayload({ language, requestPathname = '/blog', r
   const copy = BLOG_SEO_COPY[resolvedLanguage].list;
   const canonicalUrl = buildLanguageUrl(requestPathname, resolvedLanguage);
 
-  return buildBasePayload({
+  const payload = buildBasePayload({
     language: resolvedLanguage,
     title: copy.title,
     description: copy.description,
@@ -212,6 +262,11 @@ export function buildBlogListSeoPayload({ language, requestPathname = '/blog', r
       xDefault: toAbsoluteUrl(requestPathname),
     },
   });
+  payload.structuredData = buildBlogListStructuredData({
+    language: resolvedLanguage,
+    canonicalUrl,
+  });
+  return payload;
 }
 
 export function buildBlogPostSeoPayload({ language, requestPathname = '/blog', requestSearch = '', post = null } = {}) {
@@ -247,7 +302,7 @@ export function buildBlogPostSeoPayload({ language, requestPathname = '/blog', r
   const description = pickMetaDescription(translation, localizedCopy.postFallback.description, siblingTranslation);
   const byline = buildBlogAuthorByline(post);
 
-  return buildBasePayload({
+  const payload = buildBasePayload({
     language: resolvedLanguage,
     title,
     description,
@@ -265,6 +320,17 @@ export function buildBlogPostSeoPayload({ language, requestPathname = '/blog', r
     authorName: byline?.name || '',
     authorUrl: byline?.url || '',
   });
+  payload.structuredData = buildBlogPostStructuredData({
+    language: resolvedLanguage,
+    canonicalUrl,
+    title,
+    description,
+    ogImage: normalizeImageUrl(translation.ogImageUrl || post.coverImageUrl || DEFAULT_OG_IMAGE),
+    post,
+    authorName: byline?.name || '',
+    authorUrl: byline?.url || '',
+  });
+  return payload;
 }
 
 export function injectWindowPayload(html, variableName, data) {

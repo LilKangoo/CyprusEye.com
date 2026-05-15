@@ -1,5 +1,22 @@
+import {
+  buildBreadcrumbJsonLd,
+  buildOrganizationJsonLd,
+  buildWebSiteJsonLd,
+  serializeStructuredData,
+} from './structuredData.js';
+
 const CANONICAL_ORIGIN = 'https://www.cypruseye.com';
 const DEFAULT_OG_IMAGE = 'assets/cyprus_logo-1000x1054.png';
+
+const PUBLIC_BREADCRUMB_LABELS = {
+  blog: { en: 'Blog', pl: 'Blog' },
+  carRentalLanding: { en: 'Car rental', pl: 'Wynajem aut' },
+  hotels: { en: 'Hotels', pl: 'Noclegi' },
+  recommendations: { en: 'Recommendations', pl: 'Rekomendacje' },
+  shop: { en: 'Shop', pl: 'Sklep' },
+  transport: { en: 'Transport', pl: 'Transport' },
+  trips: { en: 'Trips', pl: 'Wycieczki' },
+};
 
 const PAGE_ROUTES = [
   {
@@ -340,6 +357,51 @@ function replaceOrInject(html, pattern, replacement) {
   return html.replace(closingHead, `${replacement}\n${closingHead}`);
 }
 
+function injectStructuredData(html, structuredData) {
+  const pattern = /\s*<script\b[^>]*id=["']ce-structured-data["'][^>]*>[\s\S]*?<\/script>/i;
+  const serialized = serializeStructuredData(structuredData || []);
+
+  if (!serialized) {
+    return String(html || '').replace(pattern, '');
+  }
+
+  return replaceOrInject(
+    String(html || ''),
+    pattern,
+    `  <script type="application/ld+json" id="ce-structured-data">${serialized}</script>`
+  );
+}
+
+function buildStaticStructuredData({ route, language, canonicalUrl, title, description } = {}) {
+  if (!route) {
+    return [];
+  }
+
+  if (route.seoPage === 'home') {
+    return [
+      buildOrganizationJsonLd(),
+      buildWebSiteJsonLd({
+        language,
+        url: canonicalUrl,
+        description,
+      }),
+    ];
+  }
+
+  const labels = PUBLIC_BREADCRUMB_LABELS[route.seoPage];
+  const currentLabel = labels?.[language] || labels?.en || title;
+  if (!currentLabel) {
+    return [];
+  }
+
+  return [
+    buildBreadcrumbJsonLd([
+      { name: 'CyprusEye', item: '/' },
+      { name: currentLabel, item: canonicalUrl },
+    ]),
+  ];
+}
+
 export function extractSeoFallbacksFromHtml(html) {
   return {
     title: extractTagContent(html, 'title'),
@@ -406,6 +468,13 @@ export function buildSeoPayload({
       en: buildLanguageUrl(alternateBasePath, 'en'),
       xDefault: buildAbsoluteUrl(alternateBasePath),
     },
+    structuredData: buildStaticStructuredData({
+      route,
+      language: resolvedLanguage,
+      canonicalUrl: buildAbsoluteUrl(canonicalPath),
+      title,
+      description,
+    }),
   };
 }
 
@@ -502,6 +571,7 @@ export function applySeoToHtml(html, payload) {
     /<link\s+rel=["']alternate["'][^>]*hreflang=["']x-default["'][^>]*>/i,
     `  <link rel="alternate" hreflang="x-default" href="${safeDefaultUrl}" />`
   );
+  nextHtml = injectStructuredData(nextHtml, payload.structuredData);
 
   return nextHtml;
 }

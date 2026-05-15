@@ -3,6 +3,11 @@ import {
   normalizeServiceOfferLanguage,
   pickLocalizedServiceValue,
 } from './serviceOfferData.js';
+import {
+  buildBreadcrumbJsonLd,
+  buildOrganizationJsonLd,
+  buildServiceJsonLd,
+} from './structuredData.js';
 
 const CANONICAL_ORIGIN = 'https://www.cypruseye.com';
 
@@ -34,6 +39,17 @@ const SERVICE_OFFER_COPY = {
       notFoundTitle: 'Nie znaleziono wycieczki | CyprusEye',
       notFoundDescription: 'Nie udało się znaleźć oferty wycieczki, której szukasz.',
     },
+  },
+};
+
+const SERVICE_STRUCTURED_COPY = {
+  hotel: {
+    en: { listName: 'Hotels', serviceType: 'Accommodation booking' },
+    pl: { listName: 'Noclegi', serviceType: 'Rezerwacja noclegu' },
+  },
+  trip: {
+    en: { listName: 'Trips', serviceType: 'Trip booking' },
+    pl: { listName: 'Wycieczki', serviceType: 'Rezerwacja wycieczki' },
   },
 };
 
@@ -150,7 +166,38 @@ function buildBasePayload({
     ogLocaleAlternate: resolvedLanguage === 'pl' ? 'en_GB' : 'pl_PL',
     canonicalUrl,
     languageUrls,
+    structuredData: [],
   };
+}
+
+function buildOfferStructuredData({
+  kind,
+  language,
+  title,
+  description,
+  image,
+  canonicalUrl,
+} = {}) {
+  const copy = SERVICE_STRUCTURED_COPY[kind]?.[language] || SERVICE_STRUCTURED_COPY.hotel.en;
+  const listPath = kind === 'trip' ? '/trips.html' : '/hotels.html';
+
+  return [
+    buildOrganizationJsonLd(),
+    buildBreadcrumbJsonLd([
+      { name: 'CyprusEye', item: '/' },
+      { name: copy.listName, item: listPath },
+      { name: title, item: canonicalUrl },
+    ]),
+    buildServiceJsonLd({
+      language,
+      name: title,
+      description,
+      image,
+      url: canonicalUrl,
+      serviceType: copy.serviceType,
+      areaServed: 'Cyprus',
+    }),
+  ];
 }
 
 export function buildServiceOfferSeoPayload({
@@ -185,7 +232,7 @@ export function buildServiceOfferSeoPayload({
   const pageTitle = `${localizedTitle} • CyprusEye`;
   const ogImage = offer.metaImageUrl || offer.coverImageUrl || SERVICE_OFFER_DEFAULT_IMAGE;
 
-  return buildBasePayload({
+  const payload = buildBasePayload({
     language: resolvedLanguage,
     title: pageTitle,
     description,
@@ -196,4 +243,13 @@ export function buildServiceOfferSeoPayload({
     ogUrl: canonicalUrl,
     languageUrls,
   });
+  payload.structuredData = buildOfferStructuredData({
+    kind,
+    language: resolvedLanguage,
+    title: localizedTitle,
+    description,
+    image: ogImage,
+    canonicalUrl,
+  });
+  return payload;
 }

@@ -3,6 +3,12 @@ import { existsSync } from 'fs';
 import { dirname, join, relative, sep } from 'path';
 import { fileURLToPath } from 'url';
 import { getStaticSitemapEntries, SITEMAP_ORIGIN } from '../functions/_utils/sitemap.js';
+import {
+  applySeoToHtml,
+  buildSeoPayload,
+  extractSeoFallbacksFromHtml,
+  resolveSeoRoute,
+} from '../functions/_utils/pageSeo.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -69,6 +75,43 @@ function pathToUrlPath(relativePath) {
   return normalized;
 }
 
+function extractJsonLdScripts(html) {
+  const scripts = [];
+  const pattern = /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  const source = stripHtmlComments(html);
+  let match = pattern.exec(source);
+  while (match) {
+    scripts.push(String(match[1] || '').trim());
+    match = pattern.exec(source);
+  }
+  return scripts;
+}
+
+function parseJsonLdScripts(relativePath, scripts) {
+  const issues = [];
+  const types = new Set();
+
+  scripts.forEach((script, index) => {
+    try {
+      const payload = JSON.parse(script);
+      const items = Array.isArray(payload) ? payload : [payload];
+      items.forEach((item) => {
+        const type = item?.['@type'];
+        if (typeof type === 'string' && type) {
+          types.add(type);
+        }
+      });
+    } catch (error) {
+      issues.push(`${relativePath} JSON-LD script #${index + 1} is not valid JSON: ${error.message}`);
+    }
+  });
+
+  return {
+    issues,
+    types: Array.from(types).sort(),
+  };
+}
+
 async function collectHtmlFiles() {
   const results = [];
 
@@ -95,12 +138,29 @@ async function collectHtmlFiles() {
 
 async function readPageMeta(relativePath) {
   const html = await readFile(join(ROOT, relativePath), 'utf8');
+  const urlPath = pathToUrlPath(relativePath);
+  const route = resolveSeoRoute(urlPath);
+  const renderedHtml = route
+    ? applySeoToHtml(
+      html,
+      buildSeoPayload({
+        route,
+        language: 'en',
+        requestPathname: urlPath,
+        translations: {},
+        fallbackSeo: extractSeoFallbacksFromHtml(html),
+      })
+    )
+    : html;
+  const jsonLd = parseJsonLdScripts(relativePath, extractJsonLdScripts(renderedHtml));
   return {
     relativePath,
-    urlPath: pathToUrlPath(relativePath),
+    urlPath,
     robots: firstMatch(html, /<meta\s+name=["']robots["']\s+content=["']([^"']+)["'][^>]*>/i),
     canonical: normalizePathFromUrl(firstMatch(html, /<link\s+rel=["']canonical["']\s+href=["']([^"']+)["'][^>]*>/i)),
     seoPage: firstMatch(html, /<body\b[^>]*\bdata-seo-page=["']([^"']+)["']/i),
+    jsonLdTypes: jsonLd.types,
+    jsonLdIssues: jsonLd.issues,
   };
 }
 
@@ -172,6 +232,11 @@ async function main() {
       return `${urlPath}: ${sitemapPathSet.has(urlPath) ? 'in sitemap' : 'not in sitemap'}, canonical ${page?.canonical || 'missing'}`;
     }),
   ];
+  const invalidJsonLd = pageMeta.flatMap((page) => page.jsonLdIssues);
+  const homeJsonLdTypes = homePage?.jsonLdTypes || [];
+  const homeStructuredDataWarnings = ['Organization', 'WebSite']
+    .filter((type) => !homeJsonLdTypes.includes(type))
+    .map((type) => `/ runtime SEO is missing ${type} JSON-LD`);
 
   console.log('SEO audit report');
   console.log(`Origin: ${SITEMAP_ORIGIN}`);
@@ -183,13 +248,17 @@ async function main() {
   printSection('Private/account pages without explicit noindex', indexablePrivatePages);
   printSection('Home canonical warnings', homeCanonicalWarning);
   printSection('Canonical mismatches in static HTML', canonicalWarnings);
+  printSection('JSON-LD syntax issues', invalidJsonLd);
+  printSection('Home structured data coverage', homeStructuredDataWarnings);
   printSection('Car flow SEO status', carFlowRows);
 
   const issueCount = sitemapNoindexConflicts.length
     + sitemapMissingLocalPages.length
     + indexablePrivatePages.length
     + homeCanonicalWarning.length
-    + canonicalWarnings.length;
+    + canonicalWarnings.length
+    + invalidJsonLd.length
+    + homeStructuredDataWarnings.length;
 
   console.log(`\nSummary: ${issueCount} item(s) need review. This audit is read-only and made no changes.`);
 }

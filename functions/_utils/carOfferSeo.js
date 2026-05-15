@@ -1,5 +1,10 @@
 import { createSupabaseClients } from './supabaseAdmin.js';
 import { SERVICE_OFFER_DEFAULT_IMAGE } from './serviceOfferData.js';
+import {
+  buildBreadcrumbJsonLd,
+  buildOrganizationJsonLd,
+  buildServiceJsonLd,
+} from './structuredData.js';
 
 const CANONICAL_ORIGIN = 'https://www.cypruseye.com';
 
@@ -180,7 +185,39 @@ function buildBasePayload({
     ogLocaleAlternate: resolvedLanguage === 'pl' ? 'en_GB' : 'pl_PL',
     canonicalUrl,
     languageUrls,
+    structuredData: [],
   };
+}
+
+function buildCarStructuredData({
+  language,
+  title,
+  description,
+  image,
+  canonicalUrl,
+  location,
+} = {}) {
+  const listLabel = language === 'pl' ? 'Wynajem aut' : 'Car rental';
+  const serviceType = language === 'pl' ? 'Wynajem auta' : 'Car rental';
+  const locationLabel = pickLocationLabel(location, language);
+
+  return [
+    buildOrganizationJsonLd(),
+    buildBreadcrumbJsonLd([
+      { name: 'CyprusEye', item: '/' },
+      { name: listLabel, item: '/car.html' },
+      { name: title, item: canonicalUrl },
+    ]),
+    buildServiceJsonLd({
+      language,
+      name: title,
+      description,
+      image,
+      url: canonicalUrl,
+      serviceType,
+      areaServed: locationLabel ? `${locationLabel}, Cyprus` : 'Cyprus',
+    }),
+  ];
 }
 
 function pickLocationLabel(location, language) {
@@ -300,7 +337,7 @@ export function buildCarOfferSeoPayload({
   const pageTitle = `${title} • CyprusEye`;
   const ogImage = offer.metaImageUrl || offer.imageUrl || SERVICE_OFFER_DEFAULT_IMAGE;
 
-  return buildBasePayload({
+  const payload = buildBasePayload({
     language: resolvedLanguage,
     title: pageTitle,
     description,
@@ -311,4 +348,13 @@ export function buildCarOfferSeoPayload({
     ogUrl: canonicalUrl,
     languageUrls,
   });
+  payload.structuredData = buildCarStructuredData({
+    language: resolvedLanguage,
+    title,
+    description,
+    image: ogImage,
+    canonicalUrl,
+    location: effectiveLocation,
+  });
+  return payload;
 }
