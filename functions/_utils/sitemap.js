@@ -28,6 +28,24 @@ const SERVICE_SITEMAP_CONFIG = {
   trips: '/trip.html',
 };
 
+export const SITEMAP_DYNAMIC_SOURCES = Object.freeze({
+  blogPosts: Object.freeze({
+    table: 'blog_posts',
+    route: '/blog/{slug}',
+    languages: Object.freeze(['en', 'pl']),
+  }),
+  hotels: Object.freeze({
+    table: 'hotels',
+    route: '/hotel.html?slug={slug}',
+    languages: Object.freeze(['en', 'pl']),
+  }),
+  trips: Object.freeze({
+    table: 'trips',
+    route: '/trip.html?slug={slug}',
+    languages: Object.freeze(['en', 'pl']),
+  }),
+});
+
 function safeArray(value) {
   return Array.isArray(value) ? value : [];
 }

@@ -2,7 +2,12 @@ import { readdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { dirname, join, relative, sep } from 'path';
 import { fileURLToPath } from 'url';
-import { getStaticSitemapEntries, SITEMAP_ORIGIN } from '../functions/_utils/sitemap.js';
+import {
+  getStaticSitemapEntries,
+  renderSitemapXml,
+  SITEMAP_DYNAMIC_SOURCES,
+  SITEMAP_ORIGIN,
+} from '../functions/_utils/sitemap.js';
 import {
   applySeoToHtml,
   buildSeoPayload,
@@ -42,6 +47,19 @@ const LOCAL_ROUTE_ALIASES = new Map([
   ['/blog', '/blog.html'],
 ]);
 
+const REQUIRED_HOME_LINKS = [
+  { path: '/car.html', label: 'cars' },
+  { path: '/trips.html', label: 'trips' },
+  { path: '/hotels.html', label: 'hotels' },
+  { path: '/transport.html', label: 'transport' },
+  { path: '/recommendations.html', label: 'recommendations' },
+  { path: '/shop.html', label: 'shop' },
+  { path: '/community.html', label: 'community' },
+  { path: '/blog', label: 'blog' },
+];
+
+const REQUIRED_DYNAMIC_SITEMAP_SOURCES = ['blogPosts', 'hotels', 'trips'];
+
 const INTENTIONAL_CANONICALS = new Map([
   ['/autopfo.html', '/car.html'],
   ['/blog-post.html', '/blog'],
@@ -52,6 +70,13 @@ const INTENTIONAL_CANONICALS = new Map([
 
 function stripHtmlComments(html) {
   return String(html || '').replace(/<!--[\s\S]*?-->/g, '');
+}
+
+function stripNonRenderedBlocks(html) {
+  return stripHtmlComments(html)
+    .replace(/<script\b[\s\S]*?<\/script>/gi, '')
+    .replace(/<style\b[\s\S]*?<\/style>/gi, '')
+    .replace(/<template\b[\s\S]*?<\/template>/gi, '');
 }
 
 function firstMatch(html, pattern) {
@@ -79,6 +104,18 @@ function extractLinkHref(html, rel) {
   return firstMatch(html, pattern);
 }
 
+function hasHtmlAttribute(tag, name) {
+  const safeName = escapeRegExp(name);
+  return new RegExp(`\\b${safeName}(?:\\s*=|\\s|>|$)`, 'i').test(String(tag || ''));
+}
+
+function extractHtmlAttribute(tag, name) {
+  const safeName = escapeRegExp(name);
+  const pattern = new RegExp(`\\b${safeName}\\s*=\\s*(["'])(.*?)\\1`, 'i');
+  const match = pattern.exec(String(tag || ''));
+  return match ? String(match[2] || '').trim() : '';
+}
+
 function normalizePathFromUrl(rawValue) {
   const value = String(rawValue || '').trim();
   if (!value) return '';
@@ -90,12 +127,59 @@ function normalizePathFromUrl(rawValue) {
   }
 }
 
+function normalizeInternalHref(rawValue) {
+  const value = String(rawValue || '').trim();
+  if (!value || value.startsWith('#') || /^(?:mailto|tel|javascript):/i.test(value)) {
+    return '';
+  }
+  try {
+    const url = new URL(value, SITEMAP_ORIGIN);
+    if (url.origin !== SITEMAP_ORIGIN) {
+      return '';
+    }
+    return url.pathname;
+  } catch {
+    return value.startsWith('/') ? value.split(/[?#]/)[0] : `/${value.split(/[?#]/)[0]}`;
+  }
+}
+
 function pathToUrlPath(relativePath) {
   const normalized = `/${relativePath.split(sep).join('/')}`;
   if (normalized.endsWith('/index.html')) {
     return normalized.replace(/\/index\.html$/, '/');
   }
   return normalized;
+}
+
+function extractRenderedImageIssues(relativePath, html) {
+  const source = stripNonRenderedBlocks(html);
+  const issues = [];
+  const pattern = /<img\b[^>]*>/gi;
+  let match = pattern.exec(source);
+  while (match) {
+    const tag = match[0];
+    if (!hasHtmlAttribute(tag, 'alt')) {
+      const src = extractHtmlAttribute(tag, 'src') || extractHtmlAttribute(tag, 'data-src') || 'inline image';
+      issues.push(`${relativePath} image is missing alt text (${src})`);
+    }
+    match = pattern.exec(source);
+  }
+  return issues;
+}
+
+function extractRenderedInternalLinks(html) {
+  const source = stripNonRenderedBlocks(html);
+  const links = new Set();
+  const pattern = /<a\b[^>]*>/gi;
+  let match = pattern.exec(source);
+  while (match) {
+    const href = normalizeInternalHref(extractHtmlAttribute(match[0], 'href'));
+    if (href) {
+      links.add(href);
+    }
+    match = pattern.exec(source);
+  }
+  return links;
 }
 
 function extractJsonLdScripts(html) {
@@ -208,6 +292,8 @@ async function readPageMeta(relativePath, translationsByLanguage) {
     robots: localized.en?.robots || '',
     canonical: localized.en?.canonical || '',
     seoPage: firstMatch(html, /<body\b[^>]*\bdata-seo-page=["']([^"']+)["']/i),
+    imageIssues: extractRenderedImageIssues(relativePath, html),
+    internalLinks: Array.from(extractRenderedInternalLinks(html)).sort(),
     localized,
     jsonLdTypes: jsonLd.types,
     jsonLdIssues: jsonLd.issues,
@@ -246,6 +332,17 @@ async function main() {
   }
   const sitemapPaths = getStaticSitemapEntries().map((entry) => normalizePathFromUrl(entry.loc));
   const sitemapPathSet = new Set(sitemapPaths);
+  const expectedStaticSitemapXml = `${renderSitemapXml(getStaticSitemapEntries())}\n`;
+  const trackedSitemapPath = join(ROOT, 'sitemap.xml');
+  const trackedSitemapWarnings = [];
+  if (!existsSync(trackedSitemapPath)) {
+    trackedSitemapWarnings.push('sitemap.xml is missing from the repository root');
+  } else {
+    const trackedSitemapXml = await readFile(trackedSitemapPath, 'utf-8');
+    if (trackedSitemapXml.trim() !== expectedStaticSitemapXml.trim()) {
+      trackedSitemapWarnings.push('sitemap.xml is not synchronized with functions/_utils/sitemap.js static entries');
+    }
+  }
 
   const sitemapNoindexConflicts = sitemapPaths
     .map((urlPath) => {
@@ -299,6 +396,25 @@ async function main() {
       });
     });
 
+  const publicImageWarnings = sitemapPaths
+    .filter((urlPath) => !urlPath.startsWith('/blog?'))
+    .filter((urlPath) => !isPrivatePath(urlPath))
+    .flatMap((urlPath) => pageByPath.get(urlPath)?.imageIssues || []);
+
+  const homeInternalLinks = new Set(homePage?.internalLinks || []);
+  const homeInternalLinkWarnings = REQUIRED_HOME_LINKS
+    .filter((link) => !homeInternalLinks.has(link.path))
+    .map((link) => `/ is missing internal link to ${link.label} (${link.path})`);
+
+  const dynamicSitemapCoverageWarnings = REQUIRED_DYNAMIC_SITEMAP_SOURCES
+    .filter((key) => !SITEMAP_DYNAMIC_SOURCES?.[key])
+    .map((key) => `dynamic sitemap source is missing: ${key}`);
+
+  const dynamicSitemapRows = Object.entries(SITEMAP_DYNAMIC_SOURCES || {}).map(([key, config]) => {
+    const languages = Array.isArray(config?.languages) ? config.languages.join('/') : 'unknown languages';
+    return `${key}: ${config?.table || 'unknown table'} -> ${config?.route || 'unknown route'} (${languages})`;
+  });
+
   const carFlowRows = [
     `${MAIN_CAR_FLOW_URL}: ${sitemapPathSet.has(MAIN_CAR_FLOW_URL) ? 'in sitemap' : 'not in sitemap'}, canonical ${pageByPath.get(MAIN_CAR_FLOW_URL)?.canonical || 'missing'}`,
     ...LEGACY_CAR_FLOW_URLS.map((urlPath) => {
@@ -319,8 +435,13 @@ async function main() {
 
   printSection('Sitemap URLs that point to noindex pages', sitemapNoindexConflicts);
   printSection('Static sitemap URLs without matching local HTML', sitemapMissingLocalPages);
+  printSection('Tracked sitemap.xml sync', trackedSitemapWarnings);
   printSection('Private/account pages without explicit noindex', indexablePrivatePages);
   printSection('Public sitemap meta quality', publicMetaWarnings);
+  printSection('Public sitemap image alt coverage', publicImageWarnings);
+  printSection('Home priority internal links', homeInternalLinkWarnings);
+  printSection('Dynamic sitemap source coverage', dynamicSitemapCoverageWarnings);
+  printSection('Dynamic sitemap source status', dynamicSitemapRows);
   printSection('Home canonical warnings', homeCanonicalWarning);
   printSection('Canonical mismatches in static HTML', canonicalWarnings);
   printSection('JSON-LD syntax issues', invalidJsonLd);
@@ -329,8 +450,12 @@ async function main() {
 
   const issueCount = sitemapNoindexConflicts.length
     + sitemapMissingLocalPages.length
+    + trackedSitemapWarnings.length
     + indexablePrivatePages.length
     + publicMetaWarnings.length
+    + publicImageWarnings.length
+    + homeInternalLinkWarnings.length
+    + dynamicSitemapCoverageWarnings.length
     + homeCanonicalWarning.length
     + canonicalWarnings.length
     + invalidJsonLd.length
