@@ -99,6 +99,36 @@
     return parseMedia(raw).url;
   }
 
+  function getOptimizedImageUrl(raw, options) {
+    var media = parseMedia(raw);
+    if (!media.url) return '';
+
+    var config = options || {};
+    var width = Number(config.width) || 0;
+    var height = Number(config.height) || 0;
+    var quality = Number(config.quality) || 0;
+    var resize = String(config.resize || '').trim();
+
+    try {
+      var url = new URL(media.url, window.location.origin);
+      var isSupabaseStorage = /\.supabase\.co$/i.test(url.hostname)
+        && url.pathname.indexOf('/storage/v1/object/public/') >= 0;
+
+      if (!isSupabaseStorage) {
+        return media.url;
+      }
+
+      url.pathname = url.pathname.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+      if (width > 0) url.searchParams.set('width', String(Math.round(width)));
+      if (height > 0) url.searchParams.set('height', String(Math.round(height)));
+      if (quality > 0) url.searchParams.set('quality', String(Math.round(quality)));
+      if (resize) url.searchParams.set('resize', resize);
+      return url.toString();
+    } catch (_) {
+      return media.url;
+    }
+  }
+
   function ensurePannellumStylesheet() {
     if (typeof document === 'undefined') return;
     if (document.getElementById('ce-pannellum-css')) return;
@@ -254,6 +284,7 @@
       return setPanoramaMarker(raw, false);
     },
     getDisplayUrl: getDisplayUrl,
+    getOptimizedImageUrl: getOptimizedImageUrl,
     normalizeForCompare: normalizeForCompare,
     ensurePannellum: ensurePannellum,
     mountPanorama: mountPanorama,

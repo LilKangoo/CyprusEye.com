@@ -28,6 +28,26 @@ function getHomeRecommendationMediaDisplayUrl(url) {
   return String(url || '').split('#')[0];
 }
 
+function getHomeRecommendationCardImageUrl(url) {
+  if (window.CE_MEDIA_VIEWER?.getOptimizedImageUrl) {
+    return window.CE_MEDIA_VIEWER.getOptimizedImageUrl(url, {
+      width: 720,
+      height: 420,
+      quality: 72,
+      resize: 'cover',
+    });
+  }
+  return getHomeRecommendationMediaDisplayUrl(url);
+}
+
+function escapeRecommendationAttr(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 function isHomeRecommendationPanorama(url) {
   if (window.CE_MEDIA_VIEWER?.isPanorama) return window.CE_MEDIA_VIEWER.isPanorama(url);
   return false;
@@ -536,7 +556,8 @@ function createRecommendationCard(rec) {
       : (category.name_pl || category.name_en || 'Ogólne');
   const subtitle = rec.location_name ? `${rec.location_name} • ${categoryLabel}` : categoryLabel;
   const imageRaw = String(rec.image_url || '').trim();
-  const imageDisplay = getHomeRecommendationMediaDisplayUrl(imageRaw);
+  const imageFallback = getHomeRecommendationMediaDisplayUrl(imageRaw);
+  const imageDisplay = getHomeRecommendationCardImageUrl(imageRaw);
   const imageIsPanorama = isHomeRecommendationPanorama(imageRaw);
   
   return `
@@ -560,7 +581,7 @@ function createRecommendationCard(rec) {
       ${imageRaw ?
         `
           ${imageIsPanorama ? `<div class="rec-panorama-badge rec-panorama-badge--home">360°</div>` : ''}
-          <img src="${imageDisplay}" alt="${title}" loading="lazy" class="ce-home-card-image" />
+          <img src="${escapeRecommendationAttr(imageDisplay)}" data-original-src="${escapeRecommendationAttr(imageFallback)}" alt="${escapeRecommendationAttr(title)}" loading="lazy" decoding="async" class="ce-home-card-image" onerror="this.onerror=null; this.src=this.dataset.originalSrc || '/assets/cyprus_logo-128.png'" />
         ` :
         '<div class="ce-home-card-image ce-home-card-image--placeholder"></div>'
       }

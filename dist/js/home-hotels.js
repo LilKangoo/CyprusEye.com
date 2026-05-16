@@ -18,6 +18,14 @@ function ceLog(...args) {
   if (CE_DEBUG_HOME_HOTELS) console.log(...args);
 }
 
+function escapeHotelAttr(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 function dispatchHomeHotelsDataRefreshed() {
   try {
     window.dispatchEvent(new CustomEvent('homeHotelsDataRefreshed', {
@@ -44,6 +52,18 @@ function getHotelCardMediaDisplayUrl(url) {
     return window.CE_MEDIA_VIEWER.getDisplayUrl(url);
   }
   return String(url || '').split('#')[0];
+}
+
+function getHotelCardImageUrl(url) {
+  if (window.CE_MEDIA_VIEWER?.getOptimizedImageUrl) {
+    return window.CE_MEDIA_VIEWER.getOptimizedImageUrl(url, {
+      width: 720,
+      height: 420,
+      quality: 72,
+      resize: 'cover',
+    });
+  }
+  return getHotelCardMediaDisplayUrl(url);
 }
 
 function isHotelCardPanorama(url) {
@@ -408,8 +428,9 @@ function renderHomeHotels(){
     return;
   }
   const renderCards = (visibleHotels) => visibleHotels.map((h, index)=>{
-    const imageRaw = h.cover_image_url || (Array.isArray(h.photos)&&h.photos[0]) || '/assets/cyprus_logo-1000x1054.png';
-    const image = getHotelCardMediaDisplayUrl(imageRaw);
+    const imageRaw = h.cover_image_url || (Array.isArray(h.photos)&&h.photos[0]) || '/assets/cyprus_logo-128.png';
+    const imageFallback = getHotelCardMediaDisplayUrl(imageRaw);
+    const image = getHotelCardImageUrl(imageRaw);
     const imageIsPanorama = isHotelCardPanorama(imageRaw);
     const title = window.getHotelName ? window.getHotelName(h) : (h.title?.pl || h.title?.en || h.slug || 'Hotel');
     
@@ -466,7 +487,7 @@ function renderHomeHotels(){
             user-select: none;
           "
         >☆</button>
-        <img src="${image}" alt="${title}" style="width:100%;height:100%;object-fit:cover;" onerror="this.src='/assets/cyprus_logo-1000x1054.png'" />
+        <img src="${escapeHotelAttr(image)}" data-original-src="${escapeHotelAttr(imageFallback)}" alt="${escapeHotelAttr(title)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;" onerror="this.onerror=null; this.src=this.dataset.originalSrc || '/assets/cyprus_logo-128.png'" />
         <div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top,rgba(0,0,0,.9) 0%, rgba(0,0,0,.6) 70%, transparent 100%);padding:16px;color:white;">
           <h3 style="margin:0 0 4px;font-size:1.1rem;font-weight:700;line-height:1.3;">${title}</h3>
           <p style="margin:0;font-size:.85rem;opacity:.98;color:#ffffff;text-shadow:0 1px 2px rgba(0,0,0,.35);">${h.city||''} ${price? '• '+price: ''}</p>

@@ -24,6 +24,18 @@ function getHomeTripMediaDisplayUrl(url) {
   return String(url || '').split('#')[0];
 }
 
+function getHomeTripCardImageUrl(url) {
+  if (window.CE_MEDIA_VIEWER?.getOptimizedImageUrl) {
+    return window.CE_MEDIA_VIEWER.getOptimizedImageUrl(url, {
+      width: 720,
+      height: 420,
+      quality: 72,
+      resize: 'cover',
+    });
+  }
+  return getHomeTripMediaDisplayUrl(url);
+}
+
 function getHomeTripLang() {
   const lang = String(window.appI18n?.language || document.documentElement?.lang || 'pl').toLowerCase();
   return lang.startsWith('en') ? 'en' : 'pl';
@@ -424,8 +436,9 @@ function renderHomeTrips() {
 
   const bestsellerLabel = tripsT('trips.card.bestseller', 'Bestseller');
   const renderCards = (visibleTrips) => visibleTrips.map((trip, index) => {
-    const imageUrl = trip.cover_image_url || '/assets/cyprus_logo-1000x1054.png';
-    const imageDisplayUrl = getHomeTripMediaDisplayUrl(imageUrl);
+    const imageUrl = trip.cover_image_url || '/assets/cyprus_logo-128.png';
+    const imageFallbackUrl = getHomeTripMediaDisplayUrl(imageUrl);
+    const imageDisplayUrl = getHomeTripCardImageUrl(imageUrl);
     const imageIsPanorama = isHomeTripPanorama(imageUrl);
     
     // Get title (support multilingual or slug)
@@ -542,14 +555,17 @@ function renderHomeTrips() {
           "
         >☆</button>
         <img 
-          src="${imageDisplayUrl}" 
-          alt="${title}"
+          src="${escapeHtml(imageDisplayUrl)}" 
+          data-original-src="${escapeHtml(imageFallbackUrl)}"
+          alt="${escapeHtml(title)}"
+          loading="lazy"
+          decoding="async"
           style="
             width: 100%;
             height: 100%;
             object-fit: cover;
           "
-          onerror="this.src='/assets/cyprus_logo-1000x1054.png'"
+          onerror="this.onerror=null; this.src=this.dataset.originalSrc || '/assets/cyprus_logo-128.png'"
         />
         <div style="
           position: absolute;

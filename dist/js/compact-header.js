@@ -550,7 +550,7 @@
       avatar = createElement('img', 'profile-avatar', {
         attributes: {
           id: 'headerUserAvatar',
-          src: '/assets/cyprus_logo-1000x1054.png',
+          src: '/assets/cyprus_logo-128.png',
           alt: 'Avatar',
           width: '48',
           height: '48',
@@ -599,7 +599,7 @@
 
     const menuAvatar = createElement('img', 'compact-profile__avatar', {
       attributes: {
-        src: avatar.getAttribute('src') || '/assets/cyprus_logo-1000x1054.png',
+        src: avatar.getAttribute('src') || '/assets/cyprus_logo-128.png',
         alt: 'Avatar',
         width: '48',
         height: '48',
