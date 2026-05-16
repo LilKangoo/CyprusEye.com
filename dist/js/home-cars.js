@@ -59,6 +59,18 @@ function getCarMediaDisplayUrl(url) {
   return String(url || '').split('#')[0];
 }
 
+function getCarCardImageUrl(url) {
+  if (window.CE_MEDIA_VIEWER?.getOptimizedImageUrl) {
+    return window.CE_MEDIA_VIEWER.getOptimizedImageUrl(url, {
+      width: 720,
+      height: 420,
+      quality: 72,
+      resize: 'cover',
+    });
+  }
+  return getCarMediaDisplayUrl(url);
+}
+
 function isCarPanorama(url) {
   if (window.CE_MEDIA_VIEWER?.isPanorama) {
     return window.CE_MEDIA_VIEWER.isPanorama(url);
@@ -650,7 +662,8 @@ function renderHomeCars() {
     const seatsText = text(`${seats} miejsc`, `${seats} seats`);
 
     const imageUrlRaw = car.image_url || `https://placehold.co/400x250/1e293b/ffffff?text=${encodeURIComponent(title)}`;
-    const imageUrl = getCarMediaDisplayUrl(imageUrlRaw);
+    const imageFallbackUrl = getCarMediaDisplayUrl(imageUrlRaw);
+    const imageUrl = getCarCardImageUrl(imageUrlRaw);
     const imageIsPanorama = isCarPanorama(imageUrlRaw);
     const quoteLine = quote
       ? `${totalLabel} ${Number(quote.total).toFixed(2)}€ • ${quote.days} ${daysLabel} • ${seatsText}`
@@ -674,7 +687,15 @@ function renderHomeCars() {
           onclick="event.preventDefault(); event.stopPropagation();"
         >☆</button>
         ${imageIsPanorama ? '<span class="ce-media-badge ce-media-badge--under-star">360°</span>' : ''}
-        <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(title)}" class="ce-home-card-image" loading="lazy" />
+        <img
+          src="${escapeHtml(imageUrl)}"
+          data-original-src="${escapeHtml(imageFallbackUrl)}"
+          alt="${escapeHtml(title)}"
+          class="ce-home-card-image"
+          loading="lazy"
+          decoding="async"
+          onerror="this.onerror=null; this.src=this.dataset.originalSrc || '/assets/cyprus_logo-128.png'"
+        />
         <div class="ce-home-card-overlay">
           <h3 class="ce-home-card-title">${escapeHtml(title)}</h3>
           <p class="ce-home-card-subtitle">${escapeHtml(quoteLine)}</p>
