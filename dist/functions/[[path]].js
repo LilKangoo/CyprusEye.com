@@ -212,6 +212,7 @@ export async function onRequest(context) {
   if (['GET', 'HEAD'].includes(context.request.method) && isLegacyCarRedirectPath(url.pathname)) {
     const target = new URL(buildLegacyCarRedirectLocation(url), url.origin);
     return new Response(null, {
+      status: 301,
       headers: {
         location: target.toString(),
         'cache-control': 'public, max-age=3600',
