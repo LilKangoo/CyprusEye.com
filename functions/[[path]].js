@@ -10,6 +10,7 @@ import {
   getPublishedServiceOfferBySlug,
   resolveServiceOfferRequest,
 } from './_utils/serviceOfferData.js';
+import { buildLegacyCarRedirectLocation, isLegacyCarRedirectPath } from './_utils/legacyRedirects.js';
 import { buildServiceOfferSeoPayload } from './_utils/serviceOfferSeo.js';
 import { buildCarOfferSeoPayload, getPublishedCarOfferById } from './_utils/carOfferSeo.js';
 import { getSitemapEntries, getStaticSitemapEntries, renderSitemapXml } from './_utils/sitemap.js';
@@ -208,6 +209,17 @@ async function serveDynamicSitemap(context) {
 
 export async function onRequest(context) {
   const url = new URL(context.request.url);
+  if (['GET', 'HEAD'].includes(context.request.method) && isLegacyCarRedirectPath(url.pathname)) {
+    const target = new URL(buildLegacyCarRedirectLocation(url), url.origin);
+    return new Response(null, {
+      status: 301,
+      headers: {
+        location: target.toString(),
+        'cache-control': 'public, max-age=3600',
+      },
+    });
+  }
+
   if (url.pathname === '/sitemap.xml') {
     if (!['GET', 'HEAD'].includes(context.request.method)) {
       return new Response('Method not allowed', {

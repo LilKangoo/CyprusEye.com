@@ -24,6 +24,7 @@ import {
   getPublishedServiceOfferBySlug,
   resolveServiceOfferRequest,
 } from './functions/_utils/serviceOfferData.js';
+import { buildLegacyCarRedirectLocation, isLegacyCarRedirectPath } from './functions/_utils/legacyRedirects.js';
 import { buildServiceOfferSeoPayload } from './functions/_utils/serviceOfferSeo.js';
 import {
   getSitemapEntries,
@@ -71,6 +72,18 @@ function jsonResponse(res, statusCode, data) {
     'Content-Length': Buffer.byteLength(body),
   });
   res.end(body);
+}
+
+function redirectLegacyCarPage(res, requestUrl) {
+  const location = buildLegacyCarRedirectLocation(requestUrl);
+  const target = BASE_PATH === '/' ? location : `${BASE_PATH}${location}`;
+  applySecurityHeaders(res);
+  res.writeHead(301, {
+    Location: target,
+    'Cache-Control': 'public, max-age=3600',
+  });
+  res.end();
+  return true;
 }
 
 function getMailTransport() {
@@ -1131,6 +1144,13 @@ function createServer() {
         'Cache-Control': 'public, max-age=86400',
       });
       res.end();
+      return;
+    }
+
+    const relativeLegacyPath = extractPathRelativeToBase(url.pathname);
+    const legacyPathname = relativeLegacyPath === null ? '' : `/${relativeLegacyPath}`;
+    if ((req.method === 'GET' || req.method === 'HEAD') && isLegacyCarRedirectPath(legacyPathname)) {
+      redirectLegacyCarPage(res, url);
       return;
     }
 

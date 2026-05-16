@@ -14,6 +14,10 @@ import {
   extractSeoFallbacksFromHtml,
   resolveSeoRoute,
 } from '../functions/_utils/pageSeo.js';
+import {
+  LEGACY_CAR_REDIRECT_PATHS,
+  LEGACY_CAR_REDIRECT_TARGET,
+} from '../functions/_utils/legacyRedirects.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -40,16 +44,9 @@ const EXPECTED_PRIVATE_PREFIXES = [
   '/public/admin/',
 ];
 
-const MAIN_CAR_FLOW_URL = '/car.html';
-const LEGACY_CAR_FLOW_URLS = ['/car-rental.html', '/autopfo.html'];
-const LEGACY_CAR_REDIRECTS = [
-  ['/car-rental', MAIN_CAR_FLOW_URL],
-  ['/car-rental/', MAIN_CAR_FLOW_URL],
-  ['/car-rental.html', MAIN_CAR_FLOW_URL],
-  ['/autopfo', MAIN_CAR_FLOW_URL],
-  ['/autopfo/', MAIN_CAR_FLOW_URL],
-  ['/autopfo.html', MAIN_CAR_FLOW_URL],
-];
+const MAIN_CAR_FLOW_URL = LEGACY_CAR_REDIRECT_TARGET;
+const LEGACY_CAR_FLOW_URLS = LEGACY_CAR_REDIRECT_PATHS.filter((urlPath) => urlPath.endsWith('.html'));
+const LEGACY_CAR_REDIRECTS = LEGACY_CAR_REDIRECT_PATHS.map((urlPath) => [urlPath, MAIN_CAR_FLOW_URL]);
 
 const LOCAL_ROUTE_ALIASES = new Map([
   ['/blog', '/blog.html'],

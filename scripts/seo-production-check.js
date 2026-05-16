@@ -1,22 +1,18 @@
 import { getStaticSitemapEntries, SITEMAP_DYNAMIC_SOURCES, SITEMAP_ORIGIN } from '../functions/_utils/sitemap.js';
+import {
+  LEGACY_CAR_REDIRECT_PATHS,
+  LEGACY_CAR_REDIRECT_TARGET,
+} from '../functions/_utils/legacyRedirects.js';
 
 const DEFAULT_ORIGIN = SITEMAP_ORIGIN;
-const LEGACY_CAR_REDIRECTS = [
-  ['/car-rental', '/car.html'],
-  ['/car-rental/', '/car.html'],
-  ['/car-rental.html', '/car.html'],
-  ['/autopfo', '/car.html'],
-  ['/autopfo/', '/car.html'],
-  ['/autopfo.html', '/car.html'],
-];
-const STALE_SITEMAP_PATHS = [
+const LEGACY_CAR_REDIRECTS = LEGACY_CAR_REDIRECT_PATHS.map((path) => [path, LEGACY_CAR_REDIRECT_TARGET]);
+const STALE_SITEMAP_PATHS = Array.from(new Set([
   '/achievements.html',
-  '/autopfo.html',
-  '/car-rental.html',
+  ...LEGACY_CAR_REDIRECT_PATHS.filter((path) => path.endsWith('.html')),
   '/deposit.html',
   '/index.html',
   '/terms.html',
-];
+]));
 
 function showHelp() {
   console.log(`Usage: npm run seo:production -- [--origin=https://www.cypruseye.com] [--require-dynamic]
