@@ -11043,7 +11043,7 @@
       const blob = await new Promise((resolve, reject) => canvas.toBlob((out) => out ? resolve(out) : reject(new Error('Failed to convert image')), 'image/webp', 0.9));
 
       const { error } = await state.sb.storage.from('poi-photos').upload(fileName, blob, {
-        cacheControl: '3600',
+        cacheControl: '31536000',
         upsert: false,
         contentType: 'image/webp',
       });

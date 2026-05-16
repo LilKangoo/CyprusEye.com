@@ -850,7 +850,7 @@ window.handleRecImageUpload = async function(event) {
     const { data, error } = await client.storage
       .from('images')
       .upload(filePath, file, {
-        cacheControl: '3600',
+        cacheControl: '31536000',
         upsert: false
       });
     

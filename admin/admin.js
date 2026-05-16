@@ -11666,7 +11666,7 @@ async function handleTripCoverUpload(input) {
     const { data, error } = await client.storage
       .from('images')
       .upload(filename, file, {
-        cacheControl: '3600',
+        cacheControl: '31536000',
         upsert: true
       });
     
@@ -12011,7 +12011,7 @@ async function openNewTripModal() {
             const compressed = await compressToWebp(file, 3840, 2160, 0.9);
             const path = `trips/${payload.slug}/cover-${Date.now()}.webp`;
             const { error: upErr } = await client.storage.from('poi-photos').upload(path, compressed, { 
-              cacheControl: '3600', 
+              cacheControl: '31536000', 
               upsert: false, 
               contentType: 'image/webp' 
             });
@@ -12539,7 +12539,7 @@ async function uploadServiceMetaImage(kind, formType = 'edit', fileInput) {
     const path = `${folder}/${slugSeed}/meta-${Date.now()}.webp`;
 
     const { error } = await client.storage.from('poi-photos').upload(path, compressed, {
-      cacheControl: '3600',
+      cacheControl: '31536000',
       upsert: false,
       contentType: 'image/webp',
     });
@@ -12725,7 +12725,7 @@ async function uploadPoiImage(file, poiSlug, kind, options = {}) {
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   const path = `pois/${safeSlug}/${kind}-${isPanorama ? 'pano-' : ''}${suffix}.webp`;
   const { error } = await client.storage.from('poi-photos').upload(path, compressed, {
-    cacheControl: '3600',
+    cacheControl: '31536000',
     upsert: false,
     contentType: 'image/webp',
   });
@@ -13025,7 +13025,7 @@ async function handleCoverFileUpload(formType, file, hotelSlug) {
     const path = `hotels/${hotelSlug}/cover-${Date.now()}.webp`;
     
     const { error } = await client.storage.from('poi-photos').upload(path, compressed, {
-      cacheControl: '3600',
+      cacheControl: '31536000',
       upsert: false,
       contentType: 'image/webp'
     });
@@ -13073,7 +13073,7 @@ async function handlePhotosUpload(formType, files, hotelSlug) {
       const path = `hotels/${hotelSlug}/photo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.webp`;
       
       const { error } = await client.storage.from('poi-photos').upload(path, compressed, {
-        cacheControl: '3600',
+        cacheControl: '31536000',
         upsert: false,
         contentType: 'image/webp'
       });
@@ -24994,7 +24994,7 @@ async function uploadHotelPhotosBatch(slug, files) {
     const compressed = await compressToWebp(file, 3840, 2160, 0.9);
     const path = `hotels/${slug}/gallery/${Date.now()}-${Math.random().toString(36).slice(2,8)}.webp`;
     const { error: upErr } = await client.storage.from('poi-photos').upload(path, compressed, {
-      cacheControl: '3600',
+      cacheControl: '31536000',
       upsert: false,
       contentType: 'image/webp'
     });
@@ -34981,7 +34981,7 @@ async function uploadCarImage(file) {
     const { data, error } = await client.storage
       .from('car-images')
       .upload(filename, file, {
-        cacheControl: '3600',
+        cacheControl: '31536000',
         upsert: false
       });
 
@@ -46764,7 +46764,7 @@ async function uploadProductThumbnail(file) {
     const path = `shop/products/${Date.now()}-thumb.webp`;
     
     const { error } = await client.storage.from('poi-photos').upload(path, compressed, {
-      cacheControl: '3600',
+      cacheControl: '31536000',
       upsert: false,
       contentType: 'image/webp'
     });
@@ -46803,7 +46803,7 @@ async function uploadProductGalleryImages(files) {
       const path = `shop/products/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
       
       const { error } = await client.storage.from('poi-photos').upload(path, compressed, {
-        cacheControl: '3600',
+        cacheControl: '31536000',
         upsert: false,
         contentType: 'image/webp'
       });
@@ -47126,7 +47126,10 @@ function setupCategoryFormListeners() {
       const fileName = `category-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
       const { data, error } = await client.storage
         .from('shop-images')
-        .upload(`categories/${fileName}`, file);
+        .upload(`categories/${fileName}`, file, {
+          cacheControl: '31536000',
+          upsert: false
+        });
       
       if (error) {
         showToast(`Błąd uploadu: ${error.message}`, 'error');
@@ -47355,7 +47358,10 @@ function setupVendorFormListeners() {
       const fileName = `vendor-logo-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
       const { data, error } = await client.storage
         .from('shop-images')
-        .upload(`vendors/${fileName}`, file);
+        .upload(`vendors/${fileName}`, file, {
+          cacheControl: '31536000',
+          upsert: false
+        });
       
       if (error) {
         showToast(`Błąd uploadu: ${error.message}`, 'error');
@@ -47381,7 +47387,10 @@ function setupVendorFormListeners() {
       const fileName = `vendor-banner-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
       const { data, error } = await client.storage
         .from('shop-images')
-        .upload(`vendors/${fileName}`, file);
+        .upload(`vendors/${fileName}`, file, {
+          cacheControl: '31536000',
+          upsert: false
+        });
       
       if (error) {
         showToast(`Błąd uploadu: ${error.message}`, 'error');

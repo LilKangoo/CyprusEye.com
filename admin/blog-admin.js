@@ -1814,7 +1814,7 @@ async function uploadBlogImageFile(file, options = {}) {
   const blob = await prepareBlogImageBlob(file, options);
 
   const { error } = await client.storage.from('poi-photos').upload(fileName, blob, {
-    cacheControl: '3600',
+    cacheControl: '31536000',
     upsert: false,
     contentType: 'image/webp',
   });
