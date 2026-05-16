@@ -16,6 +16,16 @@ export function initForceRefresh(sb) {
   const DEBUG_KEY = 'CE_FORCE_REFRESH_DEBUG';
   const FORCE_REFRESH_ROW_ID = 1;
 
+  const isRealtimeRefreshRoute = () => {
+    const normalizedPath = String(path || '/').toLowerCase();
+    return (
+      normalizedPath === '/admin' ||
+      normalizedPath.startsWith('/admin/') ||
+      normalizedPath === '/partners' ||
+      normalizedPath.startsWith('/partners/')
+    );
+  };
+
   const isHomePage = () => (String(document.body?.dataset?.seoPage || '').toLowerCase() === 'home');
 
   const isLanguageSelectionPending = () => {
@@ -198,7 +208,16 @@ export function initForceRefresh(sb) {
     }
   });
 
-  // Realtime refresh signal so installed apps update immediately, not only on interval.
+  // Public pages already poll for refreshes. Avoid opening Realtime sockets there,
+  // because anonymous crawlers/PageSpeed often report Supabase websocket DNS errors.
+  if (!isRealtimeRefreshRoute()) {
+    emitDebug({
+      realtimeStatus: 'skipped_public_polling',
+    });
+    return;
+  }
+
+  // Realtime refresh signal so admin/partner apps update immediately, not only on interval.
   try {
     const channel = sb
       .channel('ce-force-refresh-site-settings')

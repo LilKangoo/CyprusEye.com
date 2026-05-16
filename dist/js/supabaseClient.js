@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { SUPABASE_CONFIG } from './config.js'
-import { initForceRefresh } from './forceRefresh.js?v=2'
+import { initForceRefresh } from './forceRefresh.js?v=3'
 
 const authLockChains = new Map()
 const AUTH_ERROR_TEXT_RE = /jwt expired|expired jwt|invalid jwt|token expired|auth session missing|session expired|unauthorized|forbidden/i
