@@ -42,6 +42,14 @@ const EXPECTED_PRIVATE_PREFIXES = [
 
 const MAIN_CAR_FLOW_URL = '/car.html';
 const LEGACY_CAR_FLOW_URLS = ['/car-rental.html', '/autopfo.html'];
+const LEGACY_CAR_REDIRECTS = [
+  ['/car-rental', MAIN_CAR_FLOW_URL],
+  ['/car-rental/', MAIN_CAR_FLOW_URL],
+  ['/car-rental.html', MAIN_CAR_FLOW_URL],
+  ['/autopfo', MAIN_CAR_FLOW_URL],
+  ['/autopfo/', MAIN_CAR_FLOW_URL],
+  ['/autopfo.html', MAIN_CAR_FLOW_URL],
+];
 
 const LOCAL_ROUTE_ALIASES = new Map([
   ['/blog', '/blog.html'],
@@ -104,6 +112,26 @@ function extractLinkHref(html, rel) {
   return firstMatch(html, pattern);
 }
 
+function extractAlternateLinks(html) {
+  const alternates = {};
+  const source = stripHtmlComments(html);
+  const pattern = /<link\b[^>]*>/gi;
+  let match = pattern.exec(source);
+  while (match) {
+    const tag = match[0];
+    const relTokens = extractHtmlAttribute(tag, 'rel').toLowerCase().split(/\s+/).filter(Boolean);
+    if (relTokens.includes('alternate')) {
+      const hreflang = extractHtmlAttribute(tag, 'hreflang').toLowerCase();
+      const href = extractHtmlAttribute(tag, 'href');
+      if (hreflang && href) {
+        alternates[hreflang] = href;
+      }
+    }
+    match = pattern.exec(source);
+  }
+  return alternates;
+}
+
 function hasHtmlAttribute(tag, name) {
   const safeName = escapeRegExp(name);
   return new RegExp(`\\b${safeName}(?:\\s*=|\\s|>|$)`, 'i').test(String(tag || ''));
@@ -141,6 +169,28 @@ function normalizeInternalHref(rawValue) {
   } catch {
     return value.startsWith('/') ? value.split(/[?#]/)[0] : `/${value.split(/[?#]/)[0]}`;
   }
+}
+
+function isAbsoluteSitemapOriginUrl(rawValue) {
+  try {
+    const url = new URL(String(rawValue || ''));
+    return url.origin === SITEMAP_ORIGIN;
+  } catch {
+    return false;
+  }
+}
+
+function parseRedirects(source) {
+  const redirects = new Map();
+  String(source || '').split(/\r?\n/).forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) return;
+    const [from, to, status] = trimmed.split(/\s+/);
+    if (from && to && status) {
+      redirects.set(from, { to, status });
+    }
+  });
+  return redirects;
 }
 
 function pathToUrlPath(relativePath) {
@@ -283,6 +333,7 @@ async function readPageMeta(relativePath, translationsByLanguage) {
       description: extractMetaContent(rendered, 'description'),
       robots: extractMetaContent(rendered, 'robots'),
       canonical: normalizePathFromUrl(extractLinkHref(rendered, 'canonical')),
+      alternates: extractAlternateLinks(rendered),
     }];
   }));
   const jsonLd = parseJsonLdScripts(relativePath, extractJsonLdScripts(renderedHtml));
@@ -343,6 +394,21 @@ async function main() {
       trackedSitemapWarnings.push('sitemap.xml is not synchronized with functions/_utils/sitemap.js static entries');
     }
   }
+  const redirectsPath = join(ROOT, '_redirects');
+  const legacyCarRedirectWarnings = [];
+  if (!existsSync(redirectsPath)) {
+    legacyCarRedirectWarnings.push('_redirects file is missing, so legacy car routes cannot be protected by 301 redirects');
+  } else {
+    const redirectMap = parseRedirects(await readFile(redirectsPath, 'utf-8'));
+    LEGACY_CAR_REDIRECTS.forEach(([from, expectedTo]) => {
+      const rule = redirectMap.get(from);
+      if (!rule) {
+        legacyCarRedirectWarnings.push(`${from} is missing a 301 redirect to ${expectedTo}`);
+      } else if (rule.to !== expectedTo || rule.status !== '301') {
+        legacyCarRedirectWarnings.push(`${from} redirects to ${rule.to} ${rule.status}, expected ${expectedTo} 301`);
+      }
+    });
+  }
 
   const sitemapNoindexConflicts = sitemapPaths
     .map((urlPath) => {
@@ -396,6 +462,27 @@ async function main() {
       });
     });
 
+  const publicHreflangWarnings = sitemapPaths
+    .filter((urlPath) => !urlPath.startsWith('/blog?'))
+    .filter((urlPath) => !isPrivatePath(urlPath))
+    .flatMap((urlPath) => {
+      const page = pageByPath.get(urlPath);
+      if (!page) return [];
+      return SEO_AUDIT_LANGUAGES.flatMap((language) => {
+        const alternates = page.localized?.[language]?.alternates || {};
+        return ['pl', 'en', 'x-default'].flatMap((hreflang) => {
+          const href = alternates[hreflang];
+          if (!href) {
+            return [`${urlPath} [${language}] is missing hreflang ${hreflang}`];
+          }
+          if (!isAbsoluteSitemapOriginUrl(href)) {
+            return [`${urlPath} [${language}] hreflang ${hreflang} is not an absolute ${SITEMAP_ORIGIN} URL: ${href}`];
+          }
+          return [];
+        });
+      });
+    });
+
   const publicImageWarnings = sitemapPaths
     .filter((urlPath) => !urlPath.startsWith('/blog?'))
     .filter((urlPath) => !isPrivatePath(urlPath))
@@ -436,8 +523,10 @@ async function main() {
   printSection('Sitemap URLs that point to noindex pages', sitemapNoindexConflicts);
   printSection('Static sitemap URLs without matching local HTML', sitemapMissingLocalPages);
   printSection('Tracked sitemap.xml sync', trackedSitemapWarnings);
+  printSection('Legacy car redirect coverage', legacyCarRedirectWarnings);
   printSection('Private/account pages without explicit noindex', indexablePrivatePages);
   printSection('Public sitemap meta quality', publicMetaWarnings);
+  printSection('Public sitemap hreflang coverage', publicHreflangWarnings);
   printSection('Public sitemap image alt coverage', publicImageWarnings);
   printSection('Home priority internal links', homeInternalLinkWarnings);
   printSection('Dynamic sitemap source coverage', dynamicSitemapCoverageWarnings);
@@ -451,8 +540,10 @@ async function main() {
   const issueCount = sitemapNoindexConflicts.length
     + sitemapMissingLocalPages.length
     + trackedSitemapWarnings.length
+    + legacyCarRedirectWarnings.length
     + indexablePrivatePages.length
     + publicMetaWarnings.length
+    + publicHreflangWarnings.length
     + publicImageWarnings.length
     + homeInternalLinkWarnings.length
     + dynamicSitemapCoverageWarnings.length
