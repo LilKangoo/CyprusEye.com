@@ -13,6 +13,7 @@
     "serve:web": "node server.js",
     "dev": "node server.js",
     "seo:audit": "node scripts/seo-audit.js",
+    "seo:production": "node scripts/seo-production-check.js",
     "build": "node scripts/build.js",
     "build:clean": "rm -rf dist && npm run build"
   },
