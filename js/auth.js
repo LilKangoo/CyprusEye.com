@@ -22,7 +22,7 @@ const IS_PASSWORD_RESET_CALLBACK =
 const GOOGLE_OAUTH_REDIRECT = 'https://cypruseye.com/auth/';
 const POST_AUTH_REDIRECT = '/';
 const USERNAME_MIN_LENGTH = 3;
-const USERNAME_MAX_LENGTH = 15;
+const USERNAME_MAX_LENGTH = 30;
 const OAUTH_COMPLETION_DRAFT_KEY = 'ce_oauth_register_draft_v1';
 const OAUTH_COMPLETION_META_KEY = 'oauth_registration_completed';
 const OAUTH_COMPLETION_LOCAL_PREFIX = 'ce_oauth_completed_user_';
@@ -1696,7 +1696,7 @@ function ensureOAuthCompletionModal() {
       <label for="oauthCompletionFirstName" style="display:block;color:#334155;font-size:13px;font-weight:700;">${t('First name', 'Imię')}</label>
       <input id="oauthCompletionFirstName" name="firstName" type="text" required maxlength="60" autocomplete="given-name" style="width:100%;margin:6px 0 12px;padding:10px 12px;background:#fff;color:#0f172a;caret-color:#0f172a;border:1px solid #cbd5e1;border-radius:10px;" />
       <label for="oauthCompletionUsername" style="display:block;color:#334155;font-size:13px;font-weight:700;">${t('Username', 'Nazwa użytkownika')}</label>
-      <input id="oauthCompletionUsername" name="username" type="text" required minlength="3" maxlength="15" pattern="[a-zA-Z0-9_]+" autocomplete="username" style="width:100%;margin:6px 0 12px;padding:10px 12px;background:#fff;color:#0f172a;caret-color:#0f172a;border:1px solid #cbd5e1;border-radius:10px;" />
+      <input id="oauthCompletionUsername" name="username" type="text" required minlength="3" maxlength="30" pattern="[a-zA-Z0-9_]+" autocomplete="username" style="width:100%;margin:6px 0 12px;padding:10px 12px;background:#fff;color:#0f172a;caret-color:#0f172a;border:1px solid #cbd5e1;border-radius:10px;" />
       <div class="referral-field referral-field--auth referral-field--oauth" data-auth-referral-field="oauth">
         <label for="oauthCompletionReferral" style="display:block;color:#334155;font-size:13px;font-weight:700;">${t('Referral code (optional)', 'Kod polecający (opcjonalnie)')}</label>
         <div class="referral-field__input-row">
@@ -1797,7 +1797,7 @@ function ensureOAuthCompletionModal() {
         return;
       }
       if (!/^[a-zA-Z0-9_]+$/.test(username) || username.length < USERNAME_MIN_LENGTH || username.length > USERNAME_MAX_LENGTH) {
-        setError(t('Username must be 3-15 chars: letters, numbers, underscore.', 'Nazwa użytkownika: 3-15 znaków, litery, cyfry, podkreślenie.'));
+        setError(t('Username must be 3-30 chars: letters, numbers, underscore.', 'Nazwa użytkownika: 3-30 znaków, litery, cyfry, podkreślenie.'));
         return;
       }
       if (referralCodeInput && !/^[a-zA-Z0-9_]+$/.test(referralCodeInput)) {
@@ -1936,12 +1936,12 @@ function ensureOAuthCompletionModal() {
       } catch (error) {
         console.error('OAuth completion failed:', error);
         const raw = String(error?.message || '').toLowerCase();
-        if (raw.includes('username_taken')) {
+        if (raw.includes('username_or_referral_code_taken') || raw.includes('username_taken')) {
           setError(t('This username is already taken.', 'Ta nazwa użytkownika jest już zajęta.'));
         } else if (raw.includes('duplicate key value') || raw.includes('duplicate') || raw.includes('unique')) {
           setError(t('This username is already taken.', 'Ta nazwa użytkownika jest już zajęta.'));
         } else if (raw.includes('invalid_username_length')) {
-          setError(t('Username must have 3-15 characters.', 'Nazwa użytkownika musi mieć 3-15 znaków.'));
+          setError(t('Username must have 3-30 characters.', 'Nazwa użytkownika musi mieć 3-30 znaków.'));
         } else if (raw.includes('invalid_username_format')) {
           setError(t('Username may contain letters, numbers and underscore only.', 'Nazwa użytkownika może zawierać tylko litery, cyfry i podkreślenie.'));
         } else if (raw.includes('missing_name')) {
@@ -2094,6 +2094,39 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
 }
 
+function isMissingUsernameReferralRpcError(error) {
+  const message = String(error?.message || error || '').toLowerCase();
+  const code = String(error?.code || '').toLowerCase();
+  return (
+    code === '42883' ||
+    code === 'pgrst202' ||
+    message.includes('update_my_username_and_referral_code') ||
+    message.includes('could not find the function') ||
+    message.includes('function public.update_my_username_and_referral_code') ||
+    message.includes('schema cache')
+  );
+}
+
+async function updateOAuthCompletionFields(userId, firstName, completedAt) {
+  try {
+    const { error } = await sb
+      .from('profiles')
+      .update({
+        name: firstName,
+        registration_completed: true,
+        registration_completed_at: completedAt,
+      })
+      .eq('id', userId);
+    if (error) throw error;
+  } catch (_completionUpdateErr) {
+    const { error } = await sb
+      .from('profiles')
+      .update({ name: firstName })
+      .eq('id', userId);
+    if (error) throw error;
+  }
+}
+
 async function syncOAuthCompletionProfile(userId, firstName, username) {
   const id = String(userId || '').trim();
   if (!id) {
@@ -2101,6 +2134,21 @@ async function syncOAuthCompletionProfile(userId, firstName, username) {
   }
 
   const completedAt = new Date().toISOString();
+
+  try {
+    const { error: usernameError } = await sb.rpc('update_my_username_and_referral_code', {
+      p_username: username,
+    });
+    if (usernameError) throw usernameError;
+
+    await updateOAuthCompletionFields(id, firstName, completedAt);
+    return;
+  } catch (rpcError) {
+    if (!isMissingUsernameReferralRpcError(rpcError)) {
+      throw rpcError;
+    }
+  }
+
   try {
     const { error: updateErrWithNorm } = await sb
       .from('profiles')

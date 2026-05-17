@@ -3,7 +3,7 @@ import { refreshSessionAndProfile } from './auth.js';
 import { getMyProfile, updateMyName, updateMyUsername, uploadAvatar, removeAvatar } from './profile.js';
 import { myXpEvents } from './xp.js';
 
-const USERNAME_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{1,28}[a-z0-9])$/i;
+const USERNAME_PATTERN = /^[A-Za-z0-9_]{3,30}$/;
 
 const selectors = {
   message: document.querySelector('[data-account-message]'),
@@ -396,7 +396,7 @@ function bindUsernameForm() {
 
     if (!USERNAME_PATTERN.test(nextUsername)) {
       setMessage(
-        'Nazwa użytkownika może zawierać litery, cyfry, kropki, myślniki i podkreślenia (3–30 znaków).',
+        'Nazwa użytkownika może zawierać tylko litery, cyfry i podkreślenie (_), 3-30 znaków.',
         'error',
       );
       usernameInput.focus();

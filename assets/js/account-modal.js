@@ -3,7 +3,7 @@ import { refreshSessionAndProfile } from '/js/auth.js?v=7';
 import { getMyProfile, updateMyName, updateMyUsername } from '/js/profile.js';
 import { myXpEvents } from '/js/xp.js';
 
-const USERNAME_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{1,28}[a-z0-9])$/i;
+const USERNAME_PATTERN = /^[A-Za-z0-9_]{3,30}$/;
 
 const modal = document.getElementById('accountModal');
 if (!modal || modal.dataset.ceAccountEnhanced !== 'true') {
@@ -285,7 +285,7 @@ if (!modal || modal.dataset.ceAccountEnhanced !== 'true') {
         }
         if (!USERNAME_PATTERN.test(nextUsername)) {
           setMessage(
-            'Nazwa użytkownika może zawierać litery, cyfry, kropki, myślniki i podkreślenia (3–30 znaków).',
+            'Nazwa użytkownika może zawierać tylko litery, cyfry i podkreślenie (_), 3-30 znaków.',
             'error',
           );
           usernameInput.focus();
@@ -469,4 +469,3 @@ if (!modal || modal.dataset.ceAccountEnhanced !== 'true') {
   // Apply initial state without waiting for modal interaction.
   applyAuthState(window.CE_STATE || {});
 }
-

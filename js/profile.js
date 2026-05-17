@@ -1,4 +1,26 @@
 const PROFILE_COLUMNS = 'id,email,name,username,avatar_url,xp,level,visited_places,referral_code,referred_by,updated_at';
+const USERNAME_PATTERN = /^[A-Za-z0-9_]{3,30}$/;
+
+function getUsernameUpdateError(error) {
+  const message = String(error?.message || error || '').toLowerCase();
+  if (message.includes('username_or_referral_code_taken')) {
+    return new Error('Ta nazwa użytkownika albo kod polecający jest już zajęty.');
+  }
+  if (message.includes('invalid_username_format') || message.includes('invalid_referral_code_format')) {
+    return new Error('Nazwa użytkownika może zawierać tylko litery, cyfry i podkreślenie (_), 3-30 znaków.');
+  }
+  if (message.includes('not_authenticated')) {
+    return new Error('Zaloguj się ponownie, aby zmienić nazwę użytkownika.');
+  }
+  if (
+    message.includes('update_my_username_and_referral_code') ||
+    message.includes('could not find the function') ||
+    message.includes('schema cache')
+  ) {
+    return new Error('Aktualizacja profilu wymaga wdrożenia najnowszej migracji bazy danych.');
+  }
+  return error;
+}
 
 function getSupabaseClient() {
   if (typeof window !== 'undefined' && typeof window.getSupabase === 'function') {
@@ -140,33 +162,21 @@ export async function updateMyName(name) {
 
 export async function updateMyUsername(username) {
   const trimmed = typeof username === 'string' ? username.trim() : '';
-  if (!trimmed) {
-    throw new Error('Nazwa użytkownika jest wymagana.');
+  if (!trimmed || !USERNAME_PATTERN.test(trimmed)) {
+    throw new Error('Nazwa użytkownika może zawierać tylko litery, cyfry i podkreślenie (_), 3-30 znaków.');
   }
 
-  const payloads = [
-    { username: trimmed, username_normalized: trimmed.toLowerCase() },
-    { username: trimmed },
-  ];
+  const sb = getSupabaseClient();
+  const { data, error } = await sb.rpc('update_my_username_and_referral_code', {
+    p_username: trimmed,
+  });
 
-  let lastError = null;
-
-  for (const payload of payloads) {
-    try {
-      return await updateProfile(payload);
-    } catch (error) {
-      lastError = error;
-      const message = String(error?.message || '').toLowerCase();
-      const details = String(error?.details || '').toLowerCase();
-      const hint = `${message} ${details}`;
-      if ('username_normalized' in payload && hint.includes('username_normalized')) {
-        continue;
-      }
-      throw error;
-    }
+  if (error) {
+    throw getUsernameUpdateError(error);
   }
 
-  throw lastError;
+  const row = Array.isArray(data) ? data[0] : data;
+  return normalizeProfile(null, row);
 }
 
 export async function uploadAvatar(file) {

@@ -1170,19 +1170,14 @@ function validateUsername(username) {
     return { valid: false, error: 'Nazwa użytkownika musi mieć minimum 3 znaki.' };
   }
   
-  if (username.length > 20) {
-    return { valid: false, error: 'Nazwa użytkownika może mieć maksymalnie 20 znaków.' };
+  if (username.length > 30) {
+    return { valid: false, error: 'Nazwa użytkownika może mieć maksymalnie 30 znaków.' };
   }
   
   // Only alphanumeric and underscore
   const usernameRegex = /^[a-zA-Z0-9_]+$/;
   if (!usernameRegex.test(username)) {
     return { valid: false, error: 'Nazwa użytkownika może zawierać tylko litery, cyfry i podkreślenie (_).' };
-  }
-  
-  // Cannot start with number
-  if (/^\d/.test(username)) {
-    return { valid: false, error: 'Nazwa użytkownika nie może zaczynać się od cyfry.' };
   }
   
   // Reserved words

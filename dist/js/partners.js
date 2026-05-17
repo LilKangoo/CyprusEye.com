@@ -649,7 +649,28 @@
     return true;
   }
 
-  const USERNAME_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{1,28}[a-z0-9])$/i;
+  const USERNAME_PATTERN = /^[A-Za-z0-9_]{3,30}$/;
+
+  function getUsernameUpdateErrorMessage(error) {
+    const message = String(error?.message || error || '').toLowerCase();
+    if (message.includes('username_or_referral_code_taken')) {
+      return 'This username or referral code is already taken.';
+    }
+    if (message.includes('invalid_username_format') || message.includes('invalid_referral_code_format')) {
+      return 'Invalid username. Use 3-30 chars: letters, digits or underscore.';
+    }
+    if (message.includes('not_authenticated')) {
+      return 'Please sign in again to update your username.';
+    }
+    if (
+      message.includes('update_my_username_and_referral_code') ||
+      message.includes('could not find the function') ||
+      message.includes('schema cache')
+    ) {
+      return 'Profile update requires the latest database migration.';
+    }
+    return error?.message || 'Update failed';
+  }
 
   function $(id) {
     return document.getElementById(id);
@@ -13175,48 +13196,31 @@
       if (!state.sb || !state.user?.id) return;
       const next = String(els.partnerProfileUsernameInput?.value || '').trim();
       if (!next || !USERNAME_PATTERN.test(next)) {
-        showToast('Invalid username. Use 3-30 chars: letters, digits, dot, underscore or dash.', 'error');
+        showToast('Invalid username. Use 3-30 chars: letters, digits or underscore.', 'error');
         return;
       }
 
       try {
-        const payloads = [
-          { username: next, username_normalized: next.toLowerCase() },
-          { username: next },
-        ];
-
-        let updated = false;
-        for (const payload of payloads) {
-          const { error } = await state.sb.from('profiles').update(payload).eq('id', state.user.id);
-          if (!error) {
-            updated = true;
-            break;
-          }
-          const msg = String(error.message || '').toLowerCase();
-          const det = String(error.details || '').toLowerCase();
-          const hint = `${msg} ${det}`;
-          if ('username_normalized' in payload && hint.includes('username_normalized')) {
-            continue;
-          }
-          throw error;
-        }
-
-        if (!updated) {
-          throw new Error('Update failed');
-        }
+        const { data, error } = await state.sb.rpc('update_my_username_and_referral_code', {
+          p_username: next,
+        });
+        if (error) throw error;
 
         try {
           await state.sb.auth.updateUser({ data: { username: next } });
         } catch (_e) {
         }
 
+        if (data && typeof data === 'object') {
+          state.profile = Array.isArray(data) ? data[0] : data;
+        }
         await loadMyProfile();
         renderProfileSettings();
         await refreshReferralWidget();
         showToast('Username updated', 'success');
       } catch (error) {
         console.error(error);
-        showToast(`Error: ${error.message || 'Update failed'}`, 'error');
+        showToast(`Error: ${getUsernameUpdateErrorMessage(error)}`, 'error');
       }
     });
 
