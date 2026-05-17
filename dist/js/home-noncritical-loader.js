@@ -5,7 +5,6 @@
   if (page !== 'home') return;
 
   const queue = [
-    'js/seo.js',
     'js/header-stats.js?v=2',
   ];
 
