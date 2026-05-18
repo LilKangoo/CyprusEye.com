@@ -292,6 +292,75 @@
       line-height: 1.5;
       max-width: 620px;
     }
+    .partner-referral-qr-card {
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.58), rgba(30, 41, 59, 0.82));
+      padding: 16px;
+      box-shadow: 0 18px 50px rgba(2, 6, 23, 0.18);
+    }
+    .partner-referral-qr-card__content {
+      display: grid;
+      grid-template-columns: 168px minmax(0, 1fr);
+      gap: 16px;
+      align-items: center;
+    }
+    .partner-referral-qr-card__visual {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 18px;
+      background: #f8fbff;
+      padding: 10px;
+      min-height: 168px;
+    }
+    .partner-referral-qr-card__canvas {
+      width: 148px;
+      height: 148px;
+      display: block;
+      border-radius: 12px;
+    }
+    .partner-referral-qr-card__meta {
+      display: grid;
+      gap: 10px;
+      min-width: 0;
+    }
+    .partner-referral-qr-card__meta h3 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+    }
+    .partner-referral-qr-card__meta p {
+      margin: 0;
+      color: var(--admin-text-muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .partner-referral-qr-card__meta input {
+      width: 100%;
+      min-width: 0;
+      background: rgba(2, 6, 23, 0.34);
+      border: 1px solid rgba(148, 163, 184, 0.24);
+      border-radius: 12px;
+      color: var(--admin-text);
+      font-weight: 800;
+      padding: 12px 14px;
+    }
+    .partner-referral-qr-card__actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .partner-referral-qr-card__status {
+      min-height: 18px;
+      color: rgba(125, 211, 252, 0.95);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .partner-referral-qr-card__status--error {
+      color: rgba(248, 113, 113, 0.95);
+    }
     .partner-links-toolbar {
       display: flex;
       align-items: center;
@@ -2775,6 +2844,12 @@
       .partner-links-toolbar {
         align-items: stretch;
       }
+      .partner-referral-qr-card__content {
+        grid-template-columns: 1fr;
+      }
+      .partner-referral-qr-card__visual {
+        justify-content: flex-start;
+      }
       .partner-links-view-tabs {
         width: 100%;
       }
@@ -3060,6 +3135,9 @@
           </div>
           <div style="display:flex; align-items:flex-end;">
             <button id="btnPartnerCopyReferralCodeSummary" class="btn-sm" type="button">Copy code</button>
+          </div>
+          <div style="display:flex; align-items:flex-end;">
+            <button id="btnPartnerOpenLinksDiscountsSummary" class="btn-sm" type="button">Links / Discounts</button>
           </div>
         </div>
       </div>
@@ -3832,6 +3910,30 @@
           <div>
             <h2>Links / Discounts</h2>
             <p>Browse active public services, copy ready referral links in PL or EN and check partner discount codes in one place.</p>
+          </div>
+        </div>
+        <div class="partner-referral-qr-card" id="partnerReferralQrCard">
+          <div class="partner-referral-qr-card__content">
+            <div class="partner-referral-qr-card__visual">
+              <canvas
+                id="partnerReferralQrCanvas"
+                class="partner-referral-qr-card__canvas"
+                width="328"
+                height="328"
+                aria-label="Partner referral QR code"
+              ></canvas>
+            </div>
+            <div class="partner-referral-qr-card__meta">
+              <span class="partner-links-card__category">Partner QR</span>
+              <h3>Referral QR code</h3>
+              <p>Scan-ready QR for your main referral link. It updates automatically with your current referral code.</p>
+              <input id="partnerReferralQrLink" type="text" readonly value="" aria-label="Partner referral QR link" />
+              <div class="partner-referral-qr-card__actions">
+                <button id="btnPartnerCopyReferralQrLink" class="btn-sm" type="button">Copy QR link</button>
+                <button id="btnPartnerDownloadReferralQr" class="btn-sm" type="button">Download PNG</button>
+              </div>
+              <div id="partnerReferralQrStatus" class="partner-referral-qr-card__status">Loading QR...</div>
+            </div>
           </div>
         </div>
         <div class="partner-links-toolbar">

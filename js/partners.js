@@ -73,6 +73,11 @@
         shop_sort: 'default',
       },
     },
+    partnerReferralQr: {
+      link: '',
+      logo: null,
+      logoLoading: null,
+    },
     partnerBlog: {
       items: [],
       filterSearch: '',
@@ -105,6 +110,8 @@
 
   let referralTreeRoot = null;
   let referralTreeQuery = '';
+
+  const PARTNER_REFERRAL_QR_LOGO_SRC = '/assets/cyprus_logo-128.png';
 
   let bootstrapInFlight = false;
   let bootstrapPending = false;
@@ -214,6 +221,13 @@
 
     partnerReferralsView: null,
     partnerLinksDiscountsView: null,
+
+    partnerReferralQrCard: null,
+    partnerReferralQrCanvas: null,
+    partnerReferralQrLink: null,
+    btnPartnerCopyReferralQrLink: null,
+    btnPartnerDownloadReferralQr: null,
+    partnerReferralQrStatus: null,
 
     partnerLinksViewTabs: null,
     partnerLinksFilters: null,
@@ -350,6 +364,7 @@
     btnPartnerCopyReferralLinkSummary: null,
     partnerReferralCodeSummary: null,
     btnPartnerCopyReferralCodeSummary: null,
+    btnPartnerOpenLinksDiscountsSummary: null,
 
     partnerReferralLinkLarge: null,
     btnPartnerCopyReferralLinkLarge: null,
@@ -1900,6 +1915,472 @@
     }
   }
 
+  function getPartnerMainReferralLink() {
+    const referralCode = getProfileReferralCode(state.profile || null);
+    return referralCode ? buildReferralLink(referralCode) : '';
+  }
+
+  function setPartnerReferralQrStatus(message, type = '') {
+    if (!els.partnerReferralQrStatus) return;
+    els.partnerReferralQrStatus.textContent = message || '';
+    els.partnerReferralQrStatus.classList.toggle('partner-referral-qr-card__status--error', type === 'error');
+  }
+
+  function clearPartnerReferralQrCanvas() {
+    const canvas = els.partnerReferralQrCanvas;
+    if (!canvas || !canvas.getContext) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#f8fbff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  function loadPartnerReferralQrLogo() {
+    if (state.partnerReferralQr.logo) return Promise.resolve(state.partnerReferralQr.logo);
+    if (state.partnerReferralQr.logoLoading) return state.partnerReferralQr.logoLoading;
+    state.partnerReferralQr.logoLoading = new Promise((resolve) => {
+      const img = new Image();
+      img.decoding = 'async';
+      img.onload = () => {
+        state.partnerReferralQr.logo = img;
+        resolve(img);
+      };
+      img.onerror = () => resolve(null);
+      img.src = PARTNER_REFERRAL_QR_LOGO_SRC;
+    });
+    return state.partnerReferralQr.logoLoading;
+  }
+
+  function drawRoundedRect(ctx, x, y, width, height, radius) {
+    const r = Math.min(radius, width / 2, height / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + width - r, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+    ctx.lineTo(x + width, y + height - r);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+    ctx.lineTo(x + r, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  function drawPartnerReferralQrMatrix(matrix, logo = null) {
+    const canvas = els.partnerReferralQrCanvas;
+    if (!canvas || !canvas.getContext || !Array.isArray(matrix) || !matrix.length) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const canvasSize = Math.min(canvas.width || 328, canvas.height || 328);
+    const quietModules = 4;
+    const moduleCount = matrix.length;
+    const moduleSize = Math.max(1, Math.floor(canvasSize / (moduleCount + quietModules * 2)));
+    const qrSize = moduleSize * (moduleCount + quietModules * 2);
+    const origin = Math.floor((canvasSize - qrSize) / 2) + quietModules * moduleSize;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#f8fbff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = '#073b55';
+    for (let y = 0; y < moduleCount; y += 1) {
+      for (let x = 0; x < moduleCount; x += 1) {
+        if (!matrix[y][x]) continue;
+        ctx.fillRect(origin + x * moduleSize, origin + y * moduleSize, moduleSize, moduleSize);
+      }
+    }
+
+    if (logo) {
+      const boxSize = Math.round(canvasSize * 0.19);
+      const logoSize = Math.round(canvasSize * 0.125);
+      const boxX = Math.round((canvasSize - boxSize) / 2);
+      const boxY = Math.round((canvasSize - boxSize) / 2);
+      const logoX = Math.round((canvasSize - logoSize) / 2);
+      const logoY = Math.round((canvasSize - logoSize) / 2);
+      ctx.save();
+      ctx.fillStyle = '#ffffff';
+      drawRoundedRect(ctx, boxX, boxY, boxSize, boxSize, Math.round(boxSize * 0.28));
+      ctx.fill();
+      ctx.drawImage(logo, logoX, logoY, logoSize, logoSize);
+      ctx.restore();
+    }
+  }
+
+  function appendQrBits(bits, value, length) {
+    for (let i = length - 1; i >= 0; i -= 1) {
+      bits.push(((value >>> i) & 1) === 1);
+    }
+  }
+
+  function initQrGaloisTables() {
+    const exp = new Array(512).fill(0);
+    const log = new Array(256).fill(0);
+    let x = 1;
+    for (let i = 0; i < 255; i += 1) {
+      exp[i] = x;
+      log[x] = i;
+      x <<= 1;
+      if (x & 0x100) x ^= 0x11d;
+    }
+    for (let i = 255; i < exp.length; i += 1) {
+      exp[i] = exp[i - 255];
+    }
+    return { exp, log };
+  }
+
+  const QR_GF = initQrGaloisTables();
+
+  function qrGfMul(a, b) {
+    if (!a || !b) return 0;
+    return QR_GF.exp[QR_GF.log[a] + QR_GF.log[b]];
+  }
+
+  function createQrRsGenerator(degree) {
+    let result = [1];
+    for (let i = 0; i < degree; i += 1) {
+      const next = new Array(result.length + 1).fill(0);
+      for (let j = 0; j < result.length; j += 1) {
+        next[j] ^= result[j];
+        next[j + 1] ^= qrGfMul(result[j], QR_GF.exp[i]);
+      }
+      result = next;
+    }
+    return result;
+  }
+
+  function createQrRsRemainder(data, degree) {
+    const generator = createQrRsGenerator(degree);
+    const result = new Array(degree).fill(0);
+    data.forEach((byte) => {
+      const factor = byte ^ result.shift();
+      result.push(0);
+      for (let i = 0; i < degree; i += 1) {
+        result[i] ^= qrGfMul(generator[i + 1], factor);
+      }
+    });
+    return result;
+  }
+
+  function getQrMaskBit(mask, x, y) {
+    switch (mask) {
+      case 0: return (x + y) % 2 === 0;
+      case 1: return y % 2 === 0;
+      case 2: return x % 3 === 0;
+      case 3: return (x + y) % 3 === 0;
+      case 4: return (Math.floor(y / 2) + Math.floor(x / 3)) % 2 === 0;
+      case 5: return ((x * y) % 2) + ((x * y) % 3) === 0;
+      case 6: return (((x * y) % 2) + ((x * y) % 3)) % 2 === 0;
+      case 7: return (((x + y) % 2) + ((x * y) % 3)) % 2 === 0;
+      default: return false;
+    }
+  }
+
+  function getQrFormatBits(mask) {
+    const ecLevelBits = 2; // Error correction H.
+    const data = (ecLevelBits << 3) | mask;
+    let rem = data << 10;
+    for (let i = 14; i >= 10; i -= 1) {
+      if (((rem >>> i) & 1) !== 0) {
+        rem ^= 0x537 << (i - 10);
+      }
+    }
+    return ((data << 10) | (rem & 0x3ff)) ^ 0x5412;
+  }
+
+  function getQrVersionBits(version) {
+    let rem = version;
+    for (let i = 0; i < 12; i += 1) {
+      rem = (rem << 1) ^ (((rem >>> 11) & 1) ? 0x1f25 : 0);
+    }
+    return (version << 12) | (rem & 0xfff);
+  }
+
+  function calculateQrPenalty(matrix) {
+    const size = matrix.length;
+    let penalty = 0;
+
+    const scoreRuns = (getter) => {
+      for (let outer = 0; outer < size; outer += 1) {
+        let runColor = getter(outer, 0);
+        let runLength = 1;
+        for (let inner = 1; inner < size; inner += 1) {
+          const color = getter(outer, inner);
+          if (color === runColor) {
+            runLength += 1;
+          } else {
+            if (runLength >= 5) penalty += 3 + (runLength - 5);
+            runColor = color;
+            runLength = 1;
+          }
+        }
+        if (runLength >= 5) penalty += 3 + (runLength - 5);
+      }
+    };
+
+    scoreRuns((row, col) => matrix[row][col]);
+    scoreRuns((col, row) => matrix[row][col]);
+
+    for (let y = 0; y < size - 1; y += 1) {
+      for (let x = 0; x < size - 1; x += 1) {
+        const color = matrix[y][x];
+        if (color === matrix[y][x + 1] && color === matrix[y + 1][x] && color === matrix[y + 1][x + 1]) {
+          penalty += 3;
+        }
+      }
+    }
+
+    const finderPattern = [true, false, true, true, true, false, true, false, false, false, false];
+    const reversePattern = [false, false, false, false, true, false, true, true, true, false, true];
+    const matchesPattern = (values, start, pattern) => pattern.every((value, offset) => values[start + offset] === value);
+    for (let y = 0; y < size; y += 1) {
+      for (let x = 0; x <= size - 11; x += 1) {
+        const row = matrix[y];
+        if (matchesPattern(row, x, finderPattern) || matchesPattern(row, x, reversePattern)) penalty += 40;
+      }
+    }
+    for (let x = 0; x < size; x += 1) {
+      const col = matrix.map((row) => row[x]);
+      for (let y = 0; y <= size - 11; y += 1) {
+        if (matchesPattern(col, y, finderPattern) || matchesPattern(col, y, reversePattern)) penalty += 40;
+      }
+    }
+
+    let dark = 0;
+    matrix.forEach((row) => row.forEach((value) => {
+      if (value) dark += 1;
+    }));
+    penalty += Math.floor(Math.abs(dark * 20 - size * size * 10) / (size * size)) * 10;
+    return penalty;
+  }
+
+  function createPartnerReferralQrMatrix(text) {
+    const version = 10;
+    const size = version * 4 + 17;
+    const dataCodewords = 122;
+    const ecCodewordsPerBlock = 28;
+    const blockDataSizes = [15, 15, 15, 15, 15, 15, 16, 16];
+    const bytes = Array.from(new TextEncoder().encode(String(text || '')));
+    if (bytes.length > 119) {
+      throw new Error('Referral link is too long for the QR template.');
+    }
+
+    const dataBits = [];
+    appendQrBits(dataBits, 0x4, 4);
+    appendQrBits(dataBits, bytes.length, 16);
+    bytes.forEach((byte) => appendQrBits(dataBits, byte, 8));
+    const maxBits = dataCodewords * 8;
+    const terminatorLength = Math.min(4, maxBits - dataBits.length);
+    appendQrBits(dataBits, 0, Math.max(0, terminatorLength));
+    while (dataBits.length % 8 !== 0) dataBits.push(false);
+
+    const dataBytes = [];
+    for (let i = 0; i < dataBits.length; i += 8) {
+      let value = 0;
+      for (let j = 0; j < 8; j += 1) value = (value << 1) | (dataBits[i + j] ? 1 : 0);
+      dataBytes.push(value);
+    }
+    const padBytes = [0xec, 0x11];
+    for (let i = 0; dataBytes.length < dataCodewords; i += 1) {
+      dataBytes.push(padBytes[i % 2]);
+    }
+
+    const blocks = [];
+    let dataIndex = 0;
+    blockDataSizes.forEach((blockSize) => {
+      const data = dataBytes.slice(dataIndex, dataIndex + blockSize);
+      dataIndex += blockSize;
+      blocks.push({ data, ec: createQrRsRemainder(data, ecCodewordsPerBlock) });
+    });
+
+    const codewords = [];
+    const maxDataBlockSize = Math.max(...blockDataSizes);
+    for (let i = 0; i < maxDataBlockSize; i += 1) {
+      blocks.forEach((block) => {
+        if (i < block.data.length) codewords.push(block.data[i]);
+      });
+    }
+    for (let i = 0; i < ecCodewordsPerBlock; i += 1) {
+      blocks.forEach((block) => codewords.push(block.ec[i]));
+    }
+
+    const matrix = Array.from({ length: size }, () => new Array(size).fill(false));
+    const reserved = Array.from({ length: size }, () => new Array(size).fill(false));
+
+    const setModule = (x, y, value, reserve = true) => {
+      if (x < 0 || y < 0 || x >= size || y >= size) return;
+      matrix[y][x] = Boolean(value);
+      if (reserve) reserved[y][x] = true;
+    };
+
+    const addFinder = (cx, cy) => {
+      for (let dy = -1; dy <= 7; dy += 1) {
+        for (let dx = -1; dx <= 7; dx += 1) {
+          const x = cx + dx;
+          const y = cy + dy;
+          const dark = dx >= 0 && dx <= 6 && dy >= 0 && dy <= 6
+            && (dx === 0 || dx === 6 || dy === 0 || dy === 6 || (dx >= 2 && dx <= 4 && dy >= 2 && dy <= 4));
+          setModule(x, y, dark);
+        }
+      }
+    };
+
+    addFinder(0, 0);
+    addFinder(size - 7, 0);
+    addFinder(0, size - 7);
+
+    for (let i = 8; i < size - 8; i += 1) {
+      const dark = i % 2 === 0;
+      setModule(i, 6, dark);
+      setModule(6, i, dark);
+    }
+
+    [6, 28, 50].forEach((cx) => {
+      [6, 28, 50].forEach((cy) => {
+        const nearTopLeft = cx === 6 && cy === 6;
+        const nearTopRight = cx === 50 && cy === 6;
+        const nearBottomLeft = cx === 6 && cy === 50;
+        if (nearTopLeft || nearTopRight || nearBottomLeft) return;
+        for (let dy = -2; dy <= 2; dy += 1) {
+          for (let dx = -2; dx <= 2; dx += 1) {
+            const dist = Math.max(Math.abs(dx), Math.abs(dy));
+            setModule(cx + dx, cy + dy, dist !== 1);
+          }
+        }
+      });
+    });
+
+    setModule(8, size - 8, true);
+
+    for (let i = 0; i < 9; i += 1) {
+      if (i !== 6) {
+        setModule(8, i, false);
+        setModule(i, 8, false);
+      }
+    }
+    for (let i = 0; i < 8; i += 1) {
+      setModule(size - 1 - i, 8, false);
+      setModule(8, size - 1 - i, false);
+    }
+
+    const versionBits = getQrVersionBits(version);
+    for (let i = 0; i < 18; i += 1) {
+      const bit = ((versionBits >>> i) & 1) !== 0;
+      const a = size - 11 + (i % 3);
+      const b = Math.floor(i / 3);
+      setModule(a, b, bit);
+      setModule(b, a, bit);
+    }
+
+    const bitStream = [];
+    codewords.forEach((codeword) => appendQrBits(bitStream, codeword, 8));
+
+    let bitIndex = 0;
+    let upward = true;
+    for (let right = size - 1; right >= 1; right -= 2) {
+      if (right === 6) right -= 1;
+      for (let vertical = 0; vertical < size; vertical += 1) {
+        const y = upward ? size - 1 - vertical : vertical;
+        for (let dx = 0; dx < 2; dx += 1) {
+          const x = right - dx;
+          if (reserved[y][x]) continue;
+          matrix[y][x] = bitIndex < bitStream.length ? bitStream[bitIndex] : false;
+          bitIndex += 1;
+        }
+      }
+      upward = !upward;
+    }
+
+    let bestMatrix = null;
+    let bestPenalty = Infinity;
+    for (let mask = 0; mask < 8; mask += 1) {
+      const candidate = matrix.map((row) => row.slice());
+      for (let y = 0; y < size; y += 1) {
+        for (let x = 0; x < size; x += 1) {
+          if (!reserved[y][x] && getQrMaskBit(mask, x, y)) {
+            candidate[y][x] = !candidate[y][x];
+          }
+        }
+      }
+
+      const formatBits = getQrFormatBits(mask);
+      for (let i = 0; i < 15; i += 1) {
+        const bit = ((formatBits >>> i) & 1) !== 0;
+        if (i < 6) candidate[i][8] = bit;
+        else if (i < 8) candidate[i + 1][8] = bit;
+        else candidate[size - 15 + i][8] = bit;
+
+        if (i < 8) candidate[8][size - 1 - i] = bit;
+        else if (i < 9) candidate[8][15 - i] = bit;
+        else candidate[8][14 - i] = bit;
+      }
+      candidate[size - 8][8] = true;
+
+      const penalty = calculateQrPenalty(candidate);
+      if (penalty < bestPenalty) {
+        bestPenalty = penalty;
+        bestMatrix = candidate;
+      }
+    }
+
+    return bestMatrix || matrix;
+  }
+
+  function renderPartnerReferralQr() {
+    const link = getPartnerMainReferralLink();
+    state.partnerReferralQr.link = link;
+
+    if (els.partnerReferralQrLink) {
+      els.partnerReferralQrLink.value = link || 'Set your referral code to enable QR code';
+    }
+    if (els.btnPartnerCopyReferralQrLink) {
+      els.btnPartnerCopyReferralQrLink.disabled = !link;
+    }
+    if (els.btnPartnerDownloadReferralQr) {
+      els.btnPartnerDownloadReferralQr.disabled = !link;
+    }
+
+    if (!link) {
+      clearPartnerReferralQrCanvas();
+      setPartnerReferralQrStatus('Set your referral code to generate the QR code.', 'error');
+      return;
+    }
+
+    try {
+      const matrix = createPartnerReferralQrMatrix(link);
+      drawPartnerReferralQrMatrix(matrix);
+      setPartnerReferralQrStatus('QR ready. It uses your current referral link.');
+      loadPartnerReferralQrLogo().then((logo) => {
+        if (state.partnerReferralQr.link !== link) return;
+        drawPartnerReferralQrMatrix(matrix, logo);
+      });
+    } catch (error) {
+      console.error(error);
+      clearPartnerReferralQrCanvas();
+      setPartnerReferralQrStatus('Could not generate QR. Use the referral link copy button instead.', 'error');
+    }
+  }
+
+  function downloadPartnerReferralQr() {
+    const canvas = els.partnerReferralQrCanvas;
+    const link = state.partnerReferralQr.link || getPartnerMainReferralLink();
+    if (!canvas || !link) {
+      showToast('Set your referral code to enable QR download.', 'error');
+      return;
+    }
+
+    const code = getProfileReferralCode(state.profile || null) || 'partner';
+    const safeCode = String(code).replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'partner';
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = `cypruseye-referral-${safeCode}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
   function setProfileMessage(text) {
     if (!els.partnerProfileMessage) return;
     els.partnerProfileMessage.textContent = text || '';
@@ -2085,6 +2566,7 @@
     if (els.btnPartnerCopyReferralCodeLarge) {
       els.btnPartnerCopyReferralCodeLarge.disabled = !canUse;
     }
+    void renderPartnerReferralQr();
   }
 
   function openSidebar() {
@@ -4378,6 +4860,7 @@
     }
     renderPartnerLinksViewTabs();
     syncPartnerLinksViewPanels();
+    void renderPartnerReferralQr();
     await refreshPartnerLinksDiscountsView();
     closeSidebar();
   }
@@ -13067,12 +13550,24 @@
       await handleCopyReferralCode(els.partnerReferralCodeSummary?.value);
     });
 
+    els.btnPartnerOpenLinksDiscountsSummary?.addEventListener('click', () => {
+      void navToLinksDiscounts();
+    });
+
     els.btnPartnerCopyReferralLinkLarge?.addEventListener('click', async () => {
       await handleCopyReferral(els.partnerReferralLinkLarge?.value);
     });
 
     els.btnPartnerCopyReferralCodeLarge?.addEventListener('click', async () => {
       await handleCopyReferralCode(els.partnerReferralCodeLarge?.value);
+    });
+
+    els.btnPartnerCopyReferralQrLink?.addEventListener('click', async () => {
+      await handleCopyReferral(els.partnerReferralQrLink?.value);
+    });
+
+    els.btnPartnerDownloadReferralQr?.addEventListener('click', () => {
+      downloadPartnerReferralQr();
     });
 
     els.btnPartnerReferralOrdersRefresh?.addEventListener('click', async () => {
@@ -13510,6 +14005,12 @@
     els.partnerProfileView = $('partnerProfileView');
     els.partnerReferralsView = $('partnerReferralsView');
     els.partnerLinksDiscountsView = $('partnerLinksDiscountsView');
+    els.partnerReferralQrCard = $('partnerReferralQrCard');
+    els.partnerReferralQrCanvas = $('partnerReferralQrCanvas');
+    els.partnerReferralQrLink = $('partnerReferralQrLink');
+    els.btnPartnerCopyReferralQrLink = $('btnPartnerCopyReferralQrLink');
+    els.btnPartnerDownloadReferralQr = $('btnPartnerDownloadReferralQr');
+    els.partnerReferralQrStatus = $('partnerReferralQrStatus');
     els.partnerLinksViewTabs = $('partnerLinksViewTabs');
     els.partnerLinksFilters = $('partnerLinksFilters');
     els.partnerLinksContextControls = $('partnerLinksContextControls');
@@ -13646,6 +14147,7 @@
     els.btnPartnerCopyReferralLinkSummary = $('btnPartnerCopyReferralLinkSummary');
     els.partnerReferralCodeSummary = $('partnerReferralCodeSummary');
     els.btnPartnerCopyReferralCodeSummary = $('btnPartnerCopyReferralCodeSummary');
+    els.btnPartnerOpenLinksDiscountsSummary = $('btnPartnerOpenLinksDiscountsSummary');
 
     els.partnerReferralLinkLarge = $('partnerReferralLinkLarge');
     els.btnPartnerCopyReferralLinkLarge = $('btnPartnerCopyReferralLinkLarge');
