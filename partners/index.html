@@ -301,7 +301,7 @@
     }
     .partner-referral-qr-card__content {
       display: grid;
-      grid-template-columns: 168px minmax(0, 1fr);
+      grid-template-columns: minmax(172px, 220px) minmax(0, 1fr);
       gap: 16px;
       align-items: center;
     }
@@ -312,11 +312,12 @@
       border-radius: 18px;
       background: #f8fbff;
       padding: 10px;
-      min-height: 168px;
+      min-height: 192px;
     }
     .partner-referral-qr-card__canvas {
-      width: 148px;
-      height: 148px;
+      width: min(100%, 184px);
+      height: auto;
+      aspect-ratio: 1 / 1;
       display: block;
       border-radius: 12px;
     }
@@ -351,6 +352,10 @@
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
+    }
+    .partner-referral-qr-card__actions .btn-sm {
+      min-width: 0;
+      justify-content: center;
     }
     .partner-referral-qr-card__status {
       min-height: 18px;
@@ -2846,9 +2851,28 @@
       }
       .partner-referral-qr-card__content {
         grid-template-columns: 1fr;
+        justify-items: stretch;
       }
       .partner-referral-qr-card__visual {
-        justify-content: flex-start;
+        justify-content: center;
+        width: 100%;
+        min-height: 0;
+        padding: clamp(12px, 4vw, 18px);
+      }
+      .partner-referral-qr-card__canvas {
+        width: min(74vw, 360px);
+        max-width: 100%;
+        height: auto;
+      }
+      .partner-referral-qr-card__actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        flex-wrap: nowrap;
+      }
+      .partner-referral-qr-card__actions .btn-sm {
+        width: 100%;
+        padding-inline: 8px;
+        white-space: nowrap;
       }
       .partner-links-view-tabs {
         width: 100%;
@@ -2895,6 +2919,12 @@
         width: calc(100vw - 16px);
         max-width: calc(100vw - 16px) !important;
         max-height: calc(100dvh - 96px - env(safe-area-inset-top));
+      }
+    }
+
+    @media (max-width: 380px) {
+      .partner-referral-qr-card__actions .btn-sm {
+        font-size: 12px;
       }
     }
 
@@ -3918,8 +3948,8 @@
               <canvas
                 id="partnerReferralQrCanvas"
                 class="partner-referral-qr-card__canvas"
-                width="328"
-                height="328"
+                width="512"
+                height="512"
                 aria-label="Partner referral QR code"
               ></canvas>
             </div>

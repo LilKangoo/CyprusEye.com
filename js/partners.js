@@ -2363,7 +2363,41 @@
     }
   }
 
-  function downloadPartnerReferralQr() {
+  function getPartnerReferralQrFilename() {
+    const code = getProfileReferralCode(state.profile || null) || 'partner';
+    const safeCode = String(code).replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'partner';
+    return `cypruseye-referral-${safeCode}.png`;
+  }
+
+  function isMobileShareDevice() {
+    const ua = navigator.userAgent || '';
+    return /Android|iPhone|iPad|iPod/i.test(ua) || (navigator.maxTouchPoints > 1 && /Macintosh/i.test(ua));
+  }
+
+  function canvasToPngBlob(canvas) {
+    return new Promise((resolve) => {
+      if (typeof canvas.toBlob === 'function') {
+        canvas.toBlob((blob) => resolve(blob), 'image/png');
+        return;
+      }
+
+      try {
+        const dataUrl = canvas.toDataURL('image/png');
+        const [, encoded = ''] = dataUrl.split(',');
+        const byteString = atob(encoded);
+        const bytes = new Uint8Array(byteString.length);
+        for (let i = 0; i < byteString.length; i += 1) {
+          bytes[i] = byteString.charCodeAt(i);
+        }
+        resolve(new Blob([bytes], { type: 'image/png' }));
+      } catch (error) {
+        console.error(error);
+        resolve(null);
+      }
+    });
+  }
+
+  async function downloadPartnerReferralQr() {
     const canvas = els.partnerReferralQrCanvas;
     const link = state.partnerReferralQr.link || getPartnerMainReferralLink();
     if (!canvas || !link) {
@@ -2371,14 +2405,40 @@
       return;
     }
 
-    const code = getProfileReferralCode(state.profile || null) || 'partner';
-    const safeCode = String(code).replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'partner';
+    const filename = getPartnerReferralQrFilename();
+    const blob = await canvasToPngBlob(canvas);
+    if (!blob) {
+      showToast('Could not prepare QR PNG. Try again.', 'error');
+      return;
+    }
+
+    if (isMobileShareDevice() && navigator.share && typeof File !== 'undefined') {
+      const file = new File([blob], filename, { type: 'image/png' });
+      if (!navigator.canShare || navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: 'CyprusEye referral QR',
+            text: 'Save or share your CyprusEye referral QR code.',
+          });
+          setPartnerReferralQrStatus('PNG ready. Use the share sheet to save it to Photos.');
+          return;
+        } catch (error) {
+          if (error?.name === 'AbortError') return;
+          console.error(error);
+        }
+      }
+    }
+
+    const objectUrl = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = canvas.toDataURL('image/png');
-    a.download = `cypruseye-referral-${safeCode}.png`;
+    a.href = objectUrl;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    setPartnerReferralQrStatus('PNG download started.');
   }
 
   function setProfileMessage(text) {
@@ -13567,7 +13627,7 @@
     });
 
     els.btnPartnerDownloadReferralQr?.addEventListener('click', () => {
-      downloadPartnerReferralQr();
+      void downloadPartnerReferralQr();
     });
 
     els.btnPartnerReferralOrdersRefresh?.addEventListener('click', async () => {
