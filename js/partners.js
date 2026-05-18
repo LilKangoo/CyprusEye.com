@@ -3230,7 +3230,18 @@
     return Boolean(canShop || canCars || canTrips || canHotels || canTransport);
   }
 
+  function restorePartnerUtilityNav() {
+    [
+      els.partnerNavAll,
+      els.partnerNavProfile,
+      els.partnerNavReferrals,
+      els.partnerNavLinksDiscounts,
+    ].forEach((item) => setHidden(item, false));
+  }
+
   function updateSidebarCategoryVisibility() {
+    restorePartnerUtilityNav();
+
     const partner = state.selectedPartnerId ? state.partnersById[state.selectedPartnerId] : null;
     const hasShopFulfillments = (state.fulfillments || []).some((f) => f && String(f.__source || '') === 'shop');
     const canShop = Boolean(partner?.can_manage_shop && (partner?.shop_vendor_id || hasShopFulfillments));
