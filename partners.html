@@ -16,6 +16,14 @@
 
   <meta name="theme-color" content="#dc2626" />
   <meta name="robots" content="noindex,nofollow" />
+  <!-- Canonical partner portal lives in /partners/. Keep this legacy entry point as a redirect only. -->
+  <script>
+    (function () {
+      var target = '/partners/' + window.location.search + window.location.hash;
+      window.location.replace(target);
+    }());
+  </script>
+  <noscript><meta http-equiv="refresh" content="0; url=/partners/"></noscript>
 
   <title>CyprusEye Partners</title>
 
