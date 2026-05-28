@@ -4,6 +4,13 @@ import {
   buildWebSiteJsonLd,
   serializeStructuredData,
 } from './structuredData.js';
+import {
+  DEFAULT_PUBLIC_LANGUAGE,
+  getLanguageLocale,
+  getLanguageQueryParam,
+  getPublicLanguageCodes,
+  normalizePublicLanguage,
+} from './languageRollout.js';
 
 const CANONICAL_ORIGIN = 'https://www.cypruseye.com';
 const DEFAULT_OG_IMAGE = 'assets/cyprus_logo-1000x1054.png';
@@ -301,7 +308,7 @@ export function getSeoLanguage(urlLike) {
   }
 
   const requested = String(searchParams?.get('lang') || '').trim().toLowerCase();
-  return requested === 'pl' ? 'pl' : 'en';
+  return normalizePublicLanguage(requested, DEFAULT_PUBLIC_LANGUAGE, 'seo');
 }
 
 function buildAbsoluteUrl(pathname, search = '') {
@@ -317,8 +324,9 @@ function buildAbsoluteUrl(pathname, search = '') {
 
 function buildLanguageUrl(pathname, language) {
   const url = new URL(pathname || '/', CANONICAL_ORIGIN);
-  if (language === 'pl') {
-    url.searchParams.set('lang', 'pl');
+  const languageParam = getLanguageQueryParam(language);
+  if (languageParam) {
+    url.searchParams.set('lang', languageParam);
   }
   return url.toString();
 }
@@ -425,9 +433,11 @@ export function buildSeoPayload({
     return null;
   }
 
-  const resolvedLanguage = language === 'pl' ? 'pl' : 'en';
-  const localeFallback = resolvedLanguage === 'pl' ? 'pl_PL' : 'en_GB';
-  const alternateLocale = resolvedLanguage === 'pl' ? 'en_GB' : 'pl_PL';
+  const resolvedLanguage = normalizePublicLanguage(language, DEFAULT_PUBLIC_LANGUAGE, 'seo');
+  const publicSeoLanguages = getPublicLanguageCodes('seo');
+  const alternateLanguage = publicSeoLanguages.find((code) => code !== resolvedLanguage) || DEFAULT_PUBLIC_LANGUAGE;
+  const localeFallback = getLanguageLocale(resolvedLanguage);
+  const alternateLocale = getLanguageLocale(alternateLanguage);
   const baseKey = `seo.${route.seoPage}`;
   const requestPath = String(requestPathname || route.canonicalPath || '/').trim() || route.canonicalPath || '/';
   const canonicalPath = route.preserveRequestPathForCanonical ? requestPath : route.canonicalPath;
@@ -464,8 +474,10 @@ export function buildSeoPayload({
     ogLocaleAlternate: alternateLocale,
     canonicalUrl: buildAbsoluteUrl(canonicalPath),
     languageUrls: {
-      pl: buildLanguageUrl(alternateBasePath, 'pl'),
-      en: buildLanguageUrl(alternateBasePath, 'en'),
+      ...Object.fromEntries(publicSeoLanguages.map((code) => [
+        code,
+        buildLanguageUrl(alternateBasePath, code),
+      ])),
       xDefault: buildAbsoluteUrl(alternateBasePath),
     },
     structuredData: buildStaticStructuredData({

@@ -1,7 +1,12 @@
 import { createSupabaseClients } from './supabaseAdmin.js';
+import {
+  DEFAULT_PUBLIC_LANGUAGE,
+  getPublicLanguageCodes,
+  normalizePublicLanguage,
+} from './languageRollout.js';
 
-export const BLOG_DEFAULT_LANGUAGE = 'en';
-export const BLOG_SUPPORTED_LANGUAGES = ['pl', 'en'];
+export const BLOG_DEFAULT_LANGUAGE = DEFAULT_PUBLIC_LANGUAGE;
+export const BLOG_SUPPORTED_LANGUAGES = Object.freeze(getPublicLanguageCodes('routes'));
 export const BLOG_ALLOWED_CTA_TYPES = ['pois', 'trips', 'hotels', 'cars', 'transport', 'shop', 'recommendations', 'blog'];
 export const BLOG_LIST_PAGE_SIZE = 12;
 const BLOG_CTA_TYPE_ALIASES = {
@@ -206,7 +211,7 @@ const BLOG_POST_SELECT_LEGACY = `
 `;
 
 export function normalizeBlogLanguage(value) {
-  return String(value || '').trim().toLowerCase() === 'pl' ? 'pl' : BLOG_DEFAULT_LANGUAGE;
+  return normalizePublicLanguage(value, BLOG_DEFAULT_LANGUAGE, 'routes');
 }
 
 export function normalizeBlogSlug(value) {

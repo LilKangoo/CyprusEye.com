@@ -127,7 +127,7 @@ const message = translate('home.welcome', 'Fallback text');
 
 ### RTL (Right-to-Left) dla hebrajskiego
 
-Strona automatycznie dodaje `dir="rtl"` dla `?lang=he`.
+Hebrajski pozostaje ukryty publicznie. RTL można testować tylko w trybie QA: `?ce_he_preview=1&lang=he`.
 Style RTL: `assets/css/rtl.css`
 
 ---

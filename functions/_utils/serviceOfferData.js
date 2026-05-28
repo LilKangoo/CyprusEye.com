@@ -1,7 +1,12 @@
 import { createSupabaseClients } from './supabaseAdmin.js';
+import {
+  DEFAULT_PUBLIC_LANGUAGE,
+  getPublicLanguageCodes,
+  normalizePublicLanguage,
+} from './languageRollout.js';
 
-export const SERVICE_OFFER_DEFAULT_LANGUAGE = 'en';
-export const SERVICE_OFFER_SUPPORTED_LANGUAGES = ['pl', 'en'];
+export const SERVICE_OFFER_DEFAULT_LANGUAGE = DEFAULT_PUBLIC_LANGUAGE;
+export const SERVICE_OFFER_SUPPORTED_LANGUAGES = Object.freeze(getPublicLanguageCodes('routes'));
 export const SERVICE_OFFER_DEFAULT_IMAGE = '/assets/cyprus_logo-1000x1054.png';
 
 const SERVICE_CONFIG = {
@@ -65,7 +70,7 @@ function getReadClient(env) {
 }
 
 export function normalizeServiceOfferLanguage(value) {
-  return String(value || '').trim().toLowerCase() === 'pl' ? 'pl' : SERVICE_OFFER_DEFAULT_LANGUAGE;
+  return normalizePublicLanguage(value, SERVICE_OFFER_DEFAULT_LANGUAGE, 'routes');
 }
 
 export function pickLocalizedServiceValue(value, language) {

@@ -47,18 +47,24 @@ assertIncludes('supabase/migrations/178_he_internal_content_fields.sql', 'catego
 assertIncludes('supabase/migrations/178_he_internal_content_fields.sql', 'name_i18n jsonb', 'Schema migration must add POI i18n JSONB fields');
 assertIncludes('supabase/migrations/178_he_internal_content_fields.sql', 'name_he text', 'Schema migration must add HE text fields');
 assertIncludes('supabase/migrations/178_he_internal_content_fields.sql', 'subject_he text', 'Schema migration must add HE email template fields');
+assertIncludes('supabase/migrations/179_blog_translations_he_internal_guard.sql', "CHECK (lang IN ('pl', 'en', 'he'))", 'Blog translations migration must allow internal HE rows');
+assertIncludes('supabase/migrations/179_blog_translations_he_internal_guard.sql', "lang IN ('pl', 'en')", 'Blog public read policy must still hide HE rows');
 
 const i18n = read('js/i18n.js');
 const publicLanguagesBlock = i18n.match(/const PUBLIC_LANGUAGES = \{[\s\S]*?\n  \};/)?.[0] || '';
 const supportedLanguagesAssignment = i18n.match(/const SUPPORTED_LANGUAGES = .*;/)?.[0] || '';
 assert.ok(!publicLanguagesBlock.includes('he:'), 'HE must not be present in PUBLIC_LANGUAGES');
 assert.equal(supportedLanguagesAssignment, 'const SUPPORTED_LANGUAGES = PUBLIC_LANGUAGES;', 'Supported public languages must remain public-only');
+assertIncludes('js/i18n.js', 'window.CELanguageRollout', 'Runtime must expose central rollout guard');
+assertIncludes('js/i18n.js', 'mode: ROLLOUT_MODES.INTERNAL_ONLY', 'HE must remain internal-only');
+assertIncludes('js/i18n.js', 'publicApi: false', 'HE public API guard must remain off');
 
 assertIncludes('js/languageSwitcher.js', 'const HIDDEN_LANGUAGES', 'Legacy switcher must keep HE hidden');
 const switcherPublicBlock = read('js/languageSwitcher.js').match(/const SUPPORTED_LANGUAGES = \{[\s\S]*?\n\};/)?.[0] || '';
 assert.ok(!switcherPublicBlock.includes('he:'), 'Legacy public switcher must not expose HE');
 
-assertIncludes('js/seo.js', "const SUPPORTED_LANGUAGES = ['pl', 'en'];", 'Public SEO must stay PL/EN only');
+assertIncludes('js/seo.js', "const FALLBACK_SEO_LANGUAGES = ['pl', 'en'];", 'Public SEO fallback must stay PL/EN only');
+assertIncludes('js/seo.js', "getPublicLanguageCodes?.('seo')", 'Public SEO must read central rollout guard');
 assertNotIncludes('index.html', 'hreflang="he"', 'Home page must not include HE hreflang');
 assertNotIncludes('sitemap.xml', 'hreflang="he"', 'Sitemap must not expose HE hreflang');
 assertNotIncludes('sitemap.xml', '/he/', 'Sitemap must not expose HE routes');

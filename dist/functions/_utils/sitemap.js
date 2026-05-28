@@ -1,4 +1,9 @@
 import { createSupabaseClients } from './supabaseAdmin.js';
+import {
+  DEFAULT_PUBLIC_LANGUAGE,
+  getLanguageQueryParam,
+  getPublicLanguageCodes,
+} from './languageRollout.js';
 
 export const SITEMAP_ORIGIN = 'https://www.cypruseye.com';
 
@@ -28,21 +33,23 @@ const SERVICE_SITEMAP_CONFIG = {
   trips: '/trip.html',
 };
 
+const SITEMAP_LANGUAGES = Object.freeze(getPublicLanguageCodes('sitemap'));
+
 export const SITEMAP_DYNAMIC_SOURCES = Object.freeze({
   blogPosts: Object.freeze({
     table: 'blog_posts',
     route: '/blog/{slug}',
-    languages: Object.freeze(['en', 'pl']),
+    languages: SITEMAP_LANGUAGES,
   }),
   hotels: Object.freeze({
     table: 'hotels',
     route: '/hotel.html?slug={slug}',
-    languages: Object.freeze(['en', 'pl']),
+    languages: SITEMAP_LANGUAGES,
   }),
   trips: Object.freeze({
     table: 'trips',
     route: '/trip.html?slug={slug}',
-    languages: Object.freeze(['en', 'pl']),
+    languages: SITEMAP_LANGUAGES,
   }),
 });
 
@@ -72,8 +79,9 @@ function buildBlogPostUrl(slug, language) {
     return '';
   }
   const url = new URL(`/blog/${encodeURIComponent(normalizedSlug)}`, SITEMAP_ORIGIN);
-  if (language === 'pl') {
-    url.searchParams.set('lang', 'pl');
+  const languageParam = getLanguageQueryParam(language);
+  if (languageParam) {
+    url.searchParams.set('lang', languageParam);
   }
   return url.toString();
 }
@@ -86,8 +94,9 @@ function buildServiceOfferUrl(kind, slug, language) {
   }
   const url = new URL(templatePath, SITEMAP_ORIGIN);
   url.searchParams.set('slug', normalizedSlug);
-  if (language === 'pl') {
-    url.searchParams.set('lang', 'pl');
+  const languageParam = getLanguageQueryParam(language);
+  if (languageParam) {
+    url.searchParams.set('lang', languageParam);
   }
   return url.toString();
 }
@@ -188,8 +197,9 @@ async function fetchPublishedBlogEntries(client) {
     return [];
   }
 
+  const sitemapLanguages = new Set(SITEMAP_LANGUAGES);
   return safeArray(data).flatMap((row) => safeArray(row?.translations)
-    .filter((translation) => ['pl', 'en'].includes(String(translation?.lang || '').trim().toLowerCase()))
+    .filter((translation) => sitemapLanguages.has(String(translation?.lang || '').trim().toLowerCase()))
     .map((translation) => ({
       loc: buildBlogPostUrl(translation?.slug, translation?.lang),
       lastmod: row?.published_at || '',
@@ -219,10 +229,9 @@ async function fetchPublishedServiceEntries(client, kind) {
     if (!slug) {
       return [];
     }
-    return [
-      { loc: buildServiceOfferUrl(kind, slug, 'en') },
-      { loc: buildServiceOfferUrl(kind, slug, 'pl') },
-    ];
+    return SITEMAP_LANGUAGES.map((language) => ({
+      loc: buildServiceOfferUrl(kind, slug, language || DEFAULT_PUBLIC_LANGUAGE),
+    }));
   });
 }
 

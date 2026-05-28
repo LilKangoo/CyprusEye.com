@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const SUPPORTED_LANGUAGES = ['pl', 'en']; // ['pl', 'en', 'el', 'he'];
+  const FALLBACK_SEO_LANGUAGES = ['pl', 'en']; // HE remains hidden until rollout guard enables it.
   const DEFAULT_SEO_LANGUAGE = 'en';
   const DEFAULT_IMAGE = 'assets/cyprus_logo-1000x1054.png';
   const CANONICAL_ORIGIN = 'https://www.cypruseye.com';
@@ -156,13 +156,22 @@
     return url.toString();
   }
 
+  function getSupportedSeoLanguages() {
+    const guarded = window.CELanguageRollout?.getPublicLanguageCodes?.('seo')
+      || window.CELanguage?.getPublicLanguageCodes?.('seo');
+    if (Array.isArray(guarded) && guarded.length) {
+      return guarded.filter((code) => typeof code === 'string' && code.trim());
+    }
+    return FALLBACK_SEO_LANGUAGES;
+  }
+
   function normalizeSeoLanguage(language) {
     const normalized = String(language || '').trim().toLowerCase().split('-')[0];
-    return SUPPORTED_LANGUAGES.includes(normalized) ? normalized : DEFAULT_SEO_LANGUAGE;
+    return getSupportedSeoLanguages().includes(normalized) ? normalized : DEFAULT_SEO_LANGUAGE;
   }
 
   function updateAlternateLinks(activeLanguage) {
-    SUPPORTED_LANGUAGES.forEach((code) => {
+    getSupportedSeoLanguages().forEach((code) => {
       const link = ensureAlternate(code);
       link.setAttribute('href', buildLanguageUrl(code));
     });
@@ -229,7 +238,7 @@
       titleElement.setAttribute('lang', seoLanguage);
     }
 
-    SUPPORTED_LANGUAGES.forEach((code) => {
+    getSupportedSeoLanguages().forEach((code) => {
       const localizedTranslations = getTranslations(code);
       const localizedBaseKey = `seo.${pageKey}`;
       const localizedTitle =
@@ -258,7 +267,7 @@
     head
       .querySelectorAll('meta[property="og:locale:alternate"]')
       .forEach((node) => node.parentNode?.removeChild(node));
-    SUPPORTED_LANGUAGES.filter((code) => code !== seoLanguage).forEach((code) => {
+    getSupportedSeoLanguages().filter((code) => code !== seoLanguage).forEach((code) => {
       const locale = LOCALE_FALLBACK[code] || code;
       const alternate = ensureLocalizedMeta('property', 'og:locale:alternate', code);
       alternate.setAttribute('content', locale);

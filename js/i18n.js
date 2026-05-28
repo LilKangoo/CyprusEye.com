@@ -6,16 +6,133 @@
   const HIDDEN_PREVIEW_PARAM = 'ce_he_preview';
   const HIDDEN_PREVIEW_STORAGE_KEY = 'ce_hidden_language_preview';
   const HIDDEN_PREVIEW_LANGUAGE_KEY = 'ce_hidden_language_preview_lang';
-  const PUBLIC_LANGUAGES = {
+  const ROLLOUT_MODES = Object.freeze({
+    INTERNAL_ONLY: 'internal_only',
+    BETA_USERS: 'beta_users',
+    PARTIAL_PUBLIC: 'partial_public',
+    FULL_PUBLIC: 'full_public',
+  });
+  const LANGUAGE_REGISTRY = {
     pl: { label: 'Polski', shortLabel: 'PL', flag: '🇵🇱', dir: 'ltr' },
     en: { label: 'English', shortLabel: 'EN', flag: '🇬🇧', dir: 'ltr' },
+    he: { label: 'עברית', shortLabel: 'HE', flag: '🇮🇱', dir: 'rtl', hidden: true },
     // el: { label: 'Ελληνικά', shortLabel: 'EL', flag: '🇬🇷', dir: 'ltr' },
   };
-  const HIDDEN_LANGUAGES = {
-    he: { label: 'עברית', shortLabel: 'HE', flag: '🇮🇱', dir: 'rtl' },
+  const LANGUAGE_ROLLOUT = {
+    pl: {
+      mode: ROLLOUT_MODES.FULL_PUBLIC,
+      switcher: true,
+      seo: true,
+      sitemap: true,
+      hreflang: true,
+      canonical: true,
+      routes: true,
+      publicApi: true,
+      indexing: true,
+    },
+    en: {
+      mode: ROLLOUT_MODES.FULL_PUBLIC,
+      switcher: true,
+      seo: true,
+      sitemap: true,
+      hreflang: true,
+      canonical: true,
+      routes: true,
+      publicApi: true,
+      indexing: true,
+    },
+    he: {
+      mode: ROLLOUT_MODES.INTERNAL_ONLY,
+      switcher: false,
+      seo: false,
+      sitemap: false,
+      hreflang: false,
+      canonical: false,
+      routes: false,
+      publicApi: false,
+      indexing: false,
+      hiddenPreview: true,
+      betaStorageKey: 'ce_he_beta',
+      betaQueryParam: 'ce_he_beta',
+    },
   };
+
+  function normalizeLanguageCode(value) {
+    return String(value || '').trim().toLowerCase().split('-')[0];
+  }
+
+  function getLanguageConfig(value) {
+    return LANGUAGE_REGISTRY[normalizeLanguageCode(value)] || null;
+  }
+
+  function getLanguageRollout(value) {
+    return LANGUAGE_ROLLOUT[normalizeLanguageCode(value)] || null;
+  }
+
+  function isBetaUserAllowed(language, options = {}) {
+    const rollout = getLanguageRollout(language);
+    if (!rollout || rollout.mode !== ROLLOUT_MODES.BETA_USERS) {
+      return false;
+    }
+    if (options.beta === true || window.CE_HE_BETA_USER === true) {
+      return true;
+    }
+    const betaStorageKey = String(rollout.betaStorageKey || '');
+    const betaQueryParam = String(rollout.betaQueryParam || '');
+    const betaStorageEnabled = betaStorageKey && safeLocalStorage('get', betaStorageKey) === 'true';
+    let betaParamEnabled = false;
+    try {
+      betaParamEnabled = betaQueryParam && new URL(window.location.href).searchParams.get(betaQueryParam) === '1';
+    } catch (_error) {
+    }
+    return Boolean(betaStorageEnabled || betaParamEnabled);
+  }
+
+  function isLanguageEnabledForSurface(language, surface = 'switcher', options = {}) {
+    const normalized = normalizeLanguageCode(language);
+    const rollout = getLanguageRollout(normalized);
+    if (!rollout || !getLanguageConfig(normalized)) {
+      return false;
+    }
+    const mode = rollout.mode || ROLLOUT_MODES.INTERNAL_ONLY;
+    if (mode === ROLLOUT_MODES.FULL_PUBLIC) {
+      return rollout[surface] !== false;
+    }
+    if (mode === ROLLOUT_MODES.PARTIAL_PUBLIC) {
+      return rollout[surface] === true;
+    }
+    if (mode === ROLLOUT_MODES.BETA_USERS) {
+      return surface === 'routes' && isBetaUserAllowed(normalized, options);
+    }
+    return false;
+  }
+
+  function getPublicLanguageCodes(surface = 'switcher', options = {}) {
+    return Object.keys(LANGUAGE_REGISTRY)
+      .filter((code) => isLanguageEnabledForSurface(code, surface, options));
+  }
+
+  function getLanguageRegistryForSurface(surface) {
+    return getPublicLanguageCodes(surface)
+      .reduce((accumulator, code) => {
+        accumulator[code] = LANGUAGE_REGISTRY[code];
+        return accumulator;
+      }, {});
+  }
+
+  function getHiddenLanguageRegistry() {
+    return Object.entries(LANGUAGE_REGISTRY)
+      .filter(([code, config]) => Boolean(config.hidden) && !isLanguageEnabledForSurface(code, 'switcher'))
+      .reduce((accumulator, [code, config]) => {
+        accumulator[code] = config;
+        return accumulator;
+      }, {});
+  }
+
+  const PUBLIC_LANGUAGES = getLanguageRegistryForSurface('switcher');
+  const HIDDEN_LANGUAGES = getHiddenLanguageRegistry();
   const SUPPORTED_LANGUAGES = PUBLIC_LANGUAGES;
-  const LANGUAGE_CONFIG = { ...PUBLIC_LANGUAGES, ...HIDDEN_LANGUAGES };
+  const LANGUAGE_CONFIG = LANGUAGE_REGISTRY;
   const LANGUAGE_FALLBACKS = {
     he: ['he', 'en', 'pl'],
     en: ['en', 'pl'],
@@ -29,10 +146,6 @@
     language: DEFAULT_LANGUAGE,
     translations: {},
   };
-
-  function normalizeLanguageCode(value) {
-    return String(value || '').trim().toLowerCase().split('-')[0];
-  }
 
   function normalizeSupportedLanguage(value, { includeHidden = false } = {}) {
     const normalized = normalizeLanguageCode(value);
@@ -1037,6 +1150,8 @@
   appI18n.pickLocalizedValue = pickLocalizedValue;
   appI18n.pickLocalizedField = pickLocalizedField;
   appI18n.isHiddenLanguagePreviewEnabled = isHiddenLanguagePreviewEnabled;
+  appI18n.getPublicLanguageCodes = getPublicLanguageCodes;
+  appI18n.isLanguageEnabledForSurface = isLanguageEnabledForSurface;
 
   window.CELanguage = Object.assign(window.CELanguage || {}, {
     getLanguageFallbackChain,
@@ -1044,6 +1159,39 @@
     pickLocalizedField,
     isPublicLanguage,
     isHiddenLanguagePreviewEnabled,
+    getPublicLanguageCodes,
+    isLanguageEnabledForSurface,
+  });
+
+  window.CELanguageRollout = Object.assign(window.CELanguageRollout || {}, {
+    modes: ROLLOUT_MODES,
+    hiddenPreviewParam: HIDDEN_PREVIEW_PARAM,
+    getPublicLanguageCodes,
+    isLanguageEnabledForSurface,
+    isPublicLanguage,
+    isHiddenLanguage,
+    isHiddenLanguagePreviewEnabled,
+    snapshot() {
+      return Object.fromEntries(
+        Object.keys(LANGUAGE_REGISTRY).map((code) => [
+          code,
+          {
+            mode: getLanguageRollout(code)?.mode || ROLLOUT_MODES.INTERNAL_ONLY,
+            hidden: Boolean(LANGUAGE_REGISTRY[code]?.hidden),
+            publicSurfaces: {
+              switcher: isLanguageEnabledForSurface(code, 'switcher'),
+              seo: isLanguageEnabledForSurface(code, 'seo'),
+              sitemap: isLanguageEnabledForSurface(code, 'sitemap'),
+              hreflang: isLanguageEnabledForSurface(code, 'hreflang'),
+              canonical: isLanguageEnabledForSurface(code, 'canonical'),
+              routes: isLanguageEnabledForSurface(code, 'routes'),
+              publicApi: isLanguageEnabledForSurface(code, 'publicApi'),
+              indexing: isLanguageEnabledForSurface(code, 'indexing'),
+            },
+          },
+        ])
+      );
+    },
   });
 
   // Wait for language selector to be ready before initializing
