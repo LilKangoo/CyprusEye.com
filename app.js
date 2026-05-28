@@ -13,17 +13,10 @@ import {
 // Translation utilities (extracted to src/utils/translations.js)
 import {
   getTranslation,
-  translate,
-  getActiveTranslations,
-  areTranslationsReady,
-  getTaskTranslationKey,
-  getTaskTitle,
-  getTaskDescription,
   getPlaceTranslationKey,
-  getPlaceName,
-  getPlaceDescription,
-  getPlaceBadge
+  getLanguageFallbackChain
 } from './src/utils/translations.js';
+import { STORAGE_KEYS } from './src/utils/storage.js';
 
 const DEBUG = localStorage.getItem('CE_DEBUG') === 'true' || new URLSearchParams(window.location.search).has('debug');
 function debug(...args) {
@@ -1267,7 +1260,7 @@ const packingGuide = {
 let selectedPackingSeasonId = null;
 
 const STORAGE_KEY = 'wakacjecypr-progress';
-// ACCOUNT_STORAGE_KEY moved to src/state/accounts.js (imported above)
+const ACCOUNT_STORAGE_KEY = STORAGE_KEYS.ACCOUNTS;
 const SESSION_STORAGE_KEY = 'wakacjecypr-session';
 const REVIEWS_STORAGE_KEY = 'wakacjecypr-reviews';
 const JOURNAL_STORAGE_KEY = 'wakacjecypr-travel-journal';
@@ -1304,15 +1297,24 @@ function translate(key, fallback = '', replacements = {}) {
   let result = null;
 
   if (i18n && i18n.translations) {
-    const lang = i18n.language || 'pl';
-    const entry = i18n.translations[lang] && i18n.translations[lang][key];
-    if (typeof entry === 'string') {
-      result = entry;
-    } else if (entry && typeof entry === 'object') {
-      if (typeof entry.text === 'string') {
-        result = entry.text;
-      } else if (typeof entry.html === 'string') {
-        result = entry.html;
+    const lang = i18n.language || 'en';
+    if (typeof i18n.getTranslationString === 'function') {
+      result = i18n.getTranslationString(key, lang);
+    } else {
+      for (const language of getLanguageFallbackChain(lang)) {
+        const entry = i18n.translations[language] && i18n.translations[language][key];
+        if (typeof entry === 'string') {
+          result = entry;
+          break;
+        } else if (entry && typeof entry === 'object') {
+          if (typeof entry.text === 'string') {
+            result = entry.text;
+            break;
+          } else if (typeof entry.html === 'string') {
+            result = entry.html;
+            break;
+          }
+        }
       }
     }
   }
@@ -1347,22 +1349,14 @@ function getTaskFallback(task, field) {
   const currentLanguage =
     (typeof window !== 'undefined' && window.appI18n && window.appI18n.language) ||
     (typeof document !== 'undefined' && document.documentElement?.lang) ||
-    'pl';
+    'en';
 
   const fallbacks = TASK_TRANSLATION_FALLBACKS[task.id] || {};
-  const localizedFallback = fallbacks[currentLanguage];
-  if (localizedFallback && typeof localizedFallback[field] === 'string') {
-    return localizedFallback[field];
-  }
-
-  const defaultPolishFallback = fallbacks.pl;
-  if (defaultPolishFallback && typeof defaultPolishFallback[field] === 'string') {
-    return defaultPolishFallback[field];
-  }
-
-  const defaultEnglishFallback = fallbacks.en;
-  if (defaultEnglishFallback && typeof defaultEnglishFallback[field] === 'string') {
-    return defaultEnglishFallback[field];
+  for (const language of getLanguageFallbackChain(currentLanguage)) {
+    const localizedFallback = fallbacks[language];
+    if (localizedFallback && typeof localizedFallback[field] === 'string') {
+      return localizedFallback[field];
+    }
   }
 
   return '';

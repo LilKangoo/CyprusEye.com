@@ -26,11 +26,13 @@ function getSearchParams() {
 
 function getLangFromParams() {
   const params = getSearchParams()
-  const lang = String(params.get('lang') || '').trim().toLowerCase()
-  return lang === 'pl' ? 'pl' : 'en'
+  const lang = String(params.get('lang') || '').trim().toLowerCase().split('-')[0]
+  if (lang === 'pl' || lang === 'en' || lang === 'he') return lang
+  return 'en'
 }
 
 function t(lang, key) {
+  const normalized = lang === 'pl' ? 'pl' : 'en'
   const dict = {
     en: {
       title_success: 'Deposit paid successfully',
@@ -77,7 +79,19 @@ function t(lang, key) {
       unknown: '—',
     },
   }
-  return (dict[lang] && dict[lang][key]) || dict.en[key] || key
+  return (dict[normalized] && dict[normalized][key]) || dict.en[key] || key
+}
+
+function pickDepositLocalizedField(row, fieldName, language = state.lang, fallback = '') {
+  if (window.CELanguage?.pickLocalizedField) {
+    return window.CELanguage.pickLocalizedField(row, fieldName, language, fallback)
+  }
+  const chain = language === 'pl' ? ['pl', 'en'] : language === 'he' ? ['he', 'en', 'pl'] : ['en', 'pl']
+  for (const code of chain) {
+    const value = row?.[`${fieldName}_${code}`] || (code === 'pl' ? row?.[fieldName] : '')
+    if (value) return value
+  }
+  return fallback
 }
 
 function money(amount, currency) {
@@ -147,6 +161,7 @@ function setupLanguageSwitcher() {
 
   buttons.forEach((btn) => {
     btn.addEventListener('click', () => {
+      // The visible deposit switcher intentionally remains PL/EN only.
       const next = String(btn.getAttribute('data-lang') || '').trim().toLowerCase() === 'pl' ? 'pl' : 'en'
       if (next === state.lang) return
       state.lang = next
@@ -163,15 +178,16 @@ function buildViewModel(row) {
   const category = normalizeCategory(row?.resource_type) || categoryQuery || ''
   const reference = String(row?.fulfillment_reference || params.get('reference') || '').trim()
   const summaryRaw = String(row?.fulfillment_summary || params.get('summary') || '').trim()
-  const summaryPl = String(row?.trip_title_pl || row?.summary_pl || '').trim()
-  const summaryEn = String(row?.trip_title_en || row?.summary_en || '').trim()
+  const localizedSummary = String(
+    pickDepositLocalizedField(row, 'trip_title', state.lang, '')
+    || pickDepositLocalizedField(row, 'summary', state.lang, '')
+  ).trim()
   let summary = summaryRaw
   if (category === 'trips' && (isGenericTripSummary(summaryRaw) || !summaryRaw)) {
-    if (state.lang === 'pl') summary = summaryPl || summaryEn || summaryRaw
-    else summary = summaryEn || summaryPl || summaryRaw
+    summary = localizedSummary || summaryRaw
   }
-  if (!summary && (summaryEn || summaryPl)) {
-    summary = state.lang === 'pl' ? (summaryPl || summaryEn) : (summaryEn || summaryPl)
+  if (!summary && localizedSummary) {
+    summary = localizedSummary
   }
 
   const currency = String(row?.currency || params.get('currency') || 'EUR').trim() || 'EUR'

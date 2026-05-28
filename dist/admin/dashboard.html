@@ -986,6 +986,10 @@
                       <span>Name (Polish)</span>
                       <input type="text" id="transportLocationNameLocal" placeholder="e.g. Lotnisko Larnaka" />
                     </label>
+                    <label class="admin-form-field transport-field transport-field--wide" dir="rtl">
+                      <span>Name (HE internal)</span>
+                      <input type="text" id="transportLocationNameHe" placeholder="Hebrew transport location name" dir="rtl" />
+                    </label>
                     <label class="admin-form-field transport-field">
                       <span>Code</span>
                       <input type="text" id="transportLocationCode" required placeholder="e.g. lca_airport" />
@@ -6483,6 +6487,7 @@
           <div class="emails-language-toggle" aria-label="Email preview language">
             <button class="emails-language-button is-active" type="button" data-email-lang="pl">PL</button>
             <button class="emails-language-button" type="button" data-email-lang="en">EN</button>
+            <button class="emails-language-button" type="button" data-email-lang="he">HE</button>
           </div>
         </header>
 
@@ -6556,6 +6561,7 @@
                   <div class="emails-editor-language-toggle" role="group" aria-label="Draft language">
                     <button class="emails-editor-language-button is-active" type="button" data-email-editor-lang="pl">PL</button>
                     <button class="emails-editor-language-button" type="button" data-email-editor-lang="en">EN</button>
+                    <button class="emails-editor-language-button" type="button" data-email-editor-lang="he">HE</button>
                   </div>
                 </div>
 
@@ -7417,6 +7423,19 @@
                   </div>
                   <small>Visible on the English blog list and English category filters.</small>
                 </label>
+                <label class="admin-form-field blog-form-grid__wide blog-taxonomy-card" dir="rtl">
+                  <span>Categories (HE internal)</span>
+                  <input id="blogFormCategoriesHe" type="hidden" />
+                  <div class="blog-chip-picker" data-blog-taxonomy-picker="categories:he">
+                    <div class="blog-chip-picker__selected" id="blogFormCategoriesHeSelected"></div>
+                    <div class="blog-chip-picker__composer">
+                      <input id="blogFormCategoriesHeInput" type="text" placeholder="הוסף קטגוריה בעברית" dir="rtl" />
+                      <button class="btn-secondary" type="button" data-blog-taxonomy-add="categories" data-blog-taxonomy-lang="he">Add</button>
+                    </div>
+                    <div class="blog-chip-picker__suggestions" id="blogFormCategoriesHeSuggestions"></div>
+                  </div>
+                  <small>Internal Hebrew labels. Hidden until Hebrew public rollout.</small>
+                </label>
                 <label class="admin-form-field blog-form-grid__wide blog-taxonomy-card">
                   <span>Tags (PL)</span>
                   <input id="blogFormTagsPl" type="hidden" />
@@ -7443,6 +7462,19 @@
                   </div>
                   <small>Used in English tag chips and English tag filters.</small>
                 </label>
+                <label class="admin-form-field blog-form-grid__wide blog-taxonomy-card" dir="rtl">
+                  <span>Tags (HE internal)</span>
+                  <input id="blogFormTagsHe" type="hidden" />
+                  <div class="blog-chip-picker" data-blog-taxonomy-picker="tags:he">
+                    <div class="blog-chip-picker__selected" id="blogFormTagsHeSelected"></div>
+                    <div class="blog-chip-picker__composer">
+                      <input id="blogFormTagsHeInput" type="text" placeholder="הוסף תגית בעברית" dir="rtl" />
+                      <button class="btn-secondary" type="button" data-blog-taxonomy-add="tags" data-blog-taxonomy-lang="he">Add</button>
+                    </div>
+                    <div class="blog-chip-picker__suggestions" id="blogFormTagsHeSuggestions"></div>
+                  </div>
+                  <small>Internal Hebrew tags. Hidden until Hebrew public rollout.</small>
+                </label>
               </div>
             </div>
           </section>
@@ -7457,7 +7489,7 @@
             >
               <div>
                 <h4>Content and translations</h4>
-                <p>PL and EN article copy, slug, summary, lead and editor with copy helpers.</p>
+                  <p>PL and EN article copy plus hidden/internal HE content, slug, summary, lead and editor with copy helpers.</p>
               </div>
               <div class="blog-form-section__toggle-meta">
                 <span class="blog-form-section__status" data-blog-section-status="content">Needs content</span>
@@ -8602,6 +8634,7 @@
             <div class="lang-tabs" style="display: flex; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--admin-border);">
               <button type="button" class="lang-tab active" data-lang="pl" onclick="switchProductLang('pl')">🇵🇱 Polski</button>
               <button type="button" class="lang-tab" data-lang="en" onclick="switchProductLang('en')">🇬🇧 English</button>
+              <button type="button" class="lang-tab" data-lang="he" onclick="switchProductLang('he')">🇮🇱 Hebrew internal</button>
             </div>
 
             <!-- Polish Content -->
@@ -8633,6 +8666,22 @@
               <label class="admin-form-field">
                 <span>Short Description (EN) <small style="color: var(--admin-text-muted);">- shown in product listings</small></span>
                 <input type="text" id="shopProductShortDescEn" placeholder="1-2 sentences summarizing the product">
+              </label>
+            </div>
+
+            <!-- Hebrew Internal Content -->
+            <div id="productLangHE" class="lang-content" dir="rtl">
+              <label class="admin-form-field">
+                <span>Product Name (HE internal)</span>
+                <input type="text" id="shopProductNameHe" placeholder="Hebrew product name" dir="rtl">
+              </label>
+              <label class="admin-form-field">
+                <span>Description (HE internal)</span>
+                <textarea id="shopProductDescriptionHe" rows="3" placeholder="Hebrew product description" dir="rtl"></textarea>
+              </label>
+              <label class="admin-form-field">
+                <span>Short Description (HE internal)</span>
+                <input type="text" id="shopProductShortDescHe" placeholder="Hebrew product summary" dir="rtl">
               </label>
             </div>
           </div>
@@ -9018,6 +9067,7 @@
           <div class="lang-tabs" style="display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--admin-border);">
             <button type="button" class="lang-tab active" data-lang="pl" onclick="switchCategoryLang('pl')">🇵🇱 Polski</button>
             <button type="button" class="lang-tab" data-lang="en" onclick="switchCategoryLang('en')">🇬🇧 English</button>
+            <button type="button" class="lang-tab" data-lang="he" onclick="switchCategoryLang('he')">🇮🇱 Hebrew internal</button>
           </div>
 
           <!-- Polish Content -->
@@ -9041,6 +9091,18 @@
             <label class="admin-form-field">
               <span>Description (EN)</span>
               <textarea id="shopCategoryDescriptionEn" rows="2" placeholder="Category description in English"></textarea>
+            </label>
+          </div>
+
+          <!-- Hebrew Internal Content -->
+          <div id="categoryLangHE" class="lang-content" dir="rtl">
+            <label class="admin-form-field">
+              <span>Category Name (HE internal)</span>
+              <input type="text" id="shopCategoryNameHe" placeholder="Hebrew category name" dir="rtl">
+            </label>
+            <label class="admin-form-field">
+              <span>Description (HE internal)</span>
+              <textarea id="shopCategoryDescriptionHe" rows="2" placeholder="Hebrew category description" dir="rtl"></textarea>
             </label>
           </div>
 
@@ -9145,6 +9207,7 @@
           <div class="lang-tabs" style="display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--admin-border);">
             <button type="button" class="lang-tab active" data-lang="pl" onclick="switchVendorLang('pl')">🇵🇱 Polski</button>
             <button type="button" class="lang-tab" data-lang="en" onclick="switchVendorLang('en')">🇬🇧 English</button>
+            <button type="button" class="lang-tab" data-lang="he" onclick="switchVendorLang('he')">🇮🇱 Hebrew internal</button>
           </div>
 
           <!-- Polish Content -->
@@ -9168,6 +9231,18 @@
             <label class="admin-form-field">
               <span>Description (EN)</span>
               <textarea id="shopVendorDescriptionEn" rows="2" placeholder="Vendor description in English"></textarea>
+            </label>
+          </div>
+
+          <!-- Hebrew Internal Content -->
+          <div id="vendorLangHE" class="lang-content" dir="rtl">
+            <label class="admin-form-field">
+              <span>Vendor Name (HE internal)</span>
+              <input type="text" id="shopVendorNameHe" placeholder="Hebrew vendor name" dir="rtl">
+            </label>
+            <label class="admin-form-field">
+              <span>Description (HE internal)</span>
+              <textarea id="shopVendorDescriptionHe" rows="2" placeholder="Hebrew vendor description" dir="rtl"></textarea>
             </label>
           </div>
 
@@ -9317,6 +9392,7 @@
           <div class="lang-tabs" style="display: flex; gap: 8px; margin: 16px 0 12px; border-bottom: 1px solid var(--admin-border);">
             <button type="button" class="lang-tab active" data-lang="pl" onclick="switchDiscountLang('pl')">🇵🇱 Polski</button>
             <button type="button" class="lang-tab" data-lang="en" onclick="switchDiscountLang('en')">🇬🇧 English</button>
+            <button type="button" class="lang-tab" data-lang="he" onclick="switchDiscountLang('he')">🇮🇱 Hebrew internal</button>
           </div>
 
           <!-- Polish Content -->
@@ -9332,6 +9408,14 @@
             <label class="admin-form-field">
               <span>Description (EN)</span>
               <input type="text" id="shopDiscountDescriptionEn" placeholder="Summer sale 20% off">
+            </label>
+          </div>
+
+          <!-- Hebrew Internal Content -->
+          <div id="discountLangHE" class="lang-content" dir="rtl">
+            <label class="admin-form-field">
+              <span>Description (HE internal)</span>
+              <input type="text" id="shopDiscountDescriptionHe" placeholder="Hebrew discount description" dir="rtl">
             </label>
           </div>
 
@@ -9462,6 +9546,7 @@
         <div class="lang-tabs" style="display: flex; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--admin-border);">
           <button type="button" class="lang-tab active" data-lang="pl" onclick="switchShippingMethodLang('pl')">🇵🇱 Polski</button>
           <button type="button" class="lang-tab" data-lang="en" onclick="switchShippingMethodLang('en')">🇬🇧 English</button>
+          <button type="button" class="lang-tab" data-lang="he" onclick="switchShippingMethodLang('he')">🇮🇱 Hebrew internal</button>
         </div>
 
         <!-- Polish Content -->
@@ -9485,6 +9570,18 @@
           <label class="admin-form-field" style="margin-top: 8px;">
             <span>Description (EN)</span>
             <input type="text" id="shippingMethodDescriptionEn" placeholder="Delivery in 2-3 business days">
+          </label>
+        </div>
+
+        <!-- Hebrew Internal Content -->
+        <div id="shippingMethodLangHE" class="lang-content" dir="rtl">
+          <label class="admin-form-field">
+            <span>Method Name (HE internal)</span>
+            <input type="text" id="shippingMethodNameHe" placeholder="Hebrew shipping method name" dir="rtl">
+          </label>
+          <label class="admin-form-field" style="margin-top: 8px;">
+            <span>Description (HE internal)</span>
+            <input type="text" id="shippingMethodDescriptionHe" placeholder="Hebrew shipping method description" dir="rtl">
           </label>
         </div>
 
@@ -9684,9 +9781,17 @@
           <span>Nazwa (EN)</span>
           <input type="text" id="shippingClassNameEn" placeholder="e.g. Heavy Items">
         </label>
+        <label class="admin-form-field" dir="rtl">
+          <span>Nazwa (HE internal)</span>
+          <input type="text" id="shippingClassNameHe" placeholder="Hebrew shipping class name" dir="rtl">
+        </label>
         <label class="admin-form-field">
           <span>Opis</span>
           <input type="text" id="shippingClassDescription" placeholder="Opcjonalny opis">
+        </label>
+        <label class="admin-form-field" dir="rtl">
+          <span>Opis (HE internal)</span>
+          <input type="text" id="shippingClassDescriptionHe" placeholder="Hebrew shipping class description" dir="rtl">
         </label>
         <div class="admin-form-grid">
           <label class="admin-form-field">

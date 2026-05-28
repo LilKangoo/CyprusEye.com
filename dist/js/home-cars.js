@@ -28,13 +28,54 @@ let homeCarsFinderState = null;
 let homeCarsCarouselUpdate = null;
 let previousBodyCarLocation = null;
 
+function normalizeCarUiLang(value) {
+  const normalized = String(value || '').trim().toLowerCase().split('-')[0];
+  if (normalized === 'pl' || normalized === 'en' || normalized === 'he') return normalized;
+  return 'en';
+}
+
 function getLang() {
-  const lang = (window.appI18n?.language || document.documentElement?.lang || 'pl').toLowerCase();
-  return lang.startsWith('en') ? 'en' : 'pl';
+  return normalizeCarUiLang(window.appI18n?.language || document.documentElement?.lang || 'en');
 }
 
 function text(pl, en) {
-  return getLang() === 'en' ? en : pl;
+  return getLang() === 'pl' ? pl : en;
+}
+
+function pickHomeCarLocalizedValue(value, language = getLang(), fallback = '') {
+  if (window.CELanguage?.pickLocalizedValue) {
+    return window.CELanguage.pickLocalizedValue(value, language, fallback);
+  }
+
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return value || fallback;
+  }
+
+  const chain = language === 'pl' ? ['pl', 'en'] : language === 'he' ? ['he', 'en', 'pl'] : ['en', 'pl'];
+  for (const code of chain) {
+    if (value[code]) return value[code];
+  }
+  return Object.values(value).find(Boolean) || fallback;
+}
+
+function pickHomeCarLocalizedField(source, fieldName, language = getLang(), fallback = '') {
+  if (window.CELanguage?.pickLocalizedField) {
+    return window.CELanguage.pickLocalizedField(source, fieldName, language, fallback);
+  }
+  return pickHomeCarLocalizedValue(source?.[fieldName], language, null)
+    || pickHomeCarLocalizedValue({
+      he: source?.[`${fieldName}_he`],
+      en: source?.[`${fieldName}_en`],
+      pl: source?.[`${fieldName}_pl`] || source?.[fieldName],
+    }, language, fallback);
+}
+
+function getHomeCarName(car) {
+  return window.getCarName
+    ? window.getCarName(car)
+    : pickHomeCarLocalizedField(car, 'car_model', getLang(), '')
+      || pickHomeCarLocalizedField(car, 'car_type', getLang(), '')
+      || 'Car';
 }
 
 function getSaveLabel() {
@@ -150,7 +191,7 @@ function buildPricingMapForLocation(location) {
   const cars = homeCarsByLocation[loc] || [];
 
   cars.forEach((car) => {
-    const carModelName = window.getCarName ? window.getCarName(car) : (car.car_model || car.car_type || 'Car');
+    const carModelName = getHomeCarName(car);
 
     if (loc === 'larnaca') {
       const perDay = car.price_per_day || car.price_10plus_days || car.price_7_10days || car.price_4_6days || 35;
@@ -473,7 +514,7 @@ function buildQuoteForCarWithFinder(car, finderState) {
   if (!duration.ready) return null;
 
   const location = String(car.location || '').toLowerCase() === 'paphos' ? 'paphos' : 'larnaca';
-  const carModelName = window.getCarName ? window.getCarName(car) : (car.car_model || car.car_type || 'Car');
+  const carModelName = getHomeCarName(car);
   if (!carModelName) return null;
 
   const pricingMatrix = buildPricingMatrixForOfferRow(car, location);
@@ -654,7 +695,7 @@ function renderHomeCars() {
   }
 
   const renderCards = (visibleRows) => visibleRows.map(({ car, quote }) => {
-    const title = window.getCarName ? window.getCarName(car) : (car.car_model || car.car_type || 'Car');
+    const title = getHomeCarName(car);
     const transmission = String(car.transmission || '').toLowerCase() === 'automatic'
       ? text('Automat', 'Automatic')
       : text('Manual', 'Manual');
@@ -813,7 +854,7 @@ function buildReservationFormHtml({ location, selectedCarId, prefill = null }) {
   const passengersValue = Math.max(1, Number(prefill?.passengers || 2));
 
   const optionsHtml = cars.map((car) => {
-    const title = window.getCarName ? window.getCarName(car) : (car.car_model || car.car_type || 'Car');
+    const title = getHomeCarName(car);
     const transmission = String(car.transmission || '').toLowerCase() === 'automatic'
       ? text('Automat', 'Automatic')
       : text('Manual', 'Manual');

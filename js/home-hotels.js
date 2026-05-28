@@ -18,6 +18,48 @@ function ceLog(...args) {
   if (CE_DEBUG_HOME_HOTELS) console.log(...args);
 }
 
+function normalizeHomeHotelLang(value) {
+  const normalized = String(value || '').trim().toLowerCase().split('-')[0];
+  if (normalized === 'pl' || normalized === 'en' || normalized === 'he') return normalized;
+  return 'en';
+}
+
+function isHomeHotelPolish(language = getHomeHotelLang()) {
+  return normalizeHomeHotelLang(language) === 'pl';
+}
+
+function homeHotelText(pl, en, language = getHomeHotelLang()) {
+  return isHomeHotelPolish(language) ? pl : en;
+}
+
+function pickHomeHotelLocalizedValue(value, language = getHomeHotelLang(), fallback = '') {
+  if (window.CELanguage?.pickLocalizedValue) {
+    return window.CELanguage.pickLocalizedValue(value, language, fallback);
+  }
+
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return value || fallback;
+  }
+
+  const chain = language === 'pl' ? ['pl', 'en'] : language === 'he' ? ['he', 'en', 'pl'] : ['en', 'pl'];
+  for (const code of chain) {
+    if (value[code]) return value[code];
+  }
+  return Object.values(value).find(Boolean) || fallback;
+}
+
+function pickHomeHotelLocalizedField(source, fieldName, language = getHomeHotelLang(), fallback = '') {
+  if (window.CELanguage?.pickLocalizedField) {
+    return window.CELanguage.pickLocalizedField(source, fieldName, language, fallback);
+  }
+  return pickHomeHotelLocalizedValue(source?.[fieldName], language, null)
+    || pickHomeHotelLocalizedValue({
+      he: source?.[`${fieldName}_he`],
+      en: source?.[`${fieldName}_en`],
+      pl: source?.[`${fieldName}_pl`] || source?.[fieldName],
+    }, language, fallback);
+}
+
 function escapeHotelAttr(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -138,12 +180,11 @@ function scheduleHotelsRerenderWhenI18nReady() {
 }
 
 function getHomeHotelSaveLabel() {
-  return getHomeHotelLang() === 'en' ? 'Save' : 'Zapisz';
+  return homeHotelText('Zapisz', 'Save');
 }
 
 function getHomeHotelLang() {
-  const lang = String(window.appI18n?.language || document.documentElement?.lang || 'pl').toLowerCase();
-  return lang.startsWith('en') ? 'en' : 'pl';
+  return normalizeHomeHotelLang(window.appI18n?.language || document.documentElement?.lang || 'en');
 }
 
 async function waitForSupabaseClientHomeHotels(maxAttempts = 50) {
@@ -210,9 +251,9 @@ function renderHotelAmenitiesChips(hotel) {
   const container = document.getElementById('hotelAmenitiesChips');
   const kicker = document.getElementById('hotelAmenitiesKicker');
   const title = document.getElementById('hotelAmenitiesTitle');
-  const lang = String((typeof getCurrentLanguage === 'function' ? getCurrentLanguage() : 'pl') || 'pl').toLowerCase();
-  if (kicker) kicker.textContent = hotelsT('hotels.detail.sections.amenities.kicker', lang.startsWith('en') ? 'Amenities' : 'Udogodnienia');
-  if (title) title.textContent = hotelsT('hotels.detail.sections.amenities.title', lang.startsWith('en') ? 'What is included' : 'Co znajdziesz na miejscu');
+  const lang = normalizeHomeHotelLang(typeof getCurrentLanguage === 'function' ? getCurrentLanguage() : getHomeHotelLang());
+  if (kicker) kicker.textContent = hotelsT('hotels.detail.sections.amenities.kicker', homeHotelText('Udogodnienia', 'Amenities', lang));
+  if (title) title.textContent = hotelsT('hotels.detail.sections.amenities.title', homeHotelText('Co znajdziesz na miejscu', 'What is included', lang));
   if (!container) {
     if (section) section.hidden = true;
     return;
@@ -254,7 +295,7 @@ function renderHotelAmenitiesChips(hotel) {
   
   container.hidden = false;
   container.innerHTML = popularFirst.map(a => {
-    const name = lang === 'en' ? a.name_en : (a.name_pl || a.name_en);
+    const name = pickHomeHotelLocalizedField(a, 'name', lang, String(a.code || '').replace(/[_-]+/g, ' '));
     return `<span class="amenity-chip">${a.icon} ${name}</span>`;
   }).join('');
   if (section) section.hidden = false;
@@ -352,7 +393,11 @@ function getHotelCities(){
 function hotelsT(key, fallback) {
   try {
     const lang = (window.appI18n && window.appI18n.language) || 
-                 document.documentElement.lang || 'pl';
+                 document.documentElement.lang || 'en';
+    if (typeof window.appI18n?.getTranslationString === 'function') {
+      const resolved = window.appI18n.getTranslationString(key, lang);
+      if (typeof resolved === 'string') return resolved;
+    }
     const translations = window.appI18n?.translations?.[lang];
     if (!translations) return fallback;
     
@@ -390,8 +435,8 @@ function renderHomeHotelsTabs(){
   
   // Get translated label
   const allCitiesLabel = hotelsT('hotels.tabs.allCities', 'Wszystkie miasta');
-  const lang = String((window.appI18n && window.appI18n.language) || document.documentElement?.lang || 'pl').toLowerCase();
-  const savedLabel = lang.startsWith('en') ? 'Saved' : 'Zapisane';
+  const lang = getHomeHotelLang();
+  const savedLabel = homeHotelText('Zapisane', 'Saved', lang);
   const savedStar = homeHotelsSavedOnly ? '★' : '☆';
   
   const tabs = [`<button type="button" class="hotels-home-tab ce-home-pill${homeHotelsCurrentCity === 'all' ? ' active' : ''}" data-city="all">${allCitiesLabel}</button>`];
@@ -432,7 +477,7 @@ function renderHomeHotels(){
     const imageFallback = getHotelCardMediaDisplayUrl(imageRaw);
     const image = getHotelCardImageUrl(imageRaw);
     const imageIsPanorama = isHotelCardPanorama(imageRaw);
-    const title = window.getHotelName ? window.getHotelName(h) : (h.title?.pl || h.title?.en || h.slug || 'Hotel');
+    const title = window.getHotelName ? window.getHotelName(h) : pickHomeHotelLocalizedValue(h.title, getHomeHotelLang(), h.slug || 'Hotel');
     
     // DEBUG: Log what we're rendering
     if (index === 0) {
@@ -844,8 +889,8 @@ function initHomeHotels() {
         renderHomeHotelsTabs();
         renderHomeHotels();
         if (homeCurrentHotel) {
-          const title = window.getHotelName ? window.getHotelName(homeCurrentHotel) : (homeCurrentHotel.title?.pl || homeCurrentHotel.title?.en || homeCurrentHotel.slug);
-          const description = window.getHotelDescription ? window.getHotelDescription(homeCurrentHotel) : (homeCurrentHotel.description?.pl || homeCurrentHotel.description?.en || '');
+          const title = window.getHotelName ? window.getHotelName(homeCurrentHotel) : pickHomeHotelLocalizedValue(homeCurrentHotel.title, getHomeHotelLang(), homeCurrentHotel.slug);
+          const description = window.getHotelDescription ? window.getHotelDescription(homeCurrentHotel) : pickHomeHotelLocalizedValue(homeCurrentHotel.description, getHomeHotelLang(), '');
           const titleEl = document.getElementById('modalHotelTitle');
           const descEl = document.getElementById('modalHotelDescription');
           if (titleEl) titleEl.textContent = title;
@@ -871,8 +916,8 @@ function initHomeHotels() {
       renderHomeHotelsTabs();
       renderHomeHotels();
       if (homeCurrentHotel) {
-        const title = window.getHotelName ? window.getHotelName(homeCurrentHotel) : (homeCurrentHotel.title?.pl || homeCurrentHotel.title?.en || homeCurrentHotel.slug);
-        const description = window.getHotelDescription ? window.getHotelDescription(homeCurrentHotel) : (homeCurrentHotel.description?.pl || homeCurrentHotel.description?.en || '');
+        const title = window.getHotelName ? window.getHotelName(homeCurrentHotel) : pickHomeHotelLocalizedValue(homeCurrentHotel.title, getHomeHotelLang(), homeCurrentHotel.slug);
+        const description = window.getHotelDescription ? window.getHotelDescription(homeCurrentHotel) : pickHomeHotelLocalizedValue(homeCurrentHotel.description, getHomeHotelLang(), '');
         const titleEl = document.getElementById('modalHotelTitle');
         const descEl = document.getElementById('modalHotelDescription');
         if (titleEl) titleEl.textContent = title;
@@ -895,8 +940,8 @@ function initHomeHotels() {
       renderHomeHotelsTabs();
       renderHomeHotels();
       if (homeCurrentHotel) {
-        const title = window.getHotelName ? window.getHotelName(homeCurrentHotel) : (homeCurrentHotel.title?.pl || homeCurrentHotel.title?.en || homeCurrentHotel.slug);
-        const description = window.getHotelDescription ? window.getHotelDescription(homeCurrentHotel) : (homeCurrentHotel.description?.pl || homeCurrentHotel.description?.en || '');
+        const title = window.getHotelName ? window.getHotelName(homeCurrentHotel) : pickHomeHotelLocalizedValue(homeCurrentHotel.title, getHomeHotelLang(), homeCurrentHotel.slug);
+        const description = window.getHotelDescription ? window.getHotelDescription(homeCurrentHotel) : pickHomeHotelLocalizedValue(homeCurrentHotel.description, getHomeHotelLang(), '');
         const titleEl = document.getElementById('modalHotelTitle');
         const descEl = document.getElementById('modalHotelDescription');
         if (titleEl) titleEl.textContent = title;
@@ -1487,7 +1532,7 @@ function openHotelModalRecordInternal(hotelRecord, options = {}) {
   homeHotelModalList = modalList;
   homeCurrentHotel = h;
   homeHotelIndex = derivedIndex >= 0 ? derivedIndex : null;
-  const title = window.getHotelName ? window.getHotelName(h) : (h.title?.pl || h.title?.en || h.slug);
+  const title = window.getHotelName ? window.getHotelName(h) : pickHomeHotelLocalizedValue(h.title, getHomeHotelLang(), h.slug);
   const image = getMediaViewerUrl(h.cover_image_url || (Array.isArray(h.photos)&&h.photos[0]) || '/assets/cyprus_logo-1000x1054.png');
   const imgEl = document.getElementById('modalHotelImage');
   imgEl.src = image;
@@ -1503,7 +1548,7 @@ function openHotelModalRecordInternal(hotelRecord, options = {}) {
     });
     el.ondblclick = ()=> openHotelLightbox();
   });
-  const description = window.getHotelDescription ? window.getHotelDescription(h) : (h.description?.pl || h.description?.en || '');
+  const description = window.getHotelDescription ? window.getHotelDescription(h) : pickHomeHotelLocalizedValue(h.description, getHomeHotelLang(), '');
   document.getElementById('modalHotelTitle').textContent = title;
   document.getElementById('modalHotelSubtitle').textContent = h.city || '';
   document.getElementById('modalHotelDescription').innerHTML = description.replace(/\n/g,'<br/>');

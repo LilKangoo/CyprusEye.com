@@ -36,13 +36,42 @@ function getHomeTripCardImageUrl(url) {
   return getHomeTripMediaDisplayUrl(url);
 }
 
+function normalizeHomeTripLang(value) {
+  const normalized = String(value || '').trim().toLowerCase().split('-')[0];
+  if (normalized === 'pl' || normalized === 'en' || normalized === 'he') return normalized;
+  return 'en';
+}
+
 function getHomeTripLang() {
-  const lang = String(window.appI18n?.language || document.documentElement?.lang || 'pl').toLowerCase();
-  return lang.startsWith('en') ? 'en' : 'pl';
+  return normalizeHomeTripLang(window.appI18n?.language || document.documentElement?.lang || 'en');
+}
+
+function isHomeTripPolish(language = getHomeTripLang()) {
+  return normalizeHomeTripLang(language) === 'pl';
+}
+
+function homeTripText(pl, en, language = getHomeTripLang()) {
+  return isHomeTripPolish(language) ? pl : en;
+}
+
+function pickHomeTripLocalizedValue(value, language = getHomeTripLang(), fallback = '') {
+  if (window.CELanguage?.pickLocalizedValue) {
+    return window.CELanguage.pickLocalizedValue(value, language, fallback);
+  }
+
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return value || fallback;
+  }
+
+  const chain = language === 'pl' ? ['pl', 'en'] : language === 'he' ? ['he', 'en', 'pl'] : ['en', 'pl'];
+  for (const code of chain) {
+    if (value[code]) return value[code];
+  }
+  return Object.values(value).find(Boolean) || fallback;
 }
 
 function getHomeTripSaveLabel() {
-  return getHomeTripLang() === 'en' ? 'Save' : 'Zapisz';
+  return homeTripText('Zapisz', 'Save');
 }
 
 function isHomeTripPanorama(url) {
@@ -237,7 +266,11 @@ async function waitForSupabaseClientHomeTrips(maxAttempts = 50) {
 function tripsT(key, fallback) {
   try {
     const lang = (window.appI18n && window.appI18n.language) || 
-                 document.documentElement.lang || 'pl';
+                 document.documentElement.lang || 'en';
+    if (typeof window.appI18n?.getTranslationString === 'function') {
+      const resolved = window.appI18n.getTranslationString(key, lang);
+      if (typeof resolved === 'string') return resolved;
+    }
     const translations = window.appI18n?.translations?.[lang];
     if (!translations) return fallback;
     
@@ -374,8 +407,8 @@ function renderHomeTripsTabs() {
   
   // Get translated label using tripsT helper
   const allCitiesLabel = tripsT('trips.tabs.allCities', 'Wszystkie miasta');
-  const lang = String((window.appI18n && window.appI18n.language) || document.documentElement?.lang || 'pl').toLowerCase();
-  const savedLabel = lang.startsWith('en') ? 'Saved' : 'Zapisane';
+  const lang = getHomeTripLang();
+  const savedLabel = homeTripText('Zapisane', 'Saved', lang);
   const savedStar = homeTripsSavedOnly ? '★' : '☆';
   
   const tabs = [`<button type="button" class="trips-home-tab ce-home-pill${homeTripsCurrentCity === 'all' ? ' active' : ''}" data-city="all">${allCitiesLabel}</button>`];
@@ -442,7 +475,7 @@ function renderHomeTrips() {
     const imageIsPanorama = isHomeTripPanorama(imageUrl);
     
     // Get title (support multilingual or slug)
-    const title = window.getTripName ? window.getTripName(trip) : (trip.title?.pl || trip.title?.en || trip.title || trip.slug || 'Wycieczka');
+    const title = window.getTripName ? window.getTripName(trip) : pickHomeTripLocalizedValue(trip.title, getHomeTripLang(), trip.slug || 'Trip');
     
     // DEBUG: Log what we're rendering
     if (index === 0) {
@@ -1128,8 +1161,8 @@ window.openTripModalHome = function(index){
   if (!trip) return;
   homeCurrentTrip = trip;
   homeCurrentIndex = index;
-  const title = window.getTripName ? window.getTripName(trip) : (trip.title?.pl || trip.title?.en || trip.slug);
-  const desc = window.getTripDescription ? window.getTripDescription(trip) : (trip.description?.pl || trip.description?.en || '');
+  const title = window.getTripName ? window.getTripName(trip) : pickHomeTripLocalizedValue(trip.title, getHomeTripLang(), trip.slug);
+  const desc = window.getTripDescription ? window.getTripDescription(trip) : pickHomeTripLocalizedValue(trip.description, getHomeTripLang(), '');
   const image = trip.cover_image_url || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&h=600&fit=crop';
   void renderHomeTripModalMedia(image);
   document.getElementById('modalTripTitle').textContent = title;

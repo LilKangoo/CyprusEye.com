@@ -1,7 +1,8 @@
 (() => {
   const BLOG_TRANSLATION_LANGUAGES = [
-    { code: 'pl', label: '🇵🇱 Polski', required: true },
-    { code: 'en', label: '🇬🇧 English', required: true },
+    { code: 'pl', label: '🇵🇱 Polski', required: true, rtl: false, internal: false },
+    { code: 'en', label: '🇬🇧 English', required: true, rtl: false, internal: false },
+    { code: 'he', label: '🇮🇱 עברית', required: false, rtl: true, internal: true },
   ];
 
   function escapeHtml(value) {
@@ -78,7 +79,7 @@
   }
 
   function renderCopyButton(langCode, mode) {
-    const source = langCode === 'pl' ? 'en' : 'pl';
+    const source = langCode === 'pl' ? 'en' : langCode === 'he' ? 'en' : 'pl';
     const sourceLabel = source.toUpperCase();
     return `
       <button
@@ -107,10 +108,16 @@
     const normalized = normalizeTranslation(translation);
     const code = lang.code;
     return `
-      <div class="lang-content ${active ? 'active' : ''}" data-field="blogTranslation" data-lang="${code}">
+      <div
+        class="lang-content ${active ? 'active' : ''}"
+        data-field="blogTranslation"
+        data-lang="${code}"
+        data-internal-language="${lang.internal ? 'true' : 'false'}"
+        ${lang.rtl ? 'dir="rtl"' : ''}
+      >
         <div class="blog-translation-panel__head">
           <div class="blog-translation-panel__intro">
-            <strong>${escapeHtml(lang.label)}</strong>
+            <strong>${escapeHtml(lang.label)}${lang.internal ? ' <span class="i18n-internal-badge">internal</span>' : ''}</strong>
             <p>Core content, slug and editor for ${code.toUpperCase()}.</p>
           </div>
           ${renderCopyButton(code, 'content')}
@@ -126,6 +133,7 @@
               data-blog-lang="${code}"
               value="${escapeHtml(normalized.title)}"
               placeholder="Article title (${code.toUpperCase()})"
+              ${lang.rtl ? 'dir="rtl"' : ''}
               ${lang.required ? 'required' : ''}
             />`,
             'Used on cards, article hero and as the default meta title.'
@@ -152,6 +160,7 @@
               data-blog-lang="${code}"
               rows="3"
               placeholder="Short summary shown on cards"
+              ${lang.rtl ? 'dir="rtl"' : ''}
               ${lang.required ? 'required' : ''}
             >${escapeHtml(normalized.summary)}</textarea>
             <small>Keep it concise. This is the short card summary.</small>
@@ -164,11 +173,12 @@
               data-blog-lang="${code}"
               rows="3"
               placeholder="Optional intro paragraph shown above content"
+              ${lang.rtl ? 'dir="rtl"' : ''}
             >${escapeHtml(normalized.lead)}</textarea>
             <small>The first sentence can automatically seed the meta description.</small>
           </label>
         </div>
-        <div class="blog-editor-shell" data-blog-editor-shell="${code}">
+        <div class="blog-editor-shell" data-blog-editor-shell="${code}" ${lang.rtl ? 'dir="rtl"' : ''}>
           ${renderToolbar(code)}
           <input
             type="file"
@@ -199,10 +209,16 @@
     const normalized = normalizeTranslation(translation);
     const code = lang.code;
     return `
-      <div class="lang-content ${active ? 'active' : ''}" data-field="blogTranslation" data-lang="${code}">
+      <div
+        class="lang-content ${active ? 'active' : ''}"
+        data-field="blogTranslation"
+        data-lang="${code}"
+        data-internal-language="${lang.internal ? 'true' : 'false'}"
+        ${lang.rtl ? 'dir="rtl"' : ''}
+      >
         <div class="blog-translation-panel__head">
           <div class="blog-translation-panel__intro">
-            <strong>${escapeHtml(lang.label)}</strong>
+            <strong>${escapeHtml(lang.label)}${lang.internal ? ' <span class="i18n-internal-badge">internal</span>' : ''}</strong>
             <p>Search and social metadata for ${code.toUpperCase()}.</p>
           </div>
           ${renderCopyButton(code, 'seo')}
@@ -217,6 +233,7 @@
               data-blog-lang="${code}"
               value="${escapeHtml(normalized.meta_title)}"
               placeholder="Optional SEO title override"
+              ${lang.rtl ? 'dir="rtl"' : ''}
             />`,
             'Defaults to the article title until edited manually.'
           )}
@@ -228,6 +245,7 @@
               data-blog-lang="${code}"
               rows="3"
               placeholder="SEO description (${code.toUpperCase()})"
+              ${lang.rtl ? 'dir="rtl"' : ''}
               ${lang.required ? 'required' : ''}
             >${escapeHtml(normalized.meta_description)}</textarea>
             <div class="blog-field-row">
@@ -256,6 +274,7 @@
               data-blog-lang="${code}"
               value="${escapeHtml(normalized.cover_alt)}"
               placeholder="Image alt text"
+              ${lang.rtl ? 'dir="rtl"' : ''}
             />`,
             'Describe the cover image for accessibility and SEO.'
           )}
@@ -268,10 +287,16 @@
     const normalized = normalizeTranslation(translation);
     const code = lang.code;
     return `
-      <div class="lang-content ${active ? 'active' : ''}" data-field="blogTranslation" data-lang="${code}">
+      <div
+        class="lang-content ${active ? 'active' : ''}"
+        data-field="blogTranslation"
+        data-lang="${code}"
+        data-internal-language="${lang.internal ? 'true' : 'false'}"
+        ${lang.rtl ? 'dir="rtl"' : ''}
+      >
         <div class="blog-translation-panel__head">
           <div class="blog-translation-panel__intro">
-            <strong>${escapeHtml(lang.label)}</strong>
+            <strong>${escapeHtml(lang.label)}${lang.internal ? ' <span class="i18n-internal-badge">internal</span>' : ''}</strong>
             <p>Optional public byline overrides for ${code.toUpperCase()}.</p>
           </div>
           ${renderCopyButton(code, 'author')}
@@ -286,6 +311,7 @@
               data-blog-lang="${code}"
               value="${escapeHtml(normalized.author_name)}"
               placeholder="Optional byline override"
+              ${lang.rtl ? 'dir="rtl"' : ''}
             />`,
             'Leave empty to use the selected fallback profile name.'
           )}

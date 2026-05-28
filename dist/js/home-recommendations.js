@@ -18,6 +18,45 @@ let homeRecommendationsModalPanoramaHintCleanup = null;
 
 let homeRecCarouselUpdate = null;
 
+function normalizeHomeRecommendationLang(value) {
+  const normalized = String(value || '').trim().toLowerCase().split('-')[0];
+  if (normalized === 'pl' || normalized === 'en' || normalized === 'he') return normalized;
+  return 'en';
+}
+
+function getCurrentLanguage() {
+  const i18n = window.appI18n || {};
+  return normalizeHomeRecommendationLang(i18n.language || document.documentElement.lang || 'en');
+}
+
+function isHomeRecommendationPolish(language = getCurrentLanguage()) {
+  return normalizeHomeRecommendationLang(language) === 'pl';
+}
+
+function homeRecommendationText(pl, en, language = getCurrentLanguage()) {
+  return isHomeRecommendationPolish(language) ? pl : en;
+}
+
+function pickHomeRecommendationField(source, fieldName, language = getCurrentLanguage(), fallback = '') {
+  if (window.CELanguage?.pickLocalizedField) {
+    return window.CELanguage.pickLocalizedField(source, fieldName, language, fallback);
+  }
+
+  const chain = language === 'pl' ? ['pl', 'en'] : language === 'he' ? ['he', 'en', 'pl'] : ['en', 'pl'];
+  if (source?.[fieldName] && typeof source[fieldName] === 'object' && !Array.isArray(source[fieldName])) {
+    for (const code of chain) {
+      if (source[fieldName][code]) return source[fieldName][code];
+    }
+    const first = Object.values(source[fieldName]).find(Boolean);
+    if (first) return first;
+  }
+  for (const code of chain) {
+    const value = source?.[`${fieldName}_${code}`] || (code === 'pl' ? source?.[fieldName] : '');
+    if (value) return value;
+  }
+  return fallback;
+}
+
 // ============================================================================
 // INIT
 // ============================================================================
@@ -69,9 +108,11 @@ function showHomeRecommendationPanoramaHint(container, lang) {
   if (!container || !hint) return;
 
   clearHomeRecommendationPanoramaHint();
-  hint.textContent = lang === 'en'
-    ? 'This is a 360° photo. Drag to look around. Tap once to start.'
-    : 'To zdjęcie 360°. Przeciągnij, aby się rozejrzeć. Dotknij raz, aby zacząć.';
+  hint.textContent = homeRecommendationText(
+    'To zdjęcie 360°. Przeciągnij, aby się rozejrzeć. Dotknij raz, aby zacząć.',
+    'This is a 360° photo. Drag to look around. Tap once to start.',
+    lang
+  );
   hint.hidden = false;
   requestAnimationFrame(() => hint.classList.add('is-visible'));
 
@@ -215,7 +256,7 @@ async function loadData() {
     // Load recommendations
     const { data: recs, error: recError } = await supabase
       .from('recommendations')
-      .select('*, recommendation_categories(name_pl, name_en, icon, color)')
+      .select('*, recommendation_categories(name_pl, name_en, name_he, icon, color)')
       .eq('active', true)
       .order('featured', { ascending: false })
       .order('display_order', { ascending: true })
@@ -250,10 +291,6 @@ async function loadData() {
 // ============================================================================
 // RENDER CATEGORY FILTERS
 // ============================================================================
-function getCurrentLanguage() {
-  const i18n = window.appI18n || {};
-  return i18n.language || document.documentElement.lang || 'pl';
-}
 
 function renderCategoryFilters() {
   const container = document.getElementById('categoriesFiltersHome');
@@ -265,7 +302,7 @@ function renderCategoryFilters() {
   let visibleCount = 0;
   const lang = getCurrentLanguage();
 
-  const allLabel = lang === 'en' ? 'All' : 'Wszystkie';
+  const allLabel = homeRecommendationText('Wszystkie', 'All', lang);
   const allBtn = document.createElement('button');
   allBtn.type = 'button';
   allBtn.className = 'recommendations-home-tab ce-home-pill' + (!currentCategoryFilter ? ' active' : '');
@@ -285,16 +322,13 @@ function renderCategoryFilters() {
     btn.type = 'button';
     btn.className = 'recommendations-home-tab ce-home-pill' + (currentCategoryFilter === cat.id ? ' active' : '');
     btn.dataset.category = cat.id;
-    const label =
-      lang === 'en'
-        ? (cat.name_en || cat.name_pl)
-        : (cat.name_pl || cat.name_en);
+    const label = pickHomeRecommendationField(cat, 'name', lang);
     btn.textContent = `${cat.icon || '📍'} ${label}`;
     btn.onclick = () => filterByCategory(cat.id);
     container.appendChild(btn);
   });
 
-  const savedLabel = lang === 'en' ? 'Saved' : 'Zapisane';
+  const savedLabel = homeRecommendationText('Zapisane', 'Saved', lang);
   const savedStar = homeRecommendationsSavedOnly ? '★' : '☆';
   const savedBtn = document.createElement('button');
   savedBtn.type = 'button';
@@ -525,8 +559,7 @@ function createPromoSection(rec, lang, options = {}) {
   if (!rec || !rec.promo_code || !discount) {
     return '';
   }
-  const isEnglish = lang === 'en';
-  const showCodeLabel = isEnglish ? 'Show code' : 'Pokaż kod';
+  const showCodeLabel = homeRecommendationText('Pokaż kod', 'Show code', lang);
   return `
     <div class="rec-card-promo">
       <div class="rec-card-promo-label">${discount}</div>
@@ -541,19 +574,13 @@ function createPromoSection(rec, lang, options = {}) {
 function createRecommendationCard(rec) {
   const category = rec.recommendation_categories || {};
   const lang = getCurrentLanguage();
-  const saveLabel = lang === 'en' ? 'Save' : 'Zapisz';
+  const saveLabel = homeRecommendationText('Zapisz', 'Save', lang);
 
-  const title =
-    lang === 'en'
-      ? (rec.title_en || rec.title_pl || 'Untitled')
-      : (rec.title_pl || rec.title_en || 'Bez tytułu');
+  const title = pickHomeRecommendationField(rec, 'title', lang, homeRecommendationText('Bez tytułu', 'Untitled', lang));
 
-  const featuredLabel = lang === 'en' ? 'Recommended' : 'Polecane';
+  const featuredLabel = homeRecommendationText('Polecane', 'Recommended', lang);
 
-  const categoryLabel =
-    lang === 'en'
-      ? (category.name_en || category.name_pl || 'General')
-      : (category.name_pl || category.name_en || 'Ogólne');
+  const categoryLabel = pickHomeRecommendationField(category, 'name', lang, homeRecommendationText('Ogólne', 'General', lang));
   const subtitle = rec.location_name ? `${rec.location_name} • ${categoryLabel}` : categoryLabel;
   const imageRaw = String(rec.image_url || '').trim();
   const imageFallback = getHomeRecommendationMediaDisplayUrl(imageRaw);
@@ -604,38 +631,23 @@ window.openDetailModal = async function(id) {
   const category = rec.recommendation_categories || {};
   const lang = getCurrentLanguage();
 
-  const title =
-    lang === 'en'
-      ? (rec.title_en || rec.title_pl)
-      : (rec.title_pl || rec.title_en);
+  const title = pickHomeRecommendationField(rec, 'title', lang);
 
-  const description =
-    lang === 'en'
-      ? (rec.description_en || rec.description_pl)
-      : (rec.description_pl || rec.description_en);
+  const description = pickHomeRecommendationField(rec, 'description', lang);
 
-  const discount =
-    lang === 'en'
-      ? (rec.discount_text_en || rec.discount_text_pl)
-      : (rec.discount_text_pl || rec.discount_text_en);
+  const discount = pickHomeRecommendationField(rec, 'discount_text', lang);
 
-  const offer =
-    lang === 'en'
-      ? (rec.offer_text_en || rec.offer_text_pl)
-      : (rec.offer_text_pl || rec.offer_text_en);
+  const offer = pickHomeRecommendationField(rec, 'offer_text', lang);
 
-  const categoryName =
-    lang === 'en'
-      ? (category.name_en || category.name_pl)
-      : (category.name_pl || category.name_en);
-  const saveLabel = lang === 'en' ? 'Save' : 'Zapisz';
+  const categoryName = pickHomeRecommendationField(category, 'name', lang);
+  const saveLabel = homeRecommendationText('Zapisz', 'Save', lang);
   const imageUrlRaw = String(rec.image_url || '').trim();
   const imageUrl = getHomeRecommendationMediaDisplayUrl(imageUrlRaw);
   const imageIsPanorama = isHomeRecommendationPanorama(imageUrlRaw);
   const canRenderPanorama = Boolean(imageIsPanorama && window.CE_MEDIA_VIEWER?.mountPanorama);
 
-  const openMapLabel = lang === 'en' ? 'Open in maps' : 'Otwórz w mapach';
-  const visitSiteLabel = lang === 'en' ? 'Visit website' : 'Strona www';
+  const openMapLabel = homeRecommendationText('Otwórz w mapach', 'Open in maps', lang);
+  const visitSiteLabel = homeRecommendationText('Strona www', 'Visit website', lang);
   
   const modalDetails = document.getElementById('modalDetails');
   if (!modalDetails) return;

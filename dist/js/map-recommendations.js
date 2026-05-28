@@ -17,6 +17,45 @@ let pendingPromoReveal = null;
 let promoAuthStateListenerAttached = false;
 const RECOMMENDATION_MARKER_Z_INDEX_BASE = 4200;
 
+function normalizeRecommendationLang(value) {
+  const normalized = String(value || '').trim().toLowerCase().split('-')[0];
+  if (normalized === 'pl' || normalized === 'en' || normalized === 'he') return normalized;
+  return 'en';
+}
+
+function getCurrentLanguage() {
+  const i18n = window.appI18n || {};
+  return normalizeRecommendationLang(i18n.language || document.documentElement.lang || 'en');
+}
+
+function isRecommendationPolish(language = getCurrentLanguage()) {
+  return normalizeRecommendationLang(language) === 'pl';
+}
+
+function recommendationText(pl, en, language = getCurrentLanguage()) {
+  return isRecommendationPolish(language) ? pl : en;
+}
+
+function pickRecommendationField(source, fieldName, language = getCurrentLanguage(), fallback = '') {
+  if (window.CELanguage?.pickLocalizedField) {
+    return window.CELanguage.pickLocalizedField(source, fieldName, language, fallback);
+  }
+
+  const chain = language === 'pl' ? ['pl', 'en'] : language === 'he' ? ['he', 'en', 'pl'] : ['en', 'pl'];
+  if (source?.[fieldName] && typeof source[fieldName] === 'object' && !Array.isArray(source[fieldName])) {
+    for (const code of chain) {
+      if (source[fieldName][code]) return source[fieldName][code];
+    }
+    const first = Object.values(source[fieldName]).find(Boolean);
+    if (first) return first;
+  }
+  for (const code of chain) {
+    const value = source?.[`${fieldName}_${code}`] || (code === 'pl' ? source?.[fieldName] : '');
+    if (value) return value;
+  }
+  return fallback;
+}
+
 // ============================================================================
 // TRACKING FUNCTIONS
 // ============================================================================
@@ -193,13 +232,8 @@ function getRecommendationCategoryMeta(rec) {
     || '📍'
   ).trim() || '📍';
 
-  const lang = String(window.appI18n?.language || document.documentElement?.lang || 'pl').toLowerCase();
-  const isEn = lang.startsWith('en');
-  const namePl = String(linkedPoiCategory?.name_pl || category.name_pl || '').trim();
-  const nameEn = String(linkedPoiCategory?.name_en || category.name_en || '').trim();
-  const name = isEn
-    ? (nameEn || namePl || slug)
-    : (namePl || nameEn || slug);
+  const lang = getCurrentLanguage();
+  const name = pickRecommendationField(linkedPoiCategory || category, 'name', lang, slug);
   const color = String(linkedPoiCategory?.color || category.color || rec?.category_color || '#22c55e').trim() || '#22c55e';
 
   return { slug, icon, name, color };
@@ -396,7 +430,7 @@ async function loadRecommendationsForMap() {
 
     const primaryQuery = await supabase
       .from('recommendations')
-      .select('*, recommendation_categories(name_pl, name_en, icon, color, poi_category_id, poi_categories(slug, name_en, name_pl, icon, color))')
+      .select('*, recommendation_categories(name_pl, name_en, name_he, icon, color, poi_category_id, poi_categories(slug, name_en, name_pl, name_he, icon, color))')
       .eq('active', true)
       .not('latitude', 'is', null)
       .not('longitude', 'is', null);
@@ -408,7 +442,7 @@ async function loadRecommendationsForMap() {
       if (/poi_category_id|poi_categories|column .* does not exist|Could not find/i.test(message)) {
         const fallbackQuery = await supabase
           .from('recommendations')
-          .select('*, recommendation_categories(name_pl, name_en, icon, color)')
+          .select('*, recommendation_categories(name_pl, name_en, name_he, icon, color)')
           .eq('active', true)
           .not('latitude', 'is', null)
           .not('longitude', 'is', null);
@@ -514,30 +548,19 @@ function syncRecommendationMarkers(mapInstance) {
 // ============================================================================
 // CREATE POPUP
 // ============================================================================
-function getCurrentLanguage() {
-  const i18n = window.appI18n || {};
-  return i18n.language || document.documentElement.lang || 'pl';
-}
 
 function createRecommendationPopup(rec) {
   const category = rec.recommendation_categories || {};
   const lang = getCurrentLanguage();
-  const isPolish = lang === 'pl';
-  const saveLabel = isPolish ? 'Zapisz' : 'Save';
+  const saveLabel = recommendationText('Zapisz', 'Save', lang);
   
-  const title = isPolish
-    ? (rec.title_pl || rec.title_en || 'Bez tytułu')
-    : (rec.title_en || rec.title_pl || 'Untitled');
+  const title = pickRecommendationField(rec, 'title', lang, recommendationText('Bez tytułu', 'Untitled', lang));
   
-  const categoryName = isPolish
-    ? (category.name_pl || category.name_en || '')
-    : (category.name_en || category.name_pl || '');
+  const categoryName = pickRecommendationField(category, 'name', lang);
   
-  const discount = isPolish
-    ? (rec.discount_text_pl || rec.discount_text_en)
-    : (rec.discount_text_en || rec.discount_text_pl);
+  const discount = pickRecommendationField(rec, 'discount_text', lang);
   
-  const detailsLabel = isPolish ? 'Zobacz szczegóły' : 'View details';
+  const detailsLabel = recommendationText('Zobacz szczegóły', 'View details', lang);
   
   return `
     <div class="rec-map-popup" style="min-width: 220px; padding: 4px;">
@@ -610,33 +633,22 @@ window.openRecommendationDetailModal = function(id) {
   
   const category = rec.recommendation_categories || {};
   const lang = getCurrentLanguage();
-  const isPolish = lang === 'pl';
   
-  const title = isPolish
-    ? (rec.title_pl || rec.title_en)
-    : (rec.title_en || rec.title_pl);
+  const title = pickRecommendationField(rec, 'title', lang);
   
-  const description = isPolish
-    ? (rec.description_pl || rec.description_en)
-    : (rec.description_en || rec.description_pl);
+  const description = pickRecommendationField(rec, 'description', lang);
   
-  const discount = isPolish
-    ? (rec.discount_text_pl || rec.discount_text_en)
-    : (rec.discount_text_en || rec.discount_text_pl);
+  const discount = pickRecommendationField(rec, 'discount_text', lang);
   
-  const offer = isPolish
-    ? (rec.offer_text_pl || rec.offer_text_en)
-    : (rec.offer_text_en || rec.offer_text_pl);
+  const offer = pickRecommendationField(rec, 'offer_text', lang);
   
-  const categoryName = isPolish
-    ? (category.name_pl || category.name_en)
-    : (category.name_en || category.name_pl);
+  const categoryName = pickRecommendationField(category, 'name', lang);
   
-  const openMapLabel = isPolish ? 'Otwórz w mapach' : 'Open in maps';
-  const callLabel = isPolish ? 'Zadzwoń' : 'Call';
-  const offerLabel = isPolish ? '🎁 Specjalna oferta' : '🎁 Special offer';
-  const showCodeLabel = isPolish ? 'Pokaż kod' : 'Show code';
-  const saveLabel = isPolish ? 'Zapisz' : 'Save';
+  const openMapLabel = recommendationText('Otwórz w mapach', 'Open in maps', lang);
+  const callLabel = recommendationText('Zadzwoń', 'Call', lang);
+  const offerLabel = recommendationText('🎁 Specjalna oferta', '🎁 Special offer', lang);
+  const showCodeLabel = recommendationText('Pokaż kod', 'Show code', lang);
+  const saveLabel = recommendationText('Zapisz', 'Save', lang);
   
   // Create or get modal
   let modal = document.getElementById('recMapModal');

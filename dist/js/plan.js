@@ -639,7 +639,7 @@ function renderHotelAmenitiesChips(hotel) {
   if (!items.length) return '';
   return `<div class="ce-hotel-amenities">${items
     .map((a) => {
-      const name = lang === 'en' ? a.name_en : (a.name_pl || a.name_en);
+      const name = pickLocalizedField(a, 'name', '');
       const label = `${a.icon || ''} ${name || ''}`.trim();
       return label ? `<span class="ce-detail-chip">${escapeHtml(label)}</span>` : '';
     })
@@ -1972,15 +1972,20 @@ function currentLang() {
   const viaSwitcher = typeof window.getCurrentLanguage === 'function' ? window.getCurrentLanguage() : '';
   const viaApp = (window.appI18n && window.appI18n.language) ? window.appI18n.language : '';
   const viaDom = document.documentElement.lang || '';
-  const raw = viaSwitcher || viaApp || viaDom || 'pl';
-  const s = String(raw || 'pl').trim().toLowerCase();
+  const raw = viaSwitcher || viaApp || viaDom || 'en';
+  const s = String(raw || 'en').trim().toLowerCase();
   if (s.startsWith('pl')) return 'pl';
   if (s.startsWith('en')) return 'en';
-  return 'pl';
+  if (s.startsWith('he')) return 'he';
+  return 'en';
 }
 
 function t(key, fallback) {
   const lang = currentLang();
+  if (typeof window.appI18n?.getTranslationString === 'function') {
+    const resolved = window.appI18n.getTranslationString(key, lang);
+    if (typeof resolved === 'string') return resolved;
+  }
   const dict = window.appI18n && window.appI18n.translations ? window.appI18n.translations[lang] : null;
   if (!dict || typeof dict !== 'object') return fallback;
 
@@ -1999,10 +2004,39 @@ function t(key, fallback) {
 
 function pickI18nValue(i18nObj, fallback) {
   const fallbackStr = typeof fallback === 'string' ? fallback : '';
+  if (window.CELanguage?.pickLocalizedValue) {
+    const picked = window.CELanguage.pickLocalizedValue(i18nObj, currentLang(), fallbackStr);
+    return typeof picked === 'string' ? picked : fallbackStr;
+  }
   if (!i18nObj || typeof i18nObj !== 'object') return fallbackStr;
   const lang = currentLang();
-  const v = i18nObj[lang] || i18nObj.en || i18nObj.pl || fallbackStr;
+  const chain = lang === 'pl' ? ['pl', 'en'] : lang === 'he' ? ['he', 'en', 'pl'] : ['en', 'pl'];
+  const v = chain.map((code) => i18nObj[code]).find(Boolean) || Object.values(i18nObj).find(Boolean) || fallbackStr;
   return typeof v === 'string' ? v : fallbackStr;
+}
+
+function pickLocalizedField(source, fieldName, fallback = '') {
+  const fallbackStr = typeof fallback === 'string' ? fallback : '';
+  const lang = currentLang();
+  if (window.CELanguage?.pickLocalizedField) {
+    const picked = window.CELanguage.pickLocalizedField(source, fieldName, lang, fallbackStr);
+    return typeof picked === 'string' ? picked : fallbackStr;
+  }
+  if (!source || !fieldName) return fallbackStr;
+  if (source[fieldName] && typeof source[fieldName] === 'object' && !Array.isArray(source[fieldName])) {
+    const picked = pickI18nValue(source[fieldName], '');
+    if (picked) return picked;
+  }
+  const chain = lang === 'pl' ? ['pl', 'en'] : lang === 'he' ? ['he', 'en', 'pl'] : ['en', 'pl'];
+  for (const code of chain) {
+    const value = source[`${fieldName}_${code}`] || (code === 'pl' ? source[fieldName] : '');
+    if (value && String(value).trim()) return String(value);
+  }
+  return fallbackStr;
+}
+
+function planText(pl, en) {
+  return currentLang() === 'pl' ? pl : en;
 }
 
 function normalizeStr(v) {
@@ -2076,21 +2110,13 @@ function getCatalogContext() {
 
 function getTripTitle(trip) {
   if (typeof window.getTripName === 'function') return window.getTripName(trip);
-  const lang = currentLang();
-  const isPolish = lang === 'pl';
-  const pl = trip?.title?.pl || trip?.title_pl;
-  const en = trip?.title?.en || trip?.title_en;
-  return (isPolish ? (pl || en) : (en || pl)) || trip?.title || trip?.slug || t('plan.ui.itemType.trip', 'Trip');
+  return pickLocalizedField(trip, 'title', trip?.slug || t('plan.ui.itemType.trip', 'Trip'));
 }
 
 function getTripDescriptionText(trip) {
   if (!trip || typeof trip !== 'object') return '';
   {
-    const lang = currentLang();
-    const isPolish = lang === 'pl';
-    const pl = trip?.description_pl;
-    const en = trip?.description_en;
-    const direct = isPolish ? (pl || en) : (en || pl);
+    const direct = pickLocalizedField(trip, 'description', '');
     if (direct && String(direct).trim()) return String(direct);
   }
   const parseI18nString = (maybeJsonStr) => {
@@ -2138,21 +2164,13 @@ function getTripDescriptionText(trip) {
 
 function getHotelTitle(hotel) {
   if (typeof window.getHotelName === 'function') return window.getHotelName(hotel);
-  const lang = currentLang();
-  const isPolish = lang === 'pl';
-  const pl = hotel?.title?.pl || hotel?.title_pl;
-  const en = hotel?.title?.en || hotel?.title_en;
-  return (isPolish ? (pl || en) : (en || pl)) || hotel?.title || hotel?.slug || t('plan.ui.itemType.hotel', 'Hotel');
+  return pickLocalizedField(hotel, 'title', hotel?.slug || t('plan.ui.itemType.hotel', 'Hotel'));
 }
 
 function getHotelDescriptionText(hotel) {
   if (!hotel || typeof hotel !== 'object') return '';
   {
-    const lang = currentLang();
-    const isPolish = lang === 'pl';
-    const pl = hotel?.description_pl;
-    const en = hotel?.description_en;
-    const direct = isPolish ? (pl || en) : (en || pl);
+    const direct = pickLocalizedField(hotel, 'description', '');
     if (direct && String(direct).trim()) return String(direct);
   }
   let windowFallback = '';
@@ -2199,17 +2217,15 @@ function isUuid(v) {
 
 function getCarTitle(car) {
   if (typeof window.getCarName === 'function') return window.getCarName(car);
-  return car?.car_model || car?.car_type || t('plan.ui.itemType.car', 'Car');
+  return pickLocalizedField(car, 'car_model', '')
+    || pickLocalizedField(car, 'car_type', '')
+    || t('plan.ui.itemType.car', 'Car');
 }
 
 function getCarDescription(car) {
   if (!car || typeof car !== 'object') return '';
   {
-    const lang = currentLang();
-    const isPolish = lang === 'pl';
-    const pl = car?.description_pl;
-    const en = car?.description_en;
-    const direct = isPolish ? (pl || en) : (en || pl);
+    const direct = pickLocalizedField(car, 'description', '');
     if (direct && String(direct).trim()) return String(direct);
   }
   return pickI18nValue(car?.description_i18n, car?.description || '');
@@ -2218,11 +2234,7 @@ function getCarDescription(car) {
 function getPoiTitle(poi) {
   const raw = poi && typeof poi === 'object' && poi.raw && typeof poi.raw === 'object' ? poi.raw : null;
   {
-    const lang = currentLang();
-    const isPolish = lang === 'pl';
-    const pl = (raw && raw.name_pl) || poi?.name_pl;
-    const en = (raw && raw.name_en) || poi?.name_en;
-    const direct = isPolish ? (pl || en) : (en || pl);
+    const direct = pickLocalizedField(raw || poi, 'name', '');
     if (direct && String(direct).trim()) return String(direct);
   }
   const name = pickI18nValue((raw && raw.name_i18n) || poi?.name_i18n, (raw && raw.name) || poi?.name || t('plan.ui.itemType.poiShort', 'POI'));
@@ -2232,11 +2244,7 @@ function getPoiTitle(poi) {
 function getPoiDescription(poi) {
   const raw = poi && typeof poi === 'object' && poi.raw && typeof poi.raw === 'object' ? poi.raw : null;
   {
-    const lang = currentLang();
-    const isPolish = lang === 'pl';
-    const pl = (raw && raw.description_pl) || poi?.description_pl;
-    const en = (raw && raw.description_en) || poi?.description_en;
-    const direct = isPolish ? (pl || en) : (en || pl);
+    const direct = pickLocalizedField(raw || poi, 'description', '');
     if (direct && String(direct).trim()) return String(direct);
   }
   return pickI18nValue((raw && raw.description_i18n) || poi?.description_i18n, (raw && raw.description) || poi?.description || '');
@@ -2245,11 +2253,7 @@ function getPoiDescription(poi) {
 function getPoiCategory(poi) {
   const raw = poi && typeof poi === 'object' && poi.raw && typeof poi.raw === 'object' ? poi.raw : null;
   {
-    const lang = currentLang();
-    const isPolish = lang === 'pl';
-    const pl = (raw && raw.category_pl) || poi?.category_pl;
-    const en = (raw && raw.category_en) || poi?.category_en;
-    const direct = isPolish ? (pl || en) : (en || pl);
+    const direct = pickLocalizedField(raw || poi, 'category', '');
     if (direct && String(direct).trim()) return String(direct);
   }
   const val =
@@ -2358,15 +2362,9 @@ function resolveItemDisplay(it) {
   }
 
   if (itemType === 'recommendation' && src) {
-    const lang = currentLang();
-    const isPolish = lang === 'pl';
-    const title = isPolish ? (src?.title_pl || src?.title_en || '') : (src?.title_en || src?.title_pl || '');
-    const description = isPolish
-      ? (src?.description_pl || src?.description_en || '')
-      : (src?.description_en || src?.description_pl || '');
-    const discountText = isPolish
-      ? (src?.discount_text_pl || src?.discount_text_en || '')
-      : (src?.discount_text_en || src?.discount_text_pl || '');
+    const title = pickLocalizedField(src, 'title', '');
+    const description = pickLocalizedField(src, 'description', '');
+    const discountText = pickLocalizedField(src, 'discount_text', '');
 
     const lat = src?.latitude != null ? Number(src.latitude) : (src?.lat != null ? Number(src.lat) : null);
     const lng = src?.longitude != null ? Number(src.longitude) : (src?.lng != null ? Number(src.lng) : null);
@@ -2376,7 +2374,7 @@ function resolveItemDisplay(it) {
     const url = String(d.url || mapsUrl || websiteUrl || '').trim();
 
     const cat = src?.recommendation_categories && typeof src.recommendation_categories === 'object' ? src.recommendation_categories : {};
-    const catName = isPolish ? (cat?.name_pl || cat?.name_en || '') : (cat?.name_en || cat?.name_pl || '');
+    const catName = pickLocalizedField(cat, 'name', '');
     const catIcon = cat?.icon || '📍';
     const subtitle = [catIcon, catName].filter(Boolean).join(' ').trim();
 
@@ -2688,17 +2686,11 @@ function renderDetailsHtml(type, src, resolved) {
   }
 
   if (safeType === 'recommendation') {
-    const lang = currentLang();
-    const isPolish = lang === 'pl';
     const rawPromo = String(s?.promo_code || '').trim();
-    const discountText = isPolish
-      ? String(s?.discount_text_pl || s?.discount_text_en || '').trim()
-      : String(s?.discount_text_en || s?.discount_text_pl || '').trim();
+    const discountText = String(pickLocalizedField(s, 'discount_text', '')).trim();
 
     const cat = s?.recommendation_categories && typeof s.recommendation_categories === 'object' ? s.recommendation_categories : {};
-    const catName = isPolish
-      ? String(cat?.name_pl || cat?.name_en || '').trim()
-      : String(cat?.name_en || cat?.name_pl || '').trim();
+    const catName = String(pickLocalizedField(cat, 'name', '')).trim();
     const catIcon = String(cat?.icon || '').trim();
     const catLabel = [catIcon, catName].filter(Boolean).join(' ').trim();
 
@@ -2708,8 +2700,8 @@ function renderDetailsHtml(type, src, resolved) {
     const mapsUrl = String(s?.google_url || s?.google_maps_url || mapsFallback || '').trim();
     const websiteUrl = String(s?.website_url || r?.url || '').trim();
 
-    const showCodeLabel = t('plan.ui.recommendations.showCode', isPolish ? 'Pokaż kod' : 'Show code');
-    const mapsLabel = t('plan.ui.recommendations.openMaps', isPolish ? 'Otwórz w mapach' : 'Open in maps');
+    const showCodeLabel = t('plan.ui.recommendations.showCode', planText('Pokaż kod', 'Show code'));
+    const mapsLabel = t('plan.ui.recommendations.openMaps', planText('Otwórz w mapach', 'Open in maps'));
     const openLabel = t('plan.ui.common.open', 'Open');
 
     const promoHtml = rawPromo && discountText
@@ -3179,7 +3171,7 @@ async function loadServiceCatalog(planId) {
     try {
       return await sb
         .from('recommendations')
-        .select('*, recommendation_categories(name_pl, name_en, icon, color)')
+        .select('*, recommendation_categories(name_pl, name_en, name_he, icon, color)')
         .eq('active', true)
         .order('featured', { ascending: false })
         .order('display_order', { ascending: true })
@@ -3461,8 +3453,7 @@ function renderServiceCatalog() {
 
   const renderCatalogTopFilters = () => {
     const { total } = getSavedTotals();
-    const isPolish = currentLang() === 'pl';
-    const savedLabel = t('plan.ui.catalog.savedOnly', isPolish ? 'Zapisane' : 'Saved');
+    const savedLabel = t('plan.ui.catalog.savedOnly', planText('Zapisane', 'Saved'));
     const on = catalogActiveTab === 'saved' && catalogSavedOnly;
     const star = on ? '★' : '☆';
     const savedBtn = `<button type="button" class="btn btn-sm ce-catalog-saved ${on ? 'is-active' : ''}" data-catalog-saved-only="1" aria-label="${escapeHtml(savedLabel)}" title="${escapeHtml(savedLabel)}"><span class="ce-catalog-saved__star">${escapeHtml(star)}</span><span class="ce-catalog-saved__label">${escapeHtml(savedLabel)}</span><span class="ce-catalog-saved__count">${escapeHtml(String(total))}</span></button>`;
@@ -3475,15 +3466,13 @@ function renderServiceCatalog() {
     const recs = Array.isArray(catalogData.recommendations) ? catalogData.recommendations : [];
     if (!cats.length) return '';
 
-    const lang = currentLang();
-    const isPolish = lang === 'pl';
     let active = String(recommendationsCategoryFilter || '');
     const countByCat = new Map();
 
     const catNameById = new Map();
     cats.forEach((c) => {
       if (!c || c.id == null) return;
-      const name = isPolish ? (c?.name_pl || c?.name_en || '') : (c?.name_en || c?.name_pl || '');
+      const name = pickLocalizedField(c, 'name', '');
       catNameById.set(String(c.id), String(name || ''));
     });
 
@@ -3492,14 +3481,12 @@ function renderServiceCatalog() {
       if (!catId) return;
 
       if (recommendationsDiscountOnly) {
-        const discount = isPolish
-          ? (r?.discount_text_pl || r?.discount_text_en || '')
-          : (r?.discount_text_en || r?.discount_text_pl || '');
+        const discount = pickLocalizedField(r, 'discount_text', '');
         if (!String(discount || '').trim()) return;
       }
 
-      const title = isPolish ? (r?.title_pl || r?.title_en || '') : (r?.title_en || r?.title_pl || '');
-      const descriptionFull = isPolish ? (r?.description_pl || r?.description_en || '') : (r?.description_en || r?.description_pl || '');
+      const title = pickLocalizedField(r, 'title', '');
+      const descriptionFull = pickLocalizedField(r, 'description', '');
       const catName = catNameById.get(catId) || '';
 
       if (!matches(`${title} ${catName} ${descriptionFull}`)) return;
@@ -3517,19 +3504,19 @@ function renderServiceCatalog() {
         if (!id) return null;
         const count = countByCat.get(String(id)) || 0;
         if (count <= 0) return null;
-        const name = isPolish ? (c?.name_pl || c?.name_en || '') : (c?.name_en || c?.name_pl || '');
+        const name = pickLocalizedField(c, 'name', '');
         return { id: String(id), icon: c?.icon || '📍', name, count };
       })
       .filter(Boolean);
 
     if (!items.length) return '';
 
-    const clearLabel = t('recommendations.home.filters.clear', isPolish ? 'Wyczyść filtry' : 'Clear filters');
-    const titleLabel = t('recommendations.home.filters.title', isPolish ? 'Wybierz kategorię' : 'Choose category');
-    const discountOnlyLabel = t('plan.ui.recommendations.discountOnly', isPolish ? 'Tylko zniżki' : 'Discount only');
+    const clearLabel = t('recommendations.home.filters.clear', planText('Wyczyść filtry', 'Clear filters'));
+    const titleLabel = t('recommendations.home.filters.title', planText('Wybierz kategorię', 'Choose category'));
+    const discountOnlyLabel = t('plan.ui.recommendations.discountOnly', planText('Tylko zniżki', 'Discount only'));
 
     const total = items.reduce((sum, it) => sum + (Number(it?.count) || 0), 0);
-    const allLabel = t('plan.ui.recommendations.allCategories', isPolish ? 'Wszystkie' : 'All');
+    const allLabel = t('plan.ui.recommendations.allCategories', planText('Wszystkie', 'All'));
 
     return `
       <div class="ce-rec-filters">
@@ -3658,8 +3645,6 @@ function renderServiceCatalog() {
         .filter((x) => matches(`${x.title}`))
     );
 
-    const lang = currentLang();
-    const isPolish = lang === 'pl';
     const catLookup = new Map();
     (Array.isArray(catalogData.recommendationCategories) ? catalogData.recommendationCategories : []).forEach((c) => {
       if (c && c.id != null) catLookup.set(String(c.id), c);
@@ -3669,19 +3654,17 @@ function renderServiceCatalog() {
       (Array.isArray(catalogData.recommendations) ? catalogData.recommendations : [])
         .map((r) => {
           const cat = catLookup.get(String(r?.category_id || '')) || r?.recommendation_categories || {};
-          const catName = isPolish ? (cat?.name_pl || cat?.name_en || '') : (cat?.name_en || cat?.name_pl || '');
+          const catName = pickLocalizedField(cat, 'name', '');
           const catIcon = cat?.icon || '📍';
-          const title = isPolish ? (r?.title_pl || r?.title_en || '') : (r?.title_en || r?.title_pl || '');
-          const descriptionFull = isPolish ? (r?.description_pl || r?.description_en || '') : (r?.description_en || r?.description_pl || '');
+          const title = pickLocalizedField(r, 'title', '');
+          const descriptionFull = pickLocalizedField(r, 'description', '');
           const description = String(descriptionFull || '').trim();
           const subtitle = [catIcon, catName].filter(Boolean).join(' ').trim();
           const image = String(r?.image_url || '').trim();
           const url = String(r?.website_url || r?.google_url || '').trim();
           const lat = r?.latitude != null ? Number(r.latitude) : null;
           const lng = r?.longitude != null ? Number(r.longitude) : null;
-          const discount = isPolish
-            ? (r?.discount_text_pl || r?.discount_text_en || '')
-            : (r?.discount_text_en || r?.discount_text_pl || '');
+          const discount = pickLocalizedField(r, 'discount_text', '');
           return {
             id: r?.id,
             title: String(title || '').trim(),
@@ -3784,8 +3767,6 @@ function renderServiceCatalog() {
       })
       .filter((x) => matches(`${x.title}`));
   } else if (catalogActiveTab === 'recommendations') {
-    const lang = currentLang();
-    const isPolish = lang === 'pl';
     let activeCat = String(recommendationsCategoryFilter || '');
     const catLookup = new Map();
     (Array.isArray(catalogData.recommendationCategories) ? catalogData.recommendationCategories : []).forEach((c) => {
@@ -3798,15 +3779,13 @@ function renderServiceCatalog() {
       const catId = String(r?.category_id || '').trim();
       if (!catId) return;
       if (recommendationsDiscountOnly) {
-        const discount = isPolish
-          ? (r?.discount_text_pl || r?.discount_text_en || '')
-          : (r?.discount_text_en || r?.discount_text_pl || '');
+        const discount = pickLocalizedField(r, 'discount_text', '');
         if (!String(discount || '').trim()) return;
       }
       const cat = catLookup.get(String(r?.category_id || '')) || r?.recommendation_categories || {};
-      const catName = isPolish ? (cat?.name_pl || cat?.name_en || '') : (cat?.name_en || cat?.name_pl || '');
-      const title = isPolish ? (r?.title_pl || r?.title_en || '') : (r?.title_en || r?.title_pl || '');
-      const descriptionFull = isPolish ? (r?.description_pl || r?.description_en || '') : (r?.description_en || r?.description_pl || '');
+      const catName = pickLocalizedField(cat, 'name', '');
+      const title = pickLocalizedField(r, 'title', '');
+      const descriptionFull = pickLocalizedField(r, 'description', '');
       if (!matches(`${title} ${catName} ${descriptionFull}`)) return;
       countByCat.set(catId, (countByCat.get(catId) || 0) + 1);
     });
@@ -3822,19 +3801,15 @@ function renderServiceCatalog() {
       })
       .filter((r) => {
         if (!recommendationsDiscountOnly) return true;
-        const lang = currentLang();
-        const isPolish = lang === 'pl';
-        const discount = isPolish
-          ? (r?.discount_text_pl || r?.discount_text_en || '')
-          : (r?.discount_text_en || r?.discount_text_pl || '');
+        const discount = pickLocalizedField(r, 'discount_text', '');
         return !!String(discount || '').trim();
       })
       .map((r) => {
         const cat = catLookup.get(String(r?.category_id || '')) || r?.recommendation_categories || {};
-        const catName = isPolish ? (cat?.name_pl || cat?.name_en || '') : (cat?.name_en || cat?.name_pl || '');
+        const catName = pickLocalizedField(cat, 'name', '');
         const catIcon = cat?.icon || '📍';
-        const title = isPolish ? (r?.title_pl || r?.title_en || '') : (r?.title_en || r?.title_pl || '');
-        const descriptionFull = isPolish ? (r?.description_pl || r?.description_en || '') : (r?.description_en || r?.description_pl || '');
+        const title = pickLocalizedField(r, 'title', '');
+        const descriptionFull = pickLocalizedField(r, 'description', '');
         const description = String(descriptionFull || '').trim();
         const subtitle = [catIcon, catName].filter(Boolean).join(' ').trim();
         const image = String(r?.image_url || '').trim();
@@ -3842,9 +3817,7 @@ function renderServiceCatalog() {
         const lat = r?.latitude != null ? Number(r.latitude) : null;
         const lng = r?.longitude != null ? Number(r.longitude) : null;
 
-        const discount = isPolish
-          ? (r?.discount_text_pl || r?.discount_text_en || '')
-          : (r?.discount_text_en || r?.discount_text_pl || '');
+        const discount = pickLocalizedField(r, 'discount_text', '');
 
         return {
           id: r?.id,

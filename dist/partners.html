@@ -16,6 +16,14 @@
 
   <meta name="theme-color" content="#dc2626" />
   <meta name="robots" content="noindex,nofollow" />
+  <!-- Canonical partner portal lives in /partners/. Keep this legacy entry point as a redirect only. -->
+  <script>
+    (function () {
+      var target = '/partners/' + window.location.search + window.location.hash;
+      window.location.replace(target);
+    }());
+  </script>
+  <noscript><meta http-equiv="refresh" content="0; url=/partners/"></noscript>
 
   <title>CyprusEye Partners</title>
 
@@ -959,7 +967,7 @@
 
   <script src="js/i18n.js?v=20260509_profile_lang1" defer></script>
   <script src="assets/js/modal-auth.js" defer></script>
-  <script src="js/partners.js?v=35" defer></script>
+  <script src="js/partners.js?v=36" defer></script>
 
   <div
     id="auth-modal"

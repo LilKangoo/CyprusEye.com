@@ -3,11 +3,23 @@
 
   const DEFAULT_LANGUAGE = 'en';
   const STORAGE_KEY = 'ce_lang';
-  const SUPPORTED_LANGUAGES = {
+  const HIDDEN_PREVIEW_PARAM = 'ce_he_preview';
+  const HIDDEN_PREVIEW_STORAGE_KEY = 'ce_hidden_language_preview';
+  const HIDDEN_PREVIEW_LANGUAGE_KEY = 'ce_hidden_language_preview_lang';
+  const PUBLIC_LANGUAGES = {
     pl: { label: 'Polski', shortLabel: 'PL', flag: '🇵🇱', dir: 'ltr' },
     en: { label: 'English', shortLabel: 'EN', flag: '🇬🇧', dir: 'ltr' },
     // el: { label: 'Ελληνικά', shortLabel: 'EL', flag: '🇬🇷', dir: 'ltr' },
-    // he: { label: 'עברית', shortLabel: 'HE', flag: '🇮🇱', dir: 'rtl' },
+  };
+  const HIDDEN_LANGUAGES = {
+    he: { label: 'עברית', shortLabel: 'HE', flag: '🇮🇱', dir: 'rtl' },
+  };
+  const SUPPORTED_LANGUAGES = PUBLIC_LANGUAGES;
+  const LANGUAGE_CONFIG = { ...PUBLIC_LANGUAGES, ...HIDDEN_LANGUAGES };
+  const LANGUAGE_FALLBACKS = {
+    he: ['he', 'en', 'pl'],
+    en: ['en', 'pl'],
+    pl: ['pl', 'en'],
   };
 
   const translationCache = new Map();
@@ -18,18 +30,176 @@
     translations: {},
   };
 
-  function normalizeSupportedLanguage(value) {
-    const normalized = String(value || '').trim().toLowerCase();
-    return Object.prototype.hasOwnProperty.call(SUPPORTED_LANGUAGES, normalized) ? normalized : '';
+  function normalizeLanguageCode(value) {
+    return String(value || '').trim().toLowerCase().split('-')[0];
+  }
+
+  function normalizeSupportedLanguage(value, { includeHidden = false } = {}) {
+    const normalized = normalizeLanguageCode(value);
+    const registry = includeHidden ? LANGUAGE_CONFIG : SUPPORTED_LANGUAGES;
+    return Object.prototype.hasOwnProperty.call(registry, normalized) ? normalized : '';
+  }
+
+  function isHiddenLanguage(value) {
+    return Object.prototype.hasOwnProperty.call(HIDDEN_LANGUAGES, normalizeLanguageCode(value));
+  }
+
+  function isPublicLanguage(value) {
+    return Object.prototype.hasOwnProperty.call(SUPPORTED_LANGUAGES, normalizeLanguageCode(value));
+  }
+
+  function isLocalPreviewHost() {
+    const hostname = window.location?.hostname || '';
+    return (
+      hostname === 'localhost'
+      || hostname === '127.0.0.1'
+      || hostname === '::1'
+      || hostname.endsWith('.local')
+    );
+  }
+
+  function safeSessionStorage(action, key, value) {
+    try {
+      if (action === 'get') {
+        return window.sessionStorage.getItem(key);
+      }
+      if (action === 'set') {
+        window.sessionStorage.setItem(key, value);
+      }
+      if (action === 'remove') {
+        window.sessionStorage.removeItem(key);
+      }
+    } catch (_error) {
+    }
+    return null;
+  }
+
+  function getPreviewParamValue() {
+    try {
+      return new URL(window.location.href).searchParams.get(HIDDEN_PREVIEW_PARAM);
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  function isHiddenLanguagePreviewEnabled() {
+    const bodyAllowsPreview = String(document.body?.dataset?.allowHiddenLanguagePreview || '') === 'true';
+    if (!isLocalPreviewHost() && !bodyAllowsPreview) {
+      safeSessionStorage('remove', HIDDEN_PREVIEW_STORAGE_KEY);
+      safeSessionStorage('remove', HIDDEN_PREVIEW_LANGUAGE_KEY);
+      return false;
+    }
+
+    const previewParam = getPreviewParamValue();
+    if (previewParam === '0' || previewParam === 'false') {
+      safeSessionStorage('remove', HIDDEN_PREVIEW_STORAGE_KEY);
+      safeSessionStorage('remove', HIDDEN_PREVIEW_LANGUAGE_KEY);
+      return false;
+    }
+    if (previewParam === '1' || previewParam === 'true') {
+      safeSessionStorage('set', HIDDEN_PREVIEW_STORAGE_KEY, 'true');
+      return true;
+    }
+
+    return safeSessionStorage('get', HIDDEN_PREVIEW_STORAGE_KEY) === 'true';
+  }
+
+  function normalizeRuntimeLanguage(value, { includeHidden = false } = {}) {
+    const normalized = normalizeSupportedLanguage(value, { includeHidden });
+    if (!normalized) {
+      return '';
+    }
+    if (isPublicLanguage(normalized)) {
+      return normalized;
+    }
+    return includeHidden && isHiddenLanguagePreviewEnabled() && isHiddenLanguage(normalized)
+      ? normalized
+      : '';
+  }
+
+  function getLanguageFallbackChain(language) {
+    const normalized = normalizeSupportedLanguage(language, { includeHidden: true }) || DEFAULT_LANGUAGE;
+    const chain = LANGUAGE_FALLBACKS[normalized] || LANGUAGE_FALLBACKS[DEFAULT_LANGUAGE];
+    return [...new Set(chain.filter((code) => Object.prototype.hasOwnProperty.call(LANGUAGE_CONFIG, code)))];
+  }
+
+  function isFilledLocalizedValue(value) {
+    if (typeof value === 'string') {
+      return value.trim().length > 0;
+    }
+    if (Array.isArray(value)) {
+      return value.length > 0;
+    }
+    if (value && typeof value === 'object') {
+      return Object.keys(value).length > 0;
+    }
+    return value !== null && typeof value !== 'undefined';
+  }
+
+  function pickLocalizedValue(value, language = appI18n.language, fallback = '') {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return isFilledLocalizedValue(value) ? value : fallback;
+    }
+
+    for (const code of getLanguageFallbackChain(language)) {
+      if (isFilledLocalizedValue(value[code])) {
+        return value[code];
+      }
+    }
+
+    const firstAvailable = Object.values(value).find(isFilledLocalizedValue);
+    return typeof firstAvailable !== 'undefined' ? firstAvailable : fallback;
+  }
+
+  function pickLocalizedField(source, fieldName, language = appI18n.language, fallback = '') {
+    if (!source || !fieldName) {
+      return fallback;
+    }
+
+    const direct = source[fieldName];
+    if (direct && typeof direct === 'object' && !Array.isArray(direct)) {
+      const localized = pickLocalizedValue(direct, language, null);
+      if (isFilledLocalizedValue(localized)) {
+        return localized;
+      }
+    }
+
+    for (const code of getLanguageFallbackChain(language)) {
+      const localizedColumn = source[`${fieldName}_${code}`];
+      if (isFilledLocalizedValue(localizedColumn)) {
+        return localizedColumn;
+      }
+
+      if (code === 'pl' && isFilledLocalizedValue(source[fieldName])) {
+        return source[fieldName];
+      }
+    }
+
+    if (isFilledLocalizedValue(direct)) {
+      return direct;
+    }
+
+    const localizedPrefix = `${fieldName}_`;
+    const firstLocalizedColumn = Object.entries(source)
+      .find(([key, value]) => key.startsWith(localizedPrefix) && isFilledLocalizedValue(value));
+    if (firstLocalizedColumn) {
+      return firstLocalizedColumn[1];
+    }
+
+    return fallback;
   }
 
   function getForcedLanguage() {
-    return normalizeSupportedLanguage(document.body?.dataset?.forceLanguage || '');
+    return normalizeRuntimeLanguage(document.body?.dataset?.forceLanguage || '', { includeHidden: true });
   }
 
   function getUrlLanguage() {
     try {
-      return normalizeSupportedLanguage(new URL(window.location.href).searchParams.get('lang') || '');
+      const normalized = normalizeRuntimeLanguage(new URL(window.location.href).searchParams.get('lang') || '', { includeHidden: true });
+      if (isHiddenLanguage(normalized) && isHiddenLanguagePreviewEnabled()) {
+        safeSessionStorage('set', HIDDEN_PREVIEW_LANGUAGE_KEY, normalized);
+      }
+      return normalized;
     } catch (_) {
       return '';
     }
@@ -37,9 +207,11 @@
 
   function getStoredLanguage() {
     return (
-      normalizeSupportedLanguage(safeLocalStorage('get', STORAGE_KEY))
-      || normalizeSupportedLanguage(safeLocalStorage('get', 'cypruseye-language'))
-      || normalizeSupportedLanguage(safeLocalStorage('get', 'selectedLanguage'))
+      normalizeRuntimeLanguage(safeSessionStorage('get', HIDDEN_PREVIEW_LANGUAGE_KEY), { includeHidden: true })
+      || normalizeRuntimeLanguage(safeSessionStorage('get', 'ce_hidden_language'), { includeHidden: true })
+      || normalizeRuntimeLanguage(safeLocalStorage('get', STORAGE_KEY), { includeHidden: true })
+      || normalizeRuntimeLanguage(safeLocalStorage('get', 'cypruseye-language'), { includeHidden: true })
+      || normalizeRuntimeLanguage(safeLocalStorage('get', 'selectedLanguage'), { includeHidden: true })
       || ''
     );
   }
@@ -56,9 +228,10 @@
 
   window.appI18n = appI18n;
   appI18n.language = resolvePreferredLanguage();
-  const initialLanguageInfo = SUPPORTED_LANGUAGES[appI18n.language] || SUPPORTED_LANGUAGES[DEFAULT_LANGUAGE];
+  const initialLanguageInfo = LANGUAGE_CONFIG[appI18n.language] || LANGUAGE_CONFIG[DEFAULT_LANGUAGE];
   document.documentElement.lang = appI18n.language;
   document.documentElement.dir = initialLanguageInfo.dir;
+  document.documentElement.dataset.ceHiddenLanguagePreview = isHiddenLanguagePreviewEnabled() ? 'true' : 'false';
 
   if (typeof window.getCurrentLanguage !== 'function') {
     window.getCurrentLanguage = function getCurrentLanguage() {
@@ -85,7 +258,12 @@
   }
 
   function persistLanguage(language) {
-    safeLocalStorage('set', STORAGE_KEY, language);
+    if (isPublicLanguage(language)) {
+      safeLocalStorage('set', STORAGE_KEY, language);
+      safeSessionStorage('remove', HIDDEN_PREVIEW_LANGUAGE_KEY);
+    } else if (isHiddenLanguage(language) && isHiddenLanguagePreviewEnabled()) {
+      safeSessionStorage('set', HIDDEN_PREVIEW_LANGUAGE_KEY, language);
+    }
   }
 
   function getSupabaseClientForLanguageSync() {
@@ -200,14 +378,20 @@
 
   function syncUrl(language) {
     const current = new URL(window.location.href);
-    if (current.searchParams.get('lang') !== language) {
-      current.searchParams.set('lang', language);
+    const isHiddenPreviewLanguage = isHiddenLanguage(language) && isHiddenLanguagePreviewEnabled();
+    current.searchParams.set('lang', language);
+    if (isHiddenPreviewLanguage) {
+      current.searchParams.set(HIDDEN_PREVIEW_PARAM, '1');
+    } else {
+      current.searchParams.delete(HIDDEN_PREVIEW_PARAM);
+    }
+    if (current.toString() !== window.location.href) {
       window.history.replaceState({}, '', current);
     }
   }
 
   function fetchTranslations(language) {
-    if (!language || !Object.prototype.hasOwnProperty.call(SUPPORTED_LANGUAGES, language)) {
+    if (!language || !Object.prototype.hasOwnProperty.call(LANGUAGE_CONFIG, language)) {
       return Promise.resolve({});
     }
 
@@ -229,6 +413,16 @@
 
     translationCache.set(language, promise);
     return promise;
+  }
+
+  function loadTranslationChain(language) {
+    const chain = getLanguageFallbackChain(language);
+    return Promise.all(chain.map((code) => fetchTranslations(code))).then((loaded) => {
+      loaded.forEach((translations, index) => {
+        appI18n.translations[chain[index]] = translations || {};
+      });
+      return appI18n.translations[language] || {};
+    });
   }
 
   function parseAttributeSpec(spec, fallbackKey) {
@@ -333,14 +527,28 @@
     return null;
   }
 
-  function applyTranslationToElement(element, translations) {
+  function getTranslationEntryWithFallback(key, language = appI18n.language) {
+    for (const code of getLanguageFallbackChain(language)) {
+      const entry = getTranslationEntry(appI18n.translations[code], key);
+      if (entry !== null && typeof entry !== 'undefined') {
+        return entry;
+      }
+    }
+    return null;
+  }
+
+  function getTranslationStringWithFallback(key, language = appI18n.language) {
+    return getTranslationString({ __entry: getTranslationEntryWithFallback(key, language) }, '__entry');
+  }
+
+  function applyTranslationToElement(element, language) {
     const key = element.dataset.i18n;
     const attrMap = parseAttributeSpec(element.dataset.i18nAttrs, key);
 
     captureOriginal(element, attrMap);
 
     let applied = false;
-    const entry = getTranslationEntry(translations, key);
+    const entry = getTranslationEntryWithFallback(key, language);
     if (typeof entry === 'string') {
       element.textContent = entry;
       applied = true;
@@ -360,11 +568,11 @@
 
     if (attrMap.size) {
       attrMap.forEach((attributeKey, attribute) => {
-        const value = getTranslationString(translations, attributeKey);
+        const value = getTranslationStringWithFallback(attributeKey, language);
         if (typeof value === 'string') {
           element.setAttribute(attribute, value);
         } else if (attributeKey === key) {
-          const fallback = getTranslationString(translations, key);
+          const fallback = getTranslationStringWithFallback(key, language);
           if (typeof fallback === 'string') {
             element.setAttribute(attribute, fallback);
           } else {
@@ -381,13 +589,13 @@
     appI18n.language = language;
     appI18n.translations[language] = translations;
 
-    const languageInfo = SUPPORTED_LANGUAGES[language] || SUPPORTED_LANGUAGES[DEFAULT_LANGUAGE];
+    const languageInfo = LANGUAGE_CONFIG[language] || LANGUAGE_CONFIG[DEFAULT_LANGUAGE];
     document.documentElement.lang = language;
     document.documentElement.dir = languageInfo.dir;
 
     const elements = document.querySelectorAll('[data-i18n], [data-i18n-attrs]');
     elements.forEach((element) => {
-      applyTranslationToElement(element, translations);
+      applyTranslationToElement(element, language);
     });
 
     updateInternalLinks(language);
@@ -400,6 +608,7 @@
   }
 
   function updateInternalLinks(language) {
+    const shouldCarryHiddenPreview = isHiddenLanguage(language) && isHiddenLanguagePreviewEnabled();
     const anchors = document.querySelectorAll('a[href]');
     anchors.forEach((anchor) => {
       const href = anchor.getAttribute('href');
@@ -412,6 +621,11 @@
           return;
         }
         url.searchParams.set('lang', language);
+        if (shouldCarryHiddenPreview) {
+          url.searchParams.set(HIDDEN_PREVIEW_PARAM, '1');
+        } else {
+          url.searchParams.delete(HIDDEN_PREVIEW_PARAM);
+        }
         // Remove leading slash to use relative paths
         const relativePath = url.pathname;
         anchor.setAttribute('href', `${relativePath}${url.search}${url.hash}`);
@@ -432,6 +646,11 @@
           return;
         }
         url.searchParams.set('lang', language);
+        if (shouldCarryHiddenPreview) {
+          url.searchParams.set(HIDDEN_PREVIEW_PARAM, '1');
+        } else {
+          url.searchParams.delete(HIDDEN_PREVIEW_PARAM);
+        }
         element.setAttribute('data-page-url', `${url.pathname}${url.search}${url.hash}`);
       } catch (error) {
         console.warn('Unable to normalise navigation target for i18n.', target, error);
@@ -500,11 +719,12 @@
       return;
     }
 
-    const info = SUPPORTED_LANGUAGES[language] || SUPPORTED_LANGUAGES[DEFAULT_LANGUAGE];
+    const displayLanguage = isPublicLanguage(language) ? language : DEFAULT_LANGUAGE;
+    const info = SUPPORTED_LANGUAGES[displayLanguage] || SUPPORTED_LANGUAGES[DEFAULT_LANGUAGE];
 
     const toggle = container.querySelector('.language-switcher-toggle');
     if (toggle) {
-      toggle.setAttribute('data-language', language);
+      toggle.setAttribute('data-language', displayLanguage);
       const flag = toggle.querySelector('.language-switcher-toggle-flag');
       const text = toggle.querySelector('.language-switcher-toggle-text');
       if (flag) {
@@ -520,7 +740,7 @@
     let activeId = null;
 
     options.forEach((option) => {
-      const isActive = option.dataset.language === language;
+      const isActive = option.dataset.language === displayLanguage;
       option.classList.toggle('is-active', isActive);
       option.setAttribute('aria-selected', isActive ? 'true' : 'false');
       if (isActive) {
@@ -749,15 +969,15 @@
   }
 
   function setLanguage(language, { persist = true, updateUrl = true, syncProfile = false } = {}) {
-    let target = language;
-    if (!Object.prototype.hasOwnProperty.call(SUPPORTED_LANGUAGES, target)) {
+    let target = normalizeRuntimeLanguage(language, { includeHidden: true });
+    if (!target) {
       target = DEFAULT_LANGUAGE;
     }
 
     if (persist) {
       persistLanguage(target);
     }
-    if (persist && syncProfile) {
+    if (persist && syncProfile && isPublicLanguage(target)) {
       syncProfileLanguagePreference(target);
     }
     if (updateUrl) {
@@ -765,10 +985,11 @@
     }
 
     // Apply text direction (RTL/LTR)
-    const langConfig = SUPPORTED_LANGUAGES[target];
+    const langConfig = LANGUAGE_CONFIG[target];
     if (langConfig) {
       document.documentElement.setAttribute('dir', langConfig.dir);
       document.documentElement.setAttribute('lang', target);
+      document.documentElement.dataset.ceHiddenLanguagePreview = isHiddenLanguage(target) ? 'true' : 'false';
     }
 
     const apply = (translations = {}) => {
@@ -785,14 +1006,7 @@
       }
     };
 
-    const cached = translationCache.get(target);
-    if (cached) {
-      cached.then(apply);
-      return;
-    }
-
-    fetchTranslations(target).then((translations) => {
-      translationCache.set(target, Promise.resolve(translations || {}));
+    loadTranslationChain(target).then((translations) => {
       apply(translations);
     });
   }
@@ -806,17 +1020,31 @@
     }
 
     const detected = detectLanguage();
-    const language = Object.prototype.hasOwnProperty.call(SUPPORTED_LANGUAGES, detected)
+    const language = normalizeRuntimeLanguage(detected, { includeHidden: true })
       ? detected
       : DEFAULT_LANGUAGE;
 
     const forced = (document.body?.dataset?.forceLanguage || '').toLowerCase();
-    const isForced = forced && Object.prototype.hasOwnProperty.call(SUPPORTED_LANGUAGES, forced);
+    const isForced = forced && Boolean(normalizeRuntimeLanguage(forced, { includeHidden: true }));
 
     setLanguage(language, { persist: !isForced, updateUrl: !isForced });
   }
 
   appI18n.setLanguage = setLanguage;
+  appI18n.getLanguageFallbackChain = getLanguageFallbackChain;
+  appI18n.getTranslationEntry = getTranslationEntryWithFallback;
+  appI18n.getTranslationString = getTranslationStringWithFallback;
+  appI18n.pickLocalizedValue = pickLocalizedValue;
+  appI18n.pickLocalizedField = pickLocalizedField;
+  appI18n.isHiddenLanguagePreviewEnabled = isHiddenLanguagePreviewEnabled;
+
+  window.CELanguage = Object.assign(window.CELanguage || {}, {
+    getLanguageFallbackChain,
+    pickLocalizedValue,
+    pickLocalizedField,
+    isPublicLanguage,
+    isHiddenLanguagePreviewEnabled,
+  });
 
   // Wait for language selector to be ready before initializing
   if (document.readyState === 'loading') {

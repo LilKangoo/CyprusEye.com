@@ -7,29 +7,189 @@ const SUPPORTED_LANGUAGES = {
   pl: { name: 'Polski', flag: '🇵🇱', dir: 'ltr', locale: 'pl_PL' },
   en: { name: 'English', flag: '🇬🇧', dir: 'ltr', locale: 'en_GB' },
   // el: { name: 'Ελληνικά', flag: '🇬🇷', dir: 'ltr', locale: 'el_GR' },
-  // he: { name: 'עברית', flag: '🇮🇱', dir: 'rtl', locale: 'he_IL' }
+};
+const HIDDEN_LANGUAGES = {
+  he: { name: 'עברית', flag: '🇮🇱', dir: 'rtl', locale: 'he_IL' }
+};
+const LANGUAGE_CONFIG = { ...SUPPORTED_LANGUAGES, ...HIDDEN_LANGUAGES };
+const LANGUAGE_FALLBACKS = {
+  he: ['he', 'en', 'pl'],
+  en: ['en', 'pl'],
+  pl: ['pl', 'en']
 };
 
 const DEFAULT_LANGUAGE = 'en';
 const LANGUAGE_STORAGE_KEY = 'cypruseye-language';
+const HIDDEN_PREVIEW_PARAM = 'ce_he_preview';
+const HIDDEN_PREVIEW_STORAGE_KEY = 'ce_hidden_language_preview';
+
+function normalizeLanguageCode(language) {
+  return String(language || '').trim().toLowerCase().split('-')[0];
+}
+
+function isPublicLanguage(language) {
+  return Object.prototype.hasOwnProperty.call(SUPPORTED_LANGUAGES, normalizeLanguageCode(language));
+}
+
+function isHiddenLanguage(language) {
+  return Object.prototype.hasOwnProperty.call(HIDDEN_LANGUAGES, normalizeLanguageCode(language));
+}
+
+function isLocalPreviewHost() {
+  const hostname = window.location?.hostname || '';
+  return (
+    hostname === 'localhost'
+    || hostname === '127.0.0.1'
+    || hostname === '::1'
+    || hostname.endsWith('.local')
+  );
+}
+
+function safeSessionStorage(action, key, value) {
+  try {
+    if (action === 'get') {
+      return window.sessionStorage.getItem(key);
+    }
+    if (action === 'set') {
+      window.sessionStorage.setItem(key, value);
+    }
+    if (action === 'remove') {
+      window.sessionStorage.removeItem(key);
+    }
+  } catch (_error) {
+  }
+  return null;
+}
+
+function isHiddenLanguagePreviewEnabled() {
+  const bodyAllowsPreview = String(document.body?.dataset?.allowHiddenLanguagePreview || '') === 'true';
+  if (!isLocalPreviewHost() && !bodyAllowsPreview) {
+    safeSessionStorage('remove', HIDDEN_PREVIEW_STORAGE_KEY);
+    return false;
+  }
+
+  let previewParam = null;
+  try {
+    previewParam = new URL(window.location.href).searchParams.get(HIDDEN_PREVIEW_PARAM);
+  } catch (_error) {
+  }
+
+  if (previewParam === '0' || previewParam === 'false') {
+    safeSessionStorage('remove', HIDDEN_PREVIEW_STORAGE_KEY);
+    return false;
+  }
+  if (previewParam === '1' || previewParam === 'true') {
+    safeSessionStorage('set', HIDDEN_PREVIEW_STORAGE_KEY, 'true');
+    return true;
+  }
+
+  return safeSessionStorage('get', HIDDEN_PREVIEW_STORAGE_KEY) === 'true';
+}
+
+function normalizeRuntimeLanguage(language, { includeHidden = false } = {}) {
+  const normalized = normalizeLanguageCode(language);
+  if (isPublicLanguage(normalized)) {
+    return normalized;
+  }
+  if (includeHidden && isHiddenLanguage(normalized) && isHiddenLanguagePreviewEnabled()) {
+    return normalized;
+  }
+  return '';
+}
+
+function getLanguageFallbackChain(language) {
+  const normalized = normalizeLanguageCode(language);
+  const chain = LANGUAGE_FALLBACKS[normalized] || LANGUAGE_FALLBACKS[DEFAULT_LANGUAGE];
+  return [...new Set(chain)];
+}
+
+function isFilledLocalizedValue(value) {
+  if (typeof value === 'string') return value.trim().length > 0;
+  if (Array.isArray(value)) return value.length > 0;
+  if (value && typeof value === 'object') return Object.keys(value).length > 0;
+  return value !== null && typeof value !== 'undefined';
+}
+
+function pickLocalizedValue(value, language, fallback = '') {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return isFilledLocalizedValue(value) ? value : fallback;
+  }
+
+  for (const code of getLanguageFallbackChain(language)) {
+    if (isFilledLocalizedValue(value[code])) {
+      return value[code];
+    }
+  }
+
+  const firstAvailable = Object.values(value).find(isFilledLocalizedValue);
+  return typeof firstAvailable !== 'undefined' ? firstAvailable : fallback;
+}
 
 /**
  * Get the current language from localStorage or detect from browser
  */
 function getCurrentLanguage() {
+  const appLanguage = normalizeLanguageCode(window.appI18n?.language);
+  if (appLanguage && normalizeRuntimeLanguage(appLanguage, { includeHidden: true })) {
+    return appLanguage;
+  }
+
   // Check URL parameter
   const urlParams = new URLSearchParams(window.location.search);
-  const langParam = urlParams.get('lang');
-  if (langParam && SUPPORTED_LANGUAGES[langParam]) {
+  const langParam = normalizeRuntimeLanguage(urlParams.get('lang'), { includeHidden: true });
+  if (langParam) {
     return langParam;
   }
 
-  const htmlLang = (document.documentElement.lang || '').toLowerCase();
-  if (htmlLang && SUPPORTED_LANGUAGES[htmlLang]) {
+  const htmlLang = normalizeRuntimeLanguage(document.documentElement.lang || '', { includeHidden: true });
+  if (htmlLang) {
     return htmlLang;
   }
 
   return DEFAULT_LANGUAGE;
+}
+
+function getTranslationEntry(translations, key) {
+  if (!translations || !key) return null;
+  if (Object.prototype.hasOwnProperty.call(translations, key)) {
+    return translations[key];
+  }
+  if (key.indexOf('.') === -1) return null;
+
+  let current = translations;
+  for (const part of key.split('.')) {
+    if (current && typeof current === 'object' && Object.prototype.hasOwnProperty.call(current, part)) {
+      current = current[part];
+    } else {
+      return null;
+    }
+  }
+  return current;
+}
+
+function getTranslationStringFromEntry(entry) {
+  if (typeof entry === 'string') return entry;
+  if (entry && typeof entry === 'object') {
+    if (typeof entry.text === 'string') return entry.text;
+    if (typeof entry.html === 'string') return entry.html;
+  }
+  return null;
+}
+
+function getStaticTranslationString(key, language) {
+  if (!key || !window.appI18n) return '';
+  if (typeof window.appI18n.getTranslationString === 'function') {
+    const resolved = window.appI18n.getTranslationString(key, language);
+    if (typeof resolved === 'string') return resolved;
+  }
+
+  const translationsByLanguage = window.appI18n.translations || {};
+  for (const code of getLanguageFallbackChain(language)) {
+    const resolved = getTranslationStringFromEntry(getTranslationEntry(translationsByLanguage[code], key));
+    if (typeof resolved === 'string') return resolved;
+  }
+
+  return '';
 }
 
 /**
@@ -103,7 +263,8 @@ function createDesktopLanguageSwitcher(containerId = 'languageSwitcherDesktop') 
   }
 
   const currentLang = getCurrentLanguage();
-  const currentConfig = SUPPORTED_LANGUAGES[currentLang];
+  const displayLang = SUPPORTED_LANGUAGES[currentLang] ? currentLang : DEFAULT_LANGUAGE;
+  const currentConfig = SUPPORTED_LANGUAGES[displayLang];
   
   const switcherHTML = `
     <div class="language-switcher-desktop" role="group" aria-label="Language selector">
@@ -120,7 +281,7 @@ function createDesktopLanguageSwitcher(containerId = 'languageSwitcherDesktop') 
       <div class="language-switcher-menu" role="menu">
         ${Object.entries(SUPPORTED_LANGUAGES).map(([code, config]) => `
           <button 
-            class="language-switcher-btn ${code === currentLang ? 'is-active' : ''}"
+            class="language-switcher-btn ${code === displayLang ? 'is-active' : ''}"
             data-lang-switch="${code}"
             role="menuitem"
             aria-label="Switch to ${config.name}"
@@ -186,7 +347,8 @@ function createMobileLanguageSwitcher() {
   }
 
   const currentLang = getCurrentLanguage();
-  const currentConfig = SUPPORTED_LANGUAGES[currentLang];
+  const displayLang = SUPPORTED_LANGUAGES[currentLang] ? currentLang : DEFAULT_LANGUAGE;
+  const currentConfig = SUPPORTED_LANGUAGES[displayLang];
 
   // Add button to tabbar
   const tabbarButton = document.createElement('button');
@@ -217,7 +379,7 @@ function createMobileLanguageSwitcher() {
     <div class="language-mobile-menu-list">
       ${Object.entries(SUPPORTED_LANGUAGES).map(([code, config]) => `
         <button 
-          class="language-switcher-btn ${code === currentLang ? 'is-active' : ''}"
+          class="language-switcher-btn ${code === displayLang ? 'is-active' : ''}"
           data-lang-switch="${code}"
         >
           <span class="language-flag" aria-hidden="true">${config.flag}</span>
@@ -310,49 +472,16 @@ function getPoiTranslatedField(poi, fieldName) {
 
   // 1) Supabase JSONB i18n field on the POI (preferred)
   if (poi[i18nFieldName] && typeof poi[i18nFieldName] === 'object') {
-    const translated = poi[i18nFieldName][currentLang];
+    const translated = pickLocalizedValue(poi[i18nFieldName], currentLang, '');
     if (translated) return translated;
-
-    // Fallback to Polish if current language not available
-    if (poi[i18nFieldName].pl) return poi[i18nFieldName].pl;
-
-    // Fallback to English if Polish not available
-    if (poi[i18nFieldName].en) return poi[i18nFieldName].en;
   }
 
   // 2) Static i18n JSON (places.<id>.<field>) when key is available
   const keyFieldName = `${fieldName}Key`;
   const translationKey = poi[keyFieldName];
-  if (translationKey && window.appI18n && window.appI18n.translations) {
-    const lang = window.appI18n.language || currentLang;
-    const translations = window.appI18n.translations[lang];
-
-    if (translations) {
-      let value = translations[translationKey];
-
-      // Support nested keys via dot notation (e.g. 'places.panagia-kykkos-viewpoint.name')
-      if (typeof value === 'undefined' && translationKey.indexOf('.') !== -1) {
-        const parts = translationKey.split('.');
-        let current = translations;
-        for (const part of parts) {
-          if (current && typeof current === 'object' && Object.prototype.hasOwnProperty.call(current, part)) {
-            current = current[part];
-          } else {
-            current = undefined;
-            break;
-          }
-        }
-        value = current;
-      }
-
-      if (typeof value === 'string') {
-        return value;
-      }
-      if (value && typeof value === 'object') {
-        if (typeof value.text === 'string') return value.text;
-        if (typeof value.html === 'string') return value.html;
-      }
-    }
+  if (translationKey) {
+    const translated = getStaticTranslationString(translationKey, window.appI18n?.language || currentLang);
+    if (translated) return translated;
   }
 
   // 3) Fallback to legacy field
@@ -400,14 +529,8 @@ function getHotelTranslatedField(hotel, fieldName) {
   // Hotel fields are already JSONB (title, description)
   // No _i18n suffix needed
   if (hotel[fieldName] && typeof hotel[fieldName] === 'object') {
-    const translated = hotel[fieldName][currentLang];
+    const translated = pickLocalizedValue(hotel[fieldName], currentLang, '');
     if (translated) return translated;
-    
-    // Fallback to Polish if current language not available
-    if (hotel[fieldName].pl) return hotel[fieldName].pl;
-    
-    // Fallback to English if Polish not available
-    if (hotel[fieldName].en) return hotel[fieldName].en;
   }
   
   // Fallback to direct field if it's a string (legacy)
@@ -447,15 +570,8 @@ function getTripTranslatedField(trip, fieldName) {
   
   // Check if field is an i18n object
   if (trip[fieldName] && typeof trip[fieldName] === 'object') {
-    // Try current language
-    const translated = trip[fieldName][currentLang];
+    const translated = pickLocalizedValue(trip[fieldName], currentLang, '');
     if (translated) return translated;
-    
-    // Fallback to Polish if current language not available
-    if (trip[fieldName].pl) return trip[fieldName].pl;
-    
-    // Fallback to English if Polish not available
-    if (trip[fieldName].en) return trip[fieldName].en;
   }
   
   // Fallback to direct field if it's a string (legacy)
@@ -515,14 +631,8 @@ function getQuestTranslatedField(quest, fieldName) {
   
   // Check if i18n field exists
   if (quest[i18nField] && typeof quest[i18nField] === 'object') {
-    // Try current language
-    if (quest[i18nField][currentLang]) return quest[i18nField][currentLang];
-    
-    // Fallback to Polish
-    if (quest[i18nField].pl) return quest[i18nField].pl;
-    
-    // Fallback to English
-    if (quest[i18nField].en) return quest[i18nField].en;
+    const translated = pickLocalizedValue(quest[i18nField], currentLang, '');
+    if (translated) return translated;
   }
   
   // Fallback to legacy field (backward compatibility)
@@ -567,15 +677,8 @@ function getCarTranslatedField(car, fieldName) {
   
   // Check if field is an i18n object
   if (car[fieldName] && typeof car[fieldName] === 'object') {
-    // Try current language
-    const translated = car[fieldName][currentLang];
+    const translated = pickLocalizedValue(car[fieldName], currentLang, '');
     if (translated) return translated;
-    
-    // Fallback to Polish if current language not available
-    if (car[fieldName].pl) return car[fieldName].pl;
-    
-    // Fallback to English if Polish not available
-    if (car[fieldName].en) return car[fieldName].en;
   }
   
   // Fallback to direct field if it's a string (legacy)
@@ -623,20 +726,8 @@ function getCarFeatures(car) {
   
   // Check if features is an i18n object
   if (car.features && typeof car.features === 'object' && !Array.isArray(car.features)) {
-    // Try current language
-    if (car.features[currentLang] && Array.isArray(car.features[currentLang])) {
-      return car.features[currentLang];
-    }
-    
-    // Fallback to Polish if current language not available
-    if (car.features.pl && Array.isArray(car.features.pl)) {
-      return car.features.pl;
-    }
-    
-    // Fallback to English if Polish not available
-    if (car.features.en && Array.isArray(car.features.en)) {
-      return car.features.en;
-    }
+    const translated = pickLocalizedValue(car.features, currentLang, []);
+    if (Array.isArray(translated)) return translated;
   }
   
   // Fallback to direct array (legacy)
@@ -653,11 +744,19 @@ window.getCarName = getCarName;
 window.getCarDescription = getCarDescription;
 window.getCarType = getCarType;
 window.getCarFeatures = getCarFeatures;
+window.CELanguage = Object.assign(window.CELanguage || {}, {
+  getLanguageFallbackChain,
+  pickLocalizedValue,
+  isHiddenLanguagePreviewEnabled
+});
 
 // Export for external use
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     SUPPORTED_LANGUAGES,
+    HIDDEN_LANGUAGES,
+    getLanguageFallbackChain,
+    pickLocalizedValue,
     getCurrentLanguage,
     setLanguage,
     createLanguageSwitcher,

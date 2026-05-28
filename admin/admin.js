@@ -16,7 +16,8 @@ const ADMIN_CONFIG = {
 
 const EMAIL_BRAND_LOGO_URL = '/assets/cyprus_logo-1000x1054.png';
 const EMAIL_BRAND_LOGO_PUBLIC_URL = 'https://cypruseye.com/assets/cyprus_logo-1000x1054.png';
-const EMAIL_EDITABLE_LANGUAGES = ['pl', 'en'];
+const EMAIL_EDITABLE_LANGUAGES = ['pl', 'en', 'he'];
+const EMAIL_REQUIRED_LANGUAGES = ['pl', 'en'];
 
 let adminState = {
   user: null,
@@ -1393,7 +1394,11 @@ function normalizeEmailsLanguage(value) {
 
 function getEmailsSample(template) {
   const lang = normalizeEmailsLanguage(emailsAdminState.language);
-  const fallbackSample = template.sample?.[lang] || template.sample?.pl || template.sample?.en || {};
+  const fallbackSample = template.sample?.[lang]
+    || (lang === 'he' ? template.sample?.en : null)
+    || template.sample?.pl
+    || template.sample?.en
+    || {};
   const draftRecord = getEmailsDraftRecord(template.key);
   const workingContent = emailsAdminState.draftMode
     && emailsAdminState.draftWorkingContent
@@ -1674,6 +1679,7 @@ function renderEmailsPreview() {
 
   const frame = $('#emailsPreviewFrame');
   if (frame) {
+    frame.dir = normalizeEmailsLanguage(emailsAdminState.language) === 'he' ? 'rtl' : 'ltr';
     let previewNotice = 'Sample only. Production emails still use the existing live templates.';
     if (draftRecord?.status === 'draft') {
       previewNotice = `Preview is showing draft version #${draftRecord.versionNumber || ''}. Production emails still use the existing live templates.`;
@@ -2014,6 +2020,11 @@ function renderEmailsEditor() {
     emailsAdminState.draftEditorKey = editorKey;
   }
 
+  const editorDir = normalizeEmailsLanguage(emailsAdminState.language) === 'he' ? 'rtl' : 'ltr';
+  getEmailsEditableFields(fields).forEach((field) => {
+    field.dir = editorDir;
+  });
+
   bindEmailsEditorFieldEvents();
   updateEmailsAdvancedHtmlStatus();
   renderEmailsDraftValidation();
@@ -2223,6 +2234,8 @@ function getEmailsContentMissingFields(content) {
   const missing = [];
   EMAIL_EDITABLE_LANGUAGES.forEach((lang) => {
     const entry = content?.[lang] && typeof content[lang] === 'object' ? content[lang] : {};
+    const required = EMAIL_REQUIRED_LANGUAGES.includes(lang) || hasEmailsLanguageContent(entry);
+    if (!required) return;
     [
       ['subject', 'subject'],
       ['heading', 'heading'],
@@ -2233,6 +2246,12 @@ function getEmailsContentMissingFields(content) {
     });
   });
   return missing;
+}
+
+function hasEmailsLanguageContent(entry) {
+  if (!entry || typeof entry !== 'object') return false;
+  return ['subject', 'heading', 'intro', 'cta', 'html']
+    .some((key) => String(entry[key] || '').trim());
 }
 
 function collectEmailsDraftContent() {
@@ -7831,9 +7850,10 @@ function formatTransportLocationDisplayName(row, options = {}) {
   const withLocal = Boolean(options.withLocal);
   const englishName = String(row.name || '').trim();
   const localName = String(row.name_local || '').trim();
+  const hebrewName = String(row.name_he || '').trim();
   const code = String(row.code || '').trim();
 
-  let label = englishName || localName || '—';
+  let label = englishName || localName || hebrewName || '—';
   if (withLocal && localName && localName.toLowerCase() !== label.toLowerCase()) {
     label = `${label} / ${localName}`;
   }
@@ -8010,13 +8030,20 @@ async function loadTransportLocationsByIds(client, locationIds) {
   try {
     ({ data, error } = await client
       .from('transport_locations')
-      .select('id, name, name_local, code')
+      .select('id, name, name_local, name_he, code')
       .in('id', ids)
       .limit(1000));
   } catch (e) {
     error = e;
   }
 
+  if (error && isMissingColumnError(error, 'name_he')) {
+    ({ data, error } = await client
+      .from('transport_locations')
+      .select('id, name, name_local, code')
+      .in('id', ids)
+      .limit(1000));
+  }
   if (error && isMissingColumnError(error, 'name_local')) {
     ({ data, error } = await client
       .from('transport_locations')
@@ -19958,17 +19985,23 @@ async function saveTransportLocationRecord(client, payload, options = {}) {
 
   let fallbackMissingLocal = false;
   let fallbackMissingCityGroup = false;
-  let { error } = await runWrite(payload);
+  let fallbackMissingHebrew = false;
+  const workingPayload = { ...payload };
+  let { error } = await runWrite(workingPayload);
+  if (error && isMissingColumnError(error, 'name_he')) {
+    delete workingPayload.name_he;
+    ({ error } = await runWrite(workingPayload));
+    if (!error) fallbackMissingHebrew = true;
+  }
   if (error && isMissingColumnError(error, 'name_local')) {
-    const fallbackPayload = { ...payload };
-    delete fallbackPayload.name_local;
-    delete fallbackPayload.city_group;
-    ({ error } = await runWrite(fallbackPayload));
+    delete workingPayload.name_local;
+    delete workingPayload.city_group;
+    ({ error } = await runWrite(workingPayload));
     if (!error) fallbackMissingLocal = true;
-  } else if (error && isMissingColumnError(error, 'city_group')) {
-    const fallbackPayload = { ...payload };
-    delete fallbackPayload.city_group;
-    ({ error } = await runWrite(fallbackPayload));
+  }
+  if (error && isMissingColumnError(error, 'city_group')) {
+    delete workingPayload.city_group;
+    ({ error } = await runWrite(workingPayload));
     if (!error) fallbackMissingCityGroup = true;
   }
 
@@ -19976,6 +20009,7 @@ async function saveTransportLocationRecord(client, payload, options = {}) {
     error,
     fallbackMissingLocal,
     fallbackMissingCityGroup,
+    fallbackMissingHebrew,
   };
 }
 
@@ -19985,6 +20019,7 @@ function resetTransportLocationForm() {
   form.reset();
   const idEl = document.getElementById('transportLocationId');
   const localNameEl = document.getElementById('transportLocationNameLocal');
+  const heNameEl = document.getElementById('transportLocationNameHe');
   const cityGroupEl = document.getElementById('transportLocationCityGroup');
   const typeEl = document.getElementById('transportLocationType');
   const bulkToggleEl = document.getElementById('transportLocationBulkTypesEnabled');
@@ -19994,6 +20029,7 @@ function resetTransportLocationForm() {
   const sortEl = document.getElementById('transportLocationSortOrder');
   if (idEl) idEl.value = '';
   if (localNameEl) localNameEl.value = '';
+  if (heNameEl) heNameEl.value = '';
   if (cityGroupEl) cityGroupEl.value = '';
   if (typeEl) typeEl.value = 'city';
   if (bulkToggleEl) bulkToggleEl.checked = false;
@@ -20014,6 +20050,7 @@ function editTransportLocation(locationId) {
   const idEl = document.getElementById('transportLocationId');
   const nameEl = document.getElementById('transportLocationName');
   const localNameEl = document.getElementById('transportLocationNameLocal');
+  const heNameEl = document.getElementById('transportLocationNameHe');
   const codeEl = document.getElementById('transportLocationCode');
   const cityGroupEl = document.getElementById('transportLocationCityGroup');
   const typeEl = document.getElementById('transportLocationType');
@@ -20026,6 +20063,7 @@ function editTransportLocation(locationId) {
   if (idEl) idEl.value = String(row.id || '');
   if (nameEl) nameEl.value = String(row.name || '');
   if (localNameEl) localNameEl.value = String(row.name_local || '');
+  if (heNameEl) heNameEl.value = String(row.name_he || '');
   if (codeEl) codeEl.value = String(row.code || '');
   if (cityGroupEl) cityGroupEl.value = String(row.city_group || deriveTransportCityGroupFromCode(row.code) || '');
   const locationType = normalizeTransportLocationType(row.location_type || 'city');
@@ -20190,6 +20228,7 @@ async function saveTransportLocationForm(event) {
   const id = String(document.getElementById('transportLocationId')?.value || '').trim();
   const name = String(document.getElementById('transportLocationName')?.value || '').trim();
   const nameLocal = String(document.getElementById('transportLocationNameLocal')?.value || '').trim();
+  const nameHe = String(document.getElementById('transportLocationNameHe')?.value || '').trim();
   const codeRaw = String(document.getElementById('transportLocationCode')?.value || '').trim().toLowerCase();
   const normalizedCode = normalizeTransportLocationCodeValue(codeRaw);
   const cityGroup = normalizeTransportCityGroupValue(
@@ -20215,6 +20254,7 @@ async function saveTransportLocationForm(event) {
   const baseSortOrder = Number.isFinite(sortOrder) ? sortOrder : 0;
   let fallbackMissingLocal = false;
   let fallbackMissingCityGroup = false;
+  let fallbackMissingHebrew = false;
 
   try {
     if (createBulkTypes && !id) {
@@ -20237,6 +20277,7 @@ async function saveTransportLocationForm(event) {
         const payload = {
           name: variantName,
           name_local: variantNameLocal || null,
+          name_he: nameHe || null,
           code: variantCode,
           city_group: cityGroup || deriveTransportCityGroupFromCode(variantCode) || null,
           location_type: normalizeTransportLocationType(type),
@@ -20249,6 +20290,7 @@ async function saveTransportLocationForm(event) {
           createdCount += 1;
           fallbackMissingLocal = fallbackMissingLocal || Boolean(result.fallbackMissingLocal);
           fallbackMissingCityGroup = fallbackMissingCityGroup || Boolean(result.fallbackMissingCityGroup);
+          fallbackMissingHebrew = fallbackMissingHebrew || Boolean(result.fallbackMissingHebrew);
           continue;
         }
 
@@ -20269,6 +20311,9 @@ async function saveTransportLocationForm(event) {
       if (fallbackMissingCityGroup) {
         showToast('Some variants saved without city group column (run migration 113_transport_location_city_groups.sql)', 'info');
       }
+      if (fallbackMissingHebrew) {
+        showToast('Some variants saved without Hebrew name column (run migration 178_he_internal_content_fields.sql)', 'info');
+      }
       if (!createdCount && !skippedCount && failedCount) {
         throw new Error('Failed to create location variants');
       }
@@ -20278,6 +20323,7 @@ async function saveTransportLocationForm(event) {
       const payload = {
         name,
         name_local: nameLocal || null,
+        name_he: nameHe || null,
         code: codeRaw,
         city_group: cityGroup || null,
         location_type: locationType || 'city',
@@ -20293,6 +20339,9 @@ async function saveTransportLocationForm(event) {
       }
       if (result.fallbackMissingCityGroup) {
         showToast('Location saved without city group (run migration 113_transport_location_city_groups.sql)', 'info');
+      }
+      if (result.fallbackMissingHebrew) {
+        showToast('Location saved without Hebrew name column (run migration 178_he_internal_content_fields.sql)', 'info');
       }
 
       showToast(id ? 'Transport location updated' : 'Transport location created', 'success');
@@ -45031,7 +45080,9 @@ async function showShippingClassForm(classId = null) {
       document.getElementById('shippingClassId').value = data.id;
       document.getElementById('shippingClassName').value = data.name || '';
       document.getElementById('shippingClassNameEn').value = data.name_en || '';
+      document.getElementById('shippingClassNameHe').value = data.name_he || '';
       document.getElementById('shippingClassDescription').value = data.description || '';
+      document.getElementById('shippingClassDescriptionHe').value = data.description_he || '';
       document.getElementById('shippingClassExtraCost').value = data.extra_cost || 0;
       document.getElementById('shippingClassCostPerKg').value = data.extra_cost_per_kg || 0;
       document.getElementById('shippingClassHandlingFee').value = data.handling_fee || 0;
@@ -45058,8 +45109,10 @@ async function saveShippingClass() {
   const data = {
     name,
     name_en: document.getElementById('shippingClassNameEn').value.trim() || null,
+    name_he: document.getElementById('shippingClassNameHe').value.trim() || null,
     slug,
     description: document.getElementById('shippingClassDescription').value.trim() || null,
+    description_he: document.getElementById('shippingClassDescriptionHe').value.trim() || null,
     extra_cost: parseFloat(document.getElementById('shippingClassExtraCost').value) || 0,
     extra_cost_per_kg: parseFloat(document.getElementById('shippingClassCostPerKg').value) || 0,
     handling_fee: parseFloat(document.getElementById('shippingClassHandlingFee').value) || 0,
@@ -45604,8 +45657,10 @@ function setupGenericFormListeners(modalId, formId, closeBtnId, cancelBtnId, ove
 function switchShippingMethodLang(lang) {
   const plDiv = document.getElementById('shippingMethodLangPL');
   const enDiv = document.getElementById('shippingMethodLangEN');
+  const heDiv = document.getElementById('shippingMethodLangHE');
   if (plDiv) plDiv.classList.toggle('active', lang === 'pl');
   if (enDiv) enDiv.classList.toggle('active', lang === 'en');
+  if (heDiv) heDiv.classList.toggle('active', lang === 'he');
   document.querySelectorAll('#shopShippingMethodModal .lang-tab').forEach(tab => {
     tab.classList.toggle('active', tab.dataset.lang === lang);
   });
@@ -45688,6 +45743,9 @@ async function loadShippingMethodData(methodId) {
     // English fields
     document.getElementById('shippingMethodNameEn').value = method.name_en || '';
     document.getElementById('shippingMethodDescriptionEn').value = method.description_en || '';
+    // Hebrew internal fields
+    document.getElementById('shippingMethodNameHe').value = method.name_he || '';
+    document.getElementById('shippingMethodDescriptionHe').value = method.description_he || '';
     // Pricing
     document.getElementById('shippingMethodType').value = method.method_type || 'flat_rate';
     document.getElementById('shippingMethodCost').value = method.cost || 0;
@@ -45756,8 +45814,10 @@ async function saveShippingMethod() {
     zone_id: zoneId,
     name,
     name_en: document.getElementById('shippingMethodNameEn').value.trim() || null,
+    name_he: document.getElementById('shippingMethodNameHe').value.trim() || null,
     description: document.getElementById('shippingMethodDescription').value.trim() || null,
     description_en: document.getElementById('shippingMethodDescriptionEn').value.trim() || null,
+    description_he: document.getElementById('shippingMethodDescriptionHe').value.trim() || null,
     method_type: document.getElementById('shippingMethodType').value,
     cost: parseFloat(document.getElementById('shippingMethodCost').value) || 0,
     cost_per_kg: parseFloat(document.getElementById('shippingMethodCostPerKg').value) || 0,
@@ -46043,8 +46103,10 @@ async function saveAdminNotificationSettings() {
 function switchProductLang(lang) {
   const plDiv = document.getElementById('productLangPL');
   const enDiv = document.getElementById('productLangEN');
+  const heDiv = document.getElementById('productLangHE');
   if (plDiv) plDiv.classList.toggle('active', lang === 'pl');
   if (enDiv) enDiv.classList.toggle('active', lang === 'en');
+  if (heDiv) heDiv.classList.toggle('active', lang === 'he');
   document.querySelectorAll('#shopProductModal .lang-tab').forEach(tab => {
     tab.classList.toggle('active', tab.dataset.lang === lang);
   });
@@ -46053,8 +46115,10 @@ function switchProductLang(lang) {
 function switchCategoryLang(lang) {
   const plDiv = document.getElementById('categoryLangPL');
   const enDiv = document.getElementById('categoryLangEN');
+  const heDiv = document.getElementById('categoryLangHE');
   if (plDiv) plDiv.classList.toggle('active', lang === 'pl');
   if (enDiv) enDiv.classList.toggle('active', lang === 'en');
+  if (heDiv) heDiv.classList.toggle('active', lang === 'he');
   document.querySelectorAll('#shopCategoryModal .lang-tab').forEach(tab => {
     tab.classList.toggle('active', tab.dataset.lang === lang);
   });
@@ -46063,8 +46127,10 @@ function switchCategoryLang(lang) {
 function switchVendorLang(lang) {
   const plDiv = document.getElementById('vendorLangPL');
   const enDiv = document.getElementById('vendorLangEN');
+  const heDiv = document.getElementById('vendorLangHE');
   if (plDiv) plDiv.classList.toggle('active', lang === 'pl');
   if (enDiv) enDiv.classList.toggle('active', lang === 'en');
+  if (heDiv) heDiv.classList.toggle('active', lang === 'he');
   document.querySelectorAll('#shopVendorModal .lang-tab').forEach(tab => {
     tab.classList.toggle('active', tab.dataset.lang === lang);
   });
@@ -46073,8 +46139,10 @@ function switchVendorLang(lang) {
 function switchDiscountLang(lang) {
   const plDiv = document.getElementById('discountLangPL');
   const enDiv = document.getElementById('discountLangEN');
+  const heDiv = document.getElementById('discountLangHE');
   if (plDiv) plDiv.classList.toggle('active', lang === 'pl');
   if (enDiv) enDiv.classList.toggle('active', lang === 'en');
+  if (heDiv) heDiv.classList.toggle('active', lang === 'he');
   document.querySelectorAll('#shopDiscountModal .lang-tab').forEach(tab => {
     tab.classList.toggle('active', tab.dataset.lang === lang);
   });
@@ -46216,6 +46284,10 @@ async function loadProductData(productId) {
     document.getElementById('shopProductNameEn').value = product.name_en || '';
     document.getElementById('shopProductDescriptionEn').value = product.description_en || '';
     document.getElementById('shopProductShortDescEn').value = product.short_description_en || '';
+    // Hebrew internal fields
+    document.getElementById('shopProductNameHe').value = product.name_he || '';
+    document.getElementById('shopProductDescriptionHe').value = product.description_he || '';
+    document.getElementById('shopProductShortDescHe').value = product.short_description_he || '';
     // Organization
     document.getElementById('shopProductSku').value = product.sku || '';
     document.getElementById('shopProductSlug').value = product.slug || '';
@@ -46443,9 +46515,11 @@ function renderProductVariantsList() {
   
   list.innerHTML = productVariantsData.filter(v => !v.is_deleted).map((variant, idx) => `
     <div style="padding: 12px; background: var(--admin-bg-secondary); border-radius: 8px; margin-bottom: 8px;">
-      <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+      <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto auto; gap: 8px; align-items: center; margin-bottom: 8px;">
         <input type="text" value="${escapeHtml(variant.name || '')}" placeholder="Nazwa wariantu (np. Rozmiar L)" 
-          style="flex: 1; font-weight: 500;" onchange="updateVariantField(${idx}, 'name', this.value)">
+          style="width: 100%; font-weight: 500;" onchange="updateVariantField(${idx}, 'name', this.value)">
+        <input type="text" value="${escapeHtml(variant.name_he || '')}" placeholder="Hebrew variant name (internal)"
+          dir="rtl" style="width: 100%; font-weight: 500;" onchange="updateVariantField(${idx}, 'name_he', this.value)">
         <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--admin-text-muted); white-space: nowrap;">
           <input type="radio" name="shopDefaultVariant" ${variant.is_default ? 'checked' : ''} onchange="setDefaultVariant(${idx})">
           Domyślny
@@ -46548,6 +46622,7 @@ function addProductVariant() {
   enableProductVariantsUI();
   productVariantsData.push({ 
     name: '', 
+    name_he: '',
     sku: '', 
     price: null, 
     compare_at_price: null,
@@ -46615,6 +46690,7 @@ async function saveProductVariants(productId) {
       await client.from('shop_product_variants').insert({
         product_id: productId,
         name: variant.name,
+        name_he: (variant.name_he || '').trim() || null,
         sku: variant.sku || null,
         price: variant.price !== null && variant.price !== undefined && !Number.isNaN(variant.price) ? variant.price : null,
         compare_at_price: variant.compare_at_price !== null && variant.compare_at_price !== undefined && !Number.isNaN(variant.compare_at_price) ? variant.compare_at_price : null,
@@ -46629,6 +46705,7 @@ async function saveProductVariants(productId) {
     } else if (variant.is_modified && variant.id) {
       await client.from('shop_product_variants').update({
         name: variant.name,
+        name_he: (variant.name_he || '').trim() || null,
         sku: variant.sku || null,
         price: variant.price !== null && variant.price !== undefined && !Number.isNaN(variant.price) ? variant.price : null,
         compare_at_price: variant.compare_at_price !== null && variant.compare_at_price !== undefined && !Number.isNaN(variant.compare_at_price) ? variant.compare_at_price : null,
@@ -46887,11 +46964,14 @@ async function saveProduct() {
   const productData = {
     name,
     name_en: document.getElementById('shopProductNameEn').value.trim() || null,
+    name_he: document.getElementById('shopProductNameHe').value.trim() || null,
     slug,
     description: document.getElementById('shopProductDescription').value.trim() || null,
     description_en: document.getElementById('shopProductDescriptionEn').value.trim() || null,
+    description_he: document.getElementById('shopProductDescriptionHe').value.trim() || null,
     short_description: document.getElementById('shopProductShortDesc').value.trim() || null,
     short_description_en: document.getElementById('shopProductShortDescEn').value.trim() || null,
+    short_description_he: document.getElementById('shopProductShortDescHe').value.trim() || null,
     // Organization
     sku: document.getElementById('shopProductSku').value.trim() || null,
     category_id: document.getElementById('shopProductCategory').value || null,
@@ -47054,6 +47134,9 @@ async function loadCategoryData(categoryId) {
     // English fields
     document.getElementById('shopCategoryNameEn').value = category.name_en || '';
     document.getElementById('shopCategoryDescriptionEn').value = category.description_en || '';
+    // Hebrew internal fields
+    document.getElementById('shopCategoryNameHe').value = category.name_he || '';
+    document.getElementById('shopCategoryDescriptionHe').value = category.description_he || '';
     // Common fields
     document.getElementById('shopCategorySlug').value = category.slug || '';
     document.getElementById('shopCategoryParent').value = category.parent_id || '';
@@ -47174,9 +47257,11 @@ async function saveCategory() {
   const categoryData = {
     name,
     name_en: document.getElementById('shopCategoryNameEn').value.trim() || null,
+    name_he: document.getElementById('shopCategoryNameHe').value.trim() || null,
     slug,
     description: document.getElementById('shopCategoryDescription').value.trim() || null,
     description_en: document.getElementById('shopCategoryDescriptionEn').value.trim() || null,
+    description_he: document.getElementById('shopCategoryDescriptionHe').value.trim() || null,
     parent_id: document.getElementById('shopCategoryParent').value || null,
     sort_order: parseInt(document.getElementById('shopCategorySortOrder').value) || 0,
     image_url: document.getElementById('shopCategoryImage').value.trim() || null,
@@ -47259,6 +47344,9 @@ async function loadVendorData(vendorId) {
     // English fields
     document.getElementById('shopVendorNameEn').value = vendor.name_en || '';
     document.getElementById('shopVendorDescriptionEn').value = vendor.description_en || '';
+    // Hebrew internal fields
+    document.getElementById('shopVendorNameHe').value = vendor.name_he || '';
+    document.getElementById('shopVendorDescriptionHe').value = vendor.description_he || '';
     // Common fields
     document.getElementById('shopVendorSlug').value = vendor.slug || '';
     document.getElementById('shopVendorEmail').value = vendor.contact_email || '';
@@ -47432,9 +47520,11 @@ async function saveVendor() {
   const vendorData = {
     name,
     name_en: document.getElementById('shopVendorNameEn').value.trim() || null,
+    name_he: document.getElementById('shopVendorNameHe').value.trim() || null,
     slug,
     description: document.getElementById('shopVendorDescription').value.trim() || null,
     description_en: document.getElementById('shopVendorDescriptionEn').value.trim() || null,
+    description_he: document.getElementById('shopVendorDescriptionHe').value.trim() || null,
     contact_email: document.getElementById('shopVendorEmail').value.trim() || null,
     contact_phone: document.getElementById('shopVendorPhone').value.trim() || null,
     website_url: document.getElementById('shopVendorWebsite').value.trim() || null,
@@ -47525,6 +47615,8 @@ async function loadDiscountData(discountId) {
     document.getElementById('shopDiscountDescription').value = discount.description || '';
     // English fields
     document.getElementById('shopDiscountDescriptionEn').value = discount.description_en || '';
+    // Hebrew internal fields
+    document.getElementById('shopDiscountDescriptionHe').value = discount.description_he || '';
     document.getElementById('shopDiscountType').value = discount.discount_type || 'percentage';
     document.getElementById('shopDiscountValue').value = discount.discount_value || '';
     document.getElementById('shopDiscountMinOrder').value = discount.minimum_order_amount || '';
@@ -47594,6 +47686,7 @@ async function saveDiscount() {
     code,
     description: document.getElementById('shopDiscountDescription').value.trim() || null,
     description_en: document.getElementById('shopDiscountDescriptionEn').value.trim() || null,
+    description_he: document.getElementById('shopDiscountDescriptionHe').value.trim() || null,
     discount_type: document.getElementById('shopDiscountType').value,
     discount_value: parseFloat(document.getElementById('shopDiscountValue').value) || 0,
     minimum_order_amount: parseFloat(document.getElementById('shopDiscountMinOrder').value) || null,

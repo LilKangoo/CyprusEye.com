@@ -40,9 +40,11 @@ const BLOG_TABLE_SELECT = `
   categories,
   categories_pl,
   categories_en,
+  categories_he,
   tags,
   tags_pl,
   tags_en,
+  tags_he,
   cta_services,
   author_profile_id,
   owner_partner_id,
@@ -123,8 +125,8 @@ const blogAdminState = {
   profilesById: {},
   resourcesByType: {},
   taxonomySuggestions: {
-    categories: { pl: [], en: [] },
-    tags: { pl: [], en: [] },
+    categories: { pl: [], en: [], he: [] },
+    tags: { pl: [], en: [], he: [] },
   },
   currentPage: 1,
   filterSearch: '',
@@ -133,13 +135,13 @@ const blogAdminState = {
   filterPartner: '',
   formMode: 'create',
   editingId: '',
-  slugDirtyByLang: { pl: false, en: false },
+  slugDirtyByLang: { pl: false, en: false, he: false },
   autoFillLocks: {},
   sessionDirty: {},
   activeTranslationLang: 'pl',
   pendingSubmitAction: 'save',
   editors: new Map(),
-  editorMediaSizeByLang: { pl: 'standard', en: 'standard' },
+  editorMediaSizeByLang: { pl: 'standard', en: 'standard', he: 'standard' },
   tiptapModules: null,
   tiptapFallback: false,
   taxonomySchemaMode: 'unknown',
@@ -153,7 +155,7 @@ const BLOG_FORM_SECTIONS = {
   cta: { defaultOpen: false },
   moderation: { defaultOpen: false },
 };
-const BLOG_TAXONOMY_LANGUAGES = ['pl', 'en'];
+const BLOG_TAXONOMY_LANGUAGES = ['pl', 'en', 'he'];
 
 const BLOG_COPY_FIELDS = {
   content: ['title', 'summary', 'lead', 'content_html'],
@@ -239,7 +241,7 @@ function isMissingBlogTaxonomySchemaError(error) {
     || combined.includes('does not exist')
     || combined.includes('could not find')
     || combined.includes('column')
-  ) && /(categories_pl|categories_en|tags_pl|tags_en)/i.test(combined);
+  ) && /(categories_pl|categories_en|categories_he|tags_pl|tags_en|tags_he)/i.test(combined);
 }
 
 async function executeBlogQueryWithTaxonomyFallback(primaryFactory, legacyFactory) {
@@ -264,8 +266,10 @@ function stripBlogTaxonomyPayload(payload) {
   const next = { ...(payload || {}) };
   delete next.categories_pl;
   delete next.categories_en;
+  delete next.categories_he;
   delete next.tags_pl;
   delete next.tags_en;
+  delete next.tags_he;
   return next;
 }
 
@@ -485,7 +489,7 @@ function getPostTaxonomyValues(post, kind, lang) {
 
 function getTaxonomyIdPrefix(kind, lang) {
   const kindLabel = `${kind.charAt(0).toUpperCase()}${kind.slice(1)}`;
-  const langLabel = lang === 'pl' ? 'Pl' : 'En';
+  const langLabel = `${lang.charAt(0).toUpperCase()}${lang.slice(1).toLowerCase()}`;
   return `blogForm${kindLabel}${langLabel}`;
 }
 
@@ -525,11 +529,15 @@ function syncTaxonomyModeUi() {
   const localized = blogAdminState.taxonomySchemaMode !== 'legacy';
   const categoriesPlCard = getTaxonomyCard('categories', 'pl');
   const categoriesEnCard = getTaxonomyCard('categories', 'en');
+  const categoriesHeCard = getTaxonomyCard('categories', 'he');
   const tagsPlCard = getTaxonomyCard('tags', 'pl');
   const tagsEnCard = getTaxonomyCard('tags', 'en');
+  const tagsHeCard = getTaxonomyCard('tags', 'he');
 
   if (categoriesEnCard) categoriesEnCard.hidden = !localized;
+  if (categoriesHeCard) categoriesHeCard.hidden = !localized;
   if (tagsEnCard) tagsEnCard.hidden = !localized;
+  if (tagsHeCard) tagsHeCard.hidden = !localized;
 
   const applyCardCopy = (card, title, help) => {
     if (!card) return;
@@ -582,9 +590,11 @@ function normalizeBlogRow(row) {
     categories: safeArray(row?.categories).map((entry) => String(entry || '').trim()).filter(Boolean),
     categories_pl: getPostTaxonomyValues(row, 'categories', 'pl'),
     categories_en: getPostTaxonomyValues(row, 'categories', 'en'),
+    categories_he: getPostTaxonomyValues(row, 'categories', 'he'),
     tags: safeArray(row?.tags).map((entry) => String(entry || '').trim()).filter(Boolean),
     tags_pl: getPostTaxonomyValues(row, 'tags', 'pl'),
     tags_en: getPostTaxonomyValues(row, 'tags', 'en'),
+    tags_he: getPostTaxonomyValues(row, 'tags', 'he'),
     cta_services: safeArray(row?.cta_services).slice(0, 3).map((entry) => ({
       type: normalizeBlogServiceType(entry?.type),
       resource_id: String(entry?.resource_id || entry?.resourceId || '').trim(),
@@ -615,7 +625,7 @@ function getPartnerLabel(partnerId) {
 }
 
 function getDisplayTranslation(post, language = 'en') {
-  return post?.translations?.[language] || post?.translations?.en || post?.translations?.pl || { title: '', slug: '' };
+  return post?.translations?.[language] || post?.translations?.en || post?.translations?.pl || Object.values(post?.translations || {}).find(Boolean) || { title: '', slug: '' };
 }
 
 function getDisplayAuthor(post, language = 'en') {
@@ -641,7 +651,7 @@ function closeModal() {
   destroyEditors();
   blogAdminState.editingId = '';
   blogAdminState.formMode = 'create';
-  blogAdminState.slugDirtyByLang = { pl: false, en: false };
+  blogAdminState.slugDirtyByLang = { pl: false, en: false, he: false };
   const ctaRows = $('#blogFormCtaRows');
   if (ctaRows) {
     ctaRows.innerHTML = '';
@@ -825,6 +835,10 @@ function updatePreviewCard() {
   const author = getTranslationFieldValue('author_name', lang)
     || getProfileLabel(String($('#blogFormAuthorProfile')?.value || '').trim())
     || 'No author';
+  const previewCard = $('#blogPreviewCard');
+  if (previewCard) {
+    previewCard.dir = lang === 'he' ? 'rtl' : 'ltr';
+  }
   $('#blogPreviewImage').src = cover;
   $('#blogPreviewTitle').textContent = title;
   $('#blogPreviewSummary').textContent = summary;
@@ -888,18 +902,21 @@ function buildValidationSnapshot() {
   (window.BLOG_TRANSLATION_LANGUAGES || []).forEach((lang) => {
     const code = lang.code;
     const translation = translations?.[code] || {};
+    const required = Boolean(lang.required) || hasBlogTranslationContent(translation);
     const titleMissing = !translation.title;
     const slugMissing = !translation.slug;
     const summaryMissing = !translation.summary;
     const contentMissingForLang = !String(translation.content_html || '').trim();
     const metaDescriptionMissing = !translation.meta_description;
-    setFieldInvalid('title', code, titleMissing);
-    setFieldInvalid('slug', code, slugMissing);
-    setFieldInvalid('summary', code, summaryMissing);
-    setFieldInvalid('content_html', code, contentMissingForLang);
-    setFieldInvalid('meta_description', code, metaDescriptionMissing);
-    contentMissing += [titleMissing, slugMissing, summaryMissing, contentMissingForLang].filter(Boolean).length;
-    seoMissing += metaDescriptionMissing ? 1 : 0;
+    setFieldInvalid('title', code, required && titleMissing);
+    setFieldInvalid('slug', code, required && slugMissing);
+    setFieldInvalid('summary', code, required && summaryMissing);
+    setFieldInvalid('content_html', code, required && contentMissingForLang);
+    setFieldInvalid('meta_description', code, required && metaDescriptionMissing);
+    if (required) {
+      contentMissing += [titleMissing, slugMissing, summaryMissing, contentMissingForLang].filter(Boolean).length;
+      seoMissing += metaDescriptionMissing ? 1 : 0;
+    }
   });
 
   const scheduledMissingDate = status === 'scheduled' && !publishedAt;
@@ -1282,16 +1299,13 @@ async function ensureFormOptionsLoaded() {
 }
 
 function getInitialTranslationValues(post = null) {
-  return {
-    pl: {
-      ...(post?.translations?.pl || {}),
-      cover_alt: String(post?.cover_image_alt?.pl || '').trim(),
-    },
-    en: {
-      ...(post?.translations?.en || {}),
-      cover_alt: String(post?.cover_image_alt?.en || '').trim(),
-    },
-  };
+  return (window.BLOG_TRANSLATION_LANGUAGES || []).reduce((accumulator, lang) => {
+    accumulator[lang.code] = {
+      ...(post?.translations?.[lang.code] || {}),
+      cover_alt: String(post?.cover_image_alt?.[lang.code] || '').trim(),
+    };
+    return accumulator;
+  }, {});
 }
 
 function renderCtaRows(rows = []) {
@@ -2142,7 +2156,7 @@ function initializeTranslationState(post, translations) {
   blogAdminState.pendingSubmitAction = 'save';
   blogAdminState.sessionDirty = createTranslationState(false);
   blogAdminState.autoFillLocks = createTranslationState(false);
-  blogAdminState.editorMediaSizeByLang = { pl: 'standard', en: 'standard' };
+  blogAdminState.editorMediaSizeByLang = { pl: 'standard', en: 'standard', he: 'standard' };
 
   (window.BLOG_TRANSLATION_LANGUAGES || []).forEach((lang) => {
     const code = lang.code;
@@ -2346,9 +2360,26 @@ function collectTranslations() {
   }, {});
 }
 
+function hasBlogTranslationContent(translation) {
+  return [
+    translation?.slug,
+    translation?.title,
+    translation?.meta_title,
+    translation?.meta_description,
+    translation?.summary,
+    translation?.lead,
+    translation?.author_name,
+    translation?.author_url,
+    translation?.og_image_url,
+    translation?.content_html,
+  ].some((value) => String(value || '').trim());
+}
+
 function validateTranslations(translations) {
   for (const lang of window.BLOG_TRANSLATION_LANGUAGES) {
     const translation = translations?.[lang.code];
+    const required = Boolean(lang.required) || hasBlogTranslationContent(translation);
+    if (!required) continue;
     if (!translation?.title) {
       throw new Error(`Title (${lang.code.toUpperCase()}) is required.`);
     }
@@ -2448,27 +2479,27 @@ async function saveBlogForm(event) {
     categories: Array.from(new Set(
       blogAdminState.taxonomySchemaMode === 'legacy'
         ? getTaxonomyValues('categories', 'pl')
-        : [
-          ...getTaxonomyValues('categories', 'pl'),
-          ...getTaxonomyValues('categories', 'en'),
-        ]
+        : BLOG_TAXONOMY_LANGUAGES.flatMap((lang) => getTaxonomyValues('categories', lang))
     )),
     categories_pl: getTaxonomyValues('categories', 'pl'),
     categories_en: blogAdminState.taxonomySchemaMode === 'legacy'
       ? getTaxonomyValues('categories', 'pl')
       : getTaxonomyValues('categories', 'en'),
+    categories_he: blogAdminState.taxonomySchemaMode === 'legacy'
+      ? []
+      : getTaxonomyValues('categories', 'he'),
     tags: Array.from(new Set(
       blogAdminState.taxonomySchemaMode === 'legacy'
         ? getTaxonomyValues('tags', 'pl')
-        : [
-          ...getTaxonomyValues('tags', 'pl'),
-          ...getTaxonomyValues('tags', 'en'),
-        ]
+        : BLOG_TAXONOMY_LANGUAGES.flatMap((lang) => getTaxonomyValues('tags', lang))
     )),
     tags_pl: getTaxonomyValues('tags', 'pl'),
     tags_en: blogAdminState.taxonomySchemaMode === 'legacy'
       ? getTaxonomyValues('tags', 'pl')
       : getTaxonomyValues('tags', 'en'),
+    tags_he: blogAdminState.taxonomySchemaMode === 'legacy'
+      ? []
+      : getTaxonomyValues('tags', 'he'),
     cta_services: collectCtaRows(),
     author_profile_id: String($('#blogFormAuthorProfile')?.value || '').trim() || null,
     owner_partner_id: ownerPartnerId || null,
@@ -2522,26 +2553,40 @@ async function saveBlogForm(event) {
       blogPostId = data?.id || '';
     }
 
-    const translationPayloads = window.BLOG_TRANSLATION_LANGUAGES.map((lang) => ({
-      blog_post_id: blogPostId,
-      lang: lang.code,
-      slug: translations[lang.code].slug,
-      title: translations[lang.code].title,
-      meta_title: translations[lang.code].meta_title || null,
-      meta_description: translations[lang.code].meta_description,
-      summary: translations[lang.code].summary,
-      lead: translations[lang.code].lead || null,
-      author_name: translations[lang.code].author_name || null,
-      author_url: translations[lang.code].author_url || null,
-      content_json: translations[lang.code].content_json,
-      content_html: translations[lang.code].content_html,
-      og_image_url: translations[lang.code].og_image_url || null,
-    }));
+    const translationPayloads = window.BLOG_TRANSLATION_LANGUAGES
+      .filter((lang) => lang.required || hasBlogTranslationContent(translations[lang.code]))
+      .map((lang) => ({
+        blog_post_id: blogPostId,
+        lang: lang.code,
+        slug: translations[lang.code].slug,
+        title: translations[lang.code].title,
+        meta_title: translations[lang.code].meta_title || null,
+        meta_description: translations[lang.code].meta_description,
+        summary: translations[lang.code].summary,
+        lead: translations[lang.code].lead || null,
+        author_name: translations[lang.code].author_name || null,
+        author_url: translations[lang.code].author_url || null,
+        content_json: translations[lang.code].content_json,
+        content_html: translations[lang.code].content_html,
+        og_image_url: translations[lang.code].og_image_url || null,
+      }));
 
     const { error: translationError } = await client
       .from('blog_post_translations')
       .upsert(translationPayloads, { onConflict: 'blog_post_id,lang' });
     if (translationError) throw new Error(translationError.message || 'Failed to save blog translations');
+
+    const emptyOptionalLangs = window.BLOG_TRANSLATION_LANGUAGES
+      .filter((lang) => !lang.required && !hasBlogTranslationContent(translations[lang.code]))
+      .map((lang) => lang.code);
+    if (emptyOptionalLangs.length) {
+      const { error: cleanupError } = await client
+        .from('blog_post_translations')
+        .delete()
+        .eq('blog_post_id', blogPostId)
+        .in('lang', emptyOptionalLangs);
+      if (cleanupError) throw new Error(cleanupError.message || 'Failed to clean empty optional blog translations');
+    }
 
     const successLabel = submitIntent === 'draft'
       ? 'Draft saved'

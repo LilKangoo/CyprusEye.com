@@ -443,10 +443,11 @@
   };
 
   const PARTNER_BLOG_LANGUAGES = [
-    { code: 'pl', label: 'Polish' },
-    { code: 'en', label: 'English' },
+    { code: 'pl', label: 'Polish', required: true, rtl: false, internal: false },
+    { code: 'en', label: 'English', required: true, rtl: false, internal: false },
+    { code: 'he', label: 'Hebrew', required: false, rtl: true, internal: true },
   ];
-  const PARTNER_BLOG_TAXONOMY_LANGUAGES = ['pl', 'en'];
+  const PARTNER_BLOG_TAXONOMY_LANGUAGES = ['pl', 'en', 'he'];
 
   const PARTNER_BLOG_SERVICE_TYPES = [
     { type: 'trips', label: 'Trips' },
@@ -486,9 +487,11 @@
     categories,
     categories_pl,
     categories_en,
+    categories_he,
     tags,
     tags_pl,
     tags_en,
+    tags_he,
     cta_services,
     owner_partner_id,
     created_at,
@@ -3425,6 +3428,7 @@
       || window.appI18n?.language
       || 'en'
     ).trim().toLowerCase();
+    if (lang.startsWith('he')) return 'he';
     return lang.startsWith('pl') ? 'pl' : 'en';
   }
 
@@ -3551,10 +3555,11 @@
       return {
         pl: String(value.pl || value.en || direct).trim(),
         en: String(value.en || value.pl || direct).trim(),
+        he: String(value.he || value.en || value.pl || direct).trim(),
       };
     }
     const normalized = String(value || direct).trim();
-    return { pl: normalized, en: normalized };
+    return { pl: normalized, en: normalized, he: normalized };
   }
 
   function getPartnerLinksLocalizedText(item, field, preferred = 'en', fallbackField = '') {
@@ -3564,7 +3569,11 @@
       ? String(item[fallbackField] || '').trim()
       : '';
     if (pack && typeof pack === 'object') {
-      const lang = String(preferred || 'en').trim().toLowerCase() === 'pl' ? 'pl' : 'en';
+      const lang = String(preferred || 'en').trim().toLowerCase().startsWith('he')
+        ? 'he'
+        : String(preferred || 'en').trim().toLowerCase() === 'pl'
+          ? 'pl'
+          : 'en';
       return String(pack[lang] || pack.en || pack.pl || fallbackValue).trim();
     }
     return fallbackValue;
@@ -4026,10 +4035,12 @@
       const titleByLang = {
         pl: String(row?.name || row?.name_en || row?.slug || resourceId).trim(),
         en: String(row?.name_en || row?.name || row?.slug || resourceId).trim(),
+        he: String(row?.name_he || row?.name_en || row?.name || row?.slug || resourceId).trim(),
       };
       const descriptionByLang = {
         pl: normalizePreviewText(row?.short_description || row?.description || row?.short_description_en || row?.description_en),
         en: normalizePreviewText(row?.short_description_en || row?.description_en || row?.short_description || row?.description),
+        he: normalizePreviewText(row?.short_description_he || row?.description_he || row?.short_description_en || row?.description_en || row?.short_description || row?.description),
       };
       const categoryLabel = String(extra.categoryLabel || '').trim();
       const priceFromValue = getPartnerLinksPositiveNumber(row?.price || row?.sale_price || 0);
@@ -4050,19 +4061,22 @@
 
     if (normalizedType === 'blog') {
       const translations = Array.isArray(row?.translations) ? row.translations : [];
-      const byLang = { pl: null, en: null };
+      const byLang = { pl: null, en: null, he: null };
       translations.forEach((translation) => {
         const lang = String(translation?.lang || '').trim().toLowerCase();
-        if (lang === 'pl' || lang === 'en') {
+        if (lang === 'pl' || lang === 'en' || lang === 'he') {
           byLang[lang] = translation;
         }
       });
       const titlePl = String(byLang.pl?.title || byLang.en?.title || '').trim();
       const titleEn = String(byLang.en?.title || byLang.pl?.title || '').trim();
+      const titleHe = String(byLang.he?.title || byLang.en?.title || byLang.pl?.title || '').trim();
       const summaryPl = String(byLang.pl?.summary || byLang.pl?.lead || byLang.en?.summary || byLang.en?.lead || '').trim();
       const summaryEn = String(byLang.en?.summary || byLang.en?.lead || byLang.pl?.summary || byLang.pl?.lead || '').trim();
+      const summaryHe = String(byLang.he?.summary || byLang.he?.lead || byLang.en?.summary || byLang.en?.lead || byLang.pl?.summary || byLang.pl?.lead || '').trim();
       const slugPl = String(byLang.pl?.slug || byLang.en?.slug || '').trim();
       const slugEn = String(byLang.en?.slug || byLang.pl?.slug || '').trim();
+      const slugHe = String(byLang.he?.slug || byLang.en?.slug || byLang.pl?.slug || '').trim();
       return {
         key: `blog:${resourceId}`,
         type: 'blog',
@@ -4071,17 +4085,20 @@
         titleByLang: {
           pl: titlePl || titleEn,
           en: titleEn || titlePl,
+          he: titleHe || titleEn || titlePl,
         },
         meta: formatPartnerShortDate(row?.published_at) || 'Published',
         description: summaryEn || summaryPl,
         descriptionByLang: {
           pl: summaryPl || summaryEn,
           en: summaryEn || summaryPl,
+          he: summaryHe || summaryEn || summaryPl,
         },
         imageUrl: getFirstMediaUrl(row?.cover_image_url),
         slugByLang: {
           pl: slugPl,
           en: slugEn,
+          he: slugHe,
         },
       };
     }
@@ -4453,9 +4470,11 @@
     }
 
     els.partnerDiscountCodesList.innerHTML = rows.map((row) => {
-      const description = uiLanguage === 'pl'
-        ? String(row?.description || row?.description_en || row?.name || 'Partner discount code').trim()
-        : String(row?.description_en || row?.description || row?.name || 'Partner discount code').trim();
+      const description = pickPartnerBlogLocalizedValue({
+        he: row?.description_he,
+        en: row?.description_en,
+        pl: row?.description,
+      }, uiLanguage) || String(row?.name || 'Partner discount code').trim();
       const valueLabel = formatPartnerDiscountValue(row);
       const typeLabel = `${partnerLinksTypeLabel(row?.type)}${row?.whereWorks ? ` · ${row.whereWorks}` : ''}`;
       return `
@@ -10834,10 +10853,10 @@
     state.blocks = Array.isArray(data) ? data : [];
   }
 
-  function normalizeTitleJson(value) {
+  function normalizeTitleJson(value, lang = 'pl') {
     if (!value) return '';
     if (typeof value === 'string') return value;
-    if (typeof value === 'object') return value.pl || value.en || value.el || value.he || '';
+    if (typeof value === 'object') return pickPartnerBlogLocalizedValue(value, lang);
     return '';
   }
 
@@ -10887,7 +10906,7 @@
       || combined.includes('does not exist')
       || combined.includes('could not find')
       || combined.includes('column')
-    ) && /(categories_pl|categories_en|tags_pl|tags_en)/i.test(combined);
+    ) && /(categories_pl|categories_en|categories_he|tags_pl|tags_en|tags_he)/i.test(combined);
   }
 
   async function executePartnerBlogTaxonomyFallback(primaryFactory, legacyFactory) {
@@ -10902,8 +10921,10 @@
     const next = { ...(payload || {}) };
     delete next.categories_pl;
     delete next.categories_en;
+    delete next.categories_he;
     delete next.tags_pl;
     delete next.tags_en;
+    delete next.tags_he;
     return next;
   }
 
@@ -10917,13 +10938,43 @@
 
   function getPartnerBlogTaxonomyRefs(kind, lang) {
     const kindLabel = kind === 'categories' ? 'Categories' : 'Tags';
-    const langLabel = lang === 'pl' ? 'Pl' : 'En';
+    const langLabel = getPartnerBlogLangSuffix(lang);
     return {
       input: els[`partnerBlogForm${kindLabel}${langLabel}`],
       selected: els[`partnerBlogForm${kindLabel}${langLabel}Selected`],
       composer: els[`partnerBlogForm${kindLabel}${langLabel}Input`],
       suggestions: els[`partnerBlogForm${kindLabel}${langLabel}Suggestions`],
     };
+  }
+
+  function getPartnerBlogLanguage(code) {
+    const normalized = String(code || '').trim().toLowerCase();
+    return PARTNER_BLOG_LANGUAGES.find((lang) => lang.code === normalized) || PARTNER_BLOG_LANGUAGES[0];
+  }
+
+  function getPartnerBlogLangSuffix(code) {
+    const normalized = String(code || '').trim().toLowerCase();
+    return normalized ? `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)}` : 'Pl';
+  }
+
+  function getPartnerBlogFallbackChain(lang) {
+    const normalized = String(lang || '').trim().toLowerCase();
+    const chain = normalized === 'he' ? ['he', 'en', 'pl'] : normalized === 'en' ? ['en', 'pl'] : ['pl', 'en'];
+    return chain.concat(PARTNER_BLOG_LANGUAGES.map((entry) => entry.code).filter((code) => !chain.includes(code)));
+  }
+
+  function pickPartnerBlogLocalizedValue(value, lang = 'en') {
+    if (value === null || value === undefined) return '';
+    if (typeof value !== 'object') return String(value || '').trim();
+    const chain = getPartnerBlogFallbackChain(lang);
+    for (const code of chain) {
+      const candidate = value?.[code];
+      if (candidate !== null && candidate !== undefined && String(candidate).trim()) {
+        return String(candidate).trim();
+      }
+    }
+    const first = Object.values(value).find((candidate) => candidate !== null && candidate !== undefined && String(candidate).trim());
+    return first === undefined ? '' : String(first).trim();
   }
 
   function firstSentenceText(value) {
@@ -10954,11 +11005,14 @@
   }
 
   function resetPartnerBlogDirtyState() {
-    state.partnerBlog.dirtyByLang = {
-      pl: { title: false, slug: false, lead: false, content_html: false },
-      en: { title: false, slug: false, lead: false, content_html: false },
-    };
-    state.partnerBlog.slugDirtyByLang = { pl: false, en: false };
+    state.partnerBlog.dirtyByLang = PARTNER_BLOG_LANGUAGES.reduce((accumulator, lang) => {
+      accumulator[lang.code] = { title: false, slug: false, lead: false, content_html: false };
+      return accumulator;
+    }, {});
+    state.partnerBlog.slugDirtyByLang = PARTNER_BLOG_LANGUAGES.reduce((accumulator, lang) => {
+      accumulator[lang.code] = false;
+      return accumulator;
+    }, {});
   }
 
   function normalizePartnerBlogRow(row) {
@@ -10984,9 +11038,11 @@
       categories: Array.isArray(row?.categories) ? row.categories.map((entry) => String(entry || '').trim()).filter(Boolean) : [],
       categories_pl: getPartnerBlogTaxonomyValuesFromPost(row, 'categories', 'pl'),
       categories_en: getPartnerBlogTaxonomyValuesFromPost(row, 'categories', 'en'),
+      categories_he: getPartnerBlogTaxonomyValuesFromPost(row, 'categories', 'he'),
       tags: Array.isArray(row?.tags) ? row.tags.map((entry) => String(entry || '').trim()).filter(Boolean) : [],
       tags_pl: getPartnerBlogTaxonomyValuesFromPost(row, 'tags', 'pl'),
       tags_en: getPartnerBlogTaxonomyValuesFromPost(row, 'tags', 'en'),
+      tags_he: getPartnerBlogTaxonomyValuesFromPost(row, 'tags', 'he'),
       cta_services: Array.isArray(row?.cta_services) ? row.cta_services.slice(0, 3).map((entry) => ({
         type: normalizePartnerBlogServiceType(entry?.type),
         resource_id: String(entry?.resource_id || '').trim(),
@@ -11000,7 +11056,14 @@
   }
 
   function getPartnerBlogDisplayTranslation(post, lang = 'en') {
-    return post?.translations?.[lang] || post?.translations?.pl || post?.translations?.en || {};
+    const translations = post?.translations || {};
+    for (const code of getPartnerBlogFallbackChain(lang)) {
+      const current = translations?.[code];
+      if (current && (current.title || current.slug || current.lead || current.content_html)) {
+        return current;
+      }
+    }
+    return Object.values(translations).find((current) => current && (current.title || current.slug || current.lead || current.content_html)) || {};
   }
 
   function getPartnerBlogCurrentPartner() {
@@ -11027,8 +11090,14 @@
   }
 
   function collectPartnerBlogTaxonomySuggestions() {
-    const categories = { pl: new Set(), en: new Set() };
-    const tags = { pl: new Set(), en: new Set() };
+    const categories = PARTNER_BLOG_TAXONOMY_LANGUAGES.reduce((accumulator, lang) => {
+      accumulator[lang] = new Set();
+      return accumulator;
+    }, {});
+    const tags = PARTNER_BLOG_TAXONOMY_LANGUAGES.reduce((accumulator, lang) => {
+      accumulator[lang] = new Set();
+      return accumulator;
+    }, {});
     (state.partnerBlog.items || []).forEach((post) => {
       PARTNER_BLOG_TAXONOMY_LANGUAGES.forEach((lang) => {
         getPartnerBlogTaxonomyValuesFromPost(post, 'categories', lang).forEach((entry) => {
@@ -11042,6 +11111,8 @@
       });
     });
     PARTNER_BLOG_TAXONOMY_LANGUAGES.forEach((lang) => {
+      state.partnerBlog.taxonomySuggestions.categories[lang] = state.partnerBlog.taxonomySuggestions.categories[lang] || [];
+      state.partnerBlog.taxonomySuggestions.tags[lang] = state.partnerBlog.taxonomySuggestions.tags[lang] || [];
       state.partnerBlog.taxonomySuggestions.categories[lang] = Array.from(categories[lang]).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
       state.partnerBlog.taxonomySuggestions.tags[lang] = Array.from(tags[lang]).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
     });
@@ -11101,7 +11172,7 @@
   }
 
   function getPartnerBlogTranslationField(field, lang) {
-    const suffix = lang === 'pl' ? 'Pl' : 'En';
+    const suffix = getPartnerBlogLangSuffix(lang);
     const map = {
       title: `partnerBlogTitle${suffix}`,
       slug: `partnerBlogSlug${suffix}`,
@@ -11160,13 +11231,17 @@
   }
 
   function switchPartnerBlogLanguage(lang) {
-    state.partnerBlog.activeLang = lang === 'en' ? 'en' : 'pl';
+    const language = getPartnerBlogLanguage(lang);
+    state.partnerBlog.activeLang = language.code;
     document.querySelectorAll('[data-partner-blog-lang-tab]').forEach((button) => {
       button.classList.toggle('active', String(button.getAttribute('data-partner-blog-lang-tab') || '') === state.partnerBlog.activeLang);
     });
     document.querySelectorAll('[data-partner-blog-lang-content]').forEach((panel) => {
       panel.classList.toggle('active', String(panel.getAttribute('data-partner-blog-lang-content') || '') === state.partnerBlog.activeLang);
     });
+    if (els.partnerBlogModal) {
+      els.partnerBlogModal.setAttribute('dir', language.rtl ? 'rtl' : 'ltr');
+    }
   }
 
   function renderPartnerBlogEditorToolbar(lang) {
@@ -11285,12 +11360,14 @@
           attributes: {
             class: 'partner-blog-editor-surface__inner',
             spellcheck: 'true',
+            dir: lang.rtl ? 'rtl' : 'ltr',
           },
         },
         onUpdate: ({ editor: currentEditor }) => {
           const stateEntry = state.partnerBlog.editors.get(lang.code);
           if (stateEntry?.programmaticUpdate) return;
           fallback.value = currentEditor.getHTML();
+          state.partnerBlog.dirtyByLang[lang.code] = state.partnerBlog.dirtyByLang[lang.code] || { title: false, slug: false, lead: false, content_html: false };
           state.partnerBlog.dirtyByLang[lang.code].content_html = true;
         },
       });
@@ -11337,37 +11414,42 @@
   }
 
   function normalizePartnerBlogResourceRow(type, row) {
+    const lang = state.partnerBlog.activeLang || 'en';
     if (type === 'trips') {
       return {
         id: row.id,
-        label: normalizeTitleJson(row.title) || row.slug || row.id,
+        label: normalizeTitleJson(row.title, lang) || row.slug || row.id,
         meta: String(row.start_city || '').trim(),
       };
     }
     if (type === 'hotels') {
       return {
         id: row.id,
-        label: normalizeTitleJson(row.title) || row.slug || row.id,
+        label: normalizeTitleJson(row.title, lang) || row.slug || row.id,
         meta: String(row.city || '').trim(),
       };
     }
     if (type === 'cars') {
       return {
         id: row.id,
-        label: normalizeTitleJson(row.car_model) || normalizeTitleJson(row.car_type) || row.id,
+        label: normalizeTitleJson(row.car_model, lang) || normalizeTitleJson(row.car_type, lang) || row.id,
         meta: String(row.location || '').trim(),
       };
     }
     if (type === 'pois') {
       return {
         id: row.id,
-        label: normalizeTitleJson(row.title) || row.name_en || row.name_pl || row.slug || row.id,
+        label: normalizeTitleJson(row.title, lang) || pickPartnerBlogLocalizedValue({ he: row.name_he, en: row.name_en, pl: row.name_pl }, lang) || row.slug || row.id,
         meta: String(row.location_name || row.city || '').trim(),
       };
     }
     return {
       id: row.id,
-      label: String(row.title_en || row.title_pl || row.name_en || row.name_pl || row.slug || row.id).trim(),
+      label: pickPartnerBlogLocalizedValue({
+        he: row.title_he || row.name_he,
+        en: row.title_en || row.name_en,
+        pl: row.title_pl || row.name_pl,
+      }, lang) || String(row.slug || row.id).trim(),
       meta: String(row.location_name || row.category || '').trim(),
     };
   }
@@ -11529,8 +11611,8 @@
   }
 
   function copyPartnerBlogTranslation(targetLang, sourceLang) {
-    const target = targetLang === 'en' ? 'en' : 'pl';
-    const source = sourceLang === 'en' ? 'en' : 'pl';
+    const target = getPartnerBlogLanguage(targetLang).code;
+    const source = getPartnerBlogLanguage(sourceLang).code;
     if (target === source) return;
     const sourceTitle = getPartnerBlogTranslationValue('title', source);
     const sourceLead = getPartnerBlogTranslationValue('lead', source);
@@ -11549,6 +11631,7 @@
     setPartnerBlogTranslationField('title', target, sourceTitle);
     setPartnerBlogTranslationField('lead', target, sourceLead);
     setPartnerBlogTranslationField('content_html', target, sourceContent);
+    state.partnerBlog.dirtyByLang[target] = state.partnerBlog.dirtyByLang[target] || { title: false, slug: false, lead: false, content_html: false };
     state.partnerBlog.dirtyByLang[target].title = true;
     state.partnerBlog.dirtyByLang[target].lead = true;
     state.partnerBlog.dirtyByLang[target].content_html = true;
@@ -11665,9 +11748,17 @@
     }, {});
   }
 
+  function hasPartnerBlogTranslationContent(translation) {
+    if (!translation) return false;
+    return ['title', 'slug', 'lead', 'content_html'].some((field) => String(translation[field] || '').trim());
+  }
+
   function validatePartnerBlogTranslations(translations) {
     PARTNER_BLOG_LANGUAGES.forEach((lang) => {
       const current = translations?.[lang.code] || {};
+      if (!lang.required && !hasPartnerBlogTranslationContent(current)) {
+        return;
+      }
       if (!current.title) throw new Error(`Title (${lang.code.toUpperCase()}) is required.`);
       if (!current.slug) throw new Error(`Slug (${lang.code.toUpperCase()}) is required.`);
       if (!current.meta_description) throw new Error(`Lead (${lang.code.toUpperCase()}) is required to build the meta description.`);
@@ -11775,6 +11866,7 @@
       if (!search) return true;
       const en = getPartnerBlogDisplayTranslation(post, 'en');
       const pl = getPartnerBlogDisplayTranslation(post, 'pl');
+      const he = getPartnerBlogDisplayTranslation(post, 'he');
       const haystack = [
         post.id,
         post.status,
@@ -11785,6 +11877,8 @@
         en.slug,
         pl.title,
         pl.slug,
+        he.title,
+        he.slug,
       ].join(' ').toLowerCase();
       return haystack.includes(search);
     });
@@ -11908,17 +12002,17 @@
         featured: false,
         allow_comments: false,
         categories: Array.from(new Set([
-          ...getPartnerBlogTaxonomyValues('categories', 'pl'),
-          ...getPartnerBlogTaxonomyValues('categories', 'en'),
+          ...PARTNER_BLOG_TAXONOMY_LANGUAGES.flatMap((lang) => getPartnerBlogTaxonomyValues('categories', lang)),
         ])),
         categories_pl: getPartnerBlogTaxonomyValues('categories', 'pl'),
         categories_en: getPartnerBlogTaxonomyValues('categories', 'en'),
+        categories_he: getPartnerBlogTaxonomyValues('categories', 'he'),
         tags: Array.from(new Set([
-          ...getPartnerBlogTaxonomyValues('tags', 'pl'),
-          ...getPartnerBlogTaxonomyValues('tags', 'en'),
+          ...PARTNER_BLOG_TAXONOMY_LANGUAGES.flatMap((lang) => getPartnerBlogTaxonomyValues('tags', lang)),
         ])),
         tags_pl: getPartnerBlogTaxonomyValues('tags', 'pl'),
         tags_en: getPartnerBlogTaxonomyValues('tags', 'en'),
+        tags_he: getPartnerBlogTaxonomyValues('tags', 'he'),
         cta_services: collectPartnerBlogCtaRows(),
         author_profile_id: null,
         owner_partner_id: state.selectedPartnerId,
@@ -11964,26 +12058,40 @@
         blogPostId = data?.id || '';
       }
 
-      const translationPayloads = PARTNER_BLOG_LANGUAGES.map((lang) => ({
-        blog_post_id: blogPostId,
-        lang: lang.code,
-        slug: translations[lang.code].slug,
-        title: translations[lang.code].title,
-        meta_title: translations[lang.code].meta_title,
-        meta_description: translations[lang.code].meta_description,
-        summary: translations[lang.code].summary,
-        lead: translations[lang.code].lead || null,
-        author_name: null,
-        author_url: null,
-        content_json: translations[lang.code].content_json,
-        content_html: translations[lang.code].content_html,
-        og_image_url: null,
-      }));
+      const translationPayloads = PARTNER_BLOG_LANGUAGES
+        .filter((lang) => lang.required || hasPartnerBlogTranslationContent(translations[lang.code]))
+        .map((lang) => ({
+          blog_post_id: blogPostId,
+          lang: lang.code,
+          slug: translations[lang.code].slug,
+          title: translations[lang.code].title,
+          meta_title: translations[lang.code].meta_title,
+          meta_description: translations[lang.code].meta_description,
+          summary: translations[lang.code].summary,
+          lead: translations[lang.code].lead || null,
+          author_name: null,
+          author_url: null,
+          content_json: translations[lang.code].content_json,
+          content_html: translations[lang.code].content_html,
+          og_image_url: null,
+        }));
 
       const { error: translationError } = await state.sb
         .from('blog_post_translations')
         .upsert(translationPayloads, { onConflict: 'blog_post_id,lang' });
       if (translationError) throw translationError;
+
+      const emptyOptionalLangs = PARTNER_BLOG_LANGUAGES
+        .filter((lang) => !lang.required && !hasPartnerBlogTranslationContent(translations[lang.code]))
+        .map((lang) => lang.code);
+      if (emptyOptionalLangs.length) {
+        const { error: cleanupError } = await state.sb
+          .from('blog_post_translations')
+          .delete()
+          .eq('blog_post_id', blogPostId)
+          .in('lang', emptyOptionalLangs);
+        if (cleanupError) throw cleanupError;
+      }
 
       showToast(action === 'submit' ? 'Post sent for approval' : (editingId ? 'Draft updated' : 'Draft created'), 'success');
       closePartnerBlogModal();
@@ -12172,6 +12280,7 @@
         const lang = String(target.getAttribute('data-lang') || '').trim();
         const field = String(target.getAttribute('data-partner-blog-field') || '').trim();
         if (!lang || !field) return;
+        state.partnerBlog.dirtyByLang[lang] = state.partnerBlog.dirtyByLang[lang] || { title: false, slug: false, lead: false, content_html: false };
 
         if (field === 'slug' && target instanceof HTMLInputElement) {
           target.value = slugifyText(target.value || '');
@@ -14145,6 +14254,10 @@
     els.partnerBlogFormCategoriesEnSelected = $('partnerBlogFormCategoriesEnSelected');
     els.partnerBlogFormCategoriesEnInput = $('partnerBlogFormCategoriesEnInput');
     els.partnerBlogFormCategoriesEnSuggestions = $('partnerBlogFormCategoriesEnSuggestions');
+    els.partnerBlogFormCategoriesHe = $('partnerBlogFormCategoriesHe');
+    els.partnerBlogFormCategoriesHeSelected = $('partnerBlogFormCategoriesHeSelected');
+    els.partnerBlogFormCategoriesHeInput = $('partnerBlogFormCategoriesHeInput');
+    els.partnerBlogFormCategoriesHeSuggestions = $('partnerBlogFormCategoriesHeSuggestions');
     els.partnerBlogFormTagsPl = $('partnerBlogFormTagsPl');
     els.partnerBlogFormTagsPlSelected = $('partnerBlogFormTagsPlSelected');
     els.partnerBlogFormTagsPlInput = $('partnerBlogFormTagsPlInput');
@@ -14153,6 +14266,10 @@
     els.partnerBlogFormTagsEnSelected = $('partnerBlogFormTagsEnSelected');
     els.partnerBlogFormTagsEnInput = $('partnerBlogFormTagsEnInput');
     els.partnerBlogFormTagsEnSuggestions = $('partnerBlogFormTagsEnSuggestions');
+    els.partnerBlogFormTagsHe = $('partnerBlogFormTagsHe');
+    els.partnerBlogFormTagsHeSelected = $('partnerBlogFormTagsHeSelected');
+    els.partnerBlogFormTagsHeInput = $('partnerBlogFormTagsHeInput');
+    els.partnerBlogFormTagsHeSuggestions = $('partnerBlogFormTagsHeSuggestions');
     els.partnerBlogEditorRuntimeNote = $('partnerBlogEditorRuntimeNote');
     els.btnPartnerBlogAddCta = $('btnPartnerBlogAddCta');
     els.partnerBlogFormCtaRows = $('partnerBlogFormCtaRows');

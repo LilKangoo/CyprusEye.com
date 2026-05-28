@@ -1,5 +1,28 @@
 function normalizeLanguage(value) {
-  return String(value || '').trim().toLowerCase() === 'pl' ? 'pl' : 'en';
+  const normalized = String(value || '').trim().toLowerCase().split('-')[0];
+  if (normalized === 'pl' || normalized === 'en' || normalized === 'he') return normalized;
+  return 'en';
+}
+
+function getLanguageFallbackChain(language) {
+  const normalized = normalizeLanguage(language);
+  if (window.CELanguage?.getLanguageFallbackChain) {
+    return window.CELanguage.getLanguageFallbackChain(normalized);
+  }
+  if (normalized === 'pl') return ['pl', 'en'];
+  if (normalized === 'he') return ['he', 'en', 'pl'];
+  return ['en', 'pl'];
+}
+
+function pickLocalizedField(source, fieldName, language, fallback = '') {
+  if (window.CELanguage?.pickLocalizedField) {
+    return window.CELanguage.pickLocalizedField(source, fieldName, language, fallback);
+  }
+  for (const code of getLanguageFallbackChain(language)) {
+    const value = source?.[`${fieldName}_${code}`] || (code === 'pl' ? source?.[fieldName] : '');
+    if (value) return value;
+  }
+  return fallback;
 }
 
 function safeArray(value) {
@@ -48,39 +71,29 @@ function normalizeCtaServices(ctaServices) {
 }
 
 function pickLocalizedObjectField(source, language) {
+  if (window.CELanguage?.pickLocalizedValue) {
+    return String(window.CELanguage.pickLocalizedValue(source, language, '') || '').trim();
+  }
   if (typeof source === 'string') {
     return source;
   }
   if (!source || typeof source !== 'object') {
     return '';
   }
-  return String(
-    source[language]
-    || source.en
-    || source.pl
-    || Object.values(source).find((entry) => typeof entry === 'string')
-    || ''
-  ).trim();
+  for (const code of getLanguageFallbackChain(language)) {
+    if (source[code]) return String(source[code]).trim();
+  }
+  return String(Object.values(source).find((entry) => typeof entry === 'string') || '').trim();
 }
 
 function pickLocalizedPoiField(row, fieldBase, language) {
   const i18nValue = row?.[`${fieldBase}_i18n`];
   if (i18nValue && typeof i18nValue === 'object') {
-    const localized = String(
-      i18nValue[language]
-      || i18nValue.en
-      || i18nValue.pl
-      || Object.values(i18nValue).find((entry) => typeof entry === 'string')
-      || ''
-    ).trim();
+    const localized = pickLocalizedObjectField(i18nValue, language);
     if (localized) return localized;
   }
 
-  const localizedLegacy = String(
-    language === 'pl'
-      ? row?.[`${fieldBase}_pl`] || row?.[`${fieldBase}_en`] || ''
-      : row?.[`${fieldBase}_en`] || row?.[`${fieldBase}_pl`] || ''
-  ).trim();
+  const localizedLegacy = String(pickLocalizedField(row, fieldBase, language, '')).trim();
   if (localizedLegacy) return localizedLegacy;
 
   return String(row?.[fieldBase] || row?.title || row?.slug || '').trim();
@@ -199,11 +212,11 @@ function buildShopHref(row, language) {
 
 function buildBlogHref(row, language) {
   const translations = safeArray(row?.translations);
-  const preferred = translations.find((entry) => normalizeLanguage(entry?.lang) === normalizeLanguage(language)) || null;
-  const fallback = translations.find((entry) => normalizeLanguage(entry?.lang) === 'en')
-    || translations.find((entry) => normalizeLanguage(entry?.lang) === 'pl')
-    || translations[0]
-    || null;
+  const chain = getLanguageFallbackChain(language);
+  const preferred = chain
+    .map((code) => translations.find((entry) => normalizeLanguage(entry?.lang) === code))
+    .find(Boolean) || null;
+  const fallback = preferred || translations[0] || null;
   const slug = String(preferred?.slug || fallback?.slug || '').trim();
   if (!slug) {
     return `/blog?lang=${normalizeLanguage(language)}`;
@@ -235,7 +248,8 @@ function buildServiceMeta(type, language) {
       blog: { label: 'Artykuł', cta: 'Czytaj artykuł' },
     },
   };
-  return copy[localized][type] || copy[localized].recommendations;
+  const copyLanguage = localized === 'pl' ? 'pl' : 'en';
+  return copy[copyLanguage][type] || copy[copyLanguage].recommendations;
 }
 
 function mapTrip(row, language) {
@@ -331,16 +345,8 @@ function formatMoney(value, currency = 'EUR') {
 
 function mapRecommendation(row, language) {
   const meta = buildServiceMeta('recommendations', language);
-  const title = String(
-    language === 'pl'
-      ? row?.title_pl || row?.title_en || 'Recommendation'
-      : row?.title_en || row?.title_pl || 'Recommendation'
-  ).trim();
-  const description = truncateText(
-    language === 'pl'
-      ? row?.description_pl || row?.description_en || ''
-      : row?.description_en || row?.description_pl || ''
-  );
+  const title = String(pickLocalizedField(row, 'title', language, 'Recommendation')).trim();
+  const description = truncateText(pickLocalizedField(row, 'description', language, ''));
   return {
     id: row?.id || null,
     type: 'recommendations',
@@ -387,22 +393,13 @@ function mapTransport(row, language) {
 
 function mapShop(row, language) {
   const meta = buildServiceMeta('shop', language);
-  const title = String(
-    language === 'pl'
-      ? row?.name || row?.name_en || row?.slug || 'Product'
-      : row?.name_en || row?.name || row?.slug || 'Product'
-  ).trim();
+  const title = String(pickLocalizedField(row, 'name', language, row?.slug || 'Product')).trim();
   const description = truncateText(
-    language === 'pl'
-      ? row?.short_description || row?.description || row?.short_description_en || row?.description_en || ''
-      : row?.short_description_en || row?.description_en || row?.short_description || row?.description || ''
+    pickLocalizedField(row, 'short_description', language, '')
+    || pickLocalizedField(row, 'description', language, '')
   );
   const category = row?.category || {};
-  const categoryLabel = String(
-    language === 'pl'
-      ? category?.name || category?.name_en || ''
-      : category?.name_en || category?.name || ''
-  ).trim();
+  const categoryLabel = String(pickLocalizedField(category, 'name', language, '')).trim();
   const price = Number(row?.price || row?.sale_price || 0);
   return {
     id: row?.id || null,
@@ -422,16 +419,16 @@ function mapShop(row, language) {
 function mapBlog(row, language) {
   const meta = buildServiceMeta('blog', language);
   const translations = safeArray(row?.translations);
-  const preferred = translations.find((entry) => normalizeLanguage(entry?.lang) === normalizeLanguage(language)) || null;
-  const fallback = translations.find((entry) => normalizeLanguage(entry?.lang) === 'en')
-    || translations.find((entry) => normalizeLanguage(entry?.lang) === 'pl')
-    || translations[0]
-    || null;
+  const chain = getLanguageFallbackChain(language);
+  const preferred = chain
+    .map((code) => translations.find((entry) => normalizeLanguage(entry?.lang) === code))
+    .find(Boolean) || null;
+  const fallback = preferred || translations[0] || null;
   const title = String(preferred?.title || fallback?.title || 'Blog post').trim();
   const description = truncateText(preferred?.summary || preferred?.lead || fallback?.summary || fallback?.lead || '');
   const publishedAt = row?.published_at ? new Date(row.published_at) : null;
   const metaLabel = publishedAt && !Number.isNaN(publishedAt.getTime())
-    ? new Intl.DateTimeFormat(language === 'pl' ? 'pl-PL' : 'en-GB', {
+    ? new Intl.DateTimeFormat(normalizeLanguage(language) === 'pl' ? 'pl-PL' : 'en-GB', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -629,7 +626,7 @@ export async function resolveBlogCtaServices(supabase, ctaServices = [], languag
       supabase,
       'recommendations',
       idsByType.recommendations || [],
-      'id, title_pl, title_en, description_pl, description_en, image_url, images, location_name',
+      'id, title_pl, title_en, title_he, description_pl, description_en, description_he, image_url, images, location_name',
       [(query) => query.eq('active', true)]
     ),
     fetchBlogRowsByIds(supabase, idsByType.blog || []),

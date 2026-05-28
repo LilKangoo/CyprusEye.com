@@ -265,12 +265,12 @@ function computeVatPreview(preview) {
   return vatTotal;
 }
 
-// Get current language from localStorage or default to 'pl'
+// Get current language. Hebrew stays hidden in UI but can be tested via runtime/lang param.
 function getCurrentLang() {
   try {
     const url = new URL(window.location.href);
-    const urlLang = (url.searchParams.get('lang') || '').toLowerCase();
-    if (urlLang === 'pl' || urlLang === 'en') {
+    const urlLang = (url.searchParams.get('lang') || '').toLowerCase().split('-')[0];
+    if (urlLang === 'pl' || urlLang === 'en' || urlLang === 'he') {
       return urlLang;
     }
   } catch (e) {
@@ -284,30 +284,52 @@ function getCurrentLang() {
     ];
 
     for (const candidate of candidates) {
-      const normalized = (candidate || '').toLowerCase();
-      if (normalized === 'pl' || normalized === 'en') {
+      const normalized = (candidate || '').toLowerCase().split('-')[0];
+      if (normalized === 'pl' || normalized === 'en' || normalized === 'he') {
         return normalized;
       }
     }
   } catch (e) {
   }
 
-  const htmlLang = (document.documentElement.lang || '').toLowerCase();
-  if (htmlLang === 'pl' || htmlLang === 'en') {
+  const htmlLang = (document.documentElement.lang || '').toLowerCase().split('-')[0];
+  if (htmlLang === 'pl' || htmlLang === 'en' || htmlLang === 'he') {
     return htmlLang;
   }
 
-  return 'pl';
+  return 'en';
 }
 
-// Get localized field value - returns name_en for 'en', name for 'pl'
+function isShopPolish(language = shopState.lang || getCurrentLang()) {
+  return String(language || '').trim().toLowerCase().split('-')[0] === 'pl';
+}
+
+function shopText(pl, en, language = shopState.lang || getCurrentLang()) {
+  return isShopPolish(language) ? pl : en;
+}
+
+function getShopBackendLang(language = shopState.lang || getCurrentLang()) {
+  return isShopPolish(language) ? 'pl' : 'en';
+}
+
+// Get localized field value with he -> en -> pl fallback.
 function getLocalizedField(item, fieldName) {
-  const lang = shopState.lang;
-  if (lang === 'en') {
-    const enField = item[`${fieldName}_en`];
-    return enField || item[fieldName] || '';
+  const lang = shopState.lang || getCurrentLang();
+  if (window.CELanguage?.pickLocalizedField) {
+    return window.CELanguage.pickLocalizedField(item, fieldName, lang, '');
   }
-  return item[fieldName] || '';
+
+  if (item?.[fieldName] && typeof item[fieldName] === 'object' && !Array.isArray(item[fieldName])) {
+    const chain = isShopPolish(lang) ? ['pl', 'en'] : String(lang).startsWith('he') ? ['he', 'en', 'pl'] : ['en', 'pl'];
+    for (const code of chain) {
+      if (item[fieldName][code]) return item[fieldName][code];
+    }
+  }
+
+  if (!isShopPolish(lang)) {
+    return item?.[`${fieldName}_he`] || item?.[`${fieldName}_en`] || item?.[fieldName] || '';
+  }
+  return item?.[fieldName] || item?.[`${fieldName}_pl`] || item?.[`${fieldName}_en`] || '';
 }
 
 function normalizeImageList(value) {
@@ -370,10 +392,9 @@ function ensureShopLightbox() {
   root.id = 'shopImageLightbox';
   root.className = 'shop-lightbox';
   root.hidden = true;
-  const lang = shopState.lang || getCurrentLang();
-  const closeLabel = lang === 'en' ? 'Close' : 'Zamknij';
-  const previousLabel = lang === 'en' ? 'Previous' : 'Poprzednie';
-  const nextLabel = lang === 'en' ? 'Next' : 'Następne';
+  const closeLabel = shopText('Zamknij', 'Close');
+  const previousLabel = shopText('Poprzednie', 'Previous');
+  const nextLabel = shopText('Następne', 'Next');
   root.innerHTML = `
     <div class="shop-lightbox__backdrop" data-lightbox-close></div>
     <div class="shop-lightbox__dialog" role="dialog" aria-modal="true">
@@ -642,7 +663,7 @@ async function loadPriceBounds() {
     const { data, error } = await supabase.rpc('shop_get_price_bounds', {
       p_category_ids: categoryIds.length ? categoryIds : null,
       p_search: q || null,
-      p_lang: shopState.lang,
+      p_lang: getShopBackendLang(),
       p_in_stock: shopState.filters.inStock === true,
       p_on_sale: shopState.filters.onSale === true
     });
@@ -677,7 +698,7 @@ async function loadPriceBounds() {
       const search = String(shopState.filters.search || '').trim();
       if (search) {
         const pattern = `%${search.replace(/[%_]/g, '')}%`;
-        if (shopState.lang === 'en') {
+        if (getShopBackendLang() === 'en') {
           base = base.ilike('name_en', pattern);
         } else {
           base = base.ilike('name', pattern);
@@ -834,7 +855,7 @@ function renderBreadcrumbs() {
     return;
   }
 
-  const allLabel = shopState.lang === 'en' ? 'All' : 'Wszystkie';
+  const allLabel = shopText('Wszystkie', 'All');
   const trail = getCategoryBreadcrumbTrail(shopState.filters.category);
 
   container.hidden = false;
@@ -1009,7 +1030,7 @@ function updateShippingMethodsDropdown(countryCode) {
   
   const previousSelection = shopState.selectedShippingMethod?.id || null;
   const methods = getShippingMethodsForCountry(countryCode);
-  const selectText = shopState.lang === 'en' ? 'Select shipping method...' : 'Wybierz metodę wysyłki...';
+  const selectText = shopText('Wybierz metodę wysyłki...', 'Select shipping method...');
   
   select.innerHTML = `<option value="">${selectText}</option>`;
   shopState.selectedShippingMethod = null;
@@ -1020,7 +1041,7 @@ function updateShippingMethodsDropdown(countryCode) {
   const availableOptions = [];
 
   methods.forEach(method => {
-    const zoneName = shopState.lang === 'en' && method.zone_name_en ? method.zone_name_en : method.zone_name;
+    const zoneName = getLocalizedField(method, 'zone_name') || method.zone_name;
     const quote = calculateShippingQuoteForMethod(method, metrics);
     const option = document.createElement('option');
     option.value = method.id;
@@ -1041,7 +1062,7 @@ function updateShippingMethodsDropdown(countryCode) {
     shopState.selectedShippingMethod = chosen.method;
     shopState.shippingQuote = chosen.quote.error ? null : chosen.quote;
     if (chosen.quote.error) {
-      select.setCustomValidity(shopState.lang === 'en' ? 'Shipping unavailable' : 'Dostawa niedostępna');
+      select.setCustomValidity(shopText('Dostawa niedostępna', 'Shipping unavailable'));
     } else {
       select.setCustomValidity('');
     }
@@ -1052,14 +1073,10 @@ function updateShippingMethodsDropdown(countryCode) {
     shopState.selectedShippingMethod = null;
     shopState.shippingQuote = null;
     if (select.options.length === 1) {
-      select.options[0].textContent = shopState.lang === 'en'
-        ? 'No shipping options for this country'
-        : 'Brak metod wysyłki dla tego kraju';
+      select.options[0].textContent = shopText('Brak metod wysyłki dla tego kraju', 'No shipping options for this country');
     }
     if (infoEl) {
-      infoEl.textContent = shopState.lang === 'en'
-        ? 'Please contact support for shipping options.'
-        : 'Skontaktuj się z nami w sprawie dostawy.';
+      infoEl.textContent = shopText('Skontaktuj się z nami w sprawie dostawy.', 'Please contact support for shipping options.');
       infoEl.classList.add('error');
     }
     renderShippingBreakdown('shippingMethodBreakdown', null);
@@ -1085,7 +1102,7 @@ function updateShippingInfo(method) {
     return;
   }
 
-  const desc = shopState.lang === 'en' && method.description_en ? method.description_en : method.description;
+  const desc = getLocalizedField(method, 'description');
   const infoParts = [];
 
   const quote = shopState.shippingQuote && shopState.shippingQuote.methodId === method.id
@@ -1098,9 +1115,10 @@ function updateShippingInfo(method) {
   }
   
   if (method.processing_days) {
-    const prepText = shopState.lang === 'en'
-      ? `Preparation & dispatch: up to ${method.processing_days} ${method.processing_days === 1 ? 'day' : 'days'}`
-      : `Przygotowanie i nadanie: do ${method.processing_days} dni`;
+    const prepText = shopText(
+      `Przygotowanie i nadanie: do ${method.processing_days} dni`,
+      `Preparation & dispatch: up to ${method.processing_days} ${method.processing_days === 1 ? 'day' : 'days'}`
+    );
     infoParts.push(prepText);
   }
   
@@ -1109,7 +1127,7 @@ function updateShippingInfo(method) {
   
   if (minDelivery || maxDelivery) {
     let deliveryText = '';
-    if (shopState.lang === 'en') {
+    if (!isShopPolish()) {
       if (minDelivery && maxDelivery) {
         deliveryText = `Delivery: ${minDelivery}-${maxDelivery} business days`;
       } else {
@@ -1128,21 +1146,22 @@ function updateShippingInfo(method) {
   }
   
   if (quote) {
-    const weightText = shopState.lang === 'en'
-      ? `Total weight: ${quote.totalWeight?.toFixed(2) || 0} kg`
-      : `Łączna waga: ${(quote.totalWeight?.toFixed(2) || 0)} kg`;
+    const weightText = shopText(
+      `Łączna waga: ${(quote.totalWeight?.toFixed(2) || 0)} kg`,
+      `Total weight: ${quote.totalWeight?.toFixed(2) || 0} kg`
+    );
     infoParts.push(weightText);
 
     if (quote.freeShipping) {
-      infoParts.push(shopState.lang === 'en' ? 'Free shipping threshold reached' : 'Próg darmowej dostawy osiągnięty');
+      infoParts.push(shopText('Próg darmowej dostawy osiągnięty', 'Free shipping threshold reached'));
     }
 
     if (quote.error) {
       const errorText = quote.error === 'overMaxWeight'
-        ? (shopState.lang === 'en'
+        ? (!isShopPolish()
             ? `Package exceeds max weight (${quote.limit} kg)`
             : `Przesyłka przekracza maksymalną wagę (${quote.limit} kg)`)
-        : (shopState.lang === 'en'
+        : (!isShopPolish()
             ? 'Shipping not available'
             : 'Dostawa niedostępna');
       infoParts.push(errorText);
@@ -1167,12 +1186,9 @@ function formatCurrency(amount = 0) {
 function getShippingClassName(classId) {
   const cls = shopState.shippingClassesMap[classId];
   if (!cls) {
-    return shopState.lang === 'en' ? 'Shipping class' : 'Klasa wysyłki';
+    return shopText('Klasa wysyłki', 'Shipping class');
   }
-  if (shopState.lang === 'en' && cls.name_en) {
-    return cls.name_en;
-  }
-  return cls.name || (shopState.lang === 'en' ? 'Shipping class' : 'Klasa wysyłki');
+  return getLocalizedField(cls, 'name') || shopText('Klasa wysyłki', 'Shipping class');
 }
 
 function getShippingComponentRows(quote) {
@@ -1188,7 +1204,7 @@ function getShippingComponentRows(quote) {
       free: { en: 'Free shipping threshold reached', pl: 'Próg darmowej dostawy osiągnięty' },
       pending: { en: 'Shipping cost applied', pl: 'Koszt dostawy' }
     };
-    const lang = shopState.lang === 'en' ? 'en' : 'pl';
+    const lang = getShopBackendLang();
     return dict[key]?.[lang] || dict[key]?.en || key;
   };
 
@@ -1246,10 +1262,10 @@ function renderShippingBreakdown(containerOrId, quote) {
 
   if (quote.error) {
     const errorText = quote.error === 'overMaxWeight'
-      ? (shopState.lang === 'en'
+      ? (!isShopPolish()
           ? `Package exceeds maximum weight (${quote.limit || 0} kg)`
           : `Przesyłka przekracza maksymalną wagę (${quote.limit || 0} kg)`)
-      : (shopState.lang === 'en'
+      : (!isShopPolish()
           ? 'Shipping unavailable for this selection'
           : 'Metoda dostawy niedostępna');
     container.innerHTML = `<p>${errorText}</p>`;
@@ -1257,18 +1273,17 @@ function renderShippingBreakdown(containerOrId, quote) {
   }
 
   if (quote.freeShipping) {
-    const text = shopState.lang === 'en'
-      ? 'Free shipping threshold reached'
-      : 'Osiągnięto próg darmowej dostawy';
+    const text = shopText('Osiągnięto próg darmowej dostawy', 'Free shipping threshold reached');
     container.innerHTML = `<p>${text}</p>`;
     return;
   }
 
   const rows = getShippingComponentRows(quote);
   if (!rows.length) {
-    const text = shopState.lang === 'en'
-      ? `Shipping cost: ${formatCurrency(quote.totalCost)}`
-      : `Koszt dostawy: ${formatCurrency(quote.totalCost)}`;
+    const text = shopText(
+      `Koszt dostawy: ${formatCurrency(quote.totalCost)}`,
+      `Shipping cost: ${formatCurrency(quote.totalCost)}`
+    );
     container.innerHTML = `<p>${text}</p>`;
     return;
   }
@@ -1333,13 +1348,9 @@ function getCartShippingMetrics() {
 function buildShippingComponentsLabel(type, amount) {
   switch (type) {
     case 'per_weight':
-      return shopState.lang === 'en'
-        ? `Weight-based: €${amount.toFixed(2)}`
-        : `Za wagę: €${amount.toFixed(2)}`;
+      return shopText(`Za wagę: €${amount.toFixed(2)}`, `Weight-based: €${amount.toFixed(2)}`);
     case 'per_item':
-      return shopState.lang === 'en'
-        ? `Per item: €${amount.toFixed(2)}`
-        : `Za sztukę: €${amount.toFixed(2)}`;
+      return shopText(`Za sztukę: €${amount.toFixed(2)}`, `Per item: €${amount.toFixed(2)}`);
     default:
       return `€${amount.toFixed(2)}`;
   }
@@ -1452,13 +1463,13 @@ function calculateShippingQuoteForMethod(method, sharedMetrics = null) {
 }
 
 function buildShippingOptionLabel(method, zoneName, quote) {
-  const methodName = shopState.lang === 'en' && method.name_en ? method.name_en : method.name;
+  const methodName = getLocalizedField(method, 'name');
   const zoneLabel = zoneName ? `(${zoneName})` : '';
   let priceLabel = '';
   if (quote.error) {
-    priceLabel = shopState.lang === 'en' ? 'Not available' : 'Niedostępna';
+    priceLabel = shopText('Niedostępna', 'Not available');
   } else if (quote.totalCost === 0) {
-    priceLabel = shopState.lang === 'en' ? 'FREE' : 'GRATIS';
+    priceLabel = shopText('GRATIS', 'FREE');
   } else {
     priceLabel = `€${quote.totalCost.toFixed(2)}`;
   }
@@ -1486,7 +1497,7 @@ function recalculateShippingQuote() {
   
   if (select) {
     if (quote.error) {
-      select.setCustomValidity(shopState.lang === 'en' ? 'Shipping unavailable for this selection' : 'Ta metoda dostawy jest niedostępna');
+      select.setCustomValidity(shopText('Ta metoda dostawy jest niedostępna', 'Shipping unavailable for this selection'));
     } else {
       select.setCustomValidity('');
     }
@@ -1506,7 +1517,7 @@ function refreshShippingOptionPricing() {
     option.disabled = Boolean(quote.error);
     option.textContent = buildShippingOptionLabel(
       method,
-      shopState.lang === 'en' && method.zone_name_en ? method.zone_name_en : method.zone_name,
+      getLocalizedField(method, 'zone_name') || method.zone_name,
       quote
     );
   });
@@ -1536,9 +1547,9 @@ function updateShippingTotalsUI() {
   if (reviewSubtotalEl) reviewSubtotalEl.textContent = `€${subtotal.toFixed(2)}`;
   if (reviewShippingEl) {
     if (shopState.shippingQuote?.error) {
-      reviewShippingEl.textContent = shopState.lang === 'en' ? 'N/A' : 'Brak';
+      reviewShippingEl.textContent = shopText('Brak', 'N/A');
     } else if (effectiveShipping === 0) {
-      reviewShippingEl.textContent = shopState.lang === 'en' ? 'Free' : 'Gratis';
+      reviewShippingEl.textContent = shopText('Gratis', 'Free');
     } else {
       reviewShippingEl.textContent = `€${effectiveShipping.toFixed(2)}`;
     }
@@ -1659,7 +1670,7 @@ function renderCategoryFilters() {
   const container = document.getElementById('categoryFilters');
   if (!container) return;
 
-  const allLabel = shopState.lang === 'en' ? 'All' : 'Wszystkie';
+  const allLabel = shopText('Wszystkie', 'All');
 
   const selectedId = shopState.filters.category ? String(shopState.filters.category) : '';
   const rows = getCategoryTreeRows(null, 0, new Set());
@@ -1696,7 +1707,7 @@ function renderCategoryFilters() {
 
 async function loadProducts() {
   if (!supabase) {
-    showProductsError('Nie można połączyć z bazą danych');
+    showProductsError(shopText('Nie można połączyć z bazą danych', 'Could not connect to the database'));
     return;
   }
 
@@ -1721,9 +1732,9 @@ async function loadProducts() {
     const search = String(shopState.filters.search || '').trim();
     if (search) {
       const pattern = `%${search.replace(/[%_]/g, '')}%`;
-      if (shopState.lang === 'en') {
-        query = query.ilike('name_en', pattern);
-      } else {
+        if (getShopBackendLang() === 'en') {
+          query = query.ilike('name_en', pattern);
+        } else {
         query = query.ilike('name', pattern);
       }
     }
@@ -1777,7 +1788,7 @@ async function loadProducts() {
 
   } catch (error) {
     console.error('Failed to load products:', error);
-    showProductsError('Nie udało się załadować produktów');
+    showProductsError(shopText('Nie udało się załadować produktów', 'Could not load products'));
   }
 }
 
@@ -1818,7 +1829,7 @@ async function consumeProductDeepLinkIfNeeded() {
 
 function showProductsLoading() {
   const grid = document.getElementById('productsGrid');
-  const loadingText = shopState.lang === 'en' ? 'Loading products...' : 'Ładowanie produktów...';
+  const loadingText = shopText('Ładowanie produktów...', 'Loading products...');
   if (grid) {
     grid.innerHTML = `
       <div class="products-loading">
@@ -1847,7 +1858,7 @@ function renderProducts() {
   if (!grid) return;
 
   if (!shopState.products.length) {
-    const emptyText = shopState.lang === 'en' ? 'No products found' : 'Nie znaleziono produktów';
+    const emptyText = shopText('Nie znaleziono produktów', 'No products found');
     grid.innerHTML = `
       <div class="products-empty">
         <p>${escapeHtml(emptyText)}</p>
@@ -1856,10 +1867,10 @@ function renderProducts() {
     return;
   }
 
-  const addToCartText = shopState.lang === 'en' ? 'Add to cart' : 'Dodaj do koszyka';
-  const outOfStockText = shopState.lang === 'en' ? 'Out of stock' : 'Brak w magazynie';
-  const featuredText = shopState.lang === 'en' ? 'Featured' : 'Polecane';
-  const saleText = shopState.lang === 'en' ? 'Sale' : 'Promocja';
+  const addToCartText = shopText('Dodaj do koszyka', 'Add to cart');
+  const outOfStockText = shopText('Brak w magazynie', 'Out of stock');
+  const featuredText = shopText('Polecane', 'Featured');
+  const saleText = shopText('Promocja', 'Sale');
 
   grid.innerHTML = shopState.products.map(product => {
     const hasDiscount = product.compare_at_price && product.compare_at_price > product.price;
@@ -1975,7 +1986,7 @@ async function openProductModal(productId) {
   const product = shopState.products.find(p => p.id === productId);
 
   if (!product) {
-    const notFoundText = shopState.lang === 'en' ? 'Product not found' : 'Produkt nie został znaleziony';
+    const notFoundText = shopText('Produkt nie został znaleziony', 'Product not found');
     content.innerHTML = `<p style="text-align: center; padding: 40px;">${notFoundText}</p>`;
     return;
   }
@@ -2009,17 +2020,18 @@ async function openProductModal(productId) {
   const productName = getLocalizedField(product, 'name');
   const productDesc = getLocalizedField(product, 'description');
   const categoryName = product.category ? getLocalizedField(product.category, 'name') : '';
-  const inStockText = shopState.lang === 'en' ? '✓ In stock' : '✓ W magazynie';
-  const outOfStockText = shopState.lang === 'en' ? '✗ Out of stock' : '✗ Brak w magazynie';
-  const qtyLabel = shopState.lang === 'en' ? 'Quantity:' : 'Ilość:';
-  const addToCartText = shopState.lang === 'en' ? 'Add to cart' : 'Dodaj do koszyka';
-  const variantLabel = shopState.lang === 'en' ? 'Variant:' : 'Wariant:';
-  const missingVariantsText = shopState.lang === 'en'
-    ? 'Variants are not available for this product yet.'
-    : 'Warianty dla tego produktu nie są jeszcze dostępne.';
+  const inStockText = shopText('✓ W magazynie', '✓ In stock');
+  const outOfStockText = shopText('✗ Brak w magazynie', '✗ Out of stock');
+  const qtyLabel = shopText('Ilość:', 'Quantity:');
+  const addToCartText = shopText('Dodaj do koszyka', 'Add to cart');
+  const variantLabel = shopText('Wariant:', 'Variant:');
+  const missingVariantsText = shopText(
+    'Warianty dla tego produktu nie są jeszcze dostępne.',
+    'Variants are not available for this product yet.'
+  );
 
   const buildVariantLabel = (variant) => {
-    const rawName = variant && typeof variant.name === 'string' ? variant.name.trim() : '';
+    const rawName = getLocalizedField(variant, 'name').trim();
     const attrs = variant && variant.attributes && typeof variant.attributes === 'object' ? variant.attributes : null;
     const attrParts = attrs
       ? Object.entries(attrs)
@@ -2030,7 +2042,7 @@ async function openProductModal(productId) {
     if (rawName && attrsLabel) return `${rawName} (${attrsLabel})`;
     if (rawName) return rawName;
     if (attrsLabel) return attrsLabel;
-    return shopState.lang === 'en' ? 'Variant' : 'Wariant';
+    return shopText('Wariant', 'Variant');
   };
 
   const variantOptions = variants.map(v => {
@@ -2454,9 +2466,10 @@ async function refreshDiscountPreview() {
 
   if (!supabase) {
     if (infoEl) {
-      infoEl.textContent = shopState.lang === 'en'
-        ? 'Discount code will be validated at checkout.'
-        : 'Kod rabatowy zostanie zweryfikowany przy płatności.';
+      infoEl.textContent = shopText(
+        'Kod rabatowy zostanie zweryfikowany przy płatności.',
+        'Discount code will be validated at checkout.'
+      );
     }
     return;
   }
@@ -2477,7 +2490,7 @@ async function refreshDiscountPreview() {
     if (error || !discount) {
       shopState.discountPreview = { code: shopState.discountCode, valid: false, reason: 'not_found' };
       if (infoEl) {
-        infoEl.textContent = shopState.lang === 'en' ? 'Invalid discount code.' : 'Nieprawidłowy kod rabatowy.';
+        infoEl.textContent = shopText('Nieprawidłowy kod rabatowy.', 'Invalid discount code.');
       }
       return;
     }
@@ -2489,7 +2502,7 @@ async function refreshDiscountPreview() {
     if ((startsAt && now < startsAt) || (expiresAt && now >= expiresAt)) {
       shopState.discountPreview = { code: shopState.discountCode, valid: false, reason: 'expired' };
       if (infoEl) {
-        infoEl.textContent = shopState.lang === 'en' ? 'Discount code is expired.' : 'Kod rabatowy wygasł.';
+        infoEl.textContent = shopText('Kod rabatowy wygasł.', 'Discount code is expired.');
       }
       return;
     }
@@ -2497,7 +2510,7 @@ async function refreshDiscountPreview() {
     if (discount.usage_limit && discount.usage_count >= discount.usage_limit) {
       shopState.discountPreview = { code: shopState.discountCode, valid: false, reason: 'limit' };
       if (infoEl) {
-        infoEl.textContent = shopState.lang === 'en' ? 'Discount code limit reached.' : 'Limit użyć kodu został wyczerpany.';
+        infoEl.textContent = shopText('Limit użyć kodu został wyczerpany.', 'Discount code limit reached.');
       }
       return;
     }
@@ -2506,9 +2519,10 @@ async function refreshDiscountPreview() {
     if (discount.minimum_order_amount && subtotal < parseFloat(discount.minimum_order_amount)) {
       shopState.discountPreview = { code: shopState.discountCode, valid: false, reason: 'min_order' };
       if (infoEl) {
-        infoEl.textContent = shopState.lang === 'en'
-          ? `Minimum order: €${parseFloat(discount.minimum_order_amount).toFixed(2)}`
-          : `Minimalna wartość zamówienia: €${parseFloat(discount.minimum_order_amount).toFixed(2)}`;
+        infoEl.textContent = shopText(
+          `Minimalna wartość zamówienia: €${parseFloat(discount.minimum_order_amount).toFixed(2)}`,
+          `Minimum order: €${parseFloat(discount.minimum_order_amount).toFixed(2)}`
+        );
       }
       return;
     }
@@ -2516,9 +2530,10 @@ async function refreshDiscountPreview() {
     if (discount.maximum_order_amount && subtotal > parseFloat(discount.maximum_order_amount)) {
       shopState.discountPreview = { code: shopState.discountCode, valid: false, reason: 'max_order' };
       if (infoEl) {
-        infoEl.textContent = shopState.lang === 'en'
-          ? `Maximum order: €${parseFloat(discount.maximum_order_amount).toFixed(2)}`
-          : `Maksymalna wartość zamówienia: €${parseFloat(discount.maximum_order_amount).toFixed(2)}`;
+        infoEl.textContent = shopText(
+          `Maksymalna wartość zamówienia: €${parseFloat(discount.maximum_order_amount).toFixed(2)}`,
+          `Maximum order: €${parseFloat(discount.maximum_order_amount).toFixed(2)}`
+        );
       }
       return;
     }
@@ -2528,18 +2543,17 @@ async function refreshDiscountPreview() {
       if (!authedUser) {
         shopState.discountPreview = { code: shopState.discountCode, valid: false, reason: 'auth_required' };
         if (infoEl) {
-          infoEl.textContent = shopState.lang === 'en'
-            ? 'Please log in to use this discount code.'
-            : 'Zaloguj się, aby użyć tego kodu rabatowego.';
+          infoEl.textContent = shopText('Zaloguj się, aby użyć tego kodu rabatowego.', 'Please log in to use this discount code.');
         }
         return;
       }
       if (!allowedUsers.includes(authedUser.id)) {
         shopState.discountPreview = { code: shopState.discountCode, valid: false, reason: 'not_allowed' };
         if (infoEl) {
-          infoEl.textContent = shopState.lang === 'en'
-            ? 'This discount code is not available for your account.'
-            : 'Ten kod rabatowy nie jest dostępny dla Twojego konta.';
+          infoEl.textContent = shopText(
+            'Ten kod rabatowy nie jest dostępny dla Twojego konta.',
+            'This discount code is not available for your account.'
+          );
         }
         return;
       }
@@ -2549,9 +2563,7 @@ async function refreshDiscountPreview() {
       if (!authedUser) {
         shopState.discountPreview = { code: shopState.discountCode, valid: false, reason: 'auth_required' };
         if (infoEl) {
-          infoEl.textContent = shopState.lang === 'en'
-            ? 'Please log in to use this discount code.'
-            : 'Zaloguj się, aby użyć tego kodu rabatowego.';
+          infoEl.textContent = shopText('Zaloguj się, aby użyć tego kodu rabatowego.', 'Please log in to use this discount code.');
         }
         return;
       }
@@ -2566,9 +2578,10 @@ async function refreshDiscountPreview() {
       if (typeof paidCount === 'number' && paidCount > 0) {
         shopState.discountPreview = { code: shopState.discountCode, valid: false, reason: 'first_purchase_only' };
         if (infoEl) {
-          infoEl.textContent = shopState.lang === 'en'
-            ? 'This discount code is only valid for your first order.'
-            : 'Ten kod rabatowy jest ważny tylko na pierwsze zamówienie.';
+          infoEl.textContent = shopText(
+            'Ten kod rabatowy jest ważny tylko na pierwsze zamówienie.',
+            'This discount code is only valid for your first order.'
+          );
         }
         return;
       }
@@ -2587,9 +2600,10 @@ async function refreshDiscountPreview() {
       if (typeof usedCount === 'number' && usedCount >= perUserLimit) {
         shopState.discountPreview = { code: shopState.discountCode, valid: false, reason: 'per_user_limit' };
         if (infoEl) {
-          infoEl.textContent = shopState.lang === 'en'
-            ? 'You have already used this discount code.'
-            : 'Ten kod rabatowy został już użyty na Twoim koncie.';
+          infoEl.textContent = shopText(
+            'Ten kod rabatowy został już użyty na Twoim koncie.',
+            'You have already used this discount code.'
+          );
         }
         return;
       }
@@ -2645,9 +2659,10 @@ async function refreshDiscountPreview() {
       if (eligibleSubtotal <= 0) {
         shopState.discountPreview = { code: shopState.discountCode, valid: false, reason: 'not_applicable' };
         if (infoEl) {
-          infoEl.textContent = shopState.lang === 'en'
-            ? 'This discount code does not apply to items in your cart.'
-            : 'Ten kod rabatowy nie dotyczy produktów w koszyku.';
+          infoEl.textContent = shopText(
+            'Ten kod rabatowy nie dotyczy produktów w koszyku.',
+            'This discount code does not apply to items in your cart.'
+          );
         }
         return;
       }
@@ -2672,21 +2687,22 @@ async function refreshDiscountPreview() {
       freeShipping,
       discountAmount,
       eligibleMask,
-      description: (shopState.lang === 'en' && discount.description_en) ? discount.description_en : discount.description
+      description: getLocalizedField(discount, 'description')
     };
 
     if (infoEl) {
       const desc = shopState.discountPreview.description;
       infoEl.textContent = desc
         ? `${shopState.discountCode} — ${desc}`
-        : (shopState.lang === 'en' ? 'Discount code applied.' : 'Kod rabatowy zastosowany.');
+        : shopText('Kod rabatowy zastosowany.', 'Discount code applied.');
     }
   } catch (e) {
     shopState.discountPreview = { code: shopState.discountCode, valid: false, reason: 'error' };
     if (infoEl) {
-      infoEl.textContent = shopState.lang === 'en'
-        ? 'Unable to validate discount code right now.'
-        : 'Nie udało się zweryfikować kodu rabatowego.';
+      infoEl.textContent = shopText(
+        'Nie udało się zweryfikować kodu rabatowego.',
+        'Unable to validate discount code right now.'
+      );
     }
   }
 }
@@ -2831,6 +2847,7 @@ function addToCart(productId, quantity = 1, variantId = null, variantName = null
   const product = shopState.products.find(p => p.id === productId);
   if (!product) return;
 
+  const productName = getLocalizedField(product, 'name') || product.name || '';
   const normalizedVariantId = variantId || null;
   const existingItem = shopState.cart.find(item => item.productId === productId && (item.variantId || null) === normalizedVariantId);
 
@@ -2859,7 +2876,7 @@ function addToCart(productId, quantity = 1, variantId = null, variantName = null
     shopState.cart.push({
       productId: product.id,
       variantId: normalizedVariantId,
-      name: product.name,
+      name: productName,
       variantName: variantName || null,
       price: price,
       thumbnail: thumbnail || null,
@@ -2874,9 +2891,10 @@ function addToCart(productId, quantity = 1, variantId = null, variantName = null
   updateCartUI();
   const variantLabel = variantName ? ` (${variantName})` : '';
   showToast(
-    shopState.lang === 'en'
-      ? `Added to cart: ${product.name}${variantLabel} × ${quantity}`
-      : `Dodano do koszyka: ${product.name}${variantLabel} × ${quantity}`,
+    shopText(
+      `Dodano do koszyka: ${productName}${variantLabel} × ${quantity}`,
+      `Added to cart: ${productName}${variantLabel} × ${quantity}`
+    ),
     'success'
   );
 }
@@ -2931,8 +2949,8 @@ function renderCartItems() {
   if (!itemsContainer) return;
 
   // Get translated text
-  const emptyText = shopState.lang === 'en' ? 'Your cart is empty' : 'Twój koszyk jest pusty';
-  const removeText = shopState.lang === 'en' ? 'Remove' : 'Usuń';
+  const emptyText = shopText('Twój koszyk jest pusty', 'Your cart is empty');
+  const removeText = shopText('Usuń', 'Remove');
 
   if (!shopState.cart.length) {
     itemsContainer.innerHTML = `<p class="cart-empty">${emptyText}</p>`;
@@ -3043,7 +3061,7 @@ function setupCheckoutPostLoginHandler() {
 
 async function initiateCheckout() {
   if (!shopState.cart.length) {
-    showToast(shopState.lang === 'en' ? 'Your cart is empty' : 'Koszyk jest pusty', 'error');
+    showToast(shopText('Koszyk jest pusty', 'Your cart is empty'), 'error');
     return;
   }
 
@@ -3055,9 +3073,10 @@ async function initiateCheckout() {
   if (!user) {
     shopState.pendingCheckoutAfterLogin = true;
 
-    const infoMsg = shopState.lang === 'en'
-      ? 'To proceed to checkout, please log in or create an account.'
-      : 'Aby przejść do płatności, zaloguj się lub załóż konto.';
+    const infoMsg = shopText(
+      'Aby przejść do płatności, zaloguj się lub załóż konto.',
+      'To proceed to checkout, please log in or create an account.'
+    );
 
     const opened = openAuthModalForCheckout();
     if (!opened) {
@@ -3193,13 +3212,13 @@ async function goToReviewStep() {
   });
   
   if (!isValid) {
-    showToast(shopState.lang === 'en' ? 'Please fill in all required fields' : 'Wypełnij wszystkie wymagane pola', 'error');
+    showToast(shopText('Wypełnij wszystkie wymagane pola', 'Please fill in all required fields'), 'error');
     return;
   }
   
   // Validate shipping method is selected
   if (!shopState.selectedShippingMethod) {
-    showToast(shopState.lang === 'en' ? 'Please select a shipping method' : 'Wybierz metodę wysyłki', 'error');
+    showToast(shopText('Wybierz metodę wysyłki', 'Please select a shipping method'), 'error');
     document.getElementById('checkoutShipping').style.borderColor = '#ef4444';
     return;
   }
@@ -3207,7 +3226,7 @@ async function goToReviewStep() {
   // Recalculate shipping quote before reviewing
   recalculateShippingQuote();
   if (!shopState.shippingQuote || shopState.shippingQuote.error) {
-    showToast(shopState.lang === 'en' ? 'Selected shipping is unavailable' : 'Wybrana metoda dostawy jest niedostępna', 'error');
+    showToast(shopText('Wybrana metoda dostawy jest niedostępna', 'Selected shipping is unavailable'), 'error');
     return;
   }
   
@@ -3259,19 +3278,19 @@ async function submitOrder(e) {
   e.preventDefault();
   
   if (!checkoutUser) {
-    showToast(shopState.lang === 'en' ? 'Please log in' : 'Zaloguj się', 'error');
+    showToast(shopText('Zaloguj się', 'Please log in'), 'error');
     return;
   }
   
   // Validate shipping method is selected
   if (!shopState.selectedShippingMethod) {
-    showToast(shopState.lang === 'en' ? 'Please select a shipping method' : 'Wybierz metodę wysyłki', 'error');
+    showToast(shopText('Wybierz metodę wysyłki', 'Please select a shipping method'), 'error');
     return;
   }
   
   const btnSubmit = document.getElementById('btnPlaceOrder');
   btnSubmit.disabled = true;
-  btnSubmit.textContent = shopState.lang === 'en' ? 'Redirecting to payment...' : 'Przekierowanie do płatności...';
+  btnSubmit.textContent = shopText('Przekierowanie do płatności...', 'Redirecting to payment...');
   let redirectInitiated = false;
   
   try {
@@ -3282,9 +3301,9 @@ async function submitOrder(e) {
     }
     
     if (!shippingQuote || shippingQuote.error) {
-      showToast(shopState.lang === 'en' ? 'Selected shipping is unavailable' : 'Wybrana metoda dostawy jest niedostępna', 'error');
+      showToast(shopText('Wybrana metoda dostawy jest niedostępna', 'Selected shipping is unavailable'), 'error');
       btnSubmit.disabled = false;
-      btnSubmit.textContent = shopState.lang === 'en' ? 'Place Order & Pay' : 'Złóż zamówienie';
+      btnSubmit.textContent = shopText('Złóż zamówienie', 'Place Order & Pay');
       return;
     }
     
@@ -3403,22 +3422,22 @@ async function submitOrder(e) {
   } catch (error) {
     console.error('Checkout error:', error);
     try {
-      showToast(shopState.lang === 'en' ? 'Error starting payment' : 'Błąd podczas uruchamiania płatności', 'error');
+      showToast(shopText('Błąd podczas uruchamiania płatności', 'Error starting payment'), 'error');
     } catch (e) {
     }
   } finally {
     if (!redirectInitiated) {
       btnSubmit.disabled = false;
-      btnSubmit.textContent = shopState.lang === 'en' ? 'Pay with Stripe' : 'Zapłać przez Stripe';
+      btnSubmit.textContent = shopText('Zapłać przez Stripe', 'Pay with Stripe');
     }
   }
 }
 
 function showCheckoutPopup(type, message) {
   const title = (() => {
-    if (type === 'success') return shopState.lang === 'en' ? 'Payment successful' : 'Płatność zakończona sukcesem';
-    if (type === 'error') return shopState.lang === 'en' ? 'Payment not completed' : 'Płatność nie została zakończona';
-    return shopState.lang === 'en' ? 'Payment status' : 'Status płatności';
+    if (type === 'success') return shopText('Płatność zakończona sukcesem', 'Payment successful');
+    if (type === 'error') return shopText('Płatność nie została zakończona', 'Payment not completed');
+    return shopText('Status płatności', 'Payment status');
   })();
 
   const successPopup = window.showSuccessPopup;
@@ -3517,10 +3536,11 @@ async function handleCheckoutReturn() {
     return;
   }
 
-  const overlayTitle = shopState.lang === 'en' ? 'Checking payment status…' : 'Sprawdzamy status płatności…';
-  const overlayMessage = shopState.lang === 'en'
-    ? 'Please wait a moment. We are confirming your payment with Stripe.'
-    : 'Poczekaj chwilę. Potwierdzamy płatność w systemie Stripe.';
+  const overlayTitle = shopText('Sprawdzamy status płatności…', 'Checking payment status…');
+  const overlayMessage = shopText(
+    'Poczekaj chwilę. Potwierdzamy płatność w systemie Stripe.',
+    'Please wait a moment. We are confirming your payment with Stripe.'
+  );
 
   showCheckoutProcessingOverlay(overlayTitle, overlayMessage);
 
@@ -3573,14 +3593,16 @@ async function handleCheckoutReturn() {
 
         showCheckoutPopup(
           'success',
-          shopState.lang === 'en'
-            ? 'Your payment was completed successfully. Thank you!'
-            : 'Twoja płatność została zakończona pomyślnie. Dziękujemy!'
+          shopText(
+            'Twoja płatność została zakończona pomyślnie. Dziękujemy!',
+            'Your payment was completed successfully. Thank you!'
+          )
         );
       } else {
-        const msg = shopState.lang === 'en'
-          ? "We couldn't confirm your payment yet. Please check your bank account to see if the charge went through. If it didn't, try again. If it did, but you don't see a confirmation, please contact us. Your cart is still saved."
-          : 'Nie udało się jeszcze potwierdzić płatności. Sprawdź proszę konto / aplikację bankową, czy środki zostały pobrane. Jeśli nie — spróbuj ponownie. Jeśli tak, a nie widzisz potwierdzenia, skontaktuj się z nami. Koszyk został zachowany.';
+        const msg = shopText(
+          'Nie udało się jeszcze potwierdzić płatności. Sprawdź proszę konto / aplikację bankową, czy środki zostały pobrane. Jeśli nie — spróbuj ponownie. Jeśli tak, a nie widzisz potwierdzenia, skontaktuj się z nami. Koszyk został zachowany.',
+          "We couldn't confirm your payment yet. Please check your bank account to see if the charge went through. If it didn't, try again. If it did, but you don't see a confirmation, please contact us. Your cart is still saved."
+        );
         showCheckoutPopup('error', msg);
       }
 
@@ -3588,9 +3610,10 @@ async function handleCheckoutReturn() {
     } else if (checkoutStatus === 'cancelled') {
       showCheckoutPopup(
         'error',
-        shopState.lang === 'en'
-          ? 'Payment was cancelled. Your cart items are still saved.'
-          : 'Płatność została anulowana. Produkty w koszyku zostały zachowane.'
+        shopText(
+          'Płatność została anulowana. Produkty w koszyku zostały zachowane.',
+          'Payment was cancelled. Your cart items are still saved.'
+        )
       );
 
       cleanCheckoutParamsFromUrl();
@@ -3628,9 +3651,11 @@ async function saveShippingAddress(data) {
 }
 
 function showOrderSuccess(orderId) {
-  const msgText = shopState.lang === 'en' 
-    ? `Thank you for your order! Order #${orderId.slice(0, 8).toUpperCase()} has been placed. You will receive a confirmation email shortly.`
-    : `Dziękujemy za zamówienie! Zamówienie #${orderId.slice(0, 8).toUpperCase()} zostało złożone. Wkrótce otrzymasz email z potwierdzeniem.`;
+  const shortOrderId = orderId.slice(0, 8).toUpperCase();
+  const msgText = shopText(
+    `Dziękujemy za zamówienie! Zamówienie #${shortOrderId} zostało złożone. Wkrótce otrzymasz email z potwierdzeniem.`,
+    `Thank you for your order! Order #${shortOrderId} has been placed. You will receive a confirmation email shortly.`
+  );
   
   // Create success overlay
   const overlay = document.createElement('div');
@@ -3638,10 +3663,10 @@ function showOrderSuccess(orderId) {
   overlay.innerHTML = `
     <div class="order-success-content">
       <div class="order-success-icon">✓</div>
-      <h2>${shopState.lang === 'en' ? 'Order Confirmed!' : 'Zamówienie potwierdzone!'}</h2>
+      <h2>${shopText('Zamówienie potwierdzone!', 'Order Confirmed!')}</h2>
       <p>${msgText}</p>
       <button class="btn btn-primary" onclick="this.closest('.order-success-overlay').remove()">
-        ${shopState.lang === 'en' ? 'Continue Shopping' : 'Kontynuuj zakupy'}
+        ${shopText('Kontynuuj zakupy', 'Continue Shopping')}
       </button>
     </div>
   `;

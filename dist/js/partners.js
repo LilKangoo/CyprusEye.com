@@ -73,6 +73,11 @@
         shop_sort: 'default',
       },
     },
+    partnerReferralQr: {
+      link: '',
+      logo: null,
+      logoLoading: null,
+    },
     partnerBlog: {
       items: [],
       filterSearch: '',
@@ -105,6 +110,8 @@
 
   let referralTreeRoot = null;
   let referralTreeQuery = '';
+
+  const PARTNER_REFERRAL_QR_LOGO_SRC = '/assets/cyprus_logo-128.png';
 
   let bootstrapInFlight = false;
   let bootstrapPending = false;
@@ -214,6 +221,13 @@
 
     partnerReferralsView: null,
     partnerLinksDiscountsView: null,
+
+    partnerReferralQrCard: null,
+    partnerReferralQrCanvas: null,
+    partnerReferralQrLink: null,
+    btnPartnerCopyReferralQrLink: null,
+    btnPartnerDownloadReferralQr: null,
+    partnerReferralQrStatus: null,
 
     partnerLinksViewTabs: null,
     partnerLinksFilters: null,
@@ -350,6 +364,7 @@
     btnPartnerCopyReferralLinkSummary: null,
     partnerReferralCodeSummary: null,
     btnPartnerCopyReferralCodeSummary: null,
+    btnPartnerOpenLinksDiscountsSummary: null,
 
     partnerReferralLinkLarge: null,
     btnPartnerCopyReferralLinkLarge: null,
@@ -428,10 +443,11 @@
   };
 
   const PARTNER_BLOG_LANGUAGES = [
-    { code: 'pl', label: 'Polish' },
-    { code: 'en', label: 'English' },
+    { code: 'pl', label: 'Polish', required: true, rtl: false, internal: false },
+    { code: 'en', label: 'English', required: true, rtl: false, internal: false },
+    { code: 'he', label: 'Hebrew', required: false, rtl: true, internal: true },
   ];
-  const PARTNER_BLOG_TAXONOMY_LANGUAGES = ['pl', 'en'];
+  const PARTNER_BLOG_TAXONOMY_LANGUAGES = ['pl', 'en', 'he'];
 
   const PARTNER_BLOG_SERVICE_TYPES = [
     { type: 'trips', label: 'Trips' },
@@ -471,9 +487,11 @@
     categories,
     categories_pl,
     categories_en,
+    categories_he,
     tags,
     tags_pl,
     tags_en,
+    tags_he,
     cta_services,
     owner_partner_id,
     created_at,
@@ -1900,6 +1918,532 @@
     }
   }
 
+  function getPartnerMainReferralLink() {
+    const referralCode = getProfileReferralCode(state.profile || null);
+    return referralCode ? buildReferralLink(referralCode) : '';
+  }
+
+  function setPartnerReferralQrStatus(message, type = '') {
+    if (!els.partnerReferralQrStatus) return;
+    els.partnerReferralQrStatus.textContent = message || '';
+    els.partnerReferralQrStatus.classList.toggle('partner-referral-qr-card__status--error', type === 'error');
+  }
+
+  function clearPartnerReferralQrCanvas() {
+    const canvas = els.partnerReferralQrCanvas;
+    if (!canvas || !canvas.getContext) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#f8fbff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  function loadPartnerReferralQrLogo() {
+    if (state.partnerReferralQr.logo) return Promise.resolve(state.partnerReferralQr.logo);
+    if (state.partnerReferralQr.logoLoading) return state.partnerReferralQr.logoLoading;
+    state.partnerReferralQr.logoLoading = new Promise((resolve) => {
+      const img = new Image();
+      img.decoding = 'async';
+      img.onload = () => {
+        state.partnerReferralQr.logo = img;
+        resolve(img);
+      };
+      img.onerror = () => resolve(null);
+      img.src = PARTNER_REFERRAL_QR_LOGO_SRC;
+    });
+    return state.partnerReferralQr.logoLoading;
+  }
+
+  function drawRoundedRect(ctx, x, y, width, height, radius) {
+    const r = Math.min(radius, width / 2, height / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + width - r, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+    ctx.lineTo(x + width, y + height - r);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+    ctx.lineTo(x + r, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  function drawPartnerReferralQrMatrix(matrix, logo = null) {
+    const canvas = els.partnerReferralQrCanvas;
+    if (!canvas || !canvas.getContext || !Array.isArray(matrix) || !matrix.length) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const canvasSize = Math.min(canvas.width || 328, canvas.height || 328);
+    const quietModules = 4;
+    const moduleCount = matrix.length;
+    const moduleSize = Math.max(1, Math.floor(canvasSize / (moduleCount + quietModules * 2)));
+    const qrSize = moduleSize * (moduleCount + quietModules * 2);
+    const origin = Math.floor((canvasSize - qrSize) / 2) + quietModules * moduleSize;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#f8fbff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = '#073b55';
+    for (let y = 0; y < moduleCount; y += 1) {
+      for (let x = 0; x < moduleCount; x += 1) {
+        if (!matrix[y][x]) continue;
+        ctx.fillRect(origin + x * moduleSize, origin + y * moduleSize, moduleSize, moduleSize);
+      }
+    }
+
+    if (logo) {
+      const boxSize = Math.round(canvasSize * 0.19);
+      const logoSize = Math.round(canvasSize * 0.125);
+      const boxX = Math.round((canvasSize - boxSize) / 2);
+      const boxY = Math.round((canvasSize - boxSize) / 2);
+      const logoX = Math.round((canvasSize - logoSize) / 2);
+      const logoY = Math.round((canvasSize - logoSize) / 2);
+      ctx.save();
+      ctx.fillStyle = '#ffffff';
+      drawRoundedRect(ctx, boxX, boxY, boxSize, boxSize, Math.round(boxSize * 0.28));
+      ctx.fill();
+      ctx.drawImage(logo, logoX, logoY, logoSize, logoSize);
+      ctx.restore();
+    }
+  }
+
+  function appendQrBits(bits, value, length) {
+    for (let i = length - 1; i >= 0; i -= 1) {
+      bits.push(((value >>> i) & 1) === 1);
+    }
+  }
+
+  function initQrGaloisTables() {
+    const exp = new Array(512).fill(0);
+    const log = new Array(256).fill(0);
+    let x = 1;
+    for (let i = 0; i < 255; i += 1) {
+      exp[i] = x;
+      log[x] = i;
+      x <<= 1;
+      if (x & 0x100) x ^= 0x11d;
+    }
+    for (let i = 255; i < exp.length; i += 1) {
+      exp[i] = exp[i - 255];
+    }
+    return { exp, log };
+  }
+
+  const QR_GF = initQrGaloisTables();
+
+  function qrGfMul(a, b) {
+    if (!a || !b) return 0;
+    return QR_GF.exp[QR_GF.log[a] + QR_GF.log[b]];
+  }
+
+  function createQrRsGenerator(degree) {
+    let result = [1];
+    for (let i = 0; i < degree; i += 1) {
+      const next = new Array(result.length + 1).fill(0);
+      for (let j = 0; j < result.length; j += 1) {
+        next[j] ^= result[j];
+        next[j + 1] ^= qrGfMul(result[j], QR_GF.exp[i]);
+      }
+      result = next;
+    }
+    return result;
+  }
+
+  function createQrRsRemainder(data, degree) {
+    const generator = createQrRsGenerator(degree);
+    const result = new Array(degree).fill(0);
+    data.forEach((byte) => {
+      const factor = byte ^ result.shift();
+      result.push(0);
+      for (let i = 0; i < degree; i += 1) {
+        result[i] ^= qrGfMul(generator[i + 1], factor);
+      }
+    });
+    return result;
+  }
+
+  function getQrMaskBit(mask, x, y) {
+    switch (mask) {
+      case 0: return (x + y) % 2 === 0;
+      case 1: return y % 2 === 0;
+      case 2: return x % 3 === 0;
+      case 3: return (x + y) % 3 === 0;
+      case 4: return (Math.floor(y / 2) + Math.floor(x / 3)) % 2 === 0;
+      case 5: return ((x * y) % 2) + ((x * y) % 3) === 0;
+      case 6: return (((x * y) % 2) + ((x * y) % 3)) % 2 === 0;
+      case 7: return (((x + y) % 2) + ((x * y) % 3)) % 2 === 0;
+      default: return false;
+    }
+  }
+
+  function getQrFormatBits(mask) {
+    const ecLevelBits = 2; // Error correction H.
+    const data = (ecLevelBits << 3) | mask;
+    let rem = data << 10;
+    for (let i = 14; i >= 10; i -= 1) {
+      if (((rem >>> i) & 1) !== 0) {
+        rem ^= 0x537 << (i - 10);
+      }
+    }
+    return ((data << 10) | (rem & 0x3ff)) ^ 0x5412;
+  }
+
+  function getQrVersionBits(version) {
+    let rem = version;
+    for (let i = 0; i < 12; i += 1) {
+      rem = (rem << 1) ^ (((rem >>> 11) & 1) ? 0x1f25 : 0);
+    }
+    return (version << 12) | (rem & 0xfff);
+  }
+
+  function calculateQrPenalty(matrix) {
+    const size = matrix.length;
+    let penalty = 0;
+
+    const scoreRuns = (getter) => {
+      for (let outer = 0; outer < size; outer += 1) {
+        let runColor = getter(outer, 0);
+        let runLength = 1;
+        for (let inner = 1; inner < size; inner += 1) {
+          const color = getter(outer, inner);
+          if (color === runColor) {
+            runLength += 1;
+          } else {
+            if (runLength >= 5) penalty += 3 + (runLength - 5);
+            runColor = color;
+            runLength = 1;
+          }
+        }
+        if (runLength >= 5) penalty += 3 + (runLength - 5);
+      }
+    };
+
+    scoreRuns((row, col) => matrix[row][col]);
+    scoreRuns((col, row) => matrix[row][col]);
+
+    for (let y = 0; y < size - 1; y += 1) {
+      for (let x = 0; x < size - 1; x += 1) {
+        const color = matrix[y][x];
+        if (color === matrix[y][x + 1] && color === matrix[y + 1][x] && color === matrix[y + 1][x + 1]) {
+          penalty += 3;
+        }
+      }
+    }
+
+    const finderPattern = [true, false, true, true, true, false, true, false, false, false, false];
+    const reversePattern = [false, false, false, false, true, false, true, true, true, false, true];
+    const matchesPattern = (values, start, pattern) => pattern.every((value, offset) => values[start + offset] === value);
+    for (let y = 0; y < size; y += 1) {
+      for (let x = 0; x <= size - 11; x += 1) {
+        const row = matrix[y];
+        if (matchesPattern(row, x, finderPattern) || matchesPattern(row, x, reversePattern)) penalty += 40;
+      }
+    }
+    for (let x = 0; x < size; x += 1) {
+      const col = matrix.map((row) => row[x]);
+      for (let y = 0; y <= size - 11; y += 1) {
+        if (matchesPattern(col, y, finderPattern) || matchesPattern(col, y, reversePattern)) penalty += 40;
+      }
+    }
+
+    let dark = 0;
+    matrix.forEach((row) => row.forEach((value) => {
+      if (value) dark += 1;
+    }));
+    penalty += Math.floor(Math.abs(dark * 20 - size * size * 10) / (size * size)) * 10;
+    return penalty;
+  }
+
+  function createPartnerReferralQrMatrix(text) {
+    const version = 10;
+    const size = version * 4 + 17;
+    const dataCodewords = 122;
+    const ecCodewordsPerBlock = 28;
+    const blockDataSizes = [15, 15, 15, 15, 15, 15, 16, 16];
+    const bytes = Array.from(new TextEncoder().encode(String(text || '')));
+    if (bytes.length > 119) {
+      throw new Error('Referral link is too long for the QR template.');
+    }
+
+    const dataBits = [];
+    appendQrBits(dataBits, 0x4, 4);
+    appendQrBits(dataBits, bytes.length, 16);
+    bytes.forEach((byte) => appendQrBits(dataBits, byte, 8));
+    const maxBits = dataCodewords * 8;
+    const terminatorLength = Math.min(4, maxBits - dataBits.length);
+    appendQrBits(dataBits, 0, Math.max(0, terminatorLength));
+    while (dataBits.length % 8 !== 0) dataBits.push(false);
+
+    const dataBytes = [];
+    for (let i = 0; i < dataBits.length; i += 8) {
+      let value = 0;
+      for (let j = 0; j < 8; j += 1) value = (value << 1) | (dataBits[i + j] ? 1 : 0);
+      dataBytes.push(value);
+    }
+    const padBytes = [0xec, 0x11];
+    for (let i = 0; dataBytes.length < dataCodewords; i += 1) {
+      dataBytes.push(padBytes[i % 2]);
+    }
+
+    const blocks = [];
+    let dataIndex = 0;
+    blockDataSizes.forEach((blockSize) => {
+      const data = dataBytes.slice(dataIndex, dataIndex + blockSize);
+      dataIndex += blockSize;
+      blocks.push({ data, ec: createQrRsRemainder(data, ecCodewordsPerBlock) });
+    });
+
+    const codewords = [];
+    const maxDataBlockSize = Math.max(...blockDataSizes);
+    for (let i = 0; i < maxDataBlockSize; i += 1) {
+      blocks.forEach((block) => {
+        if (i < block.data.length) codewords.push(block.data[i]);
+      });
+    }
+    for (let i = 0; i < ecCodewordsPerBlock; i += 1) {
+      blocks.forEach((block) => codewords.push(block.ec[i]));
+    }
+
+    const matrix = Array.from({ length: size }, () => new Array(size).fill(false));
+    const reserved = Array.from({ length: size }, () => new Array(size).fill(false));
+
+    const setModule = (x, y, value, reserve = true) => {
+      if (x < 0 || y < 0 || x >= size || y >= size) return;
+      matrix[y][x] = Boolean(value);
+      if (reserve) reserved[y][x] = true;
+    };
+
+    const addFinder = (cx, cy) => {
+      for (let dy = -1; dy <= 7; dy += 1) {
+        for (let dx = -1; dx <= 7; dx += 1) {
+          const x = cx + dx;
+          const y = cy + dy;
+          const dark = dx >= 0 && dx <= 6 && dy >= 0 && dy <= 6
+            && (dx === 0 || dx === 6 || dy === 0 || dy === 6 || (dx >= 2 && dx <= 4 && dy >= 2 && dy <= 4));
+          setModule(x, y, dark);
+        }
+      }
+    };
+
+    addFinder(0, 0);
+    addFinder(size - 7, 0);
+    addFinder(0, size - 7);
+
+    for (let i = 8; i < size - 8; i += 1) {
+      const dark = i % 2 === 0;
+      setModule(i, 6, dark);
+      setModule(6, i, dark);
+    }
+
+    [6, 28, 50].forEach((cx) => {
+      [6, 28, 50].forEach((cy) => {
+        const nearTopLeft = cx === 6 && cy === 6;
+        const nearTopRight = cx === 50 && cy === 6;
+        const nearBottomLeft = cx === 6 && cy === 50;
+        if (nearTopLeft || nearTopRight || nearBottomLeft) return;
+        for (let dy = -2; dy <= 2; dy += 1) {
+          for (let dx = -2; dx <= 2; dx += 1) {
+            const dist = Math.max(Math.abs(dx), Math.abs(dy));
+            setModule(cx + dx, cy + dy, dist !== 1);
+          }
+        }
+      });
+    });
+
+    setModule(8, size - 8, true);
+
+    for (let i = 0; i < 9; i += 1) {
+      if (i !== 6) {
+        setModule(8, i, false);
+        setModule(i, 8, false);
+      }
+    }
+    for (let i = 0; i < 8; i += 1) {
+      setModule(size - 1 - i, 8, false);
+      setModule(8, size - 1 - i, false);
+    }
+
+    const versionBits = getQrVersionBits(version);
+    for (let i = 0; i < 18; i += 1) {
+      const bit = ((versionBits >>> i) & 1) !== 0;
+      const a = size - 11 + (i % 3);
+      const b = Math.floor(i / 3);
+      setModule(a, b, bit);
+      setModule(b, a, bit);
+    }
+
+    const bitStream = [];
+    codewords.forEach((codeword) => appendQrBits(bitStream, codeword, 8));
+
+    let bitIndex = 0;
+    let upward = true;
+    for (let right = size - 1; right >= 1; right -= 2) {
+      if (right === 6) right -= 1;
+      for (let vertical = 0; vertical < size; vertical += 1) {
+        const y = upward ? size - 1 - vertical : vertical;
+        for (let dx = 0; dx < 2; dx += 1) {
+          const x = right - dx;
+          if (reserved[y][x]) continue;
+          matrix[y][x] = bitIndex < bitStream.length ? bitStream[bitIndex] : false;
+          bitIndex += 1;
+        }
+      }
+      upward = !upward;
+    }
+
+    let bestMatrix = null;
+    let bestPenalty = Infinity;
+    for (let mask = 0; mask < 8; mask += 1) {
+      const candidate = matrix.map((row) => row.slice());
+      for (let y = 0; y < size; y += 1) {
+        for (let x = 0; x < size; x += 1) {
+          if (!reserved[y][x] && getQrMaskBit(mask, x, y)) {
+            candidate[y][x] = !candidate[y][x];
+          }
+        }
+      }
+
+      const formatBits = getQrFormatBits(mask);
+      for (let i = 0; i < 15; i += 1) {
+        const bit = ((formatBits >>> i) & 1) !== 0;
+        if (i < 6) candidate[i][8] = bit;
+        else if (i < 8) candidate[i + 1][8] = bit;
+        else candidate[size - 15 + i][8] = bit;
+
+        if (i < 8) candidate[8][size - 1 - i] = bit;
+        else if (i < 9) candidate[8][15 - i] = bit;
+        else candidate[8][14 - i] = bit;
+      }
+      candidate[size - 8][8] = true;
+
+      const penalty = calculateQrPenalty(candidate);
+      if (penalty < bestPenalty) {
+        bestPenalty = penalty;
+        bestMatrix = candidate;
+      }
+    }
+
+    return bestMatrix || matrix;
+  }
+
+  function renderPartnerReferralQr() {
+    const link = getPartnerMainReferralLink();
+    state.partnerReferralQr.link = link;
+
+    if (els.partnerReferralQrLink) {
+      els.partnerReferralQrLink.value = link || 'Set your referral code to enable QR code';
+    }
+    if (els.btnPartnerCopyReferralQrLink) {
+      els.btnPartnerCopyReferralQrLink.disabled = !link;
+    }
+    if (els.btnPartnerDownloadReferralQr) {
+      els.btnPartnerDownloadReferralQr.disabled = !link;
+    }
+
+    if (!link) {
+      clearPartnerReferralQrCanvas();
+      setPartnerReferralQrStatus('Set your referral code to generate the QR code.', 'error');
+      return;
+    }
+
+    try {
+      const matrix = createPartnerReferralQrMatrix(link);
+      drawPartnerReferralQrMatrix(matrix);
+      setPartnerReferralQrStatus('QR ready. It uses your current referral link.');
+      loadPartnerReferralQrLogo().then((logo) => {
+        if (state.partnerReferralQr.link !== link) return;
+        drawPartnerReferralQrMatrix(matrix, logo);
+      });
+    } catch (error) {
+      console.error(error);
+      clearPartnerReferralQrCanvas();
+      setPartnerReferralQrStatus('Could not generate QR. Use the referral link copy button instead.', 'error');
+    }
+  }
+
+  function getPartnerReferralQrFilename() {
+    const code = getProfileReferralCode(state.profile || null) || 'partner';
+    const safeCode = String(code).replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'partner';
+    return `cypruseye-referral-${safeCode}.png`;
+  }
+
+  function isMobileShareDevice() {
+    const ua = navigator.userAgent || '';
+    return /Android|iPhone|iPad|iPod/i.test(ua) || (navigator.maxTouchPoints > 1 && /Macintosh/i.test(ua));
+  }
+
+  function canvasToPngBlob(canvas) {
+    return new Promise((resolve) => {
+      if (typeof canvas.toBlob === 'function') {
+        canvas.toBlob((blob) => resolve(blob), 'image/png');
+        return;
+      }
+
+      try {
+        const dataUrl = canvas.toDataURL('image/png');
+        const [, encoded = ''] = dataUrl.split(',');
+        const byteString = atob(encoded);
+        const bytes = new Uint8Array(byteString.length);
+        for (let i = 0; i < byteString.length; i += 1) {
+          bytes[i] = byteString.charCodeAt(i);
+        }
+        resolve(new Blob([bytes], { type: 'image/png' }));
+      } catch (error) {
+        console.error(error);
+        resolve(null);
+      }
+    });
+  }
+
+  async function downloadPartnerReferralQr() {
+    const canvas = els.partnerReferralQrCanvas;
+    const link = state.partnerReferralQr.link || getPartnerMainReferralLink();
+    if (!canvas || !link) {
+      showToast('Set your referral code to enable QR download.', 'error');
+      return;
+    }
+
+    const filename = getPartnerReferralQrFilename();
+    const blob = await canvasToPngBlob(canvas);
+    if (!blob) {
+      showToast('Could not prepare QR PNG. Try again.', 'error');
+      return;
+    }
+
+    if (isMobileShareDevice() && navigator.share && typeof File !== 'undefined') {
+      const file = new File([blob], filename, { type: 'image/png' });
+      if (!navigator.canShare || navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: 'CyprusEye referral QR',
+            text: 'Save or share your CyprusEye referral QR code.',
+          });
+          setPartnerReferralQrStatus('PNG ready. Use the share sheet to save it to Photos.');
+          return;
+        } catch (error) {
+          if (error?.name === 'AbortError') return;
+          console.error(error);
+        }
+      }
+    }
+
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    setPartnerReferralQrStatus('PNG download started.');
+  }
+
   function setProfileMessage(text) {
     if (!els.partnerProfileMessage) return;
     els.partnerProfileMessage.textContent = text || '';
@@ -2085,6 +2629,7 @@
     if (els.btnPartnerCopyReferralCodeLarge) {
       els.btnPartnerCopyReferralCodeLarge.disabled = !canUse;
     }
+    void renderPartnerReferralQr();
   }
 
   function openSidebar() {
@@ -2688,7 +3233,18 @@
     return Boolean(canShop || canCars || canTrips || canHotels || canTransport);
   }
 
+  function restorePartnerUtilityNav() {
+    [
+      els.partnerNavAll,
+      els.partnerNavProfile,
+      els.partnerNavReferrals,
+      els.partnerNavLinksDiscounts,
+    ].forEach((item) => setHidden(item, false));
+  }
+
   function updateSidebarCategoryVisibility() {
+    restorePartnerUtilityNav();
+
     const partner = state.selectedPartnerId ? state.partnersById[state.selectedPartnerId] : null;
     const hasShopFulfillments = (state.fulfillments || []).some((f) => f && String(f.__source || '') === 'shop');
     const canShop = Boolean(partner?.can_manage_shop && (partner?.shop_vendor_id || hasShopFulfillments));
@@ -2872,6 +3428,7 @@
       || window.appI18n?.language
       || 'en'
     ).trim().toLowerCase();
+    if (lang.startsWith('he')) return 'he';
     return lang.startsWith('pl') ? 'pl' : 'en';
   }
 
@@ -2998,10 +3555,11 @@
       return {
         pl: String(value.pl || value.en || direct).trim(),
         en: String(value.en || value.pl || direct).trim(),
+        he: String(value.he || value.en || value.pl || direct).trim(),
       };
     }
     const normalized = String(value || direct).trim();
-    return { pl: normalized, en: normalized };
+    return { pl: normalized, en: normalized, he: normalized };
   }
 
   function getPartnerLinksLocalizedText(item, field, preferred = 'en', fallbackField = '') {
@@ -3011,7 +3569,11 @@
       ? String(item[fallbackField] || '').trim()
       : '';
     if (pack && typeof pack === 'object') {
-      const lang = String(preferred || 'en').trim().toLowerCase() === 'pl' ? 'pl' : 'en';
+      const lang = String(preferred || 'en').trim().toLowerCase().startsWith('he')
+        ? 'he'
+        : String(preferred || 'en').trim().toLowerCase() === 'pl'
+          ? 'pl'
+          : 'en';
       return String(pack[lang] || pack.en || pack.pl || fallbackValue).trim();
     }
     return fallbackValue;
@@ -3473,10 +4035,12 @@
       const titleByLang = {
         pl: String(row?.name || row?.name_en || row?.slug || resourceId).trim(),
         en: String(row?.name_en || row?.name || row?.slug || resourceId).trim(),
+        he: String(row?.name_he || row?.name_en || row?.name || row?.slug || resourceId).trim(),
       };
       const descriptionByLang = {
         pl: normalizePreviewText(row?.short_description || row?.description || row?.short_description_en || row?.description_en),
         en: normalizePreviewText(row?.short_description_en || row?.description_en || row?.short_description || row?.description),
+        he: normalizePreviewText(row?.short_description_he || row?.description_he || row?.short_description_en || row?.description_en || row?.short_description || row?.description),
       };
       const categoryLabel = String(extra.categoryLabel || '').trim();
       const priceFromValue = getPartnerLinksPositiveNumber(row?.price || row?.sale_price || 0);
@@ -3497,19 +4061,22 @@
 
     if (normalizedType === 'blog') {
       const translations = Array.isArray(row?.translations) ? row.translations : [];
-      const byLang = { pl: null, en: null };
+      const byLang = { pl: null, en: null, he: null };
       translations.forEach((translation) => {
         const lang = String(translation?.lang || '').trim().toLowerCase();
-        if (lang === 'pl' || lang === 'en') {
+        if (lang === 'pl' || lang === 'en' || lang === 'he') {
           byLang[lang] = translation;
         }
       });
       const titlePl = String(byLang.pl?.title || byLang.en?.title || '').trim();
       const titleEn = String(byLang.en?.title || byLang.pl?.title || '').trim();
+      const titleHe = String(byLang.he?.title || byLang.en?.title || byLang.pl?.title || '').trim();
       const summaryPl = String(byLang.pl?.summary || byLang.pl?.lead || byLang.en?.summary || byLang.en?.lead || '').trim();
       const summaryEn = String(byLang.en?.summary || byLang.en?.lead || byLang.pl?.summary || byLang.pl?.lead || '').trim();
+      const summaryHe = String(byLang.he?.summary || byLang.he?.lead || byLang.en?.summary || byLang.en?.lead || byLang.pl?.summary || byLang.pl?.lead || '').trim();
       const slugPl = String(byLang.pl?.slug || byLang.en?.slug || '').trim();
       const slugEn = String(byLang.en?.slug || byLang.pl?.slug || '').trim();
+      const slugHe = String(byLang.he?.slug || byLang.en?.slug || byLang.pl?.slug || '').trim();
       return {
         key: `blog:${resourceId}`,
         type: 'blog',
@@ -3518,17 +4085,20 @@
         titleByLang: {
           pl: titlePl || titleEn,
           en: titleEn || titlePl,
+          he: titleHe || titleEn || titlePl,
         },
         meta: formatPartnerShortDate(row?.published_at) || 'Published',
         description: summaryEn || summaryPl,
         descriptionByLang: {
           pl: summaryPl || summaryEn,
           en: summaryEn || summaryPl,
+          he: summaryHe || summaryEn || summaryPl,
         },
         imageUrl: getFirstMediaUrl(row?.cover_image_url),
         slugByLang: {
           pl: slugPl,
           en: slugEn,
+          he: slugHe,
         },
       };
     }
@@ -3900,9 +4470,11 @@
     }
 
     els.partnerDiscountCodesList.innerHTML = rows.map((row) => {
-      const description = uiLanguage === 'pl'
-        ? String(row?.description || row?.description_en || row?.name || 'Partner discount code').trim()
-        : String(row?.description_en || row?.description || row?.name || 'Partner discount code').trim();
+      const description = pickPartnerBlogLocalizedValue({
+        he: row?.description_he,
+        en: row?.description_en,
+        pl: row?.description,
+      }, uiLanguage) || String(row?.name || 'Partner discount code').trim();
       const valueLabel = formatPartnerDiscountValue(row);
       const typeLabel = `${partnerLinksTypeLabel(row?.type)}${row?.whereWorks ? ` · ${row.whereWorks}` : ''}`;
       return `
@@ -4378,6 +4950,7 @@
     }
     renderPartnerLinksViewTabs();
     syncPartnerLinksViewPanels();
+    void renderPartnerReferralQr();
     await refreshPartnerLinksDiscountsView();
     closeSidebar();
   }
@@ -10280,10 +10853,10 @@
     state.blocks = Array.isArray(data) ? data : [];
   }
 
-  function normalizeTitleJson(value) {
+  function normalizeTitleJson(value, lang = 'pl') {
     if (!value) return '';
     if (typeof value === 'string') return value;
-    if (typeof value === 'object') return value.pl || value.en || value.el || value.he || '';
+    if (typeof value === 'object') return pickPartnerBlogLocalizedValue(value, lang);
     return '';
   }
 
@@ -10333,7 +10906,7 @@
       || combined.includes('does not exist')
       || combined.includes('could not find')
       || combined.includes('column')
-    ) && /(categories_pl|categories_en|tags_pl|tags_en)/i.test(combined);
+    ) && /(categories_pl|categories_en|categories_he|tags_pl|tags_en|tags_he)/i.test(combined);
   }
 
   async function executePartnerBlogTaxonomyFallback(primaryFactory, legacyFactory) {
@@ -10348,8 +10921,10 @@
     const next = { ...(payload || {}) };
     delete next.categories_pl;
     delete next.categories_en;
+    delete next.categories_he;
     delete next.tags_pl;
     delete next.tags_en;
+    delete next.tags_he;
     return next;
   }
 
@@ -10363,13 +10938,43 @@
 
   function getPartnerBlogTaxonomyRefs(kind, lang) {
     const kindLabel = kind === 'categories' ? 'Categories' : 'Tags';
-    const langLabel = lang === 'pl' ? 'Pl' : 'En';
+    const langLabel = getPartnerBlogLangSuffix(lang);
     return {
       input: els[`partnerBlogForm${kindLabel}${langLabel}`],
       selected: els[`partnerBlogForm${kindLabel}${langLabel}Selected`],
       composer: els[`partnerBlogForm${kindLabel}${langLabel}Input`],
       suggestions: els[`partnerBlogForm${kindLabel}${langLabel}Suggestions`],
     };
+  }
+
+  function getPartnerBlogLanguage(code) {
+    const normalized = String(code || '').trim().toLowerCase();
+    return PARTNER_BLOG_LANGUAGES.find((lang) => lang.code === normalized) || PARTNER_BLOG_LANGUAGES[0];
+  }
+
+  function getPartnerBlogLangSuffix(code) {
+    const normalized = String(code || '').trim().toLowerCase();
+    return normalized ? `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)}` : 'Pl';
+  }
+
+  function getPartnerBlogFallbackChain(lang) {
+    const normalized = String(lang || '').trim().toLowerCase();
+    const chain = normalized === 'he' ? ['he', 'en', 'pl'] : normalized === 'en' ? ['en', 'pl'] : ['pl', 'en'];
+    return chain.concat(PARTNER_BLOG_LANGUAGES.map((entry) => entry.code).filter((code) => !chain.includes(code)));
+  }
+
+  function pickPartnerBlogLocalizedValue(value, lang = 'en') {
+    if (value === null || value === undefined) return '';
+    if (typeof value !== 'object') return String(value || '').trim();
+    const chain = getPartnerBlogFallbackChain(lang);
+    for (const code of chain) {
+      const candidate = value?.[code];
+      if (candidate !== null && candidate !== undefined && String(candidate).trim()) {
+        return String(candidate).trim();
+      }
+    }
+    const first = Object.values(value).find((candidate) => candidate !== null && candidate !== undefined && String(candidate).trim());
+    return first === undefined ? '' : String(first).trim();
   }
 
   function firstSentenceText(value) {
@@ -10400,11 +11005,14 @@
   }
 
   function resetPartnerBlogDirtyState() {
-    state.partnerBlog.dirtyByLang = {
-      pl: { title: false, slug: false, lead: false, content_html: false },
-      en: { title: false, slug: false, lead: false, content_html: false },
-    };
-    state.partnerBlog.slugDirtyByLang = { pl: false, en: false };
+    state.partnerBlog.dirtyByLang = PARTNER_BLOG_LANGUAGES.reduce((accumulator, lang) => {
+      accumulator[lang.code] = { title: false, slug: false, lead: false, content_html: false };
+      return accumulator;
+    }, {});
+    state.partnerBlog.slugDirtyByLang = PARTNER_BLOG_LANGUAGES.reduce((accumulator, lang) => {
+      accumulator[lang.code] = false;
+      return accumulator;
+    }, {});
   }
 
   function normalizePartnerBlogRow(row) {
@@ -10430,9 +11038,11 @@
       categories: Array.isArray(row?.categories) ? row.categories.map((entry) => String(entry || '').trim()).filter(Boolean) : [],
       categories_pl: getPartnerBlogTaxonomyValuesFromPost(row, 'categories', 'pl'),
       categories_en: getPartnerBlogTaxonomyValuesFromPost(row, 'categories', 'en'),
+      categories_he: getPartnerBlogTaxonomyValuesFromPost(row, 'categories', 'he'),
       tags: Array.isArray(row?.tags) ? row.tags.map((entry) => String(entry || '').trim()).filter(Boolean) : [],
       tags_pl: getPartnerBlogTaxonomyValuesFromPost(row, 'tags', 'pl'),
       tags_en: getPartnerBlogTaxonomyValuesFromPost(row, 'tags', 'en'),
+      tags_he: getPartnerBlogTaxonomyValuesFromPost(row, 'tags', 'he'),
       cta_services: Array.isArray(row?.cta_services) ? row.cta_services.slice(0, 3).map((entry) => ({
         type: normalizePartnerBlogServiceType(entry?.type),
         resource_id: String(entry?.resource_id || '').trim(),
@@ -10446,7 +11056,14 @@
   }
 
   function getPartnerBlogDisplayTranslation(post, lang = 'en') {
-    return post?.translations?.[lang] || post?.translations?.pl || post?.translations?.en || {};
+    const translations = post?.translations || {};
+    for (const code of getPartnerBlogFallbackChain(lang)) {
+      const current = translations?.[code];
+      if (current && (current.title || current.slug || current.lead || current.content_html)) {
+        return current;
+      }
+    }
+    return Object.values(translations).find((current) => current && (current.title || current.slug || current.lead || current.content_html)) || {};
   }
 
   function getPartnerBlogCurrentPartner() {
@@ -10473,8 +11090,14 @@
   }
 
   function collectPartnerBlogTaxonomySuggestions() {
-    const categories = { pl: new Set(), en: new Set() };
-    const tags = { pl: new Set(), en: new Set() };
+    const categories = PARTNER_BLOG_TAXONOMY_LANGUAGES.reduce((accumulator, lang) => {
+      accumulator[lang] = new Set();
+      return accumulator;
+    }, {});
+    const tags = PARTNER_BLOG_TAXONOMY_LANGUAGES.reduce((accumulator, lang) => {
+      accumulator[lang] = new Set();
+      return accumulator;
+    }, {});
     (state.partnerBlog.items || []).forEach((post) => {
       PARTNER_BLOG_TAXONOMY_LANGUAGES.forEach((lang) => {
         getPartnerBlogTaxonomyValuesFromPost(post, 'categories', lang).forEach((entry) => {
@@ -10488,6 +11111,8 @@
       });
     });
     PARTNER_BLOG_TAXONOMY_LANGUAGES.forEach((lang) => {
+      state.partnerBlog.taxonomySuggestions.categories[lang] = state.partnerBlog.taxonomySuggestions.categories[lang] || [];
+      state.partnerBlog.taxonomySuggestions.tags[lang] = state.partnerBlog.taxonomySuggestions.tags[lang] || [];
       state.partnerBlog.taxonomySuggestions.categories[lang] = Array.from(categories[lang]).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
       state.partnerBlog.taxonomySuggestions.tags[lang] = Array.from(tags[lang]).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
     });
@@ -10547,7 +11172,7 @@
   }
 
   function getPartnerBlogTranslationField(field, lang) {
-    const suffix = lang === 'pl' ? 'Pl' : 'En';
+    const suffix = getPartnerBlogLangSuffix(lang);
     const map = {
       title: `partnerBlogTitle${suffix}`,
       slug: `partnerBlogSlug${suffix}`,
@@ -10606,13 +11231,17 @@
   }
 
   function switchPartnerBlogLanguage(lang) {
-    state.partnerBlog.activeLang = lang === 'en' ? 'en' : 'pl';
+    const language = getPartnerBlogLanguage(lang);
+    state.partnerBlog.activeLang = language.code;
     document.querySelectorAll('[data-partner-blog-lang-tab]').forEach((button) => {
       button.classList.toggle('active', String(button.getAttribute('data-partner-blog-lang-tab') || '') === state.partnerBlog.activeLang);
     });
     document.querySelectorAll('[data-partner-blog-lang-content]').forEach((panel) => {
       panel.classList.toggle('active', String(panel.getAttribute('data-partner-blog-lang-content') || '') === state.partnerBlog.activeLang);
     });
+    if (els.partnerBlogModal) {
+      els.partnerBlogModal.setAttribute('dir', language.rtl ? 'rtl' : 'ltr');
+    }
   }
 
   function renderPartnerBlogEditorToolbar(lang) {
@@ -10731,12 +11360,14 @@
           attributes: {
             class: 'partner-blog-editor-surface__inner',
             spellcheck: 'true',
+            dir: lang.rtl ? 'rtl' : 'ltr',
           },
         },
         onUpdate: ({ editor: currentEditor }) => {
           const stateEntry = state.partnerBlog.editors.get(lang.code);
           if (stateEntry?.programmaticUpdate) return;
           fallback.value = currentEditor.getHTML();
+          state.partnerBlog.dirtyByLang[lang.code] = state.partnerBlog.dirtyByLang[lang.code] || { title: false, slug: false, lead: false, content_html: false };
           state.partnerBlog.dirtyByLang[lang.code].content_html = true;
         },
       });
@@ -10783,37 +11414,42 @@
   }
 
   function normalizePartnerBlogResourceRow(type, row) {
+    const lang = state.partnerBlog.activeLang || 'en';
     if (type === 'trips') {
       return {
         id: row.id,
-        label: normalizeTitleJson(row.title) || row.slug || row.id,
+        label: normalizeTitleJson(row.title, lang) || row.slug || row.id,
         meta: String(row.start_city || '').trim(),
       };
     }
     if (type === 'hotels') {
       return {
         id: row.id,
-        label: normalizeTitleJson(row.title) || row.slug || row.id,
+        label: normalizeTitleJson(row.title, lang) || row.slug || row.id,
         meta: String(row.city || '').trim(),
       };
     }
     if (type === 'cars') {
       return {
         id: row.id,
-        label: normalizeTitleJson(row.car_model) || normalizeTitleJson(row.car_type) || row.id,
+        label: normalizeTitleJson(row.car_model, lang) || normalizeTitleJson(row.car_type, lang) || row.id,
         meta: String(row.location || '').trim(),
       };
     }
     if (type === 'pois') {
       return {
         id: row.id,
-        label: normalizeTitleJson(row.title) || row.name_en || row.name_pl || row.slug || row.id,
+        label: normalizeTitleJson(row.title, lang) || pickPartnerBlogLocalizedValue({ he: row.name_he, en: row.name_en, pl: row.name_pl }, lang) || row.slug || row.id,
         meta: String(row.location_name || row.city || '').trim(),
       };
     }
     return {
       id: row.id,
-      label: String(row.title_en || row.title_pl || row.name_en || row.name_pl || row.slug || row.id).trim(),
+      label: pickPartnerBlogLocalizedValue({
+        he: row.title_he || row.name_he,
+        en: row.title_en || row.name_en,
+        pl: row.title_pl || row.name_pl,
+      }, lang) || String(row.slug || row.id).trim(),
       meta: String(row.location_name || row.category || '').trim(),
     };
   }
@@ -10975,8 +11611,8 @@
   }
 
   function copyPartnerBlogTranslation(targetLang, sourceLang) {
-    const target = targetLang === 'en' ? 'en' : 'pl';
-    const source = sourceLang === 'en' ? 'en' : 'pl';
+    const target = getPartnerBlogLanguage(targetLang).code;
+    const source = getPartnerBlogLanguage(sourceLang).code;
     if (target === source) return;
     const sourceTitle = getPartnerBlogTranslationValue('title', source);
     const sourceLead = getPartnerBlogTranslationValue('lead', source);
@@ -10995,6 +11631,7 @@
     setPartnerBlogTranslationField('title', target, sourceTitle);
     setPartnerBlogTranslationField('lead', target, sourceLead);
     setPartnerBlogTranslationField('content_html', target, sourceContent);
+    state.partnerBlog.dirtyByLang[target] = state.partnerBlog.dirtyByLang[target] || { title: false, slug: false, lead: false, content_html: false };
     state.partnerBlog.dirtyByLang[target].title = true;
     state.partnerBlog.dirtyByLang[target].lead = true;
     state.partnerBlog.dirtyByLang[target].content_html = true;
@@ -11111,9 +11748,17 @@
     }, {});
   }
 
+  function hasPartnerBlogTranslationContent(translation) {
+    if (!translation) return false;
+    return ['title', 'slug', 'lead', 'content_html'].some((field) => String(translation[field] || '').trim());
+  }
+
   function validatePartnerBlogTranslations(translations) {
     PARTNER_BLOG_LANGUAGES.forEach((lang) => {
       const current = translations?.[lang.code] || {};
+      if (!lang.required && !hasPartnerBlogTranslationContent(current)) {
+        return;
+      }
       if (!current.title) throw new Error(`Title (${lang.code.toUpperCase()}) is required.`);
       if (!current.slug) throw new Error(`Slug (${lang.code.toUpperCase()}) is required.`);
       if (!current.meta_description) throw new Error(`Lead (${lang.code.toUpperCase()}) is required to build the meta description.`);
@@ -11221,6 +11866,7 @@
       if (!search) return true;
       const en = getPartnerBlogDisplayTranslation(post, 'en');
       const pl = getPartnerBlogDisplayTranslation(post, 'pl');
+      const he = getPartnerBlogDisplayTranslation(post, 'he');
       const haystack = [
         post.id,
         post.status,
@@ -11231,6 +11877,8 @@
         en.slug,
         pl.title,
         pl.slug,
+        he.title,
+        he.slug,
       ].join(' ').toLowerCase();
       return haystack.includes(search);
     });
@@ -11354,17 +12002,17 @@
         featured: false,
         allow_comments: false,
         categories: Array.from(new Set([
-          ...getPartnerBlogTaxonomyValues('categories', 'pl'),
-          ...getPartnerBlogTaxonomyValues('categories', 'en'),
+          ...PARTNER_BLOG_TAXONOMY_LANGUAGES.flatMap((lang) => getPartnerBlogTaxonomyValues('categories', lang)),
         ])),
         categories_pl: getPartnerBlogTaxonomyValues('categories', 'pl'),
         categories_en: getPartnerBlogTaxonomyValues('categories', 'en'),
+        categories_he: getPartnerBlogTaxonomyValues('categories', 'he'),
         tags: Array.from(new Set([
-          ...getPartnerBlogTaxonomyValues('tags', 'pl'),
-          ...getPartnerBlogTaxonomyValues('tags', 'en'),
+          ...PARTNER_BLOG_TAXONOMY_LANGUAGES.flatMap((lang) => getPartnerBlogTaxonomyValues('tags', lang)),
         ])),
         tags_pl: getPartnerBlogTaxonomyValues('tags', 'pl'),
         tags_en: getPartnerBlogTaxonomyValues('tags', 'en'),
+        tags_he: getPartnerBlogTaxonomyValues('tags', 'he'),
         cta_services: collectPartnerBlogCtaRows(),
         author_profile_id: null,
         owner_partner_id: state.selectedPartnerId,
@@ -11410,26 +12058,40 @@
         blogPostId = data?.id || '';
       }
 
-      const translationPayloads = PARTNER_BLOG_LANGUAGES.map((lang) => ({
-        blog_post_id: blogPostId,
-        lang: lang.code,
-        slug: translations[lang.code].slug,
-        title: translations[lang.code].title,
-        meta_title: translations[lang.code].meta_title,
-        meta_description: translations[lang.code].meta_description,
-        summary: translations[lang.code].summary,
-        lead: translations[lang.code].lead || null,
-        author_name: null,
-        author_url: null,
-        content_json: translations[lang.code].content_json,
-        content_html: translations[lang.code].content_html,
-        og_image_url: null,
-      }));
+      const translationPayloads = PARTNER_BLOG_LANGUAGES
+        .filter((lang) => lang.required || hasPartnerBlogTranslationContent(translations[lang.code]))
+        .map((lang) => ({
+          blog_post_id: blogPostId,
+          lang: lang.code,
+          slug: translations[lang.code].slug,
+          title: translations[lang.code].title,
+          meta_title: translations[lang.code].meta_title,
+          meta_description: translations[lang.code].meta_description,
+          summary: translations[lang.code].summary,
+          lead: translations[lang.code].lead || null,
+          author_name: null,
+          author_url: null,
+          content_json: translations[lang.code].content_json,
+          content_html: translations[lang.code].content_html,
+          og_image_url: null,
+        }));
 
       const { error: translationError } = await state.sb
         .from('blog_post_translations')
         .upsert(translationPayloads, { onConflict: 'blog_post_id,lang' });
       if (translationError) throw translationError;
+
+      const emptyOptionalLangs = PARTNER_BLOG_LANGUAGES
+        .filter((lang) => !lang.required && !hasPartnerBlogTranslationContent(translations[lang.code]))
+        .map((lang) => lang.code);
+      if (emptyOptionalLangs.length) {
+        const { error: cleanupError } = await state.sb
+          .from('blog_post_translations')
+          .delete()
+          .eq('blog_post_id', blogPostId)
+          .in('lang', emptyOptionalLangs);
+        if (cleanupError) throw cleanupError;
+      }
 
       showToast(action === 'submit' ? 'Post sent for approval' : (editingId ? 'Draft updated' : 'Draft created'), 'success');
       closePartnerBlogModal();
@@ -11618,6 +12280,7 @@
         const lang = String(target.getAttribute('data-lang') || '').trim();
         const field = String(target.getAttribute('data-partner-blog-field') || '').trim();
         if (!lang || !field) return;
+        state.partnerBlog.dirtyByLang[lang] = state.partnerBlog.dirtyByLang[lang] || { title: false, slug: false, lead: false, content_html: false };
 
         if (field === 'slug' && target instanceof HTMLInputElement) {
           target.value = slugifyText(target.value || '');
@@ -13067,12 +13730,24 @@
       await handleCopyReferralCode(els.partnerReferralCodeSummary?.value);
     });
 
+    els.btnPartnerOpenLinksDiscountsSummary?.addEventListener('click', () => {
+      void navToLinksDiscounts();
+    });
+
     els.btnPartnerCopyReferralLinkLarge?.addEventListener('click', async () => {
       await handleCopyReferral(els.partnerReferralLinkLarge?.value);
     });
 
     els.btnPartnerCopyReferralCodeLarge?.addEventListener('click', async () => {
       await handleCopyReferralCode(els.partnerReferralCodeLarge?.value);
+    });
+
+    els.btnPartnerCopyReferralQrLink?.addEventListener('click', async () => {
+      await handleCopyReferral(els.partnerReferralQrLink?.value);
+    });
+
+    els.btnPartnerDownloadReferralQr?.addEventListener('click', () => {
+      void downloadPartnerReferralQr();
     });
 
     els.btnPartnerReferralOrdersRefresh?.addEventListener('click', async () => {
@@ -13510,6 +14185,12 @@
     els.partnerProfileView = $('partnerProfileView');
     els.partnerReferralsView = $('partnerReferralsView');
     els.partnerLinksDiscountsView = $('partnerLinksDiscountsView');
+    els.partnerReferralQrCard = $('partnerReferralQrCard');
+    els.partnerReferralQrCanvas = $('partnerReferralQrCanvas');
+    els.partnerReferralQrLink = $('partnerReferralQrLink');
+    els.btnPartnerCopyReferralQrLink = $('btnPartnerCopyReferralQrLink');
+    els.btnPartnerDownloadReferralQr = $('btnPartnerDownloadReferralQr');
+    els.partnerReferralQrStatus = $('partnerReferralQrStatus');
     els.partnerLinksViewTabs = $('partnerLinksViewTabs');
     els.partnerLinksFilters = $('partnerLinksFilters');
     els.partnerLinksContextControls = $('partnerLinksContextControls');
@@ -13573,6 +14254,10 @@
     els.partnerBlogFormCategoriesEnSelected = $('partnerBlogFormCategoriesEnSelected');
     els.partnerBlogFormCategoriesEnInput = $('partnerBlogFormCategoriesEnInput');
     els.partnerBlogFormCategoriesEnSuggestions = $('partnerBlogFormCategoriesEnSuggestions');
+    els.partnerBlogFormCategoriesHe = $('partnerBlogFormCategoriesHe');
+    els.partnerBlogFormCategoriesHeSelected = $('partnerBlogFormCategoriesHeSelected');
+    els.partnerBlogFormCategoriesHeInput = $('partnerBlogFormCategoriesHeInput');
+    els.partnerBlogFormCategoriesHeSuggestions = $('partnerBlogFormCategoriesHeSuggestions');
     els.partnerBlogFormTagsPl = $('partnerBlogFormTagsPl');
     els.partnerBlogFormTagsPlSelected = $('partnerBlogFormTagsPlSelected');
     els.partnerBlogFormTagsPlInput = $('partnerBlogFormTagsPlInput');
@@ -13581,6 +14266,10 @@
     els.partnerBlogFormTagsEnSelected = $('partnerBlogFormTagsEnSelected');
     els.partnerBlogFormTagsEnInput = $('partnerBlogFormTagsEnInput');
     els.partnerBlogFormTagsEnSuggestions = $('partnerBlogFormTagsEnSuggestions');
+    els.partnerBlogFormTagsHe = $('partnerBlogFormTagsHe');
+    els.partnerBlogFormTagsHeSelected = $('partnerBlogFormTagsHeSelected');
+    els.partnerBlogFormTagsHeInput = $('partnerBlogFormTagsHeInput');
+    els.partnerBlogFormTagsHeSuggestions = $('partnerBlogFormTagsHeSuggestions');
     els.partnerBlogEditorRuntimeNote = $('partnerBlogEditorRuntimeNote');
     els.btnPartnerBlogAddCta = $('btnPartnerBlogAddCta');
     els.partnerBlogFormCtaRows = $('partnerBlogFormCtaRows');
@@ -13646,6 +14335,7 @@
     els.btnPartnerCopyReferralLinkSummary = $('btnPartnerCopyReferralLinkSummary');
     els.partnerReferralCodeSummary = $('partnerReferralCodeSummary');
     els.btnPartnerCopyReferralCodeSummary = $('btnPartnerCopyReferralCodeSummary');
+    els.btnPartnerOpenLinksDiscountsSummary = $('btnPartnerOpenLinksDiscountsSummary');
 
     els.partnerReferralLinkLarge = $('partnerReferralLinkLarge');
     els.btnPartnerCopyReferralLinkLarge = $('btnPartnerCopyReferralLinkLarge');

@@ -2,6 +2,7 @@
   'use strict';
 
   const SUPPORTED_LANGUAGES = ['pl', 'en']; // ['pl', 'en', 'el', 'he'];
+  const DEFAULT_SEO_LANGUAGE = 'en';
   const DEFAULT_IMAGE = 'assets/cyprus_logo-1000x1054.png';
   const CANONICAL_ORIGIN = 'https://www.cypruseye.com';
   const LOCALE_FALLBACK = {
@@ -138,6 +139,7 @@
   function buildLanguageUrl(language) {
     const url = new URL(window.location.pathname, CANONICAL_ORIGIN);
     const params = new URLSearchParams(window.location.search);
+    params.delete('ce_he_preview');
     if (language) {
       params.set('lang', language);
     }
@@ -152,6 +154,11 @@
       url.searchParams.delete('lang');
     }
     return url.toString();
+  }
+
+  function normalizeSeoLanguage(language) {
+    const normalized = String(language || '').trim().toLowerCase().split('-')[0];
+    return SUPPORTED_LANGUAGES.includes(normalized) ? normalized : DEFAULT_SEO_LANGUAGE;
   }
 
   function updateAlternateLinks(activeLanguage) {
@@ -171,8 +178,9 @@
   }
 
   function updateSeo(language) {
+    const seoLanguage = normalizeSeoLanguage(language);
     const pageKey = document.body?.dataset?.seoPage || 'home';
-    const translations = getTranslations(language);
+    const translations = getTranslations(seoLanguage);
     const baseKey = `seo.${pageKey}`;
 
     const title = getTranslationString(translations, `${baseKey}.title`) || fallback.title;
@@ -210,7 +218,7 @@
       getTranslationString(translations, `${baseKey}.locale`) ||
       getTranslationString(translations, 'seo.locale') ||
       fallback.ogLocale ||
-      LOCALE_FALLBACK[language] ||
+      LOCALE_FALLBACK[seoLanguage] ||
       LOCALE_FALLBACK.en;
     if (localeValue && meta.ogLocale) {
       meta.ogLocale.setAttribute('content', localeValue);
@@ -218,7 +226,7 @@
 
     const titleElement = head.querySelector('title');
     if (titleElement) {
-      titleElement.setAttribute('lang', language);
+      titleElement.setAttribute('lang', seoLanguage);
     }
 
     SUPPORTED_LANGUAGES.forEach((code) => {
@@ -250,20 +258,20 @@
     head
       .querySelectorAll('meta[property="og:locale:alternate"]')
       .forEach((node) => node.parentNode?.removeChild(node));
-    SUPPORTED_LANGUAGES.filter((code) => code !== language).forEach((code) => {
+    SUPPORTED_LANGUAGES.filter((code) => code !== seoLanguage).forEach((code) => {
       const locale = LOCALE_FALLBACK[code] || code;
       const alternate = ensureLocalizedMeta('property', 'og:locale:alternate', code);
       alternate.setAttribute('content', locale);
     });
 
-    updateAlternateLinks(language);
+    updateAlternateLinks(seoLanguage);
   }
 
   function getActiveLanguage() {
     if (window.appI18n && window.appI18n.language) {
-      return window.appI18n.language;
+      return normalizeSeoLanguage(window.appI18n.language);
     }
-    return document.documentElement.lang || 'en';
+    return normalizeSeoLanguage(document.documentElement.lang || DEFAULT_SEO_LANGUAGE);
   }
 
   function applyForCurrentLanguage() {
