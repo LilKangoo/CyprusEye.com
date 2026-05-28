@@ -78,7 +78,16 @@
     overflow-x: hidden;
   }
 
+  .shop-filters:not(.is-open) {
+    display: none;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
   .shop-filters.is-open {
+    display: block;
+    visibility: visible;
+    pointer-events: auto;
     transform: translateX(0);
   }
 

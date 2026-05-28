@@ -827,7 +827,10 @@ body.transport-booking-page {
   }
 
   .transport-booking-page .app-footer {
+    width: auto;
+    max-width: calc(100% - 24px);
     margin: 10px 12px 18px;
+    box-sizing: border-box;
   }
 }
 
