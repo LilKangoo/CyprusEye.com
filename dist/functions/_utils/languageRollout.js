@@ -85,13 +85,18 @@ const PUBLIC_SURFACES = new Set([
 
 let cachedRolloutOverrides = null;
 
+function getProcessEnv() {
+  return globalThis.process?.env || {};
+}
+
 function getServerRolloutOverrides() {
   if (cachedRolloutOverrides) {
     return cachedRolloutOverrides;
   }
 
   const overrides = {};
-  const rawConfig = process.env.CE_LANGUAGE_ROLLOUT_CONFIG || '';
+  const env = getProcessEnv();
+  const rawConfig = env.CE_LANGUAGE_ROLLOUT_CONFIG || '';
   if (rawConfig) {
     try {
       const parsed = JSON.parse(rawConfig);
@@ -103,10 +108,10 @@ function getServerRolloutOverrides() {
     }
   }
 
-  if (process.env.CE_HE_ROLLOUT_MODE) {
+  if (env.CE_HE_ROLLOUT_MODE) {
     overrides.he = {
       ...(overrides.he && typeof overrides.he === 'object' ? overrides.he : {}),
-      mode: process.env.CE_HE_ROLLOUT_MODE,
+      mode: env.CE_HE_ROLLOUT_MODE,
     };
   }
 
