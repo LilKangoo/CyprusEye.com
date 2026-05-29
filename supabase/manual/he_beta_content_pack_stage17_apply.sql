@@ -1,7 +1,7 @@
--- Stage 16: controlled HE beta content pack.
+-- Stage 17: controlled HE beta content pack APPLY.
 -- Review status: needs human review for every value in this file.
--- This file is intentionally non-destructive and ends with ROLLBACK.
--- Replace ROLLBACK with COMMIT only after editorial review in Supabase SQL Editor.
+-- Run manually in Supabase SQL Editor after editorial review.
+-- This file commits only the narrow beta content scope.
 --
 -- This does not enable public HE, sitemap, hreflang, canonical, SEO, indexing,
 -- public switchers, or public /he/ routes.
@@ -613,5 +613,4 @@ WHERE id IN ('c085ebc6-1de8-4963-954a-8c67b56db892', '6013a7c6-f8a1-4259-8286-fb
   AND NULLIF(BTRIM(title_he), '') IS NOT NULL
   AND NULLIF(BTRIM(description_he), '') IS NOT NULL;
 
--- Keep this rollback until all values have passed human review.
-ROLLBACK;
+COMMIT;

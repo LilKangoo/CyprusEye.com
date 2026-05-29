@@ -27,13 +27,15 @@ the whole platform.
 ## Beta Content Coverage
 
 Stage 16 adds a reviewed-content path, not public activation. The concrete HE
-content pack is stored in:
+content pack and Stage 17 manual apply/verify files are stored in:
 
 - `supabase/manual/he_beta_content_pack_stage16.sql`
+- `supabase/manual/he_beta_content_pack_stage17_apply.sql`
+- `supabase/manual/he_beta_verify_after_apply.sql`
 
-The SQL file is intentionally wrapped in a transaction and ends with
-`ROLLBACK`. It should be executed as a preview first, reviewed by a Hebrew
-speaker, and only then changed to `COMMIT`.
+The Stage 16 SQL file is intentionally wrapped in a transaction and ends with
+`ROLLBACK`. The Stage 17 apply file commits the same narrow scope and should be
+used only after human review.
 
 | Area | Selected records | HE content prepared | Runtime applied | Review status | Beta status after apply |
 | --- | ---: | ---: | --- | --- | --- |
