@@ -2,9 +2,12 @@ export const DEFAULT_PUBLIC_LANGUAGE = 'en';
 export const HIDDEN_PREVIEW_PARAM = 'ce_he_preview';
 
 export const ROLLOUT_MODES = Object.freeze({
+  OFF: 'off',
   INTERNAL_ONLY: 'internal_only',
+  BETA: 'beta',
   BETA_USERS: 'beta_users',
   PARTIAL_PUBLIC: 'partial_public',
+  PUBLIC: 'public',
   FULL_PUBLIC: 'full_public',
 });
 
@@ -80,6 +83,52 @@ const PUBLIC_SURFACES = new Set([
   'indexing',
 ]);
 
+let cachedRolloutOverrides = null;
+
+function getServerRolloutOverrides() {
+  if (cachedRolloutOverrides) {
+    return cachedRolloutOverrides;
+  }
+
+  const overrides = {};
+  const rawConfig = process.env.CE_LANGUAGE_ROLLOUT_CONFIG || '';
+  if (rawConfig) {
+    try {
+      const parsed = JSON.parse(rawConfig);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        Object.assign(overrides, parsed);
+      }
+    } catch (error) {
+      console.warn('[language-rollout] Ignoring invalid CE_LANGUAGE_ROLLOUT_CONFIG JSON.', error);
+    }
+  }
+
+  if (process.env.CE_HE_ROLLOUT_MODE) {
+    overrides.he = {
+      ...(overrides.he && typeof overrides.he === 'object' ? overrides.he : {}),
+      mode: process.env.CE_HE_ROLLOUT_MODE,
+    };
+  }
+
+  cachedRolloutOverrides = overrides;
+  return cachedRolloutOverrides;
+}
+
+function getLanguageRollout(language) {
+  const code = normalizeLanguageCode(language);
+  const config = getLanguageConfig(code);
+  if (!config) {
+    return null;
+  }
+  const override = getServerRolloutOverrides()[code];
+  const rollout = {
+    ...(config.rollout || {}),
+    ...(override && typeof override === 'object' ? override : {}),
+  };
+  rollout.mode = normalizeRolloutMode(rollout.mode || ROLLOUT_MODES.INTERNAL_ONLY);
+  return rollout;
+}
+
 export function normalizeLanguageCode(value) {
   return String(value || '').trim().toLowerCase().split('-')[0];
 }
@@ -101,16 +150,23 @@ export function isHiddenLanguage(language) {
   return Boolean(getLanguageConfig(language)?.hidden);
 }
 
+function normalizeRolloutMode(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === ROLLOUT_MODES.BETA) return ROLLOUT_MODES.BETA_USERS;
+  if (normalized === ROLLOUT_MODES.PUBLIC) return ROLLOUT_MODES.FULL_PUBLIC;
+  return normalized;
+}
+
 function isBetaAllowed(language, options = {}) {
-  const config = getLanguageConfig(language);
-  if (!config || config.rollout?.mode !== ROLLOUT_MODES.BETA_USERS) {
+  const rollout = getLanguageRollout(language);
+  if (!rollout || rollout.mode !== ROLLOUT_MODES.BETA_USERS) {
     return false;
   }
   if (options.beta === true || options.betaUser === true) {
     return true;
   }
   const userId = String(options.userId || '').trim();
-  const allowlist = Array.isArray(config.rollout?.betaUserIds) ? config.rollout.betaUserIds : [];
+  const allowlist = Array.isArray(rollout.betaUserIds) ? rollout.betaUserIds : [];
   return Boolean(userId && allowlist.includes(userId));
 }
 
@@ -121,7 +177,7 @@ export function isLanguageEnabledForSurface(language, surface = 'switcher', opti
     return false;
   }
 
-  const rollout = config.rollout || {};
+  const rollout = getLanguageRollout(normalized) || {};
   const mode = rollout.mode || ROLLOUT_MODES.INTERNAL_ONLY;
   if (mode === ROLLOUT_MODES.FULL_PUBLIC) {
     return PUBLIC_SURFACES.has(surface) ? rollout[surface] !== false : true;
@@ -130,7 +186,9 @@ export function isLanguageEnabledForSurface(language, surface = 'switcher', opti
     return PUBLIC_SURFACES.has(surface) && rollout[surface] === true;
   }
   if (mode === ROLLOUT_MODES.BETA_USERS) {
-    return isBetaAllowed(normalized, options) && surface === 'routes';
+    return isBetaAllowed(normalized, options)
+      && ['switcher', 'routes', 'publicApi'].includes(surface)
+      && rollout[surface] === true;
   }
   return false;
 }
@@ -161,7 +219,7 @@ export function getRolloutSnapshot() {
     Object.entries(LANGUAGE_REGISTRY).map(([code, config]) => [
       code,
       {
-        mode: config.rollout?.mode || ROLLOUT_MODES.INTERNAL_ONLY,
+        mode: getLanguageRollout(code)?.mode || ROLLOUT_MODES.INTERNAL_ONLY,
         hidden: Boolean(config.hidden),
         fallbackChain: [...(config.fallbackChain || [])],
         publicSurfaces: Object.fromEntries(
@@ -181,6 +239,6 @@ export function assertHebrewPubliclyHidden() {
   return {
     ok: publicSurfaces.length === 0,
     publicSurfaces,
-    mode: getLanguageConfig('he')?.rollout?.mode || ROLLOUT_MODES.INTERNAL_ONLY,
+    mode: getLanguageRollout('he')?.mode || ROLLOUT_MODES.INTERNAL_ONLY,
   };
 }

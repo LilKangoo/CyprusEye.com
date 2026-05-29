@@ -712,15 +712,15 @@ function setSectionStatus(sectionKey, tone, text) {
 }
 
 function collectTaxonomySuggestions(kind) {
-  const bag = {
-    pl: new Set(),
-    en: new Set(),
-  };
+  const bag = BLOG_TAXONOMY_LANGUAGES.reduce((accumulator, lang) => {
+    accumulator[lang] = new Set();
+    return accumulator;
+  }, {});
   blogAdminState.items.forEach((item) => {
     BLOG_TAXONOMY_LANGUAGES.forEach((lang) => {
       getPostTaxonomyValues(item, kind, lang).forEach((entry) => {
         const value = String(entry || '').trim();
-        if (value) bag[lang].add(value);
+        if (value) bag[lang]?.add(value);
       });
     });
   });

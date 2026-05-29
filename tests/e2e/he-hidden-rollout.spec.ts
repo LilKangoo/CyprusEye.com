@@ -31,6 +31,7 @@ test.describe('hidden Hebrew rollout guard', () => {
     await expect(page.locator('html')).not.toHaveAttribute('lang', 'he');
     await expect(page.locator('html')).not.toHaveAttribute('dir', 'rtl');
     await expect(page.locator('[data-testid="language-option-he"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="language-pill-he"]')).toHaveCount(0);
   });
 
   test('renders hidden HE preview on key desktop routes without exposing switcher option', async ({ page }) => {
@@ -43,6 +44,7 @@ test.describe('hidden Hebrew rollout guard', () => {
       await expect(page.locator('html')).toHaveAttribute('lang', 'he');
       await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
       await expect(page.locator('[data-testid="language-option-he"]')).toHaveCount(0);
+      await expect(page.locator('[data-testid="language-pill-he"]')).toHaveCount(0);
       await expectNoHorizontalOverflow(page);
     }
   });
@@ -56,6 +58,7 @@ test.describe('hidden Hebrew rollout guard', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', 'he');
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await expect(page.locator('[data-testid="language-option-he"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="language-pill-he"]')).toHaveCount(0);
     await expectNoHorizontalOverflow(page);
   });
 
@@ -69,5 +72,36 @@ test.describe('hidden Hebrew rollout guard', () => {
     await waitForHtmlLanguage(page, 'pl');
     await expect(page.locator('html')).toHaveAttribute('lang', 'pl');
     await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
+  });
+
+  test('allows HE only for configured beta users without enabling SEO surfaces', async ({ page }) => {
+    await page.addInitScript(() => {
+      (window as any).CE_LANGUAGE_ROLLOUT_CONFIG = {
+        he: {
+          mode: 'beta',
+          switcher: true,
+          routes: true,
+          publicApi: true,
+          seo: false,
+          sitemap: false,
+          hreflang: false,
+          canonical: false,
+          indexing: false,
+        },
+      };
+      window.localStorage.setItem('ce_he_beta', 'true');
+    });
+
+    await page.goto('/index.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await waitForHtmlLanguage(page, 'he');
+
+    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+    await expect(page.locator('[data-testid="language-pill-he"]')).toHaveCount(1);
+    const rollout = await page.evaluate(() => (window as any).CELanguageRollout?.snapshot?.().he);
+    expect(rollout?.publicSurfaces?.seo).toBe(false);
+    expect(rollout?.publicSurfaces?.sitemap).toBe(false);
+    expect(rollout?.publicSurfaces?.hreflang).toBe(false);
+    expect(rollout?.publicSurfaces?.canonical).toBe(false);
+    expect(rollout?.publicSurfaces?.indexing).toBe(false);
   });
 });

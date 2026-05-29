@@ -7,9 +7,12 @@
   const HIDDEN_PREVIEW_STORAGE_KEY = 'ce_hidden_language_preview';
   const HIDDEN_PREVIEW_LANGUAGE_KEY = 'ce_hidden_language_preview_lang';
   const ROLLOUT_MODES = Object.freeze({
+    OFF: 'off',
     INTERNAL_ONLY: 'internal_only',
+    BETA: 'beta',
     BETA_USERS: 'beta_users',
     PARTIAL_PUBLIC: 'partial_public',
+    PUBLIC: 'public',
     FULL_PUBLIC: 'full_public',
   });
   const LANGUAGE_REGISTRY = {
@@ -65,8 +68,44 @@
     return LANGUAGE_REGISTRY[normalizeLanguageCode(value)] || null;
   }
 
+  function normalizeRolloutMode(value) {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (normalized === ROLLOUT_MODES.BETA) return ROLLOUT_MODES.BETA_USERS;
+    if (normalized === ROLLOUT_MODES.PUBLIC) return ROLLOUT_MODES.FULL_PUBLIC;
+    return normalized;
+  }
+
+  function getRuntimeRolloutOverrides() {
+    const config = window.CE_LANGUAGE_ROLLOUT_CONFIG || window.CE_LANGUAGE_ROLLOUT || null;
+    return config && typeof config === 'object' ? config : {};
+  }
+
+  function getLocalDevelopmentRolloutMode(language) {
+    const normalized = normalizeLanguageCode(language);
+    const canUseLocalOverride = isLocalPreviewHost()
+      || String(document.body?.dataset?.allowHiddenLanguagePreview || '') === 'true';
+    if (!canUseLocalOverride) {
+      return '';
+    }
+    return safeLocalStorage('get', `ce_${normalized}_rollout_mode`) || '';
+  }
+
   function getLanguageRollout(value) {
-    return LANGUAGE_ROLLOUT[normalizeLanguageCode(value)] || null;
+    const normalized = normalizeLanguageCode(value);
+    const base = LANGUAGE_ROLLOUT[normalized];
+    if (!base) return null;
+
+    const override = getRuntimeRolloutOverrides()[normalized];
+    const merged = {
+      ...base,
+      ...(override && typeof override === 'object' ? override : {}),
+    };
+    const localMode = getLocalDevelopmentRolloutMode(normalized);
+    if (localMode) {
+      merged.mode = localMode;
+    }
+    merged.mode = normalizeRolloutMode(merged.mode || base.mode);
+    return merged;
   }
 
   function isBetaUserAllowed(language, options = {}) {
@@ -79,13 +118,30 @@
     }
     const betaStorageKey = String(rollout.betaStorageKey || '');
     const betaQueryParam = String(rollout.betaQueryParam || '');
-    const betaStorageEnabled = betaStorageKey && safeLocalStorage('get', betaStorageKey) === 'true';
+    const allowLocalBetaOverride = options.allowLocalBetaOverride === true
+      || isLocalPreviewHost()
+      || String(document.body?.dataset?.allowHiddenLanguagePreview || '') === 'true';
+    const betaStorageEnabled = betaStorageKey
+      && allowLocalBetaOverride
+      && safeLocalStorage('get', betaStorageKey) === 'true';
     let betaParamEnabled = false;
     try {
-      betaParamEnabled = betaQueryParam && new URL(window.location.href).searchParams.get(betaQueryParam) === '1';
+      betaParamEnabled = betaQueryParam
+        && (isLocalPreviewHost() || String(document.body?.dataset?.allowHiddenLanguagePreview || '') === 'true')
+        && new URL(window.location.href).searchParams.get(betaQueryParam) === '1';
     } catch (_error) {
     }
-    return Boolean(betaStorageEnabled || betaParamEnabled);
+    const sessionUser = window.CE_STATE?.session?.user || window.CE_STATE?.user || window.CE_CURRENT_USER || {};
+    const userId = String(sessionUser?.id || options.userId || '').trim();
+    const email = String(sessionUser?.email || options.email || '').trim().toLowerCase();
+    const betaUserIds = Array.isArray(rollout.betaUserIds) ? rollout.betaUserIds.map((id) => String(id).trim()) : [];
+    const betaEmails = Array.isArray(rollout.betaEmails) ? rollout.betaEmails.map((item) => String(item).trim().toLowerCase()) : [];
+    return Boolean(
+      betaStorageEnabled
+      || betaParamEnabled
+      || (userId && betaUserIds.includes(userId))
+      || (email && betaEmails.includes(email))
+    );
   }
 
   function isLanguageEnabledForSurface(language, surface = 'switcher', options = {}) {
@@ -102,7 +158,9 @@
       return rollout[surface] === true;
     }
     if (mode === ROLLOUT_MODES.BETA_USERS) {
-      return surface === 'routes' && isBetaUserAllowed(normalized, options);
+      return isBetaUserAllowed(normalized, options)
+        && ['switcher', 'routes', 'publicApi'].includes(surface)
+        && rollout[surface] === true;
     }
     return false;
   }
@@ -154,7 +212,7 @@
   }
 
   function isHiddenLanguage(value) {
-    return Object.prototype.hasOwnProperty.call(HIDDEN_LANGUAGES, normalizeLanguageCode(value));
+    return Boolean(LANGUAGE_REGISTRY[normalizeLanguageCode(value)]?.hidden);
   }
 
   function isPublicLanguage(value) {
@@ -225,7 +283,9 @@
     if (isPublicLanguage(normalized)) {
       return normalized;
     }
-    return includeHidden && isHiddenLanguagePreviewEnabled() && isHiddenLanguage(normalized)
+    return includeHidden
+      && isHiddenLanguage(normalized)
+      && (isHiddenLanguagePreviewEnabled() || isLanguageEnabledForSurface(normalized, 'routes'))
       ? normalized
       : '';
   }
@@ -788,6 +848,23 @@
     });
   }
 
+  function ensureLanguagePillOptions(group) {
+    Object.keys(SUPPORTED_LANGUAGES).forEach((code) => {
+      if (group.querySelector(`[data-language-pill="${code}"]`)) {
+        return;
+      }
+      const info = SUPPORTED_LANGUAGES[code];
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'language-pill';
+      button.dataset.languagePill = code;
+      button.dataset.testid = `language-pill-${code}`;
+      button.setAttribute('aria-pressed', 'false');
+      button.textContent = info.shortLabel || code.toUpperCase();
+      group.append(button);
+    });
+  }
+
   function initLanguagePills() {
     const groups = document.querySelectorAll('[data-language-toggle]');
     if (!groups.length) {
@@ -795,6 +872,7 @@
     }
 
     groups.forEach((group) => {
+      ensureLanguagePillOptions(group);
       if (group.dataset.languageInit === 'true') {
         return;
       }

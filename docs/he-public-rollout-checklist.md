@@ -182,3 +182,11 @@ Direct Supabase table access note: RLS can hide rows, but it does not hide indiv
 ## Current Stage 9 Decision
 
 HE remains hidden. Controlled beta rollout can be prepared after migration 179 is applied and verified, but public enablement should wait until P0 static keys, top dynamic content and SEO metadata are reviewed.
+
+## Stage 10 Beta Preparation Notes
+
+- Browser beta config is documented in `docs/he-stage10-beta-rollout.md`.
+- Server/build rollout config can read `CE_LANGUAGE_ROLLOUT_CONFIG` or `CE_HE_ROLLOUT_MODE`, but defaults keep HE `internal_only`.
+- Beta mode may expose HE only for authenticated/allowlisted beta users or local/internal developer preview.
+- During beta, keep `seo`, `sitemap`, `hreflang`, `canonical`, and `indexing` false.
+- Full public mode remains blocked until P0 translations, dynamic content, save/reload QA and SEO metadata are complete.

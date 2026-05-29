@@ -31,6 +31,7 @@ assertIncludes('admin/dashboard.html', 'shopProductNameHe', 'Admin shop products
 assertIncludes('admin/dashboard.html', 'transportLocationNameHe', 'Admin transport locations must include HE fields');
 assertIncludes('admin/admin.js', 'EMAIL_EDITABLE_LANGUAGES = [\'pl\', \'en\', \'he\']', 'Admin email editor must allow internal HE drafts');
 assertIncludes('admin/blog-admin.js', 'emptyOptionalLangs', 'Admin blog save must clean cleared optional HE translations');
+assertIncludes('admin/blog-admin.js', 'BLOG_TAXONOMY_LANGUAGES.reduce', 'Admin blog taxonomy suggestions must initialize all languages including HE');
 assertIncludes('admin/poi-i18n-form.js', 'localStorage.setItem', 'POI form must keep draft autosave behavior');
 assertIncludes('admin/poi-i18n-form.js', 'name_i18n', 'POI form must save localized JSON payloads');
 
