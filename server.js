@@ -1149,6 +1149,16 @@ function createServer() {
 
     const relativeLegacyPath = extractPathRelativeToBase(url.pathname);
     const legacyPathname = relativeLegacyPath === null ? '' : `/${relativeLegacyPath}`;
+    if ((req.method === 'GET' || req.method === 'HEAD') && (legacyPathname === '/he' || legacyPathname.startsWith('/he/'))) {
+      const target = new URL('/', `${url.protocol}//${url.host}`);
+      target.searchParams.set('lang', 'en');
+      res.writeHead(302, {
+        Location: `${target.pathname}${target.search}`,
+        'Cache-Control': 'public, max-age=0, must-revalidate',
+      });
+      res.end();
+      return;
+    }
     if ((req.method === 'GET' || req.method === 'HEAD') && isLegacyCarRedirectPath(legacyPathname)) {
       redirectLegacyCarPage(res, url);
       return;

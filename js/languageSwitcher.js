@@ -63,11 +63,6 @@ function safeSessionStorage(action, key, value) {
 
 function isHiddenLanguagePreviewEnabled() {
   const bodyAllowsPreview = String(document.body?.dataset?.allowHiddenLanguagePreview || '') === 'true';
-  if (!isLocalPreviewHost() && !bodyAllowsPreview) {
-    safeSessionStorage('remove', HIDDEN_PREVIEW_STORAGE_KEY);
-    return false;
-  }
-
   let previewParam = null;
   try {
     previewParam = new URL(window.location.href).searchParams.get(HIDDEN_PREVIEW_PARAM);
@@ -81,6 +76,11 @@ function isHiddenLanguagePreviewEnabled() {
   if (previewParam === '1' || previewParam === 'true') {
     safeSessionStorage('set', HIDDEN_PREVIEW_STORAGE_KEY, 'true');
     return true;
+  }
+
+  if (!isLocalPreviewHost() && !bodyAllowsPreview) {
+    safeSessionStorage('remove', HIDDEN_PREVIEW_STORAGE_KEY);
+    return false;
   }
 
   return safeSessionStorage('get', HIDDEN_PREVIEW_STORAGE_KEY) === 'true';

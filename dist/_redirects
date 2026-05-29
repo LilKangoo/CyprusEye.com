@@ -7,6 +7,11 @@
 /partners          /partners/              301
 /partners/*        /partners/:splat        200
 
+# Hebrew path routes are not public yet. Keep them out of the SPA fallback.
+/he                /?lang=en               302
+/he/               /?lang=en               302
+/he/*              /?lang=en               302
+
 # Passthrough static assets (do not rewrite to index.html)
 /assets/*          /assets/:splat          200
 /js/*              /js/:splat              200

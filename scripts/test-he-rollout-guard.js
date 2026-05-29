@@ -44,10 +44,16 @@ assert.match(i18nSource, /mode:\s*ROLLOUT_MODES\.INTERNAL_ONLY/);
 assert.match(i18nSource, /CE_LANGUAGE_ROLLOUT_CONFIG/);
 assert.match(i18nSource, /betaEmails/);
 assert.match(i18nSource, /dataset\.testid\s*=\s*`language-pill-/);
+assert.match(i18nSource, /previewParam === '1'[\s\S]*?return true;[\s\S]*?!isLocalPreviewHost/);
 assert.match(i18nSource, /switcher:\s*false/);
 assert.match(i18nSource, /seo:\s*false/);
 assert.match(i18nSource, /sitemap:\s*false/);
 assert.match(i18nSource, /publicApi:\s*false/);
 assert.match(i18nSource, /indexing:\s*false/);
+
+const redirectsSource = fs.readFileSync('_redirects', 'utf8');
+assert.match(redirectsSource, /^\/he\s+\/\?lang=en\s+302/m);
+assert.match(redirectsSource, /^\/he\/\*\s+\/\?lang=en\s+302/m);
+assert.doesNotMatch(fs.readFileSync('car.html', 'utf8'), /src=["']app\.js["']/);
 
 console.log('HE rollout guard tests passed.');

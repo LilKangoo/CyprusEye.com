@@ -331,6 +331,23 @@ function buildLanguageUrl(pathname, language) {
   return url.toString();
 }
 
+function buildPublicSearch(search, language) {
+  const params = new URLSearchParams(search || '');
+  params.delete('ce_he_preview');
+
+  if (params.has('lang')) {
+    const languageParam = getLanguageQueryParam(language);
+    if (languageParam) {
+      params.set('lang', languageParam);
+    } else {
+      params.delete('lang');
+    }
+  }
+
+  const serialized = params.toString();
+  return serialized ? `?${serialized}` : '';
+}
+
 function extractTagContent(html, tagName) {
   const match = String(html || '').match(new RegExp(`<${tagName}\\b[^>]*>([\\s\\S]*?)<\\/${tagName}>`, 'i'));
   return (match?.[1] || '').trim();
@@ -468,7 +485,7 @@ export function buildSeoPayload({
     ogTitle,
     ogDescription,
     ogType: 'website',
-    ogUrl: buildAbsoluteUrl(requestPath, requestSearch),
+    ogUrl: buildAbsoluteUrl(requestPath, buildPublicSearch(requestSearch, resolvedLanguage)),
     ogImage: buildAbsoluteUrl(ogImageValue),
     ogLocale,
     ogLocaleAlternate: alternateLocale,

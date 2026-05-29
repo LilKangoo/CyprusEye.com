@@ -74,6 +74,37 @@ test.describe('hidden Hebrew rollout guard', () => {
     await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
   });
 
+  test('does not serve /he/ as a broken SPA route', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('console', (message) => {
+      if (message.type() === 'error') {
+        errors.push(message.text());
+      }
+    });
+
+    const response = await page.goto('/he/', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(250);
+
+    expect(response?.status()).toBeLessThan(400);
+    expect(new URL(page.url()).pathname).not.toMatch(/^\/he(?:\/|$)/);
+    await expect(page.locator('html')).not.toHaveAttribute('lang', 'he');
+    expect(errors.filter((message) => message.includes('/he/js/') || message.includes('/he/assets/'))).toHaveLength(0);
+  });
+
+  test('does not request legacy root app.js on car page', async ({ page }) => {
+    const appJsResponses: number[] = [];
+    page.on('response', (response) => {
+      if (new URL(response.url()).pathname === '/app.js') {
+        appJsResponses.push(response.status());
+      }
+    });
+
+    await page.goto('/car.html?lang=en', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(500);
+
+    expect(appJsResponses).toHaveLength(0);
+  });
+
   test('allows HE only for configured beta users without enabling SEO surfaces', async ({ page }) => {
     await page.addInitScript(() => {
       (window as any).CE_LANGUAGE_ROLLOUT_CONFIG = {

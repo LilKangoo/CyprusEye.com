@@ -255,12 +255,6 @@
 
   function isHiddenLanguagePreviewEnabled() {
     const bodyAllowsPreview = String(document.body?.dataset?.allowHiddenLanguagePreview || '') === 'true';
-    if (!isLocalPreviewHost() && !bodyAllowsPreview) {
-      safeSessionStorage('remove', HIDDEN_PREVIEW_STORAGE_KEY);
-      safeSessionStorage('remove', HIDDEN_PREVIEW_LANGUAGE_KEY);
-      return false;
-    }
-
     const previewParam = getPreviewParamValue();
     if (previewParam === '0' || previewParam === 'false') {
       safeSessionStorage('remove', HIDDEN_PREVIEW_STORAGE_KEY);
@@ -270,6 +264,12 @@
     if (previewParam === '1' || previewParam === 'true') {
       safeSessionStorage('set', HIDDEN_PREVIEW_STORAGE_KEY, 'true');
       return true;
+    }
+
+    if (!isLocalPreviewHost() && !bodyAllowsPreview) {
+      safeSessionStorage('remove', HIDDEN_PREVIEW_STORAGE_KEY);
+      safeSessionStorage('remove', HIDDEN_PREVIEW_LANGUAGE_KEY);
+      return false;
     }
 
     return safeSessionStorage('get', HIDDEN_PREVIEW_STORAGE_KEY) === 'true';
