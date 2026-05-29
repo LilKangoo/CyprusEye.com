@@ -1,6 +1,6 @@
 # HE Translation Readiness
 
-Generated: 2026-05-28T22:59:52.783Z
+Generated: 2026-05-29T15:35:29.483Z
 Source audit: `translations/audit-he-vs-en.json`
 
 Hebrew is still internal/hidden. This report does not activate HE in the public language switcher, selectors, sitemap, hreflang, canonical metadata, public SEO, indexing, or `/he/` routes.
@@ -8,21 +8,21 @@ Hebrew is still internal/hidden. This report does not activate HE in the public 
 ## Summary
 
 - EN keys: 2815
-- HE keys: 1557
-- Missing HE keys: 1503
-- Extra HE keys: 245
-- HE keys identical to EN: 936
+- HE keys: 2411
+- Missing HE keys: 645
+- Extra HE keys: 241
+- HE keys identical to EN: 682
 - HE keys added in Stage 8: 0
 
 ## Missing Keys By Rollout Group
 
 | Grupa | Priorytet | Braki | Przyklady |
 | --- | --- | ---: | --- |
-| Critical UI / navigation | P0 | 107 | `accessibility.skipToContent`, `common.close`, `common.save`, `footer.app.tagline`, `footer.referral.copied`, `footer.referral.copy`, ... +6 |
-| Errors / validation | P0 | 196 | `account.loading`, `account.security.password.hint`, `account.security.username.hint`, `account.xpEvents.empty`, `advertise.form.feedback.error`, `advertise.form.feedback.success`, ... +6 |
-| Booking flows | P0 | 380 | `carRental.calculator.breakdown.package3`, `carRental.calculator.breakdown.tiered`, `carRental.calculator.confirmationNote`, `carRental.calculator.fillButton`, `carRental.calculator.successMessage`, `carRental.calculator.successTitle`, ... +6 |
-| Auth | P0 | 110 | `account.close.attributes.aria-label`, `account.close.text`, `account.profile.desc`, `account.profile.heading`, `account.profile.labels.displayName`, `account.profile.labels.email`, ... +6 |
-| Checkout / shop | P0 | 90 | `shop.cart.aria`, `shop.cart.checkout`, `shop.cart.continue`, `shop.cart.remove`, `shop.cart.shipping_note`, `shop.cart.subtotal`, ... +6 |
+| Critical UI / navigation | P0 | 0 | - |
+| Errors / validation | P0 | 0 | - |
+| Booking flows | P0 | 2 | `coupon.recommendations.seo.description`, `coupon.recommendations.seo.title` |
+| Auth | P0 | 0 | - |
+| Checkout / shop | P0 | 23 | `shop.footer.about`, `shop.footer.about_text`, `shop.footer.contact`, `shop.footer.privacy`, `shop.footer.returns`, `shop.footer.rights`, ... +6 |
 | Partner panel | P1 | 223 | `advertise.affiliate.badge`, `advertise.affiliate.cardBadge`, `advertise.affiliate.cardDescription`, `advertise.affiliate.cardTitle`, `advertise.affiliate.cta`, `advertise.affiliate.description`, ... +6 |
 | Admin | P2 | 27 | `dashboard.achievements.tab.badges`, `dashboard.achievements.tab.quests`, `dashboard.achievements.title`, `dashboard.activity.title`, `dashboard.content.comments`, `dashboard.content.photos`, ... +6 |
 | Blog / public content | P1 | 317 | `badges.landmark`, `blogUi.admin.allowComments`, `blogUi.admin.approve`, `blogUi.admin.featured`, `blogUi.admin.newPost`, `blogUi.admin.reject`, ... +6 |
@@ -33,8 +33,8 @@ Hebrew is still internal/hidden. This report does not activate HE in the public 
 
 | Status | Znaczenie | Aktualna liczba |
 | --- | --- | ---: |
-| missing | Klucza nie ma w `translations/he.json`. | 1503 |
-| needs_human_review | Klucz istnieje, ale jest taki sam jak EN albo wymaga potwierdzenia native/review. | 936 |
+| missing | Klucza nie ma w `translations/he.json`. | 645 |
+| needs_human_review | Klucz istnieje, ale jest taki sam jak EN albo wymaga potwierdzenia native/review. | 682 |
 | machine_translated | Tlumaczenie maszynowe oczekujace na review. Ten status nie jest jeszcze automatycznie sledzony. | 0 |
 | reviewed | Tlumaczenie zaakceptowane przez czlowieka/native speaker. Ten status nie jest jeszcze automatycznie sledzony. | 0 |
 
@@ -51,10 +51,10 @@ For now, `needs_human_review` is derived from keys where HE is exactly the same 
 
 | Grupa | Klucze takie same jak EN | Przyklady |
 | --- | ---: | --- |
-| Critical UI / navigation | 10 | `header.brand`, `header.logoAlt`, `header.sosToggle`, `mobile.nav.mediaTrips`, `notifications.close`, `notifications.empty`, ... +4 |
-| Errors / validation | 83 | `account.error.currentMissing`, `account.error.loginRequired`, `account.error.password.invalidCurrent`, `account.error.password.loginRequired`, `account.error.password.mismatch`, `account.error.password.missingFields`, ... +6 |
-| Booking flows | 251 | `carRental.brand.title`, `carRental.calculator.breakdown.pickupIncluded`, `carRental.calculator.breakdown.pickupWithFee`, `carRental.calculator.breakdown.returnIncluded`, `carRental.calculator.breakdown.returnWithFee`, `carRental.calculator.breakdown.title`, ... +6 |
-| Auth | 32 | `account.close`, `account.password.confirm`, `account.password.current`, `account.password.guestNote`, `account.password.new`, `account.password.submit`, ... +6 |
+| Critical UI / navigation | 5 | `footer.referral.facebook`, `header.brand`, `header.profile.footer.referral.facebook`, `header.sosToggle`, `mobile.nav.mediaTrips` |
+| Errors / validation | 26 | `packing.guide.seasons.autumn.eveningLayer.hint`, `packing.guide.seasons.autumn.summerClothes.hint`, `packing.guide.seasons.autumn.sunscreen.hint`, `packing.guide.seasons.autumn.swimwear.hint`, `packing.guide.seasons.spring.layers.hint`, `packing.guide.seasons.spring.rainProtection.hint`, ... +6 |
+| Booking flows | 87 | `carRental.calculator.breakdown.tiered`, `carRental.page.reservation.fields.email.placeholder`, `carRental.page.reservation.fields.flight.placeholder`, `carRental.page.reservation.fields.fullName.placeholder`, `carRental.page.reservation.fields.phone.placeholder`, `carRentalPfo.fleet.honda-fit-paphos.feature2`, ... +6 |
+| Auth | 4 | `account.close.text`, `account.profile.labels.xp`, `profile.avatar.remove`, `profile.settings.email.placeholder` |
 | Checkout / shop | 0 | - |
 | Partner panel | 4 | `advertise.back`, `advertise.form.submit`, `advertise.hero.badge`, `advertise.overline` |
 | Admin | 0 | - |
@@ -66,26 +66,24 @@ For now, `needs_human_review` is derived from keys where HE is exactly the same 
 
 | Root | Braki |
 | --- | ---: |
-| `advertise` | 218 |
-| `transport` | 205 |
-| `plan` | 155 |
-| `carRental` | 103 |
-| `shop` | 94 |
-| `carRentalPfo` | 70 |
-| `community` | 63 |
+| `advertise` | 214 |
+| `plan` | 145 |
 | `seo` | 53 |
-| `profile` | 50 |
-| `carRentalLanding` | 49 |
-| `header` | 40 |
-| `coupon` | 36 |
-| `account` | 35 |
-| `tasks` | 30 |
-| `dashboard` | 29 |
-| `blogUi` | 28 |
-| `home` | 22 |
-| `resetPage` | 22 |
-| `trips` | 22 |
+| `community` | 45 |
+| `dashboard` | 27 |
+| `blogUi` | 23 |
+| `shop` | 23 |
 | `tutorial` | 21 |
+| `tasks` | 20 |
+| `sos` | 18 |
+| `home` | 16 |
+| `currentPlace` | 13 |
+| `referral` | 9 |
+| `map` | 7 |
+| `recommendations` | 7 |
+| `coupon` | 2 |
+| `badges` | 1 |
+| `legal` | 1 |
 
 ## Recommended Fill Order
 
