@@ -1,0 +1,121 @@
+# HE Dynamic Content Readiness
+
+Generated: 2026-05-29T19:32:24.297Z
+Source: read-only Supabase anon queries against public/beta-visible records.
+
+HE remains internal/beta-only. This audit does not enable HE in the public
+switcher, sitemap, hreflang, canonical metadata, SEO, indexing, or public
+`/he/` routes.
+
+Field readiness is calculated as translated HE fields divided by expected
+localized dynamic fields. "EN fallback-only" means the record has no HE dynamic
+fields but can fall back to EN/PL source content without blank UI.
+
+## Module Summary
+
+| Module | Records | HE complete | HE partial | EN fallback-only | Missing/no fallback | Field readiness |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Trips | 12 | 0 | 0 | 12 | 0 | 0.0% |
+| Hotels | 2 | 0 | 2 | 0 | 0 | 50.0% |
+| Cars | 27 | 0 | 27 | 0 | 0 | 49.5% |
+| Transport | 44 | 0 | 0 | 44 | 0 | 0.0% |
+| Blog | 21 | 0 | 0 | 21 | 0 | 0.0% |
+| POI | 139 | 0 | 3 | 136 | 0 | 1.4% |
+| Recommendations | 10 | 0 | 5 | 5 | 0 | 11.4% |
+| Shop | 30 | 0 | 0 | 30 | 0 | 0.0% |
+
+## Requested Area Notes
+
+### Trips
+
+- Records visible to public/beta read: 12
+- Fields audited: title, description, itinerary/highlights/FAQ only when those fields exist on rows.
+- Current schema/data probe: itinerary/highlights/FAQ HE fields were not present on returned rows.
+- Booking labels are static P0 keys and are covered by Etap 13 tests.
+
+### Hotels
+
+- Records visible to public/beta read: 2
+- Fields audited: title, description, booking policy/stay info, pricing extras, room type labels and rate-plan labels.
+- Amenities are stored as hotel amenity codes/dictionary records; see support table readiness below.
+- Room descriptions/rate-plan text are included when present in `room_types`.
+
+### Cars
+
+- Records visible to public/beta read: 27
+- Fields audited: car model, car type, description and features.
+- Rental conditions, extras and insurance amounts are mostly static/numeric UI copy; static P0 is covered separately.
+
+### Transport
+
+- Active locations visible to public/beta read: 9
+- Routes visible to public/beta read: 44
+- Dynamic HE coverage is driven by `transport_locations.name_he`.
+- Forms and confirmations are static P0 keys and were translated in Etap 13.
+
+### Blog
+
+- Published posts visible to public/beta read: 21
+- Public translations visible to read: 42
+- Full HE blog translations: 0
+- Partial HE blog translations/taxonomy: 0
+- EN/PL fallback-only blog posts: 21
+- Posts with categories_he: 0
+- Posts with tags_he: 0
+- Fields audited: HE translation title, slug, summary, lead, content_html, categories_he and tags_he.
+
+### POI
+
+- Records visible to public/beta read: 139
+- Fields audited: `name_i18n.he`, `description_i18n.he`, `badge_i18n.he`.
+- Category dictionary coverage is shown in support tables.
+
+### Recommendations
+
+- Records visible to public/beta read: 10
+- Fields audited: title_he, description_he, category name_he, discount_text_he and offer_text_he when source text exists.
+- CTA labels are static UI and remain governed by P0 static translations.
+
+### Shop
+
+Shop is the highest-risk module because customer-visible copy is split across
+products, categories, variants, vendors, attributes, shipping and discounts.
+
+| Shop entity | Records | HE complete | HE partial | EN fallback-only | Missing/no fallback | Field readiness |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Products | 10 | 0 | 0 | 10 | 0 | 0.0% |
+| Categories | 3 | 0 | 0 | 3 | 0 | 0.0% |
+| Variants | 0 | 0 | 0 | 0 | 0 | 0.0% |
+| Vendors | 2 | 0 | 0 | 2 | 0 | 0.0% |
+| Shipping classes | 4 | 0 | 0 | 4 | 0 | 0.0% |
+| Shipping zones | 3 | 0 | 0 | 3 | 0 | 0.0% |
+| Shipping methods | 3 | 0 | 0 | 3 | 0 | 0.0% |
+| Discount labels | 0 | 0 | 0 | 0 | 0 | 0.0% |
+| Attributes | 1 | 0 | 0 | 1 | 0 | 0.0% |
+| Attribute values | 4 | 0 | 0 | 4 | 0 | 0.0% |
+
+## Support Dictionaries
+
+| Dictionary / support table | Records | HE complete | HE partial | EN fallback-only | Missing/no fallback | Field readiness |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Transport locations | 9 | 0 | 0 | 9 | 0 | 0.0% |
+| Hotel amenities dictionary | 48 | 0 | 0 | 48 | 0 | 0.0% |
+| POI categories | 23 | 0 | 0 | 23 | 0 | 0.0% |
+| Recommendation categories | 15 | 8 | 0 | 7 | 0 | 53.3% |
+
+## Main Risks
+
+- Blog has no full HE post experience unless blog_post_translations contains reviewed lang=he rows for selected posts.
+- Shop should remain out of the first HE beta unless EN fallback is explicitly accepted; paid checkout copy must not depend on unreviewed dynamic labels.
+- POI/recommendations map flows need HE names/descriptions/categories before they feel like a Hebrew experience.
+- Hotel amenities dictionary currently lacks name_he schema support, so amenities fall back even if hotel title/description are translated.
+- Trips/hotels/cars can technically render via fallback, but top offer records still need manual HE for content-quality beta.
+
+## Next Dynamic Translation Order
+
+1. Blog HE translations for top posts: title, slug, lead, summary, content and categories/tags.
+2. Shop product/category/vendor/shipping/discount labels, because checkout is customer-facing.
+3. POI names/descriptions/badges and POI category labels for map/recommendations flows.
+4. Recommendations titles/descriptions/categories and offer/discount text.
+5. Transport location names, then route smoke tests.
+6. Trips/hotels/cars top records and room/offer detail labels.
