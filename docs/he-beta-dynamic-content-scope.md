@@ -24,6 +24,34 @@ the whole platform.
 | Hotels | 2 hotels | Include only as fallback-safe, translate descriptions before content beta | Required |
 | Cars | 5 top cars | Include with model fallback accepted; translate features/types before content beta | Required |
 
+## Beta Content Coverage
+
+Stage 16 adds a reviewed-content path, not public activation. The concrete HE
+content pack is stored in:
+
+- `supabase/manual/he_beta_content_pack_stage16.sql`
+
+The SQL file is intentionally wrapped in a transaction and ends with
+`ROLLBACK`. It should be executed as a preview first, reviewed by a Hebrew
+speaker, and only then changed to `COMMIT`.
+
+| Area | Selected records | HE content prepared | Runtime applied | Review status | Beta status after apply |
+| --- | ---: | ---: | --- | --- | --- |
+| Blog | 5 | 5 | No | needs human review | Complete for selected posts after SQL/Admin save |
+| Blog taxonomy | 5 posts | 5 taxonomy sets | No | needs human review | Complete for selected posts after SQL/Admin save |
+| Transport locations | 9 | 9 | No | needs human review | Complete for selected routes after SQL apply |
+| POI | 10 | 10 | No | needs human review | Complete for selected map cards after SQL apply |
+| Recommendations | 5 | 5 | No | needs human review | Complete for selected cards after SQL apply |
+| Trips | 3 | 3 | No | needs human review | Complete for selected trip cards after SQL apply |
+| Hotels | 2 | 2 | No | needs human review | Complete for selected hotel cards after SQL apply |
+| Cars | 5 | 5 feature sets | No | needs human review | Safe with HE feature labels after SQL apply |
+| Shop | 0 | 0 | No | out of scope | Excluded from first beta |
+
+Current source-of-truth state before applying the content pack remains the
+Stage 14 dynamic audit: global dynamic content is not ready for broad beta.
+After applying and reviewing the content pack, only the narrow records listed
+below should be treated as beta-ready.
+
 ## Blog Top Posts
 
 These are the 5 blog posts selected for the first HE content beta. Do not treat
