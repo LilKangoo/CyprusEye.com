@@ -55,6 +55,17 @@ assert.match(i18nSource, /sitemap:\s*false/);
 assert.match(i18nSource, /publicApi:\s*false/);
 assert.match(i18nSource, /indexing:\s*false/);
 
+const betaConfigSource = fs.readFileSync('js/he-beta-rollout-config.js', 'utf8');
+assert.match(betaConfigSource, /mode:\s*'beta_users'/);
+assert.match(betaConfigSource, /15f3d442-092d-4eb8-9627-db90da0283eb/);
+assert.match(betaConfigSource, /hiddenPreview:\s*false/);
+assert.match(betaConfigSource, /seo:\s*false/);
+assert.match(betaConfigSource, /sitemap:\s*false/);
+assert.match(betaConfigSource, /hreflang:\s*false/);
+assert.match(betaConfigSource, /canonical:\s*false/);
+assert.match(betaConfigSource, /indexing:\s*false/);
+assert.match(fs.readFileSync('index.html', 'utf8'), /he-beta-rollout-config\.js[\s\S]*?i18n\.js/);
+
 const redirectsSource = fs.readFileSync('_redirects', 'utf8');
 assert.match(redirectsSource, /^\/he\s+\/\?lang=en\s+302/m);
 assert.match(redirectsSource, /^\/he\/\*\s+\/\?lang=en\s+302/m);

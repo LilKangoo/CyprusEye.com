@@ -27,8 +27,10 @@ Do not continue unless all are true:
 
 ## Final Beta Config
 
-Replace placeholders before use. Keep IDs as the source of truth; emails are a
-secondary convenience gate.
+The deployed client config uses Supabase user IDs as the source of truth. The
+email is intentionally kept out of the static client allowlist to avoid exposing
+PII in a public asset. If an email gate is needed for server-only checks, set it
+in the Cloudflare/Page Functions environment.
 
 ```json
 {
@@ -44,15 +46,9 @@ secondary convenience gate.
     "indexing": false,
     "hiddenPreview": false,
     "betaUserIds": [
-      "REPLACE_WITH_SUPABASE_USER_ID_1",
-      "REPLACE_WITH_SUPABASE_USER_ID_2",
-      "REPLACE_WITH_SUPABASE_USER_ID_3"
+      "15f3d442-092d-4eb8-9627-db90da0283eb"
     ],
-    "betaEmails": [
-      "tester1@example.com",
-      "tester2@example.com",
-      "tester3@example.com"
-    ],
+    "betaEmails": [],
     "shopEnabled": false,
     "seoEnabled": false,
     "sitemapEnabled": false,
@@ -66,6 +62,27 @@ secondary convenience gate.
 Runtime keys used by the current code are `mode`, `switcher`, `routes`,
 `publicApi`, `seo`, `sitemap`, `hreflang`, `canonical`, `indexing`,
 `hiddenPreview`, `betaUserIds`, and `betaEmails`.
+
+Server-only optional email gate:
+
+```json
+{
+  "he": {
+    "mode": "beta_users",
+    "switcher": true,
+    "routes": true,
+    "publicApi": true,
+    "seo": false,
+    "sitemap": false,
+    "hreflang": false,
+    "canonical": false,
+    "indexing": false,
+    "hiddenPreview": false,
+    "betaUserIds": ["15f3d442-092d-4eb8-9627-db90da0283eb"],
+    "betaEmails": ["lilkangoomedia@gmail.com"]
+  }
+}
+```
 
 The `*Enabled` and `shopEnabled` fields are audit labels only. Shop exclusion is
 enforced by `shop.html` and `js/shop.js`, not by the rollout config.
@@ -92,8 +109,8 @@ Cloudflare/Page Functions:
 Current repo reality:
 
 - Static client JS does not read Cloudflare env directly.
-- A client-visible injection before `js/i18n.js` is required for actual tester
-  browser access.
+- Client browser access is currently handled by `js/he-beta-rollout-config.js`,
+  loaded before `js/i18n.js` on narrow beta pages.
 - If the signed-in session is loaded after `js/i18n.js`, the page re-checks
   `?lang=he` on the `ce-auth:state` event and enables HE only when the loaded
   user matches the allowlist.

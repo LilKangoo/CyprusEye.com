@@ -195,25 +195,7 @@ test.describe('hidden Hebrew rollout guard', () => {
     expect(rollout?.publicSurfaces?.indexing).toBe(false);
   });
 
-  test('applies beta HE after allowlisted auth state arrives', async ({ page }) => {
-    await page.addInitScript(() => {
-      (window as any).CE_LANGUAGE_ROLLOUT_CONFIG = {
-        he: {
-          mode: 'beta_users',
-          switcher: true,
-          routes: true,
-          publicApi: true,
-          seo: false,
-          sitemap: false,
-          hreflang: false,
-          canonical: false,
-          indexing: false,
-          hiddenPreview: false,
-          betaEmails: ['tester@example.com'],
-        },
-      };
-    });
-
+  test('applies configured beta HE after allowlisted auth state arrives', async ({ page }) => {
     await page.goto('/index.html?lang=he', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(250);
     await expect(page.locator('html')).not.toHaveAttribute('lang', 'he');
@@ -222,8 +204,8 @@ test.describe('hidden Hebrew rollout guard', () => {
       (window as any).CE_STATE = {
         session: {
           user: {
-            id: 'test-beta-user',
-            email: 'tester@example.com',
+            id: '15f3d442-092d-4eb8-9627-db90da0283eb',
+            email: 'lilkangoomedia@gmail.com',
           },
         },
       };

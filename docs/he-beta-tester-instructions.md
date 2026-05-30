@@ -14,6 +14,8 @@ This is an invite-only Hebrew beta. It is not a public launch.
 Do not use `?ce_he_preview=1`; hidden preview is disabled during invite-only
 beta.
 
+Current tester account: `lilkangoomedia@gmail.com`.
+
 ## What To Check
 
 Please test:
@@ -67,4 +69,3 @@ Send the team:
 - What happened.
 - Device and browser.
 - Whether you were signed in.
-
