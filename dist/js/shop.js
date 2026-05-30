@@ -265,12 +265,32 @@ function computeVatPreview(preview) {
   return vatTotal;
 }
 
-// Get current language. Hebrew stays hidden in UI but can be tested via runtime/lang param.
+function isHiddenLanguageDisabledForShop() {
+  return String(document.body?.dataset?.disableHiddenLanguage || '') === 'true';
+}
+
+function normalizeShopLang(value) {
+  const normalized = String(value || '').trim().toLowerCase().split('-')[0];
+  if (normalized === 'pl' || normalized === 'en') {
+    return normalized;
+  }
+  if (normalized === 'he') {
+    return isHiddenLanguageDisabledForShop() ? '' : normalized;
+  }
+  return '';
+}
+
+// Get current language. Hebrew stays hidden from shop until shop is explicitly included in a later beta.
 function getCurrentLang() {
+  const appLang = normalizeShopLang(window.appI18n?.language);
+  if (appLang) {
+    return appLang;
+  }
+
   try {
     const url = new URL(window.location.href);
-    const urlLang = (url.searchParams.get('lang') || '').toLowerCase().split('-')[0];
-    if (urlLang === 'pl' || urlLang === 'en' || urlLang === 'he') {
+    const urlLang = normalizeShopLang(url.searchParams.get('lang'));
+    if (urlLang) {
       return urlLang;
     }
   } catch (e) {
@@ -284,16 +304,16 @@ function getCurrentLang() {
     ];
 
     for (const candidate of candidates) {
-      const normalized = (candidate || '').toLowerCase().split('-')[0];
-      if (normalized === 'pl' || normalized === 'en' || normalized === 'he') {
+      const normalized = normalizeShopLang(candidate);
+      if (normalized) {
         return normalized;
       }
     }
   } catch (e) {
   }
 
-  const htmlLang = (document.documentElement.lang || '').toLowerCase().split('-')[0];
-  if (htmlLang === 'pl' || htmlLang === 'en' || htmlLang === 'he') {
+  const htmlLang = normalizeShopLang(document.documentElement.lang);
+  if (htmlLang) {
     return htmlLang;
   }
 

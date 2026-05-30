@@ -54,7 +54,7 @@
       routes: false,
       publicApi: false,
       indexing: false,
-      hiddenPreview: true,
+      hiddenPreview: false,
       betaStorageKey: 'ce_he_beta',
       betaQueryParam: 'ce_he_beta',
     },
@@ -229,6 +229,14 @@
     );
   }
 
+  function pageDisablesHiddenLanguage() {
+    return String(document.body?.dataset?.disableHiddenLanguage || '') === 'true';
+  }
+
+  function hiddenPreviewAllowedByRollout() {
+    return getLanguageRollout('he')?.hiddenPreview !== false;
+  }
+
   function safeSessionStorage(action, key, value) {
     try {
       if (action === 'get') {
@@ -254,6 +262,9 @@
   }
 
   function isHiddenLanguagePreviewEnabled() {
+    if (pageDisablesHiddenLanguage() || !hiddenPreviewAllowedByRollout()) {
+      return false;
+    }
     const bodyAllowsPreview = String(document.body?.dataset?.allowHiddenLanguagePreview || '') === 'true';
     const previewParam = getPreviewParamValue();
     if (previewParam === '0' || previewParam === 'false') {
@@ -282,6 +293,9 @@
     }
     if (isPublicLanguage(normalized)) {
       return normalized;
+    }
+    if (isHiddenLanguage(normalized) && pageDisablesHiddenLanguage()) {
+      return '';
     }
     return includeHidden
       && isHiddenLanguage(normalized)
@@ -368,13 +382,27 @@
 
   function getUrlLanguage() {
     try {
-      const normalized = normalizeRuntimeLanguage(new URL(window.location.href).searchParams.get('lang') || '', { includeHidden: true });
+      const requested = normalizeLanguageCode(new URL(window.location.href).searchParams.get('lang') || '');
+      const normalized = normalizeRuntimeLanguage(requested, { includeHidden: true });
+      if (!normalized && isHiddenLanguage(requested)) {
+        pendingHiddenUrlLanguage = requested;
+      } else if (normalized) {
+        pendingHiddenUrlLanguage = '';
+      }
       if (isHiddenLanguage(normalized) && isHiddenLanguagePreviewEnabled()) {
         safeSessionStorage('set', HIDDEN_PREVIEW_LANGUAGE_KEY, normalized);
       }
       return normalized;
     } catch (_) {
       return '';
+    }
+  }
+
+  function getRequestedUrlLanguageCode() {
+    try {
+      return pendingHiddenUrlLanguage || normalizeLanguageCode(new URL(window.location.href).searchParams.get('lang') || '');
+    } catch (_) {
+      return pendingHiddenUrlLanguage;
     }
   }
 
@@ -394,6 +422,7 @@
     lastKey: '',
     timer: 0,
   };
+  let pendingHiddenUrlLanguage = '';
 
   function resolvePreferredLanguage() {
     return getForcedLanguage() || getUrlLanguage() || getStoredLanguage() || DEFAULT_LANGUAGE;
@@ -1202,6 +1231,18 @@
     });
   }
 
+  function maybeApplyDeferredBetaLanguage() {
+    const requested = getRequestedUrlLanguageCode();
+    if (!requested || !isHiddenLanguage(requested)) {
+      return;
+    }
+    const target = normalizeRuntimeLanguage(requested, { includeHidden: true });
+    if (target && target !== appI18n.language) {
+      pendingHiddenUrlLanguage = '';
+      setLanguage(target, { persist: false, updateUrl: true });
+    }
+  }
+
   function init() {
     // First-visit language choice owns initial i18n application.
     // This keeps the page loading in the background without auto-selecting English.
@@ -1220,6 +1261,8 @@
 
     setLanguage(language, { persist: !isForced, updateUrl: !isForced });
   }
+
+  document.addEventListener('ce-auth:state', maybeApplyDeferredBetaLanguage);
 
   appI18n.setLanguage = setLanguage;
   appI18n.getLanguageFallbackChain = getLanguageFallbackChain;

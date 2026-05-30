@@ -5,7 +5,6 @@ const HIDDEN_HE_ROUTES = [
   '/blog.html?ce_he_preview=1&lang=he',
   '/car.html?ce_he_preview=1&lang=he',
   '/transport.html?ce_he_preview=1&lang=he',
-  '/shop.html?ce_he_preview=1&lang=he',
   '/recommendations.html?ce_he_preview=1&lang=he',
 ];
 
@@ -23,6 +22,25 @@ async function waitForHtmlLanguage(page, language: string) {
   });
 }
 
+async function allowInternalHiddenPreview(page) {
+  await page.addInitScript(() => {
+    (window as any).CE_LANGUAGE_ROLLOUT_CONFIG = {
+      he: {
+        mode: 'internal_only',
+        switcher: false,
+        routes: false,
+        publicApi: false,
+        seo: false,
+        sitemap: false,
+        hreflang: false,
+        canonical: false,
+        indexing: false,
+        hiddenPreview: true,
+      },
+    };
+  });
+}
+
 test.describe('hidden Hebrew rollout guard', () => {
   test('ignores public ?lang=he without hidden preview flag', async ({ page }) => {
     await page.goto('/index.html?lang=he', { waitUntil: 'domcontentloaded' });
@@ -36,6 +54,7 @@ test.describe('hidden Hebrew rollout guard', () => {
 
   test('renders hidden HE preview on key desktop routes without exposing switcher option', async ({ page }) => {
     await page.setViewportSize({ width: 1366, height: 900 });
+    await allowInternalHiddenPreview(page);
 
     for (const route of HIDDEN_HE_ROUTES) {
       await page.goto(route, { waitUntil: 'domcontentloaded' });
@@ -51,6 +70,7 @@ test.describe('hidden Hebrew rollout guard', () => {
 
   test('renders hidden HE preview on mobile width without horizontal overflow', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
+    await allowInternalHiddenPreview(page);
 
     await page.goto('/index.html?ce_he_preview=1&lang=he', { waitUntil: 'domcontentloaded' });
     await waitForHtmlLanguage(page, 'he');
@@ -72,6 +92,44 @@ test.describe('hidden Hebrew rollout guard', () => {
     await waitForHtmlLanguage(page, 'pl');
     await expect(page.locator('html')).toHaveAttribute('lang', 'pl');
     await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
+  });
+
+  test('keeps Shop out of hidden HE beta scope', async ({ page }) => {
+    await page.goto('/shop.html?ce_he_preview=1&lang=he', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(250);
+
+    await expect(page.locator('html')).not.toHaveAttribute('lang', 'he');
+    await expect(page.locator('html')).not.toHaveAttribute('dir', 'rtl');
+  });
+
+  test('can disable hidden preview while keeping beta-user HE access', async ({ page }) => {
+    await page.addInitScript(() => {
+      (window as any).CE_LANGUAGE_ROLLOUT_CONFIG = {
+        he: {
+          mode: 'beta',
+          switcher: true,
+          routes: true,
+          publicApi: true,
+          seo: false,
+          sitemap: false,
+          hreflang: false,
+          canonical: false,
+          indexing: false,
+          hiddenPreview: false,
+        },
+      };
+    });
+
+    await page.goto('/index.html?ce_he_preview=1&lang=he', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(250);
+    await expect(page.locator('html')).not.toHaveAttribute('lang', 'he');
+    await expect(page.locator('html')).not.toHaveAttribute('dir', 'rtl');
+
+    await page.evaluate(() => window.localStorage.setItem('ce_he_beta', 'true'));
+    await page.goto('/index.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await waitForHtmlLanguage(page, 'he');
+    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+    await expect(page.locator('[data-testid="language-pill-he"]')).toHaveCount(1);
   });
 
   test('does not serve /he/ as a broken SPA route', async ({ page }) => {
@@ -118,6 +176,7 @@ test.describe('hidden Hebrew rollout guard', () => {
           hreflang: false,
           canonical: false,
           indexing: false,
+          hiddenPreview: false,
         },
       };
       window.localStorage.setItem('ce_he_beta', 'true');
@@ -134,5 +193,44 @@ test.describe('hidden Hebrew rollout guard', () => {
     expect(rollout?.publicSurfaces?.hreflang).toBe(false);
     expect(rollout?.publicSurfaces?.canonical).toBe(false);
     expect(rollout?.publicSurfaces?.indexing).toBe(false);
+  });
+
+  test('applies beta HE after allowlisted auth state arrives', async ({ page }) => {
+    await page.addInitScript(() => {
+      (window as any).CE_LANGUAGE_ROLLOUT_CONFIG = {
+        he: {
+          mode: 'beta_users',
+          switcher: true,
+          routes: true,
+          publicApi: true,
+          seo: false,
+          sitemap: false,
+          hreflang: false,
+          canonical: false,
+          indexing: false,
+          hiddenPreview: false,
+          betaEmails: ['tester@example.com'],
+        },
+      };
+    });
+
+    await page.goto('/index.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(250);
+    await expect(page.locator('html')).not.toHaveAttribute('lang', 'he');
+
+    await page.evaluate(() => {
+      (window as any).CE_STATE = {
+        session: {
+          user: {
+            id: 'test-beta-user',
+            email: 'tester@example.com',
+          },
+        },
+      };
+      document.dispatchEvent(new CustomEvent('ce-auth:state', { detail: (window as any).CE_STATE }));
+    });
+
+    await waitForHtmlLanguage(page, 'he');
+    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
   });
 });

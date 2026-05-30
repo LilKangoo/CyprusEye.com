@@ -43,6 +43,10 @@ const i18nSource = fs.readFileSync('js/i18n.js', 'utf8');
 assert.match(i18nSource, /mode:\s*ROLLOUT_MODES\.INTERNAL_ONLY/);
 assert.match(i18nSource, /CE_LANGUAGE_ROLLOUT_CONFIG/);
 assert.match(i18nSource, /betaEmails/);
+assert.match(i18nSource, /hiddenPreviewAllowedByRollout/);
+assert.match(i18nSource, /pageDisablesHiddenLanguage/);
+assert.match(i18nSource, /maybeApplyDeferredBetaLanguage/);
+assert.match(i18nSource, /hiddenPreview:\s*false/);
 assert.match(i18nSource, /dataset\.testid\s*=\s*`language-pill-/);
 assert.match(i18nSource, /previewParam === '1'[\s\S]*?return true;[\s\S]*?!isLocalPreviewHost/);
 assert.match(i18nSource, /switcher:\s*false/);
@@ -55,5 +59,13 @@ const redirectsSource = fs.readFileSync('_redirects', 'utf8');
 assert.match(redirectsSource, /^\/he\s+\/\?lang=en\s+302/m);
 assert.match(redirectsSource, /^\/he\/\*\s+\/\?lang=en\s+302/m);
 assert.doesNotMatch(fs.readFileSync('car.html', 'utf8'), /src=["']app\.js["']/);
+
+const shopHtmlSource = fs.readFileSync('shop.html', 'utf8');
+const shopSource = fs.readFileSync('js/shop.js', 'utf8');
+assert.match(shopHtmlSource, /data-disable-hidden-language="true"/);
+assert.match(shopSource, /isHiddenLanguageDisabledForShop/);
+assert.match(shopSource, /normalizeShopLang/);
+assert.match(rolloutSource, /betaEmails/);
+assert.match(rolloutSource, /allowPreferredLanguage/);
 
 console.log('HE rollout guard tests passed.');

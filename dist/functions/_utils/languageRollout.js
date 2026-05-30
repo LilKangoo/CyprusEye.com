@@ -65,7 +65,7 @@ const LANGUAGE_REGISTRY = Object.freeze({
       routes: false,
       publicApi: false,
       indexing: false,
-      hiddenPreview: true,
+      hiddenPreview: false,
       betaStorageKey: 'ce_he_beta',
       betaQueryParam: 'ce_he_beta',
     }),
@@ -171,8 +171,17 @@ function isBetaAllowed(language, options = {}) {
     return true;
   }
   const userId = String(options.userId || '').trim();
-  const allowlist = Array.isArray(rollout.betaUserIds) ? rollout.betaUserIds : [];
-  return Boolean(userId && allowlist.includes(userId));
+  const email = String(options.email || '').trim().toLowerCase();
+  const preferredLanguage = normalizeLanguageCode(options.preferredLanguage || options.preferred_language || '');
+  const allowlist = Array.isArray(rollout.betaUserIds) ? rollout.betaUserIds.map((id) => String(id).trim()) : [];
+  const emailAllowlist = Array.isArray(rollout.betaEmails)
+    ? rollout.betaEmails.map((item) => String(item).trim().toLowerCase())
+    : [];
+  return Boolean(
+    (userId && allowlist.includes(userId))
+    || (email && emailAllowlist.includes(email))
+    || (rollout.allowPreferredLanguage === true && preferredLanguage === normalizeLanguageCode(language))
+  );
 }
 
 export function isLanguageEnabledForSurface(language, surface = 'switcher', options = {}) {
