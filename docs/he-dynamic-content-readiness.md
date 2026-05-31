@@ -1,6 +1,6 @@
 # HE Dynamic Content Readiness
 
-Generated: 2026-05-29T19:32:24.297Z
+Generated: 2026-05-31T17:56:55.607Z
 Source: read-only Supabase anon queries against public/beta-visible records.
 
 HE remains internal/beta-only. This audit does not enable HE in the public
@@ -15,13 +15,13 @@ fields but can fall back to EN/PL source content without blank UI.
 
 | Module | Records | HE complete | HE partial | EN fallback-only | Missing/no fallback | Field readiness |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Trips | 12 | 0 | 0 | 12 | 0 | 0.0% |
-| Hotels | 2 | 0 | 2 | 0 | 0 | 50.0% |
-| Cars | 27 | 0 | 27 | 0 | 0 | 49.5% |
-| Transport | 44 | 0 | 0 | 44 | 0 | 0.0% |
-| Blog | 21 | 0 | 0 | 21 | 0 | 0.0% |
-| POI | 139 | 0 | 3 | 136 | 0 | 1.4% |
-| Recommendations | 10 | 0 | 5 | 5 | 0 | 11.4% |
+| Trips | 12 | 3 | 0 | 9 | 0 | 25.0% |
+| Hotels | 2 | 2 | 0 | 0 | 0 | 100.0% |
+| Cars | 27 | 0 | 27 | 0 | 0 | 54.2% |
+| Transport | 44 | 44 | 0 | 0 | 0 | 100.0% |
+| Blog | 21 | 0 | 5 | 16 | 0 | 7.7% |
+| POI | 139 | 10 | 0 | 129 | 0 | 7.2% |
+| Recommendations | 10 | 5 | 3 | 2 | 0 | 63.6% |
 | Shop | 30 | 0 | 0 | 30 | 0 | 0.0% |
 
 ## Requested Area Notes
@@ -60,8 +60,8 @@ fields but can fall back to EN/PL source content without blank UI.
 - Full HE blog translations: 0
 - Partial HE blog translations/taxonomy: 0
 - EN/PL fallback-only blog posts: 21
-- Posts with categories_he: 0
-- Posts with tags_he: 0
+- Posts with categories_he: 5
+- Posts with tags_he: 5
 - Fields audited: HE translation title, slug, summary, lead, content_html, categories_he and tags_he.
 
 ### POI
@@ -98,10 +98,10 @@ products, categories, variants, vendors, attributes, shipping and discounts.
 
 | Dictionary / support table | Records | HE complete | HE partial | EN fallback-only | Missing/no fallback | Field readiness |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Transport locations | 9 | 0 | 0 | 9 | 0 | 0.0% |
+| Transport locations | 9 | 9 | 0 | 0 | 0 | 100.0% |
 | Hotel amenities dictionary | 48 | 0 | 0 | 48 | 0 | 0.0% |
-| POI categories | 23 | 0 | 0 | 23 | 0 | 0.0% |
-| Recommendation categories | 15 | 8 | 0 | 7 | 0 | 53.3% |
+| POI categories | 23 | 6 | 0 | 17 | 0 | 26.1% |
+| Recommendation categories | 15 | 10 | 0 | 5 | 0 | 66.7% |
 
 ## Main Risks
 

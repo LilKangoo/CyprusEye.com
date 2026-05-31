@@ -1,6 +1,6 @@
 # HE Beta GO / NO-GO
 
-Generated: 2026-05-29T19:32:24.297Z
+Generated: 2026-05-31T17:56:55.607Z
 
 HE remains internal/beta-only. This document does not enable public HE,
 sitemap, hreflang, canonical metadata, SEO, indexing, the public language
@@ -11,33 +11,32 @@ switcher, or public `/he/` routes.
 | Module | Status | Decision |
 | --- | --- | --- |
 | Trips | BLOCKED | Trips: hide from first HE beta or keep EN-only until dynamic HE content is added. |
-| Hotels | PARTIAL | Hotels: beta only with explicit EN fallback acceptance; translate top records before broader beta. |
+| Hotels | READY | Hotels: can enter controlled beta for HE preview, with remaining fallback tracked. |
 | Cars | PARTIAL | Cars: beta only with explicit EN fallback acceptance; translate top records before broader beta. |
-| Transport | BLOCKED | Transport: hide from first HE beta or keep EN-only until dynamic HE content is added. |
-| Blog | BLOCKED | Blog: hide from first HE beta or keep EN-only until dynamic HE content is added. |
-| POI | PARTIAL | POI: beta only with explicit EN fallback acceptance; translate top records before broader beta. |
+| Transport | READY | Transport: can enter controlled beta for HE preview, with remaining fallback tracked. |
+| Blog | PARTIAL | Blog: beta only with explicit EN fallback acceptance; translate top records before broader beta. |
+| POI | BLOCKED | POI: hide from first HE beta or keep EN-only until dynamic HE content is added. |
 | Recommendations | PARTIAL | Recommendations: beta only with explicit EN fallback acceptance; translate top records before broader beta. |
 | Shop | BLOCKED | Shop: hide from first HE beta or keep EN-only until dynamic HE content is added. |
 
 ## Controlled Beta Now
 
-- None as a full Hebrew dynamic-content experience.
+- Hotels
+- Transport
 
 These modules can be exercised in controlled beta only within the existing
 internal/beta guard and with hidden HE preview/allowlist behavior.
 
 ## Requires Translation Before Wider Beta
 
-- Hotels
 - Cars
-- POI
+- Blog
 - Recommendations
 
 ## Hide Or Keep EN-Only In First HE Beta
 
 - Trips
-- Transport
-- Blog
+- POI
 - Shop
 
 ## GO Conditions For Etap 15+
