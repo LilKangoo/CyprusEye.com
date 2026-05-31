@@ -291,11 +291,11 @@
     if (!normalized) {
       return '';
     }
-    if (isPublicLanguage(normalized)) {
-      return normalized;
-    }
     if (isHiddenLanguage(normalized) && pageDisablesHiddenLanguage()) {
       return '';
+    }
+    if (isPublicLanguage(normalized)) {
+      return normalized;
     }
     return includeHidden
       && isHiddenLanguage(normalized)

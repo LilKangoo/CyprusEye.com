@@ -932,6 +932,8 @@ function syncAddressForLanguage(post) {
   nextUrl.pathname = `/blog/${encodeURIComponent(slug)}`;
   if (state.language === 'pl') {
     nextUrl.searchParams.set('lang', 'pl');
+  } else if (state.language === 'he') {
+    nextUrl.searchParams.set('lang', 'he');
   } else {
     nextUrl.searchParams.delete('lang');
   }
@@ -1119,9 +1121,9 @@ async function renderRelatedPosts(post) {
 
   grid.innerHTML = relatedPosts.map((postItem) => {
     const localizedItem = localizeRelatedPost(postItem, state.language);
-    const href = state.language === 'pl'
-      ? `/blog/${encodeURIComponent(localizedItem.slug)}?lang=pl`
-      : `/blog/${encodeURIComponent(localizedItem.slug)}`;
+    const href = state.language === 'en'
+      ? `/blog/${encodeURIComponent(localizedItem.slug)}`
+      : `/blog/${encodeURIComponent(localizedItem.slug)}?lang=${encodeURIComponent(state.language)}`;
 
     return `
       <article class="blog-card">
@@ -1166,7 +1168,7 @@ async function render() {
   const backLink = $('#blogBackLink');
   if (backLink) {
     backLink.textContent = t('backToList');
-    backLink.href = state.language === 'pl' ? '/blog?lang=pl' : '/blog';
+    backLink.href = state.language === 'en' ? '/blog' : `/blog?lang=${encodeURIComponent(state.language)}`;
   }
   $('#blogSidebarHeading').textContent = t('sidebarHeading');
   $('#blogCtaEyebrow').textContent = t('ctaEyebrow');

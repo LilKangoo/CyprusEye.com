@@ -102,6 +102,23 @@ test.describe('hidden Hebrew rollout guard', () => {
     await expect(page.locator('html')).not.toHaveAttribute('dir', 'rtl');
   });
 
+  test('keeps Shop out of configured beta HE scope', async ({ page }) => {
+    await page.addInitScript(() => {
+      const user = {
+        id: '15f3d442-092d-4eb8-9627-db90da0283eb',
+        email: 'lilkangoomedia@gmail.com',
+      };
+      (window as any).CE_STATE = { session: { user }, user };
+      (window as any).CE_CURRENT_USER = user;
+    });
+
+    await page.goto('/shop.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(250);
+
+    await expect(page.locator('html')).not.toHaveAttribute('lang', 'he');
+    await expect(page.locator('html')).not.toHaveAttribute('dir', 'rtl');
+  });
+
   test('can disable hidden preview while keeping beta-user HE access', async ({ page }) => {
     await page.addInitScript(() => {
       (window as any).CE_LANGUAGE_ROLLOUT_CONFIG = {
