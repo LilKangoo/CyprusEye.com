@@ -192,6 +192,26 @@ Page behavior:
 - `excluded`: HE is always hidden; Shop, checkout, admin and partner surfaces
   stay outside public HE.
 
+Stage 27 status:
+
+- `supabase/manual/he_public_ready_dynamic_stage25.sql` was reviewed as
+  additive and safe for manual SQL Editor execution.
+- The file does not overwrite PL/EN data and does not enable HE SEO, sitemap,
+  hreflang, canonical, indexing, public `/he/` routes or global public HE.
+- Until the verify SQL passes on Supabase, `hotels`, `hotel` and
+  `recommendations` remain `partial`.
+- After verify passes, set `stage25SqlApplied:true` in the HE rollout config to
+  allow the registry to report those pages as `ready`.
+
+Expected readiness after verified Stage25 SQL:
+
+| Status | Pages |
+| --- | --- |
+| `ready` | `transport`, `hotels`, `hotel`, `recommendations` |
+| `partial` | `home`, `car`, `trips`, `trip`, `poiMap` |
+| `blocked` | `blog`, `blogPost`, `plan`, `community`, `accountAuth`, `legal`, `notFound`, unknown pages |
+| `excluded` | `shop`, `partners`, `admin` |
+
 ## Phase D - Enable HE Globally
 
 Goal: public language selection is available across all ready surfaces.

@@ -45,6 +45,23 @@ Stage 25 manual SQL:
 - Apply/top-up: `supabase/manual/he_public_ready_dynamic_stage25.sql`
 - Verify after apply: `supabase/manual/he_public_ready_dynamic_stage25_verify.sql`
 
+Stage 27 review:
+
+- Apply SQL is safe for manual Supabase SQL Editor execution after editorial
+  review.
+- It fills only HE fields and does not overwrite PL/EN content.
+- It does not activate public HE, global switcher HE, sitemap, hreflang,
+  canonical, SEO, indexing, or public `/he/` routes.
+- Until `he_public_ready_dynamic_stage25_verify.sql` passes, `hotels`, `hotel`
+  and `recommendations` remain `partial` in the page-gated switcher registry.
+- After verify passes and `stage25SqlApplied:true` is set, expected page-gated
+  dynamic status is:
+  - READY: Transport, Hotels, Hotel detail, Recommendations.
+  - PARTIAL-safe: Home, Cars, Trips, Trip detail, POI/map.
+  - BLOCKED: Blog, Blog detail, Plan, Community, Account/Auth, Legal, 404,
+    unknown pages.
+  - EXCLUDED: Shop, Partners, Admin.
+
 ## Requested Area Notes
 
 ### Trips

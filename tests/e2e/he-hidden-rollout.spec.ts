@@ -206,6 +206,48 @@ test.describe('hidden Hebrew rollout guard', () => {
     expect(rollout?.publicSurfaces?.routes).toBe(false);
   });
 
+  test('marks Stage25-dependent pages ready only after the verified SQL flag', async ({ page }) => {
+    await page.addInitScript(() => {
+      (window as any).CE_LANGUAGE_ROLLOUT_CONFIG = {
+        he: {
+          mode: 'beta',
+          switcher: true,
+          routes: true,
+          publicApi: true,
+          seo: false,
+          sitemap: false,
+          hreflang: false,
+          canonical: false,
+          indexing: false,
+          hiddenPreview: false,
+          pageGated: true,
+          stage25SqlApplied: true,
+        },
+      };
+      window.localStorage.setItem('ce_he_beta', 'true');
+    });
+
+    await page.goto('/hotels.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await waitForHtmlLanguage(page, 'he');
+    let rollout = await page.evaluate(() => (window as any).CELanguageRollout?.snapshot?.().he);
+    expect(rollout?.pageReadiness?.key).toBe('hotels');
+    expect(rollout?.pageReadiness?.status).toBe('ready');
+    expect(rollout?.pageReadiness?.stage25SqlApplied).toBe(true);
+    expect(rollout?.publicSurfaces?.switcher).toBe(true);
+    expect(rollout?.publicSurfaces?.routes).toBe(true);
+    expect(rollout?.publicSurfaces?.seo).toBe(false);
+
+    await page.goto('/recommendations.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await waitForHtmlLanguage(page, 'he');
+    rollout = await page.evaluate(() => (window as any).CELanguageRollout?.snapshot?.().he);
+    expect(rollout?.pageReadiness?.key).toBe('recommendations');
+    expect(rollout?.pageReadiness?.status).toBe('ready');
+    expect(rollout?.pageReadiness?.stage25SqlApplied).toBe(true);
+    expect(rollout?.publicSurfaces?.switcher).toBe(true);
+    expect(rollout?.publicSurfaces?.routes).toBe(true);
+    expect(rollout?.publicSurfaces?.seo).toBe(false);
+  });
+
   test('does not serve /he/ as a broken SPA route', async ({ page }) => {
     const errors: string[] = [];
     page.on('console', (message) => {

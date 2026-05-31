@@ -74,6 +74,48 @@ window.CE_LANGUAGE_ROLLOUT_CONFIG = {
 
 This still does not enable HE SEO or global public HE.
 
+## Stage 27 SQL Apply Checklist
+
+Stage 25 SQL review status: **safe to apply manually, pending human execution
+and verification**.
+
+The reviewed apply file:
+
+- adds `public.hotel_amenities.name_he` if missing;
+- fills only missing HE fields through `COALESCE` / existing-value checks;
+- updates only HE fields/dictionaries for the narrow public-ready scope;
+- does not overwrite PL/EN source fields;
+- does not change SEO, sitemap, hreflang, canonical, indexing, public `/he/`
+  routes, or switcher mode.
+
+Manual apply flow in Supabase SQL Editor:
+
+1. Open `supabase/manual/he_public_ready_dynamic_stage25.sql`.
+2. Review Hebrew values one final time.
+3. Run the full file. It already ends with `COMMIT;`.
+4. Open and run `supabase/manual/he_public_ready_dynamic_stage25_verify.sql`.
+5. Treat the apply as successful only when verify counts match the expected
+   scope below.
+
+Expected verify signals:
+
+| Check | Expected result |
+| --- | ---: |
+| `transport_routes_he` | all active routes have HE origin and destination labels |
+| `hotels_he_records` | all published hotel records ready |
+| `hotel_amenities_he` | 48 active amenities ready |
+| `recommendations_he_active` | all active recommendations ready |
+| `poi_categories_he` | 23 selected/active category labels ready |
+| `recommendation_categories_he` | 15 selected/active category labels ready |
+
+If verify does not match:
+
+- do not set `stage25SqlApplied:true`;
+- keep `hotels`, `hotel` and `recommendations` as `partial`;
+- inspect missing rows from the verify output;
+- apply a small HE-only corrective SQL patch;
+- rerun verify before enabling page-gated switcher on those pages.
+
 ## Shop Exclusion
 
 Shop remains excluded from first HE rollout:
@@ -103,4 +145,3 @@ part of the current launch gate. Before Blog can become `ready`:
 5. Keep Shop, Blog, Plan, Account/Auth, Legal, Admin and Partner pages blocked
    or excluded until their own gates pass.
 6. Enable HE SEO/sitemap/hreflang/canonical only in the final SEO phase.
-

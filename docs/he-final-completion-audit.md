@@ -195,6 +195,34 @@ Stage25 dependency:
   `supabase/manual/he_public_ready_dynamic_stage25.sql` is applied and verified.
 - Until then, they remain `partial` and must not be treated as globally ready.
 
+## Stage 27 Stage25 SQL Status
+
+Stage25 SQL review result: **safe to apply manually, not applied by this agent**.
+
+Reviewed files:
+
+- `supabase/manual/he_public_ready_dynamic_stage25.sql`
+- `supabase/manual/he_public_ready_dynamic_stage25_verify.sql`
+
+Safety findings:
+
+- The apply SQL is additive/idempotent for the intended scope.
+- It adds only `hotel_amenities.name_he` if missing.
+- It updates HE-only fields/dictionaries and uses existing HE values when they
+  are already present.
+- It does not overwrite PL/EN source content.
+- It does not activate public HE, global switcher HE, SEO HE, sitemap HE,
+  hreflang HE, canonical HE, indexing HE or public `/he/` routes.
+
+Readiness after verified Stage25 SQL:
+
+| Status | Pages / flows |
+| --- | --- |
+| READY | `transport`, `hotels`, `hotel`, `recommendations` |
+| PARTIAL-safe | `home`, `car`, `trips`, `trip`, `poiMap` |
+| BLOCKED | `blog`, `blogPost`, `plan`, `community`, `accountAuth`, `legal`, `notFound`, unknown |
+| EXCLUDED | `shop`, `partners`, `admin` |
+
 ## Overall Status
 
 | Area | Estimated readiness | Notes |
