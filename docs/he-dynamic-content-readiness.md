@@ -1,6 +1,6 @@
 # HE Dynamic Content Readiness
 
-Generated: 2026-05-31T18:53:40.374Z
+Generated: 2026-05-31T22:45:19.979Z
 Source: read-only Supabase anon queries against public/beta-visible records.
 
 HE remains internal/beta-only. This audit does not enable HE in the public
@@ -21,7 +21,7 @@ fields but can fall back to EN/PL source content without blank UI.
 | Transport | 44 | 44 | 0 | 0 | 0 | 100.0% |
 | Blog | 21 | 0 | 5 | 16 | 0 | 7.7% |
 | POI | 139 | 10 | 0 | 129 | 0 | 7.2% |
-| Recommendations | 10 | 5 | 3 | 2 | 0 | 63.6% |
+| Recommendations | 10 | 10 | 0 | 0 | 0 | 100.0% |
 | Shop | 30 | 0 | 0 | 30 | 0 | 0.0% |
 
 ## Public-ready Dynamic Content Scope
@@ -36,7 +36,7 @@ be considered for page-gated HE after manual SQL/editorial review.
 | Blog | 21 | 0 | 5 | 16 | 7.7% | BLOCKED for public read until reviewed HE rows exist for launch posts and RLS/public policy is intentionally opened. |
 | Trips | 12 | 3 | 0 | 9 | 25.0% | PARTIAL: page-gate to 3 translated trips; do not expose all 12 as HE. |
 | Cars | 27 | 0 | 27 | 0 | 54.2% | PARTIAL: page-gate to 5 reviewed cars; brand/model fallback is acceptable, features/descriptions need review. |
-| Recommendations | 10 | 5 | 3 | 2 | 63.6% | READY after Stage 25 SQL completes remaining active records and category labels. |
+| Recommendations | 10 | 10 | 0 | 0 | 100.0% | READY after Stage 25 SQL completes remaining active records and category labels. |
 | POI | 139 | 10 | 0 | 129 | 7.2% | PARTIAL: expose only the top 10 translated POI; global map still needs more HE content. |
 | Shop | 30 | 0 | 0 | 30 | 0.0% | EXCLUDED from first public HE launch; checkout/payment remain EN/LTR. |
 
@@ -45,22 +45,18 @@ Stage 25 manual SQL:
 - Apply/top-up: `supabase/manual/he_public_ready_dynamic_stage25.sql`
 - Verify after apply: `supabase/manual/he_public_ready_dynamic_stage25_verify.sql`
 
-Stage 27 review:
+Stage 28 status:
 
-- Apply SQL is safe for manual Supabase SQL Editor execution after editorial
-  review.
-- It fills only HE fields and does not overwrite PL/EN content.
-- It does not activate public HE, global switcher HE, sitemap, hreflang,
-  canonical, SEO, indexing, or public `/he/` routes.
-- Until `he_public_ready_dynamic_stage25_verify.sql` passes, `hotels`, `hotel`
-  and `recommendations` remain `partial` in the page-gated switcher registry.
-- After verify passes and `stage25SqlApplied:true` is set, expected page-gated
-  dynamic status is:
-  - READY: Transport, Hotels, Hotel detail, Recommendations.
-  - PARTIAL-safe: Home, Cars, Trips, Trip detail, POI/map.
-  - BLOCKED: Blog, Blog detail, Plan, Community, Account/Auth, Legal, 404,
-    unknown pages.
-  - EXCLUDED: Shop, Partners, Admin.
+- Stage25 SQL was manually applied and verified for the page-gated scope.
+- Runtime config now uses `stage25SqlApplied:true`.
+- Transport, Hotels, Hotel detail and Recommendations can be treated as READY
+  for page-gated HE tests.
+- Home, Cars, Trips, Trip detail and POI/map remain PARTIAL-safe only.
+- Blog, Plan, Community, Account/Auth, Legal, 404 and unknown pages remain
+  BLOCKED.
+- Shop, Partners and Admin remain EXCLUDED.
+- SEO HE, sitemap HE, hreflang HE, canonical HE, indexing HE and public `/he/`
+  routes remain off.
 
 ## Requested Area Notes
 
@@ -139,16 +135,18 @@ products, categories, variants, vendors, attributes, shipping and discounts.
 | Dictionary / support table | Records | HE complete | HE partial | EN fallback-only | Missing/no fallback | Field readiness |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Transport locations | 9 | 9 | 0 | 0 | 0 | 100.0% |
-| Hotel amenities dictionary | 48 | 0 | 0 | 48 | 0 | 0.0% |
-| POI categories | 23 | 6 | 0 | 17 | 0 | 26.1% |
-| Recommendation categories | 15 | 10 | 0 | 5 | 0 | 66.7% |
+| Hotel amenities dictionary | 48 | 48 | 0 | 0 | 0 | 100.0% |
+| POI categories | 23 | 23 | 0 | 0 | 0 | 100.0% |
+| Recommendation categories | 15 | 15 | 0 | 0 | 0 | 100.0% |
 
 ## Main Risks
 
 - Blog has no full HE post experience unless blog_post_translations contains reviewed lang=he rows for selected posts.
 - Shop should remain out of the first HE beta unless EN fallback is explicitly accepted; paid checkout copy must not depend on unreviewed dynamic labels.
-- POI/recommendations map flows need HE names/descriptions/categories before they feel like a Hebrew experience.
-- Hotel amenities dictionary currently lacks name_he schema support, so amenities fall back even if hotel title/description are translated.
+- POI/map flow is still partial because only 10 of 139 POI are fully HE-ready,
+  even though category dictionaries are now complete.
+- Hotel amenities dictionary is now HE-ready after Stage25; keep hotel runtime
+  smoke in the page-gated QA checklist.
 - Trips/hotels/cars can technically render via fallback, but top offer records still need manual HE for content-quality beta.
 
 ## Next Dynamic Translation Order

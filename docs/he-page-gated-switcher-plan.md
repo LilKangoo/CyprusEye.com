@@ -25,9 +25,9 @@ The page registry is implemented in `js/i18n.js` and exposed through:
 | --- | --- | --- | --- | --- |
 | Home | `home` | `partial` | yes | Aggregates ready and partial modules. |
 | Transport | `transport` | `ready` | no | Transport static and dynamic location/route content are HE-ready. |
-| Hotels listing | `hotels` | `partial` now, `ready` after Stage25 SQL | yes until SQL | Requires `hotel_amenities.name_he`. |
-| Hotel detail | `hotel` | `partial` now, `ready` after Stage25 SQL | yes until SQL | Requires amenity dictionary HE. |
-| Recommendations | `recommendations` | `partial` now, `ready` after Stage25 SQL | yes until SQL | Remaining active recommendations/categories require Stage25 SQL. |
+| Hotels listing | `hotels` | `ready` after verified Stage25 SQL | no | `hotel_amenities.name_he` is available after Stage25. |
+| Hotel detail | `hotel` | `ready` after verified Stage25 SQL | no | Amenity dictionary HE is available after Stage25. |
+| Recommendations | `recommendations` | `ready` after verified Stage25 SQL | no | Active recommendations and category labels are HE-ready after Stage25. |
 | Car rental | `car` | `partial` | yes | Top cars can render with HE/EN fallback; full fleet still partial. |
 | Trips listing | `trips` | `partial` | yes | Only selected trip records are HE-ready. |
 | Trip detail | `trip` | `partial` | yes | Safe only for translated records plus EN fallback. |
@@ -53,16 +53,18 @@ The page registry is implemented in `js/i18n.js` and exposed through:
 | `blocked` | HE is hidden. | Normalizes to EN/LTR. | HE SEO blocked. |
 | `excluded` | HE is hidden. | Normalizes to EN/LTR. | HE SEO blocked. |
 
-## Stage25 SQL Dependency
+## Stage25 SQL Status
 
-These pages remain `partial` until
-`supabase/manual/he_public_ready_dynamic_stage25.sql` is applied and verified:
+Stage25 SQL status: **applied manually and verified for the page-gated scope**.
+
+These pages now resolve as `ready` when `stage25SqlApplied:true` is present in
+the rollout config:
 
 - `hotels`
 - `hotel`
 - `recommendations`
 
-After manual verification, rollout config may set:
+Current rollout config includes:
 
 ```js
 window.CE_LANGUAGE_ROLLOUT_CONFIG = {
@@ -76,8 +78,7 @@ This still does not enable HE SEO or global public HE.
 
 ## Stage 27 SQL Apply Checklist
 
-Stage 25 SQL review status: **safe to apply manually, pending human execution
-and verification**.
+Stage 25 SQL review status: **applied manually and verified**.
 
 The reviewed apply file:
 
@@ -88,7 +89,7 @@ The reviewed apply file:
 - does not change SEO, sitemap, hreflang, canonical, indexing, public `/he/`
   routes, or switcher mode.
 
-Manual apply flow in Supabase SQL Editor:
+Manual apply flow for repeat/staging environments:
 
 1. Open `supabase/manual/he_public_ready_dynamic_stage25.sql`.
 2. Review Hebrew values one final time.
@@ -108,13 +109,24 @@ Expected verify signals:
 | `poi_categories_he` | 23 selected/active category labels ready |
 | `recommendation_categories_he` | 15 selected/active category labels ready |
 
-If verify does not match:
+If verify does not match in another environment:
 
 - do not set `stage25SqlApplied:true`;
 - keep `hotels`, `hotel` and `recommendations` as `partial`;
 - inspect missing rows from the verify output;
 - apply a small HE-only corrective SQL patch;
 - rerun verify before enabling page-gated switcher on those pages.
+
+Stage 28 verified dynamic audit signals:
+
+| Check | Verified result |
+| --- | ---: |
+| Hotels | 2/2 complete |
+| Hotel amenities dictionary | 48/48 complete |
+| Recommendations | 10/10 complete |
+| POI categories | 23/23 complete |
+| Recommendation categories | 15/15 complete |
+| Transport | 44/44 complete |
 
 ## Shop Exclusion
 

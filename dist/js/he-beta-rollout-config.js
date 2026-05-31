@@ -18,7 +18,7 @@
       indexing: false,
       hiddenPreview: false,
       pageGated: true,
-      stage25SqlApplied: false,
+      stage25SqlApplied: true,
       betaUserIds: ['15f3d442-092d-4eb8-9627-db90da0283eb'],
       betaEmails: [],
       shopEnabled: false,

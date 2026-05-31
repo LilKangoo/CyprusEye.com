@@ -173,15 +173,15 @@ Current registry decisions:
 
 | Status | Pages |
 | --- | --- |
-| `ready` | `transport` |
-| `partial` | `home`, `car`, `trips`, `trip`, `poiMap`; `hotels`, `hotel`, `recommendations` until Stage25 SQL is applied |
+| `ready` | `transport`, `hotels`, `hotel`, `recommendations` |
+| `partial` | `home`, `car`, `trips`, `trip`, `poiMap` |
 | `blocked` | `blog`, `blogPost`, `plan`, `community`, `accountAuth`, `legal`, `notFound`, unknown pages |
 | `excluded` | `shop`, `partners`, `admin` |
 
-`hotels`, `hotel` and `recommendations` depend on
-`supabase/manual/he_public_ready_dynamic_stage25.sql`. Until that SQL is
-applied and verified, these pages stay `partial`; after verification the runtime
-can mark `stage25SqlApplied: true` in the HE rollout config.
+`hotels`, `hotel` and `recommendations` depended on
+`supabase/manual/he_public_ready_dynamic_stage25.sql`. Stage25 is now applied
+and verified for the page-gated scope, and the runtime config sets
+`stage25SqlApplied:true`.
 
 Page behavior:
 
@@ -192,16 +192,15 @@ Page behavior:
 - `excluded`: HE is always hidden; Shop, checkout, admin and partner surfaces
   stay outside public HE.
 
-Stage 27 status:
+Stage 28 status:
 
-- `supabase/manual/he_public_ready_dynamic_stage25.sql` was reviewed as
-  additive and safe for manual SQL Editor execution.
-- The file does not overwrite PL/EN data and does not enable HE SEO, sitemap,
-  hreflang, canonical, indexing, public `/he/` routes or global public HE.
-- Until the verify SQL passes on Supabase, `hotels`, `hotel` and
-  `recommendations` remain `partial`.
-- After verify passes, set `stage25SqlApplied:true` in the HE rollout config to
-  allow the registry to report those pages as `ready`.
+- `supabase/manual/he_public_ready_dynamic_stage25.sql` was applied manually in
+  Supabase SQL Editor and verified for the page-gated scope.
+- Dynamic audit now shows Hotels 2/2, Hotel amenities 48/48, Recommendations
+  10/10, POI categories 23/23 and Recommendation categories 15/15.
+- The runtime config now sets `stage25SqlApplied:true`.
+- HE SEO, sitemap, hreflang, canonical, indexing, public `/he/` routes and
+  global public HE remain disabled.
 
 Expected readiness after verified Stage25 SQL:
 

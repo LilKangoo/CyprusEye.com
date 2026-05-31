@@ -195,9 +195,9 @@ Stage25 dependency:
   `supabase/manual/he_public_ready_dynamic_stage25.sql` is applied and verified.
 - Until then, they remain `partial` and must not be treated as globally ready.
 
-## Stage 27 Stage25 SQL Status
+## Stage 28 Stage25 SQL Status
 
-Stage25 SQL review result: **safe to apply manually, not applied by this agent**.
+Stage25 SQL result: **applied manually and verified for the page-gated scope**.
 
 Reviewed files:
 
@@ -214,7 +214,18 @@ Safety findings:
 - It does not activate public HE, global switcher HE, SEO HE, sitemap HE,
   hreflang HE, canonical HE, indexing HE or public `/he/` routes.
 
-Readiness after verified Stage25 SQL:
+Verified dynamic audit after Stage25:
+
+| Scope | Result |
+| --- | ---: |
+| Transport | 44/44 complete |
+| Hotels | 2/2 complete |
+| Hotel amenities dictionary | 48/48 complete |
+| Recommendations | 10/10 complete |
+| POI categories | 23/23 complete |
+| Recommendation categories | 15/15 complete |
+
+Readiness after verified Stage25 SQL and `stage25SqlApplied:true`:
 
 | Status | Pages / flows |
 | --- | --- |

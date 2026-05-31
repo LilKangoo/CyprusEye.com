@@ -1,43 +1,48 @@
 # HE Beta GO / NO-GO
 
-Generated: 2026-05-31T18:53:40.374Z
+Generated: 2026-05-31T22:45:19.979Z
 
-HE remains internal/beta-only. This document does not enable public HE,
-sitemap, hreflang, canonical metadata, SEO, indexing, the public language
-switcher, or public `/he/` routes.
+HE remains internal/page-gated only. This document does not enable global public
+HE, sitemap, hreflang, canonical metadata, SEO, indexing, the global public
+language switcher, Shop HE, or public `/he/` routes.
 
 ## Dynamic Content Decision Table
 
 | Module | Status | Decision |
 | --- | --- | --- |
-| Trips | BLOCKED | Trips: hide from first HE beta or keep EN-only until dynamic HE content is added. |
+| Trips | PARTIAL | Trips: page-gated only with explicit EN fallback acceptance; do not expose all records as fully Hebrew. |
 | Hotels | READY | Hotels: can enter controlled beta for HE preview, with remaining fallback tracked. |
 | Cars | PARTIAL | Cars: beta only with explicit EN fallback acceptance; translate top records before broader beta. |
 | Transport | READY | Transport: can enter controlled beta for HE preview, with remaining fallback tracked. |
-| Blog | PARTIAL | Blog: beta only with explicit EN fallback acceptance; translate top records before broader beta. |
-| POI | BLOCKED | POI: hide from first HE beta or keep EN-only until dynamic HE content is added. |
-| Recommendations | PARTIAL | Recommendations: beta only with explicit EN fallback acceptance; translate top records before broader beta. |
+| Blog | BLOCKED | Blog: keep blocked until public HE read/RLS and top post translations are intentionally opened. |
+| POI | PARTIAL | POI/map: page-gated only for top translated POI with safe EN fallback. |
+| Recommendations | READY | Recommendations: can enter controlled beta for HE preview, with remaining fallback tracked. |
 | Shop | BLOCKED | Shop: hide from first HE beta or keep EN-only until dynamic HE content is added. |
 
-## Controlled Beta Now
+## Page-Gated READY Now
 
 - Hotels
 - Transport
-
-These modules can be exercised in controlled beta only within the existing
-internal/beta guard and with hidden HE preview/allowlist behavior.
-
-## Requires Translation Before Wider Beta
-
-- Cars
-- Blog
 - Recommendations
 
-## Hide Or Keep EN-Only In First HE Beta
+These modules can be exercised through page-gated HE only within the existing
+internal/beta guard. SEO and global public switcher remain off.
 
+## PARTIAL-safe With Explicit Fallback
+
+- Cars
 - Trips
-- POI
+- POI/map
+
+## Blocked Or Excluded
+
+- Blog
 - Shop
+- Plan
+- Community
+- Account/Auth
+- Legal
+- Partners/Admin
 
 ## GO Conditions For Etap 15+
 
@@ -45,9 +50,10 @@ internal/beta guard and with hidden HE preview/allowlist behavior.
 - Top dynamic records in beta scope have HE or an accepted EN fallback.
 - Shop is not included in first customer beta until product, category, vendor,
   shipping and discount labels are reviewed.
-- Blog is not treated as a Hebrew blog experience until HE rows exist in
-  `blog_post_translations` for selected posts.
-- POI/recommendations/map beta needs HE names/descriptions/categories for the top visible records.
+- Blog is not treated as a Hebrew blog experience until public read/RLS for HE
+  rows is intentionally opened and selected posts are reviewed.
+- POI/map page-gated HE must stay scoped to translated records and safe EN
+  fallback.
 
 ## NO-GO Conditions
 
