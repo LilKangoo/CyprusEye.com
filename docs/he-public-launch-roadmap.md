@@ -202,6 +202,35 @@ Stage 28 status:
 - HE SEO, sitemap, hreflang, canonical, indexing, public `/he/` routes and
   global public HE remain disabled.
 
+Stage 29 controlled page-gated rollout:
+
+- HE mode is `partial_public`, but the page registry allows anonymous/public HE
+  only on `ready` pages.
+- Ready pages with public HE switcher/routes:
+  - `transport.html`
+  - `hotels.html`
+  - `hotel.html`
+  - `recommendations.html`
+- Partial pages remain internal/beta-only because `allowPartialPagesPublic:false`:
+  - `index.html`
+  - `car.html`
+  - `trips.html`
+  - `trip.html`
+  - POI/map flow
+- Blocked/excluded pages remain EN/LTR for `?lang=he`:
+  - Blog, Blog detail, Plan, Community, Account/Auth, Legal, 404, unknown pages
+  - Shop, Partners, Admin
+- SEO HE, sitemap HE, hreflang HE, canonical HE, indexing HE and public `/he/`
+  routes remain off.
+
+Rollback:
+
+- Change HE mode back to `beta_users` or `internal_only`.
+- Leave content fields in place.
+- Keep `/he/` redirect active.
+- Purge Cloudflare cache if needed.
+- Re-smoke ready, blocked and Shop pages.
+
 Expected readiness after verified Stage25 SQL:
 
 | Status | Pages |

@@ -7,7 +7,7 @@
   window.CE_LANGUAGE_ROLLOUT_CONFIG = {
     ...existing,
     he: {
-      mode: 'beta_users',
+      mode: 'partial_public',
       switcher: true,
       routes: true,
       publicApi: true,
@@ -19,6 +19,7 @@
       hiddenPreview: false,
       pageGated: true,
       stage25SqlApplied: true,
+      allowPartialPagesPublic: false,
       betaUserIds: ['15f3d442-092d-4eb8-9627-db90da0283eb'],
       betaEmails: [],
       shopEnabled: false,

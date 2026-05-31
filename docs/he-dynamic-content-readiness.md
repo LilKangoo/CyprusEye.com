@@ -58,6 +58,27 @@ Stage 28 status:
 - SEO HE, sitemap HE, hreflang HE, canonical HE, indexing HE and public `/he/`
   routes remain off.
 
+Stage 29 page-gated rollout status:
+
+- READY pages can expose HE publicly through the page-gated switcher:
+  - Transport
+  - Hotels
+  - Hotel detail
+  - Recommendations
+- PARTIAL-safe modules remain internal/beta-only:
+  - Home aggregate modules
+  - Cars
+  - Trips
+  - Trip detail
+  - POI/map flow
+- BLOCKED dynamic modules remain blocked:
+  - Blog and Blog detail
+  - Plan/community/account/legal/404/unknown flows
+- EXCLUDED modules remain excluded:
+  - Shop/cart/checkout/payment
+  - Partners
+  - Admin
+
 ## Requested Area Notes
 
 ### Trips

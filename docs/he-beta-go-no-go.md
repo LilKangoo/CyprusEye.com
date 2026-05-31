@@ -26,7 +26,8 @@ language switcher, Shop HE, or public `/he/` routes.
 - Recommendations
 
 These modules can be exercised through page-gated HE only within the existing
-internal/beta guard. SEO and global public switcher remain off.
+`partial_public` guard for READY pages. SEO and global full-site switcher remain
+off.
 
 ## PARTIAL-safe With Explicit Fallback
 

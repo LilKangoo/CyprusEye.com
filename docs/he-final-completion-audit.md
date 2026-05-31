@@ -234,6 +234,40 @@ Readiness after verified Stage25 SQL and `stage25SqlApplied:true`:
 | BLOCKED | `blog`, `blogPost`, `plan`, `community`, `accountAuth`, `legal`, `notFound`, unknown |
 | EXCLUDED | `shop`, `partners`, `admin` |
 
+## Stage 29 Controlled Page-Gated Public HE
+
+Stage29 runtime status: **controlled page-gated HE for READY pages only**.
+
+Public HE is allowed only where the page registry status is `ready`:
+
+- `transport.html`
+- `hotels.html`
+- `hotel.html`
+- `recommendations.html`
+
+The runtime config uses:
+
+- `mode: "partial_public"`
+- `pageGated: true`
+- `stage25SqlApplied: true`
+- `allowPartialPagesPublic: false`
+- HE SEO/sitemap/hreflang/canonical/indexing: `false`
+
+Partial-safe pages are intentionally not public HE yet:
+
+- `home`
+- `car`
+- `trips`
+- `trip`
+- `poiMap`
+
+Blocked/excluded pages remain protected:
+
+- Blog and Blog detail remain blocked until HE blog public read/RLS and top post
+  content are intentionally opened.
+- Shop remains excluded; checkout/cart/payment must stay EN/LTR.
+- Partners and Admin remain excluded from public HE.
+
 ## Overall Status
 
 | Area | Estimated readiness | Notes |

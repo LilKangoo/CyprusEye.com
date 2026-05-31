@@ -76,6 +76,51 @@ window.CE_LANGUAGE_ROLLOUT_CONFIG = {
 
 This still does not enable HE SEO or global public HE.
 
+## Stage 29 Page-Gated Public HE Scope
+
+Stage 29 enables controlled page-gated HE only for pages marked `ready`. This
+is not a global Hebrew launch.
+
+Runtime config:
+
+```js
+window.CE_LANGUAGE_ROLLOUT_CONFIG = {
+  he: {
+    mode: 'partial_public',
+    switcher: true,
+    routes: true,
+    publicApi: true,
+    seo: false,
+    sitemap: false,
+    hreflang: false,
+    canonical: false,
+    indexing: false,
+    hiddenPreview: false,
+    pageGated: true,
+    stage25SqlApplied: true,
+    allowPartialPagesPublic: false
+  }
+};
+```
+
+Public HE is allowed only on:
+
+- `transport.html`
+- `hotels.html`
+- `hotel.html`
+- `recommendations.html`
+
+Partial-safe pages remain internal/beta-only:
+
+- `index.html`
+- `car.html`
+- `trips.html`
+- `trip.html`
+- POI/map flow
+
+Blocked and excluded pages must normalize `?lang=he` to EN/LTR and must not
+show HE in the switcher.
+
 ## Stage 27 SQL Apply Checklist
 
 Stage 25 SQL review status: **applied manually and verified**.
@@ -136,6 +181,22 @@ Shop remains excluded from first HE rollout:
 - `shop.html?lang=he` normalizes to EN/LTR.
 - Checkout, cart, shipping and payment must not enter RTL/HE.
 - Shop can join HE only after a separate Shop translation and checkout QA stage.
+
+## Rollback For Page-Gated Rollout
+
+Fast rollback without touching content:
+
+1. Set `he.mode` back to `beta_users` or `internal_only`.
+2. Keep `seo`, `sitemap`, `hreflang`, `canonical`, `indexing` and `/he/` routes
+   disabled.
+3. Keep `shopEnabled:false`.
+4. Purge Cloudflare cache after deploy/runtime config change if the config is
+   cached.
+5. Smoke test:
+   - `transport.html?lang=he` no longer activates for anonymous users.
+   - `shop.html?lang=he` stays EN/LTR.
+   - `blog.html?lang=he` stays EN/LTR.
+   - `seo:audit` remains clean.
 
 ## Blog Blocker
 

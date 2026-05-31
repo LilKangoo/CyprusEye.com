@@ -446,7 +446,18 @@
       return true;
     }
     if (readiness.partial) {
-      return readiness.allowFallback === true && !HE_PAGE_SEO_SURFACES.has(surface);
+      if (HE_PAGE_SEO_SURFACES.has(surface) || readiness.allowFallback !== true) {
+        return false;
+      }
+      if (surface === 'preview') {
+        return true;
+      }
+      const rollout = getLanguageRollout(normalized);
+      const mode = rollout?.mode || ROLLOUT_MODES.INTERNAL_ONLY;
+      if (mode === ROLLOUT_MODES.BETA_USERS) {
+        return true;
+      }
+      return Boolean(rollout?.allowPartialPagesPublic === true);
     }
     return false;
   }

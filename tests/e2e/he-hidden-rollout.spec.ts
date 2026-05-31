@@ -21,6 +21,12 @@ async function waitForHtmlLanguage(page, language: string) {
   });
 }
 
+async function expectHeSwitcherVisible(page) {
+  await page.waitForFunction(() => (
+    document.querySelectorAll('[data-testid="language-option-he"], [data-testid="language-pill-he"], [data-language-pill="he"], [data-language="he"]').length > 0
+  ), null, { timeout: 5000 });
+}
+
 async function allowInternalHiddenPreview(page) {
   await page.addInitScript(() => {
     (window as any).CE_LANGUAGE_ROLLOUT_CONFIG = {
@@ -49,6 +55,69 @@ test.describe('hidden Hebrew rollout guard', () => {
     await expect(page.locator('html')).not.toHaveAttribute('dir', 'rtl');
     await expect(page.locator('[data-testid="language-option-he"]')).toHaveCount(0);
     await expect(page.locator('[data-testid="language-pill-he"]')).toHaveCount(0);
+  });
+
+  test('enables public page-gated HE only on READY pages', async ({ page }) => {
+    await page.goto('/transport.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await waitForHtmlLanguage(page, 'he');
+
+    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+    await expectHeSwitcherVisible(page);
+    let rollout = await page.evaluate(() => (window as any).CELanguageRollout?.snapshot?.().he);
+    expect(rollout?.mode).toBe('partial_public');
+    expect(rollout?.pageReadiness?.key).toBe('transport');
+    expect(rollout?.pageReadiness?.status).toBe('ready');
+    expect(rollout?.publicSurfaces?.switcher).toBe(true);
+    expect(rollout?.publicSurfaces?.routes).toBe(true);
+    expect(rollout?.publicSurfaces?.seo).toBe(false);
+
+    await page.goto('/hotels.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await waitForHtmlLanguage(page, 'he');
+    rollout = await page.evaluate(() => (window as any).CELanguageRollout?.snapshot?.().he);
+    expect(rollout?.pageReadiness?.key).toBe('hotels');
+    expect(rollout?.pageReadiness?.status).toBe('ready');
+    expect(rollout?.publicSurfaces?.switcher).toBe(true);
+    expect(rollout?.publicSurfaces?.routes).toBe(true);
+
+    await page.goto('/hotel.html?slug=rgb-cabins-larnaka-centrum&lang=he', { waitUntil: 'domcontentloaded' });
+    await waitForHtmlLanguage(page, 'he');
+    rollout = await page.evaluate(() => (window as any).CELanguageRollout?.snapshot?.().he);
+    expect(rollout?.pageReadiness?.key).toBe('hotel');
+    expect(rollout?.pageReadiness?.status).toBe('ready');
+    expect(rollout?.publicSurfaces?.switcher).toBe(true);
+    expect(rollout?.publicSurfaces?.routes).toBe(true);
+
+    await page.goto('/recommendations.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await waitForHtmlLanguage(page, 'he');
+    rollout = await page.evaluate(() => (window as any).CELanguageRollout?.snapshot?.().he);
+    expect(rollout?.pageReadiness?.key).toBe('recommendations');
+    expect(rollout?.pageReadiness?.status).toBe('ready');
+    expect(rollout?.publicSurfaces?.switcher).toBe(true);
+    expect(rollout?.publicSurfaces?.routes).toBe(true);
+  });
+
+  test('keeps PARTIAL pages internal-only during page-gated public rollout', async ({ page }) => {
+    await page.goto('/car.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(250);
+
+    await expect(page.locator('html')).not.toHaveAttribute('lang', 'he');
+    await expect(page.locator('html')).not.toHaveAttribute('dir', 'rtl');
+    await expect(page.locator('[data-testid="language-option-he"]')).toHaveCount(0);
+    const rollout = await page.evaluate(() => (window as any).CELanguageRollout?.snapshot?.().he);
+    expect(rollout?.pageReadiness?.key).toBe('car');
+    expect(rollout?.pageReadiness?.status).toBe('partial');
+    expect(rollout?.publicSurfaces?.switcher).toBe(false);
+    expect(rollout?.publicSurfaces?.routes).toBe(false);
+
+    await page.goto('/trip.html?slug=trasa-skaa-afrodyty&lang=he', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(250);
+    await expect(page.locator('html')).not.toHaveAttribute('lang', 'he');
+    await expect(page.locator('html')).not.toHaveAttribute('dir', 'rtl');
+    const tripRollout = await page.evaluate(() => (window as any).CELanguageRollout?.snapshot?.().he);
+    expect(tripRollout?.pageReadiness?.key).toBe('trip');
+    expect(tripRollout?.pageReadiness?.status).toBe('partial');
+    expect(tripRollout?.publicSurfaces?.switcher).toBe(false);
+    expect(tripRollout?.publicSurfaces?.routes).toBe(false);
   });
 
   test('renders hidden HE preview on key desktop routes without exposing switcher option', async ({ page }) => {
@@ -312,6 +381,25 @@ test.describe('hidden Hebrew rollout guard', () => {
   });
 
   test('applies configured beta HE after allowlisted auth state arrives', async ({ page }) => {
+    await page.addInitScript(() => {
+      (window as any).CE_LANGUAGE_ROLLOUT_CONFIG = {
+        he: {
+          mode: 'beta_users',
+          switcher: true,
+          routes: true,
+          publicApi: true,
+          seo: false,
+          sitemap: false,
+          hreflang: false,
+          canonical: false,
+          indexing: false,
+          hiddenPreview: false,
+          pageGated: true,
+          stage25SqlApplied: true,
+        },
+      };
+    });
+
     await page.goto('/index.html?lang=he', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(250);
     await expect(page.locator('html')).not.toHaveAttribute('lang', 'he');

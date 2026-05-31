@@ -56,7 +56,10 @@ assert.match(i18nSource, /publicApi:\s*false/);
 assert.match(i18nSource, /indexing:\s*false/);
 
 const betaConfigSource = fs.readFileSync('js/he-beta-rollout-config.js', 'utf8');
-assert.match(betaConfigSource, /mode:\s*'beta_users'/);
+assert.match(betaConfigSource, /mode:\s*'partial_public'/);
+assert.match(betaConfigSource, /pageGated:\s*true/);
+assert.match(betaConfigSource, /stage25SqlApplied:\s*true/);
+assert.match(betaConfigSource, /allowPartialPagesPublic:\s*false/);
 assert.match(betaConfigSource, /15f3d442-092d-4eb8-9627-db90da0283eb/);
 assert.match(betaConfigSource, /hiddenPreview:\s*false/);
 assert.match(betaConfigSource, /seo:\s*false/);
