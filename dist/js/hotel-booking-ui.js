@@ -30,7 +30,20 @@
 
   function normalizeBookingLanguage(value) {
     const raw = String(value || '').trim().toLowerCase();
+    if (raw.startsWith('he')) return 'he';
     return raw.startsWith('en') ? 'en' : 'pl';
+  }
+
+  function isMissingHotelAmenityHeColumn(error) {
+    const code = String(error?.code || '').trim();
+    const message = String(error?.message || error?.details || error?.hint || '').toLowerCase();
+    return code === '42703'
+      || code === 'PGRST204'
+      || (message.includes('name_he') && (
+        message.includes('does not exist')
+        || message.includes('could not find')
+        || message.includes('schema cache')
+      ));
   }
 
   function formatMoney(value, currency) {
@@ -171,10 +184,17 @@
         if (!supabase) {
           return hotelAmenitiesCatalog;
         }
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from('hotel_amenities')
-          .select('code, icon, name_en, name_pl, is_popular')
+          .select('code, icon, name_en, name_pl, name_he, is_popular')
           .eq('is_active', true);
+
+        if (error && isMissingHotelAmenityHeColumn(error)) {
+          ({ data, error } = await supabase
+            .from('hotel_amenities')
+            .select('code, icon, name_en, name_pl, is_popular')
+            .eq('is_active', true));
+        }
         if (error) throw error;
 
         hotelAmenitiesCatalog = {};
@@ -202,8 +222,11 @@
       : null;
     const fallbackLabel = HOTEL_AMENITY_FALLBACK_LABELS[normalizedCode] || null;
     const icon = String(item?.icon || '•').trim() || '•';
+    const normalizedLanguage = normalizeBookingLanguage(language);
     const name = String(
-      language && language.startsWith('en')
+      normalizedLanguage === 'he'
+        ? (item?.name_he || item?.name_en || fallbackLabel?.en || item?.name_pl || fallbackLabel?.pl || humanizeAmenityCode(normalizedCode))
+        : normalizedLanguage === 'en'
         ? (item?.name_en || fallbackLabel?.en || item?.name_pl || fallbackLabel?.pl || humanizeAmenityCode(normalizedCode))
         : (item?.name_pl || fallbackLabel?.pl || item?.name_en || fallbackLabel?.en || humanizeAmenityCode(normalizedCode))
     ).trim();
@@ -274,10 +297,10 @@
   function getChargeTypeLabel(chargeType, language) {
     const lang = String(language || getLanguage()).toLowerCase();
     const map = {
-      per_stay: lang.startsWith('en') ? 'per stay' : 'za pobyt',
-      per_night: lang.startsWith('en') ? 'per night' : 'za noc',
-      per_person_per_stay: lang.startsWith('en') ? 'per person / stay' : 'za osobę / pobyt',
-      per_person_per_night: lang.startsWith('en') ? 'per person / night' : 'za osobę / noc',
+      per_stay: lang.startsWith('he') ? 'לשהייה' : lang.startsWith('en') ? 'per stay' : 'za pobyt',
+      per_night: lang.startsWith('he') ? 'ללילה' : lang.startsWith('en') ? 'per night' : 'za noc',
+      per_person_per_stay: lang.startsWith('he') ? 'לאדם / לשהייה' : lang.startsWith('en') ? 'per person / stay' : 'za osobę / pobyt',
+      per_person_per_night: lang.startsWith('he') ? 'לאדם / ללילה' : lang.startsWith('en') ? 'per person / night' : 'za osobę / noc',
     };
     return map[String(chargeType || 'per_stay').trim()] || map.per_stay;
   }

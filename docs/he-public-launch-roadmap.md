@@ -55,6 +55,8 @@ Priority order:
    - Complete all launch posts, or hide posts without HE from HE blog lists.
    - Required fields: slug, title, meta description, summary, lead, body,
      categories, tags.
+   - Current blocker: migration 179 keeps public anon reads limited to PL/EN.
+     Do not open HE blog translations publicly until the final launch gate.
 2. Trips:
    - Complete all 12 trips for global launch, or gate HE to the 3 translated
      records.
@@ -65,10 +67,9 @@ Priority order:
    - Expand beyond 10/139. For global launch, map should not be mostly EN.
    - Translate `name_i18n.he`, `description_i18n.he`, `badge_i18n.he`.
 5. Recommendations:
-   - Complete remaining 5 records and all categories.
+   - Stage 25 prepares the remaining 5 active records and all categories.
 6. Hotels:
-   - Records are ready, but hotel amenity dictionary has 0% HE. Add schema or
-     dictionary values for amenity names.
+   - Stage 25 prepares `hotel_amenities.name_he` and all 48 amenity labels.
 7. Transport:
    - Dynamic route/location data is ready; keep regression tests.
 8. Shop:
@@ -80,6 +81,19 @@ Exit criteria:
 - No public HE page presents blank cards, undefined labels or PL-first fallback.
 - Top public paths have reviewed HE dynamic records.
 - Admin/manual SQL path exists for every remaining content gap.
+
+### Public-ready Dynamic Content Scope
+
+| Module | Public launch decision | Requirement before switcher |
+| --- | --- | --- |
+| Transport | READY | Route/location smoke on live/staging. |
+| Hotels | READY TECH after Stage 25 SQL | Apply and verify `he_public_ready_dynamic_stage25.sql`; confirm amenity chips use `name_he`. |
+| Blog | BLOCKED | Verify top 5 HE rows in SQL Editor, then prepare explicit RLS/public read launch migration later. |
+| Trips | PAGE-GATED | Show HE only for the 3 translated trip records. |
+| Cars | PAGE-GATED | Show HE only for top 5 reviewed cars; keep Shop/checkout separate. |
+| Recommendations | READY after Stage 25 SQL | Verify all 10 active records and categories have HE. |
+| POI / map | PARTIAL | Show only top 10 translated POI in HE surfaces; do not expose all 139 as HE. |
+| Shop | EXCLUDED | Keep EN/LTR and remove HE option from Shop until a separate Shop HE stage passes. |
 
 ## Phase C - Enable HE Switcher Only On Ready Pages
 

@@ -1,6 +1,6 @@
 # HE Beta GO / NO-GO
 
-Generated: 2026-05-31T17:56:55.607Z
+Generated: 2026-05-31T18:53:40.374Z
 
 HE remains internal/beta-only. This document does not enable public HE,
 sitemap, hreflang, canonical metadata, SEO, indexing, the public language

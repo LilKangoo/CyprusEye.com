@@ -497,6 +497,91 @@ function betaRecommendation(summary, moduleName) {
 }
 
 function buildDynamicDoc(report) {
+  const byId = new Map(report.modules.map((summary) => [summary.id, summary]));
+  const summaryFor = (id) => byId.get(id) || {
+    records: 0,
+    complete: 0,
+    partial: 0,
+    fallback: 0,
+    readiness: 0,
+  };
+  const publicScopeRows = [
+    ['Module', 'Total records', 'HE complete', 'HE partial', 'EN fallback', 'Readiness', 'Public launch decision'],
+    ['---', '---:', '---:', '---:', '---:', '---:', '---'],
+    [
+      'Transport',
+      String(summaryFor('transport').records),
+      String(summaryFor('transport').complete),
+      String(summaryFor('transport').partial),
+      String(summaryFor('transport').fallback),
+      percent(summaryFor('transport').readiness),
+      'READY after route/location smoke; dynamic labels resolve from `transport_locations.name_he`.',
+    ],
+    [
+      'Hotels',
+      String(summaryFor('hotels').records),
+      String(summaryFor('hotels').complete),
+      String(summaryFor('hotels').partial),
+      String(summaryFor('hotels').fallback),
+      percent(summaryFor('hotels').readiness),
+      'READY TECH after Stage 25 amenity dictionary SQL; keep SEO off until final phase.',
+    ],
+    [
+      'Blog',
+      String(summaryFor('blog').records),
+      String(summaryFor('blog').complete),
+      String(summaryFor('blog').partial),
+      String(summaryFor('blog').fallback),
+      percent(summaryFor('blog').readiness),
+      'BLOCKED for public read until reviewed HE rows exist for launch posts and RLS/public policy is intentionally opened.',
+    ],
+    [
+      'Trips',
+      String(summaryFor('trips').records),
+      String(summaryFor('trips').complete),
+      String(summaryFor('trips').partial),
+      String(summaryFor('trips').fallback),
+      percent(summaryFor('trips').readiness),
+      'PARTIAL: page-gate to 3 translated trips; do not expose all 12 as HE.',
+    ],
+    [
+      'Cars',
+      String(summaryFor('cars').records),
+      String(summaryFor('cars').complete),
+      String(summaryFor('cars').partial),
+      String(summaryFor('cars').fallback),
+      percent(summaryFor('cars').readiness),
+      'PARTIAL: page-gate to 5 reviewed cars; brand/model fallback is acceptable, features/descriptions need review.',
+    ],
+    [
+      'Recommendations',
+      String(summaryFor('recommendations').records),
+      String(summaryFor('recommendations').complete),
+      String(summaryFor('recommendations').partial),
+      String(summaryFor('recommendations').fallback),
+      percent(summaryFor('recommendations').readiness),
+      'READY after Stage 25 SQL completes remaining active records and category labels.',
+    ],
+    [
+      'POI',
+      String(summaryFor('poi').records),
+      String(summaryFor('poi').complete),
+      String(summaryFor('poi').partial),
+      String(summaryFor('poi').fallback),
+      percent(summaryFor('poi').readiness),
+      'PARTIAL: expose only the top 10 translated POI; global map still needs more HE content.',
+    ],
+    [
+      'Shop',
+      String(summaryFor('shop').records),
+      String(summaryFor('shop').complete),
+      String(summaryFor('shop').partial),
+      String(summaryFor('shop').fallback),
+      percent(summaryFor('shop').readiness),
+      'EXCLUDED from first public HE launch; checkout/payment remain EN/LTR.',
+    ],
+  ];
+
   const moduleRows = [
     ['Module', 'Records', 'HE complete', 'HE partial', 'EN fallback-only', 'Missing/no fallback', 'Field readiness'],
     ['---', '---:', '---:', '---:', '---:', '---:', '---:'],
@@ -532,6 +617,18 @@ fields but can fall back to EN/PL source content without blank UI.
 
 ${table(moduleRows)}
 
+## Public-ready Dynamic Content Scope
+
+Stage 25 does not enable public HE. It defines the first content scope that can
+be considered for page-gated HE after manual SQL/editorial review.
+
+${table(publicScopeRows)}
+
+Stage 25 manual SQL:
+
+- Apply/top-up: \`supabase/manual/he_public_ready_dynamic_stage25.sql\`
+- Verify after apply: \`supabase/manual/he_public_ready_dynamic_stage25_verify.sql\`
+
 ## Requested Area Notes
 
 ### Trips
@@ -566,11 +663,13 @@ ${table(moduleRows)}
 - Published posts visible to public/beta read: ${report.rawCounts.blogPosts}
 - Public translations visible to read: ${report.rawCounts.blogTranslations}
 - Full HE blog translations: ${report.blog.full}
-- Partial HE blog translations/taxonomy: ${report.blog.partial}
-- EN/PL fallback-only blog posts: ${report.blog.fallback}
+- Partial HE blog translations/taxonomy visible to anon audit: ${summaryFor('blog').partial}
+- EN/PL fallback-only blog posts in anon audit: ${summaryFor('blog').fallback}
 - Posts with categories_he: ${report.blog.categoriesHe}
 - Posts with tags_he: ${report.blog.tagsHe}
 - Fields audited: HE translation title, slug, summary, lead, content_html, categories_he and tags_he.
+- Note: migration 179 intentionally keeps \`blog_post_translations.lang = 'he'\`
+  hidden from public anon reads until the final public rollout gate.
 
 ### POI
 

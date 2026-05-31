@@ -60,6 +60,19 @@ function pickHomeHotelLocalizedField(source, fieldName, language = getHomeHotelL
     }, language, fallback);
 }
 
+function isHomeHotelMissingColumnError(error, columnName) {
+  const code = String(error?.code || '').trim();
+  const message = String(error?.message || error?.details || error?.hint || '').toLowerCase();
+  const column = String(columnName || '').toLowerCase();
+  return code === '42703'
+    || code === 'PGRST204'
+    || (column && message.includes(column) && (
+      message.includes('does not exist')
+      || message.includes('could not find')
+      || message.includes('schema cache')
+    ));
+}
+
 function escapeHotelAttr(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -229,10 +242,17 @@ async function loadHotelAmenitiesForDisplay() {
   try {
     const supabase = await waitForSupabaseClientHomeHotels();
     if (!supabase) throw new Error('Supabase client not available');
-    const { data } = await supabase
+    let { data, error } = await supabase
       .from('hotel_amenities')
-      .select('code, icon, name_en, name_pl, is_popular')
+      .select('code, icon, name_en, name_pl, name_he, is_popular')
       .eq('is_active', true);
+    if (error && isHomeHotelMissingColumnError(error, 'name_he')) {
+      ({ data, error } = await supabase
+        .from('hotel_amenities')
+        .select('code, icon, name_en, name_pl, is_popular')
+        .eq('is_active', true));
+    }
+    if (error) throw error;
     if (data) {
       data.forEach(a => { hotelAmenitiesMap[a.code] = a; });
       writeHotelAmenitiesCache(hotelAmenitiesMap);

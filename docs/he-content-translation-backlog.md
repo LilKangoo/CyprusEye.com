@@ -85,6 +85,8 @@ Current status:
 - HE complete: 2.
 - Readiness: 100.0%.
 - Hotel amenities dictionary: 48 records, 0% HE.
+- Stage 25 prepared `supabase/manual/he_public_ready_dynamic_stage25.sql`
+  to add `hotel_amenities.name_he` and fill all 48 active amenity labels.
 
 Required work:
 
@@ -96,7 +98,9 @@ Required work:
 Admin/schema path:
 
 - Hotel records are ready.
-- Amenity dictionary needs schema/content confirmation.
+- Amenity dictionary needs the Stage 25 manual SQL applied and reviewed.
+- Frontend hotel amenity loaders now tolerate missing `name_he` and will use it
+  once the column exists.
 
 ### Cars
 
@@ -147,6 +151,7 @@ Current status:
 - EN fallback-only: 129.
 - Readiness: 7.2%.
 - POI categories: 23 records, 6 complete, 17 fallback.
+- Stage 25 prepared category label top-up for all 23 active POI categories.
 
 Required work:
 
@@ -169,6 +174,8 @@ Current status:
 - EN fallback-only: 2.
 - Readiness: 63.6%.
 - Recommendation categories: 15 records, 10 complete, 5 fallback.
+- Stage 25 prepared a top-up for the remaining 5 active recommendations and all
+  15 recommendation category labels.
 
 Required work:
 
@@ -179,6 +186,22 @@ Required work:
 Admin/schema path:
 
 - `recommendations.*_he` and `recommendation_categories.name_he` are available.
+
+### Public-ready Dynamic Content Scope
+
+Stage 25 narrows first public-ready content to pages that can be made coherent
+without translating the whole database.
+
+| Module | Public launch decision | Content action |
+| --- | --- | --- |
+| Transport | READY after smoke QA | 9 locations / 44 routes already resolve through `name_he`. |
+| Hotels | READY TECH after manual SQL | Apply Stage 25 amenity dictionary SQL, then smoke `hotels.html` and `hotel.html`. |
+| Blog | BLOCKED until RLS/public policy launch gate | 5 top posts have internal taxonomy/translation pack, but anon public read intentionally hides `lang='he'`. |
+| Trips | PARTIAL / page-gated | Expose only the 3 translated trip records until all 12 are translated. |
+| Cars | PARTIAL / page-gated | Expose top 5 reviewed cars; keep model names as Latin brand text where appropriate. |
+| Recommendations | READY after manual SQL | Stage 25 completes remaining 5 active recommendations and categories. |
+| POI / map | PARTIAL / scoped | Expose only top 10 translated POI; global map remains mostly EN fallback. |
+| Shop | EXCLUDED | Keep Shop EN/LTR and outside first public HE launch. |
 
 ### Shop
 

@@ -12,6 +12,19 @@ let catalogData = {
   recommendationCategories: [],
 };
 
+function isPlanMissingColumnError(error, columnName) {
+  const code = String(error?.code || '').trim();
+  const message = String(error?.message || error?.details || error?.hint || '').toLowerCase();
+  const column = String(columnName || '').toLowerCase();
+  return code === '42703'
+    || code === 'PGRST204'
+    || (column && message.includes(column) && (
+      message.includes('does not exist')
+      || message.includes('could not find')
+      || message.includes('schema cache')
+    ));
+}
+
 async function ensureSupabase({ timeoutMs = 5000, stepMs = 100 } = {}) {
   if (sb) return sb;
   const start = Date.now();
@@ -611,10 +624,17 @@ async function loadHotelAmenitiesForDisplay() {
   if (!sb || hotelAmenitiesLoaded) return;
   hotelAmenitiesLoaded = true;
   try {
-    const { data } = await sb
+    let { data, error } = await sb
       .from('hotel_amenities')
-      .select('code, icon, name_en, name_pl, is_popular')
+      .select('code, icon, name_en, name_pl, name_he, is_popular')
       .eq('is_active', true);
+    if (error && isPlanMissingColumnError(error, 'name_he')) {
+      ({ data, error } = await sb
+        .from('hotel_amenities')
+        .select('code, icon, name_en, name_pl, is_popular')
+        .eq('is_active', true));
+    }
+    if (error) throw error;
     if (Array.isArray(data)) {
       const next = {};
       data.forEach((a) => {
