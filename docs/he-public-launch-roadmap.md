@@ -20,22 +20,19 @@ Shop checkout in Hebrew.
 
 Goal: close public P0 and P1 keys required for a real public launch.
 
-Tasks:
+Current Stage 24 status:
 
-1. Fill remaining P0 missing keys:
-   - 2 booking/coupon recommendation SEO keys.
-   - 23 Shop keys, or explicitly mark Shop out of launch.
-2. Fill P1 public content keys:
-   - `plan`: 145 missing keys.
-   - `community`: 45 missing keys.
-   - `blogUi`: 23 missing keys.
-   - `home`: 16 missing keys.
-   - `sos`: 18 missing keys.
-   - `tasks`: 20 missing keys.
-   - `map` and `recommendations`: 14 combined missing keys.
-3. Fill P1 SEO keys:
+1. Public P0/P1 static UI shells are complete for the selected public pages.
+2. Remaining missing keys are intentionally deferred:
+   - `shop`: 23 keys, blocked until Shop dynamic content and checkout copy are
+     ready.
+   - `seo`: 53 keys, blocked until HE SEO launch is approved.
+   - `advertise`: 214 keys, partner/advertise copy needs a separate pass.
+   - `dashboard`: 27 keys, internal/admin dashboard copy is not public launch
+     scope.
+3. Fill P1 SEO keys only during the final SEO phase:
    - 53 missing `seo.*` keys.
-4. Triage 682 same-as-EN keys:
+4. Triage 553 same-as-EN keys:
    - Keep brands/acronyms as same-as-EN where correct.
    - Translate real copy.
    - Mark remaining same-as-EN as accepted fallback only if intentional.
@@ -113,6 +110,39 @@ Exit criteria:
 - Every public page uses the same switcher component/source.
 - No page-local list can expose HE independently.
 - Non-ready pages cannot activate HE through query params.
+
+## Switcher Consistency Requirements Before Launch
+
+Before HE can be shown publicly, the switcher must be made deterministic across
+all public pages:
+
+1. Every public HTML page that can show a language switcher must load the same
+   rollout config before `js/i18n.js`.
+2. Every switcher surface must use the same language registry and
+   `window.CELanguageRollout` decision, not local hardcoded language lists.
+3. HE can be offered only when both conditions are true:
+   - HE is enabled for the current rollout surface.
+   - The current page/module is marked HE-ready.
+4. Pages outside the HE launch scope must normalize `?lang=he` to EN/LTR and
+   must not display an HE option.
+5. Shop must keep `data-disable-hidden-language="true"` and must not show HE in
+   its switcher until Shop dynamic content and checkout copy are reviewed.
+6. Blog, trips, POI, recommendations and Shop must support per-record readiness
+   decisions so fallback-heavy records are not presented as complete Hebrew
+   content.
+7. Public SEO surfaces must remain independent from the visual switcher. Showing
+   HE in the switcher must not automatically add sitemap, hreflang, canonical or
+   indexing until Phase E explicitly enables them.
+
+Known current gaps:
+
+- Some public pages still do not load `js/he-beta-rollout-config.js`, so their
+  behavior is EN/LTR even for allowlisted HE runtime checks.
+- Shop blocks active HE correctly, but an allowlisted/beta switcher surface can
+  still expose the HE option. This must be removed before any public switcher.
+- `plan`, `community`, `terms`, `auth`, `account`, `packing`, `vip`, `tasks` and
+  similar secondary pages need a final page-readiness registry before HE can be
+  offered consistently.
 
 ## Phase D - Enable HE Globally
 

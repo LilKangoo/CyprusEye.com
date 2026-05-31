@@ -13,14 +13,18 @@ Current source: `docs/he-translation-readiness.md`.
 | --- | --- | ---: | ---: | --- |
 | Critical UI / navigation | P0 | 0 | 5 | Review same-as-EN labels and keep brands if intentional. |
 | Errors / validation | P0 | 0 | 26 | Review validation/status copy for forms and booking flows. |
-| Booking flows | P0 | 2 | 87 | Fill coupon recommendation SEO keys; review placeholders and labels. |
+| Booking flows | P0 | 0 | 27 | Review placeholders and labels. |
 | Auth/account | P0 | 0 | 4 | Review account/profile placeholders. |
 | Checkout / Shop | P0 | 23 | 0 | Required if Shop is in launch; otherwise keep Shop hidden from HE. |
-| Partner / advertise | P1 | 223 | 4 | Needed before partner-facing public HE. |
-| Blog / public content shell | P1 | 317 | 65 | Required before global switcher. |
+| Partner / advertise | P1 | 214 | 4 | Needed before partner-facing public HE. |
+| Blog / public content shell | P1 | 0 | 5 | Stage 24 completed missing public static keys; remaining same-as-EN values are mostly abbreviations/brands and need review. |
 | SEO/static meta | P1 | 53 | 20 | Required before HE indexing. |
 | Admin/dashboard | P2 | 27 | 0 | Internal, not a public launch blocker. |
-| Low priority/internal | P3 | 0 | 471 | Triage after public scope is stable. |
+| Low priority/internal | P3 | 0 | 462 | Triage after public scope is stable. |
+
+Stage 24 static UI completion reduced missing HE keys from 645 to 317 and
+same-as-EN keys from 682 to 553. Remaining missing roots are intentionally
+deferred: `advertise`, `seo`, `dashboard` and `shop`.
 
 ## Dynamic Content Backlog
 
@@ -236,8 +240,9 @@ Required work:
 
 Current status:
 
-- Static coupon keys are mostly translated, but `coupon.recommendations.seo.*`
-  still has 2 missing P0 keys.
+- Static coupon keys are translated for Stage 24 public UI. Remaining coupon
+  follow-up is human review and dynamic discount/coupon copy, not missing static
+  keys.
 - Service coupon and recommendation discount text need dynamic review.
 
 Required work:
@@ -251,7 +256,7 @@ Required work:
 Current status:
 
 - Partner/admin forms can store HE internally.
-- Partner/advertise static group has 223 missing P1 keys.
+- Partner/advertise static group has 214 missing keys after Stage 24.
 
 Required work:
 
