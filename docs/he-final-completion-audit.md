@@ -14,9 +14,11 @@ SEO indexing, or Shop checkout in Hebrew.
 - `hiddenPreview` is false.
 - SEO, sitemap, hreflang, canonical and indexing are false for HE.
 - `/he`, `/he/` and `/he/*` are redirected to `/?lang=en` in `_redirects`.
-- `shop.html` has `data-disable-hidden-language="true"` and keeps active
-  language at EN/LTR, but an allowlisted beta user can still see the HE option
-  in the switcher surface. This is not acceptable for final consistency.
+- Stage 26 adds a central page readiness registry in `js/i18n.js`; HE surfaces
+  now require both rollout permission and page readiness permission.
+- `shop.html` has `data-disable-hidden-language="true"` and is also marked
+  `excluded` in the page registry, so active HE and HE switcher exposure are
+  blocked for Shop/checkout/payment.
 
 ## Where HE Currently Appears
 
@@ -34,7 +36,7 @@ Runtime smoke against live-ready code showed:
 | Car rental | HE/RTL | EN/LTR | Dynamic car data is partial. |
 | Transport | HE/RTL | EN/LTR | Dynamic route/location labels are ready. |
 | Recommendations | HE/RTL | EN/LTR | Only selected recommendations/POI are ready. |
-| Shop | EN/LTR, HE option visible | EN/LTR | Shop HE active language is blocked, but switcher consistency is not final. |
+| Shop | EN/LTR, HE option blocked by page registry | EN/LTR | Shop HE active language and switcher exposure are blocked. |
 | Plan | EN/LTR | EN/LTR | No HE rollout config; 39 page keys missing. |
 | Partners public | EN/LTR | EN/LTR | No HE rollout config. |
 | Auth | EN/LTR | EN/LTR | No HE rollout config; SEO keys missing. |
@@ -60,7 +62,7 @@ Runtime smoke against live-ready code showed:
 | `car.html` | 0 launch-critical public UI keys missing; car naming/features need review | 27 cars: all partial, 54.2% field readiness | Smoke OK | HE off | Beta-only now | PARTIAL | Car types/features/descriptions need review. |
 | `transport.html` | 0 launch-critical public UI keys missing | 44 routes complete, locations 100% | Smoke OK | HE off, transport SEO keys missing | Beta-only now | READY TECH / PARTIAL SEO | HE SEO remains disabled until launch. |
 | `recommendations.html` / map flow | 0 launch-critical public UI keys missing | 10 recommendations: 5 complete, 3 partial, 2 fallback; POI 10/139 complete | Smoke OK | HE off | Beta-only now | PARTIAL | Most POI and categories still fallback. |
-| `shop.html` | 23 Shop static keys still missing by design | Shop aggregate 0% HE | HE intentionally blocked | HE off | HE option still visible for beta | SHOULD STAY HIDDEN | Paid checkout/content risk. |
+| `shop.html` | 23 Shop static keys still missing by design | Shop aggregate 0% HE | HE intentionally blocked | HE off | Page registry excludes HE | SHOULD STAY HIDDEN | Paid checkout/content risk. |
 | `plan.html` | 0 launch-critical public UI keys missing after Stage 24 | Plan data depends on recommendations/trips/cars | Not enabled | HE off | No HE config | SHOULD STAY HIDDEN | Needs rollout config and RTL smoke before inclusion. |
 | `partners.html` | 214 advertise/partner-facing keys still missing | Partner-facing business copy mostly internal | Not enabled | Not prepared | No HE config | SHOULD STAY HIDDEN | Public partner/advertise copy needs separate HE pass. |
 | `auth/index.html` | 0 launch-critical auth keys missing; minor account/profile same-as-EN review | Account/auth static only | Not enabled | HE off | No HE config | PARTIAL / HIDDEN | Add config only after auth RTL QA. |
@@ -168,15 +170,30 @@ Acceptable phased alternative:
 ## Main Technical Gaps
 
 - HE rollout config is not loaded consistently on all public pages.
-- Switcher behavior is page-inconsistent: beta pages can show HE, hidden pages
-  do not, and Shop blocks active HE while still exposing a beta HE option.
-- Page readiness is not centrally modeled. The system knows language rollout
-  status, but it does not yet have a final page/module readiness gate.
+- Stage 26 centrally models page readiness, but public HE is still disabled and
+  the registry must be verified on live/staging before page-gated launch.
+- Switcher behavior now has a central page gate; final public exposure still
+  requires choosing which `partial` pages can use EN fallback.
 - Several pages still rely on local or legacy switcher surfaces rather than one
   final language source.
 - SEO is intentionally disabled and not ready for HE.
 - `/he/` routes are intentionally redirected; public route strategy is not
   implemented.
+
+## Stage 26 Page-Gated Registry Snapshot
+
+| Registry status | Pages / flows | Runtime decision |
+| --- | --- | --- |
+| READY | `transport` | HE may be shown after rollout enables the page-gated switcher; SEO still off. |
+| PARTIAL | `home`, `car`, `trips`, `trip`, `poiMap`; `hotels`, `hotel`, `recommendations` until Stage25 SQL | HE may be allowed only with safe EN fallback; SEO remains blocked. |
+| BLOCKED | `blog`, `blogPost`, `plan`, `community`, `accountAuth`, `legal`, `notFound`, unknown pages | HE hidden; `?lang=he` normalizes to EN/LTR. |
+| EXCLUDED | `shop`, `partners`, `admin` | HE always blocked. |
+
+Stage25 dependency:
+
+- `hotels`, `hotel` and `recommendations` become ready only after
+  `supabase/manual/he_public_ready_dynamic_stage25.sql` is applied and verified.
+- Until then, they remain `partial` and must not be treated as globally ready.
 
 ## Overall Status
 
@@ -186,9 +203,9 @@ Acceptable phased alternative:
 | Static translations raw presence | 97.3% | 317 missing of 2815 EN keys. |
 | Static translations review-adjusted | 77.7% | Same-as-EN keys still need triage. |
 | Dynamic content global readiness | ~44.7% | Unweighted average across audited modules. |
-| Public switcher readiness | 40% | Central guard exists, final page gating and consistency do not. |
+| Public switcher readiness | 65% | Central guard and page registry exist; page-gated rollout still needs live/staging QA. |
 | SEO HE readiness | 20% | PL/EN SEO is healthy, but HE meta/hreflang/sitemap are intentionally off. |
-| Full public launch readiness | 55% | Static public UI improved; dynamic content, Shop and SEO still block full launch. |
+| Full public launch readiness | 58% | Static public UI and page-gated guard improved; dynamic content, Shop and SEO still block full launch. |
 
 ## Audit Verdict
 

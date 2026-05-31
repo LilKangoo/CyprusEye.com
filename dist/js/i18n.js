@@ -59,6 +59,171 @@
       betaQueryParam: 'ce_he_beta',
     },
   };
+  const HE_PAGE_READINESS_STATUS = Object.freeze({
+    READY: 'ready',
+    PARTIAL: 'partial',
+    BLOCKED: 'blocked',
+    EXCLUDED: 'excluded',
+  });
+  const HE_PAGE_GATED_SURFACES = new Set([
+    'switcher',
+    'routes',
+    'publicApi',
+    'preview',
+    'seo',
+    'sitemap',
+    'hreflang',
+    'canonical',
+    'indexing',
+  ]);
+  const HE_PAGE_SEO_SURFACES = new Set([
+    'seo',
+    'sitemap',
+    'hreflang',
+    'canonical',
+    'indexing',
+  ]);
+  const HE_PAGE_READINESS_REGISTRY = {
+    home: {
+      status: HE_PAGE_READINESS_STATUS.PARTIAL,
+      allowFallback: true,
+      seoPages: ['home'],
+      paths: ['/', '/index.html'],
+      reason: 'Home aggregates ready and partial dynamic modules.',
+    },
+    transport: {
+      status: HE_PAGE_READINESS_STATUS.READY,
+      allowFallback: false,
+      seoPages: ['transport'],
+      paths: ['/transport.html'],
+      reason: 'Transport static UI and dynamic location/route content are HE-ready.',
+    },
+    hotels: {
+      status: HE_PAGE_READINESS_STATUS.PARTIAL,
+      allowFallback: true,
+      readyWhenStage25SqlApplied: true,
+      sqlDependency: 'supabase/manual/he_public_ready_dynamic_stage25.sql',
+      seoPages: ['hotels'],
+      paths: ['/hotels.html'],
+      reason: 'Hotel records are ready; amenity dictionary requires Stage25 SQL.',
+    },
+    hotel: {
+      status: HE_PAGE_READINESS_STATUS.PARTIAL,
+      allowFallback: true,
+      readyWhenStage25SqlApplied: true,
+      sqlDependency: 'supabase/manual/he_public_ready_dynamic_stage25.sql',
+      seoPages: ['hotel'],
+      paths: ['/hotel.html'],
+      reason: 'Hotel detail content is ready; amenity dictionary requires Stage25 SQL.',
+    },
+    recommendations: {
+      status: HE_PAGE_READINESS_STATUS.PARTIAL,
+      allowFallback: true,
+      readyWhenStage25SqlApplied: true,
+      sqlDependency: 'supabase/manual/he_public_ready_dynamic_stage25.sql',
+      seoPages: ['recommendations'],
+      paths: ['/recommendations.html'],
+      reason: 'Top recommendations are in scope; remaining POI/map content is partial.',
+    },
+    car: {
+      status: HE_PAGE_READINESS_STATUS.PARTIAL,
+      allowFallback: true,
+      seoPages: ['carRentalLanding', 'carRental', 'carRentalPfo'],
+      paths: ['/car.html', '/car-rental.html', '/autopfo.html'],
+      reason: 'Top cars can use HE/EN fallback; full fleet content is partial.',
+    },
+    trips: {
+      status: HE_PAGE_READINESS_STATUS.PARTIAL,
+      allowFallback: true,
+      seoPages: ['trips'],
+      paths: ['/trips.html'],
+      reason: 'Only selected trip records are HE-ready.',
+    },
+    trip: {
+      status: HE_PAGE_READINESS_STATUS.PARTIAL,
+      allowFallback: true,
+      seoPages: ['trip'],
+      paths: ['/trip.html'],
+      reason: 'Trip detail is safe only for translated records with EN fallback.',
+    },
+    poiMap: {
+      status: HE_PAGE_READINESS_STATUS.PARTIAL,
+      allowFallback: true,
+      seoPages: ['poi', 'map'],
+      paths: ['/map.html'],
+      reason: 'Top POI are translated; full map catalog is partial.',
+    },
+    blog: {
+      status: HE_PAGE_READINESS_STATUS.BLOCKED,
+      allowFallback: false,
+      paths: ['/blog.html'],
+      bodyClasses: ['blog-page'],
+      reason: 'Public HE blog translations remain hidden from anon/public reads.',
+    },
+    blogPost: {
+      status: HE_PAGE_READINESS_STATUS.BLOCKED,
+      allowFallback: false,
+      paths: ['/blog-post.html', '/blog/'],
+      bodyClasses: ['blog-post-page'],
+      reason: 'Public HE blog post translations remain hidden from anon/public reads.',
+    },
+    shop: {
+      status: HE_PAGE_READINESS_STATUS.EXCLUDED,
+      allowFallback: false,
+      seoPages: ['shop'],
+      paths: ['/shop.html', '/shop-success.html'],
+      reason: 'Shop, cart, checkout and payment are excluded from first HE launch.',
+    },
+    plan: {
+      status: HE_PAGE_READINESS_STATUS.BLOCKED,
+      allowFallback: false,
+      seoPages: ['plan'],
+      paths: ['/plan.html'],
+      reason: 'Planner dynamic content is not HE-ready.',
+    },
+    community: {
+      status: HE_PAGE_READINESS_STATUS.BLOCKED,
+      allowFallback: false,
+      seoPages: ['community', 'attractions', 'packing', 'vip', 'tasks', 'coupon'],
+      paths: ['/community.html', '/attractions.html', '/packing.html', '/vip.html', '/tasks.html', '/kupon.html'],
+      reason: 'Community/tool pages need separate dynamic and RTL QA.',
+    },
+    accountAuth: {
+      status: HE_PAGE_READINESS_STATUS.BLOCKED,
+      allowFallback: false,
+      seoPages: ['account', 'auth'],
+      paths: ['/account/', '/account/index.html', '/auth/', '/login.html', '/register.html'],
+      reason: 'Account/auth needs logged-in RTL QA before public HE.',
+    },
+    legal: {
+      status: HE_PAGE_READINESS_STATUS.BLOCKED,
+      allowFallback: false,
+      seoPages: ['terms', 'privacy'],
+      paths: ['/terms.html', '/privacy.html'],
+      reason: 'Legal copy and HE SEO are not reviewed.',
+    },
+    partners: {
+      status: HE_PAGE_READINESS_STATUS.EXCLUDED,
+      allowFallback: false,
+      seoPages: ['partners', 'advertise'],
+      paths: ['/partners.html', '/partners/', '/partners/index.html', '/advertise.html'],
+      bodyAttributes: ['adminPanel'],
+      reason: 'Partner/admin-facing surfaces are not public HE launch scope.',
+    },
+    admin: {
+      status: HE_PAGE_READINESS_STATUS.EXCLUDED,
+      allowFallback: false,
+      paths: ['/admin/', '/admin/dashboard.html', '/admin/login.html'],
+      reason: 'Admin is internal-only and excluded from public HE switcher exposure.',
+    },
+    notFound: {
+      status: HE_PAGE_READINESS_STATUS.BLOCKED,
+      allowFallback: false,
+      seoPages: ['notFound'],
+      paths: ['/404.html'],
+      reason: '404 needs final copy and routing QA before public HE.',
+    },
+  };
 
   function normalizeLanguageCode(value) {
     return String(value || '').trim().toLowerCase().split('-')[0];
@@ -108,6 +273,184 @@
     return merged;
   }
 
+  function normalizeHePageReadinessStatus(value) {
+    const normalized = String(value || '').trim().toLowerCase().replace(/_/g, '-');
+    if (normalized === 'near-ready' || normalized === 'nearready') {
+      return HE_PAGE_READINESS_STATUS.PARTIAL;
+    }
+    return Object.values(HE_PAGE_READINESS_STATUS).includes(normalized)
+      ? normalized
+      : HE_PAGE_READINESS_STATUS.BLOCKED;
+  }
+
+  function normalizePathname(pathname) {
+    let path = String(pathname || '/').trim();
+    if (!path) {
+      return '/';
+    }
+    if (!path.startsWith('/')) {
+      path = `/${path}`;
+    }
+    try {
+      path = decodeURI(path);
+    } catch (_error) {
+    }
+    return path;
+  }
+
+  function pagePathMatches(pattern, pathname) {
+    const normalizedPattern = normalizePathname(pattern);
+    const normalizedPath = normalizePathname(pathname);
+    if (normalizedPattern === '/') {
+      return normalizedPath === '/' || normalizedPath === '/index.html';
+    }
+    if (normalizedPattern.endsWith('/')) {
+      return normalizedPath === normalizedPattern || normalizedPath.startsWith(normalizedPattern);
+    }
+    return normalizedPath === normalizedPattern;
+  }
+
+  function getCurrentHePageKey() {
+    const body = document.body || null;
+    const explicitPageKey = String(body?.dataset?.hePageKey || '').trim();
+    if (explicitPageKey && HE_PAGE_READINESS_REGISTRY[explicitPageKey]) {
+      return explicitPageKey;
+    }
+
+    if (body?.classList?.contains('blog-post-page')) {
+      return 'blogPost';
+    }
+    if (body?.classList?.contains('blog-page')) {
+      return 'blog';
+    }
+
+    const pathname = normalizePathname(window.location?.pathname || '/');
+    for (const [key, entry] of Object.entries(HE_PAGE_READINESS_REGISTRY)) {
+      if (Array.isArray(entry.paths) && entry.paths.some((pattern) => pagePathMatches(pattern, pathname))) {
+        return key;
+      }
+    }
+
+    const seoPage = String(body?.dataset?.seoPage || '').trim();
+    if (seoPage) {
+      for (const [key, entry] of Object.entries(HE_PAGE_READINESS_REGISTRY)) {
+        if (Array.isArray(entry.seoPages) && entry.seoPages.includes(seoPage)) {
+          return key;
+        }
+      }
+    }
+
+    if (String(body?.dataset?.adminPanel || '') === 'true') {
+      return pathname.startsWith('/partners') ? 'partners' : 'admin';
+    }
+
+    return 'unknown';
+  }
+
+  function getRolloutPageReadinessOverride(rollout, pageKey) {
+    if (!rollout || !pageKey) {
+      return null;
+    }
+    if (rollout.pageReadiness && typeof rollout.pageReadiness === 'object') {
+      return rollout.pageReadiness[pageKey] || null;
+    }
+    if (Array.isArray(rollout.readyPages) && rollout.readyPages.includes(pageKey)) {
+      return HE_PAGE_READINESS_STATUS.READY;
+    }
+    if (Array.isArray(rollout.partialPages) && rollout.partialPages.includes(pageKey)) {
+      return HE_PAGE_READINESS_STATUS.PARTIAL;
+    }
+    if (Array.isArray(rollout.blockedPages) && rollout.blockedPages.includes(pageKey)) {
+      return HE_PAGE_READINESS_STATUS.BLOCKED;
+    }
+    if (Array.isArray(rollout.excludedPages) && rollout.excludedPages.includes(pageKey)) {
+      return HE_PAGE_READINESS_STATUS.EXCLUDED;
+    }
+    return null;
+  }
+
+  function isStage25SqlAppliedForHe(rollout, options = {}) {
+    if (typeof options.stage25SqlApplied === 'boolean') {
+      return options.stage25SqlApplied;
+    }
+    return Boolean(
+      rollout?.stage25SqlApplied
+      || rollout?.stage25SqlReady
+      || rollout?.contentPacks?.stage25 === 'applied'
+      || window.CE_HE_STAGE25_SQL_APPLIED === true
+    );
+  }
+
+  function getHePageReadiness(options = {}) {
+    const pageKey = options.pageKey || getCurrentHePageKey();
+    const base = HE_PAGE_READINESS_REGISTRY[pageKey] || {
+      status: HE_PAGE_READINESS_STATUS.BLOCKED,
+      allowFallback: false,
+      reason: 'Unknown page is blocked until it is added to the HE readiness registry.',
+    };
+    const rollout = getLanguageRollout('he');
+    const stage25SqlApplied = isStage25SqlAppliedForHe(rollout, options);
+    const entry = {
+      key: pageKey,
+      status: normalizeHePageReadinessStatus(base.status),
+      allowFallback: base.allowFallback === true,
+      sqlDependency: base.sqlDependency || '',
+      reason: base.reason || '',
+      stage25SqlApplied,
+    };
+
+    if (base.readyWhenStage25SqlApplied && stage25SqlApplied) {
+      entry.status = HE_PAGE_READINESS_STATUS.READY;
+      entry.allowFallback = false;
+      entry.reason = `${base.reason || ''} Stage25 SQL marked as applied.`.trim();
+    }
+
+    const override = getRolloutPageReadinessOverride(rollout, pageKey);
+    if (typeof override === 'string') {
+      entry.status = normalizeHePageReadinessStatus(override);
+    } else if (override && typeof override === 'object') {
+      if (override.status) {
+        entry.status = normalizeHePageReadinessStatus(override.status);
+      }
+      if (typeof override.allowFallback === 'boolean') {
+        entry.allowFallback = override.allowFallback;
+      }
+      if (typeof override.reason === 'string') {
+        entry.reason = override.reason;
+      }
+      if (typeof override.sqlDependency === 'string') {
+        entry.sqlDependency = override.sqlDependency;
+      }
+    }
+
+    entry.ready = entry.status === HE_PAGE_READINESS_STATUS.READY;
+    entry.partial = entry.status === HE_PAGE_READINESS_STATUS.PARTIAL;
+    entry.blocked = entry.status === HE_PAGE_READINESS_STATUS.BLOCKED;
+    entry.excluded = entry.status === HE_PAGE_READINESS_STATUS.EXCLUDED;
+    return entry;
+  }
+
+  function isLanguageAllowedOnCurrentPage(language, surface = 'routes', options = {}) {
+    const normalized = normalizeLanguageCode(language);
+    if (!isHiddenLanguage(normalized) || !HE_PAGE_GATED_SURFACES.has(surface)) {
+      return true;
+    }
+    if (pageDisablesHiddenLanguage()) {
+      return false;
+    }
+    const readiness = getHePageReadiness(options);
+    if (readiness.excluded || readiness.blocked) {
+      return false;
+    }
+    if (readiness.ready) {
+      return true;
+    }
+    if (readiness.partial) {
+      return readiness.allowFallback === true && !HE_PAGE_SEO_SURFACES.has(surface);
+    }
+    return false;
+  }
+
   function isBetaUserAllowed(language, options = {}) {
     const rollout = getLanguageRollout(language);
     if (!rollout || rollout.mode !== ROLLOUT_MODES.BETA_USERS) {
@@ -151,18 +494,20 @@
       return false;
     }
     const mode = rollout.mode || ROLLOUT_MODES.INTERNAL_ONLY;
+    let enabled = false;
     if (mode === ROLLOUT_MODES.FULL_PUBLIC) {
-      return rollout[surface] !== false;
-    }
-    if (mode === ROLLOUT_MODES.PARTIAL_PUBLIC) {
-      return rollout[surface] === true;
-    }
-    if (mode === ROLLOUT_MODES.BETA_USERS) {
-      return isBetaUserAllowed(normalized, options)
+      enabled = rollout[surface] !== false;
+    } else if (mode === ROLLOUT_MODES.PARTIAL_PUBLIC) {
+      enabled = rollout[surface] === true;
+    } else if (mode === ROLLOUT_MODES.BETA_USERS) {
+      enabled = isBetaUserAllowed(normalized, options)
         && ['switcher', 'routes', 'publicApi'].includes(surface)
         && rollout[surface] === true;
     }
-    return false;
+    if (!enabled) {
+      return false;
+    }
+    return isLanguageAllowedOnCurrentPage(normalized, surface, options);
   }
 
   function getPublicLanguageCodes(surface = 'switcher', options = {}) {
@@ -297,9 +642,12 @@
     if (isPublicLanguage(normalized)) {
       return normalized;
     }
+    const hiddenPreviewActive = isHiddenLanguagePreviewEnabled()
+      && isLanguageAllowedOnCurrentPage(normalized, 'preview');
+    const routeAllowed = isLanguageEnabledForSurface(normalized, 'routes');
     return includeHidden
       && isHiddenLanguage(normalized)
-      && (isHiddenLanguagePreviewEnabled() || isLanguageEnabledForSurface(normalized, 'routes'))
+      && (hiddenPreviewActive || routeAllowed)
       ? normalized
       : '';
   }
@@ -878,11 +1226,19 @@
   }
 
   function ensureLanguagePillOptions(group) {
-    Object.keys(SUPPORTED_LANGUAGES).forEach((code) => {
+    const visibleLanguages = getLanguageRegistryForSurface('switcher');
+    group.querySelectorAll('[data-language-pill]').forEach((pill) => {
+      const code = (pill.dataset.languagePill || '').toLowerCase();
+      if (!visibleLanguages[code] && pill.parentNode) {
+        pill.parentNode.removeChild(pill);
+      }
+    });
+
+    Object.keys(visibleLanguages).forEach((code) => {
       if (group.querySelector(`[data-language-pill="${code}"]`)) {
         return;
       }
-      const info = SUPPORTED_LANGUAGES[code];
+      const info = visibleLanguages[code];
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'language-pill';
@@ -939,8 +1295,9 @@
       return;
     }
 
-    const displayLanguage = isPublicLanguage(language) ? language : DEFAULT_LANGUAGE;
-    const info = SUPPORTED_LANGUAGES[displayLanguage] || SUPPORTED_LANGUAGES[DEFAULT_LANGUAGE];
+    const visibleLanguages = getLanguageRegistryForSurface('switcher');
+    const displayLanguage = visibleLanguages[language] ? language : DEFAULT_LANGUAGE;
+    const info = visibleLanguages[displayLanguage] || LANGUAGE_CONFIG[displayLanguage] || LANGUAGE_CONFIG[DEFAULT_LANGUAGE];
 
     const toggle = container.querySelector('.language-switcher-toggle');
     if (toggle) {
@@ -951,7 +1308,7 @@
         flag.textContent = info.flag || '';
       }
       if (text) {
-        text.textContent = info.shortLabel || language.toUpperCase();
+        text.textContent = info.shortLabel || displayLanguage.toUpperCase();
       }
     }
 
@@ -998,10 +1355,20 @@
       return;
     }
 
+    const visibleLanguages = getLanguageRegistryForSurface('switcher');
+    const visibleLanguageCodes = Object.keys(visibleLanguages);
     const existing = document.querySelector('.language-switcher');
     if (existing) {
-      updateSwitcherValue(language);
-      return;
+      const existingCodes = Array.from(existing.querySelectorAll('.language-switcher-option'))
+        .map((option) => option.dataset.language)
+        .filter(Boolean);
+      if (existingCodes.join(',') === visibleLanguageCodes.join(',')) {
+        updateSwitcherValue(language);
+        return;
+      }
+      if (existing.parentNode) {
+        existing.parentNode.removeChild(existing);
+      }
     }
 
     const container = document.createElement('div');
@@ -1125,8 +1492,8 @@
       }
     }
 
-    Object.keys(SUPPORTED_LANGUAGES).forEach((code) => {
-      const info = SUPPORTED_LANGUAGES[code];
+    visibleLanguageCodes.forEach((code) => {
+      const info = visibleLanguages[code];
       const item = document.createElement('li');
       item.className = 'language-switcher-menu-item';
 
@@ -1273,6 +1640,8 @@
   appI18n.isHiddenLanguagePreviewEnabled = isHiddenLanguagePreviewEnabled;
   appI18n.getPublicLanguageCodes = getPublicLanguageCodes;
   appI18n.isLanguageEnabledForSurface = isLanguageEnabledForSurface;
+  appI18n.getHePageReadiness = getHePageReadiness;
+  appI18n.isLanguageAllowedOnCurrentPage = isLanguageAllowedOnCurrentPage;
 
   window.CELanguage = Object.assign(window.CELanguage || {}, {
     getLanguageFallbackChain,
@@ -1282,13 +1651,18 @@
     isHiddenLanguagePreviewEnabled,
     getPublicLanguageCodes,
     isLanguageEnabledForSurface,
+    getHePageReadiness,
+    isLanguageAllowedOnCurrentPage,
   });
 
   window.CELanguageRollout = Object.assign(window.CELanguageRollout || {}, {
     modes: ROLLOUT_MODES,
+    hePageReadinessStatuses: HE_PAGE_READINESS_STATUS,
     hiddenPreviewParam: HIDDEN_PREVIEW_PARAM,
     getPublicLanguageCodes,
     isLanguageEnabledForSurface,
+    getHePageReadiness,
+    isLanguageAllowedOnCurrentPage,
     isPublicLanguage,
     isHiddenLanguage,
     isHiddenLanguagePreviewEnabled,
@@ -1299,6 +1673,7 @@
           {
             mode: getLanguageRollout(code)?.mode || ROLLOUT_MODES.INTERNAL_ONLY,
             hidden: Boolean(LANGUAGE_REGISTRY[code]?.hidden),
+            pageReadiness: code === 'he' ? getHePageReadiness() : null,
             publicSurfaces: {
               switcher: isLanguageEnabledForSurface(code, 'switcher'),
               seo: isLanguageEnabledForSurface(code, 'seo'),

@@ -158,6 +158,40 @@ Known current gaps:
   similar secondary pages need a final page-readiness registry before HE can be
   offered consistently.
 
+## Stage 26 Page-Gated Switcher Registry
+
+Stage 26 adds the page readiness gate in `js/i18n.js`. This is architecture
+only; it does not enable global public HE.
+
+Central runtime APIs:
+
+- `window.CELanguageRollout.getHePageReadiness()`
+- `window.CELanguageRollout.isLanguageEnabledForSurface('he', surface)`
+- `window.CELanguageRollout.snapshot().he.pageReadiness`
+
+Current registry decisions:
+
+| Status | Pages |
+| --- | --- |
+| `ready` | `transport` |
+| `partial` | `home`, `car`, `trips`, `trip`, `poiMap`; `hotels`, `hotel`, `recommendations` until Stage25 SQL is applied |
+| `blocked` | `blog`, `blogPost`, `plan`, `community`, `accountAuth`, `legal`, `notFound`, unknown pages |
+| `excluded` | `shop`, `partners`, `admin` |
+
+`hotels`, `hotel` and `recommendations` depend on
+`supabase/manual/he_public_ready_dynamic_stage25.sql`. Until that SQL is
+applied and verified, these pages stay `partial`; after verification the runtime
+can mark `stage25SqlApplied: true` in the HE rollout config.
+
+Page behavior:
+
+- `ready`: HE can appear only if rollout allows the surface.
+- `partial`: HE can appear only with explicit safe EN fallback; HE SEO remains
+  blocked.
+- `blocked`: HE is hidden and `?lang=he` normalizes to EN/LTR.
+- `excluded`: HE is always hidden; Shop, checkout, admin and partner surfaces
+  stay outside public HE.
+
 ## Phase D - Enable HE Globally
 
 Goal: public language selection is available across all ready surfaces.

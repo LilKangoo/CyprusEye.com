@@ -2,7 +2,6 @@ import { expect, test } from './fixtures';
 
 const HIDDEN_HE_ROUTES = [
   '/index.html?ce_he_preview=1&lang=he',
-  '/blog.html?ce_he_preview=1&lang=he',
   '/car.html?ce_he_preview=1&lang=he',
   '/transport.html?ce_he_preview=1&lang=he',
   '/recommendations.html?ce_he_preview=1&lang=he',
@@ -102,6 +101,19 @@ test.describe('hidden Hebrew rollout guard', () => {
     await expect(page.locator('html')).not.toHaveAttribute('dir', 'rtl');
   });
 
+  test('keeps blocked Blog pages out of hidden HE preview', async ({ page }) => {
+    await allowInternalHiddenPreview(page);
+
+    await page.goto('/blog.html?ce_he_preview=1&lang=he', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(250);
+
+    await expect(page.locator('html')).not.toHaveAttribute('lang', 'he');
+    await expect(page.locator('html')).not.toHaveAttribute('dir', 'rtl');
+    const readiness = await page.evaluate(() => (window as any).CELanguageRollout?.getHePageReadiness?.());
+    expect(readiness?.key).toBe('blog');
+    expect(readiness?.status).toBe('blocked');
+  });
+
   test('keeps Shop out of configured beta HE scope', async ({ page }) => {
     await page.addInitScript(() => {
       const user = {
@@ -117,6 +129,10 @@ test.describe('hidden Hebrew rollout guard', () => {
 
     await expect(page.locator('html')).not.toHaveAttribute('lang', 'he');
     await expect(page.locator('html')).not.toHaveAttribute('dir', 'rtl');
+    await expect(page.locator('[data-testid="language-option-he"]')).toHaveCount(0);
+    const readiness = await page.evaluate(() => (window as any).CELanguageRollout?.getHePageReadiness?.());
+    expect(readiness?.key).toBe('shop');
+    expect(readiness?.status).toBe('excluded');
   });
 
   test('can disable hidden preview while keeping beta-user HE access', async ({ page }) => {
@@ -147,6 +163,47 @@ test.describe('hidden Hebrew rollout guard', () => {
     await waitForHtmlLanguage(page, 'he');
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await expect(page.locator('[data-testid="language-pill-he"]')).toHaveCount(1);
+  });
+
+  test('applies page-gated readiness to HE switcher and route access', async ({ page }) => {
+    await page.addInitScript(() => {
+      (window as any).CE_LANGUAGE_ROLLOUT_CONFIG = {
+        he: {
+          mode: 'beta',
+          switcher: true,
+          routes: true,
+          publicApi: true,
+          seo: false,
+          sitemap: false,
+          hreflang: false,
+          canonical: false,
+          indexing: false,
+          hiddenPreview: false,
+          pageGated: true,
+          stage25SqlApplied: false,
+        },
+      };
+      window.localStorage.setItem('ce_he_beta', 'true');
+    });
+
+    await page.goto('/transport.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await waitForHtmlLanguage(page, 'he');
+    let rollout = await page.evaluate(() => (window as any).CELanguageRollout?.snapshot?.().he);
+    expect(rollout?.pageReadiness?.key).toBe('transport');
+    expect(rollout?.pageReadiness?.status).toBe('ready');
+    expect(rollout?.publicSurfaces?.switcher).toBe(true);
+    expect(rollout?.publicSurfaces?.routes).toBe(true);
+    expect(rollout?.publicSurfaces?.seo).toBe(false);
+
+    await page.goto('/plan.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(250);
+    await expect(page.locator('html')).not.toHaveAttribute('lang', 'he');
+    await expect(page.locator('html')).not.toHaveAttribute('dir', 'rtl');
+    rollout = await page.evaluate(() => (window as any).CELanguageRollout?.snapshot?.().he);
+    expect(rollout?.pageReadiness?.key).toBe('plan');
+    expect(rollout?.pageReadiness?.status).toBe('blocked');
+    expect(rollout?.publicSurfaces?.switcher).toBe(false);
+    expect(rollout?.publicSurfaces?.routes).toBe(false);
   });
 
   test('does not serve /he/ as a broken SPA route', async ({ page }) => {
