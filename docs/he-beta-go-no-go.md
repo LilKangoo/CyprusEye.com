@@ -29,6 +29,35 @@ These modules can be exercised through page-gated HE only within the existing
 `partial_public` guard for READY pages. SEO and global full-site switcher remain
 off.
 
+## Stage 30 Live GO / NO-GO
+
+Status: **GO for current page-gated production scope**.
+
+Approved live scope:
+
+- `transport.html`
+- `hotels.html`
+- `hotel.html`
+- `recommendations.html`
+
+Still not approved:
+
+- Global public HE
+- HE SEO/sitemap/hreflang/canonical/indexing
+- Public `/he/` routes
+- Shop/cart/checkout/payment HE
+- Blog public HE
+- PARTIAL pages as public HE without an explicit future gate
+
+Live checks passed for:
+
+- READY pages activating HE/RTL.
+- PARTIAL, BLOCKED and EXCLUDED pages blocking public `?lang=he`.
+- Shop remaining EN/LTR.
+- Blog remaining blocked.
+- `/he/` falling back safely to `/?lang=en`.
+- Sitemap and checked page metadata remaining free of HE SEO URLs.
+
 ## PARTIAL-safe With Explicit Fallback
 
 - Cars

@@ -314,6 +314,40 @@ Rollback:
 - Remove HE sitemap/hreflang if already deployed.
 - Purge Cloudflare cache.
 
+## Stage 30 Live Page-Gated Deployment
+
+Stage30 status: **GO for page-gated HE on READY pages only**.
+
+This is not a global HE launch. The live rollout remains:
+
+- `mode: "partial_public"`
+- `pageGated: true`
+- `stage25SqlApplied: true`
+- `allowPartialPagesPublic: false`
+- HE SEO/sitemap/hreflang/canonical/indexing: off
+- public `/he/` routes: off
+- Shop HE and Blog HE public: off
+
+Live monitoring results:
+
+| Scope | Live result |
+| --- | --- |
+| READY: transport, hotels, hotel detail, recommendations | Public `?lang=he` activates HE/RTL and shows HE in the switcher. |
+| PARTIAL: home, car, trips, trip, POI/map | Public `?lang=he` is blocked and normalizes to EN/LTR. |
+| BLOCKED: blog, blog detail, plan and other unfinished flows | Public `?lang=he` is blocked and HE is hidden from the switcher. |
+| EXCLUDED: shop, partners, admin | HE remains unavailable; Shop checkout/payment stay EN/LTR. |
+| `/he/` and `/he/transport.html` | Safe redirect/fallback to `/?lang=en`; no broken `/he/js/...` assets. |
+| SEO safety | No HE URLs in sitemap; no HE hreflang/canonical/OpenGraph on checked pages. |
+
+Stage30 rollback:
+
+1. Set `he.mode` to `beta_users` or `internal_only`.
+2. Keep `allowPartialPagesPublic:false`.
+3. Keep HE SEO/sitemap/hreflang/canonical/indexing off.
+4. Keep `/he/` redirect active.
+5. Purge Cloudflare cache if stale config is observed.
+6. Re-smoke READY and blocked/excluded pages.
+
 ## Recommended Launch Strategy
 
 Do not launch full-site HE in one step from the current state.

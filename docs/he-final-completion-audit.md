@@ -268,6 +268,31 @@ Blocked/excluded pages remain protected:
 - Shop remains excluded; checkout/cart/payment must stay EN/LTR.
 - Partners and Admin remain excluded from public HE.
 
+## Stage 30 Live Monitoring Result
+
+Stage30 live status: **GO for controlled page-gated HE on READY pages only**.
+
+Live production checks confirmed:
+
+| Area | Result |
+| --- | --- |
+| Deploy/config | Production serves `mode: "partial_public"`, `pageGated:true`, `stage25SqlApplied:true`, `allowPartialPagesPublic:false`. |
+| READY pages | `transport.html`, `hotels.html`, `hotel.html`, `recommendations.html` activate HE/RTL and expose HE in the switcher. |
+| PARTIAL pages | Home, car, trips and trip remain EN/LTR for public `?lang=he`; HE switcher hidden. |
+| BLOCKED pages | Blog, blog detail and plan remain EN/LTR for public `?lang=he`; HE switcher hidden. |
+| EXCLUDED pages | Shop, partners and admin do not expose public HE. |
+| Shop | `shop.html?lang=he` remains EN/LTR; checkout/cart/payment are not HE/RTL. |
+| Blog | Blog remains blocked until public HE blog content/read policy is intentionally opened. |
+| `/he/` safety | `/he/` and `/he/transport.html` fall back to `/?lang=en` without broken `/he/js/...` assets. |
+| SEO safety | Sitemap has no HE URLs; checked pages have no HE hreflang/canonical/OpenGraph URLs. |
+
+Monitoring notes:
+
+- Headless live smoke observed aborted Cloudflare RUM and Google Analytics
+  requests; these are external telemetry aborts, not app crashes.
+- `admin/?lang=he` redirects to the admin login surface and does not load the
+  public rollout snapshot, which is acceptable for public HE exclusion.
+
 ## Overall Status
 
 | Area | Estimated readiness | Notes |

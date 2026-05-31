@@ -198,6 +198,47 @@ Fast rollback without touching content:
    - `blog.html?lang=he` stays EN/LTR.
    - `seo:audit` remains clean.
 
+## Stage 30 Live Deployment And Monitoring
+
+Live deploy status: **GO for controlled page-gated HE on READY pages only**.
+
+Production files verified:
+
+- `js/he-beta-rollout-config.js` serves `mode: 'partial_public'`.
+- `js/i18n.js` serves the page-gated guard with `allowPartialPagesPublic`.
+- `seo`, `sitemap`, `hreflang`, `canonical` and `indexing` remain disabled for HE.
+
+Live READY page smoke:
+
+| URL | Result |
+| --- | --- |
+| `/transport.html?lang=he` | HE/RTL active, switcher exposes HE, no horizontal overflow. |
+| `/hotels.html?lang=he` | HE/RTL active, switcher exposes HE, no horizontal overflow. |
+| `/hotel.html?slug=rgb-cabins-larnaka-centrum&lang=he` | HE/RTL active, switcher exposes HE, no horizontal overflow. |
+| `/recommendations.html?lang=he` | HE/RTL active, switcher exposes HE, no horizontal overflow. |
+
+Live blocked/excluded smoke:
+
+| Scope | Result |
+| --- | --- |
+| PARTIAL pages: home, car, trips, trip | `?lang=he` normalizes to EN/LTR; HE switcher hidden. |
+| BLOCKED pages: blog, blog detail, plan | `?lang=he` normalizes to EN/LTR; HE switcher hidden. |
+| EXCLUDED pages: shop, partners, admin | HE remains unavailable; Shop checkout/payment stay EN/LTR. |
+| `/he/` and `/he/transport.html` | Redirect/fallback to `/?lang=en`; no `/he/js/...` asset paths. |
+
+Live SEO safety:
+
+- `sitemap.xml` contains no HE URLs.
+- Checked pages contain no HE hreflang/canonical/OpenGraph URLs.
+- Local `npm run seo:audit` reports 0 issues.
+
+Known monitoring notes:
+
+- Cloudflare RUM and Google Analytics requests may appear as aborted in headless
+  smoke tests. They were not treated as application failures.
+- `admin/?lang=he` redirects to `admin/login.html`, which does not load the
+  public rollout snapshot. This is expected and confirms no public HE exposure.
+
 ## Blog Blocker
 
 Blog remains blocked because public/anon reads for HE blog translations are not
