@@ -358,6 +358,27 @@ Prepared manual SQL:
 - Draft/top-up: `supabase/manual/he_partial_pages_stage33.sql`
 - Verify after manual COMMIT: `supabase/manual/he_partial_pages_stage33_verify.sql`
 
+Stage33.5 verify fix:
+
+- The first verify draft failed in Supabase SQL Editor because
+  `COALESCE(car_model, car_type, car_model_new, car_type_new, id::text)` mixed
+  JSONB and text columns.
+- The verify script now normalizes each car model candidate through
+  `pg_temp.he_stage33_text_label(to_jsonb(...))` before `COALESCE`.
+- Stage33 is not considered verified until the repaired
+  `he_partial_pages_stage33_verify.sql` passes after a human-reviewed COMMIT of
+  the Stage33 content pack.
+
+Safe Stage34 apply flow:
+
+1. Run `supabase/manual/he_partial_pages_stage33.sql` as-is and confirm preview
+   counts: trips `3`, cars `5`, POI `10`.
+2. Review every Hebrew value with a human/native speaker.
+3. Replace only the final `ROLLBACK` with `COMMIT` after review.
+4. Run the repaired `supabase/manual/he_partial_pages_stage33_verify.sql`.
+5. Move to rollout testing only if verify shows trips `3/3`, cars `5/5` and
+   POI `10/10` HE-ready records.
+
 Candidate scope after Stage33:
 
 | Page/module | Stage33 status | Reason |

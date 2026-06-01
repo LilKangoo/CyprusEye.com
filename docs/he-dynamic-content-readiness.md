@@ -126,6 +126,16 @@ Stage33 decisions:
 - Home remains **PARTIAL** until section-level visibility is finalized.
 - Blog remains **BLOCKED**. Shop remains **EXCLUDED**.
 
+Stage33.5 verify status:
+
+- Initial verify SQL failed on the car detail query because the model label
+  expression mixed JSONB model fields with text fallback fields in one
+  `COALESCE`.
+- `supabase/manual/he_partial_pages_stage33_verify.sql` now converts each model
+  candidate to text via `to_jsonb(...)` plus a temporary text-label helper.
+- Stage33 content is still only prepared; it is not verified until the repaired
+  verify script passes in Supabase after a reviewed COMMIT.
+
 ## Requested Area Notes
 
 ### Trips

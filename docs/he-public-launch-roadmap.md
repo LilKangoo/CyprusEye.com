@@ -454,6 +454,25 @@ Recommended Stage 34:
 **Stage 34A: manually apply Stage33 SQL, run verify, then smoke-test
 record-gated HE for car/trips/trip/POI before changing public readiness.**
 
+Stage33.5 correction before Stage34:
+
+- The first Stage33 verify script failed because the car model label
+  `COALESCE` mixed JSONB (`car_model` / `car_type`) and text fallback values.
+- The verify script now converts every car label candidate to text before
+  `COALESCE`, so it can run against schemas where car labels are JSONB i18n
+  payloads.
+- Do not treat Stage33 as verified until the repaired verify script passes in
+  Supabase after the Stage33 content pack is manually committed.
+
+Stage34 apply sequence:
+
+1. Run `supabase/manual/he_partial_pages_stage33.sql` unchanged to preview with
+   `ROLLBACK`.
+2. Human-review all Hebrew values in the previewed content.
+3. Replace the final `ROLLBACK` with `COMMIT` only after review.
+4. Run `supabase/manual/he_partial_pages_stage33_verify.sql`.
+5. Continue only if trips show `3/3`, cars `5/5`, and POI `10/10` HE-ready.
+
 ## Recommended Launch Strategy
 
 Do not launch full-site HE in one step from the current state.

@@ -4,6 +4,35 @@
 -- This file does not enable public HE, SEO HE, sitemap HE, hreflang HE,
 -- canonical HE, indexing HE, Shop HE, Blog HE, or public /he/ routes.
 
+-- `car_model` / `car_type` can be JSONB in newer schemas while legacy
+-- `*_new` columns or ids can be text. Convert every model candidate to text
+-- before COALESCE so this verify script is safe across both schema shapes.
+CREATE OR REPLACE FUNCTION pg_temp.he_stage33_text_label(value jsonb)
+RETURNS text
+LANGUAGE sql
+AS $$
+  SELECT NULLIF(BTRIM(COALESCE(
+    value->>'he',
+    value->>'en',
+    value->>'pl',
+    value->>'el',
+    value #>> '{}'
+  )), '')
+$$;
+
+-- Schema snapshot for the car model fields that previously caused a jsonb/text
+-- COALESCE mismatch in Supabase SQL Editor.
+SELECT
+  'stage33_car_model_schema' AS check_name,
+  column_name,
+  data_type,
+  udt_name
+FROM information_schema.columns
+WHERE table_schema = 'public'
+  AND table_name = 'car_offers'
+  AND column_name IN ('car_model', 'car_type', 'car_model_new', 'car_type_new', 'features')
+ORDER BY column_name;
+
 -- 1) Trips: only these 3 records should be considered HE-ready for the first
 -- record-gated trip expansion.
 SELECT
@@ -59,7 +88,13 @@ WHERE id IN (
 
 SELECT
   id,
-  COALESCE(car_model, car_type, car_model_new, car_type_new, id::text) AS model_label,
+  COALESCE(
+    pg_temp.he_stage33_text_label(to_jsonb(car_model)),
+    pg_temp.he_stage33_text_label(to_jsonb(car_type)),
+    pg_temp.he_stage33_text_label(to_jsonb(car_model_new)),
+    pg_temp.he_stage33_text_label(to_jsonb(car_type_new)),
+    id::text
+  ) AS model_label,
   features->'he' AS features_he,
   CASE
     WHEN jsonb_typeof(COALESCE(features->'he', 'null'::jsonb)) = 'array'
