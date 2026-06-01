@@ -61,6 +61,7 @@
   };
   const HE_PAGE_READINESS_STATUS = Object.freeze({
     READY: 'ready',
+    RECORD_GATED: 'record-gated',
     PARTIAL: 'partial',
     BLOCKED: 'blocked',
     EXCLUDED: 'excluded',
@@ -128,6 +129,8 @@
     car: {
       status: HE_PAGE_READINESS_STATUS.PARTIAL,
       allowFallback: true,
+      recordGatedWhenStage33SqlApplied: true,
+      sqlDependency: 'supabase/manual/he_partial_pages_stage33.sql',
       seoPages: ['carRentalLanding', 'carRental', 'carRentalPfo'],
       paths: ['/car.html', '/car-rental.html', '/autopfo.html'],
       reason: 'Top cars can use HE/EN fallback; full fleet content is partial.',
@@ -135,6 +138,8 @@
     trips: {
       status: HE_PAGE_READINESS_STATUS.PARTIAL,
       allowFallback: true,
+      recordGatedWhenStage33SqlApplied: true,
+      sqlDependency: 'supabase/manual/he_partial_pages_stage33.sql',
       seoPages: ['trips'],
       paths: ['/trips.html'],
       reason: 'Only selected trip records are HE-ready.',
@@ -142,6 +147,8 @@
     trip: {
       status: HE_PAGE_READINESS_STATUS.PARTIAL,
       allowFallback: true,
+      recordGatedWhenStage33SqlApplied: true,
+      sqlDependency: 'supabase/manual/he_partial_pages_stage33.sql',
       seoPages: ['trip'],
       paths: ['/trip.html'],
       reason: 'Trip detail is safe only for translated records with EN fallback.',
@@ -149,6 +156,8 @@
     poiMap: {
       status: HE_PAGE_READINESS_STATUS.PARTIAL,
       allowFallback: true,
+      recordGatedWhenStage33SqlApplied: true,
+      sqlDependency: 'supabase/manual/he_partial_pages_stage33.sql',
       seoPages: ['poi', 'map'],
       paths: ['/map.html'],
       reason: 'Top POI are translated; full map catalog is partial.',
@@ -277,6 +286,9 @@
     const normalized = String(value || '').trim().toLowerCase().replace(/_/g, '-');
     if (normalized === 'near-ready' || normalized === 'nearready') {
       return HE_PAGE_READINESS_STATUS.PARTIAL;
+    }
+    if (normalized === 'recordgated' || normalized === 'record-ready' || normalized === 'recordready') {
+      return HE_PAGE_READINESS_STATUS.RECORD_GATED;
     }
     return Object.values(HE_PAGE_READINESS_STATUS).includes(normalized)
       ? normalized
@@ -411,6 +423,18 @@
     );
   }
 
+  function isStage33SqlAppliedForHe(rollout, options = {}) {
+    if (typeof options.stage33SqlApplied === 'boolean') {
+      return options.stage33SqlApplied;
+    }
+    return Boolean(
+      rollout?.stage33SqlApplied
+      || rollout?.stage33SqlReady
+      || rollout?.contentPacks?.stage33 === 'applied'
+      || window.CE_HE_STAGE33_SQL_APPLIED === true
+    );
+  }
+
   function getHePageReadiness(options = {}) {
     const pageKey = options.pageKey || getCurrentHePageKey();
     const base = HE_PAGE_READINESS_REGISTRY[pageKey] || {
@@ -420,6 +444,7 @@
     };
     const rollout = getLanguageRollout('he');
     const stage25SqlApplied = isStage25SqlAppliedForHe(rollout, options);
+    const stage33SqlApplied = isStage33SqlAppliedForHe(rollout, options);
     const entry = {
       key: pageKey,
       status: normalizeHePageReadinessStatus(base.status),
@@ -427,12 +452,19 @@
       sqlDependency: base.sqlDependency || '',
       reason: base.reason || '',
       stage25SqlApplied,
+      stage33SqlApplied,
     };
 
     if (base.readyWhenStage25SqlApplied && stage25SqlApplied) {
       entry.status = HE_PAGE_READINESS_STATUS.READY;
       entry.allowFallback = false;
       entry.reason = `${base.reason || ''} Stage25 SQL marked as applied.`.trim();
+    }
+
+    if (base.recordGatedWhenStage33SqlApplied && stage33SqlApplied) {
+      entry.status = HE_PAGE_READINESS_STATUS.RECORD_GATED;
+      entry.allowFallback = false;
+      entry.reason = `${base.reason || ''} Stage33 record-gated content marked as applied.`.trim();
     }
 
     const override = getRolloutPageReadinessOverride(rollout, pageKey);
@@ -454,6 +486,7 @@
     }
 
     entry.ready = entry.status === HE_PAGE_READINESS_STATUS.READY;
+    entry.recordGated = entry.status === HE_PAGE_READINESS_STATUS.RECORD_GATED;
     entry.partial = entry.status === HE_PAGE_READINESS_STATUS.PARTIAL;
     entry.blocked = entry.status === HE_PAGE_READINESS_STATUS.BLOCKED;
     entry.excluded = entry.status === HE_PAGE_READINESS_STATUS.EXCLUDED;
@@ -474,6 +507,20 @@
     }
     if (readiness.ready) {
       return true;
+    }
+    if (readiness.recordGated) {
+      if (HE_PAGE_SEO_SURFACES.has(surface)) {
+        return false;
+      }
+      if (surface === 'preview') {
+        return true;
+      }
+      const rollout = getLanguageRollout(normalized);
+      const mode = rollout?.mode || ROLLOUT_MODES.INTERNAL_ONLY;
+      if (mode === ROLLOUT_MODES.BETA_USERS) {
+        return true;
+      }
+      return Boolean(rollout?.recordGatedPagesPublic === true);
     }
     if (readiness.partial) {
       if (HE_PAGE_SEO_SURFACES.has(surface) || readiness.allowFallback !== true) {

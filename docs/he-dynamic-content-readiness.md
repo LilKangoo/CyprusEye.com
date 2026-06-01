@@ -161,6 +161,30 @@ Stage35 dynamic verification:
 | POI/map | 10 top POI | RECORD-GATED READY candidate limited to the verified POI set. |
 | Home | Aggregated modules | Keep PARTIAL until Blog/Shop preview decisions are solved. |
 
+## Stage 36 Record-Gated Public Scope
+
+Stage36 uses the verified Stage33 records for a controlled public page-gated
+expansion without enabling all PARTIAL pages.
+
+Runtime rules:
+
+- Cars: filter to HE-ready car records; current verified top scope is `5/5`.
+- Trips: filter listing to HE-ready trip records; current verified top scope is
+  `3/3`.
+- Trip detail: allow HE only for loaded records that pass the trip readiness
+  helper; unready records normalize to EN/LTR.
+- POI/map: filter POI data to HE-ready POI; current verified top scope is
+  `10/10`.
+- Home stays PARTIAL and public HE remains blocked.
+- Blog stays BLOCKED and Shop stays EXCLUDED.
+
+Dynamic content still needed before full launch:
+
+- Remaining 9 trips outside the top 3.
+- Remaining car records outside the top 5 if the full fleet should appear in HE.
+- Remaining POI outside the top 10 if the full map should appear in HE.
+- Blog translations and Shop product/checkout content remain separate blockers.
+
 ## Requested Area Notes
 
 ### Trips

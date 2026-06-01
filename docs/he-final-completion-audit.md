@@ -415,6 +415,25 @@ Readiness proposal:
 Launch blockers unchanged: Blog remains BLOCKED, Shop remains EXCLUDED and HE
 SEO/sitemap/hreflang/canonical/indexing/public `/he/` routes remain off.
 
+## Stage 36 Record-Gated Rollout Status
+
+Stage36 turns the verified Stage33 data into a controlled page-gated expansion
+for record-gated pages only.
+
+| Area | Stage36 status | Notes |
+| --- | --- | --- |
+| Car | RECORD-GATED READY | Public HE can render only the HE-ready filtered fleet. |
+| Trips listing | RECORD-GATED READY | Public HE can render only the three HE-ready trips. |
+| Trip detail | RECORD-GATED READY per record | Unready loaded records must fall back to EN/LTR. |
+| POI/map | RECORD-GATED READY | Public HE data is limited to verified HE-ready POI. |
+| Home | PARTIAL | Still blocked from public HE. |
+| Blog | BLOCKED | Public HE read/routing/SEO remain unsolved. |
+| Shop | EXCLUDED | Cart/checkout/payment remain EN/LTR. |
+| SEO HE | OFF | Sitemap, hreflang, canonical, indexing and public `/he/` stay off. |
+
+This improves page-gated readiness, but full public launch still requires Home,
+Blog, Shop and final SEO work.
+
 ## Overall Status
 
 | Area | Estimated readiness | Notes |

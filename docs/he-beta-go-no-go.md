@@ -139,6 +139,34 @@ Remaining gates before exposing the next public pages:
   solved separately.
 - Keep Shop/cart/checkout/payment excluded until a dedicated Shop HE QA stage.
 
+## Stage 36 GO / NO-GO
+
+Decision target: **GO only for record-gated Car, Trips, Trip detail and POI/map
+after smoke tests pass**.
+
+Configured scope:
+
+- `recordGatedPagesPublic:true`
+- `stage33SqlApplied:true`
+- `allowPartialPagesPublic:false`
+
+GO conditions:
+
+- `car.html?lang=he` shows HE/RTL and only HE-ready fleet records.
+- `trips.html?lang=he` shows only HE-ready trips.
+- `trip.html` renders HE only for ready slugs and blocks unready slugs to
+  EN/LTR.
+- POI/map uses HE-ready POI only.
+- Home, Blog, Shop, Plan, Partner/Admin and unknown pages remain blocked or
+  excluded.
+- SEO HE remains off.
+
+Rollback condition:
+
+- Any undefined/null content, unready record in HE, RTL break in booking/map
+  flow or accidental Shop/Blog HE exposure should set
+  `recordGatedPagesPublic:false` before redeploy.
+
 ## PARTIAL-safe With Explicit Fallback
 
 - Cars

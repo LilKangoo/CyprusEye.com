@@ -498,17 +498,37 @@
       return Boolean(entry?.title?.he && entry?.description?.he);
     }
 
+    function isTripHeRequestedOrActive() {
+      const queryLang = String(new URLSearchParams(window.location.search).get('lang') || '')
+        .trim()
+        .toLowerCase()
+        .split('-')[0];
+      return queryLang === 'he'
+        || getTripPageLanguage() === 'he'
+        || String(document.documentElement.lang || '').toLowerCase().split('-')[0] === 'he';
+    }
+
     function blockHeForUnreadyTripRecord(entry) {
-      if (getTripPageLanguage() !== 'he' || isTripRecordReadyForHe(entry)) {
+      if (!isTripHeRequestedOrActive() || isTripRecordReadyForHe(entry)) {
         return false;
       }
       const url = new URL(window.location.href);
       url.searchParams.set('lang', 'en');
       url.searchParams.delete('ce_he_preview');
       window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+      try {
+        window.sessionStorage.removeItem('ce_hidden_language_preview');
+        window.sessionStorage.removeItem('ce_hidden_language_preview_lang');
+      } catch (_) {}
       if (window.appI18n?.setLanguage) {
         window.appI18n.setLanguage('en', { persist: false, updateUrl: false });
       }
+      if (window.appI18n) {
+        window.appI18n.language = 'en';
+      }
+      document.documentElement.setAttribute('lang', 'en');
+      document.documentElement.setAttribute('dir', 'ltr');
+      delete document.documentElement.dataset.ceHiddenLanguagePreview;
       return true;
     }
 
@@ -1479,9 +1499,14 @@
         if (error) throw error;
         if (!data) throw new Error('Trip not found');
         trip = data;
-        blockHeForUnreadyTripRecord(trip);
+        if (blockHeForUnreadyTripRecord(trip)) {
+          return;
+        }
       } catch (error) {
         console.error('Failed to load trip:', error);
+        if (blockHeForUnreadyTripRecord(null)) {
+          return;
+        }
         tripLoadState = 'not-found';
         renderTripStaticCopy();
         return;

@@ -59,6 +59,8 @@ assert.match(i18nSource, /function getHePageKeyForUrl/);
 assert.match(i18nSource, /function isLanguageAllowedForUrl/);
 assert.match(i18nSource, /function isRecordReadyForLanguage/);
 assert.match(i18nSource, /function filterRecordsReadyForLanguage/);
+assert.match(i18nSource, /RECORD_GATED:\s*'record-gated'/);
+assert.match(i18nSource, /recordGatedWhenStage33SqlApplied/);
 assert.match(i18nSource, /allowPartialPagesPublic/);
 assert.match(i18nSource, /data-page-url/);
 
@@ -66,6 +68,8 @@ const betaConfigSource = fs.readFileSync('js/he-beta-rollout-config.js', 'utf8')
 assert.match(betaConfigSource, /mode:\s*'partial_public'/);
 assert.match(betaConfigSource, /pageGated:\s*true/);
 assert.match(betaConfigSource, /stage25SqlApplied:\s*true/);
+assert.match(betaConfigSource, /stage33SqlApplied:\s*true/);
+assert.match(betaConfigSource, /recordGatedPagesPublic:\s*true/);
 assert.match(betaConfigSource, /allowPartialPagesPublic:\s*false/);
 assert.match(betaConfigSource, /15f3d442-092d-4eb8-9627-db90da0283eb/);
 assert.match(betaConfigSource, /hiddenPreview:\s*false/);

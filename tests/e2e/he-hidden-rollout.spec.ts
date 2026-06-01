@@ -7,6 +7,63 @@ const HIDDEN_HE_ROUTES = [
   '/recommendations.html?ce_he_preview=1&lang=he',
 ];
 
+const STAGE33_TRIP_FIXTURE_ROWS = [
+  {
+    id: '2d937b4f-3da7-4fed-bc06-bdc66eb25612',
+    slug: 'trasa-skaa-afrodyty',
+    is_published: true,
+    title: {
+      pl: 'Trasa Skała Afrodyty',
+      en: "Aphrodite's Rock route",
+      he: 'מסלול סלע אפרודיטה',
+    },
+    description: {
+      pl: 'Krótki opis trasy do Skały Afrodyty.',
+      en: "Short route overview for Aphrodite's Rock.",
+      he: 'סקירה קצרה של המסלול לסלע אפרודיטה.',
+    },
+    start_city: 'Paphos',
+    pricing_model: 'per_person',
+    price_per_person: 45,
+  },
+  {
+    id: 'not-ready-trip',
+    slug: 'wyjazd-indywidualny-8h',
+    is_published: true,
+    title: {
+      pl: 'Wyjazd indywidualny 8h',
+      en: 'Private 8h trip',
+    },
+    description: {
+      pl: 'Ten rekord nie ma jeszcze treści HE.',
+      en: 'This record does not have HE content yet.',
+    },
+    start_city: 'Larnaca',
+    pricing_model: 'per_hour',
+    price_base: 60,
+  },
+];
+
+async function seedStage33TripFixtures(page) {
+  await page.addInitScript((rows) => {
+    const seedTrips = (stub) => {
+      if (stub && typeof stub.seedTable === 'function') {
+        stub.seedTable('trips', rows);
+      }
+    };
+    const existing = (window as any).__supabaseStub || {};
+    const previousOnReady = existing.onReady;
+    existing.onReady = (stub) => {
+      if (typeof previousOnReady === 'function') {
+        previousOnReady(stub);
+      }
+      seedTrips(stub);
+    };
+    (window as any).__supabaseStub = existing;
+    seedTrips(existing);
+  }, STAGE33_TRIP_FIXTURE_ROWS);
+}
+
 async function expectNoHorizontalOverflow(page) {
   const overflow = await page.evaluate(() => {
     const root = document.documentElement;
@@ -96,28 +153,60 @@ test.describe('hidden Hebrew rollout guard', () => {
     expect(rollout?.publicSurfaces?.routes).toBe(true);
   });
 
-  test('keeps PARTIAL pages internal-only during page-gated public rollout', async ({ page }) => {
-    await page.goto('/car.html?lang=he', { waitUntil: 'domcontentloaded' });
+  test('keeps Home PARTIAL internal-only while record-gated pages are public-gated', async ({ page }) => {
+    await seedStage33TripFixtures(page);
+
+    await page.goto('/index.html?lang=he', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(250);
 
     await expect(page.locator('html')).not.toHaveAttribute('lang', 'he');
     await expect(page.locator('html')).not.toHaveAttribute('dir', 'rtl');
     await expect(page.locator('[data-testid="language-option-he"]')).toHaveCount(0);
     const rollout = await page.evaluate(() => (window as any).CELanguageRollout?.snapshot?.().he);
-    expect(rollout?.pageReadiness?.key).toBe('car');
+    expect(rollout?.pageReadiness?.key).toBe('home');
     expect(rollout?.pageReadiness?.status).toBe('partial');
     expect(rollout?.publicSurfaces?.switcher).toBe(false);
     expect(rollout?.publicSurfaces?.routes).toBe(false);
 
+    await page.goto('/car.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await waitForHtmlLanguage(page, 'he');
+    const carRollout = await page.evaluate(() => (window as any).CELanguageRollout?.snapshot?.().he);
+    expect(carRollout?.pageReadiness?.key).toBe('car');
+    expect(carRollout?.pageReadiness?.status).toBe('record-gated');
+    expect(carRollout?.publicSurfaces?.switcher).toBe(true);
+    expect(carRollout?.publicSurfaces?.routes).toBe(true);
+
+    await page.goto('/trips.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await waitForHtmlLanguage(page, 'he');
+    const tripsRollout = await page.evaluate(() => (window as any).CELanguageRollout?.snapshot?.().he);
+    expect(tripsRollout?.pageReadiness?.key).toBe('trips');
+    expect(tripsRollout?.pageReadiness?.status).toBe('record-gated');
+    expect(tripsRollout?.publicSurfaces?.switcher).toBe(true);
+    expect(tripsRollout?.publicSurfaces?.routes).toBe(true);
+
     await page.goto('/trip.html?slug=trasa-skaa-afrodyty&lang=he', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(250);
-    await expect(page.locator('html')).not.toHaveAttribute('lang', 'he');
-    await expect(page.locator('html')).not.toHaveAttribute('dir', 'rtl');
+    await waitForHtmlLanguage(page, 'he');
     const tripRollout = await page.evaluate(() => (window as any).CELanguageRollout?.snapshot?.().he);
     expect(tripRollout?.pageReadiness?.key).toBe('trip');
-    expect(tripRollout?.pageReadiness?.status).toBe('partial');
-    expect(tripRollout?.publicSurfaces?.switcher).toBe(false);
-    expect(tripRollout?.publicSurfaces?.routes).toBe(false);
+    expect(tripRollout?.pageReadiness?.status).toBe('record-gated');
+    expect(tripRollout?.publicSurfaces?.switcher).toBe(true);
+    expect(tripRollout?.publicSurfaces?.routes).toBe(true);
+  });
+
+  test('blocks direct HE for unready trip records', async ({ page }) => {
+    await seedStage33TripFixtures(page);
+
+    await page.goto('/trip.html?slug=wyjazd-indywidualny-8h&lang=he', {
+      waitUntil: 'commit',
+      timeout: 15000,
+    });
+    await page.waitForFunction(() => (
+      new URL(window.location.href).searchParams.get('lang') === 'en'
+        && document.documentElement.lang === 'en'
+        && document.documentElement.dir === 'ltr'
+    ), null, { timeout: 15000 });
+    await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
+    expect(new URL(page.url()).searchParams.get('lang')).toBe('en');
   });
 
   test('strips HE from links to non-ready destinations on READY HE pages', async ({ page }) => {
@@ -142,12 +231,12 @@ test.describe('hidden Hebrew rollout guard', () => {
     ));
 
     const findInternal = (pathname: string) => links.find((link) => link.pathname === pathname);
-    const readyDestinations = ['/transport.html', '/hotels.html', '/recommendations.html'];
+    const readyDestinations = ['/transport.html', '/hotels.html', '/recommendations.html', '/car.html', '/trips.html'];
     for (const pathname of readyDestinations) {
       expect(findInternal(pathname)?.lang).toBe('he');
     }
 
-    const nonReadyDestinations = ['/index.html', '/car.html', '/trips.html', '/shop.html', '/community.html', '/tasks.html', '/partners/'];
+    const nonReadyDestinations = ['/index.html', '/shop.html', '/community.html', '/tasks.html', '/partners/'];
     for (const pathname of nonReadyDestinations) {
       const link = findInternal(pathname);
       if (link) {
@@ -164,11 +253,13 @@ test.describe('hidden Hebrew rollout guard', () => {
     const helperResult = await page.evaluate(() => ({
       shop: (window as any).CELanguage?.buildLocalizedUrl?.('/shop.html', 'he'),
       car: (window as any).CELanguage?.buildLocalizedUrl?.('/car.html', 'he'),
+      trips: (window as any).CELanguage?.buildLocalizedUrl?.('/trips.html', 'he'),
       hotels: (window as any).CELanguage?.buildLocalizedUrl?.('/hotels.html', 'he'),
       blog: (window as any).CELanguage?.buildLocalizedUrl?.('/blog', 'he'),
     }));
     expect(helperResult.shop).toBe('/shop.html?lang=en');
-    expect(helperResult.car).toBe('/car.html?lang=en');
+    expect(helperResult.car).toBe('/car.html?lang=he');
+    expect(helperResult.trips).toBe('/trips.html?lang=he');
     expect(helperResult.hotels).toBe('/hotels.html?lang=he');
     expect(helperResult.blog).toBe('/blog?lang=en');
   });
@@ -456,6 +547,7 @@ test.describe('hidden Hebrew rollout guard', () => {
           hiddenPreview: false,
           pageGated: true,
           stage25SqlApplied: true,
+          stage33SqlApplied: false,
           allowPartialPagesPublic: true,
         },
       };

@@ -451,6 +451,47 @@ Public exclusions remain unchanged: Blog is BLOCKED, Shop/cart/checkout/payment
 are EXCLUDED, SEO/sitemap/hreflang/canonical/indexing HE are off, and public
 `/he/` routes remain disabled.
 
+## Stage 36 Controlled Record-Gated Expansion
+
+Status: **prepared in runtime config and registry for record-gated pages only**.
+This is not a global HE launch.
+
+Rollout flags:
+
+- `mode: "partial_public"`
+- `pageGated: true`
+- `stage25SqlApplied: true`
+- `stage33SqlApplied: true`
+- `recordGatedPagesPublic: true`
+- `allowPartialPagesPublic: false`
+- SEO/sitemap/hreflang/canonical/indexing remain `false`.
+
+Final page status for Stage36:
+
+| Page/module | Status | Public HE behavior |
+| --- | --- | --- |
+| Transport | READY | HE switcher/routes allowed. |
+| Hotels | READY | HE switcher/routes allowed after Stage25. |
+| Hotel detail | READY | HE switcher/routes allowed after Stage25. |
+| Recommendations | READY | HE switcher/routes allowed after Stage25. |
+| Car | RECORD-GATED READY | HE switcher/routes allowed only because Stage33 is verified; runtime filters to HE-ready car records. |
+| Trips listing | RECORD-GATED READY | HE switcher/routes allowed only because Stage33 is verified; listing filters to HE-ready trips. |
+| Trip detail | RECORD-GATED READY per record | HE route may open, but unready loaded trip records normalize back to EN/LTR. |
+| POI/map | RECORD-GATED READY | HE map data is filtered to HE-ready POI. |
+| Home | PARTIAL | Public HE remains blocked. |
+| Blog / Blog post | BLOCKED | Public HE remains blocked. |
+| Shop / checkout / payment | EXCLUDED | HE remains blocked and EN/LTR. |
+| Partners / Admin | EXCLUDED | No public HE exposure. |
+
+Rollback:
+
+1. Set `recordGatedPagesPublic:false` in `js/he-beta-rollout-config.js`.
+2. Keep `stage33SqlApplied:true` for data history, but the pages return to
+   blocked public HE because the public record-gated flag is off.
+3. Existing READY pages stay unchanged unless a regression is found.
+4. If a broader issue appears, set `mode:"beta_users"` or
+   `mode:"internal_only"` and redeploy/purge Cloudflare cache.
+
 ## Blog Blocker
 
 Blog remains blocked because public/anon reads for HE blog translations are not

@@ -509,6 +509,40 @@ What remains out of scope:
 - HE SEO, sitemap, hreflang, canonical, indexing and public `/he/` routes remain
   off until the final SEO phase.
 
+## Stage 36 Controlled Record-Gated Rollout
+
+Stage36 expands page-gated HE only to verified record-gated pages. It does not
+activate Home, Blog, Shop, SEO, sitemap, hreflang, canonical, indexing or public
+`/he/` routes.
+
+Enabled by config:
+
+- `stage33SqlApplied:true`
+- `recordGatedPagesPublic:true`
+- `allowPartialPagesPublic:false`
+
+Pages now eligible for public HE:
+
+- Existing READY: Transport, Hotels, Hotel detail, Recommendations.
+- Record-gated: Car, Trips, Trip detail for ready records, POI/map filtered to
+  ready records.
+
+Pages still blocked/excluded:
+
+- Home remains PARTIAL.
+- Blog and Blog post remain BLOCKED.
+- Shop/cart/checkout/payment remain EXCLUDED.
+- Plan, Community, Account/Auth, Legal, Partners/Admin and unknown pages remain
+  blocked or excluded.
+
+Stage36 rollback:
+
+1. Set `recordGatedPagesPublic:false`.
+2. Keep `allowPartialPagesPublic:false`.
+3. Redeploy and purge Cloudflare cache if live pages retain stale config.
+4. If READY pages are also affected, return mode to `beta_users` or
+   `internal_only`.
+
 ## Recommended Launch Strategy
 
 Do not launch full-site HE in one step from the current state.
