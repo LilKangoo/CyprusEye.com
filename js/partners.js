@@ -6952,10 +6952,10 @@
           let error = null;
           ({ data, error } = await state.sb
             .from('transport_bookings')
-            .select('id, route_id, origin_location_id, destination_location_id, travel_date, travel_time, trip_type, num_passengers, num_bags, num_oversize_bags, child_seats, booster_seats, waiting_minutes, pickup_address, dropoff_address, flight_number, return_route_id, return_origin_location_id, return_destination_location_id, return_travel_date, return_travel_time, return_pickup_address, return_dropoff_address, return_flight_number, total_price, deposit_amount, currency, customer_name, customer_email, customer_phone')
+            .select('id, route_id, origin_location_id, destination_location_id, travel_date, travel_time, trip_type, num_passengers, num_bags, num_oversize_bags, child_seats, booster_seats, waiting_minutes, pickup_address, dropoff_address, flight_number, return_route_id, return_origin_location_id, return_destination_location_id, return_travel_date, return_travel_time, return_pickup_address, return_dropoff_address, return_flight_number, total_price, deposit_amount, currency')
             .in('id', bookingIdChunk)
             .limit(500));
-          if (error && /(return_route_id|return_origin_location_id|return_destination_location_id|return_pickup_address|return_dropoff_address|return_flight_number|trip_type|waiting_minutes|currency|customer_name|customer_email|customer_phone)/i.test(String(error.message || ''))) {
+          if (error && /(return_route_id|return_origin_location_id|return_destination_location_id|return_pickup_address|return_dropoff_address|return_flight_number|trip_type|waiting_minutes|currency)/i.test(String(error.message || ''))) {
             ({ data, error } = await state.sb
               .from('transport_bookings')
               .select('id, route_id, origin_location_id, destination_location_id, travel_date, travel_time, return_route_id, return_origin_location_id, return_destination_location_id, return_travel_date, return_travel_time, pickup_address, dropoff_address, flight_number, return_pickup_address, return_dropoff_address, return_flight_number, num_passengers, num_bags, num_oversize_bags, child_seats, booster_seats, total_price, deposit_amount')

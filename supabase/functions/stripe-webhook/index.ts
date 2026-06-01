@@ -311,6 +311,15 @@ async function handleDepositPaymentIntentSucceeded(supabase: any, paymentIntent:
     .eq("id", bookingId)
     .is("deposit_paid_at", null);
 
+  if (resourceType === "transport") {
+    await syncTransportBookingDepositPaid(supabase, {
+      bookingId,
+      amount,
+      currency,
+      paidAt: nowIso,
+    });
+  }
+
   await enqueuePartnerDepositPaidEmail(supabase, {
     depositRequestId: id,
     partnerId,
@@ -398,6 +407,15 @@ async function handleDepositCheckoutCompleted(supabase: any, session: any, depos
     .eq("id", bookingId)
     .is("deposit_paid_at", null);
 
+  if (resourceType === "transport") {
+    await syncTransportBookingDepositPaid(supabase, {
+      bookingId,
+      amount,
+      currency,
+      paidAt: nowIso,
+    });
+  }
+
   await enqueuePartnerDepositPaidEmail(supabase, {
     depositRequestId,
     partnerId,
@@ -473,6 +491,54 @@ async function updateDepositRequestStripeFields(
     .from("service_deposit_requests")
     .update(fallbackPayload)
     .eq("id", depositRequestId);
+}
+
+async function syncTransportBookingDepositPaid(supabase: any, params: {
+  bookingId: string;
+  amount: number;
+  currency: string;
+  paidAt: string;
+}) {
+  const bookingId = String(params.bookingId || "").trim();
+  if (!bookingId) return;
+  const amount = Number.isFinite(Number(params.amount)) ? Math.max(0, Math.round(Number(params.amount) * 100) / 100) : 0;
+  const currency = String(params.currency || "EUR").trim().toUpperCase() || "EUR";
+  const paidAt = String(params.paidAt || new Date().toISOString()).trim();
+  const payload: Record<string, unknown> = {
+    status: "confirmed",
+    payment_status: "paid",
+    paid_at: paidAt,
+    deposit_paid_at: paidAt,
+    deposit_amount: amount,
+    deposit_currency: currency,
+  };
+
+  const res = await supabase
+    .from("transport_bookings")
+    .update(payload)
+    .eq("id", bookingId);
+
+  if (!res.error) return;
+
+  if (String(res.error?.message || "").toLowerCase().includes("deposit_currency")) {
+    const fallbackPayload = { ...payload };
+    delete fallbackPayload.deposit_currency;
+    const fallback = await supabase
+      .from("transport_bookings")
+      .update(fallbackPayload)
+      .eq("id", bookingId);
+    if (!fallback.error) return;
+    console.warn("[stripe-webhook] failed to sync transport paid status", {
+      booking_id: bookingId,
+      message: String(fallback.error?.message || fallback.error || "").slice(0, 160),
+    });
+    return;
+  }
+
+  console.warn("[stripe-webhook] failed to sync transport paid status", {
+    booking_id: bookingId,
+    message: String(res.error?.message || res.error || "").slice(0, 160),
+  });
 }
 
  function getFunctionsBaseUrl(): string {

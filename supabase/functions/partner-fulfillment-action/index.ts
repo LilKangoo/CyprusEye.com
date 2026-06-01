@@ -10,7 +10,7 @@ type TransportRejectCode =
   | "route_not_supported"
   | "other";
 
-const PARTNER_FULFILLMENT_ACTION_VERSION = "2026-03-11-1";
+const PARTNER_FULFILLMENT_ACTION_VERSION = "2026-06-01-transport-deposit-hotfix";
 
 type PartnerFulfillmentActionRequest = {
   fulfillment_id?: string;
@@ -408,7 +408,7 @@ async function resolveServiceAcceptanceDepositState(
 
   const { data: bookingRow, error: bookingErr } = await supabase
     .from("transport_bookings")
-    .select("payment_status, deposit_amount")
+    .select("payment_status, deposit_amount, deposit_currency, currency, total_price, route_id, num_passengers")
     .eq("id", bookingId)
     .maybeSingle();
 
@@ -417,11 +417,22 @@ async function resolveServiceAcceptanceDepositState(
   }
 
   const paymentStatus = String((bookingRow as any)?.payment_status || "").trim().toLowerCase();
-  const depositAmount = Number((bookingRow as any)?.deposit_amount || 0);
-  const requiresImmediateDeposit = Number.isFinite(depositAmount)
-    && depositAmount > 0
-    && paymentStatus !== "not_required"
-    && paymentStatus !== "paid";
+  const depositQuote = await resolveTransportDepositQuote(supabase, bookingRow, null);
+  const serviceRule = await loadDepositRule(supabase, {
+    resource_type: "transport",
+    resource_id: String((bookingRow as any)?.route_id || "").trim() || null,
+  });
+  const serviceRuleDepositAmount = estimateTransportServiceRuleDeposit(serviceRule, bookingRow);
+  const requiredDepositAmount = clampMoney(Math.max(depositQuote.amount, serviceRuleDepositAmount));
+  const requiresImmediateDeposit = requiredDepositAmount > 0 && paymentStatus !== "paid";
+
+  console.info("[partner-fulfillment-action] transport deposit decision", {
+    booking_id: bookingId,
+    payment_status: paymentStatus || null,
+    deposit_amount: requiredDepositAmount,
+    deposit_source: depositQuote.amount > 0 ? depositQuote.source : (serviceRuleDepositAmount > 0 ? "service_deposit_rule" : "none"),
+    requires_payment: requiresImmediateDeposit,
+  });
 
   return {
     depositEnabled: requiresImmediateDeposit,
@@ -474,6 +485,229 @@ async function loadDepositRule(
   const includeChildren = Boolean((ruleRow as any).include_children);
   if (mode !== "per_day" && mode !== "per_hour" && mode !== "per_person" && mode !== "flat" && mode !== "percent_total") return null;
   return { mode, amount, currency, include_children: includeChildren };
+}
+
+function estimateTransportServiceRuleDeposit(rule: Awaited<ReturnType<typeof loadDepositRule>>, bookingRow: any): number {
+  if (!rule) return 0;
+  const amount = clampMoney(Number(rule.amount || 0));
+  if (!(amount > 0)) return 0;
+
+  if (rule.mode === "percent_total") {
+    const total = clampMoney(Number((bookingRow as any)?.total_price || 0));
+    return total > 0 ? clampMoney((total * amount) / 100) : 0;
+  }
+
+  if (rule.mode === "per_person") {
+    const passengersRaw = Number((bookingRow as any)?.num_passengers || 0);
+    const passengers = Number.isFinite(passengersRaw) && passengersRaw > 0 ? passengersRaw : 1;
+    return clampMoney(amount * passengers);
+  }
+
+  if (rule.mode === "per_day") {
+    const start = (bookingRow as any)?.travel_date;
+    const end = (bookingRow as any)?.return_travel_date || start;
+    return clampMoney(amount * diffDays(start, end));
+  }
+
+  if (rule.mode === "per_hour") {
+    return amount;
+  }
+
+  return amount;
+}
+
+type TransportDepositQuote = {
+  amount: number;
+  currency: string;
+  source: "none" | "booking" | "route_pricing" | "booking_and_route_pricing";
+  pricingRuleId?: string | null;
+};
+
+function normalizeTransportDepositPricingMode(value: unknown): "fixed_amount" | "percent_total" | "per_person" {
+  const raw = String(value || "").trim().toLowerCase();
+  if (raw === "fixed_amount" || raw === "flat") return "fixed_amount";
+  if (raw === "per_person") return "per_person";
+  return "percent_total";
+}
+
+async function loadTransportPricingRuleForBooking(
+  supabase: any,
+  routeId: string,
+): Promise<any | null> {
+  const rid = String(routeId || "").trim();
+  if (!rid) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from("transport_pricing_rules")
+      .select("id, route_id, deposit_enabled, deposit_mode, deposit_value, deposit_base_floor, priority, is_active, updated_at")
+      .eq("route_id", rid)
+      .eq("is_active", true)
+      .order("priority", { ascending: true })
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.warn("[partner-fulfillment-action] transport pricing rule lookup skipped", {
+        route_id: rid,
+        message: String(error.message || error || "").slice(0, 160),
+      });
+      return null;
+    }
+    return data || null;
+  } catch (e) {
+    console.warn("[partner-fulfillment-action] transport pricing rule lookup failed", {
+      route_id: rid,
+      message: e instanceof Error ? e.message.slice(0, 160) : String(e).slice(0, 160),
+    });
+    return null;
+  }
+}
+
+async function resolveTransportDepositQuote(
+  supabase: any,
+  bookingRow: any,
+  fulfillment: any,
+): Promise<TransportDepositQuote> {
+  const bookingDeposit = clampMoney(Number((bookingRow as any)?.deposit_amount || 0));
+  const currency = String(
+    (bookingRow as any)?.deposit_currency
+    || (bookingRow as any)?.currency
+    || (fulfillment as any)?.currency
+    || "EUR",
+  ).trim().toUpperCase() || "EUR";
+  const total = clampMoney(Number((bookingRow as any)?.total_price || (fulfillment as any)?.total_price || 0));
+  const passengersRaw = Number((bookingRow as any)?.num_passengers || 0);
+  const passengers = Number.isFinite(passengersRaw) && passengersRaw > 0 ? passengersRaw : 1;
+  const routeId = String((bookingRow as any)?.route_id || (fulfillment as any)?.resource_id || "").trim();
+
+  let pricingAmount = 0;
+  let pricingRuleId: string | null = null;
+  const pricingRule = await loadTransportPricingRuleForBooking(supabase, routeId);
+  if (pricingRule) {
+    pricingRuleId = String((pricingRule as any)?.id || "").trim() || null;
+    const depositEnabled = Boolean((pricingRule as any)?.deposit_enabled);
+    const mode = normalizeTransportDepositPricingMode((pricingRule as any)?.deposit_mode);
+    const depositValue = clampMoney(Number((pricingRule as any)?.deposit_value || 0));
+    const depositBaseFloor = clampMoney(Number((pricingRule as any)?.deposit_base_floor || 0));
+
+    let dynamicAmount = 0;
+    if (depositEnabled) {
+      if (mode === "fixed_amount") dynamicAmount = depositValue;
+      if (mode === "percent_total") dynamicAmount = total > 0 ? (total * depositValue) / 100 : 0;
+      if (mode === "per_person") dynamicAmount = passengers * depositValue;
+    }
+    const rawAmount = Math.max(depositBaseFloor, clampMoney(dynamicAmount), 0);
+    pricingAmount = clampMoney(total > 0 ? Math.min(rawAmount, total) : rawAmount);
+  }
+
+  const amount = clampMoney(Math.max(bookingDeposit, pricingAmount));
+  const source = bookingDeposit > 0 && pricingAmount > 0
+    ? "booking_and_route_pricing"
+    : bookingDeposit > 0
+      ? "booking"
+      : pricingAmount > 0
+        ? "route_pricing"
+        : "none";
+
+  return { amount, currency, source, pricingRuleId };
+}
+
+async function syncTransportBookingAwaitingDepositPayment(supabase: any, params: {
+  bookingId: string;
+  amount: number;
+  currency: string;
+}) {
+  const bookingId = String(params.bookingId || "").trim();
+  const amount = clampMoney(Number(params.amount || 0));
+  if (!bookingId || !(amount > 0)) return;
+  const currency = String(params.currency || "EUR").trim().toUpperCase() || "EUR";
+
+  const payload: Record<string, unknown> = {
+    status: "awaiting_payment",
+    payment_status: "pending",
+    deposit_amount: amount,
+    deposit_currency: currency,
+  };
+
+  const res = await supabase
+    .from("transport_bookings")
+    .update(payload)
+    .eq("id", bookingId)
+    .neq("payment_status", "paid");
+
+  if (!res.error) return;
+
+  if (String(res.error?.message || "").toLowerCase().includes("deposit_currency")) {
+    const fallbackPayload = { ...payload };
+    delete fallbackPayload.deposit_currency;
+    const fallback = await supabase
+      .from("transport_bookings")
+      .update(fallbackPayload)
+      .eq("id", bookingId)
+      .neq("payment_status", "paid");
+    if (!fallback.error) return;
+    console.warn("[partner-fulfillment-action] failed to sync transport awaiting payment", {
+      booking_id: bookingId,
+      message: String(fallback.error?.message || fallback.error || "").slice(0, 160),
+    });
+    return;
+  }
+
+  console.warn("[partner-fulfillment-action] failed to sync transport awaiting payment", {
+    booking_id: bookingId,
+    message: String(res.error?.message || res.error || "").slice(0, 160),
+  });
+}
+
+async function syncTransportBookingDepositPaid(supabase: any, params: {
+  bookingId: string;
+  amount: number;
+  currency: string;
+  paidAt: string;
+}) {
+  const bookingId = String(params.bookingId || "").trim();
+  if (!bookingId) return;
+  const amount = clampMoney(Number(params.amount || 0));
+  const currency = String(params.currency || "EUR").trim().toUpperCase() || "EUR";
+  const paidAt = String(params.paidAt || new Date().toISOString()).trim();
+
+  const payload: Record<string, unknown> = {
+    status: "confirmed",
+    payment_status: "paid",
+    paid_at: paidAt,
+    deposit_paid_at: paidAt,
+    deposit_amount: amount,
+    deposit_currency: currency,
+  };
+
+  const res = await supabase
+    .from("transport_bookings")
+    .update(payload)
+    .eq("id", bookingId);
+
+  if (!res.error) return;
+
+  if (String(res.error?.message || "").toLowerCase().includes("deposit_currency")) {
+    const fallbackPayload = { ...payload };
+    delete fallbackPayload.deposit_currency;
+    const fallback = await supabase
+      .from("transport_bookings")
+      .update(fallbackPayload)
+      .eq("id", bookingId);
+    if (!fallback.error) return;
+    console.warn("[partner-fulfillment-action] failed to sync transport paid status", {
+      booking_id: bookingId,
+      message: String(fallback.error?.message || fallback.error || "").slice(0, 160),
+    });
+    return;
+  }
+
+  console.warn("[partner-fulfillment-action] failed to sync transport paid status", {
+    booking_id: bookingId,
+    message: String(res.error?.message || res.error || "").slice(0, 160),
+  });
 }
 
 function buildDepositRedirectUrl(params: {
@@ -837,7 +1071,7 @@ async function createDepositCheckoutForServiceFulfillment(params: {
     const bookingSelect = category === "cars"
       ? "lang, pickup_date, pickup_time, return_date, return_time"
       : category === "transport"
-      ? "lang, travel_date, travel_time, return_travel_date, num_passengers, deposit_amount, customer_name, customer_email, customer_phone, total_price, currency"
+      ? "lang, route_id, travel_date, travel_time, return_travel_date, num_passengers, payment_status, deposit_amount, deposit_currency, customer_name, customer_email, customer_phone, total_price, currency"
       : category === "trips"
       ? "lang, arrival_date, departure_date, num_adults, num_children, num_hours, customer_name, customer_email, customer_phone, total_price, currency"
       : "lang, arrival_date, departure_date";
@@ -861,10 +1095,11 @@ async function createDepositCheckoutForServiceFulfillment(params: {
   }
 
   const quotedTransportDeposit = category === "transport"
-    ? clampMoney(Number((bookingRow as any)?.deposit_amount || 0))
+    ? (await resolveTransportDepositQuote(supabase, bookingRow, fulfillment)).amount
     : 0;
   const bookingCurrency = String(
-    (bookingRow as any)?.currency
+    (bookingRow as any)?.deposit_currency
+    || (bookingRow as any)?.currency
     || (fulfillment as any)?.currency
     || "EUR",
   ).trim() || "EUR";
@@ -1039,6 +1274,13 @@ async function createDepositCheckoutForServiceFulfillment(params: {
         dedupeSuffix: "checkout_ready",
       });
     }
+    if (category === "transport") {
+      await syncTransportBookingAwaitingDepositPayment(supabase, {
+        bookingId,
+        amount: depositAmount,
+        currency,
+      });
+    }
     return { deposit_request_id: existingId, checkout_url: existingUrl };
   }
 
@@ -1199,6 +1441,14 @@ async function createDepositCheckoutForServiceFulfillment(params: {
       fulfillmentId,
       partnerId,
       dedupeSuffix: "checkout_ready",
+    });
+  }
+
+  if (category === "transport") {
+    await syncTransportBookingAwaitingDepositPayment(supabase, {
+      bookingId,
+      amount: depositAmount,
+      currency,
     });
   }
 
@@ -1635,6 +1885,15 @@ serve(async (req) => {
         })
         .eq("id", depositBookingId)
         .is("deposit_paid_at", null);
+
+      if (depCategory === "transport") {
+        await syncTransportBookingDepositPaid(supabase, {
+          bookingId: depositBookingId,
+          amount: Number((depRow as any).amount || 0) || 0,
+          currency: String((depRow as any).currency || "EUR").trim() || "EUR",
+          paidAt: nowIso,
+        });
+      }
 
       await enqueueDepositPaidEmails(supabase, {
         depositRequestId,
