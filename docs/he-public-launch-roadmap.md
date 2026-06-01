@@ -422,6 +422,38 @@ Recommended Stage 33:
 **Stage 33B: complete/curate dynamic content and record gating for PARTIAL-safe
 pages before enabling public HE on any additional page.**
 
+## Stage 33 Dynamic Content And Record Gates
+
+Stage33 status: **prepared for next expansion; not public yet**.
+
+Prepared runtime gates:
+
+- Trips listing and home trip preview can filter to HE-ready trip records.
+- Trip detail can block HE for an unready slug and normalize back to EN/LTR.
+- Car fleet can filter to HE-ready records with localized features.
+- POI/map source data can expose only HE-ready POI while retaining the full
+  `PLACES_DATA_ALL` source for PL/EN.
+
+Prepared manual SQL:
+
+- `supabase/manual/he_partial_pages_stage33.sql`
+- `supabase/manual/he_partial_pages_stage33_verify.sql`
+
+Stage33 launch decision:
+
+| Module | Status after code prep | Data dependency | Public action |
+| --- | --- | --- | --- |
+| Car | CANDIDATE READY | Stage33 top 5 cars committed + reviewed. | Do not expose until Stage34 apply/verify and smoke. |
+| Trips | RECORD-GATED READY | Stage33 top 3 trips committed + reviewed. | Expose only if listing is record-gated. |
+| Trip detail | RECORD-GATED READY | Loaded slug must pass trip record readiness. | Expose only translated records. |
+| Home | PARTIAL | Needs section-level decision for Blog/Shop previews. | Keep hidden until UI curation. |
+| POI/map | RECORD-GATED READY | Stage33 top 10 POI committed + reviewed. | Expose only limited HE-ready POI set. |
+
+Recommended Stage 34:
+
+**Stage 34A: manually apply Stage33 SQL, run verify, then smoke-test
+record-gated HE for car/trips/trip/POI before changing public readiness.**
+
 ## Recommended Launch Strategy
 
 Do not launch full-site HE in one step from the current state.

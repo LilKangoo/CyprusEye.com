@@ -99,6 +99,33 @@ Link behavior after Stage32:
 - Blog remains BLOCKED and Shop remains EXCLUDED.
 - SEO HE remains off.
 
+## Stage 33 Record-Gated Content Scope
+
+Stage33 prepares selected dynamic records for the next page-gated expansion. It
+does not enable these pages publicly yet.
+
+Prepared SQL:
+
+- `supabase/manual/he_partial_pages_stage33.sql`
+- `supabase/manual/he_partial_pages_stage33_verify.sql`
+
+| Module/page | Selected scope | HE requirement | Runtime gate |
+| --- | ---: | --- | --- |
+| Cars | 5 top car records | `features.he` required; brand/model fallback accepted; optional `description_i18n.he` if schema exists. | `filterRecordsReadyForLanguage(records, 'car', 'he')` |
+| Trips listing | 3 top trip records | `title.he` and `description.he` required; itinerary/highlights/FAQ required only if those fields exist. | `filterRecordsReadyForLanguage(records, 'trip', 'he')` |
+| Trip detail | Per loaded slug | Same trip readiness check as listing. | Direct HE for unready slug normalizes to EN. |
+| POI/map | 10 top POI | `name_i18n.he`, `description_i18n.he`, `badge_i18n.he` required. | `filterRecordsReadyForLanguage(records, 'poi', 'he')` |
+| Home | Aggregates child modules | Home may reuse gated cars/trips/POI and READY destinations only. | Keep PARTIAL until Blog/Shop previews are curated. |
+
+Stage33 decisions:
+
+- Car can become **CANDIDATE READY** after Stage33 SQL is committed and reviewed.
+- Trips and Trip detail can become **RECORD-GATED READY** after Stage33 SQL is
+  committed and reviewed.
+- POI/map can become **RECORD-GATED READY** only as a limited HE-ready POI view.
+- Home remains **PARTIAL** until section-level visibility is finalized.
+- Blog remains **BLOCKED**. Shop remains **EXCLUDED**.
+
 ## Requested Area Notes
 
 ### Trips

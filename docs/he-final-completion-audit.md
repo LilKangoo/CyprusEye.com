@@ -342,6 +342,29 @@ content gaps.
 Blog remains BLOCKED. Shop remains EXCLUDED. HE SEO, sitemap, hreflang,
 canonical, indexing and public `/he/` routes remain off.
 
+## Stage 33 Record-Gated PARTIAL Preparation
+
+Stage33 prepares the remaining PARTIAL-safe pages for a future expansion without
+changing their public rollout status.
+
+| Surface | Result | Remaining blocker before public page-gated HE |
+| --- | --- | --- |
+| Car | CANDIDATE READY in code | Apply/verify Stage33 top 5 car HE fields and complete human review. |
+| Trips listing | RECORD-GATED READY in code | Apply/verify Stage33 top 3 trips and expose only those records in HE. |
+| Trip detail | RECORD-GATED READY in code | Direct HE works only for a loaded trip that passes record readiness. |
+| Home | PARTIAL | Needs section curation: Blog preview hidden/fallback decision, Shop preview hidden/fallback decision, gated child modules only. |
+| POI/map | RECORD-GATED READY in code | Apply/verify Stage33 top 10 POI and keep the map limited to HE-ready records. |
+
+Prepared SQL:
+
+- `supabase/manual/he_partial_pages_stage33.sql` ends with `ROLLBACK` and is safe
+  to preview before manual review.
+- `supabase/manual/he_partial_pages_stage33_verify.sql` checks the selected trip,
+  car and POI records after a human-approved COMMIT.
+
+No Blog public read/RLS, Shop checkout, SEO, sitemap, hreflang, canonical,
+indexing or public `/he/` route changes are part of Stage33.
+
 ## Overall Status
 
 | Area | Estimated readiness | Notes |

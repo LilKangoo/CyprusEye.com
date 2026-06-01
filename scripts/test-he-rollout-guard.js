@@ -57,6 +57,8 @@ assert.match(i18nSource, /indexing:\s*false/);
 assert.match(i18nSource, /function buildLocalizedUrl/);
 assert.match(i18nSource, /function getHePageKeyForUrl/);
 assert.match(i18nSource, /function isLanguageAllowedForUrl/);
+assert.match(i18nSource, /function isRecordReadyForLanguage/);
+assert.match(i18nSource, /function filterRecordsReadyForLanguage/);
 assert.match(i18nSource, /allowPartialPagesPublic/);
 assert.match(i18nSource, /data-page-url/);
 

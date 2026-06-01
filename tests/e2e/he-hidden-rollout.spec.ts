@@ -173,6 +173,76 @@ test.describe('hidden Hebrew rollout guard', () => {
     expect(helperResult.blog).toBe('/blog?lang=en');
   });
 
+  test('gates dynamic records for HE by record readiness', async ({ page }) => {
+    await page.goto('/transport.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await waitForHtmlLanguage(page, 'he');
+
+    const result = await page.evaluate(() => {
+      const api = (window as any).CELanguage;
+      const tripReady = {
+        id: 'trip-ready',
+        title: { he: 'טיול מוכן', en: 'Ready trip' },
+        description: { he: 'תיאור מוכן', en: 'Ready description' },
+      };
+      const tripFallback = {
+        id: 'trip-fallback',
+        title: { en: 'Fallback trip' },
+        description: { en: 'Fallback description' },
+      };
+      const tripPlainFallback = {
+        id: 'trip-plain-fallback',
+        title: 'Plain source trip',
+        description: 'Plain source description',
+      };
+      const carReady = {
+        id: 'car-ready',
+        car_model: 'Mazda CX5',
+        features: { he: ['מיזוג אוויר', '5 מקומות'], en: ['AC', '5 seats'] },
+      };
+      const carFallback = {
+        id: 'car-fallback',
+        car_model: 'Nissan Note',
+        features: { en: ['AC', 'Automatic'] },
+      };
+      const poiReady = {
+        id: 'poi-ready',
+        name_i18n: { he: 'נקודה מוכנה', en: 'Ready POI' },
+        description_i18n: { he: 'תיאור', en: 'Description' },
+        badge_i18n: { he: 'תג', en: 'Badge' },
+      };
+      const poiFallback = {
+        id: 'poi-fallback',
+        name_i18n: { en: 'Fallback POI' },
+        description_i18n: { en: 'Description' },
+        badge_i18n: { en: 'Badge' },
+      };
+
+      return {
+        tripReady: api?.isRecordReadyForLanguage?.(tripReady, 'trip', 'he'),
+        tripFallback: api?.isRecordReadyForLanguage?.(tripFallback, 'trip', 'he'),
+        tripPlainFallback: api?.isRecordReadyForLanguage?.(tripPlainFallback, 'trip', 'he'),
+        carReady: api?.isRecordReadyForLanguage?.(carReady, 'car', 'he'),
+        carFallback: api?.isRecordReadyForLanguage?.(carFallback, 'car', 'he'),
+        poiReady: api?.isRecordReadyForLanguage?.(poiReady, 'poi', 'he'),
+        poiFallback: api?.isRecordReadyForLanguage?.(poiFallback, 'poi', 'he'),
+        filteredTrips: api?.filterRecordsReadyForLanguage?.([tripReady, tripFallback, tripPlainFallback], 'trip', 'he').map((item: any) => item.id),
+        filteredPoi: api?.filterRecordsReadyForLanguage?.([poiReady, poiFallback], 'poi', 'he').map((item: any) => item.id),
+        englishTrips: api?.filterRecordsReadyForLanguage?.([tripReady, tripFallback, tripPlainFallback], 'trip', 'en').map((item: any) => item.id),
+      };
+    });
+
+    expect(result.tripReady).toBe(true);
+    expect(result.tripFallback).toBe(false);
+    expect(result.tripPlainFallback).toBe(false);
+    expect(result.carReady).toBe(true);
+    expect(result.carFallback).toBe(false);
+    expect(result.poiReady).toBe(true);
+    expect(result.poiFallback).toBe(false);
+    expect(result.filteredTrips).toEqual(['trip-ready']);
+    expect(result.filteredPoi).toEqual(['poi-ready']);
+    expect(result.englishTrips).toEqual(['trip-ready', 'trip-fallback', 'trip-plain-fallback']);
+  });
+
   test('renders hidden HE preview on key desktop routes without exposing switcher option', async ({ page }) => {
     await page.setViewportSize({ width: 1366, height: 900 });
     await allowInternalHiddenPreview(page);

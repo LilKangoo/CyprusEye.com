@@ -11,6 +11,7 @@ try {
 
 // Globalna zmienna dla POI
 window.PLACES_DATA = [];
+window.PLACES_DATA_ALL = [];
 window.PLACES_DATA_LOADED = false;
 window.POI_CATEGORIES_DATA = [];
 
@@ -47,9 +48,9 @@ function writePoisCache(data) {
 try {
   const cached = readPoisCache();
   if (cached && cached.length > 0) {
-    window.PLACES_DATA = cached;
+    setPlacesDataForLanguage(cached);
     window.PLACES_DATA_LOADED = true;
-    ceLog(`✅ POI załadowane z cache: ${cached.length}`);
+    ceLog(`✅ POI załadowane z cache: ${window.PLACES_DATA.length}/${cached.length}`);
   }
 } catch (_) {}
 
@@ -147,6 +148,26 @@ function getTranslation(i18nObj, fallback = '') {
   
   // Fallback chain: current → en → pl → fallback
   return i18nObj[currentLang] || i18nObj.en || i18nObj.pl || fallback;
+}
+
+function getPoiRuntimeLanguage() {
+  return String(window.appI18n?.language || document.documentElement.lang || 'en')
+    .trim()
+    .toLowerCase()
+    .split('-')[0] || 'en';
+}
+
+function filterPoisForLanguage(pois, language = getPoiRuntimeLanguage()) {
+  if (window.CELanguage?.filterRecordsReadyForLanguage) {
+    return window.CELanguage.filterRecordsReadyForLanguage(pois, 'poi', language);
+  }
+  return Array.isArray(pois) ? pois : [];
+}
+
+function setPlacesDataForLanguage(pois) {
+  const allPois = Array.isArray(pois) ? pois : [];
+  window.PLACES_DATA_ALL = allPois;
+  window.PLACES_DATA = filterPoisForLanguage(allPois);
 }
 
 function normalizePoiCategorySlug(value) {
@@ -311,18 +332,18 @@ async function initializePOIs() {
     // Załaduj z Supabase
     const pois = await loadPOIsFromSupabase();
     
-    // Ustaw globalnie
-    window.PLACES_DATA = pois;
+    // Ustaw globalnie; HE receives only record-ready POI.
+    setPlacesDataForLanguage(pois);
     window.PLACES_DATA_LOADED = true;
     
     writePoisCache(pois);
-    ceLog(`✅ PLACES_DATA załadowane: ${pois.length} POI`);
+    ceLog(`✅ PLACES_DATA załadowane: ${window.PLACES_DATA.length}/${pois.length} POI`);
     
     // Emit event
     const event = new CustomEvent('poisDataRefreshed', {
       detail: {
-        count: pois.length,
-        source: pois.length > 0 && pois[0].source === 'supabase' ? 'supabase' : 'fallback'
+        count: window.PLACES_DATA.length,
+        source: window.PLACES_DATA.length > 0 && window.PLACES_DATA[0].source === 'supabase' ? 'supabase' : 'fallback'
       }
     });
     window.dispatchEvent(event);
@@ -345,16 +366,16 @@ async function refreshPOIs() {
   ceLog('🔄 Odświeżam POI...');
   
   const pois = await loadPOIsFromSupabase();
-  window.PLACES_DATA = pois;
+  setPlacesDataForLanguage(pois);
   writePoisCache(pois);
   
-  ceLog(`✅ POI odświeżone: ${pois.length} elementów`);
+  ceLog(`✅ POI odświeżone: ${window.PLACES_DATA.length}/${pois.length} elementów`);
   
   // Emit event
   const event = new CustomEvent('poisDataRefreshed', {
     detail: {
-      count: pois.length,
-      source: pois.length > 0 && pois[0].source === 'supabase' ? 'supabase' : 'fallback'
+      count: window.PLACES_DATA.length,
+      source: window.PLACES_DATA.length > 0 && window.PLACES_DATA[0].source === 'supabase' ? 'supabase' : 'fallback'
     }
   });
   window.dispatchEvent(event);
@@ -401,14 +422,18 @@ document.addEventListener('wakacjecypr:languagechange', (event) => {
   ceLog(`🌍 Język zmieniony na: ${newLanguage}`);
   
   // Re-transform POIs with new language
-  if (window.PLACES_DATA && window.PLACES_DATA.length > 0) {
+  const sourcePois = Array.isArray(window.PLACES_DATA_ALL) && window.PLACES_DATA_ALL.length > 0
+    ? window.PLACES_DATA_ALL
+    : window.PLACES_DATA;
+  if (sourcePois && sourcePois.length > 0) {
     const categoryMap = getPoiCategoryMapFromWindow();
-    window.PLACES_DATA = window.PLACES_DATA.map(poi => {
+    const transformed = sourcePois.map(poi => {
       if (poi.raw) {
         return transformPOI(poi.raw, categoryMap);
       }
       return poi;
     });
+    setPlacesDataForLanguage(transformed);
     
     // Emit refresh event
     window.dispatchEvent(new CustomEvent('poisDataRefreshed', {

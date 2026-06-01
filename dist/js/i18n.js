@@ -784,6 +784,135 @@
     return value !== null && typeof value !== 'undefined';
   }
 
+  function getRecordReadinessSource(record) {
+    return record && typeof record === 'object' && record.raw && typeof record.raw === 'object'
+      ? record.raw
+      : record;
+  }
+
+  function hasLocalizedText(value, language) {
+    if (typeof value === 'string') {
+      return !isHiddenLanguage(language) && value.trim().length > 0;
+    }
+    if (Array.isArray(value)) {
+      return value.some((entry) => hasLocalizedText(entry, language));
+    }
+    if (value && typeof value === 'object') {
+      const localized = value[language];
+      if (Array.isArray(localized)) {
+        return localized.some(hasSourceText);
+      }
+      if (typeof localized === 'string') {
+        return localized.trim().length > 0;
+      }
+      if (localized && typeof localized === 'object') {
+        return Object.values(localized).some(hasSourceText);
+      }
+    }
+    return false;
+  }
+
+  function hasSourceText(value) {
+    if (typeof value === 'string') {
+      return value.trim().length > 0;
+    }
+    if (Array.isArray(value)) {
+      return value.some(hasSourceText);
+    }
+    if (value && typeof value === 'object') {
+      return Object.values(value).some(hasSourceText);
+    }
+    return value !== null && typeof value !== 'undefined';
+  }
+
+  function hasRecordFieldLanguageValue(record, fieldNames, language) {
+    const source = getRecordReadinessSource(record);
+    if (!source || typeof source !== 'object') {
+      return false;
+    }
+    const names = Array.isArray(fieldNames) ? fieldNames : [fieldNames];
+    return names.some((fieldName) => {
+      const direct = source[fieldName];
+      if (hasLocalizedText(direct, language)) {
+        return true;
+      }
+      const localizedColumn = source[`${fieldName}_${language}`];
+      if (hasSourceText(localizedColumn)) {
+        return true;
+      }
+      return false;
+    });
+  }
+
+  function hasRecordFieldSourceValue(record, fieldNames) {
+    const source = getRecordReadinessSource(record);
+    if (!source || typeof source !== 'object') {
+      return false;
+    }
+    const names = Array.isArray(fieldNames) ? fieldNames : [fieldNames];
+    return names.some((fieldName) => {
+      if (hasSourceText(source[fieldName])) {
+        return true;
+      }
+      return ['en', 'pl', 'he'].some((code) => hasSourceText(source[`${fieldName}_${code}`]));
+    });
+  }
+
+  function optionalRecordFieldIsReady(record, fieldNames, language) {
+    return !hasRecordFieldSourceValue(record, fieldNames)
+      || hasRecordFieldLanguageValue(record, fieldNames, language);
+  }
+
+  function isRecordReadyForLanguage(record, recordType, language = appI18n.language) {
+    const normalized = normalizeSupportedLanguage(language, { includeHidden: true }) || DEFAULT_LANGUAGE;
+    if (!isHiddenLanguage(normalized)) {
+      return true;
+    }
+
+    const type = String(recordType || '').trim().toLowerCase();
+    if (!record || typeof record !== 'object') {
+      return false;
+    }
+
+    if (type === 'trip' || type === 'trips') {
+      return hasRecordFieldLanguageValue(record, ['title_i18n', 'title'], normalized)
+        && hasRecordFieldLanguageValue(record, ['description_i18n', 'description'], normalized)
+        && optionalRecordFieldIsReady(record, ['itinerary_i18n', 'itinerary'], normalized)
+        && optionalRecordFieldIsReady(record, ['highlights_i18n', 'highlights'], normalized)
+        && optionalRecordFieldIsReady(record, ['faq_i18n', 'faq', 'faqs'], normalized);
+    }
+
+    if (type === 'car' || type === 'cars') {
+      return hasRecordFieldLanguageValue(record, ['features'], normalized)
+        && optionalRecordFieldIsReady(record, ['description_i18n'], normalized)
+        && optionalRecordFieldIsReady(record, ['badges_i18n', 'tags_i18n'], normalized);
+    }
+
+    if (type === 'poi' || type === 'poimap') {
+      return hasRecordFieldLanguageValue(record, ['name_i18n', 'name'], normalized)
+        && hasRecordFieldLanguageValue(record, ['description_i18n', 'description'], normalized)
+        && hasRecordFieldLanguageValue(record, ['badge_i18n', 'badge'], normalized);
+    }
+
+    if (type === 'recommendation' || type === 'recommendations') {
+      return hasRecordFieldLanguageValue(record, ['title_i18n', 'title'], normalized)
+        && hasRecordFieldLanguageValue(record, ['description_i18n', 'description'], normalized);
+    }
+
+    return true;
+  }
+
+  function filterRecordsReadyForLanguage(records, recordType, language = appI18n.language) {
+    if (!Array.isArray(records)) {
+      return [];
+    }
+    const normalized = normalizeSupportedLanguage(language, { includeHidden: true }) || DEFAULT_LANGUAGE;
+    if (!isHiddenLanguage(normalized)) {
+      return records;
+    }
+    return records.filter((record) => isRecordReadyForLanguage(record, recordType, normalized));
+  }
+
   function pickLocalizedValue(value, language = appI18n.language, fallback = '') {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
       return isFilledLocalizedValue(value) ? value : fallback;
@@ -1677,6 +1806,7 @@
       document.documentElement.setAttribute('lang', target);
       document.documentElement.dataset.ceHiddenLanguagePreview = isHiddenLanguage(target) ? 'true' : 'false';
     }
+    updateInternalLinks(target);
 
     const apply = (translations = {}) => {
       const run = () => {
@@ -1736,6 +1866,8 @@
   appI18n.getTranslationString = getTranslationStringWithFallback;
   appI18n.pickLocalizedValue = pickLocalizedValue;
   appI18n.pickLocalizedField = pickLocalizedField;
+  appI18n.isRecordReadyForLanguage = isRecordReadyForLanguage;
+  appI18n.filterRecordsReadyForLanguage = filterRecordsReadyForLanguage;
   appI18n.isHiddenLanguagePreviewEnabled = isHiddenLanguagePreviewEnabled;
   appI18n.getPublicLanguageCodes = getPublicLanguageCodes;
   appI18n.isLanguageEnabledForSurface = isLanguageEnabledForSurface;
@@ -1749,12 +1881,16 @@
     getLanguageFallbackChain,
     pickLocalizedValue,
     pickLocalizedField,
+    isRecordReadyForLanguage,
+    filterRecordsReadyForLanguage,
     isPublicLanguage,
     isHiddenLanguagePreviewEnabled,
     getPublicLanguageCodes,
     isLanguageEnabledForSurface,
     getHePageReadiness,
     isLanguageAllowedOnCurrentPage,
+    isRecordReadyForLanguage,
+    filterRecordsReadyForLanguage,
     getHePageKeyForUrl,
     isLanguageAllowedForUrl,
     buildLocalizedUrl,

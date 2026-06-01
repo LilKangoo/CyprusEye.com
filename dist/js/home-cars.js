@@ -70,6 +70,13 @@ function pickHomeCarLocalizedField(source, fieldName, language = getLang(), fall
     }, language, fallback);
 }
 
+function filterHomeCarsForLanguage(cars, language = getLang()) {
+  if (window.CELanguage?.filterRecordsReadyForLanguage) {
+    return window.CELanguage.filterRecordsReadyForLanguage(cars, 'car', language);
+  }
+  return Array.isArray(cars) ? cars : [];
+}
+
 function getHomeCarName(car) {
   return window.getCarName
     ? window.getCarName(car)
@@ -613,7 +620,7 @@ function renderHomeCars() {
   const grid = document.getElementById('carsHomeGrid');
   if (!grid) return;
 
-  let list = homeCarsByLocation[homeCarsCurrentLocation] || [];
+  let list = filterHomeCarsForLanguage(homeCarsByLocation[homeCarsCurrentLocation] || []);
   const finderState = homeCarsFinderState || buildDefaultFinderState();
   const passengerCount = Math.max(1, Number(finderState.passengers || 2));
   const finderDuration = getFinderDurationState(finderState);

@@ -335,6 +335,39 @@ No PARTIAL page is promoted to public READY in Stage32.
 | `trip.html` | Candidate only for translated trip records | Detail page is safe only for the 3 translated trip records; itinerary/highlights/FAQ need per-record review. | Needs slug/record gating before public switcher exposure. |
 | POI/map flow | Keep PARTIAL | Only top 10 of 139 POI have HE; global map would show heavy EN fallback. | Can become candidate if the HE map view is limited to translated/top POI. |
 
+## Stage 33 Record-Level Gating
+
+Status: **prepared in code and SQL draft; no new public pages enabled**.
+
+Runtime changes:
+
+- `js/i18n.js` exposes `isRecordReadyForLanguage(record, type, language)` and
+  `filterRecordsReadyForLanguage(records, type, language)`.
+- `trips.html` and `js/home-trips.js` filter HE trip lists to records with
+  reviewed HE title/description and optional HE itinerary/highlights/FAQ when
+  those fields exist.
+- `trip.html` blocks direct HE rendering for an unready trip record by
+  normalizing the URL/runtime language back to EN.
+- `js/car-rental-paphos.js` and `js/home-cars.js` gate HE car fleet rendering to
+  records with localized HE features; model names may remain brand/model text.
+- `js/poi-loader.js` keeps `PLACES_DATA_ALL` as the full source and exposes
+  `PLACES_DATA` filtered to HE-ready POI when HE is active.
+
+Prepared manual SQL:
+
+- Draft/top-up: `supabase/manual/he_partial_pages_stage33.sql`
+- Verify after manual COMMIT: `supabase/manual/he_partial_pages_stage33_verify.sql`
+
+Candidate scope after Stage33:
+
+| Page/module | Stage33 status | Reason |
+| --- | --- | --- |
+| Car | CANDIDATE READY after Stage33 SQL + human review | Top 5 car records can be gated; booking/static labels already use HE fallback helpers. |
+| Trips listing | RECORD-GATED READY after Stage33 SQL + human review | Listing can show only the 3 HE-ready trips. |
+| Trip detail | RECORD-GATED READY after Stage33 SQL + human review | Direct HE is allowed only when the loaded trip passes record readiness. |
+| Home | PARTIAL | Home can reuse gated cars/trips/POI, but blog/shop preview decisions still need a separate UI pass. |
+| POI/map | RECORD-GATED READY after Stage33 SQL + human review | HE view can be limited to top 10 HE-ready POI; full map remains partial. |
+
 ## Blog Blocker
 
 Blog remains blocked because public/anon reads for HE blog translations are not

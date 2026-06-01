@@ -70,6 +70,13 @@ function pickHomeTripLocalizedValue(value, language = getHomeTripLang(), fallbac
   return Object.values(value).find(Boolean) || fallback;
 }
 
+function filterHomeTripsForLanguage(trips, language = getHomeTripLang()) {
+  if (window.CELanguage?.filterRecordsReadyForLanguage) {
+    return window.CELanguage.filterRecordsReadyForLanguage(trips, 'trip', language);
+  }
+  return Array.isArray(trips) ? trips : [];
+}
+
 function getHomeTripSaveLabel() {
   return homeTripText('Zapisz', 'Save');
 }
@@ -449,8 +456,8 @@ function renderHomeTrips() {
     }
   }
 
-  // Show all trips on home page (carousel arrows handle overflow)
-  const displayTrips = filteredTrips;
+  // Show all trips on home page for PL/EN; gate HE to reviewed trip records only.
+  const displayTrips = filterHomeTripsForLanguage(filteredTrips);
   homeTripsDisplay = displayTrips;
   
   ceLog('Current city:', homeTripsCurrentCity);

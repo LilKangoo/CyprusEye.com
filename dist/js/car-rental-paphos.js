@@ -25,6 +25,13 @@ function getCarName(car) {
   return window.getCarName ? window.getCarName(car) : (car?.car_model || car?.car_type || 'Car');
 }
 
+function filterFleetForLanguage(cars, language = getI18nLanguage()) {
+  if (window.CELanguage?.filterRecordsReadyForLanguage) {
+    return window.CELanguage.filterRecordsReadyForLanguage(cars, 'car', language);
+  }
+  return Array.isArray(cars) ? cars : [];
+}
+
 function getI18nTranslations() {
   const lang = getI18nLanguage();
   const pack = window.appI18n?.translations?.[lang];
@@ -100,19 +107,19 @@ function getRequestedOfferId() {
 }
 
 export function getCurrentFleetRows() {
-  return Array.isArray(paphosFleet) ? [...paphosFleet] : [];
+  return filterFleetForLanguage(paphosFleet);
 }
 
 export function findCurrentFleetCarByOfferId(offerId) {
   const requested = String(offerId || '').trim();
   if (!requested) return null;
-  return paphosFleet.find((car) => String(car?.id || '').trim() === requested) || null;
+  return filterFleetForLanguage(paphosFleet).find((car) => String(car?.id || '').trim() === requested) || null;
 }
 
 export function findCurrentFleetCarByModel(carModel) {
   const requested = String(carModel || '').trim();
   if (!requested) return null;
-  return paphosFleet.find((car) => getCarName(car) === requested) || null;
+  return filterFleetForLanguage(paphosFleet).find((car) => getCarName(car) === requested) || null;
 }
 
 function getCurrentYoungDriverSelected() {
@@ -260,7 +267,7 @@ function getRequiredPassengers() {
 function getFleetFilteredByPassengers() {
   const requiredPassengers = getRequiredPassengers();
   const requireYoungDriver = getCurrentYoungDriverSelected();
-  const filteredFleet = paphosFleet.filter((car) => {
+  const filteredFleet = filterFleetForLanguage(paphosFleet).filter((car) => {
     const capacity = Number(car?.max_passengers || 0);
     const capacityOk = !Number.isFinite(capacity) || capacity <= 0 || capacity >= requiredPassengers;
     if (!capacityOk) return false;
@@ -316,7 +323,7 @@ async function loadPaphosFleet() {
 
     // Build pricing object for calculator (tiered for paphos, per-day for larnaca)
     pricing = {};
-    paphosFleet.forEach(car => {
+    filterFleetForLanguage(paphosFleet).forEach(car => {
       const carModelName = window.getCarName ? window.getCarName(car) : car.car_model;
       if (pageLocation === 'larnaca') {
         const perDay = car.price_per_day || car.price_10plus_days || car.price_7_10days || car.price_4_6days || 35;
@@ -345,7 +352,7 @@ async function loadPaphosFleet() {
       window.dispatchEvent(new CustomEvent('ce:car-fleet-ready', {
         detail: {
           location: pageLocation,
-          count: Array.isArray(paphosFleet) ? paphosFleet.length : 0,
+          count: filterFleetForLanguage(paphosFleet).length,
         },
       }));
     } catch (_) {
@@ -597,15 +604,16 @@ function updateStats() {
   }
 
   const carsCount = document.querySelector('.standalone-hero-stats li:first-child strong');
+  const visibleFleet = filterFleetForLanguage(paphosFleet);
   if (carsCount) {
-    carsCount.textContent = paphosFleet.length;
+    carsCount.textContent = visibleFleet.length;
   }
 
   // Find lowest price
-  if (paphosFleet.length > 0) {
+  if (visibleFleet.length > 0) {
     const loc = getPageLocation();
     const lowestPrice = Math.min(
-      ...paphosFleet.map(c => (loc === 'larnaca' ? (c.price_per_day || 35) : (c.price_10plus_days || c.price_per_day || 30)))
+      ...visibleFleet.map(c => (loc === 'larnaca' ? (c.price_per_day || 35) : (c.price_10plus_days || c.price_per_day || 30)))
     );
     const priceEl = document.querySelector('.standalone-hero-stats li:nth-child(2) strong');
     if (priceEl) {

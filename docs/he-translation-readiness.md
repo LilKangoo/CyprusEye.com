@@ -1,6 +1,6 @@
 # HE Translation Readiness
 
-Generated: 2026-05-31T23:50:26.365Z
+Generated: 2026-06-01T12:58:47.883Z
 Source audit: `translations/audit-he-vs-en.json`
 
 Hebrew is still internal/hidden. This report does not activate HE in the public language switcher, selectors, sitemap, hreflang, canonical metadata, public SEO, indexing, or `/he/` routes.

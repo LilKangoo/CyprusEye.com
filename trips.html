@@ -1350,9 +1350,23 @@
       applied: null,
     };
 
+    function getTripsRuntimeLanguage() {
+      return String(window.appI18n?.language || document.documentElement.lang || 'en')
+        .trim()
+        .toLowerCase()
+        .split('-')[0] || 'en';
+    }
+
+    function filterTripsForLanguage(trips, language = getTripsRuntimeLanguage()) {
+      if (window.CELanguage?.filterRecordsReadyForLanguage) {
+        return window.CELanguage.filterRecordsReadyForLanguage(trips, 'trip', language);
+      }
+      return Array.isArray(trips) ? trips : [];
+    }
+
     function getUniqueCities() {
       const cities = new Set();
-      allTrips.forEach(trip => {
+      filterTripsForLanguage(allTrips).forEach(trip => {
         const city = trip.start_city || 'Other';
         if (city !== 'All Cities') { // Exclude "All Cities" from tabs
           cities.add(city);
@@ -1539,13 +1553,14 @@
     }
 
     function getFilteredTrips() {
+      const sourceTrips = filterTripsForLanguage(allTrips);
       if (currentCity === 'all') {
-        return allTrips;
+        return sourceTrips;
       }
       
       // Filter trips by selected city
       // Include trips marked as "All Cities" + trips from selected city
-      return allTrips.filter(trip => {
+      return sourceTrips.filter(trip => {
         return trip.start_city === currentCity || trip.start_city === 'All Cities';
       });
     }

@@ -468,10 +468,10 @@
     function getTripPageLanguage() {
       const queryLang = String(new URLSearchParams(window.location.search).get('lang') || '').trim().toLowerCase();
       const lang = String(
-        queryLang
+        window.appI18n?.language
         || window.getCurrentLanguage?.()
-        || window.appI18n?.language
         || document.documentElement.lang
+        || queryLang
         || 'pl'
       ).trim().toLowerCase();
       return lang || 'pl';
@@ -484,12 +484,32 @@
     function buildTripsListingUrl() {
       const url = new URL('/trips.html', window.location.origin);
       const language = getTripPageLanguage();
-      if (language === 'pl') {
-        url.searchParams.set('lang', 'pl');
-      } else {
-        url.searchParams.set('lang', 'en');
+      if (window.CELanguage?.buildLocalizedUrl) {
+        return window.CELanguage.buildLocalizedUrl(url.toString(), language, { absolute: true });
       }
+      url.searchParams.set('lang', language === 'pl' ? 'pl' : 'en');
       return url.toString();
+    }
+
+    function isTripRecordReadyForHe(entry) {
+      if (window.CELanguage?.isRecordReadyForLanguage) {
+        return window.CELanguage.isRecordReadyForLanguage(entry, 'trip', 'he');
+      }
+      return Boolean(entry?.title?.he && entry?.description?.he);
+    }
+
+    function blockHeForUnreadyTripRecord(entry) {
+      if (getTripPageLanguage() !== 'he' || isTripRecordReadyForHe(entry)) {
+        return false;
+      }
+      const url = new URL(window.location.href);
+      url.searchParams.set('lang', 'en');
+      url.searchParams.delete('ce_he_preview');
+      window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+      if (window.appI18n?.setLanguage) {
+        window.appI18n.setLanguage('en', { persist: false, updateUrl: false });
+      }
+      return true;
     }
 
     function t(key, fallback, values = {}) {
@@ -1459,6 +1479,7 @@
         if (error) throw error;
         if (!data) throw new Error('Trip not found');
         trip = data;
+        blockHeForUnreadyTripRecord(trip);
       } catch (error) {
         console.error('Failed to load trip:', error);
         tripLoadState = 'not-found';
