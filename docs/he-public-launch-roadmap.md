@@ -348,6 +348,80 @@ Stage30 rollback:
 5. Purge Cloudflare cache if stale config is observed.
 6. Re-smoke READY and blocked/excluded pages.
 
+## Stage 31 Monitoring And Expansion Decision
+
+Stage31 status: **monitoring OK, expansion should wait for PARTIAL-safe content
+completion and link cleanup**.
+
+Production monitoring confirmed:
+
+- READY pages remain stable in HE/RTL: Transport, Hotels, Hotel detail,
+  Recommendations.
+- HE -> EN -> PL switching works on all READY pages.
+- Cross-navigation from READY HE pages to Shop, Blog, Plan, Car and Home safely
+  returns to LTR and hides HE from the switcher.
+- Shop, Blog, Plan, Partners and Admin remain blocked/excluded for public HE.
+- `/he/` routes remain redirected/fallbacked to `/?lang=en`.
+- SEO HE remains off; sitemap/hreflang/canonical/OpenGraph do not expose HE.
+- Referral capture and recommendations click/view tracking are not broken by
+  page-gated HE.
+
+Expansion decision:
+
+1. Keep current page-gated public scope unchanged.
+2. Do not enable `allowPartialPagesPublic` yet.
+3. Prepare the next expansion around PARTIAL-safe pages only after content and
+   link behavior are tightened:
+   - Home
+   - Cars
+   - Trips
+   - Trip detail
+   - POI/map
+4. Keep Blog as a separate stage because public HE blog content and read policy
+   are still not ready.
+5. Keep Shop excluded because checkout/payment copy and dynamic Shop content are
+   not ready.
+
+Recommended Stage 32:
+
+**Stage 32C / 32A hybrid: PARTIAL-safe dynamic content completion plus
+navigation/link cleanup for Home, Cars, Trips, Trip detail and POI/map.**
+
+Exit criteria before making any PARTIAL page public:
+
+- Visible dynamic records in scope have HE or explicitly accepted EN fallback.
+- HE links to blocked/excluded pages are stripped or rewritten to safe EN/LTR
+  destinations.
+- Page-gated Playwright tests cover each newly approved page.
+- SEO HE remains off until the later SEO phase.
+
+## Stage 32 PARTIAL Expansion Preparation
+
+Stage32 status: **link cleanup implemented, PARTIAL pages not yet public**.
+
+What changed:
+
+- `buildLocalizedUrl()` is now the central URL builder for language-aware links.
+- READY HE pages no longer need to carry `?lang=he` into BLOCKED, EXCLUDED or
+  public-disabled PARTIAL destinations.
+- Cart/Auth URL builders use the same central helper so Shop/Auth stay EN/LTR
+  while excluded or blocked.
+
+PARTIAL page decision after Stage32:
+
+| Page/module | Decision | Reason |
+| --- | --- | --- |
+| Home | Keep PARTIAL | It aggregates incomplete modules and links into blocked/excluded flows. |
+| Cars | Candidate after content review | Car names can remain as models, but user-facing features/options/descriptions need review. |
+| Trips | Keep PARTIAL | Only 3 of 12 trips are HE-ready; listing needs more HE or record gating. |
+| Trip detail | Candidate for translated records only | Needs per-record gating for the 3 translated trips before public exposure. |
+| POI/map | Keep PARTIAL | Top 10 POI are ready, but the full map still has heavy EN fallback. |
+
+Recommended Stage 33:
+
+**Stage 33B: complete/curate dynamic content and record gating for PARTIAL-safe
+pages before enabling public HE on any additional page.**
+
 ## Recommended Launch Strategy
 
 Do not launch full-site HE in one step from the current state.

@@ -63,7 +63,15 @@ function buildShopUrlWithOpenCart() {
       lang = '';
     }
   }
-  if (lang) url.searchParams.set('lang', lang);
+  if (lang && window.CELanguage && typeof window.CELanguage.buildLocalizedUrl === 'function') {
+    const localized = window.CELanguage.buildLocalizedUrl(url.toString(), lang, { absolute: true });
+    if (localized) {
+      const localizedUrl = new URL(localized, window.location.origin);
+      url.search = localizedUrl.search;
+    }
+  } else if (lang && String(lang).trim().toLowerCase() !== 'he') {
+    url.searchParams.set('lang', lang);
+  }
 
   const seoPage = (document.body && document.body.dataset) ? document.body.dataset.seoPage : null;
   if (!seoPage || String(seoPage).toLowerCase() !== 'plan') {

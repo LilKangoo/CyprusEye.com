@@ -79,6 +79,26 @@ Stage 29 page-gated rollout status:
   - Partners
   - Admin
 
+## Stage 32 PARTIAL Page Gap Table
+
+Stage32 prepares, but does not activate, the next page-gated expansion.
+
+| Module/page | Missing HE fields/content | Safe EN fallback fields | Human review needed | Schema gap | Ready after small fix |
+| --- | --- | --- | --- | --- | --- |
+| Home | Mixed child modules: Cars, Trips, POI/map and links to blocked/excluded pages. | Static UI and READY module links can fallback safely. | Yes, for visible module selection and CTA wording. | No. | No, needs module curation. |
+| Cars | Car feature/options/descriptions and booking copy review across 27 partial records. | Brand/model names can remain unchanged. | Yes. | No known schema gap. | Yes, if top cars are curated. |
+| Trips listing | 9 of 12 trip records still fallback to EN. | Prices/location labels and static booking UI fallback safely. | Yes, for top trip copy and listing visibility. | No known schema gap. | No, unless listing is record-gated. |
+| Trip detail | Only selected/top trip details are HE-ready. | Non-translated itinerary/highlights/FAQ can fallback technically, but should not be broad public HE. | Yes. | No known schema gap. | Yes for translated records only. |
+| POI/map | 129 of 139 POI fallback to EN; map/category surfaces need gating. | Top 10 POI and ready recommendations are safe. | Yes. | No known schema gap. | No for global map; yes for a limited top-POI view. |
+
+Link behavior after Stage32:
+
+- READY -> READY links may keep `lang=he`.
+- READY -> PARTIAL public-disabled, BLOCKED or EXCLUDED links normalize to
+  `lang=en`.
+- Blog remains BLOCKED and Shop remains EXCLUDED.
+- SEO HE remains off.
+
 ## Requested Area Notes
 
 ### Trips

@@ -230,7 +230,13 @@
   function buildAuthUrl(tab = 'login') {
     const url = new URL('/auth/', window.location.origin);
     const lang = getLanguage();
-    if (lang) {
+    if (lang && window.CELanguage && typeof window.CELanguage.buildLocalizedUrl === 'function') {
+      const localized = window.CELanguage.buildLocalizedUrl(url.toString(), lang, { absolute: true });
+      if (localized) {
+        const localizedUrl = new URL(localized, window.location.origin);
+        url.search = localizedUrl.search;
+      }
+    } else if (lang && lang !== 'he') {
       url.searchParams.set('lang', lang);
     }
     if (tab) {

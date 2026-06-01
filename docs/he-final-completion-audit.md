@@ -293,6 +293,55 @@ Monitoring notes:
 - `admin/?lang=he` redirects to the admin login surface and does not load the
   public rollout snapshot, which is acceptable for public HE exclusion.
 
+## Stage 31 Live Stability Result
+
+Stage31 live status: **current READY scope remains stable; no expansion yet**.
+
+Verified live:
+
+| Check | Result |
+| --- | --- |
+| READY pages | Transport, Hotels, Hotel detail and Recommendations render HE/RTL with HE in the switcher. |
+| Dynamic content | HE content is visible on READY pages; no `undefined`/`null` text found in monitored pages. |
+| Layout | No horizontal overflow found at desktop monitoring width. |
+| Console/request health | No critical app console errors, broken Supabase calls or same-origin 4xx/5xx failures found in monitored READY pages. |
+| Language switching | HE -> EN -> PL works on all READY pages. |
+| Cross-navigation | READY HE -> Shop/Blog/Plan/Car/Home safely returns to LTR and hides HE. |
+| Blocked/excluded pages | Shop, Blog, Blog detail, Plan, Partners and Admin remain unavailable for public HE. |
+| SEO safety | Sitemap, hreflang, canonical, OpenGraph and indexing remain HE-off. |
+| Tracking sanity | Referral `?ref=` capture works in HE Transport and persists to HE Recommendations; GA/GTM/Cloudflare telemetry requests are present; Recommendations tracking functions are available. |
+
+Known issue to address before expansion:
+
+- Stage32 has tightened READY-page navigation: `buildLocalizedUrl()` now checks
+  destination readiness and rewrites HE links to public-disabled PARTIAL,
+  BLOCKED or EXCLUDED pages back to `lang=en`.
+
+Expansion verdict:
+
+- Option A is directionally right, but not immediately: expand to PARTIAL-safe
+  pages only after minimal dynamic HE content and link cleanup.
+- Option B should remain a later separate Blog stage.
+- Option C should remain separate and Shop should stay excluded from HE until
+  checkout/payment has full content and QA.
+
+## Stage 32 PARTIAL Page Audit
+
+Stage32 does not activate additional public HE pages. It prepares the next
+expansion by fixing language-aware link generation and documenting the remaining
+content gaps.
+
+| Page/module | Stage32 status | Main blocker | Recommended next action |
+| --- | --- | --- | --- |
+| Home | PARTIAL | Home mixes ready modules with Cars, Trips, POI/map and links to blocked/excluded pages. | Curate visible modules and keep HE hidden until incomplete sections are gated. |
+| Cars | Candidate after review | All 27 car records are partial; feature/options/descriptions need HE review. | Review top cars and dynamic labels before page-gated exposure. |
+| Trips | PARTIAL | 3 of 12 trips are complete; the listing would show heavy EN fallback. | Either translate more trips or gate the listing to translated records. |
+| Trip detail | Candidate per record | Detail is safe only for translated trip records. | Add record-level readiness before exposing HE detail pages. |
+| POI/map | PARTIAL | 10 of 139 POI have HE. | Limit HE map surfaces to reviewed/top POI or complete more POI content. |
+
+Blog remains BLOCKED. Shop remains EXCLUDED. HE SEO, sitemap, hreflang,
+canonical, indexing and public `/he/` routes remain off.
+
 ## Overall Status
 
 | Area | Estimated readiness | Notes |

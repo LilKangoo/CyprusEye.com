@@ -347,6 +347,36 @@
     return 'unknown';
   }
 
+  function getHePageKeyForUrl(targetUrl) {
+    let url = null;
+    try {
+      url = targetUrl instanceof URL
+        ? targetUrl
+        : new URL(String(targetUrl || ''), window.location.origin);
+    } catch (_error) {
+      return 'unknown';
+    }
+    if (!url || url.origin !== window.location.origin) {
+      return '';
+    }
+
+    const pathname = normalizePathname(url.pathname || '/');
+    if (pathname === '/blog' || pathname === '/blog/') {
+      return 'blog';
+    }
+    if (pathname.startsWith('/blog/')) {
+      return 'blogPost';
+    }
+
+    for (const [key, entry] of Object.entries(HE_PAGE_READINESS_REGISTRY)) {
+      if (Array.isArray(entry.paths) && entry.paths.some((pattern) => pagePathMatches(pattern, pathname))) {
+        return key;
+      }
+    }
+
+    return 'unknown';
+  }
+
   function getRolloutPageReadinessOverride(rollout, pageKey) {
     if (!rollout || !pageKey) {
       return null;
@@ -460,6 +490,78 @@
       return Boolean(rollout?.allowPartialPagesPublic === true);
     }
     return false;
+  }
+
+  function isLanguageAllowedForUrl(language, targetUrl, surface = 'routes', options = {}) {
+    const pageKey = options.pageKey || getHePageKeyForUrl(targetUrl);
+    if (!pageKey) {
+      return true;
+    }
+    return isLanguageAllowedOnCurrentPage(language, surface, {
+      ...options,
+      pageKey,
+    });
+  }
+
+  function getUrlForLanguageSurface(targetUrl, language, options = {}) {
+    const normalized = normalizeSupportedLanguage(language, { includeHidden: true }) || DEFAULT_LANGUAGE;
+    if (!isHiddenLanguage(normalized)) {
+      return normalized;
+    }
+
+    const previewRequested = options.preview === true || isHiddenLanguagePreviewEnabled();
+    const surface = previewRequested ? 'preview' : (options.surface || 'routes');
+    return isLanguageAllowedForUrl(normalized, targetUrl, surface, options)
+      ? normalized
+      : DEFAULT_LANGUAGE;
+  }
+
+  function shouldIgnoreLocalizedUrl(rawUrl) {
+    const href = String(rawUrl || '').trim();
+    return (
+      !href
+      || href.startsWith('#')
+      || /^(mailto|tel|sms|javascript|data|blob):/i.test(href)
+    );
+  }
+
+  function buildLocalizedUrl(targetUrl, language = appI18n.language, options = {}) {
+    const rawUrl = String(targetUrl || '').trim();
+    if (shouldIgnoreLocalizedUrl(rawUrl)) {
+      return rawUrl;
+    }
+
+    let url = null;
+    try {
+      url = new URL(rawUrl, window.location.origin);
+    } catch (_error) {
+      return rawUrl;
+    }
+    if (url.origin !== window.location.origin) {
+      return rawUrl;
+    }
+
+    const targetLanguage = getUrlForLanguageSurface(url, language, options);
+    if (targetLanguage) {
+      url.searchParams.set('lang', targetLanguage);
+    } else {
+      url.searchParams.delete('lang');
+    }
+
+    const carriesHiddenPreview = (
+      isHiddenLanguage(targetLanguage)
+      && isHiddenLanguagePreviewEnabled()
+      && isLanguageAllowedForUrl(targetLanguage, url, 'preview', options)
+    );
+    if (carriesHiddenPreview) {
+      url.searchParams.set(HIDDEN_PREVIEW_PARAM, '1');
+    } else {
+      url.searchParams.delete(HIDDEN_PREVIEW_PARAM);
+    }
+
+    return options.absolute === true
+      ? url.toString()
+      : `${url.pathname}${url.search}${url.hash}`;
   }
 
   function isBetaUserAllowed(language, options = {}) {
@@ -1166,30 +1268,23 @@
         detail: { language },
       })
     );
+
+    window.setTimeout(() => updateInternalLinks(language), 0);
+    window.setTimeout(() => updateInternalLinks(language), 250);
   }
 
   function updateInternalLinks(language) {
-    const shouldCarryHiddenPreview = isHiddenLanguage(language) && isHiddenLanguagePreviewEnabled();
     const anchors = document.querySelectorAll('a[href]');
     anchors.forEach((anchor) => {
       const href = anchor.getAttribute('href');
-      if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:')) {
+      if (shouldIgnoreLocalizedUrl(href)) {
         return;
       }
       try {
-        const url = new URL(href, window.location.origin);
-        if (url.origin !== window.location.origin) {
-          return;
+        const localized = buildLocalizedUrl(href, language);
+        if (localized && localized !== href) {
+          anchor.setAttribute('href', localized);
         }
-        url.searchParams.set('lang', language);
-        if (shouldCarryHiddenPreview) {
-          url.searchParams.set(HIDDEN_PREVIEW_PARAM, '1');
-        } else {
-          url.searchParams.delete(HIDDEN_PREVIEW_PARAM);
-        }
-        // Remove leading slash to use relative paths
-        const relativePath = url.pathname;
-        anchor.setAttribute('href', `${relativePath}${url.search}${url.hash}`);
       } catch (error) {
         console.warn('Unable to normalise link for i18n.', href, error);
       }
@@ -1202,17 +1297,10 @@
         return;
       }
       try {
-        const url = new URL(target, window.location.origin);
-        if (url.origin !== window.location.origin) {
-          return;
+        const localized = buildLocalizedUrl(target, language);
+        if (localized && localized !== target) {
+          element.setAttribute('data-page-url', localized);
         }
-        url.searchParams.set('lang', language);
-        if (shouldCarryHiddenPreview) {
-          url.searchParams.set(HIDDEN_PREVIEW_PARAM, '1');
-        } else {
-          url.searchParams.delete(HIDDEN_PREVIEW_PARAM);
-        }
-        element.setAttribute('data-page-url', `${url.pathname}${url.search}${url.hash}`);
       } catch (error) {
         console.warn('Unable to normalise navigation target for i18n.', target, error);
       }
@@ -1653,6 +1741,9 @@
   appI18n.isLanguageEnabledForSurface = isLanguageEnabledForSurface;
   appI18n.getHePageReadiness = getHePageReadiness;
   appI18n.isLanguageAllowedOnCurrentPage = isLanguageAllowedOnCurrentPage;
+  appI18n.getHePageKeyForUrl = getHePageKeyForUrl;
+  appI18n.isLanguageAllowedForUrl = isLanguageAllowedForUrl;
+  appI18n.buildLocalizedUrl = buildLocalizedUrl;
 
   window.CELanguage = Object.assign(window.CELanguage || {}, {
     getLanguageFallbackChain,
@@ -1664,6 +1755,9 @@
     isLanguageEnabledForSurface,
     getHePageReadiness,
     isLanguageAllowedOnCurrentPage,
+    getHePageKeyForUrl,
+    isLanguageAllowedForUrl,
+    buildLocalizedUrl,
   });
 
   window.CELanguageRollout = Object.assign(window.CELanguageRollout || {}, {
@@ -1674,6 +1768,9 @@
     isLanguageEnabledForSurface,
     getHePageReadiness,
     isLanguageAllowedOnCurrentPage,
+    getHePageKeyForUrl,
+    isLanguageAllowedForUrl,
+    buildLocalizedUrl,
     isPublicLanguage,
     isHiddenLanguage,
     isHiddenLanguagePreviewEnabled,

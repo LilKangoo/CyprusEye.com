@@ -54,6 +54,11 @@ assert.match(i18nSource, /seo:\s*false/);
 assert.match(i18nSource, /sitemap:\s*false/);
 assert.match(i18nSource, /publicApi:\s*false/);
 assert.match(i18nSource, /indexing:\s*false/);
+assert.match(i18nSource, /function buildLocalizedUrl/);
+assert.match(i18nSource, /function getHePageKeyForUrl/);
+assert.match(i18nSource, /function isLanguageAllowedForUrl/);
+assert.match(i18nSource, /allowPartialPagesPublic/);
+assert.match(i18nSource, /data-page-url/);
 
 const betaConfigSource = fs.readFileSync('js/he-beta-rollout-config.js', 'utf8');
 assert.match(betaConfigSource, /mode:\s*'partial_public'/);

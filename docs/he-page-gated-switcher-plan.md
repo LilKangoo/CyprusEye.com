@@ -239,6 +239,102 @@ Known monitoring notes:
 - `admin/?lang=he` redirects to `admin/login.html`, which does not load the
   public rollout snapshot. This is expected and confirms no public HE exposure.
 
+## Stage 31 Live Monitoring And Expansion Decision
+
+Live monitoring status: **stable for the current READY page scope**.
+
+READY page checks:
+
+| Page | Result |
+| --- | --- |
+| `transport.html?lang=he` | HE/RTL active, HE visible in switcher, dynamic HE visible, no overflow, no critical console/request errors. |
+| `hotels.html?lang=he` | HE/RTL active, HE visible in switcher, dynamic HE visible, no overflow, no critical console/request errors. |
+| `hotel.html?slug=rgb-cabins-larnaka-centrum&lang=he` | HE/RTL active, HE visible in switcher, dynamic HE visible, no overflow, no critical console/request errors. |
+| `recommendations.html?lang=he` | HE/RTL active, HE visible in switcher, dynamic HE visible, no overflow, no critical console/request errors. |
+
+Language switching on READY pages:
+
+- HE -> EN -> PL works on Transport, Hotels, Hotel detail and Recommendations.
+- HE uses `dir="rtl"`; EN and PL use `dir="ltr"`.
+
+Cross-navigation checks:
+
+| Flow | Result |
+| --- | --- |
+| Transport HE -> Shop | Normalizes to EN/LTR; HE switcher hidden; Shop remains excluded. |
+| Hotels HE -> Blog | Normalizes to EN/LTR; HE switcher hidden; Blog remains blocked. |
+| Recommendations HE -> Plan | Normalizes to EN/LTR; HE switcher hidden; Plan remains blocked. |
+| Hotel HE -> Car | Normalizes to EN/LTR; HE switcher hidden; Car remains partial/internal-only. |
+| Recommendations HE -> Home | Normalizes to EN/LTR; HE switcher hidden; Home remains partial/internal-only. |
+
+Blocked/excluded regression checks:
+
+- `shop.html?lang=he`, `blog.html?lang=he`, blog detail, `plan.html?lang=he`,
+  `partners/?lang=he` and `admin/?lang=he` do not expose public HE.
+- Admin redirects to the login surface and does not load the public rollout
+  snapshot, which is acceptable for public exclusion.
+
+SEO and tracking sanity:
+
+- Sitemap, hreflang, canonical, OpenGraph and indexing remain free of HE public
+  launch changes.
+- `/he/` and `/he/transport.html` still fall back to `/?lang=en`.
+- GA/GTM/Cloudflare telemetry requests were observed on READY pages.
+- Referral capture from `?ref=` works on HE Transport and persists into HE
+  Recommendations.
+- Recommendations tracking functions (`trackView`, `trackClick`) are available
+  in HE page-gated mode.
+
+## Stage 32 Link Builder Cleanup
+
+Status: **implemented in code, not used to expand public HE scope**.
+
+The READY-page link issue from Stage31 is addressed centrally:
+
+- `js/i18n.js` exposes `buildLocalizedUrl(targetUrl, currentLang)`.
+- The helper resolves the destination page through the HE readiness registry
+  before deciding whether `lang=he` may be carried.
+- READY destinations may keep `lang=he`.
+- PARTIAL destinations may keep `lang=he` only if fallback is explicitly allowed
+  and the rollout mode permits partial public pages. Current production config
+  keeps `allowPartialPagesPublic:false`, so public links normalize to `lang=en`.
+- BLOCKED and EXCLUDED destinations normalize to `lang=en`.
+- `updateInternalLinks()` rewrites same-origin anchors and `data-page-url`
+  targets after translation and again after language-change handlers render late
+  links.
+- Header cart/auth URL builders now delegate to `window.CELanguage.buildLocalizedUrl`
+  where available, so Shop and Auth do not accidentally inherit HE from READY
+  pages.
+
+Cross-navigation expectation after Stage32:
+
+| Source state | Destination readiness | Link behavior |
+| --- | --- | --- |
+| READY page in HE | READY | Keep `lang=he`. |
+| READY page in HE | PARTIAL public-disabled | Rewrite to `lang=en`. |
+| READY page in HE | BLOCKED | Rewrite to `lang=en`. |
+| READY page in HE | EXCLUDED | Rewrite to `lang=en`. |
+
+Expansion recommendation:
+
+- Do not enable `allowPartialPagesPublic` yet.
+- Next step should be PARTIAL-safe content completion and navigation cleanup for
+  Home, Cars, Trips, Trip detail and POI/map.
+- Blog should remain a separate content/RLS/routing stage.
+- Shop should remain excluded until a dedicated Shop/checkout HE stage.
+
+## Stage 32 PARTIAL Page Readiness
+
+No PARTIAL page is promoted to public READY in Stage32.
+
+| Page/module | Current recommendation | Missing before public HE | Safe fallback notes |
+| --- | --- | --- | --- |
+| Home / `index.html` | Keep PARTIAL | Aggregates Cars, Trips, POI/map and links into blocked/excluded modules; needs module-level hiding or more content. | EN fallback is technically safe, but mixed-module homepage should not be public HE until visible sections are curated. |
+| `car.html` | Candidate after small content/review pass | 27 cars are partial; features/options/descriptions need HE review. | Brand/model names can remain as-is; user-facing labels must be HE or reviewed EN fallback. |
+| `trips.html` | Keep PARTIAL | Only 3 of 12 trips have HE; listing needs either record gating or more translated trips. | EN fallback is safe but too visible for public launch without gating. |
+| `trip.html` | Candidate only for translated trip records | Detail page is safe only for the 3 translated trip records; itinerary/highlights/FAQ need per-record review. | Needs slug/record gating before public switcher exposure. |
+| POI/map flow | Keep PARTIAL | Only top 10 of 139 POI have HE; global map would show heavy EN fallback. | Can become candidate if the HE map view is limited to translated/top POI. |
+
 ## Blog Blocker
 
 Blog remains blocked because public/anon reads for HE blog translations are not

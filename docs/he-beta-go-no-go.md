@@ -58,6 +58,35 @@ Live checks passed for:
 - `/he/` falling back safely to `/?lang=en`.
 - Sitemap and checked page metadata remaining free of HE SEO URLs.
 
+## Stage 31 Expansion GO / NO-GO
+
+Current page-gated READY scope: **GO**.
+
+Expansion beyond READY pages: **NO-GO until Stage 32 work is completed**.
+
+Reasons:
+
+- Home, Cars, Trips, Trip detail and POI/map are still `partial`, not `ready`.
+- Some HE navigation links from READY pages still point at non-ready
+  destinations with `?lang=he`; the guard blocks them, but link generation
+  should be cleaned up before rollout expansion.
+- Blog remains blocked by content/read policy/routing readiness.
+- Shop remains excluded by checkout/payment and dynamic content readiness.
+
+Stage31 monitoring passed for:
+
+- READY HE rendering.
+- HE -> EN -> PL switching.
+- Cross-navigation back to LTR on non-ready pages.
+- Shop and Blog remaining blocked.
+- SEO HE remaining off.
+- Referral and recommendations tracking sanity.
+
+Recommended next gate:
+
+- Stage32 should complete PARTIAL-safe content and link behavior before enabling
+  any additional public HE surfaces.
+
 ## PARTIAL-safe With Explicit Fallback
 
 - Cars

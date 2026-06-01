@@ -120,6 +120,59 @@ test.describe('hidden Hebrew rollout guard', () => {
     expect(tripRollout?.publicSurfaces?.routes).toBe(false);
   });
 
+  test('strips HE from links to non-ready destinations on READY HE pages', async ({ page }) => {
+    await page.goto('/transport.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await waitForHtmlLanguage(page, 'he');
+    await page.waitForTimeout(500);
+
+    const links = await page.evaluate(() => (
+      Array.from(document.querySelectorAll('a[href]')).map((anchor) => {
+        const href = anchor.getAttribute('href') || '';
+        try {
+          const url = new URL(href, window.location.origin);
+          return {
+            href,
+            pathname: url.pathname,
+            lang: url.searchParams.get('lang') || '',
+          };
+        } catch (_error) {
+          return { href, pathname: '', lang: '' };
+        }
+      })
+    ));
+
+    const findInternal = (pathname: string) => links.find((link) => link.pathname === pathname);
+    const readyDestinations = ['/transport.html', '/hotels.html', '/recommendations.html'];
+    for (const pathname of readyDestinations) {
+      expect(findInternal(pathname)?.lang).toBe('he');
+    }
+
+    const nonReadyDestinations = ['/index.html', '/car.html', '/trips.html', '/shop.html', '/community.html', '/tasks.html', '/partners/'];
+    for (const pathname of nonReadyDestinations) {
+      const link = findInternal(pathname);
+      if (link) {
+        expect(link.lang).not.toBe('he');
+      }
+    }
+
+    const blogLinks = links.filter((link) => link.pathname === '/blog' || link.pathname === '/blog.html');
+    expect(blogLinks.length).toBeGreaterThan(0);
+    for (const link of blogLinks) {
+      expect(link.lang).not.toBe('he');
+    }
+
+    const helperResult = await page.evaluate(() => ({
+      shop: (window as any).CELanguage?.buildLocalizedUrl?.('/shop.html', 'he'),
+      car: (window as any).CELanguage?.buildLocalizedUrl?.('/car.html', 'he'),
+      hotels: (window as any).CELanguage?.buildLocalizedUrl?.('/hotels.html', 'he'),
+      blog: (window as any).CELanguage?.buildLocalizedUrl?.('/blog', 'he'),
+    }));
+    expect(helperResult.shop).toBe('/shop.html?lang=en');
+    expect(helperResult.car).toBe('/car.html?lang=en');
+    expect(helperResult.hotels).toBe('/hotels.html?lang=he');
+    expect(helperResult.blog).toBe('/blog?lang=en');
+  });
+
   test('renders hidden HE preview on key desktop routes without exposing switcher option', async ({ page }) => {
     await page.setViewportSize({ width: 1366, height: 900 });
     await allowInternalHiddenPreview(page);
