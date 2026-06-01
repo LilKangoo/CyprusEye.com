@@ -136,6 +136,31 @@ Stage33.5 verify status:
 - Stage33 content is still only prepared; it is not verified until the repaired
   verify script passes in Supabase after a reviewed COMMIT.
 
+Stage34 apply/verify status:
+
+- Stage33 preview has shown the expected counts: trips `3`, cars `5`, POI `10`.
+- Stage33 data was manually committed in Supabase after human review.
+- `supabase/manual/he_partial_pages_stage33_verify.sql` passed cleanly after
+  the JSONB/text COALESCE fix.
+- Blog remains BLOCKED and Shop remains EXCLUDED from this data pack.
+
+Stage35 dynamic verification:
+
+- `scripts/verify-he-stage33-data.js` performs a read-only Supabase anon check
+  of the exact Stage33 selected records.
+- It confirmed trips `3/3`, cars `5/5` and POI `10/10` are HE-ready for the
+  narrow record-gated scope.
+- No public HE switcher, global HE, SEO, sitemap, hreflang, canonical,
+  indexing, Blog HE or Shop HE was enabled by this verification.
+
+| Module/page | Verified HE-ready scope | Stage35 recommendation |
+| --- | ---: | --- |
+| Cars | 5 top car records | RECORD-GATED READY candidate; keep page status PARTIAL until Etap 36 approval. |
+| Trips listing | 3 top trip records | RECORD-GATED READY candidate with list filtering. |
+| Trip detail | 3 selected slugs only | RECORD-GATED READY per record; unready slugs must fall back to EN/LTR. |
+| POI/map | 10 top POI | RECORD-GATED READY candidate limited to the verified POI set. |
+| Home | Aggregated modules | Keep PARTIAL until Blog/Shop preview decisions are solved. |
+
 ## Requested Area Notes
 
 ### Trips

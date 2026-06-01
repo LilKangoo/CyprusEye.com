@@ -389,6 +389,68 @@ Candidate scope after Stage33:
 | Home | PARTIAL | Home can reuse gated cars/trips/POI, but blog/shop preview decisions still need a separate UI pass. |
 | POI/map | RECORD-GATED READY after Stage33 SQL + human review | HE view can be limited to top 10 HE-ready POI; full map remains partial. |
 
+## Stage 34 Manual Apply And Record-Gated Smoke
+
+Status: **applied + verified manually in Supabase**. No public status changes
+were made by Stage34; the applied data only prepares record-level HE candidates.
+
+Manual apply gate:
+
+1. Run `supabase/manual/he_partial_pages_stage33.sql` unchanged with the final
+   `ROLLBACK`.
+2. Confirm preview rows:
+   - `stage33_trips_top3_he = 3`
+   - `stage33_cars_top5_he_features = 5`
+   - `stage33_poi_top10_he = 10`
+3. Review every Hebrew value with a human/native speaker.
+4. Replace only the final `ROLLBACK` with `COMMIT` and run the reviewed SQL in
+   Supabase SQL Editor.
+5. Run `supabase/manual/he_partial_pages_stage33_verify.sql`.
+6. Treat Stage33 as applied + verified only if verify shows:
+   - trips top 3 selected and HE-ready
+   - cars top 5 selected and HE-ready features present
+   - POI top 10 selected and HE-ready name/description/badge present
+
+Record-gated smoke expectations after verify:
+
+| Surface | Expected behavior after verified data | Public status now |
+| --- | --- | --- |
+| Car | HE view can be limited to HE-ready top car records; booking popup must stay free of `undefined`/`null`. | Keep PARTIAL until a separate rollout approval. |
+| Trips listing | HE listing can show only the 3 HE-ready trips. | Keep PARTIAL until record-gated rollout approval. |
+| Trip detail | HE allowed only for loaded trip records that pass readiness; unready slug normalizes to EN/LTR. | Keep PARTIAL until record-gated rollout approval. |
+| POI/map | HE map can expose only top HE-ready POI or an explicitly approved fallback set. | Keep PARTIAL until record-gated rollout approval. |
+| Home | Remains PARTIAL because Blog/Shop previews and aggregated modules still need curation. | No public HE expansion. |
+
+## Stage 35 Record-Gated Smoke Decision
+
+Status: **data verified; record-gated rollout can be considered in the next
+stage, but is not enabled here**.
+
+Stage33 data verification:
+
+- Manual Supabase COMMIT was completed for `he_partial_pages_stage33.sql`.
+- `he_partial_pages_stage33_verify.sql` ran without the previous JSONB/text
+  COALESCE error.
+- Additional read-only runtime verification through
+  `scripts/verify-he-stage33-data.js` confirmed:
+  - Trips top 3: `3/3` found and HE-ready.
+  - Cars top 5: `5/5` found and HE-ready by `features.he`.
+  - POI top 10: `10/10` found and HE-ready by name/description/badge.
+
+Record-gated status after Stage35:
+
+| Page/module | Stage35 recommendation | Reason |
+| --- | --- | --- |
+| Car | RECORD-GATED READY candidate | Top 5 cars have `features.he`; model names can remain brand/model labels. Keep page status PARTIAL until explicit rollout approval. |
+| Trips listing | RECORD-GATED READY candidate | Top 3 trips have HE title and description; listing must expose only ready trip records in HE. |
+| Trip detail | RECORD-GATED READY per record | HE is safe only when the loaded trip passes record readiness; unready slugs must normalize to EN/LTR. |
+| POI/map | RECORD-GATED READY candidate | Top 10 POI have HE name, description and badge; full POI set is still not HE-ready. |
+| Home | PARTIAL | Aggregates Blog/Shop and multiple partial modules; do not expose Home HE until section-level curation is complete. |
+
+Public exclusions remain unchanged: Blog is BLOCKED, Shop/cart/checkout/payment
+are EXCLUDED, SEO/sitemap/hreflang/canonical/indexing HE are off, and public
+`/he/` routes remain disabled.
+
 ## Blog Blocker
 
 Blog remains blocked because public/anon reads for HE blog translations are not

@@ -440,6 +440,63 @@ test.describe('hidden Hebrew rollout guard', () => {
     expect(rollout?.publicSurfaces?.seo).toBe(false);
   });
 
+  test('allows PARTIAL pages only when public fallback is explicitly enabled', async ({ page }) => {
+    await page.addInitScript(() => {
+      (window as any).CE_LANGUAGE_ROLLOUT_CONFIG = {
+        he: {
+          mode: 'beta',
+          switcher: true,
+          routes: true,
+          publicApi: true,
+          seo: false,
+          sitemap: false,
+          hreflang: false,
+          canonical: false,
+          indexing: false,
+          hiddenPreview: false,
+          pageGated: true,
+          stage25SqlApplied: true,
+          allowPartialPagesPublic: true,
+        },
+      };
+      window.localStorage.setItem('ce_he_beta', 'true');
+    });
+
+    await page.goto('/car.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await waitForHtmlLanguage(page, 'he');
+    let rollout = await page.evaluate(() => (window as any).CELanguageRollout?.snapshot?.().he);
+    expect(rollout?.pageReadiness?.key).toBe('car');
+    expect(rollout?.pageReadiness?.status).toBe('partial');
+    expect(rollout?.publicSurfaces?.routes).toBe(true);
+    expect(rollout?.publicSurfaces?.switcher).toBe(true);
+    expect(rollout?.publicSurfaces?.seo).toBe(false);
+
+    await page.goto('/trips.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await waitForHtmlLanguage(page, 'he');
+    rollout = await page.evaluate(() => (window as any).CELanguageRollout?.snapshot?.().he);
+    expect(rollout?.pageReadiness?.key).toBe('trips');
+    expect(rollout?.pageReadiness?.status).toBe('partial');
+    expect(rollout?.publicSurfaces?.routes).toBe(true);
+    expect(rollout?.publicSurfaces?.switcher).toBe(true);
+
+    await page.goto('/blog.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(250);
+    await expect(page.locator('html')).not.toHaveAttribute('lang', 'he');
+    rollout = await page.evaluate(() => (window as any).CELanguageRollout?.snapshot?.().he);
+    expect(rollout?.pageReadiness?.key).toBe('blog');
+    expect(rollout?.pageReadiness?.status).toBe('blocked');
+    expect(rollout?.publicSurfaces?.routes).toBe(false);
+
+    await page.goto('/shop.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(250);
+    await expect(page.locator('html')).not.toHaveAttribute('lang', 'he');
+    rollout = await page.evaluate(() => (window as any).CELanguageRollout?.snapshot?.().he);
+    expect(rollout?.pageReadiness?.key).toBe('shop');
+    expect(rollout?.pageReadiness?.status).toBe('excluded');
+    expect(rollout?.publicSurfaces?.routes).toBe(false);
+    expect(rollout?.publicSurfaces?.seo).toBe(false);
+  });
+
   test('does not serve /he/ as a broken SPA route', async ({ page }) => {
     const errors: string[] = [];
     page.on('console', (message) => {

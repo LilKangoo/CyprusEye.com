@@ -87,6 +87,58 @@ Recommended next gate:
 - Stage32 should complete PARTIAL-safe content and link behavior before enabling
   any additional public HE surfaces.
 
+## Stage 34 Record-Gated Expansion Gate
+
+Status: **data gate passed; public expansion still requires a separate rollout
+approval**.
+
+Required before any new record-gated public HE surface:
+
+- `supabase/manual/he_partial_pages_stage33.sql` preview rows show trips `3`,
+  cars `5`, POI `10`.
+- Hebrew values are human-reviewed.
+- The final `ROLLBACK` is manually replaced with `COMMIT` and applied in
+  Supabase SQL Editor.
+- `supabase/manual/he_partial_pages_stage33_verify.sql` passes cleanly.
+- `scripts/verify-he-stage33-data.js` confirms the same selected records through
+  read-only Supabase anon reads.
+- Record-gated smoke confirms:
+  - Car only exposes HE-ready top records, with no `undefined`/`null`.
+  - Trips listing only exposes HE-ready trips.
+  - Trip detail blocks unready slugs back to EN/LTR.
+  - POI/map only exposes HE-ready POI or explicitly approved fallback.
+
+Still excluded from this gate:
+
+- Home public HE expansion
+- Blog public HE
+- Shop/cart/checkout/payment HE
+- SEO/sitemap/hreflang/canonical/indexing HE
+- Public `/he/` routes
+
+## Stage 35 GO / NO-GO
+
+Decision: **GO for Etap 36A planning only; NO-GO for unapproved public
+expansion in Etap 35**.
+
+Passed:
+
+- Stage33 data is applied and verified.
+- Trips top 3 are HE-ready.
+- Cars top 5 are HE-ready by localized features.
+- POI top 10 are HE-ready by name, description and badge.
+- Existing page-gated guard still keeps Blog blocked, Shop excluded and SEO HE
+  off.
+
+Remaining gates before exposing the next public pages:
+
+- Confirm record-gated runtime behavior in the actual rollout config for Car,
+  Trips, Trip detail and POI/map.
+- Keep Home partial until Blog/Shop previews are curated.
+- Keep Blog public HE blocked until public read/RLS/content/routing/SEO are
+  solved separately.
+- Keep Shop/cart/checkout/payment excluded until a dedicated Shop HE QA stage.
+
 ## PARTIAL-safe With Explicit Fallback
 
 - Cars

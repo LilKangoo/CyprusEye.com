@@ -365,6 +365,56 @@ Prepared SQL:
 No Blog public read/RLS, Shop checkout, SEO, sitemap, hreflang, canonical,
 indexing or public `/he/` route changes are part of Stage33.
 
+## Stage 34 Apply Gate
+
+Stage34 is an apply/verify/smoke gate, not a public rollout.
+
+Current status: **Stage33 manually applied and verified for the selected
+record-level scope**.
+
+Expected data readiness after a successful manual apply:
+
+| Scope | Expected verified records | Gate after verify |
+| --- | ---: | --- |
+| Trips top records | 3 | Trip listing/detail may become record-gated candidates only for ready records. |
+| Cars top records | 5 | Car page may become a candidate with HE-ready top cars and safe model-name fallback. |
+| POI top records | 10 | POI/map may become a record-gated candidate limited to ready POI. |
+
+Home remains PARTIAL. Blog remains BLOCKED. Shop remains EXCLUDED. HE SEO,
+sitemap, hreflang, canonical, indexing and public `/he/` routes remain off.
+
+## Stage 35 Record-Gated Audit Result
+
+Stage35 adds a read-only runtime confirmation of the manually applied Stage33
+data. The check performs no writes and does not activate new public HE surfaces.
+
+Verification sources:
+
+- Manual Supabase COMMIT and `he_partial_pages_stage33_verify.sql`.
+- `scripts/verify-he-stage33-data.js`, which checks the exact Stage33 IDs via
+  Supabase anon reads.
+
+| Area | Verified ready records | Completion for selected scope |
+| --- | ---: | ---: |
+| Trips | 3 of 3 selected | 100% |
+| Cars | 5 of 5 selected | 100% |
+| POI/map | 10 of 10 selected | 100% |
+
+Readiness proposal:
+
+- Car: **RECORD-GATED READY candidate**, still not public without Etap 36
+  approval.
+- Trips: **RECORD-GATED READY candidate**, listing must filter to HE-ready
+  records.
+- Trip detail: **RECORD-GATED READY per record**, unready records must fall
+  back to EN/LTR.
+- POI/map: **RECORD-GATED READY candidate**, limited to the verified POI set.
+- Home: **PARTIAL**, because Blog/Shop previews and aggregated sections remain
+  unresolved.
+
+Launch blockers unchanged: Blog remains BLOCKED, Shop remains EXCLUDED and HE
+SEO/sitemap/hreflang/canonical/indexing/public `/he/` routes remain off.
+
 ## Overall Status
 
 | Area | Estimated readiness | Notes |

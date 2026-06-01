@@ -473,6 +473,42 @@ Stage34 apply sequence:
 4. Run `supabase/manual/he_partial_pages_stage33_verify.sql`.
 5. Continue only if trips show `3/3`, cars `5/5`, and POI `10/10` HE-ready.
 
+Stage34 rollout decision:
+
+- Current status is **Stage33 applied + verified for data only**.
+- Do not change `allowPartialPagesPublic`, page readiness, switcher exposure or
+  SEO surfaces during Stage34.
+- Stage35 read-only verification confirmed trips `3/3`, cars `5/5` and POI
+  `10/10` are HE-ready in the selected record-gated scope.
+- The next stage may consider a controlled record-gated rollout for Car, Trips,
+  Trip detail and POI/map.
+- Home remains PARTIAL until Blog and Shop previews are curated.
+- Blog remains BLOCKED; Shop/cart/checkout/payment remain EXCLUDED.
+
+## Stage 35 Record-Gated Expansion Decision
+
+Stage35 result: **GO to plan Etap 36A, no rollout activated yet**.
+
+What is ready for a controlled record-gated expansion:
+
+- `car.html`: top 5 cars can be shown in HE if runtime keeps filtering to
+  HE-ready records.
+- `trips.html`: only the 3 HE-ready trips can be shown in HE.
+- `trip.html`: only the 3 selected trip records can render in HE; unready slugs
+  must normalize back to EN/LTR.
+- POI/map flow: only the 10 HE-ready POI can be shown in HE unless a reviewed
+  fallback policy is explicitly approved.
+
+What remains out of scope:
+
+- Home remains PARTIAL until Blog/Shop previews and aggregated sections are
+  curated.
+- Blog remains BLOCKED until public HE read, content, routing and SEO gates are
+  solved in a separate stage.
+- Shop remains EXCLUDED until product/cart/checkout/payment HE is fully tested.
+- HE SEO, sitemap, hreflang, canonical, indexing and public `/he/` routes remain
+  off until the final SEO phase.
+
 ## Recommended Launch Strategy
 
 Do not launch full-site HE in one step from the current state.
