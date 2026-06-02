@@ -347,3 +347,35 @@ Dynamic readiness impact:
 - Home is now a stronger **CANDIDATE** from a link/visibility standpoint, but it
   should remain `PARTIAL` until an explicit Home deploy smoke passes.
 - Blog and Shop dynamic content remain the main blockers for full Home HE.
+
+## Stage 39 Home Dynamic Rollout Scope
+
+Status: **controlled Home rollout scope prepared**.
+
+Home uses only dynamic modules that are already READY or record-gated:
+
+| Home module | Stage39 dynamic policy |
+| --- | --- |
+| Transport | Visible; dynamic location/route labels are READY. |
+| Hotels | Visible; hotel and amenity data are READY after Stage25. |
+| Recommendations | Visible; active recommendation/category data are READY after Stage25. |
+| Cars | Visible through Stage33 top-record gating; unready records must not create broken HE cards. |
+| Trips | Visible through Stage33 top-record gating; unready records must not create HE links. |
+| POI/map | Visible through Stage33 top 10 POI and category gating. |
+| Blog preview | Hidden on Home HE because Blog remains BLOCKED. |
+| Shop/cart/checkout/payment | Excluded and normalized to EN/LTR. |
+| Plan/community/packing/tasks/legal | Hidden or normalized to EN/LTR until separately prepared. |
+
+Dynamic content still blocking wider launch:
+
+- Blog posts and Blog post detail need public HE read, reviewed content and SEO
+  routing before they can leave BLOCKED.
+- Shop needs product/category/vendor/shipping/discount and checkout/payment QA
+  before it can leave EXCLUDED.
+- Full POI/map remains partial because only selected POI are HE-ready.
+
+Rollback for Home dynamic scope:
+
+- Set Home back to `partial` in the rollout config.
+- Keep Stage25/Stage33 data in Supabase; the data is additive and should not be
+  removed during UI rollback.

@@ -626,3 +626,52 @@ Rollback for Home preparation:
 1. Remove `js/home-aggregation-guard.js` from `index.html`.
 2. Leave existing READY and record-gated pages unchanged.
 3. Keep Home `PARTIAL`, Blog `BLOCKED`, Shop `EXCLUDED`, and HE SEO off.
+
+## Stage 39 Controlled Home HE Rollout
+
+Status: **deploy-ready controlled rollout**. Home is enabled only through a
+page-specific readiness override in `js/he-beta-rollout-config.js`; this does
+not enable global HE and does not set `allowPartialPagesPublic:true`.
+
+Runtime config:
+
+- `mode:"partial_public"`
+- `pageGated:true`
+- `stage25SqlApplied:true`
+- `stage33SqlApplied:true`
+- `recordGatedPagesPublic:true`
+- `allowPartialPagesPublic:false`
+- `pageReadiness.home.status:"ready"`
+- HE SEO, sitemap, hreflang, canonical and indexing remain `false`.
+
+Home visible in HE:
+
+- Header, navigation, mobile navigation and footer shell.
+- Transport preview/form.
+- Hotels preview.
+- Recommendations preview.
+- Record-gated Cars preview.
+- Record-gated Trips preview.
+- Record-gated POI/map entry points.
+- Coupon/referral widgets if their links normalize through the central helper.
+
+Home blocked or normalized to EN/LTR:
+
+- Blog preview remains hidden because Blog and Blog post are still BLOCKED.
+- Shop/cart/checkout/payment remain EXCLUDED and must not enter RTL/HE.
+- Plan, Community, Packing, Tasks and Legal links normalize to EN/LTR until
+  those pages receive their own HE readiness gates.
+
+Cross-navigation rule:
+
+- READY and record-gated destinations may preserve `lang=he`.
+- BLOCKED or EXCLUDED destinations must drop HE and load EN/LTR.
+- `dir="rtl"` must not persist after navigating from Home HE to blocked or
+  excluded pages.
+
+Rollback:
+
+1. Remove the `pageReadiness.home` override or set it back to `partial`.
+2. Keep `allowPartialPagesPublic:false`.
+3. Leave existing READY and record-gated pages unchanged.
+4. Redeploy and purge Cloudflare cache if stale Home assets keep exposing HE.

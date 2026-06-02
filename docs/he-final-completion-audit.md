@@ -520,3 +520,41 @@ Home aggregation findings:
 Home remains `PARTIAL` because it still depends on section-level UX decisions
 for Blog, Shop and blocked utility pages. The new guard makes future/test Home
 HE safer, but does not by itself make Home public-ready.
+
+## Stage 39 Home Status Update
+
+Status: **controlled page-gated Home rollout ready for deploy**.
+
+Home is promoted through runtime config only:
+
+- Base registry still describes Home as an aggregator.
+- `js/he-beta-rollout-config.js` adds a page-specific
+  `pageReadiness.home.status:"ready"` override.
+- `allowPartialPagesPublic:false` remains unchanged, so other partial pages are
+  not opened by this Home rollout.
+- HE SEO, sitemap, hreflang, canonical, OpenGraph, indexing and public `/he/`
+  routes remain off.
+
+Home sections after Stage39:
+
+| Section | Stage39 public HE decision |
+| --- | --- |
+| Header / navigation / language switcher | Visible on Home HE only. |
+| Transport | Visible; transport content is READY and booking/payment code is unchanged. |
+| Hotels | Visible; Stage25 data is READY. |
+| Recommendations | Visible; Stage25 data is READY. |
+| Cars | Visible through Stage33 record-gated content. |
+| Trips | Visible through Stage33 record-gated content. |
+| POI/map | Visible through Stage33 record-gated content. |
+| Blog preview | Hidden; Blog remains BLOCKED. |
+| Shop/cart/checkout/payment | Excluded; links normalize to EN/LTR. |
+| Plan/community/packing/tasks/legal | Hidden or linked to EN/LTR until separately prepared. |
+
+Launch posture after Stage39:
+
+- Page-gated public HE scope expands to Home plus existing READY and
+  record-gated pages.
+- Full global HE remains NO-GO.
+- Blog HE public remains BLOCKED.
+- Shop HE remains EXCLUDED.
+- SEO HE remains OFF.

@@ -671,3 +671,45 @@ Recommended next stage:
 **Stage 39A: deploy and live-monitor Home HE only if the Stage38 smoke remains
 clean.** If any section shows mixed or broken content, keep Home PARTIAL and fix
 that section first.
+
+## Stage 39 Controlled Home Deployment
+
+Stage39 moves Home from prepared-only to a controlled page-gated rollout while
+keeping all global launch surfaces off.
+
+Config posture:
+
+- Home is allowed by `pageReadiness.home.status:"ready"` only.
+- `allowPartialPagesPublic:false` remains in force.
+- Existing READY pages remain public HE: Transport, Hotels, Hotel detail and
+  Recommendations.
+- Existing record-gated pages remain public HE only for verified records: Car,
+  Trips, Trip detail and POI/map.
+- Blog, Blog post, Plan, Community, account/auth, legal and unknown pages remain
+  BLOCKED.
+- Shop/cart/checkout/payment, Partners and Admin remain EXCLUDED.
+- HE sitemap, hreflang, canonical, OpenGraph, indexing and public `/he/` routes
+  remain off.
+
+Home launch rules:
+
+1. Show only HE-ready or record-gated modules.
+2. Hide Blog preview until Blog public HE read/routing/SEO are solved.
+3. Hide or normalize Shop and checkout-related links to EN/LTR.
+4. Normalize Plan, Community, Packing, Tasks and Legal links to EN/LTR.
+5. Keep booking/payment/deposit code untouched; Home transport remains covered
+   only by regression tests.
+
+Rollback:
+
+1. Remove the Home readiness override or set Home back to `partial`.
+2. Keep `recordGatedPagesPublic:true` unless record-gated pages regress.
+3. Keep Blog/Shop blocked or excluded.
+4. Purge Cloudflare cache after deploy if stale Home config persists.
+
+Next strategic blocker after Home:
+
+- Blog HE public readiness is the next large blocker for moving toward a wider
+  public HE experience.
+- Shop HE should remain a separate decision because checkout/payment copy and
+  dynamic product data require dedicated QA.

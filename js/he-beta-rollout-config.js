@@ -3,6 +3,9 @@
   const existingHe = existing && typeof existing === 'object' && existing.he && typeof existing.he === 'object'
     ? existing.he
     : {};
+  const existingHePageReadiness = existingHe.pageReadiness && typeof existingHe.pageReadiness === 'object'
+    ? existingHe.pageReadiness
+    : {};
 
   window.CE_LANGUAGE_ROLLOUT_CONFIG = {
     ...existing,
@@ -31,6 +34,14 @@
       canonicalEnabled: false,
       indexingEnabled: false,
       ...existingHe,
+      pageReadiness: {
+        ...existingHePageReadiness,
+        home: existingHePageReadiness.home || {
+          status: 'ready',
+          allowFallback: false,
+          reason: 'Stage39 controlled Home aggregation rollout; blocked/excluded modules are hidden or normalized to EN/LTR.',
+        },
+      },
     },
   };
 })();

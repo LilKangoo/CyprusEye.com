@@ -104,8 +104,10 @@ async function allowInternalHiddenPreview(page) {
 }
 
 test.describe('hidden Hebrew rollout guard', () => {
-  test('ignores public ?lang=he without hidden preview flag', async ({ page }) => {
-    await page.goto('/index.html?lang=he', { waitUntil: 'domcontentloaded' });
+  test.describe.configure({ timeout: 60000 });
+
+  test('blocks public ?lang=he on pages that are not HE-ready', async ({ page }) => {
+    await page.goto('/plan.html?lang=he', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(250);
 
     await expect(page.locator('html')).not.toHaveAttribute('lang', 'he');
@@ -153,20 +155,22 @@ test.describe('hidden Hebrew rollout guard', () => {
     expect(rollout?.publicSurfaces?.routes).toBe(true);
   });
 
-  test('keeps Home PARTIAL internal-only while record-gated pages are public-gated', async ({ page }) => {
+  test('enables controlled Home HE while keeping all other partial pages gated', async ({ page }) => {
     await seedStage33TripFixtures(page);
 
     await page.goto('/index.html?lang=he', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(250);
+    await waitForHtmlLanguage(page, 'he');
 
-    await expect(page.locator('html')).not.toHaveAttribute('lang', 'he');
-    await expect(page.locator('html')).not.toHaveAttribute('dir', 'rtl');
-    await expect(page.locator('[data-testid="language-option-he"]')).toHaveCount(0);
+    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+    await expectHeSwitcherVisible(page);
     const rollout = await page.evaluate(() => (window as any).CELanguageRollout?.snapshot?.().he);
     expect(rollout?.pageReadiness?.key).toBe('home');
-    expect(rollout?.pageReadiness?.status).toBe('partial');
-    expect(rollout?.publicSurfaces?.switcher).toBe(false);
-    expect(rollout?.publicSurfaces?.routes).toBe(false);
+    expect(rollout?.pageReadiness?.status).toBe('ready');
+    expect(rollout?.publicSurfaces?.switcher).toBe(true);
+    expect(rollout?.publicSurfaces?.routes).toBe(true);
+    expect(rollout?.publicSurfaces?.seo).toBe(false);
+    const heConfig = await page.evaluate(() => (window as any).CE_LANGUAGE_ROLLOUT_CONFIG?.he);
+    expect(heConfig?.allowPartialPagesPublic).toBe(false);
 
     await page.goto('/car.html?lang=he', { waitUntil: 'domcontentloaded' });
     await waitForHtmlLanguage(page, 'he');
@@ -184,38 +188,10 @@ test.describe('hidden Hebrew rollout guard', () => {
     expect(tripsRollout?.publicSurfaces?.switcher).toBe(true);
     expect(tripsRollout?.publicSurfaces?.routes).toBe(true);
 
-    await page.goto('/trip.html?slug=trasa-skaa-afrodyty&lang=he', { waitUntil: 'domcontentloaded' });
-    await waitForHtmlLanguage(page, 'he');
-    const tripRollout = await page.evaluate(() => (window as any).CELanguageRollout?.snapshot?.().he);
-    expect(tripRollout?.pageReadiness?.key).toBe('trip');
-    expect(tripRollout?.pageReadiness?.status).toBe('record-gated');
-    expect(tripRollout?.publicSurfaces?.switcher).toBe(true);
-    expect(tripRollout?.publicSurfaces?.routes).toBe(true);
   });
 
-  test('prepares Home HE aggregation only when partial pages are explicitly allowed', async ({ page }) => {
+  test('applies Home HE aggregation without enabling all partial pages', async ({ page }) => {
     await seedStage33TripFixtures(page);
-    await page.addInitScript(() => {
-      (window as any).CE_LANGUAGE_ROLLOUT_CONFIG = {
-        he: {
-          mode: 'partial_public',
-          switcher: true,
-          routes: true,
-          publicApi: true,
-          seo: false,
-          sitemap: false,
-          hreflang: false,
-          canonical: false,
-          indexing: false,
-          hiddenPreview: false,
-          pageGated: true,
-          stage25SqlApplied: true,
-          stage33SqlApplied: true,
-          recordGatedPagesPublic: true,
-          allowPartialPagesPublic: true,
-        },
-      };
-    });
 
     await page.goto('/index.html?lang=he', { waitUntil: 'domcontentloaded' });
     await waitForHtmlLanguage(page, 'he');
@@ -230,6 +206,10 @@ test.describe('hidden Hebrew rollout guard', () => {
     await expect(page.locator('[data-tour-target="plan-card"]')).toHaveAttribute('hidden', '');
     await expect(page.locator('[data-tour-target="blog-card"]')).toHaveAttribute('hidden', '');
     await expectNoHorizontalOverflow(page);
+
+    const rolloutConfig = await page.evaluate(() => (window as any).CE_LANGUAGE_ROLLOUT_CONFIG?.he);
+    expect(rolloutConfig?.allowPartialPagesPublic).toBe(false);
+    expect(rolloutConfig?.pageReadiness?.home?.status).toBe('ready');
 
     const helperResult = await page.evaluate(() => ({
       transport: (window as any).CELanguage?.buildLocalizedUrl?.('/transport.html', 'he'),
@@ -308,12 +288,12 @@ test.describe('hidden Hebrew rollout guard', () => {
     ));
 
     const findInternal = (pathname: string) => links.find((link) => link.pathname === pathname);
-    const readyDestinations = ['/transport.html', '/hotels.html', '/recommendations.html', '/car.html', '/trips.html'];
+    const readyDestinations = ['/index.html', '/transport.html', '/hotels.html', '/recommendations.html', '/car.html', '/trips.html'];
     for (const pathname of readyDestinations) {
       expect(findInternal(pathname)?.lang).toBe('he');
     }
 
-    const nonReadyDestinations = ['/index.html', '/shop.html', '/community.html', '/tasks.html', '/partners/'];
+    const nonReadyDestinations = ['/shop.html', '/community.html', '/tasks.html', '/partners/'];
     for (const pathname of nonReadyDestinations) {
       const link = findInternal(pathname);
       if (link) {
@@ -513,13 +493,13 @@ test.describe('hidden Hebrew rollout guard', () => {
       };
     });
 
-    await page.goto('/index.html?ce_he_preview=1&lang=he', { waitUntil: 'domcontentloaded' });
+    await page.goto('/blog.html?ce_he_preview=1&lang=he', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(250);
     await expect(page.locator('html')).not.toHaveAttribute('lang', 'he');
     await expect(page.locator('html')).not.toHaveAttribute('dir', 'rtl');
 
     await page.evaluate(() => window.localStorage.setItem('ce_he_beta', 'true'));
-    await page.goto('/index.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await page.goto('/transport.html?lang=he', { waitUntil: 'domcontentloaded' });
     await waitForHtmlLanguage(page, 'he');
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await expect(page.locator('[data-testid="language-pill-he"]')).toHaveCount(1);

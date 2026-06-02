@@ -287,3 +287,37 @@ NO-GO conditions:
 - Any Shop/cart/checkout/payment surface enters RTL/HE.
 - Any non-ready car/trip/POI record appears as broken HE.
 - Booking/payment regression tests fail.
+
+## Stage 39 Home GO / NO-GO
+
+Decision target: **GO only for controlled Home page-gated rollout**.
+
+GO conditions:
+
+- Home is enabled by `pageReadiness.home.status:"ready"` only.
+- `allowPartialPagesPublic:false` remains unchanged.
+- Blog preview is hidden on HE Home.
+- Shop/cart/checkout/payment remain excluded and EN/LTR.
+- Plan, Community, Packing, Tasks and Legal links normalize to EN/LTR.
+- READY and record-gated Home modules render without `undefined/null`.
+- Mobile Home has no horizontal overflow.
+- Existing READY and record-gated pages keep working.
+- SEO HE remains off.
+- Booking/payment regression tests continue to pass.
+
+NO-GO conditions:
+
+- Home exposes Blog, Shop, checkout/payment, Plan or Community as HE before
+  those pages are approved.
+- Any blocked/excluded destination keeps `dir="rtl"` after navigation from Home.
+- `allowPartialPagesPublic` is set to `true`.
+- HE sitemap, hreflang, canonical, OpenGraph, indexing or public `/he/` routes
+  become visible.
+- Booking/payment regression tests fail.
+
+Rollback:
+
+1. Remove `pageReadiness.home` or set it to `partial`.
+2. Keep existing READY and record-gated pages unchanged unless the regression is
+   shared.
+3. Keep Blog BLOCKED, Shop EXCLUDED and SEO HE OFF.
