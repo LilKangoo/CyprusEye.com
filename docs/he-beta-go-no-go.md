@@ -207,3 +207,54 @@ Controlled HE beta can continue for layout/runtime validation, but the first
 content beta should be scoped narrowly. Use EN fallback only where explicitly
 accepted by the tester group and keep shop/blog as gated or EN-only until their
 dynamic records are translated.
+
+## Stage 37 GO / NO-GO
+
+Decision target: **GO for live-monitored record-gated pages only**.
+
+GO conditions satisfied locally on 2026-06-02:
+
+- Stage33 Supabase verification passed for Trips `3/3`, Cars `5/5` and POI
+  `10/10`.
+- Page-gated and record-gated Playwright smoke passed.
+- Shop remains excluded.
+- Blog remains blocked.
+- Home remains partial.
+- SEO HE remains off.
+- `/he/` does not serve a broken SPA route.
+
+Live conditions satisfied on 2026-06-02:
+
+- Production serves `recordGatedPagesPublic:true`.
+- Existing READY pages remain HE/RTL.
+- Car, Trips and HE-ready Trip detail work as record-gated HE.
+- Unready Trip detail normalizes to EN/LTR.
+- Home, Blog, Shop, Plan, Partners/Admin and `/he/` remain blocked or
+  excluded.
+- SEO surfaces remain off for HE.
+
+Resolved before next deploy:
+
+- Trips initially rendered EN card titles in HE mode because the legacy
+  `languageSwitcher.js` helper did not recognize page-gated public HE. This was
+  fixed by delegating hidden-language route checks to the central rollout guard.
+
+Not part of this GO:
+
+- Full global HE.
+- Home HE.
+- Blog HE public read/routing/SEO.
+- Shop/cart/checkout/payment HE.
+- Sitemap, hreflang, canonical, indexing or public `/he/` routes.
+
+Live NO-GO conditions after deploy:
+
+- Any record-gated page shows unready records in HE.
+- Any blocked/excluded page keeps `dir="rtl"` or HE switcher state.
+- Shop checkout/cart/payment enter HE/RTL.
+- Blog becomes publicly HE-readable.
+- SEO audit finds HE sitemap, hreflang, canonical, OpenGraph or indexing
+  exposure.
+
+Rollback: set `recordGatedPagesPublic:false`, redeploy and purge Cloudflare
+cache if stale assets continue to expose record-gated HE.

@@ -86,12 +86,35 @@ function isHiddenLanguagePreviewEnabled() {
   return safeSessionStorage('get', HIDDEN_PREVIEW_STORAGE_KEY) === 'true';
 }
 
+function isHiddenLanguageRouteAllowed(language) {
+  const normalized = normalizeLanguageCode(language);
+  if (!isHiddenLanguage(normalized)) {
+    return false;
+  }
+
+  const rolloutApi = window.CELanguageRollout || window.CELanguage || null;
+  if (typeof rolloutApi?.isLanguageEnabledForSurface === 'function') {
+    return Boolean(rolloutApi.isLanguageEnabledForSurface(normalized, 'routes'));
+  }
+
+  if (typeof rolloutApi?.snapshot === 'function') {
+    const snapshot = rolloutApi.snapshot();
+    return Boolean(snapshot?.[normalized]?.publicSurfaces?.routes === true);
+  }
+
+  return false;
+}
+
 function normalizeRuntimeLanguage(language, { includeHidden = false } = {}) {
   const normalized = normalizeLanguageCode(language);
   if (isPublicLanguage(normalized)) {
     return normalized;
   }
-  if (includeHidden && isHiddenLanguage(normalized) && isHiddenLanguagePreviewEnabled()) {
+  if (
+    includeHidden
+    && isHiddenLanguage(normalized)
+    && (isHiddenLanguagePreviewEnabled() || isHiddenLanguageRouteAllowed(normalized))
+  ) {
     return normalized;
   }
   return '';

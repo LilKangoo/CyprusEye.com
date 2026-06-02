@@ -454,3 +454,43 @@ The safest direction is to finish static P0/P1, complete dynamic content in the
 high-traffic public modules, then enable HE per ready surface or only after all
 public surfaces pass final QA. Shop should block a true full-site public launch
 until its product and checkout content is reviewed.
+
+## Stage 37 Record-Gated Readiness Check
+
+Status on 2026-06-02: **record-gated scope is live verified, but still not a
+global launch**.
+
+Verified record-gated data:
+
+| Scope | Ready records | Status |
+| --- | ---: | --- |
+| Trips top records | 3/3 | Ready for record-gated listing/detail. |
+| Cars top records | 5/5 | Ready for record-gated car page with model-name fallback. |
+| POI/map top records | 10/10 | Ready for filtered POI/map HE flow. |
+
+Automated local checks passed:
+
+- i18n audit/readiness/fallback tests.
+- SEO audit with no HE sitemap, hreflang, canonical or OpenGraph exposure.
+- Build.
+- Jest, including booking deposit and transport notification reliability tests.
+- Playwright HE rollout smoke for page-gated, record-gated, blocked/excluded
+  and `/he/` safety.
+
+Current launch posture:
+
+- Technical HE foundation for approved pages: **GO for monitored page-gated
+  expansion**.
+- Full-site public HE: **NO-GO**.
+- Home: PARTIAL.
+- Blog: BLOCKED.
+- Shop/cart/checkout/payment: EXCLUDED.
+- SEO HE: OFF.
+
+Live Stage37 checks confirmed that existing READY pages and record-gated pages
+render HE/RTL, while Home, Blog, Shop, Plan, Partners/Admin and public `/he/`
+routes remain blocked or excluded.
+
+One live issue was fixed before redeploy: Trips had HE-ready records but card
+titles rendered through a legacy helper that still returned EN. The helper now
+uses the central rollout guard, and local smoke confirms Hebrew trip titles.

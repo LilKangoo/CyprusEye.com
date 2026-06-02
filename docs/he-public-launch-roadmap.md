@@ -559,3 +559,76 @@ Recommended path:
 
 For a true "full site" launch, Shop must be completed before the global switcher
 is exposed everywhere.
+
+## Stage 37 Record-Gated Deployment And Monitoring
+
+Stage37 scope: deploy and monitor the already prepared record-gated HE expansion
+for Car, Trips, Trip detail and POI/map. This is still not a global HE launch.
+
+Local verification on 2026-06-02:
+
+- `scripts/verify-he-stage33-data.js`: passed against Supabase.
+- Stage33 selected records: Trips `3/3`, Cars `5/5`, POI `10/10`.
+- `npm run i18n:audit`: passed.
+- `npm run i18n:he-readiness`: passed.
+- `npm run i18n:test`: passed.
+- `npm run seo:audit`: passed with 0 items requiring review.
+- `npm run build`: passed and generated `dist/`.
+- `npm test`: passed, including deposit and transport notification reliability
+  tests.
+- Playwright `he-hidden-rollout.spec.ts`: `20/20` passed.
+
+Production verification on 2026-06-02:
+
+- Production `js/he-beta-rollout-config.js` serves
+  `recordGatedPagesPublic:true`, `stage33SqlApplied:true` and
+  `allowPartialPagesPublic:false`.
+- Existing READY pages are live HE/RTL and keep HE in the switcher.
+- Record-gated Car, Trips and HE-ready Trip detail are live HE/RTL.
+- Unready Trip detail with `?lang=he` normalizes to EN/LTR.
+- Home, Blog, Shop, Plan, Partners/Admin and `/he/` remain blocked or
+  excluded.
+- Cross-navigation from HE pages sends Shop, Blog, Plan and Home links to
+  EN/LTR while retaining HE for approved record-gated or READY destinations.
+- Sitemap, hreflang, canonical, OpenGraph and indexing still expose no HE.
+
+Follow-up fix before redeploy:
+
+- Live monitoring found that `trips.html?lang=he` was RTL and record-filtered
+  but still displayed EN trip titles because `languageSwitcher.js`
+  `getCurrentLanguage()` did not honor page-gated public HE. The helper now
+  checks the central rollout guard, and local smoke confirms the three Stage33
+  trip cards render Hebrew titles.
+
+Record-gated pages now monitored in production:
+
+- `car.html?lang=he`
+- `trips.html?lang=he`
+- `trip.html?slug=<HE-ready-trip>&lang=he`
+- `trip.html?slug=<not-ready-trip>&lang=he`
+- POI/map flow with HE-ready POI
+
+Current constraints after deploy:
+
+- Existing READY pages remain public HE: Transport, Hotels, Hotel detail,
+  Recommendations.
+- Record-gated pages expose HE only for verified records.
+- Home remains PARTIAL and public HE stays blocked.
+- Blog remains BLOCKED.
+- Shop/cart/checkout/payment remain EXCLUDED and EN/LTR.
+- HE SEO, sitemap, hreflang, canonical, indexing and public `/he/` remain off.
+
+Booking/payment safety:
+
+- Stage37 does not modify transport deposits, partner fulfillment, Stripe
+  webhook handling or booking/payment status transitions.
+- Regression coverage is limited to existing automated tests unless a separate
+  P0 booking task is opened.
+
+Rollback:
+
+1. Set `recordGatedPagesPublic:false`.
+2. Keep `allowPartialPagesPublic:false`.
+3. Keep existing READY pages active unless live monitoring shows a shared
+   regression.
+4. Purge Cloudflare cache after redeploy if the old config remains cached.

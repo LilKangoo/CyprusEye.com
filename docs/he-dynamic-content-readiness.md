@@ -284,3 +284,40 @@ products, categories, variants, vendors, attributes, shipping and discounts.
 4. Recommendations titles/descriptions/categories and offer/discount text.
 5. Transport location names, then route smoke tests.
 6. Trips/hotels/cars top records and room/offer detail labels.
+
+## Stage 37 Record-Gated Dynamic Scope
+
+Status on 2026-06-02: **Stage33 dynamic content is verified and live-monitored
+for the selected record-gated scope**.
+
+| Module | Verified HE-ready records | Public decision |
+| --- | ---: | --- |
+| Cars | 5 | Eligible for record-gated HE after deploy. |
+| Trips listing | 3 | Eligible for record-gated HE after deploy; non-ready trips stay hidden from HE links. |
+| Trip detail | 3 | Eligible per record; unready slugs must normalize to EN/LTR. |
+| POI/map | 10 | Eligible for filtered HE flow; remaining POI are not globally HE-ready. |
+
+Live Stage37 smoke confirmed Car, Trips and HE-ready Trip detail in HE/RTL.
+Unready Trip detail normalized back to EN/LTR. Existing READY pages were
+unchanged.
+
+Runtime note: the first live smoke showed Trips using EN titles despite HE-ready
+data. The issue was the legacy language helper, not Supabase content. After
+updating `languageSwitcher.js` to use the central rollout guard, local smoke
+shows the Stage33 trip titles in Hebrew.
+
+Modules unchanged:
+
+- Transport, Hotels, Hotel detail and Recommendations remain READY from the
+  existing page-gated rollout.
+- Home remains PARTIAL because it aggregates Blog, Shop and mixed module
+  previews.
+- Blog remains BLOCKED until public HE read/content/routing/SEO gates are
+  explicitly solved.
+- Shop remains EXCLUDED; cart, checkout and payment must stay EN/LTR.
+
+Dynamic rollback for Stage37:
+
+- Turn `recordGatedPagesPublic:false` to return Cars, Trips, Trip detail and
+  POI/map to non-public partial status.
+- Do not remove Stage33 HE data; it is additive and can remain in Supabase.

@@ -512,3 +512,71 @@ part of the current launch gate. Before Blog can become `ready`:
 5. Keep Shop, Blog, Plan, Account/Auth, Legal, Admin and Partner pages blocked
    or excluded until their own gates pass.
 6. Enable HE SEO/sitemap/hreflang/canonical only in the final SEO phase.
+
+## Stage 37 Record-Gated Live Deployment
+
+Status on 2026-06-02: **GO - production is serving the record-gated config and
+live smoke passed for the scoped pages**.
+
+Pre-deploy config confirmed:
+
+- `mode:"partial_public"`
+- `pageGated:true`
+- `stage25SqlApplied:true`
+- `stage33SqlApplied:true`
+- `recordGatedPagesPublic:true`
+- `allowPartialPagesPublic:false`
+- HE SEO/sitemap/hreflang/canonical/indexing remain `false`.
+
+Stage33 data verification passed against Supabase:
+
+| Scope | Verified ready records |
+| --- | ---: |
+| Trips top 3 | 3/3 |
+| Cars top 5 | 5/5 |
+| POI top 10 | 10/10 |
+
+Record-gated pages eligible after deploy:
+
+- `car.html`
+- `trips.html`
+- `trip.html` only for HE-ready records
+- POI/map flow only for HE-ready POI
+
+Still blocked or excluded:
+
+- Home remains PARTIAL.
+- Blog and Blog post remain BLOCKED.
+- Shop/cart/checkout/payment remain EXCLUDED.
+- Partners/Admin remain EXCLUDED.
+- Public `/he/` routes remain disabled.
+
+Live monitoring result:
+
+1. `js/he-beta-rollout-config.js` on production contains
+   `recordGatedPagesPublic:true` and `stage33SqlApplied:true`.
+2. Existing READY pages pass live HE/RTL smoke: Transport, Hotels, Hotel
+   detail, Recommendations.
+3. Record-gated pages pass live HE/RTL smoke: Car, Trips and HE-ready Trip
+   detail.
+4. Unready Trip detail normalizes back to EN/LTR.
+5. Home, Blog, Shop, Plan, Partners/Admin and `/he/` remain blocked or
+   excluded.
+6. Sitemap, hreflang, canonical, OpenGraph and indexing still expose no HE
+   surface.
+
+Issue found and fixed before the next deploy:
+
+- `trips.html?lang=he` filtered to the correct three Stage33 trip records, but
+  legacy `getTripName()` read `getCurrentLanguage()` from
+  `languageSwitcher.js`, which still treated HE as hidden-preview-only. The
+  helper now delegates hidden-language route access to the central rollout guard,
+  so record-gated trips render Hebrew titles while Home/Blog/Shop stay blocked.
+
+Stage37 rollback:
+
+1. Set `recordGatedPagesPublic:false`.
+2. Keep `stage33SqlApplied:true` as data history.
+3. Leave existing READY pages active unless they regress.
+4. Purge Cloudflare cache or redeploy the previous config if stale assets keep
+   exposing record-gated pages.
