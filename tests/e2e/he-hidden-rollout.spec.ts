@@ -193,6 +193,83 @@ test.describe('hidden Hebrew rollout guard', () => {
     expect(tripRollout?.publicSurfaces?.routes).toBe(true);
   });
 
+  test('prepares Home HE aggregation only when partial pages are explicitly allowed', async ({ page }) => {
+    await seedStage33TripFixtures(page);
+    await page.addInitScript(() => {
+      (window as any).CE_LANGUAGE_ROLLOUT_CONFIG = {
+        he: {
+          mode: 'partial_public',
+          switcher: true,
+          routes: true,
+          publicApi: true,
+          seo: false,
+          sitemap: false,
+          hreflang: false,
+          canonical: false,
+          indexing: false,
+          hiddenPreview: false,
+          pageGated: true,
+          stage25SqlApplied: true,
+          stage33SqlApplied: true,
+          recordGatedPagesPublic: true,
+          allowPartialPagesPublic: true,
+        },
+      };
+    });
+
+    await page.goto('/index.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await waitForHtmlLanguage(page, 'he');
+    await page.waitForFunction(() => document.documentElement.dataset.heHomeAggregation === 'prepared', null, {
+      timeout: 5000,
+    });
+
+    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+    await expect(page.locator('.home-blog-section')).toHaveAttribute('hidden', '');
+    await expect(page.locator('#openPackingFromAdventure')).toHaveAttribute('hidden', '');
+    await expect(page.locator('#openTasksFromAdventure')).toHaveAttribute('hidden', '');
+    await expect(page.locator('[data-tour-target="plan-card"]')).toHaveAttribute('hidden', '');
+    await expect(page.locator('[data-tour-target="blog-card"]')).toHaveAttribute('hidden', '');
+    await expectNoHorizontalOverflow(page);
+
+    const helperResult = await page.evaluate(() => ({
+      transport: (window as any).CELanguage?.buildLocalizedUrl?.('/transport.html', 'he'),
+      hotels: (window as any).CELanguage?.buildLocalizedUrl?.('/hotels.html', 'he'),
+      recommendations: (window as any).CELanguage?.buildLocalizedUrl?.('/recommendations.html', 'he'),
+      car: (window as any).CELanguage?.buildLocalizedUrl?.('/car.html', 'he'),
+      trips: (window as any).CELanguage?.buildLocalizedUrl?.('/trips.html', 'he'),
+      blog: (window as any).CELanguage?.buildLocalizedUrl?.('/blog', 'he'),
+      shop: (window as any).CELanguage?.buildLocalizedUrl?.('/shop.html', 'he'),
+      plan: (window as any).CELanguage?.buildLocalizedUrl?.('/plan.html', 'he'),
+      community: (window as any).CELanguage?.buildLocalizedUrl?.('/community.html', 'he'),
+      tasks: (window as any).CELanguage?.buildLocalizedUrl?.('/tasks.html', 'he'),
+    }));
+
+    expect(helperResult.transport).toBe('/transport.html?lang=he');
+    expect(helperResult.hotels).toBe('/hotels.html?lang=he');
+    expect(helperResult.recommendations).toBe('/recommendations.html?lang=he');
+    expect(helperResult.car).toBe('/car.html?lang=he');
+    expect(helperResult.trips).toBe('/trips.html?lang=he');
+    expect(helperResult.blog).toBe('/blog?lang=en');
+    expect(helperResult.shop).toBe('/shop.html?lang=en');
+    expect(helperResult.plan).toBe('/plan.html?lang=en');
+    expect(helperResult.community).toBe('/community.html?lang=en');
+    expect(helperResult.tasks).toBe('/tasks.html?lang=en');
+
+    const mobileLinks = await page.locator('.mobile-nav-link').evaluateAll((links) => (
+      links.map((link) => {
+        const url = new URL((link as HTMLAnchorElement).href, window.location.origin);
+        return { pathname: url.pathname, lang: url.searchParams.get('lang') || '' };
+      })
+    ));
+    const byPath = (pathname: string) => mobileLinks.find((link) => link.pathname === pathname);
+    expect(byPath('/transport.html')?.lang).toBe('he');
+    expect(byPath('/car.html')?.lang).toBe('he');
+    expect(byPath('/trips.html')?.lang).toBe('he');
+    expect(byPath('/community.html')?.lang).toBe('en');
+    expect(byPath('/packing.html')?.lang).toBe('en');
+    expect(byPath('/tasks.html')?.lang).toBe('en');
+  });
+
   test('blocks direct HE for unready trip records', async ({ page }) => {
     await seedStage33TripFixtures(page);
 

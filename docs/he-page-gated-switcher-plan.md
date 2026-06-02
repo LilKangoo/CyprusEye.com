@@ -580,3 +580,49 @@ Stage37 rollback:
 3. Leave existing READY pages active unless they regress.
 4. Purge Cloudflare cache or redeploy the previous config if stale assets keep
    exposing record-gated pages.
+
+## Stage 38 Home Aggregation Preparation
+
+Status: **prepared, not public**. Home remains `PARTIAL`; this stage does not
+enable Home HE, global HE, Blog HE, Shop HE, HE SEO or public `/he/` routes.
+
+Runtime preparation:
+
+- Added `js/home-aggregation-guard.js` for future/test Home HE rendering only.
+- The guard hides blocked Home sections when Home is explicitly rendered in HE:
+  Blog preview, future Shop preview containers if present, Packing shortcut,
+  Tasks shortcut, Plan shortcut and Blog shortcut.
+- Visible Home modules may remain visible only when they point to READY or
+  record-gated pages: Transport, Hotels, Recommendations, Car, Trips and
+  POI/map.
+- Home links are normalized through the central `buildLocalizedUrl(...)`
+  helper:
+  - READY and record-gated destinations may keep `lang=he`.
+  - Blog, Shop, Plan, Community, Packing, Tasks, Legal and other blocked or
+    excluded destinations normalize to `lang=en`.
+- Mobile bottom navigation now also uses the central localized URL helper,
+  preventing `?lang=he` from being carried to blocked mobile links.
+- Home map/community fallback redirects now use the central helper, preserving
+  HE for Recommendations/Hotels and normalizing Community fallback to EN/LTR.
+
+Home section decision:
+
+| Home section | Stage38 policy |
+| --- | --- |
+| Header / switcher | Home stays PARTIAL, so HE switcher remains hidden publicly. |
+| Transport preview/form | Can stay visible; Transport is READY. Booking/payment flow is unchanged. |
+| Hotels preview | Can stay visible; Hotels are READY after Stage25. |
+| Recommendations preview | Can stay visible; Recommendations are READY after Stage25. |
+| Cars preview | Can stay visible only through Stage33 record-gated cars. |
+| Trips preview | Can stay visible only through Stage33 top HE-ready trips. |
+| POI/map | Can stay visible only through HE-ready POI/map gating. |
+| Blog preview | Hidden on HE Home until Blog public HE is solved. |
+| Shop/cart/checkout/payment | Excluded; links normalize to EN/LTR and checkout remains outside HE. |
+| Plan / Community / Packing / Tasks shortcuts | Hidden on HE Home or linked to EN/LTR until separately prepared. |
+| Footer/legal | Legal links normalize to EN/LTR until Legal HE is reviewed. |
+
+Rollback for Home preparation:
+
+1. Remove `js/home-aggregation-guard.js` from `index.html`.
+2. Leave existing READY and record-gated pages unchanged.
+3. Keep Home `PARTIAL`, Blog `BLOCKED`, Shop `EXCLUDED`, and HE SEO off.

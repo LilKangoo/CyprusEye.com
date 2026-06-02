@@ -79,6 +79,9 @@
     try {
       const url = new URL(toRootHref(href), window.location.origin);
       const lang = getCurrentLang();
+      if (lang && window.CELanguage && typeof window.CELanguage.buildLocalizedUrl === 'function') {
+        return window.CELanguage.buildLocalizedUrl(url.toString(), lang);
+      }
       if (lang) {
         url.searchParams.set('lang', lang);
       }

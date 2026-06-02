@@ -1384,6 +1384,16 @@
     setCurrentMapDisplayItem(items[idx], {scroll:true, force:true});
   }
 
+  function buildHomeCommunityNavigationUrl(target) {
+    try {
+      const lang = window.appI18n?.language || document.documentElement?.lang || 'en';
+      if (window.CELanguage && typeof window.CELanguage.buildLocalizedUrl === 'function') {
+        return window.CELanguage.buildLocalizedUrl(target, lang);
+      }
+    } catch (_) {}
+    return target;
+  }
+
   async function showCommunity(id){
     const targetId = id || currentId;
     if (!targetId) {
@@ -1401,7 +1411,7 @@
       if (typeof window.openRecommendationDetailModal === 'function') {
         window.openRecommendationDetailModal(targetId);
       } else {
-        window.location.href = '/recommendations.html';
+        window.location.href = buildHomeCommunityNavigationUrl('/recommendations.html');
       }
       return;
     }
@@ -1411,7 +1421,7 @@
       if (opened) {
         return;
       }
-      window.location.href = '/hotels.html';
+      window.location.href = buildHomeCommunityNavigationUrl('/hotels.html');
       return;
     }
 
@@ -1427,10 +1437,10 @@
     try {
       const url = new URL('/community.html', window.location.origin);
       url.searchParams.set('poi', targetId);
-      window.location.href = url.toString();
+      window.location.href = buildHomeCommunityNavigationUrl(url.toString());
     } catch (e) {
       // Fallback for very old browsers
-      window.location.href = '/community.html?poi=' + encodeURIComponent(targetId);
+      window.location.href = buildHomeCommunityNavigationUrl('/community.html?poi=' + encodeURIComponent(targetId));
     }
   }
 

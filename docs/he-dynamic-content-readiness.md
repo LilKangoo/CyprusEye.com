@@ -321,3 +321,29 @@ Dynamic rollback for Stage37:
 - Turn `recordGatedPagesPublic:false` to return Cars, Trips, Trip detail and
   POI/map to non-public partial status.
 - Do not remove Stage33 HE data; it is additive and can remain in Supabase.
+
+## Stage 38 Home Aggregation Dynamic Scope
+
+Status: **prepared, not public**. Home remains PARTIAL and public `?lang=he`
+continues to normalize away unless a future stage explicitly allows partial Home.
+
+Home dynamic aggregation policy:
+
+| Home module | Dynamic source | Stage38 policy |
+| --- | --- | --- |
+| Transport | `transport_locations`, route/quote UI | Visible candidate; data is READY. Deposit/payment flow unchanged. |
+| Hotels | `hotels`, `hotel_amenities` | Visible candidate; Stage25 data is READY. |
+| Recommendations | `recommendations`, `recommendation_categories` | Visible candidate; Stage25 data is READY. |
+| Cars | car offers | Visible only through Stage33 top 5 / record-gated filtering. |
+| Trips | trip records | Visible only through Stage33 top 3 / record-gated filtering. |
+| POI/map | POI and category data | Visible only through Stage33 top 10 / record-gated filtering. |
+| Blog preview | `blog_posts`, `blog_post_translations` | Hidden on HE Home until Blog public HE is solved. |
+| Shop preview/cart | products/cart/checkout | Excluded from HE Home; links normalize to EN/LTR. |
+| Plan/community/tasks/packing | utility pages | Hidden or EN/LTR until separately prepared. |
+
+Dynamic readiness impact:
+
+- Existing READY and record-gated modules are unchanged.
+- Home is now a stronger **CANDIDATE** from a link/visibility standpoint, but it
+  should remain `PARTIAL` until an explicit Home deploy smoke passes.
+- Blog and Shop dynamic content remain the main blockers for full Home HE.

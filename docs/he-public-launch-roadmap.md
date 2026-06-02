@@ -632,3 +632,42 @@ Rollback:
 3. Keep existing READY pages active unless live monitoring shows a shared
    regression.
 4. Purge Cloudflare cache after redeploy if the old config remains cached.
+
+## Stage 38 Home Aggregation Preparation
+
+Stage38 prepares Home for a future page-gated expansion but does **not** expose
+Home HE publicly.
+
+Current Home status:
+
+- `home`: still `PARTIAL`
+- `allowPartialPagesPublic:false`
+- Blog remains `BLOCKED`
+- Shop/cart/checkout/payment remain `EXCLUDED`
+- HE SEO/sitemap/hreflang/canonical/indexing remain off
+
+Implemented preparation:
+
+1. Home uses a dedicated aggregation guard for future/test HE rendering.
+2. Blog preview and blocked shortcut cards are hidden when Home is explicitly
+   rendered in HE.
+3. Links to READY or record-gated pages keep `lang=he`; links to Blog, Shop,
+   Plan, Community, Packing, Tasks and Legal normalize to EN/LTR.
+4. Mobile nav and Home map fallback redirects now use the central
+   `buildLocalizedUrl(...)` helper.
+5. Transport booking/deposit/payment code is not changed.
+
+Home can move from `PARTIAL` to `CANDIDATE READY` only after live/local smoke
+confirms:
+
+- no visible Blog/Shop HE fragments,
+- car/trips/POI aggregates show only record-gated content,
+- blocked/excluded links normalize to EN/LTR,
+- mobile RTL has no overflow,
+- booking/payment regression tests still pass.
+
+Recommended next stage:
+
+**Stage 39A: deploy and live-monitor Home HE only if the Stage38 smoke remains
+clean.** If any section shows mixed or broken content, keep Home PARTIAL and fix
+that section first.

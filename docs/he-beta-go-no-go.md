@@ -258,3 +258,32 @@ Live NO-GO conditions after deploy:
 
 Rollback: set `recordGatedPagesPublic:false`, redeploy and purge Cloudflare
 cache if stale assets continue to expose record-gated HE.
+
+## Stage 38 Home Aggregation Gate
+
+Decision target: **NO-GO for public Home HE until a dedicated Home smoke passes**.
+
+Stage38 preparation is acceptable because it does not activate Home HE publicly:
+
+- Home remains `PARTIAL`.
+- Blog preview is hidden during HE Home rendering.
+- Shop/cart/checkout/payment remain excluded and EN/LTR.
+- Blocked shortcut cards are hidden during HE Home rendering.
+- Links to Blog, Shop, Plan, Community, Packing, Tasks and Legal normalize to
+  EN/LTR.
+- READY and record-gated links may keep `lang=he`.
+
+GO criteria for the next Home stage:
+
+1. Home HE desktop/mobile smoke has no overflow or `undefined/null`.
+2. Blog and Shop are not visible as broken HE fragments.
+3. Cross-navigation from Home HE keeps HE only for READY/record-gated pages.
+4. Booking/payment regression tests pass because Home transport remains present.
+5. SEO HE remains off.
+
+NO-GO conditions:
+
+- Any Home section links to Blog/Shop/Plan/Community with `lang=he`.
+- Any Shop/cart/checkout/payment surface enters RTL/HE.
+- Any non-ready car/trip/POI record appears as broken HE.
+- Booking/payment regression tests fail.

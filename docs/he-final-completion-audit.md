@@ -494,3 +494,29 @@ routes remain blocked or excluded.
 One live issue was fixed before redeploy: Trips had HE-ready records but card
 titles rendered through a legacy helper that still returned EN. The helper now
 uses the central rollout guard, and local smoke confirms Hebrew trip titles.
+
+## Stage 38 Home Aggregation Audit
+
+Status: **Home prepared, still PARTIAL**. No global HE, SEO HE, Blog HE, Shop HE
+or public `/he/` route is enabled.
+
+Home aggregation findings:
+
+| Section | Static HE | Dynamic HE | Stage38 decision |
+| --- | --- | --- | --- |
+| Header / language switcher | Strong public UI coverage | N/A | Home stays PARTIAL, so public HE switcher remains hidden on Home. |
+| Navigation / mobile nav | Strong public UI coverage | N/A | Links are normalized through central page readiness; blocked links go EN/LTR. |
+| Transport preview/form | Ready | Transport locations/routes ready | Visible candidate; booking/payment flow unchanged. |
+| Hotels preview | Ready | Hotels/amenities ready after Stage25 | Visible candidate. |
+| Recommendations preview | Ready | Active recommendations ready after Stage25 | Visible candidate. |
+| Cars preview | Ready with some EN fallback | Stage33 top 5 record-gated | Visible only through record-gated content. |
+| Trips preview | Ready with some EN fallback | Stage33 top 3 record-gated | Visible only through record-gated content. |
+| POI/map | Ready shell | Stage33 top 10 record-gated | Visible only through HE-ready POI/map gating. |
+| Blog preview | Static shell translated | Blog public HE blocked | Hidden on HE Home. |
+| Shop/cart/checkout | Static shell partial, dynamic 0% | Shop excluded | Excluded; links normalize to EN/LTR. |
+| Plan/community/packing/tasks shortcuts | Static shell mostly translated | Separate pages not HE-gated | Hidden or EN/LTR until separately prepared. |
+| Footer/legal | Static shell translated | Legal copy not reviewed | Legal link normalizes to EN/LTR. |
+
+Home remains `PARTIAL` because it still depends on section-level UX decisions
+for Blog, Shop and blocked utility pages. The new guard makes future/test Home
+HE safer, but does not by itself make Home public-ready.
