@@ -321,3 +321,40 @@ Rollback:
 2. Keep existing READY and record-gated pages unchanged unless the regression is
    shared.
 3. Keep Blog BLOCKED, Shop EXCLUDED and SEO HE OFF.
+
+## Stage 40 Blog Gate
+
+Decision target: **NO-GO for public Blog HE in Stage40**.
+
+GO criteria for a future Stage41 Blog record-gated rollout:
+
+1. `he_blog_stage40_readiness_verify.sql` reports all five top posts as
+   complete candidates.
+2. A review/public-ready field exists on `blog_post_translations`.
+3. Public read policy exposes HE only for `review_status='public_ready'` and
+   published/approved parent posts.
+4. Blog list filters to HE-ready posts only and uses `categories_he/tags_he`.
+5. Blog detail renders HE only for HE-ready slugs; non-ready slugs normalize to
+   EN/LTR.
+6. Blog CTA links do not carry HE into Shop, Plan, Community, Legal or other
+   blocked/excluded pages.
+7. HE SEO remains off during the record-gated Blog test.
+
+NO-GO conditions:
+
+- Any HE blog row is publicly readable without an explicit reviewed/public-ready
+  gate.
+- Blog list shows EN fallback posts as a Hebrew archive.
+- Blog detail shows mixed or empty HE content.
+- Related posts include non-ready HE posts.
+- Shop/cart/checkout/payment links carry `lang=he`.
+- Sitemap, hreflang, canonical, OpenGraph or indexing expose HE.
+
+Prepared files:
+
+- `supabase/manual/he_blog_stage40_readiness_verify.sql`
+- `supabase/manual/he_blog_stage41_public_read_draft.sql`
+
+Rollback for a future Stage41 test: restore the migration-179 public policy
+that limits `blog_post_translations_public_read` to `lang IN ('pl', 'en')`,
+then set Blog/BlogPost back to `blocked` in the page registry.

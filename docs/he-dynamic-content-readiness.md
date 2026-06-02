@@ -379,3 +379,36 @@ Rollback for Home dynamic scope:
 - Set Home back to `partial` in the rollout config.
 - Keep Stage25/Stage33 data in Supabase; the data is additive and should not be
   removed during UI rollback.
+
+## Stage 40 Blog Dynamic Readiness
+
+Status: **Blog remains BLOCKED**.
+
+Dynamic content findings:
+
+| Blog scope | Records | HE complete | HE partial / internal | Public decision |
+| --- | ---: | ---: | ---: | --- |
+| Top candidate posts | 5 | Verify required | Up to 5 prepared by Stage17 pack | Blocked until public-read review gate. |
+| Full public archive | 21 known public posts | Not complete | Mixed/fallback | Blocked; do not show fallback-heavy HE list. |
+| Blog taxonomy | Top 5 have `categories_he` / `tags_he` in Stage17 pack | Verify required | Partial outside top 5 | Use only HE-ready taxonomy in HE list. |
+| Blog CTAs | Per-post dynamic | Not audited for HE link safety | Mixed destinations possible | Normalize through page readiness before public HE. |
+
+Prepared verification:
+
+- `supabase/manual/he_blog_stage40_readiness_verify.sql` checks the current RLS
+  policy, top-five HE content completeness, taxonomy readiness, duplicate HE
+  slugs and CTA risk.
+
+Recommended content gate:
+
+- Add `review_status` to `blog_post_translations` and expose HE only when
+  `review_status = 'public_ready'`.
+- Keep posts without reviewed HE out of HE blog list and related posts.
+- For direct detail URLs, allow HE only for records with reviewed HE content;
+  otherwise normalize to EN/LTR.
+
+Dynamic decision:
+
+- Blog can become `RECORD-GATED READY` only for reviewed top posts.
+- Blog should not become `READY` until the full launch archive has reviewed HE
+  content or the product decision explicitly accepts a partial archive.

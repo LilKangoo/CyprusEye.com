@@ -713,3 +713,49 @@ Next strategic blocker after Home:
   public HE experience.
 - Shop HE should remain a separate decision because checkout/payment copy and
   dynamic product data require dedicated QA.
+
+## Stage 40 Blog HE Readiness Plan
+
+Decision: **keep Blog and Blog detail BLOCKED** until public read, content
+quality and record-gated runtime are explicitly completed.
+
+Current architecture:
+
+- `blog_post_translations.lang = 'he'` is allowed internally after migration
+  179.
+- Public RLS still hides HE translations and exposes only PL/EN translations.
+- Cloudflare Blog routes normalize language through the server rollout guard,
+  which currently does not include page-level Blog HE readiness.
+- Blog list/detail code still has PL/EN taxonomy and URL assumptions.
+- Blog SEO helpers generate PL/EN canonical and hreflang only. This is correct
+  while SEO HE remains off.
+
+Recommended public-read strategy:
+
+1. Add a review gate on `blog_post_translations`, preferably
+   `review_status IN ('draft', 'needs_review', 'reviewed', 'public_ready')`.
+2. Keep PL/EN public reads unchanged.
+3. Allow public HE reads only when:
+   - parent post is `status='published'`;
+   - parent `submission_status='approved'`;
+   - `published_at <= now()`;
+   - translation `lang='he'`;
+   - translation `review_status='public_ready'`;
+   - slug, title, meta title, meta description, summary, lead and content HTML
+     are non-empty.
+4. Do not expose fallback-heavy HE blog pages. If a post is not public-ready,
+   it should not appear in the HE list and direct `?lang=he` should normalize to
+   EN/LTR.
+
+Prepared files:
+
+- `supabase/manual/he_blog_stage40_readiness_verify.sql` - read-only readiness
+  and policy audit.
+- `supabase/manual/he_blog_stage41_public_read_draft.sql` - draft migration
+  with `ROLLBACK`; do not commit until Stage41 approval.
+
+Recommended Stage41:
+
+**Apply Blog HE review/public-read gate only after the Stage40 verify output
+confirms the top five rows are complete and reviewed, then test Blog list/detail
+record-gating without enabling HE SEO.**

@@ -558,3 +558,45 @@ Launch posture after Stage39:
 - Blog HE public remains BLOCKED.
 - Shop HE remains EXCLUDED.
 - SEO HE remains OFF.
+
+## Stage 40 Blog HE Blocker Analysis
+
+Status: **BLOCKED, but now scoped for a safe future record-gated rollout**.
+
+Why Blog is blocked:
+
+1. Migration 179 allowed internal HE translations but intentionally changed the
+   public read policy to expose only PL/EN translations.
+2. Blog list and detail code do not yet include `categories_he` / `tags_he` in
+   public selects.
+3. The current Blog list can fallback to EN for non-PL languages, which is not
+   acceptable for a public HE content experience.
+4. Blog detail lookup falls back by slug if a localized row is not found; that
+   needs an HE record gate so non-ready posts do not render mixed content.
+5. CTA resolution can still build links to Shop or blocked destinations with the
+   requested language unless Blog-specific link normalization is added.
+6. Blog SEO is intentionally PL/EN-only. HE canonical, hreflang, sitemap and
+   OpenGraph must stay off until the SEO phase.
+
+Top 5 HE candidates:
+
+| Post | Candidate state | Public-safe now |
+| --- | --- | --- |
+| Affiliate / earning from tourism | Internal HE row prepared in Stage17 pack; verify required. | No |
+| ETIAS Cyprus 2026 | Internal HE row prepared in Stage17 pack; verify required. | No |
+| Cyprus in 7 days | Internal HE row prepared in Stage17 pack; verify required. | No |
+| Car rental without deposit | Internal HE row prepared in Stage17 pack; verify required. | No |
+| Larnaca vs Paphos | Internal HE row prepared in Stage17 pack; verify required. | No |
+
+Public readiness requirements:
+
+- Run `supabase/manual/he_blog_stage40_readiness_verify.sql`.
+- Confirm all five candidates are complete, published, approved and human
+  reviewed.
+- Add the review/public-ready gate from the Stage41 draft before changing RLS.
+- Implement Blog list/detail record-gating before setting Blog to
+  `record-gated` in the page registry.
+- Keep Blog HE SEO OFF until a later SEO rollout.
+
+Current verdict: Blog stays `BLOCKED`; next work is Stage41 public-read and
+record-gating preparation, not a public launch.

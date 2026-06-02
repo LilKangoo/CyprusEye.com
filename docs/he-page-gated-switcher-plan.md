@@ -675,3 +675,44 @@ Rollback:
 2. Keep `allowPartialPagesPublic:false`.
 3. Leave existing READY and record-gated pages unchanged.
 4. Redeploy and purge Cloudflare cache if stale Home assets keep exposing HE.
+
+## Stage 40 Blog HE Public Readiness
+
+Status: **Blog remains BLOCKED**. Stage40 is an audit and preparation step only;
+it does not enable public Blog HE, global HE, HE SEO, sitemap, hreflang,
+canonical, indexing, Shop HE, or public `/he/` routes.
+
+Root blocker:
+
+- Migration `179_blog_translations_he_internal_guard.sql` correctly allows
+  `blog_post_translations.lang = 'he'` for internal/admin/partner content.
+- The same migration intentionally keeps the public read policy restricted to
+  `lang IN ('pl', 'en')`, so anon/public clients cannot read HE blog
+  translations yet.
+- Blog list/detail runtime still has PL/EN assumptions: taxonomy selects
+  `categories_pl/categories_en` and `tags_pl/tags_en`, article URLs are built
+  only for PL/EN, and current detail fallback can resolve a non-HE row by slug.
+
+Top 5 HE content candidates:
+
+| Post | Candidate id | Stage40 status |
+| --- | --- | --- |
+| Affiliate / earning from tourism | `0477e103-ee8a-47b3-9b54-69757dfbc07f` | Verify with `he_blog_stage40_readiness_verify.sql`; needs human review gate. |
+| ETIAS Cyprus 2026 | `2a59c0a7-52fd-498f-b4fe-d0d76617c882` | Verify with `he_blog_stage40_readiness_verify.sql`; needs human review gate. |
+| Cyprus in 7 days | `2e88f39b-5b5c-4e04-82b5-c125f19920b3` | Verify with `he_blog_stage40_readiness_verify.sql`; needs human review gate. |
+| Car rental without deposit | `a021f1d4-79e9-4c9e-a6ac-d36c13bd16ef` | Verify with `he_blog_stage40_readiness_verify.sql`; needs human review gate. |
+| Larnaca vs Paphos | `1c1f8eb6-c709-4302-8611-6322b5ed5fad` | Verify with `he_blog_stage40_readiness_verify.sql`; needs human review gate. |
+
+Required before Blog can leave `blocked`:
+
+1. Run `supabase/manual/he_blog_stage40_readiness_verify.sql` in Supabase SQL
+   Editor and confirm `blog_top5_he_readiness.candidate_complete = 5`.
+2. Add a public-read review gate for HE translations. Draft:
+   `supabase/manual/he_blog_stage41_public_read_draft.sql`.
+3. Implement Blog list record-gating: HE list shows only `review_status =
+   'public_ready'` posts and uses `categories_he/tags_he`.
+4. Implement Blog detail record-gating: HE detail works only for HE-ready slugs;
+   non-ready posts normalize to EN/LTR.
+5. Normalize Blog CTA links through page readiness so Shop/blocked destinations
+   do not carry `lang=he`.
+6. Keep HE SEO off until the separate SEO phase.
