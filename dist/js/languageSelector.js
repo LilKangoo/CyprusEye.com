@@ -37,6 +37,18 @@
     return (document.body?.dataset?.seoPage || '') === 'home';
   }
 
+  function getExplicitLanguageRequest() {
+    try {
+      const code = String(new URL(window.location.href).searchParams.get('lang') || '')
+        .trim()
+        .toLowerCase()
+        .split('-')[0];
+      return ['pl', 'en', 'he'].includes(code) ? code : '';
+    } catch (_) {
+      return '';
+    }
+  }
+
   function hasBeenPresented() {
     try {
       return window[PRESENTED_FLAG] === true;
@@ -62,11 +74,11 @@
     }
 
     shouldShow() {
-      return !this.hasSelectedLanguage() && isHomePage() && !hasBeenPresented();
+      return !getExplicitLanguageRequest() && !this.hasSelectedLanguage() && isHomePage() && !hasBeenPresented();
     }
 
     requiresSelection() {
-      return !this.hasSelectedLanguage() && isHomePage();
+      return !getExplicitLanguageRequest() && !this.hasSelectedLanguage() && isHomePage();
     }
 
     hasSelectedLanguage() {
