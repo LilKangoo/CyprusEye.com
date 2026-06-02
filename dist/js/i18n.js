@@ -1490,6 +1490,7 @@
     }
 
     groups.forEach((group) => {
+      ensureLanguagePillOptions(group);
       const pills = group.querySelectorAll('[data-language-pill]');
       pills.forEach((pill) => {
         const code = (pill.dataset.languagePill || '').toLowerCase();
