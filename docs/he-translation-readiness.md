@@ -1,6 +1,6 @@
 # HE Translation Readiness
 
-Generated: 2026-06-04T14:09:25.510Z
+Generated: 2026-06-04T15:03:10.219Z
 Source audit: `translations/audit-he-vs-en.json`
 
 Hebrew is still internal/hidden. This report does not activate HE in the public language switcher, selectors, sitemap, hreflang, canonical metadata, public SEO, indexing, or `/he/` routes.
@@ -67,6 +67,24 @@ Full machine-readable lists live in `translations/he-readiness-report.json`:
 - `keysByStatus.reviewed`
 
 For now, `needs_human_review` is derived from keys where HE is exactly the same value as EN. If a dedicated translation management tool is introduced later, this report can be extended to read a separate reviewed/machine-translated status file.
+
+## Manual Review Packs
+
+| Pack | Records |
+| --- | ---: |
+| Static UI | 801 |
+| Advertise | 235 |
+| SEO | 122 |
+| Shop | 96 |
+| Email/payment templates | 506 |
+| Same-as-EN HE | 690 |
+| Dynamic content | 237 |
+| Blog | 21 |
+
+Manual review packs are workflow files only. They do not activate Blog HE,
+Shop HE, SEO HE, sitemap/hreflang/canonical HE, indexing HE or public `/he/`
+routes. Import is dry-run by default through
+`npm run i18n:review-import -- --input=<pack>`.
 
 ## Same As EN Risk
 

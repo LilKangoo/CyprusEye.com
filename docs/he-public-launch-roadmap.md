@@ -889,3 +889,39 @@ Public launch implication:
 - Static UI no longer blocks EN fallback integrity.
 - Full public HE still requires manual Blog/dynamic content review, Shop
   decision and SEO HE planning.
+
+## Stage 45 Manual Translation Operations Gate
+
+Decision: **GO for manual review workflow; NO-GO for automatic content
+publication**.
+
+Operational workflow:
+
+1. Run `npm run i18n:tri-audit`.
+2. Run `npm run i18n:review-export`.
+3. Translate/review packs in `translations/manual-review/`.
+4. Run `npm run i18n:review-import -- --input=<pack>` as dry-run.
+5. Apply only reviewed static JSON keys with explicit `--apply`.
+6. Use admin UI or reviewed SQL for dynamic/database content.
+7. Mark Blog rows `public_ready` only with explicit human approval and Stage42
+   SQL/verify.
+
+Current Stage45 pack counts:
+
+- Static UI: `801`.
+- Advertise: `235`.
+- SEO: `122`.
+- Shop: `96`.
+- Email/payment templates: `506`.
+- Same-as-EN HE: `690`.
+- Dynamic content: `237`.
+- Blog: `21`.
+
+Launch impact:
+
+- Blog remains `BLOCKED`.
+- Shop remains `EXCLUDED`.
+- SEO HE remains `OFF`.
+- Global HE remains off.
+- Public `/he/` routes remain disabled.
+- Existing page-gated HE pages are unchanged.

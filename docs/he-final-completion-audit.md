@@ -755,3 +755,42 @@ Launch state after Stage44:
 - Shop remains `EXCLUDED`.
 - SEO HE remains `OFF`.
 - Booking/payment flow remains untouched.
+
+## Stage 45 Manual Translation Workflow
+
+Status: **manual export/import workflow prepared; no publication change**.
+
+Added tooling:
+
+- `scripts/export-translation-review-pack.js`
+- `scripts/import-reviewed-translations.js`
+- package scripts `i18n:review-export` and `i18n:review-import`
+- `docs/he-manual-translation-export-import-workflow.md`
+
+Generated review packs:
+
+| Pack | Records |
+| --- | ---: |
+| Static UI | 801 |
+| Advertise | 235 |
+| SEO | 122 |
+| Shop | 96 |
+| Email/payment templates | 506 |
+| Same-as-EN HE | 690 |
+| Dynamic content | 237 |
+| Blog | 21 |
+
+Safety result:
+
+- No database updates were made.
+- No Blog translation was marked `public_ready`.
+- Blog remains `BLOCKED`.
+- Shop remains `EXCLUDED`.
+- SEO HE remains `OFF`.
+- Booking/payment flow remains untouched.
+
+RLS note:
+
+- Live read of `email_template_catalog` and `email_template_versions` is
+  restricted, so the email review pack includes local catalog fallback records
+  from migration 173 for manual review visibility.

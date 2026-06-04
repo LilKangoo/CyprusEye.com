@@ -529,3 +529,38 @@ Static audit now supports dynamic workflow:
 
 Do not use Stage44 to justify publishing unreviewed Blog, Shop, email, legal or
 payment copy.
+
+## Stage 45 Dynamic Content Review Export
+
+Status: **read-only export prepared; no database update**.
+
+Review pack:
+
+- `translations/manual-review/dynamic-content-review.json`
+
+Records exported from Supabase read-only access:
+
+| Module | Records |
+| --- | ---: |
+| Blog | 21 |
+| Trips | 12 |
+| Hotels | 1 |
+| Cars | 27 |
+| POI | 139 |
+| Recommendations | 10 |
+| Transport | 9 |
+| Shop products/categories/vendors/shipping | 18 |
+
+Readiness signals in the pack:
+
+- `he_ready`: 189 records.
+- `partial`: 27 records.
+- `he_complete_unreviewed`: 5 records.
+- `needs_he_translation`: 16 records.
+
+Handling:
+
+- Blog still requires manual review and `public_ready` SQL gating.
+- Shop remains excluded even though review rows are exported.
+- Email catalog tables are RLS-protected for anon reads; local migration 173
+  provides catalog fallback records in the email template review pack.

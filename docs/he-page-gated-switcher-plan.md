@@ -851,3 +851,22 @@ Stage44 audit requirement before future switcher expansion:
 - `PL keys missing EN = 0`
 - `placeholderMismatches = 0`
 - `htmlTagMismatches = 0`
+
+## Stage 45 Switcher Impact
+
+Status: **no readiness registry change**.
+
+Stage45 adds manual translation export/import workflow only. It does not change:
+
+- Home page-gated HE.
+- READY pages.
+- Record-gated car/trips/trip/POI map pages.
+- Blog/BlogPost blocked state.
+- Shop exclusion.
+- SEO/sitemap/hreflang/canonical/indexing state.
+
+Switcher expansion remains blocked by the same content gates:
+
+- Blog requires manual `public_ready` review.
+- Shop requires a separate Shop HE decision.
+- SEO requires a dedicated SEO HE stage.

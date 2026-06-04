@@ -17,6 +17,8 @@
     "i18n:audit": "node scripts/audit-translations.js",
     "i18n:tri-audit": "node scripts/audit-pl-en-he.js",
     "i18n:he-readiness": "node scripts/report-he-readiness.js",
+    "i18n:review-export": "node scripts/export-translation-review-pack.js",
+    "i18n:review-import": "node scripts/import-reviewed-translations.js",
     "i18n:test": "node scripts/test-language-fallback.js && node scripts/test-admin-he-internal.js && node scripts/test-he-rollout-guard.js",
     "build": "node scripts/build.js",
     "build:clean": "rm -rf dist && npm run build"

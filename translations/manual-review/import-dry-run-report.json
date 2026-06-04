@@ -1,0 +1,4818 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-06-04T14:53:55.858Z",
+  "input": "translations/manual-review/static-ui-review.json",
+  "mode": "dry-run",
+  "publicReadyAutomation": false,
+  "databaseUpdates": false,
+  "applied": [],
+  "skipped": [
+    {
+      "index": 0,
+      "key": "account.close.text",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 1,
+      "key": "account.profile.labels.xp",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 2,
+      "key": "account.reset.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 3,
+      "key": "account.stats.badges.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 4,
+      "key": "account.stats.level.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 5,
+      "key": "account.stats.streak.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 6,
+      "key": "account.stats.tasks.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 7,
+      "key": "account.stats.visited.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 8,
+      "key": "account.stats.xp.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 9,
+      "key": "achievements.footer",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 10,
+      "key": "achievements.hero.intro",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 11,
+      "key": "achievements.history.subtitle",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 12,
+      "key": "achievements.meta.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 13,
+      "key": "achievements.progress.next.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 14,
+      "key": "achievements.progress.subtitle",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 15,
+      "key": "achievements.progress.total.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 16,
+      "key": "attractions.brand.overline",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 17,
+      "key": "attractions.catalog.subtitle",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 18,
+      "key": "attractions.meta.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 19,
+      "key": "attractions.nav.catalog",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 20,
+      "key": "attractions.nav.current",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 21,
+      "key": "attractions.subtitle",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 22,
+      "key": "auth.guest.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 23,
+      "key": "auth.intro",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 24,
+      "key": "auth.reset.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 25,
+      "key": "blogUi.list.heroSubtitle",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 26,
+      "key": "carRental.calculator.breakdown.tiered",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 27,
+      "key": "carRental.calculator.successMessage",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 28,
+      "key": "carRental.categories.comfort.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 29,
+      "key": "carRental.categories.comfort.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 30,
+      "key": "carRental.categories.comfort.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 31,
+      "key": "carRental.categories.economy.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 32,
+      "key": "carRental.categories.economy.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 33,
+      "key": "carRental.categories.economy.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 34,
+      "key": "carRental.categories.premium.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 35,
+      "key": "carRental.categories.premium.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 36,
+      "key": "carRental.categories.premium.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 37,
+      "key": "carRental.fleet.honda-fit-2022.category",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 38,
+      "key": "carRental.fleet.honda-fit-2022.feature1",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 39,
+      "key": "carRental.fleet.honda-fit-2022.feature2",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 40,
+      "key": "carRental.fleet.honda-fit-2022.feature3",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 41,
+      "key": "carRental.fleet.honda-fit-2022.fuel",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 42,
+      "key": "carRental.fleet.honda-fit-2022.note",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 43,
+      "key": "carRental.fleet.honda-fit-2022.transmission",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 44,
+      "key": "carRental.fleet.honda-fit-hybrid-2019.category",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 45,
+      "key": "carRental.fleet.honda-fit-hybrid-2019.feature1",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 46,
+      "key": "carRental.fleet.honda-fit-hybrid-2019.feature2",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 47,
+      "key": "carRental.fleet.honda-fit-hybrid-2019.feature3",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 48,
+      "key": "carRental.fleet.honda-fit-hybrid-2019.fuel",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 49,
+      "key": "carRental.fleet.honda-fit-hybrid-2019.note",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 50,
+      "key": "carRental.fleet.honda-fit-hybrid-2019.transmission",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 51,
+      "key": "carRental.fleet.honda-fit-hybrid-2022.category",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 52,
+      "key": "carRental.fleet.honda-fit-hybrid-2022.feature1",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 53,
+      "key": "carRental.fleet.honda-fit-hybrid-2022.feature2",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 54,
+      "key": "carRental.fleet.honda-fit-hybrid-2022.feature3",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 55,
+      "key": "carRental.fleet.honda-fit-hybrid-2022.fuel",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 56,
+      "key": "carRental.fleet.honda-fit-hybrid-2022.note",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 57,
+      "key": "carRental.fleet.honda-fit-hybrid-2022.transmission",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 58,
+      "key": "carRental.fleet.kia-rio-2019.category",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 59,
+      "key": "carRental.fleet.kia-rio-2019.feature1",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 60,
+      "key": "carRental.fleet.kia-rio-2019.feature2",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 61,
+      "key": "carRental.fleet.kia-rio-2019.feature3",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 62,
+      "key": "carRental.fleet.kia-rio-2019.fuel",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 63,
+      "key": "carRental.fleet.kia-rio-2019.note",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 64,
+      "key": "carRental.fleet.kia-rio-2019.transmission",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 65,
+      "key": "carRental.fleet.mazda-2-2023.category",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 66,
+      "key": "carRental.fleet.mazda-2-2023.feature1",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 67,
+      "key": "carRental.fleet.mazda-2-2023.feature2",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 68,
+      "key": "carRental.fleet.mazda-2-2023.feature3",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 69,
+      "key": "carRental.fleet.mazda-2-2023.fuel",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 70,
+      "key": "carRental.fleet.mazda-2-2023.note",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 71,
+      "key": "carRental.fleet.mazda-2-2023.transmission",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 72,
+      "key": "carRental.fleet.mazda-atenza-2019.category",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 73,
+      "key": "carRental.fleet.mazda-atenza-2019.feature1",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 74,
+      "key": "carRental.fleet.mazda-atenza-2019.feature2",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 75,
+      "key": "carRental.fleet.mazda-atenza-2019.feature3",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 76,
+      "key": "carRental.fleet.mazda-atenza-2019.fuel",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 77,
+      "key": "carRental.fleet.mazda-atenza-2019.note",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 78,
+      "key": "carRental.fleet.mazda-atenza-2019.transmission",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 79,
+      "key": "carRental.fleet.mazda-axela-2022.category",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 80,
+      "key": "carRental.fleet.mazda-axela-2022.feature1",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 81,
+      "key": "carRental.fleet.mazda-axela-2022.feature2",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 82,
+      "key": "carRental.fleet.mazda-axela-2022.feature3",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 83,
+      "key": "carRental.fleet.mazda-axela-2022.fuel",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 84,
+      "key": "carRental.fleet.mazda-axela-2022.note",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 85,
+      "key": "carRental.fleet.mazda-axela-2022.transmission",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 86,
+      "key": "carRental.fleet.mazda-premacy-2018.category",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 87,
+      "key": "carRental.fleet.mazda-premacy-2018.feature1",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 88,
+      "key": "carRental.fleet.mazda-premacy-2018.feature2",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 89,
+      "key": "carRental.fleet.mazda-premacy-2018.feature3",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 90,
+      "key": "carRental.fleet.mazda-premacy-2018.fuel",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 91,
+      "key": "carRental.fleet.mazda-premacy-2018.note",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 92,
+      "key": "carRental.fleet.mazda-premacy-2018.transmission",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 93,
+      "key": "carRental.fleet.mercedes-c-class-2020.category",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 94,
+      "key": "carRental.fleet.mercedes-c-class-2020.feature1",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 95,
+      "key": "carRental.fleet.mercedes-c-class-2020.feature2",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 96,
+      "key": "carRental.fleet.mercedes-c-class-2020.feature3",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 97,
+      "key": "carRental.fleet.mercedes-c-class-2020.fuel",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 98,
+      "key": "carRental.fleet.mercedes-c-class-2020.note",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 99,
+      "key": "carRental.fleet.mercedes-c-class-2020.transmission",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 100,
+      "key": "carRental.fleet.mercedes-s-class-2017.category",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 101,
+      "key": "carRental.fleet.mercedes-s-class-2017.feature1",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 102,
+      "key": "carRental.fleet.mercedes-s-class-2017.feature2",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 103,
+      "key": "carRental.fleet.mercedes-s-class-2017.feature3",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 104,
+      "key": "carRental.fleet.mercedes-s-class-2017.fuel",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 105,
+      "key": "carRental.fleet.mercedes-s-class-2017.note",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 106,
+      "key": "carRental.fleet.mercedes-s-class-2017.transmission",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 107,
+      "key": "carRental.fleet.nissan-note-2020.category",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 108,
+      "key": "carRental.fleet.nissan-note-2020.feature1",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 109,
+      "key": "carRental.fleet.nissan-note-2020.feature2",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 110,
+      "key": "carRental.fleet.nissan-note-2020.feature3",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 111,
+      "key": "carRental.fleet.nissan-note-2020.fuel",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 112,
+      "key": "carRental.fleet.nissan-note-2020.note",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 113,
+      "key": "carRental.fleet.nissan-note-2020.transmission",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 114,
+      "key": "carRental.fleet.nissan-note-hybrid-2023.category",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 115,
+      "key": "carRental.fleet.nissan-note-hybrid-2023.feature1",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 116,
+      "key": "carRental.fleet.nissan-note-hybrid-2023.feature2",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 117,
+      "key": "carRental.fleet.nissan-note-hybrid-2023.feature3",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 118,
+      "key": "carRental.fleet.nissan-note-hybrid-2023.fuel",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 119,
+      "key": "carRental.fleet.nissan-note-hybrid-2023.note",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 120,
+      "key": "carRental.fleet.nissan-note-hybrid-2023.transmission",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 121,
+      "key": "carRental.fleet.nissan-serena-hybrid-2016.category",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 122,
+      "key": "carRental.fleet.nissan-serena-hybrid-2016.feature1",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 123,
+      "key": "carRental.fleet.nissan-serena-hybrid-2016.feature2",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 124,
+      "key": "carRental.fleet.nissan-serena-hybrid-2016.feature3",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 125,
+      "key": "carRental.fleet.nissan-serena-hybrid-2016.fuel",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 126,
+      "key": "carRental.fleet.nissan-serena-hybrid-2016.note",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 127,
+      "key": "carRental.fleet.nissan-serena-hybrid-2016.transmission",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 128,
+      "key": "carRental.fleet.nissan-serena-hybrid-2022.category",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 129,
+      "key": "carRental.fleet.nissan-serena-hybrid-2022.feature1",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 130,
+      "key": "carRental.fleet.nissan-serena-hybrid-2022.feature2",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 131,
+      "key": "carRental.fleet.nissan-serena-hybrid-2022.feature3",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 132,
+      "key": "carRental.fleet.nissan-serena-hybrid-2022.fuel",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 133,
+      "key": "carRental.fleet.nissan-serena-hybrid-2022.note",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 134,
+      "key": "carRental.fleet.nissan-serena-hybrid-2022.transmission",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 135,
+      "key": "carRental.fleet.toyota-aqua-hybrid-2022.category",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 136,
+      "key": "carRental.fleet.toyota-aqua-hybrid-2022.feature1",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 137,
+      "key": "carRental.fleet.toyota-aqua-hybrid-2022.feature2",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 138,
+      "key": "carRental.fleet.toyota-aqua-hybrid-2022.feature3",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 139,
+      "key": "carRental.fleet.toyota-aqua-hybrid-2022.fuel",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 140,
+      "key": "carRental.fleet.toyota-aqua-hybrid-2022.note",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 141,
+      "key": "carRental.fleet.toyota-aqua-hybrid-2022.transmission",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 142,
+      "key": "carRental.fleet.toyota-corolla-2021.category",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 143,
+      "key": "carRental.fleet.toyota-corolla-2021.feature1",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 144,
+      "key": "carRental.fleet.toyota-corolla-2021.feature2",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 145,
+      "key": "carRental.fleet.toyota-corolla-2021.feature3",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 146,
+      "key": "carRental.fleet.toyota-corolla-2021.fuel",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 147,
+      "key": "carRental.fleet.toyota-corolla-2021.note",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 148,
+      "key": "carRental.fleet.toyota-corolla-2021.transmission",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 149,
+      "key": "carRental.fleet.toyota-passo-2020.category",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 150,
+      "key": "carRental.fleet.toyota-passo-2020.feature1",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 151,
+      "key": "carRental.fleet.toyota-passo-2020.feature2",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 152,
+      "key": "carRental.fleet.toyota-passo-2020.feature3",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 153,
+      "key": "carRental.fleet.toyota-passo-2020.fuel",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 154,
+      "key": "carRental.fleet.toyota-passo-2020.note",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 155,
+      "key": "carRental.fleet.toyota-passo-2020.transmission",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 156,
+      "key": "carRental.fleet.toyota-sienta-2022.category",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 157,
+      "key": "carRental.fleet.toyota-sienta-2022.feature1",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 158,
+      "key": "carRental.fleet.toyota-sienta-2022.feature2",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 159,
+      "key": "carRental.fleet.toyota-sienta-2022.feature3",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 160,
+      "key": "carRental.fleet.toyota-sienta-2022.fuel",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 161,
+      "key": "carRental.fleet.toyota-sienta-2022.note",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 162,
+      "key": "carRental.fleet.toyota-sienta-2022.transmission",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 163,
+      "key": "carRental.fleet.toyota-yaris-2023.category",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 164,
+      "key": "carRental.fleet.toyota-yaris-2023.feature1",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 165,
+      "key": "carRental.fleet.toyota-yaris-2023.feature2",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 166,
+      "key": "carRental.fleet.toyota-yaris-2023.feature3",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 167,
+      "key": "carRental.fleet.toyota-yaris-2023.fuel",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 168,
+      "key": "carRental.fleet.toyota-yaris-2023.note",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 169,
+      "key": "carRental.fleet.toyota-yaris-2023.transmission",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 170,
+      "key": "carRental.fleet.toyota-yaris-hybrid-2023.category",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 171,
+      "key": "carRental.fleet.toyota-yaris-hybrid-2023.feature1",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 172,
+      "key": "carRental.fleet.toyota-yaris-hybrid-2023.feature2",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 173,
+      "key": "carRental.fleet.toyota-yaris-hybrid-2023.feature3",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 174,
+      "key": "carRental.fleet.toyota-yaris-hybrid-2023.fuel",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 175,
+      "key": "carRental.fleet.toyota-yaris-hybrid-2023.note",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 176,
+      "key": "carRental.fleet.toyota-yaris-hybrid-2023.transmission",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 177,
+      "key": "carRental.hero.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 178,
+      "key": "carRental.hero.note",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 179,
+      "key": "carRental.included.feature1.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 180,
+      "key": "carRental.included.feature1.short",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 181,
+      "key": "carRental.included.feature2.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 182,
+      "key": "carRental.included.feature2.short",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 183,
+      "key": "carRental.included.feature3.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 184,
+      "key": "carRental.included.feature3.short",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 185,
+      "key": "carRental.locations.coral-bay.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 186,
+      "key": "carRental.locations.coral-bay.short",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 187,
+      "key": "carRental.locations.paphos-city.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 188,
+      "key": "carRental.locations.paphos-city.short",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 189,
+      "key": "carRental.locations.polis.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 190,
+      "key": "carRental.locations.polis.short",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 191,
+      "key": "carRental.meta.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 192,
+      "key": "carRental.offers.larnaca.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 193,
+      "key": "carRental.offers.paphos.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 194,
+      "key": "carRental.page.addons.delivery",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 195,
+      "key": "carRental.page.benefits.flexible.body",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 196,
+      "key": "carRental.page.benefits.nature.body",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 197,
+      "key": "carRental.page.benefits.package.body",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 198,
+      "key": "carRental.page.calculator.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 199,
+      "key": "carRental.page.fleet.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 200,
+      "key": "carRental.page.footer",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 201,
+      "key": "carRental.page.hero.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 202,
+      "key": "carRental.page.hero.paphosNote.prefix",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 203,
+      "key": "carRental.page.included.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 204,
+      "key": "carRental.page.requirements.youngDriver",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 205,
+      "key": "carRental.page.reservation.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 206,
+      "key": "carRental.page.reservation.estimated.durationFallback",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 207,
+      "key": "carRental.page.reservation.fields.flight.placeholder",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 208,
+      "key": "carRental.page.reservation.fields.fullName.placeholder",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 209,
+      "key": "carRental.page.reservation.fields.phone.placeholder",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 210,
+      "key": "carRental.page.reservation.successBox.contactWithin24h",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 211,
+      "key": "carRentalLanding.calculator.coralBayHint",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 212,
+      "key": "carRentalLanding.calculator.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 213,
+      "key": "carRentalLanding.config.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 214,
+      "key": "carRentalLanding.hero.autoOfferNote",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 215,
+      "key": "carRentalLanding.hero.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 216,
+      "key": "carRentalLanding.offer.info.incomplete",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 217,
+      "key": "carRentalLanding.offer.info.larnacaAuto",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 218,
+      "key": "carRentalLanding.offer.info.paphosActive",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 219,
+      "key": "carRentalLanding.offer.info.youngDriverOnlyLarnaca",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 220,
+      "key": "carRentalPfo.fleet.honda-fit-paphos.feature2",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 221,
+      "key": "carRentalPfo.fleet.mazda-cx5-paphos.category",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 222,
+      "key": "carRentalPfo.included.feature1.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 223,
+      "key": "carRentalPfo.included.feature2.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 224,
+      "key": "carRentalPfo.included.feature3.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 225,
+      "key": "carRentalPfo.page.benefits.aria",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 226,
+      "key": "carRentalPfo.page.benefits.flexible.body",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 227,
+      "key": "carRentalPfo.page.benefits.flexible.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 228,
+      "key": "carRentalPfo.page.benefits.nature.body",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 229,
+      "key": "carRentalPfo.page.benefits.nature.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 230,
+      "key": "carRentalPfo.page.benefits.package.body",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 231,
+      "key": "carRentalPfo.page.benefits.package.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 232,
+      "key": "carRentalPfo.page.calculator.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 233,
+      "key": "carRentalPfo.page.details.supportBody",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 234,
+      "key": "carRentalPfo.page.fleet.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 235,
+      "key": "carRentalPfo.page.fleetGrid.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 236,
+      "key": "carRentalPfo.page.footer",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 237,
+      "key": "carRentalPfo.page.hero.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 238,
+      "key": "carRentalPfo.page.hero.note.link",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 239,
+      "key": "carRentalPfo.page.hero.note.prefix",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 240,
+      "key": "carRentalPfo.page.hero.note.suffix",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 241,
+      "key": "carRentalPfo.page.included.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 242,
+      "key": "carRentalPfo.page.reservation.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 243,
+      "key": "carRentalPfo.page.reservation.fields.flight.placeholder",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 244,
+      "key": "carRentalPfo.page.reservation.fields.fullName.placeholder",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 245,
+      "key": "carRentalPfo.page.reservation.fields.phone.placeholder",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 246,
+      "key": "carRentalPfo.page.reservation.successMessage",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 247,
+      "key": "checkIn.status.distance",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 248,
+      "key": "checkIn.status.error",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 249,
+      "key": "checkIn.status.unsupported",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 250,
+      "key": "community.gallery.panoramaBadge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 251,
+      "key": "community.hero.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 252,
+      "key": "cruise.back",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 253,
+      "key": "cruise.footer",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 254,
+      "key": "cruise.form.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 255,
+      "key": "cruise.form.submit",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 256,
+      "key": "cruise.form.subtitle",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 257,
+      "key": "cruise.form.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 258,
+      "key": "cruise.hero.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 259,
+      "key": "cruise.hero.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 260,
+      "key": "cruise.hero.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 261,
+      "key": "cruise.overline",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 262,
+      "key": "cruise.stats.guests",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 263,
+      "key": "cruise.stats.guestsLabel",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 264,
+      "key": "cruise.stats.hours",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 265,
+      "key": "cruise.stats.hoursLabel",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 266,
+      "key": "cruise.stats.ports",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 267,
+      "key": "cruise.stats.portsLabel",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 268,
+      "key": "cruise.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 269,
+      "key": "dashboard.content.comments",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 270,
+      "key": "dashboard.content.photos",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 271,
+      "key": "dashboard.content.subtitle",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 272,
+      "key": "dashboard.content.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 273,
+      "key": "dashboard.meta.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 274,
+      "key": "dashboard.nav.content",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 275,
+      "key": "discovery.catalog",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 276,
+      "key": "discovery.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 277,
+      "key": "discovery.toggle",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 278,
+      "key": "explorer.close",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 279,
+      "key": "explorer.filter.all",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 280,
+      "key": "explorer.filter.available",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 281,
+      "key": "explorer.filter.visited",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 282,
+      "key": "explorer.filterLabel",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 283,
+      "key": "explorer.subtitle",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 284,
+      "key": "explorer.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 285,
+      "key": "footer.app",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 286,
+      "key": "header.brand",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 287,
+      "key": "header.sosToggle",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 288,
+      "key": "home.blog.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 289,
+      "key": "home.cars.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 290,
+      "key": "home.hotels.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 291,
+      "key": "home.trips.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 292,
+      "key": "legal.termsLink",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 293,
+      "key": "level.toast.levelUp.message",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 294,
+      "key": "level.toast.levelUp.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 295,
+      "key": "map.filter.counterBreakdown",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 296,
+      "key": "mediaTrips.card.calculatorTitle",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 297,
+      "key": "mediaTrips.card.highlightsTitle",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 298,
+      "key": "mediaTrips.card.participantsLabel",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 299,
+      "key": "mediaTrips.card.perPersonLabel",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 300,
+      "key": "mediaTrips.card.totalLabel",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 301,
+      "key": "mediaTrips.card.variantHelper",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 302,
+      "key": "mediaTrips.card.variantLabel",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 303,
+      "key": "mediaTrips.card.variantOption",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 304,
+      "key": "mediaTrips.cta.button",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 305,
+      "key": "mediaTrips.cta.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 306,
+      "key": "mediaTrips.cta.eyebrow",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 307,
+      "key": "mediaTrips.cta.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 308,
+      "key": "mediaTrips.header.back",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 309,
+      "key": "mediaTrips.header.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 310,
+      "key": "mediaTrips.header.subtitle",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 311,
+      "key": "mediaTrips.hero.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 312,
+      "key": "mediaTrips.intro",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 313,
+      "key": "mediaTrips.items.vip-photo-trip.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 314,
+      "key": "mediaTrips.items.vip-photo-trip.detailsLink",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 315,
+      "key": "mediaTrips.items.vip-photo-trip.duration",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 316,
+      "key": "mediaTrips.items.vip-photo-trip.highlights.stylist",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 317,
+      "key": "mediaTrips.items.vip-photo-trip.highlights.transport",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 318,
+      "key": "mediaTrips.items.vip-photo-trip.mediaType",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 319,
+      "key": "mediaTrips.items.vip-photo-trip.pricing.fullDay",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 320,
+      "key": "mediaTrips.items.vip-photo-trip.pricing.halfDay",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 321,
+      "key": "mediaTrips.items.vip-photo-trip.pricing.threeQuarterDay",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 322,
+      "key": "mediaTrips.items.vip-photo-trip.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 323,
+      "key": "mediaTrips.items.vip-video-trip.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 324,
+      "key": "mediaTrips.items.vip-video-trip.detailsLink",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 325,
+      "key": "mediaTrips.items.vip-video-trip.duration",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 326,
+      "key": "mediaTrips.items.vip-video-trip.highlights.crew",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 327,
+      "key": "mediaTrips.items.vip-video-trip.highlights.promo",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 328,
+      "key": "mediaTrips.items.vip-video-trip.mediaType",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 329,
+      "key": "mediaTrips.items.vip-video-trip.pricing.fullDay",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 330,
+      "key": "mediaTrips.items.vip-video-trip.pricing.halfDay",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 331,
+      "key": "mediaTrips.items.vip-video-trip.pricing.threeQuarterDay",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 332,
+      "key": "mediaTrips.items.vip-video-trip.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 333,
+      "key": "mediaTrips.itineraries.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 334,
+      "key": "mediaTrips.itineraries.eyebrow",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 335,
+      "key": "mediaTrips.itineraries.four.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 336,
+      "key": "mediaTrips.itineraries.four.stop1",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 337,
+      "key": "mediaTrips.itineraries.four.stop2",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 338,
+      "key": "mediaTrips.itineraries.four.stop3",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 339,
+      "key": "mediaTrips.itineraries.four.stop4",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 340,
+      "key": "mediaTrips.itineraries.four.stop5",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 341,
+      "key": "mediaTrips.itineraries.four.stop6",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 342,
+      "key": "mediaTrips.itineraries.four.time",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 343,
+      "key": "mediaTrips.itineraries.four.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 344,
+      "key": "mediaTrips.itineraries.one.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 345,
+      "key": "mediaTrips.itineraries.one.stop1",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 346,
+      "key": "mediaTrips.itineraries.one.stop2",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 347,
+      "key": "mediaTrips.itineraries.one.stop3",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 348,
+      "key": "mediaTrips.itineraries.one.stop4",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 349,
+      "key": "mediaTrips.itineraries.one.time",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 350,
+      "key": "mediaTrips.itineraries.one.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 351,
+      "key": "mediaTrips.itineraries.three.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 352,
+      "key": "mediaTrips.itineraries.three.stop1",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 353,
+      "key": "mediaTrips.itineraries.three.stop2",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 354,
+      "key": "mediaTrips.itineraries.three.stop3",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 355,
+      "key": "mediaTrips.itineraries.three.stop4",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 356,
+      "key": "mediaTrips.itineraries.three.stop5",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 357,
+      "key": "mediaTrips.itineraries.three.time",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 358,
+      "key": "mediaTrips.itineraries.three.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 359,
+      "key": "mediaTrips.itineraries.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 360,
+      "key": "mediaTrips.itineraries.two.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 361,
+      "key": "mediaTrips.itineraries.two.stop1",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 362,
+      "key": "mediaTrips.itineraries.two.stop2",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 363,
+      "key": "mediaTrips.itineraries.two.stop3",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 364,
+      "key": "mediaTrips.itineraries.two.stop4",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 365,
+      "key": "mediaTrips.itineraries.two.time",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 366,
+      "key": "mediaTrips.itineraries.two.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 367,
+      "key": "mediaTrips.overview.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 368,
+      "key": "mediaTrips.overview.eyebrow",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 369,
+      "key": "mediaTrips.overview.features.four.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 370,
+      "key": "mediaTrips.overview.features.four.number",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 371,
+      "key": "mediaTrips.overview.features.four.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 372,
+      "key": "mediaTrips.overview.features.one.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 373,
+      "key": "mediaTrips.overview.features.one.number",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 374,
+      "key": "mediaTrips.overview.features.one.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 375,
+      "key": "mediaTrips.overview.features.three.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 376,
+      "key": "mediaTrips.overview.features.three.number",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 377,
+      "key": "mediaTrips.overview.features.three.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 378,
+      "key": "mediaTrips.overview.features.two.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 379,
+      "key": "mediaTrips.overview.features.two.number",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 380,
+      "key": "mediaTrips.overview.features.two.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 381,
+      "key": "mediaTrips.overview.note.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 382,
+      "key": "mediaTrips.overview.note.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 383,
+      "key": "mediaTrips.overview.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 384,
+      "key": "mediaTrips.packages.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 385,
+      "key": "mediaTrips.packages.eyebrow",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 386,
+      "key": "mediaTrips.packages.intro",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 387,
+      "key": "mediaTrips.packages.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 388,
+      "key": "mediaTrips.video.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 389,
+      "key": "mediaTrips.video.exampleOne.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 390,
+      "key": "mediaTrips.video.exampleTwo.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 391,
+      "key": "mediaTrips.video.eyebrow",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 392,
+      "key": "mediaTrips.video.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 393,
+      "key": "metrics.xp.progressTemplate",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 394,
+      "key": "mobile.nav.mediaTrips",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 395,
+      "key": "modal.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 396,
+      "key": "notFound.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 397,
+      "key": "packing.guide.optional",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 398,
+      "key": "packing.guide.seasonal.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 399,
+      "key": "packing.guide.seasons.autumn.camera.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 400,
+      "key": "packing.guide.seasons.autumn.eveningLayer.hint",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 401,
+      "key": "packing.guide.seasons.autumn.eveningLayer.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 402,
+      "key": "packing.guide.seasons.autumn.rainProtection.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 403,
+      "key": "packing.guide.seasons.autumn.sandals.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 404,
+      "key": "packing.guide.seasons.autumn.summerClothes.hint",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 405,
+      "key": "packing.guide.seasons.autumn.summerClothes.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 406,
+      "key": "packing.guide.seasons.autumn.sunAccessories.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 407,
+      "key": "packing.guide.seasons.autumn.sunscreen.hint",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 408,
+      "key": "packing.guide.seasons.autumn.sunscreen.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 409,
+      "key": "packing.guide.seasons.autumn.swimwear.hint",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 410,
+      "key": "packing.guide.seasons.autumn.swimwear.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 411,
+      "key": "packing.guide.seasons.autumn.trekkingShoes.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 412,
+      "key": "packing.guide.seasons.spring.camera.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 413,
+      "key": "packing.guide.seasons.spring.layers.hint",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 414,
+      "key": "packing.guide.seasons.spring.layers.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 415,
+      "key": "packing.guide.seasons.spring.longSleeves.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 416,
+      "key": "packing.guide.seasons.spring.rainProtection.hint",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 417,
+      "key": "packing.guide.seasons.spring.rainProtection.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 418,
+      "key": "packing.guide.seasons.spring.scarf.hint",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 419,
+      "key": "packing.guide.seasons.spring.scarf.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 420,
+      "key": "packing.guide.seasons.spring.shoes.hint",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 421,
+      "key": "packing.guide.seasons.spring.shoes.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 422,
+      "key": "packing.guide.seasons.spring.sunAccessories.hint",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 423,
+      "key": "packing.guide.seasons.spring.sunAccessories.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 424,
+      "key": "packing.guide.seasons.spring.sunscreen.hint",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 425,
+      "key": "packing.guide.seasons.spring.sunscreen.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 426,
+      "key": "packing.guide.seasons.spring.swimwear.hint",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 427,
+      "key": "packing.guide.seasons.spring.swimwear.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 428,
+      "key": "packing.guide.seasons.summer.afterSun.hint",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 429,
+      "key": "packing.guide.seasons.summer.afterSun.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 430,
+      "key": "packing.guide.seasons.summer.bottle.hint",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 431,
+      "key": "packing.guide.seasons.summer.bottle.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 432,
+      "key": "packing.guide.seasons.summer.clothing.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 433,
+      "key": "packing.guide.seasons.summer.coverUp.hint",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 434,
+      "key": "packing.guide.seasons.summer.coverUp.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 435,
+      "key": "packing.guide.seasons.summer.footwear.hint",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 436,
+      "key": "packing.guide.seasons.summer.footwear.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 437,
+      "key": "packing.guide.seasons.summer.hat.hint",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 438,
+      "key": "packing.guide.seasons.summer.hat.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 439,
+      "key": "packing.guide.seasons.summer.sunscreen.hint",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 440,
+      "key": "packing.guide.seasons.summer.sunscreen.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 441,
+      "key": "packing.guide.seasons.summer.swimwear.hint",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 442,
+      "key": "packing.guide.seasons.summer.swimwear.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 443,
+      "key": "packing.guide.seasons.summer.towel.hint",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 444,
+      "key": "packing.guide.seasons.summer.towel.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 445,
+      "key": "packing.guide.seasons.summer.waterproofCase.hint",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 446,
+      "key": "packing.guide.seasons.summer.waterproofCase.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 447,
+      "key": "packing.guide.seasons.winter.accessories.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 448,
+      "key": "packing.guide.seasons.winter.boots.hint",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 449,
+      "key": "packing.guide.seasons.winter.boots.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 450,
+      "key": "packing.guide.seasons.winter.coat.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 451,
+      "key": "packing.guide.seasons.winter.equipmentPlan.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 452,
+      "key": "packing.guide.seasons.winter.layers.hint",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 453,
+      "key": "packing.guide.seasons.winter.layers.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 454,
+      "key": "packing.guide.seasons.winter.rainProtection.hint",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 455,
+      "key": "packing.guide.seasons.winter.rainProtection.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 456,
+      "key": "packing.guide.seasons.winter.sunglasses.hint",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 457,
+      "key": "packing.guide.seasons.winter.sunglasses.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 458,
+      "key": "packing.guide.seasons.winter.thermal.hint",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 459,
+      "key": "packing.guide.seasons.winter.thermal.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 460,
+      "key": "packing.guide.seasons.winter.thermos.hint",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 461,
+      "key": "packing.guide.seasons.winter.thermos.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 462,
+      "key": "packing.guide.universal.adapter.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 463,
+      "key": "packing.guide.universal.driving.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 464,
+      "key": "packing.guide.universal.sunProtection.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 465,
+      "key": "packing.guide.universal.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 466,
+      "key": "packing.header.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 467,
+      "key": "packing.panel.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 468,
+      "key": "packing.season.autumn.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 469,
+      "key": "packing.season.autumn.summary",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 470,
+      "key": "packing.season.spring.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 471,
+      "key": "packing.season.spring.summary",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 472,
+      "key": "packing.season.summer.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 473,
+      "key": "packing.season.summer.summary",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 474,
+      "key": "packing.season.winter.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 475,
+      "key": "packing.season.winter.summary",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 476,
+      "key": "places.agios-neophytos-monastery.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 477,
+      "key": "places.agios-neophytos-monastery.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 478,
+      "key": "places.agios-neophytos-monastery.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 479,
+      "key": "places.akamas-national-park.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 480,
+      "key": "places.akamas-national-park.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 481,
+      "key": "places.akamas-national-park.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 482,
+      "key": "places.amathus-ruins.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 483,
+      "key": "places.amathus-ruins.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 484,
+      "key": "places.amathus-ruins.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 485,
+      "key": "places.anexartisias-street.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 486,
+      "key": "places.anexartisias-street.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 487,
+      "key": "places.anexartisias-street.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 488,
+      "key": "places.aphrodite-rock.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 489,
+      "key": "places.aphrodite-rock.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 490,
+      "key": "places.aphrodite-rock.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 491,
+      "key": "places.aphrodites-baths.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 492,
+      "key": "places.aphrodites-baths.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 493,
+      "key": "places.aphrodites-baths.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 494,
+      "key": "places.avakas-gorge-west-entrance.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 495,
+      "key": "places.avakas-gorge-west-entrance.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 496,
+      "key": "places.avakas-gorge-west-entrance.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 497,
+      "key": "places.avakas-gorge.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 498,
+      "key": "places.avakas-gorge.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 499,
+      "key": "places.avakas-gorge.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 500,
+      "key": "places.ayia-napa-monastery.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 501,
+      "key": "places.ayia-napa-monastery.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 502,
+      "key": "places.ayia-napa-monastery.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 503,
+      "key": "places.ayia-napa-sculpture-park.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 504,
+      "key": "places.ayia-napa-sculpture-park.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 505,
+      "key": "places.ayia-napa-sculpture-park.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 506,
+      "key": "places.blue-lagoon-akamas.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 507,
+      "key": "places.blue-lagoon-akamas.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 508,
+      "key": "places.blue-lagoon-akamas.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 509,
+      "key": "places.buffavento-castle.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 510,
+      "key": "places.buffavento-castle.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 511,
+      "key": "places.buffavento-castle.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 512,
+      "key": "places.buyuk-han.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 513,
+      "key": "places.buyuk-han.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 514,
+      "key": "places.buyuk-han.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 515,
+      "key": "places.caledonia-waterfall.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 516,
+      "key": "places.caledonia-waterfall.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 517,
+      "key": "places.caledonia-waterfall.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 518,
+      "key": "places.cape-greco-sea-caves.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 519,
+      "key": "places.cape-greco-sea-caves.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 520,
+      "key": "places.cape-greco-sea-caves.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 521,
+      "key": "places.cape-greco.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 522,
+      "key": "places.cape-greco.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 523,
+      "key": "places.cape-greco.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 524,
+      "key": "places.chirokitia-archaeological-site.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 525,
+      "key": "places.chirokitia-archaeological-site.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 526,
+      "key": "places.chirokitia-archaeological-site.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 527,
+      "key": "places.coral-bay.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 528,
+      "key": "places.coral-bay.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 529,
+      "key": "places.coral-bay.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 530,
+      "key": "places.cyprus-museum.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 531,
+      "key": "places.cyprus-museum.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 532,
+      "key": "places.cyprus-museum.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 533,
+      "key": "places.dasoudi-beach.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 534,
+      "key": "places.dasoudi-beach.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 535,
+      "key": "places.dasoudi-beach.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 536,
+      "key": "places.distance.noData",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 537,
+      "key": "places.distance.pending",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 538,
+      "key": "places.distance.permissionDenied",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 539,
+      "key": "places.distance.secureContext",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 540,
+      "key": "places.eleftheria-square.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 541,
+      "key": "places.eleftheria-square.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 542,
+      "key": "places.eleftheria-square.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 543,
+      "key": "places.famagusta-old-town.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 544,
+      "key": "places.famagusta-old-town.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 545,
+      "key": "places.famagusta-old-town.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 546,
+      "key": "places.fasouri-watermania.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 547,
+      "key": "places.fasouri-watermania.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 548,
+      "key": "places.fasouri-watermania.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 549,
+      "key": "places.fig-tree-bay.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 550,
+      "key": "places.fig-tree-bay.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 551,
+      "key": "places.fig-tree-bay.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 552,
+      "key": "places.finikoudes-beach.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 553,
+      "key": "places.finikoudes-beach.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 554,
+      "key": "places.finikoudes-beach.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 555,
+      "key": "places.googleMaps",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 556,
+      "key": "places.governors-beach.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 557,
+      "key": "places.governors-beach.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 558,
+      "key": "places.governors-beach.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 559,
+      "key": "places.kakopetria-village.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 560,
+      "key": "places.kakopetria-village.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 561,
+      "key": "places.kakopetria-village.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 562,
+      "key": "places.karpaz-golden-beach.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 563,
+      "key": "places.karpaz-golden-beach.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 564,
+      "key": "places.karpaz-golden-beach.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 565,
+      "key": "places.kato-pafos-archaeological-park.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 566,
+      "key": "places.kato-pafos-archaeological-park.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 567,
+      "key": "places.kato-pafos-archaeological-park.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 568,
+      "key": "places.kolossi-castle.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 569,
+      "key": "places.kolossi-castle.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 570,
+      "key": "places.kolossi-castle.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 571,
+      "key": "places.kourion-archaeological-site.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 572,
+      "key": "places.kourion-archaeological-site.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 573,
+      "key": "places.kourion-archaeological-site.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 574,
+      "key": "places.kykkos-monastery.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 575,
+      "key": "places.kykkos-monastery.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 576,
+      "key": "places.kykkos-monastery.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 577,
+      "key": "places.kyrenia-castle.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 578,
+      "key": "places.kyrenia-castle.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 579,
+      "key": "places.kyrenia-castle.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 580,
+      "key": "places.kyrenia-old-harbour.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 581,
+      "key": "places.kyrenia-old-harbour.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 582,
+      "key": "places.kyrenia-old-harbour.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 583,
+      "key": "places.lania-village.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 584,
+      "key": "places.lania-village.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 585,
+      "key": "places.lania-village.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 586,
+      "key": "places.larnaca-salt-lake-hala-sultan.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 587,
+      "key": "places.larnaca-salt-lake-hala-sultan.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 588,
+      "key": "places.larnaca-salt-lake-hala-sultan.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 589,
+      "key": "places.ledra-street.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 590,
+      "key": "places.ledra-street.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 591,
+      "key": "places.ledra-street.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 592,
+      "key": "places.lefkara-village.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 593,
+      "key": "places.lefkara-village.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 594,
+      "key": "places.lefkara-village.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 595,
+      "key": "places.limassol-castle.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 596,
+      "key": "places.limassol-castle.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 597,
+      "key": "places.limassol-castle.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 598,
+      "key": "places.limassol-municipal-aquarium.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 599,
+      "key": "places.limassol-municipal-aquarium.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 600,
+      "key": "places.limassol-municipal-aquarium.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 601,
+      "key": "places.macronissos-beach.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 602,
+      "key": "places.macronissos-beach.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 603,
+      "key": "places.macronissos-beach.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 604,
+      "key": "places.molos-promenade.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 605,
+      "key": "places.molos-promenade.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 606,
+      "key": "places.molos-promenade.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 607,
+      "key": "places.nicosia-archaeological-museum.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 608,
+      "key": "places.nicosia-archaeological-museum.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 609,
+      "key": "places.nicosia-archaeological-museum.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 610,
+      "key": "places.nissi-beach.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 611,
+      "key": "places.nissi-beach.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 612,
+      "key": "places.nissi-beach.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 613,
+      "key": "places.objective.checkIn",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 614,
+      "key": "places.objective.completed",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 615,
+      "key": "places.objective.nextNone",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 616,
+      "key": "places.objective.previousNone",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 617,
+      "key": "places.objective.visited",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 618,
+      "key": "places.omodos-village.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 619,
+      "key": "places.omodos-village.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 620,
+      "key": "places.omodos-village.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 621,
+      "key": "places.panagia-kykkos-viewpoint.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 622,
+      "key": "places.panagia-kykkos-viewpoint.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 623,
+      "key": "places.panagia-kykkos-viewpoint.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 624,
+      "key": "places.polis-latchi-marina.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 625,
+      "key": "places.polis-latchi-marina.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 626,
+      "key": "places.polis-latchi-marina.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 627,
+      "key": "places.saint-lazarus-church.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 628,
+      "key": "places.saint-lazarus-church.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 629,
+      "key": "places.saint-lazarus-church.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 630,
+      "key": "places.soli-ancient-site.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 631,
+      "key": "places.soli-ancient-site.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 632,
+      "key": "places.soli-ancient-site.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 633,
+      "key": "places.st-hilarion-castle.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 634,
+      "key": "places.st-hilarion-castle.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 635,
+      "key": "places.st-hilarion-castle.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 636,
+      "key": "places.st-hilarion-vantage-point.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 637,
+      "key": "places.st-hilarion-vantage-point.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 638,
+      "key": "places.st-hilarion-vantage-point.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 639,
+      "key": "places.toast.levelUp",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 640,
+      "key": "places.toast.streakStart",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 641,
+      "key": "places.tombs-of-the-kings.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 642,
+      "key": "places.tombs-of-the-kings.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 643,
+      "key": "places.tombs-of-the-kings.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 644,
+      "key": "places.trooditissa-monastery.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 645,
+      "key": "places.trooditissa-monastery.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 646,
+      "key": "places.trooditissa-monastery.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 647,
+      "key": "places.troodos-olympos.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 648,
+      "key": "places.troodos-olympos.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 649,
+      "key": "places.troodos-olympos.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 650,
+      "key": "places.troodos-square.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 651,
+      "key": "places.troodos-square.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 652,
+      "key": "places.troodos-square.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 653,
+      "key": "places.viewOnMap",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 654,
+      "key": "places.vouni-ancient-house.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 655,
+      "key": "places.vouni-ancient-house.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 656,
+      "key": "places.vouni-ancient-house.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 657,
+      "key": "places.yeroskipou-town.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 658,
+      "key": "places.yeroskipou-town.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 659,
+      "key": "places.yeroskipou-town.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 660,
+      "key": "places.zenobia-wreck.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 661,
+      "key": "places.zenobia-wreck.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 662,
+      "key": "places.zenobia-wreck.name",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 663,
+      "key": "plan.ui.details.checkOut",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 664,
+      "key": "plan.ui.itemType.poiShort",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 665,
+      "key": "profile.avatar.remove",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 666,
+      "key": "profile.login.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 667,
+      "key": "recommendations.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 668,
+      "key": "recommendations.empty.body",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 669,
+      "key": "recommendations.seo.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 670,
+      "key": "recommendations.seo.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 671,
+      "key": "resetPage.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 672,
+      "key": "services.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 673,
+      "key": "services.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 674,
+      "key": "shortcuts.blog.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 675,
+      "key": "shortcuts.car.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 676,
+      "key": "shortcuts.packing.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 677,
+      "key": "shortcuts.plan.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 678,
+      "key": "shortcuts.tasks.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 679,
+      "key": "shortcuts.transport.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 680,
+      "key": "shortcuts.trips.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 681,
+      "key": "sos.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 682,
+      "key": "sos.embassy.address",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 683,
+      "key": "sos.embassy.hotline",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 684,
+      "key": "sos.emergency.eu",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 685,
+      "key": "sos.emergency.police",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 686,
+      "key": "sos.healthcare.hospital",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 687,
+      "key": "sos.healthcare.note",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 688,
+      "key": "sos.healthcare.pharmacy",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 689,
+      "key": "sos.healthcare.search",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 690,
+      "key": "sos.healthcare.sos.healthcare.hospital",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 691,
+      "key": "sos.healthcare.sos.healthcare.pharmacy",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 692,
+      "key": "sos.healthcare.sos.healthcare.search",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 693,
+      "key": "sos.quick.whatsapp",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 694,
+      "key": "sos.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 695,
+      "key": "sync.progress.synced",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 696,
+      "key": "tasks.items.akamas-jeep-safari.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 697,
+      "key": "tasks.items.ayia-napa-sunset-cruise.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 698,
+      "key": "tasks.items.family-waterpark-day.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 699,
+      "key": "tasks.items.halloumi-farm-visit.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 700,
+      "key": "tasks.items.karpaz-donkey-care.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 701,
+      "key": "tasks.items.larnaca-art-walk.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 702,
+      "key": "tasks.items.limassol-bike-promenade.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 703,
+      "key": "tasks.items.loukoumi-workshop.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 704,
+      "key": "tasks.items.nicosia-day-trip.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 705,
+      "key": "tasks.items.nicosia-famagusta-combo.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 706,
+      "key": "tasks.items.nicosia-green-line-walk.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 707,
+      "key": "tasks.items.premium-car-rental.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 708,
+      "key": "tasks.items.private-blue-lagoon-charter.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 709,
+      "key": "tasks.items.sea-adventure.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 710,
+      "key": "tasks.items.sunrise-challenge.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 711,
+      "key": "tasks.items.sunset-yoga-nissi.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 712,
+      "key": "tasks.items.taste-halloumi.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 713,
+      "key": "tasks.items.troodos-private-tour.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 714,
+      "key": "tasks.items.troodos-stargazing.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 715,
+      "key": "tasks.items.troodos-wine-route.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 716,
+      "key": "tasks.items.wedding-photoshoot-cyprus.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 717,
+      "key": "tasks.items.zenobia-dive-challenge.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 718,
+      "key": "tutorial.step1.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 719,
+      "key": "tutorial.step10.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 720,
+      "key": "tutorial.step11.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 721,
+      "key": "tutorial.step12.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 722,
+      "key": "tutorial.step13.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 723,
+      "key": "tutorial.step14.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 724,
+      "key": "tutorial.step15.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 725,
+      "key": "tutorial.step2.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 726,
+      "key": "tutorial.step3.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 727,
+      "key": "tutorial.step4.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 728,
+      "key": "tutorial.step5.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 729,
+      "key": "tutorial.step6.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 730,
+      "key": "tutorial.step7.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 731,
+      "key": "tutorial.step8.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 732,
+      "key": "tutorial.step9.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 733,
+      "key": "vip.back",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 734,
+      "key": "vip.brand.logoAlt",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 735,
+      "key": "vip.brand.overline",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 736,
+      "key": "vip.calculator.fields.package",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 737,
+      "key": "vip.calculator.fields.persons",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 738,
+      "key": "vip.calculator.fields.variant",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 739,
+      "key": "vip.calculator.packages.combo.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 740,
+      "key": "vip.calculator.packages.photo.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 741,
+      "key": "vip.calculator.packages.video.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 742,
+      "key": "vip.calculator.subtitle",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 743,
+      "key": "vip.calculator.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 744,
+      "key": "vip.calculator.variant.fullDay",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 745,
+      "key": "vip.calculator.variant.halfDay",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 746,
+      "key": "vip.calculator.variant.threeQuarterDay",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 747,
+      "key": "vip.calculator.variant.twoDays",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 748,
+      "key": "vip.contact.list.phone",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 749,
+      "key": "vip.contact.list.whatsapp",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 750,
+      "key": "vip.contact.subtitle",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 751,
+      "key": "vip.contact.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 752,
+      "key": "vip.contact.whatsapp",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 753,
+      "key": "vip.hero.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 754,
+      "key": "vip.hero.ctaPrimary",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 755,
+      "key": "vip.hero.ctaSecondary",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 756,
+      "key": "vip.hero.intro",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 757,
+      "key": "vip.hero.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 758,
+      "key": "vip.hero.visualLabel",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 759,
+      "key": "vip.highlights.badge",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 760,
+      "key": "vip.highlights.items.concierge.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 761,
+      "key": "vip.highlights.items.concierge.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 762,
+      "key": "vip.highlights.items.exclusive.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 763,
+      "key": "vip.highlights.items.exclusive.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 764,
+      "key": "vip.highlights.items.media.description",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 765,
+      "key": "vip.highlights.items.media.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 766,
+      "key": "vip.highlights.subtitle",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 767,
+      "key": "vip.highlights.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 768,
+      "key": "vip.itineraries.items.fullDayAyia",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 769,
+      "key": "vip.itineraries.items.fullDayPaphos",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 770,
+      "key": "vip.itineraries.items.halfDayAyia",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 771,
+      "key": "vip.itineraries.items.halfDayPaphos",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 772,
+      "key": "vip.itineraries.note",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 773,
+      "key": "vip.itineraries.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 774,
+      "key": "vip.offers.eyebrow",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 775,
+      "key": "vip.offers.points.personal",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 776,
+      "key": "vip.offers.points.photography",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 777,
+      "key": "vip.offers.points.transport",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 778,
+      "key": "vip.offers.subtitle",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 779,
+      "key": "vip.offers.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 780,
+      "key": "vip.packages.photo.items.fullDay",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 781,
+      "key": "vip.packages.photo.items.halfDay",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 782,
+      "key": "vip.packages.photo.items.threeQuarterDay",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 783,
+      "key": "vip.packages.photo.items.twoDays",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 784,
+      "key": "vip.packages.photo.note",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 785,
+      "key": "vip.packages.photo.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 786,
+      "key": "vip.packages.video.items.fullDay",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 787,
+      "key": "vip.packages.video.items.halfDay",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 788,
+      "key": "vip.packages.video.items.threeQuarterDay",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 789,
+      "key": "vip.packages.video.items.twoDays",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 790,
+      "key": "vip.packages.video.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 791,
+      "key": "vip.reservation.fields.date.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 792,
+      "key": "vip.reservation.fields.name.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 793,
+      "key": "vip.reservation.fields.notes.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 794,
+      "key": "vip.reservation.fields.notes.placeholder",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 795,
+      "key": "vip.reservation.fields.package.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 796,
+      "key": "vip.reservation.fields.persons.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 797,
+      "key": "vip.reservation.fields.phone.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 798,
+      "key": "vip.reservation.fields.variant.label",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 799,
+      "key": "vip.reservation.submit",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    },
+    {
+      "index": 800,
+      "key": "vip.reservation.title",
+      "language": "he",
+      "reason": "no_reviewed_value_provided"
+    }
+  ],
+  "errors": []
+}

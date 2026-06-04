@@ -184,8 +184,14 @@ async function copyStaticFiles() {
       await cp(join(ROOT, 'assets'), join(DIST, 'assets'), { recursive: true });
     }
     
-    // Kopiuj translations
-    await cp(join(ROOT, 'translations'), join(DIST, 'translations'), { recursive: true });
+    // Kopiuj translations, ale bez roboczych paczek manual-review.
+    // Te pliki mogą zawierać nieprzejrzane treści i nie powinny być publicznym
+    // assetem Cloudflare Pages.
+    const manualReviewTranslationsDir = join(ROOT, 'translations', 'manual-review');
+    await cp(join(ROOT, 'translations'), join(DIST, 'translations'), {
+      recursive: true,
+      filter: (srcPath) => !srcPath.startsWith(manualReviewTranslationsDir),
+    });
     
     // Kopiuj config files
     if (existsSync(join(ROOT, 'robots.txt'))) {

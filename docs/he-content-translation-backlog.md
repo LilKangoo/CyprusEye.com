@@ -400,3 +400,50 @@ Rules:
 - Fallback must be HE -> EN -> PL and never blank.
 - Do not change transport deposit/payment, partner fulfillment or Stripe webhook
   logic while translating email copy.
+
+## Stage 45 Manual Review Packs
+
+Status: **review/export workflow prepared; no content was published**.
+
+Generated review packs live in `translations/manual-review/`:
+
+| Pack | Records | Handling |
+| --- | ---: | --- |
+| `static-ui-review.json` | 801 | Manual static UI review and dry-run import input. |
+| `advertise-review.json` | 235 | Long advertise/partner copy. Manual review only. |
+| `seo-review.json` | 122 | SEO copy preparation. SEO HE remains off. |
+| `shop-review.json` | 96 | Shop copy backlog. Shop remains excluded. |
+| `email-template-review.json` | 506 | Email/payment templates; 11 payment-critical records and 16 placeholder issues require review. |
+| `same-as-en-review.json` | 690 | Same-as-EN HE review debt. |
+| `dynamic-content-review.json` | 237 | Read-only Supabase dynamic content export. |
+| `blog-review.json` | 21 | Blog manual translation backlog. No `public_ready` automation. |
+
+Same-as-EN classification:
+
+| Classification | Records |
+| --- | ---: |
+| Needs translation | 537 |
+| Allowed same-as-EN candidate | 19 |
+| Needs human review | 134 |
+
+Dynamic record counts:
+
+| Module | Records |
+| --- | ---: |
+| Blog | 21 |
+| Trips | 12 |
+| Hotels | 1 |
+| Cars | 27 |
+| POI | 139 |
+| Recommendations | 10 |
+| Transport | 9 |
+| Shop products/categories/vendors/shipping | 18 |
+
+Current review rules:
+
+- Blog remains `BLOCKED` until manually translated rows are explicitly marked
+  `public_ready`.
+- Shop remains `EXCLUDED`; checkout/payment copy stays out of HE.
+- SEO HE remains `OFF`; translation review does not enable sitemap,
+  hreflang, canonical, OpenGraph or indexing.
+- Booking/payment/transport deposit flow was not changed.

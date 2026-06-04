@@ -10,6 +10,7 @@ const rootDir = path.resolve(__dirname, '..');
 
 const auditPath = path.join(rootDir, 'translations', 'audit-he-vs-en.json');
 const triAuditPath = path.join(rootDir, 'translations', 'audit-pl-en-he.json');
+const manualReviewSummaryPath = path.join(rootDir, 'translations', 'manual-review', 'review-pack-summary.json');
 const jsonReportPath = path.join(rootDir, 'translations', 'he-readiness-report.json');
 const markdownReportPath = path.join(rootDir, 'docs', 'he-translation-readiness.md');
 
@@ -249,6 +250,20 @@ function buildMarkdown(report) {
       ['HTML tag mismatches', String(report.triLingualAudit.counts.htmlTagMismatches)],
     ]
     : [];
+  const reviewPackRows = report.manualReviewPacks
+    ? [
+      ['Pack', 'Records'],
+      ['---', '---:'],
+      ['Static UI', String(report.manualReviewPacks.packs.staticUi || 0)],
+      ['Advertise', String(report.manualReviewPacks.packs.advertise || 0)],
+      ['SEO', String(report.manualReviewPacks.packs.seo || 0)],
+      ['Shop', String(report.manualReviewPacks.packs.shop || 0)],
+      ['Email/payment templates', String(report.manualReviewPacks.packs.emailTemplates || 0)],
+      ['Same-as-EN HE', String(report.manualReviewPacks.packs.sameAsEn || 0)],
+      ['Dynamic content', String(report.manualReviewPacks.packs.dynamicContent || 0)],
+      ['Blog', String(report.manualReviewPacks.packs.blog || 0)],
+    ]
+    : [];
 
   return `# HE Translation Readiness
 
@@ -294,6 +309,15 @@ Full machine-readable lists live in \`translations/he-readiness-report.json\`:
 - \`keysByStatus.reviewed\`
 
 For now, \`needs_human_review\` is derived from keys where HE is exactly the same value as EN. If a dedicated translation management tool is introduced later, this report can be extended to read a separate reviewed/machine-translated status file.
+
+## Manual Review Packs
+
+${report.manualReviewPacks ? markdownTable(reviewPackRows) : 'Run `npm run i18n:review-export` to generate manual review packs in `translations/manual-review/`.'}
+
+Manual review packs are workflow files only. They do not activate Blog HE,
+Shop HE, SEO HE, sitemap/hreflang/canonical HE, indexing HE or public \`/he/\`
+routes. Import is dry-run by default through
+\`npm run i18n:review-import -- --input=<pack>\`.
 
 ## Same As EN Risk
 
@@ -349,6 +373,7 @@ async function writeJson(filePath, value) {
 async function main() {
   const audit = await readJson(auditPath);
   const triAudit = await readOptionalJson(triAuditPath);
+  const manualReviewSummary = await readOptionalJson(manualReviewSummaryPath);
   const missingKeys = audit.missingKeys || [];
   const sameAsBaseKeys = audit.sameAsBaseKeys || [];
   const extraKeys = audit.extraKeys || [];
@@ -401,6 +426,13 @@ async function main() {
       ? {
         sourceAuditPath: path.relative(rootDir, triAuditPath),
         counts: triAudit.counts,
+      }
+      : null,
+    manualReviewPacks: manualReviewSummary
+      ? {
+        sourcePath: path.relative(rootDir, manualReviewSummaryPath),
+        packs: manualReviewSummary.packs,
+        sameAsEnBreakdown: manualReviewSummary.sameAsEnBreakdown,
       }
       : null,
   };

@@ -485,3 +485,35 @@ Next gate before broader public HE:
 1. Manual review and content completion for Blog/dynamic content.
 2. Dedicated Shop decision.
 3. SEO HE sitemap/hreflang/canonical stage only after real HE content is ready.
+
+## Stage 45 Manual Review Workflow Gate
+
+Decision: **GO for review tooling; NO-GO for automatic publication**.
+
+GO:
+
+- `translations/manual-review/` packs are generated.
+- Static import is dry-run by default.
+- Placeholder and HTML tag validation run before static JSON apply.
+- Dynamic/database content remains admin UI or reviewed SQL only.
+
+NO-GO:
+
+- Any Blog row marked `public_ready` without human review.
+- Any Shop checkout/payment HE activation.
+- Any SEO/sitemap/hreflang/canonical/indexing HE activation.
+- Any booking/payment/transport deposit code change as part of translation work.
+
+Current pack summary:
+
+| Area | Records |
+| --- | ---: |
+| Static UI | 801 |
+| Advertise | 235 |
+| SEO | 122 |
+| Shop | 96 |
+| Email/payment templates | 506 |
+| Dynamic content | 237 |
+| Blog | 21 |
+
+Blog remains `BLOCKED`, Shop remains `EXCLUDED`, and SEO HE remains `OFF`.

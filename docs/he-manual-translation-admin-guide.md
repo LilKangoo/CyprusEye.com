@@ -266,3 +266,46 @@ Manual review remains required for:
 - long Shop copy and checkout/payment language,
 - email templates,
 - Blog posts and long dynamic content.
+
+## Stage 45 Export / Import Workflow
+
+Use the review pack workflow when you want to translate outside the admin UI.
+
+Generate packs:
+
+```bash
+npm run i18n:tri-audit
+npm run i18n:review-export
+```
+
+Main workflow doc:
+
+- `docs/he-manual-translation-export-import-workflow.md`
+
+Review pack folder:
+
+- `translations/manual-review/`
+
+Dry-run import example:
+
+```bash
+npm run i18n:review-import -- --input=translations/manual-review/static-ui-review.json
+```
+
+Apply is explicit:
+
+```bash
+npm run i18n:review-import -- --input=translations/manual-review/static-ui-review.json --apply
+```
+
+Importer safety:
+
+- dry-run by default,
+- validates placeholders and HTML tags,
+- skips dynamic/database records,
+- rejects `public_ready` changes,
+- does not update Supabase,
+- does not activate Blog, Shop or SEO HE.
+
+For Blog posts, keep using admin/partner editor or reviewed SQL workflows.
+Never use a static JSON import to mark Blog content public-ready.

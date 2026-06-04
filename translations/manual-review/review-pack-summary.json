@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-06-04T14:53:24.712Z",
+  "liveExportAttempted": true,
+  "outputDir": "translations/manual-review",
+  "packs": {
+    "staticUi": 801,
+    "advertise": 235,
+    "seo": 122,
+    "shop": 96,
+    "emailTemplates": 506,
+    "sameAsEn": 690,
+    "dynamicContent": 237,
+    "blog": 21
+  },
+  "sameAsEnBreakdown": {
+    "needs_translation": 537,
+    "allowed_same_as_en": 19,
+    "needs_human_review": 134
+  },
+  "dynamicReadWarnings": [
+    "email_template_catalog: permission denied for table email_template_catalog",
+    "email_template_versions: permission denied for table email_template_versions"
+  ],
+  "safety": {
+    "noPublicReadySet": true,
+    "noDatabaseUpdates": true,
+    "noPublicHeActivation": true,
+    "noBookingPaymentChanges": true
+  }
+}

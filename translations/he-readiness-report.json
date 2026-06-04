@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-04T14:09:25.510Z",
+  "generatedAt": "2026-06-04T15:03:10.219Z",
   "sourceAuditPath": "translations/audit-he-vs-en.json",
   "targetLanguage": "he",
   "baseLanguage": "en",
@@ -2201,6 +2201,24 @@
         "en": 57,
         "he": 0
       }
+    }
+  },
+  "manualReviewPacks": {
+    "sourcePath": "translations/manual-review/review-pack-summary.json",
+    "packs": {
+      "staticUi": 801,
+      "advertise": 235,
+      "seo": 122,
+      "shop": 96,
+      "emailTemplates": 506,
+      "sameAsEn": 690,
+      "dynamicContent": 237,
+      "blog": 21
+    },
+    "sameAsEnBreakdown": {
+      "needs_translation": 537,
+      "allowed_same_as_en": 19,
+      "needs_human_review": 134
     }
   }
 }
