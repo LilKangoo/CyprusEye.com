@@ -205,3 +205,31 @@ not-ready records remain outside HE SEO.
 
 Rollback remains unchanged: disable HE SEO flags, purge Cloudflare cache and
 re-run `npm run seo:he-guard` plus `npm run seo:audit`.
+
+Final live result after hotfix: **GO**.
+
+Live sitemap HE URLs:
+
+- `https://www.cypruseye.com/?lang=he`
+- `https://www.cypruseye.com/car.html?lang=he`
+- `https://www.cypruseye.com/hotel.html?slug=7-ukow&lang=he`
+- `https://www.cypruseye.com/hotels.html?lang=he`
+- `https://www.cypruseye.com/recommendations.html?lang=he`
+- `https://www.cypruseye.com/transport.html?lang=he`
+- `https://www.cypruseye.com/trips.html?lang=he`
+- `https://www.cypruseye.com/trip.html?slug=rejs-indywidualny&lang=he`
+- `https://www.cypruseye.com/trip.html?slug=trasa-blue-lagoon&lang=he`
+- `https://www.cypruseye.com/trip.html?slug=trasa-gory-trodos-i-lefkara&lang=he`
+- `https://www.cypruseye.com/trip.html?slug=trasa-kanion-avakas&lang=he`
+- `https://www.cypruseye.com/trip.html?slug=trasa-skaa-afrodyty&lang=he`
+- `https://www.cypruseye.com/trip.html?slug=trasa-w-dzikich-gorach-trodos&lang=he`
+- `https://www.cypruseye.com/trip.html?slug=wyjazd-indywidualny-5h&lang=he`
+- `https://www.cypruseye.com/trip.html?slug=wyjazd-indywidualny-8h&lang=he`
+- `https://www.cypruseye.com/trip.html?slug=wyjazd-indywidualny-do-10h&lang=he`
+- `https://www.cypruseye.com/trip.html?slug=wyjazdy-na-motorze-kierowca&lang=he`
+- `https://www.cypruseye.com/trip.html?slug=wyjazdy-na-motorze&lang=he`
+- `https://www.cypruseye.com/trip.html?slug=zabawa-off-roadowa-na-powyspie-akamas&lang=he`
+
+Live blocked/excluded checks confirmed no HE canonical, hreflang or OpenGraph
+for Blog, Shop, Plan, Partners, Admin, not-ready records or public `/he/`
+routes.

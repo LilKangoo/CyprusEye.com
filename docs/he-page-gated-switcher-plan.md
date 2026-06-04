@@ -942,3 +942,7 @@ The Stage49 hotfix prevents blocked Blog detail pages from leaking HE
 canonical/OpenGraph metadata when `?lang=he` is requested. It also ensures
 server-rendered HE pages carry `dir="rtl"`. Existing switcher gating and
 `buildLocalizedUrl(...)` behavior remain unchanged.
+
+Final Stage49 result: **GO**. There is no switcher registry expansion in this
+stage. UI status remains Home + READY + record-gated pages only; Blog remains
+blocked and Shop remains excluded.

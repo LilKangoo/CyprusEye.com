@@ -208,3 +208,9 @@ Stage49 SEO checks must continue to prove:
 - cart/checkout/payment never inherit HE/RTL from prior navigation.
 
 No Shop code or checkout/payment logic is changed in Stage49.
+
+Final Stage49 check: **Shop remains excluded**.
+
+Live `shop.html?lang=he` returns EN/LTR with no HE canonical, hreflang or
+OpenGraph. Sitemap contains no Shop HE URLs, and public `/he/shop.html`
+redirects to `/?lang=en`.
