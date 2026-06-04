@@ -663,3 +663,95 @@ Blog can move from `BLOCKED` to `RECORD-GATED READY candidate` only after:
 
 SEO HE, sitemap, hreflang, canonical, indexing, Shop HE and public `/he/`
 remain off.
+
+## Stage 43 Completion System Audit
+
+Status: **technical workflow ready, content publication still gated**.
+
+Static translation cleanup:
+
+| Metric | Before Stage43 | After Stage43 |
+| --- | ---: | ---: |
+| Missing HE keys | 317 | 216 |
+| Same-as-EN keys | 553 | 547 |
+
+Completed static groups:
+
+- Shop short labels and footer/shipping basics, while Shop stays excluded.
+- Dashboard/user-facing account dashboard labels.
+- Partner/advertise form labels and short CTA/package labels.
+
+Deferred groups:
+
+- Long `advertise` public marketing copy.
+- SEO/static meta.
+- Long Shop copy and page title.
+- Blog post bodies and long dynamic content.
+- Email templates.
+
+Manual workflow:
+
+- Added `docs/he-manual-translation-admin-guide.md`.
+- Blog content is not auto-translated or auto-marked.
+- `public_ready` is a manual human review gate.
+
+Current launch state:
+
+- Existing Home/READY/record-gated HE pages remain available.
+- Blog remains `BLOCKED`.
+- Shop remains `EXCLUDED`.
+- SEO HE remains `OFF`.
+- Booking/payment flow remains untouched.
+
+## Stage 44 PL/EN/HE Static Completeness
+
+Status: **static UI structure is tri-lingual; long/review-heavy copy remains
+manual**.
+
+Source reports:
+
+- `translations/audit-pl-en-he.json`
+- `translations/audit-he-vs-en.json`
+- `translations/he-readiness-report.json`
+
+Metrics:
+
+| Metric | Before Stage44 | After Stage44 |
+| --- | ---: | ---: |
+| PL keys missing EN | 301 | 0 |
+| PL/EN keys missing HE | 283 | 216 |
+| Placeholder mismatches | 33 | 0 |
+| HTML tag mismatches | 1 | 0 |
+| Empty/null translation values | 0 | 0 |
+| Same-as-EN HE keys | 547 | 690 |
+
+Same-as-EN increased because Stage44 made missing EN fallback explicit for
+legacy/static car-rental fleet keys that were previously present only in PL and
+HE. Those HE values are now visible as review debt and must not be treated as
+human-reviewed Hebrew copy.
+
+Closed groups:
+
+- PL-only short UI now has EN fallback.
+- Profile/account short labels.
+- Plan/catalog/detail short labels.
+- Community comment loading/sending states.
+- Auth/nav close/profile labels.
+- Runtime placeholders in auth, notifications, places, streak/challenge, sync,
+  VIP and XP labels.
+
+Deferred groups:
+
+- `advertise.*`: long partner/advertising copy.
+- `seo.*`: hidden until SEO HE stage.
+- Long Shop copy/title and checkout/payment language.
+- Email templates and payment/booking email copy.
+- Blog posts and long dynamic content.
+
+Launch state after Stage44:
+
+- Home, READY and record-gated HE pages remain unchanged.
+- Blog remains `BLOCKED`.
+- Shop remains `EXCLUDED`.
+- SEO HE remains `OFF`.
+- Booking/payment flow remains untouched.

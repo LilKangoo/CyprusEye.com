@@ -1,0 +1,4886 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-06-04T14:08:20.231Z",
+  "languages": [
+    "pl",
+    "en",
+    "he"
+  ],
+  "counts": {
+    "keys": {
+      "pl": 3022,
+      "en": 3116,
+      "he": 2907
+    },
+    "unionKeys": 3123,
+    "missing": {
+      "plMissingEn": 0,
+      "plMissingHe": 216,
+      "enMissingPl": 94,
+      "enMissingHe": 216,
+      "heMissingPl": 101,
+      "heMissingEn": 7
+    },
+    "heExtraAgainstPlAndEn": 7,
+    "sameAsEnHe": 690,
+    "emptyStrings": {
+      "pl": 0,
+      "en": 0,
+      "he": 0
+    },
+    "nullValues": {
+      "pl": 0,
+      "en": 0,
+      "he": 0
+    },
+    "placeholderMismatches": 0,
+    "htmlTagMismatches": 0,
+    "emojiSymbolMismatches": 34,
+    "rtlPunctuationWarnings": 0,
+    "flatNestedCollisions": {
+      "pl": 969,
+      "en": 57,
+      "he": 0
+    }
+  },
+  "missing": {
+    "plMissingEn": [],
+    "plMissingHe": [
+      "advertise.affiliate.badge",
+      "advertise.affiliate.cardBadge",
+      "advertise.affiliate.cardDescription",
+      "advertise.affiliate.cardTitle",
+      "advertise.affiliate.cta",
+      "advertise.affiliate.description",
+      "advertise.affiliate.points.access",
+      "advertise.affiliate.points.lifetime",
+      "advertise.affiliate.points.links",
+      "advertise.affiliate.secondaryCta",
+      "advertise.affiliate.title",
+      "advertise.ecosystem.badge",
+      "advertise.ecosystem.description",
+      "advertise.ecosystem.steps.affiliate.description",
+      "advertise.ecosystem.steps.affiliate.title",
+      "advertise.ecosystem.steps.control.description",
+      "advertise.ecosystem.steps.control.title",
+      "advertise.ecosystem.steps.discovery.description",
+      "advertise.ecosystem.steps.discovery.title",
+      "advertise.ecosystem.steps.plan.description",
+      "advertise.ecosystem.steps.plan.title",
+      "advertise.ecosystem.title",
+      "advertise.faq.badge",
+      "advertise.faq.description",
+      "advertise.faq.items.affiliate.answer",
+      "advertise.faq.items.affiliate.question",
+      "advertise.faq.items.apply.answer",
+      "advertise.faq.items.apply.question",
+      "advertise.faq.items.difference.answer",
+      "advertise.faq.items.difference.question",
+      "advertise.faq.items.local.answer",
+      "advertise.faq.items.local.question",
+      "advertise.faq.items.partnerType.answer",
+      "advertise.faq.items.partnerType.question",
+      "advertise.faq.items.scope.answer",
+      "advertise.faq.items.scope.question",
+      "advertise.faq.items.singleService.answer",
+      "advertise.faq.items.singleService.question",
+      "advertise.faq.title",
+      "advertise.fit.accommodation.description",
+      "advertise.fit.accommodation.points.location",
+      "advertise.fit.accommodation.points.offer",
+      "advertise.fit.accommodation.points.panel",
+      "advertise.fit.accommodation.title",
+      "advertise.fit.badge",
+      "advertise.fit.cta",
+      "advertise.fit.description",
+      "advertise.fit.localServices.description",
+      "advertise.fit.localServices.points.discount",
+      "advertise.fit.localServices.points.offer",
+      "advertise.fit.localServices.points.panel",
+      "advertise.fit.localServices.title",
+      "advertise.fit.title",
+      "advertise.fit.tours.description",
+      "advertise.fit.tours.points.languages",
+      "advertise.fit.tours.points.offer",
+      "advertise.fit.tours.points.panel",
+      "advertise.fit.tours.title",
+      "advertise.form.hints.accommodation",
+      "advertise.form.hints.localServices",
+      "advertise.form.hints.package",
+      "advertise.form.hints.tours",
+      "advertise.form.hints.trust",
+      "advertise.form.hints.type",
+      "advertise.form.successPopup.body",
+      "advertise.hero.highlights.affiliate",
+      "advertise.hero.highlights.dashboard",
+      "advertise.hero.highlights.facebook",
+      "advertise.hero.highlights.visibility",
+      "advertise.hero.primaryCta",
+      "advertise.hero.secondaryCta",
+      "advertise.packages.100.description",
+      "advertise.packages.100.eyebrow",
+      "advertise.packages.100.features.base",
+      "advertise.packages.100.features.featured",
+      "advertise.packages.100.features.social",
+      "advertise.packages.100.tagline",
+      "advertise.packages.100.title",
+      "advertise.packages.250.description",
+      "advertise.packages.250.eyebrow",
+      "advertise.packages.250.features.base",
+      "advertise.packages.250.features.competition",
+      "advertise.packages.250.features.featured",
+      "advertise.packages.250.features.social",
+      "advertise.packages.250.note",
+      "advertise.packages.250.tagline",
+      "advertise.packages.250.title",
+      "advertise.packages.450.description",
+      "advertise.packages.450.eyebrow",
+      "advertise.packages.450.features.base",
+      "advertise.packages.450.features.exclusive",
+      "advertise.packages.450.features.featured",
+      "advertise.packages.450.features.social",
+      "advertise.packages.450.note",
+      "advertise.packages.450.tagline",
+      "advertise.packages.450.title",
+      "advertise.packages.50.description",
+      "advertise.packages.50.eyebrow",
+      "advertise.packages.50.features.affiliate",
+      "advertise.packages.50.features.orders",
+      "advertise.packages.50.features.panel",
+      "advertise.packages.50.features.social",
+      "advertise.packages.50.features.visibility",
+      "advertise.packages.50.tagline",
+      "advertise.packages.50.title",
+      "advertise.packages.description",
+      "advertise.packages.title",
+      "advertise.platform.badge",
+      "advertise.platform.cards.operations.description",
+      "advertise.platform.cards.operations.title",
+      "advertise.platform.cards.presentation.description",
+      "advertise.platform.cards.presentation.title",
+      "advertise.platform.cards.retention.description",
+      "advertise.platform.cards.retention.title",
+      "advertise.platform.description",
+      "advertise.platform.points.affiliate",
+      "advertise.platform.points.discovery",
+      "advertise.platform.points.orders",
+      "advertise.platform.points.partnerPanel",
+      "advertise.platform.title",
+      "advertise.social.badge",
+      "advertise.social.channels.group1.badge",
+      "advertise.social.channels.group1.description",
+      "advertise.social.channels.group1.title",
+      "advertise.social.channels.group2.badge",
+      "advertise.social.channels.group2.description",
+      "advertise.social.channels.group2.title",
+      "advertise.social.channels.group3.badge",
+      "advertise.social.channels.group3.description",
+      "advertise.social.channels.group3.title",
+      "advertise.social.channels.profile.badge",
+      "advertise.social.channels.profile.description",
+      "advertise.social.channels.profile.title",
+      "advertise.social.description",
+      "advertise.social.metrics.channels",
+      "advertise.social.metrics.views",
+      "advertise.social.openGroup",
+      "advertise.social.openProfile",
+      "advertise.social.title",
+      "advertise.stats.community.label",
+      "advertise.stats.community.value",
+      "advertise.stats.groups.label",
+      "advertise.stats.groups.value",
+      "advertise.stats.views.label",
+      "advertise.stats.views.value",
+      "advertise.why.badge",
+      "advertise.why.cards.affiliate.description",
+      "advertise.why.cards.affiliate.title",
+      "advertise.why.cards.ecosystem.description",
+      "advertise.why.cards.ecosystem.title",
+      "advertise.why.cards.featured.description",
+      "advertise.why.cards.featured.title",
+      "advertise.why.cards.orders.description",
+      "advertise.why.cards.orders.title",
+      "advertise.why.cards.social.description",
+      "advertise.why.cards.social.title",
+      "advertise.why.cards.visibility.description",
+      "advertise.why.cards.visibility.title",
+      "advertise.why.description",
+      "advertise.why.title",
+      "seo.account.description",
+      "seo.account.ogDescription",
+      "seo.account.ogTitle",
+      "seo.account.title",
+      "seo.auth.description",
+      "seo.auth.ogDescription",
+      "seo.auth.ogTitle",
+      "seo.auth.title",
+      "seo.blog.description",
+      "seo.blog.ogDescription",
+      "seo.blog.ogTitle",
+      "seo.blog.title",
+      "seo.community.description",
+      "seo.community.ogDescription",
+      "seo.community.ogTitle",
+      "seo.hotel.description",
+      "seo.hotel.ogDescription",
+      "seo.hotel.ogTitle",
+      "seo.hotel.title",
+      "seo.hotels.description",
+      "seo.hotels.ogDescription",
+      "seo.hotels.ogTitle",
+      "seo.hotels.title",
+      "seo.plan.description",
+      "seo.plan.ogDescription",
+      "seo.plan.ogTitle",
+      "seo.plan.title",
+      "seo.reset.description",
+      "seo.reset.ogDescription",
+      "seo.reset.ogTitle",
+      "seo.reset.title",
+      "seo.shop.description",
+      "seo.shop.ogDescription",
+      "seo.shop.ogTitle",
+      "seo.shop.title",
+      "seo.terms.description",
+      "seo.terms.ogDescription",
+      "seo.terms.ogTitle",
+      "seo.terms.title",
+      "seo.transport.description",
+      "seo.transport.locale",
+      "seo.transport.localeAlternate",
+      "seo.transport.ogDescription",
+      "seo.transport.ogTitle",
+      "seo.transport.title",
+      "seo.trip.description",
+      "seo.trip.ogDescription",
+      "seo.trip.ogTitle",
+      "seo.trip.title",
+      "seo.trips.description",
+      "seo.trips.ogDescription",
+      "seo.trips.ogTitle",
+      "seo.trips.title",
+      "shop.footer.about_text",
+      "shop.hero.subtitle",
+      "shop.pageTitle"
+    ],
+    "enMissingPl": [
+      "carRental.page.reservation.successMessage",
+      "carRental.page.reservation.successTitle",
+      "common.close",
+      "community.rsvp.go",
+      "community.rsvp.no",
+      "coupon.nav.blog",
+      "coupon.nav.community",
+      "coupon.nav.hotels",
+      "coupon.nav.mediaTrips.ariaLabel",
+      "coupon.nav.mediaTrips.label",
+      "coupon.nav.recommendations",
+      "coupon.nav.tasks",
+      "coupon.nav.trips",
+      "coupon.recommendations.card.details",
+      "coupon.recommendations.card.featured",
+      "coupon.recommendations.card.visitSite",
+      "coupon.recommendations.description",
+      "coupon.recommendations.empty.body",
+      "coupon.recommendations.empty.cta",
+      "coupon.recommendations.empty.title",
+      "coupon.recommendations.error.message",
+      "coupon.recommendations.error.retry",
+      "coupon.recommendations.error.title",
+      "coupon.recommendations.filters.aria",
+      "coupon.recommendations.filters.clear",
+      "coupon.recommendations.filters.title",
+      "coupon.recommendations.hero.subtitle",
+      "coupon.recommendations.hero.title",
+      "coupon.recommendations.home.cta",
+      "coupon.recommendations.home.filters.clear",
+      "coupon.recommendations.home.filters.title",
+      "coupon.recommendations.home.loading",
+      "coupon.recommendations.home.subtitle",
+      "coupon.recommendations.home.title",
+      "coupon.recommendations.loading",
+      "coupon.recommendations.modal.offerLabel",
+      "coupon.recommendations.modal.openMap",
+      "coupon.recommendations.modal.visitSite",
+      "coupon.recommendations.seo.description",
+      "coupon.recommendations.seo.title",
+      "dashboard.referral",
+      "dashboard.referral.copied",
+      "dashboard.referral.copy",
+      "dashboard.referral.desc",
+      "header.profile.avatar.change",
+      "header.profile.avatar.uploading",
+      "header.profile.basicInfo",
+      "header.profile.email.change",
+      "header.profile.email.label",
+      "header.profile.error.generic",
+      "header.profile.error.passwordMismatch",
+      "header.profile.footer.referral.copied",
+      "header.profile.footer.referral.copy",
+      "header.profile.footer.referral.facebook",
+      "header.profile.footer.referral.invite",
+      "header.profile.modal.delete.confirm",
+      "header.profile.modal.delete.title",
+      "header.profile.modal.email.info",
+      "header.profile.modal.email.new",
+      "header.profile.modal.email.title",
+      "header.profile.modal.password.confirm",
+      "header.profile.modal.password.new",
+      "header.profile.modal.password.submit",
+      "header.profile.modal.password.title",
+      "header.profile.name.label",
+      "header.profile.profile",
+      "header.profile.referral",
+      "header.profile.referral.copied",
+      "header.profile.referral.copy",
+      "header.profile.referral.desc",
+      "header.profile.referral.earned",
+      "header.profile.referral.invited",
+      "header.profile.save",
+      "header.profile.security",
+      "header.profile.security.delete.delete",
+      "header.profile.security.delete.warning",
+      "header.profile.security.password.change",
+      "header.profile.success.email",
+      "header.profile.success.password",
+      "header.profile.success.updated",
+      "header.profile.username.label",
+      "hero.download",
+      "hero.start",
+      "hero.subtitle",
+      "profile.button",
+      "recommendations.card.openMap",
+      "recommendations.card.showCode",
+      "shop.cart.continue",
+      "sos.healthcare.sos.healthcare.hospital",
+      "sos.healthcare.sos.healthcare.pharmacy",
+      "sos.healthcare.sos.healthcare.pharmacyTitle",
+      "sos.healthcare.sos.healthcare.search",
+      "sos.healthcare.sos.healthcare.searchTitle",
+      "sos.healthcare.sos.healthcare.title"
+    ],
+    "enMissingHe": [
+      "advertise.affiliate.badge",
+      "advertise.affiliate.cardBadge",
+      "advertise.affiliate.cardDescription",
+      "advertise.affiliate.cardTitle",
+      "advertise.affiliate.cta",
+      "advertise.affiliate.description",
+      "advertise.affiliate.points.access",
+      "advertise.affiliate.points.lifetime",
+      "advertise.affiliate.points.links",
+      "advertise.affiliate.secondaryCta",
+      "advertise.affiliate.title",
+      "advertise.ecosystem.badge",
+      "advertise.ecosystem.description",
+      "advertise.ecosystem.steps.affiliate.description",
+      "advertise.ecosystem.steps.affiliate.title",
+      "advertise.ecosystem.steps.control.description",
+      "advertise.ecosystem.steps.control.title",
+      "advertise.ecosystem.steps.discovery.description",
+      "advertise.ecosystem.steps.discovery.title",
+      "advertise.ecosystem.steps.plan.description",
+      "advertise.ecosystem.steps.plan.title",
+      "advertise.ecosystem.title",
+      "advertise.faq.badge",
+      "advertise.faq.description",
+      "advertise.faq.items.affiliate.answer",
+      "advertise.faq.items.affiliate.question",
+      "advertise.faq.items.apply.answer",
+      "advertise.faq.items.apply.question",
+      "advertise.faq.items.difference.answer",
+      "advertise.faq.items.difference.question",
+      "advertise.faq.items.local.answer",
+      "advertise.faq.items.local.question",
+      "advertise.faq.items.partnerType.answer",
+      "advertise.faq.items.partnerType.question",
+      "advertise.faq.items.scope.answer",
+      "advertise.faq.items.scope.question",
+      "advertise.faq.items.singleService.answer",
+      "advertise.faq.items.singleService.question",
+      "advertise.faq.title",
+      "advertise.fit.accommodation.description",
+      "advertise.fit.accommodation.points.location",
+      "advertise.fit.accommodation.points.offer",
+      "advertise.fit.accommodation.points.panel",
+      "advertise.fit.accommodation.title",
+      "advertise.fit.badge",
+      "advertise.fit.cta",
+      "advertise.fit.description",
+      "advertise.fit.localServices.description",
+      "advertise.fit.localServices.points.discount",
+      "advertise.fit.localServices.points.offer",
+      "advertise.fit.localServices.points.panel",
+      "advertise.fit.localServices.title",
+      "advertise.fit.title",
+      "advertise.fit.tours.description",
+      "advertise.fit.tours.points.languages",
+      "advertise.fit.tours.points.offer",
+      "advertise.fit.tours.points.panel",
+      "advertise.fit.tours.title",
+      "advertise.form.hints.accommodation",
+      "advertise.form.hints.localServices",
+      "advertise.form.hints.package",
+      "advertise.form.hints.tours",
+      "advertise.form.hints.trust",
+      "advertise.form.hints.type",
+      "advertise.form.successPopup.body",
+      "advertise.hero.highlights.affiliate",
+      "advertise.hero.highlights.dashboard",
+      "advertise.hero.highlights.facebook",
+      "advertise.hero.highlights.visibility",
+      "advertise.hero.primaryCta",
+      "advertise.hero.secondaryCta",
+      "advertise.packages.100.description",
+      "advertise.packages.100.eyebrow",
+      "advertise.packages.100.features.base",
+      "advertise.packages.100.features.featured",
+      "advertise.packages.100.features.social",
+      "advertise.packages.100.tagline",
+      "advertise.packages.100.title",
+      "advertise.packages.250.description",
+      "advertise.packages.250.eyebrow",
+      "advertise.packages.250.features.base",
+      "advertise.packages.250.features.competition",
+      "advertise.packages.250.features.featured",
+      "advertise.packages.250.features.social",
+      "advertise.packages.250.note",
+      "advertise.packages.250.tagline",
+      "advertise.packages.250.title",
+      "advertise.packages.450.description",
+      "advertise.packages.450.eyebrow",
+      "advertise.packages.450.features.base",
+      "advertise.packages.450.features.exclusive",
+      "advertise.packages.450.features.featured",
+      "advertise.packages.450.features.social",
+      "advertise.packages.450.note",
+      "advertise.packages.450.tagline",
+      "advertise.packages.450.title",
+      "advertise.packages.50.description",
+      "advertise.packages.50.eyebrow",
+      "advertise.packages.50.features.affiliate",
+      "advertise.packages.50.features.orders",
+      "advertise.packages.50.features.panel",
+      "advertise.packages.50.features.social",
+      "advertise.packages.50.features.visibility",
+      "advertise.packages.50.tagline",
+      "advertise.packages.50.title",
+      "advertise.packages.description",
+      "advertise.packages.title",
+      "advertise.platform.badge",
+      "advertise.platform.cards.operations.description",
+      "advertise.platform.cards.operations.title",
+      "advertise.platform.cards.presentation.description",
+      "advertise.platform.cards.presentation.title",
+      "advertise.platform.cards.retention.description",
+      "advertise.platform.cards.retention.title",
+      "advertise.platform.description",
+      "advertise.platform.points.affiliate",
+      "advertise.platform.points.discovery",
+      "advertise.platform.points.orders",
+      "advertise.platform.points.partnerPanel",
+      "advertise.platform.title",
+      "advertise.social.badge",
+      "advertise.social.channels.group1.badge",
+      "advertise.social.channels.group1.description",
+      "advertise.social.channels.group1.title",
+      "advertise.social.channels.group2.badge",
+      "advertise.social.channels.group2.description",
+      "advertise.social.channels.group2.title",
+      "advertise.social.channels.group3.badge",
+      "advertise.social.channels.group3.description",
+      "advertise.social.channels.group3.title",
+      "advertise.social.channels.profile.badge",
+      "advertise.social.channels.profile.description",
+      "advertise.social.channels.profile.title",
+      "advertise.social.description",
+      "advertise.social.metrics.channels",
+      "advertise.social.metrics.views",
+      "advertise.social.openGroup",
+      "advertise.social.openProfile",
+      "advertise.social.title",
+      "advertise.stats.community.label",
+      "advertise.stats.community.value",
+      "advertise.stats.groups.label",
+      "advertise.stats.groups.value",
+      "advertise.stats.views.label",
+      "advertise.stats.views.value",
+      "advertise.why.badge",
+      "advertise.why.cards.affiliate.description",
+      "advertise.why.cards.affiliate.title",
+      "advertise.why.cards.ecosystem.description",
+      "advertise.why.cards.ecosystem.title",
+      "advertise.why.cards.featured.description",
+      "advertise.why.cards.featured.title",
+      "advertise.why.cards.orders.description",
+      "advertise.why.cards.orders.title",
+      "advertise.why.cards.social.description",
+      "advertise.why.cards.social.title",
+      "advertise.why.cards.visibility.description",
+      "advertise.why.cards.visibility.title",
+      "advertise.why.description",
+      "advertise.why.title",
+      "seo.account.description",
+      "seo.account.ogDescription",
+      "seo.account.ogTitle",
+      "seo.account.title",
+      "seo.auth.description",
+      "seo.auth.ogDescription",
+      "seo.auth.ogTitle",
+      "seo.auth.title",
+      "seo.blog.description",
+      "seo.blog.ogDescription",
+      "seo.blog.ogTitle",
+      "seo.blog.title",
+      "seo.community.description",
+      "seo.community.ogDescription",
+      "seo.community.ogTitle",
+      "seo.hotel.description",
+      "seo.hotel.ogDescription",
+      "seo.hotel.ogTitle",
+      "seo.hotel.title",
+      "seo.hotels.description",
+      "seo.hotels.ogDescription",
+      "seo.hotels.ogTitle",
+      "seo.hotels.title",
+      "seo.plan.description",
+      "seo.plan.ogDescription",
+      "seo.plan.ogTitle",
+      "seo.plan.title",
+      "seo.reset.description",
+      "seo.reset.ogDescription",
+      "seo.reset.ogTitle",
+      "seo.reset.title",
+      "seo.shop.description",
+      "seo.shop.ogDescription",
+      "seo.shop.ogTitle",
+      "seo.shop.title",
+      "seo.terms.description",
+      "seo.terms.ogDescription",
+      "seo.terms.ogTitle",
+      "seo.terms.title",
+      "seo.transport.description",
+      "seo.transport.locale",
+      "seo.transport.localeAlternate",
+      "seo.transport.ogDescription",
+      "seo.transport.ogTitle",
+      "seo.transport.title",
+      "seo.trip.description",
+      "seo.trip.ogDescription",
+      "seo.trip.ogTitle",
+      "seo.trip.title",
+      "seo.trips.description",
+      "seo.trips.ogDescription",
+      "seo.trips.ogTitle",
+      "seo.trips.title",
+      "shop.footer.about_text",
+      "shop.hero.subtitle",
+      "shop.pageTitle"
+    ],
+    "heMissingPl": [
+      "advertise.form.email",
+      "advertise.form.message",
+      "advertise.form.name",
+      "advertise.form.service",
+      "advertise.stats.group",
+      "advertise.stats.guides",
+      "advertise.stats.languages",
+      "carRental.page.reservation.successMessage",
+      "carRental.page.reservation.successTitle",
+      "common.close",
+      "community.rsvp.go",
+      "community.rsvp.no",
+      "coupon.nav.blog",
+      "coupon.nav.community",
+      "coupon.nav.hotels",
+      "coupon.nav.mediaTrips.ariaLabel",
+      "coupon.nav.mediaTrips.label",
+      "coupon.nav.recommendations",
+      "coupon.nav.tasks",
+      "coupon.nav.trips",
+      "coupon.recommendations.card.details",
+      "coupon.recommendations.card.featured",
+      "coupon.recommendations.card.visitSite",
+      "coupon.recommendations.description",
+      "coupon.recommendations.empty.body",
+      "coupon.recommendations.empty.cta",
+      "coupon.recommendations.empty.title",
+      "coupon.recommendations.error.message",
+      "coupon.recommendations.error.retry",
+      "coupon.recommendations.error.title",
+      "coupon.recommendations.filters.aria",
+      "coupon.recommendations.filters.clear",
+      "coupon.recommendations.filters.title",
+      "coupon.recommendations.hero.subtitle",
+      "coupon.recommendations.hero.title",
+      "coupon.recommendations.home.cta",
+      "coupon.recommendations.home.filters.clear",
+      "coupon.recommendations.home.filters.title",
+      "coupon.recommendations.home.loading",
+      "coupon.recommendations.home.subtitle",
+      "coupon.recommendations.home.title",
+      "coupon.recommendations.loading",
+      "coupon.recommendations.modal.offerLabel",
+      "coupon.recommendations.modal.openMap",
+      "coupon.recommendations.modal.visitSite",
+      "coupon.recommendations.seo.description",
+      "coupon.recommendations.seo.title",
+      "dashboard.referral",
+      "dashboard.referral.copied",
+      "dashboard.referral.copy",
+      "dashboard.referral.desc",
+      "header.profile.avatar.change",
+      "header.profile.avatar.uploading",
+      "header.profile.basicInfo",
+      "header.profile.email.change",
+      "header.profile.email.label",
+      "header.profile.error.generic",
+      "header.profile.error.passwordMismatch",
+      "header.profile.footer.referral.copied",
+      "header.profile.footer.referral.copy",
+      "header.profile.footer.referral.facebook",
+      "header.profile.footer.referral.invite",
+      "header.profile.modal.delete.confirm",
+      "header.profile.modal.delete.title",
+      "header.profile.modal.email.info",
+      "header.profile.modal.email.new",
+      "header.profile.modal.email.title",
+      "header.profile.modal.password.confirm",
+      "header.profile.modal.password.new",
+      "header.profile.modal.password.submit",
+      "header.profile.modal.password.title",
+      "header.profile.name.label",
+      "header.profile.profile",
+      "header.profile.referral",
+      "header.profile.referral.copied",
+      "header.profile.referral.copy",
+      "header.profile.referral.desc",
+      "header.profile.referral.earned",
+      "header.profile.referral.invited",
+      "header.profile.save",
+      "header.profile.security",
+      "header.profile.security.delete.delete",
+      "header.profile.security.delete.warning",
+      "header.profile.security.password.change",
+      "header.profile.success.email",
+      "header.profile.success.password",
+      "header.profile.success.updated",
+      "header.profile.username.label",
+      "hero.download",
+      "hero.start",
+      "hero.subtitle",
+      "profile.button",
+      "recommendations.card.openMap",
+      "recommendations.card.showCode",
+      "shop.cart.continue",
+      "sos.healthcare.sos.healthcare.hospital",
+      "sos.healthcare.sos.healthcare.pharmacy",
+      "sos.healthcare.sos.healthcare.pharmacyTitle",
+      "sos.healthcare.sos.healthcare.search",
+      "sos.healthcare.sos.healthcare.searchTitle",
+      "sos.healthcare.sos.healthcare.title"
+    ],
+    "heMissingEn": [
+      "advertise.form.email",
+      "advertise.form.message",
+      "advertise.form.name",
+      "advertise.form.service",
+      "advertise.stats.group",
+      "advertise.stats.guides",
+      "advertise.stats.languages"
+    ]
+  },
+  "extra": {
+    "heExtraAgainstPlAndEn": [
+      "advertise.form.email",
+      "advertise.form.message",
+      "advertise.form.name",
+      "advertise.form.service",
+      "advertise.stats.group",
+      "advertise.stats.guides",
+      "advertise.stats.languages"
+    ]
+  },
+  "sameAsEnHe": [
+    "account.close.text",
+    "account.profile.labels.xp",
+    "advertise.form.placeholders.email",
+    "advertise.form.placeholders.phone",
+    "advertise.form.placeholders.website",
+    "advertise.overline",
+    "attractions.brand.overline",
+    "attractions.catalog.subtitle",
+    "attractions.nav.catalog",
+    "attractions.nav.current",
+    "attractions.subtitle",
+    "carRental.calculator.breakdown.tiered",
+    "carRental.categories.comfort.badge",
+    "carRental.categories.comfort.description",
+    "carRental.categories.comfort.label",
+    "carRental.categories.economy.badge",
+    "carRental.categories.economy.description",
+    "carRental.categories.economy.label",
+    "carRental.categories.premium.badge",
+    "carRental.categories.premium.description",
+    "carRental.categories.premium.label",
+    "carRental.fleet.honda-fit-2022.category",
+    "carRental.fleet.honda-fit-2022.feature1",
+    "carRental.fleet.honda-fit-2022.feature2",
+    "carRental.fleet.honda-fit-2022.feature3",
+    "carRental.fleet.honda-fit-2022.fuel",
+    "carRental.fleet.honda-fit-2022.note",
+    "carRental.fleet.honda-fit-2022.transmission",
+    "carRental.fleet.honda-fit-hybrid-2019.category",
+    "carRental.fleet.honda-fit-hybrid-2019.feature1",
+    "carRental.fleet.honda-fit-hybrid-2019.feature2",
+    "carRental.fleet.honda-fit-hybrid-2019.feature3",
+    "carRental.fleet.honda-fit-hybrid-2019.fuel",
+    "carRental.fleet.honda-fit-hybrid-2019.note",
+    "carRental.fleet.honda-fit-hybrid-2019.transmission",
+    "carRental.fleet.honda-fit-hybrid-2022.category",
+    "carRental.fleet.honda-fit-hybrid-2022.feature1",
+    "carRental.fleet.honda-fit-hybrid-2022.feature2",
+    "carRental.fleet.honda-fit-hybrid-2022.feature3",
+    "carRental.fleet.honda-fit-hybrid-2022.fuel",
+    "carRental.fleet.honda-fit-hybrid-2022.note",
+    "carRental.fleet.honda-fit-hybrid-2022.transmission",
+    "carRental.fleet.kia-rio-2019.category",
+    "carRental.fleet.kia-rio-2019.feature1",
+    "carRental.fleet.kia-rio-2019.feature2",
+    "carRental.fleet.kia-rio-2019.feature3",
+    "carRental.fleet.kia-rio-2019.fuel",
+    "carRental.fleet.kia-rio-2019.note",
+    "carRental.fleet.kia-rio-2019.transmission",
+    "carRental.fleet.mazda-2-2023.category",
+    "carRental.fleet.mazda-2-2023.feature1",
+    "carRental.fleet.mazda-2-2023.feature2",
+    "carRental.fleet.mazda-2-2023.feature3",
+    "carRental.fleet.mazda-2-2023.fuel",
+    "carRental.fleet.mazda-2-2023.note",
+    "carRental.fleet.mazda-2-2023.transmission",
+    "carRental.fleet.mazda-atenza-2019.category",
+    "carRental.fleet.mazda-atenza-2019.feature1",
+    "carRental.fleet.mazda-atenza-2019.feature2",
+    "carRental.fleet.mazda-atenza-2019.feature3",
+    "carRental.fleet.mazda-atenza-2019.fuel",
+    "carRental.fleet.mazda-atenza-2019.note",
+    "carRental.fleet.mazda-atenza-2019.transmission",
+    "carRental.fleet.mazda-axela-2022.category",
+    "carRental.fleet.mazda-axela-2022.feature1",
+    "carRental.fleet.mazda-axela-2022.feature2",
+    "carRental.fleet.mazda-axela-2022.feature3",
+    "carRental.fleet.mazda-axela-2022.fuel",
+    "carRental.fleet.mazda-axela-2022.note",
+    "carRental.fleet.mazda-axela-2022.transmission",
+    "carRental.fleet.mazda-premacy-2018.category",
+    "carRental.fleet.mazda-premacy-2018.feature1",
+    "carRental.fleet.mazda-premacy-2018.feature2",
+    "carRental.fleet.mazda-premacy-2018.feature3",
+    "carRental.fleet.mazda-premacy-2018.fuel",
+    "carRental.fleet.mazda-premacy-2018.note",
+    "carRental.fleet.mazda-premacy-2018.transmission",
+    "carRental.fleet.mercedes-c-class-2020.category",
+    "carRental.fleet.mercedes-c-class-2020.feature1",
+    "carRental.fleet.mercedes-c-class-2020.feature2",
+    "carRental.fleet.mercedes-c-class-2020.feature3",
+    "carRental.fleet.mercedes-c-class-2020.fuel",
+    "carRental.fleet.mercedes-c-class-2020.note",
+    "carRental.fleet.mercedes-c-class-2020.transmission",
+    "carRental.fleet.mercedes-s-class-2017.category",
+    "carRental.fleet.mercedes-s-class-2017.feature1",
+    "carRental.fleet.mercedes-s-class-2017.feature2",
+    "carRental.fleet.mercedes-s-class-2017.feature3",
+    "carRental.fleet.mercedes-s-class-2017.fuel",
+    "carRental.fleet.mercedes-s-class-2017.note",
+    "carRental.fleet.mercedes-s-class-2017.transmission",
+    "carRental.fleet.nissan-note-2020.category",
+    "carRental.fleet.nissan-note-2020.feature1",
+    "carRental.fleet.nissan-note-2020.feature2",
+    "carRental.fleet.nissan-note-2020.feature3",
+    "carRental.fleet.nissan-note-2020.fuel",
+    "carRental.fleet.nissan-note-2020.note",
+    "carRental.fleet.nissan-note-2020.transmission",
+    "carRental.fleet.nissan-note-hybrid-2023.category",
+    "carRental.fleet.nissan-note-hybrid-2023.feature1",
+    "carRental.fleet.nissan-note-hybrid-2023.feature2",
+    "carRental.fleet.nissan-note-hybrid-2023.feature3",
+    "carRental.fleet.nissan-note-hybrid-2023.fuel",
+    "carRental.fleet.nissan-note-hybrid-2023.note",
+    "carRental.fleet.nissan-note-hybrid-2023.transmission",
+    "carRental.fleet.nissan-serena-hybrid-2016.category",
+    "carRental.fleet.nissan-serena-hybrid-2016.feature1",
+    "carRental.fleet.nissan-serena-hybrid-2016.feature2",
+    "carRental.fleet.nissan-serena-hybrid-2016.feature3",
+    "carRental.fleet.nissan-serena-hybrid-2016.fuel",
+    "carRental.fleet.nissan-serena-hybrid-2016.note",
+    "carRental.fleet.nissan-serena-hybrid-2016.transmission",
+    "carRental.fleet.nissan-serena-hybrid-2022.category",
+    "carRental.fleet.nissan-serena-hybrid-2022.feature1",
+    "carRental.fleet.nissan-serena-hybrid-2022.feature2",
+    "carRental.fleet.nissan-serena-hybrid-2022.feature3",
+    "carRental.fleet.nissan-serena-hybrid-2022.fuel",
+    "carRental.fleet.nissan-serena-hybrid-2022.note",
+    "carRental.fleet.nissan-serena-hybrid-2022.transmission",
+    "carRental.fleet.toyota-aqua-hybrid-2022.category",
+    "carRental.fleet.toyota-aqua-hybrid-2022.feature1",
+    "carRental.fleet.toyota-aqua-hybrid-2022.feature2",
+    "carRental.fleet.toyota-aqua-hybrid-2022.feature3",
+    "carRental.fleet.toyota-aqua-hybrid-2022.fuel",
+    "carRental.fleet.toyota-aqua-hybrid-2022.note",
+    "carRental.fleet.toyota-aqua-hybrid-2022.transmission",
+    "carRental.fleet.toyota-corolla-2021.category",
+    "carRental.fleet.toyota-corolla-2021.feature1",
+    "carRental.fleet.toyota-corolla-2021.feature2",
+    "carRental.fleet.toyota-corolla-2021.feature3",
+    "carRental.fleet.toyota-corolla-2021.fuel",
+    "carRental.fleet.toyota-corolla-2021.note",
+    "carRental.fleet.toyota-corolla-2021.transmission",
+    "carRental.fleet.toyota-passo-2020.category",
+    "carRental.fleet.toyota-passo-2020.feature1",
+    "carRental.fleet.toyota-passo-2020.feature2",
+    "carRental.fleet.toyota-passo-2020.feature3",
+    "carRental.fleet.toyota-passo-2020.fuel",
+    "carRental.fleet.toyota-passo-2020.note",
+    "carRental.fleet.toyota-passo-2020.transmission",
+    "carRental.fleet.toyota-sienta-2022.category",
+    "carRental.fleet.toyota-sienta-2022.feature1",
+    "carRental.fleet.toyota-sienta-2022.feature2",
+    "carRental.fleet.toyota-sienta-2022.feature3",
+    "carRental.fleet.toyota-sienta-2022.fuel",
+    "carRental.fleet.toyota-sienta-2022.note",
+    "carRental.fleet.toyota-sienta-2022.transmission",
+    "carRental.fleet.toyota-yaris-2023.category",
+    "carRental.fleet.toyota-yaris-2023.feature1",
+    "carRental.fleet.toyota-yaris-2023.feature2",
+    "carRental.fleet.toyota-yaris-2023.feature3",
+    "carRental.fleet.toyota-yaris-2023.fuel",
+    "carRental.fleet.toyota-yaris-2023.note",
+    "carRental.fleet.toyota-yaris-2023.transmission",
+    "carRental.fleet.toyota-yaris-hybrid-2023.category",
+    "carRental.fleet.toyota-yaris-hybrid-2023.feature1",
+    "carRental.fleet.toyota-yaris-hybrid-2023.feature2",
+    "carRental.fleet.toyota-yaris-hybrid-2023.feature3",
+    "carRental.fleet.toyota-yaris-hybrid-2023.fuel",
+    "carRental.fleet.toyota-yaris-hybrid-2023.note",
+    "carRental.fleet.toyota-yaris-hybrid-2023.transmission",
+    "carRental.included.feature1.description",
+    "carRental.included.feature1.short",
+    "carRental.included.feature2.description",
+    "carRental.included.feature2.short",
+    "carRental.included.feature3.description",
+    "carRental.included.feature3.short",
+    "carRental.locations.coral-bay.label",
+    "carRental.locations.coral-bay.short",
+    "carRental.locations.paphos-city.label",
+    "carRental.locations.paphos-city.short",
+    "carRental.locations.polis.label",
+    "carRental.locations.polis.short",
+    "carRental.page.reservation.fields.email.placeholder",
+    "carRental.page.reservation.fields.flight.placeholder",
+    "carRental.page.reservation.fields.fullName.placeholder",
+    "carRental.page.reservation.fields.phone.placeholder",
+    "carRentalPfo.fleet.honda-fit-paphos.feature2",
+    "carRentalPfo.fleet.mazda-cx5-paphos.category",
+    "carRentalPfo.page.benefits.aria",
+    "carRentalPfo.page.benefits.flexible.body",
+    "carRentalPfo.page.benefits.flexible.title",
+    "carRentalPfo.page.benefits.nature.body",
+    "carRentalPfo.page.benefits.nature.title",
+    "carRentalPfo.page.benefits.package.body",
+    "carRentalPfo.page.benefits.package.title",
+    "carRentalPfo.page.fleet.description",
+    "carRentalPfo.page.hero.description",
+    "carRentalPfo.page.hero.note.link",
+    "carRentalPfo.page.hero.note.prefix",
+    "carRentalPfo.page.hero.note.suffix",
+    "carRentalPfo.page.reservation.fields.email.placeholder",
+    "carRentalPfo.page.reservation.fields.flight.placeholder",
+    "carRentalPfo.page.reservation.fields.fullName.placeholder",
+    "carRentalPfo.page.reservation.fields.phone.placeholder",
+    "community.gallery.panoramaBadge",
+    "coupon.offers.items.noDeposit.category",
+    "coupon.offers.items.noDepositPaphos.category",
+    "coupon.summary.price_current",
+    "coupon.summary.price_original",
+    "cruise.back",
+    "cruise.footer",
+    "cruise.form.email",
+    "cruise.form.name",
+    "cruise.form.submit",
+    "cruise.form.subtitle",
+    "cruise.form.title",
+    "cruise.hero.badge",
+    "cruise.hero.description",
+    "cruise.hero.title",
+    "cruise.overline",
+    "cruise.stats.guests",
+    "cruise.stats.guestsLabel",
+    "cruise.stats.hours",
+    "cruise.stats.hoursLabel",
+    "cruise.stats.ports",
+    "cruise.stats.portsLabel",
+    "cruise.title",
+    "discovery.catalog",
+    "discovery.title",
+    "discovery.toggle",
+    "explorer.close",
+    "explorer.filter.all",
+    "explorer.filter.available",
+    "explorer.filter.visited",
+    "explorer.filterLabel",
+    "explorer.subtitle",
+    "explorer.title",
+    "footer.referral.facebook",
+    "header.brand",
+    "header.profile.footer.referral.facebook",
+    "header.sosToggle",
+    "level.toast.levelUp.title",
+    "mediaTrips.card.calculatorTitle",
+    "mediaTrips.card.highlightsTitle",
+    "mediaTrips.card.participantsLabel",
+    "mediaTrips.card.perPersonLabel",
+    "mediaTrips.card.totalLabel",
+    "mediaTrips.card.variantHelper",
+    "mediaTrips.card.variantLabel",
+    "mediaTrips.card.variantOption",
+    "mediaTrips.cta.button",
+    "mediaTrips.cta.description",
+    "mediaTrips.cta.eyebrow",
+    "mediaTrips.cta.title",
+    "mediaTrips.header.back",
+    "mediaTrips.intro",
+    "mediaTrips.items.vip-photo-trip.description",
+    "mediaTrips.items.vip-photo-trip.detailsLink",
+    "mediaTrips.items.vip-photo-trip.duration",
+    "mediaTrips.items.vip-photo-trip.highlights.stylist",
+    "mediaTrips.items.vip-photo-trip.highlights.transport",
+    "mediaTrips.items.vip-photo-trip.mediaType",
+    "mediaTrips.items.vip-photo-trip.pricing.fullDay",
+    "mediaTrips.items.vip-photo-trip.pricing.halfDay",
+    "mediaTrips.items.vip-photo-trip.pricing.threeQuarterDay",
+    "mediaTrips.items.vip-photo-trip.title",
+    "mediaTrips.items.vip-video-trip.description",
+    "mediaTrips.items.vip-video-trip.detailsLink",
+    "mediaTrips.items.vip-video-trip.duration",
+    "mediaTrips.items.vip-video-trip.highlights.crew",
+    "mediaTrips.items.vip-video-trip.highlights.promo",
+    "mediaTrips.items.vip-video-trip.mediaType",
+    "mediaTrips.items.vip-video-trip.pricing.fullDay",
+    "mediaTrips.items.vip-video-trip.pricing.halfDay",
+    "mediaTrips.items.vip-video-trip.pricing.threeQuarterDay",
+    "mediaTrips.items.vip-video-trip.title",
+    "mediaTrips.itineraries.description",
+    "mediaTrips.itineraries.eyebrow",
+    "mediaTrips.itineraries.four.description",
+    "mediaTrips.itineraries.four.stop1",
+    "mediaTrips.itineraries.four.stop2",
+    "mediaTrips.itineraries.four.stop3",
+    "mediaTrips.itineraries.four.stop4",
+    "mediaTrips.itineraries.four.stop5",
+    "mediaTrips.itineraries.four.stop6",
+    "mediaTrips.itineraries.four.time",
+    "mediaTrips.itineraries.four.title",
+    "mediaTrips.itineraries.one.description",
+    "mediaTrips.itineraries.one.stop1",
+    "mediaTrips.itineraries.one.stop2",
+    "mediaTrips.itineraries.one.stop3",
+    "mediaTrips.itineraries.one.stop4",
+    "mediaTrips.itineraries.one.time",
+    "mediaTrips.itineraries.one.title",
+    "mediaTrips.itineraries.three.description",
+    "mediaTrips.itineraries.three.stop1",
+    "mediaTrips.itineraries.three.stop2",
+    "mediaTrips.itineraries.three.stop3",
+    "mediaTrips.itineraries.three.stop4",
+    "mediaTrips.itineraries.three.stop5",
+    "mediaTrips.itineraries.three.time",
+    "mediaTrips.itineraries.three.title",
+    "mediaTrips.itineraries.title",
+    "mediaTrips.itineraries.two.description",
+    "mediaTrips.itineraries.two.stop1",
+    "mediaTrips.itineraries.two.stop2",
+    "mediaTrips.itineraries.two.stop3",
+    "mediaTrips.itineraries.two.stop4",
+    "mediaTrips.itineraries.two.time",
+    "mediaTrips.itineraries.two.title",
+    "mediaTrips.overview.description",
+    "mediaTrips.overview.eyebrow",
+    "mediaTrips.overview.features.four.description",
+    "mediaTrips.overview.features.four.number",
+    "mediaTrips.overview.features.four.title",
+    "mediaTrips.overview.features.one.description",
+    "mediaTrips.overview.features.one.number",
+    "mediaTrips.overview.features.one.title",
+    "mediaTrips.overview.features.three.description",
+    "mediaTrips.overview.features.three.number",
+    "mediaTrips.overview.features.three.title",
+    "mediaTrips.overview.features.two.description",
+    "mediaTrips.overview.features.two.number",
+    "mediaTrips.overview.features.two.title",
+    "mediaTrips.overview.note.description",
+    "mediaTrips.overview.note.title",
+    "mediaTrips.overview.title",
+    "mediaTrips.packages.description",
+    "mediaTrips.packages.eyebrow",
+    "mediaTrips.packages.intro",
+    "mediaTrips.packages.title",
+    "mediaTrips.video.description",
+    "mediaTrips.video.exampleOne.title",
+    "mediaTrips.video.exampleTwo.title",
+    "mediaTrips.video.eyebrow",
+    "mediaTrips.video.title",
+    "metrics.xp.progressTemplate",
+    "mobile.nav.mediaTrips",
+    "packing.guide.optional",
+    "packing.guide.seasonal.title",
+    "packing.guide.seasons.autumn.camera.label",
+    "packing.guide.seasons.autumn.eveningLayer.hint",
+    "packing.guide.seasons.autumn.eveningLayer.label",
+    "packing.guide.seasons.autumn.rainProtection.label",
+    "packing.guide.seasons.autumn.sandals.label",
+    "packing.guide.seasons.autumn.summerClothes.hint",
+    "packing.guide.seasons.autumn.summerClothes.label",
+    "packing.guide.seasons.autumn.sunAccessories.label",
+    "packing.guide.seasons.autumn.sunscreen.hint",
+    "packing.guide.seasons.autumn.sunscreen.label",
+    "packing.guide.seasons.autumn.swimwear.hint",
+    "packing.guide.seasons.autumn.swimwear.label",
+    "packing.guide.seasons.autumn.trekkingShoes.label",
+    "packing.guide.seasons.spring.camera.label",
+    "packing.guide.seasons.spring.layers.hint",
+    "packing.guide.seasons.spring.layers.label",
+    "packing.guide.seasons.spring.longSleeves.label",
+    "packing.guide.seasons.spring.rainProtection.hint",
+    "packing.guide.seasons.spring.rainProtection.label",
+    "packing.guide.seasons.spring.scarf.hint",
+    "packing.guide.seasons.spring.scarf.label",
+    "packing.guide.seasons.spring.shoes.hint",
+    "packing.guide.seasons.spring.shoes.label",
+    "packing.guide.seasons.spring.sunAccessories.hint",
+    "packing.guide.seasons.spring.sunAccessories.label",
+    "packing.guide.seasons.spring.sunscreen.hint",
+    "packing.guide.seasons.spring.sunscreen.label",
+    "packing.guide.seasons.spring.swimwear.hint",
+    "packing.guide.seasons.spring.swimwear.label",
+    "packing.guide.seasons.summer.afterSun.hint",
+    "packing.guide.seasons.summer.afterSun.label",
+    "packing.guide.seasons.summer.bottle.hint",
+    "packing.guide.seasons.summer.bottle.label",
+    "packing.guide.seasons.summer.clothing.label",
+    "packing.guide.seasons.summer.coverUp.hint",
+    "packing.guide.seasons.summer.coverUp.label",
+    "packing.guide.seasons.summer.footwear.hint",
+    "packing.guide.seasons.summer.footwear.label",
+    "packing.guide.seasons.summer.hat.hint",
+    "packing.guide.seasons.summer.hat.label",
+    "packing.guide.seasons.summer.sunscreen.hint",
+    "packing.guide.seasons.summer.sunscreen.label",
+    "packing.guide.seasons.summer.swimwear.hint",
+    "packing.guide.seasons.summer.swimwear.label",
+    "packing.guide.seasons.summer.towel.hint",
+    "packing.guide.seasons.summer.towel.label",
+    "packing.guide.seasons.summer.waterproofCase.hint",
+    "packing.guide.seasons.summer.waterproofCase.label",
+    "packing.guide.seasons.winter.accessories.label",
+    "packing.guide.seasons.winter.boots.hint",
+    "packing.guide.seasons.winter.boots.label",
+    "packing.guide.seasons.winter.coat.label",
+    "packing.guide.seasons.winter.equipmentPlan.label",
+    "packing.guide.seasons.winter.layers.hint",
+    "packing.guide.seasons.winter.layers.label",
+    "packing.guide.seasons.winter.rainProtection.hint",
+    "packing.guide.seasons.winter.rainProtection.label",
+    "packing.guide.seasons.winter.sunglasses.hint",
+    "packing.guide.seasons.winter.sunglasses.label",
+    "packing.guide.seasons.winter.thermal.hint",
+    "packing.guide.seasons.winter.thermal.label",
+    "packing.guide.seasons.winter.thermos.hint",
+    "packing.guide.seasons.winter.thermos.label",
+    "packing.guide.universal.adapter.label",
+    "packing.guide.universal.driving.label",
+    "packing.guide.universal.sunProtection.label",
+    "packing.guide.universal.title",
+    "packing.header.title",
+    "packing.panel.title",
+    "packing.season.autumn.label",
+    "packing.season.spring.label",
+    "packing.season.summer.label",
+    "packing.season.winter.label",
+    "places.agios-neophytos-monastery.badge",
+    "places.agios-neophytos-monastery.description",
+    "places.agios-neophytos-monastery.name",
+    "places.akamas-national-park.badge",
+    "places.akamas-national-park.description",
+    "places.akamas-national-park.name",
+    "places.amathus-ruins.badge",
+    "places.amathus-ruins.description",
+    "places.amathus-ruins.name",
+    "places.anexartisias-street.badge",
+    "places.anexartisias-street.description",
+    "places.anexartisias-street.name",
+    "places.aphrodite-rock.badge",
+    "places.aphrodite-rock.description",
+    "places.aphrodite-rock.name",
+    "places.aphrodites-baths.badge",
+    "places.aphrodites-baths.description",
+    "places.aphrodites-baths.name",
+    "places.avakas-gorge-west-entrance.badge",
+    "places.avakas-gorge-west-entrance.description",
+    "places.avakas-gorge-west-entrance.name",
+    "places.avakas-gorge.badge",
+    "places.avakas-gorge.description",
+    "places.avakas-gorge.name",
+    "places.ayia-napa-monastery.badge",
+    "places.ayia-napa-monastery.description",
+    "places.ayia-napa-monastery.name",
+    "places.ayia-napa-sculpture-park.badge",
+    "places.ayia-napa-sculpture-park.description",
+    "places.ayia-napa-sculpture-park.name",
+    "places.blue-lagoon-akamas.badge",
+    "places.blue-lagoon-akamas.description",
+    "places.blue-lagoon-akamas.name",
+    "places.buffavento-castle.badge",
+    "places.buffavento-castle.description",
+    "places.buffavento-castle.name",
+    "places.buyuk-han.badge",
+    "places.buyuk-han.description",
+    "places.buyuk-han.name",
+    "places.caledonia-waterfall.badge",
+    "places.caledonia-waterfall.description",
+    "places.caledonia-waterfall.name",
+    "places.cape-greco-sea-caves.badge",
+    "places.cape-greco-sea-caves.description",
+    "places.cape-greco-sea-caves.name",
+    "places.cape-greco.badge",
+    "places.cape-greco.description",
+    "places.cape-greco.name",
+    "places.chirokitia-archaeological-site.badge",
+    "places.chirokitia-archaeological-site.description",
+    "places.chirokitia-archaeological-site.name",
+    "places.coral-bay.badge",
+    "places.coral-bay.description",
+    "places.coral-bay.name",
+    "places.cyprus-museum.badge",
+    "places.cyprus-museum.description",
+    "places.cyprus-museum.name",
+    "places.dasoudi-beach.badge",
+    "places.dasoudi-beach.description",
+    "places.dasoudi-beach.name",
+    "places.distance.noData",
+    "places.distance.pending",
+    "places.distance.permissionDenied",
+    "places.distance.secureContext",
+    "places.eleftheria-square.badge",
+    "places.eleftheria-square.description",
+    "places.eleftheria-square.name",
+    "places.famagusta-old-town.badge",
+    "places.famagusta-old-town.description",
+    "places.famagusta-old-town.name",
+    "places.fasouri-watermania.badge",
+    "places.fasouri-watermania.description",
+    "places.fasouri-watermania.name",
+    "places.fig-tree-bay.badge",
+    "places.fig-tree-bay.description",
+    "places.fig-tree-bay.name",
+    "places.finikoudes-beach.badge",
+    "places.finikoudes-beach.description",
+    "places.finikoudes-beach.name",
+    "places.googleMaps",
+    "places.governors-beach.badge",
+    "places.governors-beach.description",
+    "places.governors-beach.name",
+    "places.kakopetria-village.badge",
+    "places.kakopetria-village.description",
+    "places.kakopetria-village.name",
+    "places.karpaz-golden-beach.badge",
+    "places.karpaz-golden-beach.description",
+    "places.karpaz-golden-beach.name",
+    "places.kato-pafos-archaeological-park.badge",
+    "places.kato-pafos-archaeological-park.description",
+    "places.kato-pafos-archaeological-park.name",
+    "places.kolossi-castle.badge",
+    "places.kolossi-castle.description",
+    "places.kolossi-castle.name",
+    "places.kourion-archaeological-site.badge",
+    "places.kourion-archaeological-site.description",
+    "places.kourion-archaeological-site.name",
+    "places.kykkos-monastery.badge",
+    "places.kykkos-monastery.description",
+    "places.kykkos-monastery.name",
+    "places.kyrenia-castle.badge",
+    "places.kyrenia-castle.description",
+    "places.kyrenia-castle.name",
+    "places.kyrenia-old-harbour.badge",
+    "places.kyrenia-old-harbour.description",
+    "places.kyrenia-old-harbour.name",
+    "places.lania-village.badge",
+    "places.lania-village.description",
+    "places.lania-village.name",
+    "places.larnaca-salt-lake-hala-sultan.badge",
+    "places.larnaca-salt-lake-hala-sultan.description",
+    "places.larnaca-salt-lake-hala-sultan.name",
+    "places.ledra-street.badge",
+    "places.ledra-street.description",
+    "places.ledra-street.name",
+    "places.lefkara-village.badge",
+    "places.lefkara-village.description",
+    "places.lefkara-village.name",
+    "places.limassol-castle.badge",
+    "places.limassol-castle.description",
+    "places.limassol-castle.name",
+    "places.limassol-municipal-aquarium.badge",
+    "places.limassol-municipal-aquarium.description",
+    "places.limassol-municipal-aquarium.name",
+    "places.macronissos-beach.badge",
+    "places.macronissos-beach.description",
+    "places.macronissos-beach.name",
+    "places.molos-promenade.badge",
+    "places.molos-promenade.description",
+    "places.molos-promenade.name",
+    "places.nicosia-archaeological-museum.badge",
+    "places.nicosia-archaeological-museum.description",
+    "places.nicosia-archaeological-museum.name",
+    "places.nissi-beach.badge",
+    "places.nissi-beach.description",
+    "places.nissi-beach.name",
+    "places.objective.checkIn",
+    "places.objective.completed",
+    "places.objective.nextNone",
+    "places.objective.previousNone",
+    "places.objective.visited",
+    "places.omodos-village.badge",
+    "places.omodos-village.description",
+    "places.omodos-village.name",
+    "places.panagia-kykkos-viewpoint.badge",
+    "places.panagia-kykkos-viewpoint.description",
+    "places.panagia-kykkos-viewpoint.name",
+    "places.polis-latchi-marina.badge",
+    "places.polis-latchi-marina.description",
+    "places.polis-latchi-marina.name",
+    "places.saint-lazarus-church.badge",
+    "places.saint-lazarus-church.description",
+    "places.saint-lazarus-church.name",
+    "places.soli-ancient-site.badge",
+    "places.soli-ancient-site.description",
+    "places.soli-ancient-site.name",
+    "places.st-hilarion-castle.badge",
+    "places.st-hilarion-castle.description",
+    "places.st-hilarion-castle.name",
+    "places.st-hilarion-vantage-point.badge",
+    "places.st-hilarion-vantage-point.description",
+    "places.st-hilarion-vantage-point.name",
+    "places.toast.levelUp",
+    "places.toast.streakStart",
+    "places.tombs-of-the-kings.badge",
+    "places.tombs-of-the-kings.description",
+    "places.tombs-of-the-kings.name",
+    "places.trooditissa-monastery.badge",
+    "places.trooditissa-monastery.description",
+    "places.trooditissa-monastery.name",
+    "places.troodos-olympos.badge",
+    "places.troodos-olympos.description",
+    "places.troodos-olympos.name",
+    "places.troodos-square.badge",
+    "places.troodos-square.description",
+    "places.troodos-square.name",
+    "places.viewOnMap",
+    "places.vouni-ancient-house.badge",
+    "places.vouni-ancient-house.description",
+    "places.vouni-ancient-house.name",
+    "places.yeroskipou-town.badge",
+    "places.yeroskipou-town.description",
+    "places.yeroskipou-town.name",
+    "places.zenobia-wreck.badge",
+    "places.zenobia-wreck.description",
+    "places.zenobia-wreck.name",
+    "plan.ui.itemType.poiShort",
+    "profile.avatar.remove",
+    "profile.settings.email.placeholder",
+    "seo.carRental.ogDescription",
+    "seo.carRentalLanding.ogDescription",
+    "seo.carRentalPfo.description",
+    "seo.carRentalPfo.ogDescription",
+    "seo.coupon.locale",
+    "seo.coupon.localeAlternate",
+    "seo.coupon.ogDescription",
+    "seo.cruise.description",
+    "seo.cruise.ogDescription",
+    "seo.cruise.ogTitle",
+    "seo.cruise.title",
+    "seo.notFound.description",
+    "seo.notFound.ogDescription",
+    "seo.notFound.ogTitle",
+    "seo.notFound.title",
+    "seo.ogImage",
+    "seo.vip.description",
+    "seo.vip.locale",
+    "seo.vip.localeAlternate",
+    "seo.vip.ogDescription",
+    "services.title",
+    "sos.embassy.email",
+    "sos.quick.whatsapp",
+    "sos.title",
+    "sync.progress.synced",
+    "vip.back",
+    "vip.brand.logoAlt",
+    "vip.brand.overline",
+    "vip.calculator.fields.package",
+    "vip.calculator.fields.persons",
+    "vip.calculator.fields.variant",
+    "vip.calculator.packages.combo.label",
+    "vip.calculator.packages.photo.label",
+    "vip.calculator.packages.video.label",
+    "vip.calculator.subtitle",
+    "vip.calculator.title",
+    "vip.calculator.variant.fullDay",
+    "vip.calculator.variant.halfDay",
+    "vip.calculator.variant.threeQuarterDay",
+    "vip.calculator.variant.twoDays",
+    "vip.contact.email",
+    "vip.contact.list.email",
+    "vip.contact.list.phone",
+    "vip.contact.list.whatsapp",
+    "vip.contact.subtitle",
+    "vip.contact.title",
+    "vip.contact.whatsapp",
+    "vip.hero.badge",
+    "vip.hero.ctaPrimary",
+    "vip.hero.ctaSecondary",
+    "vip.hero.intro",
+    "vip.hero.title",
+    "vip.hero.visualLabel",
+    "vip.highlights.badge",
+    "vip.highlights.items.concierge.description",
+    "vip.highlights.items.concierge.title",
+    "vip.highlights.items.exclusive.description",
+    "vip.highlights.items.exclusive.title",
+    "vip.highlights.items.media.description",
+    "vip.highlights.items.media.title",
+    "vip.highlights.subtitle",
+    "vip.highlights.title",
+    "vip.itineraries.items.fullDayAyia",
+    "vip.itineraries.items.fullDayPaphos",
+    "vip.itineraries.items.halfDayAyia",
+    "vip.itineraries.items.halfDayPaphos",
+    "vip.itineraries.note",
+    "vip.itineraries.title",
+    "vip.offers.eyebrow",
+    "vip.offers.points.personal",
+    "vip.offers.points.photography",
+    "vip.offers.points.transport",
+    "vip.offers.subtitle",
+    "vip.offers.title",
+    "vip.packages.photo.items.fullDay",
+    "vip.packages.photo.items.halfDay",
+    "vip.packages.photo.items.threeQuarterDay",
+    "vip.packages.photo.items.twoDays",
+    "vip.packages.photo.note",
+    "vip.packages.photo.title",
+    "vip.packages.video.items.fullDay",
+    "vip.packages.video.items.halfDay",
+    "vip.packages.video.items.threeQuarterDay",
+    "vip.packages.video.items.twoDays",
+    "vip.packages.video.title",
+    "vip.reservation.fields.date.label",
+    "vip.reservation.fields.email.label",
+    "vip.reservation.fields.name.label",
+    "vip.reservation.fields.notes.label",
+    "vip.reservation.fields.notes.placeholder",
+    "vip.reservation.fields.package.label",
+    "vip.reservation.fields.persons.label",
+    "vip.reservation.fields.phone.label",
+    "vip.reservation.fields.variant.label",
+    "vip.reservation.submit",
+    "vip.reservation.title"
+  ],
+  "emptyAndNull": {
+    "pl": {
+      "emptyStrings": [],
+      "nullValues": []
+    },
+    "en": {
+      "emptyStrings": [],
+      "nullValues": []
+    },
+    "he": {
+      "emptyStrings": [],
+      "nullValues": []
+    }
+  },
+  "qualityIssues": {
+    "placeholderMismatches": [],
+    "htmlTagMismatches": [],
+    "emojiSymbolMismatches": [
+      {
+        "key": "account.reset.action",
+        "referenceLanguage": "en",
+        "reference": [
+          "🔄"
+        ],
+        "values": {
+          "pl": [],
+          "en": [
+            "🔄"
+          ],
+          "he": [
+            "🔄"
+          ]
+        },
+        "mismatchedLanguages": [
+          "pl"
+        ]
+      },
+      {
+        "key": "account.tabs.security",
+        "referenceLanguage": "en",
+        "reference": [
+          "🔐"
+        ],
+        "values": {
+          "pl": [],
+          "en": [
+            "🔐"
+          ],
+          "he": [
+            "🔐"
+          ]
+        },
+        "mismatchedLanguages": [
+          "pl"
+        ]
+      },
+      {
+        "key": "account.tabs.stats",
+        "referenceLanguage": "en",
+        "reference": [
+          "📈"
+        ],
+        "values": {
+          "pl": [],
+          "en": [
+            "📈"
+          ],
+          "he": [
+            "📈"
+          ]
+        },
+        "mismatchedLanguages": [
+          "pl"
+        ]
+      },
+      {
+        "key": "attractions.nav.catalog",
+        "referenceLanguage": "en",
+        "reference": [
+          "📚"
+        ],
+        "values": {
+          "pl": [],
+          "en": [
+            "📚"
+          ],
+          "he": [
+            "📚"
+          ]
+        },
+        "mismatchedLanguages": [
+          "pl"
+        ]
+      },
+      {
+        "key": "attractions.nav.current",
+        "referenceLanguage": "en",
+        "reference": [
+          "📚"
+        ],
+        "values": {
+          "pl": [],
+          "en": [
+            "📚"
+          ],
+          "he": [
+            "📚"
+          ]
+        },
+        "mismatchedLanguages": [
+          "pl"
+        ]
+      },
+      {
+        "key": "auth.guest.button",
+        "referenceLanguage": "en",
+        "reference": [
+          "🎮"
+        ],
+        "values": {
+          "pl": [],
+          "en": [
+            "🎮"
+          ],
+          "he": [
+            "🎮"
+          ]
+        },
+        "mismatchedLanguages": [
+          "pl"
+        ]
+      },
+      {
+        "key": "coupon.conditions.title",
+        "referenceLanguage": "en",
+        "reference": [
+          "🏝"
+        ],
+        "values": {
+          "pl": [],
+          "en": [
+            "🏝"
+          ],
+          "he": [
+            "🏝"
+          ]
+        },
+        "mismatchedLanguages": [
+          "pl"
+        ]
+      },
+      {
+        "key": "coupon.nav.attractions",
+        "referenceLanguage": "en",
+        "reference": [
+          "📚"
+        ],
+        "values": {
+          "pl": [],
+          "en": [
+            "📚"
+          ],
+          "he": [
+            "📚"
+          ]
+        },
+        "mismatchedLanguages": [
+          "pl"
+        ]
+      },
+      {
+        "key": "coupon.nav.car",
+        "referenceLanguage": "en",
+        "reference": [
+          "🚗"
+        ],
+        "values": {
+          "pl": [],
+          "en": [
+            "🚗"
+          ],
+          "he": [
+            "🚗"
+          ]
+        },
+        "mismatchedLanguages": [
+          "pl"
+        ]
+      },
+      {
+        "key": "coupon.nav.home",
+        "referenceLanguage": "en",
+        "reference": [
+          "🏠"
+        ],
+        "values": {
+          "pl": [],
+          "en": [
+            "🏠"
+          ],
+          "he": [
+            "🏠"
+          ]
+        },
+        "mismatchedLanguages": [
+          "pl"
+        ]
+      },
+      {
+        "key": "coupon.nav.mediaTrips",
+        "referenceLanguage": "en",
+        "reference": [
+          "🎧"
+        ],
+        "values": {
+          "pl": [],
+          "en": [
+            "🎧"
+          ],
+          "he": []
+        },
+        "mismatchedLanguages": [
+          "pl",
+          "he"
+        ]
+      },
+      {
+        "key": "coupon.nav.services",
+        "referenceLanguage": "en",
+        "reference": [
+          "🛎"
+        ],
+        "values": {
+          "pl": [],
+          "en": [
+            "🛎"
+          ],
+          "he": []
+        },
+        "mismatchedLanguages": [
+          "pl",
+          "he"
+        ]
+      },
+      {
+        "key": "header.accountSettings",
+        "referenceLanguage": "en",
+        "reference": [
+          "⚙"
+        ],
+        "values": {
+          "pl": [],
+          "en": [
+            "⚙"
+          ],
+          "he": [
+            "⚙"
+          ]
+        },
+        "mismatchedLanguages": [
+          "pl"
+        ]
+      },
+      {
+        "key": "header.coupon",
+        "referenceLanguage": "en",
+        "reference": [
+          "🚕"
+        ],
+        "values": {
+          "pl": [
+            "🚕"
+          ],
+          "en": [
+            "🚕"
+          ],
+          "he": [
+            "🎟"
+          ]
+        },
+        "mismatchedLanguages": [
+          "he"
+        ]
+      },
+      {
+        "key": "header.explorerToggle",
+        "referenceLanguage": "en",
+        "reference": [
+          "🌍"
+        ],
+        "values": {
+          "pl": [],
+          "en": [
+            "🌍"
+          ],
+          "he": [
+            "📚"
+          ]
+        },
+        "mismatchedLanguages": [
+          "pl",
+          "he"
+        ]
+      },
+      {
+        "key": "header.login",
+        "referenceLanguage": "en",
+        "reference": [
+          "🔐"
+        ],
+        "values": {
+          "pl": [],
+          "en": [
+            "🔐"
+          ],
+          "he": [
+            "🔐"
+          ]
+        },
+        "mismatchedLanguages": [
+          "pl"
+        ]
+      },
+      {
+        "key": "header.notifications",
+        "referenceLanguage": "en",
+        "reference": [
+          "🔔"
+        ],
+        "values": {
+          "pl": [],
+          "en": [
+            "🔔"
+          ],
+          "he": [
+            "🔔"
+          ]
+        },
+        "mismatchedLanguages": [
+          "pl"
+        ]
+      },
+      {
+        "key": "nav.adventure",
+        "referenceLanguage": "en",
+        "reference": [
+          "🎯"
+        ],
+        "values": {
+          "pl": [
+            "🎯"
+          ],
+          "en": [
+            "🎯"
+          ],
+          "he": []
+        },
+        "mismatchedLanguages": [
+          "he"
+        ]
+      },
+      {
+        "key": "nav.mediaTrips",
+        "referenceLanguage": "en",
+        "reference": [
+          "✨"
+        ],
+        "values": {
+          "pl": [
+            "✨"
+          ],
+          "en": [
+            "✨"
+          ],
+          "he": []
+        },
+        "mismatchedLanguages": [
+          "he"
+        ]
+      },
+      {
+        "key": "nav.packing",
+        "referenceLanguage": "en",
+        "reference": [
+          "🎒"
+        ],
+        "values": {
+          "pl": [
+            "🎒"
+          ],
+          "en": [
+            "🎒"
+          ],
+          "he": []
+        },
+        "mismatchedLanguages": [
+          "he"
+        ]
+      },
+      {
+        "key": "nav.tasks",
+        "referenceLanguage": "en",
+        "reference": [
+          "✅"
+        ],
+        "values": {
+          "pl": [
+            "✅"
+          ],
+          "en": [
+            "✅"
+          ],
+          "he": []
+        },
+        "mismatchedLanguages": [
+          "he"
+        ]
+      },
+      {
+        "key": "notifications.close",
+        "referenceLanguage": "en",
+        "reference": [
+          "✕"
+        ],
+        "values": {
+          "pl": [],
+          "en": [
+            "✕"
+          ],
+          "he": [
+            "✕"
+          ]
+        },
+        "mismatchedLanguages": [
+          "pl"
+        ]
+      },
+      {
+        "key": "notifications.markAll",
+        "referenceLanguage": "en",
+        "reference": [],
+        "values": {
+          "pl": [
+            "✓"
+          ],
+          "en": [],
+          "he": []
+        },
+        "mismatchedLanguages": [
+          "pl"
+        ]
+      },
+      {
+        "key": "places.distance.pending",
+        "referenceLanguage": "en",
+        "reference": [
+          "📍"
+        ],
+        "values": {
+          "pl": [],
+          "en": [
+            "📍"
+          ],
+          "he": [
+            "📍"
+          ]
+        },
+        "mismatchedLanguages": [
+          "pl"
+        ]
+      },
+      {
+        "key": "places.distance.unavailable",
+        "referenceLanguage": "en",
+        "reference": [
+          "📍"
+        ],
+        "values": {
+          "pl": [],
+          "en": [
+            "📍"
+          ],
+          "he": [
+            "📍"
+          ]
+        },
+        "mismatchedLanguages": [
+          "pl"
+        ]
+      },
+      {
+        "key": "places.toast.levelUp",
+        "referenceLanguage": "en",
+        "reference": [
+          "🎉"
+        ],
+        "values": {
+          "pl": [],
+          "en": [
+            "🎉"
+          ],
+          "he": [
+            "🎉"
+          ]
+        },
+        "mismatchedLanguages": [
+          "pl"
+        ]
+      },
+      {
+        "key": "places.toast.streakStart",
+        "referenceLanguage": "en",
+        "reference": [
+          "🔥"
+        ],
+        "values": {
+          "pl": [],
+          "en": [
+            "🔥"
+          ],
+          "he": [
+            "🔥"
+          ]
+        },
+        "mismatchedLanguages": [
+          "pl"
+        ]
+      },
+      {
+        "key": "profile.avatar.remove",
+        "referenceLanguage": "en",
+        "reference": [
+          "✕"
+        ],
+        "values": {
+          "pl": [],
+          "en": [
+            "✕"
+          ],
+          "he": [
+            "✕"
+          ]
+        },
+        "mismatchedLanguages": [
+          "pl"
+        ]
+      },
+      {
+        "key": "shortcuts.car.title",
+        "referenceLanguage": "en",
+        "reference": [],
+        "values": {
+          "pl": [],
+          "en": [],
+          "he": [
+            "🚗"
+          ]
+        },
+        "mismatchedLanguages": [
+          "he"
+        ]
+      },
+      {
+        "key": "shortcuts.packing.title",
+        "referenceLanguage": "en",
+        "reference": [],
+        "values": {
+          "pl": [],
+          "en": [],
+          "he": [
+            "🎒"
+          ]
+        },
+        "mismatchedLanguages": [
+          "he"
+        ]
+      },
+      {
+        "key": "shortcuts.tasks.title",
+        "referenceLanguage": "en",
+        "reference": [],
+        "values": {
+          "pl": [],
+          "en": [],
+          "he": [
+            "✅"
+          ]
+        },
+        "mismatchedLanguages": [
+          "he"
+        ]
+      },
+      {
+        "key": "sos.close",
+        "referenceLanguage": "en",
+        "reference": [],
+        "values": {
+          "pl": [
+            "✕"
+          ],
+          "en": [],
+          "he": []
+        },
+        "mismatchedLanguages": [
+          "pl"
+        ]
+      },
+      {
+        "key": "tutorial.showAgain",
+        "referenceLanguage": "en",
+        "reference": [
+          "🧭"
+        ],
+        "values": {
+          "pl": [
+            "🧭"
+          ],
+          "en": [
+            "🧭"
+          ],
+          "he": [
+            "🔁"
+          ]
+        },
+        "mismatchedLanguages": [
+          "he"
+        ]
+      },
+      {
+        "key": "vip.contact.list.whatsapp",
+        "referenceLanguage": "en",
+        "reference": [
+          "💬"
+        ],
+        "values": {
+          "pl": [],
+          "en": [
+            "💬"
+          ],
+          "he": [
+            "💬"
+          ]
+        },
+        "mismatchedLanguages": [
+          "pl"
+        ]
+      }
+    ],
+    "rtlPunctuationWarnings": []
+  },
+  "roots": {
+    "plMissingEn": {},
+    "plMissingHe": {
+      "advertise": 160,
+      "seo": 53,
+      "shop": 3
+    },
+    "enMissingPl": {
+      "header": 37,
+      "coupon": 35,
+      "sos": 6,
+      "dashboard": 4,
+      "hero": 3,
+      "carRental": 2,
+      "community": 2,
+      "recommendations": 2,
+      "common": 1,
+      "profile": 1,
+      "shop": 1
+    },
+    "enMissingHe": {
+      "advertise": 160,
+      "seo": 53,
+      "shop": 3
+    },
+    "heMissingPl": {
+      "header": 37,
+      "coupon": 35,
+      "advertise": 7,
+      "sos": 6,
+      "dashboard": 4,
+      "hero": 3,
+      "carRental": 2,
+      "community": 2,
+      "recommendations": 2,
+      "common": 1,
+      "profile": 1,
+      "shop": 1
+    },
+    "heMissingEn": {
+      "advertise": 7
+    }
+  },
+  "flatNestedCollisions": {
+    "pl": [
+      {
+        "key": "header.notifications",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "header.login",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "header.accountSettings",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "header.logout",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "header.coupon",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "header.couponAria",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "header.quickActions.aria",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "header.tabs.aria",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "header.brand",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.bar.aria",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.subtitle",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.intro",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.confirmation.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.confirmation.userLabel",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.confirmation.info",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.confirmation.cta",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.confirmation.account",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.confirmation.dismissHint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.login.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.login.aria",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.login.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.login.username",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.login.password",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.login.submit",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.login.button",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.guest.aria",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.guest.button",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.guest.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.guest.status",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.guest.switch",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.logout.aria",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.close",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.tab.login",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.tab.register",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.tab.guest",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.firstName",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.email",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.password",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.confirmPassword",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.divider",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.register.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.register.username",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.register.password",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.register.confirm",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.register.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.register.submit",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.register.button",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.reset.button",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.reset.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.reset.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.reset.emailLabel",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.reset.close",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.reset.emailSent",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.status.anon",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.status.guestBadge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.status.userBadge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.status.spinner",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.status.welcomeBack",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.status.welcome",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.status.loggedInAs",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.status.playerFallback",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.status.loggingIn",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.status.resetting",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.status.badge.loading",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.status.badge.guest",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.status.badge.authenticated",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.error.resetMissingEmail",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.error.resetFailed",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.error.missingCredentials",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.error.accountNotFound",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.error.invalidPassword",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.error.registration.missingCredentials",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.error.registration.missingFirstName",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.error.registration.missingUsername",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.error.password.tooShort",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.error.password.mismatch",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.error.accountExists",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.error.username.invalidLength",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.error.username.invalidFormat",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.error.usernameTaken",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "auth.error.checkFailed",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "nav.adventure",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "nav.community",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "nav.recommendations",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "nav.tasks",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "nav.packing",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "nav.trips",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "nav.hotels",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "nav.toggle",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "shortcuts.packing.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "shortcuts.packing.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "shortcuts.packing.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "shortcuts.packing.action",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "shortcuts.tasks.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "shortcuts.tasks.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "shortcuts.tasks.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "shortcuts.tasks.action",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "shortcuts.car.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "shortcuts.car.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "shortcuts.car.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "shortcuts.car.action",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "shortcuts.transport.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "shortcuts.transport.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "shortcuts.transport.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "shortcuts.transport.action",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "shortcuts.trips.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "shortcuts.trips.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "shortcuts.trips.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "shortcuts.trips.action",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "shortcuts.plan.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "shortcuts.plan.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "shortcuts.plan.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "shortcuts.plan.action",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.header.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.header.subtitle",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.header.back",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.panel.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.panel.subtitle",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.note",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.season.toggleLabel",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.season.spring.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.season.spring.summary",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.season.summer.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.season.summer.summary",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.season.autumn.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.season.autumn.summary",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.season.winter.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.season.winter.summary",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.universal.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.universal.documents.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.universal.documents.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.universal.bookings.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.universal.bookings.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.universal.insurance.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.universal.insurance.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.universal.money.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.universal.money.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.universal.driving.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.universal.driving.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.universal.electronics.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.universal.electronics.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.universal.adapter.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.universal.adapter.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.universal.firstAid.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.universal.firstAid.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.universal.sunProtection.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.universal.sunProtection.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.universal.daypack.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.universal.daypack.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.universal.comfort.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.universal.comfort.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasonal.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.optional",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.spring.layers.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.spring.layers.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.spring.longSleeves.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.spring.longSleeves.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.spring.shoes.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.spring.shoes.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.spring.sunAccessories.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.spring.sunAccessories.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.spring.sunscreen.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.spring.sunscreen.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.spring.scarf.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.spring.scarf.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.spring.swimwear.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.spring.swimwear.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.spring.rainProtection.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.spring.rainProtection.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.spring.camera.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.spring.camera.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.summer.swimwear.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.summer.swimwear.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.summer.towel.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.summer.towel.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.summer.clothing.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.summer.clothing.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.summer.footwear.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.summer.footwear.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.summer.sunscreen.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.summer.sunscreen.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.summer.hat.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.summer.hat.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.summer.afterSun.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.summer.afterSun.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.summer.bottle.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.summer.bottle.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.summer.waterproofCase.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.summer.waterproofCase.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.summer.coverUp.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.summer.coverUp.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.autumn.summerClothes.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.autumn.summerClothes.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.autumn.eveningLayer.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.autumn.eveningLayer.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.autumn.trekkingShoes.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.autumn.trekkingShoes.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.autumn.sandals.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.autumn.sandals.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.autumn.sunAccessories.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.autumn.sunAccessories.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.autumn.sunscreen.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.autumn.sunscreen.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.autumn.swimwear.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.autumn.swimwear.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.autumn.camera.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.autumn.camera.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.autumn.rainProtection.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.autumn.rainProtection.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.winter.coat.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.winter.coat.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.winter.layers.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.winter.layers.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.winter.boots.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.winter.boots.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.winter.rainProtection.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.winter.rainProtection.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.winter.accessories.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.winter.accessories.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.winter.sunglasses.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.winter.sunglasses.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.winter.thermal.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.winter.thermal.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.winter.thermos.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.winter.thermos.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.winter.equipmentPlan.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "packing.guide.seasons.winter.equipmentPlan.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "sos.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "sos.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "sos.close",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "sos.emergency.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "sos.emergency.eu",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "sos.emergency.cyprus",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "sos.emergency.police",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "sos.embassy.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "sos.embassy.hotline",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "sos.embassy.reception",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "sos.embassy.address",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "sos.embassy.email",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "sos.healthcare.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "sos.healthcare.hospital",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "sos.healthcare.search",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "sos.healthcare.pharmacy",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "sos.healthcare.note",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.subtitle",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.tabs.stats",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.tabs.security",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.username.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.username.label",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.username.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.username.submit",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.password.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.password.current",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.password.new",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.password.confirm",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.password.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.password.submit",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.password.guestNote",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.reset.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.reset.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.reset.action",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.error.loginRequired",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.error.username.loginRequired",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.error.username.missing",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.error.username.taken",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.error.currentMissing",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.error.password.loginRequired",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.error.password.missingFields",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.error.password.tooShort",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.error.password.mismatch",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.error.password.invalidCurrent",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.error.reset.loginRequired",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.success.usernameUpdated",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.success.passwordUpdated",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.success.progressReset",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.status.progressRestart",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.status.resetNotAvailable",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.status.guestProgressReset",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.confirm.reset",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.confirm.guestReset",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.stats.level.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.stats.level.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.stats.xp.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.stats.xp.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.stats.badges.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.stats.badges.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.stats.visited.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.stats.visited.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.stats.tasks.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.stats.tasks.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.stats.streak.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "account.stats.streak.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "notifications.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "notifications.markAll",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "notifications.close",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "notifications.empty",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "notifications.task.completed",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "notifications.level.up",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "explorer.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "explorer.subtitle",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "explorer.filterLabel",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "explorer.filter.all",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "explorer.filter.available",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "explorer.filter.visited",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "explorer.close",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "explorer.empty",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "explorer.status.visited",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "explorer.status.available",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "explorer.status.active",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "services.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "services.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "services.itemOne",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "services.itemTwo",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "services.itemThree",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "services.cta",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "mobile.nav.aria",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "mobile.nav.adventure",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "mobile.nav.community",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "mobile.nav.packing",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "mobile.nav.tasks",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "mobile.nav.mediaTrips",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "mobile.nav.carRental",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "mobile.nav.coupons",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "mobile.nav.language",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "map.playerLocation",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.viewOnMap",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.googleMaps",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.search.results",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.search.total",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.distance.unavailable",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.distance.pending",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.objective.completed",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.objective.checkIn",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.objective.previousTitle",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.objective.previousNone",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.objective.previousAria",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.objective.nextTitle",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.objective.nextNone",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.objective.nextAria",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.objective.visited",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.objective.hint",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.badge.manual",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.badge.geo",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.toast.dailyChallenge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.toast.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.toast.dailyBonus",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.toast.streakContinue",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.toast.streakStart",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.toast.streakReset",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.toast.levelUp",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.kato-pafos-archaeological-park.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.kato-pafos-archaeological-park.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.kato-pafos-archaeological-park.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.tombs-of-the-kings.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.tombs-of-the-kings.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.tombs-of-the-kings.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.coral-bay.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.coral-bay.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.coral-bay.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.aphrodite-rock.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.aphrodite-rock.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.aphrodite-rock.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.blue-lagoon-akamas.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.blue-lagoon-akamas.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.blue-lagoon-akamas.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.avakas-gorge.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.avakas-gorge.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.avakas-gorge.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.aphrodites-baths.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.aphrodites-baths.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.aphrodites-baths.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.polis-latchi-marina.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.polis-latchi-marina.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.polis-latchi-marina.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.yeroskipou-town.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.yeroskipou-town.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.yeroskipou-town.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.agios-neophytos-monastery.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.agios-neophytos-monastery.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.agios-neophytos-monastery.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.saint-lazarus-church.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.saint-lazarus-church.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.saint-lazarus-church.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.larnaca-salt-lake-hala-sultan.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.larnaca-salt-lake-hala-sultan.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.larnaca-salt-lake-hala-sultan.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.finikoudes-beach.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.finikoudes-beach.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.finikoudes-beach.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.nissi-beach.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.nissi-beach.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.nissi-beach.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.cape-greco.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.cape-greco.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.cape-greco.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.cape-greco-sea-caves.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.cape-greco-sea-caves.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.cape-greco-sea-caves.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.fig-tree-bay.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.fig-tree-bay.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.fig-tree-bay.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.ayia-napa-monastery.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.ayia-napa-monastery.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.ayia-napa-monastery.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.ayia-napa-sculpture-park.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.ayia-napa-sculpture-park.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.ayia-napa-sculpture-park.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.macronissos-beach.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.macronissos-beach.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.macronissos-beach.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.zenobia-wreck.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.zenobia-wreck.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.zenobia-wreck.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.kourion-archaeological-site.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.kourion-archaeological-site.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.kourion-archaeological-site.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.kolossi-castle.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.kolossi-castle.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.kolossi-castle.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.molos-promenade.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.molos-promenade.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.molos-promenade.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.amathus-ruins.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.amathus-ruins.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.amathus-ruins.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.limassol-castle.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.limassol-castle.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.limassol-castle.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.limassol-municipal-aquarium.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.limassol-municipal-aquarium.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.limassol-municipal-aquarium.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.dasoudi-beach.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.dasoudi-beach.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.dasoudi-beach.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.governors-beach.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.governors-beach.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.governors-beach.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.troodos-olympos.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.troodos-olympos.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.troodos-olympos.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.kykkos-monastery.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.kykkos-monastery.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.kykkos-monastery.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.omodos-village.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.omodos-village.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.omodos-village.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.kakopetria-village.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.kakopetria-village.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.kakopetria-village.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.caledonia-waterfall.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.caledonia-waterfall.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.caledonia-waterfall.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.panagia-kykkos-viewpoint.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.panagia-kykkos-viewpoint.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.panagia-kykkos-viewpoint.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.troodos-square.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.troodos-square.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.troodos-square.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.trooditissa-monastery.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.trooditissa-monastery.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.trooditissa-monastery.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.lania-village.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.lania-village.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.lania-village.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.nicosia-archaeological-museum.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.nicosia-archaeological-museum.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.nicosia-archaeological-museum.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.buyuk-han.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.buyuk-han.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.buyuk-han.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.ledra-street.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.ledra-street.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.ledra-street.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.eleftheria-square.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.eleftheria-square.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.eleftheria-square.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.cyprus-museum.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.cyprus-museum.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.cyprus-museum.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.kyrenia-old-harbour.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.kyrenia-old-harbour.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.kyrenia-old-harbour.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.kyrenia-castle.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.kyrenia-castle.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.kyrenia-castle.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.st-hilarion-castle.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.st-hilarion-castle.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.st-hilarion-castle.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.st-hilarion-vantage-point.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.st-hilarion-vantage-point.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.st-hilarion-vantage-point.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.buffavento-castle.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.buffavento-castle.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.buffavento-castle.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.soli-ancient-site.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.soli-ancient-site.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.soli-ancient-site.badge",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "places.vouni-ancient-house.name",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      }
+    ],
+    "en": [
+      {
+        "key": "seo.community.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "nav.shop",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "dashboard.nav.overview",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "dashboard.nav.reservations",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "dashboard.nav.content",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "dashboard.nav.achievements",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "dashboard.nav.settings",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "dashboard.overview.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "dashboard.overview.subtitle",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "dashboard.activity.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "dashboard.activity.empty",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "dashboard.reservations.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "dashboard.reservations.subtitle",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "dashboard.reservations.all",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "dashboard.reservations.pending",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "dashboard.reservations.confirmed",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "dashboard.reservations.completed",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "dashboard.content.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "dashboard.content.subtitle",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "dashboard.content.photos",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "dashboard.content.comments",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "dashboard.achievements.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "dashboard.settings.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "metrics.activeBookings",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "metrics.visited",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.step1.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.step1.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.step2.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.step2.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.step3.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.step3.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.step4.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.step4.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.step5.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.step5.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.step6.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.step6.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.step7.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.step7.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.step8.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.step8.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.step9.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.step9.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.step10.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.step10.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.step11.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.step11.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.step12.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.step12.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.step13.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.step13.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.step14.title",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.step14.description",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.next",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.prev",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.skip",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      },
+      {
+        "key": "tutorial.showAgain",
+        "keptSource": "direct",
+        "ignoredSource": "nested"
+      }
+    ],
+    "he": []
+  },
+  "notes": [
+    "This report is structural and does not activate public HE, SEO HE, sitemap HE, hreflang HE, canonical HE, indexing HE, Shop HE, Blog HE, or /he/ routes.",
+    "Long blog content, long marketing copy, legal/payment copy, SEO meta, and email templates still require human review before public_ready.",
+    "Flattening supports both flat keys and nested translation objects so PL, EN, and HE can be compared consistently."
+  ]
+}

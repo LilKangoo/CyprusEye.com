@@ -473,3 +473,59 @@ Dynamic readiness after a clean manual apply:
 - Blog detail can become **per-record candidate** for public-ready HE slugs.
 - Posts without `public_ready` remain hidden from HE list/detail and must
   normalize to EN/LTR.
+
+## Stage 43 Manual Dynamic Translation Workflow
+
+Status: **manual workflow documented; no dynamic content auto-publication**.
+
+Dynamic content policy:
+
+- Blog posts and long body content must be translated manually.
+- Codex may prepare verify/apply workflow, but must not mark records
+  `public_ready` without explicit human review confirmation.
+- Admin UI should be preferred for long content so editor HTML and JSON remain
+  consistent.
+- SQL is acceptable for narrow reviewed fields and status gates only.
+
+Manual guide:
+
+- `docs/he-manual-translation-admin-guide.md`
+
+Module backlog summary:
+
+| Module | Current public HE posture | Manual action |
+| --- | --- | --- |
+| Blog | BLOCKED | Manually translate/review posts, then use Stage41/42 SQL gates. |
+| Trips | Record-gated | Translate remaining 9 trips before global trip archive HE. |
+| Hotels | READY | Review quality and amenity labels before SEO stage. |
+| Cars | Record-gated | Translate/review remaining fleet labels/descriptions. |
+| POI | Record-gated top 10 | Translate more POI before full map HE. |
+| Recommendations | READY / scoped | Review remaining partial offer/CTA text. |
+| Shop | EXCLUDED | Separate Shop HE stage required before checkout/payment can enter HE. |
+| Email templates | Internal/manual | Preserve variables and test delivery before any HE email rollout. |
+
+## Stage 44 Dynamic Content Impact
+
+Status: **no dynamic records were published or marked public-ready**.
+
+Stage44 completed static UI structure only. Dynamic content remains governed by
+the existing record gates:
+
+- Blog: `BLOCKED`; no automatic public-ready marking.
+- Trips: record-gated; remaining trips require manual translation/review.
+- Cars: record-gated; remaining fleet/content labels require review before full
+  archive HE.
+- POI/map: top-record gated; broader POI catalog requires manual translation.
+- Recommendations/hotels/transport: current public HE posture unchanged.
+- Shop: `EXCLUDED`; Shop HE and checkout/payment remain a separate stage.
+- Email templates: manual review only.
+
+Static audit now supports dynamic workflow:
+
+- `translations/audit-pl-en-he.json` confirms EN fallback structure is complete
+  for PL UI keys.
+- Remaining HE gaps are parked in manual review groups (`advertise`, `seo`,
+  long Shop copy), not dynamic publication readiness.
+
+Do not use Stage44 to justify publishing unreviewed Blog, Shop, email, legal or
+payment copy.

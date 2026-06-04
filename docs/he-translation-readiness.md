@@ -1,18 +1,39 @@
 # HE Translation Readiness
 
-Generated: 2026-06-04T13:04:40.288Z
+Generated: 2026-06-04T14:09:25.510Z
 Source audit: `translations/audit-he-vs-en.json`
 
 Hebrew is still internal/hidden. This report does not activate HE in the public language switcher, selectors, sitemap, hreflang, canonical metadata, public SEO, indexing, or `/he/` routes.
 
 ## Summary
 
-- EN keys: 2815
-- HE keys: 2739
-- Missing HE keys: 317
-- Extra HE keys: 241
-- HE keys identical to EN: 553
+- EN keys: 3116
+- HE keys: 2907
+- Missing HE keys: 216
+- Extra HE keys: 7
+- HE keys identical to EN: 690
 - HE keys added in Stage 8: 0
+
+## PL/EN/HE Structure Completeness
+
+| Check | Count |
+| --- | ---: |
+| PL keys missing EN | 0 |
+| PL keys missing HE | 216 |
+| EN keys missing PL | 94 |
+| EN keys missing HE | 216 |
+| HE keys missing PL | 101 |
+| HE keys missing EN | 7 |
+| Placeholder mismatches | 0 |
+| HTML tag mismatches | 0 |
+
+Rules:
+
+- If a key exists in PL and is used in UI, EN must exist because EN is the primary fallback for HE.
+- If a key exists in EN and is used in UI, HE must exist unless the key is explicitly parked for human review.
+- If a key exists only in HE, treat it as legacy/extra until PL/EN ownership is confirmed.
+- Preserve placeholders, HTML tags, and runtime tokens across PL/EN/HE.
+- Long blog content, SEO meta, email templates, legal/payment copy, and dynamic marketing content require manual review before public use.
 
 ## Missing Keys By Rollout Group
 
@@ -22,9 +43,9 @@ Hebrew is still internal/hidden. This report does not activate HE in the public 
 | Errors / validation | P0 | 0 | - |
 | Booking flows | P0 | 0 | - |
 | Auth | P0 | 0 | - |
-| Checkout / shop | P0 | 23 | `shop.footer.about`, `shop.footer.about_text`, `shop.footer.contact`, `shop.footer.privacy`, `shop.footer.returns`, `shop.footer.rights`, ... +6 |
-| Partner panel | P1 | 214 | `advertise.affiliate.badge`, `advertise.affiliate.cardBadge`, `advertise.affiliate.cardDescription`, `advertise.affiliate.cardTitle`, `advertise.affiliate.cta`, `advertise.affiliate.description`, ... +6 |
-| Admin | P2 | 27 | `dashboard.achievements.tab.badges`, `dashboard.achievements.tab.quests`, `dashboard.achievements.title`, `dashboard.activity.title`, `dashboard.content.comments`, `dashboard.content.photos`, ... +6 |
+| Checkout / shop | P0 | 3 | `shop.footer.about_text`, `shop.hero.subtitle`, `shop.pageTitle` |
+| Partner panel | P1 | 160 | `advertise.affiliate.badge`, `advertise.affiliate.cardBadge`, `advertise.affiliate.cardDescription`, `advertise.affiliate.cardTitle`, `advertise.affiliate.cta`, `advertise.affiliate.description`, ... +6 |
+| Admin | P2 | 0 | - |
 | Blog / public content | P1 | 0 | - |
 | SEO / static meta | P1 before public launch | 53 | `seo.account.description`, `seo.account.ogDescription`, `seo.account.ogTitle`, `seo.account.title`, `seo.auth.description`, `seo.auth.ogDescription`, ... +6 |
 | Low priority / internal | P3 | 0 | - |
@@ -33,8 +54,8 @@ Hebrew is still internal/hidden. This report does not activate HE in the public 
 
 | Status | Znaczenie | Aktualna liczba |
 | --- | --- | ---: |
-| missing | Klucza nie ma w `translations/he.json`. | 317 |
-| needs_human_review | Klucz istnieje, ale jest taki sam jak EN albo wymaga potwierdzenia native/review. | 553 |
+| missing | Klucza nie ma w `translations/he.json`. | 216 |
+| needs_human_review | Klucz istnieje, ale jest taki sam jak EN albo wymaga potwierdzenia native/review. | 690 |
 | machine_translated | Tlumaczenie maszynowe oczekujace na review. Ten status nie jest jeszcze automatycznie sledzony. | 0 |
 | reviewed | Tlumaczenie zaakceptowane przez czlowieka/native speaker. Ten status nie jest jeszcze automatycznie sledzony. | 0 |
 
@@ -51,25 +72,24 @@ For now, `needs_human_review` is derived from keys where HE is exactly the same 
 
 | Grupa | Klucze takie same jak EN | Przyklady |
 | --- | ---: | --- |
-| Critical UI / navigation | 5 | `footer.referral.facebook`, `header.brand`, `header.profile.footer.referral.facebook`, `header.sosToggle`, `mobile.nav.mediaTrips` |
+| Critical UI / navigation | 6 | `footer.referral.facebook`, `header.brand`, `header.profile.footer.referral.facebook`, `header.sosToggle`, `metrics.xp.progressTemplate`, `mobile.nav.mediaTrips` |
 | Errors / validation | 26 | `packing.guide.seasons.autumn.eveningLayer.hint`, `packing.guide.seasons.autumn.summerClothes.hint`, `packing.guide.seasons.autumn.sunscreen.hint`, `packing.guide.seasons.autumn.swimwear.hint`, `packing.guide.seasons.spring.layers.hint`, `packing.guide.seasons.spring.rainProtection.hint`, ... +6 |
-| Booking flows | 27 | `carRental.calculator.breakdown.tiered`, `carRental.page.reservation.fields.email.placeholder`, `carRental.page.reservation.fields.flight.placeholder`, `carRental.page.reservation.fields.fullName.placeholder`, `carRental.page.reservation.fields.phone.placeholder`, `carRentalPfo.fleet.honda-fit-paphos.feature2`, ... +6 |
+| Booking flows | 188 | `carRental.calculator.breakdown.tiered`, `carRental.categories.comfort.badge`, `carRental.categories.comfort.description`, `carRental.categories.comfort.label`, `carRental.categories.economy.badge`, `carRental.categories.economy.description`, ... +6 |
 | Auth | 4 | `account.close.text`, `account.profile.labels.xp`, `profile.avatar.remove`, `profile.settings.email.placeholder` |
 | Checkout / shop | 0 | - |
-| Partner panel | 4 | `advertise.back`, `advertise.form.submit`, `advertise.hero.badge`, `advertise.overline` |
+| Partner panel | 4 | `advertise.form.placeholders.email`, `advertise.form.placeholders.phone`, `advertise.form.placeholders.website`, `advertise.overline` |
 | Admin | 0 | - |
 | Blog / public content | 5 | `community.gallery.panoramaBadge`, `plan.ui.itemType.poiShort`, `sos.embassy.email`, `sos.quick.whatsapp`, `sos.title` |
 | SEO / static meta | 20 | `seo.carRental.ogDescription`, `seo.carRentalLanding.ogDescription`, `seo.carRentalPfo.description`, `seo.carRentalPfo.ogDescription`, `seo.coupon.locale`, `seo.coupon.localeAlternate`, ... +6 |
-| Low priority / internal | 462 | `attractions.back`, `attractions.brand.overline`, `attractions.catalog.subtitle`, `attractions.catalog.title`, `attractions.link.achievements`, `attractions.nav.aria`, ... +6 |
+| Low priority / internal | 437 | `attractions.brand.overline`, `attractions.catalog.subtitle`, `attractions.nav.catalog`, `attractions.nav.current`, `attractions.subtitle`, `cruise.back`, ... +6 |
 
 ## Largest Missing Roots
 
 | Root | Braki |
 | --- | ---: |
-| `advertise` | 214 |
+| `advertise` | 160 |
 | `seo` | 53 |
-| `dashboard` | 27 |
-| `shop` | 23 |
+| `shop` | 3 |
 
 ## Recommended Fill Order
 

@@ -827,3 +827,65 @@ Rollback if Stage42 creates issues:
   `needs_review`.
 - Keep `blog` and `blogPost` as `blocked` in the page readiness registry.
 - Leave Home/READY/record-gated non-Blog pages unchanged.
+
+## Stage 43 HE Completion System
+
+Decision: **finish system/workflow first; do not publish unreviewed long
+content**.
+
+Static translation state after Stage43:
+
+- Missing HE keys: 216.
+- Same-as-EN keys: 547.
+- Completed short UI labels for Shop basics, Dashboard and partner form fields.
+- Remaining missing groups:
+  - `advertise`: 160 long/public partner copy keys.
+  - `seo`: 53 hidden meta keys; keep for SEO stage.
+  - `shop`: 3 long/page-title keys; Shop remains excluded.
+
+Manual content workflow:
+
+- New guide: `docs/he-manual-translation-admin-guide.md`.
+- Blog HE content must be entered and reviewed manually.
+- Codex must not mark Blog translations `public_ready` without explicit human
+  review confirmation.
+- Dynamic content modules should use admin UI where available; SQL imports are
+  reserved for narrow reviewed fields and verify scripts.
+
+Recommended next public-HE path:
+
+1. Keep existing Home/READY/record-gated pages live.
+2. Manually translate/review selected Blog posts.
+3. Apply Stage41/Stage42 SQL only after review.
+4. Run record-gated Blog smoke.
+5. Defer Shop and HE SEO to separate stages.
+
+## Stage 44 Static Translation Gate
+
+Decision: **GO for tri-lingual static UI structure; NO-GO for global HE, Blog,
+Shop or SEO activation**.
+
+Stage44 adds a required launch gate:
+
+1. Run `npm run i18n:tri-audit`.
+2. Confirm `PL keys missing EN = 0`.
+3. Confirm placeholder and HTML tag mismatches are `0`.
+4. Confirm remaining HE gaps are documented review groups, not accidental UI
+   omissions.
+5. Keep Blog `BLOCKED`, Shop `EXCLUDED` and SEO HE `OFF` until their dedicated
+   stages pass.
+
+Current Stage44 results:
+
+- PL keys missing EN: `0`.
+- PL/EN keys missing HE: `216`.
+- Placeholder mismatches: `0`.
+- HTML tag mismatches: `0`.
+- Remaining HE groups: `advertise.*`, `seo.*`, long Shop copy.
+
+Public launch implication:
+
+- Page-gated HE can continue on already approved pages.
+- Static UI no longer blocks EN fallback integrity.
+- Full public HE still requires manual Blog/dynamic content review, Shop
+  decision and SEO HE planning.

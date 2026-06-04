@@ -15,6 +15,7 @@
     "seo:audit": "node scripts/seo-audit.js",
     "seo:production": "node scripts/seo-production-check.js",
     "i18n:audit": "node scripts/audit-translations.js",
+    "i18n:tri-audit": "node scripts/audit-pl-en-he.js",
     "i18n:he-readiness": "node scripts/report-he-readiness.js",
     "i18n:test": "node scripts/test-language-fallback.js && node scripts/test-admin-he-internal.js && node scripts/test-he-rollout-guard.js",
     "build": "node scripts/build.js",

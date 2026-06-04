@@ -427,3 +427,61 @@ Rollback:
   `needs_review`.
 - Keep Blog/BlogPost as `blocked`.
 - Existing Home, READY and record-gated non-Blog HE pages remain unchanged.
+
+## Stage 43 Manual Translation Gate
+
+Decision: **GO for system/workflow completion; NO-GO for automatic Blog
+publication**.
+
+Rules:
+
+- Codex must not auto-translate full Blog posts.
+- Codex must not mark Blog rows `public_ready` without explicit human review
+  confirmation.
+- Blog list/detail stay blocked until reviewed rows are manually marked and
+  verified.
+- Shop remains excluded.
+- SEO HE remains off.
+
+GO conditions for a future Blog rollout:
+
+1. Human/native review completed for specific Blog posts.
+2. Stage41 public-read gate applied.
+3. Stage42 public-ready marking applied only for reviewed posts.
+4. Stage42 verify shows the expected public-ready count and zero safety issues.
+5. Blog smoke tests pass for list/detail/not-ready fallbacks.
+
+NO-GO conditions:
+
+- A post is machine-translated but not reviewed.
+- A long text is incomplete, fallback-heavy or mixed EN/HE.
+- CTA links carry HE to Shop or blocked pages.
+- Any SEO HE surface is generated before the SEO stage.
+
+## Stage 44 Tri-Lingual Static UI Gate
+
+Decision: **GO for static UI structure; NO-GO for unreviewed content
+publication**.
+
+Stage44 GO checks:
+
+- `PL keys missing EN = 0`.
+- `placeholderMismatches = 0`.
+- `htmlTagMismatches = 0`.
+- No empty or null translation values.
+- Existing page-gated HE pages remain unchanged.
+
+Stage44 NO-GO checks for broader launch:
+
+- Remaining HE missing keys are still `216`.
+- Same-as-EN HE keys are `690`; many are legacy/static fleet labels now visible
+  after EN fallback completion and require human review.
+- Blog remains blocked until `public_ready` is manually applied and verified.
+- Shop remains excluded.
+- SEO HE remains off.
+
+Next gate before broader public HE:
+
+1. Manual review and content completion for Blog/dynamic content.
+2. Dedicated Shop decision.
+3. SEO HE sitemap/hreflang/canonical stage only after real HE content is ready.

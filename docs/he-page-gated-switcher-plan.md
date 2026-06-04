@@ -787,3 +787,67 @@ Manual sequence:
 Current registry decision: keep `blog` and `blogPost` as `blocked`. Do not show
 HE in the Blog switcher and do not allow `blog.html?lang=he` until a later
 rollout stage changes the registry after clean verify and smoke tests.
+
+## Stage 43 Manual Content Workflow
+
+Status: **system workflow prepared; Blog remains BLOCKED**.
+
+Stage43 changes the content policy: Codex must not auto-translate long Blog
+posts or mark them `public_ready`. Blog HE becomes public only through manual
+editorial review and manual SQL gating.
+
+Static UI cleanup:
+
+- Missing HE keys reduced from 317 to 216.
+- Same-as-EN keys reduced from 553 to 547.
+- Completed short UI labels for Shop basics, Dashboard and partner form fields.
+- Deferred long partner marketing copy, SEO meta, email templates, Blog content
+  and long Shop copy to human review.
+
+Manual workflow doc:
+
+- `docs/he-manual-translation-admin-guide.md`
+
+Page registry decision:
+
+- `home`, READY pages and current record-gated pages remain unchanged.
+- `blog` and `blogPost` remain `blocked`.
+- `shop` remains `excluded`.
+- HE SEO remains off.
+
+Future Blog registry change is allowed only after:
+
+1. Human/native review accepts specific posts.
+2. Stage41/Stage42 manual SQL is applied.
+3. Stage42 verify reports public-ready rows only for reviewed posts.
+4. Blog list/detail smoke confirms not-ready posts normalize to EN/LTR.
+
+## Stage 44 Switcher Impact
+
+Status: **no readiness registry change**.
+
+Stage44 only completes static translation structure and audit tooling. It does
+not change:
+
+- `home` readiness,
+- READY pages,
+- record-gated pages,
+- Blog/BlogPost blocked state,
+- Shop exclusion,
+- SEO/sitemap/hreflang/canonical/indexing state.
+
+Switcher rules remain:
+
+- HE can appear only on currently allowed page-gated surfaces.
+- Blog must not show HE until reviewed posts are marked `public_ready` and a
+  dedicated rollout stage changes the registry.
+- Shop/cart/checkout/payment remain excluded.
+- Blocked/excluded destinations must normalize to EN/LTR through
+  `buildLocalizedUrl(...)`.
+
+Stage44 audit requirement before future switcher expansion:
+
+- `npm run i18n:tri-audit`
+- `PL keys missing EN = 0`
+- `placeholderMismatches = 0`
+- `htmlTagMismatches = 0`

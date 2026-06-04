@@ -15,16 +15,39 @@ Current source: `docs/he-translation-readiness.md`.
 | Errors / validation | P0 | 0 | 26 | Review validation/status copy for forms and booking flows. |
 | Booking flows | P0 | 0 | 27 | Review placeholders and labels. |
 | Auth/account | P0 | 0 | 4 | Review account/profile placeholders. |
-| Checkout / Shop | P0 | 23 | 0 | Required if Shop is in launch; otherwise keep Shop hidden from HE. |
-| Partner / advertise | P1 | 214 | 4 | Needed before partner-facing public HE. |
+| Checkout / Shop | P0 | 3 | 0 | Remaining long Shop copy/page title needs human review; keep Shop hidden from HE. |
+| Partner / advertise | P1 | 160 | 4 | Short form labels completed; long partner marketing copy still requires manual review. |
 | Blog / public content shell | P1 | 0 | 5 | Stage 24 completed missing public static keys; remaining same-as-EN values are mostly abbreviations/brands and need review. |
 | SEO/static meta | P1 | 53 | 20 | Required before HE indexing. |
-| Admin/dashboard | P2 | 27 | 0 | Internal, not a public launch blocker. |
+| Admin/dashboard | P2 | 0 | 0 | Short dashboard labels completed in Stage43. |
 | Low priority/internal | P3 | 0 | 462 | Triage after public scope is stable. |
 
 Stage 24 static UI completion reduced missing HE keys from 645 to 317 and
-same-as-EN keys from 682 to 553. Remaining missing roots are intentionally
-deferred: `advertise`, `seo`, `dashboard` and `shop`.
+same-as-EN keys from 682 to 553. Stage43 reduced missing HE keys from 317 to
+216 and same-as-EN keys from 553 to 547 by filling short, public-safe UI labels
+for Shop basics, Dashboard and partner form fields. Remaining missing roots are
+intentionally deferred: long `advertise` copy, hidden `seo` keys and long Shop
+copy.
+
+### Stage 43 Static Cleanup
+
+Completed:
+
+- Short Shop labels: footer links, shipping ETA labels, hero badges/cards and
+  basic shop title/subtitle.
+- Dashboard/user labels: navigation, reservations, content, referral and
+  settings text.
+- Partner/advertise form labels: fields, placeholders, partner types, package
+  labels, submit/sending text and short package CTA labels.
+- Small same-as-EN cleanup for short `advertise` and `attractions` labels.
+
+Deferred for human review:
+
+- Long partner marketing/advertise sections.
+- SEO/static meta.
+- Long Shop about/hero copy and page title.
+- Blog content and post bodies.
+- Email templates.
 
 ## Dynamic Content Backlog
 
@@ -310,3 +333,70 @@ Required work:
 - Shop is either fully translated or explicitly excluded from HE.
 - Switcher only shows HE on ready pages.
 - SEO indexes only real HE content, not EN fallback pages.
+
+## Stage 44 PL/EN/HE Static UI Backlog
+
+Status: **EN fallback complete for PL UI keys; HE remaining backlog is review-gated**.
+
+Tri-lingual report:
+
+- `translations/audit-pl-en-he.json`
+
+Current structural state after Stage44:
+
+| Check | Count |
+| --- | ---: |
+| PL keys missing EN | 0 |
+| PL/EN keys missing HE | 216 |
+| Placeholder mismatches | 0 |
+| HTML tag mismatches | 0 |
+| Empty strings / null values | 0 |
+
+Completed in Stage44:
+
+- Added missing EN fallback keys for PL-only short UI.
+- Added HE for short profile, plan, community comment, nav/auth and status UI.
+- Fixed runtime placeholder mismatches in auth, challenge/streak, places,
+  notifications, sync, VIP and XP labels.
+- Preserved variables such as `{{username}}`, `{{xp}}`, `{{amount}}`,
+  `{{found}}`, `{{total}}`, `{{title}}` and `{{name}}`.
+
+Remaining HE backlog:
+
+| Group | Missing HE | Handling |
+| --- | ---: | --- |
+| `advertise.*` | 160 | Long public partner/advertising copy. Manual human review before any public HE exposure. |
+| `seo.*` | 53 | Keep off until the dedicated SEO HE stage. Do not auto-publish. |
+| `shop.*` | 3 | Long Shop page copy/title. Shop remains excluded; review in a Shop-specific stage. |
+
+Same-as-EN note:
+
+- Same-as-EN count is now higher because Stage44 filled missing EN fallback for
+  legacy/static car-rental fleet keys that were already stored in HE as English.
+- Treat those values as review debt, not as public-ready Hebrew copy.
+- Do not activate Shop/Blog/SEO because of static UI completion alone.
+
+### Email and Notification Translation Backlog
+
+Stage44 did not bulk-translate email templates.
+
+Payment/booking-critical templates that require manual review before HE email
+rollout:
+
+- deposit/payment requested,
+- payment pending,
+- payment/deposit paid,
+- booking confirmed,
+- partner accepted,
+- contact locked/unlocked,
+- partner/admin paid notifications,
+- customer confirmation after payment,
+- shop order and shipping emails.
+
+Rules:
+
+- Preserve every placeholder exactly.
+- Test delivery before public use.
+- Fallback must be HE -> EN -> PL and never blank.
+- Do not change transport deposit/payment, partner fulfillment or Stripe webhook
+  logic while translating email copy.

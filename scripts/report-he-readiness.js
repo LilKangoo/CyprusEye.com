@@ -9,6 +9,7 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
 const auditPath = path.join(rootDir, 'translations', 'audit-he-vs-en.json');
+const triAuditPath = path.join(rootDir, 'translations', 'audit-pl-en-he.json');
 const jsonReportPath = path.join(rootDir, 'translations', 'he-readiness-report.json');
 const markdownReportPath = path.join(rootDir, 'docs', 'he-translation-readiness.md');
 
@@ -234,6 +235,20 @@ function buildMarkdown(report) {
       String(count),
     ]),
   ];
+  const triAuditRows = report.triLingualAudit
+    ? [
+      ['Check', 'Count'],
+      ['---', '---:'],
+      ['PL keys missing EN', String(report.triLingualAudit.counts.missing.plMissingEn)],
+      ['PL keys missing HE', String(report.triLingualAudit.counts.missing.plMissingHe)],
+      ['EN keys missing PL', String(report.triLingualAudit.counts.missing.enMissingPl)],
+      ['EN keys missing HE', String(report.triLingualAudit.counts.missing.enMissingHe)],
+      ['HE keys missing PL', String(report.triLingualAudit.counts.missing.heMissingPl)],
+      ['HE keys missing EN', String(report.triLingualAudit.counts.missing.heMissingEn)],
+      ['Placeholder mismatches', String(report.triLingualAudit.counts.placeholderMismatches)],
+      ['HTML tag mismatches', String(report.triLingualAudit.counts.htmlTagMismatches)],
+    ]
+    : [];
 
   return `# HE Translation Readiness
 
@@ -250,6 +265,18 @@ Hebrew is still internal/hidden. This report does not activate HE in the public 
 - Extra HE keys: ${report.counts.extraKeys}
 - HE keys identical to EN: ${report.counts.sameAsBaseKeys}
 - HE keys added in Stage 8: 0
+
+## PL/EN/HE Structure Completeness
+
+${report.triLingualAudit ? markdownTable(triAuditRows) : 'Run `npm run i18n:tri-audit` to generate `translations/audit-pl-en-he.json`.'}
+
+Rules:
+
+- If a key exists in PL and is used in UI, EN must exist because EN is the primary fallback for HE.
+- If a key exists in EN and is used in UI, HE must exist unless the key is explicitly parked for human review.
+- If a key exists only in HE, treat it as legacy/extra until PL/EN ownership is confirmed.
+- Preserve placeholders, HTML tags, and runtime tokens across PL/EN/HE.
+- Long blog content, SEO meta, email templates, legal/payment copy, and dynamic marketing content require manual review before public use.
 
 ## Missing Keys By Rollout Group
 
@@ -303,6 +330,17 @@ async function readJson(filePath) {
   return JSON.parse(raw);
 }
 
+async function readOptionalJson(filePath) {
+  try {
+    return await readJson(filePath);
+  } catch (error) {
+    if (error && error.code === 'ENOENT') {
+      return null;
+    }
+    throw error;
+  }
+}
+
 async function writeJson(filePath, value) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
@@ -310,6 +348,7 @@ async function writeJson(filePath, value) {
 
 async function main() {
   const audit = await readJson(auditPath);
+  const triAudit = await readOptionalJson(triAuditPath);
   const missingKeys = audit.missingKeys || [];
   const sameAsBaseKeys = audit.sameAsBaseKeys || [];
   const extraKeys = audit.extraKeys || [];
@@ -358,6 +397,12 @@ async function main() {
       blocker: 'HE remains hidden until critical static keys, dynamic content, hidden visual QA and SEO gates are reviewed.',
       nextChecklist: 'docs/he-public-rollout-checklist.md',
     },
+    triLingualAudit: triAudit
+      ? {
+        sourceAuditPath: path.relative(rootDir, triAuditPath),
+        counts: triAudit.counts,
+      }
+      : null,
   };
 
   await writeJson(jsonReportPath, report);
