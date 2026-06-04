@@ -63,7 +63,10 @@ export async function onRequest(context) {
   }
 
   const url = new URL(context.request.url);
-  const language = getSeoLanguage(url);
+  const language = getSeoLanguage(url, {
+    pageKey: 'blog',
+    pathname: url.pathname,
+  });
   const page = Math.max(1, Number.parseInt(url.searchParams.get('page') || '1', 10) || 1);
   const category = String(url.searchParams.get('category') || '').trim();
   const tag = String(url.searchParams.get('tag') || '').trim();

@@ -65,7 +65,10 @@ export async function onRequest(context) {
   }
 
   const url = new URL(context.request.url);
-  const language = getSeoLanguage(url);
+  const language = getSeoLanguage(url, {
+    pageKey: 'blogPost',
+    pathname: url.pathname,
+  });
   const slug = String(context.params?.slug || '').trim();
   const template = await loadTemplate(
     context,

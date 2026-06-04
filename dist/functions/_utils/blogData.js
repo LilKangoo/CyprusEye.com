@@ -2,7 +2,7 @@ import { createSupabaseClients } from './supabaseAdmin.js';
 import {
   DEFAULT_PUBLIC_LANGUAGE,
   getPublicLanguageCodes,
-  normalizePublicLanguage,
+  normalizeLanguageCode,
 } from './languageRollout.js';
 
 export const BLOG_DEFAULT_LANGUAGE = DEFAULT_PUBLIC_LANGUAGE;
@@ -317,7 +317,8 @@ const BLOG_HE_POST_SELECT = `
 `;
 
 export function normalizeBlogLanguage(value) {
-  return normalizePublicLanguage(value, BLOG_DEFAULT_LANGUAGE, 'routes');
+  const normalized = normalizeLanguageCode(value);
+  return ['pl', 'en', 'he'].includes(normalized) ? normalized : BLOG_DEFAULT_LANGUAGE;
 }
 
 export function normalizeBlogSlug(value) {
@@ -1136,9 +1137,12 @@ function pickTranslation(translationsByLang, language) {
     translationsByLang[normalized]
     || translationsByLang.en
     || translationsByLang.pl
-    || Object.values(translationsByLang)[0]
     || null
   );
+}
+
+function isNonHebrewTranslationAllowed(translation) {
+  return translation && normalizeBlogLanguage(translation.lang) !== 'he';
 }
 
 function resolveAuthor(translation, authorProfile) {
@@ -1430,7 +1434,9 @@ export async function getPublishedBlogPostBySlug(env, options = {}) {
 
   const translationsByLang = buildTranslationsByLang(siblingTranslations);
   const blogPost = mapBlogBase(data.blog_post, translationsByLang, language);
-  const translation = blogPost.translation || mapTranslation(data);
+  const matchedTranslation = mapTranslation(data);
+  const translation = blogPost.translation
+    || (isNonHebrewTranslationAllowed(matchedTranslation) ? matchedTranslation : null);
   const resolvedCtaServices = await resolveBlogCtaServices(env, blogPost.ctaServices, language);
   const relatedPosts = await getRelatedBlogPosts(env, {
     language,

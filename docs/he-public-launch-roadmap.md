@@ -1037,3 +1037,35 @@ Rollback:
 2. Purge Cloudflare cache.
 3. Re-run `npm run seo:he-guard`, `npm run seo:audit` and the HE page-gated
    Playwright smoke.
+
+## Stage 49 Live SEO HE Deploy
+
+Decision target: **GO only if live sitemap/meta match the ready-page scope**.
+
+Live SEO HE scope stays limited to:
+
+- Home,
+- transport,
+- hotels and HE-ready hotel details,
+- recommendations,
+- car,
+- trips and HE-ready trip details.
+
+Stage49 does not expand:
+
+- global HE,
+- Blog HE public read,
+- Shop/cart/checkout/payment HE,
+- public `/he/` routes,
+- Plan/Community/Account/Auth/Legal/404,
+- partners/admin.
+
+Initial live monitoring found and fixed two SEO/rendering regressions before
+final GO:
+
+1. allowed HE pages were rendered by the server with `dir="ltr"`;
+2. blocked Blog detail could leak an HE sibling slug/title into canonical and
+   OpenGraph metadata.
+
+The fix is code-only and does not alter content, Supabase data, Blog
+`public_ready`, Shop, booking/payment or Stripe webhook behavior.

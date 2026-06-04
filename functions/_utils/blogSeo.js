@@ -273,7 +273,17 @@ export function buildBlogPostSeoPayload({ language, requestPathname = '/blog', r
   const resolvedLanguage = normalizeBlogLanguage(language);
   const localizedCopy = BLOG_SEO_COPY[resolvedLanguage];
 
-  if (!post?.translation) {
+  const translationsByLang = post?.translationsByLang || {};
+  const requestedTranslation = post?.translation || null;
+  const safeTranslation = resolvedLanguage === 'he'
+    ? requestedTranslation
+    : (
+      normalizeBlogLanguage(requestedTranslation?.lang) === 'he'
+        ? translationsByLang[resolvedLanguage] || translationsByLang.en || translationsByLang.pl || null
+        : requestedTranslation
+    );
+
+  if (!safeTranslation) {
     const canonicalUrl = buildLanguageUrl(requestPathname, resolvedLanguage);
     return buildBasePayload({
       language: resolvedLanguage,
@@ -290,8 +300,7 @@ export function buildBlogPostSeoPayload({ language, requestPathname = '/blog', r
     });
   }
 
-  const translation = post.translation;
-  const translationsByLang = post.translationsByLang || {};
+  const translation = safeTranslation;
   const plSlug = translationsByLang.pl?.slug || translation.slug;
   const enSlug = translationsByLang.en?.slug || translation.slug;
   const plUrl = buildLanguageUrl(`/blog/${plSlug}`, 'pl');

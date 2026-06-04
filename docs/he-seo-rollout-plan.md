@@ -167,3 +167,41 @@ If HE SEO causes any issue:
 ## Manual SQL
 
 No new SQL required for this stage.
+
+## Stage 49 Live SEO HE Monitoring
+
+Status: **deploy + monitoring in progress; scope remains ready pages only**.
+
+Live Stage49 checks must confirm that sitemap, canonical, hreflang, OpenGraph
+and JSON-LD expose HE only for:
+
+- Home,
+- `transport.html`,
+- `hotels.html`,
+- HE-ready hotel detail records,
+- `recommendations.html`,
+- `car.html`,
+- `trips.html`,
+- HE-ready trip detail records.
+
+Live monitoring found two guard issues before final GO:
+
+- server-rendered HE pages had `lang="he"` but still carried `dir="ltr"`;
+- blocked Blog detail could resolve a Hebrew sibling translation and leak HE
+  canonical/OpenGraph metadata.
+
+The hotfix keeps Blog public HE blocked by:
+
+- setting server-rendered `dir="rtl"` only when the resolved SEO payload
+  language is `he`,
+- preserving raw `pl/en/he` blog translation language values internally,
+- preventing non-HE Blog pages from falling back to HE translations,
+- forcing Cloudflare Blog list/detail functions through the `blog` /
+  `blogPost` SEO page guard,
+- adding `seo:he-guard` regressions for both cases.
+
+Blog, Shop/cart/checkout/payment, partners/admin, public `/he/` routes and
+not-ready records remain outside HE SEO.
+
+Rollback remains unchanged: disable HE SEO flags, purge Cloudflare cache and
+re-run `npm run seo:he-guard` plus `npm run seo:audit`.

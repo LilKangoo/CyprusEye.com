@@ -190,3 +190,21 @@ Stage48 must not and does not add:
 `shop.html?lang=he` remains EN/LTR and cart/checkout/payment remain outside HE.
 Future Shop HE still requires a dedicated manual translation and checkout/payment
 QA stage.
+
+## Stage 49 SEO Confirmation
+
+Shop remains excluded during live SEO HE deployment.
+
+Stage49 SEO checks must continue to prove:
+
+- no Shop HE sitemap URL,
+- no Shop `hreflang="he"`,
+- no Shop HE canonical,
+- no Shop HE OpenGraph/Twitter metadata,
+- no Shop HE structured data,
+- no Shop indexing,
+- no public `/he/shop` route,
+- `shop.html?lang=he` remains EN/LTR,
+- cart/checkout/payment never inherit HE/RTL from prior navigation.
+
+No Shop code or checkout/payment logic is changed in Stage49.

@@ -924,3 +924,21 @@ SEO status now differs from switcher status:
 Rollback of SEO HE does not require disabling existing page-gated HE UI. Set
 `CE_HE_SEO_ENABLED=false` or disable HE SEO surfaces in
 `CE_HE_SEO_ROLLOUT_CONFIG`, purge cache, and re-run SEO guard tests.
+
+## Stage 49 SEO Monitoring Impact
+
+Status: **no switcher readiness change**.
+
+Stage49 only verifies and hardens SEO/live metadata. It does not change the
+page-gated UI registry:
+
+- Home remains active in page-gated HE.
+- READY pages remain active.
+- Record-gated car/trips/trip/POI map pages remain active.
+- Blog/BlogPost remain blocked.
+- Shop/cart/checkout/payment remain excluded.
+
+The Stage49 hotfix prevents blocked Blog detail pages from leaking HE
+canonical/OpenGraph metadata when `?lang=he` is requested. It also ensures
+server-rendered HE pages carry `dir="rtl"`. Existing switcher gating and
+`buildLocalizedUrl(...)` behavior remain unchanged.

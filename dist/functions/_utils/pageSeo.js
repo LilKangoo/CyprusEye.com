@@ -457,6 +457,17 @@ function injectStructuredData(html, structuredData) {
   );
 }
 
+function applyHtmlLanguageAttributes(html, language) {
+  const safeLanguage = escapeHtml(language || DEFAULT_PUBLIC_LANGUAGE);
+  const safeDirection = safeLanguage === 'he' ? 'rtl' : 'ltr';
+  return String(html || '').replace(/<html\b([^>]*)>/i, (_match, attributes = '') => {
+    const cleanedAttributes = String(attributes || '')
+      .replace(/\s+lang=(["'])[^"']*\1/i, '')
+      .replace(/\s+dir=(["'])[^"']*\1/i, '');
+    return `<html${cleanedAttributes} lang="${safeLanguage}" dir="${safeDirection}">`;
+  });
+}
+
 function buildStaticStructuredData({ route, language, canonicalUrl, title, description } = {}) {
   if (!route) {
     return [];
@@ -599,10 +610,7 @@ export function applySeoToHtml(html, payload) {
   const safeDefaultUrl = escapeHtml(payload.languageUrls?.xDefault || '');
   const safeAuthor = escapeHtml(payload.authorName || '');
 
-  nextHtml = nextHtml.replace(
-    /<html([^>]*)lang=["'][^"']*["']([^>]*)>/i,
-    `<html$1lang="${payload.language}"$2>`
-  );
+  nextHtml = applyHtmlLanguageAttributes(nextHtml, payload.language);
 
   nextHtml = replaceOrInject(nextHtml, /<title\b[^>]*>[\s\S]*?<\/title>/i, `  <title>${safeTitle}</title>`);
   nextHtml = replaceOrInject(

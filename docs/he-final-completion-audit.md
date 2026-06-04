@@ -921,3 +921,29 @@ Still blocked/excluded:
 - public `/he/` routes remain disabled.
 
 Booking/payment and transport deposit flow were not changed.
+
+## Stage 49 Live SEO HE Monitoring
+
+Status: **live deploy verification for ready-page SEO only**.
+
+Allowed live HE SEO URLs are limited to Home, transport, hotels, HE-ready hotel
+details, recommendations, car, trips and HE-ready trip details.
+
+Blocked/excluded surfaces remain:
+
+- Blog and BlogPost,
+- Shop/cart/checkout/payment,
+- Plan/community/account/auth/legal/notFound/unknown,
+- partners/admin,
+- public `/he/` routes,
+- not-ready hotel/trip records.
+
+Stage49 live monitoring found two issues before final GO and fixed them in the
+SEO/blog guard layer:
+
+- HE HTML now gets server-rendered `dir="rtl"` alongside `lang="he"`;
+- Blog detail no longer falls back to HE translations/canonical/OG when Blog HE
+  is blocked and the resolved page language is EN/PL.
+
+No booking/payment, transport deposit, Stripe webhook, Shop HE or Blog
+`public_ready` data changes were made.

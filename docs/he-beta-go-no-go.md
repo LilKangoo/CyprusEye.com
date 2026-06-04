@@ -617,3 +617,30 @@ Rollback:
    `CE_HE_SEO_ROLLOUT_CONFIG`.
 2. Purge Cloudflare cache.
 3. Verify with `npm run seo:he-guard` and `npm run seo:audit`.
+
+## Stage 49 Live SEO GO / NO-GO
+
+Decision target: **GO only after production sitemap/canonical/hreflang/OG prove
+that HE SEO is limited to ready pages**.
+
+GO criteria:
+
+- sitemap contains HE only for Home, transport, hotels, HE-ready hotel detail,
+  recommendations, car, trips and HE-ready trip detail;
+- Blog and `/blog/*` have no HE sitemap, canonical, hreflang or OpenGraph;
+- Shop/cart/checkout/payment have no HE sitemap, canonical, hreflang or
+  OpenGraph;
+- public `/he/` routes redirect/fallback and do not serve assets from `/he/js`;
+- server HTML for allowed HE pages has `lang="he"` and `dir="rtl"`;
+- not-ready records do not generate HE SEO;
+- booking/payment regression tests still pass.
+
+NO-GO:
+
+- any Blog HE canonical/OG/hreflang before manual `public_ready` review;
+- any Shop/checkout/payment HE or RTL exposure;
+- any `/he/` route in sitemap;
+- any not-ready record indexed as HE.
+
+Stage49 hotfix adds regression coverage for server RTL and blocked Blog detail
+HE metadata leakage.

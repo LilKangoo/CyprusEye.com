@@ -14,6 +14,7 @@ import {
   buildSeoPayload,
   resolveSeoRoute,
 } from '../functions/_utils/pageSeo.js';
+import { buildBlogPostSeoPayload } from '../functions/_utils/blogSeo.js';
 import {
   canGenerateHeSeo,
   getHeSeoReadiness,
@@ -90,6 +91,7 @@ const html = '<!doctype html><html lang="en"><head><title>Old</title></head><bod
 const appliedHtml = applySeoToHtml(html, homeSeoPayload);
 assertNoHebrewSeoMarkup(appliedHtml, 'SEO HTML');
 assert.equal(appliedHtml.includes('lang="he"'), true, 'SEO HTML must set html lang HE on allowed pages.');
+assert.equal(appliedHtml.includes('dir="rtl"'), true, 'SEO HTML must set server-rendered RTL direction on allowed HE pages.');
 assert.equal(appliedHtml.includes('hreflang="he"'), true, 'SEO HTML must include HE hreflang on allowed pages.');
 
 const blogSeoPayload = buildSeoPayload({
@@ -121,6 +123,50 @@ const shopSeoPayload = buildSeoPayload({
 });
 assert.equal(shopSeoPayload.language, 'en', 'Shop HE SEO must normalize to EN while Shop is excluded.');
 assert.equal(Boolean(shopSeoPayload.languageUrls.he), false, 'Shop HE hreflang must not be generated.');
+
+const blockedBlogPostSeoPayload = buildBlogPostSeoPayload({
+  language: 'en',
+  requestPathname: '/blog/etias-cyprus-2026',
+  requestSearch: '?lang=he',
+  post: {
+    translation: {
+      lang: 'he',
+      slug: 'etias-cyprus-2026-he',
+      title: 'ETIAS בקפריסין 2026',
+      metaTitle: 'ETIAS בקפריסין 2026',
+      metaDescription: 'מדריך למטיילים',
+      summary: 'מדריך למטיילים',
+      lead: 'מדריך למטיילים',
+      ogImageUrl: '',
+    },
+    translationsByLang: {
+      he: {
+        lang: 'he',
+        slug: 'etias-cyprus-2026-he',
+        title: 'ETIAS בקפריסין 2026',
+        metaTitle: 'ETIAS בקפריסין 2026',
+        metaDescription: 'מדריך למטיילים',
+        summary: 'מדריך למטיילים',
+        lead: 'מדריך למטיילים',
+      },
+    },
+  },
+});
+assert.equal(
+  blockedBlogPostSeoPayload.canonicalUrl,
+  'https://www.cypruseye.com/blog/etias-cyprus-2026',
+  'Blocked Blog HE detail must not canonicalize to a Hebrew slug.'
+);
+assert.equal(
+  /[\u0590-\u05ff]/.test(`${blockedBlogPostSeoPayload.title} ${blockedBlogPostSeoPayload.ogTitle}`),
+  false,
+  'Blocked Blog HE detail must not expose Hebrew title/OG metadata.'
+);
+assert.equal(
+  Boolean(blockedBlogPostSeoPayload.languageUrls.he),
+  false,
+  'Blocked Blog HE detail must not generate HE hreflang.'
+);
 
 assert.equal(
   getHeSeoReadiness({ pageKey: 'home' }).status,
