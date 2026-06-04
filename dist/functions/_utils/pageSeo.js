@@ -7,22 +7,22 @@ import {
 import {
   DEFAULT_PUBLIC_LANGUAGE,
   getLanguageLocale,
-  getLanguageQueryParam,
   getPublicLanguageCodes,
   normalizePublicLanguage,
 } from './languageRollout.js';
+import { canGenerateHeSeo } from './heSeoReadiness.js';
 
 const CANONICAL_ORIGIN = 'https://www.cypruseye.com';
 const DEFAULT_OG_IMAGE = 'assets/cyprus_logo-1000x1054.png';
 
 const PUBLIC_BREADCRUMB_LABELS = {
   blog: { en: 'Blog', pl: 'Blog' },
-  carRentalLanding: { en: 'Car rental', pl: 'Wynajem aut' },
-  hotels: { en: 'Hotels', pl: 'Noclegi' },
-  recommendations: { en: 'Recommendations', pl: 'Rekomendacje' },
+  carRentalLanding: { en: 'Car rental', pl: 'Wynajem aut', he: 'השכרת רכב' },
+  hotels: { en: 'Hotels', pl: 'Noclegi', he: 'לינה' },
+  recommendations: { en: 'Recommendations', pl: 'Rekomendacje', he: 'המלצות' },
   shop: { en: 'Shop', pl: 'Sklep' },
-  transport: { en: 'Transport', pl: 'Transport' },
-  trips: { en: 'Trips', pl: 'Wycieczki' },
+  transport: { en: 'Transport', pl: 'Transport', he: 'הסעות' },
+  trips: { en: 'Trips', pl: 'Wycieczki', he: 'טיולים' },
 };
 
 const PAGE_ROUTES = [
@@ -295,7 +295,7 @@ export function resolveSeoRoute(pathname) {
   return null;
 }
 
-export function getSeoLanguage(urlLike) {
+export function getRequestedSeoLanguage(urlLike) {
   let searchParams = null;
   if (urlLike instanceof URL) {
     searchParams = urlLike.searchParams;
@@ -307,7 +307,31 @@ export function getSeoLanguage(urlLike) {
     }
   }
 
-  const requested = String(searchParams?.get('lang') || '').trim().toLowerCase();
+  return String(searchParams?.get('lang') || '').trim().toLowerCase();
+}
+
+export function getSeoLanguage(urlLike, options = {}) {
+  const requested = getRequestedSeoLanguage(urlLike);
+  if (requested === 'he') {
+    let pathname = options.pathname || options.path || '';
+    if (!pathname && urlLike instanceof URL) {
+      pathname = urlLike.pathname;
+    } else if (!pathname) {
+      try {
+        pathname = new URL(String(urlLike || ''), CANONICAL_ORIGIN).pathname;
+      } catch (_) {
+        pathname = '/';
+      }
+    }
+    if (canGenerateHeSeo({
+      ...options,
+      pathname,
+      language: 'he',
+      surface: 'seo',
+    })) {
+      return 'he';
+    }
+  }
   return normalizePublicLanguage(requested, DEFAULT_PUBLIC_LANGUAGE, 'seo');
 }
 
@@ -322,9 +346,20 @@ function buildAbsoluteUrl(pathname, search = '') {
   return url.toString();
 }
 
+function getSeoLanguageQueryParam(language) {
+  const normalized = String(language || '').trim().toLowerCase();
+  if (normalized === DEFAULT_PUBLIC_LANGUAGE) {
+    return '';
+  }
+  if (normalized === 'pl' || normalized === 'he') {
+    return normalized;
+  }
+  return '';
+}
+
 function buildLanguageUrl(pathname, language) {
   const url = new URL(pathname || '/', CANONICAL_ORIGIN);
-  const languageParam = getLanguageQueryParam(language);
+  const languageParam = getSeoLanguageQueryParam(language);
   if (languageParam) {
     url.searchParams.set('lang', languageParam);
   }
@@ -336,7 +371,7 @@ function buildPublicSearch(search, language) {
   params.delete('ce_he_preview');
 
   if (params.has('lang')) {
-    const languageParam = getLanguageQueryParam(language);
+    const languageParam = getSeoLanguageQueryParam(language);
     if (languageParam) {
       params.set('lang', languageParam);
     } else {
@@ -346,6 +381,31 @@ function buildPublicSearch(search, language) {
 
   const serialized = params.toString();
   return serialized ? `?${serialized}` : '';
+}
+
+function resolveHeSeoContext(route, input = {}) {
+  return {
+    pageKey: input.pageKey || input.seoPage || route?.seoPage || '',
+    pathname: input.pathname || input.path || input.requestPathname || route?.canonicalPath || '/',
+    recordReady: input.recordReady === true,
+    rollout: input.rollout,
+  };
+}
+
+function canUseHeSeo(surface, route, input = {}) {
+  return canGenerateHeSeo({
+    ...resolveHeSeoContext(route, input),
+    language: 'he',
+    surface,
+  });
+}
+
+function getPublicSeoLanguages(route, input = {}) {
+  const languages = getPublicLanguageCodes('seo').filter((code) => code !== 'he');
+  if (canUseHeSeo('hreflang', route, input)) {
+    languages.push('he');
+  }
+  return Array.from(new Set(languages));
 }
 
 function extractTagContent(html, tagName) {
@@ -445,13 +505,21 @@ export function buildSeoPayload({
   requestSearch = '',
   translations = {},
   fallbackSeo = {},
+  heSeo = {},
 } = {}) {
   if (!route) {
     return null;
   }
 
-  const resolvedLanguage = normalizePublicLanguage(language, DEFAULT_PUBLIC_LANGUAGE, 'seo');
-  const publicSeoLanguages = getPublicLanguageCodes('seo');
+  const heSeoContext = resolveHeSeoContext(route, {
+    ...heSeo,
+    requestPathname,
+    pathname: requestPathname,
+  });
+  const resolvedLanguage = language === 'he' && canUseHeSeo('seo', route, heSeoContext)
+    ? 'he'
+    : normalizePublicLanguage(language, DEFAULT_PUBLIC_LANGUAGE, 'seo');
+  const publicSeoLanguages = getPublicSeoLanguages(route, heSeoContext);
   const alternateLanguage = publicSeoLanguages.find((code) => code !== resolvedLanguage) || DEFAULT_PUBLIC_LANGUAGE;
   const localeFallback = getLanguageLocale(resolvedLanguage);
   const alternateLocale = getLanguageLocale(alternateLanguage);
@@ -459,6 +527,9 @@ export function buildSeoPayload({
   const requestPath = String(requestPathname || route.canonicalPath || '/').trim() || route.canonicalPath || '/';
   const canonicalPath = route.preserveRequestPathForCanonical ? requestPath : route.canonicalPath;
   const alternateBasePath = route.preserveRequestPathForAlternates ? requestPath : route.canonicalPath;
+  const heCanonicalAllowed = resolvedLanguage === 'he' && canUseHeSeo('canonical', route, heSeoContext);
+  const canonicalSearch = heCanonicalAllowed ? 'lang=he' : '';
+  const canonicalUrl = buildAbsoluteUrl(canonicalPath, canonicalSearch);
 
   const title = getTranslationValue(translations, `${baseKey}.title`) || fallbackSeo.title || '';
   const description =
@@ -489,7 +560,7 @@ export function buildSeoPayload({
     ogImage: buildAbsoluteUrl(ogImageValue),
     ogLocale,
     ogLocaleAlternate: alternateLocale,
-    canonicalUrl: buildAbsoluteUrl(canonicalPath),
+    canonicalUrl,
     languageUrls: {
       ...Object.fromEntries(publicSeoLanguages.map((code) => [
         code,
@@ -500,7 +571,7 @@ export function buildSeoPayload({
     structuredData: buildStaticStructuredData({
       route,
       language: resolvedLanguage,
-      canonicalUrl: buildAbsoluteUrl(canonicalPath),
+      canonicalUrl,
       title,
       description,
     }),
@@ -524,6 +595,7 @@ export function applySeoToHtml(html, payload) {
   const safeCanonical = escapeHtml(payload.canonicalUrl);
   const safePlUrl = escapeHtml(payload.languageUrls?.pl || '');
   const safeEnUrl = escapeHtml(payload.languageUrls?.en || '');
+  const safeHeUrl = escapeHtml(payload.languageUrls?.he || '');
   const safeDefaultUrl = escapeHtml(payload.languageUrls?.xDefault || '');
   const safeAuthor = escapeHtml(payload.authorName || '');
 
@@ -595,6 +667,15 @@ export function applySeoToHtml(html, payload) {
     /<link\s+rel=["']alternate["'][^>]*hreflang=["']en["'][^>]*>/i,
     `  <link rel="alternate" hreflang="en" href="${safeEnUrl}" />`
   );
+  if (safeHeUrl) {
+    nextHtml = replaceOrInject(
+      nextHtml,
+      /<link\s+rel=["']alternate["'][^>]*hreflang=["']he["'][^>]*>/i,
+      `  <link rel="alternate" hreflang="he" href="${safeHeUrl}" />`
+    );
+  } else {
+    nextHtml = nextHtml.replace(/\s*<link\s+rel=["']alternate["'][^>]*hreflang=["']he["'][^>]*>/gi, '');
+  }
   nextHtml = replaceOrInject(
     nextHtml,
     /<link\s+rel=["']alternate["'][^>]*hreflang=["']x-default["'][^>]*>/i,

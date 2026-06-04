@@ -5,6 +5,30 @@
   const DEFAULT_SEO_LANGUAGE = 'en';
   const DEFAULT_IMAGE = 'assets/cyprus_logo-1000x1054.png';
   const CANONICAL_ORIGIN = 'https://www.cypruseye.com';
+  const HEBREW_LANGUAGE = 'he';
+  const HE_SEO_CLIENT_READY_PAGES = new Set([
+    'home',
+    'transport',
+    'hotels',
+    'hotel',
+    'recommendations',
+    'carRentalLanding',
+    'trips',
+    'trip',
+  ]);
+  const HE_SEO_CLIENT_BLOCKED_PAGES = new Set([
+    'blog',
+    'blogPost',
+    'shop',
+    'plan',
+    'community',
+    'accountAuth',
+    'legal',
+    'partners',
+    'admin',
+    'notFound',
+    'unknown',
+  ]);
   const LOCALE_FALLBACK = {
     pl: 'pl_PL',
     en: 'en_GB',
@@ -131,8 +155,69 @@
     return null;
   }
 
-  function buildCanonicalUrl() {
+  function normalizeLanguage(value) {
+    return String(value || '').trim().toLowerCase().split('-')[0];
+  }
+
+  function getCurrentPageKey() {
+    const body = document.body || null;
+    if (body?.classList?.contains('blog-post-page')) {
+      return 'blogPost';
+    }
+    if (body?.classList?.contains('blog-page')) {
+      return 'blog';
+    }
+    if (String(body?.dataset?.adminPanel || '') === 'true') {
+      const pathname = window.location?.pathname || '';
+      return pathname.startsWith('/partners') ? 'partners' : 'admin';
+    }
+
+    const heKey = window.CELanguageRollout?.getHePageKeyForUrl?.(window.location.href)
+      || window.CELanguage?.getHePageKeyForUrl?.(window.location.href);
+    if (heKey) {
+      return heKey;
+    }
+
+    const seoPage = String(body?.dataset?.seoPage || '').trim();
+    if (seoPage === 'carRentalLanding') {
+      return 'carRentalLanding';
+    }
+    return seoPage || 'home';
+  }
+
+  function isCurrentPageHeSeoCandidate() {
+    const pageKey = getCurrentPageKey();
+    if (HE_SEO_CLIENT_BLOCKED_PAGES.has(pageKey)) {
+      return false;
+    }
+    return HE_SEO_CLIENT_READY_PAGES.has(pageKey);
+  }
+
+  function isCurrentHeSeoAllowed() {
+    const requestedLanguage = normalizeLanguage(new URLSearchParams(window.location.search).get('lang'));
+    const htmlLanguage = normalizeLanguage(document.documentElement.lang);
+    const appLanguage = normalizeLanguage(window.appI18n?.language);
+    const activeLanguage = appLanguage || htmlLanguage || requestedLanguage;
+    if (activeLanguage !== HEBREW_LANGUAGE && htmlLanguage !== HEBREW_LANGUAGE && requestedLanguage !== HEBREW_LANGUAGE) {
+      return false;
+    }
+    if (document.body?.dataset?.disableHiddenLanguage === 'true') {
+      return false;
+    }
+    if (!isCurrentPageHeSeoCandidate()) {
+      return false;
+    }
+    if (htmlLanguage !== HEBREW_LANGUAGE && appLanguage !== HEBREW_LANGUAGE) {
+      return false;
+    }
+    return true;
+  }
+
+  function buildCanonicalUrl(language) {
     const url = new URL(window.location.pathname, CANONICAL_ORIGIN);
+    if (language === HEBREW_LANGUAGE && isCurrentHeSeoAllowed()) {
+      url.searchParams.set('lang', HEBREW_LANGUAGE);
+    }
     return url.toString();
   }
 
@@ -159,14 +244,20 @@
   function getSupportedSeoLanguages() {
     const guarded = window.CELanguageRollout?.getPublicLanguageCodes?.('seo')
       || window.CELanguage?.getPublicLanguageCodes?.('seo');
-    if (Array.isArray(guarded) && guarded.length) {
-      return guarded.filter((code) => typeof code === 'string' && code.trim());
+    const languages = Array.isArray(guarded) && guarded.length
+      ? guarded.filter((code) => typeof code === 'string' && code.trim())
+      : FALLBACK_SEO_LANGUAGES.slice();
+    if (isCurrentHeSeoAllowed() && !languages.includes(HEBREW_LANGUAGE)) {
+      languages.push(HEBREW_LANGUAGE);
     }
-    return FALLBACK_SEO_LANGUAGES;
+    return languages;
   }
 
   function normalizeSeoLanguage(language) {
-    const normalized = String(language || '').trim().toLowerCase().split('-')[0];
+    const normalized = normalizeLanguage(language);
+    if (normalized === HEBREW_LANGUAGE && isCurrentHeSeoAllowed()) {
+      return HEBREW_LANGUAGE;
+    }
     return getSupportedSeoLanguages().includes(normalized) ? normalized : DEFAULT_SEO_LANGUAGE;
   }
 
@@ -179,7 +270,7 @@
     const defaultLink = ensureAlternate('x-default');
     defaultLink.setAttribute('href', buildCanonicalUrl());
 
-    canonicalLink.setAttribute('href', buildCanonicalUrl());
+    canonicalLink.setAttribute('href', buildCanonicalUrl(activeLanguage));
 
     if (meta.ogUrl) {
       meta.ogUrl.setAttribute('content', buildLanguageUrl(activeLanguage));

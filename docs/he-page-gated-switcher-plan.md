@@ -870,3 +870,57 @@ Switcher expansion remains blocked by the same content gates:
 - Blog requires manual `public_ready` review.
 - Shop requires a separate Shop HE decision.
 - SEO requires a dedicated SEO HE stage.
+
+## Stage 47 SEO Guard Impact
+
+Status: **no switcher readiness change**.
+
+Stage47 prepares SEO-only guardrails and does not change page-gated UI rollout.
+
+Current UI readiness stays:
+
+- Home remains page-gated live.
+- READY pages stay active.
+- Record-gated pages stay active.
+- Blog/BlogPost remain blocked.
+- Shop remains excluded.
+
+SEO readiness is tracked separately in
+`functions/_utils/heSeoReadiness.js` and documented in
+`docs/he-seo-rollout-plan.md`.
+
+Important separation:
+
+- A page can be UI-ready in HE without being SEO-indexable.
+- `poiMap` is UI record-gated but not SEO-indexable yet.
+- Blog must not become switcher/SEO-ready until manually reviewed
+  `public_ready` rows exist.
+- Shop/cart/checkout/payment must not become switcher/SEO-ready in the current
+  launch path.
+
+## Stage 48 SEO Activation Impact
+
+Status: **SEO-only change; no switcher readiness change**.
+
+Stage48 activates HE SEO only through `functions/_utils/heSeoReadiness.js` for
+already page-gated pages and HE-ready records. It does not change the UI
+readiness registry or public language switcher behavior.
+
+UI status remains:
+
+- Home is page-gated live.
+- READY pages stay active.
+- Record-gated car/trips/trip/POI map pages stay active.
+- Blog/BlogPost remain blocked.
+- Shop/cart/checkout/payment remain excluded.
+
+SEO status now differs from switcher status:
+
+- `poiMap` remains UI-ready but not SEO-indexable.
+- Blog remains absent from HE sitemap, hreflang and canonical.
+- Shop remains absent from HE sitemap, hreflang and canonical.
+- `/he/` routes remain disabled.
+
+Rollback of SEO HE does not require disabling existing page-gated HE UI. Set
+`CE_HE_SEO_ENABLED=false` or disable HE SEO surfaces in
+`CE_HE_SEO_ROLLOUT_CONFIG`, purge cache, and re-run SEO guard tests.

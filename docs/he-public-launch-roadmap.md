@@ -925,3 +925,115 @@ Launch impact:
 - Global HE remains off.
 - Public `/he/` routes remain disabled.
 - Existing page-gated HE pages are unchanged.
+
+## Stage 46 Shop Decision And Checkout Safety
+
+Decision: **do not include Shop in the current public HE rollout**.
+
+Recommended path:
+
+1. Keep Shop **EXCLUDED** for the first public HE launch.
+2. Allow only EN/LTR fallback when a user manually lands on Shop with
+   `?lang=he`.
+3. Treat full Shop HE as a later dedicated stage after manual translation and
+   payment QA.
+
+Current guards:
+
+- `shopEnabled:false`
+- page readiness `shop: excluded`
+- `shop.html` uses `data-disable-hidden-language="true"`
+- Shop links generated through `buildLocalizedUrl(...)` normalize to EN/LTR
+- Blog CTA links to Shop normalize to EN/LTR
+- cart/checkout/payment remain outside RTL/HE
+
+Manual review requirements before any future Shop HE:
+
+- 96 static Shop records reviewed.
+- 3 Shop email/payment/order records reviewed.
+- 18 dynamic Shop product/category/vendor/shipping records reviewed.
+- Stripe sandbox checkout success/cancel/failure smoke.
+- Cart, checkout, shipping, discount, order and notification copy approved.
+
+SEO note:
+
+Shop exclusion does not block SEO preparation for already approved HE pages, but
+Shop must not enter sitemap, hreflang, canonical, indexing or public `/he/`
+routes until a separate Shop HE launch is approved.
+
+## Stage 47 HE SEO Preparation
+
+Status: **SEO HE remains OFF**.
+
+Reference: `docs/he-seo-rollout-plan.md`.
+
+Prepared architecture:
+
+- `functions/_utils/heSeoReadiness.js` defines a central HE SEO readiness guard.
+- `npm run seo:he-guard` verifies that HE does not enter sitemap, hreflang,
+  canonical, OpenGraph or SEO output while rollout flags are off.
+- SEO activation requires explicit page readiness, record readiness when
+  applicable and explicit surface flags.
+
+SEO candidate-ready:
+
+- Home
+- `transport.html`
+- `hotels.html`
+- `hotel.html` for HE-ready hotel records only
+- `recommendations.html`
+- `car.html` under record-gated safety
+- `trips.html` under record-gated safety
+- `trip.html` for HE-ready trip records only
+
+SEO blocked:
+
+- Blog and `/blog/*`
+- `plan.html`
+- community/account/auth/legal/notFound/unknown
+
+SEO excluded:
+
+- Shop/cart/checkout/payment
+- partners
+- admin
+
+Recommended first HE SEO URL model is `?lang=he`. Public `/he/` routes remain
+disabled and redirected until a separate routing migration is approved.
+
+## Stage 48 Controlled HE SEO Activation
+
+Status: **GO for SEO HE on ready pages only**.
+
+Reference: `docs/he-seo-rollout-plan.md`.
+
+Activated HE SEO scope:
+
+- Home: `/?lang=he`
+- Transport: `/transport.html?lang=he`
+- Hotels: `/hotels.html?lang=he`
+- Hotel detail: `/hotel.html?slug=<HE-ready-hotel>&lang=he`
+- Recommendations: `/recommendations.html?lang=he`
+- Car record-gated collection: `/car.html?lang=he`
+- Trips record-gated collection: `/trips.html?lang=he`
+- Trip detail: `/trip.html?slug=<HE-ready-trip>&lang=he`
+
+Still excluded from HE SEO:
+
+- Blog and `/blog/*`
+- Shop, cart, checkout and payment
+- Plan, community, account/auth, legal, 404/unknown
+- Partners and admin
+- not-ready hotel/trip records
+- fallback-only EN pages
+
+URL model remains `?lang=he`. Public `/he/` routes stay disabled and redirected.
+Global HE remains off; this stage does not change public Blog or Shop status.
+
+Rollback:
+
+1. Set `CE_HE_SEO_ENABLED=false`, or disable all HE SEO flags through
+   `CE_HE_SEO_ROLLOUT_CONFIG`.
+2. Purge Cloudflare cache.
+3. Re-run `npm run seo:he-guard`, `npm run seo:audit` and the HE page-gated
+   Playwright smoke.

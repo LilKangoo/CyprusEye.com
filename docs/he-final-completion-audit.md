@@ -794,3 +794,130 @@ RLS note:
 - Live read of `email_template_catalog` and `email_template_versions` is
   restricted, so the email review pack includes local catalog fallback records
   from migration 173 for manual review visibility.
+
+## Stage 46 Shop HE Decision
+
+Status: **Shop remains EXCLUDED**.
+
+Reference: `docs/he-shop-decision.md`.
+
+Decision:
+
+- Current launch path uses Option A: keep Shop outside first public HE launch.
+- `shop.html?lang=he` may fall back to EN/LTR as a safety behavior, but this is
+  not treated as Shop HE.
+- Option C, a dedicated full Shop HE rollout, is required before Shop can be
+  part of a true full-site HE launch.
+
+Runtime safety confirmed in code:
+
+- `js/i18n.js` marks Shop as `excluded`.
+- `js/he-beta-rollout-config.js` keeps `shopEnabled:false`.
+- `shop.html` has `data-disable-hidden-language="true"`.
+- `js/shop.js` suppresses hidden languages and resolves HE to EN/LTR.
+- `buildLocalizedUrl('/shop.html', 'he')` normalizes links to `lang=en`.
+- `js/blog-cta-resolver.js` forces Shop CTA links to EN when source language is
+  HE.
+
+Review debt:
+
+| Area | Count / status |
+| --- | ---: |
+| Static Shop review records | 96 |
+| Static Shop missing HE | 3 |
+| Static Shop human review required | 96 |
+| Shop email/payment/order records needing review | 3 |
+| Dynamic Shop records | 18 |
+| Dynamic Shop records requiring review | 18 |
+
+All 18 dynamic Shop records are `same_as_en`; they are not approved Hebrew
+content. Cart, checkout, shipping, payment and order confirmation remain EN/LTR
+until a dedicated Shop HE stage passes manual translation and payment QA.
+
+No booking/payment, transport deposit, partner fulfillment or Stripe webhook
+logic was changed.
+
+## Stage 47 SEO / Sitemap / Hreflang Preparation
+
+Status: **HE SEO OFF; architecture prepared only**.
+
+Reference: `docs/he-seo-rollout-plan.md`.
+
+New neutral guard:
+
+- `functions/_utils/heSeoReadiness.js`
+
+The guard classifies HE SEO readiness as:
+
+- `candidate_ready`
+- `record_gated_ready`
+- `blocked`
+- `excluded`
+
+Current SEO candidate-ready pages:
+
+| Page | Status |
+| --- | --- |
+| Home | candidate ready |
+| transport | candidate ready |
+| hotels | candidate ready |
+| hotel detail | candidate ready per HE-ready record |
+| recommendations | candidate ready |
+| car | record-gated ready |
+| trips | record-gated ready |
+| trip detail | record-gated ready per HE-ready record |
+
+Current blocked/excluded SEO surfaces:
+
+- Blog and BlogPost remain `blocked`.
+- Plan/community/account/auth/legal/notFound/unknown remain `blocked`.
+- Shop/cart/checkout/payment remain `excluded`.
+- Partners/admin remain `excluded`.
+
+Activation is intentionally still blocked by rollout flags:
+
+- `seoEnabled:false`
+- `sitemapEnabled:false`
+- `hreflangEnabled:false`
+- `canonicalEnabled:false`
+- `indexingEnabled:false`
+
+No sitemap HE, hreflang HE, canonical HE, OpenGraph HE, indexing HE or public
+`/he/` route was activated.
+
+## Stage 48 Controlled SEO HE Activation
+
+Status: **GO for ready-page SEO only; NO-GO for global HE**.
+
+HE sitemap/canonical/hreflang/OpenGraph/structured-data are now guarded by
+`functions/_utils/heSeoReadiness.js` and active only for the page-gated scope:
+
+- Home
+- transport
+- hotels
+- HE-ready hotel details
+- recommendations
+- car record-gated collection
+- trips record-gated collection
+- HE-ready trip details
+
+The generated static sitemap contains these HE URLs:
+
+- `https://www.cypruseye.com/?lang=he`
+- `https://www.cypruseye.com/transport.html?lang=he`
+- `https://www.cypruseye.com/hotels.html?lang=he`
+- `https://www.cypruseye.com/recommendations.html?lang=he`
+- `https://www.cypruseye.com/car.html?lang=he`
+- `https://www.cypruseye.com/trips.html?lang=he`
+
+Dynamic sitemap generation may add only HE-ready hotel and trip detail URLs.
+
+Still blocked/excluded:
+
+- Blog and BlogPost remain blocked and have no HE SEO.
+- Shop/cart/checkout/payment remain excluded and have no HE SEO.
+- Plan/community/account/auth/legal/notFound/unknown remain blocked.
+- Partners/admin remain excluded.
+- public `/he/` routes remain disabled.
+
+Booking/payment and transport deposit flow were not changed.

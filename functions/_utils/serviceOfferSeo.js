@@ -8,6 +8,7 @@ import {
   buildOrganizationJsonLd,
   buildServiceJsonLd,
 } from './structuredData.js';
+import { canGenerateHeSeo } from './heSeoReadiness.js';
 
 const CANONICAL_ORIGIN = 'https://www.cypruseye.com';
 
@@ -25,6 +26,12 @@ const SERVICE_OFFER_COPY = {
       notFoundTitle: 'Nie znaleziono noclegu | CyprusEye',
       notFoundDescription: 'Nie udało się znaleźć oferty noclegu, której szukasz.',
     },
+    he: {
+      fallbackTitle: 'לינה',
+      fallbackDescription: 'גלו מקום לינה בקפריסין עם פרטי הזמנה, גלריה ומיקום.',
+      notFoundTitle: 'הלינה לא נמצאה | CyprusEye',
+      notFoundDescription: 'לא הצלחנו למצוא את הצעת הלינה שביקשתם.',
+    },
   },
   trip: {
     en: {
@@ -39,6 +46,12 @@ const SERVICE_OFFER_COPY = {
       notFoundTitle: 'Nie znaleziono wycieczki | CyprusEye',
       notFoundDescription: 'Nie udało się znaleźć oferty wycieczki, której szukasz.',
     },
+    he: {
+      fallbackTitle: 'טיול',
+      fallbackDescription: 'גלו טיול בקפריסין עם פרטים, גלריה ומחירים עדכניים.',
+      notFoundTitle: 'הטיול לא נמצא | CyprusEye',
+      notFoundDescription: 'לא הצלחנו למצוא את הצעת הטיול שביקשתם.',
+    },
   },
 };
 
@@ -46,10 +59,12 @@ const SERVICE_STRUCTURED_COPY = {
   hotel: {
     en: { listName: 'Hotels', serviceType: 'Accommodation booking' },
     pl: { listName: 'Noclegi', serviceType: 'Rezerwacja noclegu' },
+    he: { listName: 'לינה', serviceType: 'הזמנת לינה' },
   },
   trip: {
     en: { listName: 'Trips', serviceType: 'Trip booking' },
     pl: { listName: 'Wycieczki', serviceType: 'Rezerwacja wycieczki' },
+    he: { listName: 'טיולים', serviceType: 'הזמנת טיול' },
   },
 };
 
@@ -100,15 +115,29 @@ function toAbsoluteUrl(value) {
 function buildQueryStyleUrl(kind, slug, language) {
   const url = new URL(`/${kind}.html`, CANONICAL_ORIGIN);
   url.searchParams.set('slug', slug);
-  if (language === 'pl') {
-    url.searchParams.set('lang', 'pl');
+  if (language === 'pl' || language === 'he') {
+    url.searchParams.set('lang', language);
   } else {
     url.searchParams.delete('lang');
   }
   return url.toString();
 }
 
-function buildLanguageUrls(kind, slug) {
+function isOfferHeReady(offer) {
+  return Boolean(offer?.title?.he && offer?.description?.he);
+}
+
+function canUseHeServiceSeo(kind, offer, surface, heSeo = {}) {
+  return canGenerateHeSeo({
+    ...heSeo,
+    pageKey: kind,
+    language: 'he',
+    surface,
+    recordReady: isOfferHeReady(offer),
+  });
+}
+
+function buildLanguageUrls(kind, slug, offer, heSeo = {}) {
   if (!slug) {
     return {
       pl: buildQueryStyleUrl(kind, '', 'pl'),
@@ -117,11 +146,15 @@ function buildLanguageUrls(kind, slug) {
     };
   }
 
-  return {
+  const urls = {
     pl: buildQueryStyleUrl(kind, slug, 'pl'),
     en: buildQueryStyleUrl(kind, slug, 'en'),
     xDefault: buildQueryStyleUrl(kind, slug, 'en'),
   };
+  if (canUseHeServiceSeo(kind, offer, 'hreflang', heSeo)) {
+    urls.he = buildQueryStyleUrl(kind, slug, 'he');
+  }
+  return urls;
 }
 
 function pickOfferTitle(offer, language, kind) {
@@ -162,8 +195,8 @@ function buildBasePayload({
     ogType,
     ogUrl: ogUrl || canonicalUrl,
     ogImage: toAbsoluteUrl(ogImage),
-    ogLocale: resolvedLanguage === 'pl' ? 'pl_PL' : 'en_GB',
-    ogLocaleAlternate: resolvedLanguage === 'pl' ? 'en_GB' : 'pl_PL',
+    ogLocale: resolvedLanguage === 'he' ? 'he_IL' : resolvedLanguage === 'pl' ? 'pl_PL' : 'en_GB',
+    ogLocaleAlternate: resolvedLanguage === 'he' ? 'en_GB' : resolvedLanguage === 'pl' ? 'en_GB' : 'pl_PL',
     canonicalUrl,
     languageUrls,
     structuredData: [],
@@ -206,12 +239,22 @@ export function buildServiceOfferSeoPayload({
   requestPathname: _requestPathname,
   pathStyle: _pathStyle = 'query',
   offer = null,
+  heSeo = {},
 } = {}) {
-  const resolvedLanguage = normalizeServiceOfferLanguage(language);
+  const requestedLanguage = normalizeServiceOfferLanguage(language);
+  const resolvedLanguage = requestedLanguage === 'he' && canUseHeServiceSeo(kind, offer, 'seo', heSeo)
+    ? 'he'
+    : requestedLanguage === 'pl'
+      ? 'pl'
+      : 'en';
   const copy = SERVICE_OFFER_COPY[kind]?.[resolvedLanguage] || SERVICE_OFFER_COPY.hotel[resolvedLanguage];
   const slug = String(offer?.slug || '').trim();
-  const languageUrls = buildLanguageUrls(kind, slug);
-  const canonicalUrl = resolvedLanguage === 'pl' ? languageUrls.pl : languageUrls.en;
+  const languageUrls = buildLanguageUrls(kind, slug, offer, heSeo);
+  const canonicalUrl = resolvedLanguage === 'he' && canUseHeServiceSeo(kind, offer, 'canonical', heSeo)
+    ? languageUrls.he
+    : resolvedLanguage === 'pl'
+      ? languageUrls.pl
+      : languageUrls.en;
 
   if (!offer) {
     return buildBasePayload({

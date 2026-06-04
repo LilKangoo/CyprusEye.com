@@ -1,6 +1,6 @@
 # HE Translation Readiness
 
-Generated: 2026-06-04T15:03:10.219Z
+Generated: 2026-06-04T23:08:01.629Z
 Source audit: `translations/audit-he-vs-en.json`
 
 Hebrew is still internal/hidden. This report does not activate HE in the public language switcher, selectors, sitemap, hreflang, canonical metadata, public SEO, indexing, or `/he/` routes.
@@ -8,10 +8,10 @@ Hebrew is still internal/hidden. This report does not activate HE in the public 
 ## Summary
 
 - EN keys: 3116
-- HE keys: 2907
-- Missing HE keys: 216
+- HE keys: 2929
+- Missing HE keys: 194
 - Extra HE keys: 7
-- HE keys identical to EN: 690
+- HE keys identical to EN: 689
 - HE keys added in Stage 8: 0
 
 ## PL/EN/HE Structure Completeness
@@ -19,9 +19,9 @@ Hebrew is still internal/hidden. This report does not activate HE in the public 
 | Check | Count |
 | --- | ---: |
 | PL keys missing EN | 0 |
-| PL keys missing HE | 216 |
+| PL keys missing HE | 194 |
 | EN keys missing PL | 94 |
-| EN keys missing HE | 216 |
+| EN keys missing HE | 194 |
 | HE keys missing PL | 101 |
 | HE keys missing EN | 7 |
 | Placeholder mismatches | 0 |
@@ -47,15 +47,15 @@ Rules:
 | Partner panel | P1 | 160 | `advertise.affiliate.badge`, `advertise.affiliate.cardBadge`, `advertise.affiliate.cardDescription`, `advertise.affiliate.cardTitle`, `advertise.affiliate.cta`, `advertise.affiliate.description`, ... +6 |
 | Admin | P2 | 0 | - |
 | Blog / public content | P1 | 0 | - |
-| SEO / static meta | P1 before public launch | 53 | `seo.account.description`, `seo.account.ogDescription`, `seo.account.ogTitle`, `seo.account.title`, `seo.auth.description`, `seo.auth.ogDescription`, ... +6 |
+| SEO / static meta | P1 before public launch | 31 | `seo.account.description`, `seo.account.ogDescription`, `seo.account.ogTitle`, `seo.account.title`, `seo.auth.description`, `seo.auth.ogDescription`, ... +6 |
 | Low priority / internal | P3 | 0 | - |
 
 ## Quality Workflow
 
 | Status | Znaczenie | Aktualna liczba |
 | --- | --- | ---: |
-| missing | Klucza nie ma w `translations/he.json`. | 216 |
-| needs_human_review | Klucz istnieje, ale jest taki sam jak EN albo wymaga potwierdzenia native/review. | 690 |
+| missing | Klucza nie ma w `translations/he.json`. | 194 |
+| needs_human_review | Klucz istnieje, ale jest taki sam jak EN albo wymaga potwierdzenia native/review. | 689 |
 | machine_translated | Tlumaczenie maszynowe oczekujace na review. Ten status nie jest jeszcze automatycznie sledzony. | 0 |
 | reviewed | Tlumaczenie zaakceptowane przez czlowieka/native speaker. Ten status nie jest jeszcze automatycznie sledzony. | 0 |
 
@@ -98,7 +98,7 @@ routes. Import is dry-run by default through
 | Partner panel | 4 | `advertise.form.placeholders.email`, `advertise.form.placeholders.phone`, `advertise.form.placeholders.website`, `advertise.overline` |
 | Admin | 0 | - |
 | Blog / public content | 5 | `community.gallery.panoramaBadge`, `plan.ui.itemType.poiShort`, `sos.embassy.email`, `sos.quick.whatsapp`, `sos.title` |
-| SEO / static meta | 20 | `seo.carRental.ogDescription`, `seo.carRentalLanding.ogDescription`, `seo.carRentalPfo.description`, `seo.carRentalPfo.ogDescription`, `seo.coupon.locale`, `seo.coupon.localeAlternate`, ... +6 |
+| SEO / static meta | 19 | `seo.carRental.ogDescription`, `seo.carRentalPfo.description`, `seo.carRentalPfo.ogDescription`, `seo.coupon.locale`, `seo.coupon.localeAlternate`, `seo.coupon.ogDescription`, ... +6 |
 | Low priority / internal | 437 | `attractions.brand.overline`, `attractions.catalog.subtitle`, `attractions.nav.catalog`, `attractions.nav.current`, `attractions.subtitle`, `cruise.back`, ... +6 |
 
 ## Largest Missing Roots
@@ -106,7 +106,7 @@ routes. Import is dry-run by default through
 | Root | Braki |
 | --- | ---: |
 | `advertise` | 160 |
-| `seo` | 53 |
+| `seo` | 31 |
 | `shop` | 3 |
 
 ## Recommended Fill Order

@@ -1331,7 +1331,7 @@ async function serveStaticAsset(req, res, filePath, stats = null) {
 }
 
 async function loadTranslationsFile(language) {
-  const cacheKey = language === 'en' ? 'en' : 'pl';
+  const cacheKey = ['en', 'pl', 'he'].includes(language) ? language : 'en';
   if (translationCache.has(cacheKey)) {
     return translationCache.get(cacheKey);
   }
@@ -1374,7 +1374,11 @@ async function localizeHtmlForRequest(filePath, html, requestUrl) {
     return html;
   }
 
-  const language = getSeoLanguage(url);
+  const heSeo = {
+    pageKey: route.seoPage,
+    pathname: seoPathname,
+  };
+  const language = getSeoLanguage(url, heSeo);
   const translations = await loadTranslationsFile(language);
   const seoPayload = buildSeoPayload({
     route,
@@ -1383,6 +1387,7 @@ async function localizeHtmlForRequest(filePath, html, requestUrl) {
     requestSearch: url.search,
     translations,
     fallbackSeo: extractSeoFallbacksFromHtml(html),
+    heSeo,
   });
 
   return applySeoToHtml(html, seoPayload);
@@ -1463,7 +1468,10 @@ async function tryServeBlogPage(req, url, res) {
     return false;
   }
 
-  const language = getSeoLanguage(url);
+  const language = getSeoLanguage(url, {
+    pageKey: blogRoute.kind === 'list' ? 'blog' : 'blogPost',
+    pathname: url.pathname,
+  });
   const runtimeEnv = getBlogRuntimeEnv();
 
   if (blogRoute.kind === 'list') {
@@ -1566,14 +1574,7 @@ async function tryServeServiceOfferPage(req, url, res) {
     return false;
   }
 
-  const language = getSeoLanguage(url);
   const runtimeEnv = getServiceOfferRuntimeEnv();
-  const templateName = serviceRoute.kind === 'hotel' ? 'hotel.html' : 'trip.html';
-  const templateHtml = await loadBlogTemplate(
-    templateName,
-    `<!doctype html><html lang="${language}"><head><meta charset="utf-8"><title>CyprusEye</title></head><body></body></html>`
-  );
-
   let offer = null;
   let statusCode = 200;
 
@@ -1590,6 +1591,18 @@ async function tryServeServiceOfferPage(req, url, res) {
     statusCode = 500;
   }
 
+  const heSeo = {
+    pageKey: serviceRoute.kind,
+    pathname: serviceRoute.requestPathname,
+    recordReady: Boolean(offer?.title?.he && offer?.description?.he),
+  };
+  const language = getSeoLanguage(url, heSeo);
+  const templateName = serviceRoute.kind === 'hotel' ? 'hotel.html' : 'trip.html';
+  const templateHtml = await loadBlogTemplate(
+    templateName,
+    `<!doctype html><html lang="${language}"><head><meta charset="utf-8"><title>CyprusEye</title></head><body></body></html>`
+  );
+
   const html = applySeoToHtml(
     templateHtml,
     buildServiceOfferSeoPayload({
@@ -1598,6 +1611,7 @@ async function tryServeServiceOfferPage(req, url, res) {
       requestPathname: serviceRoute.requestPathname,
       pathStyle: serviceRoute.pathStyle,
       offer,
+      heSeo,
     })
   );
 

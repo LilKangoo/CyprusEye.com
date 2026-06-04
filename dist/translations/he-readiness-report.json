@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-04T15:03:10.219Z",
+  "generatedAt": "2026-06-04T23:08:01.629Z",
   "sourceAuditPath": "translations/audit-he-vs-en.json",
   "targetLanguage": "he",
   "baseLanguage": "en",
   "counts": {
     "baseKeys": 3116,
-    "targetKeys": 2907,
-    "missingKeys": 216,
+    "targetKeys": 2929,
+    "missingKeys": 194,
     "extraKeys": 7,
-    "sameAsBaseKeys": 690
+    "sameAsBaseKeys": 689
   },
   "qualityWorkflow": {
     "statuses": {
@@ -19,8 +19,8 @@
       "reviewed": "Human-reviewed HE value accepted for public launch."
     },
     "currentSignals": {
-      "missing": 216,
-      "needsHumanReview": 690,
+      "missing": 194,
+      "needsHumanReview": 689,
       "machineTranslatedTracked": 0,
       "reviewedTracked": 0,
       "extraKeysNeedingTriage": 7
@@ -203,14 +203,6 @@
       "seo.community.description",
       "seo.community.ogDescription",
       "seo.community.ogTitle",
-      "seo.hotel.description",
-      "seo.hotel.ogDescription",
-      "seo.hotel.ogTitle",
-      "seo.hotel.title",
-      "seo.hotels.description",
-      "seo.hotels.ogDescription",
-      "seo.hotels.ogTitle",
-      "seo.hotels.title",
       "seo.plan.description",
       "seo.plan.ogDescription",
       "seo.plan.ogTitle",
@@ -227,20 +219,6 @@
       "seo.terms.ogDescription",
       "seo.terms.ogTitle",
       "seo.terms.title",
-      "seo.transport.description",
-      "seo.transport.locale",
-      "seo.transport.localeAlternate",
-      "seo.transport.ogDescription",
-      "seo.transport.ogTitle",
-      "seo.transport.title",
-      "seo.trip.description",
-      "seo.trip.ogDescription",
-      "seo.trip.ogTitle",
-      "seo.trip.title",
-      "seo.trips.description",
-      "seo.trips.ogDescription",
-      "seo.trips.ogTitle",
-      "seo.trips.title",
       "shop.footer.about_text",
       "shop.hero.subtitle",
       "shop.pageTitle"
@@ -841,7 +819,6 @@
       "profile.avatar.remove",
       "profile.settings.email.placeholder",
       "seo.carRental.ogDescription",
-      "seo.carRentalLanding.ogDescription",
       "seo.carRentalPfo.description",
       "seo.carRentalPfo.ogDescription",
       "seo.coupon.locale",
@@ -1200,7 +1177,7 @@
       "label": "SEO / static meta",
       "priority": "P1 before public launch",
       "description": "Static SEO and metadata keys. Planning only until HE public SEO is explicitly enabled.",
-      "count": 53,
+      "count": 31,
       "samples": [
         "seo.account.description",
         "seo.account.ogDescription",
@@ -1231,14 +1208,6 @@
         "seo.community.description",
         "seo.community.ogDescription",
         "seo.community.ogTitle",
-        "seo.hotel.description",
-        "seo.hotel.ogDescription",
-        "seo.hotel.ogTitle",
-        "seo.hotel.title",
-        "seo.hotels.description",
-        "seo.hotels.ogDescription",
-        "seo.hotels.ogTitle",
-        "seo.hotels.title",
         "seo.plan.description",
         "seo.plan.ogDescription",
         "seo.plan.ogTitle",
@@ -1254,21 +1223,7 @@
         "seo.terms.description",
         "seo.terms.ogDescription",
         "seo.terms.ogTitle",
-        "seo.terms.title",
-        "seo.transport.description",
-        "seo.transport.locale",
-        "seo.transport.localeAlternate",
-        "seo.transport.ogDescription",
-        "seo.transport.ogTitle",
-        "seo.transport.title",
-        "seo.trip.description",
-        "seo.trip.ogDescription",
-        "seo.trip.ogTitle",
-        "seo.trip.title",
-        "seo.trips.description",
-        "seo.trips.ogDescription",
-        "seo.trips.ogTitle",
-        "seo.trips.title"
+        "seo.terms.title"
       ]
     },
     "low_priority_internal": {
@@ -1647,10 +1602,9 @@
       "label": "SEO / static meta",
       "priority": "P1 before public launch",
       "description": "Static SEO and metadata keys. Planning only until HE public SEO is explicitly enabled.",
-      "count": 20,
+      "count": 19,
       "samples": [
         "seo.carRental.ogDescription",
-        "seo.carRentalLanding.ogDescription",
         "seo.carRentalPfo.description",
         "seo.carRentalPfo.ogDescription",
         "seo.coupon.locale",
@@ -1660,11 +1614,11 @@
         "seo.cruise.ogDescription",
         "seo.cruise.ogTitle",
         "seo.cruise.title",
-        "seo.notFound.description"
+        "seo.notFound.description",
+        "seo.notFound.ogDescription"
       ],
       "keys": [
         "seo.carRental.ogDescription",
-        "seo.carRentalLanding.ogDescription",
         "seo.carRentalPfo.description",
         "seo.carRentalPfo.ogDescription",
         "seo.coupon.locale",
@@ -2149,7 +2103,7 @@
   "crossCutting": {
     "rootPrefixCounts": {
       "advertise": 160,
-      "seo": 53,
+      "seo": 31,
       "shop": 3
     },
     "errorsValidationKeys": {
@@ -2169,19 +2123,19 @@
       "keys": {
         "pl": 3022,
         "en": 3116,
-        "he": 2907
+        "he": 2929
       },
       "unionKeys": 3123,
       "missing": {
         "plMissingEn": 0,
-        "plMissingHe": 216,
+        "plMissingHe": 194,
         "enMissingPl": 94,
-        "enMissingHe": 216,
+        "enMissingHe": 194,
         "heMissingPl": 101,
         "heMissingEn": 7
       },
       "heExtraAgainstPlAndEn": 7,
-      "sameAsEnHe": 690,
+      "sameAsEnHe": 689,
       "emptyStrings": {
         "pl": 0,
         "en": 0,

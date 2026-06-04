@@ -475,6 +475,35 @@ test.describe('hidden Hebrew rollout guard', () => {
     expect(readiness?.status).toBe('excluded');
   });
 
+  test('keeps Shop cart and checkout DOM in LTR when ?lang=he is requested', async ({ page }) => {
+    await page.goto('/shop.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(250);
+
+    await expect(page.locator('html')).not.toHaveAttribute('lang', 'he');
+    await expect(page.locator('html')).not.toHaveAttribute('dir', 'rtl');
+
+    const directions = await page.evaluate(() => {
+      const directionFor = (selector: string) => {
+        const element = document.querySelector(selector);
+        return element ? window.getComputedStyle(element).direction : '';
+      };
+      (window as any).shopOpenCart?.();
+      return {
+        html: document.documentElement.dir,
+        body: window.getComputedStyle(document.body).direction,
+        cart: directionFor('#cartSidebar'),
+        checkout: directionFor('#checkoutModal'),
+        checkoutHidden: document.getElementById('checkoutModal')?.hidden ?? null,
+      };
+    });
+
+    expect(directions.html).toBe('ltr');
+    expect(directions.body).toBe('ltr');
+    expect(directions.cart).toBe('ltr');
+    expect(directions.checkout).toBe('ltr');
+    expect(directions.checkoutHidden).toBe(true);
+  });
+
   test('can disable hidden preview while keeping beta-user HE access', async ({ page }) => {
     await page.addInitScript(() => {
       (window as any).CE_LANGUAGE_ROLLOUT_CONFIG = {

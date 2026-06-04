@@ -447,3 +447,92 @@ Current review rules:
 - SEO HE remains `OFF`; translation review does not enable sitemap,
   hreflang, canonical, OpenGraph or indexing.
 - Booking/payment/transport deposit flow was not changed.
+
+## Stage 46 Shop HE Manual Review Requirements
+
+Decision: **Shop remains EXCLUDED from the first public HE launch**.
+
+Reference: `docs/he-shop-decision.md`.
+
+Static Shop review pack status:
+
+| Metric | Count |
+| --- | ---: |
+| Shop review records | 96 |
+| Missing EN | 0 |
+| Missing HE | 3 |
+| Same-as-EN HE | 0 |
+| Human review required | 96 |
+| Placeholder issues | 0 |
+
+Shop-related email/payment/order records:
+
+| Metric | Count |
+| --- | ---: |
+| Records | 3 |
+| Missing HE | 3 |
+| Human review required | 3 |
+
+Dynamic Shop records in `dynamic-content-review.json`:
+
+| Module | Records |
+| --- | ---: |
+| `shop_products` | 10 |
+| `shop_categories` | 3 |
+| `shop_shipping` | 3 |
+| `shop_vendors` | 2 |
+| **Total** | **18** |
+
+All 18 dynamic Shop records are currently `same_as_en`, so they are not
+approved Hebrew content. They require manual review before any Shop HE stage.
+
+Launch rule:
+
+- `shop.html?lang=he` must remain EN/LTR.
+- Cart, checkout, shipping, discount, payment and order confirmation must remain
+  outside HE.
+- Shop links from Home, navigation, recommendations, POI and Blog CTA surfaces
+  must normalize to EN/LTR.
+- Full Shop HE requires a separate manual translation and checkout/payment QA
+  stage.
+
+## Stage 47 SEO Translation Backlog
+
+SEO HE remains disabled. Translation review does not activate SEO.
+
+Manual SEO translation/review is still required before future indexing for:
+
+- Home meta title/description/OpenGraph copy,
+- transport meta/OG copy,
+- hotels and hotel detail meta/OG copy,
+- recommendations meta/OG copy,
+- car meta/OG copy,
+- trips and trip detail meta/OG copy,
+- structured-data fields where user-visible entity names/descriptions appear.
+
+Do not prepare or publish HE SEO for:
+
+- Blog until specific posts are manually reviewed and marked `public_ready`,
+- Shop/cart/checkout/payment,
+- plan/community/legal/account/auth until manually reviewed,
+- any page or record that displays EN fallback as the primary content.
+
+Reference: `docs/he-seo-rollout-plan.md`.
+
+## Stage 48 SEO Activation And Backlog Boundary
+
+Controlled SEO HE is active only for ready/page-gated URLs documented in
+`docs/he-seo-rollout-plan.md`.
+
+This does not reduce the manual review backlog for:
+
+- Blog posts and Blog SEO,
+- Shop/cart/checkout/payment,
+- email/payment templates,
+- long marketing copy,
+- legal/account/community/plan pages,
+- not-ready dynamic records.
+
+Blog remains `BLOCKED`, Shop remains `EXCLUDED`, and `/he/` routes remain
+non-public. Manual translation review and `public_ready` marking remain separate
+future steps.

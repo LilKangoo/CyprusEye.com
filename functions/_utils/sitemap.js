@@ -4,6 +4,7 @@ import {
   getLanguageQueryParam,
   getPublicLanguageCodes,
 } from './languageRollout.js';
+import { canGenerateHeSeo } from './heSeoReadiness.js';
 
 export const SITEMAP_ORIGIN = 'https://www.cypruseye.com';
 
@@ -26,6 +27,15 @@ const STATIC_PUBLIC_URLS = [
   '/transport.html',
   '/trips.html',
   '/vip.html',
+];
+
+const STATIC_HE_SITEMAP_URLS = [
+  { path: '/', pageKey: 'home' },
+  { path: '/transport.html', pageKey: 'transport' },
+  { path: '/hotels.html', pageKey: 'hotels' },
+  { path: '/recommendations.html', pageKey: 'recommendations' },
+  { path: '/car.html', pageKey: 'car' },
+  { path: '/trips.html', pageKey: 'trips' },
 ];
 
 const SERVICE_SITEMAP_CONFIG = {
@@ -73,6 +83,12 @@ function buildAbsoluteUrl(rawPath) {
   return new URL(String(rawPath || '/').trim() || '/', SITEMAP_ORIGIN).toString();
 }
 
+function buildHebrewStaticUrl(pathname) {
+  const url = new URL(String(pathname || '/').trim() || '/', SITEMAP_ORIGIN);
+  url.searchParams.set('lang', 'he');
+  return url.toString();
+}
+
 function buildBlogPostUrl(slug, language) {
   const normalizedSlug = String(slug || '').trim().replace(/^\/+|\/+$/g, '');
   if (!normalizedSlug) {
@@ -95,10 +111,22 @@ function buildServiceOfferUrl(kind, slug, language) {
   const url = new URL(templatePath, SITEMAP_ORIGIN);
   url.searchParams.set('slug', normalizedSlug);
   const languageParam = getLanguageQueryParam(language);
-  if (languageParam) {
+  if (language === 'he') {
+    url.searchParams.set('lang', 'he');
+  } else if (languageParam) {
     url.searchParams.set('lang', languageParam);
   }
   return url.toString();
+}
+
+function getHeStaticSitemapEntries() {
+  return STATIC_HE_SITEMAP_URLS
+    .filter((entry) => canGenerateHeSeo({
+      pageKey: entry.pageKey,
+      language: 'he',
+      surface: 'sitemap',
+    }))
+    .map((entry) => ({ loc: buildHebrewStaticUrl(entry.path) }));
 }
 
 function sortEntries(entries) {
@@ -215,7 +243,7 @@ async function fetchPublishedServiceEntries(client, kind) {
 
   const { data, error } = await client
     .from(table)
-    .select('slug')
+    .select('slug, title, description')
     .eq('is_published', true)
     .not('slug', 'is', null);
 
@@ -229,14 +257,30 @@ async function fetchPublishedServiceEntries(client, kind) {
     if (!slug) {
       return [];
     }
-    return SITEMAP_LANGUAGES.map((language) => ({
+    const entries = SITEMAP_LANGUAGES.map((language) => ({
       loc: buildServiceOfferUrl(kind, slug, language || DEFAULT_PUBLIC_LANGUAGE),
     }));
+    const pageKey = kind === 'hotels' ? 'hotel' : 'trip';
+    const heReady = Boolean(row?.title?.he && row?.description?.he);
+    if (canGenerateHeSeo({
+      pageKey,
+      language: 'he',
+      surface: 'sitemap',
+      recordReady: heReady,
+    })) {
+      entries.push({
+        loc: buildServiceOfferUrl(kind, slug, 'he'),
+      });
+    }
+    return entries;
   });
 }
 
 export function getStaticSitemapEntries() {
-  return dedupeEntries(STATIC_PUBLIC_URLS.map((loc) => ({ loc: buildAbsoluteUrl(loc) })));
+  return dedupeEntries([
+    ...STATIC_PUBLIC_URLS.map((loc) => ({ loc: buildAbsoluteUrl(loc) })),
+    ...getHeStaticSitemapEntries(),
+  ]);
 }
 
 export async function getDynamicSitemapEntries(env) {

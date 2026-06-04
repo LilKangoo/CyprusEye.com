@@ -2,6 +2,12 @@ const SITE_ORIGIN = 'https://www.cypruseye.com';
 const SITE_NAME = 'CyprusEye';
 const SITE_LOGO_PATH = '/assets/cyprus_logo-1000x1054.png';
 
+function toSchemaLanguage(language) {
+  if (language === 'he') return 'he-IL';
+  if (language === 'pl') return 'pl-PL';
+  return 'en-GB';
+}
+
 function isPlainObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value);
 }
@@ -70,7 +76,7 @@ export function buildWebSiteJsonLd({ language = 'en', url = SITE_ORIGIN, descrip
     '@id': `${SITE_ORIGIN}/#website`,
     name: SITE_NAME,
     url: toStructuredDataUrl(url),
-    inLanguage: language === 'pl' ? 'pl-PL' : 'en-GB',
+    inLanguage: toSchemaLanguage(language),
     description,
     publisher: {
       '@id': `${SITE_ORIGIN}/#organization`,
@@ -125,7 +131,7 @@ export function buildArticleJsonLd({
       '@type': 'WebPage',
       '@id': resolvedUrl,
     },
-    inLanguage: language === 'pl' ? 'pl-PL' : 'en-GB',
+    inLanguage: toSchemaLanguage(language),
     datePublished,
     dateModified,
     author: authorName
@@ -161,7 +167,7 @@ export function buildServiceJsonLd({
     description,
     image: image ? toStructuredDataUrl(image) : '',
     url: resolvedUrl,
-    inLanguage: language === 'pl' ? 'pl-PL' : 'en-GB',
+    inLanguage: toSchemaLanguage(language),
     serviceType,
     areaServed,
     provider: {

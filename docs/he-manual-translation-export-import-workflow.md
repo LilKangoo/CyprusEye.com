@@ -214,3 +214,34 @@ Blog public-ready rollback:
 1. Change `review_status` from `public_ready` to `reviewed` or `needs_review`.
 2. Keep Blog blocked or record-gated.
 3. Purge cache after any public readiness change.
+
+## Shop HE Manual Review Rules
+
+Shop remains excluded from public HE until a dedicated Shop stage passes.
+
+Use these review packs:
+
+- `translations/manual-review/shop-review.json`
+- `translations/manual-review/email-template-review.json`
+- `translations/manual-review/dynamic-content-review.json`
+
+Current Stage46 decision:
+
+- `shop.html?lang=he` stays EN/LTR.
+- Shop does not show HE in the language switcher.
+- Cart, checkout, shipping, discount, payment and order confirmation do not
+  enter RTL/HE.
+- Dynamic Shop records are review inputs only. They must not be imported through
+  the static JSON importer.
+- Completing Shop translations does not activate Shop HE.
+
+Before a future Shop HE stage:
+
+1. Manually review all Shop static records.
+2. Manually review Shop product/category/vendor/shipping records.
+3. Manually review Shop emails and payment/order copy.
+4. Run checkout/payment smoke with Stripe sandbox.
+5. Explicitly change the Shop readiness/config in a separate approved stage.
+
+No Shop `public_ready` or equivalent publication flag is set by the manual
+translation importer.

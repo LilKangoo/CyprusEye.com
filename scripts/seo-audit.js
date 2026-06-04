@@ -152,6 +152,17 @@ function normalizePathFromUrl(rawValue) {
   }
 }
 
+function normalizeSitemapLocalPagePath(urlPath) {
+  const value = String(urlPath || '').trim();
+  if (!value) return '';
+  try {
+    const url = new URL(value, SITEMAP_ORIGIN);
+    return url.pathname || '/';
+  } catch {
+    return value.split(/[?#]/)[0] || '/';
+  }
+}
+
 function normalizeInternalHref(rawValue) {
   const value = String(rawValue || '').trim();
   if (!value || value.startsWith('#') || /^(?:mailto|tel|javascript):/i.test(value)) {
@@ -409,14 +420,14 @@ async function main() {
 
   const sitemapNoindexConflicts = sitemapPaths
     .map((urlPath) => {
-      const page = pageByPath.get(urlPath);
+      const page = pageByPath.get(normalizeSitemapLocalPagePath(urlPath));
       return page && isNoindex(page.robots) ? `${urlPath} (${page.relativePath}: robots=${page.robots})` : '';
     })
     .filter(Boolean);
 
   const sitemapMissingLocalPages = sitemapPaths
     .filter((urlPath) => !urlPath.startsWith('/blog?'))
-    .filter((urlPath) => !pageByPath.has(urlPath))
+    .filter((urlPath) => !pageByPath.has(normalizeSitemapLocalPagePath(urlPath)))
     .map((urlPath) => `${urlPath} is listed in static sitemap but no matching local HTML file was found`);
 
   const indexablePrivatePages = pageMeta
@@ -440,7 +451,7 @@ async function main() {
     .filter((urlPath) => !urlPath.startsWith('/blog?'))
     .filter((urlPath) => !isPrivatePath(urlPath))
     .flatMap((urlPath) => {
-      const page = pageByPath.get(urlPath);
+      const page = pageByPath.get(normalizeSitemapLocalPagePath(urlPath));
       if (!page) return [];
       return SEO_AUDIT_LANGUAGES.flatMap((language) => {
         const meta = page.localized?.[language] || {};
@@ -463,7 +474,7 @@ async function main() {
     .filter((urlPath) => !urlPath.startsWith('/blog?'))
     .filter((urlPath) => !isPrivatePath(urlPath))
     .flatMap((urlPath) => {
-      const page = pageByPath.get(urlPath);
+      const page = pageByPath.get(normalizeSitemapLocalPagePath(urlPath));
       if (!page) return [];
       return SEO_AUDIT_LANGUAGES.flatMap((language) => {
         const alternates = page.localized?.[language]?.alternates || {};
@@ -483,7 +494,7 @@ async function main() {
   const publicImageWarnings = sitemapPaths
     .filter((urlPath) => !urlPath.startsWith('/blog?'))
     .filter((urlPath) => !isPrivatePath(urlPath))
-    .flatMap((urlPath) => pageByPath.get(urlPath)?.imageIssues || []);
+    .flatMap((urlPath) => pageByPath.get(normalizeSitemapLocalPagePath(urlPath))?.imageIssues || []);
 
   const homeInternalLinks = new Set(homePage?.internalLinks || []);
   const homeInternalLinkWarnings = REQUIRED_HOME_LINKS

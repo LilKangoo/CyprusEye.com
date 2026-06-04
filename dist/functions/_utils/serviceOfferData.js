@@ -2,6 +2,7 @@ import { createSupabaseClients } from './supabaseAdmin.js';
 import {
   DEFAULT_PUBLIC_LANGUAGE,
   getPublicLanguageCodes,
+  normalizeLanguageCode,
   normalizePublicLanguage,
 } from './languageRollout.js';
 
@@ -70,6 +71,10 @@ function getReadClient(env) {
 }
 
 export function normalizeServiceOfferLanguage(value) {
+  const normalized = normalizeLanguageCode(value);
+  if (['en', 'pl', 'he'].includes(normalized)) {
+    return normalized;
+  }
   return normalizePublicLanguage(value, SERVICE_OFFER_DEFAULT_LANGUAGE, 'routes');
 }
 

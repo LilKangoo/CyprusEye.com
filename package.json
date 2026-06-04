@@ -13,6 +13,7 @@
     "serve:web": "node server.js",
     "dev": "node server.js",
     "seo:audit": "node scripts/seo-audit.js",
+    "seo:he-guard": "node scripts/test-he-seo-guard.js",
     "seo:production": "node scripts/seo-production-check.js",
     "i18n:audit": "node scripts/audit-translations.js",
     "i18n:tri-audit": "node scripts/audit-pl-en-he.js",

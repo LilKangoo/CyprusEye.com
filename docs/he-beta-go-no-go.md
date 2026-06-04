@@ -517,3 +517,103 @@ Current pack summary:
 | Blog | 21 |
 
 Blog remains `BLOCKED`, Shop remains `EXCLUDED`, and SEO HE remains `OFF`.
+
+## Stage 46 Shop GO / NO-GO
+
+Decision: **NO-GO for Shop HE; GO for keeping Shop safely excluded**.
+
+GO conditions satisfied for current safety posture:
+
+- Shop remains `excluded` in the page readiness registry.
+- `shopEnabled:false` remains in the rollout config.
+- `shop.html?lang=he` resolves to EN/LTR.
+- Shop switcher does not expose HE.
+- Cart, checkout, shipping, discount, payment and order confirmation do not
+  enter RTL/HE.
+- Home/nav/CTA links to Shop normalize to EN/LTR.
+- Booking/payment, transport deposit, partner fulfillment and Stripe webhook
+  logic were not changed.
+
+NO-GO conditions for future Shop HE:
+
+- Any checkout/payment surface shows HE before manual review.
+- Any dynamic Shop record is treated as Hebrew solely because it has
+  same-as-EN fallback text.
+- Any Shop email/payment/order template has missing HE or placeholder mismatch.
+- Any Shop link carries `lang=he` from Home, Blog, Recommendations or POI before
+  Shop is explicitly approved.
+
+Manual review debt before Shop HE:
+
+| Area | Count |
+| --- | ---: |
+| Static Shop review records | 96 |
+| Missing static HE | 3 |
+| Shop email/payment/order records | 3 |
+| Dynamic Shop records requiring review | 18 |
+
+Next allowed Shop-related stage is planning/review only, or a dedicated Shop HE
+implementation stage after full manual content review and payment QA.
+
+## Stage 47 SEO GO / NO-GO
+
+Decision: **GO for SEO architecture preparation; NO-GO for SEO activation**.
+
+GO:
+
+- Central guard exists in `functions/_utils/heSeoReadiness.js`.
+- `npm run seo:he-guard` verifies that HE SEO remains hidden while flags are
+  disabled.
+- SEO candidate pages are defined.
+- Blog remains blocked.
+- Shop/cart/checkout/payment remain excluded.
+- `/he/` routes remain non-public.
+
+NO-GO:
+
+- Turning on `seoEnabled`, `sitemapEnabled`, `hreflangEnabled`,
+  `canonicalEnabled` or `indexingEnabled` before a dedicated SEO activation
+  stage.
+- Adding HE sitemap entries for Blog, Shop, checkout/payment, admin/partners or
+  fallback-only pages.
+- Adding `hreflang="he"` for record detail pages whose record is not HE-ready.
+- Adding Blog HE SEO before manually reviewed `public_ready` rows exist.
+
+Rollback for a future SEO activation:
+
+1. Set every HE SEO flag back to `false`.
+2. Keep `/he/` redirects active.
+3. Purge Cloudflare cache.
+4. Re-run `npm run seo:he-guard` and `npm run seo:audit`.
+
+## Stage 48 SEO GO / NO-GO
+
+Decision: **GO for controlled SEO HE on ready pages only**.
+
+GO:
+
+- HE sitemap includes only Home, transport, hotels, recommendations, car and
+  trips static ready URLs.
+- HE canonical and `hreflang="he"` are generated only for allowed pages and
+  HE-ready detail records.
+- Blog and BlogPost remain excluded from HE SEO.
+- Shop/cart/checkout/payment remain excluded from HE SEO.
+- `/he/` routes remain non-public.
+- not-ready records do not generate HE SEO.
+- `npm run seo:he-guard`, `npm run seo:audit`, `npm test` and HE page-gated
+  Playwright smoke passed.
+
+NO-GO:
+
+- Global HE.
+- Blog HE public read or Blog HE SEO.
+- Shop HE, checkout/cart/payment RTL or Shop HE SEO.
+- Sitemap/hreflang/canonical HE for not-ready records.
+- Any public `/he/` route.
+
+Rollback:
+
+1. Set `CE_HE_SEO_ENABLED=false` or disable HE SEO surfaces in
+   `CE_HE_SEO_ROLLOUT_CONFIG`.
+2. Purge Cloudflare cache.
+3. Verify with `npm run seo:he-guard` and `npm run seo:audit`.

@@ -18,7 +18,7 @@ import { getSitemapEntries, getStaticSitemapEntries, renderSitemapXml } from './
 const translationCache = new Map();
 
 async function loadTranslations(context, language) {
-  const cacheKey = language === 'en' ? 'en' : 'pl';
+  const cacheKey = ['en', 'pl', 'he'].includes(language) ? language : 'en';
   if (translationCache.has(cacheKey)) {
     return translationCache.get(cacheKey);
   }
@@ -40,7 +40,11 @@ async function loadTranslations(context, language) {
 }
 
 async function serveSeoPage(context, url, route) {
-  const language = getSeoLanguage(url);
+  const heSeo = {
+    pageKey: route.seoPage,
+    pathname: url.pathname,
+  };
+  const language = getSeoLanguage(url, heSeo);
   const htmlResponse = await serveStatic(context, route.htmlPath, { method: 'GET' });
   if (!htmlResponse.ok) {
     return htmlResponse;
@@ -55,6 +59,7 @@ async function serveSeoPage(context, url, route) {
     requestSearch: url.search,
     translations,
     fallbackSeo: extractSeoFallbacksFromHtml(html),
+    heSeo,
   });
   const localizedHtml = applySeoToHtml(html, seoPayload);
   const headers = new Headers(htmlResponse.headers);
@@ -79,7 +84,6 @@ async function serveSeoPage(context, url, route) {
 }
 
 async function serveServiceOfferPage(context, url, serviceRequest) {
-  const language = getSeoLanguage(url);
   const htmlResponse = await serveStatic(context, serviceRequest.templatePath, { method: 'GET' });
   if (!htmlResponse.ok) {
     return htmlResponse;
@@ -100,6 +104,12 @@ async function serveServiceOfferPage(context, url, serviceRequest) {
     status = 500;
   }
 
+  const heSeo = {
+    pageKey: serviceRequest.kind,
+    pathname: serviceRequest.requestPathname,
+    recordReady: Boolean(offer?.title?.he && offer?.description?.he),
+  };
+  const language = getSeoLanguage(url, heSeo);
   const html = await htmlResponse.text();
   const localizedHtml = applySeoToHtml(
     html,
@@ -109,6 +119,7 @@ async function serveServiceOfferPage(context, url, serviceRequest) {
       requestPathname: serviceRequest.requestPathname,
       pathStyle: serviceRequest.pathStyle,
       offer,
+      heSeo,
     })
   );
   const headers = new Headers(htmlResponse.headers);
@@ -133,7 +144,6 @@ async function serveServiceOfferPage(context, url, serviceRequest) {
 }
 
 async function serveCarOfferPage(context, url) {
-  const language = getSeoLanguage(url);
   const htmlResponse = await serveStatic(context, '/car.html', { method: 'GET' });
   if (!htmlResponse.ok) {
     return htmlResponse;
@@ -155,6 +165,12 @@ async function serveCarOfferPage(context, url) {
     status = 500;
   }
 
+  const heSeo = {
+    pageKey: 'carOffer',
+    pathname: url.pathname,
+    recordReady: Boolean(offer?.features?.he || offer?.description?.he),
+  };
+  const language = getSeoLanguage(url, heSeo);
   const html = await htmlResponse.text();
   const localizedHtml = applySeoToHtml(
     html,
@@ -163,6 +179,7 @@ async function serveCarOfferPage(context, url) {
       offer,
       requestedCarSlug,
       requestedOfferLocation,
+      heSeo,
     })
   );
   const headers = new Headers(htmlResponse.headers);
