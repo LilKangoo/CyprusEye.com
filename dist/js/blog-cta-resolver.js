@@ -206,12 +206,52 @@ function buildShopHref(row, language) {
   if (resourceId) {
     params.set('product', resourceId);
   }
-  params.set('lang', normalizeLanguage(language));
+  const localized = normalizeLanguage(language);
+  params.set('lang', localized === 'he' ? 'en' : localized);
   return `/shop.html?${params.toString()}`;
 }
 
+function mapBlogTranslationForReadiness(row) {
+  if (!row || typeof row !== 'object') {
+    return null;
+  }
+  return {
+    lang: normalizeLanguage(row.lang),
+    slug: String(row.slug || '').trim(),
+    title: String(row.title || '').trim(),
+    summary: String(row.summary || '').trim(),
+    lead: String(row.lead || '').trim(),
+    reviewStatus: String(row.review_status || row.reviewStatus || 'draft').trim(),
+  };
+}
+
+function isBlogTranslationPublicReady(row) {
+  const translation = mapBlogTranslationForReadiness(row);
+  return Boolean(
+    translation
+      && translation.lang === 'he'
+      && translation.reviewStatus === 'public_ready'
+      && translation.slug
+      && translation.title
+      && translation.summary
+      && translation.lead
+  );
+}
+
 function buildBlogHref(row, language) {
+  const localized = normalizeLanguage(language);
   const translations = safeArray(row?.translations);
+  if (localized === 'he') {
+    const he = translations.find((entry) => normalizeLanguage(entry?.lang) === 'he') || null;
+    if (isBlogTranslationPublicReady(he)) {
+      const slug = String(he?.slug || '').trim();
+      return slug ? `/blog/${encodeURIComponent(slug)}?lang=he` : '/blog?lang=he';
+    }
+    const en = translations.find((entry) => normalizeLanguage(entry?.lang) === 'en') || null;
+    const pl = translations.find((entry) => normalizeLanguage(entry?.lang) === 'pl') || null;
+    const fallbackSlug = String(en?.slug || pl?.slug || '').trim();
+    return fallbackSlug ? `/blog/${encodeURIComponent(fallbackSlug)}` : '/blog?lang=en';
+  }
   const chain = getLanguageFallbackChain(language);
   const preferred = chain
     .map((code) => translations.find((entry) => normalizeLanguage(entry?.lang) === code))
@@ -219,9 +259,9 @@ function buildBlogHref(row, language) {
   const fallback = preferred || translations[0] || null;
   const slug = String(preferred?.slug || fallback?.slug || '').trim();
   if (!slug) {
-    return `/blog?lang=${normalizeLanguage(language)}`;
+    return localized === 'pl' ? '/blog?lang=pl' : '/blog?lang=en';
   }
-  return `/blog/${encodeURIComponent(slug)}?lang=${normalizeLanguage(language)}`;
+  return localized === 'pl' ? `/blog/${encodeURIComponent(slug)}?lang=pl` : `/blog/${encodeURIComponent(slug)}`;
 }
 
 function buildServiceMeta(type, language) {
@@ -247,8 +287,18 @@ function buildServiceMeta(type, language) {
       recommendations: { label: 'Polecane', cta: 'Zobacz polecenie' },
       blog: { label: 'Artykuł', cta: 'Czytaj artykuł' },
     },
+    he: {
+      trips: { label: 'טיול', cta: 'בדיקת הטיול' },
+      hotels: { label: 'לינה', cta: 'בדיקת מקום הלינה' },
+      cars: { label: 'השכרת רכב', cta: 'בדיקת רכבים' },
+      transport: { label: 'תחבורה', cta: 'בדיקת מסלול' },
+      shop: { label: 'מוצר', cta: 'צפייה במוצר' },
+      pois: { label: 'מקום', cta: 'גילוי המקום' },
+      recommendations: { label: 'המלצה', cta: 'צפייה בהמלצה' },
+      blog: { label: 'מאמר', cta: 'קריאת המאמר' },
+    },
   };
-  const copyLanguage = localized === 'pl' ? 'pl' : 'en';
+  const copyLanguage = copy[localized] ? localized : 'en';
   return copy[copyLanguage][type] || copy[copyLanguage].recommendations;
 }
 
@@ -418,17 +468,23 @@ function mapShop(row, language) {
 
 function mapBlog(row, language) {
   const meta = buildServiceMeta('blog', language);
+  const localized = normalizeLanguage(language);
   const translations = safeArray(row?.translations);
-  const chain = getLanguageFallbackChain(language);
+  const chain = getLanguageFallbackChain(localized);
   const preferred = chain
     .map((code) => translations.find((entry) => normalizeLanguage(entry?.lang) === code))
     .find(Boolean) || null;
   const fallback = preferred || translations[0] || null;
-  const title = String(preferred?.title || fallback?.title || 'Blog post').trim();
-  const description = truncateText(preferred?.summary || preferred?.lead || fallback?.summary || fallback?.lead || '');
+  const displayTranslation = localized === 'he' && !isBlogTranslationPublicReady(preferred)
+    ? translations.find((entry) => normalizeLanguage(entry?.lang) === 'en')
+      || translations.find((entry) => normalizeLanguage(entry?.lang) === 'pl')
+      || fallback
+    : preferred || fallback;
+  const title = String(displayTranslation?.title || fallback?.title || 'Blog post').trim();
+  const description = truncateText(displayTranslation?.summary || displayTranslation?.lead || fallback?.summary || fallback?.lead || '');
   const publishedAt = row?.published_at ? new Date(row.published_at) : null;
   const metaLabel = publishedAt && !Number.isNaN(publishedAt.getTime())
-    ? new Intl.DateTimeFormat(normalizeLanguage(language) === 'pl' ? 'pl-PL' : 'en-GB', {
+    ? new Intl.DateTimeFormat(localized === 'pl' ? 'pl-PL' : localized === 'he' ? 'he-IL' : 'en-GB', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -545,9 +601,22 @@ async function fetchTransportRowsByIds(supabase, ids) {
 
 async function fetchBlogRowsByIds(supabase, ids) {
   if (!supabase || !ids.length) return [];
-  const { data, error } = await supabase
-    .from('blog_posts')
-    .select(`
+  const selectWithReview = `
+      id,
+      published_at,
+      cover_image_url,
+      translations:blog_post_translations (
+        lang,
+        slug,
+        title,
+        summary,
+        lead,
+        review_status,
+        reviewed_at,
+        reviewed_by
+      )
+    `;
+  const selectLegacy = `
       id,
       published_at,
       cover_image_url,
@@ -558,12 +627,26 @@ async function fetchBlogRowsByIds(supabase, ids) {
         summary,
         lead
       )
-    `)
+    `;
+  let { data, error } = await supabase
+    .from('blog_posts')
+    .select(selectWithReview)
     .eq('status', 'published')
     .eq('submission_status', 'approved')
     .not('published_at', 'is', null)
     .lte('published_at', new Date().toISOString())
     .in('id', ids);
+
+  if (error && /review_status|reviewed_at|reviewed_by|could not find|does not exist|42703/i.test(String(error?.message || error?.details || error?.hint || error?.code || ''))) {
+    ({ data, error } = await supabase
+      .from('blog_posts')
+      .select(selectLegacy)
+      .eq('status', 'published')
+      .eq('submission_status', 'approved')
+      .not('published_at', 'is', null)
+      .lte('published_at', new Date().toISOString())
+      .in('id', ids));
+  }
 
   if (error) {
     console.warn('[blog-cta] Failed to load blog_posts:', error);

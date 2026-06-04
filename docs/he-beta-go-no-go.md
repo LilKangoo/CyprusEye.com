@@ -358,3 +358,72 @@ Prepared files:
 Rollback for a future Stage41 test: restore the migration-179 public policy
 that limits `blog_post_translations_public_read` to `lang IN ('pl', 'en')`,
 then set Blog/BlogPost back to `blocked` in the page registry.
+
+## Stage 41 Blog Record-Gated Gate
+
+Decision target: **GO only for preparation; NO-GO for public Blog HE activation**.
+
+Stage41 GO conditions:
+
+- Stage41 SQL exists in draft/apply/verify form.
+- Draft/apply SQL is additive and does not use destructive `DROP` operations.
+- Blog list/detail code has strict HE record-gating.
+- Blog CTA links do not carry HE into Shop or non-ready Blog destinations.
+- Blog and BlogPost remain BLOCKED in the live page registry.
+- SEO HE remains off.
+- Shop remains excluded.
+- Booking/payment tests are not affected.
+
+Stage42 GO conditions:
+
+- Human review has approved top five HE posts.
+- `he_blog_stage41_public_read_apply.sql` has been manually run.
+- `he_blog_stage41_public_read_verify.sql` reports:
+  - review columns present;
+  - public policy gated by `review_status='public_ready'`;
+  - `public_ready_he_rows = 5`;
+  - duplicate HE slug query returns zero rows.
+- Blog list/detail record-gated smoke passes with SEO HE still off.
+
+Stage42 NO-GO conditions:
+
+- Any HE blog row is public-readable without `public_ready`.
+- Blog list shows EN fallback posts in HE.
+- Blog detail falls back to EN for a non-ready HE slug.
+- Shop/cart/checkout/payment receives `lang=he`.
+- Sitemap, hreflang, canonical, OpenGraph or indexing expose HE.
+
+## Stage 42 Blog Human Review Gate
+
+Current decision: **NO-GO for Blog HE public activation; GO for manual SQL
+preparation**.
+
+Observed state:
+
+- Supabase preview currently reports `public_ready_he_rows = 0`.
+- Blog and BlogPost must remain `blocked` until top-five public-ready marking is
+  applied and verified.
+
+Prepared Stage42 files:
+
+- `supabase/manual/he_blog_stage42_mark_top5_public_ready_draft.sql`
+- `supabase/manual/he_blog_stage42_mark_top5_public_ready_apply.sql`
+- `supabase/manual/he_blog_stage42_public_ready_verify.sql`
+
+Stage42 GO for record-gated Blog smoke requires:
+
+1. `he_blog_stage41_public_read_apply.sql` committed.
+2. Human/native review accepted for all five top posts.
+3. `he_blog_stage42_mark_top5_public_ready_apply.sql` committed manually.
+4. `he_blog_stage42_public_ready_verify.sql` reports
+   `public_ready_he_rows = 5`.
+5. Duplicate HE slug check returns zero rows.
+6. Parent-not-public check returns zero rows.
+7. SEO HE and Shop HE remain off.
+
+Rollback:
+
+- Reset the affected top-five HE rows from `public_ready` to `reviewed` or
+  `needs_review`.
+- Keep Blog/BlogPost as `blocked`.
+- Existing Home, READY and record-gated non-Blog HE pages remain unchanged.

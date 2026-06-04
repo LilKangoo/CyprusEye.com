@@ -600,3 +600,66 @@ Public readiness requirements:
 
 Current verdict: Blog stays `BLOCKED`; next work is Stage41 public-read and
 record-gating preparation, not a public launch.
+
+## Stage 41 Blog Record-Gated Readiness
+
+Status: **BLOCKED, with record-gated foundation prepared**.
+
+What changed:
+
+- Blog public-read SQL now has a safe manual apply path:
+  `supabase/manual/he_blog_stage41_public_read_apply.sql`.
+- The Stage41 draft no longer drops existing policy or constraint objects; it
+  previews the same logic with `ROLLBACK`.
+- Verify SQL now checks the actual gate needed for launch:
+  `public_ready_he_rows`, duplicate HE slugs and CTA risk.
+- Server-side Blog list/detail code now has an HE-only path that refuses
+  fallback-heavy content.
+- Browser Blog list/detail code has the same dormant record-gated behavior for
+  a later page registry change.
+
+Top 5 public-ready requirement:
+
+| Requirement | Status |
+| --- | --- |
+| HE candidate rows exist | Verify in Supabase with Stage40/Stage41 SQL |
+| Complete title/slug/meta/summary/lead/content | Verify required |
+| `categories_he` / `tags_he` present | Verify required |
+| `review_status='public_ready'` | Not set by code; must be editorial/manual |
+| Duplicate HE slugs | Must be zero |
+| CTA destinations safe | Verify and review required |
+
+Launch posture after Stage41:
+
+- Blog and Blog detail remain `BLOCKED`.
+- Shop remains `EXCLUDED`.
+- HE SEO remains `OFF`.
+- Booking/payment flow was not touched.
+
+Next decision: run the manual SQL apply/verify only after human review of the
+top five HE posts, then perform a dedicated record-gated Blog rollout smoke.
+
+## Stage 42 Blog Human Review Status
+
+Status: **BLOCKED; public-ready marking prepared but not executed by code**.
+
+The Stage42 pre-apply screenshot from Supabase showed
+`public_ready_he_rows = 0`. This means no HE blog post is currently safe to
+expose as public Blog HE, even though the record-gated code path and policy gate
+are prepared.
+
+Prepared manual files:
+
+- `supabase/manual/he_blog_stage42_mark_top5_public_ready_draft.sql`
+- `supabase/manual/he_blog_stage42_mark_top5_public_ready_apply.sql`
+- `supabase/manual/he_blog_stage42_public_ready_verify.sql`
+
+Blog can move from `BLOCKED` to `RECORD-GATED READY candidate` only after:
+
+1. Human/native review accepts all five top posts.
+2. Stage42 apply is run manually.
+3. Stage42 verify reports five public-ready rows and no duplicate HE slugs.
+4. Blog list/detail smoke confirms non-ready posts normalize to EN/LTR.
+
+SEO HE, sitemap, hreflang, canonical, indexing, Shop HE and public `/he/`
+remain off.

@@ -1,12 +1,15 @@
--- Stage 41 DRAFT: reviewed Blog HE public-read gate.
--- Keep the final ROLLBACK until Stage 41 is explicitly approved.
+-- Stage 41 APPLY: reviewed Blog HE public-read gate.
+-- Run manually in Supabase SQL Editor only after:
+-- 1) top 5 HE blog rows are complete,
+-- 2) human editorial review is accepted,
+-- 3) Blog list/detail record-gating has passed tests.
 --
--- This draft does not enable global HE, SEO HE, sitemap HE, hreflang HE,
+-- This does not enable global HE, SEO HE, sitemap HE, hreflang HE,
 -- canonical HE, indexing HE, Shop HE, or public /he/ routes.
 --
--- If committed, it exposes HE blog translations only when each HE translation
--- is explicitly marked review_status = 'public_ready' and the parent post is
--- published/approved. It does not mark any row public_ready.
+-- This file does not mark any row public_ready. It only creates the review
+-- columns and updates the public read policy so HE rows are readable only when
+-- they are explicitly marked review_status = 'public_ready'.
 
 BEGIN;
 
@@ -124,21 +127,8 @@ BEGIN
   END IF;
 END $$;
 
--- Do not run this until human editorial review is complete. It is intentionally
--- left commented so this draft cannot accidentally publish HE rows.
--- UPDATE public.blog_post_translations
--- SET review_status = 'public_ready', reviewed_at = now()
--- WHERE lang = 'he'
---   AND blog_post_id IN (
---     '0477e103-ee8a-47b3-9b54-69757dfbc07f',
---     '2a59c0a7-52fd-498f-b4fe-d0d76617c882',
---     '2e88f39b-5b5c-4e04-82b5-c125f19920b3',
---     'a021f1d4-79e9-4c9e-a6ac-d36c13bd16ef',
---     '1c1f8eb6-c709-4302-8611-6322b5ed5fad'
---   );
-
 SELECT
-  'stage41_public_read_draft_policy' AS check_name,
+  'stage41_public_read_policy' AS check_name,
   policyname,
   qual
 FROM pg_policies
@@ -147,11 +137,10 @@ WHERE schemaname = 'public'
   AND policyname = 'blog_post_translations_public_read';
 
 SELECT
-  'stage41_he_rows_public_ready_in_transaction' AS check_name,
+  'stage41_he_rows_public_ready_after_apply' AS check_name,
   COUNT(*) AS public_ready_he_rows
 FROM public.blog_post_translations
 WHERE lang = 'he'
   AND review_status = 'public_ready';
 
--- Keep as ROLLBACK until Stage 41 approval.
-ROLLBACK;
+COMMIT;

@@ -412,3 +412,64 @@ Dynamic decision:
 - Blog can become `RECORD-GATED READY` only for reviewed top posts.
 - Blog should not become `READY` until the full launch archive has reviewed HE
   content or the product decision explicitly accepts a partial archive.
+
+## Stage 41 Blog Dynamic Gate
+
+Status: **prepared, not activated**.
+
+Dynamic rule for future Blog HE:
+
+- Blog list must query HE translations directly and include only
+  `review_status='public_ready'` rows.
+- Blog detail must resolve only reviewed HE slugs. Missing or unreviewed HE must
+  return no HE record instead of falling back to EN.
+- Related posts must use only reviewed HE rows.
+- Blog taxonomy must come from `categories_he` and `tags_he`.
+- Blog CTAs must not carry HE into Shop/cart/checkout/payment or blocked pages.
+
+SQL readiness:
+
+| File | Purpose | Execution |
+| --- | --- | --- |
+| `he_blog_stage41_public_read_draft.sql` | Preview review columns and gated public policy | Manual, ends with ROLLBACK |
+| `he_blog_stage41_public_read_apply.sql` | Apply review columns and gated public policy | Manual COMMIT after human review |
+| `he_blog_stage41_public_read_verify.sql` | Verify policy + top-five public-ready rows | Manual read-only |
+
+Current dynamic decision:
+
+- Blog remains **BLOCKED** until `public_ready_he_rows = 5` and Blog list/detail
+  smoke tests pass.
+- Full public archive remains incomplete; only top-five record-gated Blog HE is
+  a candidate for the next stage.
+
+## Stage 42 Blog Public-Ready Data Gate
+
+Status: **prepared, not applied by code**.
+
+The current manual preview state has zero HE blog translations marked
+`public_ready`, so dynamic Blog HE remains blocked. Stage42 adds a narrow data
+gate for the already selected top-five posts only.
+
+Top-five records in scope:
+
+| Label | Blog post id | Public-ready action |
+| --- | --- | --- |
+| Affiliate / earning from tourism | `0477e103-ee8a-47b3-9b54-69757dfbc07f` | Mark only after human review |
+| ETIAS Cyprus 2026 | `2a59c0a7-52fd-498f-b4fe-d0d76617c882` | Mark only after human review |
+| Cyprus in 7 days | `2e88f39b-5b5c-4e04-82b5-c125f19920b3` | Mark only after human review |
+| Car rental without deposit | `a021f1d4-79e9-4c9e-a6ac-d36c13bd16ef` | Mark only after human review |
+| Larnaca vs Paphos | `1c1f8eb6-c709-4302-8611-6322b5ed5fad` | Mark only after human review |
+
+Prepared SQL:
+
+- Draft preview: `he_blog_stage42_mark_top5_public_ready_draft.sql`
+- Manual commit: `he_blog_stage42_mark_top5_public_ready_apply.sql`
+- Post-apply verify: `he_blog_stage42_public_ready_verify.sql`
+
+Dynamic readiness after a clean manual apply:
+
+- Blog list can become a **record-gated candidate** that shows only these
+  public-ready HE posts.
+- Blog detail can become **per-record candidate** for public-ready HE slugs.
+- Posts without `public_ready` remain hidden from HE list/detail and must
+  normalize to EN/LTR.

@@ -63,6 +63,8 @@ assert.match(i18nSource, /RECORD_GATED:\s*'record-gated'/);
 assert.match(i18nSource, /recordGatedWhenStage33SqlApplied/);
 assert.match(i18nSource, /allowPartialPagesPublic/);
 assert.match(i18nSource, /data-page-url/);
+assert.match(i18nSource, /blog:\s*\{[\s\S]*?status:\s*HE_PAGE_READINESS_STATUS\.BLOCKED/);
+assert.match(i18nSource, /blogPost:\s*\{[\s\S]*?status:\s*HE_PAGE_READINESS_STATUS\.BLOCKED/);
 
 const betaConfigSource = fs.readFileSync('js/he-beta-rollout-config.js', 'utf8');
 assert.match(betaConfigSource, /mode:\s*'partial_public'/);
@@ -92,5 +94,46 @@ assert.match(shopSource, /isHiddenLanguageDisabledForShop/);
 assert.match(shopSource, /normalizeShopLang/);
 assert.match(rolloutSource, /betaEmails/);
 assert.match(rolloutSource, /allowPreferredLanguage/);
+
+const blogDataSource = fs.readFileSync('functions/_utils/blogData.js', 'utf8');
+const blogListSource = fs.readFileSync('js/blog.js', 'utf8');
+const blogPostSource = fs.readFileSync('js/blog-post.js', 'utf8');
+const blogCtaSource = fs.readFileSync('js/blog-cta-resolver.js', 'utf8');
+assert.match(blogDataSource, /review_status'\s*,\s*'public_ready|review_status.*public_ready/s);
+assert.match(blogDataSource, /getPublishedHebrewBlogListPage/);
+assert.match(blogDataSource, /getPublishedHebrewBlogPostBySlug/);
+assert.match(blogListSource, /fetchHebrewBlogListPage/);
+assert.match(blogPostSource, /fetchHebrewPublicReadyPost/);
+assert.match(blogCtaSource, /function isBlogTranslationPublicReady/);
+assert.match(blogCtaSource, /localized === 'he' \? 'en' : localized/);
+
+const blogStage41DraftSql = fs.readFileSync('supabase/manual/he_blog_stage41_public_read_draft.sql', 'utf8');
+const blogStage41ApplySql = fs.readFileSync('supabase/manual/he_blog_stage41_public_read_apply.sql', 'utf8');
+const blogStage41VerifySql = fs.readFileSync('supabase/manual/he_blog_stage41_public_read_verify.sql', 'utf8');
+const blogStage42DraftSql = fs.readFileSync('supabase/manual/he_blog_stage42_mark_top5_public_ready_draft.sql', 'utf8');
+const blogStage42ApplySql = fs.readFileSync('supabase/manual/he_blog_stage42_mark_top5_public_ready_apply.sql', 'utf8');
+const blogStage42VerifySql = fs.readFileSync('supabase/manual/he_blog_stage42_public_ready_verify.sql', 'utf8');
+for (const source of [blogStage41DraftSql, blogStage41ApplySql]) {
+  assert.doesNotMatch(source, /\bDROP\s+(POLICY|CONSTRAINT|TABLE|COLUMN|INDEX)\b/i);
+  assert.match(source, /review_status = 'public_ready'/);
+  assert.match(source, /lang IN \('pl', 'en'\)/);
+  assert.match(source, /lang = 'he'/);
+}
+assert.match(blogStage41DraftSql, /ROLLBACK;/);
+assert.match(blogStage41ApplySql, /COMMIT;/);
+assert.match(blogStage41VerifySql, /public_ready_he_rows/);
+for (const source of [blogStage42DraftSql, blogStage42ApplySql]) {
+  assert.doesNotMatch(source, /\bDROP\s+(POLICY|CONSTRAINT|TABLE|COLUMN|INDEX)\b/i);
+  assert.match(source, /blog_post_translations/);
+  assert.match(source, /lang = 'he'/);
+  assert.match(source, /review_status = 'public_ready'/);
+  assert.doesNotMatch(source, /lang IN \('pl', 'en'\)[\s\S]*UPDATE/i);
+}
+assert.match(blogStage42DraftSql, /ROLLBACK;/);
+assert.match(blogStage42ApplySql, /COMMIT;/);
+assert.match(blogStage42ApplySql, /complete_count <> 5/);
+assert.match(blogStage42ApplySql, /duplicate_slug_count <> 0/);
+assert.match(blogStage42VerifySql, /stage42_blog_top5_public_ready/);
+assert.match(blogStage42VerifySql, /stage42_blog_public_ready_parent_not_public/);
 
 console.log('HE rollout guard tests passed.');

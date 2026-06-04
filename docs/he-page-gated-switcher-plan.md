@@ -716,3 +716,74 @@ Required before Blog can leave `blocked`:
 5. Normalize Blog CTA links through page readiness so Shop/blocked destinations
    do not carry `lang=he`.
 6. Keep HE SEO off until the separate SEO phase.
+
+## Stage 41 Blog Record-Gated Readiness
+
+Status: **prepared, still BLOCKED**. Stage41 adds the missing pieces for a
+future record-gated Blog rollout, but it does not change the page registry to
+ready/record-gated and does not enable Blog HE publicly.
+
+Prepared runtime behavior:
+
+- Cloudflare Blog helpers now have a strict HE path for list/detail:
+  `lang='he'` requires `review_status='public_ready'`.
+- `blog.html` has a dormant HE list query that reads from
+  `blog_post_translations` and shows only reviewed HE rows.
+- Blog detail has a dormant HE detail query that returns `null` for non-ready
+  slugs instead of falling back to EN/PL.
+- Blog taxonomy is HE-specific on HE paths: `categories_he` and `tags_he`.
+- Blog CTA links normalize Shop to EN/LTR and only keep HE blog links when the
+  target translation is explicitly public-ready.
+
+Prepared SQL:
+
+- `supabase/manual/he_blog_stage41_public_read_draft.sql` remains a ROLLBACK
+  preview.
+- `supabase/manual/he_blog_stage41_public_read_apply.sql` is the manual COMMIT
+  version.
+- `supabase/manual/he_blog_stage41_public_read_verify.sql` checks review
+  columns, public policy, top-five readiness, duplicate HE slugs and CTA risk.
+
+Public readiness remains blocked until:
+
+1. Human review marks the top five HE translations as ready.
+2. The apply SQL has been run manually in Supabase SQL Editor.
+3. The verify SQL reports `public_ready_he_rows = 5` and zero duplicate HE
+   slugs.
+4. A separate rollout stage updates Blog/BlogPost from `blocked` to
+   record-gated and runs live smoke tests.
+5. HE SEO remains off until a later SEO-specific stage.
+
+## Stage 42 Blog Human Review Gate
+
+Status: **manual gate prepared, Blog still BLOCKED**.
+
+The Stage42 Supabase preview screenshot showed
+`stage41_he_rows_public_ready_in_transaction.public_ready_he_rows = 0`. This is
+expected before editorial approval, but it means Blog cannot be treated as
+record-gated ready yet.
+
+Prepared SQL:
+
+- `supabase/manual/he_blog_stage42_mark_top5_public_ready_draft.sql` previews
+  marking only the selected top-five HE translations and ends with `ROLLBACK`.
+- `supabase/manual/he_blog_stage42_mark_top5_public_ready_apply.sql` is the
+  manual `COMMIT` version. It raises if fewer than five selected posts are
+  complete or if duplicate HE slugs exist.
+- `supabase/manual/he_blog_stage42_public_ready_verify.sql` verifies the
+  top-five public-ready rows, duplicate slug safety and parent post status.
+
+Manual sequence:
+
+1. Run `he_blog_stage41_public_read_apply.sql` if the review columns/policy are
+   not already committed.
+2. Run `he_blog_stage42_mark_top5_public_ready_draft.sql` and review every row.
+3. Only after human/native review accepts the top five, run
+   `he_blog_stage42_mark_top5_public_ready_apply.sql`.
+4. Run `he_blog_stage42_public_ready_verify.sql` and proceed only if
+   `public_ready_he_rows = 5` and the duplicate/parent checks return zero
+   problem rows.
+
+Current registry decision: keep `blog` and `blogPost` as `blocked`. Do not show
+HE in the Blog switcher and do not allow `blog.html?lang=he` until a later
+rollout stage changes the registry after clean verify and smoke tests.

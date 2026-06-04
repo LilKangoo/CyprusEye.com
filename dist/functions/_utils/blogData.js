@@ -210,6 +210,112 @@ const BLOG_POST_SELECT_LEGACY = `
   )
 `;
 
+const BLOG_HE_LIST_SELECT = `
+  id,
+  blog_post_id,
+  lang,
+  slug,
+  title,
+  meta_title,
+  meta_description,
+  summary,
+  lead,
+  author_name,
+  author_url,
+  og_image_url,
+  review_status,
+  reviewed_at,
+  reviewed_by,
+  created_at,
+  updated_at,
+  blog_post:blog_posts!inner (
+    id,
+    status,
+    submission_status,
+    published_at,
+    cover_image_url,
+    cover_image_alt,
+    featured,
+    allow_comments,
+    categories,
+    categories_pl,
+    categories_en,
+    categories_he,
+    tags,
+    tags_pl,
+    tags_en,
+    tags_he,
+    cta_services,
+    author_profile_id,
+    owner_partner_id,
+    reviewed_at,
+    reviewed_by,
+    rejection_reason,
+    created_at,
+    updated_at,
+    author_profile:profiles!blog_posts_author_profile_id_fkey (
+      id,
+      name,
+      username,
+      avatar_url
+    )
+  )
+`;
+
+const BLOG_HE_POST_SELECT = `
+  id,
+  blog_post_id,
+  lang,
+  slug,
+  title,
+  meta_title,
+  meta_description,
+  summary,
+  lead,
+  author_name,
+  author_url,
+  content_json,
+  content_html,
+  og_image_url,
+  review_status,
+  reviewed_at,
+  reviewed_by,
+  created_at,
+  updated_at,
+  blog_post:blog_posts!inner (
+    id,
+    status,
+    submission_status,
+    published_at,
+    cover_image_url,
+    cover_image_alt,
+    featured,
+    allow_comments,
+    categories,
+    categories_pl,
+    categories_en,
+    categories_he,
+    tags,
+    tags_pl,
+    tags_en,
+    tags_he,
+    cta_services,
+    author_profile_id,
+    owner_partner_id,
+    reviewed_at,
+    reviewed_by,
+    rejection_reason,
+    created_at,
+    updated_at,
+    author_profile:profiles!blog_posts_author_profile_id_fkey (
+      id,
+      name,
+      username,
+      avatar_url
+    )
+  )
+`;
+
 export function normalizeBlogLanguage(value) {
   return normalizePublicLanguage(value, BLOG_DEFAULT_LANGUAGE, 'routes');
 }
@@ -277,7 +383,7 @@ function isMissingBlogTaxonomyColumnError(error) {
     || combined.includes('does not exist')
     || combined.includes('could not find')
     || combined.includes('column')
-  ) && /(categories_pl|categories_en|tags_pl|tags_en)/i.test(combined);
+  ) && /(categories_pl|categories_en|categories_he|tags_pl|tags_en|tags_he)/i.test(combined);
 }
 
 async function executeBlogQueryWithTaxonomyFallback(primaryFactory, legacyFactory) {
@@ -367,9 +473,11 @@ function getTaxonomyByLang(row, kind) {
   const legacy = normalizeTaxonomyArray(row?.[kind]);
   const pl = normalizeTaxonomyArray(row?.[`${kind}_pl`]);
   const en = normalizeTaxonomyArray(row?.[`${kind}_en`]);
+  const he = normalizeTaxonomyArray(row?.[`${kind}_he`]);
   return {
     pl: pl.length ? pl : legacy,
     en: en.length ? en : legacy,
+    he,
   };
 }
 
@@ -519,22 +627,31 @@ function buildShopHref(row, language) {
   if (resourceId) {
     params.set('product', resourceId);
   }
-  params.set('lang', normalizeBlogLanguage(language));
+  const localized = normalizeBlogLanguage(language);
+  params.set('lang', localized === 'he' ? 'en' : localized);
   return `/shop.html?${params.toString()}`;
 }
 
 function buildBlogHref(row, language) {
+  const localized = normalizeBlogLanguage(language);
   const translations = safeArray(row?.translations);
-  const preferred = translations.find((entry) => normalizeBlogLanguage(entry?.lang) === normalizeBlogLanguage(language)) || null;
+  const preferred = translations.find((entry) => normalizeBlogLanguage(entry?.lang) === localized) || null;
+  if (localized === 'he' && isBlogTranslationPublicReady(mapTranslation(preferred), { requireContent: false })) {
+    const slug = String(preferred?.slug || '').trim();
+    return slug ? `/blog/${encodeURIComponent(slug)}?lang=he` : '/blog?lang=he';
+  }
   const fallback = translations.find((entry) => normalizeBlogLanguage(entry?.lang) === 'en')
     || translations.find((entry) => normalizeBlogLanguage(entry?.lang) === 'pl')
     || translations[0]
     || null;
   const slug = String(preferred?.slug || fallback?.slug || '').trim();
   if (!slug) {
-    return `/blog?lang=${normalizeBlogLanguage(language)}`;
+    return localized === 'pl' ? '/blog?lang=pl' : '/blog?lang=en';
   }
-  return `/blog/${encodeURIComponent(slug)}?lang=${normalizeBlogLanguage(language)}`;
+  if (localized === 'pl') {
+    return `/blog/${encodeURIComponent(slug)}?lang=pl`;
+  }
+  return `/blog/${encodeURIComponent(slug)}`;
 }
 
 function buildServiceMeta(type, language) {
@@ -558,6 +675,16 @@ function buildServiceMeta(type, language) {
       pois: { label: 'Miejsce', cta: 'Poznaj miejsce' },
       recommendations: { label: 'Polecane', cta: 'Zobacz polecenie' },
       blog: { label: 'Artykuł', cta: 'Czytaj artykuł' },
+    },
+    he: {
+      trips: { label: 'טיול', cta: 'בדיקת הטיול' },
+      hotels: { label: 'לינה', cta: 'בדיקת מקום הלינה' },
+      cars: { label: 'השכרת רכב', cta: 'בדיקת רכבים' },
+      transport: { label: 'תחבורה', cta: 'בדיקת מסלול' },
+      shop: { label: 'מוצר', cta: 'צפייה במוצר' },
+      pois: { label: 'מקום', cta: 'גילוי המקום' },
+      recommendations: { label: 'המלצה', cta: 'צפייה בהמלצה' },
+      blog: { label: 'מאמר', cta: 'קריאת המאמר' },
     },
   };
   return copy[normalizeBlogLanguage(language)][type] || copy[normalizeBlogLanguage(language)].recommendations;
@@ -749,17 +876,20 @@ function mapShopCta(row, language) {
 
 function mapBlogCta(row, language) {
   const meta = buildServiceMeta('blog', language);
+  const localized = normalizeBlogLanguage(language);
   const translations = safeArray(row?.translations);
-  const preferred = translations.find((entry) => normalizeBlogLanguage(entry?.lang) === normalizeBlogLanguage(language)) || null;
+  const preferred = translations.find((entry) => normalizeBlogLanguage(entry?.lang) === localized) || null;
+  const publicReadyPreferred = localized === 'he' && isBlogTranslationPublicReady(mapTranslation(preferred), { requireContent: false });
   const fallback = translations.find((entry) => normalizeBlogLanguage(entry?.lang) === 'en')
     || translations.find((entry) => normalizeBlogLanguage(entry?.lang) === 'pl')
     || translations[0]
     || null;
-  const title = String(preferred?.title || fallback?.title || 'Blog post').trim();
-  const description = truncateText(preferred?.summary || preferred?.lead || fallback?.summary || fallback?.lead || '');
+  const displayTranslation = localized === 'he' && !publicReadyPreferred ? fallback : preferred || fallback;
+  const title = String(displayTranslation?.title || fallback?.title || 'Blog post').trim();
+  const description = truncateText(displayTranslation?.summary || displayTranslation?.lead || fallback?.summary || fallback?.lead || '');
   const publishedAt = row?.published_at ? new Date(row.published_at) : null;
   const metaLabel = publishedAt && !Number.isNaN(publishedAt.getTime())
-    ? new Intl.DateTimeFormat(language === 'pl' ? 'pl-PL' : 'en-GB', {
+    ? new Intl.DateTimeFormat(localized === 'pl' ? 'pl-PL' : localized === 'he' ? 'he-IL' : 'en-GB', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -877,9 +1007,22 @@ async function fetchTransportRowsByIds(client, ids) {
 
 async function fetchBlogPostsByIds(client, ids) {
   if (!client || !ids.length) return [];
-  const { data, error } = await client
-    .from('blog_posts')
-    .select(`
+  const selectWithReview = `
+      id,
+      published_at,
+      cover_image_url,
+      translations:blog_post_translations (
+        lang,
+        slug,
+        title,
+        summary,
+        lead,
+        review_status,
+        reviewed_at,
+        reviewed_by
+      )
+    `;
+  const selectLegacy = `
       id,
       published_at,
       cover_image_url,
@@ -890,12 +1033,26 @@ async function fetchBlogPostsByIds(client, ids) {
         summary,
         lead
       )
-    `)
+    `;
+  let { data, error } = await client
+    .from('blog_posts')
+    .select(selectWithReview)
     .eq('status', 'published')
     .eq('submission_status', 'approved')
     .not('published_at', 'is', null)
     .lte('published_at', new Date().toISOString())
     .in('id', ids);
+
+  if (error && /review_status|reviewed_at|reviewed_by|could not find|does not exist|42703/i.test(String(error?.message || error?.details || error?.hint || error?.code || ''))) {
+    ({ data, error } = await client
+      .from('blog_posts')
+      .select(selectLegacy)
+      .eq('status', 'published')
+      .eq('submission_status', 'approved')
+      .not('published_at', 'is', null)
+      .lte('published_at', new Date().toISOString())
+      .in('id', ids));
+  }
 
   if (error) {
     console.warn('[blog-data] Failed to load CTA rows from blog_posts:', error);
@@ -925,9 +1082,38 @@ function mapTranslation(translation) {
     contentJson: translation.content_json || null,
     contentHtml: translation.content_html || '',
     ogImageUrl: translation.og_image_url || '',
+    reviewStatus: translation.review_status || translation.reviewStatus || 'draft',
+    reviewedAt: translation.reviewed_at || translation.reviewedAt || null,
+    reviewedBy: translation.reviewed_by || translation.reviewedBy || null,
     createdAt: translation.created_at || null,
     updatedAt: translation.updated_at || null,
   };
+}
+
+function hasText(value) {
+  return String(value || '').trim().length > 0;
+}
+
+function isBlogTranslationPublicReady(translation, options = {}) {
+  const requireContent = options.requireContent === true;
+  if (!translation || normalizeBlogLanguage(translation.lang) !== 'he') {
+    return false;
+  }
+  if (translation.reviewStatus !== 'public_ready') {
+    return false;
+  }
+  const commonFieldsReady = (
+    hasText(translation.slug)
+    && hasText(translation.title)
+    && hasText(translation.metaTitle)
+    && hasText(translation.metaDescription)
+    && hasText(translation.summary)
+    && hasText(translation.lead)
+  );
+  if (!commonFieldsReady) {
+    return false;
+  }
+  return !requireContent || hasText(translation.contentHtml);
 }
 
 function buildTranslationsByLang(translations) {
@@ -941,8 +1127,13 @@ function buildTranslationsByLang(translations) {
 }
 
 function pickTranslation(translationsByLang, language) {
+  const normalized = normalizeBlogLanguage(language);
+  if (normalized === 'he') {
+    const he = translationsByLang.he || null;
+    return isBlogTranslationPublicReady(he, { requireContent: false }) ? he : null;
+  }
   return (
-    translationsByLang[normalizeBlogLanguage(language)]
+    translationsByLang[normalized]
     || translationsByLang.en
     || translationsByLang.pl
     || Object.values(translationsByLang)[0]
@@ -976,6 +1167,13 @@ function mapBlogBase(row, translationsByLang, language) {
   const authorProfile = mapAuthorProfile(row.author_profile);
   const categoriesByLang = getTaxonomyByLang(row, 'categories');
   const tagsByLang = getTaxonomyByLang(row, 'tags');
+  const normalizedLanguage = normalizeBlogLanguage(language);
+  const categories = normalizedLanguage === 'he'
+    ? categoriesByLang.he || []
+    : categoriesByLang[normalizedLanguage] || categoriesByLang.en || categoriesByLang.pl || [];
+  const tags = normalizedLanguage === 'he'
+    ? tagsByLang.he || []
+    : tagsByLang[normalizedLanguage] || tagsByLang.en || tagsByLang.pl || [];
 
   return {
     id: row.id,
@@ -983,12 +1181,12 @@ function mapBlogBase(row, translationsByLang, language) {
     submissionStatus: row.submission_status || 'draft',
     publishedAt: row.published_at || null,
     coverImageUrl: row.cover_image_url || '',
-    coverImageAlt: pickLocalizedText(row.cover_image_alt, language),
+    coverImageAlt: pickLocalizedText(row.cover_image_alt, normalizedLanguage),
     featured: Boolean(row.featured),
     allowComments: Boolean(row.allow_comments),
-    categories: categoriesByLang[language] || categoriesByLang.en || categoriesByLang.pl || [],
+    categories,
     categoriesByLang,
-    tags: tagsByLang[language] || tagsByLang.en || tagsByLang.pl || [],
+    tags,
     tagsByLang,
     ctaServices: normalizeCtaServices(row.cta_services),
     authorProfileId: row.author_profile_id || null,
@@ -1005,6 +1203,33 @@ function mapBlogBase(row, translationsByLang, language) {
   };
 }
 
+function mapHebrewBlogTranslationRow(row) {
+  const parent = row?.blog_post || null;
+  if (!parent || !isPublishedRow(parent)) {
+    return null;
+  }
+  const translation = mapTranslation(row);
+  if (!isBlogTranslationPublicReady(translation, { requireContent: false })) {
+    return null;
+  }
+  const translationsByLang = { he: translation };
+  return mapBlogBase(parent, translationsByLang, 'he');
+}
+
+function isHebrewBlogItemPublicReady(item, options = {}) {
+  if (!item || !isPublishedRow({
+    status: item.status,
+    submission_status: item.submissionStatus,
+    published_at: item.publishedAt,
+  })) {
+    return false;
+  }
+  if (!isBlogTranslationPublicReady(item.translation, { requireContent: options.requireContent === true })) {
+    return false;
+  }
+  return safeArray(item.categories).length > 0 && safeArray(item.tags).length > 0;
+}
+
 export async function getPublishedBlogList(env, options = {}) {
   const result = await getPublishedBlogListPage(env, options);
   return result.items;
@@ -1016,6 +1241,10 @@ export async function getPublishedBlogListPage(env, options = {}) {
   const limit = Math.min(50, Math.max(1, Number.parseInt(options.limit || BLOG_LIST_PAGE_SIZE, 10) || BLOG_LIST_PAGE_SIZE));
   const offset = (page - 1) * limit;
   const client = getReadClient(env);
+
+  if (language === 'he') {
+    return getPublishedHebrewBlogListPage(env, { ...options, page, limit });
+  }
 
   const { data, error, count } = await executeBlogQueryWithTaxonomyFallback(
     () => applyPublishedBlogFilters(
@@ -1054,12 +1283,72 @@ export async function getPublishedBlogListPage(env, options = {}) {
   };
 }
 
+async function getPublishedHebrewBlogListPage(env, options = {}) {
+  const page = Math.max(1, Number.parseInt(options.page || '1', 10) || 1);
+  const limit = Math.min(50, Math.max(1, Number.parseInt(options.limit || BLOG_LIST_PAGE_SIZE, 10) || BLOG_LIST_PAGE_SIZE));
+  const offset = (page - 1) * limit;
+  const client = getReadClient(env);
+  const normalizedCategory = String(options.category || '').trim();
+  const normalizedTag = String(options.tag || '').trim();
+  const featuredOnly = String(options.featured || '').trim() === '1' || options.featured === true;
+
+  let query = client
+    .from('blog_post_translations')
+    .select(BLOG_HE_LIST_SELECT, { count: 'exact' })
+    .eq('lang', 'he')
+    .eq('review_status', 'public_ready')
+    .not('slug', 'is', null)
+    .neq('slug', '')
+    .eq('blog_post.status', 'published')
+    .eq('blog_post.submission_status', 'approved')
+    .not('blog_post.published_at', 'is', null)
+    .lte('blog_post.published_at', new Date().toISOString());
+
+  if (featuredOnly) {
+    query = query.eq('blog_post.featured', true);
+  }
+  if (normalizedCategory) {
+    query = query.contains('blog_post.categories_he', [normalizedCategory]);
+  }
+  if (normalizedTag) {
+    query = query.contains('blog_post.tags_he', [normalizedTag]);
+  }
+
+  const { data, error, count } = await query
+    .order('updated_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) {
+    throw new Error(error.message || 'Failed to load Hebrew blog list');
+  }
+
+  const items = safeArray(data)
+    .map(mapHebrewBlogTranslationRow)
+    .filter((item) => isHebrewBlogItemPublicReady(item, { requireContent: false }));
+
+  return {
+    items,
+    page,
+    pageSize: limit,
+    totalCount: Number.isFinite(count) ? count : items.length,
+    filter: {
+      featured: featuredOnly,
+      category: normalizedCategory,
+      tag: normalizedTag,
+    },
+  };
+}
+
 export async function getPublishedBlogPostBySlug(env, options = {}) {
   const language = normalizeBlogLanguage(options.language);
   const slug = normalizeBlogSlug(options.slug);
 
   if (!slug) {
     return null;
+  }
+
+  if (language === 'he') {
+    return getPublishedHebrewBlogPostBySlug(env, { slug });
   }
 
   const client = getReadClient(env);
@@ -1165,6 +1454,81 @@ export async function getPublishedBlogPostBySlug(env, options = {}) {
   };
 }
 
+async function getPublishedHebrewBlogPostBySlug(env, options = {}) {
+  const slug = normalizeBlogSlug(options.slug);
+  if (!slug) {
+    return null;
+  }
+
+  const client = getReadClient(env);
+  const { data, error } = await client
+    .from('blog_post_translations')
+    .select(BLOG_HE_POST_SELECT)
+    .eq('lang', 'he')
+    .eq('review_status', 'public_ready')
+    .eq('slug', slug)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message || 'Failed to load Hebrew blog post');
+  }
+
+  const blogPost = mapHebrewBlogTranslationRow(data);
+  if (!isHebrewBlogItemPublicReady(blogPost, { requireContent: true })) {
+    return null;
+  }
+
+  const { data: siblingTranslations, error: siblingError } = await client
+    .from('blog_post_translations')
+    .select(`
+      id,
+      blog_post_id,
+      lang,
+      slug,
+      title,
+      meta_title,
+      meta_description,
+      summary,
+      lead,
+      author_name,
+      author_url,
+      content_html,
+      og_image_url,
+      review_status,
+      reviewed_at,
+      reviewed_by,
+      created_at,
+      updated_at
+    `)
+    .eq('blog_post_id', blogPost.id);
+
+  if (siblingError) {
+    throw new Error(siblingError.message || 'Failed to load Hebrew blog sibling translations');
+  }
+
+  const translationsByLang = buildTranslationsByLang(siblingTranslations);
+  const mapped = mapBlogBase(data.blog_post, translationsByLang, 'he');
+  if (!isHebrewBlogItemPublicReady(mapped, { requireContent: true })) {
+    return null;
+  }
+
+  const resolvedCtaServices = await resolveBlogCtaServices(env, mapped.ctaServices, 'he');
+  const relatedPosts = await getRelatedBlogPosts(env, {
+    language: 'he',
+    postId: mapped.id,
+    categories: mapped.categories,
+    tags: mapped.tags,
+    limit: 3,
+  });
+
+  return {
+    ...mapped,
+    author: resolveAuthor(mapped.translation, mapped.authorProfile),
+    resolvedCtaServices,
+    relatedPosts,
+  };
+}
+
 export async function getRelatedBlogPosts(env, options = {}) {
   const language = normalizeBlogLanguage(options.language);
   const postId = String(options.postId || '').trim();
@@ -1172,6 +1536,31 @@ export async function getRelatedBlogPosts(env, options = {}) {
   const categories = new Set(safeArray(options.categories).map((entry) => String(entry || '').trim()).filter(Boolean));
   const tags = new Set(safeArray(options.tags).map((entry) => String(entry || '').trim()).filter(Boolean));
   const client = getReadClient(env);
+
+  if (language === 'he') {
+    const list = await getPublishedHebrewBlogListPage(env, {
+      language: 'he',
+      page: 1,
+      limit: Math.max(18, limit * 8),
+    });
+    const filtered = list.items.filter((item) => String(item.id || '') !== postId);
+    const scored = filtered.map((item, index) => {
+      const sharedCategories = item.categories.filter((entry) => categories.has(entry)).length;
+      const sharedTags = item.tags.filter((entry) => tags.has(entry)).length;
+      const score = sharedCategories * 4 + sharedTags * 5 + (item.featured ? 1 : 0);
+      return { item, index, score };
+    });
+    scored.sort((left, right) => {
+      if (right.score !== left.score) return right.score - left.score;
+      const leftDate = new Date(left.item.publishedAt || 0).getTime();
+      const rightDate = new Date(right.item.publishedAt || 0).getTime();
+      if (rightDate !== leftDate) return rightDate - leftDate;
+      return left.index - right.index;
+    });
+    const preferred = scored.filter((entry) => entry.score > 0).slice(0, limit);
+    const fallback = scored.filter((entry) => entry.score === 0).slice(0, Math.max(0, limit - preferred.length));
+    return [...preferred, ...fallback].slice(0, limit).map((entry) => entry.item);
+  }
 
   const { data, error } = await executeBlogQueryWithTaxonomyFallback(
     () => applyPublishedBlogFilters(

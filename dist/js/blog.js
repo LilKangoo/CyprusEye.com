@@ -91,6 +91,58 @@ const BLOG_LIST_SELECT_LEGACY = `
   )
 `;
 
+const BLOG_HE_LIST_SELECT = `
+  id,
+  blog_post_id,
+  lang,
+  slug,
+  title,
+  meta_title,
+  meta_description,
+  summary,
+  lead,
+  author_name,
+  author_url,
+  og_image_url,
+  review_status,
+  reviewed_at,
+  reviewed_by,
+  created_at,
+  updated_at,
+  blog_post:blog_posts!inner (
+    id,
+    status,
+    submission_status,
+    published_at,
+    cover_image_url,
+    cover_image_alt,
+    featured,
+    allow_comments,
+    categories,
+    categories_pl,
+    categories_en,
+    categories_he,
+    tags,
+    tags_pl,
+    tags_en,
+    tags_he,
+    cta_services,
+    author_profile_id,
+    owner_partner_id,
+    reviewed_at,
+    reviewed_by,
+    rejection_reason,
+    created_at,
+    updated_at,
+    author_profile:profiles!blog_posts_author_profile_id_fkey (
+      id,
+      name,
+      username,
+      avatar_url
+    )
+  )
+`;
+
 const BLOG_PAGE_SIZE = Math.max(1, Number.parseInt(window.__BLOG_LIST__?.pageSize || '12', 10) || 12);
 
 const COPY = {
@@ -145,6 +197,32 @@ const COPY = {
     previous: 'Poprzednia',
     next: 'Następna',
     pageOf: 'Strona {{current}} z {{total}}',
+  },
+  he: {
+    heroEyebrow: 'יומן CyprusEye',
+    heroTitle: 'סיפורים, מדריכים וטיפים מעשיים מקפריסין.',
+    heroSubtitle: 'מאמרים נבחרים שמחוברים לשירותים, מקומות וטיולים שאפשר להזמין דרך CyprusEye.',
+    metricArticles: 'מאמרים שפורסמו',
+    metricTopics: 'נושאים לחקירה',
+    metricServices: 'שירותים מקושרים',
+    metricLanguages: 'שפות',
+    featuredBadge: 'כתבה מומלצת',
+    featuredLink: 'קריאת המאמר',
+    readMore: 'קריאת המאמר',
+    loading: 'טוען מאמרים...',
+    empty: 'עדיין אין מאמרים זמינים בעברית.',
+    filteredEmpty: 'אין מאמרים בעברית שמתאימים למסנן הזה.',
+    error: 'לא ניתן לטעון את הבלוג כרגע.',
+    all: 'כל המאמרים',
+    featured: 'מומלצים',
+    tagged: 'תג',
+    category: 'קטגוריה',
+    untitled: 'מאמר ללא כותרת',
+    seoTitle: 'בלוג CyprusEye | מדריכים וטיפים לקפריסין',
+    seoDescription: 'מדריכים וטיפים של CyprusEye לקפריסין עם קישורים לשירותים, לינה וטיולים.',
+    previous: 'הקודם',
+    next: 'הבא',
+    pageOf: 'עמוד {{current}} מתוך {{total}}',
   },
 };
 
@@ -243,7 +321,7 @@ function isMissingTaxonomySchemaError(error) {
     || combined.includes('does not exist')
     || combined.includes('could not find')
     || combined.includes('column')
-  ) && /(categories_pl|categories_en|tags_pl|tags_en)/i.test(combined);
+  ) && /(categories_pl|categories_en|categories_he|tags_pl|tags_en|tags_he)/i.test(combined);
 }
 
 async function executeTaxonomyAwareQuery(primaryFactory, legacyFactory) {
@@ -312,9 +390,11 @@ function getTaxonomyByLang(source, kind) {
   const legacy = normalizeTaxonomyArray(source?.[kind]);
   const pl = normalizeTaxonomyArray(source?.[`${kind}_pl`] || source?.[`${kind}Pl`]);
   const en = normalizeTaxonomyArray(source?.[`${kind}_en`] || source?.[`${kind}En`]);
+  const he = normalizeTaxonomyArray(source?.[`${kind}_he`] || source?.[`${kind}He`]);
   return {
     pl: pl.length ? pl : legacy,
     en: en.length ? en : legacy,
+    he,
   };
 }
 
@@ -333,7 +413,24 @@ function mapTranslation(row) {
     authorName: String(row.author_name || row.authorName || '').trim(),
     authorUrl: String(row.author_url || row.authorUrl || '').trim(),
     ogImageUrl: String(row.og_image_url || row.ogImageUrl || '').trim(),
+    reviewStatus: String(row.review_status || row.reviewStatus || 'draft').trim(),
+    reviewedAt: row.reviewed_at || row.reviewedAt || null,
+    reviewedBy: row.reviewed_by || row.reviewedBy || null,
   };
+}
+
+function isBlogTranslationPublicReady(translation) {
+  return Boolean(
+    translation
+      && translation.lang === 'he'
+      && translation.reviewStatus === 'public_ready'
+      && translation.slug
+      && translation.title
+      && translation.metaTitle
+      && translation.metaDescription
+      && translation.summary
+      && translation.lead
+  );
 }
 
 function buildTranslationsByLang(translations) {
@@ -394,6 +491,9 @@ function mapListRow(row) {
 
 function pickTranslation(post, language) {
   const byLang = post?.translationsByLang || {};
+  if (language === 'he') {
+    return isBlogTranslationPublicReady(byLang.he) ? byLang.he : null;
+  }
   return byLang[language] || byLang.en || byLang.pl || Object.values(byLang)[0] || null;
 }
 
@@ -427,10 +527,22 @@ function getLocalizedPost(post, language) {
     metaTitle: String(translation?.metaTitle || '').trim(),
     metaDescription: String(translation?.metaDescription || '').trim(),
     slug: String(translation?.slug || '').trim(),
-    categories: categoriesByLang[language] || categoriesByLang.en || categoriesByLang.pl || [],
-    tags: tagsByLang[language] || tagsByLang.en || tagsByLang.pl || [],
+    categories: language === 'he' ? categoriesByLang.he || [] : categoriesByLang[language] || categoriesByLang.en || categoriesByLang.pl || [],
+    tags: language === 'he' ? tagsByLang.he || [] : tagsByLang[language] || tagsByLang.en || tagsByLang.pl || [],
     coverImageAlt: pickLocalizedText(post?.coverImageAlt, language) || String(translation?.title || t('untitled')).trim(),
   };
+}
+
+function mapHebrewListTranslationRow(row) {
+  const base = row?.blog_post || {};
+  const translation = mapTranslation(row);
+  if (!isBlogTranslationPublicReady(translation)) {
+    return null;
+  }
+  return mapListRow({
+    ...base,
+    translations: [row],
+  });
 }
 
 function buildTopicFacets(categories = [], tags = []) {
@@ -486,6 +598,10 @@ function preloadMatchesRequest() {
 }
 
 async function fetchBlogListPage() {
+  if (state.language === 'he') {
+    return fetchHebrewBlogListPage();
+  }
+
   const categoryColumn = state.language === 'pl' ? 'categories_pl' : 'categories_en';
   const tagColumn = state.language === 'pl' ? 'tags_pl' : 'tags_en';
   const from = (state.page - 1) * state.pageSize;
@@ -529,7 +645,87 @@ async function fetchBlogListPage() {
   };
 }
 
+async function fetchHebrewBlogListPage() {
+  const from = (state.page - 1) * state.pageSize;
+  const to = from + state.pageSize - 1;
+  let query = supabase
+    .from('blog_post_translations')
+    .select(BLOG_HE_LIST_SELECT, { count: 'exact' })
+    .eq('lang', 'he')
+    .eq('review_status', 'public_ready')
+    .not('slug', 'is', null)
+    .neq('slug', '')
+    .eq('blog_post.status', 'published')
+    .eq('blog_post.submission_status', 'approved')
+    .not('blog_post.published_at', 'is', null)
+    .lte('blog_post.published_at', new Date().toISOString());
+
+  if (state.activeFilter.kind === 'featured') {
+    query = query.eq('blog_post.featured', true);
+  } else if (state.activeFilter.kind === 'category') {
+    query = query.contains('blog_post.categories_he', [state.activeFilter.value]);
+  } else if (state.activeFilter.kind === 'tag') {
+    query = query.contains('blog_post.tags_he', [state.activeFilter.value]);
+  }
+
+  const { data, error, count } = await query
+    .order('updated_at', { ascending: false })
+    .range(from, to);
+
+  if (error) {
+    throw new Error(error.message || 'Failed to load Hebrew blog list');
+  }
+
+  return {
+    items: safeArray(data).map(mapHebrewListTranslationRow).filter(Boolean),
+    totalCount: Number.isFinite(count) ? count : 0,
+  };
+}
+
 async function fetchBlogFacets() {
+  if (state.language === 'he') {
+    const { data, error } = await supabase
+      .from('blog_post_translations')
+      .select(`
+        id,
+        blog_post:blog_posts!inner (
+          categories_he,
+          tags_he,
+          featured,
+          status,
+          submission_status,
+          published_at
+        )
+      `)
+      .eq('lang', 'he')
+      .eq('review_status', 'public_ready')
+      .eq('blog_post.status', 'published')
+      .eq('blog_post.submission_status', 'approved')
+      .not('blog_post.published_at', 'is', null)
+      .lte('blog_post.published_at', new Date().toISOString())
+      .limit(500);
+
+    if (error) {
+      throw new Error(error.message || 'Failed to load Hebrew blog facets');
+    }
+
+    const categories = new Set();
+    const tags = new Set();
+    let featuredCount = 0;
+    safeArray(data).forEach((row) => {
+      const base = row?.blog_post || {};
+      if (base.featured) featuredCount += 1;
+      normalizeTaxonomyArray(base.categories_he).forEach((entry) => categories.add(entry));
+      normalizeTaxonomyArray(base.tags_he).forEach((entry) => tags.add(entry));
+    });
+    return {
+      categories: Array.from(categories).sort((a, b) => a.localeCompare(b, 'he', { sensitivity: 'base' })),
+      tags: Array.from(tags).sort((a, b) => a.localeCompare(b, 'he', { sensitivity: 'base' })),
+      topics: buildTopicFacets(Array.from(categories), Array.from(tags)),
+      featuredCount,
+    };
+  }
+
   const categoryColumn = state.language === 'pl' ? 'categories_pl' : 'categories_en';
   const tagColumn = state.language === 'pl' ? 'tags_pl' : 'tags_en';
   const buildQuery = (useLegacyTaxonomy = false) => {
@@ -587,7 +783,13 @@ function buildArticleUrl(post, language) {
   const translation = pickTranslation(post, language);
   const slug = String(translation?.slug || '').trim();
   if (!slug) {
+    if (language === 'he') {
+      return '/blog?lang=en';
+    }
     return language === 'pl' ? '/blog?lang=pl' : '/blog';
+  }
+  if (language === 'he') {
+    return `/blog/${encodeURIComponent(slug)}?lang=he`;
   }
   return language === 'pl'
     ? `/blog/${encodeURIComponent(slug)}?lang=pl`
@@ -615,8 +817,8 @@ function collectFilters() {
 
 function updateUrlState(push = false) {
   const url = new URL(window.location.href);
-  if (state.language === 'pl') {
-    url.searchParams.set('lang', 'pl');
+  if (state.language === 'pl' || state.language === 'he') {
+    url.searchParams.set('lang', state.language);
   } else {
     url.searchParams.delete('lang');
   }

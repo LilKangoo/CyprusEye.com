@@ -191,6 +191,60 @@ const RELATED_POSTS_SELECT_LEGACY = `
   )
 `;
 
+const POST_HE_SELECT = `
+  id,
+  blog_post_id,
+  lang,
+  slug,
+  title,
+  meta_title,
+  meta_description,
+  summary,
+  lead,
+  author_name,
+  author_url,
+  content_json,
+  content_html,
+  og_image_url,
+  review_status,
+  reviewed_at,
+  reviewed_by,
+  created_at,
+  updated_at,
+  blog_post:blog_posts!inner (
+    id,
+    status,
+    submission_status,
+    published_at,
+    cover_image_url,
+    cover_image_alt,
+    featured,
+    allow_comments,
+    categories,
+    categories_pl,
+    categories_en,
+    categories_he,
+    tags,
+    tags_pl,
+    tags_en,
+    tags_he,
+    cta_services,
+    author_profile_id,
+    owner_partner_id,
+    reviewed_at,
+    reviewed_by,
+    rejection_reason,
+    created_at,
+    updated_at,
+    author_profile:profiles!blog_posts_author_profile_id_fkey (
+      id,
+      name,
+      username,
+      avatar_url
+    )
+  )
+`;
+
 const COPY = {
   en: {
     loading: 'Loading article...',
@@ -225,6 +279,23 @@ const COPY = {
     relatedLink: 'Czytaj artykuł',
     backToList: '← Powrót do listy blogów',
     untitled: 'Artykuł bez tytułu',
+  },
+  he: {
+    loading: 'טוען מאמר...',
+    missingSlug: 'קישור המאמר אינו שלם.',
+    notFound: 'לא הצלחנו למצוא את פוסט הבלוג הזה.',
+    error: 'לא ניתן לטעון את המאמר כרגע.',
+    kicker: 'סיפור CyprusEye',
+    byline: 'נכתב על ידי',
+    sidebarHeading: 'סקירה מהירה',
+    sidebarTags: 'תגים',
+    ctaEyebrow: 'המשיכו עם CyprusEye',
+    ctaTitle: 'שירותים שימושיים שקשורים למאמר הזה.',
+    relatedEyebrow: 'ראו גם',
+    relatedTitle: 'מאמרים קשורים שכדאי לקרוא בהמשך.',
+    relatedLink: 'קריאת המאמר',
+    backToList: 'חזרה לבלוג',
+    untitled: 'מאמר ללא כותרת',
   },
 };
 
@@ -431,7 +502,7 @@ function isMissingTaxonomySchemaError(error) {
     || combined.includes('does not exist')
     || combined.includes('could not find')
     || combined.includes('column')
-  ) && /(categories_pl|categories_en|tags_pl|tags_en)/i.test(combined);
+  ) && /(categories_pl|categories_en|categories_he|tags_pl|tags_en|tags_he)/i.test(combined);
 }
 
 async function executeTaxonomyAwareQuery(primaryFactory, legacyFactory) {
@@ -528,9 +599,11 @@ function getTaxonomyByLang(source, kind) {
   const legacy = normalizeTaxonomyArray(source?.[kind]);
   const pl = normalizeTaxonomyArray(source?.[`${kind}_pl`] || source?.[`${kind}Pl`]);
   const en = normalizeTaxonomyArray(source?.[`${kind}_en`] || source?.[`${kind}En`]);
+  const he = normalizeTaxonomyArray(source?.[`${kind}_he`] || source?.[`${kind}He`]);
   return {
     pl: pl.length ? pl : legacy,
     en: en.length ? en : legacy,
+    he,
   };
 }
 
@@ -562,7 +635,26 @@ function mapTranslation(row) {
     authorUrl: String(row.author_url || '').trim(),
     contentHtml: String(row.content_html || '').trim(),
     ogImageUrl: String(row.og_image_url || '').trim(),
+    reviewStatus: String(row.review_status || row.reviewStatus || 'draft').trim(),
+    reviewedAt: row.reviewed_at || row.reviewedAt || null,
+    reviewedBy: row.reviewed_by || row.reviewedBy || null,
   };
+}
+
+function isBlogTranslationPublicReady(translation, options = {}) {
+  const requireContent = options.requireContent === true;
+  return Boolean(
+    translation
+      && translation.lang === 'he'
+      && translation.reviewStatus === 'public_ready'
+      && translation.slug
+      && translation.title
+      && translation.metaTitle
+      && translation.metaDescription
+      && translation.summary
+      && translation.lead
+      && (!requireContent || translation.contentHtml)
+  );
 }
 
 function buildTranslationsByLang(rows) {
@@ -610,6 +702,9 @@ function mapPostFromTranslation(row, siblings = []) {
 
 function pickTranslation(post, language) {
   const byLang = post?.translationsByLang || {};
+  if (language === 'he') {
+    return isBlogTranslationPublicReady(byLang.he, { requireContent: false }) ? byLang.he : null;
+  }
   return byLang[language] || byLang.en || byLang.pl || Object.values(byLang)[0] || null;
 }
 
@@ -647,8 +742,8 @@ function getLocalizedPost(post, language) {
     contentHtml: String(translation?.contentHtml || '').trim(),
     slug: String(translation?.slug || '').trim(),
     ogImageUrl: String(translation?.ogImageUrl || '').trim(),
-    categories: categoriesByLang[language] || categoriesByLang.en || categoriesByLang.pl || [],
-    tags: tagsByLang[language] || tagsByLang.en || tagsByLang.pl || [],
+    categories: language === 'he' ? categoriesByLang.he || [] : categoriesByLang[language] || categoriesByLang.en || categoriesByLang.pl || [],
+    tags: language === 'he' ? tagsByLang.he || [] : tagsByLang[language] || tagsByLang.en || tagsByLang.pl || [],
     coverImageAlt: pickLocalizedText(post?.coverImageAlt, language) || String(translation?.title || t('untitled')).trim(),
     author: resolveAuthor(post, language),
   };
@@ -747,6 +842,10 @@ async function fetchPost(language, slug) {
   const normalizedSlug = normalizeSlug(slug);
   if (!normalizedSlug) return null;
 
+  if (language === 'he') {
+    return fetchHebrewPublicReadyPost(normalizedSlug);
+  }
+
   let result = await executeTaxonomyAwareQuery(
     () => supabase
       .from('blog_post_translations')
@@ -820,6 +919,41 @@ async function fetchPost(language, slug) {
 
   const siblings = await fetchSiblingTranslations(primary.blog_post.id);
   return mapPostFromTranslation(primary, siblings);
+}
+
+async function fetchHebrewPublicReadyPost(slug) {
+  const { data, error } = await supabase
+    .from('blog_post_translations')
+    .select(POST_HE_SELECT)
+    .eq('lang', 'he')
+    .eq('review_status', 'public_ready')
+    .eq('slug', slug)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message || 'Failed to load Hebrew blog post');
+  }
+
+  const translation = mapTranslation(data);
+  const base = data?.blog_post || null;
+  if (!base?.id || !isBlogTranslationPublicReady(translation, { requireContent: true })) {
+    return null;
+  }
+  const publishedAtMs = new Date(base.published_at || '').getTime();
+  if (base.status !== 'published'
+    || base.submission_status !== 'approved'
+    || !Number.isFinite(publishedAtMs)
+    || publishedAtMs > Date.now()) {
+    return null;
+  }
+  const categories = getTaxonomyByLang(base, 'categories').he || [];
+  const tags = getTaxonomyByLang(base, 'tags').he || [];
+  if (!categories.length || !tags.length) {
+    return null;
+  }
+
+  const siblings = await fetchSiblingTranslations(base.id);
+  return mapPostFromTranslation(data, siblings);
 }
 
 function ensureMetaNode(selector, build) {
@@ -1017,6 +1151,61 @@ async function fetchRelatedPosts(post) {
     return [];
   }
 
+  const localizedSource = getLocalizedPost(post, state.language);
+  const categorySet = new Set(safeArray(localizedSource.categories).map((entry) => String(entry || '').trim()).filter(Boolean));
+  const tagSet = new Set(safeArray(localizedSource.tags).map((entry) => String(entry || '').trim()).filter(Boolean));
+
+  if (state.language === 'he') {
+    const { data, error } = await supabase
+      .from('blog_post_translations')
+      .select(POST_HE_SELECT)
+      .eq('lang', 'he')
+      .eq('review_status', 'public_ready')
+      .neq('blog_post_id', post.id)
+      .eq('blog_post.status', 'published')
+      .eq('blog_post.submission_status', 'approved')
+      .not('blog_post.published_at', 'is', null)
+      .lte('blog_post.published_at', new Date().toISOString())
+      .limit(24);
+
+    if (error) {
+      throw new Error(error.message || 'Failed to load Hebrew related blog posts');
+    }
+
+    const items = safeArray(data)
+      .map((row) => mapPostFromTranslation(row, [row]))
+      .filter((item) => {
+        const translationReady = isBlogTranslationPublicReady(item.translation, { requireContent: false });
+        const categoriesReady = safeArray(item.categoriesByLang?.he).length > 0;
+        const tagsReady = safeArray(item.tagsByLang?.he).length > 0;
+        return translationReady && categoriesReady && tagsReady;
+      });
+
+    const scored = items.map((item, index) => {
+      const itemCategories = item.categoriesByLang?.he || [];
+      const itemTags = item.tagsByLang?.he || [];
+      const categoryMatches = itemCategories.filter((entry) => categorySet.has(entry)).length;
+      const tagMatches = itemTags.filter((entry) => tagSet.has(entry)).length;
+      return {
+        item,
+        index,
+        score: categoryMatches * 4 + tagMatches * 5,
+      };
+    });
+
+    scored.sort((left, right) => {
+      if (right.score !== left.score) return right.score - left.score;
+      const leftDate = new Date(left.item.publishedAt || 0).getTime();
+      const rightDate = new Date(right.item.publishedAt || 0).getTime();
+      if (rightDate !== leftDate) return rightDate - leftDate;
+      return left.index - right.index;
+    });
+
+    const preferred = scored.filter((entry) => entry.score > 0).slice(0, 3);
+    const fallback = scored.filter((entry) => entry.score === 0).slice(0, Math.max(0, 3 - preferred.length));
+    return [...preferred, ...fallback].slice(0, 3).map((entry) => entry.item);
+  }
+
   const { data, error } = await executeTaxonomyAwareQuery(
     () => supabase
       .from('blog_posts')
@@ -1043,10 +1232,6 @@ async function fetchRelatedPosts(post) {
   if (error) {
     throw new Error(error.message || 'Failed to load related blog posts');
   }
-
-  const localizedSource = getLocalizedPost(post, state.language);
-  const categorySet = new Set(safeArray(localizedSource.categories).map((entry) => String(entry || '').trim()).filter(Boolean));
-  const tagSet = new Set(safeArray(localizedSource.tags).map((entry) => String(entry || '').trim()).filter(Boolean));
 
   const items = safeArray(data).map((row) => {
     const translations = buildTranslationsByLang(row.translations);

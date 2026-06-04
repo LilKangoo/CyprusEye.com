@@ -759,3 +759,71 @@ Recommended Stage41:
 **Apply Blog HE review/public-read gate only after the Stage40 verify output
 confirms the top five rows are complete and reviewed, then test Blog list/detail
 record-gating without enabling HE SEO.**
+
+## Stage 41 Blog Record-Gated Preparation
+
+Decision: **Blog stays BLOCKED after Stage41**. This stage prepares the
+mechanism needed for a later Blog rollout, but it does not expose Blog HE
+through the public switcher, sitemap, hreflang, canonical, OpenGraph, indexing
+or public `/he/` routes.
+
+Completed preparation:
+
+- Added a non-destructive manual apply script:
+  `supabase/manual/he_blog_stage41_public_read_apply.sql`.
+- Reworked the draft SQL so it uses `ALTER POLICY` / `CREATE POLICY if missing`
+  and does not use `DROP POLICY` or `DROP CONSTRAINT`.
+- Added `supabase/manual/he_blog_stage41_public_read_verify.sql` for
+  post-apply checks.
+- Prepared server and browser Blog list/detail code to use strict
+  `review_status='public_ready'` HE record-gating.
+- Prepared Blog CTA normalization so Shop and non-ready Blog destinations do
+  not carry HE.
+
+Manual SQL sequence for the next stage:
+
+1. Run `he_blog_stage40_readiness_verify.sql` and confirm the top five rows are
+   complete.
+2. Run `he_blog_stage41_public_read_draft.sql` as a ROLLBACK preview.
+3. After editorial approval, run
+   `he_blog_stage41_public_read_apply.sql` manually.
+4. Run `he_blog_stage41_public_read_verify.sql`.
+5. Proceed only if `public_ready_he_rows = 5`, duplicate HE slugs return zero
+   rows and CTA risks are accepted.
+
+Next recommended stage: **Stage42A - apply Blog HE public-read SQL + record-gated
+Blog smoke**. If the top five content rows are not human-reviewed, use
+**Stage42B - complete/review top five Blog HE content** instead.
+
+## Stage 42 Blog Human Review + Public-Ready Marking
+
+Decision: **Blog remains BLOCKED until manual public-ready marking is verified**.
+
+Observed pre-apply state:
+
+- Stage41 draft preview reported `public_ready_he_rows = 0`.
+- This confirms the public-read mechanism can exist without exposing any HE
+  blog rows until specific translations are marked `public_ready`.
+
+Prepared Stage42 files:
+
+- `supabase/manual/he_blog_stage42_mark_top5_public_ready_draft.sql`
+- `supabase/manual/he_blog_stage42_mark_top5_public_ready_apply.sql`
+- `supabase/manual/he_blog_stage42_public_ready_verify.sql`
+
+Completion gate before Blog rollout:
+
+1. Top five posts have complete HE title, slug, meta title, meta description,
+   summary, lead, content, `categories_he` and `tags_he`.
+2. Human/native editorial review approves those five posts.
+3. Stage42 apply marks exactly those complete HE rows `public_ready`.
+4. Stage42 verify reports `public_ready_he_rows = 5`.
+5. Blog list/detail smoke confirms only public-ready HE posts render.
+6. SEO HE, sitemap, hreflang, canonical, OpenGraph and indexing remain off.
+
+Rollback if Stage42 creates issues:
+
+- Set the top-five HE translations back to `review_status='reviewed'` or
+  `needs_review`.
+- Keep `blog` and `blogPost` as `blocked` in the page readiness registry.
+- Leave Home/READY/record-gated non-Blog pages unchanged.
