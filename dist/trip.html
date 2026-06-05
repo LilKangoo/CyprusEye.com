@@ -562,7 +562,8 @@
     }
 
     function tripText(key, plFallback, enFallback, values = {}) {
-      const fallback = getTripPageLanguage().startsWith('en') ? enFallback : plFallback;
+      const language = getTripPageLanguage();
+      const fallback = language === 'he' || language.startsWith('en') ? enFallback : plFallback;
       return t(key, fallback, values);
     }
 
@@ -603,14 +604,20 @@
         if (offerSlug) {
           url.searchParams.set('slug', offerSlug);
         }
-        if (language === 'pl') {
+        if (language === 'he') {
+          url.searchParams.set('lang', 'he');
+        } else if (language === 'pl') {
           url.searchParams.set('lang', 'pl');
         } else {
           url.searchParams.delete('lang');
         }
         return url.toString();
       };
-      return { pl: build('pl'), en: build('en'), xDefault: build('en') };
+      const urls = { pl: build('pl'), en: build('en'), xDefault: build('en') };
+      if (isTripRecordReadyForHe(entry)) {
+        urls.he = build('he');
+      }
+      return urls;
     }
 
     function buildTripSeoDescription(entry = trip) {
@@ -639,7 +646,8 @@
       );
       const urls = getTripLinkUrls(entry);
       const language = getTripPageLanguage();
-      const activeUrl = language.startsWith('en') ? urls.en : urls.pl;
+      const seoLanguage = language === 'he' && urls.he ? 'he' : language.startsWith('en') ? 'en' : 'pl';
+      const activeUrl = urls[seoLanguage] || urls.en || urls.pl;
       const imageUrl = new URL(
         String(entry.meta_image_url || entry.cover_image_url || '/assets/cyprus_logo-1000x1054.png'),
         window.location.origin,
@@ -680,12 +688,12 @@
         const node = document.createElement('meta');
         node.setAttribute('property', 'og:locale');
         return node;
-      }).setAttribute('content', language.startsWith('en') ? 'en_GB' : 'pl_PL');
+      }).setAttribute('content', seoLanguage === 'he' ? 'he_IL' : seoLanguage === 'en' ? 'en_GB' : 'pl_PL');
       ensureMetaNode('meta[property="og:locale:alternate"]', () => {
         const node = document.createElement('meta');
         node.setAttribute('property', 'og:locale:alternate');
         return node;
-      }).setAttribute('content', language.startsWith('en') ? 'pl_PL' : 'en_GB');
+      }).setAttribute('content', seoLanguage === 'en' ? 'pl_PL' : 'en_GB');
       ensureMetaNode('link[rel="canonical"]', () => {
         const node = document.createElement('link');
         node.rel = 'canonical';
@@ -703,6 +711,16 @@
         node.hreflang = 'en';
         return node;
       }).setAttribute('href', urls.en);
+      if (urls.he) {
+        ensureMetaNode('link[rel="alternate"][hreflang="he"]', () => {
+          const node = document.createElement('link');
+          node.rel = 'alternate';
+          node.hreflang = 'he';
+          return node;
+        }).setAttribute('href', urls.he);
+      } else {
+        document.head.querySelector('link[rel="alternate"][hreflang="he"]')?.remove();
+      }
       ensureMetaNode('link[rel="alternate"][hreflang="x-default"]', () => {
         const node = document.createElement('link');
         node.rel = 'alternate';

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-05T09:52:01.371Z",
+  "generatedAt": "2026-06-05T16:48:16.979Z",
   "sourceAuditPath": "translations/audit-he-vs-en.json",
   "targetLanguage": "he",
   "baseLanguage": "en",
@@ -2150,19 +2150,19 @@
   "manualReviewPacks": {
     "sourcePath": "translations/manual-review/review-pack-summary.json",
     "packs": {
-      "staticUi": 801,
+      "staticUi": 797,
       "advertise": 235,
       "seo": 122,
       "shop": 96,
       "emailTemplates": 506,
-      "sameAsEn": 689,
+      "sameAsEn": 684,
       "dynamicContent": 237,
       "blog": 21
     },
     "sameAsEnBreakdown": {
-      "needs_translation": 537,
+      "needs_translation": 533,
       "allowed_same_as_en": 19,
-      "needs_human_review": 133
+      "needs_human_review": 132
     }
   }
 }

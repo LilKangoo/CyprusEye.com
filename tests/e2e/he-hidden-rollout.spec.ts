@@ -809,6 +809,29 @@ test.describe('hidden Hebrew rollout guard', () => {
     expect(seo.heAlternate).toBe('https://www.cypruseye.com/car.html?lang=he');
   });
 
+  test('keeps HE canonical and OpenGraph URL on HE-ready trip detail', async ({ page }) => {
+    await seedStage33TripFixtures(page);
+    await page.goto('/trip.html?slug=trasa-skaa-afrodyty&lang=he', { waitUntil: 'domcontentloaded' });
+    await waitForHtmlLanguage(page, 'he');
+    await page.waitForTimeout(1000);
+
+    const seo = await page.evaluate(() => {
+      const expected = new URL('/trip.html', window.location.origin);
+      expected.searchParams.set('slug', 'trasa-skaa-afrodyty');
+      expected.searchParams.set('lang', 'he');
+      return {
+        expected: expected.toString(),
+        canonical: document.querySelector('link[rel="canonical"]')?.getAttribute('href'),
+        ogUrl: document.querySelector('meta[property="og:url"]')?.getAttribute('content'),
+        heAlternate: document.querySelector('link[rel="alternate"][hreflang="he"]')?.getAttribute('href'),
+      };
+    });
+
+    expect(seo.canonical).toBe(seo.expected);
+    expect(seo.ogUrl).toBe(seo.expected);
+    expect(seo.heAlternate).toBe(seo.expected);
+  });
+
   test('allows HE only for configured beta users without enabling SEO surfaces', async ({ page }) => {
     await page.addInitScript(() => {
       (window as any).CE_LANGUAGE_ROLLOUT_CONFIG = {
