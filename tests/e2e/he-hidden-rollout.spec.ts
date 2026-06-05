@@ -793,6 +793,22 @@ test.describe('hidden Hebrew rollout guard', () => {
     expect(appJsResponses).toHaveLength(0);
   });
 
+  test('keeps HE canonical and OpenGraph URL on the car SEO-ready page', async ({ page }) => {
+    await page.goto('/car.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await waitForHtmlLanguage(page, 'he');
+    await page.waitForTimeout(500);
+
+    const seo = await page.evaluate(() => ({
+      canonical: document.querySelector('link[rel="canonical"]')?.getAttribute('href'),
+      ogUrl: document.querySelector('meta[property="og:url"]')?.getAttribute('content'),
+      heAlternate: document.querySelector('link[rel="alternate"][hreflang="he"]')?.getAttribute('href'),
+    }));
+
+    expect(seo.canonical).toBe('https://www.cypruseye.com/car.html?lang=he');
+    expect(seo.ogUrl).toBe('https://www.cypruseye.com/car.html?lang=he');
+    expect(seo.heAlternate).toBe('https://www.cypruseye.com/car.html?lang=he');
+  });
+
   test('allows HE only for configured beta users without enabling SEO surfaces', async ({ page }) => {
     await page.addInitScript(() => {
       (window as any).CE_LANGUAGE_ROLLOUT_CONFIG = {

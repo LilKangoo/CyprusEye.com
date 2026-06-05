@@ -12,6 +12,7 @@
     'hotels',
     'hotel',
     'recommendations',
+    'car',
     'carRentalLanding',
     'trips',
     'trip',

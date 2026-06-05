@@ -1,6 +1,6 @@
 # HE Translation Readiness
 
-Generated: 2026-06-05T09:52:01.371Z
+Generated: 2026-06-05T16:48:16.979Z
 Source audit: `translations/audit-he-vs-en.json`
 
 Hebrew is still internal/hidden. This report does not activate HE in the public language switcher, selectors, sitemap, hreflang, canonical metadata, public SEO, indexing, or `/he/` routes.
@@ -72,12 +72,12 @@ For now, `needs_human_review` is derived from keys where HE is exactly the same 
 
 | Pack | Records |
 | --- | ---: |
-| Static UI | 801 |
+| Static UI | 797 |
 | Advertise | 235 |
 | SEO | 122 |
 | Shop | 96 |
 | Email/payment templates | 506 |
-| Same-as-EN HE | 689 |
+| Same-as-EN HE | 684 |
 | Dynamic content | 237 |
 | Blog | 21 |
 
