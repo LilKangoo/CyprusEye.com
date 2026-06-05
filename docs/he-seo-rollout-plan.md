@@ -233,3 +233,25 @@ Live sitemap HE URLs:
 Live blocked/excluded checks confirmed no HE canonical, hreflang or OpenGraph
 for Blog, Shop, Plan, Partners, Admin, not-ready records or public `/he/`
 routes.
+
+## Stage 50 Monitoring Lock
+
+Stage50 freezes the current SEO scope after the Stage49 GO.
+
+Do not expand HE SEO beyond the live allowed URLs until a separate approved
+stage changes this document and `functions/_utils/heSeoReadiness.js`.
+
+Operational monitoring is now tracked in:
+
+- `docs/he-production-monitoring-checklist.md`
+
+Required standing checks:
+
+- sitemap must contain only the Stage49 HE URLs;
+- Blog and `/blog/*` must remain absent from HE sitemap/canonical/hreflang/OG;
+- Shop/cart/checkout/payment must remain absent from HE sitemap/canonical/
+  hreflang/OG;
+- `/he/` routes must remain redirect/fallback routes;
+- not-ready records must not produce HE canonical/hreflang/OpenGraph.
+
+No SQL is required for this monitoring lock.

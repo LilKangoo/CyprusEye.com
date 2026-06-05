@@ -657,3 +657,33 @@ Production verification passed:
   0 errors and 0 warnings;
 - `depositRequestReliability` and `transportNotificationReliability` remain
   green through `npm test`.
+
+## Stage 50 Final GO / NO-GO
+
+Decision target: **GO for current partial production scope; NO-GO for any
+unreviewed expansion**.
+
+GO:
+
+- current HE UI scope remains active and monitored;
+- current HE SEO scope remains limited to Stage49 URLs;
+- Blog and BlogPost remain blocked;
+- Shop/cart/checkout/payment remain excluded;
+- `/he/` remains non-public;
+- manual translation workflow is documented;
+- production SEO audit remains clean;
+- booking/payment regression tests remain green.
+
+NO-GO:
+
+- marking Blog rows `public_ready` without human review;
+- adding Blog or Shop to HE sitemap/hreflang/canonical;
+- changing Shop checkout/payment to RTL/HE;
+- enabling public `/he/` routes;
+- expanding HE SEO to fallback-only or not-ready records.
+
+Stage50 monitoring and manual workflows:
+
+- `docs/he-production-monitoring-checklist.md`
+- `docs/he-blog-manual-public-ready-checklist.md`
+- `docs/he-shop-future-rollout-checklist.md`

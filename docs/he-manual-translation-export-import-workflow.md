@@ -245,3 +245,50 @@ Before a future Shop HE stage:
 
 No Shop `public_ready` or equivalent publication flag is set by the manual
 translation importer.
+
+## Stage 50 Workflow Lock
+
+The manual translation workflow is now the only approved path for long or
+sensitive content.
+
+Use export:
+
+```bash
+npm run i18n:review-export
+```
+
+Use dry-run import:
+
+```bash
+npm run i18n:review-import -- --input=translations/manual-review/static-ui-review.json
+```
+
+Use apply only after review:
+
+```bash
+npm run i18n:review-import -- --input=translations/manual-review/static-ui-review.json --apply
+```
+
+Never use the static importer for:
+
+- Blog `public_ready`,
+- dynamic database records,
+- Shop product/category/vendor/shipping records,
+- email template database rows,
+- SEO activation flags,
+- sitemap/hreflang/canonical changes.
+
+Before apply:
+
+1. Confirm `missing_en` is false or fill EN first.
+2. Confirm HE is manually reviewed.
+3. Confirm placeholders and HTML tags match.
+4. Confirm `safe_to_auto_apply` is acceptable for the specific batch.
+5. Run dry-run and inspect `translations/manual-review/import-dry-run-report.json`.
+
+After apply:
+
+1. Run `npm run i18n:tri-audit`.
+2. Run `npm run i18n:test`.
+3. Run `npm run build`.
+4. Keep Blog/Shop/SEO activation as separate stages.

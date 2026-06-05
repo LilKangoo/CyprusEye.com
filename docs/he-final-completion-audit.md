@@ -961,3 +961,47 @@ Live checks confirmed:
 - not-ready record probes return EN/LTR/404 without HE SEO;
 - public `/he/` routes remain redirects/fallbacks;
 - booking/payment regression tests still pass.
+
+## Stage 50 Final Production State
+
+Status: **production-ready partial HE launch**.
+
+HE UI active:
+
+- Home
+- transport
+- hotels
+- HE-ready hotel details
+- recommendations
+- car
+- trips
+- HE-ready trip details
+- POI/map flow
+
+HE SEO active:
+
+- only the Stage49 allowed URLs listed in `docs/he-seo-rollout-plan.md`
+
+Blocked:
+
+- Blog and Blog detail
+- Plan
+- Community
+- account/auth/legal/404/unknown
+
+Excluded:
+
+- Shop/cart/checkout/payment
+- partners/admin
+
+Non-public:
+
+- `/he/` routes
+
+Manual workflow lock:
+
+- Blog content is translated and reviewed manually.
+- Blog `public_ready` is never set automatically.
+- Shop remains excluded until a dedicated future Shop HE stage.
+- Email/payment templates remain manual-review items.
+- Booking/payment and Stripe webhook logic are not part of HE content work.

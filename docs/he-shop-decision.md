@@ -214,3 +214,23 @@ Final Stage49 check: **Shop remains excluded**.
 Live `shop.html?lang=he` returns EN/LTR with no HE canonical, hreflang or
 OpenGraph. Sitemap contains no Shop HE URLs, and public `/he/shop.html`
 redirects to `/?lang=en`.
+
+## Stage 50 Shop Lock
+
+Shop remains `EXCLUDED`.
+
+Current rule:
+
+- no Shop HE UI;
+- no Shop HE SEO;
+- no cart/checkout/payment RTL;
+- no public `/he/` Shop route;
+- no Shop dynamic content import;
+- no checkout/payment language changes.
+
+Future Shop HE work is tracked in:
+
+- `docs/he-shop-future-rollout-checklist.md`
+
+Until that future stage passes manual translation and checkout/payment QA,
+Shop must remain EN/LTR even when the visitor came from an HE page.

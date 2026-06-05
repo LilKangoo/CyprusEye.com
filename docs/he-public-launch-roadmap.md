@@ -1080,3 +1080,46 @@ Final live result: **Stage49 GO**.
   blocked output with no HE SEO.
 - `/he/`, `/he/transport.html` and `/he/shop.html` redirect to `/?lang=en`.
 - Production SEO audit reports 0 errors and 0 warnings.
+
+## Stage 50 Final Partial Launch Lock
+
+Decision: **current production HE scope is stable and locked**.
+
+Current public HE UI scope:
+
+- Home
+- transport
+- hotels
+- HE-ready hotel detail
+- recommendations
+- car
+- trips
+- HE-ready trip detail
+- POI/map flow
+
+Current HE SEO scope:
+
+- the Stage49 sitemap URLs only
+
+Still blocked:
+
+- Blog and Blog detail
+- Plan
+- Community
+- account/auth/legal/404/unknown
+
+Still excluded:
+
+- Shop/cart/checkout/payment
+- partners/admin
+
+Next work should be manual content workflow, not accidental rollout expansion:
+
+1. Use review packs and admin guide for Blog/dynamic content.
+2. Mark Blog `public_ready` only after human review and SQL verify.
+3. Keep Shop excluded until a separate Shop HE stage passes checkout/payment QA.
+4. Keep `/he/` routing as a future dedicated migration.
+
+Monitoring checklist: `docs/he-production-monitoring-checklist.md`.
+Blog checklist: `docs/he-blog-manual-public-ready-checklist.md`.
+Shop checklist: `docs/he-shop-future-rollout-checklist.md`.

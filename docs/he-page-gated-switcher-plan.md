@@ -946,3 +946,23 @@ server-rendered HE pages carry `dir="rtl"`. Existing switcher gating and
 Final Stage49 result: **GO**. There is no switcher registry expansion in this
 stage. UI status remains Home + READY + record-gated pages only; Blog remains
 blocked and Shop remains excluded.
+
+## Stage 50 Switcher Lock
+
+Stage50 does not change switcher behavior.
+
+Current UI language availability:
+
+- HE appears only on the already allowed page-gated and record-gated pages.
+- HE does not appear on Blog, Blog detail, Shop, Plan, Partners, Admin or
+  other blocked/excluded pages.
+- Navigation from HE pages to blocked/excluded pages must normalize to EN/LTR.
+- `/he/` routes remain non-public and redirect/fallback.
+
+Future switcher expansion requires:
+
+1. manual content review,
+2. updated readiness registry,
+3. targeted Playwright smoke,
+4. SEO guard review if the page should be indexable,
+5. explicit approval for the new scope.

@@ -309,3 +309,36 @@ Importer safety:
 
 For Blog posts, keep using admin/partner editor or reviewed SQL workflows.
 Never use a static JSON import to mark Blog content public-ready.
+
+## Stage 50 Manual Admin Next Steps
+
+Use this order for future manual content work:
+
+1. Blog posts:
+   - use `docs/he-blog-manual-public-ready-checklist.md`;
+   - translate title, slug, lead, summary, meta, content, categories and tags;
+   - preview in admin;
+   - mark `public_ready` only through the reviewed SQL workflow.
+2. SEO copy:
+   - use `translations/manual-review/seo-review.json`;
+   - review length, duplicate slugs and canonical intent;
+   - do not change SEO flags during translation.
+3. Shop:
+   - use `docs/he-shop-future-rollout-checklist.md`;
+   - review cart/checkout/payment/order emails manually;
+   - keep Shop EN/LTR until a dedicated Shop HE stage.
+4. Email/payment templates:
+   - use `translations/manual-review/email-template-review.json`;
+   - preserve amount, currency, URL, booking reference and customer/partner
+     placeholders;
+   - do not change dispatch, partner fulfillment, Stripe webhook or deposit
+     calculation.
+
+Do not mark content public-ready when:
+
+- a translation is unreviewed,
+- a slug is duplicated,
+- placeholders mismatch,
+- CTA links send HE into Shop/blocked pages,
+- parent record is draft/pending/rejected,
+- the page still relies on EN fallback as primary content.

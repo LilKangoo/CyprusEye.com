@@ -536,3 +536,46 @@ This does not reduce the manual review backlog for:
 Blog remains `BLOCKED`, Shop remains `EXCLUDED`, and `/he/` routes remain
 non-public. Manual translation review and `public_ready` marking remain separate
 future steps.
+
+## Stage 50 Manual Review Backlog Lock
+
+Current review pack baseline:
+
+| Pack | Records | Missing HE | Same-as-EN HE | Human review |
+| --- | ---: | ---: | ---: | ---: |
+| Static UI review | 801 | 0 | 652 | 801 |
+| Advertise review | 235 | see pack | see pack | 235 |
+| SEO review | 122 | 53 | 20 | 122 |
+| Shop review | 96 | 3 | 0 | 96 |
+| Email/payment template review | 506 | 17 | 14 | 506 |
+| Same-as-EN review | 690 | 0 | 690 | 690 |
+| Dynamic content review | 237 | 16 | 76 | 237 |
+| Blog review | 21 | 16 | 0 | 21 |
+
+Email/payment template backlog:
+
+- 506 records require human review.
+- 17 records are missing HE.
+- 16 records have placeholder/tag issues in the review pack and must be fixed
+  before any live use.
+- 11 records are payment-critical.
+- Email catalog live reads reported permission warnings for
+  `email_template_catalog` and `email_template_versions`; use Supabase/admin
+  access for final email template review.
+
+Manual workflow status:
+
+- Export packs are read-only review files.
+- Static import is dry-run by default and requires `--apply`.
+- Static import does not update Supabase.
+- Static import rejects `public_ready`.
+- Dynamic/database records remain manual admin or SQL workflows.
+
+Next manual tasks:
+
+1. Review Blog posts one by one using
+   `docs/he-blog-manual-public-ready-checklist.md`.
+2. Review Shop with `docs/he-shop-future-rollout-checklist.md`.
+3. Review SEO copy before any additional SEO expansion.
+4. Review email/payment templates without touching dispatch, partner
+   fulfillment, Stripe webhook or deposit logic.
