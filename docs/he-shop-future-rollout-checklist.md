@@ -4,6 +4,18 @@ Shop remains `EXCLUDED` from the current HE launch. This checklist is for a
 future dedicated Shop HE stage only. It does not activate Shop HE, checkout HE,
 payment HE, sitemap HE, hreflang HE, canonical HE or public `/he/` routes.
 
+## Current Stable Production State
+
+- HE UI live: Home, transport, hotels, hotel, recommendations, car, trips,
+  trip, and POI/map flow.
+- HE SEO live: Stage 49 allowed scope only, currently 19 HE URLs in
+  `sitemap.xml`.
+- Blog and blog detail remain `BLOCKED`.
+- Shop, cart, checkout, payment, partners, and admin remain `EXCLUDED`.
+- Public `/he/` routes remain non-public redirects/fallbacks to `/?lang=en`.
+- Booking/payment/deposit flow is locked and must not be changed by Shop HE
+  work.
+
 ## Current Decision
 
 Current decision: **Option A now, Option C later**.

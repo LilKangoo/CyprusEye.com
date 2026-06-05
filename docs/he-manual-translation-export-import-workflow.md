@@ -7,6 +7,19 @@ sitemap HE, hreflang HE, canonical HE, indexing HE or public `/he/` routes.
 It does not touch booking/payment, partner fulfillment, Stripe webhook or
 transport deposit flow.
 
+## Current Stable Production State
+
+- HE UI live: Home, transport, hotels, hotel, recommendations, car, trips,
+  trip, and POI/map flow.
+- HE SEO live: Stage 49 allowed scope only, currently 19 HE URLs in
+  `sitemap.xml`.
+- Blog and blog detail remain `BLOCKED`; the importer must not set
+  `public_ready`.
+- Shop, cart, checkout, payment, partners, and admin remain `EXCLUDED`.
+- Public `/he/` routes remain non-public redirects/fallbacks to `/?lang=en`.
+- Booking/payment/deposit flow is locked and must not be changed by translation
+  import/export work.
+
 ## Generate Review Packs
 
 Run:

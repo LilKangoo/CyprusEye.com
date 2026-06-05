@@ -4,6 +4,19 @@ Blog remains `BLOCKED`. This checklist prepares manual review and
 `public_ready` marking only. It does not activate Blog HE globally, SEO HE for
 Blog, sitemap HE for Blog, or public `/he/` routes.
 
+## Current Stable Production State
+
+- HE UI live: Home, transport, hotels, hotel, recommendations, car, trips,
+  trip, and POI/map flow.
+- HE SEO live: Stage 49 allowed scope only, currently 19 HE URLs in
+  `sitemap.xml`.
+- Blog and blog detail remain `BLOCKED` until a human-reviewed post is
+  explicitly marked `public_ready` and verified.
+- Shop, cart, checkout, payment, partners, and admin remain `EXCLUDED`.
+- Public `/he/` routes remain non-public redirects/fallbacks to `/?lang=en`.
+- Booking/payment/deposit flow is locked and must not be changed by Blog HE
+  work.
+
 ## Pick A Blog Post
 
 Choose one post at a time. Prefer posts that already have:

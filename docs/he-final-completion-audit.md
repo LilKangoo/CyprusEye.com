@@ -6,6 +6,18 @@ This audit is a finish-plan input only. It does not enable public Hebrew,
 public switchers, `/he/` routes, sitemap entries, hreflang, canonical metadata,
 SEO indexing, or Shop checkout in Hebrew.
 
+## Current Stable Production State
+
+- HE UI live: Home, transport, hotels, hotel, recommendations, car, trips,
+  trip, and POI/map flow.
+- HE SEO live: Stage 49 allowed scope only, currently 19 HE URLs in
+  `sitemap.xml`.
+- Blog and blog detail remain `BLOCKED`.
+- Shop, cart, checkout, payment, partners, and admin remain `EXCLUDED`.
+- Public `/he/` routes remain non-public redirects/fallbacks to `/?lang=en`.
+- Booking/payment/deposit flow is locked and must not be changed by HE cleanup
+  or translation work.
+
 ## Current Rollout State
 
 - Runtime guard exists in `js/i18n.js` through `window.CELanguageRollout`.

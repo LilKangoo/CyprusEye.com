@@ -6,6 +6,18 @@ This roadmap prepares the full Hebrew launch but does not activate public HE,
 sitemap, hreflang, canonical metadata, SEO indexing, public `/he/` routes, or
 Shop checkout in Hebrew.
 
+## Current Stable Production State
+
+- HE UI live: Home, transport, hotels, hotel, recommendations, car, trips,
+  trip, and POI/map flow.
+- HE SEO live: Stage 49 allowed scope only, currently 19 HE URLs in
+  `sitemap.xml`.
+- Blog and blog detail remain `BLOCKED`.
+- Shop, cart, checkout, payment, partners, and admin remain `EXCLUDED`.
+- Public `/he/` routes remain non-public redirects/fallbacks to `/?lang=en`.
+- Booking/payment/deposit flow is locked and must not be changed by HE launch
+  work.
+
 ## Launch Principles
 
 - One central language registry controls every public surface.

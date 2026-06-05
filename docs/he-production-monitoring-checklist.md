@@ -4,6 +4,17 @@ Stage 50 status: current HE production scope is a stable partial launch. This
 checklist does not activate Blog HE, Shop HE, public `/he/` routes, or any new
 SEO surface.
 
+## Current Stable Production State
+
+- HE UI live: Home, transport, hotels, hotel, recommendations, car, trips,
+  trip, and POI/map flow.
+- HE SEO live: Stage 49 allowed scope only, currently 19 HE URLs in
+  `sitemap.xml`.
+- Blog and blog detail remain `BLOCKED`.
+- Shop, cart, checkout, payment, partners, and admin remain `EXCLUDED`.
+- Public `/he/` routes remain non-public redirects/fallbacks to `/?lang=en`.
+- Booking/payment/deposit flow is locked and must not be changed by HE work.
+
 ## Current Live HE UI Scope
 
 Public/page-gated HE UI is allowed only for:
