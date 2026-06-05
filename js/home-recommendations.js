@@ -33,8 +33,11 @@ function isHomeRecommendationPolish(language = getCurrentLanguage()) {
   return normalizeHomeRecommendationLang(language) === 'pl';
 }
 
-function homeRecommendationText(pl, en, language = getCurrentLanguage()) {
-  return isHomeRecommendationPolish(language) ? pl : en;
+function homeRecommendationText(pl, en, language = getCurrentLanguage(), he = '') {
+  const normalized = normalizeHomeRecommendationLang(language);
+  if (normalized === 'pl') return pl || en || he || '';
+  if (normalized === 'he') return he || en || pl || '';
+  return en || pl || he || '';
 }
 
 function pickHomeRecommendationField(source, fieldName, language = getCurrentLanguage(), fallback = '') {
@@ -111,7 +114,8 @@ function showHomeRecommendationPanoramaHint(container, lang) {
   hint.textContent = homeRecommendationText(
     'To zdjęcie 360°. Przeciągnij, aby się rozejrzeć. Dotknij raz, aby zacząć.',
     'This is a 360° photo. Drag to look around. Tap once to start.',
-    lang
+    lang,
+    'זו תמונת 360°. גררו כדי להביט סביב. הקישו פעם אחת כדי להתחיל.'
   );
   hint.hidden = false;
   requestAnimationFrame(() => hint.classList.add('is-visible'));
@@ -302,7 +306,7 @@ function renderCategoryFilters() {
   let visibleCount = 0;
   const lang = getCurrentLanguage();
 
-  const allLabel = homeRecommendationText('Wszystkie', 'All', lang);
+  const allLabel = homeRecommendationText('Wszystkie', 'All', lang, 'הכול');
   const allBtn = document.createElement('button');
   allBtn.type = 'button';
   allBtn.className = 'recommendations-home-tab ce-home-pill' + (!currentCategoryFilter ? ' active' : '');
@@ -328,7 +332,7 @@ function renderCategoryFilters() {
     container.appendChild(btn);
   });
 
-  const savedLabel = homeRecommendationText('Zapisane', 'Saved', lang);
+  const savedLabel = homeRecommendationText('Zapisane', 'Saved', lang, 'שמורים');
   const savedStar = homeRecommendationsSavedOnly ? '★' : '☆';
   const savedBtn = document.createElement('button');
   savedBtn.type = 'button';
@@ -559,7 +563,7 @@ function createPromoSection(rec, lang, options = {}) {
   if (!rec || !rec.promo_code || !discount) {
     return '';
   }
-  const showCodeLabel = homeRecommendationText('Pokaż kod', 'Show code', lang);
+  const showCodeLabel = homeRecommendationText('Pokaż kod', 'Show code', lang, 'הצג קוד');
   return `
     <div class="rec-card-promo">
       <div class="rec-card-promo-label">${discount}</div>
@@ -574,13 +578,13 @@ function createPromoSection(rec, lang, options = {}) {
 function createRecommendationCard(rec) {
   const category = rec.recommendation_categories || {};
   const lang = getCurrentLanguage();
-  const saveLabel = homeRecommendationText('Zapisz', 'Save', lang);
+  const saveLabel = homeRecommendationText('Zapisz', 'Save', lang, 'שמירה');
 
-  const title = pickHomeRecommendationField(rec, 'title', lang, homeRecommendationText('Bez tytułu', 'Untitled', lang));
+  const title = pickHomeRecommendationField(rec, 'title', lang, homeRecommendationText('Bez tytułu', 'Untitled', lang, 'ללא כותרת'));
 
-  const featuredLabel = homeRecommendationText('Polecane', 'Recommended', lang);
+  const featuredLabel = homeRecommendationText('Polecane', 'Recommended', lang, 'מומלץ');
 
-  const categoryLabel = pickHomeRecommendationField(category, 'name', lang, homeRecommendationText('Ogólne', 'General', lang));
+  const categoryLabel = pickHomeRecommendationField(category, 'name', lang, homeRecommendationText('Ogólne', 'General', lang, 'כללי'));
   const subtitle = rec.location_name ? `${rec.location_name} • ${categoryLabel}` : categoryLabel;
   const imageRaw = String(rec.image_url || '').trim();
   const imageFallback = getHomeRecommendationMediaDisplayUrl(imageRaw);
@@ -640,14 +644,14 @@ window.openDetailModal = async function(id) {
   const offer = pickHomeRecommendationField(rec, 'offer_text', lang);
 
   const categoryName = pickHomeRecommendationField(category, 'name', lang);
-  const saveLabel = homeRecommendationText('Zapisz', 'Save', lang);
+  const saveLabel = homeRecommendationText('Zapisz', 'Save', lang, 'שמירה');
   const imageUrlRaw = String(rec.image_url || '').trim();
   const imageUrl = getHomeRecommendationMediaDisplayUrl(imageUrlRaw);
   const imageIsPanorama = isHomeRecommendationPanorama(imageUrlRaw);
   const canRenderPanorama = Boolean(imageIsPanorama && window.CE_MEDIA_VIEWER?.mountPanorama);
 
-  const openMapLabel = homeRecommendationText('Otwórz w mapach', 'Open in maps', lang);
-  const visitSiteLabel = homeRecommendationText('Strona www', 'Visit website', lang);
+  const openMapLabel = homeRecommendationText('Otwórz w mapach', 'Open in maps', lang, 'פתח במפות');
+  const visitSiteLabel = homeRecommendationText('Strona www', 'Visit website', lang, 'לאתר');
   
   const modalDetails = document.getElementById('modalDetails');
   if (!modalDetails) return;

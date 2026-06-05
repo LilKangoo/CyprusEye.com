@@ -150,7 +150,9 @@ function currentLang() {
     ? window.getCurrentLanguage()
     : (window.appI18n?.language || 'pl'));
   const normalized = String(lang || 'pl').toLowerCase();
-  return normalized.startsWith('en') ? 'en' : 'pl';
+  const short = normalized.split('-')[0];
+  if (short === 'pl' || short === 'en' || short === 'he') return short;
+  return 'en';
 }
 
 function slugifyCarLabel(value) {
@@ -206,13 +208,13 @@ function buildCarOfferDeepLink(language = currentLang()) {
   if (state.effectiveOffer) {
     url.searchParams.set('offer_location', state.effectiveOffer);
   }
-  url.searchParams.set('lang', language === 'en' ? 'en' : 'pl');
+  url.searchParams.set('lang', ['pl', 'en', 'he'].includes(language) ? language : 'en');
   return url.toString();
 }
 
 function buildCarListingUrl(language = currentLang()) {
   const url = new URL('/car.html', window.location.origin);
-  url.searchParams.set('lang', language === 'en' ? 'en' : 'pl');
+  url.searchParams.set('lang', ['pl', 'en', 'he'].includes(language) ? language : 'en');
 
   try {
     const currentUrl = new URL(window.location.href);
@@ -251,14 +253,18 @@ function updateCarLandingSeo(selectedCarName, cardMetaText, imageUrl) {
     return;
   }
 
-  const english = currentLang() === 'en';
-  const title = english
-    ? `${selectedCarName} – CyprusEye car rental`
-    : `${selectedCarName} – wynajem auta CyprusEye`;
+  const language = currentLang();
+  const title = language === 'pl'
+    ? `${selectedCarName} – wynajem auta CyprusEye`
+    : language === 'he'
+      ? `${selectedCarName} – השכרת רכב CyprusEye`
+      : `${selectedCarName} – CyprusEye car rental`;
   const description = String(cardMetaText || '').trim()
-    || (english
-      ? `Book ${selectedCarName} directly in the CyprusEye car rental calculator.`
-      : `Zarezerwuj ${selectedCarName} bezpośrednio w kalkulatorze wynajmu CyprusEye.`);
+    || (language === 'pl'
+      ? `Zarezerwuj ${selectedCarName} bezpośrednio w kalkulatorze wynajmu CyprusEye.`
+      : language === 'he'
+        ? `הזמינו את ${selectedCarName} ישירות במחשבון השכרת הרכב של CyprusEye.`
+        : `Book ${selectedCarName} directly in the CyprusEye car rental calculator.`);
 
   document.title = title;
   setMetaValue('meta[name="description"]', description);
@@ -309,17 +315,25 @@ function interpolateText(template, replacements = {}) {
 
 function tr(key, fallback = '', replacements = {}) {
   const lang = currentLang();
-  const translations = window.appI18n?.translations?.[lang] || null;
-  const entry = getTranslationEntry(translations, key);
+  const roots = window.appI18n?.translations || {};
+  const chain = lang === 'pl' ? ['pl', 'en'] : lang === 'he' ? ['he', 'en', 'pl'] : ['en', 'pl'];
 
   let text = null;
-  if (typeof entry === 'string') {
-    text = entry;
-  } else if (entry && typeof entry === 'object') {
-    if (typeof entry.text === 'string') {
-      text = entry.text;
-    } else if (typeof entry.html === 'string') {
-      text = entry.html;
+  for (const code of chain) {
+    const entry = getTranslationEntry(roots?.[code], key);
+    if (typeof entry === 'string' && entry) {
+      text = entry;
+      break;
+    }
+    if (entry && typeof entry === 'object') {
+      if (typeof entry.text === 'string' && entry.text) {
+        text = entry.text;
+        break;
+      }
+      if (typeof entry.html === 'string' && entry.html) {
+        text = entry.html;
+        break;
+      }
     }
   }
 

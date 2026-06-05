@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-05T01:08:21.282Z",
+  "generatedAt": "2026-06-05T09:52:01.371Z",
   "sourceAuditPath": "translations/audit-he-vs-en.json",
   "targetLanguage": "he",
   "baseLanguage": "en",
@@ -9,7 +9,7 @@
     "targetKeys": 2929,
     "missingKeys": 194,
     "extraKeys": 7,
-    "sameAsBaseKeys": 689
+    "sameAsBaseKeys": 684
   },
   "qualityWorkflow": {
     "statuses": {
@@ -20,7 +20,7 @@
     },
     "currentSignals": {
       "missing": 194,
-      "needsHumanReview": 689,
+      "needsHumanReview": 684,
       "machineTranslatedTracked": 0,
       "reviewedTracked": 0,
       "extraKeysNeedingTriage": 7
@@ -387,7 +387,6 @@
       "carRental.fleet.toyota-yaris-hybrid-2023.transmission",
       "carRental.included.feature1.description",
       "carRental.included.feature1.short",
-      "carRental.included.feature2.description",
       "carRental.included.feature2.short",
       "carRental.included.feature3.description",
       "carRental.included.feature3.short",
@@ -688,10 +687,6 @@
       "places.dasoudi-beach.badge",
       "places.dasoudi-beach.description",
       "places.dasoudi-beach.name",
-      "places.distance.noData",
-      "places.distance.pending",
-      "places.distance.permissionDenied",
-      "places.distance.secureContext",
       "places.eleftheria-square.badge",
       "places.eleftheria-square.description",
       "places.eleftheria-square.name",
@@ -1314,7 +1309,7 @@
       "label": "Booking flows",
       "priority": "P0",
       "description": "Transport, car rental, trips, hotels, coupon and deposit booking UI.",
-      "count": 188,
+      "count": 187,
       "samples": [
         "carRental.calculator.breakdown.tiered",
         "carRental.categories.comfort.badge",
@@ -1482,7 +1477,6 @@
         "carRental.fleet.toyota-yaris-hybrid-2023.transmission",
         "carRental.included.feature1.description",
         "carRental.included.feature1.short",
-        "carRental.included.feature2.description",
         "carRental.included.feature2.short",
         "carRental.included.feature3.description",
         "carRental.included.feature3.short",
@@ -1644,7 +1638,7 @@
       "label": "Low priority / internal",
       "priority": "P3",
       "description": "Remaining keys that do not match a higher-priority Stage 8 bucket.",
-      "count": 437,
+      "count": 433,
       "samples": [
         "attractions.brand.overline",
         "attractions.catalog.subtitle",
@@ -1897,10 +1891,6 @@
         "places.dasoudi-beach.badge",
         "places.dasoudi-beach.description",
         "places.dasoudi-beach.name",
-        "places.distance.noData",
-        "places.distance.pending",
-        "places.distance.permissionDenied",
-        "places.distance.secureContext",
         "places.eleftheria-square.badge",
         "places.eleftheria-square.description",
         "places.eleftheria-square.name",
@@ -2135,7 +2125,7 @@
         "heMissingEn": 7
       },
       "heExtraAgainstPlAndEn": 7,
-      "sameAsEnHe": 689,
+      "sameAsEnHe": 684,
       "emptyStrings": {
         "pl": 0,
         "en": 0,

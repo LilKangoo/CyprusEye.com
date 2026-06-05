@@ -265,11 +265,13 @@ try {
       || 'pl'
     ).toLowerCase();
     const activeLang = activeLangRaw.split('-')[0] || activeLangRaw;
-    const activeScope = translationsRoot[activeLang] || translationsRoot[activeLangRaw] || null;
-
-    const activeValue = resolveFromScope(activeScope, key);
-    if (typeof activeValue === 'string') {
-      return activeValue;
+    const chain = activeLang === 'pl' ? ['pl', 'en'] : activeLang === 'he' ? ['he', 'en', 'pl'] : ['en', 'pl'];
+    for (const code of chain) {
+      const activeScope = translationsRoot[code] || (code === activeLang ? translationsRoot[activeLangRaw] : null);
+      const activeValue = resolveFromScope(activeScope, key);
+      if (typeof activeValue === 'string') {
+        return activeValue;
+      }
     }
 
     const rootValue = resolveFromScope(translationsRoot, key);
@@ -287,11 +289,12 @@ try {
       'pl'
     ).toLowerCase();
     const short = raw.split('-')[0] || raw;
-    return short === 'en' ? 'en' : 'pl';
+    if (short === 'pl' || short === 'en' || short === 'he') return short;
+    return 'en';
   }
 
   function getLocationPromptCopy(state = 'prompt') {
-    const isEn = getUiLanguageCode() === 'en';
+    const lang = getUiLanguageCode();
     const copy = {
       pl: {
         title: 'Udostępnij lokalizację',
@@ -307,9 +310,16 @@ try {
         unsupported: 'This browser does not support geolocation, so we cannot show your position on the map.',
         action: 'Enable location',
       },
+      he: {
+        title: 'שיתוף מיקום',
+        prompt: 'הפעילו מיקום כדי שהמפה תוכל להציג את המיקום שלכם ולנווט בצורה מדויקת יותר.',
+        denied: 'הגישה למיקום חסומה. הפעילו אותה בהגדרות הדפדפן כדי להחזיר את מלוא יכולות המפה.',
+        unsupported: 'הדפדפן הזה אינו תומך במיקום גיאוגרפי, לכן לא ניתן להציג את המיקום שלכם במפה.',
+        action: 'הפעלת מיקום',
+      },
     };
 
-    const selected = isEn ? copy.en : copy.pl;
+    const selected = copy[lang] || copy.en;
     return {
       title: selected.title,
       description:

@@ -59,7 +59,8 @@
 
   function t(key, fallbackPl, fallbackEn, replacements = null){
     const lang = getCurrentLanguage();
-    const fallback = lang.startsWith('en') ? (fallbackEn || fallbackPl) : fallbackPl;
+    const normalized = String(lang || '').toLowerCase().split('-')[0];
+    const fallback = normalized === 'pl' ? fallbackPl : (fallbackEn || fallbackPl);
     const rawTranslations = window.appI18n?.translations || {};
     const translations = (
       rawTranslations &&
@@ -487,28 +488,37 @@
   function getLocalizedRecommendationTitle(recommendation){
     if (!recommendation) return '';
     const lang = getCurrentLanguage();
-    if (lang.startsWith('en')) {
-      return recommendation.title_en || recommendation.title_pl || '';
+    if (lang.startsWith('he')) {
+      return recommendation.title_he || recommendation.title_en || recommendation.title_pl || '';
     }
-    return recommendation.title_pl || recommendation.title_en || '';
+    if (lang.startsWith('en')) {
+      return recommendation.title_en || recommendation.title_pl || recommendation.title_he || '';
+    }
+    return recommendation.title_pl || recommendation.title_en || recommendation.title_he || '';
   }
 
   function getLocalizedRecommendationDescription(recommendation){
     if (!recommendation) return '';
     const lang = getCurrentLanguage();
-    if (lang.startsWith('en')) {
-      return recommendation.description_en || recommendation.description_pl || '';
+    if (lang.startsWith('he')) {
+      return recommendation.description_he || recommendation.description_en || recommendation.description_pl || '';
     }
-    return recommendation.description_pl || recommendation.description_en || '';
+    if (lang.startsWith('en')) {
+      return recommendation.description_en || recommendation.description_pl || recommendation.description_he || '';
+    }
+    return recommendation.description_pl || recommendation.description_en || recommendation.description_he || '';
   }
 
   function getLocalizedRecommendationDiscount(recommendation){
     if (!recommendation) return '';
     const lang = getCurrentLanguage();
-    if (lang.startsWith('en')) {
-      return recommendation.discount_text_en || recommendation.discount_text_pl || '';
+    if (lang.startsWith('he')) {
+      return recommendation.discount_text_he || recommendation.discount_text_en || recommendation.discount_text_pl || '';
     }
-    return recommendation.discount_text_pl || recommendation.discount_text_en || '';
+    if (lang.startsWith('en')) {
+      return recommendation.discount_text_en || recommendation.discount_text_pl || recommendation.discount_text_he || '';
+    }
+    return recommendation.discount_text_pl || recommendation.discount_text_en || recommendation.discount_text_he || '';
   }
 
   function getHotelTitle(hotel) {
@@ -516,14 +526,23 @@
     if (typeof window.getHotelName === 'function') {
       return window.getHotelName(hotel);
     }
-    return hotel?.title?.pl || hotel?.title?.en || hotel?.slug || '';
+    const lang = getCurrentLanguage();
+    if (lang.startsWith('he')) return hotel?.title?.he || hotel?.title?.en || hotel?.title?.pl || hotel?.slug || '';
+    if (lang.startsWith('en')) return hotel?.title?.en || hotel?.title?.pl || hotel?.title?.he || hotel?.slug || '';
+    return hotel?.title?.pl || hotel?.title?.en || hotel?.title?.he || hotel?.slug || '';
   }
 
   function getHotelDescriptionText(hotel) {
     if (!hotel) return '';
     const raw = typeof window.getHotelDescription === 'function'
       ? window.getHotelDescription(hotel)
-      : (hotel?.description?.pl || hotel?.description?.en || '');
+      : (
+        getCurrentLanguage().startsWith('he')
+          ? hotel?.description?.he || hotel?.description?.en || hotel?.description?.pl || ''
+          : getCurrentLanguage().startsWith('en')
+            ? hotel?.description?.en || hotel?.description?.pl || hotel?.description?.he || ''
+            : hotel?.description?.pl || hotel?.description?.en || hotel?.description?.he || ''
+      );
     return String(raw || '').replace(/\s+/g, ' ').trim();
   }
 
@@ -557,6 +576,9 @@
       : null;
     if (!Number.isFinite(amount)) {
       return t('currentPlace.hotel.badge', '🏨 HOTEL', '🏨 HOTEL');
+    }
+    if (getCurrentLanguage().startsWith('he')) {
+      return `מ-€${amount.toFixed(2)} ללילה`;
     }
     return getCurrentLanguage().startsWith('en')
       ? `From €${amount.toFixed(2)}/night`

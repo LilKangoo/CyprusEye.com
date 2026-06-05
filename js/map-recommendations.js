@@ -32,8 +32,11 @@ function isRecommendationPolish(language = getCurrentLanguage()) {
   return normalizeRecommendationLang(language) === 'pl';
 }
 
-function recommendationText(pl, en, language = getCurrentLanguage()) {
-  return isRecommendationPolish(language) ? pl : en;
+function recommendationText(pl, en, language = getCurrentLanguage(), he = '') {
+  const normalized = normalizeRecommendationLang(language);
+  if (normalized === 'pl') return pl || en || he || '';
+  if (normalized === 'he') return he || en || pl || '';
+  return en || pl || he || '';
 }
 
 function pickRecommendationField(source, fieldName, language = getCurrentLanguage(), fallback = '') {
@@ -552,15 +555,15 @@ function syncRecommendationMarkers(mapInstance) {
 function createRecommendationPopup(rec) {
   const category = rec.recommendation_categories || {};
   const lang = getCurrentLanguage();
-  const saveLabel = recommendationText('Zapisz', 'Save', lang);
-  
-  const title = pickRecommendationField(rec, 'title', lang, recommendationText('Bez tytułu', 'Untitled', lang));
+  const saveLabel = recommendationText('Zapisz', 'Save', lang, 'שמירה');
+
+  const title = pickRecommendationField(rec, 'title', lang, recommendationText('Bez tytułu', 'Untitled', lang, 'ללא כותרת'));
   
   const categoryName = pickRecommendationField(category, 'name', lang);
   
   const discount = pickRecommendationField(rec, 'discount_text', lang);
   
-  const detailsLabel = recommendationText('Zobacz szczegóły', 'View details', lang);
+  const detailsLabel = recommendationText('Zobacz szczegóły', 'View details', lang, 'פרטים נוספים');
   
   return `
     <div class="rec-map-popup" style="min-width: 220px; padding: 4px;">
@@ -644,11 +647,11 @@ window.openRecommendationDetailModal = function(id) {
   
   const categoryName = pickRecommendationField(category, 'name', lang);
   
-  const openMapLabel = recommendationText('Otwórz w mapach', 'Open in maps', lang);
-  const callLabel = recommendationText('Zadzwoń', 'Call', lang);
-  const offerLabel = recommendationText('🎁 Specjalna oferta', '🎁 Special offer', lang);
-  const showCodeLabel = recommendationText('Pokaż kod', 'Show code', lang);
-  const saveLabel = recommendationText('Zapisz', 'Save', lang);
+  const openMapLabel = recommendationText('Otwórz w mapach', 'Open in maps', lang, 'פתח במפות');
+  const callLabel = recommendationText('Zadzwoń', 'Call', lang, 'התקשר');
+  const offerLabel = recommendationText('🎁 Specjalna oferta', '🎁 Special offer', lang, '🎁 הצעה מיוחדת');
+  const showCodeLabel = recommendationText('Pokaż kod', 'Show code', lang, 'הצג קוד');
+  const saveLabel = recommendationText('Zapisz', 'Save', lang, 'שמירה');
   
   // Create or get modal
   let modal = document.getElementById('recMapModal');

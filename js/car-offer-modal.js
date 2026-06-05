@@ -20,11 +20,16 @@ let previousCarPricingContext = null;
 
 function getLang() {
   const lang = (window.appI18n?.language || document.documentElement?.lang || 'pl').toLowerCase();
-  return lang.startsWith('en') ? 'en' : 'pl';
+  const short = lang.split('-')[0];
+  if (short === 'pl' || short === 'en' || short === 'he') return short;
+  return 'en';
 }
 
-function text(pl, en) {
-  return getLang() === 'en' ? en : pl;
+function text(pl, en, he = '') {
+  const lang = getLang();
+  if (lang === 'pl') return pl || en || he || '';
+  if (lang === 'he') return he || en || pl || '';
+  return en || pl || he || '';
 }
 
 function escapeHtml(unsafe) {
@@ -273,10 +278,10 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
   const optionsHtml = cars.map((car) => {
     const title = getCarName(car);
     const transmission = String(car.transmission || '').toLowerCase() === 'automatic'
-      ? text('Automat', 'Automatic')
-      : text('Manual', 'Manual');
+      ? text('Automat', 'Automatic', 'אוטומטי')
+      : text('Manual', 'Manual', 'ידני');
     const seats = car.max_passengers || 5;
-    const seatsText = text(`${seats} miejsc`, `${seats} seats`);
+    const seatsText = text(`${seats} miejsc`, `${seats} seats`, `${seats} מושבים`);
 
     return `<option value="${escapeHtml(title)}" data-offer-id="${escapeHtml(car.id)}" ${String(car.id) === String(selectedCarId) ? 'selected' : ''}>${escapeHtml(title)} — ${escapeHtml(transmission)} • ${escapeHtml(seatsText)}</option>`;
   }).join('');
@@ -289,15 +294,18 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
     ? (youngDriverConfig.dailyCost > 0
       ? text(
         `Młody kierowca / staż < 3 lata (+${youngDriverConfig.dailyCost}€/dzień)`,
-        `Young driver / license < 3 years (+${youngDriverConfig.dailyCost}€/day)`
+        `Young driver / license < 3 years (+${youngDriverConfig.dailyCost}€/day)`,
+        `נהג צעיר / רישיון פחות מ-3 שנים (+${youngDriverConfig.dailyCost}€ ליום)`
       )
       : text(
         'Młody kierowca / staż < 3 lata (dostępny dla tego auta)',
-        'Young driver / license < 3 years (available for this car)'
+        'Young driver / license < 3 years (available for this car)',
+        'נהג צעיר / רישיון פחות מ-3 שנים (זמין לרכב זה)'
       ))
     : text(
       'Młody kierowca niedostępny dla tego auta',
-      'Young driver is not available for this car'
+      'Young driver is not available for this car',
+      'נהג צעיר אינו זמין לרכב זה'
     );
 
   const youngDriverBlock = loc === 'larnaca'
@@ -583,39 +591,48 @@ export function openCarOfferModal({
   const liveQuote = resolveQuoteForCar({ car, location: loc, prefill, quote });
   const fromPrice = Number(car.price_10plus_days || car.price_per_day || 30);
   const heroPrice = liveQuote
-    ? text(`Razem ${Number(liveQuote.total).toFixed(2)}€`, `Total ${Number(liveQuote.total).toFixed(2)}€`)
-    : text(`Od ${Number(fromPrice).toFixed(0)}€ / dzień`, `From ${Number(fromPrice).toFixed(0)}€ / day`);
+    ? text(
+      `Razem ${Number(liveQuote.total).toFixed(2)}€`,
+      `Total ${Number(liveQuote.total).toFixed(2)}€`,
+      `סה״כ ${Number(liveQuote.total).toFixed(2)}€`
+    )
+    : text(
+      `Od ${Number(fromPrice).toFixed(0)}€ / dzień`,
+      `From ${Number(fromPrice).toFixed(0)}€ / day`,
+      `מ-${Number(fromPrice).toFixed(0)}€ / יום`
+    );
   const heroMeta = liveQuote
     ? text(
       `${liveQuote.days} dni • baza ${Number(liveQuote.basePrice).toFixed(2)}€ • dodatki ${Number((liveQuote.pickupFee || 0) + (liveQuote.returnFee || 0) + (liveQuote.insuranceCost || 0) + (liveQuote.youngDriverCost || 0)).toFixed(2)}€`,
-      `${liveQuote.days} days • base ${Number(liveQuote.basePrice).toFixed(2)}€ • extras ${Number((liveQuote.pickupFee || 0) + (liveQuote.returnFee || 0) + (liveQuote.insuranceCost || 0) + (liveQuote.youngDriverCost || 0)).toFixed(2)}€`
+      `${liveQuote.days} days • base ${Number(liveQuote.basePrice).toFixed(2)}€ • extras ${Number((liveQuote.pickupFee || 0) + (liveQuote.returnFee || 0) + (liveQuote.insuranceCost || 0) + (liveQuote.youngDriverCost || 0)).toFixed(2)}€`,
+      `${liveQuote.days} ימים • בסיס ${Number(liveQuote.basePrice).toFixed(2)}€ • תוספות ${Number((liveQuote.pickupFee || 0) + (liveQuote.returnFee || 0) + (liveQuote.insuranceCost || 0) + (liveQuote.youngDriverCost || 0)).toFixed(2)}€`
     )
-    : text('Wsparcie 24/7 • Brak depozytu', '24/7 support • No deposit');
+    : text('Wsparcie 24/7 • Brak depozytu', '24/7 support • No deposit', 'תמיכה 24/7 • ללא פיקדון');
 
-  const noDepositLabel = text('Bez kaucji', 'No deposit');
+  const noDepositLabel = text('Bez kaucji', 'No deposit', 'ללא פיקדון');
   const transmission = String(car.transmission || '').toLowerCase() === 'automatic'
-    ? text('Automat', 'Automatic')
-    : text('Manual', 'Manual');
+    ? text('Automat', 'Automatic', 'אוטומטי')
+    : text('Manual', 'Manual', 'ידני');
   const seats = car.max_passengers || 5;
-  const seatsText = text(`${seats} miejsc`, `${seats} seats`);
+  const seatsText = text(`${seats} miejsc`, `${seats} seats`, `${seats} מושבים`);
   const fuelType = String(car.fuel_type || '').toLowerCase();
   const fuelText = fuelType === 'petrol'
-    ? text('Benzyna 95', 'Petrol 95')
+    ? text('Benzyna 95', 'Petrol 95', 'בנזין 95')
     : fuelType === 'diesel'
-      ? text('Diesel', 'Diesel')
+      ? text('Diesel', 'Diesel', 'דיזל')
       : fuelType === 'hybrid'
-        ? text('Hybryda', 'Hybrid')
+        ? text('Hybryda', 'Hybrid', 'היברידי')
         : fuelType === 'electric'
-          ? text('Elektryczny', 'Electric')
+          ? text('Elektryczny', 'Electric', 'חשמלי')
           : (car.fuel_type || '');
   const features = getCarFeatures(car);
   const description = getCarDescription(car);
-  const detailsTitle = text('Szczegóły auta', 'Car details');
-  const labelTransmission = text('Skrzynia', 'Transmission');
-  const labelSeats = text('Miejsca', 'Seats');
-  const labelFuel = text('Paliwo', 'Fuel');
-  const labelLocation = text('Oferta', 'Offer');
-  const locLabel = loc === 'paphos' ? text('Pafos', 'Paphos') : text('Larnaka', 'Larnaca');
+  const detailsTitle = text('Szczegóły auta', 'Car details', 'פרטי הרכב');
+  const labelTransmission = text('Skrzynia', 'Transmission', 'תיבת הילוכים');
+  const labelSeats = text('Miejsca', 'Seats', 'מושבים');
+  const labelFuel = text('Paliwo', 'Fuel', 'דלק');
+  const labelLocation = text('Oferta', 'Offer', 'הצעה');
+  const locLabel = loc === 'paphos' ? text('Pafos', 'Paphos', 'פאפוס') : text('Larnaka', 'Larnaca', 'לרנקה');
 
   const pricingSource = Array.isArray(fleetByLocation?.[loc]) ? fleetByLocation[loc] : [car];
   captureCarPricingContext();

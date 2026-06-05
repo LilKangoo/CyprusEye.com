@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-05T01:07:10.215Z",
+  "generatedAt": "2026-06-05T09:51:45.206Z",
   "languages": [
     "pl",
     "en",
@@ -22,7 +22,7 @@
       "heMissingEn": 7
     },
     "heExtraAgainstPlAndEn": 7,
-    "sameAsEnHe": 689,
+    "sameAsEnHe": 684,
     "emptyStrings": {
       "pl": 0,
       "en": 0,
@@ -821,7 +821,6 @@
     "carRental.fleet.toyota-yaris-hybrid-2023.transmission",
     "carRental.included.feature1.description",
     "carRental.included.feature1.short",
-    "carRental.included.feature2.description",
     "carRental.included.feature2.short",
     "carRental.included.feature3.description",
     "carRental.included.feature3.short",
@@ -1122,10 +1121,6 @@
     "places.dasoudi-beach.badge",
     "places.dasoudi-beach.description",
     "places.dasoudi-beach.name",
-    "places.distance.noData",
-    "places.distance.pending",
-    "places.distance.permissionDenied",
-    "places.distance.secureContext",
     "places.eleftheria-square.badge",
     "places.eleftheria-square.description",
     "places.eleftheria-square.name",

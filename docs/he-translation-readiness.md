@@ -1,6 +1,6 @@
 # HE Translation Readiness
 
-Generated: 2026-06-05T01:08:21.282Z
+Generated: 2026-06-05T09:52:01.371Z
 Source audit: `translations/audit-he-vs-en.json`
 
 Hebrew is still internal/hidden. This report does not activate HE in the public language switcher, selectors, sitemap, hreflang, canonical metadata, public SEO, indexing, or `/he/` routes.
@@ -11,7 +11,7 @@ Hebrew is still internal/hidden. This report does not activate HE in the public 
 - HE keys: 2929
 - Missing HE keys: 194
 - Extra HE keys: 7
-- HE keys identical to EN: 689
+- HE keys identical to EN: 684
 - HE keys added in Stage 8: 0
 
 ## PL/EN/HE Structure Completeness
@@ -55,7 +55,7 @@ Rules:
 | Status | Znaczenie | Aktualna liczba |
 | --- | --- | ---: |
 | missing | Klucza nie ma w `translations/he.json`. | 194 |
-| needs_human_review | Klucz istnieje, ale jest taki sam jak EN albo wymaga potwierdzenia native/review. | 689 |
+| needs_human_review | Klucz istnieje, ale jest taki sam jak EN albo wymaga potwierdzenia native/review. | 684 |
 | machine_translated | Tlumaczenie maszynowe oczekujace na review. Ten status nie jest jeszcze automatycznie sledzony. | 0 |
 | reviewed | Tlumaczenie zaakceptowane przez czlowieka/native speaker. Ten status nie jest jeszcze automatycznie sledzony. | 0 |
 
@@ -92,14 +92,14 @@ routes. Import is dry-run by default through
 | --- | ---: | --- |
 | Critical UI / navigation | 6 | `footer.referral.facebook`, `header.brand`, `header.profile.footer.referral.facebook`, `header.sosToggle`, `metrics.xp.progressTemplate`, `mobile.nav.mediaTrips` |
 | Errors / validation | 26 | `packing.guide.seasons.autumn.eveningLayer.hint`, `packing.guide.seasons.autumn.summerClothes.hint`, `packing.guide.seasons.autumn.sunscreen.hint`, `packing.guide.seasons.autumn.swimwear.hint`, `packing.guide.seasons.spring.layers.hint`, `packing.guide.seasons.spring.rainProtection.hint`, ... +6 |
-| Booking flows | 188 | `carRental.calculator.breakdown.tiered`, `carRental.categories.comfort.badge`, `carRental.categories.comfort.description`, `carRental.categories.comfort.label`, `carRental.categories.economy.badge`, `carRental.categories.economy.description`, ... +6 |
+| Booking flows | 187 | `carRental.calculator.breakdown.tiered`, `carRental.categories.comfort.badge`, `carRental.categories.comfort.description`, `carRental.categories.comfort.label`, `carRental.categories.economy.badge`, `carRental.categories.economy.description`, ... +6 |
 | Auth | 4 | `account.close.text`, `account.profile.labels.xp`, `profile.avatar.remove`, `profile.settings.email.placeholder` |
 | Checkout / shop | 0 | - |
 | Partner panel | 4 | `advertise.form.placeholders.email`, `advertise.form.placeholders.phone`, `advertise.form.placeholders.website`, `advertise.overline` |
 | Admin | 0 | - |
 | Blog / public content | 5 | `community.gallery.panoramaBadge`, `plan.ui.itemType.poiShort`, `sos.embassy.email`, `sos.quick.whatsapp`, `sos.title` |
 | SEO / static meta | 19 | `seo.carRental.ogDescription`, `seo.carRentalPfo.description`, `seo.carRentalPfo.ogDescription`, `seo.coupon.locale`, `seo.coupon.localeAlternate`, `seo.coupon.ogDescription`, ... +6 |
-| Low priority / internal | 437 | `attractions.brand.overline`, `attractions.catalog.subtitle`, `attractions.nav.catalog`, `attractions.nav.current`, `attractions.subtitle`, `cruise.back`, ... +6 |
+| Low priority / internal | 433 | `attractions.brand.overline`, `attractions.catalog.subtitle`, `attractions.nav.catalog`, `attractions.nav.current`, `attractions.subtitle`, `cruise.back`, ... +6 |
 
 ## Largest Missing Roots
 

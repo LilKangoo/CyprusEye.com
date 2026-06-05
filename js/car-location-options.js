@@ -8,7 +8,9 @@ function currentLang() {
     ? window.getCurrentLanguage()
     : (window.appI18n?.language || document.documentElement?.lang || 'pl'));
   const normalized = String(lang || 'pl').toLowerCase();
-  return normalized.startsWith('en') ? 'en' : 'pl';
+  const short = normalized.split('-')[0];
+  if (short === 'pl' || short === 'en' || short === 'he') return short;
+  return 'en';
 }
 
 function getTranslationEntry(translations, key) {
@@ -46,17 +48,25 @@ function interpolateText(template, replacements = {}) {
 
 function tr(key, fallback = '', replacements = {}) {
   const lang = currentLang();
-  const translations = window.appI18n?.translations?.[lang] || null;
-  const entry = getTranslationEntry(translations, key);
+  const roots = window.appI18n?.translations || {};
+  const chain = lang === 'pl' ? ['pl', 'en'] : lang === 'he' ? ['he', 'en', 'pl'] : ['en', 'pl'];
 
   let text = null;
-  if (typeof entry === 'string') {
-    text = entry;
-  } else if (entry && typeof entry === 'object') {
-    if (typeof entry.text === 'string') {
-      text = entry.text;
-    } else if (typeof entry.html === 'string') {
-      text = entry.html;
+  for (const code of chain) {
+    const entry = getTranslationEntry(roots?.[code], key);
+    if (typeof entry === 'string' && entry) {
+      text = entry;
+      break;
+    }
+    if (entry && typeof entry === 'object') {
+      if (typeof entry.text === 'string' && entry.text) {
+        text = entry.text;
+        break;
+      }
+      if (typeof entry.html === 'string' && entry.html) {
+        text = entry.html;
+        break;
+      }
     }
   }
 

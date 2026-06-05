@@ -21,6 +21,12 @@ function getI18nLanguage() {
   return fromGlobal || 'pl';
 }
 
+function getI18nShortLanguage() {
+  const short = String(getI18nLanguage() || '').trim().toLowerCase().split('-')[0];
+  if (short === 'pl' || short === 'en' || short === 'he') return short;
+  return 'en';
+}
+
 function getCarName(car) {
   return window.getCarName ? window.getCarName(car) : (car?.car_model || car?.car_type || 'Car');
 }
@@ -32,8 +38,7 @@ function filterFleetForLanguage(cars, language = getI18nLanguage()) {
   return Array.isArray(cars) ? cars : [];
 }
 
-function getI18nTranslations() {
-  const lang = getI18nLanguage();
+function getI18nTranslations(lang = getI18nShortLanguage()) {
   const pack = window.appI18n?.translations?.[lang];
   return pack && typeof pack === 'object' ? pack : {};
 }
@@ -57,12 +62,16 @@ function getI18nEntry(translations, key) {
 }
 
 function getI18nString(key) {
-  const translations = getI18nTranslations();
-  const entry = getI18nEntry(translations, key);
-  if (typeof entry === 'string') return entry;
-  if (entry && typeof entry === 'object') {
-    if (typeof entry.text === 'string') return entry.text;
-    if (typeof entry.html === 'string') return entry.html;
+  const lang = getI18nShortLanguage();
+  const chain = lang === 'pl' ? ['pl', 'en'] : lang === 'he' ? ['he', 'en', 'pl'] : ['en', 'pl'];
+  for (const code of chain) {
+    const translations = getI18nTranslations(code);
+    const entry = getI18nEntry(translations, key);
+    if (typeof entry === 'string' && entry) return entry;
+    if (entry && typeof entry === 'object') {
+      if (typeof entry.text === 'string' && entry.text) return entry.text;
+      if (typeof entry.html === 'string' && entry.html) return entry.html;
+    }
   }
   return null;
 }
@@ -385,13 +394,17 @@ function renderFleet() {
   }
 
   const { requiredPassengers, filteredFleet, requireYoungDriver } = getFleetFilteredByPassengers();
-  const isEn = getI18nLanguage().startsWith('en');
+  const lang = getI18nShortLanguage();
   if (filteredFleet.length === 0) {
     const fallbackMessage = requireYoungDriver
-      ? (isEn
+      ? (lang === 'he'
+        ? `אין רכבים עם נהג צעיר ל-${requiredPassengers} נוסעים. שנו את הגדרת הרכב או המסלול.`
+        : lang === 'en'
         ? `No cars available for ${requiredPassengers} passengers with young driver enabled. Change car setup or route.`
         : `Brak aut dla ${requiredPassengers} pasażerów z opcją młodego kierowcy. Zmień ustawienie auta lub trasę.`)
-      : (isEn
+      : (lang === 'he'
+        ? `אין רכבים זמינים ל-${requiredPassengers} נוסעים. הפחיתו נוסעים או שנו מסלול.`
+        : lang === 'en'
         ? `No cars available for ${requiredPassengers} passengers. Reduce passengers or change route.`
         : `Brak aut dla ${requiredPassengers} pasażerów. Zmniejsz liczbę pasażerów lub zmień trasę.`);
     grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #64748b;"><p>${escapeHtml(fallbackMessage)}</p></div>`;
@@ -508,16 +521,20 @@ function updateCalculatorOptions() {
   if (paphosFleet.length === 0) return;
 
   const { requiredPassengers, filteredFleet, requireYoungDriver } = getFleetFilteredByPassengers();
-  const isEn = getI18nLanguage().startsWith('en');
+  const lang = getI18nShortLanguage();
   const previousSelectValue = String(select?.value || '').trim();
   const previousReservationValue = String(resSelect?.value || '').trim();
 
   if (filteredFleet.length === 0) {
     const noCarsLabel = requireYoungDriver
-      ? (isEn
+      ? (lang === 'he'
+        ? `אין רכבי נהג צעיר ל-${requiredPassengers} נוסעים`
+        : lang === 'en'
         ? `No young driver cars for ${requiredPassengers} passengers`
         : `Brak aut z młodym kierowcą dla ${requiredPassengers} pasażerów`)
-      : (isEn
+      : (lang === 'he'
+        ? `אין רכבים ל-${requiredPassengers} נוסעים`
+        : lang === 'en'
         ? `No cars for ${requiredPassengers} passengers`
         : `Brak aut dla ${requiredPassengers} pasażerów`);
     const noCarsOption = `<option value="">${escapeHtml(noCarsLabel)}</option>`;

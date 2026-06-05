@@ -46,8 +46,13 @@ function updateCartAriaLabel() {
   if (!btn) return;
 
   const lang = (window.appI18n && window.appI18n.language) ? window.appI18n.language : null;
-  const translations = lang && window.appI18n && window.appI18n.translations ? window.appI18n.translations[lang] : null;
-  const label = getNestedTranslation(translations, 'shop.cart.aria') || (lang === 'en' ? 'Shopping cart' : 'Koszyk');
+  const short = String(lang || '').trim().toLowerCase().split('-')[0];
+  const roots = window.appI18n && window.appI18n.translations ? window.appI18n.translations : {};
+  const chain = short === 'pl' ? ['pl', 'en'] : short === 'he' ? ['he', 'en', 'pl'] : ['en', 'pl'];
+  const label = chain
+    .map((code) => getNestedTranslation(roots?.[code], 'shop.cart.aria'))
+    .find(Boolean)
+    || (short === 'he' ? 'עגלת קניות' : short === 'pl' ? 'Koszyk' : 'Shopping cart');
   btn.setAttribute('aria-label', label);
 }
 

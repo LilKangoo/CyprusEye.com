@@ -84,6 +84,14 @@ async function expectHeSwitcherVisible(page) {
   ), null, { timeout: 5000 });
 }
 
+async function expectVisibleTextToExclude(page, forbiddenSnippets: string[]) {
+  const text = await page.locator('body').evaluate((body) => (body.textContent || '').replace(/\s+/g, ' ').trim());
+  for (const snippet of forbiddenSnippets) {
+    expect(text).not.toContain(snippet);
+  }
+  expect(text).not.toMatch(/\bundefined\b|\bnull\b/i);
+}
+
 async function allowInternalHiddenPreview(page) {
   await page.addInitScript(() => {
     (window as any).CE_LANGUAGE_ROLLOUT_CONFIG = {
@@ -267,6 +275,66 @@ test.describe('hidden Hebrew rollout guard', () => {
     expect(byPath('/community.html')?.lang).toBe('en');
     expect(byPath('/packing.html')?.lang).toBe('en');
     expect(byPath('/tasks.html')?.lang).toBe('en');
+  });
+
+  test('keeps visible HE UI free of known PL/EN fallback leftovers', async ({ page }) => {
+    await seedStage33TripFixtures(page);
+
+    await page.goto('/index.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await waitForHtmlLanguage(page, 'he');
+    await page.waitForTimeout(1000);
+    await expectVisibleTextToExclude(page, [
+      'Udostępnij lokalizację',
+      'Włącz lokalizację',
+      'Find your car in 15 seconds',
+      'Choose route and timing first',
+      'Passengers',
+      'Pickup date',
+      'Pickup time',
+      'Return date',
+      'Return time',
+      'Pickup location',
+      'Return location',
+      'Reset finder',
+      'Choose route to unlock cars',
+      'Complete the route and dates to unlock matching cars and final prices',
+      'Car rental in Cyprus',
+      'Explore the fleet, compare prices, and book a car on the dedicated page',
+      'GO TO RENTAL',
+      'Recommended',
+      'Wybierz lokalizację',
+      'Oferta Larnaka',
+      'Strefa Pafos',
+    ]);
+
+    await page.goto('/car.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await waitForHtmlLanguage(page, 'he');
+    await page.waitForTimeout(1000);
+    await expectVisibleTextToExclude(page, [
+      'Wybierz daty i trasę',
+      'Oferta: Larnaka',
+      'Wybierz lokalizację',
+      'Young driver / licence',
+      'Young driver / license',
+      'Full AC insurance',
+      'Full insurance',
+      'Choose dates and route',
+      'Pickup location',
+      'Return location',
+    ]);
+
+    await page.goto('/recommendations.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await waitForHtmlLanguage(page, 'he');
+    await page.waitForTimeout(1000);
+    await expectVisibleTextToExclude(page, [
+      'Recommended',
+      'Show code',
+      'Open in maps',
+      'Visit website',
+      'View details',
+      'Zapisz',
+      'Polecane',
+    ]);
   });
 
   test('blocks direct HE for unready trip records', async ({ page }) => {

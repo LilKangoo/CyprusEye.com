@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-05T01:04:03.956Z",
+  "generatedAt": "2026-06-05T15:38:57.404Z",
   "workflow": "manual_translation_review",
   "publicActivation": {
     "globalHe": false,
@@ -14,19 +14,19 @@
     "publicHeRoutes": false
   },
   "counts": {
-    "records": 689,
-    "humanReviewRequired": 689,
+    "records": 684,
+    "humanReviewRequired": 684,
     "missingEn": 0,
     "missingHe": 0,
-    "sameAsEn": 689,
+    "sameAsEn": 684,
     "placeholderIssues": 0,
     "safeToAutoApply": 0
   },
   "description": "HE values currently identical to EN, classified for manual decision.",
   "sameAsEnBreakdown": {
-    "needs_translation": 537,
+    "needs_translation": 533,
     "allowed_same_as_en": 19,
-    "needs_human_review": 133
+    "needs_human_review": 132
   },
   "records": [
     {
@@ -4112,31 +4112,6 @@
       "human_review_required": true,
       "recommended_action": "Review and translate HE, or explicitly mark same-as-EN as intentional.",
       "notes": "Short/static UI review.",
-      "safe_to_auto_apply": false
-    },
-    {
-      "key": "carRental.included.feature2.description",
-      "record_id": "carRental.included.feature2.description",
-      "module": "carRental",
-      "category": "long_static_copy",
-      "source_pl": "Ubezpieczenie OC + Assistance 24/7 z udziałem własnym do 500 €.",
-      "source_en": "Liability insurance + 24/7 assistance with up to €500 excess.",
-      "current_he": "Liability insurance + 24/7 assistance with up to €500 excess.",
-      "missing_en": false,
-      "missing_he": false,
-      "same_as_en": true,
-      "same_as_en_classification": "needs_human_review",
-      "placeholder_status": "ok",
-      "placeholder_details": {
-        "status": "ok",
-        "source_tokens": [],
-        "target_tokens": [],
-        "source_tags": [],
-        "target_tags": []
-      },
-      "human_review_required": true,
-      "recommended_action": "Review and translate HE, or explicitly mark same-as-EN as intentional.",
-      "notes": "Long static copy requires human copy review before public use.",
       "safe_to_auto_apply": false
     },
     {
@@ -11642,106 +11617,6 @@
       "source_pl": "Plaża Dasoudi",
       "source_en": "Dasoudi Beach",
       "current_he": "Dasoudi Beach",
-      "missing_en": false,
-      "missing_he": false,
-      "same_as_en": true,
-      "same_as_en_classification": "needs_translation",
-      "placeholder_status": "ok",
-      "placeholder_details": {
-        "status": "ok",
-        "source_tokens": [],
-        "target_tokens": [],
-        "source_tags": [],
-        "target_tags": []
-      },
-      "human_review_required": true,
-      "recommended_action": "Review and translate HE, or explicitly mark same-as-EN as intentional.",
-      "notes": "Short/static UI review.",
-      "safe_to_auto_apply": false
-    },
-    {
-      "key": "places.distance.noData",
-      "record_id": "places.distance.noData",
-      "module": "places",
-      "category": "static_ui",
-      "source_pl": "Brak danych o lokalizacji",
-      "source_en": "No location data",
-      "current_he": "No location data",
-      "missing_en": false,
-      "missing_he": false,
-      "same_as_en": true,
-      "same_as_en_classification": "needs_translation",
-      "placeholder_status": "ok",
-      "placeholder_details": {
-        "status": "ok",
-        "source_tokens": [],
-        "target_tokens": [],
-        "source_tags": [],
-        "target_tags": []
-      },
-      "human_review_required": true,
-      "recommended_action": "Review and translate HE, or explicitly mark same-as-EN as intentional.",
-      "notes": "Short/static UI review.",
-      "safe_to_auto_apply": false
-    },
-    {
-      "key": "places.distance.pending",
-      "record_id": "places.distance.pending",
-      "module": "places",
-      "category": "static_ui",
-      "source_pl": "Obliczanie odległości…",
-      "source_en": "📍 Determining position…",
-      "current_he": "📍 Determining position…",
-      "missing_en": false,
-      "missing_he": false,
-      "same_as_en": true,
-      "same_as_en_classification": "needs_translation",
-      "placeholder_status": "ok",
-      "placeholder_details": {
-        "status": "ok",
-        "source_tokens": [],
-        "target_tokens": [],
-        "source_tags": [],
-        "target_tags": []
-      },
-      "human_review_required": true,
-      "recommended_action": "Review and translate HE, or explicitly mark same-as-EN as intentional.",
-      "notes": "Short/static UI review.",
-      "safe_to_auto_apply": false
-    },
-    {
-      "key": "places.distance.permissionDenied",
-      "record_id": "places.distance.permissionDenied",
-      "module": "places",
-      "category": "static_ui",
-      "source_pl": "Włącz udostępnianie lokalizacji",
-      "source_en": "Enable location sharing",
-      "current_he": "Enable location sharing",
-      "missing_en": false,
-      "missing_he": false,
-      "same_as_en": true,
-      "same_as_en_classification": "needs_translation",
-      "placeholder_status": "ok",
-      "placeholder_details": {
-        "status": "ok",
-        "source_tokens": [],
-        "target_tokens": [],
-        "source_tags": [],
-        "target_tags": []
-      },
-      "human_review_required": true,
-      "recommended_action": "Review and translate HE, or explicitly mark same-as-EN as intentional.",
-      "notes": "Short/static UI review.",
-      "safe_to_auto_apply": false
-    },
-    {
-      "key": "places.distance.secureContext",
-      "record_id": "places.distance.secureContext",
-      "module": "places",
-      "category": "static_ui",
-      "source_pl": "Użyj bezpiecznego połączenia (HTTPS), aby udostępnić lokalizację.",
-      "source_en": "Use a secure HTTPS connection to share your location.",
-      "current_he": "Use a secure HTTPS connection to share your location.",
       "missing_en": false,
       "missing_he": false,
       "same_as_en": true,
