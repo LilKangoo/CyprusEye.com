@@ -25,6 +25,16 @@ function currentLang() {
   return normalized.startsWith('en') ? 'en' : 'pl';
 }
 
+function currentUiLang() {
+  const lang = (typeof window.getCurrentLanguage === 'function'
+    ? window.getCurrentLanguage()
+    : (window.appI18n?.language || document.documentElement?.lang || 'pl'));
+  const normalized = String(lang || 'pl').toLowerCase();
+  if (normalized.startsWith('he')) return 'he';
+  if (normalized.startsWith('en')) return 'en';
+  return 'pl';
+}
+
 function getTranslationEntry(translations, key) {
   if (!key || !translations || typeof translations !== 'object') return null;
 
@@ -60,18 +70,27 @@ function interpolateText(template, replacements = {}) {
 }
 
 function tr(key, fallback = '', replacements = {}) {
-  const lang = currentLang();
-  const translations = window.appI18n?.translations?.[lang] || null;
-  const entry = getTranslationEntry(translations, key);
+  const lang = currentUiLang();
+  const chain = lang === 'he' ? ['he', 'en', 'pl'] : (lang === 'en' ? ['en', 'pl'] : ['pl', 'en']);
 
   let text = null;
-  if (typeof entry === 'string') {
-    text = entry;
-  } else if (entry && typeof entry === 'object') {
-    if (typeof entry.text === 'string') {
-      text = entry.text;
-    } else if (typeof entry.html === 'string') {
-      text = entry.html;
+
+  for (const code of chain) {
+    const translations = window.appI18n?.translations?.[code] || null;
+    const entry = getTranslationEntry(translations, key);
+    if (typeof entry === 'string' && entry.trim()) {
+      text = entry;
+      break;
+    }
+    if (entry && typeof entry === 'object') {
+      if (typeof entry.text === 'string' && entry.text.trim()) {
+        text = entry.text;
+        break;
+      }
+      if (typeof entry.html === 'string' && entry.html.trim()) {
+        text = entry.html;
+        break;
+      }
     }
   }
 

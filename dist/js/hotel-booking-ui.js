@@ -34,6 +34,14 @@
     return raw.startsWith('en') ? 'en' : 'pl';
   }
 
+  function pickUiLabel(language, labels) {
+    const raw = String(language || getLanguage()).trim().toLowerCase();
+    const pack = labels && typeof labels === 'object' ? labels : {};
+    if (raw.startsWith('he')) return pack.he || pack.en || pack.pl || '';
+    if (raw.startsWith('pl')) return pack.pl || pack.en || pack.he || '';
+    return pack.en || pack.pl || pack.he || '';
+  }
+
   function isMissingHotelAmenityHeColumn(error) {
     const code = String(error?.code || '').trim();
     const message = String(error?.message || error?.details || error?.hint || '').toLowerCase();
@@ -593,9 +601,11 @@
   }
 
   function getDefaultNonRefundableText(language) {
-    return String(language || getLanguage()).startsWith('en')
-      ? 'Non-refundable if a deposit or prepayment is required to confirm this booking.'
-      : 'Bezzwrotna, jeśli do potwierdzenia rezerwacji będzie wymagana przedpłata lub depozyt.';
+    return pickUiLabel(language, {
+      pl: 'Bezzwrotna, jeśli do potwierdzenia rezerwacji będzie wymagana przedpłata lub depozyt.',
+      en: 'Non-refundable if a deposit or prepayment is required to confirm this booking.',
+      he: 'ללא החזר אם נדרשת מקדמה או תשלום מראש לאישור ההזמנה.',
+    });
   }
 
   function getSelectionSummary(hotel, options) {
@@ -698,12 +708,14 @@
       return false;
     }
 
-    const title = language.startsWith('en') ? 'Location' : 'Lokalizacja';
-    const addressLabel = language.startsWith('en') ? 'Address' : 'Adres';
-    const mapLabel = language.startsWith('en') ? 'Google Maps' : 'Google Maps';
-    const mapFallback = language.startsWith('en')
-      ? 'Map preview appears after the hotel coordinates are added.'
-      : 'Podgląd mapy pojawi się po uzupełnieniu współrzędnych hotelu.';
+    const title = pickUiLabel(language, { pl: 'Lokalizacja', en: 'Location', he: 'מיקום' });
+    const addressLabel = pickUiLabel(language, { pl: 'Adres', en: 'Address', he: 'כתובת' });
+    const mapLabel = 'Google Maps';
+    const mapFallback = pickUiLabel(language, {
+      pl: 'Podgląd mapy pojawi się po uzupełnieniu współrzędnych hotelu.',
+      en: 'Map preview appears after the hotel coordinates are added.',
+      he: 'תצוגת המפה תופיע לאחר הוספת קואורדינטות המלון.',
+    });
     const signature = [
       String(hotel?.id || hotel?.slug || ''),
       language,
@@ -807,15 +819,15 @@
       return false;
     }
 
-    const title = language.startsWith('en') ? 'Room & rate plan' : 'Pokój i plan cenowy';
-    const roomLabel = language.startsWith('en') ? 'Room type' : 'Typ pokoju';
-    const planLabel = language.startsWith('en') ? 'Rate plan' : 'Plan cenowy';
-    const guestsLabel = language.startsWith('en') ? 'Up to' : 'Do';
-    const guestsSuffix = language.startsWith('en') ? 'guests' : 'osób';
-    const roomSummaryLabel = language.startsWith('en') ? 'Room details' : 'Szczegóły pokoju';
-    const planSummaryLabel = language.startsWith('en') ? 'Plan details' : 'Szczegóły planu';
-    const pricePreviewLabel = language.startsWith('en') ? 'Selected plan from' : 'Plan od';
-    const galleryLabel = language.startsWith('en') ? 'Room gallery' : 'Galeria pokoju';
+    const title = pickUiLabel(language, { pl: 'Pokój i plan cenowy', en: 'Room & rate plan', he: 'חדר ותוכנית מחיר' });
+    const roomLabel = pickUiLabel(language, { pl: 'Typ pokoju', en: 'Room type', he: 'סוג חדר' });
+    const planLabel = pickUiLabel(language, { pl: 'Plan cenowy', en: 'Rate plan', he: 'תוכנית מחיר' });
+    const guestsLabel = pickUiLabel(language, { pl: 'Do', en: 'Up to', he: 'עד' });
+    const guestsSuffix = pickUiLabel(language, { pl: 'osób', en: 'guests', he: 'אורחים' });
+    const roomSummaryLabel = pickUiLabel(language, { pl: 'Szczegóły pokoju', en: 'Room details', he: 'פרטי החדר' });
+    const planSummaryLabel = pickUiLabel(language, { pl: 'Szczegóły planu', en: 'Plan details', he: 'פרטי התוכנית' });
+    const pricePreviewLabel = pickUiLabel(language, { pl: 'Plan od', en: 'Selected plan from', he: 'התוכנית החל מ-' });
+    const galleryLabel = pickUiLabel(language, { pl: 'Galeria pokoju', en: 'Room gallery', he: 'גלריית החדר' });
     const previewPrice = api?.getHotelMinPricePerNight
       ? api.getHotelMinPricePerNight(hotel, {
         preferredPersons: Math.min(Number(roomType.max_persons || 2) || 2, 2),
@@ -866,7 +878,7 @@
             <strong style="font-size:12px; color:#475569;">${planSummaryLabel}</strong>
             <span style="font-size:14px; color:#0f172a;">${summary.ratePlanName}</span>
             ${summary.ratePlanSummary ? `<span style="font-size:13px; color:#475569;">${summary.ratePlanSummary}</span>` : ''}
-            ${summary.selection.ratePlan?.non_refundable_before_deposit ? `<span style="display:inline-flex; width:max-content; padding:6px 10px; border-radius:999px; background:#fee2e2; color:#991b1b; font-size:12px; font-weight:700;">${language.startsWith('en') ? 'Non-refundable before deposit' : 'Bezzwrotna przed wpłatą / depozytem'}</span>` : ''}
+            ${summary.selection.ratePlan?.non_refundable_before_deposit ? `<span style="display:inline-flex; width:max-content; padding:6px 10px; border-radius:999px; background:#fee2e2; color:#991b1b; font-size:12px; font-weight:700;">${pickUiLabel(language, { pl: 'Bezzwrotna przed wpłatą / depozytem', en: 'Non-refundable before deposit', he: 'ללא החזר לפני מקדמה' })}</span>` : ''}
             ${summary.depositNote ? `<span style="font-size:12px; color:#64748b;">${summary.depositNote}</span>` : ''}
           </div>
           ` : ''}
@@ -968,32 +980,32 @@
     const rows = [];
     if (settings.check_in_from) {
       rows.push({
-        label: language.startsWith('en') ? 'Check-in from' : 'Check-in od',
+        label: pickUiLabel(language, { pl: 'Check-in od', en: 'Check-in from', he: 'צ׳ק-אין החל מ-' }),
         value: settings.check_in_from,
       });
     }
     if (settings.check_out_until) {
       rows.push({
-        label: language.startsWith('en') ? 'Check-out until' : 'Check-out do',
+        label: pickUiLabel(language, { pl: 'Check-out do', en: 'Check-out until', he: 'צ׳ק-אאוט עד' }),
         value: settings.check_out_until,
       });
     }
     if (selection.cancellationText) {
       rows.push({
-        label: language.startsWith('en') ? 'Cancellation' : 'Anulacja',
+        label: pickUiLabel(language, { pl: 'Anulacja', en: 'Cancellation', he: 'ביטול' }),
         value: selection.cancellationText,
       });
     }
     if (selection.depositNote) {
       rows.push({
-        label: language.startsWith('en') ? 'Deposit rule' : 'Zasada przedpłaty',
+        label: pickUiLabel(language, { pl: 'Zasada przedpłaty', en: 'Deposit rule', he: 'כלל מקדמה' }),
         value: selection.depositNote,
       });
     }
     const stayInfoText = localizeText(settings.stay_info, language);
     if (stayInfoText) {
       rows.push({
-        label: language.startsWith('en') ? 'Stay info' : 'Informacje o pobycie',
+        label: pickUiLabel(language, { pl: 'Informacje o pobycie', en: 'Stay info', he: 'מידע על השהייה' }),
         value: stayInfoText,
       });
     }
@@ -1031,8 +1043,8 @@
       return false;
     }
 
-    const titleIncluded = language.startsWith('en') ? 'Included in quote' : 'Wliczone do wyceny';
-    const titleOptional = language.startsWith('en') ? 'Optional extras' : 'Dodatki opcjonalne';
+    const titleIncluded = pickUiLabel(language, { pl: 'Wliczone do wyceny', en: 'Included in quote', he: 'כלול בהצעת המחיר' });
+    const titleOptional = pickUiLabel(language, { pl: 'Dodatki opcjonalne', en: 'Optional extras', he: 'תוספות אופציונליות' });
 
     target.hidden = false;
     target.innerHTML = `

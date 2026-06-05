@@ -8,10 +8,21 @@
   function getLang() {
     try {
       const lang = (window.appI18n && window.appI18n.language) ? window.appI18n.language : (document.documentElement?.lang || 'pl');
-      return String(lang || 'pl').toLowerCase().startsWith('en') ? 'en' : 'pl';
+      const normalized = String(lang || 'pl').toLowerCase();
+      if (normalized.startsWith('he')) return 'he';
+      if (normalized.startsWith('en')) return 'en';
+      return 'pl';
     } catch (_) {
       return 'pl';
     }
+  }
+
+  function labelByLang(labels, lang = getLang()) {
+    const pack = labels && typeof labels === 'object' ? labels : {};
+    const normalized = String(lang || 'pl').toLowerCase();
+    if (normalized.startsWith('he')) return pack.he || pack.en || pack.pl || '';
+    if (normalized.startsWith('en')) return pack.en || pack.pl || pack.he || '';
+    return pack.pl || pack.en || pack.he || '';
   }
 
   function savedCatalogStorageKeyForUid(uid) {
@@ -367,9 +378,9 @@
   }
 
   function labelForButton(saved) {
-    const lang = getLang();
-    if (lang === 'en') return saved ? 'Saved' : 'Save';
-    return saved ? 'Zapisane' : 'Zapisz';
+    return labelByLang(saved
+      ? { pl: 'Zapisane', en: 'Saved', he: 'נשמר' }
+      : { pl: 'Zapisz', en: 'Save', he: 'שמירה' });
   }
 
   function applyButtonState(btn) {
@@ -444,11 +455,11 @@
           return;
         }
 
-        const lang = getLang();
-        const message =
-          lang === 'en'
-            ? 'Could not sync saved items. Please try again.'
-            : 'Nie udało się zsynchronizować zapisanych. Spróbuj ponownie.';
+        const message = labelByLang({
+          pl: 'Nie udało się zsynchronizować zapisanych. Spróbuj ponownie.',
+          en: 'Could not sync saved items. Please try again.',
+          he: 'לא הצלחנו לסנכרן את הפריטים השמורים. נסו שוב.',
+        });
         if (typeof window.showToast === 'function') {
           window.showToast(message, 'error');
         } else if (window.Toast && typeof window.Toast.show === 'function') {

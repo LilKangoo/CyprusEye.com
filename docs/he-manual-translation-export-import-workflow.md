@@ -305,3 +305,20 @@ After apply:
 2. Run `npm run i18n:test`.
 3. Run `npm run build`.
 4. Keep Blog/Shop/SEO activation as separate stages.
+
+## Final Cleanup Review Boundaries
+
+The review packs are working files only. They must not be shipped as public
+assets and must not be used to auto-publish dynamic content.
+
+Current boundaries:
+
+- Static short UI keys can be imported after manual review and dry-run.
+- Blog post content remains a manual admin/Supabase workflow.
+- Blog `public_ready` is a separate explicit SQL/admin action after human
+  review.
+- Shop products/categories/vendors/shipping remain manual dynamic records.
+- Email/payment templates require human review, placeholder verification and
+  payment-flow smoke before any HE template is used.
+- SEO copy translation does not activate HE SEO; SEO activation remains guarded
+  by the Stage49 scope.

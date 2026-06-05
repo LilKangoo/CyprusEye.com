@@ -1135,3 +1135,27 @@ Next work should be manual content workflow, not accidental rollout expansion:
 Monitoring checklist: `docs/he-production-monitoring-checklist.md`.
 Blog checklist: `docs/he-blog-manual-public-ready-checklist.md`.
 Shop checklist: `docs/he-shop-future-rollout-checklist.md`.
+
+## Final Cleanup Before Documentation Commit
+
+Scope: **safe UI/i18n cleanup only**.
+
+Locked behavior:
+
+- Stable HE public UI scope remains Home, transport, hotels, hotel,
+  recommendations, car, trips, trip and POI/map.
+- Stable HE SEO scope remains the Stage49 allowed sitemap URLs only.
+- Blog dynamic content remains manual and blocked until specific rows are
+  reviewed and marked `public_ready`.
+- Shop/cart/checkout/payment remain excluded from HE and HE SEO.
+- Public `/he/` routes remain disabled.
+- Booking/payment/deposit and Stripe webhook logic remain out of scope.
+
+Cleanup requirements before final documentation commit:
+
+1. Keep PL/EN/HE UI keys structurally aligned.
+2. Enforce `HE -> EN -> PL -> first available` fallback in UI helpers.
+3. Keep first-visit language selection PL/EN/HE.
+4. Keep partner `Copy HE` referral links gated by page/record readiness.
+5. Keep review packs current for manual Blog/Shop/SEO/email/dynamic content
+   translation.

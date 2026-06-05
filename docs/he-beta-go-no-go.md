@@ -699,3 +699,28 @@ Stage50 monitoring and manual workflows:
 - `docs/he-production-monitoring-checklist.md`
 - `docs/he-blog-manual-public-ready-checklist.md`
 - `docs/he-shop-future-rollout-checklist.md`
+- `docs/he-manual-translation-export-import-workflow.md`
+
+## Final Cleanup GO / NO-GO Addendum
+
+Decision target: **GO for UI/i18n cleanup; NO-GO for functional rollout
+expansion**.
+
+GO:
+
+- PL/EN/HE short UI keys stay structurally aligned.
+- HE UI fallback uses `HE -> EN -> PL -> first available`.
+- First-visit selector offers PL/EN/HE and keeps HE on allowed pages.
+- Partner Links / Discounts can show `Copy HE` only when destination readiness
+  allows it.
+- Blog UI/static labels may be translated.
+- Shop static UI labels may be prepared.
+
+NO-GO:
+
+- automatic Blog content translation;
+- automatic Blog `public_ready`;
+- Shop/cart/checkout/payment HE activation;
+- HE SEO expansion beyond Stage49 allowed URLs;
+- public `/he/` routes;
+- booking/payment/deposit or Stripe webhook changes.

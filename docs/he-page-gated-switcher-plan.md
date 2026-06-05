@@ -966,3 +966,17 @@ Future switcher expansion requires:
 3. targeted Playwright smoke,
 4. SEO guard review if the page should be indexable,
 5. explicit approval for the new scope.
+
+## Final Cleanup Switcher Notes
+
+First-visit language selection and in-page switchers must use the same
+readiness rules:
+
+- HE is visible on Home, READY pages and record-gated pages only.
+- HE is not visible on Blog, Shop, Plan, Partners, Admin or other
+  blocked/excluded destinations.
+- Links from HE pages to Shop/Blog/Plan/Community/Tasks/Packing/Legal normalize
+  to EN/LTR.
+- Partner referral `Copy HE` links are available only for destinations that are
+  HE-ready or record-ready; unavailable HE links are disabled instead of
+  emitting fallback URLs that pretend to be Hebrew.

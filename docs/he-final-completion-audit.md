@@ -1017,3 +1017,25 @@ Manual workflow lock:
 - Shop remains excluded until a dedicated future Shop HE stage.
 - Email/payment templates remain manual-review items.
 - Booking/payment and Stripe webhook logic are not part of HE content work.
+
+## Final Cleanup Lock
+
+Additional final cleanup is limited to UI/i18n hardening, not a rollout
+expansion.
+
+Confirmed stable state:
+
+- HE fallback order is `HE -> EN -> PL -> first available`.
+- First-visit language selector offers PL, EN and HE.
+- Tutorial/onboarding short UI labels have HE values; missing future HE text
+  must fall back to EN, not PL.
+- Partner Links / Discounts can expose `Copy HE` only for HE-ready/page-gated
+  destinations. Shop, Blog, checkout/payment, internal pages and not-ready
+  records stay disabled for HE links.
+- Blog UI labels may be translated, but Blog dynamic posts remain manual and
+  blocked until human `public_ready` review.
+- Shop static UI labels may be prepared, but Shop products and
+  checkout/payment stay manual/excluded until a dedicated Shop HE QA stage.
+
+No SQL is required for this final cleanup. No Blog `public_ready`, Shop HE,
+`/he/` route, booking/payment or Stripe webhook changes are included.

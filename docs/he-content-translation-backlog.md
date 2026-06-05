@@ -579,3 +579,36 @@ Next manual tasks:
 3. Review SEO copy before any additional SEO expansion.
 4. Review email/payment templates without touching dispatch, partner
    fulfillment, Stripe webhook or deposit logic.
+
+## Final Cleanup Review Pack Baseline
+
+Latest review export:
+
+| Pack | Records |
+| --- | ---: |
+| Static UI review | 801 |
+| Advertise review | 235 |
+| SEO review | 122 |
+| Shop review | 96 |
+| Email/payment template review | 506 |
+| Same-as-EN review | 689 |
+| Dynamic content review | 237 |
+| Blog review | 21 |
+
+Current categories:
+
+- **A. Technically ready and public:** Home, transport, hotels, hotel,
+  recommendations, car, trips, trip and POI/map within the existing page-gated
+  scope.
+- **B. Technically prepared, manual content required:** Blog UI, Shop static
+  UI, SEO copy, email/payment templates and dynamic records.
+- **C. Blocked until manual review:** Blog posts and any Blog
+  `public_ready` status.
+- **D. Excluded to a separate stage:** Shop/cart/checkout/payment and Shop
+  dynamic products/categories/vendors/shipping.
+
+Export warnings:
+
+- `email_template_catalog` and `email_template_versions` are permission-limited
+  through the live export. Review those with Supabase/admin access before using
+  HE email/payment templates.

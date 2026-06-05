@@ -488,7 +488,7 @@
       const language = getHotelPageLanguage();
       let text = resolveHotelTranslation(key, language);
       if (typeof text !== 'string' || !text.trim()) {
-        text = language.startsWith('en') ? enFallback : plFallback;
+        text = language.startsWith('pl') ? plFallback : enFallback;
       }
       text = String(text || '');
       Object.entries(values).forEach(([name, value]) => {
@@ -547,14 +547,14 @@
         if (offerSlug) {
           url.searchParams.set('slug', offerSlug);
         }
-        if (language === 'pl') {
-          url.searchParams.set('lang', 'pl');
+        if (language === 'pl' || language === 'he') {
+          url.searchParams.set('lang', language);
         } else {
           url.searchParams.delete('lang');
         }
         return url.toString();
       };
-      return { pl: build('pl'), en: build('en'), xDefault: build('en') };
+      return { pl: build('pl'), en: build('en'), he: build('he'), xDefault: build('en') };
     }
 
     function buildHotelSeoDescription(entry = hotel) {
@@ -582,7 +582,7 @@
       );
       const urls = getHotelLinkUrls(entry);
       const language = getHotelPageLanguage();
-      const activeUrl = language.startsWith('en') ? urls.en : urls.pl;
+      const activeUrl = language.startsWith('he') ? urls.he : (language.startsWith('pl') ? urls.pl : urls.en);
       const imageUrl = new URL(
         String(entry.meta_image_url || entry.cover_image_url || '/assets/cyprus_logo-1000x1054.png'),
         window.location.origin,
@@ -623,12 +623,12 @@
         const node = document.createElement('meta');
         node.setAttribute('property', 'og:locale');
         return node;
-      }).setAttribute('content', language.startsWith('en') ? 'en_GB' : 'pl_PL');
+      }).setAttribute('content', language.startsWith('he') ? 'he_IL' : (language.startsWith('pl') ? 'pl_PL' : 'en_GB'));
       ensureMetaNode('meta[property="og:locale:alternate"]', () => {
         const node = document.createElement('meta');
         node.setAttribute('property', 'og:locale:alternate');
         return node;
-      }).setAttribute('content', language.startsWith('en') ? 'pl_PL' : 'en_GB');
+      }).setAttribute('content', language.startsWith('pl') ? 'en_GB' : 'pl_PL');
       ensureMetaNode('link[rel="canonical"]', () => {
         const node = document.createElement('link');
         node.rel = 'canonical';
@@ -701,7 +701,7 @@
 
     function pageText(pl, en){
       const lang = String(hotelPageBookingUi?.getLanguage?.() || getHotelPageLanguage()).toLowerCase();
-      return lang.startsWith('en') ? en : pl;
+      return lang.startsWith('pl') ? pl : en;
     }
 
     function renderHotelStaticCopy() {

@@ -250,12 +250,16 @@
     partnerLinksPreviewTransportNote: null,
     partnerLinksPreviewLandingLinkPl: null,
     partnerLinksPreviewLandingLinkEn: null,
+    partnerLinksPreviewLandingLinkHe: null,
     partnerLinksPreviewOfferLinkPl: null,
     partnerLinksPreviewOfferLinkEn: null,
+    partnerLinksPreviewOfferLinkHe: null,
     btnPartnerLinksCopyLandingPl: null,
     btnPartnerLinksCopyLandingEn: null,
+    btnPartnerLinksCopyLandingHe: null,
     btnPartnerLinksCopyOfferPl: null,
     btnPartnerLinksCopyOfferEn: null,
+    btnPartnerLinksCopyOfferHe: null,
     btnPartnerLinksOpenLanding: null,
     btnPartnerLinksOpenOffer: null,
     partnerDiscountCodesList: null,
@@ -3812,14 +3816,65 @@
     return slugifyText(raw || 'car-offer');
   }
 
+  function getPartnerLinksHeReadiness(item, kind = 'detail') {
+    const type = String(item?.type || '').trim().toLowerCase();
+    const mode = String(kind || 'detail').trim().toLowerCase() === 'landing' ? 'landing' : 'detail';
+
+    if (type === 'shop') {
+      return { allowed: false, reason: 'Shop HE is excluded until checkout/payment QA is complete.' };
+    }
+    if (type === 'blog') {
+      return { allowed: false, reason: 'Blog HE requires manual public_ready review before public links.' };
+    }
+
+    if (mode === 'landing') {
+      if (type === 'transport' || type === 'hotels' || type === 'cars' || type === 'trips') {
+        return { allowed: true, reason: '' };
+      }
+      return { allowed: false, reason: 'This destination is not in the public HE page-gated scope.' };
+    }
+
+    if (type === 'transport' || type === 'hotels') {
+      return { allowed: true, reason: '' };
+    }
+
+    if (type === 'cars' || type === 'trips') {
+      const recordType = type === 'cars' ? 'car' : 'trip';
+      try {
+        const api = window.CELanguage || window.appI18n || null;
+        const checker = api?.isRecordReadyForLanguage;
+        if (typeof checker === 'function') {
+          const source = item?.raw && typeof item.raw === 'object' ? item.raw : item;
+          if (checker(source, recordType, 'he')) {
+            return { allowed: true, reason: '' };
+          }
+        }
+      } catch (_) {}
+      return { allowed: false, reason: 'HE is available only for verified record-ready offers.' };
+    }
+
+    return { allowed: false, reason: 'This destination is not in the public HE page-gated scope.' };
+  }
+
+  function buildPartnerLinksHeReferralUrl(item, kind = 'detail') {
+    const readiness = getPartnerLinksHeReadiness(item, kind);
+    if (!readiness.allowed) return '';
+    return buildPartnerLinksReferralUrl(item, { lang: 'he', kind });
+  }
+
   function buildPartnerLinksPageUrl(item, options = {}) {
     const baseUrl = (typeof window !== 'undefined' && window.location && window.location.origin)
       ? window.location.origin
       : 'https://cypruseye.com';
     const url = new URL('/', baseUrl);
     const type = String(item?.type || '').trim().toLowerCase();
-    const language = String(options.lang || 'en').trim().toLowerCase() === 'pl' ? 'pl' : 'en';
+    const requestedLanguage = String(options.lang || 'en').trim().toLowerCase();
+    const language = requestedLanguage === 'he' ? 'he' : (requestedLanguage === 'pl' ? 'pl' : 'en');
     const kind = String(options.kind || 'detail').trim().toLowerCase() === 'landing' ? 'landing' : 'detail';
+
+    if (language === 'he' && !getPartnerLinksHeReadiness(item, kind).allowed) {
+      return buildPartnerLinksPageUrl(item, { ...options, lang: 'en' });
+    }
 
     if (type === 'trips') {
       url.pathname = kind === 'landing' ? '/trips.html' : '/trip.html';
@@ -3945,6 +4000,7 @@
       return {
         key: `trips:${resourceId}`,
         type: 'trips',
+        raw: row,
         resourceId,
         slug,
         slugByLang: { pl: slug, en: slug },
@@ -3968,6 +4024,7 @@
       return {
         key: `hotels:${resourceId}`,
         type: 'hotels',
+        raw: row,
         resourceId,
         slug,
         slugByLang: { pl: slug, en: slug },
@@ -3989,6 +4046,7 @@
       return {
         key: `cars:${resourceId}`,
         type: 'cars',
+        raw: row,
         resourceId,
         title,
         titleByLang: { pl: title, en: title },
@@ -4016,6 +4074,7 @@
       return {
         key: `transport:${resourceId}`,
         type: 'transport',
+        raw: row,
         resourceId,
         title: routeLabel,
         titleByLang: { pl: routeLabel, en: routeLabel },
@@ -4047,6 +4106,7 @@
       return {
         key: `shop:${resourceId}`,
         type: 'shop',
+        raw: row,
         resourceId,
         title: titleByLang.en || titleByLang.pl,
         titleByLang,
@@ -4080,6 +4140,7 @@
       return {
         key: `blog:${resourceId}`,
         type: 'blog',
+        raw: row,
         resourceId,
         title: titleEn || titlePl || `Blog post ${resourceId.slice(0, 8)}`,
         titleByLang: {
@@ -4308,6 +4369,11 @@
       const summaryText = description || (item.type === 'transport' ? (item.transportNote || '') : '');
       const offerPl = buildPartnerLinksReferralUrl(item, { lang: 'pl', kind: 'detail' });
       const offerEn = buildPartnerLinksReferralUrl(item, { lang: 'en', kind: 'detail' });
+      const offerHeReadiness = getPartnerLinksHeReadiness(item, 'detail');
+      const offerHe = offerHeReadiness.allowed ? buildPartnerLinksHeReferralUrl(item, 'detail') : '';
+      const offerHeAttrs = offerHe
+        ? `data-partner-link-copy-url="${escapeHtml(offerHe)}"`
+        : `disabled aria-disabled="true" title="${escapeHtml(offerHeReadiness.reason)}"`;
       const imageHtml = item.imageUrl
         ? `<img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(title || item.title)}" loading="lazy" />`
         : (item.type === 'transport' && item.transportFromPrice
@@ -4341,6 +4407,7 @@
             <div class="partner-links-card__actions">
               <button type="button" class="btn-sm partner-links-action" data-partner-link-copy-url="${escapeHtml(offerPl)}" data-partner-link-stop="1">Copy PL 🇵🇱</button>
               <button type="button" class="btn-sm partner-links-action partner-links-action--primary" data-partner-link-copy-url="${escapeHtml(offerEn)}" data-partner-link-stop="1">Copy EN 🇬🇧</button>
+              <button type="button" class="btn-sm partner-links-action" ${offerHeAttrs} data-partner-link-stop="1">Copy HE 🇮🇱</button>
             </div>
           </div>
         </article>
@@ -4378,8 +4445,12 @@
     const uiLanguage = getPartnerUiLanguage();
     const landingPl = buildPartnerLinksReferralUrl(item, { lang: 'pl', kind: 'landing' });
     const landingEn = buildPartnerLinksReferralUrl(item, { lang: 'en', kind: 'landing' });
+    const landingHeReadiness = getPartnerLinksHeReadiness(item, 'landing');
+    const landingHe = landingHeReadiness.allowed ? buildPartnerLinksHeReferralUrl(item, 'landing') : '';
     const offerPl = buildPartnerLinksReferralUrl(item, { lang: 'pl', kind: 'detail' });
     const offerEn = buildPartnerLinksReferralUrl(item, { lang: 'en', kind: 'detail' });
+    const offerHeReadiness = getPartnerLinksHeReadiness(item, 'detail');
+    const offerHe = offerHeReadiness.allowed ? buildPartnerLinksHeReferralUrl(item, 'detail') : '';
     const landingCurrent = buildPartnerLinksReferralUrl(item, { lang: uiLanguage, kind: 'landing' });
     const offerCurrent = buildPartnerLinksReferralUrl(item, { lang: uiLanguage, kind: 'detail' });
     const title = getPartnerLinksLocalizedText(item, 'title', uiLanguage, 'title') || item.title;
@@ -4415,13 +4486,17 @@
     const setInputValue = (input, value) => {
       if (input instanceof HTMLInputElement) {
         input.value = value || '';
+        input.placeholder = '';
+        input.title = '';
       }
     };
 
     setInputValue(els.partnerLinksPreviewLandingLinkPl, landingPl);
     setInputValue(els.partnerLinksPreviewLandingLinkEn, landingEn);
+    setInputValue(els.partnerLinksPreviewLandingLinkHe, landingHe);
     setInputValue(els.partnerLinksPreviewOfferLinkPl, offerPl);
     setInputValue(els.partnerLinksPreviewOfferLinkEn, offerEn);
+    setInputValue(els.partnerLinksPreviewOfferLinkHe, offerHe);
 
     const setButtonUrl = (button, value) => {
       if (!(button instanceof HTMLElement)) return;
@@ -4441,8 +4516,24 @@
 
     setCopyDisabled(els.btnPartnerLinksCopyLandingPl, landingPl);
     setCopyDisabled(els.btnPartnerLinksCopyLandingEn, landingEn);
+    setCopyDisabled(els.btnPartnerLinksCopyLandingHe, landingHe);
     setCopyDisabled(els.btnPartnerLinksCopyOfferPl, offerPl);
     setCopyDisabled(els.btnPartnerLinksCopyOfferEn, offerEn);
+    setCopyDisabled(els.btnPartnerLinksCopyOfferHe, offerHe);
+
+    const setUnavailableReason = (button, input, reason) => {
+      const text = String(reason || '').trim();
+      if (input instanceof HTMLInputElement && !String(input.value || '').trim()) {
+        input.placeholder = text || 'HE link is not available for this destination.';
+        input.title = input.placeholder;
+      }
+      if (button instanceof HTMLButtonElement) {
+        button.title = text || '';
+        button.setAttribute('aria-label', text ? `HE unavailable: ${text}` : button.textContent || 'Copy HE link');
+      }
+    };
+    setUnavailableReason(els.btnPartnerLinksCopyLandingHe, els.partnerLinksPreviewLandingLinkHe, landingHe ? '' : landingHeReadiness.reason);
+    setUnavailableReason(els.btnPartnerLinksCopyOfferHe, els.partnerLinksPreviewOfferLinkHe, offerHe ? '' : offerHeReadiness.reason);
 
     if (els.partnerLinksPreviewTransportBox) {
       const showTransportBox = item.type === 'transport';
@@ -13531,8 +13622,10 @@
     };
     bindPartnerLinksCopy(els.btnPartnerLinksCopyLandingPl, els.partnerLinksPreviewLandingLinkPl);
     bindPartnerLinksCopy(els.btnPartnerLinksCopyLandingEn, els.partnerLinksPreviewLandingLinkEn);
+    bindPartnerLinksCopy(els.btnPartnerLinksCopyLandingHe, els.partnerLinksPreviewLandingLinkHe);
     bindPartnerLinksCopy(els.btnPartnerLinksCopyOfferPl, els.partnerLinksPreviewOfferLinkPl);
     bindPartnerLinksCopy(els.btnPartnerLinksCopyOfferEn, els.partnerLinksPreviewOfferLinkEn);
+    bindPartnerLinksCopy(els.btnPartnerLinksCopyOfferHe, els.partnerLinksPreviewOfferLinkHe);
     els.partnerLinksPreviewModalOverlay?.addEventListener('click', () => {
       closePartnerLinksPreview();
     });
@@ -14212,12 +14305,16 @@
     els.partnerLinksPreviewTransportNote = $('partnerLinksPreviewTransportNote');
     els.partnerLinksPreviewLandingLinkPl = $('partnerLinksPreviewLandingLinkPl');
     els.partnerLinksPreviewLandingLinkEn = $('partnerLinksPreviewLandingLinkEn');
+    els.partnerLinksPreviewLandingLinkHe = $('partnerLinksPreviewLandingLinkHe');
     els.partnerLinksPreviewOfferLinkPl = $('partnerLinksPreviewOfferLinkPl');
     els.partnerLinksPreviewOfferLinkEn = $('partnerLinksPreviewOfferLinkEn');
+    els.partnerLinksPreviewOfferLinkHe = $('partnerLinksPreviewOfferLinkHe');
     els.btnPartnerLinksCopyLandingPl = $('btnPartnerLinksCopyLandingPl');
     els.btnPartnerLinksCopyLandingEn = $('btnPartnerLinksCopyLandingEn');
+    els.btnPartnerLinksCopyLandingHe = $('btnPartnerLinksCopyLandingHe');
     els.btnPartnerLinksCopyOfferPl = $('btnPartnerLinksCopyOfferPl');
     els.btnPartnerLinksCopyOfferEn = $('btnPartnerLinksCopyOfferEn');
+    els.btnPartnerLinksCopyOfferHe = $('btnPartnerLinksCopyOfferHe');
     els.btnPartnerLinksOpenLanding = $('btnPartnerLinksOpenLanding');
     els.btnPartnerLinksOpenOffer = $('btnPartnerLinksOpenOffer');
     els.partnerDiscountCodesList = $('partnerDiscountCodesList');

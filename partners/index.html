@@ -554,7 +554,7 @@
     }
     .partner-links-card__actions {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
       gap: 8px;
       margin-top: auto;
     }
@@ -689,7 +689,7 @@
     }
     .partner-links-preview__field-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 10px;
     }
     .partner-links-preview__field label {
@@ -4049,6 +4049,13 @@
                     <button id="btnPartnerLinksCopyLandingEn" class="btn-sm primary" type="button">Copy category page EN</button>
                   </div>
                 </div>
+                <div class="partner-links-preview__field">
+                  <label for="partnerLinksPreviewLandingLinkHe">Category page HE</label>
+                  <input id="partnerLinksPreviewLandingLinkHe" type="text" readonly value="" aria-label="Landing HE referral link preview" />
+                  <div class="partner-links-preview__field-actions">
+                    <button id="btnPartnerLinksCopyLandingHe" class="btn-sm primary" type="button">Copy category page HE</button>
+                  </div>
+                </div>
               </div>
             </div>
             <div class="partner-links-preview__block">
@@ -4071,6 +4078,13 @@
                   <input id="partnerLinksPreviewOfferLinkEn" type="text" readonly value="" aria-label="Offer EN referral link preview" />
                   <div class="partner-links-preview__field-actions">
                     <button id="btnPartnerLinksCopyOfferEn" class="btn-sm primary" type="button">Copy EN link</button>
+                  </div>
+                </div>
+                <div class="partner-links-preview__field">
+                  <label for="partnerLinksPreviewOfferLinkHe">Offer HE</label>
+                  <input id="partnerLinksPreviewOfferLinkHe" type="text" readonly value="" aria-label="Offer HE referral link preview" />
+                  <div class="partner-links-preview__field-actions">
+                    <button id="btnPartnerLinksCopyOfferHe" class="btn-sm primary" type="button">Copy HE link</button>
                   </div>
                 </div>
               </div>

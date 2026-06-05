@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-05T00:20:28.405Z",
+  "generatedAt": "2026-06-05T01:08:21.282Z",
   "sourceAuditPath": "translations/audit-he-vs-en.json",
   "targetLanguage": "he",
   "baseLanguage": "en",
@@ -2165,14 +2165,14 @@
       "seo": 122,
       "shop": 96,
       "emailTemplates": 506,
-      "sameAsEn": 690,
+      "sameAsEn": 689,
       "dynamicContent": 237,
       "blog": 21
     },
     "sameAsEnBreakdown": {
       "needs_translation": 537,
       "allowed_same_as_en": 19,
-      "needs_human_review": 134
+      "needs_human_review": 133
     }
   }
 }

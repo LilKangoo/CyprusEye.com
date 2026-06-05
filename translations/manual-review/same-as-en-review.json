@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-04T14:53:24.667Z",
+  "generatedAt": "2026-06-05T01:04:03.956Z",
   "workflow": "manual_translation_review",
   "publicActivation": {
     "globalHe": false,
@@ -14,11 +14,11 @@
     "publicHeRoutes": false
   },
   "counts": {
-    "records": 690,
-    "humanReviewRequired": 690,
+    "records": 689,
+    "humanReviewRequired": 689,
     "missingEn": 0,
     "missingHe": 0,
-    "sameAsEn": 690,
+    "sameAsEn": 689,
     "placeholderIssues": 0,
     "safeToAutoApply": 0
   },
@@ -26,7 +26,7 @@
   "sameAsEnBreakdown": {
     "needs_translation": 537,
     "allowed_same_as_en": 19,
-    "needs_human_review": 134
+    "needs_human_review": 133
   },
   "records": [
     {
@@ -14917,31 +14917,6 @@
       "source_pl": "Podróżuj po Cyprze bez ograniczeń dzięki flocie obejmującej całą wyspę, pełnemu ubezpieczeniu i polskiej obsłudze 24/7.",
       "source_en": "Explore Cyprus freely with an island-wide fleet, full insurance, and Polish assistance 24/7.",
       "current_he": "Explore Cyprus freely with an island-wide fleet, full insurance, and Polish assistance 24/7.",
-      "missing_en": false,
-      "missing_he": false,
-      "same_as_en": true,
-      "same_as_en_classification": "needs_human_review",
-      "placeholder_status": "ok",
-      "placeholder_details": {
-        "status": "ok",
-        "source_tokens": [],
-        "target_tokens": [],
-        "source_tags": [],
-        "target_tags": []
-      },
-      "human_review_required": true,
-      "recommended_action": "Review and translate HE, or explicitly mark same-as-EN as intentional.",
-      "notes": "SEO HE remains off; translate only for later SEO stage.",
-      "safe_to_auto_apply": false
-    },
-    {
-      "key": "seo.carRentalLanding.ogDescription",
-      "record_id": "seo.carRentalLanding.ogDescription",
-      "module": "seo",
-      "category": "seo",
-      "source_pl": "Postaw na Larnakę lub Pafos, aby zobaczyć flotę, kalkulator cen i rezerwację z polską obsługą.",
-      "source_en": "Pick Larnaca or Paphos to view dedicated fleets, price calculators, and booking options with Polish support.",
-      "current_he": "Pick Larnaca or Paphos to view dedicated fleets, price calculators, and booking options with Polish support.",
       "missing_en": false,
       "missing_he": false,
       "same_as_en": true,

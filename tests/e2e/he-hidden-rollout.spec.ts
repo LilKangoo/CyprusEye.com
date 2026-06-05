@@ -106,6 +106,25 @@ async function allowInternalHiddenPreview(page) {
 test.describe('hidden Hebrew rollout guard', () => {
   test.describe.configure({ timeout: 60000 });
 
+  test('offers HE in first-visit language selector and starts Home in HE/RTL', async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.removeItem('ce_lang_selected');
+      window.localStorage.removeItem('ce_lang');
+      window.localStorage.removeItem('ce_language');
+      window.localStorage.removeItem('ce_selected_language');
+    });
+
+    await page.goto('/index.html', { waitUntil: 'domcontentloaded' });
+    const heOption = page.locator('.language-selector-option[data-language="he"]');
+    await expect(heOption).toHaveCount(1);
+    await heOption.click();
+    await waitForHtmlLanguage(page, 'he');
+
+    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+    await expectHeSwitcherVisible(page);
+    await page.waitForFunction(() => window.localStorage.getItem('ce_lang_selected') === 'true');
+  });
+
   test('blocks public ?lang=he on pages that are not HE-ready', async ({ page }) => {
     await page.goto('/plan.html?lang=he', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(250);
