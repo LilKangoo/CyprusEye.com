@@ -8,6 +8,11 @@ language switcher, Shop HE, or public `/he/` routes.
 
 ## Current Stable Production State
 
+Final live commit: `92c7c73` (`Fix Hebrew trip SEO canonical guard`).
+Current GO status includes `6000d46` visual translation cleanup, `51dd163` car
+SEO canonical/OpenGraph guard, and `92c7c73` trip SEO canonical/OpenGraph guard
+plus HE fallback fix.
+
 - HE UI live: Home, transport, hotels, hotel, recommendations, car, trips,
   trip, and POI/map flow.
 - HE SEO live: Stage 49 allowed scope only, currently 19 HE URLs in
@@ -17,6 +22,7 @@ language switcher, Shop HE, or public `/he/` routes.
 - Public `/he/` routes remain non-public redirects/fallbacks to `/?lang=en`.
 - Booking/payment/deposit flow is locked and must not be changed by HE rollout
   work.
+- `translations/manual-review/*` remains excluded from the public build.
 
 ## Dynamic Content Decision Table
 

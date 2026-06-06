@@ -951,6 +951,10 @@ blocked and Shop remains excluded.
 
 Stage50 does not change switcher behavior.
 
+Final live commit: `92c7c73`. The switcher lock remains unchanged after the
+final visual/SEO verification hotfixes: HE stays visible only on the current
+Home, READY and record-gated scope; Blog/Shop/blocked/excluded pages stay out.
+
 Current UI language availability:
 
 - HE appears only on the already allowed page-gated and record-gated pages.

@@ -6,6 +6,9 @@ Blog, sitemap HE for Blog, or public `/he/` routes.
 
 ## Current Stable Production State
 
+Final live commit: `92c7c73`. Blog remains manual and blocked in this final
+partial HE production state.
+
 - HE UI live: Home, transport, hotels, hotel, recommendations, car, trips,
   trip, and POI/map flow.
 - HE SEO live: Stage 49 allowed scope only, currently 19 HE URLs in

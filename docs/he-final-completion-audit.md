@@ -8,6 +8,11 @@ SEO indexing, or Shop checkout in Hebrew.
 
 ## Current Stable Production State
 
+Final live commit: `92c7c73` (`Fix Hebrew trip SEO canonical guard`).
+This is the locked partial HE production state after `6000d46`, `51dd163` and
+`92c7c73`. Older stage snapshots below are historical and should not be read as
+current rollout instructions.
+
 - HE UI live: Home, transport, hotels, hotel, recommendations, car, trips,
   trip, and POI/map flow.
 - HE SEO live: Stage 49 allowed scope only, currently 19 HE URLs in
@@ -17,6 +22,7 @@ SEO indexing, or Shop checkout in Hebrew.
 - Public `/he/` routes remain non-public redirects/fallbacks to `/?lang=en`.
 - Booking/payment/deposit flow is locked and must not be changed by HE cleanup
   or translation work.
+- `translations/manual-review/*` remains excluded from `dist`.
 
 ## Current Rollout State
 

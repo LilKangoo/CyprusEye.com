@@ -6,6 +6,11 @@ SEO surface.
 
 ## Current Stable Production State
 
+Final live commit: `92c7c73` (`Fix Hebrew trip SEO canonical guard`).
+This supersedes earlier Stage 49/50 snapshots. The final verification also
+includes the preceding `51dd163` car HE canonical/OpenGraph guard and the
+`6000d46` visual translation cleanup.
+
 - HE UI live: Home, transport, hotels, hotel, recommendations, car, trips,
   trip, and POI/map flow.
 - HE SEO live: Stage 49 allowed scope only, currently 19 HE URLs in
@@ -14,6 +19,7 @@ SEO surface.
 - Shop, cart, checkout, payment, partners, and admin remain `EXCLUDED`.
 - Public `/he/` routes remain non-public redirects/fallbacks to `/?lang=en`.
 - Booking/payment/deposit flow is locked and must not be changed by HE work.
+- `translations/manual-review/*` remains excluded from `dist`.
 
 ## Current Live HE UI Scope
 

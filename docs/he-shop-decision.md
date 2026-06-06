@@ -2,6 +2,9 @@
 
 Status: **Shop remains EXCLUDED from public HE**.
 
+Final live commit: `92c7c73`. This final partial HE production state does not
+change the Shop decision: Shop/cart/checkout/payment stay excluded and EN/LTR.
+
 This document does not enable Shop HE, global HE, Blog HE public, SEO HE,
 sitemap HE, hreflang HE, canonical HE, indexing HE or public `/he/` routes. It
 does not change booking/payment, transport deposit flow, partner fulfillment or

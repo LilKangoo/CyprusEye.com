@@ -1,6 +1,14 @@
 # HE SEO Rollout Plan
 
-Status: **Stage 48 controlled activation for ready pages only**.
+Status: **locked partial HE production state at `92c7c73`**.
+
+Final live commit: `92c7c73` (`Fix Hebrew trip SEO canonical guard`). This
+state includes:
+
+- `6000d46` - visual HE translation cleanup.
+- `51dd163` - car HE canonical/OpenGraph guard.
+- `92c7c73` - trip HE canonical/OpenGraph guard and HE fallback no longer
+  dropping to PL.
 
 This document controls SEO, sitemap, hreflang, canonical, OpenGraph and
 structured-data rules for Hebrew. Stage 48 activates HE SEO only for pages and
@@ -170,7 +178,7 @@ No new SQL required for this stage.
 
 ## Stage 49 Live SEO HE Monitoring
 
-Status: **deploy + monitoring in progress; scope remains ready pages only**.
+Status: **GO and locked at `92c7c73`; scope remains ready pages only**.
 
 Live Stage49 checks must confirm that sitemap, canonical, hreflang, OpenGraph
 and JSON-LD expose HE only for:
@@ -189,6 +197,15 @@ Live monitoring found two guard issues before final GO:
 - server-rendered HE pages had `lang="he"` but still carried `dir="ltr"`;
 - blocked Blog detail could resolve a Hebrew sibling translation and leak HE
   canonical/OpenGraph metadata.
+
+Final visual verification then found two allowed-scope SEO regressions after
+`6000d46`:
+
+- `car.html?lang=he` kept HE UI/RTL and hreflang but client-side SEO rewrote
+  canonical/OpenGraph away from `?lang=he`; fixed in `51dd163`.
+- HE-ready `trip.html?slug=...&lang=he` kept HE UI/RTL and hreflang but the
+  inline trip SEO updater rewrote canonical/OpenGraph to PL; fixed in
+  `92c7c73`.
 
 The hotfix keeps Blog public HE blocked by:
 
