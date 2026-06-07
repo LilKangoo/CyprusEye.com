@@ -850,12 +850,14 @@ function updateUrlState(push = false) {
 }
 
 function updateListMeta() {
-  document.title = t('seoTitle');
-  const description = t('seoDescription');
+  const seoLanguage = state.language === 'he' ? 'en' : state.language;
+  const seoCopy = COPY[seoLanguage] || COPY.en;
+  document.title = seoCopy.seoTitle;
+  const description = seoCopy.seoDescription;
   const descriptionNode = document.querySelector('meta[name="description"]');
   if (descriptionNode) descriptionNode.setAttribute('content', description);
   const ogTitle = document.querySelector('meta[property="og:title"]');
-  if (ogTitle) ogTitle.setAttribute('content', t('seoTitle'));
+  if (ogTitle) ogTitle.setAttribute('content', seoCopy.seoTitle);
   const ogDescription = document.querySelector('meta[property="og:description"]');
   if (ogDescription) ogDescription.setAttribute('content', description);
   const canonical = document.querySelector('link[rel="canonical"]');

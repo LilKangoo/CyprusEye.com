@@ -32,8 +32,8 @@ The page registry is implemented in `js/i18n.js` and exposed through:
 | Trips listing | `trips` | `partial` | yes | Only selected trip records are HE-ready. |
 | Trip detail | `trip` | `partial` | yes | Safe only for translated records plus EN fallback. |
 | POI / map | `poiMap` | `partial` | yes | Top POI only; full POI catalog is not ready. |
-| Blog list | `blog` | `blocked` | no | Public HE blog translations remain hidden from anon/public read. |
-| Blog detail | `blogPost` | `blocked` | no | Public HE post rows are not exposed yet. |
+| Blog list | `blog` | `record-gated` | no | Blog UI shell can switch to HE; list shows only manually reviewed `public_ready` HE rows. |
+| Blog detail | `blogPost` | `record-gated` | no | Detail HE works only for a specific `public_ready` HE post; not-ready posts fall back to EN/LTR. |
 | Plan | `plan` | `blocked` | no | Planner dynamic content is not HE-ready. |
 | Community / attractions / packing / VIP / tasks / coupon | `community` | `blocked` | no | Needs separate dynamic and RTL QA. |
 | Account / auth | `accountAuth` | `blocked` | no | Needs logged-in RTL QA. |

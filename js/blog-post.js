@@ -109,6 +109,9 @@ const SIBLING_TRANSLATIONS_SELECT = `
   author_url,
   content_html,
   og_image_url,
+  review_status,
+  reviewed_at,
+  reviewed_by,
   created_at,
   updated_at
 `;
@@ -306,6 +309,7 @@ const state = {
   error: '',
   slug: getInitialSlug(),
   taxonomySchemaMode: 'unknown',
+  applyingFallbackLanguage: false,
 };
 
 function detectLanguage() {
@@ -967,8 +971,10 @@ function ensureMetaNode(selector, build) {
 
 function updateHead(post) {
   const localized = getLocalizedPost(post, state.language);
-  const title = pickLocalizedMetaTitle(post, state.language) || localized.title || t('untitled');
-  const description = pickLocalizedMetaDescription(post, state.language) || buildMetaDescription(localized);
+  const seoLanguage = state.language === 'he' ? 'en' : state.language;
+  const seoLocalized = getLocalizedPost(post, seoLanguage);
+  const title = pickLocalizedMetaTitle(post, seoLanguage) || seoLocalized.title || COPY.en.untitled;
+  const description = pickLocalizedMetaDescription(post, seoLanguage) || buildMetaDescription(seoLocalized);
   const plSlug = post?.translationsByLang?.pl?.slug || localized.slug;
   const enSlug = post?.translationsByLang?.en?.slug || localized.slug;
   const canonicalSlug = state.language === 'pl' ? plSlug || enSlug : enSlug || plSlug;
@@ -1074,6 +1080,52 @@ function syncAddressForLanguage(post) {
   nextUrl.searchParams.delete('slug');
   window.history.replaceState({}, '', nextUrl);
   state.slug = slug;
+}
+
+function isPostHebrewPublicReady(post) {
+  return isBlogTranslationPublicReady(post?.translationsByLang?.he, { requireContent: true });
+}
+
+function syncBlogPostHiddenLanguageAvailability(post) {
+  const body = document.body;
+  if (!body) return;
+  if (isPostHebrewPublicReady(post)) {
+    delete body.dataset.disableHiddenLanguage;
+  } else {
+    body.dataset.disableHiddenLanguage = 'true';
+  }
+}
+
+async function fallbackHebrewPostToEnglish(slug) {
+  state.applyingFallbackLanguage = true;
+  state.language = 'en';
+  if (document.body) {
+    document.body.dataset.disableHiddenLanguage = 'true';
+  }
+  document.documentElement.lang = 'en';
+  document.documentElement.dir = 'ltr';
+
+  try {
+    if (window.appI18n && typeof window.appI18n.setLanguage === 'function') {
+      await window.appI18n.setLanguage('en', { persist: true, updateUrl: false, syncProfile: true });
+    }
+  } catch (error) {
+    console.warn('[blog-post] Failed to apply EN fallback language:', error);
+  }
+
+  const nextUrl = new URL(window.location.href);
+  nextUrl.searchParams.set('lang', 'en');
+  if (nextUrl.toString() !== window.location.href) {
+    window.history.replaceState({}, '', nextUrl);
+  }
+
+  try {
+    const post = await fetchPost('en', slug);
+    syncBlogPostHiddenLanguageAvailability(post);
+    return post;
+  } finally {
+    state.applyingFallbackLanguage = false;
+  }
 }
 
 function renderTokens(container, values) {
@@ -1341,6 +1393,7 @@ async function render() {
   }
 
   const localized = getLocalizedPost(state.post, state.language);
+  syncBlogPostHiddenLanguageAvailability(state.post);
   updateHead(state.post);
   syncAddressForLanguage(state.post);
 
@@ -1428,6 +1481,9 @@ async function loadPost(slugOverride = state.slug) {
 
   try {
     state.post = await fetchPost(state.language, slug);
+    if (!state.post && state.language === 'he') {
+      state.post = await fallbackHebrewPostToEnglish(slug);
+    }
     state.error = state.post ? '' : t('notFound');
   } catch (error) {
     console.error('[blog-post] Failed to load post:', error);
@@ -1445,6 +1501,9 @@ async function loadPost(slugOverride = state.slug) {
 
 function bindEvents() {
   const handleLanguageChange = async (language) => {
+    if (state.applyingFallbackLanguage) {
+      return;
+    }
     state.language = normalizeBlogUiLanguage(language);
     if (!state.post) {
       await loadPost(state.slug);

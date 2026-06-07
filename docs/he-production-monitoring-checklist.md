@@ -1,8 +1,8 @@
 # HE Production Monitoring Checklist
 
 Stage 50 status: current HE production scope is a stable partial launch. This
-checklist does not activate Blog HE, Shop HE, public `/he/` routes, or any new
-SEO surface.
+checklist does not activate Blog dynamic content/SEO HE, Shop HE, public `/he/`
+routes, or any new SEO surface.
 
 ## Current Stable Production State
 
@@ -15,7 +15,9 @@ includes the preceding `51dd163` car HE canonical/OpenGraph guard and the
   trip, and POI/map flow.
 - HE SEO live: Stage 49 allowed scope only, currently 19 HE URLs in
   `sitemap.xml`.
-- Blog and blog detail remain `BLOCKED`.
+- Blog UI and blog detail routes are `record-gated`: the blog shell can switch
+  to HE, but dynamic posts remain manual and only `public_ready` HE rows may
+  render in HE. Blog SEO remains blocked.
 - Shop, cart, checkout, payment, partners, and admin remain `EXCLUDED`.
 - Public `/he/` routes remain non-public redirects/fallbacks to `/?lang=en`.
 - Booking/payment/deposit flow is locked and must not be changed by HE work.

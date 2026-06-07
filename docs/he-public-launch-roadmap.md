@@ -16,7 +16,10 @@ This is the locked partial HE production state after the visual cleanup
   trip, and POI/map flow.
 - HE SEO live: Stage 49 allowed scope only, currently 19 HE URLs in
   `sitemap.xml`.
-- Blog and blog detail remain `BLOCKED`.
+- Blog UI and blog detail routes are `record-gated`: the blog shell can switch
+  to HE, while post content remains manual and only explicitly
+  `public_ready` HE rows may render in HE.
+- Blog SEO remains blocked and Blog is absent from HE sitemap/canonical/hreflang.
 - Shop, cart, checkout, payment, partners, and admin remain `EXCLUDED`.
 - Public `/he/` routes remain non-public redirects/fallbacks to `/?lang=en`.
 - Booking/payment/deposit flow is locked and must not be changed by HE launch

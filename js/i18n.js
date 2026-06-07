@@ -163,18 +163,18 @@
       reason: 'Top POI are translated; full map catalog is partial.',
     },
     blog: {
-      status: HE_PAGE_READINESS_STATUS.BLOCKED,
+      status: HE_PAGE_READINESS_STATUS.RECORD_GATED,
       allowFallback: false,
       paths: ['/blog.html'],
       bodyClasses: ['blog-page'],
-      reason: 'Public HE blog translations remain hidden from anon/public reads.',
+      reason: 'Blog shell is HE-ready; list shows only manually reviewed public_ready HE posts.',
     },
     blogPost: {
-      status: HE_PAGE_READINESS_STATUS.BLOCKED,
+      status: HE_PAGE_READINESS_STATUS.RECORD_GATED,
       allowFallback: false,
       paths: ['/blog-post.html', '/blog/'],
       bodyClasses: ['blog-post-page'],
-      reason: 'Public HE blog post translations remain hidden from anon/public reads.',
+      reason: 'Blog detail HE is allowed only for manually reviewed public_ready HE post records.',
     },
     shop: {
       status: HE_PAGE_READINESS_STATUS.EXCLUDED,

@@ -64,6 +64,93 @@ async function seedStage33TripFixtures(page) {
   }, STAGE33_TRIP_FIXTURE_ROWS);
 }
 
+async function seedBlogRecordGatingFixtures(page) {
+  await page.addInitScript(() => {
+    const post = {
+      id: 'blog-record-gated-1',
+      status: 'published',
+      submission_status: 'approved',
+      published_at: new Date(Date.now() - 86400000).toISOString(),
+      cover_image_url: 'https://stub.local/blog/record-gated.webp',
+      cover_image_alt: { en: 'Record gated blog cover', pl: 'Okładka wpisu' },
+      featured: true,
+      allow_comments: false,
+      categories: ['Guides'],
+      categories_pl: ['Poradniki'],
+      categories_en: ['Guides'],
+      categories_he: ['מדריכים'],
+      tags: ['cyprus'],
+      tags_pl: ['cypr'],
+      tags_en: ['cyprus'],
+      tags_he: ['קפריסין'],
+      cta_services: [],
+      author_profile_id: '',
+      owner_partner_id: null,
+      reviewed_at: new Date(Date.now() - 86400000).toISOString(),
+      reviewed_by: 'admin',
+      rejection_reason: null,
+      created_at: new Date(Date.now() - 172800000).toISOString(),
+      updated_at: new Date(Date.now() - 86400000).toISOString(),
+    };
+    const translations = [
+      {
+        id: 'blog-record-gated-1-en',
+        blog_post_id: post.id,
+        lang: 'en',
+        slug: 'english-only-guide',
+        title: 'English only guide',
+        meta_title: '',
+        meta_description: 'English meta description',
+        summary: 'English summary',
+        lead: 'English lead',
+        author_name: 'CyprusEye',
+        author_url: '',
+        content_json: { type: 'doc', content: [] },
+        content_html: '<p>English article body.</p>',
+        og_image_url: '',
+        created_at: post.created_at,
+        updated_at: post.updated_at,
+      },
+      {
+        id: 'blog-record-gated-1-he-draft',
+        blog_post_id: post.id,
+        lang: 'he',
+        slug: 'hebrew-draft-guide',
+        title: 'טיוטה בעברית',
+        meta_title: '',
+        meta_description: '',
+        summary: 'תקציר טיוטה',
+        lead: 'פתיח טיוטה',
+        author_name: 'CyprusEye',
+        author_url: '',
+        content_json: { type: 'doc', content: [] },
+        content_html: '<p>טיוטה שאינה public_ready.</p>',
+        og_image_url: '',
+        review_status: 'needs_review',
+        created_at: post.created_at,
+        updated_at: post.updated_at,
+      },
+    ];
+
+    const seedBlog = (stub) => {
+      if (stub && typeof stub.seedTable === 'function') {
+        stub.seedTable('blog_posts', [post]);
+        stub.seedTable('blog_post_translations', translations);
+      }
+    };
+    const existing = (window as any).__supabaseStub || {};
+    const previousOnReady = existing.onReady;
+    existing.onReady = (stub) => {
+      if (typeof previousOnReady === 'function') {
+        previousOnReady(stub);
+      }
+      seedBlog(stub);
+    };
+    (window as any).__supabaseStub = existing;
+    seedBlog(existing);
+  });
+}
+
 async function expectNoHorizontalOverflow(page) {
   const overflow = await page.evaluate(() => {
     const root = document.documentElement;
@@ -256,7 +343,7 @@ test.describe('hidden Hebrew rollout guard', () => {
     expect(helperResult.recommendations).toBe('/recommendations.html?lang=he');
     expect(helperResult.car).toBe('/car.html?lang=he');
     expect(helperResult.trips).toBe('/trips.html?lang=he');
-    expect(helperResult.blog).toBe('/blog?lang=en');
+    expect(helperResult.blog).toBe('/blog?lang=he');
     expect(helperResult.shop).toBe('/shop.html?lang=en');
     expect(helperResult.plan).toBe('/plan.html?lang=en');
     expect(helperResult.community).toBe('/community.html?lang=en');
@@ -391,7 +478,7 @@ test.describe('hidden Hebrew rollout guard', () => {
     const blogLinks = links.filter((link) => link.pathname === '/blog' || link.pathname === '/blog.html');
     expect(blogLinks.length).toBeGreaterThan(0);
     for (const link of blogLinks) {
-      expect(link.lang).not.toBe('he');
+      expect(link.lang).toBe('he');
     }
 
     const helperResult = await page.evaluate(() => ({
@@ -405,7 +492,7 @@ test.describe('hidden Hebrew rollout guard', () => {
     expect(helperResult.car).toBe('/car.html?lang=he');
     expect(helperResult.trips).toBe('/trips.html?lang=he');
     expect(helperResult.hotels).toBe('/hotels.html?lang=he');
-    expect(helperResult.blog).toBe('/blog?lang=en');
+    expect(helperResult.blog).toBe('/blog?lang=he');
   });
 
   test('gates dynamic records for HE by record readiness', async ({ page }) => {
@@ -528,17 +615,32 @@ test.describe('hidden Hebrew rollout guard', () => {
     await expect(page.locator('html')).not.toHaveAttribute('dir', 'rtl');
   });
 
-  test('keeps blocked Blog pages out of hidden HE preview', async ({ page }) => {
-    await allowInternalHiddenPreview(page);
+  test('allows Blog shell HE while keeping posts record-gated', async ({ page }) => {
+    await page.goto('/blog.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await waitForHtmlLanguage(page, 'he');
 
-    await page.goto('/blog.html?ce_he_preview=1&lang=he', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(250);
-
-    await expect(page.locator('html')).not.toHaveAttribute('lang', 'he');
-    await expect(page.locator('html')).not.toHaveAttribute('dir', 'rtl');
+    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+    await expect(page.locator('[data-testid="language-pill-he"]')).toHaveCount(1);
+    await expect(page.locator('#blogHeroEyebrow')).toContainText('יומן');
+    await expect(page.locator('#blogState')).toContainText(/עברית|מאמרים/);
     const readiness = await page.evaluate(() => (window as any).CELanguageRollout?.getHePageReadiness?.());
     expect(readiness?.key).toBe('blog');
-    expect(readiness?.status).toBe('blocked');
+    expect(readiness?.status).toBe('record-gated');
+  });
+
+  test('falls back Blog detail to EN for HE posts that are not public_ready', async ({ page }) => {
+    await seedBlogRecordGatingFixtures(page);
+
+    await page.goto('/blog/english-only-guide?lang=he', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => (
+      document.documentElement.lang === 'en'
+      && document.documentElement.dir === 'ltr'
+      && new URL(window.location.href).searchParams.get('lang') !== 'he'
+    ), null, { timeout: 15000 });
+
+    await expect(page.locator('#blogPostView')).toBeVisible();
+    await expect(page.locator('#blogPostTitle')).toContainText('English only guide');
+    await expect(page.locator('[data-testid="language-pill-he"]')).toHaveCount(0);
   });
 
   test('keeps Shop out of configured beta HE scope', async ({ page }) => {
@@ -745,12 +847,14 @@ test.describe('hidden Hebrew rollout guard', () => {
     expect(rollout?.publicSurfaces?.switcher).toBe(true);
 
     await page.goto('/blog.html?lang=he', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(250);
-    await expect(page.locator('html')).not.toHaveAttribute('lang', 'he');
+    await waitForHtmlLanguage(page, 'he');
+    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     rollout = await page.evaluate(() => (window as any).CELanguageRollout?.snapshot?.().he);
     expect(rollout?.pageReadiness?.key).toBe('blog');
-    expect(rollout?.pageReadiness?.status).toBe('blocked');
-    expect(rollout?.publicSurfaces?.routes).toBe(false);
+    expect(rollout?.pageReadiness?.status).toBe('record-gated');
+    expect(rollout?.publicSurfaces?.routes).toBe(true);
+    expect(rollout?.publicSurfaces?.switcher).toBe(true);
+    expect(rollout?.publicSurfaces?.seo).toBe(false);
 
     await page.goto('/shop.html?lang=he', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(250);

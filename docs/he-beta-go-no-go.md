@@ -17,7 +17,10 @@ plus HE fallback fix.
   trip, and POI/map flow.
 - HE SEO live: Stage 49 allowed scope only, currently 19 HE URLs in
   `sitemap.xml`.
-- Blog and blog detail remain `BLOCKED`.
+- Blog UI and blog detail routes are `record-gated`: the blog shell can switch
+  to HE, while dynamic post content remains manual and only explicitly
+  `public_ready` HE rows may render in HE.
+- Blog SEO remains blocked and Blog is absent from HE sitemap/canonical/hreflang.
 - Shop, cart, checkout, payment, partners, and admin remain `EXCLUDED`.
 - Public `/he/` routes remain non-public redirects/fallbacks to `/?lang=en`.
 - Booking/payment/deposit flow is locked and must not be changed by HE rollout
@@ -32,7 +35,7 @@ plus HE fallback fix.
 | Hotels | READY | Hotels: can enter controlled beta for HE preview, with remaining fallback tracked. |
 | Cars | PARTIAL | Cars: beta only with explicit EN fallback acceptance; translate top records before broader beta. |
 | Transport | READY | Transport: can enter controlled beta for HE preview, with remaining fallback tracked. |
-| Blog | BLOCKED | Blog: keep blocked until public HE read/RLS and top post translations are intentionally opened. |
+| Blog | RECORD-GATED UI / MANUAL CONTENT | Blog shell can switch to HE. Dynamic posts require manual translation and `public_ready`; Blog SEO remains blocked. |
 | POI | PARTIAL | POI/map: page-gated only for top translated POI with safe EN fallback. |
 | Recommendations | READY | Recommendations: can enter controlled beta for HE preview, with remaining fallback tracked. |
 | Shop | BLOCKED | Shop: hide from first HE beta or keep EN-only until dynamic HE content is added. |
