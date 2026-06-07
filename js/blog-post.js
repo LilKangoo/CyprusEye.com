@@ -304,13 +304,20 @@ const COPY = {
 
 const state = {
   language: detectLanguage(),
-  post: window.__BLOG_POST__?.post || null,
-  loading: !window.__BLOG_POST__?.post,
+  post: isPreloadedPostLanguageMatch() ? window.__BLOG_POST__?.post || null : null,
+  loading: !(isPreloadedPostLanguageMatch() && window.__BLOG_POST__?.post),
   error: '',
   slug: getInitialSlug(),
   taxonomySchemaMode: 'unknown',
   applyingFallbackLanguage: false,
+  hiddenLanguageFallbackLocked: false,
 };
+
+function isPreloadedPostLanguageMatch() {
+  const preloadedLanguage = normalizeBlogUiLanguage(window.__BLOG_POST__?.language || '');
+  const currentLanguage = detectLanguage();
+  return preloadedLanguage && preloadedLanguage === currentLanguage;
+}
 
 function detectLanguage() {
   return normalizeBlogUiLanguage(
@@ -494,6 +501,14 @@ function normalizeTaxonomyArray(value) {
   return safeArray(value).map((entry) => String(entry || '').trim()).filter(Boolean);
 }
 
+function hasText(value) {
+  return String(value || '').trim().length > 0;
+}
+
+function hasPublicReadyBlogIntro(translation) {
+  return hasText(translation?.summary) || hasText(translation?.lead);
+}
+
 function isMissingTaxonomySchemaError(error) {
   const combined = [
     String(error?.code || ''),
@@ -653,10 +668,7 @@ function isBlogTranslationPublicReady(translation, options = {}) {
       && translation.reviewStatus === 'public_ready'
       && translation.slug
       && translation.title
-      && translation.metaTitle
-      && translation.metaDescription
-      && translation.summary
-      && translation.lead
+      && hasPublicReadyBlogIntro(translation)
       && (!requireContent || translation.contentHtml)
   );
 }
@@ -847,6 +859,8 @@ async function fetchPost(language, slug) {
   if (!normalizedSlug) return null;
 
   if (language === 'he') {
+    const apiPost = await fetchHebrewPublicReadyPostViaApi(normalizedSlug);
+    if (apiPost) return apiPost;
     return fetchHebrewPublicReadyPost(normalizedSlug);
   }
 
@@ -952,12 +966,35 @@ async function fetchHebrewPublicReadyPost(slug) {
   }
   const categories = getTaxonomyByLang(base, 'categories').he || [];
   const tags = getTaxonomyByLang(base, 'tags').he || [];
-  if (!categories.length || !tags.length) {
-    return null;
-  }
 
   const siblings = await fetchSiblingTranslations(base.id);
   return mapPostFromTranslation(data, siblings);
+}
+
+async function fetchHebrewPublicReadyPostViaApi(slug) {
+  const normalizedSlug = normalizeSlug(slug);
+  if (!normalizedSlug) return null;
+  try {
+    const url = new URL('/api/blog/he-post', window.location.origin);
+    url.searchParams.set('slug', normalizedSlug);
+    const response = await fetch(url.toString(), {
+      headers: { Accept: 'application/json' },
+      credentials: 'same-origin',
+    });
+    if (!response.ok) {
+      if (response.status === 404) {
+        return null;
+      }
+      throw new Error(`Hebrew blog post API returned ${response.status}`);
+    }
+    const payload = await response.json();
+    if (payload?.post) {
+      return payload.post;
+    }
+  } catch (error) {
+    console.warn('[blog-post] Falling back to direct Supabase HE post query:', error);
+  }
+  return null;
 }
 
 function ensureMetaNode(selector, build) {
@@ -1091,33 +1128,48 @@ function syncBlogPostHiddenLanguageAvailability(post) {
   if (!body) return;
   if (isPostHebrewPublicReady(post)) {
     delete body.dataset.disableHiddenLanguage;
+    delete body.dataset.forceLanguage;
+    state.hiddenLanguageFallbackLocked = false;
   } else {
     body.dataset.disableHiddenLanguage = 'true';
   }
 }
 
-async function fallbackHebrewPostToEnglish(slug) {
-  state.applyingFallbackLanguage = true;
-  state.language = 'en';
-  if (document.body) {
-    document.body.dataset.disableHiddenLanguage = 'true';
-  }
-  document.documentElement.lang = 'en';
-  document.documentElement.dir = 'ltr';
-
-  try {
-    if (window.appI18n && typeof window.appI18n.setLanguage === 'function') {
-      await window.appI18n.setLanguage('en', { persist: true, updateUrl: false, syncProfile: true });
-    }
-  } catch (error) {
-    console.warn('[blog-post] Failed to apply EN fallback language:', error);
-  }
-
+function normalizeUrlToEnglish() {
   const nextUrl = new URL(window.location.href);
   nextUrl.searchParams.set('lang', 'en');
   if (nextUrl.toString() !== window.location.href) {
     window.history.replaceState({}, '', nextUrl);
   }
+}
+
+function applyEnglishFallbackShell({ updateUrl = true, syncProfile = true } = {}) {
+  state.hiddenLanguageFallbackLocked = true;
+  state.language = 'en';
+  if (document.body) {
+    document.body.dataset.disableHiddenLanguage = 'true';
+    document.body.dataset.forceLanguage = 'en';
+  }
+  document.documentElement.lang = 'en';
+  document.documentElement.dir = 'ltr';
+  delete document.documentElement.dataset.ceHiddenLanguagePreview;
+
+  if (updateUrl) {
+    normalizeUrlToEnglish();
+  }
+
+  try {
+    if (window.appI18n && typeof window.appI18n.setLanguage === 'function') {
+      window.appI18n.setLanguage('en', { persist: true, updateUrl: false, syncProfile });
+    }
+  } catch (error) {
+    console.warn('[blog-post] Failed to apply EN fallback language:', error);
+  }
+}
+
+async function fallbackHebrewPostToEnglish(slug) {
+  state.applyingFallbackLanguage = true;
+  applyEnglishFallbackShell({ updateUrl: true, syncProfile: true });
 
   try {
     const post = await fetchPost('en', slug);
@@ -1504,7 +1556,14 @@ function bindEvents() {
     if (state.applyingFallbackLanguage) {
       return;
     }
-    state.language = normalizeBlogUiLanguage(language);
+    const nextLanguage = normalizeBlogUiLanguage(language);
+    if (nextLanguage === 'he'
+      && document.body?.dataset.disableHiddenLanguage === 'true'
+      && !isPostHebrewPublicReady(state.post)) {
+      applyEnglishFallbackShell({ updateUrl: true, syncProfile: false });
+      return;
+    }
+    state.language = nextLanguage;
     if (!state.post) {
       await loadPost(state.slug);
       return;

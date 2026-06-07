@@ -1,6 +1,6 @@
 import { serveStatic } from '../_utils/serveStatic.js';
 import { applySeoToHtml, getSeoLanguage } from '../_utils/pageSeo.js';
-import { getPublishedBlogPostBySlug } from '../_utils/blogData.js';
+import { getPublishedBlogPostBySlug, normalizeBlogLanguage } from '../_utils/blogData.js';
 import {
   buildBlogPostSeoPayload,
   createBlogPlaceholderHtml,
@@ -59,16 +59,28 @@ function methodNotAllowed() {
   });
 }
 
+function addBodyAttributes(html, attributes = {}) {
+  const entries = Object.entries(attributes)
+    .map(([key, value]) => `${key}="${String(value).replace(/"/g, '&quot;')}"`)
+    .join(' ');
+  if (!entries) {
+    return html;
+  }
+  return String(html || '').replace(/<body\b([^>]*)>/i, `<body$1 ${entries}>`);
+}
+
 export async function onRequest(context) {
   if (!['GET', 'HEAD'].includes(context.request.method)) {
     return methodNotAllowed();
   }
 
   const url = new URL(context.request.url);
-  const language = getSeoLanguage(url, {
+  const seoLanguage = getSeoLanguage(url, {
     pageKey: 'blogPost',
     pathname: url.pathname,
   });
+  const requestedLanguage = normalizeBlogLanguage(url.searchParams.get('lang') || seoLanguage);
+  let language = requestedLanguage === 'he' ? 'he' : seoLanguage;
   const slug = String(context.params?.slug || '').trim();
   const template = await loadTemplate(
     context,
@@ -78,9 +90,15 @@ export async function onRequest(context) {
 
   let post = null;
   let status = null;
+  let forcedEnglishFallback = false;
 
   try {
     post = await getPublishedBlogPostBySlug(context.env, { language, slug });
+    if (!post && language === 'he') {
+      language = 'en';
+      forcedEnglishFallback = true;
+      post = await getPublishedBlogPostBySlug(context.env, { language, slug });
+    }
     if (!post) {
       status = 404;
     }
@@ -95,10 +113,17 @@ export async function onRequest(context) {
     post,
   });
 
+  if (forcedEnglishFallback) {
+    html = addBodyAttributes(html, {
+      'data-force-language': 'en',
+      'data-disable-hidden-language': 'true',
+    });
+  }
+
   html = applySeoToHtml(
     html,
     buildBlogPostSeoPayload({
-      language,
+      language: seoLanguage,
       requestPathname: url.pathname,
       requestSearch: url.search,
       post,

@@ -423,8 +423,11 @@ function applyPublishedBlogFilters(query, options = {}) {
   return nextQuery;
 }
 
-function getReadClient(env) {
+function getReadClient(env, options = {}) {
   const { publicClient, adminClient } = createSupabaseClients(env);
+  if (options.preferAdmin) {
+    return adminClient || publicClient;
+  }
   return publicClient || adminClient;
 }
 
@@ -1095,6 +1098,10 @@ function hasText(value) {
   return String(value || '').trim().length > 0;
 }
 
+function hasPublicReadyBlogIntro(translation) {
+  return hasText(translation?.summary) || hasText(translation?.lead);
+}
+
 function isBlogTranslationPublicReady(translation, options = {}) {
   const requireContent = options.requireContent === true;
   if (!translation || normalizeBlogLanguage(translation.lang) !== 'he') {
@@ -1106,10 +1113,7 @@ function isBlogTranslationPublicReady(translation, options = {}) {
   const commonFieldsReady = (
     hasText(translation.slug)
     && hasText(translation.title)
-    && hasText(translation.metaTitle)
-    && hasText(translation.metaDescription)
-    && hasText(translation.summary)
-    && hasText(translation.lead)
+    && hasPublicReadyBlogIntro(translation)
   );
   if (!commonFieldsReady) {
     return false;
@@ -1231,7 +1235,7 @@ function isHebrewBlogItemPublicReady(item, options = {}) {
   if (!isBlogTranslationPublicReady(item.translation, { requireContent: options.requireContent === true })) {
     return false;
   }
-  return safeArray(item.categories).length > 0 && safeArray(item.tags).length > 0;
+  return true;
 }
 
 export async function getPublishedBlogList(env, options = {}) {
@@ -1291,7 +1295,7 @@ async function getPublishedHebrewBlogListPage(env, options = {}) {
   const page = Math.max(1, Number.parseInt(options.page || '1', 10) || 1);
   const limit = Math.min(50, Math.max(1, Number.parseInt(options.limit || BLOG_LIST_PAGE_SIZE, 10) || BLOG_LIST_PAGE_SIZE));
   const offset = (page - 1) * limit;
-  const client = getReadClient(env);
+  const client = getReadClient(env, { preferAdmin: true });
   const normalizedCategory = String(options.category || '').trim();
   const normalizedTag = String(options.tag || '').trim();
   const featuredOnly = String(options.featured || '').trim() === '1' || options.featured === true;
@@ -1466,7 +1470,7 @@ async function getPublishedHebrewBlogPostBySlug(env, options = {}) {
     return null;
   }
 
-  const client = getReadClient(env);
+  const client = getReadClient(env, { preferAdmin: true });
   const { data, error } = await client
     .from('blog_post_translations')
     .select(BLOG_HE_POST_SELECT)

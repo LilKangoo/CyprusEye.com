@@ -228,12 +228,12 @@ const COPY = {
 
 const state = {
   language: detectLanguage(),
-  items: Array.isArray(window.__BLOG_LIST__?.items) ? window.__BLOG_LIST__.items.map(mapListRow) : [],
-  loading: !Array.isArray(window.__BLOG_LIST__?.items),
+  items: isPreloadedLanguageMatch() && Array.isArray(window.__BLOG_LIST__?.items) ? window.__BLOG_LIST__.items.map(mapListRow) : [],
+  loading: !(isPreloadedLanguageMatch() && Array.isArray(window.__BLOG_LIST__?.items)),
   error: '',
   page: getInitialPage(),
   pageSize: BLOG_PAGE_SIZE,
-  totalCount: Number.parseInt(window.__BLOG_LIST__?.totalCount || '0', 10) || 0,
+  totalCount: isPreloadedLanguageMatch() ? Number.parseInt(window.__BLOG_LIST__?.totalCount || '0', 10) || 0 : 0,
   facets: {
     categories: [],
     tags: [],
@@ -244,6 +244,12 @@ const state = {
   preload: window.__BLOG_LIST__ || null,
   taxonomySchemaMode: 'unknown',
 };
+
+function isPreloadedLanguageMatch() {
+  const preloadedLanguage = normalizeBlogUiLanguage(window.__BLOG_LIST__?.language || '');
+  const currentLanguage = detectLanguage();
+  return preloadedLanguage && preloadedLanguage === currentLanguage;
+}
 
 function detectLanguage() {
   return normalizeBlogUiLanguage(
@@ -307,6 +313,14 @@ function safeArray(value) {
 
 function normalizeTaxonomyArray(value) {
   return safeArray(value).map((entry) => String(entry || '').trim()).filter(Boolean);
+}
+
+function hasText(value) {
+  return String(value || '').trim().length > 0;
+}
+
+function hasPublicReadyBlogIntro(translation) {
+  return hasText(translation?.summary) || hasText(translation?.lead);
 }
 
 function isMissingTaxonomySchemaError(error) {
@@ -426,10 +440,7 @@ function isBlogTranslationPublicReady(translation) {
       && translation.reviewStatus === 'public_ready'
       && translation.slug
       && translation.title
-      && translation.metaTitle
-      && translation.metaDescription
-      && translation.summary
-      && translation.lead
+      && hasPublicReadyBlogIntro(translation)
   );
 }
 
@@ -584,6 +595,9 @@ function buildQueryState() {
 function preloadMatchesRequest() {
   const preload = state.preload;
   if (!preload || !Array.isArray(preload.items)) return false;
+  if (normalizeBlogUiLanguage(preload.language || '') !== state.language) {
+    return false;
+  }
   const preloadCount = Number.parseInt(preload.totalCount || '0', 10) || 0;
   if (preload.items.length === 0 && preloadCount === 0) {
     return false;
@@ -595,6 +609,35 @@ function preloadMatchesRequest() {
     && String(preload.filter?.category || '') === query.category
     && String(preload.filter?.tag || '') === query.tag
   );
+}
+
+async function fetchHebrewBlogApi(params = {}) {
+  const url = new URL('/api/blog/he-list', window.location.origin);
+  url.searchParams.set('page', String(params.page || state.page || 1));
+  url.searchParams.set('limit', String(params.limit || state.pageSize || BLOG_PAGE_SIZE));
+  if (state.activeFilter.kind === 'featured') {
+    url.searchParams.set('featured', '1');
+  } else if (state.activeFilter.kind === 'category' && state.activeFilter.value) {
+    url.searchParams.set('category', state.activeFilter.value);
+  } else if (state.activeFilter.kind === 'tag' && state.activeFilter.value) {
+    url.searchParams.set('tag', state.activeFilter.value);
+  }
+  if (params.facets) {
+    url.searchParams.set('facets', '1');
+  }
+
+  const response = await fetch(url.toString(), {
+    headers: { Accept: 'application/json' },
+    credentials: 'same-origin',
+  });
+  if (!response.ok) {
+    throw new Error(`Hebrew blog API returned ${response.status}`);
+  }
+  const payload = await response.json();
+  if (!payload || typeof payload !== 'object') {
+    throw new Error('Hebrew blog API returned an invalid payload');
+  }
+  return payload;
 }
 
 async function fetchBlogListPage() {
@@ -646,6 +689,16 @@ async function fetchBlogListPage() {
 }
 
 async function fetchHebrewBlogListPage() {
+  try {
+    const payload = await fetchHebrewBlogApi();
+    return {
+      items: safeArray(payload.items).map(mapListRow),
+      totalCount: Number.isFinite(Number(payload.totalCount)) ? Number(payload.totalCount) : safeArray(payload.items).length,
+    };
+  } catch (apiError) {
+    console.warn('[blog] Falling back to direct Supabase HE list query:', apiError);
+  }
+
   const from = (state.page - 1) * state.pageSize;
   const to = from + state.pageSize - 1;
   let query = supabase
@@ -684,6 +737,23 @@ async function fetchHebrewBlogListPage() {
 
 async function fetchBlogFacets() {
   if (state.language === 'he') {
+    try {
+      const payload = await fetchHebrewBlogApi({ facets: true, page: 1, limit: 50 });
+      if (payload.facets && typeof payload.facets === 'object') {
+        return {
+          categories: normalizeTaxonomyArray(payload.facets.categories),
+          tags: normalizeTaxonomyArray(payload.facets.tags),
+          topics: safeArray(payload.facets.topics).map((entry) => ({
+            kind: String(entry?.kind || '').trim(),
+            value: String(entry?.value || '').trim(),
+          })).filter((entry) => entry.kind && entry.value),
+          featuredCount: Number.parseInt(payload.facets.featuredCount || '0', 10) || 0,
+        };
+      }
+    } catch (apiError) {
+      console.warn('[blog] Falling back to direct Supabase HE facets query:', apiError);
+    }
+
     const { data, error } = await supabase
       .from('blog_post_translations')
       .select(`

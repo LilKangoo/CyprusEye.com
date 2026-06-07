@@ -66,8 +66,8 @@ async function seedStage33TripFixtures(page) {
 
 async function seedBlogRecordGatingFixtures(page) {
   await page.addInitScript(() => {
-    const post = {
-      id: 'blog-record-gated-1',
+    const notReadyPost = {
+      id: 'blog-record-gated-not-ready',
       status: 'published',
       submission_status: 'approved',
       published_at: new Date(Date.now() - 86400000).toISOString(),
@@ -92,10 +92,19 @@ async function seedBlogRecordGatingFixtures(page) {
       created_at: new Date(Date.now() - 172800000).toISOString(),
       updated_at: new Date(Date.now() - 86400000).toISOString(),
     };
+    const readyPost = {
+      ...notReadyPost,
+      id: 'blog-record-gated-ready',
+      cover_image_url: 'https://stub.local/blog/ready-he.webp',
+      cover_image_alt: { en: 'Ready Hebrew blog cover', he: 'תמונת כתבה בעברית' },
+      featured: false,
+      categories_he: ['מדריכים'],
+      tags_he: ['קפריסין'],
+    };
     const translations = [
       {
         id: 'blog-record-gated-1-en',
-        blog_post_id: post.id,
+        blog_post_id: notReadyPost.id,
         lang: 'en',
         slug: 'english-only-guide',
         title: 'English only guide',
@@ -108,12 +117,12 @@ async function seedBlogRecordGatingFixtures(page) {
         content_json: { type: 'doc', content: [] },
         content_html: '<p>English article body.</p>',
         og_image_url: '',
-        created_at: post.created_at,
-        updated_at: post.updated_at,
+        created_at: notReadyPost.created_at,
+        updated_at: notReadyPost.updated_at,
       },
       {
         id: 'blog-record-gated-1-he-draft',
-        blog_post_id: post.id,
+        blog_post_id: notReadyPost.id,
         lang: 'he',
         slug: 'hebrew-draft-guide',
         title: 'טיוטה בעברית',
@@ -127,14 +136,51 @@ async function seedBlogRecordGatingFixtures(page) {
         content_html: '<p>טיוטה שאינה public_ready.</p>',
         og_image_url: '',
         review_status: 'needs_review',
-        created_at: post.created_at,
-        updated_at: post.updated_at,
+        created_at: notReadyPost.created_at,
+        updated_at: notReadyPost.updated_at,
+      },
+      {
+        id: 'blog-record-gated-2-en',
+        blog_post_id: readyPost.id,
+        lang: 'en',
+        slug: 'ready-hebrew-guide',
+        title: 'Ready Hebrew guide source',
+        meta_title: 'Ready Hebrew guide source',
+        meta_description: 'English fallback meta for a manually reviewed Hebrew article.',
+        summary: 'English fallback summary.',
+        lead: 'English fallback lead.',
+        author_name: 'CyprusEye',
+        author_url: '',
+        content_json: { type: 'doc', content: [] },
+        content_html: '<p>English fallback article body.</p>',
+        og_image_url: '',
+        created_at: readyPost.created_at,
+        updated_at: readyPost.updated_at,
+      },
+      {
+        id: 'blog-record-gated-2-he-ready',
+        blog_post_id: readyPost.id,
+        lang: 'he',
+        slug: 'hebrew-ready-guide',
+        title: 'מדריך עברי מוכן',
+        meta_title: '',
+        meta_description: '',
+        summary: '',
+        lead: 'פתיח עברי שנבדק ידנית.',
+        author_name: 'CyprusEye',
+        author_url: '',
+        content_json: { type: 'doc', content: [] },
+        content_html: '<p>גוף כתבה עברי שאושר ידנית.</p>',
+        og_image_url: '',
+        review_status: 'public_ready',
+        created_at: readyPost.created_at,
+        updated_at: readyPost.updated_at,
       },
     ];
 
     const seedBlog = (stub) => {
       if (stub && typeof stub.seedTable === 'function') {
-        stub.seedTable('blog_posts', [post]);
+        stub.seedTable('blog_posts', [notReadyPost, readyPost]);
         stub.seedTable('blog_post_translations', translations);
       }
     };
@@ -626,6 +672,28 @@ test.describe('hidden Hebrew rollout guard', () => {
     const readiness = await page.evaluate(() => (window as any).CELanguageRollout?.getHePageReadiness?.());
     expect(readiness?.key).toBe('blog');
     expect(readiness?.status).toBe('record-gated');
+  });
+
+  test('renders manually public_ready Blog HE records without enabling Blog HE SEO', async ({ page }) => {
+    await seedBlogRecordGatingFixtures(page);
+
+    await page.goto('/blog.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await waitForHtmlLanguage(page, 'he');
+
+    await expect(page.locator('#blogGrid')).toBeVisible();
+    await expect(page.locator('#blogGrid')).toContainText('מדריך עברי מוכן');
+    await expect(page.locator('#blogGrid')).not.toContainText('טיוטה בעברית');
+    await expect(page.locator('link[rel="alternate"][hreflang="he"]')).toHaveCount(0);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /\/blog$/);
+
+    await page.goto('/blog/hebrew-ready-guide?lang=he', { waitUntil: 'domcontentloaded' });
+    await waitForHtmlLanguage(page, 'he');
+
+    await expect(page.locator('#blogPostView')).toBeVisible();
+    await expect(page.locator('#blogPostTitle')).toContainText('מדריך עברי מוכן');
+    await expect(page.locator('#blogPostContent')).toContainText('גוף כתבה עברי');
+    await expect(page.locator('link[rel="alternate"][hreflang="he"]')).toHaveCount(0);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /\/blog\/ready-hebrew-guide$/);
   });
 
   test('falls back Blog detail to EN for HE posts that are not public_ready', async ({ page }) => {

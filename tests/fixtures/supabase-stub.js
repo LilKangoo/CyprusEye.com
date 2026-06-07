@@ -508,9 +508,17 @@ function compareValues(a, b) {
   return String(a ?? '').localeCompare(String(b ?? ''), 'en', { sensitivity: 'base' });
 }
 
+function getFilterValue(row, column) {
+  const path = String(column || '').split('.').filter(Boolean);
+  if (!path.length) {
+    return undefined;
+  }
+  return path.reduce((cursor, segment) => (cursor && typeof cursor === 'object' ? cursor[segment] : undefined), row);
+}
+
 function applyGenericFilters(rows, filters) {
   return rows.filter((row) => filters.every((filter) => {
-    const value = row?.[filter.column];
+    const value = getFilterValue(row, filter.column);
     switch (filter.type) {
       case 'eq':
         return value === filter.value;

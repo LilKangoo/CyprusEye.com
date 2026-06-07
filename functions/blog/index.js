@@ -1,6 +1,6 @@
 import { serveStatic } from '../_utils/serveStatic.js';
 import { applySeoToHtml, getSeoLanguage } from '../_utils/pageSeo.js';
-import { getPublishedBlogListPage } from '../_utils/blogData.js';
+import { getPublishedBlogListPage, normalizeBlogLanguage } from '../_utils/blogData.js';
 import {
   buildBlogListSeoPayload,
   createBlogPlaceholderHtml,
@@ -63,10 +63,12 @@ export async function onRequest(context) {
   }
 
   const url = new URL(context.request.url);
-  const language = getSeoLanguage(url, {
+  const seoLanguage = getSeoLanguage(url, {
     pageKey: 'blog',
     pathname: url.pathname,
   });
+  const requestedLanguage = normalizeBlogLanguage(url.searchParams.get('lang') || seoLanguage);
+  const language = requestedLanguage === 'he' ? 'he' : seoLanguage;
   const page = Math.max(1, Number.parseInt(url.searchParams.get('page') || '1', 10) || 1);
   const category = String(url.searchParams.get('category') || '').trim();
   const tag = String(url.searchParams.get('tag') || '').trim();
@@ -109,7 +111,7 @@ export async function onRequest(context) {
   html = applySeoToHtml(
     html,
     buildBlogListSeoPayload({
-      language,
+      language: seoLanguage,
       requestPathname: url.pathname,
       requestSearch: url.search,
     })
