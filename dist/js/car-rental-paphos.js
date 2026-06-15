@@ -90,6 +90,24 @@ function i18n(key, replacements, fallback = '') {
   return applyReplacements(base, replacements);
 }
 
+function pickCarUiText(values, language = getI18nShortLanguage()) {
+  const source = values && typeof values === 'object' ? values : {};
+  const lang = language === 'pl' || language === 'en' || language === 'he' ? language : 'en';
+  const chain = lang === 'he' ? ['he', 'en', 'pl'] : lang === 'pl' ? ['pl', 'en', 'he'] : ['en', 'pl', 'he'];
+
+  for (const code of chain) {
+    const value = source[code];
+    if (typeof value === 'string' && value.trim()) return value;
+  }
+
+  const firstAvailable = Object.values(source).find((value) => typeof value === 'string' && value.trim());
+  return typeof firstAvailable === 'string' ? firstAvailable : '';
+}
+
+function carUiText(values, replacements, language = getI18nShortLanguage()) {
+  return applyReplacements(pickCarUiText(values, language), replacements);
+}
+
 function isCarMediaPanorama(url) {
   if (window.CE_MEDIA_VIEWER?.isPanorama) {
     return window.CE_MEDIA_VIEWER.isPanorama(url);
@@ -436,33 +454,65 @@ function renderFleet() {
     const imageUrl = car.image_url || 'https://placehold.co/400x250/1e293b/ffffff?text=' + encodeURIComponent(carModelName);
     const imageIsPanorama = isCarMediaPanorama(imageUrl);
 
-    let priceLabel = i18n('carRental.common.priceFromPerDay', { price: `${fromPrice}€` }, `Od ${fromPrice}€ / dzień`);
+    let priceLabel = i18n(
+      'carRental.common.priceFromPerDay',
+      { price: `${fromPrice}€` },
+      carUiText({
+        pl: 'Od {{price}} / dzień',
+        en: 'From {{price}} / day',
+        he: 'מ-{{price}} / יום',
+      }, { price: `${fromPrice}€` }, lang)
+    );
     let priceBreakdown = '';
 
     if (landingQuoteContext) {
-      const quote = calculateQuoteForSelection({
-        offer: loc,
-        offerId: car.id,
-        carModel: carModelName,
-        pickupDateStr: landingQuoteContext.pickupDate,
-        returnDateStr: landingQuoteContext.returnDate,
-        pickupTimeStr: landingQuoteContext.pickupTime,
-        returnTimeStr: landingQuoteContext.returnTime,
-        pickupLocation: landingQuoteContext.pickupLocation,
-        returnLocation: landingQuoteContext.returnLocation,
-        fullInsurance: !!landingQuoteContext.fullInsurance,
-        youngDriver: !!landingQuoteContext.youngDriver,
-      });
+      try {
+        const quote = calculateQuoteForSelection({
+          offer: loc,
+          offerId: car.id,
+          carModel: carModelName,
+          pickupDateStr: landingQuoteContext.pickupDate,
+          returnDateStr: landingQuoteContext.returnDate,
+          pickupTimeStr: landingQuoteContext.pickupTime,
+          returnTimeStr: landingQuoteContext.returnTime,
+          pickupLocation: landingQuoteContext.pickupLocation,
+          returnLocation: landingQuoteContext.returnLocation,
+          fullInsurance: !!landingQuoteContext.fullInsurance,
+          youngDriver: !!landingQuoteContext.youngDriver,
+        });
 
-      if (quote) {
-        const extrasTotal = quote.pickupFee + quote.returnFee + quote.insuranceCost + quote.youngDriverCost;
-        const daysLabel = i18n('carRental.common.daysLabel', null, isEn ? 'days' : 'dni');
-        priceLabel = isEn
-          ? `Total ${quote.total.toFixed(2)}€`
-          : `Razem ${quote.total.toFixed(2)}€`;
-        priceBreakdown = isEn
-          ? `${quote.days} ${daysLabel} • base ${quote.basePrice.toFixed(2)}€ • extras ${extrasTotal.toFixed(2)}€`
-          : `${quote.days} ${daysLabel} • baza ${quote.basePrice.toFixed(2)}€ • dodatki ${extrasTotal.toFixed(2)}€`;
+        if (quote) {
+          const extrasTotal = Number(quote.pickupFee || 0)
+            + Number(quote.returnFee || 0)
+            + Number(quote.insuranceCost || 0)
+            + Number(quote.youngDriverCost || 0);
+          const total = Number(quote.total);
+          const basePrice = Number(quote.basePrice || 0);
+          if (Number.isFinite(total)) {
+            const daysLabel = i18n(
+              'carRental.common.daysLabel',
+              null,
+              carUiText({ pl: 'dni', en: 'days', he: 'ימים' }, null, lang)
+            );
+            priceLabel = carUiText({
+              pl: 'Razem {{total}}€',
+              en: 'Total {{total}}€',
+              he: 'סה״כ {{total}}€',
+            }, { total: total.toFixed(2) }, lang);
+            priceBreakdown = carUiText({
+              pl: '{{days}} {{daysLabel}} • baza {{base}}€ • dodatki {{extras}}€',
+              en: '{{days}} {{daysLabel}} • base {{base}}€ • extras {{extras}}€',
+              he: '{{days}} {{daysLabel}} • בסיס {{base}}€ • תוספות {{extras}}€',
+            }, {
+              days: quote.days,
+              daysLabel,
+              base: Number.isFinite(basePrice) ? basePrice.toFixed(2) : '0.00',
+              extras: Number.isFinite(extrasTotal) ? extrasTotal.toFixed(2) : '0.00',
+            }, lang);
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to render car quote label:', error);
       }
     }
 
