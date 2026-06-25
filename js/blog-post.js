@@ -1012,21 +1012,25 @@ function ensureMetaNode(selector, build) {
 
 function updateHead(post) {
   const localized = getLocalizedPost(post, state.language);
-  const seoLanguage = state.language === 'he' ? 'en' : state.language;
+  const seoLanguage = state.language === 'he' ? 'he' : state.language;
   const seoLocalized = getLocalizedPost(post, seoLanguage);
   const title = pickLocalizedMetaTitle(post, seoLanguage) || seoLocalized.title || COPY.en.untitled;
   const description = pickLocalizedMetaDescription(post, seoLanguage) || buildMetaDescription(seoLocalized);
   const plSlug = post?.translationsByLang?.pl?.slug || localized.slug;
   const enSlug = post?.translationsByLang?.en?.slug || localized.slug;
-  const canonicalSlug = state.language === 'pl' ? plSlug || enSlug : enSlug || plSlug;
-  const canonicalUrl = state.language === 'pl'
-    ? `${window.location.origin}/blog/${encodeURIComponent(canonicalSlug || localized.slug)}?lang=pl`
-    : `${window.location.origin}/blog/${encodeURIComponent(canonicalSlug || localized.slug)}`;
+  const heSlug = isPostHebrewPublicReady(post) ? post?.translationsByLang?.he?.slug || localized.slug : '';
+  const canonicalSlug = state.language === 'he' && heSlug
+    ? heSlug
+    : (state.language === 'pl' ? plSlug || enSlug : enSlug || plSlug);
+  const canonicalUrl = state.language === 'he' && heSlug
+    ? `${window.location.origin}/blog/${encodeURIComponent(canonicalSlug || localized.slug)}?lang=he`
+    : state.language === 'pl'
+      ? `${window.location.origin}/blog/${encodeURIComponent(canonicalSlug || localized.slug)}?lang=pl`
+      : `${window.location.origin}/blog/${encodeURIComponent(canonicalSlug || localized.slug)}`;
   const plUrl = `${window.location.origin}/blog/${encodeURIComponent(plSlug || localized.slug)}?lang=pl`;
   const enUrl = `${window.location.origin}/blog/${encodeURIComponent(enSlug || localized.slug)}`;
-  const ogUrl = state.language === 'pl'
-    ? `${window.location.origin}/blog/${encodeURIComponent(localized.slug || canonicalSlug || '')}?lang=pl`
-    : `${window.location.origin}/blog/${encodeURIComponent(localized.slug || canonicalSlug || '')}`;
+  const heUrl = heSlug ? `${window.location.origin}/blog/${encodeURIComponent(heSlug)}?lang=he` : '';
+  const ogUrl = canonicalUrl;
   const ogImage = localized.ogImageUrl || localized.coverImageUrl || '/assets/cyprus_logo-1000x1054.png';
 
   document.title = title;
@@ -1069,12 +1073,12 @@ function updateHead(post) {
     const node = document.createElement('meta');
     node.setAttribute('property', 'og:locale');
     return node;
-  }).setAttribute('content', state.language === 'pl' ? 'pl_PL' : 'en_US');
+  }).setAttribute('content', state.language === 'he' ? 'he_IL' : state.language === 'pl' ? 'pl_PL' : 'en_US');
   ensureMetaNode('meta[property="og:locale:alternate"]', () => {
     const node = document.createElement('meta');
     node.setAttribute('property', 'og:locale:alternate');
     return node;
-  }).setAttribute('content', state.language === 'pl' ? 'en_US' : 'pl_PL');
+  }).setAttribute('content', state.language === 'he' ? 'en_US' : state.language === 'pl' ? 'en_US' : 'pl_PL');
 
   ensureMetaNode('link[rel="canonical"]', () => {
     const node = document.createElement('link');
@@ -1095,6 +1099,18 @@ function updateHead(post) {
     node.hreflang = 'en';
     return node;
   }).setAttribute('href', enUrl);
+
+  const heAlternate = document.head.querySelector('link[rel="alternate"][hreflang="he"]');
+  if (heUrl) {
+    ensureMetaNode('link[rel="alternate"][hreflang="he"]', () => {
+      const node = document.createElement('link');
+      node.rel = 'alternate';
+      node.hreflang = 'he';
+      return node;
+    }).setAttribute('href', heUrl);
+  } else if (heAlternate) {
+    heAlternate.remove();
+  }
 
   ensureMetaNode('link[rel="alternate"][hreflang="x-default"]', () => {
     const node = document.createElement('link');
@@ -1295,7 +1311,7 @@ async function fetchRelatedPosts(post) {
         const translationReady = isBlogTranslationPublicReady(item.translation, { requireContent: false });
         const categoriesReady = safeArray(item.categoriesByLang?.he).length > 0;
         const tagsReady = safeArray(item.tagsByLang?.he).length > 0;
-        return translationReady && categoriesReady && tagsReady;
+        return translationReady && (categoriesReady || tagsReady);
       });
 
     const scored = items.map((item, index) => {

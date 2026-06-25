@@ -688,6 +688,10 @@ function createGenericDeleteBuilder(table) {
       filters.push({ type: 'eq', column, value });
       return builder;
     },
+    in(column, value) {
+      filters.push({ type: 'in', column, value });
+      return builder;
+    },
     then(resolve, reject) {
       const current = getTableRows(table);
       const toDelete = applyGenericFilters(current, filters);

@@ -685,9 +685,11 @@ async function hasPublishedHebrewBlogContent() {
 }
 
 function syncLanguagePills() {
-  document.querySelectorAll('[data-language-pill="he"]').forEach((pill) => {
-    pill.remove();
-  });
+  if (state.hebrewContentAvailable !== true) {
+    document.querySelectorAll('[data-language-pill="he"]').forEach((pill) => {
+      pill.remove();
+    });
+  }
   document.querySelectorAll('[data-language-pill]').forEach((pill) => {
     const code = String(pill.dataset.languagePill || '').trim().toLowerCase();
     const active = code === state.language;
@@ -1041,7 +1043,7 @@ function updateUrlState(push = false) {
 }
 
 function updateListMeta() {
-  const seoLanguage = state.language === 'he' ? 'en' : state.language;
+  const seoLanguage = state.language === 'he' ? 'he' : state.language;
   const seoCopy = COPY[seoLanguage] || COPY.en;
   document.title = seoCopy.seoTitle;
   const description = seoCopy.seoDescription;
@@ -1052,27 +1054,43 @@ function updateListMeta() {
   const ogDescription = document.querySelector('meta[property="og:description"]');
   if (ogDescription) ogDescription.setAttribute('content', description);
   const canonical = document.querySelector('link[rel="canonical"]');
-  if (canonical) canonical.setAttribute('href', state.language === 'pl' ? `${window.location.origin}/blog?lang=pl` : `${window.location.origin}/blog`);
+  const canonicalHref = state.language === 'pl'
+    ? `${window.location.origin}/blog?lang=pl`
+    : state.language === 'he'
+      ? `${window.location.origin}/blog?lang=he`
+      : `${window.location.origin}/blog`;
+  if (canonical) canonical.setAttribute('href', canonicalHref);
   const alternates = {
     pl: `${window.location.origin}/blog?lang=pl`,
     en: `${window.location.origin}/blog`,
     'x-default': `${window.location.origin}/blog`,
   };
+  if (state.hebrewContentAvailable === true || state.language === 'he') {
+    alternates.he = `${window.location.origin}/blog?lang=he`;
+  }
   Object.entries(alternates).forEach(([code, url]) => {
     const node = document.querySelector(`link[rel="alternate"][hreflang="${code}"]`);
-    if (node) node.setAttribute('href', url);
+    if (node) {
+      node.setAttribute('href', url);
+    } else if (code === 'he') {
+      const link = document.createElement('link');
+      link.rel = 'alternate';
+      link.hreflang = 'he';
+      link.href = url;
+      document.head.appendChild(link);
+    }
   });
   const ogUrl = document.querySelector('meta[property="og:url"]');
   if (ogUrl) {
-    ogUrl.setAttribute('content', state.language === 'pl' ? `${window.location.origin}/blog?lang=pl` : `${window.location.origin}/blog`);
+    ogUrl.setAttribute('content', canonicalHref);
   }
   const ogLocale = document.querySelector('meta[property="og:locale"]');
   if (ogLocale) {
-    ogLocale.setAttribute('content', state.language === 'pl' ? 'pl_PL' : 'en_US');
+    ogLocale.setAttribute('content', state.language === 'pl' ? 'pl_PL' : state.language === 'he' ? 'he_IL' : 'en_US');
   }
   const ogLocaleAlt = document.querySelector('meta[property="og:locale:alternate"]');
   if (ogLocaleAlt) {
-    ogLocaleAlt.setAttribute('content', state.language === 'pl' ? 'en_US' : 'pl_PL');
+    ogLocaleAlt.setAttribute('content', state.language === 'he' ? 'en_US' : state.language === 'pl' ? 'en_US' : 'pl_PL');
   }
 }
 

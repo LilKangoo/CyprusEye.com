@@ -96,7 +96,20 @@ function buildBlogPostUrl(slug, language) {
   }
   const url = new URL(`/blog/${encodeURIComponent(normalizedSlug)}`, SITEMAP_ORIGIN);
   const languageParam = getLanguageQueryParam(language);
-  if (languageParam) {
+  if (language === 'he') {
+    url.searchParams.set('lang', 'he');
+  } else if (languageParam) {
+    url.searchParams.set('lang', languageParam);
+  }
+  return url.toString();
+}
+
+function buildBlogListUrl(language) {
+  const url = new URL('/blog', SITEMAP_ORIGIN);
+  const languageParam = getLanguageQueryParam(language);
+  if (language === 'he') {
+    url.searchParams.set('lang', 'he');
+  } else if (languageParam) {
     url.searchParams.set('lang', languageParam);
   }
   return url.toString();
@@ -211,7 +224,8 @@ async function fetchPublishedBlogEntries(client) {
       published_at,
       translations:blog_post_translations (
         lang,
-        slug
+        slug,
+        review_status
       )
     `)
     .eq('status', 'published')
@@ -226,13 +240,55 @@ async function fetchPublishedBlogEntries(client) {
   }
 
   const sitemapLanguages = new Set(SITEMAP_LANGUAGES);
-  return safeArray(data).flatMap((row) => safeArray(row?.translations)
-    .filter((translation) => sitemapLanguages.has(String(translation?.lang || '').trim().toLowerCase()))
-    .map((translation) => ({
-      loc: buildBlogPostUrl(translation?.slug, translation?.lang),
-      lastmod: row?.published_at || '',
-    }))
-  );
+  const entries = [];
+  const heEntries = [];
+  for (const row of safeArray(data)) {
+    for (const translation of safeArray(row?.translations)) {
+      const language = String(translation?.lang || '').trim().toLowerCase();
+      const slug = String(translation?.slug || '').trim();
+      if (!slug) {
+        continue;
+      }
+      if (sitemapLanguages.has(language)) {
+        entries.push({
+          loc: buildBlogPostUrl(slug, language),
+          lastmod: row?.published_at || '',
+        });
+        continue;
+      }
+      if (language === 'he'
+        && String(translation?.review_status || '').trim() === 'public_ready'
+        && canGenerateHeSeo({
+          pageKey: 'blogPost',
+          language: 'he',
+          surface: 'sitemap',
+          recordReady: true,
+        })) {
+        heEntries.push({
+          loc: buildBlogPostUrl(slug, 'he'),
+          lastmod: row?.published_at || '',
+        });
+      }
+    }
+  }
+  if (heEntries.length && canGenerateHeSeo({
+    pageKey: 'blog',
+    language: 'he',
+    surface: 'sitemap',
+    recordReady: true,
+  })) {
+    const heLastmods = heEntries
+      .map((entry) => entry.lastmod)
+      .filter(Boolean)
+      .sort();
+    const lastmod = heLastmods[heLastmods.length - 1] || '';
+    entries.push({
+      loc: buildBlogListUrl('he'),
+      lastmod,
+    });
+  }
+  entries.push(...heEntries);
+  return entries;
 }
 
 async function fetchPublishedServiceEntries(client, kind) {

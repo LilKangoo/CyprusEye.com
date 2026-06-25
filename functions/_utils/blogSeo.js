@@ -45,6 +45,24 @@ const BLOG_SEO_COPY = {
       description: 'Nie udało się znaleźć artykułu blogowego, którego szukasz.',
     },
   },
+  he: {
+    list: {
+      title: 'בלוג CyprusEye | מדריכים וטיפים לקפריסין',
+      description:
+        'מדריכים וטיפים של CyprusEye לקפריסין עם קישורים לשירותים, לינה וטיולים.',
+      ogTitle: 'בלוג CyprusEye | מדריכים וטיפים לקפריסין',
+      ogDescription:
+        'מדריכים וטיפים מעשיים לקפריסין מ-CyprusEye.',
+    },
+    postFallback: {
+      title: 'בלוג CyprusEye',
+      description: 'מדריכים, טיפים מקומיים וקישורים לשירותים מ-CyprusEye.',
+    },
+    notFound: {
+      title: 'המאמר לא נמצא | בלוג CyprusEye',
+      description: 'לא הצלחנו למצוא את מאמר הבלוג שביקשת.',
+    },
+  },
 };
 
 function escapeHtml(value) {
@@ -95,6 +113,16 @@ function buildLanguageUrl(pathname, language) {
     url.searchParams.set('lang', language);
   }
   return url.toString();
+}
+
+function isPublicReadyHebrewTranslation(translation) {
+  return Boolean(
+    translation
+      && normalizeBlogLanguage(translation.lang) === 'he'
+      && String(translation.reviewStatus || translation.review_status || '').trim() === 'public_ready'
+      && String(translation.slug || '').trim()
+      && String(translation.title || '').trim()
+  );
 }
 
 function normalizeComparableText(value) {
@@ -164,6 +192,16 @@ function buildBasePayload({
   authorUrl = '',
 }) {
   const resolvedLanguage = normalizeBlogLanguage(language);
+  const localeByLanguage = {
+    pl: 'pl_PL',
+    en: 'en_US',
+    he: 'he_IL',
+  };
+  const alternateLocales = {
+    pl: 'en_US',
+    en: 'pl_PL',
+    he: 'en_US',
+  };
   return {
     language: resolvedLanguage,
     title,
@@ -173,8 +211,8 @@ function buildBasePayload({
     ogType,
     ogUrl: ogUrl || canonicalUrl,
     ogImage: normalizeImageUrl(ogImage),
-    ogLocale: resolvedLanguage === 'pl' ? 'pl_PL' : 'en_US',
-    ogLocaleAlternate: resolvedLanguage === 'pl' ? 'en_US' : 'pl_PL',
+    ogLocale: localeByLanguage[resolvedLanguage] || 'en_US',
+    ogLocaleAlternate: alternateLocales[resolvedLanguage] || 'pl_PL',
     canonicalUrl,
     languageUrls,
     authorName,
@@ -241,10 +279,18 @@ export function buildBlogAuthorByline(post) {
   };
 }
 
-export function buildBlogListSeoPayload({ language, requestPathname = '/blog', requestSearch = '' } = {}) {
+export function buildBlogListSeoPayload({ language, requestPathname = '/blog', requestSearch = '', heAvailable = false } = {}) {
   const resolvedLanguage = normalizeBlogLanguage(language);
   const copy = (BLOG_SEO_COPY[resolvedLanguage] || BLOG_SEO_COPY.en).list;
   const canonicalUrl = buildLanguageUrl(requestPathname, resolvedLanguage);
+  const languageUrls = {
+    pl: buildLanguageUrl(requestPathname, 'pl'),
+    en: buildLanguageUrl(requestPathname, 'en'),
+    xDefault: toAbsoluteUrl(requestPathname),
+  };
+  if (heAvailable || resolvedLanguage === 'he') {
+    languageUrls.he = buildLanguageUrl(requestPathname, 'he');
+  }
 
   const payload = buildBasePayload({
     language: resolvedLanguage,
@@ -256,11 +302,7 @@ export function buildBlogListSeoPayload({ language, requestPathname = '/blog', r
     ogType: 'website',
     canonicalUrl,
     ogUrl: canonicalUrl,
-    languageUrls: {
-      pl: buildLanguageUrl(requestPathname, 'pl'),
-      en: buildLanguageUrl(requestPathname, 'en'),
-      xDefault: toAbsoluteUrl(requestPathname),
-    },
+    languageUrls,
   });
   payload.structuredData = buildBlogListStructuredData({
     language: resolvedLanguage,
@@ -301,15 +343,30 @@ export function buildBlogPostSeoPayload({ language, requestPathname = '/blog', r
   }
 
   const translation = safeTranslation;
+  const heTranslation = isPublicReadyHebrewTranslation(translationsByLang.he) ? translationsByLang.he : null;
   const plSlug = translationsByLang.pl?.slug || translation.slug;
   const enSlug = translationsByLang.en?.slug || translation.slug;
+  const heSlug = heTranslation?.slug || '';
   const plUrl = buildLanguageUrl(`/blog/${plSlug}`, 'pl');
   const enUrl = buildLanguageUrl(`/blog/${enSlug}`, 'en');
-  const canonicalUrl = resolvedLanguage === 'pl' ? plUrl : enUrl;
-  const siblingTranslation = resolvedLanguage === 'pl' ? translationsByLang.en : translationsByLang.pl;
+  const heUrl = heSlug ? buildLanguageUrl(`/blog/${heSlug}`, 'he') : '';
+  const canonicalUrl = resolvedLanguage === 'he' && heUrl
+    ? heUrl
+    : (resolvedLanguage === 'pl' ? plUrl : enUrl);
+  const siblingTranslation = resolvedLanguage === 'he'
+    ? translationsByLang.en || translationsByLang.pl
+    : (resolvedLanguage === 'pl' ? translationsByLang.en : translationsByLang.pl);
   const title = pickMetaTitle(translation, localizedCopy.postFallback.title, siblingTranslation);
   const description = pickMetaDescription(translation, localizedCopy.postFallback.description, siblingTranslation);
   const byline = buildBlogAuthorByline(post);
+  const languageUrls = {
+    pl: plUrl,
+    en: enUrl,
+    xDefault: toAbsoluteUrl(`/blog/${enSlug || translation.slug}`),
+  };
+  if (heUrl) {
+    languageUrls.he = heUrl;
+  }
 
   const payload = buildBasePayload({
     language: resolvedLanguage,
@@ -321,11 +378,7 @@ export function buildBlogPostSeoPayload({ language, requestPathname = '/blog', r
     ogType: 'article',
     canonicalUrl,
     ogUrl: canonicalUrl,
-    languageUrls: {
-      pl: plUrl,
-      en: enUrl,
-      xDefault: toAbsoluteUrl(`/blog/${enSlug || translation.slug}`),
-    },
+    languageUrls,
     authorName: byline?.name || '',
     authorUrl: byline?.url || '',
   });

@@ -47,6 +47,29 @@ function buildSeedScript(withAdminSession = false) {
           },
         ]);
 
+        stub.seedTable('blog_taxonomy_terms', [
+          {
+            id: 'term-guide',
+            type: 'category',
+            key: 'guides',
+            label_pl: 'Przewodniki',
+            label_en: 'Guides',
+            label_he: 'מדריכים',
+            is_active: true,
+            is_complete: true,
+          },
+          {
+            id: 'term-cyprus',
+            type: 'category',
+            key: 'cyprus',
+            label_pl: 'Cypr',
+            label_en: 'Cyprus',
+            label_he: 'קפריסין',
+            is_active: true,
+            is_complete: true,
+          },
+        ]);
+
         const blogPosts = Array.from({ length: 13 }).map((_, index) => ({
           id: `blog-${index + 1}`,
           status: 'published',
@@ -273,6 +296,17 @@ function buildSeedScript(withAdminSession = false) {
 }
 
 async function prepareBlogStub(page: any, withAdminSession = false) {
+  await page.addInitScript(() => {
+    try {
+      window.localStorage.removeItem('ce_lang');
+      window.localStorage.removeItem('cypruseye-language');
+      window.localStorage.removeItem('selectedLanguage');
+      window.sessionStorage.removeItem('ce_hidden_language');
+      window.sessionStorage.removeItem('ce_hidden_language_preview_lang');
+    } catch {
+      // ignore storage failures in hardened browser contexts
+    }
+  });
   await page.addInitScript(buildSeedScript(withAdminSession), { withAdminSessionFlag: withAdminSession });
   await enableSupabaseStub(page);
 }
@@ -312,7 +346,7 @@ test.describe('Blog smoke', () => {
     await expect(page.locator('#blogPostTitle')).toContainText('Cyprus Guide 1');
     await expect(page.locator('#blogPostByline')).toBeVisible();
     await expect(page.locator('#blogPostAuthorName')).toContainText('Maria Guide');
-    await expect(page.locator('#blogBackLink')).toHaveAttribute('href', '/blog');
+    await expect(page.locator('#blogBackLink')).toHaveAttribute('href', '/blog?lang=en');
     await expect(page.locator('#blogCtaGrid .blog-cta-card')).toHaveCount(3);
     const poiCtaLink = page.locator('#blogCtaGrid .blog-cta-card a[href*="/community.html?poi=poi-1"]').first();
     await expect(poiCtaLink).toHaveCount(1);
@@ -354,15 +388,13 @@ test.describe('Blog smoke', () => {
 
     const blogModal = page.locator('#blogFormModal');
 
-    await blogModal.locator('#blogFormCategoriesPlInput').fill('Przewodniki');
-    await blogModal.locator('[data-blog-taxonomy-add="categories"][data-blog-taxonomy-lang="pl"]').click();
-    await blogModal.locator('#blogFormCategoriesEnInput').fill('Guides');
-    await blogModal.locator('[data-blog-taxonomy-add="categories"][data-blog-taxonomy-lang="en"]').click();
-
-    await blogModal.locator('#blogFormTagsPlInput').fill('blog-pl');
-    await blogModal.locator('[data-blog-taxonomy-add="tags"][data-blog-taxonomy-lang="pl"]').click();
-    await blogModal.locator('#blogFormTagsEnInput').fill('smoke');
-    await blogModal.locator('[data-blog-taxonomy-add="tags"][data-blog-taxonomy-lang="en"]').click();
+    await expect(blogModal.locator('#blogFormCategoriesPlInput')).toHaveCount(0);
+    await expect(blogModal.locator('#blogFormTagsPlInput')).toHaveCount(0);
+    await blogModal.locator('#blogFormCategorySearch').fill('guide');
+    await blogModal.locator('[data-blog-category-pick="term-guide"]').click();
+    await expect(blogModal.locator('#blogFormSelectedCategories')).toContainText('Guides');
+    await expect(blogModal.locator('#blogFormSelectedCategories')).toContainText('Przewodniki');
+    await expect(blogModal.locator('#blogFormSelectedCategories')).toContainText('מדריכים');
 
     await blogModal.locator('[name="title_pl"]').fill('Nowy wpis testowy');
     await blogModal.locator('[name="summary_pl"]').fill('Podsumowanie PL');
@@ -384,5 +416,15 @@ test.describe('Blog smoke', () => {
     await page.click('#btnPublishBlog');
     await expect(blogModal).toBeHidden();
     await expect(page.locator('#blogTableBody')).toContainText('New smoke post');
+    const createdPost = await page.evaluate(() => {
+      const rows = (window as any).__supabaseStub?.getTableRows?.('blog_posts') || [];
+      return rows.find((row: any) => Array.isArray(row.categories_en) && row.categories_en.includes('Guides')) || null;
+    });
+    expect(createdPost?.categories_pl).toEqual(['Przewodniki']);
+    expect(createdPost?.categories_en).toEqual(['Guides']);
+    expect(createdPost?.categories_he).toEqual(['מדריכים']);
+    expect(createdPost?.tags_pl || []).toEqual([]);
+    expect(createdPost?.tags_en || []).toEqual([]);
+    expect(createdPost?.tags_he || []).toEqual([]);
   });
 });

@@ -65,6 +65,18 @@ for (const allowedUrl of [
 assert.equal(sitemapXml.includes('/blog?lang=he'), false, 'Sitemap must not include Blog HE.');
 assert.equal(sitemapXml.includes('/shop.html?lang=he'), false, 'Sitemap must not include Shop HE.');
 
+const sitemapSourceText = await import('node:fs/promises').then((fs) => fs.readFile('functions/_utils/sitemap.js', 'utf8'));
+assert.match(
+  sitemapSourceText,
+  /review_status[\s\S]*public_ready/,
+  'Dynamic sitemap must gate Blog HE entries by public_ready review status.'
+);
+assert.match(
+  sitemapSourceText,
+  /pageKey:\s*'blogPost'[\s\S]*recordReady:\s*true/,
+  'Dynamic sitemap must generate Blog HE detail URLs only behind recordReady.'
+);
+
 const homeRoute = resolveSeoRoute('/');
 const homeSeoPayload = buildSeoPayload({
   route: homeRoute,
@@ -106,8 +118,23 @@ const blogSeoPayload = buildSeoPayload({
   },
   heSeo: { pageKey: 'blog', pathname: '/blog' },
 });
-assert.equal(blogSeoPayload.language, 'en', 'Blog HE SEO must normalize to EN while Blog is blocked.');
-assert.equal(Boolean(blogSeoPayload.languageUrls.he), false, 'Blog HE hreflang must not be generated.');
+assert.equal(blogSeoPayload.language, 'en', 'Blog HE SEO must normalize to EN without a public_ready record gate.');
+assert.equal(Boolean(blogSeoPayload.languageUrls.he), false, 'Blog HE hreflang must not be generated without public_ready records.');
+
+const readyBlogSeoPayload = buildSeoPayload({
+  route: resolveSeoRoute('/blog'),
+  language: 'he',
+  requestPathname: '/blog',
+  requestSearch: '?lang=he',
+  translations: {},
+  fallbackSeo: {
+    title: 'Blog',
+    description: 'Blog description',
+  },
+  heSeo: { pageKey: 'blog', pathname: '/blog', recordReady: true },
+});
+assert.equal(readyBlogSeoPayload.language, 'he', 'Blog HE SEO may render when public_ready records exist.');
+assert.equal(Boolean(readyBlogSeoPayload.languageUrls.he), true, 'Blog HE hreflang must be generated only behind recordReady.');
 
 const shopSeoPayload = buildSeoPayload({
   route: resolveSeoRoute('/shop.html'),
@@ -168,6 +195,59 @@ assert.equal(
   'Blocked Blog HE detail must not generate HE hreflang.'
 );
 
+const readyBlogPostSeoPayload = buildBlogPostSeoPayload({
+  language: 'he',
+  requestPathname: '/blog/etias-cyprus-2026-he',
+  requestSearch: '?lang=he',
+  post: {
+    translation: {
+      lang: 'he',
+      slug: 'etias-cyprus-2026-he',
+      title: 'ETIAS בקפריסין 2026',
+      metaTitle: 'ETIAS בקפריסין 2026',
+      metaDescription: 'מדריך למטיילים',
+      summary: 'מדריך למטיילים',
+      lead: 'מדריך למטיילים',
+      reviewStatus: 'public_ready',
+      ogImageUrl: '',
+    },
+    translationsByLang: {
+      en: {
+        lang: 'en',
+        slug: 'etias-cyprus-2026',
+        title: 'ETIAS Cyprus 2026',
+        metaTitle: 'ETIAS Cyprus 2026',
+        metaDescription: 'Guide for travellers',
+        summary: 'Guide for travellers',
+      },
+      pl: {
+        lang: 'pl',
+        slug: 'etias-cypr-2026',
+        title: 'ETIAS Cypr 2026',
+        metaTitle: 'ETIAS Cypr 2026',
+        metaDescription: 'Poradnik dla podróżnych',
+        summary: 'Poradnik dla podróżnych',
+      },
+      he: {
+        lang: 'he',
+        slug: 'etias-cyprus-2026-he',
+        title: 'ETIAS בקפריסין 2026',
+        metaTitle: 'ETIAS בקפריסין 2026',
+        metaDescription: 'מדריך למטיילים',
+        summary: 'מדריך למטיילים',
+        lead: 'מדריך למטיילים',
+        reviewStatus: 'public_ready',
+      },
+    },
+  },
+});
+assert.equal(
+  readyBlogPostSeoPayload.canonicalUrl,
+  'https://www.cypruseye.com/blog/etias-cyprus-2026-he?lang=he',
+  'Public-ready Blog HE detail must canonicalize to the Hebrew slug.'
+);
+assert.equal(Boolean(readyBlogPostSeoPayload.languageUrls.he), true, 'Public-ready Blog HE detail must generate HE hreflang.');
+
 assert.equal(
   getHeSeoReadiness({ pageKey: 'home' }).status,
   HE_SEO_STATUS.CANDIDATE_READY,
@@ -175,8 +255,8 @@ assert.equal(
 );
 assert.equal(
   getHeSeoReadiness({ pageKey: 'blog' }).status,
-  HE_SEO_STATUS.BLOCKED,
-  'Blog must remain SEO-blocked.'
+  HE_SEO_STATUS.RECORD_GATED_READY,
+  'Blog must be SEO record-gated.'
 );
 assert.equal(
   getHeSeoReadiness({ pageKey: 'shop' }).status,
@@ -209,7 +289,12 @@ assert.equal(
 assert.equal(
   canGenerateHeSeo({ pageKey: 'blog', surface: 'seo', rollout: seoEnabledRollout }),
   false,
-  'Blog HE SEO must stay blocked even when the SEO flag is enabled.'
+  'Blog HE SEO must require a public_ready record gate even when the SEO flag is enabled.'
+);
+assert.equal(
+  canGenerateHeSeo({ pageKey: 'blog', surface: 'seo', recordReady: true, rollout: seoEnabledRollout }),
+  true,
+  'Blog HE SEO may be generated only when public_ready records exist.'
 );
 assert.equal(
   canGenerateHeSeo({ pageKey: 'shop', surface: 'seo', rollout: seoEnabledRollout }),

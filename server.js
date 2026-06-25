@@ -1482,12 +1482,12 @@ async function tryServeBlogPage(req, url, res) {
     return false;
   }
 
-  const seoLanguage = getSeoLanguage(url, {
+  const fallbackSeoLanguage = getSeoLanguage(url, {
     pageKey: blogRoute.kind === 'list' ? 'blog' : 'blogPost',
     pathname: url.pathname,
   });
-  const requestedLanguage = String(url.searchParams.get('lang') || seoLanguage).trim().toLowerCase().split('-')[0];
-  let language = requestedLanguage === 'he' ? 'he' : seoLanguage;
+  const requestedLanguage = String(url.searchParams.get('lang') || fallbackSeoLanguage).trim().toLowerCase().split('-')[0];
+  let language = requestedLanguage === 'he' ? 'he' : fallbackSeoLanguage;
   const runtimeEnv = getBlogRuntimeEnv();
 
   if (blogRoute.kind === 'list') {
@@ -1497,6 +1497,11 @@ async function tryServeBlogPage(req, url, res) {
     } catch (error) {
       console.error('Nie udało się sprawdzić dostępności hebrajskiego bloga:', error);
     }
+    const seoLanguage = getSeoLanguage(url, {
+      pageKey: 'blog',
+      pathname: url.pathname,
+      recordReady: hasHebrewBlogContent,
+    });
     const forceEnglishFallback = requestedLanguage === 'he' && !hasHebrewBlogContent;
     if (forceEnglishFallback) {
       language = 'en';
@@ -1548,9 +1553,10 @@ async function tryServeBlogPage(req, url, res) {
     html = applySeoToHtml(
       html,
       buildBlogListSeoPayload({
-        language: language === 'he' ? seoLanguage : language,
+        language: forceEnglishFallback ? 'en' : seoLanguage,
         requestPathname: url.pathname,
         requestSearch: url.search,
+        heAvailable: hasHebrewBlogContent,
       })
     );
 
@@ -1598,10 +1604,15 @@ async function tryServeBlogPage(req, url, res) {
       'data-disable-hidden-language': 'true',
     });
   }
+  const seoLanguage = getSeoLanguage(url, {
+    pageKey: 'blogPost',
+    pathname: url.pathname,
+    recordReady: language === 'he' && Boolean(post),
+  });
   html = applySeoToHtml(
     html,
     buildBlogPostSeoPayload({
-      language: language === 'he' ? seoLanguage : language,
+      language: forcedEnglishFallback ? 'en' : seoLanguage,
       requestPathname: url.pathname,
       requestSearch: url.search,
       post,

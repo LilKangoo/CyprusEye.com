@@ -124,10 +124,16 @@ const blogAdminState = {
   profiles: [],
   profilesById: {},
   resourcesByType: {},
+  taxonomyTerms: {
+    categories: [],
+    categoriesById: {},
+  },
   taxonomySuggestions: {
     categories: { pl: [], en: [], he: [] },
     tags: { pl: [], en: [], he: [] },
   },
+  selectedCategoryTerms: [],
+  categorySearch: '',
   currentPage: 1,
   filterSearch: '',
   filterStatus: '',
@@ -526,34 +532,243 @@ async function ensureTaxonomySchemaMode(client = getSupabaseClient()) {
 }
 
 function syncTaxonomyModeUi() {
-  const localized = blogAdminState.taxonomySchemaMode !== 'legacy';
-  const categoriesPlCard = getTaxonomyCard('categories', 'pl');
-  const categoriesEnCard = getTaxonomyCard('categories', 'en');
-  const categoriesHeCard = getTaxonomyCard('categories', 'he');
-  const tagsPlCard = getTaxonomyCard('tags', 'pl');
-  const tagsEnCard = getTaxonomyCard('tags', 'en');
-  const tagsHeCard = getTaxonomyCard('tags', 'he');
-
-  if (categoriesEnCard) categoriesEnCard.hidden = !localized;
-  if (categoriesHeCard) categoriesHeCard.hidden = !localized;
-  if (tagsEnCard) tagsEnCard.hidden = !localized;
-  if (tagsHeCard) tagsHeCard.hidden = !localized;
-
-  const applyCardCopy = (card, title, help) => {
-    if (!card) return;
-    const titleNode = card.querySelector(':scope > span');
-    const helpNode = card.querySelector(':scope > small');
-    if (titleNode) titleNode.textContent = title;
-    if (helpNode) helpNode.textContent = help;
-  };
-
-  if (localized) {
-    applyCardCopy(categoriesPlCard, 'Categories (PL)', 'Visible on the Polish blog list and Polish category filters.');
-    applyCardCopy(tagsPlCard, 'Tags (PL)', 'Used in Polish topic chips and Polish tag filters.');
-  } else {
-    applyCardCopy(categoriesPlCard, 'Categories', 'Shared across the whole blog until localized taxonomy columns are available in the database.');
-    applyCardCopy(tagsPlCard, 'Tags', 'Shared across the whole blog. Use tags only when they add extra search meaning beyond categories.');
+  const hiddenTags = $('[data-blog-tags-hidden]', getBlogFormRoot());
+  if (hiddenTags) {
+    hiddenTags.hidden = true;
   }
+}
+
+function normalizeTaxonomyTerm(row) {
+  const type = String(row?.type || '').trim();
+  const key = String(row?.key || '').trim();
+  const labelPl = String(row?.label_pl || row?.labelPl || '').trim();
+  const labelEn = String(row?.label_en || row?.labelEn || '').trim();
+  const labelHe = String(row?.label_he || row?.labelHe || '').trim();
+  if (!row?.id || type !== 'category' || !key || !labelPl || !labelEn || !labelHe) {
+    return null;
+  }
+  return {
+    id: String(row.id),
+    type,
+    key,
+    label_pl: labelPl,
+    label_en: labelEn,
+    label_he: labelHe,
+    isActive: row.is_active !== false,
+    isComplete: row.is_complete !== false,
+    legacy: false,
+  };
+}
+
+function setCategoryTerms(rows = []) {
+  const categories = safeArray(rows)
+    .map(normalizeTaxonomyTerm)
+    .filter((term) => term?.isActive && term?.isComplete)
+    .sort((left, right) => left.label_en.localeCompare(right.label_en, 'en', { sensitivity: 'base' }));
+  blogAdminState.taxonomyTerms.categories = categories;
+  blogAdminState.taxonomyTerms.categoriesById = categories.reduce((accumulator, term) => {
+    accumulator[term.id] = term;
+    return accumulator;
+  }, {});
+}
+
+async function loadBlogTaxonomyTerms(client = getSupabaseClient()) {
+  if (!client) {
+    return;
+  }
+  try {
+    const { data, error } = await client
+      .from('blog_taxonomy_terms')
+      .select('id,type,key,label_pl,label_en,label_he,is_active,is_complete')
+      .eq('type', 'category')
+      .eq('is_active', true)
+      .eq('is_complete', true)
+      .order('key', { ascending: true });
+    if (error) {
+      throw error;
+    }
+    setCategoryTerms(data || []);
+  } catch (error) {
+    console.warn('[blog-admin] Failed to load blog taxonomy terms:', error);
+    setCategoryTerms([]);
+  }
+}
+
+function getCategoryTerms() {
+  return blogAdminState.taxonomyTerms.categories || [];
+}
+
+function getCategoryTermLabel(term, lang = 'en') {
+  return String(term?.[`label_${lang}`] || '').trim();
+}
+
+function getCategoryTermPreview(term) {
+  return `PL: ${getCategoryTermLabel(term, 'pl')}\nEN: ${getCategoryTermLabel(term, 'en')}\nHE: ${getCategoryTermLabel(term, 'he')}`;
+}
+
+function makeLegacyCategoryTerm(labels, index = 0) {
+  const labelPl = String(labels?.pl || '').trim();
+  const labelEn = String(labels?.en || '').trim();
+  const labelHe = String(labels?.he || '').trim();
+  const fallback = labelEn || labelPl || labelHe;
+  if (!fallback) {
+    return null;
+  }
+  return {
+    id: `legacy:${slugify(fallback) || index}`,
+    type: 'category',
+    key: slugify(fallback) || `legacy-${index}`,
+    label_pl: labelPl || fallback,
+    label_en: labelEn || fallback,
+    label_he: labelHe || fallback,
+    isActive: true,
+    isComplete: Boolean(labelPl && labelEn && labelHe),
+    legacy: true,
+  };
+}
+
+function findCategoryTermForLabels(labels = {}) {
+  const labelPl = String(labels.pl || '').trim();
+  const labelEn = String(labels.en || '').trim();
+  const labelHe = String(labels.he || '').trim();
+  return getCategoryTerms().find((term) => (
+    (labelPl && term.label_pl === labelPl)
+    || (labelEn && term.label_en === labelEn)
+    || (labelHe && term.label_he === labelHe)
+  )) || null;
+}
+
+function syncSelectedCategoryArrays() {
+  const terms = blogAdminState.selectedCategoryTerms || [];
+  const byLang = {
+    pl: terms.map((term) => getCategoryTermLabel(term, 'pl')).filter(Boolean),
+    en: terms.map((term) => getCategoryTermLabel(term, 'en')).filter(Boolean),
+    he: terms.map((term) => getCategoryTermLabel(term, 'he')).filter(Boolean),
+  };
+  BLOG_TAXONOMY_LANGUAGES.forEach((lang) => {
+    const input = getTaxonomyElement('categories', lang);
+    if (input) {
+      input.value = byLang[lang].join(', ');
+    }
+  });
+}
+
+function setSelectedCategoryTerms(terms = []) {
+  const seen = new Set();
+  blogAdminState.selectedCategoryTerms = safeArray(terms).filter((term) => {
+    if (!term?.id || seen.has(term.id)) return false;
+    seen.add(term.id);
+    return true;
+  });
+  syncSelectedCategoryArrays();
+  renderCategorySelector();
+  refreshFormUi();
+}
+
+function hydrateSelectedCategoryTermsFromPost(post = null) {
+  const categoriesPl = blogAdminState.taxonomySchemaMode === 'legacy'
+    ? normalizeTaxonomyList(post?.categories)
+    : getPostTaxonomyValues(post, 'categories', 'pl');
+  const categoriesEn = blogAdminState.taxonomySchemaMode === 'legacy'
+    ? normalizeTaxonomyList(post?.categories)
+    : getPostTaxonomyValues(post, 'categories', 'en');
+  const categoriesHe = blogAdminState.taxonomySchemaMode === 'legacy'
+    ? []
+    : getPostTaxonomyValues(post, 'categories', 'he');
+  const max = Math.max(categoriesPl.length, categoriesEn.length, categoriesHe.length);
+  const selected = [];
+  for (let index = 0; index < max; index += 1) {
+    const labels = {
+      pl: categoriesPl[index] || '',
+      en: categoriesEn[index] || '',
+      he: categoriesHe[index] || '',
+    };
+    selected.push(findCategoryTermForLabels(labels) || makeLegacyCategoryTerm(labels, index));
+  }
+  setSelectedCategoryTerms(selected.filter(Boolean));
+}
+
+function getCategorySearchMatches() {
+  const query = String(blogAdminState.categorySearch || '').trim().toLowerCase();
+  const selectedIds = new Set((blogAdminState.selectedCategoryTerms || []).map((term) => term.id));
+  return getCategoryTerms().filter((term) => {
+    if (selectedIds.has(term.id)) return false;
+    if (!query) return true;
+    return [
+      term.key,
+      term.label_pl,
+      term.label_en,
+      term.label_he,
+    ].some((value) => String(value || '').toLowerCase().includes(query));
+  }).slice(0, 16);
+}
+
+function renderCategorySelector() {
+  const selectedNode = $('#blogFormSelectedCategories', getBlogFormRoot());
+  const resultsNode = $('#blogFormCategoryResults', getBlogFormRoot());
+  const searchInput = $('#blogFormCategorySearch', getBlogFormRoot());
+  if (searchInput && searchInput.value !== blogAdminState.categorySearch) {
+    searchInput.value = blogAdminState.categorySearch;
+  }
+
+  const selected = blogAdminState.selectedCategoryTerms || [];
+  if (selectedNode) {
+    selectedNode.innerHTML = selected.length
+      ? selected.map((term, index) => `
+        <div class="blog-category-chip" title="${escapeAttribute(getCategoryTermPreview(term))}">
+          <span class="blog-category-chip__label">
+            <strong>${escapeHtml(term.label_en || term.label_pl || term.key)}</strong>
+            <span>${escapeHtml(term.label_pl)} / ${escapeHtml(term.label_he)}</span>
+          </span>
+          <button class="blog-category-chip__action" type="button" data-blog-category-move="${escapeHtml(term.id)}" data-direction="up" ${index === 0 ? 'disabled' : ''} aria-label="Move category up">↑</button>
+          <button class="blog-category-chip__action" type="button" data-blog-category-move="${escapeHtml(term.id)}" data-direction="down" ${index === selected.length - 1 ? 'disabled' : ''} aria-label="Move category down">↓</button>
+          <button class="blog-category-chip__action" type="button" data-blog-category-remove="${escapeHtml(term.id)}" aria-label="Remove category">×</button>
+        </div>
+      `).join('')
+      : '<span class="blog-category-selector__empty">No categories selected yet.</span>';
+  }
+
+  const matches = getCategorySearchMatches();
+  if (resultsNode) {
+    if (!getCategoryTerms().length) {
+      resultsNode.innerHTML = '<span class="blog-category-selector__empty">Category dictionary is not available.</span>';
+    } else if (!matches.length) {
+      resultsNode.innerHTML = '<span class="blog-category-selector__empty">No matching categories.</span>';
+    } else {
+      resultsNode.innerHTML = matches.map((term) => `
+        <button class="blog-category-option" type="button" data-blog-category-pick="${escapeHtml(term.id)}" title="${escapeAttribute(getCategoryTermPreview(term))}">
+          <strong>${escapeHtml(term.label_en)}</strong>
+          <span>${escapeHtml(term.key)} • PL: ${escapeHtml(term.label_pl)} • HE: ${escapeHtml(term.label_he)}</span>
+        </button>
+      `).join('');
+    }
+  }
+}
+
+function addCategoryTermById(termId) {
+  const term = blogAdminState.taxonomyTerms.categoriesById[String(termId || '')];
+  if (!term) return;
+  setSelectedCategoryTerms([...(blogAdminState.selectedCategoryTerms || []), term]);
+  blogAdminState.categorySearch = '';
+  const searchInput = $('#blogFormCategorySearch', getBlogFormRoot());
+  if (searchInput) searchInput.value = '';
+  renderCategorySelector();
+}
+
+function removeCategoryTermById(termId) {
+  setSelectedCategoryTerms((blogAdminState.selectedCategoryTerms || []).filter((term) => term.id !== termId));
+}
+
+function moveCategoryTerm(termId, direction) {
+  const selected = [...(blogAdminState.selectedCategoryTerms || [])];
+  const index = selected.findIndex((term) => term.id === termId);
+  if (index < 0) return;
+  const offset = direction === 'up' ? -1 : 1;
+  const nextIndex = index + offset;
+  if (nextIndex < 0 || nextIndex >= selected.length) return;
+  const [term] = selected.splice(index, 1);
+  selected.splice(nextIndex, 0, term);
+  setSelectedCategoryTerms(selected);
 }
 
 function normalizeBlogRow(row) {
@@ -666,6 +881,8 @@ function closeModal() {
   blogAdminState.activeTranslationLang = 'pl';
   blogAdminState.sessionDirty = createTranslationState(false);
   blogAdminState.autoFillLocks = createTranslationState(false);
+  blogAdminState.selectedCategoryTerms = [];
+  blogAdminState.categorySearch = '';
   resetSectionState();
 }
 
@@ -797,10 +1014,9 @@ function removeTaxonomyValue(kind, lang, rawValue) {
 }
 
 function renderAllTaxonomyPickers() {
-  collectTaxonomySuggestions('categories');
   collectTaxonomySuggestions('tags');
+  renderCategorySelector();
   BLOG_TAXONOMY_LANGUAGES.forEach((lang) => {
-    renderTaxonomyPicker('categories', lang);
     renderTaxonomyPicker('tags', lang);
   });
 }
@@ -1251,6 +1467,7 @@ async function loadBlogAdminData() {
 
   try {
     await ensureTaxonomySchemaMode(client);
+    await loadBlogTaxonomyTerms(client);
     if (!blogAdminState.partners.length) {
       await loadPartners();
     }
@@ -1290,6 +1507,7 @@ async function loadBlogAdminData() {
 }
 
 async function ensureFormOptionsLoaded() {
+  await loadBlogTaxonomyTerms();
   if (!blogAdminState.partners.length) {
     await loadPartners();
   }
@@ -2247,6 +2465,7 @@ function populateForm(post = null) {
   initializeTranslationState(post, translations);
   renderTranslationMounts(translations);
   renderCtaRows(post?.cta_services || []);
+  hydrateSelectedCategoryTermsFromPost(post);
   renderAllTaxonomyPickers();
   resetSectionState();
   refreshFormUi();
@@ -2463,6 +2682,7 @@ async function saveBlogForm(event) {
   }
 
   await ensureUniqueSlugs(client, blogAdminState.editingId, translations);
+  syncSelectedCategoryArrays();
 
   const basePayload = {
     status,
@@ -2769,6 +2989,35 @@ function bindModalControls() {
       return;
     }
 
+    const categoryPick = event.target.closest('[data-blog-category-pick]');
+    if (categoryPick instanceof HTMLElement) {
+      addCategoryTermById(categoryPick.dataset.blogCategoryPick || '');
+      return;
+    }
+
+    const categoryRemove = event.target.closest('[data-blog-category-remove]');
+    if (categoryRemove instanceof HTMLElement) {
+      removeCategoryTermById(categoryRemove.dataset.blogCategoryRemove || '');
+      return;
+    }
+
+    const categoryMove = event.target.closest('[data-blog-category-move]');
+    if (categoryMove instanceof HTMLElement) {
+      moveCategoryTerm(
+        categoryMove.dataset.blogCategoryMove || '',
+        String(categoryMove.dataset.direction || '').trim()
+      );
+      return;
+    }
+
+    if (event.target.closest('#btnBlogCategoryClearSearch')) {
+      blogAdminState.categorySearch = '';
+      const searchInput = $('#blogFormCategorySearch');
+      if (searchInput) searchInput.value = '';
+      renderCategorySelector();
+      return;
+    }
+
     const removeChip = event.target.closest('[data-blog-taxonomy-remove]');
     if (removeChip instanceof HTMLElement) {
       removeTaxonomyValue(
@@ -2848,6 +3097,11 @@ function bindModalControls() {
       setCoverPreview(event.target.value || '');
     }
 
+    if (event.target.id === 'blogFormCategorySearch') {
+      blogAdminState.categorySearch = String(event.target.value || '').trim();
+      renderCategorySelector();
+    }
+
     refreshFormUi();
   });
   $('#blogForm')?.addEventListener('change', (event) => {
@@ -2860,6 +3114,14 @@ function bindModalControls() {
   $('#blogForm')?.addEventListener('keydown', (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
+    if (target.id === 'blogFormCategorySearch' && event.key === 'Enter') {
+      event.preventDefault();
+      const firstMatch = getCategorySearchMatches()[0];
+      if (firstMatch) {
+        addCategoryTermById(firstMatch.id);
+      }
+      return;
+    }
     const match = target.id.match(/^blogForm(Categories|Tags)(Pl|En)Input$/);
     if (!match) return;
     if (event.key === 'Enter' || event.key === ',') {

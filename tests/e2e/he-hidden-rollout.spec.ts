@@ -681,7 +681,7 @@ test.describe('hidden Hebrew rollout guard', () => {
     expect(readiness?.status).toBe('record-gated');
   });
 
-  test('renders manually public_ready Blog HE records without enabling Blog HE SEO', async ({ page }) => {
+  test('renders manually public_ready Blog HE records with record-gated Blog HE SEO', async ({ page }) => {
     await seedBlogRecordGatingFixtures(page);
 
     await page.goto('/blog.html?lang=he', { waitUntil: 'domcontentloaded' });
@@ -690,8 +690,8 @@ test.describe('hidden Hebrew rollout guard', () => {
     await expect(page.locator('#blogGrid')).toBeVisible();
     await expect(page.locator('#blogGrid')).toContainText('מדריך עברי מוכן');
     await expect(page.locator('#blogGrid')).not.toContainText('טיוטה בעברית');
-    await expect(page.locator('link[rel="alternate"][hreflang="he"]')).toHaveCount(0);
-    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /\/blog$/);
+    await expect(page.locator('link[rel="alternate"][hreflang="he"]')).toHaveAttribute('href', /\/blog\?lang=he$/);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /\/blog\?lang=he$/);
 
     await page.goto('/blog/hebrew-ready-guide?lang=he', { waitUntil: 'domcontentloaded' });
     await waitForHtmlLanguage(page, 'he');
@@ -699,8 +699,8 @@ test.describe('hidden Hebrew rollout guard', () => {
     await expect(page.locator('#blogPostView')).toBeVisible();
     await expect(page.locator('#blogPostTitle')).toContainText('מדריך עברי מוכן');
     await expect(page.locator('#blogPostContent')).toContainText('גוף כתבה עברי');
-    await expect(page.locator('link[rel="alternate"][hreflang="he"]')).toHaveCount(0);
-    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /\/blog\/ready-hebrew-guide$/);
+    await expect(page.locator('link[rel="alternate"][hreflang="he"]')).toHaveAttribute('href', /\/blog\/hebrew-ready-guide\?lang=he$/);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /\/blog\/hebrew-ready-guide\?lang=he$/);
   });
 
   test('falls back Blog detail to EN for HE posts that are not public_ready', async ({ page }) => {

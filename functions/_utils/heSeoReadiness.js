@@ -82,15 +82,17 @@ const HE_SEO_PAGE_REGISTRY = Object.freeze({
     reason: 'POI/map has HE-ready records but no approved standalone HE indexable route yet.',
   }),
   blog: Object.freeze({
-    status: HE_SEO_STATUS.BLOCKED,
+    status: HE_SEO_STATUS.RECORD_GATED_READY,
     paths: Object.freeze(['/blog', '/blog/', '/blog.html']),
-    reason: 'Blog HE remains blocked until public_ready reviewed posts are applied and verified.',
+    recordScoped: true,
+    reason: 'Blog HE is public only when public_ready reviewed Hebrew posts exist.',
   }),
   blogPost: Object.freeze({
-    status: HE_SEO_STATUS.BLOCKED,
+    status: HE_SEO_STATUS.RECORD_GATED_READY,
     paths: Object.freeze(['/blog/']),
     prefix: true,
-    reason: 'Blog detail HE requires public_ready reviewed post rows.',
+    recordScoped: true,
+    reason: 'Blog detail HE is public only for public_ready reviewed Hebrew translation rows.',
   }),
   plan: Object.freeze({
     status: HE_SEO_STATUS.BLOCKED,

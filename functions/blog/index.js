@@ -73,18 +73,22 @@ export async function onRequest(context) {
   }
 
   const url = new URL(context.request.url);
-  const seoLanguage = getSeoLanguage(url, {
+  const requestedLanguage = normalizeBlogLanguage(url.searchParams.get('lang') || getSeoLanguage(url, {
     pageKey: 'blog',
     pathname: url.pathname,
-  });
-  const requestedLanguage = normalizeBlogLanguage(url.searchParams.get('lang') || seoLanguage);
-  let language = requestedLanguage === 'he' ? 'he' : seoLanguage;
+  }));
   let hasHebrewBlogContent = false;
   try {
     hasHebrewBlogContent = await hasPublishedHebrewBlogContent(context.env);
   } catch (error) {
     console.error('Failed to check Hebrew blog availability:', error);
   }
+  const seoLanguage = getSeoLanguage(url, {
+    pageKey: 'blog',
+    pathname: url.pathname,
+    recordReady: hasHebrewBlogContent,
+  });
+  let language = requestedLanguage === 'he' ? 'he' : seoLanguage;
   const forceEnglishFallback = requestedLanguage === 'he' && !hasHebrewBlogContent;
   if (forceEnglishFallback) {
     language = 'en';
@@ -138,9 +142,10 @@ export async function onRequest(context) {
   html = applySeoToHtml(
     html,
     buildBlogListSeoPayload({
-      language: seoLanguage,
+      language: forceEnglishFallback ? 'en' : seoLanguage,
       requestPathname: url.pathname,
       requestSearch: url.search,
+      heAvailable: hasHebrewBlogContent,
     })
   );
 

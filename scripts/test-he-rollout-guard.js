@@ -63,8 +63,8 @@ assert.match(i18nSource, /RECORD_GATED:\s*'record-gated'/);
 assert.match(i18nSource, /recordGatedWhenStage33SqlApplied/);
 assert.match(i18nSource, /allowPartialPagesPublic/);
 assert.match(i18nSource, /data-page-url/);
-assert.match(i18nSource, /blog:\s*\{[\s\S]*?status:\s*HE_PAGE_READINESS_STATUS\.BLOCKED/);
-assert.match(i18nSource, /blogPost:\s*\{[\s\S]*?status:\s*HE_PAGE_READINESS_STATUS\.BLOCKED/);
+assert.match(i18nSource, /blog:\s*\{[\s\S]*?status:\s*HE_PAGE_READINESS_STATUS\.RECORD_GATED/);
+assert.match(i18nSource, /blogPost:\s*\{[\s\S]*?status:\s*HE_PAGE_READINESS_STATUS\.RECORD_GATED/);
 
 const betaConfigSource = fs.readFileSync('js/he-beta-rollout-config.js', 'utf8');
 assert.match(betaConfigSource, /mode:\s*'partial_public'/);

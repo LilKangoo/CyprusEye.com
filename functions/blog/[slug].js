@@ -75,12 +75,12 @@ export async function onRequest(context) {
   }
 
   const url = new URL(context.request.url);
-  const seoLanguage = getSeoLanguage(url, {
+  const fallbackSeoLanguage = getSeoLanguage(url, {
     pageKey: 'blogPost',
     pathname: url.pathname,
   });
-  const requestedLanguage = normalizeBlogLanguage(url.searchParams.get('lang') || seoLanguage);
-  let language = requestedLanguage === 'he' ? 'he' : seoLanguage;
+  const requestedLanguage = normalizeBlogLanguage(url.searchParams.get('lang') || fallbackSeoLanguage);
+  let language = requestedLanguage === 'he' ? 'he' : fallbackSeoLanguage;
   const slug = String(context.params?.slug || '').trim();
   const template = await loadTemplate(
     context,
@@ -120,10 +120,16 @@ export async function onRequest(context) {
     });
   }
 
+  const seoLanguage = getSeoLanguage(url, {
+    pageKey: 'blogPost',
+    pathname: url.pathname,
+    recordReady: language === 'he' && Boolean(post),
+  });
+
   html = applySeoToHtml(
     html,
     buildBlogPostSeoPayload({
-      language: seoLanguage,
+      language: forcedEnglishFallback ? 'en' : seoLanguage,
       requestPathname: url.pathname,
       requestSearch: url.search,
       post,
