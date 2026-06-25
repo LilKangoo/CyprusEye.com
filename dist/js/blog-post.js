@@ -329,6 +329,10 @@ function detectLanguage() {
   );
 }
 
+function isDirectHebrewRequest() {
+  return normalizeBlogUiLanguage(new URLSearchParams(window.location.search).get('lang')) === 'he';
+}
+
 function t(key) {
   return COPY[state.language]?.[key] || COPY.en[key] || '';
 }
@@ -1130,6 +1134,15 @@ function syncBlogPostHiddenLanguageAvailability(post) {
     delete body.dataset.disableHiddenLanguage;
     delete body.dataset.forceLanguage;
     state.hiddenLanguageFallbackLocked = false;
+    if (state.language === 'he' && window.appI18n?.language !== 'he') {
+      try {
+        if (window.appI18n && typeof window.appI18n.setLanguage === 'function') {
+          window.appI18n.setLanguage('he', { persist: true, updateUrl: false, syncProfile: true });
+        }
+      } catch (error) {
+        console.warn('[blog-post] Failed to enable HE blog post language:', error);
+      }
+    }
   } else {
     body.dataset.disableHiddenLanguage = 'true';
   }
@@ -1557,6 +1570,15 @@ function bindEvents() {
       return;
     }
     const nextLanguage = normalizeBlogUiLanguage(language);
+    if (
+      isDirectHebrewRequest()
+      && state.language === 'he'
+      && nextLanguage === 'en'
+      && document.body?.dataset?.forceLanguage === 'en'
+      && !state.post
+    ) {
+      return;
+    }
     if (nextLanguage === 'he'
       && document.body?.dataset.disableHiddenLanguage === 'true'
       && !isPostHebrewPublicReady(state.post)) {

@@ -1,6 +1,6 @@
 import { serveStatic } from '../_utils/serveStatic.js';
 import { applySeoToHtml, getSeoLanguage } from '../_utils/pageSeo.js';
-import { getPublishedBlogListPage, normalizeBlogLanguage } from '../_utils/blogData.js';
+import { getPublishedBlogListPage, hasPublishedHebrewBlogContent, normalizeBlogLanguage } from '../_utils/blogData.js';
 import {
   buildBlogListSeoPayload,
   createBlogPlaceholderHtml,
@@ -57,6 +57,16 @@ function methodNotAllowed() {
   });
 }
 
+function addBodyAttributes(html, attributes = {}) {
+  const entries = Object.entries(attributes)
+    .map(([key, value]) => `${key}="${String(value).replace(/"/g, '&quot;')}"`)
+    .join(' ');
+  if (!entries) {
+    return html;
+  }
+  return String(html || '').replace(/<body\b([^>]*)>/i, `<body$1 ${entries}>`);
+}
+
 export async function onRequest(context) {
   if (!['GET', 'HEAD'].includes(context.request.method)) {
     return methodNotAllowed();
@@ -68,7 +78,17 @@ export async function onRequest(context) {
     pathname: url.pathname,
   });
   const requestedLanguage = normalizeBlogLanguage(url.searchParams.get('lang') || seoLanguage);
-  const language = requestedLanguage === 'he' ? 'he' : seoLanguage;
+  let language = requestedLanguage === 'he' ? 'he' : seoLanguage;
+  let hasHebrewBlogContent = false;
+  try {
+    hasHebrewBlogContent = await hasPublishedHebrewBlogContent(context.env);
+  } catch (error) {
+    console.error('Failed to check Hebrew blog availability:', error);
+  }
+  const forceEnglishFallback = requestedLanguage === 'he' && !hasHebrewBlogContent;
+  if (forceEnglishFallback) {
+    language = 'en';
+  }
   const page = Math.max(1, Number.parseInt(url.searchParams.get('page') || '1', 10) || 1);
   const category = String(url.searchParams.get('category') || '').trim();
   const tag = String(url.searchParams.get('tag') || '').trim();
@@ -107,6 +127,13 @@ export async function onRequest(context) {
   }
 
   let html = injectWindowPayload(template.html, '__BLOG_LIST__', preload);
+
+  if (!hasHebrewBlogContent) {
+    html = addBodyAttributes(html, {
+      ...(forceEnglishFallback ? { 'data-force-language': 'en' } : {}),
+      'data-disable-hidden-language': 'true',
+    });
+  }
 
   html = applySeoToHtml(
     html,

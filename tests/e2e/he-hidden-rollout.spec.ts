@@ -661,14 +661,21 @@ test.describe('hidden Hebrew rollout guard', () => {
     await expect(page.locator('html')).not.toHaveAttribute('dir', 'rtl');
   });
 
-  test('allows Blog shell HE while keeping posts record-gated', async ({ page }) => {
-    await page.goto('/blog.html?lang=he', { waitUntil: 'domcontentloaded' });
-    await waitForHtmlLanguage(page, 'he');
+  test('falls back Blog list to EN when no public_ready HE posts exist', async ({ page }) => {
+    await page.goto('/blog.html?lang=en', { waitUntil: 'domcontentloaded' });
+    await waitForHtmlLanguage(page, 'en');
+    await expect(page.locator('[data-testid="language-pill-he"]')).toHaveCount(0);
 
-    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
-    await expect(page.locator('[data-testid="language-pill-he"]')).toHaveCount(1);
-    await expect(page.locator('#blogHeroEyebrow')).toContainText('יומן');
-    await expect(page.locator('#blogState')).toContainText(/עברית|מאמרים/);
+    await page.goto('/blog.html?lang=pl', { waitUntil: 'domcontentloaded' });
+    await waitForHtmlLanguage(page, 'pl');
+    await expect(page.locator('[data-testid="language-pill-he"]')).toHaveCount(0);
+
+    await page.goto('/blog.html?lang=he', { waitUntil: 'domcontentloaded' });
+    await waitForHtmlLanguage(page, 'en');
+
+    await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
+    await expect(page.locator('[data-testid="language-pill-he"]')).toHaveCount(0);
+    await expect(page.locator('#blogHeroEyebrow')).toContainText('CyprusEye Journal');
     const readiness = await page.evaluate(() => (window as any).CELanguageRollout?.getHePageReadiness?.());
     expect(readiness?.key).toBe('blog');
     expect(readiness?.status).toBe('record-gated');
@@ -915,13 +922,13 @@ test.describe('hidden Hebrew rollout guard', () => {
     expect(rollout?.publicSurfaces?.switcher).toBe(true);
 
     await page.goto('/blog.html?lang=he', { waitUntil: 'domcontentloaded' });
-    await waitForHtmlLanguage(page, 'he');
-    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+    await waitForHtmlLanguage(page, 'en');
+    await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
     rollout = await page.evaluate(() => (window as any).CELanguageRollout?.snapshot?.().he);
     expect(rollout?.pageReadiness?.key).toBe('blog');
     expect(rollout?.pageReadiness?.status).toBe('record-gated');
-    expect(rollout?.publicSurfaces?.routes).toBe(true);
-    expect(rollout?.publicSurfaces?.switcher).toBe(true);
+    expect(rollout?.publicSurfaces?.routes).toBe(false);
+    expect(rollout?.publicSurfaces?.switcher).toBe(false);
     expect(rollout?.publicSurfaces?.seo).toBe(false);
 
     await page.goto('/shop.html?lang=he', { waitUntil: 'domcontentloaded' });

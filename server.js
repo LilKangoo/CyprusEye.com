@@ -13,7 +13,11 @@ import {
   getSeoLanguage,
   resolveSeoRoute,
 } from './functions/_utils/pageSeo.js';
-import { getPublishedBlogListPage, getPublishedBlogPostBySlug } from './functions/_utils/blogData.js';
+import {
+  getPublishedBlogListPage,
+  getPublishedBlogPostBySlug,
+  hasPublishedHebrewBlogContent,
+} from './functions/_utils/blogData.js';
 import {
   buildBlogListSeoPayload,
   buildBlogPostSeoPayload,
@@ -1444,6 +1448,16 @@ async function loadBlogTemplate(templateName, fallbackHtml) {
   }
 }
 
+function addBodyAttributes(html, attributes = {}) {
+  const entries = Object.entries(attributes)
+    .map(([key, value]) => `${key}="${String(value).replace(/"/g, '&quot;')}"`)
+    .join(' ');
+  if (!entries) {
+    return html;
+  }
+  return String(html || '').replace(/<body\b([^>]*)>/i, `<body$1 ${entries}>`);
+}
+
 async function serveBlogHtml(req, res, html, statusCode = 200) {
   const body = typeof html === 'string' ? html : '';
   applySecurityHeaders(res);
@@ -1468,13 +1482,26 @@ async function tryServeBlogPage(req, url, res) {
     return false;
   }
 
-  const language = getSeoLanguage(url, {
+  const seoLanguage = getSeoLanguage(url, {
     pageKey: blogRoute.kind === 'list' ? 'blog' : 'blogPost',
     pathname: url.pathname,
   });
+  const requestedLanguage = String(url.searchParams.get('lang') || seoLanguage).trim().toLowerCase().split('-')[0];
+  let language = requestedLanguage === 'he' ? 'he' : seoLanguage;
   const runtimeEnv = getBlogRuntimeEnv();
 
   if (blogRoute.kind === 'list') {
+    let hasHebrewBlogContent = false;
+    try {
+      hasHebrewBlogContent = await hasPublishedHebrewBlogContent(runtimeEnv);
+    } catch (error) {
+      console.error('Nie udało się sprawdzić dostępności hebrajskiego bloga:', error);
+    }
+    const forceEnglishFallback = requestedLanguage === 'he' && !hasHebrewBlogContent;
+    if (forceEnglishFallback) {
+      language = 'en';
+    }
+
     const page = Math.max(1, Number.parseInt(url.searchParams.get('page') || '1', 10) || 1);
     const category = String(url.searchParams.get('category') || '').trim();
     const tag = String(url.searchParams.get('tag') || '').trim();
@@ -1512,10 +1539,16 @@ async function tryServeBlogPage(req, url, res) {
     }
 
     let html = injectWindowPayload(templateHtml, '__BLOG_LIST__', preload);
+    if (!hasHebrewBlogContent) {
+      html = addBodyAttributes(html, {
+        ...(forceEnglishFallback ? { 'data-force-language': 'en' } : {}),
+        'data-disable-hidden-language': 'true',
+      });
+    }
     html = applySeoToHtml(
       html,
       buildBlogListSeoPayload({
-        language,
+        language: language === 'he' ? seoLanguage : language,
         requestPathname: url.pathname,
         requestSearch: url.search,
       })
@@ -1531,12 +1564,21 @@ async function tryServeBlogPage(req, url, res) {
 
   let post = null;
   let statusCode = 200;
+  let forcedEnglishFallback = false;
 
   try {
     post = await getPublishedBlogPostBySlug(runtimeEnv, {
       language,
       slug: blogRoute.slug,
     });
+    if (!post && language === 'he') {
+      language = 'en';
+      forcedEnglishFallback = true;
+      post = await getPublishedBlogPostBySlug(runtimeEnv, {
+        language,
+        slug: blogRoute.slug,
+      });
+    }
     if (!post) {
       statusCode = 404;
     }
@@ -1550,10 +1592,16 @@ async function tryServeBlogPage(req, url, res) {
     slug: blogRoute.slug,
     post,
   });
+  if (forcedEnglishFallback) {
+    html = addBodyAttributes(html, {
+      'data-force-language': 'en',
+      'data-disable-hidden-language': 'true',
+    });
+  }
   html = applySeoToHtml(
     html,
     buildBlogPostSeoPayload({
-      language,
+      language: language === 'he' ? seoLanguage : language,
       requestPathname: url.pathname,
       requestSearch: url.search,
       post,

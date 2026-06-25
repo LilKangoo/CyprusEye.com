@@ -1347,6 +1347,15 @@ async function getPublishedHebrewBlogListPage(env, options = {}) {
   };
 }
 
+export async function hasPublishedHebrewBlogContent(env) {
+  const result = await getPublishedHebrewBlogListPage(env, {
+    language: 'he',
+    page: 1,
+    limit: 50,
+  });
+  return safeArray(result.items).length > 0;
+}
+
 export async function getPublishedBlogPostBySlug(env, options = {}) {
   const language = normalizeBlogLanguage(options.language);
   const slug = normalizeBlogSlug(options.slug);

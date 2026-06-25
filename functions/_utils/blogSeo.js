@@ -243,7 +243,7 @@ export function buildBlogAuthorByline(post) {
 
 export function buildBlogListSeoPayload({ language, requestPathname = '/blog', requestSearch = '' } = {}) {
   const resolvedLanguage = normalizeBlogLanguage(language);
-  const copy = BLOG_SEO_COPY[resolvedLanguage].list;
+  const copy = (BLOG_SEO_COPY[resolvedLanguage] || BLOG_SEO_COPY.en).list;
   const canonicalUrl = buildLanguageUrl(requestPathname, resolvedLanguage);
 
   const payload = buildBasePayload({
@@ -271,7 +271,7 @@ export function buildBlogListSeoPayload({ language, requestPathname = '/blog', r
 
 export function buildBlogPostSeoPayload({ language, requestPathname = '/blog', requestSearch = '', post = null } = {}) {
   const resolvedLanguage = normalizeBlogLanguage(language);
-  const localizedCopy = BLOG_SEO_COPY[resolvedLanguage];
+  const localizedCopy = BLOG_SEO_COPY[resolvedLanguage] || BLOG_SEO_COPY.en;
 
   const translationsByLang = post?.translationsByLang || {};
   const requestedTranslation = post?.translation || null;
@@ -353,7 +353,7 @@ export function injectWindowPayload(html, variableName, data) {
 
 export function createBlogPlaceholderHtml({ language = 'en', kind = 'list' } = {}) {
   const resolvedLanguage = normalizeBlogLanguage(language);
-  const copy = BLOG_SEO_COPY[resolvedLanguage];
+  const copy = BLOG_SEO_COPY[resolvedLanguage] || BLOG_SEO_COPY.en;
   const title = kind === 'post' ? copy.postFallback.title : copy.list.title;
   const description = kind === 'post' ? copy.postFallback.description : copy.list.description;
   const bodyHeading = kind === 'post' ? 'Blog article placeholder' : 'Blog placeholder';
