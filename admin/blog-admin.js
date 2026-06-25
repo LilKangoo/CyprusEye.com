@@ -134,6 +134,10 @@ const blogAdminState = {
   },
   selectedCategoryTerms: [],
   categorySearch: '',
+  categoryCreateOpen: false,
+  categoryCreateKeyDirty: false,
+  categoryCreateSaving: false,
+  categoryCreateFeedback: null,
   currentPage: 1,
   filterSearch: '',
   filterStatus: '',
@@ -162,6 +166,7 @@ const BLOG_FORM_SECTIONS = {
   moderation: { defaultOpen: false },
 };
 const BLOG_TAXONOMY_LANGUAGES = ['pl', 'en', 'he'];
+const BLOG_CATEGORY_KEY_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 const BLOG_COPY_FIELDS = {
   content: ['title', 'summary', 'lead', 'content_html'],
@@ -703,6 +708,234 @@ function getCategorySearchMatches() {
   }).slice(0, 16);
 }
 
+function getCategoryCreateElements() {
+  const root = getBlogFormRoot();
+  return {
+    panel: $('#blogCategoryCreatePanel', root),
+    toggle: $('#btnBlogCategoryCreateToggle', root),
+    key: $('#blogCategoryCreateKey', root),
+    labelPl: $('#blogCategoryCreateLabelPl', root),
+    labelEn: $('#blogCategoryCreateLabelEn', root),
+    labelHe: $('#blogCategoryCreateLabelHe', root),
+    feedback: $('#blogCategoryCreateFeedback', root),
+    save: $('#btnBlogCategoryCreateSave', root),
+  };
+}
+
+function normalizeCategoryComparable(value) {
+  return String(value || '').trim().toLocaleLowerCase();
+}
+
+function sanitizeCategoryKey(value) {
+  return slugify(value);
+}
+
+function readCategoryCreateDraft() {
+  const elements = getCategoryCreateElements();
+  return {
+    key: sanitizeCategoryKey(elements.key?.value || ''),
+    label_pl: String(elements.labelPl?.value || '').trim(),
+    label_en: String(elements.labelEn?.value || '').trim(),
+    label_he: String(elements.labelHe?.value || '').trim(),
+  };
+}
+
+function formatCategoryTermShort(term) {
+  return `${term.key} (${term.label_en || term.label_pl || term.label_he})`;
+}
+
+function getCategoryDuplicateMatches(draft) {
+  const key = normalizeCategoryComparable(draft.key);
+  const labelPl = normalizeCategoryComparable(draft.label_pl);
+  const labelEn = normalizeCategoryComparable(draft.label_en);
+  const labelHe = normalizeCategoryComparable(draft.label_he);
+  return getCategoryTerms().filter((term) => (
+    (key && normalizeCategoryComparable(term.key) === key)
+    || (labelPl && normalizeCategoryComparable(term.label_pl) === labelPl)
+    || (labelEn && normalizeCategoryComparable(term.label_en) === labelEn)
+    || (labelHe && normalizeCategoryComparable(term.label_he) === labelHe)
+  ));
+}
+
+function getCategorySimilarMatches(draft) {
+  const signals = new Set([
+    draft.key,
+    slugify(draft.label_pl),
+    slugify(draft.label_en),
+    slugify(draft.label_he),
+  ].filter(Boolean));
+  if (!signals.size) {
+    return [];
+  }
+  const exactIds = new Set(getCategoryDuplicateMatches(draft).map((term) => term.id));
+  return getCategoryTerms().filter((term) => {
+    if (exactIds.has(term.id)) return false;
+    return [
+      term.key,
+      slugify(term.label_pl),
+      slugify(term.label_en),
+      slugify(term.label_he),
+    ].some((value) => signals.has(value));
+  }).slice(0, 4);
+}
+
+function validateCategoryCreateDraft(draft) {
+  const errors = [];
+  if (!draft.key) {
+    errors.push('Category key is required.');
+  } else if (!BLOG_CATEGORY_KEY_PATTERN.test(draft.key)) {
+    errors.push('Category key must use lowercase a-z, 0-9 and hyphens only.');
+  }
+  if (!draft.label_pl) errors.push('PL label is required.');
+  if (!draft.label_en) errors.push('EN label is required.');
+  if (!draft.label_he) errors.push('HE label is required.');
+
+  const duplicates = getCategoryDuplicateMatches(draft);
+  if (duplicates.length) {
+    errors.push(`Duplicate category found: ${duplicates.map(formatCategoryTermShort).join(', ')}.`);
+  }
+
+  return {
+    errors,
+    duplicates,
+    similar: getCategorySimilarMatches(draft),
+  };
+}
+
+function setCategoryCreateFeedback(tone, message) {
+  blogAdminState.categoryCreateFeedback = message ? { tone, message } : null;
+  renderCategoryCreatePanel();
+}
+
+function renderCategoryCreatePanel() {
+  const elements = getCategoryCreateElements();
+  if (!elements.panel) return;
+  elements.panel.hidden = !blogAdminState.categoryCreateOpen;
+  if (elements.toggle) {
+    elements.toggle.textContent = blogAdminState.categoryCreateOpen ? 'Close new category' : 'Add new category';
+  }
+  if (elements.save) {
+    elements.save.disabled = Boolean(blogAdminState.categoryCreateSaving);
+    elements.save.textContent = blogAdminState.categoryCreateSaving ? 'Saving...' : 'Save category';
+  }
+  if (!elements.feedback) return;
+
+  const draft = readCategoryCreateDraft();
+  const validation = validateCategoryCreateDraft(draft);
+  const feedback = blogAdminState.categoryCreateFeedback;
+  if (feedback?.message) {
+    elements.feedback.hidden = false;
+    elements.feedback.dataset.tone = feedback.tone || 'info';
+    elements.feedback.textContent = feedback.message;
+  } else if (!validation.errors.length && validation.similar.length) {
+    elements.feedback.hidden = false;
+    elements.feedback.dataset.tone = 'warning';
+    elements.feedback.textContent = `Similar category exists: ${validation.similar.map(formatCategoryTermShort).join(', ')}. Check before saving.`;
+  } else {
+    elements.feedback.hidden = true;
+    elements.feedback.dataset.tone = '';
+    elements.feedback.textContent = '';
+  }
+}
+
+function setCategoryCreateOpen(open) {
+  blogAdminState.categoryCreateOpen = Boolean(open);
+  blogAdminState.categoryCreateFeedback = null;
+  renderCategoryCreatePanel();
+  if (blogAdminState.categoryCreateOpen) {
+    getCategoryCreateElements().labelEn?.focus();
+  }
+}
+
+function resetCategoryCreateForm({ close = false } = {}) {
+  const elements = getCategoryCreateElements();
+  ['key', 'labelPl', 'labelEn', 'labelHe'].forEach((name) => {
+    if (elements[name]) {
+      elements[name].value = '';
+    }
+  });
+  blogAdminState.categoryCreateKeyDirty = false;
+  blogAdminState.categoryCreateFeedback = null;
+  if (close) {
+    blogAdminState.categoryCreateOpen = false;
+  }
+  renderCategoryCreatePanel();
+}
+
+function handleCategoryCreateInput(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement)) return;
+
+  if (target.id === 'blogCategoryCreateKey') {
+    const sanitized = sanitizeCategoryKey(target.value);
+    if (target.value !== sanitized) {
+      target.value = sanitized;
+    }
+    blogAdminState.categoryCreateKeyDirty = true;
+  } else if (target.id === 'blogCategoryCreateLabelEn' || target.id === 'blogCategoryCreateLabelPl') {
+    const elements = getCategoryCreateElements();
+    if (elements.key && (!blogAdminState.categoryCreateKeyDirty || !elements.key.value.trim())) {
+      const suggested = sanitizeCategoryKey(elements.labelEn?.value || elements.labelPl?.value || '');
+      elements.key.value = suggested;
+      blogAdminState.categoryCreateKeyDirty = false;
+    }
+  }
+  blogAdminState.categoryCreateFeedback = null;
+  renderCategoryCreatePanel();
+}
+
+async function saveNewCategoryTerm() {
+  if (blogAdminState.categoryCreateSaving) return;
+  const client = getSupabaseClient();
+  if (!client) {
+    setCategoryCreateFeedback('danger', 'Database connection not available.');
+    return;
+  }
+
+  const draft = readCategoryCreateDraft();
+  const validation = validateCategoryCreateDraft(draft);
+  if (validation.errors.length) {
+    setCategoryCreateFeedback('danger', validation.errors.join(' '));
+    return;
+  }
+
+  blogAdminState.categoryCreateSaving = true;
+  setCategoryCreateFeedback(null, '');
+  try {
+    const payload = {
+      type: 'category',
+      key: draft.key,
+      label_pl: draft.label_pl,
+      label_en: draft.label_en,
+      label_he: draft.label_he,
+      is_active: true,
+      is_complete: true,
+    };
+    const { data, error } = await client
+      .from('blog_taxonomy_terms')
+      .insert(payload)
+      .select('id,type,key,label_pl,label_en,label_he,is_active,is_complete')
+      .single();
+    if (error) {
+      throw error;
+    }
+    const term = normalizeTaxonomyTerm(data);
+    if (!term) {
+      throw new Error('Saved category was not returned by the database.');
+    }
+    setCategoryTerms([...getCategoryTerms(), term]);
+    resetCategoryCreateForm({ close: true });
+    setSelectedCategoryTerms([...(blogAdminState.selectedCategoryTerms || []), term]);
+    showToastSafe('Category created and selected', 'success');
+  } catch (error) {
+    console.error('[blog-admin] Failed to create category term:', error);
+    setCategoryCreateFeedback('danger', error.message || 'Failed to create category. Check staff permissions/RLS.');
+  } finally {
+    blogAdminState.categoryCreateSaving = false;
+    renderCategoryCreatePanel();
+  }
+}
+
 function renderCategorySelector() {
   const selectedNode = $('#blogFormSelectedCategories', getBlogFormRoot());
   const resultsNode = $('#blogFormCategoryResults', getBlogFormRoot());
@@ -743,6 +976,7 @@ function renderCategorySelector() {
       `).join('');
     }
   }
+  renderCategoryCreatePanel();
 }
 
 function addCategoryTermById(termId) {
@@ -883,6 +1117,10 @@ function closeModal() {
   blogAdminState.autoFillLocks = createTranslationState(false);
   blogAdminState.selectedCategoryTerms = [];
   blogAdminState.categorySearch = '';
+  blogAdminState.categoryCreateOpen = false;
+  blogAdminState.categoryCreateKeyDirty = false;
+  blogAdminState.categoryCreateSaving = false;
+  blogAdminState.categoryCreateFeedback = null;
   resetSectionState();
 }
 
@@ -3010,16 +3248,36 @@ function bindModalControls() {
       return;
     }
 
-    if (event.target.closest('#btnBlogCategoryClearSearch')) {
-      blogAdminState.categorySearch = '';
-      const searchInput = $('#blogFormCategorySearch');
-      if (searchInput) searchInput.value = '';
-      renderCategorySelector();
-      return;
-    }
+	    if (event.target.closest('#btnBlogCategoryClearSearch')) {
+	      blogAdminState.categorySearch = '';
+	      const searchInput = $('#blogFormCategorySearch');
+	      if (searchInput) searchInput.value = '';
+	      renderCategorySelector();
+	      return;
+	    }
 
-    const removeChip = event.target.closest('[data-blog-taxonomy-remove]');
-    if (removeChip instanceof HTMLElement) {
+	    if (event.target.closest('#btnBlogCategoryCreateToggle')) {
+	      setCategoryCreateOpen(!blogAdminState.categoryCreateOpen);
+	      return;
+	    }
+
+	    if (event.target.closest('#btnBlogCategoryCreateCancel')) {
+	      resetCategoryCreateForm({ close: true });
+	      return;
+	    }
+
+	    if (event.target.closest('#btnBlogCategoryCreateReset')) {
+	      resetCategoryCreateForm();
+	      return;
+	    }
+
+	    if (event.target.closest('#btnBlogCategoryCreateSave')) {
+	      void saveNewCategoryTerm();
+	      return;
+	    }
+
+	    const removeChip = event.target.closest('[data-blog-taxonomy-remove]');
+	    if (removeChip instanceof HTMLElement) {
       removeTaxonomyValue(
         String(removeChip.dataset.blogTaxonomyRemove || '').trim(),
         String(removeChip.dataset.blogTaxonomyLang || '').trim() || 'pl',
@@ -3097,13 +3355,17 @@ function bindModalControls() {
       setCoverPreview(event.target.value || '');
     }
 
-    if (event.target.id === 'blogFormCategorySearch') {
-      blogAdminState.categorySearch = String(event.target.value || '').trim();
-      renderCategorySelector();
-    }
+	    if (event.target.id === 'blogFormCategorySearch') {
+	      blogAdminState.categorySearch = String(event.target.value || '').trim();
+	      renderCategorySelector();
+	    }
 
-    refreshFormUi();
-  });
+	    if (event.target.id.startsWith('blogCategoryCreate')) {
+	      handleCategoryCreateInput(event);
+	    }
+
+	    refreshFormUi();
+	  });
   $('#blogForm')?.addEventListener('change', (event) => {
     if (!(event.target instanceof HTMLElement)) return;
     if (event.target.matches('.lang-tab[data-field="blogTranslation"]')) {
@@ -3114,15 +3376,20 @@ function bindModalControls() {
   $('#blogForm')?.addEventListener('keydown', (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
-    if (target.id === 'blogFormCategorySearch' && event.key === 'Enter') {
-      event.preventDefault();
-      const firstMatch = getCategorySearchMatches()[0];
-      if (firstMatch) {
-        addCategoryTermById(firstMatch.id);
-      }
-      return;
-    }
-    const match = target.id.match(/^blogForm(Categories|Tags)(Pl|En)Input$/);
+	    if (target.id === 'blogFormCategorySearch' && event.key === 'Enter') {
+	      event.preventDefault();
+	      const firstMatch = getCategorySearchMatches()[0];
+	      if (firstMatch) {
+	        addCategoryTermById(firstMatch.id);
+	      }
+	      return;
+	    }
+	    if (target.id.startsWith('blogCategoryCreate') && event.key === 'Enter') {
+	      event.preventDefault();
+	      void saveNewCategoryTerm();
+	      return;
+	    }
+	    const match = target.id.match(/^blogForm(Categories|Tags)(Pl|En)Input$/);
     if (!match) return;
     if (event.key === 'Enter' || event.key === ',') {
       event.preventDefault();

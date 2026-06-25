@@ -367,8 +367,8 @@ test.describe('Blog smoke', () => {
     await expect(page.locator('#commentsModalTitle')).toContainText('Centrum Lefkary');
   });
 
-  test('admin blog view supports approve and create flow', async ({ page }) => {
-    await prepareBlogStub(page, true);
+	  test('admin blog view supports approve and create flow', async ({ page }) => {
+	    await prepareBlogStub(page, true);
     await page.route('https://esm.sh/@tiptap/**', async (route) => {
       await route.abort();
     });
@@ -386,17 +386,52 @@ test.describe('Blog smoke', () => {
     await page.click('#btnAddBlog');
     await page.waitForSelector('#blogFormModal:not([hidden])');
 
-    const blogModal = page.locator('#blogFormModal');
+	    const blogModal = page.locator('#blogFormModal');
+	    const modalBox = await blogModal.locator('.blog-modal-content').boundingBox();
+	    expect(modalBox?.width || 0).toBeGreaterThan(1000);
 
-    await expect(blogModal.locator('#blogFormCategoriesPlInput')).toHaveCount(0);
-    await expect(blogModal.locator('#blogFormTagsPlInput')).toHaveCount(0);
-    await blogModal.locator('#blogFormCategorySearch').fill('guide');
-    await blogModal.locator('[data-blog-category-pick="term-guide"]').click();
-    await expect(blogModal.locator('#blogFormSelectedCategories')).toContainText('Guides');
-    await expect(blogModal.locator('#blogFormSelectedCategories')).toContainText('Przewodniki');
-    await expect(blogModal.locator('#blogFormSelectedCategories')).toContainText('מדריכים');
+	    await expect(blogModal.locator('#blogFormCategoriesPlInput')).toHaveCount(0);
+	    await expect(blogModal.locator('#blogFormTagsPlInput')).toHaveCount(0);
+	    await blogModal.locator('#blogFormCategorySearch').fill('guide');
+	    await blogModal.locator('[data-blog-category-pick="term-guide"]').click();
+	    await expect(blogModal.locator('#blogFormSelectedCategories')).toContainText('Guides');
+	    await expect(blogModal.locator('#blogFormSelectedCategories')).toContainText('Przewodniki');
+	    await expect(blogModal.locator('#blogFormSelectedCategories')).toContainText('מדריכים');
 
-    await blogModal.locator('[name="title_pl"]').fill('Nowy wpis testowy');
+	    await blogModal.locator('#btnBlogCategoryCreateToggle').click();
+	    await expect(blogModal.locator('#blogCategoryCreatePanel')).toBeVisible();
+	    await blogModal.locator('#blogCategoryCreateLabelEn').fill('Guides');
+	    await expect(blogModal.locator('#blogCategoryCreateKey')).toHaveValue('guides');
+	    await blogModal.locator('#blogCategoryCreateLabelPl').fill('Przewodniki');
+	    await blogModal.locator('#blogCategoryCreateLabelHe').fill('מדריכים');
+	    await blogModal.locator('#btnBlogCategoryCreateSave').click();
+	    await expect(blogModal.locator('#blogCategoryCreateFeedback')).toContainText('Duplicate category found');
+
+	    await blogModal.locator('#btnBlogCategoryCreateReset').click();
+	    await blogModal.locator('#blogCategoryCreateLabelEn').fill('Family travel');
+	    await expect(blogModal.locator('#blogCategoryCreateKey')).toHaveValue('family-travel');
+	    await blogModal.locator('#blogCategoryCreateLabelPl').fill('Rodzinne podróże');
+	    await blogModal.locator('#blogCategoryCreateLabelHe').fill('טיולי משפחות');
+	    await blogModal.locator('#btnBlogCategoryCreateSave').click();
+	    await expect(blogModal.locator('#blogCategoryCreatePanel')).toBeHidden();
+	    await expect(blogModal.locator('#blogFormSelectedCategories')).toContainText('Family travel');
+	    await expect(blogModal.locator('#blogFormSelectedCategories')).toContainText('Rodzinne podróże');
+	    await expect(blogModal.locator('#blogFormSelectedCategories')).toContainText('טיולי משפחות');
+	    const createdTerm = await page.evaluate(() => {
+	      const rows = (window as any).__supabaseStub?.getTableRows?.('blog_taxonomy_terms') || [];
+	      return rows.find((row: any) => row.key === 'family-travel') || null;
+	    });
+	    expect(createdTerm).toMatchObject({
+	      type: 'category',
+	      key: 'family-travel',
+	      label_pl: 'Rodzinne podróże',
+	      label_en: 'Family travel',
+	      label_he: 'טיולי משפחות',
+	      is_active: true,
+	      is_complete: true,
+	    });
+
+	    await blogModal.locator('[name="title_pl"]').fill('Nowy wpis testowy');
     await blogModal.locator('[name="summary_pl"]').fill('Podsumowanie PL');
     await blogModal.locator('[name="lead_pl"]').fill('Lead PL. Dalsza część leadu.');
     await expect(blogModal.locator('[data-blog-editor-fallback="pl"]')).toBeVisible();
@@ -418,13 +453,47 @@ test.describe('Blog smoke', () => {
     await expect(page.locator('#blogTableBody')).toContainText('New smoke post');
     const createdPost = await page.evaluate(() => {
       const rows = (window as any).__supabaseStub?.getTableRows?.('blog_posts') || [];
-      return rows.find((row: any) => Array.isArray(row.categories_en) && row.categories_en.includes('Guides')) || null;
-    });
-    expect(createdPost?.categories_pl).toEqual(['Przewodniki']);
-    expect(createdPost?.categories_en).toEqual(['Guides']);
-    expect(createdPost?.categories_he).toEqual(['מדריכים']);
+	      return rows.find((row: any) => Array.isArray(row.categories_en) && row.categories_en.includes('Family travel')) || null;
+	    });
+	    expect(createdPost?.categories_pl).toEqual(['Przewodniki', 'Rodzinne podróże']);
+	    expect(createdPost?.categories_en).toEqual(['Guides', 'Family travel']);
+	    expect(createdPost?.categories_he).toEqual(['מדריכים', 'טיולי משפחות']);
     expect(createdPost?.tags_pl || []).toEqual([]);
-    expect(createdPost?.tags_en || []).toEqual([]);
-    expect(createdPost?.tags_he || []).toEqual([]);
-  });
-});
+	    expect(createdPost?.tags_en || []).toEqual([]);
+	    expect(createdPost?.tags_he || []).toEqual([]);
+	  });
+
+	  test('admin blog modal remains usable on mobile viewport', async ({ page }) => {
+	    await prepareBlogStub(page, true);
+	    await page.route('https://esm.sh/@tiptap/**', async (route) => {
+	      await route.abort();
+	    });
+
+	    await page.goto('/admin/dashboard.html');
+	    await waitForSupabaseStub(page);
+	    await page.click('button.admin-nav-item[data-view="blog"]');
+	    await page.waitForSelector('#viewBlog.active');
+	    await page.click('#btnAddBlog');
+	    await page.waitForSelector('#blogFormModal:not([hidden])');
+	    await page.setViewportSize({ width: 390, height: 844 });
+
+	    const modalContent = page.locator('#blogFormModal .blog-modal-content');
+	    const modalBox = await modalContent.boundingBox();
+	    expect(modalBox?.width || 0).toBeGreaterThan(340);
+	    expect(modalBox?.width || 0).toBeLessThanOrEqual(390);
+	    await expect(page.locator('#blogFormCategorySearch')).toBeVisible();
+
+	    const modalOverflow = await page.evaluate(() => {
+	      const modal = document.querySelector('#blogFormModal .blog-modal-content');
+	      const body = document.querySelector('#blogFormModal .blog-modal-body');
+	      return {
+	        modalClientWidth: modal?.clientWidth || 0,
+	        modalScrollWidth: modal?.scrollWidth || 0,
+	        bodyClientWidth: body?.clientWidth || 0,
+	        bodyScrollWidth: body?.scrollWidth || 0,
+	      };
+	    });
+	    expect(modalOverflow.modalScrollWidth).toBeLessThanOrEqual(modalOverflow.modalClientWidth + 1);
+	    expect(modalOverflow.bodyScrollWidth).toBeLessThanOrEqual(modalOverflow.bodyClientWidth + 1);
+	  });
+	});

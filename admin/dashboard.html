@@ -7403,13 +7403,45 @@
                   <input id="blogFormCategoriesEn" type="hidden" />
                   <input id="blogFormCategoriesHe" type="hidden" />
                   <div class="blog-category-selector__selected" id="blogFormSelectedCategories"></div>
-                  <div class="blog-category-selector__search">
-                    <input id="blogFormCategorySearch" type="search" placeholder="Search category" autocomplete="off" />
-                    <button class="btn-secondary" type="button" id="btnBlogCategoryClearSearch">Clear</button>
-                  </div>
-                  <div class="blog-category-selector__results" id="blogFormCategoryResults"></div>
-                  <small>Categories are synced automatically in PL / EN / HE.</small>
-                </section>
+	                  <div class="blog-category-selector__search">
+	                    <input id="blogFormCategorySearch" type="search" placeholder="Search category" autocomplete="off" />
+	                    <button class="btn-secondary" type="button" id="btnBlogCategoryClearSearch">Clear</button>
+	                  </div>
+	                  <div class="blog-category-selector__results" id="blogFormCategoryResults"></div>
+	                  <div class="blog-category-selector__actions">
+	                    <button class="btn-secondary" type="button" id="btnBlogCategoryCreateToggle">Add new category</button>
+	                  </div>
+	                  <div class="blog-category-create" id="blogCategoryCreatePanel" hidden>
+	                    <div class="blog-category-create__head">
+	                      <strong>Add new category</strong>
+	                      <button class="blog-category-chip__action" type="button" id="btnBlogCategoryCreateCancel" aria-label="Cancel new category">×</button>
+	                    </div>
+	                    <div class="blog-category-create__grid">
+	                      <label class="admin-form-field">
+	                        <span>Category key</span>
+	                        <input id="blogCategoryCreateKey" type="text" inputmode="latin" autocomplete="off" placeholder="car-rental" />
+	                      </label>
+	                      <label class="admin-form-field">
+	                        <span>PL label</span>
+	                        <input id="blogCategoryCreateLabelPl" type="text" autocomplete="off" placeholder="Wynajem auta" />
+	                      </label>
+	                      <label class="admin-form-field">
+	                        <span>EN label</span>
+	                        <input id="blogCategoryCreateLabelEn" type="text" autocomplete="off" placeholder="Car rental" />
+	                      </label>
+	                      <label class="admin-form-field">
+	                        <span>HE label</span>
+	                        <input id="blogCategoryCreateLabelHe" type="text" autocomplete="off" dir="rtl" placeholder="השכרת רכב" />
+	                      </label>
+	                    </div>
+	                    <div class="blog-category-create__feedback" id="blogCategoryCreateFeedback" hidden></div>
+	                    <div class="blog-category-create__actions">
+	                      <button class="btn-secondary" type="button" id="btnBlogCategoryCreateReset">Reset</button>
+	                      <button class="btn-primary" type="button" id="btnBlogCategoryCreateSave">Save category</button>
+	                    </div>
+	                  </div>
+	                  <small>Categories are synced automatically in PL / EN / HE.</small>
+	                </section>
                 <div class="blog-taxonomy-hidden-fields" data-blog-tags-hidden hidden>
                   <input id="blogFormTagsPl" type="hidden" />
                   <input id="blogFormTagsEn" type="hidden" />
