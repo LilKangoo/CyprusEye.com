@@ -59,7 +59,7 @@ const publicPayload = {
     name: 'Anna',
   },
   actions: {
-    contact_url: 'mailto:hello@cypruseye.com',
+    contact_url: 'mailto:kontakt@wakacjecypr.com',
     login_url: '/auth/?lang=en',
     all_bookings_url: null,
   },
@@ -150,7 +150,7 @@ test.describe('yourbooking public preview', () => {
         passengers: 2,
       },
       actions: {
-        contact_url: 'mailto:hello@cypruseye.com',
+        contact_url: 'mailto:kontakt@wakacjecypr.com',
         login_url: '/auth/?lang=en',
         all_bookings_url: '/achievements.html?lang=en&section=reservations',
       },
