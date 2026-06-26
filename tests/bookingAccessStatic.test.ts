@@ -79,10 +79,16 @@ describe('booking access token preview', () => {
   it('ships the public preview page and client-side safe states', () => {
     expect(pageSource).toContain('Your booking | CyprusEye.com');
     expect(pageSource).toContain('/js/yourbooking.js');
+    expect(pageSource).toContain('id="authModal"');
+    expect(pageSource).not.toContain('id="loginLink" href="/auth/');
     expect(clientSource).toContain('/functions/v1/booking-access');
     expect(clientSource).toContain("action: 'resolve'");
     expect(clientSource).toContain('const authorizationToken = authToken || SUPABASE_CONFIG.anonKey');
     expect(clientSource).toContain('Authorization: `Bearer ${authorizationToken}`');
+    expect(clientSource).toContain('signInWithPassword');
+    expect(clientSource).toContain('refreshBookingAccess');
+    expect(clientSource).toContain("const CONTACT_URL = 'mailto:kontakt@wakacjecypr.com'");
+    expect(clientSource).not.toContain('hello@cypruseye.com');
     expect(clientSource).toContain('showError');
     expect(clientSource).toContain('achievements.html?lang=');
   });

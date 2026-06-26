@@ -23,6 +23,15 @@ const DICT = {
     contact: 'Contact us',
     login: 'Log in to see more',
     allBookings: 'View all bookings',
+    authTitle: 'Log in',
+    authCopy: 'Use the email address from this booking to see more details.',
+    authEmail: 'Email',
+    authPassword: 'Password',
+    authSubmit: 'Log in',
+    authClose: 'Close',
+    authSigningIn: 'Signing in...',
+    authSuccess: 'Signed in. Refreshing booking details...',
+    authError: 'We could not sign you in. Check the email and password, then try again.',
     moneyTitle: 'Payment summary',
     paid: 'Paid',
     total: 'Total',
@@ -66,6 +75,15 @@ const DICT = {
     contact: 'Skontaktuj się',
     login: 'Zaloguj się, aby zobaczyć więcej',
     allBookings: 'Zobacz wszystkie rezerwacje',
+    authTitle: 'Logowanie',
+    authCopy: 'Użyj adresu email z tej rezerwacji, aby zobaczyć więcej szczegółów.',
+    authEmail: 'Email',
+    authPassword: 'Hasło',
+    authSubmit: 'Zaloguj się',
+    authClose: 'Zamknij',
+    authSigningIn: 'Logowanie...',
+    authSuccess: 'Zalogowano. Odświeżamy szczegóły rezerwacji...',
+    authError: 'Nie udało się zalogować. Sprawdź email i hasło, a potem spróbuj ponownie.',
     moneyTitle: 'Podsumowanie płatności',
     paid: 'Opłacono',
     total: 'Łącznie',
@@ -109,6 +127,15 @@ const DICT = {
     contact: 'צרו קשר',
     login: 'התחברות לפרטים נוספים',
     allBookings: 'כל ההזמנות',
+    authTitle: 'התחברות',
+    authCopy: 'התחברו עם כתובת האימייל של ההזמנה כדי לראות פרטים נוספים.',
+    authEmail: 'אימייל',
+    authPassword: 'סיסמה',
+    authSubmit: 'התחברות',
+    authClose: 'סגירה',
+    authSigningIn: 'מתחברים...',
+    authSuccess: 'התחברתם. מרעננים את פרטי ההזמנה...',
+    authError: 'לא הצלחנו להתחבר. בדקו את האימייל והסיסמה ונסו שוב.',
     moneyTitle: 'סיכום תשלום',
     paid: 'שולם',
     total: 'סה"כ',
@@ -149,6 +176,8 @@ const TYPE_MARK = {
   hotels: 'HTL',
 };
 
+const CONTACT_URL = 'mailto:kontakt@wakacjecypr.com';
+
 function $(id) {
   return document.getElementById(id);
 }
@@ -181,6 +210,7 @@ function setLanguage(lang) {
   document.querySelectorAll('[data-lang]').forEach((button) => {
     button.setAttribute('aria-pressed', button.dataset.lang === state.lang ? 'true' : 'false');
   });
+  updateAuthModalText();
 }
 
 function updateLangUrl(lang) {
@@ -192,6 +222,41 @@ function updateLangUrl(lang) {
 function setText(id, value) {
   const el = $(id);
   if (el) el.textContent = value || '';
+}
+
+function setAuthStatus(message, tone = '') {
+  const el = $('authStatus');
+  if (!el) return;
+  el.textContent = message || '';
+  el.className = `yb-auth-status${tone ? ` yb-auth-status--${tone}` : ''}`;
+}
+
+function updateAuthModalText() {
+  setText('authTitle', tr('authTitle'));
+  setText('authCopy', tr('authCopy'));
+  setText('authEmailLabel', tr('authEmail'));
+  setText('authPasswordLabel', tr('authPassword'));
+  setText('authSubmit', tr('authSubmit'));
+  setText('authCancel', tr('authClose'));
+  const closeButton = $('authClose');
+  if (closeButton) closeButton.setAttribute('aria-label', tr('authClose'));
+}
+
+function openAuthModal() {
+  updateAuthModalText();
+  setAuthStatus('');
+  const modal = $('authModal');
+  if (!modal) return;
+  modal.hidden = false;
+  $('loginLink')?.setAttribute('aria-expanded', 'true');
+  window.setTimeout(() => $('authEmail')?.focus(), 0);
+}
+
+function closeAuthModal() {
+  const modal = $('authModal');
+  if (!modal) return;
+  modal.hidden = true;
+  $('loginLink')?.setAttribute('aria-expanded', 'false');
 }
 
 function formatStatus(value) {
@@ -232,6 +297,7 @@ function showLoading() {
   setText('errorMessage', tr('loadingMessage'));
   setText('errorHomeLink', state.lang === 'pl' ? 'Strona główna' : state.lang === 'he' ? 'דף הבית' : 'Go home');
   setText('errorContactLink', tr('contact'));
+  $('errorContactLink').href = CONTACT_URL;
 }
 
 function showError() {
@@ -242,6 +308,7 @@ function showError() {
   setText('errorMessage', tr('unavailableMessage'));
   setText('errorHomeLink', state.lang === 'pl' ? 'Strona główna' : state.lang === 'he' ? 'דף הבית' : 'Go home');
   setText('errorContactLink', tr('contact'));
+  $('errorContactLink').href = CONTACT_URL;
 }
 
 function addField(container, label, value) {
@@ -339,9 +406,9 @@ function renderBooking(payload) {
   }
 
   setText('contactLink', tr('contact'));
-  $('contactLink').href = String(actions.contact_url || 'mailto:kontakt@wakacjecypr.com');
+  $('contactLink').href = CONTACT_URL;
   setText('loginLink', tr('login'));
-  $('loginLink').href = `/auth/?lang=${state.lang}`;
+  $('loginLink').hidden = isOwner;
   setText('allBookingsLink', tr('allBookings'));
   $('allBookingsLink').href = String(actions.all_bookings_url || `/achievements.html?lang=${state.lang}&section=reservations`);
   $('allBookingsLink').hidden = !isOwner;
@@ -388,6 +455,39 @@ function renderBooking(payload) {
   $('mismatchNote').hidden = !payload.auth_email_mismatch;
 }
 
+async function refreshBookingAccess() {
+  if (!state.token) {
+    showError();
+    return;
+  }
+  const payload = await resolveBooking();
+  renderBooking(payload);
+}
+
+async function handleAuthSubmit(event) {
+  event.preventDefault();
+  const email = String($('authEmail')?.value || '').trim();
+  const password = String($('authPassword')?.value || '');
+  if (!email || !password) {
+    setAuthStatus(tr('authError'), 'error');
+    return;
+  }
+
+  setAuthStatus(tr('authSigningIn'));
+  $('authSubmit').disabled = true;
+  try {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    setAuthStatus(tr('authSuccess'), 'success');
+    await refreshBookingAccess();
+    closeAuthModal();
+  } catch (_error) {
+    setAuthStatus(tr('authError'), 'error');
+  } finally {
+    $('authSubmit').disabled = false;
+  }
+}
+
 function rerenderLanguage() {
   setLanguage(state.lang);
   if (state.data) {
@@ -401,6 +501,20 @@ async function main() {
   setLanguage(state.lang);
   state.token = String(getParams().get('token') || '').trim();
   showLoading();
+
+  $('loginLink')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    openAuthModal();
+  });
+  $('authClose')?.addEventListener('click', closeAuthModal);
+  $('authCancel')?.addEventListener('click', closeAuthModal);
+  $('authModal')?.addEventListener('click', (event) => {
+    if (event.target === $('authModal')) closeAuthModal();
+  });
+  $('authForm')?.addEventListener('submit', handleAuthSubmit);
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !$('authModal')?.hidden) closeAuthModal();
+  });
 
   document.querySelectorAll('[data-lang]').forEach((button) => {
     button.addEventListener('click', async () => {
@@ -426,8 +540,7 @@ async function main() {
   }
 
   try {
-    const payload = await resolveBooking();
-    renderBooking(payload);
+    await refreshBookingAccess();
   } catch (_error) {
     showError();
   }

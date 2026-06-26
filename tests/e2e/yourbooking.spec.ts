@@ -59,7 +59,7 @@ const publicPayload = {
     name: 'Anna',
   },
   actions: {
-    contact_url: 'mailto:kontakt@wakacjecypr.com',
+    contact_url: 'mailto:hello@cypruseye.com',
     login_url: '/auth/?lang=en',
     all_bookings_url: null,
   },
@@ -98,10 +98,86 @@ test.describe('yourbooking public preview', () => {
     await expect(page.locator('#detailsGrid')).toContainText('Anna');
     await expect(page.locator('#valuePaid')).toContainText('€30.00');
     await expect(page.locator('#ownerNote')).toBeHidden();
+    await expect(page.locator('#loginLink')).toBeVisible();
+    await expect(page.locator('#contactLink')).toHaveAttribute('href', 'mailto:kontakt@wakacjecypr.com');
+    await expect(page.locator('#contactLink')).not.toHaveAttribute('href', /hello@cypruseye\.com/);
     await expect(page.locator('#detailsGrid')).not.toContainText('anna@example.com');
     await expect(page.locator('#detailsGrid')).not.toContainText('+357 99 000 000');
     expect(authorizationHeader).toBe(`Bearer ${SUPABASE_ANON_KEY}`);
     expect(apiKeyHeader).toBe(SUPABASE_ANON_KEY);
+  });
+
+  test('opens the login modal without redirecting away from the token URL', async ({ page }) => {
+    await routeBookingAccess(page, publicPayload);
+
+    await page.goto('/yourbooking.html?lang=en&token=valid-token');
+    const urlBeforeLoginClick = page.url();
+
+    await page.locator('#loginLink').click();
+
+    await expect(page.locator('#authModal')).toBeVisible();
+    await expect(page.locator('#authTitle')).toHaveText('Log in');
+    await expect(page.locator('#authEmail')).toBeFocused();
+    expect(page.url()).toBe(urlBeforeLoginClick);
+    expect(new URL(page.url()).pathname).toBe('/yourbooking.html');
+    expect(new URL(page.url()).searchParams.get('token')).toBe('valid-token');
+    expect(new URL(page.url()).searchParams.get('lang')).toBe('en');
+  });
+
+  test('refreshes booking access after a successful modal login', async ({ page }) => {
+    let requestCount = 0;
+    await page.route(FUNCTION_ROUTE, async (route) => {
+      requestCount += 1;
+      const payload = requestCount === 1
+        ? publicPayload
+        : {
+            ...publicPayload,
+            access_level: 'owner',
+            is_owner: true,
+            customer: {
+              name: 'Anna Kowalska',
+              email: 'anna@example.com',
+              phone: '+357 99 000 000',
+            },
+            owner_details: {
+              notes: 'Please call on arrival.',
+            },
+            actions: {
+              contact_url: 'mailto:hello@cypruseye.com',
+              login_url: '/auth/?lang=en',
+              all_bookings_url: '/achievements.html?lang=en&section=reservations',
+            },
+          };
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(payload),
+        headers: {
+          'access-control-allow-origin': '*',
+        },
+      });
+    });
+
+    await page.goto('/yourbooking.html?lang=en&token=valid-token');
+    const urlBeforeLogin = page.url();
+    await page.evaluate(() => {
+      window.__supabaseStub.seedUser({
+        email: 'anna@example.com',
+        password: 'secret-password',
+        profile: { id: 'owner-user' },
+      });
+    });
+
+    await page.locator('#loginLink').click();
+    await page.locator('#authEmail').fill('anna@example.com');
+    await page.locator('#authPassword').fill('secret-password');
+    await page.locator('#authSubmit').click();
+
+    await expect(page.locator('#ownerNote')).toBeVisible();
+    await expect(page.locator('#allBookingsLink')).toBeVisible();
+    await expect(page.locator('#loginLink')).toBeHidden();
+    expect(requestCount).toBe(2);
+    expect(page.url()).toBe(urlBeforeLogin);
   });
 
   test('renders Polish copy and booking data', async ({ page }) => {
@@ -112,6 +188,10 @@ test.describe('yourbooking public preview', () => {
     await expect(page.locator('#bookingTitle')).toContainText('Transport');
     await expect(page.locator('#loginLink')).toHaveText('Zaloguj się, aby zobaczyć więcej');
     await expect(page.locator('#detailsGrid')).toContainText('Typ usługi');
+
+    await page.locator('#loginLink').click();
+    await expect(page.locator('#authModal')).toBeVisible();
+    await expect(page.locator('#authTitle')).toHaveText('Logowanie');
   });
 
   test('shows owner details and all-bookings link for owner access', async ({ page }) => {
@@ -165,6 +245,7 @@ test.describe('yourbooking public preview', () => {
     await expect(page.locator('#detailsGrid')).toContainText('+357 99 000 000');
     await expect(page.locator('#allBookingsLink')).toBeVisible();
     await expect(page.locator('#allBookingsLink')).toHaveAttribute('href', /achievements\.html\?lang=en&section=reservations/);
+    await expect(page.locator('#loginLink')).toBeHidden();
     expect(authorizationHeader).toBe('Bearer owner-session-token');
   });
 
@@ -180,6 +261,11 @@ test.describe('yourbooking public preview', () => {
     await expect(page.locator('#detailsGrid')).not.toContainText('undefined');
     await expect(page.locator('#detailsGrid')).not.toContainText('null');
     expect(new URL(page.url()).pathname).toBe('/yourbooking.html');
+
+    await page.locator('#loginLink').click();
+    await expect(page.locator('#authModal')).toBeVisible();
+    await expect(page.locator('#authTitle')).toHaveText('התחברות');
+    await expect(page.locator('#authEmailLabel')).toHaveText('אימייל');
   });
 
   test('renders Hebrew safe error state in RTL', async ({ page }) => {

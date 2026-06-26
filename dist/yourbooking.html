@@ -362,6 +362,102 @@
       line-height: 1.6;
     }
 
+    .yb-auth-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      background: rgba(15, 23, 42, 0.48);
+    }
+
+    .yb-auth-modal {
+      width: min(100%, 440px);
+      max-height: min(90dvh, 620px);
+      overflow: auto;
+      background: #fff;
+      border: 1px solid var(--yb-line);
+      border-radius: var(--yb-radius);
+      box-shadow: 0 24px 80px rgba(15, 23, 42, 0.28);
+      padding: 20px;
+    }
+
+    .yb-auth-modal__header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .yb-auth-modal h2 {
+      margin: 0 0 6px;
+      font-size: 22px;
+      letter-spacing: 0;
+    }
+
+    .yb-auth-modal p {
+      margin: 0;
+      color: var(--yb-muted);
+      line-height: 1.55;
+      font-size: 14px;
+    }
+
+    .yb-auth-close {
+      width: 38px;
+      height: 38px;
+      border: 1px solid var(--yb-line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--yb-text);
+      font-size: 22px;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .yb-auth-form {
+      display: grid;
+      gap: 12px;
+    }
+
+    .yb-auth-field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .yb-auth-field label {
+      color: var(--yb-text);
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .yb-auth-field input {
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid var(--yb-line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: var(--yb-text);
+      background: #fff;
+      font: inherit;
+    }
+
+    .yb-auth-status {
+      min-height: 20px;
+      color: var(--yb-muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .yb-auth-status--error {
+      color: #b91c1c;
+    }
+
+    .yb-auth-status--success {
+      color: var(--yb-green);
+    }
+
     [hidden] {
       display: none !important;
     }
@@ -386,7 +482,7 @@
     }
   </style>
 
-  <script type="module" src="/js/yourbooking.js?v=20260626a"></script>
+  <script type="module" src="/js/yourbooking.js?v=20260626b"></script>
 </head>
 <body>
   <div class="yb-shell">
@@ -421,7 +517,7 @@
           </div>
           <div class="yb-actions">
             <a class="yb-btn yb-btn--primary" id="contactLink" href="mailto:kontakt@wakacjecypr.com">Contact us</a>
-            <a class="yb-btn" id="loginLink" href="/auth/">Log in to see more</a>
+            <button class="yb-btn" id="loginLink" type="button">Log in to see more</button>
             <a class="yb-btn yb-btn--blue" id="allBookingsLink" href="/achievements.html?section=reservations" hidden>View all bookings</a>
           </div>
         </article>
@@ -464,7 +560,33 @@
         </div>
       </section>
     </main>
+
+    <div class="yb-auth-overlay" id="authModal" role="dialog" aria-modal="true" aria-labelledby="authTitle" hidden>
+      <div class="yb-auth-modal">
+        <div class="yb-auth-modal__header">
+          <div>
+            <h2 id="authTitle">Log in</h2>
+            <p id="authCopy">Use the email address from this booking to see more details.</p>
+          </div>
+          <button class="yb-auth-close" id="authClose" type="button" aria-label="Close">&times;</button>
+        </div>
+        <form class="yb-auth-form" id="authForm" novalidate>
+          <div class="yb-auth-field">
+            <label for="authEmail" id="authEmailLabel">Email</label>
+            <input id="authEmail" name="email" type="email" autocomplete="email" required />
+          </div>
+          <div class="yb-auth-field">
+            <label for="authPassword" id="authPasswordLabel">Password</label>
+            <input id="authPassword" name="password" type="password" autocomplete="current-password" required />
+          </div>
+          <p class="yb-auth-status" id="authStatus" aria-live="polite"></p>
+          <div class="yb-actions">
+            <button class="yb-btn yb-btn--primary" id="authSubmit" type="submit">Log in</button>
+            <button class="yb-btn" id="authCancel" type="button">Close</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </body>
 </html>
-
