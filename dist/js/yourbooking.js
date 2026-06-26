@@ -339,7 +339,7 @@ function renderBooking(payload) {
   }
 
   setText('contactLink', tr('contact'));
-  $('contactLink').href = String(actions.contact_url || 'mailto:hello@cypruseye.com');
+  $('contactLink').href = String(actions.contact_url || 'mailto:kontakt@wakacjecypr.com');
   setText('loginLink', tr('login'));
   $('loginLink').href = `/auth/?lang=${state.lang}`;
   setText('allBookingsLink', tr('allBookings'));
