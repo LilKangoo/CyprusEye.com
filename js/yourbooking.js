@@ -5,7 +5,7 @@ const supabase = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: false,
+    detectSessionInUrl: true,
     multiTab: true,
   },
 });
@@ -23,15 +23,27 @@ const DICT = {
     contact: 'Contact us',
     login: 'Log in to see more',
     allBookings: 'View all bookings',
-    authTitle: 'Log in',
-    authCopy: 'Use the email address from this booking to see more details.',
+    authTitleLogin: 'Log in',
+    authTitleRegister: 'Create account',
+    authTitleMismatch: 'Use the booking email',
+    authCopyLogin: 'Log in with the account used for this booking.',
+    authCopyRegister: 'Create an account for the email address used for this booking.',
+    authCopyMismatch: 'You are signed in with a different email address. Sign out, then continue with the booking email.',
     authEmail: 'Email',
     authPassword: 'Password',
+    authCreatePassword: 'Create password',
+    authConfirmPassword: 'Confirm password',
     authSubmit: 'Log in',
+    authRegisterSubmit: 'Create account',
     authClose: 'Close',
+    authSignOut: 'Sign out',
     authSigningIn: 'Signing in...',
+    authRegistering: 'Creating account...',
     authSuccess: 'Signed in. Refreshing booking details...',
+    authConfirmationSent: 'Check the booking email for the confirmation link, then return to this page.',
     authError: 'We could not sign you in. Check the email and password, then try again.',
+    authRegisterError: 'We could not create the account. Check the password and try again.',
+    authPasswordHelp: 'Use at least 8 characters.',
     moneyTitle: 'Payment summary',
     paid: 'Paid',
     total: 'Total',
@@ -75,15 +87,27 @@ const DICT = {
     contact: 'Skontaktuj się',
     login: 'Zaloguj się, aby zobaczyć więcej',
     allBookings: 'Zobacz wszystkie rezerwacje',
-    authTitle: 'Logowanie',
-    authCopy: 'Użyj adresu email z tej rezerwacji, aby zobaczyć więcej szczegółów.',
+    authTitleLogin: 'Logowanie',
+    authTitleRegister: 'Utwórz konto',
+    authTitleMismatch: 'Użyj emaila z rezerwacji',
+    authCopyLogin: 'Zaloguj się kontem użytym przy tej rezerwacji.',
+    authCopyRegister: 'Utwórz konto dla adresu email użytego przy tej rezerwacji.',
+    authCopyMismatch: 'Jesteś zalogowany innym adresem email. Wyloguj się, a potem kontynuuj emailem z rezerwacji.',
     authEmail: 'Email',
     authPassword: 'Hasło',
+    authCreatePassword: 'Utwórz hasło',
+    authConfirmPassword: 'Powtórz hasło',
     authSubmit: 'Zaloguj się',
+    authRegisterSubmit: 'Utwórz konto',
     authClose: 'Zamknij',
+    authSignOut: 'Wyloguj',
     authSigningIn: 'Logowanie...',
+    authRegistering: 'Tworzenie konta...',
     authSuccess: 'Zalogowano. Odświeżamy szczegóły rezerwacji...',
+    authConfirmationSent: 'Sprawdź email z rezerwacji i kliknij link potwierdzający, a potem wróć na tę stronę.',
     authError: 'Nie udało się zalogować. Sprawdź email i hasło, a potem spróbuj ponownie.',
+    authRegisterError: 'Nie udało się utworzyć konta. Sprawdź hasło i spróbuj ponownie.',
+    authPasswordHelp: 'Użyj co najmniej 8 znaków.',
     moneyTitle: 'Podsumowanie płatności',
     paid: 'Opłacono',
     total: 'Łącznie',
@@ -127,15 +151,27 @@ const DICT = {
     contact: 'צרו קשר',
     login: 'התחברות לפרטים נוספים',
     allBookings: 'כל ההזמנות',
-    authTitle: 'התחברות',
-    authCopy: 'התחברו עם כתובת האימייל של ההזמנה כדי לראות פרטים נוספים.',
+    authTitleLogin: 'התחברות',
+    authTitleRegister: 'יצירת חשבון',
+    authTitleMismatch: 'השתמשו באימייל של ההזמנה',
+    authCopyLogin: 'התחברו עם החשבון ששימש להזמנה הזו.',
+    authCopyRegister: 'צרו חשבון עבור כתובת האימייל ששימשה להזמנה הזו.',
+    authCopyMismatch: 'אתם מחוברים עם אימייל אחר. התנתקו ואז המשיכו עם אימייל ההזמנה.',
     authEmail: 'אימייל',
     authPassword: 'סיסמה',
+    authCreatePassword: 'יצירת סיסמה',
+    authConfirmPassword: 'אימות סיסמה',
     authSubmit: 'התחברות',
+    authRegisterSubmit: 'יצירת חשבון',
     authClose: 'סגירה',
+    authSignOut: 'התנתקות',
     authSigningIn: 'מתחברים...',
+    authRegistering: 'יוצרים חשבון...',
     authSuccess: 'התחברתם. מרעננים את פרטי ההזמנה...',
+    authConfirmationSent: 'בדקו את אימייל ההזמנה לקישור אישור ואז חזרו לעמוד הזה.',
     authError: 'לא הצלחנו להתחבר. בדקו את האימייל והסיסמה ונסו שוב.',
+    authRegisterError: 'לא הצלחנו ליצור חשבון. בדקו את הסיסמה ונסו שוב.',
+    authPasswordHelp: 'השתמשו לפחות ב-8 תווים.',
     moneyTitle: 'סיכום תשלום',
     paid: 'שולם',
     total: 'סה"כ',
@@ -200,6 +236,8 @@ const state = {
   lang: getLang(),
   token: '',
   data: null,
+  authMode: 'login',
+  maskedEmail: '',
 };
 
 function setLanguage(lang) {
@@ -232,14 +270,24 @@ function setAuthStatus(message, tone = '') {
 }
 
 function updateAuthModalText() {
-  setText('authTitle', tr('authTitle'));
-  setText('authCopy', tr('authCopy'));
+  const mode = state.authMode === 'register' || state.authMode === 'mismatch' ? state.authMode : 'login';
+  setText('authTitle', mode === 'register' ? tr('authTitleRegister') : mode === 'mismatch' ? tr('authTitleMismatch') : tr('authTitleLogin'));
+  setText('authCopy', mode === 'register' ? tr('authCopyRegister') : mode === 'mismatch' ? tr('authCopyMismatch') : tr('authCopyLogin'));
   setText('authEmailLabel', tr('authEmail'));
-  setText('authPasswordLabel', tr('authPassword'));
-  setText('authSubmit', tr('authSubmit'));
+  setText('authMaskedEmail', state.maskedEmail || tr('unknown'));
+  setText('authPasswordLabel', mode === 'register' ? tr('authCreatePassword') : tr('authPassword'));
+  setText('authConfirmPasswordLabel', tr('authConfirmPassword'));
+  setText('authSubmit', mode === 'register' ? tr('authRegisterSubmit') : tr('authSubmit'));
+  setText('authSignOut', tr('authSignOut'));
   setText('authCancel', tr('authClose'));
   const closeButton = $('authClose');
   if (closeButton) closeButton.setAttribute('aria-label', tr('authClose'));
+  const isMismatch = mode === 'mismatch';
+  $('authPasswordWrap').hidden = isMismatch;
+  $('authConfirmWrap').hidden = mode !== 'register';
+  $('authSubmit').hidden = isMismatch;
+  $('authSignOut').hidden = !isMismatch;
+  $('authPassword').autocomplete = mode === 'register' ? 'new-password' : 'current-password';
 }
 
 function openAuthModal() {
@@ -249,7 +297,13 @@ function openAuthModal() {
   if (!modal) return;
   modal.hidden = false;
   $('loginLink')?.setAttribute('aria-expanded', 'true');
-  window.setTimeout(() => $('authEmail')?.focus(), 0);
+  window.setTimeout(() => {
+    if (state.authMode === 'mismatch') {
+      $('authSignOut')?.focus();
+    } else {
+      $('authPassword')?.focus();
+    }
+  }, 0);
 }
 
 function closeAuthModal() {
@@ -375,6 +429,53 @@ async function resolveBooking() {
   return normalizePayload(payload);
 }
 
+async function requestBookingAuth({ authMode, password, confirmPassword }) {
+  const authToken = await getAuthToken();
+  const authorizationToken = authToken || SUPABASE_CONFIG.anonKey;
+  const response = await fetch(getFunctionUrl(), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: SUPABASE_CONFIG.anonKey,
+      Authorization: `Bearer ${authorizationToken}`,
+    },
+    body: JSON.stringify({
+      action: 'auth',
+      token: state.token,
+      lang: state.lang,
+      auth_mode: authMode,
+      password,
+      confirm_password: confirmPassword,
+    }),
+  });
+
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch (_error) {
+    payload = null;
+  }
+
+  if (!response.ok || !payload?.ok) {
+    if (payload?.auth_mode) state.authMode = String(payload.auth_mode);
+    if (payload?.masked_customer_email) state.maskedEmail = String(payload.masked_customer_email);
+    updateAuthModalText();
+    throw new Error(String(payload?.error || 'auth_failed'));
+  }
+
+  return normalizePayload(payload);
+}
+
+async function applySession(session) {
+  const accessToken = String(session?.access_token || '').trim();
+  const refreshToken = String(session?.refresh_token || '').trim();
+  if (!accessToken || !refreshToken || typeof supabase.auth.setSession !== 'function') return;
+  await supabase.auth.setSession({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  });
+}
+
 function renderBooking(payload) {
   state.data = payload;
   const booking = normalizePayload(payload.booking);
@@ -384,6 +485,8 @@ function renderBooking(payload) {
   const customer = normalizePayload(payload.customer);
   const actions = normalizePayload(payload.actions);
   const isOwner = Boolean(payload.is_owner);
+  state.authMode = String(payload.auth_mode || (isOwner ? 'owner' : payload.auth_email_mismatch ? 'mismatch' : 'login'));
+  state.maskedEmail = String(payload.masked_customer_email || '');
   const type = String(booking.type || '');
   const currency = String(money.currency || 'EUR');
 
@@ -466,25 +569,54 @@ async function refreshBookingAccess() {
 
 async function handleAuthSubmit(event) {
   event.preventDefault();
-  const email = String($('authEmail')?.value || '').trim();
+  const authMode = state.authMode === 'register' ? 'register' : 'login';
   const password = String($('authPassword')?.value || '');
-  if (!email || !password) {
-    setAuthStatus(tr('authError'), 'error');
+  const confirmPassword = String($('authConfirmPassword')?.value || '');
+  if (!password || (authMode === 'register' && (password.length < 8 || password !== confirmPassword))) {
+    setAuthStatus(authMode === 'register' ? `${tr('authRegisterError')} ${tr('authPasswordHelp')}` : tr('authError'), 'error');
     return;
   }
 
-  setAuthStatus(tr('authSigningIn'));
+  setAuthStatus(authMode === 'register' ? tr('authRegistering') : tr('authSigningIn'));
   $('authSubmit').disabled = true;
   try {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-    setAuthStatus(tr('authSuccess'), 'success');
+    const payload = await requestBookingAuth({ authMode, password, confirmPassword });
+    state.authMode = String(payload.auth_mode || state.authMode);
+    state.maskedEmail = String(payload.masked_customer_email || state.maskedEmail);
+    if (payload.session) {
+      await applySession(payload.session);
+      setAuthStatus(tr('authSuccess'), 'success');
+      await refreshBookingAccess();
+      closeAuthModal();
+      return;
+    }
+    if (payload.requires_confirmation) {
+      setAuthStatus(tr('authConfirmationSent'), 'success');
+      updateAuthModalText();
+      return;
+    }
     await refreshBookingAccess();
     closeAuthModal();
   } catch (_error) {
-    setAuthStatus(tr('authError'), 'error');
+    setAuthStatus(authMode === 'register' ? tr('authRegisterError') : tr('authError'), 'error');
   } finally {
     $('authSubmit').disabled = false;
+  }
+}
+
+async function handleAuthSignOut() {
+  setAuthStatus('');
+  try {
+    await supabase.auth.signOut();
+  } catch (_error) {
+    // Continue with a fresh public resolve even if local sign-out fails.
+  }
+  try {
+    await refreshBookingAccess();
+    updateAuthModalText();
+  } catch (_error) {
+    showError();
+    closeAuthModal();
   }
 }
 
@@ -508,6 +640,7 @@ async function main() {
   });
   $('authClose')?.addEventListener('click', closeAuthModal);
   $('authCancel')?.addEventListener('click', closeAuthModal);
+  $('authSignOut')?.addEventListener('click', handleAuthSignOut);
   $('authModal')?.addEventListener('click', (event) => {
     if (event.target === $('authModal')) closeAuthModal();
   });

@@ -2,7 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
 type BookingType = "transport" | "cars" | "trips" | "hotels";
-type Action = "resolve" | "create_token";
+type Action = "resolve" | "auth" | "create_token";
+type AuthMode = "login" | "register" | "owner" | "mismatch";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -103,6 +104,40 @@ async function getAuthenticatedUserEmail(supabase: any, req: Request): Promise<s
   } catch (_error) {
     return "";
   }
+}
+
+function maskEmail(email: string): string {
+  const clean = valueToString(email).toLowerCase();
+  const [local = "", domain = ""] = clean.split("@");
+  if (!local || !domain) return "";
+  const prefix = local.length <= 2 ? local.slice(0, 1) : local.slice(0, 2);
+  return `${prefix}***@${domain}`;
+}
+
+async function accountExistsForEmail(supabase: any, email: string): Promise<boolean> {
+  const target = valueToString(email).toLowerCase();
+  if (!target) return false;
+
+  try {
+    for (let page = 1; page <= 20; page += 1) {
+      const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 1000 });
+      if (error) {
+        console.error("[booking-access] failed to list auth users", error);
+        return true;
+      }
+
+      const users = Array.isArray((data as any)?.users) ? (data as any).users : [];
+      if (users.some((user: any) => valueToString(user?.email).toLowerCase() === target)) {
+        return true;
+      }
+      if (users.length < 1000) return false;
+    }
+  } catch (error) {
+    console.error("[booking-access] failed to check auth user", error);
+    return true;
+  }
+
+  return true;
 }
 
 async function isUserAdmin(supabase: any, req: Request): Promise<boolean> {
@@ -471,6 +506,13 @@ async function handleResolve(supabase: any, req: Request, body: Record<string, u
   const customerEmail = firstNonEmpty((tokenRow as any).customer_email, resolveCustomerEmail(bookingType, booking)).toLowerCase();
   const isOwner = Boolean(authEmail && customerEmail && authEmail === customerEmail);
   const lang = normalizeLang(body.lang || (booking as any).lang);
+  const authMode: AuthMode = isOwner
+    ? "owner"
+    : authEmail
+      ? "mismatch"
+      : await accountExistsForEmail(supabase, customerEmail)
+        ? "login"
+        : "register";
 
   await supabase
     .from("booking_access_tokens")
@@ -485,12 +527,114 @@ async function handleResolve(supabase: any, req: Request, body: Record<string, u
     isOwner,
   });
 
+  payload.auth_mode = authMode;
+  payload.masked_customer_email = maskEmail(customerEmail);
+
   if (authEmail && !isOwner) {
     payload.auth_email_mismatch = true;
     payload.message = "This booking belongs to a different email address.";
   }
 
   return jsonResponse(200, payload);
+}
+
+async function handleAuth(supabase: any, body: Record<string, unknown>) {
+  const rawToken = valueToString(body.token);
+  if (!rawToken || rawToken.length < 24) return safeError(404);
+
+  const tokenHash = await sha256Hex(rawToken);
+  const { data: tokenRow, error: tokenError } = await supabase
+    .from("booking_access_tokens")
+    .select("*")
+    .eq("token_hash", tokenHash)
+    .is("revoked_at", null)
+    .maybeSingle();
+
+  if (tokenError || !tokenRow) return safeError(404);
+  const expiresAt = valueToString((tokenRow as any).expires_at);
+  if (expiresAt) {
+    const expiresMs = Date.parse(expiresAt);
+    if (Number.isFinite(expiresMs) && expiresMs <= Date.now()) return safeError(404);
+  }
+
+  const bookingType = normalizeBookingType((tokenRow as any).booking_type);
+  const bookingId = valueToString((tokenRow as any).booking_id);
+  if (!bookingType || !bookingId) return safeError(404);
+
+  const booking = await loadBooking(supabase, bookingType, bookingId);
+  if (!booking) return safeError(404);
+
+  const customerEmail = firstNonEmpty((tokenRow as any).customer_email, resolveCustomerEmail(bookingType, booking)).toLowerCase();
+  if (!customerEmail) return safeError(404);
+
+  const mode = valueToString(body.auth_mode).toLowerCase();
+  const password = valueToString(body.password);
+  const confirmPassword = valueToString(body.confirm_password);
+  const lang = normalizeLang(body.lang || (booking as any).lang);
+  const redirectTo = `${publicBaseUrl}/yourbooking.html?lang=${lang}&token=${encodeURIComponent(rawToken)}`;
+
+  if (mode === "login") {
+    if (!password) return jsonResponse(400, { ok: false, error: "auth_failed" });
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: customerEmail,
+      password,
+    });
+    const session = (data as any)?.session;
+    if (error || !session?.access_token || !session?.refresh_token) {
+      return jsonResponse(401, { ok: false, error: "auth_failed", auth_mode: "login", masked_customer_email: maskEmail(customerEmail) });
+    }
+    return jsonResponse(200, {
+      ok: true,
+      auth_mode: "owner",
+      masked_customer_email: maskEmail(customerEmail),
+      session: {
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      },
+    });
+  }
+
+  if (mode === "register") {
+    if (!password || password !== confirmPassword || password.length < 8) {
+      return jsonResponse(400, { ok: false, error: "registration_failed", auth_mode: "register", masked_customer_email: maskEmail(customerEmail) });
+    }
+    const accountExists = await accountExistsForEmail(supabase, customerEmail);
+    if (accountExists) {
+      return jsonResponse(409, { ok: false, error: "account_exists", auth_mode: "login", masked_customer_email: maskEmail(customerEmail) });
+    }
+    const { data, error } = await supabase.auth.signUp({
+      email: customerEmail,
+      password,
+      options: {
+        emailRedirectTo: redirectTo,
+      },
+    });
+    if (error) {
+      return jsonResponse(400, { ok: false, error: "registration_failed", auth_mode: "register", masked_customer_email: maskEmail(customerEmail) });
+    }
+
+    const session = (data as any)?.session;
+    if (session?.access_token && session?.refresh_token) {
+      return jsonResponse(200, {
+        ok: true,
+        auth_mode: "owner",
+        masked_customer_email: maskEmail(customerEmail),
+        session: {
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        },
+      });
+    }
+
+    return jsonResponse(200, {
+      ok: true,
+      auth_mode: "register",
+      requires_confirmation: true,
+      masked_customer_email: maskEmail(customerEmail),
+    });
+  }
+
+  return jsonResponse(400, { ok: false, error: "invalid_auth_mode" });
 }
 
 async function handleCreateToken(supabase: any, req: Request, body: Record<string, unknown>) {
@@ -542,6 +686,7 @@ serve(async (req: Request) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   if (action === "resolve") return handleResolve(supabase, req, body);
+  if (action === "auth") return handleAuth(supabase, body);
   if (action === "create_token") return handleCreateToken(supabase, req, body);
   return jsonResponse(400, { ok: false, error: "invalid_action" });
 });

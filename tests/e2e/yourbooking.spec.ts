@@ -33,6 +33,8 @@ const publicPayload = {
   ok: true,
   access_level: 'public_preview',
   is_owner: false,
+  auth_mode: 'login',
+  masked_customer_email: 'an***@gmail.com',
   booking: {
     reference: 'TR-123',
     type: 'transport',
@@ -117,18 +119,97 @@ test.describe('yourbooking public preview', () => {
 
     await expect(page.locator('#authModal')).toBeVisible();
     await expect(page.locator('#authTitle')).toHaveText('Log in');
-    await expect(page.locator('#authEmail')).toBeFocused();
+    await expect(page.locator('#authMaskedEmail')).toHaveText('an***@gmail.com');
+    await expect(page.locator('#authEmail')).toHaveCount(0);
+    await expect(page.locator('#authPassword')).toBeFocused();
     expect(page.url()).toBe(urlBeforeLoginClick);
     expect(new URL(page.url()).pathname).toBe('/yourbooking.html');
     expect(new URL(page.url()).searchParams.get('token')).toBe('valid-token');
     expect(new URL(page.url()).searchParams.get('lang')).toBe('en');
   });
 
-  test('refreshes booking access after a successful modal login', async ({ page }) => {
-    let requestCount = 0;
+  test('renders register mode without editable email and sends confirmation state without redirect', async ({ page }) => {
+    let authRequestBody: Record<string, unknown> | null = null;
     await page.route(FUNCTION_ROUTE, async (route) => {
-      requestCount += 1;
-      const payload = requestCount === 1
+      const body = JSON.parse(route.request().postData() || '{}');
+      if (body.action === 'auth') {
+        authRequestBody = body;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            ok: true,
+            auth_mode: 'register',
+            requires_confirmation: true,
+            masked_customer_email: 'an***@gmail.com',
+          }),
+          headers: { 'access-control-allow-origin': '*' },
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ...publicPayload,
+          auth_mode: 'register',
+          masked_customer_email: 'an***@gmail.com',
+        }),
+        headers: { 'access-control-allow-origin': '*' },
+      });
+    });
+
+    await page.goto('/yourbooking.html?lang=en&token=valid-token');
+    const urlBeforeRegister = page.url();
+    await page.locator('#loginLink').click();
+
+    await expect(page.locator('#authTitle')).toHaveText('Create account');
+    await expect(page.locator('#authMaskedEmail')).toHaveText('an***@gmail.com');
+    await expect(page.locator('#authEmail')).toHaveCount(0);
+    await expect(page.locator('#authConfirmWrap')).toBeVisible();
+
+    await page.locator('#authPassword').fill('new-secret-password');
+    await page.locator('#authConfirmPassword').fill('new-secret-password');
+    await page.locator('#authSubmit').click();
+
+    await expect(page.locator('#authStatus')).toContainText('Check the booking email');
+    expect(authRequestBody).toMatchObject({
+      action: 'auth',
+      auth_mode: 'register',
+      token: 'valid-token',
+      lang: 'en',
+    });
+    expect(authRequestBody).not.toHaveProperty('email');
+    expect(page.url()).toBe(urlBeforeRegister);
+  });
+
+  test('refreshes booking access after a successful modal login', async ({ page }) => {
+    let resolveCount = 0;
+    let authCount = 0;
+    await page.route(FUNCTION_ROUTE, async (route) => {
+      const body = JSON.parse(route.request().postData() || '{}');
+      if (body.action === 'auth') {
+        authCount += 1;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            ok: true,
+            auth_mode: 'owner',
+            masked_customer_email: 'an***@gmail.com',
+            session: {
+              access_token: 'owner-session-token',
+              refresh_token: 'owner-refresh-token',
+            },
+          }),
+          headers: {
+            'access-control-allow-origin': '*',
+          },
+        });
+        return;
+      }
+      resolveCount += 1;
+      const payload = resolveCount === 1
         ? publicPayload
         : {
             ...publicPayload,
@@ -160,23 +241,16 @@ test.describe('yourbooking public preview', () => {
 
     await page.goto('/yourbooking.html?lang=en&token=valid-token');
     const urlBeforeLogin = page.url();
-    await page.evaluate(() => {
-      window.__supabaseStub.seedUser({
-        email: 'anna@example.com',
-        password: 'secret-password',
-        profile: { id: 'owner-user' },
-      });
-    });
 
     await page.locator('#loginLink').click();
-    await page.locator('#authEmail').fill('anna@example.com');
     await page.locator('#authPassword').fill('secret-password');
     await page.locator('#authSubmit').click();
 
     await expect(page.locator('#ownerNote')).toBeVisible();
     await expect(page.locator('#allBookingsLink')).toBeVisible();
     await expect(page.locator('#loginLink')).toBeHidden();
-    expect(requestCount).toBe(2);
+    expect(resolveCount).toBe(2);
+    expect(authCount).toBe(1);
     expect(page.url()).toBe(urlBeforeLogin);
   });
 
@@ -192,6 +266,7 @@ test.describe('yourbooking public preview', () => {
     await page.locator('#loginLink').click();
     await expect(page.locator('#authModal')).toBeVisible();
     await expect(page.locator('#authTitle')).toHaveText('Logowanie');
+    await expect(page.locator('#authMaskedEmail')).toHaveText('an***@gmail.com');
   });
 
   test('shows owner details and all-bookings link for owner access', async ({ page }) => {
@@ -220,6 +295,7 @@ test.describe('yourbooking public preview', () => {
       ...publicPayload,
       access_level: 'owner',
       is_owner: true,
+      auth_mode: 'owner',
       customer: {
         name: 'Anna Kowalska',
         email: 'anna@example.com',
@@ -249,6 +325,25 @@ test.describe('yourbooking public preview', () => {
     expect(authorizationHeader).toBe('Bearer owner-session-token');
   });
 
+  test('shows mismatch mode with safe message and sign-out option', async ({ page }) => {
+    await routeBookingAccess(page, {
+      ...publicPayload,
+      auth_mode: 'mismatch',
+      auth_email_mismatch: true,
+      message: 'This booking belongs to a different email address.',
+    });
+
+    await page.goto('/yourbooking.html?lang=en&token=valid-token');
+
+    await expect(page.locator('#mismatchNote')).toBeVisible();
+    await expect(page.locator('#detailsGrid')).not.toContainText('anna@example.com');
+    await page.locator('#loginLink').click();
+    await expect(page.locator('#authTitle')).toHaveText('Use the booking email');
+    await expect(page.locator('#authSignOut')).toBeVisible();
+    await expect(page.locator('#authSubmit')).toBeHidden();
+    expect(new URL(page.url()).pathname).toBe('/yourbooking.html');
+  });
+
   test('renders Hebrew UI in RTL via query param without using /he/ route', async ({ page }) => {
     await routeBookingAccess(page, publicPayload);
 
@@ -266,6 +361,7 @@ test.describe('yourbooking public preview', () => {
     await expect(page.locator('#authModal')).toBeVisible();
     await expect(page.locator('#authTitle')).toHaveText('התחברות');
     await expect(page.locator('#authEmailLabel')).toHaveText('אימייל');
+    await expect(page.locator('#authMaskedEmail')).toHaveText('an***@gmail.com');
   });
 
   test('renders Hebrew safe error state in RTL', async ({ page }) => {

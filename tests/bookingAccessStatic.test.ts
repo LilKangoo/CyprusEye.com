@@ -45,11 +45,26 @@ describe('booking access token preview', () => {
 
   it('resolves one booking from a SHA-256 token and never exposes other bookings', () => {
     expect(functionSource).toContain('async function sha256Hex');
+    expect(functionSource).toContain('function maskEmail');
+    expect(functionSource).toContain('async function accountExistsForEmail');
     expect(functionSource).toContain('.from("booking_access_tokens")');
     expect(functionSource).toContain('.eq("token_hash", tokenHash)');
     expect(functionSource).toContain('access_level: isOwner ? "owner" : "public_preview"');
     expect(functionSource).toContain('is_owner: isOwner');
+    expect(functionSource).toContain('payload.auth_mode = authMode');
+    expect(functionSource).toContain('payload.masked_customer_email = maskEmail(customerEmail)');
     expect(functionSource).not.toContain('shop_orders');
+  });
+
+  it('keeps booking auth tied to the token customer email instead of client input', () => {
+    expect(functionSource).toContain('action === "auth"');
+    expect(functionSource).toContain('handleAuth(supabase, body)');
+    expect(functionSource).toContain('email: customerEmail');
+    expect(functionSource).toContain('supabase.auth.signInWithPassword');
+    expect(functionSource).toContain('supabase.auth.signUp');
+    expect(clientSource).toContain("action: 'auth'");
+    expect(clientSource).toContain('auth_mode: authMode');
+    expect(clientSource).not.toContain('email: email');
   });
 
   it('keeps create_token internal-only and returns the raw token only at creation time', () => {
@@ -85,7 +100,7 @@ describe('booking access token preview', () => {
     expect(clientSource).toContain("action: 'resolve'");
     expect(clientSource).toContain('const authorizationToken = authToken || SUPABASE_CONFIG.anonKey');
     expect(clientSource).toContain('Authorization: `Bearer ${authorizationToken}`');
-    expect(clientSource).toContain('signInWithPassword');
+    expect(clientSource).toContain('requestBookingAuth');
     expect(clientSource).toContain('refreshBookingAccess');
     expect(clientSource).toContain("const CONTACT_URL = 'mailto:kontakt@wakacjecypr.com'");
     expect(clientSource).not.toContain('hello@cypruseye.com');

@@ -421,6 +421,27 @@
       gap: 12px;
     }
 
+    .yb-auth-email {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid var(--yb-line);
+      border-radius: 8px;
+      background: #f8fafc;
+      color: var(--yb-text);
+      font-weight: 900;
+      overflow-wrap: anywhere;
+    }
+
+    .yb-auth-email span:first-child {
+      color: var(--yb-muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
     .yb-auth-field {
       display: grid;
       gap: 6px;
@@ -482,7 +503,7 @@
     }
   </style>
 
-  <script type="module" src="/js/yourbooking.js?v=20260626b"></script>
+  <script type="module" src="/js/yourbooking.js?v=20260626c"></script>
 </head>
 <body>
   <div class="yb-shell">
@@ -571,17 +592,22 @@
           <button class="yb-auth-close" id="authClose" type="button" aria-label="Close">&times;</button>
         </div>
         <form class="yb-auth-form" id="authForm" novalidate>
-          <div class="yb-auth-field">
-            <label for="authEmail" id="authEmailLabel">Email</label>
-            <input id="authEmail" name="email" type="email" autocomplete="email" required />
+          <div class="yb-auth-email" id="authMaskedEmailWrap">
+            <span id="authEmailLabel">Email</span>
+            <strong id="authMaskedEmail">-</strong>
           </div>
-          <div class="yb-auth-field">
+          <div class="yb-auth-field" id="authPasswordWrap">
             <label for="authPassword" id="authPasswordLabel">Password</label>
             <input id="authPassword" name="password" type="password" autocomplete="current-password" required />
+          </div>
+          <div class="yb-auth-field" id="authConfirmWrap" hidden>
+            <label for="authConfirmPassword" id="authConfirmPasswordLabel">Confirm password</label>
+            <input id="authConfirmPassword" name="confirm_password" type="password" autocomplete="new-password" />
           </div>
           <p class="yb-auth-status" id="authStatus" aria-live="polite"></p>
           <div class="yb-actions">
             <button class="yb-btn yb-btn--primary" id="authSubmit" type="submit">Log in</button>
+            <button class="yb-btn yb-btn--blue" id="authSignOut" type="button" hidden>Sign out</button>
             <button class="yb-btn" id="authCancel" type="button">Close</button>
           </div>
         </form>
