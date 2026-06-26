@@ -272,7 +272,7 @@ async function mapBookingPayload(
       name: firstName(firstNonEmpty((booking as any).customer_name, (booking as any).full_name)),
     },
     actions: {
-      contact_url: `mailto:hello@cypruseye.com?subject=${encodeURIComponent("Booking " + firstNonEmpty((tokenRow as any).booking_reference, (booking as any).id))}`,
+      contact_url: `mailto:kontakt@wakacjecypr.com?subject=${encodeURIComponent("Booking " + firstNonEmpty((tokenRow as any).booking_reference, (booking as any).id))}`,
       login_url: `/auth/?lang=${lang}`,
       all_bookings_url: isOwner ? `/achievements.html?lang=${lang}&section=reservations` : null,
     },
