@@ -42,6 +42,7 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const CUSTOMER_HOMEPAGE_URL = "https://cypruseye.com";
 const BRAND_LOGO_URL = "https://cypruseye.com/assets/cyprus_logo-1000x1054.png";
+type BookingAccessType = "transport" | "cars" | "trips" | "hotels";
 
 let webPushServerPromise: Promise<any | null> | null = null;
 
@@ -125,6 +126,75 @@ function getDefaultPartnerPushUrl(): string {
   const base = getMailRelayBaseUrl();
   const normalized = base.endsWith("/") ? base.slice(0, -1) : base;
   return `${normalized}/partners/`;
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function createRawBookingAccessToken(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return bytesToBase64Url(bytes);
+}
+
+function normalizeBookingAccessType(value: unknown): BookingAccessType | null {
+  const category = normalizeServiceCategory(value);
+  if (category === "transport" || category === "cars" || category === "trips" || category === "hotels") {
+    return category;
+  }
+  return null;
+}
+
+function buildYourBookingUrl(rawToken: string, langValue: unknown): string {
+  const base = getMailRelayBaseUrl();
+  const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
+  const url = new URL(`${normalizedBase}/yourbooking.html`);
+  url.searchParams.set("lang", normalizeDepositLang(langValue));
+  url.searchParams.set("token", rawToken);
+  return url.toString();
+}
+
+async function createBookingAccessTokenForDeposit(
+  supabase: any,
+  deposit: Record<string, unknown>,
+): Promise<string> {
+  const bookingType = normalizeBookingAccessType((deposit as any)?.resource_type);
+  const bookingId = firstNonEmpty((deposit as any)?.booking_id);
+  const customerEmail = firstNonEmpty((deposit as any)?.customer_email);
+  if (!bookingType || !bookingId || !customerEmail) return "";
+
+  const rawToken = createRawBookingAccessToken();
+  const tokenHash = await sha256Hex(rawToken);
+  const bookingReference = firstNonEmpty(
+    getField(deposit, ["fulfillment_reference", "booking_reference", "reference", "id"]),
+  );
+
+  try {
+    const { error } = await supabase
+      .from("booking_access_tokens")
+      .insert({
+        booking_type: bookingType,
+        booking_id: bookingId,
+        booking_reference: bookingReference || null,
+        customer_email: customerEmail,
+        token_hash: tokenHash,
+      });
+
+    if (error) {
+      console.warn("Failed to create booking access token for customer paid email:", error);
+      return "";
+    }
+  } catch (error) {
+    console.warn("Failed to create booking access token for customer paid email:", error);
+    return "";
+  }
+
+  return buildYourBookingUrl(rawToken, (deposit as any)?.lang);
 }
 
 async function sendAdminWebPushNotifications(params: {
@@ -288,6 +358,7 @@ function parseRecipients(raw: string): string[] {
 
 function renderCustomerDepositPaidEmail(params: {
   deposit: Record<string, unknown>;
+  yourBookingUrl?: string;
 }): { subject: string; html: string; text: string } {
   const deposit = params.deposit;
   const lang = normalizeDepositLang((deposit as any)?.lang);
@@ -297,6 +368,8 @@ function renderCustomerDepositPaidEmail(params: {
   const summary = String((deposit as any)?.fulfillment_summary || "").trim();
   const paidAtIso = String((deposit as any)?.paid_at || new Date().toISOString());
   const paidAt = formatDateTime(paidAtIso);
+  const yourBookingUrl = String(params.yourBookingUrl || "").trim();
+  const ctaText = lang === "pl" ? "Zobacz rezerwację" : "View booking";
   const selectedDate = formatDate(
     valueToString((deposit as any)?.selected_trip_date)
     || valueToString((deposit as any)?.selected_date)
@@ -358,6 +431,7 @@ function renderCustomerDepositPaidEmail(params: {
       </div>
       <div style="font-size:14px; margin: 14px 0 0;">${escapeHtml(intro)}</div>
       ${summaryTable ? `<h3 style="margin:18px 0 8px; font-size:16px;">${escapeHtml(lang === "pl" ? "Podsumowanie" : "Summary")}</h3>${summaryTable}` : ""}
+      ${yourBookingUrl ? `<div style="margin-top:18px;"><a href="${escapeHtml(yourBookingUrl)}" style="display:inline-block; padding:10px 14px; background:#111827; color:#ffffff; text-decoration:none; border-radius:6px; font-weight:700;">${escapeHtml(ctaText)}</a></div>` : ""}
       <div style="font-size:12px; color:#6b7280; margin-top:14px;">${escapeHtml(lang === "pl" ? "W razie pytań odpowiadaj na tę wiadomość." : "If you have any questions, reply to this email.")}</div>
     </div>`;
 
@@ -371,6 +445,7 @@ function renderCustomerDepositPaidEmail(params: {
   if (reference) textLines.push(`Reference: ${reference}`);
   if (selectedDate) textLines.push(`Selected date: ${selectedDate}`);
   textLines.push(`Deposit: ${formatMoney(amount, currency)}`);
+  if (yourBookingUrl) textLines.push("", `${ctaText}: ${yourBookingUrl}`);
   return { subject, html, text: textLines.join("\n") };
 }
 
@@ -846,6 +921,7 @@ function buildDepositPaidTemplateVariables(params: {
   deposit: Record<string, unknown>;
   contact?: Record<string, unknown> | null;
   actionUrl?: string;
+  yourBookingUrl?: string;
 }): Record<string, string> {
   const deposit = params.deposit;
   const contact = params.contact || {};
@@ -857,6 +933,8 @@ function buildDepositPaidTemplateVariables(params: {
   const summary = firstNonEmpty(getField(deposit, ["fulfillment_summary", "service_name", "booking_summary", "resource_name"]), "Service booking");
   const customerName = firstNonEmpty(getField(contact, ["customer_name", "name"]), getField(deposit, ["customer_name", "name"]), lang === "pl" ? "Klient" : "Customer");
   const partnerUrl = params.actionUrl || buildPartnerPanelLink(getField(deposit, ["fulfillment_id"]));
+  const yourBookingUrl = firstNonEmpty(params.yourBookingUrl);
+  const actionUrl = firstNonEmpty(yourBookingUrl, params.actionUrl, partnerUrl, CUSTOMER_HOMEPAGE_URL);
 
   return {
     booking_reference: reference,
@@ -869,8 +947,9 @@ function buildDepositPaidTemplateVariables(params: {
     paid_amount: paidAmount,
     deposit_amount: paidAmount,
     currency,
-    payment_url: firstNonEmpty((deposit as any)?.checkout_url),
-    action_url: firstNonEmpty(params.actionUrl, partnerUrl, CUSTOMER_HOMEPAGE_URL),
+    yourbooking_url: yourBookingUrl,
+    booking_url: yourBookingUrl,
+    action_url: actionUrl,
     partner_url: partnerUrl,
     homepage_url: CUSTOMER_HOMEPAGE_URL,
   };
@@ -947,8 +1026,10 @@ async function renderEnabledDatabaseEmailTemplate(params: {
     const customHtml = String(localized.html || "").trim();
     if (!subject || !heading || !intro || !cta) return null;
 
-    const actionUrl = params.variables.payment_url
+    const actionUrl = params.variables.yourbooking_url
+      || params.variables.booking_url
       || params.variables.action_url
+      || params.variables.payment_url
       || params.variables.date_options_url
       || params.variables.plan_url
       || params.variables.accept_url
@@ -4247,14 +4328,16 @@ serve(async (req) => {
       });
     }
 
-    const fallbackRendered = renderCustomerDepositPaidEmail({ deposit: dep as any });
+    const yourBookingUrl = await createBookingAccessTokenForDeposit(supabase, dep as any);
+    const fallbackRendered = renderCustomerDepositPaidEmail({ deposit: dep as any, yourBookingUrl });
     const databaseRendered = await renderEnabledDatabaseEmailTemplate({
       supabase,
       templateKey: "customer_deposit_paid",
       lang: normalizeDepositLang((dep as any)?.lang),
       variables: buildDepositPaidTemplateVariables({
         deposit: dep as any,
-        actionUrl: CUSTOMER_HOMEPAGE_URL,
+        actionUrl: yourBookingUrl || CUSTOMER_HOMEPAGE_URL,
+        yourBookingUrl,
       }),
     });
     const rendered = databaseRendered || fallbackRendered;

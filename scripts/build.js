@@ -113,6 +113,7 @@ async function copyStaticFiles() {
       'blog-post.html',
       'deposit.html',
       'trip-date-selection.html',
+      'yourbooking.html',
       'index.html',
       'plan.html',
       'shop.html',

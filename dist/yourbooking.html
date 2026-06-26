@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#f8fafc" />
+  <meta name="robots" content="noindex,nofollow,noarchive" />
+
+  <title>Your booking | CyprusEye.com</title>
+  <link rel="icon" href="/assets/cyprus_logo-1000x1054.png" type="image/png" />
+  <link rel="stylesheet" href="/assets/css/tokens.css?v=20260114" />
+  <link rel="stylesheet" href="/assets/css/base.css?v=20260114" />
+
+  <style>
+    :root {
+      --yb-bg: #f8fafc;
+      --yb-panel: #ffffff;
+      --yb-text: #0f172a;
+      --yb-muted: #64748b;
+      --yb-line: #dbe3ef;
+      --yb-accent: #dc2626;
+      --yb-blue: #2563eb;
+      --yb-green: #15803d;
+      --yb-amber: #b45309;
+      --yb-radius: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--yb-bg);
+      color: var(--yb-text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    .yb-shell {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .yb-topbar {
+      border-bottom: 1px solid var(--yb-line);
+      background: rgba(255, 255, 255, 0.92);
+    }
+
+    .yb-topbar__inner {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      min-height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .yb-brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      color: inherit;
+      text-decoration: none;
+      font-weight: 900;
+    }
+
+    .yb-brand img {
+      width: 38px;
+      height: 40px;
+      object-fit: contain;
+    }
+
+    .yb-brand span {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .yb-lang {
+      display: inline-flex;
+      gap: 4px;
+      border: 1px solid var(--yb-line);
+      border-radius: 999px;
+      padding: 4px;
+      background: #fff;
+    }
+
+    .yb-lang button {
+      min-width: 38px;
+      height: 30px;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--yb-muted);
+      font-weight: 900;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .yb-lang button[aria-pressed="true"] {
+      background: var(--yb-text);
+      color: #fff;
+    }
+
+    .yb-main {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 42px;
+      flex: 1;
+    }
+
+    .yb-hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .yb-status-card,
+    .yb-side-card,
+    .yb-details,
+    .yb-error {
+      background: var(--yb-panel);
+      border: 1px solid var(--yb-line);
+      border-radius: var(--yb-radius);
+      box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+    }
+
+    .yb-status-card {
+      padding: clamp(20px, 4vw, 34px);
+      display: grid;
+      gap: 18px;
+    }
+
+    .yb-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--yb-muted);
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .yb-service-mark {
+      width: 42px;
+      height: 42px;
+      border-radius: 8px;
+      display: inline-grid;
+      place-items: center;
+      background: #fee2e2;
+      color: #991b1b;
+      font-weight: 900;
+      font-size: 15px;
+    }
+
+    .yb-title {
+      margin: 0;
+      font-size: clamp(30px, 5vw, 50px);
+      line-height: 1.03;
+      letter-spacing: 0;
+      max-width: 760px;
+    }
+
+    .yb-subtitle {
+      margin: 0;
+      color: var(--yb-muted);
+      font-size: 16px;
+      line-height: 1.6;
+      max-width: 720px;
+    }
+
+    .yb-badges {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .yb-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 13px;
+      font-weight: 900;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+    }
+
+    .yb-badge--confirmed,
+    .yb-badge--paid,
+    .yb-badge--completed {
+      background: #ecfdf5;
+      color: var(--yb-green);
+      border-color: #bbf7d0;
+    }
+
+    .yb-badge--pending,
+    .yb-badge--awaiting_payment {
+      background: #fffbeb;
+      color: var(--yb-amber);
+      border-color: #fde68a;
+    }
+
+    .yb-badge--cancelled,
+    .yb-badge--failed {
+      background: #fef2f2;
+      color: #b91c1c;
+      border-color: #fecaca;
+    }
+
+    .yb-side-card {
+      padding: 18px;
+      display: grid;
+      align-content: space-between;
+      gap: 16px;
+    }
+
+    .yb-side-card h2 {
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+
+    .yb-money {
+      display: grid;
+      gap: 10px;
+    }
+
+    .yb-money-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      font-size: 14px;
+      color: var(--yb-muted);
+    }
+
+    .yb-money-row strong {
+      color: var(--yb-text);
+      font-size: 17px;
+    }
+
+    .yb-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .yb-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--yb-line);
+      text-decoration: none;
+      color: var(--yb-text);
+      background: #fff;
+      font-weight: 900;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .yb-btn--primary {
+      background: var(--yb-accent);
+      border-color: var(--yb-accent);
+      color: #fff;
+    }
+
+    .yb-btn--blue {
+      background: var(--yb-blue);
+      border-color: var(--yb-blue);
+      color: #fff;
+    }
+
+    .yb-details {
+      margin-top: 18px;
+      padding: 18px;
+    }
+
+    .yb-section-title {
+      margin: 0 0 14px;
+      font-size: 18px;
+    }
+
+    .yb-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .yb-field {
+      min-width: 0;
+      border: 1px solid var(--yb-line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #f8fafc;
+    }
+
+    .yb-label {
+      margin: 0 0 5px;
+      color: var(--yb-muted);
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .yb-value {
+      margin: 0;
+      color: var(--yb-text);
+      font-size: 15px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+
+    .yb-owner-note,
+    .yb-mismatch-note {
+      margin: 16px 0 0;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .yb-owner-note {
+      color: #14532d;
+      background: #dcfce7;
+      border: 1px solid #bbf7d0;
+    }
+
+    .yb-mismatch-note {
+      color: #92400e;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+    }
+
+    .yb-error {
+      max-width: 720px;
+      margin: 36px auto;
+      padding: 26px;
+      text-align: center;
+    }
+
+    .yb-error h1 {
+      margin: 0 0 10px;
+      font-size: 28px;
+    }
+
+    .yb-error p {
+      margin: 0;
+      color: var(--yb-muted);
+      line-height: 1.6;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    @media (max-width: 820px) {
+      .yb-topbar__inner,
+      .yb-main {
+        width: min(100% - 24px, 1120px);
+      }
+
+      .yb-hero {
+        grid-template-columns: 1fr;
+      }
+
+      .yb-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .yb-title {
+        font-size: clamp(28px, 9vw, 40px);
+      }
+    }
+  </style>
+
+  <script type="module" src="/js/yourbooking.js?v=20260626a"></script>
+</head>
+<body>
+  <div class="yb-shell">
+    <header class="yb-topbar">
+      <div class="yb-topbar__inner">
+        <a class="yb-brand" href="/index.html" aria-label="CyprusEye.com">
+          <img src="/assets/cyprus_logo-1000x1054.png" alt="" />
+          <span>CyprusEye.com</span>
+        </a>
+        <div class="yb-lang" aria-label="Language">
+          <button type="button" data-lang="en" aria-pressed="false">EN</button>
+          <button type="button" data-lang="pl" aria-pressed="false">PL</button>
+          <button type="button" data-lang="he" aria-pressed="false">HE</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="yb-main" id="mainContent" aria-live="polite">
+      <section class="yb-hero" id="bookingPanel" hidden>
+        <article class="yb-status-card">
+          <div class="yb-kicker">
+            <span class="yb-service-mark" id="serviceMark">CE</span>
+            <span id="eyebrowText">Booking preview</span>
+          </div>
+          <div>
+            <h1 class="yb-title" id="bookingTitle">Your booking</h1>
+            <p class="yb-subtitle" id="bookingSubtitle"></p>
+          </div>
+          <div class="yb-badges">
+            <span class="yb-badge" id="statusBadge">Pending</span>
+            <span class="yb-badge" id="paymentBadge" hidden>Payment pending</span>
+          </div>
+          <div class="yb-actions">
+            <a class="yb-btn yb-btn--primary" id="contactLink" href="mailto:hello@cypruseye.com">Contact us</a>
+            <a class="yb-btn" id="loginLink" href="/auth/">Log in to see more</a>
+            <a class="yb-btn yb-btn--blue" id="allBookingsLink" href="/achievements.html?section=reservations" hidden>View all bookings</a>
+          </div>
+        </article>
+
+        <aside class="yb-side-card">
+          <div>
+            <h2 id="moneyTitle">Payment summary</h2>
+            <div class="yb-money">
+              <div class="yb-money-row">
+                <span id="labelPaid">Paid</span>
+                <strong id="valuePaid">-</strong>
+              </div>
+              <div class="yb-money-row">
+                <span id="labelTotal">Total</span>
+                <strong id="valueTotal">-</strong>
+              </div>
+              <div class="yb-money-row">
+                <span id="labelRemaining">Remaining</span>
+                <strong id="valueRemaining">-</strong>
+              </div>
+            </div>
+          </div>
+          <p class="yb-subtitle" id="privacyText"></p>
+        </aside>
+      </section>
+
+      <section class="yb-details" id="bookingDetails" hidden>
+        <h2 class="yb-section-title" id="detailsTitle">Booking details</h2>
+        <div class="yb-grid" id="detailsGrid"></div>
+        <p class="yb-owner-note" id="ownerNote" hidden></p>
+        <p class="yb-mismatch-note" id="mismatchNote" hidden></p>
+      </section>
+
+      <section class="yb-error" id="errorState">
+        <h1 id="errorTitle">Checking booking link...</h1>
+        <p id="errorMessage">Please wait a moment.</p>
+        <div class="yb-actions" style="justify-content:center;">
+          <a class="yb-btn yb-btn--primary" href="/index.html" id="errorHomeLink">Go home</a>
+          <a class="yb-btn" href="mailto:hello@cypruseye.com" id="errorContactLink">Contact us</a>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
+
