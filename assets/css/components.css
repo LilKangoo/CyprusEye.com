@@ -6491,6 +6491,21 @@ body[data-seo-page='carRentalLanding'] #carRentalGrid .auto-card.is-selected::af
   outline: none;
 }
 
+.auto-readonly-value {
+  display: flex;
+  align-items: center;
+  min-height: 52px;
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 0.85rem 1rem;
+}
+
 /* Responsive form layout */
 @media (max-width: 640px) {
   .auto-reservation-form [style*="grid-template-columns"] {

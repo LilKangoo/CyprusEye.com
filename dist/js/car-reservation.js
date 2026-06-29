@@ -2,6 +2,11 @@
 import { supabase } from './supabaseClient.js';
 import { showToast } from './toast.js';
 import { buildPricingMatrixForOfferRow, calculateCarRentalQuote, normalizeLocationForOffer } from './car-pricing.js';
+import {
+  coerceCarPlaceTypeForCity,
+  mapCityToLegacyLocationForPricing,
+  normalizeCarCity,
+} from './car-rental-flow.js';
 import { createReferralFieldController, shouldHideReferralEntryUi } from './referral-ui.js';
 
 let reservationData = {};
@@ -33,6 +38,13 @@ function currentUiLang() {
   if (normalized.startsWith('he')) return 'he';
   if (normalized.startsWith('en')) return 'en';
   return 'pl';
+}
+
+function uiText(pl, en, he = '') {
+  const lang = currentUiLang();
+  if (lang === 'he') return he || en || pl || '';
+  if (lang === 'en') return en || pl || he || '';
+  return pl || en || he || '';
 }
 
 function getTranslationEntry(translations, key) {
@@ -590,22 +602,126 @@ async function prefillFromUserSession() {
   }
 }
 
+function setInputValue(input, value) {
+  if (!(input instanceof HTMLInputElement)) return false;
+  const normalized = String(value || '');
+  if (String(input.value || '') === normalized) return false;
+  input.value = normalized;
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  return true;
+}
+
+function syncAddressField(side, placeType) {
+  const field = document.getElementById(side === 'pickup' ? 'pickupAddressField' : 'returnAddressField');
+  const input = document.getElementById(side === 'pickup' ? 'res_pickup_address' : 'res_return_address');
+  const label = field?.querySelector('label');
+  if (!(field instanceof HTMLElement) || !(input instanceof HTMLInputElement)) return;
+
+  const shouldShow = placeType === 'hotel' || placeType === 'address';
+  field.hidden = !shouldShow;
+  input.required = false;
+
+  if (label instanceof HTMLElement) {
+    label.textContent = placeType === 'hotel'
+      ? uiText('Nazwa hotelu / adres hotelu', 'Hotel name / hotel address', 'שם המלון / כתובת המלון')
+      : uiText('Dokładny adres', 'Full address', 'כתובת מלאה');
+  }
+  input.placeholder = placeType === 'hotel'
+    ? uiText('Nazwa hotelu lub adres hotelu', 'Hotel name or hotel address', 'שם המלון או כתובת המלון')
+    : uiText('Wpisz dokładny adres', 'Enter the full address', 'הזינו כתובת מלאה');
+}
+
+function syncFlightNumberField(pickupPlaceType, returnPlaceType) {
+  const field = document.getElementById('flightNumberField') || document.getElementById('res_flight')?.closest('.auto-field');
+  if (!(field instanceof HTMLElement)) return;
+  field.hidden = pickupPlaceType !== 'airport' && returnPlaceType !== 'airport';
+}
+
+function syncReservationPlaceDetails(options = {}) {
+  const { recalculate = false } = options;
+  const offer = getActiveOfferLocation();
+  const pickupCityInput = document.getElementById('res_pickup_city');
+  const returnCityInput = document.getElementById('res_return_city');
+  const pickupLocationInput = document.getElementById('res_pickup_location');
+  const returnLocationInput = document.getElementById('res_return_location');
+  const pickupPlaceSelect = document.getElementById('res_pickup_place_type');
+  const returnPlaceSelect = document.getElementById('res_return_place_type');
+
+  if (!(pickupLocationInput instanceof HTMLInputElement) || !(returnLocationInput instanceof HTMLInputElement)) {
+    return;
+  }
+
+  const pickupCity = normalizeCarCity(
+    pickupCityInput?.value || pickupLocationInput.value,
+    offer === 'paphos' ? 'paphos' : 'larnaca'
+  );
+  const returnCity = normalizeCarCity(
+    returnCityInput?.value || returnLocationInput.value,
+    pickupCity || 'larnaca'
+  );
+  const pickupPlaceType = coerceCarPlaceTypeForCity(
+    pickupCity,
+    pickupPlaceSelect?.value || 'hotel',
+    'hotel'
+  );
+  const returnPlaceType = coerceCarPlaceTypeForCity(
+    returnCity,
+    returnPlaceSelect?.value || 'hotel',
+    'hotel'
+  );
+
+  if (pickupPlaceSelect instanceof HTMLSelectElement && pickupPlaceSelect.value !== pickupPlaceType) {
+    pickupPlaceSelect.value = pickupPlaceType;
+  }
+  if (returnPlaceSelect instanceof HTMLSelectElement && returnPlaceSelect.value !== returnPlaceType) {
+    returnPlaceSelect.value = returnPlaceType;
+  }
+
+  if (pickupCityInput instanceof HTMLInputElement) pickupCityInput.value = pickupCity;
+  if (returnCityInput instanceof HTMLInputElement) returnCityInput.value = returnCity;
+
+  const pickupLegacy = mapCityToLegacyLocationForPricing(pickupCity, offer, pickupPlaceType);
+  const returnLegacy = mapCityToLegacyLocationForPricing(returnCity, offer, returnPlaceType);
+  const changed = [
+    setInputValue(pickupLocationInput, pickupLegacy),
+    setInputValue(returnLocationInput, returnLegacy),
+  ].some(Boolean);
+
+  syncAddressField('pickup', pickupPlaceType);
+  syncAddressField('return', returnPlaceType);
+  syncFlightNumberField(pickupPlaceType, returnPlaceType);
+
+  if (recalculate || changed) {
+    calculateEstimatedPrice();
+  }
+}
+
+window.CE_CAR_RESERVATION_SYNC_PLACE_DETAILS = syncReservationPlaceDetails;
+
 export function initCarReservationBindings() {
   const pickupLocation = document.getElementById('res_pickup_location');
   const returnLocation = document.getElementById('res_return_location');
+  const pickupPlaceType = document.getElementById('res_pickup_place_type');
+  const returnPlaceType = document.getElementById('res_return_place_type');
 
   if (pickupLocation && pickupLocation.dataset.ceReservationBound !== '1') {
     pickupLocation.dataset.ceReservationBound = '1';
-    pickupLocation.addEventListener('change', (e) => {
-      handleLocationChange(e.target);
-      calculateEstimatedPrice();
-    });
+    pickupLocation.addEventListener('change', calculateEstimatedPrice);
   }
   if (returnLocation && returnLocation.dataset.ceReservationBound !== '1') {
     returnLocation.dataset.ceReservationBound = '1';
-    returnLocation.addEventListener('change', (e) => {
-      handleLocationChange(e.target);
-      calculateEstimatedPrice();
+    returnLocation.addEventListener('change', calculateEstimatedPrice);
+  }
+  if (pickupPlaceType && pickupPlaceType.dataset.ceReservationBound !== '1') {
+    pickupPlaceType.dataset.ceReservationBound = '1';
+    pickupPlaceType.addEventListener('change', () => {
+      syncReservationPlaceDetails({ recalculate: true });
+    });
+  }
+  if (returnPlaceType && returnPlaceType.dataset.ceReservationBound !== '1') {
+    returnPlaceType.dataset.ceReservationBound = '1';
+    returnPlaceType.addEventListener('change', () => {
+      syncReservationPlaceDetails({ recalculate: true });
     });
   }
 
@@ -700,6 +816,7 @@ export function initCarReservationBindings() {
   }
 
   syncCouponButtons();
+  syncReservationPlaceDetails();
 
   initReservationForm();
 }
@@ -714,6 +831,7 @@ export function initReservationForm() {
 
   // Populate form with calculator data if available
   populateFromCalculator();
+  syncReservationPlaceDetails();
   
   // Prefill user data from session (email, name, phone)
   prefillFromUserSession();
@@ -874,19 +992,33 @@ function populateFromCalculator() {
   let normalizedPickupValue = '';
   let normalizedReturnValue = '';
   if (calcPickupLocLca) {
+    const pickupCity = normalizeCarCity(calcPickupLocLca, pageLocation === 'paphos' ? 'paphos' : 'larnaca');
+    setFieldValue('res_pickup_city', pickupCity);
+    if (document.getElementById('res_pickup_place_type')?.value) {
+      setFieldValue('res_pickup_place_type', document.getElementById('res_pickup_place_type')?.value);
+    }
     const normalizedPickup = normalizeLocationForOffer(calcPickupLocLca, pageLocation);
     normalizedPickupValue = normalizedPickup || calcPickupLocLca;
     setFieldValue('res_pickup_location', normalizedPickupValue);
   } else if (calcAirportPickupPfo) {
+    setFieldValue('res_pickup_city', 'paphos');
+    setFieldValue('res_pickup_place_type', 'airport');
     const normalizedPickup = normalizeLocationForOffer('airport_pfo', pageLocation);
     normalizedPickupValue = normalizedPickup || 'airport_pfo';
     setFieldValue('res_pickup_location', normalizedPickupValue);
   }
   if (calcReturnLocLca) {
+    const returnCity = normalizeCarCity(calcReturnLocLca, pageLocation === 'paphos' ? 'paphos' : 'larnaca');
+    setFieldValue('res_return_city', returnCity);
+    if (document.getElementById('res_return_place_type')?.value) {
+      setFieldValue('res_return_place_type', document.getElementById('res_return_place_type')?.value);
+    }
     const normalizedReturn = normalizeLocationForOffer(calcReturnLocLca, pageLocation);
     normalizedReturnValue = normalizedReturn || calcReturnLocLca;
     setFieldValue('res_return_location', normalizedReturnValue);
   } else if (calcAirportReturnPfo) {
+    setFieldValue('res_return_city', 'paphos');
+    setFieldValue('res_return_place_type', 'airport');
     const normalizedReturn = normalizeLocationForOffer('airport_pfo', pageLocation);
     normalizedReturnValue = normalizedReturn || 'airport_pfo';
     setFieldValue('res_return_location', normalizedReturnValue);
@@ -905,6 +1037,7 @@ function populateFromCalculator() {
 
   // Calculate and show estimated price
   if (didSetAny) {
+    syncReservationPlaceDetails();
     calculateEstimatedPrice();
     const prefillSignature = JSON.stringify({
       calcCar,
@@ -1526,24 +1659,10 @@ function showSuccessMessage(booking) {
   successDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
-// Show/hide address fields based on location
+// Show/hide address and flight fields based on visible place-type controls.
 function handleLocationChange(selectElement) {
-  const locationValue = selectElement.value;
-  const addressFieldId = selectElement.id === 'res_pickup_location' 
-    ? 'pickupAddressField' 
-    : 'returnAddressField';
-  
-  const addressField = document.getElementById(addressFieldId);
-  if (!addressField) return;
-
-  // Show address field if "other" or "hotel" is selected
-  if (locationValue === 'hotel' || locationValue === 'other') {
-    addressField.hidden = false;
-    addressField.querySelector('input').required = true;
-  } else {
-    addressField.hidden = true;
-    addressField.querySelector('input').required = false;
-  }
+  if (!selectElement) return;
+  syncReservationPlaceDetails();
 }
 
 // Initialize location change handlers

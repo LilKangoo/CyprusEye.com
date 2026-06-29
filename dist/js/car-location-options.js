@@ -1,7 +1,57 @@
 import { normalizeLocationForOffer } from '/js/car-pricing.js';
-import { normalizePaphosWidgetLocation } from '/js/car-rental-flow.js';
+import {
+  CAR_CITY_VALUES,
+  coerceCarPlaceTypeForCity,
+  getAllowedCarPlaceTypes,
+  normalizePaphosWidgetLocation,
+} from '/js/car-rental-flow.js';
 
 const PAPHOS_SPECIFIC_LOCATION_VALUES = new Set(['airport_pfo', 'city_center', 'hotel', 'other']);
+
+const CITY_LABELS = {
+  pl: {
+    larnaca: 'Larnaka',
+    nicosia: 'Nikozja',
+    'ayia-napa': 'Ayia Napa',
+    protaras: 'Protaras',
+    limassol: 'Limassol',
+    paphos: 'Paphos',
+  },
+  en: {
+    larnaca: 'Larnaca',
+    nicosia: 'Nicosia',
+    'ayia-napa': 'Ayia Napa',
+    protaras: 'Protaras',
+    limassol: 'Limassol',
+    paphos: 'Paphos',
+  },
+  he: {
+    larnaca: 'לרנקה',
+    nicosia: 'ניקוסיה',
+    'ayia-napa': 'איה נאפה',
+    protaras: 'פרוטארס',
+    limassol: 'לימסול',
+    paphos: 'פאפוס',
+  },
+};
+
+const PLACE_TYPE_LABELS = {
+  pl: {
+    airport: 'Lotnisko',
+    hotel: 'Hotel',
+    address: 'Adres',
+  },
+  en: {
+    airport: 'Airport',
+    hotel: 'Hotel',
+    address: 'Address',
+  },
+  he: {
+    airport: 'שדה תעופה',
+    hotel: 'מלון',
+    address: 'כתובת',
+  },
+};
 
 function currentLang() {
   const lang = (typeof window.getCurrentLanguage === 'function'
@@ -102,63 +152,60 @@ export function normalizeCarReservationLocationValue(value, offerLocation = 'lar
   return normalizeLocationForOffer(raw, 'larnaca') || '';
 }
 
-export function buildCarLocationOptionsHtml({
-  restrictToPaphos = false,
+export function getCarCityLabel(value, lang = currentLang()) {
+  const key = String(value || '').trim().toLowerCase();
+  return CITY_LABELS[lang]?.[key] || CITY_LABELS.en[key] || key;
+}
+
+export function getCarPlaceTypeLabel(value, lang = currentLang()) {
+  const key = String(value || '').trim().toLowerCase();
+  return PLACE_TYPE_LABELS[lang]?.[key] || PLACE_TYPE_LABELS.en[key] || key;
+}
+
+export function buildCarCityOptionsHtml({
   includePlaceholder = false,
   selectedValue = '',
 } = {}) {
-  const selected = String(selectedValue || '').trim();
-  const larnacaLabel = tr('carRentalLanding.locations.group.islandWide', 'Larnaka / cały Cypr');
-  const paphosLabel = tr('carRentalLanding.locations.group.paphosOnly', 'Pafos (tylko oferta Pafos)');
+  const selected = String(selectedValue || '').trim().toLowerCase();
+  const placeholder = tr('carRentalLanding.locations.cityPlaceholder', 'Wybierz miasto');
 
-  const larnacaOptions = [
-    { value: 'larnaca', label: tr('carRental.locations.larnaca.label', 'Larnaka (bez opłaty)') },
-    { value: 'nicosia', label: tr('carRental.locations.nicosia.label', 'Nikozja (+15€)') },
-    { value: 'ayia-napa', label: tr('carRental.locations.ayia-napa.label', 'Ayia Napa (+15€)') },
-    { value: 'protaras', label: tr('carRental.locations.protaras.label', 'Protaras (+20€)') },
-    { value: 'limassol', label: tr('carRental.locations.limassol.label', 'Limassol (+20€)') },
-    { value: 'paphos', label: tr('carRental.locations.paphos.label', 'Pafos (+40€)') },
-  ];
-
-  const paphosOptions = [
-    {
-      value: 'airport_pfo',
-      label: tr(
-        'carRentalLanding.locations.paphos.airport',
-        'Pafos Lotnisko (+10€ przy wynajmie < 7 dni)'
-      ),
-    },
-    {
-      value: 'city_center',
-      label: tr('carRentalLanding.locations.paphos.cityCenter', 'Pafos - centrum miasta'),
-    },
-    {
-      value: 'hotel',
-      label: tr('carRentalLanding.locations.paphos.hotel', 'Hotel (w tym Coral Bay / Polis)'),
-    },
-    {
-      value: 'other',
-      label: tr('carRentalLanding.locations.paphos.other', 'Inne miejsce (np. Coral Bay / Polis)'),
-    },
-  ];
-
-  const renderOptions = (items) => items
-    .map((item) => `
-      <option value="${escapeHtml(item.value)}" ${item.value === selected ? 'selected' : ''}>
-        ${escapeHtml(item.label)}
+  const options = CAR_CITY_VALUES
+    .map((value) => `
+      <option value="${escapeHtml(value)}" ${value === selected ? 'selected' : ''}>
+        ${escapeHtml(getCarCityLabel(value))}
       </option>
     `)
     .join('');
 
   return `
-    ${includePlaceholder ? `<option value="">${escapeHtml(tr('carRentalLanding.locations.placeholder', 'Wybierz lokalizację'))}</option>` : ''}
-    ${restrictToPaphos ? '' : `
-      <optgroup label="${escapeHtml(larnacaLabel)}">
-        ${renderOptions(larnacaOptions)}
-      </optgroup>
-    `}
-    <optgroup label="${escapeHtml(paphosLabel)}">
-      ${renderOptions(paphosOptions)}
-    </optgroup>
+    ${includePlaceholder ? `<option value="">${escapeHtml(placeholder)}</option>` : ''}
+    ${options}
   `;
+}
+
+export function buildCarPlaceTypeOptionsHtml(city, {
+  includePlaceholder = false,
+  selectedValue = '',
+} = {}) {
+  const selected = coerceCarPlaceTypeForCity(city, selectedValue || 'hotel');
+  const placeholder = tr('carRentalLanding.locations.placeTypePlaceholder', 'Wybierz typ miejsca');
+  const options = getAllowedCarPlaceTypes(city)
+    .map((value) => `
+      <option value="${escapeHtml(value)}" ${value === selected ? 'selected' : ''}>
+        ${escapeHtml(getCarPlaceTypeLabel(value))}
+      </option>
+    `)
+    .join('');
+
+  return `
+    ${includePlaceholder ? `<option value="">${escapeHtml(placeholder)}</option>` : ''}
+    ${options}
+  `;
+}
+
+export function buildCarLocationOptionsHtml({
+  includePlaceholder = false,
+  selectedValue = '',
+} = {}) {
+  return buildCarCityOptionsHtml({ includePlaceholder, selectedValue });
 }

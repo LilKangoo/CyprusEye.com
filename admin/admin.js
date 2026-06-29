@@ -32367,6 +32367,55 @@ async function loadCarsData(options = {}) {
   }
 }
 
+const ADMIN_CAR_CITY_LABELS = {
+  larnaca: 'Larnaka',
+  nicosia: 'Nikozja',
+  'ayia-napa': 'Ayia Napa',
+  protaras: 'Protaras',
+  limassol: 'Limassol',
+  paphos: 'Paphos',
+};
+
+function normalizeAdminCarFleet(value) {
+  return String(value || '').trim().toLowerCase() === 'paphos' ? 'paphos' : 'larnaca';
+}
+
+function formatAdminCarFleet(value) {
+  return normalizeAdminCarFleet(value) === 'paphos' ? 'Paphos' : 'Larnaka / island-wide';
+}
+
+function inferAdminCarCity(locationValue, fleetSource = 'larnaca') {
+  const normalized = String(locationValue || '').trim().toLowerCase();
+  if (Object.prototype.hasOwnProperty.call(ADMIN_CAR_CITY_LABELS, normalized)) return normalized;
+  if (['airport_pfo', 'city_center', 'hotel', 'other'].includes(normalized)) return 'paphos';
+  if (normalized === 'airport_lca') return 'larnaca';
+  return normalizeAdminCarFleet(fleetSource) === 'paphos' ? 'paphos' : '';
+}
+
+function formatAdminCarCity(locationValue, fleetSource = 'larnaca') {
+  const city = inferAdminCarCity(locationValue, fleetSource);
+  return ADMIN_CAR_CITY_LABELS[city] || 'N/A';
+}
+
+function inferAdminCarPlaceType(locationValue, details = {}) {
+  const normalized = String(locationValue || '').trim().toLowerCase();
+  if (normalized === 'airport_pfo' || normalized === 'airport_lca') return 'airport';
+  if (normalized === 'hotel') return 'hotel';
+  if (normalized === 'other' || normalized === 'city_center') return 'address';
+  if (String(details?.flightNumber || '').trim()) return 'airport';
+  if (String(details?.address || '').trim()) return 'hotel/address';
+  return 'city only';
+}
+
+function formatAdminCarPlaceType(locationValue, details = {}) {
+  const placeType = inferAdminCarPlaceType(locationValue, details);
+  if (placeType === 'airport') return 'Airport';
+  if (placeType === 'hotel') return 'Hotel';
+  if (placeType === 'address') return 'Address';
+  if (placeType === 'hotel/address') return 'Hotel/address details';
+  return 'City only / unspecified';
+}
+
 async function viewCarBookingDetails(bookingId) {
   try {
     const client = ensureSupabase();
@@ -32470,6 +32519,7 @@ async function viewCarBookingDetails(bookingId) {
           returnLocation: booking.return_location || '',
           fullInsurance: !!booking.full_insurance,
           youngDriver: !!booking.young_driver,
+          offerRow: carPricing,
         });
 
         if (suggestedQuote) {
@@ -32486,8 +32536,26 @@ async function viewCarBookingDetails(bookingId) {
     const pickupFee = suggestedQuote?.pickupFee || 0;
     const returnFee = suggestedQuote?.returnFee || 0;
     const insuranceCost = suggestedQuote?.insuranceCost || 0;
-    const youngDriverCost = suggestedQuote?.youngDriverCost || 0;
+    const storedYoungDriverTotal = Number(booking?.young_driver_cost || 0);
+    const storedYoungDriverFee = Number(booking?.young_driver_fee || 0);
+    const quotedYoungDriverCost = Number(suggestedQuote?.youngDriverCost || 0);
+    const youngDriverCost = quotedYoungDriverCost > 0 ? quotedYoungDriverCost : storedYoungDriverTotal;
+    const youngDriverRequested = Boolean(booking?.young_driver || storedYoungDriverTotal > 0 || storedYoungDriverFee > 0);
+    const youngDriverDailyFee = storedYoungDriverFee > 0
+      ? storedYoungDriverFee
+      : (days > 0 && youngDriverCost > 0 ? youngDriverCost / days : 0);
     const suggestedTotal = suggestedQuote?.total || 0;
+    const bookingFleetSource = normalizeAdminCarFleet(booking.location || suggestedQuote?.offer || 'larnaca');
+    const pickupCityLabel = formatAdminCarCity(booking.pickup_location, bookingFleetSource);
+    const returnCityLabel = formatAdminCarCity(booking.return_location, bookingFleetSource);
+    const pickupTypeLabel = formatAdminCarPlaceType(booking.pickup_location, {
+      address: booking.pickup_address,
+      flightNumber: booking.flight_number,
+    });
+    const returnTypeLabel = formatAdminCarPlaceType(booking.return_location, {
+      address: booking.return_address,
+      flightNumber: booking.flight_number,
+    });
     const bookingPriceMeta = getCarBookingEffectivePriceMeta(booking);
     const couponCodeSnapshot = String(booking?.coupon_code || '').trim().toUpperCase();
     const couponDiscountSnapshot = Number(booking?.coupon_discount_amount || 0);
@@ -32664,8 +32732,24 @@ async function viewCarBookingDetails(bookingId) {
               <span style="font-weight: 600;">${escapeHtml(booking.car_model || 'N/A')}</span>
             </div>
             <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
-              <span style="font-weight: 500;">Location:</span>
-              <span>${escapeHtml((booking.location || 'N/A').toUpperCase())}</span>
+              <span style="font-weight: 500;">Fleet/source:</span>
+              <span>${escapeHtml(formatAdminCarFleet(bookingFleetSource))}</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Pickup City:</span>
+              <span>${escapeHtml(pickupCityLabel)}</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Return City:</span>
+              <span>${escapeHtml(returnCityLabel)}</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Pickup Type:</span>
+              <span>${escapeHtml(pickupTypeLabel)}</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Return Type:</span>
+              <span>${escapeHtml(returnTypeLabel)}</span>
             </div>
             <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
               <span style="font-weight: 500;">Pickup:</span>
@@ -32709,6 +32793,15 @@ async function viewCarBookingDetails(bookingId) {
             <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
               <span style="font-weight: 500;">Full Insurance:</span>
               <span>${booking.full_insurance ? '✅ Yes (+17€/day)' : '❌ No'}</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Young Driver:</span>
+              <span>
+                ${youngDriverRequested ? '✅ Yes' : '❌ No'}
+                ${youngDriverRequested && youngDriverDailyFee > 0 ? ` • €${youngDriverDailyFee.toFixed(2)}/day` : ''}
+                ${youngDriverRequested && youngDriverCost > 0 ? ` • total €${youngDriverCost.toFixed(2)}` : ''}
+                ${youngDriverRequested ? ` • ${days || 0} day${days !== 1 ? 's' : ''}` : ''}
+              </span>
             </div>
             ${booking.flight_number ? `
             <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
@@ -32776,7 +32869,7 @@ async function viewCarBookingDetails(bookingId) {
                 ` : ''}
                 ${youngDriverCost > 0 ? `
                 <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px;">
-                  <span>• Young driver (${days} days × €10)</span>
+                  <span>• Young driver (${days} days${youngDriverDailyFee > 0 ? ` × €${youngDriverDailyFee.toFixed(2)}` : ''})</span>
                   <span>+€${youngDriverCost.toFixed(2)}</span>
                 </div>
                 ` : ''}

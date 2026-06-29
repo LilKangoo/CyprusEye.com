@@ -4,8 +4,9 @@ import {
   calculateCarRentalQuote,
   normalizeLocationForOffer,
 } from '/js/car-pricing.js';
-import { openCarOfferModal } from '/js/car-offer-modal.js?v=20260427';
+import { openCarOfferModal } from '/js/car-offer-modal.js?v=20260630_city_place';
 import {
+  buildCarCityOptionsHtml,
   buildCarLocationOptionsHtml,
   isPaphosSpecificCarLocationValue,
 } from '/js/car-location-options.js';
@@ -13,7 +14,10 @@ import {
   buildBlankFinderState,
   coerceReturnLocationForPickup,
   isPaphosWidgetLocation,
+  mapCityToLegacyLocationForPricing,
+  normalizeCarCity,
   normalizePaphosWidgetLocation,
+  resolveCarFleet,
   resolveOfferState,
 } from '/js/car-rental-flow.js';
 
@@ -141,10 +145,10 @@ function buildDefaultFinderState() {
 }
 
 function evaluateFinderOffer(state) {
-  const resolved = resolveOfferState(
+  const resolved = resolveCarFleet(
     state?.pickupLocation,
     state?.returnLocation,
-    { youngDriver: !!state?.youngDriver }
+    !!state?.youngDriver
   );
   return {
     offer: resolved.effectiveOffer,
@@ -221,9 +225,8 @@ function buildPricingMapForLocation(location) {
 }
 
 function buildFinderLocationOptions(selectedValue, options = {}) {
-  return buildCarLocationOptionsHtml({
+  return buildCarCityOptionsHtml({
     selectedValue,
-    restrictToPaphos: !!options.restrictToPaphos,
     includePlaceholder: !!options.includePlaceholder,
   });
 }
@@ -293,20 +296,14 @@ function applyHomeCarsFinderLocationRules(state = null) {
 
   const activeState = state || homeCarsFinderState || buildDefaultFinderState();
   const previousReturn = String(activeState.returnLocation || ret.value || '').trim();
-  const restrictToPaphos = isPaphosWidgetLocation(pickup.value) && !activeState.youngDriver;
 
   ret.innerHTML = buildFinderLocationOptions('', {
     includePlaceholder: true,
-    restrictToPaphos,
   });
 
-  const normalizedReturn = activeState.youngDriver
-    ? previousReturn
-    : coerceReturnLocationForPickup(pickup.value, previousReturn);
-
-  setFinderSelectSafe(ret, normalizedReturn || previousReturn || '', '');
+  setFinderSelectSafe(ret, previousReturn || '', '');
   return {
-    restrictToPaphos,
+    restrictToPaphos: false,
     returnLocation: String(ret.value || '').trim(),
   };
 }
@@ -538,12 +535,10 @@ function buildQuoteForCarWithFinder(car, finderState) {
     return null;
   }
 
-  const pickupLocation = location === 'paphos'
-    ? normalizePaphosLocation(finderState.pickupLocation)
-    : (normalizeLocationForOffer(finderState.pickupLocation, 'larnaca') || 'larnaca');
-  const returnLocation = location === 'paphos'
-    ? normalizePaphosLocation(finderState.returnLocation)
-    : (normalizeLocationForOffer(finderState.returnLocation, 'larnaca') || 'larnaca');
+  const pickupCity = normalizeCarCity(finderState.pickupLocation, 'larnaca');
+  const returnCity = normalizeCarCity(finderState.returnLocation, pickupCity || 'larnaca');
+  const pickupLocation = mapCityToLegacyLocationForPricing(pickupCity, location, finderState.pickupPlaceType || 'hotel');
+  const returnLocation = mapCityToLegacyLocationForPricing(returnCity, location, finderState.returnPlaceType || 'hotel');
 
   return calculateCarRentalQuote({
     pricingMatrix,
@@ -1103,30 +1098,29 @@ function buildReservationFormHtml({ location, selectedCarId, prefill = null }) {
 
 function buildModalPrefillForLocation(location) {
   const defaults = buildDefaultFinderState();
-  const state = homeCarsFinderState || defaults;
+  const finderState = homeCarsFinderState || defaults;
   const loc = location === 'paphos' ? 'paphos' : 'larnaca';
-
-  const pickupLocation = loc === 'paphos'
-    ? normalizePaphosLocation(state.pickupLocation)
-    : (isPaphosSpecificCarLocationValue(state.pickupLocation)
-      ? String(state.pickupLocation || '').trim()
-      : (normalizeLocationForOffer(state.pickupLocation, 'larnaca') || 'larnaca'));
-  const returnLocation = loc === 'paphos'
-    ? normalizePaphosLocation(state.returnLocation)
-    : (isPaphosSpecificCarLocationValue(state.returnLocation)
-      ? String(state.returnLocation || '').trim()
-      : (normalizeLocationForOffer(state.returnLocation, 'larnaca') || 'larnaca'));
+  const pickupCity = normalizeCarCity(finderState.pickupLocation, 'larnaca');
+  const returnCity = normalizeCarCity(finderState.returnLocation, pickupCity || 'larnaca');
+  const pickupPlaceType = 'hotel';
+  const returnPlaceType = 'hotel';
+  const pickupLocation = mapCityToLegacyLocationForPricing(pickupCity, loc, pickupPlaceType);
+  const returnLocation = mapCityToLegacyLocationForPricing(returnCity, loc, returnPlaceType);
 
   return {
-    pickupDate: String(state.pickupDate || defaults.pickupDate),
-    pickupTime: String(state.pickupTime || defaults.pickupTime),
-    returnDate: String(state.returnDate || defaults.returnDate),
-    returnTime: String(state.returnTime || defaults.returnTime),
+    pickupDate: String(finderState.pickupDate || defaults.pickupDate),
+    pickupTime: String(finderState.pickupTime || defaults.pickupTime),
+    returnDate: String(finderState.returnDate || defaults.returnDate),
+    returnTime: String(finderState.returnTime || defaults.returnTime),
+    pickupCity,
+    returnCity,
+    pickupPlaceType,
+    returnPlaceType,
     pickupLocation,
     returnLocation,
-    fullInsurance: !!state.fullInsurance,
-    youngDriver: loc === 'larnaca' && !!state.youngDriver,
-    passengers: Math.max(1, Number(state.passengers || defaults.passengers || 2)),
+    fullInsurance: !!finderState.fullInsurance,
+    youngDriver: loc === 'larnaca' && !!finderState.youngDriver,
+    passengers: Math.max(1, Number(finderState.passengers || defaults.passengers || 2)),
   };
 }
 

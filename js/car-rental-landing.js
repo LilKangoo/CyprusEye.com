@@ -1,17 +1,17 @@
-import { openCarOfferModal } from './car-offer-modal.js';
+import { openCarOfferModal } from './car-offer-modal.js?v=20260630_city_place';
 import {
-  coerceReturnLocationForPickup,
   getFinderDurationState,
   isFinderSelectionComplete,
-  isPaphosWidgetLocation as isPaphosRouteLocation,
-  resolveOfferState,
+  mapCityToLegacyLocationForPricing,
+  normalizeCarCity,
+  resolveCarFleet,
 } from './car-rental-flow.js';
 import {
   findCurrentFleetCarByOfferId,
   findCurrentFleetCarByModel,
   getCurrentFleetRows,
 } from './car-rental-paphos.js';
-import { buildCarLocationOptionsHtml } from './car-location-options.js';
+import { buildCarCityOptionsHtml } from './car-location-options.js';
 
 const state = {
   manualOffer: null,
@@ -430,33 +430,26 @@ function populateWidgetLocations() {
 
   const previousPickup = pickup.value;
   const previousReturn = ret.value;
-  pickup.innerHTML = buildCarLocationOptionsHtml({ includePlaceholder: true });
+  pickup.innerHTML = buildCarCityOptionsHtml({ includePlaceholder: true });
   setSelectSafe(pickup, previousPickup || '', '');
 
-  const normalizedReturn = coerceReturnLocationForPickup(pickup.value, previousReturn || '');
-  ret.innerHTML = buildCarLocationOptionsHtml({
-    includePlaceholder: true,
-    restrictToPaphos: isPaphosRouteLocation(pickup.value),
-  });
-  setSelectSafe(ret, normalizedReturn || previousReturn || '', '');
+  ret.innerHTML = buildCarCityOptionsHtml({ includePlaceholder: true });
+  setSelectSafe(ret, previousReturn || '', '');
 }
 
 function populateReservationLocations() {
   const pickup = byId('res_pickup_location');
   const ret = byId('res_return_location');
   if (!pickup || !ret) return;
+  if (!(pickup instanceof HTMLSelectElement) || !(ret instanceof HTMLSelectElement)) return;
 
   const previousPickup = pickup.value;
   const previousReturn = ret.value;
-  pickup.innerHTML = buildCarLocationOptionsHtml({ includePlaceholder: true });
+  pickup.innerHTML = buildCarCityOptionsHtml({ includePlaceholder: true });
   setSelectSafe(pickup, previousPickup || '', '');
 
-  const normalizedReturn = coerceReturnLocationForPickup(pickup.value, previousReturn || '');
-  ret.innerHTML = buildCarLocationOptionsHtml({
-    includePlaceholder: true,
-    restrictToPaphos: isPaphosRouteLocation(pickup.value),
-  });
-  setSelectSafe(ret, normalizedReturn || previousReturn || '', '');
+  ret.innerHTML = buildCarCityOptionsHtml({ includePlaceholder: true });
+  setSelectSafe(ret, previousReturn || '', '');
 }
 
 function readWidgetState() {
@@ -475,27 +468,15 @@ function readWidgetState() {
   };
 }
 
-function isPaphosWidgetLocation(locationValue) {
-  return isPaphosRouteLocation(locationValue);
-}
-
-function mapToLarnacaLocation(locationValue) {
-  return isPaphosWidgetLocation(locationValue) ? 'paphos' : String(locationValue || '').trim();
-}
-
 function evaluateOffer(widgetState) {
-  const routeOffer = (!isFinderSelectionComplete(widgetState) && state.deepLink.offerLocation)
-    ? state.deepLink.offerLocation
-    : resolveOfferState(
-      widgetState.pickupLocation,
-      widgetState.returnLocation,
-      { youngDriver: !!widgetState.youngDriver }
-    ).routeOffer;
-  state.autoOffer = routeOffer;
-  state.paphosEligible = routeOffer === 'paphos';
-  state.forcedToLarnaca = !!widgetState.youngDriver && routeOffer === 'paphos';
+  const resolved = (!isFinderSelectionComplete(widgetState) && state.deepLink.offerLocation)
+    ? resolveCarFleet(state.deepLink.offerLocation, state.deepLink.offerLocation, !!widgetState.youngDriver)
+    : resolveCarFleet(widgetState.pickupLocation, widgetState.returnLocation, !!widgetState.youngDriver);
+  state.autoOffer = resolved.routeOffer;
+  state.paphosEligible = resolved.paphosEligible;
+  state.forcedToLarnaca = resolved.forcedToLarnaca;
   state.manualOffer = null;
-  state.effectiveOffer = state.forcedToLarnaca ? 'larnaca' : routeOffer;
+  state.effectiveOffer = resolved.effectiveOffer;
 }
 
 function renderOfferIndicators(widgetState) {
@@ -709,17 +690,12 @@ function applyLandingLocationRules() {
   const pickup = byId('pickupLocation');
   const ret = byId('returnLocation');
   if (!pickup || !ret) return;
+  if (!(pickup instanceof HTMLSelectElement) || !(ret instanceof HTMLSelectElement)) return;
 
-  const previousReturn = ret.value;
-  const youngDriverActive = !!byId('youngDriver')?.checked;
-  ret.innerHTML = buildCarLocationOptionsHtml({
-    includePlaceholder: true,
-    restrictToPaphos: isPaphosRouteLocation(pickup.value) && !youngDriverActive,
-  });
-  const normalizedReturn = youngDriverActive
-    ? String(previousReturn || '').trim()
-    : coerceReturnLocationForPickup(pickup.value, previousReturn || '');
-  setSelectSafe(ret, normalizedReturn || previousReturn || '', '');
+  if (!ret.options.length) {
+    ret.innerHTML = buildCarCityOptionsHtml({ includePlaceholder: true });
+  }
+  setSelectSafe(ret, ret.value || '', '');
 }
 
 function isLandingFinderReady(widgetState) {
@@ -780,17 +756,22 @@ function applyLandingVisibility(widgetState) {
 }
 
 function buildLandingModalPrefill(widgetState) {
+  const pickupCity = normalizeCarCity(widgetState.pickupLocation, 'larnaca');
+  const returnCity = normalizeCarCity(widgetState.returnLocation, pickupCity || 'larnaca');
+  const pickupPlaceType = 'hotel';
+  const returnPlaceType = 'hotel';
+
   return {
     pickupDate: widgetState.pickupDate,
     pickupTime: widgetState.pickupTime,
     returnDate: widgetState.returnDate,
     returnTime: widgetState.returnTime,
-    pickupLocation: state.effectiveOffer === 'paphos'
-      ? widgetState.pickupLocation
-      : mapToLarnacaLocation(widgetState.pickupLocation),
-    returnLocation: state.effectiveOffer === 'paphos'
-      ? widgetState.returnLocation
-      : mapToLarnacaLocation(widgetState.returnLocation),
+    pickupCity,
+    returnCity,
+    pickupPlaceType,
+    returnPlaceType,
+    pickupLocation: mapCityToLegacyLocationForPricing(pickupCity, state.effectiveOffer, pickupPlaceType),
+    returnLocation: mapCityToLegacyLocationForPricing(returnCity, state.effectiveOffer, returnPlaceType),
     fullInsurance: !!widgetState.fullInsurance,
     youngDriver: state.effectiveOffer === 'larnaca' && !!widgetState.youngDriver,
     passengers: parsePassengerCount(widgetState.passengers, 2),
@@ -803,6 +784,10 @@ function buildDeepLinkModalPrefill() {
     pickupTime: '10:00',
     returnDate: '',
     returnTime: '10:00',
+    pickupCity: '',
+    returnCity: '',
+    pickupPlaceType: 'hotel',
+    returnPlaceType: 'hotel',
     pickupLocation: '',
     returnLocation: '',
     fullInsurance: false,
@@ -841,6 +826,10 @@ function syncReservationForm(widgetState) {
   const resReturnTime = byId('res_return_time');
   const resPickupLocation = byId('res_pickup_location');
   const resReturnLocation = byId('res_return_location');
+  const resPickupCity = byId('res_pickup_city');
+  const resReturnCity = byId('res_return_city');
+  const resPickupPlaceType = byId('res_pickup_place_type');
+  const resReturnPlaceType = byId('res_return_place_type');
   const resPassengers = byId('res_passengers');
   const resInsurance = byId('res_insurance');
   const resYoungDriver = byId('res_young_driver');
@@ -875,21 +864,17 @@ function syncReservationForm(widgetState) {
     setInputIfChanged(resReturnDate, widgetState.returnDate, 'res_return_date');
     setInputIfChanged(resReturnTime, widgetState.returnTime, 'res_return_time');
 
-    const pickupForReservation = state.effectiveOffer === 'larnaca'
-      ? mapToLarnacaLocation(widgetState.pickupLocation)
-      : widgetState.pickupLocation;
-    const returnForReservation = state.effectiveOffer === 'larnaca'
-      ? mapToLarnacaLocation(widgetState.returnLocation)
-      : widgetState.returnLocation;
+    const pickupCity = normalizeCarCity(widgetState.pickupLocation, 'larnaca');
+    const returnCity = normalizeCarCity(widgetState.returnLocation, pickupCity || 'larnaca');
+    const pickupPlaceType = String(resPickupPlaceType?.value || 'hotel').trim() || 'hotel';
+    const returnPlaceType = String(resReturnPlaceType?.value || 'hotel').trim() || 'hotel';
+    const pickupForReservation = mapCityToLegacyLocationForPricing(pickupCity, state.effectiveOffer, pickupPlaceType);
+    const returnForReservation = mapCityToLegacyLocationForPricing(returnCity, state.effectiveOffer, returnPlaceType);
 
-    const reservationFallback = state.effectiveOffer === 'paphos' ? '' : 'larnaca';
-
-    if (setSelectSafe(resPickupLocation, pickupForReservation, reservationFallback)) {
-      changedFieldIds.push('res_pickup_location');
-    }
-    if (setSelectSafe(resReturnLocation, returnForReservation, reservationFallback)) {
-      changedFieldIds.push('res_return_location');
-    }
+    setInputIfChanged(resPickupCity, pickupCity, 'res_pickup_city');
+    setInputIfChanged(resReturnCity, returnCity, 'res_return_city');
+    setInputIfChanged(resPickupLocation, pickupForReservation, 'res_pickup_location');
+    setInputIfChanged(resReturnLocation, returnForReservation, 'res_return_location');
 
     if (resPassengers) {
       setInputIfChanged(resPassengers, String(parsePassengerCount(widgetState.passengers, 2)), 'res_passengers');

@@ -224,25 +224,60 @@ async function openCarPage(page: Page, language: 'pl' | 'en' | 'he') {
   await page.waitForFunction(() => typeof (window as any).CE_CAR_GET_CURRENT_FLEET === 'function', null, { timeout: 15000 });
   await page.waitForFunction(() => (
     Boolean(document.querySelector('#pickupLocation option[value="larnaca"]'))
-    && Boolean(document.querySelector('#pickupLocation option[value="hotel"]'))
+    && Boolean(document.querySelector('#pickupLocation option[value="paphos"]'))
   ), null, { timeout: 15000 });
   return errors;
 }
 
+async function openHomePage(page: Page, language: 'pl' | 'en' | 'he' = 'pl') {
+  await seedCarOffers(page);
+  const errors = collectPageErrors(page);
+  await page.goto(`/index.html?lang=${language}`, { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => Boolean(document.querySelector('#carsFinderPickupLocation option[value="larnaca"]')), null, { timeout: 15000 });
+  return errors;
+}
+
 async function configureFinderRoute(page: Page, offer: 'larnaca' | 'paphos') {
+  const location = offer === 'paphos' ? 'paphos' : 'larnaca';
+  await configureFinderCities(page, location, location);
+}
+
+async function configureFinderCities(page: Page, pickupCity: string, returnCity: string, youngDriver = false) {
   await page.locator('#pickupDate').fill('2026-07-10');
   await page.locator('#pickupTime').fill('10:00');
   await page.locator('#returnDate').fill('2026-07-14');
   await page.locator('#returnTime').fill('10:00');
   await page.locator('#rentalPassengers').fill('2');
+  await page.locator('#youngDriver').setChecked(youngDriver);
 
-  const location = offer === 'paphos' ? 'hotel' : 'larnaca';
-  await page.locator('#pickupLocation').selectOption(location);
-  await page.locator('#returnLocation').selectOption(location);
+  await page.locator('#pickupLocation').selectOption(pickupCity);
+  await page.locator('#returnLocation').selectOption(returnCity);
 
+  const expectedOffer = youngDriver ? 'larnaca' : (pickupCity === 'paphos' && returnCity === 'paphos' ? 'paphos' : 'larnaca');
   await page.waitForFunction((expectedOffer) => (
     document.body?.dataset?.carLocation === expectedOffer
-  ), offer, { timeout: 15000 });
+  ), expectedOffer, { timeout: 15000 });
+}
+
+async function configureHomeFinderCities(page: Page, pickupCity: string, returnCity: string, youngDriver = false) {
+  await page.locator('#carsFinderPickupDate').fill('2026-07-10');
+  await page.locator('#carsFinderPickupTime').fill('10:00');
+  await page.locator('#carsFinderReturnDate').fill('2026-07-14');
+  await page.locator('#carsFinderReturnTime').fill('10:00');
+  await page.locator('#carsFinderPassengers').fill('2');
+  await page.locator('#carsFinderYoungDriver').setChecked(youngDriver);
+  await page.locator('#carsFinderPickupLocation').selectOption(pickupCity);
+  await page.locator('#carsFinderReturnLocation').selectOption(returnCity);
+  const expectedOffer = youngDriver ? 'larnaca' : (pickupCity === 'paphos' && returnCity === 'paphos' ? 'paphos' : 'larnaca');
+  await page.waitForFunction((expected) => {
+    const titles = Array.from(document.querySelectorAll('#carsHomeGrid .ce-home-card-title'))
+      .map((node) => String(node.textContent || '').trim())
+      .filter(Boolean);
+    if (!titles.length) return false;
+    return expected === 'paphos'
+      ? titles.every((title) => /Pafos|Paphos/.test(title))
+      : titles.every((title) => /Larnaka|Larnaca/.test(title));
+  }, expectedOffer, { timeout: 15000 });
 }
 
 async function expectGridMatchesCurrentFleet(page: Page, offer: 'larnaca' | 'paphos') {
@@ -338,9 +373,38 @@ async function expectFirstCarOpensModal(page: Page) {
   await expect(page.locator('#carHomeModal')).toBeVisible();
   await expect(page.locator('#carHomeModal')).toHaveCSS('display', 'flex');
   await expect(page.locator('#localReservationForm')).toBeVisible();
+  await expect(page.locator('#res_pickup_place_type')).toBeVisible();
+  await expect(page.locator('#res_return_place_type')).toBeVisible();
+  await expect(page.locator('#res_pickup_location')).toHaveAttribute('type', 'hidden');
+  await expect(page.locator('#res_return_location')).toHaveAttribute('type', 'hidden');
 }
 
 test.describe('car booking modal regression', () => {
+  test('car finder dropdown uses city-only values without prices or place types', async ({ page }) => {
+    await openCarPage(page, 'pl');
+
+    const snapshot = await page.locator('#pickupLocation option').evaluateAll((options) => options.map((option) => ({
+      value: option.getAttribute('value') || '',
+      label: option.textContent?.trim() || '',
+    })));
+
+    expect(snapshot.map((option) => option.value).filter(Boolean)).toEqual([
+      'larnaca',
+      'nicosia',
+      'ayia-napa',
+      'protaras',
+      'limassol',
+      'paphos',
+    ]);
+    expect(snapshot.map((option) => option.value)).not.toEqual(expect.arrayContaining([
+      'airport_pfo',
+      'city_center',
+      'hotel',
+      'other',
+    ]));
+    expect(snapshot.map((option) => option.label).join(' ')).not.toMatch(/\+|€|Lotnisko|Hotel|Adres|Inne/i);
+  });
+
   test('car.html?lang=pl keeps default order without complete dates', async ({ page }) => {
     const errors = await openCarPage(page, 'pl');
     await page.waitForFunction(() => (
@@ -369,6 +433,79 @@ test.describe('car booking modal regression', () => {
     await expectFirstCarOpensModal(page);
 
     expect(errors.join('\n')).not.toContain('isEn');
+  });
+
+  test('car.html fleet resolver follows Paphos and young-driver routing rules', async ({ page }) => {
+    await openCarPage(page, 'pl');
+
+    await configureFinderCities(page, 'paphos', 'paphos', false);
+    await expectGridMatchesCurrentFleet(page, 'paphos');
+    expect(await getRenderedOfferIds(page)).toEqual(['pfo-he-ready-budget', 'pfo-not-he-ready', 'pfo-he-ready']);
+
+    await configureFinderCities(page, 'paphos', 'paphos', true);
+    await page.waitForFunction(() => (
+      Array.from(document.querySelectorAll('#carRentalGrid [data-select-car-offer-id]'))
+        .every((button) => String(button.getAttribute('data-select-car-offer-id') || '').startsWith('lca-'))
+    ), null, { timeout: 15000 });
+    expect(await getRenderedOfferIds(page)).toEqual(['lca-he-ready']);
+
+    await configureFinderCities(page, 'paphos', 'larnaca', false);
+    await expectGridMatchesCurrentFleet(page, 'larnaca');
+    expect(await getRenderedOfferIds(page)).not.toContain('pfo-he-ready');
+
+    await configureFinderCities(page, 'larnaca', 'paphos', false);
+    await expectGridMatchesCurrentFleet(page, 'larnaca');
+    expect(await getRenderedOfferIds(page)).not.toContain('pfo-he-ready');
+  });
+
+  test('booking modal place type options depend on selected city', async ({ page }) => {
+    await openCarPage(page, 'pl');
+
+    await configureFinderCities(page, 'larnaca', 'paphos', false);
+    await expectFirstCarOpensModal(page);
+    await expect(page.locator('#res_pickup_city_label')).toContainText('Larnaka');
+    await expect(page.locator('#res_return_city_label')).toContainText('Paphos');
+    await expect(page.locator('#res_pickup_place_type option')).toHaveText(['Lotnisko', 'Hotel', 'Adres']);
+    await expect(page.locator('#res_return_place_type option')).toHaveText(['Lotnisko', 'Hotel', 'Adres']);
+    await page.locator('#res_pickup_place_type').selectOption('airport');
+    await expect(page.locator('#flightNumberField')).toBeVisible();
+
+    await page.locator('#carHomeModal .modal-close').click();
+    await configureFinderCities(page, 'nicosia', 'limassol', false);
+    await expectFirstCarOpensModal(page);
+    await expect(page.locator('#res_pickup_city_label')).toContainText('Nikozja');
+    await expect(page.locator('#res_return_city_label')).toContainText('Limassol');
+    await expect(page.locator('#res_pickup_place_type option')).toHaveText(['Hotel', 'Adres']);
+    await expect(page.locator('#res_return_place_type option')).toHaveText(['Hotel', 'Adres']);
+    await expect(page.locator('#flightNumberField')).toBeHidden();
+  });
+
+  test('index.html car finder uses the same fleet rules', async ({ page }) => {
+    await openHomePage(page, 'pl');
+
+    await configureHomeFinderCities(page, 'paphos', 'paphos', false);
+    await expect(page.locator('#carsHomeGrid .ce-home-card-title').first()).toContainText(/Pafos|Paphos/);
+
+    await configureHomeFinderCities(page, 'paphos', 'paphos', true);
+    await page.waitForFunction(() => {
+      const titles = Array.from(document.querySelectorAll('#carsHomeGrid .ce-home-card-title'))
+        .map((node) => String(node.textContent || ''));
+      return titles.length > 0 && titles.every((title) => /Larnaka|Larnaca/.test(title));
+    }, null, { timeout: 15000 });
+
+    await configureHomeFinderCities(page, 'paphos', 'larnaca', false);
+    await page.waitForFunction(() => {
+      const titles = Array.from(document.querySelectorAll('#carsHomeGrid .ce-home-card-title'))
+        .map((node) => String(node.textContent || ''));
+      return titles.length > 0 && titles.every((title) => /Larnaka|Larnaca/.test(title));
+    }, null, { timeout: 15000 });
+
+    await configureHomeFinderCities(page, 'larnaca', 'paphos', false);
+    await page.waitForFunction(() => {
+      const titles = Array.from(document.querySelectorAll('#carsHomeGrid .ce-home-card-title'))
+        .map((node) => String(node.textContent || ''));
+      return titles.length > 0 && titles.every((title) => /Larnaka|Larnaca/.test(title));
+    }, null, { timeout: 15000 });
   });
 
   test('car.html?lang=en sorts Larnaka cards by quote and opens #carHomeModal', async ({ page }) => {

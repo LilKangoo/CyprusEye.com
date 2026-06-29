@@ -1,4 +1,7 @@
 export const PAPHOS_WIDGET_LOCATIONS = new Set(['airport_pfo', 'city_center', 'hotel', 'other']);
+export const CAR_CITY_VALUES = ['larnaca', 'nicosia', 'ayia-napa', 'protaras', 'limassol', 'paphos'];
+export const CAR_CITY_SET = new Set(CAR_CITY_VALUES);
+export const CAR_PLACE_TYPES = ['airport', 'hotel', 'address'];
 
 function toDateInputValue(date) {
   const yyyy = date.getFullYear();
@@ -17,24 +20,97 @@ export function normalizePaphosWidgetLocation(value, fallback = 'hotel') {
   return String(fallback || 'hotel').trim() || 'hotel';
 }
 
-export function resolveOfferFromRoute(pickupLocation, returnLocation) {
-  return resolveOfferState(pickupLocation, returnLocation).routeOffer;
+export function normalizeCarCity(value, fallback = '') {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (CAR_CITY_SET.has(normalized)) return normalized;
+  if (PAPHOS_WIDGET_LOCATIONS.has(normalized)) return 'paphos';
+  if (normalized === 'airport_lca') return 'larnaca';
+  const safeFallback = String(fallback || '').trim().toLowerCase();
+  return CAR_CITY_SET.has(safeFallback) ? safeFallback : '';
 }
 
-export function resolveOfferState(pickupLocation, returnLocation, options = {}) {
-  const routeOffer = isPaphosWidgetLocation(pickupLocation) && isPaphosWidgetLocation(returnLocation)
-    ? 'paphos'
-    : 'larnaca';
-  const youngDriver = !!options?.youngDriver;
-  const forcedToLarnaca = youngDriver && routeOffer === 'paphos';
+export function normalizeCarFleet(value, fallback = 'larnaca') {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'paphos') return 'paphos';
+  if (normalized === 'larnaca') return 'larnaca';
+  return fallback === 'paphos' ? 'paphos' : 'larnaca';
+}
+
+export function normalizeCarPlaceType(value, fallback = 'hotel') {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (CAR_PLACE_TYPES.includes(normalized)) return normalized;
+  if (normalized === 'airport_pfo' || normalized === 'airport_lca') return 'airport';
+  if (normalized === 'other' || normalized === 'city_center') return 'address';
+  const safeFallback = String(fallback || '').trim().toLowerCase();
+  return CAR_PLACE_TYPES.includes(safeFallback) ? safeFallback : 'hotel';
+}
+
+export function getAllowedCarPlaceTypes(city) {
+  const normalizedCity = normalizeCarCity(city, 'larnaca');
+  if (normalizedCity === 'larnaca' || normalizedCity === 'paphos') {
+    return ['airport', 'hotel', 'address'];
+  }
+  return ['hotel', 'address'];
+}
+
+export function coerceCarPlaceTypeForCity(city, placeType, fallback = 'hotel') {
+  const allowed = getAllowedCarPlaceTypes(city);
+  const normalizedType = normalizeCarPlaceType(placeType, fallback);
+  if (allowed.includes(normalizedType)) return normalizedType;
+  return allowed.includes(fallback) ? fallback : allowed[0];
+}
+
+export function resolveCarFleet(pickupCity, returnCity, youngDriver = false) {
+  const pickup = normalizeCarCity(pickupCity);
+  const ret = normalizeCarCity(returnCity);
+  const routeOffer = pickup === 'paphos' && ret === 'paphos' ? 'paphos' : 'larnaca';
+  const forcedToLarnaca = !!youngDriver && routeOffer === 'paphos';
   const effectiveOffer = forcedToLarnaca ? 'larnaca' : routeOffer;
 
   return {
+    pickupCity: pickup,
+    returnCity: ret,
     routeOffer,
     effectiveOffer,
     paphosEligible: routeOffer === 'paphos',
     forcedToLarnaca,
   };
+}
+
+export function mapCityToLegacyLocationForPricing(city, fleetSource = 'larnaca', placeType = 'hotel') {
+  const normalizedCity = normalizeCarCity(city, 'larnaca');
+  const normalizedFleet = normalizeCarFleet(fleetSource);
+  const normalizedType = coerceCarPlaceTypeForCity(normalizedCity, placeType);
+
+  if (normalizedFleet === 'paphos') {
+    if (normalizedType === 'airport') return 'airport_pfo';
+    if (normalizedType === 'address') return 'other';
+    return 'hotel';
+  }
+
+  return normalizedCity || 'larnaca';
+}
+
+export function inferCarCityFromLegacyLocation(value, fallback = 'larnaca') {
+  return normalizeCarCity(value, fallback);
+}
+
+export function inferCarPlaceTypeFromLegacyLocation(value, details = {}) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'airport_pfo' || normalized === 'airport_lca') return 'airport';
+  if (normalized === 'hotel') return 'hotel';
+  if (normalized === 'other' || normalized === 'city_center') return 'address';
+  if (String(details?.flightNumber || '').trim()) return 'airport';
+  if (String(details?.address || '').trim()) return 'address';
+  return 'hotel';
+}
+
+export function resolveOfferFromRoute(pickupLocation, returnLocation) {
+  return resolveOfferState(pickupLocation, returnLocation).routeOffer;
+}
+
+export function resolveOfferState(pickupLocation, returnLocation, options = {}) {
+  return resolveCarFleet(pickupLocation, returnLocation, !!options?.youngDriver);
 }
 
 export function buildBlankFinderState() {
@@ -70,8 +146,8 @@ export function buildDeepLinkFinderState(offerLocation = 'larnaca') {
   return {
     ...buildBlankFinderState(),
     ...buildDefaultDatesState(),
-    pickupLocation: location === 'paphos' ? 'hotel' : 'larnaca',
-    returnLocation: location === 'paphos' ? 'hotel' : 'larnaca',
+    pickupLocation: location,
+    returnLocation: location,
   };
 }
 
