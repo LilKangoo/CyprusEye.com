@@ -44,6 +44,26 @@ function escapeHtml(unsafe) {
     .replace(/'/g, '&#039;');
 }
 
+function getDefaultPhoneCountryCode() {
+  const lang = getLang();
+  if (lang === 'pl') return '+48';
+  if (lang === 'he') return '+972';
+  return '+357';
+}
+
+function buildPhoneCountryCodeOptionsHtml(selectedValue = getDefaultPhoneCountryCode()) {
+  const selected = String(selectedValue || '').trim() || getDefaultPhoneCountryCode();
+  const options = [
+    { value: '+48', label: '🇵🇱 +48' },
+    { value: '+357', label: '🇨🇾 +357' },
+    { value: '+44', label: '🇬🇧 +44' },
+    { value: '+972', label: '🇮🇱 +972' },
+  ];
+  return options.map((option) => `
+    <option value="${escapeHtml(option.value)}" ${option.value === selected ? 'selected' : ''}>${escapeHtml(option.label)}</option>
+  `).join('');
+}
+
 function getCarName(car) {
   return window.getCarName ? window.getCarName(car) : (car?.car_model || car?.car_type || 'Car');
 }
@@ -363,6 +383,13 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
   const returnPlaceLabel = text('Typ zwrotu *', 'Return type *', 'סוג החזרה *');
   const pickupCityCopy = text('Miasto odbioru', 'Pickup city', 'עיר איסוף');
   const returnCityCopy = text('Miasto zwrotu', 'Return city', 'עיר החזרה');
+  const pickupFlightLabel = text('Numer lotu odbioru *', 'Pickup flight number *', 'מספר טיסת איסוף *');
+  const returnFlightLabel = text('Numer lotu zwrotu *', 'Return flight number *', 'מספר טיסת החזרה *');
+  const flightPlaceholder = text('np. W1234', 'e.g. W1234', 'לדוגמה W1234');
+  const phoneCodeLabel = text('Wybierz kierunkowy *', 'Choose country code *', 'בחרו קידומת מדינה *');
+  const phoneNumberLabel = text('Numer telefonu *', 'Phone number *', 'מספר טלפון *');
+  const phonePlaceholder = text('123456789', '123456789', '501234567');
+  const phoneCodeOptionsHtml = buildPhoneCountryCodeOptionsHtml();
 
   return `
     <div class="auto-reservation-intro">
@@ -392,8 +419,15 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
               <input type="email" id="res_email" name="email" required placeholder="jan@example.com" data-i18n-attrs="placeholder:${i18nPrefix}.fields.email.placeholder">
             </div>
             <div class="auto-field">
-              <label for="res_phone" data-i18n="${i18nPrefix}.fields.phone.label">Telefon *</label>
-              <input type="tel" id="res_phone" name="phone" required placeholder="+48 123 456 789" data-i18n-attrs="placeholder:${i18nPrefix}.fields.phone.placeholder">
+              <label for="res_phone_country_code">${escapeHtml(phoneCodeLabel)}</label>
+              <select id="res_phone_country_code" required>
+                ${phoneCodeOptionsHtml}
+              </select>
+            </div>
+            <div class="auto-field">
+              <label for="res_phone_local">${escapeHtml(phoneNumberLabel)}</label>
+              <input type="tel" id="res_phone_local" required inputmode="tel" autocomplete="tel-national" placeholder="${escapeHtml(phonePlaceholder)}">
+              <input type="hidden" id="res_phone" name="phone" value="">
             </div>
           </div>
           <div class="auto-field">
@@ -447,6 +481,11 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
             <input type="text" id="res_pickup_address" name="pickup_address" placeholder="Nazwa hotelu lub dokładny adres" data-i18n-attrs="placeholder:${i18nPrefix}.fields.pickupAddress.placeholder">
           </div>
 
+          <div class="auto-field" id="pickupFlightField" hidden>
+            <label for="res_pickup_flight">${escapeHtml(pickupFlightLabel)}</label>
+            <input type="text" id="res_pickup_flight" placeholder="${escapeHtml(flightPlaceholder)}" autocomplete="off">
+          </div>
+
           <div class="auto-form-date-row">
             <div class="auto-field">
               <label for="res_return_date" data-i18n="${i18nPrefix}.fields.returnDate.label">Data zwrotu *</label>
@@ -477,6 +516,11 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
             <label for="res_return_address" data-i18n="${i18nPrefix}.fields.returnAddress.label">Adres zwrotu</label>
             <input type="text" id="res_return_address" name="return_address" placeholder="Nazwa hotelu lub dokładny adres" data-i18n-attrs="placeholder:${i18nPrefix}.fields.returnAddress.placeholder">
           </div>
+
+          <div class="auto-field" id="returnFlightField" hidden>
+            <label for="res_return_flight">${escapeHtml(returnFlightLabel)}</label>
+            <input type="text" id="res_return_flight" placeholder="${escapeHtml(flightPlaceholder)}" autocomplete="off">
+          </div>
         </div>
       </section>
 
@@ -503,10 +547,7 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
 
           ${youngDriverBlock}
 
-          <div class="auto-field" id="flightNumberField" hidden>
-            <label for="res_flight" data-i18n="${i18nPrefix}.fields.flight.label">Numer lotu (opcjonalnie)</label>
-            <input type="text" id="res_flight" name="flight_number" placeholder="W1234" data-i18n-attrs="placeholder:${i18nPrefix}.fields.flight.placeholder">
-          </div>
+          <input type="hidden" id="res_flight" name="flight_number" value="">
 
           <div class="auto-field">
             <label for="res_notes" data-i18n="${i18nPrefix}.fields.notes.label">Uwagi specjalne</label>

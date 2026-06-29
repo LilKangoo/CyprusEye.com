@@ -375,6 +375,8 @@ async function expectFirstCarOpensModal(page: Page) {
   await expect(page.locator('#localReservationForm')).toBeVisible();
   await expect(page.locator('#res_pickup_place_type')).toBeVisible();
   await expect(page.locator('#res_return_place_type')).toBeVisible();
+  await expect(page.locator('#res_phone_country_code')).toBeVisible();
+  await expect(page.locator('#res_phone_local')).toBeVisible();
   await expect(page.locator('#res_pickup_location')).toHaveAttribute('type', 'hidden');
   await expect(page.locator('#res_return_location')).toHaveAttribute('type', 'hidden');
 }
@@ -468,7 +470,16 @@ test.describe('car booking modal regression', () => {
     await expect(page.locator('#res_pickup_place_type option')).toHaveText(['Lotnisko', 'Hotel', 'Adres']);
     await expect(page.locator('#res_return_place_type option')).toHaveText(['Lotnisko', 'Hotel', 'Adres']);
     await page.locator('#res_pickup_place_type').selectOption('airport');
-    await expect(page.locator('#flightNumberField')).toBeVisible();
+    await expect(page.locator('#pickupFlightField')).toBeVisible();
+    await expect(page.locator('#returnFlightField')).toBeHidden();
+    await page.locator('#res_pickup_place_type').selectOption('hotel');
+    await expect(page.locator('#pickupAddressField')).toBeVisible();
+    await expect(page.locator('#pickupFlightField')).toBeHidden();
+    await page.locator('#res_pickup_place_type').selectOption('address');
+    await expect(page.locator('#pickupAddressField')).toBeVisible();
+    await expect(page.locator('#pickupFlightField')).toBeHidden();
+    await page.locator('#res_return_place_type').selectOption('airport');
+    await expect(page.locator('#returnFlightField')).toBeVisible();
 
     await page.locator('#carHomeModal .modal-close').click();
     await configureFinderCities(page, 'nicosia', 'limassol', false);
@@ -477,7 +488,44 @@ test.describe('car booking modal regression', () => {
     await expect(page.locator('#res_return_city_label')).toContainText('Limassol');
     await expect(page.locator('#res_pickup_place_type option')).toHaveText(['Hotel', 'Adres']);
     await expect(page.locator('#res_return_place_type option')).toHaveText(['Hotel', 'Adres']);
-    await expect(page.locator('#flightNumberField')).toBeHidden();
+    await expect(page.locator('#pickupFlightField')).toBeHidden();
+    await expect(page.locator('#returnFlightField')).toBeHidden();
+  });
+
+  test('booking modal requires airport flight numbers and submits full phone number', async ({ page }) => {
+    await openCarPage(page, 'pl');
+    await configureFinderCities(page, 'larnaca', 'paphos', false);
+    await expectFirstCarOpensModal(page);
+
+    await expect(page.locator('#res_phone_country_code option')).toHaveText(['🇵🇱 +48', '🇨🇾 +357', '🇬🇧 +44', '🇮🇱 +972']);
+    await page.locator('#res_full_name').fill('Jan Testowy');
+    await page.locator('#res_email').fill('jan.testowy@example.com');
+    await page.locator('#res_phone_country_code').selectOption('+48');
+    await page.locator('#res_phone_local').fill('123 456 789');
+    await page.locator('#res_pickup_place_type').selectOption('airport');
+    await page.locator('#res_return_place_type').selectOption('airport');
+
+    await page.locator('#btnSubmitReservation').click();
+    await expect(page.locator('#pickupFlightField .field-error')).toBeVisible();
+    await expect(page.locator('#returnFlightField .field-error')).toBeVisible();
+    await expect.poll(async () => page.evaluate(() => (
+      (window as any).__supabaseStub?.getTableRows?.('car_bookings')?.length || 0
+    ))).toBe(0);
+
+    await page.locator('#res_pickup_flight').fill('W1234');
+    await page.locator('#res_return_flight').fill('W5678');
+    await page.locator('#btnSubmitReservation').click();
+    await expect.poll(async () => page.evaluate(() => (
+      (window as any).__supabaseStub?.getTableRows?.('car_bookings')?.length || 0
+    )), { timeout: 15000 }).toBe(1);
+
+    const inserted = await page.evaluate(() => (
+      (window as any).__supabaseStub?.getTableRows?.('car_bookings')?.[0] || null
+    ));
+    expect(inserted).toMatchObject({
+      phone: '+48 123 456 789',
+      flight_number: 'Pickup: W1234 | Return: W5678',
+    });
   });
 
   test('index.html car finder uses the same fleet rules', async ({ page }) => {
