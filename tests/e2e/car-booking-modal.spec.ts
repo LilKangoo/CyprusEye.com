@@ -375,10 +375,25 @@ async function expectFirstCarOpensModal(page: Page) {
   await expect(page.locator('#localReservationForm')).toBeVisible();
   await expect(page.locator('#res_pickup_place_type')).toBeVisible();
   await expect(page.locator('#res_return_place_type')).toBeVisible();
-  await expect(page.locator('#res_phone_country_code')).toBeVisible();
+  await expect(page.locator('#res_phone_country_code')).toHaveAttribute('type', 'hidden');
+  await expect(page.locator('#res_phone_country_button')).toBeVisible();
   await expect(page.locator('#res_phone_local')).toBeVisible();
   await expect(page.locator('#res_pickup_location')).toHaveAttribute('type', 'hidden');
   await expect(page.locator('#res_return_location')).toHaveAttribute('type', 'hidden');
+}
+
+async function openPhoneCountryPicker(page: Page) {
+  await page.locator('#res_phone_country_button').click();
+  await expect(page.locator('#res_phone_country_panel')).toBeVisible();
+}
+
+async function selectPhoneCountry(page: Page, query: string, optionText: RegExp | string, expectedButtonText?: RegExp | string) {
+  await openPhoneCountryPicker(page);
+  await page.locator('#res_phone_country_search').fill(query);
+  const option = page.locator('#res_phone_country_results [data-phone-country-option]', { hasText: optionText }).first();
+  await expect(option).toBeVisible();
+  await option.click();
+  await expect(page.locator('#res_phone_country_button_text')).toContainText(expectedButtonText || optionText);
 }
 
 test.describe('car booking modal regression', () => {
@@ -497,11 +512,56 @@ test.describe('car booking modal regression', () => {
     await configureFinderCities(page, 'larnaca', 'paphos', false);
     await expectFirstCarOpensModal(page);
 
-    await expect(page.locator('#res_phone_country_code option')).toHaveText(['🇵🇱 +48', '🇨🇾 +357', '🇬🇧 +44', '🇮🇱 +972']);
+    await openPhoneCountryPicker(page);
+    await expect(page.locator('#res_phone_country_search')).toBeVisible();
+    await expect(page.locator('#res_phone_country_results')).toBeVisible();
+    expect(await page.locator('#res_phone_country_results [data-phone-country-option]').count()).toBeGreaterThan(4);
+    await page.keyboard.press('Escape');
+
+    await selectPhoneCountry(page, 'Poland', '+48');
+    await expect(page.locator('#res_phone_country_code')).toHaveValue('+48');
+    await selectPhoneCountry(page, 'Cyprus', '+357');
+    await expect(page.locator('#res_phone_country_code')).toHaveValue('+357');
+    await selectPhoneCountry(page, '+44', /United Kingdom/, '+44');
+    await expect(page.locator('#res_phone_country_code')).toHaveValue('+44');
+    await selectPhoneCountry(page, 'Germany', '+49');
+    await expect(page.locator('#res_phone_country_code')).toHaveValue('+49');
+    await selectPhoneCountry(page, 'PL', '+48');
+    await expect(page.locator('#res_phone_country_code')).toHaveValue('+48');
+
+    const phoneRowSnapshot = await page.evaluate(() => {
+      const row = document.querySelector('.auto-phone-row');
+      const button = document.getElementById('res_phone_country_button');
+      const local = document.getElementById('res_phone_local');
+      const rowRect = row?.getBoundingClientRect();
+      const buttonRect = button?.getBoundingClientRect();
+      const localRect = local?.getBoundingClientRect();
+      return {
+        containsButton: !!row && !!button && row.contains(button),
+        containsLocal: !!row && !!local && row.contains(local),
+        sameLine: !!buttonRect && !!localRect && Math.abs(buttonRect.top - localRect.top) < 3,
+        rowWidth: rowRect?.width || 0,
+        buttonRight: buttonRect?.right || 0,
+        localRight: localRect?.right || 0,
+      };
+    });
+    expect(phoneRowSnapshot.containsButton).toBe(true);
+    expect(phoneRowSnapshot.containsLocal).toBe(true);
+    expect(phoneRowSnapshot.sameLine).toBe(true);
+
     await page.locator('#res_full_name').fill('Jan Testowy');
     await page.locator('#res_email').fill('jan.testowy@example.com');
-    await page.locator('#res_phone_country_code').selectOption('+48');
-    await page.locator('#res_phone_local').fill('123 456 789');
+    await page.evaluate(() => {
+      const input = document.getElementById('res_phone_country_code') as HTMLInputElement | null;
+      if (input) input.value = '';
+    });
+    await page.locator('#res_phone_local').fill('');
+    await page.locator('#btnSubmitReservation').click();
+    await expect(page.locator('#res_phone_country_button.input-error')).toBeVisible();
+    await expect(page.locator('#res_phone_local.input-error')).toBeVisible();
+
+    await selectPhoneCountry(page, 'Poland', '+48');
+    await page.locator('#res_phone_local').fill('+48 123 456 789');
     await page.locator('#res_pickup_place_type').selectOption('airport');
     await page.locator('#res_return_place_type').selectOption('airport');
 
@@ -526,6 +586,36 @@ test.describe('car booking modal regression', () => {
       phone: '+48 123 456 789',
       flight_number: 'Pickup: W1234 | Return: W5678',
     });
+  });
+
+  test('phone country selector stays compact on mobile width', async ({ page }) => {
+    await page.setViewportSize({ width: 414, height: 896 });
+    await openCarPage(page, 'en');
+    await configureFinderCities(page, 'larnaca', 'paphos', false);
+    await expectFirstCarOpensModal(page);
+
+    const layout = await page.evaluate(() => {
+      const row = document.querySelector('.auto-phone-row');
+      const button = document.getElementById('res_phone_country_button');
+      const local = document.getElementById('res_phone_local');
+      const rowRect = row?.getBoundingClientRect();
+      const buttonRect = button?.getBoundingClientRect();
+      const localRect = local?.getBoundingClientRect();
+      return {
+        noHorizontalOverflow: document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1
+          && document.body.scrollWidth <= document.body.clientWidth + 1,
+        sameLine: !!buttonRect && !!localRect && Math.abs(buttonRect.top - localRect.top) < 3,
+        rowWithinViewport: !!rowRect && rowRect.left >= -1 && rowRect.right <= window.innerWidth + 1,
+      };
+    });
+
+    expect(layout.noHorizontalOverflow).toBe(true);
+    expect(layout.sameLine).toBe(true);
+    expect(layout.rowWithinViewport).toBe(true);
+
+    await openPhoneCountryPicker(page);
+    await page.locator('#res_phone_country_search').fill('+49');
+    await expect(page.locator('#res_phone_country_results [data-phone-country-option]', { hasText: 'Germany' })).toBeVisible();
   });
 
   test('index.html car finder uses the same fleet rules', async ({ page }) => {

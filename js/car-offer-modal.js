@@ -1,4 +1,4 @@
-import { initCarReservationBindings } from '/js/car-reservation.js?v=20260630_city_place';
+import { initCarReservationBindings } from '/js/car-reservation.js?v=20260630_phone_country';
 import {
   buildPricingMatrixForOfferRow,
   calculateCarRentalQuote,
@@ -15,6 +15,7 @@ import {
   buildCarPlaceTypeOptionsHtml,
   getCarCityLabel,
 } from '/js/car-location-options.js';
+import { PHONE_COUNTRY_CODES } from '/js/phone-country-codes.js';
 
 let previousBodyCarLocation = null;
 let previousCarPricingContext = null;
@@ -44,24 +45,27 @@ function escapeHtml(unsafe) {
     .replace(/'/g, '&#039;');
 }
 
-function getDefaultPhoneCountryCode() {
-  const lang = getLang();
-  if (lang === 'pl') return '+48';
-  if (lang === 'he') return '+972';
-  return '+357';
+function flagFromIso2(iso2) {
+  const code = String(iso2 || '').trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(code)) return '';
+  return String.fromCodePoint(...Array.from(code).map((char) => 127397 + char.charCodeAt(0)));
 }
 
-function buildPhoneCountryCodeOptionsHtml(selectedValue = getDefaultPhoneCountryCode()) {
-  const selected = String(selectedValue || '').trim() || getDefaultPhoneCountryCode();
-  const options = [
-    { value: '+48', label: '🇵🇱 +48' },
-    { value: '+357', label: '🇨🇾 +357' },
-    { value: '+44', label: '🇬🇧 +44' },
-    { value: '+972', label: '🇮🇱 +972' },
-  ];
-  return options.map((option) => `
-    <option value="${escapeHtml(option.value)}" ${option.value === selected ? 'selected' : ''}>${escapeHtml(option.label)}</option>
-  `).join('');
+function findPhoneCountryByIso(iso2) {
+  const code = String(iso2 || '').trim().toUpperCase();
+  return PHONE_COUNTRY_CODES.find((country) => country.iso2 === code) || null;
+}
+
+function getDefaultPhoneCountry() {
+  const lang = getLang();
+  if (lang === 'pl') return findPhoneCountryByIso('PL') || PHONE_COUNTRY_CODES[0];
+  if (lang === 'he') return findPhoneCountryByIso('IL') || PHONE_COUNTRY_CODES[0];
+  return findPhoneCountryByIso('CY') || PHONE_COUNTRY_CODES[0];
+}
+
+function formatPhoneCountryCompact(country) {
+  if (!country) return '';
+  return `${flagFromIso2(country.iso2)} ${country.dialCode}`.trim();
 }
 
 function getCarName(car) {
@@ -386,10 +390,13 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
   const pickupFlightLabel = text('Numer lotu odbioru *', 'Pickup flight number *', 'מספר טיסת איסוף *');
   const returnFlightLabel = text('Numer lotu zwrotu *', 'Return flight number *', 'מספר טיסת החזרה *');
   const flightPlaceholder = text('np. W1234', 'e.g. W1234', 'לדוגמה W1234');
-  const phoneCodeLabel = text('Wybierz kierunkowy *', 'Choose country code *', 'בחרו קידומת מדינה *');
+  const phoneCodeLabel = text('Wybierz kierunkowy', 'Choose country code', 'בחרו קידומת מדינה');
   const phoneNumberLabel = text('Numer telefonu *', 'Phone number *', 'מספר טלפון *');
   const phonePlaceholder = text('123456789', '123456789', '501234567');
-  const phoneCodeOptionsHtml = buildPhoneCountryCodeOptionsHtml();
+  const phoneSearchPlaceholder = text('Szukaj kraju lub kodu', 'Search country or code', 'חפשו מדינה או קוד');
+  const phoneNoResults = text('Brak wyników', 'No results', 'אין תוצאות');
+  const defaultPhoneCountry = getDefaultPhoneCountry();
+  const defaultPhoneCountryLabel = formatPhoneCountryCompact(defaultPhoneCountry);
 
   return `
     <div class="auto-reservation-intro">
@@ -418,16 +425,23 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
               <label for="res_email" data-i18n="${i18nPrefix}.fields.email.label">Email *</label>
               <input type="email" id="res_email" name="email" required placeholder="jan@example.com" data-i18n-attrs="placeholder:${i18nPrefix}.fields.email.placeholder">
             </div>
-            <div class="auto-field">
-              <label for="res_phone_country_code">${escapeHtml(phoneCodeLabel)}</label>
-              <select id="res_phone_country_code" required>
-                ${phoneCodeOptionsHtml}
-              </select>
-            </div>
-            <div class="auto-field">
+            <div class="auto-field auto-phone-field">
               <label for="res_phone_local">${escapeHtml(phoneNumberLabel)}</label>
-              <input type="tel" id="res_phone_local" required inputmode="tel" autocomplete="tel-national" placeholder="${escapeHtml(phonePlaceholder)}">
-              <input type="hidden" id="res_phone" name="phone" value="">
+              <div class="auto-phone-row" data-phone-country-combobox>
+                <div class="auto-phone-country">
+                  <input type="hidden" id="res_phone_country_code" value="${escapeHtml(defaultPhoneCountry?.dialCode || '')}" data-iso2="${escapeHtml(defaultPhoneCountry?.iso2 || '')}">
+                  <button type="button" id="res_phone_country_button" class="auto-phone-country__button" aria-haspopup="listbox" aria-expanded="false" aria-label="${escapeHtml(phoneCodeLabel)}">
+                    <span id="res_phone_country_button_text">${escapeHtml(defaultPhoneCountryLabel)}</span>
+                  </button>
+                  <div id="res_phone_country_panel" class="auto-phone-country__panel" hidden>
+                    <input type="search" id="res_phone_country_search" class="auto-phone-country__search" autocomplete="off" placeholder="${escapeHtml(phoneSearchPlaceholder)}" aria-label="${escapeHtml(phoneSearchPlaceholder)}">
+                    <div id="res_phone_country_results" class="auto-phone-country__results" role="listbox"></div>
+                    <div id="res_phone_country_no_results" class="auto-phone-country__empty" hidden>${escapeHtml(phoneNoResults)}</div>
+                  </div>
+                </div>
+                <input type="tel" id="res_phone_local" required inputmode="tel" autocomplete="tel-national" placeholder="${escapeHtml(phonePlaceholder)}" aria-label="${escapeHtml(phoneNumberLabel)}">
+                <input type="hidden" id="res_phone" name="phone" value="">
+              </div>
             </div>
           </div>
           <div class="auto-field">

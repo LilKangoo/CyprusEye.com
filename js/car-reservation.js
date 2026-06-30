@@ -7,6 +7,7 @@ import {
   mapCityToLegacyLocationForPricing,
   normalizeCarCity,
 } from './car-rental-flow.js';
+import { PHONE_COUNTRY_CODES } from './phone-country-codes.js';
 import { createReferralFieldController, shouldHideReferralEntryUi } from './referral-ui.js';
 
 let reservationData = {};
@@ -614,12 +615,47 @@ function setInputValue(input, value) {
   return true;
 }
 
-function cleanPhoneLocalNumber(value) {
-  return String(value || '')
-    .trim()
-    .replace(/^\++/, '')
-    .replace(/^[\s-]+/, '')
-    .replace(/\s+/g, ' ');
+const PREFERRED_PHONE_COUNTRY_BY_DIAL = {
+  '+1': 'US',
+  '+7': 'RU',
+  '+39': 'IT',
+  '+44': 'GB',
+  '+47': 'NO',
+  '+61': 'AU',
+  '+212': 'MA',
+  '+262': 'RE',
+  '+358': 'FI',
+  '+590': 'GP',
+  '+599': 'BQ',
+};
+
+const PHONE_COUNTRY_ALIASES = {
+  pl: 'PL',
+  polska: 'PL',
+  poland: 'PL',
+  cy: 'CY',
+  cyprus: 'CY',
+  cypr: 'CY',
+  cypru: 'CY',
+  'קפריסין': 'CY',
+  uk: 'GB',
+  gb: 'GB',
+  england: 'GB',
+  britain: 'GB',
+  'great britain': 'GB',
+  'united kingdom': 'GB',
+  'wielka brytania': 'GB',
+  'בריטניה': 'GB',
+  israel: 'IL',
+  il: 'IL',
+  izrael: 'IL',
+  'ישראל': 'IL',
+};
+
+function flagFromIso2(iso2) {
+  const code = String(iso2 || '').trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(code)) return '';
+  return String.fromCodePoint(...Array.from(code).map((char) => 127397 + char.charCodeAt(0)));
 }
 
 function normalizePhoneCountryCode(value) {
@@ -627,20 +663,236 @@ function normalizePhoneCountryCode(value) {
   return digits ? `+${digits}` : '';
 }
 
+function normalizeCountrySearch(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function findPhoneCountryByIso(iso2) {
+  const code = String(iso2 || '').trim().toUpperCase();
+  if (!code) return null;
+  return PHONE_COUNTRY_CODES.find((country) => country.iso2 === code) || null;
+}
+
+function findPhoneCountryByDialCode(value) {
+  const dialCode = normalizePhoneCountryCode(value);
+  if (!dialCode) return null;
+  const preferredIso = PREFERRED_PHONE_COUNTRY_BY_DIAL[dialCode];
+  if (preferredIso) {
+    const preferred = findPhoneCountryByIso(preferredIso);
+    if (preferred) return preferred;
+  }
+  return PHONE_COUNTRY_CODES.find((country) => country.dialCode === dialCode) || null;
+}
+
+function inferPhoneCountryFromCountry(countryValue) {
+  const normalized = normalizeCountrySearch(countryValue);
+  if (!normalized) return null;
+  const alias = PHONE_COUNTRY_ALIASES[normalized];
+  if (alias) return findPhoneCountryByIso(alias);
+  const isoMatch = PHONE_COUNTRY_CODES.find((country) => country.iso2.toLowerCase() === normalized);
+  if (isoMatch) return isoMatch;
+  return PHONE_COUNTRY_CODES.find((country) => normalizeCountrySearch(country.name).includes(normalized)) || null;
+}
+
+function getDefaultPhoneCountry() {
+  const lang = currentUiLang();
+  if (lang === 'pl') return findPhoneCountryByIso('PL') || PHONE_COUNTRY_CODES[0];
+  if (lang === 'he') return findPhoneCountryByIso('IL') || PHONE_COUNTRY_CODES[0];
+  return findPhoneCountryByIso('CY') || PHONE_COUNTRY_CODES[0];
+}
+
+function getSelectedPhoneCountry() {
+  const input = document.getElementById('res_phone_country_code');
+  const countryByIso = findPhoneCountryByIso(input?.dataset?.iso2 || '');
+  if (countryByIso) return countryByIso;
+  return findPhoneCountryByDialCode(input?.value || '') || getDefaultPhoneCountry();
+}
+
+function formatPhoneCountryCompact(country) {
+  if (!country) return '';
+  return `${flagFromIso2(country.iso2)} ${country.dialCode}`.trim();
+}
+
+function formatPhoneCountryOption(country) {
+  if (!country) return '';
+  return `${flagFromIso2(country.iso2)} ${country.dialCode} ${country.name} (${country.iso2})`.trim();
+}
+
+function filterPhoneCountries(query) {
+  const normalized = normalizeCountrySearch(query);
+  const digits = String(query || '').replace(/[^\d]/g, '');
+  if (!normalized && !digits) return PHONE_COUNTRY_CODES;
+  return PHONE_COUNTRY_CODES.filter((country) => {
+    const name = normalizeCountrySearch(country.name);
+    const iso = country.iso2.toLowerCase();
+    const dialCode = country.dialCode.toLowerCase();
+    const dialDigits = country.dialCode.replace(/[^\d]/g, '');
+    return name.includes(normalized)
+      || iso.includes(normalized)
+      || dialCode.includes(normalized)
+      || (digits && dialDigits.includes(digits));
+  });
+}
+
+function renderPhoneCountryResults(query = '') {
+  const resultsNode = document.getElementById('res_phone_country_results');
+  const emptyNode = document.getElementById('res_phone_country_no_results');
+  if (!(resultsNode instanceof HTMLElement)) return;
+  const selected = getSelectedPhoneCountry();
+  const countries = filterPhoneCountries(query);
+  resultsNode.innerHTML = countries.map((country) => `
+    <button
+      type="button"
+      class="auto-phone-country__option"
+      role="option"
+      data-phone-country-option
+      data-dial-code="${escapeHtml(country.dialCode)}"
+      data-iso2="${escapeHtml(country.iso2)}"
+      aria-selected="${selected?.iso2 === country.iso2 ? 'true' : 'false'}"
+    >
+      ${escapeHtml(formatPhoneCountryOption(country))}
+    </button>
+  `).join('');
+  if (emptyNode instanceof HTMLElement) {
+    emptyNode.hidden = countries.length > 0;
+  }
+}
+
+function setPhoneCountry(country, options = {}) {
+  if (!country) return;
+  const { userChanged = false, closePanel = true } = options;
+  const input = document.getElementById('res_phone_country_code');
+  const button = document.getElementById('res_phone_country_button');
+  const buttonText = document.getElementById('res_phone_country_button_text');
+  if (input instanceof HTMLInputElement) {
+    input.value = country.dialCode;
+    input.dataset.iso2 = country.iso2;
+    if (userChanged) input.dataset.userChanged = '1';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  if (buttonText instanceof HTMLElement) {
+    buttonText.textContent = formatPhoneCountryCompact(country);
+  }
+  if (button instanceof HTMLButtonElement) {
+    button.dataset.iso2 = country.iso2;
+    button.dataset.dialCode = country.dialCode;
+  }
+  renderPhoneCountryResults(document.getElementById('res_phone_country_search')?.value || '');
+  if (closePanel) closePhoneCountryPanel();
+  syncCarPhoneField();
+}
+
+function openPhoneCountryPanel() {
+  const panel = document.getElementById('res_phone_country_panel');
+  const button = document.getElementById('res_phone_country_button');
+  const search = document.getElementById('res_phone_country_search');
+  if (!(panel instanceof HTMLElement)) return;
+  panel.hidden = false;
+  if (button instanceof HTMLButtonElement) button.setAttribute('aria-expanded', 'true');
+  renderPhoneCountryResults(search?.value || '');
+  if (search instanceof HTMLInputElement) {
+    search.focus();
+    search.select();
+  }
+}
+
+function closePhoneCountryPanel() {
+  const panel = document.getElementById('res_phone_country_panel');
+  const button = document.getElementById('res_phone_country_button');
+  if (panel instanceof HTMLElement) panel.hidden = true;
+  if (button instanceof HTMLButtonElement) button.setAttribute('aria-expanded', 'false');
+}
+
+function initPhoneCountryPicker() {
+  const wrapper = document.querySelector('[data-phone-country-combobox]');
+  const input = document.getElementById('res_phone_country_code');
+  const button = document.getElementById('res_phone_country_button');
+  const panel = document.getElementById('res_phone_country_panel');
+  const search = document.getElementById('res_phone_country_search');
+  const results = document.getElementById('res_phone_country_results');
+  if (!(wrapper instanceof HTMLElement) || wrapper.dataset.cePhoneCountryBound === '1') return;
+  if (!(input instanceof HTMLInputElement) || !(button instanceof HTMLButtonElement) || !(panel instanceof HTMLElement)) return;
+
+  wrapper.dataset.cePhoneCountryBound = '1';
+  setPhoneCountry(getSelectedPhoneCountry(), { closePanel: true });
+
+  button.addEventListener('click', () => {
+    if (panel.hidden) openPhoneCountryPanel();
+    else closePhoneCountryPanel();
+  });
+
+  if (search instanceof HTMLInputElement) {
+    search.addEventListener('input', () => renderPhoneCountryResults(search.value));
+    search.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closePhoneCountryPanel();
+        button.focus();
+      } else if (event.key === 'Enter') {
+        const firstOption = results?.querySelector('[data-phone-country-option]');
+        if (firstOption instanceof HTMLButtonElement) {
+          event.preventDefault();
+          firstOption.click();
+        }
+      }
+    });
+  }
+
+  if (results instanceof HTMLElement) {
+    results.addEventListener('click', (event) => {
+      const option = event.target instanceof HTMLElement
+        ? event.target.closest('[data-phone-country-option]')
+        : null;
+      if (!(option instanceof HTMLElement)) return;
+      const country = findPhoneCountryByIso(option.dataset.iso2 || '')
+        || findPhoneCountryByDialCode(option.dataset.dialCode || '');
+      setPhoneCountry(country, { userChanged: true, closePanel: true });
+      button.focus();
+    });
+  }
+
+  document.addEventListener('click', (event) => {
+    if (event.target instanceof Node && wrapper.contains(event.target)) return;
+    closePhoneCountryPanel();
+  });
+}
+
+function cleanPhoneLocalNumber(value, countryCode = '') {
+  let normalized = String(value || '')
+    .trim()
+    .replace(/^\++/, '')
+    .replace(/^[\s-]+/, '')
+    .replace(/\s+/g, ' ');
+
+  const codeDigits = normalizePhoneCountryCode(countryCode).replace(/\D/g, '');
+  if (codeDigits) {
+    const codePattern = new RegExp(`^${codeDigits.split('').map((digit) => `${digit}[\\s().-]*`).join('')}`);
+    normalized = normalized.replace(codePattern, '').trim();
+  }
+
+  return normalized
+    .replace(/^\++/, '')
+    .replace(/^[\s().-]+/, '')
+    .replace(/\s+/g, ' ');
+}
+
 function syncCarPhoneField() {
-  const codeSelect = document.getElementById('res_phone_country_code');
+  const codeInput = document.getElementById('res_phone_country_code');
   const localInput = document.getElementById('res_phone_local');
   const hiddenPhone = document.getElementById('res_phone');
   if (!(hiddenPhone instanceof HTMLInputElement)) return '';
 
-  const code = normalizePhoneCountryCode(codeSelect?.value || '');
-  const local = cleanPhoneLocalNumber(localInput?.value || '');
-  const localWithoutLeadingCode = local.replace(/^\+\d+\s*/, '').replace(/^\d{1,4}\s+/, (prefix) => {
-    const prefixDigits = prefix.replace(/\D/g, '');
-    return code && prefixDigits === code.replace(/\D/g, '') ? '' : prefix;
-  }).trim();
-  const full = code && localWithoutLeadingCode
-    ? `${code} ${localWithoutLeadingCode}`.trim()
+  const code = normalizePhoneCountryCode(codeInput?.value || '');
+  const local = cleanPhoneLocalNumber(localInput?.value || '', code);
+  if (localInput instanceof HTMLInputElement && localInput.value !== local) {
+    localInput.value = local;
+  }
+  const full = code && local
+    ? `${code} ${local}`.trim()
     : '';
   hiddenPhone.value = full;
   return full;
@@ -652,18 +904,16 @@ function splitExistingPhone(value) {
   if (!match) return { code: '', local: raw };
   return {
     code: match[1],
-    local: cleanPhoneLocalNumber(match[2] || ''),
+    local: cleanPhoneLocalNumber(match[2] || '', match[1]),
   };
 }
 
 function setPhoneFromFullValue(value) {
-  const codeSelect = document.getElementById('res_phone_country_code');
   const localInput = document.getElementById('res_phone_local');
   const hiddenPhone = document.getElementById('res_phone');
   const split = splitExistingPhone(value);
-  if (codeSelect instanceof HTMLSelectElement && split.code) {
-    const hasCode = Array.from(codeSelect.options || []).some((opt) => opt.value === split.code);
-    if (hasCode) codeSelect.value = split.code;
+  if (split.code) {
+    setPhoneCountry(findPhoneCountryByDialCode(split.code), { closePanel: true });
   }
   if (localInput instanceof HTMLInputElement && split.local) {
     localInput.value = split.local;
@@ -674,27 +924,15 @@ function setPhoneFromFullValue(value) {
   syncCarPhoneField();
 }
 
-function inferPhoneCodeFromCountry(countryValue) {
-  const normalized = String(countryValue || '').trim().toLowerCase();
-  if (!normalized) return '';
-  if (/pol|pl|polska|poland/.test(normalized)) return '+48';
-  if (/cy|cyprus|cypr|cypru|קפריסין/.test(normalized)) return '+357';
-  if (/uk|gb|great britain|united kingdom|wielka brytania|בריטניה/.test(normalized)) return '+44';
-  if (/israel|il|izrael|ישראל/.test(normalized)) return '+972';
-  return '';
-}
-
 function maybeSyncPhoneCodeFromCountry(options = {}) {
   const { force = false } = options;
   const countryInput = document.getElementById('res_country');
-  const codeSelect = document.getElementById('res_phone_country_code');
-  if (!(codeSelect instanceof HTMLSelectElement)) return;
-  if (!force && codeSelect.dataset.userChanged === '1') return;
-  const inferred = inferPhoneCodeFromCountry(countryInput?.value || '');
+  const codeInput = document.getElementById('res_phone_country_code');
+  if (!(codeInput instanceof HTMLInputElement)) return;
+  if (!force && codeInput.dataset.userChanged === '1') return;
+  const inferred = inferPhoneCountryFromCountry(countryInput?.value || '');
   if (!inferred) return;
-  const hasCode = Array.from(codeSelect.options || []).some((opt) => opt.value === inferred);
-  if (!hasCode) return;
-  codeSelect.value = inferred;
+  setPhoneCountry(inferred, { closePanel: true });
   syncCarPhoneField();
 }
 
@@ -815,7 +1053,6 @@ export function initCarReservationBindings() {
   const returnLocation = document.getElementById('res_return_location');
   const pickupPlaceType = document.getElementById('res_pickup_place_type');
   const returnPlaceType = document.getElementById('res_return_place_type');
-  const phoneCode = document.getElementById('res_phone_country_code');
   const phoneLocal = document.getElementById('res_phone_local');
   const countryInput = document.getElementById('res_country');
   const pickupFlight = document.getElementById('res_pickup_flight');
@@ -841,13 +1078,7 @@ export function initCarReservationBindings() {
       syncReservationPlaceDetails({ recalculate: true });
     });
   }
-  if (phoneCode && phoneCode.dataset.ceReservationBound !== '1') {
-    phoneCode.dataset.ceReservationBound = '1';
-    phoneCode.addEventListener('change', () => {
-      phoneCode.dataset.userChanged = '1';
-      syncCarPhoneField();
-    });
-  }
+  initPhoneCountryPicker();
   if (phoneLocal && phoneLocal.dataset.ceReservationBound !== '1') {
     phoneLocal.dataset.ceReservationBound = '1';
     phoneLocal.addEventListener('input', syncCarPhoneField);
@@ -1419,9 +1650,9 @@ function validateReservationForm(formData) {
   if (!email || !emailRegex.test(email)) errors.push({ field: 'res_email', message: msgs.email });
   
   const phoneCode = normalizePhoneCountryCode(document.getElementById('res_phone_country_code')?.value || '');
-  const phoneLocal = cleanPhoneLocalNumber(document.getElementById('res_phone_local')?.value || '');
+  const phoneLocal = cleanPhoneLocalNumber(document.getElementById('res_phone_local')?.value || '', phoneCode);
   const phone = syncCarPhoneField();
-  if (!phoneCode) errors.push({ field: 'res_phone_country_code', message: msgs.phoneCode });
+  if (!phoneCode) errors.push({ field: 'res_phone_country_button', message: msgs.phoneCode });
   if (!phoneLocal || !phone) errors.push({ field: 'res_phone_local', message: msgs.phone });
   
   const pickupDate = formData.get('pickup_date');
