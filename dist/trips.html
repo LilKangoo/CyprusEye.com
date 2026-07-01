@@ -1341,6 +1341,7 @@
 
   <script type="module">
     import { quoteServiceCoupon } from '/js/service-coupons.js';
+    import { enhanceTripPhoneInput, setTripPhoneInputLanguage, syncTripPhoneInput } from '/js/trip-phone-input.js';
 
     let allTrips = [];
     let currentCity = 'all';
@@ -1418,6 +1419,16 @@
         || 'pl'
       ).trim().toLowerCase();
       return raw.startsWith('en') ? 'en' : 'pl';
+    }
+
+    function setupTripsBookingPhoneInput() {
+      const form = document.getElementById('bookingForm');
+      if (!form) return null;
+      return enhanceTripPhoneInput(form, { language: getTripsRuntimeLanguage });
+    }
+
+    function syncTripsBookingPhoneInput() {
+      return syncTripPhoneInput(document.getElementById('bookingForm'));
     }
 
     function getTripMediaDisplayUrl(url) {
@@ -1921,6 +1932,8 @@
       
       // Reset form
       document.getElementById('bookingForm').reset();
+      setupTripsBookingPhoneInput();
+      syncTripsBookingPhoneInput();
       document.getElementById('bookingMessage').style.display = 'none';
       ensureTripCouponUi();
       clearTripCouponState({ clearInput: true });
@@ -2113,6 +2126,7 @@
       
       if (!currentTrip) return;
       
+      syncTripsBookingPhoneInput();
       const formData = new FormData(e.target);
       const adults = parseInt(formData.get('adults')) || 1;
       const children = parseInt(formData.get('children')) || 0;
@@ -2187,6 +2201,7 @@
         
         // Reset form
         e.target.reset();
+        syncTripsBookingPhoneInput();
         clearTripCouponState({ clearInput: true });
         updateLivePrice();
         
@@ -2267,6 +2282,7 @@
     // Direct event listeners (backup - more reliable)
     window.addEventListener('languageChanged', (e) => {
       console.log('🚤 Trips Page: languageChanged event, re-rendering for:', e.detail?.language);
+      setTripPhoneInputLanguage(document.getElementById('bookingForm'), getTripsRuntimeLanguage());
       if (allTrips && allTrips.length > 0) {
         renderTabs();
         renderTrips();
@@ -2275,6 +2291,7 @@
     
     document.addEventListener('wakacjecypr:languagechange', (e) => {
       console.log('🚤 Trips Page: wakacjecypr:languagechange event, re-rendering for:', e.detail?.language);
+      setTripPhoneInputLanguage(document.getElementById('bookingForm'), getTripsRuntimeLanguage());
       if (allTrips && allTrips.length > 0) {
         renderTabs();
         renderTrips();

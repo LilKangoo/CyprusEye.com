@@ -1,6 +1,5 @@
 // Home page trips section loader
 // Loads and displays trips from Supabase on the main page
-
 let homeTripsData = [];
 let homeTripsCurrentCity = 'all';
 let homeTripsDisplay = [];
@@ -13,6 +12,7 @@ let homeTripReferralUiPromise = null;
 let homeTripModalPanoramaCleanup = null;
 let homeTripModalPanoramaHintCleanup = null;
 let homeTripsCarouselUpdate = null;
+let homeTripPhoneModulePromise = null;
 
 const CE_DEBUG_HOME_TRIPS = typeof localStorage !== 'undefined' && localStorage.getItem('CE_DEBUG') === 'true';
 function ceLog(...args) {
@@ -44,6 +44,64 @@ function normalizeHomeTripLang(value) {
 
 function getHomeTripLang() {
   return normalizeHomeTripLang(window.appI18n?.language || document.documentElement?.lang || 'en');
+}
+
+function loadHomeTripPhoneModule() {
+  if (!homeTripPhoneModulePromise) {
+    homeTripPhoneModulePromise = import('/js/trip-phone-input.js');
+  }
+  return homeTripPhoneModulePromise;
+}
+
+async function enhanceHomeTripPhoneInput(form) {
+  if (!form) return null;
+  try {
+    const mod = await loadHomeTripPhoneModule();
+    const controller = mod.enhanceTripPhoneInput(form, { language: getHomeTripLang });
+    mod.syncTripPhoneInput(form);
+    return controller;
+  } catch (error) {
+    console.warn('Home trip phone selector failed to initialize:', error);
+    return null;
+  }
+}
+
+async function syncHomeTripPhoneInput(form) {
+  if (!form) return '';
+  try {
+    const mod = await loadHomeTripPhoneModule();
+    return mod.syncTripPhoneInput(form);
+  } catch (error) {
+    console.warn('Home trip phone selector failed to sync:', error);
+    const input = form.querySelector('input[name="phone"]');
+    return String(input?.value || '').trim();
+  }
+}
+
+async function setHomeTripPhoneFullNumber(form, value) {
+  if (!form) return false;
+  try {
+    const mod = await loadHomeTripPhoneModule();
+    return mod.setTripPhoneFullNumber(form, value);
+  } catch (error) {
+    console.warn('Home trip phone selector failed to prefill:', error);
+    const input = form.querySelector('input[name="phone"]');
+    if (input instanceof HTMLInputElement) {
+      input.value = String(value || '').trim();
+      return true;
+    }
+    return false;
+  }
+}
+
+async function setHomeTripPhoneLanguage(form) {
+  if (!form) return;
+  try {
+    const mod = await loadHomeTripPhoneModule();
+    mod.setTripPhoneInputLanguage(form, getHomeTripLang());
+  } catch (error) {
+    console.warn('Home trip phone selector language update failed:', error);
+  }
 }
 
 function isHomeTripPolish(language = getHomeTripLang()) {
@@ -337,9 +395,10 @@ async function prefillTripFormFromSession(form) {
     if (profile?.phone) {
       const phoneField = form.querySelector('[name="phone"]');
       if (phoneField && !phoneField.value) {
-        phoneField.value = profile.phone;
-        phoneField.style.backgroundColor = '#f0fdf4';
-        setTimeout(() => { phoneField.style.backgroundColor = ''; }, 2000);
+        await setHomeTripPhoneFullNumber(form, profile.phone);
+        const visiblePhoneField = form.querySelector('.ce-phone-input__local') || phoneField;
+        visiblePhoneField.style.backgroundColor = '#f0fdf4';
+        setTimeout(() => { visiblePhoneField.style.backgroundColor = ''; }, 2000);
       }
     }
   } catch (err) {
@@ -1188,7 +1247,12 @@ window.openTripModalHome = function(index){
 
   // Reset form and message
   const form = document.getElementById('bookingForm');
-  if (form) { form.reset(); const msg = document.getElementById('bookingMessage'); if (msg) msg.style.display='none'; }
+  if (form) {
+    form.reset();
+    void enhanceHomeTripPhoneInput(form);
+    const msg = document.getElementById('bookingMessage');
+    if (msg) msg.style.display='none';
+  }
   ensureHomeTripCouponUi();
   void ensureHomeTripReferralUi().then((controller) => controller?.bootstrapInitialValue());
   clearHomeTripCouponState({ clearInput: true });
@@ -1319,6 +1383,7 @@ function initHomeTripsModalHandlers() {
   if (form) form.addEventListener('submit', async (e)=>{
     e.preventDefault();
     if (!homeCurrentTrip) return;
+    await syncHomeTripPhoneInput(form);
     const fd = new FormData(form);
     const adults = parseInt(fd.get('adults')) || 1;
     const children = parseInt(fd.get('children')) || 0;
@@ -1404,6 +1469,7 @@ function initHomeTripsModalHandlers() {
       if (typeof clearFormValidation === 'function') {
         clearFormValidation(form);
       }
+      void syncHomeTripPhoneInput(form);
       clearHomeTripCouponState({ clearInput: true });
       updateLivePriceHome();
       
@@ -1450,6 +1516,11 @@ if (document.readyState === 'loading') {
 } else {
   initHomeTripsModalHandlers();
 }
+
+document.addEventListener('wakacjecypr:languagechange', () => {
+  const form = document.getElementById('bookingForm');
+  if (form) void setHomeTripPhoneLanguage(form);
+});
 
 function updateModalArrows(){
   const prevBtn = document.getElementById('tripModalPrev');

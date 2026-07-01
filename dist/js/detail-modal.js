@@ -3,6 +3,7 @@
 
 let detailModalOpen = false;
 let lastFocusedEl = null;
+let detailTripPhoneModulePromise = null;
 
 function qs(sel, root=document) { return root.querySelector(sel); }
 function qsa(sel, root=document) { return Array.from(root.querySelectorAll(sel)); }
@@ -16,6 +17,70 @@ function getDetailBookingLanguage() {
     || 'pl'
   ).trim().toLowerCase();
   return raw.startsWith('en') ? 'en' : 'pl';
+}
+
+function getDetailUiLanguage() {
+  const raw = String(
+    window.getCurrentLanguage?.()
+    || window.appI18n?.language
+    || document.documentElement?.lang
+    || 'pl'
+  ).trim().toLowerCase();
+  if (raw.startsWith('he')) return 'he';
+  if (raw.startsWith('en')) return 'en';
+  return 'pl';
+}
+
+function detailTripPhoneText(pl, en, he = '') {
+  const lang = getDetailUiLanguage();
+  if (lang === 'he') return he || en || pl || '';
+  if (lang === 'en') return en || pl || he || '';
+  return pl || en || he || '';
+}
+
+function loadDetailTripPhoneModule() {
+  if (!detailTripPhoneModulePromise) {
+    detailTripPhoneModulePromise = import('/js/trip-phone-input.js').catch((error) => {
+      detailTripPhoneModulePromise = null;
+      throw error;
+    });
+  }
+  return detailTripPhoneModulePromise;
+}
+
+async function setupDetailTripPhoneInput(form) {
+  if (!(form instanceof HTMLFormElement) || form.dataset.type !== 'trip') return null;
+  try {
+    const mod = await loadDetailTripPhoneModule();
+    return mod.enhanceTripPhoneInput(form, { language: getDetailUiLanguage });
+  } catch (error) {
+    console.warn('Trip phone selector unavailable:', error);
+    return null;
+  }
+}
+
+async function syncDetailTripPhoneInput(form) {
+  if (!(form instanceof HTMLFormElement) || form.dataset.type !== 'trip') return '';
+  try {
+    const mod = await loadDetailTripPhoneModule();
+    return mod.syncTripPhoneInput(form);
+  } catch (_error) {
+    return String(form.querySelector('[name="phone"]')?.value || '').trim();
+  }
+}
+
+async function validateDetailTripPhoneInput(form) {
+  if (!(form instanceof HTMLFormElement) || form.dataset.type !== 'trip') return null;
+  try {
+    const mod = await loadDetailTripPhoneModule();
+    return mod.validateTripPhoneInput(form, {
+      countryCodeRequired: detailTripPhoneText('Wybierz kierunkowy telefonu.', 'Country code is required.', 'בחרו קידומת טלפון.'),
+      phoneRequired: detailTripPhoneText('Numer telefonu jest wymagany.', 'Phone number is required.', 'מספר טלפון הוא שדה חובה.'),
+    });
+  } catch (_error) {
+    const phone = String(form.querySelector('[name="phone"]')?.value || '').trim();
+    return phone ? null : detailTripPhoneText('Numer telefonu jest wymagany.', 'Phone number is required.', 'מספר טלפון הוא שדה חובה.');
+  }
 }
 
 function normalizeAuthUiError(message, fallback = 'Wystąpił błąd.') {
@@ -350,6 +415,9 @@ function renderDetail(type, vm){
 
   const form = qs('#detailBookingForm');
   const detailCouponState = { applied: null };
+  if (form?.dataset?.type === 'trip') {
+    void setupDetailTripPhoneInput(form);
+  }
 
   const normalizeDetailCouponCode = (value) => String(value || '').trim().toUpperCase();
   const detailMoney = (value) => `${Number(value || 0).toFixed(2)} €`;
@@ -625,6 +693,9 @@ function renderDetail(type, vm){
     msg.style.display = 'none';
     btn.disabled = true; btn.textContent = 'Wysyłanie...';
     try{
+      const phoneError = await validateDetailTripPhoneInput(form);
+      if (phoneError) throw new Error(phoneError);
+      await syncDetailTripPhoneInput(form);
       const fd = new FormData(form);
       const baseTotal = Number(getBaseTotal() || 0);
       const enteredCoupon = normalizeDetailCouponCode(fd.get('coupon_code'));
