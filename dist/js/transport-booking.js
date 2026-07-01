@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient.js';
 import { quoteServiceCoupon } from './service-coupons.js';
 import { createReferralFieldController, shouldHideReferralEntryUi } from './referral-ui.js';
+import { enhancePhoneInput } from './phone-input.js';
 
 const LOCATION_TYPE_FALLBACK_LABELS = {
   city: 'City',
@@ -34,6 +35,7 @@ const state = {
   languageListenerBound: false,
 };
 let referralController = null;
+let transportPhoneInput = null;
 
 const els = {};
 const QUOTE_ROW_HIDE_ANIMATION_MS = 240;
@@ -95,6 +97,26 @@ function getTransportBookingLanguage() {
     || 'en'
   ).trim().toLowerCase();
   return raw.startsWith('pl') ? 'pl' : 'en';
+}
+
+function getTransportUiLanguage() {
+  const raw = String(
+    window.getCurrentLanguage?.()
+    || window.appI18n?.language
+    || document.documentElement?.lang
+    || navigator.language
+    || 'en'
+  ).trim().toLowerCase();
+  if (raw.startsWith('pl')) return 'pl';
+  if (raw.startsWith('he')) return 'he';
+  return 'en';
+}
+
+function transportUiText(pl, en, he = '') {
+  const lang = getTransportUiLanguage();
+  if (lang === 'pl') return pl || en || he || '';
+  if (lang === 'he') return he || en || pl || '';
+  return en || pl || he || '';
 }
 
 function byId(id) {
@@ -909,10 +931,44 @@ async function prefillCustomerFromSession() {
 
     const profilePhone = String(profile.phone || '').trim();
     if (els.customerPhoneInput && !els.customerPhoneInput.value && profilePhone) {
-      els.customerPhoneInput.value = profilePhone;
+      if (transportPhoneInput?.setFullNumber) {
+        transportPhoneInput.setFullNumber(profilePhone);
+      } else {
+        els.customerPhoneInput.value = profilePhone;
+      }
     }
   } catch (_error) {
   }
+}
+
+function setupTransportPhoneInput() {
+  if (!(els.customerPhoneInput instanceof HTMLInputElement)) return;
+  transportPhoneInput = enhancePhoneInput(els.customerPhoneInput, {
+    language: getTransportUiLanguage,
+    required: true,
+    fieldClass: 'transport-field--phone',
+    placeholder: '123456789',
+    labels: {
+      pl: {
+        chooseCountryCode: 'Wybierz kierunkowy',
+        searchCountryOrCode: 'Szukaj kraju lub kodu',
+        phoneNumber: 'Numer telefonu',
+        noResults: 'Brak wyników',
+      },
+      en: {
+        chooseCountryCode: 'Choose country code',
+        searchCountryOrCode: 'Search country or code',
+        phoneNumber: 'Phone number',
+        noResults: 'No results',
+      },
+      he: {
+        chooseCountryCode: 'בחרו קידומת מדינה',
+        searchCountryOrCode: 'חפשו מדינה או קוד',
+        phoneNumber: 'מספר טלפון',
+        noResults: 'אין תוצאות',
+      },
+    },
+  });
 }
 
 function findRouteByLocations(originIdRaw, destinationIdRaw) {
@@ -2006,12 +2062,25 @@ function validateContactFieldsForLeg(legKey = 'outbound') {
 
 function validateRequiredFields() {
   const name = String(els.customerNameInput?.value || '').trim();
+  const phoneState = transportPhoneInput?.validate?.() || null;
+  if (transportPhoneInput?.sync) transportPhoneInput.sync();
   const phone = String(els.customerPhoneInput?.value || '').trim();
   const date = String(els.travelDateInput?.value || '').trim();
   const time = String(els.travelTimeInput?.value || '').trim();
 
   if (!name) return t('transport.booking.validation.fullNameRequired', 'Full name is required.');
-  if (!phone) return t('transport.booking.validation.phoneRequired', 'Phone number is required.');
+  if (phoneState && !phoneState.countryCode) {
+    return t(
+      'transport.booking.validation.phoneCountryCodeRequired',
+      transportUiText('Wybierz kierunkowy telefonu.', 'Country code is required.', 'בחרו קידומת טלפון.')
+    );
+  }
+  if (!phone || (phoneState && !phoneState.localNumber)) {
+    return t(
+      'transport.booking.validation.phoneRequired',
+      transportUiText('Numer telefonu jest wymagany.', 'Phone number is required.', 'מספר טלפון הוא שדה חובה.')
+    );
+  }
   if (!date) return t('transport.booking.validation.travelDateRequired', 'Travel date is required.');
   if (!time) return t('transport.booking.validation.travelTimeRequired', 'Travel time is required.');
 
@@ -2057,6 +2126,7 @@ function validateRequiredFields() {
 }
 
 function buildBookingPayloadForLeg(leg) {
+  if (transportPhoneInput?.sync) transportPhoneInput.sync();
   const route = leg?.route || null;
   const quote = leg?.quote || {};
   const scenario = quote?.scenario || {};
@@ -2819,6 +2889,7 @@ async function initTransportBookingPage() {
 
   if (!state.languageListenerBound) {
     document.addEventListener('wakacjecypr:languagechange', () => {
+      transportPhoneInput?.setLanguage?.(getTransportUiLanguage());
       populateLocationSelects();
       syncTransportContactRequirements();
       refreshQuote();
@@ -2828,6 +2899,7 @@ async function initTransportBookingPage() {
   }
 
   setDefaultTravelDateTime();
+  setupTransportPhoneInput();
   bindInputs();
   syncReturnLegVisibility({ force: false });
   clearQuoteView();
@@ -2851,6 +2923,10 @@ async function initTransportBookingPage() {
   refreshQuote();
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    void initTransportBookingPage();
+  });
+} else {
   void initTransportBookingPage();
-});
+}

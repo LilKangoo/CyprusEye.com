@@ -583,5 +583,9 @@
     showStep(STEP_FIRST, { force: true, scroll: false });
   }
 
-  document.addEventListener('DOMContentLoaded', init);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 }());

@@ -144,8 +144,8 @@
     if (transportBootRequested) return;
     transportBootRequested = true;
 
-    const transportModuleSrc = 'js/transport-booking.js?v=20260509_lang1';
-    const wizardSrc = 'js/home-transport-wizard.js?v=1';
+    const transportModuleSrc = 'js/transport-booking.js?v=20260701_phone1';
+    const wizardSrc = 'js/home-transport-wizard.js?v=20260701_phone1';
 
     if (document.querySelector(`script[data-home-lazy-src="${wizardSrc}"]`)) {
       return;
