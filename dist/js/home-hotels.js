@@ -12,6 +12,7 @@ let homeHotelCouponState = { applied: null };
 let homeHotelReferralController = null;
 let homeHotelReferralUiPromise = null;
 let homeHotelsCarouselUpdate = null;
+let homeHotelPhoneModulePromise = null;
 
 const CE_DEBUG_HOME_HOTELS = typeof localStorage !== 'undefined' && localStorage.getItem('CE_DEBUG') === 'true';
 function ceLog(...args) {
@@ -100,6 +101,61 @@ function getHomeHotelReferralUiModule() {
     homeHotelReferralUiPromise = import('/js/referral-ui.js');
   }
   return homeHotelReferralUiPromise;
+}
+
+function getHomeHotelPhoneModule() {
+  if (!homeHotelPhoneModulePromise) {
+    homeHotelPhoneModulePromise = import('/js/hotel-phone-input.js');
+  }
+  return homeHotelPhoneModulePromise;
+}
+
+async function enhanceHomeHotelPhoneInput(form) {
+  if (!form) return null;
+  try {
+    const mod = await getHomeHotelPhoneModule();
+    const controller = mod.enhanceHotelPhoneInput(form, { language: getHomeHotelLang });
+    mod.syncHotelPhoneInput(form);
+    return controller;
+  } catch (error) {
+    console.warn('Home hotel phone selector failed to initialize:', error);
+    return null;
+  }
+}
+
+async function syncHomeHotelPhoneInput(form) {
+  if (!form) return '';
+  try {
+    const mod = await getHomeHotelPhoneModule();
+    return mod.syncHotelPhoneInput(form);
+  } catch (_error) {
+    return String(form.querySelector('[name="phone"]')?.value || '').trim();
+  }
+}
+
+async function setHomeHotelPhoneFullNumber(form, value) {
+  if (!form) return false;
+  try {
+    const mod = await getHomeHotelPhoneModule();
+    return mod.setHotelPhoneFullNumber(form, value);
+  } catch (_error) {
+    const input = form.querySelector('[name="phone"]');
+    if (input instanceof HTMLInputElement) {
+      input.value = String(value || '').trim();
+      return true;
+    }
+    return false;
+  }
+}
+
+async function setHomeHotelPhoneLanguage(form) {
+  if (!form) return;
+  try {
+    const mod = await getHomeHotelPhoneModule();
+    mod.setHotelPhoneInputLanguage(form, getHomeHotelLang());
+  } catch (error) {
+    console.warn('Home hotel phone selector language update failed:', error);
+  }
 }
 
 function getHotelCardMediaDisplayUrl(url) {
@@ -358,9 +414,10 @@ async function prefillHotelFormFromSession(form) {
     if (profile?.phone) {
       const phoneField = form.querySelector('[name="phone"]');
       if (phoneField && !phoneField.value) {
-        phoneField.value = profile.phone;
-        phoneField.style.backgroundColor = '#f0fdf4';
-        setTimeout(() => { phoneField.style.backgroundColor = ''; }, 2000);
+        await setHomeHotelPhoneFullNumber(form, profile.phone);
+        const visiblePhoneField = form.querySelector('.ce-phone-input__local') || phoneField;
+        visiblePhoneField.style.backgroundColor = '#f0fdf4';
+        setTimeout(() => { visiblePhoneField.style.backgroundColor = ''; }, 2000);
       }
     }
   } catch (err) {
@@ -758,6 +815,7 @@ function initHomeHotels() {
       if (!supabase) throw new Error('Supabase client not available');
       
       // Build payload from form data
+      await syncHomeHotelPhoneInput(form);
       const fd = new FormData(form);
       const arrivalDate = fd.get('arrival_date');
       const departureDate = fd.get('departure_date');
@@ -855,6 +913,7 @@ function initHomeHotels() {
       // Reset form and clear validation errors
       form.reset();
       clearFormValidation(form);
+      void syncHomeHotelPhoneInput(form);
       clearHomeHotelCouponState({ clearInput: true });
       updateHotelLivePrice();
       
@@ -932,6 +991,7 @@ function initHomeHotels() {
   window.addEventListener('languageChanged', (e) => {
     const homeHotelBookingUi = getHomeHotelBookingUiApi();
     ceLog('🏨 Hotels: languageChanged event, re-rendering for:', e.detail?.language);
+    void setHomeHotelPhoneLanguage(document.getElementById('hotelBookingForm'));
     if (homeHotelsData && homeHotelsData.length > 0) {
       renderHomeHotelsTabs();
       renderHomeHotels();
@@ -956,6 +1016,7 @@ function initHomeHotels() {
   document.addEventListener('wakacjecypr:languagechange', (e) => {
     const homeHotelBookingUi = getHomeHotelBookingUiApi();
     ceLog('🏨 Hotels: wakacjecypr:languagechange event, re-rendering for:', e.detail?.language);
+    void setHomeHotelPhoneLanguage(document.getElementById('hotelBookingForm'));
     if (homeHotelsData && homeHotelsData.length > 0) {
       renderHomeHotelsTabs();
       renderHomeHotels();
@@ -1587,7 +1648,12 @@ function openHotelModalRecordInternal(hotelRecord, options = {}) {
   renderHotelAmenitiesChips(h);
 
   const form = document.getElementById('hotelBookingForm');
-  if (form){ form.reset(); const msg=document.getElementById('hotelBookingMessage'); if(msg) msg.style.display='none'; }
+  if (form){
+    form.reset();
+    void enhanceHomeHotelPhoneInput(form);
+    const msg=document.getElementById('hotelBookingMessage');
+    if(msg) msg.style.display='none';
+  }
   ensureHomeHotelCouponUi();
   void ensureHomeHotelReferralUi().then((controller) => controller?.bootstrapInitialValue());
   clearHomeHotelCouponState({ clearInput: true });

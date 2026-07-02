@@ -5,6 +5,7 @@
  */
 
 import { supabase } from '../lib/supabase.js';
+import { syncHotelPhoneInput } from '../hotel-phone-input.js';
 
 function getHotelBookingLanguage() {
   const raw = String(
@@ -28,6 +29,7 @@ export async function submitHotelBooking(form) {
   }
 
   // Get form data
+  syncHotelPhoneInput(form);
   const fd = new FormData(form);
   
   // Get dates

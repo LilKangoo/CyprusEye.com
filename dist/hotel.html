@@ -433,6 +433,7 @@
     const hotelPricing = window.CE_HOTEL_PRICING || null;
     let hotelReferralController = null;
     let hotelReferralUiPromise = null;
+    let hotelPhoneModulePromise = null;
 
     function getHotelReferralUiModule() {
       if (!hotelReferralUiPromise) {
@@ -455,6 +456,56 @@
 
     function getHotelBookingLanguage() {
       return String(getHotelPageLanguage() || 'pl').startsWith('en') ? 'en' : 'pl';
+    }
+
+    function getHotelPhoneLanguage() {
+      const raw = String(getHotelPageLanguage() || 'pl').trim().toLowerCase();
+      if (raw.startsWith('he')) return 'he';
+      if (raw.startsWith('en')) return 'en';
+      return 'pl';
+    }
+
+    function getHotelPhoneModule() {
+      if (!hotelPhoneModulePromise) {
+        hotelPhoneModulePromise = import('/js/hotel-phone-input.js');
+      }
+      return hotelPhoneModulePromise;
+    }
+
+    async function setupHotelPagePhoneInput() {
+      const form = $('#bookForm');
+      if (!form) return null;
+      try {
+        const mod = await getHotelPhoneModule();
+        const controller = mod.enhanceHotelPhoneInput(form, { language: getHotelPhoneLanguage });
+        mod.syncHotelPhoneInput(form);
+        return controller;
+      } catch (error) {
+        console.warn('Hotel phone selector failed to initialize:', error);
+        return null;
+      }
+    }
+
+    async function syncHotelPagePhoneInput() {
+      const form = $('#bookForm');
+      if (!form) return '';
+      try {
+        const mod = await getHotelPhoneModule();
+        return mod.syncHotelPhoneInput(form);
+      } catch (_error) {
+        return String(form.querySelector('[name="phone"]')?.value || '').trim();
+      }
+    }
+
+    async function setHotelPagePhoneLanguage() {
+      const form = $('#bookForm');
+      if (!form) return;
+      try {
+        const mod = await getHotelPhoneModule();
+        mod.setHotelPhoneInputLanguage(form, getHotelPhoneLanguage());
+      } catch (error) {
+        console.warn('Hotel phone selector language update failed:', error);
+      }
     }
 
     function buildHotelsListingUrl() {
@@ -1260,6 +1311,7 @@
       });
       renderHotelHeroSummary(hotel);
       renderHotelPageBookingUi({ selectedExtraIds: [] });
+      void setupHotelPagePhoneInput();
       hotelPageBookingUi?.refreshLocationSummaryMap?.(document.getElementById('hotelPageLocationSummary'));
       const bookMsg = $('#bookMsg');
       if (bookMsg) {
@@ -1307,6 +1359,7 @@
       $('#bookMsg').textContent='';
       $('#bookMsg').className = 'offer-form-message offer-span-full';
       const f=$('#bookForm');
+      await syncHotelPagePhoneInput();
       const payload=Object.fromEntries(new FormData(f).entries());
       const nights=nightsBetween(payload.arrival_date,payload.departure_date);
       const quote = getHotelPageQuote();
@@ -1414,6 +1467,7 @@
         )
         : hotelT('hotels.booking.successTotal', 'Rezerwacja przyjęta. Suma: {{total}}. Sprawdź email i folder Spam w ciągu 24h.', 'Booking received. Total: {{total}}. Please check your email and Spam folder within 24 hours.', { total: formatMoney(total) });
       f.reset();
+      void syncHotelPagePhoneInput();
       clearCouponState({ clearInput: true });
       updateLive();
     }
@@ -1423,6 +1477,7 @@
 
     const rerenderHotelPageForLanguage = () => {
       renderHotelStaticCopy();
+      void setHotelPagePhoneLanguage();
       if (!hotel) return;
       renderHotelHeroSummary(hotel);
       renderHotelPageBookingUi({

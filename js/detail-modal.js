@@ -4,6 +4,7 @@
 let detailModalOpen = false;
 let lastFocusedEl = null;
 let detailTripPhoneModulePromise = null;
+let detailHotelPhoneModulePromise = null;
 
 function qs(sel, root=document) { return root.querySelector(sel); }
 function qsa(sel, root=document) { return Array.from(root.querySelectorAll(sel)); }
@@ -48,6 +49,16 @@ function loadDetailTripPhoneModule() {
   return detailTripPhoneModulePromise;
 }
 
+function loadDetailHotelPhoneModule() {
+  if (!detailHotelPhoneModulePromise) {
+    detailHotelPhoneModulePromise = import('/js/hotel-phone-input.js').catch((error) => {
+      detailHotelPhoneModulePromise = null;
+      throw error;
+    });
+  }
+  return detailHotelPhoneModulePromise;
+}
+
 async function setupDetailTripPhoneInput(form) {
   if (!(form instanceof HTMLFormElement) || form.dataset.type !== 'trip') return null;
   try {
@@ -74,6 +85,41 @@ async function validateDetailTripPhoneInput(form) {
   try {
     const mod = await loadDetailTripPhoneModule();
     return mod.validateTripPhoneInput(form, {
+      countryCodeRequired: detailTripPhoneText('Wybierz kierunkowy telefonu.', 'Country code is required.', 'בחרו קידומת טלפון.'),
+      phoneRequired: detailTripPhoneText('Numer telefonu jest wymagany.', 'Phone number is required.', 'מספר טלפון הוא שדה חובה.'),
+    });
+  } catch (_error) {
+    const phone = String(form.querySelector('[name="phone"]')?.value || '').trim();
+    return phone ? null : detailTripPhoneText('Numer telefonu jest wymagany.', 'Phone number is required.', 'מספר טלפון הוא שדה חובה.');
+  }
+}
+
+async function setupDetailHotelPhoneInput(form) {
+  if (!(form instanceof HTMLFormElement) || form.dataset.type !== 'hotel') return null;
+  try {
+    const mod = await loadDetailHotelPhoneModule();
+    return mod.enhanceHotelPhoneInput(form, { language: getDetailUiLanguage });
+  } catch (error) {
+    console.warn('Hotel phone selector unavailable:', error);
+    return null;
+  }
+}
+
+async function syncDetailHotelPhoneInput(form) {
+  if (!(form instanceof HTMLFormElement) || form.dataset.type !== 'hotel') return '';
+  try {
+    const mod = await loadDetailHotelPhoneModule();
+    return mod.syncHotelPhoneInput(form);
+  } catch (_error) {
+    return String(form.querySelector('[name="phone"]')?.value || '').trim();
+  }
+}
+
+async function validateDetailHotelPhoneInput(form) {
+  if (!(form instanceof HTMLFormElement) || form.dataset.type !== 'hotel') return null;
+  try {
+    const mod = await loadDetailHotelPhoneModule();
+    return mod.validateHotelPhoneInput(form, {
       countryCodeRequired: detailTripPhoneText('Wybierz kierunkowy telefonu.', 'Country code is required.', 'בחרו קידומת טלפון.'),
       phoneRequired: detailTripPhoneText('Numer telefonu jest wymagany.', 'Phone number is required.', 'מספר טלפון הוא שדה חובה.'),
     });
@@ -417,6 +463,8 @@ function renderDetail(type, vm){
   const detailCouponState = { applied: null };
   if (form?.dataset?.type === 'trip') {
     void setupDetailTripPhoneInput(form);
+  } else if (form?.dataset?.type === 'hotel') {
+    void setupDetailHotelPhoneInput(form);
   }
 
   const normalizeDetailCouponCode = (value) => String(value || '').trim().toUpperCase();
@@ -695,7 +743,10 @@ function renderDetail(type, vm){
     try{
       const phoneError = await validateDetailTripPhoneInput(form);
       if (phoneError) throw new Error(phoneError);
+      const hotelPhoneError = await validateDetailHotelPhoneInput(form);
+      if (hotelPhoneError) throw new Error(hotelPhoneError);
       await syncDetailTripPhoneInput(form);
+      await syncDetailHotelPhoneInput(form);
       const fd = new FormData(form);
       const baseTotal = Number(getBaseTotal() || 0);
       const enteredCoupon = normalizeDetailCouponCode(fd.get('coupon_code'));
@@ -793,6 +844,7 @@ function renderDetail(type, vm){
         : `Rezerwacja przyjęta! Suma: ${detailMoney(coupon.finalTotal)}.`;
       msg.style.display = 'block';
       form.reset();
+      void syncDetailHotelPhoneInput(form);
       clearCouponState({ clearInput: true });
       renderHotelUiSections();
       renderQuotePreview();

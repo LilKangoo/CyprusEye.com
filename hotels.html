@@ -475,7 +475,7 @@
               <div class="form-row">
                 <div class="form-field">
                   <label data-i18n="hotels.booking.fields.phone">Telefon</label>
-                  <input name="phone" />
+                  <input id="hotelBookingPhone" name="phone" />
                 </div>
                 <div class="form-field">
                   <label data-i18n="hotels.booking.fields.arrivalDate">Data przyjazdu *</label>
@@ -596,6 +596,12 @@
   <script type="module">
     import { supabase } from '/js/supabaseClient.js';
     import { quoteServiceCoupon } from '/js/service-coupons.js';
+    import {
+      enhanceHotelPhoneInput,
+      setHotelPhoneFullNumber,
+      setHotelPhoneInputLanguage,
+      syncHotelPhoneInput,
+    } from '/js/hotel-phone-input.js';
 
     let allHotels = [];
     let currentCity = 'all';
@@ -749,6 +755,28 @@
         || 'pl'
       ).trim().toLowerCase();
       return raw.startsWith('en') ? 'en' : 'pl';
+    }
+
+    function getHotelsPhoneLanguage() {
+      const raw = String(
+        window.getCurrentLanguage?.()
+        || window.appI18n?.language
+        || document.documentElement.lang
+        || 'pl'
+      ).trim().toLowerCase();
+      if (raw.startsWith('he')) return 'he';
+      if (raw.startsWith('en')) return 'en';
+      return 'pl';
+    }
+
+    function setupHotelsBookingPhoneInput() {
+      const form = document.getElementById('hotelBookingForm');
+      if (!form) return null;
+      return enhanceHotelPhoneInput(form, { language: getHotelsPhoneLanguage });
+    }
+
+    function syncHotelsBookingPhoneInput() {
+      return syncHotelPhoneInput(document.getElementById('hotelBookingForm'));
     }
 
     function renderTabs(){
@@ -1368,9 +1396,9 @@
         }
         
         if (phoneInput && profile?.phone) {
-          phoneInput.value = profile.phone;
+          setHotelPhoneFullNumber(form, profile.phone);
         } else if (phoneInput && user.user_metadata?.phone) {
-          phoneInput.value = user.user_metadata.phone;
+          setHotelPhoneFullNumber(form, user.user_metadata.phone);
         }
       } catch (err) {
         console.warn('Could not prefill user data:', err);
@@ -1408,6 +1436,8 @@
       document.getElementById('modalHotelDescription').innerHTML = description.replace(/\n/g,'<br/>');
       renderHotelAmenitiesChips(h);
       document.getElementById('hotelBookingForm').reset();
+      setupHotelsBookingPhoneInput();
+      syncHotelsBookingPhoneInput();
       document.getElementById('hotelBookingMessage').style.display='none';
       ensureHotelCouponUi();
       clearHotelCouponState({ clearInput: true });
@@ -1496,6 +1526,7 @@
       try{
         if(!currentHotel) throw new Error('Brak oferty');
         btn.disabled=true; btn.textContent=sendingText;
+        syncHotelsBookingPhoneInput();
         const fd = new FormData(e.target);
         const a = fd.get('arrival_date');
         const d = fd.get('departure_date');
@@ -1580,6 +1611,7 @@
         msg.textContent=t('hotels.booking.success', 'Rezerwacja przyjęta! Sprawdź email i folder Spam w ciągu 24h.');
         msg.style.display='block';
         e.target.reset();
+        syncHotelsBookingPhoneInput();
         clearHotelCouponState({ clearInput: true });
         updateLivePrice();
       }catch(err){
@@ -1613,6 +1645,7 @@
       console.log('🌐 Language changed, re-rendering...');
       renderTabs();
       renderHotels();
+      setHotelPhoneInputLanguage(document.getElementById('hotelBookingForm'), getHotelsPhoneLanguage());
       
       // Re-render modal description and amenities if open
       if (currentHotel && !document.getElementById('hotelModal').hidden) {
