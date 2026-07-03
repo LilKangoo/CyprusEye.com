@@ -281,26 +281,32 @@ async function loadPoisData() {
     // Use PLACES_DATA if available (loaded by poi-loader.js from Supabase)
     if (window.PLACES_DATA && Array.isArray(window.PLACES_DATA) && window.PLACES_DATA.length > 0) {
       // Map POI exactly like app.js does for consistency
-      poisData = window.PLACES_DATA.map(p => ({
-        id: p.id,
-        name: p.nameFallback || p.name,
-        nameKey: p.nameKey,
-        nameFallback: p.nameFallback,
-        description: p.descriptionFallback || p.description,
-        descriptionKey: p.descriptionKey,
-        descriptionFallback: p.descriptionFallback,
-        badge: p.badgeFallback || p.badge,
-        badgeKey: p.badgeKey,
-        badgeFallback: p.badgeFallback,
-        lat: p.lat,
-        lng: p.lng,
-        main_image_url: p.main_image_url || p.image_url || p.cover_image_url || '',
-        photos: normalizePoiPhotos(p.photos),
-        googleMapsUrl: p.googleMapsUrl || p.google_url || `https://maps.google.com/?q=${p.lat},${p.lng}`,
-        xp: p.xp || 100,
-        requiredLevel: p.requiredLevel || 1,
-        source: p.source || 'supabase'
-      }));
+      poisData = window.PLACES_DATA.map(p => {
+        const explicitGoogleMapsUrl = getExplicitPoiGoogleMapsUrl(p);
+        return {
+          id: p.id,
+          name: p.nameFallback || p.name,
+          nameKey: p.nameKey,
+          nameFallback: p.nameFallback,
+          description: p.descriptionFallback || p.description,
+          descriptionKey: p.descriptionKey,
+          descriptionFallback: p.descriptionFallback,
+          badge: p.badgeFallback || p.badge,
+          badgeKey: p.badgeKey,
+          badgeFallback: p.badgeFallback,
+          lat: p.lat,
+          lng: p.lng,
+          main_image_url: p.main_image_url || p.image_url || p.cover_image_url || '',
+          photos: normalizePoiPhotos(p.photos),
+          google_maps_url: explicitGoogleMapsUrl,
+          explicitGoogleMapsUrl,
+          googleMapsUrl: explicitGoogleMapsUrl,
+          google_url: explicitGoogleMapsUrl,
+          xp: p.xp || 100,
+          requiredLevel: p.requiredLevel || 1,
+          source: p.source || 'supabase'
+        };
+      });
       
       console.log(`✅ Loaded ${poisData.length} POIs from PLACES_DATA (${poisData[0]?.source || 'unknown'})`);
       console.log('📍 POI IDs:', poisData.slice(0, 5).map(p => p.id), '...');
@@ -319,26 +325,32 @@ async function loadPoisData() {
     // Fallback to STATIC_PLACES_DATA (same as poi-loader.js fallback)
     if (typeof window.STATIC_PLACES_DATA !== 'undefined' && window.STATIC_PLACES_DATA.length > 0) {
       console.warn('⚠️ PLACES_DATA not available, using STATIC_PLACES_DATA fallback');
-      poisData = window.STATIC_PLACES_DATA.map(p => ({
-        id: p.id,
-        name: p.nameFallback || p.name || p.id,
-        nameKey: p.nameKey,
-        nameFallback: p.nameFallback,
-        description: p.descriptionFallback || p.description || '',
-        descriptionKey: p.descriptionKey,
-        descriptionFallback: p.descriptionFallback,
-        badge: p.badgeFallback || p.badge || '',
-        badgeKey: p.badgeKey,
-        badgeFallback: p.badgeFallback,
-        lat: parseFloat(p.lat) || 0,
-        lng: parseFloat(p.lng || p.lon) || 0,
-        main_image_url: p.main_image_url || p.image_url || p.cover_image_url || '',
-        photos: normalizePoiPhotos(p.photos),
-        googleMapsUrl: p.googleMapsUrl || `https://maps.google.com/?q=${p.lat},${p.lng || p.lon}`,
-        xp: p.xp || 100,
-        requiredLevel: p.requiredLevel || 1,
-        source: 'static-fallback'
-      }));
+      poisData = window.STATIC_PLACES_DATA.map(p => {
+        const explicitGoogleMapsUrl = getExplicitPoiGoogleMapsUrl(p);
+        return {
+          id: p.id,
+          name: p.nameFallback || p.name || p.id,
+          nameKey: p.nameKey,
+          nameFallback: p.nameFallback,
+          description: p.descriptionFallback || p.description || '',
+          descriptionKey: p.descriptionKey,
+          descriptionFallback: p.descriptionFallback,
+          badge: p.badgeFallback || p.badge || '',
+          badgeKey: p.badgeKey,
+          badgeFallback: p.badgeFallback,
+          lat: parseFloat(p.lat) || 0,
+          lng: parseFloat(p.lng || p.lon) || 0,
+          main_image_url: p.main_image_url || p.image_url || p.cover_image_url || '',
+          photos: normalizePoiPhotos(p.photos),
+          google_maps_url: explicitGoogleMapsUrl,
+          explicitGoogleMapsUrl,
+          googleMapsUrl: explicitGoogleMapsUrl,
+          google_url: explicitGoogleMapsUrl,
+          xp: p.xp || 100,
+          requiredLevel: p.requiredLevel || 1,
+          source: 'static-fallback'
+        };
+      });
       console.log(`✅ Loaded ${poisData.length} POIs from STATIC_PLACES_DATA (fallback)`);
       return true;
     }
@@ -369,6 +381,66 @@ function normalizePoiPhotos(rawPhotos) {
   }
 
   return photos.map((url) => String(url || '').trim()).filter(Boolean);
+}
+
+function normalizeExplicitGoogleMapsUrl(value) {
+  const url = typeof value === 'string' ? value.trim() : '';
+  if (!url) return '';
+  return /^https?:\/\//i.test(url) ? url : '';
+}
+
+function getExplicitPoiGoogleMapsUrl(poi) {
+  if (typeof window.getExplicitPoiGoogleMapsUrl === 'function') {
+    return window.getExplicitPoiGoogleMapsUrl(poi) || '';
+  }
+  if (!poi || typeof poi !== 'object') return '';
+  const candidates = [
+    poi.google_maps_url,
+    poi.explicitGoogleMapsUrl,
+    poi.googleMapsUrl,
+    poi.google_url,
+    poi.googleUrl,
+  ];
+  for (const candidate of candidates) {
+    const url = normalizeExplicitGoogleMapsUrl(candidate);
+    if (url) return url;
+  }
+  return '';
+}
+
+function getPoiGoogleMapsButtonLabel() {
+  const rawLang = new URLSearchParams(window.location.search).get('lang') || window.appI18n?.language || document.documentElement?.lang || 'pl';
+  const lang = String(rawLang || 'pl').trim().toLowerCase().split('-')[0];
+  const fallback = lang === 'he'
+    ? 'פתח ב-Google Maps'
+    : lang === 'en'
+      ? 'Open in Google Maps'
+      : 'Otwórz w Google Maps';
+  const translations = window.appI18n?.translations?.[lang] || null;
+  const translated = translations && typeof translations === 'object'
+    ? translations['poi.googleMaps.open']
+    : '';
+  return typeof translated === 'string' && translated.trim()
+    ? translated.trim()
+    : fallback;
+}
+
+function updateModalGoogleMapsButton(poi) {
+  const link = document.getElementById('modalGoogleMapsBtn');
+  if (!link) return;
+  const label = link.querySelector('[data-google-maps-label], [data-i18n="poi.googleMaps.open"]');
+  if (label) {
+    label.textContent = getPoiGoogleMapsButtonLabel();
+    label.removeAttribute('data-i18n');
+  }
+  const url = getExplicitPoiGoogleMapsUrl(poi);
+  if (!url) {
+    link.hidden = true;
+    link.removeAttribute('href');
+    return;
+  }
+  link.href = url;
+  link.hidden = false;
 }
 
 function getPoiGalleryPhotos(poi) {
@@ -1099,6 +1171,7 @@ window.openPoiComments = async function(poiId) {
   if (modalPoiSaveBtn) {
     modalPoiSaveBtn.setAttribute('data-ref-id', String(poi.id || ''));
   }
+  updateModalGoogleMapsButton(poi);
   renderPoiGallerySection(poi, poiName);
 
   // Update navigation buttons

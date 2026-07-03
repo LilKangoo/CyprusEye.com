@@ -4283,6 +4283,7 @@
   "checkIn.status.distance": "You are about {{distance}} km from the target. Check Google Maps for directions and confirm manually if you really are on site.",
   "checkIn.status.unavailable": "Location unavailable (weak signal).",
   "checkIn.status.timeout": "Location request timed out.",
+  "poi.googleMaps.open": "Open in Google Maps",
   "account.profile.changeAvatar": "📷 Change photo",
   "account.profile.removeAvatar": "🗑️ Remove",
   "carRental.common.close": "Close",

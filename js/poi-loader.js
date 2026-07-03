@@ -20,11 +20,33 @@ function ceLog(...args) {
   if (CE_DEBUG_POI_LOADER) console.log(...args);
 }
 
-const POIS_CACHE_KEY = 'ce_cache_pois_transformed_v1';
+const POIS_CACHE_KEY = 'ce_cache_pois_transformed_v2';
 const POIS_CACHE_TTL_MS = 10 * 60 * 1000;
 const DEFAULT_POI_CATEGORY_SLUG = 'uncategorized';
 const DEFAULT_POI_CATEGORY_ICON = '📍';
 const DEFAULT_POI_CATEGORY_COLOR = '#2563eb';
+
+function normalizeExplicitGoogleMapsUrl(value) {
+  const url = typeof value === 'string' ? value.trim() : '';
+  if (!url) return '';
+  return /^https?:\/\//i.test(url) ? url : '';
+}
+
+function getExplicitPoiGoogleMapsUrl(poi) {
+  if (!poi || typeof poi !== 'object') return '';
+  const candidates = [
+    poi.google_maps_url,
+    poi.explicitGoogleMapsUrl,
+    poi.googleMapsUrl,
+    poi.google_url,
+    poi.googleUrl,
+  ];
+  for (const candidate of candidates) {
+    const url = normalizeExplicitGoogleMapsUrl(candidate);
+    if (url) return url;
+  }
+  return '';
+}
 
 function readPoisCache() {
   try {
@@ -272,6 +294,7 @@ function transformPOI(dbPoi, poiCategoryMap = null) {
     || (photos.length ? photos[0] : '')
     || ''
   );
+  const explicitGoogleMapsUrl = getExplicitPoiGoogleMapsUrl(dbPoi);
   
   return {
     id: dbPoi.id,
@@ -286,11 +309,13 @@ function transformPOI(dbPoi, poiCategoryMap = null) {
     badgeKey: `places.${dbPoi.id}.badge`,
     lat: parseFloat(dbPoi.lat) || 0,
     lng: parseFloat(dbPoi.lng) || 0,
-    // Canonical Google link: prefer dedicated column, fallback to lat/lng
-    google_url: dbPoi.google_maps_url || dbPoi.google_url || `https://www.google.com/maps?q=${dbPoi.lat},${dbPoi.lng}`,
+    google_maps_url: explicitGoogleMapsUrl,
+    explicitGoogleMapsUrl,
+    // Canonical Google link from data only. Coordinate fallback stays inside getPoiGoogleUrl().
+    google_url: explicitGoogleMapsUrl,
     // Backwards-compatible aliases commonly used around the site
-    googleMapsUrl: dbPoi.google_maps_url || dbPoi.google_url || `https://www.google.com/maps?q=${dbPoi.lat},${dbPoi.lng}`,
-    googleMapsURL: dbPoi.google_maps_url || dbPoi.google_url || `https://www.google.com/maps?q=${dbPoi.lat},${dbPoi.lng}`,
+    googleMapsUrl: explicitGoogleMapsUrl,
+    googleMapsURL: explicitGoogleMapsUrl,
     main_image_url: mainImageUrl,
     photos: photos,
     category: categorySlug,
@@ -388,6 +413,7 @@ async function refreshPOIs() {
 window.initializePOIs = initializePOIs;
 window.refreshPOIs = refreshPOIs;
 window.refreshPoisData = refreshPOIs; // Alias dla kompatybilności
+window.getExplicitPoiGoogleMapsUrl = getExplicitPoiGoogleMapsUrl;
 
 // Helper: unified Google link getter for any POI-like object
 window.getPoiGoogleUrl = function getPoiGoogleUrl(poi) {

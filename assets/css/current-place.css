@@ -630,7 +630,7 @@
 
 .current-place-actions {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) auto auto;
+  grid-template-columns: minmax(0, 1.4fr) auto auto auto;
   gap: 8px;
   margin-top: 8px;
 }
@@ -639,7 +639,8 @@
   grid-template-columns: 1fr 1fr;
 }
 
-.current-place-actions button {
+.current-place-actions button,
+.current-place-actions a.btn {
   height: 40px;
   border-radius: 10px;
   font-weight: 600;
@@ -651,6 +652,7 @@
   transition: all 0.2s;
   cursor: pointer;
   padding: 0 12px;
+  text-decoration: none;
 }
 
 /* Primary Action (Check-in) */
@@ -667,7 +669,8 @@
 }
 
 /* Secondary Actions (Outline) */
-.current-place-actions button.btn.secondary {
+.current-place-actions button.btn.secondary,
+.current-place-actions a.btn.secondary {
   min-width: 40px;
   padding-inline: 10px;
   background: rgba(248, 250, 252, 0.92);
@@ -679,9 +682,15 @@
   display: none !important;
 }
 
-.current-place-actions button.btn.secondary:hover {
+.current-place-actions button.btn.secondary:hover,
+.current-place-actions a.btn.secondary:hover,
+.current-place-actions a.btn.secondary:focus-visible {
   background: #eef2ff;
   border-color: #cbd5e1;
+}
+
+.current-place-actions .current-place-google-maps-btn[hidden] {
+  display: none !important;
 }
 
 .current-place-actions button:disabled {
@@ -868,9 +877,9 @@
   /* Actions Layout - Compact Row */
   .current-place-actions {
     display: grid;
-    grid-template-columns: 1fr auto auto; /* Main button + 2 icon buttons */
+    grid-template-columns: 1fr auto auto auto; /* Main button + action icons */
     gap: 8px;
-    grid-template-areas: "check comments nav";
+    grid-template-areas: "check maps comments nav";
     margin-top: 0;
   }
 
@@ -885,9 +894,14 @@
     height: 42px; /* Taller touch target */
     font-size: 0.92rem;
   }
+
+  .current-place-actions .current-place-google-maps-btn {
+    grid-area: maps;
+  }
   
   /* Secondary Buttons (Icon only or compact) */
-  .current-place-actions button.btn.secondary {
+  .current-place-actions button.btn.secondary,
+  .current-place-actions a.btn.secondary {
     padding: 0;
     width: 42px; /* Square buttons */
     height: 42px;
@@ -896,11 +910,13 @@
     background: #f9fafb;
   }
   
-  .current-place-actions button.btn.secondary span:not(.btn-icon) {
+  .current-place-actions button.btn.secondary span:not(.btn-icon),
+  .current-place-actions a.btn.secondary span:not(.btn-icon) {
     display: none; /* Hide text label on mobile */
   }
   
-  .current-place-actions button.btn.secondary .btn-icon {
+  .current-place-actions button.btn.secondary .btn-icon,
+  .current-place-actions a.btn.secondary .btn-icon {
     font-size: 1.2rem;
     margin: 0;
   }

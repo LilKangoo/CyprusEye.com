@@ -441,6 +441,16 @@
                 >
                   <span class="btn-icon">✓</span> <span data-i18n="currentPlace.checkIn">Check</span>
                 </button>
+                <a
+                  id="currentPlaceGoogleMapsBtn"
+                  class="btn secondary current-place-google-maps-btn"
+                  href="#"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  hidden
+                >
+                  <span class="btn-icon">📍</span> <span data-google-maps-label data-i18n="poi.googleMaps.open">Open in Google Maps</span>
+                </a>
                 <button
                   id="currentPlaceCommentsBtn"
                   class="btn secondary"
@@ -1347,6 +1357,17 @@
               <span class="checkin-icon">✓</span>
               <span data-i18n="community.checkin.button">Check in</span>
             </button>
+            <a
+              id="modalGoogleMapsBtn"
+              class="btn btn-google-maps"
+              href="#"
+              target="_blank"
+              rel="noopener noreferrer"
+              hidden
+            >
+              <span class="google-maps-icon">📍</span>
+              <span data-google-maps-label data-i18n="poi.googleMaps.open">Open in Google Maps</span>
+            </a>
           </div>
           <p id="modalCheckInStatus" class="check-in-status"></p>
         </div>

@@ -2067,6 +2067,36 @@ textarea:focus-visible {
   box-shadow: none;
 }
 
+.poi-location-info .btn-google-maps {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  border: 1px solid rgba(37, 99, 235, 0.22);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1d4ed8;
+  font-weight: 600;
+  font-size: 0.95rem;
+  line-height: 1.2;
+  text-decoration: none;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.poi-location-info .btn-google-maps:hover,
+.poi-location-info .btn-google-maps:focus-visible {
+  background: rgba(37, 99, 235, 0.08);
+  border-color: rgba(37, 99, 235, 0.36);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.18);
+  transform: translateY(-1px);
+}
+
+.poi-location-info .btn-google-maps[hidden] {
+  display: none !important;
+}
+
 .btn-checkin.checked {
   background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
@@ -2173,7 +2203,8 @@ textarea:focus-visible {
     justify-content: center;
   }
   
-  .btn-checkin {
+  .btn-checkin,
+  .poi-location-info .btn-google-maps {
     width: 100%;
     justify-content: center;
   }

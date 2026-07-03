@@ -21,7 +21,7 @@
   const ACCOUNTS_STORAGE_KEYS = ['wakacjecypr-accounts', 'wakacjecypr_accounts'];
 
   function getCurrentLanguage(){
-    const raw = window.appI18n?.language || document.documentElement?.lang || 'pl';
+    const raw = new URLSearchParams(window.location.search).get('lang') || window.appI18n?.language || document.documentElement?.lang || 'pl';
     return String(raw || 'pl').toLowerCase();
   }
 
@@ -72,6 +72,56 @@
     const translated = getNestedTranslation(translations, key);
     const resolved = typeof translated === 'string' && translated ? translated : fallback;
     return applyReplacements(resolved, replacements);
+  }
+
+  function normalizeExplicitGoogleMapsUrl(value) {
+    const url = typeof value === 'string' ? value.trim() : '';
+    if (!url) return '';
+    return /^https?:\/\//i.test(url) ? url : '';
+  }
+
+  function getExplicitPoiGoogleMapsUrl(poi) {
+    if (typeof window.getExplicitPoiGoogleMapsUrl === 'function') {
+      return window.getExplicitPoiGoogleMapsUrl(poi) || '';
+    }
+    if (!poi || typeof poi !== 'object') return '';
+    const candidates = [
+      poi.google_maps_url,
+      poi.explicitGoogleMapsUrl,
+      poi.googleMapsUrl,
+      poi.google_url,
+      poi.googleUrl,
+    ];
+    for (const candidate of candidates) {
+      const url = normalizeExplicitGoogleMapsUrl(candidate);
+      if (url) return url;
+    }
+    return '';
+  }
+
+  function getGoogleMapsButtonLabel() {
+    const lang = getCurrentLanguage().split('-')[0];
+    const fallbackPl = 'Otwórz w Google Maps';
+    const fallbackEn = lang === 'he' ? 'פתח ב-Google Maps' : 'Open in Google Maps';
+    return t('poi.googleMaps.open', fallbackPl, fallbackEn);
+  }
+
+  function updateCurrentPlaceGoogleMapsButton(poi) {
+    const link = document.getElementById('currentPlaceGoogleMapsBtn');
+    if (!link) return;
+    const label = link.querySelector('[data-google-maps-label], [data-i18n="poi.googleMaps.open"]');
+    if (label) {
+      label.textContent = getGoogleMapsButtonLabel();
+      label.removeAttribute('data-i18n');
+    }
+    const url = getExplicitPoiGoogleMapsUrl(poi);
+    if (!url) {
+      link.hidden = true;
+      link.removeAttribute('href');
+      return;
+    }
+    link.href = url;
+    link.hidden = false;
   }
 
   function normalizePoiId(value){
@@ -769,6 +819,7 @@
     const checkInBtn = document.getElementById('currentPlaceCheckInBtn') || getCheckInButton();
     const detailsBtn = document.getElementById('currentPlaceCommentsBtn');
     const mapBtn = document.getElementById('currentPlaceNavigateBtn');
+    const googleMapsBtn = document.getElementById('currentPlaceGoogleMapsBtn');
     const detailsLabel = detailsBtn ? detailsBtn.querySelector('span:not(.btn-icon)') : null;
     const detailsIcon = detailsBtn ? detailsBtn.querySelector('.btn-icon') : null;
     const mapLabel = mapBtn ? mapBtn.querySelector('span:not(.btn-icon)') : null;
@@ -814,6 +865,15 @@
             || (Number.isFinite(Number.parseFloat(entity?.latitude)) && Number.isFinite(Number.parseFloat(entity?.longitude)))
           ));
       mapBtn.disabled = !hasMapTarget;
+    }
+
+    if (googleMapsBtn) {
+      if (type === 'poi') {
+        updateCurrentPlaceGoogleMapsButton(entity);
+      } else {
+        googleMapsBtn.hidden = true;
+        googleMapsBtn.removeAttribute('href');
+      }
     }
   }
 
@@ -1084,7 +1144,7 @@
     if (statsTimer) clearInterval(statsTimer);
     statsTimer = setInterval(() => { if (currentId===id) updatePlaceStats(id); }, 10000);
 
-    updateCurrentPlaceActionsForType('poi', null);
+    updateCurrentPlaceActionsForType('poi', poi);
 
     if(options.focus !== false && typeof window.focusPlaceOnMap === 'function'){
       window.focusPlaceOnMap(id);

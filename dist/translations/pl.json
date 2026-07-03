@@ -1853,6 +1853,7 @@
   "community.rating.oneRating": "ocena",
   "community.rating.multipleRatings": "ocen",
   "community.checkin.button": "Zamelduj się",
+  "poi.googleMaps.open": "Otwórz w Google Maps",
   "community.checkin.loading": "Ładowanie lokalizacji...",
   "community.checkin.locating": "Szukam Twojej lokalizacji...",
   "community.checkin.near": "Jesteś blisko miejsca!",
