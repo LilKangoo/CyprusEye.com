@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 const MAP_URL = 'https://maps.google.com/?cid=123456789';
 
@@ -157,8 +157,31 @@ async function openPoiModal(page: Page, poiId: string) {
   await page.waitForSelector('#commentsModal:not([hidden])', { timeout: 15000 });
 }
 
+async function expectNoHorizontalOverflow(page: Page) {
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(4);
+}
+
+async function expectSingleLineLabel(locator: Locator) {
+  const result = await locator.evaluate((element) => {
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    const lineTops = Array.from(range.getClientRects())
+      .filter((rect) => rect.width > 0 && rect.height > 0)
+      .map((rect) => Math.round(rect.top));
+    return {
+      lines: new Set(lineTops).size,
+      whiteSpace: window.getComputedStyle(element).whiteSpace,
+    };
+  });
+
+  expect(result.whiteSpace).toBe('nowrap');
+  expect(result.lines).toBeLessThanOrEqual(1);
+}
+
 test.describe('POI Google Maps button', () => {
   test('index current place panel uses only explicit POI Google Maps URL', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
     await openIndex(page, 'pl');
 
     await selectCurrentPlace(page, 'poi-with-map');
@@ -166,10 +189,17 @@ test.describe('POI Google Maps button', () => {
     await expect(currentButton).toBeVisible();
     await expect(currentButton).toHaveAttribute('href', MAP_URL);
     await expect(currentButton).toContainText('Otwórz w Google Maps');
+    await expectSingleLineLabel(page.locator('#currentPlaceCheckInBtn span:not(.btn-icon)'));
+    await expectSingleLineLabel(page.locator('#currentPlaceGoogleMapsBtn [data-google-maps-label]'));
 
     await selectCurrentPlace(page, 'poi-without-map');
     await expect(currentButton).toBeHidden();
     await expect(currentButton).not.toHaveAttribute('href', /maps\.google\.com\/\?q=35\.012567,34\.058549/);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await selectCurrentPlace(page, 'poi-with-map');
+    await expect(currentButton).toBeVisible();
+    await expectNoHorizontalOverflow(page);
   });
 
   test('index POI modal shows the button only for an explicit map URL', async ({ page }) => {
@@ -180,6 +210,8 @@ test.describe('POI Google Maps button', () => {
     await expect(modalButton).toBeVisible();
     await expect(modalButton).toHaveAttribute('href', MAP_URL);
     await expect(modalButton).toContainText('Open in Google Maps');
+    await expectSingleLineLabel(page.locator('#modalCheckInBtn span:not(.checkin-icon)'));
+    await expectSingleLineLabel(page.locator('#modalGoogleMapsBtn [data-google-maps-label]'));
 
     await openPoiModal(page, 'poi-without-map');
     await expect(modalButton).toBeHidden();
