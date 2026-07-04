@@ -432,14 +432,63 @@ test.describe('car booking modal regression', () => {
     await expect(page.locator('#carRentalGrid [data-select-car]').first()).toHaveAttribute('data-select-car-offer-id', 'lca-he-ready');
     expect(await getRenderedOfferIds(page)).toEqual(['lca-he-ready', 'lca-not-he-ready', 'lca-he-ready-budget']);
 
-    const cardState = await page.evaluate(() => Array.from(document.querySelectorAll('#carRentalGrid .auto-card')).map((card) => ({
-      price: String(card.querySelector('.auto-card-price')?.textContent || ''),
-      buttonText: String(card.querySelector('[data-select-car]')?.textContent || '').trim(),
-      offerId: String(card.querySelector('[data-select-car-offer-id]')?.getAttribute('data-select-car-offer-id') || '').trim(),
-    })));
-    expect(cardState.every((card) => card.buttonText && card.offerId)).toBe(true);
+    const cardState = await page.evaluate(() => Array.from(document.querySelectorAll('#carRentalGrid .auto-card')).map((card) => {
+      const selectEl = card.matches('[data-select-car]') ? card : card.querySelector('[data-select-car]');
+      const offerEl = card.matches('[data-select-car-offer-id]') ? card : card.querySelector('[data-select-car-offer-id]');
+      return {
+        price: String(card.querySelector('.auto-card-price')?.textContent || ''),
+        buttonText: String(selectEl?.textContent || '').trim(),
+        offerId: String(offerEl?.getAttribute('data-select-car-offer-id') || '').trim(),
+        isFleetCard: card.classList.contains('auto-card--fleet'),
+        badge: String(card.querySelector('.auto-card-badge')?.textContent || '').trim(),
+        specs: card.querySelectorAll('.auto-card-specs li').length,
+      };
+    }));
+    expect(cardState.every((card) => card.buttonText && card.offerId && card.isFleetCard && card.badge && card.specs >= 3)).toBe(true);
     expect(cardState.map((card) => card.price).join(' ')).not.toMatch(/\b(?:NaN|undefined|null)\b/i);
     expect(errors.join('\n')).not.toMatch(/isEn|ReferenceError/i);
+  });
+
+  test('car.html replaces selected-car panel with selectable cards instruction', async ({ page }) => {
+    await openCarPage(page, 'pl');
+    await configureFinderCities(page, 'larnaca', 'larnaca', false);
+    await page.waitForFunction(() => (
+      document.querySelectorAll('#carRentalGrid [data-select-car-offer-id]').length === 3
+    ), null, { timeout: 15000 });
+
+    const instruction = page.locator('#selectedCarHighlight');
+    await expect(instruction).toBeVisible();
+    await expect(instruction).toContainText('Kliknij wybrane auto, aby przejść do rezerwacji.');
+    await expect(instruction).not.toContainText('Wybrane auto');
+    await expect(page.locator('#selectedCarHighlight .selected-car-highlight__media')).toHaveCount(0);
+    await expect(page.locator('#selectedCarHighlight .selected-car-highlight__label')).toHaveCount(0);
+
+    const firstCar = page.locator('#carRentalGrid [data-select-car]').first();
+    const selectedName = await firstCar.getAttribute('data-select-car');
+    await expect(firstCar).toHaveClass(/auto-card--fleet/);
+    await firstCar.click();
+    await expect(page.locator('#carHomeModal')).toBeVisible();
+    await expect(page.locator('#res_car')).toHaveValue(selectedName || '');
+  });
+
+  test('car.html Hebrew instruction is localized and mobile cards do not overflow', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openCarPage(page, 'he');
+    await configureFinderCities(page, 'larnaca', 'larnaca', false);
+    await page.waitForFunction(() => (
+      document.querySelectorAll('#carRentalGrid [data-select-car-offer-id]').length > 0
+    ), null, { timeout: 15000 });
+
+    await expect(page.locator('#selectedCarHighlight')).toContainText('לחצו על הרכב שבחרתם כדי להמשיך להזמנה.');
+    const snapshot = await page.evaluate(() => ({
+      noHorizontalOverflow: document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1
+        && document.body.scrollWidth <= document.body.clientWidth + 1,
+      pageText: String(document.body.textContent || ''),
+      cardCount: document.querySelectorAll('#carRentalGrid .auto-card--fleet[data-select-car]').length,
+    }));
+    expect(snapshot.noHorizontalOverflow).toBe(true);
+    expect(snapshot.cardCount).toBeGreaterThan(0);
+    expect(snapshot.pageText).not.toMatch(/\b(?:undefined|null)\b/i);
   });
 
   test('car.html?lang=pl sorts Larnaka cards by quote and opens #carHomeModal', async ({ page }) => {

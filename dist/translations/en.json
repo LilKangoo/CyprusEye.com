@@ -3897,6 +3897,7 @@
   "carRentalLanding.selectedCar.imageAlt": "Selected car",
   "carRentalLanding.selectedCar.ready": "The selected car is ready for booking.",
   "carRentalLanding.selectedCar.estimated": "Estimated: {{total}}",
+  "car.selectInstruction": "Click your chosen car to continue with the booking.",
   "carRentalLanding.grid.aria": "Available fleet",
   "carRentalLanding.imageModal.title": "Car preview",
   "carRentalLanding.imageModal.closeAria": "Close preview",

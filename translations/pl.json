@@ -4832,6 +4832,7 @@
   "carRentalLanding.reservation.offerMode.autoSwitch": "auto-switch",
   "carRentalLanding.selectedCar.ready": "Wybrane auto jest gotowe do rezerwacji.",
   "carRentalLanding.selectedCar.estimated": "Szacunkowo: {{total}}",
+  "car.selectInstruction": "Kliknij wybrane auto, aby przejść do rezerwacji.",
   "carRental.page.reservation.estimated.chooseDates": "Wybierz datę odbioru i zwrotu, aby zobaczyć łączną cenę.",
   "carRental.page.reservation.estimated.invalidDateTime": "Wybierz poprawne daty i godziny odbioru oraz zwrotu.",
   "carRental.page.reservation.estimated.returnAfterPickup": "Zwrot musi być po dacie i godzinie odbioru.",

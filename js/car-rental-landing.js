@@ -629,7 +629,10 @@ function renderSelectedCarHighlight() {
 
   const selectedCar = String(byId('rentalCarSelect')?.value || byId('res_car')?.value || '').trim();
   if (!selectedCar) {
-    panel.hidden = true;
+    document.querySelectorAll('.auto-card.is-selected').forEach((node) => {
+      node.classList.remove('is-selected');
+    });
+    panel.hidden = false;
     updateCarLandingSeo('', '', '');
     return;
   }

@@ -822,6 +822,7 @@
   "carRentalLanding.selectedCar.imageAlt": "רכב נבחר",
   "carRentalLanding.selectedCar.label": "רכב נבחר",
   "carRentalLanding.selectedCar.ready": "הרכב שנבחר מוכן להזמנה.",
+  "car.selectInstruction": "לחצו על הרכב שבחרתם כדי להמשיך להזמנה.",
   "carRentalPfo.calculator.form.airportPickup": "איסוף בשדה PFO",
   "carRentalPfo.calculator.form.airportReturn": "החזרה בשדה PFO",
   "carRentalPfo.calculator.form.calculate": "חישוב מחיר",

@@ -586,6 +586,7 @@ function renderFleet() {
     }
 
     const reserveLabel = i18n('carRental.common.reserveCar', null, 'Zarezerwuj to auto');
+    const noDepositLabel = i18n('carRentalLanding.hero.stats.noDeposit', null, 'Bez kaucji');
 
     const fuelKey = car.fuel_type === 'petrol'
       ? 'carRental.common.fuel.petrol95'
@@ -598,30 +599,30 @@ function renderFleet() {
             : '';
     const fuelText = fuelKey ? i18n(fuelKey, null, car.fuel_type) : (car.fuel_type || '');
     
+    const cardMeta = `${transmission} • ${seatsText} • AC`;
+
     return `
-      <article class="card auto-card">
-        ${imageIsPanorama ? '<span class="ce-media-badge ce-media-badge--auto-card">360°</span>' : ''}
-        ${car.image_url ? `<img src="${escapeHtml(car.image_url)}" alt="${escapeHtml(carModelName)}" class="auto-card-image" data-preview-title="${escapeHtml(carModelName)}" role="button" tabindex="0" aria-label="${escapeHtml(reserveLabel)}" aria-haspopup="dialog" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px 8px 0 0;">` : ''}
-        <header class="auto-card-header">
-          <span class="auto-card-price">${escapeHtml(priceLabel)}</span>
-          <div class="auto-card-title">
-            <h3>${escapeHtml(carModelName)}<span>${escapeHtml(transmission)} • ${escapeHtml(seatsText)} • AC</span></h3>
+      <article class="card auto-card auto-card--fleet" role="button" tabindex="0" aria-label="${escapeHtml(reserveLabel)}: ${escapeHtml(carModelName)}" data-select-car="${escapeHtml(carModelName)}" data-select-car-offer-id="${escapeHtml(car.id)}">
+        <div class="auto-card-media">
+          ${car.image_url ? `<img src="${escapeHtml(car.image_url)}" alt="${escapeHtml(carModelName)}" class="auto-card-image" data-preview-title="${escapeHtml(carModelName)}" role="button" tabindex="0" aria-label="${escapeHtml(reserveLabel)}" aria-haspopup="dialog">` : ''}
+          ${imageIsPanorama ? '<span class="ce-media-badge ce-media-badge--auto-card">360°</span>' : ''}
+          <span class="auto-card-badge">${escapeHtml(noDepositLabel)}</span>
+          <div class="auto-card-overlay">
+            <span class="auto-card-price">${escapeHtml(priceLabel)}</span>
+            <div class="auto-card-title">
+              <h3>${escapeHtml(carModelName)}<span>${escapeHtml(cardMeta)}</span></h3>
+            </div>
           </div>
-        </header>
-        <ul class="auto-card-specs">
-          <li>${escapeHtml(transmission)}</li>
-          <li>${escapeHtml(seatsText)}</li>
-          <li>AC</li>
-          <li>${escapeHtml(fuelText)}</li>
-        </ul>
-        ${priceBreakdown ? `<p class="auto-card-note" style="margin-top: 8px;">${escapeHtml(priceBreakdown)}</p>` : ''}
-        ${window.getCarDescription ? `<p class="auto-card-note">${escapeHtml(window.getCarDescription(car))}</p>` : (car.description ? `<p class="auto-card-note">${escapeHtml(car.description)}</p>` : '')}
-        ${features.length > 0 ? `
-          <ul class="auto-card-features" style="font-size: 12px; color: #64748b; margin: 8px 0;">
-            ${features.slice(0, 3).map(f => `<li>✓ ${escapeHtml(f)}</li>`).join('')}
+        </div>
+        <div class="auto-card-body">
+          <ul class="auto-card-specs">
+            <li>${escapeHtml(transmission)}</li>
+            <li>${escapeHtml(seatsText)}</li>
+            <li>AC</li>
+            <li>${escapeHtml(fuelText)}</li>
           </ul>
-        ` : ''}
-        <button type="button" class="btn btn-secondary secondary" data-select-car="${escapeHtml(carModelName)}" data-select-car-offer-id="${escapeHtml(car.id)}">${reserveLabel}</button>
+          ${priceBreakdown ? `<p class="auto-card-note">${escapeHtml(priceBreakdown)}</p>` : ''}
+        </div>
       </article>
     `;
   }).join('');
@@ -1272,7 +1273,9 @@ function buildLandingQuoteForCar(carName, location, offerId = '') {
 // Attach car select buttons
 function attachCarSelectButtons() {
   document.querySelectorAll('[data-select-car]').forEach((button) => {
-    button.addEventListener('click', () => {
+    button.addEventListener('click', (event) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest('.auto-card-image')) return;
       const carName = button.getAttribute('data-select-car');
       const offerId = button.getAttribute('data-select-car-offer-id');
       const pfoSelect = document.getElementById('car');
@@ -1330,6 +1333,13 @@ function attachCarSelectButtons() {
         scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
       (lcaSelect || pfoSelect || resSelect)?.focus?.({ preventScroll: true });
+    });
+    button.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest('.auto-card-image')) return;
+      event.preventDefault();
+      button.click();
     });
   });
 }

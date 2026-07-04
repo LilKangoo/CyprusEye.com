@@ -420,17 +420,16 @@
       </section>
 
       <section class="selected-car-highlight" id="selectedCarHighlight" hidden aria-live="polite">
-        <div class="selected-car-highlight__media">
-          <img id="selectedCarHighlightImage" src="" alt="Wybrane auto" loading="lazy" data-i18n-attrs="alt:carRentalLanding.selectedCar.imageAlt" />
+        <div class="selected-car-highlight__instruction" role="note">
+          <span class="selected-car-highlight__instruction-icon" aria-hidden="true">↘</span>
+          <p data-i18n="car.selectInstruction">Kliknij wybrane auto, aby przejść do rezerwacji.</p>
         </div>
-        <div class="selected-car-highlight__content">
-          <p class="selected-car-highlight__label" data-i18n="carRentalLanding.selectedCar.label">Wybrane auto</p>
+        <div class="selected-car-highlight__state" hidden>
+          <img id="selectedCarHighlightImage" src="" alt="" loading="lazy" />
           <h3 id="selectedCarHighlightTitle">—</h3>
           <p id="selectedCarHighlightMeta">—</p>
-          <div class="selected-car-highlight__meta-row">
-            <span id="selectedCarHighlightPrice" hidden></span>
-            <span id="selectedCarHighlightOffer"></span>
-          </div>
+          <span id="selectedCarHighlightPrice" hidden></span>
+          <span id="selectedCarHighlightOffer"></span>
         </div>
       </section>
 
