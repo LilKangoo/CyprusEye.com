@@ -558,41 +558,79 @@ function getFilterValue(row, column) {
   return path.reduce((cursor, segment) => (cursor && typeof cursor === 'object' ? cursor[segment] : undefined), row);
 }
 
-function applyGenericFilters(rows, filters) {
-  return rows.filter((row) => filters.every((filter) => {
-    const value = getFilterValue(row, filter.column);
-    switch (filter.type) {
-      case 'eq':
-        return value === filter.value;
-      case 'ilike': {
-        const rawPattern = String(filter.value ?? '').toLowerCase();
-        const escaped = rawPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const regexPattern = `^${escaped.replace(/%/g, '.*').replace(/_/g, '.')}$`;
-        return new RegExp(regexPattern, 'i').test(String(value ?? ''));
-      }
-      case 'neq':
-        return value !== filter.value;
-      case 'lte':
-        return String(value || '') <= String(filter.value || '');
-      case 'gte':
-        return String(value || '') >= String(filter.value || '');
-      case 'in':
-        return Array.isArray(filter.value) && filter.value.includes(value);
-      case 'contains':
-        return Array.isArray(value) && Array.isArray(filter.value)
-          ? filter.value.every((entry) => value.includes(entry))
-          : false;
-      case 'not':
-        if (filter.operator === 'is') {
-          return !(filter.value === null ? value == null : value === filter.value);
-        }
-        return true;
-      case 'is':
-        return filter.value === null ? value == null : value === filter.value;
-      default:
-        return true;
+function parseInFilterValues(value) {
+  const raw = String(value ?? '').trim();
+  const inner = raw.startsWith('(') && raw.endsWith(')') ? raw.slice(1, -1) : raw;
+  return inner
+    .split(',')
+    .map((entry) => entry.trim().replace(/^"|"$/g, '').replace(/^'|'$/g, ''))
+    .filter(Boolean);
+}
+
+function parseOrFilter(expression) {
+  return String(expression || '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const [column, operator, ...rest] = part.split('.');
+      const rawValue = rest.join('.');
+      return {
+        type: String(operator || '').trim(),
+        column: String(column || '').trim(),
+        value: rawValue === 'null' ? null : rawValue,
+      };
+    })
+    .filter((filter) => filter.column && filter.type);
+}
+
+function evaluateGenericFilter(row, filter) {
+  if (filter.type === 'or') {
+    const filters = Array.isArray(filter.filters) ? filter.filters : [];
+    return filters.some((entry) => evaluateGenericFilter(row, entry));
+  }
+
+  const value = getFilterValue(row, filter.column);
+  switch (filter.type) {
+    case 'eq':
+      return value === filter.value;
+    case 'ilike': {
+      const rawPattern = String(filter.value ?? '').toLowerCase();
+      const escaped = rawPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regexPattern = `^${escaped.replace(/%/g, '.*').replace(/_/g, '.')}$`;
+      return new RegExp(regexPattern, 'i').test(String(value ?? ''));
     }
-  }));
+    case 'neq':
+      return value !== filter.value;
+    case 'lt':
+      return String(value || '') < String(filter.value || '');
+    case 'lte':
+      return String(value || '') <= String(filter.value || '');
+    case 'gte':
+      return String(value || '') >= String(filter.value || '');
+    case 'in':
+      return Array.isArray(filter.value) && filter.value.includes(value);
+    case 'contains':
+      return Array.isArray(value) && Array.isArray(filter.value)
+        ? filter.value.every((entry) => value.includes(entry))
+        : false;
+    case 'not':
+      if (filter.operator === 'is') {
+        return !(filter.value === null ? value == null : value === filter.value);
+      }
+      if (filter.operator === 'in') {
+        return !parseInFilterValues(filter.value).includes(String(value ?? ''));
+      }
+      return true;
+    case 'is':
+      return filter.value === null ? value == null : value === filter.value;
+    default:
+      return true;
+  }
+}
+
+function applyGenericFilters(rows, filters) {
+  return rows.filter((row) => filters.every((filter) => evaluateGenericFilter(row, filter)));
 }
 
 function createGenericSelectBuilder(table) {
@@ -635,8 +673,16 @@ function createGenericSelectBuilder(table) {
       stateBag.filters.push({ type: 'ilike', column, value });
       return builder;
     },
+    or(expression) {
+      stateBag.filters.push({ type: 'or', filters: parseOrFilter(expression) });
+      return builder;
+    },
     neq(column, value) {
       stateBag.filters.push({ type: 'neq', column, value });
+      return builder;
+    },
+    lt(column, value) {
+      stateBag.filters.push({ type: 'lt', column, value });
       return builder;
     },
     lte(column, value) {

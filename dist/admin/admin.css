@@ -1381,6 +1381,62 @@ body[data-admin-panel="true"].admin-sidebar-open {
   background: var(--admin-primary-dark);
 }
 
+.users-controls {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.users-search-row {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.users-search-row .admin-search-input {
+  flex: 1;
+}
+
+.users-filter-toggle {
+  display: none;
+}
+
+.users-filter-panel,
+.users-filter-panel.is-collapsed {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(150px, 1fr)) auto minmax(120px, auto);
+  gap: 12px;
+  align-items: end;
+}
+
+.users-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+}
+
+.users-filter-field span {
+  color: var(--admin-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.users-reset-button {
+  min-height: 42px;
+}
+
+.users-results-summary {
+  align-self: center;
+  color: var(--admin-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+}
+
 .cars-live-sync-row {
   display: flex;
   justify-content: flex-end;
@@ -3382,6 +3438,38 @@ body[data-admin-panel="true"].admin-sidebar-open {
   .admin-search-bar select,
   .admin-search-bar input {
     width: 100%;
+  }
+
+  .users-search-row {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .users-search-row .btn-admin-search,
+  .users-search-row .users-filter-toggle {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .users-filter-toggle {
+    display: flex;
+  }
+
+  .users-filter-panel {
+    grid-template-columns: 1fr;
+    padding: 12px;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius);
+    background: var(--admin-bg-light);
+  }
+
+  .users-filter-panel.is-collapsed {
+    display: none;
+  }
+
+  .users-results-summary {
+    text-align: left;
+    white-space: normal;
   }
 
   .admin-force-refresh-row {

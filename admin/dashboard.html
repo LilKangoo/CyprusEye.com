@@ -3149,21 +3149,62 @@
           <p class="admin-view-subtitle">Manage user accounts and profiles</p>
         </header>
 
-        <!-- User Search -->
-        <div class="admin-search-bar">
-          <input 
-            type="text" 
-            id="userSearch" 
-            placeholder="Search users by name, email, or username..."
-            class="admin-search-input"
-          />
-          <button class="btn-admin-search" id="btnUserSearch">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8"/>
-              <path d="m21 21-4.35-4.35"/>
-            </svg>
-            Search
-          </button>
+        <!-- User Search and Filters -->
+        <div class="users-controls" aria-label="User management controls">
+          <div class="users-search-row">
+            <input
+              type="text"
+              id="userSearch"
+              placeholder="Search users by name, email, or username..."
+              class="admin-search-input"
+            />
+            <button class="btn-admin-search" id="btnUserSearch">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.35-4.35"/>
+              </svg>
+              Search
+            </button>
+            <button class="btn-secondary users-filter-toggle" id="btnUsersFiltersToggle" type="button" aria-expanded="false" aria-controls="usersFilterPanel">
+              Filters
+            </button>
+          </div>
+
+          <div class="users-filter-panel is-collapsed" id="usersFilterPanel">
+            <label class="users-filter-field">
+              <span>Role</span>
+              <select id="userRoleFilter" class="form-control">
+                <option value="all">All</option>
+                <option value="users">Users</option>
+                <option value="partners">Partners</option>
+                <option value="affiliates">Affiliates</option>
+                <option value="admins">Admins</option>
+              </select>
+            </label>
+            <label class="users-filter-field">
+              <span>Status</span>
+              <select id="userStatusFilter" class="form-control">
+                <option value="all">All</option>
+                <option value="active">Active</option>
+                <option value="banned">Banned</option>
+              </select>
+            </label>
+            <label class="users-filter-field">
+              <span>Sort</span>
+              <select id="userSortFilter" class="form-control">
+                <option value="newest">Newest</option>
+                <option value="oldest">Oldest</option>
+                <option value="xp_desc">XP high to low</option>
+                <option value="xp_asc">XP low to high</option>
+                <option value="level_desc">Level high to low</option>
+                <option value="level_asc">Level low to high</option>
+                <option value="username_asc">Username A-Z</option>
+                <option value="email_asc">Email A-Z</option>
+              </select>
+            </label>
+            <button class="btn-secondary users-reset-button" id="btnUsersResetFilters" type="button">Reset</button>
+            <div class="users-results-summary" id="usersResultsSummary" aria-live="polite">Results: 0</div>
+          </div>
         </div>
 
         <!-- Users Table -->

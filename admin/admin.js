@@ -26,6 +26,12 @@ let adminState = {
   currentView: 'dashboard',
   usersPage: 1,
   usersTotal: 0,
+  usersFilters: {
+    search: '',
+    role: 'all',
+    status: 'all',
+    sort: 'newest',
+  },
   loading: true,
   pois: [],
   poisLoaded: false,
@@ -25789,65 +25795,270 @@ async function getUsersPartnerAffiliateFlags(client, userIds) {
   return flagsByUserId;
 }
 
-async function loadUsersData(page = 1) {
+const USER_FILTER_DEFAULTS = {
+  search: '',
+  role: 'all',
+  status: 'all',
+  sort: 'newest',
+};
+
+const USER_SORT_OPTIONS = {
+  newest: { column: 'created_at', ascending: false },
+  oldest: { column: 'created_at', ascending: true },
+  xp_desc: { column: 'xp', ascending: false },
+  xp_asc: { column: 'xp', ascending: true },
+  level_desc: { column: 'level', ascending: false },
+  level_asc: { column: 'level', ascending: true },
+  username_asc: { column: 'username', ascending: true },
+  email_asc: { column: 'email', ascending: true },
+};
+
+function getUserFilters() {
+  const existing = adminState.usersFilters && typeof adminState.usersFilters === 'object'
+    ? adminState.usersFilters
+    : {};
+  return {
+    ...USER_FILTER_DEFAULTS,
+    ...existing,
+  };
+}
+
+function setUserFilters(next = {}) {
+  adminState.usersFilters = {
+    ...getUserFilters(),
+    ...next,
+  };
+  return getUserFilters();
+}
+
+function normalizeLoadUsersOptions(input = {}) {
+  if (typeof input === 'number') {
+    return { page: input };
+  }
+  if (!input || typeof input !== 'object') {
+    return {};
+  }
+  return input;
+}
+
+function getUserBanState(user) {
+  const raw = String(user?.banned_until || '').trim();
+  if (!raw) return { isBanned: false, label: 'Active', className: 'badge-success' };
+  const banDate = new Date(raw);
+  const isFutureBan = Number.isNaN(banDate.getTime()) || banDate.getTime() > Date.now();
+  return isFutureBan
+    ? { isBanned: true, label: 'Banned', className: 'badge-danger' }
+    : { isBanned: false, label: 'Active', className: 'badge-success' };
+}
+
+function updateUsersControls(filters = getUserFilters()) {
+  const searchInput = $('#userSearch');
+  const roleSelect = $('#userRoleFilter');
+  const statusSelect = $('#userStatusFilter');
+  const sortSelect = $('#userSortFilter');
+
+  if (searchInput && searchInput.value !== filters.search) searchInput.value = filters.search || '';
+  if (roleSelect) roleSelect.value = filters.role || USER_FILTER_DEFAULTS.role;
+  if (statusSelect) statusSelect.value = filters.status || USER_FILTER_DEFAULTS.status;
+  if (sortSelect) sortSelect.value = filters.sort || USER_FILTER_DEFAULTS.sort;
+}
+
+function updateUsersResultsSummary() {
+  const summaryEl = $('#usersResultsSummary');
+  if (!summaryEl) return;
+  const total = Number(adminState.usersTotal) || 0;
+  if (total <= 0) {
+    summaryEl.textContent = 'Results: 0';
+    return;
+  }
+  const start = ((Number(adminState.usersPage) || 1) - 1) * ADMIN_CONFIG.usersPerPage + 1;
+  const end = Math.min(start + ADMIN_CONFIG.usersPerPage - 1, total);
+  summaryEl.textContent = `Showing ${start}-${end} of ${total}`;
+}
+
+function renderUsersTable(users) {
+  const tableBody = $('#usersTable');
+  if (!tableBody) return;
+
+  const list = Array.isArray(users) ? users : [];
+  if (!list.length) {
+    tableBody.innerHTML = '<tr><td colspan="7" class="table-loading">No users found.</td></tr>';
+    return;
+  }
+
+  tableBody.innerHTML = list.map((user) => {
+    const banState = getUserBanState(user);
+    const id = escapeHtml(String(user.id || ''));
+    const username = escapeHtml(user.username || 'N/A');
+    const email = escapeHtml(user.email || 'N/A');
+    return `
+      <tr>
+        <td>
+          ${username}
+          ${user.is_admin ? '<span class="badge badge-admin">ADMIN</span>' : ''}
+          ${user.is_partner ? '<span class="badge badge-partner">PARTNER</span>' : ''}
+          ${user.is_affiliate ? '<span class="badge badge-affiliate">AFFILIATE</span>' : ''}
+          ${!user.is_admin && user.is_moderator ? '<span class="badge">MODERATOR</span>' : ''}
+        </td>
+        <td>${email}</td>
+        <td>${Number(user.level) || 0}</td>
+        <td>${Number(user.xp) || 0}</td>
+        <td>${formatDate(user.created_at)}</td>
+        <td>
+          <span class="badge ${banState.className}">
+            ${banState.label}
+          </span>
+        </td>
+        <td>
+          <button class="btn-secondary" onclick="viewUserDetails('${id}')">
+            View
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function getUserRoleFilterIds(client, role) {
+  const normalizedRole = String(role || 'all').trim();
+  if (!client || !['partners', 'affiliates', 'users'].includes(normalizedRole)) {
+    return null;
+  }
+
+  let membershipsRes;
+  try {
+    membershipsRes = await client
+      .from('partner_users')
+      .select('user_id, partner_id')
+      .limit(10000);
+  } catch (_e) {
+    return normalizedRole === 'users' ? { include: null, exclude: [] } : { include: [] };
+  }
+
+  if (membershipsRes?.error) {
+    return normalizedRole === 'users' ? { include: null, exclude: [] } : { include: [] };
+  }
+
+  const memberships = Array.isArray(membershipsRes.data) ? membershipsRes.data : [];
+  const partnerUserIds = Array.from(new Set(memberships.map((m) => m.user_id).filter(Boolean)));
+  const partnerIds = Array.from(new Set(memberships.map((m) => m.partner_id).filter(Boolean)));
+  let affiliatePartnerIds = new Set();
+
+  if (partnerIds.length) {
+    let partnersRes = await client
+      .from('partners')
+      .select('id, affiliate_enabled')
+      .in('id', partnerIds)
+      .limit(10000);
+
+    if (partnersRes.error && (isMissingColumnError(partnersRes.error, 'affiliate_enabled') || /affiliate_enabled/i.test(String(partnersRes.error.message || '')))) {
+      partnersRes = await client
+        .from('partners')
+        .select('id')
+        .in('id', partnerIds)
+        .limit(10000);
+    }
+
+    if (!partnersRes.error && Array.isArray(partnersRes.data)) {
+      affiliatePartnerIds = new Set(
+        partnersRes.data
+          .filter((p) => p && p.affiliate_enabled === true)
+          .map((p) => p.id)
+          .filter(Boolean),
+      );
+    }
+  }
+
+  const affiliateUserIds = Array.from(new Set(
+    memberships
+      .filter((m) => affiliatePartnerIds.has(m.partner_id))
+      .map((m) => m.user_id)
+      .filter(Boolean),
+  ));
+
+  if (normalizedRole === 'partners') return { include: partnerUserIds };
+  if (normalizedRole === 'affiliates') return { include: affiliateUserIds };
+  return { include: null, exclude: Array.from(new Set([...partnerUserIds, ...affiliateUserIds])) };
+}
+
+function applyUserSearchFilter(query, search) {
+  const normalized = String(search || '').trim();
+  if (!normalized) return query;
+  const escaped = normalized.replace(/[%_,]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!escaped) return query;
+  return query.or(`username.ilike.%${escaped}%,email.ilike.%${escaped}%,name.ilike.%${escaped}%`);
+}
+
+async function loadUsersData(input = {}) {
   try {
     const client = ensureSupabase();
     if (!client) {
       showToast('Database connection not available', 'error');
       return;
     }
-    
-    adminState.usersPage = page;
 
-    const { data: users, error, count } = await client
+    const options = normalizeLoadUsersOptions(input);
+    const filters = setUserFilters({
+      ...(options.search !== undefined ? { search: String(options.search || '').trim() } : {}),
+      ...(options.role !== undefined ? { role: String(options.role || 'all') } : {}),
+      ...(options.status !== undefined ? { status: String(options.status || 'all') } : {}),
+      ...(options.sort !== undefined ? { sort: String(options.sort || 'newest') } : {}),
+    });
+    const page = Math.max(1, Number(options.page) || 1);
+    adminState.usersPage = page;
+    updateUsersControls(filters);
+
+    const roleFilterIds = await getUserRoleFilterIds(client, filters.role);
+    if (roleFilterIds && Array.isArray(roleFilterIds.include) && roleFilterIds.include.length === 0) {
+      adminState.usersTotal = 0;
+      renderUsersTable([]);
+      updateUsersPagination();
+      return;
+    }
+
+    const sortConfig = USER_SORT_OPTIONS[filters.sort] || USER_SORT_OPTIONS.newest;
+    let query = client
       .from('admin_users_overview')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false })
+      .select('*', { count: 'exact' });
+
+    query = applyUserSearchFilter(query, filters.search);
+
+    if (filters.role === 'admins') {
+      query = query.eq('is_admin', true);
+    } else if (filters.role === 'users') {
+      query = query.eq('is_admin', false);
+      if (roleFilterIds && Array.isArray(roleFilterIds.exclude) && roleFilterIds.exclude.length) {
+        query = query.not('id', 'in', `(${roleFilterIds.exclude.join(',')})`);
+      }
+    } else if (roleFilterIds && Array.isArray(roleFilterIds.include)) {
+      query = query.in('id', roleFilterIds.include);
+    }
+
+    const nowIso = new Date().toISOString();
+    if (filters.status === 'active') {
+      query = query.or(`banned_until.is.null,banned_until.lt.${nowIso}`);
+    } else if (filters.status === 'banned') {
+      query = query.gte('banned_until', nowIso);
+    }
+
+    query = query
+      .order(sortConfig.column, { ascending: sortConfig.ascending })
       .range((page - 1) * ADMIN_CONFIG.usersPerPage, page * ADMIN_CONFIG.usersPerPage - 1);
+
+    const { data: users, error, count } = await query;
 
     if (error) throw error;
 
     adminState.usersTotal = count || 0;
 
-    const tableBody = $('#usersTable');
-    if (!tableBody) return;
-
-    if (!users || users.length === 0) {
-      tableBody.innerHTML = '<tr><td colspan="7" class="table-loading">No users found</td></tr>';
-      return;
-    }
-
-    const flagsByUserId = await getUsersPartnerAffiliateFlags(client, users.map((u) => u.id));
-    const usersWithFlags = users.map((u) => ({
+    const rows = Array.isArray(users) ? users : [];
+    const flagsByUserId = await getUsersPartnerAffiliateFlags(client, rows.map((u) => u.id));
+    const usersWithFlags = rows.map((u) => ({
       ...u,
       ...(flagsByUserId[u.id] || { is_partner: false, is_affiliate: false }),
     }));
 
-    tableBody.innerHTML = usersWithFlags.map(user => `
-      <tr>
-        <td>
-          ${user.username || 'N/A'}
-          ${user.is_admin ? '<span class="badge badge-admin">ADMIN</span>' : ''}
-          ${user.is_partner ? '<span class="badge badge-partner">PARTNER</span>' : ''}
-          ${user.is_affiliate ? '<span class="badge badge-affiliate">AFFILIATE</span>' : ''}
-          ${!user.is_admin && user.is_moderator ? '<span class="badge">MODERATOR</span>' : ''}
-        </td>
-        <td>${user.email || 'N/A'}</td>
-        <td>${user.level || 0}</td>
-        <td>${user.xp || 0}</td>
-        <td>${formatDate(user.created_at)}</td>
-        <td>
-          <span class="badge ${user.banned_until ? 'badge-danger' : 'badge-success'}">
-            ${user.banned_until ? 'Banned' : 'Active'}
-          </span>
-        </td>
-        <td>
-          <button class="btn-secondary" onclick="viewUserDetails('${user.id}')">
-            View
-          </button>
-        </td>
-      </tr>
-    `).join('');
+    renderUsersTable(usersWithFlags);
 
     // Update pagination
     updateUsersPagination();
@@ -25866,9 +26077,18 @@ function updateUsersPagination() {
   const nextBtn = $('#btnUsersNext');
   const infoEl = $('#usersPaginationInfo');
 
+  if (totalPages <= 0) {
+    if (prevBtn) prevBtn.disabled = true;
+    if (nextBtn) nextBtn.disabled = true;
+    if (infoEl) infoEl.textContent = 'No results';
+    updateUsersResultsSummary();
+    return;
+  }
+
   if (prevBtn) prevBtn.disabled = currentPage <= 1;
   if (nextBtn) nextBtn.disabled = currentPage >= totalPages;
   if (infoEl) infoEl.textContent = `Page ${currentPage} of ${totalPages}`;
+  updateUsersResultsSummary();
 }
 
 async function viewUserDetails(userId) {
@@ -37555,7 +37775,7 @@ function initEventListeners() {
   if (usersPrevBtn) {
     usersPrevBtn.addEventListener('click', () => {
       if (adminState.usersPage > 1) {
-        loadUsersData(adminState.usersPage - 1);
+        loadUsersData({ page: adminState.usersPage - 1 });
       }
     });
   }
@@ -37564,7 +37784,7 @@ function initEventListeners() {
     usersNextBtn.addEventListener('click', () => {
       const totalPages = Math.ceil(adminState.usersTotal / ADMIN_CONFIG.usersPerPage);
       if (adminState.usersPage < totalPages) {
-        loadUsersData(adminState.usersPage + 1);
+        loadUsersData({ page: adminState.usersPage + 1 });
       }
     });
   }
@@ -37572,21 +37792,57 @@ function initEventListeners() {
   // User search
   const searchBtn = $('#btnUserSearch');
   const searchInput = $('#userSearch');
+  const roleFilter = $('#userRoleFilter');
+  const statusFilter = $('#userStatusFilter');
+  const sortFilter = $('#userSortFilter');
+  const resetFiltersBtn = $('#btnUsersResetFilters');
+  const filterToggleBtn = $('#btnUsersFiltersToggle');
+  const filterPanel = $('#usersFilterPanel');
   
   if (searchBtn && searchInput) {
     searchBtn.addEventListener('click', () => {
-      const query = searchInput.value.trim();
-      if (query) {
-        searchUsers(query);
-      } else {
-        loadUsersData(1);
-      }
+      searchUsers(searchInput.value.trim());
     });
 
     searchInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
         searchBtn.click();
       }
+    });
+  }
+
+  if (roleFilter) {
+    roleFilter.addEventListener('change', () => {
+      loadUsersData({ role: roleFilter.value || 'all', page: 1 });
+    });
+  }
+
+  if (statusFilter) {
+    statusFilter.addEventListener('change', () => {
+      loadUsersData({ status: statusFilter.value || 'all', page: 1 });
+    });
+  }
+
+  if (sortFilter) {
+    sortFilter.addEventListener('change', () => {
+      loadUsersData({ sort: sortFilter.value || 'newest', page: 1 });
+    });
+  }
+
+  if (resetFiltersBtn) {
+    resetFiltersBtn.addEventListener('click', () => {
+      setUserFilters(USER_FILTER_DEFAULTS);
+      updateUsersControls();
+      if (filterPanel) filterPanel.classList.add('is-collapsed');
+      if (filterToggleBtn) filterToggleBtn.setAttribute('aria-expanded', 'false');
+      loadUsersData({ ...USER_FILTER_DEFAULTS, page: 1 });
+    });
+  }
+
+  if (filterToggleBtn && filterPanel) {
+    filterToggleBtn.addEventListener('click', () => {
+      const isCollapsed = filterPanel.classList.toggle('is-collapsed');
+      filterToggleBtn.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
     });
   }
 
@@ -38148,68 +38404,7 @@ function initEventListeners() {
 }
 
 async function searchUsers(query) {
-  try {
-    const client = ensureSupabase();
-    if (!client) {
-      showToast('Database connection not available', 'error');
-      return;
-    }
-    
-    adminState.usersPage = 1;
-
-    const { data: users, error } = await client
-      .from('admin_users_overview')
-      .select('*')
-      .or(`username.ilike.%${query}%,email.ilike.%${query}%,name.ilike.%${query}%`)
-      .order('created_at', { ascending: false })
-      .limit(ADMIN_CONFIG.usersPerPage);
-
-    if (error) throw error;
-
-    const tableBody = $('#usersTable');
-    if (!tableBody) return;
-
-    if (!users || users.length === 0) {
-      tableBody.innerHTML = '<tr><td colspan="7" class="table-loading">No users found</td></tr>';
-      return;
-    }
-
-    const flagsByUserId = await getUsersPartnerAffiliateFlags(client, users.map((u) => u.id));
-    const usersWithFlags = users.map((u) => ({
-      ...u,
-      ...(flagsByUserId[u.id] || { is_partner: false, is_affiliate: false }),
-    }));
-
-    tableBody.innerHTML = usersWithFlags.map(user => `
-      <tr>
-        <td>
-          ${user.username || 'N/A'}
-          ${user.is_admin ? '<span class="badge badge-admin">ADMIN</span>' : ''}
-          ${user.is_partner ? '<span class="badge badge-partner">PARTNER</span>' : ''}
-          ${user.is_affiliate ? '<span class="badge badge-affiliate">AFFILIATE</span>' : ''}
-          ${!user.is_admin && user.is_moderator ? '<span class="badge">MODERATOR</span>' : ''}
-        </td>
-        <td>${user.email || 'N/A'}</td>
-        <td>${user.level || 0}</td>
-        <td>${user.xp || 0}</td>
-        <td>${formatDate(user.created_at)}</td>
-        <td>
-          <span class="badge ${user.banned_until ? 'badge-danger' : 'badge-success'}">
-            ${user.banned_until ? 'Banned' : 'Active'}
-          </span>
-        </td>
-        <td>
-          <button class="btn-secondary" onclick="viewUserDetails('${user.id}')">
-            View
-          </button>
-        </td>
-      </tr>
-    `).join('');
-
-  } catch (error) {
-    console.error('User search failed:', error);
-    showToast('Search failed', 'error');
-  }
+  return loadUsersData({ search: query, page: 1 });
 }
 
 // =====================================================
