@@ -986,68 +986,8 @@ window.calculatePrice = function() {
       },
     };
 
-    if (resultEl) {
-      resultEl.textContent = i18n('carRental.calculator.total', { price: `${quote.total.toFixed(2)}€` }, `Całkowita cena wynajmu: ${quote.total.toFixed(2)}€`);
-    }
-
-    const parts = [];
-    const daysLabel = i18n('carRental.common.daysLabel', null, 'dni');
-    const rateText = quote.dailyRate
-      ? i18n('carRental.common.pricePerDay', { price: `${quote.dailyRate.toFixed(2)}€` }, `${quote.dailyRate.toFixed(2)}€/dzień`)
-      : '';
-
-    if (quote.days === 3) {
-      parts.push(i18n('carRental.calculator.breakdown.package3', { total: `${quote.basePrice.toFixed(2)}€` }, `Pakiet 3 dni: ${quote.basePrice.toFixed(2)}€`));
-    } else {
-      parts.push(
-        i18n(
-          'carRental.calculator.breakdown.tiered',
-          { rate: rateText, days: quote.days, daysLabel, total: `${quote.basePrice.toFixed(2)}€` },
-          `${quote.dailyRate.toFixed(2)}€ × ${quote.days} ${daysLabel} = ${quote.basePrice.toFixed(2)}€`
-        )
-      );
-    }
-
-    const pickupLabel = shortLocationLabel(quote.pickupLoc);
-    const returnLabel = shortLocationLabel(quote.returnLoc);
-    if (quote.pickupFee) {
-      parts.push(i18n('carRental.calculator.breakdown.pickupWithFee', { location: pickupLabel, price: `${quote.pickupFee}€` }, `Odbiór: ${pickupLabel} +${quote.pickupFee}€`));
-    } else {
-      parts.push(i18n('carRental.calculator.breakdown.pickupIncluded', { location: pickupLabel }, `Odbiór: ${pickupLabel} – w cenie`));
-    }
-    if (quote.returnFee) {
-      parts.push(i18n('carRental.calculator.breakdown.returnWithFee', { location: returnLabel, price: `${quote.returnFee}€` }, `Zwrot: ${returnLabel} +${quote.returnFee}€`));
-    } else {
-      parts.push(i18n('carRental.calculator.breakdown.returnIncluded', { location: returnLabel }, `Zwrot: ${returnLabel} – w cenie`));
-    }
-
-    if (quote.insuranceCost) {
-      const insurancePerDay = i18n('carRental.common.pricePerDay', { price: '17€' }, '17€/dzień');
-      parts.push(
-        i18n(
-          'carRental.calculator.breakdown.fullInsurance',
-          { pricePerDay: insurancePerDay, days: quote.days, daysLabel, total: `${quote.insuranceCost}€` },
-          `Ubezpieczenie: ${insurancePerDay} × ${quote.days} ${daysLabel} = ${quote.insuranceCost}€`
-        )
-      );
-    }
-
-    if (quote.youngDriverCost) {
-      const youngDriverPerDay = i18n(
-        'carRental.common.pricePerDay',
-        { price: formatEuroRateLabel(quote.youngDriverDailyRate) },
-        `${formatEuroRateLabel(quote.youngDriverDailyRate)}/dzień`
-      );
-      parts.push(
-        i18n(
-          'carRental.calculator.breakdown.youngDriver',
-          { pricePerDay: youngDriverPerDay, days: quote.days, daysLabel, total: `${quote.youngDriverCost}€` },
-          `Młody kierowca: ${youngDriverPerDay} × ${quote.days} ${daysLabel} = ${quote.youngDriverCost}€`
-        )
-      );
-    }
-
-    if (breakdownEl) breakdownEl.innerHTML = parts.map(p => `<div>${escapeHtml(p)}</div>`).join('');
+    if (resultEl) resultEl.textContent = '';
+    if (breakdownEl) breakdownEl.innerHTML = '';
     if (messageEl) {
       messageEl.textContent = '';
       messageEl.classList.remove('is-error');

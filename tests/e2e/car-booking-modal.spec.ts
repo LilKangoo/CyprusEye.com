@@ -502,6 +502,46 @@ test.describe('car booking modal regression', () => {
     await expect(page.locator('#res_car')).toHaveValue(selectedName || '');
   });
 
+  test('car.html hides calculator total and shows final price summary in booking form', async ({ page }) => {
+    await openCarPage(page, 'pl');
+    await configureFinderCities(page, 'nicosia', 'nicosia', false);
+    await expectGridMatchesCurrentFleet(page, 'larnaca');
+
+    await expect(page.locator('#carRentalResult')).toBeHidden();
+    await expect(page.locator('#carRentalBreakdown')).toBeHidden();
+    await expect(page.locator('#carRentalGrid .auto-card-price').first()).toContainText('Razem');
+
+    const selectedCar = page.locator('#carRentalGrid [data-select-car-offer-id="lca-he-ready"]');
+    const selectedName = await selectedCar.getAttribute('data-select-car');
+    await selectedCar.click();
+
+    const summary = page.locator('#estimatedPrice .auto-price-summary');
+    await expect(summary).toBeVisible();
+    await expect(summary).toContainText('Podsumowanie ceny');
+    await expect(summary).toContainText('Wybrane auto');
+    await expect(summary).toContainText(selectedName || '');
+    await expect(summary).toContainText('Liczba dni');
+    await expect(summary).toContainText('Cena bazowa');
+    await expect(summary).toContainText('Odbiór');
+    await expect(summary).toContainText('Zwrot');
+    await expect(summary).toContainText('Razem do zapłaty');
+    await expect(summary).not.toContainText(/NaN|undefined|null/i);
+
+    const total = page.locator('#estimatedPrice .auto-price-summary__row--total dd');
+    const initialTotal = await total.textContent();
+    await page.locator('#res_insurance').setChecked(true);
+    await expect(summary).toContainText('Pełne ubezpieczenie AC');
+    await expect.poll(async () => total.textContent()).not.toBe(initialTotal);
+
+    const totalWithInsurance = await total.textContent();
+    const youngDriver = page.locator('#res_young_driver');
+    if (await youngDriver.count()) {
+      await youngDriver.setChecked(true);
+      await expect(summary).toContainText('Młody kierowca');
+      await expect.poll(async () => total.textContent()).not.toBe(totalWithInsurance);
+    }
+  });
+
   test('car.html Hebrew instruction is localized and mobile cards do not overflow', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await openCarPage(page, 'he');

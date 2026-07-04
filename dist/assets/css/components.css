@@ -7078,6 +7078,73 @@ html[lang='he'] .selected-car-highlight__instruction-icon {
   color: #475569;
 }
 
+.auto-price-summary {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.auto-price-summary__title {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.auto-price-summary__rows {
+  display: grid;
+  gap: 0.42rem;
+  margin: 0;
+}
+
+.auto-price-summary__row {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.25fr);
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.auto-price-summary__row dt,
+.auto-price-summary__row dd {
+  margin: 0;
+  min-width: 0;
+}
+
+.auto-price-summary__row dt {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.auto-price-summary__row dd {
+  color: #0f172a;
+  font-weight: 700;
+  text-align: end;
+  overflow-wrap: anywhere;
+}
+
+.auto-price-summary__row--total {
+  margin-top: 0.35rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.32);
+}
+
+.auto-price-summary__row--total dt,
+.auto-price-summary__row--total dd {
+  color: #075985;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+@media (max-width: 560px) {
+  .auto-price-summary__row {
+    grid-template-columns: 1fr;
+    gap: 0.12rem;
+  }
+
+  .auto-price-summary__row dd {
+    text-align: start;
+  }
+}
+
 .auto-submit-btn {
   width: 100%;
   min-height: 54px;

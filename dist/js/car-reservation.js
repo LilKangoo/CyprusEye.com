@@ -1441,74 +1441,136 @@ function populateFromCalculator() {
   }
 }
 
+function formatReservationMoney(value, currency = 'EUR') {
+  const amount = Number(value || 0);
+  const safeAmount = Number.isFinite(amount) ? amount : 0;
+  const normalizedCurrency = String(currency || 'EUR').trim().toUpperCase() || 'EUR';
+  return normalizedCurrency === 'EUR'
+    ? `${safeAmount.toFixed(2)}€`
+    : `${safeAmount.toFixed(2)} ${normalizedCurrency}`;
+}
+
+function formatReservationLocationLabel(locationValue) {
+  const value = String(locationValue || '').trim();
+  const normalized = normalizeLocationForOffer(value, getActiveOfferLocation()) || value;
+  if (normalized === 'airport_pfo') {
+    return tr('carRental.locations.paphos-airport.short', 'Paphos Airport');
+  }
+  if (normalized === 'city_center') {
+    return tr('carRental.page.reservation.fields.pickupLocation.city', 'City centre');
+  }
+  if (normalized === 'hotel') {
+    return tr('carRental.page.reservation.fields.pickupLocation.hotel', 'Hotel');
+  }
+  if (normalized === 'other') {
+    return tr('carRental.page.reservation.fields.other', 'Other');
+  }
+  const fallback = normalized
+    ? normalized.replace(/-/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
+    : '';
+  return tr(`carRental.locations.${normalized}.short`, fallback || value || '');
+}
+
+function renderPriceSummaryRow(label, value, modifier = '') {
+  const extraClass = modifier ? ` auto-price-summary__row--${modifier}` : '';
+  return `
+    <div class="auto-price-summary__row${extraClass}">
+      <dt>${escapeHtml(label)}</dt>
+      <dd>${escapeHtml(value)}</dd>
+    </div>
+  `;
+}
+
 function renderEstimatedPriceQuote(estimatedEl, quote, rentalDays, daysLabel) {
   if (!estimatedEl || !quote) return;
 
   const currency = String(quote.currency || 'EUR').trim().toUpperCase() || 'EUR';
   const finalTotal = Number(quote.final_total ?? quote.total ?? 0);
-  const baseTotal = Number(quote.base_total ?? finalTotal);
+  const breakdown = quote.breakdown && typeof quote.breakdown === 'object' ? quote.breakdown : {};
   const coupon = quote.coupon && typeof quote.coupon === 'object' ? quote.coupon : null;
+  const days = Number(breakdown.days || rentalDays || 0);
+  const safeDays = Number.isFinite(days) && days > 0 ? days : Number(rentalDays || 0);
+  const carName = String(breakdown.car || document.getElementById('res_car')?.value || '').trim();
+  const basePrice = Number(breakdown.basePrice || 0);
+  const pickupFee = Number(breakdown.pickupFee || 0);
+  const returnFee = Number(breakdown.returnFee || 0);
+  const insuranceCost = Number(breakdown.insuranceCost || 0);
+  const youngDriverCost = Number(breakdown.youngDriverCost || 0);
+  const includedLabel = tr('carRental.page.reservation.priceSummary.included', 'Included');
+  const perDayLabel = tr('carRental.page.reservation.priceSummary.perDay', 'day');
+  const title = tr('carRental.page.reservation.priceSummary.title', 'Price summary');
+  const pickupLocation = formatReservationLocationLabel(breakdown.pickupLoc);
+  const returnLocation = formatReservationLocationLabel(breakdown.returnLoc);
+  const feeValue = (locationLabel, fee) => (
+    Number(fee || 0) > 0
+      ? `${locationLabel} +${formatReservationMoney(fee, currency)}`
+      : `${locationLabel} · ${includedLabel}`
+  );
+  const perDayValue = (cost) => {
+    const total = Number(cost || 0);
+    const daily = safeDays > 0 ? total / safeDays : total;
+    return `${formatReservationMoney(daily, currency)} / ${perDayLabel} x ${safeDays} ${daysLabel} = ${formatReservationMoney(total, currency)}`;
+  };
+  const rows = [
+    renderPriceSummaryRow(
+      tr('carRental.page.reservation.priceSummary.selectedCar', 'Selected car'),
+      carName || tr('carRental.page.reservation.estimated.chooseCar', 'Choose a car to see the total price.')
+    ),
+    renderPriceSummaryRow(
+      tr('carRental.page.reservation.priceSummary.days', 'Number of days'),
+      `${safeDays} ${daysLabel}`
+    ),
+    renderPriceSummaryRow(
+      tr('carRental.page.reservation.priceSummary.basePrice', 'Base price'),
+      formatReservationMoney(basePrice, currency)
+    ),
+    renderPriceSummaryRow(
+      tr('carRental.page.reservation.priceSummary.pickup', 'Pickup'),
+      feeValue(pickupLocation, pickupFee)
+    ),
+    renderPriceSummaryRow(
+      tr('carRental.page.reservation.priceSummary.return', 'Return'),
+      feeValue(returnLocation, returnFee)
+    ),
+  ];
+
+  if (insuranceCost > 0) {
+    rows.push(renderPriceSummaryRow(
+      tr('carRental.page.reservation.priceSummary.fullInsurance', 'Full AC insurance'),
+      perDayValue(insuranceCost)
+    ));
+  }
+
+  if (youngDriverCost > 0) {
+    rows.push(renderPriceSummaryRow(
+      tr('carRental.page.reservation.priceSummary.youngDriver', 'Young driver'),
+      perDayValue(youngDriverCost)
+    ));
+  }
 
   if (coupon) {
     const couponCode = String(coupon.code || '').trim().toUpperCase();
     const discount = Number(coupon.discount_amount || 0);
-    const finalLabel = Number.isFinite(finalTotal) ? finalTotal.toFixed(2) : '0.00';
-    const baseLabel = Number.isFinite(baseTotal) ? baseTotal.toFixed(2) : '0.00';
-    const discountLabel = Number.isFinite(discount) ? discount.toFixed(2) : '0.00';
-    const breakdownTitle = tr(
-      'carRental.page.reservation.estimated.breakdown.title',
-      'Total rental price ({{days}} {{daysLabel}})',
-      {
-        days: Number(rentalDays || 0),
-        daysLabel,
-      }
-    );
-    const baseLabelText = tr(
-      'carRental.page.reservation.estimated.breakdown.baseRental',
-      'Base rental'
-    );
-    const couponLabelText = tr(
-      'carRental.page.reservation.estimated.breakdown.coupon',
-      'Coupon {{code}}',
-      { code: couponCode || '' }
-    );
-    const finalLabelText = tr(
-      'carRental.page.reservation.estimated.breakdown.finalRentalTotal',
-      'Final rental total'
-    );
-
-    estimatedEl.innerHTML = `
-      <div style="display:grid; gap:6px;">
-        <div style="font-weight:600; color:#0f172a;">
-          ${escapeHtml(breakdownTitle)}
-        </div>
-        <div style="display:flex; justify-content:space-between; gap:12px;">
-          <span style="color:#475569;">${escapeHtml(baseLabelText)}</span>
-          <strong>${baseLabel} ${escapeHtml(currency)}</strong>
-        </div>
-        <div style="display:flex; justify-content:space-between; gap:12px;">
-          <span style="color:#166534;">${escapeHtml(couponLabelText)}</span>
-          <strong style="color:#166534;">-${discountLabel} ${escapeHtml(currency)}</strong>
-        </div>
-        <div style="display:flex; justify-content:space-between; gap:12px; padding-top:6px; border-top:1px solid #cbd5e1;">
-          <span style="font-weight:600; color:#0f172a;">${escapeHtml(finalLabelText)}</span>
-          <strong style="font-weight:700; color:#0f172a;">${finalLabel} ${escapeHtml(currency)}</strong>
-        </div>
-      </div>
-    `;
-    return;
+    rows.push(renderPriceSummaryRow(
+      tr('carRental.page.reservation.estimated.breakdown.coupon', 'Coupon {{code}}', { code: couponCode || '' }),
+      `-${formatReservationMoney(discount, currency)}`
+    ));
   }
 
-  estimatedEl.textContent = tr(
-    'carRental.page.reservation.estimated.totalPrice',
-    'Całkowita cena wynajmu: {{total}} {{currency}} ({{days}} {{daysLabel}})',
-    {
-      total: Number.isFinite(finalTotal) ? finalTotal.toFixed(2) : '0.00',
-      currency,
-      days: Number(rentalDays || 0),
-      daysLabel,
-    }
-  );
+  rows.push(renderPriceSummaryRow(
+    tr('carRental.page.reservation.priceSummary.totalDue', 'Total'),
+    formatReservationMoney(finalTotal, currency),
+    'total'
+  ));
+
+  estimatedEl.innerHTML = `
+    <section class="auto-price-summary" aria-label="${escapeHtml(title)}">
+      <h4 class="auto-price-summary__title">${escapeHtml(title)}</h4>
+      <dl class="auto-price-summary__rows">
+        ${rows.join('')}
+      </dl>
+    </section>
+  `;
 }
 
 // Calculate estimated price
