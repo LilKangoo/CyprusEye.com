@@ -266,6 +266,48 @@ function resolveUserByEmail(email) {
   return email ? state.users[email] ?? null : null;
 }
 
+function resolveUserById(userId) {
+  const id = String(userId || '').trim();
+  if (!id) return null;
+  return Object.values(state.users || {}).find((user) => String(user?.id || '') === id) || null;
+}
+
+function getUserDetailStats(userId) {
+  const id = String(userId || '').trim();
+  return {
+    comments: getTableRows('comments').filter((row) => row.user_id === id).length,
+    ratings: getTableRows('ratings').filter((row) => row.user_id === id).length,
+    visits: getTableRows('visits').filter((row) => row.user_id === id).length,
+    completed_tasks: getTableRows('task_completions').filter((row) => row.user_id === id).length,
+    total_xp: (state.profiles?.[id]?.xp ?? 0),
+  };
+}
+
+function getAdminUserDetails(params = {}) {
+  const userId = String(params.target_user_id || params.user_id || '').trim();
+  if (!userId) {
+    return { data: null, error: { message: 'target_user_id is required' } };
+  }
+
+  const profile = clone(state.profiles?.[userId] || { id: userId });
+  const authUser = resolveUserById(userId);
+  return {
+    data: {
+      profile,
+      stats: getUserDetailStats(userId),
+      auth_data: {
+        email: authUser?.email || profile.email || '',
+        created_at: profile.created_at || profile.updated_at || authUser?.created_at || new Date().toISOString(),
+        last_sign_in_at: authUser?.last_sign_in_at || null,
+        confirmed_at: authUser?.confirmed_at || null,
+        email_confirmed_at: authUser?.confirmed_at || null,
+        banned_until: authUser?.banned_until || null,
+      },
+    },
+    error: null,
+  };
+}
+
 function getCurrentUser() {
   return state.currentSession?.user ?? null;
 }
@@ -522,6 +564,12 @@ function applyGenericFilters(rows, filters) {
     switch (filter.type) {
       case 'eq':
         return value === filter.value;
+      case 'ilike': {
+        const rawPattern = String(filter.value ?? '').toLowerCase();
+        const escaped = rawPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regexPattern = `^${escaped.replace(/%/g, '.*').replace(/_/g, '.')}$`;
+        return new RegExp(regexPattern, 'i').test(String(value ?? ''));
+      }
       case 'neq':
         return value !== filter.value;
       case 'lte':
@@ -581,6 +629,10 @@ function createGenericSelectBuilder(table) {
   const builder = {
     eq(column, value) {
       stateBag.filters.push({ type: 'eq', column, value });
+      return builder;
+    },
+    ilike(column, value) {
+      stateBag.filters.push({ type: 'ilike', column, value });
       return builder;
     },
     neq(column, value) {
@@ -851,6 +903,12 @@ export function createClient() {
           error: null,
         };
       },
+    },
+    async rpc(name, params = {}) {
+      if (name === 'admin_get_user_details') {
+        return getAdminUserDetails(params);
+      }
+      return { data: null, error: { message: `RPC not implemented in Supabase stub: ${name}` } };
     },
     storage: {
       from(bucket) {

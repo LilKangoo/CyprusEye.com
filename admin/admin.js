@@ -25928,6 +25928,7 @@ async function viewUserDetails(userId) {
     let hotelBookings = [];
     let transportBookings = [];
     let transportRouteLabelById = {};
+    let transportLocationLabelById = {};
     let depositRequests = [];
     let commissionEventsByDepositId = {};
     const mergeUniqueRecordsById = (...groups) => {
@@ -26120,20 +26121,24 @@ async function viewUserDetails(userId) {
               .in('id', locationIds)
               .limit(1000)).data || []
           : [];
-        const locationLabelById = {};
+        transportLocationLabelById = {};
         locationRows.forEach((row) => {
           const id = String(row?.id || '').trim();
           if (!id) return;
           const primary = String(row?.name || '').trim();
           const local = String(row?.name_local || '').trim();
           const code = String(row?.code || '').trim();
-          locationLabelById[id] = primary || local || code || '';
+          transportLocationLabelById[id] = primary || local || code || '';
         });
         routeRows.forEach((row) => {
           const id = String(row?.id || '').trim();
           if (!id) return;
-          const origin = getTransportLocationDisplayLabel(row?.origin_location_id, { locationLabelById }) || 'Origin';
-          const destination = getTransportLocationDisplayLabel(row?.destination_location_id, { locationLabelById }) || 'Destination';
+          const origin = getTransportLocationDisplayLabel(row?.origin_location_id, {
+            locationLabelById: transportLocationLabelById,
+          }) || 'Origin';
+          const destination = getTransportLocationDisplayLabel(row?.destination_location_id, {
+            locationLabelById: transportLocationLabelById,
+          }) || 'Destination';
           transportRouteLabelById[id] = `${origin} → ${destination}`;
         });
         transportBookings.forEach((booking) => {
@@ -26141,11 +26146,11 @@ async function viewUserDetails(userId) {
           if (routeId && transportRouteLabelById[routeId]) return;
           const origin = getTransportLocationDisplayLabel(booking?.origin_location_id, {
             named: booking?.origin_name || booking?.origin_label || booking?.origin || booking?.origin_location_name,
-            locationLabelById,
+            locationLabelById: transportLocationLabelById,
           }) || 'Origin';
           const destination = getTransportLocationDisplayLabel(booking?.destination_location_id, {
             named: booking?.destination_name || booking?.destination_label || booking?.destination || booking?.destination_location_name,
-            locationLabelById,
+            locationLabelById: transportLocationLabelById,
           }) || 'Destination';
           if (routeId) {
             transportRouteLabelById[routeId] = `${origin} → ${destination}`;
@@ -26592,7 +26597,7 @@ async function viewUserDetails(userId) {
                   const routeId = String(b?.route_id || '').trim();
                   const route = escapeHtml(getTransportBookingRouteLabel(b, {
                     routeLabelById: transportRouteLabelById,
-                    locationLabelById,
+                    locationLabelById: transportLocationLabelById,
                   }));
                   const travelDate = formatBookingDate(b.travel_date);
                   const travelTime = String(b?.travel_time || '').trim().slice(0, 5);
