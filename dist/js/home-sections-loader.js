@@ -208,7 +208,7 @@
   const deferredSections = [
     { selector: '#tripsHomeGrid', src: 'js/home-trips.js?v=20260701_phone1' },
     { selector: '#hotelsHomeGrid', src: 'js/home-hotels.js?v=20260516_perf1' },
-    { selector: '#carsHomeGrid', src: 'js/home-cars.js?v=20260630_city_place', type: 'module' },
+    { selector: '#carsHomeFinder', src: 'js/home-cars.js?v=20260704_empty_panel', type: 'module' },
     { selector: '#recommendationsHomeGrid', src: 'js/home-recommendations.js?v=11', type: 'module' },
     { selector: '#blogHomeGrid', src: 'js/home-blog.js?v=2', type: 'module' },
   ];

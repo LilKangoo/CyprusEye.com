@@ -646,6 +646,55 @@ test.describe('car booking modal regression', () => {
     }, null, { timeout: 15000 });
   });
 
+  test('index.html car finder hides empty results until route and dates are complete', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await openHomePage(page, 'pl');
+
+    await expect(page.locator('#carsHomeGrid')).toBeHidden();
+    await expect(page.locator('#carsHomeTabsRow')).toBeHidden();
+    await expect(page.locator('#carsHomeCarouselNav')).toBeHidden();
+    await expect(page.getByText('Uzupełnij trasę')).toHaveCount(0);
+
+    const desktopLayout = await page.evaluate(() => {
+      const finder = document.getElementById('carsHomeFinder');
+      const grid = document.getElementById('carsHomeGrid');
+      const cta = document.querySelector('.cars-home-panel a[data-i18n="home.cars.cta"]');
+      const finderRect = finder?.getBoundingClientRect();
+      const gridRect = grid?.getBoundingClientRect();
+      const ctaRect = cta?.getBoundingClientRect();
+      return {
+        gridHidden: !!grid?.hidden,
+        gridHeight: gridRect?.height || 0,
+        finderToCtaGap: finderRect && ctaRect ? ctaRect.top - finderRect.bottom : 999,
+      };
+    });
+    expect(desktopLayout.gridHidden).toBe(true);
+    expect(desktopLayout.gridHeight).toBe(0);
+    expect(desktopLayout.finderToCtaGap).toBeLessThan(80);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const mobileLayout = await page.evaluate(() => ({
+      noHorizontalOverflow: document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1
+        && document.body.scrollWidth <= document.body.clientWidth + 1,
+      gridHidden: !!document.getElementById('carsHomeGrid')?.hidden,
+    }));
+    expect(mobileLayout.noHorizontalOverflow).toBe(true);
+    expect(mobileLayout.gridHidden).toBe(true);
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await configureHomeFinderCities(page, 'paphos', 'paphos', false);
+    await expect(page.locator('#carsHomeGrid')).toBeVisible();
+    await expect(page.locator('#carsHomeTabsRow')).toBeVisible();
+    await expect(page.locator('#carsHomeGrid .ce-home-card-title').first()).toContainText(/Pafos|Paphos/);
+    await expect(page.locator('#carsHomeGrid')).not.toContainText('NaN');
+
+    await page.locator('#carsFinderReset').click();
+    await expect(page.locator('#carsHomeGrid')).toBeHidden();
+    await expect(page.locator('#carsHomeTabsRow')).toBeHidden();
+    await expect(page.locator('#carsHomeCarouselNav')).toBeHidden();
+    await expect(page.getByText('Uzupełnij trasę')).toHaveCount(0);
+  });
+
   test('car.html?lang=en sorts Larnaka cards by quote and opens #carHomeModal', async ({ page }) => {
     const errors = await openCarPage(page, 'en');
     await configureFinderRoute(page, 'larnaca');

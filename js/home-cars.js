@@ -191,6 +191,33 @@ function getFinderDurationState(state) {
   return { ready: true, hours, days };
 }
 
+function isHomeCarsFinderReady(state) {
+  const activeState = state || homeCarsFinderState || buildDefaultFinderState();
+  const duration = getFinderDurationState(activeState);
+  return Boolean(
+    duration.ready
+    && String(activeState.pickupLocation || '').trim()
+    && String(activeState.returnLocation || '').trim()
+  );
+}
+
+function setHomeCarsResultsVisible(visible) {
+  const shouldShow = Boolean(visible);
+  const grid = document.getElementById('carsHomeGrid');
+  const tabsRow = document.getElementById('carsHomeTabsRow');
+  const carouselNav = document.getElementById('carsHomeCarouselNav');
+
+  if (grid) {
+    grid.hidden = !shouldShow;
+    if (!shouldShow) {
+      grid.innerHTML = '';
+      grid.scrollLeft = 0;
+    }
+  }
+  if (tabsRow) tabsRow.hidden = !shouldShow;
+  if (carouselNav) carouselNav.hidden = !shouldShow;
+}
+
 function getFromPrice(car) {
   const loc = String(car?.location || '').toLowerCase();
   if (loc === 'paphos') {
@@ -560,6 +587,15 @@ function renderHomeCarsTabs() {
   const tabsWrap = document.getElementById('carsHomeTabs');
   if (!tabsWrap) return;
 
+  const finderReady = isHomeCarsFinderReady(homeCarsFinderState || buildDefaultFinderState());
+  const tabsRow = document.getElementById('carsHomeTabsRow');
+  if (!finderReady) {
+    tabsWrap.innerHTML = '';
+    if (tabsRow) tabsRow.hidden = true;
+    return;
+  }
+  if (tabsRow) tabsRow.hidden = false;
+
   const offer = evaluateFinderOffer(homeCarsFinderState || buildDefaultFinderState());
   const routeReady = String(homeCarsFinderState?.pickupLocation || '').trim() && String(homeCarsFinderState?.returnLocation || '').trim();
   const offerLabel = !routeReady
@@ -626,24 +662,15 @@ function renderHomeCars() {
   let list = filterHomeCarsForLanguage(homeCarsByLocation[homeCarsCurrentLocation] || []);
   const finderState = homeCarsFinderState || buildDefaultFinderState();
   const passengerCount = Math.max(1, Number(finderState.passengers || 2));
-  const finderDuration = getFinderDurationState(finderState);
-  const finderReady = finderDuration.ready
-    && String(finderState.pickupLocation || '').trim()
-    && String(finderState.returnLocation || '').trim();
+  const finderReady = isHomeCarsFinderReady(finderState);
 
   if (!finderReady) {
-    grid.innerHTML = `
-      <div style="flex: 0 0 100%; text-align: center; padding: 40px 20px; color: #64748b;">
-        <p>${escapeHtml(text(
-          'Uzupełnij trasę i termin, aby zobaczyć dostępne auta oraz finalne ceny.',
-          'Complete the route and dates to unlock matching cars and final prices.',
-          'השלימו מסלול ותאריכים כדי לפתוח רכבים מתאימים ומחירים סופיים.'
-        ))}</p>
-      </div>
-    `;
+    setHomeCarsResultsVisible(false);
     homeCarsCarouselUpdate?.();
     return;
   }
+
+  setHomeCarsResultsVisible(true);
 
   if (homeCarsSavedOnly) {
     const api = window.CE_SAVED_CATALOG;
