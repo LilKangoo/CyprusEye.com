@@ -195,6 +195,11 @@ function collectPageErrors(page: Page) {
 }
 
 async function seedCarOffers(page: Page) {
+  const rows = CAR_OFFERS.map((row) => ({
+    image_url: '/assets/cyprus_logo-1000x1054.png',
+    ...row,
+  }));
+
   await page.addInitScript((rows) => {
     const seed = (stub: any) => {
       if (!stub || typeof stub.seedTable !== 'function') return;
@@ -214,7 +219,7 @@ async function seedCarOffers(page: Page) {
     };
     (window as any).__supabaseStub = existing;
     seed(existing);
-  }, CAR_OFFERS);
+  }, rows);
 }
 
 async function openCarPage(page: Page, language: 'pl' | 'en' | 'he') {
@@ -441,12 +446,38 @@ test.describe('car booking modal regression', () => {
         offerId: String(offerEl?.getAttribute('data-select-car-offer-id') || '').trim(),
         isFleetCard: card.classList.contains('auto-card--fleet'),
         badge: String(card.querySelector('.auto-card-badge')?.textContent || '').trim(),
-        specs: card.querySelectorAll('.auto-card-specs li').length,
+        hasBottomBody: !!card.querySelector('.auto-card-body'),
+        hasBottomSpecs: !!card.querySelector('.auto-card-specs'),
+        hasBottomNote: !!card.querySelector('.auto-card-note'),
       };
     }));
-    expect(cardState.every((card) => card.buttonText && card.offerId && card.isFleetCard && card.badge && card.specs >= 3)).toBe(true);
+    expect(cardState.every((card) => (
+      card.buttonText
+      && card.offerId
+      && card.isFleetCard
+      && card.badge
+      && !card.hasBottomBody
+      && !card.hasBottomSpecs
+      && !card.hasBottomNote
+    ))).toBe(true);
     expect(cardState.map((card) => card.price).join(' ')).not.toMatch(/\b(?:NaN|undefined|null)\b/i);
     expect(errors.join('\n')).not.toMatch(/isEn|ReferenceError/i);
+  });
+
+  test('car.html image click selects car without opening image preview', async ({ page }) => {
+    await openCarPage(page, 'pl');
+    await configureFinderCities(page, 'larnaca', 'larnaca', false);
+    await page.waitForFunction(() => (
+      document.querySelectorAll('#carRentalGrid .auto-card--fleet .auto-card-image').length > 0
+    ), null, { timeout: 15000 });
+
+    const firstCar = page.locator('#carRentalGrid [data-select-car]').first();
+    const selectedName = await firstCar.getAttribute('data-select-car');
+    await firstCar.locator('.auto-card-image').click();
+
+    await expect(page.locator('#carImageModal')).toBeHidden();
+    await expect(page.locator('#carHomeModal')).toBeVisible();
+    await expect(page.locator('#res_car')).toHaveValue(selectedName || '');
   });
 
   test('car.html replaces selected-car panel with selectable cards instruction', async ({ page }) => {

@@ -1049,12 +1049,14 @@ function bindImagePreviewModal() {
       const target = event.target instanceof Element ? event.target : null;
       const imageEl = target?.closest('.auto-card-image');
       if (!(imageEl instanceof HTMLImageElement)) return;
+      if (imageEl.closest('.auto-card--fleet')) return;
       openCarImageModalFromImage(imageEl);
     });
 
     grid.addEventListener('keydown', (event) => {
       const target = event.target instanceof Element ? event.target : null;
       if (!(target instanceof HTMLImageElement) || !target.classList.contains('auto-card-image')) return;
+      if (target.closest('.auto-card--fleet')) return;
       if (event.key !== 'Enter' && event.key !== ' ') return;
       event.preventDefault();
       openCarImageModalFromImage(target);

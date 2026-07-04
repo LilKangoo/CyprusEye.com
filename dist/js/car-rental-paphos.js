@@ -588,23 +588,12 @@ function renderFleet() {
     const reserveLabel = i18n('carRental.common.reserveCar', null, 'Zarezerwuj to auto');
     const noDepositLabel = i18n('carRentalLanding.hero.stats.noDeposit', null, 'Bez kaucji');
 
-    const fuelKey = car.fuel_type === 'petrol'
-      ? 'carRental.common.fuel.petrol95'
-      : car.fuel_type === 'diesel'
-        ? 'carRental.common.fuel.diesel'
-        : car.fuel_type === 'hybrid'
-          ? 'carRental.common.fuel.hybrid'
-          : car.fuel_type === 'electric'
-            ? 'carRental.common.fuel.electric'
-            : '';
-    const fuelText = fuelKey ? i18n(fuelKey, null, car.fuel_type) : (car.fuel_type || '');
-    
     const cardMeta = `${transmission} • ${seatsText} • AC`;
 
     return `
       <article class="card auto-card auto-card--fleet" role="button" tabindex="0" aria-label="${escapeHtml(reserveLabel)}: ${escapeHtml(carModelName)}" data-select-car="${escapeHtml(carModelName)}" data-select-car-offer-id="${escapeHtml(car.id)}">
         <div class="auto-card-media">
-          ${car.image_url ? `<img src="${escapeHtml(car.image_url)}" alt="${escapeHtml(carModelName)}" class="auto-card-image" data-preview-title="${escapeHtml(carModelName)}" role="button" tabindex="0" aria-label="${escapeHtml(reserveLabel)}" aria-haspopup="dialog">` : ''}
+          ${car.image_url ? `<img src="${escapeHtml(car.image_url)}" alt="${escapeHtml(carModelName)}" class="auto-card-image" data-preview-title="${escapeHtml(carModelName)}">` : ''}
           ${imageIsPanorama ? '<span class="ce-media-badge ce-media-badge--auto-card">360°</span>' : ''}
           <span class="auto-card-badge">${escapeHtml(noDepositLabel)}</span>
           <div class="auto-card-overlay">
@@ -613,15 +602,6 @@ function renderFleet() {
               <h3>${escapeHtml(carModelName)}<span>${escapeHtml(cardMeta)}</span></h3>
             </div>
           </div>
-        </div>
-        <div class="auto-card-body">
-          <ul class="auto-card-specs">
-            <li>${escapeHtml(transmission)}</li>
-            <li>${escapeHtml(seatsText)}</li>
-            <li>AC</li>
-            <li>${escapeHtml(fuelText)}</li>
-          </ul>
-          ${priceBreakdown ? `<p class="auto-card-note">${escapeHtml(priceBreakdown)}</p>` : ''}
         </div>
       </article>
     `;
@@ -1274,8 +1254,6 @@ function buildLandingQuoteForCar(carName, location, offerId = '') {
 function attachCarSelectButtons() {
   document.querySelectorAll('[data-select-car]').forEach((button) => {
     button.addEventListener('click', (event) => {
-      const target = event.target instanceof Element ? event.target : null;
-      if (target?.closest('.auto-card-image')) return;
       const carName = button.getAttribute('data-select-car');
       const offerId = button.getAttribute('data-select-car-offer-id');
       const pfoSelect = document.getElementById('car');
@@ -1336,8 +1314,6 @@ function attachCarSelectButtons() {
     });
     button.addEventListener('keydown', (event) => {
       if (event.key !== 'Enter' && event.key !== ' ') return;
-      const target = event.target instanceof Element ? event.target : null;
-      if (target?.closest('.auto-card-image')) return;
       event.preventDefault();
       button.click();
     });

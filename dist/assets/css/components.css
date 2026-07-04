@@ -6216,6 +6216,7 @@ body[data-seo-page='carRentalLanding'] #carRentalGrid .auto-card--fleet .auto-ca
   min-height: 0;
   border-radius: 0;
   object-fit: cover;
+  cursor: pointer;
 }
 
 body[data-seo-page='carRentalLanding'] #carRentalGrid .auto-card--fleet .auto-card-image:hover {
