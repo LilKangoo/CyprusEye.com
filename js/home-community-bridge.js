@@ -101,8 +101,8 @@
 
   function getGoogleMapsButtonLabel() {
     const lang = getCurrentLanguage().split('-')[0];
-    const fallbackPl = 'Otwórz w Google Maps';
-    const fallbackEn = lang === 'he' ? 'פתח ב-Google Maps' : 'Open in Google Maps';
+    const fallbackPl = 'Google Maps';
+    const fallbackEn = 'Google Maps';
     return t('poi.googleMaps.open', fallbackPl, fallbackEn);
   }
 

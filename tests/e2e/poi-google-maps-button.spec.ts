@@ -179,6 +179,24 @@ async function expectSingleLineLabel(locator: Locator) {
   expect(result.lines).toBeLessThanOrEqual(1);
 }
 
+async function expectCurrentPlaceActionsInOneRow(page: Page) {
+  const selectors = [
+    '#currentPlaceCheckInBtn',
+    '#currentPlaceGoogleMapsBtn',
+    '#currentPlaceCommentsBtn',
+    '#currentPlaceNavigateBtn',
+  ];
+  const boxes = await Promise.all(selectors.map(async (selector) => {
+    const box = await page.locator(selector).boundingBox();
+    expect(box).not.toBeNull();
+    return box!;
+  }));
+  const top = boxes[0].y;
+  for (const box of boxes) {
+    expect(Math.abs(box.y - top)).toBeLessThanOrEqual(2);
+  }
+}
+
 test.describe('POI Google Maps button', () => {
   test('index current place panel uses only explicit POI Google Maps URL', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
@@ -188,9 +206,10 @@ test.describe('POI Google Maps button', () => {
     const currentButton = page.locator('#currentPlaceGoogleMapsBtn');
     await expect(currentButton).toBeVisible();
     await expect(currentButton).toHaveAttribute('href', MAP_URL);
-    await expect(currentButton).toContainText('Otwórz w Google Maps');
+    await expect(currentButton).toContainText('Google Maps');
     await expectSingleLineLabel(page.locator('#currentPlaceCheckInBtn span:not(.btn-icon)'));
     await expectSingleLineLabel(page.locator('#currentPlaceGoogleMapsBtn [data-google-maps-label]'));
+    await expectCurrentPlaceActionsInOneRow(page);
 
     await selectCurrentPlace(page, 'poi-without-map');
     await expect(currentButton).toBeHidden();
@@ -209,7 +228,7 @@ test.describe('POI Google Maps button', () => {
     const modalButton = page.locator('#modalGoogleMapsBtn');
     await expect(modalButton).toBeVisible();
     await expect(modalButton).toHaveAttribute('href', MAP_URL);
-    await expect(modalButton).toContainText('Open in Google Maps');
+    await expect(modalButton).toContainText('Google Maps');
     await expectSingleLineLabel(page.locator('#modalCheckInBtn span:not(.checkin-icon)'));
     await expectSingleLineLabel(page.locator('#modalGoogleMapsBtn [data-google-maps-label]'));
 
@@ -220,8 +239,8 @@ test.describe('POI Google Maps button', () => {
 
   test('community POI modal supports PL and EN labels without coordinate fallback', async ({ page }) => {
     for (const [lang, label] of [
-      ['pl', 'Otwórz w Google Maps'],
-      ['en', 'Open in Google Maps'],
+      ['pl', 'Google Maps'],
+      ['en', 'Google Maps'],
     ] as const) {
       await openCommunity(page, lang);
       await openPoiModal(page, 'poi-with-map');
@@ -243,7 +262,7 @@ test.describe('POI Google Maps button', () => {
     const heButton = page.locator('#modalGoogleMapsBtn');
     await expect(heButton).toBeVisible();
     await expect(heButton).toHaveAttribute('href', MAP_URL);
-    await expect(heButton).toContainText('פתח ב-Google Maps');
+    await expect(heButton).toContainText('Google Maps');
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
 
     await openPoiModal(page, 'poi-without-map');

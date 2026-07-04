@@ -2045,7 +2045,7 @@ textarea:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 0.625rem 1.25rem;
+  padding: 0.625rem 1rem;
   flex: 0 0 auto;
   min-width: max-content;
   background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
@@ -2079,7 +2079,7 @@ textarea:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 0.625rem 1.25rem;
+  padding: 0.625rem 1rem;
   flex: 0 0 auto;
   min-width: max-content;
   border: 1px solid rgba(37, 99, 235, 0.22);

@@ -411,11 +411,7 @@ function getExplicitPoiGoogleMapsUrl(poi) {
 function getPoiGoogleMapsButtonLabel() {
   const rawLang = new URLSearchParams(window.location.search).get('lang') || window.appI18n?.language || document.documentElement?.lang || 'pl';
   const lang = String(rawLang || 'pl').trim().toLowerCase().split('-')[0];
-  const fallback = lang === 'he'
-    ? 'פתח ב-Google Maps'
-    : lang === 'en'
-      ? 'Open in Google Maps'
-      : 'Otwórz w Google Maps';
+  const fallback = 'Google Maps';
   const translations = window.appI18n?.translations?.[lang] || null;
   const translated = translations && typeof translations === 'object'
     ? translations['poi.googleMaps.open']
