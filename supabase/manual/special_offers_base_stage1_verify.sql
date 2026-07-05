@@ -51,6 +51,62 @@ LEFT JOIN pg_policies p
  AND p.policyname = e.policy_name
 ORDER BY e.table_name, e.policy_name;
 
+WITH expected_tables(table_name) AS (
+  VALUES
+    ('special_offers'),
+    ('special_offer_translations'),
+    ('special_offer_prizes'),
+    ('special_offer_links'),
+    ('special_offer_audit_log')
+),
+expected_privileges(privilege_type) AS (
+  VALUES
+    ('SELECT'),
+    ('INSERT'),
+    ('UPDATE'),
+    ('DELETE')
+),
+expected_role_privileges AS (
+  SELECT
+    'anon' AS grantee,
+    t.table_name,
+    p.privilege_type,
+    false AS expected_has_privilege
+  FROM expected_tables t
+  CROSS JOIN expected_privileges p
+  UNION ALL
+  SELECT
+    'service_role' AS grantee,
+    t.table_name,
+    p.privilege_type,
+    true AS expected_has_privilege
+  FROM expected_tables t
+  CROSS JOIN expected_privileges p
+  UNION ALL
+  SELECT
+    'authenticated' AS grantee,
+    t.table_name,
+    p.privilege_type,
+    CASE
+      WHEN t.table_name = 'special_offer_audit_log' THEN p.privilege_type IN ('SELECT', 'INSERT')
+      ELSE true
+    END AS expected_has_privilege
+  FROM expected_tables t
+  CROSS JOIN expected_privileges p
+)
+SELECT
+  grantee,
+  table_name,
+  privilege_type,
+  expected_has_privilege,
+  has_table_privilege(grantee::name, format('public.%I', table_name), privilege_type) AS actual_has_privilege,
+  CASE
+    WHEN has_table_privilege(grantee::name, format('public.%I', table_name), privilege_type) = expected_has_privilege THEN 'ok'
+    ELSE 'mismatch'
+  END AS privilege_status
+FROM expected_role_privileges
+ORDER BY grantee, table_name, privilege_type;
+
 WITH expected_indexes(index_name) AS (
   VALUES
     ('special_offers_pkey'),
@@ -153,5 +209,6 @@ ORDER BY table_name;
 -- Expected after first run:
 -- - all table_status/policy_status/index_status/constraint_status/trigger_status values are "exists"
 -- - all rls_enabled values are true
+-- - all privilege_status values are "ok"
 -- - has_admin_helper and has_special_offers_updated_at_function are true
 -- - every row_count is 0

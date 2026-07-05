@@ -25,6 +25,7 @@ SELECT
   bool_and(requires_manual_approval) AS manual_approval_enabled,
   bool_and(allow_bonus_points) AS bonus_points_enabled,
   bool_and(settings_json ->> 'partner' = '7 Kamares') AS partner_matches,
+  bool_and(settings_json ->> 'requested_timezone_label' = 'Asia/Nicosia') AS settings_timezone_label_matches,
   bool_and(settings_json -> 'mandatory_conditions' IS NOT NULL) AS mandatory_conditions_present,
   bool_and(settings_json -> 'extra_manual_activity' IS NOT NULL) AS extra_manual_activity_present,
   bool_and(settings_json #>> '{social_verification,mode}' = 'manual') AS social_verification_manual,
@@ -46,6 +47,18 @@ SELECT
 FROM public.special_offer_translations t
 JOIN target o ON o.id = t.offer_id
 ORDER BY t.lang;
+
+WITH target AS (
+  SELECT id
+  FROM public.special_offers
+  WHERE slug = 'lefkara-giveaway-2026'
+)
+SELECT
+  count(*)::integer AS translation_count,
+  count(*) FILTER (WHERE t.lang = 'pl')::integer AS pl_translation_count,
+  count(*) FILTER (WHERE t.lang IN ('en', 'he'))::integer AS en_he_placeholder_count
+FROM public.special_offer_translations t
+JOIN target o ON o.id = t.offer_id;
 
 WITH target AS (
   SELECT id
@@ -113,7 +126,9 @@ SELECT
 -- - winner_selection_mode_is_manual = true
 -- - status_is_draft = true
 -- - visibility_is_private = true
--- - translation rows include only PL unless explicitly extended later
+-- - translation_count = 1
+-- - pl_translation_count = 1
+-- - en_he_placeholder_count = 0
 -- - prize_count = 1
 -- - cars/transport/trips/custom links exist and are URL-only
 -- - unexpected_hotel_links = 0

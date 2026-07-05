@@ -61,7 +61,7 @@ BEGIN
     jsonb_build_object(
       'partner', '7 Kamares',
       'organizers', jsonb_build_array('LilKangooMedia LTD', 'CyprusEye.com', 'WakacjeCypr.com'),
-      'requested_timezone_label', 'Europe/Nicosia',
+      'requested_timezone_label', 'Asia/Nicosia',
       'selection_model_note', 'Current Lefkara campaign is a judged contest/manual selection. Future bonus activity can be modeled as manual points/tickets, but no automatic social integrations are used.',
       'mandatory_conditions', jsonb_build_array(
         'Observe CyprusEye.com / WakacjeCypr.com Facebook profile',
