@@ -206,7 +206,9 @@ test.describe('Admin Special Offers read-only integration', () => {
     await expect(card).toContainText('4 linked services');
     await expect(card).toContainText('1 primary CTA');
 
-    await expect(page.locator('.special-offers-create-button')).toBeDisabled();
+    await expect(page.locator('.special-offers-create-button')).toBeEnabled();
+    await expect(page.locator('.special-offers-create-button')).toHaveText('Create campaign');
+    await expect(card.getByRole('button', { name: 'Edit' })).toBeEnabled();
 
     await card.getByRole('button', { name: 'View details' }).click();
     const modal = page.locator('#specialOffersDetailsModal');
@@ -224,7 +226,7 @@ test.describe('Admin Special Offers read-only integration', () => {
     await expect(modal).toContainText('Cars');
     await expect(modal).toContainText('/car.html?lang=pl');
     await expect(modal).toContainText('URL-only');
-    await expect(modal.getByRole('button', { name: 'Edit campaign' })).toBeDisabled();
+    await expect(modal.getByRole('button', { name: 'Edit campaign' })).toBeEnabled();
     await expect(modal.getByRole('button', { name: 'Entries' })).toBeDisabled();
     await expect(modal.getByRole('button', { name: 'Draw' })).toBeDisabled();
 
@@ -249,7 +251,7 @@ test.describe('Admin Special Offers read-only integration', () => {
     expect(modalText).not.toMatch(/\bnull\b/i);
   });
 
-  test('keeps module read-only and avoids future-stage table names', async ({ page }) => {
+  test('keeps module inside Special Offers CRUD safety boundaries', async ({ page }) => {
     await openAdmin(page);
 
     const source = await page.evaluate(async () => {
@@ -257,13 +259,14 @@ test.describe('Admin Special Offers read-only integration', () => {
       return response.text();
     });
 
-    expect(source).not.toMatch(/\.(insert|update|delete|upsert|rpc)\s*\(/);
     expect(source).not.toContain('special_offer_entries');
     expect(source).not.toContain('special_offer_tasks');
     expect(source).not.toContain('special_offer_entry_tasks');
     expect(source).not.toContain('special_offer_draws');
     expect(source).not.toContain('special_offer_draw_entries');
     expect(source).not.toContain('special_offer_winners');
+    expect(source).not.toMatch(/\.rpc\s*\(/);
+    expect(source).not.toMatch(/\.storage\b/);
   });
 
   test('keeps read-only campaign cards usable on mobile without horizontal overflow', async ({ page }) => {

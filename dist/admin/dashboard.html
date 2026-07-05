@@ -4497,11 +4497,11 @@
             </div>
             <div class="special-offers-empty-state__content">
               <h3 id="specialOffersEmptyTitle">No special offers yet</h3>
-              <p>Create contests, giveaways and promotional campaigns with linked services, manual verification and secure winner draws.</p>
-              <button class="btn-primary special-offers-create-button" type="button" disabled aria-describedby="specialOffersCreateHint">
-                Create first campaign
+              <p>Create draft/private contests, giveaways and promotional campaigns with URL-only linked services.</p>
+              <button class="btn-primary special-offers-create-button" type="button" data-special-offers-create aria-describedby="specialOffersCreateHint">
+                Create campaign
               </button>
-              <p class="special-offers-empty-state__hint" id="specialOffersCreateHint">Campaign creation will be available after database setup.</p>
+              <p class="special-offers-empty-state__hint" id="specialOffersCreateHint">Draft/private creation is available in this stage.</p>
             </div>
           </section>
 
@@ -4509,9 +4509,9 @@
             <div class="special-offers-section-heading">
               <div>
                 <h3>Campaigns</h3>
-                <p>Read-only preview from Special Offers tables.</p>
+                <p>Draft/private campaign management from Special Offers tables.</p>
               </div>
-              <span class="special-offers-readonly-chip">Read-only</span>
+              <button class="btn-primary btn-small" type="button" data-special-offers-create>Create campaign</button>
             </div>
             <div class="special-offers-campaign-grid" id="specialOffersCampaignGrid"></div>
           </section>
@@ -4578,6 +4578,32 @@
             </button>
           </header>
           <div class="admin-modal-body" id="specialOffersDetailsBody"></div>
+        </div>
+      </div>
+
+      <div class="admin-modal special-offer-editor-modal" id="specialOffersEditorModal" hidden>
+        <div class="admin-modal-overlay" data-special-offers-editor-close></div>
+        <div class="admin-modal-content special-offer-editor-modal__content" role="dialog" aria-modal="true" aria-labelledby="specialOffersEditorTitle">
+          <header class="admin-modal-header">
+            <div>
+              <div class="special-offers-eyebrow">Draft/private campaign editor</div>
+              <h3 id="specialOffersEditorTitle">Create campaign</h3>
+              <p id="specialOffersEditorSubtitle" class="special-offer-editor-subtitle">Draft/private CRUD only.</p>
+            </div>
+            <button class="btn-modal-close" type="button" data-special-offers-editor-close aria-label="Close Special Offers editor">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </header>
+          <div class="admin-modal-body" id="specialOffersEditorBody"></div>
+          <div class="special-offer-editor-message" id="specialOffersEditorMessage" hidden></div>
+          <footer class="special-offer-editor-footer">
+            <button class="btn-secondary" type="button" id="specialOffersEditorArchive" hidden>Archive campaign</button>
+            <div class="special-offer-editor-footer__spacer"></div>
+            <button class="btn-secondary" type="button" data-special-offers-editor-close>Cancel</button>
+            <button class="btn-primary" type="button" id="specialOffersEditorSave">Save draft</button>
+          </footer>
         </div>
       </div>
 
