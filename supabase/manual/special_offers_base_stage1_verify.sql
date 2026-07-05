@@ -83,6 +83,7 @@ WITH expected_constraints(table_name, constraint_name) AS (
     ('special_offers', 'special_offers_slug_not_blank'),
     ('special_offers', 'special_offers_slug_format'),
     ('special_offers', 'special_offers_type_check'),
+    ('special_offers', 'special_offers_winner_selection_mode_check'),
     ('special_offers', 'special_offers_status_check'),
     ('special_offers', 'special_offers_visibility_check'),
     ('special_offers', 'special_offers_dates_check'),

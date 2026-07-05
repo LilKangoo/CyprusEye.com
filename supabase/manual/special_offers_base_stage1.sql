@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS public.special_offers (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   slug text UNIQUE NOT NULL,
   type text NOT NULL DEFAULT 'contest',
+  winner_selection_mode text NOT NULL DEFAULT 'manual_selection',
   status text NOT NULL DEFAULT 'draft',
   visibility text NOT NULL DEFAULT 'private',
   start_at timestamptz,
@@ -57,6 +58,7 @@ CREATE TABLE IF NOT EXISTS public.special_offers (
   CONSTRAINT special_offers_slug_not_blank CHECK (length(trim(slug)) > 0),
   CONSTRAINT special_offers_slug_format CHECK (slug = lower(slug) AND slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
   CONSTRAINT special_offers_type_check CHECK (type IN ('contest', 'giveaway', 'weighted_draw', 'partner_promo', 'coupon_promo', 'landing_only')),
+  CONSTRAINT special_offers_winner_selection_mode_check CHECK (winner_selection_mode IN ('manual_selection', 'weighted_draw', 'none')),
   CONSTRAINT special_offers_status_check CHECK (status IN ('draft', 'scheduled', 'active', 'ended', 'locked', 'archived')),
   CONSTRAINT special_offers_visibility_check CHECK (visibility IN ('private', 'public', 'unlisted')),
   CONSTRAINT special_offers_dates_check CHECK (end_at IS NULL OR start_at IS NULL OR end_at >= start_at),
@@ -285,6 +287,7 @@ TO authenticated
 WITH CHECK (public.is_current_user_admin());
 
 COMMENT ON TABLE public.special_offers IS 'Base campaign records for contests, giveaways, limited offers, coupon promos, partner promos, and landing-only campaigns.';
+COMMENT ON COLUMN public.special_offers.winner_selection_mode IS 'How winners are chosen: manual_selection for judged contests, weighted_draw for future draw snapshots, none for landing-only campaigns.';
 COMMENT ON TABLE public.special_offer_translations IS 'Per-language Special Offers landing and SEO content for PL/EN/HE.';
 COMMENT ON TABLE public.special_offer_prizes IS 'Prize definitions attached to Special Offers campaigns.';
 COMMENT ON TABLE public.special_offer_links IS 'Polymorphic service/CTA links attached to Special Offers campaigns. Entity validation is handled in application code.';
