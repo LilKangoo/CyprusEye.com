@@ -172,6 +172,17 @@
           </svg>
           <span>Coupons</span>
         </button>
+
+        <button class="admin-nav-item" data-view="specialOffers">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 12v10H4V12"/>
+            <path d="M2 7h20v5H2z"/>
+            <path d="M12 22V7"/>
+            <path d="M12 7H7.5a2.5 2.5 0 1 1 0-5C11 2 12 7 12 7z"/>
+            <path d="M12 7h4.5a2.5 2.5 0 1 0 0-5C13 2 12 7 12 7z"/>
+          </svg>
+          <span>Special Offers</span>
+        </button>
         
         <button class="admin-nav-item" data-view="cars">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -4426,6 +4437,111 @@
             <div id="couponsShopMount"></div>
           </div>
         </details>
+      </section>
+
+      <!-- Special Offers Shell -->
+      <section class="admin-view" id="viewSpecialOffers" hidden>
+        <header class="admin-view-header special-offers-header">
+          <div>
+            <div class="special-offers-eyebrow">Campaign workspace</div>
+            <h2>Special Offers</h2>
+            <p class="admin-view-subtitle">Manage contests, giveaways, campaigns, linked services and prize draws.</p>
+          </div>
+          <div class="special-offers-header-chip" aria-label="Special Offers setup status">
+            <span class="special-offers-chip-dot" aria-hidden="true"></span>
+            Setup pending
+          </div>
+        </header>
+
+        <div class="special-offers-shell">
+          <div class="special-offers-grid special-offers-stats" aria-label="Special Offers overview">
+            <article class="special-offer-stat-card">
+              <span class="special-offer-stat-card__label">Active Campaigns</span>
+              <strong class="special-offer-stat-card__value">0</strong>
+              <span class="special-offer-stat-card__meta">Published and running</span>
+            </article>
+            <article class="special-offer-stat-card">
+              <span class="special-offer-stat-card__label">Drafts</span>
+              <strong class="special-offer-stat-card__value">0</strong>
+              <span class="special-offer-stat-card__meta">Waiting for setup</span>
+            </article>
+            <article class="special-offer-stat-card">
+              <span class="special-offer-stat-card__label">Entries Pending Review</span>
+              <strong class="special-offer-stat-card__value">0</strong>
+              <span class="special-offer-stat-card__meta">Manual verification queue</span>
+            </article>
+            <article class="special-offer-stat-card">
+              <span class="special-offer-stat-card__label">Winners Selected</span>
+              <strong class="special-offer-stat-card__value">0</strong>
+              <span class="special-offer-stat-card__meta">Saved draw results</span>
+            </article>
+          </div>
+
+          <section class="special-offers-empty-state" aria-labelledby="specialOffersEmptyTitle">
+            <div class="special-offers-empty-state__icon" aria-hidden="true">
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M20 12v10H4V12"/>
+                <path d="M2 7h20v5H2z"/>
+                <path d="M12 22V7"/>
+                <path d="M12 7H7.5a2.5 2.5 0 1 1 0-5C11 2 12 7 12 7z"/>
+                <path d="M12 7h4.5a2.5 2.5 0 1 0 0-5C13 2 12 7 12 7z"/>
+              </svg>
+            </div>
+            <div class="special-offers-empty-state__content">
+              <h3 id="specialOffersEmptyTitle">No special offers yet</h3>
+              <p>Create contests, giveaways and promotional campaigns with linked services, manual verification and secure winner draws.</p>
+              <button class="btn-primary special-offers-create-button" type="button" disabled aria-describedby="specialOffersCreateHint">
+                Create first campaign
+              </button>
+              <p class="special-offers-empty-state__hint" id="specialOffersCreateHint">Campaign creation will be available after database setup.</p>
+            </div>
+          </section>
+
+          <div class="special-offers-workflow" aria-label="Future Special Offers workflow">
+            <article class="special-offer-workflow-card">
+              <span class="special-offer-workflow-card__step">01</span>
+              <h3>Campaigns</h3>
+              <p>Create and manage campaign status, dates and landing content.</p>
+              <span class="special-offer-workflow-card__chip">Planned</span>
+            </article>
+            <article class="special-offer-workflow-card">
+              <span class="special-offer-workflow-card__step">02</span>
+              <h3>Linked Services</h3>
+              <p>Connect cars, trips, hotels, transport, shop products, coupons or custom links.</p>
+              <span class="special-offer-workflow-card__chip">Planned</span>
+            </article>
+            <article class="special-offer-workflow-card">
+              <span class="special-offer-workflow-card__step">03</span>
+              <h3>Entries</h3>
+              <p>Review submissions and participant details.</p>
+              <span class="special-offer-workflow-card__chip">Planned</span>
+            </article>
+            <article class="special-offer-workflow-card">
+              <span class="special-offer-workflow-card__step">04</span>
+              <h3>Manual Verification</h3>
+              <p>Approve tasks, evidence links, bonus points and tickets manually.</p>
+              <span class="special-offer-workflow-card__chip">Planned</span>
+            </article>
+            <article class="special-offer-workflow-card">
+              <span class="special-offer-workflow-card__step">05</span>
+              <h3>Draw Machine</h3>
+              <p>Lock eligible entries, create a snapshot and run a secure draw.</p>
+              <span class="special-offer-workflow-card__chip">Planned</span>
+            </article>
+            <article class="special-offer-workflow-card">
+              <span class="special-offer-workflow-card__step">06</span>
+              <h3>Winners</h3>
+              <p>Manage winner candidate, backup winners and contact deadline.</p>
+              <span class="special-offer-workflow-card__chip">Planned</span>
+            </article>
+            <article class="special-offer-workflow-card special-offer-workflow-card--wide">
+              <span class="special-offer-workflow-card__step">07</span>
+              <h3>Audit Log</h3>
+              <p>Track admin changes, approvals, rejections and draw actions.</p>
+              <span class="special-offer-workflow-card__chip">Planned</span>
+            </article>
+          </div>
+        </div>
       </section>
 
       <!-- Cars View -->
