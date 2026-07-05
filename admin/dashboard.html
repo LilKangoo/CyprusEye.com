@@ -4457,27 +4457,35 @@
           <div class="special-offers-grid special-offers-stats" aria-label="Special Offers overview">
             <article class="special-offer-stat-card">
               <span class="special-offer-stat-card__label">Active Campaigns</span>
-              <strong class="special-offer-stat-card__value">0</strong>
+              <strong class="special-offer-stat-card__value" data-special-offers-stat="active">0</strong>
               <span class="special-offer-stat-card__meta">Published and running</span>
             </article>
             <article class="special-offer-stat-card">
               <span class="special-offer-stat-card__label">Drafts</span>
-              <strong class="special-offer-stat-card__value">0</strong>
+              <strong class="special-offer-stat-card__value" data-special-offers-stat="draft">0</strong>
               <span class="special-offer-stat-card__meta">Waiting for setup</span>
             </article>
             <article class="special-offer-stat-card">
               <span class="special-offer-stat-card__label">Entries Pending Review</span>
-              <strong class="special-offer-stat-card__value">0</strong>
-              <span class="special-offer-stat-card__meta">Manual verification queue</span>
+              <strong class="special-offer-stat-card__value" data-special-offers-stat="entries">0</strong>
+              <span class="special-offer-stat-card__meta">Not set up in this stage</span>
             </article>
             <article class="special-offer-stat-card">
               <span class="special-offer-stat-card__label">Winners Selected</span>
-              <strong class="special-offer-stat-card__value">0</strong>
-              <span class="special-offer-stat-card__meta">Saved draw results</span>
+              <strong class="special-offer-stat-card__value" data-special-offers-stat="winners">0</strong>
+              <span class="special-offer-stat-card__meta">Not set up in this stage</span>
             </article>
           </div>
 
-          <section class="special-offers-empty-state" aria-labelledby="specialOffersEmptyTitle">
+          <div class="special-offers-loading-state" id="specialOffersLoadingState" hidden>
+            Loading campaigns...
+          </div>
+
+          <div class="special-offers-error-state" id="specialOffersErrorState" hidden>
+            Unable to load Special Offers data.
+          </div>
+
+          <section class="special-offers-empty-state" id="specialOffersEmptyState" aria-labelledby="specialOffersEmptyTitle">
             <div class="special-offers-empty-state__icon" aria-hidden="true">
               <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                 <path d="M20 12v10H4V12"/>
@@ -4495,6 +4503,17 @@
               </button>
               <p class="special-offers-empty-state__hint" id="specialOffersCreateHint">Campaign creation will be available after database setup.</p>
             </div>
+          </section>
+
+          <section class="special-offers-campaigns" id="specialOffersCampaigns" aria-label="Special Offers campaigns" hidden>
+            <div class="special-offers-section-heading">
+              <div>
+                <h3>Campaigns</h3>
+                <p>Read-only preview from Special Offers tables.</p>
+              </div>
+              <span class="special-offers-readonly-chip">Read-only</span>
+            </div>
+            <div class="special-offers-campaign-grid" id="specialOffersCampaignGrid"></div>
           </section>
 
           <div class="special-offers-workflow" aria-label="Future Special Offers workflow">
@@ -4543,6 +4562,24 @@
           </div>
         </div>
       </section>
+
+      <div class="admin-modal special-offers-details-modal" id="specialOffersDetailsModal" hidden>
+        <div class="admin-modal-overlay" data-special-offers-close></div>
+        <div class="admin-modal-content special-offers-details-modal__content" role="dialog" aria-modal="true" aria-labelledby="specialOffersDetailsTitle">
+          <header class="admin-modal-header">
+            <div>
+              <div class="special-offers-eyebrow">Read-only campaign details</div>
+              <h3 id="specialOffersDetailsTitle">Campaign details</h3>
+            </div>
+            <button class="btn-modal-close" type="button" data-special-offers-close aria-label="Close Special Offers details">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </header>
+          <div class="admin-modal-body" id="specialOffersDetailsBody"></div>
+        </div>
+      </div>
 
       <!-- Cars View -->
       <section class="admin-view" id="viewCars" hidden>

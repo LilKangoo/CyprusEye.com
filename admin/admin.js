@@ -3,6 +3,7 @@
  * Main JavaScript for admin panel functionality
  */
 import { buildPricingMatrixForOfferRow, calculateCarRentalQuote } from '../js/car-pricing.js';
+import { initSpecialOffers } from './special-offers.js';
 
 // =====================================================
 // CONFIGURATION & GLOBALS
@@ -25390,6 +25391,9 @@ function switchView(viewName) {
       break;
     case 'coupons':
       loadCouponsControlCenter();
+      break;
+    case 'specialOffers':
+      initSpecialOffers();
       break;
     case 'cars':
       switchCarsTab(getActiveCarsTab());
