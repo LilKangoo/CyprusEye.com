@@ -2534,6 +2534,7 @@ body[data-admin-panel="true"].admin-sidebar-open {
 
 .special-offers-details-modal__content {
   max-width: 860px;
+  width: min(860px, calc(100vw - 28px));
 }
 
 .special-offers-details-grid {
@@ -2548,6 +2549,11 @@ body[data-admin-panel="true"].admin-sidebar-open {
   border-radius: 14px;
   min-width: 0;
   padding: 16px;
+}
+
+.special-offers-detail-panel,
+.special-offers-detail-panel * {
+  max-width: 100%;
 }
 
 .special-offers-detail-panel--wide {
@@ -2583,6 +2589,136 @@ body[data-admin-panel="true"].admin-sidebar-open {
   color: var(--admin-text);
   font-size: 13px;
   overflow-wrap: anywhere;
+}
+
+.special-offers-translation-tabs {
+  background: rgba(15, 23, 42, 0.52);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 6px;
+}
+
+.special-offers-translation-tab {
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--admin-text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  min-width: 54px;
+  padding: 9px 12px;
+}
+
+.special-offers-translation-tab:hover,
+.special-offers-translation-tab:focus-visible {
+  border-color: rgba(96, 165, 250, 0.46);
+  color: var(--admin-text);
+  outline: none;
+}
+
+.special-offers-translation-tab.is-active {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: rgba(56, 189, 248, 0.38);
+  color: #e0f2fe;
+}
+
+.special-offers-translation-panels,
+.special-offers-translation-panel {
+  min-width: 0;
+}
+
+.special-offers-translation-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.special-offers-translation-panel[hidden] {
+  display: none !important;
+}
+
+.special-offers-translation-panel[dir="rtl"] {
+  direction: rtl;
+  text-align: right;
+}
+
+.special-offers-translation-panel[dir="rtl"] .special-offers-detail-row {
+  direction: rtl;
+}
+
+.special-offers-translation-panel[dir="rtl"] .special-offers-settings-list,
+.special-offers-translation-panel[dir="rtl"] .special-offers-rules-html ul,
+.special-offers-translation-panel[dir="rtl"] .special-offers-rules-html ol {
+  padding-left: 0;
+  padding-right: 18px;
+}
+
+.special-offers-content-block {
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding-top: 12px;
+}
+
+.special-offers-content-block h5,
+.special-offers-faq-item h5 {
+  color: var(--admin-text);
+  font-size: 13px;
+  margin: 0;
+}
+
+.special-offers-rules-html,
+.special-offers-faq-list {
+  color: var(--admin-text);
+  font-size: 13px;
+  line-height: 1.55;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.special-offers-rules-html * {
+  overflow-wrap: anywhere;
+}
+
+.special-offers-rules-html p,
+.special-offers-rules-html ul,
+.special-offers-rules-html ol {
+  margin: 0 0 10px;
+}
+
+.special-offers-rules-html :last-child {
+  margin-bottom: 0;
+}
+
+.special-offers-rules-html img,
+.special-offers-rules-html table {
+  height: auto;
+  max-width: 100%;
+}
+
+.special-offers-faq-list {
+  display: grid;
+  gap: 10px;
+}
+
+.special-offers-faq-item {
+  background: rgba(15, 23, 42, 0.42);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 10px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.special-offers-faq-item p {
+  color: var(--admin-text-muted);
+  margin: 6px 0 0;
 }
 
 .special-offers-settings-list {

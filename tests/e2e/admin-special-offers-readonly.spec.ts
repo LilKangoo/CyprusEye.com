@@ -107,7 +107,46 @@ async function prepareAdminSpecialOffersStub(page: Page) {
             lang: 'pl',
             title: 'Wygraj 3 dni w Lefkarze + auto na 3 dni',
             short_description: 'Konkurs z pobytem w 7 Kamares oraz autem na 3 dni.',
+            full_description: 'Polski opis kampanii Lefkara z pobytem i autem.',
             prize_description: '3 dni / 2 noce w 7 Kamares w Lefkarze oraz auto na 3 dni.',
+            rules_html: '<p>Regulamin konkursu Lefkara.</p><ul><li>Zaakceptuj regulamin.</li></ul>',
+            faq_json: [
+              { question: 'Kto może wziąć udział?', answer: 'Zalogowani użytkownicy CyprusEye.' },
+            ],
+            seo_title: 'Konkurs Lefkara 2026',
+            seo_description: 'Wygraj pobyt w Lefkarze i auto na Cyprze.',
+          },
+          {
+            id: 'translation-en',
+            offer_id: offerId,
+            lang: 'en',
+            title: 'Win 3 days in Lefkara + a car for 3 days',
+            short_description: 'A giveaway with a stay at 7 Kamares and a car for 3 days.',
+            full_description: 'Spend three days in Lefkara with a companion and explore Cyprus by car.',
+            prize_description: '3 days / 2 nights at 7 Kamares in Lefkara plus a car for 3 days.',
+            rules_html: '<p>Read the campaign rules before entering.</p><ol><li>Register or log in.</li><li>Answer the contest question.</li></ol><script>window.bad = true</script>',
+            faq_json: [
+              { question: 'Can I join from Cyprus?', answer: 'Yes, logged-in CyprusEye users can join.' },
+              { question: 'Is the car included?', answer: 'Yes, the prize includes a car for 3 days.' },
+            ],
+            seo_title: 'Lefkara giveaway 2026',
+            seo_description: 'Win a Lefkara stay and a car for your Cyprus trip.',
+          },
+          {
+            id: 'translation-he',
+            offer_id: offerId,
+            lang: 'he',
+            title: 'זכו ב-3 ימים בלפקרה + רכב ל-3 ימים',
+            short_description: 'הגרלה עם שהייה ב-7 Kamares ורכב ל-3 ימים.',
+            full_description: 'שהייה בלפקרה עם רכב כדי לטייל בקפריסין בקצב שלכם.',
+            prize_description: '3 ימים / 2 לילות ב-7 Kamares בלפקרה ורכב ל-3 ימים.',
+            rules_html: '<p>קראו את כללי הקמפיין לפני ההשתתפות.</p><ul><li>התחברו או הירשמו.</li><li>ענו על שאלת התחרות.</li></ul>',
+            faq_json: [
+              { question: 'האם הרכב כלול?', answer: 'כן, הפרס כולל רכב ל-3 ימים.' },
+              { question: 'מתי יוכרז הזוכה?', answer: 'הזוכה יוכרז לאחר סיום הקמפיין.' },
+            ],
+            seo_title: 'הגרלת לפקרה 2026',
+            seo_description: 'זכו בשהייה בלפקרה וברכב לטיול בקפריסין.',
           },
         ]);
 
@@ -170,21 +209,44 @@ test.describe('Admin Special Offers read-only integration', () => {
     await expect(page.locator('.special-offers-create-button')).toBeDisabled();
 
     await card.getByRole('button', { name: 'View details' }).click();
-    await expect(page.locator('#specialOffersDetailsModal')).toBeVisible();
-    await expect(page.locator('#specialOffersDetailsModal')).toContainText('3 dni / 2 noce w 7 Kamares + auto na 3 dni');
-    await expect(page.locator('#specialOffersDetailsModal')).toContainText('7 Kamares');
-    await expect(page.locator('#specialOffersDetailsModal')).toContainText('LilKangooMedia LTD, CyprusEye.com, WakacjeCypr.com');
-    await expect(page.locator('#specialOffersDetailsModal')).toContainText('Manual social verification');
-    await expect(page.locator('#specialOffersDetailsModal')).toContainText('No automatic social integrations');
-    await expect(page.locator('#specialOffersDetailsModal')).toContainText('Cars');
-    await expect(page.locator('#specialOffersDetailsModal')).toContainText('/car.html?lang=pl');
-    await expect(page.locator('#specialOffersDetailsModal')).toContainText('URL-only');
-    await expect(page.locator('#specialOffersDetailsModal').getByRole('button', { name: 'Edit campaign' })).toBeDisabled();
-    await expect(page.locator('#specialOffersDetailsModal').getByRole('button', { name: 'Entries' })).toBeDisabled();
-    await expect(page.locator('#specialOffersDetailsModal').getByRole('button', { name: 'Draw' })).toBeDisabled();
+    const modal = page.locator('#specialOffersDetailsModal');
+    await expect(modal).toBeVisible();
+    await expect(modal.getByRole('tab', { name: 'PL' })).toBeVisible();
+    await expect(modal.getByRole('tab', { name: 'EN' })).toBeVisible();
+    await expect(modal.getByRole('tab', { name: 'HE' })).toBeVisible();
 
-    await expect(page.locator('#viewSpecialOffers')).not.toContainText('undefined');
-    await expect(page.locator('#viewSpecialOffers')).not.toContainText('null');
+    await expect(modal).toContainText('Wygraj 3 dni w Lefkarze + auto na 3 dni');
+    await expect(modal).toContainText('3 dni / 2 noce w 7 Kamares + auto na 3 dni');
+    await expect(modal).toContainText('7 Kamares');
+    await expect(modal).toContainText('LilKangooMedia LTD, CyprusEye.com, WakacjeCypr.com');
+    await expect(modal).toContainText('Manual social verification');
+    await expect(modal).toContainText('No automatic social integrations');
+    await expect(modal).toContainText('Cars');
+    await expect(modal).toContainText('/car.html?lang=pl');
+    await expect(modal).toContainText('URL-only');
+    await expect(modal.getByRole('button', { name: 'Edit campaign' })).toBeDisabled();
+    await expect(modal.getByRole('button', { name: 'Entries' })).toBeDisabled();
+    await expect(modal.getByRole('button', { name: 'Draw' })).toBeDisabled();
+
+    await modal.getByRole('tab', { name: 'EN' }).click();
+    await expect(modal.locator('[data-special-offers-lang-panel="en"]')).toBeVisible();
+    await expect(modal).toContainText('Win 3 days in Lefkara + a car for 3 days');
+    await expect(modal).toContainText('Can I join from Cyprus?');
+    await expect(modal).toContainText('Is the car included?');
+    await expect(modal).not.toContainText('window.bad');
+
+    await modal.getByRole('tab', { name: 'HE' }).click();
+    const hePanel = modal.locator('[data-special-offers-lang-panel="he"]');
+    await expect(hePanel).toBeVisible();
+    await expect(hePanel).toHaveAttribute('dir', 'rtl');
+    await expect(hePanel).toContainText('זכו ב-3 ימים בלפקרה + רכב ל-3 ימים');
+    await expect(hePanel).toContainText('האם הרכב כלול?');
+    await expect(hePanel).toContainText('מתי יוכרז הזוכה?');
+    await expect(hePanel).toHaveCSS('text-align', 'right');
+
+    const modalText = await modal.evaluate((node) => node.textContent || '');
+    expect(modalText).not.toMatch(/\bundefined\b/i);
+    expect(modalText).not.toMatch(/\bnull\b/i);
   });
 
   test('keeps module read-only and avoids future-stage table names', async ({ page }) => {
@@ -214,6 +276,7 @@ test.describe('Admin Special Offers read-only integration', () => {
 
     await page.locator('.special-offer-campaign-card').getByRole('button', { name: 'View details' }).click();
     await expect(page.locator('#specialOffersDetailsModal')).toBeVisible();
+    await page.locator('#specialOffersDetailsModal').getByRole('tab', { name: 'HE' }).click();
 
     const hasHorizontalOverflow = await page.evaluate(() => {
       const root = document.documentElement;

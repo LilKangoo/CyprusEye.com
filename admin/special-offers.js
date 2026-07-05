@@ -9,6 +9,12 @@ const specialOffersState = {
   campaigns: [],
 };
 
+const SPECIAL_OFFERS_DETAIL_LANGUAGES = [
+  { code: 'pl', label: 'PL', dir: 'ltr' },
+  { code: 'en', label: 'EN', dir: 'ltr' },
+  { code: 'he', label: 'HE', dir: 'rtl' },
+];
+
 function getSupabaseClient() {
   if (typeof window.getSupabase === 'function') {
     return window.getSupabase();
@@ -70,12 +76,20 @@ function formatDate(value) {
 }
 
 function formatCampaignTitle(campaign) {
-  const translation = campaign.translations.find((row) => row.lang === 'pl') || campaign.translations[0];
+  const translation = getPrimaryTranslation(campaign);
   return translation?.title || campaign.slug || 'Untitled campaign';
 }
 
 function getPrimaryTranslation(campaign) {
-  return campaign.translations.find((row) => row.lang === 'pl') || campaign.translations[0] || null;
+  return getTranslationByLanguage(campaign, 'pl')
+    || getTranslationByLanguage(campaign, 'en')
+    || getTranslationByLanguage(campaign, 'he')
+    || null;
+}
+
+function getTranslationByLanguage(campaign, lang) {
+  const normalizedLang = String(lang || '').trim().toLowerCase();
+  return toArray(campaign?.translations).find((row) => String(row?.lang || '').trim().toLowerCase() === normalizedLang) || null;
 }
 
 function countByStatus(campaigns, status) {
@@ -248,9 +262,142 @@ function renderDetailRows(rows) {
       ${rows.map(([label, value]) => `
         <div class="special-offers-detail-row">
           <span>${escapeHtml(label)}</span>
-          <span>${escapeHtml(value || 'Not set')}</span>
+          <span>${escapeHtml(formatDetailValue(value))}</span>
         </div>
       `).join('')}
+    </div>
+  `;
+}
+
+function formatDetailValue(value) {
+  if (value === null || value === undefined) return 'Not set';
+  const text = String(value).trim();
+  return text || 'Not set';
+}
+
+function sanitizeRulesHtml(value) {
+  const source = String(value || '').trim();
+  if (!source) return '';
+
+  const template = document.createElement('template');
+  template.innerHTML = source;
+
+  template.content.querySelectorAll('script, style, iframe, object, embed, link, meta, base, form, input, button').forEach((node) => {
+    node.remove();
+  });
+
+  template.content.querySelectorAll('*').forEach((node) => {
+    Array.from(node.attributes).forEach((attribute) => {
+      const name = attribute.name.toLowerCase();
+      const valueText = String(attribute.value || '').trim().toLowerCase();
+      if (name.startsWith('on') || ((name === 'href' || name === 'src') && valueText.startsWith('javascript:'))) {
+        node.removeAttribute(attribute.name);
+      }
+    });
+  });
+
+  return template.innerHTML;
+}
+
+function normalizeFaqItems(value) {
+  return toArray(value)
+    .map((item) => ({
+      question: formatDetailValue(item?.question),
+      answer: formatDetailValue(item?.answer),
+    }))
+    .filter((item) => item.question !== 'Not set' || item.answer !== 'Not set');
+}
+
+function renderFaqItems(value) {
+  const items = normalizeFaqItems(value);
+  if (!items.length) return '<p class="special-offers-empty-copy">No FAQ items</p>';
+  return `
+    <div class="special-offers-faq-list">
+      ${items.map((item) => `
+        <article class="special-offers-faq-item">
+          <h5>${escapeHtml(item.question)}</h5>
+          <p>${escapeHtml(item.answer)}</p>
+        </article>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderRulesHtml(value) {
+  const html = sanitizeRulesHtml(value);
+  if (!html) return '<p class="special-offers-empty-copy">Not set</p>';
+  return `<div class="special-offers-rules-html">${html}</div>`;
+}
+
+function renderTranslationPanel(campaign, language, isActive) {
+  const translation = getTranslationByLanguage(campaign, language.code);
+  const dir = language.dir;
+
+  if (!translation) {
+    return `
+      <section
+        class="special-offers-translation-panel"
+        id="special-offers-lang-panel-${escapeHtml(language.code)}"
+        data-special-offers-lang-panel="${escapeHtml(language.code)}"
+        role="tabpanel"
+        aria-labelledby="special-offers-lang-tab-${escapeHtml(language.code)}"
+        dir="${escapeHtml(dir)}"
+        ${isActive ? '' : 'hidden'}
+      >
+        <p class="special-offers-empty-copy">Translation not available yet</p>
+      </section>
+    `;
+  }
+
+  return `
+    <section
+      class="special-offers-translation-panel"
+      id="special-offers-lang-panel-${escapeHtml(language.code)}"
+      data-special-offers-lang-panel="${escapeHtml(language.code)}"
+      role="tabpanel"
+      aria-labelledby="special-offers-lang-tab-${escapeHtml(language.code)}"
+      dir="${escapeHtml(dir)}"
+      ${isActive ? '' : 'hidden'}
+    >
+      ${renderDetailRows([
+        ['Title', translation.title],
+        ['Short description', translation.short_description],
+        ['Full description', translation.full_description],
+        ['Prize description', translation.prize_description],
+        ['SEO title', translation.seo_title],
+        ['SEO description', translation.seo_description],
+      ])}
+      <div class="special-offers-content-block">
+        <h5>Rules</h5>
+        ${renderRulesHtml(translation.rules_html)}
+      </div>
+      <div class="special-offers-content-block">
+        <h5>FAQ</h5>
+        ${renderFaqItems(translation.faq_json)}
+      </div>
+    </section>
+  `;
+}
+
+function renderTranslationsTabs(campaign) {
+  return `
+    <div class="special-offers-translation-tabs" role="tablist" aria-label="Campaign translations">
+      ${SPECIAL_OFFERS_DETAIL_LANGUAGES.map((language, index) => `
+        <button
+          class="special-offers-translation-tab${index === 0 ? ' is-active' : ''}"
+          type="button"
+          id="special-offers-lang-tab-${escapeHtml(language.code)}"
+          data-special-offers-lang-tab="${escapeHtml(language.code)}"
+          role="tab"
+          aria-selected="${index === 0 ? 'true' : 'false'}"
+          aria-controls="special-offers-lang-panel-${escapeHtml(language.code)}"
+        >
+          ${escapeHtml(language.label)}
+        </button>
+      `).join('')}
+    </div>
+    <div class="special-offers-translation-panels">
+      ${SPECIAL_OFFERS_DETAIL_LANGUAGES.map((language, index) => renderTranslationPanel(campaign, language, index === 0)).join('')}
     </div>
   `;
 }
@@ -329,7 +476,6 @@ function openCampaignDetails(campaignId) {
   const modal = $('#specialOffersDetailsModal');
   const title = $('#specialOffersDetailsTitle');
   const body = $('#specialOffersDetailsBody');
-  const translation = getPrimaryTranslation(campaign);
 
   if (title) title.textContent = formatCampaignTitle(campaign);
   if (body) {
@@ -348,13 +494,9 @@ function openCampaignDetails(campaignId) {
             ['Winner announce', formatDate(campaign.winner_announce_at)],
           ])}
         </section>
-        <section class="special-offers-detail-panel">
-          <h4>PL content</h4>
-          ${renderDetailRows([
-            ['Title', translation?.title || campaign.slug],
-            ['Short description', translation?.short_description],
-            ['Prize description', translation?.prize_description],
-          ])}
+        <section class="special-offers-detail-panel special-offers-detail-panel--wide">
+          <h4>Content translations</h4>
+          ${renderTranslationsTabs(campaign)}
         </section>
         <section class="special-offers-detail-panel special-offers-detail-panel--wide">
           <h4>Prize</h4>
@@ -380,6 +522,24 @@ function openCampaignDetails(campaignId) {
   if (modal) modal.hidden = false;
 }
 
+function activateTranslationTab(button) {
+  const modal = $('#specialOffersDetailsModal');
+  if (!modal || !button) return;
+
+  const lang = button.getAttribute('data-special-offers-lang-tab');
+  if (!lang) return;
+
+  $$('[data-special-offers-lang-tab]', modal).forEach((tab) => {
+    const isActive = tab === button;
+    tab.classList.toggle('is-active', isActive);
+    tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+  });
+
+  $$('[data-special-offers-lang-panel]', modal).forEach((panel) => {
+    panel.hidden = panel.getAttribute('data-special-offers-lang-panel') !== lang;
+  });
+}
+
 function closeCampaignDetails() {
   const modal = $('#specialOffersDetailsModal');
   if (modal) modal.hidden = true;
@@ -396,6 +556,16 @@ function bindEvents() {
       const button = target?.closest('[data-special-offers-view]');
       if (!button) return;
       openCampaignDetails(button.getAttribute('data-special-offers-view'));
+    });
+  }
+
+  const detailsBody = $('#specialOffersDetailsBody');
+  if (detailsBody) {
+    detailsBody.addEventListener('click', (event) => {
+      const target = event.target instanceof Element ? event.target : null;
+      const button = target?.closest('[data-special-offers-lang-tab]');
+      if (!button) return;
+      activateTranslationTab(button);
     });
   }
 
