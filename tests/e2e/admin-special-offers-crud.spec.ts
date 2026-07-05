@@ -218,10 +218,27 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     await expect(editor.getByRole('button', { name: 'HE' })).toBeVisible();
 
     await editor.getByRole('button', { name: 'Content PL / EN / HE' }).click();
+    await expect(editor.locator('[data-faq-builder="pl"]')).toBeVisible();
+    await expect(editor.locator('[name="pl_faq_json"]')).toHaveCount(0);
+    await expect(editor.locator('[data-rules-builder="pl"]')).toBeVisible();
+    await expect(editor.locator('[name="pl_rules_html"]')).toHaveCount(0);
+    await editor.locator('[data-faq-item="pl"]').first().getByRole('button', { name: 'Remove' }).click();
+    await expect(editor.locator('[data-faq-list="pl"]')).toContainText('No FAQ items yet');
+    await editor.getByRole('button', { name: 'Add FAQ item' }).click();
+    const faqItem = editor.locator('[data-faq-item="pl"]').last();
+    await faqItem.locator('[data-faq-field="question"]').fill('Czy mogę wziąć udział?');
+    await faqItem.locator('[data-faq-field="answer"]').fill('Tak, po zalogowaniu.');
+    await editor.getByRole('button', { name: 'Add rule section' }).click();
+    const ruleSection = editor.locator('[data-rule-section="pl"]').last();
+    await ruleSection.locator('[data-rule-field="title"]').fill('Nowe zasady');
+    await ruleSection.getByRole('button', { name: 'Add bullet' }).click();
+    await ruleSection.locator('[data-rule-field="bullet"]').last().fill('Zgłoszenie musi być kompletne.');
     await editor.getByRole('button', { name: 'EN', exact: true }).click();
     await editor.locator('[name="en_short_description"]').fill('Updated English short description.');
     await editor.getByRole('button', { name: 'HE', exact: true }).click();
     await expect(editor.locator('[name="he_title"]')).toHaveAttribute('dir', 'rtl');
+    await expect(editor.locator('[data-faq-builder="he"]')).toHaveAttribute('dir', 'rtl');
+    await expect(editor.locator('[data-rules-builder="he"]')).toHaveAttribute('dir', 'rtl');
     await editor.locator('[name="he_short_description"]').fill('תיאור עברי מעודכן.');
     await editor.getByRole('button', { name: 'Save draft' }).click();
     await expect(editor).toBeHidden();
@@ -232,6 +249,10 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     }));
     expect(rows.translations.find((row: any) => row.offer_id === OFFER_ID && row.lang === 'en').short_description).toBe('Updated English short description.');
     expect(rows.translations.find((row: any) => row.offer_id === OFFER_ID && row.lang === 'he').short_description).toBe('תיאור עברי מעודכן.');
+    const plTranslation = rows.translations.find((row: any) => row.offer_id === OFFER_ID && row.lang === 'pl');
+    expect(plTranslation.faq_json).toEqual([{ question: 'Czy mogę wziąć udział?', answer: 'Tak, po zalogowaniu.' }]);
+    expect(plTranslation.rules_html).toContain('<h3>Nowe zasady</h3>');
+    expect(plTranslation.rules_html).toContain('<li>Zgłoszenie musi być kompletne.</li>');
     expect(rows.audit.some((row: any) => row.action === 'special_offer.updated' && row.offer_id === OFFER_ID)).toBe(true);
   });
 
@@ -242,6 +263,8 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     const editor = page.locator('#specialOffersEditorModal');
 
     await editor.getByRole('button', { name: 'Prize' }).click();
+    await expect(editor).toContainText('Prize operational details');
+    await expect(editor).toContainText('Language-specific public prize copy is edited in Content PL / EN / HE');
     await editor.getByRole('button', { name: 'Add prize' }).click();
     const secondPrize = editor.locator('[data-special-offers-prize]').last();
     await secondPrize.locator('[data-prize-field="name"]').fill('Bonus voucher');
@@ -251,11 +274,16 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     await editor.locator('[data-special-offers-prize]').first().getByRole('button', { name: 'Remove' }).click();
 
     await editor.getByRole('button', { name: 'Linked services' }).click();
+    await expect(editor).toContainText('URL-only linked services');
+    await expect(editor).toContainText('Resource ID picker is disabled in this stage');
+    await expect(editor).toContainText('Language-specific labels/URLs require the next schema stage');
     await editor.getByRole('button', { name: 'Add URL-only link' }).click();
     const newLink = editor.locator('[data-special-offers-link]').last();
     await newLink.locator('[data-link-field="link_type"]').selectOption('cars');
     await newLink.locator('[data-link-field="label"]').fill('Cars offer');
     await newLink.locator('[data-link-field="url"]').fill('/car.html?lang=pl');
+    await expect(newLink.locator('[data-link-url-preview]')).toContainText('/car.html?lang=en');
+    await expect(newLink.locator('[data-link-url-preview]')).toContainText('/car.html?lang=he');
     await newLink.locator('[data-link-field="is_primary"]').check();
     await expect(editor.getByRole('button', { name: 'Save draft' })).toBeDisabled();
     await newLink.locator('[data-link-field="is_primary"]').uncheck();
@@ -305,6 +333,8 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     await openSpecialOffers(page);
     await page.getByRole('button', { name: 'Create campaign' }).first().click();
     await expect(page.locator('#specialOffersEditorModal')).toBeVisible();
+    await page.locator('#specialOffersEditorModal').getByRole('button', { name: 'Rules/settings' }).click();
+    await expect(page.locator('#specialOffersEditorModal details').filter({ hasText: 'Advanced settings JSON' })).not.toHaveAttribute('open', '');
 
     const hasHorizontalOverflow = await page.evaluate(() => {
       const root = document.documentElement;

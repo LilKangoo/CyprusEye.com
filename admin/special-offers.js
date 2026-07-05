@@ -627,10 +627,153 @@ function getEditorTranslation(campaign, lang) {
   return getTranslationByLanguage(campaign, lang) || { lang, faq_json: [] };
 }
 
+function renderHelp(text) {
+  return `<span class="special-offer-help" title="${escapeHtml(text)}" aria-label="${escapeHtml(text)}">?</span>`;
+}
+
+function normalizeFaqEditorItems(value) {
+  return toArray(value)
+    .map((item) => ({
+      question: String(item?.question || '').trim(),
+      answer: String(item?.answer || '').trim(),
+    }))
+    .filter((item) => item.question || item.answer);
+}
+
+function renderFaqBuilder(lang, items, dir) {
+  const rows = normalizeFaqEditorItems(items);
+  return `
+    <div class="special-offer-builder" data-faq-builder="${escapeHtml(lang)}" dir="${escapeHtml(dir)}">
+      <div class="special-offer-editor-section-head">
+        <h5>FAQ builder ${renderHelp('Add public FAQ items for this language. Question and answer are required when an item exists.')}</h5>
+        <button class="btn-secondary btn-small" type="button" data-special-offers-add-faq="${escapeHtml(lang)}">Add FAQ item</button>
+      </div>
+      <div class="special-offer-builder-list" data-faq-list="${escapeHtml(lang)}">
+        ${rows.length ? rows.map((item, index) => renderFaqEditorItem(lang, item, index, dir)).join('') : '<p class="special-offers-empty-copy">No FAQ items yet</p>'}
+      </div>
+      <details class="special-offer-advanced-source">
+        <summary>Advanced JSON preview</summary>
+        <pre data-faq-json-preview="${escapeHtml(lang)}">${escapeHtml(JSON.stringify(rows, null, 2))}</pre>
+      </details>
+    </div>
+  `;
+}
+
+function renderFaqEditorItem(lang, item = {}, index = 0, dir = 'ltr') {
+  return `
+    <article class="special-offer-builder-item" data-faq-item="${escapeHtml(lang)}">
+      <div class="special-offer-editor-item__header">
+        <strong>FAQ ${index + 1}</strong>
+        <button class="btn-secondary btn-small" type="button" data-special-offers-remove-faq>Remove</button>
+      </div>
+      <label>Question
+        <input data-faq-field="question" value="${escapeHtml(item.question || '')}" dir="${escapeHtml(dir)}" />
+      </label>
+      <label>Answer
+        <textarea data-faq-field="answer" rows="2" dir="${escapeHtml(dir)}">${escapeHtml(item.answer || '')}</textarea>
+      </label>
+    </article>
+  `;
+}
+
+function extractTextFromNode(node) {
+  return String(node?.textContent || '').replace(/\s+/g, ' ').trim();
+}
+
+function parseRulesHtmlToSections(value) {
+  const source = String(value || '').trim();
+  if (!source) return { sections: [], source: '', parsed: true };
+
+  const template = document.createElement('template');
+  template.innerHTML = source;
+  const sections = [];
+  const sectionNodes = Array.from(template.content.querySelectorAll('section'));
+
+  if (sectionNodes.length) {
+    sectionNodes.forEach((section) => {
+      const title = extractTextFromNode(section.querySelector('h1,h2,h3,h4,strong')) || 'Rules';
+      let bullets = Array.from(section.querySelectorAll('li')).map(extractTextFromNode).filter(Boolean);
+      if (!bullets.length) {
+        bullets = Array.from(section.querySelectorAll('p')).map(extractTextFromNode).filter(Boolean);
+      }
+      if (title || bullets.length) sections.push({ title, bullets });
+    });
+  } else {
+    const titleNode = template.content.querySelector('h1,h2,h3,h4,strong');
+    const title = extractTextFromNode(titleNode) || 'Rules';
+    let bullets = Array.from(template.content.querySelectorAll('li')).map(extractTextFromNode).filter(Boolean);
+    if (!bullets.length) {
+      bullets = Array.from(template.content.querySelectorAll('p')).map(extractTextFromNode).filter(Boolean);
+    }
+    if (title || bullets.length) sections.push({ title, bullets });
+  }
+
+  return { sections, source, parsed: Boolean(sections.length) };
+}
+
+function renderRulesBuilder(lang, rulesHtml, dir) {
+  const parsed = parseRulesHtmlToSections(rulesHtml);
+  return `
+    <div class="special-offer-builder" data-rules-builder="${escapeHtml(lang)}" dir="${escapeHtml(dir)}" data-rules-source-preserve="${parsed.parsed ? '0' : '1'}">
+      <div class="special-offer-editor-section-head">
+        <h5>Rules builder ${renderHelp('Build rule sections and bullet points. The editor generates rules_html on save.')}</h5>
+        <button class="btn-secondary btn-small" type="button" data-special-offers-add-rule-section="${escapeHtml(lang)}">Add rule section</button>
+      </div>
+      <div class="special-offer-builder-list" data-rules-list="${escapeHtml(lang)}">
+        ${parsed.sections.length ? parsed.sections.map((section, index) => renderRuleSection(lang, section, index, dir)).join('') : '<p class="special-offers-empty-copy">No rule sections yet</p>'}
+      </div>
+      <details class="special-offer-advanced-source">
+        <summary>Advanced HTML source</summary>
+        <p class="special-offer-editor-muted">Use this only to inspect or preserve legacy HTML. The builder output is used when sections exist.</p>
+        <textarea name="${escapeHtml(lang)}_rules_html_source" rows="5" dir="${escapeHtml(dir)}">${escapeHtml(parsed.source)}</textarea>
+        <pre data-rules-html-preview="${escapeHtml(lang)}">${escapeHtml(generateRulesHtml(parsed.sections))}</pre>
+      </details>
+    </div>
+  `;
+}
+
+function renderRuleSection(lang, section = {}, index = 0, dir = 'ltr') {
+  const bullets = toArray(section.bullets).filter((item) => String(item || '').trim());
+  return `
+    <article class="special-offer-builder-item" data-rule-section="${escapeHtml(lang)}">
+      <div class="special-offer-editor-item__header">
+        <strong>Rule section ${index + 1}</strong>
+        <button class="btn-secondary btn-small" type="button" data-special-offers-remove-rule-section>Remove section</button>
+      </div>
+      <label>Section title
+        <input data-rule-field="title" value="${escapeHtml(section.title || '')}" dir="${escapeHtml(dir)}" />
+      </label>
+      <div class="special-offer-builder-list special-offer-builder-list--nested" data-rule-bullets>
+        ${bullets.length ? bullets.map((bullet) => renderRuleBullet(bullet, dir)).join('') : '<p class="special-offers-empty-copy">No bullet items yet</p>'}
+      </div>
+      <button class="btn-secondary btn-small" type="button" data-special-offers-add-rule-bullet>Add bullet</button>
+    </article>
+  `;
+}
+
+function renderRuleBullet(value = '', dir = 'ltr') {
+  return `
+    <div class="special-offer-rule-bullet" data-rule-bullet>
+      <input data-rule-field="bullet" value="${escapeHtml(value)}" dir="${escapeHtml(dir)}" />
+      <button class="btn-secondary btn-small" type="button" data-special-offers-remove-rule-bullet>Remove bullet</button>
+    </div>
+  `;
+}
+
+function generateRulesHtml(sections) {
+  return toArray(sections)
+    .filter((section) => String(section.title || '').trim() || toArray(section.bullets).some((bullet) => String(bullet || '').trim()))
+    .map((section) => {
+      const title = String(section.title || '').trim();
+      const bullets = toArray(section.bullets).map((bullet) => String(bullet || '').trim()).filter(Boolean);
+      return `<section>${title ? `<h3>${escapeHtml(title)}</h3>` : ''}${bullets.length ? `<ul>${bullets.map((bullet) => `<li>${escapeHtml(bullet)}</li>`).join('')}</ul>` : ''}</section>`;
+    })
+    .join('');
+}
+
 function renderTranslationEditor(campaign, language, isActive) {
   const translation = getEditorTranslation(campaign, language.code);
   const dir = language.dir;
-  const faqJson = JSON.stringify(toArray(translation.faq_json), null, 2);
   return `
     <section
       class="special-offer-editor-lang-panel"
@@ -650,12 +793,8 @@ function renderTranslationEditor(campaign, language, isActive) {
       <label>Prize description
         <textarea name="${escapeHtml(language.code)}_prize_description" rows="3" dir="${escapeHtml(dir)}">${escapeHtml(translation.prize_description || '')}</textarea>
       </label>
-      <label>Rules HTML
-        <textarea name="${escapeHtml(language.code)}_rules_html" rows="5" dir="${escapeHtml(dir)}">${escapeHtml(translation.rules_html || '')}</textarea>
-      </label>
-      <label>FAQ JSON array
-        <textarea name="${escapeHtml(language.code)}_faq_json" rows="5" dir="${escapeHtml(dir)}">${escapeHtml(faqJson)}</textarea>
-      </label>
+      ${renderRulesBuilder(language.code, translation.rules_html || '', dir)}
+      ${renderFaqBuilder(language.code, translation.faq_json || [], dir)}
       <label>SEO title
         <input name="${escapeHtml(language.code)}_seo_title" value="${escapeHtml(translation.seo_title || '')}" dir="${escapeHtml(dir)}" />
       </label>
@@ -679,6 +818,7 @@ function renderPrizeEditorList() {
         <strong>Prize ${index + 1}</strong>
         <button class="btn-secondary btn-small" type="button" data-special-offers-remove-prize="${escapeHtml(prize.client_id)}">Remove</button>
       </div>
+      <p class="special-offer-editor-muted">These are global/admin operational details. Language-specific public prize copy is edited in Content PL / EN / HE -> Prize description.</p>
       <div class="special-offer-editor-grid">
         <label>Name *
           <input data-prize-field="name" value="${escapeHtml(prize.name || '')}" />
@@ -749,8 +889,21 @@ function renderLinkEditorList() {
         </label>
       </div>
       <p class="special-offer-editor-muted">URL-only in this stage. Resource ID stays empty.</p>
+      <p class="special-offer-editor-muted">Language-specific labels and URLs require the next schema stage; the preview below is not saved separately.</p>
+      <div class="special-offer-url-preview" data-link-url-preview>${renderLanguageUrlPreview(link.url || '')}</div>
     </article>
   `).join('');
+}
+
+function renderLanguageUrlPreview(url) {
+  const source = String(url || '').trim();
+  if (!source) return '<span>No URL preview yet.</span>';
+  const makeUrl = (lang) => {
+    if (/([?&])lang=/.test(source)) return source.replace(/([?&])lang=[^&]*/i, `$1lang=${lang}`);
+    if (source.includes('?')) return `${source}&lang=${lang}`;
+    return `${source}?lang=${lang}`;
+  };
+  return ['pl', 'en', 'he'].map((lang) => `<span>${lang.toUpperCase()}: ${escapeHtml(makeUrl(lang))}</span>`).join('');
 }
 
 function getCampaignEditorDefaults(campaign = null) {
@@ -797,6 +950,7 @@ function renderEditorForm(campaign = null) {
       </div>
       <div class="special-offer-editor-panels">
         <section class="special-offer-editor-section" data-special-offers-editor-panel="basic">
+          <p class="special-offer-editor-muted">${renderHelp('Type controls the campaign category. Winner mode controls how winners will be selected later. Status is draft or archived only here; visibility is private only.') } Basic settings define internal campaign identity. Publishing is not available in this stage.</p>
           <div class="special-offer-editor-grid">
             <label>Slug *
               <input name="slug" value="${escapeHtml(defaults.slug)}" placeholder="summer-giveaway-2026" required />
@@ -825,6 +979,7 @@ function renderEditorForm(campaign = null) {
           <p class="special-offer-editor-muted">This stage only saves draft/private campaigns. Publishing is not available.</p>
         </section>
         <section class="special-offer-editor-section" data-special-offers-editor-panel="dates" hidden>
+          <p class="special-offer-editor-muted">${renderHelp('Start/end dates describe campaign timing. Winner announce should be after the end date. Timezone defaults to Asia/Nicosia.') } Dates are saved for planning and internal review; they do not publish the campaign.</p>
           <div class="special-offer-editor-grid">
             <label>Start at
               <input name="start_at" type="datetime-local" value="${escapeHtml(defaults.start_at)}" />
@@ -842,6 +997,7 @@ function renderEditorForm(campaign = null) {
           <p class="special-offer-editor-muted">Visibility remains private in this stage.</p>
         </section>
         <section class="special-offer-editor-section" data-special-offers-editor-panel="content" hidden>
+          <p class="special-offer-editor-muted">${renderHelp('These PL/EN/HE tabs are the campaign content translations. Prize description here is the language-specific public prize copy for this stage.') } Edit campaign copy, FAQ items and rule sections per language.</p>
           <div class="special-offers-translation-tabs" role="tablist" aria-label="Editor translation languages">
             ${SPECIAL_OFFERS_DETAIL_LANGUAGES.map((language, index) => `
               <button class="special-offers-translation-tab${index === 0 ? ' is-active' : ''}" type="button" data-special-offers-editor-lang-tab="${escapeHtml(language.code)}">${escapeHtml(language.label)}</button>
@@ -851,19 +1007,22 @@ function renderEditorForm(campaign = null) {
         </section>
         <section class="special-offer-editor-section" data-special-offers-editor-panel="prize" hidden>
           <div class="special-offer-editor-section-head">
-            <h4>Prizes</h4>
+            <h4>Prize operational details ${renderHelp('Prize fields here are global/admin operational fields. Language-specific prize translations require a future schema stage.')}</h4>
             <button class="btn-secondary btn-small" type="button" data-special-offers-add-prize>Add prize</button>
           </div>
+          <p class="special-offer-editor-muted">These fields are global/admin operational details. Language-specific public prize copy is edited in Content PL / EN / HE -> Prize description.</p>
           <div class="special-offer-editor-list" id="specialOfferEditorPrizes"></div>
         </section>
         <section class="special-offer-editor-section" data-special-offers-editor-panel="links" hidden>
           <div class="special-offer-editor-section-head">
-            <h4>URL-only linked services</h4>
+            <h4>URL-only linked services ${renderHelp('This stage supports URL-only links. Resource ID picker and language-specific label/url fields require a future schema stage.')}</h4>
             <button class="btn-secondary btn-small" type="button" data-special-offers-add-link>Add URL-only link</button>
           </div>
+          <p class="special-offer-editor-muted">Resource ID picker is disabled in this stage. Language-specific labels/URLs require the next schema stage; URL previews are informational only and are not saved separately.</p>
           <div class="special-offer-editor-list" id="specialOfferEditorLinks"></div>
         </section>
         <section class="special-offer-editor-section" data-special-offers-editor-panel="rules" hidden>
+          <p class="special-offer-editor-muted">${renderHelp('These settings control future campaign behavior while keeping the campaign private. They do not launch public entries, tasks, draw or winners.') } Configure operational campaign rules. Public launch is not available.</p>
           <div class="special-offer-editor-grid">
             ${[
               ['requires_login', 'Requires login'],
@@ -886,13 +1045,15 @@ function renderEditorForm(campaign = null) {
             <label>Response deadline days
               <input name="response_deadline_days" type="number" min="1" step="1" value="${escapeHtml(defaults.response_deadline_days)}" />
             </label>
-            <label class="special-offer-editor-field--wide">Advanced settings JSON
+            <details class="special-offer-advanced-source special-offer-editor-field--wide">
+              <summary>Advanced settings JSON</summary>
+              <p class="special-offer-editor-muted">Only edit this if you know what you are doing. Unknown keys are preserved unless you edit this JSON.</p>
               <textarea name="settings_json" rows="8">${escapeHtml(JSON.stringify(defaults.settings_json, null, 2))}</textarea>
-            </label>
+            </details>
           </div>
         </section>
         <section class="special-offer-editor-section" data-special-offers-editor-panel="review" hidden>
-          <h4>Review & save</h4>
+          <h4>Review & save ${renderHelp('Save writes the draft/private campaign, translations, operational prizes, URL-only links and an audit event. It does not publish.')}</h4>
           <p class="special-offer-editor-muted">Save writes draft/private campaign data, translations, prizes, URL-only links and an audit log entry. It does not publish anything.</p>
           <div class="special-offer-editor-review" id="specialOfferEditorReview"></div>
         </section>
@@ -1056,6 +1217,32 @@ function parseEditorJson(value, fallback, expectedType) {
   return parsed;
 }
 
+function collectFaqItems(lang) {
+  return $$(`[data-faq-item="${lang}"]`).map((node) => ({
+    question: String(node.querySelector('[data-faq-field="question"]')?.value || '').trim(),
+    answer: String(node.querySelector('[data-faq-field="answer"]')?.value || '').trim(),
+  })).filter((item) => item.question || item.answer);
+}
+
+function collectRuleSections(lang, includeEmpty = false) {
+  const sections = $$(`[data-rule-section="${lang}"]`).map((node) => ({
+    title: String(node.querySelector('[data-rule-field="title"]')?.value || '').trim(),
+    bullets: $$('[data-rule-bullet]', node)
+      .map((bullet) => String(bullet.querySelector('[data-rule-field="bullet"]')?.value || '').trim())
+      .filter(Boolean),
+  }));
+  return includeEmpty ? sections : sections.filter((section) => section.title || section.bullets.length);
+}
+
+function collectRulesHtml(lang) {
+  const sections = collectRuleSections(lang);
+  if (sections.length) return generateRulesHtml(sections);
+  const builder = document.querySelector(`[data-rules-builder="${lang}"]`);
+  const preserveSource = builder?.getAttribute('data-rules-source-preserve') === '1';
+  const source = String(document.querySelector(`[name="${lang}_rules_html_source"]`)?.value || '').trim();
+  return preserveSource ? source : '';
+}
+
 function collectEditorPayload() {
   const form = $('#specialOfferEditorForm');
   if (!form) throw new Error('Editor form is not available.');
@@ -1066,7 +1253,12 @@ function collectEditorPayload() {
   const startAt = parseDateTimeLocal(getEditorFieldValue(form, 'start_at'));
   const endAt = parseDateTimeLocal(getEditorFieldValue(form, 'end_at'));
   const winnerAnnounceAt = parseDateTimeLocal(getEditorFieldValue(form, 'winner_announce_at'));
-  const settingsJson = parseEditorJson(form.elements.settings_json?.value || '{}', {}, 'object');
+  let settingsJson = {};
+  try {
+    settingsJson = parseEditorJson(form.elements.settings_json?.value || '{}', {}, 'object');
+  } catch (error) {
+    throw new Error(`Rules/settings: invalid settings JSON (${error.message || 'Expected JSON object'}).`);
+  }
 
   const offer = {
     slug: normalizeSlug(getEditorFieldValue(form, 'slug')),
@@ -1093,14 +1285,15 @@ function collectEditorPayload() {
 
   const translations = SPECIAL_OFFERS_DETAIL_LANGUAGES.map((language) => {
     const lang = language.code;
-    const faqJson = parseEditorJson(form.elements[`${lang}_faq_json`]?.value || '[]', [], 'array');
+    const faqJson = collectFaqItems(lang);
+    const rulesHtml = collectRulesHtml(lang);
     const translation = {
       lang,
       title: getEditorFieldValue(form, `${lang}_title`),
       short_description: getEditorFieldValue(form, `${lang}_short_description`),
       full_description: getEditorFieldValue(form, `${lang}_full_description`),
       prize_description: getEditorFieldValue(form, `${lang}_prize_description`),
-      rules_html: getEditorFieldValue(form, `${lang}_rules_html`),
+      rules_html: rulesHtml,
       faq_json: faqJson,
       seo_title: getEditorFieldValue(form, `${lang}_seo_title`),
       seo_description: getEditorFieldValue(form, `${lang}_seo_description`),
@@ -1139,31 +1332,40 @@ function collectEditorPayload() {
 
 function validateEditorPayload(payload) {
   const errors = [];
-  if (!payload.offer.slug) errors.push('Slug is required.');
-  if (payload.offer.slug && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(payload.offer.slug)) errors.push('Slug must be lowercase URL-safe text.');
-  if (!SPECIAL_OFFERS_TYPES.includes(payload.offer.type)) errors.push('Type is required.');
-  if (!SPECIAL_OFFERS_WINNER_MODES.includes(payload.offer.winner_selection_mode)) errors.push('Winner mode is required.');
-  if (!['draft', 'archived'].includes(payload.offer.status)) errors.push('Only draft or archived status is available in this stage.');
-  if (payload.offer.visibility !== 'private') errors.push('Visibility must remain private in this stage.');
-  if (!payload.offer.timezone) errors.push('Timezone is required.');
-  if (payload.offer.start_at && payload.offer.end_at && new Date(payload.offer.end_at) < new Date(payload.offer.start_at)) errors.push('End at cannot be before start at.');
-  if (payload.offer.end_at && payload.offer.winner_announce_at && new Date(payload.offer.winner_announce_at) < new Date(payload.offer.end_at)) errors.push('Winner announce at cannot be before end at.');
-  if (payload.offer.max_entries_per_user < 1) errors.push('Max entries per user must be at least 1.');
-  if (payload.offer.response_deadline_days < 1) errors.push('Response deadline days must be at least 1.');
+  if (!payload.offer.slug) errors.push('Basic settings: slug is required.');
+  if (payload.offer.slug && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(payload.offer.slug)) errors.push('Basic settings: slug must be lowercase URL-safe text.');
+  if (!SPECIAL_OFFERS_TYPES.includes(payload.offer.type)) errors.push('Basic settings: type is required.');
+  if (!SPECIAL_OFFERS_WINNER_MODES.includes(payload.offer.winner_selection_mode)) errors.push('Basic settings: winner mode is required.');
+  if (!['draft', 'archived'].includes(payload.offer.status)) errors.push('Basic settings: only draft or archived status is available in this stage.');
+  if (payload.offer.visibility !== 'private') errors.push('Basic settings: visibility must remain private in this stage.');
+  if (!payload.offer.timezone) errors.push('Dates & visibility: timezone is required.');
+  if (payload.offer.start_at && payload.offer.end_at && new Date(payload.offer.end_at) < new Date(payload.offer.start_at)) errors.push('Dates & visibility: end at cannot be before start at.');
+  if (payload.offer.end_at && payload.offer.winner_announce_at && new Date(payload.offer.winner_announce_at) < new Date(payload.offer.end_at)) errors.push('Dates & visibility: winner announce at cannot be before end at.');
+  if (payload.offer.max_entries_per_user < 1) errors.push('Rules/settings: max entries per user must be at least 1.');
+  if (payload.offer.response_deadline_days < 1) errors.push('Rules/settings: response deadline days must be at least 1.');
   const pl = payload.translations.find((item) => item.lang === 'pl');
-  if (!pl?.title) errors.push('PL title is required.');
+  if (!pl?.title) errors.push('Content PL / EN / HE: PL title is required.');
+  SPECIAL_OFFERS_DETAIL_LANGUAGES.forEach((language) => {
+    collectFaqItems(language.code).forEach((item, index) => {
+      if (!item.question || !item.answer) errors.push(`Content ${language.label}: FAQ item ${index + 1} needs both question and answer.`);
+    });
+    collectRuleSections(language.code, true).forEach((section, index) => {
+      if (!section.title && !section.bullets.length) errors.push(`Content ${language.label}: rule section ${index + 1} needs a title or bullet.`);
+      if (section.title && !section.bullets.length) errors.push(`Content ${language.label}: rule section ${index + 1} needs at least one bullet.`);
+    });
+  });
   payload.prizes.forEach((prize, index) => {
-    if (!prize.name) errors.push(`Prize ${index + 1}: name is required.`);
-    if (prize.quantity < 1) errors.push(`Prize ${index + 1}: quantity must be at least 1.`);
+    if (!prize.name) errors.push(`Prize operational details: prize ${index + 1} name is required.`);
+    if (prize.quantity < 1) errors.push(`Prize operational details: prize ${index + 1} quantity must be at least 1.`);
   });
   payload.links.forEach((link, index) => {
-    if (!SPECIAL_OFFERS_LINK_TYPES.includes(link.link_type)) errors.push(`Link ${index + 1}: type is required.`);
-    if (!link.label) errors.push(`Link ${index + 1}: label is required.`);
-    if (!link.url) errors.push(`Link ${index + 1}: URL is required.`);
-    if (link.url && !/^(\/|https?:\/\/)/i.test(link.url)) errors.push(`Link ${index + 1}: URL must be relative or http(s).`);
-    if (link.resource_id) errors.push(`Link ${index + 1}: resource ID is not available in this stage.`);
+    if (!SPECIAL_OFFERS_LINK_TYPES.includes(link.link_type)) errors.push(`Linked services: link ${index + 1} type is required.`);
+    if (!link.label) errors.push(`Linked services: link ${index + 1} label is required.`);
+    if (!link.url) errors.push(`Linked services: link ${index + 1} URL is required.`);
+    if (link.url && !/^(\/|https?:\/\/)/i.test(link.url)) errors.push(`Linked services: link ${index + 1} URL must be relative or http(s).`);
+    if (link.resource_id) errors.push(`Linked services: link ${index + 1} resource ID is not available in this stage.`);
   });
-  if (payload.links.filter((link) => link.is_primary).length > 1) errors.push('Only one primary CTA is allowed.');
+  if (payload.links.filter((link) => link.is_primary).length > 1) errors.push('Linked services: only one primary CTA is allowed.');
   return errors;
 }
 
@@ -1489,6 +1691,61 @@ function closeCampaignDetails() {
   if (modal) modal.hidden = true;
 }
 
+function refreshBuilderPreviews(root = document) {
+  SPECIAL_OFFERS_DETAIL_LANGUAGES.forEach((language) => {
+    const faqList = root.querySelector(`[data-faq-list="${language.code}"]`);
+    if (faqList && !faqList.querySelector('[data-faq-item]') && !faqList.querySelector('.special-offers-empty-copy')) {
+      faqList.innerHTML = '<p class="special-offers-empty-copy">No FAQ items yet</p>';
+    }
+    const rulesList = root.querySelector(`[data-rules-list="${language.code}"]`);
+    if (rulesList && !rulesList.querySelector('[data-rule-section]') && !rulesList.querySelector('.special-offers-empty-copy')) {
+      rulesList.innerHTML = '<p class="special-offers-empty-copy">No rule sections yet</p>';
+    }
+    const faqPreview = root.querySelector(`[data-faq-json-preview="${language.code}"]`);
+    if (faqPreview) faqPreview.textContent = JSON.stringify(collectFaqItems(language.code), null, 2);
+    const rulesPreview = root.querySelector(`[data-rules-html-preview="${language.code}"]`);
+    if (rulesPreview) rulesPreview.textContent = generateRulesHtml(collectRuleSections(language.code));
+  });
+  $$('[data-link-url-preview]', root).forEach((node) => {
+    const item = node.closest('[data-special-offers-link]');
+    const url = item?.querySelector('[data-link-field="url"]')?.value || '';
+    node.innerHTML = renderLanguageUrlPreview(url);
+  });
+}
+
+function addFaqItem(lang) {
+  const list = document.querySelector(`[data-faq-list="${lang}"]`);
+  if (!list) return;
+  const dir = SPECIAL_OFFERS_DETAIL_LANGUAGES.find((item) => item.code === lang)?.dir || 'ltr';
+  if (list.querySelector('.special-offers-empty-copy')) list.innerHTML = '';
+  list.insertAdjacentHTML('beforeend', renderFaqEditorItem(lang, {}, list.querySelectorAll('[data-faq-item]').length, dir));
+  refreshBuilderPreviews();
+  validateEditorForm();
+}
+
+function addRuleSection(lang) {
+  const list = document.querySelector(`[data-rules-list="${lang}"]`);
+  if (!list) return;
+  const dir = SPECIAL_OFFERS_DETAIL_LANGUAGES.find((item) => item.code === lang)?.dir || 'ltr';
+  if (list.querySelector('.special-offers-empty-copy')) list.innerHTML = '';
+  list.insertAdjacentHTML('beforeend', renderRuleSection(lang, { title: '', bullets: [] }, list.querySelectorAll('[data-rule-section]').length, dir));
+  refreshBuilderPreviews();
+  validateEditorForm();
+}
+
+function addRuleBullet(button) {
+  const section = button.closest('[data-rule-section]');
+  const list = section?.querySelector('[data-rule-bullets]');
+  if (!list) return;
+  const panel = button.closest('[data-special-offers-editor-lang-panel]');
+  const lang = panel?.getAttribute('data-special-offers-editor-lang-panel') || 'pl';
+  const dir = SPECIAL_OFFERS_DETAIL_LANGUAGES.find((item) => item.code === lang)?.dir || 'ltr';
+  if (list.querySelector('.special-offers-empty-copy')) list.innerHTML = '';
+  list.insertAdjacentHTML('beforeend', renderRuleBullet('', dir));
+  refreshBuilderPreviews();
+  validateEditorForm();
+}
+
 function bindEvents() {
   if (specialOffersState.initialized) return;
   specialOffersState.initialized = true;
@@ -1537,10 +1794,34 @@ function bindEvents() {
       const addLinkButton = target?.closest('[data-special-offers-add-link]');
       const removePrizeButton = target?.closest('[data-special-offers-remove-prize]');
       const removeLinkButton = target?.closest('[data-special-offers-remove-link]');
+      const addFaqButton = target?.closest('[data-special-offers-add-faq]');
+      const removeFaqButton = target?.closest('[data-special-offers-remove-faq]');
+      const addRuleSectionButton = target?.closest('[data-special-offers-add-rule-section]');
+      const removeRuleSectionButton = target?.closest('[data-special-offers-remove-rule-section]');
+      const addRuleBulletButton = target?.closest('[data-special-offers-add-rule-bullet]');
+      const removeRuleBulletButton = target?.closest('[data-special-offers-remove-rule-bullet]');
       if (sectionTab) activateEditorSection(sectionTab);
       if (langTab) activateEditorLanguage(langTab);
       if (addPrizeButton) addEditorPrize();
       if (addLinkButton) addEditorLink();
+      if (addFaqButton) addFaqItem(addFaqButton.getAttribute('data-special-offers-add-faq'));
+      if (removeFaqButton) {
+        removeFaqButton.closest('[data-faq-item]')?.remove();
+        refreshBuilderPreviews();
+        validateEditorForm();
+      }
+      if (addRuleSectionButton) addRuleSection(addRuleSectionButton.getAttribute('data-special-offers-add-rule-section'));
+      if (removeRuleSectionButton) {
+        removeRuleSectionButton.closest('[data-rule-section]')?.remove();
+        refreshBuilderPreviews();
+        validateEditorForm();
+      }
+      if (addRuleBulletButton) addRuleBullet(addRuleBulletButton);
+      if (removeRuleBulletButton) {
+        removeRuleBulletButton.closest('[data-rule-bullet]')?.remove();
+        refreshBuilderPreviews();
+        validateEditorForm();
+      }
       if (removePrizeButton) {
         const id = removePrizeButton.getAttribute('data-special-offers-remove-prize');
         const prize = specialOffersState.editorPrizes.find((item) => item.client_id === id);
@@ -1562,8 +1843,14 @@ function bindEvents() {
         }
       }
     });
-    editorBody.addEventListener('input', () => validateEditorForm());
-    editorBody.addEventListener('change', () => validateEditorForm());
+    editorBody.addEventListener('input', () => {
+      refreshBuilderPreviews(editorBody);
+      validateEditorForm();
+    });
+    editorBody.addEventListener('change', () => {
+      refreshBuilderPreviews(editorBody);
+      validateEditorForm();
+    });
   }
 
   const saveButton = $('#specialOffersEditorSave');

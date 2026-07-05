@@ -2907,6 +2907,22 @@ body[data-admin-panel="true"].admin-sidebar-open {
   overflow-wrap: anywhere;
 }
 
+.special-offer-help {
+  align-items: center;
+  background: rgba(56, 189, 248, 0.16);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 999px;
+  color: #bae6fd;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 900;
+  height: 18px;
+  justify-content: center;
+  margin-left: 4px;
+  vertical-align: middle;
+  width: 18px;
+}
+
 .special-offer-editor-section-head,
 .special-offer-editor-item__header,
 .special-offer-editor-footer {
@@ -2936,6 +2952,79 @@ body[data-admin-panel="true"].admin-sidebar-open {
   display: grid;
   gap: 12px;
   padding: 14px;
+}
+
+.special-offer-builder {
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+.special-offer-builder[dir="rtl"] {
+  direction: rtl;
+  text-align: right;
+}
+
+.special-offer-builder h5 {
+  color: var(--admin-text);
+  font-size: 14px;
+  margin: 0;
+}
+
+.special-offer-builder-list {
+  display: grid;
+  gap: 10px;
+}
+
+.special-offer-builder-list--nested {
+  margin-top: 4px;
+}
+
+.special-offer-builder-item {
+  background: rgba(15, 23, 42, 0.36);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 12px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.special-offer-rule-bullet {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.special-offer-advanced-source {
+  background: rgba(15, 23, 42, 0.34);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.special-offer-advanced-source summary {
+  color: var(--admin-text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.special-offer-advanced-source pre,
+.special-offer-url-preview {
+  background: rgba(2, 6, 23, 0.38);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 8px;
+  color: var(--admin-text-muted);
+  display: grid;
+  font-size: 12px;
+  gap: 4px;
+  margin: 10px 0 0;
+  overflow-wrap: anywhere;
+  padding: 10px;
+  white-space: pre-wrap;
 }
 
 .special-offer-editor-item__header strong {
@@ -3103,6 +3192,10 @@ body[data-admin-panel="true"].admin-sidebar-open {
 
   .special-offer-editor-footer__spacer {
     display: none;
+  }
+
+  .special-offer-rule-bullet {
+    grid-template-columns: 1fr;
   }
 
   .special-offer-workflow-card,
