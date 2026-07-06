@@ -9,6 +9,10 @@ begin
   if to_regprocedure('public.special_offers_set_updated_at()') is null then
     raise exception 'Missing required trigger function public.special_offers_set_updated_at()';
   end if;
+
+  if to_regprocedure('public.is_current_user_admin()') is null then
+    raise exception 'Missing required admin helper public.is_current_user_admin()';
+  end if;
 end;
 $$;
 
@@ -169,6 +173,6 @@ comment on table public.special_offer_link_translations is
 comment on column public.special_offer_link_translations.link_id is
   'Parent special_offer_links row. resource_id remains on the parent row.';
 comment on column public.special_offer_link_translations.url is
-  'Localized URL. Must be an absolute http(s) URL or a relative path starting with /.';
+  'Localized URL. Admin UI should validate absolute http(s) URLs or relative paths starting with /.';
 
 commit;

@@ -7,14 +7,20 @@ begin;
 do $$
 declare
   v_offer_id uuid;
+  v_status text;
+  v_visibility text;
 begin
-  select id
-    into v_offer_id
+  select id, status, visibility
+    into v_offer_id, v_status, v_visibility
   from public.special_offers
   where slug = 'lefkara-giveaway-2026';
 
   if v_offer_id is null then
     raise exception 'Special offer not found: lefkara-giveaway-2026';
+  end if;
+
+  if v_status <> 'draft' or v_visibility <> 'private' then
+    raise exception 'Refusing to seed translations for non-draft/private campaign: status=%, visibility=%', v_status, v_visibility;
   end if;
 
   insert into public.special_offer_prize_translations (

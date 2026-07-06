@@ -6,6 +6,10 @@ select
   to_regprocedure('public.special_offers_set_updated_at()') is not null as pass;
 
 select
+  'required admin helper' as check_name,
+  to_regprocedure('public.is_current_user_admin()') is not null as pass;
+
+select
   'tables exist' as check_name,
   to_regclass('public.special_offer_prize_translations') is not null as prize_translations_table_exists,
   to_regclass('public.special_offer_link_translations') is not null as link_translations_table_exists;

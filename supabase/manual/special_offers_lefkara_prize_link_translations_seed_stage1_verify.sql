@@ -1,6 +1,14 @@
 -- Special Offers 3B.3A Lefkara seed verify draft.
 -- Read-only checks after running the Lefkara prize/link translation seed.
 
+select
+  'campaign exists' as check_name,
+  exists (
+    select 1
+    from public.special_offers
+    where slug = 'lefkara-giveaway-2026'
+  ) as pass;
+
 with lefkara as (
   select id, slug, status, visibility
   from public.special_offers
