@@ -154,6 +154,52 @@ async function prepareAdminSpecialOffersCrudStub(page: Page, options: { selectEr
           { id: 'link-custom-en', link_id: 'link-custom', lang: 'en', label: 'Lefkara Campaign 2026', description: 'Campaign page.', url: '/special-offers/lefkara-giveaway-2026?lang=en' },
           { id: 'link-custom-he', link_id: 'link-custom', lang: 'he', label: 'קמפיין לפקרה 2026', description: 'עמוד הקמפיין.', url: '/special-offers/lefkara-giveaway-2026?lang=he' },
         ]);
+        const formFields = [
+          ['field-first-name', 'first_name', 'text', true, true, 10, {}],
+          ['field-last-name', 'last_name', 'text', true, true, 20, {}],
+          ['field-email', 'email', 'email', true, true, 30, {}],
+          ['field-phone', 'phone', 'phone', true, true, 40, {}],
+          ['field-dob', 'date_of_birth', 'date_of_birth', true, true, 50, { min_age: 18 }],
+          ['field-country', 'country', 'country', true, true, 60, {}],
+          ['field-city', 'city', 'city', false, true, 70, {}],
+          ['field-answer', 'contest_answer', 'contest_answer', true, true, 80, {}],
+          ['field-facebook', 'facebook_profile_url', 'facebook_profile_url', true, true, 90, {}],
+          ['field-shared-post', 'shared_post_url', 'shared_post_url', true, true, 100, {}],
+          ['field-terms', 'terms_accepted', 'consent', true, true, 110, { must_be_true: true }],
+        ].map(([id, field_key, field_type, required, active, sort_order, validation_json]) => ({
+          id,
+          offer_id: offerId,
+          field_key,
+          field_type,
+          required,
+          active,
+          sort_order,
+          validation_json,
+          admin_note: null,
+        }));
+        stub.seedTable('special_offer_form_fields', formFields);
+        const formLabels: Record<string, Record<string, string>> = {
+          first_name: { pl: 'Imię', en: 'First name', he: 'שם פרטי' },
+          last_name: { pl: 'Nazwisko', en: 'Last name', he: 'שם משפחה' },
+          email: { pl: 'E-mail', en: 'Email', he: 'אימייל' },
+          phone: { pl: 'Telefon', en: 'Phone', he: 'טלפון' },
+          date_of_birth: { pl: 'Data urodzenia', en: 'Date of birth', he: 'תאריך לידה' },
+          country: { pl: 'Kraj', en: 'Country', he: 'מדינה' },
+          city: { pl: 'Miasto', en: 'City', he: 'עיר' },
+          contest_answer: { pl: 'Odpowiedź konkursowa', en: 'Contest answer', he: 'תשובת תחרות' },
+          facebook_profile_url: { pl: 'Link do profilu Facebook', en: 'Facebook profile URL', he: 'קישור לפרופיל פייסבוק' },
+          shared_post_url: { pl: 'Link do udostępnionego posta', en: 'Shared post URL', he: 'קישור לפוסט ששיתפתם' },
+          terms_accepted: { pl: 'Akceptuję regulamin kampanii', en: 'I accept the campaign rules', he: 'אני מאשר/ת את כללי הקמפיין' },
+        };
+        stub.seedTable('special_offer_form_field_translations', formFields.flatMap((field: any) => ['pl', 'en', 'he'].map((lang) => ({
+          id: `${field.id}-${lang}`,
+          field_id: field.id,
+          lang,
+          label: formLabels[field.field_key][lang],
+          placeholder: field.field_key === 'email' ? 'name@example.com' : '',
+          help_text: lang === 'pl' ? 'Wypełnij to pole formularza.' : lang === 'en' ? 'Fill in this form field.' : 'יש למלא שדה זה.',
+          options_json: [],
+        }))));
         stub.seedTable('car_offers', [
           { id: 'car-offer-1', car_model: 'Toyota Yaris', car_type: 'compact', location: 'Larnaca', is_available: true },
         ]);
@@ -434,6 +480,93 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     expect(rows.linkTranslations.some((row: any) => row.link_id === savedCustom.id && row.lang === 'en' && row.url === '/manual-en.html')).toBe(true);
   });
 
+  test('manages Special Offers form fields with PL/EN/HE translations, validation, options and preview', async ({ page }) => {
+    page.on('dialog', (dialog) => dialog.accept());
+    await openSpecialOffers(page);
+    await openEditorForLefkara(page);
+    const editor = page.locator('#specialOffersEditorModal');
+
+    await editor.getByRole('button', { name: 'Form' }).click();
+    await expect(editor).toContainText('Configure form fields only');
+    await expect(editor.locator('[data-offer-setting="requires_form"]')).toBeChecked();
+    await expect(editor.locator('[data-special-offers-form-field]')).toHaveCount(11);
+
+    const firstName = editor.locator('[data-special-offers-form-field]').filter({ hasText: 'first_name' });
+    await expect(firstName.locator('[data-form-translation-field="label"][data-lang="pl"]')).toHaveValue('Imię');
+    await firstName.getByRole('button', { name: 'EN', exact: true }).click();
+    await expect(firstName.locator('[data-form-translation-field="label"][data-lang="en"]')).toHaveValue('First name');
+    await firstName.getByRole('button', { name: 'HE', exact: true }).click();
+    await expect(firstName.locator('[data-form-translation-field="label"][data-lang="he"]')).toHaveAttribute('dir', 'rtl');
+    await firstName.locator('[data-form-translation-field="label"][data-lang="he"]').fill('שם פרטי מעודכן');
+
+    const dob = editor.locator('[data-special-offers-form-field]').filter({ hasText: 'date_of_birth' });
+    await expect(dob.locator('[data-form-validation="min_age"]')).toHaveValue('18');
+    await dob.locator('[data-form-validation="min_age"]').fill('21');
+
+    const terms = editor.locator('[data-special-offers-form-field]').filter({ hasText: 'terms_accepted' });
+    await expect(terms.locator('[data-form-validation="must_be_true"]')).toBeChecked();
+
+    const city = editor.locator('[data-special-offers-form-field]').nth(6);
+    await city.getByRole('button', { name: 'Deactivate' }).click();
+    await expect(city.locator('[data-form-field="active"]')).not.toBeChecked();
+
+    await editor.getByRole('button', { name: 'Add field' }).click();
+    const newField = editor.locator('[data-special-offers-form-field]').last();
+    await newField.locator('[data-form-field="field_key"]').fill('favorite_activity');
+    await newField.locator('[data-form-field="field_type"]').selectOption('select');
+    await newField.locator('[data-form-translation-field="label"][data-lang="pl"]').fill('Ulubiona aktywność');
+    await newField.locator('[data-form-translation-field="placeholder"][data-lang="pl"]').fill('Wybierz aktywność');
+    await newField.getByRole('button', { name: 'Add option' }).first().click();
+    const option = newField.locator('[data-form-option]').first();
+    await option.locator('[data-form-option-field="value"]').fill('walking');
+    await option.locator('[data-form-option-field="label"]').fill('Spacer');
+    await expect(newField.locator('[data-form-options-json-preview]').first()).toContainText('walking');
+
+    await editor.getByRole('button', { name: 'Preview form', exact: true }).click();
+    const formPreview = editor.locator('#specialOfferFormPreview');
+    await expect(formPreview).toBeVisible();
+    await expect(formPreview).toContainText('Preview only, public submit is not available yet');
+    await expect(formPreview).toContainText('Ulubiona aktywność');
+    await formPreview.getByRole('button', { name: 'HE' }).click();
+    await expect(formPreview.locator('.special-offer-form-preview-fields')).toHaveAttribute('dir', 'rtl');
+
+    await editor.locator('[data-special-offers-help="form"]').click();
+    const help = page.locator('#specialOffersHelpPopover');
+    await expect(help).toBeVisible();
+    await expect(help).toContainText('Defines the campaign form fields');
+    await expect(help).toContainText('public submit');
+    await help.locator('[data-special-offers-help-close]').last().click();
+
+    await expect(editor.getByRole('button', { name: 'Save draft' })).toBeEnabled();
+    await editor.getByRole('button', { name: 'Save draft' }).click();
+    await expect(editor).toBeHidden();
+
+    const rows = await page.evaluate(() => ({
+      offers: (window as any).__supabaseStub.getTableRows('special_offers'),
+      fields: (window as any).__supabaseStub.getTableRows('special_offer_form_fields'),
+      translations: (window as any).__supabaseStub.getTableRows('special_offer_form_field_translations'),
+      audit: (window as any).__supabaseStub.getTableRows('special_offer_audit_log'),
+      forbidden: [
+        'special_offer_entries',
+        'special_offer_entry_answers',
+        'special_offer_tasks',
+        'special_offer_entry_tasks',
+        'special_offer_draws',
+        'special_offer_draw_entries',
+        'special_offer_winners',
+      ].map((table) => [table, (window as any).__supabaseStub.getTableRows(table).length]),
+    }));
+    expect(rows.offers.find((row: any) => row.id === OFFER_ID).requires_form).toBe(true);
+    expect(rows.fields.find((row: any) => row.id === 'field-city').active).toBe(false);
+    expect(rows.fields.find((row: any) => row.id === 'field-dob').validation_json.min_age).toBe(21);
+    const newSavedField = rows.fields.find((row: any) => row.offer_id === OFFER_ID && row.field_key === 'favorite_activity');
+    expect(newSavedField.field_type).toBe('select');
+    expect(rows.translations.some((row: any) => row.field_id === 'field-first-name' && row.lang === 'he' && row.label === 'שם פרטי מעודכן')).toBe(true);
+    expect(rows.translations.some((row: any) => row.field_id === newSavedField.id && row.lang === 'pl' && row.options_json[0].value === 'walking')).toBe(true);
+    expect(rows.audit.some((row: any) => row.action === 'special_offer.updated' && row.metadata?.form_builder === true)).toBe(true);
+    expect(rows.forbidden.every((entry: any[]) => entry[1] === 0)).toBe(true);
+  });
+
   test('keeps cars picker schema-safe and shows friendly unavailable state on picker failure', async ({ page }) => {
     await prepareAdminSpecialOffersCrudStub(page, {
       selectErrorsByTable: {
@@ -525,7 +658,7 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     await expect(editor.locator('#specialOfferEditorReview')).toContainText('Draft');
     await expect(editor.locator('#specialOfferEditorReview')).toContainText('Visibility');
     await expect(editor.locator('#specialOfferEditorReview')).toContainText('Private');
-    await expect(editor.locator('#specialOfferEditorReview')).not.toContainText('Active');
+    await expect(editor.locator('#specialOfferEditorReview')).not.toContainText('Status Active');
     await expect(editor.locator('#specialOfferEditorReview')).not.toContainText('Public');
   });
 

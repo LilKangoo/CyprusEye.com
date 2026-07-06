@@ -2974,6 +2974,18 @@ button.special-offer-help:focus-visible {
   padding: 14px;
 }
 
+.special-offer-editor-item.is-inactive {
+  border-color: rgba(251, 191, 36, 0.24);
+  opacity: 0.82;
+}
+
+.special-offer-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .special-offer-editor-subsection,
 .special-offer-resource-picker {
   border-top: 1px solid rgba(148, 163, 184, 0.14);
@@ -3238,6 +3250,56 @@ button.special-offer-help:focus-visible {
 .special-offers-preview-cta-list {
   display: flex;
   flex-wrap: wrap;
+  gap: 8px;
+}
+
+.special-offer-form-preview {
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  min-width: 0;
+  padding-top: 14px;
+}
+
+.special-offer-form-preview[hidden] {
+  display: none !important;
+}
+
+.special-offer-form-preview-fields {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.special-offer-form-preview-fields[dir="rtl"],
+.special-offer-form-preview-fields[dir="rtl"] input,
+.special-offer-form-preview-fields[dir="rtl"] textarea,
+.special-offer-form-preview-fields[dir="rtl"] select {
+  direction: rtl;
+  text-align: right;
+}
+
+.special-offer-form-preview-field {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.special-offer-form-preview-field span {
+  color: var(--admin-text);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.special-offer-form-preview-field small {
+  color: var(--admin-text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.special-offer-form-preview-options {
+  display: grid;
   gap: 8px;
 }
 

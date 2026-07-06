@@ -4,6 +4,8 @@ const SPECIAL_OFFERS_PRIZES_SELECT = 'id, offer_id, name, description, sponsor_n
 const SPECIAL_OFFERS_PRIZE_TRANSLATIONS_SELECT = 'id, prize_id, lang, name, description, restrictions, fulfillment_notes';
 const SPECIAL_OFFERS_LINKS_SELECT = 'id, offer_id, link_type, resource_id, url, label, description, is_primary, sort_order';
 const SPECIAL_OFFERS_LINK_TRANSLATIONS_SELECT = 'id, link_id, lang, label, description, url';
+const SPECIAL_OFFERS_FORM_FIELDS_SELECT = 'id, offer_id, field_key, field_type, required, active, sort_order, validation_json, admin_note, created_at, updated_at';
+const SPECIAL_OFFERS_FORM_FIELD_TRANSLATIONS_SELECT = 'id, field_id, lang, label, placeholder, help_text, options_json, created_at, updated_at';
 const SPECIAL_OFFERS_AUDIT_SELECT = 'id, offer_id, actor_id, action, entity_type, entity_id, old_value, new_value, metadata, created_at';
 
 const specialOffersState = {
@@ -14,6 +16,7 @@ const specialOffersState = {
   editingCampaignId: null,
   editorPrizes: [],
   editorLinks: [],
+  editorFormFields: [],
   removedPrizeIds: new Set(),
   removedLinkIds: new Set(),
   resourceOptions: {
@@ -35,6 +38,25 @@ const SPECIAL_OFFERS_DETAIL_LANGUAGES = [
 
 const SPECIAL_OFFERS_TYPES = ['contest', 'giveaway', 'weighted_draw', 'partner_promo', 'coupon_promo', 'landing_only'];
 const SPECIAL_OFFERS_WINNER_MODES = ['manual_selection', 'weighted_draw', 'none'];
+const SPECIAL_OFFERS_FORM_FIELD_TYPES = [
+  'text',
+  'textarea',
+  'email',
+  'phone',
+  'date',
+  'date_of_birth',
+  'country',
+  'city',
+  'url',
+  'select',
+  'checkbox',
+  'checkbox_group',
+  'consent',
+  'contest_answer',
+  'facebook_profile_url',
+  'shared_post_url',
+  'custom',
+];
 const SPECIAL_OFFERS_LINK_TYPES = ['cars', 'trips', 'hotels', 'transport', 'shop', 'coupons', 'vip', 'custom'];
 const SPECIAL_OFFERS_LINK_MODES = ['main', 'resource', 'custom'];
 const SPECIAL_OFFERS_RESOURCE_PICKER_TYPES = ['cars', 'trips', 'hotels', 'transport'];
@@ -135,6 +157,69 @@ const SPECIAL_OFFERS_HELP = {
     use: 'Link type describes the CTA category. Link mode describes how to link: Main service page means a general page, Existing offer/service means one selected DB resource, Custom URL means a manual link.',
     avoid: 'Do not guess resource IDs. Resource ID is only saved when selected by admin. PL/EN/HE labels and URLs are saved in link translations.',
     example: 'Example: Cars main page creates /car.html?lang=pl, /car.html?lang=en and /car.html?lang=he.',
+  },
+  form: {
+    title: 'Form',
+    does: 'Defines the campaign form fields that will be shown later on the public landing.',
+    use: 'Use this to prepare field keys, types, required flags, labels, placeholders, help text, options and validation before public submit exists.',
+    avoid: 'Do not use this to collect entries yet. This stage only saves form configuration and shows admin preview.',
+    example: 'Example: first_name as text, email as email, date_of_birth with min age 18, terms_accepted as consent.',
+  },
+  requiresForm: {
+    title: 'Requires form',
+    does: 'Marks that the campaign needs a configured entry form.',
+    use: 'Keep this enabled when the campaign should eventually collect participant details.',
+    avoid: 'Do not expect this to enable public submit in this stage.',
+    example: 'Lefkara requires a form with name, email, phone, date of birth, contest answer and consent.',
+  },
+  fieldKey: {
+    title: 'Field key',
+    does: 'Stores the technical identifier used for validation and later entry answers.',
+    use: 'Use lowercase letters, numbers and underscores only.',
+    avoid: 'Do not translate field keys and do not use spaces or hyphens.',
+    example: 'first_name, date_of_birth, contest_answer, terms_accepted.',
+  },
+  fieldType: {
+    title: 'Field type',
+    does: 'Controls how the field will render and what validation is expected later.',
+    use: 'Choose the closest type: email for email, phone for country-code phone, consent for required terms, select for one choice.',
+    avoid: 'Do not create a custom type when an existing type fits.',
+    example: 'Use date_of_birth with min age 18 for adult-only campaigns.',
+  },
+  fieldRequired: {
+    title: 'Required',
+    does: 'Marks the field as mandatory for future public submit validation.',
+    use: 'Enable it for identity, contact, contest proof and consent fields.',
+    avoid: 'Do not mark optional admin-only notes as required.',
+    example: 'Email and terms_accepted should be required.',
+  },
+  fieldActive: {
+    title: 'Active',
+    does: 'Controls whether the field is part of the active form configuration.',
+    use: 'Disable a field instead of deleting it when you may need history later.',
+    avoid: 'Do not deactivate required legal consent unless the campaign no longer needs a form.',
+    example: 'Deactivate an old optional city field while keeping its configuration.',
+  },
+  fieldValidation: {
+    title: 'Validation',
+    does: 'Stores field-specific validation settings in a structured way.',
+    use: 'Use min age for date of birth, must be true for consent, and min/max length for text fields.',
+    avoid: 'Do not edit advanced JSON unless the normal controls cannot express the setting.',
+    example: 'date_of_birth min_age = 18; terms_accepted must_be_true = true.',
+  },
+  fieldOptions: {
+    title: 'Options',
+    does: 'Defines localized choices for select and checkbox group fields.',
+    use: 'Add one value per option and translate its label in PL, EN and HE.',
+    avoid: 'Do not use options for normal text, email, phone or URL fields.',
+    example: 'value=family, PL label=Rodzina, EN label=Family, HE label=משפחה.',
+  },
+  formPreview: {
+    title: 'Preview form',
+    does: 'Shows how the current form configuration will look per language.',
+    use: 'Use it before saving to check labels, placeholders, help text, required markers and RTL layout.',
+    avoid: 'Do not treat the preview button as a public submit.',
+    example: 'Switch to HE preview to verify right-to-left field layout.',
   },
   rules: {
     title: 'Rules/settings',
@@ -302,6 +387,10 @@ function getLinkTranslation(link, lang) {
   return getLocalizedRow(link?.translations, lang) || { lang };
 }
 
+function getFormFieldTranslation(field, lang) {
+  return getLocalizedRow(field?.translations, lang) || { lang, options_json: [] };
+}
+
 function appendLangParam(url, lang) {
   const source = String(url || '').trim();
   if (!source) return '';
@@ -329,6 +418,27 @@ function inferLinkMode(link) {
 
 function isValidUrlForStage(url) {
   return /^(\/|https?:\/\/)/i.test(String(url || '').trim());
+}
+
+function isValidFormFieldKey(value) {
+  return /^[a-z0-9_]+$/.test(String(value || '').trim());
+}
+
+function normalizeFormOptions(value) {
+  return toArray(value)
+    .map((option) => ({
+      value: String(option?.value || '').trim(),
+      label: String(option?.label || '').trim(),
+    }))
+    .filter((option) => option.value || option.label);
+}
+
+function isOptionFieldType(fieldType) {
+  return ['select', 'checkbox_group'].includes(String(fieldType || ''));
+}
+
+function isTextValidationFieldType(fieldType) {
+  return ['text', 'textarea', 'contest_answer', 'facebook_profile_url', 'shared_post_url', 'url', 'custom'].includes(String(fieldType || ''));
 }
 
 function isResourcePickerEnabled(linkType) {
@@ -471,7 +581,7 @@ function renderCampaigns(campaigns) {
   }
 }
 
-function normalizeCampaigns(offers, translationsByOffer, prizesByOffer, linksByOffer, prizeTranslationsByPrize = {}, linkTranslationsByLink = {}) {
+function normalizeCampaigns(offers, translationsByOffer, prizesByOffer, linksByOffer, prizeTranslationsByPrize = {}, linkTranslationsByLink = {}, formFieldsByOffer = {}, formFieldTranslationsByField = {}) {
   return toArray(offers).map((offer) => ({
     ...offer,
     translations: toArray(translationsByOffer[offer.id]),
@@ -486,6 +596,13 @@ function normalizeCampaigns(offers, translationsByOffer, prizesByOffer, linksByO
         ...link,
         mode: inferLinkMode(link),
         translations: toArray(linkTranslationsByLink[link.id]),
+      }))
+      .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0)),
+    form_fields: toArray(formFieldsByOffer[offer.id])
+      .map((field) => ({
+        ...field,
+        validation_json: cloneJson(field.validation_json, {}),
+        translations: toArray(formFieldTranslationsByField[field.id]),
       }))
       .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0)),
     audit_log: [],
@@ -510,7 +627,7 @@ async function loadSpecialOffersReadOnly() {
     return [];
   }
 
-  const [translationsResult, prizesResult, linksResult, auditResult] = await Promise.all([
+  const [translationsResult, prizesResult, linksResult, formFieldsResult, auditResult] = await Promise.all([
     client
       .from('special_offer_translations')
       .select(SPECIAL_OFFERS_TRANSLATIONS_SELECT)
@@ -524,6 +641,10 @@ async function loadSpecialOffersReadOnly() {
       .select(SPECIAL_OFFERS_LINKS_SELECT)
       .in('offer_id', offerIds),
     client
+      .from('special_offer_form_fields')
+      .select(SPECIAL_OFFERS_FORM_FIELDS_SELECT)
+      .in('offer_id', offerIds),
+    client
       .from('special_offer_audit_log')
       .select(SPECIAL_OFFERS_AUDIT_SELECT)
       .in('offer_id', offerIds)
@@ -533,11 +654,13 @@ async function loadSpecialOffersReadOnly() {
   if (translationsResult.error) throw translationsResult.error;
   if (prizesResult.error) throw prizesResult.error;
   if (linksResult.error) throw linksResult.error;
+  if (formFieldsResult.error) throw formFieldsResult.error;
   if (auditResult.error) throw auditResult.error;
 
   const prizeIds = toArray(prizesResult.data).map((prize) => prize.id).filter(Boolean);
   const linkIds = toArray(linksResult.data).map((link) => link.id).filter(Boolean);
-  const [prizeTranslationsResult, linkTranslationsResult] = await Promise.all([
+  const formFieldIds = toArray(formFieldsResult.data).map((field) => field.id).filter(Boolean);
+  const [prizeTranslationsResult, linkTranslationsResult, formFieldTranslationsResult] = await Promise.all([
     prizeIds.length
       ? client
         .from('special_offer_prize_translations')
@@ -550,10 +673,17 @@ async function loadSpecialOffersReadOnly() {
         .select(SPECIAL_OFFERS_LINK_TRANSLATIONS_SELECT)
         .in('link_id', linkIds)
       : Promise.resolve({ data: [], error: null }),
+    formFieldIds.length
+      ? client
+        .from('special_offer_form_field_translations')
+        .select(SPECIAL_OFFERS_FORM_FIELD_TRANSLATIONS_SELECT)
+        .in('field_id', formFieldIds)
+      : Promise.resolve({ data: [], error: null }),
   ]);
 
   if (prizeTranslationsResult.error) throw prizeTranslationsResult.error;
   if (linkTranslationsResult.error) throw linkTranslationsResult.error;
+  if (formFieldTranslationsResult.error) throw formFieldTranslationsResult.error;
 
   const campaigns = normalizeCampaigns(
     offers,
@@ -562,6 +692,8 @@ async function loadSpecialOffersReadOnly() {
     groupByOfferId(linksResult.data),
     groupByParentId(prizeTranslationsResult.data, 'prize_id'),
     groupByParentId(linkTranslationsResult.data, 'link_id'),
+    groupByOfferId(formFieldsResult.data),
+    groupByParentId(formFieldTranslationsResult.data, 'field_id'),
   );
   const auditByOffer = groupByOfferId(auditResult.data);
   return campaigns.map((campaign) => ({
@@ -640,6 +772,7 @@ function buildCampaignSnapshot(campaign) {
     translations: toArray(campaign.translations).map((item) => ({ lang: item.lang, title: item.title || '' })),
     prizes_count: toArray(campaign.prizes).length,
     links_count: toArray(campaign.links).length,
+    form_fields_count: toArray(campaign.form_fields).length,
   };
 }
 
@@ -1397,6 +1530,172 @@ function renderLinkEditorList() {
   `).join('');
 }
 
+function renderFormFieldEditorList() {
+  const host = $('#specialOfferEditorFormFields');
+  if (!host) return;
+  if (!specialOffersState.editorFormFields.length) {
+    host.innerHTML = '<p class="special-offers-empty-copy">No form fields yet.</p>';
+    return;
+  }
+  const fields = [...specialOffersState.editorFormFields]
+    .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
+  host.innerHTML = fields.map((field, index) => renderFormFieldEditor(field, index)).join('');
+}
+
+function renderFormFieldEditor(field, index) {
+  const isInactive = field.active === false;
+  return `
+    <article class="special-offer-editor-item${isInactive ? ' is-inactive' : ''}" data-special-offers-form-field="${escapeHtml(field.client_id)}">
+      <div class="special-offer-editor-item__header">
+        <strong>Field ${index + 1}: ${escapeHtml(field.field_key || 'new_field')}</strong>
+        <div class="special-offer-editor-actions">
+          <button class="btn-secondary btn-small" type="button" data-special-offers-duplicate-form-field="${escapeHtml(field.client_id)}">Duplicate</button>
+          <button class="btn-secondary btn-small" type="button" data-special-offers-remove-form-field="${escapeHtml(field.client_id)}">${field.id ? 'Deactivate' : 'Remove'}</button>
+        </div>
+      </div>
+      ${isInactive ? '<p class="special-offer-editor-warning">This field is inactive and will not be shown in the future public form.</p>' : ''}
+      <div class="special-offer-editor-grid">
+        <label>Field key * ${renderHelp('fieldKey')}
+          <input data-form-field="field_key" value="${escapeHtml(field.field_key || '')}" placeholder="first_name" />
+        </label>
+        <label>Field type * ${renderHelp('fieldType')}
+          <select data-form-field="field_type">
+            ${renderOptionList(SPECIAL_OFFERS_FORM_FIELD_TYPES, field.field_type || 'text')}
+          </select>
+        </label>
+        <label>Sort order
+          <input data-form-field="sort_order" type="number" step="1" value="${escapeHtml(field.sort_order ?? index)}" />
+        </label>
+        <label class="special-offer-editor-check">
+          <input data-form-field="required" type="checkbox" ${field.required ? 'checked' : ''} />
+          Required ${renderHelp('fieldRequired')}
+        </label>
+        <label class="special-offer-editor-check">
+          <input data-form-field="active" type="checkbox" ${field.active === false ? '' : 'checked'} />
+          Active ${renderHelp('fieldActive')}
+        </label>
+        <label class="special-offer-editor-field--wide">Admin note
+          <textarea data-form-field="admin_note" rows="2">${escapeHtml(field.admin_note || '')}</textarea>
+        </label>
+      </div>
+      ${renderValidationBuilder(field)}
+      <div class="special-offer-editor-subsection">
+        <h5>Field translations PL / EN / HE</h5>
+        ${renderFormFieldTranslationEditor(field)}
+      </div>
+    </article>
+  `;
+}
+
+function renderValidationBuilder(field) {
+  const validation = cloneJson(field.validation_json, {});
+  const type = String(field.field_type || 'text');
+  return `
+    <div class="special-offer-editor-subsection" data-form-validation-builder>
+      <h5>Validation ${renderHelp('fieldValidation')}</h5>
+      <div class="special-offer-editor-grid">
+        ${type === 'date_of_birth' ? `
+          <label>Minimum age
+            <input data-form-validation="min_age" type="number" min="0" step="1" value="${escapeHtml(validation.min_age ?? 18)}" />
+          </label>
+        ` : ''}
+        ${type === 'consent' || type === 'checkbox' ? `
+          <label class="special-offer-editor-check">
+            <input data-form-validation="must_be_true" type="checkbox" ${validation.must_be_true === false ? '' : 'checked'} />
+            Must be true
+          </label>
+        ` : ''}
+        ${isTextValidationFieldType(type) ? `
+          <label>Minimum length
+            <input data-form-validation="min_length" type="number" min="0" step="1" value="${escapeHtml(validation.min_length ?? '')}" />
+          </label>
+          <label>Maximum length
+            <input data-form-validation="max_length" type="number" min="0" step="1" value="${escapeHtml(validation.max_length ?? '')}" />
+          </label>
+        ` : ''}
+        ${type === 'email' ? '<p class="special-offer-editor-muted special-offer-editor-field--wide">Email format validation will be enforced during the public submit stage.</p>' : ''}
+        ${type === 'phone' ? '<p class="special-offer-editor-muted special-offer-editor-field--wide">The public submit stage should use the existing phone-input helper with country code support.</p>' : ''}
+        ${['url', 'facebook_profile_url', 'shared_post_url'].includes(type) ? '<p class="special-offer-editor-muted special-offer-editor-field--wide">URL validation will be enforced during the public submit stage.</p>' : ''}
+        <details class="special-offer-advanced-source special-offer-editor-field--wide">
+          <summary>Advanced validation JSON preview</summary>
+          <p class="special-offer-editor-muted">Only edit this if the normal validation controls are not enough.</p>
+          <textarea data-form-validation-json rows="4">${escapeHtml(JSON.stringify(validation, null, 2))}</textarea>
+        </details>
+      </div>
+    </div>
+  `;
+}
+
+function renderFormFieldTranslationEditor(field) {
+  return renderEditorSubTabs(field.client_id, 'form', (language, isActive) => {
+    const translation = getFormFieldTranslation(field, language.code);
+    const options = normalizeFormOptions(translation.options_json);
+    return `
+      <section
+        class="special-offer-editor-lang-panel"
+        data-special-offers-nested-lang-panel="form:${escapeHtml(field.client_id)}:${escapeHtml(language.code)}"
+        dir="${escapeHtml(language.dir)}"
+        ${isActive ? '' : 'hidden'}
+      >
+        <div class="special-offer-editor-grid">
+          <label>Label
+            <input data-form-translation-field="label" data-lang="${escapeHtml(language.code)}" value="${escapeHtml(translation.label || '')}" dir="${escapeHtml(language.dir)}" />
+          </label>
+          <label>Placeholder
+            <input data-form-translation-field="placeholder" data-lang="${escapeHtml(language.code)}" value="${escapeHtml(translation.placeholder || '')}" dir="${escapeHtml(language.dir)}" />
+          </label>
+          <label class="special-offer-editor-field--wide">Help text
+            <textarea data-form-translation-field="help_text" data-lang="${escapeHtml(language.code)}" rows="2" dir="${escapeHtml(language.dir)}">${escapeHtml(translation.help_text || '')}</textarea>
+          </label>
+        </div>
+        ${renderOptionsBuilder(field, language, options)}
+      </section>
+    `;
+  });
+}
+
+function renderOptionsBuilder(field, language, options) {
+  const type = String(field.field_type || '');
+  const hint = isOptionFieldType(type)
+    ? 'Options are saved for this field type.'
+    : 'Options are only used by select and checkbox group fields.';
+  return `
+    <div class="special-offer-builder" data-form-options-builder="${escapeHtml(field.client_id)}:${escapeHtml(language.code)}" dir="${escapeHtml(language.dir)}">
+      <div class="special-offer-editor-section-head">
+        <h5>Options ${renderHelp('fieldOptions')}</h5>
+        <button class="btn-secondary btn-small" type="button" data-special-offers-add-form-option="${escapeHtml(field.client_id)}:${escapeHtml(language.code)}">Add option</button>
+      </div>
+      <p class="special-offer-editor-muted">${escapeHtml(hint)}</p>
+      <div class="special-offer-builder-list" data-form-options-list="${escapeHtml(field.client_id)}:${escapeHtml(language.code)}">
+        ${options.length ? options.map((option, index) => renderOptionEditorItem(option, index, language.dir)).join('') : '<p class="special-offers-empty-copy">No options yet</p>'}
+      </div>
+      <details class="special-offer-advanced-source">
+        <summary>Advanced options JSON preview</summary>
+        <pre data-form-options-json-preview="${escapeHtml(field.client_id)}:${escapeHtml(language.code)}">${escapeHtml(JSON.stringify(options, null, 2))}</pre>
+      </details>
+    </div>
+  `;
+}
+
+function renderOptionEditorItem(option = {}, index = 0, dir = 'ltr') {
+  return `
+    <article class="special-offer-builder-item" data-form-option>
+      <div class="special-offer-editor-item__header">
+        <strong>Option ${index + 1}</strong>
+        <button class="btn-secondary btn-small" type="button" data-special-offers-remove-form-option>Remove option</button>
+      </div>
+      <div class="special-offer-editor-grid">
+        <label>Value
+          <input data-form-option-field="value" value="${escapeHtml(option.value || '')}" dir="ltr" />
+        </label>
+        <label>Label
+          <input data-form-option-field="label" value="${escapeHtml(option.label || '')}" dir="${escapeHtml(dir)}" />
+        </label>
+      </div>
+    </article>
+  `;
+}
+
 function renderEditorSubTabs(parentId, type, rowsRenderer) {
   return `
     <div class="special-offers-translation-tabs special-offers-translation-tabs--compact" role="tablist">
@@ -1661,6 +1960,7 @@ function renderEditorForm(campaign = null) {
           ['content', 'Content PL / EN / HE'],
           ['prize', 'Prize'],
           ['links', 'Linked services'],
+          ['form', 'Form'],
           ['rules', 'Rules/settings'],
           ['review', 'Review & save'],
         ].map(([key, label], index) => `
@@ -1741,6 +2041,23 @@ function renderEditorForm(campaign = null) {
           </div>
           <p class="special-offer-editor-muted">Main service page uses general service URLs. Existing offer saves resource_id only after admin selection. Custom URL is manual per language.</p>
           <div class="special-offer-editor-list" id="specialOfferEditorLinks"></div>
+        </section>
+        <section class="special-offer-editor-section" data-special-offers-editor-panel="form" hidden>
+          <div class="special-offer-editor-section-head">
+            <h4>Form ${renderHelp('form')}</h4>
+            <button class="btn-secondary btn-small" type="button" data-special-offers-add-form-field>Add field</button>
+          </div>
+          <p class="special-offer-editor-muted">Configure form fields only. Public submit is not available in this stage.</p>
+          <div class="special-offer-editor-grid">
+            <label class="special-offer-editor-check">
+              <input data-offer-setting="requires_form" type="checkbox" ${defaults.requires_form ? 'checked' : ''} />
+              Requires form ${renderHelp('requiresForm')}
+            </label>
+            <button class="btn-secondary btn-small" type="button" data-special-offers-preview-form>Preview form</button>
+            <span class="special-offer-field-hint">${renderHelp('formPreview')} Preview is admin-only and submit stays disabled.</span>
+          </div>
+          <div class="special-offer-editor-list" id="specialOfferEditorFormFields"></div>
+          <div class="special-offer-form-preview" id="specialOfferFormPreview" hidden></div>
         </section>
         <section class="special-offer-editor-section" data-special-offers-editor-panel="rules" hidden>
           <p class="special-offer-editor-muted">${renderHelp('rules')} Configure operational campaign rules. Public launch is not available.</p>
@@ -1828,6 +2145,72 @@ function syncEditorCollectionsFromDom() {
       .map((language) => translationsByLang[language.code] || getLinkTranslation(link, language.code))
       .filter(Boolean);
   });
+
+  $$('#specialOfferEditorFormFields [data-special-offers-form-field]').forEach((node) => {
+    const id = node.getAttribute('data-special-offers-form-field');
+    const field = specialOffersState.editorFormFields.find((item) => item.client_id === id);
+    if (!field) return;
+    $$('[data-form-field]', node).forEach((input) => {
+      const key = input.getAttribute('data-form-field');
+      if (!key) return;
+      field[key] = input.type === 'checkbox' ? input.checked : input.value;
+    });
+    field.validation_json = collectFormFieldValidation(node, field.field_type);
+    const translationsByLang = {};
+    $$('[data-form-translation-field]', node).forEach((input) => {
+      const lang = input.getAttribute('data-lang');
+      const key = input.getAttribute('data-form-translation-field');
+      if (!lang || !key) return;
+      if (!translationsByLang[lang]) translationsByLang[lang] = { lang };
+      translationsByLang[lang][key] = input.value;
+    });
+    SPECIAL_OFFERS_DETAIL_LANGUAGES.forEach((language) => {
+      const key = `${field.client_id}:${language.code}`;
+      const options = collectFormOptions(key);
+      if (!translationsByLang[language.code]) translationsByLang[language.code] = { lang: language.code };
+      translationsByLang[language.code].options_json = options;
+    });
+    field.translations = SPECIAL_OFFERS_DETAIL_LANGUAGES
+      .map((language) => translationsByLang[language.code] || getFormFieldTranslation(field, language.code))
+      .filter(Boolean);
+  });
+}
+
+function collectFormFieldValidation(node, fieldType) {
+  let validation = {};
+  const rawJson = node.querySelector('[data-form-validation-json]')?.value;
+  validation = parseEditorJson(rawJson || '{}', {}, 'object');
+  const type = String(fieldType || '');
+  const minAge = node.querySelector('[data-form-validation="min_age"]')?.value;
+  if (type === 'date_of_birth' && String(minAge || '').trim()) {
+    validation.min_age = Number(minAge);
+  } else {
+    delete validation.min_age;
+  }
+  const mustBeTrue = node.querySelector('[data-form-validation="must_be_true"]');
+  if (type === 'consent' || type === 'checkbox') {
+    validation.must_be_true = Boolean(mustBeTrue?.checked);
+  } else {
+    delete validation.must_be_true;
+  }
+  const minLength = node.querySelector('[data-form-validation="min_length"]')?.value;
+  const maxLength = node.querySelector('[data-form-validation="max_length"]')?.value;
+  if (isTextValidationFieldType(type) && String(minLength || '').trim()) validation.min_length = Number(minLength);
+  else delete validation.min_length;
+  if (isTextValidationFieldType(type) && String(maxLength || '').trim()) validation.max_length = Number(maxLength);
+  else delete validation.max_length;
+  return validation;
+}
+
+function collectFormOptions(key) {
+  const list = document.querySelector(`[data-form-options-list="${key}"]`);
+  if (!list) return [];
+  return $$('[data-form-option]', list)
+    .map((node) => ({
+      value: String(node.querySelector('[data-form-option-field="value"]')?.value || '').trim(),
+      label: String(node.querySelector('[data-form-option-field="label"]')?.value || '').trim(),
+    }))
+    .filter((option) => option.value || option.label);
 }
 
 function addEditorPrize(prize = {}) {
@@ -1869,6 +2252,41 @@ function addEditorLink(link = {}) {
   validateEditorForm();
 }
 
+function addEditorFormField(field = {}) {
+  syncEditorCollectionsFromDom();
+  const index = specialOffersState.editorFormFields.length;
+  specialOffersState.editorFormFields.push({
+    client_id: field.client_id || field.id || getTempId('form-field'),
+    id: field.id || null,
+    offer_id: field.offer_id || null,
+    field_key: field.field_key || `custom_field_${index + 1}`,
+    field_type: field.field_type || 'text',
+    required: Boolean(field.required),
+    active: field.active !== false,
+    sort_order: Number(field.sort_order ?? index * 10),
+    validation_json: cloneJson(field.validation_json, {}),
+    admin_note: field.admin_note || '',
+    translations: toArray(field.translations),
+  });
+  renderFormFieldEditorList();
+  validateEditorForm();
+}
+
+function duplicateEditorFormField(clientId) {
+  syncEditorCollectionsFromDom();
+  const source = specialOffersState.editorFormFields.find((item) => item.client_id === clientId);
+  if (!source) return;
+  const nextIndex = specialOffersState.editorFormFields.length + 1;
+  addEditorFormField({
+    ...cloneJson(source, {}),
+    id: null,
+    client_id: getTempId('form-field'),
+    field_key: `${String(source.field_key || 'custom_field').replace(/_copy_\d+$/, '')}_copy_${nextIndex}`,
+    sort_order: Number(source.sort_order || 0) + 1,
+    translations: toArray(source.translations).map((translation) => ({ ...translation, id: null })),
+  });
+}
+
 function initializeEditorCollections(campaign) {
   specialOffersState.editorPrizes = toArray(campaign?.prizes).map((prize) => ({
     ...prize,
@@ -1882,6 +2300,16 @@ function initializeEditorCollections(campaign) {
     mode: link.mode || inferLinkMode(link),
     resource_id: link.resource_id || null,
     translations: toArray(link.translations),
+  }));
+  specialOffersState.editorFormFields = toArray(campaign?.form_fields).map((field) => ({
+    ...field,
+    client_id: field.id || getTempId('form-field'),
+    active: field.active !== false,
+    validation_json: cloneJson(field.validation_json, {}),
+    translations: toArray(field.translations).map((translation) => ({
+      ...translation,
+      options_json: normalizeFormOptions(translation.options_json),
+    })),
   }));
   specialOffersState.removedPrizeIds = new Set();
   specialOffersState.removedLinkIds = new Set();
@@ -1913,6 +2341,7 @@ async function openCampaignEditor(mode, campaignId = null) {
   body.innerHTML = renderEditorForm(campaign);
   renderPrizeEditorList();
   renderLinkEditorList();
+  renderFormFieldEditorList();
   setEditorMessage('');
   updateEditorReview();
   validateEditorForm();
@@ -1953,7 +2382,7 @@ function activateEditorLanguage(button) {
 
 function activateNestedLanguage(button) {
   const descriptor = button.getAttribute('data-special-offers-nested-lang-tab');
-  const root = button.closest('[data-special-offers-prize], [data-special-offers-link]');
+  const root = button.closest('[data-special-offers-prize], [data-special-offers-link], [data-special-offers-form-field]');
   if (!descriptor || !root) return;
   const [type, parentId, lang] = descriptor.split(':');
   $$('[data-special-offers-nested-lang-tab]', root).forEach((tab) => {
@@ -1998,6 +2427,12 @@ function getEditorFieldValue(form, name) {
 
 function getEditorFieldChecked(form, name) {
   return Boolean(form.elements[name]?.checked);
+}
+
+function getEditorRequiresFormChecked(form) {
+  const formTabInput = form.querySelector('[data-offer-setting="requires_form"]');
+  if (formTabInput) return Boolean(formTabInput.checked);
+  return getEditorFieldChecked(form, 'requires_form');
 }
 
 function parseEditorJson(value, fallback, expectedType) {
@@ -2070,7 +2505,7 @@ function collectEditorPayload() {
     winner_announce_at: winnerAnnounceAt,
     timezone: getEditorFieldValue(form, 'timezone') || 'Asia/Nicosia',
     requires_login: getEditorFieldChecked(form, 'requires_login'),
-    requires_form: getEditorFieldChecked(form, 'requires_form'),
+    requires_form: getEditorRequiresFormChecked(form),
     requires_manual_approval: getEditorFieldChecked(form, 'requires_manual_approval'),
     allow_multiple_entries: getEditorFieldChecked(form, 'allow_multiple_entries'),
     max_entries_per_user: Number(getEditorFieldValue(form, 'max_entries_per_user') || 1),
@@ -2155,7 +2590,37 @@ function collectEditorPayload() {
     };
   });
 
-  return { offer, translations, prizes, links };
+  const formFields = specialOffersState.editorFormFields.map((field, index) => {
+    const translations = SPECIAL_OFFERS_DETAIL_LANGUAGES.map((language) => {
+      const row = getFormFieldTranslation(field, language.code);
+      const translation = {
+        lang: language.code,
+        label: String(row.label || '').trim(),
+        placeholder: String(row.placeholder || '').trim() || null,
+        help_text: String(row.help_text || '').trim() || null,
+        options_json: normalizeFormOptions(row.options_json),
+      };
+      const hasData = translation.label
+        || translation.placeholder
+        || translation.help_text
+        || translation.options_json.length;
+      return hasData ? translation : null;
+    }).filter(Boolean);
+    return {
+      client_id: field.client_id,
+      id: field.id || null,
+      field_key: String(field.field_key || '').trim().toLowerCase(),
+      field_type: String(field.field_type || '').trim(),
+      required: Boolean(field.required),
+      active: field.active !== false,
+      sort_order: Number(field.sort_order ?? index),
+      validation_json: cloneJson(field.validation_json, {}),
+      admin_note: String(field.admin_note || '').trim() || null,
+      translations,
+    };
+  });
+
+  return { offer, translations, prizes, links, formFields };
 }
 
 function validateEditorPayload(payload) {
@@ -2213,6 +2678,46 @@ function validateEditorPayload(payload) {
     if (link.url && !isValidUrlForStage(link.url)) errors.push(`Linked services: link ${index + 1} fallback URL must be relative or http(s).`);
   });
   if (payload.links.filter((link) => link.is_primary).length > 1) errors.push('Linked services: only one primary CTA is allowed.');
+  const seenFieldKeys = new Set();
+  payload.formFields.forEach((field, index) => {
+    const label = `Form: field ${index + 1}`;
+    if (!field.field_key) errors.push(`${label} field_key is required.`);
+    if (field.field_key && !isValidFormFieldKey(field.field_key)) errors.push(`${label} field_key must use lowercase a-z, 0-9 and underscore only.`);
+    if (seenFieldKeys.has(field.field_key)) errors.push(`${label} field_key must be unique per campaign.`);
+    if (field.field_key) seenFieldKeys.add(field.field_key);
+    if (!SPECIAL_OFFERS_FORM_FIELD_TYPES.includes(field.field_type)) errors.push(`${label} field_type is not supported by the database CHECK constraint.`);
+    if (!Number.isFinite(field.sort_order)) errors.push(`${label} sort order must be a number.`);
+    if (field.validation_json && (Array.isArray(field.validation_json) || typeof field.validation_json !== 'object')) errors.push(`${label} validation JSON must be an object.`);
+    if (field.field_type === 'date_of_birth' && field.validation_json.min_age !== undefined && Number(field.validation_json.min_age) < 0) {
+      errors.push(`${label} minimum age must be zero or greater.`);
+    }
+    if (field.validation_json.min_length !== undefined && Number(field.validation_json.min_length) < 0) errors.push(`${label} minimum length must be zero or greater.`);
+    if (field.validation_json.max_length !== undefined && Number(field.validation_json.max_length) < 0) errors.push(`${label} maximum length must be zero or greater.`);
+    if (
+      field.validation_json.min_length !== undefined
+      && field.validation_json.max_length !== undefined
+      && Number(field.validation_json.max_length) < Number(field.validation_json.min_length)
+    ) {
+      errors.push(`${label} maximum length cannot be smaller than minimum length.`);
+    }
+    const plField = field.translations.find((item) => item.lang === 'pl');
+    if (field.active && !plField?.label) errors.push(`${label} PL label is required for active fields.`);
+    field.translations.forEach((translation) => {
+      const hasAny = translation.label || translation.placeholder || translation.help_text || toArray(translation.options_json).length;
+      if (hasAny && !translation.label) errors.push(`Form ${getLanguageLabel(translation.lang)}: ${field.field_key || `field ${index + 1}`} label is required when translation data exists.`);
+      if (isOptionFieldType(field.field_type)) {
+        toArray(translation.options_json).forEach((option, optionIndex) => {
+          if (!option.value || !option.label) {
+            errors.push(`Form ${getLanguageLabel(translation.lang)}: ${field.field_key || `field ${index + 1}`} option ${optionIndex + 1} needs both value and label.`);
+          }
+        });
+      }
+    });
+    if (isOptionFieldType(field.field_type)) {
+      const plOptions = toArray(plField?.options_json);
+      if (field.active && !plOptions.length) errors.push(`${label} needs at least one PL option for ${field.field_type}.`);
+    }
+  });
   return errors;
 }
 
@@ -2233,6 +2738,14 @@ function collectEditorWarnings(payload) {
       .filter((language) => !link.translations.find((item) => item.lang === language.code && item.label && item.url))
       .map((language) => language.label);
     if (missing.length) warnings.push(`Linked services: link ${index + 1} is missing ${missing.join('/')} label or URL.`);
+  });
+  payload.formFields.forEach((field) => {
+    if (!field.active) return;
+    ['en', 'he'].forEach((lang) => {
+      if (!field.translations.find((item) => item.lang === lang && item.label)) {
+        warnings.push(`Form ${getLanguageLabel(lang)}: ${field.field_key} label is missing.`);
+      }
+    });
   });
   return warnings;
 }
@@ -2279,6 +2792,9 @@ function updateEditorReview(errors = [], warnings = []) {
         ['Prize translations', payload.prizes.reduce((sum, prize) => sum + prize.translations.length, 0)],
         ['Links', payload.links.length],
         ['Link translations', payload.links.reduce((sum, link) => sum + link.translations.length, 0)],
+        ['Form fields', payload.formFields.length],
+        ['Active form fields', payload.formFields.filter((field) => field.active).length],
+        ['Form field translations', payload.formFields.reduce((sum, field) => sum + field.translations.length, 0)],
         ['Primary CTA coverage', payload.links.find((link) => link.is_primary)?.translations.map((item) => item.lang.toUpperCase()).join(', ') || 'No primary CTA'],
       ])}
     </div>
@@ -2313,8 +2829,9 @@ async function insertSpecialOfferAudit(client, action, offerId, oldValue, newVal
     new_value: newValue || null,
     metadata: {
       source: 'admin_special_offers_crud',
-      stage: '3B.3B',
+      stage: '3C.2',
       localized_prize_links: true,
+      form_builder: true,
       is_client_side_audit: true,
     },
   });
@@ -2352,6 +2869,40 @@ async function saveLinkTranslations(client, linkId, translations) {
       { onConflict: 'link_id,lang' },
     );
     assertSupabaseResult(result, 'Failed to save link translation.');
+  }
+}
+
+async function saveFormFieldTranslations(client, fieldId, translations) {
+  for (const translation of toArray(translations)) {
+    const hasData = ['label', 'placeholder', 'help_text'].some((key) => String(translation[key] || '').trim())
+      || toArray(translation.options_json).length > 0;
+    if (!hasData) continue;
+    const result = await client.from('special_offer_form_field_translations').upsert(
+      { ...translation, field_id: fieldId },
+      { onConflict: 'field_id,lang' },
+    );
+    assertSupabaseResult(result, 'Failed to save form field translation.');
+  }
+}
+
+async function saveFormFields(client, offerId, formFields) {
+  for (const field of formFields) {
+    const { translations, client_id: _clientId, ...fieldData } = field;
+    const payload = { ...fieldData, offer_id: offerId };
+    let fieldId = payload.id;
+    if (payload.id) {
+      delete payload.id;
+      assertSupabaseResult(await client.from('special_offer_form_fields').update(payload).eq('id', fieldId), 'Failed to update form field.');
+    } else {
+      delete payload.id;
+      const inserted = assertSupabaseResult(
+        await client.from('special_offer_form_fields').insert(payload).select(SPECIAL_OFFERS_FORM_FIELDS_SELECT).single(),
+        'Failed to insert form field.',
+      );
+      fieldId = inserted?.id;
+    }
+    if (!fieldId) throw new Error('Failed to resolve saved form field ID.');
+    await saveFormFieldTranslations(client, fieldId, translations);
   }
 }
 
@@ -2445,6 +2996,7 @@ async function saveCampaignFromEditor() {
     await saveTranslations(client, offerId, payload.translations);
     await savePrizes(client, offerId, payload.prizes);
     await saveLinks(client, offerId, payload.links);
+    await saveFormFields(client, offerId, payload.formFields);
 
     let auditWarning = '';
     try {
@@ -2453,7 +3005,7 @@ async function saveCampaignFromEditor() {
         specialOffersState.editorMode === 'create' ? 'special_offer.created' : 'special_offer.updated',
         offerId,
         specialOffersState.editorMode === 'create' ? null : oldSnapshot,
-        { ...buildCampaignSnapshot({ ...payload.offer, id: offerId, translations: payload.translations, prizes: payload.prizes, links: payload.links }), stage: '3B.3B', localized_prize_links: true },
+        { ...buildCampaignSnapshot({ ...payload.offer, id: offerId, translations: payload.translations, prizes: payload.prizes, links: payload.links, form_fields: payload.formFields }), stage: '3C.2', localized_prize_links: true, form_builder: true },
       );
     } catch (auditError) {
       console.error('Special Offers audit insert failed:', auditError);
@@ -2651,6 +3203,7 @@ function buildPreviewCampaignFromPayload(payload) {
     translations: payload.translations,
     prizes: payload.prizes.map((prize, index) => ({ ...prize, id: prize.id || `preview-prize-${index}` })),
     links: payload.links.map((link, index) => ({ ...link, id: link.id || `preview-link-${index}` })),
+    form_fields: payload.formFields.map((field, index) => ({ ...field, id: field.id || `preview-field-${index}` })),
   };
 }
 
@@ -2658,6 +3211,7 @@ function renderPreviewPanel(campaign, language, isActive) {
   const translation = getTranslationByLanguage(campaign, language.code) || {};
   const prizes = toArray(campaign.prizes);
   const links = toArray(campaign.links);
+  const formFields = toArray(campaign.form_fields);
   return `
     <section
       class="special-offers-preview-panel"
@@ -2708,6 +3262,10 @@ function renderPreviewPanel(campaign, language, isActive) {
         ` : '<p class="special-offers-empty-copy">No linked services configured.</p>'}
       </div>
       <div class="special-offers-preview-section">
+        <h5>Entry form preview</h5>
+        ${renderFormPreviewFields(formFields, language.code)}
+      </div>
+      <div class="special-offers-preview-section">
         <h5>Campaign dates</h5>
         ${renderDetailRows([
           ['Start', formatDate(campaign.start_at)],
@@ -2716,8 +3274,61 @@ function renderPreviewPanel(campaign, language, isActive) {
           ['Timezone', campaign.timezone],
         ])}
       </div>
-      <p class="special-offer-editor-muted">Entry form, draw and public landing are not available in this preview.</p>
+      <p class="special-offer-editor-muted">Form submit, entries, draw and winners are not available in this preview.</p>
     </section>
+  `;
+}
+
+function renderFormPreviewFields(fields, lang) {
+  const language = SPECIAL_OFFERS_DETAIL_LANGUAGES.find((item) => item.code === lang) || SPECIAL_OFFERS_DETAIL_LANGUAGES[0];
+  const activeFields = toArray(fields)
+    .filter((field) => field.active !== false)
+    .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
+  if (!activeFields.length) return '<p class="special-offers-empty-copy">No active form fields configured.</p>';
+  return `
+    <div class="special-offer-form-preview-fields" role="group" dir="${escapeHtml(language.dir)}">
+      ${activeFields.map((field) => renderFormPreviewField(field, language)).join('')}
+      <button class="btn-primary btn-small" type="button" disabled>Preview only, public submit is not available yet</button>
+    </div>
+  `;
+}
+
+function renderFormPreviewField(field, language) {
+  const translation = getFormFieldTranslation(field, language.code);
+  const label = translation.label || titleCase(field.field_key);
+  const required = field.required ? ' *' : '';
+  const placeholder = translation.placeholder || '';
+  const helpText = translation.help_text || '';
+  const type = String(field.field_type || 'text');
+  const dir = language.dir;
+  const options = normalizeFormOptions(translation.options_json);
+  const common = `aria-label="${escapeHtml(label)}" ${placeholder ? `placeholder="${escapeHtml(placeholder)}"` : ''} dir="${escapeHtml(dir)}" disabled`;
+  let control = '';
+  if (type === 'textarea' || type === 'contest_answer') {
+    control = `<textarea rows="3" ${common}></textarea>`;
+  } else if (type === 'select' || type === 'country' || type === 'city') {
+    control = `
+      <select ${common}>
+        <option>${escapeHtml(placeholder || 'Select...')}</option>
+        ${options.map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join('')}
+      </select>
+    `;
+  } else if (type === 'checkbox_group') {
+    control = options.length
+      ? `<div class="special-offer-form-preview-options">${options.map((option) => `<label class="special-offer-editor-check"><input type="checkbox" disabled /> ${escapeHtml(option.label)}</label>`).join('')}</div>`
+      : '<p class="special-offers-empty-copy">No options yet</p>';
+  } else if (type === 'checkbox' || type === 'consent') {
+    control = `<label class="special-offer-editor-check"><input type="checkbox" disabled /> ${escapeHtml(label)}${field.required ? ' *' : ''}</label>`;
+  } else {
+    const inputType = type === 'email' ? 'email' : type === 'phone' ? 'tel' : type === 'date' || type === 'date_of_birth' ? 'date' : type.includes('url') ? 'url' : 'text';
+    control = `<input type="${escapeHtml(inputType)}" ${common} />`;
+  }
+  return `
+    <label class="special-offer-form-preview-field">
+      ${type === 'checkbox' || type === 'consent' ? '' : `<span>${escapeHtml(label)}${required}</span>`}
+      ${control}
+      ${helpText ? `<small>${escapeHtml(helpText)}</small>` : ''}
+    </label>
   `;
 }
 
@@ -2729,6 +3340,28 @@ function renderCampaignPreview(campaign) {
       `).join('')}
     </div>
     ${SPECIAL_OFFERS_DETAIL_LANGUAGES.map((language, index) => renderPreviewPanel(campaign, language, index === 0)).join('')}
+  `;
+}
+
+function renderInlineFormPreview(lang = 'pl') {
+  const host = $('#specialOfferFormPreview');
+  if (!host) return;
+  let payload = null;
+  try {
+    payload = collectEditorPayload();
+  } catch (error) {
+    host.hidden = false;
+    host.innerHTML = `<p class="special-offer-editor-validation">${escapeHtml(error.message || 'Fix form errors before preview.')}</p>`;
+    return;
+  }
+  host.hidden = false;
+  host.innerHTML = `
+    <div class="special-offers-translation-tabs special-offers-translation-tabs--compact" role="tablist" aria-label="Form preview languages">
+      ${SPECIAL_OFFERS_DETAIL_LANGUAGES.map((language) => `
+        <button class="special-offers-translation-tab${language.code === lang ? ' is-active' : ''}" type="button" data-special-offers-form-preview-lang="${escapeHtml(language.code)}">${escapeHtml(language.label)}</button>
+      `).join('')}
+    </div>
+    ${renderFormPreviewFields(payload.formFields, lang)}
   `;
 }
 
@@ -2810,6 +3443,10 @@ function refreshBuilderPreviews(root = document) {
       node.innerHTML = renderLinkUrlPreview(link);
     }
   });
+  $$('[data-form-options-json-preview]', root).forEach((node) => {
+    const key = node.getAttribute('data-form-options-json-preview');
+    if (key) node.textContent = JSON.stringify(collectFormOptions(key), null, 2);
+  });
 }
 
 function addFaqItem(lang) {
@@ -2843,6 +3480,46 @@ function addRuleBullet(button) {
   list.insertAdjacentHTML('beforeend', renderRuleBullet('', dir));
   refreshBuilderPreviews();
   validateEditorForm();
+}
+
+function addFormOption(key) {
+  const list = document.querySelector(`[data-form-options-list="${key}"]`);
+  if (!list) return;
+  const [, lang = 'pl'] = String(key || '').split(':');
+  const dir = SPECIAL_OFFERS_DETAIL_LANGUAGES.find((item) => item.code === lang)?.dir || 'ltr';
+  if (list.querySelector('.special-offers-empty-copy')) list.innerHTML = '';
+  list.insertAdjacentHTML('beforeend', renderOptionEditorItem({}, list.querySelectorAll('[data-form-option]').length, dir));
+  refreshBuilderPreviews();
+  validateEditorForm();
+}
+
+function deactivateOrRemoveFormField(clientId) {
+  syncEditorCollectionsFromDom();
+  const field = specialOffersState.editorFormFields.find((item) => item.client_id === clientId);
+  if (!field) return;
+  if (!window.confirm(field.id ? 'Deactivate this form field? It will not be hard deleted.' : 'Remove this unsaved form field?')) return;
+  if (field.id) {
+    field.active = false;
+  } else {
+    specialOffersState.editorFormFields = specialOffersState.editorFormFields.filter((item) => item.client_id !== clientId);
+  }
+  renderFormFieldEditorList();
+  validateEditorForm();
+}
+
+function refreshFormFieldEditorItem(clientId) {
+  syncEditorCollectionsFromDom();
+  renderFormFieldEditorList();
+  validateEditorForm();
+}
+
+function syncRequiresFormInputs(source) {
+  const checked = Boolean(source?.checked);
+  const form = $('#specialOfferEditorForm');
+  if (!form) return;
+  $$('[name="requires_form"], [data-offer-setting="requires_form"]', form).forEach((input) => {
+    if (input !== source) input.checked = checked;
+  });
 }
 
 async function copyTextToClipboard(text, button = null) {
@@ -2941,6 +3618,13 @@ function bindEvents() {
       const langTab = target?.closest('[data-special-offers-editor-lang-tab]');
       const addPrizeButton = target?.closest('[data-special-offers-add-prize]');
       const addLinkButton = target?.closest('[data-special-offers-add-link]');
+      const addFormFieldButton = target?.closest('[data-special-offers-add-form-field]');
+      const removeFormFieldButton = target?.closest('[data-special-offers-remove-form-field]');
+      const duplicateFormFieldButton = target?.closest('[data-special-offers-duplicate-form-field]');
+      const addFormOptionButton = target?.closest('[data-special-offers-add-form-option]');
+      const removeFormOptionButton = target?.closest('[data-special-offers-remove-form-option]');
+      const previewFormButton = target?.closest('[data-special-offers-preview-form]');
+      const formPreviewLangButton = target?.closest('[data-special-offers-form-preview-lang]');
       const helpButton = target?.closest('[data-special-offers-help]');
       const nestedLangButton = target?.closest('[data-special-offers-nested-lang-tab]');
       const removePrizeButton = target?.closest('[data-special-offers-remove-prize]');
@@ -2957,6 +3641,17 @@ function bindEvents() {
       if (helpButton) openHelpPopover(helpButton.getAttribute('data-special-offers-help'));
       if (addPrizeButton) addEditorPrize();
       if (addLinkButton) addEditorLink();
+      if (addFormFieldButton) addEditorFormField();
+      if (duplicateFormFieldButton) duplicateEditorFormField(duplicateFormFieldButton.getAttribute('data-special-offers-duplicate-form-field'));
+      if (removeFormFieldButton) deactivateOrRemoveFormField(removeFormFieldButton.getAttribute('data-special-offers-remove-form-field'));
+      if (addFormOptionButton) addFormOption(addFormOptionButton.getAttribute('data-special-offers-add-form-option'));
+      if (removeFormOptionButton) {
+        removeFormOptionButton.closest('[data-form-option]')?.remove();
+        refreshBuilderPreviews();
+        validateEditorForm();
+      }
+      if (previewFormButton) renderInlineFormPreview();
+      if (formPreviewLangButton) renderInlineFormPreview(formPreviewLangButton.getAttribute('data-special-offers-form-preview-lang') || 'pl');
       if (addFaqButton) addFaqItem(addFaqButton.getAttribute('data-special-offers-add-faq'));
       if (removeFaqButton) {
         removeFaqButton.closest('[data-faq-item]')?.remove();
@@ -3003,11 +3698,22 @@ function bindEvents() {
     editorBody.addEventListener('change', (event) => {
       const target = event.target instanceof Element ? event.target : null;
       const linkField = target?.closest('[data-link-field]');
+      const formField = target?.closest('[data-form-field]');
+      const requiresFormInput = target?.closest('[name="requires_form"], [data-offer-setting="requires_form"]');
+      if (requiresFormInput) syncRequiresFormInputs(requiresFormInput);
       if (linkField && ['link_type', 'mode', 'resource_id'].includes(linkField.getAttribute('data-link-field'))) {
         const item = linkField.closest('[data-special-offers-link]');
         const id = item?.getAttribute('data-special-offers-link');
         if (id) {
           refreshLinkEditorItem(id);
+          return;
+        }
+      }
+      if (formField && ['field_type'].includes(formField.getAttribute('data-form-field'))) {
+        const item = formField.closest('[data-special-offers-form-field]');
+        const id = item?.getAttribute('data-special-offers-form-field');
+        if (id) {
+          refreshFormFieldEditorItem(id);
           return;
         }
       }
