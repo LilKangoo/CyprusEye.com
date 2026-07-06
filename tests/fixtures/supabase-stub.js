@@ -738,6 +738,30 @@ function createGenericSelectBuilder(table) {
   return builder;
 }
 
+function createGenericSelectErrorBuilder(message) {
+  const result = { data: null, error: { message: message || 'Select failed' } };
+  const builder = {
+    eq() { return builder; },
+    neq() { return builder; },
+    in() { return builder; },
+    not() { return builder; },
+    is() { return builder; },
+    gte() { return builder; },
+    lte() { return builder; },
+    ilike() { return builder; },
+    contains() { return builder; },
+    order() { return builder; },
+    limit() { return builder; },
+    range() { return builder; },
+    async single() { return result; },
+    async maybeSingle() { return result; },
+    then(resolve, reject) {
+      return Promise.resolve(result).then(resolve, reject);
+    },
+  };
+  return builder;
+}
+
 function createGenericUpdateBuilder(table, values) {
   const filters = [];
   function applyUpdate() {
@@ -1003,6 +1027,11 @@ export function createClient() {
       // Generic table handler with full chainable API
       return {
         select(_columns) {
+          const api = stubApi || globalThis.__supabaseStub || {};
+          const selectError = api.selectErrorsByTable?.[table];
+          if (selectError) {
+            return createGenericSelectErrorBuilder(selectError);
+          }
           return createGenericSelectBuilder(table);
         },
         insert(rows) {

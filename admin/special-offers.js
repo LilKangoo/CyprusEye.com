@@ -23,7 +23,7 @@ const specialOffersState = {
     transport: [],
   },
   resourceOptionsLoaded: false,
-  resourceOptionsError: '',
+  resourceOptionsErrors: {},
   saving: false,
 };
 
@@ -45,6 +45,48 @@ const SPECIAL_OFFERS_GENERIC_URLS = {
   transport: '/transport.html',
   vip: '/vip.html',
 };
+const SPECIAL_OFFERS_PICKER_CONFIG = {
+  cars: {
+    table: 'car_offers',
+    select: 'id, car_model, car_type, location, is_available, price_per_day, price_10plus_days, price_7_10days, price_4_6days, image_url',
+    supportsExistingResource: true,
+    friendlyError: 'Cars picker is temporarily unavailable because the expected database fields do not match the current schema. Use Main service page for now.',
+  },
+  trips: {
+    table: 'trips',
+    select: 'id, slug, title, status, is_published, start_city',
+    supportsExistingResource: true,
+    friendlyError: 'Trips picker is temporarily unavailable. Use Main service page or Custom URL for now.',
+  },
+  hotels: {
+    table: 'hotels',
+    select: 'id, slug, title, status, is_published, city',
+    supportsExistingResource: true,
+    friendlyError: 'Hotels picker is temporarily unavailable. Use Main service page or Custom URL for now.',
+  },
+  transport: {
+    table: 'transport_routes',
+    select: 'id, origin_location_id, destination_location_id, is_active, day_price, night_price, currency',
+    supportsExistingResource: true,
+    friendlyError: 'Transport route picker needs confirmed public route_id support. Use Main service page for now.',
+  },
+  shop: {
+    supportsExistingResource: false,
+    disabledReason: 'Shop picker requires public product URL resolver.',
+  },
+  coupons: {
+    supportsExistingResource: false,
+    disabledReason: 'Coupons do not have a clear public URL in this stage.',
+  },
+  vip: {
+    supportsExistingResource: false,
+    disabledReason: 'VIP supports Main service page only.',
+  },
+  custom: {
+    supportsExistingResource: false,
+    disabledReason: 'Custom links use Custom URL only.',
+  },
+};
 const SPECIAL_OFFERS_DEFAULT_SETTINGS = {
   requires_login: true,
   requires_form: true,
@@ -62,9 +104,9 @@ const SPECIAL_OFFERS_HELP = {
   basic: {
     title: 'Basic settings',
     does: 'Defines the internal campaign identity: slug, type, winner mode, status and visibility.',
-    use: 'Use this when creating the campaign shell or changing draft/private metadata.',
-    avoid: 'Do not try to publish here. Active status and public visibility are intentionally blocked.',
-    example: 'Example: slug lefkara-giveaway-2026, type contest, winner mode manual selection.',
+    use: 'Use this when creating the campaign shell or changing draft/private metadata. Type options: Contest is a campaign with form and winner, Giveaway is a simpler prize giveaway, Weighted draw is a future points/weights draw, Partner promo is a partner campaign, Coupon promo is a code/coupon promotion, Landing only is an information page without contest mechanics.',
+    avoid: 'Do not try to publish here. Draft is editable, Archived is closed/hidden, Active/public are intentionally blocked in this stage. Visibility is Private only.',
+    example: 'Winner mode examples: Manual selection means admin chooses the winner later, Weighted draw is a future weighted draw machine, None means no winner.',
   },
   dates: {
     title: 'Dates & visibility',
@@ -90,8 +132,8 @@ const SPECIAL_OFFERS_HELP = {
   links: {
     title: 'Linked services',
     does: 'Creates CTA links with language-specific labels, descriptions and URLs.',
-    use: 'Main service page links to a general page. Existing offer links to a selected DB resource. Custom URL is manual.',
-    avoid: 'Do not guess resource IDs. Resource ID is only saved when selected by admin.',
+    use: 'Link type describes the CTA category. Link mode describes how to link: Main service page means a general page, Existing offer/service means one selected DB resource, Custom URL means a manual link.',
+    avoid: 'Do not guess resource IDs. Resource ID is only saved when selected by admin. PL/EN/HE labels and URLs are saved in link translations.',
     example: 'Example: Cars main page creates /car.html?lang=pl, /car.html?lang=en and /car.html?lang=he.',
   },
   rules: {
@@ -107,6 +149,34 @@ const SPECIAL_OFFERS_HELP = {
     use: 'Check translation coverage, prize translations, linked service URLs and warnings before save.',
     avoid: 'Do not expect save to publish, create entries, run a draw or expose a public landing.',
     example: 'Example: one primary CTA with PL/EN/HE URL coverage and draft/private status.',
+  },
+  type: {
+    title: 'Campaign type',
+    does: 'Classifies what kind of Special Offer this campaign is.',
+    use: 'Contest has a form and winner. Giveaway is simpler. Weighted draw is a future weighted/points draw. Partner promo is partner-led. Coupon promo is code-based. Landing only is informational.',
+    avoid: 'Do not use type to publish or unlock public mechanics.',
+    example: 'Use Contest for Lefkara because it has a campaign form and winner.',
+  },
+  winnerMode: {
+    title: 'Winner mode',
+    does: 'Defines how the winner will eventually be selected.',
+    use: 'Manual selection means admin chooses. Weighted draw is a future draw with weights. None means no winner.',
+    avoid: 'Do not choose Weighted draw expecting a draw machine in this stage.',
+    example: 'Use Manual selection for a draft/private contest that will be reviewed manually.',
+  },
+  linkType: {
+    title: 'Link type',
+    does: 'Defines the service category for the CTA.',
+    use: 'Choose cars, trips, hotels, transport, VIP or custom depending on where the CTA should lead.',
+    avoid: 'Do not choose a category only to force a resource ID. Unsupported pickers stay disabled.',
+    example: 'Use Cars for /car.html, Trips for /trips.html or a selected trip slug.',
+  },
+  linkMode: {
+    title: 'Link mode',
+    does: 'Defines how this CTA URL is built.',
+    use: 'Main service page links to all cars/trips/hotels. Existing offer/service links to one selected DB item. Custom URL is manual.',
+    avoid: 'Do not choose Existing offer/service unless the picker is available and you select a resource.',
+    example: 'Use Main service page for all cars, Existing offer for a selected trip, Custom URL for a campaign placeholder.',
   },
 };
 
@@ -240,7 +310,11 @@ function isValidUrlForStage(url) {
 }
 
 function isResourcePickerEnabled(linkType) {
-  return SPECIAL_OFFERS_RESOURCE_PICKER_TYPES.includes(String(linkType || ''));
+  const type = String(linkType || '');
+  const config = SPECIAL_OFFERS_PICKER_CONFIG[type];
+  return SPECIAL_OFFERS_RESOURCE_PICKER_TYPES.includes(type)
+    && Boolean(config?.supportsExistingResource)
+    && !specialOffersState.resourceOptionsErrors[type];
 }
 
 function isMainServicePageEnabled(linkType) {
@@ -561,10 +635,11 @@ function readLocalizedTitle(value, fallback = '') {
 }
 
 function getCarResourceLabel(row) {
-  const name = row?.title || row?.name || row?.car_model || row?.model || row?.car_type || 'Car offer';
+  const name = readLocalizedTitle(row?.car_model, readLocalizedTitle(row?.car_type, 'Car offer'));
   const location = row?.location ? ` · ${row.location}` : '';
-  const status = row?.status || (row?.is_available === false ? 'unavailable' : 'available');
-  return `${name}${location} · ${status}`;
+  const status = row?.is_available === false ? 'unavailable' : 'active';
+  const price = Number(row?.price_per_day || row?.price_10plus_days || row?.price_7_10days || row?.price_4_6days || 0);
+  return `${name}${location}${price ? ` · €${price}/day` : ''} · ${status}`;
 }
 
 function getTripResourceLabel(row) {
@@ -584,7 +659,7 @@ function getHotelResourceLabel(row) {
 function getTransportRouteLabel(row, locationById = {}) {
   const origin = locationById[String(row?.origin_location_id || '')]?.name || row?.origin_name || row?.origin || 'Origin';
   const destination = locationById[String(row?.destination_location_id || '')]?.name || row?.destination_name || row?.destination || 'Destination';
-  const status = row?.status || (row?.is_active === false ? 'inactive' : 'active');
+  const status = row?.is_active === false ? 'inactive' : 'active';
   return `${origin} -> ${destination} · ${status}`;
 }
 
@@ -616,39 +691,51 @@ async function loadResourcePickerOptions() {
   const client = getSupabaseClient();
   if (!client) return;
 
-  try {
-    const [carsResult, tripsResult, hotelsResult, routesResult, locationsResult] = await Promise.all([
-      client.from('car_offers').select('id, title, name, car_model, model, car_type, status, is_available, location').limit(100),
-      client.from('trips').select('id, slug, title, name, status, is_published, start_city').limit(100),
-      client.from('hotels').select('id, slug, title, name, status, is_published, city').limit(100),
-      client.from('transport_routes').select('id, origin_location_id, destination_location_id, status, is_active').limit(100),
-      client.from('transport_locations').select('id, name, code, is_active').limit(500),
-    ]);
+  const nextOptions = { cars: [], trips: [], hotels: [], transport: [] };
+  const nextErrors = {};
 
-    if (carsResult.error) throw carsResult.error;
-    if (tripsResult.error) throw tripsResult.error;
-    if (hotelsResult.error) throw hotelsResult.error;
-    if (routesResult.error) throw routesResult.error;
-    if (locationsResult.error) throw locationsResult.error;
+  const loadConfiguredPicker = async (type, buildRows) => {
+    const config = SPECIAL_OFFERS_PICKER_CONFIG[type];
+    if (!config?.supportsExistingResource) return;
+    try {
+      const result = await client.from(config.table).select(config.select).limit(100);
+      if (result.error) throw result.error;
+      nextOptions[type] = buildRows(result.data);
+    } catch (error) {
+      console.warn(`Special Offers ${type} picker failed:`, error);
+      nextOptions[type] = [];
+      nextErrors[type] = config.friendlyError;
+    }
+  };
 
-    const locationById = toArray(locationsResult.data).reduce((acc, row) => {
-      if (row?.id) acc[String(row.id)] = row;
-      return acc;
-    }, {});
+  await Promise.all([
+    loadConfiguredPicker('cars', (rows) => buildResourceOptions(rows, 'cars')),
+    loadConfiguredPicker('trips', (rows) => buildResourceOptions(rows, 'trips')),
+    loadConfiguredPicker('hotels', (rows) => buildResourceOptions(rows, 'hotels')),
+    (async () => {
+      try {
+        const [routesResult, locationsResult] = await Promise.all([
+          client.from(SPECIAL_OFFERS_PICKER_CONFIG.transport.table).select(SPECIAL_OFFERS_PICKER_CONFIG.transport.select).limit(100),
+          client.from('transport_locations').select('id, name, code, is_active').limit(500),
+        ]);
+        if (routesResult.error) throw routesResult.error;
+        if (locationsResult.error) throw locationsResult.error;
+        const locationById = toArray(locationsResult.data).reduce((acc, row) => {
+          if (row?.id) acc[String(row.id)] = row;
+          return acc;
+        }, {});
+        nextOptions.transport = buildResourceOptions(routesResult.data, 'transport', locationById);
+      } catch (error) {
+        console.warn('Special Offers transport picker failed:', error);
+        nextOptions.transport = [];
+        nextErrors.transport = SPECIAL_OFFERS_PICKER_CONFIG.transport.friendlyError;
+      }
+    })(),
+  ]);
 
-    specialOffersState.resourceOptions = {
-      cars: buildResourceOptions(carsResult.data, 'cars'),
-      trips: buildResourceOptions(tripsResult.data, 'trips'),
-      hotels: buildResourceOptions(hotelsResult.data, 'hotels'),
-      transport: buildResourceOptions(routesResult.data, 'transport', locationById),
-    };
-    specialOffersState.resourceOptionsLoaded = true;
-    specialOffersState.resourceOptionsError = '';
-  } catch (error) {
-    console.warn('Failed to load Special Offers resource picker options:', error);
-    specialOffersState.resourceOptionsLoaded = true;
-    specialOffersState.resourceOptionsError = error.message || 'Resource pickers could not be loaded.';
-  }
+  specialOffersState.resourceOptions = nextOptions;
+  specialOffersState.resourceOptionsErrors = nextErrors;
+  specialOffersState.resourceOptionsLoaded = true;
 }
 
 function getResourceOption(type, resourceId) {
@@ -1253,21 +1340,22 @@ function renderLinkEditorList() {
       </div>
       <p class="special-offer-editor-muted">Choose Main service page for general service CTA. Choose existing offer only when you want to link to a specific car/trip/hotel/route. Custom URL is for manual links.</p>
       <div class="special-offer-editor-grid">
-        <label>Link type *
+        <label>Link type * ${renderHelp('linkType')}
           <select data-link-field="link_type">
             ${renderOptionList(SPECIAL_OFFERS_LINK_TYPES, link.link_type || 'custom')}
           </select>
         </label>
-        <label>Link mode *
+        <label>Link mode * ${renderHelp('linkMode')}
           <select data-link-field="mode">
             ${renderLinkModeOptions(link)}
           </select>
+          <span class="special-offer-field-hint">${escapeHtml(getLinkModeHint(link))}</span>
         </label>
         <label>Sort order
           <input data-link-field="sort_order" type="number" step="1" value="${escapeHtml(link.sort_order || index)}" />
         </label>
         <label>Resource ID preview
-          <input value="${escapeHtml(link.resource_id || 'None')}" readonly />
+          <input value="${escapeHtml(getResourcePreviewText(link))}" readonly />
         </label>
         <label class="special-offer-editor-check">
           <input data-link-field="is_primary" type="checkbox" ${link.is_primary ? 'checked' : ''} />
@@ -1360,11 +1448,39 @@ function renderLinkTranslationEditor(link) {
 function renderLinkModeOptions(link) {
   const selected = link.mode || inferLinkMode(link);
   return SPECIAL_OFFERS_LINK_MODES.map((mode) => {
-    const disabled = (mode === 'main' && !isMainServicePageEnabled(link.link_type)) || (mode === 'resource' && !isResourcePickerEnabled(link.link_type));
+    const disabled = isLinkModeDisabled(link.link_type, mode);
     const label = mode === 'main' ? 'Main service page' : mode === 'resource' ? 'Choose existing offer/service' : 'Custom URL';
-    const reason = disabled ? (mode === 'resource' ? ' - picker not available for this type' : ' - not available for this type') : '';
+    const reason = disabled ? ` - ${getLinkModeDisabledReason(link.link_type, mode)}` : '';
     return `<option value="${escapeHtml(mode)}" ${mode === selected ? 'selected' : ''} ${disabled ? 'disabled' : ''}>${escapeHtml(label + reason)}</option>`;
   }).join('');
+}
+
+function isLinkModeDisabled(linkType, mode) {
+  const type = String(linkType || 'custom');
+  if (mode === 'main') return !isMainServicePageEnabled(type) || type === 'custom';
+  if (mode === 'resource') return !isResourcePickerEnabled(type);
+  if (mode === 'custom') return false;
+  return true;
+}
+
+function getLinkModeDisabledReason(linkType, mode) {
+  const type = String(linkType || 'custom');
+  if (mode === 'main') return type === 'custom' ? 'custom links use manual URL' : 'main page is not available for this type';
+  if (mode === 'resource') return specialOffersState.resourceOptionsErrors[type] || SPECIAL_OFFERS_PICKER_CONFIG[type]?.disabledReason || 'picker not available for this type';
+  return '';
+}
+
+function getLinkModeHint(link) {
+  const mode = link.mode || inferLinkMode(link);
+  if (mode === 'main') return 'Links to the general service page, for example all cars, all trips or all hotels. Use this when you do not want to promote one specific offer.';
+  if (mode === 'resource') return 'Links to one specific item from the database. Use this only when you want the campaign CTA to point to a selected car, trip, hotel or route.';
+  return 'Manual link. Use this for external pages or special campaign pages.';
+}
+
+function getResourcePreviewText(link) {
+  if (!link.resource_id) return 'None, this link goes to a general page or custom URL.';
+  const option = getResourceOption(link.link_type, link.resource_id);
+  return option ? `${link.resource_id} · ${option.label}` : String(link.resource_id);
 }
 
 function renderResourcePicker(link) {
@@ -1381,7 +1497,7 @@ function renderResourcePicker(link) {
     return `<p class="special-offer-editor-muted">Resource ID: disabled in this mode. ${escapeHtml(message)}</p>`;
   }
   if (!isResourcePickerEnabled(type)) {
-    return `<p class="special-offer-editor-validation">Resource picker is disabled for ${escapeHtml(titleCase(type))}. Use Main service page or Custom URL.</p>`;
+    return `<p class="special-offer-editor-validation">${escapeHtml(getLinkModeDisabledReason(type, 'resource') || `Resource picker is disabled for ${titleCase(type)}.`)} Use Main service page or Custom URL.</p>`;
   }
   const options = toArray(specialOffersState.resourceOptions[type]);
   return `
@@ -1396,7 +1512,7 @@ function renderResourcePicker(link) {
           `).join('')}
         </select>
       </label>
-      ${specialOffersState.resourceOptionsError ? `<p class="special-offer-editor-validation">${escapeHtml(specialOffersState.resourceOptionsError)}</p>` : ''}
+      ${specialOffersState.resourceOptionsErrors[type] ? `<p class="special-offer-editor-validation">${escapeHtml(specialOffersState.resourceOptionsErrors[type])}</p>` : ''}
       ${!options.length ? '<p class="special-offer-editor-muted">No resources loaded for this type yet.</p>' : ''}
     </div>
   `;
@@ -1479,7 +1595,9 @@ function renderLinkUrlPreview(link) {
     };
   });
   if (!rows.some((row) => row.url)) return '<span>No URL preview yet.</span>';
-  return rows.map((row) => `<span>${escapeHtml(row.lang.toUpperCase())}: ${escapeHtml(row.url || 'Not set')}</span>`).join('');
+  const mode = link.mode || inferLinkMode(link);
+  const source = mode === 'resource' ? 'Generated from selected resource' : mode === 'main' ? 'Generated from main service page' : 'Manual URL';
+  return `<strong>${escapeHtml(source)}</strong>${rows.map((row) => `<span>${escapeHtml(row.lang.toUpperCase())}: ${escapeHtml(row.url || 'Not set')}</span>`).join('')}`;
 }
 
 function getCampaignEditorDefaults(campaign = null) {
@@ -1531,10 +1649,10 @@ function renderEditorForm(campaign = null) {
             <label>Slug *
               <input name="slug" value="${escapeHtml(defaults.slug)}" placeholder="summer-giveaway-2026" required />
             </label>
-            <label>Type *
+            <label>Type * ${renderHelp('type')}
               <select name="type">${renderOptionList(SPECIAL_OFFERS_TYPES, defaults.type)}</select>
             </label>
-            <label>Winner mode *
+            <label>Winner mode * ${renderHelp('winnerMode')}
               <select name="winner_selection_mode">${renderOptionList(SPECIAL_OFFERS_WINNER_MODES, defaults.winner_selection_mode)}</select>
             </label>
             <label>Status
@@ -1839,6 +1957,7 @@ function refreshLinkEditorItem(linkId) {
   const link = specialOffersState.editorLinks.find((item) => item.client_id === linkId);
   if (!link) return;
   if (link.link_type === 'custom') link.mode = 'custom';
+  if (link.link_type === 'vip') link.mode = 'main';
   if (!isMainServicePageEnabled(link.link_type) && link.mode === 'main') link.mode = 'custom';
   if (!isResourcePickerEnabled(link.link_type) && link.mode === 'resource') link.mode = isMainServicePageEnabled(link.link_type) ? 'main' : 'custom';
   if (link.mode !== 'resource') link.resource_id = null;
@@ -2046,7 +2165,7 @@ function validateEditorPayload(payload) {
     if (!SPECIAL_OFFERS_LINK_TYPES.includes(link.link_type)) errors.push(`Linked services: link ${index + 1} type is required.`);
     if (!SPECIAL_OFFERS_LINK_MODES.includes(link.mode)) errors.push(`Linked services: link ${index + 1} mode is required.`);
     if (link.mode === 'main' && !isMainServicePageEnabled(link.link_type)) errors.push(`Linked services: link ${index + 1} main service page is not available for ${titleCase(link.link_type)}.`);
-    if (link.mode === 'resource' && !isResourcePickerEnabled(link.link_type)) errors.push(`Linked services: link ${index + 1} resource picker is disabled for ${titleCase(link.link_type)}.`);
+    if (link.mode === 'resource' && !isResourcePickerEnabled(link.link_type)) errors.push(`Linked services: link ${index + 1}: Choose existing offer/service is not available for this link type yet. Use Main service page or Custom URL.`);
     if (link.mode === 'resource' && !link.resource_id) errors.push(`Linked services: link ${index + 1} resource_id is required for existing resource mode.`);
     link.translations.forEach((translation) => {
       const hasAny = ['label', 'description', 'url'].some((key) => String(translation[key] || '').trim());

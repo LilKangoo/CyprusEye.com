@@ -6,13 +6,18 @@ const ADMIN_ID = '15f3d442-092d-4eb8-9627-db90da0283eb';
 const OFFER_ID = '4c38a187-8a68-4eb0-9b46-1cd923e06d31';
 const ACTIVE_OFFER_ID = '5b2a50bd-3d34-4513-9288-9eb85ef24619';
 
-async function prepareAdminSpecialOffersCrudStub(page: Page) {
-  await page.addInitScript(({ adminId, offerId, activeOfferId }) => {
+async function prepareAdminSpecialOffersCrudStub(page: Page, options: { selectErrorsByTable?: Record<string, string> } = {}) {
+  await page.addInitScript(({ adminId, offerId, activeOfferId, selectErrorsByTable }) => {
     (window as any).__supabaseStub = {
       ...(window as any).__supabaseStub,
       onReady: (stub: any) => {
         stub.clearPersistence?.();
         stub.reset?.();
+        if (selectErrorsByTable) {
+          stub.selectErrorsByTable = selectErrorsByTable;
+        } else {
+          delete stub.selectErrorsByTable;
+        }
 
         const adminProfile = {
           id: adminId,
@@ -169,7 +174,7 @@ async function prepareAdminSpecialOffersCrudStub(page: Page) {
         stub.seedTable('special_offer_audit_log', []);
       },
     };
-  }, { adminId: ADMIN_ID, offerId: OFFER_ID, activeOfferId: ACTIVE_OFFER_ID });
+  }, { adminId: ADMIN_ID, offerId: OFFER_ID, activeOfferId: ACTIVE_OFFER_ID, selectErrorsByTable: options.selectErrorsByTable || null });
 }
 
 async function openSpecialOffers(page: Page) {
@@ -370,6 +375,7 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     await resourceLink.locator('[data-link-field="resource_id"]').selectOption('trip-1');
     await expect(resourceLink.locator('[data-link-translation-field="url"][data-lang="pl"]')).toHaveValue('/trip.html?slug=lefkara-private-trip&lang=pl');
     await expect(resourceLink.locator('[data-link-translation-field="url"][data-lang="he"]')).toHaveValue('/trip.html?slug=lefkara-private-trip&lang=he');
+    await expect(resourceLink.locator('[data-link-url-preview]')).toContainText('Generated from selected resource');
 
     await editor.getByRole('button', { name: 'Add link' }).click();
     const customLink = editor.locator('[data-special-offers-link]').last();
@@ -383,6 +389,7 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     await customLink.getByRole('button', { name: 'HE', exact: true }).click();
     await customLink.locator('[data-link-translation-field="label"][data-lang="he"]').fill('קישור ידני');
     await customLink.locator('[data-link-translation-field="url"][data-lang="he"]').fill('/manual-he.html');
+    await expect(customLink.locator('[data-link-url-preview]')).toContainText('Manual URL');
 
     await editor.getByRole('button', { name: 'Add link' }).click();
     const shopLink = editor.locator('[data-special-offers-link]').last();
@@ -395,6 +402,9 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     const help = page.locator('#specialOffersHelpPopover');
     await expect(help).toBeVisible();
     await expect(help).toContainText('What this section does');
+    await expect(help).toContainText('Main service page');
+    await expect(help).toContainText('Existing offer/service');
+    await expect(help).toContainText('Custom URL');
     await expect(help).toContainText('Resource ID is only saved when selected by admin');
     await help.locator('[data-special-offers-help-close]').last().click();
     await expect(help).toBeHidden();
@@ -422,6 +432,59 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     const savedCustom = rows.links.find((row: any) => row.offer_id === OFFER_ID && row.link_type === 'custom' && row.url === '/manual-pl.html');
     expect(savedCustom.resource_id).toBe(null);
     expect(rows.linkTranslations.some((row: any) => row.link_id === savedCustom.id && row.lang === 'en' && row.url === '/manual-en.html')).toBe(true);
+  });
+
+  test('keeps cars picker schema-safe and shows friendly unavailable state on picker failure', async ({ page }) => {
+    await prepareAdminSpecialOffersCrudStub(page, {
+      selectErrorsByTable: {
+        car_offers: 'column car_offers.title does not exist',
+      },
+    });
+    await page.goto('/admin/dashboard.html');
+    await waitForSupabaseStub(page);
+    await expect(page.locator('#adminContainer')).toBeVisible();
+    await page.click('button.admin-nav-item[data-view="specialOffers"]');
+    await expect(page.locator('#viewSpecialOffers')).toBeVisible();
+
+    const source = await page.evaluate(async () => (await fetch('/admin/special-offers.js')).text());
+    expect(source).not.toContain("car_offers').select('id, title");
+    expect(source).toContain('id, car_model, car_type, location, is_available');
+
+    await openEditorForLefkara(page);
+    const editor = page.locator('#specialOffersEditorModal');
+    await editor.getByRole('button', { name: 'Linked services' }).click();
+    await editor.getByRole('button', { name: 'Add link' }).click();
+    const carsLink = editor.locator('[data-special-offers-link]').last();
+    await carsLink.locator('[data-link-field="link_type"]').selectOption('cars');
+    await expect(carsLink.locator('[data-link-field="mode"] option[value="resource"]')).toHaveAttribute('disabled', '');
+    await expect(carsLink).toContainText('Cars picker is temporarily unavailable because the expected database fields do not match the current schema. Use Main service page for now.');
+
+    await carsLink.locator('[data-link-field="mode"]').selectOption('main');
+    await expect(carsLink.locator('[data-link-translation-field="url"][data-lang="pl"]')).toHaveValue('/car.html?lang=pl');
+    await expect(editor.getByRole('button', { name: 'Save draft' })).toBeEnabled();
+  });
+
+  test('explains campaign type and winner mode options in help popups', async ({ page }) => {
+    await openSpecialOffers(page);
+    await openEditorForLefkara(page);
+    const editor = page.locator('#specialOffersEditorModal');
+
+    await editor.locator('[data-special-offers-help="type"]').click();
+    const help = page.locator('#specialOffersHelpPopover');
+    await expect(help).toBeVisible();
+    await expect(help).toContainText('Contest');
+    await expect(help).toContainText('Giveaway');
+    await expect(help).toContainText('Weighted draw');
+    await expect(help).toContainText('Partner promo');
+    await expect(help).toContainText('Coupon promo');
+    await expect(help).toContainText('Landing only');
+    await help.locator('[data-special-offers-help-close]').last().click();
+
+    await editor.locator('[data-special-offers-help="winnerMode"]').click();
+    await expect(help).toBeVisible();
+    await expect(help).toContainText('Manual selection');
+    await expect(help).toContainText('Weighted draw');
+    await expect(help).toContainText('None');
   });
 
   test('archives without hard delete and disables edit for non-draft/non-private campaigns', async ({ page }) => {

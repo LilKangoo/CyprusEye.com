@@ -2907,6 +2907,15 @@ body[data-admin-panel="true"].admin-sidebar-open {
   overflow-wrap: anywhere;
 }
 
+.special-offer-field-hint {
+  color: var(--admin-text-muted);
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+  text-transform: none;
+}
+
 .special-offer-help {
   align-items: center;
   background: rgba(56, 189, 248, 0.16);
