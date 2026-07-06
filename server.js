@@ -1185,6 +1185,11 @@ function createServer() {
         return;
       }
 
+      const servedSpecialOfferLanding = await tryServeSpecialOfferLandingPage(req, url, res);
+      if (servedSpecialOfferLanding) {
+        return;
+      }
+
       const served = await tryServeStaticFile(req, url, res);
       if (served) {
         return;
@@ -1436,6 +1441,25 @@ function resolveBlogRequest(pathname) {
   return { kind: 'post', slug };
 }
 
+function resolveSpecialOfferRequest(pathname) {
+  const relativePath = extractPathRelativeToBase(pathname);
+  if (relativePath === null) {
+    return null;
+  }
+
+  const normalized = String(relativePath || '').trim().replace(/^\/+|\/+$/g, '');
+  if (!normalized.startsWith('special-offers/')) {
+    return null;
+  }
+
+  const slug = normalized.slice('special-offers/'.length).trim().replace(/^\/+|\/+$/g, '');
+  if (!slug || slug.includes('/')) {
+    return null;
+  }
+
+  return { slug };
+}
+
 async function loadBlogTemplate(templateName, fallbackHtml) {
   try {
     const templatePath = path.join(__dirname, templateName);
@@ -1675,6 +1699,28 @@ async function tryServeServiceOfferPage(req, url, res) {
   );
 
   return serveBlogHtml(req, res, html, statusCode);
+}
+
+async function tryServeSpecialOfferLandingPage(req, url, res) {
+  const specialOfferRoute = resolveSpecialOfferRequest(url.pathname);
+  if (!specialOfferRoute) {
+    return false;
+  }
+
+  const templatePath = path.resolve(__dirname, 'special-offer.html');
+  if (!templatePath.startsWith(__dirname)) {
+    return false;
+  }
+
+  try {
+    const served = await serveStaticAsset(req, res, templatePath);
+    return Boolean(served);
+  } catch (error) {
+    if (error?.code !== 'ENOENT') {
+      console.error(`Nie udało się odczytać strony kampanii "${specialOfferRoute.slug}":`, error);
+    }
+    return false;
+  }
 }
 
 async function tryServeStaticFile(req, url, res) {

@@ -117,6 +117,7 @@ async function copyStaticFiles() {
       'index.html',
       'plan.html',
       'shop.html',
+      'special-offer.html',
       'partners.html',
       'vip.html',
       'achievements.html',

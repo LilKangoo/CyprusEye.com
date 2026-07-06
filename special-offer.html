@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <script src="/js/referral-bootstrap.js"></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Special Offer • CyprusEye</title>
+  <meta name="description" content="Read-only Special Offer campaign details from CyprusEye." />
+  <link rel="icon" href="/assets/cyprus_logo-1000x1054.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/assets/css/tokens.css" />
+  <link rel="stylesheet" href="/assets/css/base.css?v=2" />
+  <link rel="stylesheet" href="/assets/css/components.css?v=14" />
+  <link rel="stylesheet" href="/assets/css/rtl.css" />
+  <link rel="stylesheet" href="/assets/css/mobile.css" />
+  <link rel="stylesheet" href="/assets/css/language-switcher.css" />
+  <link rel="stylesheet" href="/assets/css/language-selector.css?v=2" />
+  <link rel="stylesheet" href="/assets/css/special-offers.css?v=20260706_1" />
+  <link rel="stylesheet" href="/css/modal-ios-fix.css?v=2" />
+  <link rel="stylesheet" href="/css/toast.css" />
+  <script type="module" src="/js/supabaseClient.js"></script>
+  <script type="module" src="/js/toast.js"></script>
+  <script type="module" src="/js/auth.js?v=8"></script>
+  <script type="module" src="/js/authUi.js?v=4"></script>
+  <script src="/js/footer-referral.js" defer></script>
+  <link rel="stylesheet" href="/assets/css/compact-header.css?v=2" />
+</head>
+<body class="special-offer-page" data-navigation="multi-page">
+  <header class="app-header nav-modern nav-modern--compact">
+    <div class="nav-modern__top" aria-label="Global header">
+      <div class="brand nav-modern__brand-block">
+        <a href="/index.html" class="nav-modern__brand-link" aria-label="CyprusEye Save & Travel home">
+          <img
+            src="/assets/cyprus_logo-1000x1054.png"
+            alt="CyprusEye.com - eye with a Cyprus island outline inside."
+            width="1000"
+            height="1054"
+            loading="eager"
+            fetchpriority="high"
+          />
+          <div class="brand-title">
+            <p class="brand-name">CyprusEye Save &amp; Travel</p>
+          </div>
+        </a>
+      </div>
+
+      <nav class="special-offer-language" aria-label="Campaign language">
+        <button type="button" data-special-offer-lang="pl">PL</button>
+        <button type="button" data-special-offer-lang="en">EN</button>
+        <button type="button" data-special-offer-lang="he">HE</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="special-offer-shell" id="specialOfferPage">
+    <section class="special-offer-state" data-special-offer-loading>
+      <p>Loading campaign...</p>
+    </section>
+
+    <section class="special-offer-state special-offer-state--unavailable" data-special-offer-unavailable hidden>
+      <img src="/assets/cyprus_logo-1000x1054.png" alt="" width="120" height="126" loading="lazy" />
+      <p class="special-offer-kicker" data-special-offer-unavailable-kicker>Special Offer</p>
+      <h1 data-special-offer-unavailable-title>Campaign is not available yet.</h1>
+      <p data-special-offer-unavailable-copy>This campaign is not public at the moment.</p>
+      <a href="/index.html" class="special-offer-button special-offer-button--secondary" data-special-offer-home>Back to CyprusEye</a>
+    </section>
+
+    <article class="special-offer-layout" data-special-offer-content hidden>
+      <section class="special-offer-hero">
+        <div class="special-offer-hero__copy">
+          <p class="special-offer-kicker" data-special-offer-mode-label>Special Offer</p>
+          <h1 data-special-offer-title></h1>
+          <p class="special-offer-hero__summary" data-special-offer-short></p>
+          <div class="special-offer-meta" data-special-offer-dates></div>
+        </div>
+        <div class="special-offer-hero__media" aria-hidden="true">
+          <img src="/assets/cyprus_logo-1000x1054.png" alt="" width="1000" height="1054" loading="lazy" />
+        </div>
+      </section>
+
+      <section class="special-offer-section" data-special-offer-description-section>
+        <h2 data-special-offer-label="about">About this campaign</h2>
+        <div class="special-offer-rich-text" data-special-offer-full></div>
+      </section>
+
+      <section class="special-offer-section" data-special-offer-prize-section>
+        <h2 data-special-offer-label="prize">Prize</h2>
+        <div class="special-offer-grid" data-special-offer-prizes></div>
+      </section>
+
+      <section class="special-offer-section" data-special-offer-rules-section>
+        <h2 data-special-offer-label="rules">Rules</h2>
+        <div class="special-offer-rich-text special-offer-rules" data-special-offer-rules></div>
+      </section>
+
+      <section class="special-offer-section" data-special-offer-faq-section>
+        <h2 data-special-offer-label="faq">FAQ</h2>
+        <div class="special-offer-faq" data-special-offer-faq></div>
+      </section>
+
+      <section class="special-offer-section" data-special-offer-links-section>
+        <h2 data-special-offer-label="links">Linked services</h2>
+        <div class="special-offer-cta-list" data-special-offer-links></div>
+      </section>
+
+      <section class="special-offer-entry-placeholder" data-special-offer-entry-placeholder>
+        <h2 data-special-offer-entry-title>No entry form yet</h2>
+        <p data-special-offer-entry-copy>Entry form coming soon.</p>
+      </section>
+    </article>
+  </main>
+
+  <script type="module" src="/js/special-offer.js?v=20260706_1"></script>
+</body>
+</html>
