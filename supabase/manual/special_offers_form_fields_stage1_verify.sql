@@ -14,6 +14,10 @@ select
   to_regprocedure('public.is_current_user_admin()') is not null as pass;
 
 select
+  'public form access helper' as check_name,
+  to_regprocedure('public.special_offer_form_field_is_public(uuid)') is not null as pass;
+
+select
   'tables exist' as check_name,
   to_regclass('public.special_offer_form_fields') is not null as fields_table_exists,
   to_regclass('public.special_offer_form_field_translations') is not null as field_translations_table_exists;
@@ -64,6 +68,18 @@ where table_schema = 'public'
   and table_name in ('special_offer_form_fields', 'special_offer_form_field_translations')
   and grantee in ('authenticated', 'anon', 'service_role', 'PUBLIC')
 order by table_name, grantee, privilege_type;
+
+select
+  'public access helper grants' as check_name,
+  routine_schema,
+  routine_name,
+  grantee,
+  privilege_type
+from information_schema.routine_privileges
+where routine_schema = 'public'
+  and routine_name = 'special_offer_form_field_is_public'
+  and grantee in ('authenticated', 'anon', 'service_role', 'PUBLIC')
+order by grantee, privilege_type;
 
 select
   'public write grants should be absent' as check_name,

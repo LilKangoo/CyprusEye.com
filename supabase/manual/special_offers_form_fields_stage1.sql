@@ -83,6 +83,32 @@ create trigger trg_special_offer_form_fields_set_updated_at
   for each row
   execute function public.special_offers_set_updated_at();
 
+create or replace function public.special_offer_form_field_is_public(p_field_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.special_offer_form_fields f
+    join public.special_offers o on o.id = f.offer_id
+    where f.id = p_field_id
+      and f.active = true
+      and o.status = 'active'
+      and o.visibility = 'public'
+      and o.requires_form = true
+      and (o.start_at is null or now() >= o.start_at)
+      and (o.end_at is null or now() <= o.end_at)
+  );
+$$;
+
+revoke all on function public.special_offer_form_field_is_public(uuid)
+  from public, anon, authenticated;
+grant execute on function public.special_offer_form_field_is_public(uuid)
+  to anon, authenticated, service_role;
+
 alter table public.special_offer_form_fields enable row level security;
 
 revoke all on public.special_offer_form_fields from public;
@@ -132,19 +158,7 @@ create policy "Public can select active special offer form fields"
   on public.special_offer_form_fields
   for select
   to anon, authenticated
-  using (
-    active = true
-    and exists (
-      select 1
-      from public.special_offers o
-      where o.id = offer_id
-        and o.status = 'active'
-        and o.visibility = 'public'
-        and o.requires_form = true
-        and (o.start_at is null or now() >= o.start_at)
-        and (o.end_at is null or now() <= o.end_at)
-    )
-  );
+  using (public.special_offer_form_field_is_public(id));
 
 create table if not exists public.special_offer_form_field_translations (
   id uuid primary key default gen_random_uuid(),
@@ -226,20 +240,7 @@ create policy "Public can select active special offer form field translations"
   on public.special_offer_form_field_translations
   for select
   to anon, authenticated
-  using (
-    exists (
-      select 1
-      from public.special_offer_form_fields f
-      join public.special_offers o on o.id = f.offer_id
-      where f.id = field_id
-        and f.active = true
-        and o.status = 'active'
-        and o.visibility = 'public'
-        and o.requires_form = true
-        and (o.start_at is null or now() >= o.start_at)
-        and (o.end_at is null or now() <= o.end_at)
-    )
-  );
+  using (public.special_offer_form_field_is_public(field_id));
 
 comment on table public.special_offer_form_fields is
   'Special Offers campaign form builder fields. Configuration only; no entries are created in stage 3C.1.';
@@ -254,5 +255,7 @@ comment on table public.special_offer_form_field_translations is
   'Localized labels, placeholders, help text, and options for Special Offers form fields.';
 comment on column public.special_offer_form_field_translations.options_json is
   'Array of localized option objects for select and checkbox_group fields.';
+comment on function public.special_offer_form_field_is_public(uuid) is
+  'Security definer helper for public form field read checks without granting public SELECT on special_offers.';
 
 commit;
