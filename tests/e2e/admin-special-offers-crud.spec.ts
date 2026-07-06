@@ -131,10 +131,40 @@ async function prepareAdminSpecialOffersCrudStub(page: Page) {
             sort_order: 0,
           },
         ]);
+        stub.seedTable('special_offer_prize_translations', [
+          { id: 'prize-translation-pl', prize_id: 'prize-1', lang: 'pl', name: '3 dni / 2 noce w 7 Kamares + auto na 3 dni', description: 'Polski opis nagrody.', restrictions: 'Dla osoby pełnoletniej.', fulfillment_notes: 'Sponsor: 7 Kamares.' },
+          { id: 'prize-translation-en', prize_id: 'prize-1', lang: 'en', name: '3 days / 2 nights at 7 Kamares + a car for 3 days', description: 'English prize description.', restrictions: 'Adult winner only.', fulfillment_notes: 'Sponsor: 7 Kamares.' },
+          { id: 'prize-translation-he', prize_id: 'prize-1', lang: 'he', name: '3 ימים / 2 לילות ב-7 Kamares + רכב ל-3 ימים', description: 'תיאור הפרס בעברית.', restrictions: 'לזוכה בגיר.', fulfillment_notes: 'נותן החסות: 7 Kamares.' },
+        ]);
 
         stub.seedTable('special_offer_links', [
           { id: 'link-cars', offer_id: offerId, link_type: 'cars', resource_id: null, url: '/car.html?lang=pl', label: 'Auta na Cyprze', is_primary: false, sort_order: 10 },
           { id: 'link-custom', offer_id: offerId, link_type: 'custom', resource_id: null, url: '/special-offers/lefkara-giveaway-2026?lang=pl', label: 'Kampania Lefkara 2026', is_primary: true, sort_order: 0 },
+        ]);
+        stub.seedTable('special_offer_link_translations', [
+          { id: 'link-cars-pl', link_id: 'link-cars', lang: 'pl', label: 'Auta na Cyprze', description: 'Wynajem auta na Cyprze.', url: '/car.html?lang=pl' },
+          { id: 'link-cars-en', link_id: 'link-cars', lang: 'en', label: 'Cars in Cyprus', description: 'Car rental in Cyprus.', url: '/car.html?lang=en' },
+          { id: 'link-cars-he', link_id: 'link-cars', lang: 'he', label: 'רכבים בקפריסין', description: 'השכרת רכב בקפריסין.', url: '/car.html?lang=he' },
+          { id: 'link-custom-pl', link_id: 'link-custom', lang: 'pl', label: 'Kampania Lefkara 2026', description: 'Strona kampanii.', url: '/special-offers/lefkara-giveaway-2026?lang=pl' },
+          { id: 'link-custom-en', link_id: 'link-custom', lang: 'en', label: 'Lefkara Campaign 2026', description: 'Campaign page.', url: '/special-offers/lefkara-giveaway-2026?lang=en' },
+          { id: 'link-custom-he', link_id: 'link-custom', lang: 'he', label: 'קמפיין לפקרה 2026', description: 'עמוד הקמפיין.', url: '/special-offers/lefkara-giveaway-2026?lang=he' },
+        ]);
+        stub.seedTable('car_offers', [
+          { id: 'car-offer-1', car_model: 'Toyota Yaris', car_type: 'compact', location: 'Larnaca', is_available: true },
+        ]);
+        stub.seedTable('trips', [
+          { id: 'trip-1', slug: 'lefkara-private-trip', title: 'Lefkara private trip', start_city: 'Larnaca', status: 'published', is_published: true },
+          { id: 'trip-no-slug', title: 'Trip without slug', start_city: 'Paphos', status: 'published', is_published: true },
+        ]);
+        stub.seedTable('hotels', [
+          { id: 'hotel-1', slug: 'seven-kamares-lefkara', title: { pl: '7 Kamares', en: '7 Kamares', he: '7 Kamares' }, city: 'Lefkara', status: 'published', is_published: true },
+        ]);
+        stub.seedTable('transport_locations', [
+          { id: 'loc-lca', name: 'Larnaca Airport', is_active: true },
+          { id: 'loc-lefkara', name: 'Lefkara', is_active: true },
+        ]);
+        stub.seedTable('transport_routes', [
+          { id: 'route-lca-lefkara', origin_location_id: 'loc-lca', destination_location_id: 'loc-lefkara', is_active: true },
         ]);
         stub.seedTable('special_offer_audit_log', []);
       },
@@ -174,7 +204,9 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     await editor.getByRole('button', { name: 'Content PL / EN / HE' }).click();
     await editor.locator('[name="pl_title"]').fill('Wygraj rodzinny weekend na Cyprze');
     await editor.getByRole('button', { name: 'Prize' }).click();
-    await editor.locator('[data-prize-field="name"]').fill('Rodzinny weekend');
+    await expect(editor.getByRole('button', { name: 'PL' }).first()).toBeVisible();
+    await editor.locator('[data-prize-translation-field="name"][data-lang="pl"]').fill('Rodzinny weekend');
+    await editor.locator('[data-prize-translation-field="description"][data-lang="pl"]').fill('Weekendowy pobyt dla rodziny.');
     await expect(editor.getByRole('button', { name: 'Save draft' })).toBeEnabled();
     await editor.getByRole('button', { name: 'Save draft' }).click();
 
@@ -186,7 +218,9 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
       offers: (window as any).__supabaseStub.getTableRows('special_offers'),
       translations: (window as any).__supabaseStub.getTableRows('special_offer_translations'),
       prizes: (window as any).__supabaseStub.getTableRows('special_offer_prizes'),
+      prizeTranslations: (window as any).__supabaseStub.getTableRows('special_offer_prize_translations'),
       links: (window as any).__supabaseStub.getTableRows('special_offer_links'),
+      linkTranslations: (window as any).__supabaseStub.getTableRows('special_offer_link_translations'),
       audit: (window as any).__supabaseStub.getTableRows('special_offer_audit_log'),
       forbidden: [
         'special_offer_entries',
@@ -203,7 +237,10 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     expect(created.visibility).toBe('private');
     expect(rows.translations.some((row: any) => row.offer_id === created.id && row.lang === 'pl')).toBe(true);
     expect(rows.prizes.some((row: any) => row.offer_id === created.id && row.name === 'Rodzinny weekend')).toBe(true);
+    const createdPrize = rows.prizes.find((row: any) => row.offer_id === created.id && row.name === 'Rodzinny weekend');
+    expect(rows.prizeTranslations.some((row: any) => row.prize_id === createdPrize.id && row.lang === 'pl' && row.name === 'Rodzinny weekend')).toBe(true);
     expect(rows.links.filter((row: any) => row.offer_id === created.id)).toHaveLength(0);
+    expect(rows.linkTranslations.length).toBeGreaterThanOrEqual(6);
     expect(rows.audit.some((row: any) => row.action === 'special_offer.created' && row.offer_id === created.id)).toBe(true);
     expect(rows.forbidden.every((entry: any[]) => entry[1] === 0)).toBe(true);
   });
@@ -213,11 +250,10 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     await openEditorForLefkara(page);
 
     const editor = page.locator('#specialOffersEditorModal');
-    await expect(editor.getByRole('button', { name: 'PL' })).toBeVisible();
-    await expect(editor.getByRole('button', { name: 'EN' })).toBeVisible();
-    await expect(editor.getByRole('button', { name: 'HE' })).toBeVisible();
-
     await editor.getByRole('button', { name: 'Content PL / EN / HE' }).click();
+    await expect(editor.getByRole('button', { name: 'PL', exact: true })).toBeVisible();
+    await expect(editor.getByRole('button', { name: 'EN', exact: true })).toBeVisible();
+    await expect(editor.getByRole('button', { name: 'HE', exact: true })).toBeVisible();
     await expect(editor.locator('[data-faq-builder="pl"]')).toBeVisible();
     await expect(editor.locator('[name="pl_faq_json"]')).toHaveCount(0);
     await expect(editor.locator('[data-rules-builder="pl"]')).toBeVisible();
@@ -264,24 +300,32 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
 
     await editor.getByRole('button', { name: 'Prize' }).click();
     await expect(editor).toContainText('Prize operational details');
-    await expect(editor).toContainText('Language-specific public prize copy is edited in Content PL / EN / HE');
+    await expect(editor).toContainText('Public prize text is edited below in PL/EN/HE');
+    await expect(editor).toContainText('Prize translations PL / EN / HE');
+    await expect(editor.locator('[data-prize-translation-field="name"][data-lang="he"]').first()).toHaveAttribute('dir', 'rtl');
     await editor.getByRole('button', { name: 'Add prize' }).click();
     const secondPrize = editor.locator('[data-special-offers-prize]').last();
-    await secondPrize.locator('[data-prize-field="name"]').fill('Bonus voucher');
+    await secondPrize.locator('[data-prize-translation-field="name"][data-lang="pl"]').fill('Bonus voucher');
+    await secondPrize.getByRole('button', { name: 'EN', exact: true }).click();
+    await secondPrize.locator('[data-prize-translation-field="name"][data-lang="en"]').fill('Bonus voucher EN');
+    await secondPrize.getByRole('button', { name: 'HE', exact: true }).click();
+    await secondPrize.locator('[data-prize-translation-field="name"][data-lang="he"]').fill('שובר בונוס');
     await secondPrize.locator('[data-prize-field="quantity"]').fill('0');
     await expect(editor.getByRole('button', { name: 'Save draft' })).toBeDisabled();
     await secondPrize.locator('[data-prize-field="quantity"]').fill('2');
     await editor.locator('[data-special-offers-prize]').first().getByRole('button', { name: 'Remove' }).click();
 
     await editor.getByRole('button', { name: 'Linked services' }).click();
-    await expect(editor).toContainText('URL-only linked services');
-    await expect(editor).toContainText('Resource ID picker is disabled in this stage');
-    await expect(editor).toContainText('Language-specific labels/URLs require the next schema stage');
-    await editor.getByRole('button', { name: 'Add URL-only link' }).click();
+    await expect(editor).toContainText('Linked services');
+    await expect(editor).toContainText('Main service page uses general service URLs');
+    await expect(editor).toContainText('Link translations PL / EN / HE');
+    await editor.getByRole('button', { name: 'Add link' }).click();
     const newLink = editor.locator('[data-special-offers-link]').last();
     await newLink.locator('[data-link-field="link_type"]').selectOption('cars');
-    await newLink.locator('[data-link-field="label"]').fill('Cars offer');
-    await newLink.locator('[data-link-field="url"]').fill('/car.html?lang=pl');
+    await newLink.locator('[data-link-field="mode"]').selectOption('main');
+    await expect(newLink.locator('[data-link-translation-field="url"][data-lang="pl"]')).toHaveValue('/car.html?lang=pl');
+    await expect(newLink.locator('[data-link-translation-field="url"][data-lang="en"]')).toHaveValue('/car.html?lang=en');
+    await expect(newLink.locator('[data-link-translation-field="url"][data-lang="he"]')).toHaveValue('/car.html?lang=he');
     await expect(newLink.locator('[data-link-url-preview]')).toContainText('/car.html?lang=en');
     await expect(newLink.locator('[data-link-url-preview]')).toContainText('/car.html?lang=he');
     await newLink.locator('[data-link-field="is_primary"]').check();
@@ -294,15 +338,90 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
 
     const rows = await page.evaluate(() => ({
       prizes: (window as any).__supabaseStub.getTableRows('special_offer_prizes'),
+      prizeTranslations: (window as any).__supabaseStub.getTableRows('special_offer_prize_translations'),
       links: (window as any).__supabaseStub.getTableRows('special_offer_links'),
+      linkTranslations: (window as any).__supabaseStub.getTableRows('special_offer_link_translations'),
     }));
     const prizes = rows.prizes.filter((row: any) => row.offer_id === OFFER_ID);
     const links = rows.links.filter((row: any) => row.offer_id === OFFER_ID);
     expect(prizes.some((row: any) => row.name === 'Bonus voucher' && row.quantity === 2)).toBe(true);
+    const bonusPrize = prizes.find((row: any) => row.name === 'Bonus voucher');
+    expect(rows.prizeTranslations.some((row: any) => row.prize_id === bonusPrize.id && row.lang === 'he' && row.name === 'שובר בונוס')).toBe(true);
     expect(prizes.some((row: any) => row.id === 'prize-1')).toBe(false);
     expect(links.some((row: any) => row.id === 'link-cars')).toBe(false);
-    expect(links.some((row: any) => row.label === 'Cars offer' && row.resource_id === null)).toBe(true);
+    const carsLink = links.find((row: any) => row.link_type === 'cars' && row.url === '/car.html?lang=pl');
+    expect(carsLink.resource_id).toBe(null);
+    expect(rows.linkTranslations.some((row: any) => row.link_id === carsLink.id && row.lang === 'he' && row.url === '/car.html?lang=he')).toBe(true);
     expect(links.filter((row: any) => row.is_primary)).toHaveLength(1);
+  });
+
+  test('supports resource picker, custom URL translations, help popups and admin preview', async ({ page }) => {
+    page.on('dialog', (dialog) => dialog.accept());
+    await openSpecialOffers(page);
+    await openEditorForLefkara(page);
+    const editor = page.locator('#specialOffersEditorModal');
+
+    await editor.getByRole('button', { name: 'Linked services' }).click();
+    await editor.getByRole('button', { name: 'Add link' }).click();
+    const resourceLink = editor.locator('[data-special-offers-link]').last();
+    await resourceLink.locator('[data-link-field="link_type"]').selectOption('trips');
+    await resourceLink.locator('[data-link-field="mode"]').selectOption('resource');
+    await expect(resourceLink.locator('.special-offer-resource-picker')).toBeVisible();
+    await resourceLink.locator('[data-link-field="resource_id"]').selectOption('trip-1');
+    await expect(resourceLink.locator('[data-link-translation-field="url"][data-lang="pl"]')).toHaveValue('/trip.html?slug=lefkara-private-trip&lang=pl');
+    await expect(resourceLink.locator('[data-link-translation-field="url"][data-lang="he"]')).toHaveValue('/trip.html?slug=lefkara-private-trip&lang=he');
+
+    await editor.getByRole('button', { name: 'Add link' }).click();
+    const customLink = editor.locator('[data-special-offers-link]').last();
+    await customLink.locator('[data-link-field="link_type"]').selectOption('custom');
+    await customLink.locator('[data-link-field="mode"]').selectOption('custom');
+    await customLink.locator('[data-link-translation-field="label"][data-lang="pl"]').fill('Manual PL');
+    await customLink.locator('[data-link-translation-field="url"][data-lang="pl"]').fill('/manual-pl.html');
+    await customLink.getByRole('button', { name: 'EN', exact: true }).click();
+    await customLink.locator('[data-link-translation-field="label"][data-lang="en"]').fill('Manual EN');
+    await customLink.locator('[data-link-translation-field="url"][data-lang="en"]').fill('/manual-en.html');
+    await customLink.getByRole('button', { name: 'HE', exact: true }).click();
+    await customLink.locator('[data-link-translation-field="label"][data-lang="he"]').fill('קישור ידני');
+    await customLink.locator('[data-link-translation-field="url"][data-lang="he"]').fill('/manual-he.html');
+
+    await editor.getByRole('button', { name: 'Add link' }).click();
+    const shopLink = editor.locator('[data-special-offers-link]').last();
+    await shopLink.locator('[data-link-field="link_type"]').selectOption('shop');
+    await expect(shopLink.locator('[data-link-field="mode"] option[value="resource"]')).toHaveAttribute('disabled', '');
+    await expect(shopLink).toContainText('Shop picker requires public product URL resolver');
+    await shopLink.getByRole('button', { name: 'Remove' }).click();
+
+    await editor.locator('[data-special-offers-help="links"]').click();
+    const help = page.locator('#specialOffersHelpPopover');
+    await expect(help).toBeVisible();
+    await expect(help).toContainText('What this section does');
+    await expect(help).toContainText('Resource ID is only saved when selected by admin');
+    await help.locator('[data-special-offers-help-close]').last().click();
+    await expect(help).toBeHidden();
+
+    await page.locator('#specialOffersEditorPreview').click();
+    const preview = page.locator('#specialOffersPreviewModal');
+    await expect(preview).toBeVisible();
+    await expect(preview).toContainText('Preview campaign');
+    await expect(preview).toContainText('Win 3 days in Lefkara + a car for 3 days');
+    await preview.getByRole('button', { name: 'HE' }).click();
+    await expect(preview.locator('[data-special-offers-preview-lang-panel="he"]')).toHaveAttribute('dir', 'rtl');
+    await expect(preview).toContainText('3 ימים / 2 לילות');
+    await preview.locator('[data-special-offers-preview-close]').last().click();
+
+    await editor.getByRole('button', { name: 'Save draft' }).click();
+    await expect(editor).toBeHidden();
+
+    const rows = await page.evaluate(() => ({
+      links: (window as any).__supabaseStub.getTableRows('special_offer_links'),
+      linkTranslations: (window as any).__supabaseStub.getTableRows('special_offer_link_translations'),
+    }));
+    const tripLink = rows.links.find((row: any) => row.offer_id === OFFER_ID && row.link_type === 'trips');
+    expect(tripLink.resource_id).toBe('trip-1');
+    expect(rows.linkTranslations.some((row: any) => row.link_id === tripLink.id && row.lang === 'he' && row.url === '/trip.html?slug=lefkara-private-trip&lang=he')).toBe(true);
+    const savedCustom = rows.links.find((row: any) => row.offer_id === OFFER_ID && row.link_type === 'custom' && row.url === '/manual-pl.html');
+    expect(savedCustom.resource_id).toBe(null);
+    expect(rows.linkTranslations.some((row: any) => row.link_id === savedCustom.id && row.lang === 'en' && row.url === '/manual-en.html')).toBe(true);
   });
 
   test('archives without hard delete and disables edit for non-draft/non-private campaigns', async ({ page }) => {

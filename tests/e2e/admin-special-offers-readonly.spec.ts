@@ -161,12 +161,25 @@ async function prepareAdminSpecialOffersStub(page: Page) {
             sort_order: 0,
           },
         ]);
+        stub.seedTable('special_offer_prize_translations', [
+          { id: 'prize-translation-pl', prize_id: 'prize-1', lang: 'pl', name: '3 dni / 2 noce w 7 Kamares + auto na 3 dni', description: 'Polski opis nagrody.', restrictions: 'Dla osoby pełnoletniej.', fulfillment_notes: 'Sponsor: 7 Kamares.' },
+          { id: 'prize-translation-en', prize_id: 'prize-1', lang: 'en', name: '3 days / 2 nights at 7 Kamares + a car for 3 days', description: 'English prize description.', restrictions: 'Adult winner only.', fulfillment_notes: 'Sponsor: 7 Kamares.' },
+          { id: 'prize-translation-he', prize_id: 'prize-1', lang: 'he', name: '3 ימים / 2 לילות ב-7 Kamares + רכב ל-3 ימים', description: 'תיאור הפרס בעברית.', restrictions: 'לזוכה בגיר.', fulfillment_notes: 'נותן החסות: 7 Kamares.' },
+        ]);
 
         stub.seedTable('special_offer_links', [
           { id: 'link-cars', offer_id: offerId, link_type: 'cars', resource_id: null, url: '/car.html?lang=pl', label: 'Auta na Cyprze', is_primary: false, sort_order: 10 },
           { id: 'link-transport', offer_id: offerId, link_type: 'transport', resource_id: null, url: '/transport.html?lang=pl', label: 'Transport na Cyprze', is_primary: false, sort_order: 20 },
           { id: 'link-trips', offer_id: offerId, link_type: 'trips', resource_id: null, url: '/trips.html?lang=pl', label: 'Wycieczki na Cyprze', is_primary: false, sort_order: 30 },
           { id: 'link-custom', offer_id: offerId, link_type: 'custom', resource_id: null, url: '/special-offers/lefkara-giveaway-2026?lang=pl', label: 'Kampania Lefkara 2026', is_primary: true, sort_order: 0 },
+        ]);
+        stub.seedTable('special_offer_link_translations', [
+          { id: 'link-cars-pl', link_id: 'link-cars', lang: 'pl', label: 'Auta na Cyprze', description: 'Wynajem auta na Cyprze.', url: '/car.html?lang=pl' },
+          { id: 'link-cars-en', link_id: 'link-cars', lang: 'en', label: 'Cars in Cyprus', description: 'Car rental in Cyprus.', url: '/car.html?lang=en' },
+          { id: 'link-cars-he', link_id: 'link-cars', lang: 'he', label: 'רכבים בקפריסין', description: 'השכרת רכב בקפריסין.', url: '/car.html?lang=he' },
+          { id: 'link-custom-pl', link_id: 'link-custom', lang: 'pl', label: 'Kampania Lefkara 2026', description: 'Strona kampanii.', url: '/special-offers/lefkara-giveaway-2026?lang=pl' },
+          { id: 'link-custom-en', link_id: 'link-custom', lang: 'en', label: 'Lefkara Campaign 2026', description: 'Campaign page.', url: '/special-offers/lefkara-giveaway-2026?lang=en' },
+          { id: 'link-custom-he', link_id: 'link-custom', lang: 'he', label: 'קמפיין לפקרה 2026', description: 'עמוד הקמפיין.', url: '/special-offers/lefkara-giveaway-2026?lang=he' },
         ]);
       },
     };
@@ -225,7 +238,7 @@ test.describe('Admin Special Offers read-only integration', () => {
     await expect(modal).toContainText('No automatic social integrations');
     await expect(modal).toContainText('Cars');
     await expect(modal).toContainText('/car.html?lang=pl');
-    await expect(modal).toContainText('URL-only');
+    await expect(modal).toContainText('No resource ID');
     await expect(modal.getByRole('button', { name: 'Edit campaign' })).toBeEnabled();
     await expect(modal.getByRole('button', { name: 'Entries' })).toBeDisabled();
     await expect(modal.getByRole('button', { name: 'Draw' })).toBeDisabled();

@@ -1,7 +1,9 @@
 const SPECIAL_OFFERS_SELECT = 'id, slug, type, winner_selection_mode, status, visibility, start_at, end_at, winner_announce_at, timezone, requires_login, requires_form, requires_manual_approval, allow_multiple_entries, max_entries_per_user, allow_bonus_points, exclude_admins, exclude_partners, public_winner_display, response_deadline_days, settings_json, created_at, updated_at, archived_at';
 const SPECIAL_OFFERS_TRANSLATIONS_SELECT = 'id, offer_id, lang, title, short_description, full_description, prize_description, rules_html, faq_json, seo_title, seo_description';
 const SPECIAL_OFFERS_PRIZES_SELECT = 'id, offer_id, name, description, sponsor_name, quantity, value_estimate, currency, restrictions, fulfillment_notes, sort_order';
+const SPECIAL_OFFERS_PRIZE_TRANSLATIONS_SELECT = 'id, prize_id, lang, name, description, restrictions, fulfillment_notes';
 const SPECIAL_OFFERS_LINKS_SELECT = 'id, offer_id, link_type, resource_id, url, label, description, is_primary, sort_order';
+const SPECIAL_OFFERS_LINK_TRANSLATIONS_SELECT = 'id, link_id, lang, label, description, url';
 const SPECIAL_OFFERS_AUDIT_SELECT = 'id, offer_id, actor_id, action, entity_type, entity_id, old_value, new_value, metadata, created_at';
 
 const specialOffersState = {
@@ -14,6 +16,14 @@ const specialOffersState = {
   editorLinks: [],
   removedPrizeIds: new Set(),
   removedLinkIds: new Set(),
+  resourceOptions: {
+    cars: [],
+    trips: [],
+    hotels: [],
+    transport: [],
+  },
+  resourceOptionsLoaded: false,
+  resourceOptionsError: '',
   saving: false,
 };
 
@@ -26,6 +36,15 @@ const SPECIAL_OFFERS_DETAIL_LANGUAGES = [
 const SPECIAL_OFFERS_TYPES = ['contest', 'giveaway', 'weighted_draw', 'partner_promo', 'coupon_promo', 'landing_only'];
 const SPECIAL_OFFERS_WINNER_MODES = ['manual_selection', 'weighted_draw', 'none'];
 const SPECIAL_OFFERS_LINK_TYPES = ['cars', 'trips', 'hotels', 'transport', 'shop', 'coupons', 'vip', 'custom'];
+const SPECIAL_OFFERS_LINK_MODES = ['main', 'resource', 'custom'];
+const SPECIAL_OFFERS_RESOURCE_PICKER_TYPES = ['cars', 'trips', 'hotels', 'transport'];
+const SPECIAL_OFFERS_GENERIC_URLS = {
+  cars: '/car.html',
+  trips: '/trips.html',
+  hotels: '/hotels.html',
+  transport: '/transport.html',
+  vip: '/vip.html',
+};
 const SPECIAL_OFFERS_DEFAULT_SETTINGS = {
   requires_login: true,
   requires_form: true,
@@ -37,6 +56,58 @@ const SPECIAL_OFFERS_DEFAULT_SETTINGS = {
   exclude_partners: false,
   public_winner_display: false,
   response_deadline_days: 7,
+};
+
+const SPECIAL_OFFERS_HELP = {
+  basic: {
+    title: 'Basic settings',
+    does: 'Defines the internal campaign identity: slug, type, winner mode, status and visibility.',
+    use: 'Use this when creating the campaign shell or changing draft/private metadata.',
+    avoid: 'Do not try to publish here. Active status and public visibility are intentionally blocked.',
+    example: 'Example: slug lefkara-giveaway-2026, type contest, winner mode manual selection.',
+  },
+  dates: {
+    title: 'Dates & visibility',
+    does: 'Stores planned campaign timing and timezone for admin review.',
+    use: 'Use start, end and winner announce dates to prepare the campaign schedule.',
+    avoid: 'Do not treat these dates as public launch. Visibility remains private in this stage.',
+    example: 'Example: start in Asia/Nicosia, end after the promotion window, announce after end.',
+  },
+  content: {
+    title: 'Content PL / EN / HE',
+    does: 'Stores campaign copy, rules and FAQ separately for Polish, English and Hebrew.',
+    use: 'Use these tabs for public campaign content and SEO text in each language.',
+    avoid: 'Do not paste raw JSON for FAQ. Use the FAQ builder and rules builder.',
+    example: 'Example: PL title is required; EN and HE can be prepared before publication.',
+  },
+  prize: {
+    title: 'Prize',
+    does: 'Keeps internal prize details separate from public prize translations.',
+    use: 'Use operational fields for sponsor, quantity, value and sort order. Use PL/EN/HE tabs for public prize copy.',
+    avoid: 'Do not create separate prize rows for each language.',
+    example: 'Example: one prize row with PL, EN and HE name, description, restrictions and fulfillment notes.',
+  },
+  links: {
+    title: 'Linked services',
+    does: 'Creates CTA links with language-specific labels, descriptions and URLs.',
+    use: 'Main service page links to a general page. Existing offer links to a selected DB resource. Custom URL is manual.',
+    avoid: 'Do not guess resource IDs. Resource ID is only saved when selected by admin.',
+    example: 'Example: Cars main page creates /car.html?lang=pl, /car.html?lang=en and /car.html?lang=he.',
+  },
+  rules: {
+    title: 'Rules/settings',
+    does: 'Controls internal campaign behavior flags while the campaign stays private.',
+    use: 'Use this for login/form/manual approval flags and entry limits.',
+    avoid: 'Do not use advanced JSON unless you know the stored settings object.',
+    example: 'Example: requires login, requires form, manual approval, one entry per user.',
+  },
+  review: {
+    title: 'Review & save',
+    does: 'Summarizes what will be saved before writing draft/private data.',
+    use: 'Check translation coverage, prize translations, linked service URLs and warnings before save.',
+    avoid: 'Do not expect save to publish, create entries, run a draw or expose a public landing.',
+    example: 'Example: one primary CTA with PL/EN/HE URL coverage and draft/private status.',
+  },
 };
 
 function getSupabaseClient() {
@@ -79,6 +150,16 @@ function groupByOfferId(rows) {
   }, {});
 }
 
+function groupByParentId(rows, key) {
+  return toArray(rows).reduce((acc, row) => {
+    const parentId = row?.[key];
+    if (!parentId) return acc;
+    if (!acc[parentId]) acc[parentId] = [];
+    acc[parentId].push(row);
+    return acc;
+  }, {});
+}
+
 function titleCase(value) {
   const normalized = String(value || '')
     .replace(/_/g, ' ')
@@ -114,6 +195,64 @@ function getPrimaryTranslation(campaign) {
 function getTranslationByLanguage(campaign, lang) {
   const normalizedLang = String(lang || '').trim().toLowerCase();
   return toArray(campaign?.translations).find((row) => String(row?.lang || '').trim().toLowerCase() === normalizedLang) || null;
+}
+
+function getLocalizedRow(rows, lang) {
+  const normalizedLang = String(lang || '').trim().toLowerCase();
+  return toArray(rows).find((row) => String(row?.lang || '').trim().toLowerCase() === normalizedLang) || null;
+}
+
+function getPrizeTranslation(prize, lang) {
+  return getLocalizedRow(prize?.translations, lang) || { lang };
+}
+
+function getLinkTranslation(link, lang) {
+  return getLocalizedRow(link?.translations, lang) || { lang };
+}
+
+function appendLangParam(url, lang) {
+  const source = String(url || '').trim();
+  if (!source) return '';
+  if (/([?&])lang=/.test(source)) return source.replace(/([?&])lang=[^&]*/i, `$1lang=${lang}`);
+  return `${source}${source.includes('?') ? '&' : '?'}lang=${lang}`;
+}
+
+function getGenericUrl(linkType, lang) {
+  const base = SPECIAL_OFFERS_GENERIC_URLS[linkType];
+  return base ? appendLangParam(base, lang) : '';
+}
+
+function isGenericUrlForType(linkType, url) {
+  const source = String(url || '').trim();
+  const base = SPECIAL_OFFERS_GENERIC_URLS[linkType];
+  return Boolean(base && source.startsWith(base) && /([?&])lang=/.test(source));
+}
+
+function inferLinkMode(link) {
+  if (link?.resource_id) return 'resource';
+  if (link?.link_type === 'custom') return 'custom';
+  if (isGenericUrlForType(link?.link_type, link?.url)) return 'main';
+  return String(link?.url || '').trim() ? 'custom' : 'main';
+}
+
+function isValidUrlForStage(url) {
+  return /^(\/|https?:\/\/)/i.test(String(url || '').trim());
+}
+
+function isResourcePickerEnabled(linkType) {
+  return SPECIAL_OFFERS_RESOURCE_PICKER_TYPES.includes(String(linkType || ''));
+}
+
+function isMainServicePageEnabled(linkType) {
+  return Boolean(SPECIAL_OFFERS_GENERIC_URLS[linkType]);
+}
+
+function getLanguageDir(lang) {
+  return SPECIAL_OFFERS_DETAIL_LANGUAGES.find((item) => item.code === lang)?.dir || 'ltr';
+}
+
+function getLanguageLabel(lang) {
+  return SPECIAL_OFFERS_DETAIL_LANGUAGES.find((item) => item.code === lang)?.label || String(lang || '').toUpperCase();
 }
 
 function countByStatus(campaigns, status) {
@@ -233,12 +372,23 @@ function renderCampaigns(campaigns) {
   }
 }
 
-function normalizeCampaigns(offers, translationsByOffer, prizesByOffer, linksByOffer) {
+function normalizeCampaigns(offers, translationsByOffer, prizesByOffer, linksByOffer, prizeTranslationsByPrize = {}, linkTranslationsByLink = {}) {
   return toArray(offers).map((offer) => ({
     ...offer,
     translations: toArray(translationsByOffer[offer.id]),
-    prizes: toArray(prizesByOffer[offer.id]).sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0)),
-    links: toArray(linksByOffer[offer.id]).sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0)),
+    prizes: toArray(prizesByOffer[offer.id])
+      .map((prize) => ({
+        ...prize,
+        translations: toArray(prizeTranslationsByPrize[prize.id]),
+      }))
+      .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0)),
+    links: toArray(linksByOffer[offer.id])
+      .map((link) => ({
+        ...link,
+        mode: inferLinkMode(link),
+        translations: toArray(linkTranslationsByLink[link.id]),
+      }))
+      .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0)),
     audit_log: [],
   }));
 }
@@ -286,11 +436,33 @@ async function loadSpecialOffersReadOnly() {
   if (linksResult.error) throw linksResult.error;
   if (auditResult.error) throw auditResult.error;
 
+  const prizeIds = toArray(prizesResult.data).map((prize) => prize.id).filter(Boolean);
+  const linkIds = toArray(linksResult.data).map((link) => link.id).filter(Boolean);
+  const [prizeTranslationsResult, linkTranslationsResult] = await Promise.all([
+    prizeIds.length
+      ? client
+        .from('special_offer_prize_translations')
+        .select(SPECIAL_OFFERS_PRIZE_TRANSLATIONS_SELECT)
+        .in('prize_id', prizeIds)
+      : Promise.resolve({ data: [], error: null }),
+    linkIds.length
+      ? client
+        .from('special_offer_link_translations')
+        .select(SPECIAL_OFFERS_LINK_TRANSLATIONS_SELECT)
+        .in('link_id', linkIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  if (prizeTranslationsResult.error) throw prizeTranslationsResult.error;
+  if (linkTranslationsResult.error) throw linkTranslationsResult.error;
+
   const campaigns = normalizeCampaigns(
     offers,
     groupByOfferId(translationsResult.data),
     groupByOfferId(prizesResult.data),
     groupByOfferId(linksResult.data),
+    groupByParentId(prizeTranslationsResult.data, 'prize_id'),
+    groupByParentId(linkTranslationsResult.data, 'link_id'),
   );
   const auditByOffer = groupByOfferId(auditResult.data);
   return campaigns.map((campaign) => ({
@@ -379,6 +551,118 @@ function getCurrentCampaign() {
 function getTempId(prefix) {
   if (window.crypto?.randomUUID) return `${prefix}-${window.crypto.randomUUID()}`;
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function readLocalizedTitle(value, fallback = '') {
+  if (!value) return fallback;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object') return value.pl || value.en || value.he || fallback;
+  return fallback;
+}
+
+function getCarResourceLabel(row) {
+  const name = row?.title || row?.name || row?.car_model || row?.model || row?.car_type || 'Car offer';
+  const location = row?.location ? ` · ${row.location}` : '';
+  const status = row?.status || (row?.is_available === false ? 'unavailable' : 'available');
+  return `${name}${location} · ${status}`;
+}
+
+function getTripResourceLabel(row) {
+  const title = readLocalizedTitle(row?.title, row?.name || row?.slug || 'Trip');
+  const city = row?.start_city || row?.location || '';
+  const status = row?.status || (row?.is_published === false ? 'draft' : 'published');
+  return `${title}${city ? ` · ${city}` : ''} · ${status}`;
+}
+
+function getHotelResourceLabel(row) {
+  const title = readLocalizedTitle(row?.title, row?.name || row?.slug || 'Hotel');
+  const city = row?.city || row?.location || '';
+  const status = row?.status || (row?.is_published === false ? 'draft' : 'published');
+  return `${title}${city ? ` · ${city}` : ''} · ${status}`;
+}
+
+function getTransportRouteLabel(row, locationById = {}) {
+  const origin = locationById[String(row?.origin_location_id || '')]?.name || row?.origin_name || row?.origin || 'Origin';
+  const destination = locationById[String(row?.destination_location_id || '')]?.name || row?.destination_name || row?.destination || 'Destination';
+  const status = row?.status || (row?.is_active === false ? 'inactive' : 'active');
+  return `${origin} -> ${destination} · ${status}`;
+}
+
+function buildResourceOptions(rows, type, locationById = {}) {
+  return toArray(rows).map((row) => {
+    const id = String(row?.id || '').trim();
+    let label = id || 'Resource';
+    let disabled = !id;
+    let reason = '';
+    if (type === 'cars') {
+      label = getCarResourceLabel(row);
+    } else if (type === 'trips') {
+      label = getTripResourceLabel(row);
+      disabled = disabled || !String(row?.slug || '').trim();
+      reason = !String(row?.slug || '').trim() ? 'Missing slug' : '';
+    } else if (type === 'hotels') {
+      label = getHotelResourceLabel(row);
+      disabled = disabled || !String(row?.slug || '').trim();
+      reason = !String(row?.slug || '').trim() ? 'Missing slug' : '';
+    } else if (type === 'transport') {
+      label = getTransportRouteLabel(row, locationById);
+    }
+    return { ...row, id, label, disabled, reason };
+  }).filter((row) => row.id);
+}
+
+async function loadResourcePickerOptions() {
+  if (specialOffersState.resourceOptionsLoaded) return;
+  const client = getSupabaseClient();
+  if (!client) return;
+
+  try {
+    const [carsResult, tripsResult, hotelsResult, routesResult, locationsResult] = await Promise.all([
+      client.from('car_offers').select('id, title, name, car_model, model, car_type, status, is_available, location').limit(100),
+      client.from('trips').select('id, slug, title, name, status, is_published, start_city').limit(100),
+      client.from('hotels').select('id, slug, title, name, status, is_published, city').limit(100),
+      client.from('transport_routes').select('id, origin_location_id, destination_location_id, status, is_active').limit(100),
+      client.from('transport_locations').select('id, name, code, is_active').limit(500),
+    ]);
+
+    if (carsResult.error) throw carsResult.error;
+    if (tripsResult.error) throw tripsResult.error;
+    if (hotelsResult.error) throw hotelsResult.error;
+    if (routesResult.error) throw routesResult.error;
+    if (locationsResult.error) throw locationsResult.error;
+
+    const locationById = toArray(locationsResult.data).reduce((acc, row) => {
+      if (row?.id) acc[String(row.id)] = row;
+      return acc;
+    }, {});
+
+    specialOffersState.resourceOptions = {
+      cars: buildResourceOptions(carsResult.data, 'cars'),
+      trips: buildResourceOptions(tripsResult.data, 'trips'),
+      hotels: buildResourceOptions(hotelsResult.data, 'hotels'),
+      transport: buildResourceOptions(routesResult.data, 'transport', locationById),
+    };
+    specialOffersState.resourceOptionsLoaded = true;
+    specialOffersState.resourceOptionsError = '';
+  } catch (error) {
+    console.warn('Failed to load Special Offers resource picker options:', error);
+    specialOffersState.resourceOptionsLoaded = true;
+    specialOffersState.resourceOptionsError = error.message || 'Resource pickers could not be loaded.';
+  }
+}
+
+function getResourceOption(type, resourceId) {
+  return toArray(specialOffersState.resourceOptions[type]).find((item) => String(item.id) === String(resourceId)) || null;
+}
+
+function buildResourceUrl(type, resourceId, lang) {
+  const option = getResourceOption(type, resourceId);
+  if (!option || option.disabled) return '';
+  if (type === 'cars') return `/car.html?offer_id=${encodeURIComponent(option.id)}&lang=${lang}`;
+  if (type === 'trips' && option.slug) return `/trip.html?slug=${encodeURIComponent(option.slug)}&lang=${lang}`;
+  if (type === 'hotels' && option.slug) return `/hotel.html?slug=${encodeURIComponent(option.slug)}&lang=${lang}`;
+  if (type === 'transport') return `/transport.html?route_id=${encodeURIComponent(option.id)}&lang=${lang}`;
+  return '';
 }
 
 function getEditorModal() {
@@ -566,36 +850,94 @@ function renderSettingsSummary(settings) {
 
 function renderPrizes(prizes) {
   if (!prizes.length) return '<p class="special-offers-empty-copy">No prizes configured.</p>';
-  return prizes.map((prize) => renderDetailRows([
-    ['Name', prize.name],
-    ['Sponsor', prize.sponsor_name],
-    ['Quantity', prize.quantity],
-    ['Description', prize.description],
-    ['Restrictions', prize.restrictions],
-  ])).join('');
+  return prizes.map((prize, prizeIndex) => `
+    <article class="special-offers-linked-service">
+      <div class="special-offer-campaign-card__chips">
+        <span class="special-offer-pill">Prize ${prizeIndex + 1}</span>
+        <span class="special-offer-pill">Operational details</span>
+      </div>
+      ${renderDetailRows([
+        ['Fallback name', prize.name],
+        ['Sponsor', prize.sponsor_name],
+        ['Quantity', prize.quantity],
+        ['Value estimate', prize.value_estimate ? `${prize.value_estimate} ${prize.currency || 'EUR'}` : 'Not set'],
+        ['Sort order', prize.sort_order],
+      ])}
+      ${renderPrizeTranslationTabs(prize, `detail-prize-${prizeIndex}`)}
+    </article>
+  `).join('');
 }
 
 function renderLinkedServices(links) {
   if (!links.length) return '<p class="special-offers-empty-copy">No linked services configured.</p>';
   return `
     <div class="special-offers-linked-service-list">
-      ${links.map((link) => `
+      ${links.map((link, linkIndex) => `
         <div class="special-offers-linked-service">
           <div class="special-offer-campaign-card__chips">
             <span class="special-offer-link-chip">${escapeHtml(titleCase(link.link_type))}</span>
-            <span class="special-offer-pill">${link.resource_id ? 'Resource ID' : 'URL-only'}</span>
+            <span class="special-offer-pill">${escapeHtml(titleCase(link.mode || inferLinkMode(link)))}</span>
+            <span class="special-offer-pill">${link.resource_id ? 'Resource ID' : 'No resource ID'}</span>
             ${link.is_primary ? '<span class="special-offer-pill">Primary CTA</span>' : ''}
           </div>
           ${renderDetailRows([
-            ['Label', link.label],
-            ['URL', link.url],
+            ['Fallback label', link.label],
+            ['Fallback URL', link.url],
             ['Resource ID', link.resource_id || 'None'],
-            ['Description', link.description],
+            ['Fallback description', link.description],
           ])}
+          ${renderLinkTranslationTabs(link, `detail-link-${linkIndex}`)}
         </div>
       `).join('')}
     </div>
   `;
+}
+
+function renderLocalizedTabs(rows, prefix, emptyText, fields) {
+  return `
+    <div class="special-offers-translation-tabs special-offers-translation-tabs--compact" role="tablist" aria-label="${escapeHtml(prefix)} translations">
+      ${SPECIAL_OFFERS_DETAIL_LANGUAGES.map((language, index) => `
+        <button
+          class="special-offers-translation-tab${index === 0 ? ' is-active' : ''}"
+          type="button"
+          data-special-offers-local-tab="${escapeHtml(prefix)}:${escapeHtml(language.code)}"
+          aria-selected="${index === 0 ? 'true' : 'false'}"
+        >${escapeHtml(language.label)}</button>
+      `).join('')}
+    </div>
+    <div class="special-offers-translation-panels">
+      ${SPECIAL_OFFERS_DETAIL_LANGUAGES.map((language, index) => {
+        const row = getLocalizedRow(rows, language.code);
+        return `
+          <section
+            class="special-offers-translation-panel"
+            data-special-offers-local-panel="${escapeHtml(prefix)}:${escapeHtml(language.code)}"
+            dir="${escapeHtml(language.dir)}"
+            ${index === 0 ? '' : 'hidden'}
+          >
+            ${row ? renderDetailRows(fields.map(([label, key]) => [label, row[key]])) : `<p class="special-offers-empty-copy">${escapeHtml(emptyText)}</p>`}
+          </section>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderPrizeTranslationTabs(prize, prefix) {
+  return renderLocalizedTabs(prize.translations, prefix, 'Prize translation not available yet', [
+    ['Name', 'name'],
+    ['Description', 'description'],
+    ['Restrictions', 'restrictions'],
+    ['Fulfillment notes', 'fulfillment_notes'],
+  ]);
+}
+
+function renderLinkTranslationTabs(link, prefix) {
+  return renderLocalizedTabs(link.translations, prefix, 'Link translation not available yet', [
+    ['Label', 'label'],
+    ['Description', 'description'],
+    ['URL', 'url'],
+  ]);
 }
 
 function renderAuditLog(rows) {
@@ -627,8 +969,60 @@ function getEditorTranslation(campaign, lang) {
   return getTranslationByLanguage(campaign, lang) || { lang, faq_json: [] };
 }
 
-function renderHelp(text) {
-  return `<span class="special-offer-help" title="${escapeHtml(text)}" aria-label="${escapeHtml(text)}">?</span>`;
+function renderHelp(key) {
+  const item = SPECIAL_OFFERS_HELP[key];
+  const label = item?.title || 'Help';
+  return `<button class="special-offer-help" type="button" data-special-offers-help="${escapeHtml(key)}" aria-label="${escapeHtml(label)} help">?</button>`;
+}
+
+function ensureHelpPopover() {
+  let node = $('#specialOffersHelpPopover');
+  if (node) return node;
+  node = document.createElement('div');
+  node.className = 'special-offer-help-popover';
+  node.id = 'specialOffersHelpPopover';
+  node.hidden = true;
+  node.innerHTML = `
+    <div class="admin-modal-overlay" data-special-offers-help-close></div>
+    <div class="special-offer-help-popover__content" role="dialog" aria-modal="true" aria-labelledby="specialOffersHelpTitle">
+      <div class="special-offer-editor-item__header">
+        <h3 id="specialOffersHelpTitle">Help</h3>
+        <button class="btn-modal-close" type="button" data-special-offers-help-close aria-label="Close help">×</button>
+      </div>
+      <div id="specialOffersHelpBody"></div>
+    </div>
+  `;
+  document.body.appendChild(node);
+  node.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest('[data-special-offers-help-close]')) closeHelpPopover();
+  });
+  return node;
+}
+
+function openHelpPopover(key) {
+  const item = SPECIAL_OFFERS_HELP[key];
+  if (!item) return;
+  const node = ensureHelpPopover();
+  const title = $('#specialOffersHelpTitle', node);
+  const body = $('#specialOffersHelpBody', node);
+  if (title) title.textContent = item.title;
+  if (body) {
+    body.innerHTML = `
+      <dl class="special-offer-help-list">
+        <div><dt>What this section does</dt><dd>${escapeHtml(item.does)}</dd></div>
+        <div><dt>When to use it</dt><dd>${escapeHtml(item.use)}</dd></div>
+        <div><dt>What not to do</dt><dd>${escapeHtml(item.avoid)}</dd></div>
+        <div><dt>Example</dt><dd>${escapeHtml(item.example)}</dd></div>
+      </dl>
+    `;
+  }
+  node.hidden = false;
+}
+
+function closeHelpPopover() {
+  const node = $('#specialOffersHelpPopover');
+  if (node) node.hidden = true;
 }
 
 function normalizeFaqEditorItems(value) {
@@ -645,7 +1039,7 @@ function renderFaqBuilder(lang, items, dir) {
   return `
     <div class="special-offer-builder" data-faq-builder="${escapeHtml(lang)}" dir="${escapeHtml(dir)}">
       <div class="special-offer-editor-section-head">
-        <h5>FAQ builder ${renderHelp('Add public FAQ items for this language. Question and answer are required when an item exists.')}</h5>
+        <h5>FAQ builder</h5>
         <button class="btn-secondary btn-small" type="button" data-special-offers-add-faq="${escapeHtml(lang)}">Add FAQ item</button>
       </div>
       <div class="special-offer-builder-list" data-faq-list="${escapeHtml(lang)}">
@@ -716,7 +1110,7 @@ function renderRulesBuilder(lang, rulesHtml, dir) {
   return `
     <div class="special-offer-builder" data-rules-builder="${escapeHtml(lang)}" dir="${escapeHtml(dir)}" data-rules-source-preserve="${parsed.parsed ? '0' : '1'}">
       <div class="special-offer-editor-section-head">
-        <h5>Rules builder ${renderHelp('Build rule sections and bullet points. The editor generates rules_html on save.')}</h5>
+        <h5>Rules builder</h5>
         <button class="btn-secondary btn-small" type="button" data-special-offers-add-rule-section="${escapeHtml(lang)}">Add rule section</button>
       </div>
       <div class="special-offer-builder-list" data-rules-list="${escapeHtml(lang)}">
@@ -818,11 +1212,8 @@ function renderPrizeEditorList() {
         <strong>Prize ${index + 1}</strong>
         <button class="btn-secondary btn-small" type="button" data-special-offers-remove-prize="${escapeHtml(prize.client_id)}">Remove</button>
       </div>
-      <p class="special-offer-editor-muted">These are global/admin operational details. Language-specific public prize copy is edited in Content PL / EN / HE -> Prize description.</p>
+      <p class="special-offer-editor-muted">These fields are internal/admin details. Public prize text is edited below in PL/EN/HE.</p>
       <div class="special-offer-editor-grid">
-        <label>Name *
-          <input data-prize-field="name" value="${escapeHtml(prize.name || '')}" />
-        </label>
         <label>Sponsor
           <input data-prize-field="sponsor_name" value="${escapeHtml(prize.sponsor_name || '')}" />
         </label>
@@ -838,15 +1229,10 @@ function renderPrizeEditorList() {
         <label>Sort order
           <input data-prize-field="sort_order" type="number" step="1" value="${escapeHtml(prize.sort_order || index)}" />
         </label>
-        <label class="special-offer-editor-field--wide">Description
-          <textarea data-prize-field="description" rows="2">${escapeHtml(prize.description || '')}</textarea>
-        </label>
-        <label class="special-offer-editor-field--wide">Restrictions
-          <textarea data-prize-field="restrictions" rows="2">${escapeHtml(prize.restrictions || '')}</textarea>
-        </label>
-        <label class="special-offer-editor-field--wide">Fulfillment notes
-          <textarea data-prize-field="fulfillment_notes" rows="2">${escapeHtml(prize.fulfillment_notes || '')}</textarea>
-        </label>
+      </div>
+      <div class="special-offer-editor-subsection">
+        <h5>Prize translations PL / EN / HE</h5>
+        ${renderPrizeTranslationEditor(prize)}
       </div>
     </article>
   `).join('');
@@ -865,34 +1251,155 @@ function renderLinkEditorList() {
         <strong>Link ${index + 1}</strong>
         <button class="btn-secondary btn-small" type="button" data-special-offers-remove-link="${escapeHtml(link.client_id)}">Remove</button>
       </div>
+      <p class="special-offer-editor-muted">Choose Main service page for general service CTA. Choose existing offer only when you want to link to a specific car/trip/hotel/route. Custom URL is for manual links.</p>
       <div class="special-offer-editor-grid">
-        <label>Type *
+        <label>Link type *
           <select data-link-field="link_type">
             ${renderOptionList(SPECIAL_OFFERS_LINK_TYPES, link.link_type || 'custom')}
           </select>
         </label>
-        <label>Label *
-          <input data-link-field="label" value="${escapeHtml(link.label || '')}" />
-        </label>
-        <label class="special-offer-editor-field--wide">URL *
-          <input data-link-field="url" value="${escapeHtml(link.url || '')}" placeholder="/car.html?lang=pl" />
+        <label>Link mode *
+          <select data-link-field="mode">
+            ${renderLinkModeOptions(link)}
+          </select>
         </label>
         <label>Sort order
           <input data-link-field="sort_order" type="number" step="1" value="${escapeHtml(link.sort_order || index)}" />
+        </label>
+        <label>Resource ID preview
+          <input value="${escapeHtml(link.resource_id || 'None')}" readonly />
         </label>
         <label class="special-offer-editor-check">
           <input data-link-field="is_primary" type="checkbox" ${link.is_primary ? 'checked' : ''} />
           Primary CTA
         </label>
-        <label class="special-offer-editor-field--wide">Description
-          <textarea data-link-field="description" rows="2">${escapeHtml(link.description || '')}</textarea>
-        </label>
       </div>
-      <p class="special-offer-editor-muted">URL-only in this stage. Resource ID stays empty.</p>
-      <p class="special-offer-editor-muted">Language-specific labels and URLs require the next schema stage; the preview below is not saved separately.</p>
-      <div class="special-offer-url-preview" data-link-url-preview>${renderLanguageUrlPreview(link.url || '')}</div>
+      ${renderResourcePicker(link)}
+      <div class="special-offer-editor-subsection">
+        <h5>Link translations PL / EN / HE</h5>
+        ${renderLinkTranslationEditor(link)}
+      </div>
+      <div class="special-offer-url-preview" data-link-url-preview>${renderLinkUrlPreview(link)}</div>
     </article>
   `).join('');
+}
+
+function renderEditorSubTabs(parentId, type, rowsRenderer) {
+  return `
+    <div class="special-offers-translation-tabs special-offers-translation-tabs--compact" role="tablist">
+      ${SPECIAL_OFFERS_DETAIL_LANGUAGES.map((language, index) => `
+        <button
+          class="special-offers-translation-tab${index === 0 ? ' is-active' : ''}"
+          type="button"
+          data-special-offers-nested-lang-tab="${escapeHtml(type)}:${escapeHtml(parentId)}:${escapeHtml(language.code)}"
+        >${escapeHtml(language.label)}</button>
+      `).join('')}
+    </div>
+    ${SPECIAL_OFFERS_DETAIL_LANGUAGES.map((language, index) => rowsRenderer(language, index === 0)).join('')}
+  `;
+}
+
+function renderPrizeTranslationEditor(prize) {
+  return renderEditorSubTabs(prize.client_id, 'prize', (language, isActive) => {
+    const translation = getPrizeTranslation(prize, language.code);
+    return `
+      <section
+        class="special-offer-editor-lang-panel"
+        data-special-offers-nested-lang-panel="prize:${escapeHtml(prize.client_id)}:${escapeHtml(language.code)}"
+        dir="${escapeHtml(language.dir)}"
+        ${isActive ? '' : 'hidden'}
+      >
+        <div class="special-offer-editor-grid">
+          <label>Name
+            <input data-prize-translation-field="name" data-lang="${escapeHtml(language.code)}" value="${escapeHtml(translation.name || '')}" dir="${escapeHtml(language.dir)}" />
+          </label>
+          <label class="special-offer-editor-field--wide">Description
+            <textarea data-prize-translation-field="description" data-lang="${escapeHtml(language.code)}" rows="3" dir="${escapeHtml(language.dir)}">${escapeHtml(translation.description || '')}</textarea>
+          </label>
+          <label class="special-offer-editor-field--wide">Restrictions
+            <textarea data-prize-translation-field="restrictions" data-lang="${escapeHtml(language.code)}" rows="2" dir="${escapeHtml(language.dir)}">${escapeHtml(translation.restrictions || '')}</textarea>
+          </label>
+          <label class="special-offer-editor-field--wide">Fulfillment notes
+            <textarea data-prize-translation-field="fulfillment_notes" data-lang="${escapeHtml(language.code)}" rows="2" dir="${escapeHtml(language.dir)}">${escapeHtml(translation.fulfillment_notes || '')}</textarea>
+          </label>
+        </div>
+      </section>
+    `;
+  });
+}
+
+function renderLinkTranslationEditor(link) {
+  return renderEditorSubTabs(link.client_id, 'link', (language, isActive) => {
+    const translation = getLinkTranslation(link, language.code);
+    const defaults = getDefaultLinkTranslation(link, language.code);
+    const mode = link.mode || inferLinkMode(link);
+    const urlValue = mode === 'main' || mode === 'resource' ? defaults.url : (translation.url || defaults.url || '');
+    return `
+      <section
+        class="special-offer-editor-lang-panel"
+        data-special-offers-nested-lang-panel="link:${escapeHtml(link.client_id)}:${escapeHtml(language.code)}"
+        dir="${escapeHtml(language.dir)}"
+        ${isActive ? '' : 'hidden'}
+      >
+        <div class="special-offer-editor-grid">
+          <label>Label
+            <input data-link-translation-field="label" data-lang="${escapeHtml(language.code)}" value="${escapeHtml(translation.label || defaults.label || '')}" dir="${escapeHtml(language.dir)}" />
+          </label>
+          <label class="special-offer-editor-field--wide">Description
+            <textarea data-link-translation-field="description" data-lang="${escapeHtml(language.code)}" rows="2" dir="${escapeHtml(language.dir)}">${escapeHtml(translation.description || defaults.description || '')}</textarea>
+          </label>
+          <label class="special-offer-editor-field--wide">URL
+            <input data-link-translation-field="url" data-lang="${escapeHtml(language.code)}" value="${escapeHtml(urlValue)}" dir="ltr" ${mode === 'main' || mode === 'resource' ? 'readonly' : ''} />
+          </label>
+        </div>
+      </section>
+    `;
+  });
+}
+
+function renderLinkModeOptions(link) {
+  const selected = link.mode || inferLinkMode(link);
+  return SPECIAL_OFFERS_LINK_MODES.map((mode) => {
+    const disabled = (mode === 'main' && !isMainServicePageEnabled(link.link_type)) || (mode === 'resource' && !isResourcePickerEnabled(link.link_type));
+    const label = mode === 'main' ? 'Main service page' : mode === 'resource' ? 'Choose existing offer/service' : 'Custom URL';
+    const reason = disabled ? (mode === 'resource' ? ' - picker not available for this type' : ' - not available for this type') : '';
+    return `<option value="${escapeHtml(mode)}" ${mode === selected ? 'selected' : ''} ${disabled ? 'disabled' : ''}>${escapeHtml(label + reason)}</option>`;
+  }).join('');
+}
+
+function renderResourcePicker(link) {
+  const mode = link.mode || inferLinkMode(link);
+  const type = link.link_type || 'custom';
+  if (mode !== 'resource') {
+    const message = type === 'shop'
+      ? 'Shop picker requires public product URL resolver.'
+      : type === 'coupons'
+        ? 'Coupons do not have a clear public URL in this stage.'
+        : type === 'vip'
+          ? 'VIP supports Main service page only.'
+          : 'Resource ID is disabled unless Choose existing offer/service is selected.';
+    return `<p class="special-offer-editor-muted">Resource ID: disabled in this mode. ${escapeHtml(message)}</p>`;
+  }
+  if (!isResourcePickerEnabled(type)) {
+    return `<p class="special-offer-editor-validation">Resource picker is disabled for ${escapeHtml(titleCase(type))}. Use Main service page or Custom URL.</p>`;
+  }
+  const options = toArray(specialOffersState.resourceOptions[type]);
+  return `
+    <div class="special-offer-resource-picker">
+      <label>Choose existing ${escapeHtml(titleCase(type))}
+        <select data-link-field="resource_id">
+          <option value="">Select resource...</option>
+          ${options.map((option) => `
+            <option value="${escapeHtml(option.id)}" ${String(option.id) === String(link.resource_id || '') ? 'selected' : ''} ${option.disabled ? 'disabled' : ''}>
+              ${escapeHtml(option.label)}${option.reason ? ` - ${escapeHtml(option.reason)}` : ''}
+            </option>
+          `).join('')}
+        </select>
+      </label>
+      ${specialOffersState.resourceOptionsError ? `<p class="special-offer-editor-validation">${escapeHtml(specialOffersState.resourceOptionsError)}</p>` : ''}
+      ${!options.length ? '<p class="special-offer-editor-muted">No resources loaded for this type yet.</p>' : ''}
+    </div>
+  `;
 }
 
 function renderLanguageUrlPreview(url) {
@@ -904,6 +1411,75 @@ function renderLanguageUrlPreview(url) {
     return `${source}?lang=${lang}`;
   };
   return ['pl', 'en', 'he'].map((lang) => `<span>${lang.toUpperCase()}: ${escapeHtml(makeUrl(lang))}</span>`).join('');
+}
+
+function getDefaultLinkLabel(type, lang) {
+  const labels = {
+    cars: { pl: 'Auta na Cyprze', en: 'Cars in Cyprus', he: 'רכבים בקפריסין' },
+    trips: { pl: 'Wycieczki na Cyprze', en: 'Trips in Cyprus', he: 'טיולים בקפריסין' },
+    hotels: { pl: 'Hotele na Cyprze', en: 'Hotels in Cyprus', he: 'מלונות בקפריסין' },
+    transport: { pl: 'Transport na Cyprze', en: 'Transport in Cyprus', he: 'הסעות בקפריסין' },
+    shop: { pl: 'Sklep', en: 'Shop', he: 'חנות' },
+    vip: { pl: 'VIP Cyprus', en: 'VIP Cyprus', he: 'VIP Cyprus' },
+    coupons: { pl: 'Kupony', en: 'Coupons', he: 'קופונים' },
+    custom: { pl: '', en: '', he: '' },
+  };
+  return labels[type]?.[lang] || '';
+}
+
+function getDefaultLinkDescription(type, lang) {
+  const descriptions = {
+    cars: { pl: 'Wynajem auta na Cyprze z ofert CyprusEye.', en: 'Car rental in Cyprus from CyprusEye offers.', he: 'השכרת רכב בקפריסין דרך ההצעות של CyprusEye.' },
+    trips: { pl: 'Wycieczki i atrakcje na Cyprze.', en: 'Trips and attractions in Cyprus.', he: 'טיולים ואטרקציות בקפריסין.' },
+    hotels: { pl: 'Hotele i noclegi na Cyprze.', en: 'Hotels and stays in Cyprus.', he: 'מלונות ואירוח בקפריסין.' },
+    transport: { pl: 'Transfery i transport na Cyprze.', en: 'Transfers and transport in Cyprus.', he: 'הסעות וטרנספרים בקפריסין.' },
+    vip: { pl: 'Usługi VIP na Cyprze.', en: 'VIP services in Cyprus.', he: 'שירותי VIP בקפריסין.' },
+  };
+  return descriptions[type]?.[lang] || '';
+}
+
+function getDefaultLinkTranslation(link, lang) {
+  const mode = link.mode || inferLinkMode(link);
+  const type = link.link_type || 'custom';
+  if (mode === 'main') {
+    return {
+      label: getDefaultLinkLabel(type, lang),
+      description: getDefaultLinkDescription(type, lang),
+      url: getGenericUrl(type, lang),
+    };
+  }
+  if (mode === 'resource') {
+    return {
+      label: getDefaultLinkLabel(type, lang),
+      description: getDefaultLinkDescription(type, lang),
+      url: buildResourceUrl(type, link.resource_id, lang),
+    };
+  }
+  return { label: '', description: '', url: '' };
+}
+
+function getEffectiveLinkTranslation(link, lang) {
+  const existing = getLinkTranslation(link, lang);
+  const defaults = getDefaultLinkTranslation(link, lang);
+  const mode = link.mode || inferLinkMode(link);
+  return {
+    lang,
+    label: String(existing.label || defaults.label || '').trim(),
+    description: String(existing.description || defaults.description || '').trim(),
+    url: String((mode === 'main' || mode === 'resource' ? defaults.url : existing.url || defaults.url) || '').trim(),
+  };
+}
+
+function renderLinkUrlPreview(link) {
+  const rows = SPECIAL_OFFERS_DETAIL_LANGUAGES.map((language) => {
+    const translation = getEffectiveLinkTranslation(link, language.code);
+    return {
+      lang: language.code,
+      url: translation.url || '',
+    };
+  });
+  if (!rows.some((row) => row.url)) return '<span>No URL preview yet.</span>';
+  return rows.map((row) => `<span>${escapeHtml(row.lang.toUpperCase())}: ${escapeHtml(row.url || 'Not set')}</span>`).join('');
 }
 
 function getCampaignEditorDefaults(campaign = null) {
@@ -950,7 +1526,7 @@ function renderEditorForm(campaign = null) {
       </div>
       <div class="special-offer-editor-panels">
         <section class="special-offer-editor-section" data-special-offers-editor-panel="basic">
-          <p class="special-offer-editor-muted">${renderHelp('Type controls the campaign category. Winner mode controls how winners will be selected later. Status is draft or archived only here; visibility is private only.') } Basic settings define internal campaign identity. Publishing is not available in this stage.</p>
+          <p class="special-offer-editor-muted">${renderHelp('basic')} Basic settings define internal campaign identity. Publishing is not available in this stage.</p>
           <div class="special-offer-editor-grid">
             <label>Slug *
               <input name="slug" value="${escapeHtml(defaults.slug)}" placeholder="summer-giveaway-2026" required />
@@ -979,7 +1555,7 @@ function renderEditorForm(campaign = null) {
           <p class="special-offer-editor-muted">This stage only saves draft/private campaigns. Publishing is not available.</p>
         </section>
         <section class="special-offer-editor-section" data-special-offers-editor-panel="dates" hidden>
-          <p class="special-offer-editor-muted">${renderHelp('Start/end dates describe campaign timing. Winner announce should be after the end date. Timezone defaults to Asia/Nicosia.') } Dates are saved for planning and internal review; they do not publish the campaign.</p>
+          <p class="special-offer-editor-muted">${renderHelp('dates')} Dates are saved for planning and internal review; they do not publish the campaign.</p>
           <div class="special-offer-editor-grid">
             <label>Start at
               <input name="start_at" type="datetime-local" value="${escapeHtml(defaults.start_at)}" />
@@ -997,7 +1573,7 @@ function renderEditorForm(campaign = null) {
           <p class="special-offer-editor-muted">Visibility remains private in this stage.</p>
         </section>
         <section class="special-offer-editor-section" data-special-offers-editor-panel="content" hidden>
-          <p class="special-offer-editor-muted">${renderHelp('These PL/EN/HE tabs are the campaign content translations. Prize description here is the language-specific public prize copy for this stage.') } Edit campaign copy, FAQ items and rule sections per language.</p>
+          <p class="special-offer-editor-muted">${renderHelp('content')} Edit campaign copy, FAQ items and rule sections per language.</p>
           <div class="special-offers-translation-tabs" role="tablist" aria-label="Editor translation languages">
             ${SPECIAL_OFFERS_DETAIL_LANGUAGES.map((language, index) => `
               <button class="special-offers-translation-tab${index === 0 ? ' is-active' : ''}" type="button" data-special-offers-editor-lang-tab="${escapeHtml(language.code)}">${escapeHtml(language.label)}</button>
@@ -1007,22 +1583,22 @@ function renderEditorForm(campaign = null) {
         </section>
         <section class="special-offer-editor-section" data-special-offers-editor-panel="prize" hidden>
           <div class="special-offer-editor-section-head">
-            <h4>Prize operational details ${renderHelp('Prize fields here are global/admin operational fields. Language-specific prize translations require a future schema stage.')}</h4>
+            <h4>Prize operational details ${renderHelp('prize')}</h4>
             <button class="btn-secondary btn-small" type="button" data-special-offers-add-prize>Add prize</button>
           </div>
-          <p class="special-offer-editor-muted">These fields are global/admin operational details. Language-specific public prize copy is edited in Content PL / EN / HE -> Prize description.</p>
+          <p class="special-offer-editor-muted">These fields are internal/admin details. Public prize text is edited below in PL/EN/HE. Do not create separate prize rows for each language.</p>
           <div class="special-offer-editor-list" id="specialOfferEditorPrizes"></div>
         </section>
         <section class="special-offer-editor-section" data-special-offers-editor-panel="links" hidden>
           <div class="special-offer-editor-section-head">
-            <h4>URL-only linked services ${renderHelp('This stage supports URL-only links. Resource ID picker and language-specific label/url fields require a future schema stage.')}</h4>
-            <button class="btn-secondary btn-small" type="button" data-special-offers-add-link>Add URL-only link</button>
+            <h4>Linked services ${renderHelp('links')}</h4>
+            <button class="btn-secondary btn-small" type="button" data-special-offers-add-link>Add link</button>
           </div>
-          <p class="special-offer-editor-muted">Resource ID picker is disabled in this stage. Language-specific labels/URLs require the next schema stage; URL previews are informational only and are not saved separately.</p>
+          <p class="special-offer-editor-muted">Main service page uses general service URLs. Existing offer saves resource_id only after admin selection. Custom URL is manual per language.</p>
           <div class="special-offer-editor-list" id="specialOfferEditorLinks"></div>
         </section>
         <section class="special-offer-editor-section" data-special-offers-editor-panel="rules" hidden>
-          <p class="special-offer-editor-muted">${renderHelp('These settings control future campaign behavior while keeping the campaign private. They do not launch public entries, tasks, draw or winners.') } Configure operational campaign rules. Public launch is not available.</p>
+          <p class="special-offer-editor-muted">${renderHelp('rules')} Configure operational campaign rules. Public launch is not available.</p>
           <div class="special-offer-editor-grid">
             ${[
               ['requires_login', 'Requires login'],
@@ -1053,8 +1629,8 @@ function renderEditorForm(campaign = null) {
           </div>
         </section>
         <section class="special-offer-editor-section" data-special-offers-editor-panel="review" hidden>
-          <h4>Review & save ${renderHelp('Save writes the draft/private campaign, translations, operational prizes, URL-only links and an audit event. It does not publish.')}</h4>
-          <p class="special-offer-editor-muted">Save writes draft/private campaign data, translations, prizes, URL-only links and an audit log entry. It does not publish anything.</p>
+          <h4>Review & save ${renderHelp('review')}</h4>
+          <p class="special-offer-editor-muted">Save writes draft/private campaign data, campaign translations, prize translations, link translations and an audit log entry. It does not publish anything.</p>
           <div class="special-offer-editor-review" id="specialOfferEditorReview"></div>
         </section>
       </div>
@@ -1072,6 +1648,17 @@ function syncEditorCollectionsFromDom() {
       if (!key) return;
       prize[key] = field.value;
     });
+    const translationsByLang = {};
+    $$('[data-prize-translation-field]', node).forEach((field) => {
+      const lang = field.getAttribute('data-lang');
+      const key = field.getAttribute('data-prize-translation-field');
+      if (!lang || !key) return;
+      if (!translationsByLang[lang]) translationsByLang[lang] = { lang };
+      translationsByLang[lang][key] = field.value;
+    });
+    prize.translations = SPECIAL_OFFERS_DETAIL_LANGUAGES
+      .map((language) => translationsByLang[language.code] || getPrizeTranslation(prize, language.code))
+      .filter(Boolean);
   });
 
   $$('#specialOfferEditorLinks [data-special-offers-link]').forEach((node) => {
@@ -1083,6 +1670,18 @@ function syncEditorCollectionsFromDom() {
       if (!key) return;
       link[key] = field.type === 'checkbox' ? field.checked : field.value;
     });
+    if (link.mode !== 'resource') link.resource_id = null;
+    const translationsByLang = {};
+    $$('[data-link-translation-field]', node).forEach((field) => {
+      const lang = field.getAttribute('data-lang');
+      const key = field.getAttribute('data-link-translation-field');
+      if (!lang || !key) return;
+      if (!translationsByLang[lang]) translationsByLang[lang] = { lang };
+      translationsByLang[lang][key] = field.value;
+    });
+    link.translations = SPECIAL_OFFERS_DETAIL_LANGUAGES
+      .map((language) => translationsByLang[language.code] || getLinkTranslation(link, language.code))
+      .filter(Boolean);
   });
 }
 
@@ -1100,6 +1699,7 @@ function addEditorPrize(prize = {}) {
     restrictions: prize.restrictions || '',
     fulfillment_notes: prize.fulfillment_notes || '',
     sort_order: prize.sort_order || specialOffersState.editorPrizes.length,
+    translations: toArray(prize.translations),
   });
   renderPrizeEditorList();
   validateEditorForm();
@@ -1111,12 +1711,14 @@ function addEditorLink(link = {}) {
     client_id: link.client_id || link.id || getTempId('link'),
     id: link.id || null,
     link_type: link.link_type || 'custom',
-    resource_id: null,
+    mode: link.mode || inferLinkMode(link),
+    resource_id: link.resource_id || null,
     url: link.url || '',
     label: link.label || '',
     description: link.description || '',
     is_primary: Boolean(link.is_primary),
     sort_order: link.sort_order || specialOffersState.editorLinks.length,
+    translations: toArray(link.translations),
   });
   renderLinkEditorList();
   validateEditorForm();
@@ -1127,18 +1729,21 @@ function initializeEditorCollections(campaign) {
     ...prize,
     client_id: prize.id || getTempId('prize'),
     currency: prize.currency || 'EUR',
+    translations: toArray(prize.translations),
   }));
   specialOffersState.editorLinks = toArray(campaign?.links).map((link) => ({
     ...link,
     client_id: link.id || getTempId('link'),
-    resource_id: null,
+    mode: link.mode || inferLinkMode(link),
+    resource_id: link.resource_id || null,
+    translations: toArray(link.translations),
   }));
   specialOffersState.removedPrizeIds = new Set();
   specialOffersState.removedLinkIds = new Set();
   if (!campaign && !specialOffersState.editorPrizes.length) addEditorPrize({ sort_order: 0 });
 }
 
-function openCampaignEditor(mode, campaignId = null) {
+async function openCampaignEditor(mode, campaignId = null) {
   const campaign = campaignId ? specialOffersState.campaigns.find((item) => item.id === campaignId) : null;
   if (mode === 'edit' && !isDraftPrivateCampaign(campaign)) {
     setErrorState('Editing for published/locked campaigns will be available in a later stage.');
@@ -1155,6 +1760,7 @@ function openCampaignEditor(mode, campaignId = null) {
   specialOffersState.editorMode = mode;
   specialOffersState.editingCampaignId = campaignId;
   initializeEditorCollections(campaign);
+  await loadResourcePickerOptions();
 
   if (title) title.textContent = mode === 'edit' ? `Edit ${formatCampaignTitle(campaign)}` : 'Create campaign';
   if (subtitle) subtitle.textContent = 'Draft/private CRUD only. Publish stage is not available here.';
@@ -1198,6 +1804,46 @@ function activateEditorLanguage(button) {
   $$('[data-special-offers-editor-lang-panel]', modal).forEach((panel) => {
     panel.hidden = panel.getAttribute('data-special-offers-editor-lang-panel') !== lang;
   });
+}
+
+function activateNestedLanguage(button) {
+  const descriptor = button.getAttribute('data-special-offers-nested-lang-tab');
+  const root = button.closest('[data-special-offers-prize], [data-special-offers-link]');
+  if (!descriptor || !root) return;
+  const [type, parentId, lang] = descriptor.split(':');
+  $$('[data-special-offers-nested-lang-tab]', root).forEach((tab) => {
+    tab.classList.toggle('is-active', tab === button);
+  });
+  $$('[data-special-offers-nested-lang-panel]', root).forEach((panel) => {
+    panel.hidden = panel.getAttribute('data-special-offers-nested-lang-panel') !== `${type}:${parentId}:${lang}`;
+  });
+}
+
+function activateLocalDetailLanguage(button) {
+  const descriptor = button.getAttribute('data-special-offers-local-tab');
+  const container = button.closest('.special-offers-linked-service');
+  if (!descriptor || !container) return;
+  const [prefix, lang] = descriptor.split(':');
+  $$('[data-special-offers-local-tab]', container).forEach((tab) => {
+    const isActive = tab === button;
+    tab.classList.toggle('is-active', isActive);
+    tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+  });
+  $$('[data-special-offers-local-panel]', container).forEach((panel) => {
+    panel.hidden = panel.getAttribute('data-special-offers-local-panel') !== `${prefix}:${lang}`;
+  });
+}
+
+function refreshLinkEditorItem(linkId) {
+  syncEditorCollectionsFromDom();
+  const link = specialOffersState.editorLinks.find((item) => item.client_id === linkId);
+  if (!link) return;
+  if (link.link_type === 'custom') link.mode = 'custom';
+  if (!isMainServicePageEnabled(link.link_type) && link.mode === 'main') link.mode = 'custom';
+  if (!isResourcePickerEnabled(link.link_type) && link.mode === 'resource') link.mode = isMainServicePageEnabled(link.link_type) ? 'main' : 'custom';
+  if (link.mode !== 'resource') link.resource_id = null;
+  renderLinkEditorList();
+  validateEditorForm();
 }
 
 function getEditorFieldValue(form, name) {
@@ -1303,29 +1949,58 @@ function collectEditorPayload() {
     return hasData ? translation : null;
   }).filter(Boolean);
 
-  const prizes = specialOffersState.editorPrizes.map((prize, index) => ({
-    id: prize.id || null,
-    name: String(prize.name || '').trim(),
-    description: String(prize.description || '').trim() || null,
+  const prizes = specialOffersState.editorPrizes.map((prize, index) => {
+    const translations = SPECIAL_OFFERS_DETAIL_LANGUAGES.map((language) => {
+      const row = getPrizeTranslation(prize, language.code);
+      const translation = {
+        lang: language.code,
+        name: String(row.name || '').trim(),
+        description: String(row.description || '').trim(),
+        restrictions: String(row.restrictions || '').trim(),
+        fulfillment_notes: String(row.fulfillment_notes || '').trim(),
+      };
+      const hasData = Object.entries(translation).some(([key, value]) => key !== 'lang' && String(value || '').trim());
+      return hasData ? translation : null;
+    }).filter(Boolean);
+    const plPrize = translations.find((item) => item.lang === 'pl') || translations[0] || {};
+    return {
+      client_id: prize.client_id,
+      id: prize.id || null,
+      name: String(prize.name || plPrize.name || `Prize ${index + 1}`).trim(),
+      description: String(prize.description || plPrize.description || '').trim() || null,
     sponsor_name: String(prize.sponsor_name || '').trim() || null,
     quantity: Number(prize.quantity || 1),
     value_estimate: String(prize.value_estimate || '').trim() ? Number(prize.value_estimate) : null,
     currency: String(prize.currency || 'EUR').trim() || 'EUR',
-    restrictions: String(prize.restrictions || '').trim() || null,
-    fulfillment_notes: String(prize.fulfillment_notes || '').trim() || null,
+      restrictions: String(prize.restrictions || plPrize.restrictions || '').trim() || null,
+      fulfillment_notes: String(prize.fulfillment_notes || plPrize.fulfillment_notes || '').trim() || null,
     sort_order: Number(prize.sort_order || index),
-  }));
+      translations,
+    };
+  });
 
-  const links = specialOffersState.editorLinks.map((link, index) => ({
-    id: link.id || null,
-    link_type: String(link.link_type || '').trim(),
-    resource_id: null,
-    url: String(link.url || '').trim(),
-    label: String(link.label || '').trim(),
-    description: String(link.description || '').trim() || null,
+  const links = specialOffersState.editorLinks.map((link, index) => {
+    const mode = String(link.mode || inferLinkMode(link));
+    const translations = SPECIAL_OFFERS_DETAIL_LANGUAGES.map((language) => {
+      const translation = getEffectiveLinkTranslation(link, language.code);
+      const hasData = Object.entries(translation).some(([key, value]) => key !== 'lang' && String(value || '').trim());
+      return hasData ? translation : null;
+    }).filter(Boolean);
+    const plLink = translations.find((item) => item.lang === 'pl') || translations[0] || {};
+    return {
+      client_id: link.client_id,
+      id: link.id || null,
+      link_type: String(link.link_type || '').trim(),
+      mode,
+      resource_id: mode === 'resource' ? String(link.resource_id || '').trim() || null : null,
+      url: String(link.url || plLink.url || '').trim(),
+      label: String(link.label || plLink.label || '').trim(),
+      description: String(link.description || plLink.description || '').trim() || null,
     is_primary: Boolean(link.is_primary),
     sort_order: Number(link.sort_order || index),
-  }));
+      translations,
+    };
+  });
 
   return { offer, translations, prizes, links };
 }
@@ -1351,22 +2026,62 @@ function validateEditorPayload(payload) {
     });
     collectRuleSections(language.code, true).forEach((section, index) => {
       if (!section.title && !section.bullets.length) errors.push(`Content ${language.label}: rule section ${index + 1} needs a title or bullet.`);
+      if (!section.title && section.bullets.length) errors.push(`Content ${language.label}: rule section ${index + 1} needs a section title when bullets exist.`);
       if (section.title && !section.bullets.length) errors.push(`Content ${language.label}: rule section ${index + 1} needs at least one bullet.`);
     });
   });
   payload.prizes.forEach((prize, index) => {
     if (!prize.name) errors.push(`Prize operational details: prize ${index + 1} name is required.`);
     if (prize.quantity < 1) errors.push(`Prize operational details: prize ${index + 1} quantity must be at least 1.`);
+    const plPrize = prize.translations.find((item) => item.lang === 'pl');
+    if (plPrize && !plPrize.name) errors.push(`Prize PL: prize ${index + 1} name should not be empty when PL translation exists.`);
+    prize.translations.forEach((translation) => {
+      const hasAny = ['description', 'restrictions', 'fulfillment_notes'].some((key) => String(translation[key] || '').trim());
+      if ((hasAny || translation.lang !== 'pl') && !translation.name) {
+        errors.push(`Prize ${getLanguageLabel(translation.lang)}: prize ${index + 1} name is required when this language has prize copy.`);
+      }
+    });
   });
   payload.links.forEach((link, index) => {
     if (!SPECIAL_OFFERS_LINK_TYPES.includes(link.link_type)) errors.push(`Linked services: link ${index + 1} type is required.`);
-    if (!link.label) errors.push(`Linked services: link ${index + 1} label is required.`);
-    if (!link.url) errors.push(`Linked services: link ${index + 1} URL is required.`);
-    if (link.url && !/^(\/|https?:\/\/)/i.test(link.url)) errors.push(`Linked services: link ${index + 1} URL must be relative or http(s).`);
-    if (link.resource_id) errors.push(`Linked services: link ${index + 1} resource ID is not available in this stage.`);
+    if (!SPECIAL_OFFERS_LINK_MODES.includes(link.mode)) errors.push(`Linked services: link ${index + 1} mode is required.`);
+    if (link.mode === 'main' && !isMainServicePageEnabled(link.link_type)) errors.push(`Linked services: link ${index + 1} main service page is not available for ${titleCase(link.link_type)}.`);
+    if (link.mode === 'resource' && !isResourcePickerEnabled(link.link_type)) errors.push(`Linked services: link ${index + 1} resource picker is disabled for ${titleCase(link.link_type)}.`);
+    if (link.mode === 'resource' && !link.resource_id) errors.push(`Linked services: link ${index + 1} resource_id is required for existing resource mode.`);
+    link.translations.forEach((translation) => {
+      const hasAny = ['label', 'description', 'url'].some((key) => String(translation[key] || '').trim());
+      if (!hasAny) return;
+      if (!translation.label) errors.push(`Linked services ${getLanguageLabel(translation.lang)}: link ${index + 1} label is required.`);
+      if (!translation.url) errors.push(`Linked services ${getLanguageLabel(translation.lang)}: link ${index + 1} URL is required.`);
+      if (translation.url && !isValidUrlForStage(translation.url)) errors.push(`Linked services ${getLanguageLabel(translation.lang)}: link ${index + 1} URL must be relative or http(s).`);
+    });
+    if (!link.label) errors.push(`Linked services: link ${index + 1} fallback label is required.`);
+    if (!link.url) errors.push(`Linked services: link ${index + 1} fallback URL is required.`);
+    if (link.url && !isValidUrlForStage(link.url)) errors.push(`Linked services: link ${index + 1} fallback URL must be relative or http(s).`);
   });
   if (payload.links.filter((link) => link.is_primary).length > 1) errors.push('Linked services: only one primary CTA is allowed.');
   return errors;
+}
+
+function collectEditorWarnings(payload) {
+  const warnings = [];
+  payload.prizes.forEach((prize, index) => {
+    if (!prize.translations.find((item) => item.lang === 'pl' && item.name)) {
+      warnings.push(`Prize: prize ${index + 1} should have a PL prize name before final review.`);
+    }
+    ['en', 'he'].forEach((lang) => {
+      if (!prize.translations.find((item) => item.lang === lang && item.name)) {
+        warnings.push(`Prize ${getLanguageLabel(lang)}: prize ${index + 1} public copy is missing.`);
+      }
+    });
+  });
+  payload.links.forEach((link, index) => {
+    const missing = SPECIAL_OFFERS_DETAIL_LANGUAGES
+      .filter((language) => !link.translations.find((item) => item.lang === language.code && item.label && item.url))
+      .map((language) => language.label);
+    if (missing.length) warnings.push(`Linked services: link ${index + 1} is missing ${missing.join('/')} label or URL.`);
+  });
+  return warnings;
 }
 
 function validateEditorForm({ silent = true } = {}) {
@@ -1380,11 +2095,17 @@ function validateEditorForm({ silent = true } = {}) {
   }
   if (saveButton) saveButton.disabled = Boolean(errors.length) || specialOffersState.saving;
   if (!silent && errors.length) setEditorMessage(errors.join(' '), 'error');
-  updateEditorReview(errors);
+  let warnings = [];
+  try {
+    warnings = collectEditorWarnings(collectEditorPayload());
+  } catch (_error) {
+    warnings = [];
+  }
+  updateEditorReview(errors, warnings);
   return errors;
 }
 
-function updateEditorReview(errors = []) {
+function updateEditorReview(errors = [], warnings = []) {
   const node = $('#specialOfferEditorReview');
   if (!node) return;
   let payload = null;
@@ -1402,10 +2123,14 @@ function updateEditorReview(errors = []) {
         ['Visibility', titleCase(payload.offer.visibility)],
         ['Translations', payload.translations.map((item) => item.lang.toUpperCase()).join(', ') || 'None'],
         ['Prizes', payload.prizes.length],
+        ['Prize translations', payload.prizes.reduce((sum, prize) => sum + prize.translations.length, 0)],
         ['Links', payload.links.length],
+        ['Link translations', payload.links.reduce((sum, link) => sum + link.translations.length, 0)],
+        ['Primary CTA coverage', payload.links.find((link) => link.is_primary)?.translations.map((item) => item.lang.toUpperCase()).join(', ') || 'No primary CTA'],
       ])}
     </div>
     ${errors.length ? `<p class="special-offer-editor-validation">${escapeHtml(errors.join(' '))}</p>` : '<p class="special-offer-editor-success">Ready to save as draft/private.</p>'}
+    ${warnings.length ? `<p class="special-offer-editor-warning">${escapeHtml(warnings.join(' '))}</p>` : ''}
   `;
 }
 
@@ -1435,7 +2160,8 @@ async function insertSpecialOfferAudit(client, action, offerId, oldValue, newVal
     new_value: newValue || null,
     metadata: {
       source: 'admin_special_offers_crud',
-      stage: '3B.2',
+      stage: '3B.3B',
+      localized_prize_links: true,
       is_client_side_audit: true,
     },
   });
@@ -1452,20 +2178,51 @@ async function saveTranslations(client, offerId, translations) {
   }
 }
 
+async function savePrizeTranslations(client, prizeId, translations) {
+  for (const translation of toArray(translations)) {
+    const hasData = ['name', 'description', 'restrictions', 'fulfillment_notes'].some((key) => String(translation[key] || '').trim());
+    if (!hasData) continue;
+    const result = await client.from('special_offer_prize_translations').upsert(
+      { ...translation, prize_id: prizeId },
+      { onConflict: 'prize_id,lang' },
+    );
+    assertSupabaseResult(result, 'Failed to save prize translation.');
+  }
+}
+
+async function saveLinkTranslations(client, linkId, translations) {
+  for (const translation of toArray(translations)) {
+    const hasData = ['label', 'description', 'url'].some((key) => String(translation[key] || '').trim());
+    if (!hasData) continue;
+    const result = await client.from('special_offer_link_translations').upsert(
+      { ...translation, link_id: linkId },
+      { onConflict: 'link_id,lang' },
+    );
+    assertSupabaseResult(result, 'Failed to save link translation.');
+  }
+}
+
 async function savePrizes(client, offerId, prizes) {
   for (const prizeId of specialOffersState.removedPrizeIds) {
     assertSupabaseResult(await client.from('special_offer_prizes').delete().eq('id', prizeId), 'Failed to remove prize.');
   }
   for (const prize of prizes) {
-    const payload = { ...prize, offer_id: offerId };
+    const { translations, client_id: _clientId, ...prizeData } = prize;
+    const payload = { ...prizeData, offer_id: offerId };
+    let prizeId = payload.id;
     if (payload.id) {
-      const id = payload.id;
       delete payload.id;
-      assertSupabaseResult(await client.from('special_offer_prizes').update(payload).eq('id', id), 'Failed to update prize.');
+      assertSupabaseResult(await client.from('special_offer_prizes').update(payload).eq('id', prizeId), 'Failed to update prize.');
     } else {
       delete payload.id;
-      assertSupabaseResult(await client.from('special_offer_prizes').insert(payload), 'Failed to insert prize.');
+      const inserted = assertSupabaseResult(
+        await client.from('special_offer_prizes').insert(payload).select(SPECIAL_OFFERS_PRIZES_SELECT).single(),
+        'Failed to insert prize.',
+      );
+      prizeId = inserted?.id;
     }
+    if (!prizeId) throw new Error('Failed to resolve saved prize ID.');
+    await savePrizeTranslations(client, prizeId, translations);
   }
 }
 
@@ -1474,15 +2231,22 @@ async function saveLinks(client, offerId, links) {
     assertSupabaseResult(await client.from('special_offer_links').delete().eq('id', linkId), 'Failed to remove link.');
   }
   for (const link of links) {
-    const payload = { ...link, offer_id: offerId, resource_id: null };
+    const { translations, client_id: _clientId, mode: _mode, ...linkData } = link;
+    const payload = { ...linkData, offer_id: offerId };
+    let linkId = payload.id;
     if (payload.id) {
-      const id = payload.id;
       delete payload.id;
-      assertSupabaseResult(await client.from('special_offer_links').update(payload).eq('id', id), 'Failed to update link.');
+      assertSupabaseResult(await client.from('special_offer_links').update(payload).eq('id', linkId), 'Failed to update link.');
     } else {
       delete payload.id;
-      assertSupabaseResult(await client.from('special_offer_links').insert(payload), 'Failed to insert link.');
+      const inserted = assertSupabaseResult(
+        await client.from('special_offer_links').insert(payload).select(SPECIAL_OFFERS_LINKS_SELECT).single(),
+        'Failed to insert link.',
+      );
+      linkId = inserted?.id;
     }
+    if (!linkId) throw new Error('Failed to resolve saved link ID.');
+    await saveLinkTranslations(client, linkId, translations);
   }
 }
 
@@ -1536,7 +2300,7 @@ async function saveCampaignFromEditor() {
         specialOffersState.editorMode === 'create' ? 'special_offer.created' : 'special_offer.updated',
         offerId,
         specialOffersState.editorMode === 'create' ? null : oldSnapshot,
-        { ...buildCampaignSnapshot({ ...payload.offer, id: offerId, translations: payload.translations, prizes: payload.prizes, links: payload.links }), stage: '3B.2' },
+        { ...buildCampaignSnapshot({ ...payload.offer, id: offerId, translations: payload.translations, prizes: payload.prizes, links: payload.links }), stage: '3B.3B', localized_prize_links: true },
       );
     } catch (auditError) {
       console.error('Special Offers audit insert failed:', auditError);
@@ -1651,6 +2415,7 @@ function openCampaignDetails(campaignId) {
           <h4>Settings summary</h4>
           ${renderSettingsSummary(campaign.settings_json || {})}
           <div class="special-offers-disabled-actions">
+            <button class="btn-secondary btn-small" type="button" data-special-offers-preview="${escapeHtml(campaign.id)}">Preview campaign</button>
             <button
               class="btn-secondary btn-small"
               type="button"
@@ -1691,6 +2456,158 @@ function closeCampaignDetails() {
   if (modal) modal.hidden = true;
 }
 
+function ensurePreviewModal() {
+  let modal = $('#specialOffersPreviewModal');
+  if (modal) return modal;
+  modal = document.createElement('div');
+  modal.className = 'admin-modal special-offers-preview-modal';
+  modal.id = 'specialOffersPreviewModal';
+  modal.hidden = true;
+  modal.innerHTML = `
+    <div class="admin-modal-overlay" data-special-offers-preview-close></div>
+    <div class="admin-modal-content special-offers-details-modal__content" role="dialog" aria-modal="true" aria-labelledby="specialOffersPreviewTitle">
+      <header class="admin-modal-header">
+        <div>
+          <div class="special-offers-eyebrow">Admin-only preview</div>
+          <h3 id="specialOffersPreviewTitle">Preview campaign</h3>
+          <p class="special-offer-editor-subtitle">No public URL, no entry form, no draw.</p>
+        </div>
+        <button class="btn-modal-close" type="button" data-special-offers-preview-close aria-label="Close preview">×</button>
+      </header>
+      <div class="admin-modal-body" id="specialOffersPreviewBody"></div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest('[data-special-offers-preview-close]')) closeCampaignPreview();
+    const langButton = target?.closest('[data-special-offers-preview-lang-tab]');
+    if (langButton) activatePreviewLanguage(langButton);
+  });
+  return modal;
+}
+
+function buildPreviewCampaignFromPayload(payload) {
+  return {
+    ...payload.offer,
+    id: specialOffersState.editingCampaignId || 'preview',
+    translations: payload.translations,
+    prizes: payload.prizes.map((prize, index) => ({ ...prize, id: prize.id || `preview-prize-${index}` })),
+    links: payload.links.map((link, index) => ({ ...link, id: link.id || `preview-link-${index}` })),
+  };
+}
+
+function renderPreviewPanel(campaign, language, isActive) {
+  const translation = getTranslationByLanguage(campaign, language.code) || {};
+  const prizes = toArray(campaign.prizes);
+  const links = toArray(campaign.links);
+  return `
+    <section
+      class="special-offers-preview-panel"
+      data-special-offers-preview-lang-panel="${escapeHtml(language.code)}"
+      dir="${escapeHtml(language.dir)}"
+      ${isActive ? '' : 'hidden'}
+    >
+      <div class="special-offers-preview-hero">
+        <span>${escapeHtml(titleCase(campaign.status))} / ${escapeHtml(titleCase(campaign.visibility))}</span>
+        <h4>${escapeHtml(translation.title || campaign.slug || 'Untitled campaign')}</h4>
+        <p>${escapeHtml(translation.short_description || 'No short description yet')}</p>
+      </div>
+      <div class="special-offers-preview-section">
+        <h5>Full description</h5>
+        <p>${escapeHtml(translation.full_description || 'Not set')}</p>
+      </div>
+      <div class="special-offers-preview-section">
+        <h5>Prize</h5>
+        ${prizes.length ? prizes.map((prize, index) => {
+          const row = getPrizeTranslation(prize, language.code);
+          return `
+            <article class="special-offers-faq-item">
+              <h5>${escapeHtml(row.name || prize.name || `Prize ${index + 1}`)}</h5>
+              <p>${escapeHtml(row.description || prize.description || 'No prize description yet')}</p>
+              ${row.restrictions ? `<p><strong>Restrictions:</strong> ${escapeHtml(row.restrictions)}</p>` : ''}
+              ${row.fulfillment_notes ? `<p><strong>Fulfillment:</strong> ${escapeHtml(row.fulfillment_notes)}</p>` : ''}
+            </article>
+          `;
+        }).join('') : '<p class="special-offers-empty-copy">No prizes configured.</p>'}
+      </div>
+      <div class="special-offers-preview-section">
+        <h5>Rules</h5>
+        ${renderRulesHtml(translation.rules_html)}
+      </div>
+      <div class="special-offers-preview-section">
+        <h5>FAQ</h5>
+        ${renderFaqItems(translation.faq_json)}
+      </div>
+      <div class="special-offers-preview-section">
+        <h5>Linked services</h5>
+        ${links.length ? `
+          <div class="special-offers-preview-cta-list">
+            ${links.map((link) => {
+              const row = getLinkTranslation(link, language.code);
+              return `<a class="btn-secondary btn-small" href="${escapeHtml(row.url || link.url || '#')}" target="_blank" rel="noopener noreferrer">${escapeHtml(row.label || link.label || titleCase(link.link_type))}</a>`;
+            }).join('')}
+          </div>
+        ` : '<p class="special-offers-empty-copy">No linked services configured.</p>'}
+      </div>
+      <div class="special-offers-preview-section">
+        <h5>Campaign dates</h5>
+        ${renderDetailRows([
+          ['Start', formatDate(campaign.start_at)],
+          ['End', formatDate(campaign.end_at)],
+          ['Winner announce', formatDate(campaign.winner_announce_at)],
+          ['Timezone', campaign.timezone],
+        ])}
+      </div>
+      <p class="special-offer-editor-muted">Entry form, draw and public landing are not available in this preview.</p>
+    </section>
+  `;
+}
+
+function renderCampaignPreview(campaign) {
+  return `
+    <div class="special-offers-translation-tabs" role="tablist" aria-label="Preview languages">
+      ${SPECIAL_OFFERS_DETAIL_LANGUAGES.map((language, index) => `
+        <button class="special-offers-translation-tab${index === 0 ? ' is-active' : ''}" type="button" data-special-offers-preview-lang-tab="${escapeHtml(language.code)}">${escapeHtml(language.label)}</button>
+      `).join('')}
+    </div>
+    ${SPECIAL_OFFERS_DETAIL_LANGUAGES.map((language, index) => renderPreviewPanel(campaign, language, index === 0)).join('')}
+  `;
+}
+
+function openCampaignPreview(campaign = null) {
+  let previewCampaign = campaign;
+  if (!previewCampaign) {
+    try {
+      previewCampaign = buildPreviewCampaignFromPayload(collectEditorPayload());
+    } catch (error) {
+      setEditorMessage(error.message || 'Fix validation errors before preview.', 'error');
+      return;
+    }
+  }
+  const modal = ensurePreviewModal();
+  const body = $('#specialOffersPreviewBody', modal);
+  if (body) body.innerHTML = renderCampaignPreview(previewCampaign);
+  modal.hidden = false;
+}
+
+function closeCampaignPreview() {
+  const modal = $('#specialOffersPreviewModal');
+  if (modal) modal.hidden = true;
+}
+
+function activatePreviewLanguage(button) {
+  const modal = $('#specialOffersPreviewModal');
+  const lang = button.getAttribute('data-special-offers-preview-lang-tab');
+  if (!modal || !lang) return;
+  $$('[data-special-offers-preview-lang-tab]', modal).forEach((tab) => {
+    tab.classList.toggle('is-active', tab === button);
+  });
+  $$('[data-special-offers-preview-lang-panel]', modal).forEach((panel) => {
+    panel.hidden = panel.getAttribute('data-special-offers-preview-lang-panel') !== lang;
+  });
+}
+
 function refreshBuilderPreviews(root = document) {
   SPECIAL_OFFERS_DETAIL_LANGUAGES.forEach((language) => {
     const faqList = root.querySelector(`[data-faq-list="${language.code}"]`);
@@ -1708,8 +2625,12 @@ function refreshBuilderPreviews(root = document) {
   });
   $$('[data-link-url-preview]', root).forEach((node) => {
     const item = node.closest('[data-special-offers-link]');
-    const url = item?.querySelector('[data-link-field="url"]')?.value || '';
-    node.innerHTML = renderLanguageUrlPreview(url);
+    const id = item?.getAttribute('data-special-offers-link');
+    const link = specialOffersState.editorLinks.find((entry) => entry.client_id === id);
+    if (link) {
+      syncEditorCollectionsFromDom();
+      node.innerHTML = renderLinkUrlPreview(link);
+    }
   });
 }
 
@@ -1771,11 +2692,18 @@ function bindEvents() {
     detailsBody.addEventListener('click', (event) => {
       const target = event.target instanceof Element ? event.target : null;
       const langButton = target?.closest('[data-special-offers-lang-tab]');
+      const localLangButton = target?.closest('[data-special-offers-local-tab]');
       const editButton = target?.closest('[data-special-offers-edit]');
+      const previewButton = target?.closest('[data-special-offers-preview]');
       if (langButton) activateTranslationTab(langButton);
+      if (localLangButton) activateLocalDetailLanguage(localLangButton);
       if (editButton && !editButton.disabled) {
         closeCampaignDetails();
         openCampaignEditor('edit', editButton.getAttribute('data-special-offers-edit'));
+      }
+      if (previewButton) {
+        const campaign = specialOffersState.campaigns.find((item) => item.id === previewButton.getAttribute('data-special-offers-preview'));
+        if (campaign) openCampaignPreview(campaign);
       }
     });
   }
@@ -1792,6 +2720,8 @@ function bindEvents() {
       const langTab = target?.closest('[data-special-offers-editor-lang-tab]');
       const addPrizeButton = target?.closest('[data-special-offers-add-prize]');
       const addLinkButton = target?.closest('[data-special-offers-add-link]');
+      const helpButton = target?.closest('[data-special-offers-help]');
+      const nestedLangButton = target?.closest('[data-special-offers-nested-lang-tab]');
       const removePrizeButton = target?.closest('[data-special-offers-remove-prize]');
       const removeLinkButton = target?.closest('[data-special-offers-remove-link]');
       const addFaqButton = target?.closest('[data-special-offers-add-faq]');
@@ -1802,6 +2732,8 @@ function bindEvents() {
       const removeRuleBulletButton = target?.closest('[data-special-offers-remove-rule-bullet]');
       if (sectionTab) activateEditorSection(sectionTab);
       if (langTab) activateEditorLanguage(langTab);
+      if (nestedLangButton) activateNestedLanguage(nestedLangButton);
+      if (helpButton) openHelpPopover(helpButton.getAttribute('data-special-offers-help'));
       if (addPrizeButton) addEditorPrize();
       if (addLinkButton) addEditorLink();
       if (addFaqButton) addFaqItem(addFaqButton.getAttribute('data-special-offers-add-faq'));
@@ -1847,7 +2779,17 @@ function bindEvents() {
       refreshBuilderPreviews(editorBody);
       validateEditorForm();
     });
-    editorBody.addEventListener('change', () => {
+    editorBody.addEventListener('change', (event) => {
+      const target = event.target instanceof Element ? event.target : null;
+      const linkField = target?.closest('[data-link-field]');
+      if (linkField && ['link_type', 'mode', 'resource_id'].includes(linkField.getAttribute('data-link-field'))) {
+        const item = linkField.closest('[data-special-offers-link]');
+        const id = item?.getAttribute('data-special-offers-link');
+        if (id) {
+          refreshLinkEditorItem(id);
+          return;
+        }
+      }
       refreshBuilderPreviews(editorBody);
       validateEditorForm();
     });
@@ -1858,6 +2800,9 @@ function bindEvents() {
 
   const archiveButton = $('#specialOffersEditorArchive');
   if (archiveButton) archiveButton.addEventListener('click', () => archiveCurrentCampaign());
+
+  const previewButton = $('#specialOffersEditorPreview');
+  if (previewButton) previewButton.addEventListener('click', () => openCampaignPreview());
 
   $$('[data-special-offers-editor-close]').forEach((button) => {
     button.addEventListener('click', closeCampaignEditor);
@@ -1879,6 +2824,8 @@ function bindEvents() {
     if (event.key === 'Escape') {
       closeCampaignDetails();
       closeCampaignEditor();
+      closeCampaignPreview();
+      closeHelpPopover();
     }
   });
 }
