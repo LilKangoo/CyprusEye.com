@@ -193,6 +193,15 @@ async function bodyText(page: Page) {
 }
 
 test.describe('Special Offer public read-only landing', () => {
+  test('shows safe unavailable message for a missing campaign slug', async ({ page }) => {
+    await prepareSpecialOfferLandingStub(page);
+    await page.goto('/special-offer.html?slug=missing-campaign&lang=en');
+    await waitForSupabaseStub(page);
+
+    await expect(page.getByRole('heading', { name: 'Campaign is not available yet.' })).toBeVisible();
+    await expect(page.locator('[data-special-offer-content]')).toBeHidden();
+  });
+
   test('blocks draft/private campaigns for public users with a safe unavailable message', async ({ page }) => {
     await prepareSpecialOfferLandingStub(page);
     await page.goto('/special-offer.html?slug=lefkara-giveaway-2026&lang=en');
@@ -232,7 +241,7 @@ test.describe('Special Offer public read-only landing', () => {
 
   test('renders draft/private campaign through authenticated admin preview only', async ({ page }) => {
     await prepareSpecialOfferLandingStub(page, { adminSession: true });
-    await page.goto('/special-offer.html?slug=lefkara-giveaway-2026&lang=he&admin_preview=1');
+    await page.goto('/special-offers/lefkara-giveaway-2026?lang=he&admin_preview=1');
     await waitForSupabaseStub(page);
 
     await expect(page.getByText('תצוגה מקדימה למנהל')).toBeVisible();

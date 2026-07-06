@@ -487,6 +487,48 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     await expect(help).toContainText('None');
   });
 
+  test('shows safe public preview URLs and keeps active/public publishing blocked', async ({ page }) => {
+    await openSpecialOffers(page);
+    const card = page.locator('.special-offer-campaign-card').filter({ hasText: 'Wygraj 3 dni w Lefkarze' });
+    await expect(card.getByRole('link', { name: 'Preview public page' })).toHaveAttribute(
+      'href',
+      /\/special-offer\.html\?slug=lefkara-giveaway-2026&lang=pl&admin_preview=1$/
+    );
+    await expect(card.getByRole('button', { name: 'Copy preview URL' })).toBeVisible();
+
+    await card.getByRole('button', { name: 'View details' }).click();
+    const details = page.locator('#specialOffersDetailsModal');
+    await expect(details).toBeVisible();
+    await expect(details).toContainText('Public landing preview URLs');
+    await expect(details).toContainText('/special-offer.html?slug=lefkara-giveaway-2026&lang=pl&admin_preview=1');
+    await expect(details).toContainText('Clean: /special-offers/lefkara-giveaway-2026?lang=pl&admin_preview=1');
+    await details.locator('.btn-modal-close[data-special-offers-close]').click();
+
+    await openEditorForLefkara(page);
+    const editor = page.locator('#specialOffersEditorModal');
+    await expect(editor.locator('select[name="status"] option[value="active"]')).toHaveAttribute('disabled', '');
+    await expect(editor.locator('select[name="visibility"] option[value="public"]')).toHaveAttribute('disabled', '');
+    await expect(editor).toContainText('Publishing requires the next stage: public read policy, sitemap, canonical and final validation.');
+
+    await editor.locator('select[name="status"]').evaluate((node) => {
+      const select = node as HTMLSelectElement;
+      select.value = 'active';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await editor.locator('select[name="visibility"]').evaluate((node) => {
+      const select = node as HTMLSelectElement;
+      select.value = 'public';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await editor.getByRole('button', { name: 'Review & save' }).click();
+    await expect(editor.locator('#specialOfferEditorReview')).toContainText('Status');
+    await expect(editor.locator('#specialOfferEditorReview')).toContainText('Draft');
+    await expect(editor.locator('#specialOfferEditorReview')).toContainText('Visibility');
+    await expect(editor.locator('#specialOfferEditorReview')).toContainText('Private');
+    await expect(editor.locator('#specialOfferEditorReview')).not.toContainText('Active');
+    await expect(editor.locator('#specialOfferEditorReview')).not.toContainText('Public');
+  });
+
   test('archives without hard delete and disables edit for non-draft/non-private campaigns', async ({ page }) => {
     page.on('dialog', (dialog) => dialog.accept());
     await openSpecialOffers(page);

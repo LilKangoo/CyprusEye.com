@@ -45,6 +45,10 @@
 /plan/             /plan.html             301
 /trip-date-selection      /trip-date-selection.html  301
 /trip-date-selection/     /trip-date-selection.html  301
+
+# Special Offers public landing. Keep before SPA fallback so Cloudflare Pages
+# serves the landing shell instead of rewriting clean campaign URLs to homepage.
+/special-offers/*         /special-offer.html     200
 /*.html            /:splat                 200
 
 # SPA fallback (main app only - NOT admin)

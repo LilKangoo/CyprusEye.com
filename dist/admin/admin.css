@@ -3241,6 +3241,41 @@ button.special-offer-help:focus-visible {
   gap: 8px;
 }
 
+.special-offer-public-url-list {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.special-offer-public-url-row {
+  align-items: start;
+  background: rgba(15, 23, 42, 0.42);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 10px;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-width: 0;
+  padding: 10px;
+}
+
+.special-offer-public-url-row a,
+.special-offer-public-url-row span {
+  color: var(--admin-text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.special-offer-public-url-row strong {
+  color: var(--admin-text);
+}
+
+.special-offer-public-url-row span {
+  grid-column: 2 / -1;
+}
+
 .special-offers-workflow {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }

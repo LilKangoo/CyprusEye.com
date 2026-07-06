@@ -203,6 +203,40 @@ async function serveCarOfferPage(context, url) {
   });
 }
 
+function resolveSpecialOfferLandingRequest(pathname) {
+  const normalized = String(pathname || '').trim().replace(/^\/+|\/+$/g, '');
+  if (!normalized.startsWith('special-offers/')) {
+    return null;
+  }
+  const slug = normalized.slice('special-offers/'.length).trim().replace(/^\/+|\/+$/g, '');
+  if (!slug || slug.includes('/')) {
+    return null;
+  }
+  return { slug };
+}
+
+async function serveSpecialOfferLandingPage(context) {
+  const htmlResponse = await serveStatic(context, '/special-offer.html', { method: 'GET' });
+  const headers = new Headers(htmlResponse.headers);
+  headers.set('cache-control', 'no-cache');
+  headers.set('content-type', 'text/html; charset=utf-8');
+
+  if (context.request.method === 'HEAD') {
+    headers.delete('content-length');
+    return new Response(null, {
+      status: htmlResponse.status,
+      statusText: htmlResponse.statusText,
+      headers,
+    });
+  }
+
+  return new Response(await htmlResponse.text(), {
+    status: htmlResponse.status,
+    statusText: htmlResponse.statusText,
+    headers,
+  });
+}
+
 async function serveDynamicSitemap(context) {
   let xml = '';
   try {
@@ -258,6 +292,10 @@ export async function onRequest(context) {
   const serviceRequest = resolveServiceOfferRequest(url.pathname, url.search);
   if (serviceRequest) {
     return serveServiceOfferPage(context, url, serviceRequest);
+  }
+  const specialOfferLandingRequest = resolveSpecialOfferLandingRequest(url.pathname);
+  if (specialOfferLandingRequest) {
+    return serveSpecialOfferLandingPage(context);
   }
   const route = resolveSeoRoute(url.pathname);
 

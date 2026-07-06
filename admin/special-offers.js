@@ -206,6 +206,28 @@ function escapeHtml(value) {
     .replace(/'/g, '&#039;');
 }
 
+function buildSpecialOfferPublicUrl(campaign, lang = 'pl', { adminPreview = false, clean = false } = {}) {
+  const slug = String(campaign?.slug || '').trim();
+  if (!slug) return '';
+  const language = SPECIAL_OFFERS_DETAIL_LANGUAGES.some((item) => item.code === lang) ? lang : 'pl';
+  const params = new URLSearchParams();
+  params.set('lang', language);
+  if (adminPreview) params.set('admin_preview', '1');
+  const path = clean
+    ? `/special-offers/${encodeURIComponent(slug)}`
+    : `/special-offer.html?slug=${encodeURIComponent(slug)}`;
+  const separator = path.includes('?') ? '&' : '?';
+  return `${path}${separator}${params.toString()}`;
+}
+
+function buildSpecialOfferPreviewUrl(campaign, lang = 'pl') {
+  return buildSpecialOfferPublicUrl(campaign, lang, { adminPreview: true, clean: false });
+}
+
+function buildSpecialOfferCleanPreviewUrl(campaign, lang = 'pl') {
+  return buildSpecialOfferPublicUrl(campaign, lang, { adminPreview: true, clean: true });
+}
+
 function toArray(value) {
   return Array.isArray(value) ? value : [];
 }
@@ -386,6 +408,7 @@ function renderCampaignCard(campaign) {
   const dateRange = `${formatDate(campaign.start_at)} - ${formatDate(campaign.end_at)}`;
   const winnerDate = formatDate(campaign.winner_announce_at);
   const canEdit = isDraftPrivateCampaign(campaign);
+  const previewUrl = buildSpecialOfferPreviewUrl(campaign, 'pl');
 
   return `
     <article class="special-offer-campaign-card" data-special-offer-card="${escapeHtml(campaign.id)}">
@@ -414,6 +437,8 @@ function renderCampaignCard(campaign) {
       </div>
       <div class="special-offer-campaign-card__actions">
         <button class="btn-secondary btn-small" type="button" data-special-offers-view="${escapeHtml(campaign.id)}">View details</button>
+        <a class="btn-secondary btn-small" href="${escapeHtml(previewUrl)}" target="_blank" rel="noopener noreferrer" data-special-offers-preview-url="${escapeHtml(previewUrl)}">Preview public page</a>
+        <button class="btn-secondary btn-small" type="button" data-special-offers-copy-preview-url="${escapeHtml(campaign.id)}">Copy preview URL</button>
         <button
           class="btn-primary btn-small"
           type="button"
@@ -1661,6 +1686,7 @@ function renderEditorForm(campaign = null) {
                 <option value="archived" ${defaults.status === 'archived' ? 'selected' : ''}>Archived</option>
                 <option value="active" disabled>Active - Available in publish stage</option>
               </select>
+              <span class="special-offer-field-hint">Publishing requires the next stage: public read policy, sitemap, canonical and final validation.</span>
             </label>
             <label>Visibility
               <select name="visibility">
@@ -1668,6 +1694,7 @@ function renderEditorForm(campaign = null) {
                 <option value="public" disabled>Public - Available in publish stage</option>
                 <option value="unlisted" disabled>Unlisted - Available in publish stage</option>
               </select>
+              <span class="special-offer-field-hint">Private only in this stage. Public/unlisted cannot be saved yet.</span>
             </label>
           </div>
           <p class="special-offer-editor-muted">This stage only saves draft/private campaigns. Publishing is not available.</p>
@@ -2013,8 +2040,15 @@ function collectEditorPayload() {
   if (!form) throw new Error('Editor form is not available.');
   syncEditorCollectionsFromDom();
 
-  const status = getEditorFieldValue(form, 'status') || 'draft';
-  const visibility = getEditorFieldValue(form, 'visibility') || 'private';
+  const rawStatus = getEditorFieldValue(form, 'status') || 'draft';
+  const status = ['draft', 'archived'].includes(rawStatus) ? rawStatus : 'draft';
+  const visibility = 'private';
+  if (form.elements.status && form.elements.status.value !== status) {
+    form.elements.status.value = status;
+  }
+  if (form.elements.visibility && form.elements.visibility.value !== visibility) {
+    form.elements.visibility.value = visibility;
+  }
   const startAt = parseDateTimeLocal(getEditorFieldValue(form, 'start_at'));
   const endAt = parseDateTimeLocal(getEditorFieldValue(form, 'end_at'));
   const winnerAnnounceAt = parseDateTimeLocal(getEditorFieldValue(form, 'winner_announce_at'));
@@ -2527,6 +2561,10 @@ function openCampaignDetails(campaignId) {
           ${renderLinkedServices(campaign.links)}
         </section>
         <section class="special-offers-detail-panel special-offers-detail-panel--wide">
+          <h4>Public landing preview URLs</h4>
+          ${renderPublicLandingPreviewLinks(campaign)}
+        </section>
+        <section class="special-offers-detail-panel special-offers-detail-panel--wide">
           <h4>Audit log</h4>
           ${renderAuditLog(campaign.audit_log)}
         </section>
@@ -2694,6 +2732,27 @@ function renderCampaignPreview(campaign) {
   `;
 }
 
+function renderPublicLandingPreviewLinks(campaign) {
+  const rows = SPECIAL_OFFERS_DETAIL_LANGUAGES.map((language) => ({
+    lang: language.code,
+    fallback: buildSpecialOfferPreviewUrl(campaign, language.code),
+    clean: buildSpecialOfferCleanPreviewUrl(campaign, language.code),
+  }));
+  return `
+    <div class="special-offer-public-url-list">
+      <p class="special-offer-editor-muted">Primary production-safe fallback uses <code>special-offer.html</code>. Clean URLs require Cloudflare Pages rewrite support.</p>
+      ${rows.map((row) => `
+        <div class="special-offer-public-url-row">
+          <strong>${escapeHtml(row.lang.toUpperCase())}</strong>
+          <a href="${escapeHtml(row.fallback)}" target="_blank" rel="noopener noreferrer">${escapeHtml(row.fallback)}</a>
+          <button class="btn-secondary btn-small" type="button" data-special-offers-copy-raw-url="${escapeHtml(row.fallback)}">Copy</button>
+          <span>Clean: ${escapeHtml(row.clean)}</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
 function openCampaignPreview(campaign = null) {
   let previewCampaign = campaign;
   if (!previewCampaign) {
@@ -2786,6 +2845,38 @@ function addRuleBullet(button) {
   validateEditorForm();
 }
 
+async function copyTextToClipboard(text, button = null) {
+  const value = String(text || '').trim();
+  if (!value) return;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value);
+    } else {
+      const textarea = document.createElement('textarea');
+      textarea.value = value;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      textarea.remove();
+    }
+    if (button) {
+      const original = button.textContent;
+      button.textContent = 'Copied';
+      setTimeout(() => { button.textContent = original; }, 1400);
+    }
+  } catch (error) {
+    console.error('Failed to copy Special Offer preview URL:', error);
+    if (button) {
+      const original = button.textContent;
+      button.textContent = 'Copy failed';
+      setTimeout(() => { button.textContent = original; }, 1800);
+    }
+  }
+}
+
 function bindEvents() {
   if (specialOffersState.initialized) return;
   specialOffersState.initialized = true;
@@ -2796,8 +2887,14 @@ function bindEvents() {
       const target = event.target instanceof Element ? event.target : null;
       const viewButton = target?.closest('[data-special-offers-view]');
       const editButton = target?.closest('[data-special-offers-edit]');
+      const copyPreviewButton = target?.closest('[data-special-offers-copy-preview-url]');
       if (viewButton) {
         openCampaignDetails(viewButton.getAttribute('data-special-offers-view'));
+        return;
+      }
+      if (copyPreviewButton) {
+        const campaign = specialOffersState.campaigns.find((item) => item.id === copyPreviewButton.getAttribute('data-special-offers-copy-preview-url'));
+        if (campaign) copyTextToClipboard(buildSpecialOfferPreviewUrl(campaign, 'pl'), copyPreviewButton);
         return;
       }
       if (editButton && !editButton.disabled) {
@@ -2814,8 +2911,13 @@ function bindEvents() {
       const localLangButton = target?.closest('[data-special-offers-local-tab]');
       const editButton = target?.closest('[data-special-offers-edit]');
       const previewButton = target?.closest('[data-special-offers-preview]');
+      const copyRawUrlButton = target?.closest('[data-special-offers-copy-raw-url]');
       if (langButton) activateTranslationTab(langButton);
       if (localLangButton) activateLocalDetailLanguage(localLangButton);
+      if (copyRawUrlButton) {
+        copyTextToClipboard(copyRawUrlButton.getAttribute('data-special-offers-copy-raw-url'), copyRawUrlButton);
+        return;
+      }
       if (editButton && !editButton.disabled) {
         closeCampaignDetails();
         openCampaignEditor('edit', editButton.getAttribute('data-special-offers-edit'));
