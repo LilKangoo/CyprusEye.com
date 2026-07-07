@@ -491,19 +491,23 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     await expect(editor.locator('[data-offer-setting="requires_form"]')).toBeChecked();
     await expect(editor.locator('[data-special-offers-form-field]')).toHaveCount(11);
 
-    const firstName = editor.locator('[data-special-offers-form-field]').filter({ hasText: 'first_name' });
+    const firstName = editor.locator('[data-special-offers-form-field]').nth(0);
     await expect(firstName.locator('[data-form-translation-field="label"][data-lang="pl"]')).toHaveValue('Imię');
     await firstName.getByRole('button', { name: 'EN', exact: true }).click();
     await expect(firstName.locator('[data-form-translation-field="label"][data-lang="en"]')).toHaveValue('First name');
     await firstName.getByRole('button', { name: 'HE', exact: true }).click();
     await expect(firstName.locator('[data-form-translation-field="label"][data-lang="he"]')).toHaveAttribute('dir', 'rtl');
     await firstName.locator('[data-form-translation-field="label"][data-lang="he"]').fill('שם פרטי מעודכן');
+    await firstName.locator('summary').filter({ hasText: 'Advanced validation JSON preview' }).click();
+    await firstName.locator('[data-form-validation-json]').fill('{bad json');
+    await expect(editor.getByRole('button', { name: 'Save draft' })).toBeDisabled();
+    await firstName.locator('[data-form-validation-json]').fill('{}');
 
-    const dob = editor.locator('[data-special-offers-form-field]').filter({ hasText: 'date_of_birth' });
+    const dob = editor.locator('[data-special-offers-form-field]').nth(4);
     await expect(dob.locator('[data-form-validation="min_age"]')).toHaveValue('18');
     await dob.locator('[data-form-validation="min_age"]').fill('21');
 
-    const terms = editor.locator('[data-special-offers-form-field]').filter({ hasText: 'terms_accepted' });
+    const terms = editor.locator('[data-special-offers-form-field]').nth(10);
     await expect(terms.locator('[data-form-validation="must_be_true"]')).toBeChecked();
 
     const city = editor.locator('[data-special-offers-form-field]').nth(6);
@@ -522,13 +526,28 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     await option.locator('[data-form-option-field="label"]').fill('Spacer');
     await expect(newField.locator('[data-form-options-json-preview]').first()).toContainText('walking');
 
+    const beforePreviewRows = await page.evaluate(() => ({
+      fields: (window as any).__supabaseStub.getTableRows('special_offer_form_fields').length,
+      translations: (window as any).__supabaseStub.getTableRows('special_offer_form_field_translations').length,
+      audit: (window as any).__supabaseStub.getTableRows('special_offer_audit_log').length,
+    }));
     await editor.getByRole('button', { name: 'Preview form', exact: true }).click();
-    const formPreview = editor.locator('#specialOfferFormPreview');
+    const formPreview = page.locator('#specialOffersFormPreviewModal');
     await expect(formPreview).toBeVisible();
-    await expect(formPreview).toContainText('Preview only, public submit is not available yet');
+    await expect(formPreview).toContainText('Preview form');
+    await expect(formPreview).toContainText('Imię');
+    await expect(formPreview).toContainText('Preview only. Public submit is not available yet.');
     await expect(formPreview).toContainText('Ulubiona aktywność');
     await formPreview.getByRole('button', { name: 'HE' }).click();
     await expect(formPreview.locator('.special-offer-form-preview-fields')).toHaveAttribute('dir', 'rtl');
+    await expect(formPreview.getByRole('button', { name: 'Preview only. Public submit is not available yet.' })).toBeDisabled();
+    const afterPreviewRows = await page.evaluate(() => ({
+      fields: (window as any).__supabaseStub.getTableRows('special_offer_form_fields').length,
+      translations: (window as any).__supabaseStub.getTableRows('special_offer_form_field_translations').length,
+      audit: (window as any).__supabaseStub.getTableRows('special_offer_audit_log').length,
+    }));
+    expect(afterPreviewRows).toEqual(beforePreviewRows);
+    await formPreview.locator('[data-special-offers-form-preview-close]').last().click();
 
     await editor.locator('[data-special-offers-help="form"]').click();
     const help = page.locator('#specialOffersHelpPopover');
@@ -688,8 +707,32 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
   test('keeps editor usable on mobile without horizontal overflow and avoids forbidden module references', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await openSpecialOffers(page);
-    await page.getByRole('button', { name: 'Create campaign' }).first().click();
+    await openEditorForLefkara(page);
     await expect(page.locator('#specialOffersEditorModal')).toBeVisible();
+    await page.locator('#specialOffersEditorModal').getByRole('button', { name: 'Form' }).click();
+    const lastFieldLabel = page
+      .locator('#specialOfferEditorFormFields [data-special-offers-form-field]')
+      .last()
+      .locator('[data-form-translation-field="label"][data-lang="pl"]');
+    await lastFieldLabel.scrollIntoViewIfNeeded();
+    await expect(lastFieldLabel).toBeVisible();
+    const formLayout = await page.evaluate(() => {
+      const body = document.querySelector('#specialOffersEditorBody');
+      const footer = document.querySelector('#specialOffersEditorModal .special-offer-editor-footer');
+      const input = document.querySelector('#specialOfferEditorFormFields [data-special-offers-form-field]:last-child [data-form-translation-field="label"][data-lang="pl"]');
+      if (!body || !footer || !input) return { bodyScrollable: false, bodyBeforeFooter: false, inputClearOfFooter: false };
+      const bodyBox = body.getBoundingClientRect();
+      const footerBox = footer.getBoundingClientRect();
+      const inputBox = input.getBoundingClientRect();
+      return {
+        bodyScrollable: body.scrollHeight > body.clientHeight,
+        bodyBeforeFooter: bodyBox.bottom <= footerBox.top + 1,
+        inputClearOfFooter: inputBox.bottom <= footerBox.top - 4,
+      };
+    });
+    expect(formLayout.bodyScrollable).toBe(true);
+    expect(formLayout.bodyBeforeFooter).toBe(true);
+    expect(formLayout.inputClearOfFooter).toBe(true);
     await page.locator('#specialOffersEditorModal').getByRole('button', { name: 'Rules/settings' }).click();
     await expect(page.locator('#specialOffersEditorModal details').filter({ hasText: 'Advanced settings JSON' })).not.toHaveAttribute('open', '');
 

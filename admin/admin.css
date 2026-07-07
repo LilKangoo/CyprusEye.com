@@ -2766,9 +2766,24 @@ body[data-admin-panel="true"].admin-sidebar-open {
 }
 
 .special-offer-editor-modal__content {
+  display: flex;
+  flex-direction: column;
   max-height: min(92vh, 980px);
   max-width: 1120px;
+  overflow: hidden;
   width: min(1120px, calc(100vw - 28px));
+}
+
+.special-offer-editor-modal__content .admin-modal-header {
+  flex: 0 0 auto;
+}
+
+.special-offer-editor-modal__content .admin-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-bottom: 32px;
 }
 
 .special-offer-editor-subtitle {
@@ -3119,11 +3134,11 @@ button.special-offer-help:focus-visible {
 .special-offer-editor-footer {
   background: rgba(15, 23, 42, 0.96);
   border-top: 1px solid rgba(148, 163, 184, 0.16);
-  bottom: 0;
   flex-wrap: wrap;
-  margin: 16px -18px -18px;
+  flex: 0 0 auto;
+  margin: 0;
   padding: 14px 18px;
-  position: sticky;
+  position: relative;
   z-index: 2;
 }
 
@@ -3435,8 +3450,12 @@ button.special-offer-help:focus-visible {
   }
 
   .special-offer-editor-modal__content {
-    max-height: 94vh;
+    max-height: calc(100dvh - 18px);
     width: calc(100vw - 18px);
+  }
+
+  .special-offer-editor-modal__content .admin-modal-body {
+    padding: 16px 14px 28px;
   }
 
   .special-offer-editor-grid {
@@ -3450,6 +3469,7 @@ button.special-offer-help:focus-visible {
   .special-offer-editor-footer {
     align-items: stretch;
     flex-direction: column;
+    padding: 12px 14px;
   }
 
   .special-offer-editor-footer__spacer {

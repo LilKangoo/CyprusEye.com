@@ -2057,7 +2057,6 @@ function renderEditorForm(campaign = null) {
             <span class="special-offer-field-hint">${renderHelp('formPreview')} Preview is admin-only and submit stays disabled.</span>
           </div>
           <div class="special-offer-editor-list" id="specialOfferEditorFormFields"></div>
-          <div class="special-offer-form-preview" id="specialOfferFormPreview" hidden></div>
         </section>
         <section class="special-offer-editor-section" data-special-offers-editor-panel="rules" hidden>
           <p class="special-offer-editor-muted">${renderHelp('rules')} Configure operational campaign rules. Public launch is not available.</p>
@@ -3196,6 +3195,39 @@ function ensurePreviewModal() {
   return modal;
 }
 
+function ensureFormPreviewModal() {
+  let modal = $('#specialOffersFormPreviewModal');
+  if (modal) return modal;
+  modal = document.createElement('div');
+  modal.className = 'admin-modal special-offers-preview-modal';
+  modal.id = 'specialOffersFormPreviewModal';
+  modal.hidden = true;
+  modal.innerHTML = `
+    <div class="admin-modal-overlay" data-special-offers-form-preview-close></div>
+    <div class="admin-modal-content special-offers-details-modal__content" role="dialog" aria-modal="true" aria-labelledby="specialOffersFormPreviewTitle">
+      <header class="admin-modal-header">
+        <div>
+          <div class="special-offers-eyebrow">Admin-only preview</div>
+          <h3 id="specialOffersFormPreviewTitle">Preview form</h3>
+          <p class="special-offer-editor-subtitle">Current unsaved editor state. No public submit, no entries.</p>
+        </div>
+        <button class="btn-modal-close" type="button" data-special-offers-form-preview-close aria-label="Close form preview">×</button>
+      </header>
+      <div class="admin-modal-body" id="specialOffersFormPreviewBody"></div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest('[data-special-offers-form-preview-close]')) closeFormPreview();
+    const langButton = target?.closest('[data-special-offers-form-preview-modal-lang]');
+    if (langButton) {
+      renderFormPreviewModal(langButton.getAttribute('data-special-offers-form-preview-modal-lang') || 'pl');
+    }
+  });
+  return modal;
+}
+
 function buildPreviewCampaignFromPayload(payload) {
   return {
     ...payload.offer,
@@ -3288,7 +3320,7 @@ function renderFormPreviewFields(fields, lang) {
   return `
     <div class="special-offer-form-preview-fields" role="group" dir="${escapeHtml(language.dir)}">
       ${activeFields.map((field) => renderFormPreviewField(field, language)).join('')}
-      <button class="btn-primary btn-small" type="button" disabled>Preview only, public submit is not available yet</button>
+      <button class="btn-primary btn-small" type="button" disabled>Preview only. Public submit is not available yet.</button>
     </div>
   `;
 }
@@ -3343,26 +3375,32 @@ function renderCampaignPreview(campaign) {
   `;
 }
 
-function renderInlineFormPreview(lang = 'pl') {
-  const host = $('#specialOfferFormPreview');
-  if (!host) return;
+function renderFormPreviewModal(lang = 'pl') {
+  const modal = ensureFormPreviewModal();
+  const body = $('#specialOffersFormPreviewBody', modal);
+  if (!body) return;
   let payload = null;
   try {
     payload = collectEditorPayload();
   } catch (error) {
-    host.hidden = false;
-    host.innerHTML = `<p class="special-offer-editor-validation">${escapeHtml(error.message || 'Fix form errors before preview.')}</p>`;
+    body.innerHTML = `<p class="special-offer-editor-validation">${escapeHtml(error.message || 'Fix form errors before preview.')}</p>`;
+    modal.hidden = false;
     return;
   }
-  host.hidden = false;
-  host.innerHTML = `
+  body.innerHTML = `
     <div class="special-offers-translation-tabs special-offers-translation-tabs--compact" role="tablist" aria-label="Form preview languages">
       ${SPECIAL_OFFERS_DETAIL_LANGUAGES.map((language) => `
-        <button class="special-offers-translation-tab${language.code === lang ? ' is-active' : ''}" type="button" data-special-offers-form-preview-lang="${escapeHtml(language.code)}">${escapeHtml(language.label)}</button>
+        <button class="special-offers-translation-tab${language.code === lang ? ' is-active' : ''}" type="button" data-special-offers-form-preview-modal-lang="${escapeHtml(language.code)}">${escapeHtml(language.label)}</button>
       `).join('')}
     </div>
     ${renderFormPreviewFields(payload.formFields, lang)}
   `;
+  modal.hidden = false;
+}
+
+function closeFormPreview() {
+  const modal = $('#specialOffersFormPreviewModal');
+  if (modal) modal.hidden = true;
 }
 
 function renderPublicLandingPreviewLinks(campaign) {
@@ -3420,6 +3458,21 @@ function activatePreviewLanguage(button) {
 }
 
 function refreshBuilderPreviews(root = document) {
+  let previewCollectionsSynced = false;
+  let previewCollectionsFailed = false;
+  const syncCollectionsForPreview = () => {
+    if (previewCollectionsSynced) return true;
+    if (previewCollectionsFailed) return false;
+    try {
+      syncEditorCollectionsFromDom();
+      previewCollectionsSynced = true;
+      return true;
+    } catch (_error) {
+      previewCollectionsFailed = true;
+      return false;
+    }
+  };
+
   SPECIAL_OFFERS_DETAIL_LANGUAGES.forEach((language) => {
     const faqList = root.querySelector(`[data-faq-list="${language.code}"]`);
     if (faqList && !faqList.querySelector('[data-faq-item]') && !faqList.querySelector('.special-offers-empty-copy')) {
@@ -3439,7 +3492,7 @@ function refreshBuilderPreviews(root = document) {
     const id = item?.getAttribute('data-special-offers-link');
     const link = specialOffersState.editorLinks.find((entry) => entry.client_id === id);
     if (link) {
-      syncEditorCollectionsFromDom();
+      if (!syncCollectionsForPreview()) return;
       node.innerHTML = renderLinkUrlPreview(link);
     }
   });
@@ -3624,7 +3677,6 @@ function bindEvents() {
       const addFormOptionButton = target?.closest('[data-special-offers-add-form-option]');
       const removeFormOptionButton = target?.closest('[data-special-offers-remove-form-option]');
       const previewFormButton = target?.closest('[data-special-offers-preview-form]');
-      const formPreviewLangButton = target?.closest('[data-special-offers-form-preview-lang]');
       const helpButton = target?.closest('[data-special-offers-help]');
       const nestedLangButton = target?.closest('[data-special-offers-nested-lang-tab]');
       const removePrizeButton = target?.closest('[data-special-offers-remove-prize]');
@@ -3650,8 +3702,7 @@ function bindEvents() {
         refreshBuilderPreviews();
         validateEditorForm();
       }
-      if (previewFormButton) renderInlineFormPreview();
-      if (formPreviewLangButton) renderInlineFormPreview(formPreviewLangButton.getAttribute('data-special-offers-form-preview-lang') || 'pl');
+      if (previewFormButton) renderFormPreviewModal();
       if (addFaqButton) addFaqItem(addFaqButton.getAttribute('data-special-offers-add-faq'));
       if (removeFaqButton) {
         removeFaqButton.closest('[data-faq-item]')?.remove();
@@ -3752,6 +3803,7 @@ function bindEvents() {
       closeCampaignDetails();
       closeCampaignEditor();
       closeCampaignPreview();
+      closeFormPreview();
       closeHelpPopover();
     }
   });
