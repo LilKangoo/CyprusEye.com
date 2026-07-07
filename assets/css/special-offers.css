@@ -292,18 +292,161 @@
 }
 
 .special-offer-entry-placeholder {
-  background: #173532;
-  color: #ffffff;
+  background: #ffffff;
+  color: #17201f;
 }
 
 .special-offer-entry-placeholder h2,
 .special-offer-entry-placeholder p {
-  color: #ffffff;
+  color: #173532;
 }
 
 .special-offer-entry-placeholder p {
   margin: 0;
   font-size: 1.05rem;
+}
+
+.special-offer-entry-form {
+  display: grid;
+  gap: 22px;
+  min-width: 0;
+}
+
+.special-offer-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  min-width: 0;
+}
+
+.special-offer-form-field {
+  display: grid;
+  align-content: start;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.special-offer-form-field--textarea,
+.special-offer-form-field--contest_answer,
+.special-offer-form-field--checkbox_group,
+.special-offer-form-field--consent,
+.special-offer-form-field--checkbox,
+.special-offer-form-field--custom {
+  grid-column: 1 / -1;
+}
+
+.special-offer-form-field label,
+.special-offer-form-field > span {
+  color: #173532;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.special-offer-form-required {
+  color: #b15b24;
+  margin-inline-start: 0.2rem;
+}
+
+.special-offer-form-field input,
+.special-offer-form-field textarea,
+.special-offer-form-field select {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  border: 1px solid rgba(29, 78, 74, 0.22);
+  border-radius: 10px;
+  background: #fbfdfc;
+  color: #17201f;
+  font: inherit;
+  line-height: 1.35;
+  padding: 0.75rem 0.85rem;
+}
+
+.special-offer-form-field textarea {
+  min-height: 132px;
+  resize: vertical;
+}
+
+.special-offer-form-field input:focus,
+.special-offer-form-field textarea:focus,
+.special-offer-form-field select:focus {
+  border-color: #1d4e4a;
+  box-shadow: 0 0 0 3px rgba(29, 78, 74, 0.12);
+  outline: none;
+}
+
+.special-offer-form-help {
+  margin: 0;
+  color: #526461;
+  font-size: 0.93rem;
+  line-height: 1.45;
+}
+
+.special-offer-form-options {
+  display: grid;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.special-offer-form-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  min-width: 0;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgba(29, 78, 74, 0.14);
+  border-radius: 10px;
+  background: #fbfdfc;
+  color: #263936;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.special-offer-form-choice input {
+  flex: 0 0 auto;
+  width: 1.05rem;
+  min-height: 1.05rem;
+  margin-top: 0.15rem;
+}
+
+.special-offer-form-choice span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.special-offer-form-submit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 0;
+  padding-top: 4px;
+}
+
+.special-offer-form-submit p {
+  flex: 1 1 260px;
+  color: #4b5f5c;
+}
+
+.special-offer-form-submit .special-offer-button[disabled] {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.special-offer-form-field .ce-phone-input {
+  min-width: 0;
+}
+
+.special-offer-form-field .ce-phone-input__button,
+.special-offer-form-field .ce-phone-input__local {
+  min-height: 48px;
+  border-radius: 10px;
+  border-color: rgba(29, 78, 74, 0.22);
+}
+
+.special-offer-form-field .ce-phone-input__panel {
+  border-radius: 12px;
 }
 
 .special-offer-empty {
@@ -324,6 +467,10 @@
 .special-offer-page[dir="rtl"] .special-offer-section,
 .special-offer-page[dir="rtl"] .special-offer-entry-placeholder {
   direction: rtl;
+  text-align: right;
+}
+
+.special-offer-page[dir="rtl"] .special-offer-form-choice {
   text-align: right;
 }
 
@@ -361,5 +508,29 @@
   .special-offer-cta-list {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .special-offer-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .special-offer-form-submit {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .special-offer-form-submit .special-offer-button {
+    width: 100%;
+  }
+
+  .special-offer-form-field .ce-phone-input {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .special-offer-form-field .ce-phone-input__country {
+    flex-basis: auto;
+    min-width: 0;
+    width: 100%;
   }
 }

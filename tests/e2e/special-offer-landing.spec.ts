@@ -5,9 +5,11 @@ import type { Page } from '@playwright/test';
 const ADMIN_ID = '15f3d442-092d-4eb8-9627-db90da0283eb';
 const DRAFT_OFFER_ID = '4c38a187-8a68-4eb0-9b46-1cd923e06d31';
 const PUBLIC_OFFER_ID = '5b2a50bd-3d34-4513-9288-9eb85ef24619';
+const PUBLIC_EMPTY_FORM_OFFER_ID = '6a6b166e-fb18-4b3e-a69c-a1f25722a301';
+const PUBLIC_OPTIONS_FORM_OFFER_ID = '7f50b732-9c87-402a-b0b1-afbd7a34e401';
 
 async function prepareSpecialOfferLandingStub(page: Page, options: { adminSession?: boolean } = {}) {
-  await page.addInitScript(({ adminId, draftOfferId, publicOfferId, adminSession }) => {
+  await page.addInitScript(({ adminId, draftOfferId, publicOfferId, publicEmptyFormOfferId, publicOptionsFormOfferId, adminSession }) => {
     (window as any).__supabaseStub = {
       ...(window as any).__supabaseStub,
       onReady: (stub: any) => {
@@ -45,6 +47,7 @@ async function prepareSpecialOfferLandingStub(page: Page, options: { adminSessio
             end_at: '2026-09-15T20:59:00.000Z',
             winner_announce_at: '2026-09-20T09:00:00.000Z',
             timezone: 'Asia/Nicosia',
+            requires_form: true,
           },
           {
             id: publicOfferId,
@@ -57,6 +60,33 @@ async function prepareSpecialOfferLandingStub(page: Page, options: { adminSessio
             end_at: '2026-08-20T18:00:00.000Z',
             winner_announce_at: '2026-08-24T10:00:00.000Z',
             timezone: 'Asia/Nicosia',
+            requires_form: false,
+          },
+          {
+            id: publicEmptyFormOfferId,
+            slug: 'published-empty-form-2026',
+            type: 'contest',
+            winner_selection_mode: 'manual_selection',
+            status: 'active',
+            visibility: 'public',
+            start_at: '2026-08-01T09:00:00.000Z',
+            end_at: '2026-08-20T18:00:00.000Z',
+            winner_announce_at: '2026-08-24T10:00:00.000Z',
+            timezone: 'Asia/Nicosia',
+            requires_form: true,
+          },
+          {
+            id: publicOptionsFormOfferId,
+            slug: 'published-options-form-2026',
+            type: 'contest',
+            winner_selection_mode: 'manual_selection',
+            status: 'active',
+            visibility: 'public',
+            start_at: '2026-08-01T09:00:00.000Z',
+            end_at: '2026-08-20T18:00:00.000Z',
+            winner_announce_at: '2026-08-24T10:00:00.000Z',
+            timezone: 'Asia/Nicosia',
+            requires_form: true,
           },
         ]);
 
@@ -130,6 +160,26 @@ async function prepareSpecialOfferLandingStub(page: Page, options: { adminSessio
             rules_html: '<section><h3>כללים ציבוריים</h3><ul><li>אין טופס הרשמה בשלב זה.</li></ul></section>',
             faq_json: [{ question: 'האם אפשר להירשם עכשיו?', answer: 'עדיין לא.' }],
           },
+          {
+            id: 'empty-form-en',
+            offer_id: publicEmptyFormOfferId,
+            lang: 'en',
+            title: 'Public campaign without configured fields',
+            short_description: 'Requires a form but has no active fields.',
+            full_description: 'This is an empty form state.',
+            rules_html: '<section><h3>Rules</h3><ul><li>No fields yet.</li></ul></section>',
+            faq_json: [],
+          },
+          {
+            id: 'options-form-en',
+            offer_id: publicOptionsFormOfferId,
+            lang: 'en',
+            title: 'Public campaign with options',
+            short_description: 'Form options test.',
+            full_description: 'This campaign renders select and checkbox options.',
+            rules_html: '<section><h3>Rules</h3><ul><li>Preview only.</li></ul></section>',
+            faq_json: [],
+          },
         ]);
 
         stub.seedTable('special_offer_prizes', [
@@ -177,7 +227,77 @@ async function prepareSpecialOfferLandingStub(page: Page, options: { adminSessio
           { id: 'public-link-he', link_id: 'public-link-cars', lang: 'he', label: 'רכבים בקפריסין', description: 'השכרת רכב בקפריסין.', url: '/car.html?lang=he' },
         ]);
 
+        const formFields = [
+          ['field-first-name', draftOfferId, 'first_name', 'text', true, true, 10, {}],
+          ['field-last-name', draftOfferId, 'last_name', 'text', true, true, 20, {}],
+          ['field-email', draftOfferId, 'email', 'email', true, true, 30, {}],
+          ['field-phone', draftOfferId, 'phone', 'phone', true, true, 40, {}],
+          ['field-dob', draftOfferId, 'date_of_birth', 'date_of_birth', true, true, 50, { min_age: 18 }],
+          ['field-country', draftOfferId, 'country', 'country', true, true, 60, {}],
+          ['field-city', draftOfferId, 'city', 'city', false, true, 70, {}],
+          ['field-answer', draftOfferId, 'contest_answer', 'contest_answer', true, true, 80, { min_length: 10 }],
+          ['field-facebook', draftOfferId, 'facebook_profile_url', 'facebook_profile_url', true, true, 90, {}],
+          ['field-shared-post', draftOfferId, 'shared_post_url', 'shared_post_url', true, true, 100, {}],
+          ['field-terms', draftOfferId, 'terms_accepted', 'consent', true, true, 110, { must_be_true: true }],
+          ['field-inactive', draftOfferId, 'internal_note', 'text', false, false, 120, {}],
+          ['field-favorite', publicOptionsFormOfferId, 'favorite_activity', 'select', true, true, 10, {}],
+          ['field-services', publicOptionsFormOfferId, 'interested_services', 'checkbox_group', false, true, 20, {}],
+        ].map(([id, offer_id, field_key, field_type, required, active, sort_order, validation_json]) => ({
+          id,
+          offer_id,
+          field_key,
+          field_type,
+          required,
+          active,
+          sort_order,
+          validation_json,
+          admin_note: null,
+        }));
+        stub.seedTable('special_offer_form_fields', formFields);
+        const formLabels: Record<string, Record<string, string>> = {
+          first_name: { pl: 'Imię', en: 'First name', he: 'שם פרטי' },
+          last_name: { pl: 'Nazwisko', en: 'Last name', he: 'שם משפחה' },
+          email: { pl: 'E-mail', en: 'Email', he: 'אימייל' },
+          phone: { pl: 'Telefon', en: 'Phone', he: 'טלפון' },
+          date_of_birth: { pl: 'Data urodzenia', en: 'Date of birth', he: 'תאריך לידה' },
+          country: { pl: 'Kraj', en: 'Country', he: 'מדינה' },
+          city: { pl: 'Miasto', en: 'City', he: 'עיר' },
+          contest_answer: { pl: 'Odpowiedź konkursowa', en: 'Contest answer', he: 'תשובת תחרות' },
+          facebook_profile_url: { pl: 'Link do profilu Facebook', en: 'Facebook profile URL', he: 'קישור לפרופיל פייסבוק' },
+          shared_post_url: { pl: 'Link do udostępnionego posta', en: 'Shared post URL', he: 'קישור לפוסט ששיתפתם' },
+          terms_accepted: { pl: 'Akceptuję regulamin kampanii', en: 'I accept the campaign rules', he: 'אני מאשר/ת את כללי הקמפיין' },
+          internal_note: { pl: 'Notatka wewnętrzna', en: 'Internal note', he: 'הערה פנימית' },
+          favorite_activity: { pl: 'Ulubiona aktywność', en: 'Favorite activity', he: 'פעילות מועדפת' },
+          interested_services: { pl: 'Interesujące usługi', en: 'Interested services', he: 'שירותים מעניינים' },
+        };
+        const optionRows: Record<string, Record<string, Array<{ value: string; label: string }>>> = {
+          favorite_activity: {
+            pl: [{ value: 'walking', label: 'Spacer' }, { value: 'food', label: 'Jedzenie' }],
+            en: [{ value: 'walking', label: 'Walking' }, { value: 'food', label: 'Food' }],
+            he: [{ value: 'walking', label: 'הליכה' }, { value: 'food', label: 'אוכל' }],
+          },
+          interested_services: {
+            pl: [{ value: 'cars', label: 'Auta' }, { value: 'trips', label: 'Wycieczki' }],
+            en: [{ value: 'cars', label: 'Cars' }, { value: 'trips', label: 'Trips' }],
+            he: [{ value: 'cars', label: 'רכבים' }, { value: 'trips', label: 'טיולים' }],
+          },
+        };
+        stub.seedTable('special_offer_form_field_translations', formFields.flatMap((field: any) => ['pl', 'en', 'he'].map((lang) => ({
+          id: `${field.id}-${lang}`,
+          field_id: field.id,
+          lang,
+          label: formLabels[field.field_key][lang],
+          placeholder: field.field_key === 'email'
+            ? 'name@example.com'
+            : field.field_key === 'favorite_activity'
+              ? (lang === 'pl' ? 'Wybierz aktywność' : lang === 'en' ? 'Choose activity' : 'בחרו פעילות')
+              : '',
+          help_text: lang === 'pl' ? 'Wypełnij to pole formularza.' : lang === 'en' ? 'Fill in this form field.' : 'יש למלא שדה זה.',
+          options_json: optionRows[field.field_key]?.[lang] || [],
+        }))));
+
         stub.seedTable('special_offer_entries', []);
+        stub.seedTable('special_offer_entry_answers', []);
         stub.seedTable('special_offer_tasks', []);
         stub.seedTable('special_offer_entry_tasks', []);
         stub.seedTable('special_offer_draws', []);
@@ -185,7 +305,14 @@ async function prepareSpecialOfferLandingStub(page: Page, options: { adminSessio
         stub.seedTable('special_offer_winners', []);
       },
     };
-  }, { adminId: ADMIN_ID, draftOfferId: DRAFT_OFFER_ID, publicOfferId: PUBLIC_OFFER_ID, adminSession: Boolean(options.adminSession) });
+  }, {
+    adminId: ADMIN_ID,
+    draftOfferId: DRAFT_OFFER_ID,
+    publicOfferId: PUBLIC_OFFER_ID,
+    publicEmptyFormOfferId: PUBLIC_EMPTY_FORM_OFFER_ID,
+    publicOptionsFormOfferId: PUBLIC_OPTIONS_FORM_OFFER_ID,
+    adminSession: Boolean(options.adminSession),
+  });
 }
 
 async function bodyText(page: Page) {
@@ -213,7 +340,7 @@ test.describe('Special Offer public read-only landing', () => {
     await expect(page.locator('[data-special-offer-entry-placeholder]')).toBeHidden();
   });
 
-  test('renders public active campaigns with PL/EN/HE, prize translations, CTAs and no entry form', async ({ page }) => {
+  test('renders public active campaigns with PL/EN/HE, prize translations, CTAs and no required form state', async ({ page }) => {
     await prepareSpecialOfferLandingStub(page);
     await page.goto('/special-offers/published-sample-2026?lang=en');
     await waitForSupabaseStub(page);
@@ -221,13 +348,14 @@ test.describe('Special Offer public read-only landing', () => {
     await expect(page.getByRole('heading', { name: 'Published public campaign' })).toBeVisible();
     await expect(page.getByText('Public prize EN')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Cars in Cyprus' })).toHaveAttribute('href', /\/car\.html\?lang=en$/);
-    await expect(page.getByText('Entry form coming soon.')).toBeVisible();
+    await expect(page.getByText('This campaign does not require an entry form.')).toBeVisible();
+    await expect(page.locator('[data-special-offer-form-field]')).toHaveCount(0);
 
-    await page.getByRole('button', { name: 'PL' }).click();
+    await page.getByRole('button', { name: 'PL', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Publiczna kampania testowa' })).toBeVisible();
     await expect(page.getByText('Nagroda publiczna PL')).toBeVisible();
 
-    await page.getByRole('button', { name: 'HE' }).click();
+    await page.getByRole('button', { name: 'HE', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'קמפיין ציבורי לדוגמה' })).toBeVisible();
     await expect(page.getByText('פרס ציבורי בעברית')).toBeVisible();
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
@@ -236,7 +364,6 @@ test.describe('Special Offer public read-only landing', () => {
     const text = await bodyText(page);
     expect(text).not.toContain('undefined');
     expect(text).not.toContain('null');
-    await expect(page.locator('input[name*="entry"], textarea[name*="entry"]')).toHaveCount(0);
   });
 
   test('renders draft/private campaign through authenticated admin preview only', async ({ page }) => {
@@ -250,11 +377,79 @@ test.describe('Special Offer public read-only landing', () => {
     await expect(page.getByText('האם הרכב כלול?')).toBeVisible();
     await expect(page.getByRole('link', { name: 'קמפיין לפקרה 2026' })).toHaveAttribute('href', /\/special-offers\/lefkara-giveaway-2026\?lang=he$/);
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+    await expect(page.locator('meta[name="robots"][data-special-offer-robots]')).toHaveAttribute('content', 'noindex, nofollow');
     await expect(page.getByText('alert("x")')).toHaveCount(0);
 
     const text = await bodyText(page);
     expect(text).not.toContain('undefined');
     expect(text).not.toContain('null');
+  });
+
+  test('renders admin preview form fields in PL/EN/HE with phone helper, validation hints and disabled submit', async ({ page }) => {
+    await prepareSpecialOfferLandingStub(page, { adminSession: true });
+    await page.goto('/special-offer.html?slug=lefkara-giveaway-2026&lang=pl&admin_preview=1');
+    await waitForSupabaseStub(page);
+
+    const formSection = page.locator('[data-special-offer-entry-placeholder]');
+    await expect(formSection.getByRole('heading', { name: 'Formularz zgłoszeniowy' })).toBeVisible();
+    await expect(formSection.locator('[data-special-offer-form-field]')).toHaveCount(11);
+    await expect(formSection.locator('[data-special-offer-form-field]').nth(0)).toContainText('Imię');
+    await expect(formSection.locator('[data-special-offer-form-field]').nth(1)).toContainText('Nazwisko');
+    await expect(formSection.locator('[data-special-offer-form-field]').nth(3)).toContainText('Telefon');
+    await expect(formSection.locator('.ce-phone-input__button')).toBeVisible();
+    await expect(formSection.locator('[name="date_of_birth"]')).toHaveAttribute('data-min-age', '18');
+    const dobMax = await formSection.locator('[name="date_of_birth"]').getAttribute('max');
+    expect(dobMax).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    await expect(formSection.locator('[name="contest_answer"]')).toHaveAttribute('minlength', '10');
+    await expect(formSection.locator('[name="terms_accepted"]')).toBeVisible();
+    await expect(formSection.locator('[name="terms_accepted"]')).toHaveAttribute('required', '');
+    await expect(formSection.getByRole('button', { name: 'Wyślij zgłoszenie' })).toBeDisabled();
+    await expect(formSection).toContainText('Podgląd formularza. Wysyłanie zgłoszeń nie jest jeszcze dostępne.');
+
+    const beforeClickRows = await page.evaluate(() => ({
+      entries: (window as any).__supabaseStub.getTableRows('special_offer_entries').length,
+      answers: (window as any).__supabaseStub.getTableRows('special_offer_entry_answers').length,
+    }));
+    await page.evaluate(() => {
+      const button = document.querySelector('[data-special-offer-entry-placeholder] button');
+      if (button instanceof HTMLButtonElement) button.click();
+    });
+    const afterClickRows = await page.evaluate(() => ({
+      entries: (window as any).__supabaseStub.getTableRows('special_offer_entries').length,
+      answers: (window as any).__supabaseStub.getTableRows('special_offer_entry_answers').length,
+    }));
+    expect(afterClickRows).toEqual(beforeClickRows);
+
+    await page.getByRole('button', { name: 'EN', exact: true }).click();
+    await expect(formSection.locator('[data-special-offer-form-field]').nth(0)).toContainText('First name');
+    await expect(formSection.getByRole('button', { name: 'Submit entry' })).toBeDisabled();
+
+    await page.getByRole('button', { name: 'HE', exact: true }).click();
+    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+    await expect(formSection).toHaveAttribute('dir', 'rtl');
+    await expect(formSection.locator('[data-special-offer-form-field]').nth(0)).toContainText('שם פרטי');
+    await expect(formSection.locator('[data-special-offer-form-field]').nth(3)).toContainText('טלפון');
+    await expect(formSection.getByRole('button', { name: 'שליחת הרשמה' })).toBeDisabled();
+    await expect(formSection).toContainText('תצוגה מקדימה של הטופס. שליחת הרשמות עדיין אינה זמינה.');
+  });
+
+  test('renders form option fields and safe empty form states', async ({ page }) => {
+    await prepareSpecialOfferLandingStub(page);
+    await page.goto('/special-offers/published-options-form-2026?lang=en');
+    await waitForSupabaseStub(page);
+
+    const formSection = page.locator('[data-special-offer-entry-placeholder]');
+    await expect(formSection.locator('[data-special-offer-form-field]')).toHaveCount(2);
+    await expect(formSection.locator('select[name="favorite_activity"]')).toBeVisible();
+    await expect(formSection.locator('select[name="favorite_activity"] option')).toContainText(['Choose activity', 'Walking', 'Food']);
+    await expect(formSection.locator('[data-special-offer-form-field="interested_services"]')).toContainText('Cars');
+    await expect(formSection.locator('[data-special-offer-form-field="interested_services"]')).toContainText('Trips');
+    await expect(formSection.getByRole('button', { name: 'Submit entry' })).toBeDisabled();
+
+    await page.goto('/special-offers/published-empty-form-2026?lang=en');
+    await waitForSupabaseStub(page);
+    await expect(page.getByText('The entry form has not been configured yet.')).toBeVisible();
+    await expect(page.locator('[data-special-offer-form-field]')).toHaveCount(0);
   });
 
   test('does not expose admin preview for anonymous users', async ({ page }) => {
@@ -280,6 +475,7 @@ test.describe('Special Offer public read-only landing', () => {
       const stub = (window as any).__supabaseStub;
       return [
         'special_offer_entries',
+        'special_offer_entry_answers',
         'special_offer_tasks',
         'special_offer_entry_tasks',
         'special_offer_draws',
@@ -289,6 +485,7 @@ test.describe('Special Offer public read-only landing', () => {
     });
     expect(Object.fromEntries(forbiddenCounts)).toEqual({
       special_offer_entries: 0,
+      special_offer_entry_answers: 0,
       special_offer_tasks: 0,
       special_offer_entry_tasks: 0,
       special_offer_draws: 0,
