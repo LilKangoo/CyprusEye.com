@@ -265,3 +265,171 @@ select
 from expected_links e
 left join public.special_offer_link_translations t on t.link_id = e.id
 order by t.link_id, t.lang;
+
+with expected_links(id) as (
+  values
+    ('f25765dd-4db8-4a58-8ebf-e55a0a8daa3e'::uuid),
+    ('6dfae307-c1cc-4bed-a2eb-41b5c1d1b115'::uuid),
+    ('a57d6f8e-17aa-403d-af43-9aa8a0125ad3'::uuid)
+),
+table_check as (
+  select to_regclass('public.special_offer_links') is not null as table_exists
+),
+column_check as (
+  select
+    count(*) filter (where c.column_name = 'image_url') = 1 as column_exists,
+    max(c.data_type) filter (where c.column_name = 'image_url') = 'text' as column_is_text,
+    max(c.is_nullable) filter (where c.column_name = 'image_url') = 'YES' as column_is_nullable
+  from information_schema.columns c
+  where c.table_schema = 'public'
+    and c.table_name = 'special_offer_links'
+),
+constraint_check as (
+  select
+    count(*) filter (where con.conname = 'special_offer_links_image_url_safe_check') = 1 as constraint_exists,
+    coalesce(bool_or(con.convalidated) filter (where con.conname = 'special_offer_links_image_url_safe_check'), false) as constraint_validated
+  from pg_constraint con
+  where con.conrelid = coalesce(to_regclass('public.special_offer_links')::oid, 0::oid)
+),
+rls_check as (
+  select coalesce(bool_or(c.relrowsecurity), false) as rls_enabled
+  from pg_class c
+  join pg_namespace n on n.oid = c.relnamespace
+  where n.nspname = 'public'
+    and c.relname = 'special_offer_links'
+),
+grant_check as (
+  select not exists (
+    select 1
+    from information_schema.table_privileges p
+    where p.table_schema = 'public'
+      and p.table_name = 'special_offer_links'
+      and p.grantee in ('PUBLIC', 'anon')
+      and p.privilege_type in ('INSERT', 'UPDATE', 'DELETE', 'TRUNCATE')
+  ) as no_anon_public_write_grants
+),
+lefkara_check as (
+  select count(*) = 1 and coalesce(bool_or(status = 'draft' and visibility = 'private'), false) as lefkara_draft_private
+  from public.special_offers
+  where slug = 'lefkara-giveaway-2026'
+),
+samples(value, expected) as (
+  values
+    (null::text, true),
+    ('https://example.com/image.jpg', true),
+    ('https://cdn.example.com/images/photo.webp?size=large', true),
+    ('https://example.com:443/image.jpg', true),
+    ('/assets/images/photo.jpg', true),
+    ('/images/photo.webp?version=2', true),
+    ('', false),
+    (' ', false),
+    ('https://', false),
+    ('https:// ', false),
+    (' https://example.com/image.jpg', false),
+    ('https://example.com/image.jpg ', false),
+    ('http://example.com/image.jpg', false),
+    ('//example.com/image.jpg', false),
+    ('/', false),
+    ('/ ', false),
+    ('javascript:alert(1)', false),
+    ('data:image/png;base64,...', false),
+    ('blob:https://example.com/abc', false),
+    ('file:///tmp/image.jpg', false),
+    (E'https://example.com/image\t.jpg', false),
+    (E'https://example.com/image\n.jpg', false),
+    (E'/images/photo\001.jpg', false)
+),
+validation_matrix as (
+  select bool_and(expected = (
+    value is null
+    or (
+      length(value) between 1 and 2048
+      and value !~ '[[:space:][:cntrl:]]'
+      and (
+        value ~* '^https://[a-z0-9][a-z0-9.-]*(?::[0-9]{1,5})?(?:[/?#][^[:space:][:cntrl:]]*)?$'
+        or value ~ '^/[^/[:space:][:cntrl:]?#][^[:space:][:cntrl:]]*$'
+      )
+    )
+  )) as validation_matrix_pass
+  from samples
+),
+image_url_check as (
+  select count(*) filter (where to_jsonb(l)->>'image_url' is not null) = 0 as all_existing_image_urls_null
+  from public.special_offer_links l
+),
+managed_link_check as (
+  select
+    count(l.id) = 3 as managed_links_count_ok,
+    count(*) filter (where to_jsonb(l)->>'image_url' is not null) = 0 as managed_links_images_null
+  from expected_links e
+  left join public.special_offer_links l on l.id = e.id
+),
+translation_check as (
+  select
+    count(t.id) = 9
+      and count(distinct (t.link_id, t.lang)) = 9
+      and count(*) filter (where t.lang = 'pl') = 3
+      and count(*) filter (where t.lang = 'en') = 3
+      and count(*) filter (where t.lang = 'he') = 3 as translations_count_ok
+  from expected_links e
+  left join public.special_offer_link_translations t on t.link_id = e.id
+),
+summary as (
+  select
+    table_check.table_exists,
+    column_check.column_exists,
+    column_check.column_is_text,
+    column_check.column_is_nullable,
+    constraint_check.constraint_exists,
+    constraint_check.constraint_validated,
+    rls_check.rls_enabled,
+    grant_check.no_anon_public_write_grants,
+    lefkara_check.lefkara_draft_private,
+    validation_matrix.validation_matrix_pass,
+    image_url_check.all_existing_image_urls_null,
+    managed_link_check.managed_links_count_ok,
+    managed_link_check.managed_links_images_null,
+    translation_check.translations_count_ok
+  from table_check
+  cross join column_check
+  cross join constraint_check
+  cross join rls_check
+  cross join grant_check
+  cross join lefkara_check
+  cross join validation_matrix
+  cross join image_url_check
+  cross join managed_link_check
+  cross join translation_check
+)
+select
+  table_exists,
+  column_exists,
+  column_is_text,
+  column_is_nullable,
+  constraint_exists,
+  constraint_validated,
+  rls_enabled,
+  no_anon_public_write_grants,
+  lefkara_draft_private,
+  validation_matrix_pass,
+  all_existing_image_urls_null,
+  managed_links_count_ok,
+  managed_links_images_null,
+  translations_count_ok,
+  (
+    table_exists
+    and column_exists
+    and column_is_text
+    and column_is_nullable
+    and constraint_exists
+    and constraint_validated
+    and rls_enabled
+    and no_anon_public_write_grants
+    and lefkara_draft_private
+    and validation_matrix_pass
+    and all_existing_image_urls_null
+    and managed_links_count_ok
+    and managed_links_images_null
+    and translations_count_ok
+  ) as all_checks_pass
+from summary;
