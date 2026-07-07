@@ -147,8 +147,13 @@ revoke all on public.special_offer_entry_answers from authenticated;
 
 -- Direct public writes are intentionally not granted.
 -- Submit will be done through public.submit_special_offer_entry() only.
-grant select, update on public.special_offer_entries to authenticated;
-grant select, update on public.special_offer_entry_answers to authenticated;
+-- Authenticated users can read their own entries through RLS. Admins are also
+-- authenticated users, so review/status updates are exposed only as
+-- column-level UPDATE grants plus admin-only RLS policy.
+grant select on public.special_offer_entries to authenticated;
+grant update (status, reviewed_at, reviewed_by, review_note, rejection_reason, updated_at)
+  on public.special_offer_entries to authenticated;
+grant select on public.special_offer_entry_answers to authenticated;
 
 grant all on public.special_offer_entries to service_role;
 grant all on public.special_offer_entry_answers to service_role;
@@ -188,12 +193,9 @@ create policy "Admins can select special offer entry answers"
 
 drop policy if exists "Admins can update special offer entry answers"
   on public.special_offer_entry_answers;
-create policy "Admins can update special offer entry answers"
-  on public.special_offer_entry_answers
-  for update
-  to authenticated
-  using (public.is_current_user_admin())
-  with check (public.is_current_user_admin());
+-- Entry answers are immutable in this stage. Future manual-verification edits
+-- should use a reviewed RPC or a dedicated review table, not direct answer
+-- updates.
 
 drop policy if exists "Users can select own special offer entry answers"
   on public.special_offer_entry_answers;

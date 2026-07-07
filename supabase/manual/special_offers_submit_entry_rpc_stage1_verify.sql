@@ -14,7 +14,6 @@ from (
     ('public.special_offer_form_field_translations'),
     ('public.special_offer_entries'),
     ('public.special_offer_entry_answers'),
-    ('public.profiles'),
     ('public.partners'),
     ('public.partner_users')
 ) as required(table_name);
@@ -28,12 +27,15 @@ select
   'submit_rpc_security' as check_name,
   p.prosecdef as security_definer,
   l.lanname as language,
+  owner_role.rolname as owner_role,
+  owner_role.rolname not in ('anon', 'authenticated') as owner_is_not_api_user,
   p.provolatile as volatility,
   coalesce(array_to_string(p.proconfig, ','), '') as settings,
-  coalesce(array_to_string(p.proconfig, ','), '') like '%search_path=public%' as has_public_search_path
+  coalesce(array_to_string(p.proconfig, ','), '') like '%search_path=pg_catalog, public%' as has_safe_search_path
 from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
 join pg_language l on l.oid = p.prolang
+join pg_roles owner_role on owner_role.oid = p.proowner
 where n.nspname = 'public'
   and p.proname = 'submit_special_offer_entry'
   and pg_get_function_identity_arguments(p.oid) = 'p_offer_slug text, p_lang text, p_answers jsonb, p_client_submission_id uuid';
@@ -45,6 +47,12 @@ select
 from pg_roles r
 where r.rolname in ('anon', 'authenticated', 'service_role')
 order by r.rolname;
+
+select
+  'submit_rpc_expected_execute_grants' as check_name,
+  not has_function_privilege('anon', 'public.submit_special_offer_entry(text,text,jsonb,uuid)', 'EXECUTE') as anon_execute_absent,
+  has_function_privilege('authenticated', 'public.submit_special_offer_entry(text,text,jsonb,uuid)', 'EXECUTE') as authenticated_execute_present,
+  has_function_privilege('service_role', 'public.submit_special_offer_entry(text,text,jsonb,uuid)', 'EXECUTE') as service_role_execute_present;
 
 select
   'submit_rpc_public_execute_absent' as check_name,
@@ -89,6 +97,69 @@ where table_schema = 'public'
   and privilege_type in ('INSERT', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER')
 group by grantee, table_name, privilege_type
 order by table_name, grantee, privilege_type;
+
+select
+  'authenticated_insert_delete_absent' as check_name,
+  grantee,
+  table_name,
+  privilege_type,
+  count(*) as grant_count
+from information_schema.table_privileges
+where table_schema = 'public'
+  and table_name in ('special_offer_entries', 'special_offer_entry_answers')
+  and grantee = 'authenticated'
+  and privilege_type in ('INSERT', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER')
+group by grantee, table_name, privilege_type
+order by table_name, grantee, privilege_type;
+
+select
+  'authenticated_update_columns_should_be_review_only' as check_name,
+  table_name,
+  grantee,
+  privilege_type,
+  column_name
+from information_schema.column_privileges
+where table_schema = 'public'
+  and table_name = 'special_offer_entries'
+  and grantee = 'authenticated'
+  and privilege_type = 'UPDATE'
+order by column_name;
+
+select
+  'authenticated_update_columns_exact_match' as check_name,
+  coalesce(array_agg(column_name::text order by column_name::text), ARRAY[]::text[]) = ARRAY[
+    'rejection_reason',
+    'review_note',
+    'reviewed_at',
+    'reviewed_by',
+    'status',
+    'updated_at'
+  ]::text[] as ok,
+  coalesce(array_agg(column_name::text order by column_name::text), ARRAY[]::text[]) as actual_columns
+from information_schema.column_privileges
+where table_schema = 'public'
+  and table_name = 'special_offer_entries'
+  and grantee = 'authenticated'
+  and privilege_type = 'UPDATE';
+
+select
+  'entry_answers_update_grants_should_be_absent' as check_name,
+  not exists (
+    select 1
+    from information_schema.table_privileges tp
+    where tp.table_schema = 'public'
+      and tp.table_name = 'special_offer_entry_answers'
+      and tp.grantee in ('anon', 'authenticated', 'PUBLIC')
+      and tp.privilege_type = 'UPDATE'
+  )
+  and not exists (
+    select 1
+    from information_schema.column_privileges cp
+    where cp.table_schema = 'public'
+      and cp.table_name = 'special_offer_entry_answers'
+      and cp.grantee in ('anon', 'authenticated', 'PUBLIC')
+      and cp.privilege_type = 'UPDATE'
+  ) as ok;
 
 select
   'table_read_update_grants' as check_name,

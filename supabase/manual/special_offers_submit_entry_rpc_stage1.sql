@@ -28,10 +28,6 @@ begin
     raise exception 'Missing required table public.special_offer_entry_answers';
   end if;
 
-  if to_regclass('public.profiles') is null then
-    raise exception 'Missing required table public.profiles';
-  end if;
-
   if to_regclass('public.partners') is null then
     raise exception 'Missing required table public.partners';
   end if;
@@ -55,7 +51,7 @@ create or replace function public.submit_special_offer_entry(
 returns table(entry_id uuid, status text, reference text, idempotent boolean)
 language plpgsql
 security definer
-set search_path = public
+set search_path = pg_catalog, public
 as $$
 declare
   v_offer public.special_offers%rowtype;
@@ -92,7 +88,12 @@ declare
   v_birth_date date;
   v_option_allowed boolean;
   v_option_value text;
+  v_option_json jsonb;
   v_field_snapshot jsonb;
+  v_identity_key text := '';
+  v_field_count integer := 0;
+  v_max_text_length integer;
+  v_today date;
 begin
   if p_offer_slug is null or length(trim(p_offer_slug)) = 0 then
     raise exception 'offer_slug_required' using errcode = '23514';
@@ -108,6 +109,18 @@ begin
 
   if jsonb_typeof(v_answers) <> 'object' then
     raise exception 'answers_must_be_object' using errcode = '23514';
+  end if;
+
+  if octet_length(v_answers::text) > 65536 then
+    raise exception 'answers_payload_too_large' using errcode = '23514';
+  end if;
+
+  select count(*)
+    into v_field_count
+  from jsonb_object_keys(v_answers);
+
+  if v_field_count > 100 then
+    raise exception 'too_many_answer_fields' using errcode = '23514';
   end if;
 
   begin
@@ -133,8 +146,9 @@ begin
     raise exception 'campaign_not_available' using errcode = 'P0001';
   end if;
 
-  -- Serialize submission validation/inserts for one campaign. This protects
-  -- max_entries_per_user and allow_multiple_entries checks from parallel clicks.
+  -- Serialize submission validation/inserts for one campaign before campaign
+  -- availability and identity checks. A second identity-scoped lock is taken
+  -- after canonical identity is known.
   perform pg_advisory_xact_lock(hashtextextended('special_offer_entry:' || v_offer.id::text, 0));
 
   if v_offer.status <> 'active'
@@ -168,7 +182,6 @@ begin
   if v_uid is not null then
     v_auth_email := lower(trim(coalesce(
       nullif(v_jwt ->> 'email', ''),
-      nullif((select p.email from public.profiles p where p.id = v_uid limit 1), ''),
       nullif((select u.email from auth.users u where u.id = v_uid limit 1), ''),
       ''
     )));
@@ -191,6 +204,16 @@ begin
   if v_normalized_email !~* '^[^@\s]+@[^@\s]+\.[^@\s]+$' then
     raise exception 'invalid_email' using errcode = '23514';
   end if;
+
+  v_identity_key := case
+    when v_uid is not null then 'user:' || v_uid::text
+    else 'email:' || v_normalized_email
+  end;
+
+  perform pg_advisory_xact_lock(hashtextextended(
+    'special_offer_entry_identity:' || v_offer.id::text || ':' || v_identity_key,
+    0
+  ));
 
   if v_offer.exclude_admins is true and coalesce(public.is_current_user_admin(), false) then
     raise exception 'admin_entries_blocked' using errcode = '42501';
@@ -224,7 +247,7 @@ begin
       return;
     end if;
 
-    raise exception 'client_submission_id_conflict' using errcode = '23505';
+    raise exception 'submission_not_accepted' using errcode = '23505';
   end if;
 
   if v_uid is not null then
@@ -336,7 +359,18 @@ begin
       if v_value_type <> 'array' then
         raise exception 'invalid_checkbox_group_field: %', v_field.field_key using errcode = '23514';
       end if;
+      if jsonb_array_length(v_value) > 50 then
+        raise exception 'too_many_options_field: %', v_field.field_key using errcode = '23514';
+      end if;
       v_required_missing := v_field.required and jsonb_array_length(v_value) = 0;
+      for v_option_json in
+        select value
+        from jsonb_array_elements(v_value)
+      loop
+        if jsonb_typeof(v_option_json) <> 'string' or char_length(v_option_json #>> '{}') > 200 then
+          raise exception 'invalid_option_field: %', v_field.field_key using errcode = '23514';
+        end if;
+      end loop;
       for v_option_value in
         select jsonb_array_elements_text(v_value)
       loop
@@ -362,6 +396,22 @@ begin
 
     if v_required_missing then
       raise exception 'required_field_missing: %', v_field.field_key using errcode = '23514';
+    end if;
+
+    if v_value_type not in ('missing', 'null') and v_field.field_type in (
+      'text', 'textarea', 'email', 'phone', 'date', 'date_of_birth', 'country', 'city',
+      'contest_answer', 'facebook_profile_url', 'shared_post_url', 'url', 'custom',
+      'select'
+    ) then
+      v_max_text_length := case
+        when v_field.field_type in ('textarea', 'contest_answer', 'custom') then 5000
+        when v_field.field_type in ('facebook_profile_url', 'shared_post_url', 'url') then 2048
+        else 500
+      end;
+
+      if char_length(coalesce(v_text, '')) > v_max_text_length then
+        raise exception 'field_payload_too_large: %', v_field.field_key using errcode = '23514';
+      end if;
     end if;
 
     if v_value_type not in ('missing', 'null') and v_field.field_type in (
@@ -399,6 +449,14 @@ begin
       end if;
     end if;
 
+    if v_value_type not in ('missing', 'null') and v_field.field_type = 'date' then
+      begin
+        perform v_text::date;
+      exception when others then
+        raise exception 'invalid_date_field: %', v_field.field_key using errcode = '23514';
+      end;
+    end if;
+
     if v_value_type not in ('missing', 'null') and v_field.field_type = 'date_of_birth' then
       begin
         v_birth_date := v_text::date;
@@ -407,7 +465,8 @@ begin
       end;
 
       v_min_age := nullif(v_field.validation_json ->> 'min_age', '')::integer;
-      if v_min_age is not null and v_birth_date > (current_date - make_interval(years => v_min_age))::date then
+      v_today := (v_now at time zone coalesce(nullif(v_offer.timezone, ''), 'Asia/Nicosia'))::date;
+      if v_min_age is not null and v_birth_date > (v_today - make_interval(years => v_min_age))::date then
         raise exception 'min_age_field: %', v_field.field_key using errcode = '23514';
       end if;
     end if;
@@ -572,11 +631,15 @@ $$;
 
 revoke all on function public.submit_special_offer_entry(text, text, jsonb, uuid)
   from public;
+revoke all on function public.submit_special_offer_entry(text, text, jsonb, uuid)
+  from anon;
+revoke all on function public.submit_special_offer_entry(text, text, jsonb, uuid)
+  from authenticated;
+revoke all on function public.submit_special_offer_entry(text, text, jsonb, uuid)
+  from service_role;
 
--- EXECUTE is granted to anon and authenticated so future no-login campaigns can
--- use the same RPC. The function itself enforces requires_login per campaign.
 grant execute on function public.submit_special_offer_entry(text, text, jsonb, uuid)
-  to anon, authenticated, service_role;
+  to authenticated, service_role;
 
 comment on function public.submit_special_offer_entry(text, text, jsonb, uuid) is
   'Atomically validates and stores a Special Offers form entry. Public direct table writes remain blocked.';

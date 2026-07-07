@@ -15,6 +15,59 @@ select
   to_regclass('public.special_offer_entry_answers') is not null as entry_answers_table_exists;
 
 select
+  'entry_columns_exist' as check_name,
+  c.column_name,
+  c.data_type,
+  c.is_nullable,
+  c.column_default
+from information_schema.columns c
+where c.table_schema = 'public'
+  and c.table_name = 'special_offer_entries'
+  and c.column_name in (
+    'id',
+    'offer_id',
+    'user_id',
+    'status',
+    'submitted_lang',
+    'normalized_email',
+    'first_name',
+    'last_name',
+    'phone',
+    'answers_json',
+    'form_snapshot_json',
+    'client_submission_id',
+    'reference',
+    'reviewed_at',
+    'reviewed_by',
+    'review_note',
+    'rejection_reason',
+    'created_at',
+    'updated_at'
+  )
+order by c.ordinal_position;
+
+select
+  'answer_columns_exist' as check_name,
+  c.column_name,
+  c.data_type,
+  c.is_nullable,
+  c.column_default
+from information_schema.columns c
+where c.table_schema = 'public'
+  and c.table_name = 'special_offer_entry_answers'
+  and c.column_name in (
+    'id',
+    'entry_id',
+    'field_id',
+    'field_key',
+    'value_text',
+    'value_json',
+    'field_snapshot_json',
+    'created_at'
+  )
+order by c.ordinal_position;
+
+select
   'rls enabled' as check_name,
   c.relname as table_name,
   c.relrowsecurity as rls_enabled,
@@ -64,17 +117,109 @@ where table_schema = 'public'
 order by table_name, grantee, privilege_type;
 
 select
-  'direct public writes should be absent' as check_name,
+  'anon_public_writes_should_be_absent' as check_name,
   table_name,
   grantee,
   count(*) as direct_write_grant_count
 from information_schema.table_privileges
 where table_schema = 'public'
   and table_name in ('special_offer_entries', 'special_offer_entry_answers')
-  and grantee in ('anon', 'authenticated', 'PUBLIC')
-  and privilege_type in ('INSERT', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER')
+  and grantee in ('anon', 'PUBLIC')
+  and privilege_type in ('INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER')
 group by table_name, grantee
 order by table_name, grantee;
+
+select
+  'authenticated_insert_delete_should_be_absent' as check_name,
+  table_name,
+  grantee,
+  privilege_type,
+  count(*) as direct_write_grant_count
+from information_schema.table_privileges
+where table_schema = 'public'
+  and table_name in ('special_offer_entries', 'special_offer_entry_answers')
+  and grantee = 'authenticated'
+  and privilege_type in ('INSERT', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER')
+group by table_name, grantee, privilege_type
+order by table_name, grantee, privilege_type;
+
+select
+  'authenticated_update_columns_should_be_review_only' as check_name,
+  table_name,
+  grantee,
+  privilege_type,
+  column_name
+from information_schema.column_privileges
+where table_schema = 'public'
+  and table_name = 'special_offer_entries'
+  and grantee = 'authenticated'
+  and privilege_type = 'UPDATE'
+order by column_name;
+
+select
+  'authenticated_update_columns_exact_match' as check_name,
+  coalesce(array_agg(column_name::text order by column_name::text), ARRAY[]::text[]) = ARRAY[
+    'rejection_reason',
+    'review_note',
+    'reviewed_at',
+    'reviewed_by',
+    'status',
+    'updated_at'
+  ]::text[] as ok,
+  coalesce(array_agg(column_name::text order by column_name::text), ARRAY[]::text[]) as actual_columns
+from information_schema.column_privileges
+where table_schema = 'public'
+  and table_name = 'special_offer_entries'
+  and grantee = 'authenticated'
+  and privilege_type = 'UPDATE';
+
+select
+  'entry_answers_update_grants_should_be_absent' as check_name,
+  not exists (
+    select 1
+    from information_schema.table_privileges tp
+    where tp.table_schema = 'public'
+      and tp.table_name = 'special_offer_entry_answers'
+      and tp.grantee in ('anon', 'authenticated', 'PUBLIC')
+      and tp.privilege_type = 'UPDATE'
+  )
+  and not exists (
+    select 1
+    from information_schema.column_privileges cp
+    where cp.table_schema = 'public'
+      and cp.table_name = 'special_offer_entry_answers'
+      and cp.grantee in ('anon', 'authenticated', 'PUBLIC')
+      and cp.privilege_type = 'UPDATE'
+  ) as ok;
+
+select
+  'user_update_policy_should_be_absent' as check_name,
+  not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename in ('special_offer_entries', 'special_offer_entry_answers')
+      and cmd = 'UPDATE'
+      and policyname ilike '%user%'
+  ) as ok;
+
+select
+  'admin_update_policy_should_exist_for_entries_only' as check_name,
+  exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'special_offer_entries'
+      and cmd = 'UPDATE'
+      and policyname = 'Admins can update special offer entries'
+  ) as entry_admin_update_policy_exists,
+  not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'special_offer_entry_answers'
+      and cmd = 'UPDATE'
+  ) as no_answer_update_policy;
 
 select
   'indexes' as check_name,
@@ -107,6 +252,29 @@ where tc.table_schema = 'public'
   and tc.constraint_type = 'FOREIGN KEY'
 group by tc.table_name, tc.constraint_name, ccu.table_schema, ccu.table_name
 order by tc.table_name, tc.constraint_name;
+
+select
+  'field_id_fk_should_set_null' as check_name,
+  con.conname as constraint_name,
+  con.confdeltype = 'n' as on_delete_set_null,
+  con.confdeltype as raw_confdeltype
+from pg_constraint con
+join pg_class child on child.oid = con.conrelid
+join pg_namespace child_ns on child_ns.oid = child.relnamespace
+join pg_class parent on parent.oid = con.confrelid
+join pg_namespace parent_ns on parent_ns.oid = parent.relnamespace
+where con.contype = 'f'
+  and child_ns.nspname = 'public'
+  and child.relname = 'special_offer_entry_answers'
+  and parent_ns.nspname = 'public'
+  and parent.relname = 'special_offer_form_fields'
+  and exists (
+    select 1
+    from pg_attribute a
+    where a.attrelid = child.oid
+      and a.attname = 'field_id'
+      and a.attnum = any(con.conkey)
+  );
 
 select
   'unique constraints' as check_name,
