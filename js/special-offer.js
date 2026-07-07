@@ -22,6 +22,7 @@ const TEXT = {
     noPrize: 'Opis nagrody nie jest jeszcze dostępny.',
     noRules: 'Regulamin nie jest jeszcze dostępny.',
     noLinks: 'Linki do usług nie są jeszcze dostępne.',
+    linkCta: 'Otwórz link',
     entryTitle: 'Formularz zgłoszeniowy',
     notConfigured: 'Formularz nie został jeszcze skonfigurowany.',
     noFormRequired: 'Ta kampania nie wymaga formularza zgłoszeniowego.',
@@ -82,6 +83,7 @@ const TEXT = {
     noPrize: 'Prize copy is not available yet.',
     noRules: 'Rules are not available yet.',
     noLinks: 'Linked services are not available yet.',
+    linkCta: 'Open link',
     entryTitle: 'Entry form',
     notConfigured: 'The entry form has not been configured yet.',
     noFormRequired: 'This campaign does not require an entry form.',
@@ -142,6 +144,7 @@ const TEXT = {
     noPrize: 'תיאור הפרס עדיין לא זמין.',
     noRules: 'הכללים עדיין לא זמינים.',
     noLinks: 'קישורי השירותים עדיין לא זמינים.',
+    linkCta: 'פתיחת הקישור',
     entryTitle: 'טופס הרשמה',
     notConfigured: 'טופס ההרשמה עדיין לא הוגדר.',
     noFormRequired: 'הקמפיין הזה אינו דורש טופס הרשמה.',
@@ -399,8 +402,17 @@ function setParagraphs(node, value) {
 function isSafeHref(value) {
   const href = cleanText(value);
   if (!href) return false;
-  if (href.startsWith('/')) return true;
+  if (href.startsWith('/') && !href.startsWith('//')) return true;
   return /^https?:\/\//i.test(href);
+}
+
+function isSafeImageSrc(value) {
+  if (value === null || value === undefined) return false;
+  const source = String(value);
+  if (!source || source.length > 2048) return false;
+  if (/[ \t\r\n\f\v\u0000-\u001F\u007F]/.test(source)) return false;
+  return /^https:\/\/[a-z0-9][a-z0-9.-]*(?::[0-9]{1,5})?(?:[/?#][^\s\u0000-\u001F\u007F]*)?$/i.test(source)
+    || /^\/[^/\s\u0000-\u001F\u007F?#][^\s\u0000-\u001F\u007F]*$/.test(source);
 }
 
 function sanitizeHtml(html) {
@@ -1241,20 +1253,61 @@ function renderLinks(links, linkTranslations, lang) {
     const picked = pickTranslation(translationMap.get(link.id) || [], lang).row || {};
     const url = cleanText(picked.url || link.url);
     const label = cleanText(picked.label || link.label || link.link_type);
+    const description = cleanText(picked.description || link.description);
+    const imageUrl = String(link.image_url || '');
     if (!url || !label || !isSafeHref(url)) return;
+    const card = document.createElement('article');
+    card.className = 'special-offer-link-card';
+    card.dataset.primary = link.is_primary ? 'true' : 'false';
+    card.dir = lang === 'he' ? 'rtl' : 'ltr';
+
+    if (isSafeImageSrc(imageUrl)) {
+      const media = document.createElement('div');
+      media.className = 'special-offer-link-card__media';
+      const image = document.createElement('img');
+      image.src = imageUrl;
+      image.alt = label;
+      image.loading = 'lazy';
+      image.decoding = 'async';
+      image.addEventListener('error', () => {
+        media.remove();
+        card.classList.add('special-offer-link-card--no-image');
+      }, { once: true });
+      media.appendChild(image);
+      card.appendChild(media);
+    } else {
+      card.classList.add('special-offer-link-card--no-image');
+    }
+
+    const body = document.createElement('div');
+    body.className = 'special-offer-link-card__body';
+    const title = document.createElement('h3');
+    title.textContent = label;
+    body.appendChild(title);
+    if (description) {
+      const copy = document.createElement('p');
+      copy.textContent = description;
+      body.appendChild(copy);
+    }
     const anchor = document.createElement('a');
+    anchor.className = 'special-offer-link-card__cta';
     anchor.href = url;
-    anchor.textContent = label;
-    anchor.dataset.primary = link.is_primary ? 'true' : 'false';
+    anchor.textContent = t.linkCta;
+    anchor.setAttribute('aria-label', label);
     if (/^https?:\/\//i.test(url)) {
       anchor.target = '_blank';
       anchor.rel = 'noopener noreferrer';
     }
-    refs.links.appendChild(anchor);
+    body.appendChild(anchor);
+    card.appendChild(body);
+    refs.links.appendChild(card);
   });
 
   if (!refs.links.children.length) {
-    refs.links.innerHTML = `<p class="special-offer-empty">${escapeHtml(t.noLinks)}</p>`;
+    const empty = document.createElement('p');
+    empty.className = 'special-offer-empty';
+    empty.textContent = t.noLinks;
+    refs.links.appendChild(empty);
   }
 }
 

@@ -2,7 +2,7 @@ const SPECIAL_OFFERS_SELECT = 'id, slug, type, winner_selection_mode, status, vi
 const SPECIAL_OFFERS_TRANSLATIONS_SELECT = 'id, offer_id, lang, title, short_description, full_description, prize_description, rules_html, faq_json, seo_title, seo_description';
 const SPECIAL_OFFERS_PRIZES_SELECT = 'id, offer_id, name, description, sponsor_name, quantity, value_estimate, currency, restrictions, fulfillment_notes, sort_order';
 const SPECIAL_OFFERS_PRIZE_TRANSLATIONS_SELECT = 'id, prize_id, lang, name, description, restrictions, fulfillment_notes';
-const SPECIAL_OFFERS_LINKS_SELECT = 'id, offer_id, link_type, resource_id, url, label, description, is_primary, sort_order';
+const SPECIAL_OFFERS_LINKS_SELECT = 'id, offer_id, link_type, resource_id, url, label, description, image_url, is_primary, sort_order';
 const SPECIAL_OFFERS_LINK_TRANSLATIONS_SELECT = 'id, link_id, lang, label, description, url';
 const SPECIAL_OFFERS_FORM_FIELDS_SELECT = 'id, offer_id, field_key, field_type, required, active, sort_order, validation_json, admin_note, created_at, updated_at';
 const SPECIAL_OFFERS_FORM_FIELD_TRANSLATIONS_SELECT = 'id, field_id, lang, label, placeholder, help_text, options_json, created_at, updated_at';
@@ -418,6 +418,21 @@ function inferLinkMode(link) {
 
 function isValidUrlForStage(url) {
   return /^(\/|https?:\/\/)/i.test(String(url || '').trim());
+}
+
+function normalizeOptionalImageUrl(value) {
+  const raw = String(value ?? '');
+  return raw.trim() ? raw : null;
+}
+
+function isValidLinkImageUrl(value) {
+  if (value === null || value === undefined || value === '') return true;
+  const source = String(value);
+  if (!source.trim()) return true;
+  if (source.length > 2048) return false;
+  if (/[ \t\r\n\f\v\u0000-\u001F\u007F]/.test(source)) return false;
+  return /^https:\/\/[a-z0-9][a-z0-9.-]*(?::[0-9]{1,5})?(?:[/?#][^\s\u0000-\u001F\u007F]*)?$/i.test(source)
+    || /^\/[^/\s\u0000-\u001F\u007F?#][^\s\u0000-\u001F\u007F]*$/.test(source);
 }
 
 function isValidFormFieldKey(value) {
@@ -1515,11 +1530,19 @@ function renderLinkEditorList() {
         <label>Resource ID preview
           <input value="${escapeHtml(getResourcePreviewText(link))}" readonly />
         </label>
+        <label class="special-offer-editor-field--wide">Image URL
+          <input data-link-field="image_url" value="${escapeHtml(link.image_url || '')}" placeholder="https://example.com/image.webp" />
+          <span class="special-offer-field-hint">PL: Wklej bezpośredni adres HTTPS do zdjęcia lub lokalną ścieżkę zaczynającą się od /. EN: Paste a direct HTTPS image address or a local path beginning with /. HE: הדביקו כתובת HTTPS ישירה לתמונה או נתיב מקומי שמתחיל ב־/.</span>
+        </label>
         <label class="special-offer-editor-check">
           <input data-link-field="is_primary" type="checkbox" ${link.is_primary ? 'checked' : ''} />
           Primary CTA
         </label>
       </div>
+      <div class="special-offer-link-image-tools">
+        <button class="btn-secondary btn-small" type="button" data-special-offers-clear-link-image="${escapeHtml(link.client_id)}">Clear image URL</button>
+      </div>
+      <div class="special-offer-link-image-preview" data-link-image-preview>${renderLinkImagePreview(link)}</div>
       ${renderResourcePicker(link)}
       <div class="special-offer-editor-subsection">
         <h5>Link translations PL / EN / HE</h5>
@@ -1924,6 +1947,22 @@ function renderLinkUrlPreview(link) {
   return `<strong>${escapeHtml(source)}</strong>${rows.map((row) => `<span>${escapeHtml(row.lang.toUpperCase())}: ${escapeHtml(row.url || 'Not set')}</span>`).join('')}`;
 }
 
+function renderLinkImagePreview(link) {
+  const imageUrl = normalizeOptionalImageUrl(link?.image_url);
+  if (!imageUrl) {
+    return '<p class="special-offer-editor-muted">No image URL set. This link will render as a card without an image.</p>';
+  }
+  if (!isValidLinkImageUrl(imageUrl)) {
+    return '<p class="special-offer-editor-validation">Image URL must be a full HTTPS image address or a local path beginning with a single /, without whitespace.</p>';
+  }
+  return `
+    <figure class="special-offer-link-image-preview__frame">
+      <img src="${escapeHtml(imageUrl)}" alt="Linked service image preview" loading="lazy" decoding="async" onerror="this.hidden=true;this.closest('[data-link-image-preview]')?.classList.add('is-unavailable');" />
+      <figcaption>Image preview unavailable</figcaption>
+    </figure>
+  `;
+}
+
 function getCampaignEditorDefaults(campaign = null) {
   return {
     slug: campaign?.slug || '',
@@ -2243,6 +2282,7 @@ function addEditorLink(link = {}) {
     url: link.url || '',
     label: link.label || '',
     description: link.description || '',
+    image_url: link.image_url || '',
     is_primary: Boolean(link.is_primary),
     sort_order: link.sort_order || specialOffersState.editorLinks.length,
     translations: toArray(link.translations),
@@ -2298,6 +2338,7 @@ function initializeEditorCollections(campaign) {
     client_id: link.id || getTempId('link'),
     mode: link.mode || inferLinkMode(link),
     resource_id: link.resource_id || null,
+    image_url: link.image_url || '',
     translations: toArray(link.translations),
   }));
   specialOffersState.editorFormFields = toArray(campaign?.form_fields).map((field) => ({
@@ -2583,8 +2624,9 @@ function collectEditorPayload() {
       url: String(link.url || plLink.url || '').trim(),
       label: String(link.label || plLink.label || '').trim(),
       description: String(link.description || plLink.description || '').trim() || null,
-    is_primary: Boolean(link.is_primary),
-    sort_order: Number(link.sort_order || index),
+      image_url: normalizeOptionalImageUrl(link.image_url),
+      is_primary: Boolean(link.is_primary),
+      sort_order: Number(link.sort_order || index),
       translations,
     };
   });
@@ -2675,6 +2717,7 @@ function validateEditorPayload(payload) {
     if (!link.label) errors.push(`Linked services: link ${index + 1} fallback label is required.`);
     if (!link.url) errors.push(`Linked services: link ${index + 1} fallback URL is required.`);
     if (link.url && !isValidUrlForStage(link.url)) errors.push(`Linked services: link ${index + 1} fallback URL must be relative or http(s).`);
+    if (!isValidLinkImageUrl(link.image_url)) errors.push(`Linked services: link ${index + 1} Image URL must be HTTPS or a local path beginning with a single /, without whitespace, up to 2048 characters.`);
   });
   if (payload.links.filter((link) => link.is_primary).length > 1) errors.push('Linked services: only one primary CTA is allowed.');
   const seenFieldKeys = new Set();
@@ -3496,6 +3539,16 @@ function refreshBuilderPreviews(root = document) {
       node.innerHTML = renderLinkUrlPreview(link);
     }
   });
+  $$('[data-link-image-preview]', root).forEach((node) => {
+    const item = node.closest('[data-special-offers-link]');
+    const id = item?.getAttribute('data-special-offers-link');
+    const link = specialOffersState.editorLinks.find((entry) => entry.client_id === id);
+    if (link) {
+      if (!syncCollectionsForPreview()) return;
+      node.classList.remove('is-unavailable');
+      node.innerHTML = renderLinkImagePreview(link);
+    }
+  });
   $$('[data-form-options-json-preview]', root).forEach((node) => {
     const key = node.getAttribute('data-form-options-json-preview');
     if (key) node.textContent = JSON.stringify(collectFormOptions(key), null, 2);
@@ -3740,6 +3793,17 @@ function bindEvents() {
           renderLinkEditorList();
           validateEditorForm();
         }
+      }
+      const clearLinkImageButton = target?.closest('[data-special-offers-clear-link-image]');
+      if (clearLinkImageButton) {
+        const id = clearLinkImageButton.getAttribute('data-special-offers-clear-link-image');
+        const item = clearLinkImageButton.closest('[data-special-offers-link]');
+        const input = item?.querySelector('[data-link-field="image_url"]');
+        const link = specialOffersState.editorLinks.find((entry) => entry.client_id === id);
+        if (input) input.value = '';
+        if (link) link.image_url = '';
+        refreshBuilderPreviews(editorBody);
+        validateEditorForm();
       }
     });
     editorBody.addEventListener('input', () => {

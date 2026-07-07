@@ -143,8 +143,8 @@ async function prepareAdminSpecialOffersCrudStub(page: Page, options: { selectEr
         ]);
 
         stub.seedTable('special_offer_links', [
-          { id: 'link-cars', offer_id: offerId, link_type: 'cars', resource_id: null, url: '/car.html?lang=pl', label: 'Auta na Cyprze', is_primary: false, sort_order: 10 },
-          { id: 'link-custom', offer_id: offerId, link_type: 'custom', resource_id: null, url: '/special-offers/lefkara-giveaway-2026?lang=pl', label: 'Kampania Lefkara 2026', is_primary: true, sort_order: 0 },
+          { id: 'link-cars', offer_id: offerId, link_type: 'cars', resource_id: null, url: '/car.html?lang=pl', label: 'Auta na Cyprze', image_url: null, is_primary: false, sort_order: 10 },
+          { id: 'link-custom', offer_id: offerId, link_type: 'custom', resource_id: null, url: '/special-offers/lefkara-giveaway-2026?lang=pl', label: 'Kampania Lefkara 2026', image_url: 'https://cdn.example.com/lefkara-campaign.webp', is_primary: true, sort_order: 0 },
         ]);
         stub.seedTable('special_offer_link_translations', [
           { id: 'link-cars-pl', link_id: 'link-cars', lang: 'pl', label: 'Auta na Cyprze', description: 'Wynajem auta na Cyprze.', url: '/car.html?lang=pl' },
@@ -379,6 +379,14 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     await expect(newLink.locator('[data-link-translation-field="url"][data-lang="he"]')).toHaveValue('/car.html?lang=he');
     await expect(newLink.locator('[data-link-url-preview]')).toContainText('/car.html?lang=en');
     await expect(newLink.locator('[data-link-url-preview]')).toContainText('/car.html?lang=he');
+    await expect(newLink.locator('[data-link-field="image_url"]')).toBeVisible();
+    await newLink.locator('[data-link-field="image_url"]').fill('http://example.com/bad.jpg');
+    await expect(editor.getByRole('button', { name: 'Save draft' })).toBeDisabled();
+    await expect(newLink.locator('[data-link-image-preview]')).toContainText('Image URL must be a full HTTPS image address');
+    await newLink.locator('[data-link-field="image_url"]').fill(' https://cdn.example.com/cars.webp');
+    await expect(editor.getByRole('button', { name: 'Save draft' })).toBeDisabled();
+    await newLink.locator('[data-link-field="image_url"]').fill('https://cdn.example.com/cars.webp');
+    await expect(newLink.locator('[data-link-image-preview] img')).toHaveAttribute('src', 'https://cdn.example.com/cars.webp');
     await newLink.locator('[data-link-field="is_primary"]').check();
     await expect(editor.getByRole('button', { name: 'Save draft' })).toBeDisabled();
     await newLink.locator('[data-link-field="is_primary"]').uncheck();
@@ -402,6 +410,7 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     expect(links.some((row: any) => row.id === 'link-cars')).toBe(false);
     const carsLink = links.find((row: any) => row.link_type === 'cars' && row.url === '/car.html?lang=pl');
     expect(carsLink.resource_id).toBe(null);
+    expect(carsLink.image_url).toBe('https://cdn.example.com/cars.webp');
     expect(rows.linkTranslations.some((row: any) => row.link_id === carsLink.id && row.lang === 'he' && row.url === '/car.html?lang=he')).toBe(true);
     expect(links.filter((row: any) => row.is_primary)).toHaveLength(1);
   });
@@ -427,6 +436,8 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     const customLink = editor.locator('[data-special-offers-link]').last();
     await customLink.locator('[data-link-field="link_type"]').selectOption('custom');
     await customLink.locator('[data-link-field="mode"]').selectOption('custom');
+    await customLink.locator('[data-link-field="image_url"]').fill('/assets/images/manual-link.webp');
+    await expect(customLink.locator('[data-link-image-preview] img')).toHaveAttribute('src', '/assets/images/manual-link.webp');
     await customLink.locator('[data-link-translation-field="label"][data-lang="pl"]').fill('Manual PL');
     await customLink.locator('[data-link-translation-field="url"][data-lang="pl"]').fill('/manual-pl.html');
     await customLink.getByRole('button', { name: 'EN', exact: true }).click();
@@ -477,7 +488,29 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     expect(rows.linkTranslations.some((row: any) => row.link_id === tripLink.id && row.lang === 'he' && row.url === '/trip.html?slug=lefkara-private-trip&lang=he')).toBe(true);
     const savedCustom = rows.links.find((row: any) => row.offer_id === OFFER_ID && row.link_type === 'custom' && row.url === '/manual-pl.html');
     expect(savedCustom.resource_id).toBe(null);
+    expect(savedCustom.image_url).toBe('/assets/images/manual-link.webp');
     expect(rows.linkTranslations.some((row: any) => row.link_id === savedCustom.id && row.lang === 'en' && row.url === '/manual-en.html')).toBe(true);
+  });
+
+  test('clears optional linked service image URL to null', async ({ page }) => {
+    await openSpecialOffers(page);
+    await openEditorForLefkara(page);
+    const editor = page.locator('#specialOffersEditorModal');
+
+    await editor.getByRole('button', { name: 'Linked services' }).click();
+    const customLink = editor.locator('[data-special-offers-link]').first();
+    await expect(customLink.locator('[data-link-field="image_url"]')).toHaveValue('https://cdn.example.com/lefkara-campaign.webp');
+    await expect(customLink.locator('[data-link-image-preview] img')).toHaveAttribute('src', 'https://cdn.example.com/lefkara-campaign.webp');
+    await customLink.getByRole('button', { name: 'Clear image URL' }).click();
+    await expect(customLink.locator('[data-link-field="image_url"]')).toHaveValue('');
+    await expect(customLink.locator('[data-link-image-preview]')).toContainText('No image URL set');
+
+    await editor.getByRole('button', { name: 'Save draft' }).click();
+    await expect(editor).toBeHidden();
+
+    const rows = await page.evaluate(() => (window as any).__supabaseStub.getTableRows('special_offer_links'));
+    const custom = rows.find((row: any) => row.id === 'link-custom');
+    expect(custom.image_url).toBe(null);
   });
 
   test('manages Special Offers form fields with PL/EN/HE translations, validation, options and preview', async ({ page }) => {

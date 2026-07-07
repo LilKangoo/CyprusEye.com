@@ -3090,6 +3090,46 @@ button.special-offer-help:focus-visible {
   white-space: pre-wrap;
 }
 
+.special-offer-link-image-tools {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.special-offer-link-image-preview {
+  min-width: 0;
+}
+
+.special-offer-link-image-preview__frame {
+  background: rgba(2, 6, 23, 0.38);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 10px;
+  display: grid;
+  margin: 0;
+  max-width: 360px;
+  overflow: hidden;
+}
+
+.special-offer-link-image-preview__frame img {
+  aspect-ratio: 16 / 9;
+  display: block;
+  height: auto;
+  max-height: 190px;
+  object-fit: cover;
+  width: 100%;
+}
+
+.special-offer-link-image-preview__frame figcaption {
+  color: var(--admin-text-muted);
+  display: none;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 10px;
+}
+
+.special-offer-link-image-preview.is-unavailable .special-offer-link-image-preview__frame figcaption {
+  display: block;
+}
+
 .special-offer-editor-item__header strong {
   color: var(--admin-text);
   font-size: 14px;

@@ -288,8 +288,9 @@ async function prepareSpecialOfferLandingStub(page: Page, options: { adminSessio
         ]);
 
         stub.seedTable('special_offer_links', [
-          { id: 'draft-link-custom', offer_id: draftOfferId, link_type: 'custom', resource_id: null, url: '/special-offers/lefkara-giveaway-2026?lang=pl', label: 'Kampania Lefkara 2026', is_primary: true, sort_order: 0 },
-          { id: 'public-link-cars', offer_id: publicOfferId, link_type: 'cars', resource_id: null, url: '/car.html?lang=pl', label: 'Auta', is_primary: true, sort_order: 0 },
+          { id: 'draft-link-custom', offer_id: draftOfferId, link_type: 'custom', resource_id: null, url: '/special-offers/lefkara-giveaway-2026?lang=pl', label: 'Kampania Lefkara 2026', image_url: '/assets/cyprus_logo-128.png', is_primary: true, sort_order: 0 },
+          { id: 'public-link-cars', offer_id: publicOfferId, link_type: 'cars', resource_id: null, url: '/car.html?lang=pl', label: 'Auta', image_url: '/assets/cyprus_logo-128.png', is_primary: true, sort_order: 0 },
+          { id: 'public-link-transport', offer_id: publicOfferId, link_type: 'transport', resource_id: null, url: '/transport.html?lang=pl', label: 'Transport', image_url: null, is_primary: false, sort_order: 10 },
         ]);
         stub.seedTable('special_offer_link_translations', [
           { id: 'draft-link-pl', link_id: 'draft-link-custom', lang: 'pl', label: 'Kampania Lefkara 2026', description: 'Strona kampanii.', url: '/special-offers/lefkara-giveaway-2026?lang=pl' },
@@ -298,6 +299,9 @@ async function prepareSpecialOfferLandingStub(page: Page, options: { adminSessio
           { id: 'public-link-pl', link_id: 'public-link-cars', lang: 'pl', label: 'Auta na Cyprze', description: 'Wynajem auta na Cyprze.', url: '/car.html?lang=pl' },
           { id: 'public-link-en', link_id: 'public-link-cars', lang: 'en', label: 'Cars in Cyprus', description: 'Car rental in Cyprus.', url: '/car.html?lang=en' },
           { id: 'public-link-he', link_id: 'public-link-cars', lang: 'he', label: 'רכבים בקפריסין', description: 'השכרת רכב בקפריסין.', url: '/car.html?lang=he' },
+          { id: 'public-link-transport-pl', link_id: 'public-link-transport', lang: 'pl', label: 'Transport na Cyprze', description: 'Transfery i transport na Cyprze.', url: '/transport.html?lang=pl' },
+          { id: 'public-link-transport-en', link_id: 'public-link-transport', lang: 'en', label: 'Transport in Cyprus', description: 'Transfers and transport in Cyprus.', url: '/transport.html?lang=en' },
+          { id: 'public-link-transport-he', link_id: 'public-link-transport', lang: 'he', label: 'הסעות בקפריסין', description: 'הסעות וטרנספרים בקפריסין.', url: '/transport.html?lang=he' },
         ]);
 
         const formFields = [
@@ -455,6 +459,14 @@ test.describe('Special Offer public read-only landing', () => {
     await expect(page.getByRole('heading', { name: 'Published public campaign' })).toBeVisible();
     await expect(page.getByText('Public prize EN')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Cars in Cyprus' })).toHaveAttribute('href', /\/car\.html\?lang=en$/);
+    const carsCard = page.locator('.special-offer-link-card').filter({ hasText: 'Cars in Cyprus' });
+    await expect(carsCard.locator('img')).toHaveAttribute('src', '/assets/cyprus_logo-128.png');
+    await expect(carsCard.locator('img')).toHaveAttribute('loading', 'lazy');
+    await expect(carsCard.locator('img')).toHaveAttribute('decoding', 'async');
+    await expect(carsCard.locator('img')).toHaveAttribute('alt', 'Cars in Cyprus');
+    const transportCard = page.locator('.special-offer-link-card').filter({ hasText: 'Transport in Cyprus' });
+    await expect(transportCard.locator('img')).toHaveCount(0);
+    await expect(transportCard.getByRole('link', { name: 'Transport in Cyprus' })).toHaveAttribute('href', /\/transport\.html\?lang=en$/);
     await expect(page.getByText('This campaign does not require an entry form.')).toBeVisible();
     await expect(page.locator('[data-special-offer-form-field]')).toHaveCount(0);
 
@@ -467,6 +479,7 @@ test.describe('Special Offer public read-only landing', () => {
     await expect(page.getByText('פרס ציבורי בעברית')).toBeVisible();
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await expect(page.getByRole('link', { name: 'רכבים בקפריסין' })).toHaveAttribute('href', /\/car\.html\?lang=he$/);
+    await expect(page.locator('.special-offer-link-card').filter({ hasText: 'רכבים בקפריסין' }).locator('img')).toHaveAttribute('alt', 'רכבים בקפריסין');
 
     const text = await bodyText(page);
     expect(text).not.toContain('undefined');
@@ -483,6 +496,7 @@ test.describe('Special Offer public read-only landing', () => {
     await expect(page.getByText('3 ימים / 2 לילות ב-7 Kamares + רכב ל-3 ימים')).toBeVisible();
     await expect(page.getByText('האם הרכב כלול?')).toBeVisible();
     await expect(page.getByRole('link', { name: 'קמפיין לפקרה 2026' })).toHaveAttribute('href', /\/special-offers\/lefkara-giveaway-2026\?lang=he$/);
+    await expect(page.locator('.special-offer-link-card').filter({ hasText: 'קמפיין לפקרה 2026' }).locator('img')).toHaveAttribute('src', '/assets/cyprus_logo-128.png');
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await expect(page.locator('meta[name="robots"][data-special-offer-robots]')).toHaveAttribute('content', 'noindex, nofollow');
     await expect(page.getByText('alert("x")')).toHaveCount(0);
@@ -557,6 +571,19 @@ test.describe('Special Offer public read-only landing', () => {
     await waitForSupabaseStub(page);
     await expect(page.getByText('The entry form has not been configured yet.')).toBeVisible();
     await expect(page.locator('[data-special-offer-form-field]')).toHaveCount(0);
+  });
+
+  test('hides broken linked-service images without breaking the card layout', async ({ page }) => {
+    await prepareSpecialOfferLandingStub(page);
+    await page.goto('/special-offers/published-sample-2026?lang=en');
+    await waitForSupabaseStub(page);
+
+    const carsCard = page.locator('.special-offer-link-card').filter({ hasText: 'Cars in Cyprus' });
+    await expect(carsCard.locator('img')).toBeVisible();
+    await carsCard.locator('img').dispatchEvent('error');
+    await expect(carsCard.locator('img')).toHaveCount(0);
+    await expect(carsCard).toContainText('Cars in Cyprus');
+    await expect(carsCard.getByRole('link', { name: 'Cars in Cyprus' })).toHaveAttribute('href', /\/car\.html\?lang=en$/);
   });
 
   test('does not expose admin preview for anonymous users', async ({ page }) => {
