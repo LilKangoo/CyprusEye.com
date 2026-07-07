@@ -11,6 +11,7 @@ function createEmptyState() {
     tables: {},
     storageObjects: {},
     xpEvents: {},
+    rpcCalls: [],
     lastResetRequests: [],
     lastVerificationRequests: [],
   };
@@ -159,6 +160,7 @@ function hydrateState(source) {
   state.tables = source.tables ? clone(source.tables) : {};
   state.storageObjects = source.storageObjects ? clone(source.storageObjects) : {};
   state.xpEvents = source.xpEvents ? { ...source.xpEvents } : {};
+  state.rpcCalls = Array.isArray(source.rpcCalls) ? clone(source.rpcCalls) : [];
   state.lastResetRequests = Array.isArray(source.lastResetRequests)
     ? [...source.lastResetRequests]
     : [];
@@ -182,6 +184,7 @@ function resetState() {
   state.tables = {};
   state.storageObjects = {};
   state.xpEvents = {};
+  state.rpcCalls = [];
   state.lastResetRequests = [];
   state.lastVerificationRequests = [];
   persistState();
@@ -975,6 +978,21 @@ export function createClient() {
       },
     },
     async rpc(name, params = {}) {
+      state.rpcCalls.push({ name, params: clone(params), created_at: new Date().toISOString() });
+      persistState();
+      const api = stubApi || globalThis.__supabaseStub || {};
+      const handler = api.rpcHandlers?.[name];
+      if (typeof handler === 'function') {
+        try {
+          return await handler(clone(params), {
+            state,
+            getTableRows: (tableName) => clone(getTableRows(tableName)),
+            setTableRows,
+          });
+        } catch (error) {
+          return { data: null, error: { message: error?.message || String(error || 'RPC handler failed') } };
+        }
+      }
       if (name === 'admin_get_user_details') {
         return getAdminUserDetails(params);
       }
@@ -1116,6 +1134,23 @@ stubApi.seedTable = function seedTable(table, rows) {
 };
 stubApi.getTableRows = function getTableRowsPublic(table) {
   return clone(getTableRows(table));
+};
+stubApi.getRpcCalls = function getRpcCalls() {
+  return clone(state.rpcCalls || []);
+};
+stubApi.clearRpcCalls = function clearRpcCalls() {
+  state.rpcCalls = [];
+  persistState();
+};
+if (!stubApi.rpcHandlers || typeof stubApi.rpcHandlers !== 'object') {
+  stubApi.rpcHandlers = {};
+}
+stubApi.setRpcHandler = function setRpcHandler(name, handler) {
+  if (typeof handler === 'function') {
+    stubApi.rpcHandlers[name] = handler;
+  } else {
+    delete stubApi.rpcHandlers[name];
+  }
 };
 stubApi.clearPersistence = clearPersistedStateStorage;
 

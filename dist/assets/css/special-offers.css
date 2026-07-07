@@ -319,6 +319,43 @@
   min-width: 0;
 }
 
+.special-offer-form-status {
+  min-height: 1.35rem;
+  color: #526461;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.special-offer-form-status:empty {
+  display: none;
+}
+
+.special-offer-form-status[data-tone="error"],
+.special-offer-form-error {
+  color: #9d2f24;
+}
+
+.special-offer-form-status[data-tone="warning"] {
+  color: #995d16;
+}
+
+.special-offer-form-error-summary {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 0.6rem;
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid rgba(157, 47, 36, 0.28);
+  border-radius: 10px;
+  background: #fff6f3;
+  color: #5a201a;
+}
+
+.special-offer-form-error-summary ul {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+}
+
 .special-offer-form-field {
   display: grid;
   align-content: start;
@@ -375,10 +412,30 @@
   outline: none;
 }
 
+.special-offer-form-field--error input,
+.special-offer-form-field--error textarea,
+.special-offer-form-field--error select,
+.special-offer-form-field--error .ce-phone-input__button,
+.special-offer-form-field--error .ce-phone-input__local {
+  border-color: rgba(157, 47, 36, 0.76);
+}
+
 .special-offer-form-help {
   margin: 0;
   color: #526461;
   font-size: 0.93rem;
+  line-height: 1.45;
+}
+
+.special-offer-form-account-hint {
+  color: #1d4e4a;
+  font-weight: 700;
+}
+
+.special-offer-form-error {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
   line-height: 1.45;
 }
 
@@ -432,6 +489,26 @@
 .special-offer-form-submit .special-offer-button[disabled] {
   cursor: not-allowed;
   opacity: 0.58;
+}
+
+.special-offer-form-submit .special-offer-button[aria-busy="true"] {
+  cursor: progress;
+}
+
+.special-offer-form-success {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 1.15rem;
+  border: 1px solid rgba(29, 78, 74, 0.18);
+  border-radius: 12px;
+  background: #f2faf7;
+  color: #173532;
+}
+
+.special-offer-form-success h2,
+.special-offer-form-success p {
+  margin: 0;
 }
 
 .special-offer-form-field .ce-phone-input {

@@ -27,6 +27,40 @@ const TEXT = {
     noFormRequired: 'Ta kampania nie wymaga formularza zgłoszeniowego.',
     previewMessage: 'Podgląd formularza. Wysyłanie zgłoszeń nie jest jeszcze dostępne.',
     submitLabel: 'Wyślij zgłoszenie',
+    submittingLabel: 'Wysyłanie...',
+    loginRequiredTitle: 'Zaloguj się, aby wysłać zgłoszenie',
+    loginRequiredCopy: 'Twoje dane pozostaną w formularzu. Po zalogowaniu wróć tutaj i kliknij wyślij ponownie.',
+    loginButton: 'Zaloguj się lub utwórz konto',
+    authUnavailable: 'Logowanie nie jest teraz dostępne na tej stronie. Spróbuj ponownie za chwilę.',
+    formErrorTitle: 'Sprawdź pola formularza',
+    accountEmailHint: 'Zgłoszenie zostanie przypisane do zalogowanego konta.',
+    successTitle: 'Zgłoszenie zapisane',
+    successReference: 'Numer zgłoszenia',
+    successStatus: 'Status',
+    pendingReview: 'Zgłoszenie zostało zapisane i oczekuje na ręczną weryfikację.',
+    submittedSuccess: 'Zgłoszenie zostało zapisane.',
+    retry: 'Spróbuj ponownie',
+    errors: {
+      login_required: 'Zaloguj się, aby wysłać zgłoszenie.',
+      campaign_not_available: 'Ta kampania nie jest obecnie dostępna.',
+      campaign_not_open: 'Kampania jeszcze się nie rozpoczęła.',
+      campaign_closed: 'Kampania została zakończona.',
+      form_not_configured: 'Formularz nie został jeszcze skonfigurowany.',
+      required_field_missing: 'Uzupełnij wymagane pole.',
+      invalid_email_field: 'Podaj poprawny adres e-mail.',
+      invalid_phone_field: 'Podaj poprawny numer telefonu z kierunkowym.',
+      invalid_url_field: 'Podaj poprawny link zaczynający się od http:// lub https://.',
+      min_age_field: 'Nie spełniasz minimalnego wieku wymaganego w tej kampanii.',
+      must_be_true_field: 'Ta zgoda jest wymagana.',
+      invalid_option: 'Wybierz jedną z dostępnych opcji.',
+      duplicate_entry: 'Masz już zapisane zgłoszenie w tej kampanii.',
+      max_entries_reached: 'Osiągnięto maksymalną liczbę zgłoszeń dla tej kampanii.',
+      admin_entries_blocked: 'Konta administracyjne nie mogą wysyłać zgłoszeń w tej kampanii.',
+      partner_entries_blocked: 'Konta partnerów nie mogą wysyłać zgłoszeń w tej kampanii.',
+      submission_not_accepted: 'Nie można przyjąć tego zgłoszenia. Odśwież stronę i spróbuj ponownie.',
+      network_error: 'Problem z połączeniem. Spróbuj ponownie.',
+      temporary_error: 'Nie udało się wysłać zgłoszenia. Spróbuj ponownie za chwilę.',
+    },
     selectPlaceholder: 'Wybierz opcję',
     genericField: 'Pole formularza',
     starts: 'Start',
@@ -53,6 +87,40 @@ const TEXT = {
     noFormRequired: 'This campaign does not require an entry form.',
     previewMessage: 'Form preview. Entry submission is not available yet.',
     submitLabel: 'Submit entry',
+    submittingLabel: 'Submitting...',
+    loginRequiredTitle: 'Sign in to submit your entry',
+    loginRequiredCopy: 'Your form data will stay on this page. After signing in, come back here and submit again.',
+    loginButton: 'Sign in or create account',
+    authUnavailable: 'Sign-in is not available on this page right now. Please try again shortly.',
+    formErrorTitle: 'Check the form fields',
+    accountEmailHint: 'Your entry will be linked to the signed-in account.',
+    successTitle: 'Entry saved',
+    successReference: 'Entry reference',
+    successStatus: 'Status',
+    pendingReview: 'Your entry has been saved and is awaiting manual review.',
+    submittedSuccess: 'Your entry has been saved.',
+    retry: 'Try again',
+    errors: {
+      login_required: 'Please sign in to submit your entry.',
+      campaign_not_available: 'This campaign is not available right now.',
+      campaign_not_open: 'This campaign has not started yet.',
+      campaign_closed: 'This campaign has ended.',
+      form_not_configured: 'The entry form has not been configured yet.',
+      required_field_missing: 'Complete this required field.',
+      invalid_email_field: 'Enter a valid email address.',
+      invalid_phone_field: 'Enter a valid phone number with country code.',
+      invalid_url_field: 'Enter a valid link starting with http:// or https://.',
+      min_age_field: 'You do not meet the minimum age required for this campaign.',
+      must_be_true_field: 'This consent is required.',
+      invalid_option: 'Choose one of the available options.',
+      duplicate_entry: 'You already have an entry for this campaign.',
+      max_entries_reached: 'The maximum number of entries for this campaign has been reached.',
+      admin_entries_blocked: 'Admin accounts cannot submit entries for this campaign.',
+      partner_entries_blocked: 'Partner accounts cannot submit entries for this campaign.',
+      submission_not_accepted: 'This entry could not be accepted. Refresh the page and try again.',
+      network_error: 'Connection problem. Please try again.',
+      temporary_error: 'Your entry could not be submitted. Please try again shortly.',
+    },
     selectPlaceholder: 'Select an option',
     genericField: 'Form field',
     starts: 'Starts',
@@ -79,6 +147,40 @@ const TEXT = {
     noFormRequired: 'הקמפיין הזה אינו דורש טופס הרשמה.',
     previewMessage: 'תצוגה מקדימה של הטופס. שליחת הרשמות עדיין אינה זמינה.',
     submitLabel: 'שליחת הרשמה',
+    submittingLabel: 'שולחים...',
+    loginRequiredTitle: 'התחברו כדי לשלוח הרשמה',
+    loginRequiredCopy: 'הנתונים שהזנתם יישארו בטופס. לאחר ההתחברות חזרו לכאן ולחצו שוב על שליחה.',
+    loginButton: 'התחברות או יצירת חשבון',
+    authUnavailable: 'ההתחברות אינה זמינה כרגע בעמוד זה. נסו שוב בעוד רגע.',
+    formErrorTitle: 'בדקו את שדות הטופס',
+    accountEmailHint: 'ההרשמה תשויך לחשבון המחובר.',
+    successTitle: 'ההרשמה נשמרה',
+    successReference: 'מספר הרשמה',
+    successStatus: 'סטטוס',
+    pendingReview: 'ההרשמה נשמרה וממתינה לבדיקה ידנית.',
+    submittedSuccess: 'ההרשמה נשמרה.',
+    retry: 'נסו שוב',
+    errors: {
+      login_required: 'יש להתחבר כדי לשלוח הרשמה.',
+      campaign_not_available: 'הקמפיין אינו זמין כרגע.',
+      campaign_not_open: 'הקמפיין עדיין לא התחיל.',
+      campaign_closed: 'הקמפיין הסתיים.',
+      form_not_configured: 'טופס ההרשמה עדיין לא הוגדר.',
+      required_field_missing: 'יש למלא שדה חובה זה.',
+      invalid_email_field: 'הזינו כתובת אימייל תקינה.',
+      invalid_phone_field: 'הזינו מספר טלפון תקין עם קידומת מדינה.',
+      invalid_url_field: 'הזינו קישור תקין שמתחיל ב-http:// או https://.',
+      min_age_field: 'אינכם עומדים בגיל המינימלי הנדרש לקמפיין זה.',
+      must_be_true_field: 'נדרשת הסכמה זו.',
+      invalid_option: 'בחרו אחת מהאפשרויות הזמינות.',
+      duplicate_entry: 'כבר קיימת הרשמה שלכם לקמפיין זה.',
+      max_entries_reached: 'הגעתם למספר ההרשמות המקסימלי לקמפיין זה.',
+      admin_entries_blocked: 'חשבונות מנהלים אינם יכולים לשלוח הרשמות לקמפיין זה.',
+      partner_entries_blocked: 'חשבונות שותפים אינם יכולים לשלוח הרשמות לקמפיין זה.',
+      submission_not_accepted: 'לא ניתן לקבל את ההרשמה הזו. רעננו את העמוד ונסו שוב.',
+      network_error: 'בעיה בחיבור. נסו שוב.',
+      temporary_error: 'לא ניתן היה לשלוח את ההרשמה. נסו שוב בעוד רגע.',
+    },
     selectPlaceholder: 'בחרו אפשרות',
     genericField: 'שדה טופס',
     starts: 'התחלה',
@@ -112,6 +214,12 @@ const refs = {
 };
 
 let currentState = null;
+let currentSlug = '';
+let submitting = false;
+let formStatus = 'idle';
+let formDraft = {};
+let lastValidationErrors = [];
+let activeSubmitErrorCode = '';
 
 function normalizeLang(value) {
   const lang = String(value || '').trim().toLowerCase().split('-')[0];
@@ -395,6 +503,491 @@ function getTextValidationAttributes(validation) {
   return attrs.join(' ');
 }
 
+function getActiveFields(data = currentState?.data) {
+  return (Array.isArray(data?.formFields) ? data.formFields : [])
+    .filter((field) => field?.active === true)
+    .slice()
+    .sort((a, b) => Number(a?.sort_order || 0) - Number(b?.sort_order || 0));
+}
+
+function getActiveFieldMap(data = currentState?.data) {
+  const map = new Map();
+  getActiveFields(data).forEach((field) => {
+    const key = cleanText(field?.field_key);
+    if (key) map.set(key, field);
+  });
+  return map;
+}
+
+function getFormElement() {
+  return refs.entrySection?.querySelector('[data-special-offer-entry-form]') || null;
+}
+
+function getFieldWrapper(fieldKey) {
+  if (!refs.entrySection) return null;
+  const selector = `[data-special-offer-form-field="${CSS.escape(fieldKey)}"]`;
+  return refs.entrySection.querySelector(selector);
+}
+
+function getFieldInputs(form, fieldKey) {
+  if (!(form instanceof HTMLFormElement)) return [];
+  return Array.from(form.elements).filter((element) => {
+    if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement)) {
+      return false;
+    }
+    return element.name === fieldKey;
+  });
+}
+
+function getFieldValue(form, field) {
+  const key = cleanText(field?.field_key);
+  const type = cleanText(field?.field_type);
+  const inputs = getFieldInputs(form, key);
+  if (!inputs.length) return type === 'checkbox_group' ? [] : type === 'checkbox' || type === 'consent' ? false : '';
+
+  if (type === 'checkbox_group') {
+    return inputs
+      .filter((input) => input instanceof HTMLInputElement && input.checked)
+      .map((input) => input.value);
+  }
+  if (type === 'checkbox' || type === 'consent') {
+    const input = inputs.find((item) => item instanceof HTMLInputElement);
+    return input instanceof HTMLInputElement ? input.checked : false;
+  }
+  const input = inputs[0];
+  if (type === 'phone' && input instanceof HTMLInputElement && input.__cePhoneInputController?.sync) {
+    input.__cePhoneInputController.sync();
+  }
+  return cleanText(input.value);
+}
+
+function setFieldValue(form, field, value) {
+  const key = cleanText(field?.field_key);
+  const type = cleanText(field?.field_type);
+  const inputs = getFieldInputs(form, key);
+  if (!inputs.length) return;
+
+  if (type === 'checkbox_group') {
+    const values = Array.isArray(value) ? value.map(String) : [];
+    inputs.forEach((input) => {
+      if (input instanceof HTMLInputElement) input.checked = values.includes(input.value);
+    });
+    return;
+  }
+  if (type === 'checkbox' || type === 'consent') {
+    const input = inputs.find((item) => item instanceof HTMLInputElement);
+    if (input instanceof HTMLInputElement) input.checked = value === true;
+    return;
+  }
+  const input = inputs[0];
+  if (input instanceof HTMLInputElement && type === 'phone' && input.__cePhoneInputController?.setFullNumber) {
+    input.__cePhoneInputController.setFullNumber(cleanText(value));
+  } else {
+    input.value = cleanText(value);
+  }
+}
+
+function saveCurrentFormDraft() {
+  const form = getFormElement();
+  if (!(form instanceof HTMLFormElement) || !currentState?.data) return;
+  const nextDraft = { ...formDraft };
+  getActiveFields(currentState.data).forEach((field) => {
+    const key = cleanText(field?.field_key);
+    if (!key) return;
+    nextDraft[key] = getFieldValue(form, field);
+  });
+  formDraft = nextDraft;
+}
+
+function restoreFormDraft() {
+  const form = getFormElement();
+  if (!(form instanceof HTMLFormElement) || !currentState?.data) return;
+  getActiveFields(currentState.data).forEach((field) => {
+    const key = cleanText(field?.field_key);
+    if (!key || !(key in formDraft)) return;
+    setFieldValue(form, field, formDraft[key]);
+  });
+}
+
+function clearFieldErrors() {
+  refs.entrySection?.querySelectorAll('.special-offer-form-field--error').forEach((node) => {
+    node.classList.remove('special-offer-form-field--error');
+  });
+  refs.entrySection?.querySelectorAll('[data-special-offer-field-error]').forEach((node) => node.remove());
+  refs.entrySection?.querySelector('[data-special-offer-error-summary]')?.remove();
+}
+
+function getErrorMessage(code, lang) {
+  const t = getText(lang);
+  return t.errors?.[code] || t.errors?.temporary_error || TEXT.en.errors.temporary_error;
+}
+
+function showFormStatus(message, tone = 'info') {
+  const node = refs.entrySection?.querySelector('[data-special-offer-form-status]');
+  if (!(node instanceof HTMLElement)) return;
+  node.textContent = message || '';
+  node.dataset.tone = tone;
+}
+
+function showValidationErrors(errors, lang) {
+  clearFieldErrors();
+  lastValidationErrors = errors;
+  if (!errors.length) return;
+
+  const t = getText(lang);
+  const summary = document.createElement('div');
+  summary.className = 'special-offer-form-error-summary';
+  summary.dataset.specialOfferErrorSummary = 'true';
+  summary.setAttribute('role', 'alert');
+  summary.setAttribute('tabindex', '-1');
+  summary.dir = lang === 'he' ? 'rtl' : 'ltr';
+  summary.innerHTML = `
+    <strong>${escapeHtml(t.formErrorTitle)}</strong>
+    <ul>${errors.map((error) => `<li>${escapeHtml(error.label || error.fieldKey)}: ${escapeHtml(error.message)}</li>`).join('')}</ul>
+  `;
+  const form = getFormElement();
+  const grid = form?.querySelector('.special-offer-form-grid');
+  if (form && grid) form.insertBefore(summary, grid);
+
+  errors.forEach((error) => {
+    const wrapper = getFieldWrapper(error.fieldKey);
+    if (!(wrapper instanceof HTMLElement)) return;
+    wrapper.classList.add('special-offer-form-field--error');
+    const errorNode = document.createElement('p');
+    errorNode.className = 'special-offer-form-error';
+    errorNode.dataset.specialOfferFieldError = 'true';
+    errorNode.textContent = error.message;
+    wrapper.appendChild(errorNode);
+  });
+
+  const firstWrapper = getFieldWrapper(errors[0]?.fieldKey);
+  const focusTarget = firstWrapper?.querySelector('input, textarea, select, button');
+  if (focusTarget instanceof HTMLElement) {
+    focusTarget.focus({ preventScroll: true });
+    firstWrapper.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } else {
+    summary.focus({ preventScroll: true });
+    summary.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+function bindValidationClearHandlers(form) {
+  if (!(form instanceof HTMLFormElement)) return;
+  form.addEventListener('input', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement)) return;
+    const key = target.name;
+    const wrapper = key ? getFieldWrapper(key) : null;
+    wrapper?.classList.remove('special-offer-form-field--error');
+    wrapper?.querySelectorAll('[data-special-offer-field-error]').forEach((node) => node.remove());
+  });
+  form.addEventListener('change', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement)) return;
+    const key = target.name;
+    const wrapper = key ? getFieldWrapper(key) : null;
+    wrapper?.classList.remove('special-offer-form-field--error');
+    wrapper?.querySelectorAll('[data-special-offer-field-error]').forEach((node) => node.remove());
+  });
+}
+
+function validateFieldValue(field, value, translation, lang) {
+  const validation = parseJsonObject(field?.validation_json);
+  const type = cleanText(field?.field_type) || 'text';
+  const required = field?.required === true;
+  const label = translation?.label || cleanText(field?.field_key) || getText(lang).genericField;
+  const options = normalizeOptions(translation?.options_json);
+  const allowedValues = new Set(options.map((option) => option.value).filter(Boolean));
+  const stringValue = typeof value === 'string' ? value.trim() : '';
+  const missing = type === 'checkbox_group'
+    ? !Array.isArray(value) || value.length === 0
+    : type === 'checkbox' || type === 'consent'
+      ? value !== true
+      : stringValue === '';
+
+  if (required && missing) return { code: type === 'consent' ? 'must_be_true_field' : 'required_field_missing', label };
+  if (!required && missing) return null;
+
+  if (type === 'email' && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(stringValue)) return { code: 'invalid_email_field', label };
+  if (['url', 'facebook_profile_url', 'shared_post_url'].includes(type) && !/^https?:\/\/[^\s]+$/i.test(stringValue)) return { code: 'invalid_url_field', label };
+  if (type === 'phone' && !/^\+[1-9][0-9]{0,3}\s+[0-9][0-9\s().-]{3,39}$/.test(stringValue)) return { code: 'invalid_phone_field', label };
+  if (type === 'date_of_birth') {
+    const date = new Date(`${stringValue}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return { code: 'invalid_field', label };
+    const minAge = Number(validation.min_age);
+    if (Number.isFinite(minAge) && minAge >= 0) {
+      const maxDate = getMaxDateForMinAge(minAge);
+      if (maxDate && stringValue > maxDate) return { code: 'min_age_field', label };
+    }
+  }
+  if (validation.must_be_true === true && value !== true) return { code: 'must_be_true_field', label };
+  if (Number.isFinite(Number(validation.min_length)) && stringValue.length < Number(validation.min_length)) return { code: 'required_field_missing', label };
+  if (Number.isFinite(Number(validation.max_length)) && stringValue.length > Number(validation.max_length)) return { code: 'temporary_error', label };
+  if (type === 'select' && !allowedValues.has(stringValue)) return { code: 'invalid_option', label };
+  if (type === 'checkbox_group') {
+    if (!Array.isArray(value)) return { code: 'invalid_option', label };
+    if (value.some((item) => !allowedValues.has(String(item)))) return { code: 'invalid_option', label };
+  }
+  return null;
+}
+
+function collectSpecialOfferAnswers() {
+  const form = getFormElement();
+  const data = currentState?.data;
+  const lang = currentState?.lang || readRequestedLang();
+  if (!(form instanceof HTMLFormElement) || !data) return { answers: {}, errors: [] };
+  const translationsByField = new Map();
+  (Array.isArray(data.formFieldTranslations) ? data.formFieldTranslations : []).forEach((row) => {
+    if (!row?.field_id) return;
+    if (!translationsByField.has(row.field_id)) translationsByField.set(row.field_id, []);
+    translationsByField.get(row.field_id).push(row);
+  });
+  const answers = {};
+  const errors = [];
+  getActiveFields(data).forEach((field) => {
+    const key = cleanText(field?.field_key);
+    if (!key) return;
+    const translation = getFieldTranslation(field, translationsByField, lang);
+    const value = getFieldValue(form, field);
+    const error = validateFieldValue(field, value, translation, lang);
+    if (error) {
+      errors.push({
+        fieldKey: key,
+        label: error.label,
+        code: error.code,
+        message: getErrorMessage(error.code, lang),
+      });
+      return;
+    }
+    const type = cleanText(field?.field_type);
+    const isEmptyOptional = field?.required !== true
+      && type !== 'checkbox'
+      && type !== 'consent'
+      && type !== 'checkbox_group'
+      && cleanText(value) === '';
+    if (isEmptyOptional) return;
+    answers[key] = value;
+  });
+  return { answers, errors };
+}
+
+function getSubmissionStorageKey() {
+  return `ce_special_offer_submission_id:${currentSlug || readSlug() || 'unknown'}`;
+}
+
+function createUuid() {
+  if (crypto?.randomUUID) return crypto.randomUUID();
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+function getSubmissionId() {
+  const key = getSubmissionStorageKey();
+  try {
+    const existing = sessionStorage.getItem(key);
+    if (existing && /^[0-9a-f-]{36}$/i.test(existing)) return existing;
+    const next = createUuid();
+    sessionStorage.setItem(key, next);
+    return next;
+  } catch (_error) {
+    return createUuid();
+  }
+}
+
+function clearSubmissionId() {
+  try {
+    sessionStorage.removeItem(getSubmissionStorageKey());
+  } catch (_error) {
+    // ignore storage errors
+  }
+}
+
+async function getCurrentSession() {
+  const cached = window.CE_STATE?.session || null;
+  if (cached?.user?.id) return cached;
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data?.session || null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+function openAuthGate(lang) {
+  formStatus = 'login_required';
+  activeSubmitErrorCode = 'login_required';
+  showFormStatus(getErrorMessage('login_required', lang), 'warning');
+  const opened = (() => {
+    try {
+      if (typeof window.openAuthModal === 'function') {
+        window.openAuthModal('login');
+        return true;
+      }
+      const controller = window.__authModalController;
+      if (controller && typeof controller.open === 'function') {
+        controller.setActiveTab?.('login', { focus: false });
+        controller.open('login');
+        return true;
+      }
+    } catch (error) {
+      console.warn('Special Offer auth modal failed:', error);
+    }
+    return false;
+  })();
+  if (!opened) {
+    showFormStatus(getText(lang).authUnavailable, 'error');
+  }
+}
+
+function setSubmitButtonState(state, lang) {
+  const button = refs.entrySection?.querySelector('[data-special-offer-submit]');
+  if (!(button instanceof HTMLButtonElement)) return;
+  const t = getText(lang);
+  const disabled = state === 'submitting' || state === 'validating' || currentState?.previewMode;
+  button.disabled = disabled;
+  button.textContent = state === 'submitting' ? t.submittingLabel : t.submitLabel;
+  button.setAttribute('aria-busy', state === 'submitting' ? 'true' : 'false');
+}
+
+function mapSubmitError(error) {
+  const raw = cleanText(error?.message || error?.details || error?.hint || error?.code || error);
+  if (!raw) return 'temporary_error';
+  const normalized = raw.toLowerCase();
+  const known = [
+    'login_required',
+    'campaign_not_available',
+    'campaign_not_open',
+    'campaign_closed',
+    'form_not_configured',
+    'required_field_missing',
+    'invalid_email_field',
+    'invalid_phone_field',
+    'invalid_url_field',
+    'min_age_field',
+    'must_be_true_field',
+    'invalid_option',
+    'duplicate_entry',
+    'max_entries_reached',
+    'admin_entries_blocked',
+    'partner_entries_blocked',
+    'submission_not_accepted',
+  ];
+  for (const code of known) {
+    if (normalized.includes(code)) return code;
+  }
+  if (normalized.includes('failed to fetch') || normalized.includes('network')) return 'network_error';
+  return 'temporary_error';
+}
+
+function showSuccessState(result, lang) {
+  const t = getText(lang);
+  const payload = Array.isArray(result) ? result[0] : result;
+  const status = cleanText(payload?.status || 'submitted');
+  const reference = cleanText(payload?.reference || '');
+  refs.entrySection.innerHTML = `
+    <div class="special-offer-form-success" data-special-offer-success dir="${lang === 'he' ? 'rtl' : 'ltr'}" role="status">
+      <h2>${escapeHtml(t.successTitle)}</h2>
+      ${reference ? `<p><strong>${escapeHtml(t.successReference)}:</strong> ${escapeHtml(reference)}</p>` : ''}
+      <p><strong>${escapeHtml(t.successStatus)}:</strong> ${escapeHtml(status)}</p>
+      <p>${escapeHtml(status === 'pending_review' ? t.pendingReview : t.submittedSuccess)}</p>
+    </div>
+  `;
+}
+
+async function applyAuthenticatedEmailToForm() {
+  const form = getFormElement();
+  if (!(form instanceof HTMLFormElement)) return;
+  const fieldMap = getActiveFieldMap();
+  if (!fieldMap.has('email')) return;
+  const session = await getCurrentSession();
+  const email = cleanText(session?.user?.email);
+  const input = form.elements.namedItem('email');
+  const wrapper = getFieldWrapper('email');
+  wrapper?.querySelector('[data-special-offer-account-email-hint]')?.remove();
+  if (input instanceof HTMLInputElement && email) {
+    input.value = email;
+    input.readOnly = true;
+    formDraft.email = email;
+    const hint = document.createElement('p');
+    hint.className = 'special-offer-form-help special-offer-form-account-hint';
+    hint.dataset.specialOfferAccountEmailHint = 'true';
+    hint.textContent = getText(currentState?.lang || readRequestedLang()).accountEmailHint;
+    wrapper?.appendChild(hint);
+  } else if (input instanceof HTMLInputElement) {
+    input.readOnly = false;
+  }
+}
+
+async function handleEntrySubmit(event) {
+  event?.preventDefault();
+  const state = currentState;
+  const lang = state?.lang || readRequestedLang();
+  const data = state?.data;
+  if (!state || !data || submitting) return;
+  if (state.previewMode) return;
+  if (data.campaign?.status !== PUBLIC_STATUS || data.campaign?.visibility !== PUBLIC_VISIBILITY) return;
+  if (data.campaign?.requires_form !== true || !getActiveFields(data).length) return;
+
+  submitting = true;
+  saveCurrentFormDraft();
+  clearFieldErrors();
+  formStatus = 'validating';
+  setSubmitButtonState('validating', lang);
+
+  const session = await getCurrentSession();
+  if (data.campaign?.requires_login === true && !session?.user?.id) {
+    submitting = false;
+    setSubmitButtonState('idle', lang);
+    openAuthGate(lang);
+    return;
+  }
+
+  await applyAuthenticatedEmailToForm();
+  saveCurrentFormDraft();
+  const { answers, errors } = collectSpecialOfferAnswers();
+  if (errors.length) {
+    submitting = false;
+    formStatus = 'non_retryable_error';
+    setSubmitButtonState('idle', lang);
+    showValidationErrors(errors, lang);
+    showFormStatus(getText(lang).formErrorTitle, 'error');
+    return;
+  }
+
+  const submissionId = getSubmissionId();
+  formStatus = 'submitting';
+  setSubmitButtonState('submitting', lang);
+  showFormStatus('', 'info');
+  try {
+    const { data: result, error } = await supabase.rpc('submit_special_offer_entry', {
+      p_offer_slug: currentSlug,
+      p_lang: lang,
+      p_answers: answers,
+      p_client_submission_id: submissionId,
+    });
+    if (error) throw error;
+    clearSubmissionId();
+    formDraft = {};
+    activeSubmitErrorCode = '';
+    formStatus = 'success';
+    showSuccessState(result, lang);
+  } catch (error) {
+    console.warn('Special Offer entry submit failed:', error);
+    const code = mapSubmitError(error);
+    activeSubmitErrorCode = code;
+    const retryable = code === 'network_error' || code === 'temporary_error';
+    formStatus = retryable ? 'retryable_error' : 'non_retryable_error';
+    showFormStatus(getErrorMessage(code, lang), retryable ? 'warning' : 'error');
+  } finally {
+    submitting = false;
+    if (formStatus !== 'success') setSubmitButtonState('idle', lang);
+  }
+}
+
 function renderRequiredMarker(required) {
   return required ? '<span class="special-offer-form-required" aria-hidden="true">*</span>' : '';
 }
@@ -537,23 +1130,34 @@ function renderEntryForm(data, lang) {
     return;
   }
 
+  const previewMode = currentState?.previewMode === true;
+  const canSubmit = !previewMode
+    && data.campaign?.status === PUBLIC_STATUS
+    && data.campaign?.visibility === PUBLIC_VISIBILITY;
+  const statusMessage = previewMode ? t.previewMessage : activeSubmitErrorCode ? getErrorMessage(activeSubmitErrorCode, lang) : '';
+
   refs.entrySection.innerHTML = `
     <h2>${escapeHtml(t.entryTitle)}</h2>
-    <form class="special-offer-entry-form" data-special-offer-entry-form aria-describedby="specialOfferFormPreviewNotice">
+    <form class="special-offer-entry-form" data-special-offer-entry-form aria-describedby="specialOfferFormPreviewNotice" novalidate>
+      <div class="special-offer-form-status" data-special-offer-form-status role="status" aria-live="polite" data-tone="${activeSubmitErrorCode ? 'error' : 'info'}">${escapeHtml(statusMessage)}</div>
       <div class="special-offer-form-grid">
         ${activeFields.map((field, index) => renderFormField(field, translationsByField, lang, index)).join('')}
       </div>
       <div class="special-offer-form-submit">
-        <p id="specialOfferFormPreviewNotice">${escapeHtml(t.previewMessage)}</p>
-        <button class="special-offer-button" type="button" disabled>${escapeHtml(t.submitLabel)}</button>
+        <p id="specialOfferFormPreviewNotice">${escapeHtml(previewMode ? t.previewMessage : '')}</p>
+        <button class="special-offer-button" type="${canSubmit ? 'submit' : 'button'}" ${canSubmit ? '' : 'disabled'} data-special-offer-submit>${escapeHtml(t.submitLabel)}</button>
       </div>
     </form>
   `;
   const form = refs.entrySection.querySelector('[data-special-offer-entry-form]');
   if (form) {
-    form.addEventListener('submit', (event) => event.preventDefault());
+    form.addEventListener('submit', handleEntrySubmit);
+    bindValidationClearHandlers(form);
   }
   enhanceFormPhoneInputs(lang);
+  restoreFormDraft();
+  void applyAuthenticatedEmailToForm();
+  setSubmitButtonState(formStatus, lang);
 }
 
 function renderPrizes(prizes, prizeTranslations, lang, previewMode) {
@@ -774,6 +1378,7 @@ async function loadCampaign(slug, previewMode) {
 function bindLanguageButtons() {
   refs.languageButtons.forEach((button) => {
     button.addEventListener('click', () => {
+      saveCurrentFormDraft();
       const nextLang = normalizeLang(button.getAttribute('data-special-offer-lang'));
       const url = new URL(window.location.href);
       url.searchParams.set('lang', nextLang);
@@ -788,13 +1393,26 @@ function bindLanguageButtons() {
   });
 }
 
+function bindAuthEvents() {
+  document.addEventListener('ce-auth:post-login', () => {
+    activeSubmitErrorCode = '';
+    formStatus = 'idle';
+    void applyAuthenticatedEmailToForm().then(() => {
+      showFormStatus('', 'info');
+      setSubmitButtonState('idle', currentState?.lang || readRequestedLang());
+    });
+  });
+}
+
 async function init() {
   bindLanguageButtons();
+  bindAuthEvents();
   const lang = readRequestedLang();
   setPageLanguage(lang);
   updateStaticText(lang);
   showLoading();
   const slug = readSlug();
+  currentSlug = slug;
   if (!slug) {
     showUnavailable(lang);
     return;
