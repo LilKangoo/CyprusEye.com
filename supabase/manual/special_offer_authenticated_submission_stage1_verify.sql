@@ -1,4 +1,4 @@
--- Special Offers 3C.5C-0 verify only.
+-- Special Offers 3C.5C-1B verify only.
 -- Read-only checks for authenticated, confirmed-email submit_special_offer_entry.
 
 with rpc as (
@@ -13,6 +13,16 @@ with rpc as (
   where n.nspname = 'public'
     and p.proname = 'submit_special_offer_entry'
     and pg_get_function_identity_arguments(p.oid) = 'p_offer_slug text, p_lang text, p_answers jsonb, p_client_submission_id uuid'
+),
+rpc_segments as (
+  select
+    *,
+    case
+      when strpos(source, '''source'', ''submit_special_offer_entry''') > 0
+      then substring(source from strpos(source, '''source'', ''submit_special_offer_entry''') for 1200)
+      else ''
+    end as audit_metadata_segment
+  from rpc
 ),
 source_checks as (
   select
@@ -36,10 +46,33 @@ source_checks as (
     coalesce((select source like '%to_regclass(''public.profiles'')%' and source like '%profile_enriched_fields%' from rpc), false) as profile_enrichment_present,
     coalesce((select source like '%where id = $2%' and source like '%using v_profile_name, v_uid%' from rpc), false) as profile_enrichment_uses_auth_uid,
     coalesce((select source like '%nullif(btrim(coalesce(name%' and source like '%nullif(btrim(coalesce(phone%' from rpc), false) as profile_enrichment_only_empty_fields,
-    coalesce((select source like '%pg_get_constraintdef(con.oid)%preferred_language%' and source like '%ilike ''%he%''' from rpc), false) as profile_preferred_language_he_safe,
+    coalesce((
+      select
+        strpos(source, 'v_lang <> ''he''') > 0
+        and strpos(source, 'pg_get_constraintdef(con.oid)') > 0
+        and strpos(source, 'preferred_language') > 0
+        and strpos(source, '%he%') > 0
+        and strpos(source, 'preferred_language is null') > 0
+      from rpc
+    ), false) as profile_preferred_language_he_safe,
     coalesce((select source not like '%set contest_answer%' and source not like '%set shared_post_url%' from rpc), false) as profile_enrichment_no_campaign_answer_update,
     coalesce((select source like '%answers_logged%' and source like '%false%' and source like '%profile_enriched_fields%' from rpc), false) as audit_no_answers_logged,
-    coalesce((select source like '%profile_enriched_fields%' and source not like '%profile_enriched_values%' and source not like '%to_jsonb(v_phone)%' and source not like '%to_jsonb(v_normalized_email)%' from rpc), false) as audit_no_profile_pii_values,
+    coalesce((
+      select
+        audit_metadata_segment like '%profile_enriched_fields%'
+        and audit_metadata_segment like '%answers_logged%'
+        and audit_metadata_segment like '%false%'
+        and audit_metadata_segment not like '%v_phone%'
+        and audit_metadata_segment not like '%v_normalized_email%'
+        and audit_metadata_segment not like '%v_auth_email%'
+        and audit_metadata_segment not like '%v_first_name%'
+        and audit_metadata_segment not like '%v_last_name%'
+        and audit_metadata_segment not like '%v_answers_snapshot%'
+        and audit_metadata_segment not like '%v_form_snapshot%'
+        and audit_metadata_segment not like '%contest_answer%'
+        and audit_metadata_segment not like '%shared_post_url%'
+      from rpc_segments
+    ), false) as audit_no_profile_pii_values,
     coalesce((select source not like '%update public.special_offer_entries%' from rpc), false) as no_entry_update_in_submit,
     coalesce((select source not like '%update public.special_offer_entry_answers%' from rpc), false) as no_answers_update_in_submit
 ),
@@ -208,6 +241,7 @@ select
     and r.answers_rls_enabled
     and p.profiles_table_exists
     and p.profile_name_column_known
+    and p.profile_phone_column_available
     and p.profile_updated_at_column_available
     and s.no_tasks_draws_winners
   ) as overall_pass
