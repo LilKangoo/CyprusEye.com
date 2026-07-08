@@ -7,11 +7,30 @@ const SPECIAL_OFFERS_LINK_TRANSLATIONS_SELECT = 'id, link_id, lang, label, descr
 const SPECIAL_OFFERS_FORM_FIELDS_SELECT = 'id, offer_id, field_key, field_type, required, active, sort_order, validation_json, admin_note, created_at, updated_at';
 const SPECIAL_OFFERS_FORM_FIELD_TRANSLATIONS_SELECT = 'id, field_id, lang, label, placeholder, help_text, options_json, created_at, updated_at';
 const SPECIAL_OFFERS_AUDIT_SELECT = 'id, offer_id, actor_id, action, entity_type, entity_id, old_value, new_value, metadata, created_at';
+const SPECIAL_OFFER_ENTRIES_LIST_SELECT = 'id, offer_id, reference, status, submitted_lang, normalized_email, first_name, last_name, created_at, reviewed_at, reviewed_by';
+const SPECIAL_OFFER_ENTRIES_DETAIL_SELECT = 'id, offer_id, user_id, status, submitted_lang, normalized_email, first_name, last_name, phone, answers_json, form_snapshot_json, client_submission_id, reference, reviewed_at, reviewed_by, review_note, rejection_reason, created_at, updated_at';
+const SPECIAL_OFFER_ENTRY_ANSWERS_SELECT = 'id, entry_id, field_id, field_key, value_text, value_json, field_snapshot_json, created_at';
 
 const specialOffersState = {
   initialized: false,
   loading: false,
   campaigns: [],
+  entryCounts: {},
+  entries: {
+    rows: [],
+    total: 0,
+    page: 1,
+    pageSize: 10,
+    status: 'all',
+    search: '',
+    offerId: 'all',
+    loading: false,
+    error: '',
+    selectedEntryId: null,
+    detail: null,
+    reviewAction: '',
+    reviewing: false,
+  },
   editorMode: 'create',
   editingCampaignId: null,
   editorPrizes: [],
@@ -57,6 +76,7 @@ const SPECIAL_OFFERS_FORM_FIELD_TYPES = [
   'shared_post_url',
   'custom',
 ];
+const SPECIAL_OFFER_ENTRY_STATUSES = ['submitted', 'pending_review', 'approved', 'rejected', 'disqualified', 'withdrawn'];
 const SPECIAL_OFFERS_LINK_TYPES = ['cars', 'trips', 'hotels', 'transport', 'shop', 'coupons', 'vip', 'custom'];
 const SPECIAL_OFFERS_LINK_MODES = ['main', 'resource', 'custom'];
 const SPECIAL_OFFERS_RESOURCE_PICKER_TYPES = ['cars', 'trips', 'hotels', 'transport'];
@@ -357,6 +377,33 @@ function formatDate(value) {
   }).format(date);
 }
 
+function formatDateTime(value) {
+  if (!value) return 'Not set';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Not set';
+  return new Intl.DateTimeFormat('pl-PL', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Nicosia',
+  }).format(date);
+}
+
+function maskEmail(value) {
+  const email = String(value || '').trim();
+  if (!email || !email.includes('@')) return email ? 'Hidden' : 'Not provided';
+  const [local, domain] = email.split('@');
+  const safeLocal = local.length <= 2 ? `${local.charAt(0) || '*'}*` : `${local.slice(0, 2)}***`;
+  return `${safeLocal}@${domain}`;
+}
+
+function shortId(value) {
+  const source = String(value || '').trim();
+  return source ? `${source.slice(0, 8)}…` : 'Not set';
+}
+
 function formatCampaignTitle(campaign) {
   const translation = getPrimaryTranslation(campaign);
   return translation?.title || campaign.slug || 'Untitled campaign';
@@ -480,6 +527,31 @@ function countByStatus(campaigns, status) {
   return campaigns.filter((campaign) => campaign.status === status).length;
 }
 
+function getCampaignById(offerId) {
+  return specialOffersState.campaigns.find((campaign) => String(campaign.id) === String(offerId)) || null;
+}
+
+function getEntryStatusTransitions(status) {
+  const normalized = String(status || '').trim().toLowerCase();
+  if (['submitted', 'pending_review'].includes(normalized)) return ['approved', 'rejected', 'disqualified'];
+  if (['rejected', 'disqualified'].includes(normalized)) return ['pending_review'];
+  if (normalized === 'approved') return ['disqualified'];
+  return [];
+}
+
+function getReviewActionLabel(status) {
+  const normalized = String(status || '').trim().toLowerCase();
+  if (normalized === 'approved') return 'Approve';
+  if (normalized === 'rejected') return 'Reject';
+  if (normalized === 'disqualified') return 'Disqualify';
+  if (normalized === 'pending_review') return 'Back to pending review';
+  return titleCase(normalized);
+}
+
+function isSafeHttpUrl(value) {
+  return /^https?:\/\/[^\s]+$/i.test(String(value || '').trim());
+}
+
 function setHidden(element, hidden) {
   if (element) element.hidden = hidden;
 }
@@ -515,8 +587,104 @@ function setErrorState(message) {
 function renderStats(campaigns) {
   setStat('active', countByStatus(campaigns, 'active'));
   setStat('draft', countByStatus(campaigns, 'draft'));
-  setStat('entries', 0);
+  setStat('entries', Number(specialOffersState.entryCounts.pending_review || 0));
   setStat('winners', 0);
+}
+
+function notifySpecialOffers(message, type = 'info') {
+  if (typeof window.showToast === 'function') {
+    window.showToast(message, type);
+  }
+}
+
+function sanitizeEntrySearch(value) {
+  return String(value || '')
+    .trim()
+    .replace(/[,%]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .slice(0, 120);
+}
+
+function applyEntryFilters(query, { status, offerId, search } = {}) {
+  if (status && status !== 'all') query = query.eq('status', status);
+  if (offerId && offerId !== 'all') query = query.eq('offer_id', offerId);
+  const term = sanitizeEntrySearch(search);
+  if (term) {
+    const pattern = `%${term}%`;
+    query = query.or([
+      `reference.ilike.${pattern}`,
+      `first_name.ilike.${pattern}`,
+      `last_name.ilike.${pattern}`,
+      `normalized_email.ilike.${pattern}`,
+    ].join(','));
+  }
+  return query;
+}
+
+async function countEntriesForFilter(client, filters = {}) {
+  const result = await applyEntryFilters(
+    client.from('special_offer_entries').select('id', { count: 'exact', head: true }),
+    filters
+  );
+  if (result.error) throw result.error;
+  return Number(result.count ?? toArray(result.data).length ?? 0);
+}
+
+async function loadEntryCounts(filters = {}) {
+  const client = getSupabaseClient();
+  if (!client) throw new Error('Supabase client is not available.');
+  const baseFilters = { offerId: filters.offerId || 'all', search: filters.search || '' };
+  const entries = await Promise.all([
+    ['total', countEntriesForFilter(client, { ...baseFilters, status: 'all' })],
+    ...SPECIAL_OFFER_ENTRY_STATUSES.map((status) => [status, countEntriesForFilter(client, { ...baseFilters, status })]),
+  ].map(async ([key, promise]) => [key, await promise]));
+  return Object.fromEntries(entries);
+}
+
+async function loadEntriesPage() {
+  const client = getSupabaseClient();
+  if (!client) throw new Error('Supabase client is not available.');
+  const filters = specialOffersState.entries;
+  const from = (Math.max(1, Number(filters.page || 1)) - 1) * filters.pageSize;
+  const to = from + filters.pageSize - 1;
+  const query = applyEntryFilters(
+    client.from('special_offer_entries').select(SPECIAL_OFFER_ENTRIES_LIST_SELECT, { count: 'exact' }),
+    filters
+  )
+    .order('created_at', { ascending: false })
+    .range(from, to);
+  const result = await query;
+  if (result.error) throw result.error;
+  return {
+    rows: toArray(result.data),
+    total: Number(result.count ?? toArray(result.data).length ?? 0),
+  };
+}
+
+async function refreshEntryStatsForShell() {
+  try {
+    specialOffersState.entryCounts = await loadEntryCounts();
+  } catch (error) {
+    specialOffersState.entryCounts = {};
+  }
+}
+
+async function loadEntryDetail(entryId) {
+  const client = getSupabaseClient();
+  if (!client) throw new Error('Supabase client is not available.');
+  const [entryResult, answersResult, auditResult] = await Promise.all([
+    client.from('special_offer_entries').select(SPECIAL_OFFER_ENTRIES_DETAIL_SELECT).eq('id', entryId).single(),
+    client.from('special_offer_entry_answers').select(SPECIAL_OFFER_ENTRY_ANSWERS_SELECT).eq('entry_id', entryId).order('created_at', { ascending: true }),
+    client.from('special_offer_audit_log').select(SPECIAL_OFFERS_AUDIT_SELECT).eq('entity_type', 'special_offer_entry').eq('entity_id', entryId).order('created_at', { ascending: false }).limit(20),
+  ]);
+  if (entryResult.error) throw entryResult.error;
+  if (answersResult.error) throw answersResult.error;
+  if (auditResult.error) throw auditResult.error;
+  return {
+    entry: entryResult.data,
+    answers: toArray(answersResult.data),
+    auditLog: toArray(auditResult.data),
+  };
 }
 
 function renderStatusChip(value, type = 'status') {
@@ -562,6 +730,7 @@ function renderCampaignCard(campaign) {
       </div>
       <div class="special-offer-campaign-card__actions">
         <button class="btn-secondary btn-small" type="button" data-special-offers-view="${escapeHtml(campaign.id)}">View details</button>
+        <button class="btn-secondary btn-small" type="button" data-special-offers-open-entries="${escapeHtml(campaign.id)}">Entries</button>
         <a class="btn-secondary btn-small" href="${escapeHtml(previewUrl)}" target="_blank" rel="noopener noreferrer" data-special-offers-preview-url="${escapeHtml(previewUrl)}">Preview public page</a>
         <button class="btn-secondary btn-small" type="button" data-special-offers-copy-preview-url="${escapeHtml(campaign.id)}">Copy preview URL</button>
         <button
@@ -594,6 +763,233 @@ function renderCampaigns(campaigns) {
   if (grid) {
     grid.innerHTML = campaigns.map(renderCampaignCard).join('');
   }
+}
+
+function renderEntryCounts(counts = specialOffersState.entryCounts) {
+  const items = [
+    ['total', 'Total'],
+    ['submitted', 'Submitted'],
+    ['pending_review', 'Pending review'],
+    ['approved', 'Approved'],
+    ['rejected', 'Rejected'],
+    ['disqualified', 'Disqualified'],
+    ['withdrawn', 'Withdrawn'],
+  ];
+  return `
+    <div class="special-offer-entry-counts" aria-label="Entry status counts">
+      ${items.map(([key, label]) => `
+        <span class="special-offer-entry-count">
+          <strong>${escapeHtml(String(Number(counts?.[key] || 0)))}</strong>
+          ${escapeHtml(label)}
+        </span>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderEntryFilters() {
+  const filters = specialOffersState.entries;
+  return `
+    <div class="special-offer-entry-filters">
+      <label>
+        Search
+        <input type="search" value="${escapeHtml(filters.search)}" placeholder="Reference, name or email" data-special-offers-entry-search />
+      </label>
+      <label>
+        Status
+        <select data-special-offers-entry-status>
+          <option value="all"${filters.status === 'all' ? ' selected' : ''}>All statuses</option>
+          ${SPECIAL_OFFER_ENTRY_STATUSES.map((status) => `<option value="${escapeHtml(status)}"${filters.status === status ? ' selected' : ''}>${escapeHtml(titleCase(status))}</option>`).join('')}
+        </select>
+      </label>
+      <label>
+        Campaign
+        <select data-special-offers-entry-offer>
+          <option value="all"${filters.offerId === 'all' ? ' selected' : ''}>All campaigns</option>
+          ${specialOffersState.campaigns.map((campaign) => `<option value="${escapeHtml(campaign.id)}"${String(filters.offerId) === String(campaign.id) ? ' selected' : ''}>${escapeHtml(formatCampaignTitle(campaign))}</option>`).join('')}
+        </select>
+      </label>
+      <button class="btn-secondary btn-small" type="button" data-special-offers-entry-refresh>Refresh</button>
+    </div>
+  `;
+}
+
+function renderEntryRows() {
+  const rows = toArray(specialOffersState.entries.rows);
+  if (specialOffersState.entries.loading) {
+    return '<div class="special-offer-entry-state">Loading entries...</div>';
+  }
+  if (specialOffersState.entries.error) {
+    return `<div class="special-offer-entry-state special-offer-entry-state--error">${escapeHtml(specialOffersState.entries.error)}</div>`;
+  }
+  if (!rows.length) {
+    return '<div class="special-offer-entry-state">No entries match the current filters.</div>';
+  }
+  return `
+    <div class="special-offer-entry-table-wrap">
+      <table class="special-offer-entry-table">
+        <thead>
+          <tr>
+            <th>Reference</th>
+            <th>Status</th>
+            <th>Submitted</th>
+            <th>Reviewed</th>
+            <th>Participant</th>
+            <th>Language</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((row) => {
+            const participant = [row.first_name, row.last_name].filter(Boolean).join(' ').trim() || maskEmail(row.normalized_email);
+            return `
+              <tr data-special-offers-entry-row="${escapeHtml(row.id)}">
+                <td><strong>${escapeHtml(row.reference || shortId(row.id))}</strong></td>
+                <td>${renderStatusChip(row.status, 'entry-status')}</td>
+                <td>${escapeHtml(formatDateTime(row.created_at))}</td>
+                <td>${escapeHtml(formatDateTime(row.reviewed_at))}</td>
+                <td>${escapeHtml(participant)}</td>
+                <td>${escapeHtml(String(row.submitted_lang || '').toUpperCase() || '—')}</td>
+                <td><button class="btn-secondary btn-small" type="button" data-special-offers-entry-detail="${escapeHtml(row.id)}">Details</button></td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderEntriesPagination() {
+  const state = specialOffersState.entries;
+  const totalPages = Math.max(1, Math.ceil(Number(state.total || 0) / state.pageSize));
+  return `
+    <div class="special-offer-entry-pagination">
+      <button class="btn-secondary btn-small" type="button" data-special-offers-entry-page="prev" ${state.page <= 1 || state.loading ? 'disabled' : ''}>Previous</button>
+      <span>Page ${escapeHtml(String(state.page))} of ${escapeHtml(String(totalPages))} · ${escapeHtml(String(state.total || 0))} total</span>
+      <button class="btn-secondary btn-small" type="button" data-special-offers-entry-page="next" ${state.page >= totalPages || state.loading ? 'disabled' : ''}>Next</button>
+    </div>
+  `;
+}
+
+function renderEntriesModalBody() {
+  return `
+    ${renderEntryCounts(specialOffersState.entryCounts)}
+    ${renderEntryFilters()}
+    ${renderEntryRows()}
+    ${renderEntriesPagination()}
+  `;
+}
+
+function getFieldSnapshot(answer) {
+  return answer?.field_snapshot_json && typeof answer.field_snapshot_json === 'object' ? answer.field_snapshot_json : {};
+}
+
+function getAnswerSortOrder(answer) {
+  const snapshot = getFieldSnapshot(answer);
+  const value = Number(snapshot.sort_order);
+  return Number.isFinite(value) ? value : 9999;
+}
+
+function formatAnswerValue(answer) {
+  const snapshot = getFieldSnapshot(answer);
+  const type = String(snapshot.field_type || '').toLowerCase();
+  const value = answer?.value_json ?? answer?.value_text ?? null;
+  if (value === null || value === undefined || value === '') return '<span class="special-offer-editor-muted">Not answered</span>';
+  if (type === 'checkbox' || type === 'consent' || typeof value === 'boolean') {
+    return escapeHtml(value ? 'Yes' : 'No');
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => escapeHtml(String(item))).join(', ');
+  }
+  const text = typeof value === 'object' ? JSON.stringify(value) : String(value);
+  if (['url', 'facebook_profile_url', 'shared_post_url'].includes(type) && isSafeHttpUrl(text)) {
+    return `<a href="${escapeHtml(text)}" target="_blank" rel="noopener noreferrer">${escapeHtml(text)}</a>`;
+  }
+  return escapeHtml(text);
+}
+
+function renderEntryAnswers(answers) {
+  const rows = toArray(answers).slice().sort((a, b) => getAnswerSortOrder(a) - getAnswerSortOrder(b));
+  if (!rows.length) return '<p class="special-offers-empty-copy">No answer rows are stored for this entry.</p>';
+  return `
+    <div class="special-offer-entry-answers">
+      ${rows.map((answer) => {
+        const snapshot = getFieldSnapshot(answer);
+        const label = snapshot.label || titleCase(answer.field_key);
+        const type = snapshot.field_type || 'field';
+        return `
+          <article class="special-offer-entry-answer">
+            <div>
+              <strong>${escapeHtml(label)}</strong>
+              <span>${escapeHtml(answer.field_key)} · ${escapeHtml(type)}</span>
+            </div>
+            <p>${formatAnswerValue(answer)}</p>
+          </article>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderEntryAuditLog(rows) {
+  if (!toArray(rows).length) return '<p class="special-offers-empty-copy">No review audit entries yet.</p>';
+  return `
+    <div class="special-offer-entry-audit">
+      ${toArray(rows).map((row) => {
+        const oldStatus = row?.old_value?.status || row?.old_value?.previous_status || '—';
+        const newStatus = row?.new_value?.status || row?.new_value?.new_status || '—';
+        const metadata = row?.metadata && typeof row.metadata === 'object' ? row.metadata : {};
+        return `
+          <article class="special-offer-entry-audit-row">
+            <strong>${escapeHtml(row.action || 'audit')}</strong>
+            <span>${escapeHtml(formatDateTime(row.created_at))}</span>
+            <span>${escapeHtml(titleCase(oldStatus))} → ${escapeHtml(titleCase(newStatus))}</span>
+            <span>Actor: ${escapeHtml(shortId(row.actor_id))}</span>
+            <span>Note: ${metadata.review_note_present ? 'yes' : 'no'} · Reason: ${metadata.rejection_reason_present ? 'yes' : 'no'}</span>
+          </article>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderReviewActions(entry) {
+  const transitions = getEntryStatusTransitions(entry?.status);
+  if (!transitions.length) {
+    return '<p class="special-offer-editor-muted">No review actions are available for this status.</p>';
+  }
+  return `
+    <div class="special-offer-entry-review-actions">
+      ${transitions.map((status) => `<button class="btn-secondary btn-small" type="button" data-special-offers-review-action="${escapeHtml(status)}">${escapeHtml(getReviewActionLabel(status))}</button>`).join('')}
+    </div>
+    <div id="specialOfferEntryReviewForm"></div>
+  `;
+}
+
+function renderReviewForm(action) {
+  if (!action) return '';
+  const requiresReason = ['rejected', 'disqualified'].includes(action);
+  return `
+    <form class="special-offer-entry-review-form" data-special-offers-review-form>
+      <h5>${escapeHtml(getReviewActionLabel(action))}</h5>
+      <label>
+        Review note <span class="special-offer-editor-muted">(optional)</span>
+        <textarea name="review_note" rows="3" maxlength="2000" data-special-offers-review-note></textarea>
+        <small><span data-special-offers-review-note-count>0</span>/2000</small>
+      </label>
+      <label>
+        Rejection/disqualification reason ${requiresReason ? '*' : '<span class="special-offer-editor-muted">(not required)</span>'}
+        <textarea name="rejection_reason" rows="3" maxlength="1000" data-special-offers-review-reason></textarea>
+        <small><span data-special-offers-review-reason-count>0</span>/1000</small>
+      </label>
+      <div class="special-offer-entry-review-footer">
+        <button class="btn-primary btn-small" type="submit" data-special-offers-review-submit="${escapeHtml(action)}" ${specialOffersState.entries.reviewing ? 'disabled' : ''}>Confirm ${escapeHtml(getReviewActionLabel(action))}</button>
+        <button class="btn-secondary btn-small" type="button" data-special-offers-review-cancel>Cancel</button>
+      </div>
+      <p class="special-offer-editor-muted">This calls review_special_offer_entry. It does not modify answers or snapshots.</p>
+    </form>
+  `;
 }
 
 function normalizeCampaigns(offers, translationsByOffer, prizesByOffer, linksByOffer, prizeTranslationsByPrize = {}, linkTranslationsByLink = {}, formFieldsByOffer = {}, formFieldTranslationsByField = {}) {
@@ -3173,7 +3569,7 @@ function openCampaignDetails(campaignId) {
               data-special-offers-edit="${escapeHtml(campaign.id)}"
               ${canEdit ? '' : 'disabled title="Editing for published/locked campaigns will be available in a later stage."'}
             >Edit campaign</button>
-            <button class="btn-secondary btn-small" type="button" disabled title="Entries will be available in next stages">Entries</button>
+            <button class="btn-secondary btn-small" type="button" data-special-offers-open-entries="${escapeHtml(campaign.id)}">Entries</button>
             <button class="btn-secondary btn-small" type="button" disabled title="Draw machine not configured yet">Draw</button>
           </div>
         </section>
@@ -3205,6 +3601,309 @@ function activateTranslationTab(button) {
 function closeCampaignDetails() {
   const modal = $('#specialOffersDetailsModal');
   if (modal) modal.hidden = true;
+}
+
+function ensureEntriesModal() {
+  let modal = $('#specialOffersEntriesModal');
+  if (modal) return modal;
+  modal = document.createElement('div');
+  modal.className = 'admin-modal special-offers-entries-modal';
+  modal.id = 'specialOffersEntriesModal';
+  modal.hidden = true;
+  modal.innerHTML = `
+    <div class="admin-modal-overlay" data-special-offers-entries-close></div>
+    <div class="admin-modal-content special-offers-details-modal__content" role="dialog" aria-modal="true" aria-labelledby="specialOffersEntriesTitle">
+      <header class="admin-modal-header">
+        <div>
+          <div class="special-offers-eyebrow">Admin entries</div>
+          <h3 id="specialOffersEntriesTitle">Entries</h3>
+          <p class="special-offer-editor-subtitle">Read-only submission list. Review decisions go through review_special_offer_entry.</p>
+        </div>
+        <button class="btn-modal-close" type="button" data-special-offers-entries-close aria-label="Close entries">×</button>
+      </header>
+      <div class="admin-modal-body" id="specialOffersEntriesBody"></div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest('[data-special-offers-entries-close]')) closeEntriesModal();
+    const detailButton = target?.closest('[data-special-offers-entry-detail]');
+    if (detailButton) openEntryDetails(detailButton.getAttribute('data-special-offers-entry-detail'));
+    const refreshButton = target?.closest('[data-special-offers-entry-refresh]');
+    if (refreshButton) refreshEntriesList();
+    const pageButton = target?.closest('[data-special-offers-entry-page]');
+    if (pageButton && !pageButton.disabled) {
+      const direction = pageButton.getAttribute('data-special-offers-entry-page');
+      specialOffersState.entries.page += direction === 'next' ? 1 : -1;
+      refreshEntriesList();
+    }
+  });
+  modal.addEventListener('change', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    const status = target?.closest('[data-special-offers-entry-status]');
+    const offer = target?.closest('[data-special-offers-entry-offer]');
+    if (status) {
+      specialOffersState.entries.status = status.value || 'all';
+      specialOffersState.entries.page = 1;
+      refreshEntriesList();
+    }
+    if (offer) {
+      specialOffersState.entries.offerId = offer.value || 'all';
+      specialOffersState.entries.page = 1;
+      refreshEntriesList();
+    }
+  });
+  modal.addEventListener('input', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    const input = target?.closest('[data-special-offers-entry-search]');
+    if (!input) return;
+    specialOffersState.entries.search = input.value || '';
+    specialOffersState.entries.page = 1;
+    window.clearTimeout(specialOffersState.entries.searchTimer);
+    specialOffersState.entries.searchTimer = window.setTimeout(() => refreshEntriesList(), 250);
+  });
+  return modal;
+}
+
+function ensureEntryDetailsModal() {
+  let modal = $('#specialOfferEntryDetailsModal');
+  if (modal) return modal;
+  modal = document.createElement('div');
+  modal.className = 'admin-modal special-offers-entry-detail-modal';
+  modal.id = 'specialOfferEntryDetailsModal';
+  modal.hidden = true;
+  modal.innerHTML = `
+    <div class="admin-modal-overlay" data-special-offers-entry-detail-close></div>
+    <div class="admin-modal-content special-offers-details-modal__content" role="dialog" aria-modal="true" aria-labelledby="specialOfferEntryDetailsTitle">
+      <header class="admin-modal-header">
+        <div>
+          <div class="special-offers-eyebrow">Entry review</div>
+          <h3 id="specialOfferEntryDetailsTitle">Entry details</h3>
+          <p class="special-offer-editor-subtitle">Answers and snapshots are read-only.</p>
+        </div>
+        <button class="btn-modal-close" type="button" data-special-offers-entry-detail-close aria-label="Close entry details">×</button>
+      </header>
+      <div class="admin-modal-body" id="specialOfferEntryDetailsBody"></div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest('[data-special-offers-entry-detail-close]')) closeEntryDetails();
+    const actionButton = target?.closest('[data-special-offers-review-action]');
+    if (actionButton) {
+      specialOffersState.entries.reviewAction = actionButton.getAttribute('data-special-offers-review-action') || '';
+      renderEntryDetails();
+    }
+    if (target?.closest('[data-special-offers-review-cancel]')) {
+      specialOffersState.entries.reviewAction = '';
+      renderEntryDetails();
+    }
+  });
+  modal.addEventListener('input', updateReviewCharacterCounters);
+  modal.addEventListener('submit', (event) => {
+    const form = event.target instanceof Element ? event.target.closest('[data-special-offers-review-form]') : null;
+    if (!form) return;
+    event.preventDefault();
+    submitEntryReview(form);
+  });
+  return modal;
+}
+
+function closeEntriesModal() {
+  const modal = $('#specialOffersEntriesModal');
+  if (modal) modal.hidden = true;
+}
+
+function closeEntryDetails() {
+  const modal = $('#specialOfferEntryDetailsModal');
+  if (modal) modal.hidden = true;
+  specialOffersState.entries.selectedEntryId = null;
+  specialOffersState.entries.detail = null;
+  specialOffersState.entries.reviewAction = '';
+}
+
+function renderEntriesModal() {
+  const modal = ensureEntriesModal();
+  const body = $('#specialOffersEntriesBody', modal);
+  if (body) body.innerHTML = renderEntriesModalBody();
+  modal.hidden = false;
+}
+
+async function refreshEntriesList() {
+  const modal = ensureEntriesModal();
+  const body = $('#specialOffersEntriesBody', modal);
+  specialOffersState.entries.loading = true;
+  specialOffersState.entries.error = '';
+  if (body) body.innerHTML = renderEntriesModalBody();
+  try {
+    const [counts, page] = await Promise.all([
+      loadEntryCounts(specialOffersState.entries),
+      loadEntriesPage(),
+    ]);
+    specialOffersState.entryCounts = counts;
+    specialOffersState.entries.rows = page.rows;
+    specialOffersState.entries.total = page.total;
+    renderStats(specialOffersState.campaigns);
+  } catch (error) {
+    specialOffersState.entries.rows = [];
+    specialOffersState.entries.total = 0;
+    specialOffersState.entries.error = 'Unable to load entries. Check admin access and Special Offers RLS.';
+  } finally {
+    specialOffersState.entries.loading = false;
+    if (body) body.innerHTML = renderEntriesModalBody();
+  }
+}
+
+async function openEntriesModal(offerId = 'all') {
+  specialOffersState.entries.offerId = offerId || 'all';
+  specialOffersState.entries.page = 1;
+  renderEntriesModal();
+  await refreshEntriesList();
+}
+
+function renderEntryDetails() {
+  const modal = ensureEntryDetailsModal();
+  const body = $('#specialOfferEntryDetailsBody', modal);
+  const detail = specialOffersState.entries.detail;
+  if (!body) return;
+  if (!detail?.entry) {
+    body.innerHTML = '<div class="special-offer-entry-state">Loading entry details...</div>';
+    return;
+  }
+  const entry = detail.entry;
+  const campaign = getCampaignById(entry.offer_id);
+  body.innerHTML = `
+    <div class="special-offer-entry-detail-grid">
+      <section class="special-offers-detail-panel">
+        <h4>Entry</h4>
+        ${renderDetailRows([
+          ['Reference', entry.reference],
+          ['Campaign', campaign ? formatCampaignTitle(campaign) : shortId(entry.offer_id)],
+          ['Status', titleCase(entry.status)],
+          ['Submitted at', formatDateTime(entry.created_at)],
+          ['Reviewed at', formatDateTime(entry.reviewed_at)],
+          ['Reviewed by', shortId(entry.reviewed_by)],
+          ['Language', String(entry.submitted_lang || '').toUpperCase()],
+        ])}
+      </section>
+      <section class="special-offers-detail-panel">
+        <h4>Participant</h4>
+        ${renderDetailRows([
+          ['Name', [entry.first_name, entry.last_name].filter(Boolean).join(' ') || 'Not provided'],
+          ['Email', maskEmail(entry.normalized_email)],
+          ['Phone', entry.phone ? 'Stored in details' : 'Not provided'],
+          ['User ID', shortId(entry.user_id)],
+        ])}
+      </section>
+      <section class="special-offers-detail-panel special-offers-detail-panel--wide">
+        <h4>Answers</h4>
+        ${renderEntryAnswers(detail.answers)}
+      </section>
+      <section class="special-offers-detail-panel special-offers-detail-panel--wide">
+        <h4>Review notes</h4>
+        ${renderDetailRows([
+          ['Review note', entry.review_note || 'Not set'],
+          ['Rejection reason', entry.rejection_reason || 'Not set'],
+        ])}
+      </section>
+      <section class="special-offers-detail-panel special-offers-detail-panel--wide">
+        <h4>Review actions</h4>
+        ${renderReviewActions(entry)}
+        ${renderReviewForm(specialOffersState.entries.reviewAction)}
+      </section>
+      <section class="special-offers-detail-panel special-offers-detail-panel--wide">
+        <h4>Audit trail</h4>
+        ${renderEntryAuditLog(detail.auditLog)}
+      </section>
+    </div>
+  `;
+}
+
+async function openEntryDetails(entryId) {
+  if (!entryId) return;
+  specialOffersState.entries.selectedEntryId = entryId;
+  specialOffersState.entries.detail = null;
+  specialOffersState.entries.reviewAction = '';
+  const modal = ensureEntryDetailsModal();
+  modal.hidden = false;
+  renderEntryDetails();
+  try {
+    specialOffersState.entries.detail = await loadEntryDetail(entryId);
+  } catch (error) {
+    const body = $('#specialOfferEntryDetailsBody', modal);
+    if (body) body.innerHTML = '<div class="special-offer-entry-state special-offer-entry-state--error">Unable to load entry details.</div>';
+    return;
+  }
+  renderEntryDetails();
+}
+
+async function refreshSelectedEntryDetails() {
+  const entryId = specialOffersState.entries.selectedEntryId;
+  if (!entryId) return;
+  specialOffersState.entries.detail = await loadEntryDetail(entryId);
+  renderEntryDetails();
+}
+
+function updateReviewCharacterCounters() {
+  const modal = $('#specialOfferEntryDetailsModal');
+  if (!modal) return;
+  const note = $('[data-special-offers-review-note]', modal);
+  const reason = $('[data-special-offers-review-reason]', modal);
+  const noteCount = $('[data-special-offers-review-note-count]', modal);
+  const reasonCount = $('[data-special-offers-review-reason-count]', modal);
+  if (noteCount) noteCount.textContent = String((note?.value || '').length);
+  if (reasonCount) reasonCount.textContent = String((reason?.value || '').length);
+}
+
+async function submitEntryReview(form) {
+  if (specialOffersState.entries.reviewing) return;
+  const detail = specialOffersState.entries.detail;
+  const entry = detail?.entry;
+  const action = specialOffersState.entries.reviewAction;
+  if (!entry || !action) return;
+  const reviewNote = String(form.querySelector('[name="review_note"]')?.value || '');
+  const rejectionReason = String(form.querySelector('[name="rejection_reason"]')?.value || '');
+  const trimmedReason = rejectionReason.trim();
+  if (reviewNote.length > 2000) {
+    notifySpecialOffers('Review note is too long.', 'error');
+    return;
+  }
+  if (rejectionReason.length > 1000) {
+    notifySpecialOffers('Rejection reason is too long.', 'error');
+    return;
+  }
+  if (['rejected', 'disqualified'].includes(action) && !trimmedReason) {
+    notifySpecialOffers('Reject and disqualify require a reason.', 'error');
+    return;
+  }
+  if (!window.confirm(`Confirm ${getReviewActionLabel(action)} for entry ${entry.reference || shortId(entry.id)}?`)) return;
+  const client = getSupabaseClient();
+  if (!client) {
+    notifySpecialOffers('Supabase client is not available.', 'error');
+    return;
+  }
+  specialOffersState.entries.reviewing = true;
+  renderEntryDetails();
+  try {
+    const result = await client.rpc('review_special_offer_entry', {
+      p_entry_id: entry.id,
+      p_new_status: action,
+      p_review_note: reviewNote || null,
+      p_rejection_reason: rejectionReason || null,
+    });
+    if (result.error) throw result.error;
+    notifySpecialOffers(result.data?.[0]?.idempotent ? 'Review state already applied.' : 'Entry review saved.', 'success');
+    specialOffersState.entries.reviewAction = '';
+    await refreshEntriesList();
+    await refreshSelectedEntryDetails();
+  } catch (error) {
+    notifySpecialOffers('Entry review could not be saved.', 'error');
+  } finally {
+    specialOffersState.entries.reviewing = false;
+    renderEntryDetails();
+  }
 }
 
 function ensurePreviewModal() {
@@ -3670,9 +4369,14 @@ function bindEvents() {
       const target = event.target instanceof Element ? event.target : null;
       const viewButton = target?.closest('[data-special-offers-view]');
       const editButton = target?.closest('[data-special-offers-edit]');
+      const entriesButton = target?.closest('[data-special-offers-open-entries]');
       const copyPreviewButton = target?.closest('[data-special-offers-copy-preview-url]');
       if (viewButton) {
         openCampaignDetails(viewButton.getAttribute('data-special-offers-view'));
+        return;
+      }
+      if (entriesButton) {
+        openEntriesModal(entriesButton.getAttribute('data-special-offers-open-entries') || 'all');
         return;
       }
       if (copyPreviewButton) {
@@ -3694,6 +4398,7 @@ function bindEvents() {
       const localLangButton = target?.closest('[data-special-offers-local-tab]');
       const editButton = target?.closest('[data-special-offers-edit]');
       const previewButton = target?.closest('[data-special-offers-preview]');
+      const entriesButton = target?.closest('[data-special-offers-open-entries]');
       const copyRawUrlButton = target?.closest('[data-special-offers-copy-raw-url]');
       if (langButton) activateTranslationTab(langButton);
       if (localLangButton) activateLocalDetailLanguage(localLangButton);
@@ -3705,6 +4410,9 @@ function bindEvents() {
         closeCampaignDetails();
         openCampaignEditor('edit', editButton.getAttribute('data-special-offers-edit'));
       }
+      if (entriesButton) {
+        openEntriesModal(entriesButton.getAttribute('data-special-offers-open-entries') || 'all');
+      }
       if (previewButton) {
         const campaign = specialOffersState.campaigns.find((item) => item.id === previewButton.getAttribute('data-special-offers-preview'));
         if (campaign) openCampaignPreview(campaign);
@@ -3714,6 +4422,10 @@ function bindEvents() {
 
   $$('[data-special-offers-create]').forEach((button) => {
     button.addEventListener('click', () => openCampaignEditor('create'));
+  });
+
+  $$('[data-special-offers-open-entries]').forEach((button) => {
+    button.addEventListener('click', () => openEntriesModal(button.getAttribute('data-special-offers-open-entries') || 'all'));
   });
 
   const editorBody = $('#specialOffersEditorBody');
@@ -3868,6 +4580,8 @@ function bindEvents() {
       closeCampaignEditor();
       closeCampaignPreview();
       closeFormPreview();
+      closeEntriesModal();
+      closeEntryDetails();
       closeHelpPopover();
     }
   });
@@ -3881,6 +4595,7 @@ async function refreshSpecialOffers() {
   try {
     const campaigns = await loadSpecialOffersReadOnly();
     specialOffersState.campaigns = campaigns;
+    await refreshEntryStatsForShell();
     renderStats(campaigns);
     renderCampaigns(campaigns);
   } catch (error) {

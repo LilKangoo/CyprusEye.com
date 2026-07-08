@@ -777,13 +777,13 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     expect(hasHorizontalOverflow).toBe(false);
 
     const source = await page.evaluate(async () => (await fetch('/admin/special-offers.js')).text());
-    expect(source).not.toContain('special_offer_entries');
     expect(source).not.toContain('special_offer_tasks');
     expect(source).not.toContain('special_offer_entry_tasks');
     expect(source).not.toContain('special_offer_draws');
     expect(source).not.toContain('special_offer_draw_entries');
     expect(source).not.toContain('special_offer_winners');
-    expect(source).not.toMatch(/\.rpc\s*\(/);
+    expect(source).not.toMatch(/from\(['"]special_offer_entries['"]\)\.update/);
+    expect(source).not.toMatch(/from\(['"]special_offer_entry_answers['"]\)\.(insert|update|delete|upsert)/);
     expect(source).not.toMatch(/\.storage\b/);
   });
 });

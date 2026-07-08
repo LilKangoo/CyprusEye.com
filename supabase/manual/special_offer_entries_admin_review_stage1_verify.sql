@@ -148,13 +148,63 @@ from (
 ) as future(table_name)
 order by table_name;
 
+with rpc_source as (
+  select
+    lower(regexp_replace(p.prosrc, '[[:space:]]+', ' ', 'g')) as normalized_source
+  from pg_proc p
+  join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'public'
+    and p.proname = 'review_special_offer_entry'
+    and pg_get_function_identity_arguments(p.oid) = 'p_entry_id uuid, p_new_status text, p_review_note text, p_rejection_reason text'
+),
+positions as (
+  select
+    normalized_source,
+    position('if v_entry.status = v_new_status then' in normalized_source) as idempotent_pos,
+    position('if v_review_note is not null and char_length(v_review_note) > 2000 then' in normalized_source) as review_note_length_pos,
+    position('if v_rejection_reason is not null and char_length(v_rejection_reason) > 1000 then' in normalized_source) as rejection_reason_length_pos,
+    position('if v_new_status in (''rejected'', ''disqualified'') and v_rejection_reason is null then' in normalized_source) as reason_required_pos
+  from rpc_source
+),
+checks as (
+  select
+    coalesce(normalized_source like '%v_review_note text := nullif(%'
+      and normalized_source like '%btrim(coalesce(p_review_note,%', false) as review_note_normalization_present,
+    coalesce(normalized_source like '%v_rejection_reason text := nullif(%'
+      and normalized_source like '%btrim(coalesce(p_rejection_reason,%', false) as rejection_reason_normalization_present,
+    coalesce(normalized_source like '%rejection_reason_required%', false) as rejection_reason_required_present,
+    coalesce(idempotent_pos > 0, false) as idempotent_branch_present,
+    coalesce(review_note_length_pos > 0, false) as review_note_length_check_present,
+    coalesce(rejection_reason_length_pos > 0, false) as rejection_reason_length_check_present,
+    coalesce(reason_required_pos > 0, false) as reason_required_check_present,
+    coalesce(idempotent_pos > 0 and review_note_length_pos > 0 and idempotent_pos < review_note_length_pos, false) as idempotent_before_note_length,
+    coalesce(idempotent_pos > 0 and rejection_reason_length_pos > 0 and idempotent_pos < rejection_reason_length_pos, false) as idempotent_before_reason_length,
+    coalesce(idempotent_pos > 0 and reason_required_pos > 0 and idempotent_pos < reason_required_pos, false) as idempotent_before_reason_required
+  from (select 1) anchor
+  left join positions on true
+)
+select
+  'rpc_static_review_flow_diagnostics' as check_name,
+  review_note_normalization_present,
+  rejection_reason_normalization_present,
+  rejection_reason_required_present,
+  idempotent_branch_present,
+  review_note_length_check_present,
+  rejection_reason_length_check_present,
+  reason_required_check_present,
+  idempotent_before_note_length,
+  idempotent_before_reason_length,
+  idempotent_before_reason_required
+from checks;
+
 with rpc as (
   select
     p.oid,
     p.prosecdef,
     coalesce(array_to_string(p.proconfig, ','), '') as settings,
     owner_role.rolname as owner_role,
-    pg_get_functiondef(p.oid) as fn
+    pg_get_functiondef(p.oid) as fn,
+    lower(regexp_replace(p.prosrc, '[[:space:]]+', ' ', 'g')) as normalized_source
   from pg_proc p
   join pg_namespace n on n.oid = p.pronamespace
   join pg_roles owner_role on owner_role.oid = p.proowner
@@ -288,20 +338,21 @@ checks as (
       from rpc
     ), false) as no_entries_modified,
     coalesce((
-      select fn like '%btrim(coalesce(p_review_note,%'
-        and fn like '%btrim(coalesce(p_rejection_reason,%'
-        and fn like '%E'' \t\n\r\f''%'
-        and fn like '%rejection_reason_required%'
-        and position('if v_entry.status = v_new_status then' in fn) > 0
-        and position('if v_review_note is not null and char_length' in fn) > 0
-        and position('if v_rejection_reason is not null and char_length' in fn) > 0
-        and position('if v_new_status in (''rejected'', ''disqualified'') and v_rejection_reason is null' in fn) > 0
-        and position('if v_entry.status = v_new_status then' in fn)
-          < position('if v_review_note is not null and char_length' in fn)
-        and position('if v_entry.status = v_new_status then' in fn)
-          < position('if v_rejection_reason is not null and char_length' in fn)
-        and position('if v_entry.status = v_new_status then' in fn)
-          < position('if v_new_status in (''rejected'', ''disqualified'') and v_rejection_reason is null' in fn)
+      select normalized_source like '%v_review_note text := nullif(%'
+        and normalized_source like '%btrim(coalesce(p_review_note,%'
+        and normalized_source like '%v_rejection_reason text := nullif(%'
+        and normalized_source like '%btrim(coalesce(p_rejection_reason,%'
+        and normalized_source like '%rejection_reason_required%'
+        and position('if v_entry.status = v_new_status then' in normalized_source) > 0
+        and position('if v_review_note is not null and char_length(v_review_note) > 2000 then' in normalized_source) > 0
+        and position('if v_rejection_reason is not null and char_length(v_rejection_reason) > 1000 then' in normalized_source) > 0
+        and position('if v_new_status in (''rejected'', ''disqualified'') and v_rejection_reason is null then' in normalized_source) > 0
+        and position('if v_entry.status = v_new_status then' in normalized_source)
+          < position('if v_review_note is not null and char_length(v_review_note) > 2000 then' in normalized_source)
+        and position('if v_entry.status = v_new_status then' in normalized_source)
+          < position('if v_rejection_reason is not null and char_length(v_rejection_reason) > 1000 then' in normalized_source)
+        and position('if v_entry.status = v_new_status then' in normalized_source)
+          < position('if v_new_status in (''rejected'', ''disqualified'') and v_rejection_reason is null then' in normalized_source)
       from rpc
     ), false) as rpc_static_review_flow_ok,
     not exists (

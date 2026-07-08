@@ -240,7 +240,7 @@ test.describe('Admin Special Offers read-only integration', () => {
     await expect(modal).toContainText('/car.html?lang=pl');
     await expect(modal).toContainText('No resource ID');
     await expect(modal.getByRole('button', { name: 'Edit campaign' })).toBeEnabled();
-    await expect(modal.getByRole('button', { name: 'Entries' })).toBeDisabled();
+    await expect(modal.getByRole('button', { name: 'Entries' })).toBeEnabled();
     await expect(modal.getByRole('button', { name: 'Draw' })).toBeDisabled();
 
     await modal.getByRole('tab', { name: 'EN' }).click();
@@ -272,13 +272,13 @@ test.describe('Admin Special Offers read-only integration', () => {
       return response.text();
     });
 
-    expect(source).not.toContain('special_offer_entries');
     expect(source).not.toContain('special_offer_tasks');
     expect(source).not.toContain('special_offer_entry_tasks');
     expect(source).not.toContain('special_offer_draws');
     expect(source).not.toContain('special_offer_draw_entries');
     expect(source).not.toContain('special_offer_winners');
-    expect(source).not.toMatch(/\.rpc\s*\(/);
+    expect(source).not.toMatch(/from\(['"]special_offer_entries['"]\)\.update/);
+    expect(source).not.toMatch(/from\(['"]special_offer_entry_answers['"]\)\.(insert|update|delete|upsert)/);
     expect(source).not.toMatch(/\.storage\b/);
   });
 
