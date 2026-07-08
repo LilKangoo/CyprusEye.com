@@ -61,6 +61,7 @@ declare
   v_new_status text := lower(trim(coalesce(p_new_status, '')));
   v_review_note text := nullif(trim(coalesce(p_review_note, '')), '');
   v_rejection_reason text := nullif(trim(coalesce(p_rejection_reason, '')), '');
+  v_final_rejection_reason text := null;
   v_reviewed_at timestamptz := now();
   v_transition_allowed boolean := false;
 begin
@@ -88,14 +89,6 @@ begin
 
   if p_new_status is distinct from null and trim(p_new_status) <> p_new_status then
     raise exception 'invalid_review_status' using errcode = '23514';
-  end if;
-
-  if v_review_note is not null and char_length(v_review_note) > 2000 then
-    raise exception 'review_note_too_long' using errcode = '23514';
-  end if;
-
-  if v_rejection_reason is not null and char_length(v_rejection_reason) > 1000 then
-    raise exception 'rejection_reason_too_long' using errcode = '23514';
   end if;
 
   select *
@@ -142,9 +135,22 @@ begin
     raise exception 'invalid_status_transition' using errcode = '23514';
   end if;
 
+  if v_review_note is not null and char_length(v_review_note) > 2000 then
+    raise exception 'review_note_too_long' using errcode = '23514';
+  end if;
+
+  if v_rejection_reason is not null and char_length(v_rejection_reason) > 1000 then
+    raise exception 'rejection_reason_too_long' using errcode = '23514';
+  end if;
+
   if v_new_status in ('rejected', 'disqualified') and v_rejection_reason is null then
     raise exception 'rejection_reason_required' using errcode = '23514';
   end if;
+
+  v_final_rejection_reason := case
+    when v_new_status in ('rejected', 'disqualified') then v_rejection_reason
+    else null
+  end;
 
   update public.special_offer_entries
     set
@@ -152,11 +158,7 @@ begin
       reviewed_at = v_reviewed_at,
       reviewed_by = v_actor_id,
       review_note = v_review_note,
-      rejection_reason = case
-        when v_new_status in ('approved', 'pending_review') then null
-        when v_new_status in ('rejected', 'disqualified') then v_rejection_reason
-        else rejection_reason
-      end
+      rejection_reason = v_final_rejection_reason
   where id = v_entry.id;
 
   insert into public.special_offer_audit_log (
@@ -182,7 +184,7 @@ begin
       'entry_id', v_entry.id,
       'reference', v_entry.reference,
       'review_note_present', v_review_note is not null,
-      'rejection_reason_present', v_rejection_reason is not null
+      'rejection_reason_present', v_final_rejection_reason is not null
     ),
     v_reviewed_at
   );
@@ -231,7 +233,29 @@ grant execute on function public.review_special_offer_entry(uuid, text, text, te
 -- Review decisions must go through review_special_offer_entry() so transition
 -- rules and audit logging cannot be bypassed by the admin UI.
 revoke update on table public.special_offer_entries
+  from public;
+revoke update on table public.special_offer_entries
+  from anon;
+revoke update on table public.special_offer_entries
   from authenticated;
+revoke update (
+  status,
+  reviewed_at,
+  reviewed_by,
+  review_note,
+  rejection_reason,
+  updated_at
+) on table public.special_offer_entries
+  from public;
+revoke update (
+  status,
+  reviewed_at,
+  reviewed_by,
+  review_note,
+  rejection_reason,
+  updated_at
+) on table public.special_offer_entries
+  from anon;
 revoke update (
   status,
   reviewed_at,

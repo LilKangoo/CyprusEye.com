@@ -92,14 +92,24 @@ order by c.relname;
 select
   'status_constraint' as check_name,
   tc.constraint_name,
-  cc.check_clause
-from information_schema.table_constraints tc
-join information_schema.check_constraints cc
-  on cc.constraint_schema = tc.constraint_schema
- and cc.constraint_name = tc.constraint_name
-where tc.table_schema = 'public'
-  and tc.table_name = 'special_offer_entries'
-  and tc.constraint_name = 'special_offer_entries_status_check';
+  pg_get_constraintdef(con.oid) as constraint_definition,
+  coalesce(array_agg(m.match[1] order by m.match[1]), ARRAY[]::text[]) as allowed_statuses,
+  coalesce(array_agg(m.match[1] order by m.match[1]), ARRAY[]::text[]) = ARRAY[
+    'approved',
+    'disqualified',
+    'pending_review',
+    'rejected',
+    'submitted',
+    'withdrawn'
+  ]::text[] as exact_status_set
+from pg_constraint con
+join pg_class rel on rel.oid = con.conrelid
+join pg_namespace ns on ns.oid = rel.relnamespace
+left join lateral regexp_matches(pg_get_constraintdef(con.oid), '''([^'']+)''', 'g') as m(match) on true
+where ns.nspname = 'public'
+  and rel.relname = 'special_offer_entries'
+  and con.conname = 'special_offer_entries_status_check'
+group by con.oid, con.conname;
 
 select
   'answer_table_fk_delete_behavior' as check_name,
@@ -206,24 +216,24 @@ checks as (
       where n.nspname = 'public'
         and c.relname = 'special_offer_audit_log'
     ), false) as audit_log_rls_state_expected,
-    exists (
-      select 1
-      from information_schema.table_constraints tc
-      join information_schema.check_constraints cc
-        on cc.constraint_schema = tc.constraint_schema
-       and cc.constraint_name = tc.constraint_name
-      where tc.table_schema = 'public'
-        and tc.table_name = 'special_offer_entries'
-        and tc.constraint_name = 'special_offer_entries_status_check'
-        and cc.check_clause like '%submitted%'
-        and cc.check_clause like '%pending_review%'
-        and cc.check_clause like '%approved%'
-        and cc.check_clause like '%rejected%'
-        and cc.check_clause like '%disqualified%'
-        and cc.check_clause like '%withdrawn%'
-        and cc.check_clause not ilike '%winner%'
-        and cc.check_clause not ilike '%backup%'
-    ) as status_constraint_unchanged,
+    coalesce((
+      select array_agg(m.match[1] order by m.match[1]) = ARRAY[
+        'approved',
+        'disqualified',
+        'pending_review',
+        'rejected',
+        'submitted',
+        'withdrawn'
+      ]::text[]
+      from pg_constraint con
+      join pg_class rel on rel.oid = con.conrelid
+      join pg_namespace ns on ns.oid = rel.relnamespace
+      left join lateral regexp_matches(pg_get_constraintdef(con.oid), '''([^'']+)''', 'g') as m(match) on true
+      where ns.nspname = 'public'
+        and rel.relname = 'special_offer_entries'
+        and con.conname = 'special_offer_entries_status_check'
+      group by con.oid
+    ), false) as status_constraint_unchanged,
     exists (
       select 1
       from pg_constraint con
@@ -252,6 +262,14 @@ checks as (
         and tp.table_name = 'special_offer_entry_answers'
         and tp.grantee in ('PUBLIC', 'anon', 'authenticated')
         and tp.privilege_type in ('INSERT', 'UPDATE', 'DELETE', 'TRUNCATE')
+    )
+    and not exists (
+      select 1
+      from information_schema.column_privileges cp
+      where cp.table_schema = 'public'
+        and cp.table_name = 'special_offer_entry_answers'
+        and cp.grantee in ('PUBLIC', 'anon', 'authenticated')
+        and cp.privilege_type in ('INSERT', 'UPDATE')
     ) as answers_table_unchanged,
     coalesce((
       select fn like '%auth.uid()%'
