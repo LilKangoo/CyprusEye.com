@@ -17,6 +17,7 @@ with rpc as (
 source_checks as (
   select
     exists (select 1 from rpc) as rpc_exists,
+    exists (select 1 from rpc) as rpc_signature_ok,
     coalesce((select prosecdef from rpc), false) as rpc_security_definer,
     coalesce((select 'search_path=pg_catalog, public' = any(proconfig) from rpc), false) as rpc_safe_search_path,
     coalesce((select pg_get_userbyid(proowner) = 'postgres' from rpc), false) as rpc_owner_ok,
@@ -35,8 +36,10 @@ source_checks as (
     coalesce((select source like '%to_regclass(''public.profiles'')%' and source like '%profile_enriched_fields%' from rpc), false) as profile_enrichment_present,
     coalesce((select source like '%where id = $2%' and source like '%using v_profile_name, v_uid%' from rpc), false) as profile_enrichment_uses_auth_uid,
     coalesce((select source like '%nullif(btrim(coalesce(name%' and source like '%nullif(btrim(coalesce(phone%' from rpc), false) as profile_enrichment_only_empty_fields,
+    coalesce((select source like '%pg_get_constraintdef(con.oid)%preferred_language%' and source like '%ilike ''%he%''' from rpc), false) as profile_preferred_language_he_safe,
     coalesce((select source not like '%set contest_answer%' and source not like '%set shared_post_url%' from rpc), false) as profile_enrichment_no_campaign_answer_update,
     coalesce((select source like '%answers_logged%' and source like '%false%' and source like '%profile_enriched_fields%' from rpc), false) as audit_no_answers_logged,
+    coalesce((select source like '%profile_enriched_fields%' and source not like '%profile_enriched_values%' and source not like '%to_jsonb(v_phone)%' and source not like '%to_jsonb(v_normalized_email)%' from rpc), false) as audit_no_profile_pii_values,
     coalesce((select source not like '%update public.special_offer_entries%' from rpc), false) as no_entry_update_in_submit,
     coalesce((select source not like '%update public.special_offer_entry_answers%' from rpc), false) as no_answers_update_in_submit
 ),
@@ -45,7 +48,7 @@ grant_checks as (
     not has_function_privilege('public', 'public.submit_special_offer_entry(text,text,jsonb,uuid)', 'EXECUTE') as public_execute_absent,
     not has_function_privilege('anon', 'public.submit_special_offer_entry(text,text,jsonb,uuid)', 'EXECUTE') as anon_execute_absent,
     has_function_privilege('authenticated', 'public.submit_special_offer_entry(text,text,jsonb,uuid)', 'EXECUTE') as authenticated_execute_present,
-    not has_function_privilege('service_role', 'public.submit_special_offer_entry(text,text,jsonb,uuid)', 'EXECUTE') as service_role_execute_absent
+    has_function_privilege('service_role', 'public.submit_special_offer_entry(text,text,jsonb,uuid)', 'EXECUTE') as service_role_execute_present
 ),
 direct_update_checks as (
   select
@@ -85,7 +88,11 @@ profile_columns as (
     exists (
       select 1 from information_schema.columns
       where table_schema = 'public' and table_name = 'profiles' and column_name = 'preferred_language'
-    ) as profile_preferred_language_column_available
+    ) as profile_preferred_language_column_available,
+    exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public' and table_name = 'profiles' and column_name = 'updated_at'
+    ) as profile_updated_at_column_available
 ),
 structure_checks as (
   select
@@ -124,13 +131,14 @@ select
   s.entry_user_id_column_exists,
   s.client_submission_unique_exists,
   sc.rpc_exists,
+  sc.rpc_signature_ok,
   sc.rpc_security_definer,
   sc.rpc_safe_search_path,
   sc.rpc_owner_ok,
   g.public_execute_absent,
   g.anon_execute_absent,
   g.authenticated_execute_present,
-  g.service_role_execute_absent,
+  g.service_role_execute_present,
   sc.auth_uid_present,
   sc.login_required_present,
   sc.auth_users_email_source_present,
@@ -146,8 +154,10 @@ select
   sc.profile_enrichment_present,
   sc.profile_enrichment_uses_auth_uid,
   sc.profile_enrichment_only_empty_fields,
+  sc.profile_preferred_language_he_safe,
   sc.profile_enrichment_no_campaign_answer_update,
   sc.audit_no_answers_logged,
+  sc.audit_no_profile_pii_values,
   sc.no_entry_update_in_submit,
   sc.no_answers_update_in_submit,
   d.no_direct_public_entry_answer_writes,
@@ -157,19 +167,21 @@ select
   p.profile_name_column_known,
   p.profile_phone_column_available,
   p.profile_preferred_language_column_available,
+  p.profile_updated_at_column_available,
   s.no_tasks_draws_winners,
   (
     s.required_objects_exist
     and s.entry_user_id_column_exists
     and s.client_submission_unique_exists
     and sc.rpc_exists
+    and sc.rpc_signature_ok
     and sc.rpc_security_definer
     and sc.rpc_safe_search_path
     and sc.rpc_owner_ok
     and g.public_execute_absent
     and g.anon_execute_absent
     and g.authenticated_execute_present
-    and g.service_role_execute_absent
+    and g.service_role_execute_present
     and sc.auth_uid_present
     and sc.login_required_present
     and sc.auth_users_email_source_present
@@ -185,8 +197,10 @@ select
     and sc.profile_enrichment_present
     and sc.profile_enrichment_uses_auth_uid
     and sc.profile_enrichment_only_empty_fields
+    and sc.profile_preferred_language_he_safe
     and sc.profile_enrichment_no_campaign_answer_update
     and sc.audit_no_answers_logged
+    and sc.audit_no_profile_pii_values
     and sc.no_entry_update_in_submit
     and sc.no_answers_update_in_submit
     and d.no_direct_public_entry_answer_writes
@@ -194,6 +208,7 @@ select
     and r.answers_rls_enabled
     and p.profiles_table_exists
     and p.profile_name_column_known
+    and p.profile_updated_at_column_available
     and s.no_tasks_draws_winners
   ) as overall_pass
 from source_checks sc

@@ -635,6 +635,29 @@ begin
       where table_schema = 'public'
         and table_name = 'profiles'
         and column_name = 'preferred_language'
+    ) and (
+      v_lang <> 'he'
+      or not exists (
+        select 1
+        from pg_constraint con
+        join pg_class rel on rel.oid = con.conrelid
+        join pg_namespace ns on ns.oid = rel.relnamespace
+        where ns.nspname = 'public'
+          and rel.relname = 'profiles'
+          and con.contype = 'c'
+          and pg_get_constraintdef(con.oid) ilike '%preferred_language%'
+      )
+      or exists (
+        select 1
+        from pg_constraint con
+        join pg_class rel on rel.oid = con.conrelid
+        join pg_namespace ns on ns.oid = rel.relnamespace
+        where ns.nspname = 'public'
+          and rel.relname = 'profiles'
+          and con.contype = 'c'
+          and pg_get_constraintdef(con.oid) ilike '%preferred_language%'
+          and pg_get_constraintdef(con.oid) ilike '%he%'
+      )
     ) then
       execute
         'update public.profiles
@@ -711,7 +734,7 @@ revoke all on function public.submit_special_offer_entry(text, text, jsonb, uuid
   from service_role;
 
 grant execute on function public.submit_special_offer_entry(text, text, jsonb, uuid)
-  to authenticated;
+  to authenticated, service_role;
 
 comment on function public.submit_special_offer_entry(text, text, jsonb, uuid) is
   'Atomically validates and stores an authenticated, confirmed-email Special Offers form entry. Public direct table writes remain blocked.';
