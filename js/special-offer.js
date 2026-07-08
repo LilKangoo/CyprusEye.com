@@ -39,12 +39,58 @@ const TEXT = {
     authUnavailable: 'Logowanie nie jest teraz dostępne na tej stronie. Spróbuj ponownie za chwilę.',
     formErrorTitle: 'Sprawdź pola formularza',
     accountEmailHint: 'Zgłoszenie zostanie przypisane do zalogowanego konta.',
+    cancel: 'Anuluj',
     successTitle: 'Zgłoszenie zapisane',
     successReference: 'Numer zgłoszenia',
     successStatus: 'Status',
     pendingReview: 'Zgłoszenie zostało zapisane i oczekuje na ręczną weryfikację.',
     submittedSuccess: 'Zgłoszenie zostało zapisane.',
     retry: 'Spróbuj ponownie',
+    activityTitle: 'Moja aktywność',
+    activityLockedTitle: 'Zaloguj się, aby zgłaszać aktywności',
+    activityLockedCopy: 'Po wysłaniu głównego zgłoszenia możesz dodawać dowody udostępnień i komentarzy.',
+    activityLoginButton: 'Zaloguj się lub zarejestruj',
+    activityChecking: 'Sprawdzamy dostęp do aktywności...',
+    activityEmailTitle: 'Potwierdź adres e-mail',
+    activityEmailCopy: 'Zgłaszanie aktywności jest dostępne po potwierdzeniu adresu e-mail.',
+    activityUnavailable: 'Aktywności będą dostępne po publicznym uruchomieniu kampanii.',
+    activityNoEntryTitle: 'Najpierw wyślij główne zgłoszenie',
+    activityNoEntryCopy: 'Aktywności można przypisać tylko do Twojego własnego zgłoszenia w tej kampanii.',
+    activityMultipleEntriesTitle: 'Nie można jednoznacznie wybrać zgłoszenia',
+    activityMultipleEntriesCopy: 'Skontaktuj się z administratorem, aby sprawdzić zgłoszenia w tej kampanii.',
+    activityEntryBlockedTitle: 'Aktywności są zablokowane dla tego zgłoszenia',
+    activityEntryBlockedCopy: 'Nowe aktywności można zgłaszać tylko dla zgłoszeń submitted, pending review lub approved.',
+    myEntry: 'Moje zgłoszenie',
+    myScore: 'Moje punkty',
+    officialPosts: 'Oficjalne posty',
+    noOfficialPosts: 'Nie ma jeszcze aktywnych oficjalnych postów dla tej kampanii.',
+    openOfficialPost: 'Otwórz post',
+    shareProof: 'Udostępnienie',
+    commentProof: 'Komentarz',
+    addProof: 'Dodaj dowód',
+    submitEvidence: 'Wyślij dowód',
+    submittingEvidence: 'Wysyłanie...',
+    evidenceUrl: 'Link do dowodu',
+    evidenceText: 'Opis dowodu',
+    participantReportedAt: 'Deklarowany czas publikacji',
+    optional: 'opcjonalnie',
+    commentDeadline: 'Deadline komentarza',
+    manualReviewNotice: 'Dowód zostanie sprawdzony ręcznie. Punkt nie jest przyznawany automatycznie.',
+    manualSelectionNotice: 'Punkty są kryterium pomocniczym. Zwycięzca jest wybierany ręcznie przez komisję.',
+    activityPending: 'Oczekuje',
+    activityApproved: 'Zatwierdzone',
+    activityRejected: 'Odrzucone',
+    activityInvalid: 'Nieprawidłowe',
+    points: 'Punkty',
+    totalPoints: 'Razem',
+    basePoints: 'Zgłoszenie',
+    sharePoints: 'Udostępnienia',
+    commentPoints: 'Komentarze',
+    bonusPoints: 'Bonus',
+    approvedActivities: 'Zatwierdzone aktywności',
+    activitySuccess: 'Dowód został wysłany do ręcznej weryfikacji.',
+    activityDuplicate: 'Taka aktywność została już zgłoszona. Pokazujemy jej aktualny status.',
+    activityErrorTitle: 'Nie udało się wysłać dowodu',
     errors: {
       login_required: 'Zaloguj się, aby wysłać zgłoszenie.',
       email_not_confirmed: 'Potwierdź adres e-mail przed wysłaniem zgłoszenia.',
@@ -67,6 +113,17 @@ const TEXT = {
       submission_not_accepted: 'Nie można przyjąć tego zgłoszenia. Odśwież stronę i spróbuj ponownie.',
       network_error: 'Problem z połączeniem. Spróbuj ponownie.',
       temporary_error: 'Nie udało się wysłać zgłoszenia. Spróbuj ponownie za chwilę.',
+      invalid_activity_url: 'Podaj poprawny link zaczynający się od http:// lub https://.',
+      evidence_text_too_long: 'Opis dowodu jest zbyt długi.',
+      client_submission_id_required: 'Nie udało się przygotować bezpiecznej wysyłki. Odśwież stronę i spróbuj ponownie.',
+      invalid_activity_type: 'Ten typ aktywności nie jest obsługiwany.',
+      entry_not_eligible_for_activity: 'To zgłoszenie nie może już dodawać aktywności.',
+      official_post_inactive: 'Ten post nie przyjmuje już nowych aktywności.',
+      official_post_not_available: 'Ten post nie jest dostępny.',
+      activity_claim_not_allowed: 'Nie można zgłosić aktywności dla tego zgłoszenia.',
+      activity_claim_not_available: 'Zgłaszanie aktywności nie jest teraz dostępne.',
+      activity_claim_duplicate: 'Taka aktywność została już zgłoszona.',
+      activity_claim_not_accepted: 'Nie można przyjąć tego dowodu. Sprawdź dane i spróbuj ponownie.',
     },
     selectPlaceholder: 'Wybierz opcję',
     genericField: 'Pole formularza',
@@ -106,12 +163,58 @@ const TEXT = {
     authUnavailable: 'Sign-in is not available on this page right now. Please try again shortly.',
     formErrorTitle: 'Check the form fields',
     accountEmailHint: 'Your entry will be linked to the signed-in account.',
+    cancel: 'Cancel',
     successTitle: 'Entry saved',
     successReference: 'Entry reference',
     successStatus: 'Status',
     pendingReview: 'Your entry has been saved and is awaiting manual review.',
     submittedSuccess: 'Your entry has been saved.',
     retry: 'Try again',
+    activityTitle: 'My Activity',
+    activityLockedTitle: 'Sign in to claim activity',
+    activityLockedCopy: 'After submitting the main entry, you can add proof of shares and comments.',
+    activityLoginButton: 'Sign in or register',
+    activityChecking: 'Checking activity access...',
+    activityEmailTitle: 'Confirm your email address',
+    activityEmailCopy: 'Activity claims are available after your account email is confirmed.',
+    activityUnavailable: 'Activity claims will be available after the campaign is public.',
+    activityNoEntryTitle: 'Submit the main entry first',
+    activityNoEntryCopy: 'Activities can only be linked to your own entry in this campaign.',
+    activityMultipleEntriesTitle: 'Your entry cannot be selected safely',
+    activityMultipleEntriesCopy: 'Contact the administrator to check your campaign entries.',
+    activityEntryBlockedTitle: 'Activities are locked for this entry',
+    activityEntryBlockedCopy: 'New activities can be claimed only for submitted, pending review or approved entries.',
+    myEntry: 'My entry',
+    myScore: 'My score',
+    officialPosts: 'Official posts',
+    noOfficialPosts: 'There are no active official posts for this campaign yet.',
+    openOfficialPost: 'Open post',
+    shareProof: 'Share proof',
+    commentProof: 'Comment proof',
+    addProof: 'Add proof',
+    submitEvidence: 'Submit evidence',
+    submittingEvidence: 'Submitting...',
+    evidenceUrl: 'Evidence link',
+    evidenceText: 'Evidence notes',
+    participantReportedAt: 'Reported publish time',
+    optional: 'optional',
+    commentDeadline: 'Comment deadline',
+    manualReviewNotice: 'This proof will be reviewed manually. Points are not awarded automatically.',
+    manualSelectionNotice: 'Points are a supporting criterion. The winner is selected manually by the committee.',
+    activityPending: 'Pending',
+    activityApproved: 'Approved',
+    activityRejected: 'Rejected',
+    activityInvalid: 'Invalid',
+    points: 'Points',
+    totalPoints: 'Total',
+    basePoints: 'Entry',
+    sharePoints: 'Shares',
+    commentPoints: 'Comments',
+    bonusPoints: 'Bonus',
+    approvedActivities: 'Approved activities',
+    activitySuccess: 'Your proof has been submitted for manual review.',
+    activityDuplicate: 'This activity has already been claimed. Showing its current status.',
+    activityErrorTitle: 'Evidence could not be submitted',
     errors: {
       login_required: 'Please sign in to submit your entry.',
       email_not_confirmed: 'Confirm your email address before submitting your entry.',
@@ -134,6 +237,17 @@ const TEXT = {
       submission_not_accepted: 'This entry could not be accepted. Refresh the page and try again.',
       network_error: 'Connection problem. Please try again.',
       temporary_error: 'Your entry could not be submitted. Please try again shortly.',
+      invalid_activity_url: 'Enter a valid link starting with http:// or https://.',
+      evidence_text_too_long: 'Evidence notes are too long.',
+      client_submission_id_required: 'Could not prepare a safe submission. Refresh the page and try again.',
+      invalid_activity_type: 'This activity type is not supported.',
+      entry_not_eligible_for_activity: 'This entry can no longer claim activities.',
+      official_post_inactive: 'This post no longer accepts new activity claims.',
+      official_post_not_available: 'This post is not available.',
+      activity_claim_not_allowed: 'This activity cannot be claimed for this entry.',
+      activity_claim_not_available: 'Activity claims are not available right now.',
+      activity_claim_duplicate: 'This activity has already been claimed.',
+      activity_claim_not_accepted: 'This evidence could not be accepted. Check it and try again.',
     },
     selectPlaceholder: 'Select an option',
     genericField: 'Form field',
@@ -173,12 +287,58 @@ const TEXT = {
     authUnavailable: 'ההתחברות אינה זמינה כרגע בעמוד זה. נסו שוב בעוד רגע.',
     formErrorTitle: 'בדקו את שדות הטופס',
     accountEmailHint: 'ההרשמה תשויך לחשבון המחובר.',
+    cancel: 'ביטול',
     successTitle: 'ההרשמה נשמרה',
     successReference: 'מספר הרשמה',
     successStatus: 'סטטוס',
     pendingReview: 'ההרשמה נשמרה וממתינה לבדיקה ידנית.',
     submittedSuccess: 'ההרשמה נשמרה.',
     retry: 'נסו שוב',
+    activityTitle: 'הפעילות שלי',
+    activityLockedTitle: 'התחברו כדי לדווח על פעילות',
+    activityLockedCopy: 'לאחר שליחת ההרשמה הראשית אפשר להוסיף הוכחות לשיתופים ולתגובות.',
+    activityLoginButton: 'התחברות או הרשמה',
+    activityChecking: 'בודקים גישה לפעילות...',
+    activityEmailTitle: 'אשרו את כתובת האימייל',
+    activityEmailCopy: 'דיווח פעילות זמין לאחר אישור כתובת האימייל של החשבון.',
+    activityUnavailable: 'דיווח פעילות יהיה זמין לאחר שהקמפיין יהיה ציבורי.',
+    activityNoEntryTitle: 'שלחו קודם את ההרשמה הראשית',
+    activityNoEntryCopy: 'אפשר לשייך פעילות רק להרשמה שלכם בקמפיין הזה.',
+    activityMultipleEntriesTitle: 'לא ניתן לבחור הרשמה באופן בטוח',
+    activityMultipleEntriesCopy: 'פנו למנהל כדי לבדוק את ההרשמות בקמפיין.',
+    activityEntryBlockedTitle: 'פעילויות חסומות להרשמה זו',
+    activityEntryBlockedCopy: 'אפשר לדווח פעילות חדשה רק להרשמות במצב submitted, pending review או approved.',
+    myEntry: 'ההרשמה שלי',
+    myScore: 'הנקודות שלי',
+    officialPosts: 'פוסטים רשמיים',
+    noOfficialPosts: 'עדיין אין פוסטים רשמיים פעילים לקמפיין הזה.',
+    openOfficialPost: 'פתיחת הפוסט',
+    shareProof: 'הוכחת שיתוף',
+    commentProof: 'הוכחת תגובה',
+    addProof: 'הוספת הוכחה',
+    submitEvidence: 'שליחת הוכחה',
+    submittingEvidence: 'שולחים...',
+    evidenceUrl: 'קישור להוכחה',
+    evidenceText: 'הערות להוכחה',
+    participantReportedAt: 'זמן פרסום מדווח',
+    optional: 'אופציונלי',
+    commentDeadline: 'מועד אחרון לתגובה',
+    manualReviewNotice: 'ההוכחה תיבדק ידנית. נקודות אינן מוענקות אוטומטית.',
+    manualSelectionNotice: 'נקודות הן קריטריון מסייע. הזוכה נבחר ידנית על ידי הוועדה.',
+    activityPending: 'ממתין',
+    activityApproved: 'אושר',
+    activityRejected: 'נדחה',
+    activityInvalid: 'לא תקין',
+    points: 'נקודות',
+    totalPoints: 'סה״כ',
+    basePoints: 'הרשמה',
+    sharePoints: 'שיתופים',
+    commentPoints: 'תגובות',
+    bonusPoints: 'בונוס',
+    approvedActivities: 'פעילויות שאושרו',
+    activitySuccess: 'ההוכחה נשלחה לבדיקה ידנית.',
+    activityDuplicate: 'פעילות זו כבר דווחה. מוצג הסטטוס הנוכחי שלה.',
+    activityErrorTitle: 'לא ניתן לשלוח את ההוכחה',
     errors: {
       login_required: 'יש להתחבר כדי לשלוח הרשמה.',
       email_not_confirmed: 'יש לאשר את כתובת האימייל לפני שליחת הרשמה.',
@@ -201,6 +361,17 @@ const TEXT = {
       submission_not_accepted: 'לא ניתן לקבל את ההרשמה הזו. רעננו את העמוד ונסו שוב.',
       network_error: 'בעיה בחיבור. נסו שוב.',
       temporary_error: 'לא ניתן היה לשלוח את ההרשמה. נסו שוב בעוד רגע.',
+      invalid_activity_url: 'הזינו קישור תקין שמתחיל ב-http:// או https://.',
+      evidence_text_too_long: 'הערות ההוכחה ארוכות מדי.',
+      client_submission_id_required: 'לא ניתן להכין שליחה בטוחה. רעננו את העמוד ונסו שוב.',
+      invalid_activity_type: 'סוג פעילות זה אינו נתמך.',
+      entry_not_eligible_for_activity: 'הרשמה זו אינה יכולה להוסיף פעילות.',
+      official_post_inactive: 'הפוסט הזה כבר לא מקבל דיווחי פעילות חדשים.',
+      official_post_not_available: 'הפוסט הזה אינו זמין.',
+      activity_claim_not_allowed: 'לא ניתן לדווח פעילות עבור הרשמה זו.',
+      activity_claim_not_available: 'דיווח פעילות אינו זמין כרגע.',
+      activity_claim_duplicate: 'פעילות זו כבר דווחה.',
+      activity_claim_not_accepted: 'לא ניתן לקבל את ההוכחה הזו. בדקו את הפרטים ונסו שוב.',
     },
     selectPlaceholder: 'בחרו אפשרות',
     genericField: 'שדה טופס',
@@ -230,6 +401,9 @@ const refs = {
   entrySection: document.querySelector('[data-special-offer-entry-placeholder]'),
   entryTitle: document.querySelector('[data-special-offer-entry-title]'),
   entryCopy: document.querySelector('[data-special-offer-entry-copy]'),
+  activitySection: document.querySelector('[data-special-offer-activity-placeholder]'),
+  activityTitle: document.querySelector('[data-special-offer-activity-title]'),
+  activityBody: document.querySelector('[data-special-offer-activity-body]'),
   languageButtons: Array.from(document.querySelectorAll('[data-special-offer-lang]')),
   labels: Array.from(document.querySelectorAll('[data-special-offer-label]')),
 };
@@ -241,6 +415,19 @@ let formStatus = 'idle';
 let formDraft = {};
 let lastValidationErrors = [];
 let activeSubmitErrorCode = '';
+let activityState = {
+  loading: false,
+  errorCode: '',
+  posts: [],
+  entries: [],
+  entry: null,
+  activities: [],
+  score: null,
+  initializedFor: '',
+};
+let activitySubmitting = false;
+let activeClaimModal = null;
+let activityClaimDrafts = {};
 let authState = {
   checking: true,
   session: null,
@@ -914,6 +1101,223 @@ function clearSubmissionId() {
   }
 }
 
+function isActivityCampaignAvailable(data = currentState?.data) {
+  const campaign = data?.campaign || {};
+  return campaign.status === PUBLIC_STATUS
+    && campaign.visibility === PUBLIC_VISIBILITY
+    && campaign.allow_bonus_points === true;
+}
+
+function canEntryClaimActivity(entry) {
+  return ['submitted', 'pending_review', 'approved'].includes(cleanText(entry?.status));
+}
+
+function getActivityStatusLabel(status, lang) {
+  const t = getText(lang);
+  const normalized = cleanText(status);
+  if (normalized === 'approved') return t.activityApproved;
+  if (normalized === 'rejected') return t.activityRejected;
+  if (normalized === 'invalid') return t.activityInvalid;
+  return t.activityPending;
+}
+
+function getActivityMap(activities = activityState.activities) {
+  const map = new Map();
+  (Array.isArray(activities) ? activities : []).forEach((activity) => {
+    const key = `${cleanText(activity?.official_post_id)}:${cleanText(activity?.activity_type)}`;
+    if (key !== ':') map.set(key, activity);
+  });
+  return map;
+}
+
+function isValidActivityEvidenceUrl(value) {
+  if (value === null || value === undefined) return false;
+  const url = String(value);
+  if (!url || url.length > 2048) return false;
+  if (/[ \t\r\n\f\v\u0000-\u001F\u007F]/.test(url)) return false;
+  return /^https?:\/\/[^/?#\s\u0000-\u001F\u007F]+(?:[/?#][^\s\u0000-\u001F\u007F]*)?$/i.test(url);
+}
+
+function getActivitySubmissionStorageKey(entryId, postId, type) {
+  return `ce_special_offer_activity_submission_id:${currentSlug || readSlug() || 'unknown'}:${entryId || 'entry'}:${postId || 'post'}:${type || 'activity'}`;
+}
+
+function getActivitySubmissionId(entryId, postId, type) {
+  const key = getActivitySubmissionStorageKey(entryId, postId, type);
+  try {
+    const existing = sessionStorage.getItem(key);
+    if (existing && /^[0-9a-f-]{36}$/i.test(existing)) return existing;
+    const next = createUuid();
+    sessionStorage.setItem(key, next);
+    return next;
+  } catch (_error) {
+    return createUuid();
+  }
+}
+
+function clearActivitySubmissionId(entryId, postId, type) {
+  try {
+    sessionStorage.removeItem(getActivitySubmissionStorageKey(entryId, postId, type));
+  } catch (_error) {
+    // ignore storage errors
+  }
+}
+
+function mapActivityError(error) {
+  const raw = cleanText(error?.message || error?.details || error?.hint || error?.code || error);
+  if (!raw) return 'temporary_error';
+  const normalized = raw.toLowerCase();
+  const known = [
+    'login_required',
+    'email_not_confirmed',
+    'client_submission_id_required',
+    'invalid_activity_type',
+    'invalid_evidence_url',
+    'evidence_text_too_long',
+    'activity_claim_not_allowed',
+    'entry_not_eligible_for_activity',
+    'official_post_not_available',
+    'official_post_inactive',
+    'activity_claim_not_available',
+    'activity_claim_duplicate',
+    'activity_claim_not_accepted',
+  ];
+  for (const code of known) {
+    if (normalized.includes(code)) {
+      return code === 'invalid_evidence_url' ? 'invalid_activity_url' : code;
+    }
+  }
+  if (normalized.includes('failed to fetch') || normalized.includes('network')) return 'network_error';
+  return 'temporary_error';
+}
+
+function getActivityDraftKey(postId, type) {
+  return `${cleanText(postId)}:${cleanText(type)}`;
+}
+
+function saveActiveClaimDraft() {
+  const modal = activeClaimModal;
+  if (!modal?.postId || !modal?.type || !modal.node) return;
+  const form = modal.node.querySelector('[data-special-offer-activity-claim-form]');
+  if (!(form instanceof HTMLFormElement)) return;
+  const draft = {
+    evidence_url: cleanText(form.elements.namedItem('evidence_url')?.value),
+    evidence_text: cleanText(form.elements.namedItem('evidence_text')?.value),
+    participant_reported_at: cleanText(form.elements.namedItem('participant_reported_at')?.value),
+  };
+  activityClaimDrafts[getActivityDraftKey(modal.postId, modal.type)] = draft;
+}
+
+async function fetchPublicOfficialPosts(offerId) {
+  const { data, error } = await supabase
+    .from('special_offer_official_posts')
+    .select('id,offer_id,post_order,week_number,admin_title,platform,official_url,published_at,comment_deadline_at,active,created_at,updated_at')
+    .eq('offer_id', offerId)
+    .eq('active', true)
+    .order('post_order', { ascending: true });
+  if (error) throw error;
+  return Array.isArray(data) ? data : [];
+}
+
+async function fetchOwnEntry(offerId, userId) {
+  const { data, error } = await supabase
+    .from('special_offer_entries')
+    .select('id,offer_id,user_id,reference,status,submitted_lang,created_at,reviewed_at')
+    .eq('offer_id', offerId)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(2);
+  if (error) throw error;
+  return Array.isArray(data) ? data : [];
+}
+
+async function fetchOwnActivities(offerId, entryId) {
+  const { data, error } = await supabase
+    .from('special_offer_entry_activities')
+    .select('id,offer_id,entry_id,official_post_id,activity_type,status,points_awarded,participant_reported_at,verified_activity_at,created_at,updated_at')
+    .eq('offer_id', offerId)
+    .eq('entry_id', entryId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return Array.isArray(data) ? data : [];
+}
+
+async function fetchOwnScore(offerId, entryId) {
+  const { data, error } = await supabase.rpc('special_offer_entry_score_summary', {
+    p_offer_id: offerId,
+    p_entry_id: entryId,
+  });
+  if (error) throw error;
+  const rows = Array.isArray(data) ? data : data ? [data] : [];
+  return rows.find((row) => cleanText(row?.entry_id) === cleanText(entryId)) || rows[0] || null;
+}
+
+async function refreshActivityData({ render = true, scroll = false } = {}) {
+  const state = currentState;
+  const data = state?.data;
+  const lang = state?.lang || readRequestedLang();
+  if (!data || !refs.activitySection) return;
+
+  if (!isActivityCampaignAvailable(data) || state.previewMode) {
+    activityState = {
+      loading: false,
+      errorCode: '',
+      posts: [],
+      entries: [],
+      entry: null,
+      activities: [],
+      score: null,
+      initializedFor: cleanText(data.campaign?.id),
+    };
+    if (render) renderActivitySection(data, lang);
+    return;
+  }
+
+  activityState = { ...activityState, loading: true, errorCode: '', initializedFor: cleanText(data.campaign?.id) };
+  if (render) renderActivitySection(data, lang);
+
+  try {
+    const offerId = data.campaign.id;
+    const posts = await fetchPublicOfficialPosts(offerId);
+    let entries = [];
+    let entry = null;
+    let activities = [];
+    let score = null;
+
+    if (authState.confirmed && authState.user?.id) {
+      entries = await fetchOwnEntry(offerId, authState.user.id);
+      entry = entries.length === 1 ? entries[0] : null;
+      if (entry?.id) {
+        [activities, score] = await Promise.all([
+          fetchOwnActivities(offerId, entry.id),
+          fetchOwnScore(offerId, entry.id),
+        ]);
+      }
+    }
+
+    activityState = {
+      loading: false,
+      errorCode: '',
+      posts,
+      entries,
+      entry,
+      activities,
+      score,
+      initializedFor: offerId,
+    };
+  } catch (error) {
+    console.warn('Special Offer activity load failed:', error);
+    activityState = { ...activityState, loading: false, errorCode: 'temporary_error' };
+  }
+
+  if (render) {
+    renderActivitySection(data, lang);
+    if (scroll && refs.activitySection && !refs.activitySection.hidden) {
+      refs.activitySection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+}
+
 async function getCurrentSession() {
   if (authState?.session?.user?.id) return authState.session;
   const cached = window.CE_STATE?.session || null;
@@ -928,6 +1332,7 @@ async function getCurrentSession() {
 
 function openAuthGate(lang, code = 'login_required') {
   saveCurrentFormDraft();
+  saveActiveClaimDraft();
   configureAuthRedirectTarget();
   formStatus = 'login_required';
   activeSubmitErrorCode = code;
@@ -1338,6 +1743,454 @@ function renderEntryForm(data, lang) {
   setSubmitButtonState(formStatus, lang);
 }
 
+function renderActivityLocked(lang, state) {
+  const t = getText(lang);
+  const isEmail = state === 'email_not_confirmed';
+  const title = state === 'checking'
+    ? t.activityChecking
+    : isEmail
+      ? t.activityEmailTitle
+      : t.activityLockedTitle;
+  const copy = state === 'checking'
+    ? ''
+    : isEmail
+      ? t.activityEmailCopy
+      : t.activityLockedCopy;
+  const buttonLabel = isEmail ? t.refreshAccess : t.activityLoginButton;
+  return `
+    <div class="special-offer-activity-locked" data-special-offer-activity-locked>
+      <h3>${escapeHtml(title)}</h3>
+      ${copy ? `<p>${escapeHtml(copy)}</p>` : ''}
+      ${state === 'checking' ? `<p class="special-offer-form-help">${escapeHtml(t.activityChecking)}</p>` : `
+        <button type="button" class="special-offer-button" data-special-offer-activity-auth-open>${escapeHtml(buttonLabel)}</button>
+      `}
+    </div>
+  `;
+}
+
+function renderActivityMessage(title, copy = '') {
+  return `
+    <div class="special-offer-activity-message">
+      <h3>${escapeHtml(title)}</h3>
+      ${copy ? `<p>${escapeHtml(copy)}</p>` : ''}
+    </div>
+  `;
+}
+
+function renderScoreCard(score, lang) {
+  const t = getText(lang);
+  const safeScore = score || {};
+  const items = [
+    [t.basePoints, Number(safeScore.base_points || 0)],
+    [t.sharePoints, Number(safeScore.share_points || 0)],
+    [t.commentPoints, Number(safeScore.comment_points || 0)],
+    [t.bonusPoints, Number(safeScore.bonus_points || 0)],
+    [t.approvedActivities, Number(safeScore.approved_activity_count || 0)],
+  ];
+  return `
+    <article class="special-offer-activity-card special-offer-activity-card--score" data-special-offer-score-card>
+      <h3>${escapeHtml(t.myScore)}</h3>
+      <div class="special-offer-score-total">
+        <span>${escapeHtml(t.totalPoints)}</span>
+        <strong>${escapeHtml(Number(safeScore.total_points || 0))}</strong>
+      </div>
+      <dl class="special-offer-score-breakdown">
+        ${items.map(([label, value]) => `
+          <div>
+            <dt>${escapeHtml(label)}</dt>
+            <dd>${escapeHtml(value)}</dd>
+          </div>
+        `).join('')}
+      </dl>
+      <p class="special-offer-form-help">${escapeHtml(t.manualSelectionNotice)}</p>
+    </article>
+  `;
+}
+
+function renderEntrySummaryCard(entry, lang) {
+  const t = getText(lang);
+  return `
+    <article class="special-offer-activity-card" data-special-offer-own-entry>
+      <h3>${escapeHtml(t.myEntry)}</h3>
+      <dl class="special-offer-activity-facts">
+        <div>
+          <dt>${escapeHtml(t.successReference)}</dt>
+          <dd>${escapeHtml(entry?.reference || '')}</dd>
+        </div>
+        <div>
+          <dt>${escapeHtml(t.successStatus)}</dt>
+          <dd>${escapeHtml(cleanText(entry?.status) || '-')}</dd>
+        </div>
+      </dl>
+    </article>
+  `;
+}
+
+function renderActivityStatus(activity, lang) {
+  const t = getText(lang);
+  if (!activity) return '';
+  const status = cleanText(activity.status) || 'pending';
+  const points = Number(activity.points_awarded || 0);
+  return `
+    <div class="special-offer-activity-status" data-status="${escapeHtml(status)}">
+      <strong>${escapeHtml(getActivityStatusLabel(status, lang))}</strong>
+      <span>${escapeHtml(t.points)}: ${escapeHtml(points)}</span>
+      ${status === 'pending' ? `<span>${escapeHtml(t.manualReviewNotice)}</span>` : ''}
+    </div>
+  `;
+}
+
+function renderActivityClaimBlock(post, type, existingActivity, entry, lang) {
+  const t = getText(lang);
+  const label = type === 'comment' ? t.commentProof : t.shareProof;
+  const eligible = canEntryClaimActivity(entry);
+  if (existingActivity) {
+    return `
+      <div class="special-offer-activity-claim" data-special-offer-claim="${escapeHtml(type)}">
+        <h4>${escapeHtml(label)}</h4>
+        ${renderActivityStatus(existingActivity, lang)}
+      </div>
+    `;
+  }
+  return `
+    <div class="special-offer-activity-claim" data-special-offer-claim="${escapeHtml(type)}">
+      <h4>${escapeHtml(label)}</h4>
+      ${type === 'comment' ? `<p class="special-offer-form-help">${escapeHtml(t.manualReviewNotice)}</p>` : ''}
+      <button
+        type="button"
+        class="special-offer-button special-offer-button--secondary"
+        data-special-offer-activity-open
+        data-post-id="${escapeHtml(post.id)}"
+        data-activity-type="${escapeHtml(type)}"
+        ${eligible ? '' : 'disabled'}
+      >${escapeHtml(t.addProof)}</button>
+    </div>
+  `;
+}
+
+function renderOfficialPostCard(post, activityMap, entry, lang) {
+  const t = getText(lang);
+  const postId = cleanText(post?.id);
+  const title = cleanText(post?.admin_title) || `${t.officialPosts} ${cleanText(post?.post_order)}`;
+  const officialUrl = cleanText(post?.official_url);
+  const shareActivity = activityMap.get(`${postId}:share`);
+  const commentActivity = activityMap.get(`${postId}:comment`);
+  const safeOfficialUrl = isSafeHref(officialUrl) && /^https?:\/\//i.test(officialUrl);
+  return `
+    <article class="special-offer-official-post" data-special-offer-official-post="${escapeHtml(postId)}">
+      <div class="special-offer-official-post__header">
+        <div>
+          <p class="special-offer-kicker">${escapeHtml(cleanText(post?.platform) || 'facebook')}</p>
+          <h3>${escapeHtml(title)}</h3>
+        </div>
+        <span class="special-offer-post-order">#${escapeHtml(post?.post_order || '')}</span>
+      </div>
+      <dl class="special-offer-activity-facts">
+        ${post?.week_number ? `<div><dt>Week</dt><dd>${escapeHtml(post.week_number)}</dd></div>` : ''}
+        <div><dt>${escapeHtml(t.starts)}</dt><dd>${escapeHtml(formatDate(post?.published_at, lang, currentState?.data?.campaign?.timezone))}</dd></div>
+        <div><dt>${escapeHtml(t.commentDeadline)}</dt><dd>${escapeHtml(formatDate(post?.comment_deadline_at, lang, currentState?.data?.campaign?.timezone))}</dd></div>
+      </dl>
+      ${safeOfficialUrl ? `
+        <a class="special-offer-link-card__cta" href="${escapeHtml(officialUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(t.openOfficialPost)}</a>
+      ` : officialUrl ? `<p class="special-offer-form-help">${escapeHtml(officialUrl)}</p>` : ''}
+      <div class="special-offer-activity-claims">
+        ${renderActivityClaimBlock(post, 'share', shareActivity, entry, lang)}
+        ${renderActivityClaimBlock(post, 'comment', commentActivity, entry, lang)}
+      </div>
+    </article>
+  `;
+}
+
+function bindActivitySectionHandlers(lang) {
+  refs.activitySection?.querySelector('[data-special-offer-activity-auth-open]')?.addEventListener('click', async () => {
+    if (!authState.user?.id || !authState.confirmed) {
+      await refreshSpecialOfferAuthState();
+    }
+    if (authState.confirmed) {
+      await refreshActivityData({ render: true, scroll: true });
+      return;
+    }
+    openAuthGate(lang, authState.user?.id ? 'email_not_confirmed' : 'login_required');
+  });
+  refs.activitySection?.querySelectorAll('[data-special-offer-activity-open]').forEach((button) => {
+    if (!(button instanceof HTMLButtonElement)) return;
+    button.addEventListener('click', () => {
+      openActivityClaimModal(button.dataset.postId, button.dataset.activityType, lang);
+    });
+  });
+  refs.activitySection?.querySelector('[data-special-offer-activity-retry]')?.addEventListener('click', () => {
+    void refreshActivityData({ render: true, scroll: true });
+  });
+}
+
+function renderActivitySection(data, lang) {
+  if (!refs.activitySection || !refs.activityBody) return;
+  const t = getText(lang);
+  refs.activityTitle.textContent = t.activityTitle;
+  refs.activitySection.dir = lang === 'he' ? 'rtl' : 'ltr';
+
+  if (!isActivityCampaignAvailable(data)) {
+    refs.activitySection.hidden = true;
+    refs.activityBody.replaceChildren();
+    return;
+  }
+
+  refs.activitySection.hidden = false;
+
+  if (currentState?.previewMode) {
+    refs.activityBody.innerHTML = renderActivityMessage(t.activityTitle, t.activityUnavailable);
+    return;
+  }
+  if (authState.checking) {
+    refs.activityBody.innerHTML = renderActivityLocked(lang, 'checking');
+    bindActivitySectionHandlers(lang);
+    return;
+  }
+  if (!authState.user?.id) {
+    refs.activityBody.innerHTML = renderActivityLocked(lang, 'login_required');
+    bindActivitySectionHandlers(lang);
+    return;
+  }
+  if (!authState.confirmed) {
+    refs.activityBody.innerHTML = renderActivityLocked(lang, 'email_not_confirmed');
+    bindActivitySectionHandlers(lang);
+    return;
+  }
+  if (activityState.loading) {
+    refs.activityBody.innerHTML = renderActivityMessage(t.activityChecking);
+    return;
+  }
+  if (activityState.errorCode) {
+    refs.activityBody.innerHTML = `
+      ${renderActivityMessage(t.activityErrorTitle, getErrorMessage(activityState.errorCode, lang))}
+      <button type="button" class="special-offer-button special-offer-button--secondary" data-special-offer-activity-retry>${escapeHtml(t.retry)}</button>
+    `;
+    bindActivitySectionHandlers(lang);
+    return;
+  }
+  if (activityState.entries.length > 1) {
+    refs.activityBody.innerHTML = renderActivityMessage(t.activityMultipleEntriesTitle, t.activityMultipleEntriesCopy);
+    return;
+  }
+  if (!activityState.entry?.id) {
+    refs.activityBody.innerHTML = renderActivityMessage(t.activityNoEntryTitle, t.activityNoEntryCopy);
+    return;
+  }
+
+  const entry = activityState.entry;
+  const activityMap = getActivityMap(activityState.activities);
+  const blocked = !canEntryClaimActivity(entry);
+  const posts = Array.isArray(activityState.posts) ? activityState.posts : [];
+
+  refs.activityBody.innerHTML = `
+    <div class="special-offer-activity-overview">
+      ${renderEntrySummaryCard(entry, lang)}
+      ${renderScoreCard(activityState.score, lang)}
+    </div>
+    ${blocked ? renderActivityMessage(t.activityEntryBlockedTitle, t.activityEntryBlockedCopy) : ''}
+    <div class="special-offer-official-posts">
+      <h3>${escapeHtml(t.officialPosts)}</h3>
+      ${posts.length ? posts.map((post) => renderOfficialPostCard(post, activityMap, entry, lang)).join('') : `<p class="special-offer-empty">${escapeHtml(t.noOfficialPosts)}</p>`}
+    </div>
+  `;
+  bindActivitySectionHandlers(lang);
+}
+
+function closeActivityClaimModal({ restoreFocus = true } = {}) {
+  if (!activeClaimModal?.node) return;
+  saveActiveClaimDraft();
+  const previousFocus = activeClaimModal.previousFocus;
+  activeClaimModal.node.remove();
+  activeClaimModal = null;
+  if (restoreFocus && previousFocus instanceof HTMLElement) {
+    previousFocus.focus({ preventScroll: true });
+  }
+}
+
+function buildActivityClaimModal(post, type, lang) {
+  const t = getText(lang);
+  const label = type === 'comment' ? t.commentProof : t.shareProof;
+  const draft = activityClaimDrafts[getActivityDraftKey(post.id, type)] || {};
+  const modal = document.createElement('div');
+  modal.className = 'special-offer-claim-modal';
+  modal.dataset.specialOfferClaimModal = 'true';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-labelledby', 'specialOfferClaimTitle');
+  modal.dir = lang === 'he' ? 'rtl' : 'ltr';
+  modal.innerHTML = `
+    <div class="special-offer-claim-modal__backdrop" data-special-offer-claim-close></div>
+    <div class="special-offer-claim-modal__dialog" role="document">
+      <button type="button" class="special-offer-claim-modal__close" data-special-offer-claim-close aria-label="Close">x</button>
+      <h2 id="specialOfferClaimTitle">${escapeHtml(label)}</h2>
+      <p class="special-offer-form-help">${escapeHtml(t.manualReviewNotice)}</p>
+      ${type === 'comment' ? `
+        <p class="special-offer-form-help">${escapeHtml(t.commentDeadline)}: ${escapeHtml(formatDate(post.comment_deadline_at, lang, currentState?.data?.campaign?.timezone))}</p>
+      ` : ''}
+      <form class="special-offer-activity-claim-form" data-special-offer-activity-claim-form novalidate>
+        <div class="special-offer-form-status" data-special-offer-activity-claim-status role="status" aria-live="polite"></div>
+        <label class="special-offer-form-field">
+          <span>${escapeHtml(t.evidenceUrl)} <span class="special-offer-form-required" aria-hidden="true">*</span></span>
+          <input type="url" name="evidence_url" required value="${escapeHtml(draft.evidence_url || '')}" autocomplete="url" />
+        </label>
+        <label class="special-offer-form-field">
+          <span>${escapeHtml(t.evidenceText)} (${escapeHtml(t.optional)})</span>
+          <textarea name="evidence_text" rows="4" maxlength="2000">${escapeHtml(draft.evidence_text || '')}</textarea>
+        </label>
+        <label class="special-offer-form-field">
+          <span>${escapeHtml(t.participantReportedAt)} (${escapeHtml(t.optional)})</span>
+          <input type="datetime-local" name="participant_reported_at" value="${escapeHtml(draft.participant_reported_at || '')}" />
+        </label>
+        <div class="special-offer-form-submit">
+          <button type="button" class="special-offer-button special-offer-button--secondary" data-special-offer-claim-close>${escapeHtml(t.cancel)}</button>
+          <button type="submit" class="special-offer-button" data-special-offer-activity-claim-submit>${escapeHtml(t.submitEvidence)}</button>
+        </div>
+      </form>
+    </div>
+  `;
+  return modal;
+}
+
+function openActivityClaimModal(postId, type, lang) {
+  const post = activityState.posts.find((item) => cleanText(item?.id) === cleanText(postId));
+  const normalizedType = cleanText(type);
+  if (!post || !['share', 'comment'].includes(normalizedType)) return;
+  closeActivityClaimModal({ restoreFocus: false });
+  const modal = buildActivityClaimModal(post, normalizedType, lang);
+  activeClaimModal = {
+    node: modal,
+    postId: post.id,
+    type: normalizedType,
+    previousFocus: document.activeElement,
+  };
+  document.body.appendChild(modal);
+  modal.querySelectorAll('[data-special-offer-claim-close]').forEach((node) => {
+    node.addEventListener('click', () => closeActivityClaimModal());
+  });
+  modal.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeActivityClaimModal();
+    }
+    if (event.key === 'Tab') {
+      const focusables = Array.from(modal.querySelectorAll('button, input, textarea, select, a[href]'))
+        .filter((node) => node instanceof HTMLElement && !node.hasAttribute('disabled'));
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+  });
+  const form = modal.querySelector('[data-special-offer-activity-claim-form]');
+  if (form instanceof HTMLFormElement) {
+    form.addEventListener('input', saveActiveClaimDraft);
+    form.addEventListener('submit', (event) => {
+      void handleActivityClaimSubmit(event, post, normalizedType, lang);
+    });
+  }
+  const firstInput = modal.querySelector('input[name="evidence_url"]');
+  if (firstInput instanceof HTMLElement) firstInput.focus({ preventScroll: true });
+}
+
+function setClaimModalStatus(message, tone = 'info') {
+  const node = activeClaimModal?.node?.querySelector('[data-special-offer-activity-claim-status]');
+  if (!(node instanceof HTMLElement)) return;
+  node.textContent = message || '';
+  node.dataset.tone = tone;
+}
+
+function setClaimSubmitState(submittingState, lang) {
+  const button = activeClaimModal?.node?.querySelector('[data-special-offer-activity-claim-submit]');
+  if (!(button instanceof HTMLButtonElement)) return;
+  const t = getText(lang);
+  button.disabled = submittingState;
+  button.textContent = submittingState ? t.submittingEvidence : t.submitEvidence;
+  button.setAttribute('aria-busy', submittingState ? 'true' : 'false');
+}
+
+function readParticipantReportedAt(value) {
+  const raw = cleanText(value);
+  if (!raw) return null;
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+}
+
+async function handleActivityClaimSubmit(event, post, type, lang) {
+  event.preventDefault();
+  if (activitySubmitting) return;
+  const form = event.currentTarget;
+  if (!(form instanceof HTMLFormElement)) return;
+  const t = getText(lang);
+  const entry = activityState.entry;
+  if (!entry?.id || !canEntryClaimActivity(entry)) {
+    setClaimModalStatus(getErrorMessage('entry_not_eligible_for_activity', lang), 'error');
+    return;
+  }
+
+  saveActiveClaimDraft();
+  await refreshSpecialOfferAuthState();
+  const session = await getCurrentSession();
+  if (!session?.user?.id) {
+    openAuthGate(lang);
+    return;
+  }
+  if (!isConfirmedAuthUser(session.user)) {
+    openAuthGate(lang, 'email_not_confirmed');
+    return;
+  }
+
+  const evidenceUrl = cleanText(form.elements.namedItem('evidence_url')?.value);
+  const evidenceText = cleanText(form.elements.namedItem('evidence_text')?.value);
+  const participantReportedAt = readParticipantReportedAt(form.elements.namedItem('participant_reported_at')?.value);
+  if (!isValidActivityEvidenceUrl(evidenceUrl)) {
+    setClaimModalStatus(getErrorMessage('invalid_activity_url', lang), 'error');
+    form.elements.namedItem('evidence_url')?.focus?.();
+    return;
+  }
+  if (evidenceText.length > 2000) {
+    setClaimModalStatus(getErrorMessage('evidence_text_too_long', lang), 'error');
+    form.elements.namedItem('evidence_text')?.focus?.();
+    return;
+  }
+
+  const submissionId = getActivitySubmissionId(entry.id, post.id, type);
+  activitySubmitting = true;
+  setClaimSubmitState(true, lang);
+  setClaimModalStatus('', 'info');
+  try {
+    const { data, error } = await supabase.rpc('submit_special_offer_activity_claim', {
+      p_entry_id: entry.id,
+      p_official_post_id: post.id,
+      p_activity_type: type,
+      p_evidence_url: evidenceUrl,
+      p_client_submission_id: submissionId,
+      p_evidence_text: evidenceText || null,
+      p_participant_reported_at: participantReportedAt,
+    });
+    if (error) throw error;
+    clearActivitySubmissionId(entry.id, post.id, type);
+    delete activityClaimDrafts[getActivityDraftKey(post.id, type)];
+    const payload = Array.isArray(data) ? data[0] : data;
+    setClaimModalStatus(payload?.duplicate ? t.activityDuplicate : t.activitySuccess, 'success');
+    await refreshActivityData({ render: true });
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    closeActivityClaimModal({ restoreFocus: false });
+  } catch (error) {
+    console.warn('Special Offer activity claim failed:', error);
+    setClaimModalStatus(getErrorMessage(mapActivityError(error), lang), 'error');
+  } finally {
+    activitySubmitting = false;
+    setClaimSubmitState(false, lang);
+  }
+}
+
 function renderPrizes(prizes, prizeTranslations, lang, previewMode) {
   const t = getText(lang);
   refs.prizes.replaceChildren();
@@ -1521,6 +2374,8 @@ function renderCampaign(data, requestedLang, previewMode) {
   renderFaq(translation, lang);
   renderLinks(data.links, data.linkTranslations, lang);
   renderEntryForm(data, lang);
+  renderActivitySection(data, lang);
+  void refreshActivityData({ render: true });
 }
 
 async function fetchRows(table, filters = [], order = null) {
@@ -1598,12 +2453,16 @@ function bindLanguageButtons() {
   refs.languageButtons.forEach((button) => {
     button.addEventListener('click', () => {
       saveCurrentFormDraft();
+      saveActiveClaimDraft();
       const nextLang = normalizeLang(button.getAttribute('data-special-offer-lang'));
       const url = new URL(window.location.href);
       url.searchParams.set('lang', nextLang);
       window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
       if (currentState) {
         renderCampaign(currentState.data, nextLang, currentState.previewMode);
+        if (activeClaimModal?.postId && activeClaimModal?.type) {
+          openActivityClaimModal(activeClaimModal.postId, activeClaimModal.type, nextLang);
+        }
       } else {
         setPageLanguage(nextLang);
         updateStaticText(nextLang);
@@ -1615,11 +2474,13 @@ function bindLanguageButtons() {
 function bindAuthEvents() {
   const refreshAndRender = async ({ scroll = false } = {}) => {
     saveCurrentFormDraft();
+    saveActiveClaimDraft();
     await refreshSpecialOfferAuthState();
     activeSubmitErrorCode = '';
     formStatus = 'idle';
     rerenderEntryFormIfPossible({ scroll: scroll || authState.confirmed });
     await applyAuthenticatedEmailToForm();
+    await refreshActivityData({ render: true, scroll: scroll || authState.confirmed });
     showFormStatus('', 'info');
     setSubmitButtonState('idle', currentState?.lang || readRequestedLang());
   };
