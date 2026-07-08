@@ -21,8 +21,9 @@ async function prepareActivityStub(page: Page, options: {
   seedExistingActivity?: 'pending' | 'approved' | 'rejected' | 'invalid';
   unsafePostUrl?: boolean;
   noEntry?: boolean;
+  noOfficialPosts?: boolean;
 } = {}) {
-  await page.addInitScript(({ offerId, entryId, userId, postId, secondPostId, session, entryStatus, seedExistingActivity, unsafePostUrl, noEntry }) => {
+  await page.addInitScript(({ offerId, entryId, userId, postId, secondPostId, session, entryStatus, seedExistingActivity, unsafePostUrl, noEntry, noOfficialPosts }) => {
     (window as any).__supabaseStub = {
       ...(window as any).__supabaseStub,
       onReady: (stub: any) => {
@@ -95,7 +96,7 @@ async function prepareActivityStub(page: Page, options: {
         ]);
         stub.seedTable('special_offer_prizes', []);
         stub.seedTable('special_offer_links', []);
-        stub.seedTable('special_offer_official_posts', [
+        stub.seedTable('special_offer_official_posts', noOfficialPosts ? [] : [
           {
             id: postId,
             offer_id: offerId,
@@ -219,6 +220,7 @@ async function prepareActivityStub(page: Page, options: {
     seedExistingActivity: options.seedExistingActivity || null,
     unsafePostUrl: options.unsafePostUrl || false,
     noEntry: options.noEntry || false,
+    noOfficialPosts: options.noOfficialPosts || false,
   });
 }
 
@@ -252,6 +254,21 @@ test.describe('Special Offer public activity claims', () => {
     await expect(section).toContainText('Points are a supporting criterion');
     await expect(section.getByRole('link', { name: 'Open post' })).toHaveAttribute('rel', 'noopener noreferrer');
     await expect(section.getByRole('link', { name: 'Open post' })).toHaveAttribute('target', '_blank');
+  });
+
+  test('shows friendly bonus empty state when no official posts exist', async ({ page }) => {
+    await prepareActivityStub(page, { session: 'confirmed', entryStatus: 'approved', noOfficialPosts: true });
+    await page.goto('/special-offers/activity-campaign-2026?lang=en');
+    await waitForSupabaseStub(page);
+
+    const section = page.locator('[data-special-offer-activity-placeholder]');
+    await expect(section.getByRole('heading', { name: 'My Activity' })).toBeVisible();
+    await expect(section).toContainText('There are no active official posts for this campaign yet.');
+    await expect(section).toContainText('SO-ACTIVITY-1');
+    await expect(section).toContainText('Total');
+    await expect(section.getByRole('button', { name: 'Add proof' })).toHaveCount(0);
+    const rpcCalls = await page.evaluate(() => (window as any).__supabaseStub.getRpcCalls());
+    expect(rpcCalls.filter((call: any) => call.name === 'submit_special_offer_activity_claim')).toHaveLength(0);
   });
 
   test('submits share evidence through RPC once and refreshes activity status', async ({ page }) => {

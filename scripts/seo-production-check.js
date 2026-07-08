@@ -97,6 +97,7 @@ function getDynamicCounts(locs) {
       (url.pathname === '/trip.html' && url.searchParams.has('slug'))
       || /^\/trip\/[^/]+$/.test(url.pathname)
     )).length,
+    specialOffers: urls.filter((url) => /^\/special-offers\/[^/]+$/.test(url.pathname)).length,
   };
 }
 

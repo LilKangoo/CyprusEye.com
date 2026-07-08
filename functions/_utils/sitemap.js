@@ -61,6 +61,11 @@ export const SITEMAP_DYNAMIC_SOURCES = Object.freeze({
     route: '/trip.html?slug={slug}',
     languages: SITEMAP_LANGUAGES,
   }),
+  specialOffers: Object.freeze({
+    table: 'special_offers',
+    route: '/special-offers/{slug}',
+    languages: SITEMAP_LANGUAGES,
+  }),
 });
 
 function safeArray(value) {
@@ -127,6 +132,19 @@ function buildServiceOfferUrl(kind, slug, language) {
   if (language === 'he') {
     url.searchParams.set('lang', 'he');
   } else if (languageParam) {
+    url.searchParams.set('lang', languageParam);
+  }
+  return url.toString();
+}
+
+function buildSpecialOfferUrl(slug, language) {
+  const normalizedSlug = String(slug || '').trim().replace(/^\/+|\/+$/g, '');
+  if (!normalizedSlug) {
+    return '';
+  }
+  const url = new URL(`/special-offers/${encodeURIComponent(normalizedSlug)}`, SITEMAP_ORIGIN);
+  const languageParam = getLanguageQueryParam(language);
+  if (languageParam) {
     url.searchParams.set('lang', languageParam);
   }
   return url.toString();
@@ -332,6 +350,42 @@ async function fetchPublishedServiceEntries(client, kind) {
   });
 }
 
+async function fetchPublishedSpecialOfferEntries(client) {
+  if (!client) {
+    return [];
+  }
+
+  const { data, error } = await client
+    .from('special_offers')
+    .select('slug, status, visibility, start_at, end_at, updated_at')
+    .eq('status', 'active')
+    .eq('visibility', 'public')
+    .not('slug', 'is', null)
+    .order('updated_at', { ascending: false });
+
+  if (error) {
+    console.warn('[sitemap] Failed to load Special Offers sitemap entries:', error);
+    return [];
+  }
+
+  const now = Date.now();
+  return safeArray(data).flatMap((row) => {
+    const slug = String(row?.slug || '').trim();
+    if (!slug) {
+      return [];
+    }
+    const startAt = row?.start_at ? new Date(row.start_at).getTime() : null;
+    const endAt = row?.end_at ? new Date(row.end_at).getTime() : null;
+    if ((startAt && now < startAt) || (endAt && now > endAt)) {
+      return [];
+    }
+    return SITEMAP_LANGUAGES.map((language) => ({
+      loc: buildSpecialOfferUrl(slug, language || DEFAULT_PUBLIC_LANGUAGE),
+      lastmod: row?.updated_at || '',
+    })).filter((entry) => entry.loc);
+  });
+}
+
 export function getStaticSitemapEntries() {
   return dedupeEntries([
     ...STATIC_PUBLIC_URLS.map((loc) => ({ loc: buildAbsoluteUrl(loc) })),
@@ -345,14 +399,15 @@ export async function getDynamicSitemapEntries(env) {
     return [];
   }
 
-  const [blogResult, hotelResult, tripResult] = await Promise.allSettled([
+  const [blogResult, hotelResult, tripResult, specialOfferResult] = await Promise.allSettled([
     fetchPublishedBlogEntries(client),
     fetchPublishedServiceEntries(client, 'hotels'),
     fetchPublishedServiceEntries(client, 'trips'),
+    fetchPublishedSpecialOfferEntries(client),
   ]);
 
   const resolved = [];
-  for (const result of [blogResult, hotelResult, tripResult]) {
+  for (const result of [blogResult, hotelResult, tripResult, specialOfferResult]) {
     if (result.status === 'fulfilled') {
       resolved.push(...safeArray(result.value));
     } else {
