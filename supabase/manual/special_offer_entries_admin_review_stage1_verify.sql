@@ -91,7 +91,7 @@ order by c.relname;
 
 select
   'status_constraint' as check_name,
-  tc.constraint_name,
+  con.conname as constraint_name,
   pg_get_constraintdef(con.oid) as constraint_definition,
   coalesce(array_agg(m.match[1] order by m.match[1]), ARRAY[]::text[]) as allowed_statuses,
   coalesce(array_agg(m.match[1] order by m.match[1]), ARRAY[]::text[]) = ARRAY[
@@ -287,6 +287,23 @@ checks as (
         and fn not ilike '%client_submission_id =%'
       from rpc
     ), false) as no_entries_modified,
+    coalesce((
+      select fn like '%btrim(coalesce(p_review_note,%'
+        and fn like '%btrim(coalesce(p_rejection_reason,%'
+        and fn like '%E'' \t\n\r\f''%'
+        and fn like '%rejection_reason_required%'
+        and position('if v_entry.status = v_new_status then' in fn) > 0
+        and position('if v_review_note is not null and char_length' in fn) > 0
+        and position('if v_rejection_reason is not null and char_length' in fn) > 0
+        and position('if v_new_status in (''rejected'', ''disqualified'') and v_rejection_reason is null' in fn) > 0
+        and position('if v_entry.status = v_new_status then' in fn)
+          < position('if v_review_note is not null and char_length' in fn)
+        and position('if v_entry.status = v_new_status then' in fn)
+          < position('if v_rejection_reason is not null and char_length' in fn)
+        and position('if v_entry.status = v_new_status then' in fn)
+          < position('if v_new_status in (''rejected'', ''disqualified'') and v_rejection_reason is null' in fn)
+      from rpc
+    ), false) as rpc_static_review_flow_ok,
     not exists (
       select 1
       from pg_proc p
@@ -327,6 +344,7 @@ select
   audit_log_rls_state_expected,
   status_constraint_unchanged,
   answers_table_unchanged,
+  rpc_static_review_flow_ok,
   no_entries_modified,
   no_answers_modified,
   no_tasks_draws_winners,
@@ -347,6 +365,7 @@ select
     and audit_log_rls_state_expected
     and status_constraint_unchanged
     and answers_table_unchanged
+    and rpc_static_review_flow_ok
     and no_entries_modified
     and no_answers_modified
     and no_tasks_draws_winners

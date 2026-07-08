@@ -59,8 +59,8 @@ declare
   v_actor_id uuid := null;
   v_entry public.special_offer_entries%rowtype;
   v_new_status text := lower(trim(coalesce(p_new_status, '')));
-  v_review_note text := nullif(trim(coalesce(p_review_note, '')), '');
-  v_rejection_reason text := nullif(trim(coalesce(p_rejection_reason, '')), '');
+  v_review_note text := nullif(btrim(coalesce(p_review_note, ''), E' \t\n\r\f'), '');
+  v_rejection_reason text := nullif(btrim(coalesce(p_rejection_reason, ''), E' \t\n\r\f'), '');
   v_final_rejection_reason text := null;
   v_reviewed_at timestamptz := now();
   v_transition_allowed boolean := false;
