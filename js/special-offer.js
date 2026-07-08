@@ -29,9 +29,13 @@ const TEXT = {
     previewMessage: 'Podgląd formularza. Wysyłanie zgłoszeń nie jest jeszcze dostępne.',
     submitLabel: 'Wyślij zgłoszenie',
     submittingLabel: 'Wysyłanie...',
+    authChecking: 'Sprawdzamy dostęp do formularza...',
     loginRequiredTitle: 'Zaloguj się, aby wysłać zgłoszenie',
-    loginRequiredCopy: 'Twoje dane pozostaną w formularzu. Po zalogowaniu wróć tutaj i kliknij wyślij ponownie.',
-    loginButton: 'Zaloguj się lub utwórz konto',
+    loginRequiredCopy: 'Strona kampanii jest publiczna, ale formularz jest dostępny tylko dla zalogowanych uczestników.',
+    loginButton: 'Wypełnij formularz',
+    emailNotConfirmedTitle: 'Potwierdź adres e-mail',
+    emailNotConfirmedCopy: 'Formularz odblokuje się po potwierdzeniu adresu e-mail konta. Sprawdź skrzynkę i wróć na tę stronę.',
+    refreshAccess: 'Sprawdziłem e-mail / Odśwież dostęp',
     authUnavailable: 'Logowanie nie jest teraz dostępne na tej stronie. Spróbuj ponownie za chwilę.',
     formErrorTitle: 'Sprawdź pola formularza',
     accountEmailHint: 'Zgłoszenie zostanie przypisane do zalogowanego konta.',
@@ -43,6 +47,8 @@ const TEXT = {
     retry: 'Spróbuj ponownie',
     errors: {
       login_required: 'Zaloguj się, aby wysłać zgłoszenie.',
+      email_not_confirmed: 'Potwierdź adres e-mail przed wysłaniem zgłoszenia.',
+      authenticated_email_missing: 'Nie udało się potwierdzić adresu e-mail konta. Zaloguj się ponownie.',
       campaign_not_available: 'Ta kampania nie jest obecnie dostępna.',
       campaign_not_open: 'Kampania jeszcze się nie rozpoczęła.',
       campaign_closed: 'Kampania została zakończona.',
@@ -90,9 +96,13 @@ const TEXT = {
     previewMessage: 'Form preview. Entry submission is not available yet.',
     submitLabel: 'Submit entry',
     submittingLabel: 'Submitting...',
+    authChecking: 'Checking form access...',
     loginRequiredTitle: 'Sign in to submit your entry',
-    loginRequiredCopy: 'Your form data will stay on this page. After signing in, come back here and submit again.',
-    loginButton: 'Sign in or create account',
+    loginRequiredCopy: 'The campaign page is public, but the entry form is available only to signed-in participants.',
+    loginButton: 'Fill in the form',
+    emailNotConfirmedTitle: 'Confirm your email address',
+    emailNotConfirmedCopy: 'The form will unlock after your account email is confirmed. Check your inbox and return to this page.',
+    refreshAccess: 'I confirmed my email / Refresh access',
     authUnavailable: 'Sign-in is not available on this page right now. Please try again shortly.',
     formErrorTitle: 'Check the form fields',
     accountEmailHint: 'Your entry will be linked to the signed-in account.',
@@ -104,6 +114,8 @@ const TEXT = {
     retry: 'Try again',
     errors: {
       login_required: 'Please sign in to submit your entry.',
+      email_not_confirmed: 'Confirm your email address before submitting your entry.',
+      authenticated_email_missing: 'Could not confirm your account email. Please sign in again.',
       campaign_not_available: 'This campaign is not available right now.',
       campaign_not_open: 'This campaign has not started yet.',
       campaign_closed: 'This campaign has ended.',
@@ -151,9 +163,13 @@ const TEXT = {
     previewMessage: 'תצוגה מקדימה של הטופס. שליחת הרשמות עדיין אינה זמינה.',
     submitLabel: 'שליחת הרשמה',
     submittingLabel: 'שולחים...',
+    authChecking: 'בודקים גישה לטופס...',
     loginRequiredTitle: 'התחברו כדי לשלוח הרשמה',
-    loginRequiredCopy: 'הנתונים שהזנתם יישארו בטופס. לאחר ההתחברות חזרו לכאן ולחצו שוב על שליחה.',
-    loginButton: 'התחברות או יצירת חשבון',
+    loginRequiredCopy: 'עמוד הקמפיין פתוח לכולם, אך הטופס זמין רק למשתתפים מחוברים.',
+    loginButton: 'מילוי הטופס',
+    emailNotConfirmedTitle: 'אשרו את כתובת האימייל',
+    emailNotConfirmedCopy: 'הטופס ייפתח לאחר אישור כתובת האימייל של החשבון. בדקו את תיבת הדואר וחזרו לעמוד הזה.',
+    refreshAccess: 'אישרתי אימייל / רענון גישה',
     authUnavailable: 'ההתחברות אינה זמינה כרגע בעמוד זה. נסו שוב בעוד רגע.',
     formErrorTitle: 'בדקו את שדות הטופס',
     accountEmailHint: 'ההרשמה תשויך לחשבון המחובר.',
@@ -165,6 +181,8 @@ const TEXT = {
     retry: 'נסו שוב',
     errors: {
       login_required: 'יש להתחבר כדי לשלוח הרשמה.',
+      email_not_confirmed: 'יש לאשר את כתובת האימייל לפני שליחת הרשמה.',
+      authenticated_email_missing: 'לא ניתן לאשר את כתובת האימייל של החשבון. התחברו שוב.',
       campaign_not_available: 'הקמפיין אינו זמין כרגע.',
       campaign_not_open: 'הקמפיין עדיין לא התחיל.',
       campaign_closed: 'הקמפיין הסתיים.',
@@ -223,6 +241,13 @@ let formStatus = 'idle';
 let formDraft = {};
 let lastValidationErrors = [];
 let activeSubmitErrorCode = '';
+let authState = {
+  checking: true,
+  session: null,
+  user: null,
+  confirmed: false,
+};
+let authRefreshPromise = null;
 
 function normalizeLang(value) {
   const lang = String(value || '').trim().toLowerCase().split('-')[0];
@@ -250,6 +275,77 @@ function readSlug() {
 function isAdminPreview() {
   const url = new URL(window.location.href);
   return ['1', 'true', 'admin'].includes(String(url.searchParams.get('admin_preview') || url.searchParams.get('preview') || '').toLowerCase());
+}
+
+function getSafeCurrentAuthRedirect() {
+  try {
+    const url = new URL(window.location.href);
+    const allowedPath = url.pathname === '/special-offer.html'
+      || /^\/special-offers\/[A-Za-z0-9][A-Za-z0-9_-]*(?:\/)?$/.test(url.pathname);
+    if (!allowedPath) return '/';
+    ['access_token', 'token', 'refresh_token', 'expires_in', 'expires_at', 'token_hash', 'type', 'code', 'error', 'error_description', 'provider_token', 'provider_refresh_token', 'state'].forEach((key) => {
+      url.searchParams.delete(key);
+    });
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch (_error) {
+    return '/';
+  }
+}
+
+function configureAuthRedirectTarget() {
+  const redirect = getSafeCurrentAuthRedirect();
+  document.documentElement.dataset.authRedirect = redirect;
+  document.body.dataset.authRedirect = redirect;
+  let meta = document.querySelector('meta[name="ce-auth-redirect"]');
+  if (!meta) {
+    meta = document.createElement('meta');
+    meta.setAttribute('name', 'ce-auth-redirect');
+    document.head.appendChild(meta);
+  }
+  meta.setAttribute('content', redirect);
+  document.querySelectorAll('#form-login, #form-register').forEach((form) => {
+    if (form instanceof HTMLFormElement) {
+      form.dataset.authRedirect = redirect;
+    }
+  });
+}
+
+function isConfirmedAuthUser(user) {
+  if (!user?.id) return false;
+  return Boolean(user.email_confirmed_at || user.confirmed_at || user.app_metadata?.email_confirmed_at);
+}
+
+async function refreshSpecialOfferAuthState() {
+  if (authRefreshPromise) return authRefreshPromise;
+  authRefreshPromise = (async () => {
+    authState = { ...authState, checking: true };
+    let session = null;
+    try {
+      const { data } = await supabase.auth.getSession();
+      session = data?.session || null;
+    } catch (_error) {
+      session = window.CE_STATE?.session || null;
+    }
+    const user = session?.user || window.CE_STATE?.session?.user || null;
+    authState = {
+      checking: false,
+      session: session || null,
+      user: user || null,
+      confirmed: isConfirmedAuthUser(user),
+    };
+    return authState;
+  })().finally(() => {
+    authRefreshPromise = null;
+  });
+  return authRefreshPromise;
+}
+
+function rerenderEntryFormIfPossible({ scroll = false } = {}) {
+  if (!currentState?.data) return;
+  renderEntryForm(currentState.data, currentState.lang);
+  if (scroll && refs.entrySection) {
+    refs.entrySection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 function getText(lang) {
@@ -819,6 +915,7 @@ function clearSubmissionId() {
 }
 
 async function getCurrentSession() {
+  if (authState?.session?.user?.id) return authState.session;
   const cached = window.CE_STATE?.session || null;
   if (cached?.user?.id) return cached;
   try {
@@ -829,10 +926,12 @@ async function getCurrentSession() {
   }
 }
 
-function openAuthGate(lang) {
+function openAuthGate(lang, code = 'login_required') {
+  saveCurrentFormDraft();
+  configureAuthRedirectTarget();
   formStatus = 'login_required';
-  activeSubmitErrorCode = 'login_required';
-  showFormStatus(getErrorMessage('login_required', lang), 'warning');
+  activeSubmitErrorCode = code;
+  showFormStatus(getErrorMessage(code, lang), 'warning');
   const opened = (() => {
     try {
       if (typeof window.openAuthModal === 'function') {
@@ -871,6 +970,8 @@ function mapSubmitError(error) {
   const normalized = raw.toLowerCase();
   const known = [
     'login_required',
+    'email_not_confirmed',
+    'authenticated_email_missing',
     'campaign_not_available',
     'campaign_not_open',
     'campaign_closed',
@@ -950,11 +1051,21 @@ async function handleEntrySubmit(event) {
   formStatus = 'validating';
   setSubmitButtonState('validating', lang);
 
+  await refreshSpecialOfferAuthState();
   const session = await getCurrentSession();
-  if (data.campaign?.requires_login === true && !session?.user?.id) {
+  if (!session?.user?.id) {
     submitting = false;
     setSubmitButtonState('idle', lang);
     openAuthGate(lang);
+    return;
+  }
+  if (!isConfirmedAuthUser(session.user)) {
+    submitting = false;
+    formStatus = 'login_required';
+    activeSubmitErrorCode = 'email_not_confirmed';
+    setSubmitButtonState('idle', lang);
+    showFormStatus(getErrorMessage('email_not_confirmed', lang), 'warning');
+    openAuthGate(lang, 'email_not_confirmed');
     return;
   }
 
@@ -1109,6 +1220,47 @@ function enhanceFormPhoneInputs(lang) {
   });
 }
 
+function renderLockedFormState(lang, state) {
+  const t = getText(lang);
+  const isEmailConfirmation = state === 'email_not_confirmed';
+  const title = state === 'checking'
+    ? t.authChecking
+    : isEmailConfirmation
+      ? t.emailNotConfirmedTitle
+      : t.loginRequiredTitle;
+  const copy = state === 'checking'
+    ? ''
+    : isEmailConfirmation
+      ? t.emailNotConfirmedCopy
+      : t.loginRequiredCopy;
+  const buttonLabel = isEmailConfirmation ? t.refreshAccess : t.loginButton;
+  refs.entrySection.innerHTML = `
+    <h2>${escapeHtml(t.entryTitle)}</h2>
+    <div class="special-offer-form-locked" data-special-offer-form-locked dir="${lang === 'he' ? 'rtl' : 'ltr'}">
+      <h3>${escapeHtml(title)}</h3>
+      ${copy ? `<p>${escapeHtml(copy)}</p>` : ''}
+      ${state === 'checking' ? `<p class="special-offer-form-help">${escapeHtml(t.authChecking)}</p>` : `
+        <button type="button" class="special-offer-button" data-special-offer-auth-open>${escapeHtml(buttonLabel)}</button>
+      `}
+    </div>
+  `;
+  const button = refs.entrySection.querySelector('[data-special-offer-auth-open]');
+  if (button instanceof HTMLButtonElement) {
+    button.addEventListener('click', async () => {
+      if (isEmailConfirmation) {
+        await refreshSpecialOfferAuthState();
+        if (authState.confirmed) {
+          activeSubmitErrorCode = '';
+          formStatus = 'idle';
+          rerenderEntryFormIfPossible({ scroll: true });
+          return;
+        }
+      }
+      openAuthGate(lang, isEmailConfirmation ? 'email_not_confirmed' : 'login_required');
+    });
+  }
+}
+
 function renderEntryForm(data, lang) {
   const t = getText(lang);
   if (!refs.entrySection) return;
@@ -1146,6 +1298,20 @@ function renderEntryForm(data, lang) {
   const canSubmit = !previewMode
     && data.campaign?.status === PUBLIC_STATUS
     && data.campaign?.visibility === PUBLIC_VISIBILITY;
+  if (canSubmit) {
+    if (authState.checking) {
+      renderLockedFormState(lang, 'checking');
+      return;
+    }
+    if (!authState.user?.id) {
+      renderLockedFormState(lang, 'login_required');
+      return;
+    }
+    if (!authState.confirmed) {
+      renderLockedFormState(lang, 'email_not_confirmed');
+      return;
+    }
+  }
   const statusMessage = previewMode ? t.previewMessage : activeSubmitErrorCode ? getErrorMessage(activeSubmitErrorCode, lang) : '';
 
   refs.entrySection.innerHTML = `
@@ -1447,19 +1613,35 @@ function bindLanguageButtons() {
 }
 
 function bindAuthEvents() {
-  document.addEventListener('ce-auth:post-login', () => {
+  const refreshAndRender = async ({ scroll = false } = {}) => {
+    saveCurrentFormDraft();
+    await refreshSpecialOfferAuthState();
     activeSubmitErrorCode = '';
     formStatus = 'idle';
-    void applyAuthenticatedEmailToForm().then(() => {
-      showFormStatus('', 'info');
-      setSubmitButtonState('idle', currentState?.lang || readRequestedLang());
-    });
+    rerenderEntryFormIfPossible({ scroll: scroll || authState.confirmed });
+    await applyAuthenticatedEmailToForm();
+    showFormStatus('', 'info');
+    setSubmitButtonState('idle', currentState?.lang || readRequestedLang());
+  };
+  document.addEventListener('ce-auth:post-login', () => {
+    window.__authModalController?.close?.({ restoreFocus: false });
+    void refreshAndRender({ scroll: true });
+  });
+  document.addEventListener('ce-auth:state', () => {
+    void refreshAndRender();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) void refreshAndRender();
+  });
+  window.addEventListener('focus', () => {
+    void refreshAndRender();
   });
 }
 
 async function init() {
   bindLanguageButtons();
   bindAuthEvents();
+  configureAuthRedirectTarget();
   const lang = readRequestedLang();
   setPageLanguage(lang);
   updateStaticText(lang);
@@ -1472,6 +1654,7 @@ async function init() {
   }
 
   try {
+    await refreshSpecialOfferAuthState();
     const previewMode = isAdminPreview();
     const campaign = await loadCampaign(slug, previewMode);
     if (!campaign) {

@@ -252,7 +252,9 @@ function seedUser({ email, password, profile = {}, xpEvents = [] }) {
     id,
     email,
     password,
-    confirmed_at: profile.confirmed_at ?? new Date().toISOString(),
+    confirmed_at: Object.prototype.hasOwnProperty.call(profile, 'confirmed_at')
+      ? profile.confirmed_at
+      : new Date().toISOString(),
     metadata,
   };
   ensureProfile(id, { ...profile, email });
@@ -877,6 +879,24 @@ export function createClient() {
         }
         return { data: { user: getCurrentUser() }, error: null };
       },
+      async exchangeCodeForSession(_code) {
+        const user = Object.values(state.users)[0] || null;
+        if (!user) {
+          return { data: null, error: { message: 'Invalid verification code' } };
+        }
+        state.currentSession = {
+          user: {
+            id: user.id,
+            email: user.email,
+            confirmed_at: user.confirmed_at || new Date().toISOString(),
+            email_confirmed_at: user.confirmed_at || new Date().toISOString(),
+            user_metadata: { ...(user.metadata || {}) },
+          },
+        };
+        broadcast('SIGNED_IN');
+        persistState();
+        return { data: { session: state.currentSession }, error: null };
+      },
       async signInWithPassword({ email, password }) {
         const user = resolveUserByEmail(email);
         if (!user || (password && user.password && user.password !== password)) {
@@ -886,6 +906,8 @@ export function createClient() {
           user: {
             id: user.id,
             email: user.email,
+            confirmed_at: user.confirmed_at || null,
+            email_confirmed_at: user.confirmed_at || null,
             user_metadata: { ...(user.metadata || {}) },
           },
         };
@@ -899,7 +921,8 @@ export function createClient() {
           return { data: null, error: { message: 'User already registered' } };
         }
         const profileData = options?.data ?? {};
-        const user = seedUser({ email, password, profile: { name: profileData.name || '' } });
+        const user = seedUser({ email, password, profile: { name: profileData.name || '', confirmed_at: null } });
+        state.lastVerificationRequests.push({ type: 'signup', email, redirectTo: options?.emailRedirectTo ?? null, at: Date.now() });
         persistState();
         return { data: { user: { id: user.id, email: user.email } }, error: null };
       },
@@ -1124,6 +1147,8 @@ stubApi.setSession = function setSession(user) {
     user: {
       id: user.id,
       email: user.email,
+      confirmed_at: user.confirmed_at ?? existing?.confirmed_at ?? null,
+      email_confirmed_at: user.email_confirmed_at ?? user.confirmed_at ?? existing?.confirmed_at ?? null,
       user_metadata: { ...metadata },
     },
   };

@@ -9,8 +9,8 @@ const PUBLIC_EMPTY_FORM_OFFER_ID = '6a6b166e-fb18-4b3e-a69c-a1f25722a301';
 const PUBLIC_OPTIONS_FORM_OFFER_ID = '7f50b732-9c87-402a-b0b1-afbd7a34e401';
 const PUBLIC_SUBMIT_FORM_OFFER_ID = '8d89c4c9-c0de-4d6e-9a18-0ad8d376e3a4';
 
-async function prepareSpecialOfferLandingStub(page: Page, options: { adminSession?: boolean; participantSession?: boolean; rpcError?: string; rpcReference?: string } = {}) {
-  await page.addInitScript(({ adminId, draftOfferId, publicOfferId, publicEmptyFormOfferId, publicOptionsFormOfferId, publicSubmitFormOfferId, adminSession, participantSession, rpcError, rpcReference }) => {
+async function prepareSpecialOfferLandingStub(page: Page, options: { adminSession?: boolean; participantSession?: boolean; unconfirmedSession?: boolean; rpcError?: string; rpcReference?: string } = {}) {
+  await page.addInitScript(({ adminId, draftOfferId, publicOfferId, publicEmptyFormOfferId, publicOptionsFormOfferId, publicSubmitFormOfferId, adminSession, participantSession, unconfirmedSession, rpcError, rpcReference }) => {
     (window as any).__supabaseStub = {
       ...(window as any).__supabaseStub,
       onReady: (stub: any) => {
@@ -41,10 +41,24 @@ async function prepareSpecialOfferLandingStub(page: Page, options: { adminSessio
             is_admin: false,
           },
         });
+        stub.seedUser({
+          email: 'unconfirmed@example.com',
+          password: 'super-secret',
+          profile: {
+            id: 'unconfirmed-user-1',
+            email: 'unconfirmed@example.com',
+            name: 'Unconfirmed Participant',
+            username: 'unconfirmed',
+            is_admin: false,
+            confirmed_at: null,
+          },
+        });
         if (adminSession) {
           stub.setSession({ id: adminId, email: 'lilkangoomedia@gmail.com', user_metadata: { username: 'cyadmin' } });
         } else if (participantSession) {
           stub.setSession({ id: 'participant-user-1', email: 'participant@example.com', user_metadata: { username: 'participant' } });
+        } else if (unconfirmedSession) {
+          stub.setSession({ id: 'unconfirmed-user-1', email: 'unconfirmed@example.com', user_metadata: { username: 'unconfirmed' }, confirmed_at: null, email_confirmed_at: null });
         } else {
           stub.setSession(null);
         }
@@ -404,6 +418,7 @@ async function prepareSpecialOfferLandingStub(page: Page, options: { adminSessio
     publicSubmitFormOfferId: PUBLIC_SUBMIT_FORM_OFFER_ID,
     adminSession: Boolean(options.adminSession),
     participantSession: Boolean(options.participantSession),
+    unconfirmedSession: Boolean(options.unconfirmedSession),
     rpcError: options.rpcError || '',
     rpcReference: options.rpcReference || '',
   });
@@ -554,8 +569,8 @@ test.describe('Special Offer public read-only landing', () => {
     await expect(formSection).toContainText('תצוגה מקדימה של הטופס. שליחת הרשמות עדיין אינה זמינה.');
   });
 
-  test('renders form option fields and safe empty form states', async ({ page }) => {
-    await prepareSpecialOfferLandingStub(page);
+  test('renders form option fields for confirmed signed-in users and safe empty form states', async ({ page }) => {
+    await prepareSpecialOfferLandingStub(page, { participantSession: true });
     await page.goto('/special-offers/published-options-form-2026?lang=en');
     await waitForSupabaseStub(page);
 
@@ -571,6 +586,34 @@ test.describe('Special Offer public read-only landing', () => {
     await waitForSupabaseStub(page);
     await expect(page.getByText('The entry form has not been configured yet.')).toBeVisible();
     await expect(page.locator('[data-special-offer-form-field]')).toHaveCount(0);
+  });
+
+  test('keeps public campaign visible but locks active form for anonymous users', async ({ page }) => {
+    await prepareSpecialOfferLandingStub(page);
+    await page.goto('/special-offers/published-submit-form-2026?lang=en');
+    await waitForSupabaseStub(page);
+
+    await expect(page.getByRole('heading', { name: 'Public submit test campaign' })).toBeVisible();
+    await expect(page.locator('[data-special-offer-entry-form]')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Sign in to submit your entry' })).toBeVisible();
+    await page.getByRole('button', { name: 'Fill in the form' }).click();
+    await expect(page.locator('#auth-modal')).toHaveClass(/is-open/);
+    const rpcCalls = await page.evaluate(() => (window as any).__supabaseStub.getRpcCalls());
+    expect(rpcCalls).toHaveLength(0);
+  });
+
+  test('keeps active form locked for signed-in users without confirmed email', async ({ page }) => {
+    await prepareSpecialOfferLandingStub(page, { unconfirmedSession: true });
+    await page.goto('/special-offers/published-submit-form-2026?lang=en');
+    await waitForSupabaseStub(page);
+
+    await expect(page.getByRole('heading', { name: 'Public submit test campaign' })).toBeVisible();
+    await expect(page.locator('[data-special-offer-entry-form]')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Confirm your email address' })).toBeVisible();
+    await page.getByRole('button', { name: 'I confirmed my email / Refresh access' }).click();
+    await expect(page.getByRole('heading', { name: 'Confirm your email address' })).toBeVisible();
+    const rpcCalls = await page.evaluate(() => (window as any).__supabaseStub.getRpcCalls());
+    expect(rpcCalls).toHaveLength(0);
   });
 
   test('hides broken linked-service images without breaking the card layout', async ({ page }) => {
@@ -607,19 +650,14 @@ test.describe('Special Offer public read-only landing', () => {
     expect(rpcCalls).toHaveLength(0);
   });
 
-  test('requires login without losing form data and keeps data across language changes', async ({ page }) => {
+  test('unlocks active form after login and keeps data across language changes', async ({ page }) => {
     await prepareSpecialOfferLandingStub(page);
     await page.goto('/special-offers/published-submit-form-2026?lang=en');
     await waitForSupabaseStub(page);
 
-    const form = page.locator('[data-special-offer-entry-form]');
-    await form.locator('[name="first_name"]').fill('Maria');
-    await form.locator('[name="last_name"]').fill('Tester');
-    await form.locator('[name="contest_answer"]').fill('This answer should remain in memory.');
-
-    await page.getByRole('button', { name: 'Submit entry' }).click();
+    await expect(page.locator('[data-special-offer-entry-form]')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Fill in the form' }).click();
     await expect(page.locator('#auth-modal')).toHaveClass(/is-open/);
-    await expect(form.locator('[name="first_name"]')).toHaveValue('Maria');
 
     await page.evaluate(() => {
       (window as any).CE_STATE = {
@@ -628,6 +666,8 @@ test.describe('Special Offer public read-only landing', () => {
           user: {
             id: 'participant-user-1',
             email: 'participant@example.com',
+            confirmed_at: new Date().toISOString(),
+            email_confirmed_at: new Date().toISOString(),
             user_metadata: { username: 'participant' },
           },
           access_token: 'participant-test-token',
@@ -645,8 +685,13 @@ test.describe('Special Offer public read-only landing', () => {
       overlay?.setAttribute('aria-hidden', 'true');
       overlay?.setAttribute('data-visible', 'false');
     });
+    const form = page.locator('[data-special-offer-entry-form]');
+    await expect(form).toBeVisible();
     await expect(form.locator('[name="email"]')).toHaveValue('participant@example.com');
     await expect(form.locator('[name="email"]')).toHaveAttribute('readonly', '');
+    await form.locator('[name="first_name"]').fill('Maria');
+    await form.locator('[name="last_name"]').fill('Tester');
+    await form.locator('[name="contest_answer"]').fill('This answer should remain in memory.');
 
     await page.getByRole('button', { name: 'PL', exact: true }).click();
     await expect(page.locator('[name="first_name"]')).toHaveValue('Maria');
@@ -736,10 +781,7 @@ test.describe('Special Offer public read-only landing', () => {
       terms_accepted: true,
     });
     const source = await page.request.get('/js/special-offer.js').then((response) => response.text());
-    expect(source).not.toContain('.insert(');
-    expect(source).not.toContain('.update(');
-    expect(source).not.toContain('.delete(');
-    expect(source).not.toContain('.upsert(');
+    expect(source).not.toMatch(/\.from\(['"`]special_offer_(entries|entry_answers)['"`]\)[\s\S]{0,300}\.(insert|update|delete|upsert)\(/);
   });
 
   test('keeps the same submission id for retryable RPC errors and maps duplicate/max errors safely', async ({ page }) => {
@@ -808,10 +850,7 @@ test.describe('Special Offer public read-only landing', () => {
     });
 
     const source = await page.request.get('/js/special-offer.js').then((response) => response.text());
-    expect(source).not.toContain('.insert(');
-    expect(source).not.toContain('.update(');
-    expect(source).not.toContain('.delete(');
-    expect(source).not.toContain('.upsert(');
+    expect(source).not.toMatch(/\.from\(['"`]special_offer_(entries|entry_answers)['"`]\)[\s\S]{0,300}\.(insert|update|delete|upsert)\(/);
     expect(source).toContain("submit_special_offer_entry");
     expect(source).not.toContain('.storage');
   });

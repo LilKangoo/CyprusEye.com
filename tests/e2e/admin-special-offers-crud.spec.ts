@@ -440,10 +440,10 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     await expect(customLink.locator('[data-link-image-preview] img')).toHaveAttribute('src', '/assets/images/manual-link.webp');
     await customLink.locator('[data-link-translation-field="label"][data-lang="pl"]').fill('Manual PL');
     await customLink.locator('[data-link-translation-field="url"][data-lang="pl"]').fill('/manual-pl.html');
-    await customLink.getByRole('button', { name: 'EN', exact: true }).click();
+    await customLink.locator('[data-special-offers-nested-lang-tab$=":en"]').click();
     await customLink.locator('[data-link-translation-field="label"][data-lang="en"]').fill('Manual EN');
     await customLink.locator('[data-link-translation-field="url"][data-lang="en"]').fill('/manual-en.html');
-    await customLink.getByRole('button', { name: 'HE', exact: true }).click();
+    await customLink.locator('[data-special-offers-nested-lang-tab$=":he"]').click();
     await customLink.locator('[data-link-translation-field="label"][data-lang="he"]').fill('קישור ידני');
     await customLink.locator('[data-link-translation-field="url"][data-lang="he"]').fill('/manual-he.html');
     await expect(customLink.locator('[data-link-url-preview]')).toContainText('Manual URL');

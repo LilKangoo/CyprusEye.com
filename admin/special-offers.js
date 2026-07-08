@@ -932,6 +932,94 @@ function renderEntryAnswers(answers) {
   `;
 }
 
+function renderEntryFullForm(detail) {
+  const entry = detail?.entry || {};
+  const answers = toArray(detail?.answers).slice().sort((a, b) => getAnswerSortOrder(a) - getAnswerSortOrder(b));
+  if (!answers.length) return '<p class="special-offers-empty-copy">No stored form fields are available for this entry.</p>';
+  const submittedLang = String(entry.submitted_lang || '').toUpperCase() || '—';
+  return `
+    <div class="special-offer-entry-full-form" dir="${entry.submitted_lang === 'he' ? 'rtl' : 'ltr'}">
+      <div class="special-offer-entry-full-form__meta">
+        ${renderDetailRows([
+          ['Reference', entry.reference],
+          ['Status', titleCase(entry.status)],
+          ['Submitted language', submittedLang],
+          ['Submitted at', formatDateTime(entry.created_at)],
+        ])}
+      </div>
+      <div class="special-offer-entry-answers special-offer-entry-answers--full">
+        ${answers.map((answer) => {
+          const snapshot = getFieldSnapshot(answer);
+          const label = snapshot.label || titleCase(answer.field_key);
+          const help = snapshot.help_text || '';
+          const required = snapshot.required === true;
+          return `
+            <article class="special-offer-entry-answer special-offer-entry-answer--full">
+              <div>
+                <strong>${escapeHtml(label)}${required ? ' *' : ''}</strong>
+                <span>${escapeHtml(answer.field_key)} · ${escapeHtml(snapshot.field_type || 'field')}</span>
+              </div>
+              <p>${formatAnswerValue(answer)}</p>
+              ${help ? `<small>${escapeHtml(help)}</small>` : ''}
+            </article>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function ensureEntryFullFormModal() {
+  let modal = $('#specialOfferEntryFullFormModal');
+  if (modal) return modal;
+  modal = document.createElement('div');
+  modal.className = 'admin-modal special-offers-entry-detail-modal';
+  modal.id = 'specialOfferEntryFullFormModal';
+  modal.hidden = true;
+  modal.innerHTML = `
+    <div class="admin-modal-overlay" data-special-offers-entry-full-form-close></div>
+    <div class="admin-modal-content special-offers-details-modal__content" role="dialog" aria-modal="true" aria-labelledby="specialOfferEntryFullFormTitle">
+      <header class="admin-modal-header">
+        <div>
+          <div class="special-offers-eyebrow">Read-only form</div>
+          <h3 id="specialOfferEntryFullFormTitle">Full submitted form</h3>
+          <p class="special-offer-editor-subtitle">Snapshot labels and answers from submission time. Answers cannot be edited here.</p>
+        </div>
+        <button class="btn-modal-close" type="button" data-special-offers-entry-full-form-close aria-label="Close full form">×</button>
+      </header>
+      <div class="admin-modal-body" id="specialOfferEntryFullFormBody"></div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest('[data-special-offers-entry-full-form-close]')) {
+      closeEntryFullForm();
+    }
+  });
+  return modal;
+}
+
+function closeEntryFullForm() {
+  const modal = $('#specialOfferEntryFullFormModal');
+  if (modal) modal.hidden = true;
+}
+
+async function openEntryFullForm(entryId = '') {
+  const modal = ensureEntryFullFormModal();
+  const body = $('#specialOfferEntryFullFormBody', modal);
+  modal.hidden = false;
+  if (body) body.innerHTML = '<div class="special-offer-entry-state">Loading full form...</div>';
+  try {
+    const detail = specialOffersState.entries.detail?.entry?.id === entryId
+      ? specialOffersState.entries.detail
+      : await loadEntryDetail(entryId);
+    if (body) body.innerHTML = renderEntryFullForm(detail);
+  } catch (_error) {
+    if (body) body.innerHTML = '<div class="special-offer-entry-state special-offer-entry-state--error">Unable to load full submitted form.</div>';
+  }
+}
+
 function renderEntryAuditLog(rows) {
   if (!toArray(rows).length) return '<p class="special-offers-empty-copy">No review audit entries yet.</p>';
   return `
@@ -3691,6 +3779,10 @@ function ensureEntryDetailsModal() {
   modal.addEventListener('click', (event) => {
     const target = event.target instanceof Element ? event.target : null;
     if (target?.closest('[data-special-offers-entry-detail-close]')) closeEntryDetails();
+    const fullFormButton = target?.closest('[data-special-offers-entry-full-form]');
+    if (fullFormButton) {
+      openEntryFullForm(fullFormButton.getAttribute('data-special-offers-entry-full-form') || '');
+    }
     const actionButton = target?.closest('[data-special-offers-review-action]');
     if (actionButton) {
       specialOffersState.entries.reviewAction = actionButton.getAttribute('data-special-offers-review-action') || '';
@@ -3798,7 +3890,10 @@ function renderEntryDetails() {
         ])}
       </section>
       <section class="special-offers-detail-panel special-offers-detail-panel--wide">
-        <h4>Answers</h4>
+        <div class="special-offer-entry-section-heading">
+          <h4>Answers</h4>
+          <button class="btn-secondary btn-small" type="button" data-special-offers-entry-full-form="${escapeHtml(entry.id)}">View full form</button>
+        </div>
         ${renderEntryAnswers(detail.answers)}
       </section>
       <section class="special-offers-detail-panel special-offers-detail-panel--wide">
@@ -4582,6 +4677,7 @@ function bindEvents() {
       closeFormPreview();
       closeEntriesModal();
       closeEntryDetails();
+      closeEntryFullForm();
       closeHelpPopover();
     }
   });
@@ -4622,4 +4718,5 @@ export async function initSpecialOffers() {
 window.CyprusEyeSpecialOffersAdmin = {
   initSpecialOffers,
   loadSpecialOffersReadOnly,
+  openEntryFullForm,
 };

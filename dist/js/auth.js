@@ -942,6 +942,20 @@ if (ceAuthGlobal) {
 
 const AUTH_REDIRECT_TARGETS = new Set(['/', '/account/']);
 
+function stripAuthParamsFromUrl(url) {
+  if (!(url instanceof URL)) return '';
+  SUPABASE_RETURN_PARAMS.forEach((key) => {
+    url.searchParams.delete(key);
+  });
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
+function isAllowedSpecialOfferRedirect(pathname) {
+  if (pathname === '/special-offer.html') return true;
+  if (/^\/special-offers\/[A-Za-z0-9][A-Za-z0-9_-]*(?:\/)?$/.test(pathname)) return true;
+  return false;
+}
+
 function normalizeRedirectTarget(target) {
   if (!target || typeof target !== 'string') {
     return null;
@@ -949,6 +963,27 @@ function normalizeRedirectTarget(target) {
 
   const trimmed = target.trim();
   if (!trimmed) {
+    return null;
+  }
+
+  if (/[\u0000-\u001F\u007F\\]/.test(trimmed)) {
+    return null;
+  }
+
+  try {
+    const currentOrigin = window.location.origin;
+    const appOrigin = new URL(URLS.base).origin;
+    const parsed = /^https?:\/\//i.test(trimmed)
+      ? new URL(trimmed)
+      : trimmed.startsWith('/') && !trimmed.startsWith('//')
+        ? new URL(trimmed, currentOrigin)
+        : null;
+    if (parsed && (parsed.origin === currentOrigin || parsed.origin === appOrigin)) {
+      const localTarget = stripAuthParamsFromUrl(parsed);
+      if (AUTH_REDIRECT_TARGETS.has(localTarget)) return localTarget;
+      if (isAllowedSpecialOfferRedirect(parsed.pathname)) return localTarget;
+    }
+  } catch (_error) {
     return null;
   }
 
@@ -1028,15 +1063,25 @@ function resolvePostAuthRedirect(...preferred) {
   return window.location.pathname.startsWith('/account') ? '/account/' : '/';
 }
 
+function resolveVerificationRedirectTo(...preferred) {
+  const redirectTarget = resolvePostAuthRedirect(...preferred);
+  try {
+    return new URL(redirectTarget, URLS.base).toString();
+  } catch (_error) {
+    return VERIFICATION_REDIRECT;
+  }
+}
+
 function getResendVerificationElements() {
   return {
     container: $('#authResendVerification'),
     button: $('#btn-resend-verification'),
+    refreshButton: $('#btn-refresh-auth-access'),
   };
 }
 
 function hideResendVerification() {
-  const { container, button } = getResendVerificationElements();
+  const { container, button, refreshButton } = getResendVerificationElements();
   if (container) {
     container.hidden = true;
   }
@@ -1044,6 +1089,9 @@ function hideResendVerification() {
     delete button.dataset.email;
     delete button.dataset.redirect;
     button.disabled = false;
+  }
+  if (refreshButton) {
+    refreshButton.disabled = false;
   }
 }
 
@@ -1059,7 +1107,7 @@ function showResendVerification(email) {
   }
   if (button) {
     button.dataset.email = normalized;
-    button.dataset.redirect = VERIFICATION_REDIRECT;
+    button.dataset.redirect = resolveVerificationRedirectTo();
   }
 }
 
@@ -2613,7 +2661,7 @@ $('#form-register')?.addEventListener('submit', async (event) => {
               ? new Date(effectiveReferralContext.capturedAt).toISOString()
               : undefined,
           },
-          emailRedirectTo: VERIFICATION_REDIRECT,
+          emailRedirectTo: resolveVerificationRedirectTo(submitButton?.dataset?.authRedirect || form.dataset?.authRedirect),
         },
       });
       if (error) {
@@ -2651,7 +2699,14 @@ $('#form-register')?.addEventListener('submit', async (event) => {
         
       }
 
-      showOk(t('Verification email sent.', 'E-mail potwierdzający wysłany.'));
+      showResendVerification(payload.email);
+      showOk(
+        t(
+          `Account created. We sent a confirmation link to ${payload.email}. Open it, confirm your account, then return to this page.`,
+          `Konto zostało utworzone. Wysłaliśmy wiadomość z linkiem potwierdzającym na ${payload.email}. Otwórz wiadomość, potwierdź konto, a następnie wróć na tę stronę.`,
+        ),
+        9000,
+      );
     } catch (error) {
       const message = friendlyErrorMessage(
         error?.message || t('Registration error occurred.', 'Wystąpił błąd rejestracji.'),
@@ -2790,14 +2845,64 @@ $('#btn-resend-verification')?.addEventListener('click', async (event) => {
   });
 });
 
-function handleSupabaseVerificationReturn() {
+$('#btn-refresh-auth-access')?.addEventListener('click', async (event) => {
+  event.preventDefault();
+  const button = event.currentTarget instanceof HTMLButtonElement ? event.currentTarget : null;
+  await withBusy(button, async () => {
+    try {
+      const state = await refreshSessionAndProfile({ reason: 'manual-confirmation-refresh' });
+      updateAuthUI();
+      await bootAuth();
+      const user = state?.session?.user || null;
+      if (user?.id && (user.email_confirmed_at || user.confirmed_at)) {
+        hideResendVerification();
+        showOk(t('Email confirmed. You can continue.', 'E-mail potwierdzony. Możesz kontynuować.'));
+        document.dispatchEvent(new CustomEvent('ce-auth:post-login', {
+          detail: { redirectTarget: resolvePostAuthRedirect() },
+        }));
+      } else {
+        showInfo(t('Email is not confirmed yet. Check your inbox and try again.', 'E-mail nie jest jeszcze potwierdzony. Sprawdź skrzynkę i spróbuj ponownie.'));
+      }
+    } catch (error) {
+      const message = friendlyErrorMessage(error?.message || '');
+      showErr(`${t('Failed', 'Nie udało się')}: ${message}`);
+    }
+  });
+});
+
+async function handleSupabaseVerificationReturn() {
   const parsed = parseSupabaseReturnParams();
   if (!parsed || parsed.typeValue !== 'signup') {
     return;
   }
 
-  showOk(t('Email confirmed. You can sign in.', 'E-mail potwierdzony. Możesz się zalogować.'), 6500);
-  stripSupabaseReturnParams(parsed);
+  const code = (parsed.searchParams.get('code') || parsed.hashParams?.get('code') || '').trim();
+  try {
+    if (code) {
+      const { data: sessionData } = await sb.auth.getSession();
+      if (!sessionData?.session) {
+        const { error } = await sb.auth.exchangeCodeForSession(code);
+        if (error) throw error;
+      }
+    } else {
+      await applyCallbackSessionFromHash();
+    }
+
+    await refreshSessionAndProfile({ reason: 'email-confirmation' });
+    updateAuthUI();
+    await bootAuth();
+    hideResendVerification();
+    showOk(t('Email confirmed. You can continue.', 'E-mail potwierdzony. Możesz kontynuować.'), 6500);
+    stripSupabaseReturnParams(parsed);
+    document.dispatchEvent(new CustomEvent('ce-auth:post-login', {
+      detail: { redirectTarget: resolvePostAuthRedirect() },
+    }));
+  } catch (error) {
+    const message = friendlyErrorMessage(error?.message || t('Could not confirm email.', 'Nie udało się potwierdzić e-maila.'));
+    showErr(`${t('Failed', 'Nie udało się')}: ${message}`);
+    console.warn('Nie udało się obsłużyć potwierdzenia e-maila.', error);
+    stripSupabaseReturnParams(parsed);
+  }
 }
 
 function handleSupabaseRecoveryReturn(onDetected) {
@@ -3031,7 +3136,7 @@ function handleAuthDomReady() {
   initGoogleOAuthHandlers();
   initOAuthCompletionGuard();
   void handleGoogleOAuthCallbackIfPresent();
-  handleSupabaseVerificationReturn();
+  void handleSupabaseVerificationReturn();
   initResetPage();
 }
 

@@ -2882,6 +2882,31 @@ body[data-admin-panel="true"].admin-sidebar-open {
   gap: 10px;
 }
 
+.special-offer-entry-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.special-offer-entry-section-heading h4 {
+  margin: 0;
+}
+
+.special-offer-entry-full-form {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.special-offer-entry-full-form__meta {
+  padding: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.32);
+}
+
 .special-offer-entry-answer,
 .special-offer-entry-audit-row {
   background: rgba(15, 23, 42, 0.42);
@@ -2909,6 +2934,11 @@ body[data-admin-panel="true"].admin-sidebar-open {
   color: var(--admin-text);
   margin: 0;
   overflow-wrap: anywhere;
+}
+
+.special-offer-entry-answer--full small {
+  color: var(--admin-text-muted);
+  line-height: 1.45;
 }
 
 .special-offer-entry-review-form {

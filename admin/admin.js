@@ -26155,6 +26155,7 @@ async function viewUserDetails(userId) {
     let transportLocationLabelById = {};
     let depositRequests = [];
     let commissionEventsByDepositId = {};
+    let specialOfferEntries = [];
     const mergeUniqueRecordsById = (...groups) => {
       const map = new Map();
       groups.flat().forEach((row) => {
@@ -26380,6 +26381,19 @@ async function viewUserDetails(userId) {
             transportRouteLabelById[routeId] = `${origin} → ${destination}`;
           }
         });
+      }
+    } catch (_e) {
+    }
+
+    try {
+      const { data: specialOfferEntryRows, error: specialOfferEntriesError } = await client
+        .from('special_offer_entries')
+        .select('id, offer_id, status, reference, submitted_lang, reviewed_at, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (!specialOfferEntriesError && Array.isArray(specialOfferEntryRows)) {
+        specialOfferEntries = specialOfferEntryRows;
       }
     } catch (_e) {
     }
@@ -26959,6 +26973,45 @@ async function viewUserDetails(userId) {
       `;
     })();
 
+    const specialOfferEntriesHtml = (() => {
+      if (!specialOfferEntries.length) {
+        return '<p class="user-detail-hint">No Special Offers entries found for this user account.</p>';
+      }
+      return `
+        <div class="admin-table-container" style="margin-top: 10px;">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Reference</th>
+                <th>Status</th>
+                <th>Language</th>
+                <th>Submitted</th>
+                <th>Reviewed</th>
+                <th style="text-align:right;">Form</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${specialOfferEntries.map((entry) => {
+                const entryId = escapeHtml(String(entry?.id || ''));
+                return `
+                  <tr>
+                    <td>${escapeHtml(entry?.reference || '—')}</td>
+                    <td>${escapeHtml(entry?.status || '—')}</td>
+                    <td>${escapeHtml(String(entry?.submitted_lang || '').toUpperCase() || '—')}</td>
+                    <td>${entry?.created_at ? escapeHtml(formatDate(entry.created_at)) : '—'}</td>
+                    <td>${entry?.reviewed_at ? escapeHtml(formatDate(entry.reviewed_at)) : '—'}</td>
+                    <td style="text-align:right;">
+                      <button class="btn-small btn-secondary" type="button" onclick="window.CyprusEyeSpecialOffersAdmin?.openEntryFullForm('${entryId}')">View full form</button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    })();
+
     content.innerHTML = `
       <div class="user-detail-grid">
         <section class="user-detail-card user-detail-card--full">
@@ -27066,6 +27119,12 @@ async function viewUserDetails(userId) {
               <p class="user-summary-sub">${totalOrdersCount} shop orders · ${totalBookingsCount} service bookings</p>
             </article>
           </div>
+        </section>
+
+        <section class="user-detail-card user-detail-card--full">
+          <h4 class="user-detail-section-title">Special Offers entries</h4>
+          <p class="user-detail-hint">Entries are matched by user_id only. Answers open in the shared read-only Special Offers form modal.</p>
+          ${specialOfferEntriesHtml}
         </section>
 
         <section class="user-detail-card user-detail-card--full">
