@@ -501,6 +501,38 @@ test.describe('Special Offer public read-only landing', () => {
     expect(text).not.toContain('null');
   });
 
+  test('uses clean route SEO tags for public campaigns and keeps preview noindex', async ({ page }) => {
+    await prepareSpecialOfferLandingStub(page, { adminSession: true });
+    await page.goto('/special-offer.html?slug=published-sample-2026&lang=en');
+    await waitForSupabaseStub(page);
+
+    const seo = await page.evaluate(() => ({
+      canonical: document.querySelector('link[rel="canonical"]')?.getAttribute('href') || '',
+      alternates: Array.from(document.querySelectorAll('link[rel="alternate"][data-special-offer-hreflang]')).map((node) => ({
+        lang: node.getAttribute('hreflang'),
+        href: node.getAttribute('href'),
+      })),
+      ogUrl: document.querySelector('meta[property="og:url"]')?.getAttribute('content') || '',
+      ogTitle: document.querySelector('meta[property="og:title"]')?.getAttribute('content') || '',
+      robots: document.querySelector('meta[name="robots"][data-special-offer-robots]')?.getAttribute('content') || '',
+    }));
+
+    expect(seo.canonical).toMatch(/\/special-offers\/published-sample-2026\?lang=en$/);
+    expect(seo.ogUrl).toBe(seo.canonical);
+    expect(seo.ogTitle).toContain('Published public campaign');
+    expect(seo.robots).toBe('');
+    expect(seo.alternates).toEqual(expect.arrayContaining([
+      expect.objectContaining({ lang: 'pl', href: expect.stringMatching(/\/special-offers\/published-sample-2026\?lang=pl$/) }),
+      expect.objectContaining({ lang: 'en', href: expect.stringMatching(/\/special-offers\/published-sample-2026\?lang=en$/) }),
+      expect.objectContaining({ lang: 'he', href: expect.stringMatching(/\/special-offers\/published-sample-2026\?lang=he$/) }),
+      expect.objectContaining({ lang: 'x-default', href: expect.stringMatching(/\/special-offers\/published-sample-2026\?lang=pl$/) }),
+    ]));
+
+    await page.goto('/special-offer.html?slug=lefkara-giveaway-2026&lang=en&admin_preview=1');
+    await waitForSupabaseStub(page);
+    await expect(page.locator('meta[name="robots"][data-special-offer-robots]')).toHaveAttribute('content', 'noindex, nofollow');
+  });
+
   test('renders draft/private campaign through authenticated admin preview only', async ({ page }) => {
     await prepareSpecialOfferLandingStub(page, { adminSession: true });
     await page.goto('/special-offers/lefkara-giveaway-2026?lang=he&admin_preview=1');

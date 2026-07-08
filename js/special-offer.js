@@ -581,6 +581,87 @@ function setRobotsNoIndex(enabled) {
   meta.setAttribute('content', 'noindex, nofollow');
 }
 
+function ensureHeadElement(selector, create) {
+  let node = document.head.querySelector(selector);
+  if (!node) {
+    node = create();
+    document.head.appendChild(node);
+  }
+  return node;
+}
+
+function setNamedMeta(name, content) {
+  const safeContent = cleanText(content);
+  if (!safeContent) return;
+  const node = ensureHeadElement(`meta[name="${CSS.escape(name)}"]`, () => {
+    const meta = document.createElement('meta');
+    meta.setAttribute('name', name);
+    return meta;
+  });
+  node.setAttribute('content', safeContent);
+}
+
+function setPropertyMeta(property, content) {
+  const safeContent = cleanText(content);
+  if (!safeContent) return;
+  const node = ensureHeadElement(`meta[property="${CSS.escape(property)}"]`, () => {
+    const meta = document.createElement('meta');
+    meta.setAttribute('property', property);
+    return meta;
+  });
+  node.setAttribute('content', safeContent);
+}
+
+function getAbsoluteUrl(path) {
+  try {
+    return new URL(path, window.location.origin).toString();
+  } catch (_error) {
+    return path;
+  }
+}
+
+function getCampaignCleanPath(campaign, lang = 'pl') {
+  const slug = cleanText(campaign?.slug || currentSlug || readSlug());
+  const safeSlug = slug.replace(/[^a-z0-9_-]/gi, '');
+  const safeLang = normalizeLang(lang);
+  const path = safeSlug ? `/special-offers/${encodeURIComponent(safeSlug)}` : '/special-offer.html';
+  return `${path}?lang=${encodeURIComponent(safeLang)}`;
+}
+
+function setCanonicalAndAlternates(campaign, lang) {
+  const canonical = getAbsoluteUrl(getCampaignCleanPath(campaign, lang));
+  const canonicalNode = ensureHeadElement('link[rel="canonical"]', () => {
+    const link = document.createElement('link');
+    link.setAttribute('rel', 'canonical');
+    return link;
+  });
+  canonicalNode.setAttribute('href', canonical);
+
+  document.head.querySelectorAll('link[rel="alternate"][data-special-offer-hreflang]').forEach((node) => node.remove());
+  LANGUAGES.forEach((code) => {
+    const link = document.createElement('link');
+    link.setAttribute('rel', 'alternate');
+    link.setAttribute('hreflang', code);
+    link.setAttribute('href', getAbsoluteUrl(getCampaignCleanPath(campaign, code)));
+    link.setAttribute('data-special-offer-hreflang', 'true');
+    document.head.appendChild(link);
+  });
+  const fallback = document.createElement('link');
+  fallback.setAttribute('rel', 'alternate');
+  fallback.setAttribute('hreflang', 'x-default');
+  fallback.setAttribute('href', getAbsoluteUrl(getCampaignCleanPath(campaign, 'pl')));
+  fallback.setAttribute('data-special-offer-hreflang', 'true');
+  document.head.appendChild(fallback);
+  return canonical;
+}
+
+function getOgImage(data) {
+  const linkImage = (Array.isArray(data?.links) ? data.links : [])
+    .map((link) => cleanText(link?.image_url))
+    .find((image) => isSafeImageSrc(image));
+  return getAbsoluteUrl(linkImage || '/assets/cyprus_logo-1000x1054.png');
+}
+
 function showLoading() {
   refs.loading.hidden = false;
   refs.unavailable.hidden = true;
@@ -2334,19 +2415,25 @@ function getMetaDescription(translation) {
   return cleanText(translation?.seo_description || translation?.short_description || translation?.full_description).slice(0, 160);
 }
 
-function updateSeo(translation, campaign) {
+function updateSeo(translation, campaign, lang, data) {
   const title = cleanText(translation?.seo_title || translation?.title || campaign?.slug || 'Special Offer');
   document.title = `${title} • CyprusEye`;
   const description = getMetaDescription(translation);
-  if (description) {
-    let meta = document.querySelector('meta[name="description"]');
-    if (!meta) {
-      meta = document.createElement('meta');
-      meta.setAttribute('name', 'description');
-      document.head.appendChild(meta);
-    }
-    meta.setAttribute('content', description);
-  }
+  if (description) setNamedMeta('description', description);
+
+  const canonical = setCanonicalAndAlternates(campaign, lang);
+  const ogImage = getOgImage(data);
+  setPropertyMeta('og:type', 'website');
+  setPropertyMeta('og:title', title);
+  setPropertyMeta('og:description', description || title);
+  setPropertyMeta('og:url', canonical);
+  setPropertyMeta('og:image', ogImage);
+  setPropertyMeta('og:locale', lang === 'pl' ? 'pl_PL' : lang === 'he' ? 'he_IL' : 'en_GB');
+  setPropertyMeta('og:locale:alternate', lang === 'pl' ? 'en_GB' : 'pl_PL');
+  setNamedMeta('twitter:card', 'summary_large_image');
+  setNamedMeta('twitter:title', title);
+  setNamedMeta('twitter:description', description || title);
+  setNamedMeta('twitter:image', ogImage);
 }
 
 function renderCampaign(data, requestedLang, previewMode) {
@@ -2357,7 +2444,7 @@ function renderCampaign(data, requestedLang, previewMode) {
   currentState = { data, lang, previewMode };
   setPageLanguage(lang);
   updateStaticText(lang);
-  updateSeo(translation, data.campaign);
+  updateSeo(translation, data.campaign, lang, data);
   setRobotsNoIndex(previewMode || data.campaign?.status !== PUBLIC_STATUS || data.campaign?.visibility !== PUBLIC_VISIBILITY);
 
   refs.loading.hidden = true;
