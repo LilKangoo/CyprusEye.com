@@ -2882,6 +2882,28 @@ body[data-admin-panel="true"].admin-sidebar-open {
   gap: 10px;
 }
 
+.special-offer-manual-notice {
+  background: rgba(14, 165, 233, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  border-radius: 10px;
+  color: var(--admin-text);
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 12px;
+}
+
+.special-offer-score-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 10px;
+}
+
+.special-offer-post-form {
+  margin-top: 14px;
+}
+
 .special-offer-entry-section-heading {
   display: flex;
   align-items: center;
@@ -3669,6 +3691,10 @@ button.special-offer-help:focus-visible {
 
   .special-offers-stats,
   .special-offers-workflow {
+    grid-template-columns: 1fr;
+  }
+
+  .special-offer-score-grid {
     grid-template-columns: 1fr;
   }
 

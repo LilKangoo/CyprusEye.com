@@ -10,6 +10,8 @@ const SPECIAL_OFFERS_AUDIT_SELECT = 'id, offer_id, actor_id, action, entity_type
 const SPECIAL_OFFER_ENTRIES_LIST_SELECT = 'id, offer_id, reference, status, submitted_lang, normalized_email, first_name, last_name, created_at, reviewed_at, reviewed_by';
 const SPECIAL_OFFER_ENTRIES_DETAIL_SELECT = 'id, offer_id, user_id, status, submitted_lang, normalized_email, first_name, last_name, phone, answers_json, form_snapshot_json, client_submission_id, reference, reviewed_at, reviewed_by, review_note, rejection_reason, created_at, updated_at';
 const SPECIAL_OFFER_ENTRY_ANSWERS_SELECT = 'id, entry_id, field_id, field_key, value_text, value_json, field_snapshot_json, created_at';
+const SPECIAL_OFFER_OFFICIAL_POSTS_SELECT = 'id, offer_id, post_order, week_number, admin_title, platform, official_url, external_post_id, published_at, comment_deadline_at, active, created_by, updated_by, created_at, updated_at';
+const SPECIAL_OFFER_ACTIVITIES_SELECT = 'id, offer_id, entry_id, official_post_id, activity_type, evidence_url, evidence_text, participant_reported_at, verified_activity_at, status, points_awarded, verified_at, verified_by, review_note, rejection_reason, created_by, client_submission_id, created_at, updated_at';
 
 const specialOffersState = {
   initialized: false,
@@ -30,6 +32,33 @@ const specialOffersState = {
     detail: null,
     reviewAction: '',
     reviewing: false,
+  },
+  manualVerification: {
+    offerId: 'all',
+    posts: [],
+    postsLoading: false,
+    postsError: '',
+    postEditingId: '',
+    postSaving: false,
+    activities: {
+      rows: [],
+      entriesById: {},
+      postsById: {},
+      total: 0,
+      page: 1,
+      pageSize: 10,
+      status: 'all',
+      activityType: 'all',
+      officialPostId: 'all',
+      search: '',
+      loading: false,
+      error: '',
+      selectedActivityId: null,
+      detail: null,
+      reviewAction: '',
+      reviewing: false,
+    },
+    counts: {},
   },
   editorMode: 'create',
   editingCampaignId: null,
@@ -77,6 +106,8 @@ const SPECIAL_OFFERS_FORM_FIELD_TYPES = [
   'custom',
 ];
 const SPECIAL_OFFER_ENTRY_STATUSES = ['submitted', 'pending_review', 'approved', 'rejected', 'disqualified', 'withdrawn'];
+const SPECIAL_OFFER_ACTIVITY_STATUSES = ['pending', 'approved', 'rejected', 'invalid'];
+const SPECIAL_OFFER_ACTIVITY_TYPES = ['share', 'comment'];
 const SPECIAL_OFFERS_LINK_TYPES = ['cars', 'trips', 'hotels', 'transport', 'shop', 'coupons', 'vip', 'custom'];
 const SPECIAL_OFFERS_LINK_MODES = ['main', 'resource', 'custom'];
 const SPECIAL_OFFERS_RESOURCE_PICKER_TYPES = ['cars', 'trips', 'hotels', 'transport'];
@@ -548,8 +579,52 @@ function getReviewActionLabel(status) {
   return titleCase(normalized);
 }
 
+function getActivityReviewTransitions(status) {
+  const normalized = String(status || '').trim().toLowerCase();
+  if (normalized === 'pending') return ['approved', 'rejected', 'invalid'];
+  if (['rejected', 'invalid'].includes(normalized)) return ['pending'];
+  if (normalized === 'approved') return ['invalid', 'pending'];
+  return [];
+}
+
+function getActivityReviewActionLabel(status) {
+  const normalized = String(status || '').trim().toLowerCase();
+  if (normalized === 'approved') return 'Approve';
+  if (normalized === 'rejected') return 'Reject';
+  if (normalized === 'invalid') return 'Mark invalid';
+  if (normalized === 'pending') return 'Back to pending';
+  return titleCase(normalized);
+}
+
 function isSafeHttpUrl(value) {
   return /^https?:\/\/[^\s]+$/i.test(String(value || '').trim());
+}
+
+function isValidOfficialPostUrl(value) {
+  return isSafeHttpUrl(value);
+}
+
+function toLocalDateTimeInputValue(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = (part) => String(part).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function fromLocalDateTimeInputValue(value) {
+  const source = String(value || '').trim();
+  if (!source) return null;
+  const date = new Date(source);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+}
+
+function renderSafeExternalLink(url, label = '') {
+  const source = String(url || '').trim();
+  const text = label || source || 'Not set';
+  if (!isSafeHttpUrl(source)) return escapeHtml(text);
+  return `<a href="${escapeHtml(source)}" target="_blank" rel="noopener noreferrer">${escapeHtml(text)}</a>`;
 }
 
 function setHidden(element, hidden) {
@@ -672,18 +747,167 @@ async function refreshEntryStatsForShell() {
 async function loadEntryDetail(entryId) {
   const client = getSupabaseClient();
   if (!client) throw new Error('Supabase client is not available.');
-  const [entryResult, answersResult, auditResult] = await Promise.all([
+  const [entryResult, answersResult, auditResult, activitiesResult, scoreResult] = await Promise.all([
     client.from('special_offer_entries').select(SPECIAL_OFFER_ENTRIES_DETAIL_SELECT).eq('id', entryId).single(),
     client.from('special_offer_entry_answers').select(SPECIAL_OFFER_ENTRY_ANSWERS_SELECT).eq('entry_id', entryId).order('created_at', { ascending: true }),
     client.from('special_offer_audit_log').select(SPECIAL_OFFERS_AUDIT_SELECT).eq('entity_type', 'special_offer_entry').eq('entity_id', entryId).order('created_at', { ascending: false }).limit(20),
+    client.from('special_offer_entry_activities').select(SPECIAL_OFFER_ACTIVITIES_SELECT).eq('entry_id', entryId).order('created_at', { ascending: false }),
+    client.rpc('special_offer_entry_score_summary', { p_offer_id: null, p_entry_id: entryId }),
   ]);
   if (entryResult.error) throw entryResult.error;
   if (answersResult.error) throw answersResult.error;
   if (auditResult.error) throw auditResult.error;
+  const activities = activitiesResult.error ? [] : toArray(activitiesResult.data);
+  const officialPostIds = [...new Set(activities.map((row) => row.official_post_id).filter(Boolean))];
+  let postsById = {};
+  if (officialPostIds.length) {
+    const postsResult = await client.from('special_offer_official_posts').select(SPECIAL_OFFER_OFFICIAL_POSTS_SELECT).in('id', officialPostIds);
+    if (!postsResult.error) {
+      postsById = Object.fromEntries(toArray(postsResult.data).map((row) => [row.id, row]));
+    }
+  }
   return {
     entry: entryResult.data,
     answers: toArray(answersResult.data),
     auditLog: toArray(auditResult.data),
+    activities,
+    activityPostsById: postsById,
+    score: scoreResult.error ? null : toArray(scoreResult.data)[0] || null,
+  };
+}
+
+function applyActivityFilters(query, { offerId, status, activityType, officialPostId, search } = {}) {
+  if (offerId && offerId !== 'all') query = query.eq('offer_id', offerId);
+  if (status && status !== 'all') query = query.eq('status', status);
+  if (activityType && activityType !== 'all') query = query.eq('activity_type', activityType);
+  if (officialPostId && officialPostId !== 'all') query = query.eq('official_post_id', officialPostId);
+  return query;
+}
+
+async function getEntryIdsForActivitySearch(client, search) {
+  const term = sanitizeEntrySearch(search);
+  if (!term) return null;
+  const pattern = `%${term}%`;
+  const result = await client
+    .from('special_offer_entries')
+    .select('id')
+    .or([
+      `reference.ilike.${pattern}`,
+      `first_name.ilike.${pattern}`,
+      `last_name.ilike.${pattern}`,
+      `normalized_email.ilike.${pattern}`,
+    ].join(','))
+    .limit(200);
+  if (result.error) throw result.error;
+  return toArray(result.data).map((row) => row.id).filter(Boolean);
+}
+
+async function loadOfficialPosts(offerId = 'all') {
+  const client = getSupabaseClient();
+  if (!client) throw new Error('Supabase client is not available.');
+  let query = client.from('special_offer_official_posts').select(SPECIAL_OFFER_OFFICIAL_POSTS_SELECT);
+  if (offerId && offerId !== 'all') query = query.eq('offer_id', offerId);
+  const result = await query.order('post_order', { ascending: true });
+  if (result.error) throw result.error;
+  return toArray(result.data);
+}
+
+async function countActivitiesForFilter(client, filters = {}) {
+  const entryIds = await getEntryIdsForActivitySearch(client, filters.search);
+  if (Array.isArray(entryIds) && !entryIds.length) return 0;
+  let query = applyActivityFilters(
+    client.from('special_offer_entry_activities').select('id', { count: 'exact', head: true }),
+    filters
+  );
+  if (Array.isArray(entryIds)) query = query.in('entry_id', entryIds);
+  const result = await query;
+  if (result.error) throw result.error;
+  return Number(result.count ?? toArray(result.data).length ?? 0);
+}
+
+async function loadActivityCounts(filters = {}) {
+  const client = getSupabaseClient();
+  if (!client) throw new Error('Supabase client is not available.');
+  const baseFilters = {
+    offerId: filters.offerId || 'all',
+    activityType: filters.activityType || 'all',
+    officialPostId: filters.officialPostId || 'all',
+    search: filters.search || '',
+  };
+  const pairs = await Promise.all([
+    ['total', countActivitiesForFilter(client, { ...baseFilters, status: 'all' })],
+    ...SPECIAL_OFFER_ACTIVITY_STATUSES.map((status) => [status, countActivitiesForFilter(client, { ...baseFilters, status })]),
+    ...SPECIAL_OFFER_ACTIVITY_TYPES.map((activityType) => [activityType, countActivitiesForFilter(client, { ...baseFilters, status: filters.status || 'all', activityType })]),
+  ].map(async ([key, promise]) => [key, await promise]));
+  return Object.fromEntries(pairs);
+}
+
+async function loadActivitiesPage() {
+  const client = getSupabaseClient();
+  if (!client) throw new Error('Supabase client is not available.');
+  const state = specialOffersState.manualVerification.activities;
+  const filters = {
+    offerId: specialOffersState.manualVerification.offerId,
+    status: state.status,
+    activityType: state.activityType,
+    officialPostId: state.officialPostId,
+    search: state.search,
+  };
+  const from = (Math.max(1, Number(state.page || 1)) - 1) * state.pageSize;
+  const to = from + state.pageSize - 1;
+  const matchingEntryIds = await getEntryIdsForActivitySearch(client, filters.search);
+  if (Array.isArray(matchingEntryIds) && !matchingEntryIds.length) {
+    return { rows: [], entriesById: {}, postsById: {}, total: 0 };
+  }
+  let query = applyActivityFilters(
+    client.from('special_offer_entry_activities').select(SPECIAL_OFFER_ACTIVITIES_SELECT, { count: 'exact' }),
+    filters
+  );
+  if (Array.isArray(matchingEntryIds)) query = query.in('entry_id', matchingEntryIds);
+  const result = await query.order('created_at', { ascending: false }).range(from, to);
+  if (result.error) throw result.error;
+  const rows = toArray(result.data);
+  const entryIds = [...new Set(rows.map((row) => row.entry_id).filter(Boolean))];
+  const postIds = [...new Set(rows.map((row) => row.official_post_id).filter(Boolean))];
+  const [entriesResult, postsResult] = await Promise.all([
+    entryIds.length
+      ? client.from('special_offer_entries').select(SPECIAL_OFFER_ENTRIES_LIST_SELECT).in('id', entryIds)
+      : Promise.resolve({ data: [], error: null }),
+    postIds.length
+      ? client.from('special_offer_official_posts').select(SPECIAL_OFFER_OFFICIAL_POSTS_SELECT).in('id', postIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (entriesResult.error) throw entriesResult.error;
+  if (postsResult.error) throw postsResult.error;
+  return {
+    rows,
+    entriesById: Object.fromEntries(toArray(entriesResult.data).map((row) => [row.id, row])),
+    postsById: Object.fromEntries(toArray(postsResult.data).map((row) => [row.id, row])),
+    total: Number(result.count ?? rows.length ?? 0),
+  };
+}
+
+async function loadActivityDetail(activityId) {
+  const client = getSupabaseClient();
+  if (!client) throw new Error('Supabase client is not available.');
+  const activityResult = await client.from('special_offer_entry_activities').select(SPECIAL_OFFER_ACTIVITIES_SELECT).eq('id', activityId).single();
+  if (activityResult.error) throw activityResult.error;
+  const activity = activityResult.data;
+  const [entryResult, postResult, auditResult, scoreResult] = await Promise.all([
+    client.from('special_offer_entries').select(SPECIAL_OFFER_ENTRIES_DETAIL_SELECT).eq('id', activity.entry_id).single(),
+    client.from('special_offer_official_posts').select(SPECIAL_OFFER_OFFICIAL_POSTS_SELECT).eq('id', activity.official_post_id).single(),
+    client.from('special_offer_audit_log').select(SPECIAL_OFFERS_AUDIT_SELECT).eq('entity_type', 'special_offer_entry_activity').eq('entity_id', activity.id).order('created_at', { ascending: false }).limit(20),
+    client.rpc('special_offer_entry_score_summary', { p_offer_id: activity.offer_id, p_entry_id: activity.entry_id }),
+  ]);
+  if (entryResult.error) throw entryResult.error;
+  if (postResult.error) throw postResult.error;
+  if (auditResult.error) throw auditResult.error;
+  return {
+    activity,
+    entry: entryResult.data,
+    post: postResult.data,
+    auditLog: toArray(auditResult.data),
+    score: scoreResult.error ? null : toArray(scoreResult.data)[0] || null,
   };
 }
 
@@ -731,6 +955,7 @@ function renderCampaignCard(campaign) {
       <div class="special-offer-campaign-card__actions">
         <button class="btn-secondary btn-small" type="button" data-special-offers-view="${escapeHtml(campaign.id)}">View details</button>
         <button class="btn-secondary btn-small" type="button" data-special-offers-open-entries="${escapeHtml(campaign.id)}">Entries</button>
+        <button class="btn-secondary btn-small" type="button" data-special-offers-open-manual-verification="${escapeHtml(campaign.id)}">Manual verification</button>
         <a class="btn-secondary btn-small" href="${escapeHtml(previewUrl)}" target="_blank" rel="noopener noreferrer" data-special-offers-preview-url="${escapeHtml(previewUrl)}">Preview public page</a>
         <button class="btn-secondary btn-small" type="button" data-special-offers-copy-preview-url="${escapeHtml(campaign.id)}">Copy preview URL</button>
         <button
@@ -878,6 +1103,281 @@ function renderEntriesModalBody() {
     ${renderEntryFilters()}
     ${renderEntryRows()}
     ${renderEntriesPagination()}
+  `;
+}
+
+function renderManualVerificationNotice() {
+  return `
+    <div class="special-offer-manual-notice" role="note">
+      <strong>Manual selection remains active.</strong>
+      Points are a supporting criterion for the commission. This panel does not select winners automatically, run a draw or publish results.
+    </div>
+  `;
+}
+
+function renderManualVerificationFilters() {
+  const state = specialOffersState.manualVerification;
+  const activities = state.activities;
+  const posts = toArray(state.posts).filter((post) => state.offerId === 'all' || String(post.offer_id) === String(state.offerId));
+  return `
+    <div class="special-offer-entry-filters">
+      <label>
+        Campaign
+        <select data-special-offers-manual-offer>
+          <option value="all"${state.offerId === 'all' ? ' selected' : ''}>All campaigns</option>
+          ${specialOffersState.campaigns.map((campaign) => `<option value="${escapeHtml(campaign.id)}"${String(state.offerId) === String(campaign.id) ? ' selected' : ''}>${escapeHtml(formatCampaignTitle(campaign))}</option>`).join('')}
+        </select>
+      </label>
+      <label>
+        Official post
+        <select data-special-offers-activity-post>
+          <option value="all"${activities.officialPostId === 'all' ? ' selected' : ''}>All posts</option>
+          ${posts.map((post) => `<option value="${escapeHtml(post.id)}"${String(activities.officialPostId) === String(post.id) ? ' selected' : ''}>${escapeHtml(`#${post.post_order} ${post.admin_title}`)}</option>`).join('')}
+        </select>
+      </label>
+      <label>
+        Type
+        <select data-special-offers-activity-type>
+          <option value="all"${activities.activityType === 'all' ? ' selected' : ''}>All types</option>
+          ${SPECIAL_OFFER_ACTIVITY_TYPES.map((type) => `<option value="${escapeHtml(type)}"${activities.activityType === type ? ' selected' : ''}>${escapeHtml(titleCase(type))}</option>`).join('')}
+        </select>
+      </label>
+      <label>
+        Status
+        <select data-special-offers-activity-status>
+          <option value="all"${activities.status === 'all' ? ' selected' : ''}>All statuses</option>
+          ${SPECIAL_OFFER_ACTIVITY_STATUSES.map((status) => `<option value="${escapeHtml(status)}"${activities.status === status ? ' selected' : ''}>${escapeHtml(titleCase(status))}</option>`).join('')}
+        </select>
+      </label>
+      <label>
+        Search
+        <input type="search" value="${escapeHtml(activities.search)}" placeholder="Entry reference or participant" data-special-offers-activity-search />
+      </label>
+      <button class="btn-secondary btn-small" type="button" data-special-offers-manual-refresh>Refresh</button>
+    </div>
+  `;
+}
+
+function renderManualActivityCounts(counts = specialOffersState.manualVerification.counts) {
+  const items = [
+    ['total', 'Total'],
+    ['pending', 'Pending'],
+    ['approved', 'Approved'],
+    ['rejected', 'Rejected'],
+    ['invalid', 'Invalid'],
+    ['share', 'Shares'],
+    ['comment', 'Comments'],
+  ];
+  return `
+    <div class="special-offer-entry-counts" aria-label="Activity status counts">
+      ${items.map(([key, label]) => `
+        <span class="special-offer-entry-count">
+          <strong>${escapeHtml(String(Number(counts?.[key] || 0)))}</strong>
+          ${escapeHtml(label)}
+        </span>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderOfficialPostsSection() {
+  const state = specialOffersState.manualVerification;
+  const rows = toArray(state.posts).filter((post) => state.offerId === 'all' || String(post.offer_id) === String(state.offerId));
+  const editPost = state.postEditingId
+    ? rows.find((post) => String(post.id) === String(state.postEditingId)) || null
+    : null;
+  const formPost = editPost || {
+    post_order: rows.length + 1,
+    platform: 'facebook',
+    published_at: '',
+    comment_deadline_at: '',
+    active: true,
+  };
+  return `
+    <section class="special-offers-detail-panel special-offers-detail-panel--wide">
+      <div class="special-offer-entry-section-heading">
+        <div>
+          <h4>Official posts</h4>
+          <p class="special-offer-editor-muted">Official posts define weekly share/comment evidence targets. Deactivation blocks new claims but keeps historic points.</p>
+        </div>
+        <button class="btn-secondary btn-small" type="button" data-special-offers-post-new>Add official post</button>
+      </div>
+      ${state.postsLoading ? '<div class="special-offer-entry-state">Loading official posts...</div>' : ''}
+      ${state.postsError ? `<div class="special-offer-entry-state special-offer-entry-state--error">${escapeHtml(state.postsError)}</div>` : ''}
+      ${rows.length ? `
+        <div class="special-offer-entry-table-wrap">
+          <table class="special-offer-entry-table">
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Week</th>
+                <th>Title</th>
+                <th>Platform</th>
+                <th>URL</th>
+                <th>Published</th>
+                <th>Comment deadline</th>
+                <th>Active</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map((post) => `
+                <tr>
+                  <td>${escapeHtml(post.post_order)}</td>
+                  <td>${escapeHtml(post.week_number ?? '—')}</td>
+                  <td><strong>${escapeHtml(post.admin_title)}</strong></td>
+                  <td>${escapeHtml(titleCase(post.platform))}</td>
+                  <td>${renderSafeExternalLink(post.official_url, 'Open post')}</td>
+                  <td>${escapeHtml(formatDateTime(post.published_at))}</td>
+                  <td>${escapeHtml(formatDateTime(post.comment_deadline_at))}</td>
+                  <td>${post.active ? 'Yes' : 'No'}</td>
+                  <td>
+                    <button class="btn-secondary btn-small" type="button" data-special-offers-post-edit="${escapeHtml(post.id)}">Edit</button>
+                    <button class="btn-secondary btn-small" type="button" data-special-offers-post-deactivate="${escapeHtml(post.id)}" ${post.active ? '' : 'disabled'}>Deactivate</button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      ` : '<p class="special-offers-empty-copy">No official posts are configured for the current campaign filter.</p>'}
+      ${state.postEditingId !== '' ? renderOfficialPostForm(formPost, Boolean(editPost)) : ''}
+    </section>
+  `;
+}
+
+function renderOfficialPostForm(post, isEdit = false) {
+  const selectedOfferId = post.offer_id || (specialOffersState.manualVerification.offerId !== 'all' ? specialOffersState.manualVerification.offerId : specialOffersState.campaigns[0]?.id || '');
+  return `
+    <form class="special-offer-entry-review-form special-offer-post-form" data-special-offers-post-form>
+      <h5>${isEdit ? 'Edit official post' : 'Add official post'}</h5>
+      <div class="special-offer-editor-grid">
+        <label>
+          Campaign
+          <select name="offer_id" ${isEdit ? 'disabled' : ''}>
+            ${specialOffersState.campaigns.map((campaign) => `<option value="${escapeHtml(campaign.id)}"${String(selectedOfferId) === String(campaign.id) ? ' selected' : ''}>${escapeHtml(formatCampaignTitle(campaign))}</option>`).join('')}
+          </select>
+        </label>
+        <label>
+          Platform
+          <select name="platform">
+            <option value="facebook"${String(post.platform || '').toLowerCase() === 'facebook' ? ' selected' : ''}>Facebook</option>
+          </select>
+        </label>
+        <label>
+          Post order *
+          <input name="post_order" type="number" min="1" required value="${escapeHtml(post.post_order ?? '')}" />
+        </label>
+        <label>
+          Week number
+          <input name="week_number" type="number" min="1" value="${escapeHtml(post.week_number ?? '')}" />
+        </label>
+        <label class="special-offer-editor-field--wide">
+          Admin title *
+          <input name="admin_title" type="text" maxlength="180" required value="${escapeHtml(post.admin_title || '')}" />
+        </label>
+        <label class="special-offer-editor-field--wide">
+          Official URL *
+          <input name="official_url" type="url" required value="${escapeHtml(post.official_url || '')}" />
+          <small>Only http:// or https:// URLs are accepted. No Open Graph fetch is performed.</small>
+        </label>
+        <label>
+          Published at *
+          <input name="published_at" type="datetime-local" required value="${escapeHtml(toLocalDateTimeInputValue(post.published_at))}" />
+        </label>
+        <label>
+          Comment deadline
+          <input name="comment_deadline_at" type="datetime-local" value="${escapeHtml(toLocalDateTimeInputValue(post.comment_deadline_at))}" />
+          <small>Leave empty to let the RPC use published_at + 24 hours.</small>
+        </label>
+        <label class="special-offer-editor-field--wide">
+          External post ID
+          <input name="external_post_id" type="text" maxlength="240" value="${escapeHtml(post.external_post_id || '')}" />
+        </label>
+      </div>
+      <div class="special-offer-entry-review-footer">
+        <button class="btn-primary btn-small" type="submit" ${specialOffersState.manualVerification.postSaving ? 'disabled' : ''}>Save official post</button>
+        <button class="btn-secondary btn-small" type="button" data-special-offers-post-cancel>Cancel</button>
+      </div>
+      <p class="special-offer-editor-muted">This saves through admin_upsert_special_offer_official_post only.</p>
+    </form>
+  `;
+}
+
+function renderActivityQueue() {
+  const state = specialOffersState.manualVerification.activities;
+  const rows = toArray(state.rows);
+  if (state.loading) return '<div class="special-offer-entry-state">Loading activity claims...</div>';
+  if (state.error) return `<div class="special-offer-entry-state special-offer-entry-state--error">${escapeHtml(state.error)}</div>`;
+  if (!rows.length) return '<div class="special-offer-entry-state">No activity claims match the current filters.</div>';
+  return `
+    <div class="special-offer-entry-table-wrap">
+      <table class="special-offer-entry-table">
+        <thead>
+          <tr>
+            <th>Entry</th>
+            <th>Official post</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Points</th>
+            <th>Reported</th>
+            <th>Verified activity</th>
+            <th>Created</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((row) => {
+            const entry = state.entriesById[row.entry_id] || {};
+            const post = state.postsById[row.official_post_id] || {};
+            return `
+              <tr data-special-offers-activity-row="${escapeHtml(row.id)}">
+                <td><strong>${escapeHtml(entry.reference || shortId(row.entry_id))}</strong></td>
+                <td>${escapeHtml(post.admin_title ? `#${post.post_order} ${post.admin_title}` : shortId(row.official_post_id))}</td>
+                <td>${escapeHtml(titleCase(row.activity_type))}</td>
+                <td>${renderStatusChip(row.status, 'activity-status')}</td>
+                <td>${escapeHtml(String(row.points_awarded ?? 0))}</td>
+                <td>${escapeHtml(formatDateTime(row.participant_reported_at))}</td>
+                <td>${escapeHtml(formatDateTime(row.verified_activity_at))}</td>
+                <td>${escapeHtml(formatDateTime(row.created_at))}</td>
+                <td><button class="btn-secondary btn-small" type="button" data-special-offers-activity-detail="${escapeHtml(row.id)}">Details / Review</button></td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderActivityPagination() {
+  const state = specialOffersState.manualVerification.activities;
+  const totalPages = Math.max(1, Math.ceil(Number(state.total || 0) / state.pageSize));
+  return `
+    <div class="special-offer-entry-pagination">
+      <button class="btn-secondary btn-small" type="button" data-special-offers-activity-page="prev" ${state.page <= 1 || state.loading ? 'disabled' : ''}>Previous</button>
+      <span>Page ${escapeHtml(String(state.page))} of ${escapeHtml(String(totalPages))} · ${escapeHtml(String(state.total || 0))} total</span>
+      <button class="btn-secondary btn-small" type="button" data-special-offers-activity-page="next" ${state.page >= totalPages || state.loading ? 'disabled' : ''}>Next</button>
+    </div>
+  `;
+}
+
+function renderManualVerificationBody() {
+  return `
+    ${renderManualVerificationNotice()}
+    ${renderManualVerificationFilters()}
+    ${renderManualActivityCounts()}
+    ${renderOfficialPostsSection()}
+    <section class="special-offers-detail-panel special-offers-detail-panel--wide">
+      <div class="special-offer-entry-section-heading">
+        <div>
+          <h4>Activity queue</h4>
+          <p class="special-offer-editor-muted">Share/comment claims are reviewed manually. Decisions go through review_special_offer_activity.</p>
+        </div>
+      </div>
+      ${renderActivityQueue()}
+      ${renderActivityPagination()}
+    </section>
   `;
 }
 
@@ -1039,6 +1539,133 @@ function renderEntryAuditLog(rows) {
         `;
       }).join('')}
     </div>
+  `;
+}
+
+function renderScoreSummary(score) {
+  if (!score) return '<p class="special-offers-empty-copy">Score summary is not available yet.</p>';
+  const items = [
+    ['Base points', score.base_points],
+    ['Share points', score.share_points],
+    ['Comment points', score.comment_points],
+    ['Bonus points', score.bonus_points],
+    ['Total points', score.total_points],
+    ['Approved activities', score.approved_activity_count],
+  ];
+  return `
+    <div class="special-offer-score-grid">
+      ${items.map(([label, value]) => `
+        <span class="special-offer-entry-count">
+          <strong>${escapeHtml(String(Number(value || 0)))}</strong>
+          ${escapeHtml(label)}
+        </span>
+      `).join('')}
+    </div>
+    <p class="special-offer-editor-muted">Points are a supporting criterion. The winner is selected manually by the commission.</p>
+  `;
+}
+
+function renderEntryActivities(detail) {
+  const rows = toArray(detail?.activities);
+  if (!rows.length) return '<p class="special-offers-empty-copy">No activity claims are linked to this entry yet.</p>';
+  const postsById = detail?.activityPostsById || {};
+  return `
+    <div class="special-offer-entry-answers">
+      ${rows.map((activity) => {
+        const post = postsById[activity.official_post_id] || {};
+        return `
+          <article class="special-offer-entry-answer">
+            <div>
+              <strong>${escapeHtml(titleCase(activity.activity_type))} · ${escapeHtml(post.admin_title || shortId(activity.official_post_id))}</strong>
+              <span>${escapeHtml(titleCase(activity.status))} · ${escapeHtml(String(activity.points_awarded || 0))} point</span>
+            </div>
+            <p>${renderSafeExternalLink(activity.evidence_url)}</p>
+            <button class="btn-secondary btn-small" type="button" data-special-offers-activity-detail="${escapeHtml(activity.id)}">Open activity detail</button>
+          </article>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderActivityAuditLog(rows) {
+  if (!toArray(rows).length) return '<p class="special-offers-empty-copy">No activity audit entries yet.</p>';
+  return `
+    <div class="special-offer-entry-audit">
+      ${toArray(rows).map((row) => {
+        const oldStatus = row?.old_value?.status || row?.old_value?.old_status || '—';
+        const newStatus = row?.new_value?.status || row?.new_value?.new_status || '—';
+        const oldPoints = row?.old_value?.points_awarded ?? row?.old_value?.old_points ?? '—';
+        const newPoints = row?.new_value?.points_awarded ?? row?.new_value?.new_points ?? '—';
+        const metadata = row?.metadata && typeof row.metadata === 'object' ? row.metadata : {};
+        return `
+          <article class="special-offer-entry-audit-row">
+            <strong>${escapeHtml(row.action || 'audit')}</strong>
+            <span>${escapeHtml(formatDateTime(row.created_at))}</span>
+            <span>${escapeHtml(titleCase(oldStatus))} → ${escapeHtml(titleCase(newStatus))}</span>
+            <span>Points: ${escapeHtml(oldPoints)} → ${escapeHtml(newPoints)}</span>
+            <span>Actor: ${escapeHtml(shortId(row.actor_id))}</span>
+            <span>Note: ${metadata.review_note_present ? 'yes' : 'no'} · Reason: ${metadata.rejection_reason_present ? 'yes' : 'no'}</span>
+          </article>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderActivityReviewActions(activity) {
+  const transitions = getActivityReviewTransitions(activity?.status);
+  if (!transitions.length) {
+    return '<p class="special-offer-editor-muted">No activity review actions are available for this status.</p>';
+  }
+  return `
+    <div class="special-offer-entry-review-actions">
+      ${transitions.map((status) => `<button class="btn-secondary btn-small" type="button" data-special-offers-activity-review-action="${escapeHtml(status)}">${escapeHtml(getActivityReviewActionLabel(status))}</button>`).join('')}
+    </div>
+  `;
+}
+
+function renderActivityReviewForm(action, detail) {
+  if (!action) return '';
+  const activity = detail?.activity || {};
+  const post = detail?.post || {};
+  const isCommentApproval = activity.activity_type === 'comment' && action === 'approved';
+  const requiresReason = ['rejected', 'invalid'].includes(action);
+  return `
+    <form class="special-offer-entry-review-form" data-special-offers-activity-review-form>
+      <h5>${escapeHtml(getActivityReviewActionLabel(action))}</h5>
+      ${isCommentApproval ? `
+        <div class="special-offer-manual-notice">
+          <strong>Comment timing check</strong>
+          <span>Published: ${escapeHtml(formatDateTime(post.published_at))} · Deadline: ${escapeHtml(formatDateTime(post.comment_deadline_at))} · Participant reported: ${escapeHtml(formatDateTime(activity.participant_reported_at))}</span>
+        </div>
+        <label>
+          Verified comment time *
+          <input name="verified_activity_at" type="datetime-local" required value="${escapeHtml(toLocalDateTimeInputValue(activity.verified_activity_at || activity.participant_reported_at))}" data-special-offers-activity-verified-at />
+          <small>Admin-confirmed time must be between post publication and the 24h deadline.</small>
+        </label>
+      ` : `
+        <label>
+          Verified activity time <span class="special-offer-editor-muted">(optional for shares)</span>
+          <input name="verified_activity_at" type="datetime-local" value="${escapeHtml(toLocalDateTimeInputValue(activity.verified_activity_at))}" data-special-offers-activity-verified-at />
+        </label>
+      `}
+      <label>
+        Review note <span class="special-offer-editor-muted">(optional)</span>
+        <textarea name="review_note" rows="3" maxlength="2000" data-special-offers-activity-review-note></textarea>
+        <small><span data-special-offers-activity-review-note-count>0</span>/2000</small>
+      </label>
+      <label>
+        Rejection/invalid reason ${requiresReason ? '*' : '<span class="special-offer-editor-muted">(not required)</span>'}
+        <textarea name="rejection_reason" rows="3" maxlength="1000" data-special-offers-activity-review-reason></textarea>
+        <small><span data-special-offers-activity-review-reason-count>0</span>/1000</small>
+      </label>
+      <div class="special-offer-entry-review-footer">
+        <button class="btn-primary btn-small" type="submit" data-special-offers-activity-review-submit="${escapeHtml(action)}" ${specialOffersState.manualVerification.activities.reviewing ? 'disabled' : ''}>Confirm ${escapeHtml(getActivityReviewActionLabel(action))}</button>
+        <button class="btn-secondary btn-small" type="button" data-special-offers-activity-review-cancel>Cancel</button>
+      </div>
+      <p class="special-offer-editor-muted">This calls review_special_offer_activity. It does not modify entries, answers or snapshots.</p>
+    </form>
   `;
 }
 
@@ -3658,6 +4285,7 @@ function openCampaignDetails(campaignId) {
               ${canEdit ? '' : 'disabled title="Editing for published/locked campaigns will be available in a later stage."'}
             >Edit campaign</button>
             <button class="btn-secondary btn-small" type="button" data-special-offers-open-entries="${escapeHtml(campaign.id)}">Entries</button>
+            <button class="btn-secondary btn-small" type="button" data-special-offers-open-manual-verification="${escapeHtml(campaign.id)}">Manual verification</button>
             <button class="btn-secondary btn-small" type="button" disabled title="Draw machine not configured yet">Draw</button>
           </div>
         </section>
@@ -3783,6 +4411,10 @@ function ensureEntryDetailsModal() {
     if (fullFormButton) {
       openEntryFullForm(fullFormButton.getAttribute('data-special-offers-entry-full-form') || '');
     }
+    const activityDetailButton = target?.closest('[data-special-offers-activity-detail]');
+    if (activityDetailButton) {
+      openActivityDetail(activityDetailButton.getAttribute('data-special-offers-activity-detail') || '');
+    }
     const actionButton = target?.closest('[data-special-offers-review-action]');
     if (actionButton) {
       specialOffersState.entries.reviewAction = actionButton.getAttribute('data-special-offers-review-action') || '';
@@ -3855,6 +4487,268 @@ async function openEntriesModal(offerId = 'all') {
   await refreshEntriesList();
 }
 
+function ensureManualVerificationModal() {
+  let modal = $('#specialOffersManualVerificationModal');
+  if (modal) return modal;
+  modal = document.createElement('div');
+  modal.className = 'admin-modal special-offers-manual-verification-modal';
+  modal.id = 'specialOffersManualVerificationModal';
+  modal.hidden = true;
+  modal.innerHTML = `
+    <div class="admin-modal-overlay" data-special-offers-manual-close></div>
+    <div class="admin-modal-content special-offers-details-modal__content" role="dialog" aria-modal="true" aria-labelledby="specialOffersManualVerificationTitle">
+      <header class="admin-modal-header">
+        <div>
+          <div class="special-offers-eyebrow">Manual verification</div>
+          <h3 id="specialOffersManualVerificationTitle">Official posts, activity claims and points</h3>
+          <p class="special-offer-editor-subtitle">Admin-only workflow. Write actions use Special Offers verification RPCs.</p>
+        </div>
+        <button class="btn-modal-close" type="button" data-special-offers-manual-close aria-label="Close manual verification">×</button>
+      </header>
+      <div class="admin-modal-body" id="specialOffersManualVerificationBody"></div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest('[data-special-offers-manual-close]')) closeManualVerificationModal();
+    if (target?.closest('[data-special-offers-manual-refresh]')) refreshManualVerification();
+    if (target?.closest('[data-special-offers-post-new]')) {
+      specialOffersState.manualVerification.postEditingId = 'new';
+      renderManualVerificationModal();
+    }
+    const editPost = target?.closest('[data-special-offers-post-edit]');
+    if (editPost) {
+      specialOffersState.manualVerification.postEditingId = editPost.getAttribute('data-special-offers-post-edit') || '';
+      renderManualVerificationModal();
+    }
+    if (target?.closest('[data-special-offers-post-cancel]')) {
+      specialOffersState.manualVerification.postEditingId = '';
+      renderManualVerificationModal();
+    }
+    const deactivatePost = target?.closest('[data-special-offers-post-deactivate]');
+    if (deactivatePost && !deactivatePost.disabled) {
+      deactivateOfficialPost(deactivatePost.getAttribute('data-special-offers-post-deactivate') || '');
+    }
+    const activityDetail = target?.closest('[data-special-offers-activity-detail]');
+    if (activityDetail) openActivityDetail(activityDetail.getAttribute('data-special-offers-activity-detail') || '');
+    const pageButton = target?.closest('[data-special-offers-activity-page]');
+    if (pageButton && !pageButton.disabled) {
+      const direction = pageButton.getAttribute('data-special-offers-activity-page');
+      specialOffersState.manualVerification.activities.page += direction === 'next' ? 1 : -1;
+      refreshActivityQueue();
+    }
+  });
+  modal.addEventListener('change', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    const offer = target?.closest('[data-special-offers-manual-offer]');
+    const status = target?.closest('[data-special-offers-activity-status]');
+    const type = target?.closest('[data-special-offers-activity-type]');
+    const post = target?.closest('[data-special-offers-activity-post]');
+    if (offer) {
+      specialOffersState.manualVerification.offerId = offer.value || 'all';
+      specialOffersState.manualVerification.activities.officialPostId = 'all';
+      specialOffersState.manualVerification.activities.page = 1;
+      specialOffersState.manualVerification.postEditingId = '';
+      refreshManualVerification();
+    }
+    if (status) {
+      specialOffersState.manualVerification.activities.status = status.value || 'all';
+      specialOffersState.manualVerification.activities.page = 1;
+      refreshActivityQueue();
+    }
+    if (type) {
+      specialOffersState.manualVerification.activities.activityType = type.value || 'all';
+      specialOffersState.manualVerification.activities.page = 1;
+      refreshActivityQueue();
+    }
+    if (post) {
+      specialOffersState.manualVerification.activities.officialPostId = post.value || 'all';
+      specialOffersState.manualVerification.activities.page = 1;
+      refreshActivityQueue();
+    }
+  });
+  modal.addEventListener('input', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    const search = target?.closest('[data-special-offers-activity-search]');
+    if (!search) return;
+    specialOffersState.manualVerification.activities.search = search.value || '';
+    specialOffersState.manualVerification.activities.page = 1;
+    window.clearTimeout(specialOffersState.manualVerification.activities.searchTimer);
+    specialOffersState.manualVerification.activities.searchTimer = window.setTimeout(() => refreshActivityQueue(), 250);
+  });
+  modal.addEventListener('submit', (event) => {
+    const form = event.target instanceof Element ? event.target.closest('[data-special-offers-post-form]') : null;
+    if (!form) return;
+    event.preventDefault();
+    submitOfficialPost(form);
+  });
+  return modal;
+}
+
+function closeManualVerificationModal() {
+  const modal = $('#specialOffersManualVerificationModal');
+  if (modal) modal.hidden = true;
+}
+
+function renderManualVerificationModal() {
+  const modal = ensureManualVerificationModal();
+  const body = $('#specialOffersManualVerificationBody', modal);
+  if (body) body.innerHTML = renderManualVerificationBody();
+  modal.hidden = false;
+}
+
+async function refreshManualVerification() {
+  const modal = ensureManualVerificationModal();
+  const body = $('#specialOffersManualVerificationBody', modal);
+  specialOffersState.manualVerification.postsLoading = true;
+  specialOffersState.manualVerification.postsError = '';
+  specialOffersState.manualVerification.activities.loading = true;
+  specialOffersState.manualVerification.activities.error = '';
+  if (body) body.innerHTML = renderManualVerificationBody();
+  try {
+    const [posts, counts, page] = await Promise.all([
+      loadOfficialPosts(specialOffersState.manualVerification.offerId),
+      loadActivityCounts({
+        offerId: specialOffersState.manualVerification.offerId,
+        status: specialOffersState.manualVerification.activities.status,
+        activityType: specialOffersState.manualVerification.activities.activityType,
+        officialPostId: specialOffersState.manualVerification.activities.officialPostId,
+        search: specialOffersState.manualVerification.activities.search,
+      }),
+      loadActivitiesPage(),
+    ]);
+    specialOffersState.manualVerification.posts = posts;
+    specialOffersState.manualVerification.counts = counts;
+    specialOffersState.manualVerification.activities.rows = page.rows;
+    specialOffersState.manualVerification.activities.entriesById = page.entriesById;
+    specialOffersState.manualVerification.activities.postsById = page.postsById;
+    specialOffersState.manualVerification.activities.total = page.total;
+  } catch (_error) {
+    specialOffersState.manualVerification.postsError = 'Unable to load manual verification data. Check admin access and Special Offers RLS.';
+    specialOffersState.manualVerification.activities.rows = [];
+    specialOffersState.manualVerification.activities.total = 0;
+    specialOffersState.manualVerification.activities.error = 'Unable to load activity queue.';
+  } finally {
+    specialOffersState.manualVerification.postsLoading = false;
+    specialOffersState.manualVerification.activities.loading = false;
+    if (body) body.innerHTML = renderManualVerificationBody();
+  }
+}
+
+async function refreshActivityQueue() {
+  const modal = ensureManualVerificationModal();
+  const body = $('#specialOffersManualVerificationBody', modal);
+  specialOffersState.manualVerification.activities.loading = true;
+  specialOffersState.manualVerification.activities.error = '';
+  if (body) body.innerHTML = renderManualVerificationBody();
+  try {
+    const [counts, page] = await Promise.all([
+      loadActivityCounts({
+        offerId: specialOffersState.manualVerification.offerId,
+        status: specialOffersState.manualVerification.activities.status,
+        activityType: specialOffersState.manualVerification.activities.activityType,
+        officialPostId: specialOffersState.manualVerification.activities.officialPostId,
+        search: specialOffersState.manualVerification.activities.search,
+      }),
+      loadActivitiesPage(),
+    ]);
+    specialOffersState.manualVerification.counts = counts;
+    specialOffersState.manualVerification.activities.rows = page.rows;
+    specialOffersState.manualVerification.activities.entriesById = page.entriesById;
+    specialOffersState.manualVerification.activities.postsById = page.postsById;
+    specialOffersState.manualVerification.activities.total = page.total;
+  } catch (_error) {
+    specialOffersState.manualVerification.activities.rows = [];
+    specialOffersState.manualVerification.activities.total = 0;
+    specialOffersState.manualVerification.activities.error = 'Unable to load activity queue.';
+  } finally {
+    specialOffersState.manualVerification.activities.loading = false;
+    if (body) body.innerHTML = renderManualVerificationBody();
+  }
+}
+
+async function openManualVerificationModal(offerId = 'all') {
+  specialOffersState.manualVerification.offerId = offerId || 'all';
+  specialOffersState.manualVerification.activities.page = 1;
+  specialOffersState.manualVerification.postEditingId = '';
+  renderManualVerificationModal();
+  await refreshManualVerification();
+}
+
+async function submitOfficialPost(form) {
+  if (specialOffersState.manualVerification.postSaving) return;
+  const client = getSupabaseClient();
+  if (!client) {
+    notifySpecialOffers('Supabase client is not available.', 'error');
+    return;
+  }
+  const formData = new FormData(form);
+  const postId = specialOffersState.manualVerification.postEditingId === 'new' ? null : specialOffersState.manualVerification.postEditingId || null;
+  const existingPost = postId ? toArray(specialOffersState.manualVerification.posts).find((post) => String(post.id) === String(postId)) : null;
+  const offerId = String(formData.get('offer_id') || existingPost?.offer_id || specialOffersState.manualVerification.offerId || '').trim();
+  const adminTitle = String(formData.get('admin_title') || '').trim();
+  const officialUrl = String(formData.get('official_url') || '').trim();
+  const publishedAt = fromLocalDateTimeInputValue(formData.get('published_at'));
+  const commentDeadlineAt = fromLocalDateTimeInputValue(formData.get('comment_deadline_at'));
+  if (!offerId || !adminTitle || !officialUrl || !publishedAt) {
+    notifySpecialOffers('Campaign, title, URL and published date are required.', 'error');
+    return;
+  }
+  if (!isValidOfficialPostUrl(officialUrl)) {
+    notifySpecialOffers('Official post URL must be http:// or https://.', 'error');
+    return;
+  }
+  if (commentDeadlineAt && new Date(commentDeadlineAt).getTime() < new Date(publishedAt).getTime()) {
+    notifySpecialOffers('Comment deadline must be after publication time.', 'error');
+    return;
+  }
+  specialOffersState.manualVerification.postSaving = true;
+  renderManualVerificationModal();
+  try {
+    const result = await client.rpc('admin_upsert_special_offer_official_post', {
+      p_post_id: postId,
+      p_offer_id: offerId,
+      p_post_order: Number(formData.get('post_order') || 0),
+      p_week_number: formData.get('week_number') ? Number(formData.get('week_number')) : null,
+      p_admin_title: adminTitle,
+      p_platform: String(formData.get('platform') || 'facebook').trim().toLowerCase(),
+      p_official_url: officialUrl,
+      p_external_post_id: String(formData.get('external_post_id') || '').trim() || null,
+      p_published_at: publishedAt,
+      p_comment_deadline_at: commentDeadlineAt,
+      p_active: true,
+    });
+    if (result.error) throw result.error;
+    specialOffersState.manualVerification.postEditingId = '';
+    notifySpecialOffers('Official post saved.', 'success');
+    await refreshManualVerification();
+  } catch (_error) {
+    notifySpecialOffers('Official post could not be saved.', 'error');
+  } finally {
+    specialOffersState.manualVerification.postSaving = false;
+    renderManualVerificationModal();
+  }
+}
+
+async function deactivateOfficialPost(postId) {
+  if (!postId) return;
+  if (!window.confirm('Deactivate this official post? New claims will be blocked, but historic activities and points stay available.')) return;
+  const client = getSupabaseClient();
+  if (!client) {
+    notifySpecialOffers('Supabase client is not available.', 'error');
+    return;
+  }
+  try {
+    const result = await client.rpc('admin_deactivate_special_offer_official_post', { p_post_id: postId });
+    if (result.error) throw result.error;
+    notifySpecialOffers(result.data?.[0]?.idempotent ? 'Official post was already inactive.' : 'Official post deactivated.', 'success');
+    await refreshManualVerification();
+  } catch (_error) {
+    notifySpecialOffers('Official post could not be deactivated.', 'error');
+  }
+}
+
 function renderEntryDetails() {
   const modal = ensureEntryDetailsModal();
   const body = $('#specialOfferEntryDetailsBody', modal);
@@ -3902,6 +4796,11 @@ function renderEntryDetails() {
           ['Review note', entry.review_note || 'Not set'],
           ['Rejection reason', entry.rejection_reason || 'Not set'],
         ])}
+      </section>
+      <section class="special-offers-detail-panel special-offers-detail-panel--wide">
+        <h4>Activity & Points</h4>
+        ${renderScoreSummary(detail.score)}
+        ${renderEntryActivities(detail)}
       </section>
       <section class="special-offers-detail-panel special-offers-detail-panel--wide">
         <h4>Review actions</h4>
@@ -3998,6 +4897,236 @@ async function submitEntryReview(form) {
   } finally {
     specialOffersState.entries.reviewing = false;
     renderEntryDetails();
+  }
+}
+
+function ensureActivityDetailModal() {
+  let modal = $('#specialOfferActivityDetailModal');
+  if (modal) return modal;
+  modal = document.createElement('div');
+  modal.className = 'admin-modal special-offers-entry-detail-modal';
+  modal.id = 'specialOfferActivityDetailModal';
+  modal.hidden = true;
+  modal.innerHTML = `
+    <div class="admin-modal-overlay" data-special-offers-activity-detail-close></div>
+    <div class="admin-modal-content special-offers-details-modal__content" role="dialog" aria-modal="true" aria-labelledby="specialOfferActivityDetailTitle">
+      <header class="admin-modal-header">
+        <div>
+          <div class="special-offers-eyebrow">Activity review</div>
+          <h3 id="specialOfferActivityDetailTitle">Activity details</h3>
+          <p class="special-offer-editor-subtitle">Evidence is read-only. Review decisions go through review_special_offer_activity.</p>
+        </div>
+        <button class="btn-modal-close" type="button" data-special-offers-activity-detail-close aria-label="Close activity details">×</button>
+      </header>
+      <div class="admin-modal-body" id="specialOfferActivityDetailBody"></div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest('[data-special-offers-activity-detail-close]')) closeActivityDetail();
+    const action = target?.closest('[data-special-offers-activity-review-action]');
+    if (action) {
+      specialOffersState.manualVerification.activities.reviewAction = action.getAttribute('data-special-offers-activity-review-action') || '';
+      renderActivityDetail();
+    }
+    if (target?.closest('[data-special-offers-activity-review-cancel]')) {
+      specialOffersState.manualVerification.activities.reviewAction = '';
+      renderActivityDetail();
+    }
+  });
+  modal.addEventListener('input', updateActivityReviewCharacterCounters);
+  modal.addEventListener('submit', (event) => {
+    const form = event.target instanceof Element ? event.target.closest('[data-special-offers-activity-review-form]') : null;
+    if (!form) return;
+    event.preventDefault();
+    submitActivityReview(form);
+  });
+  return modal;
+}
+
+function closeActivityDetail() {
+  const modal = $('#specialOfferActivityDetailModal');
+  if (modal) modal.hidden = true;
+  specialOffersState.manualVerification.activities.selectedActivityId = null;
+  specialOffersState.manualVerification.activities.detail = null;
+  specialOffersState.manualVerification.activities.reviewAction = '';
+}
+
+function renderActivityDetail() {
+  const modal = ensureActivityDetailModal();
+  const body = $('#specialOfferActivityDetailBody', modal);
+  const detail = specialOffersState.manualVerification.activities.detail;
+  if (!body) return;
+  if (!detail?.activity) {
+    body.innerHTML = '<div class="special-offer-entry-state">Loading activity details...</div>';
+    return;
+  }
+  const { activity, entry, post } = detail;
+  body.innerHTML = `
+    <div class="special-offer-entry-detail-grid">
+      <section class="special-offers-detail-panel">
+        <h4>Entry</h4>
+        ${renderDetailRows([
+          ['Reference', entry.reference],
+          ['Entry status', titleCase(entry.status)],
+          ['Participant', [entry.first_name, entry.last_name].filter(Boolean).join(' ') || maskEmail(entry.normalized_email)],
+          ['Submitted at', formatDateTime(entry.created_at)],
+        ])}
+      </section>
+      <section class="special-offers-detail-panel">
+        <h4>Official post</h4>
+        ${renderDetailRows([
+          ['Title', post.admin_title],
+          ['Order', post.post_order],
+          ['Platform', titleCase(post.platform)],
+          ['Published at', formatDateTime(post.published_at)],
+          ['Comment deadline', formatDateTime(post.comment_deadline_at)],
+          ['Active', post.active ? 'Yes' : 'No'],
+        ])}
+        <div class="special-offer-entry-answer">
+          <strong>Official URL</strong>
+          <p>${renderSafeExternalLink(post.official_url, post.official_url)}</p>
+        </div>
+      </section>
+      <section class="special-offers-detail-panel special-offers-detail-panel--wide">
+        <h4>Evidence</h4>
+        ${renderDetailRows([
+          ['Activity type', titleCase(activity.activity_type)],
+          ['Evidence text', activity.evidence_text || 'Not provided'],
+          ['Participant reported at', formatDateTime(activity.participant_reported_at)],
+          ['Verified activity at', formatDateTime(activity.verified_activity_at)],
+          ['Status', titleCase(activity.status)],
+          ['Points awarded', activity.points_awarded],
+          ['Verified at', formatDateTime(activity.verified_at)],
+          ['Verified by', shortId(activity.verified_by)],
+          ['Review note', activity.review_note || 'Not set'],
+          ['Rejection reason', activity.rejection_reason || 'Not set'],
+        ])}
+        <div class="special-offer-entry-answer">
+          <strong>Evidence URL</strong>
+          <p>${renderSafeExternalLink(activity.evidence_url, activity.evidence_url)}</p>
+        </div>
+      </section>
+      <section class="special-offers-detail-panel special-offers-detail-panel--wide">
+        <h4>Current score</h4>
+        ${renderScoreSummary(detail.score)}
+      </section>
+      <section class="special-offers-detail-panel special-offers-detail-panel--wide">
+        <h4>Review actions</h4>
+        ${renderActivityReviewActions(activity)}
+        ${renderActivityReviewForm(specialOffersState.manualVerification.activities.reviewAction, detail)}
+      </section>
+      <section class="special-offers-detail-panel special-offers-detail-panel--wide">
+        <h4>Audit trail</h4>
+        ${renderActivityAuditLog(detail.auditLog)}
+      </section>
+    </div>
+  `;
+}
+
+async function openActivityDetail(activityId) {
+  if (!activityId) return;
+  specialOffersState.manualVerification.activities.selectedActivityId = activityId;
+  specialOffersState.manualVerification.activities.detail = null;
+  specialOffersState.manualVerification.activities.reviewAction = '';
+  const modal = ensureActivityDetailModal();
+  modal.hidden = false;
+  renderActivityDetail();
+  try {
+    specialOffersState.manualVerification.activities.detail = await loadActivityDetail(activityId);
+  } catch (_error) {
+    const body = $('#specialOfferActivityDetailBody', modal);
+    if (body) body.innerHTML = '<div class="special-offer-entry-state special-offer-entry-state--error">Unable to load activity details.</div>';
+    return;
+  }
+  renderActivityDetail();
+}
+
+async function refreshSelectedActivityDetail() {
+  const activityId = specialOffersState.manualVerification.activities.selectedActivityId;
+  if (!activityId) return;
+  specialOffersState.manualVerification.activities.detail = await loadActivityDetail(activityId);
+  renderActivityDetail();
+}
+
+function updateActivityReviewCharacterCounters() {
+  const modal = $('#specialOfferActivityDetailModal');
+  if (!modal) return;
+  const note = $('[data-special-offers-activity-review-note]', modal);
+  const reason = $('[data-special-offers-activity-review-reason]', modal);
+  const noteCount = $('[data-special-offers-activity-review-note-count]', modal);
+  const reasonCount = $('[data-special-offers-activity-review-reason-count]', modal);
+  if (noteCount) noteCount.textContent = String((note?.value || '').length);
+  if (reasonCount) reasonCount.textContent = String((reason?.value || '').length);
+}
+
+async function submitActivityReview(form) {
+  if (specialOffersState.manualVerification.activities.reviewing) return;
+  const detail = specialOffersState.manualVerification.activities.detail;
+  const activity = detail?.activity;
+  const post = detail?.post;
+  const action = specialOffersState.manualVerification.activities.reviewAction;
+  if (!activity || !post || !action) return;
+  const reviewNote = String(form.querySelector('[name="review_note"]')?.value || '');
+  const rejectionReason = String(form.querySelector('[name="rejection_reason"]')?.value || '');
+  const verifiedActivityAt = fromLocalDateTimeInputValue(form.querySelector('[name="verified_activity_at"]')?.value || '');
+  if (reviewNote.length > 2000) {
+    notifySpecialOffers('Review note is too long.', 'error');
+    return;
+  }
+  if (rejectionReason.length > 1000) {
+    notifySpecialOffers('Rejection reason is too long.', 'error');
+    return;
+  }
+  if (['rejected', 'invalid'].includes(action) && !rejectionReason.trim()) {
+    notifySpecialOffers('Reject and invalid decisions require a reason.', 'error');
+    return;
+  }
+  if (activity.activity_type === 'comment' && action === 'approved') {
+    if (!verifiedActivityAt) {
+      notifySpecialOffers('Comment approval requires verified activity time.', 'error');
+      return;
+    }
+    const verifiedTime = new Date(verifiedActivityAt).getTime();
+    const publishedTime = new Date(post.published_at).getTime();
+    const deadlineTime = new Date(post.comment_deadline_at).getTime();
+    if (Number.isFinite(publishedTime) && verifiedTime < publishedTime) {
+      notifySpecialOffers('Verified comment time cannot be before official post publication.', 'error');
+      return;
+    }
+    if (Number.isFinite(deadlineTime) && verifiedTime > deadlineTime) {
+      notifySpecialOffers('Verified comment time must be within the 24h comment window.', 'error');
+      return;
+    }
+  }
+  if (!window.confirm(`Confirm ${getActivityReviewActionLabel(action)} for this activity?`)) return;
+  const client = getSupabaseClient();
+  if (!client) {
+    notifySpecialOffers('Supabase client is not available.', 'error');
+    return;
+  }
+  specialOffersState.manualVerification.activities.reviewing = true;
+  renderActivityDetail();
+  try {
+    const result = await client.rpc('review_special_offer_activity', {
+      p_activity_id: activity.id,
+      p_new_status: action,
+      p_verified_activity_at: verifiedActivityAt,
+      p_review_note: reviewNote || null,
+      p_rejection_reason: rejectionReason || null,
+    });
+    if (result.error) throw result.error;
+    notifySpecialOffers(result.data?.[0]?.idempotent ? 'Activity review state already applied.' : 'Activity review saved.', 'success');
+    specialOffersState.manualVerification.activities.reviewAction = '';
+    await refreshActivityQueue();
+    await refreshSelectedActivityDetail();
+    await refreshSelectedEntryDetails();
+  } catch (_error) {
+    notifySpecialOffers('Activity review could not be saved.', 'error');
+  } finally {
+    specialOffersState.manualVerification.activities.reviewing = false;
+    renderActivityDetail();
   }
 }
 
@@ -4465,6 +5594,7 @@ function bindEvents() {
       const viewButton = target?.closest('[data-special-offers-view]');
       const editButton = target?.closest('[data-special-offers-edit]');
       const entriesButton = target?.closest('[data-special-offers-open-entries]');
+      const manualVerificationButton = target?.closest('[data-special-offers-open-manual-verification]');
       const copyPreviewButton = target?.closest('[data-special-offers-copy-preview-url]');
       if (viewButton) {
         openCampaignDetails(viewButton.getAttribute('data-special-offers-view'));
@@ -4472,6 +5602,10 @@ function bindEvents() {
       }
       if (entriesButton) {
         openEntriesModal(entriesButton.getAttribute('data-special-offers-open-entries') || 'all');
+        return;
+      }
+      if (manualVerificationButton) {
+        openManualVerificationModal(manualVerificationButton.getAttribute('data-special-offers-open-manual-verification') || 'all');
         return;
       }
       if (copyPreviewButton) {
@@ -4494,6 +5628,7 @@ function bindEvents() {
       const editButton = target?.closest('[data-special-offers-edit]');
       const previewButton = target?.closest('[data-special-offers-preview]');
       const entriesButton = target?.closest('[data-special-offers-open-entries]');
+      const manualVerificationButton = target?.closest('[data-special-offers-open-manual-verification]');
       const copyRawUrlButton = target?.closest('[data-special-offers-copy-raw-url]');
       if (langButton) activateTranslationTab(langButton);
       if (localLangButton) activateLocalDetailLanguage(localLangButton);
@@ -4508,6 +5643,9 @@ function bindEvents() {
       if (entriesButton) {
         openEntriesModal(entriesButton.getAttribute('data-special-offers-open-entries') || 'all');
       }
+      if (manualVerificationButton) {
+        openManualVerificationModal(manualVerificationButton.getAttribute('data-special-offers-open-manual-verification') || 'all');
+      }
       if (previewButton) {
         const campaign = specialOffersState.campaigns.find((item) => item.id === previewButton.getAttribute('data-special-offers-preview'));
         if (campaign) openCampaignPreview(campaign);
@@ -4521,6 +5659,10 @@ function bindEvents() {
 
   $$('[data-special-offers-open-entries]').forEach((button) => {
     button.addEventListener('click', () => openEntriesModal(button.getAttribute('data-special-offers-open-entries') || 'all'));
+  });
+
+  $$('[data-special-offers-open-manual-verification]').forEach((button) => {
+    button.addEventListener('click', () => openManualVerificationModal(button.getAttribute('data-special-offers-open-manual-verification') || 'all'));
   });
 
   const editorBody = $('#specialOffersEditorBody');
@@ -4678,6 +5820,8 @@ function bindEvents() {
       closeEntriesModal();
       closeEntryDetails();
       closeEntryFullForm();
+      closeManualVerificationModal();
+      closeActivityDetail();
       closeHelpPopover();
     }
   });
