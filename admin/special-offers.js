@@ -172,20 +172,22 @@ const SPECIAL_OFFERS_DEFAULT_SETTINGS = {
   public_winner_display: false,
   response_deadline_days: 7,
 };
+const SPECIAL_OFFERS_EDITABLE_STATUSES = ['draft', 'scheduled', 'active', 'ended', 'archived'];
+const SPECIAL_OFFERS_VISIBILITIES = ['private', 'public', 'unlisted'];
 
 const SPECIAL_OFFERS_HELP = {
   basic: {
     title: 'Basic settings',
     does: 'Defines the internal campaign identity: slug, type, winner mode, status and visibility.',
-    use: 'Use this when creating the campaign shell or changing draft/private metadata. Type options: Contest is a campaign with form and winner, Giveaway is a simpler prize giveaway, Weighted draw is a future points/weights draw, Partner promo is a partner campaign, Coupon promo is a code/coupon promotion, Landing only is an information page without contest mechanics.',
-    avoid: 'Do not try to publish here. Draft is editable, Archived is closed/hidden, Active/public are intentionally blocked in this stage. Visibility is Private only.',
+    use: 'Use this when creating the campaign shell or preparing a controlled launch. Type options: Contest is a campaign with form and winner, Giveaway is a simpler prize giveaway, Weighted draw is a future points/weights draw, Partner promo is a partner campaign, Coupon promo is a code/coupon promotion, Landing only is an information page without contest mechanics.',
+    avoid: 'Do not publish until Auth Redirect URLs, campaign dates, rules and privacy links have been confirmed. Archived and locked campaigns remain closed.',
     example: 'Winner mode examples: Manual selection means admin chooses the winner later, Weighted draw is a future weighted draw machine, None means no winner.',
   },
   dates: {
     title: 'Dates & visibility',
-    does: 'Stores planned campaign timing and timezone for admin review.',
-    use: 'Use start, end and winner announce dates to prepare the campaign schedule.',
-    avoid: 'Do not treat these dates as public launch. Visibility remains private in this stage.',
+    does: 'Stores campaign timing and timezone used by the public page and backend RPC guards.',
+    use: 'Use start, end and winner announce dates to prepare or activate the campaign schedule.',
+    avoid: 'Do not set Active + Public until production Auth, legal links and the launch checklist are complete.',
     example: 'Example: start in Asia/Nicosia, end after the promotion window, announce after end.',
   },
   content: {
@@ -281,10 +283,10 @@ const SPECIAL_OFFERS_HELP = {
   },
   review: {
     title: 'Review & save',
-    does: 'Summarizes what will be saved before writing draft/private data.',
+    does: 'Summarizes what will be saved before writing campaign data.',
     use: 'Check translation coverage, prize translations, linked service URLs and warnings before save.',
-    avoid: 'Do not expect save to publish, create entries, run a draw or expose a public landing.',
-    example: 'Example: one primary CTA with PL/EN/HE URL coverage and draft/private status.',
+    avoid: 'Do not save Active + Public until launch gates are complete. Save never creates entries, runs a draw or selects a winner.',
+    example: 'Example: one primary CTA with PL/EN/HE URL coverage and a confirmed Active/Public launch window.',
   },
   type: {
     title: 'Campaign type',
@@ -298,7 +300,7 @@ const SPECIAL_OFFERS_HELP = {
     does: 'Defines how the winner will eventually be selected.',
     use: 'Manual selection means admin chooses. Weighted draw is a future draw with weights. None means no winner.',
     avoid: 'Do not choose Weighted draw expecting a draw machine in this stage.',
-    example: 'Use Manual selection for a draft/private contest that will be reviewed manually.',
+    example: 'Use Manual selection for Lefkara so the commission chooses the winner later.',
   },
   linkType: {
     title: 'Link type',
@@ -924,7 +926,7 @@ function renderCampaignCard(campaign) {
   const primaryLinkCount = campaign.links.filter((link) => Boolean(link.is_primary)).length;
   const dateRange = `${formatDate(campaign.start_at)} - ${formatDate(campaign.end_at)}`;
   const winnerDate = formatDate(campaign.winner_announce_at);
-  const canEdit = isDraftPrivateCampaign(campaign);
+  const canEdit = isCampaignEditableInAdmin(campaign);
   const previewUrl = buildSpecialOfferPreviewUrl(campaign, 'pl');
 
   return `
@@ -962,7 +964,7 @@ function renderCampaignCard(campaign) {
           class="btn-primary btn-small"
           type="button"
           data-special-offers-edit="${escapeHtml(campaign.id)}"
-          ${canEdit ? '' : 'disabled title="Editing for published/locked campaigns will be available in a later stage."'}
+          ${canEdit ? '' : 'disabled title="Archived or locked campaigns cannot be edited."'}
         >Edit</button>
       </div>
     </article>
@@ -1852,7 +1854,8 @@ function formatDateTimeLocal(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   const pad = (number) => String(number).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  const base = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return date.getSeconds() ? `${base}:${pad(date.getSeconds())}` : base;
 }
 
 function parseDateTimeLocal(value) {
@@ -1872,6 +1875,11 @@ function normalizeSlug(value) {
 
 function isDraftPrivateCampaign(campaign) {
   return campaign?.status === 'draft' && campaign?.visibility === 'private';
+}
+
+function isCampaignEditableInAdmin(campaign) {
+  if (!campaign) return true;
+  return !['locked', 'archived'].includes(String(campaign.status || '').toLowerCase());
 }
 
 function cloneJson(value, fallback) {
@@ -2054,7 +2062,7 @@ function setEditorSaving(isSaving) {
   const archiveButton = $('#specialOffersEditorArchive');
   if (saveButton) {
     saveButton.disabled = isSaving;
-    saveButton.textContent = isSaving ? 'Saving...' : 'Save draft';
+    saveButton.textContent = isSaving ? 'Saving...' : 'Save campaign';
   }
   if (archiveButton) archiveButton.disabled = isSaving;
 }
@@ -3079,8 +3087,8 @@ function getCampaignEditorDefaults(campaign = null) {
     slug: campaign?.slug || '',
     type: campaign?.type || 'contest',
     winner_selection_mode: campaign?.winner_selection_mode || 'manual_selection',
-    status: campaign?.status === 'archived' ? 'archived' : 'draft',
-    visibility: 'private',
+    status: SPECIAL_OFFERS_EDITABLE_STATUSES.includes(campaign?.status) ? campaign.status : 'draft',
+    visibility: SPECIAL_OFFERS_VISIBILITIES.includes(campaign?.visibility) ? campaign.visibility : 'private',
     start_at: formatDateTimeLocal(campaign?.start_at),
     end_at: formatDateTimeLocal(campaign?.end_at),
     winner_announce_at: formatDateTimeLocal(campaign?.winner_announce_at),
@@ -3119,7 +3127,7 @@ function renderEditorForm(campaign = null) {
       </div>
       <div class="special-offer-editor-panels">
         <section class="special-offer-editor-section" data-special-offers-editor-panel="basic">
-          <p class="special-offer-editor-muted">${renderHelp('basic')} Basic settings define internal campaign identity. Publishing is not available in this stage.</p>
+          <p class="special-offer-editor-muted">${renderHelp('basic')} Basic settings define internal campaign identity and controlled publication state.</p>
           <div class="special-offer-editor-grid">
             <label>Slug *
               <input name="slug" value="${escapeHtml(defaults.slug)}" placeholder="summer-giveaway-2026" required />
@@ -3133,39 +3141,41 @@ function renderEditorForm(campaign = null) {
             <label>Status
               <select name="status">
                 <option value="draft" ${defaults.status === 'draft' ? 'selected' : ''}>Draft</option>
+                <option value="scheduled" ${defaults.status === 'scheduled' ? 'selected' : ''}>Scheduled</option>
+                <option value="active" ${defaults.status === 'active' ? 'selected' : ''}>Active</option>
+                <option value="ended" ${defaults.status === 'ended' ? 'selected' : ''}>Ended</option>
                 <option value="archived" ${defaults.status === 'archived' ? 'selected' : ''}>Archived</option>
-                <option value="active" disabled>Active - Available in publish stage</option>
               </select>
-              <span class="special-offer-field-hint">Publishing requires the next stage: public read policy, sitemap, canonical and final validation.</span>
+              <span class="special-offer-field-hint">Active makes the campaign eligible for public entry collection when visibility is Public and the current time is inside the campaign window.</span>
             </label>
             <label>Visibility
               <select name="visibility">
-                <option value="private" selected>Private</option>
-                <option value="public" disabled>Public - Available in publish stage</option>
-                <option value="unlisted" disabled>Unlisted - Available in publish stage</option>
+                <option value="private" ${defaults.visibility === 'private' ? 'selected' : ''}>Private</option>
+                <option value="public" ${defaults.visibility === 'public' ? 'selected' : ''}>Public</option>
+                <option value="unlisted" ${defaults.visibility === 'unlisted' ? 'selected' : ''}>Unlisted</option>
               </select>
-              <span class="special-offer-field-hint">Private only in this stage. Public/unlisted cannot be saved yet.</span>
+              <span class="special-offer-field-hint">Public exposes the campaign page and allows backend RPCs to accept eligible submissions.</span>
             </label>
           </div>
-          <p class="special-offer-editor-muted">This stage only saves draft/private campaigns. Publishing is not available.</p>
+          <p class="special-offer-editor-muted">Before saving Active + Public, confirm Auth Redirect URLs, legal links and production smoke-test readiness.</p>
         </section>
         <section class="special-offer-editor-section" data-special-offers-editor-panel="dates" hidden>
-          <p class="special-offer-editor-muted">${renderHelp('dates')} Dates are saved for planning and internal review; they do not publish the campaign.</p>
+          <p class="special-offer-editor-muted">${renderHelp('dates')} Dates are enforced by the public submit RPCs. Use local Cyprus time in this browser.</p>
           <div class="special-offer-editor-grid">
             <label>Start at
-              <input name="start_at" type="datetime-local" value="${escapeHtml(defaults.start_at)}" />
+              <input name="start_at" type="datetime-local" step="1" value="${escapeHtml(defaults.start_at)}" />
             </label>
             <label>End at
-              <input name="end_at" type="datetime-local" value="${escapeHtml(defaults.end_at)}" />
+              <input name="end_at" type="datetime-local" step="1" value="${escapeHtml(defaults.end_at)}" />
             </label>
             <label>Winner announce at
-              <input name="winner_announce_at" type="datetime-local" value="${escapeHtml(defaults.winner_announce_at)}" />
+              <input name="winner_announce_at" type="datetime-local" step="1" value="${escapeHtml(defaults.winner_announce_at)}" />
             </label>
             <label>Timezone *
               <input name="timezone" value="${escapeHtml(defaults.timezone)}" required />
             </label>
           </div>
-          <p class="special-offer-editor-muted">Visibility remains private in this stage.</p>
+          <p class="special-offer-editor-muted">If Active + Public is saved after the start time and before the end time, entries can be accepted immediately.</p>
         </section>
         <section class="special-offer-editor-section" data-special-offers-editor-panel="content" hidden>
           <p class="special-offer-editor-muted">${renderHelp('content')} Edit campaign copy, FAQ items and rule sections per language.</p>
@@ -3241,7 +3251,7 @@ function renderEditorForm(campaign = null) {
         </section>
         <section class="special-offer-editor-section" data-special-offers-editor-panel="review" hidden>
           <h4>Review & save ${renderHelp('review')}</h4>
-          <p class="special-offer-editor-muted">Save writes draft/private campaign data, campaign translations, prize translations, link translations and an audit log entry. It does not publish anything.</p>
+          <p class="special-offer-editor-muted">Save writes campaign data, translations, prize/link/form configuration and an audit log entry. Active + Public requires confirmation before save.</p>
           <div class="special-offer-editor-review" id="specialOfferEditorReview"></div>
         </section>
       </div>
@@ -3469,8 +3479,8 @@ function initializeEditorCollections(campaign) {
 
 async function openCampaignEditor(mode, campaignId = null) {
   const campaign = campaignId ? specialOffersState.campaigns.find((item) => item.id === campaignId) : null;
-  if (mode === 'edit' && !isDraftPrivateCampaign(campaign)) {
-    setErrorState('Editing for published/locked campaigns will be available in a later stage.');
+  if (mode === 'edit' && !isCampaignEditableInAdmin(campaign)) {
+    setErrorState('Archived or locked campaigns cannot be edited from this launch editor.');
     return;
   }
 
@@ -3487,7 +3497,7 @@ async function openCampaignEditor(mode, campaignId = null) {
   await loadResourcePickerOptions();
 
   if (title) title.textContent = mode === 'edit' ? `Edit ${formatCampaignTitle(campaign)}` : 'Create campaign';
-  if (subtitle) subtitle.textContent = 'Draft/private CRUD only. Publish stage is not available here.';
+  if (subtitle) subtitle.textContent = 'Edit campaign content and controlled launch settings. Active + Public requires confirmation.';
   if (archiveButton) archiveButton.hidden = mode !== 'edit';
   body.innerHTML = renderEditorForm(campaign);
   renderPrizeEditorList();
@@ -3627,8 +3637,9 @@ function collectEditorPayload() {
   syncEditorCollectionsFromDom();
 
   const rawStatus = getEditorFieldValue(form, 'status') || 'draft';
-  const status = ['draft', 'archived'].includes(rawStatus) ? rawStatus : 'draft';
-  const visibility = 'private';
+  const status = SPECIAL_OFFERS_EDITABLE_STATUSES.includes(rawStatus) ? rawStatus : 'draft';
+  const rawVisibility = getEditorFieldValue(form, 'visibility') || 'private';
+  const visibility = SPECIAL_OFFERS_VISIBILITIES.includes(rawVisibility) ? rawVisibility : 'private';
   if (form.elements.status && form.elements.status.value !== status) {
     form.elements.status.value = status;
   }
@@ -3781,10 +3792,18 @@ function validateEditorPayload(payload) {
   if (payload.offer.slug && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(payload.offer.slug)) errors.push('Basic settings: slug must be lowercase URL-safe text.');
   if (!SPECIAL_OFFERS_TYPES.includes(payload.offer.type)) errors.push('Basic settings: type is required.');
   if (!SPECIAL_OFFERS_WINNER_MODES.includes(payload.offer.winner_selection_mode)) errors.push('Basic settings: winner mode is required.');
-  if (!['draft', 'archived'].includes(payload.offer.status)) errors.push('Basic settings: only draft or archived status is available in this stage.');
-  if (payload.offer.visibility !== 'private') errors.push('Basic settings: visibility must remain private in this stage.');
+  if (!SPECIAL_OFFERS_EDITABLE_STATUSES.includes(payload.offer.status)) errors.push('Basic settings: status is invalid.');
+  if (!SPECIAL_OFFERS_VISIBILITIES.includes(payload.offer.visibility)) errors.push('Basic settings: visibility is invalid.');
+  if (payload.offer.status === 'locked') errors.push('Basic settings: locked campaigns are only set by emergency pause.');
   if (!payload.offer.timezone) errors.push('Dates & visibility: timezone is required.');
-  if (payload.offer.start_at && payload.offer.end_at && new Date(payload.offer.end_at) < new Date(payload.offer.start_at)) errors.push('Dates & visibility: end at cannot be before start at.');
+  if (payload.offer.start_at && payload.offer.end_at && new Date(payload.offer.end_at) <= new Date(payload.offer.start_at)) errors.push('Dates & visibility: end at must be after start at.');
+  if (payload.offer.status === 'active' && payload.offer.visibility === 'public') {
+    if (!payload.offer.start_at) errors.push('Dates & visibility: start at is required before publishing Active + Public.');
+    if (!payload.offer.end_at) errors.push('Dates & visibility: end at is required before publishing Active + Public.');
+    if (payload.offer.requires_form !== true) errors.push('Rules/settings: requires form must stay enabled before publishing Active + Public.');
+    if (payload.offer.requires_manual_approval !== true) errors.push('Rules/settings: manual approval must stay enabled before publishing Active + Public.');
+    if (payload.offer.winner_selection_mode !== 'manual_selection') errors.push('Basic settings: Lefkara launch requires manual winner selection.');
+  }
   if (payload.offer.end_at && payload.offer.winner_announce_at && new Date(payload.offer.winner_announce_at) < new Date(payload.offer.end_at)) errors.push('Dates & visibility: winner announce at cannot be before end at.');
   if (payload.offer.max_entries_per_user < 1) errors.push('Rules/settings: max entries per user must be at least 1.');
   if (payload.offer.response_deadline_days < 1) errors.push('Rules/settings: response deadline days must be at least 1.');
@@ -3874,6 +3893,35 @@ function validateEditorPayload(payload) {
   return errors;
 }
 
+function requiresPublishConfirmation(payload, existingCampaign) {
+  if (payload?.offer?.status !== 'active' || payload?.offer?.visibility !== 'public') return false;
+  if (!existingCampaign) return true;
+  return existingCampaign.status !== 'active'
+    || existingCampaign.visibility !== 'public'
+    || existingCampaign.start_at !== payload.offer.start_at
+    || existingCampaign.end_at !== payload.offer.end_at;
+}
+
+function confirmCampaignPublish(payload) {
+  const start = payload?.offer?.start_at ? new Date(payload.offer.start_at) : null;
+  const end = payload?.offer?.end_at ? new Date(payload.offer.end_at) : null;
+  const now = new Date();
+  const insideWindow = start && end && start <= now && now <= end;
+  const lines = [
+    'Publish this campaign as Active + Public?',
+    '',
+    `Start: ${formatDetailValue(payload?.offer?.start_at)}`,
+    `End: ${formatDetailValue(payload?.offer?.end_at)}`,
+    '',
+    insideWindow
+      ? 'The start date has already passed and the current time is before the end date. After saving, the campaign can immediately accept entries.'
+      : 'After saving, the campaign will follow the configured start/end window.',
+    '',
+    'Confirm only after production Auth Redirect URLs, legal links and the launch checklist are complete.',
+  ];
+  return window.confirm(lines.join('\n'));
+}
+
 function collectEditorWarnings(payload) {
   const warnings = [];
   payload.prizes.forEach((prize, index) => {
@@ -3951,7 +3999,7 @@ function updateEditorReview(errors = [], warnings = []) {
         ['Primary CTA coverage', payload.links.find((link) => link.is_primary)?.translations.map((item) => item.lang.toUpperCase()).join(', ') || 'No primary CTA'],
       ])}
     </div>
-    ${errors.length ? `<p class="special-offer-editor-validation">${escapeHtml(errors.join(' '))}</p>` : '<p class="special-offer-editor-success">Ready to save as draft/private.</p>'}
+    ${errors.length ? `<p class="special-offer-editor-validation">${escapeHtml(errors.join(' '))}</p>` : '<p class="special-offer-editor-success">Ready to save campaign.</p>'}
     ${warnings.length ? `<p class="special-offer-editor-warning">${escapeHtml(warnings.join(' '))}</p>` : ''}
   `;
 }
@@ -4119,6 +4167,8 @@ async function saveCampaignFromEditor() {
 
   const payload = collectEditorPayload();
   const existingCampaign = getCurrentCampaign();
+  if (requiresPublishConfirmation(payload, existingCampaign) && !confirmCampaignPublish(payload)) return;
+
   const oldSnapshot = buildCampaignSnapshot(existingCampaign);
   setEditorSaving(true);
   setEditorMessage('');
@@ -4128,13 +4178,11 @@ async function saveCampaignFromEditor() {
     let offerId = existingCampaign?.id || null;
     const offerPayload = {
       ...payload.offer,
-      visibility: 'private',
       updated_by: actorId,
       archived_at: payload.offer.status === 'archived' ? new Date().toISOString() : null,
     };
 
     if (specialOffersState.editorMode === 'create') {
-      offerPayload.status = offerPayload.status === 'archived' ? 'archived' : 'draft';
       offerPayload.created_by = actorId;
       const inserted = assertSupabaseResult(
         await client.from('special_offers').insert(offerPayload).select(SPECIAL_OFFERS_SELECT).single(),
@@ -4142,7 +4190,7 @@ async function saveCampaignFromEditor() {
       );
       offerId = inserted.id;
     } else {
-      if (!isDraftPrivateCampaign(existingCampaign)) throw new Error('Only draft/private campaigns can be edited in this stage.');
+      if (!isCampaignEditableInAdmin(existingCampaign)) throw new Error('Archived or locked campaigns cannot be edited from this launch editor.');
       assertSupabaseResult(await client.from('special_offers').update(offerPayload).eq('id', offerId), 'Failed to update campaign.');
     }
 
@@ -4168,7 +4216,7 @@ async function saveCampaignFromEditor() {
     await refreshSpecialOffers();
     closeCampaignEditor();
     setErrorState('');
-    setHeaderStatus(`Saved draft/private campaign.${auditWarning}`, auditWarning ? 'pending' : 'ready');
+    setHeaderStatus(`Saved campaign.${auditWarning}`, auditWarning ? 'pending' : 'ready');
   } catch (error) {
     console.error('Failed to save Special Offers campaign:', error);
     setEditorMessage(error.message || 'Failed to save campaign.', 'error');
@@ -4234,7 +4282,7 @@ function openCampaignDetails(campaignId) {
   const modal = $('#specialOffersDetailsModal');
   const title = $('#specialOffersDetailsTitle');
   const body = $('#specialOffersDetailsBody');
-  const canEdit = isDraftPrivateCampaign(campaign);
+  const canEdit = isCampaignEditableInAdmin(campaign);
 
   if (title) title.textContent = formatCampaignTitle(campaign);
   if (body) {
@@ -4282,7 +4330,7 @@ function openCampaignDetails(campaignId) {
               class="btn-secondary btn-small"
               type="button"
               data-special-offers-edit="${escapeHtml(campaign.id)}"
-              ${canEdit ? '' : 'disabled title="Editing for published/locked campaigns will be available in a later stage."'}
+              ${canEdit ? '' : 'disabled title="Archived or locked campaigns cannot be edited."'}
             >Edit campaign</button>
             <button class="btn-secondary btn-small" type="button" data-special-offers-open-entries="${escapeHtml(campaign.id)}">Entries</button>
             <button class="btn-secondary btn-small" type="button" data-special-offers-open-manual-verification="${escapeHtml(campaign.id)}">Manual verification</button>

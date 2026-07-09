@@ -64,6 +64,12 @@ summary as (
     o.start_at is not null as starts_at_set,
     o.end_at is not null as ends_at_set,
     (o.start_at is not null and o.end_at is not null and o.start_at < o.end_at) as dates_valid,
+    (
+      o.start_at is not null
+      and o.end_at is not null
+      and o.start_at < o.end_at
+      and now() between o.start_at and o.end_at
+    ) as now_in_campaign_window,
     null::timestamptz as published_at,
     false as published_at_column_exists,
     o.winner_selection_mode = 'manual_selection' as manual_selection,
@@ -104,7 +110,7 @@ summary as (
       and x.no_draws_table
       and x.no_draw_entries_table
       and x.no_winners_table
-    ) as entry_collection_ready,
+    ) as activation_configured,
     (
       coalesce(c.offer_count, 0) = 1
       and o.status = 'active'
@@ -112,6 +118,29 @@ summary as (
       and o.start_at is not null
       and o.end_at is not null
       and o.start_at < o.end_at
+      and now() between o.start_at and o.end_at
+      and o.winner_selection_mode = 'manual_selection'
+      and coalesce(o.requires_form, false) is true
+      and coalesce(o.requires_manual_approval, false) is true
+      and coalesce(t.pl_count, 0) = 1
+      and coalesce(t.en_count, 0) = 1
+      and coalesce(t.he_count, 0) = 1
+      and coalesce(f.active_form_fields_count, 0) > 0
+      and coalesce(f.required_fields_count, 0) > 0
+      and coalesce(f.consent_fields_count, 0) > 0
+      and r.submit_rpc_exists
+      and x.no_draws_table
+      and x.no_draw_entries_table
+      and x.no_winners_table
+    ) as entry_collection_currently_ready,
+    (
+      coalesce(c.offer_count, 0) = 1
+      and o.status = 'active'
+      and o.visibility = 'public'
+      and o.start_at is not null
+      and o.end_at is not null
+      and o.start_at < o.end_at
+      and now() between o.start_at and o.end_at
       and o.winner_selection_mode = 'manual_selection'
       and coalesce(o.allow_bonus_points, false) is true
       and coalesce(o.requires_form, false) is true
@@ -128,7 +157,7 @@ summary as (
       and x.no_draw_entries_table
       and x.no_winners_table
       and coalesce(p.active_official_posts_count, 0) > 0
-    ) as activity_claims_ready,
+    ) as activity_claims_currently_ready,
     (
       coalesce(c.offer_count, 0) = 1
       and o.status = 'active'
@@ -136,6 +165,7 @@ summary as (
       and o.start_at is not null
       and o.end_at is not null
       and o.start_at < o.end_at
+      and now() between o.start_at and o.end_at
       and o.winner_selection_mode = 'manual_selection'
       and coalesce(o.allow_bonus_points, false) is true
       and coalesce(o.requires_form, false) is true
@@ -163,5 +193,5 @@ summary as (
 )
 select
   *,
-  entry_collection_ready as overall_pass
+  entry_collection_currently_ready as overall_pass
 from summary;

@@ -82,6 +82,12 @@ summary as (
     o.status as active_state,
     o.start_at as starts_at,
     o.end_at as ends_at,
+    (
+      o.start_at is not null
+      and o.end_at is not null
+      and o.start_at < o.end_at
+      and now() between o.start_at and o.end_at
+    ) as now_in_campaign_window,
     null::timestamptz as published_at,
     false as published_at_column_exists,
     o.winner_selection_mode,
@@ -120,6 +126,10 @@ summary as (
     (
       o.status = 'active'
       and o.visibility = 'public'
+      and o.start_at is not null
+      and o.end_at is not null
+      and o.start_at < o.end_at
+      and now() between o.start_at and o.end_at
       and coalesce(o.allow_bonus_points, false) is true
       and coalesce(p.public_official_posts_count, 0) > 0
       and r.activity_claim_rpc_exists
@@ -181,8 +191,18 @@ summary as (
       and o.end_at is not null
       and o.start_at < o.end_at
       and now() between o.start_at and o.end_at
+      and o.winner_selection_mode = 'manual_selection'
+      and coalesce(o.requires_form, false) is true
+      and coalesce(o.requires_manual_approval, false) is true
+      and coalesce(t.pl_count, 0) = 1
+      and coalesce(t.en_count, 0) = 1
+      and coalesce(t.he_count, 0) = 1
+      and coalesce(f.active_form_fields_count, 0) > 0
+      and coalesce(f.required_fields_count, 0) > 0
+      and coalesce(f.consent_fields_count, 0) > 0
       and coalesce(o.allow_bonus_points, false) is true
       and coalesce(p.public_official_posts_count, 0) > 0
+      and r.submit_rpc_exists
       and r.activity_claim_rpc_exists
     ) as activity_claims_currently_ready,
     true as official_post_required_only_for_activity_claims,
@@ -214,7 +234,15 @@ summary as (
       and o.end_at is not null
       and o.start_at < o.end_at
       and (now() between o.start_at and o.end_at)
+      and o.winner_selection_mode = 'manual_selection'
+      and coalesce(o.requires_form, false) is true
+      and coalesce(o.requires_manual_approval, false) is true
+      and coalesce(t.pl_count, 0) = 1
+      and coalesce(t.en_count, 0) = 1
+      and coalesce(t.he_count, 0) = 1
       and coalesce(f.active_form_fields_count, 0) > 0
+      and coalesce(f.required_fields_count, 0) > 0
+      and coalesce(f.consent_fields_count, 0) > 0
       and r.submit_rpc_exists
     ) as launch_preflight_pass
   from offer_counts c

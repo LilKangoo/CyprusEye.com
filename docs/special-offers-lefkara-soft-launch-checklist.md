@@ -9,7 +9,7 @@ campaign publicly until every blocker is resolved.
 |---|---|---|---|---|
 | Confirm all release files are included in the deploy branch. | Public, admin, dist, tests and manual SQL files are present. |  |  |  |
 | Confirm no service role key is exposed in frontend files. | Only the public anon key is bundled. |  |  |  |
-| Confirm Lefkara dates are final. | `start_at` and `end_at` are explicit Asia/Nicosia-aware timestamps. |  |  |  |
+| Confirm Lefkara dates are final. | `start_at=2025-07-15 00:00:00 Europe/Nicosia` and `end_at=2026-09-15 23:59:59 Europe/Nicosia` are owner-approved. |  |  |  |
 | Confirm legal/rules/privacy links. | Rules, privacy policy and organizer details are visible and approved by owner. |  |  |  |
 
 ## 2. Deploy
@@ -41,21 +41,27 @@ campaign publicly until every blocker is resolved.
 | Check `entry_collection_currently_ready`. | Usually `false` before activation; must become `true` after activation and inside date window. |  |  |  |
 | Check `activity_claims_currently_ready`. | Can be `false` until at least one active official post exists. |  |  |  |
 | Check manual gates. | Auth Redirect URLs and legal/privacy/rules are confirmed outside SQL. |  |  |  |
+| If not yet applied, run activity date guard patch and verify. | `special_offer_activity_claim_date_guard_stage1_verify.sql` returns `overall_pass=true`. |  |  |  |
 
-## 5. Activation SQL
+## 5. Admin Activation
 
 | Step | Expected result | Actual result | Pass/Fail | Blocker |
 |---|---|---|---|---|
-| Replace activation placeholders. | `v_start_at_text` and `v_end_at_text` are final timestamps. |  |  |  |
-| Run `supabase/manual/special_offer_lefkara_activate_stage1.sql`. | SQL succeeds and changes only campaign launch fields. |  |  |  |
+| Open Lefkara in Admin Special Offers. | Campaign editor shows status, visibility, start and end fields. |  |  |  |
+| Set final dates. | Start is `2025-07-15 00:00`; end is `2026-09-15 23:59` in Cyprus local time after reopening the editor. |  |  |  |
+| Set status and visibility. | `status=active`, `visibility=public`; publish confirmation is shown before save. |  |  |  |
+| Save campaign. | Campaign starts accepting main entries immediately because the current date is inside the configured window. |  |  |  |
+| Optional fallback only. | `special_offer_lefkara_activate_stage1.sql` is not required when Admin activation succeeds; use only as reviewed emergency fallback. |  |  |  |
 
 ## 6. Activation Verify
 
 | Step | Expected result | Actual result | Pass/Fail | Blocker |
 |---|---|---|---|---|
 | Run `supabase/manual/special_offer_lefkara_activate_stage1_verify.sql`. | `overall_pass=true`. |  |  |  |
-| Confirm entry collection readiness. | `entry_collection_ready=true`. |  |  |  |
-| Confirm activity readiness. | `activity_claims_ready=true` only after at least one active official post exists. |  |  |  |
+| Confirm configured activation. | `activation_configured=true`. |  |  |  |
+| Confirm entry collection readiness. | `entry_collection_currently_ready=true`. |  |  |  |
+| Confirm activity readiness. | `activity_claims_currently_ready=true` only after at least one active official post exists. |  |  |  |
+| Confirm full promotion readiness. | `full_promotion_ready=false` is acceptable until official posts and activity smoke tests are complete. |  |  |  |
 | Confirm no draw/winner tables exist. | `no_winner_draw_tables=true`. |  |  |  |
 
 ## 7. Incognito Test

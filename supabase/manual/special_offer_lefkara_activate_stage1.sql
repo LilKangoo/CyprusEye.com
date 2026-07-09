@@ -52,6 +52,14 @@ begin
   where slug = v_expected_slug
   for update;
 
+  if v_offer.status in ('ended', 'locked', 'archived') then
+    raise exception 'Refusing activation: current campaign status % must be reviewed manually before launch.', v_offer.status;
+  end if;
+
+  if v_offer.status not in ('draft', 'scheduled', 'active') then
+    raise exception 'Refusing activation: unsupported campaign status %.', v_offer.status;
+  end if;
+
   if v_use_existing_dates is true then
     if v_offer.start_at is null or v_offer.end_at is null then
       raise exception 'Cannot use existing dates because start_at or end_at is null.';
@@ -122,6 +130,14 @@ begin
 
   if coalesce(v_consent_field_count, 0) = 0 then
     raise exception 'Refusing activation: no consent field.';
+  end if;
+
+  if v_offer.status = 'active'
+     and v_offer.visibility = 'public'
+     and v_offer.start_at = v_start_at
+     and v_offer.end_at = v_end_at
+  then
+    return;
   end if;
 
   v_old_value := jsonb_build_object(

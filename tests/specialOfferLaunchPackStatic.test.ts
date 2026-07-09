@@ -15,6 +15,10 @@ describe('Special Offers Lefkara launch pack', () => {
     expect(sql).toContain('__REPLACE_WITH_FINAL_END_AT__');
     expect(sql).toMatch(/v_start_at\s*:=\s*v_offer\.start_at/i);
     expect(sql).toMatch(/v_end_at\s*:=\s*v_offer\.end_at/i);
+    expect(sql).toContain("v_offer.status in ('ended', 'locked', 'archived')");
+    expect(sql).toContain("v_offer.status not in ('draft', 'scheduled', 'active')");
+    expect(sql).toMatch(/and v_offer\.start_at = v_start_at/i);
+    expect(sql).toMatch(/return;/i);
     expect(sql).toMatch(/status\s*=\s*'active'/);
     expect(sql).toMatch(/visibility\s*=\s*'public'/);
     expect(sql).toMatch(/requires_form\s+is\s+not\s+true/i);
@@ -54,19 +58,21 @@ describe('Special Offers Lefkara launch pack', () => {
 
     expect(preflight).toContain('activation_structure_ready');
     expect(preflight).toContain('dates_present_and_valid');
+    expect(preflight).toContain('now_in_campaign_window');
     expect(preflight).toContain('entry_collection_currently_ready');
     expect(preflight).toContain('activity_claims_currently_ready');
     expect(preflight).toContain('official_post_required_only_for_activity_claims');
     expect(preflight).toContain('manual_auth_gate_pending');
     expect(preflight).toContain('manual_legal_gate_pending');
 
-    expect(verify).toContain('entry_collection_ready');
-    expect(verify).toContain('activity_claims_ready');
+    expect(verify).toContain('activation_configured');
+    expect(verify).toContain('entry_collection_currently_ready');
+    expect(verify).toContain('activity_claims_currently_ready');
     expect(verify).toContain('full_promotion_ready');
-    expect(verify).toMatch(/entry_collection_ready\s+as\s+overall_pass/i);
+    expect(verify).toMatch(/entry_collection_currently_ready\s+as\s+overall_pass/i);
 
-    const entryReadyDefinition = verify.match(/\)\s+as entry_collection_ready/i)?.index ?? -1;
-    const activityReadyDefinition = verify.match(/\)\s+as activity_claims_ready/i)?.index ?? -1;
+    const entryReadyDefinition = verify.match(/\)\s+as entry_collection_currently_ready/i)?.index ?? -1;
+    const activityReadyDefinition = verify.match(/\)\s+as activity_claims_currently_ready/i)?.index ?? -1;
     expect(entryReadyDefinition).toBeGreaterThan(-1);
     expect(activityReadyDefinition).toBeGreaterThan(entryReadyDefinition);
 
@@ -79,5 +85,27 @@ describe('Special Offers Lefkara launch pack', () => {
     const activityReadyBlock = verify.slice(activityReadyStart, activityReadyDefinition);
     expect(activityReadyBlock).toContain('activity_claim_rpc_exists');
     expect(activityReadyBlock).toContain('active_official_posts_count');
+  });
+
+  test('activity claim corrective SQL enforces campaign date window before insert', () => {
+    const sql = read('supabase/manual/special_offer_activity_claim_date_guard_stage1.sql');
+    const verify = read('supabase/manual/special_offer_activity_claim_date_guard_stage1_verify.sql');
+
+    expect(sql).toContain('create or replace function public.submit_special_offer_activity_claim');
+    expect(sql).toContain('v_now timestamptz := now()');
+    expect(sql).toContain('v_offer.start_at is null');
+    expect(sql).toContain('v_offer.end_at is null');
+    expect(sql).toContain('v_now < v_offer.start_at');
+    expect(sql).toContain('v_now > v_offer.end_at');
+    expect(sql).toMatch(/insert into public\.special_offer_entry_activities/i);
+    expect(sql.indexOf('idempotent := true')).toBeLessThan(sql.indexOf('v_offer.start_at is null'));
+    expect(sql.indexOf('v_offer.start_at is null')).toBeLessThan(sql.indexOf('insert into public.special_offer_entry_activities'));
+    expect(verify).toContain('campaign_start_required_present');
+    expect(verify).toContain('campaign_end_required_present');
+    expect(verify).toContain('campaign_start_lower_bound_present');
+    expect(verify).toContain('campaign_end_upper_bound_present');
+    expect(verify).toContain('idempotent_before_date_guard');
+    expect(verify).toContain('date_guard_before_insert');
+    expect(verify).toContain('overall_pass');
   });
 });

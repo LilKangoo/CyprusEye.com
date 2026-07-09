@@ -249,7 +249,7 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     await page.getByRole('button', { name: 'Create campaign' }).first().click();
     const editor = page.locator('#specialOffersEditorModal');
     await expect(editor).toBeVisible();
-    await expect(editor.getByRole('button', { name: 'Save draft' })).toBeDisabled();
+    await expect(editor.getByRole('button', { name: 'Save campaign' })).toBeDisabled();
 
     await editor.locator('[name="slug"]').fill('summer-family-giveaway-2026');
     await editor.getByRole('button', { name: 'Content PL / EN / HE' }).click();
@@ -258,8 +258,8 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     await expect(editor.getByRole('button', { name: 'PL' }).first()).toBeVisible();
     await editor.locator('[data-prize-translation-field="name"][data-lang="pl"]').fill('Rodzinny weekend');
     await editor.locator('[data-prize-translation-field="description"][data-lang="pl"]').fill('Weekendowy pobyt dla rodziny.');
-    await expect(editor.getByRole('button', { name: 'Save draft' })).toBeEnabled();
-    await editor.getByRole('button', { name: 'Save draft' }).click();
+    await expect(editor.getByRole('button', { name: 'Save campaign' })).toBeEnabled();
+    await editor.getByRole('button', { name: 'Save campaign' }).click();
 
     await expect(editor).toBeHidden();
     const card = page.locator('.special-offer-campaign-card').filter({ hasText: 'Wygraj rodzinny weekend na Cyprze' });
@@ -327,7 +327,7 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     await expect(editor.locator('[data-faq-builder="he"]')).toHaveAttribute('dir', 'rtl');
     await expect(editor.locator('[data-rules-builder="he"]')).toHaveAttribute('dir', 'rtl');
     await editor.locator('[name="he_short_description"]').fill('תיאור עברי מעודכן.');
-    await editor.getByRole('button', { name: 'Save draft' }).click();
+    await editor.getByRole('button', { name: 'Save campaign' }).click();
     await expect(editor).toBeHidden();
 
     const rows = await page.evaluate(() => ({
@@ -362,7 +362,7 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     await secondPrize.getByRole('button', { name: 'HE', exact: true }).click();
     await secondPrize.locator('[data-prize-translation-field="name"][data-lang="he"]').fill('שובר בונוס');
     await secondPrize.locator('[data-prize-field="quantity"]').fill('0');
-    await expect(editor.getByRole('button', { name: 'Save draft' })).toBeDisabled();
+    await expect(editor.getByRole('button', { name: 'Save campaign' })).toBeDisabled();
     await secondPrize.locator('[data-prize-field="quantity"]').fill('2');
     await editor.locator('[data-special-offers-prize]').first().getByRole('button', { name: 'Remove' }).click();
 
@@ -381,18 +381,18 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     await expect(newLink.locator('[data-link-url-preview]')).toContainText('/car.html?lang=he');
     await expect(newLink.locator('[data-link-field="image_url"]')).toBeVisible();
     await newLink.locator('[data-link-field="image_url"]').fill('http://example.com/bad.jpg');
-    await expect(editor.getByRole('button', { name: 'Save draft' })).toBeDisabled();
+    await expect(editor.getByRole('button', { name: 'Save campaign' })).toBeDisabled();
     await expect(newLink.locator('[data-link-image-preview]')).toContainText('Image URL must be a full HTTPS image address');
     await newLink.locator('[data-link-field="image_url"]').fill(' https://cdn.example.com/cars.webp');
-    await expect(editor.getByRole('button', { name: 'Save draft' })).toBeDisabled();
+    await expect(editor.getByRole('button', { name: 'Save campaign' })).toBeDisabled();
     await newLink.locator('[data-link-field="image_url"]').fill('https://cdn.example.com/cars.webp');
     await expect(newLink.locator('[data-link-image-preview] img')).toHaveAttribute('src', 'https://cdn.example.com/cars.webp');
     await newLink.locator('[data-link-field="is_primary"]').check();
-    await expect(editor.getByRole('button', { name: 'Save draft' })).toBeDisabled();
+    await expect(editor.getByRole('button', { name: 'Save campaign' })).toBeDisabled();
     await newLink.locator('[data-link-field="is_primary"]').uncheck();
     await editor.locator('[data-special-offers-link]').nth(1).getByRole('button', { name: 'Remove' }).click();
-    await expect(editor.getByRole('button', { name: 'Save draft' })).toBeEnabled();
-    await editor.getByRole('button', { name: 'Save draft' }).click();
+    await expect(editor.getByRole('button', { name: 'Save campaign' })).toBeEnabled();
+    await editor.getByRole('button', { name: 'Save campaign' }).click();
     await expect(editor).toBeHidden();
 
     const rows = await page.evaluate(() => ({
@@ -476,7 +476,7 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     await expect(preview).toContainText('3 ימים / 2 לילות');
     await preview.locator('[data-special-offers-preview-close]').last().click();
 
-    await editor.getByRole('button', { name: 'Save draft' }).click();
+    await editor.getByRole('button', { name: 'Save campaign' }).click();
     await expect(editor).toBeHidden();
 
     const rows = await page.evaluate(() => ({
@@ -505,7 +505,7 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     await expect(customLink.locator('[data-link-field="image_url"]')).toHaveValue('');
     await expect(customLink.locator('[data-link-image-preview]')).toContainText('No image URL set');
 
-    await editor.getByRole('button', { name: 'Save draft' }).click();
+    await editor.getByRole('button', { name: 'Save campaign' }).click();
     await expect(editor).toBeHidden();
 
     const rows = await page.evaluate(() => (window as any).__supabaseStub.getTableRows('special_offer_links'));
@@ -533,7 +533,7 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     await firstName.locator('[data-form-translation-field="label"][data-lang="he"]').fill('שם פרטי מעודכן');
     await firstName.locator('summary').filter({ hasText: 'Advanced validation JSON preview' }).click();
     await firstName.locator('[data-form-validation-json]').fill('{bad json');
-    await expect(editor.getByRole('button', { name: 'Save draft' })).toBeDisabled();
+    await expect(editor.getByRole('button', { name: 'Save campaign' })).toBeDisabled();
     await firstName.locator('[data-form-validation-json]').fill('{}');
 
     const dob = editor.locator('[data-special-offers-form-field]').nth(4);
@@ -589,8 +589,8 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     await expect(help).toContainText('public submit');
     await help.locator('[data-special-offers-help-close]').last().click();
 
-    await expect(editor.getByRole('button', { name: 'Save draft' })).toBeEnabled();
-    await editor.getByRole('button', { name: 'Save draft' }).click();
+    await expect(editor.getByRole('button', { name: 'Save campaign' })).toBeEnabled();
+    await editor.getByRole('button', { name: 'Save campaign' }).click();
     await expect(editor).toBeHidden();
 
     const rows = await page.evaluate(() => ({
@@ -646,7 +646,7 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
 
     await carsLink.locator('[data-link-field="mode"]').selectOption('main');
     await expect(carsLink.locator('[data-link-translation-field="url"][data-lang="pl"]')).toHaveValue('/car.html?lang=pl');
-    await expect(editor.getByRole('button', { name: 'Save draft' })).toBeEnabled();
+    await expect(editor.getByRole('button', { name: 'Save campaign' })).toBeEnabled();
   });
 
   test('explains campaign type and winner mode options in help popups', async ({ page }) => {
@@ -672,7 +672,12 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     await expect(help).toContainText('None');
   });
 
-  test('shows safe public preview URLs and keeps active/public publishing blocked', async ({ page }) => {
+  test('shows safe public preview URLs and allows controlled active/public activation with confirmed dates', async ({ page }) => {
+    page.on('dialog', (dialog) => {
+      expect(dialog.message()).toContain('Publish this campaign as Active + Public?');
+      expect(dialog.message()).toContain('immediately accept entries');
+      dialog.accept();
+    });
     await openSpecialOffers(page);
     const card = page.locator('.special-offer-campaign-card').filter({ hasText: 'Wygraj 3 dni w Lefkarze' });
     await expect(card.getByRole('link', { name: 'Preview public page' })).toHaveAttribute(
@@ -691,35 +696,46 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
 
     await openEditorForLefkara(page);
     const editor = page.locator('#specialOffersEditorModal');
-    await expect(editor.locator('select[name="status"] option[value="active"]')).toHaveAttribute('disabled', '');
-    await expect(editor.locator('select[name="visibility"] option[value="public"]')).toHaveAttribute('disabled', '');
-    await expect(editor).toContainText('Publishing requires the next stage: public read policy, sitemap, canonical and final validation.');
+    await expect(editor.locator('select[name="status"] option[value="active"]')).toBeEnabled();
+    await expect(editor.locator('select[name="visibility"] option[value="public"]')).toBeEnabled();
+    await expect(editor).toContainText('Before saving Active + Public, confirm Auth Redirect URLs');
 
-    await editor.locator('select[name="status"]').evaluate((node) => {
-      const select = node as HTMLSelectElement;
-      select.value = 'active';
-      select.dispatchEvent(new Event('change', { bubbles: true }));
-    });
-    await editor.locator('select[name="visibility"]').evaluate((node) => {
-      const select = node as HTMLSelectElement;
-      select.value = 'public';
-      select.dispatchEvent(new Event('change', { bubbles: true }));
-    });
+    await editor.getByRole('button', { name: 'Dates & visibility' }).click();
+    await editor.locator('input[name="start_at"]').fill('2025-07-15T00:00');
+    await editor.locator('input[name="end_at"]').fill('2026-09-15T23:59:59');
+    await editor.getByRole('button', { name: 'Basic settings' }).click();
+    await editor.locator('select[name="status"]').selectOption('active');
+    await editor.locator('select[name="visibility"]').selectOption('public');
     await editor.getByRole('button', { name: 'Review & save' }).click();
     await expect(editor.locator('#specialOfferEditorReview')).toContainText('Status');
-    await expect(editor.locator('#specialOfferEditorReview')).toContainText('Draft');
+    await expect(editor.locator('#specialOfferEditorReview')).toContainText('Active');
     await expect(editor.locator('#specialOfferEditorReview')).toContainText('Visibility');
-    await expect(editor.locator('#specialOfferEditorReview')).toContainText('Private');
-    await expect(editor.locator('#specialOfferEditorReview')).not.toContainText('Status Active');
-    await expect(editor.locator('#specialOfferEditorReview')).not.toContainText('Public');
+    await expect(editor.locator('#specialOfferEditorReview')).toContainText('Public');
+    await expect(editor.getByRole('button', { name: 'Save campaign' })).toBeEnabled();
+    await editor.getByRole('button', { name: 'Save campaign' }).click();
+    await expect(editor).toBeHidden();
+
+    const saved = await page.evaluate((offerId) => {
+      const offer = (window as any).__supabaseStub.getTableRows('special_offers').find((row: any) => row.id === offerId);
+      const audit = (window as any).__supabaseStub.getTableRows('special_offer_audit_log');
+      return { offer, audit };
+    }, OFFER_ID);
+    expect(saved.offer.status).toBe('active');
+    expect(saved.offer.visibility).toBe('public');
+    expect(new Date(saved.offer.start_at).toISOString()).toBe('2025-07-14T21:00:00.000Z');
+    expect(new Date(saved.offer.end_at).toISOString()).toBe('2026-09-15T20:59:59.000Z');
+    expect(saved.audit.some((row: any) => row.action === 'special_offer.updated' && row.offer_id === OFFER_ID)).toBe(true);
+
+    const updatedCard = page.locator('.special-offer-campaign-card').filter({ hasText: 'Wygraj 3 dni w Lefkarze' });
+    await updatedCard.getByRole('button', { name: 'Edit' }).click();
+    await expect(editor).toBeVisible();
+    await expect(editor.locator('input[name="start_at"]')).toHaveValue('2025-07-15T00:00');
+    await expect(editor.locator('input[name="end_at"]')).toHaveValue('2026-09-15T23:59:59');
   });
 
-  test('archives without hard delete and disables edit for non-draft/non-private campaigns', async ({ page }) => {
+  test('archives without hard delete', async ({ page }) => {
     page.on('dialog', (dialog) => dialog.accept());
     await openSpecialOffers(page);
-
-    const activeCard = page.locator('.special-offer-campaign-card').filter({ hasText: 'Published sample' });
-    await expect(activeCard.getByRole('button', { name: 'Edit' })).toBeDisabled();
 
     await openEditorForLefkara(page);
     await page.locator('#specialOffersEditorArchive').click();
