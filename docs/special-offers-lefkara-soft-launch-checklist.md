@@ -40,7 +40,7 @@ campaign publicly until every blocker is resolved.
 | Check `dates_present_and_valid`. | `true`; owner confirms these dates are final. |  |  |  |
 | Check `entry_collection_currently_ready`. | Usually `false` before activation; must become `true` after activation and inside date window. |  |  |  |
 | Check `activity_claims_currently_ready`. | Can be `false` until at least one active official post exists. |  |  |  |
-| Check manual gates. | Auth Redirect URLs and legal/privacy/rules are confirmed outside SQL. |  |  |  |
+| Check manual gates. | Existing production Auth signup/email confirmation works without Supabase dashboard changes, and legal/privacy/rules are confirmed outside SQL. |  |  |  |
 | If not yet applied, run activity date guard patch and verify. | `special_offer_activity_claim_date_guard_stage1_verify.sql` returns `overall_pass=true`. |  |  |  |
 
 ## 5. Admin Activation
@@ -48,7 +48,7 @@ campaign publicly until every blocker is resolved.
 | Step | Expected result | Actual result | Pass/Fail | Blocker |
 |---|---|---|---|---|
 | Open Lefkara in Admin Special Offers. | Campaign editor shows status, visibility, start and end fields. |  |  |  |
-| Set final dates. | Start is `2025-07-15 00:00`; end is `2026-09-15 23:59` in Cyprus local time after reopening the editor. |  |  |  |
+| Set final dates. | Start is `2025-07-15 00:00`; end is `2026-09-15 23:59:59` in Cyprus local time after reopening the editor. |  |  |  |
 | Set status and visibility. | `status=active`, `visibility=public`; publish confirmation is shown before save. |  |  |  |
 | Save campaign. | Campaign starts accepting main entries immediately because the current date is inside the configured window. |  |  |  |
 | Optional fallback only. | `special_offer_lefkara_activate_stage1.sql` is not required when Admin activation succeeds; use only as reviewed emergency fallback. |  |  |  |

@@ -108,4 +108,17 @@ describe('Special Offers Lefkara launch pack', () => {
     expect(verify).toContain('date_guard_before_insert');
     expect(verify).toContain('overall_pass');
   });
+
+  test('Special Offers reuses existing Auth callback and stores only safe internal return path', () => {
+    const auth = read('js/auth.js');
+    const specialOffer = read('js/special-offer.js');
+
+    expect(auth).toContain("const POST_AUTH_REDIRECT_STORAGE_KEY = 'ce_auth_return_to_v1'");
+    expect(auth).toContain('ceAuthGlobal.setReturnTo');
+    expect(auth).toMatch(/function resolveVerificationRedirectTo\([^)]*\)\s*\{[\s\S]*return VERIFICATION_REDIRECT;/);
+    expect(auth).not.toMatch(/return new URL\(redirectTarget, URLS\.base\)\.toString\(\)/);
+    expect(specialOffer).toContain('window.CE_AUTH.setReturnTo(redirect)');
+    expect(specialOffer).toContain("window.sessionStorage.setItem('ce_auth_return_to_v1', redirect)");
+    expect(specialOffer).not.toContain('emailRedirectTo');
+  });
 });

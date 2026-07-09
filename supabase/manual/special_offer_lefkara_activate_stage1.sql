@@ -10,7 +10,7 @@
 -- 1. Choose one date mode:
 --    A. Set v_use_existing_dates := true to keep the dates already stored in DB.
 --    B. Keep v_use_existing_dates := false and replace v_start_at_text/v_end_at_text.
--- 2. Confirm Supabase Auth Redirect URLs are configured.
+-- 2. Confirm existing production Auth signup/email confirmation works after deploy.
 -- 3. Confirm campaign legal/privacy/rules links are ready.
 -- 4. Run special_offer_lefkara_launch_preflight.sql and review output.
 --

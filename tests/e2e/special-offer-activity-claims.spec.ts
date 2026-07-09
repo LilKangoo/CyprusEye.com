@@ -235,6 +235,10 @@ test.describe('Special Offer public activity claims', () => {
     await expect(section.getByRole('heading', { name: 'Sign in to claim activity' })).toBeVisible();
     await section.getByRole('button', { name: 'Sign in or register' }).click();
     await expect(page.locator('#auth-modal')).toHaveClass(/is-open/);
+    await expect.poll(() => page.evaluate(() => window.sessionStorage.getItem('ce_auth_return_to_v1'))).toBe(
+      '/special-offers/activity-campaign-2026?lang=en',
+    );
+
     const rpcCalls = await page.evaluate(() => (window as any).__supabaseStub.getRpcCalls());
     expect(rpcCalls).toHaveLength(0);
   });

@@ -180,7 +180,7 @@ const SPECIAL_OFFERS_HELP = {
     title: 'Basic settings',
     does: 'Defines the internal campaign identity: slug, type, winner mode, status and visibility.',
     use: 'Use this when creating the campaign shell or preparing a controlled launch. Type options: Contest is a campaign with form and winner, Giveaway is a simpler prize giveaway, Weighted draw is a future points/weights draw, Partner promo is a partner campaign, Coupon promo is a code/coupon promotion, Landing only is an information page without contest mechanics.',
-    avoid: 'Do not publish until Auth Redirect URLs, campaign dates, rules and privacy links have been confirmed. Archived and locked campaigns remain closed.',
+    avoid: 'Do not publish until the existing production Auth flow, campaign dates, rules and privacy links have been confirmed. Archived and locked campaigns remain closed.',
     example: 'Winner mode examples: Manual selection means admin chooses the winner later, Weighted draw is a future weighted draw machine, None means no winner.',
   },
   dates: {
@@ -3157,7 +3157,7 @@ function renderEditorForm(campaign = null) {
               <span class="special-offer-field-hint">Public exposes the campaign page and allows backend RPCs to accept eligible submissions.</span>
             </label>
           </div>
-          <p class="special-offer-editor-muted">Before saving Active + Public, confirm Auth Redirect URLs, legal links and production smoke-test readiness.</p>
+          <p class="special-offer-editor-muted">Before saving Active + Public, confirm the existing production Auth flow, legal links and production smoke-test readiness.</p>
         </section>
         <section class="special-offer-editor-section" data-special-offers-editor-panel="dates" hidden>
           <p class="special-offer-editor-muted">${renderHelp('dates')} Dates are enforced by the public submit RPCs. Use local Cyprus time in this browser.</p>
@@ -3917,7 +3917,7 @@ function confirmCampaignPublish(payload) {
       ? 'The start date has already passed and the current time is before the end date. After saving, the campaign can immediately accept entries.'
       : 'After saving, the campaign will follow the configured start/end window.',
     '',
-    'Confirm only after production Auth Redirect URLs, legal links and the launch checklist are complete.',
+    'Confirm only after the existing production Auth flow, legal links and the launch checklist are complete.',
   ];
   return window.confirm(lines.join('\n'));
 }

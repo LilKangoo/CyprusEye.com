@@ -206,7 +206,7 @@ summary as (
       and r.activity_claim_rpc_exists
     ) as activity_claims_currently_ready,
     true as official_post_required_only_for_activity_claims,
-    'manual_check_required: configure Supabase Auth Redirect URLs and test production signup/email confirmation before activation'::text as manual_auth_gate_pending,
+    'manual_check_required: test existing production Auth signup/email confirmation before activation; no new Supabase Redirect URLs are required for this launch'::text as manual_auth_gate_pending,
     'manual_check_required: confirm campaign rules, privacy link, organizer details, and legal copy before activation/public promotion'::text as manual_legal_gate_pending,
     (
       coalesce(c.offer_count, 0) = 1

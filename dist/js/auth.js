@@ -21,6 +21,7 @@ const IS_PASSWORD_RESET_CALLBACK =
 
 const GOOGLE_OAUTH_REDIRECT = 'https://cypruseye.com/auth/';
 const POST_AUTH_REDIRECT = '/';
+const POST_AUTH_REDIRECT_STORAGE_KEY = 'ce_auth_return_to_v1';
 const USERNAME_MIN_LENGTH = 3;
 const USERNAME_MAX_LENGTH = 30;
 const OAUTH_COMPLETION_DRAFT_KEY = 'ce_oauth_register_draft_v1';
@@ -1017,6 +1018,64 @@ function pickDatasetRedirect(source) {
   return normalizeRedirectTarget(source.dataset.authRedirect);
 }
 
+function readStoredPostAuthRedirect() {
+  try {
+    const stored = window.sessionStorage.getItem(POST_AUTH_REDIRECT_STORAGE_KEY);
+    return normalizeRedirectTarget(stored);
+  } catch (_error) {
+    return null;
+  }
+}
+
+function storePostAuthRedirect(target) {
+  const normalized = normalizeRedirectTarget(target);
+  if (!normalized) {
+    return null;
+  }
+  try {
+    window.sessionStorage.setItem(POST_AUTH_REDIRECT_STORAGE_KEY, normalized);
+  } catch (_error) {
+    // Return path is a convenience only; auth must continue if sessionStorage is unavailable.
+  }
+  return normalized;
+}
+
+function clearStoredPostAuthRedirect() {
+  try {
+    window.sessionStorage.removeItem(POST_AUTH_REDIRECT_STORAGE_KEY);
+  } catch (_error) {
+    // ignore
+  }
+}
+
+if (ceAuthGlobal) {
+  ceAuthGlobal.setReturnTo = (target) => storePostAuthRedirect(target);
+  ceAuthGlobal.getReturnTo = () => readStoredPostAuthRedirect();
+  ceAuthGlobal.clearReturnTo = () => clearStoredPostAuthRedirect();
+}
+
+function maybeNavigateToSpecialOfferReturn(redirectTarget) {
+  const normalized = normalizeRedirectTarget(redirectTarget);
+  if (!normalized) {
+    return false;
+  }
+  try {
+    const target = new URL(normalized, window.location.origin);
+    if (!isAllowedSpecialOfferRedirect(target.pathname)) {
+      return false;
+    }
+    if (!window.location.pathname.startsWith('/auth')) {
+      return false;
+    }
+    window.setTimeout(() => {
+      window.location.assign(`${target.pathname}${target.search}${target.hash}`);
+    }, 250);
+    return true;
+  } catch (_error) {
+    return false;
+  }
+}
+
 function resolvePostAuthRedirect(...preferred) {
   for (const candidate of preferred) {
     const normalized = normalizeRedirectTarget(candidate);
@@ -1060,16 +1119,18 @@ function resolvePostAuthRedirect(...preferred) {
     return bodyRedirect;
   }
 
+  const storedRedirect = readStoredPostAuthRedirect();
+  if (storedRedirect) {
+    return storedRedirect;
+  }
+
   return window.location.pathname.startsWith('/account') ? '/account/' : '/';
 }
 
 function resolveVerificationRedirectTo(...preferred) {
   const redirectTarget = resolvePostAuthRedirect(...preferred);
-  try {
-    return new URL(redirectTarget, URLS.base).toString();
-  } catch (_error) {
-    return VERIFICATION_REDIRECT;
-  }
+  storePostAuthRedirect(redirectTarget);
+  return VERIFICATION_REDIRECT;
 }
 
 function getResendVerificationElements() {
@@ -1222,8 +1283,10 @@ async function handleAuth(result, okMsg, redirectHint) {
   }
 
   const redirectTarget = resolvePostAuthRedirect(redirectHint);
+  clearStoredPostAuthRedirect();
   const state = (window.CE_STATE = window.CE_STATE || {});
   state.postAuthRedirect = redirectTarget;
+  maybeNavigateToSpecialOfferReturn(redirectTarget);
 
   try {
     document.dispatchEvent(
@@ -2857,9 +2920,14 @@ $('#btn-refresh-auth-access')?.addEventListener('click', async (event) => {
       if (user?.id && (user.email_confirmed_at || user.confirmed_at)) {
         hideResendVerification();
         showOk(t('Email confirmed. You can continue.', 'E-mail potwierdzony. Możesz kontynuować.'));
+        const redirectTarget = resolvePostAuthRedirect();
+        const state = (window.CE_STATE = window.CE_STATE || {});
+        state.postAuthRedirect = redirectTarget;
+        clearStoredPostAuthRedirect();
         document.dispatchEvent(new CustomEvent('ce-auth:post-login', {
-          detail: { redirectTarget: resolvePostAuthRedirect() },
+          detail: { redirectTarget },
         }));
+        maybeNavigateToSpecialOfferReturn(redirectTarget);
       } else {
         showInfo(t('Email is not confirmed yet. Check your inbox and try again.', 'E-mail nie jest jeszcze potwierdzony. Sprawdź skrzynkę i spróbuj ponownie.'));
       }
@@ -2894,9 +2962,14 @@ async function handleSupabaseVerificationReturn() {
     hideResendVerification();
     showOk(t('Email confirmed. You can continue.', 'E-mail potwierdzony. Możesz kontynuować.'), 6500);
     stripSupabaseReturnParams(parsed);
+    const redirectTarget = resolvePostAuthRedirect();
+    const state = (window.CE_STATE = window.CE_STATE || {});
+    state.postAuthRedirect = redirectTarget;
+    clearStoredPostAuthRedirect();
     document.dispatchEvent(new CustomEvent('ce-auth:post-login', {
-      detail: { redirectTarget: resolvePostAuthRedirect() },
+      detail: { redirectTarget },
     }));
+    maybeNavigateToSpecialOfferReturn(redirectTarget);
   } catch (error) {
     const message = friendlyErrorMessage(error?.message || t('Could not confirm email.', 'Nie udało się potwierdzić e-maila.'));
     showErr(`${t('Failed', 'Nie udało się')}: ${message}`);

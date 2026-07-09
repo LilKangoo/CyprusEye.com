@@ -1163,6 +1163,9 @@ stubApi.getTableRows = function getTableRowsPublic(table) {
 stubApi.getRpcCalls = function getRpcCalls() {
   return clone(state.rpcCalls || []);
 };
+stubApi.getVerificationRequests = function getVerificationRequests() {
+  return clone(state.lastVerificationRequests || []);
+};
 stubApi.clearRpcCalls = function clearRpcCalls() {
   state.rpcCalls = [];
   persistState();

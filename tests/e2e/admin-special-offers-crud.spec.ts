@@ -698,7 +698,7 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     const editor = page.locator('#specialOffersEditorModal');
     await expect(editor.locator('select[name="status"] option[value="active"]')).toBeEnabled();
     await expect(editor.locator('select[name="visibility"] option[value="public"]')).toBeEnabled();
-    await expect(editor).toContainText('Before saving Active + Public, confirm Auth Redirect URLs');
+    await expect(editor).toContainText('Before saving Active + Public, confirm the existing production Auth flow');
 
     await editor.getByRole('button', { name: 'Dates & visibility' }).click();
     await editor.locator('input[name="start_at"]').fill('2025-07-15T00:00');

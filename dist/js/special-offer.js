@@ -481,6 +481,15 @@ function getSafeCurrentAuthRedirect() {
 
 function configureAuthRedirectTarget() {
   const redirect = getSafeCurrentAuthRedirect();
+  try {
+    if (window.CE_AUTH && typeof window.CE_AUTH.setReturnTo === 'function') {
+      window.CE_AUTH.setReturnTo(redirect);
+    } else {
+      window.sessionStorage.setItem('ce_auth_return_to_v1', redirect);
+    }
+  } catch (_error) {
+    // Return-to support is best-effort; auth still works through the existing callback.
+  }
   document.documentElement.dataset.authRedirect = redirect;
   document.body.dataset.authRedirect = redirect;
   let meta = document.querySelector('meta[name="ce-auth-redirect"]');
