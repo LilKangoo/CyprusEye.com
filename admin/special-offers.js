@@ -362,8 +362,8 @@ function buildSpecialOfferPreviewUrl(campaign, lang = 'pl') {
   return buildSpecialOfferPublicUrl(campaign, lang, { adminPreview: true, clean: false });
 }
 
-function buildSpecialOfferCleanPreviewUrl(campaign, lang = 'pl') {
-  return buildSpecialOfferPublicUrl(campaign, lang, { adminPreview: true, clean: true });
+function buildSpecialOfferCleanPublicUrl(campaign, lang = 'pl') {
+  return buildSpecialOfferPublicUrl(campaign, lang, { adminPreview: false, clean: true });
 }
 
 function toArray(value) {
@@ -927,6 +927,7 @@ function renderCampaignCard(campaign) {
   const dateRange = `${formatDate(campaign.start_at)} - ${formatDate(campaign.end_at)}`;
   const winnerDate = formatDate(campaign.winner_announce_at);
   const canEdit = isCampaignEditableInAdmin(campaign);
+  const publicUrl = buildSpecialOfferCleanPublicUrl(campaign, 'pl');
   const previewUrl = buildSpecialOfferPreviewUrl(campaign, 'pl');
 
   return `
@@ -958,8 +959,9 @@ function renderCampaignCard(campaign) {
         <button class="btn-secondary btn-small" type="button" data-special-offers-view="${escapeHtml(campaign.id)}">View details</button>
         <button class="btn-secondary btn-small" type="button" data-special-offers-open-entries="${escapeHtml(campaign.id)}">Entries</button>
         <button class="btn-secondary btn-small" type="button" data-special-offers-open-manual-verification="${escapeHtml(campaign.id)}">Manual verification</button>
-        <a class="btn-secondary btn-small" href="${escapeHtml(previewUrl)}" target="_blank" rel="noopener noreferrer" data-special-offers-preview-url="${escapeHtml(previewUrl)}">Preview public page</a>
-        <button class="btn-secondary btn-small" type="button" data-special-offers-copy-preview-url="${escapeHtml(campaign.id)}">Copy preview URL</button>
+        <a class="btn-secondary btn-small" href="${escapeHtml(publicUrl)}" target="_blank" rel="noopener noreferrer" data-special-offers-public-url="${escapeHtml(publicUrl)}">Preview public page</a>
+        <a class="btn-secondary btn-small" href="${escapeHtml(previewUrl)}" target="_blank" rel="noopener noreferrer" data-special-offers-preview-url="${escapeHtml(previewUrl)}">Admin preview</a>
+        <button class="btn-secondary btn-small" type="button" data-special-offers-copy-preview-url="${escapeHtml(campaign.id)}">Copy admin preview URL</button>
         <button
           class="btn-primary btn-small"
           type="button"
@@ -5420,18 +5422,18 @@ function closeFormPreview() {
 function renderPublicLandingPreviewLinks(campaign) {
   const rows = SPECIAL_OFFERS_DETAIL_LANGUAGES.map((language) => ({
     lang: language.code,
-    fallback: buildSpecialOfferPreviewUrl(campaign, language.code),
-    clean: buildSpecialOfferCleanPreviewUrl(campaign, language.code),
+    publicUrl: buildSpecialOfferCleanPublicUrl(campaign, language.code),
+    previewUrl: buildSpecialOfferPreviewUrl(campaign, language.code),
   }));
   return `
     <div class="special-offer-public-url-list">
-      <p class="special-offer-editor-muted">Primary production-safe fallback uses <code>special-offer.html</code>. Clean URLs require Cloudflare Pages rewrite support.</p>
+      <p class="special-offer-editor-muted">Public links use the clean production URL. Admin preview uses <code>admin_preview=1</code> and keeps entry submission disabled.</p>
       ${rows.map((row) => `
         <div class="special-offer-public-url-row">
           <strong>${escapeHtml(row.lang.toUpperCase())}</strong>
-          <a href="${escapeHtml(row.fallback)}" target="_blank" rel="noopener noreferrer">${escapeHtml(row.fallback)}</a>
-          <button class="btn-secondary btn-small" type="button" data-special-offers-copy-raw-url="${escapeHtml(row.fallback)}">Copy</button>
-          <span>Clean: ${escapeHtml(row.clean)}</span>
+          <a href="${escapeHtml(row.publicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(row.publicUrl)}</a>
+          <button class="btn-secondary btn-small" type="button" data-special-offers-copy-raw-url="${escapeHtml(row.publicUrl)}">Copy public URL</button>
+          <span>Admin preview: ${escapeHtml(row.previewUrl)}</span>
         </div>
       `).join('')}
     </div>

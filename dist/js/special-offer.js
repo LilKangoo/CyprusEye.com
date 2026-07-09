@@ -2492,6 +2492,38 @@ async function fetchRows(table, filters = [], order = null) {
   return Array.isArray(data) ? data : [];
 }
 
+function normalizePublicLandingPayload(payload) {
+  const source = Array.isArray(payload) ? payload[0] : payload;
+  if (!source || typeof source !== 'object') return null;
+  const campaign = source.campaign && typeof source.campaign === 'object' ? source.campaign : null;
+  if (!campaign?.id) return null;
+  return {
+    campaign,
+    translations: Array.isArray(source.translations) ? source.translations : [],
+    prizes: Array.isArray(source.prizes) ? source.prizes : [],
+    prizeTranslations: Array.isArray(source.prizeTranslations) ? source.prizeTranslations : Array.isArray(source.prize_translations) ? source.prize_translations : [],
+    links: Array.isArray(source.links) ? source.links : [],
+    linkTranslations: Array.isArray(source.linkTranslations) ? source.linkTranslations : Array.isArray(source.link_translations) ? source.link_translations : [],
+    formFields: Array.isArray(source.formFields) ? source.formFields : Array.isArray(source.form_fields) ? source.form_fields : [],
+    formFieldTranslations: Array.isArray(source.formFieldTranslations) ? source.formFieldTranslations : Array.isArray(source.form_field_translations) ? source.form_field_translations : [],
+    previewAllowed: false,
+  };
+}
+
+async function loadPublicCampaign(slug) {
+  const { data, error } = await supabase.rpc('get_public_special_offer_landing', {
+    p_slug: slug,
+  });
+  if (error) {
+    console.error('Special Offer public landing RPC failed:', error);
+    return null;
+  }
+  const payload = normalizePublicLandingPayload(data);
+  if (!payload?.campaign) return null;
+  if (payload.campaign.status !== PUBLIC_STATUS || payload.campaign.visibility !== PUBLIC_VISIBILITY) return null;
+  return payload;
+}
+
 async function loadCampaign(slug, previewMode) {
   let previewAllowed = false;
   if (previewMode) {
@@ -2503,16 +2535,14 @@ async function loadCampaign(slug, previewMode) {
     }
   }
 
-  let query = supabase.from('special_offers').select('*').eq('slug', slug).limit(1);
   if (!previewAllowed) {
-    query = query.eq('status', PUBLIC_STATUS).eq('visibility', PUBLIC_VISIBILITY);
+    return loadPublicCampaign(slug);
   }
+
+  let query = supabase.from('special_offers').select('*').eq('slug', slug).limit(1);
   const { data, error } = await query.maybeSingle();
   if (error || !data) {
     if (error) console.error('Special Offer landing campaign select failed:', error);
-    return null;
-  }
-  if (!previewAllowed && (data.status !== PUBLIC_STATUS || data.visibility !== PUBLIC_VISIBILITY)) {
     return null;
   }
 

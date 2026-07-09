@@ -121,4 +121,33 @@ describe('Special Offers Lefkara launch pack', () => {
     expect(specialOffer).toContain("window.sessionStorage.setItem('ce_auth_return_to_v1', redirect)");
     expect(specialOffer).not.toContain('emailRedirectTo');
   });
+
+  test('public landing RPC exposes only active public campaign content without participant data', () => {
+    const sql = read('supabase/manual/special_offer_public_landing_stage1.sql');
+    const verify = read('supabase/manual/special_offer_public_landing_stage1_verify.sql');
+    const specialOffer = read('js/special-offer.js');
+
+    expect(sql).toContain('create or replace function public.get_public_special_offer_landing');
+    expect(sql).toContain('security definer');
+    expect(sql).toContain('set search_path = pg_catalog, public');
+    expect(sql).toContain("o.status = 'active'");
+    expect(sql).toContain("o.visibility = 'public'");
+    expect(sql).toContain('o.start_at is not null');
+    expect(sql).toContain('o.end_at is not null');
+    expect(sql).toContain('now() >= o.start_at');
+    expect(sql).toContain('now() <= o.end_at');
+    expect(sql).toContain("grant execute on function public.get_public_special_offer_landing(text) to anon, authenticated");
+    expect(sql).not.toMatch(/grant\s+select\s+on\s+(table\s+)?public\.special_offers\s+to\s+anon/i);
+    expect(sql).not.toMatch(/from\s+public\.special_offer_entries/i);
+    expect(sql).not.toMatch(/from\s+public\.special_offer_entry_answers/i);
+    expect(sql).not.toMatch(/from\s+public\.special_offer_entry_activities/i);
+    expect(sql).not.toMatch(/auth\.users/i);
+    expect(sql).not.toMatch(/\b(insert\s+into|update\s+public\.|delete\s+from)\b/i);
+    expect(verify).toContain('overall_pass');
+    expect(verify).toContain('no_entries_read');
+    expect(verify).toContain('no_answers_read');
+    expect(verify).toContain('no_activities_read');
+    expect(verify).not.toMatch(/(^|\n)\s*(insert\s+into|update\s+\w|delete\s+from|merge\s+into|truncate\s+|alter\s+|create\s+|drop\s+|grant\s+|revoke\s+)/i);
+    expect(specialOffer).toContain("supabase.rpc('get_public_special_offer_landing'");
+  });
 });

@@ -55,8 +55,8 @@ async function prepareActivityStub(page: Page, options: {
           winner_selection_mode: 'manual_selection',
           status: 'active',
           visibility: 'public',
-          start_at: '2026-08-01T09:00:00.000Z',
-          end_at: '2026-09-01T20:59:00.000Z',
+          start_at: '2026-07-01T09:00:00.000Z',
+          end_at: '2026-12-31T20:59:00.000Z',
           winner_announce_at: '2026-09-05T09:00:00.000Z',
           timezone: 'Asia/Nicosia',
           requires_form: false,
@@ -149,6 +149,32 @@ async function prepareActivityStub(page: Page, options: {
           updated_at: '2026-08-02T11:00:00.000Z',
         }] : []);
 
+        stub.setRpcHandler('get_public_special_offer_landing', async (params: any, helpers: any) => {
+          const slug = String(params?.p_slug || '').trim();
+          const now = new Date();
+          const offers = helpers.getTableRows('special_offers') || [];
+          const offer = offers.find((row: any) => {
+            if (row.slug !== slug) return false;
+            if (row.status !== 'active' || row.visibility !== 'public') return false;
+            if (!row.start_at || !row.end_at) return false;
+            return now >= new Date(row.start_at) && now <= new Date(row.end_at);
+          });
+          if (!offer) return { data: null, error: null };
+          const translations = (helpers.getTableRows('special_offer_translations') || []).filter((row: any) => row.offer_id === offer.id);
+          return {
+            data: {
+              campaign: offer,
+              translations,
+              prizes: [],
+              prizeTranslations: [],
+              links: [],
+              linkTranslations: [],
+              formFields: [],
+              formFieldTranslations: [],
+            },
+            error: null,
+          };
+        });
         stub.setRpcHandler('special_offer_entry_score_summary', (params: any, helpers: any) => {
           const activities = helpers.getTableRows('special_offer_entry_activities')
             .filter((row: any) => row.entry_id === params.p_entry_id && row.status === 'approved');
@@ -240,7 +266,7 @@ test.describe('Special Offer public activity claims', () => {
     );
 
     const rpcCalls = await page.evaluate(() => (window as any).__supabaseStub.getRpcCalls());
-    expect(rpcCalls).toHaveLength(0);
+    expect(rpcCalls.filter((call: any) => call.name === 'submit_special_offer_activity_claim')).toHaveLength(0);
   });
 
   test('renders own entry, own score and current campaign official posts for confirmed users', async ({ page }) => {

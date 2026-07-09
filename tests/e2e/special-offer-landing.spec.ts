@@ -77,6 +77,44 @@ async function prepareSpecialOfferLandingStub(page: Page, options: { adminSessio
             error: null,
           };
         });
+        stub.setRpcHandler('get_public_special_offer_landing', async (params: any, ctx: any) => {
+          const slug = String(params?.p_slug || '').trim();
+          const now = new Date();
+          const offers = ctx.getTableRows('special_offers') || [];
+          const offer = offers.find((row: any) => {
+            if (row.slug !== slug) return false;
+            if (row.status !== 'active' || row.visibility !== 'public') return false;
+            if (!row.start_at || !row.end_at) return false;
+            return now >= new Date(row.start_at) && now <= new Date(row.end_at);
+          });
+          if (!offer) return { data: null, error: null };
+          const offerId = offer.id;
+          const translations = (ctx.getTableRows('special_offer_translations') || []).filter((row: any) => row.offer_id === offerId);
+          const prizes = (ctx.getTableRows('special_offer_prizes') || []).filter((row: any) => row.offer_id === offerId).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
+          const prizeIds = new Set(prizes.map((row: any) => row.id));
+          const prizeTranslations = (ctx.getTableRows('special_offer_prize_translations') || []).filter((row: any) => prizeIds.has(row.prize_id));
+          const links = (ctx.getTableRows('special_offer_links') || []).filter((row: any) => row.offer_id === offerId).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
+          const linkIds = new Set(links.map((row: any) => row.id));
+          const linkTranslations = (ctx.getTableRows('special_offer_link_translations') || []).filter((row: any) => linkIds.has(row.link_id));
+          const formFields = offer.requires_form === true
+            ? (ctx.getTableRows('special_offer_form_fields') || []).filter((row: any) => row.offer_id === offerId && row.active === true).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0))
+            : [];
+          const fieldIds = new Set(formFields.map((row: any) => row.id));
+          const formFieldTranslations = (ctx.getTableRows('special_offer_form_field_translations') || []).filter((row: any) => fieldIds.has(row.field_id));
+          return {
+            data: {
+              campaign: offer,
+              translations,
+              prizes,
+              prizeTranslations,
+              links,
+              linkTranslations,
+              formFields,
+              formFieldTranslations,
+            },
+            error: null,
+          };
+        });
 
         stub.seedTable('special_offers', [
           {
@@ -99,8 +137,8 @@ async function prepareSpecialOfferLandingStub(page: Page, options: { adminSessio
             winner_selection_mode: 'none',
             status: 'active',
             visibility: 'public',
-            start_at: '2026-08-01T09:00:00.000Z',
-            end_at: '2026-08-20T18:00:00.000Z',
+            start_at: '2026-07-01T09:00:00.000Z',
+            end_at: '2026-12-31T18:00:00.000Z',
             winner_announce_at: '2026-08-24T10:00:00.000Z',
             timezone: 'Asia/Nicosia',
             requires_form: false,
@@ -112,8 +150,8 @@ async function prepareSpecialOfferLandingStub(page: Page, options: { adminSessio
             winner_selection_mode: 'manual_selection',
             status: 'active',
             visibility: 'public',
-            start_at: '2026-08-01T09:00:00.000Z',
-            end_at: '2026-08-20T18:00:00.000Z',
+            start_at: '2026-07-01T09:00:00.000Z',
+            end_at: '2026-12-31T18:00:00.000Z',
             winner_announce_at: '2026-08-24T10:00:00.000Z',
             timezone: 'Asia/Nicosia',
             requires_form: true,
@@ -125,8 +163,8 @@ async function prepareSpecialOfferLandingStub(page: Page, options: { adminSessio
             winner_selection_mode: 'manual_selection',
             status: 'active',
             visibility: 'public',
-            start_at: '2026-08-01T09:00:00.000Z',
-            end_at: '2026-08-20T18:00:00.000Z',
+            start_at: '2026-07-01T09:00:00.000Z',
+            end_at: '2026-12-31T18:00:00.000Z',
             winner_announce_at: '2026-08-24T10:00:00.000Z',
             timezone: 'Asia/Nicosia',
             requires_form: true,
@@ -138,8 +176,8 @@ async function prepareSpecialOfferLandingStub(page: Page, options: { adminSessio
             winner_selection_mode: 'manual_selection',
             status: 'active',
             visibility: 'public',
-            start_at: '2026-08-01T09:00:00.000Z',
-            end_at: '2026-08-20T18:00:00.000Z',
+            start_at: '2026-07-01T09:00:00.000Z',
+            end_at: '2026-12-31T18:00:00.000Z',
             winner_announce_at: '2026-08-24T10:00:00.000Z',
             timezone: 'Asia/Nicosia',
             requires_form: true,
@@ -472,6 +510,13 @@ test.describe('Special Offer public read-only landing', () => {
     await waitForSupabaseStub(page);
 
     await expect(page.getByRole('heading', { name: 'Published public campaign' })).toBeVisible();
+    const landingRpcCalls = await page.evaluate(() => (window as any).__supabaseStub.getRpcCalls());
+    expect(landingRpcCalls).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        name: 'get_public_special_offer_landing',
+        params: { p_slug: 'published-sample-2026' },
+      }),
+    ]));
     await expect(page.getByText('Public prize EN')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Cars in Cyprus' })).toHaveAttribute('href', /\/car\.html\?lang=en$/);
     const carsCard = page.locator('.special-offer-link-card').filter({ hasText: 'Cars in Cyprus' });
@@ -631,7 +676,7 @@ test.describe('Special Offer public read-only landing', () => {
     await page.getByRole('button', { name: 'Fill in the form' }).click();
     await expect(page.locator('#auth-modal')).toHaveClass(/is-open/);
     const rpcCalls = await page.evaluate(() => (window as any).__supabaseStub.getRpcCalls());
-    expect(rpcCalls).toHaveLength(0);
+    expect(rpcCalls.filter((call: any) => call.name === 'submit_special_offer_entry')).toHaveLength(0);
   });
 
   test('keeps active form locked for signed-in users without confirmed email', async ({ page }) => {
@@ -645,7 +690,7 @@ test.describe('Special Offer public read-only landing', () => {
     await page.getByRole('button', { name: 'I confirmed my email / Refresh access' }).click();
     await expect(page.getByRole('heading', { name: 'Confirm your email address' })).toBeVisible();
     const rpcCalls = await page.evaluate(() => (window as any).__supabaseStub.getRpcCalls());
-    expect(rpcCalls).toHaveLength(0);
+    expect(rpcCalls.filter((call: any) => call.name === 'submit_special_offer_entry')).toHaveLength(0);
   });
 
   test('hides broken linked-service images without breaking the card layout', async ({ page }) => {
@@ -772,7 +817,7 @@ test.describe('Special Offer public read-only landing', () => {
     await expect(page.locator('[data-special-offer-form-field="terms_accepted"]')).toContainText('consent is required');
     await expect(page.locator('[data-special-offer-form-field="favorite_activity"]')).toContainText('available options');
     const rpcCalls = await page.evaluate(() => (window as any).__supabaseStub.getRpcCalls());
-    expect(rpcCalls).toHaveLength(0);
+    expect(rpcCalls.filter((call: any) => call.name === 'submit_special_offer_entry')).toHaveLength(0);
   });
 
   test('submits through RPC once with safe payload, idempotency key and success state', async ({ page }) => {
@@ -792,12 +837,12 @@ test.describe('Special Offer public read-only landing', () => {
     await expect(page.getByText('entry-hidden-id')).toHaveCount(0);
 
     const rpcCalls = await page.evaluate(() => (window as any).__supabaseStub.getRpcCalls());
-    expect(rpcCalls).toHaveLength(1);
-    expect(rpcCalls[0].name).toBe('submit_special_offer_entry');
-    expect(rpcCalls[0].params.p_offer_slug).toBe('published-submit-form-2026');
-    expect(rpcCalls[0].params.p_lang).toBe('en');
-    expect(rpcCalls[0].params.p_client_submission_id).toMatch(/^[0-9a-f-]{36}$/i);
-    expect(rpcCalls[0].params.p_answers).toMatchObject({
+    const submitCalls = rpcCalls.filter((call: any) => call.name === 'submit_special_offer_entry');
+    expect(submitCalls).toHaveLength(1);
+    expect(submitCalls[0].params.p_offer_slug).toBe('published-submit-form-2026');
+    expect(submitCalls[0].params.p_lang).toBe('en');
+    expect(submitCalls[0].params.p_client_submission_id).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(submitCalls[0].params.p_answers).toMatchObject({
       first_name: 'Anna',
       last_name: 'Nowak',
       email: 'participant@example.com',
@@ -826,8 +871,9 @@ test.describe('Special Offer public read-only landing', () => {
     await expect(page.locator('[data-special-offer-form-status]')).toContainText('Connection problem');
     await page.getByRole('button', { name: 'Submit entry' }).click();
     const retryCalls = await page.evaluate(() => (window as any).__supabaseStub.getRpcCalls());
-    expect(retryCalls).toHaveLength(2);
-    expect(retryCalls[0].params.p_client_submission_id).toBe(retryCalls[1].params.p_client_submission_id);
+    const submitRetryCalls = retryCalls.filter((call: any) => call.name === 'submit_special_offer_entry');
+    expect(submitRetryCalls).toHaveLength(2);
+    expect(submitRetryCalls[0].params.p_client_submission_id).toBe(submitRetryCalls[1].params.p_client_submission_id);
 
     await page.evaluate(() => {
       (window as any).__supabaseStub.clearRpcCalls();

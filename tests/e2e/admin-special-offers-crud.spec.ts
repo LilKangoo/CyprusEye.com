@@ -682,16 +682,20 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     const card = page.locator('.special-offer-campaign-card').filter({ hasText: 'Wygraj 3 dni w Lefkarze' });
     await expect(card.getByRole('link', { name: 'Preview public page' })).toHaveAttribute(
       'href',
+      /\/special-offers\/lefkara-giveaway-2026\?lang=pl$/
+    );
+    await expect(card.getByRole('link', { name: 'Admin preview' })).toHaveAttribute(
+      'href',
       /\/special-offer\.html\?slug=lefkara-giveaway-2026&lang=pl&admin_preview=1$/
     );
-    await expect(card.getByRole('button', { name: 'Copy preview URL' })).toBeVisible();
+    await expect(card.getByRole('button', { name: 'Copy admin preview URL' })).toBeVisible();
 
     await card.getByRole('button', { name: 'View details' }).click();
     const details = page.locator('#specialOffersDetailsModal');
     await expect(details).toBeVisible();
     await expect(details).toContainText('Public landing preview URLs');
-    await expect(details).toContainText('/special-offer.html?slug=lefkara-giveaway-2026&lang=pl&admin_preview=1');
-    await expect(details).toContainText('Clean: /special-offers/lefkara-giveaway-2026?lang=pl&admin_preview=1');
+    await expect(details).toContainText('/special-offers/lefkara-giveaway-2026?lang=pl');
+    await expect(details).toContainText('Admin preview: /special-offer.html?slug=lefkara-giveaway-2026&lang=pl&admin_preview=1');
     await details.locator('.btn-modal-close[data-special-offers-close]').click();
 
     await openEditorForLefkara(page);
