@@ -9,8 +9,8 @@ const PUBLIC_EMPTY_FORM_OFFER_ID = '6a6b166e-fb18-4b3e-a69c-a1f25722a301';
 const PUBLIC_OPTIONS_FORM_OFFER_ID = '7f50b732-9c87-402a-b0b1-afbd7a34e401';
 const PUBLIC_SUBMIT_FORM_OFFER_ID = '8d89c4c9-c0de-4d6e-9a18-0ad8d376e3a4';
 
-async function prepareSpecialOfferLandingStub(page: Page, options: { adminSession?: boolean; participantSession?: boolean; unconfirmedSession?: boolean; rpcError?: string; rpcReference?: string } = {}) {
-  await page.addInitScript(({ adminId, draftOfferId, publicOfferId, publicEmptyFormOfferId, publicOptionsFormOfferId, publicSubmitFormOfferId, adminSession, participantSession, unconfirmedSession, rpcError, rpcReference }) => {
+async function prepareSpecialOfferLandingStub(page: Page, options: { adminSession?: boolean; participantSession?: boolean; unconfirmedSession?: boolean; rpcError?: string; rpcReference?: string; existingEntryStatus?: string } = {}) {
+  await page.addInitScript(({ adminId, draftOfferId, publicOfferId, publicEmptyFormOfferId, publicOptionsFormOfferId, publicSubmitFormOfferId, adminSession, participantSession, unconfirmedSession, rpcError, rpcReference, existingEntryStatus }) => {
     (window as any).__supabaseStub = {
       ...(window as any).__supabaseStub,
       onReady: (stub: any) => {
@@ -438,7 +438,16 @@ async function prepareSpecialOfferLandingStub(page: Page, options: { adminSessio
           options_json: optionRows[field.field_key]?.[lang] || [],
         }))));
 
-        stub.seedTable('special_offer_entries', []);
+        stub.seedTable('special_offer_entries', existingEntryStatus ? [{
+          id: 'existing-entry-1',
+          offer_id: publicSubmitFormOfferId,
+          user_id: 'participant-user-1',
+          reference: 'SO-EXISTING1',
+          status: existingEntryStatus,
+          submitted_lang: 'en',
+          created_at: '2026-07-10T10:00:00.000Z',
+          reviewed_at: existingEntryStatus === 'approved' ? '2026-07-10T11:00:00.000Z' : null,
+        }] : []);
         stub.seedTable('special_offer_entry_answers', []);
         stub.seedTable('special_offer_tasks', []);
         stub.seedTable('special_offer_entry_tasks', []);
@@ -459,6 +468,7 @@ async function prepareSpecialOfferLandingStub(page: Page, options: { adminSessio
     unconfirmedSession: Boolean(options.unconfirmedSession),
     rpcError: options.rpcError || '',
     rpcReference: options.rpcReference || '',
+    existingEntryStatus: options.existingEntryStatus || '',
   });
 }
 
@@ -664,6 +674,25 @@ test.describe('Special Offer public read-only landing', () => {
     await expect(page.getByText('The entry form has not been configured yet.')).toBeVisible();
     await expect(page.locator('[data-special-offer-form-field]')).toHaveCount(0);
   });
+
+  for (const status of ['submitted', 'pending_review', 'approved', 'rejected', 'disqualified', 'withdrawn']) {
+    test(`hides the main form when the confirmed user already has a ${status} entry`, async ({ page }) => {
+      await prepareSpecialOfferLandingStub(page, { participantSession: true, existingEntryStatus: status });
+      await page.goto('/special-offers/published-submit-form-2026?lang=en');
+      await waitForSupabaseStub(page);
+
+      const formSection = page.locator('[data-special-offer-entry-placeholder]');
+      await expect(formSection.locator('[data-special-offer-existing-entry]')).toBeVisible();
+      await expect(formSection).toContainText('Your entry has already been submitted.');
+      await expect(formSection).toContainText('SO-EXISTING1');
+      await expect(formSection).toContainText(status);
+      await expect(formSection.locator('[data-special-offer-entry-form]')).toHaveCount(0);
+      await expect(formSection.getByRole('button', { name: 'Submit entry' })).toHaveCount(0);
+
+      const rpcCalls = await page.evaluate(() => (window as any).__supabaseStub.getRpcCalls());
+      expect(rpcCalls.filter((call: any) => call.name === 'submit_special_offer_entry')).toHaveLength(0);
+    });
+  }
 
   test('keeps public campaign visible but locks active form for anonymous users', async ({ page }) => {
     await prepareSpecialOfferLandingStub(page);

@@ -45,6 +45,10 @@ const TEXT = {
     successStatus: 'Status',
     pendingReview: 'Zgłoszenie zostało zapisane i oczekuje na ręczną weryfikację.',
     submittedSuccess: 'Zgłoszenie zostało zapisane.',
+    alreadySubmittedTitle: 'Twoje zgłoszenie zostało już wysłane.',
+    alreadySubmittedCopy: 'W tej kampanii można wysłać tylko jedno główne zgłoszenie. Nadal możesz śledzić status, aktywności i punkty poniżej.',
+    entryLookupErrorTitle: 'Nie udało się sprawdzić Twojego zgłoszenia',
+    entryLookupErrorCopy: 'Odśwież dostęp przed ponowną próbą wysłania formularza.',
     retry: 'Spróbuj ponownie',
     activityTitle: 'Moja aktywność',
     activityLockedTitle: 'Zaloguj się, aby zgłaszać aktywności',
@@ -169,6 +173,10 @@ const TEXT = {
     successStatus: 'Status',
     pendingReview: 'Your entry has been saved and is awaiting manual review.',
     submittedSuccess: 'Your entry has been saved.',
+    alreadySubmittedTitle: 'Your entry has already been submitted.',
+    alreadySubmittedCopy: 'Only one main entry is allowed for this campaign. You can still follow your status, activity and points below.',
+    entryLookupErrorTitle: 'Your entry could not be checked',
+    entryLookupErrorCopy: 'Refresh access before trying to submit the form again.',
     retry: 'Try again',
     activityTitle: 'My Activity',
     activityLockedTitle: 'Sign in to claim activity',
@@ -293,6 +301,10 @@ const TEXT = {
     successStatus: 'סטטוס',
     pendingReview: 'ההרשמה נשמרה וממתינה לבדיקה ידנית.',
     submittedSuccess: 'ההרשמה נשמרה.',
+    alreadySubmittedTitle: 'ההרשמה שלכם כבר נשלחה.',
+    alreadySubmittedCopy: 'ניתן לשלוח הרשמה ראשית אחת בלבד בקמפיין זה. עדיין אפשר לעקוב אחר הסטטוס, הפעילות והנקודות בהמשך.',
+    entryLookupErrorTitle: 'לא ניתן לבדוק את ההרשמה שלכם',
+    entryLookupErrorCopy: 'רעננו את הגישה לפני ניסיון נוסף לשלוח את הטופס.',
     retry: 'נסו שוב',
     activityTitle: 'הפעילות שלי',
     activityLockedTitle: 'התחברו כדי לדווח על פעילות',
@@ -423,6 +435,14 @@ let activityState = {
   entry: null,
   activities: [],
   score: null,
+  initializedFor: '',
+};
+let ownEntryState = {
+  loading: false,
+  loaded: false,
+  errorCode: '',
+  entries: [],
+  entry: null,
   initializedFor: '',
 };
 let activitySubmitting = false;
@@ -1342,6 +1362,67 @@ async function fetchOwnScore(offerId, entryId) {
   return rows.find((row) => cleanText(row?.entry_id) === cleanText(entryId)) || rows[0] || null;
 }
 
+function resetOwnEntryState(offerId = '') {
+  ownEntryState = {
+    loading: false,
+    loaded: false,
+    errorCode: '',
+    entries: [],
+    entry: null,
+    initializedFor: cleanText(offerId),
+  };
+}
+
+async function refreshOwnEntryData({ render = true, scroll = false } = {}) {
+  const state = currentState;
+  const data = state?.data;
+  const lang = state?.lang || readRequestedLang();
+  const offerId = cleanText(data?.campaign?.id);
+  if (!data || !offerId || state?.previewMode || data.campaign?.requires_form !== true) {
+    resetOwnEntryState(offerId);
+    if (render) renderEntryForm(data, lang);
+    return;
+  }
+
+  const canSubmit = data.campaign?.status === PUBLIC_STATUS && data.campaign?.visibility === PUBLIC_VISIBILITY;
+  if (!canSubmit || !authState.confirmed || !authState.user?.id) {
+    resetOwnEntryState(offerId);
+    if (render) renderEntryForm(data, lang);
+    return;
+  }
+
+  ownEntryState = { ...ownEntryState, loading: true, errorCode: '', initializedFor: offerId };
+  if (render) renderEntryForm(data, lang);
+
+  try {
+    const entries = await fetchOwnEntry(offerId, authState.user.id);
+    ownEntryState = {
+      loading: false,
+      loaded: true,
+      errorCode: '',
+      entries,
+      entry: entries.length === 1 ? entries[0] : null,
+      initializedFor: offerId,
+    };
+  } catch (error) {
+    console.warn('Special Offer own entry load failed:', error);
+    ownEntryState = {
+      ...ownEntryState,
+      loading: false,
+      loaded: false,
+      errorCode: 'temporary_error',
+      initializedFor: offerId,
+    };
+  }
+
+  if (render) {
+    renderEntryForm(data, lang);
+    if (scroll && refs.entrySection && !refs.entrySection.hidden) {
+      refs.entrySection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+}
+
 async function refreshActivityData({ render = true, scroll = false } = {}) {
   const state = currentState;
   const data = state?.data;
@@ -1375,8 +1456,21 @@ async function refreshActivityData({ render = true, scroll = false } = {}) {
     let score = null;
 
     if (authState.confirmed && authState.user?.id) {
-      entries = await fetchOwnEntry(offerId, authState.user.id);
-      entry = entries.length === 1 ? entries[0] : null;
+      if (ownEntryState.initializedFor === offerId && ownEntryState.loaded && !ownEntryState.loading && !ownEntryState.errorCode) {
+        entries = ownEntryState.entries;
+        entry = ownEntryState.entry;
+      } else {
+        entries = await fetchOwnEntry(offerId, authState.user.id);
+        entry = entries.length === 1 ? entries[0] : null;
+        ownEntryState = {
+          loading: false,
+          loaded: true,
+          errorCode: '',
+          entries,
+          entry,
+          initializedFor: offerId,
+        };
+      }
       if (entry?.id) {
         [activities, score] = await Promise.all([
           fetchOwnActivities(offerId, entry.id),
@@ -1401,6 +1495,7 @@ async function refreshActivityData({ render = true, scroll = false } = {}) {
   }
 
   if (render) {
+    renderEntryForm(data, lang);
     renderActivitySection(data, lang);
     if (scroll && refs.activitySection && !refs.activitySection.hidden) {
       refs.activitySection.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1506,6 +1601,38 @@ function showSuccessState(result, lang) {
   `;
 }
 
+function renderExistingEntryState(entry, lang) {
+  const t = getText(lang);
+  const reference = cleanText(entry?.reference || '');
+  const status = cleanText(entry?.status || '');
+  refs.entrySection.innerHTML = `
+    <div class="special-offer-form-success" data-special-offer-existing-entry dir="${lang === 'he' ? 'rtl' : 'ltr'}" role="status">
+      <h2>${escapeHtml(t.alreadySubmittedTitle)}</h2>
+      ${reference ? `<p><strong>${escapeHtml(t.successReference)}:</strong> ${escapeHtml(reference)}</p>` : ''}
+      ${status ? `<p><strong>${escapeHtml(t.successStatus)}:</strong> ${escapeHtml(status)}</p>` : ''}
+      <p>${escapeHtml(t.alreadySubmittedCopy)}</p>
+    </div>
+  `;
+}
+
+function renderEntryLookupError(lang) {
+  const t = getText(lang);
+  refs.entrySection.innerHTML = `
+    <h2>${escapeHtml(t.entryTitle)}</h2>
+    <div class="special-offer-form-locked" data-special-offer-entry-lookup-error dir="${lang === 'he' ? 'rtl' : 'ltr'}">
+      <h3>${escapeHtml(t.entryLookupErrorTitle)}</h3>
+      <p>${escapeHtml(t.entryLookupErrorCopy)}</p>
+      <button type="button" class="special-offer-button" data-special-offer-entry-lookup-retry>${escapeHtml(t.retry)}</button>
+    </div>
+  `;
+  const button = refs.entrySection.querySelector('[data-special-offer-entry-lookup-retry]');
+  if (button instanceof HTMLButtonElement) {
+    button.addEventListener('click', () => {
+      void refreshOwnEntryData({ render: true, scroll: true });
+    });
+  }
+}
+
 async function applyAuthenticatedEmailToForm() {
   const form = getFormElement();
   if (!(form instanceof HTMLFormElement)) return;
@@ -1564,6 +1691,21 @@ async function handleEntrySubmit(event) {
     return;
   }
 
+  await refreshOwnEntryData({ render: false });
+  if (ownEntryState.errorCode || ownEntryState.loading || ownEntryState.entries.length > 0) {
+    submitting = false;
+    formStatus = 'idle';
+    setSubmitButtonState('idle', lang);
+    if (ownEntryState.entries.length === 1) {
+      renderExistingEntryState(ownEntryState.entry, lang);
+    } else if (ownEntryState.entries.length > 1) {
+      renderEntryLookupError(lang);
+    } else {
+      renderEntryLookupError(lang);
+    }
+    return;
+  }
+
   await applyAuthenticatedEmailToForm();
   saveCurrentFormDraft();
   const { answers, errors } = collectSpecialOfferAnswers();
@@ -1593,6 +1735,7 @@ async function handleEntrySubmit(event) {
     activeSubmitErrorCode = '';
     formStatus = 'success';
     showSuccessState(result, lang);
+    void refreshOwnEntryData({ render: false }).then(() => refreshActivityData({ render: true }));
   } catch (error) {
     console.warn('Special Offer entry submit failed:', error);
     const code = mapSubmitError(error);
@@ -1804,6 +1947,29 @@ function renderEntryForm(data, lang) {
     }
     if (!authState.confirmed) {
       renderLockedFormState(lang, 'email_not_confirmed');
+      return;
+    }
+    const offerId = cleanText(data.campaign?.id);
+    if (ownEntryState.initializedFor !== offerId || ownEntryState.loading || !ownEntryState.loaded) {
+      renderLockedFormState(lang, 'checking');
+      return;
+    }
+    if (ownEntryState.errorCode) {
+      renderEntryLookupError(lang);
+      return;
+    }
+    if (ownEntryState.entries.length > 1) {
+      refs.entrySection.innerHTML = `
+        <h2>${escapeHtml(t.entryTitle)}</h2>
+        <div class="special-offer-form-locked" data-special-offer-entry-multiple dir="${lang === 'he' ? 'rtl' : 'ltr'}">
+          <h3>${escapeHtml(t.activityMultipleEntriesTitle)}</h3>
+          <p>${escapeHtml(t.activityMultipleEntriesCopy)}</p>
+        </div>
+      `;
+      return;
+    }
+    if (ownEntryState.entry?.id) {
+      renderExistingEntryState(ownEntryState.entry, lang);
       return;
     }
   }
@@ -2471,7 +2637,7 @@ function renderCampaign(data, requestedLang, previewMode) {
   renderLinks(data.links, data.linkTranslations, lang);
   renderEntryForm(data, lang);
   renderActivitySection(data, lang);
-  void refreshActivityData({ render: true });
+  void refreshOwnEntryData({ render: true }).then(() => refreshActivityData({ render: true }));
 }
 
 async function fetchRows(table, filters = [], order = null) {
@@ -2604,7 +2770,7 @@ function bindAuthEvents() {
     await refreshSpecialOfferAuthState();
     activeSubmitErrorCode = '';
     formStatus = 'idle';
-    rerenderEntryFormIfPossible({ scroll: scroll || authState.confirmed });
+    await refreshOwnEntryData({ render: true, scroll: scroll || authState.confirmed });
     await applyAuthenticatedEmailToForm();
     await refreshActivityData({ render: true, scroll: scroll || authState.confirmed });
     showFormStatus('', 'info');

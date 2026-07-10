@@ -151,4 +151,39 @@ describe('Special Offers Lefkara launch pack', () => {
     expect(verify).not.toMatch(/(^|\n)\s*(insert\s+into|update\s+\w|delete\s+from|merge\s+into|truncate\s+|alter\s+|create\s+|drop\s+|grant\s+|revoke\s+)/i);
     expect(specialOffer).toContain("supabase.rpc('get_public_special_offer_landing'");
   });
+
+  test('single entry hardening adds backend uniqueness without touching participant data', () => {
+    const preflight = read('supabase/manual/special_offer_single_entry_per_user_stage1_preflight.sql');
+    const sql = read('supabase/manual/special_offer_single_entry_per_user_stage1.sql');
+    const verify = read('supabase/manual/special_offer_single_entry_per_user_stage1_verify.sql');
+    const specialOffer = read('js/special-offer.js');
+
+    expect(preflight).toContain('duplicate_offer_user_pairs');
+    expect(preflight).toContain('max_entries_per_offer_user');
+    expect(preflight).toContain('preflight_safe_to_continue');
+    expect(preflight).not.toMatch(/\b(email|phone|reference|answers_json)\b/i);
+
+    expect(sql).toContain('single_entry_duplicates_exist');
+    expect(sql).toContain('create unique index if not exists idx_special_offer_entries_offer_user_unique');
+    expect(sql).toContain('where user_id is not null');
+    expect(sql).toContain('create or replace function public.submit_special_offer_entry');
+    expect(sql).toContain('where e.offer_id = v_offer.id');
+    expect(sql).toContain('and e.user_id = v_uid');
+    expect(sql).toContain('idempotent := true');
+    expect(sql).toContain('when unique_violation then');
+    expect(sql).not.toContain("e.status <> 'withdrawn'");
+    expect(sql).not.toMatch(/\b(update|delete)\s+public\.special_offer_entries\b/i);
+    expect(sql).not.toMatch(/\b(update|delete)\s+public\.special_offer_entry_answers\b/i);
+    expect(sql).not.toMatch(/special_offer_winners|special_offer_draws/i);
+
+    expect(verify).toContain('offer_user_unique_index_exists');
+    expect(verify).toContain('existing_own_entry_lookup_present');
+    expect(verify).toContain('withdrawn_not_excluded_from_duplicate_check');
+    expect(verify).toContain('unique_violation_handled');
+    expect(verify).toContain('overall_pass');
+    expect(verify).not.toMatch(/(^|\n)\s*(insert\s+into|update\s+\w|delete\s+from|merge\s+into|truncate\s+|alter\s+|create\s+|drop\s+|grant\s+|revoke\s+)/i);
+
+    expect(specialOffer).toContain('data-special-offer-existing-entry');
+    expect(specialOffer).toContain('refreshOwnEntryData');
+  });
 });
