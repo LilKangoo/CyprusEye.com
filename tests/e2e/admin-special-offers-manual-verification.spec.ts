@@ -90,23 +90,42 @@ async function prepareManualVerificationStub(page: Page) {
         }]);
         stub.seedTable('special_offer_entry_answers', []);
 
-        stub.seedTable('special_offer_official_posts', [{
-          id: 'post-1',
-          offer_id: offerId,
-          post_order: 1,
-          week_number: 1,
-          admin_title: 'Week 1 Facebook post',
-          platform: 'facebook',
-          official_url: 'https://facebook.com/cypruseye/posts/1',
-          external_post_id: 'fb-1',
-          published_at: '2026-07-20T10:00:00.000Z',
-          comment_deadline_at: '2026-07-21T10:00:00.000Z',
-          active: true,
-          created_by: adminId,
-          updated_by: adminId,
-          created_at: '2026-07-20T09:00:00.000Z',
-          updated_at: '2026-07-20T09:00:00.000Z',
-        }]);
+        stub.seedTable('special_offer_official_posts', [
+          {
+            id: 'post-1',
+            offer_id: offerId,
+            post_order: 1,
+            week_number: 1,
+            admin_title: 'Week 1 Facebook post',
+            platform: 'facebook',
+            official_url: 'https://facebook.com/cypruseye/posts/1',
+            external_post_id: 'fb-1',
+            published_at: '2026-07-20T10:00:00.000Z',
+            comment_deadline_at: '2026-07-21T10:00:00.000Z',
+            active: true,
+            created_by: adminId,
+            updated_by: adminId,
+            created_at: '2026-07-20T09:00:00.000Z',
+            updated_at: '2026-07-20T09:00:00.000Z',
+          },
+          {
+            id: 'post-unused',
+            offer_id: offerId,
+            post_order: 9,
+            week_number: 9,
+            admin_title: 'Unused inactive test post',
+            platform: 'facebook',
+            official_url: 'https://facebook.com/cypruseye/posts/unused',
+            external_post_id: 'fb-unused',
+            published_at: '2026-07-20T10:00:00.000Z',
+            comment_deadline_at: '2026-07-21T10:00:00.000Z',
+            active: false,
+            created_by: adminId,
+            updated_by: adminId,
+            created_at: '2026-07-20T09:00:00.000Z',
+            updated_at: '2026-07-20T09:00:00.000Z',
+          },
+        ]);
         stub.seedTable('special_offer_entry_activities', [
           {
             id: 'activity-share',
@@ -228,6 +247,34 @@ async function prepareManualVerificationStub(page: Page) {
           return { data: [{ official_post_id: post.id, offer_id: post.offer_id, active: false, idempotent: wasInactive }], error: null };
         });
 
+        stub.setRpcHandler('admin_delete_special_offer_official_post', (params: any, helpers: any) => {
+          const rows = helpers.getTableRows('special_offer_official_posts');
+          const activities = helpers.getTableRows('special_offer_entry_activities');
+          const post = rows.find((row: any) => row.id === params.p_official_post_id);
+          if (!post) return { data: null, error: { message: 'official_post_not_found', code: 'P0001' } };
+          if (!params.p_reason) return { data: null, error: { message: 'delete_reason_required', code: '23514' } };
+          if (params.p_expected_admin_title !== post.admin_title) return { data: null, error: { message: 'official_post_title_mismatch', code: '23514' } };
+          if (post.active) return { data: null, error: { message: 'official_post_must_be_inactive', code: '23514' } };
+          const activityCount = activities.filter((activity: any) => activity.official_post_id === post.id).length;
+          if (activityCount > 0) return { data: null, error: { message: 'official_post_has_activities', code: '23514' } };
+          helpers.setTableRows('special_offer_official_posts', rows.filter((row: any) => row.id !== post.id));
+          const audit = helpers.getTableRows('special_offer_audit_log');
+          audit.unshift({
+            id: `audit-post-delete-${audit.length + 1}`,
+            offer_id: post.offer_id,
+            actor_id: adminId,
+            action: 'official_post_hard_deleted',
+            entity_type: 'special_offer_official_post',
+            entity_id: post.id,
+            old_value: { active: post.active, post_order: post.post_order, week_number: post.week_number },
+            new_value: { deleted: true },
+            metadata: { official_post_id: post.id, post_order: post.post_order, week_number: post.week_number, activity_count: 0, reason_present: true },
+            created_at: '2026-07-22T13:00:00.000Z',
+          });
+          helpers.setTableRows('special_offer_audit_log', audit);
+          return { data: [{ official_post_id: post.id, deleted: true, activity_count: 0 }], error: null };
+        });
+
         stub.setRpcHandler('review_special_offer_activity', (params: any, helpers: any) => {
           const rows = helpers.getTableRows('special_offer_entry_activities');
           const activity = rows.find((row: any) => row.id === params.p_activity_id);
@@ -293,9 +340,12 @@ test.describe('Admin Special Offers manual verification', () => {
     await expect(modal).toContainText('Pending');
   });
 
-  test('adds, edits and deactivates official posts through RPC only', async ({ page }) => {
+  test('adds, edits, deactivates and safely deletes unused inactive official posts through RPC only', async ({ page }) => {
     await openManualVerification(page);
     const modal = page.locator('#specialOffersManualVerificationModal');
+
+    await expect(modal).toContainText('Unused inactive test post');
+    await expect(modal.locator('[data-special-offers-post-delete="post-unused"]')).toBeVisible();
 
     await modal.locator('[data-special-offers-post-new]').click();
     await modal.locator('[name="admin_title"]').fill('Week 2 Facebook post');
@@ -309,11 +359,26 @@ test.describe('Admin Special Offers manual verification', () => {
 
     page.once('dialog', (dialog) => dialog.accept());
     await modal.locator('[data-special-offers-post-deactivate="post-1"]').click();
-    await expect(modal.locator('[data-special-offers-post-deactivate="post-1"]')).toBeDisabled();
+    await expect(modal).toContainText('Delete unavailable');
+
+    await modal.locator('[data-special-offers-post-delete="post-unused"]').click();
+    const deleteModal = page.locator('#specialOfferOfficialPostDeleteModal');
+    await expect(deleteModal).toBeVisible();
+    await deleteModal.getByRole('button', { name: 'Close official post delete' }).click();
+    await expect(deleteModal).toBeHidden();
+
+    await modal.locator('[data-special-offers-post-delete="post-unused"]').click();
+    await deleteModal.locator('[name="delete_reason"]').fill('Cleanup unused test post');
+    await deleteModal.locator('[name="expected_admin_title"]').fill('Unused inactive test post');
+    page.once('dialog', (dialog) => dialog.accept());
+    await deleteModal.getByRole('button', { name: 'Delete permanently' }).click();
+    await expect(deleteModal).toBeHidden();
+    await expect(modal).not.toContainText('Unused inactive test post');
 
     const rpcCalls = await page.evaluate(() => (window as any).__supabaseStub.getRpcCalls());
     expect(rpcCalls.some((call: any) => call.name === 'admin_upsert_special_offer_official_post')).toBeTruthy();
     expect(rpcCalls.some((call: any) => call.name === 'admin_deactivate_special_offer_official_post')).toBeTruthy();
+    expect(rpcCalls.some((call: any) => call.name === 'admin_delete_special_offer_official_post')).toBeTruthy();
 
     const source = await page.evaluate(async () => (await fetch('/admin/special-offers.js')).text());
     expect(source).not.toMatch(/from\(['"]special_offer_official_posts['"]\)\.(insert|update|delete|upsert)/);

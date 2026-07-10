@@ -42,6 +42,13 @@ const specialOffersState = {
     postsError: '',
     postEditingId: '',
     postSaving: false,
+    postActivityCounts: {},
+    postDelete: {
+      postId: '',
+      deleting: false,
+      error: '',
+      lastTrigger: null,
+    },
     activities: {
       rows: [],
       entriesById: {},
@@ -676,6 +683,53 @@ function notifySpecialOffers(message, type = 'info') {
   }
 }
 
+function getRpcErrorKey(error) {
+  return String(error?.message || error?.code || '')
+    .split(':')[0]
+    .trim()
+    .toLowerCase();
+}
+
+function logSafeRpcError(context, error) {
+  const payload = {
+    code: error?.code || '',
+    message: error?.message || '',
+    details: error?.details || '',
+    hint: error?.hint || '',
+  };
+  if (payload.code || payload.message || payload.details || payload.hint) {
+    console.warn(context, payload);
+  }
+}
+
+function getSpecialOfferDeleteErrorMessage(error, fallback = 'Delete could not be completed.') {
+  switch (getRpcErrorKey(error)) {
+    case 'entry_reference_mismatch':
+      return 'The entry reference confirmation does not match.';
+    case 'entry_has_winner_record':
+      return 'This entry is linked to a winner record and cannot be deleted.';
+    case 'entry_winner_guard_unverifiable':
+      return 'Winner safety checks could not be verified.';
+    case 'delete_reason_required':
+      return 'Permanent delete requires a reason.';
+    case 'entry_not_found':
+      return 'This entry was not found or was already removed.';
+    case 'official_post_must_be_inactive':
+      return 'Deactivate the official post before deleting it.';
+    case 'official_post_has_activities':
+      return 'This post has participant activities. Delete or resolve linked test entries first.';
+    case 'official_post_title_mismatch':
+      return 'The official post title confirmation does not match.';
+    case 'official_post_not_found':
+      return 'This official post was not found or was already removed.';
+    case 'admin_required':
+    case 'login_required':
+      return 'Admin access is required for this action.';
+    default:
+      return fallback;
+  }
+}
+
 function sanitizeEntrySearch(value) {
   return String(value || '')
     .trim()
@@ -814,6 +868,21 @@ async function loadOfficialPosts(offerId = 'all') {
   const result = await query.order('post_order', { ascending: true });
   if (result.error) throw result.error;
   return toArray(result.data);
+}
+
+async function loadOfficialPostActivityCounts(posts = []) {
+  const client = getSupabaseClient();
+  if (!client) throw new Error('Supabase client is not available.');
+  const pairs = await Promise.all(toArray(posts).map(async (post) => {
+    if (!post?.id) return [post?.id, 0];
+    const result = await client
+      .from('special_offer_entry_activities')
+      .select('id', { count: 'exact', head: true })
+      .eq('official_post_id', post.id);
+    if (result.error) throw result.error;
+    return [post.id, Number(result.count ?? toArray(result.data).length ?? 0)];
+  }));
+  return Object.fromEntries(pairs.filter(([id]) => Boolean(id)));
 }
 
 async function countActivitiesForFilter(client, filters = {}) {
@@ -1223,26 +1292,35 @@ function renderOfficialPostsSection() {
                 <th>Published</th>
                 <th>Comment deadline</th>
                 <th>Active</th>
+                <th>Activities</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              ${rows.map((post) => `
-                <tr>
-                  <td>${escapeHtml(post.post_order)}</td>
-                  <td>${escapeHtml(post.week_number ?? '—')}</td>
-                  <td><strong>${escapeHtml(post.admin_title)}</strong></td>
-                  <td>${escapeHtml(titleCase(post.platform))}</td>
-                  <td>${renderSafeExternalLink(post.official_url, 'Open post')}</td>
-                  <td>${escapeHtml(formatDateTime(post.published_at))}</td>
-                  <td>${escapeHtml(formatDateTime(post.comment_deadline_at))}</td>
-                  <td>${post.active ? 'Yes' : 'No'}</td>
-                  <td>
-                    <button class="btn-secondary btn-small" type="button" data-special-offers-post-edit="${escapeHtml(post.id)}">Edit</button>
-                    <button class="btn-secondary btn-small" type="button" data-special-offers-post-deactivate="${escapeHtml(post.id)}" ${post.active ? '' : 'disabled'}>Deactivate</button>
-                  </td>
-                </tr>
-              `).join('')}
+              ${rows.map((post) => {
+                const activityCount = Number(state.postActivityCounts?.[post.id] || 0);
+                return `
+                  <tr>
+                    <td>${escapeHtml(post.post_order)}</td>
+                    <td>${escapeHtml(post.week_number ?? '—')}</td>
+                    <td><strong>${escapeHtml(post.admin_title)}</strong></td>
+                    <td>${escapeHtml(titleCase(post.platform))}</td>
+                    <td>${renderSafeExternalLink(post.official_url, 'Open post')}</td>
+                    <td>${escapeHtml(formatDateTime(post.published_at))}</td>
+                    <td>${escapeHtml(formatDateTime(post.comment_deadline_at))}</td>
+                    <td>${post.active ? 'Yes' : 'No'}</td>
+                    <td>${escapeHtml(String(activityCount))}</td>
+                    <td>
+                      <button class="btn-secondary btn-small" type="button" data-special-offers-post-edit="${escapeHtml(post.id)}">Edit</button>
+                      ${post.active
+                        ? `<button class="btn-secondary btn-small" type="button" data-special-offers-post-deactivate="${escapeHtml(post.id)}">Deactivate</button>`
+                        : activityCount > 0
+                          ? '<button class="btn-secondary btn-small" type="button" disabled title="This post has participant activities. Delete or resolve linked test entries first.">Delete unavailable</button>'
+                          : `<button class="btn-danger btn-small" type="button" data-special-offers-post-delete="${escapeHtml(post.id)}">Delete permanently</button>`}
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
             </tbody>
           </table>
         </div>
@@ -1308,6 +1386,100 @@ function renderOfficialPostForm(post, isEdit = false) {
       <p class="special-offer-editor-muted">This saves through admin_upsert_special_offer_official_post only.</p>
     </form>
   `;
+}
+
+function ensureOfficialPostDeleteModal() {
+  let modal = $('#specialOfferOfficialPostDeleteModal');
+  if (modal) return modal;
+  modal = document.createElement('div');
+  modal.className = 'admin-modal special-offers-entry-detail-modal';
+  modal.id = 'specialOfferOfficialPostDeleteModal';
+  modal.hidden = true;
+  modal.innerHTML = `
+    <div class="admin-modal-overlay" data-special-offers-post-delete-close></div>
+    <div class="admin-modal-content special-offers-details-modal__content" role="dialog" aria-modal="true" aria-labelledby="specialOfferOfficialPostDeleteTitle">
+      <header class="admin-modal-header">
+        <div>
+          <div class="special-offers-eyebrow">Permanent delete</div>
+          <h3 id="specialOfferOfficialPostDeleteTitle">Delete official post permanently</h3>
+          <p class="special-offer-editor-subtitle">Only inactive posts with zero participant activities can be deleted.</p>
+        </div>
+        <button class="btn-modal-close" type="button" data-special-offers-post-delete-close aria-label="Close official post delete">×</button>
+      </header>
+      <div class="admin-modal-body" id="specialOfferOfficialPostDeleteBody"></div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest('[data-special-offers-post-delete-close]')) closeOfficialPostDeleteModal();
+  });
+  modal.addEventListener('submit', (event) => {
+    const form = event.target instanceof Element ? event.target.closest('[data-special-offers-post-delete-form]') : null;
+    if (!form) return;
+    event.preventDefault();
+    submitOfficialPostDelete(form);
+  });
+  return modal;
+}
+
+function renderOfficialPostDeleteModal() {
+  const modal = ensureOfficialPostDeleteModal();
+  const body = $('#specialOfferOfficialPostDeleteBody', modal);
+  const postId = specialOffersState.manualVerification.postDelete.postId;
+  const post = toArray(specialOffersState.manualVerification.posts).find((row) => String(row.id) === String(postId));
+  const activityCount = Number(specialOffersState.manualVerification.postActivityCounts?.[postId] || 0);
+  if (!body) return;
+  if (!post) {
+    body.innerHTML = '<div class="special-offer-entry-state special-offer-entry-state--error">Official post is no longer available.</div>';
+    modal.hidden = false;
+    return;
+  }
+  body.innerHTML = `
+    <form class="special-offer-entry-delete-form" data-special-offers-post-delete-form>
+      <p class="special-offer-editor-warning">This operation is irreversible. It deletes the official post only. It does not delete the campaign, entries, participants or activities.</p>
+      <div class="special-offer-entry-state">
+        <strong>${escapeHtml(post.admin_title)}</strong><br>
+        Active: ${post.active ? 'Yes' : 'No'} · Activities: ${escapeHtml(String(activityCount))}
+      </div>
+      ${specialOffersState.manualVerification.postDelete.error ? `<div class="special-offer-entry-state special-offer-entry-state--error">${escapeHtml(specialOffersState.manualVerification.postDelete.error)}</div>` : ''}
+      <label>Reason *
+        <textarea name="delete_reason" rows="3" maxlength="1000" required placeholder="Internal reason for permanent deletion"></textarea>
+      </label>
+      <label>Type the exact admin title to confirm *
+        <input name="expected_admin_title" required autocomplete="off" placeholder="${escapeHtml(post.admin_title || '')}" />
+      </label>
+      <div class="special-offer-editor-actions">
+        <button class="btn-danger btn-small" type="submit" ${specialOffersState.manualVerification.postDelete.deleting ? 'disabled' : ''}>Delete permanently</button>
+        <button class="btn-secondary btn-small" type="button" data-special-offers-post-delete-close ${specialOffersState.manualVerification.postDelete.deleting ? 'disabled' : ''}>Cancel</button>
+      </div>
+    </form>
+  `;
+  modal.hidden = false;
+}
+
+function openOfficialPostDeleteModal(postId, trigger = null) {
+  specialOffersState.manualVerification.postDelete.postId = postId || '';
+  specialOffersState.manualVerification.postDelete.error = '';
+  specialOffersState.manualVerification.postDelete.lastTrigger = trigger || document.activeElement || null;
+  renderOfficialPostDeleteModal();
+}
+
+function closeOfficialPostDeleteModal() {
+  const modal = $('#specialOfferOfficialPostDeleteModal');
+  if (modal) modal.hidden = true;
+  specialOffersState.manualVerification.postDelete.postId = '';
+  specialOffersState.manualVerification.postDelete.deleting = false;
+  specialOffersState.manualVerification.postDelete.error = '';
+  const trigger = specialOffersState.manualVerification.postDelete.lastTrigger;
+  specialOffersState.manualVerification.postDelete.lastTrigger = null;
+  if (trigger && typeof trigger.focus === 'function') {
+    try {
+      trigger.focus();
+    } catch (_error) {
+      // ignore focus restoration failures
+    }
+  }
 }
 
 function renderActivityQueue() {
@@ -4624,6 +4796,10 @@ function ensureManualVerificationModal() {
     if (deactivatePost && !deactivatePost.disabled) {
       deactivateOfficialPost(deactivatePost.getAttribute('data-special-offers-post-deactivate') || '');
     }
+    const deletePost = target?.closest('[data-special-offers-post-delete]');
+    if (deletePost && !deletePost.disabled) {
+      openOfficialPostDeleteModal(deletePost.getAttribute('data-special-offers-post-delete') || '', deletePost);
+    }
     const activityDetail = target?.closest('[data-special-offers-activity-detail]');
     if (activityDetail) openActivityDetail(activityDetail.getAttribute('data-special-offers-activity-detail') || '');
     const pageButton = target?.closest('[data-special-offers-activity-page]');
@@ -4683,6 +4859,7 @@ function ensureManualVerificationModal() {
 function closeManualVerificationModal() {
   const modal = $('#specialOffersManualVerificationModal');
   if (modal) modal.hidden = true;
+  closeOfficialPostDeleteModal();
 }
 
 function renderManualVerificationModal() {
@@ -4701,8 +4878,9 @@ async function refreshManualVerification() {
   specialOffersState.manualVerification.activities.error = '';
   if (body) body.innerHTML = renderManualVerificationBody();
   try {
-    const [posts, counts, page] = await Promise.all([
-      loadOfficialPosts(specialOffersState.manualVerification.offerId),
+    const posts = await loadOfficialPosts(specialOffersState.manualVerification.offerId);
+    const [postActivityCounts, counts, page] = await Promise.all([
+      loadOfficialPostActivityCounts(posts),
       loadActivityCounts({
         offerId: specialOffersState.manualVerification.offerId,
         status: specialOffersState.manualVerification.activities.status,
@@ -4713,6 +4891,7 @@ async function refreshManualVerification() {
       loadActivitiesPage(),
     ]);
     specialOffersState.manualVerification.posts = posts;
+    specialOffersState.manualVerification.postActivityCounts = postActivityCounts;
     specialOffersState.manualVerification.counts = counts;
     specialOffersState.manualVerification.activities.rows = page.rows;
     specialOffersState.manualVerification.activities.entriesById = page.entriesById;
@@ -4720,6 +4899,7 @@ async function refreshManualVerification() {
     specialOffersState.manualVerification.activities.total = page.total;
   } catch (_error) {
     specialOffersState.manualVerification.postsError = 'Unable to load manual verification data. Check admin access and Special Offers RLS.';
+    specialOffersState.manualVerification.postActivityCounts = {};
     specialOffersState.manualVerification.activities.rows = [];
     specialOffersState.manualVerification.activities.total = 0;
     specialOffersState.manualVerification.activities.error = 'Unable to load activity queue.';
@@ -4840,6 +5020,65 @@ async function deactivateOfficialPost(postId) {
     await refreshManualVerification();
   } catch (_error) {
     notifySpecialOffers('Official post could not be deactivated.', 'error');
+  }
+}
+
+async function submitOfficialPostDelete(form) {
+  if (specialOffersState.manualVerification.postDelete.deleting) return;
+  const postId = specialOffersState.manualVerification.postDelete.postId;
+  const post = toArray(specialOffersState.manualVerification.posts).find((row) => String(row.id) === String(postId));
+  if (!post) return;
+  const reason = String(form.querySelector('[name="delete_reason"]')?.value || '').trim();
+  const expectedTitle = String(form.querySelector('[name="expected_admin_title"]')?.value || '').trim();
+  const activityCount = Number(specialOffersState.manualVerification.postActivityCounts?.[postId] || 0);
+  if (!reason) {
+    specialOffersState.manualVerification.postDelete.error = 'Permanent delete requires a reason.';
+    renderOfficialPostDeleteModal();
+    return;
+  }
+  if (expectedTitle !== String(post.admin_title || '')) {
+    specialOffersState.manualVerification.postDelete.error = 'Type the exact admin title before deleting.';
+    renderOfficialPostDeleteModal();
+    return;
+  }
+  if (post.active) {
+    specialOffersState.manualVerification.postDelete.error = 'Deactivate the official post before deleting it.';
+    renderOfficialPostDeleteModal();
+    return;
+  }
+  if (activityCount > 0) {
+    specialOffersState.manualVerification.postDelete.error = 'This post has participant activities. Delete or resolve linked test entries first.';
+    renderOfficialPostDeleteModal();
+    return;
+  }
+  if (!window.confirm(`Permanently delete official post "${post.admin_title}"? This cannot be undone.`)) return;
+  const client = getSupabaseClient();
+  if (!client) {
+    specialOffersState.manualVerification.postDelete.error = 'Supabase client is not available.';
+    renderOfficialPostDeleteModal();
+    return;
+  }
+  specialOffersState.manualVerification.postDelete.deleting = true;
+  specialOffersState.manualVerification.postDelete.error = '';
+  renderOfficialPostDeleteModal();
+  try {
+    const result = await client.rpc('admin_delete_special_offer_official_post', {
+      p_official_post_id: post.id,
+      p_expected_admin_title: expectedTitle,
+      p_reason: reason,
+    });
+    if (result.error) throw result.error;
+    notifySpecialOffers(result.data?.[0]?.deleted === false ? 'Official post was already removed.' : 'Official post deleted permanently.', 'success');
+    closeOfficialPostDeleteModal();
+    await refreshManualVerification();
+  } catch (error) {
+    logSafeRpcError('Special Offers official post delete RPC failed', error);
+    specialOffersState.manualVerification.postDelete.error = getSpecialOfferDeleteErrorMessage(error, 'Official post could not be deleted.');
+  } finally {
+    specialOffersState.manualVerification.postDelete.deleting = false;
+    if (specialOffersState.manualVerification.postDelete.postId) {
+      renderOfficialPostDeleteModal();
+    }
   }
 }
 
@@ -5035,10 +5274,11 @@ async function submitEntryDelete(form) {
     closeEntryDetails();
     await refreshEntriesList();
     if (!$('#specialOffersManualVerificationModal')?.hidden) {
-      await refreshActivityQueue();
+      await refreshManualVerification();
     }
-  } catch (_error) {
-    notifySpecialOffers('Entry could not be deleted.', 'error');
+  } catch (error) {
+    logSafeRpcError('Special Offers entry delete RPC failed', error);
+    notifySpecialOffers(getSpecialOfferDeleteErrorMessage(error, 'Entry could not be deleted.'), 'error');
   } finally {
     specialOffersState.entries.deleting = false;
   }
@@ -5965,6 +6205,7 @@ function bindEvents() {
       closeEntryDetails();
       closeEntryFullForm();
       closeManualVerificationModal();
+      closeOfficialPostDeleteModal();
       closeActivityDetail();
       closeHelpPopover();
     }

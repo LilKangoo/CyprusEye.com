@@ -134,6 +134,44 @@ async function prepareAdminEntriesStub(page: Page) {
           { id: 'answer-danger', entry_id: 'entry-pending', field_id: 'field-facebook_profile_url', field_key: 'facebook_profile_url', value_text: 'javascript:alert(1)', value_json: 'javascript:alert(1)', field_snapshot_json: fieldSnapshot('facebook_profile_url', 'Facebook profile URL', 'facebook_profile_url', 50), created_at: '2026-07-20T10:00:04.000Z' },
           { id: 'answer-consent', entry_id: 'entry-pending', field_id: 'field-terms', field_key: 'terms_accepted', value_text: 'true', value_json: true, field_snapshot_json: fieldSnapshot('terms_accepted', 'I accept rules', 'consent', 60), created_at: '2026-07-20T10:00:05.000Z' },
         ]);
+        stub.seedTable('special_offer_official_posts', [{
+          id: 'post-1',
+          offer_id: offerId,
+          post_order: 1,
+          week_number: 1,
+          admin_title: 'Week 1 Facebook post',
+          platform: 'facebook',
+          official_url: 'https://facebook.com/cypruseye/posts/1',
+          external_post_id: 'fb-1',
+          published_at: '2026-07-20T10:00:00.000Z',
+          comment_deadline_at: '2026-07-21T10:00:00.000Z',
+          active: false,
+          created_by: adminId,
+          updated_by: adminId,
+          created_at: '2026-07-20T09:00:00.000Z',
+          updated_at: '2026-07-20T09:00:00.000Z',
+        }]);
+        stub.seedTable('special_offer_entry_activities', [{
+          id: 'activity-share',
+          offer_id: offerId,
+          entry_id: 'entry-pending',
+          official_post_id: 'post-1',
+          activity_type: 'share',
+          evidence_url: 'https://facebook.com/share/1',
+          evidence_text: 'Shared on profile',
+          participant_reported_at: '2026-07-20T12:00:00.000Z',
+          verified_activity_at: null,
+          status: 'pending',
+          points_awarded: 0,
+          verified_at: null,
+          verified_by: null,
+          review_note: null,
+          rejection_reason: null,
+          created_by: 'user-1',
+          client_submission_id: '11111111-1111-4111-8111-111111111111',
+          created_at: '2026-07-20T12:00:00.000Z',
+          updated_at: '2026-07-20T12:00:00.000Z',
+        }]);
         stub.seedTable('special_offer_audit_log', [
           {
             id: 'audit-submit',
@@ -193,6 +231,22 @@ async function prepareAdminEntriesStub(page: Page) {
             }],
             error: null,
           };
+        });
+
+        stub.setRpcHandler('admin_delete_special_offer_entry', (params: any, helpers: any) => {
+          const rows = helpers.getTableRows('special_offer_entries');
+          const entry = rows.find((row: any) => row.id === params.p_entry_id);
+          if (!entry) return { data: null, error: { message: 'entry_not_found', code: 'P0001' } };
+          if (!params.p_reason) return { data: null, error: { message: 'delete_reason_required', code: '23514' } };
+          if (params.p_expected_reference !== entry.reference) return { data: null, error: { message: 'entry_reference_mismatch', code: '23514' } };
+          const answers = helpers.getTableRows('special_offer_entry_answers');
+          const activities = helpers.getTableRows('special_offer_entry_activities');
+          const answersDeleted = answers.filter((row: any) => row.entry_id === entry.id).length;
+          const activitiesDeleted = activities.filter((row: any) => row.entry_id === entry.id).length;
+          helpers.setTableRows('special_offer_entry_answers', answers.filter((row: any) => row.entry_id !== entry.id));
+          helpers.setTableRows('special_offer_entry_activities', activities.filter((row: any) => row.entry_id !== entry.id));
+          helpers.setTableRows('special_offer_entries', rows.filter((row: any) => row.id !== entry.id));
+          return { data: [{ entry_id: entry.id, deleted: true, answers_deleted: answersDeleted, activities_deleted: activitiesDeleted }], error: null };
         });
       },
     };
@@ -283,5 +337,41 @@ test.describe('Admin Special Offers entries', () => {
     expect(source).not.toContain('special_offer_tasks');
     expect(source).not.toContain('special_offer_draws');
     expect(source).not.toContain('special_offer_winners');
+  });
+
+  test('hard delete uses RPC, removes linked entry data and avoids direct table delete', async ({ page }) => {
+    await openSpecialOffers(page);
+    await page.getByRole('button', { name: 'Open entries' }).click();
+    await page.locator('[data-special-offers-entry-detail="entry-pending"]').click();
+    const detail = page.locator('#specialOfferEntryDetailsModal');
+
+    await detail.getByRole('button', { name: 'Delete entry permanently' }).click();
+    await detail.locator('[name="delete_reason"]').fill('Lifecycle smoke cleanup');
+    await detail.locator('[name="expected_reference"]').fill('SO-LEF-0001');
+    page.once('dialog', (dialog) => dialog.accept());
+    await detail.getByRole('button', { name: 'Delete permanently' }).click();
+
+    await expect(detail).toBeHidden();
+    await expect(page.locator('#specialOffersEntriesModal')).not.toContainText('SO-LEF-0001');
+
+    const state = await page.evaluate(() => ({
+      rpcCalls: (window as any).__supabaseStub.getRpcCalls(),
+      entries: (window as any).__supabaseStub.getTableRows('special_offer_entries'),
+      answers: (window as any).__supabaseStub.getTableRows('special_offer_entry_answers'),
+      activities: (window as any).__supabaseStub.getTableRows('special_offer_entry_activities'),
+      posts: (window as any).__supabaseStub.getTableRows('special_offer_official_posts'),
+      profiles: (window as any).__supabaseStub.getTableRows('profiles'),
+    }));
+    expect(state.rpcCalls.some((call: any) => call.name === 'admin_delete_special_offer_entry')).toBeTruthy();
+    expect(state.entries.some((row: any) => row.id === 'entry-pending')).toBeFalsy();
+    expect(state.answers.some((row: any) => row.entry_id === 'entry-pending')).toBeFalsy();
+    expect(state.activities.some((row: any) => row.entry_id === 'entry-pending')).toBeFalsy();
+    expect(state.posts.some((row: any) => row.id === 'post-1')).toBeTruthy();
+    expect(state.profiles.some((row: any) => row.id === ADMIN_ID)).toBeTruthy();
+
+    const source = await page.evaluate(async () => (await fetch('/admin/special-offers.js')).text());
+    expect(source).not.toMatch(/from\(['"]special_offer_entries['"]\)\.delete/);
+    expect(source).not.toMatch(/from\(['"]special_offer_entry_answers['"]\)\.delete/);
+    expect(source).not.toMatch(/from\(['"]special_offer_entry_activities['"]\)\.delete/);
   });
 });

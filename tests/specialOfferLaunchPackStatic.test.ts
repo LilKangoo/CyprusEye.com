@@ -245,4 +245,57 @@ describe('Special Offers Lefkara launch pack', () => {
     expect(admin).toContain("client.rpc('admin_delete_special_offer_entry'");
     expect(admin).not.toMatch(/from\('special_offer_entries'\)\.delete/i);
   });
+
+  test('hard delete cleanup SQL repairs entry delete and adds protected official post delete', () => {
+    const diagnostics = read('supabase/manual/special_offer_hard_delete_cleanup_stage1_diagnostics.sql');
+    const entryFix = read('supabase/manual/special_offer_entry_hard_delete_fix_stage1.sql');
+    const entryVerify = read('supabase/manual/special_offer_entry_hard_delete_fix_stage1_verify.sql');
+    const postDelete = read('supabase/manual/special_offer_official_post_hard_delete_stage1.sql');
+    const postVerify = read('supabase/manual/special_offer_official_post_hard_delete_stage1_verify.sql');
+    const admin = read('admin/special-offers.js');
+
+    expect(diagnostics).toContain('diagnostics_read_only');
+    expect(diagnostics).toContain('ambiguous_unqualified_entry_id_pattern_present');
+    expect(diagnostics).not.toMatch(/\b(insert\s+into|update\s+\w|delete\s+from|merge\s+into|truncate\s+|alter\s+|create\s+|drop\s+|grant\s+|revoke\s+)/i);
+
+    expect(entryFix).toContain('create or replace function public.admin_delete_special_offer_entry');
+    expect(entryFix).toContain('returns table(entry_id uuid, deleted boolean, answers_deleted integer, activities_deleted integer)');
+    expect(entryFix).toContain('from public.special_offer_entry_answers ans');
+    expect(entryFix).toContain('where ans.entry_id = v_entry.id');
+    expect(entryFix).toContain('from public.special_offer_entry_activities act');
+    expect(entryFix).toContain('where act.entry_id = v_entry.id');
+    expect(entryFix).not.toContain('where entry_id = v_entry.id');
+    expect(entryFix).toContain('entry_winner_guard_unverifiable');
+    expect(entryFix).not.toMatch(/delete\s+from\s+(auth\.users|public\.profiles|public\.special_offers|public\.special_offer_official_posts)/i);
+
+    expect(entryVerify).toContain('ambiguous_entry_id_pattern_absent');
+    expect(entryVerify).toContain('answer_entry_id_qualified');
+    expect(entryVerify).toContain('activity_entry_id_qualified');
+    expect(entryVerify).toContain('overall_pass');
+    expect(entryVerify).not.toMatch(/(^|\n)\s*(insert\s+into|update\s+\w|delete\s+from|merge\s+into|truncate\s+|alter\s+|create\s+|drop\s+|grant\s+|revoke\s+)/i);
+
+    expect(postDelete).toContain('create or replace function public.admin_delete_special_offer_official_post');
+    expect(postDelete).toContain('p_expected_admin_title text');
+    expect(postDelete).toContain('official_post_title_mismatch');
+    expect(postDelete).toContain('official_post_must_be_inactive');
+    expect(postDelete).toContain('official_post_has_activities');
+    expect(postDelete).toContain('from public.special_offer_entry_activities act');
+    expect(postDelete).toContain('where act.official_post_id = v_post.id');
+    expect(postDelete).not.toMatch(/delete\s+from\s+public\.special_offer_entry_activities/i);
+    const postAudit = postDelete.slice(postDelete.indexOf('insert into public.special_offer_audit_log'), postDelete.indexOf('delete from public.special_offer_official_posts'));
+    expect(postAudit).not.toMatch(/official_url|external_post_id|admin_title|v_reason|p_reason/i);
+
+    expect(postVerify).toContain('inactive_guard_present');
+    expect(postVerify).toContain('zero_activity_guard_present');
+    expect(postVerify).toContain('audit_official_url_not_logged');
+    expect(postVerify).toContain('audit_admin_title_not_logged');
+    expect(postVerify).toContain('overall_pass');
+    expect(postVerify).not.toMatch(/(^|\n)\s*(insert\s+into|update\s+\w|delete\s+from|merge\s+into|truncate\s+|alter\s+|create\s+|drop\s+|grant\s+|revoke\s+)/i);
+
+    expect(admin).toContain("client.rpc('admin_delete_special_offer_official_post'");
+    expect(admin).toContain('data-special-offers-post-delete');
+    expect(admin).toContain('Delete unavailable');
+    expect(admin).not.toMatch(/from\('special_offer_official_posts'\)\.delete/i);
+    expect(admin).not.toMatch(/from\('special_offer_entry_activities'\)\.delete/i);
+  });
 });
