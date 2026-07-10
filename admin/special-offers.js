@@ -8,7 +8,7 @@ const SPECIAL_OFFERS_FORM_FIELDS_SELECT = 'id, offer_id, field_key, field_type, 
 const SPECIAL_OFFERS_FORM_FIELD_TRANSLATIONS_SELECT = 'id, field_id, lang, label, placeholder, help_text, options_json, created_at, updated_at';
 const SPECIAL_OFFERS_AUDIT_SELECT = 'id, offer_id, actor_id, action, entity_type, entity_id, old_value, new_value, metadata, created_at';
 const SPECIAL_OFFER_ENTRIES_LIST_SELECT = 'id, offer_id, reference, status, submitted_lang, normalized_email, first_name, last_name, created_at, reviewed_at, reviewed_by';
-const SPECIAL_OFFER_ENTRIES_DETAIL_SELECT = 'id, offer_id, user_id, status, submitted_lang, normalized_email, first_name, last_name, phone, answers_json, form_snapshot_json, client_submission_id, reference, reviewed_at, reviewed_by, review_note, rejection_reason, created_at, updated_at';
+const SPECIAL_OFFER_ENTRIES_DETAIL_SELECT = 'id, offer_id, user_id, status, submitted_lang, normalized_email, first_name, last_name, phone, answers_json, form_snapshot_json, client_submission_id, reference, reviewed_at, reviewed_by, review_note, rejection_reason, correction_count, corrected_at, correction_client_submission_id, created_at, updated_at';
 const SPECIAL_OFFER_ENTRY_ANSWERS_SELECT = 'id, entry_id, field_id, field_key, value_text, value_json, field_snapshot_json, created_at';
 const SPECIAL_OFFER_OFFICIAL_POSTS_SELECT = 'id, offer_id, post_order, week_number, admin_title, platform, official_url, external_post_id, published_at, comment_deadline_at, active, created_by, updated_by, created_at, updated_at';
 const SPECIAL_OFFER_ACTIVITIES_SELECT = 'id, offer_id, entry_id, official_post_id, activity_type, evidence_url, evidence_text, participant_reported_at, verified_activity_at, status, points_awarded, verified_at, verified_by, review_note, rejection_reason, created_by, client_submission_id, created_at, updated_at';
@@ -32,6 +32,8 @@ const specialOffersState = {
     detail: null,
     reviewAction: '',
     reviewing: false,
+    deleteOpen: false,
+    deleting: false,
   },
   manualVerification: {
     offerId: 'all',
@@ -1589,6 +1591,32 @@ function renderEntryActivities(detail) {
         `;
       }).join('')}
     </div>
+  `;
+}
+
+function renderEntryDeletePanel(entry, detail = {}) {
+  const answersCount = toArray(detail.answers).length;
+  const activitiesCount = toArray(detail.activities).length;
+  if (!specialOffersState.entries.deleteOpen) {
+    return `
+      <p class="special-offer-editor-warning">Permanent delete removes the entry, answers, related activity claims, evidence and entry points. It does not delete the user account, profile, campaign or official posts.</p>
+      <button class="btn-danger btn-small" type="button" data-special-offers-entry-delete-open>Delete entry permanently</button>
+    `;
+  }
+  return `
+    <form class="special-offer-entry-delete-form" data-special-offers-entry-delete-form>
+      <p class="special-offer-editor-warning">This operation is irreversible. It will delete ${escapeHtml(String(answersCount))} answer rows and ${escapeHtml(String(activitiesCount))} activity rows linked to this entry.</p>
+      <label>Reason *
+        <textarea name="delete_reason" rows="3" maxlength="1000" required placeholder="Internal reason for permanent deletion"></textarea>
+      </label>
+      <label>Type the exact reference to confirm *
+        <input name="expected_reference" required autocomplete="off" placeholder="${escapeHtml(entry.reference || '')}" />
+      </label>
+      <div class="special-offer-editor-actions">
+        <button class="btn-danger btn-small" type="submit" ${specialOffersState.entries.deleting ? 'disabled' : ''}>Delete permanently</button>
+        <button class="btn-secondary btn-small" type="button" data-special-offers-entry-delete-cancel ${specialOffersState.entries.deleting ? 'disabled' : ''}>Cancel</button>
+      </div>
+    </form>
   `;
 }
 
@@ -4474,9 +4502,23 @@ function ensureEntryDetailsModal() {
       specialOffersState.entries.reviewAction = '';
       renderEntryDetails();
     }
+    if (target?.closest('[data-special-offers-entry-delete-open]')) {
+      specialOffersState.entries.deleteOpen = true;
+      renderEntryDetails();
+    }
+    if (target?.closest('[data-special-offers-entry-delete-cancel]')) {
+      specialOffersState.entries.deleteOpen = false;
+      renderEntryDetails();
+    }
   });
   modal.addEventListener('input', updateReviewCharacterCounters);
   modal.addEventListener('submit', (event) => {
+    const deleteForm = event.target instanceof Element ? event.target.closest('[data-special-offers-entry-delete-form]') : null;
+    if (deleteForm) {
+      event.preventDefault();
+      submitEntryDelete(deleteForm);
+      return;
+    }
     const form = event.target instanceof Element ? event.target.closest('[data-special-offers-review-form]') : null;
     if (!form) return;
     event.preventDefault();
@@ -4496,6 +4538,8 @@ function closeEntryDetails() {
   specialOffersState.entries.selectedEntryId = null;
   specialOffersState.entries.detail = null;
   specialOffersState.entries.reviewAction = '';
+  specialOffersState.entries.deleteOpen = false;
+  specialOffersState.entries.deleting = false;
 }
 
 function renderEntriesModal() {
@@ -4819,6 +4863,8 @@ function renderEntryDetails() {
           ['Campaign', campaign ? formatCampaignTitle(campaign) : shortId(entry.offer_id)],
           ['Status', titleCase(entry.status)],
           ['Submitted at', formatDateTime(entry.created_at)],
+          ['Corrected at', formatDateTime(entry.corrected_at)],
+          ['Correction used', Number(entry.correction_count || 0) >= 1 ? 'Yes' : 'No'],
           ['Reviewed at', formatDateTime(entry.reviewed_at)],
           ['Reviewed by', shortId(entry.reviewed_by)],
           ['Language', String(entry.submitted_lang || '').toUpperCase()],
@@ -4856,6 +4902,10 @@ function renderEntryDetails() {
         <h4>Review actions</h4>
         ${renderReviewActions(entry)}
         ${renderReviewForm(specialOffersState.entries.reviewAction)}
+      </section>
+      <section class="special-offers-detail-panel special-offers-detail-panel--wide special-offers-danger-panel">
+        <h4>Danger zone</h4>
+        ${renderEntryDeletePanel(entry, detail)}
       </section>
       <section class="special-offers-detail-panel special-offers-detail-panel--wide">
         <h4>Audit trail</h4>
@@ -4947,6 +4997,50 @@ async function submitEntryReview(form) {
   } finally {
     specialOffersState.entries.reviewing = false;
     renderEntryDetails();
+  }
+}
+
+async function submitEntryDelete(form) {
+  if (specialOffersState.entries.deleting) return;
+  const detail = specialOffersState.entries.detail;
+  const entry = detail?.entry;
+  if (!entry) return;
+  const reason = String(form.querySelector('[name="delete_reason"]')?.value || '').trim();
+  const expectedReference = String(form.querySelector('[name="expected_reference"]')?.value || '').trim();
+  if (!reason) {
+    notifySpecialOffers('Permanent delete requires a reason.', 'error');
+    return;
+  }
+  if (expectedReference !== String(entry.reference || '')) {
+    notifySpecialOffers('Type the exact entry reference before deleting.', 'error');
+    return;
+  }
+  if (!window.confirm(`Permanently delete entry ${entry.reference || shortId(entry.id)} and its linked answers and activities? This cannot be undone.`)) return;
+  const client = getSupabaseClient();
+  if (!client) {
+    notifySpecialOffers('Supabase client is not available.', 'error');
+    return;
+  }
+  specialOffersState.entries.deleting = true;
+  renderEntryDetails();
+  try {
+    const result = await client.rpc('admin_delete_special_offer_entry', {
+      p_entry_id: entry.id,
+      p_expected_reference: expectedReference,
+      p_reason: reason,
+    });
+    if (result.error) throw result.error;
+    notifySpecialOffers('Entry deleted permanently.', 'success');
+    closeEntryFullForm();
+    closeEntryDetails();
+    await refreshEntriesList();
+    if (!$('#specialOffersManualVerificationModal')?.hidden) {
+      await refreshActivityQueue();
+    }
+  } catch (_error) {
+    notifySpecialOffers('Entry could not be deleted.', 'error');
+  } finally {
+    specialOffersState.entries.deleting = false;
   }
 }
 

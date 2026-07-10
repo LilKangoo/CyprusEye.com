@@ -9,8 +9,8 @@ const PUBLIC_EMPTY_FORM_OFFER_ID = '6a6b166e-fb18-4b3e-a69c-a1f25722a301';
 const PUBLIC_OPTIONS_FORM_OFFER_ID = '7f50b732-9c87-402a-b0b1-afbd7a34e401';
 const PUBLIC_SUBMIT_FORM_OFFER_ID = '8d89c4c9-c0de-4d6e-9a18-0ad8d376e3a4';
 
-async function prepareSpecialOfferLandingStub(page: Page, options: { adminSession?: boolean; participantSession?: boolean; unconfirmedSession?: boolean; rpcError?: string; rpcReference?: string; existingEntryStatus?: string } = {}) {
-  await page.addInitScript(({ adminId, draftOfferId, publicOfferId, publicEmptyFormOfferId, publicOptionsFormOfferId, publicSubmitFormOfferId, adminSession, participantSession, unconfirmedSession, rpcError, rpcReference, existingEntryStatus }) => {
+async function prepareSpecialOfferLandingStub(page: Page, options: { adminSession?: boolean; participantSession?: boolean; unconfirmedSession?: boolean; rpcError?: string; rpcReference?: string; existingEntryStatus?: string; existingCorrectionCount?: number } = {}) {
+  await page.addInitScript(({ adminId, draftOfferId, publicOfferId, publicEmptyFormOfferId, publicOptionsFormOfferId, publicSubmitFormOfferId, adminSession, participantSession, unconfirmedSession, rpcError, rpcReference, existingEntryStatus, existingCorrectionCount }) => {
     (window as any).__supabaseStub = {
       ...(window as any).__supabaseStub,
       onReady: (stub: any) => {
@@ -72,6 +72,38 @@ async function prepareSpecialOfferLandingStub(page: Page, options: { adminSessio
               entry_id: 'entry-hidden-id',
               status: 'pending_review',
               reference: rpcReference || 'SO-TEST12345',
+              idempotent: false,
+            }],
+            error: null,
+          };
+        });
+        stub.setRpcHandler('update_special_offer_entry_once', async (params: any, ctx: any) => {
+          const entryId = params?.p_entry_id;
+          const rows = ctx.getTableRows('special_offer_entries') || [];
+          const entry = rows.find((row: any) => row.id === entryId);
+          if (!entry) return { data: null, error: { message: 'entry_not_found' } };
+          if (Number(entry.correction_count || 0) >= 1 && entry.correction_client_submission_id !== params?.p_client_correction_id) {
+            return { data: null, error: { message: 'correction_already_used' } };
+          }
+          entry.status = 'pending_review';
+          entry.correction_count = 1;
+          entry.corrected_at = new Date().toISOString();
+          entry.correction_client_submission_id = params?.p_client_correction_id;
+          const answers = ctx.getTableRows('special_offer_entry_answers') || [];
+          for (const answer of answers.filter((row: any) => row.entry_id === entryId)) {
+            if (params?.p_answers && Object.prototype.hasOwnProperty.call(params.p_answers, answer.field_key)) {
+              answer.value_json = params.p_answers[answer.field_key];
+              answer.value_text = Array.isArray(answer.value_json) ? answer.value_json.join(', ') : String(answer.value_json ?? '');
+            }
+          }
+          ctx.setTableRows('special_offer_entries', rows);
+          ctx.setTableRows('special_offer_entry_answers', answers);
+          return {
+            data: [{
+              entry_id: entry.id,
+              status: entry.status,
+              reference: entry.reference,
+              correction_count: entry.correction_count,
               idempotent: false,
             }],
             error: null,
@@ -445,10 +477,32 @@ async function prepareSpecialOfferLandingStub(page: Page, options: { adminSessio
           reference: 'SO-EXISTING1',
           status: existingEntryStatus,
           submitted_lang: 'en',
+          correction_count: Number(existingCorrectionCount || 0),
+          corrected_at: Number(existingCorrectionCount || 0) > 0 ? '2026-07-10T12:00:00.000Z' : null,
+          correction_client_submission_id: Number(existingCorrectionCount || 0) > 0 ? '11111111-1111-4111-8111-111111111111' : null,
           created_at: '2026-07-10T10:00:00.000Z',
           reviewed_at: existingEntryStatus === 'approved' ? '2026-07-10T11:00:00.000Z' : null,
         }] : []);
-        stub.seedTable('special_offer_entry_answers', []);
+        const answerSnapshots = formFields
+          .filter((field: any) => field.offer_id === publicSubmitFormOfferId && ['first_name', 'email', 'terms_accepted'].includes(field.field_key))
+          .map((field: any) => ({
+            id: `existing-answer-${field.field_key}`,
+            entry_id: 'existing-entry-1',
+            field_id: field.id,
+            field_key: field.field_key,
+            value_text: field.field_key === 'first_name' ? 'Existing' : field.field_key === 'email' ? 'participant@example.com' : 'true',
+            value_json: field.field_key === 'terms_accepted' ? true : field.field_key === 'first_name' ? 'Existing' : 'participant@example.com',
+            field_snapshot_json: {
+              field_key: field.field_key,
+              field_type: field.field_type,
+              required: field.required,
+              sort_order: field.sort_order,
+              label: formLabels[field.field_key].en,
+              options_json: [],
+            },
+            created_at: '2026-07-10T10:00:01.000Z',
+          }));
+        stub.seedTable('special_offer_entry_answers', existingEntryStatus ? answerSnapshots : []);
         stub.seedTable('special_offer_tasks', []);
         stub.seedTable('special_offer_entry_tasks', []);
         stub.seedTable('special_offer_draws', []);
@@ -469,6 +523,7 @@ async function prepareSpecialOfferLandingStub(page: Page, options: { adminSessio
     rpcError: options.rpcError || '',
     rpcReference: options.rpcReference || '',
     existingEntryStatus: options.existingEntryStatus || '',
+    existingCorrectionCount: options.existingCorrectionCount || 0,
   });
 }
 
@@ -693,6 +748,57 @@ test.describe('Special Offer public read-only landing', () => {
       expect(rpcCalls.filter((call: any) => call.name === 'submit_special_offer_entry')).toHaveLength(0);
     });
   }
+
+  test('lets a confirmed participant view and save the only correction once', async ({ page }) => {
+    await prepareSpecialOfferLandingStub(page, { participantSession: true, existingEntryStatus: 'approved' });
+    await page.goto('/special-offers/published-submit-form-2026?lang=en');
+    await waitForSupabaseStub(page);
+
+    const formSection = page.locator('[data-special-offer-entry-placeholder]');
+    await expect(formSection.locator('[data-special-offer-existing-entry]')).toBeVisible();
+    await expect(formSection.getByRole('button', { name: 'View form' })).toBeVisible();
+    await expect(formSection.getByRole('button', { name: 'Edit form' })).toBeVisible();
+
+    await formSection.getByRole('button', { name: 'View form' }).click();
+    await expect(page.locator('[data-special-offer-entry-form-modal="view"]')).toBeVisible();
+    await expect(page.locator('[data-special-offer-entry-form-modal="view"]')).toContainText('Existing');
+    await page.locator('.special-offer-claim-modal__close[data-special-offer-entry-form-close]').click();
+    await expect(page.locator('[data-special-offer-entry-form-modal="view"]')).toHaveCount(0);
+
+    await formSection.getByRole('button', { name: 'Edit form' }).click();
+    await expect(page.locator('[data-special-offer-entry-form-modal="edit"]')).toBeVisible();
+    await page.locator('[data-special-offer-entry-form-modal="edit"] input[name="first_name"]').fill('Corrected');
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.locator('[data-special-offer-entry-correction-submit]').click();
+    await expect(formSection).toContainText('The only correction has already been used.');
+    await expect(formSection.getByRole('button', { name: 'Edit form' })).toHaveCount(0);
+
+    const state = await page.evaluate(() => ({
+      entry: (window as any).__supabaseStub.getTableRows('special_offer_entries')[0],
+      answers: (window as any).__supabaseStub.getTableRows('special_offer_entry_answers'),
+      calls: (window as any).__supabaseStub.getRpcCalls().filter((call: any) => call.name === 'update_special_offer_entry_once'),
+    }));
+    expect(state.entry.status).toBe('pending_review');
+    expect(state.entry.correction_count).toBe(1);
+    expect(state.answers.find((row: any) => row.field_key === 'first_name')?.value_json).toBe('Corrected');
+    expect(state.calls).toHaveLength(1);
+    expect(state.calls[0].params).toMatchObject({
+      p_entry_id: 'existing-entry-1',
+    });
+  });
+
+  test('keeps existing corrected entries permanently read-only in the public UI', async ({ page }) => {
+    await prepareSpecialOfferLandingStub(page, { participantSession: true, existingEntryStatus: 'pending_review', existingCorrectionCount: 1 });
+    await page.goto('/special-offers/published-submit-form-2026?lang=en');
+    await waitForSupabaseStub(page);
+
+    const formSection = page.locator('[data-special-offer-entry-placeholder]');
+    await expect(formSection.locator('[data-special-offer-existing-entry]')).toBeVisible();
+    await expect(formSection).toContainText('The only correction has already been used.');
+    await expect(formSection.getByRole('button', { name: 'View form' })).toBeVisible();
+    await expect(formSection.getByRole('button', { name: 'Edit form' })).toHaveCount(0);
+    await expect(formSection.getByRole('button', { name: 'Submit entry' })).toHaveCount(0);
+  });
 
   test('keeps public campaign visible but locks active form for anonymous users', async ({ page }) => {
     await prepareSpecialOfferLandingStub(page);

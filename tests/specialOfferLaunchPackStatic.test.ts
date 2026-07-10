@@ -186,4 +186,60 @@ describe('Special Offers Lefkara launch pack', () => {
     expect(specialOffer).toContain('data-special-offer-existing-entry');
     expect(specialOffer).toContain('refreshOwnEntryData');
   });
+
+  test('entry lifecycle SQL adds one correction and admin hard delete without PII audit', () => {
+    const preflight = read('supabase/manual/special_offer_entry_lifecycle_stage1_preflight.sql');
+    const sql = read('supabase/manual/special_offer_entry_lifecycle_stage1.sql');
+    const verify = read('supabase/manual/special_offer_entry_lifecycle_stage1_verify.sql');
+    const specialOffer = read('js/special-offer.js');
+    const admin = read('admin/special-offers.js');
+
+    expect(preflight).toContain('lifecycle_preflight_safe_to_continue');
+    expect(preflight).not.toMatch(/\b(email|phone|reference|answers_json|evidence_url)\b/i);
+
+    expect(sql).toContain('add column if not exists correction_count smallint not null default 0');
+    expect(sql).toContain('special_offer_entries_correction_count_check');
+    expect(sql).toContain('create or replace function public.update_special_offer_entry_once');
+    expect(sql).toContain('create or replace function public.admin_delete_special_offer_entry');
+    expect(sql).toContain('security definer');
+    expect(sql).toContain('set search_path = pg_catalog, public');
+    expect(sql).toContain('for update');
+    expect(sql).toContain("v_entry.status not in ('submitted', 'pending_review', 'approved', 'rejected')");
+    expect(sql).toContain("set status = 'pending_review'");
+    expect(sql).toContain('correction_count = 1');
+    expect(sql).toContain('correction_client_submission_id = p_client_correction_id');
+    expect(sql).toContain('unknown_or_inactive_field');
+    expect(sql).toContain('update public.special_offer_entry_answers');
+    expect(sql).toContain("v_key = 'email'");
+    expect(sql).toContain('to_jsonb(v_auth_email)');
+    expect(sql).toContain("action = 'entry_hard_deleted'");
+    expect(sql).toContain('entry_reference_mismatch');
+    expect(sql).toContain('delete_reason_required');
+    expect(sql).toContain('delete from public.special_offer_entries');
+    expect(sql).not.toMatch(/delete\s+from\s+(auth\.users|public\.profiles|public\.special_offers|public\.special_offer_official_posts)/i);
+    expect(sql).not.toMatch(/special_offer_draws/i);
+
+    const correctionAudit = sql.slice(sql.indexOf("'entry_corrected'"), sql.indexOf('entry_id := v_entry.id;'));
+    expect(correctionAudit).not.toMatch(/v_auth_email|v_phone|v_new_answers|answers_json|form_snapshot_json|shared_post_url/i);
+    const deleteAuditStart = sql.indexOf('insert into public.special_offer_audit_log', sql.indexOf('create or replace function public.admin_delete_special_offer_entry'));
+    const deleteAudit = sql.slice(deleteAuditStart, sql.indexOf('delete from public.special_offer_entries'));
+    expect(deleteAudit).not.toMatch(/v_reason|p_reason|reference|user_id|email|phone|evidence_url|evidence_text|answers_json|form_snapshot_json/i);
+
+    expect(verify).toContain('correction_rpc_exists');
+    expect(verify).toContain('delete_rpc_exists');
+    expect(verify).toContain('second_correction_blocked');
+    expect(verify).toContain('correction_status_matrix_present');
+    expect(verify).toContain('delete_reference_confirmation_required');
+    expect(verify).toContain('delete_idempotent_retry_present');
+    expect(verify).toContain('correction_audit_no_pii_values');
+    expect(verify).toContain('delete_audit_no_pii_values');
+    expect(verify).toContain('overall_pass');
+    expect(verify).not.toMatch(/(^|\n)\s*(insert\s+into|update\s+\w|delete\s+from|merge\s+into|truncate\s+|alter\s+|create\s+|drop\s+|grant\s+|revoke\s+)/i);
+
+    expect(specialOffer).toContain("supabase.rpc('update_special_offer_entry_once'");
+    expect(specialOffer).toContain('data-special-offer-entry-view');
+    expect(specialOffer).toContain('data-special-offer-entry-edit');
+    expect(admin).toContain("client.rpc('admin_delete_special_offer_entry'");
+    expect(admin).not.toMatch(/from\('special_offer_entries'\)\.delete/i);
+  });
 });

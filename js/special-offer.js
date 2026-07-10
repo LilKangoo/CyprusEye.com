@@ -47,6 +47,15 @@ const TEXT = {
     submittedSuccess: 'Zgłoszenie zostało zapisane.',
     alreadySubmittedTitle: 'Twoje zgłoszenie zostało już wysłane.',
     alreadySubmittedCopy: 'W tej kampanii można wysłać tylko jedno główne zgłoszenie. Nadal możesz śledzić status, aktywności i punkty poniżej.',
+    viewSubmittedForm: 'Wyświetl formularz',
+    editSubmittedForm: 'Edytuj formularz',
+    oneCorrectionUsed: 'Jedyna korekta została już wykorzystana.',
+    oneCorrectionWarning: 'Możesz zapisać poprawki tylko jeden raz. Po ponownym zapisaniu formularz zostanie zablokowany do edycji. Przed zapisaniem dokładnie sprawdź wszystkie dane.',
+    saveOnlyCorrection: 'Zapisz jedyną poprawkę',
+    correctionSaved: 'Korekta została zapisana i wróciła do ręcznej weryfikacji.',
+    correctionUnavailable: 'Korekta nie jest dostępna dla tego zgłoszenia.',
+    correctionDiscardConfirm: 'Zamknąć edycję bez zapisywania zmian?',
+    closeDialog: 'Zamknij',
     entryLookupErrorTitle: 'Nie udało się sprawdzić Twojego zgłoszenia',
     entryLookupErrorCopy: 'Odśwież dostęp przed ponowną próbą wysłania formularza.',
     retry: 'Spróbuj ponownie',
@@ -115,6 +124,13 @@ const TEXT = {
       admin_entries_blocked: 'Konta administracyjne nie mogą wysyłać zgłoszeń w tej kampanii.',
       partner_entries_blocked: 'Konta partnerów nie mogą wysyłać zgłoszeń w tej kampanii.',
       submission_not_accepted: 'Nie można przyjąć tego zgłoszenia. Odśwież stronę i spróbuj ponownie.',
+      client_correction_id_required: 'Nie udało się przygotować bezpiecznej korekty. Odśwież stronę i spróbuj ponownie.',
+      correction_already_used: 'Jedyna korekta została już wykorzystana.',
+      entry_not_correctable: 'Tego zgłoszenia nie można już edytować.',
+      entry_not_found: 'Nie udało się znaleźć Twojego zgłoszenia.',
+      answers_must_be_object: 'Nie udało się odczytać danych formularza.',
+      answers_payload_too_large: 'Dane formularza są zbyt duże.',
+      unknown_or_inactive_field: 'Formularz zawiera pole, którego nie można edytować.',
       network_error: 'Problem z połączeniem. Spróbuj ponownie.',
       temporary_error: 'Nie udało się wysłać zgłoszenia. Spróbuj ponownie za chwilę.',
       invalid_activity_url: 'Podaj poprawny link zaczynający się od http:// lub https://.',
@@ -175,6 +191,15 @@ const TEXT = {
     submittedSuccess: 'Your entry has been saved.',
     alreadySubmittedTitle: 'Your entry has already been submitted.',
     alreadySubmittedCopy: 'Only one main entry is allowed for this campaign. You can still follow your status, activity and points below.',
+    viewSubmittedForm: 'View form',
+    editSubmittedForm: 'Edit form',
+    oneCorrectionUsed: 'The only correction has already been used.',
+    oneCorrectionWarning: 'You can save corrections only once. After saving again, the form will be locked for editing. Check every field carefully before saving.',
+    saveOnlyCorrection: 'Save the only correction',
+    correctionSaved: 'Your correction has been saved and returned to manual review.',
+    correctionUnavailable: 'Correction is not available for this entry.',
+    correctionDiscardConfirm: 'Close editing without saving changes?',
+    closeDialog: 'Close',
     entryLookupErrorTitle: 'Your entry could not be checked',
     entryLookupErrorCopy: 'Refresh access before trying to submit the form again.',
     retry: 'Try again',
@@ -243,6 +268,13 @@ const TEXT = {
       admin_entries_blocked: 'Admin accounts cannot submit entries for this campaign.',
       partner_entries_blocked: 'Partner accounts cannot submit entries for this campaign.',
       submission_not_accepted: 'This entry could not be accepted. Refresh the page and try again.',
+      client_correction_id_required: 'Could not prepare a safe correction. Refresh the page and try again.',
+      correction_already_used: 'The only correction has already been used.',
+      entry_not_correctable: 'This entry can no longer be edited.',
+      entry_not_found: 'Your entry could not be found.',
+      answers_must_be_object: 'The form data could not be read.',
+      answers_payload_too_large: 'The form data is too large.',
+      unknown_or_inactive_field: 'The form contains a field that cannot be edited.',
       network_error: 'Connection problem. Please try again.',
       temporary_error: 'Your entry could not be submitted. Please try again shortly.',
       invalid_activity_url: 'Enter a valid link starting with http:// or https://.',
@@ -303,6 +335,15 @@ const TEXT = {
     submittedSuccess: 'ההרשמה נשמרה.',
     alreadySubmittedTitle: 'ההרשמה שלכם כבר נשלחה.',
     alreadySubmittedCopy: 'ניתן לשלוח הרשמה ראשית אחת בלבד בקמפיין זה. עדיין אפשר לעקוב אחר הסטטוס, הפעילות והנקודות בהמשך.',
+    viewSubmittedForm: 'הצגת הטופס',
+    editSubmittedForm: 'עריכת הטופס',
+    oneCorrectionUsed: 'התיקון היחיד כבר נוצל.',
+    oneCorrectionWarning: 'אפשר לשמור תיקונים פעם אחת בלבד. לאחר השמירה הטופס יינעל לעריכה. בדקו היטב את כל הנתונים לפני השמירה.',
+    saveOnlyCorrection: 'שמירת התיקון היחיד',
+    correctionSaved: 'התיקון נשמר וחזר לבדיקה ידנית.',
+    correctionUnavailable: 'תיקון אינו זמין להרשמה זו.',
+    correctionDiscardConfirm: 'לסגור את העריכה בלי לשמור שינויים?',
+    closeDialog: 'סגירה',
     entryLookupErrorTitle: 'לא ניתן לבדוק את ההרשמה שלכם',
     entryLookupErrorCopy: 'רעננו את הגישה לפני ניסיון נוסף לשלוח את הטופס.',
     retry: 'נסו שוב',
@@ -371,6 +412,13 @@ const TEXT = {
       admin_entries_blocked: 'חשבונות מנהלים אינם יכולים לשלוח הרשמות לקמפיין זה.',
       partner_entries_blocked: 'חשבונות שותפים אינם יכולים לשלוח הרשמות לקמפיין זה.',
       submission_not_accepted: 'לא ניתן לקבל את ההרשמה הזו. רעננו את העמוד ונסו שוב.',
+      client_correction_id_required: 'לא ניתן להכין תיקון בטוח. רעננו את העמוד ונסו שוב.',
+      correction_already_used: 'התיקון היחיד כבר נוצל.',
+      entry_not_correctable: 'לא ניתן לערוך עוד הרשמה זו.',
+      entry_not_found: 'לא ניתן למצוא את ההרשמה שלכם.',
+      answers_must_be_object: 'לא ניתן לקרוא את נתוני הטופס.',
+      answers_payload_too_large: 'נתוני הטופס גדולים מדי.',
+      unknown_or_inactive_field: 'הטופס מכיל שדה שלא ניתן לערוך.',
       network_error: 'בעיה בחיבור. נסו שוב.',
       temporary_error: 'לא ניתן היה לשלוח את ההרשמה. נסו שוב בעוד רגע.',
       invalid_activity_url: 'הזינו קישור תקין שמתחיל ב-http:// או https://.',
@@ -443,10 +491,12 @@ let ownEntryState = {
   errorCode: '',
   entries: [],
   entry: null,
+  answers: [],
   initializedFor: '',
 };
 let activitySubmitting = false;
 let activeClaimModal = null;
+let activeEntryFormModal = null;
 let activityClaimDrafts = {};
 let authState = {
   checking: true,
@@ -1332,11 +1382,21 @@ async function fetchPublicOfficialPosts(offerId) {
 async function fetchOwnEntry(offerId, userId) {
   const { data, error } = await supabase
     .from('special_offer_entries')
-    .select('id,offer_id,user_id,reference,status,submitted_lang,created_at,reviewed_at')
+    .select('id,offer_id,user_id,reference,status,submitted_lang,created_at,reviewed_at,correction_count,corrected_at')
     .eq('offer_id', offerId)
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(2);
+  if (error) throw error;
+  return Array.isArray(data) ? data : [];
+}
+
+async function fetchOwnEntryAnswers(entryId) {
+  const { data, error } = await supabase
+    .from('special_offer_entry_answers')
+    .select('id,entry_id,field_id,field_key,value_text,value_json,field_snapshot_json,created_at')
+    .eq('entry_id', entryId)
+    .order('created_at', { ascending: true });
   if (error) throw error;
   return Array.isArray(data) ? data : [];
 }
@@ -1369,6 +1429,7 @@ function resetOwnEntryState(offerId = '') {
     errorCode: '',
     entries: [],
     entry: null,
+    answers: [],
     initializedFor: cleanText(offerId),
   };
 }
@@ -1396,12 +1457,15 @@ async function refreshOwnEntryData({ render = true, scroll = false } = {}) {
 
   try {
     const entries = await fetchOwnEntry(offerId, authState.user.id);
+    const entry = entries.length === 1 ? entries[0] : null;
+    const answers = entry?.id ? await fetchOwnEntryAnswers(entry.id) : [];
     ownEntryState = {
       loading: false,
       loaded: true,
       errorCode: '',
       entries,
-      entry: entries.length === 1 ? entries[0] : null,
+      entry,
+      answers,
       initializedFor: offerId,
     };
   } catch (error) {
@@ -1578,6 +1642,13 @@ function mapSubmitError(error) {
     'admin_entries_blocked',
     'partner_entries_blocked',
     'submission_not_accepted',
+    'client_correction_id_required',
+    'correction_already_used',
+    'entry_not_correctable',
+    'entry_not_found',
+    'answers_must_be_object',
+    'answers_payload_too_large',
+    'unknown_or_inactive_field',
   ];
   for (const code of known) {
     if (normalized.includes(code)) return code;
@@ -1605,14 +1676,264 @@ function renderExistingEntryState(entry, lang) {
   const t = getText(lang);
   const reference = cleanText(entry?.reference || '');
   const status = cleanText(entry?.status || '');
+  const correctionUsed = Number(entry?.correction_count || 0) >= 1;
+  const canEdit = !correctionUsed && !['disqualified', 'withdrawn'].includes(status);
   refs.entrySection.innerHTML = `
     <div class="special-offer-form-success" data-special-offer-existing-entry dir="${lang === 'he' ? 'rtl' : 'ltr'}" role="status">
       <h2>${escapeHtml(t.alreadySubmittedTitle)}</h2>
       ${reference ? `<p><strong>${escapeHtml(t.successReference)}:</strong> ${escapeHtml(reference)}</p>` : ''}
       ${status ? `<p><strong>${escapeHtml(t.successStatus)}:</strong> ${escapeHtml(status)}</p>` : ''}
       <p>${escapeHtml(t.alreadySubmittedCopy)}</p>
+      ${correctionUsed ? `<p><strong>${escapeHtml(t.oneCorrectionUsed)}</strong></p>` : ''}
+      <div class="special-offer-form-actions">
+        <button type="button" class="special-offer-button special-offer-button--secondary" data-special-offer-entry-view>${escapeHtml(t.viewSubmittedForm)}</button>
+        ${canEdit ? `<button type="button" class="special-offer-button" data-special-offer-entry-edit>${escapeHtml(t.editSubmittedForm)}</button>` : ''}
+      </div>
     </div>
   `;
+  const viewButton = refs.entrySection.querySelector('[data-special-offer-entry-view]');
+  const editButton = refs.entrySection.querySelector('[data-special-offer-entry-edit]');
+  if (viewButton instanceof HTMLButtonElement) {
+    viewButton.addEventListener('click', () => openEntryFormModal('view', lang, viewButton));
+  }
+  if (editButton instanceof HTMLButtonElement) {
+    editButton.addEventListener('click', () => openEntryFormModal('edit', lang, editButton));
+  }
+}
+
+function getAnswerSnapshot(answer) {
+  return answer?.field_snapshot_json && typeof answer.field_snapshot_json === 'object' ? answer.field_snapshot_json : {};
+}
+
+function getAnswerSortOrderPublic(answer) {
+  const snapshot = getAnswerSnapshot(answer);
+  return Number(snapshot.sort_order ?? 9999);
+}
+
+function getAnswerDisplayValue(answer) {
+  const value = answer?.value_json ?? answer?.value_text ?? null;
+  if (value === null || value === undefined || value === '') return '';
+  if (Array.isArray(value)) return value.join(', ');
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+function renderStoredAnswerView(answer, lang) {
+  const snapshot = getAnswerSnapshot(answer);
+  const label = cleanText(snapshot.label || answer.field_key);
+  const type = cleanText(snapshot.field_type || '');
+  const value = getAnswerDisplayValue(answer);
+  const safeUrl = ['url', 'facebook_profile_url', 'shared_post_url'].includes(type) && isSafeHref(value);
+  return `
+    <article class="special-offer-activity-card">
+      <h3>${escapeHtml(label)}</h3>
+      <p>${safeUrl ? `<a href="${escapeHtml(value)}" target="_blank" rel="noopener noreferrer">${escapeHtml(value)}</a>` : escapeHtml(value || '-')}</p>
+    </article>
+  `;
+}
+
+function renderCorrectionField(answer, index, lang) {
+  const snapshot = getAnswerSnapshot(answer);
+  const fieldKey = cleanText(answer.field_key || snapshot.field_key || `field_${index + 1}`);
+  const type = cleanText(snapshot.field_type || '');
+  const label = cleanText(snapshot.label || fieldKey);
+  const required = snapshot.required === true;
+  const value = answer?.value_json ?? answer?.value_text ?? '';
+  const inputId = `specialOfferCorrection${index}_${fieldKey.replace(/[^a-z0-9_]/gi, '_')}`;
+  const common = `id="${escapeHtml(inputId)}" name="${escapeHtml(fieldKey)}" data-field-type="${escapeHtml(type)}" ${required ? 'required aria-required="true"' : ''}`;
+  const options = Array.isArray(snapshot.options_json) ? snapshot.options_json : [];
+  let control = '';
+  if (type === 'textarea' || type === 'contest_answer') {
+    control = `<textarea rows="4" ${common}>${escapeHtml(String(value || ''))}</textarea>`;
+  } else if (type === 'checkbox' || type === 'consent') {
+    control = `<label class="special-offer-form-choice special-offer-form-choice--standalone"><input type="checkbox" ${common} ${value === true ? 'checked' : ''} /><span>${escapeHtml(label)}</span></label>`;
+  } else if (type === 'checkbox_group') {
+    const values = Array.isArray(value) ? value.map(String) : [];
+    control = `<div class="special-offer-form-options">${options.map((option) => `<label class="special-offer-form-choice"><input type="checkbox" name="${escapeHtml(fieldKey)}" value="${escapeHtml(option.value)}" data-field-type="${escapeHtml(type)}" ${values.includes(String(option.value)) ? 'checked' : ''} /><span>${escapeHtml(option.label || option.value)}</span></label>`).join('')}</div>`;
+  } else if (type === 'select') {
+    control = `<select ${common}><option value=""></option>${options.map((option) => `<option value="${escapeHtml(option.value)}" ${String(value || '') === String(option.value) ? 'selected' : ''}>${escapeHtml(option.label || option.value)}</option>`).join('')}</select>`;
+  } else {
+    const inputType = type === 'email' ? 'email' : type === 'phone' ? 'tel' : type === 'date' || type === 'date_of_birth' ? 'date' : ['url', 'facebook_profile_url', 'shared_post_url'].includes(type) ? 'url' : 'text';
+    const readonly = fieldKey === 'email' ? 'readonly' : '';
+    control = `<input type="${escapeHtml(inputType)}" ${common} value="${escapeHtml(String(value || ''))}" ${readonly} />`;
+  }
+  return `<div class="special-offer-form-field" data-correction-field="${escapeHtml(fieldKey)}">${type === 'checkbox' || type === 'consent' ? '' : `<label for="${escapeHtml(inputId)}">${escapeHtml(label)}${required ? ' *' : ''}</label>`}${control}</div>`;
+}
+
+function collectCorrectionAnswers(form) {
+  const answers = {};
+  ownEntryState.answers.forEach((answer) => {
+    const snapshot = getAnswerSnapshot(answer);
+    const key = cleanText(answer.field_key || snapshot.field_key);
+    const type = cleanText(snapshot.field_type || '');
+    if (!key) return;
+    if (type === 'checkbox' || type === 'consent') {
+      const input = form.elements.namedItem(key);
+      answers[key] = input instanceof HTMLInputElement ? input.checked : false;
+    } else if (type === 'checkbox_group') {
+      answers[key] = Array.from(form.querySelectorAll(`[name="${CSS.escape(key)}"]:checked`)).map((node) => node.value);
+    } else {
+      const input = form.elements.namedItem(key);
+      answers[key] = input ? cleanText(input.value) : '';
+    }
+  });
+  return answers;
+}
+
+function getCorrectionStorageKey(entryId) {
+  return `ce_special_offer_correction_id:${currentSlug || readSlug() || 'unknown'}:${entryId || 'entry'}`;
+}
+
+function getCorrectionId(entryId) {
+  const key = getCorrectionStorageKey(entryId);
+  try {
+    const existing = sessionStorage.getItem(key);
+    if (existing && /^[0-9a-f-]{36}$/i.test(existing)) return existing;
+    const next = createUuid();
+    sessionStorage.setItem(key, next);
+    return next;
+  } catch (_error) {
+    return createUuid();
+  }
+}
+
+function clearCorrectionId(entryId) {
+  try {
+    sessionStorage.removeItem(getCorrectionStorageKey(entryId));
+  } catch (_error) {
+    // ignore storage errors
+  }
+}
+
+function isEntryFormCorrectionDirty() {
+  const modal = activeEntryFormModal?.node;
+  if (!modal || activeEntryFormModal.mode !== 'edit') return false;
+  const form = modal.querySelector('[data-special-offer-entry-correction-form]');
+  if (!(form instanceof HTMLFormElement)) return false;
+  try {
+    return JSON.stringify(collectCorrectionAnswers(form)) !== activeEntryFormModal.initialAnswersJson;
+  } catch (_error) {
+    return true;
+  }
+}
+
+function closeEntryFormModal({ restoreFocus = true, force = false } = {}) {
+  if (!activeEntryFormModal?.node) return;
+  if (!force && isEntryFormCorrectionDirty()) {
+    const lang = currentState?.lang || readRequestedLang();
+    if (!window.confirm(getText(lang).correctionDiscardConfirm)) return;
+  }
+  const previousFocus = activeEntryFormModal.previousFocus;
+  activeEntryFormModal.node.remove();
+  activeEntryFormModal = null;
+  if (restoreFocus && previousFocus instanceof HTMLElement) previousFocus.focus({ preventScroll: true });
+}
+
+function openEntryFormModal(mode, lang, trigger = null) {
+  closeEntryFormModal({ restoreFocus: false });
+  const t = getText(lang);
+  const entry = ownEntryState.entry || {};
+  const answers = ownEntryState.answers.slice().sort((a, b) => getAnswerSortOrderPublic(a) - getAnswerSortOrderPublic(b));
+  const modal = document.createElement('div');
+  modal.className = 'special-offer-claim-modal';
+  modal.dataset.specialOfferEntryFormModal = mode;
+  modal.dir = lang === 'he' ? 'rtl' : 'ltr';
+  const isEdit = mode === 'edit';
+  modal.innerHTML = `
+    <div class="special-offer-claim-modal__backdrop" data-special-offer-entry-form-close></div>
+    <div class="special-offer-claim-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="specialOfferEntryFormModalTitle">
+      <button type="button" class="special-offer-claim-modal__close" data-special-offer-entry-form-close aria-label="${escapeHtml(t.closeDialog)}">×</button>
+      <h2 id="specialOfferEntryFormModalTitle">${escapeHtml(isEdit ? t.editSubmittedForm : t.viewSubmittedForm)}</h2>
+      ${isEdit ? `<div class="special-offer-activity-message"><h3>${escapeHtml(t.oneCorrectionWarning)}</h3></div>` : ''}
+      ${isEdit ? `
+        <form class="special-offer-activity-claim-form" data-special-offer-entry-correction-form>
+          ${answers.map((answer, index) => renderCorrectionField(answer, index, lang)).join('')}
+          <div class="special-offer-claim-modal__actions">
+            <button type="submit" class="special-offer-button" data-special-offer-entry-correction-submit>${escapeHtml(t.saveOnlyCorrection)}</button>
+            <button type="button" class="special-offer-button special-offer-button--secondary" data-special-offer-entry-form-close>${escapeHtml(t.cancel)}</button>
+          </div>
+          <p class="special-offer-form-help" data-special-offer-entry-correction-status role="status" aria-live="polite"></p>
+        </form>
+      ` : `
+        <div class="special-offer-activity-placeholder">
+          ${answers.map((answer) => renderStoredAnswerView(answer, lang)).join('') || `<p class="special-offer-empty">${escapeHtml(t.notConfigured)}</p>`}
+        </div>
+      `}
+    </div>
+  `;
+  document.body.appendChild(modal);
+  const correctionForm = modal.querySelector('[data-special-offer-entry-correction-form]');
+  const initialAnswersJson = correctionForm instanceof HTMLFormElement
+    ? JSON.stringify(collectCorrectionAnswers(correctionForm))
+    : '';
+  activeEntryFormModal = { node: modal, previousFocus: trigger || document.activeElement, mode, initialAnswersJson };
+  modal.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest('[data-special-offer-entry-form-close]')) closeEntryFormModal();
+  });
+  modal.addEventListener('submit', (event) => {
+    const form = event.target instanceof Element ? event.target.closest('[data-special-offer-entry-correction-form]') : null;
+    if (!form) return;
+    event.preventDefault();
+    submitEntryCorrection(form, lang);
+  });
+  modal.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeEntryFormModal();
+    }
+    if (event.key === 'Tab') {
+      const focusables = Array.from(modal.querySelectorAll('button, input, textarea, select, a[href]'))
+        .filter((node) => node instanceof HTMLElement && !node.hasAttribute('disabled'));
+      if (!focusables.length) return;
+      const firstNode = focusables[0];
+      const lastNode = focusables[focusables.length - 1];
+      if (event.shiftKey && document.activeElement === firstNode) {
+        event.preventDefault();
+        lastNode.focus();
+      } else if (!event.shiftKey && document.activeElement === lastNode) {
+        event.preventDefault();
+        firstNode.focus();
+      }
+    }
+  });
+  const first = modal.querySelector('button, input, select, textarea, a');
+  if (first instanceof HTMLElement) first.focus({ preventScroll: true });
+}
+
+async function submitEntryCorrection(form, lang) {
+  const t = getText(lang);
+  const entry = ownEntryState.entry;
+  if (!entry?.id || Number(entry.correction_count || 0) >= 1) {
+    form.querySelector('[data-special-offer-entry-correction-status]').textContent = t.correctionUnavailable;
+    return;
+  }
+  if (!window.confirm(t.oneCorrectionWarning)) return;
+  const button = form.querySelector('[data-special-offer-entry-correction-submit]');
+  const status = form.querySelector('[data-special-offer-entry-correction-status]');
+  if (button instanceof HTMLButtonElement) button.disabled = true;
+  if (status) status.textContent = '';
+  try {
+    const correctionId = getCorrectionId(entry.id);
+    const answers = collectCorrectionAnswers(form);
+    const { error } = await supabase.rpc('update_special_offer_entry_once', {
+      p_entry_id: entry.id,
+      p_answers: answers,
+      p_client_correction_id: correctionId,
+    });
+    if (error) throw error;
+    clearCorrectionId(entry.id);
+    await refreshOwnEntryData({ render: true });
+    await refreshActivityData({ render: true });
+    closeEntryFormModal({ restoreFocus: true, force: true });
+    showFormStatus(t.correctionSaved, 'success');
+  } catch (error) {
+    const code = mapSubmitError(error);
+    if (status) status.textContent = getErrorMessage(code, lang);
+  } finally {
+    if (button instanceof HTMLButtonElement) button.disabled = false;
+  }
 }
 
 function renderEntryLookupError(lang) {
