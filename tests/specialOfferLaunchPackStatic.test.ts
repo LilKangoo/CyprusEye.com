@@ -233,6 +233,9 @@ describe('Special Offers Lefkara launch pack', () => {
     expect(verify).toContain('delete_idempotent_retry_present');
     expect(verify).toContain('correction_audit_no_pii_values');
     expect(verify).toContain('delete_audit_no_pii_values');
+    expect(verify).toContain('aclexplode(coalesce(p.proacl, acldefault');
+    expect(verify).toContain('and grantee = 0');
+    expect(verify).not.toContain("has_function_privilege('PUBLIC'");
     expect(verify).toContain('overall_pass');
     expect(verify).not.toMatch(/(^|\n)\s*(insert\s+into|update\s+\w|delete\s+from|merge\s+into|truncate\s+|alter\s+|create\s+|drop\s+|grant\s+|revoke\s+)/i);
 

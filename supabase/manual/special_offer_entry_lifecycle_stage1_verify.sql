@@ -117,16 +117,67 @@ fk_state as (
         and con.confdeltype = 'c'
     ) as activities_cascade_to_entry
 ),
+function_acl as (
+  select
+    p.proname,
+    acl.grantee,
+    acl.privilege_type
+  from pg_proc p
+  join pg_namespace n on n.oid = p.pronamespace
+  cross join lateral aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) acl
+  where n.nspname = 'public'
+    and p.proname in ('update_special_offer_entry_once', 'admin_delete_special_offer_entry')
+),
 grants_state as (
   select
-    not coalesce(has_function_privilege('PUBLIC', 'public.update_special_offer_entry_once(uuid,jsonb,uuid)', 'EXECUTE'), false) as correction_public_execute_absent,
-    not coalesce(has_function_privilege('anon', 'public.update_special_offer_entry_once(uuid,jsonb,uuid)', 'EXECUTE'), false) as correction_anon_execute_absent,
-    coalesce(has_function_privilege('authenticated', 'public.update_special_offer_entry_once(uuid,jsonb,uuid)', 'EXECUTE'), false) as correction_authenticated_execute_present,
-    not coalesce(has_function_privilege('service_role', 'public.update_special_offer_entry_once(uuid,jsonb,uuid)', 'EXECUTE'), false) as correction_service_role_execute_absent,
-    not coalesce(has_function_privilege('PUBLIC', 'public.admin_delete_special_offer_entry(uuid,text,text)', 'EXECUTE'), false) as delete_public_execute_absent,
-    not coalesce(has_function_privilege('anon', 'public.admin_delete_special_offer_entry(uuid,text,text)', 'EXECUTE'), false) as delete_anon_execute_absent,
-    coalesce(has_function_privilege('authenticated', 'public.admin_delete_special_offer_entry(uuid,text,text)', 'EXECUTE'), false) as delete_authenticated_execute_present,
-    not coalesce(has_function_privilege('service_role', 'public.admin_delete_special_offer_entry(uuid,text,text)', 'EXECUTE'), false) as delete_service_role_execute_absent
+    not exists (
+      select 1 from function_acl
+      where proname = 'update_special_offer_entry_once'
+        and grantee = 0
+        and privilege_type = 'EXECUTE'
+    ) as correction_public_execute_absent,
+    not exists (
+      select 1 from function_acl
+      where proname = 'update_special_offer_entry_once'
+        and grantee = (select oid from pg_roles where rolname = 'anon')
+        and privilege_type = 'EXECUTE'
+    ) as correction_anon_execute_absent,
+    exists (
+      select 1 from function_acl
+      where proname = 'update_special_offer_entry_once'
+        and grantee = (select oid from pg_roles where rolname = 'authenticated')
+        and privilege_type = 'EXECUTE'
+    ) as correction_authenticated_execute_present,
+    not exists (
+      select 1 from function_acl
+      where proname = 'update_special_offer_entry_once'
+        and grantee = (select oid from pg_roles where rolname = 'service_role')
+        and privilege_type = 'EXECUTE'
+    ) as correction_service_role_execute_absent,
+    not exists (
+      select 1 from function_acl
+      where proname = 'admin_delete_special_offer_entry'
+        and grantee = 0
+        and privilege_type = 'EXECUTE'
+    ) as delete_public_execute_absent,
+    not exists (
+      select 1 from function_acl
+      where proname = 'admin_delete_special_offer_entry'
+        and grantee = (select oid from pg_roles where rolname = 'anon')
+        and privilege_type = 'EXECUTE'
+    ) as delete_anon_execute_absent,
+    exists (
+      select 1 from function_acl
+      where proname = 'admin_delete_special_offer_entry'
+        and grantee = (select oid from pg_roles where rolname = 'authenticated')
+        and privilege_type = 'EXECUTE'
+    ) as delete_authenticated_execute_present,
+    not exists (
+      select 1 from function_acl
+      where proname = 'admin_delete_special_offer_entry'
+        and grantee = (select oid from pg_roles where rolname = 'service_role')
+        and privilege_type = 'EXECUTE'
+    ) as delete_service_role_execute_absent
 ),
 table_grants as (
   select
