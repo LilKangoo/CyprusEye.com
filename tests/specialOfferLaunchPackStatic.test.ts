@@ -137,6 +137,7 @@ describe('Special Offers Lefkara launch pack', () => {
     expect(sql).toContain('now() >= o.start_at');
     expect(sql).toContain('now() <= o.end_at');
     expect(sql).toContain("grant execute on function public.get_public_special_offer_landing(text) to anon, authenticated");
+    expect(sql).toContain('revoke all on function public.get_public_special_offer_landing(text) from service_role');
     expect(sql).not.toMatch(/grant\s+select\s+on\s+(table\s+)?public\.special_offers\s+to\s+anon/i);
     expect(sql).not.toMatch(/from\s+public\.special_offer_entries/i);
     expect(sql).not.toMatch(/from\s+public\.special_offer_entry_answers/i);

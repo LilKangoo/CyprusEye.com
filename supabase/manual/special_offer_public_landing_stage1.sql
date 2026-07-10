@@ -144,6 +144,7 @@ alter function public.get_public_special_offer_landing(text) owner to postgres;
 revoke all on function public.get_public_special_offer_landing(text) from public;
 revoke all on function public.get_public_special_offer_landing(text) from anon;
 revoke all on function public.get_public_special_offer_landing(text) from authenticated;
+revoke all on function public.get_public_special_offer_landing(text) from service_role;
 
 grant execute on function public.get_public_special_offer_landing(text) to anon, authenticated;
 
