@@ -172,6 +172,7 @@ fn as (
   join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'public'
     and p.proname in (
+      'special_offer_winner_score_snapshot',
       'special_offer_winner_workflow_readiness',
       'admin_start_special_offer_winner_workflow',
       'admin_add_special_offer_shortlist_entry',
@@ -195,6 +196,7 @@ fn as (
 ),
 fn_counts as (
   select
+    count(*) filter (where proname = 'special_offer_winner_score_snapshot' and identity_arguments = 'p_offer_id uuid, p_entry_id uuid') = 1 as score_snapshot_rpc_exists,
     count(*) filter (where proname = 'special_offer_winner_workflow_readiness' and identity_arguments = 'p_offer_id uuid') = 1 as readiness_rpc_exists,
     count(*) filter (where proname = 'admin_start_special_offer_winner_workflow' and identity_arguments = 'p_offer_id uuid, p_reason text') = 1 as start_rpc_exists,
     count(*) filter (where proname = 'admin_add_special_offer_shortlist_entry' and identity_arguments = 'p_workflow_id uuid, p_entry_id uuid') = 1 as add_shortlist_rpc_exists,
@@ -251,42 +253,49 @@ function_grants as (
 ),
 source_checks as (
   select
-    (select source from fn where proname = 'admin_start_special_offer_winner_workflow') like '%winner_selection_mode_not_manual%' as start_blocks_wrong_winner_mode,
-    (select source from fn where proname = 'admin_start_special_offer_winner_workflow') like '%pending_entry_reviews%' as start_blocks_pending_entries,
-    (select source from fn where proname = 'admin_start_special_offer_winner_workflow') like '%pending_activity_reviews%' as start_blocks_pending_activities,
-    (select source from fn where proname = 'admin_add_special_offer_shortlist_entry') like '%v_entry.status <> ''approved''%' as shortlist_approved_only,
-    (select source from fn where proname = 'admin_add_special_offer_committee_note') like '%committee_note_entry_mismatch%' as committee_note_entry_match_guard,
-    (select source from fn where proname = 'admin_set_special_offer_primary_candidate') like '%role = ''primary''%' as primary_role_present,
-    (select source from fn where proname = 'admin_set_special_offer_backup_candidate') like '%p_backup_rank is null or p_backup_rank <= 0%' as backup_rank_guard_present,
-    (select source from fn where proname = 'admin_start_special_offer_winner_contact') like '%p_response_deadline_at is null%' as contact_deadline_required,
-    (select source from fn where proname = 'admin_record_special_offer_winner_response') like '%accepted'', ''declined'', ''no_response''%' as response_status_guard_present,
-    (select source from fn where proname = 'admin_promote_special_offer_backup') like '%replacement_contact_required%' as promote_requires_declined_or_no_response,
-    (select source from fn where proname = 'admin_confirm_special_offer_winner') like '%v_contact.status <> ''accepted''%' as confirm_requires_accepted,
-    (select source from fn where proname = 'admin_publish_special_offer_winner') like '%publication_consent_required%' as publish_requires_consent,
-    (select source from fn where proname = 'admin_publish_special_offer_winner') like '%winner_not_confirmed%' as publish_requires_confirmed_winner,
-    (select source from fn where proname = 'admin_unpublish_special_offer_winner') like '%unpublish_reason_required%' as unpublish_requires_reason,
-    (select source from fn where proname = 'admin_cancel_special_offer_winner_workflow') like '%winner_workflow_not_cancellable%' as cancel_blocks_published,
-    (select source from fn where proname = 'admin_reopen_special_offer_winner_workflow') like '%winner_workflow_not_cancelled%' as reopen_cancelled_only,
-    (select source from fn where proname = 'update_special_offer_entry_once') like '%entry_locked_by_winner_workflow%' as correction_blocks_contacting_or_later,
-    (select source from fn where proname = 'update_special_offer_entry_once') like '%status = ''needs_recheck''%' as correction_marks_needs_recheck,
-    (select source from fn where proname = 'update_special_offer_entry_once') like '%role = ''shortlisted''%' as correction_removes_candidate_role,
-    (select source from fn where proname = 'admin_delete_special_offer_entry') like '%entry_has_winner_workflow_record%' as hard_delete_workflow_guard_present,
-    (select source from fn where proname = 'special_offer_winner_score_snapshot') like '%base_points%' as score_snapshot_base_present,
-    (select source from fn where proname = 'special_offer_winner_score_snapshot') like '%total_points%' as score_snapshot_total_present
+    coalesce((select source from fn where proname = 'special_offer_winner_workflow_readiness'), '') like '%winner_selection_mode_not_manual%' as start_blocks_wrong_winner_mode,
+    coalesce((select source from fn where proname = 'special_offer_winner_workflow_readiness'), '') like '%pending_entry_reviews%' as start_blocks_pending_entries,
+    coalesce((select source from fn where proname = 'special_offer_winner_workflow_readiness'), '') like '%pending_activity_reviews%' as start_blocks_pending_activities,
+    coalesce((select source from fn where proname = 'admin_start_special_offer_winner_workflow'), '') like '%special_offer_winner_workflow_readiness%' as start_uses_readiness_summary,
+    coalesce((select source from fn where proname = 'admin_add_special_offer_shortlist_entry'), '') like '%v_entry.status <> ''approved''%' as shortlist_approved_only,
+    coalesce((select source from fn where proname = 'admin_add_special_offer_committee_note'), '') like '%committee_note_entry_mismatch%' as committee_note_entry_match_guard,
+    coalesce((select source from fn where proname = 'admin_set_special_offer_primary_candidate'), '') like '%role = ''primary''%' as primary_role_present,
+    coalesce((select source from fn where proname = 'admin_set_special_offer_backup_candidate'), '') like '%p_backup_rank is null or p_backup_rank <= 0%' as backup_rank_guard_present,
+    coalesce((select source from fn where proname = 'admin_start_special_offer_winner_contact'), '') like '%p_response_deadline_at is null%' as contact_deadline_required,
+    coalesce((select source from fn where proname = 'admin_record_special_offer_winner_response'), '') like '%accepted'', ''declined'', ''no_response''%' as response_status_guard_present,
+    coalesce((select source from fn where proname = 'admin_promote_special_offer_backup'), '') like '%replacement_contact_required%' as promote_requires_declined_or_no_response,
+    coalesce((select source from fn where proname = 'admin_confirm_special_offer_winner'), '') like '%v_contact.status <> ''accepted''%' as confirm_requires_accepted,
+    coalesce((select source from fn where proname = 'admin_publish_special_offer_winner'), '') like '%publication_consent_required%' as publish_requires_consent,
+    coalesce((select source from fn where proname = 'admin_publish_special_offer_winner'), '') like '%winner_not_confirmed%' as publish_requires_confirmed_winner,
+    coalesce((select source from fn where proname = 'admin_unpublish_special_offer_winner'), '') like '%unpublish_reason_required%' as unpublish_requires_reason,
+    coalesce((select source from fn where proname = 'admin_cancel_special_offer_winner_workflow'), '') like '%winner_workflow_not_cancellable%' as cancel_blocks_published,
+    coalesce((select source from fn where proname = 'admin_reopen_special_offer_winner_workflow'), '') like '%winner_workflow_not_cancelled%' as reopen_cancelled_only,
+    coalesce((select source from fn where proname = 'update_special_offer_entry_once'), '') like '%entry_locked_by_winner_workflow%' as correction_blocks_contacting_or_later,
+    coalesce((select source from fn where proname = 'update_special_offer_entry_once'), '') like '%status = ''needs_recheck''%' as correction_marks_needs_recheck,
+    coalesce((select source from fn where proname = 'update_special_offer_entry_once'), '') like '%role = ''shortlisted''%' as correction_removes_candidate_role,
+    coalesce((select source from fn where proname = 'admin_delete_special_offer_entry'), '') like '%entry_has_winner_workflow_record%' as hard_delete_workflow_guard_present,
+    coalesce((select source from fn where proname = 'special_offer_winner_score_snapshot'), '') like '%base_points%' as score_snapshot_base_present,
+    coalesce((select source from fn where proname = 'special_offer_winner_score_snapshot'), '') like '%share_points%' as score_snapshot_share_present,
+    coalesce((select source from fn where proname = 'special_offer_winner_score_snapshot'), '') like '%comment_points%' as score_snapshot_comment_present,
+    coalesce((select source from fn where proname = 'special_offer_winner_score_snapshot'), '') like '%bonus_points%' as score_snapshot_bonus_present,
+    coalesce((select source from fn where proname = 'special_offer_winner_score_snapshot'), '') like '%total_points%' as score_snapshot_total_present,
+    coalesce((select source from fn where proname = 'special_offer_winner_score_snapshot'), '') like '%approved_activity_count%' as score_snapshot_activity_count_present,
+    coalesce((select source from fn where proname = 'special_offer_winner_score_snapshot'), '') like '%snapshot_at%' as score_snapshot_at_present
 ),
 pii_checks as (
   select
-    (select source from fn where proname = 'special_offer_winner_score_snapshot') not like '%evidence_url%'
-      and (select source from fn where proname = 'special_offer_winner_score_snapshot') not like '%email%'
-      and (select source from fn where proname = 'special_offer_winner_score_snapshot') not like '%phone%'
-      and (select source from fn where proname = 'special_offer_winner_score_snapshot') not like '%answers_json%' as score_snapshot_no_pii,
-    (select string_agg(source, ' ' order by proname) from fn where proname like 'admin_%') not like '%automatic%'
-      and (select string_agg(source, ' ' order by proname) from fn where proname like 'admin_%') not like '%random()%'
-      and (select string_agg(source, ' ' order by proname) from fn where proname like 'admin_%') not like '%draw%' as no_draw_or_random_selection,
-    (select string_agg(source, ' ' order by proname) from fn where proname like 'admin_%') not like '%evidence_url%'
-      and (select string_agg(source, ' ' order by proname) from fn where proname like 'admin_%') not like '%answers_json%'
-      and (select string_agg(source, ' ' order by proname) from fn where proname like 'admin_%') not like '%form_snapshot_json%'
-      and (select string_agg(source, ' ' order by proname) from fn where proname like 'admin_%') not like '%date_of_birth%' as admin_audit_no_form_pii
+    coalesce((select source from fn where proname = 'special_offer_winner_score_snapshot'), '') <> ''
+      and coalesce((select source from fn where proname = 'special_offer_winner_score_snapshot'), '') not like '%evidence_url%'
+      and coalesce((select source from fn where proname = 'special_offer_winner_score_snapshot'), '') not like '%email%'
+      and coalesce((select source from fn where proname = 'special_offer_winner_score_snapshot'), '') not like '%phone%'
+      and coalesce((select source from fn where proname = 'special_offer_winner_score_snapshot'), '') not like '%answers_json%' as score_snapshot_no_pii,
+    coalesce((select string_agg(source, ' ' order by proname) from fn where proname like 'admin_%'), '') not like '%automatic%'
+      and coalesce((select string_agg(source, ' ' order by proname) from fn where proname like 'admin_%'), '') not like '%random()%'
+      and coalesce((select string_agg(source, ' ' order by proname) from fn where proname like 'admin_%'), '') not like '%draw%' as no_draw_or_random_selection,
+    coalesce((select string_agg(source, ' ' order by proname) from fn where proname like 'admin_%'), '') not like '%evidence_url%'
+      and coalesce((select string_agg(source, ' ' order by proname) from fn where proname like 'admin_%'), '') not like '%answers_json%'
+      and coalesce((select string_agg(source, ' ' order by proname) from fn where proname like 'admin_%'), '') not like '%form_snapshot_json%'
+      and coalesce((select string_agg(source, ' ' order by proname) from fn where proname like 'admin_%'), '') not like '%date_of_birth%' as admin_audit_no_form_pii
 )
 select
   rt.workflows_table_exists,
@@ -311,6 +320,7 @@ select
   tg.no_public_or_anon_table_access,
   tg.no_authenticated_direct_writes,
   tg.authenticated_select_present,
+  fc.score_snapshot_rpc_exists,
   fc.readiness_rpc_exists,
   fc.start_rpc_exists,
   fc.add_shortlist_rpc_exists,
@@ -341,6 +351,7 @@ select
   sc.start_blocks_wrong_winner_mode,
   sc.start_blocks_pending_entries,
   sc.start_blocks_pending_activities,
+  sc.start_uses_readiness_summary,
   sc.shortlist_approved_only,
   sc.committee_note_entry_match_guard,
   sc.primary_role_present,
@@ -359,7 +370,12 @@ select
   sc.correction_removes_candidate_role,
   sc.hard_delete_workflow_guard_present,
   sc.score_snapshot_base_present,
+  sc.score_snapshot_share_present,
+  sc.score_snapshot_comment_present,
+  sc.score_snapshot_bonus_present,
   sc.score_snapshot_total_present,
+  sc.score_snapshot_activity_count_present,
+  sc.score_snapshot_at_present,
   pc.score_snapshot_no_pii,
   pc.no_draw_or_random_selection,
   pc.admin_audit_no_form_pii,
@@ -386,6 +402,7 @@ select
     and tg.no_public_or_anon_table_access
     and tg.no_authenticated_direct_writes
     and tg.authenticated_select_present
+    and fc.score_snapshot_rpc_exists
     and fc.readiness_rpc_exists
     and fc.start_rpc_exists
     and fc.add_shortlist_rpc_exists
@@ -416,6 +433,7 @@ select
     and sc.start_blocks_wrong_winner_mode
     and sc.start_blocks_pending_entries
     and sc.start_blocks_pending_activities
+    and sc.start_uses_readiness_summary
     and sc.shortlist_approved_only
     and sc.committee_note_entry_match_guard
     and sc.primary_role_present
@@ -434,7 +452,12 @@ select
     and sc.correction_removes_candidate_role
     and sc.hard_delete_workflow_guard_present
     and sc.score_snapshot_base_present
+    and sc.score_snapshot_share_present
+    and sc.score_snapshot_comment_present
+    and sc.score_snapshot_bonus_present
     and sc.score_snapshot_total_present
+    and sc.score_snapshot_activity_count_present
+    and sc.score_snapshot_at_present
     and pc.score_snapshot_no_pii
     and pc.no_draw_or_random_selection
     and pc.admin_audit_no_form_pii

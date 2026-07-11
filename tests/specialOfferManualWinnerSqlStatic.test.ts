@@ -12,6 +12,7 @@ describe('Special Offers manual winner selection SQL stage', () => {
   const preflight = read('supabase/manual/special_offer_manual_winner_stage1_preflight.sql');
   const sql = read('supabase/manual/special_offer_manual_winner_stage1.sql');
   const verify = read('supabase/manual/special_offer_manual_winner_stage1_verify.sql');
+  const diagnostics = read('supabase/manual/special_offer_manual_winner_stage1_verify_diagnostics.sql');
 
   test('preflight and verify are read-only and expose clear pass flags', () => {
     expect(preflight).toContain('preflight_safe_to_continue');
@@ -24,6 +25,10 @@ describe('Special Offers manual winner selection SQL stage', () => {
     expect(verify).toContain('publish_requires_consent');
     expect(verify).toContain('hard_delete_workflow_guard_present');
     expect(verify).not.toMatch(/(^|\n)\s*(insert\s+into|update\s+\w|delete\s+from|merge\s+into|truncate\s+|alter\s+|create\s+|drop\s+|grant\s+|revoke\s+)/i);
+
+    expect(diagnostics).toContain('check_name');
+    expect(diagnostics).toContain('details');
+    expect(diagnostics).not.toMatch(/(^|\n)\s*(insert\s+into|update\s+\w|delete\s+from|merge\s+into|truncate\s+|alter\s+|create\s+|drop\s+|grant\s+|revoke\s+)/i);
   });
 
   test('preflight is safe before manual winner tables exist', () => {
@@ -88,6 +93,34 @@ describe('Special Offers manual winner selection SQL stage', () => {
       expect(sql).toContain(`grant execute on function public.${name}`);
     });
     expect(sql).not.toMatch(/admin_update_special_offer_winner_status/i);
+  });
+
+  test('verify resolves readiness and score snapshot checks without NULL-prone source lookups', () => {
+    expect(verify).toContain("'special_offer_winner_score_snapshot'");
+    expect(verify).toContain('score_snapshot_rpc_exists');
+    expect(verify).toContain("proname = 'special_offer_winner_workflow_readiness'");
+    expect(verify).toContain("proname = 'admin_start_special_offer_winner_workflow'");
+    expect(verify).toContain('start_uses_readiness_summary');
+    expect(verify).toContain("coalesce((select source from fn where proname = 'special_offer_winner_score_snapshot'), '') <> ''");
+    expect(verify).not.toMatch(/proname = 'admin_start_special_offer_winner_workflow'\)\s+like\s+'%winner_selection_mode_not_manual%'/i);
+    expect(verify).not.toMatch(/select source from fn where proname = 'special_offer_winner_score_snapshot'\)\s+like/i);
+  });
+
+  test('diagnostics explains failed start and score snapshot checks without mutating data', () => {
+    [
+      'start_blocks_wrong_winner_mode',
+      'start_blocks_pending_entries',
+      'start_blocks_pending_activities',
+      'score_snapshot_base_present',
+      'score_snapshot_total_present',
+      'score_snapshot_no_pii',
+    ].forEach((name) => {
+      expect(diagnostics).toContain(name);
+    });
+    expect(diagnostics).toContain('normalized_prosrc');
+    expect(diagnostics).toContain('function_found');
+    expect(diagnostics).toContain('coalesce(pass, false)');
+    expect(diagnostics).toContain('winner_workflow_data_empty');
   });
 
   test('enforces manual workflow rules and winner publication consent', () => {

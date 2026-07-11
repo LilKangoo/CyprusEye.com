@@ -3664,6 +3664,35 @@ button.special-offer-help:focus-visible {
   position: absolute;
 }
 
+.special-offer-winner-reasons {
+  color: var(--admin-text-muted);
+  font-size: 13px;
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.special-offer-winner-group {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.special-offer-winner-group h5 {
+  color: var(--admin-text);
+  font-size: 14px;
+  margin: 0;
+}
+
+.special-offer-winner-shortlist-card {
+  gap: 14px;
+}
+
+.special-offer-checkbox-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
 @media (max-width: 1180px) {
   .special-offers-stats,
   .special-offers-workflow {

@@ -233,7 +233,7 @@ const TEXT = {
     optional: 'optional',
     commentDeadline: 'Comment deadline',
     manualReviewNotice: 'This proof will be reviewed manually. Points are not awarded automatically.',
-    manualSelectionNotice: 'Points are a supporting criterion. The winner is selected manually by the committee.',
+    manualSelectionNotice: 'Points are a supporting criterion. The winner is selected manually by the campaign owner.',
     activityPending: 'Pending',
     activityApproved: 'Approved',
     activityRejected: 'Rejected',

@@ -12,6 +12,10 @@ const SPECIAL_OFFER_ENTRIES_DETAIL_SELECT = 'id, offer_id, user_id, status, subm
 const SPECIAL_OFFER_ENTRY_ANSWERS_SELECT = 'id, entry_id, field_id, field_key, value_text, value_json, field_snapshot_json, created_at';
 const SPECIAL_OFFER_OFFICIAL_POSTS_SELECT = 'id, offer_id, post_order, week_number, admin_title, platform, official_url, external_post_id, published_at, comment_deadline_at, active, created_by, updated_by, created_at, updated_at';
 const SPECIAL_OFFER_ACTIVITIES_SELECT = 'id, offer_id, entry_id, official_post_id, activity_type, evidence_url, evidence_text, participant_reported_at, verified_activity_at, status, points_awarded, verified_at, verified_by, review_note, rejection_reason, created_by, client_submission_id, created_at, updated_at';
+const SPECIAL_OFFER_WINNER_WORKFLOWS_SELECT = 'id, offer_id, status, started_by, started_at, decision_reason, confirmed_entry_id, confirmed_at, published_at, cancelled_at, cancelled_by, created_at, updated_at';
+const SPECIAL_OFFER_WINNER_SHORTLIST_SELECT = 'id, workflow_id, offer_id, entry_id, status, role, backup_rank, score_snapshot_json, entry_status_snapshot, added_by, added_at, rechecked_by, rechecked_at, removed_by, removed_at, created_at, updated_at';
+const SPECIAL_OFFER_WINNER_CONTACT_EVENTS_SELECT = 'id, workflow_id, shortlist_id, entry_id, status, contact_started_at, response_deadline_at, accepted_at, declined_at, no_response_at, replaced_at, note_text, created_by, created_at';
+const SPECIAL_OFFER_WINNER_PUBLICATIONS_SELECT = 'id, workflow_id, offer_id, entry_id, public_name, publication_consent_confirmed, consent_confirmed_by, consent_confirmed_at, published_by, published_at, unpublished_at, unpublish_reason_present, created_at';
 
 const specialOffersState = {
   initialized: false,
@@ -69,6 +73,29 @@ const specialOffersState = {
     },
     counts: {},
   },
+  manualWinner: {
+    offerId: 'all',
+    loading: false,
+    error: '',
+    readiness: null,
+    workflows: [],
+    activeWorkflow: null,
+    shortlist: [],
+    contacts: [],
+    publications: [],
+    eligibleEntries: [],
+    entriesById: {},
+    scoresByEntryId: {},
+    activitiesByEntryId: {},
+    auditLog: [],
+    action: {
+      type: '',
+      targetId: '',
+      submitting: false,
+      error: '',
+    },
+    lastTrigger: null,
+  },
   editorMode: 'create',
   editingCampaignId: null,
   editorPrizes: [],
@@ -117,6 +144,22 @@ const SPECIAL_OFFERS_FORM_FIELD_TYPES = [
 const SPECIAL_OFFER_ENTRY_STATUSES = ['submitted', 'pending_review', 'approved', 'rejected', 'disqualified', 'withdrawn'];
 const SPECIAL_OFFER_ACTIVITY_STATUSES = ['pending', 'approved', 'rejected', 'invalid'];
 const SPECIAL_OFFER_ACTIVITY_TYPES = ['share', 'comment'];
+const SPECIAL_OFFER_WINNER_AUDIT_ACTIONS = [
+  'winner_workflow_started',
+  'winner_shortlist_added',
+  'winner_shortlist_removed',
+  'winner_shortlist_rechecked',
+  'winner_primary_selected',
+  'winner_backup_selected',
+  'winner_contact_started',
+  'winner_contact_response_recorded',
+  'winner_backup_promoted',
+  'winner_confirmed',
+  'winner_published',
+  'winner_unpublished',
+  'winner_workflow_cancelled',
+  'winner_workflow_reopened',
+];
 const SPECIAL_OFFERS_LINK_TYPES = ['cars', 'trips', 'hotels', 'transport', 'shop', 'coupons', 'vip', 'custom'];
 const SPECIAL_OFFERS_LINK_MODES = ['main', 'resource', 'custom'];
 const SPECIAL_OFFERS_RESOURCE_PICKER_TYPES = ['cars', 'trips', 'hotels', 'transport'];
@@ -309,7 +352,7 @@ const SPECIAL_OFFERS_HELP = {
     does: 'Defines how the winner will eventually be selected.',
     use: 'Manual selection means admin chooses. Weighted draw is a future draw with weights. None means no winner.',
     avoid: 'Do not choose Weighted draw expecting a draw machine in this stage.',
-    example: 'Use Manual selection for Lefkara so the commission chooses the winner later.',
+    example: 'Use Manual selection for Lefkara so the administrator chooses the winner later.',
   },
   linkType: {
     title: 'Link type',
@@ -638,6 +681,22 @@ function renderSafeExternalLink(url, label = '') {
   return `<a href="${escapeHtml(source)}" target="_blank" rel="noopener noreferrer">${escapeHtml(text)}</a>`;
 }
 
+function trapFocusWithin(container, event) {
+  if (!container || event.key !== 'Tab') return;
+  const focusable = $$('a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])', container)
+    .filter((element) => element.offsetParent !== null);
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
 function setHidden(element, hidden) {
   if (element) element.hidden = hidden;
 }
@@ -816,6 +875,12 @@ async function loadEntryDetail(entryId) {
   if (answersResult.error) throw answersResult.error;
   if (auditResult.error) throw auditResult.error;
   const activities = activitiesResult.error ? [] : toArray(activitiesResult.data);
+  const [winnerShortlistResult, winnerContactsResult, winnerPublicationsResult, winnerWorkflowsResult] = await Promise.all([
+    client.from('special_offer_winner_shortlist').select(SPECIAL_OFFER_WINNER_SHORTLIST_SELECT).eq('entry_id', entryId).order('created_at', { ascending: false }),
+    client.from('special_offer_winner_contact_events').select(SPECIAL_OFFER_WINNER_CONTACT_EVENTS_SELECT).eq('entry_id', entryId).order('created_at', { ascending: false }),
+    client.from('special_offer_winner_publications').select(SPECIAL_OFFER_WINNER_PUBLICATIONS_SELECT).eq('entry_id', entryId).order('published_at', { ascending: false }),
+    client.from('special_offer_winner_workflows').select(SPECIAL_OFFER_WINNER_WORKFLOWS_SELECT).eq('offer_id', entryResult.data.offer_id).order('created_at', { ascending: false }),
+  ]);
   const officialPostIds = [...new Set(activities.map((row) => row.official_post_id).filter(Boolean))];
   let postsById = {};
   if (officialPostIds.length) {
@@ -831,6 +896,12 @@ async function loadEntryDetail(entryId) {
     activities,
     activityPostsById: postsById,
     score: scoreResult.error ? null : toArray(scoreResult.data)[0] || null,
+    winnerSelection: {
+      shortlist: winnerShortlistResult.error ? [] : toArray(winnerShortlistResult.data),
+      contacts: winnerContactsResult.error ? [] : toArray(winnerContactsResult.data),
+      publications: winnerPublicationsResult.error ? [] : toArray(winnerPublicationsResult.data),
+      workflows: winnerWorkflowsResult.error ? [] : toArray(winnerWorkflowsResult.data),
+    },
   };
 }
 
@@ -984,6 +1055,115 @@ async function loadActivityDetail(activityId) {
   };
 }
 
+async function loadScoreForEntry(client, offerId, entryId) {
+  if (!entryId) return null;
+  const result = await client.rpc('special_offer_entry_score_summary', {
+    p_offer_id: offerId || null,
+    p_entry_id: entryId,
+  });
+  if (result.error) return null;
+  return toArray(result.data)[0] || null;
+}
+
+function getActiveWinnerWorkflow(workflows = []) {
+  return toArray(workflows).find((workflow) => String(workflow.status || '') !== 'cancelled') || null;
+}
+
+function getWinnerWorkflowBlockingReasons(readiness) {
+  const raw = String(readiness?.blocking_reason || '').trim();
+  if (!raw) return [];
+  return raw.split(',').map((item) => item.trim()).filter(Boolean);
+}
+
+async function loadManualWinnerData(offerId) {
+  const client = getSupabaseClient();
+  if (!client) throw new Error('Supabase client is not available.');
+  const selectedOfferId = offerId && offerId !== 'all' ? offerId : specialOffersState.campaigns[0]?.id || '';
+  if (!selectedOfferId) {
+    return {
+      readiness: null,
+      workflows: [],
+      activeWorkflow: null,
+      shortlist: [],
+      contacts: [],
+      publications: [],
+      eligibleEntries: [],
+      entriesById: {},
+      scoresByEntryId: {},
+      activitiesByEntryId: {},
+      auditLog: [],
+    };
+  }
+
+  const [
+    readinessResult,
+    workflowsResult,
+    allEntriesResult,
+    activitiesResult,
+    publicationsResult,
+    auditResult,
+  ] = await Promise.all([
+    client.rpc('special_offer_winner_workflow_readiness', { p_offer_id: selectedOfferId }),
+    client.from('special_offer_winner_workflows').select(SPECIAL_OFFER_WINNER_WORKFLOWS_SELECT).eq('offer_id', selectedOfferId).order('created_at', { ascending: false }),
+    client.from('special_offer_entries').select(SPECIAL_OFFER_ENTRIES_LIST_SELECT).eq('offer_id', selectedOfferId).order('created_at', { ascending: true }),
+    client.from('special_offer_entry_activities').select(SPECIAL_OFFER_ACTIVITIES_SELECT).eq('offer_id', selectedOfferId).order('created_at', { ascending: false }),
+    client.from('special_offer_winner_publications').select(SPECIAL_OFFER_WINNER_PUBLICATIONS_SELECT).eq('offer_id', selectedOfferId).order('published_at', { ascending: false }),
+    client.from('special_offer_audit_log').select(SPECIAL_OFFERS_AUDIT_SELECT).eq('offer_id', selectedOfferId).in('action', SPECIAL_OFFER_WINNER_AUDIT_ACTIONS).order('created_at', { ascending: false }).limit(50),
+  ]);
+
+  if (readinessResult.error) throw readinessResult.error;
+  if (workflowsResult.error) throw workflowsResult.error;
+  if (allEntriesResult.error) throw allEntriesResult.error;
+  if (activitiesResult.error) throw activitiesResult.error;
+  if (publicationsResult.error) throw publicationsResult.error;
+  if (auditResult.error) throw auditResult.error;
+
+  const workflows = toArray(workflowsResult.data);
+  const activeWorkflow = getActiveWinnerWorkflow(workflows);
+  let shortlist = [];
+  let contacts = [];
+  if (activeWorkflow?.id) {
+    const [shortlistResult, contactsResult] = await Promise.all([
+      client.from('special_offer_winner_shortlist').select(SPECIAL_OFFER_WINNER_SHORTLIST_SELECT).eq('workflow_id', activeWorkflow.id).order('added_at', { ascending: true }),
+      client.from('special_offer_winner_contact_events').select(SPECIAL_OFFER_WINNER_CONTACT_EVENTS_SELECT).eq('workflow_id', activeWorkflow.id).order('created_at', { ascending: false }),
+    ]);
+    if (shortlistResult.error) throw shortlistResult.error;
+    if (contactsResult.error) throw contactsResult.error;
+    shortlist = toArray(shortlistResult.data);
+    contacts = toArray(contactsResult.data);
+  }
+
+  const entries = toArray(allEntriesResult.data);
+  const activeShortlistEntryIds = new Set(
+    shortlist
+      .filter((row) => ['active', 'needs_recheck'].includes(String(row.status || '')))
+      .map((row) => String(row.entry_id))
+  );
+  const eligibleEntries = entries.filter((entry) => (
+    String(entry.status || '') === 'approved'
+    && !activeShortlistEntryIds.has(String(entry.id))
+  ));
+  const entryIds = [...new Set([
+    ...entries.map((entry) => entry.id),
+    ...shortlist.map((row) => row.entry_id),
+  ].filter(Boolean))];
+  const scores = await Promise.all(entryIds.map(async (entryId) => [entryId, await loadScoreForEntry(client, selectedOfferId, entryId)]));
+  const activitiesByEntryId = groupByParentId(toArray(activitiesResult.data), 'entry_id');
+  return {
+    readiness: toArray(readinessResult.data)[0] || null,
+    workflows,
+    activeWorkflow,
+    shortlist,
+    contacts,
+    publications: toArray(publicationsResult.data),
+    eligibleEntries,
+    entriesById: Object.fromEntries(entries.map((row) => [row.id, row])),
+    scoresByEntryId: Object.fromEntries(scores),
+    activitiesByEntryId,
+    auditLog: toArray(auditResult.data),
+  };
+}
+
 function renderStatusChip(value, type = 'status') {
   const normalized = String(value || 'unknown').toLowerCase();
   const className = `special-offer-status-chip special-offer-status-chip--${escapeHtml(normalized)}`;
@@ -1030,6 +1210,7 @@ function renderCampaignCard(campaign) {
         <button class="btn-secondary btn-small" type="button" data-special-offers-view="${escapeHtml(campaign.id)}">View details</button>
         <button class="btn-secondary btn-small" type="button" data-special-offers-open-entries="${escapeHtml(campaign.id)}">Entries</button>
         <button class="btn-secondary btn-small" type="button" data-special-offers-open-manual-verification="${escapeHtml(campaign.id)}">Manual verification</button>
+        <button class="btn-secondary btn-small" type="button" data-special-offers-open-manual-winner="${escapeHtml(campaign.id)}" ${campaign.winner_selection_mode === 'manual_selection' ? '' : 'disabled title="Manual winner selection requires winner_selection_mode = manual_selection."'}>Manual winner selection</button>
         <a class="btn-secondary btn-small" href="${escapeHtml(publicUrl)}" target="_blank" rel="noopener noreferrer" data-special-offers-public-url="${escapeHtml(publicUrl)}">Preview public page</a>
         <a class="btn-secondary btn-small" href="${escapeHtml(previewUrl)}" target="_blank" rel="noopener noreferrer" data-special-offers-preview-url="${escapeHtml(previewUrl)}">Admin preview</a>
         <button class="btn-secondary btn-small" type="button" data-special-offers-copy-preview-url="${escapeHtml(campaign.id)}">Copy admin preview URL</button>
@@ -1185,7 +1366,7 @@ function renderManualVerificationNotice() {
   return `
     <div class="special-offer-manual-notice" role="note">
       <strong>Manual selection remains active.</strong>
-      Points are a supporting criterion for the commission. This panel does not select winners automatically, run a draw or publish results.
+      Points are a supporting criterion for the administrator. This panel does not select winners automatically, run a draw or publish results.
     </div>
   `;
 }
@@ -1559,6 +1740,519 @@ function renderManualVerificationBody() {
   `;
 }
 
+function renderManualWinnerNotice() {
+  return `
+    <div class="special-offer-manual-notice" role="note">
+      <strong>The winner is selected manually by the administrator.</strong>
+      <span>Points are a supporting criterion only. This panel does not run a draw, send messages or select a winner automatically.</span>
+    </div>
+  `;
+}
+
+function renderManualWinnerFilters() {
+  const state = specialOffersState.manualWinner;
+  return `
+    <div class="special-offer-entry-filters">
+      <label>
+        Campaign
+        <select data-special-offers-winner-offer>
+          ${specialOffersState.campaigns.map((campaign) => `<option value="${escapeHtml(campaign.id)}"${String(state.offerId) === String(campaign.id) ? ' selected' : ''}>${escapeHtml(formatCampaignTitle(campaign))}</option>`).join('')}
+        </select>
+      </label>
+      <button class="btn-secondary btn-small" type="button" data-special-offers-winner-refresh>Refresh</button>
+    </div>
+  `;
+}
+
+function renderReadinessBlockingReasons(readiness) {
+  const reasons = getWinnerWorkflowBlockingReasons(readiness);
+  if (!reasons.length) return '<p class="special-offer-editor-muted">No backend blocking reason reported.</p>';
+  return `
+    <ul class="special-offer-winner-reasons">
+      ${reasons.map((reason) => `<li>${escapeHtml(titleCase(reason))}</li>`).join('')}
+    </ul>
+  `;
+}
+
+function renderManualWinnerReadiness() {
+  const state = specialOffersState.manualWinner;
+  const readiness = state.readiness;
+  const campaign = getCampaignById(state.offerId);
+  if (!readiness) {
+    return '<div class="special-offer-entry-state">Readiness summary is not available yet.</div>';
+  }
+  const canStart = Boolean(readiness.can_start_workflow);
+  const runningCampaign = readiness.campaign_ended === false;
+  return `
+    <section class="special-offers-detail-panel special-offers-detail-panel--wide">
+      <div class="special-offer-entry-section-heading">
+        <div>
+          <h4>Workflow readiness</h4>
+          <p class="special-offer-editor-muted">Final selection can start only after the campaign has ended and all pending reviews are resolved.</p>
+        </div>
+      </div>
+      ${renderDetailRows([
+        ['Campaign', campaign ? formatCampaignTitle(campaign) : shortId(state.offerId)],
+        ['Campaign status', titleCase(readiness.campaign_status)],
+        ['End at', formatDateTime(readiness.campaign_end_at)],
+        ['Winner selection mode', titleCase(readiness.winner_selection_mode)],
+        ['Campaign ended', readiness.campaign_ended ? 'Yes' : 'No'],
+        ['Approved entries', readiness.approved_entries_count ?? 0],
+        ['Pending entry reviews', readiness.pending_review_entries_count ?? 0],
+        ['Pending activities', readiness.pending_activities_count ?? 0],
+        ['Approved activities', readiness.approved_activities_count ?? 0],
+        ['Active workflow', readiness.active_workflow_exists ? 'Yes' : 'No'],
+        ['Can start workflow', canStart ? 'Yes' : 'No'],
+      ])}
+      ${!canStart ? `
+        <div class="special-offer-entry-state">
+          <strong>${runningCampaign ? 'Selection is disabled while the campaign is still running.' : 'Selection is currently blocked.'}</strong>
+          ${renderReadinessBlockingReasons(readiness)}
+        </div>
+      ` : renderManualWinnerStartForm()}
+    </section>
+  `;
+}
+
+function renderManualWinnerStartForm() {
+  const state = specialOffersState.manualWinner;
+  const isOpen = state.action.type === 'start';
+  if (!isOpen) {
+    return `
+      <button class="btn-primary btn-small" type="button" data-special-offers-winner-action="start">Start manual selection</button>
+    `;
+  }
+  return `
+    <form class="special-offer-entry-review-form" data-special-offers-winner-action-form="start">
+      <h5>Start manual winner selection</h5>
+      <p class="special-offer-editor-warning">This is not a draw. Points are a supporting criterion only and do not select the winner automatically.</p>
+      ${state.action.error ? `<div class="special-offer-entry-state special-offer-entry-state--error">${escapeHtml(state.action.error)}</div>` : ''}
+      <label>Reason *
+        <textarea name="reason" rows="3" maxlength="2000" required placeholder="Internal reason for starting manual selection"></textarea>
+      </label>
+      <div class="special-offer-editor-actions">
+        <button class="btn-primary btn-small" type="submit" ${state.action.submitting ? 'disabled' : ''}>Confirm start</button>
+        <button class="btn-secondary btn-small" type="button" data-special-offers-winner-action-cancel>Cancel</button>
+      </div>
+    </form>
+  `;
+}
+
+function formatParticipantDisplayName(entry) {
+  return [entry?.first_name, entry?.last_name].filter(Boolean).join(' ').trim() || maskEmail(entry?.normalized_email);
+}
+
+function renderWinnerScoreCells(score) {
+  return `
+    <td>${escapeHtml(String(Number(score?.base_points || 0)))}</td>
+    <td>${escapeHtml(String(Number(score?.share_points || 0)))}</td>
+    <td>${escapeHtml(String(Number(score?.comment_points || 0)))}</td>
+    <td>${escapeHtml(String(Number(score?.bonus_points || 0)))}</td>
+    <td><strong>${escapeHtml(String(Number(score?.total_points || 0)))}</strong></td>
+    <td>${escapeHtml(String(Number(score?.approved_activity_count || 0)))}</td>
+  `;
+}
+
+function renderEligibleEntriesSection() {
+  const state = specialOffersState.manualWinner;
+  const workflow = state.activeWorkflow;
+  const rows = toArray(state.eligibleEntries);
+  return `
+    <section class="special-offers-detail-panel special-offers-detail-panel--wide">
+      <div class="special-offer-entry-section-heading">
+        <div>
+          <h4>Eligible entries</h4>
+          <p class="special-offer-editor-muted">Only approved entries are shown. The default order is submission time, not points.</p>
+        </div>
+      </div>
+      ${!workflow ? '<p class="special-offers-empty-copy">Start a workflow after readiness passes to add entries to the shortlist.</p>' : ''}
+      ${rows.length ? `
+        <div class="special-offer-entry-table-wrap">
+          <table class="special-offer-entry-table">
+            <thead>
+              <tr>
+                <th>Reference</th>
+                <th>Participant</th>
+                <th>Submitted</th>
+                <th>Status</th>
+                <th>Base</th>
+                <th>Share</th>
+                <th>Comment</th>
+                <th>Bonus</th>
+                <th>Total</th>
+                <th>Approved activities</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map((entry) => {
+                const score = state.scoresByEntryId[entry.id] || null;
+                return `
+                  <tr>
+                    <td><strong>${escapeHtml(entry.reference || shortId(entry.id))}</strong></td>
+                    <td>${escapeHtml(formatParticipantDisplayName(entry))}</td>
+                    <td>${escapeHtml(formatDateTime(entry.created_at))}</td>
+                    <td>${renderStatusChip(entry.status, 'entry-status')}</td>
+                    ${renderWinnerScoreCells(score)}
+                    <td>
+                      <button class="btn-secondary btn-small" type="button" data-special-offers-entry-full-form="${escapeHtml(entry.id)}">View form</button>
+                      <button class="btn-secondary btn-small" type="button" data-special-offers-winner-view-activities="${escapeHtml(entry.id)}">View activities</button>
+                      <button class="btn-primary btn-small" type="button" data-special-offers-winner-add-shortlist="${escapeHtml(entry.id)}" ${workflow ? '' : 'disabled'}>Add to shortlist</button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      ` : '<p class="special-offers-empty-copy">No approved entries are currently eligible for shortlist.</p>'}
+    </section>
+  `;
+}
+
+function getContactForShortlist(shortlistId) {
+  return toArray(specialOffersState.manualWinner.contacts).find((row) => String(row.shortlist_id) === String(shortlistId)) || null;
+}
+
+function getActivePublicationForWorkflow(workflowId) {
+  return toArray(specialOffersState.manualWinner.publications)
+    .find((row) => String(row.workflow_id) === String(workflowId) && !row.unpublished_at) || null;
+}
+
+function hasDeclinedOrNoResponsePrimaryContact() {
+  const state = specialOffersState.manualWinner;
+  const primaryIds = new Set(toArray(state.shortlist)
+    .filter((row) => row.status === 'active' && row.role === 'primary')
+    .map((row) => String(row.id)));
+  return toArray(state.contacts).some((contact) => (
+    primaryIds.has(String(contact.shortlist_id))
+    && ['declined', 'no_response'].includes(String(contact.status || ''))
+  ));
+}
+
+function renderScoreSnapshot(snapshot) {
+  const score = snapshot && typeof snapshot === 'object' ? snapshot : {};
+  return `
+    <div class="special-offer-score-grid">
+      ${[
+        ['Base', score.base_points],
+        ['Share', score.share_points],
+        ['Comment', score.comment_points],
+        ['Bonus', score.bonus_points],
+        ['Total', score.total_points],
+        ['Approved activities', score.approved_activity_count],
+      ].map(([label, value]) => `
+        <span class="special-offer-entry-count"><strong>${escapeHtml(String(Number(value || 0)))}</strong>${escapeHtml(label)}</span>
+      `).join('')}
+    </div>
+    <p class="special-offer-editor-muted">Snapshot at: ${escapeHtml(formatDateTime(score.snapshot_at))}. Current score may differ.</p>
+  `;
+}
+
+function renderWinnerInlineActionForm(type, targetId) {
+  const state = specialOffersState.manualWinner;
+  if (state.action.type !== type || String(state.action.targetId || '') !== String(targetId || '')) return '';
+  const reasonPlaceholder = 'Internal reason for this manual decision';
+  const hasError = state.action.error ? `<div class="special-offer-entry-state special-offer-entry-state--error">${escapeHtml(state.action.error)}</div>` : '';
+  if (type === 'backup') {
+    return `
+      <form class="special-offer-entry-review-form" data-special-offers-winner-action-form="backup" data-winner-action-target="${escapeHtml(targetId)}">
+        <h5>Set backup candidate</h5>
+        ${hasError}
+        <label>Backup rank *
+          <input name="backup_rank" type="number" min="1" required />
+        </label>
+        <label>Reason *
+          <textarea name="reason" rows="2" maxlength="2000" required placeholder="${escapeHtml(reasonPlaceholder)}"></textarea>
+        </label>
+        <div class="special-offer-editor-actions">
+          <button class="btn-primary btn-small" type="submit" ${state.action.submitting ? 'disabled' : ''}>Confirm backup</button>
+          <button class="btn-secondary btn-small" type="button" data-special-offers-winner-action-cancel>Cancel</button>
+        </div>
+      </form>
+    `;
+  }
+  if (type === 'contact') {
+    return `
+      <form class="special-offer-entry-review-form" data-special-offers-winner-action-form="contact" data-winner-action-target="${escapeHtml(targetId)}">
+        <h5>Record manual contact start</h5>
+        <p class="special-offer-editor-muted">Contact is handled outside the platform. The system does not send messages automatically. Record only the result of manual contact here.</p>
+        ${hasError}
+        <label>Response deadline *
+          <input name="response_deadline_at" type="datetime-local" required />
+        </label>
+        <label>Private note
+          <textarea name="note_text" rows="2" maxlength="2000" placeholder="Optional internal contact note"></textarea>
+        </label>
+        <div class="special-offer-editor-actions">
+          <button class="btn-primary btn-small" type="submit" ${state.action.submitting ? 'disabled' : ''}>Save contact start</button>
+          <button class="btn-secondary btn-small" type="button" data-special-offers-winner-action-cancel>Cancel</button>
+        </div>
+      </form>
+    `;
+  }
+  if (type === 'response') {
+    return `
+      <form class="special-offer-entry-review-form" data-special-offers-winner-action-form="response" data-winner-action-target="${escapeHtml(targetId)}">
+        <h5>Record manual contact result</h5>
+        <p class="special-offer-editor-muted">No message is sent. This only records the result of contact handled outside the platform.</p>
+        ${hasError}
+        <label>Status *
+          <select name="response_status" required>
+            <option value="accepted">Accepted</option>
+            <option value="declined">Declined</option>
+            <option value="no_response">No response</option>
+          </select>
+        </label>
+        <label>Private note
+          <textarea name="note_text" rows="2" maxlength="2000" placeholder="Optional internal contact note"></textarea>
+        </label>
+        <div class="special-offer-editor-actions">
+          <button class="btn-primary btn-small" type="submit" ${state.action.submitting ? 'disabled' : ''}>Save contact result</button>
+          <button class="btn-secondary btn-small" type="button" data-special-offers-winner-action-cancel>Cancel</button>
+        </div>
+      </form>
+    `;
+  }
+  if (type === 'publish') {
+    return `
+      <form class="special-offer-entry-review-form" data-special-offers-winner-action-form="publish" data-winner-action-target="${escapeHtml(targetId)}">
+        <h5>Publish winner result</h5>
+        <p class="special-offer-editor-warning">Public name must be typed manually and consent must be confirmed before publishing.</p>
+        ${hasError}
+        <label>Public name *
+          <input name="public_name" type="text" maxlength="160" required autocomplete="off" />
+        </label>
+        <label class="special-offer-checkbox-row">
+          <input name="publication_consent_confirmed" type="checkbox" required />
+          Publication consent has been confirmed.
+        </label>
+        <label>Reason *
+          <textarea name="reason" rows="2" maxlength="1000" required placeholder="${escapeHtml(reasonPlaceholder)}"></textarea>
+        </label>
+        <div class="special-offer-editor-actions">
+          <button class="btn-primary btn-small" type="submit" ${state.action.submitting ? 'disabled' : ''}>Publish winner</button>
+          <button class="btn-secondary btn-small" type="button" data-special-offers-winner-action-cancel>Cancel</button>
+        </div>
+      </form>
+    `;
+  }
+  return `
+    <form class="special-offer-entry-review-form" data-special-offers-winner-action-form="${escapeHtml(type)}" data-winner-action-target="${escapeHtml(targetId)}">
+      <h5>${escapeHtml(titleCase(type))}</h5>
+      ${hasError}
+      <label>Reason *
+        <textarea name="reason" rows="2" maxlength="2000" required placeholder="${escapeHtml(reasonPlaceholder)}"></textarea>
+      </label>
+      <div class="special-offer-editor-actions">
+        <button class="btn-primary btn-small" type="submit" ${state.action.submitting ? 'disabled' : ''}>Confirm</button>
+        <button class="btn-secondary btn-small" type="button" data-special-offers-winner-action-cancel>Cancel</button>
+      </div>
+    </form>
+  `;
+}
+
+function renderShortlistActions(item, contact) {
+  const workflowStatus = String(specialOffersState.manualWinner.activeWorkflow?.status || '');
+  const needsRecheck = item.status === 'needs_recheck';
+  const isRemoved = item.status === 'removed';
+  const terminalContact = ['accepted', 'declined', 'no_response', 'replaced'].includes(String(contact?.status || ''));
+  if (isRemoved) return '<p class="special-offer-editor-muted">This shortlist item was removed.</p>';
+  return `
+    <div class="special-offer-entry-review-actions">
+      <button class="btn-secondary btn-small" type="button" data-special-offers-entry-full-form="${escapeHtml(item.entry_id)}">View form</button>
+      <button class="btn-secondary btn-small" type="button" data-special-offers-winner-view-activities="${escapeHtml(item.entry_id)}">View activities</button>
+      ${needsRecheck ? `<button class="btn-primary btn-small" type="button" data-special-offers-winner-action="recheck" data-winner-action-target="${escapeHtml(item.id)}">Mark rechecked</button>` : ''}
+      <button class="btn-secondary btn-small" type="button" data-special-offers-winner-action="primary" data-winner-action-target="${escapeHtml(item.id)}" ${needsRecheck ? 'disabled title="Needs recheck before role assignment."' : ''}>Set primary</button>
+      <button class="btn-secondary btn-small" type="button" data-special-offers-winner-action="backup" data-winner-action-target="${escapeHtml(item.id)}" ${needsRecheck ? 'disabled title="Needs recheck before role assignment."' : ''}>Set backup</button>
+      ${item.role === 'primary' && !contact ? `<button class="btn-secondary btn-small" type="button" data-special-offers-winner-action="contact" data-winner-action-target="${escapeHtml(item.id)}">Start manual contact</button>` : ''}
+      ${contact && contact.status === 'contact_started' ? `<button class="btn-secondary btn-small" type="button" data-special-offers-winner-action="response" data-winner-action-target="${escapeHtml(contact.id)}">Record response</button>` : ''}
+      ${item.role === 'backup' && hasDeclinedOrNoResponsePrimaryContact() ? `<button class="btn-secondary btn-small" type="button" data-special-offers-winner-action="promote" data-winner-action-target="${escapeHtml(item.id)}">Promote backup</button>` : ''}
+      ${item.role === 'primary' && contact?.status === 'accepted' && !['winner_confirmed', 'published'].includes(workflowStatus) ? `<button class="btn-primary btn-small" type="button" data-special-offers-winner-action="confirm" data-winner-action-target="${escapeHtml(contact.id)}">Confirm winner</button>` : ''}
+      ${terminalContact ? '' : `<button class="btn-danger btn-small" type="button" data-special-offers-winner-action="remove" data-winner-action-target="${escapeHtml(item.id)}">Remove from shortlist</button>`}
+    </div>
+  `;
+}
+
+function renderShortlistGroup(title, rows) {
+  const state = specialOffersState.manualWinner;
+  if (!rows.length) return '';
+  return `
+    <div class="special-offer-winner-group">
+      <h5>${escapeHtml(title)}</h5>
+      <div class="special-offer-entry-answers">
+        ${rows.map((item) => {
+          const entry = state.entriesById[item.entry_id] || {};
+          const currentScore = state.scoresByEntryId[item.entry_id] || null;
+          const contact = getContactForShortlist(item.id);
+          return `
+            <article class="special-offer-entry-answer special-offer-winner-shortlist-card">
+              <div>
+                <strong>${escapeHtml(entry.reference || shortId(item.entry_id))} · ${escapeHtml(formatParticipantDisplayName(entry))}</strong>
+                <span>${escapeHtml(titleCase(item.status))} · ${escapeHtml(titleCase(item.role))}${item.backup_rank ? ` #${escapeHtml(item.backup_rank)}` : ''} · Added ${escapeHtml(formatDateTime(item.added_at))}</span>
+              </div>
+              ${item.status === 'needs_recheck' ? '<p class="special-offer-editor-warning">This entry was corrected after shortlist/candidate selection and needs recheck before role assignment.</p>' : ''}
+              <div class="special-offers-detail-grid">
+                <section class="special-offers-detail-panel">
+                  <h5>Saved score snapshot</h5>
+                  ${renderScoreSnapshot(item.score_snapshot_json)}
+                </section>
+                <section class="special-offers-detail-panel">
+                  <h5>Current score</h5>
+                  ${renderScoreSummary(currentScore)}
+                </section>
+                <section class="special-offers-detail-panel">
+                  <h5>Contact</h5>
+                  ${renderDetailRows([
+                    ['Status', titleCase(contact?.status || 'not_started')],
+                    ['Started at', formatDateTime(contact?.contact_started_at)],
+                    ['Deadline', formatDateTime(contact?.response_deadline_at)],
+                    ['Accepted at', formatDateTime(contact?.accepted_at)],
+                    ['Declined at', formatDateTime(contact?.declined_at)],
+                    ['No response at', formatDateTime(contact?.no_response_at)],
+                  ])}
+                  <p class="special-offer-editor-muted">Contact is handled outside the platform. The system does not send messages automatically.</p>
+                </section>
+              </div>
+              ${renderShortlistActions(item, contact)}
+              ${renderWinnerInlineActionForm('primary', item.id)}
+              ${renderWinnerInlineActionForm('backup', item.id)}
+              ${renderWinnerInlineActionForm('remove', item.id)}
+              ${renderWinnerInlineActionForm('contact', item.id)}
+              ${contact ? renderWinnerInlineActionForm('response', contact.id) : ''}
+              ${renderWinnerInlineActionForm('promote', item.id)}
+              ${contact ? renderWinnerInlineActionForm('confirm', contact.id) : ''}
+            </article>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderShortlistSection() {
+  const state = specialOffersState.manualWinner;
+  const workflow = state.activeWorkflow;
+  if (!workflow) {
+    return `
+      <section class="special-offers-detail-panel special-offers-detail-panel--wide">
+        <h4>Shortlist</h4>
+        <p class="special-offers-empty-copy">No active manual winner workflow exists yet.</p>
+      </section>
+    `;
+  }
+  const rows = toArray(state.shortlist);
+  const activeRows = rows.filter((row) => row.status !== 'removed');
+  const primary = activeRows.filter((row) => row.role === 'primary');
+  const backups = activeRows.filter((row) => row.role === 'backup').sort((a, b) => Number(a.backup_rank || 0) - Number(b.backup_rank || 0));
+  const needsRecheck = activeRows.filter((row) => row.status === 'needs_recheck');
+  const rest = activeRows.filter((row) => row.role === 'shortlisted' && row.status !== 'needs_recheck');
+  const removed = rows.filter((row) => row.status === 'removed');
+  const publication = getActivePublicationForWorkflow(workflow.id);
+  return `
+    <section class="special-offers-detail-panel special-offers-detail-panel--wide">
+      <div class="special-offer-entry-section-heading">
+        <div>
+          <h4>Shortlist</h4>
+          <p class="special-offer-editor-muted">Roles are assigned manually. Score snapshots are historical support data only.</p>
+        </div>
+        ${renderStatusChip(workflow.status, 'winner-workflow')}
+      </div>
+      ${renderDetailRows([
+        ['Workflow status', titleCase(workflow.status)],
+        ['Started at', formatDateTime(workflow.started_at)],
+        ['Confirmed entry', workflow.confirmed_entry_id ? shortId(workflow.confirmed_entry_id) : 'Not set'],
+        ['Confirmed at', formatDateTime(workflow.confirmed_at)],
+        ['Published at', formatDateTime(workflow.published_at)],
+      ])}
+      ${workflow.status === 'winner_confirmed' && !publication ? `
+        <button class="btn-primary btn-small" type="button" data-special-offers-winner-action="publish" data-winner-action-target="${escapeHtml(workflow.id)}">Publish winner result</button>
+        ${renderWinnerInlineActionForm('publish', workflow.id)}
+      ` : ''}
+      ${publication ? `
+        <div class="special-offer-entry-state">
+          <strong>Winner result is published as:</strong> ${escapeHtml(publication.public_name)}
+          <button class="btn-secondary btn-small" type="button" data-special-offers-winner-action="unpublish" data-winner-action-target="${escapeHtml(publication.id)}">Unpublish</button>
+          ${renderWinnerInlineActionForm('unpublish', publication.id)}
+        </div>
+      ` : ''}
+      ${rows.length ? `
+        ${renderShortlistGroup('Primary candidate', primary)}
+        ${renderShortlistGroup('Backup candidates', backups)}
+        ${renderShortlistGroup('Needs recheck', needsRecheck)}
+        ${renderShortlistGroup('Shortlisted entries', rest)}
+        ${renderShortlistGroup('Removed history', removed)}
+      ` : '<p class="special-offers-empty-copy">No entries have been added to the shortlist yet.</p>'}
+    </section>
+  `;
+}
+
+function renderWinnerEntryActivities(entryId) {
+  const rows = toArray(specialOffersState.manualWinner.activitiesByEntryId?.[entryId]);
+  if (!rows.length) return '<p class="special-offers-empty-copy">No verified or pending activities are linked to this entry.</p>';
+  return `
+    <div class="special-offer-entry-answers">
+      ${rows.map((activity) => `
+        <article class="special-offer-entry-answer">
+          <div>
+            <strong>${escapeHtml(titleCase(activity.activity_type))}</strong>
+            <span>${escapeHtml(titleCase(activity.status))} · ${escapeHtml(String(activity.points_awarded || 0))} point</span>
+          </div>
+          <p>Created: ${escapeHtml(formatDateTime(activity.created_at))} · Verified: ${escapeHtml(formatDateTime(activity.verified_at))}</p>
+          <button class="btn-secondary btn-small" type="button" data-special-offers-activity-detail="${escapeHtml(activity.id)}">Open activity detail</button>
+        </article>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderWinnerAuditTrail() {
+  const rows = toArray(specialOffersState.manualWinner.auditLog);
+  if (!rows.length) return '<p class="special-offers-empty-copy">No winner workflow audit entries yet.</p>';
+  return `
+    <section class="special-offers-detail-panel special-offers-detail-panel--wide">
+      <h4>Winner workflow audit</h4>
+      <div class="special-offer-entry-audit">
+        ${rows.map((row) => {
+          const metadata = row?.metadata && typeof row.metadata === 'object' ? row.metadata : {};
+          const oldStatus = row?.old_value?.status || row?.old_value?.old_status || metadata.old_status || '—';
+          const newStatus = row?.new_value?.status || row?.new_value?.new_status || metadata.new_status || '—';
+          return `
+            <article class="special-offer-entry-audit-row">
+              <strong>${escapeHtml(titleCase(row.action || 'audit'))}</strong>
+              <span>${escapeHtml(formatDateTime(row.created_at))}</span>
+              <span>${escapeHtml(titleCase(oldStatus))} → ${escapeHtml(titleCase(newStatus))}</span>
+              <span>Role: ${escapeHtml(titleCase(metadata.role || row?.new_value?.role || '—'))}</span>
+              <span>Backup rank: ${escapeHtml(metadata.backup_rank ?? row?.new_value?.backup_rank ?? '—')}</span>
+              <span>Reason present: ${metadata.reason_present ? 'yes' : 'no'}</span>
+            </article>
+          `;
+        }).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function renderManualWinnerBody() {
+  const state = specialOffersState.manualWinner;
+  if (state.loading) return '<div class="special-offer-entry-state">Loading manual winner selection...</div>';
+  if (state.error) {
+    return `
+      ${renderManualWinnerFilters()}
+      <div class="special-offer-entry-state special-offer-entry-state--error">${escapeHtml(state.error)}</div>
+      <button class="btn-secondary btn-small" type="button" data-special-offers-winner-refresh>Retry</button>
+    `;
+  }
+  return `
+    ${renderManualWinnerNotice()}
+    ${renderManualWinnerFilters()}
+    ${renderManualWinnerReadiness()}
+    ${renderEligibleEntriesSection()}
+    ${renderShortlistSection()}
+    ${renderWinnerAuditTrail()}
+  `;
+}
+
 function getFieldSnapshot(answer) {
   return answer?.field_snapshot_json && typeof answer.field_snapshot_json === 'object' ? answer.field_snapshot_json : {};
 }
@@ -1739,7 +2433,39 @@ function renderScoreSummary(score) {
         </span>
       `).join('')}
     </div>
-    <p class="special-offer-editor-muted">Points are a supporting criterion. The winner is selected manually by the commission.</p>
+    <p class="special-offer-editor-muted">Points are a supporting criterion. The winner is selected manually by the administrator.</p>
+  `;
+}
+
+function renderEntryWinnerSelection(detail) {
+  const winner = detail?.winnerSelection || {};
+  const shortlist = toArray(winner.shortlist);
+  const contacts = toArray(winner.contacts);
+  const publications = toArray(winner.publications);
+  const workflows = toArray(winner.workflows);
+  if (!shortlist.length && !contacts.length && !publications.length) {
+    return '<p class="special-offers-empty-copy">This entry is not linked to a manual winner workflow.</p>';
+  }
+  const latestShortlist = shortlist[0] || {};
+  const workflow = workflows.find((row) => String(row.id) === String(latestShortlist.workflow_id)) || workflows[0] || {};
+  const latestContact = contacts[0] || {};
+  const latestPublication = publications[0] || {};
+  return `
+    ${renderDetailRows([
+      ['Workflow status', titleCase(workflow.status || 'not linked')],
+      ['Shortlist status', titleCase(latestShortlist.status || 'not shortlisted')],
+      ['Role', titleCase(latestShortlist.role || 'not set')],
+      ['Backup rank', latestShortlist.backup_rank ?? 'Not set'],
+      ['Needs recheck', latestShortlist.status === 'needs_recheck' ? 'Yes' : 'No'],
+      ['Entry status snapshot', titleCase(latestShortlist.entry_status_snapshot || 'not set')],
+      ['Contact status', titleCase(latestContact.status || 'not_started')],
+      ['Confirmed winner', workflow.confirmed_entry_id === detail?.entry?.id ? 'Yes' : 'No'],
+      ['Publication status', latestPublication.id && !latestPublication.unpublished_at ? 'Published' : latestPublication.unpublished_at ? 'Unpublished' : 'Not published'],
+    ])}
+    ${latestShortlist.score_snapshot_json ? `
+      <h5>Saved score snapshot</h5>
+      ${renderScoreSnapshot(latestShortlist.score_snapshot_json)}
+    ` : ''}
   `;
 }
 
@@ -3747,12 +4473,11 @@ function activateNestedLanguage(button) {
   const descriptor = button.getAttribute('data-special-offers-nested-lang-tab');
   const root = button.closest('[data-special-offers-prize], [data-special-offers-link], [data-special-offers-form-field]');
   if (!descriptor || !root) return;
-  const [type, parentId, lang] = descriptor.split(':');
   $$('[data-special-offers-nested-lang-tab]', root).forEach((tab) => {
     tab.classList.toggle('is-active', tab === button);
   });
   $$('[data-special-offers-nested-lang-panel]', root).forEach((panel) => {
-    panel.hidden = panel.getAttribute('data-special-offers-nested-lang-panel') !== `${type}:${parentId}:${lang}`;
+    panel.hidden = panel.getAttribute('data-special-offers-nested-lang-panel') !== descriptor;
   });
 }
 
@@ -4536,6 +5261,7 @@ function openCampaignDetails(campaignId) {
             >Edit campaign</button>
             <button class="btn-secondary btn-small" type="button" data-special-offers-open-entries="${escapeHtml(campaign.id)}">Entries</button>
             <button class="btn-secondary btn-small" type="button" data-special-offers-open-manual-verification="${escapeHtml(campaign.id)}">Manual verification</button>
+            <button class="btn-secondary btn-small" type="button" data-special-offers-open-manual-winner="${escapeHtml(campaign.id)}" ${campaign.winner_selection_mode === 'manual_selection' ? '' : 'disabled title="Manual winner selection requires winner_selection_mode = manual_selection."'}>Manual winner selection</button>
             <button class="btn-secondary btn-small" type="button" disabled title="Draw machine not configured yet">Draw</button>
           </div>
         </section>
@@ -5138,6 +5864,10 @@ function renderEntryDetails() {
         ${renderEntryActivities(detail)}
       </section>
       <section class="special-offers-detail-panel special-offers-detail-panel--wide">
+        <h4>Winner selection</h4>
+        ${renderEntryWinnerSelection(detail)}
+      </section>
+      <section class="special-offers-detail-panel special-offers-detail-panel--wide">
         <h4>Review actions</h4>
         ${renderReviewActions(entry)}
         ${renderReviewForm(specialOffersState.entries.reviewAction)}
@@ -5511,6 +6241,317 @@ async function submitActivityReview(form) {
   } finally {
     specialOffersState.manualVerification.activities.reviewing = false;
     renderActivityDetail();
+  }
+}
+
+function ensureManualWinnerModal() {
+  let modal = $('#specialOffersManualWinnerModal');
+  if (modal) return modal;
+  modal = document.createElement('div');
+  modal.className = 'admin-modal special-offers-manual-winner-modal';
+  modal.id = 'specialOffersManualWinnerModal';
+  modal.hidden = true;
+  modal.innerHTML = `
+    <div class="admin-modal-overlay" data-special-offers-winner-close></div>
+    <div class="admin-modal-content special-offers-details-modal__content" role="dialog" aria-modal="true" aria-labelledby="specialOffersManualWinnerTitle">
+      <header class="admin-modal-header">
+        <div>
+          <div class="special-offers-eyebrow">Manual winner selection</div>
+          <h3 id="specialOffersManualWinnerTitle">Manual Winner Selection</h3>
+          <p class="special-offer-editor-subtitle">Admin-only workflow. Writes use manual winner RPCs only.</p>
+        </div>
+        <button class="btn-modal-close" type="button" data-special-offers-winner-close aria-label="Close manual winner selection">×</button>
+      </header>
+      <div class="admin-modal-body" id="specialOffersManualWinnerBody"></div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest('[data-special-offers-winner-close]')) closeManualWinnerModal();
+    if (target?.closest('[data-special-offers-winner-refresh]')) refreshManualWinner();
+    const addShortlist = target?.closest('[data-special-offers-winner-add-shortlist]');
+    if (addShortlist && !addShortlist.disabled) addWinnerShortlistEntry(addShortlist.getAttribute('data-special-offers-winner-add-shortlist') || '');
+    const viewActivities = target?.closest('[data-special-offers-winner-view-activities]');
+    if (viewActivities) openEntryDetails(viewActivities.getAttribute('data-special-offers-winner-view-activities') || '');
+    const fullForm = target?.closest('[data-special-offers-entry-full-form]');
+    if (fullForm) openEntryFullForm(fullForm.getAttribute('data-special-offers-entry-full-form') || '');
+    const activityDetail = target?.closest('[data-special-offers-activity-detail]');
+    if (activityDetail) openActivityDetail(activityDetail.getAttribute('data-special-offers-activity-detail') || '');
+    const action = target?.closest('[data-special-offers-winner-action]');
+    if (action && !action.disabled) {
+      specialOffersState.manualWinner.action = {
+        type: action.getAttribute('data-special-offers-winner-action') || '',
+        targetId: action.getAttribute('data-winner-action-target') || '',
+        submitting: false,
+        error: '',
+      };
+      if (['recheck'].includes(specialOffersState.manualWinner.action.type)) {
+        submitManualWinnerAction();
+        return;
+      }
+      renderManualWinnerModal();
+    }
+    if (target?.closest('[data-special-offers-winner-action-cancel]')) {
+      resetManualWinnerAction();
+      renderManualWinnerModal();
+    }
+  });
+  modal.addEventListener('change', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    const offer = target?.closest('[data-special-offers-winner-offer]');
+    if (!offer) return;
+    specialOffersState.manualWinner.offerId = offer.value || specialOffersState.campaigns[0]?.id || 'all';
+    resetManualWinnerAction();
+    refreshManualWinner();
+  });
+  modal.addEventListener('submit', (event) => {
+    const form = event.target instanceof Element ? event.target.closest('[data-special-offers-winner-action-form]') : null;
+    if (!form) return;
+    event.preventDefault();
+    submitManualWinnerAction(form);
+  });
+  modal.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      closeManualWinnerModal();
+      return;
+    }
+    trapFocusWithin($('.admin-modal-content', modal), event);
+  });
+  return modal;
+}
+
+function closeManualWinnerModal() {
+  const modal = $('#specialOffersManualWinnerModal');
+  if (modal) modal.hidden = true;
+  resetManualWinnerAction();
+  const trigger = specialOffersState.manualWinner.lastTrigger;
+  specialOffersState.manualWinner.lastTrigger = null;
+  if (trigger && typeof trigger.focus === 'function') {
+    try {
+      trigger.focus();
+    } catch (_error) {
+      // ignore focus restoration failures
+    }
+  }
+}
+
+function resetManualWinnerAction() {
+  specialOffersState.manualWinner.action = {
+    type: '',
+    targetId: '',
+    submitting: false,
+    error: '',
+  };
+}
+
+function renderManualWinnerModal() {
+  const modal = ensureManualWinnerModal();
+  const body = $('#specialOffersManualWinnerBody', modal);
+  if (body) body.innerHTML = renderManualWinnerBody();
+  modal.hidden = false;
+  if (!modal.contains(document.activeElement)) {
+    const closeButton = $('[data-special-offers-winner-close]', modal);
+    if (closeButton && typeof closeButton.focus === 'function') closeButton.focus();
+  }
+}
+
+async function refreshManualWinner() {
+  const modal = ensureManualWinnerModal();
+  const body = $('#specialOffersManualWinnerBody', modal);
+  specialOffersState.manualWinner.loading = true;
+  specialOffersState.manualWinner.error = '';
+  if (body) body.innerHTML = renderManualWinnerBody();
+  try {
+    const data = await loadManualWinnerData(specialOffersState.manualWinner.offerId);
+    Object.assign(specialOffersState.manualWinner, data);
+  } catch (error) {
+    logSafeRpcError('Special Offers manual winner load failed', error);
+    specialOffersState.manualWinner.error = 'Unable to load manual winner selection. Check admin access and winner workflow RLS.';
+  } finally {
+    specialOffersState.manualWinner.loading = false;
+    if (body) body.innerHTML = renderManualWinnerBody();
+  }
+}
+
+async function openManualWinnerModal(offerId = 'all', trigger = null) {
+  const fallbackOfferId = specialOffersState.campaigns[0]?.id || 'all';
+  specialOffersState.manualWinner.offerId = offerId && offerId !== 'all' ? offerId : fallbackOfferId;
+  specialOffersState.manualWinner.lastTrigger = trigger || document.activeElement || null;
+  resetManualWinnerAction();
+  renderManualWinnerModal();
+  await refreshManualWinner();
+}
+
+function getManualWinnerErrorMessage(error, fallback = 'Manual winner action could not be completed.') {
+  switch (getRpcErrorKey(error)) {
+    case 'admin_required':
+    case 'login_required':
+      return 'Admin access is required for this action.';
+    case 'winner_workflow_not_ready':
+      return 'Workflow readiness blocks this action.';
+    case 'workflow_reason_required':
+    case 'candidate_reason_required':
+    case 'remove_reason_required':
+    case 'promote_reason_required':
+    case 'confirm_reason_required':
+    case 'publish_reason_required':
+    case 'unpublish_reason_required':
+      return 'A reason is required.';
+    case 'entry_not_approved':
+      return 'Only approved entries can be shortlisted.';
+    case 'shortlist_needs_recheck':
+      return 'This shortlist item needs recheck before role assignment.';
+    case 'backup_rank_required':
+      return 'Backup rank must be greater than 0.';
+    case 'contact_deadline_required':
+      return 'Response deadline must be in the future.';
+    case 'winner_response_status_invalid':
+      return 'Choose accepted, declined or no response.';
+    case 'winner_contact_not_accepted':
+      return 'Winner confirmation requires accepted manual contact.';
+    case 'publication_consent_required':
+      return 'Publication requires confirmed consent.';
+    case 'public_name_required':
+      return 'Public name is required.';
+    default:
+      return fallback;
+  }
+}
+
+async function addWinnerShortlistEntry(entryId) {
+  const workflow = specialOffersState.manualWinner.activeWorkflow;
+  if (!workflow?.id || !entryId) return;
+  const client = getSupabaseClient();
+  if (!client) {
+    notifySpecialOffers('Supabase client is not available.', 'error');
+    return;
+  }
+  try {
+    const result = await client.rpc('admin_add_special_offer_shortlist_entry', {
+      p_workflow_id: workflow.id,
+      p_entry_id: entryId,
+    });
+    if (result.error) throw result.error;
+    notifySpecialOffers('Entry added to shortlist.', 'success');
+    await refreshManualWinner();
+  } catch (error) {
+    logSafeRpcError('Special Offers shortlist add RPC failed', error);
+    notifySpecialOffers(getManualWinnerErrorMessage(error, 'Entry could not be added to shortlist.'), 'error');
+  }
+}
+
+function getManualWinnerActionReason(form, maxLength = 2000) {
+  const reason = String(form?.querySelector('[name="reason"]')?.value || '').trim();
+  if (!reason) throw new Error('reason_required');
+  if (reason.length > maxLength) throw new Error('reason_too_long');
+  return reason;
+}
+
+async function submitManualWinnerAction(form = null) {
+  const state = specialOffersState.manualWinner;
+  if (state.action.submitting) return;
+  const client = getSupabaseClient();
+  if (!client) {
+    notifySpecialOffers('Supabase client is not available.', 'error');
+    return;
+  }
+  const action = state.action.type;
+  const targetId = state.action.targetId;
+  let rpcName = '';
+  let params = {};
+  let confirmMessage = 'Confirm this manual winner action?';
+  try {
+    if (action === 'start') {
+      const reason = getManualWinnerActionReason(form);
+      rpcName = 'admin_start_special_offer_winner_workflow';
+      params = { p_offer_id: state.offerId, p_reason: reason };
+      confirmMessage = 'Start manual winner selection? This is not a draw and points do not select the winner automatically.';
+    } else if (action === 'recheck') {
+      rpcName = 'admin_mark_special_offer_shortlist_rechecked';
+      params = { p_shortlist_id: targetId };
+      confirmMessage = 'Mark this shortlist item as rechecked? Roles will not be restored automatically.';
+    } else if (action === 'primary') {
+      const reason = getManualWinnerActionReason(form);
+      rpcName = 'admin_set_special_offer_primary_candidate';
+      params = { p_shortlist_id: targetId, p_reason: reason };
+      confirmMessage = 'Set this entry as the primary candidate?';
+    } else if (action === 'backup') {
+      const reason = getManualWinnerActionReason(form);
+      const backupRank = Number(form?.querySelector('[name="backup_rank"]')?.value || 0);
+      if (!Number.isInteger(backupRank) || backupRank <= 0) throw new Error('backup_rank_required');
+      rpcName = 'admin_set_special_offer_backup_candidate';
+      params = { p_shortlist_id: targetId, p_backup_rank: backupRank, p_reason: reason };
+      confirmMessage = `Set this entry as backup #${backupRank}?`;
+    } else if (action === 'remove') {
+      const reason = getManualWinnerActionReason(form, 1000);
+      rpcName = 'admin_remove_special_offer_shortlist_entry';
+      params = { p_shortlist_id: targetId, p_reason: reason };
+      confirmMessage = 'Remove this entry from shortlist? History remains in audit.';
+    } else if (action === 'contact') {
+      const responseDeadlineAt = fromLocalDateTimeInputValue(form?.querySelector('[name="response_deadline_at"]')?.value || '');
+      const noteText = String(form?.querySelector('[name="note_text"]')?.value || '');
+      if (!responseDeadlineAt) throw new Error('contact_deadline_required');
+      if (noteText.length > 2000) throw new Error('note_too_long');
+      rpcName = 'admin_start_special_offer_winner_contact';
+      params = { p_shortlist_id: targetId, p_response_deadline_at: responseDeadlineAt, p_note_text: noteText || null };
+      confirmMessage = 'Record manual contact start? No message will be sent.';
+    } else if (action === 'response') {
+      const status = String(form?.querySelector('[name="response_status"]')?.value || '').trim();
+      const noteText = String(form?.querySelector('[name="note_text"]')?.value || '');
+      if (!['accepted', 'declined', 'no_response'].includes(status)) throw new Error('winner_response_status_invalid');
+      if (noteText.length > 2000) throw new Error('note_too_long');
+      rpcName = 'admin_record_special_offer_winner_response';
+      params = { p_contact_event_id: targetId, p_response_status: status, p_note_text: noteText || null };
+      confirmMessage = `Record manual contact result as ${titleCase(status)}?`;
+    } else if (action === 'promote') {
+      const reason = getManualWinnerActionReason(form);
+      rpcName = 'admin_promote_special_offer_backup';
+      params = { p_backup_shortlist_id: targetId, p_reason: reason };
+      confirmMessage = 'Promote this backup manually?';
+    } else if (action === 'confirm') {
+      const reason = getManualWinnerActionReason(form);
+      rpcName = 'admin_confirm_special_offer_winner';
+      params = { p_contact_event_id: targetId, p_reason: reason };
+      confirmMessage = 'Confirm this accepted candidate as winner? Publication is a separate step.';
+    } else if (action === 'publish') {
+      const publicName = String(form?.querySelector('[name="public_name"]')?.value || '').trim();
+      const consent = Boolean(form?.querySelector('[name="publication_consent_confirmed"]')?.checked);
+      const reason = getManualWinnerActionReason(form, 1000);
+      if (!publicName || publicName.length > 160) throw new Error('public_name_required');
+      if (!consent) throw new Error('publication_consent_required');
+      rpcName = 'admin_publish_special_offer_winner';
+      params = { p_workflow_id: targetId, p_public_name: publicName, p_publication_consent_confirmed: true, p_reason: reason };
+      confirmMessage = 'Publish this winner name? Confirm only after consent is documented.';
+    } else if (action === 'unpublish') {
+      const reason = getManualWinnerActionReason(form, 1000);
+      rpcName = 'admin_unpublish_special_offer_winner';
+      params = { p_publication_id: targetId, p_reason: reason };
+      confirmMessage = 'Unpublish this winner result?';
+    } else {
+      return;
+    }
+  } catch (error) {
+    state.action.error = getManualWinnerErrorMessage(error, error?.message === 'reason_required' ? 'A reason is required.' : 'Check the required fields.');
+    renderManualWinnerModal();
+    return;
+  }
+  if (!window.confirm(confirmMessage)) return;
+  state.action.submitting = true;
+  state.action.error = '';
+  renderManualWinnerModal();
+  try {
+    const result = await client.rpc(rpcName, params);
+    if (result.error) throw result.error;
+    notifySpecialOffers('Manual winner action saved.', 'success');
+    resetManualWinnerAction();
+    await refreshManualWinner();
+    await refreshSelectedEntryDetails();
+  } catch (error) {
+    logSafeRpcError(`Special Offers ${rpcName} RPC failed`, error);
+    state.action.error = getManualWinnerErrorMessage(error);
+    state.action.submitting = false;
+    renderManualWinnerModal();
   }
 }
 
@@ -5979,6 +7020,7 @@ function bindEvents() {
       const editButton = target?.closest('[data-special-offers-edit]');
       const entriesButton = target?.closest('[data-special-offers-open-entries]');
       const manualVerificationButton = target?.closest('[data-special-offers-open-manual-verification]');
+      const manualWinnerButton = target?.closest('[data-special-offers-open-manual-winner]');
       const copyPreviewButton = target?.closest('[data-special-offers-copy-preview-url]');
       if (viewButton) {
         openCampaignDetails(viewButton.getAttribute('data-special-offers-view'));
@@ -5990,6 +7032,10 @@ function bindEvents() {
       }
       if (manualVerificationButton) {
         openManualVerificationModal(manualVerificationButton.getAttribute('data-special-offers-open-manual-verification') || 'all');
+        return;
+      }
+      if (manualWinnerButton && !manualWinnerButton.disabled) {
+        openManualWinnerModal(manualWinnerButton.getAttribute('data-special-offers-open-manual-winner') || 'all', manualWinnerButton);
         return;
       }
       if (copyPreviewButton) {
@@ -6013,6 +7059,7 @@ function bindEvents() {
       const previewButton = target?.closest('[data-special-offers-preview]');
       const entriesButton = target?.closest('[data-special-offers-open-entries]');
       const manualVerificationButton = target?.closest('[data-special-offers-open-manual-verification]');
+      const manualWinnerButton = target?.closest('[data-special-offers-open-manual-winner]');
       const copyRawUrlButton = target?.closest('[data-special-offers-copy-raw-url]');
       if (langButton) activateTranslationTab(langButton);
       if (localLangButton) activateLocalDetailLanguage(localLangButton);
@@ -6029,6 +7076,9 @@ function bindEvents() {
       }
       if (manualVerificationButton) {
         openManualVerificationModal(manualVerificationButton.getAttribute('data-special-offers-open-manual-verification') || 'all');
+      }
+      if (manualWinnerButton && !manualWinnerButton.disabled) {
+        openManualWinnerModal(manualWinnerButton.getAttribute('data-special-offers-open-manual-winner') || 'all', manualWinnerButton);
       }
       if (previewButton) {
         const campaign = specialOffersState.campaigns.find((item) => item.id === previewButton.getAttribute('data-special-offers-preview'));
@@ -6047,6 +7097,12 @@ function bindEvents() {
 
   $$('[data-special-offers-open-manual-verification]').forEach((button) => {
     button.addEventListener('click', () => openManualVerificationModal(button.getAttribute('data-special-offers-open-manual-verification') || 'all'));
+  });
+
+  $$('[data-special-offers-open-manual-winner]').forEach((button) => {
+    button.addEventListener('click', () => {
+      if (!button.disabled) openManualWinnerModal(button.getAttribute('data-special-offers-open-manual-winner') || 'all', button);
+    });
   });
 
   const editorBody = $('#specialOffersEditorBody');
@@ -6205,6 +7261,7 @@ function bindEvents() {
       closeEntryDetails();
       closeEntryFullForm();
       closeManualVerificationModal();
+      closeManualWinnerModal();
       closeOfficialPostDeleteModal();
       closeActivityDetail();
       closeHelpPopover();
