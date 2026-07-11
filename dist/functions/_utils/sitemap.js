@@ -367,15 +367,15 @@ async function fetchPublishedSpecialOfferEntries(client) {
     .not('slug', 'is', null)
     .order('updated_at', { ascending: false });
 
+  const specialOfferRows = safeArray(data);
   if (error) {
     console.warn('[sitemap] Failed to load Special Offers sitemap entries:', error);
-    return [];
   }
 
   const now = Date.now();
   const entries = [];
   const seenSlugs = new Set();
-  for (const row of safeArray(data)) {
+  for (const row of specialOfferRows) {
     const slug = String(row?.slug || '').trim();
     if (!slug) {
       continue;
