@@ -41,13 +41,18 @@ describe('Special Offers Lefkara launch pack', () => {
     expect(sql).toContain('campaign_emergency_paused');
   });
 
-  test('dynamic sitemap includes only active public Special Offers', () => {
+  test('dynamic sitemap includes active public Special Offers and ended public campaigns only after published winner', () => {
     const source = read('functions/_utils/sitemap.js');
 
     expect(source).toContain('fetchPublishedSpecialOfferEntries');
     expect(source).toContain(".from('special_offers')");
-    expect(source).toContain(".eq('status', 'active')");
+    expect(source).toContain(".in('status', ['active', 'ended', 'locked'])");
     expect(source).toContain(".eq('visibility', 'public')");
+    expect(source).toContain(".is('archived_at', null)");
+    expect(source).toContain("status === 'active'");
+    expect(source).toContain("status === 'ended' || status === 'locked'");
+    expect(source).toContain("client.rpc('get_public_special_offer_winner'");
+    expect(source).toContain("winnerResult?.winner_published === true");
     expect(source).toContain('buildSpecialOfferUrl');
     expect(source).toContain('/special-offers/');
   });

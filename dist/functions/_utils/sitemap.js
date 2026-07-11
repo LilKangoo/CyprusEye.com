@@ -357,9 +357,10 @@ async function fetchPublishedSpecialOfferEntries(client) {
 
   const { data, error } = await client
     .from('special_offers')
-    .select('slug, status, visibility, start_at, end_at, updated_at')
-    .eq('status', 'active')
+    .select('slug, status, visibility, start_at, end_at, updated_at, archived_at')
+    .in('status', ['active', 'ended', 'locked'])
     .eq('visibility', 'public')
+    .is('archived_at', null)
     .not('slug', 'is', null)
     .order('updated_at', { ascending: false });
 
@@ -369,21 +370,39 @@ async function fetchPublishedSpecialOfferEntries(client) {
   }
 
   const now = Date.now();
-  return safeArray(data).flatMap((row) => {
+  const entries = [];
+  for (const row of safeArray(data)) {
     const slug = String(row?.slug || '').trim();
     if (!slug) {
-      return [];
+      continue;
     }
     const startAt = row?.start_at ? new Date(row.start_at).getTime() : null;
     const endAt = row?.end_at ? new Date(row.end_at).getTime() : null;
-    if ((startAt && now < startAt) || (endAt && now > endAt)) {
-      return [];
+    const status = String(row?.status || '').trim();
+    const activeInWindow = status === 'active'
+      && (!startAt || now >= startAt)
+      && (!endAt || now <= endAt);
+    let endedWithPublishedWinner = false;
+
+    if ((status === 'ended' || status === 'locked') && (!startAt || now >= startAt)) {
+      const { data: winnerResult, error: winnerError } = await client.rpc('get_public_special_offer_winner', {
+        p_slug: slug,
+      });
+      if (winnerError) {
+        console.warn('[sitemap] Failed to check Special Offer winner publication state:', winnerError);
+      }
+      endedWithPublishedWinner = winnerResult?.winner_published === true;
     }
-    return SITEMAP_LANGUAGES.map((language) => ({
+
+    if (!activeInWindow && !endedWithPublishedWinner) {
+      continue;
+    }
+    entries.push(...SITEMAP_LANGUAGES.map((language) => ({
       loc: buildSpecialOfferUrl(slug, language || DEFAULT_PUBLIC_LANGUAGE),
       lastmod: row?.updated_at || '',
-    })).filter((entry) => entry.loc);
-  });
+    })).filter((entry) => entry.loc));
+  }
+  return entries;
 }
 
 export function getStaticSitemapEntries() {
