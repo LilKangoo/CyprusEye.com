@@ -130,5 +130,4 @@ export {
   SUPABASE_DEFAULTS,
   getSupabaseConfig,
   ensureSupabaseMeta,
-  readSupabaseConfig,
 };
