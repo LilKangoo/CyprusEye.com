@@ -49,6 +49,9 @@ describe('Special Offers Lefkara launch pack', () => {
     expect(source).toContain(".in('status', ['active', 'ended', 'locked'])");
     expect(source).toContain(".eq('visibility', 'public')");
     expect(source).toContain(".is('archived_at', null)");
+    expect(source).toContain('SPECIAL_OFFER_SITEMAP_CANDIDATE_SLUGS');
+    expect(source).toContain("'lefkara-giveaway-2026'");
+    expect(source).toContain("client.rpc('get_public_special_offer_landing'");
     expect(source).toContain("status === 'active'");
     expect(source).toContain("status === 'ended' || status === 'locked'");
     expect(source).toContain("client.rpc('get_public_special_offer_winner'");

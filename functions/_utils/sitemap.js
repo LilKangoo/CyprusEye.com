@@ -44,6 +44,9 @@ const SERVICE_SITEMAP_CONFIG = {
 };
 
 const SITEMAP_LANGUAGES = Object.freeze(getPublicLanguageCodes('sitemap'));
+const SPECIAL_OFFER_SITEMAP_CANDIDATE_SLUGS = Object.freeze([
+  'lefkara-giveaway-2026',
+]);
 
 export const SITEMAP_DYNAMIC_SOURCES = Object.freeze({
   blogPosts: Object.freeze({
@@ -371,30 +374,14 @@ async function fetchPublishedSpecialOfferEntries(client) {
 
   const now = Date.now();
   const entries = [];
+  const seenSlugs = new Set();
   for (const row of safeArray(data)) {
     const slug = String(row?.slug || '').trim();
     if (!slug) {
       continue;
     }
-    const startAt = row?.start_at ? new Date(row.start_at).getTime() : null;
-    const endAt = row?.end_at ? new Date(row.end_at).getTime() : null;
-    const status = String(row?.status || '').trim();
-    const activeInWindow = status === 'active'
-      && (!startAt || now >= startAt)
-      && (!endAt || now <= endAt);
-    let endedWithPublishedWinner = false;
-
-    if ((status === 'ended' || status === 'locked') && (!startAt || now >= startAt)) {
-      const { data: winnerResult, error: winnerError } = await client.rpc('get_public_special_offer_winner', {
-        p_slug: slug,
-      });
-      if (winnerError) {
-        console.warn('[sitemap] Failed to check Special Offer winner publication state:', winnerError);
-      }
-      endedWithPublishedWinner = winnerResult?.winner_published === true;
-    }
-
-    if (!activeInWindow && !endedWithPublishedWinner) {
+    seenSlugs.add(slug);
+    if (!(await shouldIncludeSpecialOfferInSitemap(client, row, slug, now))) {
       continue;
     }
     entries.push(...SITEMAP_LANGUAGES.map((language) => ({
@@ -402,7 +389,53 @@ async function fetchPublishedSpecialOfferEntries(client) {
       lastmod: row?.updated_at || '',
     })).filter((entry) => entry.loc));
   }
+
+  for (const slug of SPECIAL_OFFER_SITEMAP_CANDIDATE_SLUGS) {
+    if (seenSlugs.has(slug)) {
+      continue;
+    }
+    const { data: landingResult, error: landingError } = await client.rpc('get_public_special_offer_landing', {
+      p_slug: slug,
+    });
+    if (landingError) {
+      console.warn('[sitemap] Failed to check Special Offer landing state:', landingError);
+      continue;
+    }
+    const campaign = landingResult?.campaign || null;
+    if (!campaign || !(await shouldIncludeSpecialOfferInSitemap(client, campaign, slug, now))) {
+      continue;
+    }
+    entries.push(...SITEMAP_LANGUAGES.map((language) => ({
+      loc: buildSpecialOfferUrl(slug, language || DEFAULT_PUBLIC_LANGUAGE),
+      lastmod: campaign?.updated_at || '',
+    })).filter((entry) => entry.loc));
+  }
   return entries;
+}
+
+async function shouldIncludeSpecialOfferInSitemap(client, campaign, slug, now) {
+  const startAt = campaign?.start_at ? new Date(campaign.start_at).getTime() : null;
+  const endAt = campaign?.end_at ? new Date(campaign.end_at).getTime() : null;
+  const status = String(campaign?.status || '').trim();
+  const activeInWindow = status === 'active'
+    && (!startAt || now >= startAt)
+    && (!endAt || now <= endAt);
+
+  if (activeInWindow) {
+    return true;
+  }
+
+  if ((status === 'ended' || status === 'locked') && (!startAt || now >= startAt)) {
+    const { data: winnerResult, error: winnerError } = await client.rpc('get_public_special_offer_winner', {
+      p_slug: slug,
+    });
+    if (winnerError) {
+      console.warn('[sitemap] Failed to check Special Offer winner publication state:', winnerError);
+    }
+    return winnerResult?.winner_published === true;
+  }
+
+  return false;
 }
 
 export function getStaticSitemapEntries() {
