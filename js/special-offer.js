@@ -4,6 +4,7 @@ import { enhancePhoneInput } from '/js/phone-input.js';
 const LANGUAGES = ['pl', 'en', 'he'];
 const FALLBACK_ORDER = ['pl', 'en', 'he'];
 const PUBLIC_STATUS = 'active';
+const ENDED_PUBLIC_STATUSES = new Set(['active', 'ended', 'locked']);
 const PUBLIC_VISIBILITY = 'public';
 
 const TEXT = {
@@ -56,6 +57,13 @@ const TEXT = {
     correctionUnavailable: 'Korekta nie jest dostępna dla tego zgłoszenia.',
     correctionDiscardConfirm: 'Zamknąć edycję bez zapisywania zmian?',
     closeDialog: 'Zamknij',
+    campaignEndedTitle: 'Kampania zakończona',
+    campaignEndedCopy: 'Zgłoszenia do tej kampanii są już zamknięte. Publiczne informacje pozostają dostępne.',
+    winnerResultTitle: 'Zwycięzca kampanii',
+    winnerResultPendingTitle: 'Wynik zostanie ogłoszony po zakończeniu kampanii',
+    winnerResultPendingCopy: 'Po ręcznym potwierdzeniu i publikacji wynik pojawi się w tej sekcji.',
+    winnerPublishedAt: 'Data publikacji wyniku',
+    winnerManualSelectionCopy: 'Zwycięzca został wybrany ręcznie. Punkty były wyłącznie kryterium pomocniczym.',
     entryLookupErrorTitle: 'Nie udało się sprawdzić Twojego zgłoszenia',
     entryLookupErrorCopy: 'Odśwież dostęp przed ponowną próbą wysłania formularza.',
     retry: 'Spróbuj ponownie',
@@ -67,6 +75,7 @@ const TEXT = {
     activityEmailTitle: 'Potwierdź adres e-mail',
     activityEmailCopy: 'Zgłaszanie aktywności jest dostępne po potwierdzeniu adresu e-mail.',
     activityUnavailable: 'Aktywności będą dostępne po publicznym uruchomieniu kampanii.',
+    activityCampaignClosed: 'Zadania bonusowe są zamknięte, ponieważ kampania została zakończona.',
     activityNoEntryTitle: 'Najpierw wyślij główne zgłoszenie',
     activityNoEntryCopy: 'Aktywności można przypisać tylko do Twojego własnego zgłoszenia w tej kampanii.',
     activityMultipleEntriesTitle: 'Nie można jednoznacznie wybrać zgłoszenia',
@@ -89,7 +98,7 @@ const TEXT = {
     optional: 'opcjonalnie',
     commentDeadline: 'Deadline komentarza',
     manualReviewNotice: 'Dowód zostanie sprawdzony ręcznie. Punkt nie jest przyznawany automatycznie.',
-    manualSelectionNotice: 'Punkty są kryterium pomocniczym. Zwycięzca jest wybierany ręcznie przez komisję.',
+    manualSelectionNotice: 'Punkty są kryterium pomocniczym. Zwycięzca jest wybierany ręcznie przez administratora kampanii.',
     activityPending: 'Oczekuje',
     activityApproved: 'Zatwierdzone',
     activityRejected: 'Odrzucone',
@@ -200,6 +209,13 @@ const TEXT = {
     correctionUnavailable: 'Correction is not available for this entry.',
     correctionDiscardConfirm: 'Close editing without saving changes?',
     closeDialog: 'Close',
+    campaignEndedTitle: 'Campaign ended',
+    campaignEndedCopy: 'Entries for this campaign are now closed. Public campaign information remains available.',
+    winnerResultTitle: 'Campaign winner',
+    winnerResultPendingTitle: 'The result will be announced after the campaign ends',
+    winnerResultPendingCopy: 'After manual confirmation and publication, the result will appear in this section.',
+    winnerPublishedAt: 'Result publication date',
+    winnerManualSelectionCopy: 'The winner was selected manually. Points were only a supporting criterion.',
     entryLookupErrorTitle: 'Your entry could not be checked',
     entryLookupErrorCopy: 'Refresh access before trying to submit the form again.',
     retry: 'Try again',
@@ -211,6 +227,7 @@ const TEXT = {
     activityEmailTitle: 'Confirm your email address',
     activityEmailCopy: 'Activity claims are available after your account email is confirmed.',
     activityUnavailable: 'Activity claims will be available after the campaign is public.',
+    activityCampaignClosed: 'Bonus tasks are closed because the campaign has ended.',
     activityNoEntryTitle: 'Submit the main entry first',
     activityNoEntryCopy: 'Activities can only be linked to your own entry in this campaign.',
     activityMultipleEntriesTitle: 'Your entry cannot be selected safely',
@@ -344,6 +361,13 @@ const TEXT = {
     correctionUnavailable: 'תיקון אינו זמין להרשמה זו.',
     correctionDiscardConfirm: 'לסגור את העריכה בלי לשמור שינויים?',
     closeDialog: 'סגירה',
+    campaignEndedTitle: 'הקמפיין הסתיים',
+    campaignEndedCopy: 'ההרשמה לקמפיין הזה סגורה כעת. המידע הציבורי על הקמפיין נשאר זמין.',
+    winnerResultTitle: 'הזוכה בקמפיין',
+    winnerResultPendingTitle: 'התוצאה תפורסם לאחר סיום הקמפיין',
+    winnerResultPendingCopy: 'לאחר אישור ופרסום ידניים, התוצאה תופיע באזור זה.',
+    winnerPublishedAt: 'תאריך פרסום התוצאה',
+    winnerManualSelectionCopy: 'הזוכה נבחר ידנית. הנקודות היו קריטריון מסייע בלבד.',
     entryLookupErrorTitle: 'לא ניתן לבדוק את ההרשמה שלכם',
     entryLookupErrorCopy: 'רעננו את הגישה לפני ניסיון נוסף לשלוח את הטופס.',
     retry: 'נסו שוב',
@@ -355,6 +379,7 @@ const TEXT = {
     activityEmailTitle: 'אשרו את כתובת האימייל',
     activityEmailCopy: 'דיווח פעילות זמין לאחר אישור כתובת האימייל של החשבון.',
     activityUnavailable: 'דיווח פעילות יהיה זמין לאחר שהקמפיין יהיה ציבורי.',
+    activityCampaignClosed: 'משימות הבונוס סגורות כי הקמפיין הסתיים.',
     activityNoEntryTitle: 'שלחו קודם את ההרשמה הראשית',
     activityNoEntryCopy: 'אפשר לשייך פעילות רק להרשמה שלכם בקמפיין הזה.',
     activityMultipleEntriesTitle: 'לא ניתן לבחור הרשמה באופן בטוח',
@@ -377,7 +402,7 @@ const TEXT = {
     optional: 'אופציונלי',
     commentDeadline: 'מועד אחרון לתגובה',
     manualReviewNotice: 'ההוכחה תיבדק ידנית. נקודות אינן מוענקות אוטומטית.',
-    manualSelectionNotice: 'נקודות הן קריטריון מסייע. הזוכה נבחר ידנית על ידי הוועדה.',
+    manualSelectionNotice: 'נקודות הן קריטריון מסייע. הזוכה נבחר ידנית על ידי מנהל הקמפיין.',
     activityPending: 'ממתין',
     activityApproved: 'אושר',
     activityRejected: 'נדחה',
@@ -458,6 +483,9 @@ const refs = {
   rules: document.querySelector('[data-special-offer-rules]'),
   faq: document.querySelector('[data-special-offer-faq]'),
   links: document.querySelector('[data-special-offer-links]'),
+  winnerSection: document.querySelector('[data-special-offer-winner-section]'),
+  winnerTitle: document.querySelector('[data-special-offer-winner-title]'),
+  winnerBody: document.querySelector('[data-special-offer-winner-body]'),
   entrySection: document.querySelector('[data-special-offer-entry-placeholder]'),
   entryTitle: document.querySelector('[data-special-offer-entry-title]'),
   entryCopy: document.querySelector('[data-special-offer-entry-copy]'),
@@ -1261,10 +1289,33 @@ function clearSubmissionId() {
   }
 }
 
+function parseCampaignDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isPublicReadableCampaign(campaign) {
+  return campaign?.visibility === PUBLIC_VISIBILITY && ENDED_PUBLIC_STATUSES.has(cleanText(campaign?.status));
+}
+
+function getCampaignWindowState(campaign, now = new Date()) {
+  const start = parseCampaignDate(campaign?.start_at);
+  const end = parseCampaignDate(campaign?.end_at);
+  const status = cleanText(campaign?.status);
+  if (!isPublicReadableCampaign(campaign) || !start || !end) return 'unavailable';
+  if (now < start) return 'upcoming';
+  if (now > end || status === 'ended' || status === 'locked') return 'ended';
+  return status === PUBLIC_STATUS ? 'open' : 'unavailable';
+}
+
+function isCampaignOpenForSubmissions(data = currentState?.data) {
+  return getCampaignWindowState(data?.campaign) === 'open';
+}
+
 function isActivityCampaignAvailable(data = currentState?.data) {
   const campaign = data?.campaign || {};
-  return campaign.status === PUBLIC_STATUS
-    && campaign.visibility === PUBLIC_VISIBILITY
+  return isCampaignOpenForSubmissions(data)
     && campaign.allow_bonus_points === true;
 }
 
@@ -1445,8 +1496,8 @@ async function refreshOwnEntryData({ render = true, scroll = false } = {}) {
     return;
   }
 
-  const canSubmit = data.campaign?.status === PUBLIC_STATUS && data.campaign?.visibility === PUBLIC_VISIBILITY;
-  if (!canSubmit || !authState.confirmed || !authState.user?.id) {
+  const canReadOwnEntry = isPublicReadableCampaign(data.campaign);
+  if (!canReadOwnEntry || !authState.confirmed || !authState.user?.id) {
     resetOwnEntryState(offerId);
     if (render) renderEntryForm(data, lang);
     return;
@@ -1985,7 +2036,11 @@ async function handleEntrySubmit(event) {
   const data = state?.data;
   if (!state || !data || submitting) return;
   if (state.previewMode) return;
-  if (data.campaign?.status !== PUBLIC_STATUS || data.campaign?.visibility !== PUBLIC_VISIBILITY) return;
+  if (!isCampaignOpenForSubmissions(data)) {
+    activeSubmitErrorCode = getCampaignWindowState(data.campaign) === 'ended' ? 'campaign_closed' : 'campaign_not_open';
+    showFormStatus(getErrorMessage(activeSubmitErrorCode, lang), 'error');
+    return;
+  }
   if (data.campaign?.requires_form !== true || !getActiveFields(data).length) return;
 
   submitting = true;
@@ -2255,44 +2310,60 @@ function renderEntryForm(data, lang) {
 
   const previewMode = currentState?.previewMode === true;
   const canSubmit = !previewMode
-    && data.campaign?.status === PUBLIC_STATUS
-    && data.campaign?.visibility === PUBLIC_VISIBILITY;
-  if (canSubmit) {
+    && isCampaignOpenForSubmissions(data);
+  const canReadOwnEntry = !previewMode && isPublicReadableCampaign(data.campaign);
+  if (canReadOwnEntry) {
     if (authState.checking) {
-      renderLockedFormState(lang, 'checking');
-      return;
+      if (canSubmit) {
+        renderLockedFormState(lang, 'checking');
+        return;
+      }
+    } else if (!authState.user?.id) {
+      if (canSubmit) {
+        renderLockedFormState(lang, 'login_required');
+        return;
+      }
+    } else if (!authState.confirmed) {
+      if (canSubmit) {
+        renderLockedFormState(lang, 'email_not_confirmed');
+        return;
+      }
+    } else {
+      const offerId = cleanText(data.campaign?.id);
+      if (ownEntryState.initializedFor !== offerId || ownEntryState.loading || !ownEntryState.loaded) {
+        renderLockedFormState(lang, 'checking');
+        return;
+      }
+      if (ownEntryState.errorCode) {
+        renderEntryLookupError(lang);
+        return;
+      }
+      if (ownEntryState.entries.length > 1) {
+        refs.entrySection.innerHTML = `
+          <h2>${escapeHtml(t.entryTitle)}</h2>
+          <div class="special-offer-form-locked" data-special-offer-entry-multiple dir="${lang === 'he' ? 'rtl' : 'ltr'}">
+            <h3>${escapeHtml(t.activityMultipleEntriesTitle)}</h3>
+            <p>${escapeHtml(t.activityMultipleEntriesCopy)}</p>
+          </div>
+        `;
+        return;
+      }
+      if (ownEntryState.entry?.id) {
+        renderExistingEntryState(ownEntryState.entry, lang);
+        return;
+      }
     }
-    if (!authState.user?.id) {
-      renderLockedFormState(lang, 'login_required');
-      return;
-    }
-    if (!authState.confirmed) {
-      renderLockedFormState(lang, 'email_not_confirmed');
-      return;
-    }
-    const offerId = cleanText(data.campaign?.id);
-    if (ownEntryState.initializedFor !== offerId || ownEntryState.loading || !ownEntryState.loaded) {
-      renderLockedFormState(lang, 'checking');
-      return;
-    }
-    if (ownEntryState.errorCode) {
-      renderEntryLookupError(lang);
-      return;
-    }
-    if (ownEntryState.entries.length > 1) {
-      refs.entrySection.innerHTML = `
-        <h2>${escapeHtml(t.entryTitle)}</h2>
-        <div class="special-offer-form-locked" data-special-offer-entry-multiple dir="${lang === 'he' ? 'rtl' : 'ltr'}">
-          <h3>${escapeHtml(t.activityMultipleEntriesTitle)}</h3>
-          <p>${escapeHtml(t.activityMultipleEntriesCopy)}</p>
-        </div>
-      `;
-      return;
-    }
-    if (ownEntryState.entry?.id) {
-      renderExistingEntryState(ownEntryState.entry, lang);
-      return;
-    }
+  }
+  if (!canSubmit && !previewMode) {
+    const windowState = getCampaignWindowState(data.campaign);
+    refs.entrySection.innerHTML = `
+      <h2>${escapeHtml(t.entryTitle)}</h2>
+      <div class="special-offer-form-locked" data-special-offer-campaign-closed dir="${lang === 'he' ? 'rtl' : 'ltr'}">
+        <h3>${escapeHtml(windowState === 'ended' ? t.campaignEndedTitle : getErrorMessage('campaign_not_open', lang))}</h3>
+        <p>${escapeHtml(windowState === 'ended' ? t.campaignEndedCopy : getErrorMessage('campaign_not_open', lang))}</p>
+      </div>
+    `;
+    return;
   }
   const statusMessage = previewMode ? t.previewMessage : activeSubmitErrorCode ? getErrorMessage(activeSubmitErrorCode, lang) : '';
 
@@ -2907,6 +2978,72 @@ function renderLinks(links, linkTranslations, lang) {
   }
 }
 
+function normalizeWinnerPayload(payload) {
+  const source = Array.isArray(payload) ? payload[0] : payload;
+  if (!source || typeof source !== 'object') {
+    return {
+      winner_published: false,
+      public_name: '',
+      published_at: null,
+      campaign_slug: '',
+    };
+  }
+  return {
+    winner_published: source.winner_published === true,
+    public_name: cleanText(source.public_name),
+    published_at: source.published_at || null,
+    campaign_slug: cleanText(source.campaign_slug),
+  };
+}
+
+async function loadPublicWinner(slug) {
+  try {
+    const { data, error } = await supabase.rpc('get_public_special_offer_winner', {
+      p_slug: slug,
+    });
+    if (error) return normalizeWinnerPayload(null);
+    return normalizeWinnerPayload(data);
+  } catch (_error) {
+    return normalizeWinnerPayload(null);
+  }
+}
+
+function renderWinnerSection(data, lang) {
+  if (!refs.winnerSection || !refs.winnerTitle || !refs.winnerBody) return;
+  const t = getText(lang);
+  const campaignState = getCampaignWindowState(data?.campaign);
+  const winner = normalizeWinnerPayload(data?.winnerResult);
+  refs.winnerSection.dir = lang === 'he' ? 'rtl' : 'ltr';
+
+  if (winner.winner_published && winner.public_name) {
+    refs.winnerSection.hidden = false;
+    refs.winnerTitle.textContent = t.winnerResultTitle;
+    const publishedAt = formatDate(winner.published_at, lang, data?.campaign?.timezone);
+    refs.winnerBody.innerHTML = `
+      <article class="special-offer-winner-card" data-special-offer-winner-result>
+        <h3>${escapeHtml(winner.public_name)}</h3>
+        ${publishedAt ? `<p><strong>${escapeHtml(t.winnerPublishedAt)}:</strong> ${escapeHtml(publishedAt)}</p>` : ''}
+        <p>${escapeHtml(t.winnerManualSelectionCopy)}</p>
+      </article>
+    `;
+    return;
+  }
+
+  if (campaignState === 'ended') {
+    refs.winnerSection.hidden = false;
+    refs.winnerTitle.textContent = t.winnerResultPendingTitle;
+    refs.winnerBody.innerHTML = `
+      <div class="special-offer-activity-message" data-special-offer-winner-pending>
+        <p>${escapeHtml(t.winnerResultPendingCopy)}</p>
+      </div>
+    `;
+    return;
+  }
+
+  refs.winnerSection.hidden = true;
+  refs.winnerBody.replaceChildren();
+}
+
 function getMetaDescription(translation) {
   return cleanText(translation?.seo_description || translation?.short_description || translation?.full_description).slice(0, 160);
 }
@@ -2941,7 +3078,7 @@ function renderCampaign(data, requestedLang, previewMode) {
   setPageLanguage(lang);
   updateStaticText(lang);
   updateSeo(translation, data.campaign, lang, data);
-  setRobotsNoIndex(previewMode || data.campaign?.status !== PUBLIC_STATUS || data.campaign?.visibility !== PUBLIC_VISIBILITY);
+  setRobotsNoIndex(previewMode || !isPublicReadableCampaign(data.campaign));
 
   refs.loading.hidden = true;
   refs.unavailable.hidden = true;
@@ -2956,6 +3093,7 @@ function renderCampaign(data, requestedLang, previewMode) {
   renderRules(translation, lang);
   renderFaq(translation, lang);
   renderLinks(data.links, data.linkTranslations, lang);
+  renderWinnerSection(data, lang);
   renderEntryForm(data, lang);
   renderActivitySection(data, lang);
   void refreshOwnEntryData({ render: true }).then(() => refreshActivityData({ render: true }));
@@ -3007,7 +3145,8 @@ async function loadPublicCampaign(slug) {
   }
   const payload = normalizePublicLandingPayload(data);
   if (!payload?.campaign) return null;
-  if (payload.campaign.status !== PUBLIC_STATUS || payload.campaign.visibility !== PUBLIC_VISIBILITY) return null;
+  if (!isPublicReadableCampaign(payload.campaign)) return null;
+  payload.winnerResult = await loadPublicWinner(slug);
   return payload;
 }
 
