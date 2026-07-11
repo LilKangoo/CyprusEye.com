@@ -95,14 +95,18 @@ describe('Special Offers manual winner selection SQL stage', () => {
     expect(sql).toContain('pending_entry_reviews');
     expect(sql).toContain('pending_activity_reviews');
     expect(sql).toContain("v_entry.status <> 'approved'");
+    expect(sql).toContain('committee_note_entry_mismatch');
     expect(sql).toContain("role = 'primary'");
     expect(sql).toContain('backup_rank_duplicate');
+    expect(sql).toContain('replacement_contact_required');
     expect(sql).toContain('accepted_contact_required');
     expect(sql).toContain('winner_not_confirmed');
     expect(sql).toContain('publication_consent_required');
     expect(sql).toContain('unpublish_reason_required');
     expect(sql).toContain('winner_workflow_not_cancellable');
     expect(sql).toContain('winner_workflow_not_cancelled');
+    expect(sql).toContain('offer_id uuid not null references public.special_offers(id) on delete restrict');
+    expect(sql).toContain('constraint special_offer_winner_publications_entry_offer_fkey foreign key (entry_id, offer_id)');
   });
 
   test('keeps score snapshots limited and prevents automatic winner selection by score', () => {
@@ -131,6 +135,7 @@ describe('Special Offers manual winner selection SQL stage', () => {
     expect(sql).toContain('create or replace function public.admin_delete_special_offer_entry');
     expect(sql).toContain('entry_has_winner_workflow_record');
     expect(sql).toContain('special_offer_winner_shortlist');
+    expect(sql).toContain('special_offer_winner_committee_notes');
     expect(sql).toContain('special_offer_winner_contact_events');
     expect(sql).toContain('special_offer_winner_publications');
   });

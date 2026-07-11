@@ -71,6 +71,35 @@ constraints_present as (
         and conname = 'special_offer_winner_publications_consent_check'
     ) as publication_consent_check_exists,
     exists (
+      select 1
+      from pg_constraint con
+      join pg_class rel on rel.oid = con.conrelid
+      join pg_namespace ns on ns.oid = rel.relnamespace
+      join pg_class ref on ref.oid = con.confrelid
+      join pg_namespace refns on refns.oid = ref.relnamespace
+      where ns.nspname = 'public'
+        and rel.relname = 'special_offer_winner_workflows'
+        and refns.nspname = 'public'
+        and ref.relname = 'special_offers'
+        and con.contype = 'f'
+        and con.confdeltype = 'r'
+    ) as workflow_offer_delete_restrict,
+    exists (
+      select 1
+      from pg_constraint con
+      join pg_class rel on rel.oid = con.conrelid
+      join pg_namespace ns on ns.oid = rel.relnamespace
+      join pg_class ref on ref.oid = con.confrelid
+      join pg_namespace refns on refns.oid = ref.relnamespace
+      where ns.nspname = 'public'
+        and rel.relname = 'special_offer_winner_publications'
+        and refns.nspname = 'public'
+        and ref.relname = 'special_offer_entries'
+        and con.conname = 'special_offer_winner_publications_entry_offer_fkey'
+        and con.contype = 'f'
+        and con.confdeltype = 'r'
+    ) as publication_entry_offer_fk_restrict,
+    exists (
       select 1 from pg_constraint
       where conrelid = 'public.special_offer_winner_contact_events'::regclass
         and conname = 'special_offer_winner_contact_events_terminal_check'
@@ -226,10 +255,12 @@ source_checks as (
     (select source from fn where proname = 'admin_start_special_offer_winner_workflow') like '%pending_entry_reviews%' as start_blocks_pending_entries,
     (select source from fn where proname = 'admin_start_special_offer_winner_workflow') like '%pending_activity_reviews%' as start_blocks_pending_activities,
     (select source from fn where proname = 'admin_add_special_offer_shortlist_entry') like '%v_entry.status <> ''approved''%' as shortlist_approved_only,
+    (select source from fn where proname = 'admin_add_special_offer_committee_note') like '%committee_note_entry_mismatch%' as committee_note_entry_match_guard,
     (select source from fn where proname = 'admin_set_special_offer_primary_candidate') like '%role = ''primary''%' as primary_role_present,
     (select source from fn where proname = 'admin_set_special_offer_backup_candidate') like '%p_backup_rank is null or p_backup_rank <= 0%' as backup_rank_guard_present,
     (select source from fn where proname = 'admin_start_special_offer_winner_contact') like '%p_response_deadline_at is null%' as contact_deadline_required,
     (select source from fn where proname = 'admin_record_special_offer_winner_response') like '%accepted'', ''declined'', ''no_response''%' as response_status_guard_present,
+    (select source from fn where proname = 'admin_promote_special_offer_backup') like '%replacement_contact_required%' as promote_requires_declined_or_no_response,
     (select source from fn where proname = 'admin_confirm_special_offer_winner') like '%v_contact.status <> ''accepted''%' as confirm_requires_accepted,
     (select source from fn where proname = 'admin_publish_special_offer_winner') like '%publication_consent_required%' as publish_requires_consent,
     (select source from fn where proname = 'admin_publish_special_offer_winner') like '%winner_not_confirmed%' as publish_requires_confirmed_winner,
@@ -273,6 +304,8 @@ select
   c.one_primary_index_exists,
   c.backup_rank_unique_index_exists,
   c.publication_consent_check_exists,
+  c.workflow_offer_delete_restrict,
+  c.publication_entry_offer_fk_restrict,
   c.contact_exclusive_terminal_check_exists,
   r.all_winner_tables_rls_enabled,
   tg.no_public_or_anon_table_access,
@@ -309,10 +342,12 @@ select
   sc.start_blocks_pending_entries,
   sc.start_blocks_pending_activities,
   sc.shortlist_approved_only,
+  sc.committee_note_entry_match_guard,
   sc.primary_role_present,
   sc.backup_rank_guard_present,
   sc.contact_deadline_required,
   sc.response_status_guard_present,
+  sc.promote_requires_declined_or_no_response,
   sc.confirm_requires_accepted,
   sc.publish_requires_consent,
   sc.publish_requires_confirmed_winner,
@@ -344,6 +379,8 @@ select
     and c.one_primary_index_exists
     and c.backup_rank_unique_index_exists
     and c.publication_consent_check_exists
+    and c.workflow_offer_delete_restrict
+    and c.publication_entry_offer_fk_restrict
     and c.contact_exclusive_terminal_check_exists
     and r.all_winner_tables_rls_enabled
     and tg.no_public_or_anon_table_access
@@ -380,10 +417,12 @@ select
     and sc.start_blocks_pending_entries
     and sc.start_blocks_pending_activities
     and sc.shortlist_approved_only
+    and sc.committee_note_entry_match_guard
     and sc.primary_role_present
     and sc.backup_rank_guard_present
     and sc.contact_deadline_required
     and sc.response_status_guard_present
+    and sc.promote_requires_declined_or_no_response
     and sc.confirm_requires_accepted
     and sc.publish_requires_consent
     and sc.publish_requires_confirmed_winner

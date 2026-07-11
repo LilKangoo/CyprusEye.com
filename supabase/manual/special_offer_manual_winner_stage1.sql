@@ -58,7 +58,7 @@ $$;
 
 create table if not exists public.special_offer_winner_workflows (
   id uuid primary key default gen_random_uuid(),
-  offer_id uuid not null references public.special_offers(id) on delete cascade,
+  offer_id uuid not null references public.special_offers(id) on delete restrict,
   status text not null default 'not_started',
   started_by uuid references auth.users(id) on delete set null,
   started_at timestamptz,
@@ -240,8 +240,8 @@ create index if not exists idx_special_offer_winner_contact_events_shortlist
 create table if not exists public.special_offer_winner_publications (
   id uuid primary key default gen_random_uuid(),
   workflow_id uuid not null,
-  offer_id uuid not null references public.special_offers(id) on delete cascade,
-  entry_id uuid not null references public.special_offer_entries(id) on delete restrict,
+  offer_id uuid not null references public.special_offers(id) on delete restrict,
+  entry_id uuid not null,
   public_name text not null,
   publication_consent_confirmed boolean not null default false,
   consent_confirmed_by uuid references auth.users(id) on delete set null,
@@ -254,6 +254,8 @@ create table if not exists public.special_offer_winner_publications (
   constraint special_offer_winner_publications_workflow_key unique (workflow_id),
   constraint special_offer_winner_publications_workflow_offer_fkey foreign key (workflow_id, offer_id)
     references public.special_offer_winner_workflows(id, offer_id) on delete restrict,
+  constraint special_offer_winner_publications_entry_offer_fkey foreign key (entry_id, offer_id)
+    references public.special_offer_entries(id, offer_id) on delete restrict,
   constraint special_offer_winner_publications_public_name_check check (
     length(btrim(public_name)) > 0 and char_length(public_name) <= 160
   ),
@@ -857,6 +859,16 @@ begin
   ) then
     raise exception 'shortlist_entry_not_found' using errcode = 'P0001';
   end if;
+  if p_shortlist_id is not null
+     and p_entry_id is not null
+     and not exists (
+       select 1 from public.special_offer_winner_shortlist s
+       where s.id = p_shortlist_id
+         and s.workflow_id = v_workflow.id
+         and s.entry_id = p_entry_id
+     ) then
+    raise exception 'committee_note_entry_mismatch' using errcode = '23514';
+  end if;
 
   if p_entry_id is not null and not exists (
     select 1 from public.special_offer_entries e
@@ -1324,6 +1336,14 @@ begin
 
   if v_workflow.status <> 'candidate_selected' then
     raise exception 'winner_workflow_not_ready_for_backup' using errcode = '23514';
+  end if;
+  if not exists (
+    select 1
+    from public.special_offer_winner_contact_events c
+    where c.workflow_id = v_workflow.id
+      and c.status in ('declined', 'no_response')
+  ) then
+    raise exception 'replacement_contact_required' using errcode = '23514';
   end if;
 
   update public.special_offer_winner_shortlist
@@ -2208,6 +2228,17 @@ begin
       select count(*)::integer
       from public.special_offer_winner_publications p
       where p.entry_id = v_entry.id
+    )
+    + (
+      select count(*)::integer
+      from public.special_offer_winner_committee_notes n
+      where n.entry_id = v_entry.id
+        or exists (
+          select 1
+          from public.special_offer_winner_shortlist s
+          where s.id = n.shortlist_id
+            and s.entry_id = v_entry.id
+        )
     )
     into v_workflow_link_count;
 
