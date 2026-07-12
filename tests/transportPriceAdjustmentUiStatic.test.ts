@@ -10,6 +10,7 @@ describe('Transport Price 4.0C-D UI integration', () => {
   const dashboard = read('js/dashboard.js');
   const deposit = read('js/deposit.js');
   const partners = read('js/partners.js');
+  const bookingAccess = read('supabase/functions/booking-access/index.ts');
 
   const functionSlice = (source: string, name: string) => {
     const marker = `function ${name}`;
@@ -99,6 +100,19 @@ describe('Transport Price 4.0C-D UI integration', () => {
     expect(deposit).not.toContain("params.get('total')");
     expect(deposit).not.toContain("params.get('amount')");
     expect(deposit).toContain('const totalPrice = totalFromRow');
+  });
+
+  test('yourbooking email preview uses current transport deposit status for effective totals', () => {
+    expect(bookingAccess).toContain('async function buildTransportMoneyObject');
+    expect(bookingAccess).toContain('.rpc("get_service_deposit_status"');
+    expect(bookingAccess).toContain('(data as any).booking_total_price');
+    expect(bookingAccess).toContain('paidStatus ? (data as any).amount : 0');
+    expect(bookingAccess).toContain('base.money = await buildTransportMoneyObject(supabase, booking, deposit)');
+    const transportBranch = bookingAccess.slice(
+      bookingAccess.indexOf('if (bookingType === "transport")'),
+      bookingAccess.indexOf('} else if (bookingType === "cars")')
+    );
+    expect(transportBranch).not.toMatch(/moneyObject\(\s*\{[\s\S]{0,240}total:\s*\(booking as any\)\.total_price/i);
   });
 
   test('price save does not invoke email or payment side effects', () => {

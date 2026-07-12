@@ -201,6 +201,43 @@ function moneyObject(params: { total?: unknown; paid?: unknown; currency?: unkno
   };
 }
 
+async function buildTransportMoneyObject(
+  supabase: any,
+  booking: Record<string, unknown>,
+  deposit: Record<string, unknown> | null,
+) {
+  const depositId = valueToString((deposit as any)?.id);
+  if (depositId) {
+    try {
+      const { data, error } = await supabase
+        .rpc("get_service_deposit_status", { p_id: depositId })
+        .maybeSingle();
+      if (!error && data) {
+        const paidStatus = valueToString((data as any).status).toLowerCase() === "paid"
+          && Boolean((data as any).paid_at);
+        return moneyObject({
+          total: (data as any).booking_total_price,
+          paid: paidStatus ? (data as any).amount : 0,
+          currency: firstNonEmpty((data as any).currency, (booking as any).currency),
+        });
+      }
+    } catch (error) {
+      console.warn("[booking-access] failed to load transport deposit status", {
+        deposit_request_id: depositId,
+        error: valueToString((error as any)?.message || error),
+      });
+    }
+  }
+
+  return moneyObject({
+    total: firstNonEmpty((booking as any).adjusted_total_price, (booking as any).total_price),
+    paid: valueToString((deposit as any)?.status).toLowerCase() === "paid" && Boolean((deposit as any)?.paid_at)
+      ? (deposit as any)?.amount
+      : 0,
+    currency: firstNonEmpty((booking as any).currency, (deposit as any)?.currency),
+  });
+}
+
 async function loadLatestDeposit(supabase: any, bookingType: BookingType, bookingId: string): Promise<Record<string, unknown> | null> {
   const { data, error } = await supabase
     .from("service_deposit_requests")
@@ -284,9 +321,9 @@ async function mapBookingPayload(
 ) {
   const { tokenRow, booking, bookingType, lang, isOwner } = params;
   const deposit = await loadLatestDeposit(supabase, bookingType, valueToString((booking as any).id));
-  const depositPaid = valueToString((deposit as any)?.status).toLowerCase() === "paid"
+  const depositPaid = valueToString((deposit as any)?.status).toLowerCase() === "paid" && Boolean((deposit as any)?.paid_at)
     ? numberOrNull((deposit as any)?.amount)
-    : numberOrNull((booking as any).deposit_amount);
+    : 0;
 
   const base = {
     ok: true,
@@ -332,11 +369,7 @@ async function mapBookingPayload(
       return_pickup: isOwner ? firstNonEmpty((booking as any).return_pickup_address) : "",
       return_dropoff: isOwner ? firstNonEmpty((booking as any).return_dropoff_address) : "",
     };
-    base.money = moneyObject({
-      total: (booking as any).total_price,
-      paid: depositPaid,
-      currency: firstNonEmpty((booking as any).currency, (deposit as any)?.currency),
-    });
+    base.money = await buildTransportMoneyObject(supabase, booking, deposit);
   } else if (bookingType === "cars") {
     base.booking = {
       ...(base.booking as Record<string, unknown>),

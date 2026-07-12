@@ -318,8 +318,16 @@ async function main() {
   setupLanguageSwitcher()
   render()
 
+  const initialRow = await loadDepositStatusFromDb()
+  if (initialRow) {
+    state.dbRow = initialRow
+    render()
+  }
+
   if (state.result === 'success') {
-    for (let attempt = 0; attempt < 30; attempt += 1) {
+    if (String(initialRow?.status || '').trim().toLowerCase() === 'paid') return
+
+    for (let attempt = 1; attempt < 30; attempt += 1) {
       const row = await loadDepositStatusFromDb()
       if (row) state.dbRow = row
       render()
