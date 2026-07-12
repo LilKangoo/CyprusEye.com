@@ -257,9 +257,15 @@
     btnPartnerLinksCopyLandingPl: null,
     btnPartnerLinksCopyLandingEn: null,
     btnPartnerLinksCopyLandingHe: null,
+    btnPartnerLinksOpenLandingPl: null,
+    btnPartnerLinksOpenLandingEn: null,
+    btnPartnerLinksOpenLandingHe: null,
     btnPartnerLinksCopyOfferPl: null,
     btnPartnerLinksCopyOfferEn: null,
     btnPartnerLinksCopyOfferHe: null,
+    btnPartnerLinksOpenOfferPl: null,
+    btnPartnerLinksOpenOfferEn: null,
+    btnPartnerLinksOpenOfferHe: null,
     btnPartnerLinksOpenLanding: null,
     btnPartnerLinksOpenOffer: null,
     partnerDiscountCodesList: null,
@@ -468,6 +474,7 @@
     { key: 'transport', label: 'Transport' },
     { key: 'shop', label: 'Shop' },
     { key: 'blog', label: 'Blog' },
+    { key: 'special_offers', label: 'Special Offers' },
   ];
   const PARTNER_LINKS_PRICE_SORT_OPTIONS = [
     { value: 'default', label: 'Default order' },
@@ -3423,6 +3430,7 @@
     if (normalized === 'transport') return 'Transport';
     if (normalized === 'shop') return 'Shop';
     if (normalized === 'blog') return 'Blog';
+    if (normalized === 'special_offers') return 'Special Offer';
     return 'Service';
   }
 
@@ -3530,6 +3538,22 @@
       return getPartnerLinksDisplayUrl(normalized);
     }
     return '';
+  }
+
+  function getSafePartnerLinksImageUrl(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    if (raw.startsWith('/') && !raw.startsWith('//')) return raw;
+    try {
+      const baseUrl = (typeof window !== 'undefined' && window.location && window.location.origin)
+        ? window.location.origin
+        : 'https://cypruseye.com';
+      const url = new URL(raw, baseUrl);
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
+      return getPartnerLinksDisplayUrl(url.toString());
+    } catch (_error) {
+      return '';
+    }
   }
 
   function getHotelPreviewImageUrl(row) {
@@ -3692,6 +3716,12 @@
     return rows.filter((item) => normalizePartnerLinksOptionToken(item?.type) === normalizedFilter);
   }
 
+  function getPartnerLinksEmptyMessage(filterKey = '') {
+    const normalized = normalizePartnerLinksOptionToken(filterKey || state.linksDiscounts.filter || 'all') || 'all';
+    if (normalized === 'special_offers') return 'No active Special Offers available for promotion right now.';
+    return 'No services available for this filter.';
+  }
+
   function buildPartnerLinksSelectOptions(values = []) {
     return values
       .map((value) => String(value || '').trim())
@@ -3826,6 +3856,9 @@
     if (type === 'blog') {
       return { allowed: false, reason: 'Blog HE requires manual public_ready review before public links.' };
     }
+    if (type === 'special_offers') {
+      return { allowed: true, reason: '' };
+    }
 
     if (mode === 'landing') {
       if (type === 'transport' || type === 'hotels' || type === 'cars' || type === 'trips') {
@@ -3928,6 +3961,12 @@
       url.searchParams.set('lang', language);
       return url.toString();
     }
+    if (type === 'special_offers') {
+      const slug = String(item?.slug || item?.resourceId || '').trim();
+      url.pathname = slug ? `/special-offers/${encodeURIComponent(slug)}` : '/special-offers';
+      url.searchParams.set('lang', language);
+      return url.toString();
+    }
     return `${baseUrl}/`;
   }
 
@@ -3941,6 +3980,7 @@
   function getPartnerLinksFallbackDescription(type) {
     if (type === 'blog') return 'Share this article with your referral code attached.';
     if (type === 'transport') return 'Share this route with your referral code attached.';
+    if (type === 'special_offers') return 'Share this campaign landing page with your referral code attached.';
     return 'Use this direct link to send the selected service with your referral code attached.';
   }
 
@@ -3988,6 +4028,46 @@
 
   function normalizePartnerLinksItem(type, row, extra = {}) {
     const normalizedType = String(type || '').trim().toLowerCase();
+    if (normalizedType === 'special_offers') {
+      const slug = String(row?.slug || '').trim();
+      if (!slug) return null;
+      const titleByLang = row?.titleByLang && typeof row.titleByLang === 'object'
+        ? {
+          pl: String(row.titleByLang.pl || row.titleByLang.en || row.titleByLang.he || slug).trim(),
+          en: String(row.titleByLang.en || row.titleByLang.pl || row.titleByLang.he || slug).trim(),
+          he: String(row.titleByLang.he || row.titleByLang.en || row.titleByLang.pl || slug).trim(),
+        }
+        : normalizePartnerLinksTextMap(row?.title, slug);
+      const descriptionByLang = row?.descriptionByLang && typeof row.descriptionByLang === 'object'
+        ? {
+          pl: normalizePreviewText(row.descriptionByLang.pl || row.descriptionByLang.en || row.descriptionByLang.he || ''),
+          en: normalizePreviewText(row.descriptionByLang.en || row.descriptionByLang.pl || row.descriptionByLang.he || ''),
+          he: normalizePreviewText(row.descriptionByLang.he || row.descriptionByLang.en || row.descriptionByLang.pl || ''),
+        }
+        : normalizePartnerLinksTextMap(row?.short_description || row?.description || '');
+      const endDate = formatPartnerShortDate(row?.end_at);
+      return {
+        key: `special_offers:${slug}`,
+        type: 'special_offers',
+        raw: {
+          slug,
+          requestedLangs: row?.requestedLangs || {},
+          resolvedLangs: row?.resolvedLangs || {},
+        },
+        resourceId: slug,
+        slug,
+        slugByLang: { pl: slug, en: slug, he: slug },
+        title: titleByLang.en || titleByLang.pl || titleByLang.he || slug,
+        titleByLang,
+        meta: endDate ? `Ends ${endDate}` : 'Active campaign',
+        description: descriptionByLang.en || descriptionByLang.pl || descriptionByLang.he,
+        descriptionByLang,
+        imageUrl: getSafePartnerLinksImageUrl(row?.cover_image_url),
+        campaignStartAt: row?.start_at || '',
+        campaignEndAt: row?.end_at || '',
+      };
+    }
+
     const resourceId = String(row?.id || '').trim();
     if (!resourceId) return null;
 
@@ -4309,13 +4389,19 @@
 
   function renderPartnerLinksFilters() {
     if (!els.partnerLinksFilters) return;
-    els.partnerLinksFilters.innerHTML = PARTNER_LINKS_FILTERS.map((filter) => `
-      <button
-        type="button"
-        class="partner-tab ${String(state.linksDiscounts.filter || 'all') === filter.key ? 'is-active' : ''}"
-        data-partner-links-filter="${escapeHtml(filter.key)}"
-      >${escapeHtml(filter.label)}</button>
-    `).join('');
+    els.partnerLinksFilters.innerHTML = PARTNER_LINKS_FILTERS.map((filter) => {
+      const count = getPartnerLinksCategoryItems(filter.key).length;
+      return `
+        <button
+          type="button"
+          class="partner-tab ${String(state.linksDiscounts.filter || 'all') === filter.key ? 'is-active' : ''}"
+          data-partner-links-filter="${escapeHtml(filter.key)}"
+        >
+          ${escapeHtml(filter.label)}
+          <span class="partner-links-tab-count">${escapeHtml(String(count))}</span>
+        </button>
+      `;
+    }).join('');
   }
 
   function renderPartnerLinksContextControls() {
@@ -4359,7 +4445,7 @@
     const filtered = getFilteredPartnerLinksItems();
     const uiLanguage = getPartnerUiLanguage();
     if (!filtered.length) {
-      els.partnerLinksGrid.innerHTML = '<div class="partner-links-empty">No services available for this filter.</div>';
+      els.partnerLinksGrid.innerHTML = `<div class="partner-links-empty">${escapeHtml(getPartnerLinksEmptyMessage())}</div>`;
       return;
     }
 
@@ -4507,6 +4593,12 @@
 
     setButtonUrl(els.btnPartnerLinksOpenLanding, landingCurrent);
     setButtonUrl(els.btnPartnerLinksOpenOffer, offerCurrent);
+    setButtonUrl(els.btnPartnerLinksOpenLandingPl, landingPl);
+    setButtonUrl(els.btnPartnerLinksOpenLandingEn, landingEn);
+    setButtonUrl(els.btnPartnerLinksOpenLandingHe, landingHe);
+    setButtonUrl(els.btnPartnerLinksOpenOfferPl, offerPl);
+    setButtonUrl(els.btnPartnerLinksOpenOfferEn, offerEn);
+    setButtonUrl(els.btnPartnerLinksOpenOfferHe, offerHe);
 
     const setCopyDisabled = (button, value) => {
       if (button instanceof HTMLButtonElement) {
@@ -4589,6 +4681,65 @@
     }).join('');
   }
 
+  async function loadPartnerLinksSpecialOfferItems() {
+    if (!state.sb) return [];
+    const languages = ['pl', 'en', 'he'];
+    const settled = await Promise.allSettled(languages.map((lang) => (
+      withRateLimitRetry(() => state.sb.rpc('get_partner_active_special_offers', { p_lang: lang }))
+        .then((response) => ({ lang, response }))
+    )));
+
+    const bySlug = new Map();
+    let successCount = 0;
+    settled.forEach((entry, index) => {
+      const requestedLang = languages[index] || 'en';
+      if (entry.status !== 'fulfilled') return;
+      const response = entry.value?.response || {};
+      if (response.error) return;
+      successCount += 1;
+      const rows = Array.isArray(response.data) ? response.data : [];
+      rows.forEach((row) => {
+        const slug = String(row?.slug || '').trim();
+        if (!slug) return;
+        const resolvedLang = String(row?.resolved_lang || row?.requested_lang || requestedLang).trim().toLowerCase();
+        const safeResolvedLang = resolvedLang === 'pl' || resolvedLang === 'he' ? resolvedLang : 'en';
+        const existing = bySlug.get(slug) || {
+          slug,
+          titleByLang: {},
+          descriptionByLang: {},
+          requestedLangs: {},
+          resolvedLangs: {},
+          cover_image_url: '',
+          start_at: '',
+          end_at: '',
+        };
+        const title = String(row?.title || '').trim();
+        const description = normalizePreviewText(row?.short_description || '');
+        if (title && !existing.titleByLang[safeResolvedLang]) existing.titleByLang[safeResolvedLang] = title;
+        if (description && !existing.descriptionByLang[safeResolvedLang]) existing.descriptionByLang[safeResolvedLang] = description;
+        existing.requestedLangs[requestedLang] = String(row?.requested_lang || requestedLang).trim().toLowerCase() || requestedLang;
+        existing.resolvedLangs[requestedLang] = safeResolvedLang;
+        existing.cover_image_url = existing.cover_image_url || String(row?.cover_image_url || '').trim();
+        existing.start_at = existing.start_at || String(row?.start_at || '').trim();
+        existing.end_at = existing.end_at || String(row?.end_at || '').trim();
+        bySlug.set(slug, existing);
+      });
+    });
+
+    if (!successCount && settled.some((entry) => entry.status === 'rejected' || entry.value?.response?.error)) {
+      const firstFailure = settled.find((entry) => entry.status === 'rejected' || entry.value?.response?.error);
+      const error = firstFailure?.status === 'rejected' ? firstFailure.reason : firstFailure?.value?.response?.error;
+      const safeCode = String(error?.code || '').trim();
+      const safeMessage = String(error?.message || 'Special Offers listing unavailable').trim();
+      console.warn('[partners] Failed to load Special Offers for Links / Discounts:', safeCode || safeMessage);
+      return [];
+    }
+
+    return Array.from(bySlug.values())
+      .map((row) => normalizePartnerLinksItem('special_offers', row))
+      .filter(Boolean);
+  }
+
   async function loadPartnerLinksServiceItems() {
     if (!state.sb) return [];
     const safeRows = async (tableName, options = {}) => {
@@ -4649,6 +4800,7 @@
       .lte('published_at', new Date().toISOString())
       .order('published_at', { ascending: false })
       .limit(120));
+    const specialOffersPromise = loadPartnerLinksSpecialOfferItems();
 
     const settled = await Promise.allSettled([
       safeRows('trips', {
@@ -4690,6 +4842,7 @@
         limit: 240,
       }),
       blogRowsPromise,
+      specialOffersPromise,
     ]);
 
     const getSettledRows = (entry, label) => {
@@ -4711,6 +4864,7 @@
     const products = getSettledRows(settled[5], 'shop_products');
     const shopCategories = getSettledRows(settled[6], 'shop_categories');
     const blogRows = getSettledRows(settled[7], 'blog_posts');
+    const specialOffers = getSettledRows(settled[8], 'special_offers');
 
     const locationById = new Map((Array.isArray(locations) ? locations : []).map((row) => [String(row?.id || '').trim(), row]));
     const shopCategoryById = new Map((Array.isArray(shopCategories) ? shopCategories : []).map((row) => [String(row?.id || '').trim(), row]));
@@ -4751,6 +4905,9 @@
     blogRows.forEach((row) => {
       const item = normalizePartnerLinksItem('blog', row);
       if (item?.slugByLang?.pl || item?.slugByLang?.en) items.push(item);
+    });
+    specialOffers.forEach((item) => {
+      if (item?.slug) items.push(item);
     });
 
     return items.sort((left, right) => {
@@ -13647,6 +13804,12 @@
     };
     bindPartnerLinksOpen(els.btnPartnerLinksOpenLanding);
     bindPartnerLinksOpen(els.btnPartnerLinksOpenOffer);
+    bindPartnerLinksOpen(els.btnPartnerLinksOpenLandingPl);
+    bindPartnerLinksOpen(els.btnPartnerLinksOpenLandingEn);
+    bindPartnerLinksOpen(els.btnPartnerLinksOpenLandingHe);
+    bindPartnerLinksOpen(els.btnPartnerLinksOpenOfferPl);
+    bindPartnerLinksOpen(els.btnPartnerLinksOpenOfferEn);
+    bindPartnerLinksOpen(els.btnPartnerLinksOpenOfferHe);
 
     const handleAnalyticsPeriodChange = async (nextRaw) => {
       const next = String(nextRaw || 'year').trim().toLowerCase() === 'month' ? 'month' : 'year';
@@ -14312,9 +14475,15 @@
     els.btnPartnerLinksCopyLandingPl = $('btnPartnerLinksCopyLandingPl');
     els.btnPartnerLinksCopyLandingEn = $('btnPartnerLinksCopyLandingEn');
     els.btnPartnerLinksCopyLandingHe = $('btnPartnerLinksCopyLandingHe');
+    els.btnPartnerLinksOpenLandingPl = $('btnPartnerLinksOpenLandingPl');
+    els.btnPartnerLinksOpenLandingEn = $('btnPartnerLinksOpenLandingEn');
+    els.btnPartnerLinksOpenLandingHe = $('btnPartnerLinksOpenLandingHe');
     els.btnPartnerLinksCopyOfferPl = $('btnPartnerLinksCopyOfferPl');
     els.btnPartnerLinksCopyOfferEn = $('btnPartnerLinksCopyOfferEn');
     els.btnPartnerLinksCopyOfferHe = $('btnPartnerLinksCopyOfferHe');
+    els.btnPartnerLinksOpenOfferPl = $('btnPartnerLinksOpenOfferPl');
+    els.btnPartnerLinksOpenOfferEn = $('btnPartnerLinksOpenOfferEn');
+    els.btnPartnerLinksOpenOfferHe = $('btnPartnerLinksOpenOfferHe');
     els.btnPartnerLinksOpenLanding = $('btnPartnerLinksOpenLanding');
     els.btnPartnerLinksOpenOffer = $('btnPartnerLinksOpenOffer');
     els.partnerDiscountCodesList = $('partnerDiscountCodesList');

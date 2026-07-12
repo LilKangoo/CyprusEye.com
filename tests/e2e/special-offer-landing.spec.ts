@@ -959,6 +959,15 @@ test.describe('Special Offer public read-only landing', () => {
     await prepareSpecialOfferLandingStub(page, { participantSession: true, rpcReference: 'SO-OK123456' });
     await page.goto('/special-offers/published-submit-form-2026?lang=en');
     await waitForSupabaseStub(page);
+    await page.evaluate(() => {
+      localStorage.setItem('cypruseye_referral_code', JSON.stringify({
+        code: 'CYREF123',
+        source: 'url',
+        capturedAt: Date.now(),
+        expiresAt: Date.now() + 86400000,
+        locked: true,
+      }));
+    });
     await fillValidSubmitForm(page);
 
     await page.evaluate(() => {
@@ -977,6 +986,8 @@ test.describe('Special Offer public read-only landing', () => {
     expect(submitCalls[0].params.p_offer_slug).toBe('published-submit-form-2026');
     expect(submitCalls[0].params.p_lang).toBe('en');
     expect(submitCalls[0].params.p_client_submission_id).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(submitCalls[0].params.p_referral_code).toBe('CYREF123');
+    expect(submitCalls[0].params.p_referral_source).toBe('url');
     expect(submitCalls[0].params.p_answers).toMatchObject({
       first_name: 'Anna',
       last_name: 'Nowak',

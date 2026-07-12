@@ -1,5 +1,6 @@
 import { supabase } from '/js/supabaseClient.js';
 import { enhancePhoneInput } from '/js/phone-input.js';
+import { getStoredReferralData } from '/js/referral.js';
 
 const LANGUAGES = ['pl', 'en', 'he'];
 const FALLBACK_ORDER = ['pl', 'en', 'he'];
@@ -644,6 +645,29 @@ function rerenderEntryFormIfPossible({ scroll = false } = {}) {
 
 function getText(lang) {
   return TEXT[lang] || TEXT.pl;
+}
+
+function getSpecialOfferReferralPayload() {
+  try {
+    const data = getStoredReferralData?.();
+    const code = String(data?.code || '').trim();
+    if (!code || !/^[A-Za-z0-9_]+$/.test(code)) {
+      return {
+        p_referral_code: null,
+        p_referral_source: null,
+      };
+    }
+    const source = String(data?.source || 'stored').trim().toLowerCase();
+    return {
+      p_referral_code: code,
+      p_referral_source: ['url', 'stored', 'manual'].includes(source) ? source : 'stored',
+    };
+  } catch (_error) {
+    return {
+      p_referral_code: null,
+      p_referral_source: null,
+    };
+  }
 }
 
 function setPageLanguage(lang) {
@@ -2099,11 +2123,14 @@ async function handleEntrySubmit(event) {
   setSubmitButtonState('submitting', lang);
   showFormStatus('', 'info');
   try {
+    const referralPayload = getSpecialOfferReferralPayload();
     const { data: result, error } = await supabase.rpc('submit_special_offer_entry', {
       p_offer_slug: currentSlug,
       p_lang: lang,
       p_answers: answers,
       p_client_submission_id: submissionId,
+      p_referral_code: referralPayload.p_referral_code,
+      p_referral_source: referralPayload.p_referral_source,
     });
     if (error) throw error;
     clearSubmissionId();
