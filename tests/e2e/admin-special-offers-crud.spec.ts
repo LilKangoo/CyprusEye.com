@@ -61,6 +61,9 @@ async function prepareAdminSpecialOffersCrudStub(page: Page, options: { selectEr
             exclude_partners: false,
             public_winner_display: false,
             response_deadline_days: 7,
+            hero_image_url: 'https://cdn.example.com/lefkara-hero.webp',
+            cover_image_url: 'https://cdn.example.com/lefkara-cover.webp',
+            meta_image_url: null,
             settings_json: { partner: '7 Kamares', organizers: ['LilKangooMedia LTD'] },
           },
           {
@@ -88,6 +91,7 @@ async function prepareAdminSpecialOffersCrudStub(page: Page, options: { selectEr
             faq_json: [{ question: 'Kto może wziąć udział?', answer: 'Zalogowani użytkownicy.' }],
             seo_title: 'Konkurs Lefkara 2026',
             seo_description: 'Wygraj pobyt w Lefkarze.',
+            meta_image_alt: 'Lefkara konkurs social image',
           },
           {
             id: 'translation-en',
@@ -101,6 +105,7 @@ async function prepareAdminSpecialOffersCrudStub(page: Page, options: { selectEr
             faq_json: [{ question: 'Is the car included?', answer: 'Yes.' }],
             seo_title: 'Lefkara giveaway 2026',
             seo_description: 'Win a Lefkara stay.',
+            meta_image_alt: 'Lefkara giveaway social image',
           },
           {
             id: 'translation-he',
@@ -114,6 +119,7 @@ async function prepareAdminSpecialOffersCrudStub(page: Page, options: { selectEr
             faq_json: [{ question: 'האם הרכב כלול?', answer: 'כן.' }],
             seo_title: 'הגרלת לפקרה',
             seo_description: 'זכו בשהייה.',
+            meta_image_alt: 'תמונת שיתוף לפקרה',
           },
           {
             id: 'translation-active-pl',
@@ -341,6 +347,93 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     expect(plTranslation.rules_html).toContain('<h3>Nowe zasady</h3>');
     expect(plTranslation.rules_html).toContain('<li>Zgłoszenie musi być kompletne.</li>');
     expect(rows.audit.some((row: any) => row.action === 'special_offer.updated' && row.offer_id === OFFER_ID)).toBe(true);
+  });
+
+  test('edits SEO & Social metadata, previews fallbacks, uploads meta image and keeps HE RTL', async ({ page }) => {
+    await openSpecialOffers(page);
+    await openEditorForLefkara(page);
+
+    const editor = page.locator('#specialOffersEditorModal');
+    await editor.getByRole('button', { name: 'SEO & Social' }).click();
+    await expect(editor.locator('[name="meta_image_url"]')).toBeVisible();
+    await expect(editor.locator('[data-special-offers-final-image-preview]')).toContainText('Source: Cover');
+    await expect(editor.locator('[data-special-offers-seo-preview="pl"]')).toContainText('Konkurs Lefkara 2026');
+
+    await editor.locator('[name="meta_image_url"]').fill('https://cdn.example.com/lefkara-social-manual.webp');
+    await expect(editor.locator('[data-special-offers-final-image-preview]')).toContainText('Source: Meta image');
+    await editor.locator('[name="pl_seo_title"]').fill('Nowy SEO tytuł Lefkara');
+    await editor.locator('[name="pl_seo_description"]').fill('Nowy opis SEO dla kampanii Lefkara.');
+    await editor.locator('[name="pl_meta_image_alt"]').fill('Nowy opis obrazu social PL');
+    await expect(editor.locator('[data-special-offers-count="pl:title"]')).toHaveText('22');
+
+    await editor.locator('[data-special-offers-seo-lang-tab="en"]').click();
+    await editor.locator('[name="en_seo_title"]').fill('New Lefkara SEO title');
+    await editor.locator('[name="en_meta_image_alt"]').fill('New English social alt');
+    await editor.locator('[data-special-offers-clear-seo-field="en:seo_description"]').dispatchEvent('click');
+    await expect(editor.locator('[name="en_seo_description"]')).toHaveValue('');
+    await expect(editor.locator('[data-special-offers-seo-preview="en"]')).toContainText('Description fallback: Short description');
+
+    await editor.locator('[data-special-offers-seo-lang-tab="he"]').click();
+    await expect(editor.locator('[data-special-offers-seo-lang-panel="he"]')).toHaveAttribute('dir', 'rtl');
+    await expect(editor.locator('[name="he_seo_title"]')).toHaveAttribute('dir', 'rtl');
+    await expect(editor.locator('[data-special-offers-seo-preview="he"] .special-offer-seo-preview-card')).toHaveAttribute('dir', 'rtl');
+    await editor.locator('[name="he_seo_title"]').fill('כותרת SEO לפקרה');
+    await editor.locator('[name="he_seo_description"]').fill('תיאור SEO עברי.');
+    await editor.locator('[name="he_meta_image_alt"]').fill('תיאור תמונת שיתוף בעברית');
+
+    await editor.locator('[data-special-offers-clear-meta-image]').click();
+    await expect(editor.locator('[data-special-offers-final-image-preview]')).toContainText('Source: Cover');
+
+    await editor.locator('[data-special-offers-meta-image-file]').setInputFiles({
+      name: 'not-image.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('not an image'),
+    });
+    await expect(editor.locator('[name="meta_image_url"]')).toHaveValue('');
+
+    await editor.locator('[data-special-offers-meta-image-file]').setInputFiles({
+      name: 'social.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lqR8JwAAAABJRU5ErkJggg==',
+        'base64',
+      ),
+    });
+    await expect(editor.locator('[name="meta_image_url"]')).toHaveValue(/https:\/\/stub\.local\/poi-photos\/special-offers\/lefkara-giveaway-2026\/seo\/meta-\d+\.webp/);
+    const uploadedUrl = await editor.locator('[name="meta_image_url"]').inputValue();
+
+    await editor.getByRole('button', { name: 'Save campaign' }).click();
+    await expect(editor).toBeHidden();
+
+    const rows = await page.evaluate(() => ({
+      offers: (window as any).__supabaseStub.getTableRows('special_offers'),
+      translations: (window as any).__supabaseStub.getTableRows('special_offer_translations'),
+      storageObjects: (window as any).__supabaseStub.state.storageObjects,
+      audit: (window as any).__supabaseStub.getTableRows('special_offer_audit_log'),
+    }));
+    const offer = rows.offers.find((row: any) => row.id === OFFER_ID);
+    expect(offer.meta_image_url).toBe(uploadedUrl);
+    expect(Object.keys(rows.storageObjects)).toContain(`poi-photos/${new URL(uploadedUrl).pathname.replace('/poi-photos/', '')}`);
+    const plTranslation = rows.translations.find((row: any) => row.offer_id === OFFER_ID && row.lang === 'pl');
+    const enTranslation = rows.translations.find((row: any) => row.offer_id === OFFER_ID && row.lang === 'en');
+    const heTranslation = rows.translations.find((row: any) => row.offer_id === OFFER_ID && row.lang === 'he');
+    expect(plTranslation.seo_title).toBe('Nowy SEO tytuł Lefkara');
+    expect(plTranslation.seo_description).toBe('Nowy opis SEO dla kampanii Lefkara.');
+    expect(plTranslation.meta_image_alt).toBe('Nowy opis obrazu social PL');
+    expect(enTranslation.seo_title).toBe('New Lefkara SEO title');
+    expect(enTranslation.seo_description).toBe('');
+    expect(enTranslation.meta_image_alt).toBe('New English social alt');
+    expect(heTranslation.seo_title).toBe('כותרת SEO לפקרה');
+    expect(heTranslation.seo_description).toBe('תיאור SEO עברי.');
+    expect(heTranslation.meta_image_alt).toBe('תיאור תמונת שיתוף בעברית');
+    expect(rows.audit.some((row: any) => row.action === 'special_offer.updated' && row.offer_id === OFFER_ID)).toBe(true);
+
+    await openEditorForLefkara(page);
+    await editor.getByRole('button', { name: 'SEO & Social' }).click();
+    await expect(editor.locator('[name="meta_image_url"]')).toHaveValue(uploadedUrl);
+    await expect(editor.locator('[name="pl_seo_title"]')).toHaveValue('Nowy SEO tytuł Lefkara');
+    await editor.locator('[data-special-offers-seo-lang-tab="he"]').click();
+    await expect(editor.locator('[name="he_meta_image_alt"]')).toHaveValue('תיאור תמונת שיתוף בעברית');
   });
 
   test('adds/removes prizes and URL-only linked services with validation', async ({ page }) => {
@@ -804,6 +897,8 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     expect(source).not.toContain('special_offer_winners');
     expect(source).not.toMatch(/from\(['"]special_offer_entries['"]\)\.update/);
     expect(source).not.toMatch(/from\(['"]special_offer_entry_answers['"]\)\.(insert|update|delete|upsert)/);
-    expect(source).not.toMatch(/\.storage\b/);
+    expect(source).toContain("storage.from('poi-photos')");
+    expect(source).not.toMatch(/service[_-]?role/i);
+    expect(source).not.toMatch(/from\(['"]special_offer_entry_referrals['"]\)/);
   });
 });

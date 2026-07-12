@@ -279,7 +279,9 @@ test.describe('Admin Special Offers read-only integration', () => {
     expect(source).not.toContain('special_offer_winners');
     expect(source).not.toMatch(/from\(['"]special_offer_entries['"]\)\.update/);
     expect(source).not.toMatch(/from\(['"]special_offer_entry_answers['"]\)\.(insert|update|delete|upsert)/);
-    expect(source).not.toMatch(/\.storage\b/);
+    expect(source).toContain("storage.from('poi-photos')");
+    expect(source).not.toMatch(/service[_-]?role/i);
+    expect(source).not.toMatch(/from\(['"]special_offer_entry_referrals['"]\)/);
   });
 
   test('keeps read-only campaign cards usable on mobile without horizontal overflow', async ({ page }) => {

@@ -1,5 +1,5 @@
-const SPECIAL_OFFERS_SELECT = 'id, slug, type, winner_selection_mode, status, visibility, start_at, end_at, winner_announce_at, timezone, requires_login, requires_form, requires_manual_approval, allow_multiple_entries, max_entries_per_user, allow_bonus_points, exclude_admins, exclude_partners, public_winner_display, response_deadline_days, settings_json, created_at, updated_at, archived_at';
-const SPECIAL_OFFERS_TRANSLATIONS_SELECT = 'id, offer_id, lang, title, short_description, full_description, prize_description, rules_html, faq_json, seo_title, seo_description';
+const SPECIAL_OFFERS_SELECT = 'id, slug, type, winner_selection_mode, status, visibility, start_at, end_at, winner_announce_at, timezone, requires_login, requires_form, requires_manual_approval, allow_multiple_entries, max_entries_per_user, allow_bonus_points, exclude_admins, exclude_partners, public_winner_display, response_deadline_days, hero_image_url, cover_image_url, meta_image_url, settings_json, created_at, updated_at, archived_at';
+const SPECIAL_OFFERS_TRANSLATIONS_SELECT = 'id, offer_id, lang, title, short_description, full_description, prize_description, rules_html, faq_json, seo_title, seo_description, meta_image_alt';
 const SPECIAL_OFFERS_PRIZES_SELECT = 'id, offer_id, name, description, sponsor_name, quantity, value_estimate, currency, restrictions, fulfillment_notes, sort_order';
 const SPECIAL_OFFERS_PRIZE_TRANSLATIONS_SELECT = 'id, prize_id, lang, name, description, restrictions, fulfillment_notes';
 const SPECIAL_OFFERS_LINKS_SELECT = 'id, offer_id, link_type, resource_id, url, label, description, image_url, is_primary, sort_order';
@@ -566,6 +566,133 @@ function isValidLinkImageUrl(value) {
   if (/[ \t\r\n\f\v\u0000-\u001F\u007F]/.test(source)) return false;
   return /^https:\/\/[a-z0-9][a-z0-9.-]*(?::[0-9]{1,5})?(?:[/?#][^\s\u0000-\u001F\u007F]*)?$/i.test(source)
     || /^\/[^/\s\u0000-\u001F\u007F?#][^\s\u0000-\u001F\u007F]*$/.test(source);
+}
+
+const SPECIAL_OFFER_DEFAULT_SOCIAL_IMAGE = '/assets/cyprus_logo-1000x1054.png';
+
+function stripHtmlForSeo(value) {
+  const source = String(value || '').trim();
+  if (!source) return '';
+  const template = document.createElement('template');
+  template.innerHTML = source;
+  return String(template.content.textContent || '').replace(/\s+/g, ' ').trim();
+}
+
+function normalizeSeoDescription(value, maxLength = 300) {
+  return stripHtmlForSeo(value).slice(0, maxLength).trim();
+}
+
+function normalizeMetaImageUrl(value) {
+  return normalizeOptionalImageUrl(value);
+}
+
+function getEditorTranslationValue(lang, field) {
+  const form = $('#specialOfferEditorForm');
+  if (!form) return '';
+  return String(form.elements?.[`${lang}_${field}`]?.value || '').trim();
+}
+
+function getCurrentEditorSlug() {
+  const form = $('#specialOfferEditorForm');
+  return normalizeSlug(String(form?.elements?.slug?.value || '').trim());
+}
+
+function getCampaignImageFallbackValue(field, campaign = null) {
+  const form = $('#specialOfferEditorForm');
+  if (form?.elements?.[field]) {
+    return String(form.elements[field].value || '').trim();
+  }
+  return String(campaign?.[field] || '').trim();
+}
+
+function getSeoFallbackValues(lang, campaign = null) {
+  const slug = getCurrentEditorSlug() || campaign?.slug || 'special-offer';
+  const title = getEditorTranslationValue(lang, 'title') || getEditorTranslation(campaign, lang).title || '';
+  const shortDescription = getEditorTranslationValue(lang, 'short_description') || getEditorTranslation(campaign, lang).short_description || '';
+  const fullDescription = getEditorTranslationValue(lang, 'full_description') || getEditorTranslation(campaign, lang).full_description || '';
+  const seoTitle = getEditorTranslationValue(lang, 'seo_title') || '';
+  const seoDescription = getEditorTranslationValue(lang, 'seo_description') || '';
+  const metaImageAlt = getEditorTranslationValue(lang, 'meta_image_alt') || '';
+  const finalTitle = seoTitle || title || slug;
+  const finalDescription = normalizeSeoDescription(seoDescription || shortDescription || fullDescription, 300);
+  const finalAlt = metaImageAlt || title || finalTitle || slug;
+  return {
+    slug,
+    title,
+    shortDescription,
+    fullDescription,
+    seoTitle,
+    seoDescription,
+    metaImageAlt,
+    finalTitle,
+    finalDescription,
+    finalAlt,
+  };
+}
+
+function getFinalSeoImage(campaign = null) {
+  const metaImageUrl = String($('#specialOfferMetaImageUrl')?.value || campaign?.meta_image_url || '').trim();
+  const coverImageUrl = getCampaignImageFallbackValue('cover_image_url', campaign);
+  const heroImageUrl = getCampaignImageFallbackValue('hero_image_url', campaign);
+  const candidates = [
+    { source: 'Meta image', value: metaImageUrl },
+    { source: 'Cover', value: coverImageUrl },
+    { source: 'Hero', value: heroImageUrl },
+    { source: 'Default', value: SPECIAL_OFFER_DEFAULT_SOCIAL_IMAGE },
+  ];
+  const picked = candidates.find((item) => isValidLinkImageUrl(item.value) && String(item.value || '').trim());
+  return picked || { source: 'Default', value: SPECIAL_OFFER_DEFAULT_SOCIAL_IMAGE };
+}
+
+function getSpecialOfferSeoUploadSlug() {
+  return getCurrentEditorSlug() || `special-offer-${Date.now()}`;
+}
+
+function isValidSpecialOfferImageFile(file) {
+  return file instanceof File && String(file.type || '').startsWith('image/');
+}
+
+async function prepareSpecialOfferImageBlob(file, options = {}) {
+  const maxWidth = Number.isFinite(options.maxWidth) ? options.maxWidth : 2400;
+  const maxHeight = Number.isFinite(options.maxHeight) ? options.maxHeight : 1260;
+  const quality = Number.isFinite(options.quality) ? options.quality : 0.9;
+  let objectUrl = '';
+  const loadImageElement = () => new Promise((resolve, reject) => {
+    const img = new Image();
+    objectUrl = URL.createObjectURL(file);
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('Failed to load image'));
+    img.src = objectUrl;
+  });
+  try {
+    let sourceBitmap = null;
+    if (typeof createImageBitmap === 'function') {
+      try {
+        sourceBitmap = await createImageBitmap(file);
+      } catch (_error) {
+        sourceBitmap = null;
+      }
+    }
+    if (!sourceBitmap) sourceBitmap = await loadImageElement();
+    const canvas = document.createElement('canvas');
+    const ratio = Math.min(1, maxWidth / sourceBitmap.width, maxHeight / sourceBitmap.height);
+    canvas.width = Math.max(1, Math.round(sourceBitmap.width * ratio));
+    canvas.height = Math.max(1, Math.round(sourceBitmap.height * ratio));
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Failed to prepare image canvas');
+    context.drawImage(sourceBitmap, 0, 0, canvas.width, canvas.height);
+    return await new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (blob) {
+          resolve(blob);
+          return;
+        }
+        reject(new Error('Failed to convert image'));
+      }, 'image/webp', quality);
+    });
+  } finally {
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+  }
 }
 
 function isValidFormFieldKey(value) {
@@ -2866,7 +2993,14 @@ function buildCampaignSnapshot(campaign) {
     start_at: campaign.start_at || null,
     end_at: campaign.end_at || null,
     winner_announce_at: campaign.winner_announce_at || null,
-    translations: toArray(campaign.translations).map((item) => ({ lang: item.lang, title: item.title || '' })),
+    meta_image_configured: Boolean(campaign.meta_image_url),
+    translations: toArray(campaign.translations).map((item) => ({
+      lang: item.lang,
+      title: item.title || '',
+      seo_title_configured: Boolean(item.seo_title),
+      seo_description_configured: Boolean(item.seo_description),
+      meta_image_alt_configured: Boolean(item.meta_image_alt),
+    })),
     prizes_count: toArray(campaign.prizes).length,
     links_count: toArray(campaign.links).length,
     form_fields_count: toArray(campaign.form_fields).length,
@@ -3121,6 +3255,7 @@ function renderTranslationPanel(campaign, language, isActive) {
         ['Prize description', translation.prize_description],
         ['SEO title', translation.seo_title],
         ['SEO description', translation.seo_description],
+        ['Meta image alt', translation.meta_image_alt],
       ])}
       <div class="special-offers-content-block">
         <h5>Rules</h5>
@@ -3531,13 +3666,73 @@ function renderTranslationEditor(campaign, language, isActive) {
       </label>
       ${renderRulesBuilder(language.code, translation.rules_html || '', dir)}
       ${renderFaqBuilder(language.code, translation.faq_json || [], dir)}
-      <label>SEO title
-        <input name="${escapeHtml(language.code)}_seo_title" value="${escapeHtml(translation.seo_title || '')}" dir="${escapeHtml(dir)}" />
-      </label>
-      <label>SEO description
-        <textarea name="${escapeHtml(language.code)}_seo_description" rows="2" dir="${escapeHtml(dir)}">${escapeHtml(translation.seo_description || '')}</textarea>
-      </label>
     </section>
+  `;
+}
+
+function renderSeoLanguagePanel(campaign, language, isActive) {
+  const translation = getEditorTranslation(campaign, language.code);
+  const dir = language.dir;
+  const titleDescriptor = `${language.code}:seo_title`;
+  const descriptionDescriptor = `${language.code}:seo_description`;
+  const altDescriptor = `${language.code}:meta_image_alt`;
+  return `
+    <section
+      class="special-offer-editor-lang-panel special-offer-seo-language-panel"
+      data-special-offers-seo-lang-panel="${escapeHtml(language.code)}"
+      dir="${escapeHtml(dir)}"
+    >
+      <h5>${escapeHtml(language.label)} SEO metadata</h5>
+      <div class="special-offer-seo-fields">
+        <label>SEO title
+          <input name="${escapeHtml(language.code)}_seo_title" value="${escapeHtml(translation.seo_title || '')}" dir="${escapeHtml(dir)}" maxlength="180" data-special-offers-seo-field="${escapeHtml(language.code)}:title" />
+          <span class="special-offer-field-hint"><span data-special-offers-count="${escapeHtml(language.code)}:title">0</span> characters. Recommended up to 60. Empty uses localized campaign title.</span>
+        </label>
+        <button class="btn-secondary btn-small" type="button" data-special-offers-clear-seo-field="${escapeHtml(titleDescriptor)}">Clear to fallback</button>
+        <label>SEO description
+          <textarea name="${escapeHtml(language.code)}_seo_description" rows="3" dir="${escapeHtml(dir)}" maxlength="420" data-special-offers-seo-field="${escapeHtml(language.code)}:description">${escapeHtml(translation.seo_description || '')}</textarea>
+          <span class="special-offer-field-hint"><span data-special-offers-count="${escapeHtml(language.code)}:description">0</span> characters. Recommended up to 160. Empty uses short description, then full description.</span>
+        </label>
+        <button class="btn-secondary btn-small" type="button" data-special-offers-clear-seo-field="${escapeHtml(descriptionDescriptor)}">Clear to fallback</button>
+        <label>Meta image alt
+          <input name="${escapeHtml(language.code)}_meta_image_alt" value="${escapeHtml(translation.meta_image_alt || '')}" dir="${escapeHtml(dir)}" maxlength="180" data-special-offers-seo-field="${escapeHtml(language.code)}:alt" />
+          <span class="special-offer-field-hint"><span data-special-offers-count="${escapeHtml(language.code)}:alt">0</span> characters. Empty uses localized campaign title.</span>
+        </label>
+        <button class="btn-secondary btn-small" type="button" data-special-offers-clear-seo-field="${escapeHtml(altDescriptor)}">Clear to fallback</button>
+      </div>
+      <div class="special-offer-seo-preview" data-special-offers-seo-preview="${escapeHtml(language.code)}"></div>
+    </section>
+  `;
+}
+
+function renderSeoSocialEditor(campaign = null) {
+  const metaImage = String(campaign?.meta_image_url || '').trim();
+  return `
+    <p class="special-offer-editor-muted">SEO title and description reuse the existing localized Special Offers fields. Social image is one campaign-level image with fallback: meta_image_url → cover_image_url → hero_image_url → default CyprusEye image.</p>
+    <div class="special-offer-seo-image-grid">
+      <div class="special-offer-seo-image-editor">
+        <label>Meta image URL
+          <div class="special-offer-seo-image-row">
+            <input id="specialOfferMetaImageUrl" name="meta_image_url" value="${escapeHtml(metaImage)}" placeholder="https://... or /assets/image.webp" data-special-offers-meta-image-url />
+            <button class="btn-secondary btn-small" type="button" data-special-offers-upload-meta-image>Upload</button>
+            <button class="btn-secondary btn-small" type="button" data-special-offers-clear-meta-image>Remove</button>
+          </div>
+          <span class="special-offer-field-hint">Recommended social image size: 1200x630. Upload converts images to WebP and stores them under special-offers/&lt;slug&gt;/seo/.</span>
+        </label>
+        <input id="specialOfferMetaImageFile" type="file" accept="image/*" hidden data-special-offers-meta-image-file />
+        <div class="special-offer-seo-image-preview" data-special-offers-meta-image-preview></div>
+      </div>
+      <div class="special-offer-seo-image-editor">
+        <h5>Final image preview</h5>
+        <div class="special-offer-seo-image-preview" data-special-offers-final-image-preview></div>
+      </div>
+    </div>
+    <div class="special-offers-translation-tabs" role="tablist" aria-label="SEO languages">
+      ${SPECIAL_OFFERS_DETAIL_LANGUAGES.map((language, index) => `
+        <button class="special-offers-translation-tab${index === 0 ? ' is-active' : ''}" type="button" data-special-offers-seo-lang-tab="${escapeHtml(language.code)}">${escapeHtml(language.label)}</button>
+      `).join('')}
+    </div>
+    ${SPECIAL_OFFERS_DETAIL_LANGUAGES.map((language, index) => renderSeoLanguagePanel(campaign, language, index === 0)).join('')}
   `;
 }
 
@@ -4045,6 +4240,166 @@ function renderLinkImagePreview(link) {
   `;
 }
 
+function renderSeoImagePreview(imageUrl, label = 'Image preview') {
+  const source = String(imageUrl || '').trim();
+  if (!source) {
+    return '<p class="special-offer-editor-muted">No image set.</p>';
+  }
+  if (!isValidLinkImageUrl(source)) {
+    return '<p class="special-offer-editor-validation">Image URL must be HTTPS or a local path beginning with a single /, without whitespace.</p>';
+  }
+  return `
+    <figure class="special-offer-seo-image-frame">
+      <img src="${escapeHtml(source)}" alt="${escapeHtml(label)}" loading="lazy" decoding="async" onerror="this.hidden=true;this.closest('.special-offer-seo-image-frame')?.classList.add('is-unavailable');" />
+      <figcaption>${escapeHtml(label)}</figcaption>
+    </figure>
+  `;
+}
+
+function renderSeoLanguagePreview(lang, campaign = null) {
+  const values = getSeoFallbackValues(lang, campaign);
+  const image = getFinalSeoImage(campaign);
+  const titleWarning = values.seoTitle && values.seoTitle.length > 60 ? 'Long title' : (!values.finalTitle ? 'Missing title' : '');
+  const descriptionWarning = values.seoDescription && values.seoDescription.length > 160 ? 'Long description' : (!values.finalDescription ? 'No description fallback' : '');
+  const dir = getLanguageDir(lang);
+  return `
+    <div class="special-offer-seo-preview-card" dir="${escapeHtml(dir)}">
+      <div class="special-offer-seo-preview-card__image">
+        ${renderSeoImagePreview(image.value, `Final social image source: ${image.source}`)}
+      </div>
+      <div class="special-offer-seo-preview-card__body">
+        <span>cypruseye.com</span>
+        <h5>${escapeHtml(values.finalTitle || values.slug)}</h5>
+        <p>${escapeHtml(values.finalDescription || 'No description configured yet.')}</p>
+        <small>Image alt: ${escapeHtml(values.finalAlt || values.slug)}</small>
+        <small>Title fallback: ${escapeHtml(values.seoTitle ? 'SEO title' : values.title ? 'Campaign title' : 'Slug')}</small>
+        <small>Description fallback: ${escapeHtml(values.seoDescription ? 'SEO description' : values.shortDescription ? 'Short description' : values.fullDescription ? 'Full description' : 'Empty')}</small>
+        ${titleWarning ? `<small class="special-offer-seo-warning">${escapeHtml(titleWarning)}</small>` : ''}
+        ${descriptionWarning ? `<small class="special-offer-seo-warning">${escapeHtml(descriptionWarning)}</small>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function refreshSeoSocialPreview(root = document) {
+  const form = $('#specialOfferEditorForm');
+  if (!form) return;
+  const campaign = getCurrentCampaign();
+  const metaImageUrl = String(form.elements?.meta_image_url?.value || '').trim();
+  const metaPreview = root.querySelector('[data-special-offers-meta-image-preview]');
+  if (metaPreview) metaPreview.innerHTML = renderSeoImagePreview(metaImageUrl, 'Meta image');
+  const finalImage = getFinalSeoImage(campaign);
+  const finalPreview = root.querySelector('[data-special-offers-final-image-preview]');
+  if (finalPreview) {
+    finalPreview.innerHTML = `
+      ${renderSeoImagePreview(finalImage.value, `Final image source: ${finalImage.source}`)}
+      <p class="special-offer-editor-muted">Source: ${escapeHtml(finalImage.source)}</p>
+    `;
+  }
+  SPECIAL_OFFERS_DETAIL_LANGUAGES.forEach((language) => {
+    const titleValue = getEditorTranslationValue(language.code, 'seo_title');
+    const descriptionValue = getEditorTranslationValue(language.code, 'seo_description');
+    const altValue = getEditorTranslationValue(language.code, 'meta_image_alt');
+    const titleCount = root.querySelector(`[data-special-offers-count="${language.code}:title"]`);
+    const descriptionCount = root.querySelector(`[data-special-offers-count="${language.code}:description"]`);
+    const altCount = root.querySelector(`[data-special-offers-count="${language.code}:alt"]`);
+    if (titleCount) titleCount.textContent = String(titleValue.length);
+    if (descriptionCount) descriptionCount.textContent = String(descriptionValue.length);
+    if (altCount) altCount.textContent = String(altValue.length);
+    const preview = root.querySelector(`[data-special-offers-seo-preview="${language.code}"]`);
+    if (preview) preview.innerHTML = renderSeoLanguagePreview(language.code, campaign);
+  });
+}
+
+function bindSeoSocialEditorControls(root = document) {
+  $$('[data-special-offers-seo-lang-tab]', root).forEach((tab) => {
+    if (tab.dataset.specialOffersSeoBound === 'true') return;
+    tab.dataset.specialOffersSeoBound = 'true';
+    tab.addEventListener('click', () => activateSeoLanguage(tab));
+  });
+  $$('[data-special-offers-clear-seo-field]', root).forEach((button) => {
+    if (button.dataset.specialOffersSeoClearBound === 'true') return;
+    button.dataset.specialOffersSeoClearBound = 'true';
+    button.addEventListener('click', () => {
+      clearSeoField(button.getAttribute('data-special-offers-clear-seo-field'));
+    });
+  });
+  $$('[data-special-offers-upload-meta-image]', root).forEach((button) => {
+    if (button.dataset.specialOffersSeoUploadBound === 'true') return;
+    button.dataset.specialOffersSeoUploadBound = 'true';
+    button.addEventListener('click', () => {
+      $('#specialOfferMetaImageFile')?.click();
+    });
+  });
+  $$('[data-special-offers-clear-meta-image]', root).forEach((button) => {
+    if (button.dataset.specialOffersSeoImageClearBound === 'true') return;
+    button.dataset.specialOffersSeoImageClearBound = 'true';
+    button.addEventListener('click', () => {
+      const input = $('#specialOfferMetaImageUrl');
+      if (input) input.value = '';
+      refreshSeoSocialPreview(root);
+      validateEditorForm();
+    });
+  });
+}
+
+async function uploadSpecialOfferMetaImage(fileInput) {
+  const file = fileInput?.files?.[0];
+  if (!file) return;
+  if (!isValidSpecialOfferImageFile(file)) {
+    notifySpecialOffers('Please select an image file.', 'error');
+    if (fileInput) fileInput.value = '';
+    return;
+  }
+  if (file.size > 8 * 1024 * 1024) {
+    notifySpecialOffers('Meta image must be smaller than 8MB.', 'error');
+    if (fileInput) fileInput.value = '';
+    return;
+  }
+  const client = getSupabaseClient();
+  if (!client) {
+    notifySpecialOffers('Supabase client is not available.', 'error');
+    return;
+  }
+  const button = document.querySelector('[data-special-offers-upload-meta-image]');
+  try {
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Uploading...';
+    }
+    const blob = await prepareSpecialOfferImageBlob(file, {
+      maxWidth: 2400,
+      maxHeight: 1260,
+      quality: 0.9,
+    });
+    const slug = getSpecialOfferSeoUploadSlug();
+    const path = `special-offers/${slug}/seo/meta-${Date.now()}.webp`;
+    const { error } = await client.storage.from('poi-photos').upload(path, blob, {
+      cacheControl: '31536000',
+      upsert: false,
+      contentType: 'image/webp',
+    });
+    if (error) throw error;
+    const { data } = client.storage.from('poi-photos').getPublicUrl(path);
+    const publicUrl = String(data?.publicUrl || '').trim();
+    if (!publicUrl) throw new Error('Failed to resolve public URL');
+    const input = $('#specialOfferMetaImageUrl');
+    if (input) input.value = publicUrl;
+    refreshSeoSocialPreview();
+    validateEditorForm();
+    notifySpecialOffers('Meta image uploaded.', 'success');
+  } catch (error) {
+    console.error('[special-offers] Meta image upload failed:', { message: error?.message || 'unknown' });
+    notifySpecialOffers(error?.message || 'Failed to upload meta image.', 'error');
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = 'Upload';
+    }
+    if (fileInput) fileInput.value = '';
+  }
+}
+
 function getCampaignEditorDefaults(campaign = null) {
   return {
     slug: campaign?.slug || '',
@@ -4066,6 +4421,9 @@ function getCampaignEditorDefaults(campaign = null) {
     exclude_partners: campaign?.exclude_partners ?? SPECIAL_OFFERS_DEFAULT_SETTINGS.exclude_partners,
     public_winner_display: campaign?.public_winner_display ?? SPECIAL_OFFERS_DEFAULT_SETTINGS.public_winner_display,
     response_deadline_days: campaign?.response_deadline_days ?? SPECIAL_OFFERS_DEFAULT_SETTINGS.response_deadline_days,
+    meta_image_url: campaign?.meta_image_url || '',
+    cover_image_url: campaign?.cover_image_url || '',
+    hero_image_url: campaign?.hero_image_url || '',
     settings_json: cloneJson(campaign?.settings_json, {}),
   };
 }
@@ -4079,6 +4437,7 @@ function renderEditorForm(campaign = null) {
           ['basic', 'Basic settings'],
           ['dates', 'Dates & visibility'],
           ['content', 'Content PL / EN / HE'],
+          ['seo', 'SEO & Social'],
           ['prize', 'Prize'],
           ['links', 'Linked services'],
           ['form', 'Form'],
@@ -4148,6 +4507,12 @@ function renderEditorForm(campaign = null) {
             `).join('')}
           </div>
           ${SPECIAL_OFFERS_DETAIL_LANGUAGES.map((language, index) => renderTranslationEditor(campaign, language, index === 0)).join('')}
+        </section>
+        <section class="special-offer-editor-section" data-special-offers-editor-panel="seo" hidden>
+          <div class="special-offer-editor-section-head">
+            <h4>SEO & Social</h4>
+          </div>
+          ${renderSeoSocialEditor(campaign)}
         </section>
         <section class="special-offer-editor-section" data-special-offers-editor-panel="prize" hidden>
           <div class="special-offer-editor-section-head">
@@ -4466,6 +4831,8 @@ async function openCampaignEditor(mode, campaignId = null) {
   renderPrizeEditorList();
   renderLinkEditorList();
   renderFormFieldEditorList();
+  bindSeoSocialEditorControls(body);
+  refreshSeoSocialPreview(body);
   setEditorMessage('');
   updateEditorReview();
   validateEditorForm();
@@ -4504,6 +4871,29 @@ function activateEditorLanguage(button) {
   });
 }
 
+function activateSeoLanguage(button) {
+  const lang = button.getAttribute('data-special-offers-seo-lang-tab');
+  const modal = getEditorModal();
+  if (!lang || !modal) return;
+  $$('[data-special-offers-seo-lang-tab]', modal).forEach((tab) => {
+    const isActive = tab === button;
+    tab.classList.toggle('is-active', isActive);
+    tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+  });
+  $$('[data-special-offers-seo-lang-panel]', modal).forEach((panel) => {
+    setHidden(panel, panel.getAttribute('data-special-offers-seo-lang-panel') !== lang);
+  });
+}
+
+function clearSeoField(descriptor) {
+  const [lang, field] = String(descriptor || '').split(':');
+  if (!lang || !field) return;
+  const input = document.querySelector(`[name="${lang}_${field}"]`);
+  if (input) input.value = '';
+  refreshSeoSocialPreview();
+  validateEditorForm();
+}
+
 function activateNestedLanguage(button) {
   const descriptor = button.getAttribute('data-special-offers-nested-lang-tab');
   const root = button.closest('[data-special-offers-prize], [data-special-offers-link], [data-special-offers-form-field]');
@@ -4512,7 +4902,7 @@ function activateNestedLanguage(button) {
     tab.classList.toggle('is-active', tab === button);
   });
   $$('[data-special-offers-nested-lang-panel]', root).forEach((panel) => {
-    panel.hidden = panel.getAttribute('data-special-offers-nested-lang-panel') !== descriptor;
+    setHidden(panel, panel.getAttribute('data-special-offers-nested-lang-panel') !== descriptor);
   });
 }
 
@@ -4638,6 +5028,7 @@ function collectEditorPayload() {
     exclude_partners: getEditorFieldChecked(form, 'exclude_partners'),
     public_winner_display: getEditorFieldChecked(form, 'public_winner_display'),
     response_deadline_days: Number(getEditorFieldValue(form, 'response_deadline_days') || 1),
+    meta_image_url: normalizeMetaImageUrl(getEditorFieldValue(form, 'meta_image_url')),
     settings_json: settingsJson,
   };
 
@@ -4655,6 +5046,7 @@ function collectEditorPayload() {
       faq_json: faqJson,
       seo_title: getEditorFieldValue(form, `${lang}_seo_title`),
       seo_description: getEditorFieldValue(form, `${lang}_seo_description`),
+      meta_image_alt: getEditorFieldValue(form, `${lang}_meta_image_alt`),
     };
     const hasData = Object.entries(translation).some(([key, value]) => key !== 'lang' && key !== 'faq_json' && String(value || '').trim())
       || toArray(faqJson).length > 0;
@@ -4769,6 +5161,9 @@ function validateEditorPayload(payload) {
   if (payload.offer.end_at && payload.offer.winner_announce_at && new Date(payload.offer.winner_announce_at) < new Date(payload.offer.end_at)) errors.push('Dates & visibility: winner announce at cannot be before end at.');
   if (payload.offer.max_entries_per_user < 1) errors.push('Rules/settings: max entries per user must be at least 1.');
   if (payload.offer.response_deadline_days < 1) errors.push('Rules/settings: response deadline days must be at least 1.');
+  if (!isValidLinkImageUrl(payload.offer.meta_image_url)) {
+    errors.push('SEO & Social: Meta image URL must be HTTPS or a local path beginning with a single /, without whitespace, up to 2048 characters.');
+  }
   const pl = payload.translations.find((item) => item.lang === 'pl');
   if (!pl?.title) errors.push('Content PL / EN / HE: PL title is required.');
   SPECIAL_OFFERS_DETAIL_LANGUAGES.forEach((language) => {
@@ -5261,6 +5656,7 @@ function openCampaignDetails(campaignId) {
             ['Timezone', campaign.timezone],
             ['Dates', `${formatDate(campaign.start_at)} - ${formatDate(campaign.end_at)}`],
             ['Winner announce', formatDate(campaign.winner_announce_at)],
+            ['Meta image URL', campaign.meta_image_url],
           ])}
         </section>
         <section class="special-offers-detail-panel special-offers-detail-panel--wide">
@@ -7142,12 +7538,55 @@ function bindEvents() {
     });
   });
 
+  document.addEventListener('click', (event) => {
+    const target = event.target instanceof Element
+      ? event.target
+      : event.target?.parentElement instanceof Element
+        ? event.target.parentElement
+        : null;
+    const editorModal = getEditorModal();
+    if (!target || !editorModal || editorModal.hidden || !editorModal.contains(target)) return;
+
+    const seoLangTab = target.closest('[data-special-offers-seo-lang-tab]');
+    const clearSeoFieldButton = target.closest('[data-special-offers-clear-seo-field]');
+    const uploadMetaImageButton = target.closest('[data-special-offers-upload-meta-image]');
+    const clearMetaImageButton = target.closest('[data-special-offers-clear-meta-image]');
+    if (!seoLangTab && !clearSeoFieldButton && !uploadMetaImageButton && !clearMetaImageButton) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    if (seoLangTab) {
+      activateSeoLanguage(seoLangTab);
+      return;
+    }
+    if (clearSeoFieldButton) {
+      clearSeoField(clearSeoFieldButton.getAttribute('data-special-offers-clear-seo-field'));
+      return;
+    }
+    if (uploadMetaImageButton) {
+      $('#specialOfferMetaImageFile')?.click();
+      return;
+    }
+    const input = $('#specialOfferMetaImageUrl');
+    if (input) input.value = '';
+    refreshSeoSocialPreview(editorModal);
+    validateEditorForm();
+  }, true);
+
   const editorBody = $('#specialOffersEditorBody');
   if (editorBody) {
     editorBody.addEventListener('click', (event) => {
-      const target = event.target instanceof Element ? event.target : null;
+      const target = event.target instanceof Element
+        ? event.target
+        : event.target?.parentElement instanceof Element
+          ? event.target.parentElement
+          : null;
       const sectionTab = target?.closest('[data-special-offers-editor-tab]');
       const langTab = target?.closest('[data-special-offers-editor-lang-tab]');
+      const seoLangTab = target?.closest('[data-special-offers-seo-lang-tab]');
+      const clearSeoFieldButton = target?.closest('[data-special-offers-clear-seo-field]');
+      const uploadMetaImageButton = target?.closest('[data-special-offers-upload-meta-image]');
+      const clearMetaImageButton = target?.closest('[data-special-offers-clear-meta-image]');
       const addPrizeButton = target?.closest('[data-special-offers-add-prize]');
       const addLinkButton = target?.closest('[data-special-offers-add-link]');
       const addFormFieldButton = target?.closest('[data-special-offers-add-form-field]');
@@ -7168,8 +7607,21 @@ function bindEvents() {
       const removeRuleBulletButton = target?.closest('[data-special-offers-remove-rule-bullet]');
       if (sectionTab) activateEditorSection(sectionTab);
       if (langTab) activateEditorLanguage(langTab);
+      if (seoLangTab) activateSeoLanguage(seoLangTab);
       if (nestedLangButton) activateNestedLanguage(nestedLangButton);
       if (helpButton) openHelpPopover(helpButton.getAttribute('data-special-offers-help'));
+      if (clearSeoFieldButton) {
+        clearSeoField(clearSeoFieldButton.getAttribute('data-special-offers-clear-seo-field'));
+      }
+      if (uploadMetaImageButton) {
+        $('#specialOfferMetaImageFile')?.click();
+      }
+      if (clearMetaImageButton) {
+        const input = $('#specialOfferMetaImageUrl');
+        if (input) input.value = '';
+        refreshSeoSocialPreview(editorBody);
+        validateEditorForm();
+      }
       if (addPrizeButton) addEditorPrize();
       if (addLinkButton) addEditorLink();
       if (addFormFieldButton) addEditorFormField();
@@ -7234,13 +7686,19 @@ function bindEvents() {
     });
     editorBody.addEventListener('input', () => {
       refreshBuilderPreviews(editorBody);
+      refreshSeoSocialPreview(editorBody);
       validateEditorForm();
     });
     editorBody.addEventListener('change', (event) => {
       const target = event.target instanceof Element ? event.target : null;
+      const metaImageFile = target?.closest('[data-special-offers-meta-image-file]');
       const linkField = target?.closest('[data-link-field]');
       const formField = target?.closest('[data-form-field]');
       const requiresFormInput = target?.closest('[name="requires_form"], [data-offer-setting="requires_form"]');
+      if (metaImageFile) {
+        void uploadSpecialOfferMetaImage(metaImageFile);
+        return;
+      }
       if (requiresFormInput) syncRequiresFormInputs(requiresFormInput);
       if (linkField && ['link_type', 'mode', 'resource_id'].includes(linkField.getAttribute('data-link-field'))) {
         const item = linkField.closest('[data-special-offers-link]');
@@ -7259,6 +7717,7 @@ function bindEvents() {
         }
       }
       refreshBuilderPreviews(editorBody);
+      refreshSeoSocialPreview(editorBody);
       validateEditorForm();
     });
   }
