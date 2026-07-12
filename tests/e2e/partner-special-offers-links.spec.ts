@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import { enableSupabaseStub, waitForSupabaseStub } from './utils/supabase';
 
 function buildPartnerSpecialOffersSeedScript() {
-  return (config: { rpcError?: boolean } = {}) => {
+  return (config: { rpcError?: boolean; imageFallbacks?: boolean } = {}) => {
     const now = Date.now();
     const isoDaysAgo = (days: number) => new Date(now - days * 86400000).toISOString();
     const isoDaysFromNow = (days: number) => new Date(now + days * 86400000).toISOString();
@@ -60,6 +60,71 @@ function buildPartnerSpecialOffersSeedScript() {
             return { data: null, error: { code: '42501', message: 'partner_required' } };
           }
           const lang = String(params?.p_lang || 'en').trim().toLowerCase();
+          if (config.imageFallbacks) {
+            const rows = [
+              {
+                slug: 'cover-image-offer',
+                requested_lang: lang,
+                resolved_lang: lang,
+                title: `Cover image offer ${lang}`,
+                short_description: 'Uses cover first.',
+                cover_image_url: 'https://stub.local/special-offers/cover.webp',
+                hero_image_url: 'https://stub.local/special-offers/hero-ignored.webp',
+                meta_image_url: 'https://stub.local/special-offers/meta-ignored.webp',
+                start_at: isoDaysAgo(1),
+                end_at: isoDaysFromNow(30),
+              },
+              {
+                slug: 'hero-image-offer',
+                requested_lang: lang,
+                resolved_lang: lang,
+                title: `Hero image offer ${lang}`,
+                short_description: 'Uses hero when cover is missing.',
+                cover_image_url: '',
+                hero_image_url: 'https://stub.local/special-offers/hero.webp',
+                meta_image_url: 'https://stub.local/special-offers/meta-ignored.webp',
+                start_at: isoDaysAgo(1),
+                end_at: isoDaysFromNow(30),
+              },
+              {
+                slug: 'meta-image-offer',
+                requested_lang: lang,
+                resolved_lang: lang,
+                title: `Meta image offer ${lang}`,
+                short_description: 'Uses meta when cover and hero are missing.',
+                cover_image_url: '',
+                hero_image_url: '',
+                meta_image_url: 'https://stub.local/special-offers/meta.webp',
+                start_at: isoDaysAgo(1),
+                end_at: isoDaysFromNow(30),
+              },
+              {
+                slug: 'unsafe-image-offer',
+                requested_lang: lang,
+                resolved_lang: lang,
+                title: `Unsafe image offer ${lang}`,
+                short_description: 'Falls back when the URL is unsafe.',
+                cover_image_url: 'javascript:alert(1)',
+                hero_image_url: '',
+                meta_image_url: '',
+                start_at: isoDaysAgo(1),
+                end_at: isoDaysFromNow(30),
+              },
+              {
+                slug: 'placeholder-image-offer',
+                requested_lang: lang,
+                resolved_lang: lang,
+                title: `Placeholder image offer ${lang}`,
+                short_description: 'Uses the graphical placeholder.',
+                cover_image_url: '',
+                hero_image_url: '',
+                meta_image_url: '',
+                start_at: isoDaysAgo(1),
+                end_at: isoDaysFromNow(30),
+              },
+            ];
+            return { data: rows, error: null };
+          }
           const rowsByLang: Record<string, any[]> = {
             pl: [{
               slug: 'lefkara-giveaway-2026',
@@ -109,8 +174,11 @@ function buildPartnerSpecialOffersSeedScript() {
   };
 }
 
-async function openLinksDiscounts(page: any, options: { rpcError?: boolean } = {}) {
-  await page.addInitScript(buildPartnerSpecialOffersSeedScript(), { rpcError: Boolean(options.rpcError) });
+async function openLinksDiscounts(page: any, options: { rpcError?: boolean; imageFallbacks?: boolean } = {}) {
+  await page.addInitScript(buildPartnerSpecialOffersSeedScript(), {
+    rpcError: Boolean(options.rpcError),
+    imageFallbacks: Boolean(options.imageFallbacks),
+  });
   await enableSupabaseStub(page);
   await page.goto('/partners/');
   await waitForSupabaseStub(page);
@@ -187,5 +255,23 @@ test.describe('Partner Special Offers referral links', () => {
 
     const rpcCalls = await page.evaluate(() => (window as any).__supabaseStub.getRpcCalls());
     expect(rpcCalls.filter((call: any) => call.name === 'get_partner_active_special_offers')).toHaveLength(3);
+  });
+
+  test('uses cover hero meta and graphical placeholder image fallbacks safely', async ({ page }) => {
+    await openLinksDiscounts(page, { imageFallbacks: true });
+    await page.locator('[data-partner-links-filter="special_offers"]').click();
+    await expect(page.locator('#partnerLinksGrid .partner-links-card')).toHaveCount(5);
+
+    const cardImage = async (slug: string) => page
+      .locator(`[data-partner-link-card="special_offers:${slug}"] img`)
+      .first()
+      .getAttribute('src');
+
+    expect(await cardImage('cover-image-offer')).toBe('https://stub.local/special-offers/cover.webp');
+    expect(await cardImage('hero-image-offer')).toBe('https://stub.local/special-offers/hero.webp');
+    expect(await cardImage('meta-image-offer')).toBe('https://stub.local/special-offers/meta.webp');
+    expect(await cardImage('unsafe-image-offer')).toBe('/assets/cyprus_logo-1000x1054.png');
+    expect(await cardImage('placeholder-image-offer')).toBe('/assets/cyprus_logo-1000x1054.png');
+    await expect(page.locator('#partnerLinksGrid')).not.toContainText('javascript:alert');
   });
 });

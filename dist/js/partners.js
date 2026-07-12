@@ -476,6 +476,7 @@
     { key: 'blog', label: 'Blog' },
     { key: 'special_offers', label: 'Special Offers' },
   ];
+  const PARTNER_LINKS_SPECIAL_OFFER_PLACEHOLDER_IMAGE = '/assets/cyprus_logo-1000x1054.png';
   const PARTNER_LINKS_PRICE_SORT_OPTIONS = [
     { value: 'default', label: 'Default order' },
     { value: 'price_asc', label: 'Price ascending' },
@@ -3556,6 +3557,13 @@
     }
   }
 
+  function getSpecialOfferPartnerLinksImageUrl(row) {
+    return getSafePartnerLinksImageUrl(row?.cover_image_url)
+      || getSafePartnerLinksImageUrl(row?.hero_image_url)
+      || getSafePartnerLinksImageUrl(row?.meta_image_url)
+      || PARTNER_LINKS_SPECIAL_OFFER_PLACEHOLDER_IMAGE;
+  }
+
   function getHotelPreviewImageUrl(row) {
     const roomTypeMedia = Array.isArray(row?.room_types)
       ? row.room_types.flatMap((roomType) => collectMediaUrls([
@@ -4062,7 +4070,7 @@
         meta: endDate ? `Ends ${endDate}` : 'Active campaign',
         description: descriptionByLang.en || descriptionByLang.pl || descriptionByLang.he,
         descriptionByLang,
-        imageUrl: getSafePartnerLinksImageUrl(row?.cover_image_url),
+        imageUrl: getSpecialOfferPartnerLinksImageUrl(row),
         campaignStartAt: row?.start_at || '',
         campaignEndAt: row?.end_at || '',
       };
@@ -4710,6 +4718,8 @@
           requestedLangs: {},
           resolvedLangs: {},
           cover_image_url: '',
+          hero_image_url: '',
+          meta_image_url: '',
           start_at: '',
           end_at: '',
         };
@@ -4720,6 +4730,8 @@
         existing.requestedLangs[requestedLang] = String(row?.requested_lang || requestedLang).trim().toLowerCase() || requestedLang;
         existing.resolvedLangs[requestedLang] = safeResolvedLang;
         existing.cover_image_url = existing.cover_image_url || String(row?.cover_image_url || '').trim();
+        existing.hero_image_url = existing.hero_image_url || String(row?.hero_image_url || '').trim();
+        existing.meta_image_url = existing.meta_image_url || String(row?.meta_image_url || '').trim();
         existing.start_at = existing.start_at || String(row?.start_at || '').trim();
         existing.end_at = existing.end_at || String(row?.end_at || '').trim();
         bySlug.set(slug, existing);

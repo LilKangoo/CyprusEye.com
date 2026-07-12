@@ -35,6 +35,10 @@ import {
   getStaticSitemapEntries,
   renderSitemapXml,
 } from './functions/_utils/sitemap.js';
+import {
+  applySpecialOfferSeoToHtml,
+  getPublicSpecialOfferSeo,
+} from './functions/_utils/specialOfferSeo.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1418,6 +1422,13 @@ function getServiceOfferRuntimeEnv() {
   return getBlogRuntimeEnv();
 }
 
+function getSpecialOfferPublicSeoRuntimeEnv() {
+  return {
+    SUPABASE_URL: process.env.SUPABASE_URL || SUPABASE_CONFIG.url,
+    SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || SUPABASE_CONFIG.anonKey,
+  };
+}
+
 function resolveBlogRequest(pathname) {
   const relativePath = extractPathRelativeToBase(pathname);
   if (relativePath === null) {
@@ -1712,15 +1723,34 @@ async function tryServeSpecialOfferLandingPage(req, url, res) {
     return false;
   }
 
+  let templateHtml = '';
   try {
-    const served = await serveStaticAsset(req, res, templatePath);
-    return Boolean(served);
+    templateHtml = await fs.readFile(templatePath, 'utf-8');
   } catch (error) {
     if (error?.code !== 'ENOENT') {
       console.error(`Nie udało się odczytać strony kampanii "${specialOfferRoute.slug}":`, error);
     }
     return false;
   }
+
+  const requestedLang = String(url.searchParams.get('lang') || 'pl').trim().toLowerCase();
+  let seoRow = null;
+  try {
+    seoRow = await getPublicSpecialOfferSeo(getSpecialOfferPublicSeoRuntimeEnv(), {
+      slug: specialOfferRoute.slug,
+      lang: requestedLang,
+    });
+  } catch (error) {
+    console.warn('[special-offers] Public SEO RPC failed for clean route:', error?.code || error?.message || 'unknown_error');
+  }
+
+  const html = applySpecialOfferSeoToHtml(templateHtml, {
+    slug: specialOfferRoute.slug,
+    requestedLang,
+    seoRow,
+  });
+
+  return serveBlogHtml(req, res, html, 200);
 }
 
 async function tryServeStaticFile(req, url, res) {

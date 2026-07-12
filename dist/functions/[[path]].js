@@ -14,6 +14,10 @@ import { buildLegacyCarRedirectLocation, isLegacyCarRedirectPath } from './_util
 import { buildServiceOfferSeoPayload } from './_utils/serviceOfferSeo.js';
 import { buildCarOfferSeoPayload, getPublishedCarOfferById } from './_utils/carOfferSeo.js';
 import { getSitemapEntries, getStaticSitemapEntries, renderSitemapXml } from './_utils/sitemap.js';
+import {
+  applySpecialOfferSeoToHtml,
+  getPublicSpecialOfferSeo,
+} from './_utils/specialOfferSeo.js';
 
 const translationCache = new Map();
 
@@ -215,7 +219,7 @@ function resolveSpecialOfferLandingRequest(pathname) {
   return { slug };
 }
 
-async function serveSpecialOfferLandingPage(context) {
+async function serveSpecialOfferLandingPage(context, url, specialOfferLandingRequest) {
   const htmlResponse = await serveStatic(context, '/special-offer.html', { method: 'GET' });
   const headers = new Headers(htmlResponse.headers);
   headers.set('cache-control', 'no-cache');
@@ -230,7 +234,24 @@ async function serveSpecialOfferLandingPage(context) {
     });
   }
 
-  return new Response(await htmlResponse.text(), {
+  const templateHtml = await htmlResponse.text();
+  const requestedLang = String(url.searchParams.get('lang') || 'pl').trim().toLowerCase();
+  let seoRow = null;
+  try {
+    seoRow = await getPublicSpecialOfferSeo(context.env, {
+      slug: specialOfferLandingRequest.slug,
+      lang: requestedLang,
+    });
+  } catch (error) {
+    console.warn('[special-offers] Public SEO RPC failed for clean route:', error?.code || error?.message || 'unknown_error');
+  }
+  const localizedHtml = applySpecialOfferSeoToHtml(templateHtml, {
+    slug: specialOfferLandingRequest.slug,
+    requestedLang,
+    seoRow,
+  });
+
+  return new Response(localizedHtml, {
     status: htmlResponse.status,
     statusText: htmlResponse.statusText,
     headers,
@@ -295,7 +316,7 @@ export async function onRequest(context) {
   }
   const specialOfferLandingRequest = resolveSpecialOfferLandingRequest(url.pathname);
   if (specialOfferLandingRequest) {
-    return serveSpecialOfferLandingPage(context);
+    return serveSpecialOfferLandingPage(context, url, specialOfferLandingRequest);
   }
   const route = resolveSeoRoute(url.pathname);
 

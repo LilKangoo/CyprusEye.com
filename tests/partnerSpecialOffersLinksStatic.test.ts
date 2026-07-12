@@ -25,4 +25,13 @@ describe('Partner Portal Special Offers links integration static guards', () => 
     expect(source).toContain('return buildReferralLink(code, baseUrl) || baseUrl');
     expect(source).not.toMatch(/special-offer\.html\?slug=/);
   });
+
+  test('uses safe Special Offer image fallbacks and graphical placeholder', () => {
+    expect(source).toContain('PARTNER_LINKS_SPECIAL_OFFER_PLACEHOLDER_IMAGE');
+    expect(source).toContain('function getSpecialOfferPartnerLinksImageUrl(row)');
+    expect(source).toContain('getSafePartnerLinksImageUrl(row?.cover_image_url)');
+    expect(source).toContain('getSafePartnerLinksImageUrl(row?.hero_image_url)');
+    expect(source).toContain('getSafePartnerLinksImageUrl(row?.meta_image_url)');
+    expect(source).toContain('PARTNER_LINKS_SPECIAL_OFFER_PLACEHOLDER_IMAGE');
+  });
 });
