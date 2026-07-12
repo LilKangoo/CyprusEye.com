@@ -27,6 +27,13 @@ describe('Special Offers entry partner attribution SQL stage', () => {
     expect(verify).toContain('resolver_authenticated_execute_absent');
     expect(verify).toContain('resolver_service_role_execute_absent');
     expect(verify).not.toContain('resolver_execute_absent');
+    expect(verify).toContain('review_rpc_exists');
+    expect(verify).toContain('review_rpc_exact_overload_selected');
+    expect(verify).toContain('review_no_direct_attribution_insert');
+    expect(verify).toContain('review_no_direct_attribution_update');
+    expect(verify).toContain('review_no_direct_attribution_delete');
+    expect(verify).toContain('review_no_indirect_attribution_write');
+    expect(verify).toContain('review_does_not_touch_attribution');
     expect(verify).not.toMatch(/has_function_privilege\(\s*'PUBLIC'/i);
     expect(verify).not.toMatch(/(^|\n)\s*(insert\s+into|update\s+public\.|delete\s+from|merge\s+into|truncate\s+|alter\s+table|create\s+|drop\s+|grant\s+|revoke\s+)/i);
 
@@ -35,8 +42,34 @@ describe('Special Offers entry partner attribution SQL stage', () => {
     expect(diagnostics).toContain('details');
     expect(diagnostics).toContain('sort_group');
     expect(diagnostics).toContain('resolver_public_execute_absent');
+    expect(diagnostics).toContain('review_rpc_exact_overload_selected');
+    expect(diagnostics).toContain('review_no_direct_attribution_insert');
+    expect(diagnostics).toContain('review_no_direct_attribution_update');
+    expect(diagnostics).toContain('review_no_direct_attribution_delete');
+    expect(diagnostics).toContain('review_no_indirect_attribution_write');
+    expect(diagnostics).toContain('review_does_not_touch_attribution');
     expect(diagnostics).not.toMatch(/has_function_privilege\(\s*'PUBLIC'/i);
     expect(diagnostics).not.toMatch(/(^|\n)\s*(insert\s+into|update\s+public\.|delete\s+from|merge\s+into|truncate\s+|alter\s+table|create\s+|drop\s+|grant\s+|revoke\s+)/i);
+  });
+
+  test('main verify and diagnostics reconcile review attribution immutability', () => {
+    const requiredReviewChecks = [
+      'review_rpc_exact_overload_selected',
+      'review_no_direct_attribution_insert',
+      'review_no_direct_attribution_update',
+      'review_no_direct_attribution_delete',
+      'review_no_indirect_attribution_write',
+      'review_does_not_touch_attribution',
+    ];
+
+    for (const check of requiredReviewChecks) {
+      expect(verify).toContain(check);
+      expect(diagnostics).toContain(check);
+    }
+
+    expect(verify).toContain("identity_args = 'p_entry_id uuid, p_new_status text, p_review_note text, p_rejection_reason text'");
+    expect(diagnostics).toContain("identity_args = 'p_entry_id uuid, p_new_status text, p_review_note text, p_rejection_reason text'");
+    expect(diagnostics).not.toContain("identity_args = 'p_entry_id uuid, p_decision text, p_note text, p_reason text'");
   });
 
   test('creates a one-to-one attribution table with entry cascade and no raw partner access', () => {

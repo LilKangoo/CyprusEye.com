@@ -116,7 +116,7 @@ fns as (
   from pg_proc p
   join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'public'
-    and p.proname in ('submit_special_offer_entry', 'special_offer_resolve_entry_referral', 'update_special_offer_entry_once', 'admin_delete_special_offer_entry')
+    and p.proname in ('submit_special_offer_entry', 'special_offer_resolve_entry_referral', 'update_special_offer_entry_once', 'review_special_offer_entry', 'admin_delete_special_offer_entry')
 ),
 submit_fn as (
   select *
@@ -139,12 +139,30 @@ correction_fn as (
     and identity_args = 'p_entry_id uuid, p_answers jsonb, p_client_correction_id uuid'
   limit 1
 ),
+review_fn as (
+  select *
+  from fns
+  where proname = 'review_special_offer_entry'
+    and identity_args = 'p_entry_id uuid, p_new_status text, p_review_note text, p_rejection_reason text'
+  limit 1
+),
 delete_fn as (
   select *
   from fns
   where proname = 'admin_delete_special_offer_entry'
     and identity_args = 'p_entry_id uuid, p_expected_reference text, p_reason text'
   limit 1
+),
+trigger_sources as (
+  select
+    lower(regexp_replace(coalesce(p.prosrc, ''), '[[:space:]]+', ' ', 'g')) as source
+  from pg_trigger t
+  join pg_class c on c.oid = t.tgrelid
+  join pg_namespace n on n.oid = c.relnamespace
+  join pg_proc p on p.oid = t.tgfoid
+  where n.nspname = 'public'
+    and c.relname in ('special_offer_entries', 'special_offer_entry_answers', 'special_offer_entry_referrals')
+    and not t.tgisinternal
 ),
 submit_acl as (
   select a.grantee, a.privilege_type
@@ -208,6 +226,27 @@ checks as (
     coalesce((select source like '%on conflict (entry_id) do nothing%' from submit_fn), false) as attribution_idempotent,
     coalesce((select source like '%special_offer.entry_referral_attributed%' from submit_fn), false) as attribution_audit_present,
     coalesce((select source not like '%referral_code_snapshot%' and source not like '%p_referral_code%' from correction_fn), false) as correction_does_not_touch_attribution,
+    exists(select 1 from review_fn) as review_rpc_exists,
+    exists(select 1 from review_fn) as review_rpc_exact_overload_selected,
+    coalesce((select source not like '%insert into public.special_offer_entry_referrals%' from review_fn), false) as review_no_direct_attribution_insert,
+    coalesce((select source not like '%update public.special_offer_entry_referrals%' from review_fn), false) as review_no_direct_attribution_update,
+    coalesce((select source not like '%delete from public.special_offer_entry_referrals%' from review_fn), false) as review_no_direct_attribution_delete,
+    coalesce((
+      select source not like '%special_offer_resolve_entry_referral%'
+        and source not like '%submit_special_offer_entry%'
+        and source not like '%resolve_referral_code%'
+        and source not like '%normalize_referral_code%'
+        and source not like '%affiliate_get_user_partner_id%'
+      from review_fn
+    ), false)
+    and not exists (
+      select 1
+      from trigger_sources ts
+      where ts.source like '%insert into public.special_offer_entry_referrals%'
+         or ts.source like '%update public.special_offer_entry_referrals%'
+         or ts.source like '%delete from public.special_offer_entry_referrals%'
+    ) as review_no_indirect_attribution_write,
+    coalesce((select source not like '%special_offer_entry_referrals%' and source not like '%referral_code_snapshot%' and source not like '%p_referral_code%' from review_fn), false) as review_does_not_touch_attribution,
     coalesce((select source like '%delete from public.special_offer_entries%' from delete_fn), false) as hard_delete_entry_delete_present,
     coalesce((select source not like '%delete from public.special_offer_entry_referrals%' from delete_fn), false) as hard_delete_uses_fk_cascade_not_manual_referral_delete,
     coalesce((select source not like '%affiliate_commission%' and source not like '%payout%' and source not like '%winner%' and source not like '%ranking%' from submit_fn), false) as no_commission_winner_ranking_in_submit,
@@ -270,6 +309,13 @@ select
     and attribution_idempotent
     and attribution_audit_present
     and correction_does_not_touch_attribution
+    and review_rpc_exists
+    and review_rpc_exact_overload_selected
+    and review_no_direct_attribution_insert
+    and review_no_direct_attribution_update
+    and review_no_direct_attribution_delete
+    and review_no_indirect_attribution_write
+    and review_does_not_touch_attribution
     and hard_delete_entry_delete_present
     and hard_delete_uses_fk_cascade_not_manual_referral_delete
     and no_commission_winner_ranking_in_submit

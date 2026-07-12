@@ -171,7 +171,7 @@ correction_fn as (
 review_fn as (
   select * from fns
   where proname = 'review_special_offer_entry'
-    and identity_args = 'p_entry_id uuid, p_decision text, p_note text, p_reason text'
+    and identity_args = 'p_entry_id uuid, p_new_status text, p_review_note text, p_rejection_reason text'
   limit 1
 ),
 delete_fn as (
@@ -179,6 +179,20 @@ delete_fn as (
   where proname = 'admin_delete_special_offer_entry'
     and identity_args = 'p_entry_id uuid, p_expected_reference text, p_reason text'
   limit 1
+),
+trigger_sources as (
+  select
+    c.relname as table_name,
+    t.tgname as trigger_name,
+    p.proname as trigger_function,
+    lower(regexp_replace(coalesce(p.prosrc, ''), '[[:space:]]+', ' ', 'g')) as source
+  from pg_trigger t
+  join pg_class c on c.oid = t.tgrelid
+  join pg_namespace n on n.oid = c.relnamespace
+  join pg_proc p on p.oid = t.tgfoid
+  where n.nspname = 'public'
+    and c.relname in ('special_offer_entries', 'special_offer_entry_answers', 'special_offer_entry_referrals')
+    and not t.tgisinternal
 ),
 submit_acl as (
   select a.grantee, coalesce(r.rolname, 'PUBLIC') as grantee_name, a.privilege_type
@@ -197,8 +211,25 @@ fn_counts as (
     count(*) filter (where proname = 'submit_special_offer_entry' and identity_args = 'p_offer_slug text, p_lang text, p_answers jsonb, p_client_submission_id uuid, p_referral_code text, p_referral_source text') = 1 as submit_six_arg_exactly_once,
     count(*) filter (where proname = 'submit_special_offer_entry' and identity_args = 'p_offer_slug text, p_lang text, p_answers jsonb, p_client_submission_id uuid') = 1 as submit_four_arg_exactly_once,
     count(*) filter (where proname = 'special_offer_resolve_entry_referral' and identity_args = 'p_user_id uuid, p_referral_code text, p_referral_source text') = 1 as resolver_exactly_once,
+    count(*) filter (where proname = 'review_special_offer_entry') as review_overload_count,
+    count(*) filter (where proname = 'review_special_offer_entry' and identity_args = 'p_entry_id uuid, p_new_status text, p_review_note text, p_rejection_reason text') = 1 as review_exact_overload_selected,
     string_agg(proname || '(' || identity_args || ')', ' | ' order by proname, identity_args) as details
   from fns
+),
+trigger_checks as (
+  select
+    not exists (
+      select 1
+      from trigger_sources ts
+      where ts.source like '%insert into public.special_offer_entry_referrals%'
+         or ts.source like '%update public.special_offer_entry_referrals%'
+         or ts.source like '%delete from public.special_offer_entry_referrals%'
+    ) as no_trigger_side_attribution_write,
+    coalesce(
+      string_agg(table_name || '.' || trigger_name || '->' || trigger_function, ' | ' order by table_name, trigger_name),
+      'no related triggers'
+    ) as details
+  from trigger_sources
 ),
 checks as (
   select * from (
@@ -226,6 +257,8 @@ checks as (
       ('submit_six_arg_exactly_once', (select submit_six_arg_exactly_once from fn_counts), coalesce((select details from fn_counts), '')),
       ('submit_four_arg_exactly_once', (select submit_four_arg_exactly_once from fn_counts), coalesce((select details from fn_counts), '')),
       ('resolver_exactly_once', (select resolver_exactly_once from fn_counts), coalesce((select details from fn_counts), '')),
+      ('review_rpc_exact_overload_selected', (select review_exact_overload_selected from fn_counts), 'review_overload_count=' || coalesce((select review_overload_count::text from fn_counts), 'NULL') || '; functions=' || coalesce((select details from fn_counts), '')),
+      ('review_selected_normalized_source', exists(select 1 from review_fn), coalesce((select source from review_fn), 'review fn missing')),
       ('submit_security_definer', coalesce((select prosecdef from submit_fn), false), coalesce((select owner_name || ' ' || coalesce(proconfig::text, '') from submit_fn), 'submit fn missing')),
       ('submit_owner_ok', coalesce((select owner_name = 'postgres' from submit_fn), false), coalesce((select owner_name from submit_fn), 'submit fn missing')),
       ('submit_safe_search_path', coalesce((select proconfig::text from submit_fn), '') like '%search_path=pg_catalog, public%', coalesce((select proconfig::text from submit_fn), 'submit fn missing')),
@@ -259,7 +292,38 @@ checks as (
       ('inactive_partner_not_attributed', coalesce((select source like '%v_match.partner_id%' and source like '%p.status = ''active''%' and source like '%return%' from resolver_fn), false), 'inactive/missing partner returns no row'),
       ('attribution_audit_present', coalesce((select source like '%special_offer.entry_referral_attributed%' from submit_fn), false), 'minimal audit action'),
       ('correction_does_not_touch_attribution', coalesce((select source not like '%special_offer_entry_referrals%' and source not like '%referral_code_snapshot%' and source not like '%p_referral_code%' from correction_fn), false), 'correction fn must not alter attribution'),
-      ('review_does_not_touch_attribution', coalesce((select source not like '%special_offer_entry_referrals%' and source not like '%referral_code_snapshot%' and source not like '%p_referral_code%' from review_fn), false), 'review fn must not alter attribution'),
+      ('review_no_direct_attribution_insert', coalesce((select source not like '%insert into public.special_offer_entry_referrals%' from review_fn), false), coalesce((select source from review_fn), 'review fn missing')),
+      ('review_no_direct_attribution_update', coalesce((select source not like '%update public.special_offer_entry_referrals%' from review_fn), false), coalesce((select source from review_fn), 'review fn missing')),
+      ('review_no_direct_attribution_delete', coalesce((select source not like '%delete from public.special_offer_entry_referrals%' from review_fn), false), coalesce((select source from review_fn), 'review fn missing')),
+      ('review_no_referral_helper_calls', coalesce((
+        select source not like '%special_offer_resolve_entry_referral%'
+          and source not like '%submit_special_offer_entry%'
+          and source not like '%resolve_referral_code%'
+          and source not like '%normalize_referral_code%'
+          and source not like '%affiliate_get_user_partner_id%'
+        from review_fn
+      ), false), coalesce((select source from review_fn), 'review fn missing')),
+      ('trigger_side_attribution_write_absent', (select no_trigger_side_attribution_write from trigger_checks), coalesce((select details from trigger_checks), '')),
+      ('review_no_indirect_attribution_write', coalesce((
+        select source not like '%special_offer_resolve_entry_referral%'
+          and source not like '%submit_special_offer_entry%'
+          and source not like '%resolve_referral_code%'
+          and source not like '%normalize_referral_code%'
+          and source not like '%affiliate_get_user_partner_id%'
+        from review_fn
+      ), false) and (select no_trigger_side_attribution_write from trigger_checks), 'helper calls and trigger-side writes must be absent; triggers=' || coalesce((select details from trigger_checks), '')),
+      ('review_does_not_touch_attribution',
+        coalesce((select source not like '%special_offer_entry_referrals%' and source not like '%referral_code_snapshot%' and source not like '%p_referral_code%' from review_fn), false)
+        and coalesce((
+          select source not like '%special_offer_resolve_entry_referral%'
+            and source not like '%submit_special_offer_entry%'
+            and source not like '%resolve_referral_code%'
+            and source not like '%normalize_referral_code%'
+            and source not like '%affiliate_get_user_partner_id%'
+          from review_fn
+        ), false)
+        and (select no_trigger_side_attribution_write from trigger_checks),
+        'review source and related triggers must not alter attribution'),
       ('hard_delete_entry_delete_present', coalesce((select source like '%delete from public.special_offer_entries%' from delete_fn), false), 'FK cascade removes attribution'),
       ('hard_delete_uses_fk_cascade_not_manual_referral_delete', coalesce((select source not like '%delete from public.special_offer_entry_referrals%' from delete_fn), false), 'no manual referral delete required'),
       ('no_commission_winner_ranking_in_submit', coalesce((select source not like '%affiliate_commission%' and source not like '%payout%' and source not like '%winner%' and source not like '%ranking%' from submit_fn), false), 'no commissions/winner/ranking side effects'),
@@ -288,6 +352,8 @@ from (
       'resolver_exactly_once',
       'resolver_public_execute_absent',
       'resolver_authenticated_execute_absent',
+      'review_rpc_exact_overload_selected',
+      'review_does_not_touch_attribution',
       'existing_submit_wrapped',
       'attribution_idempotent',
       'no_commission_winner_ranking_in_submit'
