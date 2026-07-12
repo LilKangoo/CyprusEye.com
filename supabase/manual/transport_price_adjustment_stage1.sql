@@ -569,8 +569,7 @@ as $$
 $$;
 
 revoke all on function public.get_service_deposit_status(uuid) from public;
-revoke all on function public.get_service_deposit_status(uuid) from service_role;
-grant execute on function public.get_service_deposit_status(uuid) to anon, authenticated;
+grant execute on function public.get_service_deposit_status(uuid) to anon, authenticated, service_role;
 
 create or replace function public.get_transport_booking_financial_summary(p_booking_id uuid)
 returns table (

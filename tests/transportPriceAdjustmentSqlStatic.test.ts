@@ -15,6 +15,7 @@ describe('Transport Price 4.0B SQL draft', () => {
   const sql = read('supabase/manual/transport_price_adjustment_stage1.sql');
   const verify = read('supabase/manual/transport_price_adjustment_stage1_verify.sql');
   const diagnostics = read('supabase/manual/transport_price_adjustment_stage1_diagnostics.sql');
+  const verifyDiagnostics = read('supabase/manual/transport_price_adjustment_stage1_verify_diagnostics.sql');
   const roundTripDiagnostics = read('supabase/manual/transport_price_round_trip_stage1_diagnostics.sql');
 
   const functionSlice = (source: string, name: string) => {
@@ -27,13 +28,50 @@ describe('Transport Price 4.0B SQL draft', () => {
   };
 
   test('preflight and diagnostics remain read-only', () => {
-    [preflight, diagnostics, roundTripDiagnostics, verify].forEach((source) => {
+    [preflight, diagnostics, verifyDiagnostics, roundTripDiagnostics, verify].forEach((source) => {
       expect(source).not.toMatch(/(^|\n)\s*(insert\s+into|update\s+\w|delete\s+from|merge\s+into|truncate\s+|alter\s+|create\s+|drop\s+|grant\s+|revoke\s+)/i);
     });
     expect(preflight).toContain('preflight_safe_to_continue');
     expect(diagnostics).toContain('round_trip_double_count_removed');
     expect(roundTripDiagnostics).toContain('round_trip_double_count_confirmed');
     expect(verify).toContain('overall_pass');
+  });
+
+  test('post-install verify diagnostics decomposes constraints and indexes', () => {
+    [
+      'adjusted_total_price_check',
+      'price_revision_check',
+      'adjustment_pk',
+      'adjustment_booking_fk_cascade',
+      'adjustment_adjusted_by_fk',
+      'adjustment_amounts_check',
+      'adjustment_revision_check',
+      'adjustment_reason_required',
+      'adjustment_customer_note_check',
+      'adjustment_currency_check',
+      'idempotency_unique',
+      'booking_revision_unique',
+      'booking_created_index',
+      'constraints_indexes_ok',
+      'constraints_inventory',
+      'indexes_inventory',
+      'diagnostics_read_only',
+    ].forEach((check) => expect(verifyDiagnostics).toContain(check));
+    expect(verifyDiagnostics).toContain('select check_name, pass, details');
+    expect(verifyDiagnostics).not.toMatch(/\|\|\s*contype\s*\|\|/i);
+    expect(verifyDiagnostics).not.toMatch(/\|\|\s*confdeltype\s*\|\|/i);
+    expect(verifyDiagnostics).not.toMatch(/\|\|\s*relkind\s*\|\|/i);
+    expect(verifyDiagnostics).not.toMatch(/\|\|\s*prokind\s*\|\|/i);
+    expect(verifyDiagnostics).toContain("concat(table_schema, '.', table_name, '.', conname");
+    expect(verifyDiagnostics).toContain("c.conname = 'transport_booking_price_adjustments_reason_check'");
+    expect(verifyDiagnostics).toContain("c.normalized_def like '%btrim(internal_reason%'");
+    expect(verifyDiagnostics).toContain("c.normalized_def like '%>= 3%'");
+    expect(verifyDiagnostics).toContain("c.normalized_def like '%<= 2000%'");
+    expect(verifyDiagnostics).toContain("c.conname = 'transport_booking_price_adjustments_currency_check'");
+    expect(verifyDiagnostics).toContain("c.normalized_def like '%btrim(currency%'");
+    expect(verifyDiagnostics).toContain("c.normalized_def like '%<= 12%'");
+    expect(verifyDiagnostics).not.toContain("between 3 and 2000");
+    expect(verifyDiagnostics).not.toContain("between 3 and 12");
   });
 
   test('preflight final statement is a single summary row with preflight_safe_to_continue', () => {
@@ -106,7 +144,8 @@ describe('Transport Price 4.0B SQL draft', () => {
     expect(depositStatus).not.toContain('return_total_price');
     expect(depositStatus).not.toMatch(/total_price.{0,220}\+.{0,220}return_total_price/);
     expect(depositStatus).not.toMatch(/return_total_price.{0,220}\+.{0,220}total_price/);
-    expect(sql).toContain('grant execute on function public.get_service_deposit_status(uuid) to anon, authenticated');
+    expect(sql).toContain('grant execute on function public.get_service_deposit_status(uuid) to anon, authenticated, service_role');
+    expect(sql).not.toContain('revoke all on function public.get_service_deposit_status(uuid) from service_role');
   });
 
   test('coupon-related transport triggers are guarded for adjustment-only updates', () => {
@@ -129,6 +168,7 @@ describe('Transport Price 4.0B SQL draft', () => {
       'deposit_status_no_total_plus_return',
       'deposit_status_return_type_preserved',
       'deposit_status_anon_execute_present',
+      'deposit_status_service_role_execute_present',
       'coupon_trigger_guard_present',
       'coupon_redemption_guard_present',
       'fulfillment_coupon_sync_guard_present',
@@ -140,6 +180,14 @@ describe('Transport Price 4.0B SQL draft', () => {
       'balance_due_semantics',
       'overpayment_semantics',
       'refund_review_required_semantics',
+      'booking_created_index',
     ].forEach((check) => expect(verify).toContain(check));
+    expect(verify).not.toContain('deposit_status_service_role_execute_absent');
+    expect(diagnostics).toContain('deposit_status_acl_preserved');
+    expect(diagnostics).toContain('transport_refund_ledger_absent_confirmed');
+    expect(diagnostics).toContain('adjustment_fields_installed');
+    expect(diagnostics).toContain('post_install_diagnostics_complete');
+    expect(diagnostics).not.toContain('existing_adjustment_fields_absent');
+    expect(diagnostics).not.toContain('preflight_complete');
   });
 });

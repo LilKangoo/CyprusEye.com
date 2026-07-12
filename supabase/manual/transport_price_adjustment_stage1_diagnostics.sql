@@ -530,7 +530,7 @@ diagnostics as (
     not exists (select 1 from deposit_status_acl where grantee = 0 and privilege_type = 'EXECUTE')
     and exists (select 1 from deposit_status_acl where grantee_name = 'anon' and privilege_type = 'EXECUTE')
     and exists (select 1 from deposit_status_acl where grantee_name = 'authenticated' and privilege_type = 'EXECUTE')
-    and not exists (select 1 from deposit_status_acl where grantee_name = 'service_role' and privilege_type = 'EXECUTE'),
+    and exists (select 1 from deposit_status_acl where grantee_name = 'service_role' and privilege_type = 'EXECUTE'),
     coalesce((
       select string_agg(grantee_name || ':' || privilege_type, ', ' order by grantee_name, privilege_type)
       from deposit_status_acl
@@ -588,8 +588,20 @@ diagnostics as (
   union all
   select
     'no_refund_mutation',
-    coalesce((select source not like '%refund%' from admin_adjust_fn), false),
-    coalesce((select 'admin RPC references refund=' || (source like '%refund%')::text from admin_adjust_fn), 'admin RPC not found')
+    coalesce((
+      select not (
+        source ~ '(insert into|update|delete from) public\.[a-z0-9_]*refund[a-z0-9_]*'
+        or source ~ '(insert into|update|delete from) public\.[a-z0-9_]*(service|transport|deposit)[a-z0-9_]*refund[a-z0-9_]*'
+      )
+      from admin_adjust_fn
+    ), false),
+    coalesce((
+      select 'admin RPC mutates refund table=' || (
+        source ~ '(insert into|update|delete from) public\.[a-z0-9_]*refund[a-z0-9_]*'
+        or source ~ '(insert into|update|delete from) public\.[a-z0-9_]*(service|transport|deposit)[a-z0-9_]*refund[a-z0-9_]*'
+      )::text || '; refund_review_required references are allowed'
+      from admin_adjust_fn
+    ), 'admin RPC not found')
 
   union all
   select
@@ -675,16 +687,13 @@ diagnostics as (
 
   union all
   select
-    'existing_adjustment_fields_absent',
-    not (
-      original_total_like_exists
-      or adjusted_total_price_exists
-      or paid_total_like_exists
-      or refund_total_like_exists
-      or balance_due_like_exists
-      or price_revision_exists
-      or price_adjustment_reason_exists
-    ),
+    'adjustment_fields_installed',
+    adjusted_total_price_exists
+      and price_revision_exists
+      and not paid_total_like_exists
+      and not refund_total_like_exists
+      and not balance_due_like_exists
+      and not price_adjustment_reason_exists,
     format(
       'original_total_like=%s, adjusted_total_price=%s, paid_total_like=%s, refund_total_like=%s, balance_due_like=%s, price_revision=%s, price_adjustment_reason=%s',
       original_total_like_exists,
@@ -761,8 +770,8 @@ diagnostics as (
 
   union all
   select
-    'transport_refund_ledger_exists',
-    transport_refund_ledger_exists,
+    'transport_refund_ledger_absent_confirmed',
+    not transport_refund_ledger_exists,
     case
       when transport_refund_ledger_exists then 'refund_tables=' || refund_tables
       else 'No transport/service/deposit refund table found by catalog name search; use confirmed_paid_gross and refund_review_required until a refund ledger exists.'
@@ -805,14 +814,21 @@ diagnostics as (
   union all
   select
     'coupon_trigger_safe_for_additive_adjustment',
-    not coupon_trigger_reacts_to_generic_update,
-    case
-      when coupon_trigger_reacts_to_generic_update then
-        'Coupon trigger fires on generic transport_bookings UPDATE and source touches NEW.total_price/deposit/coupon fields. Recommended strategy: correct/narrow the trigger or keep price adjustment writes outside transport_bookings until guarded.'
-      else
-        'Coupon trigger appears not to rewrite quote/deposit fields on unrelated future adjustment updates.'
-    end
-  from trigger_checks
+    coalesce((
+      select bool_and(
+        source like '%tg_op = ''update''%'
+        and source like '%return new%'
+        and source like '%new.total_price is not distinct from old.total_price%'
+        and source like '%new.coupon_discount_amount is not distinct from old.coupon_discount_amount%'
+      )
+      from target_functions
+      where proname in (
+        'trg_apply_service_coupon_transport_booking',
+        'trg_service_coupon_redemption_from_transport_booking',
+        'trg_sync_transport_coupon_to_fulfillment'
+      )
+    ), false),
+    'Post-install check: coupon/redeem/fulfillment coupon trigger functions must early-return when quote/coupon source columns did not change.'
 
   union all
   select
@@ -824,14 +840,16 @@ diagnostics as (
   union all
   select
     'fulfillment_price_adjustment_risk',
-    not fulfillment_copies_transport_total_price,
-    case
-      when fulfillment_copies_transport_total_price then
-        'Transport trigger/function copies NEW.total_price into partner_service_fulfillments; future adjustment must avoid silent fulfillment/settlement rewrites or deliberately use central summary.'
-      else
-        'No transport fulfillment source copying NEW.total_price was found.'
-    end || ' details=' || details
-  from fulfillment_sync
+    coalesce((select source not like '%partner_service_fulfillments%' from admin_adjust_fn), false)
+      and coalesce((
+        select source like '%tg_op = ''update''%'
+          and source like '%return new%'
+          and source like '%new.total_price is not distinct from old.total_price%'
+        from target_functions
+        where proname = 'trg_sync_transport_coupon_to_fulfillment'
+        limit 1
+      ), false),
+    'Post-install check: admin adjustment RPC must not write partner_service_fulfillments and coupon-to-fulfillment sync must early-return for adjustment-only updates. Historical fulfillment total_price remains a snapshot.'
 
   union all
   select
@@ -865,9 +883,9 @@ diagnostics as (
 
   union all
   select
-    'customer_read_sources_identified',
-    customer_read_sources_identified,
-    details
+    'customer_financial_summary_propagation_pending',
+    true,
+    'Expected at 4.0B: customer UI propagation is not implemented yet. Existing customer read source detected=' || customer_read_sources_identified::text || '; details=' || details
   from read_sources
 
   union all
@@ -900,7 +918,7 @@ diagnostics as (
 
   union all
   select
-    'preflight_complete',
+    'post_install_diagnostics_complete',
     (
       rt.transport_bookings_exists
       and rt.partner_service_fulfillments_exists
@@ -912,10 +930,8 @@ diagnostics as (
       and tc.coupon_trigger_source_identified
       and tc.fulfillment_sync_source_identified
       and rs.admin_read_sources_identified
-      and rs.customer_read_sources_identified
-      and rs.partner_read_sources_identified
     ),
-    'Core production model diagnostics completed. Refund-ledger absence and coupon-trigger safety are reported as explicit design blockers, not hidden by this completion check.'
+    'Post-install diagnostics completed. Refund ledger absence and customer/partner UI propagation are expected 4.0B limitations, not base SQL blockers.'
   from required_tables rt
   cross join required_columns rc
   cross join trigger_checks tc

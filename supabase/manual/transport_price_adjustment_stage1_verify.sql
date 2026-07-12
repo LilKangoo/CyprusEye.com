@@ -82,7 +82,34 @@ constraints as (
       from pg_constraint c
       where c.conrelid = 'public.transport_booking_price_adjustments'::regclass
         and c.conname = 'transport_booking_price_adjustments_reason_check'
+        and c.contype = 'c'
+        and lower(regexp_replace(pg_get_constraintdef(c.oid), '[[:space:]]+', ' ', 'g')) like '%internal_reason%'
+        and lower(regexp_replace(pg_get_constraintdef(c.oid), '[[:space:]]+', ' ', 'g')) like '%btrim(internal_reason%'
+        and lower(regexp_replace(pg_get_constraintdef(c.oid), '[[:space:]]+', ' ', 'g')) like '%length%'
+        and lower(regexp_replace(pg_get_constraintdef(c.oid), '[[:space:]]+', ' ', 'g')) like '%>= 3%'
+        and lower(regexp_replace(pg_get_constraintdef(c.oid), '[[:space:]]+', ' ', 'g')) like '%<= 2000%'
     ) as adjustment_reason_required,
+    exists (
+      select 1
+      from pg_constraint c
+      where c.conrelid = 'public.transport_booking_price_adjustments'::regclass
+        and c.conname = 'transport_booking_price_adjustments_customer_note_check'
+        and c.contype = 'c'
+        and lower(regexp_replace(pg_get_constraintdef(c.oid), '[[:space:]]+', ' ', 'g')) like '%customer_note%'
+        and lower(regexp_replace(pg_get_constraintdef(c.oid), '[[:space:]]+', ' ', 'g')) like '%<= 1000%'
+    ) as adjustment_customer_note_check,
+    exists (
+      select 1
+      from pg_constraint c
+      where c.conrelid = 'public.transport_booking_price_adjustments'::regclass
+        and c.conname = 'transport_booking_price_adjustments_currency_check'
+        and c.contype = 'c'
+        and lower(regexp_replace(pg_get_constraintdef(c.oid), '[[:space:]]+', ' ', 'g')) like '%currency%'
+        and lower(regexp_replace(pg_get_constraintdef(c.oid), '[[:space:]]+', ' ', 'g')) like '%btrim(currency%'
+        and lower(regexp_replace(pg_get_constraintdef(c.oid), '[[:space:]]+', ' ', 'g')) like '%length%'
+        and lower(regexp_replace(pg_get_constraintdef(c.oid), '[[:space:]]+', ' ', 'g')) like '%>= 3%'
+        and lower(regexp_replace(pg_get_constraintdef(c.oid), '[[:space:]]+', ' ', 'g')) like '%<= 12%'
+    ) as adjustment_currency_check,
     exists (
       select 1
       from pg_indexes i
@@ -101,7 +128,16 @@ constraints as (
         and i.indexdef ilike '%unique%'
         and i.indexdef ilike '%booking_id%'
         and i.indexdef ilike '%new_revision%'
-    ) as booking_revision_unique
+    ) as booking_revision_unique,
+    exists (
+      select 1
+      from pg_indexes i
+      where i.schemaname = 'public'
+        and i.tablename = 'transport_booking_price_adjustments'
+        and i.indexname = 'transport_booking_price_adjustments_booking_created_idx'
+        and i.indexdef ilike '%booking_id%'
+        and i.indexdef ilike '%created_at%'
+    ) as booking_created_index
 ),
 rls as (
   select
@@ -273,8 +309,11 @@ checks as (
         and adjustment_amounts_check
         and adjustment_revision_check
         and adjustment_reason_required
+        and adjustment_customer_note_check
+        and adjustment_currency_check
         and idempotency_unique
         and booking_revision_unique
+        and booking_created_index
       from constraints
     ) as constraints_indexes_ok,
     (select adjustment_rls_enabled and admin_select_policy from rls) as rls_policy_ok,
@@ -341,10 +380,10 @@ checks as (
       select 1 from deposit_status_acl
       where grantee_name = 'authenticated' and privilege_type = 'EXECUTE'
     ) as deposit_status_authenticated_execute_present,
-    not exists (
+    exists (
       select 1 from deposit_status_acl
       where grantee_name = 'service_role' and privilege_type = 'EXECUTE'
-    ) as deposit_status_service_role_execute_absent,
+    ) as deposit_status_service_role_execute_present,
     coalesce((select source like '%not_authenticated%' and source like '%is_partner_user%' and source like '%customer_email%' and source not like '%internal_reason%' from public_summary), false) as role_safe_public_summary,
     coalesce((select source like '%internal_reason%' and source like '%public.is_current_user_admin()%' from admin_history), false) as admin_history_internal_reason_only_admin,
     coalesce((
@@ -436,7 +475,7 @@ select
     and deposit_status_public_execute_absent
     and deposit_status_anon_execute_present
     and deposit_status_authenticated_execute_present
-    and deposit_status_service_role_execute_absent
+    and deposit_status_service_role_execute_present
     and role_safe_public_summary
     and admin_history_internal_reason_only_admin
     and coupon_trigger_guard_present
