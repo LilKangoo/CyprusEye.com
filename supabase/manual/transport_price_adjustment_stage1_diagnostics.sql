@@ -267,7 +267,10 @@ round_trip_matches as (
     from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
-      and lower(regexp_replace(coalesce(p.prosrc, ''), '[[:space:]]+', ' ', 'g')) ~ 'total_price[^;]{0,120}\+[^;]{0,120}return_total_price'
+      and (
+        lower(regexp_replace(coalesce(p.prosrc, ''), '[[:space:]]+', ' ', 'g')) ~ 'total_price.{0,220}\+.{0,220}return_total_price'
+        or lower(regexp_replace(coalesce(p.prosrc, ''), '[[:space:]]+', ' ', 'g')) ~ 'return_total_price.{0,220}\+.{0,220}total_price'
+      )
     union all
     select
       'view' as kind,
@@ -276,7 +279,10 @@ round_trip_matches as (
     join pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'public'
       and c.relkind in ('v', 'm')
-      and lower(regexp_replace(coalesce(pg_get_viewdef(c.oid, true), ''), '[[:space:]]+', ' ', 'g')) ~ 'total_price[^;]{0,120}\+[^;]{0,120}return_total_price'
+      and (
+        lower(regexp_replace(coalesce(pg_get_viewdef(c.oid, true), ''), '[[:space:]]+', ' ', 'g')) ~ 'total_price.{0,220}\+.{0,220}return_total_price'
+        or lower(regexp_replace(coalesce(pg_get_viewdef(c.oid, true), ''), '[[:space:]]+', ' ', 'g')) ~ 'return_total_price.{0,220}\+.{0,220}total_price'
+      )
   ) matches
 ),
 function_sources as (
@@ -358,8 +364,17 @@ commission_sources as (
     exists (
       select 1
       from triggers
-      where source like '%affiliate_commission_events%'
-        and source like '%service_deposit_requests%'
+      where table_name = 'service_deposit_requests'
+        and function_name = 'affiliate_handle_service_deposit_paid'
+        and source like '%affiliate_insert_commission_events_for_deposit%'
+    )
+    and exists (
+      select 1
+      from function_sources
+      where proname = 'affiliate_insert_commission_events_for_deposit'
+        and source like '%from public.service_deposit_requests%'
+        and source like '%insert into public.affiliate_commission_events%'
+        and source like '%dep.amount%'
         and source like '%deposit_amount%'
     ) as commission_source_identified
   from public.affiliate_commission_events e
@@ -569,7 +584,7 @@ diagnostics as (
     transport_refund_ledger_exists,
     case
       when transport_refund_ledger_exists then 'refund_tables=' || refund_tables
-      else 'No transport/service/deposit refund table found by catalog name search; net_paid cannot safely subtract refunds from current application data.'
+      else 'No transport/service/deposit refund table found by catalog name search; use confirmed_paid_gross and refund_review_required until a refund ledger exists.'
     end
   from refund_objects
 

@@ -19,7 +19,8 @@ with required_tables as (
 required_functions as (
   select
     to_regprocedure('public.get_service_deposit_status(uuid)') is not null as get_service_deposit_status_exists,
-    exists (
+    (
+      exists (
       select 1
       from pg_proc p
       join pg_namespace n on n.oid = p.pronamespace
@@ -27,11 +28,23 @@ required_functions as (
         and p.proname in (
           'trg_apply_service_coupon_transport_booking',
           'trg_partner_service_fulfillment_from_transport_booking',
-          'trg_affiliate_on_service_deposit_paid',
           'update_transport_updated_at'
         )
       group by n.nspname
-      having count(distinct p.proname) = 4
+      having count(distinct p.proname) = 3
+      )
+      and exists (
+        select 1
+        from pg_trigger t
+        join pg_class c on c.oid = t.tgrelid
+        join pg_namespace n on n.oid = c.relnamespace
+        join pg_proc p on p.oid = t.tgfoid
+        where n.nspname = 'public'
+          and c.relname = 'service_deposit_requests'
+          and t.tgname = 'trg_affiliate_on_service_deposit_paid'
+          and p.proname = 'affiliate_handle_service_deposit_paid'
+          and not t.tgisinternal
+      )
     ) as critical_trigger_functions_exist
 ),
 existing_adjustment_model as (
@@ -137,7 +150,10 @@ round_trip_sources as (
     from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
-      and lower(regexp_replace(coalesce(p.prosrc, ''), '[[:space:]]+', ' ', 'g')) ~ 'total_price[^;]{0,120}\+[^;]{0,120}return_total_price'
+      and (
+        lower(regexp_replace(coalesce(p.prosrc, ''), '[[:space:]]+', ' ', 'g')) ~ 'total_price.{0,220}\+.{0,220}return_total_price'
+        or lower(regexp_replace(coalesce(p.prosrc, ''), '[[:space:]]+', ' ', 'g')) ~ 'return_total_price.{0,220}\+.{0,220}total_price'
+      )
     union all
     select
       'view' as kind,
@@ -146,7 +162,10 @@ round_trip_sources as (
     join pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'public'
       and c.relkind in ('v', 'm')
-      and lower(regexp_replace(coalesce(pg_get_viewdef(c.oid, true), ''), '[[:space:]]+', ' ', 'g')) ~ 'total_price[^;]{0,120}\+[^;]{0,120}return_total_price'
+      and (
+        lower(regexp_replace(coalesce(pg_get_viewdef(c.oid, true), ''), '[[:space:]]+', ' ', 'g')) ~ 'total_price.{0,220}\+.{0,220}return_total_price'
+        or lower(regexp_replace(coalesce(pg_get_viewdef(c.oid, true), ''), '[[:space:]]+', ' ', 'g')) ~ 'return_total_price.{0,220}\+.{0,220}total_price'
+      )
   ) matches
 ),
 commission_counts as (
