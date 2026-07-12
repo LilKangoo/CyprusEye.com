@@ -3399,6 +3399,8 @@ const transportAdminState = {
   routes: [],
   pricingRules: [],
   bookings: [],
+  financialSummaryByBookingId: {},
+  priceAdjustmentsByBookingId: {},
   depositBaseFloor: 0,
   depositBaseMode: 'flat',
   depositBaseEnabled: false,
@@ -16556,6 +16558,161 @@ function transportMoney(value, currency = 'EUR') {
   return formatMoney(amount, String(currency || 'EUR').trim().toUpperCase() || 'EUR');
 }
 
+function transportBookingEffectiveTotal(row) {
+  const adjusted = Number(row?.adjusted_total_price);
+  if (Number.isFinite(adjusted) && adjusted > 0) return adjusted;
+  const total = Number(row?.total_price);
+  return Number.isFinite(total) ? total : 0;
+}
+
+function transportBookingPriceRevision(row) {
+  const revision = Number(row?.price_revision);
+  return Number.isInteger(revision) && revision >= 0 ? revision : 0;
+}
+
+function normalizeTransportFinancialSummary(row, fallbackBooking = null) {
+  if (!row || typeof row !== 'object') return null;
+  const currency = String(row.currency || fallbackBooking?.currency || 'EUR').trim().toUpperCase() || 'EUR';
+  const num = (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;
+  };
+  return {
+    booking_id: String(row.booking_id || fallbackBooking?.id || '').trim(),
+    original_total: num(row.original_total),
+    adjusted_total: row.adjusted_total == null ? null : num(row.adjusted_total),
+    effective_total: num(row.effective_total),
+    currency,
+    confirmed_paid_gross: num(row.confirmed_paid_gross),
+    balance_due: num(row.balance_due),
+    overpayment: num(row.overpayment),
+    refund_review_required: Boolean(row.refund_review_required),
+    price_revision: Number.isInteger(Number(row.price_revision)) ? Number(row.price_revision) : transportBookingPriceRevision(fallbackBooking),
+    price_adjusted_at: row.price_adjusted_at || fallbackBooking?.price_adjusted_at || null,
+    derived_payment_state: String(row.derived_payment_state || '').trim(),
+    customer_note: row.customer_note || null,
+  };
+}
+
+function transportFallbackFinancialSummary(booking) {
+  if (!booking) return null;
+  const effective = transportBookingEffectiveTotal(booking);
+  return {
+    booking_id: String(booking.id || '').trim(),
+    original_total: Number(booking.total_price || 0),
+    adjusted_total: booking.adjusted_total_price == null ? null : Number(booking.adjusted_total_price || 0),
+    effective_total: effective,
+    currency: String(booking.currency || 'EUR').trim().toUpperCase() || 'EUR',
+    confirmed_paid_gross: null,
+    balance_due: null,
+    overpayment: null,
+    refund_review_required: false,
+    price_revision: transportBookingPriceRevision(booking),
+    price_adjusted_at: booking.price_adjusted_at || null,
+    derived_payment_state: '',
+    customer_note: null,
+  };
+}
+
+async function fetchTransportBookingFinancialSummary(client, bookingId, fallbackBooking = null) {
+  const id = String(bookingId || '').trim();
+  if (!client || !id) return null;
+  const { data, error } = await runTransportMutation(
+    (db) => db.rpc('get_transport_booking_financial_summary', { p_booking_id: id }),
+    { silentAuthNotice: true },
+  );
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  const summary = normalizeTransportFinancialSummary(row, fallbackBooking);
+  if (summary) transportAdminState.financialSummaryByBookingId[id] = summary;
+  return summary;
+}
+
+async function fetchTransportBookingPriceAdjustments(client, bookingId) {
+  const id = String(bookingId || '').trim();
+  if (!client || !id) return [];
+  const { data, error } = await runTransportMutation(
+    (db) => db.rpc('admin_get_transport_booking_price_adjustments', { p_booking_id: id }),
+    { silentAuthNotice: true },
+  );
+  if (error) throw error;
+  const rows = Array.isArray(data) ? data : [];
+  transportAdminState.priceAdjustmentsByBookingId[id] = rows;
+  return rows;
+}
+
+function newTransportPriceIdempotencyKey() {
+  if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
+function renderTransportFinancialSummaryRows(summary, fallbackBooking = null, options = {}) {
+  const s = summary || transportFallbackFinancialSummary(fallbackBooking);
+  if (!s) return '<div style="font-size:12px; color:var(--admin-danger);">Financial summary unavailable.</div>';
+  const currency = s.currency || fallbackBooking?.currency || 'EUR';
+  const row = (label, value, extra = '') => `
+    <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start;">
+      <span>${escapeHtml(label)}</span>
+      <strong style="color:var(--admin-text-primary); text-align:right;">${escapeHtml(value)}</strong>
+      ${extra}
+    </div>
+  `;
+  const moneyOrUnavailable = (value) => value == null ? 'Unavailable' : transportMoney(value, currency);
+  const rows = [
+    row('Original total', transportMoney(s.original_total, currency)),
+    row('Adjusted total', s.adjusted_total == null ? 'Not adjusted' : transportMoney(s.adjusted_total, currency)),
+    row('Current final total', transportMoney(s.effective_total, currency)),
+    row('Confirmed paid gross', moneyOrUnavailable(s.confirmed_paid_gross)),
+    row('Balance due', moneyOrUnavailable(s.balance_due)),
+    row('Overpayment', moneyOrUnavailable(s.overpayment)),
+    row('Price revision', String(s.price_revision ?? 0)),
+    row('Adjusted at', s.price_adjusted_at ? transportIsoToLabel(s.price_adjusted_at) : '—'),
+  ];
+  const warning = s.refund_review_required
+    ? '<div style="margin-top:10px; padding:10px 12px; border-radius:8px; background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.35); color:#fbbf24; font-size:12px;">Confirmed paid amount is higher than the current final total. Refund review is required; no refund is automatic.</div>'
+    : '';
+  const unavailable = summary
+    ? ''
+    : '<div style="margin-bottom:10px; padding:8px 10px; border-radius:8px; background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.3); color:#fecaca; font-size:12px;">Financial summary unavailable. Balance and paid amount are not locally recalculated.</div>';
+  const state = s.derived_payment_state
+    ? `<div style="margin-top:8px; font-size:12px; color:var(--admin-text-muted);">State: ${escapeHtml(s.derived_payment_state)}</div>`
+    : '';
+  const customerNote = options.showCustomerNote && s.customer_note
+    ? `<div style="margin-top:8px; font-size:12px; color:var(--admin-text-muted);">Customer note: ${escapeHtml(String(s.customer_note))}</div>`
+    : '';
+  return `${unavailable}<div style="display:grid; gap:8px; font-size:12px; color:var(--admin-text-muted);">${rows.join('')}</div>${state}${customerNote}${warning}`;
+}
+
+function renderTransportPriceAdjustmentHistory(rows, currency = 'EUR') {
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) {
+    return '<div style="font-size:12px; color:var(--admin-text-muted);">No price adjustments recorded.</div>';
+  }
+  return `
+    <div style="display:grid; gap:8px;">
+      ${list.map((row) => {
+        const created = row?.created_at ? transportIsoToLabel(row.created_at) : '—';
+        const previous = transportMoney(row?.previous_effective_total, row?.currency || currency);
+        const next = transportMoney(row?.new_effective_total, row?.currency || currency);
+        const revision = `${Number(row?.previous_revision ?? 0)} → ${Number(row?.new_revision ?? 0)}`;
+        return `
+          <div style="padding:10px 12px; border-radius:8px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06);">
+            <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+              <strong>${escapeHtml(previous)} → ${escapeHtml(next)}</strong>
+              <span style="font-size:11px; color:var(--admin-text-muted);">${escapeHtml(created)}</span>
+            </div>
+            <div style="font-size:12px; color:var(--admin-text-muted); margin-top:6px;">Revision ${escapeHtml(revision)}</div>
+            <div style="font-size:12px; margin-top:6px;">Reason: ${escapeHtml(String(row?.internal_reason || '—'))}</div>
+            ${row?.customer_note ? `<div style="font-size:12px; color:var(--admin-text-muted); margin-top:4px;">Customer note: ${escapeHtml(String(row.customer_note))}</div>` : ''}
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
 function transportStatusBadge(statusRaw) {
   const status = String(statusRaw || '').trim().toLowerCase();
   if (!status) return '<span class="badge">UNKNOWN</span>';
@@ -22225,7 +22382,7 @@ function renderTransportBookingsStats(rows) {
       const status = String(r?.status || '').toLowerCase();
       return status === 'confirmed' || status === 'completed';
     })
-    .reduce((sum, r) => sum + Number(r?.total_price || 0), 0);
+    .reduce((sum, r) => sum + transportBookingEffectiveTotal(r), 0);
 
   const setText = (id, value) => {
     const el = document.getElementById(id);
@@ -22288,7 +22445,10 @@ function renderTransportBookingsTable() {
       ? `Out: ${outboundWhenLabel} | Back: ${returnWhenLabel}`
       : outboundWhenLabel;
     const paxBagsLabel = `${Number(row.num_passengers || 0)} pax / ${Number(row.num_bags || 0)} small backpacks${Number(row.num_oversize_bags || 0) ? ` / ${Number(row.num_oversize_bags || 0)} large 15kg+` : ''}`;
-    const amountLabel = transportMoney(row.total_price, row.currency || 'EUR');
+    const amountLabel = transportMoney(transportBookingEffectiveTotal(row), row.currency || 'EUR');
+    const adjustedHint = row.adjusted_total_price == null
+      ? ''
+      : `<div class="transport-cell-subtle transport-cell-subtle--xs">Original: ${escapeHtml(transportMoney(row.total_price, row.currency || 'EUR'))}</div>`;
     const assignedPartnerLabel = row.assigned_partner_id
       ? getTransportPartnerDisplayName(row.assigned_partner_id)
       : '';
@@ -22313,7 +22473,7 @@ function renderTransportBookingsTable() {
           ${row.payment_status ? `<div class="transport-cell-subtle transport-cell-subtle--xs">${escapeHtml(String(row.payment_status).toUpperCase())}</div>` : ''}
           ${assignedPartnerLabel ? `<div class="transport-cell-subtle transport-cell-subtle--xs">Assigned: ${escapeHtml(assignedPartnerLabel)}</div>` : ''}
         </td>
-        <td data-label="Amount" style="text-align: right; font-weight: 600;"><span class="transport-amount-pill">${escapeHtml(amountLabel)}</span></td>
+        <td data-label="Amount" style="text-align: right; font-weight: 600;"><span class="transport-amount-pill">${escapeHtml(amountLabel)}</span>${adjustedHint}</td>
         <td data-label="Actions" style="text-align: right;">
           <button class="btn-small btn-secondary" type="button" onclick="viewTransportBookingDetails('${escapeHtml(id)}')">View</button>
         </td>
@@ -22395,6 +22555,19 @@ async function viewTransportBookingDetails(bookingId) {
   } catch (_e) {
   }
 
+  let financialSummary = null;
+  let priceAdjustments = [];
+  try {
+    [financialSummary, priceAdjustments] = await Promise.all([
+      fetchTransportBookingFinancialSummary(client, id, booking),
+      fetchTransportBookingPriceAdjustments(client, id),
+    ]);
+  } catch (error) {
+    console.warn('Failed to load transport booking financial summary:', error);
+    financialSummary = null;
+    priceAdjustments = [];
+  }
+
   await loadTransportAssignablePartners({ force: false });
   const assignablePartners = Array.isArray(transportAdminState.assignablePartners)
     ? transportAdminState.assignablePartners.slice()
@@ -22459,7 +22632,9 @@ async function viewTransportBookingDetails(bookingId) {
   })();
   const hasRoundTrip = tripType === 'round_trip'
     || Boolean(booking.return_route_id || booking.return_travel_date || booking.return_travel_time || returnRouteLabel);
-  const amountLabel = transportMoney(booking.total_price, booking.currency || 'EUR');
+  const fallbackSummary = transportFallbackFinancialSummary(booking);
+  const activeSummary = financialSummary || fallbackSummary;
+  const amountLabel = transportMoney(activeSummary?.effective_total ?? transportBookingEffectiveTotal(booking), activeSummary?.currency || booking.currency || 'EUR');
   const transportCurrency = String(booking.currency || 'EUR').trim().toUpperCase() || 'EUR';
   const transportDiscount = Number(booking.coupon_discount_amount || 0);
   const transportTotal = Number(booking.total_price || 0);
@@ -22472,6 +22647,53 @@ async function viewTransportBookingDetails(bookingId) {
   const fulfillmentStatus = String(fulfillment?.status || '').trim();
   const assignedPartnerId = assignedPartnerIdFromBooking || String(fulfillment?.partner_id || '').trim();
   const assignedPartnerLabel = assignedPartnerId ? getTransportPartnerDisplayName(assignedPartnerId) : '';
+  const nextIdempotencyKey = newTransportPriceIdempotencyKey();
+  const adjustmentBlock = `
+    <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
+      <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap;">
+        <div>
+          <h4 style="margin: 0 0 8px; font-size: 14px; font-weight: 600;">Financial Summary</h4>
+          <div style="font-size:12px; color:var(--admin-text-muted);">Current totals come from the central Transport financial summary.</div>
+        </div>
+        <button type="button" class="btn-small btn-secondary" onclick="refreshTransportBookingFinancialSummary('${escapeHtml(id)}')">Refresh summary</button>
+      </div>
+      <div id="transportFinancialSummaryBlock" style="margin-top:12px;">
+        ${renderTransportFinancialSummaryRows(financialSummary, booking, { showCustomerNote: true })}
+      </div>
+      <div style="margin-top:16px; padding-top:14px; border-top:1px solid rgba(255,255,255,0.08);">
+        <h4 style="margin: 0 0 10px; font-size: 14px; font-weight: 600;">Adjust price / Change final price</h4>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap:10px; font-size:12px; color:var(--admin-text-muted); margin-bottom:12px;">
+          <div>Original total<br><strong style="color:var(--admin-text-primary);">${escapeHtml(transportMoney(activeSummary?.original_total ?? booking.total_price, activeSummary?.currency || transportCurrency))}</strong></div>
+          <div>Current final total<br><strong style="color:var(--admin-text-primary);">${escapeHtml(transportMoney(activeSummary?.effective_total ?? transportBookingEffectiveTotal(booking), activeSummary?.currency || transportCurrency))}</strong></div>
+          <div>Revision<br><strong style="color:var(--admin-text-primary);">${escapeHtml(String(activeSummary?.price_revision ?? transportBookingPriceRevision(booking)))}</strong></div>
+          <div>Idempotency key<br><strong id="transportPriceAdjustmentIdempotencyKey" style="color:var(--admin-text-primary); word-break:break-all;">${escapeHtml(nextIdempotencyKey)}</strong></div>
+        </div>
+        <form id="transportPriceAdjustmentForm" data-booking-id="${escapeHtml(id)}" data-current-revision="${escapeHtml(String(activeSummary?.price_revision ?? transportBookingPriceRevision(booking)))}" style="display:grid; gap:10px;">
+          <label style="display:grid; gap:6px;">
+            <span style="font-size:12px; color:var(--admin-text-muted);">New final total</span>
+            <input id="transportPriceAdjustmentNewTotal" class="form-control" type="number" step="0.01" min="0.01" value="${escapeHtml(String(activeSummary?.effective_total ?? transportBookingEffectiveTotal(booking)))}" required>
+          </label>
+          <label style="display:grid; gap:6px;">
+            <span style="font-size:12px; color:var(--admin-text-muted);">Internal reason (required, admin only)</span>
+            <textarea id="transportPriceAdjustmentReason" class="form-control" maxlength="2000" rows="3" required placeholder="Explain why this final price is being changed."></textarea>
+          </label>
+          <label style="display:grid; gap:6px;">
+            <span style="font-size:12px; color:var(--admin-text-muted);">Customer note (optional, not sent automatically)</span>
+            <textarea id="transportPriceAdjustmentCustomerNote" class="form-control" maxlength="1000" rows="2" placeholder="Optional customer-facing note for a later email or support conversation."></textarea>
+          </label>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <button type="submit" class="btn-secondary">Save price adjustment</button>
+            <button type="button" class="btn-small btn-secondary" onclick="resetTransportPriceAdjustmentKey()">Regenerate key</button>
+            <span id="transportPriceAdjustmentStatus" style="font-size:12px; color:var(--admin-text-muted);"></span>
+          </div>
+        </form>
+      </div>
+      <div style="margin-top:16px; padding-top:14px; border-top:1px solid rgba(255,255,255,0.08);">
+        <h4 style="margin: 0 0 10px; font-size: 14px; font-weight: 600;">Adjustment history</h4>
+        <div id="transportPriceAdjustmentHistoryBlock">${renderTransportPriceAdjustmentHistory(priceAdjustments, activeSummary?.currency || transportCurrency)}</div>
+      </div>
+    </div>
+  `;
 
   const fulfillmentActions = (() => {
     if (!fulfillment?.id) return '';
@@ -22659,7 +22881,10 @@ async function viewTransportBookingDetails(bookingId) {
           ` : ''}
         </div>
         <div style="font-size: 24px; font-weight: 700;">${escapeHtml(amountLabel)}</div>
+        ${activeSummary?.adjusted_total == null ? '' : `<div style="margin-top:6px; font-size:12px; color:var(--admin-text-muted);">Original quote: ${escapeHtml(transportMoney(activeSummary.original_total, activeSummary.currency || transportCurrency))}</div>`}
       </div>
+
+      ${adjustmentBlock}
 
       ${assignmentBlock}
 
@@ -22672,7 +22897,107 @@ async function viewTransportBookingDetails(bookingId) {
     </div>
   `;
 
+  const adjustmentForm = document.getElementById('transportPriceAdjustmentForm');
+  if (adjustmentForm) {
+    adjustmentForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      void submitTransportPriceAdjustment(id);
+    });
+  }
+
   modal.hidden = false;
+}
+
+function resetTransportPriceAdjustmentKey() {
+  const el = document.getElementById('transportPriceAdjustmentIdempotencyKey');
+  if (el) el.textContent = newTransportPriceIdempotencyKey();
+}
+
+async function refreshTransportBookingFinancialSummary(bookingId) {
+  const id = String(bookingId || '').trim();
+  if (!id) return;
+  const client = ensureSupabase();
+  if (!client) return;
+  const booking = (transportAdminState.bookings || []).find((row) => String(row?.id || '') === id) || null;
+  const summaryBlock = document.getElementById('transportFinancialSummaryBlock');
+  const historyBlock = document.getElementById('transportPriceAdjustmentHistoryBlock');
+  try {
+    const [summary, history] = await Promise.all([
+      fetchTransportBookingFinancialSummary(client, id, booking),
+      fetchTransportBookingPriceAdjustments(client, id),
+    ]);
+    if (summaryBlock) summaryBlock.innerHTML = renderTransportFinancialSummaryRows(summary, booking, { showCustomerNote: true });
+    if (historyBlock) historyBlock.innerHTML = renderTransportPriceAdjustmentHistory(history, summary?.currency || booking?.currency || 'EUR');
+  } catch (error) {
+    console.warn('Failed to refresh transport financial summary:', error);
+    if (summaryBlock) summaryBlock.innerHTML = renderTransportFinancialSummaryRows(null, booking, { showCustomerNote: true });
+    showToast(String(error?.message || 'Financial summary unavailable'), 'error');
+  }
+}
+
+async function submitTransportPriceAdjustment(bookingId) {
+  const id = String(bookingId || '').trim();
+  if (!id) return;
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const form = document.getElementById('transportPriceAdjustmentForm');
+  const statusEl = document.getElementById('transportPriceAdjustmentStatus');
+  const newTotalEl = document.getElementById('transportPriceAdjustmentNewTotal');
+  const reasonEl = document.getElementById('transportPriceAdjustmentReason');
+  const noteEl = document.getElementById('transportPriceAdjustmentCustomerNote');
+  const keyEl = document.getElementById('transportPriceAdjustmentIdempotencyKey');
+
+  const newTotal = Number(newTotalEl?.value);
+  const reason = String(reasonEl?.value || '').trim();
+  const customerNote = String(noteEl?.value || '').trim();
+  const expectedRevision = Number(form?.getAttribute('data-current-revision') || '0');
+  const idempotencyKey = String(keyEl?.textContent || '').trim() || newTransportPriceIdempotencyKey();
+
+  if (!Number.isFinite(newTotal) || newTotal <= 0) {
+    showToast('Enter a valid final total greater than zero', 'error');
+    return;
+  }
+  if (reason.length < 3) {
+    showToast('Internal reason is required', 'error');
+    return;
+  }
+  if (!confirm('Save this final price adjustment? This will not modify paid payment records, Stripe, commissions or payouts.')) {
+    return;
+  }
+
+  if (statusEl) statusEl.textContent = 'Saving…';
+  try {
+    const { data, error } = await runTransportMutation(
+      (db) => db.rpc('admin_adjust_transport_booking_price', {
+        p_booking_id: id,
+        p_new_total: Number(newTotal.toFixed(2)),
+        p_reason: reason,
+        p_customer_note: customerNote || null,
+        p_expected_revision: Number.isInteger(expectedRevision) ? expectedRevision : 0,
+        p_idempotency_key: idempotencyKey,
+      }),
+      { silentAuthNotice: true },
+    );
+    if (error) throw error;
+
+    const returned = Array.isArray(data) ? data[0] : data;
+    const returnedSummary = normalizeTransportFinancialSummary(returned, { id });
+    if (returnedSummary) {
+      transportAdminState.financialSummaryByBookingId[id] = returnedSummary;
+    }
+
+    showToast('Transport final price updated', 'success');
+    if (statusEl) statusEl.textContent = 'Saved.';
+    await loadTransportBookingsData({ silent: true });
+    await loadAllOrders({ silent: true });
+    await viewTransportBookingDetails(id);
+  } catch (error) {
+    console.error('Failed to adjust transport booking price:', error);
+    const message = String(error?.message || 'Failed to adjust price');
+    if (statusEl) statusEl.textContent = message;
+    showToast(message, 'error');
+  }
 }
 
 async function assignTransportBookingPartnerFallback(client, booking, partnerId) {
@@ -23725,6 +24050,9 @@ window.openTransportPricingForRoute = openTransportPricingForRoute;
 window.editTransportPricingRule = editTransportPricingRule;
 window.deleteTransportPricingRule = deleteTransportPricingRule;
 window.viewTransportBookingDetails = viewTransportBookingDetails;
+window.refreshTransportBookingFinancialSummary = refreshTransportBookingFinancialSummary;
+window.resetTransportPriceAdjustmentKey = resetTransportPriceAdjustmentKey;
+window.submitTransportPriceAdjustment = submitTransportPriceAdjustment;
 window.assignTransportBookingPartner = assignTransportBookingPartner;
 window.clearTransportBookingPartnerAssignment = clearTransportBookingPartnerAssignment;
 window.updateTransportBookingStatus = updateTransportBookingStatus;
@@ -26253,7 +26581,7 @@ async function viewUserDetails(userId) {
             .limit(25),
           client
             .from('transport_bookings')
-            .select('id, route_id, origin_location_id, destination_location_id, created_at, customer_name, customer_email, customer_phone, travel_date, travel_time, status, payment_status, total_price, currency')
+            .select('id, route_id, origin_location_id, destination_location_id, created_at, customer_name, customer_email, customer_phone, travel_date, travel_time, status, payment_status, total_price, adjusted_total_price, price_revision, price_adjusted_at, currency')
             .ilike('customer_email', normalizedEmail)
             .order('created_at', { ascending: false })
             .limit(50),
@@ -26534,11 +26862,11 @@ async function viewUserDetails(userId) {
     });
     transportBookings.forEach((booking) => {
       const currency = normalizeCurrency(booking?.currency || 'EUR');
-      addMoney(serviceBookingValueByCurrency, booking?.total_price, currency);
+      addMoney(serviceBookingValueByCurrency, transportBookingEffectiveTotal(booking), currency);
       const key = normalizeBookingKey('transport', booking?.id);
       if (key) {
         serviceBookingValueByKey.set(key, {
-          amount: toMoneyNumber(booking?.total_price),
+          amount: toMoneyNumber(transportBookingEffectiveTotal(booking)),
           currency,
         });
       }
@@ -26841,7 +27169,9 @@ async function viewUserDetails(userId) {
                   const travelTime = String(b?.travel_time || '').trim().slice(0, 5);
                   const status = escapeHtml(b.status || '');
                   const paymentStatus = escapeHtml(b.payment_status || '');
-                  const total = b.total_price == null ? '—' : escapeHtml(formatMoney(b.total_price, b.currency || 'EUR'));
+                  const effectiveTotal = transportBookingEffectiveTotal(b);
+                  const total = b.total_price == null ? '—' : escapeHtml(formatMoney(effectiveTotal, b.currency || 'EUR'));
+                  const adjusted = b.adjusted_total_price == null ? '' : `<div style="font-size:10px; color:var(--admin-text-muted);">Original ${escapeHtml(formatMoney(b.total_price, b.currency || 'EUR'))}</div>`;
                   const id = escapeHtml(String(b.id || ''));
                   return `
                     <tr>
@@ -26851,7 +27181,7 @@ async function viewUserDetails(userId) {
                       <td>${escapeHtml(travelTime || '—')}</td>
                       <td>${status || '—'}</td>
                       <td>${paymentStatus || '—'}</td>
-                      <td style="text-align:right;">${total}</td>
+                      <td style="text-align:right;">${total}${adjusted}</td>
                       <td style="text-align:right;">
                         <button class="btn-small btn-secondary" onclick="viewTransportBookingDetails('${id}')">View</button>
                       </td>
@@ -42101,6 +42431,9 @@ function normalizeAdminMoney(value) {
 
 function getAllOrdersServiceAmount(order) {
   if (!order) return null;
+  if (String(order.category || '').trim() === 'transport') {
+    return normalizeAdminMoney(order.total_price);
+  }
   const fAmount = normalizeAdminMoney(order.fulfillment_total_price);
   if (fAmount !== null) return fAmount;
   const genericAmount = normalizeAdminMoney(order.final_price ?? order.total_price ?? order.quoted_price);
@@ -42397,7 +42730,11 @@ async function loadAllOrders(opts = {}) {
         customer_email: booking.customer_email || booking.email || '',
         customer_phone: booking.customer_phone || booking.phone || '',
         displayName: routeLabel || 'Transport route',
-        total_price: Number(booking.total_price || booking.quoted_price || booking.final_price || 0),
+        total_price: transportBookingEffectiveTotal(booking),
+        original_total_price: Number(booking.total_price || 0),
+        adjusted_total_price: booking.adjusted_total_price == null ? null : Number(booking.adjusted_total_price || 0),
+        price_revision: transportBookingPriceRevision(booking),
+        price_adjusted_at: booking.price_adjusted_at || null,
         viewFunction: 'viewTransportBookingDetails',
         fulfillment_id: f ? f.id : null,
         fulfillment_status: f ? f.status : null,

@@ -14,8 +14,11 @@ describe('Transport Price 4.0B SQL draft', () => {
   const preflight = read('supabase/manual/transport_price_adjustment_stage1_preflight.sql');
   const sql = read('supabase/manual/transport_price_adjustment_stage1.sql');
   const verify = read('supabase/manual/transport_price_adjustment_stage1_verify.sql');
+  const finalVerify = read('supabase/manual/transport_price_adjustment_stage1_verify_final_20260713.sql');
   const diagnostics = read('supabase/manual/transport_price_adjustment_stage1_diagnostics.sql');
   const verifyDiagnostics = read('supabase/manual/transport_price_adjustment_stage1_verify_diagnostics.sql');
+  const aclFix = read('supabase/manual/transport_price_adjustment_stage1_acl_fix.sql');
+  const aclFixVerify = read('supabase/manual/transport_price_adjustment_stage1_acl_fix_verify.sql');
   const roundTripDiagnostics = read('supabase/manual/transport_price_round_trip_stage1_diagnostics.sql');
 
   const functionSlice = (source: string, name: string) => {
@@ -28,13 +31,106 @@ describe('Transport Price 4.0B SQL draft', () => {
   };
 
   test('preflight and diagnostics remain read-only', () => {
-    [preflight, diagnostics, verifyDiagnostics, roundTripDiagnostics, verify].forEach((source) => {
+    [preflight, diagnostics, verifyDiagnostics, finalVerify, aclFixVerify, roundTripDiagnostics, verify].forEach((source) => {
       expect(source).not.toMatch(/(^|\n)\s*(insert\s+into|update\s+\w|delete\s+from|merge\s+into|truncate\s+|alter\s+|create\s+|drop\s+|grant\s+|revoke\s+)/i);
     });
     expect(preflight).toContain('preflight_safe_to_continue');
     expect(diagnostics).toContain('round_trip_double_count_removed');
     expect(roundTripDiagnostics).toContain('round_trip_double_count_confirmed');
     expect(verify).toContain('overall_pass');
+  });
+
+  test('final verify has unique marker and visible overall inputs', () => {
+    expect(finalVerify).toContain('Transport Price 4.0B FINAL VERIFY 2026-07-13 v1');
+    expect(finalVerify).toContain("'verify_build_marker'::text");
+    expect(finalVerify).toContain('select check_name, pass, details');
+    expect(finalVerify).toContain("'overall_pass'::text as check_name");
+    expect(finalVerify).toContain("where check_name <> 'verify_build_marker'");
+    expect(finalVerify).toContain('deposit_status_service_role_execute_present');
+    expect(finalVerify).not.toContain('deposit_status_service_role_execute_absent');
+
+    [
+      'adjustment_table_exists',
+      'columns_ok',
+      'adjusted_total_price_check',
+      'price_revision_check',
+      'adjustment_pk',
+      'adjustment_booking_fk_cascade',
+      'adjustment_adjusted_by_fk',
+      'adjustment_amounts_check',
+      'adjustment_revision_check',
+      'adjustment_reason_required',
+      'adjustment_currency_check',
+      'adjustment_customer_note_check',
+      'idempotency_unique',
+      'booking_revision_unique',
+      'booking_created_index',
+      'constraints_indexes_ok',
+      'rls_policy_ok',
+      'table_grants_ok',
+      'admin_rpc_exists',
+      'admin_rpc_security_definer',
+      'admin_rpc_owner_postgres',
+      'admin_rpc_safe_search_path',
+      'admin_rpc_auth_admin_guard',
+      'admin_rpc_select_for_update',
+      'optimistic_revision_guard',
+      'idempotency_guard',
+      'input_guards',
+      'adjustment_write_scope_present',
+      'no_payment_mutation',
+      'no_stripe_mutation',
+      'no_commission_payout_mutation',
+      'no_fulfillment_total_overwrite_in_admin_rpc',
+      'summary_uses_confirmed_paid_gross_only',
+      'confirmed_paid_gross_semantics',
+      'balance_due_semantics',
+      'overpayment_semantics',
+      'refund_review_required_semantics',
+      'deposit_status_rpc_exists',
+      'deposit_status_return_type_preserved',
+      'deposit_status_security_definer',
+      'deposit_status_owner_postgres',
+      'deposit_status_safe_search_path',
+      'deposit_status_uses_financial_summary',
+      'deposit_status_return_total_not_used',
+      'deposit_status_no_total_plus_return',
+      'deposit_status_public_execute_absent',
+      'deposit_status_anon_execute_present',
+      'deposit_status_authenticated_execute_present',
+      'deposit_status_service_role_execute_present',
+      'role_safe_public_summary',
+      'admin_history_internal_reason_only_admin',
+      'coupon_trigger_guard_present',
+      'coupon_redemption_guard_present',
+      'fulfillment_coupon_sync_guard_present',
+      'admin_rpc_public_execute_absent',
+      'admin_rpc_anon_execute_absent',
+      'admin_rpc_authenticated_execute_present',
+      'summary_public_execute_absent',
+      'summary_anon_execute_absent',
+      'summary_authenticated_execute_present',
+    ].forEach((check) => expect(finalVerify).toContain(`'${check}'`));
+  });
+
+  test('acl fix is limited to service_role execute on deposit status RPC', () => {
+    const normalizedFix = normalize(aclFix);
+    expect(normalizedFix).toContain("to_regprocedure('')");
+    expect(aclFix).toContain("to_regprocedure('public.get_service_deposit_status(uuid)')");
+    expect(aclFix).toContain('grant execute on function public.get_service_deposit_status(uuid) to service_role');
+    expect(normalizedFix).not.toMatch(/\b(create|alter|drop)\s+(table|function|trigger|policy|index)\b/);
+    expect(normalizedFix).not.toMatch(/\b(insert into|update public|delete from|truncate|merge into)\b/);
+    expect(normalizedFix).not.toContain('stripe');
+    expect(normalizedFix).not.toContain('affiliate_commission_events');
+    expect(normalizedFix).not.toContain('affiliate_payouts');
+    expect(normalizedFix).not.toContain('partner_service_fulfillments');
+
+    expect(aclFixVerify).toContain('aclexplode');
+    expect(aclFixVerify).toContain('service_role_execute_present');
+    expect(aclFixVerify).toContain('public_execute_absent');
+    expect(aclFixVerify).toContain('anon_execute_present');
+    expect(aclFixVerify).toContain('authenticated_execute_present');
+    expect(aclFixVerify).toContain('overall_pass');
   });
 
   test('post-install verify diagnostics decomposes constraints and indexes', () => {

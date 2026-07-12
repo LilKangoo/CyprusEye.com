@@ -18,6 +18,7 @@
     hotelBookingsById: {},
     hotelDecisionSupportByBookingId: {},
     transportBookingsById: {},
+    transportFinancialSummaryByBookingId: {},
     blocks: [],
     calendar: {
       resourcesByType: { shop: [], cars: [], trips: [], hotels: [], transport: [] },
@@ -6327,6 +6328,69 @@
     return `${num.toFixed(2)} ${cur}`;
   }
 
+  function normalizeTransportFinancialSummary(row) {
+    if (!row || typeof row !== 'object') return null;
+    const num = (value) => {
+      const n = Number(value);
+      return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
+    };
+    return {
+      booking_id: String(row.booking_id || '').trim(),
+      original_total: num(row.original_total),
+      adjusted_total: row.adjusted_total == null ? null : num(row.adjusted_total),
+      effective_total: num(row.effective_total),
+      currency: String(row.currency || 'EUR').trim().toUpperCase() || 'EUR',
+      confirmed_paid_gross: num(row.confirmed_paid_gross),
+      balance_due: num(row.balance_due),
+      overpayment: num(row.overpayment),
+      refund_review_required: Boolean(row.refund_review_required),
+      price_revision: Number(row.price_revision || 0),
+      price_adjusted_at: row.price_adjusted_at || null,
+      derived_payment_state: String(row.derived_payment_state || '').trim(),
+    };
+  }
+
+  async function loadTransportFinancialSummariesByBookingId(bookingIds) {
+    const ids = Array.from(new Set((Array.isArray(bookingIds) ? bookingIds : [])
+      .map((id) => String(id || '').trim())
+      .filter(Boolean)));
+    const out = {};
+    await Promise.all(ids.map(async (bookingId) => {
+      try {
+        const { data, error } = await state.sb.rpc('get_transport_booking_financial_summary', { p_booking_id: bookingId });
+        if (error) throw error;
+        const row = Array.isArray(data) ? data[0] : data;
+        const summary = normalizeTransportFinancialSummary(row);
+        if (summary) out[bookingId] = summary;
+      } catch (_e) {
+        out[bookingId] = null;
+      }
+    }));
+    return out;
+  }
+
+  function getTransportBookingEffectiveTotal(booking) {
+    const adjusted = Number(booking?.adjusted_total_price);
+    if (Number.isFinite(adjusted) && adjusted > 0) return adjusted;
+    const total = Number(booking?.total_price);
+    return Number.isFinite(total) ? total : 0;
+  }
+
+  function getPartnerTransportFinancialSummary(fulfillment) {
+    const bookingId = String(fulfillment?.booking_id || '').trim();
+    if (!bookingId) return null;
+    return state.transportFinancialSummaryByBookingId?.[bookingId] || null;
+  }
+
+  function getPartnerTransportEffectiveAmount(fulfillment) {
+    const summary = getPartnerTransportFinancialSummary(fulfillment);
+    if (summary && Number.isFinite(Number(summary.effective_total))) return Number(summary.effective_total);
+    const booking = state.transportBookingsById?.[String(fulfillment?.booking_id || '').trim()] || null;
+    const bookingAmount = getTransportBookingEffectiveTotal(booking);
+    if (bookingAmount > 0) return bookingAmount;
+    return toNum(fulfillment?.total_price);
+  }
+
   function getCarsFulfillmentPricing(fulfillment) {
     const resourceType = String(fulfillment?.resource_type || '').trim().toLowerCase();
     const defaultCurrency = String(fulfillment?.currency || 'EUR').trim().toUpperCase() || 'EUR';
@@ -6921,6 +6985,7 @@
     state.hotelBookingsById = {};
     state.hotelDecisionSupportByBookingId = {};
     state.transportBookingsById = {};
+    state.transportFinancialSummaryByBookingId = {};
 
     const [shopRes, serviceRes] = await Promise.all([
       state.sb
@@ -7212,13 +7277,13 @@
           let error = null;
           ({ data, error } = await state.sb
             .from('transport_bookings')
-            .select('id, route_id, origin_location_id, destination_location_id, travel_date, travel_time, trip_type, num_passengers, num_bags, num_oversize_bags, child_seats, booster_seats, waiting_minutes, pickup_address, dropoff_address, flight_number, return_route_id, return_origin_location_id, return_destination_location_id, return_travel_date, return_travel_time, return_pickup_address, return_dropoff_address, return_flight_number, total_price, deposit_amount, currency')
+            .select('id, route_id, origin_location_id, destination_location_id, travel_date, travel_time, trip_type, num_passengers, num_bags, num_oversize_bags, child_seats, booster_seats, waiting_minutes, pickup_address, dropoff_address, flight_number, return_route_id, return_origin_location_id, return_destination_location_id, return_travel_date, return_travel_time, return_pickup_address, return_dropoff_address, return_flight_number, total_price, adjusted_total_price, price_revision, price_adjusted_at, deposit_amount, currency')
             .in('id', bookingIdChunk)
             .limit(500));
           if (error && /(return_route_id|return_origin_location_id|return_destination_location_id|return_pickup_address|return_dropoff_address|return_flight_number|trip_type|waiting_minutes|currency)/i.test(String(error.message || ''))) {
             ({ data, error } = await state.sb
               .from('transport_bookings')
-              .select('id, route_id, origin_location_id, destination_location_id, travel_date, travel_time, return_route_id, return_origin_location_id, return_destination_location_id, return_travel_date, return_travel_time, pickup_address, dropoff_address, flight_number, return_pickup_address, return_dropoff_address, return_flight_number, num_passengers, num_bags, num_oversize_bags, child_seats, booster_seats, total_price, deposit_amount')
+              .select('id, route_id, origin_location_id, destination_location_id, travel_date, travel_time, return_route_id, return_origin_location_id, return_destination_location_id, return_travel_date, return_travel_time, pickup_address, dropoff_address, flight_number, return_pickup_address, return_dropoff_address, return_flight_number, num_passengers, num_bags, num_oversize_bags, child_seats, booster_seats, total_price, adjusted_total_price, price_revision, price_adjusted_at, deposit_amount')
               .in('id', bookingIdChunk)
               .limit(500));
           }
@@ -7231,6 +7296,10 @@
       } catch (error) {
         console.warn('Partner panel: failed to load transport booking snapshots:', error);
       }
+    }
+
+    if (transportBookingIds.length) {
+      state.transportFinancialSummaryByBookingId = await loadTransportFinancialSummariesByBookingId(transportBookingIds);
     }
 
     const transportRouteIds = Array.from(new Set(
@@ -7855,9 +7924,10 @@
     acceptedRows.forEach((f) => {
       const src = String(f?.__source || 'shop');
       if (src === 'service') {
-        const gross = String(f?.resource_type || '').toLowerCase() === 'cars'
+        const type = String(f?.resource_type || '').toLowerCase();
+        const gross = type === 'cars'
           ? getCarsFulfillmentPricing(f).amount
-          : toNum(f?.total_price);
+          : (type === 'transport' ? getPartnerTransportEffectiveAmount(f) : toNum(f?.total_price));
         const deposit = toNum(depositByFid[String(f?.id || '').trim()] || 0);
         partnerEarnings += Math.max(0, gross - deposit);
         return;
@@ -8275,6 +8345,9 @@
     if (type === 'cars') {
       return toNum(getCarsFulfillmentPricing(row).amount);
     }
+    if (type === 'transport') {
+      return toNum(getPartnerTransportEffectiveAmount(row));
+    }
     return toNum(row?.total_price);
   }
 
@@ -8596,6 +8669,17 @@
 
       const serviceRows = Array.isArray(serviceRowsRaw) ? serviceRowsRaw : [];
       const shopRows = Array.isArray(shopRowsRaw) ? shopRowsRaw : [];
+
+      const transportAnalyticsBookingIds = serviceRows
+        .filter((row) => normalizeServiceResourceType(row?.resource_type) === 'transport')
+        .map((row) => String(row?.booking_id || '').trim())
+        .filter(Boolean);
+      if (transportAnalyticsBookingIds.length) {
+        state.transportFinancialSummaryByBookingId = {
+          ...(state.transportFinancialSummaryByBookingId || {}),
+          ...(await loadTransportFinancialSummariesByBookingId(transportAnalyticsBookingIds)),
+        };
+      }
 
       const bookingStateByKey = await loadServiceBookingStateByKey(serviceRows);
       const serviceRowsEnriched = serviceRows.map((row) => {
@@ -9984,14 +10068,37 @@
         if (isShop) return null;
 
         const currency = String(f.currency || 'EUR').trim().toUpperCase() || 'EUR';
+        const transportSummary = category === 'transport' ? getPartnerTransportFinancialSummary(f) : null;
+        if (category === 'transport' && transportSummary) {
+          return {
+            currency: transportSummary.currency || String(transportBooking?.currency || currency).trim().toUpperCase() || 'EUR',
+            total: Number(Number(transportSummary.effective_total || 0).toFixed(2)),
+            paidDeposit: Number(Number(transportSummary.confirmed_paid_gross || 0).toFixed(2)),
+            remaining: Number(Number(transportSummary.balance_due || 0).toFixed(2)),
+            overpayment: Number(Number(transportSummary.overpayment || 0).toFixed(2)),
+            refundReviewRequired: Boolean(transportSummary.refund_review_required),
+            summaryUnavailable: false,
+          };
+        }
+
         const totalRaw = category === 'cars'
           ? Number(getCarsFulfillmentPricing(f).amount)
           : Number(
             category === 'hotels'
               ? (hotelBooking?.total_price ?? f.total_price)
-              : (category === 'transport' ? (transportBooking?.total_price ?? f.total_price) : f.total_price)
+              : (category === 'transport' ? getPartnerTransportEffectiveAmount(f) : f.total_price)
           );
         if (!Number.isFinite(totalRaw) || totalRaw <= 0) return null;
+
+        if (category === 'transport') {
+          return {
+            currency: String(transportBooking?.currency || currency).trim().toUpperCase() || 'EUR',
+            total: Number(totalRaw.toFixed(2)),
+            paidDeposit: null,
+            remaining: null,
+            summaryUnavailable: true,
+          };
+        }
 
         const paidDepositFromState = toNum(state.serviceDepositByFulfillmentId[String(id || '').trim()] || 0);
         const paidDepositFromDetails = toNum(
@@ -10016,9 +10123,13 @@
 
       const paymentSummaryPairs = servicePaymentSummary
         ? [
-          { label: 'Total price', value: formatMoney(servicePaymentSummary.total, servicePaymentSummary.currency) },
-          { label: 'Paid deposit', value: formatMoney(servicePaymentSummary.paidDeposit, servicePaymentSummary.currency) },
-          { label: 'Remaining to collect on-site', value: formatMoney(servicePaymentSummary.remaining, servicePaymentSummary.currency), valueClass: 'partner-details-value--highlight-green' },
+          { label: category === 'transport' ? 'Current final price' : 'Total price', value: formatMoney(servicePaymentSummary.total, servicePaymentSummary.currency) },
+          ...(servicePaymentSummary.summaryUnavailable ? [
+            { label: 'Payment summary', value: 'Unavailable', valueClass: 'partner-details-value--muted' },
+          ] : [
+            { label: 'Confirmed paid', value: formatMoney(servicePaymentSummary.paidDeposit, servicePaymentSummary.currency) },
+            { label: servicePaymentSummary.refundReviewRequired ? 'Overpayment / refund review' : 'Remaining to collect on-site', value: formatMoney(servicePaymentSummary.refundReviewRequired ? servicePaymentSummary.overpayment : servicePaymentSummary.remaining, servicePaymentSummary.currency), valueClass: servicePaymentSummary.refundReviewRequired ? 'partner-details-value--highlight-orange' : 'partner-details-value--highlight-green' },
+          ]),
         ]
         : [];
 
@@ -10838,6 +10949,15 @@
                 <div class="small" style="margin-top:6px; padding:8px 10px; border-radius:10px; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:#fff; font-weight:700; display:inline-block;">${val}</div>
                 ${couponHint}
               `;
+            }
+            if (String(f.resource_type || '') === 'transport') {
+              const transportSummary = getPartnerTransportFinancialSummary(f);
+              const amount = getPartnerTransportEffectiveAmount(f);
+              const currency = transportSummary?.currency || f.currency || 'EUR';
+              const adjustedHint = transportSummary?.adjusted_total == null
+                ? ''
+                : `<div class="small" style="margin-top:4px; opacity:0.9;">Original ${escapeHtml(formatMoney(transportSummary.original_total, currency))}</div>`;
+              return `<span class="small">${escapeHtml(formatMoney(amount, currency))}</span>${adjustedHint}`;
             }
             return `<span class="small">${val}</span>${couponHint}`;
           }
