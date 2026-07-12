@@ -36,6 +36,25 @@ describe('Transport Price 4.0B SQL draft', () => {
     expect(verify).toContain('overall_pass');
   });
 
+  test('preflight final statement is a single summary row with preflight_safe_to_continue', () => {
+    const withoutComments = preflight.replace(/--.*$/gm, '').trim();
+    const statements = withoutComments
+      .split(';')
+      .map((part) => part.trim())
+      .filter(Boolean);
+    const finalStatement = statements[statements.length - 1].toLowerCase();
+
+    expect(finalStatement).toContain('with required_tables as');
+    expect(finalStatement).toContain('preflight_safe_to_continue');
+    expect(finalStatement).toContain('get_service_deposit_status_exact_overload');
+    expect(finalStatement).toContain('deposit_status_service_role_execute_present');
+    expect(finalStatement).toContain('round_trip_source_state_recognized');
+    expect(finalStatement).toContain('partial_install_detected');
+    expect(finalStatement).toContain('payment_cardinality_supported_for_stage1');
+    expect(finalStatement).not.toContain('function_signature');
+    expect(finalStatement).not.toMatch(/select\s+table_schema,\s*table_name,\s*grantee,\s*privilege_type/);
+  });
+
   test('base SQL is additive and defines the adjustment foundation', () => {
     expect(sql).toContain('alter table public.transport_bookings');
     expect(sql).toContain('add column if not exists adjusted_total_price numeric(12,2)');
