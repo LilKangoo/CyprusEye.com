@@ -77,6 +77,7 @@ const specialOffersState = {
     offerId: 'all',
     loading: false,
     error: '',
+    errorMeta: null,
     readiness: null,
     workflows: [],
     activeWorkflow: null,
@@ -1075,6 +1076,40 @@ function getWinnerWorkflowBlockingReasons(readiness) {
   return raw.split(',').map((item) => item.trim()).filter(Boolean);
 }
 
+function buildManualWinnerLoadError(result, failedStep, fallbackMessage = 'Manual Winner Selection could not be loaded.') {
+  const source = result?.error || result || {};
+  const error = new Error(source.message || fallbackMessage);
+  error.code = source.code || '';
+  error.details = source.details || '';
+  error.hint = source.hint || '';
+  error.failedStep = failedStep;
+  return error;
+}
+
+function assertManualWinnerResult(result, failedStep) {
+  if (result?.error) throw buildManualWinnerLoadError(result, failedStep);
+  return result;
+}
+
+function getManualWinnerErrorMeta(error) {
+  return {
+    failedStep: String(error?.failedStep || 'manual winner selection load').trim(),
+    code: String(error?.code || '').trim(),
+  };
+}
+
+function renderManualWinnerLoadError() {
+  const state = specialOffersState.manualWinner;
+  const meta = state.errorMeta || {};
+  return `
+    <div class="special-offer-entry-state special-offer-entry-state--error">
+      <strong>${escapeHtml(state.error || 'Unable to load Manual Winner Selection.')}</strong>
+      <p>Failed step: ${escapeHtml(meta.failedStep || 'manual winner selection load')}.</p>
+      ${meta.code ? `<p>Error code: ${escapeHtml(meta.code)}.</p>` : ''}
+    </div>
+  `;
+}
+
 async function loadManualWinnerData(offerId) {
   const client = getSupabaseClient();
   if (!client) throw new Error('Supabase client is not available.');
@@ -1111,12 +1146,12 @@ async function loadManualWinnerData(offerId) {
     client.from('special_offer_audit_log').select(SPECIAL_OFFERS_AUDIT_SELECT).eq('offer_id', selectedOfferId).in('action', SPECIAL_OFFER_WINNER_AUDIT_ACTIONS).order('created_at', { ascending: false }).limit(50),
   ]);
 
-  if (readinessResult.error) throw readinessResult.error;
-  if (workflowsResult.error) throw workflowsResult.error;
-  if (allEntriesResult.error) throw allEntriesResult.error;
-  if (activitiesResult.error) throw activitiesResult.error;
-  if (publicationsResult.error) throw publicationsResult.error;
-  if (auditResult.error) throw auditResult.error;
+  assertManualWinnerResult(readinessResult, 'winner workflow readiness');
+  assertManualWinnerResult(workflowsResult, 'winner workflows load');
+  assertManualWinnerResult(allEntriesResult, 'winner entries load');
+  assertManualWinnerResult(activitiesResult, 'winner activities load');
+  assertManualWinnerResult(publicationsResult, 'winner publications load');
+  assertManualWinnerResult(auditResult, 'winner audit load');
 
   const workflows = toArray(workflowsResult.data);
   const activeWorkflow = getActiveWinnerWorkflow(workflows);
@@ -1127,8 +1162,8 @@ async function loadManualWinnerData(offerId) {
       client.from('special_offer_winner_shortlist').select(SPECIAL_OFFER_WINNER_SHORTLIST_SELECT).eq('workflow_id', activeWorkflow.id).order('added_at', { ascending: true }),
       client.from('special_offer_winner_contact_events').select(SPECIAL_OFFER_WINNER_CONTACT_EVENTS_SELECT).eq('workflow_id', activeWorkflow.id).order('created_at', { ascending: false }),
     ]);
-    if (shortlistResult.error) throw shortlistResult.error;
-    if (contactsResult.error) throw contactsResult.error;
+    assertManualWinnerResult(shortlistResult, 'winner shortlist load');
+    assertManualWinnerResult(contactsResult, 'winner contact events load');
     shortlist = toArray(shortlistResult.data);
     contacts = toArray(contactsResult.data);
   }
@@ -2239,7 +2274,7 @@ function renderManualWinnerBody() {
   if (state.error) {
     return `
       ${renderManualWinnerFilters()}
-      <div class="special-offer-entry-state special-offer-entry-state--error">${escapeHtml(state.error)}</div>
+      ${renderManualWinnerLoadError()}
       <button class="btn-secondary btn-small" type="button" data-special-offers-winner-refresh>Retry</button>
     `;
   }
@@ -6361,13 +6396,15 @@ async function refreshManualWinner() {
   const body = $('#specialOffersManualWinnerBody', modal);
   specialOffersState.manualWinner.loading = true;
   specialOffersState.manualWinner.error = '';
+  specialOffersState.manualWinner.errorMeta = null;
   if (body) body.innerHTML = renderManualWinnerBody();
   try {
     const data = await loadManualWinnerData(specialOffersState.manualWinner.offerId);
     Object.assign(specialOffersState.manualWinner, data);
   } catch (error) {
     logSafeRpcError('Special Offers manual winner load failed', error);
-    specialOffersState.manualWinner.error = 'Unable to load manual winner selection. Check admin access and winner workflow RLS.';
+    specialOffersState.manualWinner.error = 'Unable to load Manual Winner Selection.';
+    specialOffersState.manualWinner.errorMeta = getManualWinnerErrorMeta(error);
   } finally {
     specialOffersState.manualWinner.loading = false;
     if (body) body.innerHTML = renderManualWinnerBody();

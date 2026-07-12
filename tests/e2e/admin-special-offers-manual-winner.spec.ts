@@ -305,6 +305,69 @@ test.describe('Admin Special Offers manual winner selection', () => {
     await expect(modal).toBeHidden();
   });
 
+  test('renders campaign_not_ended as a normal blocked readiness state', async ({ page }) => {
+    await prepareManualWinnerStub(page);
+    await page.goto('/admin/dashboard.html');
+    await waitForSupabaseStub(page);
+    await page.evaluate(({ offerId }) => {
+      (window as any).__supabaseStub.setRpcHandler('special_offer_winner_workflow_readiness', () => ({
+        data: [{
+          offer_id: offerId,
+          winner_selection_mode: 'manual_selection',
+          campaign_status: 'active',
+          campaign_end_at: '2026-09-15T20:59:59.000Z',
+          campaign_ended: false,
+          approved_entries_count: 1,
+          pending_review_entries_count: 0,
+          pending_activities_count: 0,
+          approved_activities_count: 0,
+          active_workflow_exists: false,
+          can_start_workflow: false,
+          blocking_reason: 'campaign_not_ended',
+        }],
+        error: null,
+      }));
+    }, { offerId: OFFER_ID });
+
+    await page.click('button.admin-nav-item[data-view="specialOffers"]');
+    await page.getByRole('button', { name: 'Open manual winner selection' }).click();
+    const modal = page.locator('#specialOffersManualWinnerModal');
+
+    await expect(modal).toBeVisible();
+    await expect(modal).toContainText('Selection is disabled while the campaign is still running');
+    await expect(modal).toContainText('Campaign not ended');
+    await expect(modal).not.toContainText('Unable to load Manual Winner Selection');
+    await expect(modal.getByRole('button', { name: 'Start manual selection' })).toHaveCount(0);
+  });
+
+  test('shows safe failed-step and code when readiness RPC fails', async ({ page }) => {
+    await prepareManualWinnerStub(page);
+    await page.goto('/admin/dashboard.html');
+    await waitForSupabaseStub(page);
+    await page.evaluate(() => {
+      (window as any).__supabaseStub.setRpcHandler('special_offer_winner_workflow_readiness', () => ({
+        data: null,
+        error: {
+          code: '42702',
+          message: 'column reference "offer_id" is ambiguous',
+          details: 'It could refer to either a PL/pgSQL variable or a table column.',
+          hint: null,
+        },
+      }));
+    });
+
+    await page.click('button.admin-nav-item[data-view="specialOffers"]');
+    await page.getByRole('button', { name: 'Open manual winner selection' }).click();
+    const modal = page.locator('#specialOffersManualWinnerModal');
+
+    await expect(modal).toBeVisible();
+    await expect(modal).toContainText('Unable to load Manual Winner Selection');
+    await expect(modal).toContainText('Failed step: winner workflow readiness');
+    await expect(modal).toContainText('Error code: 42702');
+    await expect(modal).not.toContainText('winner workflow RLS');
+    await expect(modal).not.toContainText('Authorization');
+  });
+
   test('runs shortlist, manual contact, confirmation and publication through RPC only', async ({ page }) => {
     await openManualWinner(page);
     const modal = page.locator('#specialOffersManualWinnerModal');

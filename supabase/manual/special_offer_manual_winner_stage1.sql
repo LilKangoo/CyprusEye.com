@@ -434,19 +434,19 @@ begin
   end if;
 
   select
-    count(*) filter (where status = 'approved')::integer,
-    count(*) filter (where status in ('submitted', 'pending_review'))::integer
+    count(*) filter (where e.status = 'approved')::integer,
+    count(*) filter (where e.status in ('submitted', 'pending_review'))::integer
     into v_approved_entries, v_pending_reviews
-  from public.special_offer_entries
-  where offer_id = v_offer.id;
+  from public.special_offer_entries e
+  where e.offer_id = v_offer.id;
 
   if to_regclass('public.special_offer_entry_activities') is not null then
     select
-      count(*) filter (where status = 'pending')::integer,
-      count(*) filter (where status = 'approved')::integer
+      count(*) filter (where a.status = 'pending')::integer,
+      count(*) filter (where a.status = 'approved')::integer
       into v_pending_activities, v_approved_activities
-    from public.special_offer_entry_activities
-    where offer_id = v_offer.id;
+    from public.special_offer_entry_activities a
+    where a.offer_id = v_offer.id;
   end if;
 
   select exists (

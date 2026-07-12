@@ -13,6 +13,8 @@ describe('Special Offers manual winner selection SQL stage', () => {
   const sql = read('supabase/manual/special_offer_manual_winner_stage1.sql');
   const verify = read('supabase/manual/special_offer_manual_winner_stage1_verify.sql');
   const diagnostics = read('supabase/manual/special_offer_manual_winner_stage1_verify_diagnostics.sql');
+  const readinessFix = read('supabase/manual/special_offer_winner_readiness_stage1_fix.sql');
+  const readinessVerify = read('supabase/manual/special_offer_winner_readiness_stage1_verify.sql');
 
   test('preflight and verify are read-only and expose clear pass flags', () => {
     expect(preflight).toContain('preflight_safe_to_continue');
@@ -104,6 +106,33 @@ describe('Special Offers manual winner selection SQL stage', () => {
     expect(verify).toContain("coalesce((select source from fn where proname = 'special_offer_winner_score_snapshot'), '') <> ''");
     expect(verify).not.toMatch(/proname = 'admin_start_special_offer_winner_workflow'\)\s+like\s+'%winner_selection_mode_not_manual%'/i);
     expect(verify).not.toMatch(/select source from fn where proname = 'special_offer_winner_score_snapshot'\)\s+like/i);
+  });
+
+  test('readiness corrective SQL qualifies offer and status columns to prevent PL/pgSQL ambiguity', () => {
+    [sql, readinessFix].forEach((source) => {
+      const readinessFn = source.slice(
+        source.indexOf('create or replace function public.special_offer_winner_workflow_readiness'),
+        source.indexOf('create or replace function public.special_offer_winner_guard_admin') > -1
+          ? source.indexOf('create or replace function public.special_offer_winner_guard_admin')
+          : source.length,
+      );
+      expect(readinessFn).toContain('from public.special_offer_entries e');
+      expect(readinessFn).toContain('where e.offer_id = v_offer.id');
+      expect(readinessFn).toContain("count(*) filter (where e.status = 'approved')");
+      expect(readinessFn).toContain('from public.special_offer_entry_activities a');
+      expect(readinessFn).toContain('where a.offer_id = v_offer.id');
+      expect(readinessFn).toContain("count(*) filter (where a.status = 'pending')");
+      expect(readinessFn).not.toMatch(/\bfrom\s+public\.special_offer_entries\s+where\s+offer_id\s*=\s*v_offer\.id/i);
+      expect(readinessFn).not.toMatch(/\bfrom\s+public\.special_offer_entry_activities\s+where\s+offer_id\s*=\s*v_offer\.id/i);
+      expect(readinessFn).not.toMatch(/filter\s*\(\s*where\s+status\s*=/i);
+    });
+
+    expect(readinessVerify).toContain('entries_offer_id_qualified');
+    expect(readinessVerify).toContain('activities_offer_id_qualified');
+    expect(readinessVerify).toContain('no_ambiguous_entries_offer_id');
+    expect(readinessVerify).toContain('no_ambiguous_activities_offer_id');
+    expect(readinessVerify).toContain('aclexplode(coalesce');
+    expect(readinessVerify).not.toContain("has_function_privilege('PUBLIC'");
   });
 
   test('diagnostics explains failed start and score snapshot checks without mutating data', () => {
