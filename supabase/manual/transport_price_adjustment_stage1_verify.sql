@@ -164,6 +164,7 @@ fns as (
       'get_transport_booking_financial_summary',
       'admin_get_transport_booking_price_adjustments',
       'transport_booking_financial_summary_core',
+      'get_service_deposit_status',
       'trg_apply_service_coupon_transport_booking',
       'trg_service_coupon_redemption_from_transport_booking',
       'trg_sync_transport_coupon_to_fulfillment'
@@ -197,6 +198,13 @@ summary_core as (
     and identity_args = 'p_booking_id uuid'
   limit 1
 ),
+deposit_status as (
+  select *
+  from fns
+  where proname = 'get_service_deposit_status'
+    and identity_args = 'p_id uuid'
+  limit 1
+),
 coupon_fn as (
   select *
   from fns
@@ -224,6 +232,12 @@ admin_acl as (
 summary_acl as (
   select acl.grantee, coalesce(r.rolname, 'PUBLIC') as grantee_name, acl.privilege_type
   from public_summary fn
+  cross join lateral aclexplode(coalesce(fn.proacl, acldefault('f', fn.proowner))) acl
+  left join pg_roles r on r.oid = acl.grantee
+),
+deposit_status_acl as (
+  select acl.grantee, coalesce(r.rolname, 'PUBLIC') as grantee_name, acl.privilege_type
+  from deposit_status fn
   cross join lateral aclexplode(coalesce(fn.proacl, acldefault('f', fn.proowner))) acl
   left join pg_roles r on r.oid = acl.grantee
 ),
@@ -295,6 +309,42 @@ checks as (
     coalesce((select source like '%greatest(b.effective_total - p.confirmed_paid_gross, 0)%' from summary_core), false) as balance_due_semantics,
     coalesce((select source like '%greatest(p.confirmed_paid_gross - b.effective_total, 0)%' from summary_core), false) as overpayment_semantics,
     coalesce((select source like '%p.confirmed_paid_gross > b.effective_total%' and source like '%refund_review_required%' from summary_core), false) as refund_review_required_semantics,
+    exists (select 1 from deposit_status) as deposit_status_rpc_exists,
+    coalesce((select result_type = 'TABLE(id uuid, status text, paid_at timestamp with time zone, amount numeric, currency text, fulfillment_reference text, fulfillment_summary text, resource_type text, booking_id uuid, stripe_checkout_session_id text, stripe_payment_intent_id text, fulfillment_id uuid, fulfillment_total_price numeric, booking_total_price numeric, trip_title_en text, trip_title_pl text)' from deposit_status), false) as deposit_status_return_type_preserved,
+    coalesce((select prosecdef from deposit_status), false) as deposit_status_security_definer,
+    coalesce((select owner_name = 'postgres' from deposit_status), false) as deposit_status_owner_postgres,
+    coalesce((
+      select exists (
+        select 1 from unnest(coalesce(proconfig, array[]::text[])) cfg
+        where cfg = 'search_path=pg_catalog, public'
+      )
+      from deposit_status
+    ), false) as deposit_status_safe_search_path,
+    coalesce((select source like '%transport_booking_financial_summary_core(r.booking_id)%' and source like '%then ts.effective_total%' from deposit_status), false) as deposit_status_uses_financial_summary,
+    coalesce((select source not like '%return_total_price%' from deposit_status), false) as deposit_status_return_total_not_used,
+    coalesce((
+      select not (
+        source ~ 'total_price.{0,220}\+.{0,220}return_total_price'
+        or source ~ 'return_total_price.{0,220}\+.{0,220}total_price'
+      )
+      from deposit_status
+    ), false) as deposit_status_no_total_plus_return,
+    not exists (
+      select 1 from deposit_status_acl
+      where grantee = 0 and privilege_type = 'EXECUTE'
+    ) as deposit_status_public_execute_absent,
+    exists (
+      select 1 from deposit_status_acl
+      where grantee_name = 'anon' and privilege_type = 'EXECUTE'
+    ) as deposit_status_anon_execute_present,
+    exists (
+      select 1 from deposit_status_acl
+      where grantee_name = 'authenticated' and privilege_type = 'EXECUTE'
+    ) as deposit_status_authenticated_execute_present,
+    not exists (
+      select 1 from deposit_status_acl
+      where grantee_name = 'service_role' and privilege_type = 'EXECUTE'
+    ) as deposit_status_service_role_execute_absent,
     coalesce((select source like '%not_authenticated%' and source like '%is_partner_user%' and source like '%customer_email%' and source not like '%internal_reason%' from public_summary), false) as role_safe_public_summary,
     coalesce((select source like '%internal_reason%' and source like '%public.is_current_user_admin()%' from admin_history), false) as admin_history_internal_reason_only_admin,
     coalesce((
@@ -375,6 +425,18 @@ select
     and balance_due_semantics
     and overpayment_semantics
     and refund_review_required_semantics
+    and deposit_status_rpc_exists
+    and deposit_status_return_type_preserved
+    and deposit_status_security_definer
+    and deposit_status_owner_postgres
+    and deposit_status_safe_search_path
+    and deposit_status_uses_financial_summary
+    and deposit_status_return_total_not_used
+    and deposit_status_no_total_plus_return
+    and deposit_status_public_execute_absent
+    and deposit_status_anon_execute_present
+    and deposit_status_authenticated_execute_present
+    and deposit_status_service_role_execute_absent
     and role_safe_public_summary
     and admin_history_internal_reason_only_admin
     and coupon_trigger_guard_present

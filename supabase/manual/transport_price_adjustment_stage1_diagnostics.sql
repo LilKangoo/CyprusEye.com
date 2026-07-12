@@ -310,6 +310,58 @@ function_sources as (
       or lower(coalesce(p.prosrc, '')) ~ '(transport_bookings|service_deposit_requests|partner_service_fulfillments|affiliate_commission_events)'
     )
 ),
+target_functions as (
+  select
+    p.oid,
+    p.proname,
+    pg_get_function_identity_arguments(p.oid) as identity_args,
+    pg_get_function_result(p.oid) as result_type,
+    p.proowner,
+    r.rolname as owner_name,
+    p.prosecdef,
+    p.proconfig,
+    p.proacl,
+    lower(regexp_replace(coalesce(p.prosrc, ''), '[[:space:]]+', ' ', 'g')) as source
+  from pg_proc p
+  join pg_namespace n on n.oid = p.pronamespace
+  join pg_roles r on r.oid = p.proowner
+  where n.nspname = 'public'
+    and p.proname in (
+      'get_service_deposit_status',
+      'admin_adjust_transport_booking_price',
+      'transport_booking_financial_summary_core',
+      'trg_apply_service_coupon_transport_booking',
+      'trg_service_coupon_redemption_from_transport_booking',
+      'trg_sync_transport_coupon_to_fulfillment'
+    )
+),
+deposit_status_fn as (
+  select *
+  from target_functions
+  where proname = 'get_service_deposit_status'
+    and identity_args = 'p_id uuid'
+  limit 1
+),
+admin_adjust_fn as (
+  select *
+  from target_functions
+  where proname = 'admin_adjust_transport_booking_price'
+    and identity_args = 'p_booking_id uuid, p_new_total numeric, p_reason text, p_customer_note text, p_expected_revision integer, p_idempotency_key uuid'
+  limit 1
+),
+summary_core_fn as (
+  select *
+  from target_functions
+  where proname = 'transport_booking_financial_summary_core'
+    and identity_args = 'p_booking_id uuid'
+  limit 1
+),
+deposit_status_acl as (
+  select acl.grantee, coalesce(r.rolname, 'PUBLIC') as grantee_name, acl.privilege_type
+  from deposit_status_fn fn
+  cross join lateral aclexplode(coalesce(fn.proacl, acldefault('f', fn.proowner))) acl
+  left join pg_roles r on r.oid = acl.grantee
+),
 read_sources as (
   select
     exists (
@@ -441,6 +493,135 @@ raw_update_checks as (
     )
 ),
 diagnostics as (
+  select
+    'round_trip_double_count_removed' as check_name,
+    coalesce((
+      select not (
+        source ~ 'total_price.{0,220}\+.{0,220}return_total_price'
+        or source ~ 'return_total_price.{0,220}\+.{0,220}total_price'
+      )
+      from deposit_status_fn
+    ), false) as pass,
+    coalesce((
+      select case
+        when source ~ 'total_price.{0,220}\+.{0,220}return_total_price'
+          or source ~ 'return_total_price.{0,220}\+.{0,220}total_price'
+          then 'double-count pattern still exists in get_service_deposit_status'
+        else 'get_service_deposit_status does not add return_total_price to total_price'
+      end
+      from deposit_status_fn
+    ), 'get_service_deposit_status(p_id uuid) not found') as details
+
+  union all
+  select
+    'deposit_status_uses_financial_summary',
+    coalesce((select source like '%transport_booking_financial_summary_core(r.booking_id)%' and source like '%then ts.effective_total%' from deposit_status_fn), false),
+    coalesce((select 'source uses transport_booking_financial_summary_core=' || (source like '%transport_booking_financial_summary_core(r.booking_id)%')::text from deposit_status_fn), 'get_service_deposit_status(p_id uuid) not found')
+
+  union all
+  select
+    'deposit_status_return_type_preserved',
+    coalesce((select result_type = 'TABLE(id uuid, status text, paid_at timestamp with time zone, amount numeric, currency text, fulfillment_reference text, fulfillment_summary text, resource_type text, booking_id uuid, stripe_checkout_session_id text, stripe_payment_intent_id text, fulfillment_id uuid, fulfillment_total_price numeric, booking_total_price numeric, trip_title_en text, trip_title_pl text)' from deposit_status_fn), false),
+    coalesce((select result_type from deposit_status_fn), 'get_service_deposit_status(p_id uuid) not found')
+
+  union all
+  select
+    'deposit_status_acl_preserved',
+    not exists (select 1 from deposit_status_acl where grantee = 0 and privilege_type = 'EXECUTE')
+    and exists (select 1 from deposit_status_acl where grantee_name = 'anon' and privilege_type = 'EXECUTE')
+    and exists (select 1 from deposit_status_acl where grantee_name = 'authenticated' and privilege_type = 'EXECUTE')
+    and not exists (select 1 from deposit_status_acl where grantee_name = 'service_role' and privilege_type = 'EXECUTE'),
+    coalesce((
+      select string_agg(grantee_name || ':' || privilege_type, ', ' order by grantee_name, privilege_type)
+      from deposit_status_acl
+    ), 'no ACL rows')
+
+  union all
+  select
+    'adjustment_only_update_coupon_safe',
+    coalesce((
+      select bool_and(
+        source like '%tg_op = ''update''%'
+        and source like '%return new%'
+        and source like '%new.total_price is not distinct from old.total_price%'
+        and source like '%new.coupon_discount_amount is not distinct from old.coupon_discount_amount%'
+      )
+      from target_functions
+      where proname in (
+        'trg_apply_service_coupon_transport_booking',
+        'trg_service_coupon_redemption_from_transport_booking',
+        'trg_sync_transport_coupon_to_fulfillment'
+      )
+    ), false),
+    'coupon recalculation, coupon redemption and coupon-to-fulfillment trigger functions must early-return for adjustment-only updates'
+
+  union all
+  select
+    'fulfillment_total_not_adjusted',
+    coalesce((select source not like '%partner_service_fulfillments%' from admin_adjust_fn), false),
+    coalesce((select 'admin RPC references partner_service_fulfillments=' || (source like '%partner_service_fulfillments%')::text from admin_adjust_fn), 'admin RPC not found')
+
+  union all
+  select
+    'commission_rows_not_mutated',
+    coalesce((select source not like '%affiliate_commission_events%' from admin_adjust_fn), false),
+    coalesce((select 'admin RPC references affiliate_commission_events=' || (source like '%affiliate_commission_events%')::text from admin_adjust_fn), 'admin RPC not found')
+
+  union all
+  select
+    'payout_rows_not_mutated',
+    coalesce((select source not like '%affiliate_payouts%' from admin_adjust_fn), false),
+    coalesce((select 'admin RPC references affiliate_payouts=' || (source like '%affiliate_payouts%')::text from admin_adjust_fn), 'admin RPC not found')
+
+  union all
+  select
+    'payment_rows_not_mutated',
+    coalesce((select source not like '%update public.service_deposit_requests%' and source not like '%insert into public.service_deposit_requests%' and source not like '%delete from public.service_deposit_requests%' from admin_adjust_fn), false),
+    coalesce((select 'admin RPC mutates service_deposit_requests=' || (source ~ '(update|insert into|delete from) public\.service_deposit_requests')::text from admin_adjust_fn), 'admin RPC not found')
+
+  union all
+  select
+    'no_stripe_mutation',
+    coalesce((select source not like '%stripe_%' from admin_adjust_fn), false),
+    coalesce((select 'admin RPC references stripe_=' || (source like '%stripe_%')::text from admin_adjust_fn), 'admin RPC not found')
+
+  union all
+  select
+    'no_refund_mutation',
+    coalesce((select source not like '%refund%' from admin_adjust_fn), false),
+    coalesce((select 'admin RPC references refund=' || (source like '%refund%')::text from admin_adjust_fn), 'admin RPC not found')
+
+  union all
+  select
+    'financial_summary_confirmed_paid_gross',
+    coalesce((select source like '%confirmed_paid_gross%' and source like '%service_deposit_requests%' and source like '%status = ''paid''%' and source like '%paid_at is not null%' from summary_core_fn), false),
+    coalesce((select 'summary core source loaded' from summary_core_fn), 'summary core not found')
+
+  union all
+  select
+    'financial_summary_balance_due',
+    coalesce((select source like '%greatest(b.effective_total - p.confirmed_paid_gross, 0)%' from summary_core_fn), false),
+    coalesce((select 'balance_due formula present=' || (source like '%greatest(b.effective_total - p.confirmed_paid_gross, 0)%')::text from summary_core_fn), 'summary core not found')
+
+  union all
+  select
+    'financial_summary_overpayment',
+    coalesce((select source like '%greatest(p.confirmed_paid_gross - b.effective_total, 0)%' from summary_core_fn), false),
+    coalesce((select 'overpayment formula present=' || (source like '%greatest(p.confirmed_paid_gross - b.effective_total, 0)%')::text from summary_core_fn), 'summary core not found')
+
+  union all
+  select
+    'financial_summary_refund_review',
+    coalesce((select source like '%p.confirmed_paid_gross > b.effective_total%' and source like '%refund_review_required%' from summary_core_fn), false),
+    coalesce((select 'refund_review_required formula present=' || (source like '%p.confirmed_paid_gross > b.effective_total%')::text from summary_core_fn), 'summary core not found')
+
+  union all
+  select
+    'diagnostics_read_only',
+    true,
+    'Diagnostics reads catalogs and aggregate counts only; it does not execute mutating RPCs.'
+
+  union all
   select
     'required_tables_exist' as check_name,
     (

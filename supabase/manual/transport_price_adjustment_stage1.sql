@@ -486,6 +486,92 @@ revoke all on function public.transport_booking_financial_summary_core(uuid) fro
 revoke all on function public.transport_booking_financial_summary_core(uuid) from anon;
 revoke all on function public.transport_booking_financial_summary_core(uuid) from authenticated;
 
+create or replace function public.get_service_deposit_status(p_id uuid)
+returns table(
+  id uuid,
+  status text,
+  paid_at timestamptz,
+  amount numeric,
+  currency text,
+  fulfillment_reference text,
+  fulfillment_summary text,
+  resource_type text,
+  booking_id uuid,
+  stripe_checkout_session_id text,
+  stripe_payment_intent_id text,
+  fulfillment_id uuid,
+  fulfillment_total_price numeric,
+  booking_total_price numeric,
+  trip_title_en text,
+  trip_title_pl text
+)
+language sql
+security definer
+set search_path = pg_catalog, public
+as $$
+  select
+    r.id,
+    r.status,
+    r.paid_at,
+    r.amount,
+    r.currency,
+    r.fulfillment_reference,
+    r.fulfillment_summary,
+    r.resource_type,
+    r.booking_id,
+    r.stripe_checkout_session_id,
+    r.stripe_payment_intent_id,
+    r.fulfillment_id,
+    f.total_price as fulfillment_total_price,
+    case
+      when lower(coalesce(r.resource_type, '')) in ('trips', 'trip')
+        then tb.total_price
+      when lower(coalesce(r.resource_type, '')) in ('cars', 'car')
+        then coalesce(
+          cb.total_price,
+          public.try_numeric(to_jsonb(cb)->>'final_price'),
+          public.try_numeric(to_jsonb(cb)->>'quoted_price')
+        )
+      when lower(coalesce(r.resource_type, '')) in ('hotels', 'hotel')
+        then hb.total_price
+      when lower(coalesce(r.resource_type, '')) in ('transport', 'transports', 'transfer', 'transfers')
+        then ts.effective_total
+      else null
+    end as booking_total_price,
+    coalesce(
+      nullif(trim(coalesce(t.title->>'en', '')), ''),
+      nullif(trim(coalesce(t.title->>'pl', '')), ''),
+      nullif(trim(coalesce(t.slug, '')), ''),
+      nullif(trim(coalesce(tb.trip_slug, '')), ''),
+      nullif(trim(coalesce(r.fulfillment_summary, '')), '')
+    ) as trip_title_en,
+    coalesce(
+      nullif(trim(coalesce(t.title->>'pl', '')), ''),
+      nullif(trim(coalesce(t.title->>'en', '')), ''),
+      nullif(trim(coalesce(t.slug, '')), ''),
+      nullif(trim(coalesce(tb.trip_slug, '')), ''),
+      nullif(trim(coalesce(r.fulfillment_summary, '')), '')
+    ) as trip_title_pl
+  from public.service_deposit_requests r
+  left join public.partner_service_fulfillments f
+    on f.id = r.fulfillment_id
+  left join public.trip_bookings tb
+    on tb.id = r.booking_id
+  left join public.trips t
+    on t.id = tb.trip_id
+  left join public.car_bookings cb
+    on cb.id = r.booking_id
+  left join public.hotel_bookings hb
+    on hb.id = r.booking_id
+  left join lateral public.transport_booking_financial_summary_core(r.booking_id) ts
+    on lower(coalesce(r.resource_type, '')) in ('transport', 'transports', 'transfer', 'transfers')
+  where r.id = p_id;
+$$;
+
+revoke all on function public.get_service_deposit_status(uuid) from public;
+revoke all on function public.get_service_deposit_status(uuid) from service_role;
+grant execute on function public.get_service_deposit_status(uuid) to anon, authenticated;
+
 create or replace function public.get_transport_booking_financial_summary(p_booking_id uuid)
 returns table (
   booking_id uuid,

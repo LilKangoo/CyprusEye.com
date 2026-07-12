@@ -47,8 +47,45 @@ required_functions as (
       )
     ) as critical_trigger_functions_exist
 ),
+deposit_status_fn as (
+  select
+    p.oid,
+    p.proowner,
+    p.proacl,
+    pg_get_function_identity_arguments(p.oid) as identity_args,
+    pg_get_function_result(p.oid) as result_type,
+    lower(regexp_replace(coalesce(p.prosrc, ''), '[[:space:]]+', ' ', 'g')) as source
+  from pg_proc p
+  join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'public'
+    and p.proname = 'get_service_deposit_status'
+    and pg_get_function_identity_arguments(p.oid) = 'p_id uuid'
+  limit 1
+),
+deposit_status_acl as (
+  select acl.grantee, coalesce(r.rolname, 'PUBLIC') as grantee_name, acl.privilege_type
+  from deposit_status_fn fn
+  cross join lateral aclexplode(coalesce(fn.proacl, acldefault('f', fn.proowner))) acl
+  left join pg_roles r on r.oid = acl.grantee
+),
+deposit_status_state as (
+  select
+    exists (select 1 from deposit_status_fn) as exact_deposit_status_rpc_exists,
+    coalesce((select result_type = 'TABLE(id uuid, status text, paid_at timestamp with time zone, amount numeric, currency text, fulfillment_reference text, fulfillment_summary text, resource_type text, booking_id uuid, stripe_checkout_session_id text, stripe_payment_intent_id text, fulfillment_id uuid, fulfillment_total_price numeric, booking_total_price numeric, trip_title_en text, trip_title_pl text)' from deposit_status_fn), false) as deposit_status_return_type_preserved,
+    coalesce((
+      select
+        source ~ 'total_price.{0,220}\+.{0,220}return_total_price'
+        or source ~ 'return_total_price.{0,220}\+.{0,220}total_price'
+      from deposit_status_fn
+    ), false) as deposit_status_old_double_count_pattern_present,
+    coalesce((select source like '%transport_booking_financial_summary_core%' and source like '%effective_total%' from deposit_status_fn), false) as deposit_status_already_uses_financial_summary,
+    not exists (select 1 from deposit_status_acl where grantee = 0 and privilege_type = 'EXECUTE') as deposit_status_public_execute_absent,
+    exists (select 1 from deposit_status_acl where grantee_name = 'anon' and privilege_type = 'EXECUTE') as deposit_status_anon_execute_present,
+    exists (select 1 from deposit_status_acl where grantee_name = 'authenticated' and privilege_type = 'EXECUTE') as deposit_status_authenticated_execute_present
+),
 existing_adjustment_model as (
   select
+    to_regclass('public.transport_booking_price_adjustments') is not null as adjustment_table_exists,
     count(*) filter (where table_name = 'transport_bookings' and column_name = 'original_total_price') > 0 as original_total_price_exists,
     count(*) filter (where table_name = 'transport_bookings' and column_name = 'adjusted_total_price') > 0 as adjusted_total_price_exists,
     count(*) filter (where table_name = 'transport_bookings' and column_name in ('amount_paid', 'paid_amount', 'paid_total')) > 0 as paid_total_like_exists,
@@ -188,6 +225,14 @@ select
   rt.affiliate_payouts_exists,
   rf.get_service_deposit_status_exists,
   rf.critical_trigger_functions_exist,
+  ds.exact_deposit_status_rpc_exists,
+  ds.deposit_status_return_type_preserved,
+  ds.deposit_status_old_double_count_pattern_present,
+  ds.deposit_status_already_uses_financial_summary,
+  ds.deposit_status_public_execute_absent,
+  ds.deposit_status_anon_execute_present,
+  ds.deposit_status_authenticated_execute_present,
+  eam.adjustment_table_exists,
   eam.original_total_price_exists,
   eam.adjusted_total_price_exists,
   eam.paid_total_like_exists,
@@ -223,9 +268,31 @@ select
     and rt.affiliate_payouts_exists
     and rf.get_service_deposit_status_exists
     and rf.critical_trigger_functions_exist
-  ) as preflight_complete
+    and ds.exact_deposit_status_rpc_exists
+    and ds.deposit_status_return_type_preserved
+    and (ds.deposit_status_old_double_count_pattern_present or ds.deposit_status_already_uses_financial_summary)
+    and ds.deposit_status_public_execute_absent
+    and ds.deposit_status_anon_execute_present
+    and ds.deposit_status_authenticated_execute_present
+  ) as preflight_complete,
+  (
+    rt.transport_bookings_exists
+    and rt.partner_service_fulfillments_exists
+    and rt.service_deposit_requests_exists
+    and rt.affiliate_commission_events_exists
+    and rt.affiliate_payouts_exists
+    and rf.get_service_deposit_status_exists
+    and rf.critical_trigger_functions_exist
+    and ds.exact_deposit_status_rpc_exists
+    and ds.deposit_status_return_type_preserved
+    and (ds.deposit_status_old_double_count_pattern_present or ds.deposit_status_already_uses_financial_summary)
+    and ds.deposit_status_public_execute_absent
+    and ds.deposit_status_anon_execute_present
+    and ds.deposit_status_authenticated_execute_present
+  ) as preflight_safe_to_continue
 from required_tables rt
 cross join required_functions rf
+cross join deposit_status_state ds
 cross join existing_adjustment_model eam
 cross join core_counts cc
 cross join deposit_cardinality dc
