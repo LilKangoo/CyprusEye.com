@@ -22901,14 +22901,14 @@ async function submitTransportPriceAdjustment(bookingId) {
       transportAdminState.financialSummaryByBookingId[id] = returnedSummary;
     }
 
-    showToast('Transport final price updated', 'success');
+    showToast('Saved', 'success');
     if (statusEl) statusEl.textContent = 'Saved.';
     await loadTransportBookingsData({ silent: true });
     await loadAllOrders({ silent: true });
     await viewTransportBookingDetails(id);
   } catch (error) {
     console.error('Failed to adjust transport booking price:', error);
-    const message = String(error?.message || 'Failed to adjust price');
+    const message = String(error?.message || 'Failed to save price');
     if (statusEl) statusEl.textContent = message;
     showToast(message, 'error');
   }

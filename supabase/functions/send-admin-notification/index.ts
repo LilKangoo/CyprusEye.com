@@ -832,7 +832,7 @@ function buildAdminNotificationTemplateVariables(params: {
   const partnerUrl = buildPartnerPanelLink(getField(record, ["fulfillment_id", "fulfillmentId"]));
   const currency = getField(record, ["currency", "currency_code"]) || "EUR";
   const orderTotal = formatMoney(
-    getField(record, ["total", "amount_total", "grand_total", "total_amount", "price_total", "subtotal"]),
+    getField(record, ["total_price", "total", "amount_total", "grand_total", "total_amount", "price_total", "subtotal"]),
     currency,
   );
   const requestedAmount = formatMoney(
@@ -1511,6 +1511,26 @@ function formatMoney(amount: unknown, currency: unknown): string {
     return new Intl.NumberFormat("en-GB", { style: "currency", currency: cur }).format(n);
   } catch (_e) {
     return `${n.toFixed(2)} ${cur}`;
+  }
+}
+
+function clearTransportEmailFinancialFields(record: Record<string, unknown>): void {
+  const keys = [
+    "total_price",
+    "total",
+    "amount_total",
+    "grand_total",
+    "total_amount",
+    "price_total",
+    "confirmed_paid_gross",
+    "paid_amount",
+    "amount_paid",
+    "balance_due",
+    "remaining_amount",
+    "remaining_due",
+  ];
+  for (const key of keys) {
+    (record as any)[key] = null;
   }
 }
 
@@ -3289,6 +3309,67 @@ async function hydrateTransportBookingForEmail(supabase: any, record: Record<str
   }
 }
 
+async function hydrateTransportFinancialSummaryForEmail(
+  supabase: any,
+  record: Record<string, unknown>,
+): Promise<void> {
+  const bookingId = firstNonEmpty(
+    (record as any)?.booking_id,
+    (record as any)?.resource_id,
+    (record as any)?.transport_booking_id,
+    (record as any)?.id,
+  );
+  if (!bookingId) {
+    clearTransportEmailFinancialFields(record);
+    return;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .rpc("get_transport_booking_financial_summary", { p_booking_id: bookingId })
+      .maybeSingle();
+
+    if (error || !data) {
+      console.warn("Transport financial summary unavailable for email render", {
+        bookingId,
+        hasData: Boolean(data),
+      });
+      clearTransportEmailFinancialFields(record);
+      return;
+    }
+
+    const effectiveTotal = normalizeMoney((data as any)?.effective_total);
+    const confirmedPaidGross = normalizeMoney((data as any)?.confirmed_paid_gross);
+    const balanceDue = normalizeMoney((data as any)?.balance_due);
+    const currency = firstNonEmpty((data as any)?.currency, (record as any)?.currency, "EUR");
+
+    if (effectiveTotal === null) {
+      clearTransportEmailFinancialFields(record);
+      return;
+    }
+
+    (record as any).total_price = effectiveTotal;
+    (record as any).total = effectiveTotal;
+    (record as any).amount_total = effectiveTotal;
+    (record as any).grand_total = effectiveTotal;
+    (record as any).total_amount = effectiveTotal;
+    (record as any).price_total = effectiveTotal;
+    (record as any).currency = currency;
+    if (confirmedPaidGross !== null) {
+      (record as any).confirmed_paid_gross = confirmedPaidGross;
+      (record as any).paid_amount = confirmedPaidGross;
+      (record as any).amount_paid = confirmedPaidGross;
+    }
+    if (balanceDue !== null) {
+      (record as any).balance_due = balanceDue;
+      (record as any).remaining_amount = balanceDue;
+      (record as any).remaining_due = balanceDue;
+    }
+  } catch (_e) {
+    clearTransportEmailFinancialFields(record);
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -3453,6 +3534,10 @@ serve(async (req) => {
           (record as any).items = items;
         }
       } catch (_e) {}
+    }
+
+    if (categoryFromBody === "transport") {
+      await hydrateTransportFinancialSummaryForEmail(supabase, record);
     }
 
     const partnerId = String(getField(record, ["partner_id", "partnerId"]) || "").trim();
@@ -4420,6 +4505,7 @@ serve(async (req) => {
       await hydrateTripNameForEmail(supabase, record);
     } else if (categoryFromBody === "transport") {
       await hydrateTransportBookingForEmail(supabase, record);
+      await hydrateTransportFinancialSummaryForEmail(supabase, record);
     }
 
     const alreadySent = Boolean((record as any)?.customer_received_email_sent_at);
@@ -4537,6 +4623,7 @@ serve(async (req) => {
 
   if (categoryFromBody === "transport") {
     await hydrateTransportBookingForEmail(supabase, record);
+    await hydrateTransportFinancialSummaryForEmail(supabase, record);
   }
 
   const extraFulfillmentId = typeof (body as any)?.fulfillment_id === "string" ? (body as any).fulfillment_id : "";

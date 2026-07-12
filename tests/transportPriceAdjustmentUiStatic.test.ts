@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-describe('Transport Price 4.0C-D UI integration', () => {
+describe('Transport Price 4.0C-E UI and email integration', () => {
   const root = process.cwd();
   const read = (relativePath: string) => fs.readFileSync(path.join(root, relativePath), 'utf8');
   const normalize = (value: string) => value.replace(/\s+/g, ' ').toLowerCase();
@@ -11,6 +11,7 @@ describe('Transport Price 4.0C-D UI integration', () => {
   const deposit = read('js/deposit.js');
   const partners = read('js/partners.js');
   const bookingAccess = read('supabase/functions/booking-access/index.ts');
+  const sendAdminNotification = read('supabase/functions/send-admin-notification/index.ts');
 
   const functionSlice = (source: string, name: string) => {
     const marker = `function ${name}`;
@@ -119,6 +120,41 @@ describe('Transport Price 4.0C-D UI integration', () => {
     const submit = functionSlice(admin, 'submitTransportPriceAdjustment');
     expect(submit).not.toMatch(/send_deposit_email|send.*email|functions\.invoke|stripe\.|checkout\.sessions|paymentintents|refunds\./i);
     expect(submit).not.toMatch(/service_deposit_requests|affiliate_commission_events|affiliate_payouts|partner_service_fulfillments/i);
+  });
+
+  test('existing transport emails use effective totals from backend financial summary only', () => {
+    const emailHydrator = functionSlice(sendAdminNotification, 'hydrateTransportFinancialSummaryForEmail');
+    expect(emailHydrator).toContain('.rpc("get_transport_booking_financial_summary"');
+    expect(emailHydrator).toContain('p_booking_id: bookingId');
+    expect(emailHydrator).toContain('(record as any).total_price = effectiveTotal');
+    expect(emailHydrator).toContain('(record as any).confirmed_paid_gross = confirmedPaidGross');
+    expect(emailHydrator).toContain('(record as any).balance_due = balanceDue');
+    expect(emailHydrator).toContain('clearTransportEmailFinancialFields(record)');
+
+    const partnerPendingStart = sendAdminNotification.indexOf('if (event === "partner_pending_acceptance") {\n    if (!record)');
+    expect(partnerPendingStart).toBeGreaterThanOrEqual(0);
+    const partnerPendingEnd = sendAdminNotification.indexOf('if (event === "customer_deposit_requested")', partnerPendingStart);
+    expect(partnerPendingEnd).toBeGreaterThan(partnerPendingStart);
+    const partnerPendingBranch = sendAdminNotification.slice(partnerPendingStart, partnerPendingEnd);
+    expect(partnerPendingBranch).toContain('await hydrateTransportFinancialSummaryForEmail(supabase, record)');
+
+    const customerReceivedBranch = sendAdminNotification.slice(
+      sendAdminNotification.indexOf('if (event === "customer_received")'),
+      sendAdminNotification.indexOf('const adminNotificationEmailRaw')
+    );
+    expect(customerReceivedBranch).toContain('await hydrateTransportFinancialSummaryForEmail(supabase, record)');
+
+    const templateVariables = functionSlice(sendAdminNotification, 'buildAdminNotificationTemplateVariables');
+    expect(templateVariables).toContain('"total_price"');
+    expect(sendAdminNotification).not.toMatch(/total_price.{0,120}\+.{0,120}return_total_price/i);
+    expect(sendAdminNotification).not.toMatch(/return_total_price.{0,120}\+.{0,120}total_price/i);
+  });
+
+  test('price adjustment does not introduce any transport price-change email notification', () => {
+    const submit = functionSlice(admin, 'submitTransportPriceAdjustment');
+    expect(sendAdminNotification).not.toContain('admin_adjust_transport_booking_price');
+    expect(sendAdminNotification).not.toMatch(/price updated|price-updated|top-up email|balance adjustment|price change notification/i);
+    expect(submit).not.toMatch(/price updated|price-updated|top-up email|balance adjustment|price change notification/i);
   });
 
   test('payment, Stripe, commission and payout tables are not modified by 4.0C-D frontend changes', () => {
