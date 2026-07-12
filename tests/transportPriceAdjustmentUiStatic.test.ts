@@ -92,6 +92,8 @@ describe('Transport Price 4.0C-E UI and email integration', () => {
     });
     expect(adminDetails).toContain('Change price');
     expect(adminDetails).toContain('Total price');
+    expect(adminDetails).not.toContain('<span>Base:</span>');
+    expect(adminDetails).not.toContain('Coupon ${transportCouponCode');
     expect(dashboard).toContain('Paid in full');
     expect(partners).toContain('Paid in full');
   });
@@ -120,6 +122,9 @@ describe('Transport Price 4.0C-E UI and email integration', () => {
     const submit = functionSlice(admin, 'submitTransportPriceAdjustment');
     expect(submit).not.toMatch(/send_deposit_email|send.*email|functions\.invoke|stripe\.|checkout\.sessions|paymentintents|refunds\./i);
     expect(submit).not.toMatch(/service_deposit_requests|affiliate_commission_events|affiliate_payouts|partner_service_fulfillments/i);
+    expect(submit).toContain("console.error('Failed to adjust transport booking price:', error)");
+    expect(submit).toContain("const message = 'Could not save price. Please try again.'");
+    expect(submit).not.toContain("const message = String(error?.message || 'Failed to save price')");
   });
 
   test('existing transport emails use effective totals from backend financial summary only', () => {

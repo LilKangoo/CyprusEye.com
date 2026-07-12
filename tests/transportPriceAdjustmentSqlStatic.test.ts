@@ -23,6 +23,9 @@ describe('Transport Price 4.0B SQL draft', () => {
   const emailSummaryPreflight = read('supabase/manual/transport_price_email_summary_stage1_preflight.sql');
   const emailSummarySql = read('supabase/manual/transport_price_email_summary_stage1.sql');
   const emailSummaryVerify = read('supabase/manual/transport_price_email_summary_stage1_verify.sql');
+  const rpcAmbiguityPreflight = read('supabase/manual/transport_price_adjustment_rpc_ambiguity_preflight.sql');
+  const rpcAmbiguityFix = read('supabase/manual/transport_price_adjustment_rpc_ambiguity_fix.sql');
+  const rpcAmbiguityVerify = read('supabase/manual/transport_price_adjustment_rpc_ambiguity_verify.sql');
 
   const functionSlice = (source: string, name: string) => {
     const marker = `create or replace function public.${name}`;
@@ -34,7 +37,7 @@ describe('Transport Price 4.0B SQL draft', () => {
   };
 
   test('preflight and diagnostics remain read-only', () => {
-    [preflight, diagnostics, verifyDiagnostics, finalVerify, aclFixVerify, roundTripDiagnostics, verify, emailSummaryPreflight, emailSummaryVerify].forEach((source) => {
+    [preflight, diagnostics, verifyDiagnostics, finalVerify, aclFixVerify, roundTripDiagnostics, verify, emailSummaryPreflight, emailSummaryVerify, rpcAmbiguityPreflight, rpcAmbiguityVerify].forEach((source) => {
       expect(source).not.toMatch(/(^|\n)\s*(insert\s+into|update\s+\w|delete\s+from|merge\s+into|truncate\s+|alter\s+|create\s+|drop\s+|grant\s+|revoke\s+)/i);
     });
     expect(preflight).toContain('preflight_safe_to_continue');
@@ -168,6 +171,35 @@ describe('Transport Price 4.0B SQL draft', () => {
     expect(emailSummaryVerify).toContain('public_summary_still_role_safe');
     expect(emailSummaryVerify).toContain('overall_pass');
     expect(emailSummaryVerify).not.toMatch(/(^|\n)\s*(insert\s+into|update\s+\w|delete\s+from|merge\s+into|truncate\s+|alter\s+|create\s+|drop\s+|grant\s+|revoke\s+)/i);
+  });
+
+  test('RPC ambiguity hotfix only repairs admin price revision qualification', () => {
+    expect(rpcAmbiguityPreflight).toContain('preflight_safe_to_continue');
+    expect(rpcAmbiguityPreflight).toContain("to_regprocedure('public.admin_adjust_transport_booking_price(uuid,numeric,text,text,integer,uuid)')");
+    expect(rpcAmbiguityPreflight).toContain('ambiguous_update_pattern_present');
+    expect(rpcAmbiguityPreflight).toContain('already_fixed_pattern_present');
+
+    const fixSource = rpcAmbiguityFix.toLowerCase();
+    const fixedAdminRpc = normalize(functionSlice(rpcAmbiguityFix, 'admin_adjust_transport_booking_price'));
+    expect(fixSource).toContain("to_regprocedure('public.admin_adjust_transport_booking_price(uuid,numeric,text,text,integer,uuid)'");
+    expect(fixedAdminRpc).toContain('v_current_price_revision');
+    expect(fixedAdminRpc).toContain('v_new_price_revision');
+    expect(fixedAdminRpc).toContain('select tb.* into v_booking from public.transport_bookings tb where tb.id = p_booking_id for update');
+    expect(fixedAdminRpc).toContain('update public.transport_bookings tb set adjusted_total_price = v_new_total, price_revision = v_new_price_revision');
+    expect(fixedAdminRpc).not.toContain('price_revision = coalesce(price_revision, 0) + 1');
+    expect(fixedAdminRpc).toContain('idempotency_key = p_idempotency_key');
+    expect(fixedAdminRpc).toContain('p_expected_revision');
+    expect(rpcAmbiguityFix).toContain("raise exception 'price_revision_mismatch'");
+    expect(fixedAdminRpc).not.toContain('service_deposit_requests');
+    expect(fixedAdminRpc).not.toContain('stripe_');
+    expect(fixedAdminRpc).not.toContain('affiliate_commission_events');
+    expect(fixedAdminRpc).not.toContain('affiliate_payouts');
+    expect(fixedAdminRpc).not.toContain('partner_service_fulfillments');
+
+    expect(rpcAmbiguityVerify).toContain('ambiguous_update_removed');
+    expect(rpcAmbiguityVerify).toContain('qualified_or_variable_revision_update');
+    expect(rpcAmbiguityVerify).toContain('local_revision_variables_present');
+    expect(rpcAmbiguityVerify).toContain('overall_pass');
   });
 
   test('post-install verify diagnostics decomposes constraints and indexes', () => {

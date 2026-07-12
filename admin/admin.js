@@ -22572,15 +22572,6 @@ async function viewTransportBookingDetails(bookingId) {
   const fallbackSummary = transportFallbackFinancialSummary(booking);
   const activeSummary = financialSummary || fallbackSummary;
   const amountLabel = transportMoney(activeSummary?.effective_total ?? transportBookingEffectiveTotal(booking), activeSummary?.currency || booking.currency || 'EUR');
-  const transportCurrency = String(booking.currency || 'EUR').trim().toUpperCase() || 'EUR';
-  const transportDiscount = Number(booking.coupon_discount_amount || 0);
-  const transportTotal = Number(booking.total_price || 0);
-  const transportBase = Number(
-    (Number(booking.base_price || 0) + Number(booking.extras_price || 0))
-      || (transportTotal + (Number.isFinite(transportDiscount) ? transportDiscount : 0))
-      || 0,
-  );
-  const transportCouponCode = String(booking.coupon_code || '').trim().toUpperCase();
   const fulfillmentStatus = String(fulfillment?.status || '').trim();
   const assignedPartnerId = assignedPartnerIdFromBooking || String(fulfillment?.partner_id || '').trim();
   const assignedPartnerLabel = assignedPartnerId ? getTransportPartnerDisplayName(assignedPartnerId) : '';
@@ -22790,18 +22781,6 @@ async function viewTransportBookingDetails(bookingId) {
 
       <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
         <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">Total Price</h4>
-        <div style="display:grid; gap:6px; margin-bottom:10px; font-size:12px; color:var(--admin-text-muted);">
-          <div style="display:flex; justify-content:space-between; gap:12px;">
-            <span>Base:</span>
-            <strong style="color:var(--admin-text-primary);">${escapeHtml(transportMoney(transportBase, transportCurrency))}</strong>
-          </div>
-          ${transportDiscount > 0 || transportCouponCode ? `
-          <div style="display:flex; justify-content:space-between; gap:12px;">
-            <span>Coupon ${transportCouponCode ? `(${escapeHtml(transportCouponCode)})` : ''}:</span>
-            <strong style="color:#2563eb;">−${escapeHtml(transportMoney(transportDiscount, transportCurrency))}</strong>
-          </div>
-          ` : ''}
-        </div>
         <div style="font-size: 24px; font-weight: 700;">${escapeHtml(amountLabel)}</div>
       </div>
 
@@ -22908,7 +22887,7 @@ async function submitTransportPriceAdjustment(bookingId) {
     await viewTransportBookingDetails(id);
   } catch (error) {
     console.error('Failed to adjust transport booking price:', error);
-    const message = String(error?.message || 'Failed to save price');
+    const message = 'Could not save price. Please try again.';
     if (statusEl) statusEl.textContent = message;
     showToast(message, 'error');
   }
