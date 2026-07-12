@@ -178,6 +178,7 @@ describe('Transport Price 4.0B SQL draft', () => {
     expect(rpcAmbiguityPreflight).toContain("to_regprocedure('public.admin_adjust_transport_booking_price(uuid,numeric,text,text,integer,uuid)')");
     expect(rpcAmbiguityPreflight).toContain('ambiguous_update_pattern_present');
     expect(rpcAmbiguityPreflight).toContain('already_fixed_pattern_present');
+    expect(rpcAmbiguityPreflight.toLowerCase()).toContain('from checks;');
 
     const fixSource = rpcAmbiguityFix.toLowerCase();
     const fixedAdminRpc = normalize(functionSlice(rpcAmbiguityFix, 'admin_adjust_transport_booking_price'));
@@ -200,6 +201,10 @@ describe('Transport Price 4.0B SQL draft', () => {
     expect(rpcAmbiguityVerify).toContain('qualified_or_variable_revision_update');
     expect(rpcAmbiguityVerify).toContain('local_revision_variables_present');
     expect(rpcAmbiguityVerify).toContain('overall_pass');
+    [rpcAmbiguityPreflight, rpcAmbiguityVerify].forEach((source) => {
+      expect(source).not.toMatch(/from\s+fn\s+and/i);
+      expect(source).not.toMatch(/select\s+normalized_source\s+like[\s\S]{0,160}from\s+fn\s+and/i);
+    });
   });
 
   test('post-install verify diagnostics decomposes constraints and indexes', () => {

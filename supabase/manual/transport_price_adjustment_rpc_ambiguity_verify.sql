@@ -50,19 +50,19 @@ checks as (
     coalesce((select normalized_source like '%for update%' from fn), false),
     'SELECT FOR UPDATE guard must remain present'
   union all select 'idempotency_present',
-    coalesce((select normalized_source like '%idempotency_key = p_idempotency_key%' from fn and normalized_source like '%idempotency_key_conflict%' from fn), false),
+    coalesce((select normalized_source like '%idempotency_key = p_idempotency_key%' and normalized_source like '%idempotency_key_conflict%' from fn), false),
     'idempotency lookup and conflict guard must remain present'
   union all select 'optimistic_revision_present',
-    coalesce((select normalized_source like '%p_expected_revision%' from fn and normalized_source like '%price_revision_mismatch%' from fn), false),
+    coalesce((select normalized_source like '%p_expected_revision%' and normalized_source like '%price_revision_mismatch%' from fn), false),
     'expected revision guard must remain present'
   union all select 'qualified_booking_select',
     coalesce((select normalized_source like '%select tb.* into v_booking from public.transport_bookings tb where tb.id = p_booking_id for update%' from fn), false),
     'booking row must be selected with table alias tb'
   union all select 'qualified_booking_update',
-    coalesce((select normalized_source like '%update public.transport_bookings tb set%' from fn and normalized_source like '%where tb.id = v_booking.id%' from fn), false),
+    coalesce((select normalized_source like '%update public.transport_bookings tb set%' and normalized_source like '%where tb.id = v_booking.id%' from fn), false),
     'booking update must use table alias tb'
   union all select 'local_revision_variables_present',
-    coalesce((select normalized_source like '%v_current_price_revision%' from fn and normalized_source like '%v_new_price_revision%' from fn), false),
+    coalesce((select normalized_source like '%v_current_price_revision%' and normalized_source like '%v_new_price_revision%' from fn), false),
     'revision values must use explicit local variable names'
   union all select 'ambiguous_update_removed',
     coalesce((select normalized_source not like '%price_revision = coalesce(price_revision, 0) + 1%' from fn), false),

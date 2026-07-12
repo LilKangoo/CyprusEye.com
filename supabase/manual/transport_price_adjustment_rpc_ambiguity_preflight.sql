@@ -32,7 +32,7 @@ checks as (
     coalesce((select normalized_source like '%price_revision = v_new_price_revision%' from fn), false) as already_fixed_pattern_present,
     coalesce((select normalized_source like '%for update%' from fn), false) as select_for_update_present,
     coalesce((select normalized_source like '%idempotency_key = p_idempotency_key%' from fn), false) as idempotency_present,
-    coalesce((select normalized_source like '%p_expected_revision%' from fn and normalized_source like '%price_revision_mismatch%' from fn), false) as optimistic_revision_present,
+    coalesce((select normalized_source like '%p_expected_revision%' and normalized_source like '%price_revision_mismatch%' from fn), false) as optimistic_revision_present,
     coalesce((select execute_grants like '%authenticated:EXECUTE%' from acl), false) as authenticated_execute_present,
     coalesce((select execute_grants not like '%anon:EXECUTE%' from acl), false) as anon_execute_absent
 )
@@ -61,4 +61,5 @@ select
     and anon_execute_absent
     and (ambiguous_update_pattern_present or already_fixed_pattern_present)
   ) as preflight_safe_to_continue,
-  (select execute_grants from acl) as current_execute_grants;
+  (select execute_grants from acl) as current_execute_grants
+from checks;
