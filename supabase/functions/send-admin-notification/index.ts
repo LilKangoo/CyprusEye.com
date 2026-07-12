@@ -3326,7 +3326,7 @@ async function hydrateTransportFinancialSummaryForEmail(
 
   try {
     const { data, error } = await supabase
-      .rpc("get_transport_booking_financial_summary", { p_booking_id: bookingId })
+      .rpc("service_get_transport_booking_financial_summary", { p_booking_id: bookingId })
       .maybeSingle();
 
     if (error || !data) {

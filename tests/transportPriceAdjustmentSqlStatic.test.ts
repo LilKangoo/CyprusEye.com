@@ -20,6 +20,9 @@ describe('Transport Price 4.0B SQL draft', () => {
   const aclFix = read('supabase/manual/transport_price_adjustment_stage1_acl_fix.sql');
   const aclFixVerify = read('supabase/manual/transport_price_adjustment_stage1_acl_fix_verify.sql');
   const roundTripDiagnostics = read('supabase/manual/transport_price_round_trip_stage1_diagnostics.sql');
+  const emailSummaryPreflight = read('supabase/manual/transport_price_email_summary_stage1_preflight.sql');
+  const emailSummarySql = read('supabase/manual/transport_price_email_summary_stage1.sql');
+  const emailSummaryVerify = read('supabase/manual/transport_price_email_summary_stage1_verify.sql');
 
   const functionSlice = (source: string, name: string) => {
     const marker = `create or replace function public.${name}`;
@@ -31,7 +34,7 @@ describe('Transport Price 4.0B SQL draft', () => {
   };
 
   test('preflight and diagnostics remain read-only', () => {
-    [preflight, diagnostics, verifyDiagnostics, finalVerify, aclFixVerify, roundTripDiagnostics, verify].forEach((source) => {
+    [preflight, diagnostics, verifyDiagnostics, finalVerify, aclFixVerify, roundTripDiagnostics, verify, emailSummaryPreflight, emailSummaryVerify].forEach((source) => {
       expect(source).not.toMatch(/(^|\n)\s*(insert\s+into|update\s+\w|delete\s+from|merge\s+into|truncate\s+|alter\s+|create\s+|drop\s+|grant\s+|revoke\s+)/i);
     });
     expect(preflight).toContain('preflight_safe_to_continue');
@@ -131,6 +134,40 @@ describe('Transport Price 4.0B SQL draft', () => {
     expect(aclFixVerify).toContain('anon_execute_present');
     expect(aclFixVerify).toContain('authenticated_execute_present');
     expect(aclFixVerify).toContain('overall_pass');
+  });
+
+  test('email summary stage adds only a service-role server-side read wrapper', () => {
+    expect(emailSummaryPreflight).toContain('preflight_safe_to_continue');
+    expect(emailSummaryPreflight).toContain("to_regprocedure('public.transport_booking_financial_summary_core(uuid)')");
+    expect(emailSummaryPreflight).toContain('public_summary_requires_user_context');
+    expect(emailSummaryPreflight).toContain('wrapper_absent_or_compatible');
+    expect(emailSummaryPreflight).not.toMatch(/(^|\n)\s*(insert\s+into|update\s+\w|delete\s+from|merge\s+into|truncate\s+|alter\s+|create\s+|drop\s+|grant\s+|revoke\s+)/i);
+
+    expect(emailSummarySql).toContain('create or replace function public.service_get_transport_booking_financial_summary(p_booking_id uuid)');
+    expect(emailSummarySql).toContain('security definer');
+    expect(emailSummarySql).toContain('set search_path = pg_catalog, public');
+    expect(emailSummarySql).toContain('from public.transport_booking_financial_summary_core(p_booking_id) s');
+    expect(emailSummarySql).toContain('s.effective_total');
+    expect(emailSummarySql).toContain('s.confirmed_paid_gross');
+    expect(emailSummarySql).toContain('s.balance_due');
+    expect(emailSummarySql).toContain('revoke all on function public.service_get_transport_booking_financial_summary(uuid) from public');
+    expect(emailSummarySql).toContain('revoke all on function public.service_get_transport_booking_financial_summary(uuid) from anon');
+    expect(emailSummarySql).toContain('revoke all on function public.service_get_transport_booking_financial_summary(uuid) from authenticated');
+    expect(emailSummarySql).toContain('grant execute on function public.service_get_transport_booking_financial_summary(uuid) to service_role');
+    expect(emailSummarySql).not.toContain('internal_reason');
+    expect(emailSummarySql).not.toContain('idempotency_key');
+    expect(emailSummarySql).not.toContain('stripe_');
+    expect(emailSummarySql).not.toContain('customer_email');
+    expect(emailSummarySql).not.toContain('partner_id');
+    expect(emailSummarySql).not.toMatch(/\b(insert into|update public|delete from|merge into)\b/i);
+
+    expect(emailSummaryVerify).toContain('service_role_execute_present');
+    expect(emailSummaryVerify).toContain('public_execute_absent');
+    expect(emailSummaryVerify).toContain('anon_execute_absent');
+    expect(emailSummaryVerify).toContain('authenticated_execute_absent');
+    expect(emailSummaryVerify).toContain('public_summary_still_role_safe');
+    expect(emailSummaryVerify).toContain('overall_pass');
+    expect(emailSummaryVerify).not.toMatch(/(^|\n)\s*(insert\s+into|update\s+\w|delete\s+from|merge\s+into|truncate\s+|alter\s+|create\s+|drop\s+|grant\s+|revoke\s+)/i);
   });
 
   test('post-install verify diagnostics decomposes constraints and indexes', () => {

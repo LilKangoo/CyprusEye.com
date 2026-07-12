@@ -124,7 +124,8 @@ describe('Transport Price 4.0C-E UI and email integration', () => {
 
   test('existing transport emails use effective totals from backend financial summary only', () => {
     const emailHydrator = functionSlice(sendAdminNotification, 'hydrateTransportFinancialSummaryForEmail');
-    expect(emailHydrator).toContain('.rpc("get_transport_booking_financial_summary"');
+    expect(emailHydrator).toContain('.rpc("service_get_transport_booking_financial_summary"');
+    expect(emailHydrator).not.toContain('.rpc("get_transport_booking_financial_summary"');
     expect(emailHydrator).toContain('p_booking_id: bookingId');
     expect(emailHydrator).toContain('(record as any).total_price = effectiveTotal');
     expect(emailHydrator).toContain('(record as any).confirmed_paid_gross = confirmedPaidGross');
