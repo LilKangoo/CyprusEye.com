@@ -3400,7 +3400,6 @@ const transportAdminState = {
   pricingRules: [],
   bookings: [],
   financialSummaryByBookingId: {},
-  priceAdjustmentsByBookingId: {},
   depositBaseFloor: 0,
   depositBaseMode: 'flat',
   depositBaseEnabled: false,
@@ -16628,19 +16627,6 @@ async function fetchTransportBookingFinancialSummary(client, bookingId, fallback
   return summary;
 }
 
-async function fetchTransportBookingPriceAdjustments(client, bookingId) {
-  const id = String(bookingId || '').trim();
-  if (!client || !id) return [];
-  const { data, error } = await runTransportMutation(
-    (db) => db.rpc('admin_get_transport_booking_price_adjustments', { p_booking_id: id }),
-    { silentAuthNotice: true },
-  );
-  if (error) throw error;
-  const rows = Array.isArray(data) ? data : [];
-  transportAdminState.priceAdjustmentsByBookingId[id] = rows;
-  return rows;
-}
-
 function newTransportPriceIdempotencyKey() {
   if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
     return globalThis.crypto.randomUUID();
@@ -16648,7 +16634,7 @@ function newTransportPriceIdempotencyKey() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}-${Math.random().toString(36).slice(2, 12)}`;
 }
 
-function renderTransportFinancialSummaryRows(summary, fallbackBooking = null, options = {}) {
+function renderTransportFinancialSummaryRows(summary, fallbackBooking = null) {
   const s = summary || transportFallbackFinancialSummary(fallbackBooking);
   if (!s) return '<div style="font-size:12px; color:var(--admin-danger);">Financial summary unavailable.</div>';
   const currency = s.currency || fallbackBooking?.currency || 'EUR';
@@ -16660,57 +16646,16 @@ function renderTransportFinancialSummaryRows(summary, fallbackBooking = null, op
     </div>
   `;
   const moneyOrUnavailable = (value) => value == null ? 'Unavailable' : transportMoney(value, currency);
+  const remaining = s.balance_due == null ? null : Math.max(0, Number(s.balance_due || 0));
   const rows = [
-    row('Original total', transportMoney(s.original_total, currency)),
-    row('Adjusted total', s.adjusted_total == null ? 'Not adjusted' : transportMoney(s.adjusted_total, currency)),
-    row('Current final total', transportMoney(s.effective_total, currency)),
-    row('Confirmed paid gross', moneyOrUnavailable(s.confirmed_paid_gross)),
-    row('Balance due', moneyOrUnavailable(s.balance_due)),
-    row('Overpayment', moneyOrUnavailable(s.overpayment)),
-    row('Price revision', String(s.price_revision ?? 0)),
-    row('Adjusted at', s.price_adjusted_at ? transportIsoToLabel(s.price_adjusted_at) : '—'),
+    row('Total price', transportMoney(s.effective_total, currency)),
+    row('Paid', moneyOrUnavailable(s.confirmed_paid_gross)),
+    row(remaining && remaining > 0 ? 'Remaining to pay' : 'Paid in full', remaining == null ? 'Unavailable' : (remaining > 0 ? transportMoney(remaining, currency) : 'Paid in full')),
   ];
-  const warning = s.refund_review_required
-    ? '<div style="margin-top:10px; padding:10px 12px; border-radius:8px; background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.35); color:#fbbf24; font-size:12px;">Confirmed paid amount is higher than the current final total. Refund review is required; no refund is automatic.</div>'
-    : '';
   const unavailable = summary
     ? ''
     : '<div style="margin-bottom:10px; padding:8px 10px; border-radius:8px; background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.3); color:#fecaca; font-size:12px;">Financial summary unavailable. Balance and paid amount are not locally recalculated.</div>';
-  const state = s.derived_payment_state
-    ? `<div style="margin-top:8px; font-size:12px; color:var(--admin-text-muted);">State: ${escapeHtml(s.derived_payment_state)}</div>`
-    : '';
-  const customerNote = options.showCustomerNote && s.customer_note
-    ? `<div style="margin-top:8px; font-size:12px; color:var(--admin-text-muted);">Customer note: ${escapeHtml(String(s.customer_note))}</div>`
-    : '';
-  return `${unavailable}<div style="display:grid; gap:8px; font-size:12px; color:var(--admin-text-muted);">${rows.join('')}</div>${state}${customerNote}${warning}`;
-}
-
-function renderTransportPriceAdjustmentHistory(rows, currency = 'EUR') {
-  const list = Array.isArray(rows) ? rows : [];
-  if (!list.length) {
-    return '<div style="font-size:12px; color:var(--admin-text-muted);">No price adjustments recorded.</div>';
-  }
-  return `
-    <div style="display:grid; gap:8px;">
-      ${list.map((row) => {
-        const created = row?.created_at ? transportIsoToLabel(row.created_at) : '—';
-        const previous = transportMoney(row?.previous_effective_total, row?.currency || currency);
-        const next = transportMoney(row?.new_effective_total, row?.currency || currency);
-        const revision = `${Number(row?.previous_revision ?? 0)} → ${Number(row?.new_revision ?? 0)}`;
-        return `
-          <div style="padding:10px 12px; border-radius:8px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06);">
-            <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap;">
-              <strong>${escapeHtml(previous)} → ${escapeHtml(next)}</strong>
-              <span style="font-size:11px; color:var(--admin-text-muted);">${escapeHtml(created)}</span>
-            </div>
-            <div style="font-size:12px; color:var(--admin-text-muted); margin-top:6px;">Revision ${escapeHtml(revision)}</div>
-            <div style="font-size:12px; margin-top:6px;">Reason: ${escapeHtml(String(row?.internal_reason || '—'))}</div>
-            ${row?.customer_note ? `<div style="font-size:12px; color:var(--admin-text-muted); margin-top:4px;">Customer note: ${escapeHtml(String(row.customer_note))}</div>` : ''}
-          </div>
-        `;
-      }).join('')}
-    </div>
-  `;
+  return `${unavailable}<div style="display:grid; gap:8px; font-size:12px; color:var(--admin-text-muted);">${rows.join('')}</div>`;
 }
 
 function transportStatusBadge(statusRaw) {
@@ -22446,9 +22391,6 @@ function renderTransportBookingsTable() {
       : outboundWhenLabel;
     const paxBagsLabel = `${Number(row.num_passengers || 0)} pax / ${Number(row.num_bags || 0)} small backpacks${Number(row.num_oversize_bags || 0) ? ` / ${Number(row.num_oversize_bags || 0)} large 15kg+` : ''}`;
     const amountLabel = transportMoney(transportBookingEffectiveTotal(row), row.currency || 'EUR');
-    const adjustedHint = row.adjusted_total_price == null
-      ? ''
-      : `<div class="transport-cell-subtle transport-cell-subtle--xs">Original: ${escapeHtml(transportMoney(row.total_price, row.currency || 'EUR'))}</div>`;
     const assignedPartnerLabel = row.assigned_partner_id
       ? getTransportPartnerDisplayName(row.assigned_partner_id)
       : '';
@@ -22473,7 +22415,7 @@ function renderTransportBookingsTable() {
           ${row.payment_status ? `<div class="transport-cell-subtle transport-cell-subtle--xs">${escapeHtml(String(row.payment_status).toUpperCase())}</div>` : ''}
           ${assignedPartnerLabel ? `<div class="transport-cell-subtle transport-cell-subtle--xs">Assigned: ${escapeHtml(assignedPartnerLabel)}</div>` : ''}
         </td>
-        <td data-label="Amount" style="text-align: right; font-weight: 600;"><span class="transport-amount-pill">${escapeHtml(amountLabel)}</span>${adjustedHint}</td>
+        <td data-label="Amount" style="text-align: right; font-weight: 600;"><span class="transport-amount-pill">${escapeHtml(amountLabel)}</span></td>
         <td data-label="Actions" style="text-align: right;">
           <button class="btn-small btn-secondary" type="button" onclick="viewTransportBookingDetails('${escapeHtml(id)}')">View</button>
         </td>
@@ -22556,16 +22498,11 @@ async function viewTransportBookingDetails(bookingId) {
   }
 
   let financialSummary = null;
-  let priceAdjustments = [];
   try {
-    [financialSummary, priceAdjustments] = await Promise.all([
-      fetchTransportBookingFinancialSummary(client, id, booking),
-      fetchTransportBookingPriceAdjustments(client, id),
-    ]);
+    financialSummary = await fetchTransportBookingFinancialSummary(client, id, booking);
   } catch (error) {
     console.warn('Failed to load transport booking financial summary:', error);
     financialSummary = null;
-    priceAdjustments = [];
   }
 
   await loadTransportAssignablePartners({ force: false });
@@ -22652,45 +22589,30 @@ async function viewTransportBookingDetails(bookingId) {
     <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
       <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap;">
         <div>
-          <h4 style="margin: 0 0 8px; font-size: 14px; font-weight: 600;">Financial Summary</h4>
-          <div style="font-size:12px; color:var(--admin-text-muted);">Current totals come from the central Transport financial summary.</div>
+          <h4 style="margin: 0 0 8px; font-size: 14px; font-weight: 600;">Payment Summary</h4>
         </div>
         <button type="button" class="btn-small btn-secondary" onclick="refreshTransportBookingFinancialSummary('${escapeHtml(id)}')">Refresh summary</button>
       </div>
       <div id="transportFinancialSummaryBlock" style="margin-top:12px;">
-        ${renderTransportFinancialSummaryRows(financialSummary, booking, { showCustomerNote: true })}
+        ${renderTransportFinancialSummaryRows(financialSummary, booking)}
       </div>
       <div style="margin-top:16px; padding-top:14px; border-top:1px solid rgba(255,255,255,0.08);">
-        <h4 style="margin: 0 0 10px; font-size: 14px; font-weight: 600;">Adjust price / Change final price</h4>
-        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap:10px; font-size:12px; color:var(--admin-text-muted); margin-bottom:12px;">
-          <div>Original total<br><strong style="color:var(--admin-text-primary);">${escapeHtml(transportMoney(activeSummary?.original_total ?? booking.total_price, activeSummary?.currency || transportCurrency))}</strong></div>
-          <div>Current final total<br><strong style="color:var(--admin-text-primary);">${escapeHtml(transportMoney(activeSummary?.effective_total ?? transportBookingEffectiveTotal(booking), activeSummary?.currency || transportCurrency))}</strong></div>
-          <div>Revision<br><strong style="color:var(--admin-text-primary);">${escapeHtml(String(activeSummary?.price_revision ?? transportBookingPriceRevision(booking)))}</strong></div>
-          <div>Idempotency key<br><strong id="transportPriceAdjustmentIdempotencyKey" style="color:var(--admin-text-primary); word-break:break-all;">${escapeHtml(nextIdempotencyKey)}</strong></div>
-        </div>
+        <h4 style="margin: 0 0 10px; font-size: 14px; font-weight: 600;">Change price</h4>
         <form id="transportPriceAdjustmentForm" data-booking-id="${escapeHtml(id)}" data-current-revision="${escapeHtml(String(activeSummary?.price_revision ?? transportBookingPriceRevision(booking)))}" style="display:grid; gap:10px;">
+          <input type="hidden" id="transportPriceAdjustmentIdempotencyKey" value="${escapeHtml(nextIdempotencyKey)}">
           <label style="display:grid; gap:6px;">
-            <span style="font-size:12px; color:var(--admin-text-muted);">New final total</span>
+            <span style="font-size:12px; color:var(--admin-text-muted);">Total price</span>
             <input id="transportPriceAdjustmentNewTotal" class="form-control" type="number" step="0.01" min="0.01" value="${escapeHtml(String(activeSummary?.effective_total ?? transportBookingEffectiveTotal(booking)))}" required>
           </label>
           <label style="display:grid; gap:6px;">
             <span style="font-size:12px; color:var(--admin-text-muted);">Internal reason (required, admin only)</span>
-            <textarea id="transportPriceAdjustmentReason" class="form-control" maxlength="2000" rows="3" required placeholder="Explain why this final price is being changed."></textarea>
-          </label>
-          <label style="display:grid; gap:6px;">
-            <span style="font-size:12px; color:var(--admin-text-muted);">Customer note (optional, not sent automatically)</span>
-            <textarea id="transportPriceAdjustmentCustomerNote" class="form-control" maxlength="1000" rows="2" placeholder="Optional customer-facing note for a later email or support conversation."></textarea>
+            <textarea id="transportPriceAdjustmentReason" class="form-control" maxlength="2000" rows="3" required placeholder="Required for internal audit only."></textarea>
           </label>
           <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-            <button type="submit" class="btn-secondary">Save price adjustment</button>
-            <button type="button" class="btn-small btn-secondary" onclick="resetTransportPriceAdjustmentKey()">Regenerate key</button>
+            <button type="submit" class="btn-secondary">Save price</button>
             <span id="transportPriceAdjustmentStatus" style="font-size:12px; color:var(--admin-text-muted);"></span>
           </div>
         </form>
-      </div>
-      <div style="margin-top:16px; padding-top:14px; border-top:1px solid rgba(255,255,255,0.08);">
-        <h4 style="margin: 0 0 10px; font-size: 14px; font-weight: 600;">Adjustment history</h4>
-        <div id="transportPriceAdjustmentHistoryBlock">${renderTransportPriceAdjustmentHistory(priceAdjustments, activeSummary?.currency || transportCurrency)}</div>
       </div>
     </div>
   `;
@@ -22881,7 +22803,6 @@ async function viewTransportBookingDetails(bookingId) {
           ` : ''}
         </div>
         <div style="font-size: 24px; font-weight: 700;">${escapeHtml(amountLabel)}</div>
-        ${activeSummary?.adjusted_total == null ? '' : `<div style="margin-top:6px; font-size:12px; color:var(--admin-text-muted);">Original quote: ${escapeHtml(transportMoney(activeSummary.original_total, activeSummary.currency || transportCurrency))}</div>`}
       </div>
 
       ${adjustmentBlock}
@@ -22910,7 +22831,7 @@ async function viewTransportBookingDetails(bookingId) {
 
 function resetTransportPriceAdjustmentKey() {
   const el = document.getElementById('transportPriceAdjustmentIdempotencyKey');
-  if (el) el.textContent = newTransportPriceIdempotencyKey();
+  if (el) el.value = newTransportPriceIdempotencyKey();
 }
 
 async function refreshTransportBookingFinancialSummary(bookingId) {
@@ -22920,17 +22841,12 @@ async function refreshTransportBookingFinancialSummary(bookingId) {
   if (!client) return;
   const booking = (transportAdminState.bookings || []).find((row) => String(row?.id || '') === id) || null;
   const summaryBlock = document.getElementById('transportFinancialSummaryBlock');
-  const historyBlock = document.getElementById('transportPriceAdjustmentHistoryBlock');
   try {
-    const [summary, history] = await Promise.all([
-      fetchTransportBookingFinancialSummary(client, id, booking),
-      fetchTransportBookingPriceAdjustments(client, id),
-    ]);
-    if (summaryBlock) summaryBlock.innerHTML = renderTransportFinancialSummaryRows(summary, booking, { showCustomerNote: true });
-    if (historyBlock) historyBlock.innerHTML = renderTransportPriceAdjustmentHistory(history, summary?.currency || booking?.currency || 'EUR');
+    const summary = await fetchTransportBookingFinancialSummary(client, id, booking);
+    if (summaryBlock) summaryBlock.innerHTML = renderTransportFinancialSummaryRows(summary, booking);
   } catch (error) {
     console.warn('Failed to refresh transport financial summary:', error);
-    if (summaryBlock) summaryBlock.innerHTML = renderTransportFinancialSummaryRows(null, booking, { showCustomerNote: true });
+    if (summaryBlock) summaryBlock.innerHTML = renderTransportFinancialSummaryRows(null, booking);
     showToast(String(error?.message || 'Financial summary unavailable'), 'error');
   }
 }
@@ -22945,14 +22861,12 @@ async function submitTransportPriceAdjustment(bookingId) {
   const statusEl = document.getElementById('transportPriceAdjustmentStatus');
   const newTotalEl = document.getElementById('transportPriceAdjustmentNewTotal');
   const reasonEl = document.getElementById('transportPriceAdjustmentReason');
-  const noteEl = document.getElementById('transportPriceAdjustmentCustomerNote');
   const keyEl = document.getElementById('transportPriceAdjustmentIdempotencyKey');
 
   const newTotal = Number(newTotalEl?.value);
   const reason = String(reasonEl?.value || '').trim();
-  const customerNote = String(noteEl?.value || '').trim();
   const expectedRevision = Number(form?.getAttribute('data-current-revision') || '0');
-  const idempotencyKey = String(keyEl?.textContent || '').trim() || newTransportPriceIdempotencyKey();
+  const idempotencyKey = String(keyEl?.value || '').trim() || newTransportPriceIdempotencyKey();
 
   if (!Number.isFinite(newTotal) || newTotal <= 0) {
     showToast('Enter a valid final total greater than zero', 'error');
@@ -22962,7 +22876,7 @@ async function submitTransportPriceAdjustment(bookingId) {
     showToast('Internal reason is required', 'error');
     return;
   }
-  if (!confirm('Save this final price adjustment? This will not modify paid payment records, Stripe, commissions or payouts.')) {
+  if (!confirm('Save this transport price? This will not modify paid payment records, Stripe, commissions or payouts.')) {
     return;
   }
 
@@ -22973,7 +22887,7 @@ async function submitTransportPriceAdjustment(bookingId) {
         p_booking_id: id,
         p_new_total: Number(newTotal.toFixed(2)),
         p_reason: reason,
-        p_customer_note: customerNote || null,
+        p_customer_note: null,
         p_expected_revision: Number.isInteger(expectedRevision) ? expectedRevision : 0,
         p_idempotency_key: idempotencyKey,
       }),
@@ -27171,7 +27085,6 @@ async function viewUserDetails(userId) {
                   const paymentStatus = escapeHtml(b.payment_status || '');
                   const effectiveTotal = transportBookingEffectiveTotal(b);
                   const total = b.total_price == null ? '—' : escapeHtml(formatMoney(effectiveTotal, b.currency || 'EUR'));
-                  const adjusted = b.adjusted_total_price == null ? '' : `<div style="font-size:10px; color:var(--admin-text-muted);">Original ${escapeHtml(formatMoney(b.total_price, b.currency || 'EUR'))}</div>`;
                   const id = escapeHtml(String(b.id || ''));
                   return `
                     <tr>
@@ -27181,7 +27094,7 @@ async function viewUserDetails(userId) {
                       <td>${escapeHtml(travelTime || '—')}</td>
                       <td>${status || '—'}</td>
                       <td>${paymentStatus || '—'}</td>
-                      <td style="text-align:right;">${total}${adjusted}</td>
+                      <td style="text-align:right;">${total}</td>
                       <td style="text-align:right;">
                         <button class="btn-small btn-secondary" onclick="viewTransportBookingDetails('${id}')">View</button>
                       </td>

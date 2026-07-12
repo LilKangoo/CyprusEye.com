@@ -191,12 +191,11 @@ function buildViewModel(row) {
   }
 
   const currency = String(row?.currency || params.get('currency') || 'EUR').trim() || 'EUR'
-  const amountPaid = toNumber(row?.amount) ?? toNumber(params.get('amount'))
-  const totalFromQuery = toNumber(params.get('total'))
+  const amountPaid = toNumber(row?.amount)
   const totalFromRow = toNumber(row?.fulfillment_total_price)
     ?? toNumber(row?.booking_total_price)
     ?? toNumber(row?.total_price)
-  const totalPrice = totalFromQuery ?? totalFromRow
+  const totalPrice = totalFromRow
   const remaining = (amountPaid != null && totalPrice != null)
     ? Math.max(0, Number((totalPrice - amountPaid).toFixed(2)))
     : null

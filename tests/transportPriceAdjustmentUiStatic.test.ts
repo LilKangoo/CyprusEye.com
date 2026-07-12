@@ -25,10 +25,12 @@ describe('Transport Price 4.0C-D UI integration', () => {
     expect(admin).toContain('p_expected_revision');
     expect(admin).toContain('p_idempotency_key');
     expect(admin).toContain('get_transport_booking_financial_summary');
-    expect(admin).toContain('admin_get_transport_booking_price_adjustments');
+    expect(admin).not.toContain('admin_get_transport_booking_price_adjustments');
     expect(admin).not.toMatch(/\.from\(['"]transport_bookings['"]\)\s*[\s\S]{0,220}\.update\(\s*\{[\s\S]{0,220}adjusted_total_price/i);
     expect(admin).not.toMatch(/\.from\(['"]transport_bookings['"]\)\s*[\s\S]{0,220}\.update\(\s*\{[\s\S]{0,220}price_revision/i);
     expect(admin).not.toMatch(/\.from\(['"]transport_bookings['"]\)\s*[\s\S]{0,220}\.update\(\s*\{[\s\S]{0,220}price_adjusted_at/i);
+    const submit = functionSlice(admin, 'submitTransportPriceAdjustment');
+    expect(submit).toContain('p_customer_note: null');
   });
 
   test('transport totals never add return_total_price on the frontend', () => {
@@ -53,6 +55,56 @@ describe('Transport Price 4.0C-D UI integration', () => {
     expect(partners).not.toContain('internal_reason');
     expect(dashboard).not.toContain('admin_get_transport_booking_price_adjustments');
     expect(partners).not.toContain('admin_get_transport_booking_price_adjustments');
+  });
+
+  test('standard admin, customer and partner UI do not disclose price adjustment state', () => {
+    const adminDetails = functionSlice(admin, 'viewTransportBookingDetails');
+    const forbiddenCustomerPartnerText = [
+      'Original price',
+      'Current final price',
+      'Overpayment / refund review',
+      'price changed',
+      'previous price',
+      'old price',
+      'new price',
+      'refund review required',
+      'customer adjustment note',
+    ];
+    const forbiddenAdminDetailsText = [
+      'Original total',
+      'Adjusted total',
+      'Current final total',
+      'Original quote',
+      'Adjustment history',
+      'Customer note',
+      'Revision<br>',
+      'price adjustment',
+    ];
+
+    forbiddenCustomerPartnerText.forEach((text) => {
+      expect(dashboard).not.toContain(text);
+      expect(partners).not.toContain(text);
+    });
+    forbiddenAdminDetailsText.forEach((text) => {
+      expect(adminDetails).not.toContain(text);
+    });
+    expect(adminDetails).toContain('Change price');
+    expect(adminDetails).toContain('Total price');
+    expect(dashboard).toContain('Paid in full');
+    expect(partners).toContain('Paid in full');
+  });
+
+  test('deposit email link page fetches current backend totals instead of query prices', () => {
+    expect(deposit).toContain("supabase.rpc('get_service_deposit_status'");
+    expect(deposit).not.toContain("params.get('total')");
+    expect(deposit).not.toContain("params.get('amount')");
+    expect(deposit).toContain('const totalPrice = totalFromRow');
+  });
+
+  test('price save does not invoke email or payment side effects', () => {
+    const submit = functionSlice(admin, 'submitTransportPriceAdjustment');
+    expect(submit).not.toMatch(/send_deposit_email|send.*email|functions\.invoke|stripe\.|checkout\.sessions|paymentintents|refunds\./i);
+    expect(submit).not.toMatch(/service_deposit_requests|affiliate_commission_events|affiliate_payouts|partner_service_fulfillments/i);
   });
 
   test('payment, Stripe, commission and payout tables are not modified by 4.0C-D frontend changes', () => {

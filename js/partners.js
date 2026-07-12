@@ -6330,22 +6330,16 @@
 
   function normalizeTransportFinancialSummary(row) {
     if (!row || typeof row !== 'object') return null;
-    const num = (value) => {
-      const n = Number(value);
-      return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
-    };
-    return {
-      booking_id: String(row.booking_id || '').trim(),
-      original_total: num(row.original_total),
-      adjusted_total: row.adjusted_total == null ? null : num(row.adjusted_total),
-      effective_total: num(row.effective_total),
-      currency: String(row.currency || 'EUR').trim().toUpperCase() || 'EUR',
+  const num = (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
+  };
+  return {
+    booking_id: String(row.booking_id || '').trim(),
+    effective_total: num(row.effective_total),
+    currency: String(row.currency || 'EUR').trim().toUpperCase() || 'EUR',
       confirmed_paid_gross: num(row.confirmed_paid_gross),
       balance_due: num(row.balance_due),
-      overpayment: num(row.overpayment),
-      refund_review_required: Boolean(row.refund_review_required),
-      price_revision: Number(row.price_revision || 0),
-      price_adjusted_at: row.price_adjusted_at || null,
       derived_payment_state: String(row.derived_payment_state || '').trim(),
     };
   }
@@ -10070,13 +10064,12 @@
         const currency = String(f.currency || 'EUR').trim().toUpperCase() || 'EUR';
         const transportSummary = category === 'transport' ? getPartnerTransportFinancialSummary(f) : null;
         if (category === 'transport' && transportSummary) {
+          const remaining = Math.max(0, Number(transportSummary.balance_due || 0));
           return {
             currency: transportSummary.currency || String(transportBooking?.currency || currency).trim().toUpperCase() || 'EUR',
             total: Number(Number(transportSummary.effective_total || 0).toFixed(2)),
             paidDeposit: Number(Number(transportSummary.confirmed_paid_gross || 0).toFixed(2)),
-            remaining: Number(Number(transportSummary.balance_due || 0).toFixed(2)),
-            overpayment: Number(Number(transportSummary.overpayment || 0).toFixed(2)),
-            refundReviewRequired: Boolean(transportSummary.refund_review_required),
+            remaining: Number(remaining.toFixed(2)),
             summaryUnavailable: false,
           };
         }
@@ -10123,12 +10116,12 @@
 
       const paymentSummaryPairs = servicePaymentSummary
         ? [
-          { label: category === 'transport' ? 'Current final price' : 'Total price', value: formatMoney(servicePaymentSummary.total, servicePaymentSummary.currency) },
+          { label: 'Total price', value: formatMoney(servicePaymentSummary.total, servicePaymentSummary.currency) },
           ...(servicePaymentSummary.summaryUnavailable ? [
             { label: 'Payment summary', value: 'Unavailable', valueClass: 'partner-details-value--muted' },
           ] : [
-            { label: 'Confirmed paid', value: formatMoney(servicePaymentSummary.paidDeposit, servicePaymentSummary.currency) },
-            { label: servicePaymentSummary.refundReviewRequired ? 'Overpayment / refund review' : 'Remaining to collect on-site', value: formatMoney(servicePaymentSummary.refundReviewRequired ? servicePaymentSummary.overpayment : servicePaymentSummary.remaining, servicePaymentSummary.currency), valueClass: servicePaymentSummary.refundReviewRequired ? 'partner-details-value--highlight-orange' : 'partner-details-value--highlight-green' },
+            { label: 'Paid', value: formatMoney(servicePaymentSummary.paidDeposit, servicePaymentSummary.currency) },
+            { label: servicePaymentSummary.remaining > 0 ? 'Remaining' : 'Paid in full', value: servicePaymentSummary.remaining > 0 ? formatMoney(servicePaymentSummary.remaining, servicePaymentSummary.currency) : 'Paid in full', valueClass: 'partner-details-value--highlight-green' },
           ]),
         ]
         : [];
@@ -10954,10 +10947,7 @@
               const transportSummary = getPartnerTransportFinancialSummary(f);
               const amount = getPartnerTransportEffectiveAmount(f);
               const currency = transportSummary?.currency || f.currency || 'EUR';
-              const adjustedHint = transportSummary?.adjusted_total == null
-                ? ''
-                : `<div class="small" style="margin-top:4px; opacity:0.9;">Original ${escapeHtml(formatMoney(transportSummary.original_total, currency))}</div>`;
-              return `<span class="small">${escapeHtml(formatMoney(amount, currency))}</span>${adjustedHint}`;
+              return `<span class="small">${escapeHtml(formatMoney(amount, currency))}</span>`;
             }
             return `<span class="small">${val}</span>${couponHint}`;
           }

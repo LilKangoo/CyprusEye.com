@@ -1015,8 +1015,6 @@ async function fetchAllBookings(limit = 100) {
       status: booking.status || 'pending',
       payment_status: booking.payment_status || 'pending',
       price: effectivePrice,
-      original_price: normalizeTransportMoney(booking.total_price),
-      adjusted_price: normalizeTransportMoney(booking.adjusted_total_price),
       financial_summary: financialSummary,
       financial_summary_unavailable: !financialSummary,
       currency: financialSummary?.currency || booking.currency || 'EUR',
@@ -1115,18 +1113,11 @@ function normalizeTransportFinancialSummary(row) {
     return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
   };
   return {
-    original_total: num(row.original_total),
-    adjusted_total: row.adjusted_total == null ? null : num(row.adjusted_total),
     effective_total: num(row.effective_total),
     currency: String(row.currency || 'EUR').trim().toUpperCase() || 'EUR',
     confirmed_paid_gross: num(row.confirmed_paid_gross),
     balance_due: num(row.balance_due),
-    overpayment: num(row.overpayment),
-    refund_review_required: Boolean(row.refund_review_required),
-    price_revision: Number(row.price_revision || 0),
-    price_adjusted_at: row.price_adjusted_at || null,
     derived_payment_state: String(row.derived_payment_state || '').trim(),
-    customer_note: row.customer_note || null,
   };
 }
 
@@ -1223,12 +1214,9 @@ function getBookingLabels() {
       nights: 'Noce',
       people: 'Osoby',
       totalPrice: 'Całkowita cena',
-      originalPrice: 'Pierwotna cena',
-      currentFinalPrice: 'Aktualna cena końcowa',
-      confirmedPaid: 'Potwierdzona wpłata',
+      confirmedPaid: 'Zapłacono',
       amountRemaining: 'Pozostało do zapłaty',
       paidInFull: 'Opłacone w całości',
-      overpayment: 'Nadpłata / weryfikacja zwrotu',
       financialSummaryUnavailable: 'Podsumowanie finansowe niedostępne',
       pendingPrice: 'Oczekuje na wycenę',
       estimatedPrice: 'Szacunkowa cena na podstawie aktualnych stawek.',
@@ -1264,12 +1252,9 @@ function getBookingLabels() {
       nights: 'Nights',
       people: 'People',
       totalPrice: 'Total Price',
-      originalPrice: 'Original price',
-      currentFinalPrice: 'Current final price',
-      confirmedPaid: 'Confirmed paid',
+      confirmedPaid: 'Paid',
       amountRemaining: 'Amount remaining',
       paidInFull: 'Paid in full',
-      overpayment: 'Overpayment / refund review',
       financialSummaryUnavailable: 'Financial summary unavailable',
       pendingPrice: 'Pending quote',
       estimatedPrice: 'Estimated price based on current rates.',
@@ -1305,12 +1290,9 @@ function getBookingLabels() {
       nights: 'Νύχτες',
       people: 'Άτομα',
       totalPrice: 'Συνολική τιμή',
-      originalPrice: 'Αρχική τιμή',
-      currentFinalPrice: 'Τρέχουσα τελική τιμή',
-      confirmedPaid: 'Επιβεβαιωμένη πληρωμή',
+      confirmedPaid: 'Πληρώθηκε',
       amountRemaining: 'Υπόλοιπο',
       paidInFull: 'Εξοφλήθηκε',
-      overpayment: 'Υπερπληρωμή / έλεγχος επιστροφής',
       financialSummaryUnavailable: 'Η οικονομική σύνοψη δεν είναι διαθέσιμη',
       pendingPrice: 'Αναμονή τιμής',
       estimatedPrice: 'Εκτιμώμενη τιμή βάσει τρεχουσών τιμών.',
@@ -1346,12 +1328,9 @@ function getBookingLabels() {
       nights: 'לילות',
       people: 'אנשים',
       totalPrice: 'מחיר כולל',
-      originalPrice: 'מחיר מקורי',
-      currentFinalPrice: 'מחיר סופי נוכחי',
-      confirmedPaid: 'סכום ששולם ואושר',
+      confirmedPaid: 'שולם',
       amountRemaining: 'יתרה לתשלום',
       paidInFull: 'שולם במלואו',
-      overpayment: 'תשלום יתר / בדיקת החזר',
       financialSummaryUnavailable: 'סיכום כספי אינו זמין',
       pendingPrice: 'ממתין להצעת מחיר',
       estimatedPrice: 'מחיר משוער על פי תעריפים נוכחיים.',
@@ -1597,39 +1576,19 @@ window.openBookingDetails = function(id, type) {
     const currency = summary?.currency || booking.currency || 'EUR';
     const money = (value) => formatBookingPrice({ price: value, currency }, labels.pendingPrice);
     if (summary) {
-      const showOriginal = summary.adjusted_total != null && summary.original_total != null;
+      const remaining = Math.max(0, Number(summary.balance_due || 0));
       detailsHtml += `
-        ${showOriginal ? `
-        <div class="detail-row">
-          <span class="detail-label">${labels.originalPrice}</span>
-          <span class="detail-value">${money(summary.original_total)}</span>
-        </div>
-        ` : ''}
-        <div class="detail-row">
-          <span class="detail-label">${labels.currentFinalPrice}</span>
-          <span class="detail-value">${money(summary.effective_total)}</span>
-        </div>
         <div class="detail-row">
           <span class="detail-label">${labels.confirmedPaid}</span>
           <span class="detail-value">${money(summary.confirmed_paid_gross)}</span>
         </div>
         <div class="detail-row">
-          <span class="detail-label">${summary.balance_due > 0 ? labels.amountRemaining : labels.paidInFull}</span>
-          <span class="detail-value">${summary.balance_due > 0 ? money(summary.balance_due) : labels.paidInFull}</span>
+          <span class="detail-label">${remaining > 0 ? labels.amountRemaining : labels.paidInFull}</span>
+          <span class="detail-value">${remaining > 0 ? money(remaining) : labels.paidInFull}</span>
         </div>
-        ${summary.refund_review_required ? `
-        <div class="detail-row">
-          <span class="detail-label">${labels.overpayment}</span>
-          <span class="detail-value">${money(summary.overpayment)}</span>
-        </div>
-        ` : ''}
       `;
     } else {
       detailsHtml += `
-        <div class="detail-row">
-          <span class="detail-label">${labels.currentFinalPrice}</span>
-          <span class="detail-value">${priceText}</span>
-        </div>
         <p class="detail-note">${labels.financialSummaryUnavailable}</p>
       `;
     }
