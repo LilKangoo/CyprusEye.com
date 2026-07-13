@@ -1041,6 +1041,34 @@ test.describe('Special Offer public read-only landing', () => {
     await expect(page.locator('[data-special-offer-form-status]')).toContainText('maximum number of entries');
   });
 
+  test('handles production entry_id ambiguity RPC failure without TypeError or form data loss', async ({ page }) => {
+    const pageErrors: string[] = [];
+    const consoleErrors: string[] = [];
+    page.on('pageerror', (error) => pageErrors.push(error.message));
+    page.on('console', (message) => {
+      if (message.type() === 'error') consoleErrors.push(message.text());
+    });
+    await prepareSpecialOfferLandingStub(page, {
+      participantSession: true,
+      rpcError: 'column reference "entry_id" is ambiguous',
+    });
+    await page.goto('/special-offers/published-submit-form-2026?lang=pl');
+    await waitForSupabaseStub(page);
+    await fillValidSubmitForm(page);
+
+    await page.locator('[data-special-offer-submit]').click();
+
+    await expect(page.locator('[data-special-offer-form-status]')).toContainText('Nie udało się wysłać zgłoszenia. Spróbuj ponownie za chwilę.');
+    await expect(page.locator('[data-special-offer-submit]')).toBeEnabled();
+    await expect(page.locator('[name="first_name"]')).toHaveValue('Anna');
+    await expect(page.locator('[name="contest_answer"]')).toHaveValue('I would love to visit Lefkara because it is beautiful.');
+    expect(pageErrors.join('\n')).not.toContain('Cannot read properties of undefined');
+    expect(consoleErrors.join('\n')).toContain('Special Offer entry submit failed');
+
+    const submitCalls = await page.evaluate(() => (window as any).__supabaseStub.getRpcCalls().filter((call: any) => call.name === 'submit_special_offer_entry'));
+    expect(submitCalls).toHaveLength(1);
+  });
+
   test('keeps mobile landing within the viewport and performs no forbidden writes', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await prepareSpecialOfferLandingStub(page, { adminSession: true });

@@ -2133,6 +2133,10 @@ async function handleEntrySubmit(event) {
       p_referral_source: referralPayload.p_referral_source,
     });
     if (error) throw error;
+    const payload = Array.isArray(result) ? result[0] : result;
+    if (!payload?.entry_id) {
+      throw new Error('submission_not_accepted');
+    }
     clearSubmissionId();
     formDraft = {};
     activeSubmitErrorCode = '';
@@ -2140,7 +2144,7 @@ async function handleEntrySubmit(event) {
     showSuccessState(result, lang);
     void refreshOwnEntryData({ render: false }).then(() => refreshActivityData({ render: true }));
   } catch (error) {
-    console.warn('Special Offer entry submit failed:', error);
+    console.error('Special Offer entry submit failed:', error);
     const code = mapSubmitError(error);
     activeSubmitErrorCode = code;
     const retryable = code === 'network_error' || code === 'temporary_error';
