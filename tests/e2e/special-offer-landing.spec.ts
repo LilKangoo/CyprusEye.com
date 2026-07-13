@@ -9,8 +9,8 @@ const PUBLIC_EMPTY_FORM_OFFER_ID = '6a6b166e-fb18-4b3e-a69c-a1f25722a301';
 const PUBLIC_OPTIONS_FORM_OFFER_ID = '7f50b732-9c87-402a-b0b1-afbd7a34e401';
 const PUBLIC_SUBMIT_FORM_OFFER_ID = '8d89c4c9-c0de-4d6e-9a18-0ad8d376e3a4';
 
-async function prepareSpecialOfferLandingStub(page: Page, options: { adminSession?: boolean; participantSession?: boolean; unconfirmedSession?: boolean; rpcError?: string; rpcReference?: string; existingEntryStatus?: string; existingCorrectionCount?: number } = {}) {
-  await page.addInitScript(({ adminId, draftOfferId, publicOfferId, publicEmptyFormOfferId, publicOptionsFormOfferId, publicSubmitFormOfferId, adminSession, participantSession, unconfirmedSession, rpcError, rpcReference, existingEntryStatus, existingCorrectionCount }) => {
+async function prepareSpecialOfferLandingStub(page: Page, options: { adminSession?: boolean; participantSession?: boolean; unconfirmedSession?: boolean; rpcError?: string; rpcReference?: string; existingEntryStatus?: string; existingCorrectionCount?: number; insertEntryOnSubmit?: boolean } = {}) {
+  await page.addInitScript(({ adminId, draftOfferId, publicOfferId, publicEmptyFormOfferId, publicOptionsFormOfferId, publicSubmitFormOfferId, adminSession, participantSession, unconfirmedSession, rpcError, rpcReference, existingEntryStatus, existingCorrectionCount, insertEntryOnSubmit }) => {
     (window as any).__supabaseStub = {
       ...(window as any).__supabaseStub,
       onReady: (stub: any) => {
@@ -63,15 +63,34 @@ async function prepareSpecialOfferLandingStub(page: Page, options: { adminSessio
           stub.setSession(null);
         }
 
-        stub.setRpcHandler('submit_special_offer_entry', async (params: any) => {
+        stub.setRpcHandler('submit_special_offer_entry', async (params: any, ctx: any) => {
           if (rpcError) {
             return { data: null, error: { message: rpcError } };
+          }
+          const reference = rpcReference || 'SO-TEST12345';
+          if (insertEntryOnSubmit) {
+            const entries = ctx.getTableRows('special_offer_entries') || [];
+            if (!entries.some((row: any) => row.id === 'entry-hidden-id')) {
+              ctx.setTableRows('special_offer_entries', entries.concat([{
+                id: 'entry-hidden-id',
+                offer_id: publicSubmitFormOfferId,
+                user_id: 'participant-user-1',
+                reference,
+                status: 'pending_review',
+                submitted_lang: params?.p_lang || 'en',
+                correction_count: 0,
+                corrected_at: null,
+                correction_client_submission_id: null,
+                created_at: '2026-07-13T12:00:00.000Z',
+                reviewed_at: null,
+              }]));
+            }
           }
           return {
             data: [{
               entry_id: 'entry-hidden-id',
               status: 'pending_review',
-              reference: rpcReference || 'SO-TEST12345',
+              reference,
               idempotent: false,
             }],
             error: null,
@@ -109,6 +128,21 @@ async function prepareSpecialOfferLandingStub(page: Page, options: { adminSessio
             error: null,
           };
         });
+        stub.setRpcHandler('special_offer_entry_score_summary', (params: any) => ({
+          data: [{
+            offer_id: params?.p_offer_id,
+            entry_id: params?.p_entry_id,
+            reference: rpcReference || 'SO-TEST12345',
+            entry_status: 'pending_review',
+            base_points: 0,
+            share_points: 0,
+            comment_points: 0,
+            bonus_points: 0,
+            total_points: 0,
+            approved_activity_count: 0,
+          }],
+          error: null,
+        }));
         stub.setRpcHandler('get_public_special_offer_landing', async (params: any, ctx: any) => {
           const slug = String(params?.p_slug || '').trim();
           const now = new Date();
@@ -214,6 +248,7 @@ async function prepareSpecialOfferLandingStub(page: Page, options: { adminSessio
             timezone: 'Asia/Nicosia',
             requires_form: true,
             requires_login: true,
+            allow_bonus_points: Boolean(insertEntryOnSubmit),
           },
         ]);
 
@@ -503,6 +538,21 @@ async function prepareSpecialOfferLandingStub(page: Page, options: { adminSessio
             created_at: '2026-07-10T10:00:01.000Z',
           }));
         stub.seedTable('special_offer_entry_answers', existingEntryStatus ? answerSnapshots : []);
+        stub.seedTable('special_offer_official_posts', [{
+          id: 'official-post-submit-1',
+          offer_id: publicSubmitFormOfferId,
+          post_order: 1,
+          week_number: 1,
+          admin_title: 'Official Facebook post',
+          platform: 'facebook',
+          official_url: 'https://facebook.com/cypruseye/posts/test',
+          published_at: '2026-07-10T10:00:00.000Z',
+          comment_deadline_at: '2026-12-30T20:59:00.000Z',
+          active: true,
+          created_at: '2026-07-10T10:00:00.000Z',
+          updated_at: '2026-07-10T10:00:00.000Z',
+        }]);
+        stub.seedTable('special_offer_entry_activities', []);
         stub.seedTable('special_offer_tasks', []);
         stub.seedTable('special_offer_entry_tasks', []);
         stub.seedTable('special_offer_draws', []);
@@ -524,6 +574,7 @@ async function prepareSpecialOfferLandingStub(page: Page, options: { adminSessio
     rpcReference: options.rpcReference || '',
     existingEntryStatus: options.existingEntryStatus || '',
     existingCorrectionCount: options.existingCorrectionCount || 0,
+    insertEntryOnSubmit: Boolean(options.insertEntryOnSubmit),
   });
 }
 
@@ -1005,6 +1056,38 @@ test.describe('Special Offer public read-only landing', () => {
     });
     const source = await page.request.get('/js/special-offer.js').then((response) => response.text());
     expect(source).not.toMatch(/\.from\(['"`]special_offer_(entries|entry_answers)['"`]\)[\s\S]{0,300}\.(insert|update|delete|upsert)\(/);
+  });
+
+  test('refreshes My Activity after successful submit without campaign payload TypeError', async ({ page }) => {
+    const pageErrors: string[] = [];
+    const consoleErrors: string[] = [];
+    page.on('pageerror', (error) => pageErrors.push(error.message));
+    page.on('console', (message) => {
+      if (message.type() === 'error') consoleErrors.push(message.text());
+    });
+
+    await prepareSpecialOfferLandingStub(page, {
+      participantSession: true,
+      rpcReference: 'SO-624CF4616F',
+      insertEntryOnSubmit: true,
+    });
+    await page.goto('/special-offers/published-submit-form-2026?lang=pl');
+    await waitForSupabaseStub(page);
+    await fillValidSubmitForm(page);
+
+    await page.locator('[data-special-offer-submit]').click();
+
+    const formSection = page.locator('[data-special-offer-entry-placeholder]');
+    await expect(formSection).toContainText('SO-624CF4616F');
+    await expect(formSection).toContainText('pending_review');
+    await expect(page.getByText('Oficjalne posty')).toBeVisible();
+    await expect(page.getByText('Official Facebook post')).toBeVisible();
+    await expect(page.locator('[data-special-offer-entry-form]')).toHaveCount(0);
+
+    const submitCalls = await page.evaluate(() => (window as any).__supabaseStub.getRpcCalls().filter((call: any) => call.name === 'submit_special_offer_entry'));
+    expect(submitCalls).toHaveLength(1);
+    expect(pageErrors.join('\n')).not.toContain('Cannot read properties of undefined');
+    expect(consoleErrors.join('\n')).not.toContain('Cannot read properties of undefined');
   });
 
   test('keeps the same submission id for retryable RPC errors and maps duplicate/max errors safely', async ({ page }) => {

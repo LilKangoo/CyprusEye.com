@@ -636,7 +636,7 @@ async function refreshSpecialOfferAuthState() {
 }
 
 function rerenderEntryFormIfPossible({ scroll = false } = {}) {
-  if (!currentState?.data) return;
+  if (!currentState?.data?.campaign) return;
   renderEntryForm(currentState.data, currentState.lang);
   if (scroll && refs.entrySection) {
     refs.entrySection.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1514,7 +1514,11 @@ async function refreshOwnEntryData({ render = true, scroll = false } = {}) {
   const data = state?.data;
   const lang = state?.lang || readRequestedLang();
   const offerId = cleanText(data?.campaign?.id);
-  if (!data || !offerId || state?.previewMode || data.campaign?.requires_form !== true) {
+  if (!data?.campaign) {
+    resetOwnEntryState('');
+    return;
+  }
+  if (!offerId || state?.previewMode || data.campaign?.requires_form !== true) {
     resetOwnEntryState(offerId);
     if (render) renderEntryForm(data, lang);
     return;
@@ -1566,7 +1570,7 @@ async function refreshActivityData({ render = true, scroll = false } = {}) {
   const state = currentState;
   const data = state?.data;
   const lang = state?.lang || readRequestedLang();
-  if (!data || !refs.activitySection) return;
+  if (!data?.campaign || !refs.activitySection) return;
 
   if (!isActivityCampaignAvailable(data) || state.previewMode) {
     activityState = {
@@ -1587,7 +1591,8 @@ async function refreshActivityData({ render = true, scroll = false } = {}) {
   if (render) renderActivitySection(data, lang);
 
   try {
-    const offerId = data.campaign.id;
+    const offerId = cleanText(data.campaign.id);
+    if (!offerId) return;
     const posts = await fetchPublicOfficialPosts(offerId);
     let entries = [];
     let entry = null;
@@ -2142,7 +2147,11 @@ async function handleEntrySubmit(event) {
     activeSubmitErrorCode = '';
     formStatus = 'success';
     showSuccessState(result, lang);
-    void refreshOwnEntryData({ render: false }).then(() => refreshActivityData({ render: true }));
+    void refreshOwnEntryData({ render: false })
+      .then(() => refreshActivityData({ render: true }))
+      .catch((refreshError) => {
+        console.warn('Special Offer post-submit refresh failed:', refreshError);
+      });
   } catch (error) {
     console.error('Special Offer entry submit failed:', error);
     const code = mapSubmitError(error);
@@ -2309,6 +2318,7 @@ function renderLockedFormState(lang, state) {
 function renderEntryForm(data, lang) {
   const t = getText(lang);
   if (!refs.entrySection) return;
+  if (!data?.campaign) return;
   refs.entrySection.hidden = false;
   refs.entrySection.dir = lang === 'he' ? 'rtl' : 'ltr';
   const requiresForm = data.campaign?.requires_form === true;
