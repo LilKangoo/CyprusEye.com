@@ -15318,6 +15318,11 @@ window.deleteHotelBooking = deleteHotelBooking;
 // TRANSPORT ADMIN MODULE
 // =====================================================
 
+const TransportAdminCore = globalThis.TransportAdminCore;
+const TransportAdminNavigation = globalThis.TransportAdminNavigation;
+const TransportAdminRepository = globalThis.TransportAdminRepository;
+const TransportRouteWizard = globalThis.TransportRouteWizard;
+
 const TRANSPORT_TABLES = {
   locations: 'transport_locations',
   routes: 'transport_routes',
@@ -15627,6 +15632,14 @@ function normalizeTransportTab(value) {
   return 'locations';
 }
 
+function getTransportAdminV2TabForLegacyTab(tab) {
+  const normalized = normalizeTransportTab(tab);
+  if (normalized === 'locations') return 'locations';
+  if (normalized === 'routes') return 'legacyTools';
+  if (normalized === 'pricing') return 'advancedPricing';
+  return 'bookings';
+}
+
 function normalizeTransportBulkScopeMode(value, fallback = 'city_pair') {
   const mode = String(value || '').trim().toLowerCase();
   if (mode === 'all_routes' || mode === 'city_pair' || mode === 'single_route') {
@@ -15636,10 +15649,6 @@ function normalizeTransportBulkScopeMode(value, fallback = 'city_pair') {
 }
 
 function getTransportActiveTab() {
-  const activeBtn = document.querySelector('.transport-tab-button.active');
-  if (activeBtn) {
-    return normalizeTransportTab(activeBtn.getAttribute('data-tab') || 'locations');
-  }
   return normalizeTransportTab(transportAdminState.activeTab || 'locations');
 }
 
@@ -15916,6 +15925,7 @@ function applyTransportCityPairToRouteBulkScope(originGroup, destinationGroup, f
   syncTransportRouteCityBulkScopeControls();
   syncTransportRouteCityBulkSummary();
   syncTransportRouteCityBulkToPricingManager({ force: true });
+  TransportAdminNavigation.activate('globalSettings');
   const includeReverse = Boolean(includeReverseEl instanceof HTMLInputElement ? includeReverseEl.checked : false);
   showToast(`Loaded scope: ${getTransportCityPairLabel(origin, destination, includeReverse)}`, 'success');
 }
@@ -15938,6 +15948,7 @@ function applyTransportCityPairToPricingBulkScope(originGroup, destinationGroup,
 
   syncTransportPricingCityBulkScopeControls();
   syncTransportPricingCityBulkSummary();
+  TransportAdminNavigation.activate('globalSettings');
   const includeReverse = Boolean(includeReverseEl instanceof HTMLInputElement ? includeReverseEl.checked : false);
   showToast(`Loaded pricing scope: ${getTransportCityPairLabel(origin, destination, includeReverse)}`, 'success');
 }
@@ -20325,6 +20336,7 @@ async function loadTransportLocationsData(options = {}) {
   });
 
   refreshTransportLocationSelects();
+  refreshTransportAdminV2RouteFilterOptions();
   renderTransportLocationsTable();
   syncTransportControlCenter();
 }
@@ -20531,13 +20543,6 @@ function transportDepositModeLabel(modeRaw, currency = 'EUR') {
   if (mode === 'fixed_amount') return `Fixed ${currency}`;
   if (mode === 'per_person') return `Per person ${currency}`;
   return '% of total';
-}
-
-function mapTransportPricingDepositModeToServiceMode(modeRaw) {
-  const mode = String(modeRaw || '').trim().toLowerCase();
-  if (mode === 'fixed_amount') return 'flat';
-  if (mode === 'per_person') return 'per_person';
-  return 'percent_total';
 }
 
 function mapServiceDepositModeToTransportPricingMode(modeRaw) {
@@ -20952,7 +20957,6 @@ async function syncTransportDepositOverridesForRoutes(client, routeIds, options 
 
   const depositEnabled = Boolean(options.depositEnabled);
   const depositValue = Number(options.depositValue || 0);
-  const mappedMode = mapTransportPricingDepositModeToServiceMode(options.depositMode);
 
   let includeChildren = false;
   let defaultCurrency = 'EUR';
@@ -20976,7 +20980,15 @@ async function syncTransportDepositOverridesForRoutes(client, routeIds, options 
 
   for (const routeId of ids) {
     try {
-      if (!depositEnabled || !(depositValue > 0)) {
+      const payload = TransportAdminCore.buildTransportDepositOverridePayload({
+        routeId,
+        depositEnabled,
+        depositMode: options.depositMode,
+        depositValue,
+        currency: getTransportRouteCurrency(routeId, defaultCurrency),
+        includeChildren,
+      });
+      if (!payload) {
         const { error } = await client
           .from('service_deposit_overrides')
           .delete()
@@ -20986,16 +20998,6 @@ async function syncTransportDepositOverridesForRoutes(client, routeIds, options 
         removed += 1;
         continue;
       }
-
-      const payload = {
-        resource_type: 'transport',
-        resource_id: routeId,
-        mode: mappedMode,
-        amount: depositValue,
-        currency: getTransportRouteCurrency(routeId, defaultCurrency),
-        include_children: includeChildren,
-        enabled: true,
-      };
 
       const { error } = await client
         .from('service_deposit_overrides')
@@ -21063,6 +21065,23 @@ function resetTransportRouteForm() {
   syncTransportRouteCityBulkSummary();
   syncTransportRouteCityBulkToPricingManager({ force: true });
   syncTransportRouteRoundTripControls();
+  syncTransportLegacyRouteEditState();
+}
+
+function syncTransportLegacyRouteEditState() {
+  const routeId = String(document.getElementById('transportRouteId')?.value || '').trim();
+  const saveButton = document.getElementById('btnSaveTransportRoute');
+  const notice = document.getElementById('transportLegacyRouteEditNotice');
+  const isEditing = Boolean(routeId);
+  if (saveButton instanceof HTMLButtonElement) {
+    saveButton.disabled = !isEditing;
+    saveButton.textContent = isEditing ? 'Save changes' : 'Select a route to edit';
+  }
+  if (notice) {
+    notice.textContent = isEditing
+      ? `Editing existing route ${routeId}.`
+      : 'Legacy editor updates existing routes only. Create new routes from Routes using Add route.';
+  }
 }
 
 function editTransportRoute(routeId) {
@@ -21070,6 +21089,7 @@ function editTransportRoute(routeId) {
   if (!id) return;
   const row = (transportAdminState.routes || []).find((r) => String(r?.id || '') === id);
   if (!row) return;
+  TransportAdminNavigation.activate('legacyTools');
 
   const setValue = (id, value) => {
     const el = document.getElementById(id);
@@ -21114,6 +21134,7 @@ function editTransportRoute(routeId) {
   syncTransportRouteCityBulkSummary();
   syncTransportRouteCityBulkToPricingManager();
   syncTransportRouteRoundTripControls();
+  syncTransportLegacyRouteEditState();
 
   transportAdminState.control.routeId = id;
   transportAdminState.control.ruleId = '';
@@ -21146,13 +21167,118 @@ async function deleteTransportRoute(routeId) {
   }
 }
 
-function renderTransportRoutesTable() {
+function refreshTransportAdminV2RouteFilterOptions() {
+  const routes = Array.isArray(transportAdminState.routes) ? transportAdminState.routes : [];
+  const originIds = new Set();
+  const destinationIds = new Set();
+  const currencies = new Set();
+  const cityGroups = new Set();
+  routes.forEach((route) => {
+    const originId = String(route?.origin_location_id || '').trim();
+    const destinationId = String(route?.destination_location_id || '').trim();
+    if (originId) originIds.add(originId);
+    if (destinationId) destinationIds.add(destinationId);
+    const currency = String(route?.currency || 'EUR').trim().toUpperCase() || 'EUR';
+    currencies.add(currency);
+    [originId, destinationId].forEach((locationId) => {
+      const cityGroup = String(transportAdminState.locationById[locationId]?.city_group || '').trim();
+      if (cityGroup) cityGroups.add(cityGroup);
+    });
+  });
+
+  const setOptions = (selectId, placeholder, ids) => {
+    const select = document.getElementById(selectId);
+    if (!(select instanceof HTMLSelectElement)) return;
+    const current = String(select.value || '').trim();
+    const rows = Array.from(ids)
+      .map((id) => ({ id, label: getTransportLocationLabel(id) }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+    select.innerHTML = `<option value="">${escapeHtml(placeholder)}</option>${rows.map((row) => (
+      `<option value="${escapeHtml(row.id)}">${escapeHtml(row.label)}</option>`
+    )).join('')}`;
+    if (rows.some((row) => row.id === current)) select.value = current;
+  };
+
+  setOptions('transportAdminV2RoutesOrigin', 'All origins', originIds);
+  setOptions('transportAdminV2RoutesDestination', 'All destinations', destinationIds);
+
+  const setTextOptions = (selectId, placeholder, values, formatter = (value) => value) => {
+    const select = document.getElementById(selectId);
+    if (!(select instanceof HTMLSelectElement)) return;
+    const current = String(select.value || '').trim();
+    const rows = Array.from(values)
+      .map((value) => ({ value: String(value), label: String(formatter(value) || value) }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+    select.innerHTML = `<option value="">${escapeHtml(placeholder)}</option>${rows.map((row) => (
+      `<option value="${escapeHtml(row.value)}">${escapeHtml(row.label)}</option>`
+    )).join('')}`;
+    if (rows.some((row) => row.value === current)) select.value = current;
+  };
+
+  setTextOptions('transportAdminV2RoutesCurrency', 'All currencies', currencies);
+  setTextOptions(
+    'transportAdminV2RoutesCityGroup',
+    'All city groups',
+    cityGroups,
+    (value) => transportHumanizeCityGroupLabel(value, value),
+  );
+}
+
+function getTransportAdminV2FilteredRoutes() {
   const rows = Array.isArray(transportAdminState.routes) ? transportAdminState.routes : [];
+  const search = String(document.getElementById('transportAdminV2RoutesSearch')?.value || '').trim().toLowerCase();
+  const status = String(document.getElementById('transportAdminV2RoutesStatus')?.value || 'all').trim().toLowerCase();
+  const originId = String(document.getElementById('transportAdminV2RoutesOrigin')?.value || '').trim();
+  const destinationId = String(document.getElementById('transportAdminV2RoutesDestination')?.value || '').trim();
+  const currency = String(document.getElementById('transportAdminV2RoutesCurrency')?.value || '').trim().toUpperCase();
+  const cityGroup = String(document.getElementById('transportAdminV2RoutesCityGroup')?.value || '').trim();
+
+  return rows.filter((route) => {
+    const routeOriginId = String(route?.origin_location_id || '').trim();
+    const routeDestinationId = String(route?.destination_location_id || '').trim();
+    const routeCurrency = String(route?.currency || 'EUR').trim().toUpperCase() || 'EUR';
+    const originCityGroup = String(transportAdminState.locationById[routeOriginId]?.city_group || '').trim();
+    const destinationCityGroup = String(transportAdminState.locationById[routeDestinationId]?.city_group || '').trim();
+    const isActive = route?.is_active !== false;
+    if (status === 'active' && !isActive) return false;
+    if (status === 'inactive' && isActive) return false;
+    if (originId && routeOriginId !== originId) return false;
+    if (destinationId && routeDestinationId !== destinationId) return false;
+    if (currency && routeCurrency !== currency) return false;
+    if (cityGroup && originCityGroup !== cityGroup && destinationCityGroup !== cityGroup) return false;
+    if (!search) return true;
+
+    const origin = transportAdminState.locationById[routeOriginId] || {};
+    const destination = transportAdminState.locationById[routeDestinationId] || {};
+    const haystack = [
+      route?.id,
+      route?.currency,
+      getTransportRouteLabel(route),
+      origin?.name,
+      origin?.name_local,
+      origin?.code,
+      origin?.city_group,
+      destination?.name,
+      destination?.name_local,
+      destination?.code,
+      destination?.city_group,
+    ].map((value) => String(value || '').toLowerCase()).join(' ');
+    return haystack.includes(search);
+  });
+}
+
+function renderTransportRoutesTable() {
+  const allRows = Array.isArray(transportAdminState.routes) ? transportAdminState.routes : [];
+  const rows = getTransportAdminV2FilteredRoutes();
   const tbody = document.getElementById('transportRoutesTableBody');
   if (!tbody) return;
 
   if (!rows.length) {
-    renderTransportTableMessage('transportRoutesTableBody', 9, 'No transport routes yet.');
+    renderTransportTableMessage(
+      'transportRoutesTableBody',
+      9,
+      allRows.length ? 'No routes match the current filters.' : 'No transport routes yet.',
+    );
     return;
   }
 
@@ -21335,6 +21461,246 @@ function renderTransportRoutesTable() {
   }).join('');
 }
 
+function formatTransportRouteWorkspacePrice(value) {
+  const amount = Number(value);
+  return Number.isFinite(amount) ? amount.toFixed(2) : '—';
+}
+
+function getTransportRouteWorkspaceReverse(route) {
+  if (!route || typeof route !== 'object') return null;
+  const routeId = String(route.id || '').trim();
+  const originId = String(route.origin_location_id || '').trim();
+  const destinationId = String(route.destination_location_id || '').trim();
+  if (!originId || !destinationId) return null;
+  return (transportAdminState.routes || []).find((candidate) => (
+    String(candidate?.id || '').trim() !== routeId
+      && String(candidate?.origin_location_id || '').trim() === destinationId
+      && String(candidate?.destination_location_id || '').trim() === originId
+  )) || null;
+}
+
+function getTransportRouteWorkspacePricingRuleCount(routeId) {
+  const id = String(routeId || '').trim();
+  if (!id) return 0;
+  return (transportAdminState.pricingRules || []).filter((rule) => (
+    String(rule?.route_id || '').trim() === id
+  )).length;
+}
+
+function renderTransportRoutesWorkspace() {
+  const list = document.getElementById('transportAdminV2RoutesList');
+  if (!list) return;
+
+  const allRows = Array.isArray(transportAdminState.routes) ? transportAdminState.routes : [];
+  const rows = getTransportAdminV2FilteredRoutes()
+    .slice()
+    .sort((a, b) => {
+      const sortDiff = Number(a?.sort_order || 0) - Number(b?.sort_order || 0);
+      return sortDiff || getTransportRouteLabel(a).localeCompare(getTransportRouteLabel(b));
+    });
+  const count = document.getElementById('transportAdminV2RoutesCount');
+  if (count) {
+    count.textContent = rows.length === allRows.length
+      ? `${rows.length} ${rows.length === 1 ? 'route' : 'routes'}`
+      : `${rows.length} of ${allRows.length} routes`;
+  }
+
+  if (!rows.length) {
+    list.innerHTML = `<div class="transport-admin-v2-route-empty">${escapeHtml(
+      allRows.length ? 'No routes match the current filters.' : 'No transport routes yet.',
+    )}</div>`;
+    return;
+  }
+
+  list.innerHTML = rows.map((route) => {
+    const id = String(route?.id || '').trim();
+    const originLocation = transportAdminState.locationById[String(route?.origin_location_id || '').trim()] || null;
+    const destinationLocation = transportAdminState.locationById[String(route?.destination_location_id || '').trim()] || null;
+    const originLabel = formatTransportLocationDisplayName(originLocation, { withCode: false, withLocal: false });
+    const destinationLabel = formatTransportLocationDisplayName(destinationLocation, { withCode: false, withLocal: false });
+    const routeLabel = `${originLabel} to ${destinationLabel}`;
+    const currency = String(route?.currency || 'EUR').trim().toUpperCase() || 'EUR';
+    const includedPassengers = Number(route?.included_passengers ?? 2);
+    const maxPassengers = Number(route?.max_passengers ?? 8);
+    const includedBags = Number(route?.included_bags ?? 2);
+    const includedLargeBags = Number(route?.included_large_bags ?? 0);
+    const maxBags = Number(route?.max_bags ?? 8);
+    const sortOrder = Number(route?.sort_order || 0);
+    const pricingRuleCount = getTransportRouteWorkspacePricingRuleCount(id);
+    const reverse = getTransportRouteWorkspaceReverse(route);
+    const reverseOrigin = reverse
+      ? formatTransportLocationDisplayName(
+        transportAdminState.locationById[String(reverse.origin_location_id || '').trim()] || null,
+        { withCode: false, withLocal: false },
+      )
+      : '';
+    const reverseDestination = reverse
+      ? formatTransportLocationDisplayName(
+        transportAdminState.locationById[String(reverse.destination_location_id || '').trim()] || null,
+        { withCode: false, withLocal: false },
+      )
+      : '';
+    const isActive = route?.is_active !== false;
+
+    return `
+      <article class="transport-admin-v2-route-record" data-transport-route-record data-route-id="${escapeHtml(id)}">
+        <div class="transport-admin-v2-route-record__direction" data-label="Route">
+          <strong>${escapeHtml(originLabel)}</strong>
+          <span class="transport-admin-v2-route-record__arrow" aria-hidden="true">&darr;</span>
+          <strong>${escapeHtml(destinationLabel)}</strong>
+        </div>
+        <div class="transport-admin-v2-route-record__fares" data-label="Fares">
+          <div><span>Day</span><strong>${escapeHtml(formatTransportRouteWorkspacePrice(route?.day_price))}</strong></div>
+          <div><span>Night</span><strong>${escapeHtml(formatTransportRouteWorkspacePrice(route?.night_price))}</strong></div>
+          <span class="transport-admin-v2-route-record__currency">${escapeHtml(currency)}</span>
+        </div>
+        <div class="transport-admin-v2-route-record__capacity" data-label="Passengers and luggage">
+          <div><span>Passengers</span><strong>${escapeHtml(String(includedPassengers))} included / ${escapeHtml(String(maxPassengers))} max</strong></div>
+          <div><span>Bags</span><strong>${escapeHtml(String(includedBags))} small + ${escapeHtml(String(includedLargeBags))} large / ${escapeHtml(String(maxBags))} max</strong></div>
+        </div>
+        <div class="transport-admin-v2-route-record__pricing" data-label="Pricing and return">
+          <div><span>Pricing rules</span><strong>${escapeHtml(String(pricingRuleCount))}</strong></div>
+          ${reverse ? `
+            <div class="transport-admin-v2-route-record__reverse transport-admin-v2-route-record__reverse--exists">
+              <span>Reverse exists</span>
+              <strong>${escapeHtml(reverseOrigin)} &rarr; ${escapeHtml(reverseDestination)}</strong>
+            </div>
+          ` : `
+            <div class="transport-admin-v2-route-record__reverse">
+              <span>No reverse route</span>
+            </div>
+          `}
+        </div>
+        <div class="transport-admin-v2-route-record__status" data-label="Status">
+          <span class="transport-admin-v2-route-status ${isActive ? 'transport-admin-v2-route-status--active' : 'transport-admin-v2-route-status--inactive'}">
+            ${isActive ? 'Active' : 'Inactive'}
+          </span>
+          <span>Sort ${escapeHtml(String(sortOrder))}</span>
+        </div>
+        <div class="transport-admin-v2-route-record__actions" data-label="Actions">
+          <details class="transport-admin-v2-route-action-menu">
+            <summary aria-label="Actions for ${escapeHtml(routeLabel)}" title="Route actions">
+              <span aria-hidden="true">&#8942;</span>
+            </summary>
+            <div class="transport-admin-v2-route-action-menu__items" role="menu">
+              <button type="button" role="menuitem" data-transport-route-action="edit" data-route-id="${escapeHtml(id)}">Edit</button>
+              <button type="button" role="menuitem" class="is-placeholder" aria-disabled="true" data-transport-route-action="duplicate" data-route-id="${escapeHtml(id)}">Duplicate</button>
+              <button type="button" role="menuitem" class="is-placeholder" aria-disabled="true" data-transport-route-action="create-reverse" data-route-id="${escapeHtml(id)}">Create reverse</button>
+              <button type="button" role="menuitem" data-transport-route-action="pricing" data-route-id="${escapeHtml(id)}">Pricing</button>
+              <button type="button" role="menuitem" data-transport-route-action="quote" data-route-id="${escapeHtml(id)}">Quote tester</button>
+              <button type="button" role="menuitem" data-transport-route-action="bookings" data-route-id="${escapeHtml(id)}">Bookings</button>
+              <button type="button" role="menuitem" class="is-danger" data-transport-route-action="delete" data-route-id="${escapeHtml(id)}">Delete</button>
+            </div>
+          </details>
+        </div>
+      </article>
+    `;
+  }).join('');
+}
+
+function renderTransportRouteViews() {
+  renderTransportRoutesTable();
+  renderTransportRoutesWorkspace();
+}
+
+function selectTransportRouteWorkspaceContext(routeId) {
+  const id = String(routeId || '').trim();
+  if (!id || !transportAdminState.routeById[id]) return false;
+  const routeSelect = getTransportControlRouteSelect();
+  if (routeSelect) routeSelect.value = id;
+  transportAdminState.control.routeId = id;
+  transportAdminState.control.ruleId = '';
+  refreshTransportControlRuleSelect();
+  renderTransportPricingPreview();
+  return true;
+}
+
+function openTransportRouteWorkspacePricing(routeId) {
+  const id = String(routeId || '').trim();
+  if (!selectTransportRouteWorkspaceContext(id)) return;
+  const selectedRule = getTransportSelectedRuleForControl(id, '');
+  if (selectedRule?.id) {
+    editTransportPricingRule(selectedRule.id);
+  } else {
+    resetTransportPricingForm();
+    const pricingRoute = document.getElementById('transportPricingRoute');
+    if (pricingRoute) pricingRoute.value = id;
+    refreshTransportPricingAdditionalRoutesOptions();
+    syncTransportPricingBulkApplyControls();
+  }
+  TransportAdminNavigation.activate('advancedPricing');
+}
+
+function openTransportRouteWorkspaceQuoteTester(routeId) {
+  if (!selectTransportRouteWorkspaceContext(routeId)) return;
+  TransportAdminNavigation.activate('quoteTester');
+}
+
+function openTransportRouteWorkspaceBookings(routeId) {
+  const id = String(routeId || '').trim();
+  const route = transportAdminState.routeById[id];
+  if (!route) return;
+  const search = document.getElementById('transportBookingsSearch');
+  const status = document.getElementById('transportBookingsStatusFilter');
+  if (search) search.value = getTransportRouteLabel(route);
+  if (status) status.value = '';
+  renderTransportBookingsTable();
+  TransportAdminNavigation.activate('bookings');
+}
+
+function showTransportRouteWorkspaceNotice(message) {
+  const text = String(message || '').trim();
+  if (!text) return;
+  const status = document.getElementById('transportAdminV2AddRouteStatus');
+  if (status) status.textContent = text;
+  showToast(text, 'info');
+}
+
+async function handleTransportRouteWorkspaceAction(actionRaw, routeId) {
+  const action = String(actionRaw || '').trim();
+  const id = String(routeId || '').trim();
+  if (!action || !id) return;
+  if (action === 'edit') {
+    editTransportRoute(id);
+    return;
+  }
+  if (action === 'duplicate' || action === 'create-reverse') {
+    showTransportRouteWorkspaceNotice('Available in Route Wizard');
+    return;
+  }
+  if (action === 'pricing') {
+    openTransportRouteWorkspacePricing(id);
+    return;
+  }
+  if (action === 'quote') {
+    openTransportRouteWorkspaceQuoteTester(id);
+    return;
+  }
+  if (action === 'bookings') {
+    openTransportRouteWorkspaceBookings(id);
+    return;
+  }
+  if (action === 'delete') {
+    await deleteTransportRoute(id);
+  }
+}
+
+function clearTransportAdminV2RouteFilters() {
+  const values = {
+    transportAdminV2RoutesSearch: '',
+    transportAdminV2RoutesOrigin: '',
+    transportAdminV2RoutesDestination: '',
+    transportAdminV2RoutesCurrency: '',
+    transportAdminV2RoutesCityGroup: '',
+    transportAdminV2RoutesStatus: 'all',
+  };
+  Object.entries(values).forEach(([id, value]) => {
+    const element = document.getElementById(id);
+    if (element) element.value = value;
+  });
+  renderTransportRouteViews();
+}
+
 async function loadTransportRoutesData(options = {}) {
   const silent = Boolean(options?.silent);
   const { data, error } = await queryTransportTable(TRANSPORT_TABLES.routes, {
@@ -21366,7 +21732,8 @@ async function loadTransportRoutesData(options = {}) {
   });
 
   refreshTransportRouteSelects();
-  renderTransportRoutesTable();
+  refreshTransportAdminV2RouteFilterOptions();
+  renderTransportRouteViews();
   syncTransportRouteGlobalSummary();
   syncTransportPricingGlobalSummary();
   syncTransportPricingDepositGlobalSummary();
@@ -21381,85 +21748,36 @@ async function saveTransportRouteForm(event) {
   const id = String(document.getElementById('transportRouteId')?.value || '').trim();
   const originLocationId = String(document.getElementById('transportRouteOrigin')?.value || '').trim();
   const destinationLocationId = String(document.getElementById('transportRouteDestination')?.value || '').trim();
-  const dayPrice = transportReadNumberInput('transportRouteDayPrice', 0);
-  const nightPrice = transportReadNumberInput('transportRouteNightPrice', 0);
-  const currency = String(document.getElementById('transportRouteCurrency')?.value || 'EUR').trim().toUpperCase() || 'EUR';
-  const includedPassengers = transportReadNumberInput('transportRouteIncludedPassengers', 2);
-  const includedBags = transportReadNumberInput('transportRouteIncludedBags', 2);
-  const includedLargeBags = transportReadNumberInput('transportRouteIncludedLargeBags', 0);
-  const maxPassengers = transportReadNumberInput('transportRouteMaxPassengers', 8);
-  const maxBags = transportReadNumberInput('transportRouteMaxBags', 8);
-  const tripMode = normalizeTransportTripMode(document.getElementById('transportRouteTripMode')?.value || 'one_way');
-  const roundTripMultiplierRaw = transportReadNumberInput('transportRouteRoundTripMultiplier', 2);
-  const sortOrder = transportReadNumberInput('transportRouteSortOrder', 0);
-  const isActive = Boolean(document.getElementById('transportRouteActive')?.checked);
   const createReversePair = Boolean(document.getElementById('transportRouteCreateReversePair')?.checked);
   const syncReverseRoute = Boolean(document.getElementById('transportRouteSyncReverseRoute')?.checked);
-
-  if (!originLocationId || !destinationLocationId) {
-    showToast('Origin and destination are required', 'error');
-    return;
-  }
-  if (originLocationId === destinationLocationId) {
-    showToast('Origin and destination cannot be the same', 'error');
-    return;
-  }
-  if (!(dayPrice >= 0) || !(nightPrice >= 0)) {
-    showToast('Day and night prices must be >= 0', 'error');
-    return;
-  }
-  if (!Number.isFinite(includedPassengers) || includedPassengers < 1) {
-    showToast('Included passengers must be at least 1', 'error');
-    return;
-  }
-  if (!Number.isFinite(includedBags) || includedBags < 0) {
-    showToast('Included small backpacks must be >= 0', 'error');
-    return;
-  }
-  if (!Number.isFinite(includedLargeBags) || includedLargeBags < 0) {
-    showToast('Included large bags (15kg+) must be >= 0', 'error');
-    return;
-  }
-  if (!Number.isFinite(maxPassengers) || maxPassengers < includedPassengers) {
-    showToast('Max passengers must be greater than or equal to included passengers', 'error');
-    return;
-  }
-  if (!Number.isFinite(maxBags) || maxBags < (includedBags + includedLargeBags)) {
-    showToast('Max total luggage must be greater than or equal to included backpacks + included large bags', 'error');
-    return;
-  }
-  if (
-    tripMode === 'round_trip'
-    && (!Number.isFinite(roundTripMultiplierRaw) || roundTripMultiplierRaw < 1 || roundTripMultiplierRaw > 5)
-  ) {
-    showToast('Round-trip multiplier must be between 1 and 5', 'error');
-    return;
-  }
-
-  const allowsRoundTrip = tripMode === 'round_trip';
-  const roundTripMultiplier = allowsRoundTrip ? roundTripMultiplierRaw : 2;
-
-  const payload = {
-    origin_location_id: originLocationId,
-    destination_location_id: destinationLocationId,
-    day_price: dayPrice,
-    night_price: nightPrice,
-    currency,
-    included_passengers: Number.isFinite(includedPassengers) ? includedPassengers : 2,
-    included_bags: Number.isFinite(includedBags) ? includedBags : 2,
-    included_large_bags: Number.isFinite(includedLargeBags) ? includedLargeBags : 0,
-    max_passengers: Number.isFinite(maxPassengers) ? maxPassengers : 8,
-    max_bags: Number.isFinite(maxBags) ? maxBags : 8,
-    allows_round_trip: allowsRoundTrip,
-    round_trip_multiplier: Number.isFinite(roundTripMultiplier) ? roundTripMultiplier : 2,
-    sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
-    is_active: isActive,
+  const legacyRouteDraft = {
+    originLocationId,
+    destinationLocationId,
+    dayPrice: transportReadNumberInput('transportRouteDayPrice', 0),
+    nightPrice: transportReadNumberInput('transportRouteNightPrice', 0),
+    currency: document.getElementById('transportRouteCurrency')?.value,
+    includedPassengers: transportReadNumberInput('transportRouteIncludedPassengers', 2),
+    includedBags: transportReadNumberInput('transportRouteIncludedBags', 2),
+    includedLargeBags: transportReadNumberInput('transportRouteIncludedLargeBags', 0),
+    maxPassengers: transportReadNumberInput('transportRouteMaxPassengers', 8),
+    maxBags: transportReadNumberInput('transportRouteMaxBags', 8),
+    tripMode: normalizeTransportTripMode(document.getElementById('transportRouteTripMode')?.value || 'one_way'),
+    roundTripMultiplier: transportReadNumberInput('transportRouteRoundTripMultiplier', 2),
+    sortOrder: transportReadNumberInput('transportRouteSortOrder', 0),
+    isActive: Boolean(document.getElementById('transportRouteActive')?.checked),
   };
-  const reversePayload = {
-    ...payload,
-    origin_location_id: destinationLocationId,
-    destination_location_id: originLocationId,
-  };
+  const routeValidation = TransportAdminCore.validateTransportRouteDraft(
+    { route: legacyRouteDraft },
+    {},
+    { profile: 'legacy' },
+  );
+  if (!routeValidation.valid) {
+    showToast(routeValidation.errors[0].message, 'error');
+    return;
+  }
+
+  const payload = TransportAdminCore.buildTransportRoutePayload(routeValidation.normalizedDraft.route);
+  const reversePayload = TransportAdminCore.buildReverseRoutePayload(payload);
 
   try {
     let reverseCreated = 0;
@@ -22096,6 +22414,7 @@ async function loadTransportPricingData(options = {}) {
   } catch (_error) {
   }
   renderTransportPricingTable();
+  renderTransportRoutesWorkspace();
   refreshTransportPricingCityBulkOptions();
   refreshTransportPricingAdditionalRoutesOptions();
   syncTransportPricingBulkApplyControls();
@@ -22129,82 +22448,39 @@ async function saveTransportPricingForm(event) {
   const additionalRouteIds = applyToAdditionalRoutes
     ? bulkSelection.routeIds
     : (bulkSelection.autoReverseAdded ? bulkSelection.routeIds : []);
-  const waitingFeePerHour = Number(document.getElementById('transportPricingWaitingPerHour')?.value || 0);
-  const depositEnabled = Boolean(document.getElementById('transportPricingDepositEnabled')?.checked);
-  const depositMode = String(document.getElementById('transportPricingDepositMode')?.value || 'percent_total').trim().toLowerCase();
-  const depositValue = Number(document.getElementById('transportPricingDepositValue')?.value || 0);
-
-  const waitingFeePerMinute = Number.isFinite(waitingFeePerHour) && waitingFeePerHour >= 0
-    ? Math.round(((waitingFeePerHour / 60) * 10000)) / 10000
-    : 0;
-
-  const payload = {
-    route_id: routeId,
-    extra_passenger_fee: Number(document.getElementById('transportPricingExtraPassenger')?.value || 0),
-    extra_bag_fee: Number(document.getElementById('transportPricingExtraBag')?.value || 0),
-    oversize_bag_fee: Number(document.getElementById('transportPricingOversizeBag')?.value || 0),
-    child_seat_fee: Number(document.getElementById('transportPricingChildSeat')?.value || 0),
-    booster_seat_fee: Number(document.getElementById('transportPricingBoosterSeat')?.value || 0),
-    waiting_included_minutes: Number(document.getElementById('transportPricingWaitingIncluded')?.value || 0),
-    waiting_fee_per_hour: waitingFeePerHour,
-    waiting_fee_per_minute: waitingFeePerMinute,
-    deposit_enabled: depositEnabled,
-    deposit_mode: depositMode,
-    deposit_value: depositValue,
-    deposit_base_floor: normalizedBaseFloor,
-    night_start: String(document.getElementById('transportPricingNightStart')?.value || '22:00').slice(0, 5),
-    night_end: String(document.getElementById('transportPricingNightEnd')?.value || '06:00').slice(0, 5),
-    valid_from: String(document.getElementById('transportPricingValidFrom')?.value || '').trim() || null,
-    valid_to: String(document.getElementById('transportPricingValidTo')?.value || '').trim() || null,
+  const legacyPricingDraft = {
+    routeId,
+    extraPassengerFee: Number(document.getElementById('transportPricingExtraPassenger')?.value || 0),
+    extraBagFee: Number(document.getElementById('transportPricingExtraBag')?.value || 0),
+    oversizeBagFee: Number(document.getElementById('transportPricingOversizeBag')?.value || 0),
+    childSeatFee: Number(document.getElementById('transportPricingChildSeat')?.value || 0),
+    boosterSeatFee: Number(document.getElementById('transportPricingBoosterSeat')?.value || 0),
+    waitingIncludedMinutes: Number(document.getElementById('transportPricingWaitingIncluded')?.value || 0),
+    waitingFeePerHour: Number(document.getElementById('transportPricingWaitingPerHour')?.value || 0),
+    depositEnabled: Boolean(document.getElementById('transportPricingDepositEnabled')?.checked),
+    depositMode: String(document.getElementById('transportPricingDepositMode')?.value || 'percent_total').trim().toLowerCase(),
+    depositValue: Number(document.getElementById('transportPricingDepositValue')?.value || 0),
+    nightStart: String(document.getElementById('transportPricingNightStart')?.value || '22:00').slice(0, 5),
+    nightEnd: String(document.getElementById('transportPricingNightEnd')?.value || '06:00').slice(0, 5),
+    validFrom: String(document.getElementById('transportPricingValidFrom')?.value || '').trim() || null,
+    validTo: String(document.getElementById('transportPricingValidTo')?.value || '').trim() || null,
     priority: Number(document.getElementById('transportPricingPriority')?.value || 0),
-    is_active: Boolean(document.getElementById('transportPricingActive')?.checked),
+    isActive: Boolean(document.getElementById('transportPricingActive')?.checked),
   };
-
-  if (!routeId) {
-    showToast('Route is required', 'error');
+  const pricingValidation = TransportAdminCore.validateTransportRouteDraft(
+    { pricing: legacyPricingDraft },
+    {},
+    { profile: 'legacy' },
+  );
+  if (!pricingValidation.valid) {
+    showToast(pricingValidation.errors[0].message, 'error');
     return;
   }
 
-  const numericCheck = [
-    ['Extra passenger fee', payload.extra_passenger_fee],
-    ['Extra small backpack fee', payload.extra_bag_fee],
-    ['Extra large bag (15kg+) fee', payload.oversize_bag_fee],
-    ['Child seat fee', payload.child_seat_fee],
-    ['Booster seat fee', payload.booster_seat_fee],
-    ['Waiting included minutes', payload.waiting_included_minutes],
-    ['Waiting fee per hour', payload.waiting_fee_per_hour],
-    ['Deposit value', payload.deposit_value],
-    ['Priority', payload.priority],
-  ];
-  for (const [label, value] of numericCheck) {
-    if (!Number.isFinite(Number(value)) || Number(value) < 0) {
-      showToast(`${label} must be >= 0`, 'error');
-      return;
-    }
-  }
-
-  if (!['fixed_amount', 'percent_total', 'per_person'].includes(payload.deposit_mode)) {
-    showToast('Deposit mode is invalid', 'error');
-    return;
-  }
-
-  if (!payload.deposit_enabled) {
-    payload.deposit_value = 0;
-  } else {
-    if (!(Number(payload.deposit_value) > 0)) {
-      showToast('Deposit value must be greater than 0 when deposit is enabled', 'error');
-      return;
-    }
-    if (payload.deposit_mode === 'percent_total' && Number(payload.deposit_value) > 100) {
-      showToast('Deposit percent must be <= 100', 'error');
-      return;
-    }
-  }
-
-  if (payload.valid_from && payload.valid_to && payload.valid_to < payload.valid_from) {
-    showToast('Valid to date must be equal or later than valid from', 'error');
-    return;
-  }
+  const payload = TransportAdminCore.buildTransportPricingRulePayload(
+    pricingValidation.normalizedDraft.pricing,
+    { depositBaseFloor: normalizedBaseFloor },
+  );
 
   try {
     if (bulkSelection.autoReverseMissing) {
@@ -23292,23 +23568,7 @@ async function deleteTransportBooking(bookingId) {
 async function setTransportActiveTab(tab, options = {}) {
   const normalizedTab = normalizeTransportTab(tab);
   transportAdminState.activeTab = normalizedTab;
-
-  const tabButtons = document.querySelectorAll('.transport-tab-button');
-  tabButtons.forEach((btn) => {
-    const isActive = String(btn.getAttribute('data-tab') || '') === normalizedTab;
-    btn.classList.toggle('active', isActive);
-  });
-
-  const panels = {
-    locations: document.getElementById('transportTabLocations'),
-    routes: document.getElementById('transportTabRoutes'),
-    pricing: document.getElementById('transportTabPricing'),
-    bookings: document.getElementById('transportTabBookings'),
-  };
-  Object.entries(panels).forEach(([key, panel]) => {
-    if (!panel) return;
-    panel.hidden = key !== normalizedTab;
-  });
+  TransportAdminNavigation.activate(getTransportAdminV2TabForLegacyTab(normalizedTab));
 
   syncTransportGuidedStepState(normalizedTab);
 
@@ -23344,24 +23604,71 @@ async function setTransportActiveTab(tab, options = {}) {
 }
 
 async function loadTransportAdminData() {
-  await setTransportActiveTab(getTransportActiveTab(), { load: true });
+  await loadTransportLocationsData({ silent: true });
+  await loadTransportRoutesData({ silent: true });
+  await loadTransportPricingData({ silent: true });
+  await loadTransportAssignablePartners({ force: false });
+  await loadTransportBookingsData({ silent: true });
+  syncTransportControlCenter();
+}
+
+let transportSaveRepository = null;
+
+function getTransportSaveRepository() {
+  if (!transportSaveRepository) {
+    transportSaveRepository = TransportAdminRepository.create({
+      runMutation: runTransportMutation,
+      tables: {
+        transport_route: TRANSPORT_TABLES.routes,
+        pricing_rule: TRANSPORT_TABLES.pricing,
+        deposit_override: 'service_deposit_overrides',
+      },
+    });
+  }
+  return transportSaveRepository;
+}
+
+async function executeTransportRouteWizardPlan(plan, options = {}) {
+  const result = await TransportAdminCore.executeTransportSavePlan(
+    plan,
+    getTransportSaveRepository(),
+    {
+      retry: options.retry === true,
+      signal: options.signal || null,
+      onProgress: options.onProgress,
+    },
+  );
+  try {
+    await loadTransportAdminData();
+  } catch (error) {
+    console.error('Transport route save completed, but admin data refresh failed:', error);
+    result.refreshError = { message: String(error?.message || 'Admin data refresh failed') };
+  }
+  return result;
 }
 
 function bindTransportAdminUi() {
+  TransportAdminNavigation.initialize({ document, storage: window.sessionStorage });
+  TransportRouteWizard.initialize({
+    document,
+    core: TransportAdminCore,
+    getLocations: () => transportAdminState.locations,
+    getRoutes: () => transportAdminState.routes,
+    getDepositBaseFloor: () => transportAdminState.depositBaseFloor,
+    onOpenExistingRoute: (routeId) => editTransportRoute(routeId),
+    onExecute: (plan, options) => executeTransportRouteWizardPlan(plan, options),
+    onSaved: () => {
+      TransportAdminNavigation.activate('routes');
+      renderTransportRouteViews();
+    },
+  });
   if (document.body?.dataset?.ceTransportAdminBound === '1') return;
   if (document.body) document.body.dataset.ceTransportAdminBound = '1';
-
-  document.querySelectorAll('.transport-tab-button').forEach((button) => {
-    button.addEventListener('click', () => {
-      const tab = normalizeTransportTab(button.getAttribute('data-tab') || 'locations');
-      void setTransportActiveTab(tab, { load: true });
-    });
-  });
 
   const btnRefreshTransport = document.getElementById('btnRefreshTransport');
   if (btnRefreshTransport) {
     btnRefreshTransport.addEventListener('click', () => {
-      void setTransportActiveTab(getTransportActiveTab(), { load: true });
+      void loadTransportAdminData();
     });
   }
 
@@ -23411,6 +23718,48 @@ function bindTransportAdminUi() {
     btnRefreshRoutes.addEventListener('click', () => {
       void loadTransportLocationsData({ silent: true });
       void loadTransportRoutesData({ silent: false });
+    });
+  }
+
+  const routeSearch = document.getElementById('transportAdminV2RoutesSearch');
+  if (routeSearch) routeSearch.addEventListener('input', () => renderTransportRouteViews());
+  [
+    'transportAdminV2RoutesStatus',
+    'transportAdminV2RoutesOrigin',
+    'transportAdminV2RoutesDestination',
+    'transportAdminV2RoutesCurrency',
+    'transportAdminV2RoutesCityGroup',
+  ].forEach((filterId) => {
+    const filter = document.getElementById(filterId);
+    if (filter) filter.addEventListener('change', () => renderTransportRouteViews());
+  });
+
+  const btnClearRouteFilters = document.getElementById('btnTransportAdminV2ClearFilters');
+  if (btnClearRouteFilters) {
+    btnClearRouteFilters.addEventListener('click', clearTransportAdminV2RouteFilters);
+  }
+
+  const btnAddRoute = document.getElementById('btnTransportAdminV2AddRoute');
+  if (btnAddRoute) {
+    btnAddRoute.addEventListener('click', () => {
+      TransportRouteWizard.open();
+    });
+  }
+
+  const routeWorkspace = document.getElementById('transportAdminV2RoutesWorkspace');
+  if (routeWorkspace) {
+    routeWorkspace.addEventListener('click', (event) => {
+      const target = event.target instanceof Element
+        ? event.target.closest('[data-transport-route-action]')
+        : null;
+      if (!(target instanceof HTMLButtonElement)) return;
+      event.preventDefault();
+      const details = target.closest('details');
+      if (details instanceof HTMLDetailsElement) details.open = false;
+      void handleTransportRouteWorkspaceAction(
+        target.getAttribute('data-transport-route-action'),
+        target.getAttribute('data-route-id'),
+      );
     });
   }
 
@@ -23501,7 +23850,16 @@ function bindTransportAdminUi() {
 
   const routeForm = document.getElementById('transportRouteForm');
   if (routeForm instanceof HTMLFormElement) {
-    routeForm.addEventListener('submit', saveTransportRouteForm);
+    routeForm.addEventListener('submit', (event) => {
+      const routeId = String(document.getElementById('transportRouteId')?.value || '').trim();
+      if (!routeId) {
+        event.preventDefault();
+        showToast('Create new routes from Routes using Add route.', 'info');
+        return;
+      }
+      void saveTransportRouteForm(event);
+    });
+    syncTransportLegacyRouteEditState();
   }
   const routeTripMode = document.getElementById('transportRouteTripMode');
   if (routeTripMode) {

@@ -28,7 +28,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="/assets/css/tokens.css?v=20251107" />
   <link rel="stylesheet" href="/assets/css/base.css?v=20251107" />
-  <link rel="stylesheet" href="/admin/admin.css?v=20260509_5" />
+  <link rel="stylesheet" href="/admin/admin.css?v=20260727_1" />
   
   <!-- Auth meta -->
   <meta name="ce-auth" content="required" />
@@ -43,7 +43,11 @@
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
   <script src="/admin/blog-i18n-form.js?v=20260405_2"></script>
   <script type="module" src="/admin/blog-admin.js?v=20260405_2"></script>
-  <script type="module" src="/admin/admin.js?v=20260509_6"></script>
+  <script src="/admin/transport-admin-core.js?v=20260727_2"></script>
+  <script src="/admin/transport-admin-navigation.js?v=20260727_1"></script>
+  <script src="/admin/transport-admin-repository.js?v=20260727_1"></script>
+  <script src="/admin/transport-route-wizard.js?v=20260727_2"></script>
+  <script type="module" src="/admin/admin.js?v=20260727_4"></script>
   <script src="/admin/admin-pwa.js?v=20260221_4" defer></script>
 </head>
 <body data-admin-panel="true">
@@ -694,12 +698,463 @@
             <h2>Transport</h2>
             <p class="admin-view-subtitle">Manage locations, routes, pricing logic, assignments, and bookings in one place</p>
           </div>
-          <div class="admin-view-actions">
-            <button class="btn-secondary" type="button" id="btnRefreshTransport">Refresh</button>
-          </div>
         </header>
 
-        <div class="admin-card transport-control-center">
+        <div class="transport-admin-v2-shell">
+          <div
+            class="transport-admin-v2-tabs"
+            id="transportAdminV2Tablist"
+            role="tablist"
+            aria-label="Transport administration sections"
+          >
+            <button
+              class="transport-admin-v2-tab is-active"
+              id="transportAdminV2TabRoutes"
+              type="button"
+              role="tab"
+              aria-selected="true"
+              aria-controls="transportAdminV2PanelRoutes"
+              data-transport-admin-v2-tab="routes"
+            >Routes</button>
+            <button
+              class="transport-admin-v2-tab"
+              id="transportAdminV2TabLocations"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="transportAdminV2PanelLocations"
+              data-transport-admin-v2-tab="locations"
+              tabindex="-1"
+            >Locations</button>
+            <button
+              class="transport-admin-v2-tab"
+              id="transportAdminV2TabAdvancedPricing"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="transportAdminV2PanelAdvancedPricing"
+              data-transport-admin-v2-tab="advancedPricing"
+              tabindex="-1"
+            >Advanced pricing</button>
+            <button
+              class="transport-admin-v2-tab"
+              id="transportAdminV2TabQuoteTester"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="transportAdminV2PanelQuoteTester"
+              data-transport-admin-v2-tab="quoteTester"
+              tabindex="-1"
+            >Quote tester</button>
+            <button
+              class="transport-admin-v2-tab"
+              id="transportAdminV2TabGlobalSettings"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="transportAdminV2PanelGlobalSettings"
+              data-transport-admin-v2-tab="globalSettings"
+              tabindex="-1"
+            >Global settings</button>
+            <button
+              class="transport-admin-v2-tab"
+              id="transportAdminV2TabBookings"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="transportAdminV2PanelBookings"
+              data-transport-admin-v2-tab="bookings"
+              tabindex="-1"
+            >Bookings</button>
+            <button
+              class="transport-admin-v2-tab"
+              id="transportAdminV2TabLegacyTools"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="transportAdminV2PanelLegacyTools"
+              data-transport-admin-v2-tab="legacyTools"
+              tabindex="-1"
+            >Legacy tools</button>
+          </div>
+
+          <section
+            class="transport-admin-v2-panel"
+            id="transportAdminV2PanelRoutes"
+            role="tabpanel"
+            aria-labelledby="transportAdminV2TabRoutes"
+          >
+            <header class="transport-admin-v2-panel__header">
+              <div>
+                <h3>Routes</h3>
+                <p>Manage directions, fares, capacity, pricing, and route status from one workspace.</p>
+              </div>
+            </header>
+            <div class="transport-admin-v2-routes-toolbar" aria-label="Route list filters">
+              <label class="admin-form-field transport-admin-v2-routes-toolbar__search">
+                <span>Search routes</span>
+                <input id="transportAdminV2RoutesSearch" class="form-control" type="search" placeholder="Name, code, currency or city group" autocomplete="off" />
+              </label>
+              <label class="admin-form-field">
+                <span>Origin</span>
+                <select id="transportAdminV2RoutesOrigin" class="form-control">
+                  <option value="">All origins</option>
+                </select>
+              </label>
+              <label class="admin-form-field">
+                <span>Destination</span>
+                <select id="transportAdminV2RoutesDestination" class="form-control">
+                  <option value="">All destinations</option>
+                </select>
+              </label>
+              <label class="admin-form-field">
+                <span>Currency</span>
+                <select id="transportAdminV2RoutesCurrency" class="form-control">
+                  <option value="">All currencies</option>
+                </select>
+              </label>
+              <label class="admin-form-field">
+                <span>City group</span>
+                <select id="transportAdminV2RoutesCityGroup" class="form-control">
+                  <option value="">All city groups</option>
+                </select>
+              </label>
+              <label class="admin-form-field">
+                <span>Status</span>
+                <select id="transportAdminV2RoutesStatus" class="form-control">
+                  <option value="all">All</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </label>
+              <div class="transport-admin-v2-routes-toolbar__actions">
+                <button class="btn-secondary" id="btnTransportAdminV2ClearFilters" type="button">Clear filters</button>
+                <button class="btn-secondary" type="button" id="btnRefreshTransport">Refresh</button>
+                <button
+                  class="btn btn-primary"
+                  id="btnTransportAdminV2AddRoute"
+                  type="button"
+                  aria-haspopup="dialog"
+                  aria-controls="transportRouteWizardModal"
+                >
+                  <span aria-hidden="true">+</span>
+                  Add route
+                </button>
+              </div>
+            </div>
+            <div class="transport-admin-v2-routes-meta">
+              <span id="transportAdminV2RoutesCount">0 routes</span>
+              <span id="transportAdminV2AddRouteStatus" role="status" aria-live="polite"></span>
+            </div>
+            <div class="transport-admin-v2-routes-workspace" id="transportAdminV2RoutesWorkspace">
+              <div class="transport-admin-v2-route-list-header" aria-hidden="true">
+                <span>Route</span>
+                <span>Fares</span>
+                <span>Passengers and luggage</span>
+                <span>Pricing and return</span>
+                <span>Status</span>
+                <span>Actions</span>
+              </div>
+              <div class="transport-admin-v2-route-list" id="transportAdminV2RoutesList" aria-live="polite">
+                <div class="transport-admin-v2-route-empty">Loading routes...</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="transport-admin-v2-panel" id="transportAdminV2PanelLocations" role="tabpanel" aria-labelledby="transportAdminV2TabLocations" hidden>
+            <header class="transport-admin-v2-panel__header">
+              <div><h3>Locations</h3><p>Manage transport origins, destinations, city groups, and location types.</p></div>
+            </header>
+          </section>
+
+          <section class="transport-admin-v2-panel" id="transportAdminV2PanelAdvancedPricing" role="tabpanel" aria-labelledby="transportAdminV2TabAdvancedPricing" hidden>
+            <header class="transport-admin-v2-panel__header">
+              <div><h3>Advanced pricing</h3><p>Configure route pricing rules, extras, deposits, mirrors, and test matrices.</p></div>
+            </header>
+          </section>
+
+          <section class="transport-admin-v2-panel" id="transportAdminV2PanelQuoteTester" role="tabpanel" aria-labelledby="transportAdminV2TabQuoteTester" hidden>
+            <header class="transport-admin-v2-panel__header">
+              <div><h3>Quote tester</h3><p>Test existing route and pricing configurations without changing saved data.</p></div>
+            </header>
+          </section>
+
+          <section class="transport-admin-v2-panel" id="transportAdminV2PanelGlobalSettings" role="tabpanel" aria-labelledby="transportAdminV2TabGlobalSettings" hidden>
+            <header class="transport-admin-v2-panel__header">
+              <div><h3>Global settings</h3><p>Manage capacity, luggage, deposit, route-set, and city-pair operations across multiple routes.</p></div>
+            </header>
+            <div class="transport-admin-v2-global-warning" role="note">
+              <strong>Changes in this section may update multiple routes.</strong>
+            </div>
+          </section>
+
+          <section class="transport-admin-v2-panel" id="transportAdminV2PanelBookings" role="tabpanel" aria-labelledby="transportAdminV2TabBookings" hidden>
+            <header class="transport-admin-v2-panel__header">
+              <div><h3>Bookings</h3><p>Review bookings, assignments, payment state, and transport status actions.</p></div>
+            </header>
+          </section>
+
+          <section class="transport-admin-v2-panel" id="transportAdminV2PanelLegacyTools" role="tabpanel" aria-labelledby="transportAdminV2TabLegacyTools" hidden>
+            <header class="transport-admin-v2-panel__header">
+              <div><h3>Legacy tools</h3><p>Use the existing route editor and guided tools while the new route wizard is prepared.</p></div>
+            </header>
+          </section>
+        </div>
+
+        <div class="transport-route-wizard" id="transportRouteWizardModal" role="dialog" aria-modal="true" aria-labelledby="transportRouteWizardTitle" hidden>
+          <div class="transport-route-wizard__backdrop" id="transportRouteWizardBackdrop"></div>
+          <section class="transport-route-wizard__dialog">
+            <header class="transport-route-wizard__header">
+              <div>
+                <span class="transport-route-wizard__eyebrow">Add route</span>
+                <h3 id="transportRouteWizardTitle">New transport route</h3>
+              </div>
+              <button class="transport-route-wizard__close" id="btnTransportRouteWizardClose" type="button" aria-label="Close route wizard" title="Close">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </header>
+
+            <ol class="transport-route-wizard__progress" id="transportRouteWizardProgress" aria-label="Route creation progress">
+              <li data-transport-route-wizard-progress="1" aria-current="step"><span>1</span><strong>Route</strong></li>
+              <li data-transport-route-wizard-progress="2"><span>2</span><strong>Direction</strong></li>
+              <li data-transport-route-wizard-progress="3"><span>3</span><strong>Prices</strong></li>
+              <li data-transport-route-wizard-progress="4"><span>4</span><strong>Capacity</strong></li>
+              <li data-transport-route-wizard-progress="5"><span>5</span><strong>Review</strong></li>
+            </ol>
+
+            <form class="transport-route-wizard__form" id="transportRouteWizardForm" novalidate>
+              <div class="transport-route-wizard__errors" id="transportRouteWizardErrors" role="alert" aria-live="assertive" hidden></div>
+
+              <section class="transport-route-wizard__step" data-transport-route-wizard-step="1" aria-labelledby="transportRouteWizardStep1Title">
+                <header class="transport-route-wizard__step-header">
+                  <span>Step 1 of 5</span>
+                  <h4 id="transportRouteWizardStep1Title" tabindex="-1">Route</h4>
+                </header>
+                <div class="transport-route-wizard__field-grid transport-route-wizard__field-grid--route">
+                  <label class="admin-form-field">
+                    <span>Origin *</span>
+                    <select id="transportRouteWizardOrigin" class="form-control" data-transport-route-wizard-path="route.originLocationId" required>
+                      <option value="">Select origin</option>
+                    </select>
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Destination *</span>
+                    <select id="transportRouteWizardDestination" class="form-control" data-transport-route-wizard-path="route.destinationLocationId" required>
+                      <option value="">Select destination</option>
+                    </select>
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Sort order</span>
+                    <input id="transportRouteWizardSortOrder" type="number" min="0" step="1" data-transport-route-wizard-path="route.sortOrder" value="0" />
+                  </label>
+                  <label class="transport-route-wizard__toggle">
+                    <input id="transportRouteWizardActive" type="checkbox" data-transport-route-wizard-path="route.isActive" checked />
+                    <span>Active</span>
+                  </label>
+                </div>
+                <div class="transport-route-wizard__existing" id="transportRouteWizardExistingOutbound" hidden>
+                  <div>
+                    <strong>Outbound route already exists</strong>
+                    <span id="transportRouteWizardExistingOutboundLabel"></span>
+                  </div>
+                  <button class="btn-secondary" id="btnTransportRouteWizardOpenExisting" type="button">Open existing route</button>
+                </div>
+              </section>
+
+              <section class="transport-route-wizard__step" data-transport-route-wizard-step="2" aria-labelledby="transportRouteWizardStep2Title" hidden>
+                <header class="transport-route-wizard__step-header">
+                  <span>Step 2 of 5</span>
+                  <h4 id="transportRouteWizardStep2Title" tabindex="-1">Direction and return</h4>
+                </header>
+                <fieldset class="transport-route-wizard__choice-group">
+                  <legend>Routes to create</legend>
+                  <label class="transport-route-wizard__choice">
+                    <input id="transportRouteWizardDirectionOutbound" type="radio" name="transportRouteWizardDirection" value="outbound_only" data-transport-route-wizard-path="direction.mode" checked />
+                    <span><strong>Create outbound only</strong><small>Origin to destination</small></span>
+                  </label>
+                  <label class="transport-route-wizard__choice">
+                    <input id="transportRouteWizardDirectionBidirectional" type="radio" name="transportRouteWizardDirection" value="bidirectional" data-transport-route-wizard-path="direction.mode" />
+                    <span><strong>Create outbound + reverse</strong><small>Both directions</small></span>
+                  </label>
+                </fieldset>
+
+                <div class="transport-route-wizard__direction-options" id="transportRouteWizardDirectionOptions" hidden>
+                  <div class="transport-route-wizard__existing-reverse" id="transportRouteWizardExistingReverseOptions" hidden>
+                    <div class="transport-route-wizard__section-label">
+                      <strong>Reverse route exists</strong>
+                      <span id="transportRouteWizardExistingReverseLabel"></span>
+                    </div>
+                    <div class="transport-route-wizard__segmented">
+                      <label><input id="transportRouteWizardExistingReverseReuse" type="radio" name="transportRouteWizardExistingReverseAction" value="reuse" data-transport-route-wizard-path="direction.existingReverseAction" checked /><span>Reuse existing reverse</span></label>
+                      <label><input id="transportRouteWizardExistingReverseUpdate" type="radio" name="transportRouteWizardExistingReverseAction" value="update" data-transport-route-wizard-path="direction.existingReverseAction" /><span>Update existing reverse</span></label>
+                    </div>
+                  </div>
+                  <fieldset class="transport-route-wizard__choice-group transport-route-wizard__choice-group--compact" id="transportRouteWizardReverseSettings">
+                    <legend>Reverse settings</legend>
+                    <label class="transport-route-wizard__choice">
+                      <input id="transportRouteWizardReverseSettingsShared" type="radio" name="transportRouteWizardReverseSettings" value="shared_settings" data-transport-route-wizard-path="direction.reverseSettings" checked />
+                      <span><strong>Shared settings</strong><small>Use outbound prices and capacity</small></span>
+                    </label>
+                    <label class="transport-route-wizard__choice">
+                      <input id="transportRouteWizardReverseSettingsSeparate" type="radio" name="transportRouteWizardReverseSettings" value="separate_prices" data-transport-route-wizard-path="direction.reverseSettings" />
+                      <span><strong>Separate reverse prices</strong><small>Set reverse day and night fares</small></span>
+                    </label>
+                  </fieldset>
+                </div>
+
+                <details class="transport-route-wizard__advanced" id="transportRouteWizardLegacySettings">
+                  <summary>Advanced Legacy Settings</summary>
+                  <div class="transport-route-wizard__advanced-body">
+                    <label class="transport-route-wizard__toggle">
+                      <input id="transportRouteWizardAllowsRoundTrip" type="checkbox" data-transport-route-wizard-path="legacy.allowsRoundTrip" />
+                      <span>Allow round-trip booking</span>
+                    </label>
+                    <label class="admin-form-field" id="transportRouteWizardRoundTripMultiplierField" hidden>
+                      <span>Round-trip multiplier</span>
+                      <input id="transportRouteWizardRoundTripMultiplier" type="number" min="1" max="5" step="0.01" data-transport-route-wizard-path="legacy.roundTripMultiplier" value="2" />
+                    </label>
+                  </div>
+                </details>
+              </section>
+
+              <section class="transport-route-wizard__step" data-transport-route-wizard-step="3" aria-labelledby="transportRouteWizardStep3Title" hidden>
+                <header class="transport-route-wizard__step-header">
+                  <span>Step 3 of 5</span>
+                  <h4 id="transportRouteWizardStep3Title" tabindex="-1">Prices</h4>
+                </header>
+                <div class="transport-route-wizard__field-grid">
+                  <label class="admin-form-field">
+                    <span>Day price *</span>
+                    <input id="transportRouteWizardDayPrice" type="number" min="0.01" step="0.01" data-transport-route-wizard-path="price.dayPrice" required />
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Night price *</span>
+                    <input id="transportRouteWizardNightPrice" type="number" min="0.01" step="0.01" data-transport-route-wizard-path="price.nightPrice" required />
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Currency</span>
+                    <input id="transportRouteWizardCurrency" type="text" maxlength="8" value="EUR" data-transport-route-wizard-path="price.currency" />
+                  </label>
+                </div>
+
+                <div class="transport-route-wizard__reverse-prices" id="transportRouteWizardReversePrices" hidden>
+                  <div class="transport-route-wizard__section-label"><strong>Reverse prices</strong></div>
+                  <div class="transport-route-wizard__field-grid">
+                    <label class="admin-form-field">
+                      <span>Reverse day *</span>
+                      <input id="transportRouteWizardReverseDayPrice" type="number" min="0.01" step="0.01" data-transport-route-wizard-path="price.reverseDayPrice" />
+                    </label>
+                    <label class="admin-form-field">
+                      <span>Reverse night *</span>
+                      <input id="transportRouteWizardReverseNightPrice" type="number" min="0.01" step="0.01" data-transport-route-wizard-path="price.reverseNightPrice" />
+                    </label>
+                  </div>
+                </div>
+
+                <label class="transport-route-wizard__toggle transport-route-wizard__toggle--panel">
+                  <input id="transportRouteWizardPricingEnabled" type="checkbox" data-transport-route-wizard-path="pricing.enabled" />
+                  <span>Enable pricing rule</span>
+                </label>
+                <div class="transport-route-wizard__pricing-fields" id="transportRouteWizardPricingFields" hidden>
+                  <div class="transport-route-wizard__field-grid">
+                    <label class="admin-form-field"><span>Night start</span><input id="transportRouteWizardNightStart" type="time" data-transport-route-wizard-path="pricing.nightStart" value="22:00" /></label>
+                    <label class="admin-form-field"><span>Night end</span><input id="transportRouteWizardNightEnd" type="time" data-transport-route-wizard-path="pricing.nightEnd" value="06:00" /></label>
+                    <label class="admin-form-field"><span>Valid from</span><input id="transportRouteWizardValidFrom" type="date" data-transport-route-wizard-path="pricing.validFrom" /></label>
+                    <label class="admin-form-field"><span>Valid to</span><input id="transportRouteWizardValidTo" type="date" data-transport-route-wizard-path="pricing.validTo" /></label>
+                    <label class="admin-form-field"><span>Priority</span><input id="transportRouteWizardPriority" type="number" min="0" step="1" data-transport-route-wizard-path="pricing.priority" value="0" /></label>
+                    <label class="transport-route-wizard__toggle"><input id="transportRouteWizardPricingActive" type="checkbox" data-transport-route-wizard-path="pricing.isActive" checked /><span>Pricing rule active</span></label>
+                  </div>
+                  <div class="transport-route-wizard__deposit">
+                    <label class="transport-route-wizard__toggle"><input id="transportRouteWizardDepositEnabled" type="checkbox" data-transport-route-wizard-path="pricing.deposit.enabled" /><span>Enable deposit</span></label>
+                    <div class="transport-route-wizard__field-grid" id="transportRouteWizardDepositFields" hidden>
+                      <label class="admin-form-field">
+                        <span>Deposit mode</span>
+                        <select id="transportRouteWizardDepositMode" class="form-control" data-transport-route-wizard-path="pricing.deposit.mode">
+                          <option value="percent_total">% of total</option>
+                          <option value="fixed_amount">Fixed amount</option>
+                          <option value="per_person">Per person</option>
+                        </select>
+                      </label>
+                      <label class="admin-form-field"><span>Deposit value</span><input id="transportRouteWizardDepositValue" type="number" min="0" step="0.01" data-transport-route-wizard-path="pricing.deposit.value" value="0" /></label>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="transport-route-wizard__step" data-transport-route-wizard-step="4" aria-labelledby="transportRouteWizardStep4Title" hidden>
+                <header class="transport-route-wizard__step-header">
+                  <span>Step 4 of 5</span>
+                  <h4 id="transportRouteWizardStep4Title" tabindex="-1">Passengers and luggage</h4>
+                </header>
+                <div class="transport-route-wizard__field-grid transport-route-wizard__field-grid--capacity">
+                  <label class="admin-form-field"><span>Included passengers</span><input id="transportRouteWizardIncludedPassengers" type="number" min="1" step="1" data-transport-route-wizard-path="capacity.includedPassengers" value="2" /></label>
+                  <label class="admin-form-field"><span>Included bags</span><input id="transportRouteWizardIncludedBags" type="number" min="0" step="1" data-transport-route-wizard-path="capacity.includedBags" value="2" /></label>
+                  <label class="admin-form-field"><span>Included large bags</span><input id="transportRouteWizardIncludedLargeBags" type="number" min="0" step="1" data-transport-route-wizard-path="capacity.includedLargeBags" value="0" /></label>
+                  <label class="admin-form-field"><span>Max passengers</span><input id="transportRouteWizardMaxPassengers" type="number" min="1" step="1" data-transport-route-wizard-path="capacity.maxPassengers" value="8" /></label>
+                  <label class="admin-form-field"><span>Max bags</span><input id="transportRouteWizardMaxBags" type="number" min="0" step="1" data-transport-route-wizard-path="capacity.maxBags" value="8" /></label>
+                </div>
+
+                <details class="transport-route-wizard__advanced" id="transportRouteWizardPricingAdvanced">
+                  <summary>Advanced pricing and extras</summary>
+                  <div class="transport-route-wizard__advanced-body transport-route-wizard__field-grid">
+                    <label class="admin-form-field"><span>Extra passenger</span><input id="transportRouteWizardExtraPassenger" type="number" min="0" step="0.01" data-transport-route-wizard-path="pricing.extraPassengerFee" value="0" /></label>
+                    <label class="admin-form-field"><span>Extra bag</span><input id="transportRouteWizardExtraBag" type="number" min="0" step="0.01" data-transport-route-wizard-path="pricing.extraBagFee" value="0" /></label>
+                    <label class="admin-form-field"><span>Oversize bag</span><input id="transportRouteWizardOversizeBag" type="number" min="0" step="0.01" data-transport-route-wizard-path="pricing.oversizeBagFee" value="0" /></label>
+                    <label class="admin-form-field"><span>Child seat</span><input id="transportRouteWizardChildSeat" type="number" min="0" step="0.01" data-transport-route-wizard-path="pricing.childSeatFee" value="0" /></label>
+                    <label class="admin-form-field"><span>Booster seat</span><input id="transportRouteWizardBoosterSeat" type="number" min="0" step="0.01" data-transport-route-wizard-path="pricing.boosterSeatFee" value="0" /></label>
+                    <label class="admin-form-field"><span>Waiting included</span><input id="transportRouteWizardWaitingIncluded" type="number" min="0" step="1" data-transport-route-wizard-path="pricing.waitingIncludedMinutes" value="0" /></label>
+                    <label class="admin-form-field"><span>Waiting per hour</span><input id="transportRouteWizardWaitingPerHour" type="number" min="0" step="0.01" data-transport-route-wizard-path="pricing.waitingFeePerHour" value="0" /></label>
+                  </div>
+                  <div class="transport-route-wizard__deposit-summary" id="transportRouteWizardDepositSummary">Deposit disabled</div>
+                </details>
+              </section>
+
+              <section class="transport-route-wizard__step" data-transport-route-wizard-step="5" aria-labelledby="transportRouteWizardStep5Title" hidden>
+                <header class="transport-route-wizard__step-header">
+                  <span>Step 5 of 5</span>
+                  <h4 id="transportRouteWizardStep5Title" tabindex="-1">Review and save</h4>
+                </header>
+                <div class="transport-route-wizard__review" id="transportRouteWizardReview"></div>
+                <div class="transport-route-wizard__save-status" id="transportRouteWizardSaveStatus" role="status" aria-live="polite" hidden></div>
+                <section class="transport-route-wizard__receipt" id="transportRouteWizardReceipt" aria-labelledby="transportRouteWizardReceiptTitle" hidden>
+                  <header>
+                    <span>Save complete</span>
+                    <h5 id="transportRouteWizardReceiptTitle">Route creation receipt</h5>
+                  </header>
+                  <div class="transport-route-wizard__receipt-summary" id="transportRouteWizardReceiptSummary"></div>
+                  <div class="transport-route-wizard__receipt-actions">
+                    <button class="btn-secondary" id="btnTransportRouteWizardCreateAnother" type="button">Create another</button>
+                    <button class="btn-secondary" id="btnTransportRouteWizardOpenCreated" type="button">Open created route</button>
+                    <button class="btn btn-primary" id="btnTransportRouteWizardReceiptClose" type="button">Close</button>
+                  </div>
+                </section>
+              </section>
+            </form>
+
+            <footer class="transport-route-wizard__footer">
+              <button class="btn-secondary" id="btnTransportRouteWizardCancel" type="button">Cancel</button>
+              <div class="transport-route-wizard__footer-actions">
+                <button class="btn-secondary" id="btnTransportRouteWizardBack" type="button" hidden>Back</button>
+                <button class="btn btn-primary" id="btnTransportRouteWizardNext" type="button">Next</button>
+                <button class="btn-secondary" id="btnTransportRouteWizardRetry" type="button" hidden>Retry failed steps</button>
+                <button class="btn btn-primary" id="btnTransportRouteWizardSave" type="button" hidden>Save</button>
+              </div>
+            </footer>
+
+            <div class="transport-route-wizard__discard" id="transportRouteWizardDiscardDialog" role="alertdialog" aria-modal="true" aria-labelledby="transportRouteWizardDiscardTitle" hidden>
+              <div class="transport-route-wizard__discard-dialog">
+                <h4 id="transportRouteWizardDiscardTitle">Discard changes?</h4>
+                <div class="transport-route-wizard__discard-actions">
+                  <button class="btn-secondary" id="btnTransportRouteWizardStay" type="button">Stay</button>
+                  <button class="btn btn-danger" id="btnTransportRouteWizardLeave" type="button">Leave</button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div id="transportAdminV2LegacySource" hidden>
+        <div class="admin-card transport-control-center" id="transportLegacyControlCenter">
           <div class="transport-control-center__head">
             <div>
               <h3 class="transport-control-center__title transport-title-with-help">
@@ -708,7 +1163,7 @@
               </h3>
               <p class="transport-control-center__subtitle">Choose route and pricing rule, preview customer total and deposit, then jump directly to edit forms.</p>
             </div>
-            <div class="transport-control-center__head-right">
+            <div class="transport-control-center__head-right" id="transportLegacyModeControls">
               <label class="transport-check-field transport-check-field--inline transport-simple-mode-toggle">
                 <input id="transportSimpleModeToggle" type="checkbox" checked />
                 <span>Simple mode (hide advanced tools)</span>
@@ -866,7 +1321,7 @@
             </section>
           </div>
 
-          <section class="transport-control-panel transport-control-panel--matrix">
+          <section class="transport-control-panel transport-control-panel--matrix" id="transportAdvancedPricingMatrix">
             <div class="transport-inline-head">
               <h4 class="transport-title-with-help transport-title-with-help--compact">
                 Passengers × backpacks matrix
@@ -899,7 +1354,7 @@
           </section>
         </div>
 
-        <div class="transport-workflow-strip">
+        <div class="transport-workflow-strip" id="transportLegacyWorkflowStrip">
           <div class="transport-workflow-strip__item">
             <strong>Single Route</strong>
             <span>Set one route and one pricing rule, then save.</span>
@@ -954,21 +1409,6 @@
             </button>
           </div>
         </section>
-
-        <div class="transport-tabs">
-          <button class="transport-tab-button active" data-tab="locations" type="button">
-            Locations
-          </button>
-          <button class="transport-tab-button" data-tab="routes" type="button">
-            Routes
-          </button>
-          <button class="transport-tab-button" data-tab="pricing" type="button">
-            Pricing Rules
-          </button>
-          <button class="transport-tab-button" data-tab="bookings" type="button">
-            Bookings
-          </button>
-        </div>
 
         <div id="transportTabLocations" class="transport-tab-content">
           <div class="admin-card transport-admin-card">
@@ -1076,7 +1516,7 @@
         </div>
 
         <div id="transportTabRoutes" class="transport-tab-content" hidden>
-          <div class="admin-card transport-admin-card">
+          <div class="admin-card transport-admin-card" id="transportLegacyRouteEditor">
             <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
               <h3 class="transport-title-with-help">
                 Route & Base Fare Editor
@@ -1086,6 +1526,9 @@
             </div>
             <div class="admin-card-body">
               <p class="transport-editor-hint">Set base day/night fare, capacity, and whether this route is one-way only or also supports round trips.</p>
+              <p class="transport-form-block__hint transport-form-block__hint--status" id="transportLegacyRouteEditNotice" aria-live="polite">
+                Legacy editor updates existing routes only. Create new routes from Routes using Add route.
+              </p>
               <form id="transportRouteForm" class="transport-editor-form" novalidate>
                 <input type="hidden" id="transportRouteId" />
 
@@ -1187,7 +1630,7 @@
                   </div>
                 </section>
 
-                <section class="transport-bulk-panel" aria-label="Global capacity and limits">
+                <section class="transport-bulk-panel" id="transportRouteGlobalCapacityPanel" aria-label="Global capacity and limits">
                   <div class="transport-inline-head">
                     <h4 class="transport-form-block__title">Global Capacity & Limits (all routes)</h4>
                     <span class="transport-inline-badge">Mass update</span>
@@ -1268,11 +1711,11 @@
 
                 <div class="transport-editor-actions">
                   <button class="btn-secondary" type="button" id="btnResetTransportRoute">Clear</button>
-                  <button class="btn btn-primary" type="submit" id="btnSaveTransportRoute">Save route</button>
+                  <button class="btn btn-primary" type="submit" id="btnSaveTransportRoute" aria-describedby="transportLegacyRouteEditNotice" disabled>Select a route to edit</button>
                 </div>
               </form>
 
-              <section class="transport-bulk-panel transport-advanced-block" aria-label="Route set builder">
+              <section class="transport-bulk-panel transport-advanced-block" id="transportRouteSetBuilderPanel" aria-label="Route set builder">
                 <div class="transport-inline-head">
                   <h4 class="transport-form-block__title transport-title-with-help">
                     Route Set Builder
@@ -1422,7 +1865,7 @@
             </div>
           </div>
 
-          <div class="admin-table-container transport-table-scroll" aria-label="Transport routes">
+          <div class="admin-table-container transport-table-scroll" id="transportRoutesList" aria-label="Transport routes">
             <table class="admin-table transport-table-modern transport-routes-table">
               <thead>
                 <tr>
@@ -1445,7 +1888,7 @@
         </div>
 
         <div id="transportTabPricing" class="transport-tab-content" hidden>
-          <div class="admin-card transport-admin-card">
+          <div class="admin-card transport-admin-card" id="transportPricingEditor">
             <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
               <h3 class="transport-title-with-help">
                 Pricing Rules & Extras Editor
@@ -1491,7 +1934,7 @@
                   </div>
                 </section>
 
-                <section class="transport-bulk-panel" aria-label="Global luggage and extras settings">
+                <section class="transport-bulk-panel" id="transportPricingGlobalLuggagePanel" aria-label="Global luggage and extras settings">
                   <div class="transport-inline-head">
                     <h4 class="transport-form-block__title">Global luggage + extras (all routes)</h4>
                     <span class="transport-inline-badge">Mass update</span>
@@ -1603,6 +2046,7 @@
                     </label>
                   </div>
                   <p class="transport-form-block__hint transport-form-block__hint--status" id="transportPricingDepositBaseHint">Final deposit = MAX(base floor from Partners Emails flat rule, route rule calculation).</p>
+                  <div id="transportPricingDepositGlobalControls">
                   <div class="transport-multi-select-toolbar">
                     <label class="transport-check-field">
                       <input id="transportPricingDepositGlobalOnlyActiveRoutes" type="checkbox" checked />
@@ -1616,6 +2060,7 @@
                   <p class="transport-form-block__hint transport-form-block__hint--status" id="transportPricingDepositGlobalSummary" aria-live="polite">Global deposit update scope is shown here.</p>
                   <div class="transport-editor-actions">
                     <button class="btn-secondary" type="button" id="btnTransportPricingDepositGlobalApply">Apply deposit settings globally</button>
+                  </div>
                   </div>
                 </section>
 
@@ -1759,7 +2204,7 @@
             </div>
           </div>
 
-          <div class="admin-table-container transport-table-scroll" aria-label="Transport pricing rules">
+          <div class="admin-table-container transport-table-scroll" id="transportPricingList" aria-label="Transport pricing rules">
             <table class="admin-table transport-table-modern transport-pricing-table">
               <thead>
                 <tr>
@@ -1850,6 +2295,7 @@
               </tbody>
             </table>
           </div>
+        </div>
         </div>
       </section>
 

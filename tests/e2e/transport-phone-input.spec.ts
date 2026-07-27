@@ -184,12 +184,29 @@ test.describe('Transport booking phone country selector', () => {
     await openTransport(page, 'en');
     await completeRequiredTransportForm(page);
 
+    const quote = await page.evaluate(() => (window as any).CE_TRANSPORT_BOOKING.getStateSnapshot().lastQuote);
+    expect(quote).toMatchObject({
+      total: 75,
+      currency: 'EUR',
+      isBookable: true,
+    });
+
     await page.locator('#transportSubmitBooking').click();
     await expect(page.locator('#transportSubmitSuccess')).toBeVisible();
 
     const inserted = await page.evaluate(() => (window as any).__supabaseStub.getTableRows('transport_bookings'));
     expect(inserted).toHaveLength(1);
-    expect(inserted[0].customer_phone).toBe('+48 123456789');
+    expect(inserted[0]).toMatchObject({
+      route_id: 'route-larnaca-limassol',
+      origin_location_id: 'loc-larnaca-city',
+      destination_location_id: 'loc-limassol-city',
+      trip_type: 'one_way',
+      base_price: 75,
+      extras_price: 0,
+      total_price: 75,
+      currency: 'EUR',
+      customer_phone: '+48 123456789',
+    });
   });
 
   test('blocks submit without local phone number or country code', async ({ page }) => {

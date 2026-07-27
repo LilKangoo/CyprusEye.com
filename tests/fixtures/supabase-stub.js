@@ -478,6 +478,11 @@ function upsertTableRows(table, rows, onConflict = '') {
 
   rows.forEach((row) => {
     const payload = clone(row);
+    if (table === 'service_deposit_overrides') {
+      if (!payload.id) payload.id = `${table}-${Math.random().toString(36).slice(2, 10)}`;
+      if (!payload.created_at) payload.created_at = new Date().toISOString();
+      if (!payload.updated_at) payload.updated_at = new Date().toISOString();
+    }
     if (!keys.length) {
       list.push(payload);
       return;
@@ -492,6 +497,14 @@ function upsertTableRows(table, rows, onConflict = '') {
 
   setTableRows(table, list);
   return getTableRows(table);
+}
+
+function takeMutationFailure(table, action) {
+  const api = stubApi || globalThis.__supabaseStub || {};
+  const queue = Array.isArray(api.mutationFailureQueue) ? api.mutationFailureQueue : [];
+  const index = queue.findIndex((entry) => entry?.table === table && entry?.action === action);
+  if (index < 0) return null;
+  return queue.splice(index, 1)[0] || null;
 }
 
 function getProfileRows() {
@@ -1086,23 +1099,34 @@ export function createClient() {
             if (!next.updated_at) next.updated_at = new Date().toISOString();
             return next;
           });
-          setTableRows(table, [...getTableRows(table), ...normalized]);
+          const failure = takeMutationFailure(table, 'insert');
+          if (!failure || failure.afterWrite) {
+            setTableRows(table, [...getTableRows(table), ...normalized]);
+          }
           return {
             select(_columns) {
               return {
                 async single() {
-                  return { data: clone(normalized[0] || null), error: null };
+                  return failure
+                    ? { data: null, error: clone(failure.error || { message: 'Insert failed' }) }
+                    : { data: clone(normalized[0] || null), error: null };
                 },
               };
             },
-            data: clone(normalized),
-            error: null,
+            data: failure ? null : clone(normalized),
+            error: failure ? clone(failure.error || { message: 'Insert failed' }) : null,
           };
         },
         upsert(rows, options = {}) {
           const payloads = Array.isArray(rows) ? rows : [rows];
-          const merged = upsertTableRows(table, payloads, options.onConflict || '');
-          return { data: clone(merged), error: null };
+          const failure = takeMutationFailure(table, 'upsert');
+          const merged = (!failure || failure.afterWrite)
+            ? upsertTableRows(table, payloads, options.onConflict || '')
+            : null;
+          return {
+            data: failure ? null : clone(merged),
+            error: failure ? clone(failure.error || { message: 'Upsert failed' }) : null,
+          };
         },
         update(values) {
           return createGenericUpdateBuilder(table, values);
@@ -1169,6 +1193,13 @@ stubApi.getVerificationRequests = function getVerificationRequests() {
 stubApi.clearRpcCalls = function clearRpcCalls() {
   state.rpcCalls = [];
   persistState();
+};
+if (!Array.isArray(stubApi.mutationFailureQueue)) {
+  stubApi.mutationFailureQueue = [];
+}
+stubApi.failNextMutation = function failNextMutation(entry) {
+  if (!entry || typeof entry !== 'object') return;
+  stubApi.mutationFailureQueue.push(clone(entry));
 };
 if (!stubApi.rpcHandlers || typeof stubApi.rpcHandlers !== 'object') {
   stubApi.rpcHandlers = {};

@@ -231,11 +231,8 @@ async function openAdminTransportBooking(page: any) {
   await waitForSupabaseStub(page);
   await page.click('button.admin-nav-item[data-view="transport"]');
   await page.waitForSelector('#viewTransport.active:not([hidden])');
-  await page.evaluate(() => {
-    const button = document.querySelector('.transport-tab-button[data-tab="bookings"]');
-    if (button instanceof HTMLElement) button.click();
-  });
-  await page.waitForSelector('#transportTabBookings:not([hidden])');
+  await page.click('#transportAdminV2TabBookings');
+  await page.waitForSelector('#transportAdminV2PanelBookings:not([hidden])');
   await page.waitForSelector('#transportBookingsTableBody tr');
 }
 
