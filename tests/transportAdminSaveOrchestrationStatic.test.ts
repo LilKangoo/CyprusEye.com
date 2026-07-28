@@ -68,6 +68,19 @@ describe('Transport Admin Stage 1E architecture guards', () => {
     expect(binding).not.toMatch(/saveTransportRouteForm|saveTransportPricingForm/);
   });
 
+  test('Wizard receives include_children from the existing transport service deposit rule', () => {
+    const loader = functionBody(admin, 'loadTransportDefaultServiceDepositRule');
+    const refresh = functionBody(admin, 'refreshTransportDepositBaseFloorState');
+    const context = functionBody(wizard, 'buildContext');
+    const binding = admin.slice(admin.indexOf('TransportRouteWizard.initialize({'), admin.indexOf("if (document.body?.dataset?.ceTransportAdminBound"));
+
+    expect(loader).toContain(".select('mode, amount, enabled, currency, include_children')");
+    expect(loader).toContain('includeChildren: Boolean(row.include_children)');
+    expect(refresh).toContain('transportAdminState.serviceDepositDefaults = rule');
+    expect(context).toContain('serviceDepositDefaults: options.getServiceDepositDefaults?.() || null');
+    expect(binding).toContain('getServiceDepositDefaults: () => transportAdminState.serviceDepositDefaults');
+  });
+
   test('Legacy editor can update existing routes but cannot create a blank route', () => {
     expect(dashboard).toContain('id="btnSaveTransportRoute" aria-describedby="transportLegacyRouteEditNotice" disabled');
     expect(admin).toContain('function syncTransportLegacyRouteEditState()');

@@ -828,6 +828,19 @@ test.describe('Transport Admin Stage 1E Route Wizard', () => {
 
   test('Save executes the production plan and keeps a receipt with created IDs', async ({ page }) => {
     await openTransportAdmin(page);
+    await page.evaluate(async () => {
+      const stub = (window as any).__supabaseStub;
+      stub.seedTable('service_deposit_rules', [{
+        id: 'transport-deposit-default',
+        resource_type: 'transport',
+        mode: 'per_person',
+        amount: 10,
+        currency: 'EUR',
+        include_children: true,
+        enabled: true,
+      }]);
+      await (window as any).loadTransportAdminData();
+    });
     await openRouteWizard(page);
     await setWizardRoute(page, 'loc-paphos', 'loc-limassol');
     await advanceWizard(page);
@@ -886,7 +899,7 @@ test.describe('Transport Admin Stage 1E Route Wizard', () => {
       deposit_mode: 'fixed_amount',
       deposit_value: 25,
     });
-    expect(saved.deposit).toMatchObject({ mode: 'flat', amount: 25, enabled: true });
+    expect(saved.deposit).toMatchObject({ mode: 'flat', amount: 25, include_children: true, enabled: true });
     await page.locator('#btnTransportRouteWizardOpenCreated').click();
     await expect(page.locator('#transportRouteWizardModal')).toBeHidden();
     await expect(page.locator('#transportAdminV2PanelLegacyTools')).toBeVisible();

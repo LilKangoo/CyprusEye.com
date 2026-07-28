@@ -175,6 +175,42 @@ describe('Transport Admin save-plan builder', () => {
     });
   });
 
+  test.each([
+    ['percent_total', true],
+    ['percent_total', false],
+    ['per_person', true],
+    ['per_person', false],
+    ['fixed_amount', true],
+    ['fixed_amount', false],
+  ])('keeps Wizard and Legacy deposit payload parity for %s with includeChildren=%s', (mode, includeChildren) => {
+    const depositValue = mode === 'percent_total' ? 25 : 20;
+    const legacyPayload = plain(core.buildTransportDepositOverridePayload({
+      routeId: 'route-id',
+      depositEnabled: true,
+      depositMode: mode,
+      depositValue,
+      currency: 'EUR',
+      includeChildren,
+    }));
+    const plan = plain(core.buildTransportSavePlan({
+      ...baseDraft,
+      pricing: {
+        enabled: true,
+        applyToReverse: false,
+        deposit: {
+          enabled: true,
+          mode,
+          value: depositValue,
+        },
+      },
+    }, {
+      serviceDepositDefaults: { includeChildren },
+    }));
+    const wizardPayload = plan.steps.find((step: { key: string }) => step.key === 'deposit_outbound').payload;
+
+    expect({ ...wizardPayload, resource_id: 'route-id' }).toEqual(legacyPayload);
+  });
+
   test('reuses an existing reverse route without mutating it or cloning pricing', () => {
     const plan = plain(core.buildTransportSavePlan({
       ...baseDraft,

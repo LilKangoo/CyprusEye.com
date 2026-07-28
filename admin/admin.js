@@ -3405,6 +3405,7 @@ const transportAdminState = {
   depositBaseEnabled: false,
   depositBaseCurrency: 'EUR',
   depositBaseSourceAvailable: false,
+  serviceDepositDefaults: null,
   locationById: {},
   routeById: {},
   assignablePartners: [],
@@ -20582,7 +20583,7 @@ async function loadTransportDefaultServiceDepositRule(client) {
     result = await runTransportMutation(
       (db) => db
         .from('service_deposit_rules')
-        .select('mode, amount, enabled, currency')
+        .select('mode, amount, enabled, currency, include_children')
         .eq('resource_type', 'transport')
         .maybeSingle(),
       { silentAuthNotice: true },
@@ -20609,6 +20610,7 @@ async function loadTransportDefaultServiceDepositRule(client) {
       amount: Number(row.amount || 0),
       enabled: Boolean(row.enabled),
       currency: String(row.currency || 'EUR').trim().toUpperCase() || 'EUR',
+      includeChildren: Boolean(row.include_children),
     },
     missingDeps: false,
   };
@@ -20624,6 +20626,9 @@ async function refreshTransportDepositBaseFloorState(client, options = {}) {
   transportAdminState.depositBaseEnabled = Boolean(rule?.enabled);
   transportAdminState.depositBaseCurrency = String(rule?.currency || 'EUR').trim().toUpperCase() || 'EUR';
   transportAdminState.depositBaseSourceAvailable = !loaded.missingDeps;
+  transportAdminState.serviceDepositDefaults = rule
+    ? { includeChildren: rule.includeChildren }
+    : null;
 
   if (options.updateUi !== false) {
     const floorInput = document.getElementById('transportPricingDepositBaseFloor');
@@ -23655,6 +23660,7 @@ function bindTransportAdminUi() {
     getLocations: () => transportAdminState.locations,
     getRoutes: () => transportAdminState.routes,
     getDepositBaseFloor: () => transportAdminState.depositBaseFloor,
+    getServiceDepositDefaults: () => transportAdminState.serviceDepositDefaults,
     onOpenExistingRoute: (routeId) => editTransportRoute(routeId),
     onExecute: (plan, options) => executeTransportRouteWizardPlan(plan, options),
     onSaved: () => {

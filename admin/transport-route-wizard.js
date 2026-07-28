@@ -194,6 +194,7 @@
         existingOutbound: state.existingOutbound,
         existingReverse: state.existingReverse,
         depositBaseFloor: Number(options.getDepositBaseFloor?.() || 0),
+        serviceDepositDefaults: options.getServiceDepositDefaults?.() || null,
       };
     }
 
