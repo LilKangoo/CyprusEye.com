@@ -211,6 +211,50 @@ async function activateTab(page: any, tabId: string, panelId: string) {
   await expect(page.locator(`#${tabId}`)).toHaveAttribute('aria-selected', 'true');
 }
 
+async function expectTransportBookingModalVisible(page: any) {
+  const modal = page.locator('#transportBookingDetailsModal');
+  await expect(modal).toBeVisible();
+  expect(await modal.getAttribute('hidden')).toBeNull();
+
+  const visibility = await modal.evaluate((element: HTMLElement) => {
+    const hiddenAncestors: string[] = [];
+    const displayNoneAncestors: string[] = [];
+    let ancestor = element.parentElement;
+
+    while (ancestor) {
+      const label = ancestor.id || ancestor.tagName.toLowerCase();
+      if (ancestor.hidden || ancestor.hasAttribute('hidden')) hiddenAncestors.push(label);
+      if (getComputedStyle(ancestor).display === 'none') displayNoneAncestors.push(label);
+      ancestor = ancestor.parentElement;
+    }
+
+    const computed = getComputedStyle(element);
+    const rect = element.getBoundingClientRect();
+    return {
+      display: computed.display,
+      visibility: computed.visibility,
+      opacity: computed.opacity,
+      width: rect.width,
+      height: rect.height,
+      hiddenAncestors,
+      displayNoneAncestors,
+    };
+  });
+
+  expect(visibility.display).not.toBe('none');
+  expect(visibility.visibility).not.toBe('hidden');
+  expect(Number(visibility.opacity)).toBeGreaterThan(0);
+  expect(visibility.width).toBeGreaterThan(0);
+  expect(visibility.height).toBeGreaterThan(0);
+  expect(visibility.hiddenAncestors).toEqual([]);
+  expect(visibility.displayNoneAncestors).toEqual([]);
+
+  await expect(page.locator('#transportBookingDetailsContent')).toContainText('Stage 1B Guest');
+  await expect(page.locator('#transportBookingDetailsContent')).toContainText('stage1b@example.com');
+  await expect(page.locator('#transportBookingDetailsContent')).toContainText('10/09/2026');
+  await expect(page.locator('#transportBookingDetailsContent')).toContainText('€70.00');
+}
+
 async function runRouteAction(page: any, routeId: string, action: string) {
   const record = page.locator(`[data-transport-route-record][data-route-id="${routeId}"]`);
   await record.locator('.transport-admin-v2-route-action-menu > summary').click();
@@ -289,7 +333,9 @@ test.describe('Transport Admin Stage 1B navigation', () => {
     await expect(page.locator('#transportAdminV2PanelGlobalSettings #transportPricingDepositGlobalControls')).toHaveCount(1);
     await activateTab(page, 'transportAdminV2TabBookings', 'transportAdminV2PanelBookings');
     await expect(page.locator('#transportBookingsTableBody')).toContainText('Stage 1B Guest');
-    await expect(page.locator('#transportAdminV2PanelBookings #transportBookingDetailsModal')).toHaveCount(1);
+    await expect(page.locator('#transportBookingDetailsModal')).toHaveCount(1);
+    await expect(page.locator('#viewTransport #transportBookingDetailsModal')).toHaveCount(0);
+    await expect(page.locator('#transportAdminV2PanelBookings #transportBookingDetailsModal')).toHaveCount(0);
     await activateTab(page, 'transportAdminV2TabLegacyTools', 'transportAdminV2PanelLegacyTools');
     await expect(page.locator('#transportAdminV2PanelLegacyTools #transportRouteForm')).toHaveCount(1);
     await expect(page.locator('#transportAdminV2PanelLegacyTools #transportRoutesList')).toHaveCount(1);
@@ -306,6 +352,51 @@ test.describe('Transport Admin Stage 1B navigation', () => {
       };
     });
     expect(after).toEqual(before);
+  });
+
+  test('opens the global transport booking modal from Dashboard All Orders', async ({ page }) => {
+    const consoleEntries: Array<{ text: string; url: string }> = [];
+    page.on('console', (message) => {
+      consoleEntries.push({ text: message.text(), url: message.location().url });
+    });
+
+    await page.addInitScript(transportAdminSeedScript());
+    await enableSupabaseStub(page);
+    await page.goto('/admin/dashboard.html', { waitUntil: 'domcontentloaded' });
+    await waitForSupabaseStub(page);
+
+    await expect(page.locator('#viewDashboard')).toBeVisible();
+    await expect(page.locator('#viewTransport')).toBeHidden();
+    const orderRow = page.locator('#allOrdersTableBody tr').filter({ hasText: 'Stage 1B Guest' });
+    await expect(orderRow).toContainText('Transport');
+    const viewButton = orderRow.getByRole('button', { name: 'View', exact: true });
+    await expect(viewButton).toHaveAttribute('onclick', "viewTransportBookingDetails('transport-booking-stage-1b')");
+
+    await viewButton.click();
+    await expectTransportBookingModalVisible(page);
+    await expect(page.locator('#viewTransport')).toBeHidden();
+    await expect(page.locator('#viewTransport #transportBookingDetailsModal')).toHaveCount(0);
+    await expect(page.locator('#transportAdminV2PanelBookings #transportBookingDetailsModal')).toHaveCount(0);
+
+    const extensionMessages = consoleEntries.filter(({ text, url }) => (
+      /MaxListenersExceededWarning|ObjectMultiplex|orphaned data for stream|background-liveness|Host is not (?:valid or )?supported|insights whitelist/i.test(`${text} ${url}`)
+      || /^(?:chrome|moz|safari)-extension:/i.test(url)
+    ));
+    expect(extensionMessages).toEqual([]);
+  });
+
+  test('keeps Transport Bookings opening the same global booking modal', async ({ page }) => {
+    await openTransportAdmin(page);
+    await activateTab(page, 'transportAdminV2TabBookings', 'transportAdminV2PanelBookings');
+
+    const bookingRow = page.locator('#transportBookingsTableBody tr').filter({ hasText: 'Stage 1B Guest' });
+    const viewButton = bookingRow.getByRole('button', { name: 'View', exact: true });
+    await expect(viewButton).toHaveAttribute('onclick', "viewTransportBookingDetails('transport-booking-stage-1b')");
+
+    await viewButton.click();
+    await expectTransportBookingModalVisible(page);
+    await expect(page.locator('#viewTransport #transportBookingDetailsModal')).toHaveCount(0);
+    await expect(page.locator('#transportAdminV2PanelBookings #transportBookingDetailsModal')).toHaveCount(0);
   });
 
   test('supports keyboard navigation, route filters, and refresh persistence', async ({ page }) => {

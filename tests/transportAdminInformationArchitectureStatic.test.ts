@@ -13,6 +13,37 @@ function functionSlice(source: string, name: string): string {
   return source.slice(start, next === -1 ? source.length : start + marker.length + next);
 }
 
+function htmlElementRangeById(source: string, id: string): { start: number; end: number; html: string } {
+  const idIndex = source.indexOf(`id="${id}"`);
+  if (idIndex < 0) throw new Error(`Missing HTML element #${id}`);
+
+  const start = source.lastIndexOf('<', idIndex);
+  const openingTag = source.slice(start).match(/^<([A-Za-z][A-Za-z0-9:-]*)\b[^>]*>/);
+  if (!openingTag) throw new Error(`Could not parse opening tag for #${id}`);
+
+  const tagName = openingTag[1];
+  const tagPattern = new RegExp(`<\\/?${tagName}\\b[^>]*>`, 'gi');
+  tagPattern.lastIndex = start;
+  let depth = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = tagPattern.exec(source))) {
+    const token = match[0];
+    if (token.startsWith('</')) {
+      depth -= 1;
+    } else if (!/\/\s*>$/.test(token)) {
+      depth += 1;
+    }
+
+    if (depth === 0) {
+      const end = tagPattern.lastIndex;
+      return { start, end, html: source.slice(start, end) };
+    }
+  }
+
+  throw new Error(`Could not find closing tag for #${id}`);
+}
+
 describe('Transport Admin Stage 1B information architecture guards', () => {
   const dashboard = read('admin/dashboard.html');
   const navigation = read('admin/transport-admin-navigation.js');
@@ -75,7 +106,18 @@ describe('Transport Admin Stage 1B information architecture guards', () => {
     expect(navigation).toContain("moveElement(documentRef, 'transportPricingEditor', 'transportAdminV2PanelAdvancedPricing')");
     expect(navigation).toContain("moveElement(documentRef, 'transportLegacyControlCenter', 'transportAdminV2PanelQuoteTester')");
     expect(navigation).toContain("moveChildren(documentRef, 'transportTabBookings', 'transportAdminV2PanelBookings')");
-    expect(navigation).toContain("moveElement(documentRef, 'transportBookingDetailsModal', 'transportAdminV2PanelBookings')");
+  });
+
+  test('transport booking details modal remains global and outside hidden Transport containers', () => {
+    expect(navigation).not.toMatch(/moveElement\([^)]*transportBookingDetailsModal/);
+
+    const modal = htmlElementRangeById(dashboard, 'transportBookingDetailsModal');
+    const transportView = htmlElementRangeById(dashboard, 'viewTransport');
+    const bookingsPanel = htmlElementRangeById(dashboard, 'transportAdminV2PanelBookings');
+
+    expect(transportView.html).not.toContain('id="transportBookingDetailsModal"');
+    expect(bookingsPanel.html).not.toContain('id="transportBookingDetailsModal"');
+    expect(modal.start).toBeGreaterThanOrEqual(transportView.end);
   });
 
   test('advanced and global tools have one explicit destination', () => {

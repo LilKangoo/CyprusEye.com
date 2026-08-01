@@ -84,7 +84,6 @@
     moveElement(documentRef, 'transportPricingList', 'transportAdminV2PanelAdvancedPricing');
     moveElement(documentRef, 'transportAdvancedPricingMatrix', 'transportAdminV2PanelAdvancedPricing');
     moveChildren(documentRef, 'transportTabBookings', 'transportAdminV2PanelBookings');
-    moveElement(documentRef, 'transportBookingDetailsModal', 'transportAdminV2PanelBookings');
 
     moveElement(documentRef, 'transportLegacyModeControls', 'transportAdminV2PanelLegacyTools');
     moveElement(documentRef, 'transportLegacyWorkflowStrip', 'transportAdminV2PanelLegacyTools');
