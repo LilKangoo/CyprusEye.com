@@ -12,6 +12,7 @@ function createEmptyState() {
     storageObjects: {},
     xpEvents: {},
     rpcCalls: [],
+    mutationCalls: [],
     lastResetRequests: [],
     lastVerificationRequests: [],
   };
@@ -161,6 +162,7 @@ function hydrateState(source) {
   state.storageObjects = source.storageObjects ? clone(source.storageObjects) : {};
   state.xpEvents = source.xpEvents ? { ...source.xpEvents } : {};
   state.rpcCalls = Array.isArray(source.rpcCalls) ? clone(source.rpcCalls) : [];
+  state.mutationCalls = Array.isArray(source.mutationCalls) ? clone(source.mutationCalls) : [];
   state.lastResetRequests = Array.isArray(source.lastResetRequests)
     ? [...source.lastResetRequests]
     : [];
@@ -185,6 +187,7 @@ function resetState() {
   state.storageObjects = {};
   state.xpEvents = {};
   state.rpcCalls = [];
+  state.mutationCalls = [];
   state.lastResetRequests = [];
   state.lastVerificationRequests = [];
   persistState();
@@ -499,12 +502,28 @@ function upsertTableRows(table, rows, onConflict = '') {
   return getTableRows(table);
 }
 
-function takeMutationFailure(table, action) {
+function takeMutationFailure(table, action, context = {}) {
   const api = stubApi || globalThis.__supabaseStub || {};
   const queue = Array.isArray(api.mutationFailureQueue) ? api.mutationFailureQueue : [];
-  const index = queue.findIndex((entry) => entry?.table === table && entry?.action === action);
+  const index = queue.findIndex((entry) => (
+    entry?.table === table
+      && entry?.action === action
+      && (!entry?.id || String(entry.id) === String(context.id || ''))
+  ));
   if (index < 0) return null;
   return queue.splice(index, 1)[0] || null;
+}
+
+function recordMutation(table, action, payload = null, filters = []) {
+  if (!Array.isArray(state.mutationCalls)) state.mutationCalls = [];
+  state.mutationCalls.push({
+    table,
+    action,
+    payload: clone(payload),
+    filters: clone(filters),
+    at: new Date().toISOString(),
+  });
+  persistState();
 }
 
 function getProfileRows() {
@@ -783,9 +802,12 @@ function createGenericSelectErrorBuilder(message) {
 function createGenericUpdateBuilder(table, values) {
   const filters = [];
   function applyUpdate() {
+    recordMutation(table, 'update', values, filters);
     const current = getTableRows(table);
     const matchingIds = new Set(applyGenericFilters(current, filters).map((row) => row.id));
     const updatedRows = [];
+    const exactId = filters.find((filter) => filter.column === 'id')?.value || null;
+    const failure = takeMutationFailure(table, 'update', { id: exactId });
     const nextRows = current.map((row) => {
       if (!matchingIds.has(row.id)) {
         return row;
@@ -795,10 +817,13 @@ function createGenericUpdateBuilder(table, values) {
         next.updated_at = new Date().toISOString();
       }
       updatedRows.push(next);
-      return next;
+      return !failure || failure.afterWrite ? next : row;
     });
-    setTableRows(table, nextRows);
-    return { data: clone(updatedRows), error: null };
+    if (!failure || failure.afterWrite) setTableRows(table, nextRows);
+    return {
+      data: failure ? null : clone(updatedRows),
+      error: failure ? clone(failure.error || { message: 'Update failed' }) : null,
+    };
   }
 
   const builder = {
@@ -807,12 +832,16 @@ function createGenericUpdateBuilder(table, values) {
       return builder;
     },
     select() {
-      return {
+      const selected = {
         async single() {
           const result = applyUpdate();
-          return { data: clone(result.data[0] || null), error: result.error };
+          return { data: clone(result.data?.[0] || null), error: result.error };
+        },
+        then(resolve, reject) {
+          return Promise.resolve(applyUpdate()).then(resolve, reject);
         },
       };
+      return selected;
     },
     then(resolve, reject) {
       return Promise.resolve(applyUpdate()).then(resolve, reject);
@@ -823,6 +852,7 @@ function createGenericUpdateBuilder(table, values) {
 
 function createGenericDeleteBuilder(table) {
   const filters = [];
+  let returnRows = false;
   const builder = {
     eq(column, value) {
       filters.push({ type: 'eq', column, value });
@@ -832,11 +862,18 @@ function createGenericDeleteBuilder(table) {
       filters.push({ type: 'in', column, value });
       return builder;
     },
+    select() {
+      returnRows = true;
+      return builder;
+    },
     then(resolve, reject) {
+      recordMutation(table, 'delete', null, filters);
       const current = getTableRows(table);
       const toDelete = applyGenericFilters(current, filters);
       const remaining = current.filter((row) => !toDelete.some((candidate) => candidate.id === row.id));
-      setTableRows(table, remaining);
+      const exactId = filters.find((filter) => filter.column === 'id')?.value || null;
+      const failure = takeMutationFailure(table, 'delete', { id: exactId });
+      if (!failure || failure.afterWrite) setTableRows(table, remaining);
       if (table === 'blog_posts') {
         const remainingIds = new Set(remaining.map((row) => row.id));
         setTableRows(
@@ -844,7 +881,10 @@ function createGenericDeleteBuilder(table) {
           getTableRows('blog_post_translations').filter((row) => remainingIds.has(row.blog_post_id))
         );
       }
-      return Promise.resolve({ error: null }).then(resolve, reject);
+      return Promise.resolve({
+        data: failure || !returnRows ? null : clone(toDelete),
+        error: failure ? clone(failure.error || { message: 'Delete failed' }) : null,
+      }).then(resolve, reject);
     },
   };
   return builder;
@@ -1100,6 +1140,7 @@ export function createClient() {
             return next;
           });
           const failure = takeMutationFailure(table, 'insert');
+          recordMutation(table, 'insert', payloads, []);
           if (!failure || failure.afterWrite) {
             setTableRows(table, [...getTableRows(table), ...normalized]);
           }
@@ -1120,6 +1161,7 @@ export function createClient() {
         upsert(rows, options = {}) {
           const payloads = Array.isArray(rows) ? rows : [rows];
           const failure = takeMutationFailure(table, 'upsert');
+          recordMutation(table, 'upsert', payloads, [{ onConflict: options.onConflict || '' }]);
           const merged = (!failure || failure.afterWrite)
             ? upsertTableRows(table, payloads, options.onConflict || '')
             : null;
@@ -1186,6 +1228,13 @@ stubApi.getTableRows = function getTableRowsPublic(table) {
 };
 stubApi.getRpcCalls = function getRpcCalls() {
   return clone(state.rpcCalls || []);
+};
+stubApi.getMutationCalls = function getMutationCalls() {
+  return clone(state.mutationCalls || []);
+};
+stubApi.clearMutationCalls = function clearMutationCalls() {
+  state.mutationCalls = [];
+  persistState();
 };
 stubApi.getVerificationRequests = function getVerificationRequests() {
   return clone(state.lastVerificationRequests || []);

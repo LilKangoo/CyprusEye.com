@@ -225,6 +225,78 @@ describe('executeTransportSavePlan', () => {
     }, {})).rejects.toMatchObject({ code: 'save_plan_dependency_cycle' });
   });
 
+  test('passes exact IDs, expected timestamps, and insert absence guards to the repository', async () => {
+    const calls: Array<{ action: string; request: any }> = [];
+    const steps = [
+      {
+        key: 'route_outbound', type: 'transport_route', action: 'update',
+        entityId: 'route-exact', existingId: 'route-exact',
+        expectedUpdatedAt: '2026-08-01T08:00:00.000Z', expectAbsent: false,
+        payload: { day_price: 80 }, payloadRefs: {}, dependsOn: [], status: 'pending', attempts: 0,
+      },
+      {
+        key: 'deposit_outbound', type: 'deposit_override', action: 'insert',
+        entityId: null, existingId: null, expectedUpdatedAt: null, expectAbsent: true,
+        payload: { resource_type: 'transport', resource_id: 'route-exact', mode: 'flat', amount: 20 },
+        payloadRefs: {}, dependsOn: ['route_outbound'], status: 'pending', attempts: 0,
+      },
+      {
+        key: 'deposit_reverse', type: 'deposit_override', action: 'delete',
+        entityId: 'override-exact', existingId: 'override-exact',
+        expectedUpdatedAt: '2026-08-01T08:05:00.000Z', expectAbsent: false,
+        payload: null, payloadRefs: {}, dependsOn: [], status: 'pending', attempts: 0,
+      },
+    ];
+    const repository = {
+      async update(request: any) {
+        calls.push({ action: 'update', request: plain(request) });
+        return { data: { id: request.id, ...request.payload } };
+      },
+      async insert(request: any) {
+        calls.push({ action: 'insert', request: plain(request) });
+        return { data: { id: 'override-created', ...request.payload } };
+      },
+      async delete(request: any) {
+        calls.push({ action: 'delete', request: plain(request) });
+        return { data: { id: request.id } };
+      },
+    };
+
+    const result = plain(await core.executeTransportSavePlan({
+      id: 'pair-exact', createdAt: '2026-08-01T10:00:00.000Z', status: 'pending', attempts: 0,
+      steps, results: {}, summary: { globalChanges: 0 }, execution: null,
+    }, repository));
+
+    expect(result.status).toBe('success');
+    expect(calls).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        action: 'update',
+        request: expect.objectContaining({
+          id: 'route-exact',
+          entityId: 'route-exact',
+          expectedUpdatedAt: '2026-08-01T08:00:00.000Z',
+          expectAbsent: false,
+        }),
+      }),
+      expect.objectContaining({
+        action: 'insert',
+        request: expect.objectContaining({
+          id: null,
+          entityId: null,
+          expectAbsent: true,
+        }),
+      }),
+      expect.objectContaining({
+        action: 'delete',
+        request: expect.objectContaining({
+          id: 'override-exact',
+          entityId: 'override-exact',
+          expectedUpdatedAt: '2026-08-01T08:05:00.000Z',
+        }),
+      }),
+    ]));
+  });
+
   test('does not execute an already successful plan again', async () => {
     let calls = 0;
     const plan = core.buildTransportSavePlan({ ...baseDraft, pricing: { enabled: false } });

@@ -28,7 +28,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="/assets/css/tokens.css?v=20251107" />
   <link rel="stylesheet" href="/assets/css/base.css?v=20251107" />
-  <link rel="stylesheet" href="/admin/admin.css?v=20260727_1" />
+  <link rel="stylesheet" href="/admin/admin.css?v=20260801_3" />
   
   <!-- Auth meta -->
   <meta name="ce-auth" content="required" />
@@ -43,11 +43,13 @@
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
   <script src="/admin/blog-i18n-form.js?v=20260405_2"></script>
   <script type="module" src="/admin/blog-admin.js?v=20260405_2"></script>
-  <script src="/admin/transport-admin-core.js?v=20260727_2"></script>
+  <script src="/admin/transport-admin-core.js?v=20260801_3"></script>
   <script src="/admin/transport-admin-navigation.js?v=20260727_1"></script>
-  <script src="/admin/transport-admin-repository.js?v=20260727_1"></script>
+  <script src="/admin/transport-admin-repository.js?v=20260801_3"></script>
+  <script src="/admin/transport-pair-pricing-core.js?v=20260801_3"></script>
+  <script src="/admin/transport-route-pricing-modal.js?v=20260801_3"></script>
   <script src="/admin/transport-route-wizard.js?v=20260727_2"></script>
-  <script type="module" src="/admin/admin.js?v=20260727_4"></script>
+  <script type="module" src="/admin/admin.js?v=20260801_3"></script>
   <script src="/admin/admin-pwa.js?v=20260221_4" defer></script>
 </head>
 <body data-admin-panel="true">
@@ -7404,6 +7406,108 @@
       </section>
 
     </main>
+  </div>
+
+  <!-- Global Transport Pair Pricing Draft, Review, and Controlled Save Modal -->
+  <div
+    class="transport-pair-pricing-modal"
+    id="transportPairPricingModal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="transportPairPricingModalTitle"
+    aria-describedby="transportPairPricingModalStatus"
+    hidden
+  >
+    <div class="transport-pair-pricing-modal__backdrop" data-transport-pair-pricing-close></div>
+    <section class="transport-pair-pricing-modal__dialog">
+      <header class="transport-pair-pricing-modal__header">
+        <div>
+          <span class="transport-pair-pricing-modal__eyebrow">Draft, Review, and controlled exact-ID save</span>
+          <h2 id="transportPairPricingModalTitle" tabindex="-1">Transport pair pricing</h2>
+          <p id="transportPairPricingModalStatus">Fresh snapshot for a local pair pricing draft.</p>
+        </div>
+        <button
+          class="transport-pair-pricing-modal__close"
+          id="transportPairPricingModalClose"
+          type="button"
+          aria-label="Close transport pair pricing"
+        >&times;</button>
+      </header>
+
+      <div
+        class="transport-pair-pricing-modal__loading"
+        id="transportPairPricingModalLoading"
+        role="status"
+        aria-live="polite"
+        hidden
+      >Loading fresh transport pricing data...</div>
+
+      <div
+        class="transport-pair-pricing-modal__error"
+        id="transportPairPricingModalError"
+        role="alert"
+        aria-live="assertive"
+        hidden
+      ></div>
+
+      <div class="transport-pair-pricing-modal__content" id="transportPairPricingModalContent" hidden></div>
+
+      <footer class="transport-pair-pricing-modal__footer">
+        <button class="btn-secondary" id="transportPairPricingOpenRouteWizard" type="button" hidden>Open Route Wizard</button>
+        <span class="transport-pair-pricing-modal__footer-spacer"></span>
+        <button class="btn-secondary" id="transportPairPricingModalRefresh" type="button">Refresh</button>
+        <button class="btn btn-primary" id="transportPairPricingOpenAdvanced" type="button" disabled>Open Advanced Pricing</button>
+        <button class="btn btn-primary" id="transportPairPricingReviewChanges" type="button" disabled>Review changes</button>
+        <button class="btn-secondary" id="transportPairPricingBackToEdit" type="button" hidden>Back to edit</button>
+        <button class="btn btn-primary" id="transportPairPricingSaveChanges" type="button" disabled hidden>Save changes</button>
+        <button class="btn btn-primary" id="transportPairPricingRetryFailed" type="button" disabled hidden>Retry failed steps</button>
+        <button class="btn-secondary" id="transportPairPricingReceiptEditAgain" type="button" hidden>Edit again</button>
+        <button class="btn btn-primary" id="transportPairPricingReceiptClose" type="button" hidden>Close</button>
+      </footer>
+    </section>
+
+    <div
+      class="transport-pair-pricing-modal__confirmation"
+      id="transportPairPricingSaveConfirmDialog"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="transportPairPricingSaveConfirmTitle"
+      aria-describedby="transportPairPricingSaveConfirmSummary"
+      hidden
+    >
+      <div class="transport-pair-pricing-modal__confirmation-backdrop"></div>
+      <section class="transport-pair-pricing-modal__confirmation-card">
+        <h2 id="transportPairPricingSaveConfirmTitle" tabindex="-1">Confirm Transport pricing changes</h2>
+        <p id="transportPairPricingSaveConfirmSummary"></p>
+        <dl id="transportPairPricingSaveConfirmCounts"></dl>
+        <p><strong>Global changes: 0</strong> · <strong>Bookings affected: 0</strong></p>
+        <div class="transport-pair-pricing-modal__confirmation-actions">
+          <button class="btn-secondary" id="transportPairPricingSaveConfirmCancel" type="button">Cancel</button>
+          <button class="btn btn-primary" id="transportPairPricingSaveConfirmAccept" type="button">Confirm and save</button>
+        </div>
+      </section>
+    </div>
+
+    <div
+      class="transport-pair-pricing-modal__confirmation"
+      id="transportPairPricingRecoveryDialog"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="transportPairPricingRecoveryTitle"
+      aria-describedby="transportPairPricingRecoveryMessage"
+      hidden
+    >
+      <div class="transport-pair-pricing-modal__confirmation-backdrop"></div>
+      <section class="transport-pair-pricing-modal__confirmation-card">
+        <h2 id="transportPairPricingRecoveryTitle" tabindex="-1">Some changes were already saved.</h2>
+        <p id="transportPairPricingRecoveryMessage"></p>
+        <p><strong>No rollback will be performed.</strong></p>
+        <div class="transport-pair-pricing-modal__confirmation-actions">
+          <button class="btn-secondary" id="transportPairPricingRecoveryStay" type="button">Stay and review</button>
+          <button class="btn btn-primary" id="transportPairPricingRecoveryConfirm" type="button">Close</button>
+        </div>
+      </section>
+    </div>
   </div>
 
   <!-- POI Detail Modal -->

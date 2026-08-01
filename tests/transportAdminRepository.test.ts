@@ -92,17 +92,26 @@ function createMemoryStore(seed: Record<string, Row[]> = {}) {
           const updateBuilder: any = {
             eq(key: string, value: any) { filters.push([key, value]); return updateBuilder; },
             select() {
-              return {
-                async single() {
-                  const plannedFailure = failure('update', table);
-                  const index = rows(table).findIndex((row) => filters.every(([key, value]) => row[key] === value));
-                  if (index >= 0 && (!plannedFailure || plannedFailure.afterWrite)) {
+              const execute = async () => {
+                const plannedFailure = failure('update', table);
+                const matches = rows(table)
+                  .map((row, index) => ({ row, index }))
+                  .filter(({ row }) => filters.every(([key, value]) => row[key] === value));
+                if (!plannedFailure || plannedFailure.afterWrite) {
+                  matches.forEach(({ index }) => {
                     rows(table)[index] = { ...rows(table)[index], ...payload };
                     writes.push(`update:${table}`);
-                  }
-                  if (plannedFailure) return { data: null, error: plannedFailure.error };
-                  return { data: index >= 0 ? { ...rows(table)[index] } : null, error: null };
+                  });
+                }
+                if (plannedFailure) return { data: null, error: plannedFailure.error };
+                return { data: matches.map(({ index }) => ({ ...rows(table)[index] })), error: null };
+              };
+              return {
+                async single() {
+                  const result = await execute();
+                  return { data: result.data?.[0] || null, error: result.error };
                 },
+                then(resolve: any, reject: any) { return execute().then(resolve, reject); },
               };
             },
           };
@@ -125,15 +134,20 @@ function createMemoryStore(seed: Record<string, Row[]> = {}) {
         },
         delete() {
           const filters: Array<[string, any]> = [];
+          let returnRows = false;
           const deleteBuilder: any = {
             eq(key: string, value: any) { filters.push([key, value]); return deleteBuilder; },
+            select() { returnRows = true; return deleteBuilder; },
             then(resolve: any, reject: any) {
               const plannedFailure = failure('delete', table);
+              const deleted = rows(table).filter((row) => filters.every(([key, value]) => row[key] === value));
               if (!plannedFailure || plannedFailure.afterWrite) {
                 tables[table] = rows(table).filter((row) => !filters.every(([key, value]) => row[key] === value));
                 writes.push(`delete:${table}`);
               }
-              const result = plannedFailure ? { data: null, error: plannedFailure.error } : { data: null, error: null };
+              const result = plannedFailure
+                ? { data: null, error: plannedFailure.error }
+                : { data: returnRows ? deleted.map((row) => ({ ...row })) : null, error: null };
               return Promise.resolve(result).then(resolve, reject);
             },
           };
@@ -260,5 +274,81 @@ describe('TransportAdminRepository', () => {
     const result = await repository.upsert({ type: 'deposit_override', payload });
     expect(result).toMatchObject({ id: 'deposit-existing', reconciled: true });
     expect(store.writes).toHaveLength(0);
+  });
+
+  test('filters exact updates by id and expectedUpdatedAt and treats zero rows as stale', async () => {
+    const store = createMemoryStore({
+      transport_routes: [{
+        id: 'route-exact', day_price: 50, updated_at: '2026-08-01T10:00:00.000Z', hidden: 'keep',
+      }],
+    });
+    const repository = module.create({ runMutation: store.runMutation });
+
+    const updated = await repository.update({
+      type: 'transport_route',
+      id: 'route-exact',
+      expectedUpdatedAt: '2026-08-01T10:00:00.000Z',
+      payload: { day_price: 60 },
+    });
+    expect(updated).toMatchObject({ id: 'route-exact', data: { day_price: 60, hidden: 'keep' } });
+
+    await expect(repository.update({
+      type: 'transport_route',
+      id: 'route-exact',
+      expectedUpdatedAt: '2026-08-01T09:00:00.000Z',
+      payload: { day_price: 70 },
+    })).rejects.toMatchObject({ code: 'transport_pair_stale_conflict' });
+    expect(store.rows('transport_routes')[0].day_price).toBe(60);
+  });
+
+  test('deletes an override only by exact id and expectedUpdatedAt', async () => {
+    const store = createMemoryStore({
+      service_deposit_overrides: [{
+        id: 'override-exact', resource_type: 'transport', resource_id: 'route-exact',
+        updated_at: '2026-08-01T10:00:00.000Z',
+      }],
+    });
+    const repository = module.create({ runMutation: store.runMutation });
+
+    await expect(repository.delete({
+      type: 'deposit_override',
+      id: 'override-exact',
+      expectedUpdatedAt: '2026-08-01T09:00:00.000Z',
+    })).rejects.toMatchObject({ code: 'transport_pair_stale_conflict' });
+    expect(store.rows('service_deposit_overrides')).toHaveLength(1);
+
+    await repository.delete({
+      type: 'deposit_override',
+      id: 'override-exact',
+      expectedUpdatedAt: '2026-08-01T10:00:00.000Z',
+    });
+    expect(store.rows('service_deposit_overrides')).toHaveLength(0);
+  });
+
+  test('treats an appeared or unique-conflicting deposit insert as stale', async () => {
+    const existingStore = createMemoryStore({
+      service_deposit_overrides: [{
+        id: 'override-existing', resource_type: 'transport', resource_id: 'route-exact',
+      }],
+    });
+    const existingRepository = module.create({ runMutation: existingStore.runMutation });
+    await expect(existingRepository.insert({
+      type: 'deposit_override',
+      expectAbsent: true,
+      payload: { resource_type: 'transport', resource_id: 'route-exact', mode: 'flat', amount: 20 },
+    })).rejects.toMatchObject({ code: 'transport_pair_stale_conflict' });
+    expect(existingStore.writes).toHaveLength(0);
+
+    const raceStore = createMemoryStore();
+    raceStore.failNext({
+      action: 'insert', table: 'service_deposit_overrides',
+      error: { code: '23505', message: 'duplicate override' },
+    });
+    const raceRepository = module.create({ runMutation: raceStore.runMutation });
+    await expect(raceRepository.insert({
+      type: 'deposit_override',
+      expectAbsent: true,
+      payload: { resource_type: 'transport', resource_id: 'route-exact', mode: 'flat', amount: 20 },
+    })).rejects.toMatchObject({ code: 'transport_pair_stale_conflict' });
   });
 });

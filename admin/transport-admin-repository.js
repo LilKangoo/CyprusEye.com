@@ -30,6 +30,18 @@
     return result?.data && typeof result.data === 'object' ? result.data : null;
   }
 
+  function rowsFromResult(result) {
+    if (Array.isArray(result?.data)) return result.data;
+    return result?.data && typeof result.data === 'object' ? [result.data] : [];
+  }
+
+  function staleConflict(message, details = null) {
+    const error = new Error(message || 'Transport record changed since Review');
+    error.code = 'transport_pair_stale_conflict';
+    error.details = details;
+    return error;
+  }
+
   function comparableValue(actual, expected) {
     if (expected === null || expected === undefined) return actual === null || actual === undefined || actual === '' ? null : actual;
     if (typeof expected === 'number') return Number(actual);
@@ -166,6 +178,21 @@
 
     async function insert(request = {}) {
       assertNotAborted(request.signal);
+      if (request.expectAbsent === true) {
+        if (request.type !== 'deposit_override') {
+          throw new Error('expectAbsent is supported only for deposit overrides');
+        }
+        const existingRows = await selectRows(request.type, (query) => query
+          .eq('resource_type', request.payload?.resource_type)
+          .eq('resource_id', request.payload?.resource_id)
+          .limit(2), request.signal);
+        if (existingRows.length) {
+          throw staleConflict('Deposit override appeared after Review.', {
+            type: request.type,
+            resourceId: request.payload?.resource_id || null,
+          });
+        }
+      }
       const existing = await findMatchingRecord(request);
       if (existing) {
         return { data: existing, id: String(existing.id || ''), reconciled: true };
@@ -180,6 +207,12 @@
         const row = rowFromResult(result);
         return { data: row, id: String(row?.id || '') };
       } catch (error) {
+        if (request.expectAbsent === true && String(error?.code || '') === '23505') {
+          throw staleConflict('Deposit override appeared while the save was starting.', {
+            type: request.type,
+            resourceId: request.payload?.resource_id || null,
+          });
+        }
         const reconciled = await reconcileAfterError(request, error);
         if (reconciled) return reconciled;
         throw error;
@@ -190,15 +223,35 @@
       assertNotAborted(request.signal);
       const id = String(request.id || '').trim();
       if (!id) throw new Error('Update requires an existing record ID');
+      const expectedUpdatedAt = String(request.expectedUpdatedAt || '').trim();
       try {
         const result = await run((db) => {
-          let query = db.from(tableFor(request.type)).update(request.payload).eq('id', id).select('*');
+          let query = db.from(tableFor(request.type)).update(request.payload).eq('id', id);
+          if (expectedUpdatedAt) query = query.eq('updated_at', expectedUpdatedAt);
+          query = query.select('*');
           query = applySignal(query, request.signal);
-          return typeof query.single === 'function' ? query.single() : query;
+          return expectedUpdatedAt || typeof query.single !== 'function' ? query : query.single();
         });
+        if (expectedUpdatedAt) {
+          const rows = rowsFromResult(result);
+          if (!rows.length) {
+            throw staleConflict('Record changed since Review or no longer exists.', {
+              type: request.type,
+              id,
+              expectedUpdatedAt,
+            });
+          }
+          if (rows.length !== 1) {
+            const error = new Error(`Exact update returned ${rows.length} rows for ${request.type}:${id}`);
+            error.code = 'transport_pair_exact_update_count_invalid';
+            throw error;
+          }
+          return { data: rows[0], id: String(rows[0]?.id || id) };
+        }
         const row = rowFromResult(result);
         return { data: row, id: String(row?.id || id) };
       } catch (error) {
+        if (expectedUpdatedAt || error?.code === 'transport_pair_stale_conflict') throw error;
         const reconciled = await reconcileAfterError({ ...request, id }, error);
         if (reconciled) return reconciled;
         throw error;
@@ -231,13 +284,32 @@
       assertNotAborted(request.signal);
       const id = String(request.id || '').trim();
       if (!id) throw new Error('Delete requires an existing record ID');
+      const expectedUpdatedAt = String(request.expectedUpdatedAt || '').trim();
       try {
-        await run((db) => applySignal(
-          db.from(tableFor(request.type)).delete().eq('id', id),
-          request.signal,
-        ));
+        const result = await run((db) => {
+          let query = db.from(tableFor(request.type)).delete().eq('id', id);
+          if (expectedUpdatedAt) query = query.eq('updated_at', expectedUpdatedAt);
+          if (expectedUpdatedAt) query = query.select('id, updated_at');
+          return applySignal(query, request.signal);
+        });
+        if (expectedUpdatedAt) {
+          const rows = rowsFromResult(result);
+          if (!rows.length) {
+            throw staleConflict('Deposit override changed since Review or no longer exists.', {
+              type: request.type,
+              id,
+              expectedUpdatedAt,
+            });
+          }
+          if (rows.length !== 1) {
+            const error = new Error(`Exact delete returned ${rows.length} rows for ${request.type}:${id}`);
+            error.code = 'transport_pair_exact_delete_count_invalid';
+            throw error;
+          }
+        }
         return { data: { id }, id };
       } catch (error) {
+        if (expectedUpdatedAt || error?.code === 'transport_pair_stale_conflict') throw error;
         if (isAmbiguousWriteError(error)) {
           try {
             const row = await findById({ ...request, id });

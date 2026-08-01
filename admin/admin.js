@@ -15322,6 +15322,8 @@ window.deleteHotelBooking = deleteHotelBooking;
 const TransportAdminCore = globalThis.TransportAdminCore;
 const TransportAdminNavigation = globalThis.TransportAdminNavigation;
 const TransportAdminRepository = globalThis.TransportAdminRepository;
+const TransportPairPricingCore = globalThis.TransportPairPricingCore;
+const TransportPairPricingModal = globalThis.TransportPairPricingModal;
 const TransportRouteWizard = globalThis.TransportRouteWizard;
 
 const TRANSPORT_TABLES = {
@@ -21620,20 +21622,10 @@ function selectTransportRouteWorkspaceContext(routeId) {
   return true;
 }
 
-function openTransportRouteWorkspacePricing(routeId) {
+function openTransportRouteWorkspacePricing(routeId, returnFocus = null) {
   const id = String(routeId || '').trim();
-  if (!selectTransportRouteWorkspaceContext(id)) return;
-  const selectedRule = getTransportSelectedRuleForControl(id, '');
-  if (selectedRule?.id) {
-    editTransportPricingRule(selectedRule.id);
-  } else {
-    resetTransportPricingForm();
-    const pricingRoute = document.getElementById('transportPricingRoute');
-    if (pricingRoute) pricingRoute.value = id;
-    refreshTransportPricingAdditionalRoutesOptions();
-    syncTransportPricingBulkApplyControls();
-  }
-  TransportAdminNavigation.activate('advancedPricing');
+  if (!id || !transportAdminState.routeById[id]) return;
+  void TransportPairPricingModal.open(id, { returnFocus });
 }
 
 function openTransportRouteWorkspaceQuoteTester(routeId) {
@@ -21661,7 +21653,7 @@ function showTransportRouteWorkspaceNotice(message) {
   showToast(text, 'info');
 }
 
-async function handleTransportRouteWorkspaceAction(actionRaw, routeId) {
+async function handleTransportRouteWorkspaceAction(actionRaw, routeId, returnFocus = null) {
   const action = String(actionRaw || '').trim();
   const id = String(routeId || '').trim();
   if (!action || !id) return;
@@ -21674,7 +21666,7 @@ async function handleTransportRouteWorkspaceAction(actionRaw, routeId) {
     return;
   }
   if (action === 'pricing') {
-    openTransportRouteWorkspacePricing(id);
+    openTransportRouteWorkspacePricing(id, returnFocus);
     return;
   }
   if (action === 'quote') {
@@ -23618,6 +23610,57 @@ async function loadTransportAdminData() {
 }
 
 let transportSaveRepository = null;
+let transportPairPricingReadRepository = null;
+
+function getTransportPairPricingReadRepository() {
+  if (!transportPairPricingReadRepository) {
+    transportPairPricingReadRepository = TransportPairPricingModal.createReadRepository({
+      runRead: (operation) => runTransportMutation(operation, { silentAuthNotice: true }),
+    });
+  }
+  return transportPairPricingReadRepository;
+}
+
+async function openTransportAdvancedPricingExact(context = {}) {
+  const routeId = String(context?.routeId || '').trim();
+  const ruleId = String(context?.ruleId || '').trim();
+  if (!routeId) return;
+
+  transportAdminState.control.routeId = routeId;
+  transportAdminState.control.ruleId = ruleId;
+  TransportAdminNavigation.activate('advancedPricing');
+  await loadTransportRoutesData({ silent: true });
+  await loadTransportPricingData({ silent: true });
+
+  const route = transportAdminState.routeById[routeId] || null;
+  const exactRule = ruleId
+    ? (transportAdminState.pricingRules || []).find((rule) => (
+      String(rule?.id || '').trim() === ruleId
+        && String(rule?.route_id || '').trim() === routeId
+    )) || null
+    : null;
+
+  const controlRoute = getTransportControlRouteSelect();
+  const controlRule = getTransportControlRuleSelect();
+  if (controlRoute) controlRoute.value = routeId;
+  if (controlRule) controlRule.value = exactRule ? ruleId : '';
+  transportAdminState.control.routeId = routeId;
+  transportAdminState.control.ruleId = exactRule ? ruleId : '';
+  refreshTransportControlRouteSelect();
+  if (controlRule) controlRule.value = exactRule ? ruleId : '';
+  refreshTransportControlRuleSelect();
+  if (exactRule) {
+    editTransportPricingRule(exactRule.id);
+    return;
+  }
+
+  resetTransportPricingForm();
+  const pricingRoute = document.getElementById('transportPricingRoute');
+  if (pricingRoute && route) pricingRoute.value = routeId;
+  refreshTransportPricingAdditionalRoutesOptions();
+  syncTransportPricingBulkApplyControls();
+  renderTransportPricingPreview();
+}
 
 function getTransportSaveRepository() {
   if (!transportSaveRepository) {
@@ -23654,6 +23697,22 @@ async function executeTransportRouteWizardPlan(plan, options = {}) {
 
 function bindTransportAdminUi() {
   TransportAdminNavigation.initialize({ document, storage: window.sessionStorage });
+  TransportPairPricingModal.initialize({
+    document,
+    core: TransportPairPricingCore,
+    saveCore: TransportAdminCore,
+    repository: getTransportPairPricingReadRepository(),
+    saveRepository: getTransportSaveRepository(),
+    getLocationById: (locationId) => transportAdminState.locationById[String(locationId || '').trim()] || null,
+    onOpenAdvanced: (context) => void openTransportAdvancedPricingExact(context),
+    onOpenRouteWizard: () => TransportRouteWizard.open(),
+    onSaved: async () => {
+      await loadTransportRoutesData({ silent: true });
+      await loadTransportPricingData({ silent: true });
+      renderTransportRouteViews();
+      syncTransportControlCenter();
+    },
+  });
   TransportRouteWizard.initialize({
     document,
     core: TransportAdminCore,
@@ -23760,11 +23819,13 @@ function bindTransportAdminUi() {
         : null;
       if (!(target instanceof HTMLButtonElement)) return;
       event.preventDefault();
+      const action = String(target.getAttribute('data-transport-route-action') || '').trim();
       const details = target.closest('details');
-      if (details instanceof HTMLDetailsElement) details.open = false;
+      if (details instanceof HTMLDetailsElement && action !== 'pricing') details.open = false;
       void handleTransportRouteWorkspaceAction(
-        target.getAttribute('data-transport-route-action'),
+        action,
         target.getAttribute('data-route-id'),
+        target,
       );
     });
   }
