@@ -20,6 +20,10 @@ import {
   resolveCarFleet,
   resolveOfferState,
 } from '/js/car-rental-flow.js';
+import {
+  buildCarRentalAvailabilityInputFingerprint,
+  resolveCarRentalAvailability,
+} from '/js/car-rental-availability-adapter.js';
 
 let allHomeCars = [];
 let homeCarsById = {};
@@ -28,6 +32,10 @@ let homeCarsCurrentLocation = 'larnaca';
 let homeCarsSavedOnly = false;
 let homeCarsLastQuoteByCarId = {};
 let homeCarsFinderState = null;
+let homeCarsShadowTimer = null;
+let homeCarsShadowFingerprint = '';
+let homeCarsShadowGeneration = 0;
+let homeCarsHybridState = null;
 
 let homeCarsCarouselUpdate = null;
 let previousBodyCarLocation = null;
@@ -82,6 +90,117 @@ function filterHomeCarsForLanguage(cars, language = getLang()) {
     return window.CELanguage.filterRecordsReadyForLanguage(cars, 'car', language);
   }
   return Array.isArray(cars) ? cars : [];
+}
+
+function getHomeCarsShadowConfig() {
+  const config = window.CE_CAR_MULTICITY_SHADOW_CONFIG;
+  if (config && typeof config === 'object' && config.enabled === true) return config;
+  return { enabled: true, renderMapped: true, debounceMs: 30 };
+}
+
+function buildHomeCarsAvailabilityInput(legacyRenderedOffers, finderState) {
+  const config = getHomeCarsShadowConfig();
+  if (!config || !finderState) return null;
+  const savedCatalog = window.CE_SAVED_CATALOG;
+  const savedOfferIds = homeCarsSavedOnly && typeof savedCatalog?.isSaved === 'function'
+    ? allHomeCars
+      .filter((offer) => savedCatalog.isSaved('car', String(offer?.id || '')))
+      .map((offer) => String(offer?.id || '').trim())
+      .filter(Boolean)
+    : [];
+  const input = {
+    supabase,
+    pickupCityCode: normalizeCarCity(finderState.pickupLocation),
+    returnCityCode: normalizeCarCity(finderState.returnLocation),
+    pickupPlaceType: finderState.pickupPlaceType || 'hotel',
+    returnPlaceType: finderState.returnPlaceType || 'hotel',
+    pickupDate: finderState.pickupDate || '',
+    pickupTime: finderState.pickupTime || '10:00',
+    returnDate: finderState.returnDate || '',
+    returnTime: finderState.returnTime || '10:00',
+    passengers: finderState.passengers || 1,
+    fullInsurance: finderState.fullInsurance === true,
+    youngDriver: finderState.youngDriver === true,
+    language: getLang(),
+    filters: {
+      platform: 'homepage',
+      allowedOfferIds: savedOfferIds,
+      isLanguageEligible: (offer, language) => {
+        const checker = window.CELanguage?.isRecordReadyForLanguage;
+        return typeof checker === 'function' ? checker(offer, 'car', language) : true;
+      },
+    },
+    mode: config.renderMapped === true ? 'hybrid' : 'shadow',
+    legacyOffers: Array.isArray(legacyRenderedOffers) ? legacyRenderedOffers : [],
+  };
+  if (!input.pickupCityCode || !input.returnCityCode || !input.pickupDate || !input.returnDate) return null;
+  return input;
+}
+
+function scheduleHomeCarsAvailabilityShadow(legacyRenderedOffers, finderState) {
+  const config = getHomeCarsShadowConfig();
+  const input = buildHomeCarsAvailabilityInput(legacyRenderedOffers, finderState);
+  if (!config || !input) return;
+  const fingerprint = buildCarRentalAvailabilityInputFingerprint(input);
+  if (fingerprint === homeCarsShadowFingerprint) return;
+  if (config.renderMapped === true && homeCarsHybridState?.fingerprint !== fingerprint) {
+    homeCarsHybridState = null;
+  }
+  homeCarsShadowFingerprint = fingerprint;
+  const generation = ++homeCarsShadowGeneration;
+  if (homeCarsShadowTimer) clearTimeout(homeCarsShadowTimer);
+  homeCarsShadowTimer = setTimeout(() => {
+    const promise = resolveCarRentalAvailability(input).then((result) => {
+      if (generation !== homeCarsShadowGeneration) return result;
+      window.__CE_CAR_MULTICITY_SHADOW_RESULT__ = result;
+      if (input.mode === 'hybrid') {
+        homeCarsHybridState = { fingerprint, result };
+        for (const offer of result.renderedOffers || []) {
+          if (offer?.id) homeCarsById[String(offer.id)] = offer;
+        }
+        window.__CE_CAR_MULTICITY_HYBRID_RESULT__ = result;
+        window.dispatchEvent(new CustomEvent('ce:car-multicity-hybrid-ready', {
+          detail: { source: 'homepage', renderMode: result.renderMode, metrics: result.metrics },
+        }));
+        renderHomeCars();
+      }
+      window.dispatchEvent(new CustomEvent('ce:car-multicity-shadow-ready', {
+        detail: { source: 'homepage', comparison: result.comparison, metrics: result.metrics },
+      }));
+      return result;
+    });
+    window.__CE_CAR_MULTICITY_SHADOW_PROMISE__ = promise;
+  }, Number(config.debounceMs) >= 0 ? Number(config.debounceMs) : 30);
+}
+
+function resolveHomeCarsRenderedOffers(legacyRenderedOffers, finderState) {
+  const config = getHomeCarsShadowConfig();
+  const input = buildHomeCarsAvailabilityInput(legacyRenderedOffers, finderState);
+  if (config?.renderMapped !== true || !input || !homeCarsHybridState) return legacyRenderedOffers;
+  const fingerprint = buildCarRentalAvailabilityInputFingerprint(input);
+  if (homeCarsHybridState.fingerprint !== fingerprint) return legacyRenderedOffers;
+  return Array.isArray(homeCarsHybridState.result?.renderedOffers)
+    ? homeCarsHybridState.result.renderedOffers
+    : legacyRenderedOffers;
+}
+
+function buildHomeCarsFleetByPricingLocation(cars) {
+  const grouped = { larnaca: [], paphos: [] };
+  const mergedById = new Map();
+  const hybridActive = getHomeCarsShadowConfig()?.renderMapped === true
+    && homeCarsHybridState?.result?.renderMode !== 'legacy';
+  const source = hybridActive ? (cars || []) : [...allHomeCars, ...(cars || [])];
+  for (const car of source) {
+    if (car?.id) mergedById.set(String(car.id), car);
+  }
+  for (const car of mergedById.values()) {
+    const rawLocation = car?.pricingContext?.legacyBookingLocation
+      || car?.availabilityContext?.legacyBookingLocation
+      || car?.location;
+    const location = String(rawLocation || '').toLowerCase() === 'paphos' ? 'paphos' : 'larnaca';
+    grouped[location].push(car);
+  }
+  return grouped;
 }
 
 function getHomeCarName(car) {
@@ -691,6 +810,10 @@ function renderHomeCars() {
     list = list.filter((car) => !!car?.young_driver_fee);
   }
 
+  const legacyRenderedOffers = list;
+  scheduleHomeCarsAvailabilityShadow(legacyRenderedOffers, finderState);
+  list = resolveHomeCarsRenderedOffers(legacyRenderedOffers, finderState);
+
   if (!list.length) {
     grid.innerHTML = `
       <div style="flex: 0 0 100%; text-align: center; padding: 40px 20px; color: #9ca3af;">
@@ -721,7 +844,10 @@ function renderHomeCars() {
   const perDayLabel = text('/ dzień', '/ day', '/ יום');
 
   const rows = list.map((car) => {
-    const quote = finderReady ? buildQuoteForCarWithFinder(car, finderState) : null;
+    const quote = car?.pricingContext?.quote
+      || car?.availabilityContext?.quote
+      || car?.quote
+      || (finderReady ? buildQuoteForCarWithFinder(car, finderState) : null);
     homeCarsLastQuoteByCarId[String(car.id)] = quote;
     return { car, quote };
   });
@@ -757,6 +883,7 @@ function renderHomeCars() {
       <a
         href="#"
         class="recommendation-home-card"
+        data-car-offer-id="${escapeHtml(car.id)}"
         onclick="openCarHomeModal('${escapeHtml(car.id)}'); return false;"
       >
         <div class="ce-home-featured-badge">🚗 ${escapeHtml(noDepositLabel)}</div>
@@ -1151,6 +1278,22 @@ function buildModalPrefillForLocation(location) {
   };
 }
 
+function buildContextualHomeModalPrefill(car, location) {
+  const prefill = buildModalPrefillForLocation(location);
+  const context = car?.pricingContext || car?.availabilityContext;
+  if (!context) return prefill;
+  return {
+    ...prefill,
+    pickupCity: context.pickupCityCode,
+    returnCity: context.returnCityCode,
+    pickupPlaceType: context.pickupPlaceType,
+    returnPlaceType: context.returnPlaceType,
+    pickupLocation: context.pickupLegacyPricingLocation,
+    returnLocation: context.returnLegacyPricingLocation,
+    youngDriver: context.calculatorKey === 'larnaca' && prefill.youngDriver,
+  };
+}
+
 function setSelectValueIfExists(id, value) {
   const select = document.getElementById(id);
   if (!select || !value) return;
@@ -1171,13 +1314,15 @@ function openCarHomeModal(carId) {
   const car = homeCarsById[String(carId || '').trim()];
   if (!car) return;
 
-  const loc = String(car.location || '').toLowerCase() === 'paphos' ? 'paphos' : 'larnaca';
-  const prefill = buildModalPrefillForLocation(loc);
-  const liveQuote = homeCarsLastQuoteByCarId[String(car.id)] || buildQuoteForCarWithFinder(car, prefill);
+  const context = car.pricingContext || car.availabilityContext;
+  const rawLocation = context?.legacyBookingLocation || car.location;
+  const loc = String(rawLocation || '').toLowerCase() === 'paphos' ? 'paphos' : 'larnaca';
+  const prefill = buildContextualHomeModalPrefill(car, loc);
+  const liveQuote = context?.quote || car.quote || homeCarsLastQuoteByCarId[String(car.id)] || buildQuoteForCarWithFinder(car, prefill);
   openCarOfferModal({
     car,
     location: loc,
-    fleetByLocation: homeCarsByLocation,
+    fleetByLocation: buildHomeCarsFleetByPricingLocation(homeCarsHybridState?.result?.renderedOffers || []),
     prefill,
     quote: liveQuote,
   });
@@ -1217,6 +1362,8 @@ async function loadHomeCars() {
     if (error) throw error;
 
     allHomeCars = data || [];
+    homeCarsHybridState = null;
+    homeCarsShadowFingerprint = '';
     homeCarsById = {};
 
     const byLoc = { larnaca: [], paphos: [] };

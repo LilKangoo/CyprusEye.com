@@ -49,6 +49,9 @@
   <script src="/admin/transport-pair-pricing-core.js?v=20260801_3"></script>
   <script src="/admin/transport-route-pricing-modal.js?v=20260801_3"></script>
   <script src="/admin/transport-route-wizard.js?v=20260727_2"></script>
+  <script src="/admin/car-rental-multicity-core.js?v=20260802_1"></script>
+  <script src="/admin/car-rental-multicity-repository.js?v=20260802_1"></script>
+  <script src="/admin/car-rental-multicity-ui.js?v=20260802_1"></script>
   <script type="module" src="/admin/admin.js?v=20260801_3"></script>
   <script src="/admin/admin-pwa.js?v=20260221_4" defer></script>
 </head>
@@ -5299,7 +5302,11 @@
                 <option value="Luxury">Luxury</option>
               </select>
             </div>
-            <button class="btn-primary" type="button" id="btnAddFleetCar">Add New Car</button>
+            <div class="car-multicity-fleet-actions">
+              <button class="btn-secondary" type="button" id="btnManageCarMulticity">Cities &amp; profile support</button>
+              <button class="btn-secondary" type="button" id="btnAddFleetCarLegacy">Legacy Add Car</button>
+              <button class="btn-primary" type="button" id="btnAddFleetCar">Add New Car</button>
+            </div>
           </div>
 
           <!-- Fleet Table -->
@@ -5317,7 +5324,7 @@
                   <th>Fuel</th>
                   <th>Seats</th>
                   <th>Available</th>
-                  <th style="width: 120px;">Actions</th>
+                  <th style="width: 210px;">Actions</th>
                 </tr>
               </thead>
               <tbody id="fleetTableBody">
@@ -8489,7 +8496,99 @@
     </div>
   </div>
 
-  <!-- Fleet Car Add/Edit Modal -->
+  <!-- Car Rental Multi-City Stage 2C Modal: global and outside hidden Cars tabs -->
+  <div
+    class="admin-modal car-multicity-modal"
+    id="carMulticityModal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="carMulticityModalTitle"
+    hidden
+  >
+    <div class="admin-modal-overlay" id="carMulticityModalOverlay"></div>
+    <div class="admin-modal-content car-multicity-modal__content">
+      <header class="admin-modal-header">
+        <div>
+          <h3 id="carMulticityModalTitle">Car rental configuration</h3>
+          <p class="car-multicity-modal__subtitle">Exact offer: <code id="carMulticityExactOfferId">—</code></p>
+        </div>
+        <button class="btn-modal-close" type="button" id="carMulticityModalClose" aria-label="Close car rental configuration">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </header>
+      <div class="car-multicity-modal__toolbar">
+        <span class="car-multicity-legacy-badge">Current public mode: Legacy</span>
+        <span>Global mapped flag: OFF</span>
+        <button type="button" class="btn-secondary" id="carMulticityRefresh">Refresh data</button>
+      </div>
+      <div id="carMulticityModalStatus" class="car-multicity-live-status" role="status" aria-live="polite"></div>
+      <div id="carMulticityModalError" class="admin-error-message" role="alert" tabindex="-1" hidden></div>
+      <div class="admin-modal-body car-multicity-modal__body" id="carMulticityModalContent"></div>
+      <footer class="admin-modal-footer car-multicity-modal__footer">
+        <button type="button" class="btn-secondary" id="carMulticityBack" hidden>Back</button>
+        <button type="button" class="btn-secondary" id="carMulticityNext" hidden>Next</button>
+        <button type="button" class="btn-primary" id="carMulticityReview">Review changes</button>
+        <button type="button" class="btn-primary" id="carMulticitySave" disabled aria-disabled="true" hidden>Save changes</button>
+        <button type="button" class="btn-primary" id="carMulticityCloseFooter" hidden>Close</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Car Rental City and Profile-City Catalog: global and inert while mapped flag is OFF -->
+  <div
+    class="admin-modal car-multicity-modal"
+    id="carMulticityCatalogModal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="carMulticityCatalogTitle"
+    hidden
+  >
+    <div class="admin-modal-overlay" id="carMulticityCatalogOverlay"></div>
+    <div class="admin-modal-content car-multicity-modal__content">
+      <header class="admin-modal-header">
+        <div>
+          <h3 id="carMulticityCatalogTitle">Car rental cities and pricing support</h3>
+          <p class="car-multicity-modal__subtitle">Admin configuration only — public mapped availability remains disabled.</p>
+        </div>
+        <button class="btn-modal-close" type="button" id="carMulticityCatalogClose" aria-label="Close city management">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </header>
+      <nav class="car-multicity-catalog-tabs" aria-label="Car rental catalog sections">
+        <button type="button" class="btn-secondary active" id="carMulticityCatalogCitiesTab">Car rental cities</button>
+        <button type="button" class="btn-secondary" id="carMulticityCatalogMappingsTab">Pricing profile city support</button>
+      </nav>
+      <div id="carMulticityCatalogStatus" class="car-multicity-live-status" role="status" aria-live="polite"></div>
+      <div class="admin-modal-body car-multicity-modal__body" id="carMulticityCatalogContent"></div>
+    </div>
+  </div>
+
+  <!-- Shared custom confirmation dialog; Escape closes only this dialog. -->
+  <div
+    class="admin-modal car-multicity-confirm"
+    id="carMulticityConfirmDialog"
+    role="alertdialog"
+    aria-modal="true"
+    aria-labelledby="carMulticityConfirmTitle"
+    aria-describedby="carMulticityConfirmBody"
+    hidden
+  >
+    <div class="admin-modal-overlay"></div>
+    <div class="admin-modal-content" style="max-width: 620px;">
+      <header class="admin-modal-header"><h3 id="carMulticityConfirmTitle">Confirm changes</h3></header>
+      <div class="admin-modal-body" id="carMulticityConfirmBody"></div>
+      <footer class="admin-modal-footer">
+        <button type="button" class="btn-secondary" id="carMulticityConfirmCancel">Cancel</button>
+        <button type="button" class="btn-primary" id="carMulticityConfirmAccept">Confirm</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Fleet Car Add/Edit Modal (Legacy editor fallback) -->
   <div class="admin-modal" id="fleetCarModal" hidden>
     <div class="admin-modal-overlay" id="fleetCarModalOverlay"></div>
     <div class="admin-modal-content" style="max-width: 900px;">
@@ -8515,6 +8614,7 @@
                 <option value="larnaca">Larnaca</option>
                 <option value="paphos">Paphos</option>
               </select>
+              <small id="fleetCarLegacyLocationNotice" class="car-multicity-note" hidden></small>
             </label>
 
             <label class="admin-form-field">

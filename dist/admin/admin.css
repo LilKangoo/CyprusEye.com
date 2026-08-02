@@ -14738,3 +14738,274 @@ body.transport-route-wizard-open {
     padding: 9px 10px;
   }
 }
+
+/* Car Rental Multi-City Stage 2C */
+body.car-multicity-modal-open {
+  overflow: hidden;
+}
+
+.car-multicity-fleet-actions,
+.car-multicity-row-actions,
+.car-multicity-modal__toolbar,
+.car-multicity-modal__footer,
+.car-multicity-catalog-tabs {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.car-multicity-row-actions {
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+}
+
+.car-multicity-modal__content {
+  display: flex;
+  flex-direction: column;
+  max-height: min(92dvh, 980px);
+  max-width: min(1180px, calc(100vw - 32px));
+  width: 100%;
+}
+
+.car-multicity-modal__subtitle {
+  color: var(--admin-text-muted);
+  font-size: 12px;
+  margin: 4px 0 0;
+}
+
+.car-multicity-modal__toolbar,
+.car-multicity-catalog-tabs {
+  background: var(--admin-bg-secondary);
+  border-bottom: 1px solid var(--admin-border);
+  padding: 10px 20px;
+}
+
+.car-multicity-modal__toolbar button {
+  margin-left: auto;
+}
+
+.car-multicity-legacy-badge,
+.car-multicity-ready {
+  background: color-mix(in srgb, var(--admin-success) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--admin-success) 45%, transparent);
+  border-radius: 999px;
+  color: var(--admin-success);
+  font-weight: 700;
+  padding: 6px 10px;
+}
+
+.car-multicity-live-status {
+  border-bottom: 1px solid var(--admin-border);
+  color: var(--admin-text-muted);
+  min-height: 38px;
+  padding: 10px 20px;
+}
+
+.car-multicity-live-status[data-kind='error'] {
+  color: var(--admin-danger);
+}
+
+.car-multicity-live-status[data-kind='success'] {
+  color: var(--admin-success);
+}
+
+.car-multicity-modal__body {
+  overflow: auto;
+}
+
+.car-multicity-section {
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  margin-bottom: 16px;
+  padding: 18px;
+}
+
+.car-multicity-section h4 {
+  font-size: 16px;
+  margin: 0 0 14px;
+}
+
+.car-multicity-form-grid,
+.car-multicity-i18n-grid,
+.car-multicity-summary-grid,
+.car-multicity-mode-strip {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.car-multicity-i18n-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 14px 0;
+}
+
+.car-multicity-summary-grid,
+.car-multicity-mode-strip {
+  margin: 12px 0;
+}
+
+.car-multicity-summary-grid > div,
+.car-multicity-mode-strip > div,
+.car-multicity-readonly-prices > div {
+  background: var(--admin-bg-secondary);
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.car-multicity-summary-grid dt,
+.car-multicity-mode-strip span,
+.car-multicity-readonly-prices span {
+  color: var(--admin-text-muted);
+  display: block;
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+.car-multicity-summary-grid dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.car-multicity-readonly-prices {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-top: 12px;
+}
+
+.car-multicity-check {
+  align-items: center;
+  background: var(--admin-bg-secondary);
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  display: flex;
+  gap: 8px;
+  min-height: 42px;
+  padding: 10px 12px;
+}
+
+.car-multicity-note,
+.car-multicity-exact-id {
+  color: var(--admin-text-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.car-multicity-warning,
+.car-multicity-ready,
+.car-multicity-safety,
+.car-multicity-error {
+  border-radius: 8px;
+  margin-top: 12px;
+  padding: 12px 14px;
+}
+
+.car-multicity-warning,
+.car-multicity-error {
+  background: color-mix(in srgb, var(--admin-warning) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--admin-warning) 44%, transparent);
+}
+
+.car-multicity-safety {
+  background: color-mix(in srgb, var(--admin-primary) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--admin-primary) 35%, transparent);
+}
+
+.car-multicity-ready {
+  border-radius: 8px;
+  color: inherit;
+}
+
+.car-multicity-wizard-steps {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  margin-bottom: 16px;
+}
+
+.car-multicity-wizard-steps span {
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  color: var(--admin-text-muted);
+  font-size: 11px;
+  padding: 8px;
+}
+
+.car-multicity-wizard-steps .is-current {
+  border-color: var(--admin-primary);
+  color: var(--admin-primary);
+  font-weight: 700;
+}
+
+.car-multicity-wizard-steps .is-complete {
+  color: var(--admin-success);
+}
+
+.car-multicity-availability-table input[type='checkbox'] {
+  margin-right: 5px;
+}
+
+.car-multicity-review-group {
+  margin: 18px 0;
+}
+
+.car-multicity-review-group code,
+.car-multicity-step-list code {
+  overflow-wrap: anywhere;
+}
+
+.car-multicity-step-list {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+}
+
+.car-multicity-step-list li {
+  border-left: 4px solid var(--admin-border);
+  padding: 8px 10px;
+}
+
+.car-multicity-step-list .is-success {
+  border-color: var(--admin-success);
+}
+
+.car-multicity-step-list .is-error,
+.car-multicity-step-list .is-skipped {
+  border-color: var(--admin-danger);
+}
+
+.car-multicity-city-form {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 18px;
+}
+
+.car-multicity-confirm {
+  z-index: 10020;
+}
+
+@media (max-width: 900px) {
+  .car-multicity-form-grid,
+  .car-multicity-summary-grid,
+  .car-multicity-mode-strip,
+  .car-multicity-i18n-grid,
+  .car-multicity-readonly-prices,
+  .car-multicity-wizard-steps,
+  .car-multicity-city-form {
+    grid-template-columns: 1fr;
+  }
+
+  .car-multicity-modal__content {
+    max-height: calc(100dvh - 8px);
+    max-width: calc(100vw - 8px);
+  }
+
+  .car-multicity-fleet-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

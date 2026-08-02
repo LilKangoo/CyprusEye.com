@@ -6,13 +6,25 @@ import {
   normalizeLocationForOffer,
 } from './car-pricing.js';
 import { openCarOfferModal } from './car-offer-modal.js';
-import { normalizePaphosWidgetLocation } from './car-rental-flow.js';
+import {
+  normalizeCarCity,
+  normalizeCarPlaceType,
+  normalizePaphosWidgetLocation,
+} from './car-rental-flow.js';
+import {
+  buildCarRentalAvailabilityInputFingerprint,
+  resolveCarRentalAvailability,
+} from './car-rental-availability-adapter.js';
 
 let paphosFleet = [];
 let pricing = {};
 const deepLinkSelectionState = {
   appliedOfferId: '',
 };
+let carPageShadowTimer = null;
+let carPageShadowFingerprint = '';
+let carPageShadowGeneration = 0;
+let carPageHybridState = null;
 
 function getI18nLanguage() {
   const fromApp = (window.appI18n?.language || '').toLowerCase();
@@ -134,19 +146,26 @@ function getRequestedOfferId() {
 }
 
 export function getCurrentFleetRows() {
-  return filterFleetForLanguage(paphosFleet);
+  const config = getCarPageShadowConfig();
+  const hybridActive = config?.renderMapped === true
+    && carPageHybridState?.result?.renderMode !== 'legacy'
+    && Array.isArray(carPageHybridState?.result?.renderedOffers);
+  const source = hybridActive
+    ? carPageHybridState.result.renderedOffers
+    : paphosFleet;
+  return filterFleetForLanguage(source);
 }
 
 export function findCurrentFleetCarByOfferId(offerId) {
   const requested = String(offerId || '').trim();
   if (!requested) return null;
-  return filterFleetForLanguage(paphosFleet).find((car) => String(car?.id || '').trim() === requested) || null;
+  return getCurrentFleetRows().find((car) => String(car?.id || '').trim() === requested) || null;
 }
 
 export function findCurrentFleetCarByModel(carModel) {
   const requested = String(carModel || '').trim();
   if (!requested) return null;
-  return filterFleetForLanguage(paphosFleet).find((car) => getCarName(car) === requested) || null;
+  return getCurrentFleetRows().find((car) => getCarName(car) === requested) || null;
 }
 
 function getCurrentYoungDriverSelected() {
@@ -155,6 +174,104 @@ function getCurrentYoungDriverSelected() {
     || document.getElementById('carsFinderYoungDriver')?.checked
     || document.getElementById('res_young_driver')?.checked
   );
+}
+
+function getCarPageShadowConfig() {
+  const config = window.CE_CAR_MULTICITY_SHADOW_CONFIG;
+  if (config && typeof config === 'object' && config.enabled === true) return config;
+  return { enabled: true, renderMapped: true, debounceMs: 30 };
+}
+
+function buildCarPageAvailabilityInput(legacyRenderedOffers) {
+  const config = getCarPageShadowConfig();
+  if (!config) return null;
+  const quoteContext = window.CE_CAR_LANDING_QUOTE_CTX && typeof window.CE_CAR_LANDING_QUOTE_CTX === 'object'
+    ? window.CE_CAR_LANDING_QUOTE_CTX
+    : {};
+  const pageLocation = getPageLocation();
+  const rawPickup = quoteContext.pickupLocation || document.getElementById('pickupLocation')?.value || pageLocation;
+  const rawReturn = quoteContext.returnLocation || document.getElementById('returnLocation')?.value || pageLocation;
+  const input = {
+    supabase,
+    pickupCityCode: normalizeCarCity(rawPickup, pageLocation),
+    returnCityCode: normalizeCarCity(rawReturn, pageLocation),
+    pickupPlaceType: quoteContext.pickupPlaceType || normalizeCarPlaceType(rawPickup, 'hotel'),
+    returnPlaceType: quoteContext.returnPlaceType || normalizeCarPlaceType(rawReturn, 'hotel'),
+    pickupDate: quoteContext.pickupDate || document.getElementById('pickupDate')?.value || '',
+    pickupTime: quoteContext.pickupTime || document.getElementById('pickupTime')?.value || '10:00',
+    returnDate: quoteContext.returnDate || document.getElementById('returnDate')?.value || '',
+    returnTime: quoteContext.returnTime || document.getElementById('returnTime')?.value || '10:00',
+    passengers: quoteContext.passengers || getRequiredPassengers(),
+    fullInsurance: quoteContext.fullInsurance === true,
+    youngDriver: quoteContext.youngDriver === true || getCurrentYoungDriverSelected(),
+    language: getI18nShortLanguage(),
+    filters: {
+      platform: 'car-page',
+      isLanguageEligible: (offer, language) => {
+        const checker = window.CELanguage?.isRecordReadyForLanguage;
+        return typeof checker === 'function' ? checker(offer, 'car', language) : true;
+      },
+    },
+    mode: config.renderMapped === true ? 'hybrid' : 'shadow',
+    legacyOffers: Array.isArray(legacyRenderedOffers) ? legacyRenderedOffers : [],
+  };
+  if (!input.pickupCityCode || !input.returnCityCode || !input.pickupDate || !input.returnDate) return null;
+  return input;
+}
+
+function scheduleCarPageAvailabilityShadow(legacyRenderedOffers) {
+  const config = getCarPageShadowConfig();
+  const input = buildCarPageAvailabilityInput(legacyRenderedOffers);
+  if (!config || !input) return;
+  const fingerprint = buildCarRentalAvailabilityInputFingerprint(input);
+  if (fingerprint === carPageShadowFingerprint) return;
+  if (config.renderMapped === true && carPageHybridState?.fingerprint !== fingerprint) {
+    carPageHybridState = null;
+  }
+  carPageShadowFingerprint = fingerprint;
+  const generation = ++carPageShadowGeneration;
+  if (carPageShadowTimer) clearTimeout(carPageShadowTimer);
+  carPageShadowTimer = setTimeout(() => {
+    const promise = resolveCarRentalAvailability(input).then((result) => {
+      if (generation !== carPageShadowGeneration) return result;
+      window.__CE_CAR_MULTICITY_SHADOW_RESULT__ = result;
+      if (input.mode === 'hybrid') {
+        carPageHybridState = { fingerprint, result };
+        window.__CE_CAR_MULTICITY_HYBRID_RESULT__ = result;
+        window.dispatchEvent(new CustomEvent('ce:car-multicity-hybrid-ready', {
+          detail: { source: 'car-page', renderMode: result.renderMode, metrics: result.metrics },
+        }));
+        renderFleet();
+        updateCalculatorOptions();
+      }
+      window.dispatchEvent(new CustomEvent('ce:car-multicity-shadow-ready', {
+        detail: { source: 'car-page', comparison: result.comparison, metrics: result.metrics },
+      }));
+      return result;
+    });
+    window.__CE_CAR_MULTICITY_SHADOW_PROMISE__ = promise;
+  }, Number(config.debounceMs) >= 0 ? Number(config.debounceMs) : 30);
+}
+
+function resolveCarPageRenderedFleet(legacyRenderedOffers) {
+  const config = getCarPageShadowConfig();
+  const input = buildCarPageAvailabilityInput(legacyRenderedOffers);
+  if (config?.renderMapped !== true || !input || !carPageHybridState) return legacyRenderedOffers;
+  const fingerprint = buildCarRentalAvailabilityInputFingerprint(input);
+  if (carPageHybridState.fingerprint !== fingerprint) return legacyRenderedOffers;
+  return Array.isArray(carPageHybridState.result?.renderedOffers)
+    ? carPageHybridState.result.renderedOffers
+    : legacyRenderedOffers;
+}
+
+function buildFleetByPricingLocation(cars) {
+  const grouped = { larnaca: [], paphos: [] };
+  for (const car of cars || []) {
+    const contextLocation = String(car?.pricingContext?.legacyBookingLocation || car?.availabilityContext?.legacyBookingLocation || car?.location || '').toLowerCase();
+    const location = contextLocation === 'paphos' ? 'paphos' : 'larnaca';
+    grouped[location].push(car);
+  }
+  return grouped;
 }
 
 function findFleetCarForQuote({ offerId = '', carModel = '' } = {}) {
@@ -287,6 +404,8 @@ function isValidLandingQuoteContext(quoteContext, loc) {
 }
 
 function calculateLandingQuoteForCar(car, loc, carModelName, quoteContext) {
+  const contextualQuote = car?.pricingContext?.quote || car?.availabilityContext?.quote || car?.quote;
+  if (contextualQuote && Number.isFinite(Number(contextualQuote.total))) return contextualQuote;
   if (!quoteContext) return null;
   try {
     return calculateQuoteForSelection({
@@ -319,7 +438,10 @@ function getComparableCarPrice(car, quoteContext, index, { loc, carModelName } =
 }
 
 function buildFleetRowsForRender(cars, loc, quoteContext) {
-  const canSortByQuote = isValidLandingQuoteContext(quoteContext, loc);
+  const hasContextualQuotes = cars.some((car) => Number.isFinite(Number(
+    car?.pricingContext?.quote?.total || car?.availabilityContext?.quote?.total || car?.quote?.total,
+  )));
+  const canSortByQuote = hasContextualQuotes || isValidLandingQuoteContext(quoteContext, loc);
   const rows = [...cars].map((car, index) => {
     const carModelName = window.getCarName ? window.getCarName(car) : car.car_model;
     const comparable = canSortByQuote
@@ -378,10 +500,10 @@ function getRequiredPassengers() {
   return parsePassengerCount(calculatorValue || reservationValue, 1);
 }
 
-function getFleetFilteredByPassengers() {
+function getFleetFilteredByPassengers(source = paphosFleet) {
   const requiredPassengers = getRequiredPassengers();
   const requireYoungDriver = getCurrentYoungDriverSelected();
-  const filteredFleet = filterFleetForLanguage(paphosFleet).filter((car) => {
+  const filteredFleet = filterFleetForLanguage(source).filter((car) => {
     const capacity = Number(car?.max_passengers || 0);
     const capacityOk = !Number.isFinite(capacity) || capacity <= 0 || capacity >= requiredPassengers;
     if (!capacityOk) return false;
@@ -434,6 +556,8 @@ async function loadPaphosFleet() {
     }
 
     paphosFleet = cars || [];
+    carPageHybridState = null;
+    carPageShadowFingerprint = '';
 
     // Build pricing object for calculator (tiered for paphos, per-day for larnaca)
     pricing = {};
@@ -491,14 +615,21 @@ function renderFleet() {
     return;
   }
   
-  if (paphosFleet.length === 0) {
+  const legacyFilterState = getFleetFilteredByPassengers(paphosFleet);
+  const legacyRenderedOffers = legacyFilterState.filteredFleet;
+  scheduleCarPageAvailabilityShadow(legacyRenderedOffers);
+  const renderedSource = resolveCarPageRenderedFleet(legacyRenderedOffers);
+  const { requiredPassengers, filteredFleet, requireYoungDriver } = renderedSource === legacyRenderedOffers
+    ? legacyFilterState
+    : getFleetFilteredByPassengers(renderedSource);
+
+  if (filteredFleet.length === 0 && paphosFleet.length === 0) {
     const cityLabel = i18n(`carRental.locations.${loc}.short`, null, loc);
     const message = i18n('carRental.page.fleet.empty', { city: cityLabel }, `Brak dostępnych samochodów: ${cityLabel}`);
     grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #64748b;"><p>${escapeHtml(message)}</p></div>`;
     return;
   }
 
-  const { requiredPassengers, filteredFleet, requireYoungDriver } = getFleetFilteredByPassengers();
   const lang = getI18nShortLanguage();
   if (filteredFleet.length === 0) {
     const fallbackMessage = requireYoungDriver
@@ -618,9 +749,13 @@ window.CE_CAR_UPDATE_CALC_OPTIONS = updateCalculatorOptions;
 function updateCalculatorOptions() {
   const select = document.getElementById('car') || document.getElementById('rentalCarSelect');
   const resSelect = document.getElementById('res_car');
-  if (paphosFleet.length === 0) return;
+  const legacyFilterState = getFleetFilteredByPassengers(paphosFleet);
+  const renderedSource = resolveCarPageRenderedFleet(legacyFilterState.filteredFleet);
+  if (paphosFleet.length === 0 && renderedSource.length === 0) return;
 
-  const { requiredPassengers, filteredFleet, requireYoungDriver } = getFleetFilteredByPassengers();
+  const { requiredPassengers, filteredFleet, requireYoungDriver } = renderedSource === legacyFilterState.filteredFleet
+    ? legacyFilterState
+    : getFleetFilteredByPassengers(renderedSource);
   const lang = getI18nShortLanguage();
   const previousSelectValue = String(select?.value || '').trim();
   const previousReservationValue = String(resSelect?.value || '').trim();
@@ -1172,6 +1307,22 @@ function buildLandingModalPrefill(location) {
   };
 }
 
+function buildContextualLandingModalPrefill(car, location) {
+  const prefill = buildLandingModalPrefill(location);
+  const context = car?.pricingContext || car?.availabilityContext;
+  if (!context) return prefill;
+  return {
+    ...prefill,
+    pickupCity: context.pickupCityCode,
+    returnCity: context.returnCityCode,
+    pickupPlaceType: context.pickupPlaceType,
+    returnPlaceType: context.returnPlaceType,
+    pickupLocation: context.pickupLegacyPricingLocation,
+    returnLocation: context.returnLegacyPricingLocation,
+    youngDriver: context.calculatorKey === 'larnaca' && prefill.youngDriver,
+  };
+}
+
 function buildLandingQuoteForCar(carName, location, offerId = '') {
   const loc = location === 'paphos' ? 'paphos' : 'larnaca';
   const quote = calculateQuoteForSelection({
@@ -1230,18 +1381,20 @@ function attachCarSelectButtons() {
           console.warn('Landing card select callback failed:', e);
         }
       }
-      window.calculatePrice();
+      const selectedCar = findCurrentFleetCarByOfferId(offerId) || findCurrentFleetCarByModel(carName);
+      const pricingContext = selectedCar?.pricingContext || selectedCar?.availabilityContext || null;
+      const controlledHybridSelection = getCarPageShadowConfig()?.renderMapped === true && !!pricingContext;
+      if (!controlledHybridSelection) window.calculatePrice();
       if (isLandingCarRentalPage()) {
-        const selectedCar = findCurrentFleetCarByOfferId(offerId) || findCurrentFleetCarByModel(carName);
         if (selectedCar) {
+          const location = pricingContext?.legacyBookingLocation || getPageLocation();
+          const currentFleet = getCurrentFleetRows();
           openCarOfferModal({
             car: selectedCar,
-            location: getPageLocation(),
-            fleetByLocation: {
-              [getPageLocation()]: getCurrentFleetRows(),
-            },
-            prefill: buildLandingModalPrefill(getPageLocation()),
-            quote: buildLandingQuoteForCar(carName, getPageLocation(), offerId),
+            location,
+            fleetByLocation: buildFleetByPricingLocation(currentFleet),
+            prefill: buildContextualLandingModalPrefill(selectedCar, location),
+            quote: pricingContext?.quote || selectedCar.quote || buildLandingQuoteForCar(carName, location, offerId),
           });
         }
         return;

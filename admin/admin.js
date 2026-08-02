@@ -15325,6 +15325,9 @@ const TransportAdminRepository = globalThis.TransportAdminRepository;
 const TransportPairPricingCore = globalThis.TransportPairPricingCore;
 const TransportPairPricingModal = globalThis.TransportPairPricingModal;
 const TransportRouteWizard = globalThis.TransportRouteWizard;
+const CarRentalMulticityCore = globalThis.CarRentalMulticityCore;
+const CarRentalMulticityRepository = globalThis.CarRentalMulticityRepository;
+const CarRentalMulticityAdmin = globalThis.CarRentalMulticityAdmin;
 
 const TRANSPORT_TABLES = {
   locations: 'transport_locations',
@@ -24357,6 +24360,36 @@ function bindTransportAdminUi() {
       if (modal) modal.hidden = true;
     });
   }
+}
+
+let carRentalMulticityRepository = null;
+
+function getCarRentalMulticityRepository() {
+  if (!carRentalMulticityRepository) {
+    carRentalMulticityRepository = CarRentalMulticityRepository.create({
+      core: CarRentalMulticityCore,
+      getClient: () => ensureSupabase(),
+    });
+  }
+  return carRentalMulticityRepository;
+}
+
+function bindCarRentalMulticityAdminUi() {
+  CarRentalMulticityAdmin.initialize({
+    document,
+    core: CarRentalMulticityCore,
+    repository: getCarRentalMulticityRepository(),
+    showToast,
+    onFleetRefresh: () => void loadFleetData({ silent: true }),
+    openLegacyEditor: (offerId) => {
+      const exactId = String(offerId || '').trim();
+      if (exactId) {
+        void editFleetCar(exactId);
+        return;
+      }
+      openFleetCarModal();
+    },
+  });
 }
 
 window.loadTransportAdminData = loadTransportAdminData;
@@ -35441,7 +35474,7 @@ async function handleCarsRefreshAction() {
 async function handleCarsAddAction() {
   const tab = getActiveCarsTab();
   if (tab === 'fleet') {
-    openFleetCarModal();
+    void CarRentalMulticityAdmin.open('create', null, { returnFocus: document.activeElement });
     return;
   }
   if (tab === 'coupons') {
@@ -35622,13 +35655,17 @@ async function loadFleetData(options = {}) {
             ${car.stock_count ? `<div style="font-size: 11px; color: var(--admin-text-muted); margin-top: 4px;">Stock: ${car.stock_count}</div>` : ''}
           </td>
           <td>
-            <div style="display: flex; gap: 4px;">
-              <button class="btn-icon" type="button" title="Edit" onclick="editFleetCar('${car.id}')">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 20h9"/>
-                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
-                </svg>
-              </button>
+            <div class="car-multicity-row-actions">
+              <details class="transport-admin-v2-route-action-menu">
+                <summary aria-label="Actions for ${escapeHtml(carModel)}" title="Vehicle actions"><span aria-hidden="true">&#8942;</span></summary>
+                <div class="transport-admin-v2-route-action-menu__items" role="menu">
+                  <button type="button" role="menuitem" data-car-multicity-action="vehicle" data-offer-id="${escapeHtml(car.id)}">Edit vehicle</button>
+                  <button type="button" role="menuitem" data-car-multicity-action="availability" data-offer-id="${escapeHtml(car.id)}">Availability</button>
+                  <button type="button" role="menuitem" data-car-multicity-action="pricing" data-offer-id="${escapeHtml(car.id)}">Pricing profile</button>
+                  <button type="button" role="menuitem" data-car-multicity-action="partner" data-offer-id="${escapeHtml(car.id)}">Partner</button>
+                  <button type="button" role="menuitem" data-car-multicity-action="legacy" data-offer-id="${escapeHtml(car.id)}">Legacy editor</button>
+                </div>
+              </details>
               <button class="btn-icon" type="button" title="Delete" onclick="deleteFleetCar('${car.id}', '${escapeHtml(carModel)}')" style="color: var(--admin-danger);">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="3 6 5 6 21 6"/>
@@ -35849,6 +35886,12 @@ function openFleetCarModal(carData = null) {
     // Fill form with existing data
     $('#fleetCarId').value = carData.id;
     $('#fleetCarLocation').value = carData.location || '';
+    $('#fleetCarLocation').disabled = true;
+    const legacyLocationNotice = $('#fleetCarLegacyLocationNotice');
+    if (legacyLocationNotice) {
+      legacyLocationNotice.hidden = false;
+      legacyLocationNotice.textContent = 'Location is locked in the Legacy editor. Use Pricing profile for a reviewed compatibility-key change.';
+    }
     // Extract English car_type to match dropdown options
     const carTypeValue = carData.car_type?.en || carData.car_type || '';
     $('#fleetCarType').value = carTypeValue;
@@ -35921,6 +35964,9 @@ function openFleetCarModal(carData = null) {
     // Add mode
     title.textContent = 'Add New Car';
     $('#fleetCarId').value = '';
+    $('#fleetCarLocation').disabled = false;
+    const legacyLocationNotice = $('#fleetCarLegacyLocationNotice');
+    if (legacyLocationNotice) legacyLocationNotice.hidden = true;
     
     // Set defaults
     $('#fleetCarCurrency').value = 'EUR';
@@ -36283,6 +36329,24 @@ async function handleFleetCarSubmit(event) {
     const fleetCarYoungDriverAllowed = $('#fleetCarYoungDriverAllowed');
     const fleetCarYoungDriverCost = $('#fleetCarYoungDriverCost');
     
+    // Foundation compatibility guard: an existing offer's legacy location can only
+    // change through the reviewed Pricing profile flow. This exact-ID fresh read
+    // occurs before the legacy editor performs any mutation.
+    if (carId) {
+      const { data: currentOffer, error: currentOfferError } = await client
+        .from('car_offers')
+        .select('id,location,pricing_profile_id,updated_at')
+        .eq('id', carId)
+        .single();
+      if (currentOfferError) throw currentOfferError;
+      if (!currentOffer || String(currentOffer.id) !== String(carId)) {
+        throw new Error('Exact car offer is no longer available.');
+      }
+      if (String(currentOffer.location || '').trim() !== String(location || '').trim()) {
+        throw new Error('Location changes are blocked in the Legacy editor. Use Pricing profile and Review.');
+      }
+    }
+
     // Check if using i18n fields
     const usingI18n = $('#carI18nFields')?.style.display !== 'none';
     let carModel, description;
@@ -37997,6 +38061,7 @@ function initEventListeners() {
   }
 
   bindTransportAdminUi();
+  bindCarRentalMulticityAdminUi();
 
   const refreshPartnersBtn = document.getElementById('btnRefreshPartners');
   if (refreshPartnersBtn) refreshPartnersBtn.addEventListener('click', () => loadPartnersData());
@@ -38795,11 +38860,11 @@ function initEventListeners() {
     });
   }
 
-  // Add new car to fleet
-  const btnAddFleetCar = $('#btnAddFleetCar');
-  if (btnAddFleetCar) {
-    btnAddFleetCar.addEventListener('click', () => {
-      openFleetCarModal(); // Open modal in add mode
+  // Legacy Add Car remains available as an explicit fallback.
+  const btnAddFleetCarLegacy = $('#btnAddFleetCarLegacy');
+  if (btnAddFleetCarLegacy) {
+    btnAddFleetCarLegacy.addEventListener('click', () => {
+      openFleetCarModal();
     });
   }
 
