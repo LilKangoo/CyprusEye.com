@@ -17,6 +17,8 @@ function memoryClient(seed: Record<string, Row[]>) {
   const tables: Record<string, Row[]> = Object.fromEntries(Object.entries(seed).map(([table, values]) => [table, values.map((row) => ({ ...row }))]));
   const mutations: Array<{ action: string; table: string; payload: Row }> = [];
   let counter = 0;
+  const storageObjects = new Map<string, unknown>();
+  const storageRemovals: string[] = [];
   const getRows = (table: string) => tables[table] ||= [];
 
   function builder(table: string, action: 'select' | 'update' | 'delete', payload: Row = {}) {
@@ -62,6 +64,26 @@ function memoryClient(seed: Record<string, Row[]>) {
   }
 
   const client = {
+    storage: {
+      from(bucket: string) {
+        return {
+          async upload(objectPath: string, payload: unknown) {
+            storageObjects.set(`${bucket}/${objectPath}`, payload);
+            return { data: { path: objectPath }, error: null };
+          },
+          getPublicUrl(objectPath: string) {
+            return { data: { publicUrl: `https://storage.test/${bucket}/${objectPath}` } };
+          },
+          async remove(paths: string[]) {
+            paths.forEach((objectPath) => {
+              storageObjects.delete(`${bucket}/${objectPath}`);
+              storageRemovals.push(`${bucket}/${objectPath}`);
+            });
+            return { data: paths.map((name) => ({ name })), error: null };
+          },
+        };
+      },
+    },
     from(table: string) {
       return {
         select() { return builder(table, 'select'); },
@@ -96,7 +118,7 @@ function memoryClient(seed: Record<string, Row[]>) {
       };
     },
   };
-  return { client, tables, mutations };
+  return { client, tables, mutations, storageObjects, storageRemovals };
 }
 
 const seed = () => ({
@@ -124,6 +146,8 @@ const seed = () => ({
   car_vehicle_kinds: [{ id: 'kind-car', code: 'car', name_i18n: { en: 'Car' }, is_active: true, sort_order: 10 }],
   partners: [{ id: 'partner-one', name: 'Partner', status: 'active', can_manage_cars: true, cars_locations: ['larnaca'], updated_at: 'partner-v1' }],
   partner_resources: [{ id: 'resource-one', partner_id: 'partner-one', resource_type: 'cars', resource_id: 'offer-one', created_at: 'resource-v1' }],
+  service_deposit_rules: [{ id: 'deposit-cars', resource_type: 'cars', mode: 'per_day', amount: 5, currency: 'EUR', include_children: true, enabled: true, updated_at: 'deposit-v1' }],
+  service_deposit_overrides: [],
   site_settings: [{ id: 1, car_multi_city_mapped_enabled: false, updated_at: 'settings-v1' }],
 });
 
@@ -136,6 +160,8 @@ describe('Car Rental Multi-City Stage 2C repository', () => {
     const context = await repository.getOfferContext('offer-one');
     expect(context.offer.id).toBe('offer-one');
     expect(context.profiles).toHaveLength(2);
+    expect(context.depositRule).toEqual(expect.objectContaining({ resource_type: 'cars', mode: 'per_day', amount: 5 }));
+    expect(context.depositOverride).toBeNull();
     expect(context.availability).toHaveLength(1);
     expect(context.partnerResources[0].resource_id).toBe('offer-one');
   });
@@ -186,7 +212,7 @@ describe('Car Rental Multi-City Stage 2C repository', () => {
     const memory = memoryClient(seed());
     const repository = repositoryApi.create({ client: memory.client, core });
     const offerBefore = JSON.stringify(memory.tables.car_offers[0]);
-    await repository.insertAvailability({ payload: { offer_id: 'offer-one', city_id: 'city-paphos', pickup_enabled: true, return_enabled: false, is_active: true } });
+    await repository.insertAvailability({ payload: { offer_id: 'offer-one', city_id: 'city-paphos', pickup_enabled: true, return_enabled: true, is_active: true } });
     expect(memory.mutations.map((mutation) => mutation.table)).toEqual(['car_offer_city_availability']);
     expect(JSON.stringify(memory.tables.car_offers[0])).toBe(offerBefore);
   });
@@ -229,9 +255,9 @@ describe('Car Rental Multi-City Stage 2C repository', () => {
       pricing_profile_id: 'profile-larnaca',
       city_id: 'city-larnaca',
       pickup_supported: true,
-      return_supported: false,
+      return_supported: true,
       legacy_pricing_city_key: 'larnaca',
-      is_active: true,
+      is_active: false,
     });
     expect(impact.offerIds).toEqual(['offer-one']);
     expect(impact.readyOfferIds).toEqual(['offer-one']);
@@ -246,14 +272,14 @@ describe('Car Rental Multi-City Stage 2C repository', () => {
     await repository.saveProfileCityMapping({
       pricing_profile_id: 'profile-larnaca',
       city_id: 'city-larnaca',
-      pickup_supported: true,
+      pickup_supported: false,
       return_supported: false,
       legacy_pricing_city_key: 'larnaca',
-      is_active: true,
+      is_active: false,
       expectedUpdatedAt: 'mapping-v1',
     });
     const mapping = memory.tables.car_pricing_profile_cities.find((row) => row.pricing_profile_id === 'profile-larnaca' && row.city_id === 'city-larnaca');
-    expect(mapping?.return_supported).toBe(false);
+    expect(mapping).toEqual(expect.objectContaining({ pickup_supported: false, return_supported: false, is_active: false }));
     expect(memory.mutations).toEqual([expect.objectContaining({ action: 'update', table: 'car_pricing_profile_cities' })]);
   });
 
@@ -275,6 +301,45 @@ describe('Car Rental Multi-City Stage 2C repository', () => {
     expect(created?.location).toBe('larnaca');
     expect(memory.tables.site_settings[0].car_multi_city_mapped_enabled).toBe(false);
     expect(memory.mutations.some((mutation) => ['car_bookings', 'service_deposit_overrides', 'partner_resources'].includes(mutation.table))).toBe(false);
+    expect(created).not.toHaveProperty('deposit_amount');
+  });
+
+  test('vehicle photo uses the existing bucket, exact offer ID and public URL without base64', async () => {
+    const memory = memoryClient(seed());
+    const repository = repositoryApi.create({ client: memory.client, core });
+    const file = { name: 'mazda.webp', type: 'image/webp', size: 2048, lastModified: 1 };
+    const uploaded = await repository.uploadVehicleImage({ file, offerId: 'offer-one', nonce: 'fixed' });
+    expect(uploaded.bucket).toBe('car-images');
+    expect(uploaded.path).toBe('car-offer-one-fixed.webp');
+    expect(uploaded.publicUrl).toBe('https://storage.test/car-images/car-offer-one-fixed.webp');
+    expect(uploaded.publicUrl).not.toContain('base64');
+    expect(memory.storageObjects.has('car-images/car-offer-one-fixed.webp')).toBe(true);
+  });
+
+  test('newly uploaded unused photo can be cleaned up by its exact path only', async () => {
+    const memory = memoryClient(seed());
+    const repository = repositoryApi.create({ client: memory.client, core });
+    const uploaded = await repository.uploadVehicleImage({
+      file: { name: 'replacement.jpg', type: 'image/jpeg', size: 1024 },
+      offerId: 'offer-one',
+      nonce: 'cleanup',
+    });
+    await repository.removeVehicleImage(uploaded.path);
+    expect(memory.storageObjects.has(`car-images/${uploaded.path}`)).toBe(false);
+    expect(memory.storageRemovals).toEqual([`car-images/${uploaded.path}`]);
+  });
+
+  test('reviewed photo URL is injected only into the exact car offer write', async () => {
+    const memory = memoryClient(seed());
+    const repository = repositoryApi.create({ client: memory.client, core });
+    const context = await repository.getOfferContext('offer-one');
+    const draft = core.createDraft(context, { mode: 'vehicle' });
+    core.setVehicleImageAction(draft, 'added', { name: 'new.png', type: 'image/png', size: 1000, extension: 'png' });
+    const plan = core.buildReviewPlan(draft, context, 'vehicle');
+    const result = await repository.executePlan(plan, { uploadedImageUrl: 'https://storage.test/car-images/new.png' });
+    expect(result.status).toBe('success');
+    expect(memory.tables.car_offers[0].image_url).toBe('https://storage.test/car-images/new.png');
+    expect(memory.mutations).toEqual([expect.objectContaining({ table: 'car_offers', action: 'update' })]);
   });
 
   test('repository rejects forbidden columns before any write', async () => {

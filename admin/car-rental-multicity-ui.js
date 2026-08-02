@@ -27,7 +27,10 @@
       catalogOpen: false,
       catalog: null,
       catalogTab: 'cities',
+      uploadProgress: 0,
     };
+    let pendingImageFile = null;
+    let pendingImagePreviewUrl = '';
 
     const byId = (id) => documentRef.getElementById(id);
     const escapeHtml = (value) => String(value ?? '')
@@ -36,10 +39,8 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
-    const labelI18n = (value) => {
-      if (value && typeof value === 'object') return value.en || value.pl || value.he || '';
-      return String(value || '');
-    };
+    const adminLanguage = () => core.normalizeCode(documentRef.documentElement?.lang || 'en') || 'en';
+    const labelI18n = (value) => core.resolveI18nText(value, adminLanguage());
     const money = (value) => value === null || value === undefined || value === '' ? '—' : `€${Number(value).toFixed(2)}`;
 
     function announce(message, kind = 'status') {
@@ -96,7 +97,15 @@
       }
     }
 
+    function clearPendingImageFile() {
+      if (pendingImagePreviewUrl) root.URL?.revokeObjectURL?.(pendingImagePreviewUrl);
+      pendingImageFile = null;
+      pendingImagePreviewUrl = '';
+      state.uploadProgress = 0;
+    }
+
     function resetState() {
+      clearPendingImageFile();
       state.open = false;
       state.mode = null;
       state.screen = 'edit';
@@ -204,6 +213,82 @@
       return `<div class="car-multicity-i18n-grid">${fields}</div>`;
     }
 
+    function renderVehicleMedia() {
+      const media = state.draft.media || { action: 'unchanged', currentUrl: '', pendingFile: null };
+      const currentUrl = String(media.currentUrl || '');
+      const hasCurrent = Boolean(currentUrl);
+      const hasPending = ['added', 'replaced'].includes(media.action) && Boolean(media.pendingFile);
+      return `
+        <section class="car-multicity-media-card" aria-labelledby="carMulticityMediaHeading">
+          <div class="car-multicity-section-heading">
+            <div><h5 id="carMulticityMediaHeading">Vehicle photo</h5><p>JPG, JPEG, PNG or WEBP · maximum 5 MB · stored in the existing <code>${escapeHtml(core.VEHICLE_IMAGE_BUCKET)}</code> bucket.</p></div>
+            <span class="car-multicity-image-action is-${escapeHtml(media.action)}">${escapeHtml(media.action)}</span>
+          </div>
+          <div class="car-multicity-media-grid">
+            <figure class="car-multicity-image-preview">
+              <figcaption>Current image</figcaption>
+              ${hasCurrent ? `<img src="${escapeHtml(currentUrl)}" alt="Current vehicle">` : '<div class="car-multicity-image-placeholder" aria-label="No current vehicle image">No image</div>'}
+              ${media.action === 'removed' ? '<strong class="car-multicity-image-removed">Will be removed from this offer</strong>' : ''}
+            </figure>
+            <div class="car-multicity-image-dropzone" data-image-dropzone="true" role="group" aria-describedby="carMulticityImageHelp">
+              <input id="carMulticityImageFile" type="file" accept="image/jpeg,image/jpg,image/png,image/webp,.jpg,.jpeg,.png,.webp" hidden>
+              <div class="car-multicity-dropzone-copy">
+                <strong>${hasPending ? 'New image selected' : 'Drop image here'}</strong>
+                <span id="carMulticityImageHelp">or choose a file from this device</span>
+                ${media.pendingFile ? `<small>${escapeHtml(media.pendingFile.name)} · ${escapeHtml((Number(media.pendingFile.size) / 1024 / 1024).toFixed(2))} MB</small>` : ''}
+              </div>
+              <button type="button" class="btn-secondary" data-media-action="select">${hasCurrent || hasPending ? 'Replace image' : 'Select image'}</button>
+            </div>
+            ${hasPending ? `<figure class="car-multicity-image-preview"><figcaption>New image before Save</figcaption><img src="${escapeHtml(pendingImagePreviewUrl)}" alt="New vehicle preview"></figure>` : ''}
+          </div>
+          <div class="car-multicity-media-actions">
+            ${hasCurrent && media.action !== 'removed' ? '<button type="button" class="btn-secondary" data-media-action="remove">Remove image</button>' : ''}
+            ${media.action !== 'unchanged' ? '<button type="button" class="btn-secondary" data-media-action="undo">Undo image change</button>' : ''}
+          </div>
+          <div class="car-multicity-upload-progress" id="carMulticityImageUploadProgress" ${state.uploadProgress > 0 ? '' : 'hidden'}>
+            <div role="progressbar" aria-label="Vehicle image upload" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${escapeHtml(state.uploadProgress)}"><span id="carMulticityImageUploadBar" style="width:${escapeHtml(state.uploadProgress)}%"></span></div>
+            <span id="carMulticityImageUploadStatus">${state.uploadProgress >= 100 ? 'Upload complete' : 'Waiting to upload on Save'}</span>
+          </div>
+        </section>
+      `;
+    }
+
+    function depositModeLabel(mode) {
+      const labels = {
+        per_day: 'Per day',
+        per_person: 'Per person',
+        flat: 'Fixed amount',
+        percent_total: 'Percent of total',
+        per_hour: 'Per hour',
+      };
+      return labels[core.normalizeCode(mode)] || String(mode || 'Not configured');
+    }
+
+    function renderDepositSummary() {
+      const defaultRule = state.context?.depositRule || null;
+      const override = state.draft?.offerId ? state.context?.depositOverride || null : null;
+      const effective = override || defaultRule;
+      const source = override ? 'Exact offer override' : defaultRule ? 'Cars default rule' : 'No Cars rule found';
+      return `
+        <section class="car-multicity-deposit-card" aria-labelledby="carMulticityDepositHeading">
+          <div class="car-multicity-section-heading">
+            <div><h5 id="carMulticityDepositHeading">Payment due at booking</h5><p>Read-only preview from Deposit settings. <code>car_offers.deposit_amount</code> is not used as the operational source here.</p></div>
+            <span class="car-multicity-readonly-badge">Read only</span>
+          </div>
+          <dl class="car-multicity-summary-grid">
+            <div><dt>Effective source</dt><dd>${escapeHtml(source)}</dd></div>
+            <div><dt>Mode</dt><dd>${escapeHtml(depositModeLabel(effective?.mode))}</dd></div>
+            <div><dt>Value</dt><dd>${effective ? `${escapeHtml(effective.amount)} ${escapeHtml(effective.currency || 'EUR')}` : '—'}</dd></div>
+            <div><dt>Enabled</dt><dd>${effective ? (effective.enabled ? 'Yes' : 'No') : '—'}</dd></div>
+            <div><dt>Exact override</dt><dd>${override ? `<code>${escapeHtml(override.id)}</code>` : state.draft?.offerId ? 'None' : 'Available after exact offer ID is created'}</dd></div>
+            <div><dt>Include children</dt><dd>${effective ? (effective.include_children ? 'Yes' : 'No') : '—'}</dd></div>
+          </dl>
+          ${core.normalizeCode(effective?.mode) === 'per_day' ? '<p class="car-multicity-note">The final payment due at booking depends on the reservation length.</p>' : ''}
+          <button type="button" class="btn-secondary" data-media-action="manage-deposit">Manage deposit settings</button>
+        </section>
+      `;
+    }
+
     function renderVehicleFields(includeContent = true) {
       const kinds = state.context?.vehicleKinds || [];
       const vehicle = state.draft.vehicle;
@@ -217,7 +302,6 @@
                 ${kinds.map((kind) => `<option value="${escapeHtml(kind.id)}" ${core.normalizeId(kind.id) === core.normalizeId(vehicle.vehicleKindId) ? 'selected' : ''} ${kind.is_active !== true ? 'disabled' : ''}>${escapeHtml(labelI18n(kind.name_i18n) || kind.code)} (${escapeHtml(kind.code)})</option>`).join('')}
               </select>
             </label>
-            <label class="admin-form-field"><span>Commercial car type</span><input data-draft-field="vehicle.carType.en" id="carMulticityCarType" value="${escapeHtml(vehicle.carType?.en || vehicle.carType || '')}"></label>
             <label class="admin-form-field"><span>Transmission</span><select data-draft-field="vehicle.transmission"><option value="manual" ${vehicle.transmission === 'manual' ? 'selected' : ''}>Manual</option><option value="automatic" ${vehicle.transmission === 'automatic' ? 'selected' : ''}>Automatic</option></select></label>
             <label class="admin-form-field"><span>Fuel</span><select data-draft-field="vehicle.fuelType"><option value="petrol" ${vehicle.fuelType === 'petrol' ? 'selected' : ''}>Petrol</option><option value="diesel" ${vehicle.fuelType === 'diesel' ? 'selected' : ''}>Diesel</option><option value="hybrid" ${vehicle.fuelType === 'hybrid' ? 'selected' : ''}>Hybrid</option><option value="electric" ${vehicle.fuelType === 'electric' ? 'selected' : ''}>Electric</option></select></label>
             <label class="admin-form-field"><span>Passengers</span><input type="number" min="1" data-number="integer" data-draft-field="vehicle.maxPassengers" id="carMulticityMaxPassengers" value="${escapeHtml(vehicle.maxPassengers)}"></label>
@@ -227,10 +311,10 @@
             <label class="car-multicity-check"><input type="checkbox" data-boolean="true" data-draft-field="vehicle.isAvailable" ${vehicle.isAvailable ? 'checked' : ''}> Available</label>
             <label class="car-multicity-check"><input type="checkbox" data-boolean="true" data-draft-field="vehicle.northAllowed" ${vehicle.northAllowed ? 'checked' : ''}> North allowed</label>
           </div>
+          ${i18nInput('vehicle.carType', 'Commercial car type', vehicle.carType)}
           ${i18nInput('vehicle.carModel', 'Car model', vehicle.carModel)}
-          <label class="admin-form-field"><span>Image URL</span><input type="url" data-draft-field="vehicle.imageUrl" value="${escapeHtml(vehicle.imageUrl)}"></label>
         </section>
-        ${includeContent ? renderContentFields() : ''}
+        ${includeContent ? `${renderContentFields()}${renderDepositSummary()}` : ''}
       `;
     }
 
@@ -239,6 +323,7 @@
         <section class="car-multicity-section" aria-labelledby="carMulticityContentHeading">
           <h4 id="carMulticityContentHeading">Content and media</h4>
           ${i18nInput('content.description', 'Description', state.draft.content.description, true)}
+          ${renderVehicleMedia()}
           <p class="car-multicity-note">Features remain unchanged in this simplified editor. Use Legacy editor for translated feature-list maintenance.</p>
         </section>
       `;
@@ -263,6 +348,7 @@
             <div><dt>Resulting compatibility key</dt><dd>${escapeHtml(state.draft.pricing.location || '—')}</dd></div>
           </dl>
           ${isCreate ? renderCreatePricingValues(selected) : renderExistingPriceValues(offer)}
+          ${renderDepositSummary()}
         </section>
       `;
     }
@@ -291,7 +377,6 @@
             <label class="admin-form-field"><span>7–10 days / day</span><input type="number" min="0" step="0.01" data-number="money" data-draft-field="pricing.price7To10Days" value="${escapeHtml(pricing.price7To10Days ?? '')}"></label>
             <label class="admin-form-field"><span>10+ days / day</span><input type="number" min="0" step="0.01" data-number="money" data-draft-field="pricing.price10PlusDays" value="${escapeHtml(pricing.price10PlusDays ?? '')}"></label>
           ` : ''}
-          <label class="admin-form-field"><span>Deposit amount</span><input type="number" min="0" step="0.01" data-number="money" data-draft-field="pricing.depositAmount" value="${escapeHtml(pricing.depositAmount)}"></label>
           <label class="admin-form-field"><span>Insurance / day</span><input type="number" min="0" step="0.01" data-number="money" data-draft-field="pricing.insurancePerDay" value="${escapeHtml(pricing.insurancePerDay)}"></label>
           <label class="car-multicity-check"><input type="checkbox" data-boolean="true" data-draft-field="pricing.youngDriverFee" ${pricing.youngDriverFee ? 'checked' : ''} ${paphos ? 'disabled' : ''}> Young driver allowed</label>
           <label class="admin-form-field"><span>Young driver / day</span><input type="number" min="0" step="0.01" data-number="money" data-draft-field="pricing.youngDriverCost" value="${escapeHtml(pricing.youngDriverCost)}" ${paphos ? 'disabled' : ''}></label>
@@ -313,18 +398,21 @@
       const key = core.normalizeCode(mapping?.legacy_pricing_city_key);
       const supported = Boolean(mapping && mapping.is_active && city.is_active && key);
       const paphosBlocked = core.normalizeCode(profile?.code) === 'paphos' && key !== 'paphos';
-      const pickupDisabled = !supported || paphosBlocked || mapping?.pickup_supported !== true;
-      const returnDisabled = !supported || paphosBlocked || mapping?.return_supported !== true;
+      const pairedSupported = mapping?.pickup_supported === true && mapping?.return_supported === true;
+      const disabled = !supported || !pairedSupported || paphosBlocked;
+      const paired = core.pairedAvailabilityState(row);
       const fee = key ? core.LEGACY_CITY_FEE_PREVIEW[key] : undefined;
       return `
         <tr data-city-id="${escapeHtml(city.id)}">
           <td><strong>${escapeHtml(labelI18n(city.name_i18n) || city.code)}</strong><br><code>${escapeHtml(city.code)}</code></td>
           <td>${city.is_active ? 'Active' : 'Inactive'}</td>
-          <td><label><input type="checkbox" data-availability-field="pickup_enabled" ${row.pickup_enabled ? 'checked' : ''} ${pickupDisabled ? 'disabled' : ''}> Pickup</label></td>
-          <td><label><input type="checkbox" data-availability-field="return_enabled" ${row.return_enabled ? 'checked' : ''} ${returnDisabled ? 'disabled' : ''}> Return</label></td>
+          <td>
+            <label class="car-multicity-city-toggle"><input type="checkbox" data-availability-field="paired" ${paired.checked ? 'checked' : ''} ${paired.mismatched ? 'data-mixed="true" aria-checked="mixed"' : ''} ${disabled ? 'disabled' : ''}> Available for pickup and return</label>
+            ${paired.mismatched ? '<span class="car-multicity-row-warning" role="alert">Pickup and return settings differ. Review required.</span>' : ''}
+          </td>
           <td><code>${escapeHtml(key || 'No pricing key')}</code></td>
           <td>${fee === undefined ? '—' : escapeHtml(money(fee))}</td>
-          <td>${supported && !paphosBlocked ? 'Supported' : 'Unavailable'}</td>
+          <td>${supported && pairedSupported && !paphosBlocked ? 'Pickup + return supported' : mapping && mapping.pickup_supported !== mapping.return_supported ? 'Profile support differs — review required' : 'Unavailable'}</td>
         </tr>
       `;
     }
@@ -341,7 +429,7 @@
           <p class="car-multicity-note">The global mapped flag remains OFF. Saving this screen does not activate mapped availability.</p>
           <div class="admin-table-container">
             <table class="admin-table car-multicity-availability-table">
-              <thead><tr><th>City</th><th>City status</th><th>Pickup available in</th><th>Return available in</th><th>Legacy pricing key</th><th>Existing fee</th><th>Profile support</th></tr></thead>
+              <thead><tr><th>City</th><th>City status</th><th>Available cities</th><th>Legacy pricing key</th><th>Existing fee / side</th><th>Profile support</th></tr></thead>
               <tbody>${(state.context?.cities || []).map(availabilityRow).join('')}</tbody>
             </table>
           </div>
@@ -406,6 +494,39 @@
       `;
     }
 
+    function renderAvailableCitiesReview(plan) {
+      const entries = plan?.availableCities || [];
+      return `
+        <section class="car-multicity-review-group">
+          <h4>Available cities</h4>
+          ${entries.length ? `<ul class="car-multicity-city-review-list">${entries.map((entry) => {
+            const city = (state.context?.cities || []).find((candidate) => core.normalizeId(candidate.id) === core.normalizeId(entry.exactCityId));
+            const label = labelI18n(city?.name_i18n) || city?.code || entry.exactCityId;
+            const before = entry.beforeMismatch ? 'Pickup/return differ' : entry.beforeAvailable ? 'Available' : 'Not available';
+            const after = entry.afterMismatch ? 'Pickup/return differ' : entry.afterAvailable ? 'Available' : 'Not available';
+            return `<li><strong>${escapeHtml(label)}</strong><code>${escapeHtml(entry.exactCityId)}</code><span>${escapeHtml(before)} → ${escapeHtml(after)}</span><small>${escapeHtml(entry.action)}</small></li>`;
+          }).join('')}</ul>` : '<p>UNCHANGED</p>'}
+        </section>
+      `;
+    }
+
+    function renderImageReview() {
+      const media = state.draft?.media || { action: 'unchanged', currentUrl: '', pendingFile: null };
+      const newImage = ['added', 'replaced'].includes(media.action)
+        ? media.pendingFile?.name || 'Pending upload'
+        : media.action === 'removed' ? 'No image' : media.currentUrl || 'No image';
+      return `
+        <section class="car-multicity-review-group car-multicity-image-review">
+          <h4>Vehicle image</h4>
+          <dl class="car-multicity-summary-grid">
+            <div><dt>Image action</dt><dd><strong>${escapeHtml(media.action)}</strong></dd></div>
+            <div><dt>Current image</dt><dd>${media.currentUrl ? `<a href="${escapeHtml(media.currentUrl)}" target="_blank" rel="noopener">Current URL</a>` : 'No image'}</dd></div>
+            <div><dt>New image</dt><dd>${escapeHtml(newImage)}</dd></div>
+          </dl>
+        </section>
+      `;
+    }
+
     function renderValue(value) {
       if (value === null || value === undefined || value === '') return 'NULL';
       if (typeof value === 'object') return JSON.stringify(value);
@@ -415,10 +536,9 @@
     function renderReview() {
       const plan = state.plan;
       const changes = allChanges(plan);
-      const vehicleChanges = changes.filter((change) => change.entityType === 'car_offer' && core.VEHICLE_COLUMNS.includes(change.field));
+      const vehicleChanges = changes.filter((change) => change.entityType === 'car_offer' && core.VEHICLE_COLUMNS.includes(change.field) && !['description', 'features', 'image_url'].includes(change.field));
       const profileChanges = changes.filter((change) => core.PROFILE_COLUMNS.includes(change.field));
       const priceChanges = changes.filter((change) => core.PRICE_COLUMNS.includes(change.field));
-      const availabilityChanges = changes.filter((change) => change.entityType === 'car_offer_city_availability');
       const partnerChanges = changes.filter((change) => change.field === 'owner_partner_id');
       const contentChanges = changes.filter((change) => ['description', 'features', 'image_url'].includes(change.field));
       return `
@@ -430,17 +550,19 @@
             <div><dt>Global mapped flag changes</dt><dd><strong>0</strong></dd></div>
             <div><dt>Booking changes</dt><dd><strong>0</strong></dd></div>
             <div><dt>Price calculation changes</dt><dd><strong>0</strong></dd></div>
+            <div><dt>Deposit rule changes</dt><dd><strong>0</strong></dd></div>
             <div><dt>Existing price column changes</dt><dd><strong>${escapeHtml(plan.existingPriceColumnChanges)}</strong></dd></div>
           </dl>
           ${changeGroup('Vehicle changes', vehicleChanges)}
           ${changeGroup('Pricing profile changes', profileChanges)}
           ${changeGroup('Pricing values changes', priceChanges)}
-          ${changeGroup('Pickup and return cities', availabilityChanges)}
+          ${renderAvailableCitiesReview(plan)}
           ${changeGroup('Partner changes', partnerChanges)}
           ${changeGroup('Content changes', contentChanges)}
+          ${renderImageReview()}
           <div class="car-multicity-safety">
             <strong>Safety assertions</strong>
-            <ul><li>Global mapped flag changes: 0</li><li>Booking changes: 0</li><li>Price calculation changes: 0</li><li>Public mode remains Legacy</li><li>No emails or notifications</li></ul>
+            <ul><li>Global mapped flag changes: 0</li><li>Booking changes: 0</li><li>Price calculation changes: 0</li><li>Deposit rule changes: 0</li><li>Public mode remains Legacy</li><li>No emails or notifications</li></ul>
           </div>
         </section>
       `;
@@ -455,7 +577,7 @@
           <ul class="car-multicity-step-list">
             ${(outcome.steps || []).map((step) => `<li class="is-${escapeHtml(step.status)}"><strong>${escapeHtml(step.key)}</strong> — ${escapeHtml(step.status)} — exact ID <code>${escapeHtml(step.result?.id || step.entityId || outcome.exactOfferId || 'new')}</code> — attempts ${escapeHtml(step.attempts)}${step.error ? ` — ${escapeHtml(step.error.message)}` : ''}</li>`).join('')}
           </ul>
-          <p><strong>Global mapped flag changes: 0. Booking changes: 0. No notifications sent.</strong></p>
+          <p><strong>Global mapped flag changes: 0. Booking changes: 0. Deposit rule changes: 0. No notifications sent.</strong></p>
         </section>
       `;
     }
@@ -463,6 +585,8 @@
     function renderErrors(validation) {
       const element = byId('carMulticityModalError');
       if (!element) return;
+      byId('carMulticityModalContent')?.querySelectorAll?.('[aria-invalid="true"]').forEach((field) => field.removeAttribute('aria-invalid'));
+      byId('carMulticityModalContent')?.querySelectorAll?.('[data-inline-error]').forEach((message) => message.remove());
       const errors = validation?.errors || [];
       if (!errors.length) {
         element.hidden = true;
@@ -471,7 +595,34 @@
       }
       element.hidden = false;
       element.innerHTML = `<strong>Review is blocked:</strong><ul>${errors.map((entry) => `<li>${escapeHtml(entry.message)}</li>`).join('')}</ul>`;
-      focusElement(element);
+      const selectorFor = (field) => {
+        if (field === 'carType') return '[data-i18n-field="vehicle.carType"]';
+        if (field === 'carModel') return '[data-i18n-field="vehicle.carModel"]';
+        if (field === 'vehicleImage') return '#carMulticityImageFile';
+        if (field === 'pricingProfileId') return '#carMulticityPricingProfile';
+        if (field === 'vehicleKindId') return '#carMulticityVehicleKind';
+        if (field === 'ownerPartnerId') return '#carMulticityOwnerPartner';
+        if (String(field).startsWith('availability-')) return `[data-city-id="${String(field).replace('availability-', '')}"] [data-availability-field="paired"]`;
+        return `[data-draft-field$=".${String(field)}"], [data-draft-field="${String(field)}"]`;
+      };
+      errors.forEach((entry, index) => {
+        const field = byId('carMulticityModalContent')?.querySelector?.(selectorFor(entry.field));
+        if (!field) return;
+        field.setAttribute('aria-invalid', 'true');
+        const message = documentRef.createElement('span');
+        message.className = 'car-multicity-inline-error';
+        message.dataset.inlineError = 'true';
+        message.textContent = entry.message;
+        (field.closest('.admin-form-field, .car-multicity-image-dropzone, td') || field.parentElement)?.appendChild(message);
+        if (index === 0) focusElement(field.hidden ? field.closest('.car-multicity-image-dropzone') : field);
+      });
+    }
+
+    function syncMixedCheckboxes(container) {
+      container?.querySelectorAll?.('input[type="checkbox"][data-mixed="true"]').forEach((input) => {
+        input.indeterminate = true;
+        input.setAttribute('aria-checked', 'mixed');
+      });
     }
 
     function render() {
@@ -486,6 +637,7 @@
       else if (state.mode === 'availability') content.innerHTML = renderAvailabilityFields();
       else if (state.mode === 'partner') content.innerHTML = renderPartnerFields();
       else if (state.mode === 'create') content.innerHTML = renderCreateStep();
+      syncMixedCheckboxes(content);
       const back = byId('carMulticityBack');
       const next = byId('carMulticityNext');
       const review = byId('carMulticityReview');
@@ -514,6 +666,86 @@
       target[parts[parts.length - 1]] = value;
     }
 
+    function updateUploadProgress(progress = {}) {
+      const percent = Math.max(0, Math.min(100, Number(progress.percent) || 0));
+      state.uploadProgress = percent;
+      const wrapper = byId('carMulticityImageUploadProgress');
+      const bar = byId('carMulticityImageUploadBar');
+      const status = byId('carMulticityImageUploadStatus');
+      const progressbar = wrapper?.querySelector?.('[role="progressbar"]');
+      if (wrapper) wrapper.hidden = false;
+      if (bar) bar.style.width = `${percent}%`;
+      if (progressbar) progressbar.setAttribute('aria-valuenow', String(percent));
+      if (status) {
+        const labels = { validated: 'Image validated', uploaded: 'Image uploaded; resolving public URL', complete: 'Upload complete' };
+        status.textContent = labels[progress.status] || 'Uploading image';
+      }
+    }
+
+    function selectVehicleImage(file) {
+      const validation = core.validateVehicleImageFile(file);
+      if (!validation.valid) {
+        renderErrors(validation);
+        announce(validation.errors[0]?.message || 'Invalid image.', 'error');
+        return false;
+      }
+      clearPendingImageFile();
+      pendingImageFile = file;
+      pendingImagePreviewUrl = root.URL?.createObjectURL?.(file) || '';
+      const action = state.draft.media?.currentUrl ? 'replaced' : 'added';
+      core.setVehicleImageAction(state.draft, action, validation.metadata);
+      state.plan = null;
+      renderErrors({ errors: [] });
+      announce('Image selected. It will upload only after Review and confirmation.', 'status');
+      render();
+      return true;
+    }
+
+    function handleMediaClick(event) {
+      const action = event.target?.closest?.('[data-media-action]')?.dataset?.mediaAction;
+      if (!action || state.executing) return;
+      if (action === 'select') {
+        byId('carMulticityImageFile')?.click();
+        return;
+      }
+      if (action === 'remove') {
+        clearPendingImageFile();
+        core.setVehicleImageAction(state.draft, state.draft.media?.currentUrl ? 'removed' : 'unchanged');
+        state.plan = null;
+        render();
+        announce('The current image will be removed from this offer after Save.', 'status');
+        return;
+      }
+      if (action === 'undo') {
+        clearPendingImageFile();
+        core.setVehicleImageAction(state.draft, 'unchanged');
+        state.plan = null;
+        render();
+        announce('Image change cancelled. The current image will be preserved.', 'status');
+        return;
+      }
+      if (action === 'manage-deposit') {
+        closeImmediately();
+        options.openDepositSettings?.();
+      }
+    }
+
+    function handleMediaDrop(event) {
+      const dropzone = event.target?.closest?.('[data-image-dropzone]');
+      if (!dropzone || state.executing) return;
+      event.preventDefault();
+      dropzone.classList.remove('is-dragging');
+      const file = event.dataTransfer?.files?.[0];
+      if (file) selectVehicleImage(file);
+    }
+
+    function handleMediaDrag(event) {
+      const dropzone = event.target?.closest?.('[data-image-dropzone]');
+      if (!dropzone || state.executing) return;
+      event.preventDefault();
+      dropzone.classList.toggle('is-dragging', event.type === 'dragover' || event.type === 'dragenter');
+    }
+
     function handleDraftInput(event) {
       if (!state.draft || state.executing) return;
       const target = event.target;
@@ -538,6 +770,10 @@
     function handleContentChange(event) {
       if (!state.draft || state.executing) return;
       const target = event.target;
+      if (target?.id === 'carMulticityImageFile' && target.files?.[0]) {
+        selectVehicleImage(target.files[0]);
+        return;
+      }
       if (target?.dataset?.profileSelector === 'true') {
         try {
           core.setDraftProfile(state.draft, state.context, target.value, { resetAvailability: state.mode === 'create' });
@@ -556,14 +792,8 @@
       const cityRow = target?.closest?.('[data-city-id]');
       if (availabilityField && cityRow) {
         const cityId = cityRow.dataset.cityId;
-        let row = state.draft.availability.find((entry) => core.normalizeId(entry.city_id) === core.normalizeId(cityId));
-        if (!row) {
-          row = { offer_id: state.draft.offerId, city_id: cityId, pickup_enabled: false, return_enabled: false, is_active: false, updated_at: null };
-          state.draft.availability.push(row);
-        }
-        row[availabilityField] = target.checked;
-        row.is_active = row.pickup_enabled || row.return_enabled;
-        core.invalidateReview(state.draft);
+        if (availabilityField !== 'paired') return;
+        core.setPairedAvailability(state.draft, cityId, target.checked);
         state.plan = null;
         render();
         return;
@@ -635,9 +865,28 @@
       if (state.executing || !core.isReviewCurrent(state.draft, state.plan) || !state.plan?.steps?.length) return;
       openConfirmation({
         title: 'Confirm exact-ID save',
-        body: `<p>Save ${escapeHtml(state.plan.steps.length)} exact operation(s)?</p><ul><li>Exact offer: <code>${escapeHtml(state.plan.exactOfferId || 'new')}</code></li><li>Global mapped flag changes: 0</li><li>Booking changes: 0</li><li>Price calculation changes: 0</li></ul>`,
+        body: `<p>Save ${escapeHtml(state.plan.steps.length)} exact operation(s)?</p><ul><li>Exact offer: <code>${escapeHtml(state.plan.exactOfferId || 'new')}</code></li><li>Image action: <strong>${escapeHtml(state.draft.media?.action || 'unchanged')}</strong></li><li>Global mapped flag changes: 0</li><li>Booking changes: 0</li><li>Price calculation changes: 0</li><li>Deposit rule changes: 0</li></ul>`,
         action: () => executeSave(),
       });
+    }
+
+    async function cleanupUnusedImageUpload(uploadedImage, outcome = null) {
+      if (!uploadedImage?.path) return { removed: false, used: false };
+      const offerStep = outcome?.steps?.find((step) => step.type === 'car_offer');
+      let used = offerStep?.status === 'success' && offerStep?.result?.image_url === uploadedImage.publicUrl;
+      const exactId = outcome?.exactOfferId || state.draft?.offerId;
+      if (!used && exactId) {
+        try {
+          const freshOffer = await repository.getOfferById(exactId);
+          used = freshOffer?.image_url === uploadedImage.publicUrl;
+        } catch (_error) {
+          announce('Image cleanup paused because exact read-back was unavailable. The uploaded path is shown in the technical receipt.', 'error');
+          return { removed: false, used: false, uncertain: true };
+        }
+      }
+      if (used) return { removed: false, used: true };
+      await repository.removeVehicleImage(uploadedImage.path);
+      return { removed: true, used: false };
     }
 
     async function executeSave() {
@@ -646,6 +895,7 @@
       state.executing = true;
       setBusy(true);
       state.executionPromise = (async () => {
+        let uploadedImage = null;
         try {
           announce('Running fresh preflight before the first mutation.', 'status');
           const freshContext = state.mode === 'create'
@@ -665,8 +915,19 @@
             error.details = freshValidation;
             throw error;
           }
+          if (['added', 'replaced'].includes(state.draft.media?.action)) {
+            if (!pendingImageFile) throw new Error('The reviewed image file is no longer available. Select it again.');
+            announce('Uploading the reviewed image to the existing car-images bucket.', 'status');
+            uploadedImage = await repository.uploadVehicleImage({
+              file: pendingImageFile,
+              offerId: state.draft.offerId,
+              temporaryId: state.plan.id,
+              onProgress: updateUploadProgress,
+            });
+          }
           announce('Preflight passed. Executing exact-ID plan.', 'status');
           state.outcome = await repository.executePlan(state.plan, {
+            uploadedImageUrl: uploadedImage?.publicUrl || null,
             onProgress: (working) => announce(`Save status: ${working.status}.`, 'status'),
           });
           state.plan = state.outcome;
@@ -678,11 +939,19 @@
             toast('Car rental configuration saved', 'success');
             options.onFleetRefresh?.();
           } else {
+            if (uploadedImage) await cleanupUnusedImageUpload(uploadedImage, state.outcome);
             announce('Partial save. No rollback was performed.', 'error');
             toast('Some car configuration steps failed', 'error');
           }
           render();
         } catch (error) {
+          if (uploadedImage) {
+            try {
+              await cleanupUnusedImageUpload(uploadedImage, state.outcome);
+            } catch (cleanupError) {
+              error.cleanupError = String(cleanupError?.message || cleanupError);
+            }
+          }
           const stale = error?.code === 'car_multicity_stale_conflict';
           announce(stale ? 'Data changed since Review. Refresh and review again.' : String(error?.message || 'Save failed.'), 'error');
           renderErrors({ errors: [{ message: stale ? 'Data changed since Review. Refresh and review again.' : String(error?.message || error) }] });
@@ -698,6 +967,7 @@
     async function open(mode, offerId, openOptions = {}) {
       if (state.executing) return false;
       if (!state.initialized) initialize();
+      clearPendingImageFile();
       state.returnFocus = openOptions.returnFocus || documentRef.activeElement;
       state.open = true;
       state.mode = mode;
@@ -711,6 +981,8 @@
       if (!modal) return false;
       modal.hidden = false;
       documentRef.body?.classList?.add('car-multicity-modal-open');
+      const loadingContent = byId('carMulticityModalContent');
+      if (loadingContent) loadingContent.innerHTML = `<div class="car-multicity-skeleton" aria-label="Loading vehicle configuration"><span></span><span></span><span></span><span></span><span></span></div>`;
       announce(mode === 'create' ? 'Loading fresh Admin catalog.' : `Loading exact offer ${offerId}.`, 'status');
       focusElement(byId('carMulticityModalClose'));
       try {
@@ -771,11 +1043,12 @@
         <section class="car-multicity-section">
           <h4>Pricing profile city support</h4>
           <p>Only existing legacy pricing keys are allowed. Paphos is hard-limited to Paphos.</p>
-          <div class="admin-table-container"><table class="admin-table"><thead><tr><th>Profile</th><th>City</th><th>Pickup</th><th>Return</th><th>Legacy pricing key</th><th>Active</th><th>Impact / action</th></tr></thead><tbody>
+          <div class="admin-table-container"><table class="admin-table"><thead><tr><th>Profile</th><th>City</th><th>Pickup and return support</th><th>Legacy pricing key</th><th>Active</th><th>Impact / action</th></tr></thead><tbody>
             ${(catalog.profiles || []).flatMap((profile) => (catalog.cities || []).map((city) => {
               const mapping = mappingMap.get(`${profile.id}:${city.id}`) || null;
               const paphosBlocked = core.normalizeCode(profile.code) === 'paphos' && core.normalizeCode(city.code) !== 'paphos';
-              return `<tr data-mapping-profile-id="${escapeHtml(profile.id)}" data-mapping-city-id="${escapeHtml(city.id)}" data-mapping-updated-at="${escapeHtml(mapping?.updated_at || '')}"><td>${escapeHtml(profile.code)}<br><code>${escapeHtml(profile.id)}</code></td><td>${escapeHtml(city.code)}<br><code>${escapeHtml(city.id)}</code></td><td><input type="checkbox" data-mapping-field="pickup_supported" ${mapping?.pickup_supported ? 'checked' : ''} ${paphosBlocked ? 'disabled' : ''}></td><td><input type="checkbox" data-mapping-field="return_supported" ${mapping?.return_supported ? 'checked' : ''} ${paphosBlocked ? 'disabled' : ''}></td><td><select data-mapping-field="legacy_pricing_city_key" ${paphosBlocked ? 'disabled' : ''}><option value="">None</option>${core.LEGACY_PRICING_KEYS.map((key) => `<option value="${key}" ${core.normalizeCode(mapping?.legacy_pricing_city_key) === key ? 'selected' : ''} ${key !== core.normalizeCode(city.code) ? 'disabled' : ''}>${key}</option>`).join('')}</select></td><td><input type="checkbox" data-mapping-field="is_active" ${mapping?.is_active ? 'checked' : ''} ${paphosBlocked ? 'disabled' : ''}></td><td>${paphosBlocked ? 'Blocked by Paphos contract' : `<button type="button" class="btn-secondary" data-catalog-action="save-mapping">Review impact</button>`}</td></tr>`;
+              const mixed = Boolean(mapping && mapping.pickup_supported !== mapping.return_supported);
+              return `<tr data-mapping-profile-id="${escapeHtml(profile.id)}" data-mapping-city-id="${escapeHtml(city.id)}" data-mapping-updated-at="${escapeHtml(mapping?.updated_at || '')}"><td>${escapeHtml(profile.code)}<br><code>${escapeHtml(profile.id)}</code></td><td>${escapeHtml(city.code)}<br><code>${escapeHtml(city.id)}</code></td><td><label class="car-multicity-city-toggle"><input type="checkbox" data-mapping-field="paired_supported" ${mapping?.pickup_supported && mapping?.return_supported ? 'checked' : ''} ${mixed ? 'data-mixed="true" aria-checked="mixed"' : ''} ${paphosBlocked ? 'disabled' : ''}> Pickup and return supported</label>${mixed ? '<span class="car-multicity-row-warning" role="alert">Pickup and return settings differ. Review required.</span>' : ''}</td><td><select data-mapping-field="legacy_pricing_city_key" ${paphosBlocked ? 'disabled' : ''}><option value="">None</option>${core.LEGACY_PRICING_KEYS.map((key) => `<option value="${key}" ${core.normalizeCode(mapping?.legacy_pricing_city_key) === key ? 'selected' : ''} ${key !== core.normalizeCode(city.code) ? 'disabled' : ''}>${key}</option>`).join('')}</select></td><td><input type="checkbox" data-mapping-field="is_active" ${mapping?.is_active ? 'checked' : ''} ${paphosBlocked ? 'disabled' : ''}></td><td>${paphosBlocked ? 'Blocked by Paphos contract' : `<button type="button" class="btn-secondary" data-catalog-action="save-mapping">Review impact</button>`}</td></tr>`;
             })).join('')}
           </tbody></table></div>
         </section>
@@ -786,6 +1059,7 @@
       const content = byId('carMulticityCatalogContent');
       if (!content || !state.catalog) return;
       content.innerHTML = state.catalogTab === 'cities' ? renderCatalogCities() : renderCatalogMappings();
+      syncMixedCheckboxes(content);
       byId('carMulticityCatalogCitiesTab')?.classList.toggle('active', state.catalogTab === 'cities');
       byId('carMulticityCatalogMappingsTab')?.classList.toggle('active', state.catalogTab === 'mappings');
     }
@@ -865,11 +1139,12 @@
       }
       if (button.dataset.catalogAction === 'save-mapping') {
         const row = button.closest('[data-mapping-profile-id]');
+        const pairedSupported = row.querySelector('[data-mapping-field="paired_supported"]')?.checked === true;
         const draft = {
           pricing_profile_id: row.dataset.mappingProfileId,
           city_id: row.dataset.mappingCityId,
-          pickup_supported: row.querySelector('[data-mapping-field="pickup_supported"]')?.checked === true,
-          return_supported: row.querySelector('[data-mapping-field="return_supported"]')?.checked === true,
+          pickup_supported: pairedSupported,
+          return_supported: pairedSupported,
           legacy_pricing_city_key: row.querySelector('[data-mapping-field="legacy_pricing_city_key"]')?.value,
           is_active: row.querySelector('[data-mapping-field="is_active"]')?.checked === true,
           expectedUpdatedAt: row.dataset.mappingUpdatedAt || null,
@@ -954,8 +1229,13 @@
       byId('carMulticityNext')?.addEventListener('click', nextCreateStep);
       byId('carMulticityReview')?.addEventListener('click', review);
       byId('carMulticitySave')?.addEventListener('click', requestSave);
+      byId('carMulticityModalContent')?.addEventListener('click', handleMediaClick);
       byId('carMulticityModalContent')?.addEventListener('input', handleDraftInput);
       byId('carMulticityModalContent')?.addEventListener('change', handleContentChange);
+      byId('carMulticityModalContent')?.addEventListener('dragenter', handleMediaDrag);
+      byId('carMulticityModalContent')?.addEventListener('dragover', handleMediaDrag);
+      byId('carMulticityModalContent')?.addEventListener('dragleave', handleMediaDrag);
+      byId('carMulticityModalContent')?.addEventListener('drop', handleMediaDrop);
       byId('carMulticityConfirmCancel')?.addEventListener('click', closeConfirmation);
       byId('carMulticityConfirmAccept')?.addEventListener('click', () => {
         const action = state.pendingConfirmation?.action;

@@ -909,6 +909,18 @@ function createStorageBucket(bucket) {
         },
       };
     },
+    async remove(paths) {
+      const removed = [];
+      for (const path of Array.isArray(paths) ? paths : []) {
+        const key = `${bucket}/${path}`;
+        if (state.storageObjects[key]) {
+          delete state.storageObjects[key];
+          removed.push({ name: path });
+        }
+      }
+      persistState();
+      return { data: removed, error: null };
+    },
   };
 }
 

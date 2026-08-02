@@ -19,6 +19,16 @@
     paphos: 40,
   });
   const PLACE_TYPES = Object.freeze(['city', 'airport', 'hotel', 'port', 'station', 'address']);
+  const VEHICLE_IMAGE_BUCKET = 'car-images';
+  const VEHICLE_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+  const VEHICLE_IMAGE_MIME_TYPES = Object.freeze([
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+  ]);
+  const VEHICLE_IMAGE_EXTENSIONS = Object.freeze(['jpg', 'jpeg', 'png', 'webp']);
+  const PENDING_IMAGE_URL = '$car_multicity_pending_image_url';
   const PRICE_COLUMNS = Object.freeze([
     'price_per_day',
     'price_3days',
@@ -59,7 +69,6 @@
     ...VEHICLE_COLUMNS,
     ...PRICE_COLUMNS,
     'currency',
-    'deposit_amount',
     'insurance_per_day',
     'young_driver_fee',
     'young_driver_cost',
@@ -84,6 +93,123 @@
 
   function normalizeText(value) {
     return String(value ?? '').trim();
+  }
+
+  function normalizeI18n(value) {
+    if (value && typeof value === 'object' && !Array.isArray(value)) return clone(value);
+    const text = normalizeText(value);
+    return { pl: text, en: text, he: text };
+  }
+
+  function resolveI18nText(value, preferredLanguage = 'en') {
+    if (typeof value === 'string' || typeof value === 'number') return normalizeText(value);
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return '';
+    const preferred = normalizeCode(preferredLanguage) || 'en';
+    const orderedKeys = Array.from(new Set([
+      preferred,
+      'en',
+      'pl',
+      'he',
+      ...Object.keys(value).sort(),
+    ]));
+    for (const key of orderedKeys) {
+      const candidate = value[key];
+      if (typeof candidate === 'string' || typeof candidate === 'number') {
+        const normalized = normalizeText(candidate);
+        if (normalized) return normalized;
+      }
+    }
+    return '';
+  }
+
+  function preserveI18nValue(currentValue, originalValue) {
+    const normalizedCurrent = normalizeI18n(currentValue);
+    if (originalValue === undefined) return normalizedCurrent;
+    const normalizedOriginal = normalizeI18n(originalValue);
+    return stableSerialize(normalizedCurrent) === stableSerialize(normalizedOriginal)
+      ? clone(originalValue)
+      : normalizedCurrent;
+  }
+
+  function imageExtension(filename) {
+    const normalized = normalizeText(filename).toLowerCase();
+    const match = normalized.match(/\.([a-z0-9]+)$/);
+    return match ? match[1] : '';
+  }
+
+  function validateVehicleImageFile(file) {
+    const errors = [];
+    if (!file || typeof file !== 'object') {
+      errors.push({ field: 'vehicleImage', message: 'Select an image file.' });
+      return { valid: false, errors, metadata: null };
+    }
+    const name = normalizeText(file.name);
+    const type = normalizeText(file.type).toLowerCase();
+    const size = Number(file.size);
+    const extension = imageExtension(name);
+    if (!VEHICLE_IMAGE_MIME_TYPES.includes(type) || !VEHICLE_IMAGE_EXTENSIONS.includes(extension)) {
+      errors.push({ field: 'vehicleImage', message: 'Only JPG, JPEG, PNG and WEBP images are allowed.' });
+    }
+    if (!Number.isFinite(size) || size <= 0) {
+      errors.push({ field: 'vehicleImage', message: 'The selected image is empty or invalid.' });
+    } else if (size > VEHICLE_IMAGE_MAX_BYTES) {
+      errors.push({ field: 'vehicleImage', message: 'Image is too large. Maximum size is 5 MB.' });
+    }
+    return {
+      valid: errors.length === 0,
+      errors,
+      metadata: errors.length ? null : {
+        name,
+        type,
+        size,
+        extension,
+        lastModified: Number(file.lastModified) || null,
+      },
+    };
+  }
+
+  function setVehicleImageAction(draft, action, metadata = null) {
+    if (!draft?.media) throw new Error('Vehicle media draft is unavailable');
+    const allowed = ['unchanged', 'added', 'replaced', 'removed'];
+    if (!allowed.includes(action)) throw new Error(`Unsupported image action: ${action}`);
+    draft.media.action = action;
+    draft.media.pendingFile = action === 'added' || action === 'replaced' ? clone(metadata) : null;
+    invalidateReview(draft);
+    return draft.media;
+  }
+
+  function pairedAvailabilityState(row) {
+    const pickup = row?.pickup_enabled === true;
+    const dropoff = row?.return_enabled === true;
+    return {
+      checked: pickup && dropoff,
+      mismatched: pickup !== dropoff,
+      pickupEnabled: pickup,
+      returnEnabled: dropoff,
+    };
+  }
+
+  function setPairedAvailability(draft, cityId, checked) {
+    const exactCityId = normalizeId(cityId);
+    if (!draft || !exactCityId) throw new Error('Exact city ID is required');
+    let row = (draft.availability || []).find((entry) => normalizeId(entry.city_id) === exactCityId);
+    if (!row) {
+      row = {
+        offer_id: normalizeId(draft.offerId) || null,
+        city_id: exactCityId,
+        pickup_enabled: false,
+        return_enabled: false,
+        is_active: false,
+        updated_at: null,
+      };
+      draft.availability.push(row);
+    }
+    const enabled = checked === true;
+    row.pickup_enabled = enabled;
+    row.return_enabled = enabled;
+    row.is_active = enabled;
+    invalidateReview(draft);
+    return row;
   }
 
   function normalizeNullableId(value) {
@@ -228,7 +354,7 @@
       snapshot: clone({ ...context, offer }),
       vehicle: {
         vehicleKindId: normalizeId(offer?.vehicle_kind_id || defaultKind?.id),
-        carType: clone(offer?.car_type || { en: '' }),
+        carType: normalizeI18n(offer?.car_type ?? ''),
         carModel: clone(offer?.car_model || { pl: '', en: '', he: '' }),
         transmission: normalizeCode(offer?.transmission || 'manual'),
         fuelType: normalizeCode(offer?.fuel_type || 'petrol'),
@@ -239,6 +365,11 @@
         isAvailable: offer?.is_available !== false,
         northAllowed: offer?.north_allowed === true,
         imageUrl: normalizeText(offer?.image_url),
+      },
+      media: {
+        action: 'unchanged',
+        currentUrl: normalizeText(offer?.image_url),
+        pendingFile: null,
       },
       content: {
         description: clone(offer?.description || { pl: '', en: '', he: '' }),
@@ -253,7 +384,6 @@
         price4To6Days: normalizeMoney(offer?.price_4_6days),
         price7To10Days: normalizeMoney(offer?.price_7_10days),
         price10PlusDays: normalizeMoney(offer?.price_10plus_days),
-        depositAmount: normalizeMoney(offer?.deposit_amount, 0),
         insurancePerDay: normalizeMoney(offer?.insurance_per_day, 0),
         youngDriverFee: offer?.young_driver_fee === true,
         youngDriverCost: normalizeMoney(offer?.young_driver_cost, 0),
@@ -281,17 +411,18 @@
     return draft;
   }
 
-  function normalizeI18n(value) {
-    if (value && typeof value === 'object' && !Array.isArray(value)) return clone(value);
-    const text = normalizeText(value);
-    return { pl: text, en: text, he: text };
-  }
-
   function vehiclePayload(draft) {
+    const originalOffer = draft?.snapshot?.offer || null;
+    const imageAction = draft?.media?.action || 'unchanged';
+    const imageUrl = imageAction === 'removed'
+      ? null
+      : imageAction === 'added' || imageAction === 'replaced'
+        ? PENDING_IMAGE_URL
+        : normalizeText(draft?.media?.currentUrl || draft?.vehicle?.imageUrl) || null;
     return {
       vehicle_kind_id: normalizeId(draft.vehicle.vehicleKindId),
-      car_type: normalizeI18n(draft.vehicle.carType),
-      car_model: normalizeI18n(draft.vehicle.carModel),
+      car_type: preserveI18nValue(draft.vehicle.carType, originalOffer?.car_type),
+      car_model: preserveI18nValue(draft.vehicle.carModel, originalOffer?.car_model),
       transmission: normalizeCode(draft.vehicle.transmission),
       fuel_type: normalizeCode(draft.vehicle.fuelType),
       max_passengers: normalizeInteger(draft.vehicle.maxPassengers),
@@ -300,8 +431,8 @@
       sort_order: normalizeInteger(draft.vehicle.sortOrder),
       is_available: draft.vehicle.isAvailable === true,
       north_allowed: draft.vehicle.northAllowed === true,
-      image_url: normalizeText(draft.vehicle.imageUrl) || null,
-      description: normalizeI18n(draft.content.description),
+      image_url: imageUrl,
+      description: preserveI18nValue(draft.content.description, originalOffer?.description),
       features: clone(draft.content.features || {}),
     };
   }
@@ -326,7 +457,6 @@
       price_4_6days: normalizeMoney(draft.pricing.price4To6Days),
       price_7_10days: normalizeMoney(draft.pricing.price7To10Days),
       price_10plus_days: normalizeMoney(draft.pricing.price10PlusDays),
-      deposit_amount: normalizeMoney(draft.pricing.depositAmount, 0),
       insurance_per_day: normalizeMoney(draft.pricing.insurancePerDay, 0),
       young_driver_fee: draft.pricing.youngDriverFee === true,
       young_driver_cost: normalizeMoney(draft.pricing.youngDriverCost, 0),
@@ -395,11 +525,19 @@
     const vehicleKind = (context.vehicleKinds || []).find((row) => normalizeId(row?.id) === normalizeId(draft.vehicle.vehicleKindId));
     if (!vehicleKind) errors.push({ field: 'vehicleKindId', message: 'Select an exact vehicle kind.' });
     else if (vehicleKind.is_active !== true) errors.push({ field: 'vehicleKindId', message: 'Selected vehicle kind is inactive.' });
-    if (!normalizeText(draft.vehicle.carModel?.en || draft.vehicle.carModel?.pl || draft.vehicle.carModel)) {
+    if (!resolveI18nText(draft.vehicle.carModel, 'en')) {
       errors.push({ field: 'carModel', message: 'Car model is required.' });
     }
-    if (!normalizeText(draft.vehicle.carType?.en || draft.vehicle.carType)) {
-      errors.push({ field: 'carType', message: 'Commercial car type is required.' });
+    if (!resolveI18nText(draft.vehicle.carType, 'en')) {
+      const existingType = resolveI18nText(context?.offer?.car_type, 'en');
+      if (draft.mode === 'create' || existingType) {
+        errors.push({ field: 'carType', message: 'Commercial car type is required.' });
+      } else {
+        warnings.push({ field: 'carType', message: 'Legacy commercial car type is empty and will remain unchanged.' });
+      }
+    }
+    if (['added', 'replaced'].includes(draft.media?.action) && !draft.media?.pendingFile) {
+      errors.push({ field: 'vehicleImage', message: 'Select a valid image before Review.' });
     }
     if (normalizeInteger(draft.vehicle.maxPassengers) === null || Number(draft.vehicle.maxPassengers) < 1) {
       errors.push({ field: 'maxPassengers', message: 'Passengers must be a positive integer.' });
@@ -541,6 +679,25 @@
     return result;
   }
 
+  function availabilityReviewSummary(diffs, draft, context = draft?.snapshot || {}) {
+    const beforeRows = new Map((context.availability || []).map((row) => [normalizeId(row.city_id), row]));
+    const afterRows = new Map((draft.availability || []).map((row) => [normalizeId(row.city_id), row]));
+    return (diffs || []).map((entry) => {
+      const before = pairedAvailabilityState(beforeRows.get(entry.cityId));
+      const afterRow = entry.action === 'delete' ? null : afterRows.get(entry.cityId);
+      const after = pairedAvailabilityState(afterRow);
+      return {
+        exactOfferId: normalizeId(entry.offerId) || null,
+        exactCityId: normalizeId(entry.cityId),
+        action: entry.action,
+        beforeAvailable: before.checked,
+        afterAvailable: entry.action === 'delete' ? false : after.checked,
+        beforeMismatch: before.mismatched,
+        afterMismatch: entry.action === 'delete' ? false : after.mismatched,
+      };
+    });
+  }
+
   function buildStep(key, type, action, entityId, expectedUpdatedAt, payload, changes, dependsOn = []) {
     return {
       key,
@@ -570,6 +727,7 @@
       globalMappedFlagChanges: 0,
       bookingChanges: 0,
       priceCalculationChanges: 0,
+      depositRuleChanges: 0,
       existingPriceColumnChanges: 0,
       status: 'pending',
       steps,
@@ -622,6 +780,14 @@
         .filter((row) => selection.partnerIds.includes(normalizeId(row?.id)))
         .map((row) => project(row, ['id', 'status', 'can_manage_cars', 'updated_at']))
         .sort((left, right) => String(left.id).localeCompare(String(right.id))),
+      depositRule: project(
+        context.depositRule,
+        ['id', 'resource_type', 'mode', 'amount', 'currency', 'include_children', 'enabled', 'updated_at'],
+      ),
+      depositOverride: project(
+        context.depositOverride,
+        ['id', 'resource_type', 'resource_id', 'mode', 'amount', 'currency', 'include_children', 'enabled', 'updated_at'],
+      ),
       globalFlag: context.siteSetting?.car_multi_city_mapped_enabled ?? null,
     };
   }
@@ -635,6 +801,7 @@
       : null;
     return createPlan('vehicle', draft, step ? [step] : [], {
       existingPriceColumnChanges: 0,
+      media: clone(draft.media),
       preflightSnapshot: buildPreflightSnapshot(draft, context),
     });
   }
@@ -671,6 +838,7 @@
     ));
     return createPlan('availability', draft, steps, {
       exactProfileId: normalizeId(draft.pricing.profileId),
+      availableCities: availabilityReviewSummary(diffs, draft, context),
       profileCitySnapshot: clone(context.profileCities || []),
       citySnapshot: clone(context.cities || []),
       existingPriceColumnChanges: 0,
@@ -728,6 +896,16 @@
     return createPlan('create', draft, [offerStep, ...availabilitySteps], {
       exactOfferId: null,
       existingPriceColumnChanges: PRICE_COLUMNS.filter((column) => payload[column] !== null && payload[column] !== undefined).length,
+      availableCities: availabilityReviewSummary(
+        availabilitySteps.map((step) => ({
+          action: step.action,
+          offerId: null,
+          cityId: step.payload.city_id,
+        })),
+        draft,
+        context,
+      ),
+      media: clone(draft.media),
       resultingAvailabilityMode: 'legacy',
       preflightSnapshot: buildPreflightSnapshot(draft, context),
     });
@@ -748,7 +926,7 @@
     else if (kind === 'partner') plan = buildPartnerAssignmentPlan(draft, context);
     else if (kind === 'create') plan = buildCreateVehiclePlan(draft, context);
     else throw new Error(`Unsupported review plan kind: ${kind}`);
-    if (plan.globalMappedFlagChanges !== 0 || plan.bookingChanges !== 0 || plan.priceCalculationChanges !== 0) {
+    if (plan.globalMappedFlagChanges !== 0 || plan.bookingChanges !== 0 || plan.priceCalculationChanges !== 0 || plan.depositRuleChanges !== 0) {
       throw new Error('Stage 2C safety invariant failed');
     }
     draft.review = { isCurrent: true, fingerprint: plan.fingerprint, plan: clone(plan) };
@@ -762,6 +940,7 @@
       offerId: draft?.offerId,
       expectedUpdatedAt: draft?.expectedUpdatedAt,
       vehicle: draft?.vehicle,
+      media: draft?.media,
       content: draft?.content,
       pricing: draft?.pricing,
       availability: draft?.availability,
@@ -874,6 +1053,9 @@
     if (profile && normalizeCode(profile.code) === 'paphos' && (normalizeCode(city?.code) !== 'paphos' || key !== 'paphos')) {
       errors.push({ field: 'mapping', message: 'Paphos profile supports only Paphos.' });
     }
+    if (draft.pickup_supported !== draft.return_supported) {
+      errors.push({ field: 'mappingSupport', message: 'Pickup and return support must be saved together.' });
+    }
     if (draft.is_active && !draft.pickup_supported && !draft.return_supported) {
       errors.push({ field: 'mapping', message: 'An active mapping must support pickup or return.' });
     }
@@ -894,8 +1076,14 @@
     PRICE_COLUMNS,
     PROFILE_COLUMNS,
     PROFILE_PRICE_COLUMNS,
+    PENDING_IMAGE_URL,
     VEHICLE_COLUMNS,
+    VEHICLE_IMAGE_BUCKET,
+    VEHICLE_IMAGE_EXTENSIONS,
+    VEHICLE_IMAGE_MAX_BYTES,
+    VEHICLE_IMAGE_MIME_TYPES,
     availabilityDiff,
+    availabilityReviewSummary,
     assertProfileContract,
     buildAvailabilityPlan,
     buildCreateVehiclePlan,
@@ -917,15 +1105,21 @@
     normalizeAvailabilityRow,
     normalizeCode,
     normalizeId,
+    normalizeI18n,
+    pairedAvailabilityState,
     profileByCode,
     profileById,
     profileLocation,
+    resolveI18nText,
+    setPairedAvailability,
     setDraftProfile,
+    setVehicleImageAction,
     stableSerialize,
     validateCityDraft,
     validateDraft,
     validateFreshContext,
     validateProfileCityDraft,
+    validateVehicleImageFile,
     vehiclePayload,
   });
 

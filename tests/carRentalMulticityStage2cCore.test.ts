@@ -79,6 +79,8 @@ function context(overrides: Record<string, unknown> = {}) {
     ],
     partners: [{ id: 'partner-one', name: 'Partner', status: 'active', can_manage_cars: true }],
     partnerResources: [],
+    depositRule: { id: 'deposit-cars', resource_type: 'cars', mode: 'per_day', amount: 5, currency: 'EUR', include_children: true, enabled: true, updated_at: 'deposit-v1' },
+    depositOverride: null,
     siteSetting: { car_multi_city_mapped_enabled: false },
     ...overrides,
   };
@@ -103,13 +105,27 @@ describe('Car Rental Multi-City Stage 2C core', () => {
     expect(result.errors.some((entry: any) => entry.message.includes('Paphos'))).toBe(true);
   });
 
-  test('pickup and return flags remain independent', () => {
+  test('Admin profile-city support cannot be saved with different pickup and return values', () => {
+    const result = core.validateProfileCityDraft({
+      pricing_profile_id: 'profile-larnaca',
+      city_id: 'city-larnaca',
+      pickup_supported: true,
+      return_supported: false,
+      legacy_pricing_city_key: 'larnaca',
+      is_active: true,
+    }, context());
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((entry: any) => entry.message.includes('saved together'))).toBe(true);
+  });
+
+  test('paired availability helper always writes pickup and return atomically', () => {
     const draft = core.createDraft(context(), { mode: 'availability' });
-    draft.availability[0].pickup_enabled = true;
-    draft.availability[0].return_enabled = false;
+    core.setPairedAvailability(draft, 'city-larnaca', false);
     const diff = core.availabilityDiff(draft, context());
-    expect(diff[0].payload.pickup_enabled).toBe(true);
+    expect(diff[0].payload.pickup_enabled).toBe(false);
     expect(diff[0].payload.return_enabled).toBe(false);
+    core.setPairedAvailability(draft, 'city-larnaca', true);
+    expect(draft.availability[0]).toEqual(expect.objectContaining({ pickup_enabled: true, return_enabled: true, is_active: true }));
   });
 
   test('new Larnaca vehicle defaults only to Larnaca, never all cities', () => {
@@ -120,12 +136,14 @@ describe('Car Rental Multi-City Stage 2C core', () => {
 
   test('availability plan cannot contain prices or partner fields', () => {
     const draft = core.createDraft(context(), { mode: 'availability' });
-    draft.availability.push({ offer_id: 'offer-exact', city_id: 'city-nicosia', pickup_enabled: true, return_enabled: false, is_active: true, updated_at: null });
+    draft.availability.push({ offer_id: 'offer-exact', city_id: 'city-nicosia', pickup_enabled: true, return_enabled: true, is_active: true, updated_at: null });
     const plan = core.buildAvailabilityPlan(draft, context());
     const fields = plan.steps.flatMap((step: any) => step.changes.map((change: any) => change.field));
     expect(fields.some((field: string) => core.PRICE_COLUMNS.includes(field))).toBe(false);
     expect(fields).not.toContain('owner_partner_id');
     expect(plan.existingPriceColumnChanges).toBe(0);
+    expect(plan.depositRuleChanges).toBe(0);
+    expect(plan.availableCities).toEqual([expect.objectContaining({ exactCityId: 'city-nicosia', afterAvailable: true })]);
   });
 
   test('partner plan does not contain availability fields', () => {
@@ -173,6 +191,52 @@ describe('Car Rental Multi-City Stage 2C core', () => {
     expect(typeChange).toBeUndefined();
   });
 
+  test.each([
+    ['string compatibility', 'Economy', 'Economy'],
+    ['jsonb preferred translation', { pl: 'Ekonomiczne', en: 'Economy', he: 'חסכוני' }, 'Economy'],
+    ['empty preferred translation fallback', { pl: 'Ekonomiczne', en: '', he: 'חסכוני' }, 'Ekonomiczne'],
+  ])('commercial car type resolves %s without String(object)', (_label, value, expected) => {
+    expect(core.resolveI18nText(value, 'en')).toBe(expected);
+    expect(core.resolveI18nText(value, 'en')).not.toBe('[object Object]');
+  });
+
+  test('editing vehicle kind preserves a legacy scalar car_type byte-for-byte', () => {
+    const ctx = context({ offer: offer({ car_type: 'Economy' }) });
+    const draft = core.createDraft(ctx, { mode: 'vehicle' });
+    draft.vehicle.vehicleKindId = 'kind-quad';
+    const plan = core.buildVehicleDetailsPlan(draft, ctx);
+    expect(plan.steps[0].payload.car_type).toBe('Economy');
+    expect(plan.steps[0].changes.some((change: any) => change.field === 'car_type')).toBe(false);
+  });
+
+  test('editing one car_type language preserves the other PL/EN/HE translations', () => {
+    const original = { pl: 'Ekonomiczne', en: 'Economy', he: 'חסכוני' };
+    const ctx = context({ offer: offer({ car_type: original }) });
+    const draft = core.createDraft(ctx, { mode: 'vehicle' });
+    draft.vehicle.carType.en = 'Compact';
+    const payload = core.vehiclePayload(draft);
+    expect(payload.car_type).toEqual({ pl: 'Ekonomiczne', en: 'Compact', he: 'חסכוני' });
+  });
+
+  test('vehicle image validation accepts approved formats and rejects invalid or oversized files', () => {
+    expect(core.validateVehicleImageFile({ name: 'car.jpeg', type: 'image/jpeg', size: 1024, lastModified: 1 }).valid).toBe(true);
+    expect(core.validateVehicleImageFile({ name: 'car.gif', type: 'image/gif', size: 1024 }).valid).toBe(false);
+    expect(core.validateVehicleImageFile({ name: 'car.webp', type: 'image/webp', size: core.VEHICLE_IMAGE_MAX_BYTES + 1 }).valid).toBe(false);
+  });
+
+  test('image Review distinguishes unchanged, replaced and removed without base64 payloads', () => {
+    const ctx = context();
+    const draft = core.createDraft(ctx, { mode: 'vehicle' });
+    expect(core.buildVehicleDetailsPlan(draft, ctx).media.action).toBe('unchanged');
+    core.setVehicleImageAction(draft, 'replaced', { name: 'next.webp', type: 'image/webp', size: 1200, extension: 'webp' });
+    const replaced = core.buildVehicleDetailsPlan(draft, ctx);
+    expect(replaced.media.action).toBe('replaced');
+    expect(replaced.steps[0].payload.image_url).toBe(core.PENDING_IMAGE_URL);
+    expect(JSON.stringify(replaced)).not.toContain('base64');
+    core.setVehicleImageAction(draft, 'removed');
+    expect(core.buildVehicleDetailsPlan(draft, ctx).steps[0].payload.image_url).toBeNull();
+  });
+
   test('every existing save plan carries the exact offer ID and updated_at', () => {
     const draft = core.createDraft(context(), { mode: 'vehicle' });
     draft.vehicle.stockCount = 3;
@@ -192,7 +256,7 @@ describe('Car Rental Multi-City Stage 2C core', () => {
 
   test('an unchanged fresh catalog passes the deterministic preflight snapshot', () => {
     const draft = core.createDraft(context(), { mode: 'availability' });
-    draft.availability.push({ offer_id: 'offer-exact', city_id: 'city-nicosia', pickup_enabled: true, return_enabled: false, is_active: true, updated_at: null });
+    draft.availability.push({ offer_id: 'offer-exact', city_id: 'city-nicosia', pickup_enabled: true, return_enabled: true, is_active: true, updated_at: null });
     const plan = core.buildAvailabilityPlan(draft, context());
     expect(core.validateFreshContext(plan, context())).toEqual({ valid: true, errors: [] });
   });
@@ -203,7 +267,7 @@ describe('Car Rental Multi-City Stage 2C core', () => {
     ['offer availability row', { availability: [{ offer_id: 'offer-exact', city_id: 'city-larnaca', pickup_enabled: true, return_enabled: false, is_active: true, updated_at: 'a1-new' }] }],
   ])('changed %s blocks preflight before mutation', (_label, overrides) => {
     const draft = core.createDraft(context(), { mode: 'availability' });
-    draft.availability.push({ offer_id: 'offer-exact', city_id: 'city-nicosia', pickup_enabled: true, return_enabled: false, is_active: true, updated_at: null });
+    draft.availability.push({ offer_id: 'offer-exact', city_id: 'city-nicosia', pickup_enabled: true, return_enabled: true, is_active: true, updated_at: null });
     const plan = core.buildAvailabilityPlan(draft, context());
     expect(core.validateFreshContext(plan, context(overrides)).valid).toBe(false);
   });
@@ -297,6 +361,8 @@ describe('Car Rental Multi-City Stage 2C core', () => {
     expect(draft.globalMappedFlag).toBe(false);
     expect(plan.steps[0].payload.availability_mode).toBe('legacy');
     expect(plan.globalMappedFlagChanges).toBe(0);
+    expect(plan.depositRuleChanges).toBe(0);
+    expect(plan.steps[0].payload).not.toHaveProperty('deposit_amount');
   });
 
   test('profile change preserves every existing price column', () => {

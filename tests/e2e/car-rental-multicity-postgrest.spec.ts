@@ -288,20 +288,18 @@ test.describe('Car Rental Multi-City Stage 2C real PostgREST Admin integration',
     const offerBefore = (await rows('car_offers', `id=eq.${OFFER_LARNACA}&select=*`))[0];
     await openAction(page, OFFER_LARNACA, 'availability');
     const nicosia = page.locator(`[data-city-id="${CITY_NICOSIA}"]`);
-    await nicosia.locator('[data-availability-field="pickup_enabled"]').check();
-    await expect(nicosia.locator('[data-availability-field="return_enabled"]')).not.toBeChecked();
+    await nicosia.locator('[data-availability-field="paired"]').check();
     await saveReviewed(page);
     const saved = await rows('car_offer_city_availability', `offer_id=eq.${OFFER_LARNACA}&city_id=eq.${CITY_NICOSIA}&select=*`);
     expect(saved).toHaveLength(1);
-    expect(saved[0]).toEqual(expect.objectContaining({ pickup_enabled: true, return_enabled: false, is_active: true }));
+    expect(saved[0]).toEqual(expect.objectContaining({ pickup_enabled: true, return_enabled: true, is_active: true }));
     const offerAfter = (await rows('car_offers', `id=eq.${OFFER_LARNACA}&select=*`))[0];
     expect(offerAfter).toEqual(offerBefore);
 
     await page.locator('#carMulticityCloseFooter').click();
     await openAction(page, OFFER_PAPHOS, 'availability');
-    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="pickup_enabled"]`)).toBeDisabled();
-    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="return_enabled"]`)).toBeDisabled();
-    await expect(page.locator(`[data-city-id="${CITY_PAPHOS}"] [data-availability-field="pickup_enabled"]`)).toBeEnabled();
+    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="paired"]`)).toBeDisabled();
+    await expect(page.locator(`[data-city-id="${CITY_PAPHOS}"] [data-availability-field="paired"]`)).toBeEnabled();
   });
 
   test('profile and partner plans preserve prices and independent availability', async ({ page }) => {
@@ -348,12 +346,13 @@ test.describe('Car Rental Multi-City Stage 2C real PostgREST Admin integration',
 
     await page.locator('#carMulticityCatalogMappingsTab').click();
     const exactRow = page.locator(`[data-mapping-profile-id="${PROFILE_LARNACA}"][data-mapping-city-id="${CITY_NICOSIA}"]`);
-    await exactRow.locator('[data-mapping-field="return_supported"]').uncheck();
+    await exactRow.locator('[data-mapping-field="paired_supported"]').uncheck();
+    await exactRow.locator('[data-mapping-field="is_active"]').uncheck();
     await exactRow.locator('[data-catalog-action="save-mapping"]').click();
     await page.locator('#carMulticityConfirmAccept').click();
     await expect(page.locator('#carMulticityCatalogStatus')).toContainText('impact review');
     const mapping = (await rows('car_pricing_profile_cities', `pricing_profile_id=eq.${PROFILE_LARNACA}&city_id=eq.${CITY_NICOSIA}&select=*`))[0];
-    expect(mapping.return_supported).toBe(false);
+    expect(mapping).toEqual(expect.objectContaining({ pickup_supported: false, return_supported: false, is_active: false }));
   });
 
   test('Add New Car stays legacy, keeps flag false and inserts only selected availability', async ({ page }) => {
@@ -362,13 +361,13 @@ test.describe('Car Rental Multi-City Stage 2C real PostgREST Admin integration',
     await page.locator('#vehicle-carModel-en').fill('UI Test New Car');
     await page.locator('#vehicle-carModel-pl').fill('UI Test New Car');
     await page.locator('#vehicle-carModel-he').fill('רכב חדש בדיקה');
-    await page.locator('#carMulticityCarType').fill('Economy');
+    await page.locator('#vehicle-carType-en').fill('Economy');
     await page.locator('#carMulticityNext').click();
     await page.locator('#carMulticityPricingProfile').selectOption(PROFILE_LARNACA);
     await page.locator('[data-draft-field="pricing.pricePerDay"]').fill('42');
     await page.locator('#carMulticityNext').click();
-    await expect(page.locator(`[data-city-id="${CITY_LARNACA}"] [data-availability-field="pickup_enabled"]`)).toBeChecked();
-    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="pickup_enabled"]`)).not.toBeChecked();
+    await expect(page.locator(`[data-city-id="${CITY_LARNACA}"] [data-availability-field="paired"]`)).toBeChecked();
+    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="paired"]`)).not.toBeChecked();
     await page.locator('#carMulticityNext').click();
     await page.locator('#carMulticityNext').click();
     await saveReviewed(page);

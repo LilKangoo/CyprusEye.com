@@ -39,8 +39,6 @@ describe('Car Rental Multi-City Stage 2C static guards', () => {
   test('repository can mutate only approved Stage 2C tables', () => {
     for (const forbidden of [
       'car_bookings',
-      'service_deposit_overrides',
-      'service_deposit_rules',
       'partner_service_fulfillments',
       'service_coupons',
       'coupons',
@@ -54,6 +52,34 @@ describe('Car Rental Multi-City Stage 2C static guards', () => {
     for (const table of ['car_offers', 'car_rental_cities', 'car_pricing_profiles', 'car_pricing_profile_cities', 'car_offer_city_availability', 'car_vehicle_kinds']) {
       expect(repository).toContain(table);
     }
+    expect(repository).toContain('service_deposit_rules');
+    expect(repository).toContain('service_deposit_overrides');
+    expect(repository).not.toMatch(/from\(tables\.deposit(?:rules|overrides)\)\.(?:insert|update|upsert|delete)/);
+    expect(ui).not.toMatch(/service_deposit_(?:rules|overrides)[\s\S]{0,120}\.(?:insert|update|upsert|delete)/);
+  });
+
+  test('media uses the existing car-images bucket and never stores base64', () => {
+    expect(core).toContain("const vehicle_image_bucket = 'car-images'");
+    expect(repository).toContain('uploadvehicleimage');
+    expect(repository).toContain("cachecontrol: '31536000'");
+    expect(`${core}\n${repository}\n${ui}`).not.toMatch(/data:image\/(?:jpeg|png|webp);base64/);
+    expect(ui).toContain('removevehicleimage');
+  });
+
+  test('Admin availability and profile support expose one paired toggle', () => {
+    expect(ui).toContain('data-availability-field="paired"');
+    expect(ui).not.toContain('data-availability-field="pickup_enabled"');
+    expect(ui).not.toContain('data-availability-field="return_enabled"');
+    expect(ui).toContain('data-mapping-field="paired_supported"');
+    expect(core).toContain('pickup and return support must be saved together');
+  });
+
+  test('deposit preview is read-only and create payload does not write legacy deposit_amount', () => {
+    expect(ui).toContain('payment due at booking');
+    expect(ui).toContain('deposit rule changes: 0');
+    expect(core).not.toContain("'deposit_amount',\n    'insurance_per_day'");
+    expect(repository).toContain('getcarsdepositdefault');
+    expect(repository).toContain('getcarsdepositoverride');
   });
 
   test('availability and partner plans have non-overlapping hard whitelists', () => {

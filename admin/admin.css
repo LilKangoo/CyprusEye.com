@@ -14761,11 +14761,24 @@ body.car-multicity-modal-open {
 }
 
 .car-multicity-modal__content {
+  background: var(--admin-bg);
+  border-radius: 16px;
+  box-shadow: 0 24px 70px rgb(15 23 42 / 28%);
   display: flex;
   flex-direction: column;
   max-height: min(92dvh, 980px);
   max-width: min(1180px, calc(100vw - 32px));
+  overflow: hidden;
   width: 100%;
+}
+
+.car-multicity-modal__content > .admin-modal-header {
+  background: var(--admin-card-bg);
+  border-bottom: 1px solid var(--admin-border);
+  flex: 0 0 auto;
+  position: sticky;
+  top: 0;
+  z-index: 5;
 }
 
 .car-multicity-modal__subtitle {
@@ -14811,19 +14824,46 @@ body.car-multicity-modal-open {
 }
 
 .car-multicity-modal__body {
+  background: color-mix(in srgb, var(--admin-bg-secondary) 55%, var(--admin-bg));
+  flex: 1 1 auto;
+  overscroll-behavior: contain;
   overflow: auto;
+  padding: 20px 24px 28px;
 }
 
 .car-multicity-section {
+  background: var(--admin-card-bg);
   border: 1px solid var(--admin-border);
-  border-radius: 10px;
+  border-radius: 14px;
+  box-shadow: 0 6px 20px rgb(15 23 42 / 5%);
   margin-bottom: 16px;
-  padding: 18px;
+  padding: 20px;
 }
 
 .car-multicity-section h4 {
-  font-size: 16px;
+  font-size: 18px;
   margin: 0 0 14px;
+}
+
+.car-multicity-section h5 {
+  font-size: 15px;
+  margin: 0;
+}
+
+.car-multicity-section .admin-form-field input,
+.car-multicity-section .admin-form-field select,
+.car-multicity-section .admin-form-field textarea,
+.car-multicity-city-form input,
+.car-multicity-city-form select {
+  min-height: 44px;
+}
+
+.car-multicity-section .admin-form-field input:focus-visible,
+.car-multicity-section .admin-form-field select:focus-visible,
+.car-multicity-section .admin-form-field textarea:focus-visible,
+.car-multicity-image-dropzone:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--admin-primary) 30%, transparent);
+  outline-offset: 2px;
 }
 
 .car-multicity-form-grid,
@@ -14919,10 +14959,15 @@ body.car-multicity-modal-open {
 }
 
 .car-multicity-wizard-steps {
+  background: color-mix(in srgb, var(--admin-bg-secondary) 94%, transparent);
   display: grid;
   gap: 6px;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  margin-bottom: 16px;
+  margin: -4px 0 16px;
+  padding: 8px 0;
+  position: sticky;
+  top: 0;
+  z-index: 3;
 }
 
 .car-multicity-wizard-steps span {
@@ -14930,7 +14975,8 @@ body.car-multicity-modal-open {
   border-radius: 8px;
   color: var(--admin-text-muted);
   font-size: 11px;
-  padding: 8px;
+  min-height: 46px;
+  padding: 9px 10px;
 }
 
 .car-multicity-wizard-steps .is-current {
@@ -14945,6 +14991,234 @@ body.car-multicity-modal-open {
 
 .car-multicity-availability-table input[type='checkbox'] {
   margin-right: 5px;
+  min-height: 20px;
+  min-width: 20px;
+}
+
+.car-multicity-modal__footer {
+  background: var(--admin-card-bg);
+  border-top: 1px solid var(--admin-border);
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  min-height: 70px;
+  padding: 12px 20px;
+  position: sticky;
+  bottom: 0;
+  z-index: 6;
+}
+
+.car-multicity-modal__footer button {
+  min-height: 44px;
+  min-width: 112px;
+}
+
+.car-multicity-section-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.car-multicity-section-heading p {
+  color: var(--admin-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 4px 0 0;
+}
+
+.car-multicity-media-card,
+.car-multicity-deposit-card {
+  background: color-mix(in srgb, var(--admin-bg-secondary) 72%, transparent);
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  margin-top: 18px;
+  padding: 16px;
+}
+
+.car-multicity-media-grid {
+  align-items: stretch;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(170px, 0.7fr) minmax(260px, 1.3fr) minmax(170px, 0.7fr);
+}
+
+.car-multicity-image-preview {
+  background: var(--admin-card-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  min-height: 180px;
+  overflow: hidden;
+  padding: 10px;
+}
+
+.car-multicity-image-preview figcaption {
+  color: var(--admin-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.car-multicity-image-preview img,
+.car-multicity-image-placeholder {
+  background: var(--admin-bg-secondary);
+  border-radius: 8px;
+  height: 140px;
+  object-fit: cover;
+  width: 100%;
+}
+
+.car-multicity-image-placeholder {
+  align-items: center;
+  color: var(--admin-text-muted);
+  display: flex;
+  justify-content: center;
+}
+
+.car-multicity-image-dropzone {
+  align-items: center;
+  background: var(--admin-card-bg);
+  border: 2px dashed var(--admin-border);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  justify-content: center;
+  min-height: 180px;
+  padding: 20px;
+  text-align: center;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.car-multicity-image-dropzone.is-dragging {
+  background: color-mix(in srgb, var(--admin-primary) 9%, var(--admin-card-bg));
+  border-color: var(--admin-primary);
+}
+
+.car-multicity-dropzone-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.car-multicity-dropzone-copy span,
+.car-multicity-dropzone-copy small {
+  color: var(--admin-text-muted);
+}
+
+.car-multicity-media-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.car-multicity-image-action,
+.car-multicity-readonly-badge {
+  background: var(--admin-card-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 10px;
+  text-transform: uppercase;
+}
+
+.car-multicity-image-action.is-added,
+.car-multicity-image-action.is-replaced {
+  color: var(--admin-primary);
+}
+
+.car-multicity-image-action.is-removed,
+.car-multicity-image-removed {
+  color: var(--admin-danger);
+}
+
+.car-multicity-upload-progress {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.car-multicity-upload-progress [role='progressbar'] {
+  background: var(--admin-border);
+  border-radius: 999px;
+  height: 8px;
+  overflow: hidden;
+}
+
+.car-multicity-upload-progress [role='progressbar'] span {
+  background: var(--admin-primary);
+  display: block;
+  height: 100%;
+  transition: width 180ms ease;
+}
+
+.car-multicity-city-toggle {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+  min-height: 40px;
+}
+
+.car-multicity-row-warning,
+.car-multicity-inline-error {
+  color: var(--admin-danger);
+  display: block;
+  font-size: 11px;
+  line-height: 1.4;
+  margin-top: 5px;
+}
+
+.car-multicity-city-review-list {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.car-multicity-city-review-list li {
+  align-items: center;
+  background: var(--admin-bg-secondary);
+  border: 1px solid var(--admin-border);
+  border-radius: 9px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(140px, 1fr) minmax(220px, 1.5fr) minmax(180px, 1fr) auto;
+  padding: 10px 12px;
+}
+
+.car-multicity-skeleton {
+  display: grid;
+  gap: 14px;
+}
+
+.car-multicity-skeleton span {
+  animation: car-multicity-pulse 1.2s ease-in-out infinite;
+  background: linear-gradient(90deg, var(--admin-bg-secondary), color-mix(in srgb, var(--admin-border) 55%, transparent), var(--admin-bg-secondary));
+  background-size: 220% 100%;
+  border-radius: 10px;
+  display: block;
+  height: 72px;
+}
+
+.car-multicity-skeleton span:first-child {
+  height: 42px;
+  width: 48%;
+}
+
+@keyframes car-multicity-pulse {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+.car-multicity-modal [disabled] {
+  cursor: not-allowed;
+  opacity: 0.58;
 }
 
 .car-multicity-review-group {
@@ -14995,7 +15269,9 @@ body.car-multicity-modal-open {
   .car-multicity-i18n-grid,
   .car-multicity-readonly-prices,
   .car-multicity-wizard-steps,
-  .car-multicity-city-form {
+  .car-multicity-city-form,
+  .car-multicity-media-grid,
+  .car-multicity-city-review-list li {
     grid-template-columns: 1fr;
   }
 
@@ -15007,5 +15283,20 @@ body.car-multicity-modal-open {
   .car-multicity-fleet-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .car-multicity-modal__body {
+    padding: 14px 12px 20px;
+  }
+
+  .car-multicity-modal__footer {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 10px 12px;
+  }
+
+  .car-multicity-modal__footer button {
+    min-width: 0;
+    width: 100%;
   }
 }

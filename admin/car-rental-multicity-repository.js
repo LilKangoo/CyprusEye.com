@@ -11,6 +11,8 @@
     partners: 'partners',
     partnerResources: 'partner_resources',
     siteSettings: 'site_settings',
+    depositRules: 'service_deposit_rules',
+    depositOverrides: 'service_deposit_overrides',
   });
 
   function normalizeId(value) {
@@ -130,6 +132,98 @@
       );
     }
 
+    async function getCarsDepositDefault() {
+      const matches = await listRows(
+        TABLES.depositRules,
+        'id,resource_type,mode,amount,currency,include_children,enabled,created_at,updated_at',
+        (query) => query.eq('resource_type', 'cars').limit(2),
+      );
+      if (matches.length > 1) throw internalError('Multiple Cars deposit default rules detected.');
+      return matches[0] || null;
+    }
+
+    async function getCarsDepositOverride(offerId) {
+      const id = normalizeId(offerId);
+      if (!id) return null;
+      const matches = await listRows(
+        TABLES.depositOverrides,
+        'id,resource_type,resource_id,mode,amount,currency,include_children,enabled,created_at,updated_at',
+        (query) => query.eq('resource_type', 'cars').eq('resource_id', id).limit(2),
+      );
+      if (matches.length > 1) throw internalError('Multiple exact Cars deposit overrides detected.', { offerId: id });
+      return matches[0] || null;
+    }
+
+    function getStorageBucket() {
+      const value = getClient();
+      const bucket = value?.storage?.from?.(core.VEHICLE_IMAGE_BUCKET);
+      if (!bucket || typeof bucket.upload !== 'function') {
+        throw new Error('Car image storage is not available');
+      }
+      return bucket;
+    }
+
+    function safeImagePathPart(value) {
+      return String(value || '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '') || 'pending';
+    }
+
+    function buildVehicleImagePath(file, options = {}) {
+      const validation = core.validateVehicleImageFile(file);
+      if (!validation.valid) {
+        const error = new Error(validation.errors[0]?.message || 'Invalid vehicle image');
+        error.code = 'car_multicity_image_validation_failed';
+        error.details = validation;
+        throw error;
+      }
+      const exactId = normalizeId(options.offerId);
+      const temporaryId = normalizeId(options.temporaryId);
+      const identity = safeImagePathPart(exactId || temporaryId || `pending-${Date.now()}`);
+      const nonce = safeImagePathPart(options.nonce || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
+      return `car-${identity}-${nonce}.${validation.metadata.extension}`;
+    }
+
+    async function uploadVehicleImage(request = {}) {
+      const validation = core.validateVehicleImageFile(request.file);
+      if (!validation.valid) {
+        const error = new Error(validation.errors[0]?.message || 'Invalid vehicle image');
+        error.code = 'car_multicity_image_validation_failed';
+        error.details = validation;
+        throw error;
+      }
+      const path = buildVehicleImagePath(request.file, request);
+      request.onProgress?.({ percent: 10, status: 'validated', path });
+      const bucket = getStorageBucket();
+      const upload = assertResult(await bucket.upload(path, request.file, {
+        cacheControl: '31536000',
+        upsert: false,
+        contentType: validation.metadata.type,
+      }));
+      request.onProgress?.({ percent: 85, status: 'uploaded', path });
+      const publicResult = bucket.getPublicUrl(path);
+      const publicUrl = normalizeId(publicResult?.data?.publicUrl);
+      if (!publicUrl) {
+        try {
+          await bucket.remove?.([path]);
+        } catch (_error) {
+          // The caller receives the exact path so cleanup can be retried safely.
+        }
+        throw internalError('Uploaded vehicle image has no public URL.', { path });
+      }
+      request.onProgress?.({ percent: 100, status: 'complete', path, publicUrl });
+      return { bucket: core.VEHICLE_IMAGE_BUCKET, path: normalizeId(upload?.data?.path || path), publicUrl, metadata: validation.metadata };
+    }
+
+    async function removeVehicleImage(path) {
+      const exactPath = normalizeId(path);
+      if (!exactPath || exactPath.includes('..') || exactPath.startsWith('/')) {
+        throw internalError('Exact uploaded image path is invalid.', { path: exactPath });
+      }
+      const bucket = getStorageBucket();
+      if (typeof bucket.remove !== 'function') throw new Error('Car image cleanup is not available');
+      const result = assertResult(await bucket.remove([exactPath]));
+      return { bucket: core.VEHICLE_IMAGE_BUCKET, path: exactPath, removed: true, data: result?.data || null };
+    }
+
     async function getCatalog() {
       const [cities, profiles, profileCities, vehicleKinds, partners, siteSetting] = await Promise.all([
         listCities(),
@@ -151,19 +245,21 @@
     async function getOfferContext(offerId) {
       const id = normalizeId(offerId);
       if (!id) throw new Error('Exact car offer ID is required');
-      const [offer, catalog, availability, partnerResources] = await Promise.all([
+      const [offer, catalog, availability, partnerResources, depositRule, depositOverride] = await Promise.all([
         getOfferById(id),
         getCatalog(),
         listAvailabilityByOfferId(id),
         listPartnerResourcesByOfferId(id),
+        getCarsDepositDefault(),
+        getCarsDepositOverride(id),
       ]);
       if (!offer) throw staleConflict('Exact car offer no longer exists.', { offerId: id });
-      return { offer, ...catalog, availability, partnerResources, loadedAt: new Date().toISOString() };
+      return { offer, ...catalog, availability, partnerResources, depositRule, depositOverride, loadedAt: new Date().toISOString() };
     }
 
     async function getCreateContext() {
-      const catalog = await getCatalog();
-      return { offer: null, availability: [], partnerResources: [], ...catalog, loadedAt: new Date().toISOString() };
+      const [catalog, depositRule] = await Promise.all([getCatalog(), getCarsDepositDefault()]);
+      return { offer: null, availability: [], partnerResources: [], depositRule, depositOverride: null, ...catalog, loadedAt: new Date().toISOString() };
     }
 
     async function exactOfferUpdate(offerId, expectedUpdatedAt, payload, allowedFields, operation) {
@@ -321,10 +417,22 @@
     }
 
     async function executePlan(plan, options = {}) {
-      if (!plan || plan.globalMappedFlagChanges !== 0 || plan.bookingChanges !== 0 || plan.priceCalculationChanges !== 0) {
+      if (!plan || plan.globalMappedFlagChanges !== 0 || plan.bookingChanges !== 0 || plan.priceCalculationChanges !== 0 || plan.depositRuleChanges !== 0) {
         throw internalError('Unsafe or missing Stage 2C save plan.');
       }
       const working = core.clone(plan);
+      const pendingImageSteps = working.steps.filter((step) => step?.payload?.image_url === core.PENDING_IMAGE_URL);
+      if (pendingImageSteps.length) {
+        const uploadedImageUrl = normalizeId(options.uploadedImageUrl);
+        if (!uploadedImageUrl) throw internalError('Reviewed image upload is missing before the exact-ID write.');
+        pendingImageSteps.forEach((step) => {
+          step.payload.image_url = uploadedImageUrl;
+          (step.changes || []).forEach((change) => {
+            if (change.field === 'image_url' && change.after === core.PENDING_IMAGE_URL) change.after = uploadedImageUrl;
+          });
+        });
+        if (working.media) working.media.uploadedUrl = uploadedImageUrl;
+      }
       working.status = 'running';
       let createdOfferId = null;
       for (const step of working.steps) {
@@ -516,6 +624,8 @@
       TABLES,
       createCity,
       executePlan,
+      getCarsDepositDefault,
+      getCarsDepositOverride,
       getCatalog,
       getCreateContext,
       getOfferById,
@@ -523,6 +633,7 @@
       getSiteSetting,
       insertAvailability,
       insertOffer,
+      buildVehicleImagePath,
       listAvailabilityByOfferId,
       listCities,
       listMappingImpact,
@@ -531,12 +642,14 @@
       listProfileCities,
       listProfiles,
       listVehicleKinds,
+      removeVehicleImage,
       saveProfileCityMapping,
       updateAvailability,
       updateCity,
       updatePartnerAssignment,
       updatePricingProfile,
       updateVehicleDetails,
+      uploadVehicleImage,
     });
   }
 

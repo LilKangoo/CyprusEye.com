@@ -65,8 +65,8 @@ function adminSeedScript() {
           { id: 'availability-larnaca', offer_id: 'ca300001-0000-4000-8000-000000000001', city_id: 'ca200001-0000-4000-8000-000000000001', pickup_enabled: true, return_enabled: true, is_active: true, updated_at: '2026-08-02T09:10:00.000Z' },
         ]);
         stub.seedTable('car_bookings', []);
-        stub.seedTable('service_deposit_rules', []);
-        stub.seedTable('service_deposit_overrides', []);
+        stub.seedTable('service_deposit_rules', [{ id: 'deposit-cars-default', resource_type: 'cars', mode: 'per_day', amount: 5, currency: 'EUR', include_children: true, enabled: true, updated_at: '2026-08-02T09:20:00.000Z' }]);
+        stub.seedTable('service_deposit_overrides', [{ id: 'deposit-offer-override', resource_type: 'cars', resource_id: 'ca300001-0000-4000-8000-000000000001', mode: 'flat', amount: 50, currency: 'EUR', include_children: true, enabled: true, updated_at: '2026-08-02T09:21:00.000Z' }]);
         stub.seedTable('service_deposit_requests', []);
         stub.seedTable('partner_service_fulfillments', []);
         stub.setSession({ id: admin.id, email: admin.email, user_metadata: { name: 'Cars Admin' } });
@@ -110,8 +110,8 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     await page.locator('#carMulticityModalClose').click();
 
     await openAction(page, 'availability');
-    await expect(page.locator(`[data-city-id="${CITY_LARNACA}"] [data-availability-field="pickup_enabled"]`)).toBeChecked();
-    await expect(page.locator(`[data-city-id="${CITY_LARNACA}"] [data-availability-field="return_enabled"]`)).toBeChecked();
+    await expect(page.locator(`[data-city-id="${CITY_LARNACA}"] [data-availability-field="paired"]`)).toBeChecked();
+    await expect(page.locator(`[data-city-id="${CITY_LARNACA}"]`)).toContainText('Available for pickup and return');
     await page.locator('#carMulticityModalClose').click();
 
     await openAction(page, 'pricing');
@@ -130,12 +130,11 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     await expect(page.locator('#fleetCarLegacyLocationNotice')).toContainText('Pricing profile');
   });
 
-  test('Larnaca availability saves independent pickup/return without prices, partner or protected writes', async ({ page }) => {
+  test('Larnaca availability saves pickup and return atomically without prices, partner or protected writes', async ({ page }) => {
     await openAction(page, 'availability');
     await clearMutations(page);
     const nicosia = page.locator(`[data-city-id="${CITY_NICOSIA}"]`);
-    await nicosia.locator('[data-availability-field="pickup_enabled"]').check();
-    await expect(nicosia.locator('[data-availability-field="return_enabled"]')).not.toBeChecked();
+    await nicosia.locator('[data-availability-field="paired"]').check();
     await page.locator('#carMulticityReview').click();
     await expect(page.locator('#carMulticityModalContent')).toContainText(CITY_NICOSIA);
     await expect(page.locator('#carMulticityModalContent')).toContainText('Existing price column changes');
@@ -153,7 +152,7 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
       const availability = stub.getTableRows('car_offer_city_availability').find((row: any) => row.offer_id === offerId && row.city_id === cityId);
       return { offer, availability, mutations: stub.getMutationCalls() };
     }, { offerId: OFFER_ID, cityId: CITY_NICOSIA });
-    expect(result.availability).toEqual(expect.objectContaining({ pickup_enabled: true, return_enabled: false, is_active: true }));
+    expect(result.availability).toEqual(expect.objectContaining({ pickup_enabled: true, return_enabled: true, is_active: true }));
     expect(result.offer.price_per_day).toBe(35);
     expect(result.offer.owner_partner_id).toBe('partner-one');
     expect(result.mutations.filter((call: any) => call.table === 'car_offer_city_availability' && call.action === 'insert')).toHaveLength(1);
@@ -170,9 +169,8 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     }, { offerId: OFFER_ID, profileId: PROFILE_PAPHOS });
     await page.evaluate(() => (window as any).loadFleetData({ silent: true }));
     await openAction(page, 'availability');
-    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="pickup_enabled"]`)).toBeDisabled();
-    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="return_enabled"]`)).toBeDisabled();
-    await expect(page.locator(`[data-city-id="${CITY_PAPHOS}"] [data-availability-field="pickup_enabled"]`)).toBeEnabled();
+    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="paired"]`)).toBeDisabled();
+    await expect(page.locator(`[data-city-id="${CITY_PAPHOS}"] [data-availability-field="paired"]`)).toBeEnabled();
   });
 
   test('vehicle kind change updates exact offer without changing car_type, prices or availability', async ({ page }) => {
@@ -194,9 +192,166 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     }, OFFER_ID);
     expect(result.offer.vehicle_kind_id).toBe(KIND_QUAD);
     expect(result.offer.car_type.en).toBe('Economy');
+    expect(result.offer.image_url).toBe('/assets/mazda.jpg');
     expect(result.offer.price_per_day).toBe(35);
     expect(result.availability).toHaveLength(1);
     expect(result.mutations.filter((call: any) => call.table === 'car_offers' && call.action === 'update')).toHaveLength(1);
+  });
+
+  test('commercial car type renders jsonb i18n without object coercion and preserves PL/HE', async ({ page }) => {
+    await page.evaluate((offerId) => {
+      const stub = (window as any).__supabaseStub;
+      stub.seedTable('car_offers', stub.getTableRows('car_offers').map((row: any) => row.id === offerId ? {
+        ...row,
+        car_type: { pl: 'Ekonomiczne', en: '', he: 'חסכוני' },
+      } : row));
+    }, OFFER_ID);
+    await page.evaluate(() => (window as any).loadFleetData({ silent: true }));
+    await openAction(page, 'vehicle');
+    await expect(page.locator('#carMulticityModalContent')).not.toContainText('[object Object]');
+    await expect(page.locator('#vehicle-carType-pl')).toHaveValue('Ekonomiczne');
+    await expect(page.locator('#vehicle-carType-he')).toHaveValue('חסכוני');
+    await page.locator('#vehicle-carType-en').fill('Economy');
+    await page.locator('#carMulticityReview').click();
+    await page.locator('#carMulticitySave').click();
+    await page.locator('#carMulticityConfirmAccept').click();
+    await expect(page.locator('#carMulticityReceiptHeading')).toHaveText('Saved');
+    const carType = await page.evaluate((offerId) => (window as any).__supabaseStub.getTableRows('car_offers').find((row: any) => row.id === offerId)?.car_type, OFFER_ID);
+    expect(carType).toEqual({ pl: 'Ekonomiczne', en: 'Economy', he: 'חסכוני' });
+  });
+
+  test('mismatched legacy availability is warned and normalized only after conscious paired Save', async ({ page }) => {
+    await page.evaluate((offerId) => {
+      const stub = (window as any).__supabaseStub;
+      stub.seedTable('car_offer_city_availability', [{
+        id: 'availability-larnaca', offer_id: offerId, city_id: 'ca200001-0000-4000-8000-000000000001',
+        pickup_enabled: true, return_enabled: false, is_active: true, updated_at: 'mismatch-v1',
+      }]);
+    }, OFFER_ID);
+    await openAction(page, 'availability');
+    const row = page.locator(`[data-city-id="${CITY_LARNACA}"]`);
+    await expect(row).toContainText('Pickup and return settings differ. Review required.');
+    expect(await row.locator('[data-availability-field="paired"]').evaluate((input: HTMLInputElement) => input.indeterminate)).toBe(true);
+    await row.locator('[data-availability-field="paired"]').check();
+    await page.locator('#carMulticityReview').click();
+    await expect(page.locator('#carMulticityModalContent')).toContainText('Available cities');
+    await expect(page.locator('#carMulticityModalContent')).toContainText('Deposit rule changes');
+    await page.locator('#carMulticitySave').click();
+    await page.locator('#carMulticityConfirmAccept').click();
+    const saved = await page.evaluate((offerId) => (window as any).__supabaseStub.getTableRows('car_offer_city_availability').find((row: any) => row.offer_id === offerId), OFFER_ID);
+    expect(saved).toEqual(expect.objectContaining({ pickup_enabled: true, return_enabled: true, is_active: true }));
+  });
+
+  test('photo replace uploads to car-images, shows Review and preserves exact offer ID', async ({ page }) => {
+    await openAction(page, 'vehicle');
+    await expect(page.locator('.car-multicity-image-preview img').first()).toHaveAttribute('src', '/assets/mazda.jpg');
+    await page.locator('#carMulticityImageFile').setInputFiles({ name: 'replacement.webp', mimeType: 'image/webp', buffer: Buffer.from('safe-webp-test') });
+    await expect(page.locator('.car-multicity-image-action')).toHaveText('replaced');
+    await expect(page.locator('.car-multicity-image-preview img')).toHaveCount(2);
+    await page.locator('#carMulticityReview').click();
+    await expect(page.locator('#carMulticityModalContent')).toContainText('Image action');
+    await expect(page.locator('#carMulticityModalContent')).toContainText('replacement.webp');
+    await page.locator('#carMulticitySave').click();
+    await page.locator('#carMulticityConfirmAccept').click();
+    await expect(page.locator('#carMulticityReceiptHeading')).toHaveText('Saved');
+    const result = await page.evaluate((offerId) => {
+      const stub = (window as any).__supabaseStub;
+      return {
+        offer: stub.getTableRows('car_offers').find((row: any) => row.id === offerId),
+        storageKeys: Object.keys(stub.state.storageObjects),
+      };
+    }, OFFER_ID);
+    expect(result.offer.id).toBe(OFFER_ID);
+    expect(result.offer.image_url).toContain('https://stub.local/car-images/car-');
+    expect(result.storageKeys).toHaveLength(1);
+    expect(result.storageKeys[0]).toContain(`car-images/car-${OFFER_ID}`);
+  });
+
+  test('invalid and oversized photos are blocked before upload', async ({ page }) => {
+    await openAction(page, 'vehicle');
+    await page.locator('#carMulticityImageFile').setInputFiles({ name: 'vehicle.gif', mimeType: 'image/gif', buffer: Buffer.from('gif') });
+    await expect(page.locator('#carMulticityModalError')).toContainText('Only JPG, JPEG, PNG and WEBP');
+    expect(await page.evaluate(() => Object.keys((window as any).__supabaseStub.state.storageObjects))).toEqual([]);
+    await page.locator('#carMulticityImageFile').setInputFiles({ name: 'large.png', mimeType: 'image/png', buffer: Buffer.alloc((5 * 1024 * 1024) + 1) });
+    await expect(page.locator('#carMulticityModalError')).toContainText('Maximum size is 5 MB');
+    expect(await page.evaluate(() => Object.keys((window as any).__supabaseStub.state.storageObjects))).toEqual([]);
+  });
+
+  test('failed exact car save cleans only the new orphan upload and preserves current image', async ({ page }) => {
+    await openAction(page, 'vehicle');
+    await page.locator('#carMulticityImageFile').setInputFiles({ name: 'orphan.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('orphan-test') });
+    await page.locator('#carMulticityReview').click();
+    await page.locator('#carMulticitySave').click();
+    await page.evaluate(() => (window as any).__supabaseStub.failNextMutation({ table: 'car_offers', action: 'update', error: { message: 'database save failed' } }));
+    await page.locator('#carMulticityConfirmAccept').click();
+    await expect(page.locator('#carMulticityReceiptHeading')).toHaveText('Partial save receipt');
+    const result = await page.evaluate((offerId) => {
+      const stub = (window as any).__supabaseStub;
+      return {
+        imageUrl: stub.getTableRows('car_offers').find((row: any) => row.id === offerId)?.image_url,
+        storageKeys: Object.keys(stub.state.storageObjects),
+      };
+    }, OFFER_ID);
+    expect(result.imageUrl).toBe('/assets/mazda.jpg');
+    expect(result.storageKeys).toEqual([]);
+  });
+
+  test('Remove image changes only image_url after Review', async ({ page }) => {
+    await openAction(page, 'vehicle');
+    await page.locator('[data-media-action="remove"]').click();
+    await expect(page.locator('.car-multicity-image-action')).toHaveText('removed');
+    await page.locator('#carMulticityReview').click();
+    await expect(page.locator('#carMulticityModalContent')).toContainText('removed');
+    await page.locator('#carMulticitySave').click();
+    await page.locator('#carMulticityConfirmAccept').click();
+    const result = await page.evaluate((offerId) => {
+      const stub = (window as any).__supabaseStub;
+      return {
+        offer: stub.getTableRows('car_offers').find((row: any) => row.id === offerId),
+        mutations: stub.getMutationCalls(),
+      };
+    }, OFFER_ID);
+    expect(result.offer.image_url).toBeNull();
+    expect(result.mutations).toHaveLength(1);
+    expect(result.mutations[0]).toEqual(expect.objectContaining({ table: 'car_offers', action: 'update' }));
+  });
+
+  test('effective deposit is read-only and Manage deposit settings opens the existing panel', async ({ page }) => {
+    await openAction(page, 'vehicle');
+    await expect(page.locator('#carMulticityModalContent')).toContainText('Payment due at booking');
+    await expect(page.locator('#carMulticityModalContent')).toContainText('Exact offer override');
+    await expect(page.locator('#carMulticityModalContent')).toContainText('50 EUR');
+    await clearMutations(page);
+    await page.locator('[data-media-action="manage-deposit"]').click();
+    await expect(page.locator('#carMulticityModal')).toBeHidden();
+    await expect(page.locator('#viewPartners')).toBeVisible();
+    await expect(page.locator('#partnersTabEmails')).toBeVisible();
+    expect(await page.evaluate(() => (window as any).__supabaseStub.getMutationCalls())).toEqual([]);
+  });
+
+  test('modern wizard has stepper, sticky actions, responsive layout and focus restore', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const add = page.locator('#btnAddFleetCar');
+    await add.focus();
+    await add.click();
+    await expect(page.locator('.car-multicity-wizard-steps')).toBeVisible();
+    const desktop = await page.locator('#carMulticityModal .car-multicity-modal__content').evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const footer = element.querySelector('.car-multicity-modal__footer');
+      return { width: rect.width, footerPosition: footer ? getComputedStyle(footer).position : '' };
+    });
+    expect(desktop.width).toBeGreaterThanOrEqual(1000);
+    expect(desktop.width).toBeLessThanOrEqual(1200);
+    expect(desktop.footerPosition).toBe('sticky');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#carMulticityModal')).toBeHidden();
+    await expect(add).toBeFocused();
+
+    await page.setViewportSize({ width: 390, height: 780 });
+    await add.click();
+    const mobileWidth = await page.locator('#carMulticityModal .car-multicity-modal__content').evaluate((element) => element.getBoundingClientRect().width);
+    expect(mobileWidth).toBeLessThanOrEqual(386);
+    await expect(page.locator('#carMulticityModalClose')).toBeFocused();
   });
 
   test('profile change preserves all existing price columns and updates profile plus location together', async ({ page }) => {
@@ -323,7 +478,8 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     await page.locator('#btnManageCarMulticity').click();
     await page.locator('#carMulticityCatalogMappingsTab').click();
     const row = page.locator(`[data-mapping-profile-id="${PROFILE_LARNACA}"][data-mapping-city-id="${CITY_LARNACA}"]`);
-    await row.locator('[data-mapping-field="return_supported"]').uncheck();
+    await row.locator('[data-mapping-field="paired_supported"]').uncheck();
+    await row.locator('[data-mapping-field="is_active"]').uncheck();
     await clearMutations(page);
     await row.locator('[data-catalog-action="save-mapping"]').click();
     await expect(page.locator('#carMulticityConfirmDialog')).toContainText('Readiness invalidated: 1');
@@ -339,7 +495,7 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
         mutations: stub.getMutationCalls(),
       };
     }, { profileId: PROFILE_LARNACA, cityId: CITY_LARNACA });
-    expect(result.mapping.return_supported).toBe(false);
+    expect(result.mapping).toEqual(expect.objectContaining({ pickup_supported: false, return_supported: false, is_active: false }));
     expect(result.flag).toBe(false);
     expect(result.mutations).toHaveLength(1);
     expect(result.mutations[0]).toEqual(expect.objectContaining({ table: 'car_pricing_profile_cities', action: 'update' }));
@@ -352,17 +508,21 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     await page.locator('#vehicle-carModel-en').fill('Stage 2C Test Car');
     await page.locator('#vehicle-carModel-pl').fill('Auto testowe Stage 2C');
     await page.locator('#vehicle-carModel-he').fill('רכב בדיקה');
-    await page.locator('#carMulticityCarType').fill('Economy');
+    await page.locator('#vehicle-carType-en').fill('Economy');
     await page.locator('#carMulticityNext').click();
     await page.locator('#carMulticityPricingProfile').selectOption(PROFILE_LARNACA);
     await page.locator('[data-draft-field="pricing.pricePerDay"]').fill('42');
+    await expect(page.locator('#carMulticityModalContent')).toContainText('Cars default rule');
+    await expect(page.locator('#carMulticityModalContent')).toContainText('Per day');
+    await expect(page.locator('[data-draft-field="pricing.depositAmount"]')).toHaveCount(0);
     await page.locator('#carMulticityNext').click();
-    await expect(page.locator(`[data-city-id="${CITY_LARNACA}"] [data-availability-field="pickup_enabled"]`)).toBeChecked();
-    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="pickup_enabled"]`)).not.toBeChecked();
+    await expect(page.locator(`[data-city-id="${CITY_LARNACA}"] [data-availability-field="paired"]`)).toBeChecked();
+    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="paired"]`)).not.toBeChecked();
     await page.locator('#carMulticityNext').click();
     await page.locator('#carMulticityNext').click();
     await page.locator('#carMulticityReview').click();
     await expect(page.locator('#carMulticityModalContent')).toContainText('Legacy');
+    await expect(page.locator('#carMulticityModalContent')).toContainText('Deposit rule changes');
     await page.locator('#carMulticitySave').click();
     await page.locator('#carMulticityConfirmAccept').click();
     await expect(page.locator('#carMulticityReceiptHeading')).toHaveText('Saved');
@@ -376,6 +536,7 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
       };
     });
     expect(result.created).toEqual(expect.objectContaining({ availability_mode: 'legacy', location: 'larnaca', pricing_profile_id: PROFILE_LARNACA }));
+    expect(result.created).not.toHaveProperty('deposit_amount');
     expect(result.availability).toHaveLength(1);
     expect(result.availability[0].city_id).toBe(CITY_LARNACA);
     expect(result.mutations.some((call: any) => ['car_bookings', 'service_deposit_overrides', 'partner_service_fulfillments', 'service_coupons', 'coupons'].includes(call.table))).toBe(false);

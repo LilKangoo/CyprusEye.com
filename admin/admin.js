@@ -24381,6 +24381,11 @@ function bindCarRentalMulticityAdminUi() {
     repository: getCarRentalMulticityRepository(),
     showToast,
     onFleetRefresh: () => void loadFleetData({ silent: true }),
+    openDepositSettings: () => {
+      switchView('partners');
+      setPartnersActiveTab('emails');
+      requestAnimationFrame(() => document.getElementById('depositRuleModeCars')?.scrollIntoView?.({ block: 'center', behavior: 'smooth' }));
+    },
     openLegacyEditor: (offerId) => {
       const exactId = String(offerId || '').trim();
       if (exactId) {
