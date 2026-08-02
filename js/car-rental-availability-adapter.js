@@ -24,6 +24,8 @@ export const CAR_RENTAL_SHADOW_DIFFERENCE_CODES = Object.freeze([
   'RETURN_KEY_MISMATCH',
   'DUPLICATE_OFFER_ID',
   'INVALID_MAPPED_CONFIGURATION',
+  'FEE_REQUIRED_FOR_CITY',
+  'EXPECTED_FEE_OVERRIDE',
   'UNEXPLAINED_DIFFERENCE',
 ]);
 export const CAR_RENTAL_HYBRID_DIAGNOSTIC_CODES = Object.freeze([
@@ -44,6 +46,13 @@ function text(value) {
 
 function normalized(value) {
   return text(value).toLowerCase();
+}
+
+function normalizeConfiguredCity(value) {
+  const known = normalizeCarCity(value);
+  if (known) return known;
+  const candidate = normalized(value);
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(candidate) ? candidate : '';
 }
 
 function unique(values) {
@@ -155,6 +164,8 @@ function calculateOfferQuote(offer, context, input) {
     fullInsurance: input.fullInsurance === true,
     youngDriver: input.youngDriver === true,
     offerRow: offer,
+    pickupFeeOverride: context.pickupFeeOverride,
+    returnFeeOverride: context.returnFeeOverride,
   });
   return quote ? { quote, reason: null } : { quote: null, reason: 'QUOTE_UNAVAILABLE' };
 }
@@ -181,6 +192,28 @@ function validPricingKey(calculatorKey, key) {
   return false;
 }
 
+function resolveDirectionalFee(availability, calculatorKey, pricingKey) {
+  const mode = normalized(availability?.fee_mode) === 'override' ? 'override' : 'inherit';
+  if (mode === 'override') {
+    const amount = Number(availability?.fee_per_direction);
+    const valid = Number.isFinite(amount)
+      && amount >= 0
+      && Math.abs((amount * 100) - Math.round(amount * 100)) < 1e-8;
+    return {
+      valid,
+      mode,
+      amount: valid ? Number(amount.toFixed(2)) : null,
+      override: valid ? Number(amount.toFixed(2)) : null,
+    };
+  }
+  return {
+    valid: validPricingKey(calculatorKey, pricingKey),
+    mode,
+    amount: null,
+    override: null,
+  };
+}
+
 function buildOfferPricingContext({
   offer,
   availabilityMode,
@@ -196,6 +229,10 @@ function buildOfferPricingContext({
   returnLegacyPricingKey,
   pickupLegacyPricingLocation,
   returnLegacyPricingLocation,
+  pickupFeeMode,
+  returnFeeMode,
+  pickupFeePerDirection,
+  returnFeePerDirection,
   quote,
 }) {
   const offerId = text(offer?.id);
@@ -214,8 +251,8 @@ function buildOfferPricingContext({
     profileCode: normalized(profileCode || normalizedCalculatorKey),
     calculatorKey: normalizedCalculatorKey,
     legacyBookingLocation: normalized(legacyBookingLocation || normalizedCalculatorKey),
-    pickupCityCode: normalizeCarCity(pickupCityCode),
-    returnCityCode: normalizeCarCity(returnCityCode),
+    pickupCityCode: normalizeConfiguredCity(pickupCityCode),
+    returnCityCode: normalizeConfiguredCity(returnCityCode),
     pickupPlaceType: normalized(pickupPlaceType) || 'hotel',
     returnPlaceType: normalized(returnPlaceType) || 'hotel',
     pickupLegacyPricingKey: normalizedPickupKey,
@@ -225,6 +262,10 @@ function buildOfferPricingContext({
     // Stage 2D compatibility aliases: these are the exact values sent to the legacy calculator.
     pickupPricingKey: normalizedPickupLocation,
     returnPricingKey: normalizedReturnLocation,
+    pickupFeeMode: normalized(pickupFeeMode) === 'override' ? 'override' : 'inherit',
+    returnFeeMode: normalized(returnFeeMode) === 'override' ? 'override' : 'inherit',
+    pickupFeePerDirection: pickupFeePerDirection == null ? null : Number(pickupFeePerDirection),
+    returnFeePerDirection: returnFeePerDirection == null ? null : Number(returnFeePerDirection),
     quote,
   });
 }
@@ -247,8 +288,8 @@ export function resolveMappedAvailabilityFromContext(input, rawContext = {}) {
     profiles: Array.isArray(rawContext.profiles) ? rawContext.profiles : [],
     profileCities: Array.isArray(rawContext.profileCities) ? rawContext.profileCities : [],
   };
-  const pickupCode = normalizeCarCity(input.pickupCityCode);
-  const returnCode = normalizeCarCity(input.returnCityCode);
+  const pickupCode = normalizeConfiguredCity(input.pickupCityCode);
+  const returnCode = normalizeConfiguredCity(input.returnCityCode);
   if (!pickupCode || !returnCode) {
     addDiagnostic(diagnostics, 'INVALID_MAPPED_CONFIGURATION', {
       reason: 'UNKNOWN_CITY_CODE',
@@ -354,15 +395,48 @@ export function resolveMappedAvailabilityFromContext(input, rawContext = {}) {
       continue;
     }
 
-    const pickupLegacyKey = normalized(pickupMapping.legacy_pricing_city_key);
-    const returnLegacyKey = normalized(returnMapping.legacy_pricing_city_key);
-    if (!validPricingKey(calculatorKey, pickupLegacyKey) || !validPricingKey(calculatorKey, returnLegacyKey)) {
+    const pickupAvailabilityResult = exactRecord(
+      context.availability,
+      (row) => text(row.offer_id) === offerId && text(row.city_id) === text(pickupCity.id),
+    );
+    const returnAvailabilityResult = exactRecord(
+      context.availability,
+      (row) => text(row.offer_id) === offerId && text(row.city_id) === text(returnCity.id),
+    );
+    const pickupAvailability = pickupAvailabilityResult.record;
+    const returnAvailability = returnAvailabilityResult.record;
+    if (!pickupAvailability || !returnAvailability) {
       addDiagnostic(diagnostics, 'INVALID_MAPPED_CONFIGURATION', {
         offerId,
         profileId,
-        reason: 'LEGACY_PRICING_KEY_MISSING_OR_UNSUPPORTED',
+        reason: 'EXACT_DIRECTIONAL_AVAILABILITY_MISSING',
+      }, 'error');
+      continue;
+    }
+
+    const pickupLegacyKey = normalized(pickupMapping.legacy_pricing_city_key);
+    const returnLegacyKey = normalized(returnMapping.legacy_pricing_city_key);
+    if (pickupLegacyKey !== pickupCode || returnLegacyKey !== returnCode) {
+      addDiagnostic(diagnostics, 'INVALID_MAPPED_CONFIGURATION', {
+        offerId,
+        profileId,
+        reason: 'PRICING_KEY_DOES_NOT_MATCH_EXACT_CITY',
         pickupPricingKey: pickupLegacyKey,
         returnPricingKey: returnLegacyKey,
+      }, 'error');
+      continue;
+    }
+
+    const pickupFee = resolveDirectionalFee(pickupAvailability, calculatorKey, pickupLegacyKey);
+    const returnFee = resolveDirectionalFee(returnAvailability, calculatorKey, returnLegacyKey);
+    if (!pickupFee.valid || !returnFee.valid) {
+      addDiagnostic(diagnostics, 'FEE_REQUIRED_FOR_CITY', {
+        offerId,
+        profileId,
+        pickupCityCode: pickupCode,
+        returnCityCode: returnCode,
+        pickupFeeMode: pickupFee.mode,
+        returnFeeMode: returnFee.mode,
       }, 'error');
       continue;
     }
@@ -379,6 +453,8 @@ export function resolveMappedAvailabilityFromContext(input, rawContext = {}) {
       calculatorKey,
       pickupPricingKey,
       returnPricingKey,
+      pickupFeeOverride: pickupFee.override,
+      returnFeeOverride: returnFee.override,
     };
     const { quote, reason } = calculateOfferQuote(offer, quoteContext, input);
     if (!quote) {
@@ -398,6 +474,10 @@ export function resolveMappedAvailabilityFromContext(input, rawContext = {}) {
       returnLegacyPricingKey: returnLegacyKey,
       pickupLegacyPricingLocation: pickupPricingKey,
       returnLegacyPricingLocation: returnPricingKey,
+      pickupFeeMode: pickupFee.mode,
+      returnFeeMode: returnFee.mode,
+      pickupFeePerDirection: pickupFee.amount,
+      returnFeePerDirection: returnFee.amount,
       quote,
     });
     mappedOffers.push(withPricingContext(offer, availabilityContext, quote));
@@ -591,7 +671,18 @@ export function compareCarRentalAvailability(legacyEntries, mappedOffers, diagno
     const samePricingContext = legacyContext.calculatorKey === mappedContext.calculatorKey
       && legacyContext.pickupPricingKey === mappedContext.pickupPricingKey
       && legacyContext.returnPricingKey === mappedContext.returnPricingKey;
-    if (samePricingContext && Number(legacy?.quote?.total) !== Number(mapped?.quote?.total)) {
+    const hasMappedFeeOverride = mappedContext.pickupFeeMode === 'override'
+      || mappedContext.returnFeeMode === 'override';
+    if (samePricingContext && hasMappedFeeOverride && Number(legacy?.quote?.total) !== Number(mapped?.quote?.total)) {
+      differences.push({
+        code: 'EXPECTED_FEE_OVERRIDE',
+        offerId,
+        legacyTotal: Number(legacy?.quote?.total),
+        mappedTotal: Number(mapped?.quote?.total),
+        pickupFeePerDirection: mappedContext.pickupFeePerDirection,
+        returnFeePerDirection: mappedContext.returnFeePerDirection,
+      });
+    } else if (samePricingContext && Number(legacy?.quote?.total) !== Number(mapped?.quote?.total)) {
       const mismatch = {
         code: 'PRICE_MISMATCH',
         offerId,
@@ -648,8 +739,8 @@ function baseResult(legacyOffers, diagnostics = [], metrics = {}) {
 
 export async function resolveCarRentalAvailability(options = {}) {
   const input = {
-    pickupCityCode: normalizeCarCity(options.pickupCityCode),
-    returnCityCode: normalizeCarCity(options.returnCityCode),
+    pickupCityCode: normalizeConfiguredCity(options.pickupCityCode),
+    returnCityCode: normalizeConfiguredCity(options.returnCityCode),
     pickupPlaceType: options.pickupPlaceType || 'hotel',
     returnPlaceType: options.returnPlaceType || 'hotel',
     pickupDate: text(options.pickupDate),
@@ -759,8 +850,8 @@ export async function resolveCarRentalAvailability(options = {}) {
 
 export function buildCarRentalAvailabilityInputFingerprint(input = {}) {
   return JSON.stringify({
-    pickupCityCode: normalizeCarCity(input.pickupCityCode),
-    returnCityCode: normalizeCarCity(input.returnCityCode),
+    pickupCityCode: normalizeConfiguredCity(input.pickupCityCode),
+    returnCityCode: normalizeConfiguredCity(input.returnCityCode),
     pickupPlaceType: normalized(input.pickupPlaceType) || 'hotel',
     returnPlaceType: normalized(input.returnPlaceType) || 'hotel',
     pickupDate: text(input.pickupDate),

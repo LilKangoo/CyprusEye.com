@@ -27,6 +27,8 @@
       catalogOpen: false,
       catalog: null,
       catalogTab: 'cities',
+      catalogSearch: '',
+      cityEditor: null,
       uploadProgress: 0,
     };
     let pendingImageFile = null;
@@ -139,6 +141,8 @@
       if (modal) modal.hidden = true;
       state.catalogOpen = false;
       state.catalog = null;
+      state.catalogSearch = '';
+      state.cityEditor = null;
       focusElement(state.returnFocus);
       state.returnFocus = null;
       return true;
@@ -192,7 +196,7 @@
       const labels = {
         vehicle: 'Edit vehicle',
         availability: 'Pickup and return availability',
-        pricing: 'Pricing profile',
+        pricing: 'Pricing and profile',
         partner: 'Partner assignment',
         create: 'Add new vehicle',
       };
@@ -335,7 +339,7 @@
       const offer = state.context?.offer || {};
       return `
         <section class="car-multicity-section" aria-labelledby="carMulticityPricingHeading">
-          <h4 id="carMulticityPricingHeading">Pricing profile</h4>
+          <h4 id="carMulticityPricingHeading">Pricing and profile</h4>
           <label class="admin-form-field"><span>Pricing profile</span>
             <select id="carMulticityPricingProfile" data-profile-selector="true">
               <option value="">Select exact profile</option>
@@ -347,18 +351,40 @@
             <div><dt>Current compatibility key</dt><dd>${escapeHtml(offer.location || 'new')}</dd></div>
             <div><dt>Resulting compatibility key</dt><dd>${escapeHtml(state.draft.pricing.location || '—')}</dd></div>
           </dl>
-          ${isCreate ? renderCreatePricingValues(selected) : renderExistingPriceValues(offer)}
+          ${isCreate ? renderCreatePricingValues(selected) : renderExistingPriceValues(offer, selected)}
           ${renderDepositSummary()}
         </section>
       `;
     }
 
-    function renderExistingPriceValues(offer) {
+    function renderExistingPriceValues(offer, profile) {
+      const activeColumns = new Set(core.PROFILE_PRICE_COLUMNS[core.normalizeCode(profile?.code)] || []);
+      const draftFields = {
+        price_per_day: 'pricePerDay',
+        price_3days: 'price3Days',
+        price_4_6days: 'price4To6Days',
+        price_7_10days: 'price7To10Days',
+        price_10plus_days: 'price10PlusDays',
+      };
       return `
-        <div class="car-multicity-readonly-prices" aria-label="Existing price values, read only">
-          ${core.PRICE_COLUMNS.map((column) => `<div><span>${escapeHtml(column)}</span><strong>${escapeHtml(money(offer?.[column]))}</strong></div>`).join('')}
+        <div class="car-multicity-pricing-toolbar">
+          <label class="admin-form-field"><span>Currency</span><input data-draft-field="pricing.currency" value="${escapeHtml(state.draft.pricing.currency)}" maxlength="3" aria-describedby="carMulticityCurrencyHelp"></label>
+          <p id="carMulticityCurrencyHelp">Cars pricing remains EUR. Only fields used by the selected profile are editable.</p>
         </div>
-        <p class="car-multicity-note">Existing price column changes: 0. Price editing remains available in Legacy editor.</p>
+        <div class="car-multicity-price-card-grid" aria-label="Current and new pricing values">
+          ${core.PRICE_COLUMNS.map((column) => {
+            const field = draftFields[column];
+            const editable = activeColumns.has(column);
+            return `<article class="car-multicity-price-card ${editable ? 'is-active' : 'is-preserved'}">
+              <div><span>${escapeHtml(column)}</span><small>${editable ? 'Used by active profile' : 'Preserved, not edited'}</small></div>
+              <p>Current <strong>${escapeHtml(money(offer?.[column]))}</strong></p>
+              ${editable
+                ? `<label class="admin-form-field"><span>New value</span><input type="number" min="0.01" step="0.01" data-number="money" data-draft-field="pricing.${escapeHtml(field)}" id="carMulticity${escapeHtml(field.charAt(0).toUpperCase() + field.slice(1))}" value="${escapeHtml(state.draft.pricing[field] ?? '')}"></label>`
+                : `<div class="car-multicity-preserved-value">Will remain ${escapeHtml(money(offer?.[column]))}</div>`}
+            </article>`;
+          }).join('')}
+        </div>
+        <p class="car-multicity-note">No inactive pricing column is copied, reset, or defaulted.</p>
       `;
     }
 
@@ -401,19 +427,30 @@
       const pairedSupported = mapping?.pickup_supported === true && mapping?.return_supported === true;
       const disabled = !supported || !pairedSupported || paphosBlocked;
       const paired = core.pairedAvailabilityState(row);
-      const fee = key ? core.LEGACY_CITY_FEE_PREVIEW[key] : undefined;
+      const fee = core.getAvailabilityFeeState(row, profile, mapping);
+      const standardLabel = fee.inherited
+        ? fee.standardAmount === null
+          ? 'Existing Paphos place-type rule'
+          : `${money(fee.standardAmount)} per direction`
+        : 'Not available — custom fee required';
+      const resultLabel = fee.valid
+        ? fee.mode === 'override'
+          ? `${money(fee.amount)} pickup · ${money(fee.amount)} return`
+          : fee.standardAmount === null
+            ? 'Calculated by existing Paphos place-type rule'
+            : `${money(fee.standardAmount)} pickup · ${money(fee.standardAmount)} return`
+        : 'Fee required for this city';
       return `
-        <tr data-city-id="${escapeHtml(city.id)}">
-          <td><strong>${escapeHtml(labelI18n(city.name_i18n) || city.code)}</strong><br><code>${escapeHtml(city.code)}</code></td>
-          <td>${city.is_active ? 'Active' : 'Inactive'}</td>
-          <td>
-            <label class="car-multicity-city-toggle"><input type="checkbox" data-availability-field="paired" ${paired.checked ? 'checked' : ''} ${paired.mismatched ? 'data-mixed="true" aria-checked="mixed"' : ''} ${disabled ? 'disabled' : ''}> Available for pickup and return</label>
-            ${paired.mismatched ? '<span class="car-multicity-row-warning" role="alert">Pickup and return settings differ. Review required.</span>' : ''}
-          </td>
-          <td><code>${escapeHtml(key || 'No pricing key')}</code></td>
-          <td>${fee === undefined ? '—' : escapeHtml(money(fee))}</td>
-          <td>${supported && pairedSupported && !paphosBlocked ? 'Pickup + return supported' : mapping && mapping.pickup_supported !== mapping.return_supported ? 'Profile support differs — review required' : 'Unavailable'}</td>
-        </tr>
+        <article class="car-multicity-availability-card ${paired.checked ? 'is-selected' : ''}" data-city-id="${escapeHtml(city.id)}">
+          <header><div><strong>${escapeHtml(labelI18n(city.name_i18n) || city.code)}</strong><code>${escapeHtml(city.code)}</code></div><span class="car-multicity-status-badge ${city.is_active ? 'is-active' : 'is-inactive'}">${city.is_active ? 'Active' : 'Inactive'}</span></header>
+          <label class="car-multicity-city-toggle"><input type="checkbox" data-availability-field="paired" ${paired.checked ? 'checked' : ''} ${paired.mismatched ? 'data-mixed="true" aria-checked="mixed"' : ''} ${disabled ? 'disabled' : ''}> Available for pickup and return</label>
+          ${paired.mismatched ? '<span class="car-multicity-row-warning" role="alert">Pickup and return settings differ. Review required.</span>' : ''}
+          <div class="car-multicity-fee-controls">
+            <label class="admin-form-field"><span>Fee mode</span><select data-availability-field="fee_mode" ${disabled ? 'disabled' : ''}><option value="inherit" ${fee.mode === 'inherit' ? 'selected' : ''}>Use standard fee</option><option value="override" ${fee.mode === 'override' ? 'selected' : ''}>Custom fee</option></select></label>
+            <label class="admin-form-field"><span>Custom fee per direction</span><input type="number" min="0" step="0.01" data-availability-field="fee_per_direction" value="${escapeHtml(fee.mode === 'override' && row.fee_per_direction != null ? row.fee_per_direction : '')}" ${fee.mode !== 'override' || disabled ? 'disabled' : ''}></label>
+          </div>
+          <dl><div><dt>Standard fee</dt><dd>${escapeHtml(standardLabel)}</dd></div><div><dt>Result</dt><dd class="${fee.valid ? '' : 'is-required'}">${escapeHtml(resultLabel)}</dd></div><div><dt>Profile support</dt><dd>${supported && pairedSupported && !paphosBlocked ? 'Supported' : mapping && mapping.pickup_supported !== mapping.return_supported ? 'Support differs — review required' : 'Unavailable'}</dd></div></dl>
+        </article>
       `;
     }
 
@@ -427,12 +464,7 @@
             <div><span>Mapped configuration</span><strong>${readiness.ready ? 'Ready' : state.draft.availability.length ? 'Incomplete' : 'Not configured'}</strong></div>
           </div>
           <p class="car-multicity-note">The global mapped flag remains OFF. Saving this screen does not activate mapped availability.</p>
-          <div class="admin-table-container">
-            <table class="admin-table car-multicity-availability-table">
-              <thead><tr><th>City</th><th>City status</th><th>Available cities</th><th>Legacy pricing key</th><th>Existing fee / side</th><th>Profile support</th></tr></thead>
-              <tbody>${(state.context?.cities || []).map(availabilityRow).join('')}</tbody>
-            </table>
-          </div>
+          <div class="car-multicity-availability-grid">${(state.context?.cities || []).map(availabilityRow).join('')}</div>
           <div class="${readiness.ready ? 'car-multicity-ready' : 'car-multicity-warning'}">
             <strong>${readiness.ready ? 'Ready for future mapped activation' : 'Not ready for mapped activation'}</strong>
             ${readiness.reasons.length ? `<ul>${readiness.reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join('')}</ul>` : ''}
@@ -504,7 +536,13 @@
             const label = labelI18n(city?.name_i18n) || city?.code || entry.exactCityId;
             const before = entry.beforeMismatch ? 'Pickup/return differ' : entry.beforeAvailable ? 'Available' : 'Not available';
             const after = entry.afterMismatch ? 'Pickup/return differ' : entry.afterAvailable ? 'Available' : 'Not available';
-            return `<li><strong>${escapeHtml(label)}</strong><code>${escapeHtml(entry.exactCityId)}</code><span>${escapeHtml(before)} → ${escapeHtml(after)}</span><small>${escapeHtml(entry.action)}</small></li>`;
+            const beforeFee = entry.beforeFeeMode === 'override'
+              ? `Custom ${money(entry.beforeFeePerDirection)} per direction`
+              : 'Use standard fee';
+            const afterFee = entry.afterFeeMode === 'override'
+              ? `Custom ${money(entry.afterFeePerDirection)} per direction`
+              : entry.afterFeeMode === null ? 'Removed' : 'Use standard fee';
+            return `<li><strong>${escapeHtml(label)}</strong><code>${escapeHtml(entry.exactCityId)}</code><span>${escapeHtml(before)} → ${escapeHtml(after)}</span><span>${escapeHtml(beforeFee)} → ${escapeHtml(afterFee)}</span><small>${escapeHtml(entry.action)}</small></li>`;
           }).join('')}</ul>` : '<p>UNCHANGED</p>'}
         </section>
       `;
@@ -602,6 +640,7 @@
         if (field === 'pricingProfileId') return '#carMulticityPricingProfile';
         if (field === 'vehicleKindId') return '#carMulticityVehicleKind';
         if (field === 'ownerPartnerId') return '#carMulticityOwnerPartner';
+        if (String(field).startsWith('fee-')) return `[data-city-id="${String(field).replace('fee-', '')}"] [data-availability-field="fee_per_direction"]`;
         if (String(field).startsWith('availability-')) return `[data-city-id="${String(field).replace('availability-', '')}"] [data-availability-field="paired"]`;
         return `[data-draft-field$=".${String(field)}"], [data-draft-field="${String(field)}"]`;
       };
@@ -645,11 +684,15 @@
       const close = byId('carMulticityCloseFooter');
       if (back) back.hidden = state.outcome || (state.screen === 'edit' && !(state.mode === 'create' && state.draft.step > 0));
       if (next) next.hidden = state.outcome || state.screen !== 'edit' || state.mode !== 'create' || state.draft.step >= 4;
-      if (review) review.hidden = state.outcome || state.screen !== 'edit' || (state.mode === 'create' && state.draft.step < 4);
+      if (review) {
+        review.hidden = state.outcome || state.screen !== 'edit' || (state.mode === 'create' && state.draft.step < 4);
+        review.textContent = state.mode === 'pricing' ? 'Review price changes' : 'Review changes';
+      }
       if (save) {
         save.hidden = state.outcome || state.screen !== 'review';
         save.disabled = !core.isReviewCurrent(state.draft, state.plan) || !state.plan?.steps?.length;
         save.setAttribute('aria-disabled', save.disabled ? 'true' : 'false');
+        save.textContent = state.mode === 'pricing' ? 'Save pricing values' : 'Save changes';
       }
       if (close) close.hidden = !state.outcome;
       if (state.screen === 'review') focusElement(byId('carMulticityReviewHeading'));
@@ -757,6 +800,17 @@
         return;
       }
       const path = target?.dataset?.draftField;
+      const availabilityField = target?.dataset?.availabilityField;
+      const cityRow = target?.closest?.('[data-city-id]');
+      if (availabilityField === 'fee_per_direction' && cityRow) {
+        const cityId = cityRow.dataset.cityId;
+        const row = state.draft.availability.find((entry) => core.normalizeId(entry.city_id) === core.normalizeId(cityId));
+        if (!row) return;
+        row.fee_per_direction = target.value === '' ? null : Number(target.value);
+        core.invalidateReview(state.draft);
+        state.plan = null;
+        return;
+      }
       if (!path) return;
       let value = target.value;
       if (target.dataset.boolean === 'true') value = target.checked;
@@ -792,8 +846,23 @@
       const cityRow = target?.closest?.('[data-city-id]');
       if (availabilityField && cityRow) {
         const cityId = cityRow.dataset.cityId;
-        if (availabilityField !== 'paired') return;
-        core.setPairedAvailability(state.draft, cityId, target.checked);
+        if (availabilityField === 'paired') {
+          core.setPairedAvailability(state.draft, cityId, target.checked);
+        } else if (availabilityField === 'fee_mode') {
+          const current = state.draft.availability.find((entry) => core.normalizeId(entry.city_id) === core.normalizeId(cityId));
+          core.setAvailabilityFee(
+            state.draft,
+            cityId,
+            target.value,
+            target.value === 'override' ? current?.fee_per_direction : null,
+            current?.fee_note,
+          );
+        } else if (availabilityField === 'fee_per_direction') {
+          const current = state.draft.availability.find((entry) => core.normalizeId(entry.city_id) === core.normalizeId(cityId));
+          core.setAvailabilityFee(state.draft, cityId, 'override', target.value, current?.fee_note);
+        } else {
+          return;
+        }
         state.plan = null;
         render();
         return;
@@ -1016,24 +1085,66 @@
 
     function renderCatalogCities() {
       const catalog = state.catalog;
+      const search = core.normalizeText(state.catalogSearch).toLowerCase();
+      const cities = (catalog.cities || []).filter((city) => {
+        if (!search) return true;
+        const names = ['pl', 'en', 'he'].map((language) => core.normalizeText(city.name_i18n?.[language])).join(' ');
+        return `${city.code} ${names}`.toLowerCase().includes(search);
+      });
       return `
-        <section class="car-multicity-section">
-          <h4>Car rental cities</h4>
-          <p>New cities are created inactive and are not mapped or assigned automatically.</p>
-          <form id="carMulticityNewCityForm" class="car-multicity-city-form">
-            <input name="code" placeholder="city-code" required>
-            <input name="nameEn" placeholder="English name" required>
-            <input name="namePl" placeholder="Polish name" required>
-            <input name="nameHe" placeholder="Hebrew name" required>
-            <select name="placeType"><option value="city">City</option><option value="airport">Airport</option><option value="hotel">Hotel</option><option value="port">Port</option><option value="station">Station</option><option value="address">Address</option></select>
-            <input name="sortOrder" type="number" min="0" value="1000">
-            <button class="btn-primary" type="submit">Review new inactive city</button>
-          </form>
-          <div class="admin-table-container"><table class="admin-table"><thead><tr><th>Exact ID</th><th>Code</th><th>Name PL</th><th>Name EN</th><th>Name HE</th><th>Place types</th><th>Order</th><th>Status</th><th>Action</th></tr></thead><tbody>
-            ${(catalog.cities || []).map((city) => `<tr data-catalog-city-id="${escapeHtml(city.id)}"><td><code>${escapeHtml(city.id)}</code></td><td><input data-city-field="code" value="${escapeHtml(city.code)}"></td><td><input data-city-field="name_pl" value="${escapeHtml(city.name_i18n?.pl || '')}"></td><td><input data-city-field="name_en" value="${escapeHtml(city.name_i18n?.en || '')}"></td><td><input data-city-field="name_he" value="${escapeHtml(city.name_i18n?.he || '')}" dir="rtl"></td><td><input data-city-field="place_types" value="${escapeHtml((city.place_types || ['city']).join(','))}"></td><td><input type="number" min="0" data-city-field="sort_order" value="${escapeHtml(city.sort_order)}"></td><td><label><input type="checkbox" data-city-field="is_active" ${city.is_active ? 'checked' : ''}> Active</label></td><td><button type="button" class="btn-secondary" data-catalog-action="save-city" data-city-id="${escapeHtml(city.id)}">Review</button></td></tr>`).join('')}
-          </tbody></table></div>
+        <section class="car-multicity-section car-multicity-city-catalog">
+          <div class="car-multicity-catalog-toolbar">
+            <div><h4>Car rental cities</h4><p>New cities are inactive and never mapped or assigned automatically.</p></div>
+            <div class="car-multicity-catalog-actions"><label class="admin-form-field"><span>Search cities</span><input id="carMulticityCitySearch" type="search" value="${escapeHtml(state.catalogSearch)}" placeholder="Code or translated name"></label><button type="button" class="btn-primary" data-catalog-action="add-city">Add city</button></div>
+          </div>
+          <div class="car-multicity-city-card-grid">
+            ${cities.map((city) => {
+              const mappings = (catalog.profileCities || []).filter((mapping) => core.normalizeId(mapping.city_id) === core.normalizeId(city.id));
+              return `<article class="car-multicity-city-card" data-catalog-city-id="${escapeHtml(city.id)}">
+                <header><div><strong>${escapeHtml(labelI18n(city.name_i18n) || city.code)}</strong><code>${escapeHtml(city.code)}</code></div><span class="car-multicity-status-badge ${city.is_active ? 'is-active' : 'is-inactive'}">${city.is_active ? 'Active' : 'Inactive'}</span></header>
+                <dl><div><dt>PL</dt><dd>${escapeHtml(city.name_i18n?.pl || '—')}</dd></div><div><dt>EN</dt><dd>${escapeHtml(city.name_i18n?.en || '—')}</dd></div><div><dt>HE</dt><dd dir="rtl">${escapeHtml(city.name_i18n?.he || '—')}</dd></div><div><dt>Place types</dt><dd>${escapeHtml((city.place_types || ['city']).join(', '))}</dd></div><div><dt>Profile support rows</dt><dd>${escapeHtml(mappings.length)}</dd></div><div><dt>Sort order</dt><dd>${escapeHtml(city.sort_order)}</dd></div></dl>
+                <footer><code>${escapeHtml(city.id)}</code><button type="button" class="btn-secondary" data-catalog-action="edit-city" data-city-id="${escapeHtml(city.id)}">Edit city</button></footer>
+              </article>`;
+            }).join('') || '<p class="car-multicity-empty">No cities match this search.</p>'}
+          </div>
+          ${renderCityEditor()}
         </section>
       `;
+    }
+
+    function renderCityEditor() {
+      const editor = state.cityEditor;
+      if (!editor) return '';
+      const draft = editor.draft;
+      const step = editor.step;
+      const title = editor.mode === 'create' ? 'Add city' : `Edit ${labelI18n(draft.name_i18n) || draft.code}`;
+      const mappingRows = (state.catalog?.profileCities || []).filter((row) => core.normalizeId(row.city_id) === core.normalizeId(draft.id));
+      const steps = ['Basic details', 'Place type', 'Pricing profile support', 'Default information', 'Review'];
+      let body = '';
+      if (step === 0) {
+        body = `<div class="car-multicity-form-grid">
+          <label class="admin-form-field"><span>City code</span><input data-city-editor-field="code" value="${escapeHtml(draft.code)}" placeholder="city-code" ${editor.mode === 'edit' && mappingRows.length ? 'readonly aria-describedby="carMulticityCityCodeLock"' : ''}></label>
+          <label class="admin-form-field"><span>Sort order</span><input type="number" min="0" data-city-editor-field="sort_order" value="${escapeHtml(draft.sort_order)}"></label>
+          <label class="admin-form-field"><span>Name (PL)</span><input data-city-editor-field="name_pl" value="${escapeHtml(draft.name_i18n?.pl || '')}"></label>
+          <label class="admin-form-field"><span>Name (EN)</span><input data-city-editor-field="name_en" value="${escapeHtml(draft.name_i18n?.en || '')}"></label>
+          <label class="admin-form-field"><span>Name (HE)</span><input dir="rtl" data-city-editor-field="name_he" value="${escapeHtml(draft.name_i18n?.he || '')}"></label>
+          ${editor.mode === 'edit' && mappingRows.length ? '<p id="carMulticityCityCodeLock" class="car-multicity-note">The code is locked while exact profile mappings exist.</p>' : ''}
+        </div>`;
+      } else if (step === 1) {
+        body = `<fieldset class="car-multicity-place-types"><legend>Supported place types</legend>${core.PLACE_TYPES.map((placeType) => `<label class="car-multicity-check"><input type="checkbox" data-city-editor-place-type="${escapeHtml(placeType)}" ${(draft.place_types || []).includes(placeType) ? 'checked' : ''}> ${escapeHtml(placeType)}</label>`).join('')}</fieldset>`;
+      } else if (step === 2) {
+        body = `<div class="car-multicity-information-card"><strong>Pricing profile support is a separate decision.</strong><p>Creating or editing this city does not add a profile mapping, does not assign it to a vehicle, and does not create a fee.</p>${mappingRows.length ? `<ul>${mappingRows.map((mapping) => `<li>Profile <code>${escapeHtml(mapping.pricing_profile_id)}</code> — key <code>${escapeHtml(mapping.legacy_pricing_city_key)}</code> — ${mapping.is_active ? 'active' : 'inactive'}</li>`).join('')}</ul>` : '<p>No profile-city mappings exist.</p>'}<p>Use the Pricing profile city support tab after saving this city.</p></div>`;
+      } else if (step === 3) {
+        body = `<div class="car-multicity-information-card"><strong>Safe defaults</strong><ul><li>New city status: Inactive</li><li>Offer assignments: 0</li><li>Automatic standard fee: none</li><li>Public mapped activation: no</li></ul>${editor.mode === 'edit' ? `<label class="car-multicity-city-toggle"><input type="checkbox" data-city-editor-field="is_active" ${draft.is_active ? 'checked' : ''}> City active</label>` : '<p>The first save always creates this city as inactive.</p>'}</div>`;
+      } else {
+        body = `<dl class="car-multicity-summary-grid"><div><dt>Exact ID</dt><dd><code>${escapeHtml(draft.id || 'created by database')}</code></dd></div><div><dt>Code</dt><dd>${escapeHtml(draft.code)}</dd></div><div><dt>Names</dt><dd>PL ${escapeHtml(draft.name_i18n?.pl)} · EN ${escapeHtml(draft.name_i18n?.en)} · HE ${escapeHtml(draft.name_i18n?.he)}</dd></div><div><dt>Place types</dt><dd>${escapeHtml((draft.place_types || []).join(', '))}</dd></div><div><dt>Status</dt><dd>${draft.is_active ? 'Active' : 'Inactive'}</dd></div><div><dt>Profile mappings created</dt><dd>0</dd></div><div><dt>Offer assignments created</dt><dd>0</dd></div><div><dt>Public activation</dt><dd>No</dd></div></dl>`;
+      }
+      return `<aside class="car-multicity-city-editor" role="dialog" aria-modal="false" aria-labelledby="carMulticityCityEditorTitle">
+        <header><div><span class="car-multicity-kicker">City configuration</span><h4 id="carMulticityCityEditorTitle" tabindex="-1">${escapeHtml(title)}</h4></div><button type="button" class="btn-modal-close" data-catalog-action="close-city-editor" aria-label="Close city editor">×</button></header>
+        <nav class="car-multicity-wizard-steps" aria-label="City steps">${steps.map((label, index) => `<span class="${index === step ? 'is-current' : index < step ? 'is-complete' : ''}">${index + 1}. ${escapeHtml(label)}</span>`).join('')}</nav>
+        <div class="car-multicity-city-editor__body">${body}</div>
+        <footer><button type="button" class="btn-secondary" data-catalog-action="close-city-editor">Cancel</button><span></span>${step > 0 ? '<button type="button" class="btn-secondary" data-catalog-action="city-editor-back">Back</button>' : ''}${step < 4 ? '<button type="button" class="btn-primary" data-catalog-action="city-editor-next">Next</button>' : '<button type="button" class="btn-primary" data-catalog-action="save-city-editor">Save city</button>'}</footer>
+      </aside>`;
     }
 
     function renderCatalogMappings() {
@@ -1042,13 +1153,13 @@
       return `
         <section class="car-multicity-section">
           <h4>Pricing profile city support</h4>
-          <p>Only existing legacy pricing keys are allowed. Paphos is hard-limited to Paphos.</p>
+          <p>The exact normalized city code is the pricing key. Existing six-city keys inherit legacy fees; a new Larnaca-profile city requires an offer-level custom fee. Paphos remains hard-limited to Paphos.</p>
           <div class="admin-table-container"><table class="admin-table"><thead><tr><th>Profile</th><th>City</th><th>Pickup and return support</th><th>Legacy pricing key</th><th>Active</th><th>Impact / action</th></tr></thead><tbody>
             ${(catalog.profiles || []).flatMap((profile) => (catalog.cities || []).map((city) => {
               const mapping = mappingMap.get(`${profile.id}:${city.id}`) || null;
               const paphosBlocked = core.normalizeCode(profile.code) === 'paphos' && core.normalizeCode(city.code) !== 'paphos';
               const mixed = Boolean(mapping && mapping.pickup_supported !== mapping.return_supported);
-              return `<tr data-mapping-profile-id="${escapeHtml(profile.id)}" data-mapping-city-id="${escapeHtml(city.id)}" data-mapping-updated-at="${escapeHtml(mapping?.updated_at || '')}"><td>${escapeHtml(profile.code)}<br><code>${escapeHtml(profile.id)}</code></td><td>${escapeHtml(city.code)}<br><code>${escapeHtml(city.id)}</code></td><td><label class="car-multicity-city-toggle"><input type="checkbox" data-mapping-field="paired_supported" ${mapping?.pickup_supported && mapping?.return_supported ? 'checked' : ''} ${mixed ? 'data-mixed="true" aria-checked="mixed"' : ''} ${paphosBlocked ? 'disabled' : ''}> Pickup and return supported</label>${mixed ? '<span class="car-multicity-row-warning" role="alert">Pickup and return settings differ. Review required.</span>' : ''}</td><td><select data-mapping-field="legacy_pricing_city_key" ${paphosBlocked ? 'disabled' : ''}><option value="">None</option>${core.LEGACY_PRICING_KEYS.map((key) => `<option value="${key}" ${core.normalizeCode(mapping?.legacy_pricing_city_key) === key ? 'selected' : ''} ${key !== core.normalizeCode(city.code) ? 'disabled' : ''}>${key}</option>`).join('')}</select></td><td><input type="checkbox" data-mapping-field="is_active" ${mapping?.is_active ? 'checked' : ''} ${paphosBlocked ? 'disabled' : ''}></td><td>${paphosBlocked ? 'Blocked by Paphos contract' : `<button type="button" class="btn-secondary" data-catalog-action="save-mapping">Review impact</button>`}</td></tr>`;
+              return `<tr data-mapping-profile-id="${escapeHtml(profile.id)}" data-mapping-city-id="${escapeHtml(city.id)}" data-mapping-updated-at="${escapeHtml(mapping?.updated_at || '')}"><td>${escapeHtml(profile.code)}<br><code>${escapeHtml(profile.id)}</code></td><td>${escapeHtml(city.code)}<br><code>${escapeHtml(city.id)}</code></td><td><label class="car-multicity-city-toggle"><input type="checkbox" data-mapping-field="paired_supported" ${mapping?.pickup_supported && mapping?.return_supported ? 'checked' : ''} ${mixed ? 'data-mixed="true" aria-checked="mixed"' : ''} ${paphosBlocked ? 'disabled' : ''}> Pickup and return supported</label>${mixed ? '<span class="car-multicity-row-warning" role="alert">Pickup and return settings differ. Review required.</span>' : ''}</td><td><input data-mapping-field="legacy_pricing_city_key" value="${escapeHtml(mapping?.legacy_pricing_city_key || city.code)}" readonly ${paphosBlocked ? 'disabled' : ''}></td><td><input type="checkbox" data-mapping-field="is_active" ${mapping?.is_active ? 'checked' : ''} ${paphosBlocked || !city.is_active ? 'disabled' : ''}></td><td>${paphosBlocked ? 'Blocked by Paphos contract' : `<button type="button" class="btn-secondary" data-catalog-action="save-mapping">Review impact</button>`}</td></tr>`;
             })).join('')}
           </tbody></table></div>
         </section>
@@ -1084,52 +1195,133 @@
       }
     }
 
-    function cityDraftFromRow(row, city) {
-      return core.createCityDraft({
-        ...city,
-        code: row.querySelector('[data-city-field="code"]')?.value,
-        name_i18n: {
-          pl: row.querySelector('[data-city-field="name_pl"]')?.value,
-          en: row.querySelector('[data-city-field="name_en"]')?.value,
-          he: row.querySelector('[data-city-field="name_he"]')?.value,
-        },
-        place_types: String(row.querySelector('[data-city-field="place_types"]')?.value || '').split(',').map((value) => core.normalizeCode(value)).filter(Boolean),
-        sort_order: Number(row.querySelector('[data-city-field="sort_order"]')?.value),
-        is_active: row.querySelector('[data-city-field="is_active"]')?.checked === true,
-        updated_at: city.updated_at,
-      });
+    function openCityEditor(city = null) {
+      state.cityEditor = {
+        mode: city ? 'edit' : 'create',
+        step: 0,
+        draft: core.createCityDraft(city || {
+          code: '',
+          name_i18n: { pl: '', en: '', he: '' },
+          place_types: ['city'],
+          sort_order: 1000,
+        }),
+      };
+      renderCatalog();
+      focusElement(byId('carMulticityCityEditorTitle'));
+    }
+
+    function closeCityEditor() {
+      state.cityEditor = null;
+      renderCatalog();
+      focusElement(byId('carMulticityCitySearch'));
+    }
+
+    function cityCanBeActivated(draft) {
+      return (state.catalog?.profileCities || []).some((mapping) => (
+        core.normalizeId(mapping.city_id) === core.normalizeId(draft.id)
+        && core.normalizeCode(mapping.legacy_pricing_city_key) === core.normalizeCode(draft.code)
+        && state.catalog.profiles.some((profile) => core.normalizeId(profile.id) === core.normalizeId(mapping.pricing_profile_id) && profile.is_active === true)
+      ));
+    }
+
+    function handleCatalogInput(event) {
+      if (event.target?.id === 'carMulticityCitySearch') {
+        state.catalogSearch = event.target.value;
+        renderCatalog();
+        focusElement(byId('carMulticityCitySearch'));
+        const search = byId('carMulticityCitySearch');
+        search?.setSelectionRange?.(search.value.length, search.value.length);
+        return;
+      }
+      const editor = state.cityEditor;
+      if (!editor) return;
+      const field = event.target?.dataset?.cityEditorField;
+      if (field) {
+        if (field === 'is_active') editor.draft.is_active = event.target.checked === true;
+        else if (field === 'sort_order') editor.draft.sort_order = event.target.value === '' ? null : Number(event.target.value);
+        else if (field === 'name_pl') editor.draft.name_i18n.pl = event.target.value;
+        else if (field === 'name_en') editor.draft.name_i18n.en = event.target.value;
+        else if (field === 'name_he') editor.draft.name_i18n.he = event.target.value;
+        else editor.draft[field] = event.target.value;
+        return;
+      }
+      const placeType = event.target?.dataset?.cityEditorPlaceType;
+      if (placeType) {
+        const selected = new Set(editor.draft.place_types || []);
+        if (event.target.checked) selected.add(placeType);
+        else selected.delete(placeType);
+        editor.draft.place_types = Array.from(selected);
+      }
     }
 
     async function handleCatalogClick(event) {
       const button = event.target?.closest?.('[data-catalog-action]');
       if (!button || state.executing) return;
-      if (button.dataset.catalogAction === 'save-city') {
+      const action = button.dataset.catalogAction;
+      if (action === 'add-city') {
+        openCityEditor();
+        return;
+      }
+      if (action === 'edit-city') {
         const city = state.catalog.cities.find((row) => core.normalizeId(row.id) === core.normalizeId(button.dataset.cityId));
-        const row = button.closest('[data-catalog-city-id]');
-        const draft = cityDraftFromRow(row, city);
+        if (city) openCityEditor(city);
+        return;
+      }
+      if (action === 'close-city-editor') {
+        closeCityEditor();
+        return;
+      }
+      if (action === 'city-editor-back') {
+        if (state.cityEditor?.step > 0) state.cityEditor.step -= 1;
+        renderCatalog();
+        focusElement(byId('carMulticityCityEditorTitle'));
+        return;
+      }
+      if (action === 'city-editor-next') {
+        if (!state.cityEditor) return;
+        if (state.cityEditor.step === 0) {
+          const basic = core.validateCityDraft({ ...state.cityEditor.draft, place_types: state.cityEditor.draft.place_types?.length ? state.cityEditor.draft.place_types : ['city'] }, state.catalog.cities);
+          const basicErrors = basic.errors.filter((entry) => ['cityCode', 'cityName'].includes(entry.field));
+          if (basicErrors.length) {
+            byId('carMulticityCatalogStatus').textContent = basicErrors.map((entry) => entry.message).join(' ');
+            return;
+          }
+        }
+        if (state.cityEditor.step === 1 && !(state.cityEditor.draft.place_types || []).length) {
+          byId('carMulticityCatalogStatus').textContent = 'Select at least one place type.';
+          return;
+        }
+        state.cityEditor.step = Math.min(4, state.cityEditor.step + 1);
+        renderCatalog();
+        focusElement(byId('carMulticityCityEditorTitle'));
+        return;
+      }
+      if (action === 'save-city-editor') {
+        if (!state.cityEditor) return;
+        const draft = state.cityEditor.draft;
         const validation = core.validateCityDraft(draft, state.catalog.cities);
         if (!validation.valid) {
           byId('carMulticityCatalogStatus').textContent = validation.errors.map((entry) => entry.message).join(' ');
           return;
         }
-        if (draft.is_active && !(state.catalog.profileCities || []).some((mapping) => (
-          core.normalizeId(mapping.city_id) === core.normalizeId(draft.id)
-          && core.normalizeCode(mapping.legacy_pricing_city_key) === core.normalizeCode(draft.code)
-          && state.catalog.profiles.some((profile) => core.normalizeId(profile.id) === core.normalizeId(mapping.pricing_profile_id) && profile.is_active === true)
-        ))) {
-          byId('carMulticityCatalogStatus').textContent = 'A city cannot be activated until it has a fresh exact legacy pricing key mapping.';
+        if (draft.is_active && !cityCanBeActivated(draft)) {
+          byId('carMulticityCatalogStatus').textContent = 'A city cannot be activated until it has an exact profile-city mapping.';
           return;
         }
         openConfirmation({
-          title: 'Review city change',
-          body: `<p>Update exact city <code>${escapeHtml(draft.id)}</code>?</p><p>This does not map or assign the city to any offer.</p>`,
+          title: state.cityEditor.mode === 'create' ? 'Review new inactive city' : 'Review city change',
+          body: `<p>${state.cityEditor.mode === 'create' ? 'Create a new inactive city' : `Update exact city <code>${escapeHtml(draft.id)}</code>`}?</p><ul><li>Profile mappings created: 0</li><li>Offer assignments created: 0</li><li>Public activation: no</li></ul>`,
           action: async () => {
             closeConfirmation();
             try {
-              await repository.updateCity(draft);
+              if (state.cityEditor.mode === 'create') await repository.createCity(draft);
+              else await repository.updateCity(draft);
               state.catalog = await repository.getCatalog();
+              state.cityEditor = null;
               renderCatalog();
-              byId('carMulticityCatalogStatus').textContent = 'City updated by exact ID.';
+              byId('carMulticityCatalogStatus').textContent = draft.id
+                ? 'City updated by exact ID.'
+                : 'Inactive city created. No mappings or assignments were created.';
             } catch (error) {
               byId('carMulticityCatalogStatus').textContent = String(error?.message || error);
             }
@@ -1137,7 +1329,7 @@
         });
         return;
       }
-      if (button.dataset.catalogAction === 'save-mapping') {
+      if (action === 'save-mapping') {
         const row = button.closest('[data-mapping-profile-id]');
         const pairedSupported = row.querySelector('[data-mapping-field="paired_supported"]')?.checked === true;
         const draft = {
@@ -1171,38 +1363,6 @@
           },
         });
       }
-    }
-
-    async function handleNewCity(event) {
-      if (event.target?.id !== 'carMulticityNewCityForm') return;
-      event.preventDefault();
-      const data = new FormData(event.target);
-      const draft = core.createCityDraft({
-        code: data.get('code'),
-        name_i18n: { en: data.get('nameEn'), pl: data.get('namePl'), he: data.get('nameHe') },
-        place_types: [data.get('placeType')],
-        sort_order: data.get('sortOrder'),
-      });
-      const validation = core.validateCityDraft(draft, state.catalog.cities);
-      if (!validation.valid) {
-        byId('carMulticityCatalogStatus').textContent = validation.errors.map((entry) => entry.message).join(' ');
-        return;
-      }
-      openConfirmation({
-        title: 'Review new inactive city',
-        body: `<p>Create <strong>${escapeHtml(draft.name_i18n.en)}</strong> with code <code>${escapeHtml(draft.code)}</code>?</p><ul><li>is_active: false</li><li>Profile mappings created: 0</li><li>Offer assignments created: 0</li><li>Public activation: no</li></ul>`,
-        action: async () => {
-          closeConfirmation();
-          try {
-            await repository.createCity(draft);
-            state.catalog = await repository.getCatalog();
-            renderCatalog();
-            byId('carMulticityCatalogStatus').textContent = 'Inactive city created. No mappings or assignments were created.';
-          } catch (error) {
-            byId('carMulticityCatalogStatus').textContent = String(error?.message || error);
-          }
-        },
-      });
     }
 
     function handleFleetAction(event) {
@@ -1249,7 +1409,8 @@
       byId('carMulticityCatalogCitiesTab')?.addEventListener('click', () => { state.catalogTab = 'cities'; renderCatalog(); });
       byId('carMulticityCatalogMappingsTab')?.addEventListener('click', () => { state.catalogTab = 'mappings'; renderCatalog(); });
       byId('carMulticityCatalogContent')?.addEventListener('click', (event) => void handleCatalogClick(event));
-      byId('carMulticityCatalogContent')?.addEventListener('submit', (event) => void handleNewCity(event));
+      byId('carMulticityCatalogContent')?.addEventListener('input', handleCatalogInput);
+      byId('carMulticityCatalogContent')?.addEventListener('change', handleCatalogInput);
       documentRef.addEventListener('keydown', handleKeydown);
       state.initialized = true;
       return api;

@@ -128,6 +128,65 @@ describe('Car Rental Multi-City Stage 2C core', () => {
     expect(draft.availability[0]).toEqual(expect.objectContaining({ pickup_enabled: true, return_enabled: true, is_active: true }));
   });
 
+  test('availability fee diff is scoped to one exact offer-city and accepts an explicit zero', () => {
+    const ctx = context();
+    const draft = core.createDraft(ctx, { mode: 'availability' });
+    core.setAvailabilityFee(draft, 'city-larnaca', 'override', 0);
+    const plan = core.buildAvailabilityPlan(draft, ctx);
+    expect(plan.steps).toHaveLength(1);
+    expect(plan.steps[0]).toEqual(expect.objectContaining({
+      entityId: 'offer-exact:city-larnaca',
+      action: 'update',
+      payload: expect.objectContaining({
+        offer_id: 'offer-exact',
+        city_id: 'city-larnaca',
+        pickup_enabled: true,
+        return_enabled: true,
+        is_active: true,
+        fee_mode: 'override',
+        fee_per_direction: 0,
+      }),
+    }));
+    expect(plan.existingPriceColumnChanges).toBe(0);
+    expect(plan.depositRuleChanges).toBe(0);
+    expect(plan.availableCities[0]).toEqual(expect.objectContaining({
+      beforeFeeMode: 'inherit',
+      afterFeeMode: 'override',
+      afterFeePerDirection: 0,
+    }));
+  });
+
+  test('a custom Larnaca-profile city is not ready until it has an explicit fee', () => {
+    const customCity = { id: 'city-polis', code: 'polis', name_i18n: { en: 'Polis' }, is_active: true, updated_at: 'c4' };
+    const customMapping = {
+      pricing_profile_id: 'profile-larnaca', city_id: customCity.id,
+      pickup_supported: true, return_supported: true,
+      legacy_pricing_city_key: 'polis', is_active: true, updated_at: 'm5',
+    };
+    const ctx = context({ cities: [...cities, customCity], profileCities: [...profileCities, customMapping] });
+    const draft = core.createDraft(ctx, { mode: 'availability' });
+    core.setPairedAvailability(draft, customCity.id, true);
+    expect(core.getMappedReadiness(draft, ctx)).toEqual(expect.objectContaining({ ready: false }));
+    expect(core.getMappedReadiness(draft, ctx).reasons).toContain('Fee required for city polis.');
+    core.setAvailabilityFee(draft, customCity.id, 'override', 14.5);
+    expect(core.getMappedReadiness(draft, ctx).ready).toBe(true);
+  });
+
+  test('a custom city code is valid for Larnaca profile support while Paphos remains local-only', () => {
+    const customCity = { id: 'city-polis', code: 'polis', name_i18n: { en: 'Polis' }, is_active: false, updated_at: 'c4' };
+    const ctx = context({ cities: [...cities, customCity] });
+    expect(core.validateProfileCityDraft({
+      pricing_profile_id: 'profile-larnaca', city_id: customCity.id,
+      pickup_supported: true, return_supported: true,
+      legacy_pricing_city_key: 'polis', is_active: false,
+    }, ctx).valid).toBe(true);
+    expect(core.validateProfileCityDraft({
+      pricing_profile_id: 'profile-paphos', city_id: customCity.id,
+      pickup_supported: true, return_supported: true,
+      legacy_pricing_city_key: 'polis', is_active: false,
+    }, ctx).valid).toBe(false);
+  });
+
   test('new Larnaca vehicle defaults only to Larnaca, never all cities', () => {
     const draft = core.createDraft({ ...context(), offer: null, availability: [] }, { mode: 'create' });
     core.setDraftProfile(draft, context(), 'profile-larnaca', { resetAvailability: true });
@@ -370,19 +429,78 @@ describe('Car Rental Multi-City Stage 2C core', () => {
     const draft = core.createDraft(ctx, { mode: 'pricing' });
     core.setDraftProfile(draft, ctx, 'profile-paphos');
     const plan = core.buildPricingProfilePlan(draft, ctx);
-    expect(plan.steps[0].payload).toEqual({ pricing_profile_id: 'profile-paphos', location: 'paphos' });
+    expect(plan.steps[0].payload).toEqual({
+      pricing_profile_id: 'profile-paphos',
+      location: 'paphos',
+      currency: 'EUR',
+      price_3days: 105,
+      price_4_6days: 34,
+      price_7_10days: 31,
+      price_10plus_days: 29,
+    });
     expect(plan.existingPriceColumnChanges).toBe(0);
     for (const column of core.PRICE_COLUMNS) {
       expect(plan.preservedPriceColumns[column]).toBe((ctx.offer as any)[column]);
     }
   });
 
-  test('profile change never emits default or null price values', () => {
+  test('profile change emits only the selected profile values and never defaults or nulls them', () => {
     const ctx = context();
     const draft = core.createDraft(ctx, { mode: 'pricing' });
     core.setDraftProfile(draft, ctx, 'profile-paphos');
     const payload = core.buildPricingProfilePlan(draft, ctx).steps[0].payload;
-    expect(Object.keys(payload).filter((key) => core.PRICE_COLUMNS.includes(key))).toHaveLength(0);
+    expect(Object.keys(payload).filter((key) => core.PRICE_COLUMNS.includes(key)).sort()).toEqual([
+      'price_10plus_days',
+      'price_3days',
+      'price_4_6days',
+      'price_7_10days',
+    ]);
+    expect(Object.values(payload).some((value) => value === null || value === undefined)).toBe(false);
+    expect(payload).not.toHaveProperty('price_per_day');
+  });
+
+  test('Larnaca pricing edit changes only price_per_day and preserves all Paphos tiers', () => {
+    const ctx = context();
+    const draft = core.createDraft(ctx, { mode: 'pricing' });
+    draft.pricing.pricePerDay = 42.5;
+    const plan = core.buildPricingProfilePlan(draft, ctx);
+    expect(plan.steps[0].payload).toEqual({
+      pricing_profile_id: 'profile-larnaca',
+      location: 'larnaca',
+      currency: 'EUR',
+      price_per_day: 42.5,
+    });
+    expect(plan.existingPriceColumnChanges).toBe(1);
+    expect(plan.steps[0].changes.map((change: any) => change.field)).toEqual(['price_per_day']);
+    for (const column of ['price_3days', 'price_4_6days', 'price_7_10days', 'price_10plus_days']) {
+      expect(plan.preservedPriceColumns[column]).toBe((ctx.offer as any)[column]);
+    }
+  });
+
+  test('Paphos pricing edit validates all four positive tiers and does not emit price_per_day', () => {
+    const paphosContext = context({
+      offer: offer({ location: 'paphos', pricing_profile_id: 'profile-paphos' }),
+      availability: [{
+        offer_id: 'offer-exact', city_id: 'city-paphos',
+        pickup_enabled: true, return_enabled: true, is_active: true,
+        fee_mode: 'inherit', fee_per_direction: null, updated_at: 'a2',
+      }],
+    });
+    const draft = core.createDraft(paphosContext, { mode: 'pricing' });
+    draft.pricing.price3Days = 120;
+    draft.pricing.price4To6Days = 38;
+    draft.pricing.price7To10Days = 35;
+    draft.pricing.price10PlusDays = 32;
+    const plan = core.buildReviewPlan(draft, paphosContext, 'pricing');
+    expect(plan.steps[0].payload).toEqual(expect.objectContaining({
+      price_3days: 120,
+      price_4_6days: 38,
+      price_7_10days: 35,
+      price_10plus_days: 32,
+    }));
+    expect(plan.steps[0].payload).not.toHaveProperty('price_per_day');
+    draft.pricing.price10PlusDays = 0;
+    expect(core.validateDraft(draft, paphosContext).valid).toBe(false);
   });
 
   test('review fingerprint becomes stale after a draft change', () => {

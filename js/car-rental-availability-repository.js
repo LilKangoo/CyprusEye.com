@@ -16,6 +16,8 @@ const AVAILABILITY_SELECT = [
   'pickup_enabled',
   'return_enabled',
   'is_active',
+  'fee_mode',
+  'fee_per_direction',
 ].join(',');
 const OFFER_SELECT = [
   'id',

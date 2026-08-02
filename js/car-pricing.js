@@ -12,6 +12,21 @@ function parseBoolean(value) {
   return ['true', '1', 'yes', 'y', 'on', 't'].includes(normalized);
 }
 
+function parseFeeOverride(value) {
+  if (value === null || value === undefined || value === '') {
+    return { provided: false, valid: true, amount: null };
+  }
+  const amount = Number(value);
+  const valid = Number.isFinite(amount)
+    && amount >= 0
+    && Math.abs((amount * 100) - Math.round(amount * 100)) < 1e-8;
+  return {
+    provided: true,
+    valid,
+    amount: valid ? Number(amount.toFixed(2)) : null,
+  };
+}
+
 export function normalizeOfferLocation(offer) {
   return String(offer || '').toLowerCase() === 'larnaca' ? 'larnaca' : 'paphos';
 }
@@ -110,6 +125,8 @@ export function calculateCarRentalQuote({
   offerRow = null,
   youngDriverAllowed = null,
   youngDriverDailyCost = null,
+  pickupFeeOverride = null,
+  returnFeeOverride = null,
 }) {
   const normalizedOffer = normalizeOfferLocation(offer);
   const selectedCar = String(carModel || '').trim();
@@ -149,12 +166,19 @@ export function calculateCarRentalQuote({
     returnLoc = normalizeLocationForOffer(returnLoc, normalizedOffer);
   }
 
-  const pickupFee = normalizedOffer === 'paphos'
-    ? (pickupLoc === 'airport_pfo' && days < 7 ? 10 : 0)
-    : getLocationFeeForLarnaca(pickupLoc);
-  const returnFee = normalizedOffer === 'paphos'
-    ? (returnLoc === 'airport_pfo' && days < 7 ? 10 : 0)
-    : getLocationFeeForLarnaca(returnLoc);
+  const pickupOverride = parseFeeOverride(pickupFeeOverride);
+  const returnOverride = parseFeeOverride(returnFeeOverride);
+  if (!pickupOverride.valid || !returnOverride.valid) return null;
+  const pickupFee = pickupOverride.provided
+    ? pickupOverride.amount
+    : normalizedOffer === 'paphos'
+      ? (pickupLoc === 'airport_pfo' && days < 7 ? 10 : 0)
+      : getLocationFeeForLarnaca(pickupLoc);
+  const returnFee = returnOverride.provided
+    ? returnOverride.amount
+    : normalizedOffer === 'paphos'
+      ? (returnLoc === 'airport_pfo' && days < 7 ? 10 : 0)
+      : getLocationFeeForLarnaca(returnLoc);
   const insuranceCost = fullInsurance ? 17 * days : 0;
   const youngDriverConfig = resolveCarYoungDriverConfig({
     offerLocation: normalizedOffer,

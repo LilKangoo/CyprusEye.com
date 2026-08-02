@@ -9,6 +9,7 @@ describe('Car Rental Multi-City Admin UX and media hotfix guards', () => {
   const repository = read('admin/car-rental-multicity-repository.js');
   const ui = read('admin/car-rental-multicity-ui.js');
   const css = read('admin/admin.css');
+  const admin = read('admin/admin.js');
 
   test('new vehicle media reuses the legacy storage contract', () => {
     expect(core).toContain("const VEHICLE_IMAGE_BUCKET = 'car-images'");
@@ -43,28 +44,26 @@ describe('Car Rental Multi-City Admin UX and media hotfix guards', () => {
   });
 
   test('new Cars repository never emits the legacy jsonb car_type filter that causes HTTP 400', () => {
-    expect(`${repository}\n${ui}`).not.toMatch(/\.eq\(['"]car_type['"]/);
+    expect(`${repository}\n${ui}\n${admin}`).not.toMatch(/\.eq\(['"]car_type['"]/);
     expect(ui).not.toContain('String(vehicle.carType)');
     expect(core).toContain('resolveI18nText');
+    expect(admin).toContain("Object.values(car.car_type)");
+    expect(admin).toContain("core.resolveI18nText(car?.car_type");
   });
 
   test('modal UX keeps a large responsive shell with sticky actions and loading state', () => {
-    expect(css).toContain('max-width: min(1180px, calc(100vw - 32px))');
+    expect(css).toContain('max-width: min(1280px, 96vw)');
     expect(css).toMatch(/\.car-multicity-modal__footer\s*\{[\s\S]*?position:\s*sticky/);
     expect(css).toMatch(/\.car-multicity-wizard-steps\s*\{[\s\S]*?position:\s*sticky/);
     expect(ui).toContain('car-multicity-skeleton');
     expect(ui).toContain('aria-invalid');
   });
 
-  test('protected public runtime and database migrations have no hotfix diff', () => {
+  test('protected downstream runtime still has no Admin Pricing V2 diff', () => {
     const protectedPaths = [
-      'js/car-rental-availability-adapter.js',
-      'js/car-rental-availability-repository.js',
       'js/car-rental-paphos.js',
       'js/home-cars.js',
-      'js/car-pricing.js',
       'js/car-reservation.js',
-      'supabase/migrations',
       'supabase/functions/partner-fulfillment-action/index.ts',
     ];
     const diff = childProcess.execFileSync('git', ['diff', '--name-only', '--', ...protectedPaths], { encoding: 'utf8' }).trim();

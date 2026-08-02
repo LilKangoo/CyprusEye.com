@@ -116,7 +116,7 @@ async function resolve(overrides: Record<string, unknown> = {}, context = baseCo
 }
 
 describe('Car Rental Multi-City Stage 2D availability adapter', () => {
-  test('resolves exact pickup/return cities and intersects exact offer IDs without duplicates', async () => {
+  test('rejects a duplicated exact offer-city row instead of guessing which record to use', async () => {
     const context = baseContext({
       availability: [
         availability('offer-larnaca', 'paphos', true, false),
@@ -126,7 +126,7 @@ describe('Car Rental Multi-City Stage 2D availability adapter', () => {
       offers: [offer('offer-larnaca')],
     });
     const result = await resolve({ pickupCityCode: 'paphos', returnCityCode: 'larnaca' }, context);
-    expect(result.mappedOffers.map((row: any) => row.id)).toEqual(['offer-larnaca']);
+    expect(result.mappedOffers.map((row: any) => row.id)).toEqual([]);
     expect(result.diagnostics.some((entry: any) => entry.code === 'DUPLICATE_OFFER_ID')).toBe(true);
   });
 
@@ -138,6 +138,76 @@ describe('Car Rental Multi-City Stage 2D availability adapter', () => {
       expect(larnacaOffer.availabilityContext.pickupPricingKey).toBe(code);
       expect(larnacaOffer.availabilityContext.returnPricingKey).toBe(code);
     }
+  });
+
+  test('offer-city fee override zero replaces only pickup and return fees', async () => {
+    const context = baseContext({
+      offers: [offer('offer-free-paphos')],
+      availability: [{
+        ...availability('offer-free-paphos', 'paphos'),
+        fee_mode: 'override',
+        fee_per_direction: 0,
+      }],
+    });
+    const result = await resolve({ pickupCityCode: 'paphos', returnCityCode: 'paphos' }, context);
+    expect(result.mappedOffers).toHaveLength(1);
+    expect(result.mappedOffers[0].quote).toEqual(expect.objectContaining({
+      basePrice: 105,
+      pickupFee: 0,
+      returnFee: 0,
+      total: 105,
+    }));
+    expect(result.mappedOffers[0].pricingContext).toEqual(expect.objectContaining({
+      pickupFeeMode: 'override',
+      returnFeeMode: 'override',
+      pickupFeePerDirection: 0,
+      returnFeePerDirection: 0,
+    }));
+  });
+
+  test('the same city can use different exact fees for two exact offers', async () => {
+    const first = offer('offer-fee-zero', 'larnaca', { price_per_day: 35 });
+    const second = offer('offer-fee-twelve', 'larnaca', { price_per_day: 35 });
+    const context = baseContext({
+      offers: [first, second],
+      availability: [
+        { ...availability(first.id, 'paphos'), fee_mode: 'override', fee_per_direction: 0 },
+        { ...availability(second.id, 'paphos'), fee_mode: 'override', fee_per_direction: 12.5 },
+      ],
+    });
+    const result = await resolve({ pickupCityCode: 'paphos', returnCityCode: 'paphos' }, context);
+    expect(result.mappedOffers.map((row: any) => [row.id, row.quote.pickupFee, row.quote.returnFee, row.quote.total])).toEqual([
+      ['offer-fee-zero', 0, 0, 105],
+      ['offer-fee-twelve', 12.5, 12.5, 130],
+    ]);
+  });
+
+  test('a custom city requires an exact offer override and never guesses a legacy fee', async () => {
+    const customCity = { id: 'city-polis', code: 'polis', is_active: true, sort_order: 7 };
+    const customMapping = {
+      pricing_profile_id: 'profile-larnaca', city_id: customCity.id,
+      pickup_supported: true, return_supported: true,
+      legacy_pricing_city_key: 'polis', is_active: true,
+    };
+    const customOffer = offer('offer-polis');
+    const inherited = baseContext({
+      cities: [...cities, customCity],
+      profileCities: [...profileCities, customMapping],
+      offers: [customOffer],
+      availability: [{ ...availability(customOffer.id, 'larnaca'), city_id: customCity.id, fee_mode: 'inherit', fee_per_direction: null }],
+    });
+    const blocked = await resolve({ pickupCityCode: 'polis', returnCityCode: 'polis' }, inherited);
+    expect(blocked.mappedOffers).toEqual([]);
+    expect(blocked.diagnostics.some((row: any) => row.code === 'FEE_REQUIRED_FOR_CITY')).toBe(true);
+
+    const overridden = {
+      ...inherited,
+      availability: inherited.availability.map((row: any) => ({ ...row, fee_mode: 'override', fee_per_direction: 18 })),
+    };
+    const accepted = await resolve({ pickupCityCode: 'polis', returnCityCode: 'polis' }, overridden);
+    expect(accepted.mappedOffers[0].quote).toEqual(expect.objectContaining({ pickupFee: 18, returnFee: 18, total: 141 }));
+    expect(accepted.mappedOffers[0].quote.pickupLoc).toBe('polis');
+    expect(accepted.mappedOffers[0].quote.returnLoc).toBe('polis');
   });
 
   test('Paphos profile is only eligible for Paphos to Paphos and never falls back to Larnaca', async () => {

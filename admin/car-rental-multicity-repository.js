@@ -287,7 +287,7 @@
     }
 
     async function updatePricingProfile(request) {
-      assertAllowedPayload(request.payload, core.PROFILE_COLUMNS, 'Pricing profile update');
+      assertAllowedPayload(request.payload, core.PRICING_EDIT_COLUMNS, 'Pricing and profile update');
       const profile = (await listProfiles()).find((row) => normalizeId(row.id) === normalizeId(request.payload.pricing_profile_id));
       if (!profile || core.profileLocation(profile) !== core.normalizeCode(request.payload.location)) {
         throw staleConflict('Pricing profile no longer matches the legacy location.', {
@@ -299,8 +299,8 @@
         request.offerId,
         request.expectedUpdatedAt,
         request.payload,
-        core.PROFILE_COLUMNS,
-        'Pricing profile update',
+        core.PRICING_EDIT_COLUMNS,
+        'Pricing and profile update',
       );
     }
 
@@ -516,7 +516,7 @@
             && profile?.is_active === true;
         });
         if (!hasExactPricingKey) {
-          throw staleConflict('An active city requires a fresh exact legacy pricing key mapping.', { cityId: id, code: draft.code });
+          throw staleConflict('An active city requires a fresh exact profile-city mapping.', { cityId: id, code: draft.code });
         }
       }
       const payload = {
@@ -536,12 +536,12 @@
     async function listMappingImpact(pricingProfileId, cityId, proposedMapping = null) {
       const profileId = normalizeId(pricingProfileId);
       const exactCityId = normalizeId(cityId);
-      const availability = await listRows(TABLES.availability, 'offer_id,city_id,pickup_enabled,return_enabled,is_active,updated_at', (query) => query.eq('city_id', exactCityId));
+      const availability = await listRows(TABLES.availability, 'offer_id,city_id,pickup_enabled,return_enabled,is_active,fee_mode,fee_per_direction,fee_note,updated_at', (query) => query.eq('city_id', exactCityId));
       const offerIds = Array.from(new Set(availability.map((row) => normalizeId(row.offer_id)).filter(Boolean)));
       if (!offerIds.length) return { count: 0, offerIds: [], readyOfferIds: [], readyAfterOfferIds: [], readinessInvalidatedOfferIds: [] };
       const [offers, allAvailability, catalog] = await Promise.all([
         listRows(TABLES.offers, 'id,pricing_profile_id,location,availability_mode,is_available,is_published', (query) => query.in('id', offerIds)),
-        listRows(TABLES.availability, 'offer_id,city_id,pickup_enabled,return_enabled,is_active,updated_at', (query) => query.in('offer_id', offerIds)),
+        listRows(TABLES.availability, 'offer_id,city_id,pickup_enabled,return_enabled,is_active,fee_mode,fee_per_direction,fee_note,updated_at', (query) => query.in('offer_id', offerIds)),
         getCatalog(),
       ]);
       const matching = offers.filter((offer) => normalizeId(offer.pricing_profile_id) === profileId);

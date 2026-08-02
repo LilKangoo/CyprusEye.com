@@ -79,8 +79,8 @@ function ownSourceErrors(page: Page) {
   return errors;
 }
 
-async function seedHybrid(page: Page, flagEnabled: boolean, failMappedRead = false, injectGlobal = true) {
-  await page.addInitScript(({ fixtureTables, enabled, failRead, withGlobal }) => {
+async function seedHybrid(page: Page, flagEnabled: boolean, failMappedRead = false, injectGlobal = true, mappedPaphosFeeOverride: number | null = null) {
+  await page.addInitScript(({ fixtureTables, enabled, failRead, withGlobal, feeOverride, mappedOfferId, paphosCityId }) => {
     const root = window as any;
     if (withGlobal) root.CE_CAR_MULTICITY_SHADOW_CONFIG = { enabled: true, renderMapped: true, debounceMs: 0 };
     else delete root.CE_CAR_MULTICITY_SHADOW_CONFIG;
@@ -91,7 +91,14 @@ async function seedHybrid(page: Page, flagEnabled: boolean, failMappedRead = fal
     const seed = (stub: any) => {
       if (!stub || typeof stub.seedTable !== 'function') return;
       stub.reset?.();
-      for (const [table, rows] of Object.entries(fixtureTables)) stub.seedTable(table, rows);
+      for (const [table, rows] of Object.entries(fixtureTables)) {
+        const nextRows = table === 'car_offer_city_availability' && feeOverride !== null
+          ? (rows as any[]).map((row: any) => row.offer_id === mappedOfferId && row.city_id === paphosCityId
+            ? { ...row, fee_mode: 'override', fee_per_direction: feeOverride }
+            : row)
+          : rows;
+        stub.seedTable(table, nextRows);
+      }
       stub.seedTable('site_settings', [{ id: 1, car_multi_city_mapped_enabled: enabled }]);
       if (failRead) stub.selectErrorsByTable = { car_rental_cities: 'isolated mapped catalog unavailable' };
     };
@@ -103,7 +110,15 @@ async function seedHybrid(page: Page, flagEnabled: boolean, failMappedRead = fal
     };
     root.__supabaseStub = existing;
     seed(existing);
-  }, { fixtureTables: tables, enabled: flagEnabled, failRead: failMappedRead, withGlobal: injectGlobal });
+  }, {
+    fixtureTables: tables,
+    enabled: flagEnabled,
+    failRead: failMappedRead,
+    withGlobal: injectGlobal,
+    feeOverride: mappedPaphosFeeOverride,
+    mappedOfferId: MAPPED_LARNACA,
+    paphosCityId: CITY_PAPHOS,
+  });
 }
 
 async function configureCarPage(page: Page, pickup: string, ret: string) {
@@ -251,6 +266,51 @@ test.describe('Car Rental Multi-City Stage 2E public hybrid rendering', () => {
     await expect(page.locator('#res_pickup_location')).toHaveValue('paphos');
     expect(cardPrice).toContain('180.00');
     await expect(page.locator('.ce-car-home-hero-price')).toContainText('180.00');
+    expect(await requestSafetySnapshot(page)).toEqual({ mutations: [], rpc: [] });
+    expect(errors).toEqual([]);
+  });
+
+  test('mapped per-offer Paphos fee override zero drives the same exact quote on car.html and homepage', async ({ page }) => {
+    const errors = ownSourceErrors(page);
+    await seedHybrid(page, true, false, false, 0);
+    await page.goto('/car.html?lang=en', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => typeof (window as any).CE_CAR_GET_CURRENT_FLEET === 'function');
+    await configureCarPage(page, 'paphos', 'paphos');
+    const carState = await page.evaluate((offerId) => {
+      const result = (window as any).__CE_CAR_MULTICITY_HYBRID_RESULT__;
+      const row = result.renderedOffers.find((entry: any) => entry.id === offerId);
+      return {
+        quote: row?.quote,
+        context: row?.pricingContext,
+        priceMismatches: result.comparison.priceMismatches,
+      };
+    }, MAPPED_LARNACA);
+    expect(carState.quote).toEqual(expect.objectContaining({ basePrice: 100, pickupFee: 0, returnFee: 0, total: 100 }));
+    expect(carState.context).toEqual(expect.objectContaining({
+      offerId: MAPPED_LARNACA,
+      legacyBookingLocation: 'larnaca',
+      pickupLegacyPricingKey: 'paphos',
+      returnLegacyPricingKey: 'paphos',
+      pickupFeeMode: 'override',
+      returnFeeMode: 'override',
+      pickupFeePerDirection: 0,
+      returnFeePerDirection: 0,
+    }));
+    expect(carState.priceMismatches).toEqual([]);
+    await expect(page.locator(`[data-select-car-offer-id="${MAPPED_LARNACA}"] .auto-card-price`)).toContainText('100.00');
+    await page.locator(`[data-select-car-offer-id="${MAPPED_LARNACA}"]`).click();
+    await expect(page.locator('#res_car option:checked')).toHaveAttribute('data-offer-id', MAPPED_LARNACA);
+    await expect(page.locator('#res_pickup_location')).toHaveValue('paphos');
+    await expect(page.locator('#res_return_location')).toHaveValue('paphos');
+    await expect(page.locator('.ce-car-home-hero-price')).toContainText('100.00');
+
+    await page.goto('/index.html?lang=en', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => Boolean(document.querySelector('#carsFinderPickupLocation option[value="paphos"]')));
+    await configureHomepage(page, 'paphos', 'paphos');
+    await expect(page.locator(`[data-car-offer-id="${MAPPED_LARNACA}"] .ce-home-card-subtitle`)).toContainText('100.00');
+    await page.locator(`[data-car-offer-id="${MAPPED_LARNACA}"]`).click();
+    await expect(page.locator('#res_car option:checked')).toHaveAttribute('data-offer-id', MAPPED_LARNACA);
+    await expect(page.locator('.ce-car-home-hero-price')).toContainText('100.00');
     expect(await requestSafetySnapshot(page)).toEqual({ mutations: [], rpc: [] });
     expect(errors).toEqual([]);
   });

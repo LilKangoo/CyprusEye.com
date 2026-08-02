@@ -35557,10 +35557,6 @@ async function loadFleetData(options = {}) {
     if (fleetState.locationFilter) {
       query = query.eq('location', fleetState.locationFilter);
     }
-    if (fleetState.typeFilter) {
-      query = query.eq('car_type', fleetState.typeFilter);
-    }
-
     const { data: cars, error } = await query;
 
     if (error) {
@@ -35568,7 +35564,21 @@ async function loadFleetData(options = {}) {
       throw error;
     }
 
-    fleetState.cars = cars || [];
+    const requestedType = String(fleetState.typeFilter || '').trim().toLowerCase();
+    fleetState.cars = (cars || []).filter((car) => {
+      if (!requestedType) return true;
+      const core = window.CarRentalMulticityCore;
+      const values = car?.car_type && typeof car.car_type === 'object' && !Array.isArray(car.car_type)
+        ? Object.values(car.car_type)
+        : [car?.car_type];
+      const localized = typeof core?.resolveI18nText === 'function'
+        ? core.resolveI18nText(car?.car_type, document.documentElement?.lang || 'en')
+        : '';
+      return [...values, localized]
+        .map((value) => String(value ?? '').trim().toLowerCase())
+        .filter(Boolean)
+        .includes(requestedType);
+    });
     // Store ordered list globally for reordering helpers
     window.fleetCarsList = Array.isArray(fleetState.cars) ? fleetState.cars.slice() : [];
     console.log(`Loaded ${window.fleetCarsList.length} cars`);
@@ -35595,7 +35605,10 @@ async function loadFleetData(options = {}) {
     tbody.innerHTML = window.fleetCarsList.map((car, index) => {
       // Extract i18n values for display (prefer Polish, fallback to English)
       const carModel = car.car_model?.pl || car.car_model?.en || car.car_model || 'Unknown';
-      const carType = car.car_type?.pl || car.car_type?.en || car.car_type || '';
+      const carType = window.CarRentalMulticityCore?.resolveI18nText?.(
+        car.car_type,
+        document.documentElement?.lang || 'en',
+      ) || (typeof car.car_type === 'string' ? car.car_type : '');
       const carDesc = car.description?.pl || car.description?.en || car.description || '';
       
       // Determine price display based on location

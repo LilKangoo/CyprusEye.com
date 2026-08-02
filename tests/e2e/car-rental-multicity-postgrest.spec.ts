@@ -288,11 +288,25 @@ test.describe('Car Rental Multi-City Stage 2C real PostgREST Admin integration',
     const offerBefore = (await rows('car_offers', `id=eq.${OFFER_LARNACA}&select=*`))[0];
     await openAction(page, OFFER_LARNACA, 'availability');
     const nicosia = page.locator(`[data-city-id="${CITY_NICOSIA}"]`);
+    await expect(nicosia).toContainText('€15.00 per direction');
     await nicosia.locator('[data-availability-field="paired"]').check();
+    await nicosia.locator('[data-availability-field="fee_mode"]').selectOption('override');
+    const fee = page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="fee_per_direction"]`);
+    await fee.fill('0');
+    await fee.press('Tab');
+    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"]`)).toContainText('€0.00 pickup · €0.00 return');
     await saveReviewed(page);
     const saved = await rows('car_offer_city_availability', `offer_id=eq.${OFFER_LARNACA}&city_id=eq.${CITY_NICOSIA}&select=*`);
     expect(saved).toHaveLength(1);
-    expect(saved[0]).toEqual(expect.objectContaining({ pickup_enabled: true, return_enabled: true, is_active: true }));
+    expect(saved[0]).toEqual(expect.objectContaining({
+      offer_id: OFFER_LARNACA,
+      city_id: CITY_NICOSIA,
+      pickup_enabled: true,
+      return_enabled: true,
+      is_active: true,
+      fee_mode: 'override',
+      fee_per_direction: 0,
+    }));
     const offerAfter = (await rows('car_offers', `id=eq.${OFFER_LARNACA}&select=*`))[0];
     expect(offerAfter).toEqual(offerBefore);
 
@@ -327,15 +341,45 @@ test.describe('Car Rental Multi-City Stage 2C real PostgREST Admin integration',
     expect(await rows('car_offer_city_availability', `offer_id=eq.${OFFER_LARNACA}&select=*`)).toEqual([]);
   });
 
+  test('Pricing and profile updates only the active exact price and preserves hidden tiers', async ({ page }) => {
+    const before = (await rows('car_offers', `id=eq.${OFFER_LARNACA}&select=*`))[0];
+    const writes: string[] = [];
+    page.on('request', (request) => {
+      if (['POST', 'PATCH', 'DELETE'].includes(request.method())) writes.push(`${request.method()} ${request.url()}`);
+    });
+    await openAction(page, OFFER_LARNACA, 'pricing');
+    await expect(page.locator('#carMulticityReview')).toHaveText('Review price changes');
+    await page.locator('#carMulticityPricePerDay').fill('41.50');
+    await saveReviewed(page, true);
+    const after = (await rows('car_offers', `id=eq.${OFFER_LARNACA}&select=*`))[0];
+    expect(after.price_per_day).toBe(41.5);
+    for (const field of ['price_3days', 'price_4_6days', 'price_7_10days', 'price_10plus_days']) {
+      expect(after[field]).toBe(before[field]);
+    }
+    expect(after).toEqual(expect.objectContaining({
+      id: OFFER_LARNACA,
+      location: before.location,
+      pricing_profile_id: before.pricing_profile_id,
+      owner_partner_id: before.owner_partner_id,
+      stock_count: before.stock_count,
+      deposit_amount: before.deposit_amount,
+    }));
+    expect(writes.filter((entry) => entry.includes('/rest/v1/car_offers'))).toHaveLength(1);
+    expect(writes.some((entry) => /availability|service_deposit|partner|car_bookings|rpc\//.test(entry))).toBe(false);
+  });
+
   test('city create is inactive, mapping uses exact composite key, and no assignment is implicit', async ({ page }) => {
     await page.locator('#btnManageCarMulticity').click();
     await expect(page.locator('#carMulticityCatalogModal')).toBeVisible();
-    const form = page.locator('#carMulticityNewCityForm');
-    await form.locator('[name="code"]').fill('ui-test-city');
-    await form.locator('[name="nameEn"]').fill('UI Test City');
-    await form.locator('[name="namePl"]').fill('UI Test City');
-    await form.locator('[name="nameHe"]').fill('עיר בדיקה');
-    await form.locator('button[type="submit"]').click();
+    await page.locator('[data-catalog-action="add-city"]').click();
+    await page.locator('[data-city-editor-field="code"]').fill('ui-test-city');
+    await page.locator('[data-city-editor-field="name_en"]').fill('UI Test City');
+    await page.locator('[data-city-editor-field="name_pl"]').fill('UI Test City');
+    await page.locator('[data-city-editor-field="name_he"]').fill('עיר בדיקה');
+    for (let step = 0; step < 4; step += 1) {
+      await page.locator('[data-catalog-action="city-editor-next"]').click();
+    }
+    await page.locator('[data-catalog-action="save-city-editor"]').click();
     await page.locator('#carMulticityConfirmAccept').click();
     await expect(page.locator('#carMulticityCatalogStatus')).toContainText('Inactive city created');
     const created = await rows('car_rental_cities', 'code=eq.ui-test-city&select=*');

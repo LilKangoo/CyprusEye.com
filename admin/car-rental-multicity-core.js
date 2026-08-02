@@ -57,6 +57,11 @@
     'features',
   ]);
   const PROFILE_COLUMNS = Object.freeze(['pricing_profile_id', 'location']);
+  const PRICING_EDIT_COLUMNS = Object.freeze([
+    ...PROFILE_COLUMNS,
+    'currency',
+    ...PRICE_COLUMNS,
+  ]);
   const PARTNER_COLUMNS = Object.freeze(['owner_partner_id']);
   const AVAILABILITY_COLUMNS = Object.freeze([
     'offer_id',
@@ -64,6 +69,9 @@
     'pickup_enabled',
     'return_enabled',
     'is_active',
+    'fee_mode',
+    'fee_per_direction',
+    'fee_note',
   ]);
   const CREATE_COLUMNS = Object.freeze([
     ...VEHICLE_COLUMNS,
@@ -200,6 +208,9 @@
         pickup_enabled: false,
         return_enabled: false,
         is_active: false,
+        fee_mode: 'inherit',
+        fee_per_direction: null,
+        fee_note: null,
         updated_at: null,
       };
       draft.availability.push(row);
@@ -208,6 +219,29 @@
     row.pickup_enabled = enabled;
     row.return_enabled = enabled;
     row.is_active = enabled;
+    invalidateReview(draft);
+    return row;
+  }
+
+  function setAvailabilityFee(draft, cityId, mode, amount = null, note = null) {
+    const exactCityId = normalizeId(cityId);
+    if (!draft || !exactCityId) throw new Error('Exact city ID is required');
+    let row = (draft.availability || []).find((entry) => normalizeId(entry.city_id) === exactCityId);
+    if (!row) row = setPairedAvailability(draft, exactCityId, false);
+    const normalizedMode = normalizeCode(mode);
+    if (!['inherit', 'override'].includes(normalizedMode)) throw new Error('Unsupported city fee mode');
+    const normalizedAmount = normalizedMode === 'override' ? normalizeMoney(amount) : null;
+    const amountProvided = amount !== '' && amount !== null && amount !== undefined;
+    if (normalizedMode === 'override' && amountProvided && (
+      !(normalizedAmount >= 0)
+      || !Number.isFinite(normalizedAmount)
+      || !hasAtMostTwoDecimals(amount)
+    )) {
+      throw new Error('Custom fee per direction must be zero or greater');
+    }
+    row.fee_mode = normalizedMode;
+    row.fee_per_direction = normalizedAmount;
+    row.fee_note = normalizeText(note) || null;
     invalidateReview(draft);
     return row;
   }
@@ -227,6 +261,11 @@
     if (value === '' || value === null || value === undefined) return fallback;
     const parsed = Number(value);
     return Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : fallback;
+  }
+
+  function hasAtMostTwoDecimals(value) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && Math.abs((parsed * 100) - Math.round(parsed * 100)) < 1e-8;
   }
 
   function stableValue(value) {
@@ -317,6 +356,9 @@
       pickup_enabled: mapping.pickup_supported === true,
       return_enabled: mapping.return_supported === true,
       is_active: true,
+      fee_mode: 'inherit',
+      fee_per_direction: null,
+      fee_note: null,
       updated_at: null,
     }];
   }
@@ -329,7 +371,42 @@
       pickup_enabled: row?.pickup_enabled === true,
       return_enabled: row?.return_enabled === true,
       is_active: row?.is_active === true,
+      fee_mode: normalizeCode(row?.fee_mode) === 'override' ? 'override' : 'inherit',
+      fee_per_direction: normalizeCode(row?.fee_mode) === 'override'
+        ? normalizeMoney(row?.fee_per_direction)
+        : null,
+      fee_note: normalizeText(row?.fee_note) || null,
       updated_at: row?.updated_at || null,
+    };
+  }
+
+  function inheritedFeeIsSupported(profile, mapping) {
+    const profileCode = normalizeCode(profile?.calculator_key || profile?.code);
+    const key = normalizeCode(mapping?.legacy_pricing_city_key);
+    if (profileCode === 'larnaca') return LEGACY_PRICING_KEYS.includes(key);
+    return profileCode === 'paphos' && key === 'paphos';
+  }
+
+  function getAvailabilityFeeState(row, profile, mapping) {
+    const mode = normalizeCode(row?.fee_mode) === 'override' ? 'override' : 'inherit';
+    const amount = mode === 'override' ? normalizeMoney(row?.fee_per_direction) : null;
+    const inherited = inheritedFeeIsSupported(profile, mapping);
+    const profileCode = normalizeCode(profile?.calculator_key || profile?.code);
+    const key = normalizeCode(mapping?.legacy_pricing_city_key);
+    const standardAmount = profileCode === 'larnaca' && inherited
+      ? LEGACY_CITY_FEE_PREVIEW[key]
+      : null;
+    const valid = mode === 'override'
+      ? Number.isFinite(amount) && amount >= 0
+      : inherited;
+    return {
+      mode,
+      amount,
+      valid,
+      inherited,
+      standardAmount,
+      effectiveAmount: mode === 'override' ? amount : standardAmount,
+      requiresOverride: mode === 'inherit' && !inherited,
     };
   }
 
@@ -463,6 +540,26 @@
     };
   }
 
+  function pricingEditPayload(draft, context) {
+    const profile = profileById(context, draft.pricing.profileId);
+    const code = normalizeCode(profile?.code);
+    const payload = {
+      ...profilePayload(draft, context),
+      currency: normalizeText(draft.pricing.currency || 'EUR').toUpperCase(),
+    };
+    const fieldValues = {
+      price_per_day: draft.pricing.pricePerDay,
+      price_3days: draft.pricing.price3Days,
+      price_4_6days: draft.pricing.price4To6Days,
+      price_7_10days: draft.pricing.price7To10Days,
+      price_10plus_days: draft.pricing.price10PlusDays,
+    };
+    (PROFILE_PRICE_COLUMNS[code] || []).forEach((column) => {
+      payload[column] = normalizeMoney(fieldValues[column]);
+    });
+    return payload;
+  }
+
   function validateAvailability(draft, context, errors) {
     const profile = profileById(context, draft.pricing.profileId);
     if (!profile) {
@@ -484,6 +581,13 @@
         return;
       }
       seen.add(cityId);
+      const fee = getAvailabilityFeeState(row, profile, mappingFor(context, profile.id, cityId));
+      if (fee.mode === 'override' && (!fee.valid || !hasAtMostTwoDecimals(row.fee_per_direction))) {
+        errors.push({ field: `fee-${cityId}`, message: 'Custom fee per direction must be a finite amount of zero or greater.' });
+      }
+      if (normalizeText(row.fee_note).length > 500) {
+        errors.push({ field: `fee-${cityId}`, message: 'Fee note must not exceed 500 characters.' });
+      }
       if (!row?.is_active && !row?.pickup_enabled && !row?.return_enabled) return;
       const city = cityById(context, cityId);
       const mapping = mappingFor(context, profile.id, cityId);
@@ -495,10 +599,13 @@
         errors.push({ field: `availability-${cityId}`, message: 'Selected city has no active legacy pricing mapping.' });
         return;
       }
-      if (!LEGACY_PRICING_KEYS.includes(normalizeCode(mapping.legacy_pricing_city_key))) {
-        errors.push({ field: `availability-${cityId}`, message: 'Selected city uses an unsupported legacy pricing key.' });
+      if (normalizeCode(mapping.legacy_pricing_city_key) !== normalizeCode(city.code)) {
+        errors.push({ field: `availability-${cityId}`, message: 'Pricing key does not match the exact city code.' });
       }
-      if (normalizeCode(profile.code) === 'paphos' && normalizeCode(mapping.legacy_pricing_city_key) !== 'paphos') {
+      if (normalizeCode(profile.code) === 'paphos' && (
+        normalizeCode(city.code) !== 'paphos'
+        || normalizeCode(mapping.legacy_pricing_city_key) !== 'paphos'
+      )) {
         errors.push({ field: `availability-${cityId}`, message: 'Paphos profile cannot be used outside Paphos.' });
       }
       if (row.pickup_enabled && mapping.pickup_supported !== true) {
@@ -552,16 +659,19 @@
 
     validateAvailability(draft, context, errors);
 
-    if (draft.mode === 'create') {
+    if (draft.mode === 'create' || draft.mode === 'pricing') {
+      if (normalizeText(draft.pricing.currency).toUpperCase() !== 'EUR') {
+        errors.push({ field: 'currency', message: 'Cars pricing currency must remain EUR.' });
+      }
       if (!profile) {
         // Profile error already reported.
       } else if (normalizeCode(profile.code) === 'larnaca') {
-        if (!(normalizeMoney(draft.pricing.pricePerDay) > 0)) {
+        if (!(normalizeMoney(draft.pricing.pricePerDay) > 0) || !hasAtMostTwoDecimals(draft.pricing.pricePerDay)) {
           errors.push({ field: 'pricePerDay', message: 'Larnaca price per day must be greater than zero.' });
         }
       } else if (normalizeCode(profile.code) === 'paphos') {
         ['price3Days', 'price4To6Days', 'price7To10Days', 'price10PlusDays'].forEach((field) => {
-          if (!(normalizeMoney(draft.pricing[field]) > 0)) {
+          if (!(normalizeMoney(draft.pricing[field]) > 0) || !hasAtMostTwoDecimals(draft.pricing[field])) {
             errors.push({ field, message: 'Every Paphos pricing tier must be greater than zero.' });
           }
         });
@@ -609,6 +719,11 @@
       const mapping = mappingFor(context, profile?.id, row.city_id);
       if (!city || city.is_active !== true || !mapping || mapping.is_active !== true) {
         reasons.push(`City ${normalizeId(row.city_id) || 'unknown'} is not covered by an active mapping.`);
+        return;
+      }
+      const fee = getAvailabilityFeeState(row, profile, mapping);
+      if (!fee.valid) {
+        reasons.push(`Fee required for city ${normalizeCode(city.code) || normalizeId(row.city_id)}.`);
         return;
       }
       if (row.pickup_enabled && mapping.pickup_supported) pickups += 1;
@@ -662,6 +777,9 @@
         pickup_enabled: after.pickup_enabled,
         return_enabled: after.return_enabled,
         is_active: after.is_active,
+        fee_mode: after.fee_mode,
+        fee_per_direction: after.fee_per_direction,
+        fee_note: after.fee_note,
       };
       const changes = diffPayload('car_offer_city_availability', `${offerId}:${cityId}`, before, payload, AVAILABILITY_COLUMNS, { offerId, cityId });
       if (!changes.length) return;
@@ -686,6 +804,7 @@
       const before = pairedAvailabilityState(beforeRows.get(entry.cityId));
       const afterRow = entry.action === 'delete' ? null : afterRows.get(entry.cityId);
       const after = pairedAvailabilityState(afterRow);
+      const beforeRow = beforeRows.get(entry.cityId) || null;
       return {
         exactOfferId: normalizeId(entry.offerId) || null,
         exactCityId: normalizeId(entry.cityId),
@@ -694,6 +813,16 @@
         afterAvailable: entry.action === 'delete' ? false : after.checked,
         beforeMismatch: before.mismatched,
         afterMismatch: entry.action === 'delete' ? false : after.mismatched,
+        beforeFeeMode: normalizeCode(beforeRow?.fee_mode) === 'override' ? 'override' : 'inherit',
+        afterFeeMode: entry.action === 'delete'
+          ? null
+          : normalizeCode(afterRow?.fee_mode) === 'override' ? 'override' : 'inherit',
+        beforeFeePerDirection: normalizeCode(beforeRow?.fee_mode) === 'override'
+          ? normalizeMoney(beforeRow?.fee_per_direction)
+          : null,
+        afterFeePerDirection: entry.action === 'delete' || normalizeCode(afterRow?.fee_mode) !== 'override'
+          ? null
+          : normalizeMoney(afterRow?.fee_per_direction),
       };
     });
   }
@@ -774,7 +903,7 @@
         .map((row) => project(row, ['id', 'code', 'is_active', 'updated_at']))
         .sort((left, right) => String(left.id).localeCompare(String(right.id))),
       availability: (context.availability || [])
-        .map((row) => project(row, ['offer_id', 'city_id', 'pickup_enabled', 'return_enabled', 'is_active', 'updated_at']))
+        .map((row) => project(row, ['offer_id', 'city_id', 'pickup_enabled', 'return_enabled', 'is_active', 'fee_mode', 'fee_per_direction', 'fee_note', 'updated_at']))
         .sort((left, right) => String(left.city_id).localeCompare(String(right.city_id))),
       partners: (context.partners || [])
         .filter((row) => selection.partnerIds.includes(normalizeId(row?.id)))
@@ -808,13 +937,14 @@
 
   function buildPricingProfilePlan(draft, context = draft?.snapshot || {}) {
     const offer = context.offer || {};
-    const payload = profilePayload(draft, context);
-    const changes = diffPayload('car_offer', draft.offerId, offer, payload, PROFILE_COLUMNS);
+    const payload = pricingEditPayload(draft, context);
+    const fields = Object.keys(payload);
+    const changes = diffPayload('car_offer', draft.offerId, offer, payload, fields);
     const step = changes.length
-      ? buildStep('pricing_profile', 'car_offer', 'update', draft.offerId, offer.updated_at, payload, changes)
+      ? buildStep('pricing_and_profile', 'car_offer', 'update', draft.offerId, offer.updated_at, payload, changes)
       : null;
     return createPlan('pricing_profile', draft, step ? [step] : [], {
-      existingPriceColumnChanges: 0,
+      existingPriceColumnChanges: changes.filter((change) => PRICE_COLUMNS.includes(change.field)).length,
       preservedPriceColumns: PRICE_COLUMNS.reduce((result, column) => {
         result[column] = clone(offer[column]);
         return result;
@@ -881,6 +1011,11 @@
         pickup_enabled: row.pickup_enabled === true,
         return_enabled: row.return_enabled === true,
         is_active: row.is_active === true,
+        fee_mode: normalizeCode(row.fee_mode) === 'override' ? 'override' : 'inherit',
+        fee_per_direction: normalizeCode(row.fee_mode) === 'override'
+          ? normalizeMoney(row.fee_per_direction)
+          : null,
+        fee_note: normalizeText(row.fee_note) || null,
       };
       return buildStep(
         `create_availability_${cityId}`,
@@ -1048,7 +1183,7 @@
     const city = cityById(context, draft.city_id);
     const key = normalizeCode(draft.legacy_pricing_city_key);
     if (!profile || !city) errors.push({ field: 'mapping', message: 'Exact profile and city are required.' });
-    if (!LEGACY_PRICING_KEYS.includes(key)) errors.push({ field: 'legacyKey', message: 'Unsupported legacy pricing key.' });
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(key)) errors.push({ field: 'legacyKey', message: 'Pricing key must be a normalized city slug.' });
     if (city && normalizeCode(city.code) !== key) errors.push({ field: 'legacyKey', message: 'Legacy pricing key must match the city code.' });
     if (profile && normalizeCode(profile.code) === 'paphos' && (normalizeCode(city?.code) !== 'paphos' || key !== 'paphos')) {
       errors.push({ field: 'mapping', message: 'Paphos profile supports only Paphos.' });
@@ -1074,6 +1209,7 @@
     PARTNER_COLUMNS,
     PLACE_TYPES,
     PRICE_COLUMNS,
+    PRICING_EDIT_COLUMNS,
     PROFILE_COLUMNS,
     PROFILE_PRICE_COLUMNS,
     PENDING_IMAGE_URL,
@@ -1099,6 +1235,8 @@
     defaultAvailabilityRows,
     fingerprintDraft,
     getMappedReadiness,
+    getAvailabilityFeeState,
+    inheritedFeeIsSupported,
     invalidateReview,
     isReviewCurrent,
     mappingFor,
@@ -1106,12 +1244,15 @@
     normalizeCode,
     normalizeId,
     normalizeI18n,
+    normalizeText,
     pairedAvailabilityState,
+    pricingEditPayload,
     profileByCode,
     profileById,
     profileLocation,
     resolveI18nText,
     setPairedAvailability,
+    setAvailabilityFee,
     setDraftProfile,
     setVehicleImageAction,
     stableSerialize,

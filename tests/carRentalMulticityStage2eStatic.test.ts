@@ -13,9 +13,9 @@ const homepage = read('js/home-cars.js');
 const publicScope = `${adapter}\n${repository}\n${carPage}\n${homepage}`;
 
 describe('Car Rental Multi-City Stage 2E static safety guards', () => {
-  test('protected pricing, reservation, flow, fulfillment and booking contracts remain byte-identical', () => {
+  test('the authorized fee seam and all downstream contracts remain byte-identical', () => {
     const expected: Record<string, string> = {
-      'js/car-pricing.js': '3e8f1fcb790743314a29588e8e8abdc45a90d4c991ceefd4814daa234e091030',
+      'js/car-pricing.js': '30e886602888aa9eae76f6cfa6628eca00112e12ca1d3b6cac971c234c53e292',
       'js/car-reservation.js': 'cc5ea32f934482e7daefdf68801a1af20a18acc3f6148afde143e72546ce3784',
       'js/car-rental-flow.js': '77c1764bcce742d7b70323b8a115bd1a73f331449a74445409dd3492b2068de6',
       'supabase/functions/partner-fulfillment-action/index.ts': '802aa0b8d3a1204f93adefcf598a77c764fde4a6e15dfe2624366c0a99c1297b',
@@ -92,7 +92,6 @@ describe('Car Rental Multi-City Stage 2E static safety guards', () => {
 
   test('no protected path was changed in the working tree', () => {
     const protectedPaths = [
-      'js/car-pricing.js',
       'js/car-reservation.js',
       'js/car-rental-flow.js',
       'supabase/functions/partner-fulfillment-action/index.ts',

@@ -14744,6 +14744,13 @@ body.car-multicity-modal-open {
   overflow: hidden;
 }
 
+.car-multicity-modal,
+#carMulticityCatalogModal {
+  --admin-card-bg: var(--admin-bg-light);
+  --admin-bg-secondary: var(--admin-secondary);
+  color: var(--admin-text);
+}
+
 .car-multicity-fleet-actions,
 .car-multicity-row-actions,
 .car-multicity-modal__toolbar,
@@ -14766,8 +14773,8 @@ body.car-multicity-modal-open {
   box-shadow: 0 24px 70px rgb(15 23 42 / 28%);
   display: flex;
   flex-direction: column;
-  max-height: min(92dvh, 980px);
-  max-width: min(1180px, calc(100vw - 32px));
+  max-height: min(94dvh, 1040px);
+  max-width: min(1280px, 96vw);
   overflow: hidden;
   width: 100%;
 }
@@ -14855,7 +14862,14 @@ body.car-multicity-modal-open {
 .car-multicity-section .admin-form-field textarea,
 .car-multicity-city-form input,
 .car-multicity-city-form select {
+  background: var(--admin-bg);
+  border-color: var(--admin-border);
+  color: var(--admin-text);
   min-height: 44px;
+}
+
+.car-multicity-section input::placeholder {
+  color: var(--admin-text-muted);
 }
 
 .car-multicity-section .admin-form-field input:focus-visible,
@@ -14993,6 +15007,282 @@ body.car-multicity-modal-open {
   margin-right: 5px;
   min-height: 20px;
   min-width: 20px;
+}
+
+.car-multicity-pricing-toolbar {
+  align-items: end;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(220px, 0.45fr) minmax(280px, 1fr);
+  margin: 18px 0 12px;
+}
+
+.car-multicity-pricing-toolbar p {
+  color: var(--admin-text-muted);
+  margin: 0 0 8px;
+}
+
+.car-multicity-price-card-grid,
+.car-multicity-availability-grid,
+.car-multicity-city-card-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.car-multicity-price-card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+.car-multicity-price-card {
+  background: color-mix(in srgb, var(--admin-bg-secondary) 84%, var(--admin-bg));
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  display: grid;
+  gap: 12px;
+  min-height: 196px;
+  padding: 16px;
+}
+
+.car-multicity-price-card.is-active {
+  border-color: color-mix(in srgb, var(--admin-primary) 72%, var(--admin-border));
+  box-shadow: inset 0 3px 0 color-mix(in srgb, var(--admin-primary) 72%, transparent);
+}
+
+.car-multicity-price-card.is-preserved {
+  opacity: 0.82;
+}
+
+.car-multicity-price-card > div:first-child,
+.car-multicity-availability-card > header,
+.car-multicity-city-card > header,
+.car-multicity-city-card > footer,
+.car-multicity-catalog-toolbar,
+.car-multicity-catalog-actions,
+.car-multicity-city-editor > header,
+.car-multicity-city-editor > footer {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.car-multicity-price-card span,
+.car-multicity-price-card small {
+  display: block;
+}
+
+.car-multicity-price-card small,
+.car-multicity-preserved-value {
+  color: var(--admin-text-muted);
+  font-size: 11px;
+}
+
+.car-multicity-price-card p {
+  margin: 0;
+}
+
+.car-multicity-availability-grid {
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  margin: 16px 0;
+}
+
+.car-multicity-availability-card,
+.car-multicity-city-card {
+  background: color-mix(in srgb, var(--admin-bg-secondary) 78%, var(--admin-bg));
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.car-multicity-availability-card.is-selected {
+  border-color: color-mix(in srgb, var(--admin-success) 70%, var(--admin-border));
+  box-shadow: inset 4px 0 0 var(--admin-success);
+}
+
+.car-multicity-availability-card header > div,
+.car-multicity-city-card header > div {
+  display: grid;
+  gap: 4px;
+}
+
+.car-multicity-availability-card code,
+.car-multicity-city-card code {
+  color: var(--admin-text-muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.car-multicity-fee-controls {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.car-multicity-availability-card dl,
+.car-multicity-city-card dl {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+.car-multicity-availability-card dl > div,
+.car-multicity-city-card dl > div {
+  background: var(--admin-bg);
+  border-radius: 8px;
+  padding: 9px 10px;
+}
+
+.car-multicity-availability-card dt,
+.car-multicity-city-card dt {
+  color: var(--admin-text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.car-multicity-availability-card dd,
+.car-multicity-city-card dd {
+  margin: 3px 0 0;
+}
+
+.car-multicity-availability-card dd.is-required {
+  color: var(--admin-warning);
+  font-weight: 700;
+}
+
+.car-multicity-status-badge {
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 5px 8px;
+  text-transform: uppercase;
+}
+
+.car-multicity-status-badge.is-active {
+  background: color-mix(in srgb, var(--admin-success) 12%, transparent);
+  border-color: color-mix(in srgb, var(--admin-success) 45%, transparent);
+  color: var(--admin-success);
+}
+
+.car-multicity-status-badge.is-inactive {
+  color: var(--admin-text-muted);
+}
+
+.car-multicity-catalog-toolbar {
+  align-items: flex-end;
+  margin-bottom: 18px;
+}
+
+.car-multicity-catalog-toolbar h4,
+.car-multicity-catalog-toolbar p {
+  margin-bottom: 4px;
+}
+
+.car-multicity-catalog-actions {
+  flex: 0 1 540px;
+}
+
+.car-multicity-catalog-actions .admin-form-field {
+  flex: 1;
+}
+
+.car-multicity-city-card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+}
+
+.car-multicity-city-catalog {
+  min-height: 520px;
+  position: relative;
+}
+
+.car-multicity-city-card > footer {
+  border-top: 1px solid var(--admin-border);
+  padding-top: 12px;
+}
+
+.car-multicity-city-editor {
+  background: var(--admin-card-bg);
+  border: 1px solid color-mix(in srgb, var(--admin-primary) 48%, var(--admin-border));
+  border-radius: 16px;
+  box-shadow: 0 24px 70px rgb(0 0 0 / 34%);
+  display: grid;
+  inset: 18px;
+  max-height: calc(100% - 36px);
+  overflow: hidden;
+  position: absolute;
+  z-index: 8;
+}
+
+.car-multicity-city-editor > header,
+.car-multicity-city-editor > footer {
+  background: var(--admin-card-bg);
+  padding: 14px 18px;
+}
+
+.car-multicity-city-editor > header {
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.car-multicity-city-editor > footer {
+  border-top: 1px solid var(--admin-border);
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+}
+
+.car-multicity-city-editor .car-multicity-wizard-steps {
+  margin: 0;
+  padding: 10px 18px;
+}
+
+.car-multicity-city-editor__body {
+  overflow: auto;
+  padding: 22px;
+}
+
+.car-multicity-kicker {
+  color: var(--admin-primary);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.car-multicity-city-editor h4 {
+  margin: 3px 0 0;
+}
+
+.car-multicity-place-types {
+  border: 0;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+}
+
+.car-multicity-place-types legend {
+  font-size: 16px;
+  font-weight: 700;
+  grid-column: 1 / -1;
+  margin-bottom: 4px;
+}
+
+.car-multicity-information-card {
+  background: var(--admin-bg-secondary);
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  line-height: 1.6;
+  padding: 20px;
+}
+
+.car-multicity-empty {
+  color: var(--admin-text-muted);
+  grid-column: 1 / -1;
+  padding: 28px;
+  text-align: center;
 }
 
 .car-multicity-modal__footer {
@@ -15273,6 +15563,26 @@ body.car-multicity-modal-open {
   .car-multicity-media-grid,
   .car-multicity-city-review-list li {
     grid-template-columns: 1fr;
+  }
+
+  .car-multicity-pricing-toolbar,
+  .car-multicity-fee-controls,
+  .car-multicity-availability-card dl,
+  .car-multicity-city-card dl,
+  .car-multicity-place-types,
+  .car-multicity-city-editor > footer {
+    grid-template-columns: 1fr;
+  }
+
+  .car-multicity-catalog-toolbar,
+  .car-multicity-catalog-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .car-multicity-city-editor {
+    inset: 4px;
+    max-height: calc(100% - 8px);
   }
 
   .car-multicity-modal__content {
