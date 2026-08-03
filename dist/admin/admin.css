@@ -14818,8 +14818,11 @@ body.car-multicity-modal-open {
 .car-multicity-live-status {
   border-bottom: 1px solid var(--admin-border);
   color: var(--admin-text-muted);
+  flex: 0 0 auto;
   min-height: 38px;
+  overflow-wrap: anywhere;
   padding: 10px 20px;
+  white-space: normal;
 }
 
 .car-multicity-live-status[data-kind='error'] {
@@ -15152,6 +15155,13 @@ body.car-multicity-modal-open {
   font-weight: 700;
 }
 
+.car-multicity-fee-scope {
+  color: var(--admin-text-muted);
+  font-size: 11px;
+  line-height: 1.45;
+  margin: -2px 0 0;
+}
+
 .car-multicity-status-badge {
   border: 1px solid var(--admin-border);
   border-radius: 999px;
@@ -15209,11 +15219,43 @@ body.car-multicity-modal-open {
   border-radius: 16px;
   box-shadow: 0 24px 70px rgb(0 0 0 / 34%);
   display: grid;
-  inset: 18px;
-  max-height: calc(100% - 36px);
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  height: 90dvh;
+  inset: auto;
+  left: 50%;
+  max-height: 90dvh;
   overflow: hidden;
-  position: absolute;
+  position: fixed;
+  top: 5dvh;
+  transform: translateX(-50%);
+  width: min(1180px, calc(100vw - 48px));
   z-index: 8;
+}
+
+.car-multicity-mapping-table input:not([type='checkbox']) {
+  background: var(--admin-bg-secondary);
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  color: var(--admin-text);
+  min-height: 40px;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.car-multicity-modal .admin-error-message {
+  margin: 0;
+  padding: 14px 20px;
+  text-align: left;
+}
+
+.car-multicity-modal .admin-error-message strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.car-multicity-modal .admin-error-message ul {
+  margin: 0;
+  padding-left: 20px;
 }
 
 .car-multicity-city-editor > header,
@@ -15581,13 +15623,18 @@ body.car-multicity-modal-open {
   }
 
   .car-multicity-city-editor {
-    inset: 4px;
-    max-height: calc(100% - 8px);
+    height: 94dvh;
+    inset: auto;
+    left: 50%;
+    max-height: 94dvh;
+    top: 3dvh;
+    width: calc(100vw - 16px);
   }
 
   .car-multicity-modal__content {
-    max-height: calc(100dvh - 8px);
+    max-height: 94dvh !important;
     max-width: calc(100vw - 8px);
+    overflow: hidden !important;
   }
 
   .car-multicity-fleet-actions {

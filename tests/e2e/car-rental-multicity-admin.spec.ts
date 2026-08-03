@@ -116,7 +116,7 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
 
     await openAction(page, 'pricing');
     await expect(page.locator('#carMulticityPricingProfile')).toHaveValue(PROFILE_LARNACA);
-    await expect(page.locator('#carMulticityModalContent')).toContainText('price_per_day');
+    await expect(page.locator('#carMulticityModalContent')).toContainText('Daily price');
     await page.locator('#carMulticityModalClose').click();
 
     await openAction(page, 'partner');
@@ -137,7 +137,7 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     await nicosia.locator('[data-availability-field="paired"]').check();
     await page.locator('#carMulticityReview').click();
     await expect(page.locator('#carMulticityModalContent')).toContainText(CITY_NICOSIA);
-    await expect(page.locator('#carMulticityModalContent')).toContainText('Existing price column changes');
+    await expect(page.locator('#carMulticityModalContent')).toContainText('Existing base price changes');
     await expect(page.locator('#carMulticityModalContent')).toContainText('Global mapped flag changes');
     await page.locator('#carMulticitySave').click();
     await expect(page.locator('#carMulticityConfirmDialog')).toBeVisible();
@@ -170,11 +170,11 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     const fee = page.locator(`[data-city-id="${CITY_PAPHOS}"] [data-availability-field="fee_per_direction"]`);
     await fee.fill('0');
     await fee.press('Tab');
-    await expect(page.locator(`[data-city-id="${CITY_PAPHOS}"]`)).toContainText('€0.00 pickup · €0.00 return');
+    await expect(page.locator(`[data-city-id="${CITY_PAPHOS}"]`)).toContainText('€0.00 pickup · €0.00 return · €0.00 route total');
     await page.locator('#carMulticityReview').click();
     await expect(page.locator('#carMulticityModalContent')).toContainText('Available cities');
     await expect(page.locator('#carMulticityModalContent')).toContainText('Custom €0.00 per direction');
-    await expect(page.locator('#carMulticityModalContent')).toContainText('Existing price column changes');
+    await expect(page.locator('#carMulticityModalContent')).toContainText('Existing base price changes');
     await expect(page.locator('#carMulticityModalContent')).toContainText('Deposit rule changes');
     await page.locator('#carMulticitySave').click();
     await page.locator('#carMulticityConfirmAccept').click();
@@ -405,7 +405,7 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     await page.locator('#carMulticityReview').click();
     await expect(page.locator('#carMulticityModalContent')).toContainText('location');
     await expect(page.locator('#carMulticityModalContent')).toContainText('pricing_profile_id');
-    await expect(page.locator('#carMulticityModalContent')).toContainText('Existing price column changes');
+    await expect(page.locator('#carMulticityModalContent')).toContainText('Existing base price changes');
     await page.locator('#carMulticitySave').click();
     await page.locator('#carMulticityConfirmAccept').click();
     await expect(page.locator('#carMulticityReceiptHeading')).toHaveText('Saved');
@@ -425,10 +425,10 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     await expect(page.locator('#carMulticitySave')).toHaveText('Save pricing values');
     await page.locator('#carMulticityPricePerDay').fill('41.50');
     await page.locator('#carMulticityReview').click();
-    await expect(page.locator('#carMulticityModalContent')).toContainText('price_per_day');
+    await expect(page.locator('#carMulticityModalContent')).toContainText('Daily price');
     await expect(page.locator('#carMulticityModalContent')).toContainText('35');
     await expect(page.locator('#carMulticityModalContent')).toContainText('41.5');
-    await expect(page.locator('#carMulticityModalContent')).toContainText('Existing price column changes');
+    await expect(page.locator('#carMulticityModalContent')).toContainText('Existing base price changes');
     await page.locator('#carMulticitySave').evaluate((button: HTMLButtonElement) => {
       button.click();
       button.click();

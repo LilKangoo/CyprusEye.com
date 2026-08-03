@@ -44,6 +44,13 @@
     const adminLanguage = () => core.normalizeCode(documentRef.documentElement?.lang || 'en') || 'en';
     const labelI18n = (value) => core.resolveI18nText(value, adminLanguage());
     const money = (value) => value === null || value === undefined || value === '' ? '—' : `€${Number(value).toFixed(2)}`;
+    const priceLabels = Object.freeze({
+      price_per_day: 'Daily price',
+      price_3days: '3-day package price',
+      price_4_6days: 'Daily price · 4–6 days',
+      price_7_10days: 'Daily price · 7–10 days',
+      price_10plus_days: 'Daily price · 11+ days',
+    });
 
     function announce(message, kind = 'status') {
       const element = byId('carMulticityModalStatus');
@@ -301,7 +308,7 @@
           <h4 id="carMulticityVehicleHeading">Vehicle</h4>
           <p class="car-multicity-exact-id"><strong>Exact car_offers.id:</strong> ${escapeHtml(state.draft.offerId || 'created on Save')}</p>
           <div class="car-multicity-form-grid">
-            <label class="admin-form-field"><span>Vehicle kind</span>
+            <label class="admin-form-field"><span>Vehicle type</span>
               <select data-draft-field="vehicle.vehicleKindId" id="carMulticityVehicleKind">
                 ${kinds.map((kind) => `<option value="${escapeHtml(kind.id)}" ${core.normalizeId(kind.id) === core.normalizeId(vehicle.vehicleKindId) ? 'selected' : ''} ${kind.is_active !== true ? 'disabled' : ''}>${escapeHtml(labelI18n(kind.name_i18n) || kind.code)} (${escapeHtml(kind.code)})</option>`).join('')}
               </select>
@@ -315,7 +322,7 @@
             <label class="car-multicity-check"><input type="checkbox" data-boolean="true" data-draft-field="vehicle.isAvailable" ${vehicle.isAvailable ? 'checked' : ''}> Available</label>
             <label class="car-multicity-check"><input type="checkbox" data-boolean="true" data-draft-field="vehicle.northAllowed" ${vehicle.northAllowed ? 'checked' : ''}> North allowed</label>
           </div>
-          ${i18nInput('vehicle.carType', 'Commercial car type', vehicle.carType)}
+          ${i18nInput('vehicle.carType', 'Commercial class', vehicle.carType)}
           ${i18nInput('vehicle.carModel', 'Car model', vehicle.carModel)}
         </section>
         ${includeContent ? `${renderContentFields()}${renderDepositSummary()}` : ''}
@@ -376,7 +383,7 @@
             const field = draftFields[column];
             const editable = activeColumns.has(column);
             return `<article class="car-multicity-price-card ${editable ? 'is-active' : 'is-preserved'}">
-              <div><span>${escapeHtml(column)}</span><small>${editable ? 'Used by active profile' : 'Preserved, not edited'}</small></div>
+              <div><span>${escapeHtml(priceLabels[column] || column)}</span><small>${editable ? 'Used by active profile' : 'Preserved, not edited'}</small></div>
               <p>Current <strong>${escapeHtml(money(offer?.[column]))}</strong></p>
               ${editable
                 ? `<label class="admin-form-field"><span>New value</span><input type="number" min="0.01" step="0.01" data-number="money" data-draft-field="pricing.${escapeHtml(field)}" id="carMulticity${escapeHtml(field.charAt(0).toUpperCase() + field.slice(1))}" value="${escapeHtml(state.draft.pricing[field] ?? '')}"></label>`
@@ -396,7 +403,7 @@
       return `
         <div class="car-multicity-form-grid">
           <label class="admin-form-field"><span>Currency</span><input data-draft-field="pricing.currency" value="${escapeHtml(pricing.currency)}" maxlength="3"></label>
-          ${larnaca ? `<label class="admin-form-field"><span>Price per day</span><input type="number" min="0" step="0.01" data-number="money" data-draft-field="pricing.pricePerDay" value="${escapeHtml(pricing.pricePerDay ?? '')}"></label>` : ''}
+          ${larnaca ? `<label class="admin-form-field"><span>Daily price</span><input type="number" min="0" step="0.01" data-number="money" data-draft-field="pricing.pricePerDay" value="${escapeHtml(pricing.pricePerDay ?? '')}"></label>` : ''}
           ${paphos ? `
             <label class="admin-form-field"><span>3 days</span><input type="number" min="0" step="0.01" data-number="money" data-draft-field="pricing.price3Days" value="${escapeHtml(pricing.price3Days ?? '')}"></label>
             <label class="admin-form-field"><span>4–6 days / day</span><input type="number" min="0" step="0.01" data-number="money" data-draft-field="pricing.price4To6Days" value="${escapeHtml(pricing.price4To6Days ?? '')}"></label>
@@ -433,23 +440,25 @@
           ? 'Existing Paphos place-type rule'
           : `${money(fee.standardAmount)} per direction`
         : 'Not available — custom fee required';
+      const routeFeeSummary = (amount) => `${money(amount)} pickup · ${money(amount)} return · ${money(Number(amount) * 2)} route total`;
       const resultLabel = fee.valid
         ? fee.mode === 'override'
-          ? `${money(fee.amount)} pickup · ${money(fee.amount)} return`
+          ? routeFeeSummary(fee.amount)
           : fee.standardAmount === null
-            ? 'Calculated by existing Paphos place-type rule'
-            : `${money(fee.standardAmount)} pickup · ${money(fee.standardAmount)} return`
+            ? 'Calculated by existing Paphos place-type rule · route total depends on place type'
+            : routeFeeSummary(fee.standardAmount)
         : 'Fee required for this city';
       return `
         <article class="car-multicity-availability-card ${paired.checked ? 'is-selected' : ''}" data-city-id="${escapeHtml(city.id)}">
           <header><div><strong>${escapeHtml(labelI18n(city.name_i18n) || city.code)}</strong><code>${escapeHtml(city.code)}</code></div><span class="car-multicity-status-badge ${city.is_active ? 'is-active' : 'is-inactive'}">${city.is_active ? 'Active' : 'Inactive'}</span></header>
           <label class="car-multicity-city-toggle"><input type="checkbox" data-availability-field="paired" ${paired.checked ? 'checked' : ''} ${paired.mismatched ? 'data-mixed="true" aria-checked="mixed"' : ''} ${disabled ? 'disabled' : ''}> Available for pickup and return</label>
           ${paired.mismatched ? '<span class="car-multicity-row-warning" role="alert">Pickup and return settings differ. Review required.</span>' : ''}
+          <p class="car-multicity-fee-scope">This fee applies only to this exact vehicle in this city.</p>
           <div class="car-multicity-fee-controls">
-            <label class="admin-form-field"><span>Fee mode</span><select data-availability-field="fee_mode" ${disabled ? 'disabled' : ''}><option value="inherit" ${fee.mode === 'inherit' ? 'selected' : ''}>Use standard fee</option><option value="override" ${fee.mode === 'override' ? 'selected' : ''}>Custom fee</option></select></label>
-            <label class="admin-form-field"><span>Custom fee per direction</span><input type="number" min="0" step="0.01" data-availability-field="fee_per_direction" value="${escapeHtml(fee.mode === 'override' && row.fee_per_direction != null ? row.fee_per_direction : '')}" ${fee.mode !== 'override' || disabled ? 'disabled' : ''}></label>
+            <label class="admin-form-field"><span>Delivery fee</span><select data-availability-field="fee_mode" ${disabled ? 'disabled' : ''}><option value="inherit" ${fee.mode === 'inherit' ? 'selected' : ''}>Use standard fee</option><option value="override" ${fee.mode === 'override' ? 'selected' : ''}>Custom fee</option></select></label>
+            <label class="admin-form-field"><span>Fee per direction</span><input type="number" min="0" step="0.01" data-availability-field="fee_per_direction" value="${escapeHtml(fee.mode === 'override' && row.fee_per_direction != null ? row.fee_per_direction : '')}" ${fee.mode !== 'override' || disabled ? 'disabled' : ''}></label>
           </div>
-          <dl><div><dt>Standard fee</dt><dd>${escapeHtml(standardLabel)}</dd></div><div><dt>Result</dt><dd class="${fee.valid ? '' : 'is-required'}">${escapeHtml(resultLabel)}</dd></div><div><dt>Profile support</dt><dd>${supported && pairedSupported && !paphosBlocked ? 'Supported' : mapping && mapping.pickup_supported !== mapping.return_supported ? 'Support differs — review required' : 'Unavailable'}</dd></div></dl>
+          <dl><div><dt>Standard fee per direction</dt><dd>${escapeHtml(standardLabel)}</dd></div><div><dt>Pickup + return example</dt><dd class="${fee.valid ? '' : 'is-required'}">${escapeHtml(resultLabel)}</dd></div><div><dt>Profile support</dt><dd>${supported && pairedSupported && !paphosBlocked ? 'Supported' : mapping && mapping.pickup_supported !== mapping.return_supported ? 'Support differs — review required' : 'Unavailable'}</dd></div></dl>
         </article>
       `;
     }
@@ -521,7 +530,7 @@
       return `
         <section class="car-multicity-review-group">
           <h4>${escapeHtml(title)}</h4>
-          ${changes.length ? `<table class="admin-table"><thead><tr><th>Entity</th><th>Exact ID</th><th>Field</th><th>Before</th><th>After</th></tr></thead><tbody>${changes.map((change) => `<tr><td>${escapeHtml(change.entityType)}</td><td><code>${escapeHtml(change.entityId || 'new')}</code></td><td><code>${escapeHtml(change.field)}</code></td><td>${escapeHtml(renderValue(change.before))}</td><td>${escapeHtml(renderValue(change.after))}</td></tr>`).join('')}</tbody></table>` : '<p>UNCHANGED</p>'}
+          ${changes.length ? `<table class="admin-table"><thead><tr><th>Entity</th><th>Exact ID</th><th>Field</th><th>Before</th><th>After</th></tr></thead><tbody>${changes.map((change) => `<tr><td>${escapeHtml(change.entityType)}</td><td><code>${escapeHtml(change.entityId || 'new')}</code></td><td>${escapeHtml(priceLabels[change.field] || change.field)}</td><td>${escapeHtml(renderValue(change.before))}</td><td>${escapeHtml(renderValue(change.after))}</td></tr>`).join('')}</tbody></table>` : '<p>UNCHANGED</p>'}
         </section>
       `;
     }
@@ -542,7 +551,10 @@
             const afterFee = entry.afterFeeMode === 'override'
               ? `Custom ${money(entry.afterFeePerDirection)} per direction`
               : entry.afterFeeMode === null ? 'Removed' : 'Use standard fee';
-            return `<li><strong>${escapeHtml(label)}</strong><code>${escapeHtml(entry.exactCityId)}</code><span>${escapeHtml(before)} → ${escapeHtml(after)}</span><span>${escapeHtml(beforeFee)} → ${escapeHtml(afterFee)}</span><small>${escapeHtml(entry.action)}</small></li>`;
+            const afterResult = entry.afterFeeMode === 'override' && entry.afterFeePerDirection !== null
+              ? `Pickup ${money(entry.afterFeePerDirection)} · Return ${money(entry.afterFeePerDirection)} · Route total ${money(Number(entry.afterFeePerDirection) * 2)}`
+              : entry.afterFeeMode === null ? 'No resulting fee' : 'Result uses the standard fee for this city';
+            return `<li><strong>${escapeHtml(label)}</strong><code>${escapeHtml(entry.exactCityId)}</code><span>${escapeHtml(before)} → ${escapeHtml(after)}</span><span>${escapeHtml(beforeFee)} → ${escapeHtml(afterFee)}</span><small>This exact vehicle only · ${escapeHtml(afterResult)} · ${escapeHtml(entry.action)}</small></li>`;
           }).join('')}</ul>` : '<p>UNCHANGED</p>'}
         </section>
       `;
@@ -589,7 +601,8 @@
             <div><dt>Booking changes</dt><dd><strong>0</strong></dd></div>
             <div><dt>Price calculation changes</dt><dd><strong>0</strong></dd></div>
             <div><dt>Deposit rule changes</dt><dd><strong>0</strong></dd></div>
-            <div><dt>Existing price column changes</dt><dd><strong>${escapeHtml(plan.existingPriceColumnChanges)}</strong></dd></div>
+            <div><dt>Existing base price changes</dt><dd><strong>${escapeHtml(plan.existingPriceColumnChanges)}</strong></dd></div>
+            <div><dt>Existing inactive pricing columns changed</dt><dd><strong>0</strong></dd></div>
           </dl>
           ${changeGroup('Vehicle changes', vehicleChanges)}
           ${changeGroup('Pricing profile changes', profileChanges)}
@@ -1154,7 +1167,7 @@
         <section class="car-multicity-section">
           <h4>Pricing profile city support</h4>
           <p>The exact normalized city code is the pricing key. Existing six-city keys inherit legacy fees; a new Larnaca-profile city requires an offer-level custom fee. Paphos remains hard-limited to Paphos.</p>
-          <div class="admin-table-container"><table class="admin-table"><thead><tr><th>Profile</th><th>City</th><th>Pickup and return support</th><th>Legacy pricing key</th><th>Active</th><th>Impact / action</th></tr></thead><tbody>
+          <div class="admin-table-container car-multicity-mapping-table"><table class="admin-table"><thead><tr><th>Profile</th><th>City</th><th>Pickup and return support</th><th>Legacy pricing key</th><th>Active</th><th>Impact / action</th></tr></thead><tbody>
             ${(catalog.profiles || []).flatMap((profile) => (catalog.cities || []).map((city) => {
               const mapping = mappingMap.get(`${profile.id}:${city.id}`) || null;
               const paphosBlocked = core.normalizeCode(profile.code) === 'paphos' && core.normalizeCode(city.code) !== 'paphos';

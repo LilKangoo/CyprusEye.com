@@ -35679,7 +35679,7 @@ async function loadFleetData(options = {}) {
                 <div class="transport-admin-v2-route-action-menu__items" role="menu">
                   <button type="button" role="menuitem" data-car-multicity-action="vehicle" data-offer-id="${escapeHtml(car.id)}">Edit vehicle</button>
                   <button type="button" role="menuitem" data-car-multicity-action="availability" data-offer-id="${escapeHtml(car.id)}">Availability</button>
-                  <button type="button" role="menuitem" data-car-multicity-action="pricing" data-offer-id="${escapeHtml(car.id)}">Pricing profile</button>
+                  <button type="button" role="menuitem" data-car-multicity-action="pricing" data-offer-id="${escapeHtml(car.id)}">Pricing and profile</button>
                   <button type="button" role="menuitem" data-car-multicity-action="partner" data-offer-id="${escapeHtml(car.id)}">Partner</button>
                   <button type="button" role="menuitem" data-car-multicity-action="legacy" data-offer-id="${escapeHtml(car.id)}">Legacy editor</button>
                 </div>

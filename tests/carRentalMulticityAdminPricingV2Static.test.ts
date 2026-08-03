@@ -10,6 +10,7 @@ describe('Car Rental Multi-City Admin Pricing V2 static guards', () => {
   const core = read('admin/car-rental-multicity-core.js');
   const repository = read('admin/car-rental-multicity-repository.js');
   const ui = read('admin/car-rental-multicity-ui.js');
+  const admin = read('admin/admin.js');
   const pricing = read('js/car-pricing.js');
   const adapter = read('js/car-rental-availability-adapter.js');
 
@@ -61,6 +62,23 @@ describe('Car Rental Multi-City Admin Pricing V2 static guards', () => {
     expect(ui).toContain('Review price changes');
     expect(ui).toContain('Save pricing values');
     expect(ui).toContain('No inactive pricing column is copied, reset, or defaulted.');
+  });
+
+  test('visual copy uses administrator labels, a route fee total and a strict mobile viewport cap', () => {
+    const css = read('admin/admin.css');
+    expect(ui).toContain('Vehicle type');
+    expect(ui).toContain('Commercial class');
+    expect(ui).toContain("price_per_day: 'Daily price'");
+    expect(admin).toContain('Pricing and profile');
+    expect(ui).toContain('Fee per direction');
+    expect(ui).toContain('route total');
+    expect(ui).toContain('This fee applies only to this exact vehicle in this city.');
+    expect(ui).toContain('Existing inactive pricing columns changed');
+    expect(css).toContain('max-height: 94dvh !important;');
+    expect(css).toContain('overflow: hidden !important;');
+    expect(css).toContain('grid-template-rows: auto auto minmax(0, 1fr) auto;');
+    expect(css).toContain('height: 90dvh;');
+    expect(css).toContain('.car-multicity-mapping-table input:not([type=\'checkbox\'])');
   });
 
   test('public seam changes only directional fees and has no second calculator', () => {
