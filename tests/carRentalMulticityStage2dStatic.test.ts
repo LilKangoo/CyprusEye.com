@@ -14,11 +14,11 @@ const publicSeams = [read('js/car-rental-paphos.js'), read('js/home-cars.js')].j
 const stage2dSources = `${adapter}\n${repository}\n${publicSeams}`;
 
 describe('Car Rental Multi-City Stage 2D static safety guards', () => {
-  test('the authorized fee seam and all downstream contracts remain byte-identical', () => {
+  test('the authorized pricing seams and all downstream contracts match accepted hashes', () => {
     const expected: Record<string, string> = {
       'js/car-pricing.js': '30e886602888aa9eae76f6cfa6628eca00112e12ca1d3b6cac971c234c53e292',
-      'js/car-reservation.js': 'cc5ea32f934482e7daefdf68801a1af20a18acc3f6148afde143e72546ce3784',
-      'js/car-rental-flow.js': '77c1764bcce742d7b70323b8a115bd1a73f331449a74445409dd3492b2068de6',
+      'js/car-reservation.js': '52cc4f032e162fd92bfe62099ca376cb357436cf63289d94c65aacfe34bdde98',
+      'js/car-rental-flow.js': '64a461171c4496ce53ced64146623ec15025e8784645e4e1f572e817db546f16',
       'supabase/functions/partner-fulfillment-action/index.ts': '802aa0b8d3a1204f93adefcf598a77c764fde4a6e15dfe2624366c0a99c1297b',
       'supabase/migrations/103_car_coupon_quote_rpc_and_partner_snapshot.sql': 'a45d46f3b16ca42d3c750e320300a18530c25e8f7be8640ea2bf91faaac5627b',
       'supabase/migrations/104_partner_car_duration_days_consistency.sql': 'f1d33de2f078b99b42d5d5a78dd0806277f548107374338fa01828ff4f80c7db',
@@ -70,10 +70,8 @@ describe('Car Rental Multi-City Stage 2D static safety guards', () => {
     expect(foundation).not.toMatch(/profile-paphos[^;]*(?:larnaca|nicosia|ayia-napa|protaras|limassol)/i);
   });
 
-  test('Stage 2D did not alter the protected files in the working tree', () => {
+  test('Stage 2D protected files outside the authorized Stage 3 reservation seam have no working-tree changes', () => {
     const protectedPaths = [
-      'js/car-reservation.js',
-      'js/car-rental-flow.js',
       'supabase/functions/partner-fulfillment-action/index.ts',
       'supabase/migrations/103_car_coupon_quote_rpc_and_partner_snapshot.sql',
       'supabase/migrations/104_partner_car_duration_days_consistency.sql',

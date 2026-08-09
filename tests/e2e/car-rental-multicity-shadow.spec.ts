@@ -11,7 +11,7 @@ const OFFER_PAPHOS = 'shadow-offer-paphos';
 const offers = [
   {
     id: OFFER_LARNACA,
-    location: 'larnaca', pricing_profile_id: PROFILE_LARNACA, availability_mode: 'mapped',
+    location: 'larnaca', pricing_strategy: 'legacy_compat', pricing_profile_id: PROFILE_LARNACA, availability_mode: 'mapped',
     is_available: true, is_published: true, north_allowed: true, submission_status: 'approved',
     sort_order: 10, stock_count: 1, max_passengers: 5, max_luggage: 2,
     car_model: { pl: 'Shadow Larnaka', en: 'Shadow Larnaca', he: 'שאדו לרנקה' },
@@ -24,7 +24,7 @@ const offers = [
   },
   {
     id: OFFER_PAPHOS,
-    location: 'paphos', pricing_profile_id: PROFILE_PAPHOS, availability_mode: 'mapped',
+    location: 'paphos', pricing_strategy: 'legacy_compat', pricing_profile_id: PROFILE_PAPHOS, availability_mode: 'mapped',
     is_available: true, is_published: true, north_allowed: false, submission_status: 'approved',
     sort_order: 20, stock_count: 1, max_passengers: 5, max_luggage: 2,
     car_model: { pl: 'Shadow Pafos', en: 'Shadow Paphos', he: 'שאדו פאפוס' },

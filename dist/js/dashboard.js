@@ -89,7 +89,11 @@ async function refreshProfileData() {
 
 async function fetchCarPricing() {
   try {
-    const { data, error } = await supabase.from('car_offers').select('*');
+    const { data, error } = await supabase
+      .from('car_offers')
+      .select('*')
+      .eq('is_available', true)
+      .eq('is_published', true);
     if (!error) carPricingData = data || [];
     console.log('🚗 Pricing loaded:', carPricingData.length);
   } catch (e) {

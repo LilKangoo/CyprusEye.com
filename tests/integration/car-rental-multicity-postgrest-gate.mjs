@@ -160,7 +160,7 @@ try {
   for (const [table, expectedCount] of [
     ['car_rental_cities', 6],
     ['car_pricing_profiles', 2],
-    ['car_vehicle_kinds', 3],
+    ['car_vehicle_kinds', 5],
   ]) {
     const result = await http(`${table}?select=id`, TOKENS.anon);
     assert.equal(result.status, 200);

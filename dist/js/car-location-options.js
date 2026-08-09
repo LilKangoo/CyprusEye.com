@@ -35,6 +35,17 @@ const CITY_LABELS = {
   },
 };
 
+let runtimeCityCatalog = CAR_CITY_VALUES.map((code, sortOrder) => ({
+  code,
+  name_i18n: {
+    pl: CITY_LABELS.pl[code],
+    en: CITY_LABELS.en[code],
+    he: CITY_LABELS.he[code],
+  },
+  sort_order: sortOrder,
+  is_active: true,
+}));
+
 const PLACE_TYPE_LABELS = {
   pl: {
     airport: 'Lotnisko',
@@ -154,7 +165,67 @@ export function normalizeCarReservationLocationValue(value, offerLocation = 'lar
 
 export function getCarCityLabel(value, lang = currentLang()) {
   const key = String(value || '').trim().toLowerCase();
+  const configured = runtimeCityCatalog.find((city) => city.code === key)?.name_i18n;
+  if (configured && typeof configured === 'object' && !Array.isArray(configured)) {
+    const chain = lang === 'pl' ? ['pl', 'en', 'he'] : lang === 'he' ? ['he', 'en', 'pl'] : ['en', 'pl', 'he'];
+    for (const language of chain) {
+      const label = String(configured[language] || '').trim();
+      if (label) return label;
+    }
+  }
   return CITY_LABELS[lang]?.[key] || CITY_LABELS.en[key] || key;
+}
+
+export function setCarRentalCityCatalog(rows = []) {
+  const normalized = (Array.isArray(rows) ? rows : [])
+    .filter((row) => row?.is_active === true)
+    .map((row, index) => ({
+      code: String(row?.code || '').trim().toLowerCase(),
+      name_i18n: row?.name_i18n && typeof row.name_i18n === 'object' && !Array.isArray(row.name_i18n)
+        ? { ...row.name_i18n }
+        : {},
+      sort_order: Number.isInteger(Number(row?.sort_order)) ? Number(row.sort_order) : index,
+      is_active: true,
+    }))
+    .filter((row) => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(row.code))
+    .sort((left, right) => left.sort_order - right.sort_order || left.code.localeCompare(right.code));
+
+  if (!normalized.length) return false;
+  runtimeCityCatalog = normalized.filter((city, index, all) => (
+    all.findIndex((candidate) => candidate.code === city.code) === index
+  ));
+  return true;
+}
+
+export function getCarRentalCityCatalog() {
+  return runtimeCityCatalog.map((city) => ({ ...city, name_i18n: { ...city.name_i18n } }));
+}
+
+export async function hydrateCarRentalCityCatalogForActiveRuntime(repository) {
+  if (!repository || typeof repository.getFeatureFlags !== 'function') {
+    return Object.freeze({ loaded: false, reason: 'repository_unavailable' });
+  }
+  try {
+    const flags = await repository.getFeatureFlags();
+    if (flags?.mappedEnabled !== true || flags?.thresholdDailyRatesEnabled !== true) {
+      return Object.freeze({ loaded: false, reason: 'runtime_disabled', flags });
+    }
+    if (typeof repository.getActiveCities !== 'function') {
+      return Object.freeze({ loaded: false, reason: 'city_reader_unavailable', flags });
+    }
+    const cities = await repository.getActiveCities();
+    const loaded = setCarRentalCityCatalog(cities);
+    return Object.freeze({ loaded, reason: loaded ? 'active_catalog_loaded' : 'empty_catalog', flags });
+  } catch (error) {
+    // The catalog is enhancement-only while flags are OFF or schema is being
+    // deployed. Keep the six audited legacy choices without logging customer
+    // or request data; mapped resolution itself still fails closed later.
+    return Object.freeze({
+      loaded: false,
+      reason: 'catalog_read_failed',
+      errorCode: String(error?.code || 'CAR_CITY_CATALOG_READ_FAILED'),
+    });
+  }
 }
 
 export function getCarPlaceTypeLabel(value, lang = currentLang()) {
@@ -169,10 +240,10 @@ export function buildCarCityOptionsHtml({
   const selected = String(selectedValue || '').trim().toLowerCase();
   const placeholder = tr('carRentalLanding.locations.cityPlaceholder', 'Wybierz miasto');
 
-  const options = CAR_CITY_VALUES
-    .map((value) => `
-      <option value="${escapeHtml(value)}" ${value === selected ? 'selected' : ''}>
-        ${escapeHtml(getCarCityLabel(value))}
+  const options = runtimeCityCatalog
+    .map((city) => `
+      <option value="${escapeHtml(city.code)}" ${city.code === selected ? 'selected' : ''}>
+        ${escapeHtml(getCarCityLabel(city.code))}
       </option>
     `)
     .join('');

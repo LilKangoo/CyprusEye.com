@@ -195,10 +195,22 @@ function collectPageErrors(page: Page) {
 }
 
 async function seedCarOffers(page: Page) {
-  const rows = CAR_OFFERS.map((row) => ({
+  const publicRows = CAR_OFFERS.map((row) => ({
     image_url: '/assets/cyprus_logo-1000x1054.png',
+    is_published: true,
+    pricing_strategy: 'legacy_compat',
     ...row,
   }));
+  const rows = [
+    ...publicRows,
+    {
+      ...publicRows.find((row) => row.location === 'paphos'),
+      id: 'df21eabb-1cd3-4723-9e66-9b81ae583191',
+      car_model: { pl: 'Nieopublikowana oferta', en: 'Unpublished offer', he: 'הצעה שלא פורסמה' },
+      is_published: false,
+      sort_order: 0,
+    },
+  ];
 
   await page.addInitScript((rows) => {
     const seed = (stub: any) => {
@@ -432,6 +444,8 @@ test.describe('car booking modal regression', () => {
     await page.waitForFunction(() => (
       document.querySelectorAll('#carRentalGrid [data-select-car-offer-id]').length === 3
     ), null, { timeout: 15000 });
+    await expect(page.locator('#carRentalGrid')).not.toContainText('Nieopublikowana oferta');
+    await expect(page.locator('[data-select-car-offer-id="df21eabb-1cd3-4723-9e66-9b81ae583191"]')).toHaveCount(0);
 
     await expect(page.locator('#carRentalGrid [data-select-car]')).toHaveCount(3);
     await expect(page.locator('#carRentalGrid [data-select-car]').first()).toHaveAttribute('data-select-car-offer-id', 'lca-he-ready');

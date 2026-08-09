@@ -59,11 +59,8 @@ describe('Car Rental Multi-City Admin UX and media hotfix guards', () => {
     expect(ui).toContain('aria-invalid');
   });
 
-  test('protected downstream runtime still has no Admin Pricing V2 diff', () => {
+  test('protected fulfillment runtime still has no Admin Pricing V2 diff', () => {
     const protectedPaths = [
-      'js/car-rental-paphos.js',
-      'js/home-cars.js',
-      'js/car-reservation.js',
       'supabase/functions/partner-fulfillment-action/index.ts',
     ];
     const diff = childProcess.execFileSync('git', ['diff', '--name-only', '--', ...protectedPaths], { encoding: 'utf8' }).trim();

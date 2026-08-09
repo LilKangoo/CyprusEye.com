@@ -7,6 +7,7 @@
     profiles: 'car_pricing_profiles',
     profileCities: 'car_pricing_profile_cities',
     availability: 'car_offer_city_availability',
+    dailyRateTiers: 'car_offer_daily_rate_tiers',
     vehicleKinds: 'car_vehicle_kinds',
     partners: 'partners',
     partnerResources: 'partner_resources',
@@ -110,7 +111,7 @@
     async function getSiteSetting() {
       const result = await client()
         .from(TABLES.siteSettings)
-        .select('id,car_multi_city_mapped_enabled,updated_at')
+        .select('id,car_multi_city_mapped_enabled,car_threshold_daily_rates_enabled,updated_at')
         .order('id', { ascending: true })
         .limit(1);
       return first(assertResult(result));
@@ -120,6 +121,16 @@
       const id = normalizeId(offerId);
       if (!id) return [];
       return listRows(TABLES.availability, '*', (query) => query.eq('offer_id', id).order('city_id', { ascending: true }));
+    }
+
+    async function listDailyRateTiersByOfferId(offerId) {
+      const id = normalizeId(offerId);
+      if (!id) return [];
+      return listRows(
+        TABLES.dailyRateTiers,
+        '*',
+        (query) => query.eq('offer_id', id).order('threshold_days', { ascending: true }),
+      );
     }
 
     async function listPartnerResourcesByOfferId(offerId) {
@@ -240,26 +251,30 @@
       if (catalog?.siteSetting?.car_multi_city_mapped_enabled !== false) {
         throw staleConflict('Mapped feature flag must remain false during Stage 2C.');
       }
+      if (catalog?.siteSetting?.car_threshold_daily_rates_enabled !== false) {
+        throw staleConflict('Threshold-pricing feature flag must remain false during Stage 3A/3B.');
+      }
     }
 
     async function getOfferContext(offerId) {
       const id = normalizeId(offerId);
       if (!id) throw new Error('Exact car offer ID is required');
-      const [offer, catalog, availability, partnerResources, depositRule, depositOverride] = await Promise.all([
+      const [offer, catalog, availability, dailyRateTiers, partnerResources, depositRule, depositOverride] = await Promise.all([
         getOfferById(id),
         getCatalog(),
         listAvailabilityByOfferId(id),
+        listDailyRateTiersByOfferId(id),
         listPartnerResourcesByOfferId(id),
         getCarsDepositDefault(),
         getCarsDepositOverride(id),
       ]);
       if (!offer) throw staleConflict('Exact car offer no longer exists.', { offerId: id });
-      return { offer, ...catalog, availability, partnerResources, depositRule, depositOverride, loadedAt: new Date().toISOString() };
+      return { offer, ...catalog, availability, dailyRateTiers, partnerResources, depositRule, depositOverride, loadedAt: new Date().toISOString() };
     }
 
     async function getCreateContext() {
       const [catalog, depositRule] = await Promise.all([getCatalog(), getCarsDepositDefault()]);
-      return { offer: null, availability: [], partnerResources: [], depositRule, depositOverride: null, ...catalog, loadedAt: new Date().toISOString() };
+      return { offer: null, availability: [], dailyRateTiers: [], partnerResources: [], depositRule, depositOverride: null, ...catalog, loadedAt: new Date().toISOString() };
     }
 
     async function exactOfferUpdate(offerId, expectedUpdatedAt, payload, allowedFields, operation) {
@@ -288,12 +303,14 @@
 
     async function updatePricingProfile(request) {
       assertAllowedPayload(request.payload, core.PRICING_EDIT_COLUMNS, 'Pricing and profile update');
-      const profile = (await listProfiles()).find((row) => normalizeId(row.id) === normalizeId(request.payload.pricing_profile_id));
-      if (!profile || core.profileLocation(profile) !== core.normalizeCode(request.payload.location)) {
-        throw staleConflict('Pricing profile no longer matches the legacy location.', {
-          profileId: request.payload.pricing_profile_id,
-          location: request.payload.location,
-        });
+      if (core.normalizeCode(request.payload.pricing_strategy || 'legacy_compat') === 'legacy_compat') {
+        const profile = (await listProfiles()).find((row) => normalizeId(row.id) === normalizeId(request.payload.pricing_profile_id));
+        if (!profile || core.profileLocation(profile) !== core.normalizeCode(request.payload.location)) {
+          throw staleConflict('Pricing profile no longer matches the legacy location.', {
+            profileId: request.payload.pricing_profile_id,
+            location: request.payload.location,
+          });
+        }
       }
       return exactOfferUpdate(
         request.offerId,
@@ -376,6 +393,54 @@
       return removed[0];
     }
 
+    async function insertDailyRateTier(request) {
+      assertAllowedPayload(request.payload, core.DAILY_RATE_TIER_COLUMNS.slice(1), 'Daily-rate tier insert');
+      const offerId = normalizeId(request.payload.offer_id);
+      if (!offerId) throw staleConflict('Exact offer ID is required for a daily-rate tier.');
+      const existing = await listRows(
+        TABLES.dailyRateTiers,
+        'id,offer_id,threshold_days,updated_at',
+        (query) => query.eq('offer_id', offerId).eq('threshold_days', request.payload.threshold_days).limit(2),
+      );
+      if (existing.length) throw staleConflict('A tier with this exact threshold appeared since Review.', { offerId, thresholdDays: request.payload.threshold_days });
+      const result = assertResult(await client().from(TABLES.dailyRateTiers).insert(request.payload).select('*').single());
+      if (!result.data || normalizeId(result.data.offer_id) !== offerId) throw internalError('Daily-rate tier insert returned an unexpected row.');
+      return result.data;
+    }
+
+    async function updateDailyRateTier(request) {
+      const id = normalizeId(request.tierId);
+      const offerId = normalizeId(request.offerId);
+      if (!id || !offerId || !request.expectedUpdatedAt) throw staleConflict('Exact tier ID, offer ID and timestamp are required.');
+      assertAllowedPayload(request.payload, core.DAILY_RATE_TIER_COLUMNS.slice(1), 'Daily-rate tier update');
+      const payload = { ...request.payload };
+      delete payload.offer_id;
+      const result = await client().from(TABLES.dailyRateTiers).update(payload)
+        .eq('id', id)
+        .eq('offer_id', offerId)
+        .eq('updated_at', request.expectedUpdatedAt)
+        .select('*');
+      const updated = rows(assertResult(result));
+      if (updated.length === 0) throw staleConflict('Daily-rate tier changed since Review.', { tierId: id, offerId });
+      if (updated.length !== 1) throw internalError('Daily-rate tier update returned multiple rows.', { tierId: id, count: updated.length });
+      return updated[0];
+    }
+
+    async function deleteDailyRateTier(request) {
+      const id = normalizeId(request.tierId);
+      const offerId = normalizeId(request.offerId);
+      if (!id || !offerId || !request.expectedUpdatedAt) throw staleConflict('Exact tier ID, offer ID and timestamp are required.');
+      const result = await client().from(TABLES.dailyRateTiers).delete()
+        .eq('id', id)
+        .eq('offer_id', offerId)
+        .eq('updated_at', request.expectedUpdatedAt)
+        .select('*');
+      const removed = rows(assertResult(result));
+      if (removed.length === 0) throw staleConflict('Daily-rate tier changed or disappeared since Review.', { tierId: id, offerId });
+      if (removed.length !== 1) throw internalError('Daily-rate tier delete returned multiple rows.', { tierId: id, count: removed.length });
+      return removed[0];
+    }
+
     async function insertOffer(payload) {
       assertAllowedPayload(payload, core.CREATE_COLUMNS, 'Vehicle create');
       if (payload.availability_mode !== 'legacy') throw internalError('New offers must remain in legacy mode.');
@@ -392,9 +457,41 @@
         return insertOffer(step.payload);
       }
       if (step.type === 'car_offer' && step.action === 'update') {
+        if (execution.planKind === 'create' && step.entityId === '$created_offer_id') {
+          const createdOfferId = normalizeId(execution.createdOfferId);
+          const currentOffer = await getOfferById(createdOfferId);
+          if (!currentOffer) {
+            throw staleConflict('Created exact offer disappeared before threshold finalization.', { offerId: createdOfferId });
+          }
+          return exactOfferUpdate(
+            createdOfferId,
+            currentOffer.updated_at,
+            step.payload,
+            ['pricing_strategy', 'min_rental_days', 'max_rental_days', 'is_available'],
+            'Created threshold offer finalization',
+          );
+        }
+        let expectedUpdatedAt = step.expectedUpdatedAt;
+        if (execution.planKind === 'pricing_profile' && execution.tierMutated) {
+          const currentOffer = await getOfferById(step.entityId);
+          const expected = execution.plan?.preflightSnapshot?.offerContract || {};
+          if (!currentOffer) throw staleConflict('Exact offer disappeared after tier save.', { offerId: step.entityId });
+          const mutableByTierTrigger = new Set(['min_rental_days', 'updated_at']);
+          const changedOutsideTierSync = Object.keys(expected).some((field) => (
+            !mutableByTierTrigger.has(field)
+            && JSON.stringify(currentOffer[field] ?? null) !== JSON.stringify(expected[field] ?? null)
+          ));
+          if (changedOutsideTierSync) {
+            throw staleConflict('Car offer changed while daily-rate tiers were being saved.', { offerId: step.entityId });
+          }
+          if (Number(currentOffer.min_rental_days) !== Number(execution.plan?.effectiveMinRentalDays)) {
+            throw staleConflict('Server minimum does not match the lowest active tier.', { offerId: step.entityId });
+          }
+          expectedUpdatedAt = currentOffer.updated_at;
+        }
         const request = {
           offerId: step.entityId,
-          expectedUpdatedAt: step.expectedUpdatedAt,
+          expectedUpdatedAt,
           payload: step.payload,
         };
         if (execution.planKind === 'vehicle') return updateVehicleDetails(request);
@@ -413,11 +510,33 @@
         if (step.action === 'update') return updateAvailability({ offerId, cityId, expectedUpdatedAt: step.expectedUpdatedAt, payload });
         if (step.action === 'delete') return deleteAvailability({ offerId, cityId, expectedUpdatedAt: step.expectedUpdatedAt });
       }
+      if (step.type === 'car_offer_daily_rate_tier') {
+        const payload = { ...(step.payload || {}) };
+        if (payload.offer_id === '$created_offer_id') payload.offer_id = normalizeId(execution.createdOfferId);
+        const offerId = normalizeId(payload.offer_id || execution.plan?.exactOfferId);
+        if (step.action === 'insert') return insertDailyRateTier({ payload });
+        if (step.action === 'update') return updateDailyRateTier({
+          tierId: step.entityId,
+          offerId,
+          expectedUpdatedAt: step.expectedUpdatedAt,
+          payload,
+        });
+        if (step.action === 'delete') return deleteDailyRateTier({
+          tierId: step.entityId,
+          offerId,
+          expectedUpdatedAt: step.expectedUpdatedAt,
+        });
+      }
       throw internalError(`Unsupported save step: ${step.type}/${step.action}`);
     }
 
     async function executePlan(plan, options = {}) {
-      if (!plan || plan.globalMappedFlagChanges !== 0 || plan.bookingChanges !== 0 || plan.priceCalculationChanges !== 0 || plan.depositRuleChanges !== 0) {
+      if (!plan
+        || plan.globalMappedFlagChanges !== 0
+        || plan.globalThresholdFlagChanges !== 0
+        || plan.bookingChanges !== 0
+        || plan.priceCalculationChanges !== 0
+        || plan.depositRuleChanges !== 0) {
         throw internalError('Unsafe or missing Stage 2C save plan.');
       }
       const working = core.clone(plan);
@@ -435,6 +554,7 @@
       }
       working.status = 'running';
       let createdOfferId = null;
+      const executionState = { planKind: working.kind, createdOfferId: null, tierMutated: false, plan: working };
       for (const step of working.steps) {
         const dependencyFailed = (step.dependsOn || []).some((key) => {
           const dependency = working.steps.find((candidate) => candidate.key === key);
@@ -450,7 +570,8 @@
         step.attempts += 1;
         options.onProgress?.(core.clone(working), core.clone(step));
         try {
-          const result = await executeStep(step, { planKind: working.kind, createdOfferId });
+          executionState.createdOfferId = createdOfferId;
+          const result = await executeStep(step, executionState);
           step.status = 'success';
           step.result = core.clone(result);
           step.error = null;
@@ -458,6 +579,7 @@
             createdOfferId = normalizeId(result?.id);
             working.exactOfferId = createdOfferId;
           }
+          if (step.type === 'car_offer_daily_rate_tier') executionState.tierMutated = true;
         } catch (error) {
           step.status = 'error';
           step.error = { code: error?.code || null, message: String(error?.message || error) };
@@ -507,17 +629,6 @@
         error.code = 'car_multicity_validation_failed';
         error.details = validation;
         throw error;
-      }
-      if (draft.is_active === true) {
-        const hasExactPricingKey = (catalog.profileCities || []).some((mapping) => {
-          const profile = (catalog.profiles || []).find((row) => normalizeId(row.id) === normalizeId(mapping.pricing_profile_id));
-          return normalizeId(mapping.city_id) === id
-            && core.normalizeCode(mapping.legacy_pricing_city_key) === core.normalizeCode(draft.code)
-            && profile?.is_active === true;
-        });
-        if (!hasExactPricingKey) {
-          throw staleConflict('An active city requires a fresh exact profile-city mapping.', { cityId: id, code: draft.code });
-        }
       }
       const payload = {
         code: core.normalizeCode(draft.code),
@@ -632,9 +743,11 @@
       getOfferContext,
       getSiteSetting,
       insertAvailability,
+      insertDailyRateTier,
       insertOffer,
       buildVehicleImagePath,
       listAvailabilityByOfferId,
+      listDailyRateTiersByOfferId,
       listCities,
       listMappingImpact,
       listPartnerResourcesByOfferId,
@@ -645,6 +758,8 @@
       removeVehicleImage,
       saveProfileCityMapping,
       updateAvailability,
+      updateDailyRateTier,
+      deleteDailyRateTier,
       updateCity,
       updatePartnerAssignment,
       updatePricingProfile,

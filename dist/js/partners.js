@@ -6622,13 +6622,12 @@
             if (!isPaid) return;
             const key = `cars:${bookingId}`;
             const current = out[key] || { status: '', paymentStatus: '' };
-            const nextStatus = current.status === 'pending' || current.status === 'message_sent'
-              ? 'confirmed'
-              : (current.status || 'confirmed');
             out[key] = {
               ...current,
-              status: nextStatus,
-              paymentStatus: 'paid',
+              // Payment is displayed independently. It cannot stand in for
+              // the existing partner fulfillment/booking acceptance state.
+              status: current.status || 'pending',
+              paymentStatus: current.paymentStatus || 'paid',
             };
           });
         } catch (error) {

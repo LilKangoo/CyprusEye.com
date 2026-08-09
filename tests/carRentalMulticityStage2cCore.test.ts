@@ -35,6 +35,10 @@ const offer = (overrides: Record<string, unknown> = {}) => ({
   updated_at: '2026-08-02T08:00:00.000Z',
   location: 'larnaca',
   pricing_profile_id: 'profile-larnaca',
+  pricing_strategy: 'legacy_compat',
+  min_rental_days: 1,
+  max_rental_days: null,
+  insurance_mode: 'legacy_optional_daily',
   vehicle_kind_id: 'kind-car',
   availability_mode: 'legacy',
   car_model: { pl: 'Mazda 2', en: 'Mazda 2', he: 'מאזדה 2' },
@@ -81,7 +85,7 @@ function context(overrides: Record<string, unknown> = {}) {
     partnerResources: [],
     depositRule: { id: 'deposit-cars', resource_type: 'cars', mode: 'per_day', amount: 5, currency: 'EUR', include_children: true, enabled: true, updated_at: 'deposit-v1' },
     depositOverride: null,
-    siteSetting: { car_multi_city_mapped_enabled: false },
+    siteSetting: { car_multi_city_mapped_enabled: false, car_threshold_daily_rates_enabled: false },
     ...overrides,
   };
 }
@@ -422,6 +426,47 @@ describe('Car Rental Multi-City Stage 2C core', () => {
     expect(plan.globalMappedFlagChanges).toBe(0);
     expect(plan.depositRuleChanges).toBe(0);
     expect(plan.steps[0].payload).not.toHaveProperty('deposit_amount');
+  });
+
+  test('threshold create is exact-ID ordered, hidden until tiers exist, and remains publicly legacy', () => {
+    const createContext = { ...context(), offer: null, availability: [] };
+    const draft = core.createDraft(createContext, { mode: 'create' });
+    core.setDraftProfile(draft, createContext, 'profile-larnaca', { resetAvailability: true });
+    draft.vehicle.carModel = { pl: 'Progowe', en: 'Threshold', he: 'סף' };
+    draft.vehicle.carType = { en: 'Economy' };
+    draft.vehicle.isAvailable = true;
+    draft.pricing.strategy = 'threshold_daily_rate';
+    core.addDailyRateTier(draft, { threshold_days: 1, daily_rate: 50, is_active: true });
+    core.addDailyRateTier(draft, { threshold_days: 3, daily_rate: 45, is_active: true });
+    core.addDailyRateTier(draft, { threshold_days: 7, daily_rate: 40, is_active: true });
+
+    const plan = core.buildCreateVehiclePlan(draft, createContext);
+    const create = plan.steps.find((step: any) => step.key === 'create_offer');
+    const tiers = plan.steps.filter((step: any) => step.type === 'car_offer_daily_rate_tier');
+    const finalize = plan.steps.find((step: any) => step.key === 'finalize_created_threshold_offer');
+    const availability = plan.steps.filter((step: any) => step.type === 'car_offer_city_availability');
+
+    expect(create.payload).toEqual(expect.objectContaining({
+      pricing_strategy: 'legacy_compat',
+      availability_mode: 'legacy',
+      is_available: false,
+      min_rental_days: 1,
+    }));
+    expect(tiers.map((step: any) => [step.payload.threshold_days, step.payload.daily_rate])).toEqual([
+      [1, 50], [3, 45], [7, 40],
+    ]);
+    expect(tiers.every((step: any) => step.dependsOn.includes('create_offer'))).toBe(true);
+    expect(finalize.payload).toEqual(expect.objectContaining({
+      pricing_strategy: 'threshold_daily_rate',
+      min_rental_days: 1,
+      max_rental_days: null,
+      is_available: true,
+    }));
+    expect(finalize.dependsOn).toEqual(tiers.map((step: any) => step.key));
+    expect(availability.every((step: any) => step.dependsOn.includes(finalize.key))).toBe(true);
+    expect(plan.resultingAvailabilityMode).toBe('legacy');
+    expect(plan.globalMappedFlagChanges).toBe(0);
+    expect(plan.globalThresholdFlagChanges).toBe(0);
   });
 
   test('profile change preserves every existing price column', () => {

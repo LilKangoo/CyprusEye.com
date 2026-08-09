@@ -15084,6 +15084,86 @@ body.car-multicity-modal-open {
   margin: 0;
 }
 
+.car-multicity-pricing-options {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 16px 0;
+}
+
+.car-multicity-tier-editor {
+  background: color-mix(in srgb, var(--admin-bg-secondary) 82%, var(--admin-bg));
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+  padding: 18px;
+}
+
+.car-multicity-tier-list {
+  display: grid;
+  gap: 10px;
+}
+
+.car-multicity-tier-card {
+  align-items: end;
+  background: var(--admin-card-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(170px, 0.8fr) minmax(190px, 0.8fr) minmax(260px, 1.4fr) auto auto;
+  padding: 14px;
+}
+
+.car-multicity-tier-card:focus-within {
+  border-color: color-mix(in srgb, var(--admin-primary) 65%, var(--admin-border));
+}
+
+.car-multicity-tier-input {
+  display: grid;
+  gap: 6px;
+}
+
+.car-multicity-tier-input > span {
+  color: var(--admin-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.car-multicity-tier-input input,
+.car-multicity-pricing-options input,
+.car-multicity-pricing-options select {
+  background: var(--admin-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  color: var(--admin-text);
+  min-height: 44px;
+  padding: 9px 11px;
+  width: 100%;
+}
+
+.car-multicity-tier-example {
+  background: var(--admin-bg-secondary);
+  border: 1px solid var(--admin-border);
+  border-radius: 9px;
+  display: grid;
+  gap: 3px;
+  min-height: 44px;
+  padding: 8px 11px;
+}
+
+.car-multicity-tier-example span {
+  color: var(--admin-text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.car-multicity-tier-example strong {
+  font-size: 13px;
+}
+
 .car-multicity-availability-grid {
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   margin: 16px 0;
@@ -15603,6 +15683,8 @@ body.car-multicity-modal-open {
   .car-multicity-wizard-steps,
   .car-multicity-city-form,
   .car-multicity-media-grid,
+  .car-multicity-pricing-options,
+  .car-multicity-tier-card,
   .car-multicity-city-review-list li {
     grid-template-columns: 1fr;
   }

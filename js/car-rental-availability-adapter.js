@@ -10,6 +10,10 @@ import {
   resolveCarFleet,
 } from './car-rental-flow.js';
 import { createCarRentalAvailabilityRepository } from './car-rental-availability-repository.js';
+import {
+  CAR_THRESHOLD_PRICING_STRATEGY,
+  calculateThresholdCarRentalQuote,
+} from './car-rental-threshold-pricing.js';
 
 export const CAR_RENTAL_AVAILABILITY_MODES = Object.freeze(['legacy', 'shadow', 'mapped-test', 'hybrid']);
 export const CAR_RENTAL_SHADOW_DIFFERENCE_CODES = Object.freeze([
@@ -25,6 +29,8 @@ export const CAR_RENTAL_SHADOW_DIFFERENCE_CODES = Object.freeze([
   'DUPLICATE_OFFER_ID',
   'INVALID_MAPPED_CONFIGURATION',
   'FEE_REQUIRED_FOR_CITY',
+  'THRESHOLD_FEATURE_FLAG_DISABLED',
+  'THRESHOLD_TIER_CONFIGURATION_INVALID',
   'EXPECTED_FEE_OVERRIDE',
   'UNEXPLAINED_DIFFERENCE',
 ]);
@@ -39,6 +45,7 @@ export const CAR_RENTAL_HYBRID_DIAGNOSTIC_CODES = Object.freeze([
 const MODE_SET = new Set(CAR_RENTAL_AVAILABILITY_MODES);
 const LARNACA_PRICING_KEYS = new Set(CAR_CITY_VALUES);
 const PAPHOS_PRICING_KEYS = new Set(['paphos']);
+const LEGACY_AVAILABILITY_CITY_KEYS = new Set(CAR_CITY_VALUES);
 
 function text(value) {
   return String(value == null ? '' : value).trim();
@@ -107,20 +114,22 @@ function passesFilters(offer, profile, input, diagnostics) {
   if (Number.isFinite(capacity) && capacity > 0 && capacity < passengers) return false;
 
   if (input.youngDriver) {
-    if (profile?.calculator_key !== 'larnaca' || offer?.young_driver_fee !== true) return false;
+    const thresholdOffer = normalized(offer?.pricing_strategy) === CAR_THRESHOLD_PRICING_STRATEGY;
+    if ((!thresholdOffer && profile?.calculator_key !== 'larnaca') || offer?.young_driver_fee !== true) return false;
   }
 
   const platform = normalized(filters.platform);
   const explicitNorth = typeof filters.requireNorthAllowed === 'boolean'
     ? filters.requireNorthAllowed
     : null;
+  const effectiveLegacyLocation = normalized(profile?.calculator_key || offer?.location);
   const carPageNorth = platform === 'car-page'
-    ? profile?.calculator_key === 'larnaca'
+    ? effectiveLegacyLocation === 'larnaca'
     : null;
   const expectedNorth = explicitNorth == null ? carPageNorth : explicitNorth;
   if (typeof expectedNorth === 'boolean' && offer?.north_allowed !== expectedNorth) return false;
 
-  if (platform === 'homepage' && profile?.calculator_key === 'larnaca' && offer?.north_allowed === false) {
+  if (platform === 'homepage' && effectiveLegacyLocation === 'larnaca' && offer?.north_allowed === false) {
     addDiagnostic(diagnostics, 'HOMEPAGE_CAR_PAGE_NORTH_ALLOWED_DIFFERENCE', {
       offerId: text(offer.id),
       profileId: text(profile.id),
@@ -149,6 +158,24 @@ function passesFilters(offer, profile, input, diagnostics) {
 }
 
 function calculateOfferQuote(offer, context, input) {
+  if (normalized(offer?.pricing_strategy) === CAR_THRESHOLD_PRICING_STRATEGY) {
+    const quote = calculateThresholdCarRentalQuote({
+      offer,
+      tiers: context.dailyRateTiers,
+      pickupDateStr: input.pickupDate,
+      returnDateStr: input.returnDate,
+      pickupTimeStr: input.pickupTime || '10:00',
+      returnTimeStr: input.returnTime || '10:00',
+      pickupCityCode: context.pickupCityCode,
+      returnCityCode: context.returnCityCode,
+      pickupAvailability: context.pickupAvailability,
+      returnAvailability: context.returnAvailability,
+      fullInsurance: input.fullInsurance === true,
+      youngDriver: input.youngDriver === true,
+      carModel: offerName(offer, input.language),
+    });
+    return quote ? { quote, reason: null } : { quote: null, reason: 'THRESHOLD_QUOTE_UNAVAILABLE' };
+  }
   const pricingMatrix = buildPricingMatrixForOfferRow(offer, context.calculatorKey);
   if (!pricingMatrix) return { quote: null, reason: 'PRICING_MATRIX_INCOMPLETE' };
   const quote = calculateCarRentalQuote({
@@ -233,6 +260,10 @@ function buildOfferPricingContext({
   returnFeeMode,
   pickupFeePerDirection,
   returnFeePerDirection,
+  pricingStrategy,
+  dailyRateTiers,
+  pickupAvailability,
+  returnAvailability,
   quote,
 }) {
   const offerId = text(offer?.id);
@@ -246,6 +277,7 @@ function buildOfferPricingContext({
   return Object.freeze({
     offerId,
     availabilityMode: normalizedMode,
+    pricingStrategy: normalized(pricingStrategy || offer?.pricing_strategy || 'legacy_compat') || 'legacy_compat',
     pricingProfileId: normalizedProfileId,
     profileId: normalizedProfileId,
     profileCode: normalized(profileCode || normalizedCalculatorKey),
@@ -266,6 +298,10 @@ function buildOfferPricingContext({
     returnFeeMode: normalized(returnFeeMode) === 'override' ? 'override' : 'inherit',
     pickupFeePerDirection: pickupFeePerDirection == null ? null : Number(pickupFeePerDirection),
     returnFeePerDirection: returnFeePerDirection == null ? null : Number(returnFeePerDirection),
+    dailyRateTiers: Object.freeze((dailyRateTiers || []).map((tier) => Object.freeze({ ...tier }))),
+    pickupAvailability: pickupAvailability ? Object.freeze({ ...pickupAvailability }) : null,
+    returnAvailability: returnAvailability ? Object.freeze({ ...returnAvailability }) : null,
+    pricingSnapshot: quote?.pricingSnapshot || null,
     quote,
   });
 }
@@ -287,6 +323,7 @@ export function resolveMappedAvailabilityFromContext(input, rawContext = {}) {
     offers: Array.isArray(rawContext.offers) ? rawContext.offers : [],
     profiles: Array.isArray(rawContext.profiles) ? rawContext.profiles : [],
     profileCities: Array.isArray(rawContext.profileCities) ? rawContext.profileCities : [],
+    dailyRateTiers: Array.isArray(rawContext.dailyRateTiers) ? rawContext.dailyRateTiers : [],
   };
   const pickupCode = normalizeConfiguredCity(input.pickupCityCode);
   const returnCode = normalizeConfiguredCity(input.returnCityCode);
@@ -347,6 +384,89 @@ export function resolveMappedAvailabilityFromContext(input, rawContext = {}) {
       continue;
     }
 
+    const pickupAvailabilityResult = exactRecord(
+      context.availability,
+      (row) => text(row.offer_id) === offerId && text(row.city_id) === text(pickupCity.id),
+    );
+    const returnAvailabilityResult = exactRecord(
+      context.availability,
+      (row) => text(row.offer_id) === offerId && text(row.city_id) === text(returnCity.id),
+    );
+    const pickupAvailability = pickupAvailabilityResult.record;
+    const returnAvailability = returnAvailabilityResult.record;
+    if (!pickupAvailability || !returnAvailability) {
+      addDiagnostic(diagnostics, 'INVALID_MAPPED_CONFIGURATION', {
+        offerId,
+        reason: 'EXACT_DIRECTIONAL_AVAILABILITY_MISSING',
+      }, 'error');
+      continue;
+    }
+
+    const pricingStrategy = normalized(offer.pricing_strategy || 'legacy_compat') || 'legacy_compat';
+    if (pricingStrategy === CAR_THRESHOLD_PRICING_STRATEGY) {
+      if (input.thresholdFeatureFlagEnabled !== true) {
+        addDiagnostic(diagnostics, 'THRESHOLD_FEATURE_FLAG_DISABLED', { offerId }, 'info');
+        continue;
+      }
+      const dailyRateTiers = context.dailyRateTiers
+        .filter((tier) => text(tier.offer_id) === offerId && tier.is_active !== false)
+        .sort((left, right) => Number(left.threshold_days) - Number(right.threshold_days));
+      if (!dailyRateTiers.length) {
+        addDiagnostic(diagnostics, 'THRESHOLD_TIER_CONFIGURATION_INVALID', {
+          offerId,
+          reason: 'NO_ACTIVE_EXACT_OFFER_TIERS',
+        }, 'error');
+        continue;
+      }
+      if (!passesFilters(offer, null, input, diagnostics)) continue;
+
+      const quoteContext = {
+        dailyRateTiers,
+        pickupCityCode: pickupCode,
+        returnCityCode: returnCode,
+        pickupAvailability,
+        returnAvailability,
+      };
+      const { quote, reason } = calculateOfferQuote(offer, quoteContext, input);
+      if (!quote) {
+        addDiagnostic(diagnostics, reason === 'THRESHOLD_QUOTE_UNAVAILABLE'
+          ? 'THRESHOLD_TIER_CONFIGURATION_INVALID'
+          : 'INVALID_MAPPED_CONFIGURATION', {
+          offerId,
+          reason,
+        }, 'warning');
+        continue;
+      }
+      const legacyBookingLocation = normalized(offer.location) === 'paphos' ? 'paphos' : 'larnaca';
+      const availabilityContext = buildOfferPricingContext({
+        offer,
+        availabilityMode: 'mapped',
+        profileId: offer.pricing_profile_id,
+        profileCode: CAR_THRESHOLD_PRICING_STRATEGY,
+        calculatorKey: CAR_THRESHOLD_PRICING_STRATEGY,
+        legacyBookingLocation,
+        pickupCityCode: pickupCode,
+        returnCityCode: returnCode,
+        pickupPlaceType: input.pickupPlaceType,
+        returnPlaceType: input.returnPlaceType,
+        pickupLegacyPricingKey: pickupCode,
+        returnLegacyPricingKey: returnCode,
+        pickupLegacyPricingLocation: pickupCode,
+        returnLegacyPricingLocation: returnCode,
+        pickupFeeMode: pickupAvailability.fee_mode,
+        returnFeeMode: returnAvailability.fee_mode,
+        pickupFeePerDirection: quote.pickupFee,
+        returnFeePerDirection: quote.returnFee,
+        pricingStrategy,
+        dailyRateTiers,
+        pickupAvailability,
+        returnAvailability,
+        quote,
+      });
+      mappedOffers.push(withPricingContext(offer, availabilityContext, quote));
+      continue;
+    }
+
     const profileId = text(offer.pricing_profile_id);
     const profileResult = exactRecord(context.profiles, (profile) => text(profile.id) === profileId);
     const profile = profileResult.record?.is_active === true ? profileResult.record : null;
@@ -392,25 +512,6 @@ export function resolveMappedAvailabilityFromContext(input, rawContext = {}) {
         profileId,
         reason: 'ACTIVE_DIRECTIONAL_PROFILE_CITY_MAPPING_MISSING',
       }, 'warning');
-      continue;
-    }
-
-    const pickupAvailabilityResult = exactRecord(
-      context.availability,
-      (row) => text(row.offer_id) === offerId && text(row.city_id) === text(pickupCity.id),
-    );
-    const returnAvailabilityResult = exactRecord(
-      context.availability,
-      (row) => text(row.offer_id) === offerId && text(row.city_id) === text(returnCity.id),
-    );
-    const pickupAvailability = pickupAvailabilityResult.record;
-    const returnAvailability = returnAvailabilityResult.record;
-    if (!pickupAvailability || !returnAvailability) {
-      addDiagnostic(diagnostics, 'INVALID_MAPPED_CONFIGURATION', {
-        offerId,
-        profileId,
-        reason: 'EXACT_DIRECTIONAL_AVAILABILITY_MISSING',
-      }, 'error');
       continue;
     }
 
@@ -478,6 +579,9 @@ export function resolveMappedAvailabilityFromContext(input, rawContext = {}) {
       returnFeeMode: returnFee.mode,
       pickupFeePerDirection: pickupFee.amount,
       returnFeePerDirection: returnFee.amount,
+      pricingStrategy,
+      pickupAvailability,
+      returnAvailability,
       quote,
     });
     mappedOffers.push(withPricingContext(offer, availabilityContext, quote));
@@ -596,9 +700,14 @@ export function buildHybridCarRentalResult({
       continue;
     }
     const entry = legacyEntryById.get(offerId);
-    const renderedOffer = entry
-      ? withPricingContext(entry.offer, entry.availabilityContext, entry.quote)
-      : legacyOffer;
+    if (!entry) {
+      addDiagnostic(diagnostics, 'MAPPED_OFFER_OMITTED', {
+        offerId,
+        reason: 'LEGACY_QUOTE_UNAVAILABLE_FOR_SELECTED_DURATION',
+      }, 'info');
+      continue;
+    }
+    const renderedOffer = withPricingContext(entry.offer, entry.availabilityContext, entry.quote);
     renderedById.set(offerId, renderedOffer);
   }
 
@@ -729,6 +838,7 @@ function baseResult(legacyOffers, diagnostics = [], metrics = {}) {
     diagnostics,
     metrics,
     featureFlagEnabled: false,
+    thresholdFeatureFlagEnabled: false,
     renderMode: 'legacy',
   };
   if (result.renderedOffers !== result.legacyOffers) {
@@ -752,6 +862,7 @@ export async function resolveCarRentalAvailability(options = {}) {
     youngDriver: options.youngDriver === true,
     language: normalized(options.language) || 'en',
     filters: options.filters && typeof options.filters === 'object' ? options.filters : {},
+    thresholdFeatureFlagEnabled: options.thresholdFeatureFlagEnabled === true,
   };
   const mode = MODE_SET.has(options.mode) ? options.mode : 'legacy';
   const legacyOffers = Array.isArray(options.legacyOffers) ? options.legacyOffers : [];
@@ -765,6 +876,7 @@ export async function resolveCarRentalAvailability(options = {}) {
 
   let repository = options.repository || null;
   let featureFlagEnabled = false;
+  let thresholdFeatureFlagEnabled = options.thresholdFeatureFlagEnabled === true;
   try {
     repository = repository || (options.mappedContext && mode === 'mapped-test'
       ? {
@@ -773,17 +885,31 @@ export async function resolveCarRentalAvailability(options = {}) {
       }
       : createCarRentalAvailabilityRepository({ supabase: options.supabase }));
     if (mode === 'shadow' || mode === 'hybrid') {
-      const enabled = await repository.getFeatureFlag();
-      if (!enabled) {
+      const flags = typeof repository.getFeatureFlags === 'function'
+        ? await repository.getFeatureFlags()
+        : { mappedEnabled: await repository.getFeatureFlag(), thresholdDailyRatesEnabled: false };
+      if (!flags.mappedEnabled) {
         addDiagnostic(diagnostics, mode === 'hybrid' ? 'HYBRID_FEATURE_FLAG_DISABLED' : 'SHADOW_FEATURE_FLAG_DISABLED', {}, 'info');
         const result = baseResult(legacyOffers, diagnostics, repository.getMetrics());
         result.comparison = compareCarRentalAvailability(legacyEntries, [], diagnostics);
         return result;
       }
       featureFlagEnabled = true;
+      thresholdFeatureFlagEnabled = flags.thresholdDailyRatesEnabled === true;
     } else {
       addDiagnostic(diagnostics, 'MAPPED_TEST_MODE', {}, 'info');
+      thresholdFeatureFlagEnabled = options.thresholdFeatureFlagEnabled === true
+        || options.mappedContext?.siteSetting?.car_threshold_daily_rates_enabled === true;
     }
+    input.thresholdFeatureFlagEnabled = thresholdFeatureFlagEnabled;
+
+    // Custom catalog cities are exact mapped availability only. They must
+    // never make the six-city legacy Larnaca resolver act as an implicit
+    // island-wide fallback.
+    const legacyRouteSupported = LEGACY_AVAILABILITY_CITY_KEYS.has(input.pickupCityCode)
+      && LEGACY_AVAILABILITY_CITY_KEYS.has(input.returnCityCode);
+    const hybridLegacyOffers = legacyRouteSupported ? legacyOffers : [];
+    const hybridLegacyEntries = legacyRouteSupported ? legacyEntries : [];
 
     const mappedContext = options.mappedContext || await repository.readMappedContext({
       pickupCityCode: input.pickupCityCode,
@@ -791,11 +917,11 @@ export async function resolveCarRentalAvailability(options = {}) {
     });
     const mapped = resolveMappedAvailabilityFromContext(input, mappedContext);
     diagnostics.push(...mapped.diagnostics);
-    const comparison = compareCarRentalAvailability(legacyEntries, mapped.offers, diagnostics);
+    const comparison = compareCarRentalAvailability(hybridLegacyEntries, mapped.offers, diagnostics);
     const renderedOffers = mode === 'hybrid'
       ? buildHybridCarRentalResult({
-        legacyOffers,
-        legacyEntries,
+        legacyOffers: hybridLegacyOffers,
+        legacyEntries: hybridLegacyEntries,
         mappedOffers: mapped.offers,
         diagnostics,
         mappedReaderAvailable: true,
@@ -809,6 +935,7 @@ export async function resolveCarRentalAvailability(options = {}) {
       diagnostics,
       metrics: repository.getMetrics ? repository.getMetrics() : mappedContext.metrics || {},
       featureFlagEnabled: true,
+      thresholdFeatureFlagEnabled,
       renderMode: mode === 'hybrid' ? 'hybrid' : 'legacy',
     };
     if (mode !== 'hybrid' && result.renderedOffers !== result.legacyOffers) {
@@ -820,9 +947,13 @@ export async function resolveCarRentalAvailability(options = {}) {
       reason: text(error?.code || error?.message || 'UNKNOWN_READ_ERROR'),
     }, 'error');
     if (mode === 'hybrid') {
+      const legacyRouteSupported = LEGACY_AVAILABILITY_CITY_KEYS.has(input.pickupCityCode)
+        && LEGACY_AVAILABILITY_CITY_KEYS.has(input.returnCityCode);
+      const hybridLegacyOffers = legacyRouteSupported ? legacyOffers : [];
+      const hybridLegacyEntries = legacyRouteSupported ? legacyEntries : [];
       const renderedOffers = buildHybridCarRentalResult({
-        legacyOffers,
-        legacyEntries,
+        legacyOffers: hybridLegacyOffers,
+        legacyEntries: hybridLegacyEntries,
         mappedOffers: [],
         diagnostics,
         mappedReaderAvailable: false,
@@ -831,10 +962,11 @@ export async function resolveCarRentalAvailability(options = {}) {
         legacyOffers,
         mappedOffers: [],
         renderedOffers,
-        comparison: compareCarRentalAvailability(legacyEntries, [], diagnostics),
+        comparison: compareCarRentalAvailability(hybridLegacyEntries, [], diagnostics),
         diagnostics,
         metrics: repository?.getMetrics ? repository.getMetrics() : {},
         featureFlagEnabled: featureFlagEnabled ? true : null,
+        thresholdFeatureFlagEnabled,
         renderMode: 'hybrid-fallback',
       };
     }

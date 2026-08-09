@@ -8,6 +8,7 @@ import { openCarOfferModal } from '/js/car-offer-modal.js?v=20260630_city_place'
 import {
   buildCarCityOptionsHtml,
   buildCarLocationOptionsHtml,
+  hydrateCarRentalCityCatalogForActiveRuntime,
   isPaphosSpecificCarLocationValue,
 } from '/js/car-location-options.js';
 import {
@@ -24,6 +25,8 @@ import {
   buildCarRentalAvailabilityInputFingerprint,
   resolveCarRentalAvailability,
 } from '/js/car-rental-availability-adapter.js';
+import { calculateRentalDaysFromLocalDateTimes } from '/js/car-rental-duration-contract.js';
+import { createCarRentalAvailabilityRepository } from '/js/car-rental-availability-repository.js';
 
 let allHomeCars = [];
 let homeCarsById = {};
@@ -36,6 +39,7 @@ let homeCarsShadowTimer = null;
 let homeCarsShadowFingerprint = '';
 let homeCarsShadowGeneration = 0;
 let homeCarsHybridState = null;
+const homeCarsCatalogRepository = createCarRentalAvailabilityRepository({ supabase });
 
 let homeCarsCarouselUpdate = null;
 let previousBodyCarLocation = null;
@@ -162,6 +166,8 @@ function scheduleHomeCarsAvailabilityShadow(legacyRenderedOffers, finderState) {
         window.dispatchEvent(new CustomEvent('ce:car-multicity-hybrid-ready', {
           detail: { source: 'homepage', renderMode: result.renderMode, metrics: result.metrics },
         }));
+        renderHomeCarsTabs();
+        renderFinderStatus();
         renderHomeCars();
       }
       window.dispatchEvent(new CustomEvent('ce:car-multicity-shadow-ready', {
@@ -176,9 +182,12 @@ function scheduleHomeCarsAvailabilityShadow(legacyRenderedOffers, finderState) {
 function resolveHomeCarsRenderedOffers(legacyRenderedOffers, finderState) {
   const config = getHomeCarsShadowConfig();
   const input = buildHomeCarsAvailabilityInput(legacyRenderedOffers, finderState);
-  if (config?.renderMapped !== true || !input || !homeCarsHybridState) return legacyRenderedOffers;
+  if (config?.renderMapped !== true || !input) return legacyRenderedOffers;
+  const knownThresholdRuntime = window.__CE_CAR_MULTICITY_HYBRID_RESULT__?.featureFlagEnabled === true
+    && window.__CE_CAR_MULTICITY_HYBRID_RESULT__?.thresholdFeatureFlagEnabled === true;
+  if (!homeCarsHybridState) return knownThresholdRuntime ? [] : legacyRenderedOffers;
   const fingerprint = buildCarRentalAvailabilityInputFingerprint(input);
-  if (homeCarsHybridState.fingerprint !== fingerprint) return legacyRenderedOffers;
+  if (homeCarsHybridState.fingerprint !== fingerprint) return knownThresholdRuntime ? [] : legacyRenderedOffers;
   return Array.isArray(homeCarsHybridState.result?.renderedOffers)
     ? homeCarsHybridState.result.renderedOffers
     : legacyRenderedOffers;
@@ -281,6 +290,12 @@ function normalizePaphosLocation(value) {
   return normalizePaphosWidgetLocation(value);
 }
 
+function isThresholdHybridRuntimeActive() {
+  return homeCarsHybridState?.result?.featureFlagEnabled === true
+    && homeCarsHybridState?.result?.thresholdFeatureFlagEnabled === true
+    && homeCarsHybridState?.result?.renderMode === 'hybrid';
+}
+
 function getFinderDurationState(state) {
   const pickupDate = String(state?.pickupDate || '').trim();
   const returnDate = String(state?.returnDate || '').trim();
@@ -291,23 +306,30 @@ function getFinderDurationState(state) {
     return { ready: false, reason: 'missing_dates' };
   }
 
+  const thresholdRuntime = isThresholdHybridRuntimeActive();
+  if (thresholdRuntime) {
+    try {
+      const days = calculateRentalDaysFromLocalDateTimes({
+        pickupDate,
+        pickupTime,
+        returnDate,
+        returnTime,
+      });
+      if (!days) return { ready: false, reason: 'return_before_pickup' };
+      return { ready: true, hours: null, days, minimumDays: 1, thresholdRuntime: true };
+    } catch (_error) {
+      return { ready: false, reason: 'invalid_dates' };
+    }
+  }
+
   const pickup = new Date(`${pickupDate}T${pickupTime}`);
   const ret = new Date(`${returnDate}T${returnTime}`);
-  if (Number.isNaN(pickup.getTime()) || Number.isNaN(ret.getTime())) {
-    return { ready: false, reason: 'invalid_dates' };
-  }
-
+  if (Number.isNaN(pickup.getTime()) || Number.isNaN(ret.getTime())) return { ready: false, reason: 'invalid_dates' };
   const hours = (ret.getTime() - pickup.getTime()) / 36e5;
-  if (!Number.isFinite(hours) || hours <= 0) {
-    return { ready: false, reason: 'return_before_pickup' };
-  }
-
+  if (!Number.isFinite(hours) || hours <= 0) return { ready: false, reason: 'return_before_pickup' };
   const days = Math.ceil(hours / 24);
-  if (!Number.isFinite(days) || days < 3) {
-    return { ready: false, reason: 'minimum_days', days };
-  }
-
-  return { ready: true, hours, days };
+  if (!Number.isFinite(days) || days < 3) return { ready: false, reason: 'minimum_days', days, minimumDays: 3 };
+  return { ready: true, hours, days, minimumDays: 3, thresholdRuntime: false };
 }
 
 function isHomeCarsFinderReady(state) {
@@ -784,6 +806,14 @@ function renderHomeCars() {
   const finderReady = isHomeCarsFinderReady(finderState);
 
   if (!finderReady) {
+    const duration = getFinderDurationState(finderState);
+    if (
+      duration.reason === 'minimum_days'
+      && String(finderState.pickupLocation || '').trim()
+      && String(finderState.returnLocation || '').trim()
+    ) {
+      scheduleHomeCarsAvailabilityShadow(list, finderState);
+    }
     setHomeCarsResultsVisible(false);
     homeCarsCarouselUpdate?.();
     return;
@@ -838,6 +868,7 @@ function renderHomeCars() {
 
   homeCarsLastQuoteByCarId = {};
   const noDepositLabel = text('Bez kaucji', 'No deposit', 'ללא פיקדון');
+  const requestOnlyLabel = text('Wymaga potwierdzenia partnera', 'Partner confirmation required', 'נדרש אישור שותף');
   const totalLabel = text('Razem', 'Total', 'סה״כ');
   const daysLabel = text('dni', 'days', 'ימים');
   const fromLabel = text('Od', 'From', 'מ-');
@@ -865,9 +896,13 @@ function renderHomeCars() {
 
   const renderCards = (visibleRows) => visibleRows.map(({ car, quote }) => {
     const title = getHomeCarName(car);
-    const transmission = String(car.transmission || '').toLowerCase() === 'automatic'
+    const transmissionCode = String(car.transmission || '').toLowerCase();
+    const transmission = transmissionCode === 'automatic'
       ? text('Automat', 'Automatic', 'אוטומטי')
-      : text('Manual', 'Manual', 'ידני');
+      : transmissionCode === 'manual'
+        ? text('Manual', 'Manual', 'ידני')
+        : text('Nie dotyczy', 'Not applicable', 'לא רלוונטי');
+    const thresholdOffer = car?.pricing_strategy === 'threshold_daily_rate';
     const seats = car.max_passengers || 5;
     const seatsText = text(`${seats} miejsc`, `${seats} seats`, `${seats} מושבים`);
 
@@ -886,7 +921,7 @@ function renderHomeCars() {
         data-car-offer-id="${escapeHtml(car.id)}"
         onclick="openCarHomeModal('${escapeHtml(car.id)}'); return false;"
       >
-        <div class="ce-home-featured-badge">🚗 ${escapeHtml(noDepositLabel)}</div>
+        <div class="ce-home-featured-badge">🚗 ${escapeHtml(thresholdOffer ? requestOnlyLabel : noDepositLabel)}</div>
         <button
           type="button"
           class="ce-save-star ce-home-card-star"
@@ -1290,7 +1325,9 @@ function buildContextualHomeModalPrefill(car, location) {
     returnPlaceType: context.returnPlaceType,
     pickupLocation: context.pickupLegacyPricingLocation,
     returnLocation: context.returnLegacyPricingLocation,
-    youngDriver: context.calculatorKey === 'larnaca' && prefill.youngDriver,
+    youngDriver: context.pricingStrategy === 'threshold_daily_rate'
+      ? car?.young_driver_fee === true && (homeCarsFinderState?.youngDriver === true)
+      : context.calculatorKey === 'larnaca' && prefill.youngDriver,
   };
 }
 
@@ -1356,10 +1393,14 @@ async function loadHomeCars() {
       .from('car_offers')
       .select('*')
       .eq('is_available', true)
+      .eq('is_published', true)
+      .eq('pricing_strategy', 'legacy_compat')
       .in('location', ['larnaca', 'paphos'])
       .order('sort_order', { ascending: true });
 
     if (error) throw error;
+
+    await hydrateCarRentalCityCatalogForActiveRuntime(homeCarsCatalogRepository);
 
     allHomeCars = data || [];
     homeCarsHybridState = null;

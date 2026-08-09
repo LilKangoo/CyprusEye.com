@@ -46,6 +46,21 @@ as $$
   )::uuid;
 $$;
 
+-- Supabase provides auth.jwt() in hosted projects. The isolated PostgreSQL +
+-- PostgREST fixture mirrors that read-only request-claims contract so security
+-- tests exercise the same principal binding as production.
+create or replace function auth.jwt()
+returns jsonb
+language sql
+stable
+set search_path = pg_catalog
+as $$
+  select coalesce(
+    nullif(current_setting('request.jwt.claims', true), '')::jsonb,
+    '{}'::jsonb
+  );
+$$;
+
 create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   is_admin boolean not null default false,

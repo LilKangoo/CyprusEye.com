@@ -9,9 +9,19 @@ import {
 } from './car-rental-flow.js';
 import { PHONE_COUNTRY_CODES } from './phone-country-codes.js';
 import { createReferralFieldController, shouldHideReferralEntryUi } from './referral-ui.js';
+import {
+  CAR_THRESHOLD_PRICING_STRATEGY,
+  calculateThresholdCarRentalQuote,
+  normalizeThresholdCityCode,
+} from './car-rental-threshold-pricing.js';
+import {
+  buildRentalInstantsFromLocalDateTimes,
+  calculateRentalDaysFromInstants,
+} from './car-rental-duration-contract.js';
 
 let reservationData = {};
 const COUPON_RPC_NAME = 'car_coupon_quote';
+const THRESHOLD_QUOTE_RPC_NAME = 'resolve_car_threshold_authoritative_quote';
 
 const couponState = {
   appliedCode: '',
@@ -207,6 +217,38 @@ function getCurrentSelectedOfferId() {
   return raw || null;
 }
 
+function getCurrentSelectedOfferRow({ offerId = '', carModel = '' } = {}) {
+  if (typeof window.CE_CAR_FIND_CURRENT_FLEET_CAR !== 'function') return null;
+  return window.CE_CAR_FIND_CURRENT_FLEET_CAR({
+    offerId: String(offerId || getCurrentSelectedOfferId() || '').trim(),
+    carModel: String(carModel || document.getElementById('res_car')?.value || '').trim(),
+  }) || null;
+}
+
+function getOfferPricingContext(offerRow) {
+  return offerRow?.pricingContext || offerRow?.availabilityContext || null;
+}
+
+function isThresholdOffer(offerRow) {
+  return String(offerRow?.pricing_strategy || '').trim() === CAR_THRESHOLD_PRICING_STRATEGY
+    && String(getOfferPricingContext(offerRow)?.pricingStrategy || '').trim() === CAR_THRESHOLD_PRICING_STRATEGY;
+}
+
+function getThresholdRentalDays(offerRow, values = {}) {
+  if (!isThresholdOffer(offerRow)) return null;
+  try {
+    const instants = buildRentalInstantsFromLocalDateTimes({
+      pickupDate: values.pickupDate,
+      pickupTime: values.pickupTime || '10:00',
+      returnDate: values.returnDate,
+      returnTime: values.returnTime || '10:00',
+    });
+    return calculateRentalDaysFromInstants(instants.pickupInstant, instants.returnInstant);
+  } catch (_error) {
+    return null;
+  }
+}
+
 function buildReservationQuoteInputFromFormData(formData, pageLocation = getActiveOfferLocation()) {
   return {
     carModel: String(formData.get('car') || '').trim(),
@@ -217,6 +259,10 @@ function buildReservationQuoteInputFromFormData(formData, pageLocation = getActi
     returnTimeStr: String(formData.get('return_time') || '10:00').trim() || '10:00',
     pickupLocation: String(formData.get('pickup_location') || '').trim(),
     returnLocation: String(formData.get('return_location') || '').trim(),
+    pickupCityCode: normalizeThresholdCityCode(document.getElementById('res_pickup_city')?.value || ''),
+    returnCityCode: normalizeThresholdCityCode(document.getElementById('res_return_city')?.value || ''),
+    pickupPlaceType: String(document.getElementById('res_pickup_place_type')?.value || 'hotel').trim(),
+    returnPlaceType: String(document.getElementById('res_return_place_type')?.value || 'hotel').trim(),
     fullInsurance: String(formData.get('insurance') || '') === 'on',
     youngDriver: String(formData.get('young_driver') || '') === 'on',
     offer: pageLocation,
@@ -245,19 +291,58 @@ function buildReservationQuoteInputFromDom() {
 
 function computeReservationQuote(quoteInput) {
   try {
+    const carModel = String(quoteInput?.carModel || '').trim();
+    if (!carModel) return null;
+    const offerRow = getCurrentSelectedOfferRow({
+      offerId: quoteInput?.offerId,
+      carModel,
+    });
+    const pricingContext = getOfferPricingContext(offerRow);
+    if (isThresholdOffer(offerRow)) {
+      const computed = calculateThresholdCarRentalQuote({
+        offer: offerRow,
+        tiers: pricingContext.dailyRateTiers,
+        pickupDateStr: quoteInput?.pickupDateStr,
+        returnDateStr: quoteInput?.returnDateStr,
+        pickupTimeStr: quoteInput?.pickupTimeStr || '10:00',
+        returnTimeStr: quoteInput?.returnTimeStr || '10:00',
+        pickupCityCode: quoteInput?.pickupCityCode || pricingContext.pickupCityCode,
+        returnCityCode: quoteInput?.returnCityCode || pricingContext.returnCityCode,
+        pickupAvailability: pricingContext.pickupAvailability,
+        returnAvailability: pricingContext.returnAvailability,
+        fullInsurance: !!quoteInput?.fullInsurance,
+        youngDriver: !!quoteInput?.youngDriver,
+        carModel,
+      });
+      if (!computed || typeof computed.total !== 'number' || computed.total <= 0) return null;
+      return {
+        total: computed.total,
+        currency: computed.currency || 'EUR',
+        pricingStrategy: CAR_THRESHOLD_PRICING_STRATEGY,
+        pricingSnapshot: computed.pricingSnapshot,
+        breakdown: {
+          location: computed.offer,
+          days: computed.days,
+          basePrice: computed.basePrice,
+          dailyRate: computed.dailyRate,
+          pickupFee: computed.pickupFee,
+          returnFee: computed.returnFee,
+          insuranceCost: computed.insuranceCost,
+          insuranceMode: computed.insuranceMode,
+          youngDriverCost: computed.youngDriverCost,
+          youngDriverDailyRate: computed.youngDriverDailyRate,
+          car: computed.car,
+          pickupLoc: computed.pickupLoc,
+          returnLoc: computed.returnLoc,
+          tierId: computed.tierId,
+          thresholdDays: computed.thresholdDays,
+        },
+      };
+    }
     const pricing = window.CE_CAR_PRICING && typeof window.CE_CAR_PRICING === 'object'
       ? window.CE_CAR_PRICING
       : null;
     if (!pricing) return null;
-
-    const carModel = String(quoteInput?.carModel || '').trim();
-    if (!carModel) return null;
-    const offerRow = typeof window.CE_CAR_FIND_CURRENT_FLEET_CAR === 'function'
-      ? window.CE_CAR_FIND_CURRENT_FLEET_CAR({
-        offerId: String(quoteInput?.offerId || '').trim(),
-        carModel,
-      })
-      : null;
     const carPricing = offerRow
       ? buildPricingMatrixForOfferRow(offerRow, quoteInput?.offer || getActiveOfferLocation())
       : pricing[carModel];
@@ -338,8 +423,27 @@ async function requestCouponQuote(couponCode, baseQuote, options = {}) {
   const pickupTime = document.getElementById('res_pickup_time')?.value || '10:00';
   const returnDate = document.getElementById('res_return_date')?.value;
   const returnTime = document.getElementById('res_return_time')?.value || '10:00';
-  const pickupAt = localDateTimeToIso(pickupDate, pickupTime);
-  const returnAt = localDateTimeToIso(returnDate, returnTime);
+  const selectedOffer = getCurrentSelectedOfferRow();
+  let pickupAt = null;
+  let returnAt = null;
+  if (isThresholdOffer(selectedOffer)) {
+    try {
+      const instants = buildRentalInstantsFromLocalDateTimes({
+        pickupDate,
+        pickupTime,
+        returnDate,
+        returnTime,
+      });
+      pickupAt = instants.pickupInstant;
+      returnAt = instants.returnInstant;
+    } catch (_error) {
+      pickupAt = null;
+      returnAt = null;
+    }
+  } else {
+    pickupAt = localDateTimeToIso(pickupDate, pickupTime);
+    returnAt = localDateTimeToIso(returnDate, returnTime);
+  }
 
   if (!pickupAt || !returnAt) {
     return { ok: false, message: couponMessage('selectValidDateTime', 'Select valid pickup and return date/time first'), result: null };
@@ -455,6 +559,44 @@ async function requestCouponQuote(couponCode, baseQuote, options = {}) {
     }
     return { ok: false, message: String(error?.message || couponMessage('validationFailed', 'Coupon validation failed')), result: null };
   }
+}
+
+async function requestAuthoritativeThresholdQuote({ offerRow, formData, couponCode = '' } = {}) {
+  if (!isThresholdOffer(offerRow)) return null;
+  const pricingContext = getOfferPricingContext(offerRow);
+  const pickupCityCode = normalizeThresholdCityCode(
+    document.getElementById('res_pickup_city')?.value || pricingContext?.pickupCityCode,
+  );
+  const returnCityCode = normalizeThresholdCityCode(
+    document.getElementById('res_return_city')?.value || pricingContext?.returnCityCode,
+  );
+  const userId = window.CE_STATE?.session?.user?.id || null;
+  const { data, error } = await supabase.rpc(THRESHOLD_QUOTE_RPC_NAME, {
+    p_offer_id: String(offerRow.id),
+    p_pickup_date: String(formData.get('pickup_date') || ''),
+    p_pickup_time: String(formData.get('pickup_time') || '10:00'),
+    p_return_date: String(formData.get('return_date') || ''),
+    p_return_time: String(formData.get('return_time') || '10:00'),
+    p_pickup_city_code: pickupCityCode,
+    p_return_city_code: returnCityCode,
+    p_pickup_location: pickupCityCode,
+    p_return_location: returnCityCode,
+    p_full_insurance: String(formData.get('insurance') || '') === 'on',
+    p_young_driver: String(formData.get('young_driver') || '') === 'on',
+    p_coupon_code: String(couponCode || '').trim().toUpperCase() || null,
+    p_user_id: userId,
+    p_user_email: String(formData.get('email') || '').trim() || null,
+  });
+  if (error) {
+    const failure = new Error(error.message || 'Authoritative threshold quote validation failed.');
+    failure.code = error.code || 'THRESHOLD_QUOTE_VALIDATION_FAILED';
+    throw failure;
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row || row.quote_valid !== true || String(row.offer_id || '') !== String(offerRow.id)) {
+    throw new Error('Authoritative threshold quote validation returned no valid exact-offer quote.');
+  }
+  return row;
 }
 
 function scheduleCouponRevalidation(baseQuote) {
@@ -990,6 +1132,8 @@ function syncAddressField(side, placeType) {
 function syncReservationPlaceDetails(options = {}) {
   const { recalculate = false } = options;
   const offer = getActiveOfferLocation();
+  const selectedOffer = getCurrentSelectedOfferRow();
+  const thresholdOffer = isThresholdOffer(selectedOffer);
   const pickupCityInput = document.getElementById('res_pickup_city');
   const returnCityInput = document.getElementById('res_return_city');
   const pickupLocationInput = document.getElementById('res_pickup_location');
@@ -1001,14 +1145,19 @@ function syncReservationPlaceDetails(options = {}) {
     return;
   }
 
-  const pickupCity = normalizeCarCity(
-    pickupCityInput?.value || pickupLocationInput.value,
-    offer === 'paphos' ? 'paphos' : 'larnaca'
-  );
-  const returnCity = normalizeCarCity(
-    returnCityInput?.value || returnLocationInput.value,
-    pickupCity || 'larnaca'
-  );
+  const pickupCity = thresholdOffer
+    ? normalizeThresholdCityCode(pickupCityInput?.value || pickupLocationInput.value)
+    : normalizeCarCity(
+      pickupCityInput?.value || pickupLocationInput.value,
+      offer === 'paphos' ? 'paphos' : 'larnaca'
+    );
+  const returnCity = thresholdOffer
+    ? normalizeThresholdCityCode(returnCityInput?.value || returnLocationInput.value)
+    : normalizeCarCity(
+      returnCityInput?.value || returnLocationInput.value,
+      pickupCity || 'larnaca'
+    );
+  if (!pickupCity || !returnCity) return;
   const pickupPlaceType = coerceCarPlaceTypeForCity(
     pickupCity,
     pickupPlaceSelect?.value || 'hotel',
@@ -1030,8 +1179,12 @@ function syncReservationPlaceDetails(options = {}) {
   if (pickupCityInput instanceof HTMLInputElement) pickupCityInput.value = pickupCity;
   if (returnCityInput instanceof HTMLInputElement) returnCityInput.value = returnCity;
 
-  const pickupLegacy = mapCityToLegacyLocationForPricing(pickupCity, offer, pickupPlaceType);
-  const returnLegacy = mapCityToLegacyLocationForPricing(returnCity, offer, returnPlaceType);
+  const pickupLegacy = thresholdOffer
+    ? pickupCity
+    : mapCityToLegacyLocationForPricing(pickupCity, offer, pickupPlaceType);
+  const returnLegacy = thresholdOffer
+    ? returnCity
+    : mapCityToLegacyLocationForPricing(returnCity, offer, returnPlaceType);
   const changed = [
     setInputValue(pickupLocationInput, pickupLegacy),
     setInputValue(returnLocationInput, returnLegacy),
@@ -1535,8 +1688,11 @@ function renderEstimatedPriceQuote(estimatedEl, quote, rentalDays, daysLabel) {
   ];
 
   if (insuranceCost > 0) {
+    const insuranceLabel = breakdown.insuranceMode && breakdown.insuranceMode !== 'legacy_optional_daily'
+      ? uiText('Opcjonalne ubezpieczenie', 'Optional insurance', 'ביטוח אופציונלי')
+      : tr('carRental.page.reservation.priceSummary.fullInsurance', 'Full AC insurance');
     rows.push(renderPriceSummaryRow(
-      tr('carRental.page.reservation.priceSummary.fullInsurance', 'Full AC insurance'),
+      insuranceLabel,
       perDayValue(insuranceCost)
     ));
   }
@@ -1594,9 +1750,11 @@ function calculateEstimatedPrice(options = {}) {
     return;
   }
 
+  const selectedOffer = getCurrentSelectedOfferRow();
+  const thresholdOffer = isThresholdOffer(selectedOffer);
   const pickup = new Date(`${pickupDate}T${pickupTime}`);
   const returnD = new Date(`${returnDate}T${returnTime}`);
-  if (Number.isNaN(pickup.getTime()) || Number.isNaN(returnD.getTime())) {
+  if (!thresholdOffer && (Number.isNaN(pickup.getTime()) || Number.isNaN(returnD.getTime()))) {
     estimatedEl.textContent = tr(
       'carRental.page.reservation.estimated.invalidDateTime',
       'Wybierz poprawne daty i godziny odbioru oraz zwrotu.'
@@ -1605,8 +1763,11 @@ function calculateEstimatedPrice(options = {}) {
     return;
   }
 
-  const hours = (returnD - pickup) / 36e5;
-  if (!Number.isFinite(hours) || hours <= 0) {
+  const hours = thresholdOffer ? null : (returnD - pickup) / 36e5;
+  const days = thresholdOffer
+    ? getThresholdRentalDays(selectedOffer, { pickupDate, pickupTime, returnDate, returnTime })
+    : Math.ceil(hours / 24);
+  if (!Number.isFinite(days) || days <= 0 || (!thresholdOffer && (!Number.isFinite(hours) || hours <= 0))) {
     estimatedEl.textContent = tr(
       'carRental.page.reservation.estimated.returnAfterPickup',
       'Zwrot musi być po dacie i godzinie odbioru.'
@@ -1615,16 +1776,27 @@ function calculateEstimatedPrice(options = {}) {
     return;
   }
 
-  const days = Math.ceil(hours / 24);
-
-  if (days < 3) {
+  const minimumDays = thresholdOffer ? Number(selectedOffer.min_rental_days) : 3;
+  if (days < minimumDays) {
     estimatedEl.textContent = tr(
       'carRental.page.reservation.estimated.minimumDays',
-      'Minimalny wynajem: 3 dni. Każde rozpoczęte 24h to kolejny dzień.',
+      'Minimalny wynajem: {{days}} dni. Każde rozpoczęte 24h to kolejny dzień.',
       {
-        days: 3,
+        days: minimumDays,
         daysLabel,
       }
+    );
+    try { delete window.CE_CAR_PRICE_QUOTE; } catch (_) {}
+    return;
+  }
+  const maximumDays = thresholdOffer && selectedOffer.max_rental_days != null
+    ? Number(selectedOffer.max_rental_days)
+    : null;
+  if (maximumDays != null && Number.isFinite(maximumDays) && days > maximumDays) {
+    estimatedEl.textContent = uiText(
+      `Maksymalny wynajem dla tej oferty: ${maximumDays} dni.`,
+      `Maximum rental for this offer: ${maximumDays} days.`,
+      `תקופת ההשכרה המרבית להצעה זו: ${maximumDays} ימים.`,
     );
     try { delete window.CE_CAR_PRICE_QUOTE; } catch (_) {}
     return;
@@ -1726,14 +1898,38 @@ function validateReservationForm(formData) {
   const pickupTime = String(formData.get('pickup_time') || '10:00').trim();
   const returnTime = String(formData.get('return_time') || '10:00').trim();
   if (pickupDate && returnDate) {
+    const selectedOffer = getCurrentSelectedOfferRow();
+    const thresholdOffer = isThresholdOffer(selectedOffer);
     const pickup = new Date(`${pickupDate}T${pickupTime}`);
     const ret = new Date(`${returnDate}T${returnTime}`);
-    const hours = (ret.getTime() - pickup.getTime()) / 36e5;
-    const days = Math.ceil(hours / 24);
-    if (!Number.isFinite(hours) || hours <= 0 || !Number.isFinite(days)) {
+    const hours = thresholdOffer ? null : (ret.getTime() - pickup.getTime()) / 36e5;
+    const days = thresholdOffer
+      ? getThresholdRentalDays(selectedOffer, { pickupDate, pickupTime, returnDate, returnTime })
+      : Math.ceil(hours / 24);
+    const minimumDays = thresholdOffer ? Number(selectedOffer.min_rental_days) : 3;
+    const maximumDays = thresholdOffer && selectedOffer.max_rental_days != null
+      ? Number(selectedOffer.max_rental_days)
+      : null;
+    if (!Number.isFinite(days) || days <= 0 || (!thresholdOffer && (!Number.isFinite(hours) || hours <= 0))) {
       errors.push({ field: 'res_return_date', message: msgs.returnDate });
-    } else if (days < 3) {
-      errors.push({ field: 'res_return_date', message: msgs.minimumDays });
+    } else if (days < minimumDays) {
+      errors.push({
+        field: 'res_return_date',
+        message: uiText(
+          `Minimalny wynajem dla tej oferty: ${minimumDays} dni.`,
+          `Minimum rental for this offer: ${minimumDays} days.`,
+          `תקופת ההשכרה המינימלית להצעה זו: ${minimumDays} ימים.`,
+        ),
+      });
+    } else if (maximumDays != null && days > maximumDays) {
+      errors.push({
+        field: 'res_return_date',
+        message: uiText(
+          `Maksymalny wynajem dla tej oferty: ${maximumDays} dni.`,
+          `Maximum rental for this offer: ${maximumDays} days.`,
+          `תקופת ההשכרה המרבית להצעה זו: ${maximumDays} ימים.`,
+        ),
+      });
     }
   }
   
@@ -1820,7 +2016,17 @@ async function handleReservationSubmit(event) {
     const resCarSelect = document.getElementById('res_car');
     const selectedResCarOpt = resCarSelect && resCarSelect.selectedOptions ? resCarSelect.selectedOptions[0] : null;
     const offerId = selectedResCarOpt?.dataset?.offerId || null;
-    const pageLocation = getActiveOfferLocation();
+    const selectedOfferRow = getCurrentSelectedOfferRow({
+      offerId,
+      carModel: selectedResCarOpt?.value || formData.get('car'),
+    });
+    const thresholdBooking = isThresholdOffer(selectedOfferRow);
+    const selectedPricingContext = getOfferPricingContext(selectedOfferRow);
+    const pageLocation = thresholdBooking
+      ? (String(selectedPricingContext?.legacyBookingLocation || selectedOfferRow?.location).toLowerCase() === 'paphos'
+        ? 'paphos'
+        : 'larnaca')
+      : getActiveOfferLocation();
 
     const quoteInput = buildReservationQuoteInputFromFormData(formData, pageLocation);
     const computedQuote = computeReservationQuote(quoteInput);
@@ -1886,8 +2092,18 @@ async function handleReservationSubmit(event) {
 
     const rawPickupLocation = String(formData.get('pickup_location') || '').trim();
     const rawReturnLocation = String(formData.get('return_location') || '').trim();
-    const normalizedPickupLocation = normalizeLocationForOffer(rawPickupLocation, pageLocation) || rawPickupLocation;
-    const normalizedReturnLocation = normalizeLocationForOffer(rawReturnLocation, pageLocation) || rawReturnLocation;
+    const pickupCityCode = normalizeThresholdCityCode(
+      document.getElementById('res_pickup_city')?.value || selectedPricingContext?.pickupCityCode,
+    );
+    const returnCityCode = normalizeThresholdCityCode(
+      document.getElementById('res_return_city')?.value || selectedPricingContext?.returnCityCode,
+    );
+    const normalizedPickupLocation = thresholdBooking
+      ? pickupCityCode
+      : normalizeLocationForOffer(rawPickupLocation, pageLocation) || rawPickupLocation;
+    const normalizedReturnLocation = thresholdBooking
+      ? returnCityCode
+      : normalizeLocationForOffer(rawReturnLocation, pageLocation) || rawReturnLocation;
 
     // Build data object with only essential fields
     const data = {
@@ -1915,6 +2131,11 @@ async function handleReservationSubmit(event) {
       referral_source: referralPayload.referral_source || null,
       referral_captured_at: referralPayload.referral_captured_at || null,
     };
+
+    if (thresholdBooking) {
+      data.pickup_city_code = pickupCityCode;
+      data.return_city_code = returnCityCode;
+    }
 
     if (quoteWithCoupon && typeof quoteWithCoupon.final_total === 'number' && quoteWithCoupon.final_total > 0) {
       const finalRentalTotal = Number(quoteWithCoupon.final_total || 0);
@@ -1948,6 +2169,36 @@ async function handleReservationSubmit(event) {
       if (typeof b.youngDriverCost === 'number' && b.youngDriverCost > 0) data.young_driver_fee = true;
       if (typeof b.insuranceCost === 'number' && b.insuranceCost > 0) data.insurance_added = true;
     }
+
+    if (thresholdBooking) {
+      const authoritative = await requestAuthoritativeThresholdQuote({
+        offerRow: selectedOfferRow,
+        formData,
+        couponCode: enteredCouponCode,
+      });
+      const finalTotal = Number(authoritative.final_rental_price);
+      const preDiscountTotal = Number(authoritative.pre_discount_total);
+      data.quoted_price = Number(finalTotal.toFixed(2));
+      data.total_price = Number(finalTotal.toFixed(2));
+      data.currency = String(authoritative.currency || 'EUR');
+      data.base_rental_price = Number(preDiscountTotal.toFixed(2));
+      data.final_rental_price = Number(finalTotal.toFixed(2));
+      data.pickup_location_fee = Number(authoritative.pickup_location_fee || 0);
+      data.return_location_fee = Number(authoritative.return_location_fee || 0);
+      data.insurance_cost = Number(authoritative.insurance_cost || 0);
+      data.young_driver_cost = Number(authoritative.young_driver_cost || 0);
+      data.insurance_added = authoritative.insurance_selected === true;
+      data.young_driver_fee = authoritative.young_driver_selected === true;
+      data.young_driver = authoritative.young_driver_selected === true;
+      data.coupon_id = authoritative.coupon_id || null;
+      data.coupon_code = authoritative.coupon_code || null;
+      data.coupon_discount_amount = Number(authoritative.discount_amount || 0);
+      data.coupon_partner_id = authoritative.coupon_partner_id || null;
+      data.coupon_partner_commission_bps = authoritative.coupon_partner_commission_bps == null
+        ? null
+        : Number(authoritative.coupon_partner_commission_bps);
+      data.pricing_snapshot = authoritative.pricing_snapshot;
+    }
     
     // Add optional fields only if they have values
     const country = formData.get('country');
@@ -1968,7 +2219,7 @@ async function handleReservationSubmit(event) {
     const insurance = formData.get('insurance');
     if (insurance === 'on') data.full_insurance = true;
     
-    if (computedQuote?.breakdown?.youngDriverCost > 0 && pageLocation === 'larnaca') {
+    if (!thresholdBooking && computedQuote?.breakdown?.youngDriverCost > 0 && pageLocation === 'larnaca') {
       data.young_driver = true;
     }
     
@@ -1978,23 +2229,21 @@ async function handleReservationSubmit(event) {
     const requests = formData.get('special_requests');
     if (requests) data.special_requests = requests;
 
-    console.log('Submitting reservation:', data);
-    console.log('Supabase client:', supabase);
-    console.log('Data keys:', Object.keys(data));
-
     async function insertCarBooking(payload) {
       return supabase
         .from('car_bookings')
         .insert([payload]);
     }
 
-    // Save to Supabase (retry by removing only unknown columns reported by the API)
+    // Threshold financial fields are server-authoritative and must never be
+    // silently removed. Legacy compatibility retains the existing narrow
+    // unknown-column retry while its strategy flag remains OFF.
     let booking = null;
     let error = null;
     let attemptPayload = { ...data };
     const maxRetries = 12;
 
-    for (let i = 0; i <= maxRetries; i += 1) {
+    for (let i = 0; i <= (thresholdBooking ? 0 : maxRetries); i += 1) {
       ({ data: booking, error } = await insertCarBooking(attemptPayload));
       if (!error) break;
 
@@ -2015,15 +2264,10 @@ async function handleReservationSubmit(event) {
       delete attemptPayload[unknownCol];
     }
     
-    console.log('Insert result - booking:', booking);
-    console.log('Insert result - error:', error);
-
     if (error) {
       console.error('Booking error:', error);
       throw new Error(error.message || tr('carRental.page.reservation.error.saveBooking', 'Could not save reservation'));
     }
-
-    console.log('Booking created:', booking);
 
     // Show success message
     showSuccessMessage({

@@ -13,6 +13,8 @@ function loadAdapter(): any {
   vm.createContext(context);
   vm.runInContext(moduleToScript('js/car-pricing.js'), context, { filename: 'js/car-pricing.js' });
   vm.runInContext(moduleToScript('js/car-rental-flow.js'), context, { filename: 'js/car-rental-flow.js' });
+  vm.runInContext(moduleToScript('js/car-rental-duration-contract.js'), context, { filename: 'js/car-rental-duration-contract.js' });
+  vm.runInContext(moduleToScript('js/car-rental-threshold-pricing.js'), context, { filename: 'js/car-rental-threshold-pricing.js' });
   vm.runInContext(`${moduleToScript('js/car-rental-availability-adapter.js')}
     globalThis.Stage2eAdapter = { resolveCarRentalAvailability };`, context, {
     filename: 'js/car-rental-availability-adapter.js',
@@ -175,6 +177,57 @@ describe('Car Rental Multi-City Stage 2E controlled hybrid selection', () => {
     expect(result.renderedOffers.map((row: any) => row.id)).toEqual([legacyLarnaca.id]);
     expect(result.diagnostics.some((row: any) => row.code === 'MAPPED_READER_UNAVAILABLE')).toBe(true);
     expect(result.diagnostics.some((row: any) => row.code === 'MAPPED_OFFER_OMITTED' && row.offerId === mappedLarnaca.id)).toBe(true);
+  });
+
+  test('a configured custom city is threshold-mapped only and never falls back to the legacy resolver', async () => {
+    const customCity = { id: 'city-polis', code: 'polis', is_active: true, sort_order: 99 };
+    const thresholdOffer = offer('threshold-polis', 'larnaca', 'mapped', {
+      pricing_strategy: 'threshold_daily_rate',
+      min_rental_days: 1,
+      max_rental_days: null,
+      insurance_mode: 'not_offered',
+      young_driver_fee: false,
+      young_driver_cost: 0,
+    });
+    const customContext = mappedContext({
+      cities: [...cities, customCity],
+      offers: [thresholdOffer],
+      profileCities: [],
+      availability: [{
+        offer_id: thresholdOffer.id,
+        city_id: customCity.id,
+        pickup_enabled: true,
+        return_enabled: true,
+        is_active: true,
+        fee_mode: 'override',
+        fee_per_direction: 0,
+      }],
+      dailyRateTiers: [{
+        id: 'tier-polis-1', offer_id: thresholdOffer.id,
+        threshold_days: 1, daily_rate: 50, is_active: true,
+      }],
+    });
+    const customRepository = {
+      getFeatureFlags: async () => ({ mappedEnabled: true, thresholdDailyRatesEnabled: true }),
+      readMappedContext: async () => customContext,
+      getMetrics: () => ({ requests: 5, responseBytes: 1024, durationMs: 3, queries: [] }),
+    };
+    const result = await adapter.resolveCarRentalAvailability({
+      ...input({ pickupCityCode: 'polis', returnCityCode: 'polis' }),
+      legacyOffers: [legacyLarnaca],
+      repository: customRepository,
+    });
+    expect(result.renderMode).toBe('hybrid');
+    expect(result.renderedOffers.map((row: any) => row.id)).toEqual([thresholdOffer.id]);
+    expect(result.renderedOffers[0].quote).toEqual(expect.objectContaining({
+      days: 3,
+      dailyRate: 50,
+      basePrice: 150,
+      pickupFee: 0,
+      returnFee: 0,
+      total: 150,
+    }));
+    expect(result.renderedOffers.some((row: any) => row.id === legacyLarnaca.id)).toBe(false);
   });
 
   test('pickup and return availability are independent', async () => {

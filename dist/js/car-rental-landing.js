@@ -12,6 +12,7 @@ import {
   getCurrentFleetRows,
 } from './car-rental-paphos.js';
 import { buildCarCityOptionsHtml } from './car-location-options.js';
+import { calculateRentalDaysFromLocalDateTimes } from './car-rental-duration-contract.js';
 
 const state = {
   manualOffer: null,
@@ -41,6 +42,27 @@ const state = {
 
 function byId(id) {
   return document.getElementById(id);
+}
+
+function getLandingDurationState(widgetState) {
+  const hybrid = window.__CE_CAR_MULTICITY_HYBRID_RESULT__;
+  const thresholdRuntime = hybrid?.featureFlagEnabled === true
+    && hybrid?.thresholdFeatureFlagEnabled === true
+    && hybrid?.renderMode === 'hybrid';
+  if (!thresholdRuntime) return getFinderDurationState(widgetState);
+  try {
+    const days = calculateRentalDaysFromLocalDateTimes({
+      pickupDate: widgetState?.pickupDate,
+      pickupTime: widgetState?.pickupTime || '10:00',
+      returnDate: widgetState?.returnDate,
+      returnTime: widgetState?.returnTime || '10:00',
+    });
+    return days
+      ? { ready: true, hours: null, days, minimumDays: 1, thresholdRuntime: true }
+      : { ready: false, reason: 'return_before_pickup' };
+  } catch (_error) {
+    return { ready: false, reason: 'invalid_dates' };
+  }
 }
 
 function readCarDeepLink() {
@@ -501,7 +523,7 @@ function renderOfferIndicators(widgetState) {
     return;
   }
 
-  const duration = getFinderDurationState(widgetState);
+  const duration = getLandingDurationState(widgetState);
   if (!duration.ready) {
     info.textContent = duration.reason === 'minimum_days'
       ? tr(
@@ -702,7 +724,7 @@ function applyLandingLocationRules() {
 }
 
 function isLandingFinderReady(widgetState) {
-  return isFinderSelectionComplete(widgetState) && getFinderDurationState(widgetState).ready;
+  return isFinderSelectionComplete(widgetState) && getLandingDurationState(widgetState).ready;
 }
 
 function applyLandingVisibility(widgetState) {
@@ -727,7 +749,7 @@ function applyLandingVisibility(widgetState) {
     if (result) result.textContent = '';
     if (breakdown) breakdown.innerHTML = '';
     if (message) {
-      const duration = getFinderDurationState(widgetState);
+      const duration = getLandingDurationState(widgetState);
       if (!isFinderSelectionComplete(widgetState)) {
         message.textContent = tr(
           'carRentalLanding.calculator.selectRouteFirst',
@@ -758,11 +780,14 @@ function applyLandingVisibility(widgetState) {
   return true;
 }
 
-function buildLandingModalPrefill(widgetState) {
+function buildLandingModalPrefill(widgetState, selectedCar = null) {
   const pickupCity = normalizeCarCity(widgetState.pickupLocation, 'larnaca');
   const returnCity = normalizeCarCity(widgetState.returnLocation, pickupCity || 'larnaca');
   const pickupPlaceType = 'hotel';
   const returnPlaceType = 'hotel';
+  const context = selectedCar?.pricingContext || selectedCar?.availabilityContext || null;
+  const thresholdOffer = selectedCar?.pricing_strategy === 'threshold_daily_rate'
+    && context?.pricingStrategy === 'threshold_daily_rate';
 
   return {
     pickupDate: widgetState.pickupDate,
@@ -773,10 +798,16 @@ function buildLandingModalPrefill(widgetState) {
     returnCity,
     pickupPlaceType,
     returnPlaceType,
-    pickupLocation: mapCityToLegacyLocationForPricing(pickupCity, state.effectiveOffer, pickupPlaceType),
-    returnLocation: mapCityToLegacyLocationForPricing(returnCity, state.effectiveOffer, returnPlaceType),
+    pickupLocation: thresholdOffer
+      ? context.pickupLegacyPricingLocation
+      : mapCityToLegacyLocationForPricing(pickupCity, state.effectiveOffer, pickupPlaceType),
+    returnLocation: thresholdOffer
+      ? context.returnLegacyPricingLocation
+      : mapCityToLegacyLocationForPricing(returnCity, state.effectiveOffer, returnPlaceType),
     fullInsurance: !!widgetState.fullInsurance,
-    youngDriver: state.effectiveOffer === 'larnaca' && !!widgetState.youngDriver,
+    youngDriver: thresholdOffer
+      ? selectedCar?.young_driver_fee === true && !!widgetState.youngDriver
+      : state.effectiveOffer === 'larnaca' && !!widgetState.youngDriver,
     passengers: parsePassengerCount(widgetState.passengers, 2),
   };
 }
@@ -818,7 +849,7 @@ function openSelectedLandingCarModal(options = {}) {
     fleetByLocation: {
       [state.effectiveOffer]: getCurrentFleetRows(),
     },
-    prefill: prefillOverride || buildLandingModalPrefill(widgetState),
+    prefill: prefillOverride || buildLandingModalPrefill(widgetState, selectedCar),
   });
 }
 
@@ -888,7 +919,14 @@ function syncReservationForm(widgetState) {
     }
 
     if (resYoungDriver) {
-      const canUseYoungDriver = state.effectiveOffer === 'larnaca';
+      const selectedMeta = getSelectedCarOfferMeta();
+      const selectedCar = findCurrentFleetCarByOfferId(selectedMeta?.offerId)
+        || findCurrentFleetCarByModel(selectedMeta?.title || widgetState.carModel);
+      const thresholdOffer = selectedCar?.pricing_strategy === 'threshold_daily_rate'
+        && (selectedCar?.pricingContext || selectedCar?.availabilityContext)?.pricingStrategy === 'threshold_daily_rate';
+      const canUseYoungDriver = thresholdOffer
+        ? selectedCar?.young_driver_fee === true
+        : state.effectiveOffer === 'larnaca';
       setCheckboxIfChanged(resYoungDriver, canUseYoungDriver && widgetState.youngDriver, 'res_young_driver');
       const previousDisabled = !!resYoungDriver.disabled;
       resYoungDriver.disabled = !canUseYoungDriver;
@@ -1414,6 +1452,17 @@ function initLandingController() {
   bindReservationHandlers();
   bindImagePreviewModal();
   window.addEventListener('ce:car-fleet-ready', () => {
+    void refreshLandingFlow();
+  });
+  window.addEventListener('ce:car-multicity-hybrid-ready', (event) => {
+    if (event?.detail?.source === 'car-page') void refreshLandingFlow();
+  });
+  window.addEventListener('ce:car-city-catalog-ready', (event) => {
+    if (event?.detail?.source !== 'car-page') return;
+    populateWidgetLocations();
+    populateReservationLocations();
+    applyLandingLocationRules();
+    bindWidgetHandlers();
     void refreshLandingFlow();
   });
   window.addEventListener('ce:car-modal-closed', (event) => {

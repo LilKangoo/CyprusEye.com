@@ -15,6 +15,13 @@ import {
   buildCarRentalAvailabilityInputFingerprint,
   resolveCarRentalAvailability,
 } from './car-rental-availability-adapter.js';
+import {
+  CAR_THRESHOLD_PRICING_STRATEGY,
+  calculateThresholdCarRentalQuote,
+} from './car-rental-threshold-pricing.js';
+import { calculateRentalDaysFromLocalDateTimes } from './car-rental-duration-contract.js';
+import { createCarRentalAvailabilityRepository } from './car-rental-availability-repository.js';
+import { hydrateCarRentalCityCatalogForActiveRuntime } from './car-location-options.js';
 
 let paphosFleet = [];
 let pricing = {};
@@ -25,6 +32,7 @@ let carPageShadowTimer = null;
 let carPageShadowFingerprint = '';
 let carPageShadowGeneration = 0;
 let carPageHybridState = null;
+const carPageCatalogRepository = createCarRentalAvailabilityRepository({ supabase });
 
 function getI18nLanguage() {
   const fromApp = (window.appI18n?.language || '').toLowerCase();
@@ -256,9 +264,12 @@ function scheduleCarPageAvailabilityShadow(legacyRenderedOffers) {
 function resolveCarPageRenderedFleet(legacyRenderedOffers) {
   const config = getCarPageShadowConfig();
   const input = buildCarPageAvailabilityInput(legacyRenderedOffers);
-  if (config?.renderMapped !== true || !input || !carPageHybridState) return legacyRenderedOffers;
+  if (config?.renderMapped !== true || !input) return legacyRenderedOffers;
+  const knownThresholdRuntime = window.__CE_CAR_MULTICITY_HYBRID_RESULT__?.featureFlagEnabled === true
+    && window.__CE_CAR_MULTICITY_HYBRID_RESULT__?.thresholdFeatureFlagEnabled === true;
+  if (!carPageHybridState) return knownThresholdRuntime ? [] : legacyRenderedOffers;
   const fingerprint = buildCarRentalAvailabilityInputFingerprint(input);
-  if (carPageHybridState.fingerprint !== fingerprint) return legacyRenderedOffers;
+  if (carPageHybridState.fingerprint !== fingerprint) return knownThresholdRuntime ? [] : legacyRenderedOffers;
   return Array.isArray(carPageHybridState.result?.renderedOffers)
     ? carPageHybridState.result.renderedOffers
     : legacyRenderedOffers;
@@ -358,6 +369,27 @@ function calculateQuoteForSelection({
 }) {
   const selectedCar = String(carModel || '').trim();
   const offerRow = findFleetCarForQuote({ offerId, carModel: selectedCar });
+  const thresholdContext = offerRow?.pricingContext || offerRow?.availabilityContext || null;
+  if (
+    offerRow?.pricing_strategy === CAR_THRESHOLD_PRICING_STRATEGY
+    && thresholdContext?.pricingStrategy === CAR_THRESHOLD_PRICING_STRATEGY
+  ) {
+    return calculateThresholdCarRentalQuote({
+      offer: offerRow,
+      tiers: thresholdContext.dailyRateTiers,
+      pickupDateStr,
+      returnDateStr,
+      pickupTimeStr,
+      returnTimeStr,
+      pickupCityCode: thresholdContext.pickupCityCode,
+      returnCityCode: thresholdContext.returnCityCode,
+      pickupAvailability: thresholdContext.pickupAvailability,
+      returnAvailability: thresholdContext.returnAvailability,
+      fullInsurance,
+      youngDriver,
+      carModel: selectedCar,
+    });
+  }
   const carPricing = offerRow
     ? buildPricingMatrixForOfferRow(offerRow, offer)
     : (selectedCar ? pricing[selectedCar] : null);
@@ -375,6 +407,52 @@ function calculateQuoteForSelection({
     youngDriver,
     offerRow,
   });
+}
+
+function getSelectionDurationState(offerRow, {
+  pickupDateStr,
+  pickupTimeStr = '10:00',
+  returnDateStr,
+  returnTimeStr = '10:00',
+} = {}) {
+  const thresholdOffer = offerRow?.pricing_strategy === CAR_THRESHOLD_PRICING_STRATEGY
+    && (offerRow?.pricingContext || offerRow?.availabilityContext)?.pricingStrategy === CAR_THRESHOLD_PRICING_STRATEGY;
+  if (thresholdOffer) {
+    try {
+      const days = calculateRentalDaysFromLocalDateTimes({
+        pickupDate: pickupDateStr,
+        pickupTime: pickupTimeStr,
+        returnDate: returnDateStr,
+        returnTime: returnTimeStr,
+      });
+      const minimumDays = Number(offerRow.min_rental_days);
+      const maximumDays = offerRow.max_rental_days == null || offerRow.max_rental_days === ''
+        ? null
+        : Number(offerRow.max_rental_days);
+      return {
+        valid: Number.isInteger(days)
+          && days >= minimumDays
+          && (maximumDays == null || days <= maximumDays),
+        days,
+        minimumDays,
+        maximumDays,
+        thresholdOffer: true,
+      };
+    } catch (_error) {
+      return { valid: false, days: null, minimumDays: Number(offerRow.min_rental_days), maximumDays: null, thresholdOffer: true };
+    }
+  }
+  const pickup = new Date(`${pickupDateStr}T${pickupTimeStr}`);
+  const ret = new Date(`${returnDateStr}T${returnTimeStr}`);
+  const hours = (ret.getTime() - pickup.getTime()) / 36e5;
+  const days = Math.ceil(hours / 24);
+  return {
+    valid: Number.isFinite(hours) && hours > 0 && Number.isFinite(days) && days >= 3,
+    days,
+    minimumDays: 3,
+    maximumDays: null,
+    thresholdOffer: false,
+  };
 }
 
 function isValidLandingQuoteContext(quoteContext, loc) {
@@ -528,7 +606,9 @@ async function loadPaphosFleet() {
         .from('car_offers')
         .select('*')
         .eq('location', pageLocation)
-        .eq('is_available', true);
+        .eq('is_available', true)
+        .eq('is_published', true)
+        .eq('pricing_strategy', 'legacy_compat');
 
       if (withNorthAllowed) {
         q = q.eq('north_allowed', requireNorthAllowed);
@@ -658,7 +738,9 @@ function renderFleet() {
 
     const transmission = car.transmission === 'automatic'
       ? i18n('carRental.common.transmission.automatic', null, 'Automat')
-      : i18n('carRental.common.transmission.manual', null, 'Manual');
+      : car.transmission === 'manual'
+        ? i18n('carRental.common.transmission.manual', null, 'Manual')
+        : carUiText({ pl: 'Nie dotyczy', en: 'Not applicable', he: 'לא רלוונטי' }, null, lang);
     
     const seats = car.max_passengers || 5;
     const seatsText = i18n('carRental.common.seats', { count: seats }, `${seats} miejsc`);
@@ -717,7 +799,9 @@ function renderFleet() {
     }
 
     const reserveLabel = i18n('carRental.common.reserveCar', null, 'Zarezerwuj to auto');
-    const noDepositLabel = i18n('carRentalLanding.hero.stats.noDeposit', null, 'Bez kaucji');
+    const noDepositLabel = car?.pricing_strategy === CAR_THRESHOLD_PRICING_STRATEGY
+      ? carUiText({ pl: 'Wymaga potwierdzenia partnera', en: 'Partner confirmation required', he: 'נדרש אישור שותף' }, null, lang)
+      : i18n('carRentalLanding.hero.stats.noDeposit', null, 'Bez kaucji');
 
     const cardMeta = `${transmission} • ${seatsText} • AC`;
 
@@ -781,7 +865,9 @@ function updateCalculatorOptions() {
   const optionsHTML = filteredFleet.map(car => {
     const transmission = car.transmission === 'automatic'
       ? i18n('carRental.common.transmission.automatic', null, 'Automat')
-      : i18n('carRental.common.transmission.manual', null, 'Manual');
+      : car.transmission === 'manual'
+        ? i18n('carRental.common.transmission.manual', null, 'Manual')
+        : carUiText({ pl: 'Nie dotyczy', en: 'Not applicable', he: 'לא רלוונטי' });
     const seats = car.max_passengers || 5;
     const carModelName = window.getCarName ? window.getCarName(car) : car.car_model;
     const seatsText = i18n('carRental.common.seats', { count: seats }, `${seats} miejsc`);
@@ -889,24 +975,26 @@ window.calculatePrice = function() {
     const airportReturn = document.getElementById("airport_return")?.checked || false;
     const fullInsurance = document.getElementById("full_insurance")?.checked || false;
 
-    const pickupDate = new Date(pickupDateStr + 'T' + pickupTimeStr);
-    const returnDate = new Date(returnDateStr + 'T' + returnTimeStr);
-
-    if (isNaN(pickupDate.getTime()) || isNaN(returnDate.getTime())) {
-      alert(i18n('carRental.calculator.errors.invalidDates', null, 'Proszę wybrać poprawne daty i godziny.'));
-      return;
-    }
-
-    const hours = (returnDate - pickupDate) / 36e5;
-    const days = Math.ceil(hours / 24);
-    if (days < 3) {
-      const daysLabel = i18n('carRental.common.daysLabel', null, 'dni');
-      alert(i18n('carRental.calculator.errors.minimumDays', { days: 3, daysLabel }, 'Minimalny czas wynajmu to 3 dni'));
-      return;
-    }
-
     const offerId = getSelectedOfferIdFromSelect('car');
     const selectedOffer = findFleetCarForQuote({ offerId, carModel: car });
+    const duration = getSelectionDurationState(selectedOffer, {
+      pickupDateStr,
+      pickupTimeStr,
+      returnDateStr,
+      returnTimeStr,
+    });
+    if (!duration.valid) {
+      const daysLabel = i18n('carRental.common.daysLabel', null, 'dni');
+      if (duration.maximumDays != null && Number(duration.days) > duration.maximumDays) {
+        alert(`Maximum rental for this offer: ${duration.maximumDays} ${daysLabel}.`);
+      } else if (Number.isFinite(duration.days) && duration.days > 0) {
+        alert(i18n('carRental.calculator.errors.minimumDays', { days: duration.minimumDays, daysLabel }, `Minimalny czas wynajmu to ${duration.minimumDays} dni`));
+      } else {
+        alert(i18n('carRental.calculator.errors.invalidDates', null, 'Proszę wybrać poprawne daty i godziny.'));
+      }
+      return;
+    }
+
     const carPricing = selectedOffer ? buildPricingMatrixForOfferRow(selectedOffer, loc) : pricing[car];
     if (!carPricing && !selectedOffer) {
       alert(i18n('carRental.calculator.errors.selectCar', null, 'Proszę wybrać auto z listy'));
@@ -949,6 +1037,8 @@ window.calculatePrice = function() {
         pickupFee,
         returnFee,
         insuranceCost,
+        insuranceMode: quote.insuranceMode,
+        insuranceDailyRate: quote.insuranceDailyRate,
         youngDriverCost: quote.youngDriverCost,
         youngDriverDailyRate: quote.youngDriverDailyRate,
         car: quote.car,
@@ -997,7 +1087,8 @@ window.calculatePrice = function() {
         );
       }
       if (insuranceCost > 0) {
-        const insurancePerDay = i18n('carRental.common.pricePerDay', { price: '17€' }, '17€/dzień');
+        const insuranceRate = formatEuroRateLabel(quote.insuranceDailyRate ?? 17);
+        const insurancePerDay = i18n('carRental.common.pricePerDay', { price: insuranceRate }, `${insuranceRate}/dzień`);
         breakdownLines.push(
           i18n(
             'carRental.calculator.breakdown.fullInsurance',
@@ -1043,18 +1134,22 @@ window.calculatePrice = function() {
       return;
     }
 
-    const pickupDate = new Date(`${pickupDateStr || ''}T${pickupTimeStr}`);
-    const returnDate = new Date(`${returnDateStr || ''}T${returnTimeStr}`);
-    if (Number.isNaN(pickupDate.getTime()) || Number.isNaN(returnDate.getTime())) {
-      setCalculatorMessage(i18n('carRental.calculator.errors.invalidDates', null, 'Proszę wybrać poprawne daty i godziny.'), true);
-      return;
-    }
-
-    const hours = (returnDate.getTime() - pickupDate.getTime()) / 36e5;
-    const days = Math.ceil(hours / 24);
-    if (!Number.isFinite(days) || hours <= 0 || days < 3) {
+    const offerId = getSelectedOfferIdFromSelect('rentalCarSelect');
+    const selectedOffer = findFleetCarForQuote({ offerId, carModel: car });
+    const duration = getSelectionDurationState(selectedOffer, {
+      pickupDateStr,
+      pickupTimeStr,
+      returnDateStr,
+      returnTimeStr,
+    });
+    if (!duration.valid) {
       const daysLabel = i18n('carRental.common.daysLabel', null, 'dni');
-      setCalculatorMessage(i18n('carRental.calculator.errors.minimumDays', { days: 3, daysLabel }, 'Minimalny czas wynajmu to 3 dni'), true);
+      const message = duration.maximumDays != null && Number(duration.days) > duration.maximumDays
+        ? `Maximum rental for this offer: ${duration.maximumDays} ${daysLabel}.`
+        : Number.isFinite(duration.days) && duration.days > 0
+          ? i18n('carRental.calculator.errors.minimumDays', { days: duration.minimumDays, daysLabel }, `Minimalny czas wynajmu to ${duration.minimumDays} dni`)
+          : i18n('carRental.calculator.errors.invalidDates', null, 'Proszę wybrać poprawne daty i godziny.');
+      setCalculatorMessage(message, true);
       return;
     }
 
@@ -1069,8 +1164,6 @@ window.calculatePrice = function() {
       return;
     }
 
-    const offerId = getSelectedOfferIdFromSelect('rentalCarSelect');
-    const selectedOffer = findFleetCarForQuote({ offerId, carModel: car });
     const carPricing = selectedOffer ? buildPricingMatrixForOfferRow(selectedOffer, loc) : pricing[car];
     if (!carPricing && !selectedOffer) {
       window.CE_CAR_PRICE_QUOTE = null;
@@ -1113,6 +1206,8 @@ window.calculatePrice = function() {
         pickupFee: quote.pickupFee,
         returnFee: quote.returnFee,
         insuranceCost: quote.insuranceCost,
+        insuranceMode: quote.insuranceMode,
+        insuranceDailyRate: quote.insuranceDailyRate,
         youngDriverCost: quote.youngDriverCost,
         youngDriverDailyRate: quote.youngDriverDailyRate,
         car: quote.car,
@@ -1144,22 +1239,25 @@ window.calculatePrice = function() {
   const fullInsurance = document.getElementById('fullInsurance')?.checked || false;
   const youngDriver = document.getElementById('youngDriver')?.checked || false;
 
-  const pickupDate = new Date(pickupDateStr + 'T' + pickupTimeStr);
-  const returnDate = new Date(returnDateStr + 'T' + returnTimeStr);
-  if (isNaN(pickupDate.getTime()) || isNaN(returnDate.getTime())) {
-    setCalculatorMessage(i18n('carRental.calculator.errors.invalidDates', null, 'Proszę wybrać poprawne daty i godziny.'), true);
-    return;
-  }
-  const hours = (returnDate - pickupDate) / 36e5;
-  const days = Math.ceil(hours / 24);
-  if (days < 3) {
+  const offerId = getSelectedOfferIdFromSelect('rentalCarSelect');
+  const selectedOffer = findFleetCarForQuote({ offerId, carModel: car });
+  const duration = getSelectionDurationState(selectedOffer, {
+    pickupDateStr,
+    pickupTimeStr,
+    returnDateStr,
+    returnTimeStr,
+  });
+  if (!duration.valid) {
     const daysLabel = i18n('carRental.common.daysLabel', null, 'dni');
-    setCalculatorMessage(i18n('carRental.calculator.errors.minimumDays', { days: 3, daysLabel }, 'Minimalny czas wynajmu to 3 dni'), true);
+    const message = duration.maximumDays != null && Number(duration.days) > duration.maximumDays
+      ? `Maximum rental for this offer: ${duration.maximumDays} ${daysLabel}.`
+      : Number.isFinite(duration.days) && duration.days > 0
+        ? i18n('carRental.calculator.errors.minimumDays', { days: duration.minimumDays, daysLabel }, `Minimalny czas wynajmu to ${duration.minimumDays} dni`)
+        : i18n('carRental.calculator.errors.invalidDates', null, 'Proszę wybrać poprawne daty i godziny.');
+    setCalculatorMessage(message, true);
     return;
   }
 
-  const offerId = getSelectedOfferIdFromSelect('rentalCarSelect');
-  const selectedOffer = findFleetCarForQuote({ offerId, carModel: car });
   const carPricing = selectedOffer ? buildPricingMatrixForOfferRow(selectedOffer, loc) : pricing[car];
   if (!carPricing && !selectedOffer) {
     setCalculatorMessage(i18n('carRental.calculator.errors.selectCar', null, 'Proszę wybrać auto z listy'), true);
@@ -1203,6 +1301,8 @@ window.calculatePrice = function() {
       pickupFee,
       returnFee,
       insuranceCost,
+      insuranceMode: quote.insuranceMode,
+      insuranceDailyRate: quote.insuranceDailyRate,
       youngDriverCost,
       youngDriverDailyRate: quote.youngDriverDailyRate,
       car: quote.car,
@@ -1251,7 +1351,8 @@ window.calculatePrice = function() {
   }
 
   if (insuranceCost) {
-    const insurancePerDay = i18n('carRental.common.pricePerDay', { price: '17€' }, '17€/dzień');
+    const insuranceRate = formatEuroRateLabel(quote.insuranceDailyRate ?? 17);
+    const insurancePerDay = i18n('carRental.common.pricePerDay', { price: insuranceRate }, `${insuranceRate}/dzień`);
     parts.push(
       i18n(
         'carRental.calculator.breakdown.fullInsurance',
@@ -1319,12 +1420,16 @@ function buildContextualLandingModalPrefill(car, location) {
     returnPlaceType: context.returnPlaceType,
     pickupLocation: context.pickupLegacyPricingLocation,
     returnLocation: context.returnLegacyPricingLocation,
-    youngDriver: context.calculatorKey === 'larnaca' && prefill.youngDriver,
+    youngDriver: context.pricingStrategy === 'threshold_daily_rate'
+      ? car?.young_driver_fee === true && !!document.getElementById('youngDriver')?.checked
+      : context.calculatorKey === 'larnaca' && prefill.youngDriver,
   };
 }
 
 function buildLandingQuoteForCar(carName, location, offerId = '') {
   const loc = location === 'paphos' ? 'paphos' : 'larnaca';
+  const selectedOffer = findFleetCarForQuote({ offerId, carModel: carName });
+  const thresholdOffer = selectedOffer?.pricing_strategy === CAR_THRESHOLD_PRICING_STRATEGY;
   const quote = calculateQuoteForSelection({
     offer: loc,
     offerId,
@@ -1336,7 +1441,7 @@ function buildLandingQuoteForCar(carName, location, offerId = '') {
     pickupLocation: document.getElementById('pickupLocation')?.value || '',
     returnLocation: document.getElementById('returnLocation')?.value || '',
     fullInsurance: !!document.getElementById('fullInsurance')?.checked,
-    youngDriver: loc === 'larnaca' && !!document.getElementById('youngDriver')?.checked,
+    youngDriver: (thresholdOffer || loc === 'larnaca') && !!document.getElementById('youngDriver')?.checked,
   });
   return quote || null;
 }
@@ -1427,6 +1532,13 @@ function escapeHtml(unsafe) {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
+  void hydrateCarRentalCityCatalogForActiveRuntime(carPageCatalogRepository).then((result) => {
+    if (result.loaded) {
+      window.dispatchEvent(new CustomEvent('ce:car-city-catalog-ready', {
+        detail: { source: 'car-page' },
+      }));
+    }
+  });
   loadPaphosFleet().then(() => {
     // Wire Larnaca calculator events, if present
     const lcaForm = document.getElementById('carRentalCalculator');

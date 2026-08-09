@@ -13,6 +13,8 @@ function loadAdapter(): any {
   vm.createContext(context);
   vm.runInContext(moduleToScript('js/car-pricing.js'), context, { filename: 'js/car-pricing.js' });
   vm.runInContext(moduleToScript('js/car-rental-flow.js'), context, { filename: 'js/car-rental-flow.js' });
+  vm.runInContext(moduleToScript('js/car-rental-duration-contract.js'), context, { filename: 'js/car-rental-duration-contract.js' });
+  vm.runInContext(moduleToScript('js/car-rental-threshold-pricing.js'), context, { filename: 'js/car-rental-threshold-pricing.js' });
   const adapter = `${moduleToScript('js/car-rental-availability-adapter.js')}
     globalThis.CarRentalAvailabilityAdapter = {
       resolveCarRentalAvailability,

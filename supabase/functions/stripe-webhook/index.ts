@@ -298,6 +298,11 @@ async function handleDepositPaymentIntentSucceeded(supabase: any, paymentIntent:
       updated_at: nowIso,
     })
     .eq("id", fulfillmentId)
+    // A successful payment may complete only a workflow that the partner
+    // already accepted into awaiting_payment. It must never accept a pending
+    // request on the partner's behalf.
+    .eq("status", "awaiting_payment")
+    .not("accepted_at", "is", null)
     .is("contact_revealed_at", null);
 
   const table = serviceTableName(resourceType);
@@ -394,6 +399,8 @@ async function handleDepositCheckoutCompleted(supabase: any, session: any, depos
       updated_at: nowIso,
     })
     .eq("id", fulfillmentId)
+    .eq("status", "awaiting_payment")
+    .not("accepted_at", "is", null)
     .is("contact_revealed_at", null);
 
   const table = serviceTableName(resourceType);

@@ -25,8 +25,12 @@ export function normalizeCarCity(value, fallback = '') {
   if (CAR_CITY_SET.has(normalized)) return normalized;
   if (PAPHOS_WIDGET_LOCATIONS.has(normalized)) return 'paphos';
   if (normalized === 'airport_lca') return 'larnaca';
+  // Configured threshold-pricing cities use their exact catalog slug. Legacy
+  // fleet selection still recognizes only CAR_CITY_VALUES; accepting a safe
+  // slug here merely lets the mapped exact-ID adapter resolve custom cities.
+  if (/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(normalized)) return normalized;
   const safeFallback = String(fallback || '').trim().toLowerCase();
-  return CAR_CITY_SET.has(safeFallback) ? safeFallback : '';
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(safeFallback) ? safeFallback : '';
 }
 
 export function normalizeCarFleet(value, fallback = 'larnaca') {

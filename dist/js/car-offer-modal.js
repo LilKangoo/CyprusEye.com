@@ -16,6 +16,11 @@ import {
   getCarCityLabel,
 } from '/js/car-location-options.js';
 import { PHONE_COUNTRY_CODES } from '/js/phone-country-codes.js';
+import {
+  CAR_THRESHOLD_PRICING_STRATEGY,
+  calculateThresholdCarRentalQuote,
+  normalizeThresholdCityCode,
+} from '/js/car-rental-threshold-pricing.js';
 
 let previousBodyCarLocation = null;
 let previousCarPricingContext = null;
@@ -178,6 +183,26 @@ function resolveQuoteForCar({ car, location, prefill, quote }) {
   if (quote) return quote;
   if (!car || !prefill) return null;
 
+  const context = car.pricingContext || car.availabilityContext;
+  if (car.pricing_strategy === CAR_THRESHOLD_PRICING_STRATEGY
+      && context?.pricingStrategy === CAR_THRESHOLD_PRICING_STRATEGY) {
+    return calculateThresholdCarRentalQuote({
+      offer: car,
+      tiers: context.dailyRateTiers,
+      pickupDateStr: prefill.pickupDate,
+      returnDateStr: prefill.returnDate,
+      pickupTimeStr: prefill.pickupTime,
+      returnTimeStr: prefill.returnTime,
+      pickupCityCode: prefill.pickupCity || context.pickupCityCode,
+      returnCityCode: prefill.returnCity || context.returnCityCode,
+      pickupAvailability: context.pickupAvailability,
+      returnAvailability: context.returnAvailability,
+      fullInsurance: !!prefill.fullInsurance,
+      youngDriver: !!prefill.youngDriver,
+      carModel: getCarName(car),
+    });
+  }
+
   const pricingMatrix = buildPricingMatrixForOfferRow(car, location);
   if (!pricingMatrix) return null;
 
@@ -292,30 +317,42 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
   const loc = location === 'paphos' ? 'paphos' : 'larnaca';
   const cars = Array.isArray(fleetByLocation?.[loc]) ? fleetByLocation[loc] : [];
   const selectedCar = cars.find((car) => String(car?.id || '') === String(selectedCarId || '')) || cars[0] || null;
+  const thresholdOffer = selectedCar?.pricing_strategy === CAR_THRESHOLD_PRICING_STRATEGY
+    && (selectedCar?.pricingContext || selectedCar?.availabilityContext)?.pricingStrategy === CAR_THRESHOLD_PRICING_STRATEGY;
 
   const pickupDateValue = String(prefill?.pickupDate || '');
   const returnDateValue = String(prefill?.returnDate || '');
   const pickupTimeValue = String(prefill?.pickupTime || '10:00');
   const returnTimeValue = String(prefill?.returnTime || '10:00');
   const insuranceChecked = !!prefill?.fullInsurance;
-  const youngDriverChecked = loc === 'larnaca' && !!prefill?.youngDriver;
+  const youngDriverChecked = (thresholdOffer || loc === 'larnaca') && !!prefill?.youngDriver;
   const passengersValue = Math.max(1, Number(prefill?.passengers || 2));
 
   const optionsHtml = cars.map((car) => {
     const title = getCarName(car);
-    const transmission = String(car.transmission || '').toLowerCase() === 'automatic'
+    const transmissionCode = String(car.transmission || '').toLowerCase();
+    const transmission = transmissionCode === 'automatic'
       ? text('Automat', 'Automatic', 'אוטומטי')
-      : text('Manual', 'Manual', 'ידני');
+      : transmissionCode === 'manual'
+        ? text('Manual', 'Manual', 'ידני')
+        : text('Nie dotyczy', 'Not applicable', 'לא רלוונטי');
     const seats = car.max_passengers || 5;
     const seatsText = text(`${seats} miejsc`, `${seats} seats`, `${seats} מושבים`);
 
     return `<option value="${escapeHtml(title)}" data-offer-id="${escapeHtml(car.id)}" ${String(car.id) === String(selectedCarId) ? 'selected' : ''}>${escapeHtml(title)} — ${escapeHtml(transmission)} • ${escapeHtml(seatsText)}</option>`;
   }).join('');
 
-  const youngDriverConfig = resolveCarYoungDriverConfig({
-    offerLocation: loc,
-    offerRow: selectedCar,
-  });
+  const youngDriverConfig = thresholdOffer
+    ? {
+      allowed: selectedCar?.young_driver_fee === true,
+      dailyCost: selectedCar?.young_driver_fee === true
+        ? Math.max(0, Number(selectedCar?.young_driver_cost || 0))
+        : 0,
+    }
+    : resolveCarYoungDriverConfig({
+      offerLocation: loc,
+      offerRow: selectedCar,
+    });
   const youngDriverLabel = youngDriverConfig.allowed
     ? (youngDriverConfig.dailyCost > 0
       ? text(
@@ -334,7 +371,7 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
       'נהג צעיר אינו זמין לרכב זה'
     );
 
-  const youngDriverBlock = loc === 'larnaca'
+  const youngDriverBlock = thresholdOffer || loc === 'larnaca'
     ? `
       <div class="auto-checkbox">
         <input type="checkbox" id="res_young_driver" name="young_driver" ${youngDriverChecked && youngDriverConfig.allowed ? 'checked' : ''} ${youngDriverConfig.allowed ? '' : 'disabled'}>
@@ -342,27 +379,62 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
       </div>
     `
     : '';
+  const insuranceMode = thresholdOffer
+    ? String(selectedCar?.insurance_mode || 'legacy_optional_daily').trim().toLowerCase()
+    : 'legacy_optional_daily';
+  const insuranceDailyRate = thresholdOffer
+    ? Math.max(0, Number(selectedCar?.insurance_per_day || 0))
+    : 17;
+  const insuranceBlock = thresholdOffer && insuranceMode === 'not_offered'
+    ? `<div class="auto-readonly-value">${escapeHtml(text(
+      'Dodatkowe ubezpieczenie nie jest oferowane dla tego pojazdu.',
+      'Optional insurance is not offered for this vehicle.',
+      'ביטוח נוסף אינו מוצע לרכב זה.',
+    ))}</div>`
+    : thresholdOffer && insuranceMode === 'included'
+      ? `<div class="auto-readonly-value">${escapeHtml(text(
+        'Ubezpieczenie jest uwzględnione w cenie tej oferty.',
+        'Insurance is included in this offer price.',
+        'הביטוח כלול במחיר הצעה זו.',
+      ))}</div>`
+      : `
+        <div class="auto-checkbox">
+          <input type="checkbox" id="res_insurance" name="insurance" ${insuranceChecked ? 'checked' : ''}>
+          <label for="res_insurance">${escapeHtml(thresholdOffer
+    ? text(
+      `Opcjonalne ubezpieczenie (+${insuranceDailyRate}€/dzień)`,
+      `Optional insurance (+${insuranceDailyRate}€/day)`,
+      `ביטוח אופציונלי (+${insuranceDailyRate}€ ליום)`,
+    )
+    : text('Pełne ubezpieczenie AC (+17€/dzień)', 'Full insurance (+17€/day)', 'ביטוח מלא (+17€ ליום)'))}</label>
+        </div>
+      `;
 
   const i18nPrefix = loc === 'paphos' ? 'carRentalPfo.page.reservation' : 'carRental.page.reservation';
   const whatsappKey = loc === 'paphos' ? 'carRentalPfo.page.reservation.whatsapp' : 'carRental.page.reservation.actions.whatsapp';
 
+  const effectiveMinimum = thresholdOffer ? Number(selectedCar?.min_rental_days || 1) : 3;
   const minBanner = text(
-    'Minimalny wynajem: 3 dni. Każde rozpoczęte 24h to kolejny dzień.',
-    'Minimum rental: 3 days (3 nights). Each started 24h counts as an extra day.',
-    'השכרה מינימלית: 3 ימים. כל 24 שעות שהתחילו נחשבות כיום נוסף.'
+    `Minimalny wynajem: ${effectiveMinimum} dni. Każde rozpoczęte 24h to kolejny dzień.`,
+    `Minimum rental: ${effectiveMinimum} days. Each started 24h counts as an extra day.`,
+    `השכרה מינימלית: ${effectiveMinimum} ימים. כל 24 שעות שהתחילו נחשבות כיום נוסף.`,
   );
   const couponLabel = text('Kod kuponu', 'Coupon code', 'קוד קופון');
   const couponPlaceholder = text('Wpisz kod kuponu', 'Enter coupon code', 'הזינו קוד קופון');
   const couponApplyLabel = text('Zastosuj', 'Apply', 'החל');
   const couponClearLabel = text('Wyczyść', 'Clear', 'נקה');
-  const pickupCity = normalizeCarCity(
-    prefill?.pickupCity || inferCarCityFromLegacyLocation(prefill?.pickupLocation, loc === 'paphos' ? 'paphos' : 'larnaca'),
-    loc === 'paphos' ? 'paphos' : 'larnaca'
-  );
-  const returnCity = normalizeCarCity(
-    prefill?.returnCity || inferCarCityFromLegacyLocation(prefill?.returnLocation, pickupCity || 'larnaca'),
-    pickupCity || 'larnaca'
-  );
+  const pickupCity = thresholdOffer
+    ? normalizeThresholdCityCode(prefill?.pickupCity || prefill?.pickupLocation)
+    : normalizeCarCity(
+      prefill?.pickupCity || inferCarCityFromLegacyLocation(prefill?.pickupLocation, loc === 'paphos' ? 'paphos' : 'larnaca'),
+      loc === 'paphos' ? 'paphos' : 'larnaca'
+    );
+  const returnCity = thresholdOffer
+    ? normalizeThresholdCityCode(prefill?.returnCity || prefill?.returnLocation)
+    : normalizeCarCity(
+      prefill?.returnCity || inferCarCityFromLegacyLocation(prefill?.returnLocation, pickupCity || 'larnaca'),
+      pickupCity || 'larnaca'
+    );
   const pickupPlaceType = coerceCarPlaceTypeForCity(
     pickupCity,
     prefill?.pickupPlaceType || inferCarPlaceTypeFromLegacyLocation(prefill?.pickupLocation),
@@ -373,8 +445,12 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
     prefill?.returnPlaceType || inferCarPlaceTypeFromLegacyLocation(prefill?.returnLocation),
     'hotel'
   );
-  const selectedPickupLocation = mapCityToLegacyLocationForPricing(pickupCity, loc, pickupPlaceType);
-  const selectedReturnLocation = mapCityToLegacyLocationForPricing(returnCity, loc, returnPlaceType);
+  const selectedPickupLocation = thresholdOffer
+    ? pickupCity
+    : mapCityToLegacyLocationForPricing(pickupCity, loc, pickupPlaceType);
+  const selectedReturnLocation = thresholdOffer
+    ? returnCity
+    : mapCityToLegacyLocationForPricing(returnCity, loc, returnPlaceType);
   const pickupPlaceOptionsHtml = buildCarPlaceTypeOptionsHtml(pickupCity, {
     selectedValue: pickupPlaceType,
   });
@@ -554,10 +630,7 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
             </div>
           </div>
 
-          <div class="auto-checkbox">
-            <input type="checkbox" id="res_insurance" name="insurance" ${insuranceChecked ? 'checked' : ''}>
-            <label for="res_insurance" data-i18n="${i18nPrefix}.fields.insurance.label">Pełne ubezpieczenie AC (+17€/dzień)</label>
-          </div>
+          ${insuranceBlock}
 
           ${youngDriverBlock}
 
@@ -679,14 +752,21 @@ export function openCarOfferModal({
   const title = getCarName(car);
   const imageUrlRaw = car.image_url || `https://placehold.co/900x500/1e293b/ffffff?text=${encodeURIComponent(title)}`;
   const imageUrl = getCarMediaDisplayUrl(imageUrlRaw);
-  const normalizedPickupCity = normalizeCarCity(
-    prefill?.pickupCity || inferCarCityFromLegacyLocation(prefill?.pickupLocation, loc === 'paphos' ? 'paphos' : 'larnaca'),
-    loc === 'paphos' ? 'paphos' : 'larnaca'
-  );
-  const normalizedReturnCity = normalizeCarCity(
-    prefill?.returnCity || inferCarCityFromLegacyLocation(prefill?.returnLocation, normalizedPickupCity || 'larnaca'),
-    normalizedPickupCity || 'larnaca'
-  );
+  const pricingContext = car?.pricingContext || car?.availabilityContext || null;
+  const thresholdOffer = car?.pricing_strategy === CAR_THRESHOLD_PRICING_STRATEGY
+    && pricingContext?.pricingStrategy === CAR_THRESHOLD_PRICING_STRATEGY;
+  const normalizedPickupCity = thresholdOffer
+    ? normalizeThresholdCityCode(prefill?.pickupCity || pricingContext?.pickupCityCode)
+    : normalizeCarCity(
+      prefill?.pickupCity || inferCarCityFromLegacyLocation(prefill?.pickupLocation, loc === 'paphos' ? 'paphos' : 'larnaca'),
+      loc === 'paphos' ? 'paphos' : 'larnaca'
+    );
+  const normalizedReturnCity = thresholdOffer
+    ? normalizeThresholdCityCode(prefill?.returnCity || pricingContext?.returnCityCode)
+    : normalizeCarCity(
+      prefill?.returnCity || inferCarCityFromLegacyLocation(prefill?.returnLocation, normalizedPickupCity || 'larnaca'),
+      normalizedPickupCity || 'larnaca'
+    );
   const normalizedPickupPlaceType = coerceCarPlaceTypeForCity(
     normalizedPickupCity,
     prefill?.pickupPlaceType || inferCarPlaceTypeFromLegacyLocation(prefill?.pickupLocation),
@@ -703,8 +783,12 @@ export function openCarOfferModal({
     returnCity: normalizedReturnCity,
     pickupPlaceType: normalizedPickupPlaceType,
     returnPlaceType: normalizedReturnPlaceType,
-    pickupLocation: mapCityToLegacyLocationForPricing(normalizedPickupCity, loc, normalizedPickupPlaceType),
-    returnLocation: mapCityToLegacyLocationForPricing(normalizedReturnCity, loc, normalizedReturnPlaceType),
+    pickupLocation: thresholdOffer
+      ? normalizedPickupCity
+      : mapCityToLegacyLocationForPricing(normalizedPickupCity, loc, normalizedPickupPlaceType),
+    returnLocation: thresholdOffer
+      ? normalizedReturnCity
+      : mapCityToLegacyLocationForPricing(normalizedReturnCity, loc, normalizedReturnPlaceType),
   };
 
   const liveQuote = resolveQuoteForCar({ car, location: loc, prefill: normalizedPrefill, quote });
@@ -726,12 +810,19 @@ export function openCarOfferModal({
       `${liveQuote.days} days • base ${Number(liveQuote.basePrice).toFixed(2)}€ • extras ${Number((liveQuote.pickupFee || 0) + (liveQuote.returnFee || 0) + (liveQuote.insuranceCost || 0) + (liveQuote.youngDriverCost || 0)).toFixed(2)}€`,
       `${liveQuote.days} ימים • בסיס ${Number(liveQuote.basePrice).toFixed(2)}€ • תוספות ${Number((liveQuote.pickupFee || 0) + (liveQuote.returnFee || 0) + (liveQuote.insuranceCost || 0) + (liveQuote.youngDriverCost || 0)).toFixed(2)}€`
     )
-    : text('Wsparcie 24/7 • Brak depozytu', '24/7 support • No deposit', 'תמיכה 24/7 • ללא פיקדון');
+    : thresholdOffer
+      ? text('Żądanie wymaga potwierdzenia partnera', 'Request requires partner confirmation', 'הבקשה דורשת אישור שותף')
+      : text('Wsparcie 24/7 • Brak depozytu', '24/7 support • No deposit', 'תמיכה 24/7 • ללא פיקדון');
 
-  const noDepositLabel = text('Bez kaucji', 'No deposit', 'ללא פיקדון');
-  const transmission = String(car.transmission || '').toLowerCase() === 'automatic'
+  const noDepositLabel = thresholdOffer
+    ? text('Wymaga potwierdzenia partnera', 'Partner confirmation required', 'נדרש אישור שותף')
+    : text('Bez kaucji', 'No deposit', 'ללא פיקדון');
+  const transmissionCode = String(car.transmission || '').toLowerCase();
+  const transmission = transmissionCode === 'automatic'
     ? text('Automat', 'Automatic', 'אוטומטי')
-    : text('Manual', 'Manual', 'ידני');
+    : transmissionCode === 'manual'
+      ? text('Manual', 'Manual', 'ידני')
+      : text('Nie dotyczy', 'Not applicable', 'לא רלוונטי');
   const seats = car.max_passengers || 5;
   const seatsText = text(`${seats} miejsc`, `${seats} seats`, `${seats} מושבים`);
   const fuelType = String(car.fuel_type || '').toLowerCase();

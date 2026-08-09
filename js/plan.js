@@ -3161,6 +3161,7 @@ async function loadServiceCatalog(planId) {
       .from('car_offers')
       .select('*')
       .eq('is_available', true)
+      .eq('is_published', true)
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: false })
       .range(0, 99);
@@ -3169,6 +3170,7 @@ async function loadServiceCatalog(planId) {
         .from('car_offers')
         .select('*')
         .eq('is_available', true)
+        .eq('is_published', true)
         .order('created_at', { ascending: false })
         .range(0, 99);
     }

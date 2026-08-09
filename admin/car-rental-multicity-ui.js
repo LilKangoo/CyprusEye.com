@@ -313,8 +313,11 @@
                 ${kinds.map((kind) => `<option value="${escapeHtml(kind.id)}" ${core.normalizeId(kind.id) === core.normalizeId(vehicle.vehicleKindId) ? 'selected' : ''} ${kind.is_active !== true ? 'disabled' : ''}>${escapeHtml(labelI18n(kind.name_i18n) || kind.code)} (${escapeHtml(kind.code)})</option>`).join('')}
               </select>
             </label>
-            <label class="admin-form-field"><span>Transmission</span><select data-draft-field="vehicle.transmission"><option value="manual" ${vehicle.transmission === 'manual' ? 'selected' : ''}>Manual</option><option value="automatic" ${vehicle.transmission === 'automatic' ? 'selected' : ''}>Automatic</option></select></label>
-            <label class="admin-form-field"><span>Fuel</span><select data-draft-field="vehicle.fuelType"><option value="petrol" ${vehicle.fuelType === 'petrol' ? 'selected' : ''}>Petrol</option><option value="diesel" ${vehicle.fuelType === 'diesel' ? 'selected' : ''}>Diesel</option><option value="hybrid" ${vehicle.fuelType === 'hybrid' ? 'selected' : ''}>Hybrid</option><option value="electric" ${vehicle.fuelType === 'electric' ? 'selected' : ''}>Electric</option></select></label>
+            <label class="admin-form-field"><span>Transmission</span><select data-draft-field="vehicle.transmission"><option value="" ${!vehicle.transmission ? 'selected' : ''}>Not applicable</option><option value="manual" ${vehicle.transmission === 'manual' ? 'selected' : ''}>Manual</option><option value="automatic" ${vehicle.transmission === 'automatic' ? 'selected' : ''}>Automatic</option></select></label>
+            <label class="admin-form-field"><span>Fuel</span><select data-draft-field="vehicle.fuelType"><option value="" ${!vehicle.fuelType ? 'selected' : ''}>Not applicable</option><option value="petrol" ${vehicle.fuelType === 'petrol' ? 'selected' : ''}>Petrol</option><option value="diesel" ${vehicle.fuelType === 'diesel' ? 'selected' : ''}>Diesel</option><option value="hybrid" ${vehicle.fuelType === 'hybrid' ? 'selected' : ''}>Hybrid</option><option value="electric" ${vehicle.fuelType === 'electric' ? 'selected' : ''}>Electric</option></select></label>
+            <label class="admin-form-field"><span>Engine capacity (cc)</span><input type="number" min="1" data-number="integer" data-draft-field="vehicle.engineCapacityCc" value="${escapeHtml(vehicle.engineCapacityCc ?? '')}" placeholder="Not applicable"></label>
+            <label class="admin-form-field"><span>Required licence category</span><input data-draft-field="vehicle.requiredLicenceCategory" value="${escapeHtml(vehicle.requiredLicenceCategory || '')}" maxlength="32" placeholder="e.g. B, AM, A1"></label>
+            <label class="admin-form-field"><span>Minimum driver age</span><input type="number" min="16" max="99" data-number="integer" data-draft-field="vehicle.minimumDriverAge" value="${escapeHtml(vehicle.minimumDriverAge ?? '')}" placeholder="Not specified"></label>
             <label class="admin-form-field"><span>Passengers</span><input type="number" min="1" data-number="integer" data-draft-field="vehicle.maxPassengers" id="carMulticityMaxPassengers" value="${escapeHtml(vehicle.maxPassengers)}"></label>
             <label class="admin-form-field"><span>Luggage</span><input type="number" min="0" data-number="integer" data-draft-field="vehicle.maxLuggage" value="${escapeHtml(vehicle.maxLuggage)}"></label>
             <label class="admin-form-field"><span>Stock</span><input type="number" min="0" data-number="integer" data-draft-field="vehicle.stockCount" value="${escapeHtml(vehicle.stockCount)}"></label>
@@ -340,25 +343,85 @@
       `;
     }
 
+    function renderExactOfferOptions() {
+      const pricing = state.draft.pricing;
+      const dailyAmountDisabled = !['legacy_optional_daily', 'optional_daily'].includes(core.normalizeCode(pricing.insuranceMode));
+      return `
+        <section class="car-multicity-pricing-options" aria-labelledby="carMulticityOfferOptionsHeading">
+          <h5 id="carMulticityOfferOptionsHeading">Exact-offer options</h5>
+          <div class="car-multicity-form-grid">
+            <label class="admin-form-field"><span>Insurance configuration</span><select data-draft-field="pricing.insuranceMode">
+              <option value="legacy_optional_daily" ${pricing.insuranceMode === 'legacy_optional_daily' ? 'selected' : ''}>Legacy optional insurance (current behaviour)</option>
+              <option value="optional_daily" ${pricing.insuranceMode === 'optional_daily' ? 'selected' : ''}>Optional insurance per day</option>
+              <option value="included" ${pricing.insuranceMode === 'included' ? 'selected' : ''}>Insurance included</option>
+              <option value="not_offered" ${pricing.insuranceMode === 'not_offered' ? 'selected' : ''}>Insurance not offered</option>
+            </select></label>
+            <label class="admin-form-field"><span>Insurance amount per day</span><input type="number" min="0" step="0.01" data-number="money" data-draft-field="pricing.insurancePerDay" value="${escapeHtml(pricing.insurancePerDay)}" ${dailyAmountDisabled ? 'disabled' : ''}></label>
+            <label class="car-multicity-check"><input type="checkbox" data-boolean="true" data-draft-field="pricing.youngDriverFee" ${pricing.youngDriverFee ? 'checked' : ''}> Young driver allowed for this exact offer</label>
+            <label class="admin-form-field"><span>Young driver surcharge per day</span><input type="number" min="0" step="0.01" data-number="money" data-draft-field="pricing.youngDriverCost" value="${escapeHtml(pricing.youngDriverCost)}"></label>
+          </div>
+          <p class="car-multicity-note">These settings belong to the exact offer. They are independent from pricing profile, city, partner and vehicle type. Existing values are never enabled automatically.</p>
+        </section>
+      `;
+    }
+
+    function renderThresholdTierEditor() {
+      const pricing = state.draft.pricing;
+      const tiers = core.sortDailyRateTiers(pricing.dailyRateTiers || []);
+      const minimum = core.effectiveThresholdMinimum(tiers);
+      return `
+        <section class="car-multicity-tier-editor" aria-labelledby="carMulticityTierHeading">
+          <div class="car-multicity-section-heading"><div><h5 id="carMulticityTierHeading">Daily-rate tiers</h5><p>The greatest threshold not exceeding the rental duration supplies one daily rate for every rental day. Rates are never blended.</p></div><button type="button" class="btn-secondary" data-tier-action="add">Add tier</button></div>
+          ${state.mode === 'create' ? '<p class="car-multicity-information-card"><strong>Exact-ID safe creation.</strong> Save creates the hidden exact offer first, inserts the reviewed tiers, validates the derived minimum, then finalizes the threshold strategy. A partial save cannot publish an incomplete threshold offer.</p>' : ''}
+          <div class="car-multicity-tier-list">
+            ${tiers.length ? tiers.map((tier) => {
+              const key = tier.id || tier.clientKey;
+              const example = tier.threshold_days > 0 && tier.daily_rate > 0
+                ? core.calculateThresholdBasePrice([tier], tier.threshold_days)
+                : null;
+              return `<article class="car-multicity-tier-card" data-tier-key="${escapeHtml(key)}">
+                <label class="admin-form-field"><span>Daily rate for rentals from</span><span class="car-multicity-tier-input"><input type="number" min="1" step="1" data-tier-field="threshold_days" value="${escapeHtml(tier.threshold_days ?? '')}"><b>days</b></span></label>
+                <label class="admin-form-field"><span>Daily rate</span><span class="car-multicity-tier-input"><b>€</b><input type="number" min="0.01" step="0.01" data-tier-field="daily_rate" value="${escapeHtml(tier.daily_rate ?? '')}"><b>/ day</b></span></label>
+                <label class="car-multicity-check"><input type="checkbox" data-tier-field="is_active" ${tier.is_active ? 'checked' : ''}> Active</label>
+                <div class="car-multicity-tier-example" data-tier-example>${example ? `${money(example.dailyRate)} × ${example.rentalDays} days = <strong>${money(example.baseRentalPrice)}</strong> base rental price` : 'Enter a positive threshold and daily rate.'}</div>
+                <button type="button" class="btn-secondary" data-tier-action="remove">Delete tier</button>
+              </article>`;
+            }).join('') : '<div class="car-multicity-empty-state">No tiers configured. At least one active tier is required before threshold pricing is Ready.</div>'}
+          </div>
+          <dl class="car-multicity-summary-grid">
+            <div><dt>Effective minimum rental</dt><dd><strong data-threshold-minimum>${minimum === null ? 'Not ready' : `${minimum} day${minimum === 1 ? '' : 's'}`}</strong></dd></div>
+            <div><dt>Maximum rental</dt><dd><label class="admin-form-field"><span class="sr-only">Maximum rental days</span><input type="number" min="${escapeHtml(minimum || 1)}" step="1" data-number="integer" data-draft-field="pricing.maxRentalDays" value="${escapeHtml(pricing.maxRentalDays ?? '')}" placeholder="No maximum"></label></dd></div>
+          </dl>
+          <p class="car-multicity-note"><code>min_rental_days</code> is synchronized automatically to the lowest active threshold. Empty maximum means no maximum.</p>
+        </section>
+      `;
+    }
+
     function renderPricingFields(isCreate = false) {
       const profiles = state.context?.profiles || [];
       const selected = core.profileById(state.context, state.draft.pricing.profileId);
       const offer = state.context?.offer || {};
+      const threshold = core.normalizeCode(state.draft.pricing.strategy) === 'threshold_daily_rate';
       return `
         <section class="car-multicity-section" aria-labelledby="carMulticityPricingHeading">
           <h4 id="carMulticityPricingHeading">Pricing and profile</h4>
-          <label class="admin-form-field"><span>Pricing profile</span>
-            <select id="carMulticityPricingProfile" data-profile-selector="true">
+          <label class="admin-form-field"><span>Pricing strategy</span><select id="carMulticityPricingStrategy" data-pricing-strategy="true">
+            <option value="legacy_compat" ${!threshold ? 'selected' : ''}>Legacy compatibility pricing</option>
+            <option value="threshold_daily_rate" ${threshold ? 'selected' : ''}>Flexible daily-rate thresholds</option>
+          </select></label>
+          <label class="admin-form-field"><span>${threshold ? 'Legacy booking compatibility' : 'Pricing profile'}</span>
+            <select id="carMulticityPricingProfile" data-profile-selector="true" ${threshold && !isCreate ? 'disabled' : ''}>
               <option value="">Select exact profile</option>
               ${profiles.map((profile) => `<option value="${escapeHtml(profile.id)}" ${core.normalizeId(profile.id) === core.normalizeId(state.draft.pricing.profileId) ? 'selected' : ''} ${profile.is_active !== true ? 'disabled' : ''}>${escapeHtml(profile.name)} — ${escapeHtml(profile.code)}</option>`).join('')}
             </select>
           </label>
-          ${profileSummary(selected)}
+          ${threshold ? '<p class="car-multicity-information-card"><strong>Pricing is decoupled from city availability.</strong> The legacy profile and location remain preserved only for downstream compatibility; exact offer-city rows control future mapped availability.</p>' : profileSummary(selected)}
           <dl class="car-multicity-summary-grid">
             <div><dt>Current compatibility key</dt><dd>${escapeHtml(offer.location || 'new')}</dd></div>
             <div><dt>Resulting compatibility key</dt><dd>${escapeHtml(state.draft.pricing.location || '—')}</dd></div>
           </dl>
-          ${isCreate ? renderCreatePricingValues(selected) : renderExistingPriceValues(offer, selected)}
+          ${threshold ? renderThresholdTierEditor() : (isCreate ? renderCreatePricingValues(selected) : renderExistingPriceValues(offer, selected))}
+          ${renderExactOfferOptions()}
           ${renderDepositSummary()}
         </section>
       `;
@@ -410,14 +473,12 @@
             <label class="admin-form-field"><span>7–10 days / day</span><input type="number" min="0" step="0.01" data-number="money" data-draft-field="pricing.price7To10Days" value="${escapeHtml(pricing.price7To10Days ?? '')}"></label>
             <label class="admin-form-field"><span>10+ days / day</span><input type="number" min="0" step="0.01" data-number="money" data-draft-field="pricing.price10PlusDays" value="${escapeHtml(pricing.price10PlusDays ?? '')}"></label>
           ` : ''}
-          <label class="admin-form-field"><span>Insurance / day</span><input type="number" min="0" step="0.01" data-number="money" data-draft-field="pricing.insurancePerDay" value="${escapeHtml(pricing.insurancePerDay)}"></label>
-          <label class="car-multicity-check"><input type="checkbox" data-boolean="true" data-draft-field="pricing.youngDriverFee" ${pricing.youngDriverFee ? 'checked' : ''} ${paphos ? 'disabled' : ''}> Young driver allowed</label>
-          <label class="admin-form-field"><span>Young driver / day</span><input type="number" min="0" step="0.01" data-number="money" data-draft-field="pricing.youngDriverCost" value="${escapeHtml(pricing.youngDriverCost)}" ${paphos ? 'disabled' : ''}></label>
         </div>
       `;
     }
 
     function availabilityRow(city) {
+      const thresholdStrategy = core.normalizeCode(state.draft.pricing.strategy) === 'threshold_daily_rate';
       const profile = core.profileById(state.context, state.draft.pricing.profileId);
       const mapping = core.mappingFor(state.context, profile?.id, city.id);
       const row = state.draft.availability.find((entry) => core.normalizeId(entry.city_id) === core.normalizeId(city.id)) || {
@@ -429,12 +490,29 @@
         updated_at: null,
       };
       const key = core.normalizeCode(mapping?.legacy_pricing_city_key);
-      const supported = Boolean(mapping && mapping.is_active && city.is_active && key);
-      const paphosBlocked = core.normalizeCode(profile?.code) === 'paphos' && key !== 'paphos';
-      const pairedSupported = mapping?.pickup_supported === true && mapping?.return_supported === true;
+      const supported = thresholdStrategy
+        ? city.is_active === true
+        : Boolean(mapping && mapping.is_active && city.is_active && key);
+      const paphosBlocked = !thresholdStrategy && core.normalizeCode(profile?.code) === 'paphos' && key !== 'paphos';
+      const pairedSupported = thresholdStrategy || (mapping?.pickup_supported === true && mapping?.return_supported === true);
       const disabled = !supported || !pairedSupported || paphosBlocked;
       const paired = core.pairedAvailabilityState(row);
-      const fee = core.getAvailabilityFeeState(row, profile, mapping);
+      const fee = thresholdStrategy
+        ? (() => {
+          const mode = core.normalizeCode(row.fee_mode) === 'override' ? 'override' : 'inherit';
+          const standardAmount = Object.prototype.hasOwnProperty.call(core.LEGACY_CITY_FEE_PREVIEW, core.normalizeCode(city.code))
+            ? core.LEGACY_CITY_FEE_PREVIEW[core.normalizeCode(city.code)]
+            : null;
+          const amount = mode === 'override' && row.fee_per_direction !== null ? Number(row.fee_per_direction) : null;
+          return {
+            mode,
+            amount,
+            inherited: standardAmount !== null,
+            standardAmount,
+            valid: mode === 'override' ? Number.isFinite(amount) && amount >= 0 : standardAmount !== null,
+          };
+        })()
+        : core.getAvailabilityFeeState(row, profile, mapping);
       const standardLabel = fee.inherited
         ? fee.standardAmount === null
           ? 'Existing Paphos place-type rule'
@@ -458,7 +536,7 @@
             <label class="admin-form-field"><span>Delivery fee</span><select data-availability-field="fee_mode" ${disabled ? 'disabled' : ''}><option value="inherit" ${fee.mode === 'inherit' ? 'selected' : ''}>Use standard fee</option><option value="override" ${fee.mode === 'override' ? 'selected' : ''}>Custom fee</option></select></label>
             <label class="admin-form-field"><span>Fee per direction</span><input type="number" min="0" step="0.01" data-availability-field="fee_per_direction" value="${escapeHtml(fee.mode === 'override' && row.fee_per_direction != null ? row.fee_per_direction : '')}" ${fee.mode !== 'override' || disabled ? 'disabled' : ''}></label>
           </div>
-          <dl><div><dt>Standard fee per direction</dt><dd>${escapeHtml(standardLabel)}</dd></div><div><dt>Pickup + return example</dt><dd class="${fee.valid ? '' : 'is-required'}">${escapeHtml(resultLabel)}</dd></div><div><dt>Profile support</dt><dd>${supported && pairedSupported && !paphosBlocked ? 'Supported' : mapping && mapping.pickup_supported !== mapping.return_supported ? 'Support differs — review required' : 'Unavailable'}</dd></div></dl>
+          <dl><div><dt>Standard fee per direction</dt><dd>${escapeHtml(standardLabel)}</dd></div><div><dt>Pickup + return example</dt><dd class="${fee.valid ? '' : 'is-required'}">${escapeHtml(resultLabel)}</dd></div><div><dt>${thresholdStrategy ? 'Exact offer-city support' : 'Profile support'}</dt><dd>${supported && pairedSupported && !paphosBlocked ? 'Supported' : mapping && mapping.pickup_supported !== mapping.return_supported ? 'Support differs — review required' : 'Unavailable'}</dd></div></dl>
         </article>
       `;
     }
@@ -589,6 +667,16 @@
       const vehicleChanges = changes.filter((change) => change.entityType === 'car_offer' && core.VEHICLE_COLUMNS.includes(change.field) && !['description', 'features', 'image_url'].includes(change.field));
       const profileChanges = changes.filter((change) => core.PROFILE_COLUMNS.includes(change.field));
       const priceChanges = changes.filter((change) => core.PRICE_COLUMNS.includes(change.field));
+      const pricingConfigurationChanges = changes.filter((change) => change.entityType === 'car_offer' && [
+        'pricing_strategy',
+        'min_rental_days',
+        'max_rental_days',
+        'insurance_mode',
+        'insurance_per_day',
+        'young_driver_fee',
+        'young_driver_cost',
+      ].includes(change.field));
+      const tierChanges = changes.filter((change) => change.entityType === 'car_offer_daily_rate_tier');
       const partnerChanges = changes.filter((change) => change.field === 'owner_partner_id');
       const contentChanges = changes.filter((change) => ['description', 'features', 'image_url'].includes(change.field));
       return `
@@ -598,22 +686,27 @@
             <div><dt>Exact offer ID</dt><dd><code>${escapeHtml(plan.exactOfferId || 'created on Save')}</code></dd></div>
             <div><dt>Plan ID</dt><dd><code>${escapeHtml(plan.id)}</code></dd></div>
             <div><dt>Global mapped flag changes</dt><dd><strong>0</strong></dd></div>
+            <div><dt>Global threshold-pricing flag changes</dt><dd><strong>0</strong></dd></div>
             <div><dt>Booking changes</dt><dd><strong>0</strong></dd></div>
-            <div><dt>Price calculation changes</dt><dd><strong>0</strong></dd></div>
+            <div><dt>Active public price calculation changes</dt><dd><strong>0</strong></dd></div>
             <div><dt>Deposit rule changes</dt><dd><strong>0</strong></dd></div>
             <div><dt>Existing base price changes</dt><dd><strong>${escapeHtml(plan.existingPriceColumnChanges)}</strong></dd></div>
             <div><dt>Existing inactive pricing columns changed</dt><dd><strong>0</strong></dd></div>
+            <div><dt>Daily-rate tier changes</dt><dd><strong>${escapeHtml(plan.dailyRateTierChanges || 0)}</strong></dd></div>
+            <div><dt>Effective threshold minimum</dt><dd><strong>${plan.effectiveMinRentalDays == null ? 'Not applicable' : `${escapeHtml(plan.effectiveMinRentalDays)} day(s)`}</strong></dd></div>
           </dl>
           ${changeGroup('Vehicle changes', vehicleChanges)}
           ${changeGroup('Pricing profile changes', profileChanges)}
           ${changeGroup('Pricing values changes', priceChanges)}
+          ${changeGroup('Pricing strategy, minimum and exact-offer options', pricingConfigurationChanges)}
+          ${changeGroup('Daily-rate tiers — daily rate × complete rental days', tierChanges)}
           ${renderAvailableCitiesReview(plan)}
           ${changeGroup('Partner changes', partnerChanges)}
           ${changeGroup('Content changes', contentChanges)}
           ${renderImageReview()}
           <div class="car-multicity-safety">
             <strong>Safety assertions</strong>
-            <ul><li>Global mapped flag changes: 0</li><li>Booking changes: 0</li><li>Price calculation changes: 0</li><li>Deposit rule changes: 0</li><li>Public mode remains Legacy</li><li>No emails or notifications</li></ul>
+            <ul><li>Global mapped flag changes: 0</li><li>Global threshold-pricing flag changes: 0</li><li>Booking changes: 0</li><li>Active public price calculation changes: 0</li><li>Deposit rule changes: 0</li><li>Public mode remains Legacy</li><li>No emails or notifications</li></ul>
           </div>
         </section>
       `;
@@ -650,6 +743,9 @@
         if (field === 'carType') return '[data-i18n-field="vehicle.carType"]';
         if (field === 'carModel') return '[data-i18n-field="vehicle.carModel"]';
         if (field === 'vehicleImage') return '#carMulticityImageFile';
+        if (field === 'pricingStrategy') return '#carMulticityPricingStrategy';
+        if (field === 'dailyRateTiers') return '.car-multicity-tier-editor';
+        if (String(field).startsWith('tier-')) return `[data-tier-key="${String(field).replace('tier-', '')}"]`;
         if (field === 'pricingProfileId') return '#carMulticityPricingProfile';
         if (field === 'vehicleKindId') return '#carMulticityVehicleKind';
         if (field === 'ownerPartnerId') return '#carMulticityOwnerPartner';
@@ -758,6 +854,30 @@
     }
 
     function handleMediaClick(event) {
+      const tierButton = event.target?.closest?.('[data-tier-action]');
+      if (tierButton && !state.executing) {
+        const tierAction = tierButton.dataset.tierAction;
+        if (tierAction === 'add') {
+          const activeThresholds = (state.draft?.pricing?.dailyRateTiers || [])
+            .map((tier) => Number(tier.threshold_days))
+            .filter((value) => Number.isInteger(value) && value > 0);
+          core.addDailyRateTier(state.draft, {
+            threshold_days: activeThresholds.length ? Math.max(...activeThresholds) + 1 : 1,
+            daily_rate: null,
+            is_active: true,
+          });
+          state.plan = null;
+          render();
+          announce('Daily-rate tier added to the local draft.', 'status');
+        } else if (tierAction === 'remove') {
+          const key = tierButton.closest('[data-tier-key]')?.dataset?.tierKey;
+          if (key) core.removeDailyRateTier(state.draft, key);
+          state.plan = null;
+          render();
+          announce('Daily-rate tier removed from the local draft.', 'status');
+        }
+        return;
+      }
       const action = event.target?.closest?.('[data-media-action]')?.dataset?.mediaAction;
       if (!action || state.executing) return;
       if (action === 'select') {
@@ -781,8 +901,9 @@
         return;
       }
       if (action === 'manage-deposit') {
+        const exactOfferId = state.draft?.offerId || null;
         closeImmediately();
-        options.openDepositSettings?.();
+        options.openDepositSettings?.(exactOfferId);
       }
     }
 
@@ -802,9 +923,41 @@
       dropzone.classList.toggle('is-dragging', event.type === 'dragover' || event.type === 'dragenter');
     }
 
+    function refreshThresholdComputedUi() {
+      if (!state.draft) return;
+      const tiers = state.draft.pricing?.dailyRateTiers || [];
+      byId('carMulticityModalContent')?.querySelectorAll?.('[data-tier-key]').forEach((card) => {
+        const tier = tiers.find((row) => core.normalizeId(row.id || row.clientKey) === core.normalizeId(card.dataset.tierKey));
+        const example = tier?.threshold_days > 0 && tier?.daily_rate > 0
+          ? core.calculateThresholdBasePrice([tier], tier.threshold_days)
+          : null;
+        const output = card.querySelector('[data-tier-example]');
+        if (output) {
+          output.innerHTML = example
+            ? `${money(example.dailyRate)} × ${escapeHtml(example.rentalDays)} days = <strong>${money(example.baseRentalPrice)}</strong> base rental price`
+            : 'Enter a positive threshold and daily rate.';
+        }
+      });
+      const minimum = core.effectiveThresholdMinimum(tiers);
+      const minimumOutput = byId('carMulticityModalContent')?.querySelector?.('[data-threshold-minimum]');
+      if (minimumOutput) minimumOutput.textContent = minimum === null ? 'Not ready' : `${minimum} day${minimum === 1 ? '' : 's'}`;
+      const maximumInput = byId('carMulticityModalContent')?.querySelector?.('[data-draft-field="pricing.maxRentalDays"]');
+      if (maximumInput) maximumInput.min = String(minimum || 1);
+    }
+
     function handleDraftInput(event) {
       if (!state.draft || state.executing) return;
       const target = event.target;
+      const tierField = target?.dataset?.tierField;
+      const tierRow = target?.closest?.('[data-tier-key]');
+      if (tierField && tierRow) {
+        const value = tierField === 'is_active'
+          ? target.checked === true
+          : target.value === '' ? null : Number(target.value);
+        core.updateDailyRateTier(state.draft, tierRow.dataset.tierKey, { [tierField]: value });
+        state.plan = null;
+        return;
+      }
       const i18nField = target?.dataset?.i18nField;
       if (i18nField) {
         setPath(state.draft, `${i18nField}.${target.dataset.language}`, target.value);
@@ -844,15 +997,33 @@
       if (target?.dataset?.profileSelector === 'true') {
         try {
           core.setDraftProfile(state.draft, state.context, target.value, { resetAvailability: state.mode === 'create' });
-          if (core.normalizeCode(core.profileById(state.context, target.value)?.code) === 'paphos') {
-            state.draft.pricing.youngDriverFee = false;
-            state.draft.pricing.youngDriverCost = 0;
-          }
           state.plan = null;
           render();
         } catch (error) {
           renderErrors({ errors: [{ message: error.message }] });
         }
+        return;
+      }
+      if (target?.dataset?.pricingStrategy === 'true') {
+        state.draft.pricing.strategy = core.normalizeCode(target.value);
+        if (state.draft.pricing.strategy === 'threshold_daily_rate') {
+          core.synchronizeThresholdMinimum(state.draft);
+        } else {
+          state.draft.pricing.minRentalDays = Number(state.context?.offer?.min_rental_days || (state.mode === 'create' ? 3 : 1));
+        }
+        core.invalidateReview(state.draft);
+        state.plan = null;
+        render();
+        return;
+      }
+      if (target?.dataset?.tierField) {
+        handleDraftInput(event);
+        refreshThresholdComputedUi();
+        return;
+      }
+      if (target?.dataset?.draftField === 'pricing.insuranceMode') {
+        handleDraftInput(event);
+        render();
         return;
       }
       const availabilityField = target?.dataset?.availabilityField;
@@ -947,7 +1118,7 @@
       if (state.executing || !core.isReviewCurrent(state.draft, state.plan) || !state.plan?.steps?.length) return;
       openConfirmation({
         title: 'Confirm exact-ID save',
-        body: `<p>Save ${escapeHtml(state.plan.steps.length)} exact operation(s)?</p><ul><li>Exact offer: <code>${escapeHtml(state.plan.exactOfferId || 'new')}</code></li><li>Image action: <strong>${escapeHtml(state.draft.media?.action || 'unchanged')}</strong></li><li>Global mapped flag changes: 0</li><li>Booking changes: 0</li><li>Price calculation changes: 0</li><li>Deposit rule changes: 0</li></ul>`,
+        body: `<p>Save ${escapeHtml(state.plan.steps.length)} exact operation(s)?</p><ul><li>Exact offer: <code>${escapeHtml(state.plan.exactOfferId || 'new')}</code></li><li>Image action: <strong>${escapeHtml(state.draft.media?.action || 'unchanged')}</strong></li><li>Global mapped flag changes: 0</li><li>Global threshold-pricing flag changes: 0</li><li>Booking changes: 0</li><li>Active public price calculation changes: 0</li><li>Deposit rule changes: 0</li></ul>`,
         action: () => executeSave(),
       });
     }
@@ -1073,6 +1244,9 @@
           : await repository.getOfferContext(offerId);
         if (state.context?.siteSetting?.car_multi_city_mapped_enabled !== false) {
           throw new Error('Stage 2C safety stop: global mapped flag is not false.');
+        }
+        if (state.context?.siteSetting?.car_threshold_daily_rates_enabled !== false) {
+          throw new Error('Stage 3A/3B safety stop: global threshold-pricing flag is not false.');
         }
         state.draft = core.createDraft(state.context, { mode });
         state.loading = false;
@@ -1201,7 +1375,8 @@
       try {
         state.catalog = await repository.getCatalog();
         if (state.catalog.siteSetting?.car_multi_city_mapped_enabled !== false) throw new Error('Mapped feature flag must remain false.');
-        if (status) status.textContent = 'Fresh catalog loaded. Global mapped flag: OFF.';
+        if (state.catalog.siteSetting?.car_threshold_daily_rates_enabled !== false) throw new Error('Threshold-pricing feature flag must remain false.');
+        if (status) status.textContent = 'Fresh catalog loaded. Mapped and threshold-pricing flags: OFF.';
         renderCatalog();
       } catch (error) {
         if (status) status.textContent = String(error?.message || error);
@@ -1227,14 +1402,6 @@
       state.cityEditor = null;
       renderCatalog();
       focusElement(byId('carMulticityCitySearch'));
-    }
-
-    function cityCanBeActivated(draft) {
-      return (state.catalog?.profileCities || []).some((mapping) => (
-        core.normalizeId(mapping.city_id) === core.normalizeId(draft.id)
-        && core.normalizeCode(mapping.legacy_pricing_city_key) === core.normalizeCode(draft.code)
-        && state.catalog.profiles.some((profile) => core.normalizeId(profile.id) === core.normalizeId(mapping.pricing_profile_id) && profile.is_active === true)
-      ));
     }
 
     function handleCatalogInput(event) {
@@ -1317,13 +1484,9 @@
           byId('carMulticityCatalogStatus').textContent = validation.errors.map((entry) => entry.message).join(' ');
           return;
         }
-        if (draft.is_active && !cityCanBeActivated(draft)) {
-          byId('carMulticityCatalogStatus').textContent = 'A city cannot be activated until it has an exact profile-city mapping.';
-          return;
-        }
         openConfirmation({
           title: state.cityEditor.mode === 'create' ? 'Review new inactive city' : 'Review city change',
-          body: `<p>${state.cityEditor.mode === 'create' ? 'Create a new inactive city' : `Update exact city <code>${escapeHtml(draft.id)}</code>`}?</p><ul><li>Profile mappings created: 0</li><li>Offer assignments created: 0</li><li>Public activation: no</li></ul>`,
+          body: `<p>${state.cityEditor.mode === 'create' ? 'Create a new inactive city' : `Update exact city <code>${escapeHtml(draft.id)}</code>`}?</p><ul><li>Profile mappings created: 0</li><li>Offer assignments created: 0</li><li>Legacy offers still require an explicit profile-city mapping</li><li>Threshold offers require exact offer-city availability and an explicit custom fee for non-standard cities</li><li>No offer or feature flag is activated</li></ul>`,
           action: async () => {
             closeConfirmation();
             try {

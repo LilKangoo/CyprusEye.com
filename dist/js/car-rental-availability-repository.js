@@ -19,10 +19,19 @@ const AVAILABILITY_SELECT = [
   'fee_mode',
   'fee_per_direction',
 ].join(',');
+const DAILY_RATE_TIER_SELECT = [
+  'id',
+  'offer_id',
+  'threshold_days',
+  'daily_rate',
+  'is_active',
+  'updated_at',
+].join(',');
 const OFFER_SELECT = [
   'id',
   'location',
   'pricing_profile_id',
+  'pricing_strategy',
   'availability_mode',
   'vehicle_kind_id',
   'car_model',
@@ -48,8 +57,11 @@ const OFFER_SELECT = [
   'currency',
   'deposit_amount',
   'insurance_per_day',
+  'insurance_mode',
   'young_driver_fee',
   'young_driver_cost',
+  'min_rental_days',
+  'max_rental_days',
   'owner_partner_id',
 ].join(',');
 
@@ -103,16 +115,35 @@ export function createCarRentalAvailabilityRepository({ supabase } = {}) {
     return data;
   }
 
-  async function getFeatureFlag() {
+  async function getFeatureFlags() {
     const row = await read(
-      'site_settings.car_multi_city_mapped_enabled',
+      'site_settings Cars runtime flags',
       supabase
         .from('site_settings')
-        .select('car_multi_city_mapped_enabled')
+        .select('car_multi_city_mapped_enabled,car_threshold_daily_rates_enabled')
         .eq('id', 1)
         .maybeSingle(),
     );
-    return row?.car_multi_city_mapped_enabled === true;
+    return Object.freeze({
+      mappedEnabled: row?.car_multi_city_mapped_enabled === true,
+      thresholdDailyRatesEnabled: row?.car_threshold_daily_rates_enabled === true,
+    });
+  }
+
+  async function getFeatureFlag() {
+    return (await getFeatureFlags()).mappedEnabled;
+  }
+
+  async function getActiveCities() {
+    return await read(
+      'active public city catalog',
+      supabase
+        .from('car_rental_cities')
+        .select(CITY_SELECT)
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+        .order('code', { ascending: true }),
+    ) || [];
   }
 
   async function readMappedContext({ pickupCityCode, returnCityCode } = {}) {
@@ -122,7 +153,7 @@ export function createCarRentalAvailabilityRepository({ supabase } = {}) {
       || !String(returnCityCode || '').trim()
       || (pickupCityCode !== returnCityCode && cityCodes.length !== 2)
     ) {
-      return { cities: [], availability: [], offers: [], profiles: [], profileCities: [], metrics: getMetrics() };
+      return { cities: [], availability: [], offers: [], profiles: [], profileCities: [], dailyRateTiers: [], metrics: getMetrics() };
     }
 
     const cities = await read(
@@ -135,7 +166,7 @@ export function createCarRentalAvailabilityRepository({ supabase } = {}) {
     ) || [];
     const cityIds = uniqueStrings(cities.map((city) => city.id));
     if (!cityIds.length) {
-      return { cities, availability: [], offers: [], profiles: [], profileCities: [], metrics: getMetrics() };
+      return { cities, availability: [], offers: [], profiles: [], profileCities: [], dailyRateTiers: [], metrics: getMetrics() };
     }
 
     const availability = await read(
@@ -161,7 +192,7 @@ export function createCarRentalAvailabilityRepository({ supabase } = {}) {
     );
     const offerIds = [...pickupIds].filter((offerId) => returnIds.has(offerId)).sort();
     if (!offerIds.length) {
-      return { cities, availability, offers: [], profiles: [], profileCities: [], metrics: getMetrics() };
+      return { cities, availability, offers: [], profiles: [], profileCities: [], dailyRateTiers: [], metrics: getMetrics() };
     }
 
     const offers = await read(
@@ -171,37 +202,62 @@ export function createCarRentalAvailabilityRepository({ supabase } = {}) {
         .select(OFFER_SELECT)
         .in('id', offerIds),
     ) || [];
-    const profileIds = uniqueStrings(offers.map((offer) => offer.pricing_profile_id));
-    if (!profileIds.length) {
-      return { cities, availability, offers, profiles: [], profileCities: [], metrics: getMetrics() };
+    const profileIds = uniqueStrings(offers
+      .filter((offer) => String(offer?.pricing_strategy || 'legacy_compat') === 'legacy_compat')
+      .map((offer) => offer.pricing_profile_id));
+    const thresholdOfferIds = uniqueStrings(offers
+      .filter((offer) => String(offer?.pricing_strategy || 'legacy_compat') === 'threshold_daily_rate')
+      .map((offer) => offer.id));
+    let profiles = [];
+    let profileCities = [];
+    let dailyRateTiers = [];
+    const reads = [];
+    if (profileIds.length) {
+      reads.push(Promise.all([
+        read(
+          'active pricing profiles by exact IDs',
+          supabase
+            .from('car_pricing_profiles')
+            .select(PROFILE_SELECT)
+            .in('id', profileIds)
+            .eq('is_active', true),
+        ),
+        read(
+          'active profile-city mappings by exact composite scope',
+          supabase
+            .from('car_pricing_profile_cities')
+            .select(PROFILE_CITY_SELECT)
+            .in('pricing_profile_id', profileIds)
+            .in('city_id', cityIds)
+            .eq('is_active', true),
+        ),
+      ]).then(([profileRows, mappingRows]) => {
+        profiles = profileRows || [];
+        profileCities = mappingRows || [];
+      }));
     }
-
-    const [profiles, profileCities] = await Promise.all([
-      read(
-        'active pricing profiles by exact IDs',
+    if (thresholdOfferIds.length) {
+      reads.push(read(
+        'active daily-rate tiers by exact offer IDs',
         supabase
-          .from('car_pricing_profiles')
-          .select(PROFILE_SELECT)
-          .in('id', profileIds)
-          .eq('is_active', true),
-      ),
-      read(
-        'active profile-city mappings by exact composite scope',
-        supabase
-          .from('car_pricing_profile_cities')
-          .select(PROFILE_CITY_SELECT)
-          .in('pricing_profile_id', profileIds)
-          .in('city_id', cityIds)
-          .eq('is_active', true),
-      ),
-    ]);
+          .from('car_offer_daily_rate_tiers')
+          .select(DAILY_RATE_TIER_SELECT)
+          .in('offer_id', thresholdOfferIds)
+          .eq('is_active', true)
+          .order('threshold_days', { ascending: true }),
+      ).then((rows) => {
+        dailyRateTiers = rows || [];
+      }));
+    }
+    await Promise.all(reads);
 
     return {
       cities,
       availability,
       offers,
-      profiles: profiles || [],
-      profileCities: profileCities || [],
+      profiles,
+      profileCities,
+      dailyRateTiers,
       metrics: getMetrics(),
     };
   }
@@ -217,6 +273,8 @@ export function createCarRentalAvailabilityRepository({ supabase } = {}) {
 
   return Object.freeze({
     getFeatureFlag,
+    getFeatureFlags,
+    getActiveCities,
     readMappedContext,
     getMetrics,
   });
@@ -228,4 +286,5 @@ export const CAR_RENTAL_AVAILABILITY_PUBLIC_SELECTS = Object.freeze({
   profileCities: PROFILE_CITY_SELECT,
   availability: AVAILABILITY_SELECT,
   offers: OFFER_SELECT,
+  dailyRateTiers: DAILY_RATE_TIER_SELECT,
 });

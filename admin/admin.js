@@ -4173,7 +4173,10 @@ async function searchPartnerResources(type, term) {
         return { id: r.id, label, raw: r };
       });
       if (!q) return rows.slice(0, 50);
-      return rows.filter((r) => String(r.label || '').toLowerCase().includes(q)).slice(0, 50);
+      return rows.filter((r) => (
+        String(r.id || '').toLowerCase() === q
+        || String(r.label || '').toLowerCase().includes(q)
+      )).slice(0, 50);
     } catch (_e) {
       return [];
     }
@@ -24374,6 +24377,41 @@ function getCarRentalMulticityRepository() {
   return carRentalMulticityRepository;
 }
 
+async function openCarDepositSettings(exactOfferId) {
+  const offerId = String(exactOfferId || '').trim();
+  switchView('partners');
+  setPartnersActiveTab('emails');
+  await loadPartnersDepositAdminData(true);
+
+  if (!offerId) {
+    requestAnimationFrame(() => {
+      document.getElementById('depositRuleModeCars')?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+    });
+    return;
+  }
+
+  const type = document.getElementById('depositOverrideType');
+  const search = document.getElementById('depositOverrideSearch');
+  const resource = document.getElementById('depositOverrideResourceSelect');
+  if (type) type.value = 'cars';
+  if (search) search.value = offerId;
+  updateDepositOverrideModeOptions('cars');
+
+  const rows = await searchPartnerResources('cars', offerId);
+  partnersUiState.depositOverrideSearchResults = rows;
+  setDepositOverrideSelectOptions(rows);
+  const exactRow = rows.find((row) => String(row?.id || '') === offerId) || null;
+  if (resource && exactRow) {
+    resource.value = offerId;
+    applySelectedOverrideToForm();
+  }
+
+  requestAnimationFrame(() => {
+    resource?.closest?.('.admin-card')?.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
+    (exactRow ? resource : search)?.focus?.();
+  });
+}
+
 function bindCarRentalMulticityAdminUi() {
   CarRentalMulticityAdmin.initialize({
     document,
@@ -24381,11 +24419,7 @@ function bindCarRentalMulticityAdminUi() {
     repository: getCarRentalMulticityRepository(),
     showToast,
     onFleetRefresh: () => void loadFleetData({ silent: true }),
-    openDepositSettings: () => {
-      switchView('partners');
-      setPartnersActiveTab('emails');
-      requestAnimationFrame(() => document.getElementById('depositRuleModeCars')?.scrollIntoView?.({ block: 'center', behavior: 'smooth' }));
-    },
+    openDepositSettings: (offerId) => void openCarDepositSettings(offerId),
     openLegacyEditor: (offerId) => {
       const exactId = String(offerId || '').trim();
       if (exactId) {
@@ -33083,58 +33117,13 @@ function getCarsBookingEffectiveState(booking, paidDepositMap = {}) {
   const currentStatus = String(booking?.status || 'pending').trim().toLowerCase();
   const currentPaymentStatus = String(booking?.payment_status || 'unpaid').trim().toLowerCase();
 
-  const effectiveStatus = hasPaidDeposit && (currentStatus === 'pending' || currentStatus === 'message_sent')
-    ? 'confirmed'
-    : (currentStatus || 'pending');
-
-  const effectivePaymentStatus = hasPaidDeposit
-    ? 'paid'
-    : (currentPaymentStatus || 'unpaid');
-
   return {
     hasPaidDeposit,
-    status: effectiveStatus,
-    paymentStatus: effectivePaymentStatus,
+    // A paid deposit is a financial state, not partner acceptance. Keep the
+    // booking lifecycle authoritative and expose payment_status independently.
+    status: currentStatus || 'pending',
+    paymentStatus: currentPaymentStatus || 'unpaid',
   };
-}
-
-async function syncCarsBookingStatesFromPaidDeposits(client, bookings = [], paidDepositMap = {}) {
-  const rows = Array.isArray(bookings) ? bookings : [];
-  if (!rows.length) return;
-
-  const paidIds = rows
-    .map((b) => String(b?.id || '').trim())
-    .filter((id) => Boolean(id && paidDepositMap[id] === true));
-
-  if (!paidIds.length) return;
-
-  try {
-    const { error: paymentErr } = await client
-      .from('car_bookings')
-      .update({ payment_status: 'paid' })
-      .in('id', paidIds)
-      .neq('payment_status', 'paid');
-
-    if (paymentErr) {
-      console.warn('Could not sync car booking payment_status from paid deposits:', paymentErr);
-    }
-  } catch (error) {
-    console.warn('Could not sync car booking payment_status from paid deposits:', error);
-  }
-
-  try {
-    const { error: statusErr } = await client
-      .from('car_bookings')
-      .update({ status: 'confirmed' })
-      .in('id', paidIds)
-      .in('status', ['pending', 'message_sent']);
-
-    if (statusErr) {
-      console.warn('Could not sync car booking status from paid deposits:', statusErr);
-    }
-  } catch (error) {
-    console.warn('Could not sync car booking status from paid deposits:', error);
-  }
 }
 
 async function loadCarsData(options = {}) {
@@ -33170,7 +33159,6 @@ async function loadCarsData(options = {}) {
       .map((b) => String(b?.id || '').trim())
       .filter(Boolean);
     const paidDepositMap = await fetchCarsPaidDepositMap(client, bookingIds);
-    await syncCarsBookingStatesFromPaidDeposits(client, bookings, paidDepositMap);
 
     // Calculate stats from full dataset (not only the visible table page)
     const [totalBookings, activeRentals, pendingBookings, totalRevenue] = await Promise.all([

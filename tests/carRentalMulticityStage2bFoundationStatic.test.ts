@@ -171,11 +171,11 @@ describe('Car Rental Multi-City Stage 2B inert foundation', () => {
     ].forEach((field) => expect(verify).toContain(field));
   });
 
-  test('the authorized fee seam and protected downstream sources are byte-identical', () => {
+  test('the authorized pricing seams and protected downstream sources match accepted hashes', () => {
     const expectedHashes: Record<string, string> = {
       'js/car-pricing.js': '30e886602888aa9eae76f6cfa6628eca00112e12ca1d3b6cac971c234c53e292',
-      'js/car-reservation.js': 'cc5ea32f934482e7daefdf68801a1af20a18acc3f6148afde143e72546ce3784',
-      'js/car-rental-flow.js': '77c1764bcce742d7b70323b8a115bd1a73f331449a74445409dd3492b2068de6',
+      'js/car-reservation.js': '52cc4f032e162fd92bfe62099ca376cb357436cf63289d94c65aacfe34bdde98',
+      'js/car-rental-flow.js': '64a461171c4496ce53ced64146623ec15025e8784645e4e1f572e817db546f16',
       'supabase/functions/partner-fulfillment-action/index.ts': '802aa0b8d3a1204f93adefcf598a77c764fde4a6e15dfe2624366c0a99c1297b',
       'supabase/migrations/057_admin_notification_queue.sql': '509f701e938ba08672968d303529fa2bac8c2f7bad3cc4aa677a82158090211a',
       'supabase/migrations/061_customer_received_notifications.sql': '960881ed4feca587df941daa3e6d4e0d5a23bbbd2369ac7c8dbda655f17c831a',

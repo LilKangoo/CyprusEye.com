@@ -23,7 +23,7 @@ function visualSeedScript() {
         stub.seedTable('profiles', [{ id: admin.id, email: admin.email, username: 'visualadmin', name: 'Visual Cars Admin', is_admin: true }]);
         stub.seedTable('admin_users_overview', [{ id: admin.id, email: admin.email, username: 'visualadmin', name: 'Visual Cars Admin', is_admin: true, created_at: '2026-08-03T08:00:00.000Z' }]);
         stub.seedTable('admin_system_diagnostics', [{ metric: 'total_users', value: 1 }]);
-        stub.seedTable('site_settings', [{ id: 1, force_refresh_version: 0, car_multi_city_mapped_enabled: false, updated_at: '2026-08-03T08:00:00.000Z' }]);
+        stub.seedTable('site_settings', [{ id: 1, force_refresh_version: 0, car_multi_city_mapped_enabled: false, car_threshold_daily_rates_enabled: false, updated_at: '2026-08-03T08:00:00.000Z' }]);
 
         const cities = [
           ['ca200001-0000-4000-8000-000000000001', 'larnaca', 'Larnaka', 'Larnaca', 'לרנקה', true, 10],
@@ -64,6 +64,8 @@ function visualSeedScript() {
           { id: 'ca220001-0000-4000-8000-000000000001', code: 'car', name_i18n: { pl: 'Samochód', en: 'Car', he: 'רכב' }, is_active: true, sort_order: 10 },
           { id: 'ca220001-0000-4000-8000-000000000002', code: 'quad', name_i18n: { pl: 'Quad', en: 'Quad', he: 'טרקטורון' }, is_active: true, sort_order: 20 },
           { id: 'ca220001-0000-4000-8000-000000000003', code: 'buggy', name_i18n: { pl: 'Buggy', en: 'Buggy', he: 'באגי' }, is_active: true, sort_order: 30 },
+          { id: 'ca220001-0000-4000-8000-000000000004', code: 'scooter', name_i18n: { pl: 'Skuter', en: 'Scooter', he: 'קטנוע' }, is_active: true, sort_order: 40 },
+          { id: 'ca220001-0000-4000-8000-000000000005', code: 'bicycle', name_i18n: { pl: 'Rower', en: 'Bicycle', he: 'אופניים' }, is_active: true, sort_order: 50 },
         ]);
         stub.seedTable('partners', [
           { id: 'visual-partner-larnaca', name: 'Island Mobility Partner', status: 'active', can_manage_cars: true, cars_locations: ['larnaca'], updated_at: '2026-08-03T08:30:00.000Z' },
@@ -75,8 +77,10 @@ function visualSeedScript() {
         ]);
         const common = {
           availability_mode: 'legacy', vehicle_kind_id: 'ca220001-0000-4000-8000-000000000001',
+          pricing_strategy: 'legacy_compat', min_rental_days: 1, max_rental_days: 30,
+          engine_capacity_cc: null, required_licence_category: null, minimum_driver_age: null,
           transmission: 'automatic', fuel_type: 'petrol', currency: 'EUR', max_passengers: 5, max_luggage: 2,
-          stock_count: 2, deposit_amount: 200, insurance_per_day: 17, north_allowed: true,
+          stock_count: 2, deposit_amount: 200, insurance_mode: 'legacy_optional_daily', insurance_per_day: 17, north_allowed: true,
           is_available: true, is_published: true, submission_status: 'approved', image_url: '/fixture-car-photo.svg',
         };
         stub.seedTable('car_offers', [
@@ -105,6 +109,7 @@ function visualSeedScript() {
           { id: 'visual-availability-larnaca', offer_id: 'ca300001-0000-4000-8000-000000000001', city_id: cities[0].id, pickup_enabled: true, return_enabled: true, is_active: true, fee_mode: 'inherit', fee_per_direction: null, fee_note: null, updated_at: '2026-08-03T09:10:00.000Z' },
           { id: 'visual-availability-paphos', offer_id: 'ca300001-0000-4000-8000-000000000002', city_id: cities[5].id, pickup_enabled: true, return_enabled: true, is_active: true, fee_mode: 'inherit', fee_per_direction: null, fee_note: null, updated_at: '2026-08-03T09:11:00.000Z' },
         ]);
+        stub.seedTable('car_offer_daily_rate_tiers', []);
         stub.seedTable('service_deposit_rules', [{ id: 'visual-cars-deposit', resource_type: 'cars', mode: 'per_day', amount: 5, currency: 'EUR', include_children: true, enabled: true, updated_at: '2026-08-03T09:20:00.000Z' }]);
         stub.seedTable('service_deposit_overrides', [{ id: 'visual-offer-deposit', resource_type: 'cars', resource_id: 'ca300001-0000-4000-8000-000000000001', mode: 'flat', amount: 50, currency: 'EUR', include_children: true, enabled: true, updated_at: '2026-08-03T09:21:00.000Z' }]);
         stub.seedTable('car_bookings', []);
@@ -230,6 +235,7 @@ test('Pricing V2 visual regression sign-off artifacts', async ({ page }) => {
 
   await page.locator('#btnAddFleetCar').click();
   await expect(page.locator('#carMulticityModal')).toBeVisible();
+  await expect(page.locator('#carMulticityVehicleKind')).toBeVisible();
   await assertModalGeometry(page);
   await assertVisualControls(page);
   await capture(page, 2, 'desktop-1440x1000-add-new-car-vehicle');

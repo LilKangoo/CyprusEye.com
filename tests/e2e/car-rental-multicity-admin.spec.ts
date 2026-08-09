@@ -25,7 +25,7 @@ function adminSeedScript() {
         stub.seedTable('profiles', [{ id: admin.id, email: admin.email, username: 'carsadmin', name: 'Cars Admin', is_admin: true }]);
         stub.seedTable('admin_users_overview', [{ id: admin.id, email: admin.email, username: 'carsadmin', name: 'Cars Admin', is_admin: true, created_at: '2026-08-01T00:00:00.000Z' }]);
         stub.seedTable('admin_system_diagnostics', [{ metric: 'total_users', value: 1 }]);
-        stub.seedTable('site_settings', [{ id: 1, force_refresh_version: 0, car_multi_city_mapped_enabled: false, updated_at: '2026-08-02T08:00:00.000Z' }]);
+        stub.seedTable('site_settings', [{ id: 1, force_refresh_version: 0, car_multi_city_mapped_enabled: false, car_threshold_daily_rates_enabled: false, updated_at: '2026-08-02T08:00:00.000Z' }]);
         stub.seedTable('car_rental_cities', [
           { id: 'ca200001-0000-4000-8000-000000000001', code: 'larnaca', name_i18n: { pl: 'Larnaka', en: 'Larnaca', he: 'לרנקה' }, place_types: ['city'], is_active: true, sort_order: 10, updated_at: '2026-08-02T08:01:00.000Z' },
           { id: 'ca200001-0000-4000-8000-000000000002', code: 'nicosia', name_i18n: { pl: 'Nikozja', en: 'Nicosia', he: 'ניקוסיה' }, place_types: ['city'], is_active: true, sort_order: 20, updated_at: '2026-08-02T08:02:00.000Z' },
@@ -45,6 +45,8 @@ function adminSeedScript() {
           { id: 'ca220001-0000-4000-8000-000000000001', code: 'car', name_i18n: { en: 'Car' }, is_active: true, sort_order: 10 },
           { id: 'ca220001-0000-4000-8000-000000000002', code: 'quad', name_i18n: { en: 'Quad' }, is_active: true, sort_order: 20 },
           { id: 'ca220001-0000-4000-8000-000000000003', code: 'buggy', name_i18n: { en: 'Buggy' }, is_active: true, sort_order: 30 },
+          { id: 'ca220001-0000-4000-8000-000000000004', code: 'scooter', name_i18n: { en: 'Scooter' }, is_active: true, sort_order: 40 },
+          { id: 'ca220001-0000-4000-8000-000000000005', code: 'bicycle', name_i18n: { en: 'Bicycle' }, is_active: true, sort_order: 50 },
         ]);
         stub.seedTable('partners', [
           { id: 'partner-one', name: 'Cars Partner', status: 'active', can_manage_cars: true, cars_locations: ['larnaca'], updated_at: '2026-08-02T08:30:00.000Z' },
@@ -54,16 +56,18 @@ function adminSeedScript() {
         stub.seedTable('car_offers', [{
           id: 'ca300001-0000-4000-8000-000000000001',
           updated_at: '2026-08-02T09:00:00.000Z',
-          location: 'larnaca', pricing_profile_id: 'ca210001-0000-4000-8000-000000000001', availability_mode: 'legacy', vehicle_kind_id: 'ca220001-0000-4000-8000-000000000001',
+          location: 'larnaca', pricing_profile_id: 'ca210001-0000-4000-8000-000000000001', availability_mode: 'legacy', pricing_strategy: 'legacy_compat', vehicle_kind_id: 'ca220001-0000-4000-8000-000000000001',
           car_model: { pl: 'Mazda 2', en: 'Mazda 2', he: 'מאזדה 2' }, car_type: { pl: 'Ekonomiczne', en: 'Economy', he: 'חסכוני' }, description: { pl: 'Opis', en: 'Description', he: 'תיאור' }, features: { pl: ['Klimatyzacja'], en: ['Air conditioning'], he: ['מיזוג'] },
           transmission: 'automatic', fuel_type: 'petrol', currency: 'EUR', max_passengers: 5, max_luggage: 2, stock_count: 2, sort_order: 10,
           price_per_day: 35, price_3days: 105, price_4_6days: 34, price_7_10days: 31, price_10plus_days: 29,
-          deposit_amount: 200, insurance_per_day: 17, young_driver_fee: true, young_driver_cost: 10,
+          deposit_amount: 200, insurance_mode: 'legacy_optional_daily', insurance_per_day: 17, young_driver_fee: true, young_driver_cost: 10,
+          min_rental_days: 1, max_rental_days: 30, engine_capacity_cc: null, required_licence_category: null, minimum_driver_age: null,
           owner_partner_id: 'partner-one', north_allowed: true, is_available: true, is_published: true, submission_status: 'approved', image_url: '/assets/mazda.jpg',
         }]);
         stub.seedTable('car_offer_city_availability', [
           { id: 'availability-larnaca', offer_id: 'ca300001-0000-4000-8000-000000000001', city_id: 'ca200001-0000-4000-8000-000000000001', pickup_enabled: true, return_enabled: true, is_active: true, fee_mode: 'inherit', fee_per_direction: null, fee_note: null, updated_at: '2026-08-02T09:10:00.000Z' },
         ]);
+        stub.seedTable('car_offer_daily_rate_tiers', []);
         stub.seedTable('car_bookings', []);
         stub.seedTable('service_deposit_rules', [{ id: 'deposit-cars-default', resource_type: 'cars', mode: 'per_day', amount: 5, currency: 'EUR', include_children: true, enabled: true, updated_at: '2026-08-02T09:20:00.000Z' }]);
         stub.seedTable('service_deposit_overrides', [{ id: 'deposit-offer-override', resource_type: 'cars', resource_id: 'ca300001-0000-4000-8000-000000000001', mode: 'flat', amount: 50, currency: 'EUR', include_children: true, enabled: true, updated_at: '2026-08-02T09:21:00.000Z' }]);
@@ -368,6 +372,9 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     await expect(page.locator('#carMulticityModal')).toBeHidden();
     await expect(page.locator('#viewPartners')).toBeVisible();
     await expect(page.locator('#partnersTabEmails')).toBeVisible();
+    await expect(page.locator('#depositOverrideType')).toHaveValue('cars');
+    await expect(page.locator('#depositOverrideSearch')).toHaveValue(OFFER_ID);
+    await expect(page.locator('#depositOverrideResourceSelect')).toHaveValue(OFFER_ID);
     expect(await page.evaluate(() => (window as any).__supabaseStub.getMutationCalls())).toEqual([]);
   });
 
@@ -455,6 +462,101 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     }));
     expect(result.mutations.filter((call: any) => call.table === 'car_offers' && call.action === 'update')).toHaveLength(1);
     expect(result.mutations.some((call: any) => call.table !== 'car_offers')).toBe(false);
+  });
+
+  test('threshold daily-rate editor saves arbitrary sorted tiers and keeps both activation flags OFF', async ({ page }) => {
+    await openAction(page, 'pricing');
+    await clearMutations(page);
+    await page.locator('#carMulticityPricingStrategy').selectOption('threshold_daily_rate');
+    await expect(page.locator('#carMulticityPricingProfile')).toBeDisabled();
+    await expect(page.locator('#carMulticityModalContent')).toContainText('Pricing is decoupled from city availability');
+
+    for (let index = 0; index < 3; index += 1) {
+      await page.locator('[data-tier-action="add"]').click();
+    }
+    const cards = page.locator('[data-tier-key]');
+    await expect(cards).toHaveCount(3);
+    for (const [index, threshold, rate] of [[0, 1, 50], [1, 3, 45], [2, 7, 40]] as const) {
+      const card = cards.nth(index);
+      await card.locator('[data-tier-field="threshold_days"]').fill(String(threshold));
+      await card.locator('[data-tier-field="daily_rate"]').fill(String(rate));
+    }
+    await page.locator('[data-draft-field="pricing.maxRentalDays"]').fill('');
+    await expect(page.locator('[data-draft-field="pricing.maxRentalDays"]')).toHaveValue('');
+    expect(await page.evaluate(() => (window as any).CarRentalMulticityAdmin.getState().draft.pricing.maxRentalDays)).toBeNull();
+    await page.locator('#carMulticityReview').click();
+    expect(await page.evaluate(() => {
+      const state = (window as any).CarRentalMulticityAdmin.getState();
+      return state.plan.steps.find((step: any) => step.key === 'pricing_and_profile')?.payload?.max_rental_days;
+    })).toBeNull();
+    await expect(page.locator('#carMulticityModalContent')).toContainText('Daily-rate tiers — daily rate × complete rental days');
+    await expect(page.locator('#carMulticityModalContent')).toContainText('Effective threshold minimum');
+    await expect(page.locator('#carMulticityModalContent')).toContainText('Global threshold-pricing flag changes');
+    await page.locator('#carMulticitySave').click();
+    await page.locator('#carMulticityConfirmAccept').click();
+    await expect(page.locator('#carMulticityReceiptHeading')).toHaveText('Saved');
+
+    const result = await page.evaluate((offerId) => {
+      const stub = (window as any).__supabaseStub;
+      return {
+        offer: stub.getTableRows('car_offers').find((row: any) => row.id === offerId),
+        tiers: stub.getTableRows('car_offer_daily_rate_tiers').filter((row: any) => row.offer_id === offerId),
+        setting: stub.getTableRows('site_settings')[0],
+        mutations: stub.getMutationCalls(),
+      };
+    }, OFFER_ID);
+    expect(result.offer).toEqual(expect.objectContaining({
+      id: OFFER_ID,
+      pricing_strategy: 'threshold_daily_rate',
+      min_rental_days: 1,
+      max_rental_days: null,
+      availability_mode: 'legacy',
+      location: 'larnaca',
+    }));
+    expect(result.tiers.map((tier: any) => [tier.threshold_days, tier.daily_rate]))
+      .toEqual([[1, 50], [3, 45], [7, 40]]);
+    expect(result.setting).toEqual(expect.objectContaining({
+      car_multi_city_mapped_enabled: false,
+      car_threshold_daily_rates_enabled: false,
+    }));
+    expect(result.mutations.filter((call: any) => call.table === 'car_offer_daily_rate_tiers' && call.action === 'insert')).toHaveLength(3);
+    expect(result.mutations.filter((call: any) => call.table === 'car_offers' && call.action === 'update')).toHaveLength(1);
+    expect(result.mutations.some((call: any) => ['car_bookings', 'service_deposit_rules', 'service_deposit_overrides', 'partners', 'partner_resources'].includes(call.table))).toBe(false);
+  });
+
+  test('young-driver and insurance options save for the exact Paphos-independent offer only', async ({ page }) => {
+    await openAction(page, 'pricing');
+    await clearMutations(page);
+    await page.locator('[data-draft-field="pricing.youngDriverFee"]').uncheck();
+    await page.locator('[data-draft-field="pricing.youngDriverCost"]').fill('0');
+    await page.locator('[data-draft-field="pricing.insurancePerDay"]').fill('0');
+    await page.locator('[data-draft-field="pricing.insuranceMode"]').selectOption('not_offered');
+    await page.locator('#carMulticityReview').click();
+    await expect(page.locator('#carMulticityModalContent')).toContainText('young_driver_fee');
+    await expect(page.locator('#carMulticityModalContent')).toContainText('insurance_mode');
+    await page.locator('#carMulticitySave').click();
+    await page.locator('#carMulticityConfirmAccept').click();
+    await expect(page.locator('#carMulticityReceiptHeading')).toHaveText('Saved');
+    const result = await page.evaluate((offerId) => {
+      const stub = (window as any).__supabaseStub;
+      return {
+        offer: stub.getTableRows('car_offers').find((row: any) => row.id === offerId),
+        availability: stub.getTableRows('car_offer_city_availability'),
+        mutations: stub.getMutationCalls(),
+      };
+    }, OFFER_ID);
+    expect(result.offer).toEqual(expect.objectContaining({
+      id: OFFER_ID,
+      young_driver_fee: false,
+      young_driver_cost: 0,
+      insurance_mode: 'not_offered',
+      insurance_per_day: 0,
+      pricing_profile_id: PROFILE_LARNACA,
+      location: 'larnaca',
+    }));
+    expect(result.availability).toHaveLength(1);
+    expect(result.mutations).toHaveLength(1);
+    expect(result.mutations[0]).toEqual(expect.objectContaining({ table: 'car_offers', action: 'update' }));
   });
 
   test('partner save changes only owner_partner_id and preserves availability plus partner resources', async ({ page }) => {

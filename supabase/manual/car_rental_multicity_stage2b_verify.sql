@@ -20,7 +20,9 @@ expected_vehicle_kinds(code) as (
   values
     ('car'::text),
     ('quad'::text),
-    ('buggy'::text)
+    ('buggy'::text),
+    ('scooter'::text),
+    ('bicycle'::text)
 ),
 expected_profile_cities(profile_code, city_code, legacy_key) as (
   values
@@ -492,8 +494,8 @@ summary as (
     profile_city.actual_count = 7
       and profile_city.invalid_count = 0 as profile_cities_ok,
     profile_city.paphos_cross_city_count = 0 as paphos_profile_local_only,
-    kind.actual_count = 3
-      and kind.active_count = 3
+    kind.actual_count = 5
+      and kind.active_count = 5
       and kind.unexpected_count = 0 as vehicle_kinds_ok,
     offers.mapped_count = 0 as no_mapped_offers,
     offers.actual_count = offers.legacy_count as all_existing_offers_legacy,

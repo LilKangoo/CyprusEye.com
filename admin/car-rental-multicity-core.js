@@ -29,6 +29,20 @@
   ]);
   const VEHICLE_IMAGE_EXTENSIONS = Object.freeze(['jpg', 'jpeg', 'png', 'webp']);
   const PENDING_IMAGE_URL = '$car_multicity_pending_image_url';
+  const PRICING_STRATEGIES = Object.freeze(['legacy_compat', 'threshold_daily_rate']);
+  const INSURANCE_MODES = Object.freeze([
+    'legacy_optional_daily',
+    'optional_daily',
+    'included',
+    'not_offered',
+  ]);
+  const DAILY_RATE_TIER_COLUMNS = Object.freeze([
+    'id',
+    'offer_id',
+    'threshold_days',
+    'daily_rate',
+    'is_active',
+  ]);
   const PRICE_COLUMNS = Object.freeze([
     'price_per_day',
     'price_3days',
@@ -46,6 +60,9 @@
     'car_model',
     'transmission',
     'fuel_type',
+    'engine_capacity_cc',
+    'required_licence_category',
+    'minimum_driver_age',
     'max_passengers',
     'max_luggage',
     'stock_count',
@@ -59,7 +76,14 @@
   const PROFILE_COLUMNS = Object.freeze(['pricing_profile_id', 'location']);
   const PRICING_EDIT_COLUMNS = Object.freeze([
     ...PROFILE_COLUMNS,
+    'pricing_strategy',
+    'min_rental_days',
+    'max_rental_days',
     'currency',
+    'insurance_mode',
+    'insurance_per_day',
+    'young_driver_fee',
+    'young_driver_cost',
     ...PRICE_COLUMNS,
   ]);
   const PARTNER_COLUMNS = Object.freeze(['owner_partner_id']);
@@ -78,8 +102,12 @@
     ...PRICE_COLUMNS,
     'currency',
     'insurance_per_day',
+    'insurance_mode',
     'young_driver_fee',
     'young_driver_cost',
+    'pricing_strategy',
+    'min_rental_days',
+    'max_rental_days',
     'pricing_profile_id',
     'location',
     'owner_partner_id',
@@ -97,6 +125,11 @@
 
   function normalizeCode(value) {
     return String(value || '').trim().toLowerCase();
+  }
+
+  function normalizeNullableCode(value) {
+    const code = normalizeCode(value);
+    return code || null;
   }
 
   function normalizeText(value) {
@@ -268,6 +301,102 @@
     return Number.isFinite(parsed) && Math.abs((parsed * 100) - Math.round(parsed * 100)) < 1e-8;
   }
 
+  function normalizeDailyRateTier(row, offerId = null) {
+    return {
+      id: normalizeId(row?.id) || null,
+      clientKey: normalizeId(row?.clientKey || row?.id)
+        || `tier-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      offer_id: normalizeId(row?.offer_id || offerId) || null,
+      threshold_days: normalizeInteger(row?.threshold_days),
+      daily_rate: normalizeMoney(row?.daily_rate),
+      is_active: row?.is_active !== false,
+      updated_at: row?.updated_at || null,
+    };
+  }
+
+  function sortDailyRateTiers(tiers = []) {
+    return (tiers || []).map((row) => normalizeDailyRateTier(row, row?.offer_id)).sort((left, right) => (
+      (left.threshold_days ?? Number.MAX_SAFE_INTEGER) - (right.threshold_days ?? Number.MAX_SAFE_INTEGER)
+      || String(left.id || left.clientKey).localeCompare(String(right.id || right.clientKey))
+    ));
+  }
+
+  function effectiveThresholdMinimum(tiers = []) {
+    const thresholds = sortDailyRateTiers(tiers)
+      .filter((tier) => tier.is_active && Number.isInteger(tier.threshold_days) && tier.threshold_days > 0)
+      .map((tier) => tier.threshold_days);
+    return thresholds.length ? thresholds[0] : null;
+  }
+
+  function selectDailyRateTier(tiers, rentalDays) {
+    const days = normalizeInteger(rentalDays);
+    if (!(days > 0)) return null;
+    const eligible = sortDailyRateTiers(tiers).filter((tier) => (
+      tier.is_active
+      && Number.isInteger(tier.threshold_days)
+      && tier.threshold_days > 0
+      && tier.threshold_days <= days
+      && Number.isFinite(tier.daily_rate)
+      && tier.daily_rate > 0
+    ));
+    return eligible.length ? eligible[eligible.length - 1] : null;
+  }
+
+  function calculateThresholdBasePrice(tiers, rentalDays, maxRentalDays = null) {
+    const days = normalizeInteger(rentalDays);
+    const maximum = normalizeInteger(maxRentalDays);
+    if (!(days > 0) || (maximum !== null && days > maximum)) return null;
+    const tier = selectDailyRateTier(tiers, days);
+    if (!tier) return null;
+    return {
+      rentalDays: days,
+      thresholdDays: tier.threshold_days,
+      dailyRate: tier.daily_rate,
+      baseRentalPrice: normalizeMoney(tier.daily_rate * days),
+      tierId: tier.id,
+    };
+  }
+
+  function synchronizeThresholdMinimum(draft) {
+    if (!draft?.pricing) return null;
+    const minimum = effectiveThresholdMinimum(draft.pricing.dailyRateTiers || []);
+    draft.pricing.minRentalDays = minimum;
+    invalidateReview(draft);
+    return minimum;
+  }
+
+  function addDailyRateTier(draft, input = {}) {
+    if (!draft?.pricing) throw new Error('Pricing draft is unavailable');
+    const tier = normalizeDailyRateTier({ ...input, offer_id: draft.offerId || null }, draft.offerId);
+    draft.pricing.dailyRateTiers = sortDailyRateTiers([...(draft.pricing.dailyRateTiers || []), tier]);
+    synchronizeThresholdMinimum(draft);
+    return tier;
+  }
+
+  function updateDailyRateTier(draft, key, patch = {}) {
+    const exactKey = normalizeId(key);
+    const tier = (draft?.pricing?.dailyRateTiers || []).find((row) => (
+      normalizeId(row.id || row.clientKey) === exactKey
+    ));
+    if (!tier) throw new Error('Exact daily-rate tier is missing');
+    if (Object.prototype.hasOwnProperty.call(patch, 'threshold_days')) tier.threshold_days = normalizeInteger(patch.threshold_days);
+    if (Object.prototype.hasOwnProperty.call(patch, 'daily_rate')) tier.daily_rate = normalizeMoney(patch.daily_rate);
+    if (Object.prototype.hasOwnProperty.call(patch, 'is_active')) tier.is_active = patch.is_active === true;
+    draft.pricing.dailyRateTiers = sortDailyRateTiers(draft.pricing.dailyRateTiers);
+    synchronizeThresholdMinimum(draft);
+    return tier;
+  }
+
+  function removeDailyRateTier(draft, key) {
+    const exactKey = normalizeId(key);
+    const before = draft?.pricing?.dailyRateTiers || [];
+    const next = before.filter((row) => normalizeId(row.id || row.clientKey) !== exactKey);
+    if (next.length === before.length) throw new Error('Exact daily-rate tier is missing');
+    draft.pricing.dailyRateTiers = sortDailyRateTiers(next);
+    synchronizeThresholdMinimum(draft);
+    return true;
+  }
+
   function stableValue(value) {
     if (Array.isArray(value)) return value.map(stableValue);
     if (!value || typeof value !== 'object') return value;
@@ -433,8 +562,11 @@
         vehicleKindId: normalizeId(offer?.vehicle_kind_id || defaultKind?.id),
         carType: normalizeI18n(offer?.car_type ?? ''),
         carModel: clone(offer?.car_model || { pl: '', en: '', he: '' }),
-        transmission: normalizeCode(offer?.transmission || 'manual'),
-        fuelType: normalizeCode(offer?.fuel_type || 'petrol'),
+        transmission: isCreate ? normalizeCode(offer?.transmission || 'manual') : normalizeNullableCode(offer?.transmission),
+        fuelType: isCreate ? normalizeCode(offer?.fuel_type || 'petrol') : normalizeNullableCode(offer?.fuel_type),
+        engineCapacityCc: normalizeInteger(offer?.engine_capacity_cc),
+        requiredLicenceCategory: normalizeText(offer?.required_licence_category),
+        minimumDriverAge: normalizeInteger(offer?.minimum_driver_age),
         maxPassengers: normalizeInteger(offer?.max_passengers, 5),
         maxLuggage: normalizeInteger(offer?.max_luggage, 2),
         stockCount: normalizeInteger(offer?.stock_count, 1),
@@ -453,6 +585,9 @@
         features: clone(offer?.features || { pl: [], en: [], he: [] }),
       },
       pricing: {
+        strategy: PRICING_STRATEGIES.includes(normalizeCode(offer?.pricing_strategy))
+          ? normalizeCode(offer.pricing_strategy)
+          : 'legacy_compat',
         profileId: initialProfileId,
         location: selectedProfile ? profileLocation(selectedProfile) : normalizeCode(offer?.location),
         currency: normalizeText(offer?.currency || 'EUR').toUpperCase(),
@@ -462,8 +597,16 @@
         price7To10Days: normalizeMoney(offer?.price_7_10days),
         price10PlusDays: normalizeMoney(offer?.price_10plus_days),
         insurancePerDay: normalizeMoney(offer?.insurance_per_day, 0),
+        insuranceMode: INSURANCE_MODES.includes(normalizeCode(offer?.insurance_mode))
+          ? normalizeCode(offer.insurance_mode)
+          : 'legacy_optional_daily',
         youngDriverFee: offer?.young_driver_fee === true,
         youngDriverCost: normalizeMoney(offer?.young_driver_cost, 0),
+        minRentalDays: normalizeInteger(offer?.min_rental_days, isCreate ? 3 : 1),
+        maxRentalDays: normalizeInteger(offer?.max_rental_days),
+        dailyRateTiers: sortDailyRateTiers(
+          (context.dailyRateTiers || []).map((tier) => normalizeDailyRateTier(tier, offer?.id)),
+        ),
       },
       availability,
       partner: {
@@ -471,6 +614,7 @@
       },
       publicMode: 'legacy',
       globalMappedFlag: false,
+      globalThresholdFlag: false,
       validation: { errors: [], warnings: [] },
       review: { isCurrent: false, fingerprint: null, plan: null },
     };
@@ -500,8 +644,11 @@
       vehicle_kind_id: normalizeId(draft.vehicle.vehicleKindId),
       car_type: preserveI18nValue(draft.vehicle.carType, originalOffer?.car_type),
       car_model: preserveI18nValue(draft.vehicle.carModel, originalOffer?.car_model),
-      transmission: normalizeCode(draft.vehicle.transmission),
-      fuel_type: normalizeCode(draft.vehicle.fuelType),
+      transmission: normalizeNullableCode(draft.vehicle.transmission),
+      fuel_type: normalizeNullableCode(draft.vehicle.fuelType),
+      engine_capacity_cc: normalizeInteger(draft.vehicle.engineCapacityCc),
+      required_licence_category: normalizeText(draft.vehicle.requiredLicenceCategory) || null,
+      minimum_driver_age: normalizeInteger(draft.vehicle.minimumDriverAge),
       max_passengers: normalizeInteger(draft.vehicle.maxPassengers),
       max_luggage: normalizeInteger(draft.vehicle.maxLuggage),
       stock_count: normalizeInteger(draft.vehicle.stockCount),
@@ -528,6 +675,9 @@
 
   function pricingPayload(draft) {
     return {
+      pricing_strategy: 'legacy_compat',
+      min_rental_days: normalizeInteger(draft.pricing.minRentalDays, 1),
+      max_rental_days: normalizeInteger(draft.pricing.maxRentalDays),
       currency: normalizeText(draft.pricing.currency || 'EUR').toUpperCase(),
       price_per_day: normalizeMoney(draft.pricing.pricePerDay),
       price_3days: normalizeMoney(draft.pricing.price3Days),
@@ -535,17 +685,34 @@
       price_7_10days: normalizeMoney(draft.pricing.price7To10Days),
       price_10plus_days: normalizeMoney(draft.pricing.price10PlusDays),
       insurance_per_day: normalizeMoney(draft.pricing.insurancePerDay, 0),
+      insurance_mode: INSURANCE_MODES.includes(normalizeCode(draft.pricing.insuranceMode))
+        ? normalizeCode(draft.pricing.insuranceMode)
+        : 'legacy_optional_daily',
       young_driver_fee: draft.pricing.youngDriverFee === true,
       young_driver_cost: normalizeMoney(draft.pricing.youngDriverCost, 0),
     };
   }
 
   function pricingEditPayload(draft, context) {
+    const strategy = PRICING_STRATEGIES.includes(normalizeCode(draft.pricing.strategy))
+      ? normalizeCode(draft.pricing.strategy)
+      : 'legacy_compat';
     const profile = profileById(context, draft.pricing.profileId);
     const code = normalizeCode(profile?.code);
     const payload = {
-      ...profilePayload(draft, context),
+      ...(strategy === 'legacy_compat' ? profilePayload(draft, context) : {}),
+      pricing_strategy: strategy,
+      min_rental_days: strategy === 'threshold_daily_rate'
+        ? effectiveThresholdMinimum(draft.pricing.dailyRateTiers)
+        : normalizeInteger(draft.pricing.minRentalDays, 1),
+      max_rental_days: normalizeInteger(draft.pricing.maxRentalDays),
       currency: normalizeText(draft.pricing.currency || 'EUR').toUpperCase(),
+      insurance_mode: INSURANCE_MODES.includes(normalizeCode(draft.pricing.insuranceMode))
+        ? normalizeCode(draft.pricing.insuranceMode)
+        : 'legacy_optional_daily',
+      insurance_per_day: normalizeMoney(draft.pricing.insurancePerDay, 0),
+      young_driver_fee: draft.pricing.youngDriverFee === true,
+      young_driver_cost: normalizeMoney(draft.pricing.youngDriverCost, 0),
     };
     const fieldValues = {
       price_per_day: draft.pricing.pricePerDay,
@@ -554,23 +721,28 @@
       price_7_10days: draft.pricing.price7To10Days,
       price_10plus_days: draft.pricing.price10PlusDays,
     };
-    (PROFILE_PRICE_COLUMNS[code] || []).forEach((column) => {
-      payload[column] = normalizeMoney(fieldValues[column]);
-    });
+    if (strategy === 'legacy_compat') {
+      (PROFILE_PRICE_COLUMNS[code] || []).forEach((column) => {
+        payload[column] = normalizeMoney(fieldValues[column]);
+      });
+    }
     return payload;
   }
 
   function validateAvailability(draft, context, errors) {
+    const thresholdStrategy = normalizeCode(draft?.pricing?.strategy) === 'threshold_daily_rate';
     const profile = profileById(context, draft.pricing.profileId);
-    if (!profile) {
+    if (!thresholdStrategy && !profile) {
       errors.push({ field: 'pricingProfileId', message: 'Select an exact pricing profile.' });
       return;
     }
-    try {
-      assertProfileContract(profile);
-    } catch (error) {
-      errors.push({ field: 'pricingProfileId', message: error.message });
-      return;
+    if (!thresholdStrategy) {
+      try {
+        assertProfileContract(profile);
+      } catch (error) {
+        errors.push({ field: 'pricingProfileId', message: error.message });
+        return;
+      }
     }
 
     const seen = new Set();
@@ -581,7 +753,15 @@
         return;
       }
       seen.add(cityId);
-      const fee = getAvailabilityFeeState(row, profile, mappingFor(context, profile.id, cityId));
+      const mapping = thresholdStrategy ? null : mappingFor(context, profile.id, cityId);
+      const fee = thresholdStrategy
+        ? {
+          mode: normalizeCode(row?.fee_mode) === 'override' ? 'override' : 'inherit',
+          valid: normalizeCode(row?.fee_mode) === 'override'
+            ? Number.isFinite(normalizeMoney(row?.fee_per_direction)) && normalizeMoney(row?.fee_per_direction) >= 0
+            : LEGACY_PRICING_KEYS.includes(normalizeCode(cityById(context, cityId)?.code)),
+        }
+        : getAvailabilityFeeState(row, profile, mapping);
       if (fee.mode === 'override' && (!fee.valid || !hasAtMostTwoDecimals(row.fee_per_direction))) {
         errors.push({ field: `fee-${cityId}`, message: 'Custom fee per direction must be a finite amount of zero or greater.' });
       }
@@ -590,9 +770,14 @@
       }
       if (!row?.is_active && !row?.pickup_enabled && !row?.return_enabled) return;
       const city = cityById(context, cityId);
-      const mapping = mappingFor(context, profile.id, cityId);
       if (!city || city.is_active !== true) {
         errors.push({ field: `availability-${cityId}`, message: 'Selected city is inactive or missing.' });
+        return;
+      }
+      if (thresholdStrategy) {
+        if (fee.mode === 'inherit' && !LEGACY_PRICING_KEYS.includes(normalizeCode(city.code))) {
+          errors.push({ field: `fee-${cityId}`, message: 'A custom fee is required for this city.' });
+        }
         return;
       }
       if (!mapping || mapping.is_active !== true || !normalizeCode(mapping.legacy_pricing_city_key)) {
@@ -626,9 +811,19 @@
     if (draft.mode !== 'create' && !normalizeId(draft.offerId)) {
       errors.push({ field: 'offerId', message: 'Exact car offer ID is required.' });
     }
+    const strategy = normalizeCode(draft.pricing.strategy);
+    const thresholdStrategy = strategy === 'threshold_daily_rate';
+    if (!PRICING_STRATEGIES.includes(strategy)) {
+      errors.push({ field: 'pricingStrategy', message: 'Select a supported pricing strategy.' });
+    }
     const profile = profileById(context, draft.pricing.profileId);
-    if (!profile) errors.push({ field: 'pricingProfileId', message: 'Select a pricing profile.' });
-    else if (profile.is_active !== true) errors.push({ field: 'pricingProfileId', message: 'Selected pricing profile is inactive.' });
+    if ((!thresholdStrategy || draft.mode === 'create') && !profile) {
+      errors.push({ field: 'pricingProfileId', message: thresholdStrategy
+        ? 'Select a legacy booking compatibility key for the new exact offer.'
+        : 'Select a pricing profile.' });
+    } else if ((!thresholdStrategy || draft.mode === 'create') && profile.is_active !== true) {
+      errors.push({ field: 'pricingProfileId', message: 'Selected compatibility profile is inactive.' });
+    }
     const vehicleKind = (context.vehicleKinds || []).find((row) => normalizeId(row?.id) === normalizeId(draft.vehicle.vehicleKindId));
     if (!vehicleKind) errors.push({ field: 'vehicleKindId', message: 'Select an exact vehicle kind.' });
     else if (vehicleKind.is_active !== true) errors.push({ field: 'vehicleKindId', message: 'Selected vehicle kind is inactive.' });
@@ -654,8 +849,21 @@
         errors.push({ field, message: `${field} must be a non-negative integer.` });
       }
     });
+    if (draft.vehicle.engineCapacityCc !== null && draft.vehicle.engineCapacityCc !== '' && (
+      normalizeInteger(draft.vehicle.engineCapacityCc) === null || Number(draft.vehicle.engineCapacityCc) < 1
+    )) {
+      errors.push({ field: 'engineCapacityCc', message: 'Engine capacity must be a positive integer or empty.' });
+    }
+    if (draft.vehicle.minimumDriverAge !== null && draft.vehicle.minimumDriverAge !== '' && (
+      normalizeInteger(draft.vehicle.minimumDriverAge) === null
+      || Number(draft.vehicle.minimumDriverAge) < 16
+      || Number(draft.vehicle.minimumDriverAge) > 99
+    )) {
+      errors.push({ field: 'minimumDriverAge', message: 'Minimum driver age must be between 16 and 99 or empty.' });
+    }
     if (draft.publicMode !== 'legacy') errors.push({ field: 'publicMode', message: 'Stage 2C must remain in legacy mode.' });
     if (draft.globalMappedFlag !== false) errors.push({ field: 'globalMappedFlag', message: 'Global mapped flag must remain false.' });
+    if (draft.globalThresholdFlag !== false) errors.push({ field: 'globalThresholdFlag', message: 'Global threshold-pricing flag must remain false.' });
 
     validateAvailability(draft, context, errors);
 
@@ -663,7 +871,34 @@
       if (normalizeText(draft.pricing.currency).toUpperCase() !== 'EUR') {
         errors.push({ field: 'currency', message: 'Cars pricing currency must remain EUR.' });
       }
-      if (!profile) {
+      if (thresholdStrategy) {
+        const activeTiers = sortDailyRateTiers(draft.pricing.dailyRateTiers).filter((tier) => tier.is_active);
+        const thresholds = new Set();
+        if (!activeTiers.length) {
+          errors.push({ field: 'dailyRateTiers', message: 'At least one active daily-rate tier is required.' });
+        }
+        activeTiers.forEach((tier) => {
+          if (!(Number.isInteger(tier.threshold_days) && tier.threshold_days > 0)) {
+            errors.push({ field: `tier-${tier.clientKey}`, message: 'Tier threshold must be a positive whole number of days.' });
+          } else if (thresholds.has(tier.threshold_days)) {
+            errors.push({ field: `tier-${tier.clientKey}`, message: 'Each threshold day must be unique for this exact offer.' });
+          }
+          thresholds.add(tier.threshold_days);
+          if (!(tier.daily_rate > 0) || !hasAtMostTwoDecimals(tier.daily_rate)) {
+            errors.push({ field: `tier-${tier.clientKey}`, message: 'Daily rate must be greater than zero with at most two decimals.' });
+          }
+        });
+        const derivedMinimum = effectiveThresholdMinimum(activeTiers);
+        if (normalizeInteger(draft.pricing.minRentalDays) !== derivedMinimum) {
+          errors.push({ field: 'minRentalDays', message: 'Minimum rental days must equal the lowest active price threshold.' });
+        }
+        const maximum = normalizeInteger(draft.pricing.maxRentalDays);
+        if (draft.pricing.maxRentalDays !== null && draft.pricing.maxRentalDays !== '' && maximum === null) {
+          errors.push({ field: 'maxRentalDays', message: 'Maximum rental days must be a whole number or empty.' });
+        } else if (maximum !== null && derivedMinimum !== null && maximum < derivedMinimum) {
+          errors.push({ field: 'maxRentalDays', message: 'Maximum rental days cannot be lower than the effective minimum.' });
+        }
+      } else if (!profile) {
         // Profile error already reported.
       } else if (normalizeCode(profile.code) === 'larnaca') {
         if (!(normalizeMoney(draft.pricing.pricePerDay) > 0) || !hasAtMostTwoDecimals(draft.pricing.pricePerDay)) {
@@ -675,6 +910,15 @@
             errors.push({ field, message: 'Every Paphos pricing tier must be greater than zero.' });
           }
         });
+      }
+      if (!INSURANCE_MODES.includes(normalizeCode(draft.pricing.insuranceMode))) {
+        errors.push({ field: 'insuranceMode', message: 'Select a supported insurance configuration.' });
+      }
+      if (!(normalizeMoney(draft.pricing.insurancePerDay, -1) >= 0) || !hasAtMostTwoDecimals(draft.pricing.insurancePerDay)) {
+        errors.push({ field: 'insurancePerDay', message: 'Insurance daily amount must be zero or greater.' });
+      }
+      if (!(normalizeMoney(draft.pricing.youngDriverCost, -1) >= 0) || !hasAtMostTwoDecimals(draft.pricing.youngDriverCost)) {
+        errors.push({ field: 'youngDriverCost', message: 'Young-driver daily surcharge must be zero or greater.' });
       }
     }
 
@@ -706,28 +950,43 @@
 
   function getMappedReadiness(draft, context = draft?.snapshot || {}) {
     const reasons = [];
+    const thresholdStrategy = normalizeCode(draft?.pricing?.strategy) === 'threshold_daily_rate';
     const profile = profileById(context, draft?.pricing?.profileId);
-    if (!profile || profile.is_active !== true) reasons.push('Pricing profile is missing or inactive.');
-    if (profile && profileLocation(profile) !== normalizeCode(draft?.pricing?.location)) {
-      reasons.push('Pricing profile does not match the legacy compatibility location.');
+    if (!thresholdStrategy) {
+      if (!profile || profile.is_active !== true) reasons.push('Pricing profile is missing or inactive.');
+      if (profile && profileLocation(profile) !== normalizeCode(draft?.pricing?.location)) {
+        reasons.push('Pricing profile does not match the legacy compatibility location.');
+      }
+    } else {
+      const minimum = effectiveThresholdMinimum(draft?.pricing?.dailyRateTiers || []);
+      if (minimum === null) reasons.push('At least one active daily-rate tier is required.');
+      if (minimum !== normalizeInteger(draft?.pricing?.minRentalDays)) {
+        reasons.push('Minimum rental days must match the lowest active daily-rate tier.');
+      }
     }
     let pickups = 0;
     let returns = 0;
     (draft?.availability || []).forEach((row) => {
       if (row?.is_active !== true) return;
       const city = cityById(context, row.city_id);
-      const mapping = mappingFor(context, profile?.id, row.city_id);
-      if (!city || city.is_active !== true || !mapping || mapping.is_active !== true) {
-        reasons.push(`City ${normalizeId(row.city_id) || 'unknown'} is not covered by an active mapping.`);
+      const mapping = thresholdStrategy ? null : mappingFor(context, profile?.id, row.city_id);
+      if (!city || city.is_active !== true || (!thresholdStrategy && (!mapping || mapping.is_active !== true))) {
+        reasons.push(`City ${normalizeId(row.city_id) || 'unknown'} is not active or supported.`);
         return;
       }
-      const fee = getAvailabilityFeeState(row, profile, mapping);
+      const fee = thresholdStrategy
+        ? {
+          valid: normalizeCode(row?.fee_mode) === 'override'
+            ? Number.isFinite(normalizeMoney(row?.fee_per_direction)) && normalizeMoney(row?.fee_per_direction) >= 0
+            : LEGACY_PRICING_KEYS.includes(normalizeCode(city.code)),
+        }
+        : getAvailabilityFeeState(row, profile, mapping);
       if (!fee.valid) {
         reasons.push(`Fee required for city ${normalizeCode(city.code) || normalizeId(row.city_id)}.`);
         return;
       }
-      if (row.pickup_enabled && mapping.pickup_supported) pickups += 1;
-      if (row.return_enabled && mapping.return_supported) returns += 1;
+      if (row.pickup_enabled && (thresholdStrategy || mapping.pickup_supported)) pickups += 1;
+      if (row.return_enabled && (thresholdStrategy || mapping.return_supported)) returns += 1;
     });
     if (pickups < 1) reasons.push('At least one active pickup city is required.');
     if (returns < 1) reasons.push('At least one active return city is required.');
@@ -827,6 +1086,66 @@
     });
   }
 
+  function dailyRateTierDiff(draft, context = draft?.snapshot || {}) {
+    const offerId = normalizeId(draft.offerId);
+    const beforeById = new Map((context.dailyRateTiers || [])
+      .map((row) => normalizeDailyRateTier(row, offerId))
+      .filter((row) => row.id)
+      .map((row) => [row.id, row]));
+    const afterRows = sortDailyRateTiers(draft?.pricing?.dailyRateTiers || []);
+    const afterIds = new Set(afterRows.map((row) => row.id).filter(Boolean));
+    const changes = [];
+
+    beforeById.forEach((before, id) => {
+      if (afterIds.has(id)) return;
+      changes.push({
+        action: 'delete',
+        entityType: 'car_offer_daily_rate_tier',
+        entityId: id,
+        offerId,
+        expectedUpdatedAt: before.updated_at,
+        payload: {},
+        changes: DAILY_RATE_TIER_COLUMNS.slice(2).map((field) => fieldDiff(
+          'car_offer_daily_rate_tier', id, field, before[field], null, { offerId },
+        )).filter(Boolean),
+      });
+    });
+
+    afterRows.forEach((after) => {
+      const before = after.id ? beforeById.get(after.id) : null;
+      const payload = {
+        offer_id: offerId,
+        threshold_days: normalizeInteger(after.threshold_days),
+        daily_rate: normalizeMoney(after.daily_rate),
+        is_active: after.is_active === true,
+      };
+      const rowChanges = diffPayload(
+        'car_offer_daily_rate_tier',
+        after.id || after.clientKey,
+        before,
+        payload,
+        DAILY_RATE_TIER_COLUMNS.slice(1),
+        { offerId },
+      );
+      if (!rowChanges.length) return;
+      changes.push({
+        action: before ? 'update' : 'insert',
+        entityType: 'car_offer_daily_rate_tier',
+        entityId: after.id || after.clientKey,
+        offerId,
+        expectedUpdatedAt: before?.updated_at || null,
+        payload,
+        changes: rowChanges,
+      });
+    });
+
+    const order = { delete: 0, update: 1, insert: 2 };
+    return changes.sort((left, right) => (
+      order[left.action] - order[right.action]
+      || String(left.entityId).localeCompare(String(right.entityId))
+    ));
+  }
+
   function buildStep(key, type, action, entityId, expectedUpdatedAt, payload, changes, dependsOn = []) {
     return {
       key,
@@ -854,6 +1173,7 @@
       exactOfferId: normalizeId(draft.offerId) || null,
       expectedUpdatedAt: draft.expectedUpdatedAt || null,
       globalMappedFlagChanges: 0,
+      globalThresholdFlagChanges: 0,
       bookingChanges: 0,
       priceCalculationChanges: 0,
       depositRuleChanges: 0,
@@ -870,7 +1190,9 @@
       cityIds: Array.from(new Set((selectionOverride.cityIds || []).map(normalizeId).filter(Boolean))).sort(),
       partnerIds: Array.from(new Set((selectionOverride.partnerIds || []).map(normalizeId).filter(Boolean))).sort(),
     } : {
-      profileId: normalizeId(draft?.pricing?.profileId),
+      profileId: normalizeCode(draft?.pricing?.strategy) === 'threshold_daily_rate'
+        ? ''
+        : normalizeId(draft?.pricing?.profileId),
       cityIds: Array.from(new Set([
         ...(draft?.availability || []).map((row) => normalizeId(row?.city_id)),
         ...(context?.availability || []).map((row) => normalizeId(row?.city_id)),
@@ -888,7 +1210,21 @@
       selection,
       offerContract: project(
         context.offer,
-        ['id', 'pricing_profile_id', 'location', 'owner_partner_id', 'availability_mode', 'updated_at'],
+        [
+          'id',
+          'pricing_profile_id',
+          'location',
+          'owner_partner_id',
+          'availability_mode',
+          'pricing_strategy',
+          'min_rental_days',
+          'max_rental_days',
+          'insurance_mode',
+          'insurance_per_day',
+          'young_driver_fee',
+          'young_driver_cost',
+          'updated_at',
+        ],
       ),
       profile: project(
         (context.profiles || []).find((row) => normalizeId(row?.id) === selection.profileId),
@@ -905,6 +1241,9 @@
       availability: (context.availability || [])
         .map((row) => project(row, ['offer_id', 'city_id', 'pickup_enabled', 'return_enabled', 'is_active', 'fee_mode', 'fee_per_direction', 'fee_note', 'updated_at']))
         .sort((left, right) => String(left.city_id).localeCompare(String(right.city_id))),
+      dailyRateTiers: (context.dailyRateTiers || [])
+        .map((row) => project(row, ['id', 'offer_id', 'threshold_days', 'daily_rate', 'is_active', 'updated_at']))
+        .sort((left, right) => Number(left.threshold_days) - Number(right.threshold_days)),
       partners: (context.partners || [])
         .filter((row) => selection.partnerIds.includes(normalizeId(row?.id)))
         .map((row) => project(row, ['id', 'status', 'can_manage_cars', 'updated_at']))
@@ -918,6 +1257,7 @@
         ['id', 'resource_type', 'resource_id', 'mode', 'amount', 'currency', 'include_children', 'enabled', 'updated_at'],
       ),
       globalFlag: context.siteSetting?.car_multi_city_mapped_enabled ?? null,
+      globalThresholdFlag: context.siteSetting?.car_threshold_daily_rates_enabled ?? null,
     };
   }
 
@@ -937,14 +1277,51 @@
 
   function buildPricingProfilePlan(draft, context = draft?.snapshot || {}) {
     const offer = context.offer || {};
-    const payload = pricingEditPayload(draft, context);
-    const fields = Object.keys(payload);
-    const changes = diffPayload('car_offer', draft.offerId, offer, payload, fields);
+    const reviewedPayload = pricingEditPayload(draft, context);
+    const fields = Object.keys(reviewedPayload);
+    const changes = diffPayload('car_offer', draft.offerId, offer, reviewedPayload, fields);
+    const payload = changes.reduce((result, change) => {
+      result[change.field] = clone(reviewedPayload[change.field]);
+      return result;
+    }, {});
+    if (normalizeCode(draft?.pricing?.strategy) === 'legacy_compat' && changes.length) {
+      const profile = profileById(context, draft.pricing.profileId);
+      const profileCode = normalizeCode(profile?.code);
+      [...PROFILE_COLUMNS, 'currency', ...(PROFILE_PRICE_COLUMNS[profileCode] || [])].forEach((field) => {
+        payload[field] = clone(reviewedPayload[field]);
+      });
+    }
+    if (changes.some((change) => ['pricing_strategy', 'min_rental_days', 'max_rental_days'].includes(change.field))) {
+      ['pricing_strategy', 'min_rental_days', 'max_rental_days'].forEach((field) => {
+        payload[field] = clone(reviewedPayload[field]);
+      });
+    }
+    const tierDiffs = dailyRateTierDiff(draft, context);
+    const tierSteps = tierDiffs.map((entry) => buildStep(
+      `daily_rate_tier_${entry.action}_${entry.entityId}`,
+      'car_offer_daily_rate_tier',
+      entry.action,
+      entry.entityId,
+      entry.expectedUpdatedAt,
+      entry.payload,
+      entry.changes,
+    ));
     const step = changes.length
-      ? buildStep('pricing_and_profile', 'car_offer', 'update', draft.offerId, offer.updated_at, payload, changes)
+      ? buildStep(
+        'pricing_and_profile',
+        'car_offer',
+        'update',
+        draft.offerId,
+        offer.updated_at,
+        payload,
+        changes,
+        tierSteps.map((tierStep) => tierStep.key),
+      )
       : null;
-    return createPlan('pricing_profile', draft, step ? [step] : [], {
+    return createPlan('pricing_profile', draft, [...tierSteps, ...(step ? [step] : [])], {
       existingPriceColumnChanges: changes.filter((change) => PRICE_COLUMNS.includes(change.field)).length,
+      dailyRateTierChanges: tierDiffs.length,
+      effectiveMinRentalDays: effectiveThresholdMinimum(draft.pricing.dailyRateTiers),
       preservedPriceColumns: PRICE_COLUMNS.reduce((result, column) => {
         result[column] = clone(offer[column]);
         return result;
@@ -954,6 +1331,7 @@
   }
 
   function buildAvailabilityPlan(draft, context = draft?.snapshot || {}) {
+    const thresholdStrategy = normalizeCode(draft?.pricing?.strategy) === 'threshold_daily_rate';
     const diffs = availabilityDiff(draft, context);
     const forbidden = diffs.flatMap((entry) => entry.changes).filter((change) => PRICE_COLUMNS.includes(change.field) || change.field === 'owner_partner_id');
     if (forbidden.length) throw new Error('Availability plan contains forbidden fields');
@@ -967,9 +1345,9 @@
       entry.changes,
     ));
     return createPlan('availability', draft, steps, {
-      exactProfileId: normalizeId(draft.pricing.profileId),
+      exactProfileId: thresholdStrategy ? null : normalizeId(draft.pricing.profileId),
       availableCities: availabilityReviewSummary(diffs, draft, context),
-      profileCitySnapshot: clone(context.profileCities || []),
+      profileCitySnapshot: thresholdStrategy ? [] : clone(context.profileCities || []),
       citySnapshot: clone(context.cities || []),
       existingPriceColumnChanges: 0,
       preflightSnapshot: buildPreflightSnapshot(draft, context),
@@ -991,9 +1369,21 @@
 
   function buildCreateVehiclePlan(draft, context = draft?.snapshot || {}) {
     const profile = profileById(context, draft.pricing.profileId);
+    const thresholdStrategy = normalizeCode(draft?.pricing?.strategy) === 'threshold_daily_rate';
+    const effectiveMinimum = thresholdStrategy
+      ? effectiveThresholdMinimum(draft.pricing.dailyRateTiers)
+      : normalizeInteger(draft.pricing.minRentalDays, 1);
+    const intendedAvailability = draft.vehicle.isAvailable === true;
     const payload = {
       ...vehiclePayload(draft),
       ...pricingPayload(draft),
+      // Fail closed while the exact-ID tiers are being created. The final
+      // step restores the reviewed availability only after database validation.
+      is_available: thresholdStrategy ? false : intendedAvailability,
+      min_rental_days: effectiveMinimum,
+      // The live legacy schema keeps price_per_day NOT NULL. Zero is an inert
+      // compatibility value for a threshold offer and is never its price.
+      price_per_day: thresholdStrategy ? (normalizeMoney(draft.pricing.pricePerDay) ?? 0) : normalizeMoney(draft.pricing.pricePerDay),
       pricing_profile_id: normalizeId(profile?.id),
       location: assertProfileContract(profile),
       owner_partner_id: normalizeNullableId(draft.partner.ownerPartnerId),
@@ -1003,6 +1393,54 @@
     const forbidden = keys.filter((key) => !CREATE_COLUMNS.includes(key));
     if (forbidden.length) throw new Error(`Create payload contains forbidden fields: ${forbidden.join(', ')}`);
     const offerStep = buildStep('create_offer', 'car_offer', 'insert', null, null, payload, keys.map((field) => fieldDiff('car_offer', null, field, null, payload[field])).filter(Boolean));
+    const tierSteps = thresholdStrategy
+      ? sortDailyRateTiers(draft.pricing.dailyRateTiers).map((tier) => {
+        const tierPayload = {
+          offer_id: '$created_offer_id',
+          threshold_days: normalizeInteger(tier.threshold_days),
+          daily_rate: normalizeMoney(tier.daily_rate),
+          is_active: tier.is_active === true,
+        };
+        return buildStep(
+          `create_daily_rate_tier_${tier.clientKey || tier.threshold_days}`,
+          'car_offer_daily_rate_tier',
+          'insert',
+          `$created_offer_id:${tier.threshold_days}`,
+          null,
+          tierPayload,
+          DAILY_RATE_TIER_COLUMNS.slice(1).map((field) => fieldDiff(
+            'car_offer_daily_rate_tier',
+            `$created_offer_id:${tier.threshold_days}`,
+            field,
+            null,
+            tierPayload[field],
+          )).filter(Boolean),
+          ['create_offer'],
+        );
+      })
+      : [];
+    const finalizeStep = thresholdStrategy
+      ? buildStep(
+        'finalize_created_threshold_offer',
+        'car_offer',
+        'update',
+        '$created_offer_id',
+        null,
+        {
+          pricing_strategy: 'threshold_daily_rate',
+          min_rental_days: effectiveMinimum,
+          max_rental_days: normalizeInteger(draft.pricing.maxRentalDays),
+          is_available: intendedAvailability,
+        },
+        [
+          fieldDiff('car_offer', '$created_offer_id', 'pricing_strategy', 'legacy_compat', 'threshold_daily_rate'),
+          fieldDiff('car_offer', '$created_offer_id', 'min_rental_days', null, effectiveMinimum),
+          fieldDiff('car_offer', '$created_offer_id', 'max_rental_days', null, normalizeInteger(draft.pricing.maxRentalDays)),
+          fieldDiff('car_offer', '$created_offer_id', 'is_available', false, intendedAvailability),
+        ].filter(Boolean),
+        tierSteps.map((step) => step.key),
+      )
+      : null;
     const availabilitySteps = (draft.availability || []).filter((row) => row.is_active || row.pickup_enabled || row.return_enabled).map((row) => {
       const cityId = normalizeId(row.city_id);
       const availabilityPayload = {
@@ -1025,10 +1463,10 @@
         null,
         availabilityPayload,
         AVAILABILITY_COLUMNS.map((field) => fieldDiff('car_offer_city_availability', `$created_offer_id:${cityId}`, field, null, availabilityPayload[field], { cityId })).filter(Boolean),
-        ['create_offer'],
+        thresholdStrategy ? ['finalize_created_threshold_offer'] : ['create_offer'],
       );
     });
-    return createPlan('create', draft, [offerStep, ...availabilitySteps], {
+    return createPlan('create', draft, [offerStep, ...tierSteps, ...(finalizeStep ? [finalizeStep] : []), ...availabilitySteps], {
       exactOfferId: null,
       existingPriceColumnChanges: PRICE_COLUMNS.filter((column) => payload[column] !== null && payload[column] !== undefined).length,
       availableCities: availabilityReviewSummary(
@@ -1041,6 +1479,8 @@
         context,
       ),
       media: clone(draft.media),
+      dailyRateTierChanges: tierSteps.length,
+      effectiveMinRentalDays: thresholdStrategy ? effectiveMinimum : null,
       resultingAvailabilityMode: 'legacy',
       preflightSnapshot: buildPreflightSnapshot(draft, context),
     });
@@ -1082,6 +1522,7 @@
       partner: draft?.partner,
       publicMode: draft?.publicMode,
       globalMappedFlag: draft?.globalMappedFlag,
+      globalThresholdFlag: draft?.globalThresholdFlag,
     }));
   }
 
@@ -1115,7 +1556,7 @@
         is_active: row.is_active,
         updated_at: row.updated_at,
       })));
-      const actualMappings = stableSerialize((freshContext?.profileCities || []).map((row) => ({
+      const actualMappings = stableSerialize((plan.exactProfileId ? (freshContext?.profileCities || []) : []).map((row) => ({
         pricing_profile_id: row.pricing_profile_id,
         city_id: row.city_id,
         pickup_supported: row.pickup_supported,
@@ -1143,6 +1584,9 @@
     }
     if (freshContext?.siteSetting?.car_multi_city_mapped_enabled !== false) {
       errors.push({ field: 'globalFlag', message: 'Global mapped flag is not false.' });
+    }
+    if (freshContext?.siteSetting?.car_threshold_daily_rates_enabled !== false) {
+      errors.push({ field: 'globalThresholdFlag', message: 'Global threshold-pricing flag is not false.' });
     }
     return { valid: errors.length === 0, errors };
   }
@@ -1203,6 +1647,8 @@
   const api = Object.freeze({
     AVAILABILITY_COLUMNS,
     CREATE_COLUMNS,
+    DAILY_RATE_TIER_COLUMNS,
+    INSURANCE_MODES,
     LEGACY_CITY_FEE_PREVIEW,
     LEGACY_LOCATIONS,
     LEGACY_PRICING_KEYS,
@@ -1213,6 +1659,7 @@
     PROFILE_COLUMNS,
     PROFILE_PRICE_COLUMNS,
     PENDING_IMAGE_URL,
+    PRICING_STRATEGIES,
     VEHICLE_COLUMNS,
     VEHICLE_IMAGE_BUCKET,
     VEHICLE_IMAGE_EXTENSIONS,
@@ -1220,6 +1667,7 @@
     VEHICLE_IMAGE_MIME_TYPES,
     availabilityDiff,
     availabilityReviewSummary,
+    addDailyRateTier,
     assertProfileContract,
     buildAvailabilityPlan,
     buildCreateVehiclePlan,
@@ -1228,11 +1676,14 @@
     buildPricingProfilePlan,
     buildReviewPlan,
     buildVehicleDetailsPlan,
+    calculateThresholdBasePrice,
     cityById,
     clone,
     createCityDraft,
     createDraft,
     defaultAvailabilityRows,
+    dailyRateTierDiff,
+    effectiveThresholdMinimum,
     fingerprintDraft,
     getMappedReadiness,
     getAvailabilityFeeState,
@@ -1242,6 +1693,7 @@
     mappingFor,
     normalizeAvailabilityRow,
     normalizeCode,
+    normalizeDailyRateTier,
     normalizeId,
     normalizeI18n,
     normalizeText,
@@ -1250,12 +1702,17 @@
     profileByCode,
     profileById,
     profileLocation,
+    removeDailyRateTier,
     resolveI18nText,
     setPairedAvailability,
     setAvailabilityFee,
     setDraftProfile,
     setVehicleImageAction,
     stableSerialize,
+    sortDailyRateTiers,
+    synchronizeThresholdMinimum,
+    selectDailyRateTier,
+    updateDailyRateTier,
     validateCityDraft,
     validateDraft,
     validateFreshContext,

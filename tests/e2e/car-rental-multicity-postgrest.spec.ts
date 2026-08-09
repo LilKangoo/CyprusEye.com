@@ -46,6 +46,11 @@ async function api(pathname: string, options: ApiOptions = {}) {
 }
 
 async function resetDatabase() {
+  await api(`car_offers?id=in.(${OFFER_LARNACA},${OFFER_PAPHOS})`, {
+    method: 'PATCH', prefer: 'return=minimal',
+    body: { pricing_strategy: 'legacy_compat', availability_mode: 'legacy' },
+  });
+  await api('car_offer_daily_rate_tiers?offer_id=not.is.null', { method: 'DELETE', prefer: 'return=minimal' });
   await api('car_offer_city_availability?offer_id=not.is.null', { method: 'DELETE', prefer: 'return=minimal' });
   await api(`car_offers?id=not.in.(${OFFER_LARNACA},${OFFER_PAPHOS})`, { method: 'DELETE', prefer: 'return=minimal' });
   await api('car_rental_cities?code=like.ui-test-*', { method: 'DELETE', prefer: 'return=minimal' });
@@ -57,7 +62,9 @@ async function resetDatabase() {
     method: 'PATCH', prefer: 'return=minimal',
     body: {
       location: 'larnaca', pricing_profile_id: PROFILE_LARNACA,
-      availability_mode: 'legacy', vehicle_kind_id: KIND_CAR,
+      availability_mode: 'legacy', pricing_strategy: 'legacy_compat', min_rental_days: 1, max_rental_days: 30,
+      engine_capacity_cc: null, required_licence_category: null, minimum_driver_age: null,
+      insurance_mode: 'legacy_optional_daily', vehicle_kind_id: KIND_CAR,
       owner_partner_id: PARTNER_LARNACA, stock_count: 2,
       car_type: { pl: 'Ekonomiczne', en: 'Economy', he: 'חסכוני' },
       car_model: { pl: 'Mazda 2 test', en: 'Mazda 2 test', he: 'מאזדה 2 בדיקה' },
@@ -77,7 +84,9 @@ async function resetDatabase() {
     method: 'PATCH', prefer: 'return=minimal',
     body: {
       location: 'paphos', pricing_profile_id: PROFILE_PAPHOS,
-      availability_mode: 'legacy', vehicle_kind_id: KIND_CAR,
+      availability_mode: 'legacy', pricing_strategy: 'legacy_compat', min_rental_days: 1, max_rental_days: 30,
+      engine_capacity_cc: null, required_licence_category: null, minimum_driver_age: null,
+      insurance_mode: 'legacy_optional_daily', vehicle_kind_id: KIND_CAR,
       owner_partner_id: PARTNER_PAPHOS, stock_count: 1,
       car_type: { pl: 'SUV', en: 'SUV', he: 'SUV' },
       car_model: { pl: 'Paphos SUV test', en: 'Paphos SUV test', he: 'רכב פאפוס בדיקה' },
@@ -94,7 +103,8 @@ async function resetDatabase() {
     },
   });
   await api('site_settings?id=eq.1', {
-    method: 'PATCH', prefer: 'return=minimal', body: { car_multi_city_mapped_enabled: false },
+    method: 'PATCH', prefer: 'return=minimal',
+    body: { car_multi_city_mapped_enabled: false, car_threshold_daily_rates_enabled: false },
   });
 }
 
@@ -122,9 +132,12 @@ async function assertCleanFinancialBaseline() {
     },
   ]);
   expect(await rows('car_offer_city_availability', 'select=offer_id,city_id')).toEqual([]);
+  expect(await rows('car_offer_daily_rate_tiers', 'select=id')).toEqual([]);
   expect(await rows('car_rental_cities', 'code=like.ui-test-*&select=id')).toEqual([]);
   expect((await rows('site_settings', 'id=eq.1&select=car_multi_city_mapped_enabled'))[0]
     .car_multi_city_mapped_enabled).toBe(false);
+  expect((await rows('site_settings', 'id=eq.1&select=car_threshold_daily_rates_enabled'))[0]
+    .car_threshold_daily_rates_enabled).toBe(false);
 }
 
 function dashboardWithoutRuntimeScripts() {
@@ -366,6 +379,38 @@ test.describe('Car Rental Multi-City Stage 2C real PostgREST Admin integration',
     }));
     expect(writes.filter((entry) => entry.includes('/rest/v1/car_offers'))).toHaveLength(1);
     expect(writes.some((entry) => /availability|service_deposit|partner|car_bookings|rpc\//.test(entry))).toBe(false);
+  });
+
+  test('threshold daily-rate Admin saves exact tiers, synchronizes minimum and leaves activation OFF', async ({ page }) => {
+    await openAction(page, OFFER_LARNACA, 'pricing');
+    await page.locator('#carMulticityPricingStrategy').selectOption('threshold_daily_rate');
+    for (let index = 0; index < 3; index += 1) await page.locator('[data-tier-action="add"]').click();
+    const tierCards = page.locator('[data-tier-key]');
+    for (const [index, threshold, rate] of [[0, 1, 50], [1, 3, 45], [2, 7, 40]] as const) {
+      await tierCards.nth(index).locator('[data-tier-field="threshold_days"]').fill(String(threshold));
+      await tierCards.nth(index).locator('[data-tier-field="daily_rate"]').fill(String(rate));
+    }
+    await page.locator('[data-draft-field="pricing.maxRentalDays"]').fill('');
+    await saveReviewed(page, true);
+
+    expect((await rows('car_offers', `id=eq.${OFFER_LARNACA}&select=id,pricing_strategy,min_rental_days,max_rental_days,location,pricing_profile_id,availability_mode`))[0])
+      .toEqual({
+        id: OFFER_LARNACA,
+        pricing_strategy: 'threshold_daily_rate',
+        min_rental_days: 1,
+        max_rental_days: null,
+        location: 'larnaca',
+        pricing_profile_id: PROFILE_LARNACA,
+        availability_mode: 'legacy',
+      });
+    expect((await rows('car_offer_daily_rate_tiers', `offer_id=eq.${OFFER_LARNACA}&select=threshold_days,daily_rate,is_active&order=threshold_days.asc`)))
+      .toEqual([
+        { threshold_days: 1, daily_rate: 50, is_active: true },
+        { threshold_days: 3, daily_rate: 45, is_active: true },
+        { threshold_days: 7, daily_rate: 40, is_active: true },
+      ]);
+    const flags = (await rows('site_settings', 'id=eq.1&select=car_multi_city_mapped_enabled,car_threshold_daily_rates_enabled'))[0];
+    expect(flags).toEqual({ car_multi_city_mapped_enabled: false, car_threshold_daily_rates_enabled: false });
   });
 
   test('city create is inactive, mapping uses exact composite key, and no assignment is implicit', async ({ page }) => {

@@ -102,10 +102,8 @@ describe('Car Rental Multi-City Admin Pricing V2 static guards', () => {
     expect(verify).not.toMatch(/\b(insert|update|delete|upsert|merge|alter|create|drop|truncate|grant|revoke|call|do)\b/i);
   });
 
-  test('protected downstream files remain byte-untouched', () => {
+  test('protected downstream files outside the authorized Stage 3 reservation seam remain byte-untouched', () => {
     const protectedPaths = [
-      'js/car-reservation.js',
-      'js/car-rental-flow.js',
       'supabase/functions/partner-fulfillment-action/index.ts',
       'supabase/functions/car-booking/index.ts',
       'supabase/functions/coupon-booking-enforcement/index.ts',

@@ -10,12 +10,14 @@ const LEGACY_PAPHOS = 'hybrid-legacy-paphos';
 const MAPPED_LARNACA = 'hybrid-mapped-larnaca';
 const MAPPED_PAPHOS = 'hybrid-mapped-paphos';
 const ASYMMETRIC_LARNACA = 'hybrid-asymmetric-larnaca';
+const THRESHOLD_OFFER = 'ca3e0000-0000-4000-8000-000000000001';
 
 function car(id: string, location: 'larnaca' | 'paphos', mode: 'legacy' | 'mapped', daily: number, sortOrder: number) {
   const paphos = location === 'paphos';
   return {
     id,
     location,
+    pricing_strategy: 'legacy_compat',
     pricing_profile_id: paphos ? PROFILE_PAPHOS : PROFILE_LARNACA,
     availability_mode: mode,
     is_available: true, is_published: true, north_allowed: !paphos, submission_status: 'approved',
@@ -121,6 +123,114 @@ async function seedHybrid(page: Page, flagEnabled: boolean, failMappedRead = fal
   });
 }
 
+async function seedThresholdHybrid(page: Page) {
+  const thresholdOffer = {
+    ...car(THRESHOLD_OFFER, 'larnaca', 'mapped', 999, 5),
+    pricing_strategy: 'threshold_daily_rate',
+    min_rental_days: 1,
+    max_rental_days: null,
+    insurance_mode: 'optional_daily',
+    insurance_per_day: 12,
+    young_driver_fee: true,
+    young_driver_cost: 8,
+  };
+  const fixtureTables = {
+    ...tables,
+    car_offers: [...tables.car_offers, thresholdOffer],
+    car_offer_city_availability: [
+      ...tables.car_offer_city_availability,
+      {
+        offer_id: THRESHOLD_OFFER,
+        city_id: CITY_PAPHOS,
+        pickup_enabled: true,
+        return_enabled: true,
+        is_active: true,
+        fee_mode: 'override',
+        fee_per_direction: 0,
+      },
+    ],
+    car_offer_daily_rate_tiers: [
+      { id: 'ca3e1000-0000-4000-8000-000000000001', offer_id: THRESHOLD_OFFER, threshold_days: 1, daily_rate: 50, is_active: true },
+      { id: 'ca3e1000-0000-4000-8000-000000000003', offer_id: THRESHOLD_OFFER, threshold_days: 3, daily_rate: 45, is_active: true },
+      { id: 'ca3e1000-0000-4000-8000-000000000007', offer_id: THRESHOLD_OFFER, threshold_days: 7, daily_rate: 40, is_active: true },
+    ],
+    car_bookings: [],
+  };
+
+  await page.addInitScript(({ seededTables }) => {
+    const root = window as any;
+    delete root.CE_CAR_MULTICITY_SHADOW_CONFIG;
+    const seed = (stub: any) => {
+      if (!stub || typeof stub.seedTable !== 'function') return;
+      stub.reset?.();
+      for (const [table, rows] of Object.entries(seededTables)) stub.seedTable(table, rows);
+      stub.seedTable('site_settings', [{
+        id: 1,
+        car_multi_city_mapped_enabled: true,
+        car_threshold_daily_rates_enabled: true,
+      }]);
+      stub.setRpcHandler?.('resolve_car_threshold_authoritative_quote', async (params: any) => ({
+        data: [{
+          quote_valid: true,
+          offer_id: params.p_offer_id,
+          pricing_strategy: 'threshold_daily_rate',
+          tier_id: 'ca3e1000-0000-4000-8000-000000000003',
+          threshold_days: 3,
+          rental_days: 4,
+          daily_rate: 45,
+          rental_base_price: 180,
+          pickup_location_fee: 0,
+          return_location_fee: 0,
+          insurance_selected: false,
+          insurance_mode: 'optional_daily',
+          insurance_daily_rate: 12,
+          insurance_cost: 0,
+          young_driver_selected: false,
+          young_driver_daily_rate: 8,
+          young_driver_cost: 0,
+          pre_discount_total: 180,
+          coupon_id: null,
+          coupon_code: null,
+          discount_amount: 0,
+          final_rental_price: 180,
+          currency: 'EUR',
+          coupon_partner_id: null,
+          coupon_partner_commission_bps: null,
+          pricing_snapshot: {
+            version: 'car-threshold-authoritative-v1',
+            pricing_strategy: 'threshold_daily_rate',
+            offer_id: params.p_offer_id,
+            tier_id: 'ca3e1000-0000-4000-8000-000000000003',
+            threshold_days: 3,
+            daily_rate: 45,
+            rental_days: 4,
+            base_rental_price: 180,
+            pickup_city_code: 'paphos',
+            return_city_code: 'paphos',
+            pickup_location_fee: 0,
+            return_location_fee: 0,
+            insurance_cost: 0,
+            young_driver_cost: 0,
+            pre_discount_total: 180,
+            discount_amount: 0,
+            final_rental_price: 180,
+            currency: 'EUR',
+          },
+        }],
+        error: null,
+      }));
+    };
+    const existing = root.__supabaseStub || {};
+    const previousOnReady = existing.onReady;
+    existing.onReady = (stub: any) => {
+      previousOnReady?.(stub);
+      seed(stub);
+    };
+    root.__supabaseStub = existing;
+    seed(existing);
+  }, { seededTables: fixtureTables });
+}
+
 async function configureCarPage(page: Page, pickup: string, ret: string) {
   await page.evaluate(() => {
     delete (window as any).__CE_CAR_MULTICITY_HYBRID_RESULT__;
@@ -173,6 +283,95 @@ async function requestSafetySnapshot(page: Page) {
 }
 
 test.describe('Car Rental Multi-City Stage 2E public hybrid rendering', () => {
+  test('threshold daily-rate offer uses one exact quote on car.html and homepage', async ({ page }) => {
+    const errors = ownSourceErrors(page);
+    await seedThresholdHybrid(page);
+    await page.goto('/car.html?lang=en', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => typeof (window as any).CE_CAR_GET_CURRENT_FLEET === 'function');
+    await configureCarPage(page, 'paphos', 'paphos');
+
+    const carPage = await page.evaluate((offerId) => {
+      const result = (window as any).__CE_CAR_MULTICITY_HYBRID_RESULT__;
+      const offer = result.renderedOffers.find((entry: any) => entry.id === offerId);
+      return {
+        featureFlagEnabled: result.featureFlagEnabled,
+        thresholdFeatureFlagEnabled: result.thresholdFeatureFlagEnabled,
+        quote: offer?.quote,
+        context: offer?.pricingContext,
+        orderedTotals: result.renderedOffers.map((entry: any) => entry.quote.total),
+      };
+    }, THRESHOLD_OFFER);
+    expect(carPage.featureFlagEnabled).toBe(true);
+    expect(carPage.thresholdFeatureFlagEnabled).toBe(true);
+    expect(carPage.quote).toEqual(expect.objectContaining({
+      days: 4,
+      thresholdDays: 3,
+      dailyRate: 45,
+      basePrice: 180,
+      pickupFee: 0,
+      returnFee: 0,
+      total: 180,
+    }));
+    expect(carPage.context).toEqual(expect.objectContaining({
+      offerId: THRESHOLD_OFFER,
+      availabilityMode: 'mapped',
+      pricingStrategy: 'threshold_daily_rate',
+      legacyBookingLocation: 'larnaca',
+      pickupCityCode: 'paphos',
+      returnCityCode: 'paphos',
+    }));
+    expect(carPage.orderedTotals).toEqual([...carPage.orderedTotals].sort((left, right) => left - right));
+    await expect(page.locator(`[data-select-car-offer-id="${THRESHOLD_OFFER}"] .auto-card-price`)).toContainText('180.00');
+    await page.locator(`[data-select-car-offer-id="${THRESHOLD_OFFER}"]`).click();
+    await expect(page.locator('#res_car option:checked')).toHaveAttribute('data-offer-id', THRESHOLD_OFFER);
+    await expect(page.locator('.ce-car-home-hero-price')).toContainText('180.00');
+    await page.locator('#res_full_name').fill('Threshold Request');
+    await page.locator('#res_email').fill('threshold-request@example.test');
+    await page.locator('#res_phone_local').fill('99111222');
+    await page.locator('#btnSubmitReservation').click();
+    await expect.poll(async () => page.evaluate(() => (
+      (window as any).__supabaseStub?.getTableRows?.('car_bookings')?.length || 0
+    )), { timeout: 15000 }).toBe(1);
+    const bookingRequest = await page.evaluate(() => ({
+      booking: (window as any).__supabaseStub?.getTableRows?.('car_bookings')?.[0] || null,
+      authoritativeCalls: ((window as any).__supabaseStub?.getRpcCalls?.() || [])
+        .filter((call: any) => call.name === 'resolve_car_threshold_authoritative_quote'),
+    }));
+    expect(bookingRequest.authoritativeCalls).toHaveLength(1);
+    expect(bookingRequest.booking).toEqual(expect.objectContaining({
+      offer_id: THRESHOLD_OFFER,
+      status: 'pending',
+      location: 'larnaca',
+      pickup_location: 'paphos',
+      return_location: 'paphos',
+      pickup_city_code: 'paphos',
+      return_city_code: 'paphos',
+      quoted_price: 180,
+      total_price: 180,
+      base_rental_price: 180,
+      final_rental_price: 180,
+      pickup_location_fee: 0,
+      return_location_fee: 0,
+      pricing_snapshot: expect.objectContaining({
+        pricing_strategy: 'threshold_daily_rate',
+        tier_id: 'ca3e1000-0000-4000-8000-000000000003',
+        daily_rate: 45,
+        rental_days: 4,
+      }),
+    }));
+    expect(bookingRequest.booking.status).not.toBe('confirmed');
+
+    await page.goto('/index.html?lang=en', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => Boolean(document.querySelector('#carsFinderPickupLocation option[value="paphos"]')));
+    await configureHomepage(page, 'paphos', 'paphos');
+    await expect(page.locator(`[data-car-offer-id="${THRESHOLD_OFFER}"] .ce-home-card-subtitle`)).toContainText('180.00');
+    await page.locator(`[data-car-offer-id="${THRESHOLD_OFFER}"]`).click();
+    await expect(page.locator('#res_car option:checked')).toHaveAttribute('data-offer-id', THRESHOLD_OFFER);
+    await expect(page.locator('.ce-car-home-hero-price')).toContainText('180.00');
+    expect(await requestSafetySnapshot(page)).toEqual({ mutations: [], rpc: [] });
+    expect(errors).toEqual([]);
+  });
+
   test('without a JS global, DB flag OFF preserves exact legacy results on car.html and homepage', async ({ page }) => {
     const errors = ownSourceErrors(page);
     await seedHybrid(page, false, false, false);
