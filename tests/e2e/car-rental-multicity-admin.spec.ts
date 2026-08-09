@@ -266,6 +266,44 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     expect(carType).toEqual({ pl: 'Ekonomiczne', en: 'Economy', he: 'חסכוני' });
   });
 
+  test('vehicle editor preserves unknown bicycle capacity and edits translated feature arrays', async ({ page }) => {
+    await page.evaluate((offerId) => {
+      const stub = (window as any).__supabaseStub;
+      stub.seedTable('car_offers', stub.getTableRows('car_offers').map((row: any) => row.id === offerId ? {
+        ...row,
+        max_passengers: null,
+        max_luggage: null,
+        transmission: null,
+        fuel_type: null,
+        features: { pl: ['Kask w cenie'], en: ['Helmet included'], he: ['קסדה כלולה'] },
+      } : row));
+    }, OFFER_ID);
+    await page.evaluate(() => (window as any).loadFleetData({ silent: true }));
+    await expect(page.locator('#fleetTableBody')).not.toContainText('null seats');
+    await expect(page.locator('#fleetTableBody')).toContainText('Not specified');
+    await openAction(page, 'vehicle');
+    await expect(page.locator('#carMulticityMaxPassengers')).toHaveValue('');
+    await expect(page.locator('[data-draft-field="vehicle.maxLuggage"]')).toHaveValue('');
+    await expect(page.locator('#content-features-en')).toHaveValue('Helmet included');
+    await page.locator('#content-features-en').fill('Helmet included\nExact 24-hour rental day');
+    await page.locator('#carMulticityReview').click();
+    await expect(page.locator('#carMulticityModalContent')).toContainText('features');
+    await page.locator('#carMulticitySave').click();
+    await page.locator('#carMulticityConfirmAccept').click();
+    await expect(page.locator('#carMulticityReceiptHeading')).toHaveText('Saved');
+
+    const offer = await page.evaluate((offerId) => (
+      (window as any).__supabaseStub.getTableRows('car_offers').find((row: any) => row.id === offerId)
+    ), OFFER_ID);
+    expect(offer.max_passengers).toBeNull();
+    expect(offer.max_luggage).toBeNull();
+    expect(offer.features).toEqual({
+      pl: ['Kask w cenie'],
+      en: ['Helmet included', 'Exact 24-hour rental day'],
+      he: ['קסדה כלולה'],
+    });
+  });
+
   test('mismatched legacy availability is warned and normalized only after conscious paired Save', async ({ page }) => {
     await page.evaluate((offerId) => {
       const stub = (window as any).__supabaseStub;

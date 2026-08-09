@@ -352,6 +352,50 @@ describe('Car Rental Multi-City Stage 2D availability adapter', () => {
     expect(carPage.mappedOffers).toEqual([]);
   });
 
+  test('threshold offers do not inherit the implicit legacy Larnaca north filter', async () => {
+    const speedBikesOffer = offer('speedbikes-ayia-napa', 'larnaca', {
+      pricing_profile_id: null,
+      pricing_strategy: 'threshold_daily_rate',
+      min_rental_days: 1,
+      max_rental_days: null,
+      insurance_mode: 'included',
+      insurance_per_day: 0,
+      young_driver_fee: false,
+      young_driver_cost: 0,
+      north_allowed: false,
+    });
+    const speedBikesAvailability = {
+      ...availability(speedBikesOffer.id, 'ayia-napa'),
+      fee_mode: 'override',
+      fee_per_direction: 0,
+    };
+    const context = baseContext({
+      offers: [speedBikesOffer],
+      availability: [speedBikesAvailability],
+      dailyRateTiers: [{
+        id: 'speedbikes-tier-1', offer_id: speedBikesOffer.id,
+        threshold_days: 1, daily_rate: 50, is_active: true,
+      }],
+    });
+
+    const carPage = await resolve({
+      pickupCityCode: 'ayia-napa',
+      returnCityCode: 'ayia-napa',
+      thresholdFeatureFlagEnabled: true,
+      filters: { platform: 'car-page' },
+    }, context);
+    expect(carPage.mappedOffers.map((row: any) => row.id)).toEqual([speedBikesOffer.id]);
+    expect(carPage.mappedOffers[0].quote).toEqual(expect.objectContaining({ total: 150 }));
+
+    const explicitlyRequired = await resolve({
+      pickupCityCode: 'ayia-napa',
+      returnCityCode: 'ayia-napa',
+      thresholdFeatureFlagEnabled: true,
+      filters: { platform: 'car-page', requireNorthAllowed: true },
+    }, context);
+    expect(explicitlyRequired.mappedOffers).toEqual([]);
+  });
+
   test('never returns mapped offers as rendered Stage 2D output', async () => {
     const legacyOffers = [offer('offer-larnaca')];
     const result = await resolve({ legacyOffers });

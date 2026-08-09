@@ -108,13 +108,13 @@ function valueMatchesFilter(value, expected) {
 function passesFilters(offer, profile, input, diagnostics) {
   const filters = input.filters && typeof input.filters === 'object' ? input.filters : {};
   if (offer?.is_available !== true || offer?.is_published !== true) return false;
+  const thresholdOffer = normalized(offer?.pricing_strategy) === CAR_THRESHOLD_PRICING_STRATEGY;
 
   const passengers = Math.max(1, Math.floor(Number(input.passengers) || 1));
   const capacity = Number(offer?.max_passengers || 0);
   if (Number.isFinite(capacity) && capacity > 0 && capacity < passengers) return false;
 
   if (input.youngDriver) {
-    const thresholdOffer = normalized(offer?.pricing_strategy) === CAR_THRESHOLD_PRICING_STRATEGY;
     if ((!thresholdOffer && profile?.calculator_key !== 'larnaca') || offer?.young_driver_fee !== true) return false;
   }
 
@@ -123,13 +123,13 @@ function passesFilters(offer, profile, input, diagnostics) {
     ? filters.requireNorthAllowed
     : null;
   const effectiveLegacyLocation = normalized(profile?.calculator_key || offer?.location);
-  const carPageNorth = platform === 'car-page'
+  const carPageNorth = platform === 'car-page' && !thresholdOffer
     ? effectiveLegacyLocation === 'larnaca'
     : null;
   const expectedNorth = explicitNorth == null ? carPageNorth : explicitNorth;
   if (typeof expectedNorth === 'boolean' && offer?.north_allowed !== expectedNorth) return false;
 
-  if (platform === 'homepage' && effectiveLegacyLocation === 'larnaca' && offer?.north_allowed === false) {
+  if (platform === 'homepage' && !thresholdOffer && effectiveLegacyLocation === 'larnaca' && offer?.north_allowed === false) {
     addDiagnostic(diagnostics, 'HOMEPAGE_CAR_PAGE_NORTH_ALLOWED_DIFFERENCE', {
       offerId: text(offer.id),
       profileId: text(profile.id),

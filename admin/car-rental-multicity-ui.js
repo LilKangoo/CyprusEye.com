@@ -44,6 +44,13 @@
     const adminLanguage = () => core.normalizeCode(documentRef.documentElement?.lang || 'en') || 'en';
     const labelI18n = (value) => core.resolveI18nText(value, adminLanguage());
     const money = (value) => value === null || value === undefined || value === '' ? '—' : `€${Number(value).toFixed(2)}`;
+    const dailyRate = (value) => {
+      if (value === null || value === undefined || value === '' || !Number.isFinite(Number(value))) return '—';
+      const fixed = Number(value).toFixed(6);
+      const [whole, fraction] = fixed.split('.');
+      const significant = fraction.replace(/0+$/, '').padEnd(2, '0');
+      return `€${whole}.${significant}`;
+    };
     const priceLabels = Object.freeze({
       price_per_day: 'Daily price',
       price_3days: '3-day package price',
@@ -224,6 +231,18 @@
       return `<div class="car-multicity-i18n-grid">${fields}</div>`;
     }
 
+    function i18nListInput(prefix, label, value) {
+      const values = value && typeof value === 'object' ? value : {};
+      const fields = ['pl', 'en', 'he'].map((language) => {
+        const id = `${String(prefix).replace(/\./g, '-')}-${language}`;
+        const lines = Array.isArray(values[language])
+          ? values[language]
+          : values[language] ? [values[language]] : [];
+        return `<label class="admin-form-field"><span>${escapeHtml(label)} (${language.toUpperCase()}) · one item per line</span><textarea id="${id}" data-i18n-list-field="${escapeHtml(prefix)}" data-language="${language}" rows="5">${escapeHtml(lines.join('\n'))}</textarea></label>`;
+      }).join('');
+      return `<div class="car-multicity-i18n-grid">${fields}</div>`;
+    }
+
     function renderVehicleMedia() {
       const media = state.draft.media || { action: 'unchanged', currentUrl: '', pendingFile: null };
       const currentUrl = String(media.currentUrl || '');
@@ -318,15 +337,15 @@
             <label class="admin-form-field"><span>Engine capacity (cc)</span><input type="number" min="1" data-number="integer" data-draft-field="vehicle.engineCapacityCc" value="${escapeHtml(vehicle.engineCapacityCc ?? '')}" placeholder="Not applicable"></label>
             <label class="admin-form-field"><span>Required licence category</span><input data-draft-field="vehicle.requiredLicenceCategory" value="${escapeHtml(vehicle.requiredLicenceCategory || '')}" maxlength="32" placeholder="e.g. B, AM, A1"></label>
             <label class="admin-form-field"><span>Minimum driver age</span><input type="number" min="16" max="99" data-number="integer" data-draft-field="vehicle.minimumDriverAge" value="${escapeHtml(vehicle.minimumDriverAge ?? '')}" placeholder="Not specified"></label>
-            <label class="admin-form-field"><span>Passengers</span><input type="number" min="1" data-number="integer" data-draft-field="vehicle.maxPassengers" id="carMulticityMaxPassengers" value="${escapeHtml(vehicle.maxPassengers)}"></label>
-            <label class="admin-form-field"><span>Luggage</span><input type="number" min="0" data-number="integer" data-draft-field="vehicle.maxLuggage" value="${escapeHtml(vehicle.maxLuggage)}"></label>
+            <label class="admin-form-field"><span>Passenger capacity</span><input type="number" min="1" data-number="integer" data-draft-field="vehicle.maxPassengers" id="carMulticityMaxPassengers" value="${escapeHtml(vehicle.maxPassengers ?? '')}" placeholder="Not confirmed"></label>
+            <label class="admin-form-field"><span>Luggage capacity</span><input type="number" min="0" data-number="integer" data-draft-field="vehicle.maxLuggage" value="${escapeHtml(vehicle.maxLuggage ?? '')}" placeholder="Not confirmed"></label>
             <label class="admin-form-field"><span>Stock</span><input type="number" min="0" data-number="integer" data-draft-field="vehicle.stockCount" value="${escapeHtml(vehicle.stockCount)}"></label>
             <label class="admin-form-field"><span>Sort order</span><input type="number" min="0" data-number="integer" data-draft-field="vehicle.sortOrder" value="${escapeHtml(vehicle.sortOrder)}"></label>
             <label class="car-multicity-check"><input type="checkbox" data-boolean="true" data-draft-field="vehicle.isAvailable" ${vehicle.isAvailable ? 'checked' : ''}> Available</label>
             <label class="car-multicity-check"><input type="checkbox" data-boolean="true" data-draft-field="vehicle.northAllowed" ${vehicle.northAllowed ? 'checked' : ''}> North allowed</label>
           </div>
           ${i18nInput('vehicle.carType', 'Commercial class', vehicle.carType)}
-          ${i18nInput('vehicle.carModel', 'Car model', vehicle.carModel)}
+          ${i18nInput('vehicle.carModel', 'Vehicle model', vehicle.carModel)}
         </section>
         ${includeContent ? `${renderContentFields()}${renderDepositSummary()}` : ''}
       `;
@@ -337,8 +356,9 @@
         <section class="car-multicity-section" aria-labelledby="carMulticityContentHeading">
           <h4 id="carMulticityContentHeading">Content and media</h4>
           ${i18nInput('content.description', 'Description', state.draft.content.description, true)}
+          ${i18nListInput('content.features', 'Features', state.draft.content.features)}
           ${renderVehicleMedia()}
-          <p class="car-multicity-note">Features remain unchanged in this simplified editor. Use Legacy editor for translated feature-list maintenance.</p>
+          <p class="car-multicity-note">Descriptions and feature lists are stored in the existing PL / EN / HE JSONB fields. Empty or unconfirmed facts should remain empty.</p>
         </section>
       `;
     }
@@ -381,9 +401,9 @@
                 : null;
               return `<article class="car-multicity-tier-card" data-tier-key="${escapeHtml(key)}">
                 <label class="admin-form-field"><span>Daily rate for rentals from</span><span class="car-multicity-tier-input"><input type="number" min="1" step="1" data-tier-field="threshold_days" value="${escapeHtml(tier.threshold_days ?? '')}"><b>days</b></span></label>
-                <label class="admin-form-field"><span>Daily rate</span><span class="car-multicity-tier-input"><b>€</b><input type="number" min="0.01" step="0.01" data-tier-field="daily_rate" value="${escapeHtml(tier.daily_rate ?? '')}"><b>/ day</b></span></label>
+                <label class="admin-form-field"><span>Daily rate</span><span class="car-multicity-tier-input"><b>€</b><input type="number" min="0.000001" step="0.000001" inputmode="decimal" data-tier-field="daily_rate" value="${escapeHtml(tier.daily_rate ?? '')}"><b>/ day</b></span></label>
                 <label class="car-multicity-check"><input type="checkbox" data-tier-field="is_active" ${tier.is_active ? 'checked' : ''}> Active</label>
-                <div class="car-multicity-tier-example" data-tier-example>${example ? `${money(example.dailyRate)} × ${example.rentalDays} days = <strong>${money(example.baseRentalPrice)}</strong> base rental price` : 'Enter a positive threshold and daily rate.'}</div>
+                <div class="car-multicity-tier-example" data-tier-example>${example ? `${dailyRate(example.dailyRate)} × ${example.rentalDays} days = <strong>${money(example.baseRentalPrice)}</strong> base rental price` : 'Enter a positive threshold and daily rate.'}</div>
                 <button type="button" class="btn-secondary" data-tier-action="remove">Delete tier</button>
               </article>`;
             }).join('') : '<div class="car-multicity-empty-state">No tiers configured. At least one active tier is required before threshold pricing is Ready.</div>'}
@@ -934,7 +954,7 @@
         const output = card.querySelector('[data-tier-example]');
         if (output) {
           output.innerHTML = example
-            ? `${money(example.dailyRate)} × ${escapeHtml(example.rentalDays)} days = <strong>${money(example.baseRentalPrice)}</strong> base rental price`
+            ? `${dailyRate(example.dailyRate)} × ${escapeHtml(example.rentalDays)} days = <strong>${money(example.baseRentalPrice)}</strong> base rental price`
             : 'Enter a positive threshold and daily rate.';
         }
       });
@@ -961,6 +981,17 @@
       const i18nField = target?.dataset?.i18nField;
       if (i18nField) {
         setPath(state.draft, `${i18nField}.${target.dataset.language}`, target.value);
+        core.invalidateReview(state.draft);
+        state.plan = null;
+        return;
+      }
+      const i18nListField = target?.dataset?.i18nListField;
+      if (i18nListField) {
+        const items = String(target.value || '')
+          .split(/\r?\n/)
+          .map((item) => item.trim())
+          .filter(Boolean);
+        setPath(state.draft, `${i18nListField}.${target.dataset.language}`, items);
         core.invalidateReview(state.draft);
         state.plan = null;
         return;

@@ -127,12 +127,21 @@ async function seedThresholdHybrid(page: Page) {
   const thresholdOffer = {
     ...car(THRESHOLD_OFFER, 'larnaca', 'mapped', 999, 5),
     pricing_strategy: 'threshold_daily_rate',
+    car_type: { pl: 'Rower', en: 'Bicycle', he: 'אופניים' },
+    features: { pl: ['Kask w cenie'], en: ['Helmet included'], he: ['קסדה כלולה'] },
+    transmission: null,
+    fuel_type: null,
+    engine_capacity_cc: null,
+    required_licence_category: null,
+    minimum_driver_age: 18,
+    max_passengers: null,
+    max_luggage: null,
     min_rental_days: 1,
     max_rental_days: null,
-    insurance_mode: 'optional_daily',
-    insurance_per_day: 12,
-    young_driver_fee: true,
-    young_driver_cost: 8,
+    insurance_mode: 'not_offered',
+    insurance_per_day: 0,
+    young_driver_fee: false,
+    young_driver_cost: 0,
   };
   const fixtureTables = {
     ...tables,
@@ -182,11 +191,11 @@ async function seedThresholdHybrid(page: Page) {
           pickup_location_fee: 0,
           return_location_fee: 0,
           insurance_selected: false,
-          insurance_mode: 'optional_daily',
-          insurance_daily_rate: 12,
+          insurance_mode: 'not_offered',
+          insurance_daily_rate: 0,
           insurance_cost: 0,
           young_driver_selected: false,
-          young_driver_daily_rate: 8,
+          young_driver_daily_rate: 0,
           young_driver_cost: 0,
           pre_discount_total: 180,
           coupon_id: null,
@@ -325,6 +334,12 @@ test.describe('Car Rental Multi-City Stage 2E public hybrid rendering', () => {
     await page.locator(`[data-select-car-offer-id="${THRESHOLD_OFFER}"]`).click();
     await expect(page.locator('#res_car option:checked')).toHaveAttribute('data-offer-id', THRESHOLD_OFFER);
     await expect(page.locator('.ce-car-home-hero-price')).toContainText('180.00');
+    await expect(page.locator('.ce-car-home-hero-badges')).not.toContainText('AC');
+    await expect(page.locator('.ce-car-home-hero-badges')).not.toContainText('5 seats');
+    await expect(page.locator('.ce-car-home-details')).toContainText('Minimum age');
+    await expect(page.locator('.ce-car-home-details')).toContainText('18+');
+    await expect(page.locator('#res_child_seats')).toHaveCount(0);
+    await expect(page.getByText('Optional insurance is not offered for this vehicle.', { exact: true })).toBeVisible();
     await page.locator('#res_full_name').fill('Threshold Request');
     await page.locator('#res_email').fill('threshold-request@example.test');
     await page.locator('#res_phone_local').fill('99111222');

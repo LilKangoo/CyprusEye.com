@@ -591,6 +591,19 @@ function getFleetFilteredByPassengers(source = paphosFleet) {
   return { requiredPassengers, filteredFleet, requireYoungDriver };
 }
 
+function updateLandingInsuranceLabel(fleet = []) {
+  const label = document.querySelector('label[for="fullInsurance"]');
+  if (!label) return;
+  const hasThresholdOffers = (fleet || []).some((offer) => offer?.pricing_strategy === CAR_THRESHOLD_PRICING_STRATEGY);
+  if (!hasThresholdOffers) return;
+  label.removeAttribute('data-i18n');
+  label.textContent = carUiText({
+    pl: 'Opcjonalne ubezpieczenie (dostępność i cena zależą od pojazdu)',
+    en: 'Optional insurance (availability and price depend on the vehicle)',
+    he: 'ביטוח אופציונלי (הזמינות והמחיר תלויים ברכב)',
+  }, null, getI18nShortLanguage());
+}
+
 window.CE_CAR_COMPUTE_QUOTE = calculateQuoteForSelection;
 window.CE_CAR_LOAD_FLEET = loadPaphosFleet;
 
@@ -742,8 +755,11 @@ function renderFleet() {
         ? i18n('carRental.common.transmission.manual', null, 'Manual')
         : carUiText({ pl: 'Nie dotyczy', en: 'Not applicable', he: 'לא רלוונטי' }, null, lang);
     
-    const seats = car.max_passengers || 5;
-    const seatsText = i18n('carRental.common.seats', { count: seats }, `${seats} miejsc`);
+    const thresholdOffer = car?.pricing_strategy === CAR_THRESHOLD_PRICING_STRATEGY;
+    const seats = Number(car?.max_passengers);
+    const seatsText = Number.isInteger(seats) && seats > 0
+      ? i18n('carRental.common.seats', { count: seats }, `${seats} miejsc`)
+      : '';
     
     // Calculate display price (use 10+ days rate as "from" price)
     const fromPrice = car.price_10plus_days || car.price_per_day || 30;
@@ -799,11 +815,11 @@ function renderFleet() {
     }
 
     const reserveLabel = i18n('carRental.common.reserveCar', null, 'Zarezerwuj to auto');
-    const noDepositLabel = car?.pricing_strategy === CAR_THRESHOLD_PRICING_STRATEGY
+    const noDepositLabel = thresholdOffer
       ? carUiText({ pl: 'Wymaga potwierdzenia partnera', en: 'Partner confirmation required', he: 'נדרש אישור שותף' }, null, lang)
       : i18n('carRentalLanding.hero.stats.noDeposit', null, 'Bez kaucji');
 
-    const cardMeta = `${transmission} • ${seatsText} • AC`;
+    const cardMeta = [transmission, seatsText, thresholdOffer ? '' : 'AC'].filter(Boolean).join(' • ');
 
     return `
       <article class="card auto-card auto-card--fleet" role="button" tabindex="0" aria-label="${escapeHtml(reserveLabel)}: ${escapeHtml(carModelName)}" data-select-car="${escapeHtml(carModelName)}" data-select-car-offer-id="${escapeHtml(car.id)}">
@@ -840,6 +856,7 @@ function updateCalculatorOptions() {
   const { requiredPassengers, filteredFleet, requireYoungDriver } = renderedSource === legacyFilterState.filteredFleet
     ? legacyFilterState
     : getFleetFilteredByPassengers(renderedSource);
+  updateLandingInsuranceLabel(filteredFleet);
   const lang = getI18nShortLanguage();
   const previousSelectValue = String(select?.value || '').trim();
   const previousReservationValue = String(resSelect?.value || '').trim();
@@ -868,10 +885,13 @@ function updateCalculatorOptions() {
       : car.transmission === 'manual'
         ? i18n('carRental.common.transmission.manual', null, 'Manual')
         : carUiText({ pl: 'Nie dotyczy', en: 'Not applicable', he: 'לא רלוונטי' });
-    const seats = car.max_passengers || 5;
+    const seats = Number(car?.max_passengers);
     const carModelName = window.getCarName ? window.getCarName(car) : car.car_model;
-    const seatsText = i18n('carRental.common.seats', { count: seats }, `${seats} miejsc`);
-    return `<option value="${escapeHtml(carModelName)}" data-offer-id="${escapeHtml(car.id)}">${escapeHtml(carModelName)} — ${escapeHtml(transmission)} • ${escapeHtml(seatsText)}</option>`;
+    const seatsText = Number.isInteger(seats) && seats > 0
+      ? i18n('carRental.common.seats', { count: seats }, `${seats} miejsc`)
+      : '';
+    const optionMeta = [transmission, seatsText].filter(Boolean).join(' • ');
+    return `<option value="${escapeHtml(carModelName)}" data-offer-id="${escapeHtml(car.id)}">${escapeHtml(carModelName)}${optionMeta ? ` — ${escapeHtml(optionMeta)}` : ''}</option>`;
   }).join('');
 
   // Update calculator select

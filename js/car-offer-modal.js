@@ -85,6 +85,19 @@ function getCarFeatures(car) {
   return window.getCarFeatures ? window.getCarFeatures(car) : (Array.isArray(car?.features) ? car.features : []);
 }
 
+function getConfirmedPassengerCapacity(car) {
+  const capacity = Number(car?.max_passengers);
+  return Number.isInteger(capacity) && capacity > 0 ? capacity : null;
+}
+
+function titleCaseCityCode(value) {
+  return String(value || '')
+    .split('-')
+    .filter(Boolean)
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+    .join(' ');
+}
+
 function getCarMediaDisplayUrl(url) {
   if (window.CE_MEDIA_VIEWER?.getDisplayUrl) {
     return window.CE_MEDIA_VIEWER.getDisplayUrl(url);
@@ -336,10 +349,11 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
       : transmissionCode === 'manual'
         ? text('Manual', 'Manual', 'ידני')
         : text('Nie dotyczy', 'Not applicable', 'לא רלוונטי');
-    const seats = car.max_passengers || 5;
-    const seatsText = text(`${seats} miejsc`, `${seats} seats`, `${seats} מושבים`);
+    const seats = getConfirmedPassengerCapacity(car);
+    const seatsText = seats ? text(`${seats} miejsc`, `${seats} seats`, `${seats} מושבים`) : '';
+    const optionMeta = [transmission, seatsText].filter(Boolean).join(' • ');
 
-    return `<option value="${escapeHtml(title)}" data-offer-id="${escapeHtml(car.id)}" ${String(car.id) === String(selectedCarId) ? 'selected' : ''}>${escapeHtml(title)} — ${escapeHtml(transmission)} • ${escapeHtml(seatsText)}</option>`;
+    return `<option value="${escapeHtml(title)}" data-offer-id="${escapeHtml(car.id)}" ${String(car.id) === String(selectedCarId) ? 'selected' : ''}>${escapeHtml(title)}${optionMeta ? ` — ${escapeHtml(optionMeta)}` : ''}</option>`;
   }).join('');
 
   const youngDriverConfig = thresholdOffer
@@ -409,9 +423,14 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
     : text('Pełne ubezpieczenie AC (+17€/dzień)', 'Full insurance (+17€/day)', 'ביטוח מלא (+17€ ליום)'))}</label>
         </div>
       `;
-
   const i18nPrefix = loc === 'paphos' ? 'carRentalPfo.page.reservation' : 'carRental.page.reservation';
   const whatsappKey = loc === 'paphos' ? 'carRentalPfo.page.reservation.whatsapp' : 'carRental.page.reservation.actions.whatsapp';
+  const childSeatsField = thresholdOffer
+    ? ''
+    : `<div class="auto-field">
+        <label for="res_child_seats" data-i18n="${i18nPrefix}.fields.childSeats.label">Foteliki dziecięce (gratis)</label>
+        <input type="number" id="res_child_seats" name="child_seats" min="0" max="3" value="0">
+      </div>`;
 
   const effectiveMinimum = thresholdOffer ? Number(selectedCar?.min_rental_days || 1) : 3;
   const minBanner = text(
@@ -624,10 +643,7 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
               <label for="res_passengers" data-i18n="${i18nPrefix}.fields.passengers.label">Liczba pasażerów</label>
               <input type="number" id="res_passengers" name="num_passengers" min="1" max="8" value="${escapeHtml(String(passengersValue))}">
             </div>
-            <div class="auto-field">
-              <label for="res_child_seats" data-i18n="${i18nPrefix}.fields.childSeats.label">Foteliki dziecięce (gratis)</label>
-              <input type="number" id="res_child_seats" name="child_seats" min="0" max="3" value="0">
-            </div>
+            ${childSeatsField}
           </div>
 
           ${insuranceBlock}
@@ -823,8 +839,8 @@ export function openCarOfferModal({
     : transmissionCode === 'manual'
       ? text('Manual', 'Manual', 'ידני')
       : text('Nie dotyczy', 'Not applicable', 'לא רלוונטי');
-  const seats = car.max_passengers || 5;
-  const seatsText = text(`${seats} miejsc`, `${seats} seats`, `${seats} מושבים`);
+  const seats = getConfirmedPassengerCapacity(car);
+  const seatsText = seats ? text(`${seats} miejsc`, `${seats} seats`, `${seats} מושבים`) : '';
   const fuelType = String(car.fuel_type || '').toLowerCase();
   const fuelText = fuelType === 'petrol'
     ? text('Benzyna 95', 'Petrol 95', 'בנזין 95')
@@ -837,12 +853,26 @@ export function openCarOfferModal({
           : (car.fuel_type || '');
   const features = getCarFeatures(car);
   const description = getCarDescription(car);
-  const detailsTitle = text('Szczegóły auta', 'Car details', 'פרטי הרכב');
+  const detailsTitle = thresholdOffer
+    ? text('Szczegóły pojazdu', 'Vehicle details', 'פרטי הרכב')
+    : text('Szczegóły auta', 'Car details', 'פרטי הרכב');
   const labelTransmission = text('Skrzynia', 'Transmission', 'תיבת הילוכים');
   const labelSeats = text('Miejsca', 'Seats', 'מושבים');
   const labelFuel = text('Paliwo', 'Fuel', 'דלק');
-  const labelLocation = text('Oferta', 'Offer', 'הצעה');
-  const locLabel = loc === 'paphos' ? text('Pafos', 'Paphos', 'פאפוס') : text('Larnaka', 'Larnaca', 'לרנקה');
+  const labelEngine = text('Pojemność silnika', 'Engine capacity', 'נפח מנוע');
+  const labelLicence = text('Wymagane prawo jazdy', 'Required licence', 'רישיון נדרש');
+  const labelMinimumAge = text('Minimalny wiek', 'Minimum age', 'גיל מינימלי');
+  const labelLocation = thresholdOffer
+    ? text('Trasa', 'Route', 'מסלול')
+    : text('Oferta', 'Offer', 'הצעה');
+  const locLabel = thresholdOffer
+    ? [titleCaseCityCode(normalizedPickupCity), titleCaseCityCode(normalizedReturnCity)].filter(Boolean).join(' → ')
+    : loc === 'paphos' ? text('Pafos', 'Paphos', 'פאפוס') : text('Larnaka', 'Larnaca', 'לרנקה');
+  const engineCapacity = Number(car.engine_capacity_cc);
+  const engineText = Number.isInteger(engineCapacity) && engineCapacity > 0 ? `${engineCapacity} cc` : '';
+  const licenceText = String(car.required_licence_category || '').trim();
+  const minimumAge = Number(car.minimum_driver_age);
+  const minimumAgeText = Number.isInteger(minimumAge) && minimumAge > 0 ? `${minimumAge}+` : '';
 
   const pricingSource = Array.isArray(fleetByLocation?.[loc]) ? fleetByLocation[loc] : [car];
   captureCarPricingContext();
@@ -857,11 +887,11 @@ export function openCarOfferModal({
         <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(title)}" class="ce-car-home-hero-image" />
         <div class="ce-car-home-hero-overlay">
           <div class="ce-car-home-hero-badges">
-            <span class="ce-car-home-pill ce-car-home-pill--light">🚗 ${escapeHtml(noDepositLabel)}</span>
+            <span class="ce-car-home-pill ce-car-home-pill--light">${thresholdOffer ? 'ℹ️' : '🚗'} ${escapeHtml(noDepositLabel)}</span>
             <span class="ce-car-home-pill">⚙️ ${escapeHtml(transmission)}</span>
-            <span class="ce-car-home-pill">👥 ${escapeHtml(seatsText)}</span>
+            ${seatsText ? `<span class="ce-car-home-pill">👥 ${escapeHtml(seatsText)}</span>` : ''}
             ${fuelText ? `<span class="ce-car-home-pill">⛽ ${escapeHtml(fuelText)}</span>` : ''}
-            <span class="ce-car-home-pill">❄️ AC</span>
+            ${thresholdOffer ? '' : '<span class="ce-car-home-pill">❄️ AC</span>'}
           </div>
           <h2 id="carHomeModalTitle" class="ce-car-home-hero-title">${escapeHtml(title)}</h2>
           <p class="ce-car-home-hero-price">${escapeHtml(heroPrice)}</p>
@@ -877,16 +907,28 @@ export function openCarOfferModal({
               <div class="ce-car-home-spec-label">${escapeHtml(labelTransmission)}</div>
               <div class="ce-car-home-spec-value">${escapeHtml(transmission)}</div>
             </div>
-            <div class="ce-car-home-spec">
+            ${seatsText ? `<div class="ce-car-home-spec">
               <div class="ce-car-home-spec-label">${escapeHtml(labelSeats)}</div>
               <div class="ce-car-home-spec-value">${escapeHtml(seatsText)}</div>
-            </div>
+            </div>` : ''}
             ${fuelText ? `
               <div class="ce-car-home-spec">
                 <div class="ce-car-home-spec-label">${escapeHtml(labelFuel)}</div>
                 <div class="ce-car-home-spec-value">${escapeHtml(fuelText)}</div>
               </div>
             ` : ''}
+            ${engineText ? `<div class="ce-car-home-spec">
+              <div class="ce-car-home-spec-label">${escapeHtml(labelEngine)}</div>
+              <div class="ce-car-home-spec-value">${escapeHtml(engineText)}</div>
+            </div>` : ''}
+            ${licenceText ? `<div class="ce-car-home-spec">
+              <div class="ce-car-home-spec-label">${escapeHtml(labelLicence)}</div>
+              <div class="ce-car-home-spec-value">${escapeHtml(licenceText)}</div>
+            </div>` : ''}
+            ${minimumAgeText ? `<div class="ce-car-home-spec">
+              <div class="ce-car-home-spec-label">${escapeHtml(labelMinimumAge)}</div>
+              <div class="ce-car-home-spec-value">${escapeHtml(minimumAgeText)}</div>
+            </div>` : ''}
             <div class="ce-car-home-spec">
               <div class="ce-car-home-spec-label">${escapeHtml(labelLocation)}</div>
               <div class="ce-car-home-spec-value">${escapeHtml(locLabel)}</div>

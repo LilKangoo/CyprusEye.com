@@ -6,6 +6,7 @@ import {
 
 export const CAR_THRESHOLD_PRICING_STRATEGY = 'threshold_daily_rate';
 const MONEY_PRECISION = 100;
+const DAILY_RATE_PRECISION = 1000000;
 const STANDARD_FEE_CITY_CODES = new Set([
   'larnaca',
   'nicosia',
@@ -26,6 +27,13 @@ function money(value) {
     : null;
 }
 
+function dailyRate(value) {
+  const number = Number(value);
+  return Number.isFinite(number)
+    ? Math.round((number + Number.EPSILON) * DAILY_RATE_PRECISION) / DAILY_RATE_PRECISION
+    : null;
+}
+
 export function normalizeThresholdCityCode(value) {
   const code = text(value).toLowerCase();
   return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(code) ? code : '';
@@ -39,7 +47,7 @@ export function selectThresholdDailyRateTier(tiers, rentalDays) {
     .map((tier) => ({
       ...tier,
       thresholdDays: Number(tier?.threshold_days),
-      dailyRate: money(tier?.daily_rate),
+      dailyRate: dailyRate(tier?.daily_rate),
     }))
     .filter((tier) => Number.isInteger(tier.thresholdDays)
       && tier.thresholdDays > 0

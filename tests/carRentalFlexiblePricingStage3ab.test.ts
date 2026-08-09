@@ -166,6 +166,32 @@ describe('Stage 3A/3B exact-offer threshold daily-rate contract', () => {
     });
   });
 
+  test('six-decimal converted daily rates survive Admin normalization and round only after multiplication', () => {
+    const converted = [
+      { id: 'tier-3', offer_id: 'offer-1', threshold_days: 3, daily_rate: 93.333333, is_active: true },
+      { id: 'tier-7', offer_id: 'offer-1', threshold_days: 7, daily_rate: 5.285714, is_active: true },
+    ];
+    expect(core.calculateThresholdBasePrice(converted, 3)).toEqual(expect.objectContaining({
+      dailyRate: 93.333333,
+      baseRentalPrice: 280,
+    }));
+    expect(core.calculateThresholdBasePrice(converted, 7)).toEqual(expect.objectContaining({
+      dailyRate: 5.285714,
+      baseRentalPrice: 37,
+    }));
+
+    const context = thresholdContext({
+      dailyRateTiers: [{ ...converted[0], daily_rate: 93.333332 }],
+      offer: { ...thresholdContext().offer, min_rental_days: 3 },
+    });
+    const draft = core.createDraft(context, { mode: 'pricing' });
+    expect(draft.pricing.dailyRateTiers[0].daily_rate).toBe(93.333332);
+    core.updateDailyRateTier(draft, 'tier-3', { daily_rate: '93.333333' });
+    const plan = core.buildReviewPlan(draft, context, 'pricing');
+    const tierStep = plan.steps.find((step: any) => step.type === 'car_offer_daily_rate_tier');
+    expect(tierStep?.payload.daily_rate).toBe(93.333333);
+  });
+
   test('vehicle kind does not control strategy or minimum', () => {
     const context = thresholdContext();
     const draft = core.createDraft(context, { mode: 'pricing' });

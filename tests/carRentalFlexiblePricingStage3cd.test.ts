@@ -93,6 +93,30 @@ describe('Stage 3C/3D shared threshold runtime', () => {
     expect(Object.isFrozen(result.pricingSnapshot)).toBe(true);
   });
 
+  test('runtime preserves six-decimal daily-rate precision and rounds the multiplied customer amount to cents', () => {
+    const result = quote({
+      tiers: [{
+        id: 'tier-3-repeating', offer_id: 'offer-1', threshold_days: 3,
+        daily_rate: '93.333333', is_active: true,
+      }],
+      offer: {
+        id: 'offer-1', location: 'larnaca', pricing_strategy: 'threshold_daily_rate',
+        min_rental_days: 3, max_rental_days: null, currency: 'EUR',
+        insurance_mode: 'not_offered', insurance_per_day: 0,
+        young_driver_fee: false, young_driver_cost: 0,
+      },
+      pickupDateStr: '2026-10-01',
+      returnDateStr: '2026-10-04',
+      returnCityCode: 'larnaca',
+      returnAvailability: { fee_mode: 'inherit' },
+      fullInsurance: false,
+      youngDriver: false,
+    });
+    expect(result.dailyRate).toBe(93.333333);
+    expect(result.basePrice).toBe(280);
+    expect(result.pricingSnapshot.daily_rate).toBe(93.333333);
+  });
+
   test.each([
     [0, 0],
     [25, 25],

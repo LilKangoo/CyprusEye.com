@@ -35614,6 +35614,12 @@ async function loadFleetData(options = {}) {
         : `<div style="width: 60px; height: 40px; background: var(--admin-border); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 20px;">🚗</div>`;
 
       const sortOrder = typeof car.sort_order === 'number' ? car.sort_order : (index + 1);
+      const transmissionLabel = String(car.transmission || '').trim() || 'Not specified';
+      const fuelLabel = String(car.fuel_type || '').trim() || 'Not specified';
+      const passengerCount = Number(car.max_passengers);
+      const passengerLabel = Number.isInteger(passengerCount) && passengerCount > 0
+        ? `${passengerCount} seats`
+        : 'Not specified';
 
       return `
         <tr>
@@ -35641,11 +35647,11 @@ async function loadFleetData(options = {}) {
           <td>${priceDisplay}</td>
           <td>
             <span class="badge ${car.transmission === 'automatic' ? 'badge-success' : 'badge-secondary'}">
-              ${car.transmission}
+              ${escapeHtml(transmissionLabel)}
             </span>
           </td>
-          <td>${escapeHtml(car.fuel_type)}</td>
-          <td>${car.max_passengers} seats</td>
+          <td>${escapeHtml(fuelLabel)}</td>
+          <td>${escapeHtml(passengerLabel)}</td>
           <td>
             <select 
               class="car-availability-select" 

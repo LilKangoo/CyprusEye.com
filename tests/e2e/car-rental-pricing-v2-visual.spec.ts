@@ -188,18 +188,23 @@ async function assertVisualControls(page: any) {
       const box = node.getBoundingClientRect();
       return box.width > 0 && box.height > 0;
     });
+    const compactControls = controls.filter((node) => node.tagName !== 'TEXTAREA');
+    const textareas = controls.filter((node) => node.tagName === 'TEXTAREA');
     const backgrounds = controls.map((node) => getComputedStyle(node).backgroundColor);
-    const heights = controls.map((node) => Math.round(node.getBoundingClientRect().height));
+    const compactHeights = compactControls.map((node) => Math.round(node.getBoundingClientRect().height));
+    const textareaHeights = textareas.map((node) => Math.round(node.getBoundingClientRect().height));
     return {
       whiteInputs: backgrounds.filter((value) => value === 'rgb(255, 255, 255)' || value === 'rgba(255, 255, 255, 1)').length,
-      minHeight: heights.length ? Math.min(...heights) : 0,
-      maxHeight: heights.length ? Math.max(...heights) : 0,
+      minHeight: compactHeights.length ? Math.min(...compactHeights) : 0,
+      maxHeight: compactHeights.length ? Math.max(...compactHeights) : 0,
+      minTextareaHeight: textareaHeights.length ? Math.min(...textareaHeights) : null,
       clippedText: Array.from(root.querySelectorAll<HTMLElement>('label span,h4,h5,dt,dd')).filter((node) => node.scrollWidth > node.clientWidth + 1).length,
     };
   });
   expect(visual.whiteInputs).toBe(0);
   expect(visual.minHeight).toBeGreaterThanOrEqual(40);
   expect(visual.maxHeight - visual.minHeight).toBeLessThanOrEqual(50);
+  if (visual.minTextareaHeight !== null) expect(visual.minTextareaHeight).toBeGreaterThanOrEqual(64);
   expect(visual.clippedText).toBe(0);
 }
 

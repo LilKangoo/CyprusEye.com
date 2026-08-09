@@ -3,6 +3,22 @@
 
 begin;
 
+-- Supabase exposes auth.jwt() in production. The standalone PostgREST fixture
+-- provides the same read-only claim accessor so authoritative quote checks run
+-- under the real JWT role/user context rather than a service-only shortcut.
+create schema if not exists auth;
+
+create or replace function auth.jwt()
+returns jsonb
+language sql
+stable
+as $$
+  select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb;
+$$;
+
+grant usage on schema auth to anon, authenticated, service_role;
+grant execute on function auth.jwt() to anon, authenticated, service_role;
+
 alter table public.car_bookings
   add column if not exists full_name text,
   add column if not exists email text,

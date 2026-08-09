@@ -296,9 +296,20 @@
     return Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : fallback;
   }
 
+  function normalizeDailyRate(value, fallback = null) {
+    if (value === '' || value === null || value === undefined) return fallback;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? Math.round(parsed * 1000000) / 1000000 : fallback;
+  }
+
   function hasAtMostTwoDecimals(value) {
     const parsed = Number(value);
     return Number.isFinite(parsed) && Math.abs((parsed * 100) - Math.round(parsed * 100)) < 1e-8;
+  }
+
+  function hasAtMostSixDecimals(value) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && Math.abs((parsed * 1000000) - Math.round(parsed * 1000000)) < 1e-6;
   }
 
   function normalizeDailyRateTier(row, offerId = null) {
@@ -308,7 +319,7 @@
         || `tier-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       offer_id: normalizeId(row?.offer_id || offerId) || null,
       threshold_days: normalizeInteger(row?.threshold_days),
-      daily_rate: normalizeMoney(row?.daily_rate),
+      daily_rate: normalizeDailyRate(row?.daily_rate),
       is_active: row?.is_active !== false,
       updated_at: row?.updated_at || null,
     };
@@ -380,7 +391,7 @@
     ));
     if (!tier) throw new Error('Exact daily-rate tier is missing');
     if (Object.prototype.hasOwnProperty.call(patch, 'threshold_days')) tier.threshold_days = normalizeInteger(patch.threshold_days);
-    if (Object.prototype.hasOwnProperty.call(patch, 'daily_rate')) tier.daily_rate = normalizeMoney(patch.daily_rate);
+    if (Object.prototype.hasOwnProperty.call(patch, 'daily_rate')) tier.daily_rate = normalizeDailyRate(patch.daily_rate);
     if (Object.prototype.hasOwnProperty.call(patch, 'is_active')) tier.is_active = patch.is_active === true;
     draft.pricing.dailyRateTiers = sortDailyRateTiers(draft.pricing.dailyRateTiers);
     synchronizeThresholdMinimum(draft);
@@ -567,8 +578,8 @@
         engineCapacityCc: normalizeInteger(offer?.engine_capacity_cc),
         requiredLicenceCategory: normalizeText(offer?.required_licence_category),
         minimumDriverAge: normalizeInteger(offer?.minimum_driver_age),
-        maxPassengers: normalizeInteger(offer?.max_passengers, 5),
-        maxLuggage: normalizeInteger(offer?.max_luggage, 2),
+        maxPassengers: normalizeInteger(offer?.max_passengers, isCreate ? 5 : null),
+        maxLuggage: normalizeInteger(offer?.max_luggage, isCreate ? 2 : null),
         stockCount: normalizeInteger(offer?.stock_count, 1),
         sortOrder: normalizeInteger(offer?.sort_order, 1000),
         isAvailable: offer?.is_available !== false,
@@ -841,10 +852,17 @@
     if (['added', 'replaced'].includes(draft.media?.action) && !draft.media?.pendingFile) {
       errors.push({ field: 'vehicleImage', message: 'Select a valid image before Review.' });
     }
-    if (normalizeInteger(draft.vehicle.maxPassengers) === null || Number(draft.vehicle.maxPassengers) < 1) {
-      errors.push({ field: 'maxPassengers', message: 'Passengers must be a positive integer.' });
+    if (draft.vehicle.maxPassengers !== null && draft.vehicle.maxPassengers !== '' && (
+      normalizeInteger(draft.vehicle.maxPassengers) === null || Number(draft.vehicle.maxPassengers) < 1
+    )) {
+      errors.push({ field: 'maxPassengers', message: 'Passengers must be a positive integer or empty when not confirmed.' });
     }
-    ['maxLuggage', 'stockCount', 'sortOrder'].forEach((field) => {
+    if (draft.vehicle.maxLuggage !== null && draft.vehicle.maxLuggage !== '' && (
+      normalizeInteger(draft.vehicle.maxLuggage) === null || Number(draft.vehicle.maxLuggage) < 0
+    )) {
+      errors.push({ field: 'maxLuggage', message: 'Luggage must be a non-negative integer or empty when not confirmed.' });
+    }
+    ['stockCount', 'sortOrder'].forEach((field) => {
       if (normalizeInteger(draft.vehicle[field]) === null || Number(draft.vehicle[field]) < 0) {
         errors.push({ field, message: `${field} must be a non-negative integer.` });
       }
@@ -884,8 +902,8 @@
             errors.push({ field: `tier-${tier.clientKey}`, message: 'Each threshold day must be unique for this exact offer.' });
           }
           thresholds.add(tier.threshold_days);
-          if (!(tier.daily_rate > 0) || !hasAtMostTwoDecimals(tier.daily_rate)) {
-            errors.push({ field: `tier-${tier.clientKey}`, message: 'Daily rate must be greater than zero with at most two decimals.' });
+          if (!(tier.daily_rate > 0) || !hasAtMostSixDecimals(tier.daily_rate)) {
+            errors.push({ field: `tier-${tier.clientKey}`, message: 'Daily rate must be greater than zero with at most six decimals.' });
           }
         });
         const derivedMinimum = effectiveThresholdMinimum(activeTiers);
@@ -1116,7 +1134,7 @@
       const payload = {
         offer_id: offerId,
         threshold_days: normalizeInteger(after.threshold_days),
-        daily_rate: normalizeMoney(after.daily_rate),
+        daily_rate: normalizeDailyRate(after.daily_rate),
         is_active: after.is_active === true,
       };
       const rowChanges = diffPayload(
@@ -1398,7 +1416,7 @@
         const tierPayload = {
           offer_id: '$created_offer_id',
           threshold_days: normalizeInteger(tier.threshold_days),
-          daily_rate: normalizeMoney(tier.daily_rate),
+          daily_rate: normalizeDailyRate(tier.daily_rate),
           is_active: tier.is_active === true,
         };
         return buildStep(

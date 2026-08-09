@@ -86,7 +86,7 @@ tier_column_state as (
       )
     )::integer = 7 as columns_present,
     bool_or(attribute.attname = 'daily_rate'
-      and format_type(attribute.atttypid, attribute.atttypmod) = 'numeric(12,2)') as money_type_valid
+      and format_type(attribute.atttypid, attribute.atttypmod) = 'numeric(12,6)') as daily_rate_precision_valid
   from pg_attribute attribute
   where attribute.attrelid = to_regclass('public.car_offer_daily_rate_tiers')
     and attribute.attnum > 0
@@ -385,7 +385,7 @@ select
   columns.threshold_flag_valid,
   tier_columns.table_present as tier_table_present,
   tier_columns.columns_present as tier_columns_present,
-  tier_columns.money_type_valid as tier_money_type_valid,
+  tier_columns.daily_rate_precision_valid,
   constraints.missing_constraints,
   triggers.missing_triggers,
   functions.authoritative_quote_present,
@@ -404,7 +404,7 @@ select
     and columns.threshold_flag_valid
     and tier_columns.table_present
     and tier_columns.columns_present
-    and tier_columns.money_type_valid
+    and tier_columns.daily_rate_precision_valid
     and constraints.present_count = constraints.expected_count
     and triggers.present_count = triggers.expected_count
     and functions.instant_duration_present

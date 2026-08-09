@@ -560,6 +560,17 @@ function renderHomeCarsFinder() {
     : `${offerLabel} • ${Math.max(1, Number(state.passengers || 2))} ${passengersUnit}`;
   const restrictReturnToPaphos = isPaphosWidgetLocation(state.pickupLocation) && !state.youngDriver;
 
+  const hasThresholdOffers = Object.values(homeCarsByLocation || {}).some((fleet) => (
+    Array.isArray(fleet) && fleet.some((offer) => offer?.pricing_strategy === 'threshold_daily_rate')
+  ));
+  const insuranceFilterLabel = hasThresholdOffers
+    ? text(
+      'Opcjonalne ubezpieczenie (dostępność i cena zależą od pojazdu)',
+      'Optional insurance (availability and price depend on the vehicle)',
+      'ביטוח אופציונלי (הזמינות והמחיר תלויים ברכב)',
+    )
+    : text('Pełne AC (+17€/dzień)', 'Full insurance (+17€/day)', 'ביטוח מלא (+€17 ליום)');
+
   root.innerHTML = `
     <div class="home-cars-finder-accordion is-open">
       <div class="home-cars-finder-panel">
@@ -612,7 +623,7 @@ function renderHomeCarsFinder() {
             <div class="home-cars-finder-inline-options">
               <label class="home-cars-finder-checkbox">
                 <input id="carsFinderInsurance" type="checkbox" ${state.fullInsurance ? 'checked' : ''} />
-                <span>${escapeHtml(text('Pełne AC (+17€/dzień)', 'Full insurance (+17€/day)', 'ביטוח מלא (+€17 ליום)'))}</span>
+                <span>${escapeHtml(insuranceFilterLabel)}</span>
               </label>
               <label class="home-cars-finder-checkbox">
                 <input id="carsFinderYoungDriver" type="checkbox" ${state.youngDriver ? 'checked' : ''} />
@@ -903,16 +914,18 @@ function renderHomeCars() {
         ? text('Manual', 'Manual', 'ידני')
         : text('Nie dotyczy', 'Not applicable', 'לא רלוונטי');
     const thresholdOffer = car?.pricing_strategy === 'threshold_daily_rate';
-    const seats = car.max_passengers || 5;
-    const seatsText = text(`${seats} miejsc`, `${seats} seats`, `${seats} מושבים`);
+    const seats = Number(car?.max_passengers);
+    const seatsText = Number.isInteger(seats) && seats > 0
+      ? text(`${seats} miejsc`, `${seats} seats`, `${seats} מושבים`)
+      : '';
 
     const imageUrlRaw = car.image_url || `https://placehold.co/400x250/1e293b/ffffff?text=${encodeURIComponent(title)}`;
     const imageFallbackUrl = getCarMediaDisplayUrl(imageUrlRaw);
     const imageUrl = getCarCardImageUrl(imageUrlRaw);
     const imageIsPanorama = isCarPanorama(imageUrlRaw);
     const quoteLine = quote
-      ? `${totalLabel} ${Number(quote.total).toFixed(2)}€ • ${quote.days} ${daysLabel} • ${seatsText}`
-      : `${fromLabel} ${Number(getFromPrice(car)).toFixed(0)}€ ${perDayLabel} • ${transmission} • ${seatsText}`;
+      ? [`${totalLabel} ${Number(quote.total).toFixed(2)}€`, `${quote.days} ${daysLabel}`, seatsText].filter(Boolean).join(' • ')
+      : [`${fromLabel} ${Number(getFromPrice(car)).toFixed(0)}€ ${perDayLabel}`, transmission, seatsText].filter(Boolean).join(' • ');
 
     return `
       <a
@@ -921,7 +934,7 @@ function renderHomeCars() {
         data-car-offer-id="${escapeHtml(car.id)}"
         onclick="openCarHomeModal('${escapeHtml(car.id)}'); return false;"
       >
-        <div class="ce-home-featured-badge">🚗 ${escapeHtml(thresholdOffer ? requestOnlyLabel : noDepositLabel)}</div>
+        <div class="ce-home-featured-badge">${thresholdOffer ? 'ℹ️' : '🚗'} ${escapeHtml(thresholdOffer ? requestOnlyLabel : noDepositLabel)}</div>
         <button
           type="button"
           class="ce-save-star ce-home-card-star"
