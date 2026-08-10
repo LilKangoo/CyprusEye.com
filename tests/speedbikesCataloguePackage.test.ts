@@ -61,8 +61,14 @@ function quoteForDays(offer: any, rentalDays: number) {
     returnTimeStr: '10:00',
     pickupCityCode: 'ayia-napa',
     returnCityCode: 'ayia-napa',
-    pickupAvailability: { fee_mode: 'override', fee_per_direction: 0 },
-    returnAvailability: { fee_mode: 'override', fee_per_direction: 0 },
+    pickupAvailability: {
+      is_active: true, pickup_enabled: true,
+      fee_mode: 'override', fee_per_direction: 0,
+    },
+    returnAvailability: {
+      is_active: true, return_enabled: true,
+      fee_mode: 'override', fee_per_direction: 0,
+    },
     fullInsurance: false,
     youngDriver: false,
     carModel: offer.model,

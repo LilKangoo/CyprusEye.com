@@ -75,6 +75,10 @@ function offer(id: string, location = 'larnaca', overrides: Record<string, unkno
   };
 }
 
+function legacyOffer(id: string, location = 'larnaca', overrides: Record<string, unknown> = {}) {
+  return offer(id, location, { ...overrides, availability_mode: 'legacy' });
+}
+
 function availability(offerId: string, code: string, pickup = true, ret = true, overrides: Record<string, unknown> = {}) {
   return {
     offer_id: offerId,
@@ -230,6 +234,40 @@ describe('Car Rental Multi-City Stage 2D availability adapter', () => {
     expect(invalid.diagnostics.some((entry: any) => entry.code === 'PAPHOS_PROFILE_OUTSIDE_PAPHOS')).toBe(true);
   });
 
+  test('mapped directional rows govern every route and a rejected route cannot reappear through legacy fallback', async () => {
+    const exactOffer = offer('offer-directional');
+    const context = baseContext({
+      offers: [exactOffer],
+      availability: [
+        availability(exactOffer.id, 'ayia-napa', true, true),
+        availability(exactOffer.id, 'larnaca', false, true),
+      ],
+    });
+    const cases = [
+      ['ayia-napa', 'ayia-napa', true],
+      ['ayia-napa', 'larnaca', true],
+      ['larnaca', 'ayia-napa', false],
+      ['larnaca', 'larnaca', false],
+    ];
+    for (const [pickupCityCode, returnCityCode, visible] of cases) {
+      const result = await resolve({ pickupCityCode, returnCityCode }, context);
+      expect(result.mappedOffers.some((row: any) => row.id === exactOffer.id)).toBe(visible);
+    }
+
+    const repository = {
+      getFeatureFlags: async () => ({ mappedEnabled: true, thresholdDailyRatesEnabled: false }),
+      readMappedContext: async () => context,
+      getMetrics: () => ({ requests: 1, responseBytes: 1, durationMs: 1, queries: [] }),
+    };
+    const rejectedHybrid = await adapter.resolveCarRentalAvailability({
+      ...input({ mode: 'hybrid', pickupCityCode: 'larnaca', returnCityCode: 'larnaca' }),
+      legacyOffers: [exactOffer],
+      repository,
+    });
+    expect(rejectedHybrid.mappedOffers).toEqual([]);
+    expect(rejectedHybrid.renderedOffers).toEqual([]);
+  });
+
   test('preserves Paphos place types and airport fee below seven days only', async () => {
     const paphosOnly = baseContext({
       offers: [offer('offer-paphos', 'paphos')],
@@ -343,7 +381,10 @@ describe('Car Rental Multi-City Stage 2D availability adapter', () => {
       offers: [expensive, cheap],
       availability: [availability('offer-cheap', 'larnaca'), availability('offer-expensive', 'larnaca')],
     });
-    const legacyOffers = [cheap, expensive];
+    const legacyOffers = [
+      legacyOffer(cheap.id, 'larnaca', { price_per_day: 20, sort_order: 100 }),
+      legacyOffer(expensive.id, 'larnaca', { price_per_day: 40, sort_order: 1 }),
+    ];
     const result = await resolve({ legacyOffers }, context);
     expect(result.mappedOffers.map((row: any) => row.id)).toEqual(['offer-cheap', 'offer-expensive']);
     expect(result.comparison.priceMismatches).toEqual([]);
@@ -351,7 +392,7 @@ describe('Car Rental Multi-City Stage 2D availability adapter', () => {
   });
 
   test('feature flag false performs no mapped read and renderedOffers remains the exact legacy array', async () => {
-    const legacyOffers = [offer('legacy-one')];
+    const legacyOffers = [legacyOffer('legacy-one')];
     let mappedReads = 0;
     const repository = {
       getFeatureFlag: async () => false,
@@ -368,7 +409,7 @@ describe('Car Rental Multi-City Stage 2D availability adapter', () => {
   });
 
   test('a shadow read failure is diagnostic-only and cannot replace the legacy result', async () => {
-    const legacyOffers = [offer('legacy-one')];
+    const legacyOffers = [legacyOffer('legacy-one')];
     const repository = {
       getFeatureFlag: async () => { throw new Error('isolated read failure'); },
       getMetrics: () => ({ requests: 1, responseBytes: 0, durationMs: 1, queries: [] }),
@@ -439,7 +480,7 @@ describe('Car Rental Multi-City Stage 2D availability adapter', () => {
   });
 
   test('never returns mapped offers as rendered Stage 2D output', async () => {
-    const legacyOffers = [offer('offer-larnaca')];
+    const legacyOffers = [legacyOffer('offer-larnaca')];
     const result = await resolve({ legacyOffers });
     expect(result.renderedOffers).toBe(legacyOffers);
     expect(result.renderedOffers).not.toBe(result.mappedOffers);
@@ -447,7 +488,7 @@ describe('Car Rental Multi-City Stage 2D availability adapter', () => {
 
   test('shadow fingerprint changes when a current public filter changes', () => {
     const base = input({
-      legacyOffers: [offer('offer-larnaca')],
+      legacyOffers: [legacyOffer('offer-larnaca')],
       filters: { platform: 'homepage', allowedOfferIds: [] },
     });
     const savedOnly = {
@@ -467,8 +508,8 @@ describe('Car Rental Multi-City Stage 2D 36-pair shadow matrix', () => {
       for (const returnCityCode of CITY_CODES) {
         for (const days of [3, 4, 7, 11]) {
           const legacyOffers = pickupCityCode === 'paphos' && returnCityCode === 'paphos'
-            ? [offer('offer-paphos', 'paphos')]
-            : [offer('offer-larnaca')];
+            ? [legacyOffer('offer-paphos', 'paphos')]
+            : [legacyOffer('offer-larnaca')];
           const result = await resolve({
             pickupCityCode,
             returnCityCode,

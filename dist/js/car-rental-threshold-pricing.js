@@ -126,6 +126,8 @@ export function calculateThresholdCarRentalQuote({
   const pickupCode = normalizeThresholdCityCode(pickupCityCode);
   const returnCode = normalizeThresholdCityCode(returnCityCode);
   if (!pickupCode || !returnCode) return null;
+  if (pickupAvailability?.is_active !== true || pickupAvailability?.pickup_enabled !== true) return null;
+  if (returnAvailability?.is_active !== true || returnAvailability?.return_enabled !== true) return null;
 
   let instants;
   try {

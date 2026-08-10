@@ -160,7 +160,7 @@ describe('Car Rental Multi-City Stage 2C static guards', () => {
   test('protected source hashes remain at the accepted baseline', () => {
     const expected: Record<string, string> = {
       'js/car-pricing.js': '6305c5cc9636c690c220d2f9f9f7a1e66b30de5a2ce239eefd32d2fdfd76c6c9',
-      'js/car-reservation.js': 'c24b0c2eea003cf929d163a360306910958179581a09154da7104c84773ca540',
+      'js/car-reservation.js': 'af029ab2a1777ae9a67e66a8691ab44ed006a555b4f8f64b3855d7d716985100',
       'js/car-rental-flow.js': '64a461171c4496ce53ced64146623ec15025e8784645e4e1f572e817db546f16',
       'supabase/functions/partner-fulfillment-action/index.ts': '802aa0b8d3a1204f93adefcf598a77c764fde4a6e15dfe2624366c0a99c1297b',
     };

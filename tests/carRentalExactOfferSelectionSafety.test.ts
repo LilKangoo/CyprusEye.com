@@ -5,6 +5,8 @@ const read = (relative: string) => fs.readFileSync(path.join(process.cwd(), rela
 
 describe('Cars exact-offer selection safety', () => {
   const paphos = read('js/car-rental-paphos.js');
+  const home = read('js/home-cars.js');
+  const adapter = read('js/car-rental-availability-adapter.js');
   const landing = read('js/car-rental-landing.js');
   const modal = read('js/car-offer-modal.js');
   const reservation = read('js/car-reservation.js');
@@ -34,6 +36,24 @@ describe('Cars exact-offer selection safety', () => {
     expect(modelFinder).toContain("pricing_strategy || 'legacy_compat'");
     expect(modelFinder).toContain("=== 'legacy_compat'");
     expect(paphos).toContain("String(context?.availabilityMode || '').trim() === 'mapped'");
+    expect(paphos).not.toContain("String(car?.availability_mode || '').trim() === 'mapped' && !!context");
+  });
+
+  test('public bootstrap and adapter fallback never resurrect mapped rows as legacy', () => {
+    const carPageBootstrap = paphos.slice(
+      paphos.indexOf('async function loadPaphosFleet'),
+      paphos.indexOf('function renderFleet'),
+    );
+    const homeBootstrap = home.slice(
+      home.indexOf('async function loadHomeCars'),
+      home.indexOf('let homeCarsInitialized'),
+    );
+    expect(carPageBootstrap).toContain(".eq('availability_mode', 'legacy')");
+    expect(homeBootstrap).toContain(".eq('availability_mode', 'legacy')");
+    expect(adapter).toContain('const legacyCandidates = Array.isArray(options.legacyOffers) ? options.legacyOffers : []');
+    expect(adapter).toContain('const legacyOffers = filterLegacyModeOffers(legacyCandidates)');
+    expect(adapter).toContain('const filteredLegacyOffers = filterLegacyModeOffers(legacyOffers)');
+    expect(adapter).toContain('renderedOffers: filteredLegacyOffers');
   });
 
   test('landing deep links and cards use exact ID whenever one is present', () => {
@@ -48,10 +68,13 @@ describe('Cars exact-offer selection safety', () => {
     expect(modal).toContain('if (!car || !hasValidExactOfferContext(car)) return');
     expect(modal).toContain("String(context?.offerId || '').trim() === offerId");
     expect(modal).toContain('requiresExactOfferContext(car)');
-    expect(modal).toContain("String(car?.availability_mode || '').trim() === 'mapped' && !!context");
+    expect(modal).toContain("String(car?.availability_mode || '').trim() === 'mapped'");
+    expect(modal).not.toContain("String(car?.availability_mode || '').trim() === 'mapped' && !!context");
 
     expect(reservation).toContain("String(offerRow?.id || '').trim() !== normalizedOfferId");
     expect(reservation).toContain('if (!normalizedOfferId && requiresExactOfferSelection(offerRow)) return null');
+    expect(reservation).toContain("String(offerRow?.availability_mode || '').trim() === 'mapped'");
+    expect(reservation).not.toContain("String(offerRow?.availability_mode || '').trim() === 'mapped' && !!context");
     expect(reservation).toContain('if (!selectedOfferRow)');
     expect(reservation).toContain('could not be verified by its exact ID');
   });

@@ -774,9 +774,10 @@
   }
 
   function pricingEditPayload(draft, context) {
-    const strategy = PRICING_STRATEGIES.includes(normalizeCode(draft.pricing.strategy))
-      ? normalizeCode(draft.pricing.strategy)
-      : 'legacy_compat';
+    const strategy = normalizeCode(draft?.pricing?.strategy);
+    if (!PRICING_STRATEGIES.includes(strategy)) {
+      throw new Error('Pricing edit is missing an explicit supported pricing strategy.');
+    }
     const profile = profileById(context, draft.pricing.profileId);
     const code = normalizeCode(profile?.code);
     const securityDepositMode = normalizeCode(draft.pricing.securityDepositMode);
@@ -1505,6 +1506,8 @@
   function buildPricingProfilePlan(draft, context = draft?.snapshot || {}) {
     const offer = context.offer || {};
     const reviewedPayload = pricingEditPayload(draft, context);
+    const reviewedPricingStrategy = normalizeCode(reviewedPayload.pricing_strategy);
+    const originalPricingStrategy = normalizeCode(offer.pricing_strategy || 'legacy_compat') || 'legacy_compat';
     const fields = Object.keys(reviewedPayload);
     const changes = diffPayload('car_offer', draft.offerId, offer, reviewedPayload, fields);
     const payload = changes.reduce((result, change) => {
@@ -1522,6 +1525,13 @@
       ['pricing_strategy', 'min_rental_days', 'max_rental_days'].forEach((field) => {
         payload[field] = clone(reviewedPayload[field]);
       });
+    }
+    // A threshold option-only patch is deliberately sparse, but it must carry
+    // its reviewed strategy so the repository can never interpret an omitted
+    // field as an implicit legacy downgrade. Legacy profile/location metadata
+    // remains absent unless an explicit reviewed conversion targets legacy.
+    if (changes.length && reviewedPricingStrategy === 'threshold_daily_rate') {
+      payload.pricing_strategy = 'threshold_daily_rate';
     }
     const tierDiffs = dailyRateTierDiff(draft, context);
     const tierSteps = tierDiffs.map((entry) => buildStep(
@@ -1546,6 +1556,19 @@
       )
       : null;
     return createPlan('pricing_profile', draft, [...tierSteps, ...(step ? [step] : [])], {
+      originalPricingStrategy,
+      reviewedPricingStrategy,
+      explicitStrategyConversion: originalPricingStrategy !== reviewedPricingStrategy
+        && changes.some((change) => change.field === 'pricing_strategy'
+          && normalizeCode(change.before || 'legacy_compat') === originalPricingStrategy
+          && normalizeCode(change.after) === reviewedPricingStrategy),
+      reviewedDailyRateTiers: sortDailyRateTiers(draft.pricing.dailyRateTiers || []).map((tier) => ({
+        id: normalizeId(tier.id) || null,
+        threshold_days: normalizeInteger(tier.threshold_days),
+        daily_rate: normalizeDailyRate(tier.daily_rate),
+        is_active: tier.is_active === true,
+        updated_at: tier.updated_at || null,
+      })),
       existingPriceColumnChanges: changes.filter((change) => PRICE_COLUMNS.includes(change.field)).length,
       dailyRateTierChanges: tierDiffs.length,
       effectiveMinRentalDays: effectiveThresholdMinimum(draft.pricing.dailyRateTiers),

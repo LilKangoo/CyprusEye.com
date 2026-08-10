@@ -168,7 +168,7 @@ function restoreCarPricingContext() {
 function requiresExactOfferContext(car) {
   const context = car?.pricingContext || car?.availabilityContext || null;
   return car?.pricing_strategy === CAR_THRESHOLD_PRICING_STRATEGY
-    || (String(car?.availability_mode || '').trim() === 'mapped' && !!context)
+    || String(car?.availability_mode || '').trim() === 'mapped'
     || context?.pricingStrategy === CAR_THRESHOLD_PRICING_STRATEGY
     || String(context?.availabilityMode || '').trim() === 'mapped';
 }

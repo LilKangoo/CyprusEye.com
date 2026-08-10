@@ -662,7 +662,7 @@ test.describe('Car Rental Multi-City Stage 2E public hybrid rendering', () => {
       sameReference: true,
       mode: 'legacy',
       requests: 1,
-      ids: [MAPPED_LARNACA, ASYMMETRIC_LARNACA, LEGACY_LARNACA],
+      ids: [LEGACY_LARNACA],
     });
     await page.locator(`[data-select-car-offer-id="${LEGACY_LARNACA}"]`).click();
     await expect(page.locator('#res_car option:checked')).toHaveAttribute('data-offer-id', LEGACY_LARNACA);
@@ -687,7 +687,7 @@ test.describe('Car Rental Multi-City Stage 2E public hybrid rendering', () => {
       sameReference: true,
       mode: 'legacy',
       requests: 1,
-      ids: [MAPPED_LARNACA, ASYMMETRIC_LARNACA, LEGACY_LARNACA],
+      ids: [LEGACY_LARNACA],
     });
     await page.locator(`[data-car-offer-id="${LEGACY_LARNACA}"]`).click();
     await expect(page.locator('#res_car option:checked')).toHaveAttribute('data-offer-id', LEGACY_LARNACA);
@@ -827,7 +827,7 @@ test.describe('Car Rental Multi-City Stage 2E public hybrid rendering', () => {
           .map((node) => node.getAttribute('data-select-car-offer-id')),
       };
     });
-    expect(state).toEqual({ sameReference: true, mode: 'legacy', ids: [MAPPED_LARNACA, ASYMMETRIC_LARNACA, LEGACY_LARNACA] });
+    expect(state).toEqual({ sameReference: true, mode: 'legacy', ids: [LEGACY_LARNACA] });
     expect(await requestSafetySnapshot(page)).toEqual({ mutations: [], rpc: [] });
     expect(errors).toEqual([]);
   });
@@ -899,6 +899,17 @@ test.describe('Car Rental Multi-City Stage 2E public hybrid rendering', () => {
     await expect(page.locator(`[data-select-car-offer-id="${ASYMMETRIC_LARNACA}"]`)).toHaveCount(0);
     await configureCarPage(page, 'paphos', 'larnaca');
     await expect(page.locator(`[data-select-car-offer-id="${ASYMMETRIC_LARNACA}"]`)).toHaveCount(1);
+    expect(await requestSafetySnapshot(page)).toEqual({ mutations: [], rpc: [] });
+  });
+
+  test('homepage applies the same directional exclusion and never revives the mapped offer as legacy', async ({ page }) => {
+    await seedHybrid(page, true);
+    await page.goto('/index.html?lang=en', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => Boolean(document.querySelector('#carsFinderPickupLocation option[value="paphos"]')));
+    await configureHomepage(page, 'paphos', 'paphos');
+    await expect(page.locator(`[data-car-offer-id="${ASYMMETRIC_LARNACA}"]`)).toHaveCount(0);
+    await configureHomepage(page, 'paphos', 'larnaca');
+    await expect(page.locator(`[data-car-offer-id="${ASYMMETRIC_LARNACA}"]`)).toHaveCount(1);
     expect(await requestSafetySnapshot(page)).toEqual({ mutations: [], rpc: [] });
   });
 

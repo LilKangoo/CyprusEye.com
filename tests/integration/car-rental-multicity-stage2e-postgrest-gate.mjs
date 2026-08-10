@@ -236,11 +236,11 @@ try {
   await seedFixtures();
 
   const anonAvailability = await must(
-    anon.from('car_offer_city_availability').select('offer_id,city_id,pickup_enabled,return_enabled').order('offer_id'),
+    anon.from('car_offer_city_availability').select('offer_id,city_id,pickup_enabled,return_enabled').order('offer_id').order('city_id'),
     'anon mapped availability RLS',
   );
   const authenticatedAvailability = await must(
-    authenticated.from('car_offer_city_availability').select('offer_id,city_id,pickup_enabled,return_enabled').order('offer_id'),
+    authenticated.from('car_offer_city_availability').select('offer_id,city_id,pickup_enabled,return_enabled').order('offer_id').order('city_id'),
     'authenticated mapped availability RLS',
   );
   const publicIds = [...new Set(anonAvailability.map((row) => row.offer_id))].sort();
@@ -251,7 +251,7 @@ try {
   summary.rls = { anonVisibleMappedIds: publicIds, authenticatedMatchesAnon: true, legacyAvailabilityHidden: true };
 
   const legacyPaphosRows = await must(
-    service.from('car_offers').select('*').in('id', [OFFER_PAPHOS, LEGACY_PAPHOS]).order('sort_order'),
+    service.from('car_offers').select('*').in('id', [OFFER_PAPHOS, LEGACY_PAPHOS]).order('sort_order').order('id'),
     'Paphos legacy resolver fixture',
   );
   const flagOffLog = [];
@@ -259,7 +259,7 @@ try {
     ...input(legacyPaphosRows), supabase: clientFor(TOKENS.anon, flagOffLog),
   });
   assert.strictEqual(flagOff.renderedOffers, flagOff.legacyOffers);
-  assert.deepEqual(flagOff.renderedOffers.map((row) => row.id), legacyPaphosRows.map((row) => row.id));
+  assert.deepEqual(flagOff.renderedOffers.map((row) => row.id), [LEGACY_PAPHOS]);
   assert.equal(flagOffLog.length, 1);
 
   await setFlag(true);

@@ -177,7 +177,7 @@ export function findCurrentFleetCarByOfferId(offerId) {
 function requiresExactFleetOffer(car) {
   const context = car?.pricingContext || car?.availabilityContext || null;
   return String(car?.pricing_strategy || '').trim() === CAR_THRESHOLD_PRICING_STRATEGY
-    || (String(car?.availability_mode || '').trim() === 'mapped' && !!context)
+    || String(car?.availability_mode || '').trim() === 'mapped'
     || String(context?.pricingStrategy || '').trim() === CAR_THRESHOLD_PRICING_STRATEGY
     || String(context?.availabilityMode || '').trim() === 'mapped';
 }
@@ -634,6 +634,7 @@ async function loadPaphosFleet() {
         .eq('location', pageLocation)
         .eq('is_available', true)
         .eq('is_published', true)
+        .eq('availability_mode', 'legacy')
         .eq('pricing_strategy', 'legacy_compat');
 
       if (withNorthAllowed) {

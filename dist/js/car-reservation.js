@@ -291,7 +291,7 @@ function getOfferPricingContext(offerRow) {
 function requiresExactOfferSelection(offerRow) {
   const context = getOfferPricingContext(offerRow);
   return String(offerRow?.pricing_strategy || '').trim() === CAR_THRESHOLD_PRICING_STRATEGY
-    || (String(offerRow?.availability_mode || '').trim() === 'mapped' && !!context)
+    || String(offerRow?.availability_mode || '').trim() === 'mapped'
     || String(context?.pricingStrategy || '').trim() === CAR_THRESHOLD_PRICING_STRATEGY
     || String(context?.availabilityMode || '').trim() === 'mapped';
 }

@@ -143,7 +143,7 @@ async function resolveHybrid(overrides: Record<string, unknown> = {}, context = 
 }
 
 describe('Car Rental Multi-City Stage 2E controlled hybrid selection', () => {
-  test('flag OFF returns the exact legacy result reference and performs no mapped read', async () => {
+  test('flag OFF renders strict legacy-mode offers only and performs no mapped read', async () => {
     const legacyOffers = [legacyLarnaca, mappedLarnaca];
     let mappedReads = 0;
     const repo = {
@@ -152,7 +152,8 @@ describe('Car Rental Multi-City Stage 2E controlled hybrid selection', () => {
       getMetrics: () => ({ requests: 1, responseBytes: 8, durationMs: 1, queries: [] }),
     };
     const result = await adapter.resolveCarRentalAvailability({ ...input(), legacyOffers, repository: repo });
-    expect(result.renderedOffers).toBe(legacyOffers);
+    expect(result.legacyOffers.map((row: any) => row.id)).toEqual([legacyLarnaca.id]);
+    expect(result.renderedOffers).toBe(result.legacyOffers);
     expect(result.renderMode).toBe('legacy');
     expect(mappedReads).toBe(0);
   });
@@ -166,7 +167,7 @@ describe('Car Rental Multi-City Stage 2E controlled hybrid selection', () => {
       legacyPaphos.id,
     ]);
     expect(new Set(result.renderedOffers.map((row: any) => row.id)).size).toBe(result.renderedOffers.length);
-    expect(result.diagnostics.some((row: any) => row.code === 'LEGACY_MAPPED_DUPLICATE_REMOVED')).toBe(true);
+    expect(result.legacyOffers.every((row: any) => row.availability_mode === 'legacy')).toBe(true);
     expect(result.diagnostics.some((row: any) => row.code === 'HYBRID_RESULT_READY')).toBe(true);
   });
 
@@ -177,7 +178,7 @@ describe('Car Rental Multi-City Stage 2E controlled hybrid selection', () => {
     expect(result.renderMode).toBe('hybrid-fallback');
     expect(result.renderedOffers.map((row: any) => row.id)).toEqual([legacyLarnaca.id]);
     expect(result.diagnostics.some((row: any) => row.code === 'MAPPED_READER_UNAVAILABLE')).toBe(true);
-    expect(result.diagnostics.some((row: any) => row.code === 'MAPPED_OFFER_OMITTED' && row.offerId === mappedLarnaca.id)).toBe(true);
+    expect(result.renderedOffers.some((row: any) => row.id === mappedLarnaca.id)).toBe(false);
   });
 
   test('a configured custom city is threshold-mapped only and never falls back to the legacy resolver', async () => {
@@ -317,7 +318,12 @@ describe('Car Rental Multi-City Stage 2E 36-pair active matrix', () => {
           const off = await adapter.resolveCarRentalAvailability({
             ...input(common), repository: repository(false),
           });
-          expect(off.renderedOffers).toBe(legacyOffers);
+          expect(off.renderedOffers.map((row: any) => row.id)).toEqual([
+            pickupCityCode === 'paphos' && returnCityCode === 'paphos'
+              ? legacyPaphos.id
+              : legacyLarnaca.id,
+          ]);
+          expect(off.renderedOffers).toBe(off.legacyOffers);
 
           const on = await adapter.resolveCarRentalAvailability({
             ...input(common), repository: repository(true),

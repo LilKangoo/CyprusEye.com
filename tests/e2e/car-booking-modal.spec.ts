@@ -202,6 +202,7 @@ async function seedCarOffers(page: Page) {
   const publicRows = CAR_OFFERS.map((row) => ({
     image_url: '/assets/cyprus_logo-1000x1054.png',
     is_published: true,
+    availability_mode: 'legacy',
     pricing_strategy: 'legacy_compat',
     ...row,
   }));

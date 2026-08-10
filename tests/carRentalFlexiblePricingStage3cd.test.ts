@@ -30,6 +30,25 @@ const tiers = [
 ];
 
 function quote(overrides: Record<string, unknown> = {}) {
+  const {
+    pickupAvailability: pickupAvailabilityOverride,
+    returnAvailability: returnAvailabilityOverride,
+    ...quoteOverrides
+  } = overrides;
+  const pickupAvailability = {
+    is_active: true,
+    pickup_enabled: true,
+    fee_mode: 'inherit',
+    fee_per_direction: null,
+    ...((pickupAvailabilityOverride as Record<string, unknown>) || {}),
+  };
+  const returnAvailability = {
+    is_active: true,
+    return_enabled: true,
+    fee_mode: 'override',
+    fee_per_direction: 25,
+    ...((returnAvailabilityOverride as Record<string, unknown>) || {}),
+  };
   return runtime.calculateThresholdCarRentalQuote({
     offer: {
       id: 'offer-1',
@@ -50,12 +69,12 @@ function quote(overrides: Record<string, unknown> = {}) {
     returnTimeStr: '10:00',
     pickupCityCode: 'larnaca',
     returnCityCode: 'paphos',
-    pickupAvailability: { fee_mode: 'inherit', fee_per_direction: null },
-    returnAvailability: { fee_mode: 'override', fee_per_direction: 25 },
+    pickupAvailability,
+    returnAvailability,
     fullInsurance: true,
     youngDriver: true,
     carModel: 'Exact threshold car',
-    ...overrides,
+    ...quoteOverrides,
   });
 }
 
@@ -140,6 +159,13 @@ describe('Stage 3C/3D shared threshold runtime', () => {
     })?.pickupFee).toBe(0);
   });
 
+  test('directional availability fails closed for an inactive or wrong-direction row', () => {
+    expect(quote({ pickupAvailability: { pickup_enabled: false } })).toBeNull();
+    expect(quote({ returnAvailability: { return_enabled: false } })).toBeNull();
+    expect(quote({ pickupAvailability: { is_active: false } })).toBeNull();
+    expect(quote({ returnAvailability: { is_active: false } })).toBeNull();
+  });
+
   test('minimum and optional maximum are exact-offer contracts', () => {
     expect(quote({
       offer: {
@@ -214,8 +240,8 @@ describe('Stage 3C/3D shared threshold runtime', () => {
       returnTimeStr: '03:30',
       pickupCityCode: 'larnaca',
       returnCityCode: 'larnaca',
-      pickupAvailability: { fee_mode: 'inherit' },
-      returnAvailability: { fee_mode: 'inherit' },
+      pickupAvailability: { is_active: true, pickup_enabled: true, fee_mode: 'inherit' },
+      returnAvailability: { is_active: true, return_enabled: true, fee_mode: 'inherit' },
       fullInsurance: false,
       youngDriver: false,
     })).not.toThrow();
@@ -233,8 +259,8 @@ describe('Stage 3C/3D shared threshold runtime', () => {
       returnTimeStr: '03:30',
       pickupCityCode: 'larnaca',
       returnCityCode: 'larnaca',
-      pickupAvailability: { fee_mode: 'inherit' },
-      returnAvailability: { fee_mode: 'inherit' },
+      pickupAvailability: { is_active: true, pickup_enabled: true, fee_mode: 'inherit' },
+      returnAvailability: { is_active: true, return_enabled: true, fee_mode: 'inherit' },
       fullInsurance: false,
       youngDriver: false,
     })).toBeNull();

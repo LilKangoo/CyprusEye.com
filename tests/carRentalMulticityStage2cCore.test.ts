@@ -608,6 +608,20 @@ describe('Car Rental Multi-City Stage 2C core', () => {
     expect(core.validateDraft(draft, paphosContext).valid).toBe(false);
   });
 
+  test('pricing plan construction never defaults a missing strategy to legacy compatibility', () => {
+    const thresholdContext = context({
+      offer: offer({ pricing_strategy: 'threshold_daily_rate', pricing_profile_id: null, min_rental_days: 1 }),
+      dailyRateTiers: [{
+        id: 'tier-one', offer_id: 'offer-exact', threshold_days: 1,
+        daily_rate: 50, is_active: true, updated_at: 'tier-v1',
+      }],
+    });
+    const draft = core.createDraft(thresholdContext, { mode: 'pricing' });
+    draft.pricing.strategy = '';
+    expect(() => core.buildPricingProfilePlan(draft, thresholdContext))
+      .toThrow('Pricing edit is missing an explicit supported pricing strategy.');
+  });
+
   test('review fingerprint becomes stale after a draft change', () => {
     const draft = core.createDraft(context(), { mode: 'vehicle' });
     draft.vehicle.stockCount = 3;

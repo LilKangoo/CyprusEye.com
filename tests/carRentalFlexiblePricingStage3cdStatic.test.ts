@@ -175,7 +175,7 @@ describe('Stage 3C/3D runtime and authoritative validation static guards', () =>
     expect(repository).toContain(".from('car_rental_cities')");
     expect(repository).toContain(".eq('is_active', true)");
     expect(adapter).toContain('LEGACY_AVAILABILITY_CITY_KEYS.has(input.pickupCityCode)');
-    expect(adapter).toContain('const hybridLegacyOffers = legacyRouteSupported ? legacyOffers : []');
+    expect(adapter).toContain('const hybridLegacyOffers = legacyRouteSupported ? legacyCandidates : []');
   });
 
   test('hybrid customer order remains final quote total ascending', () => {

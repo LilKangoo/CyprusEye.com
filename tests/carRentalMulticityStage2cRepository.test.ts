@@ -212,6 +212,28 @@ const seed = () => ({
   site_settings: [{ id: 1, car_multi_city_mapped_enabled: false, car_threshold_daily_rates_enabled: false, updated_at: 'settings-v1' }],
 });
 
+function thresholdSeed() {
+  const fixture: Record<string, Row[]> = seed();
+  fixture.car_offers[0] = {
+    ...fixture.car_offers[0],
+    pricing_strategy: 'threshold_daily_rate',
+    pricing_profile_id: null,
+    location: 'larnaca',
+    min_rental_days: 1,
+    max_rental_days: null,
+    insurance_mode: 'included',
+    insurance_per_day: 0,
+    young_driver_fee: false,
+    young_driver_cost: 0,
+    deposit_amount: 0,
+  };
+  fixture.car_offer_daily_rate_tiers = [
+    { id: 'tier-one', offer_id: 'offer-one', threshold_days: 1, daily_rate: 50, is_active: true, created_at: 'tier-c1', updated_at: 'tier-v1' },
+    { id: 'tier-three', offer_id: 'offer-one', threshold_days: 3, daily_rate: 45, is_active: true, created_at: 'tier-c2', updated_at: 'tier-v2' },
+  ];
+  return fixture;
+}
+
 describe('Car Rental Multi-City Stage 2C repository', () => {
   const { core, repository: repositoryApi } = loadModules();
 
@@ -267,6 +289,158 @@ describe('Car Rental Multi-City Stage 2C repository', () => {
       offerId: 'offer-one', expectedUpdatedAt: 'offer-v1', payload: { pricing_profile_id: 'profile-paphos', location: 'larnaca' },
     })).rejects.toMatchObject({ code: 'car_multicity_stale_conflict' });
     expect(memory.mutations).toHaveLength(0);
+  });
+
+  test.each([
+    ['security deposit', (draft: any) => {
+      draft.pricing.securityDepositMode = 'amount';
+      draft.pricing.securityDepositAmount = 300;
+    }, { deposit_amount: 300 }],
+    ['insurance', (draft: any) => {
+      draft.pricing.insuranceMode = 'optional_daily';
+      draft.pricing.insurancePerDay = 12;
+    }, { insurance_mode: 'optional_daily', insurance_per_day: 12 }],
+    ['young driver', (draft: any) => {
+      draft.pricing.youngDriverFee = true;
+      draft.pricing.youngDriverCost = 9;
+    }, { young_driver_fee: true, young_driver_cost: 9 }],
+    ['maximum rental days', (draft: any) => {
+      draft.pricing.maxRentalDays = 30;
+    }, { max_rental_days: 30 }],
+  ])('threshold %s save preserves every legacy compatibility field', async (_label, mutateDraft, expectedPatch) => {
+    const memory = memoryClient(thresholdSeed());
+    const repository = repositoryApi.create({ client: memory.client, core });
+    const context = await repository.getOfferContext('offer-one');
+    const before = JSON.parse(JSON.stringify({
+      strategy: context.offer.pricing_strategy,
+      profile: context.offer.pricing_profile_id,
+      location: context.offer.location,
+      prices: Object.fromEntries(core.PRICE_COLUMNS.map((column: string) => [column, context.offer[column]])),
+      tiers: context.dailyRateTiers,
+      availability: context.availability,
+      partner: context.offer.owner_partner_id,
+    }));
+    const draft = core.createDraft(context, { mode: 'pricing' });
+    mutateDraft(draft);
+    const plan = core.buildPricingProfilePlan(draft, context);
+    const offerStep = plan.steps.find((step: any) => step.type === 'car_offer');
+    expect(offerStep.payload).toEqual(expect.objectContaining({
+      pricing_strategy: 'threshold_daily_rate',
+      ...expectedPatch,
+    }));
+    expect(offerStep.payload).not.toHaveProperty('pricing_profile_id');
+    expect(offerStep.payload).not.toHaveProperty('location');
+    for (const column of core.PRICE_COLUMNS) expect(offerStep.payload).not.toHaveProperty(column);
+
+    const result = await repository.executePlan(plan);
+    expect(result.status).toBe('success');
+    const after = memory.tables.car_offers[0];
+    expect(after).toEqual(expect.objectContaining({
+      pricing_strategy: before.strategy,
+      pricing_profile_id: before.profile,
+      location: before.location,
+      owner_partner_id: before.partner,
+      ...expectedPatch,
+    }));
+    expect(Object.fromEntries(core.PRICE_COLUMNS.map((column: string) => [column, after[column]]))).toEqual(before.prices);
+    expect(memory.tables.car_offer_daily_rate_tiers).toEqual(before.tiers);
+    expect(memory.tables.car_offer_city_availability).toEqual(before.availability);
+  });
+
+  test('threshold repository partial patch without strategy resolves the fresh exact strategy', async () => {
+    const memory = memoryClient(thresholdSeed());
+    const repository = repositoryApi.create({ client: memory.client, core });
+    await repository.updatePricingProfile({
+      offerId: 'offer-one',
+      expectedUpdatedAt: 'offer-v1',
+      payload: { deposit_amount: 250 },
+    });
+    expect(memory.tables.car_offers[0]).toEqual(expect.objectContaining({
+      pricing_strategy: 'threshold_daily_rate',
+      pricing_profile_id: null,
+      location: 'larnaca',
+      deposit_amount: 250,
+    }));
+  });
+
+  test('threshold tier edit preserves strategy, profile, location and unrelated exact-offer state', async () => {
+    const memory = memoryClient(thresholdSeed());
+    const repository = repositoryApi.create({ client: memory.client, core });
+    const context = await repository.getOfferContext('offer-one');
+    const draft = core.createDraft(context, { mode: 'pricing' });
+    core.updateDailyRateTier(draft, 'tier-three', { daily_rate: 44.5 });
+    const plan = core.buildPricingProfilePlan(draft, context);
+    expect(plan.steps.map((step: any) => step.type)).toEqual(['car_offer_daily_rate_tier']);
+    const result = await repository.executePlan(plan);
+    expect(result.status).toBe('success');
+    expect(memory.tables.car_offer_daily_rate_tiers.find((tier) => tier.id === 'tier-three')?.daily_rate).toBe(44.5);
+    expect(memory.tables.car_offers[0]).toEqual(expect.objectContaining({
+      pricing_strategy: 'threshold_daily_rate',
+      pricing_profile_id: null,
+      location: 'larnaca',
+      deposit_amount: 0,
+    }));
+    expect(memory.tables.car_offer_city_availability).toHaveLength(1);
+  });
+
+  test('unexpected threshold-to-legacy downgrade is rejected before the first tier write', async () => {
+    const memory = memoryClient(thresholdSeed());
+    const repository = repositoryApi.create({ client: memory.client, core });
+    const context = await repository.getOfferContext('offer-one');
+    const draft = core.createDraft(context, { mode: 'pricing' });
+    core.updateDailyRateTier(draft, 'tier-three', { daily_rate: 44 });
+    draft.pricing.securityDepositMode = 'amount';
+    draft.pricing.securityDepositAmount = 350;
+    const plan = core.buildPricingProfilePlan(draft, context);
+    const offerStep = plan.steps.find((step: any) => step.type === 'car_offer');
+    offerStep.payload.pricing_strategy = 'legacy_compat';
+
+    await expect(repository.executePlan(plan)).rejects.toMatchObject({
+      code: 'car_multicity_internal_error',
+      message: 'Pricing payload no longer matches the reviewed strategy.',
+    });
+    expect(memory.mutations).toHaveLength(0);
+    expect(memory.tables.car_offer_daily_rate_tiers.find((tier) => tier.id === 'tier-three')?.daily_rate).toBe(45);
+    expect(memory.tables.car_offers[0].deposit_amount).toBe(0);
+  });
+
+  test('direct strategy conversion without matching reviewed intent fails before mutation', async () => {
+    const memory = memoryClient(thresholdSeed());
+    const repository = repositoryApi.create({ client: memory.client, core });
+    await expect(repository.updatePricingProfile({
+      offerId: 'offer-one',
+      expectedUpdatedAt: 'offer-v1',
+      payload: {
+        pricing_strategy: 'legacy_compat',
+        pricing_profile_id: 'profile-larnaca',
+        location: 'larnaca',
+      },
+      explicitStrategyConversion: true,
+    })).rejects.toMatchObject({
+      code: 'car_multicity_internal_error',
+      message: 'Unexpected pricing strategy conversion blocked before any write.',
+    });
+    expect(memory.mutations).toHaveLength(0);
+    expect(memory.tables.car_offers[0].pricing_strategy).toBe('threshold_daily_rate');
+  });
+
+  test('stale tier snapshot rejects the complete pricing plan before its first write', async () => {
+    const memory = memoryClient(thresholdSeed());
+    const repository = repositoryApi.create({ client: memory.client, core });
+    const context = await repository.getOfferContext('offer-one');
+    const draft = core.createDraft(context, { mode: 'pricing' });
+    core.updateDailyRateTier(draft, 'tier-one', { daily_rate: 49 });
+    core.updateDailyRateTier(draft, 'tier-three', { daily_rate: 44 });
+    const plan = core.buildPricingProfilePlan(draft, context);
+    memory.tables.car_offer_daily_rate_tiers[1].updated_at = 'concurrent-tier-version';
+
+    await expect(repository.executePlan(plan)).rejects.toMatchObject({
+      code: 'car_multicity_stale_conflict',
+      message: 'Daily-rate tiers changed since Review.',
+    });
+    expect(memory.mutations).toHaveLength(0);
+    expect(memory.tables.car_offer_daily_rate_tiers[0].daily_rate).toBe(50);
+    expect(memory.tables.car_offer_daily_rate_tiers[1].daily_rate).toBe(45);
   });
 
   test('daily-rate tiers use exact offer and tier IDs with optimistic concurrency', async () => {

@@ -1418,6 +1418,7 @@ async function loadHomeCars() {
       .select('*')
       .eq('is_available', true)
       .eq('is_published', true)
+      .eq('availability_mode', 'legacy')
       .eq('pricing_strategy', 'legacy_compat')
       .in('location', ['larnaca', 'paphos'])
       .order('sort_order', { ascending: true });

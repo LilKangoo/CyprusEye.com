@@ -129,7 +129,7 @@ async function stubWriteSnapshot(page: Page) {
 }
 
 test.describe('Car Rental Multi-City Stage 2D public shadow', () => {
-  test('global flag false keeps car.html legacy-only and performs no write', async ({ page }) => {
+  test('global flag false never exposes mapped fixtures through the legacy result', async ({ page }) => {
     const errors = collectOwnSourceErrors(page);
     await seedShadow(page, false);
     await page.goto('/car.html?lang=en', { waitUntil: 'domcontentloaded' });
@@ -148,13 +148,13 @@ test.describe('Car Rental Multi-City Stage 2D public shadow', () => {
     });
     expect(state.sameRenderedReference).toBe(true);
     expect(state.mappedIds).toEqual([]);
-    expect(state.renderedIds).toEqual([OFFER_LARNACA]);
+    expect(state.renderedIds).toEqual([]);
     expect(state.diagnostics).toContain('SHADOW_FEATURE_FLAG_DISABLED');
     expect(await stubWriteSnapshot(page)).toEqual({ mutations: [], rpc: [] });
     expect(errors).toEqual([]);
   });
 
-  test('car.html builds mapped comparison but preserves IDs, order, prices and exact modal offer', async ({ page }) => {
+  test('car.html builds mapped comparison without rendering mapped fixtures through shadow output', async ({ page }) => {
     const errors = collectOwnSourceErrors(page);
     await seedShadow(page, true);
     await page.goto('/car.html?lang=en', { waitUntil: 'domcontentloaded' });
@@ -175,23 +175,19 @@ test.describe('Car Rental Multi-City Stage 2D public shadow', () => {
       };
     });
     expect(snapshot.sameRenderedReference).toBe(true);
-    expect(snapshot.legacyIds).toEqual([OFFER_PAPHOS]);
-    expect(snapshot.renderedIds).toEqual([OFFER_PAPHOS]);
+    expect(snapshot.legacyIds).toEqual([]);
+    expect(snapshot.renderedIds).toEqual([]);
     expect(snapshot.mappedIds).toEqual([OFFER_LARNACA, OFFER_PAPHOS]);
     expect(snapshot.renderedPrices.join(' ')).not.toMatch(/NaN|undefined|null/);
-    expect(snapshot.comparison.addedOfferIds).toEqual([OFFER_LARNACA]);
-    expect(snapshot.comparison.commonOfferIds).toEqual([OFFER_PAPHOS]);
+    expect(snapshot.comparison.addedOfferIds).toEqual([OFFER_LARNACA, OFFER_PAPHOS]);
+    expect(snapshot.comparison.commonOfferIds).toEqual([]);
     expect(snapshot.comparison.priceMismatches).toEqual([]);
     expect(snapshot.events.at(-1)?.source).toBe('car-page');
-
-    await page.locator(`[data-select-car-offer-id="${OFFER_PAPHOS}"]`).click();
-    await expect(page.locator('#carHomeModal')).toBeVisible();
-    await expect(page.locator('#res_car option:checked')).toHaveAttribute('data-offer-id', OFFER_PAPHOS);
     expect(await stubWriteSnapshot(page)).toEqual({ mutations: [], rpc: [] });
     expect(errors).toEqual([]);
   });
 
-  test('homepage uses the same shadow result while the visible legacy card remains unchanged', async ({ page }) => {
+  test('homepage uses the same shadow result without exposing mapped fixtures as legacy cards', async ({ page }) => {
     const errors = collectOwnSourceErrors(page);
     await seedShadow(page, true);
     await page.goto('/index.html?lang=en', { waitUntil: 'domcontentloaded' });
@@ -212,16 +208,12 @@ test.describe('Car Rental Multi-City Stage 2D public shadow', () => {
       };
     });
     expect(snapshot.sameRenderedReference).toBe(true);
-    expect(snapshot.legacyIds).toEqual([OFFER_PAPHOS]);
+    expect(snapshot.legacyIds).toEqual([]);
     expect(snapshot.mappedIds).toEqual([OFFER_LARNACA, OFFER_PAPHOS]);
-    expect(snapshot.titles).toEqual(['Shadow Paphos']);
-    expect(snapshot.comparison.addedOfferIds).toEqual([OFFER_LARNACA]);
+    expect(snapshot.titles).toEqual([]);
+    expect(snapshot.comparison.addedOfferIds).toEqual([OFFER_LARNACA, OFFER_PAPHOS]);
     expect(snapshot.comparison.priceMismatches).toEqual([]);
     expect(snapshot.events.at(-1)?.source).toBe('homepage');
-
-    await page.locator('#carsHomeGrid .recommendation-home-card').click();
-    await expect(page.locator('#carHomeModal')).toBeVisible();
-    await expect(page.locator('#res_car option:checked')).toHaveAttribute('data-offer-id', OFFER_PAPHOS);
     expect(await stubWriteSnapshot(page)).toEqual({ mutations: [], rpc: [] });
     expect(errors).toEqual([]);
   });

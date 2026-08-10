@@ -23,6 +23,8 @@ const BOOKING_IDS = Object.freeze({
   paymentAttack: 'ca3d0000-0000-4000-8000-000000000006',
   identityAttack: 'ca3d0000-0000-4000-8000-000000000007',
   missingOfferAttack: 'ca3d0000-0000-4000-8000-000000000008',
+  directionalValid: 'ca3d0000-0000-4000-8000-000000000009',
+  directionalAttack: 'ca3d0000-0000-4000-8000-000000000010',
 });
 const TAMPER_BOOKING_IDS = Array.from({ length: 10 }, (_unused, index) => (
   `ca3d1000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`
@@ -167,6 +169,7 @@ const summary = {
   quote: {},
   authoritativeWrite: {},
   tamper: {},
+  directionalAvailability: {},
   duration: {},
   partnerWorkflow: {},
   partialPayment: {},
@@ -296,6 +299,77 @@ try {
     autoAccepted: false,
     exactOfferPartner: true,
   };
+
+  await must(clients.service.from('car_offer_city_availability').update({
+    pickup_enabled: false,
+    return_enabled: true,
+    is_active: true,
+  }).eq('offer_id', OFFER_ID).eq('city_id', cityByCode.larnaca), 'make Larnaca return-only');
+  await must(clients.service.from('car_offer_city_availability').update({
+    pickup_enabled: true,
+    return_enabled: false,
+    is_active: true,
+  }).eq('offer_id', OFFER_ID).eq('city_id', cityByCode.paphos), 'make Paphos pickup-only');
+
+  assert.equal(await quote(), null, 'return-only city cannot be used for pickup and pickup-only city cannot be used for return');
+  assert.equal(await quote({
+    p_pickup_city_code: 'larnaca',
+    p_return_city_code: 'larnaca',
+    p_pickup_location: 'larnaca',
+    p_return_location: 'larnaca',
+  }), null, 'return-only Larnaca cannot be used for pickup');
+  assert.equal(await quote({
+    p_pickup_city_code: 'paphos',
+    p_return_city_code: 'paphos',
+    p_pickup_location: 'paphos',
+    p_return_location: 'paphos',
+  }), null, 'pickup-only Paphos cannot be used for return');
+
+  const directionalQuote = await quote({
+    p_pickup_city_code: 'paphos',
+    p_return_city_code: 'larnaca',
+    p_pickup_location: 'paphos',
+    p_return_location: 'larnaca',
+  });
+  assert.equal(directionalQuote?.quote_valid, true, 'pickup-only to return-only route must quote');
+  await must(clients.anon.from('car_bookings').insert(bookingPayload(
+    BOOKING_IDS.directionalValid,
+    directionalQuote,
+    {
+      pickup_location: 'paphos',
+      pickup_city_code: 'paphos',
+      return_location: 'larnaca',
+      return_city_code: 'larnaca',
+    },
+  )), 'valid asymmetric directional booking request');
+  const directionalBooking = await must(clients.service.from('car_bookings')
+    .select('status').eq('id', BOOKING_IDS.directionalValid).single(), 'read asymmetric booking');
+  const directionalFulfillment = await must(clients.service.from('partner_service_fulfillments')
+    .select('partner_id,status').eq('booking_id', BOOKING_IDS.directionalValid).single(), 'read asymmetric fulfillment');
+  assert.equal(directionalBooking.status, 'pending');
+  assert.deepEqual(directionalFulfillment, { partner_id: PARTNER_ID, status: 'pending_acceptance' });
+
+  await expectRejected(clients.anon.from('car_bookings').insert(bookingPayload(
+    BOOKING_IDS.directionalAttack,
+    authoritative,
+  )), 'booking with invalid exact pickup/return directions');
+  assert.equal((await must(clients.service.from('car_bookings')
+    .select('id').eq('id', BOOKING_IDS.directionalAttack), 'read rejected directional booking')).length, 0);
+  assert.equal((await must(clients.service.from('partner_service_fulfillments')
+    .select('id').eq('booking_id', BOOKING_IDS.directionalAttack), 'read rejected directional fulfillment')).length, 0);
+  summary.directionalAvailability = {
+    pickupOnlyToReturnOnly: 'accepted_as_pending_request',
+    reverseRoute: 'rejected',
+    sameCityWrongDirection: 'rejected',
+    invalidBookingRows: 0,
+    invalidFulfillmentRows: 0,
+  };
+
+  await must(clients.service.from('car_offer_city_availability').update({
+    pickup_enabled: true,
+    return_enabled: true,
+    is_active: true,
+  }).eq('offer_id', OFFER_ID).in('city_id', [cityByCode.larnaca, cityByCode.paphos]), 'restore paired directions');
 
   const tamperCases = [
     ['altered daily rate', (payload) => ({ pricing_snapshot: { ...payload.pricing_snapshot, daily_rate: 0.01 } })],

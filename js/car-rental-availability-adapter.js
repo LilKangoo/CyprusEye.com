@@ -634,7 +634,7 @@ export function resolveMappedAvailabilityFromContext(input, rawContext = {}) {
 function evaluateLegacyOffers(legacyOffers, input, diagnostics) {
   const route = resolveCarFleet(input.pickupCityCode, input.returnCityCode, input.youngDriver === true);
   const entries = [];
-  for (const offer of legacyOffers) {
+  for (const offer of filterLegacyModeOffers(legacyOffers)) {
     const offerId = text(offer?.id);
     const calculatorKey = normalized(offer?.location) === 'paphos' ? 'paphos' : 'larnaca';
     if (calculatorKey !== route.effectiveOffer) {
@@ -691,6 +691,12 @@ function sortOffersByQuote(offers) {
     if (sortDifference) return sortDifference;
     return text(left?.id).localeCompare(text(right?.id));
   });
+}
+
+function filterLegacyModeOffers(offers) {
+  const source = Array.isArray(offers) ? offers : [];
+  const isLegacyMode = (offer) => normalized(offer?.availability_mode || 'legacy') === 'legacy';
+  return source.every(isLegacyMode) ? source : source.filter(isLegacyMode);
 }
 
 export function buildHybridCarRentalResult({
@@ -863,10 +869,11 @@ export function compareCarRentalAvailability(legacyEntries, mappedOffers, diagno
 }
 
 function baseResult(legacyOffers, diagnostics = [], metrics = {}) {
+  const filteredLegacyOffers = filterLegacyModeOffers(legacyOffers);
   const result = {
-    legacyOffers,
+    legacyOffers: filteredLegacyOffers,
     mappedOffers: [],
-    renderedOffers: legacyOffers,
+    renderedOffers: filteredLegacyOffers,
     comparison: compareCarRentalAvailability([], [], diagnostics),
     diagnostics,
     metrics,
@@ -898,7 +905,8 @@ export async function resolveCarRentalAvailability(options = {}) {
     thresholdFeatureFlagEnabled: options.thresholdFeatureFlagEnabled === true,
   };
   const mode = MODE_SET.has(options.mode) ? options.mode : 'legacy';
-  const legacyOffers = Array.isArray(options.legacyOffers) ? options.legacyOffers : [];
+  const legacyCandidates = Array.isArray(options.legacyOffers) ? options.legacyOffers : [];
+  const legacyOffers = filterLegacyModeOffers(legacyCandidates);
   const diagnostics = [];
   const legacyEntries = evaluateLegacyOffers(legacyOffers, input, diagnostics);
   if (mode === 'legacy') {
@@ -941,7 +949,7 @@ export async function resolveCarRentalAvailability(options = {}) {
     // island-wide fallback.
     const legacyRouteSupported = LEGACY_AVAILABILITY_CITY_KEYS.has(input.pickupCityCode)
       && LEGACY_AVAILABILITY_CITY_KEYS.has(input.returnCityCode);
-    const hybridLegacyOffers = legacyRouteSupported ? legacyOffers : [];
+    const hybridLegacyOffers = legacyRouteSupported ? legacyCandidates : [];
     const hybridLegacyEntries = legacyRouteSupported ? legacyEntries : [];
 
     const mappedContext = options.mappedContext || await repository.readMappedContext({
@@ -982,7 +990,7 @@ export async function resolveCarRentalAvailability(options = {}) {
     if (mode === 'hybrid') {
       const legacyRouteSupported = LEGACY_AVAILABILITY_CITY_KEYS.has(input.pickupCityCode)
         && LEGACY_AVAILABILITY_CITY_KEYS.has(input.returnCityCode);
-      const hybridLegacyOffers = legacyRouteSupported ? legacyOffers : [];
+      const hybridLegacyOffers = legacyRouteSupported ? legacyCandidates : [];
       const hybridLegacyEntries = legacyRouteSupported ? legacyEntries : [];
       const renderedOffers = buildHybridCarRentalResult({
         legacyOffers: hybridLegacyOffers,

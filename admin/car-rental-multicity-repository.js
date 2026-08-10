@@ -58,6 +58,10 @@
     }
   }
 
+  function hasOwn(object, key) {
+    return Object.prototype.hasOwnProperty.call(object || {}, key);
+  }
+
   function create(options = {}) {
     const getClient = typeof options.getClient === 'function'
       ? options.getClient
@@ -327,17 +331,184 @@
       );
     }
 
-    async function updatePricingProfile(request) {
-      assertAllowedPayload(request.payload, core.PRICING_EDIT_COLUMNS, 'Pricing and profile update');
-      if (core.normalizeCode(request.payload.pricing_strategy || 'legacy_compat') === 'legacy_compat') {
-        const profile = (await listProfiles()).find((row) => normalizeId(row.id) === normalizeId(request.payload.pricing_profile_id));
-        if (!profile || core.profileLocation(profile) !== core.normalizeCode(request.payload.location)) {
-          throw staleConflict('Pricing profile no longer matches the legacy location.', {
-            profileId: request.payload.pricing_profile_id,
-            location: request.payload.location,
+    async function validatePricingUpdateContract(request, currentOfferOverride = null) {
+      const offerId = normalizeId(request.offerId);
+      const currentOffer = currentOfferOverride || await getOfferById(offerId);
+      if (!currentOffer || normalizeId(currentOffer.id) !== offerId) {
+        throw staleConflict('Exact offer changed or is missing.', { offerId });
+      }
+      if (String(currentOffer.updated_at || '') !== String(request.expectedUpdatedAt || '')) {
+        throw staleConflict('Car offer changed since Review.', {
+          offerId,
+          expectedUpdatedAt: request.expectedUpdatedAt,
+        });
+      }
+
+      const currentStrategy = core.normalizeCode(currentOffer.pricing_strategy || 'legacy_compat') || 'legacy_compat';
+      const targetStrategy = hasOwn(request.payload, 'pricing_strategy')
+        ? core.normalizeCode(request.payload.pricing_strategy)
+        : currentStrategy;
+      if (!core.PRICING_STRATEGIES.includes(targetStrategy)) {
+        throw internalError('Pricing save contains an unsupported strategy.', { offerId, targetStrategy });
+      }
+      if (request.reviewedPricingStrategy
+        && core.normalizeCode(request.reviewedPricingStrategy) !== targetStrategy) {
+        throw internalError('Pricing payload no longer matches the reviewed strategy.', {
+          offerId,
+          targetStrategy,
+          reviewedPricingStrategy: request.reviewedPricingStrategy,
+        });
+      }
+      if (currentStrategy !== targetStrategy && (
+        request.explicitStrategyConversion !== true
+        || core.normalizeCode(request.reviewedPricingStrategy) !== targetStrategy
+      )) {
+        throw internalError('Unexpected pricing strategy conversion blocked before any write.', {
+          offerId,
+          currentStrategy,
+          targetStrategy,
+        });
+      }
+
+      if (targetStrategy === 'threshold_daily_rate') {
+        const forbiddenCompatibilityFields = [
+          ...core.PROFILE_COLUMNS,
+          ...core.PRICE_COLUMNS,
+        ].filter((field) => hasOwn(request.payload, field));
+        if (forbiddenCompatibilityFields.length) {
+          throw internalError('Threshold pricing save cannot rewrite legacy compatibility metadata.', {
+            offerId,
+            forbiddenCompatibilityFields,
           });
         }
+        return { currentOffer, currentStrategy, targetStrategy };
       }
+
+      const profileId = normalizeId(hasOwn(request.payload, 'pricing_profile_id')
+        ? request.payload.pricing_profile_id
+        : currentOffer.pricing_profile_id);
+      const location = core.normalizeCode(hasOwn(request.payload, 'location')
+        ? request.payload.location
+        : currentOffer.location);
+      const profile = (await listProfiles()).find((row) => normalizeId(row.id) === profileId);
+      if (!profile || core.profileLocation(profile) !== location) {
+        throw staleConflict('Pricing profile no longer matches the legacy location.', {
+          profileId,
+          location,
+        });
+      }
+      return { currentOffer, currentStrategy, targetStrategy, profile, location };
+    }
+
+    async function validatePricingPlanBeforeMutation(plan) {
+      const offerId = normalizeId(plan?.exactOfferId);
+      const currentOffer = await getOfferById(offerId);
+      const offerSteps = (plan?.steps || []).filter((step) => (
+        step?.type === 'car_offer' && step?.action === 'update'
+      ));
+      if (offerSteps.length > 1) {
+        throw internalError('Pricing plan contains multiple exact-offer updates.', { offerId });
+      }
+      const offerStep = offerSteps[0] || null;
+      const payload = offerStep?.payload || {};
+      const expectedUpdatedAt = offerStep?.expectedUpdatedAt || plan?.expectedUpdatedAt;
+      const reviewedStrategy = core.normalizeCode(plan?.reviewedPricingStrategy);
+      const currentStrategy = core.normalizeCode(currentOffer?.pricing_strategy || 'legacy_compat') || 'legacy_compat';
+      const explicitStrategyChange = currentStrategy !== reviewedStrategy;
+      const reviewedChange = (offerStep?.changes || []).some((change) => (
+        change.field === 'pricing_strategy'
+        && core.normalizeCode(change.before || 'legacy_compat') === currentStrategy
+        && core.normalizeCode(change.after) === reviewedStrategy
+      ));
+      if (!reviewedStrategy || !core.PRICING_STRATEGIES.includes(reviewedStrategy)) {
+        throw internalError('Pricing plan is missing its reviewed strategy.', { offerId });
+      }
+      if (core.normalizeCode(plan?.originalPricingStrategy || currentStrategy) !== currentStrategy) {
+        throw staleConflict('Pricing strategy changed since Review.', { offerId });
+      }
+      if (explicitStrategyChange
+        && (plan?.explicitStrategyConversion !== true || !reviewedChange || !offerStep)) {
+        throw internalError('Pricing strategy conversion was not explicitly reviewed.', {
+          offerId,
+          currentStrategy,
+          reviewedStrategy,
+        });
+      }
+
+      await validatePricingUpdateContract({
+        offerId,
+        expectedUpdatedAt,
+        payload,
+        reviewedPricingStrategy: reviewedStrategy,
+        explicitStrategyConversion: explicitStrategyChange,
+      }, currentOffer);
+
+      const expectedTierRows = plan?.preflightSnapshot?.dailyRateTiers;
+      if (!Array.isArray(expectedTierRows)) {
+        throw internalError('Pricing plan is missing its reviewed tier snapshot.', { offerId });
+      }
+      const currentTierRows = await listDailyRateTiersByOfferId(offerId);
+      const tierVersionContract = (rowsToProject) => (rowsToProject || []).map((tier) => ({
+        id: normalizeId(tier?.id),
+        offer_id: normalizeId(tier?.offer_id),
+        threshold_days: Number(tier?.threshold_days),
+        daily_rate: Number(tier?.daily_rate),
+        is_active: tier?.is_active === true,
+        updated_at: String(tier?.updated_at || ''),
+      })).sort((left, right) => String(left.id).localeCompare(String(right.id)));
+      if (JSON.stringify(tierVersionContract(currentTierRows))
+        !== JSON.stringify(tierVersionContract(expectedTierRows))) {
+        throw staleConflict('Daily-rate tiers changed since Review.', { offerId });
+      }
+
+      if (reviewedStrategy !== 'threshold_daily_rate') return;
+      const reviewedTiers = Array.isArray(plan?.reviewedDailyRateTiers)
+        ? plan.reviewedDailyRateTiers
+        : null;
+      if (!reviewedTiers) {
+        throw internalError('Threshold pricing plan is missing its reviewed tier set.', { offerId });
+      }
+      const activeTiers = reviewedTiers.filter((tier) => tier?.is_active === true);
+      const thresholds = new Set();
+      for (const tier of reviewedTiers) {
+        const thresholdDays = Number(tier.threshold_days);
+        const dailyRate = Number(tier.daily_rate);
+        if (!Number.isInteger(thresholdDays) || thresholdDays < 1
+          || !Number.isFinite(dailyRate) || dailyRate <= 0
+          || thresholds.has(thresholdDays)) {
+          throw internalError('Threshold pricing plan contains an invalid or duplicate tier.', {
+            offerId,
+            thresholdDays,
+          });
+        }
+        thresholds.add(thresholdDays);
+      }
+      if (!activeTiers.length) {
+        throw internalError('Threshold pricing requires at least one active tier.', { offerId });
+      }
+      const effectiveMinimum = Math.min(...activeTiers.map((tier) => Number(tier.threshold_days)));
+      if (Number(plan.effectiveMinRentalDays) !== effectiveMinimum) {
+        throw internalError('Reviewed minimum does not match the lowest active tier.', {
+          offerId,
+          effectiveMinimum,
+          reviewedMinimum: plan.effectiveMinRentalDays,
+        });
+      }
+      const targetMaximum = hasOwn(payload, 'max_rental_days')
+        ? payload.max_rental_days
+        : currentOffer.max_rental_days;
+      if (targetMaximum != null && Number(targetMaximum) < effectiveMinimum) {
+        throw internalError('Maximum rental days are below the reviewed threshold minimum.', {
+          offerId,
+          effectiveMinimum,
+          targetMaximum,
+        });
+      }
+    }
+
+    async function updatePricingProfile(request) {
+      assertAllowedPayload(request.payload, core.PRICING_EDIT_COLUMNS, 'Pricing and profile update');
+      await validatePricingUpdateContract(request);
       return exactOfferUpdate(
         request.offerId,
         request.expectedUpdatedAt,
@@ -581,6 +752,8 @@
           offerId: step.entityId,
           expectedUpdatedAt,
           payload: step.payload,
+          reviewedPricingStrategy: execution.plan?.reviewedPricingStrategy,
+          explicitStrategyConversion: execution.plan?.explicitStrategyConversion === true,
         };
         if (execution.planKind === 'vehicle') return updateVehicleDetails(request);
         if (execution.planKind === 'pricing_profile') return updatePricingProfile(request);
@@ -633,6 +806,9 @@
         throw internalError('Unsafe or missing Stage 2C save plan.');
       }
       const working = core.clone(plan);
+      if (working.kind === 'pricing_profile') {
+        await validatePricingPlanBeforeMutation(working);
+      }
       const pendingImageSteps = working.steps.filter((step) => step?.payload?.image_url === core.PENDING_IMAGE_URL);
       if (pendingImageSteps.length) {
         const uploadedImageUrl = normalizeId(options.uploadedImageUrl);

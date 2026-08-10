@@ -71,7 +71,10 @@ describe('Stage 3A/3B flexible Cars foundation static guards', () => {
     expect(pricingMigration).toContain("where offer.pricing_strategy = 'legacy_compat'");
     expect(pricingMigration).toContain("if v_strategy = 'threshold_daily_rate' then");
     expect(core).toContain("const thresholdStrategy = normalizeCode(draft?.pricing?.strategy) === 'threshold_daily_rate'");
-    expect(repository).toContain("core.normalizeCode(request.payload.pricing_strategy || 'legacy_compat') === 'legacy_compat'");
+    expect(repository).toContain("hasOwn(request.payload, 'pricing_strategy')");
+    expect(repository).toContain(': currentStrategy');
+    expect(repository).toContain('Threshold pricing save cannot rewrite legacy compatibility metadata.');
+    expect(repository).not.toContain("request.payload.pricing_strategy || 'legacy_compat'");
   });
 
   test('new kinds and structured exact-offer fields exist without offer seeds', () => {

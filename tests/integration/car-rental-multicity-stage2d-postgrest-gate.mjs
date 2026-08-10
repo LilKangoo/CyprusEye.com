@@ -267,10 +267,10 @@ try {
     supabase: trackedAnon,
   });
   assert.strictEqual(result.renderedOffers, result.legacyOffers);
-  assert.deepEqual(result.legacyOffers.map((row) => row.id), [OFFER_PAPHOS]);
+  assert.deepEqual(result.legacyOffers.map((row) => row.id), []);
   assert.deepEqual(result.mappedOffers.map((row) => row.id), [OFFER_LARNACA, OFFER_PAPHOS]);
-  assert.deepEqual(result.comparison.addedOfferIds, [OFFER_LARNACA]);
-  assert.deepEqual(result.comparison.commonOfferIds, [OFFER_PAPHOS]);
+  assert.deepEqual(result.comparison.addedOfferIds, [OFFER_LARNACA, OFFER_PAPHOS]);
+  assert.deepEqual(result.comparison.commonOfferIds, []);
   assert.deepEqual(result.comparison.priceMismatches, []);
   assert.deepEqual(result.comparison.orderMismatches, []);
   assert.deepEqual(result.comparison.unexplainedDifferences, []);
