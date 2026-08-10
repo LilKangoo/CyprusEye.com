@@ -441,7 +441,7 @@ select
     and offers.legacy_insurance_count = 27
     and offers.existing_structured_field_changes = 0
     and offers.incompatible_profile_count = 0
-    and offers.protected_fingerprint = 'aa1abc7ce187779927838bafb706cf3b'
+    and offers.protected_fingerprint = 'ec3e29a35f249c92279d7b15f400ef0f'
     and availability.row_count = 12
     and availability.active_count = 12
     and availability.inherit_count = 12

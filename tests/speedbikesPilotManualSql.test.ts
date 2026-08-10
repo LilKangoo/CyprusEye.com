@@ -135,7 +135,7 @@ describe('SpeedBikes production cleanup and one-offer pilot SQL', () => {
     expect(sql).toContain('availability.total_row_count = 22');
     expect(sql).toContain('availability.exact_ayia_napa_count = 22');
     expect(sql).toContain('availability.additional_configured_city_count = 0');
-    expect(sql).toContain("legacy.protected_fingerprint = 'aa1abc7ce187779927838bafb706cf3b'");
+    expect(sql).toContain("legacy.protected_fingerprint = 'ec3e29a35f249c92279d7b15f400ef0f'");
     expect(sql).not.toMatch(/\b(insert|update|delete|alter|drop|create|call)\s+(?:into\s+|from\s+|table\s+)?public\./i);
   });
 

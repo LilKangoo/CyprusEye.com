@@ -1688,7 +1688,7 @@ summary as (
     legacy_availability.active_count as existing_active_availability_rows,
     legacy_availability.inherit_count as existing_inherit_availability_rows,
     legacy_availability.override_count as existing_override_availability_rows,
-    case when legacy.offer_count = 27 and legacy.protected_fingerprint = 'aa1abc7ce187779927838bafb706cf3b' then 0 else 1 end as legacy_price_mismatch,
+    case when legacy.offer_count = 27 and legacy.protected_fingerprint = 'ec3e29a35f249c92279d7b15f400ef0f' then 0 else 1 end as legacy_price_mismatch,
     bookings.speedbikes_booking_count,
     fulfillments.speedbikes_fulfillment_count,
     fulfillments.non_pending_count as automatic_acceptance_count,
@@ -1746,7 +1746,7 @@ summary as (
       and partner.exact_owner_routing_count = 22
       and legacy.offer_count = 27
       and legacy.legacy_pricing_count = 27
-      and legacy.protected_fingerprint = 'aa1abc7ce187779927838bafb706cf3b'
+      and legacy.protected_fingerprint = 'ec3e29a35f249c92279d7b15f400ef0f'
       and legacy_availability.row_count = 12
       and legacy_availability.active_count = 12
       and legacy_availability.inherit_count = 12

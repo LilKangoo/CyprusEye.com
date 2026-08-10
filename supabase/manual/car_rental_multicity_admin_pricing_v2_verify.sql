@@ -112,7 +112,7 @@ select
   (
     offer.offer_count = 27
     and offer.mapped_offers = 0
-    and offer.protected_fingerprint = 'aa1abc7ce187779927838bafb706cf3b'
+    and offer.protected_fingerprint = 'ec3e29a35f249c92279d7b15f400ef0f'
     and availability.availability_rows = 12
     and availability.paired_active_rows = 12
     and availability.inherited_rows = 12

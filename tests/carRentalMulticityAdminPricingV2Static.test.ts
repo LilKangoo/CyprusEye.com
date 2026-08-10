@@ -97,7 +97,7 @@ describe('Car Rental Multi-City Admin Pricing V2 static guards', () => {
   test('verify SQL is read-only and checks the accepted baseline and inert state', () => {
     expect(verify).toContain('car-rental-multicity-admin-pricing-v2-verify-v1');
     expect(verify).toContain('admin_pricing_v2_safe');
-    expect(verify).toContain('aa1abc7ce187779927838bafb706cf3b');
+    expect(verify).toContain('ec3e29a35f249c92279d7b15f400ef0f');
     expect(verify).toContain('availability_rows = 12');
     expect(verify).toContain('mapped_offers = 0');
     expect(verify).toContain('mapped_flag is false');

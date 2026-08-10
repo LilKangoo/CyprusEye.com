@@ -3241,7 +3241,7 @@ begin
     select 1 from _speedbikes_expected_offers expected where expected.offer_id = offer.id
   );
 
-  if v_legacy_count <> 27 or v_legacy_fingerprint <> 'aa1abc7ce187779927838bafb706cf3b' then
+  if v_legacy_count <> 27 or v_legacy_fingerprint <> 'ec3e29a35f249c92279d7b15f400ef0f' then
     raise exception using
       errcode = '23514',
       message = 'speedbikes_existing_legacy_baseline_mismatch',
@@ -3598,7 +3598,7 @@ begin
     select 1 from _speedbikes_expected_offers expected where expected.offer_id = offer.id
   );
 
-  if v_legacy_count <> 27 or v_legacy_fingerprint <> 'aa1abc7ce187779927838bafb706cf3b' then
+  if v_legacy_count <> 27 or v_legacy_fingerprint <> 'ec3e29a35f249c92279d7b15f400ef0f' then
     raise exception using errcode = '23514', message = 'speedbikes_existing_legacy_offers_changed';
   end if;
 

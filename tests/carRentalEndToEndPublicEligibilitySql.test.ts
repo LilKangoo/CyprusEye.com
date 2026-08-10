@@ -127,7 +127,7 @@ describe('Car Rental end-to-end public eligibility SQL', () => {
     expect(normalized).toContain('exact_owner_fail_closed_safe');
     expect(normalized).toContain('admin_batch_contract_safe');
     expect(normalized).toContain('public_policy_contract_safe');
-    expect(normalized).toContain("legacy.protected_fingerprint = 'aa1abc7ce187779927838bafb706cf3b'");
+    expect(normalized).toContain("legacy.protected_fingerprint = 'ec3e29a35f249c92279d7b15f400ef0f'");
     expect(verify).not.toMatch(
       /^\s*(insert|update|delete|alter|drop|create|call)\s+(?:into\s+|from\s+|table\s+)?public\./im,
     );

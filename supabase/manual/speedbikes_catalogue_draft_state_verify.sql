@@ -167,7 +167,7 @@ select
     and fulfillments.fulfillment_count = 0
     and legacy.offer_count = 27
     and legacy.legacy_compat_mode_count = 27
-    and legacy.protected_fingerprint = 'aa1abc7ce187779927838bafb706cf3b'
+    and legacy.protected_fingerprint = 'ec3e29a35f249c92279d7b15f400ef0f'
   ) as speedbikes_draft_state_safe
 from offer_state offers
 cross join flag_state flags

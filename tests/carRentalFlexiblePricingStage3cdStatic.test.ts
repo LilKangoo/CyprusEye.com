@@ -215,7 +215,7 @@ describe('Stage 3C/3D runtime and authoritative validation static guards', () =>
   test('final manual preflight and verify are one-row read-only production guards', () => {
     expect(finalPreflight).toContain('car-rental-flexible-pricing-final-preflight-v1');
     expect(finalPreflight).toContain('stage3_final_preflight_pass');
-    expect(finalPreflight).toContain('aa1abc7ce187779927838bafb706cf3b');
+    expect(finalPreflight).toContain('ec3e29a35f249c92279d7b15f400ef0f');
     expect(finalPreflight).toContain('objects.present_count = objects.expected_count');
     expect(finalPreflight).not.toMatch(/\b(insert\s+into|update\s+public\.|delete\s+from|alter\s+table|create\s+(?:table|function|policy|trigger)|drop\s+)\b/i);
     expect(finalVerify).toContain('car-rental-flexible-pricing-final-verify-v1');

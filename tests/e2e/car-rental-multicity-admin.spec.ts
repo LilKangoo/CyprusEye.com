@@ -9,6 +9,9 @@ const CITY_NICOSIA = 'ca200001-0000-4000-8000-000000000002';
 const CITY_PAPHOS = 'ca200001-0000-4000-8000-000000000006';
 const KIND_CAR = 'ca220001-0000-4000-8000-000000000001';
 const KIND_QUAD = 'ca220001-0000-4000-8000-000000000002';
+const KYMCO_OFFER_ID = '2817e6de-25ba-5237-b721-dbc0460a7de4';
+const KYMCO_TIER_3_ID = '177d85ab-4c2d-5eea-bce6-9bd06adc397a';
+const KYMCO_BOOKING_ID = 'ca3f0000-0000-4000-8000-000000000270';
 
 function adminSeedScript() {
   return () => {
@@ -190,6 +193,118 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     await expect(page.locator('#fleetCarModal')).toBeVisible();
     await expect(page.locator('#fleetCarLocation')).toBeDisabled();
     await expect(page.locator('#fleetCarLegacyLocationNotice')).toContainText('Pricing profile');
+  });
+
+  test('threshold booking details render the authoritative Kymco snapshot without a legacy Larnaca quote or writes', async ({ page }) => {
+    await page.evaluate(({ offerId, tierId, bookingId }) => {
+      const stub = (window as any).__supabaseStub;
+      stub.seedTable('car_offers', [
+        ...stub.getTableRows('car_offers'),
+        {
+          id: offerId,
+          car_model: { en: 'Kymco UVX', pl: 'Kymco UVX', he: 'Kymco UVX' },
+          location: 'larnaca',
+          pricing_strategy: 'threshold_daily_rate',
+          availability_mode: 'mapped',
+          owner_partner_id: 'partner-one',
+          is_available: true,
+          is_published: true,
+          submission_status: 'approved',
+          stock_count: 1,
+          updated_at: '2026-08-10T01:00:00.000Z',
+        },
+      ]);
+      stub.seedTable('car_bookings', [{
+        id: bookingId,
+        offer_id: offerId,
+        car_model: 'Kymco UVX',
+        full_name: 'Threshold Test Customer',
+        email: 'threshold.customer@example.test',
+        phone: '+35700000000',
+        status: 'pending',
+        payment_status: 'unpaid',
+        location: 'larnaca',
+        pickup_date: '2026-08-10',
+        pickup_time: '10:00:00',
+        return_date: '2026-08-13',
+        return_time: '10:00:00',
+        pickup_location: 'ayia-napa',
+        return_location: 'ayia-napa',
+        pickup_city_code: 'ayia-napa',
+        return_city_code: 'ayia-napa',
+        quoted_price: 270,
+        total_price: 270,
+        base_rental_price: 270,
+        final_rental_price: 270,
+        final_price: null,
+        currency: 'EUR',
+        pickup_location_fee: 0,
+        return_location_fee: 0,
+        insurance_added: false,
+        insurance_cost: 0,
+        young_driver: false,
+        young_driver_fee: false,
+        young_driver_cost: 0,
+        coupon_code: null,
+        coupon_discount_amount: 0,
+        pricing_validated_at: '2026-08-10T01:01:00.000Z',
+        pricing_snapshot: {
+          version: 'car-threshold-authoritative-v1',
+          pricing_strategy: 'threshold_daily_rate',
+          offer_id: offerId,
+          tier_id: tierId,
+          threshold_days: 3,
+          rental_days: 3,
+          daily_rate: 90.000000,
+          base_rental_price: 270,
+          pickup_city_code: 'ayia-napa',
+          return_city_code: 'ayia-napa',
+          pickup_fee_mode: 'override',
+          return_fee_mode: 'override',
+          pickup_location_fee: 0,
+          return_location_fee: 0,
+          insurance_mode: 'included',
+          insurance_selected: false,
+          insurance_daily_rate: 0,
+          insurance_cost: 0,
+          young_driver_selected: false,
+          young_driver_daily_rate: 0,
+          young_driver_cost: 0,
+          pre_discount_total: 270,
+          coupon_code: null,
+          discount_amount: 0,
+          final_rental_price: 270,
+          currency: 'EUR',
+        },
+        created_at: '2026-08-10T01:02:00.000Z',
+        updated_at: '2026-08-10T01:02:00.000Z',
+      }]);
+      stub.clearMutationCalls();
+    }, { offerId: KYMCO_OFFER_ID, tierId: KYMCO_TIER_3_ID, bookingId: KYMCO_BOOKING_ID });
+
+    await page.evaluate(() => (window as any).loadCarsData({ silent: true }));
+    await page.locator('.cars-tab-button[data-tab="bookings"]').click();
+    const row = page.locator('#carsTableBody tr').filter({ hasText: 'Kymco UVX' });
+    await expect(row).toContainText('€270.00');
+    await row.getByRole('button', { name: 'View' }).click();
+
+    const details = page.locator('#bookingDetailsContent');
+    await expect(page.locator('#bookingDetailsModal')).toBeVisible();
+    await expect(details).toContainText('Authoritative Threshold Pricing Snapshot');
+    await expect(details).toContainText(KYMCO_OFFER_ID);
+    await expect(details).toContainText(KYMCO_TIER_3_ID);
+    await expect(details).toContainText('From 3 day(s)');
+    await expect(details).toContainText('EUR 90/day');
+    await expect(details).toContainText('Base rental (3 day(s) × EUR 90)');
+    await expect(details).toContainText('EUR 270.00');
+    await expect(details).toContainText('Pickup fee (ayia-napa)');
+    await expect(details).toContainText('Return fee (ayia-napa)');
+    await expect(details).not.toContainText('LARNACA Rate');
+    await expect(details).not.toContainText('Use Suggested Price');
+    await expect(details).not.toContainText('Manual Pricing Override');
+    await expect(page.locator('#btnUseSuggestedPrice')).toHaveCount(0);
+    await expect(page.locator('#bookingQuotedPrice')).toHaveCount(0);
+    expect(await page.evaluate(() => (window as any).__supabaseStub.getMutationCalls())).toEqual([]);
   });
 
   test('Activate / Publish is capability-gated and performs one exact-offer transaction when both flags are ON', async ({ page }) => {

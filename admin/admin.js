@@ -33378,6 +33378,72 @@ function formatAdminCarPlaceType(locationValue, details = {}) {
   return 'City only / unspecified';
 }
 
+function normalizeAdminCarPricingSnapshot(value) {
+  if (!value) return null;
+  if (typeof value === 'object' && !Array.isArray(value)) return value;
+  if (typeof value !== 'string') return null;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+function isAdminThresholdCarBooking(booking, offerRow = null) {
+  const snapshot = normalizeAdminCarPricingSnapshot(booking?.pricing_snapshot);
+  return String(snapshot?.pricing_strategy || offerRow?.pricing_strategy || '').trim().toLowerCase() === 'threshold_daily_rate';
+}
+
+function formatAdminThresholdDailyRate(value, currency = 'EUR') {
+  if (value === null || value === undefined || value === '') return '—';
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return '—';
+  const formatted = numeric.toFixed(6).replace(/\.?0+$/, '');
+  return `${String(currency || 'EUR').toUpperCase()} ${formatted}`;
+}
+
+function getAdminThresholdBookingPriceView(booking) {
+  const snapshot = normalizeAdminCarPricingSnapshot(booking?.pricing_snapshot);
+  if (!snapshot || String(snapshot.pricing_strategy || '').trim().toLowerCase() !== 'threshold_daily_rate') {
+    return null;
+  }
+
+  const numberOrNull = (value) => {
+    if (value === null || value === undefined || value === '') return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+  const currency = String(snapshot.currency || booking?.currency || 'EUR').trim().toUpperCase() || 'EUR';
+  return {
+    snapshot,
+    version: String(snapshot.version || ''),
+    offerId: String(snapshot.offer_id || booking?.offer_id || ''),
+    tierId: String(snapshot.tier_id || ''),
+    thresholdDays: numberOrNull(snapshot.threshold_days),
+    rentalDays: numberOrNull(snapshot.rental_days),
+    dailyRate: numberOrNull(snapshot.daily_rate),
+    baseRentalPrice: numberOrNull(snapshot.base_rental_price),
+    pickupCityCode: String(snapshot.pickup_city_code || booking?.pickup_city_code || booking?.pickup_location || ''),
+    returnCityCode: String(snapshot.return_city_code || booking?.return_city_code || booking?.return_location || ''),
+    pickupLocationFee: numberOrNull(snapshot.pickup_location_fee),
+    returnLocationFee: numberOrNull(snapshot.return_location_fee),
+    insuranceMode: String(snapshot.insurance_mode || ''),
+    insuranceSelected: snapshot.insurance_selected === true,
+    insuranceDailyRate: numberOrNull(snapshot.insurance_daily_rate),
+    insuranceCost: numberOrNull(snapshot.insurance_cost),
+    youngDriverSelected: snapshot.young_driver_selected === true,
+    youngDriverDailyRate: numberOrNull(snapshot.young_driver_daily_rate),
+    youngDriverCost: numberOrNull(snapshot.young_driver_cost),
+    preDiscountTotal: numberOrNull(snapshot.pre_discount_total),
+    couponCode: String(snapshot.coupon_code || booking?.coupon_code || '').trim().toUpperCase(),
+    discountAmount: numberOrNull(snapshot.discount_amount),
+    finalRentalPrice: numberOrNull(snapshot.final_rental_price),
+    currency,
+    pricingValidatedAt: booking?.pricing_validated_at || null,
+  };
+}
+
 async function viewCarBookingDetails(bookingId) {
   try {
     const client = ensureSupabase();
@@ -33433,40 +33499,64 @@ async function viewCarBookingDetails(bookingId) {
       days = Math.ceil(hours / 24);
     }
 
-    // Fetch car pricing from car_offers table
+    // Threshold bookings are financially authoritative from their immutable
+    // server-validated snapshot. Never re-price them through the legacy
+    // Larnaca/Paphos calculator or identify an offer by model text.
     let carPricing = null;
+    let exactOffer = null;
     let calculatedBasePrice = 0;
     let priceBreakdown = '';
     let suggestedQuote = null;
+    let thresholdPriceView = getAdminThresholdBookingPriceView(booking);
+    let thresholdBooking = Boolean(thresholdPriceView);
     
     try {
-      // Fetch all cars for this location
-      const { data: carOffers } = await client
-        .from('car_offers')
-        .select('*')
-        .eq('location', (booking.location || 'larnaca').toLowerCase());
-      
-      // Find matching car by comparing car_model in any language
-      // booking.car_model is a string like "Nissan Note Hybrid (2023)"
-      // car.car_model is JSONB like {"pl": "...", "en": "..."}
-      const carOffer = carOffers?.find(car => {
-        if (typeof car.car_model === 'string') {
-          // Legacy: direct string comparison
-          return car.car_model === booking.car_model;
-        } else if (car.car_model && typeof car.car_model === 'object') {
-          // i18n: check all language variants
-          return car.car_model.pl === booking.car_model ||
-                 car.car_model.en === booking.car_model ||
-                 car.car_model.el === booking.car_model ||
-                 car.car_model.he === booking.car_model;
+      // A valid threshold snapshot is self-contained. Do not query or match an
+      // offer merely to display its already-authoritative booking price.
+      if (!thresholdBooking && booking.offer_id) {
+        const { data: offerById, error: exactOfferError } = await client
+          .from('car_offers')
+          .select('*')
+          .eq('id', booking.offer_id)
+          .single();
+        if (exactOfferError) {
+          console.warn('Could not load exact offer for booking details:', exactOfferError);
+        } else {
+          exactOffer = offerById || null;
         }
-        return false;
-      });
-      
-      carPricing = carOffer;
-      
-      // Calculate suggested quote using the same pricing engine as customer flow.
-      if (carPricing) {
+      }
+
+      thresholdBooking = thresholdBooking || isAdminThresholdCarBooking(booking, exactOffer);
+      thresholdPriceView = getAdminThresholdBookingPriceView(booking);
+      carPricing = exactOffer;
+
+      if (!thresholdBooking) {
+        // Prefer the exact FK for modern legacy rows. Only historical rows
+        // without an offer_id retain the localized-model compatibility lookup.
+        if (!carPricing) {
+          const { data: carOffers } = await client
+            .from('car_offers')
+            .select('*')
+            .eq('location', (booking.location || 'larnaca').toLowerCase());
+
+          carPricing = carOffers?.find(car => {
+            if (typeof car.car_model === 'string') return car.car_model === booking.car_model;
+            if (car.car_model && typeof car.car_model === 'object') {
+              return car.car_model.pl === booking.car_model ||
+                     car.car_model.en === booking.car_model ||
+                     car.car_model.el === booking.car_model ||
+                     car.car_model.he === booking.car_model;
+            }
+            return false;
+          }) || null;
+        }
+
+        // Legacy-only compatibility calculation. Threshold bookings never
+        // enter this branch, including a malformed threshold row without a
+        // usable snapshot.
+        if (!carPricing || String(carPricing.pricing_strategy || 'legacy_compat') !== 'legacy_compat') {
+          throw new Error('Legacy pricing offer not available for booking details');
+        }
         const location = (booking.location || 'larnaca').toLowerCase();
         const pricingMatrix = buildPricingMatrixForOfferRow(carPricing, location);
         suggestedQuote = calculateCarRentalQuote({
@@ -33492,21 +33582,43 @@ async function viewCarBookingDetails(bookingId) {
         }
       }
     } catch (err) {
-      console.warn('Could not fetch car pricing:', err);
+      console.warn(thresholdBooking
+        ? 'Could not load threshold booking pricing snapshot:'
+        : 'Could not fetch legacy car pricing:', err);
     }
 
-    const pickupFee = suggestedQuote?.pickupFee || 0;
-    const returnFee = suggestedQuote?.returnFee || 0;
-    const insuranceCost = suggestedQuote?.insuranceCost || 0;
+    if (thresholdBooking && Number.isFinite(Number(thresholdPriceView?.rentalDays))) {
+      days = Number(thresholdPriceView.rentalDays);
+    }
+
+    const pickupFee = thresholdBooking
+      ? Number(thresholdPriceView?.pickupLocationFee || 0)
+      : Number(suggestedQuote?.pickupFee || 0);
+    const returnFee = thresholdBooking
+      ? Number(thresholdPriceView?.returnLocationFee || 0)
+      : Number(suggestedQuote?.returnFee || 0);
+    const insuranceCost = thresholdBooking
+      ? Number(thresholdPriceView?.insuranceCost || 0)
+      : Number(suggestedQuote?.insuranceCost || 0);
     const storedYoungDriverTotal = Number(booking?.young_driver_cost || 0);
     const storedYoungDriverFee = Number(booking?.young_driver_fee || 0);
-    const quotedYoungDriverCost = Number(suggestedQuote?.youngDriverCost || 0);
-    const youngDriverCost = quotedYoungDriverCost > 0 ? quotedYoungDriverCost : storedYoungDriverTotal;
-    const youngDriverRequested = Boolean(booking?.young_driver || storedYoungDriverTotal > 0 || storedYoungDriverFee > 0);
-    const youngDriverDailyFee = storedYoungDriverFee > 0
-      ? storedYoungDriverFee
-      : (days > 0 && youngDriverCost > 0 ? youngDriverCost / days : 0);
-    const suggestedTotal = suggestedQuote?.total || 0;
+    const quotedYoungDriverCost = thresholdBooking
+      ? Number(thresholdPriceView?.youngDriverCost || 0)
+      : Number(suggestedQuote?.youngDriverCost || 0);
+    const youngDriverCost = thresholdBooking
+      ? quotedYoungDriverCost
+      : (quotedYoungDriverCost > 0 ? quotedYoungDriverCost : storedYoungDriverTotal);
+    const youngDriverRequested = thresholdBooking
+      ? thresholdPriceView?.youngDriverSelected === true
+      : Boolean(booking?.young_driver || storedYoungDriverTotal > 0 || storedYoungDriverFee > 0);
+    const youngDriverDailyFee = thresholdBooking
+      ? Number(thresholdPriceView?.youngDriverDailyRate || 0)
+      : storedYoungDriverFee > 0
+        ? storedYoungDriverFee
+        : (days > 0 && youngDriverCost > 0 ? youngDriverCost / days : 0);
+    const suggestedTotal = thresholdBooking
+      ? Number(thresholdPriceView?.finalRentalPrice || 0)
+      : Number(suggestedQuote?.total || 0);
     const bookingFleetSource = normalizeAdminCarFleet(booking.location || suggestedQuote?.offer || 'larnaca');
     const pickupCityLabel = formatAdminCarCity(booking.pickup_location, bookingFleetSource);
     const returnCityLabel = formatAdminCarCity(booking.return_location, bookingFleetSource);
@@ -33519,13 +33631,21 @@ async function viewCarBookingDetails(bookingId) {
       flightNumber: booking.flight_number,
     });
     const bookingPriceMeta = getCarBookingEffectivePriceMeta(booking);
-    const couponCodeSnapshot = String(booking?.coupon_code || '').trim().toUpperCase();
-    const couponDiscountSnapshot = Number(booking?.coupon_discount_amount || 0);
+    const couponCodeSnapshot = String(thresholdBooking
+      ? (thresholdPriceView?.couponCode || '')
+      : (booking?.coupon_code || '')).trim().toUpperCase();
+    const couponDiscountSnapshot = Number(thresholdBooking
+      ? (thresholdPriceView?.discountAmount || 0)
+      : (booking?.coupon_discount_amount || 0));
     const hasCouponSnapshot = Boolean(couponCodeSnapshot || couponDiscountSnapshot > 0);
-    const baseRentalSnapshot = Number((booking?.base_rental_price ?? suggestedTotal ?? bookingPriceMeta.amount ?? 0));
-    const finalRentalSnapshot = Number((booking?.final_rental_price ?? bookingPriceMeta.amount ?? 0));
+    const baseRentalSnapshot = Number(thresholdBooking
+      ? (thresholdPriceView?.baseRentalPrice || 0)
+      : (booking?.base_rental_price ?? suggestedTotal ?? bookingPriceMeta.amount ?? 0));
+    const finalRentalSnapshot = Number(thresholdBooking
+      ? (thresholdPriceView?.finalRentalPrice || 0)
+      : (booking?.final_rental_price ?? bookingPriceMeta.amount ?? 0));
 
-    const couponPricingHtml = hasCouponSnapshot
+    const couponPricingHtml = !thresholdBooking && hasCouponSnapshot
       ? `
         <div style="background: rgba(37, 99, 235, 0.08); border: 1px solid rgba(37, 99, 235, 0.3); padding: 14px; border-radius: 10px;">
           <h4 style="margin: 0 0 10px; font-size: 14px; font-weight: 600; color: var(--admin-primary);">Coupon Pricing Snapshot</h4>
@@ -33549,6 +33669,50 @@ async function viewCarBookingDetails(bookingId) {
           </div>
         </div>
       `
+      : '';
+
+    const thresholdMoney = (value) => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value))
+      ? `${escapeHtml(thresholdPriceView?.currency || 'EUR')} ${Number(value).toFixed(2)}`
+      : '—';
+    const thresholdPricingDetailsHtml = thresholdBooking
+      ? (thresholdPriceView
+        ? `
+          <div style="background: rgba(255, 255, 255, 0.1); padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+            <div style="display:grid; gap:10px;">
+              <div style="display:flex; justify-content:space-between; gap:16px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.2);">
+                <div>
+                  <div style="font-weight:600; font-size:14px;">Selected daily-rate tier</div>
+                  <div style="font-size:12px; opacity:0.85; margin-top:2px;">From ${escapeHtml(thresholdPriceView.thresholdDays ?? '—')} day(s) • exact tier <code>${escapeHtml(thresholdPriceView.tierId || '—')}</code></div>
+                </div>
+                <strong>${escapeHtml(formatAdminThresholdDailyRate(thresholdPriceView.dailyRate, thresholdPriceView.currency))}/day</strong>
+              </div>
+              <div style="display:flex; justify-content:space-between; gap:16px;">
+                <span>Base rental (${escapeHtml(thresholdPriceView.rentalDays ?? '—')} day(s) × ${escapeHtml(formatAdminThresholdDailyRate(thresholdPriceView.dailyRate, thresholdPriceView.currency))})</span>
+                <strong>${thresholdMoney(thresholdPriceView.baseRentalPrice)}</strong>
+              </div>
+              <div style="display:flex; justify-content:space-between; gap:16px;"><span>Pickup fee (${escapeHtml(thresholdPriceView.pickupCityCode || '—')})</span><strong>${thresholdMoney(thresholdPriceView.pickupLocationFee)}</strong></div>
+              <div style="display:flex; justify-content:space-between; gap:16px;"><span>Return fee (${escapeHtml(thresholdPriceView.returnCityCode || '—')})</span><strong>${thresholdMoney(thresholdPriceView.returnLocationFee)}</strong></div>
+              <div style="display:flex; justify-content:space-between; gap:16px;"><span>Insurance (${escapeHtml(thresholdPriceView.insuranceMode || 'not specified')}${thresholdPriceView.insuranceSelected ? ', selected' : ', not selected'})</span><strong>${thresholdMoney(thresholdPriceView.insuranceCost)}</strong></div>
+              <div style="display:flex; justify-content:space-between; gap:16px;"><span>Young driver (${thresholdPriceView.youngDriverSelected ? 'selected' : 'not selected'})</span><strong>${thresholdMoney(thresholdPriceView.youngDriverCost)}</strong></div>
+              <div style="display:flex; justify-content:space-between; gap:16px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.2);"><span>Before discount</span><strong>${thresholdMoney(thresholdPriceView.preDiscountTotal)}</strong></div>
+              ${thresholdPriceView.couponCode || Number(thresholdPriceView.discountAmount || 0) > 0 ? `
+                <div style="display:flex; justify-content:space-between; gap:16px;"><span>Coupon ${escapeHtml(thresholdPriceView.couponCode || '')}</span><strong>-${thresholdMoney(thresholdPriceView.discountAmount)}</strong></div>
+              ` : ''}
+              <div style="display:flex; justify-content:space-between; gap:16px; padding-top:12px; border-top:2px solid rgba(255,255,255,0.3); font-size:18px;"><strong>Authoritative final total</strong><strong style="color:#fbbf24;">${thresholdMoney(thresholdPriceView.finalRentalPrice)}</strong></div>
+            </div>
+          </div>
+          <div style="background:rgba(255,255,255,0.15); padding:12px; border-radius:6px; font-size:12px; line-height:1.5;">
+            <strong>Server validated.</strong> Pricing strategy: <code>threshold_daily_rate</code>. Exact offer: <code>${escapeHtml(thresholdPriceView.offerId || booking.offer_id || '—')}</code>.
+            This is the stored authoritative booking snapshot; Admin does not recalculate it with a legacy regional rate.
+            ${thresholdPriceView.pricingValidatedAt ? `<br>Validated: ${escapeHtml(new Date(thresholdPriceView.pricingValidatedAt).toLocaleString('en-GB'))}` : ''}
+          </div>
+        `
+        : `
+          <div style="background:rgba(127,29,29,0.35); padding:16px; border:1px solid rgba(252,165,165,0.7); border-radius:8px;">
+            <strong>Authoritative threshold snapshot unavailable.</strong>
+            This booking is linked to a threshold-pricing offer, so Admin has deliberately not applied the legacy Larnaca/Paphos calculator. Review the stored booking record and server validation state.
+          </div>
+        `)
       : '';
 
     // Status badge
@@ -33693,10 +33857,21 @@ async function viewCarBookingDetails(bookingId) {
               <span style="font-weight: 500;">Car Model:</span>
               <span style="font-weight: 600;">${escapeHtml(booking.car_model || 'N/A')}</span>
             </div>
+            ${thresholdBooking ? `
+            <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Pricing:</span>
+              <span>Threshold daily rates (exact offer)</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Offer ID:</span>
+              <code>${escapeHtml(booking.offer_id || thresholdPriceView?.offerId || 'N/A')}</code>
+            </div>
+            ` : `
             <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
               <span style="font-weight: 500;">Fleet/source:</span>
               <span>${escapeHtml(formatAdminCarFleet(bookingFleetSource))}</span>
             </div>
+            `}
             <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
               <span style="font-weight: 500;">Pickup City:</span>
               <span>${escapeHtml(pickupCityLabel)}</span>
@@ -33753,8 +33928,10 @@ async function viewCarBookingDetails(bookingId) {
               <span>${booking.child_seats || 0} ${booking.child_seats > 0 ? '(FREE)' : ''}</span>
             </div>
             <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
-              <span style="font-weight: 500;">Full Insurance:</span>
-              <span>${booking.full_insurance ? '✅ Yes (+17€/day)' : '❌ No'}</span>
+              <span style="font-weight: 500;">Insurance:</span>
+              <span>${thresholdBooking
+                ? `${escapeHtml(thresholdPriceView?.insuranceMode || 'Not specified')} • ${thresholdPriceView?.insuranceSelected ? 'selected' : 'not selected'} • ${thresholdMoney(thresholdPriceView?.insuranceCost)}`
+                : (booking.full_insurance ? '✅ Full insurance (+17€/day)' : '❌ Not selected')}</span>
             </div>
             <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
               <span style="font-weight: 500;">Young Driver:</span>
@@ -33786,10 +33963,12 @@ async function viewCarBookingDetails(bookingId) {
         <div style="background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%); padding: 20px; border-radius: 12px; color: white;">
           <h4 style="margin: 0 0 16px; font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
             <span style="font-size: 24px;">🧮</span>
-            Automatic Price Calculation (${(booking.location || 'Larnaca').toUpperCase()} Rate)
+            ${thresholdBooking
+              ? 'Authoritative Threshold Pricing Snapshot'
+              : `Automatic Price Calculation (${(booking.location || 'Larnaca').toUpperCase()} Rate)`}
           </h4>
           
-          ${suggestedQuote ? `
+          ${thresholdBooking ? thresholdPricingDetailsHtml : (suggestedQuote ? `
           <div style="background: rgba(255, 255, 255, 0.1); padding: 16px; border-radius: 8px; margin-bottom: 16px;">
             <div style="display: grid; gap: 10px;">
               <!-- Base Price -->
@@ -33855,11 +34034,18 @@ async function viewCarBookingDetails(bookingId) {
             <div style="font-size: 14px; opacity: 0.9;">⚠️ Could not compute quote from current booking details.</div>
             <div style="font-size: 12px; opacity: 0.75; margin-top: 8px;">Check dates, locations and offer mapping, then set price manually if needed.</div>
           </div>
-          `}
+          `)}
         </div>
 
         <!-- Manual Pricing Override -->
         <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
+          ${thresholdBooking ? `
+          <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">Authoritative Financial Record</h4>
+          <div style="font-size:13px; color:var(--admin-text-muted); line-height:1.6;">
+            Threshold booking prices are server-validated and immutable through this legacy manual-pricing form.
+            Any approved financial adjustment requires a dedicated audited workflow; changing the displayed legacy region cannot alter this booking price.
+          </div>
+          ` : `
           <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">Manual Pricing Override</h4>
           <div style="display: grid; gap: 12px;">
             <!-- Quote Price Input -->
@@ -33925,6 +34111,7 @@ async function viewCarBookingDetails(bookingId) {
               💾 Save Pricing & Notes
             </button>
           </div>
+          `}
         </div>
       </div>
     `;

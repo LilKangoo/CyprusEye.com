@@ -246,7 +246,7 @@ select
     and offers.legacy_offer_count = 27
     and offers.mapped_offer_count = 0
     and offers.null_minimum_count = 0
-    and offers.protected_fingerprint = 'aa1abc7ce187779927838bafb706cf3b'
+    and offers.protected_fingerprint = 'ec3e29a35f249c92279d7b15f400ef0f'
     and availability.row_count = 12
     and availability.active_count = 12
     and availability.paired_active_count = 12

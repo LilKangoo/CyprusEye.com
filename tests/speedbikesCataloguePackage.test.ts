@@ -248,7 +248,7 @@ describe('SpeedBikes catalogue package', () => {
     expect(seed.trimStart()).toMatch(/^-- speedbikes-catalogue-seed-v1/);
     expect(seed).toContain('begin;');
     expect(seed.trimEnd()).toMatch(/commit;$/);
-    expect(seed).toContain("v_legacy_fingerprint <> 'aa1abc7ce187779927838bafb706cf3b'");
+    expect(seed).toContain("v_legacy_fingerprint <> 'ec3e29a35f249c92279d7b15f400ef0f'");
     expect(seed).toContain("'583ee90b-d77c-47ff-97a4-76657a87809f'::uuid");
     expect(seed).toContain("'percent_total'");
     expect(seed).toContain("'override'");

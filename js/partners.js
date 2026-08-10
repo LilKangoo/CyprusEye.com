@@ -7061,20 +7061,23 @@
         .map((id) => String(id))
     ));
 
-    const carOfferLocationById = {};
+    const carOfferAccessById = {};
 
     if (carOfferIds.length) {
       try {
         const { data, error } = await state.sb
           .from('car_offers')
-          .select('id, location')
+          .select('id, location, pricing_strategy, owner_partner_id')
           .in('id', carOfferIds)
           .limit(500);
         if (error) throw error;
         (data || []).forEach((r) => {
           if (!r?.id) return;
-          const loc = normalizeCarLocation(r.location);
-          if (loc) carOfferLocationById[String(r.id)] = loc;
+          carOfferAccessById[String(r.id)] = {
+            location: normalizeCarLocation(r.location),
+            pricingStrategy: String(r.pricing_strategy || 'legacy_compat').trim().toLowerCase(),
+            ownerPartnerId: String(r.owner_partner_id || '').trim(),
+          };
         });
       } catch (_e) {}
     }
@@ -7087,11 +7090,22 @@
 
       if (rt === 'cars') {
         if (!partner?.can_manage_cars) return false;
+
+        if (f.resource_id) {
+          const offerAccess = carOfferAccessById[String(f.resource_id)] || null;
+          if (offerAccess?.pricingStrategy === 'threshold_daily_rate') {
+            return Boolean(
+              offerAccess.ownerPartnerId
+              && offerAccess.ownerPartnerId === String(state.selectedPartnerId || '')
+            );
+          }
+        }
+
         if (hasCarsLocations && !allowedCarLocs.length) return false;
         if (!allowedCarLocs.length) return true;
 
         if (f.resource_id) {
-          const offerLoc = carOfferLocationById[String(f.resource_id)] || null;
+          const offerLoc = carOfferAccessById[String(f.resource_id)]?.location || null;
           if (!offerLoc) return false;
           return allowedCarLocs.includes(offerLoc);
         }

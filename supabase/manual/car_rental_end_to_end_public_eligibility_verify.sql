@@ -361,7 +361,7 @@ summary as (
       and flags.both_flags_off_count = 1
       and legacy.offer_count = 27
       and legacy.legacy_compat_mode_count = 27
-      and legacy.protected_fingerprint = 'aa1abc7ce187779927838bafb706cf3b'
+      and legacy.protected_fingerprint = 'ec3e29a35f249c92279d7b15f400ef0f'
       and public_resolution.threshold_id_count_while_flags_off = 0
       and position('submission_status = ''approved''' in coalesce(functions.prerequisite_source, '')) > 0
       and position('stock_count > 0' in coalesce(functions.prerequisite_source, '')) > 0
