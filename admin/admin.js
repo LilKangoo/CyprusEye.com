@@ -3,6 +3,7 @@
  * Main JavaScript for admin panel functionality
  */
 import { buildPricingMatrixForOfferRow, calculateCarRentalQuote } from '../js/car-pricing.js';
+import { deriveCarOfferAdminPublicState } from '../js/car-rental-public-eligibility.js';
 import { initSpecialOffers } from './special-offers.js';
 
 // =====================================================
@@ -35567,6 +35568,9 @@ async function loadFleetData(options = {}) {
         .filter(Boolean)
         .includes(requestedType);
     });
+    const fleetPresentation = await getCarRentalMulticityRepository().getFleetPresentationContext(
+      fleetState.cars.map((car) => car?.id),
+    );
     // Store ordered list globally for reordering helpers
     window.fleetCarsList = Array.isArray(fleetState.cars) ? fleetState.cars.slice() : [];
     console.log(`Loaded ${window.fleetCarsList.length} cars`);
@@ -35590,6 +35594,47 @@ async function loadFleetData(options = {}) {
       return;
     }
 
+    const cityById = new Map((fleetPresentation.cities || []).map((city) => [String(city.id), city]));
+    const kindById = new Map((fleetPresentation.vehicleKinds || []).map((kind) => [String(kind.id), kind]));
+    const rowsByOffer = (rows) => (offerId) => (rows || []).filter((row) => String(row.offer_id) === String(offerId));
+    const availabilityFor = rowsByOffer(fleetPresentation.availability);
+    const tiersFor = rowsByOffer(fleetPresentation.dailyRateTiers);
+    const partnerResourcesFor = (offerId) => (fleetPresentation.partnerResources || [])
+      .filter((row) => String(row.resource_id) === String(offerId));
+    const cityLabel = (cityId) => {
+      const city = cityById.get(String(cityId));
+      return window.CarRentalMulticityCore?.resolveI18nText?.(
+        city?.name_i18n,
+        document.documentElement?.lang || 'en',
+      ) || city?.code || 'Unknown city';
+    };
+    const configuredCitySummary = (car, availabilityRows) => {
+      const activeRows = availabilityRows.filter((row) => row.is_active === true);
+      const pickup = activeRows.filter((row) => row.pickup_enabled === true).map((row) => cityLabel(row.city_id));
+      const returns = activeRows.filter((row) => row.return_enabled === true).map((row) => cityLabel(row.city_id));
+      const same = pickup.length === returns.length && pickup.every((label) => returns.includes(label));
+      const configuredRowsLabel = same && pickup.length
+        ? `Pickup & return: ${pickup.join(', ')}`
+        : `Pickup: ${pickup.join(', ') || 'None'} · Return: ${returns.join(', ') || 'None'}`;
+      if (String(car.pricing_strategy || 'legacy_compat') === 'legacy_compat') {
+        return {
+          primary: `Legacy ${String(car.location || 'not specified')}`,
+          detail: activeRows.length
+            ? `Current runtime: legacy resolver coverage · Future configured rows: ${configuredRowsLabel}`
+            : 'Current runtime: legacy resolver coverage · No future configured city rows',
+        };
+      }
+      return {
+        primary: configuredRowsLabel,
+        detail: `Legacy compatibility region: ${String(car.location || 'not specified')}`,
+      };
+    };
+    const formatDailyRate = (value) => {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) return 'Not specified';
+      return numeric.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 });
+    };
+
     tbody.innerHTML = window.fleetCarsList.map((car, index) => {
       // Extract i18n values for display (prefer Polish, fallback to English)
       const carModel = car.car_model?.pl || car.car_model?.en || car.car_model || 'Unknown';
@@ -35599,9 +35644,34 @@ async function loadFleetData(options = {}) {
       ) || (typeof car.car_type === 'string' ? car.car_type : '');
       const carDesc = car.description?.pl || car.description?.en || car.description || '';
       
-      // Determine price display based on location
+      const offerAvailability = availabilityFor(car.id);
+      const offerTiers = tiersFor(car.id);
+      const citySummary = configuredCitySummary(car, offerAvailability);
+      const publicState = deriveCarOfferAdminPublicState({
+        offer: car,
+        availabilityRows: offerAvailability,
+        dailyRateTiers: offerTiers,
+        cities: fleetPresentation.cities,
+        partners: fleetPresentation.partners,
+        partnerResources: partnerResourcesFor(car.id),
+        siteSetting: fleetPresentation.siteSetting,
+      });
+      const kind = kindById.get(String(car.vehicle_kind_id));
+      const vehicleKindLabel = window.CarRentalMulticityCore?.resolveI18nText?.(
+        kind?.name_i18n,
+        document.documentElement?.lang || 'en',
+      ) || kind?.code || 'Not specified';
+
+      // Determine price display by exact offer pricing strategy.
       let priceDisplay;
-      if (car.location === 'paphos' && car.price_3days) {
+      if (String(car.pricing_strategy) === 'threshold_daily_rate') {
+        const firstActiveTier = offerTiers
+          .filter((tier) => tier.is_active !== false && Number(tier.daily_rate) > 0)
+          .sort((left, right) => Number(left.threshold_days) - Number(right.threshold_days))[0] || null;
+        priceDisplay = firstActiveTier
+          ? `<div style="font-weight: 600;">From €${escapeHtml(formatDailyRate(firstActiveTier.daily_rate))}/day</div><div style="font-size:11px;color:var(--admin-text-muted);">Daily rate from ${escapeHtml(firstActiveTier.threshold_days)} day(s)</div>`
+          : '<div style="font-weight:600;">Not specified</div><div style="font-size:11px;color:var(--admin-text-muted);">No active daily-rate tier</div>';
+      } else if (car.location === 'paphos' && car.price_3days) {
         priceDisplay = `<div style="font-weight: 600;">€${car.price_3days}/3d</div>
           <div style="font-size: 11px; color: var(--admin-text-muted);">€${car.price_10plus_days}+/day</div>`;
       } else {
@@ -35624,11 +35694,7 @@ async function loadFleetData(options = {}) {
       return `
         <tr>
           <td>${imageDisplay}</td>
-          <td>
-            <span class="badge ${car.location === 'larnaca' ? 'badge-info' : 'badge-warning'}">
-              ${car.location.toUpperCase()}
-            </span>
-          </td>
+          <td><div class="car-multicity-fleet-cities"><strong>${escapeHtml(citySummary.primary)}</strong><small>${escapeHtml(citySummary.detail)}</small></div></td>
           <td>
             <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
               <span style="font-size:11px;color:var(--admin-text-muted);">#${index + 1}</span>
@@ -35643,7 +35709,7 @@ async function loadFleetData(options = {}) {
             <div style="font-weight: 600;">${escapeHtml(carModel)}</div>
             <div style="font-size: 11px; color: var(--admin-text-muted);">${escapeHtml(carDesc.substring(0, 40))}${carDesc.length > 40 ? '...' : ''}</div>
           </td>
-          <td>${escapeHtml(carType)}</td>
+          <td><span class="badge badge-secondary">${escapeHtml(vehicleKindLabel)}</span><div class="car-multicity-commercial-class">${escapeHtml(carType || 'Not specified')}</div></td>
           <td>${priceDisplay}</td>
           <td>
             <span class="badge ${car.transmission === 'automatic' ? 'badge-success' : 'badge-secondary'}">
@@ -35652,20 +35718,7 @@ async function loadFleetData(options = {}) {
           </td>
           <td>${escapeHtml(fuelLabel)}</td>
           <td>${escapeHtml(passengerLabel)}</td>
-          <td>
-            <select 
-              class="car-availability-select" 
-              style="padding: 8px 12px; font-size: 13px; font-weight: 600; border: 2px solid; border-radius: 6px; cursor: pointer; min-width: 140px;
-                     background-color: ${car.is_available ? '#d1fae5' : '#fee2e2'};
-                     color: ${car.is_available ? '#065f46' : '#991b1b'};
-                     border-color: ${car.is_available ? '#10b981' : '#ef4444'};"
-              data-car-id="${car.id}"
-            >
-              <option value="true" ${car.is_available ? 'selected' : ''}>✓ Available</option>
-              <option value="false" ${!car.is_available ? 'selected' : ''}>✗ Not Available</option>
-            </select>
-            ${car.stock_count ? `<div style="font-size: 11px; color: var(--admin-text-muted); margin-top: 4px;">Stock: ${car.stock_count}</div>` : ''}
-          </td>
+          <td><div class="car-multicity-lifecycle" data-offer-status="${escapeHtml(publicState.status)}"><span class="car-multicity-lifecycle__badge is-${escapeHtml(String(publicState.status).toLowerCase())}">${escapeHtml(publicState.status)}</span>${publicState.reasons.length ? `<details><summary>${escapeHtml(publicState.reasons.length)} reason(s)</summary><ul>${publicState.reasons.map((reason) => `<li><code>${escapeHtml(reason.code)}</code> ${escapeHtml(reason.message)}</li>`).join('')}</ul></details>` : '<small>No public eligibility blockers</small>'}<small>Stock: ${Number.isFinite(Number(car.stock_count)) ? escapeHtml(car.stock_count) : 'Not specified'}</small></div></td>
           <td>
             <div class="car-multicity-row-actions">
               <details class="transport-admin-v2-route-action-menu">
@@ -35675,6 +35728,9 @@ async function loadFleetData(options = {}) {
                   <button type="button" role="menuitem" data-car-multicity-action="availability" data-offer-id="${escapeHtml(car.id)}">Availability</button>
                   <button type="button" role="menuitem" data-car-multicity-action="pricing" data-offer-id="${escapeHtml(car.id)}">Pricing and profile</button>
                   <button type="button" role="menuitem" data-car-multicity-action="partner" data-offer-id="${escapeHtml(car.id)}">Partner</button>
+                  ${String(car.pricing_strategy) === 'threshold_daily_rate'
+                    ? `<button type="button" role="menuitem" data-car-multicity-action="activation" data-offer-id="${escapeHtml(car.id)}">Activate / Publish</button>`
+                    : ''}
                   <button type="button" role="menuitem" data-car-multicity-action="legacy" data-offer-id="${escapeHtml(car.id)}">Legacy editor</button>
                 </div>
               </details>

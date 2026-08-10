@@ -13,11 +13,25 @@ const repository = read('js/car-rental-availability-repository.js');
 const publicSeams = [read('js/car-rental-paphos.js'), read('js/home-cars.js')].join('\n');
 const stage2dSources = `${adapter}\n${repository}\n${publicSeams}`;
 
+function expectReadOnlyEligibilityRpc(source: string) {
+  const rpcNames = Array.from(
+    source.matchAll(/\.rpc\s*\(\s*(['"])([^'"]+)\1/g),
+    (match) => match[2],
+  );
+  expect(rpcNames).toEqual(['resolve_public_threshold_offer_ids']);
+  const withoutApprovedRpc = source.replace(
+    /\.rpc\s*\(\s*(['"])resolve_public_threshold_offer_ids\1/g,
+    '.approvedReadRpc(',
+  );
+  expect(withoutApprovedRpc).not.toMatch(/\.rpc\s*\(/i);
+  expect(source).not.toMatch(/\.(?:insert|update|upsert|delete)\s*\(/i);
+}
+
 describe('Car Rental Multi-City Stage 2D static safety guards', () => {
   test('the authorized pricing seams and all downstream contracts match accepted hashes', () => {
     const expected: Record<string, string> = {
       'js/car-pricing.js': '30e886602888aa9eae76f6cfa6628eca00112e12ca1d3b6cac971c234c53e292',
-      'js/car-reservation.js': '52cc4f032e162fd92bfe62099ca376cb357436cf63289d94c65aacfe34bdde98',
+      'js/car-reservation.js': 'c17851dd55d3998fb41c92150774f11e42bb7f7354b4b1f8b9a7a753543cba11',
       'js/car-rental-flow.js': '64a461171c4496ce53ced64146623ec15025e8784645e4e1f572e817db546f16',
       'supabase/functions/partner-fulfillment-action/index.ts': '802aa0b8d3a1204f93adefcf598a77c764fde4a6e15dfe2624366c0a99c1297b',
       'supabase/migrations/103_car_coupon_quote_rpc_and_partner_snapshot.sql': 'a45d46f3b16ca42d3c750e320300a18530c25e8f7be8640ea2bf91faaac5627b',
@@ -33,7 +47,7 @@ describe('Car Rental Multi-City Stage 2D static safety guards', () => {
       'site_settings', 'car_rental_cities', 'car_pricing_profiles',
       'car_pricing_profile_cities', 'car_offer_city_availability', 'car_offers',
     ]) expect(repository).toContain(`.from('${table}')`);
-    expect(repository).not.toMatch(/\.(?:insert|update|upsert|delete|rpc)\s*\(/i);
+    expectReadOnlyEligibilityRpc(repository);
     expect(repository).not.toMatch(/\b(?:car_bookings|customer_name|customer_email|customer_phone|payment|stripe)\b/i);
   });
 
@@ -62,7 +76,7 @@ describe('Car Rental Multi-City Stage 2D static safety guards', () => {
   });
 
   test('no public writes, RPC, booking fields, or mapped production activation were added', () => {
-    expect(stage2dSources).not.toMatch(/\.(?:insert|update|upsert|delete|rpc)\s*\(/i);
+    expectReadOnlyEligibilityRpc(stage2dSources);
     expect(stage2dSources).not.toMatch(/\b(?:sendEmail|sendNotification|notification_queue|transport_bookings|car_bookings)\b/i);
     const foundation = read('supabase/migrations/20260802120000_car_rental_multicity_foundation.sql');
     expect(foundation).toMatch(/car_multi_city_mapped_enabled\s+boolean\s+not null\s+default\s+false/i);
@@ -93,7 +107,7 @@ describe('Car Rental Multi-City Stage 2D static safety guards', () => {
     expect(distAdapter).toContain('legacyOffers');
     expect(distAdapter).toContain('Stage 2D safety assertion failed');
     expect(distAdapter).not.toMatch(/renderedOffers\s*:\s*mappedOffers/);
-    expect(distRepository).not.toMatch(/\.(?:insert|update|upsert|delete|rpc)\s*\(/i);
+    expectReadOnlyEligibilityRpc(distRepository);
     expect(distCarPage).toContain("from './car-rental-availability-adapter.js'");
     expect(distHomepage).toContain("from '/js/car-rental-availability-adapter.js'");
   });

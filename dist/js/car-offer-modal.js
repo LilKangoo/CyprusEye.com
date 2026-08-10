@@ -160,18 +160,34 @@ function restoreCarPricingContext() {
   else delete window.CE_CAR_FIND_CURRENT_FLEET_CAR;
 }
 
+function requiresExactOfferContext(car) {
+  const context = car?.pricingContext || car?.availabilityContext || null;
+  return car?.pricing_strategy === CAR_THRESHOLD_PRICING_STRATEGY
+    || (String(car?.availability_mode || '').trim() === 'mapped' && !!context)
+    || context?.pricingStrategy === CAR_THRESHOLD_PRICING_STRATEGY
+    || String(context?.availabilityMode || '').trim() === 'mapped';
+}
+
+function hasValidExactOfferContext(car) {
+  if (!requiresExactOfferContext(car)) return true;
+  const context = car?.pricingContext || car?.availabilityContext || null;
+  const offerId = String(car?.id || '').trim();
+  return !!offerId && String(context?.offerId || '').trim() === offerId;
+}
+
 function installCarOfferLookup(fleet) {
   const cars = Array.isArray(fleet) ? fleet.filter(Boolean) : [];
   window.CE_CAR_FIND_CURRENT_FLEET_CAR = ({ offerId, carModel } = {}) => {
     const normalizedOfferId = String(offerId || '').trim();
     if (normalizedOfferId) {
-      const byId = cars.find((item) => String(item?.id || '') === normalizedOfferId);
-      if (byId) return byId;
+      return cars.find((item) => String(item?.id || '') === normalizedOfferId) || null;
     }
 
     const normalizedModel = String(carModel || '').trim().toLowerCase();
     if (!normalizedModel) return null;
-    return cars.find((item) => getCarName(item).trim().toLowerCase() === normalizedModel) || null;
+    const matches = cars.filter((item) => getCarName(item).trim().toLowerCase() === normalizedModel);
+    if (matches.some((item) => requiresExactOfferContext(item))) return null;
+    return matches.find((item) => String(item?.pricing_strategy || 'legacy_compat').trim() === 'legacy_compat') || null;
   };
 }
 
@@ -329,7 +345,11 @@ function readModalFinderPrefill() {
 function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, prefill = null }) {
   const loc = location === 'paphos' ? 'paphos' : 'larnaca';
   const cars = Array.isArray(fleetByLocation?.[loc]) ? fleetByLocation[loc] : [];
-  const selectedCar = cars.find((car) => String(car?.id || '') === String(selectedCarId || '')) || cars[0] || null;
+  const normalizedSelectedCarId = String(selectedCarId || '').trim();
+  const selectedCar = normalizedSelectedCarId
+    ? cars.find((car) => String(car?.id || '') === normalizedSelectedCarId) || null
+    : cars.find((car) => !requiresExactOfferContext(car)) || null;
+  if (!selectedCar) return '';
   const thresholdOffer = selectedCar?.pricing_strategy === CAR_THRESHOLD_PRICING_STRATEGY
     && (selectedCar?.pricingContext || selectedCar?.availabilityContext)?.pricingStrategy === CAR_THRESHOLD_PRICING_STRATEGY;
 
@@ -758,7 +778,7 @@ export function openCarOfferModal({
   prefill = null,
   quote = null,
 } = {}) {
-  if (!car) return;
+  if (!car || !hasValidExactOfferContext(car)) return;
 
   const loc = location === 'paphos' ? 'paphos' : 'larnaca';
   const modal = ensureCarOfferModalMarkup();
@@ -875,6 +895,10 @@ export function openCarOfferModal({
   const minimumAgeText = Number.isInteger(minimumAge) && minimumAge > 0 ? `${minimumAge}+` : '';
 
   const pricingSource = Array.isArray(fleetByLocation?.[loc]) ? fleetByLocation[loc] : [car];
+  if (
+    requiresExactOfferContext(car)
+    && !pricingSource.some((item) => String(item?.id || '').trim() === String(car?.id || '').trim())
+  ) return;
   captureCarPricingContext();
   window.CE_CAR_PRICING = buildPricingMapForLocation(loc, pricingSource);
   installCarOfferLookup(pricingSource);

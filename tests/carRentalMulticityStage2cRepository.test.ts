@@ -16,6 +16,7 @@ function loadModules(): { core: any; repository: any } {
 function memoryClient(seed: Record<string, Row[]>) {
   const tables: Record<string, Row[]> = Object.fromEntries(Object.entries(seed).map(([table, values]) => [table, values.map((row) => ({ ...row }))]));
   const mutations: Array<{ action: string; table: string; payload: Row }> = [];
+  const rpcCalls: Array<{ name: string; params: Row }> = [];
   let counter = 0;
   const storageObjects = new Map<string, unknown>();
   const storageRemovals: string[] = [];
@@ -64,6 +65,64 @@ function memoryClient(seed: Record<string, Row[]>) {
   }
 
   const client = {
+    async rpc(name: string, params: Row = {}) {
+      rpcCalls.push({ name, params: JSON.parse(JSON.stringify(params)) });
+      if (name === 'admin_set_car_threshold_offer_activation_state') {
+        const offers = getRows('car_offers');
+        const index = offers.findIndex((row) => String(row.id) === String(params.p_offer_id));
+        if (index < 0) return { data: null, error: { code: 'P0002', message: 'activation_offer_missing' } };
+        const current = offers[index];
+        if (String(current.updated_at) !== String(params.p_expected_updated_at)) {
+          return { data: null, error: { code: '40001', message: 'activation_stale_offer' } };
+        }
+        if (current.pricing_strategy !== 'threshold_daily_rate') {
+          return { data: null, error: { code: '23514', message: 'activation_requires_threshold_strategy' } };
+        }
+        const setting = getRows('site_settings')[0] || {};
+        if (params.p_activate === true && (
+          setting.car_multi_city_mapped_enabled !== true
+          || setting.car_threshold_daily_rates_enabled !== true
+        )) return { data: null, error: { code: '23514', message: 'activation_requires_both_capabilities' } };
+        const next = {
+          ...current,
+          ...(params.p_activate === true ? {
+            availability_mode: 'mapped',
+            is_available: true,
+            is_published: true,
+            submission_status: 'approved',
+          } : { is_published: false }),
+          updated_at: `updated-${++counter}`,
+        };
+        offers[index] = next;
+        return { data: { ...next }, error: null };
+      }
+      if (name !== 'admin_save_car_offer_city_availability_batch') {
+        return { data: null, error: { message: `Unsupported RPC ${name}` } };
+      }
+      const offerId = String(params.p_offer_id || '');
+      const current = getRows('car_offer_city_availability').filter((row) => String(row.offer_id) === offerId);
+      const expected = (params.p_expected_rows || []).map((row: Row) => ({ city_id: row.city_id, updated_at: row.updated_at || null }))
+        .sort((left: Row, right: Row) => String(left.city_id).localeCompare(String(right.city_id)));
+      const actual = current.map((row) => ({ city_id: row.city_id, updated_at: row.updated_at || null }))
+        .sort((left, right) => String(left.city_id).localeCompare(String(right.city_id)));
+      if (JSON.stringify(expected) !== JSON.stringify(actual)) return { data: null, error: { message: 'availability_batch_stale' } };
+      const desired = (params.p_desired_rows || []).map((row: Row) => {
+        const existing = current.find((candidate) => candidate.city_id === row.city_id);
+        return {
+          ...existing,
+          ...row,
+          id: existing?.id || `availability-${++counter}`,
+          offer_id: offerId,
+          is_active: row.pickup_enabled === true || row.return_enabled === true,
+          updated_at: `updated-${++counter}`,
+        };
+      });
+      tables.car_offer_city_availability = [
+        ...getRows('car_offer_city_availability').filter((row) => String(row.offer_id) !== offerId),
+        ...desired,
+      ];
+      return { data: { offer_id: offerId, row_count: desired.length, rows: desired }, error: null };
+    },
     storage: {
       from(bucket: string) {
         return {
@@ -118,7 +177,7 @@ function memoryClient(seed: Record<string, Row[]>) {
       };
     },
   };
-  return { client, tables, mutations, storageObjects, storageRemovals };
+  return { client, tables, mutations, rpcCalls, storageObjects, storageRemovals };
 }
 
 const seed = () => ({
@@ -267,6 +326,54 @@ describe('Car Rental Multi-City Stage 2C repository', () => {
     expect(JSON.stringify(memory.tables.car_offers[0])).toBe(offerBefore);
   });
 
+  test('availability plan saves all directional rows through one optimistic batch RPC', async () => {
+    const memory = memoryClient(seed());
+    const repository = repositoryApi.create({ client: memory.client, core });
+    const context = await repository.getOfferContext('offer-one');
+    const draft = core.createDraft(context, { mode: 'availability' });
+    core.setDirectionalAvailability(draft, 'city-larnaca', 'return', false);
+    core.setDirectionalAvailability(draft, 'city-paphos', 'return', true);
+    const plan = core.buildAvailabilityPlan(draft, context);
+    const result = await repository.executePlan(plan);
+    expect(result.status).toBe('success');
+    expect(memory.rpcCalls).toHaveLength(1);
+    expect(memory.rpcCalls[0]).toEqual(expect.objectContaining({
+      name: 'admin_save_car_offer_city_availability_batch',
+      params: expect.objectContaining({ p_offer_id: 'offer-one' }),
+    }));
+    expect(memory.tables.car_offer_city_availability).toEqual(expect.arrayContaining([
+      expect.objectContaining({ city_id: 'city-larnaca', pickup_enabled: true, return_enabled: false, is_active: true }),
+      expect.objectContaining({ city_id: 'city-paphos', pickup_enabled: false, return_enabled: true, is_active: true }),
+    ]));
+    expect(memory.mutations).toHaveLength(0);
+  });
+
+  test('one atomic batch swaps return-only to pickup-only without caller-supplied is_active', async () => {
+    const memory = memoryClient(seed());
+    memory.tables.car_offer_city_availability = memory.tables.car_offer_city_availability.map((row) => (
+      row.city_id === 'city-larnaca'
+        ? { ...row, pickup_enabled: false, return_enabled: true, is_active: true }
+        : row
+    ));
+    const repository = repositoryApi.create({ client: memory.client, core });
+    const context = await repository.getOfferContext('offer-one');
+    const draft = core.createDraft(context, { mode: 'availability' });
+    core.setDirectionalAvailability(draft, 'city-larnaca', 'pickup', true);
+    core.setDirectionalAvailability(draft, 'city-larnaca', 'return', false);
+    const plan = core.buildAvailabilityPlan(draft, context);
+    expect(plan.desiredAvailabilityRows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ city_id: 'city-larnaca', pickup_enabled: true, return_enabled: false }),
+    ]));
+    expect(plan.desiredAvailabilityRows.find((row: any) => row.city_id === 'city-larnaca')).not.toHaveProperty('is_active');
+
+    const result = await repository.executePlan(plan);
+    expect(result.status).toBe('success');
+    expect(memory.rpcCalls).toHaveLength(1);
+    expect(memory.tables.car_offer_city_availability).toEqual(expect.arrayContaining([
+      expect.objectContaining({ city_id: 'city-larnaca', pickup_enabled: true, return_enabled: false, is_active: true }),
+    ]));
+  });
+
   test('partner write touches only owner_partner_id and no availability', async () => {
     const memory = memoryClient(seed());
     const repository = repositoryApi.create({ client: memory.client, core });
@@ -305,15 +412,21 @@ describe('Car Rental Multi-City Stage 2C repository', () => {
     expect(memory.tables.car_offer_city_availability.some((row) => row.city_id === 'city-custom')).toBe(false);
   });
 
-  test('catalog writes stop before mutation if the global mapped flag is no longer false', async () => {
+  test('catalog writes remain independent after capability flags are enabled and never change those flags', async () => {
     const fixture = seed();
     fixture.site_settings[0].car_multi_city_mapped_enabled = true;
+    fixture.site_settings[0].car_threshold_daily_rates_enabled = true;
     const memory = memoryClient(fixture);
     const repository = repositoryApi.create({ client: memory.client, core });
-    await expect(repository.createCity(core.createCityDraft({
-      code: 'blocked-city', name_i18n: { pl: 'Blokada', en: 'Blocked', he: 'חסום' }, place_types: ['city'],
-    }))).rejects.toMatchObject({ code: 'car_multicity_stale_conflict' });
-    expect(memory.mutations).toHaveLength(0);
+    const created = await repository.createCity(core.createCityDraft({
+      code: 'capability-city', name_i18n: { pl: 'Nowe', en: 'New', he: 'חדש' }, place_types: ['city'],
+    }));
+    expect(created).toEqual(expect.objectContaining({ code: 'capability-city', is_active: false }));
+    expect(memory.tables.site_settings[0]).toEqual(expect.objectContaining({
+      car_multi_city_mapped_enabled: true,
+      car_threshold_daily_rates_enabled: true,
+    }));
+    expect(memory.mutations).toEqual([expect.objectContaining({ table: 'car_rental_cities', action: 'insert' })]);
   });
 
   test('profile-city impact reports exact offer IDs and readiness invalidation before write', async () => {
@@ -458,6 +571,83 @@ describe('Car Rental Multi-City Stage 2C repository', () => {
     await expect(repository.updateVehicleDetails({ offerId: 'offer-one', expectedUpdatedAt: 'offer-v1', payload: { location: 'paphos' } }))
       .rejects.toMatchObject({ code: 'car_multicity_internal_error' });
     expect(memory.mutations).toHaveLength(0);
+  });
+
+  test('threshold activation and publication-only rollback use one exact transactional RPC', async () => {
+    const fixture = seed();
+    (fixture.car_offers as Row[])[0] = {
+      ...fixture.car_offers[0],
+      pricing_strategy: 'threshold_daily_rate',
+      min_rental_days: 1,
+      availability_mode: 'legacy',
+      is_available: true,
+      is_published: false,
+      submission_status: 'draft',
+    };
+    fixture.site_settings[0] = {
+      ...fixture.site_settings[0],
+      car_multi_city_mapped_enabled: true,
+      car_threshold_daily_rates_enabled: true,
+    };
+    const memory = memoryClient(fixture);
+    const repository = repositoryApi.create({ client: memory.client, core });
+    const activated = await repository.updateActivationState({
+      offerId: 'offer-one',
+      expectedUpdatedAt: 'offer-v1',
+      payload: {
+        availability_mode: 'mapped',
+        is_available: true,
+        is_published: true,
+        submission_status: 'approved',
+      },
+    });
+    expect(activated).toEqual(expect.objectContaining({
+      id: 'offer-one', availability_mode: 'mapped', is_available: true,
+      is_published: true, submission_status: 'approved',
+    }));
+    expect(memory.rpcCalls).toEqual([expect.objectContaining({
+      name: 'admin_set_car_threshold_offer_activation_state',
+      params: expect.objectContaining({ p_offer_id: 'offer-one', p_activate: true }),
+    })]);
+    expect(memory.mutations).toEqual([]);
+    expect(memory.tables.site_settings[0]).toEqual(expect.objectContaining({
+      car_multi_city_mapped_enabled: true,
+      car_threshold_daily_rates_enabled: true,
+    }));
+
+    const unpublished = await repository.updateActivationState({
+      offerId: 'offer-one',
+      expectedUpdatedAt: activated.updated_at,
+      payload: { is_published: false },
+    });
+    expect(unpublished).toEqual(expect.objectContaining({
+      availability_mode: 'mapped', is_available: true,
+      is_published: false, submission_status: 'approved',
+    }));
+    expect(memory.rpcCalls.at(-1)).toEqual(expect.objectContaining({
+      name: 'admin_set_car_threshold_offer_activation_state',
+      params: expect.objectContaining({ p_offer_id: 'offer-one', p_activate: false }),
+    }));
+  });
+
+  test('transactional threshold activation maps a stale timestamp to the Admin concurrency error', async () => {
+    const fixture = seed();
+    (fixture.car_offers as Row[])[0] = { ...fixture.car_offers[0], pricing_strategy: 'threshold_daily_rate' };
+    fixture.site_settings[0] = {
+      ...fixture.site_settings[0],
+      car_multi_city_mapped_enabled: true,
+      car_threshold_daily_rates_enabled: true,
+    };
+    const memory = memoryClient(fixture);
+    const repository = repositoryApi.create({ client: memory.client, core });
+    await expect(repository.updateActivationState({
+      offerId: 'offer-one',
+      expectedUpdatedAt: 'stale-offer-version',
+      payload: {
+        availability_mode: 'mapped', is_available: true,
+        is_published: true, submission_status: 'approved',
+      },
+    })).rejects.toMatchObject({ code: 'car_multicity_stale_conflict' });
   });
 
   test('repository rejects any save plan that claims a threshold feature-flag change', async () => {

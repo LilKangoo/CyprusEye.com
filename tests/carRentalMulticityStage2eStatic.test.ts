@@ -12,11 +12,25 @@ const carPage = read('js/car-rental-paphos.js');
 const homepage = read('js/home-cars.js');
 const publicScope = `${adapter}\n${repository}\n${carPage}\n${homepage}`;
 
+function expectReadOnlyEligibilityRpc(source: string) {
+  const rpcNames = Array.from(
+    source.matchAll(/\.rpc\s*\(\s*(['"])([^'"]+)\1/g),
+    (match) => match[2],
+  );
+  expect(rpcNames).toEqual(['resolve_public_threshold_offer_ids']);
+  const withoutApprovedRpc = source.replace(
+    /\.rpc\s*\(\s*(['"])resolve_public_threshold_offer_ids\1/g,
+    '.approvedReadRpc(',
+  );
+  expect(withoutApprovedRpc).not.toMatch(/\.rpc\s*\(/i);
+  expect(source).not.toMatch(/\.(?:insert|update|upsert|delete)\s*\(/i);
+}
+
 describe('Car Rental Multi-City Stage 2E static safety guards', () => {
   test('the authorized pricing seams and all downstream contracts match accepted hashes', () => {
     const expected: Record<string, string> = {
       'js/car-pricing.js': '30e886602888aa9eae76f6cfa6628eca00112e12ca1d3b6cac971c234c53e292',
-      'js/car-reservation.js': '52cc4f032e162fd92bfe62099ca376cb357436cf63289d94c65aacfe34bdde98',
+      'js/car-reservation.js': 'c17851dd55d3998fb41c92150774f11e42bb7f7354b4b1f8b9a7a753543cba11',
       'js/car-rental-flow.js': '64a461171c4496ce53ced64146623ec15025e8784645e4e1f572e817db546f16',
       'supabase/functions/partner-fulfillment-action/index.ts': '802aa0b8d3a1204f93adefcf598a77c764fde4a6e15dfe2624366c0a99c1297b',
       'supabase/migrations/103_car_coupon_quote_rpc_and_partner_snapshot.sql': 'a45d46f3b16ca42d3c750e320300a18530c25e8f7be8640ea2bf91faaac5627b',
@@ -66,7 +80,7 @@ describe('Car Rental Multi-City Stage 2E static safety guards', () => {
 
   test('the public reader remains read-only, PII-free and has no booking/RPC/downstream writes', () => {
     expect(`${adapter}\n${repository}`).not.toContain('console.');
-    expect(publicScope).not.toMatch(/\.(?:insert|update|upsert|delete|rpc)\s*\(/i);
+    expectReadOnlyEligibilityRpc(publicScope);
     expect(repository).not.toMatch(/\b(?:car_bookings|customer_name|customer_email|customer_phone|stripe|payment)\b/i);
     expect(publicScope).not.toMatch(/\b(?:sendEmail|sendNotification|notification_queue)\b/i);
     expect(repository).toContain(".from('site_settings')");

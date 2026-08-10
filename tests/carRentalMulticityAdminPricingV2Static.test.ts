@@ -39,16 +39,19 @@ describe('Car Rental Multi-City Admin Pricing V2 static guards', () => {
     expect(core).toContain('Legacy pricing key must match the city code.');
   });
 
-  test('availability write path is exact, paired and cannot touch finance or partner tables', () => {
-    expect(core).toContain('row.pickup_enabled = enabled');
-    expect(core).toContain('row.return_enabled = enabled');
-    expect(core).toContain('row.is_active = enabled');
+  test('availability write path is exact, directional and cannot touch finance or partner tables', () => {
+    expect(core).toContain("direction === 'pickup' ? 'pickup_enabled' : 'return_enabled'");
+    expect(core).toContain('row.is_active = row.pickup_enabled === true || row.return_enabled === true');
     expect(core).toContain("fee_mode: after.fee_mode");
     expect(repository).toContain(".eq('offer_id', offerId)");
     expect(repository).toContain(".eq('city_id', cityId)");
     expect(repository).toContain(".eq('updated_at', request.expectedUpdatedAt)");
+    expect(repository).toContain("rpc('admin_save_car_offer_city_availability_batch'");
+    expect(core).toContain('expectedAvailabilityRows');
+    expect(core).toContain('desiredAvailabilityRows');
     expect(`${core}\n${repository}`).not.toMatch(/from\(TABLES\.(?:depositRules|depositOverrides)\)\.(?:insert|update|upsert|delete)/);
     const availabilityPlan = core.slice(core.indexOf('function buildAvailabilityPlan'), core.indexOf('function buildPartnerAssignmentPlan'));
+    expect(availabilityPlan).not.toContain('is_active: normalized.pickup_enabled');
     expect(availabilityPlan).toContain('existingPriceColumnChanges: 0');
     expect(availabilityPlan).toContain("change.field === 'owner_partner_id'");
     expect(availabilityPlan).toContain("throw new Error('Availability plan contains forbidden fields')");

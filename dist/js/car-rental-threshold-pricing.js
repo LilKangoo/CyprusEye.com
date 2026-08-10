@@ -58,7 +58,7 @@ export function selectThresholdDailyRateTier(tiers, rentalDays) {
   return eligible[0] || null;
 }
 
-function resolveFee(availability, cityCode) {
+export function resolveThresholdDirectionalFee(availability, cityCode) {
   const mode = text(availability?.fee_mode).toLowerCase() === 'override' ? 'override' : 'inherit';
   if (mode === 'override') {
     const amount = money(availability?.fee_per_direction);
@@ -149,8 +149,8 @@ export function calculateThresholdCarRentalQuote({
 
   const tier = selectThresholdDailyRateTier(tiers, rentalDays);
   if (!tier || tier.thresholdDays < minimum) return null;
-  const pickupFee = resolveFee(pickupAvailability, pickupCode);
-  const returnFee = resolveFee(returnAvailability, returnCode);
+  const pickupFee = resolveThresholdDirectionalFee(pickupAvailability, pickupCode);
+  const returnFee = resolveThresholdDirectionalFee(returnAvailability, returnCode);
   if (!pickupFee || !returnFee) return null;
   const insurance = resolveInsurance(offer, fullInsurance, rentalDays);
   const young = resolveYoungDriver(offer, youngDriver, rentalDays);

@@ -285,13 +285,14 @@ test('Pricing V2 visual regression sign-off artifacts', async ({ page }) => {
 
   await openAction(page, 'availability');
   await expect(page.locator('.car-multicity-availability-card')).toHaveCount(7);
-  await expect(page.locator('[data-availability-field="pickup_enabled"]')).toHaveCount(0);
-  await expect(page.locator('[data-availability-field="return_enabled"]')).toHaveCount(0);
+  await expect(page.locator('[data-availability-field="pickup_enabled"]')).toHaveCount(7);
+  await expect(page.locator('[data-availability-field="return_enabled"]')).toHaveCount(7);
   await assertModalGeometry(page);
   await capture(page, 6, 'desktop-1920x1080-six-standard-cities-and-inactive-custom-city');
 
   const paphosCard = page.locator(`[data-city-id="${CITY_PAPHOS}"]`);
-  await paphosCard.locator('[data-availability-field="paired"]').check();
+  await paphosCard.locator('[data-availability-field="pickup_enabled"]').check();
+  await paphosCard.locator('[data-availability-field="return_enabled"]').check();
   await paphosCard.locator('[data-availability-field="fee_mode"]').selectOption('override');
   await paphosCard.locator('[data-availability-field="fee_per_direction"]').fill('0');
   await paphosCard.locator('[data-availability-field="fee_per_direction"]').press('Tab');

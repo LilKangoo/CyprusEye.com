@@ -1,5 +1,14 @@
--- speedbikes-catalogue-verify-v1
+-- speedbikes-catalogue-integrity-verify-v2
 -- READ ONLY. Returns exactly one summary row and reads no customer PII.
+--
+-- This is the durable catalogue-integrity gate. Deliberate operational changes
+-- to stock_count, publication state, submission state, availability_mode and
+-- either global capability flag are reported for visibility but do not make
+-- speedbikes_catalogue_safe false. Run the separate strict draft-state or exact
+-- Snipper pilot verify when those operational states must be enforced.
+-- Every expected offer must retain its exact Ayia Napa row. Additional cities
+-- configured deliberately in Admin are reported for review, but are not a
+-- catalogue-integrity failure.
 
 with
 expected_offers as (
@@ -1513,7 +1522,10 @@ availability_state as (
         and availability.fee_mode = 'override'
         and availability.fee_per_direction = 0
     )::integer as exact_ayia_napa_count,
-    count(*) filter (where city.code <> 'ayia-napa')::integer as unexpected_city_count
+    count(*) filter (
+      where availability.offer_id is not null
+        and city.code is distinct from 'ayia-napa'
+    )::integer as additional_configured_city_count
   from expected_offers expected
   left join public.car_offer_city_availability availability on availability.offer_id = expected.offer_id
   left join public.car_rental_cities city on city.id = availability.city_id
@@ -1660,7 +1672,7 @@ summary as (
     continuation.mismatch_count as continuation_mismatch_count,
     continuation.polaris_post_four_continuation_count,
     availability.exact_ayia_napa_count,
-    availability.unexpected_city_count,
+    availability.additional_configured_city_count,
     deposits.valid_override_count,
     deposits.missing_override_count,
     round(490::numeric * 0.15, 2) as example_15_percent_due_now,
@@ -1687,7 +1699,6 @@ summary as (
       + tier_contract.offer_tier_count_mismatch
       + tier_contract.unexpected_tier_offer_count
       + continuation.mismatch_count
-      + availability.unexpected_city_count
       + deposits.missing_override_count
       + case when partner.valid_partner_count = 1 then 0 else 1 end
       + case when partner.exact_owner_routing_count = 22 then 0 else 1 end
@@ -1706,10 +1717,6 @@ summary as (
       and offers.scooter_count = 3
       and offers.bicycle_count = 3
       and offers.threshold_count = 22
-      and offers.legacy_mode_count = 22
-      and offers.unpublished_count = 22
-      and offers.unavailable_count = 22
-      and offers.draft_count = 22
       and offers.min_one_count = 22
       and offers.unlimited_max_count = 22
       and offers.partner_count = 22
@@ -1731,15 +1738,12 @@ summary as (
       and continuation.mismatch_count = 0
       and continuation.polaris_post_four_continuation_count = 15
       and availability.exact_ayia_napa_count = 22
-      and availability.unexpected_city_count = 0
       and deposits.valid_override_count = 22
       and deposits.missing_override_count = 0
       and round(490::numeric * 0.15, 2) = 73.50
       and round(490::numeric - round(490::numeric * 0.15, 2), 2) = 416.50
       and partner.valid_partner_count = 1
       and partner.exact_owner_routing_count = 22
-      and flags.mapped_enabled is false
-      and flags.threshold_enabled is false
       and legacy.offer_count = 27
       and legacy.legacy_pricing_count = 27
       and legacy.protected_fingerprint = 'aa1abc7ce187779927838bafb706cf3b'
@@ -1747,9 +1751,6 @@ summary as (
       and legacy_availability.active_count = 12
       and legacy_availability.inherit_count = 12
       and legacy_availability.override_count = 0
-      and bookings.speedbikes_booking_count = 0
-      and fulfillments.speedbikes_fulfillment_count = 0
-      and fulfillments.non_pending_count = 0
       and precision.six_decimal_daily_rate
     ) as speedbikes_catalogue_safe
   from expected_counts expected

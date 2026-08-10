@@ -1,16 +1,24 @@
 -- speedbikes-catalogue-activation-checklist-v1
 -- READ ONLY. This file intentionally performs NO activation.
 --
--- Required controlled process after speedbikes_catalogue_verify.sql PASS:
+-- Required controlled process after speedbikes_catalogue_verify.sql PASS.
+-- speedbikes_catalogue_draft_state_verify.sql is an optional untouched-import
+-- receipt only; it is expected to stop passing after a reviewed stock or other
+-- operational draft change and is not an activation prerequisite.
 --   1. Admin reviews each exact offer, content, image, tiers and partner.
---   2. Admin confirms real stock and sets is_available deliberately.
+--   2. Admin confirms real stock. Exact activation sets is_available only as
+--      part of the separately reviewed publication operation.
 --   3. Admin explicitly reviews submission_status before publication.
 --   4. Admin reviews exact Ayia Napa pickup+return configuration and fee EUR 0.
 --   5. Admin verifies exact 15% percent_total override in Deposit Settings.
---   6. An approved exact-offer list is moved legacy -> mapped (one reviewed write).
---   7. Each approved offer is published explicitly; no bulk implicit publication.
---   8. Only after all exact-offer checks PASS, enable both global flags in a
---      separate approved change and perform customer quote/partner-flow smoke.
+--   6. Run the separately approved speedbikes_capabilities_enable.sql. It changes
+--      only both global flags and refuses any already-published mapped offer.
+--      An unpublished legacy-mode draft may already have is_available=true;
+--      that field alone cannot make it public.
+--   7. Admin reviews and activates only the approved exact offer. Activation UI
+--      intentionally requires both flags already ON; no bulk publication.
+--   8. Run speedbikes_snipper_fx_pilot_verify.sql, then customer/partner-flow
+--      smoke. Every additional offer requires another exact Admin review.
 --   9. Availability means requestable only. Booking remains pending and
 --      fulfillment remains pending_acceptance until the partner acts.
 --

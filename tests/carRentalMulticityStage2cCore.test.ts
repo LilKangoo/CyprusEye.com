@@ -52,6 +52,8 @@ const offer = (overrides: Record<string, unknown> = {}) => ({
   stock_count: 2,
   sort_order: 10,
   is_available: true,
+  is_published: false,
+  submission_status: 'draft',
   north_allowed: true,
   image_url: '/mazda.jpg',
   price_per_day: 35,
@@ -122,14 +124,17 @@ describe('Car Rental Multi-City Stage 2C core', () => {
     expect(result.errors.some((entry: any) => entry.message.includes('saved together'))).toBe(true);
   });
 
-  test('paired availability helper always writes pickup and return atomically', () => {
+  test('directional availability preserves pickup-only and return-only states', () => {
     const draft = core.createDraft(context(), { mode: 'availability' });
-    core.setPairedAvailability(draft, 'city-larnaca', false);
+    core.setDirectionalAvailability(draft, 'city-larnaca', 'return', false);
     const diff = core.availabilityDiff(draft, context());
-    expect(diff[0].payload.pickup_enabled).toBe(false);
+    expect(diff[0].payload.pickup_enabled).toBe(true);
     expect(diff[0].payload.return_enabled).toBe(false);
-    core.setPairedAvailability(draft, 'city-larnaca', true);
-    expect(draft.availability[0]).toEqual(expect.objectContaining({ pickup_enabled: true, return_enabled: true, is_active: true }));
+    expect(diff[0].payload.is_active).toBe(true);
+    core.setDirectionalAvailability(draft, 'city-larnaca', 'pickup', false);
+    expect(draft.availability[0]).toEqual(expect.objectContaining({ pickup_enabled: false, return_enabled: false, is_active: false }));
+    core.setDirectionalAvailability(draft, 'city-larnaca', 'return', true);
+    expect(core.directionalAvailabilityState(draft.availability[0]).mode).toBe('return-only');
   });
 
   test('availability fee diff is scoped to one exact offer-city and accepts an explicit zero', () => {
@@ -139,18 +144,21 @@ describe('Car Rental Multi-City Stage 2C core', () => {
     const plan = core.buildAvailabilityPlan(draft, ctx);
     expect(plan.steps).toHaveLength(1);
     expect(plan.steps[0]).toEqual(expect.objectContaining({
-      entityId: 'offer-exact:city-larnaca',
-      action: 'update',
-      payload: expect.objectContaining({
-        offer_id: 'offer-exact',
+      entityId: 'offer-exact',
+      action: 'replace',
+      type: 'car_offer_city_availability_batch',
+    }));
+    expect(plan.expectedAvailabilityRows).toEqual([{ city_id: 'city-larnaca', updated_at: 'a1' }]);
+    expect(plan.desiredAvailabilityRows).toEqual([
+      expect.objectContaining({
         city_id: 'city-larnaca',
         pickup_enabled: true,
         return_enabled: true,
-        is_active: true,
         fee_mode: 'override',
         fee_per_direction: 0,
       }),
-    }));
+    ]);
+    expect(plan.desiredAvailabilityRows[0]).not.toHaveProperty('is_active');
     expect(plan.existingPriceColumnChanges).toBe(0);
     expect(plan.depositRuleChanges).toBe(0);
     expect(plan.availableCities[0]).toEqual(expect.objectContaining({
@@ -169,11 +177,37 @@ describe('Car Rental Multi-City Stage 2C core', () => {
     };
     const ctx = context({ cities: [...cities, customCity], profileCities: [...profileCities, customMapping] });
     const draft = core.createDraft(ctx, { mode: 'availability' });
-    core.setPairedAvailability(draft, customCity.id, true);
+    core.setDirectionalAvailability(draft, customCity.id, 'pickup', true);
+    core.setDirectionalAvailability(draft, customCity.id, 'return', true);
     expect(core.getMappedReadiness(draft, ctx)).toEqual(expect.objectContaining({ ready: false }));
     expect(core.getMappedReadiness(draft, ctx).reasons).toContain('Fee required for city polis.');
     core.setAvailabilityFee(draft, customCity.id, 'override', 14.5);
     expect(core.getMappedReadiness(draft, ctx).ready).toBe(true);
+  });
+
+  test('a fully unavailable custom city does not require a fee until either direction is enabled', () => {
+    const customCity = { id: 'city-polis', code: 'polis', name_i18n: { en: 'Polis' }, is_active: true, updated_at: 'c4' };
+    const ctx = context({
+      offer: offer({ pricing_strategy: 'threshold_daily_rate', pricing_profile_id: null, min_rental_days: 1 }),
+      cities: [...cities, customCity],
+      availability: [
+        { offer_id: 'offer-exact', city_id: 'city-larnaca', pickup_enabled: true, return_enabled: true, is_active: true, fee_mode: 'inherit', fee_per_direction: null, updated_at: 'a1' },
+        { offer_id: 'offer-exact', city_id: customCity.id, pickup_enabled: false, return_enabled: false, is_active: false, fee_mode: 'inherit', fee_per_direction: null, updated_at: 'a2' },
+      ],
+      dailyRateTiers: [{ id: 'tier-one', offer_id: 'offer-exact', threshold_days: 1, daily_rate: 50, is_active: true, updated_at: 't1' }],
+    });
+    const draft = core.createDraft(ctx, { mode: 'availability' });
+
+    expect(core.validateDraft(draft, ctx).errors).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ field: `fee-${customCity.id}` }),
+    ]));
+    expect(core.getMappedReadiness(draft, ctx)).toEqual(expect.objectContaining({ ready: true }));
+
+    core.setDirectionalAvailability(draft, customCity.id, 'return', true);
+    expect(core.validateDraft(draft, ctx).errors).toEqual(expect.arrayContaining([
+      expect.objectContaining({ field: `fee-${customCity.id}` }),
+    ]));
+    expect(core.getMappedReadiness(draft, ctx).reasons).toContain('Fee required for city polis.');
   });
 
   test('a custom city code is valid for Larnaca profile support while Paphos remains local-only', () => {
@@ -206,7 +240,11 @@ describe('Car Rental Multi-City Stage 2C core', () => {
     expect(fields).not.toContain('owner_partner_id');
     expect(plan.existingPriceColumnChanges).toBe(0);
     expect(plan.depositRuleChanges).toBe(0);
-    expect(plan.availableCities).toEqual([expect.objectContaining({ exactCityId: 'city-nicosia', afterAvailable: true })]);
+    expect(plan.availableCities).toEqual([expect.objectContaining({
+      exactCityId: 'city-nicosia',
+      afterPickupEnabled: true,
+      afterReturnEnabled: true,
+    })]);
   });
 
   test('partner plan does not contain availability fields', () => {
@@ -242,6 +280,28 @@ describe('Car Rental Multi-City Stage 2C core', () => {
     const validation = core.validateDraft(draft, ctx);
     expect(validation.valid).toBe(true);
     expect(validation.warnings.some((entry: any) => entry.message.includes('fulfillment fallback'))).toBe(true);
+  });
+
+  test('threshold exact-owner routing does not inherit or block on legacy resource mappings', () => {
+    const ctx = context({
+      offer: {
+        ...context().offer,
+        pricing_strategy: 'threshold_daily_rate',
+        pricing_profile_id: null,
+        min_rental_days: 1,
+      },
+      partners: [
+        { id: 'partner-one', name: 'Legacy Partner', status: 'active', can_manage_cars: true },
+        { id: 'partner-two', name: 'Exact Owner', status: 'active', can_manage_cars: true },
+      ],
+      partnerResources: [{ id: 'resource-one', partner_id: 'partner-one', resource_type: 'cars', resource_id: 'offer-exact' }],
+      dailyRateTiers: [{ id: 'tier-one', offer_id: 'offer-exact', threshold_days: 1, daily_rate: 50, is_active: true }],
+    });
+    const draft = core.createDraft(ctx, { mode: 'partner' });
+    draft.partner.ownerPartnerId = 'partner-two';
+    const validation = core.validateDraft(draft, ctx);
+    expect(validation.errors.some((entry: any) => entry.message.includes('partner_resources'))).toBe(false);
+    expect(validation.warnings.some((entry: any) => entry.message.includes('exact owner'))).toBe(true);
   });
 
   test('vehicle kind update never changes car_type', () => {
@@ -557,11 +617,67 @@ describe('Car Rental Multi-City Stage 2C core', () => {
     expect(core.isReviewCurrent(draft, plan)).toBe(false);
   });
 
-  test('global mapped flag ON is a hard preflight stop', () => {
+  test('global capability flag drift invalidates a reviewed preflight', () => {
     const draft = core.createDraft(context(), { mode: 'vehicle' });
     draft.vehicle.stockCount = 3;
     const plan = core.buildVehicleDetailsPlan(draft, context());
     const fresh = context({ siteSetting: { car_multi_city_mapped_enabled: true } });
     expect(core.validateFreshContext(plan, fresh).valid).toBe(false);
+  });
+
+  test('exact offer activation is one reviewed PATCH and cannot change capability flags', () => {
+    const ctx = context({
+      offer: offer({ pricing_strategy: 'threshold_daily_rate', min_rental_days: 1 }),
+      dailyRateTiers: [{ id: 'tier-one', offer_id: 'offer-exact', threshold_days: 1, daily_rate: 50, is_active: true, updated_at: 't1' }],
+      siteSetting: { car_multi_city_mapped_enabled: true, car_threshold_daily_rates_enabled: true },
+    });
+    const draft = core.createDraft(ctx, { mode: 'activation' });
+    core.setActivationIntent(draft, 'activate');
+    const plan = core.buildReviewPlan(draft, ctx, 'activation');
+    expect(plan.steps).toHaveLength(1);
+    expect(plan.steps[0]).toEqual(expect.objectContaining({
+      entityId: 'offer-exact',
+      payload: {
+        availability_mode: 'mapped',
+        is_available: true,
+        is_published: true,
+        submission_status: 'approved',
+      },
+    }));
+    expect(plan.globalMappedFlagChanges).toBe(0);
+    expect(plan.globalThresholdFlagChanges).toBe(0);
+  });
+
+  test('activation is disabled by either OFF capability flag but unpublish remains fail-safe', () => {
+    const draftContext = context({
+      offer: offer({
+        pricing_strategy: 'threshold_daily_rate',
+        min_rental_days: 1,
+        availability_mode: 'mapped',
+        is_published: true,
+        submission_status: 'approved',
+      }),
+      dailyRateTiers: [{ id: 'tier-one', offer_id: 'offer-exact', threshold_days: 1, daily_rate: 50, is_active: true, updated_at: 't1' }],
+    });
+    const activationDraft = core.createDraft(draftContext, { mode: 'activation' });
+    core.setActivationIntent(activationDraft, 'activate');
+    expect(core.validateDraft(activationDraft, draftContext).valid).toBe(false);
+    expect(core.validateDraft(activationDraft, draftContext).errors.some((entry: any) => entry.message.includes('disabled'))).toBe(true);
+
+    const unpublishDraft = core.createDraft(draftContext, { mode: 'activation' });
+    core.setActivationIntent(unpublishDraft, 'unpublish');
+    const plan = core.buildReviewPlan(unpublishDraft, draftContext, 'activation');
+    expect(plan.steps[0].payload).toEqual({ is_published: false });
+  });
+
+  test('legacy compatibility offers cannot use the exact threshold Activate / Publish path', () => {
+    const legacyContext = context({
+      siteSetting: { car_multi_city_mapped_enabled: true, car_threshold_daily_rates_enabled: true },
+    });
+    const draft = core.createDraft(legacyContext, { mode: 'activation' });
+    core.setActivationIntent(draft, 'activate');
+    const validation = core.validateDraft(draft, legacyContext);
+    expect(validation.valid).toBe(false);
+    expect(validation.errors.some((entry: any) => entry.message.includes('threshold daily-rate pricing'))).toBe(true);
   });
 });

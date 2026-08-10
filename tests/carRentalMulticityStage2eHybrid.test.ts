@@ -15,6 +15,7 @@ function loadAdapter(): any {
   vm.runInContext(moduleToScript('js/car-rental-flow.js'), context, { filename: 'js/car-rental-flow.js' });
   vm.runInContext(moduleToScript('js/car-rental-duration-contract.js'), context, { filename: 'js/car-rental-duration-contract.js' });
   vm.runInContext(moduleToScript('js/car-rental-threshold-pricing.js'), context, { filename: 'js/car-rental-threshold-pricing.js' });
+  vm.runInContext(moduleToScript('js/car-rental-public-eligibility.js'), context, { filename: 'js/car-rental-public-eligibility.js' });
   vm.runInContext(`${moduleToScript('js/car-rental-availability-adapter.js')}
     globalThis.Stage2eAdapter = { resolveCarRentalAvailability };`, context, {
     filename: 'js/car-rental-availability-adapter.js',
@@ -206,6 +207,8 @@ describe('Car Rental Multi-City Stage 2E controlled hybrid selection', () => {
         id: 'tier-polis-1', offer_id: thresholdOffer.id,
         threshold_days: 1, daily_rate: 50, is_active: true,
       }],
+      publicEligibleThresholdOfferIds: [thresholdOffer.id],
+      thresholdEligibilityAuthoritative: true,
     });
     const customRepository = {
       getFeatureFlags: async () => ({ mappedEnabled: true, thresholdDailyRatesEnabled: true }),

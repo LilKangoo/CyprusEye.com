@@ -218,7 +218,14 @@ async function loadLegacyEditorRuntime(page: any) {
     root.getSupabase = () => root.__realClient;
     root.sb = root.__realClient;
   });
-  for (const relativePath of ['admin/admin.js', 'admin/special-offers.js', 'js/car-pricing.js']) {
+  for (const relativePath of [
+    'admin/admin.js',
+    'admin/special-offers.js',
+    'js/car-pricing.js',
+    'js/car-rental-duration-contract.js',
+    'js/car-rental-threshold-pricing.js',
+    'js/car-rental-public-eligibility.js',
+  ]) {
     const moduleUrl = `${APP_URL}/${relativePath}`;
     await page.route(moduleUrl, async (route: any) => {
       await route.fulfill({
@@ -302,7 +309,8 @@ test.describe('Car Rental Multi-City Stage 2C real PostgREST Admin integration',
     await openAction(page, OFFER_LARNACA, 'availability');
     const nicosia = page.locator(`[data-city-id="${CITY_NICOSIA}"]`);
     await expect(nicosia).toContainText('€15.00 per direction');
-    await nicosia.locator('[data-availability-field="paired"]').check();
+    await nicosia.locator('[data-availability-field="pickup_enabled"]').check();
+    await nicosia.locator('[data-availability-field="return_enabled"]').check();
     await nicosia.locator('[data-availability-field="fee_mode"]').selectOption('override');
     const fee = page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="fee_per_direction"]`);
     await fee.fill('0');
@@ -325,8 +333,10 @@ test.describe('Car Rental Multi-City Stage 2C real PostgREST Admin integration',
 
     await page.locator('#carMulticityCloseFooter').click();
     await openAction(page, OFFER_PAPHOS, 'availability');
-    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="paired"]`)).toBeDisabled();
-    await expect(page.locator(`[data-city-id="${CITY_PAPHOS}"] [data-availability-field="paired"]`)).toBeEnabled();
+    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="pickup_enabled"]`)).toBeDisabled();
+    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="return_enabled"]`)).toBeDisabled();
+    await expect(page.locator(`[data-city-id="${CITY_PAPHOS}"] [data-availability-field="pickup_enabled"]`)).toBeEnabled();
+    await expect(page.locator(`[data-city-id="${CITY_PAPHOS}"] [data-availability-field="return_enabled"]`)).toBeEnabled();
   });
 
   test('profile and partner plans preserve prices and independent availability', async ({ page }) => {
@@ -455,8 +465,10 @@ test.describe('Car Rental Multi-City Stage 2C real PostgREST Admin integration',
     await page.locator('#carMulticityPricingProfile').selectOption(PROFILE_LARNACA);
     await page.locator('[data-draft-field="pricing.pricePerDay"]').fill('42');
     await page.locator('#carMulticityNext').click();
-    await expect(page.locator(`[data-city-id="${CITY_LARNACA}"] [data-availability-field="paired"]`)).toBeChecked();
-    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="paired"]`)).not.toBeChecked();
+    await expect(page.locator(`[data-city-id="${CITY_LARNACA}"] [data-availability-field="pickup_enabled"]`)).toBeChecked();
+    await expect(page.locator(`[data-city-id="${CITY_LARNACA}"] [data-availability-field="return_enabled"]`)).toBeChecked();
+    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="pickup_enabled"]`)).not.toBeChecked();
+    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="return_enabled"]`)).not.toBeChecked();
     await page.locator('#carMulticityNext').click();
     await page.locator('#carMulticityNext').click();
     await saveReviewed(page);

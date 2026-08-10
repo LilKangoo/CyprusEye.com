@@ -67,6 +67,60 @@ function adminSeedScript() {
         stub.seedTable('car_offer_city_availability', [
           { id: 'availability-larnaca', offer_id: 'ca300001-0000-4000-8000-000000000001', city_id: 'ca200001-0000-4000-8000-000000000001', pickup_enabled: true, return_enabled: true, is_active: true, fee_mode: 'inherit', fee_per_direction: null, fee_note: null, updated_at: '2026-08-02T09:10:00.000Z' },
         ]);
+        stub.setRpcHandler('admin_save_car_offer_city_availability_batch', (params: any, helpers: any) => {
+          const offerId = String(params.p_offer_id || '');
+          const allRows = helpers.getTableRows('car_offer_city_availability');
+          const current = allRows.filter((row: any) => String(row.offer_id) === offerId);
+          const expected = (params.p_expected_rows || []).map((row: any) => ({ city_id: row.city_id, updated_at: row.updated_at || null }))
+            .sort((a: any, b: any) => String(a.city_id).localeCompare(String(b.city_id)));
+          const actual = current.map((row: any) => ({ city_id: row.city_id, updated_at: row.updated_at || null }))
+            .sort((a: any, b: any) => String(a.city_id).localeCompare(String(b.city_id)));
+          if (JSON.stringify(expected) !== JSON.stringify(actual)) throw new Error('availability_batch_stale');
+          const desired = (params.p_desired_rows || []).map((row: any, index: number) => {
+            const existing = current.find((candidate: any) => String(candidate.city_id) === String(row.city_id));
+            return {
+              ...existing,
+              ...row,
+              id: existing?.id || `availability-batch-${index + 1}`,
+              offer_id: offerId,
+              is_active: row.pickup_enabled === true || row.return_enabled === true,
+              updated_at: `availability-batch-v${index + 1}`,
+            };
+          });
+          helpers.setTableRows('car_offer_city_availability', [
+            ...allRows.filter((row: any) => String(row.offer_id) !== offerId),
+            ...desired,
+          ]);
+          return { data: { offer_id: offerId, row_count: desired.length, rows: desired }, error: null };
+        });
+        stub.setRpcHandler('admin_set_car_threshold_offer_activation_state', (params: any, helpers: any) => {
+          const offerId = String(params.p_offer_id || '');
+          const allOffers = helpers.getTableRows('car_offers');
+          const current = allOffers.find((row: any) => String(row.id) === offerId);
+          if (!current) throw new Error('activation_offer_missing');
+          if (String(current.updated_at) !== String(params.p_expected_updated_at)) {
+            const error: any = new Error('activation_stale_offer');
+            error.code = '40001';
+            throw error;
+          }
+          const setting = helpers.getTableRows('site_settings')[0] || {};
+          if (params.p_activate === true && (
+            setting.car_multi_city_mapped_enabled !== true
+            || setting.car_threshold_daily_rates_enabled !== true
+          )) throw new Error('activation_requires_both_capabilities');
+          const updated = {
+            ...current,
+            ...(params.p_activate === true ? {
+              availability_mode: 'mapped',
+              is_available: true,
+              is_published: true,
+              submission_status: 'approved',
+            } : { is_published: false }),
+            updated_at: 'activation-rpc-v2',
+          };
+          helpers.setTableRows('car_offers', allOffers.map((row: any) => row.id === offerId ? updated : row));
+          return { data: updated, error: null };
+        });
         stub.seedTable('car_offer_daily_rate_tiers', []);
         stub.seedTable('car_bookings', []);
         stub.seedTable('service_deposit_rules', [{ id: 'deposit-cars-default', resource_type: 'cars', mode: 'per_day', amount: 5, currency: 'EUR', include_children: true, enabled: true, updated_at: '2026-08-02T09:20:00.000Z' }]);
@@ -109,13 +163,17 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
   });
 
   test('Fleet actions open exact vehicle, availability, profile, partner and Legacy editor', async ({ page }) => {
+    await expect(page.locator('#fleetTableBody')).toContainText('Legacy larnaca');
+    await expect(page.locator('#fleetTableBody')).toContainText('Current runtime: legacy resolver coverage');
+    await expect(page.locator('#fleetTableBody')).toContainText('Future configured rows: Pickup & return: Larnaca');
+    await expect(page.locator('#fleetTableBody [data-offer-status="LIVE"]')).toHaveCount(1);
     await openAction(page, 'vehicle');
     await expect(page.locator('#carMulticityVehicleKind')).toHaveValue(KIND_CAR);
     await page.locator('#carMulticityModalClose').click();
 
     await openAction(page, 'availability');
-    await expect(page.locator(`[data-city-id="${CITY_LARNACA}"] [data-availability-field="paired"]`)).toBeChecked();
-    await expect(page.locator(`[data-city-id="${CITY_LARNACA}"]`)).toContainText('Available for pickup and return');
+    await expect(page.locator(`[data-city-id="${CITY_LARNACA}"] [data-availability-field="pickup_enabled"]`)).toBeChecked();
+    await expect(page.locator(`[data-city-id="${CITY_LARNACA}"] [data-availability-field="return_enabled"]`)).toBeChecked();
     await page.locator('#carMulticityModalClose').click();
 
     await openAction(page, 'pricing');
@@ -134,11 +192,75 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     await expect(page.locator('#fleetCarLegacyLocationNotice')).toContainText('Pricing profile');
   });
 
-  test('Larnaca availability saves pickup and return atomically without prices, partner or protected writes', async ({ page }) => {
+  test('Activate / Publish is capability-gated and performs one exact-offer transaction when both flags are ON', async ({ page }) => {
+    await page.evaluate((offerId) => {
+      const stub = (window as any).__supabaseStub;
+      stub.seedTable('car_offers', stub.getTableRows('car_offers').map((row: any) => row.id === offerId
+        ? {
+          ...row,
+          pricing_strategy: 'threshold_daily_rate',
+          min_rental_days: 1,
+          is_published: false,
+          submission_status: 'draft',
+        }
+        : row));
+      stub.seedTable('car_offer_daily_rate_tiers', [{
+        id: 'tier-activation-one',
+        offer_id: offerId,
+        threshold_days: 1,
+        daily_rate: 50,
+        is_active: true,
+        updated_at: 'tier-activation-v1',
+      }]);
+    }, OFFER_ID);
+    await page.evaluate(() => (window as any).loadFleetData({ silent: true }));
+    await openAction(page, 'activation');
+    await expect(page.locator('[data-activation-intent="activate"]')).toBeDisabled();
+    await expect(page.locator('#carMulticityModalContent')).toContainText('Capability disabled');
+    await page.locator('#carMulticityModalClose').click();
+
+    await page.evaluate(() => {
+      const stub = (window as any).__supabaseStub;
+      stub.seedTable('site_settings', stub.getTableRows('site_settings').map((row: any) => ({
+        ...row,
+        car_multi_city_mapped_enabled: true,
+        car_threshold_daily_rates_enabled: true,
+      })));
+      stub.clearMutationCalls();
+    });
+    await openAction(page, 'activation');
+    await page.locator('[data-activation-intent="activate"]').click();
+    await page.locator('#carMulticityReview').click();
+    await expect(page.locator('#carMulticityModalContent')).toContainText('availability_mode');
+    await page.locator('#carMulticitySave').click();
+    await page.locator('#carMulticityConfirmAccept').dblclick();
+    await expect(page.locator('#carMulticityReceiptHeading')).toHaveText('Saved');
+    const result = await page.evaluate((offerId) => {
+      const stub = (window as any).__supabaseStub;
+      return {
+        offer: stub.getTableRows('car_offers').find((row: any) => row.id === offerId),
+        mutations: stub.getMutationCalls(),
+      };
+    }, OFFER_ID);
+    expect(result.offer).toEqual(expect.objectContaining({
+      id: OFFER_ID,
+      availability_mode: 'mapped',
+      is_available: true,
+      is_published: true,
+      submission_status: 'approved',
+    }));
+    expect(result.mutations.filter((call: any) => call.table === 'car_offers')).toHaveLength(0);
+    expect(await page.evaluate(() => (window as any).__supabaseStub.getRpcCalls()
+      .filter((call: any) => call.name === 'admin_set_car_threshold_offer_activation_state').length)).toBe(1);
+    expect(result.mutations.some((call: any) => call.table === 'site_settings')).toBe(false);
+  });
+
+  test('Larnaca availability saves independently reviewed pickup and return without protected writes', async ({ page }) => {
     await openAction(page, 'availability');
     await clearMutations(page);
     const nicosia = page.locator(`[data-city-id="${CITY_NICOSIA}"]`);
-    await nicosia.locator('[data-availability-field="paired"]').check();
+    await nicosia.locator('[data-availability-field="pickup_enabled"]').check();
+    await nicosia.locator('[data-availability-field="return_enabled"]').check();
     await page.locator('#carMulticityReview').click();
     await expect(page.locator('#carMulticityModalContent')).toContainText(CITY_NICOSIA);
     await expect(page.locator('#carMulticityModalContent')).toContainText('Existing base price changes');
@@ -159,7 +281,8 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     expect(result.availability).toEqual(expect.objectContaining({ pickup_enabled: true, return_enabled: true, is_active: true, fee_mode: 'inherit', fee_per_direction: null }));
     expect(result.offer.price_per_day).toBe(35);
     expect(result.offer.owner_partner_id).toBe('partner-one');
-    expect(result.mutations.filter((call: any) => call.table === 'car_offer_city_availability' && call.action === 'insert')).toHaveLength(1);
+    expect(result.mutations.filter((call: any) => call.table === 'car_offer_city_availability')).toHaveLength(0);
+    expect(await page.evaluate(() => (window as any).__supabaseStub.getRpcCalls().filter((call: any) => call.name === 'admin_save_car_offer_city_availability_batch').length)).toBe(1);
     expect(result.mutations.some((call: any) => ['car_bookings', 'service_deposit_overrides', 'partner_resources', 'partner_service_fulfillments', 'service_coupons', 'coupons'].includes(call.table))).toBe(false);
     expect(result.mutations.some((call: any) => call.table === 'site_settings')).toBe(false);
   });
@@ -169,7 +292,8 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     await clearMutations(page);
     const paphos = page.locator(`[data-city-id="${CITY_PAPHOS}"]`);
     await expect(paphos).toContainText('€40.00 per direction');
-    await paphos.locator('[data-availability-field="paired"]').check();
+    await paphos.locator('[data-availability-field="pickup_enabled"]').check();
+    await paphos.locator('[data-availability-field="return_enabled"]').check();
     await paphos.locator('[data-availability-field="fee_mode"]').selectOption('override');
     const fee = page.locator(`[data-city-id="${CITY_PAPHOS}"] [data-availability-field="fee_per_direction"]`);
     await fee.fill('0');
@@ -202,8 +326,26 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
       fee_per_direction: 0,
     }));
     expect(result.offer).toEqual(expect.objectContaining({ price_per_day: 35, owner_partner_id: 'partner-one', stock_count: 2 }));
-    expect(result.mutations.filter((call: any) => call.table === 'car_offer_city_availability')).toHaveLength(1);
+    expect(result.mutations.filter((call: any) => call.table === 'car_offer_city_availability')).toHaveLength(0);
+    expect(await page.evaluate(() => (window as any).__supabaseStub.getRpcCalls().filter((call: any) => call.name === 'admin_save_car_offer_city_availability_batch').length)).toBe(1);
     expect(result.mutations.some((call: any) => ['car_bookings', 'service_deposit_rules', 'service_deposit_overrides', 'partners', 'partner_resources', 'site_settings'].includes(call.table))).toBe(false);
+  });
+
+  test('directional custom fee result and Review charge only the enabled direction', async ({ page }) => {
+    await openAction(page, 'availability');
+    const paphos = page.locator(`[data-city-id="${CITY_PAPHOS}"]`);
+    await expect(paphos).toContainText('No fee applies while this city is unavailable');
+    await paphos.locator('[data-availability-field="pickup_enabled"]').check();
+    await paphos.locator('[data-availability-field="fee_mode"]').selectOption('override');
+    await paphos.locator('[data-availability-field="fee_per_direction"]').fill('25');
+    await paphos.locator('[data-availability-field="fee_per_direction"]').press('Tab');
+
+    await expect(paphos).toContainText('€25.00 pickup · €0.00 return · €25.00 route total');
+    await paphos.locator('[data-availability-field="pickup_enabled"]').uncheck();
+    await paphos.locator('[data-availability-field="return_enabled"]').check();
+    await expect(paphos).toContainText('€0.00 pickup · €25.00 return · €25.00 route total');
+    await page.locator('#carMulticityReview').click();
+    await expect(page.locator('#carMulticityModalContent')).toContainText('Pickup €0.00 · Return €25.00 · Route total €25.00');
   });
 
   test('Paphos profile UI blocks every non-Paphos city', async ({ page }) => {
@@ -215,8 +357,10 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     }, { offerId: OFFER_ID, profileId: PROFILE_PAPHOS });
     await page.evaluate(() => (window as any).loadFleetData({ silent: true }));
     await openAction(page, 'availability');
-    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="paired"]`)).toBeDisabled();
-    await expect(page.locator(`[data-city-id="${CITY_PAPHOS}"] [data-availability-field="paired"]`)).toBeEnabled();
+    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="pickup_enabled"]`)).toBeDisabled();
+    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="return_enabled"]`)).toBeDisabled();
+    await expect(page.locator(`[data-city-id="${CITY_PAPHOS}"] [data-availability-field="pickup_enabled"]`)).toBeEnabled();
+    await expect(page.locator(`[data-city-id="${CITY_PAPHOS}"] [data-availability-field="return_enabled"]`)).toBeEnabled();
   });
 
   test('vehicle kind change updates exact offer without changing car_type, prices or availability', async ({ page }) => {
@@ -304,7 +448,7 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     });
   });
 
-  test('mismatched legacy availability is warned and normalized only after conscious paired Save', async ({ page }) => {
+  test('asymmetric legacy availability remains explicit until one direction is consciously changed', async ({ page }) => {
     await page.evaluate((offerId) => {
       const stub = (window as any).__supabaseStub;
       stub.seedTable('car_offer_city_availability', [{
@@ -314,9 +458,10 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     }, OFFER_ID);
     await openAction(page, 'availability');
     const row = page.locator(`[data-city-id="${CITY_LARNACA}"]`);
-    await expect(row).toContainText('Pickup and return settings differ. Review required.');
-    expect(await row.locator('[data-availability-field="paired"]').evaluate((input: HTMLInputElement) => input.indeterminate)).toBe(true);
-    await row.locator('[data-availability-field="paired"]').check();
+    await expect(row.locator('[data-availability-field="pickup_enabled"]')).toBeChecked();
+    await expect(row.locator('[data-availability-field="return_enabled"]')).not.toBeChecked();
+    await expect(row).toContainText('pickup only');
+    await row.locator('[data-availability-field="return_enabled"]').check();
     await page.locator('#carMulticityReview').click();
     await expect(page.locator('#carMulticityModalContent')).toContainText('Available cities');
     await expect(page.locator('#carMulticityModalContent')).toContainText('Deposit rule changes');
@@ -678,6 +823,23 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     expect(result.setting.car_multi_city_mapped_enabled).toBe(false);
   });
 
+  test('city management remains available after capability flags are deliberately enabled', async ({ page }) => {
+    await page.evaluate(() => {
+      const stub = (window as any).__supabaseStub;
+      stub.seedTable('site_settings', stub.getTableRows('site_settings').map((row: any) => ({
+        ...row,
+        car_multi_city_mapped_enabled: true,
+        car_threshold_daily_rates_enabled: true,
+      })));
+      stub.clearMutationCalls();
+    });
+    await page.locator('#btnManageCarMulticity').click();
+    await expect(page.locator('#carMulticityCatalogModal')).toBeVisible();
+    await expect(page.locator('#carMulticityCatalogStatus')).toContainText('mapped ON, threshold pricing ON');
+    await expect(page.locator(`[data-catalog-city-id="${CITY_LARNACA}"]`)).toBeVisible();
+    expect(await page.evaluate(() => (window as any).__supabaseStub.getMutationCalls())).toEqual([]);
+  });
+
   test('existing city i18n edit uses exact ID and does not create mappings or assignments', async ({ page }) => {
     await page.locator('#btnManageCarMulticity').click();
     const row = page.locator(`[data-catalog-city-id="${CITY_LARNACA}"]`);
@@ -750,12 +912,15 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     await expect(page.locator('#carMulticityModalContent')).toContainText('Per day');
     await expect(page.locator('[data-draft-field="pricing.depositAmount"]')).toHaveCount(0);
     await page.locator('#carMulticityNext').click();
-    await expect(page.locator(`[data-city-id="${CITY_LARNACA}"] [data-availability-field="paired"]`)).toBeChecked();
-    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="paired"]`)).not.toBeChecked();
+    await expect(page.locator(`[data-city-id="${CITY_LARNACA}"] [data-availability-field="pickup_enabled"]`)).toBeChecked();
+    await expect(page.locator(`[data-city-id="${CITY_LARNACA}"] [data-availability-field="return_enabled"]`)).toBeChecked();
+    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="pickup_enabled"]`)).not.toBeChecked();
+    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="return_enabled"]`)).not.toBeChecked();
     await page.locator('#carMulticityNext').click();
     await page.locator('#carMulticityNext').click();
     await page.locator('#carMulticityReview').click();
-    await expect(page.locator('#carMulticityModalContent')).toContainText('Legacy');
+    await expect(page.locator('#carMulticityModalContent')).toContainText('availability_mode');
+    await expect(page.locator('#carMulticityModalContent')).toContainText('legacy');
     await expect(page.locator('#carMulticityModalContent')).toContainText('Deposit rule changes');
     await page.locator('#carMulticitySave').click();
     await page.locator('#carMulticityConfirmAccept').click();

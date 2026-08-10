@@ -87,6 +87,12 @@
     ...PRICE_COLUMNS,
   ]);
   const PARTNER_COLUMNS = Object.freeze(['owner_partner_id']);
+  const ACTIVATION_COLUMNS = Object.freeze([
+    'availability_mode',
+    'is_available',
+    'is_published',
+    'submission_status',
+  ]);
   const AVAILABILITY_COLUMNS = Object.freeze([
     'offer_id',
     'city_id',
@@ -230,7 +236,24 @@
     };
   }
 
-  function setPairedAvailability(draft, cityId, checked) {
+  function directionalAvailabilityState(row) {
+    const pickupEnabled = row?.pickup_enabled === true;
+    const returnEnabled = row?.return_enabled === true;
+    return {
+      pickupEnabled,
+      returnEnabled,
+      isActive: row?.is_active === true,
+      mode: pickupEnabled && returnEnabled
+        ? 'both'
+        : pickupEnabled
+          ? 'pickup-only'
+          : returnEnabled
+            ? 'return-only'
+            : 'off',
+    };
+  }
+
+  function ensureAvailabilityRow(draft, cityId) {
     const exactCityId = normalizeId(cityId);
     if (!draft || !exactCityId) throw new Error('Exact city ID is required');
     let row = (draft.availability || []).find((entry) => normalizeId(entry.city_id) === exactCityId);
@@ -248,6 +271,20 @@
       };
       draft.availability.push(row);
     }
+    return row;
+  }
+
+  function setDirectionalAvailability(draft, cityId, direction, checked) {
+    if (!['pickup', 'return'].includes(direction)) throw new Error('Availability direction must be pickup or return');
+    const row = ensureAvailabilityRow(draft, cityId);
+    row[direction === 'pickup' ? 'pickup_enabled' : 'return_enabled'] = checked === true;
+    row.is_active = row.pickup_enabled === true || row.return_enabled === true;
+    invalidateReview(draft);
+    return row;
+  }
+
+  function setPairedAvailability(draft, cityId, checked) {
+    const row = ensureAvailabilityRow(draft, cityId);
     const enabled = checked === true;
     row.pickup_enabled = enabled;
     row.return_enabled = enabled;
@@ -259,8 +296,7 @@
   function setAvailabilityFee(draft, cityId, mode, amount = null, note = null) {
     const exactCityId = normalizeId(cityId);
     if (!draft || !exactCityId) throw new Error('Exact city ID is required');
-    let row = (draft.availability || []).find((entry) => normalizeId(entry.city_id) === exactCityId);
-    if (!row) row = setPairedAvailability(draft, exactCityId, false);
+    const row = ensureAvailabilityRow(draft, exactCityId);
     const normalizedMode = normalizeCode(mode);
     if (!['inherit', 'override'].includes(normalizedMode)) throw new Error('Unsupported city fee mode');
     const normalizedAmount = normalizedMode === 'override' ? normalizeMoney(amount) : null;
@@ -623,9 +659,18 @@
       partner: {
         ownerPartnerId: normalizeNullableId(offer?.owner_partner_id),
       },
-      publicMode: 'legacy',
-      globalMappedFlag: false,
-      globalThresholdFlag: false,
+      activation: {
+        action: null,
+        availabilityMode: normalizeCode(offer?.availability_mode) === 'mapped' ? 'mapped' : 'legacy',
+        isAvailable: offer?.is_available === true,
+        isPublished: offer?.is_published === true,
+        submissionStatus: ['draft', 'pending', 'approved', 'rejected'].includes(normalizeCode(offer?.submission_status))
+          ? normalizeCode(offer.submission_status)
+          : 'draft',
+      },
+      publicMode: normalizeCode(offer?.availability_mode) === 'mapped' ? 'mapped' : 'legacy',
+      globalMappedFlag: context.siteSetting?.car_multi_city_mapped_enabled === true,
+      globalThresholdFlag: context.siteSetting?.car_threshold_daily_rates_enabled === true,
       validation: { errors: [], warnings: [] },
       review: { isCurrent: false, fingerprint: null, plan: null },
     };
@@ -682,6 +727,20 @@
 
   function partnerPayload(draft) {
     return { owner_partner_id: normalizeNullableId(draft.partner.ownerPartnerId) };
+  }
+
+  function activationPayload(draft) {
+    const action = normalizeCode(draft?.activation?.action);
+    if (action === 'activate') {
+      return {
+        availability_mode: 'mapped',
+        is_available: true,
+        is_published: true,
+        submission_status: 'approved',
+      };
+    }
+    if (action === 'unpublish') return { is_published: false };
+    throw new Error('Activation action is missing');
   }
 
   function pricingPayload(draft) {
@@ -764,6 +823,15 @@
         return;
       }
       seen.add(cityId);
+      if (!row?.pickup_enabled && !row?.return_enabled) {
+        if (row?.is_active === true) {
+          errors.push({ field: `availability-${cityId}`, message: 'An active city row must enable pickup or return.' });
+        }
+        if (normalizeText(row.fee_note).length > 500) {
+          errors.push({ field: `fee-${cityId}`, message: 'Fee note must not exceed 500 characters.' });
+        }
+        return;
+      }
       const mapping = thresholdStrategy ? null : mappingFor(context, profile.id, cityId);
       const fee = thresholdStrategy
         ? {
@@ -779,7 +847,6 @@
       if (normalizeText(row.fee_note).length > 500) {
         errors.push({ field: `fee-${cityId}`, message: 'Fee note must not exceed 500 characters.' });
       }
-      if (!row?.is_active && !row?.pickup_enabled && !row?.return_enabled) return;
       const city = cityById(context, cityId);
       if (!city || city.is_active !== true) {
         errors.push({ field: `availability-${cityId}`, message: 'Selected city is inactive or missing.' });
@@ -813,6 +880,105 @@
     });
   }
 
+  function getActivationReadiness(draft, context = draft?.snapshot || {}) {
+    const structural = getMappedReadiness(draft, context);
+    const reasons = [...structural.reasons];
+    if (normalizeCode(draft?.pricing?.strategy) !== 'threshold_daily_rate') {
+      reasons.push('Activate / Publish is available only for exact offers using threshold daily-rate pricing.');
+    }
+    const partnerId = normalizeNullableId(draft?.partner?.ownerPartnerId || context?.offer?.owner_partner_id);
+    const partner = (context?.partners || []).find((row) => normalizeId(row?.id) === partnerId) || null;
+    if (!partnerId) reasons.push('An exact owner partner is required before publication.');
+    else if (!partner || partner.status !== 'active' || partner.can_manage_cars !== true) {
+      reasons.push('The exact owner partner is not active for Cars.');
+    }
+    if (!(Number(context?.offer?.stock_count) > 0)) reasons.push('Stock must be greater than zero before publication.');
+    if (normalizeCode(draft?.pricing?.strategy) === 'threshold_daily_rate') {
+      const activeTiers = sortDailyRateTiers(draft?.pricing?.dailyRateTiers || []).filter((tier) => tier.is_active);
+      const thresholds = new Set();
+      if (activeTiers.some((tier) => {
+        const duplicate = thresholds.has(tier.threshold_days);
+        thresholds.add(tier.threshold_days);
+        return duplicate
+          || !(Number.isInteger(tier.threshold_days) && tier.threshold_days > 0)
+          || !(tier.daily_rate > 0)
+          || !hasAtMostSixDecimals(tier.daily_rate);
+      })) {
+        reasons.push('Daily-rate tiers are invalid or duplicated.');
+      }
+      const minimum = effectiveThresholdMinimum(activeTiers);
+      const maximum = normalizeInteger(draft?.pricing?.maxRentalDays);
+      if (maximum !== null && minimum !== null && maximum < minimum) {
+        reasons.push('Maximum rental days cannot be lower than the effective minimum.');
+      }
+    }
+    const configurationReady = reasons.length === 0;
+    const mappedEnabled = context?.siteSetting?.car_multi_city_mapped_enabled === true;
+    const thresholdEnabled = context?.siteSetting?.car_threshold_daily_rates_enabled === true;
+    const capabilityReasons = [];
+    if (!mappedEnabled) capabilityReasons.push('Multi-city mapped rendering is disabled by the global database flag.');
+    if (!thresholdEnabled) capabilityReasons.push('Threshold daily-rate pricing is disabled by the global database flag.');
+    return {
+      ready: configurationReady && mappedEnabled && thresholdEnabled,
+      configurationReady,
+      capabilityEnabled: mappedEnabled && thresholdEnabled,
+      reasons: Array.from(new Set(reasons)),
+      capabilityReasons,
+      pickupCount: structural.pickupCount,
+      returnCount: structural.returnCount,
+      partnerId,
+    };
+  }
+
+  function setActivationIntent(draft, action) {
+    if (!draft?.activation) throw new Error('Activation draft is unavailable');
+    if (action === 'activate') {
+      draft.activation = {
+        action,
+        availabilityMode: 'mapped',
+        isAvailable: true,
+        isPublished: true,
+        submissionStatus: 'approved',
+      };
+    } else if (action === 'unpublish') {
+      draft.activation.action = action;
+      draft.activation.isPublished = false;
+    } else {
+      throw new Error(`Unsupported activation action: ${action}`);
+    }
+    invalidateReview(draft);
+    return draft.activation;
+  }
+
+  function validateActivationDraft(draft, context) {
+    const errors = [];
+    const warnings = [];
+    if (!normalizeId(draft?.offerId)) errors.push({ field: 'offerId', message: 'Exact car offer ID is required.' });
+    const action = normalizeCode(draft?.activation?.action);
+    if (!['activate', 'unpublish'].includes(action)) {
+      errors.push({ field: 'activation', message: 'Choose Activate / Publish or Unpublish before Review.' });
+    } else if (action === 'activate') {
+      const readiness = getActivationReadiness(draft, context);
+      if (draft.activation.availabilityMode !== 'mapped'
+        || draft.activation.isAvailable !== true
+        || draft.activation.isPublished !== true
+        || draft.activation.submissionStatus !== 'approved') {
+        errors.push({ field: 'activation', message: 'Activation must atomically set mapped, available, published and approved.' });
+      }
+      readiness.reasons.forEach((message) => errors.push({ field: 'activation', message }));
+      readiness.capabilityReasons.forEach((message) => errors.push({ field: 'activation', message }));
+      return { valid: errors.length === 0, errors, warnings, readiness };
+    } else {
+      if (context?.offer?.is_published !== true) {
+        errors.push({ field: 'activation', message: 'This exact offer is already unpublished.' });
+      }
+      if (draft.activation.isPublished !== false) {
+        errors.push({ field: 'activation', message: 'Unpublish must set is_published to false.' });
+      }
+    }
+    return { valid: errors.length === 0, errors, warnings, readiness: getActivationReadiness(draft, context) };
+  }
+
   function validateDraft(draft, context = draft?.snapshot || {}) {
     const errors = [];
     const warnings = [];
@@ -821,6 +987,11 @@
     }
     if (draft.mode !== 'create' && !normalizeId(draft.offerId)) {
       errors.push({ field: 'offerId', message: 'Exact car offer ID is required.' });
+    }
+    if (draft.mode === 'activation') {
+      const validation = validateActivationDraft(draft, context);
+      draft.validation = { errors: clone(validation.errors), warnings: clone(validation.warnings) };
+      return validation;
     }
     const strategy = normalizeCode(draft.pricing.strategy);
     const thresholdStrategy = strategy === 'threshold_daily_rate';
@@ -879,10 +1050,6 @@
     )) {
       errors.push({ field: 'minimumDriverAge', message: 'Minimum driver age must be between 16 and 99 or empty.' });
     }
-    if (draft.publicMode !== 'legacy') errors.push({ field: 'publicMode', message: 'Stage 2C must remain in legacy mode.' });
-    if (draft.globalMappedFlag !== false) errors.push({ field: 'globalMappedFlag', message: 'Global mapped flag must remain false.' });
-    if (draft.globalThresholdFlag !== false) errors.push({ field: 'globalThresholdFlag', message: 'Global threshold-pricing flag must remain false.' });
-
     validateAvailability(draft, context, errors);
 
     if (draft.mode === 'create' || draft.mode === 'pricing') {
@@ -944,14 +1111,17 @@
     const resourcePartnerIds = Array.from(new Set((context.partnerResources || [])
       .map((row) => normalizeId(row?.partner_id))
       .filter(Boolean)));
-    if (resourcePartnerIds.length > 1) {
+    if (!thresholdStrategy && resourcePartnerIds.length > 1) {
       errors.push({ field: 'ownerPartnerId', message: 'Multiple partner_resources assignments must be resolved before changing the owner.' });
     }
-    if (partnerId && resourcePartnerIds.some((resourcePartnerId) => resourcePartnerId !== partnerId)) {
+    if (!thresholdStrategy && partnerId && resourcePartnerIds.some((resourcePartnerId) => resourcePartnerId !== partnerId)) {
       errors.push({ field: 'ownerPartnerId', message: 'Selected owner conflicts with the existing partner_resources assignment.' });
     }
-    if (!partnerId && resourcePartnerIds.length === 1) {
+    if (!thresholdStrategy && !partnerId && resourcePartnerIds.length === 1) {
       warnings.push({ field: 'ownerPartnerId', message: 'The existing partner_resources assignment will remain the fulfillment fallback.' });
+    }
+    if (thresholdStrategy && resourcePartnerIds.some((resourcePartnerId) => resourcePartnerId !== partnerId)) {
+      warnings.push({ field: 'ownerPartnerId', message: 'Threshold offers route only through the exact owner; legacy partner_resources assignments are ignored by the threshold fulfillment resolver.' });
     }
     if (partnerId) {
       const partner = (context.partners || []).find((row) => normalizeId(row?.id) === partnerId);
@@ -1071,25 +1241,37 @@
         changes,
       });
     });
-    return result;
+    const mutationPriority = (entry) => {
+      if (entry.action === 'delete' || entry.payload?.is_active === false) return 2;
+      const before = beforeRows.get(entry.cityId);
+      const addsDirection = entry.payload?.pickup_enabled && before?.pickup_enabled !== true
+        || entry.payload?.return_enabled && before?.return_enabled !== true;
+      return addsDirection ? 0 : 1;
+    };
+    return result.sort((left, right) => (
+      mutationPriority(left) - mutationPriority(right)
+      || String(left.cityId).localeCompare(String(right.cityId))
+    ));
   }
 
   function availabilityReviewSummary(diffs, draft, context = draft?.snapshot || {}) {
     const beforeRows = new Map((context.availability || []).map((row) => [normalizeId(row.city_id), row]));
     const afterRows = new Map((draft.availability || []).map((row) => [normalizeId(row.city_id), row]));
     return (diffs || []).map((entry) => {
-      const before = pairedAvailabilityState(beforeRows.get(entry.cityId));
+      const before = directionalAvailabilityState(beforeRows.get(entry.cityId));
       const afterRow = entry.action === 'delete' ? null : afterRows.get(entry.cityId);
-      const after = pairedAvailabilityState(afterRow);
+      const after = directionalAvailabilityState(afterRow);
       const beforeRow = beforeRows.get(entry.cityId) || null;
       return {
         exactOfferId: normalizeId(entry.offerId) || null,
         exactCityId: normalizeId(entry.cityId),
         action: entry.action,
-        beforeAvailable: before.checked,
-        afterAvailable: entry.action === 'delete' ? false : after.checked,
-        beforeMismatch: before.mismatched,
-        afterMismatch: entry.action === 'delete' ? false : after.mismatched,
+        beforePickupEnabled: before.pickupEnabled,
+        afterPickupEnabled: entry.action === 'delete' ? false : after.pickupEnabled,
+        beforeReturnEnabled: before.returnEnabled,
+        afterReturnEnabled: entry.action === 'delete' ? false : after.returnEnabled,
+        beforeDirectionMode: before.mode,
+        afterDirectionMode: entry.action === 'delete' ? 'off' : after.mode,
         beforeFeeMode: normalizeCode(beforeRow?.fee_mode) === 'override' ? 'override' : 'inherit',
         afterFeeMode: entry.action === 'delete'
           ? null
@@ -1234,6 +1416,9 @@
           'location',
           'owner_partner_id',
           'availability_mode',
+          'is_available',
+          'is_published',
+          'submission_status',
           'pricing_strategy',
           'min_rental_days',
           'max_rental_days',
@@ -1353,20 +1538,37 @@
     const diffs = availabilityDiff(draft, context);
     const forbidden = diffs.flatMap((entry) => entry.changes).filter((change) => PRICE_COLUMNS.includes(change.field) || change.field === 'owner_partner_id');
     if (forbidden.length) throw new Error('Availability plan contains forbidden fields');
-    const steps = diffs.map((entry) => buildStep(
-      `availability_${entry.action}_${entry.cityId}`,
-      'car_offer_city_availability',
-      entry.action,
-      entry.entityId,
-      entry.expectedUpdatedAt,
-      entry.payload || {},
-      entry.changes,
-    ));
+    const expectedAvailabilityRows = (context.availability || []).map((row) => ({
+      city_id: normalizeId(row.city_id),
+      updated_at: row.updated_at || null,
+    })).sort((left, right) => left.city_id.localeCompare(right.city_id));
+    const desiredAvailabilityRows = (draft.availability || []).map((row) => {
+      const normalized = normalizeAvailabilityRow(row, draft.offerId);
+      return {
+        city_id: normalized.city_id,
+        pickup_enabled: normalized.pickup_enabled,
+        return_enabled: normalized.return_enabled,
+        fee_mode: normalized.fee_mode,
+        fee_per_direction: normalized.fee_per_direction,
+        fee_note: normalized.fee_note,
+      };
+    }).sort((left, right) => left.city_id.localeCompare(right.city_id));
+    const steps = diffs.length ? [buildStep(
+      'availability_batch',
+      'car_offer_city_availability_batch',
+      'replace',
+      draft.offerId,
+      null,
+      {},
+      diffs.flatMap((entry) => entry.changes),
+    )] : [];
     return createPlan('availability', draft, steps, {
       exactProfileId: thresholdStrategy ? null : normalizeId(draft.pricing.profileId),
       availableCities: availabilityReviewSummary(diffs, draft, context),
       profileCitySnapshot: thresholdStrategy ? [] : clone(context.profileCities || []),
       citySnapshot: clone(context.cities || []),
+      expectedAvailabilityRows,
+      desiredAvailabilityRows,
       existingPriceColumnChanges: 0,
       preflightSnapshot: buildPreflightSnapshot(draft, context),
     });
@@ -1380,6 +1582,22 @@
       ? buildStep('partner_assignment', 'car_offer', 'update', draft.offerId, offer.updated_at, payload, changes)
       : null;
     return createPlan('partner', draft, step ? [step] : [], {
+      existingPriceColumnChanges: 0,
+      preflightSnapshot: buildPreflightSnapshot(draft, context),
+    });
+  }
+
+  function buildActivationPlan(draft, context = draft?.snapshot || {}) {
+    const offer = context.offer || {};
+    const payload = activationPayload(draft);
+    const fields = Object.keys(payload);
+    const changes = diffPayload('car_offer', draft.offerId, offer, payload, fields);
+    const step = changes.length
+      ? buildStep('exact_offer_activation', 'car_offer', 'update', draft.offerId, offer.updated_at, payload, changes)
+      : null;
+    return createPlan('activation', draft, step ? [step] : [], {
+      activationAction: normalizeCode(draft?.activation?.action),
+      activationReadiness: getActivationReadiness(draft, context),
       existingPriceColumnChanges: 0,
       preflightSnapshot: buildPreflightSnapshot(draft, context),
     });
@@ -1517,6 +1735,7 @@
     else if (kind === 'pricing') plan = buildPricingProfilePlan(draft, context);
     else if (kind === 'availability') plan = buildAvailabilityPlan(draft, context);
     else if (kind === 'partner') plan = buildPartnerAssignmentPlan(draft, context);
+    else if (kind === 'activation') plan = buildActivationPlan(draft, context);
     else if (kind === 'create') plan = buildCreateVehiclePlan(draft, context);
     else throw new Error(`Unsupported review plan kind: ${kind}`);
     if (plan.globalMappedFlagChanges !== 0 || plan.bookingChanges !== 0 || plan.priceCalculationChanges !== 0 || plan.depositRuleChanges !== 0) {
@@ -1538,6 +1757,7 @@
       pricing: draft?.pricing,
       availability: draft?.availability,
       partner: draft?.partner,
+      activation: draft?.activation,
       publicMode: draft?.publicMode,
       globalMappedFlag: draft?.globalMappedFlag,
       globalThresholdFlag: draft?.globalThresholdFlag,
@@ -1600,12 +1820,6 @@
         errors.push({ field: 'configurationSnapshot', message: 'Profile, city mapping, availability, partner, or global configuration changed.' });
       }
     }
-    if (freshContext?.siteSetting?.car_multi_city_mapped_enabled !== false) {
-      errors.push({ field: 'globalFlag', message: 'Global mapped flag is not false.' });
-    }
-    if (freshContext?.siteSetting?.car_threshold_daily_rates_enabled !== false) {
-      errors.push({ field: 'globalThresholdFlag', message: 'Global threshold-pricing flag is not false.' });
-    }
     return { valid: errors.length === 0, errors };
   }
 
@@ -1663,6 +1877,7 @@
   }
 
   const api = Object.freeze({
+    ACTIVATION_COLUMNS,
     AVAILABILITY_COLUMNS,
     CREATE_COLUMNS,
     DAILY_RATE_TIER_COLUMNS,
@@ -1688,6 +1903,7 @@
     addDailyRateTier,
     assertProfileContract,
     buildAvailabilityPlan,
+    buildActivationPlan,
     buildCreateVehiclePlan,
     buildPreflightSnapshot,
     buildPartnerAssignmentPlan,
@@ -1701,9 +1917,11 @@
     createDraft,
     defaultAvailabilityRows,
     dailyRateTierDiff,
+    directionalAvailabilityState,
     effectiveThresholdMinimum,
     fingerprintDraft,
     getMappedReadiness,
+    getActivationReadiness,
     getAvailabilityFeeState,
     inheritedFeeIsSupported,
     invalidateReview,
@@ -1723,6 +1941,8 @@
     removeDailyRateTier,
     resolveI18nText,
     setPairedAvailability,
+    setDirectionalAvailability,
+    setActivationIntent,
     setAvailabilityFee,
     setDraftProfile,
     setVehicleImageAction,
@@ -1732,6 +1952,7 @@
     selectDailyRateTier,
     updateDailyRateTier,
     validateCityDraft,
+    validateActivationDraft,
     validateDraft,
     validateFreshContext,
     validateProfileCityDraft,

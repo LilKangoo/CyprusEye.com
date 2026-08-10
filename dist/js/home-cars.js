@@ -105,13 +105,6 @@ function getHomeCarsShadowConfig() {
 function buildHomeCarsAvailabilityInput(legacyRenderedOffers, finderState) {
   const config = getHomeCarsShadowConfig();
   if (!config || !finderState) return null;
-  const savedCatalog = window.CE_SAVED_CATALOG;
-  const savedOfferIds = homeCarsSavedOnly && typeof savedCatalog?.isSaved === 'function'
-    ? allHomeCars
-      .filter((offer) => savedCatalog.isSaved('car', String(offer?.id || '')))
-      .map((offer) => String(offer?.id || '').trim())
-      .filter(Boolean)
-    : [];
   const input = {
     supabase,
     pickupCityCode: normalizeCarCity(finderState.pickupLocation),
@@ -128,7 +121,6 @@ function buildHomeCarsAvailabilityInput(legacyRenderedOffers, finderState) {
     language: getLang(),
     filters: {
       platform: 'homepage',
-      allowedOfferIds: savedOfferIds,
       isLanguageEligible: (offer, language) => {
         const checker = window.CELanguage?.isRecordReadyForLanguage;
         return typeof checker === 'function' ? checker(offer, 'car', language) : true;
@@ -854,6 +846,17 @@ function renderHomeCars() {
   const legacyRenderedOffers = list;
   scheduleHomeCarsAvailabilityShadow(legacyRenderedOffers, finderState);
   list = resolveHomeCarsRenderedOffers(legacyRenderedOffers, finderState);
+
+  // Saved-only filtering must happen after the shared hybrid resolver. A
+  // threshold offer is intentionally absent from the legacy bootstrap list,
+  // so deriving allowed IDs from that list would make a saved mapped offer
+  // impossible to display.
+  if (homeCarsSavedOnly) {
+    const api = window.CE_SAVED_CATALOG;
+    list = api && typeof api.isSaved === 'function'
+      ? list.filter((car) => api.isSaved('car', String(car?.id || '')))
+      : [];
+  }
 
   if (!list.length) {
     grid.innerHTML = `

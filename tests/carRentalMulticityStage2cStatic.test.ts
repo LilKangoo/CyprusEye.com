@@ -43,11 +43,11 @@ describe('Car Rental Multi-City Stage 2C static guards', () => {
       'service_coupons',
       'coupons',
       'payments',
-      '.rpc(',
     ]) {
       expect(repository).not.toContain(forbidden);
       expect(ui).not.toContain(forbidden);
     }
+    expect(repository).toContain("rpc('admin_save_car_offer_city_availability_batch'");
     expect(`${repository}\n${ui}`).not.toMatch(/send(?:email|notification)|enqueue(?:email|notification)|fetch\s*\(/);
     for (const table of ['car_offers', 'car_rental_cities', 'car_pricing_profiles', 'car_pricing_profile_cities', 'car_offer_city_availability', 'car_vehicle_kinds']) {
       expect(repository).toContain(table);
@@ -66,10 +66,10 @@ describe('Car Rental Multi-City Stage 2C static guards', () => {
     expect(ui).toContain('removevehicleimage');
   });
 
-  test('Admin availability and profile support expose one paired toggle', () => {
-    expect(ui).toContain('data-availability-field="paired"');
-    expect(ui).not.toContain('data-availability-field="pickup_enabled"');
-    expect(ui).not.toContain('data-availability-field="return_enabled"');
+  test('offer availability is directional while profile support remains paired', () => {
+    expect(ui).not.toContain('data-availability-field="paired"');
+    expect(ui).toContain('data-availability-field="pickup_enabled"');
+    expect(ui).toContain('data-availability-field="return_enabled"');
     expect(ui).toContain('data-mapping-field="paired_supported"');
     expect(core).toContain('pickup and return support must be saved together');
   });
@@ -90,11 +90,33 @@ describe('Car Rental Multi-City Stage 2C static guards', () => {
     expect(repository).toContain("assertallowedpayload(request.payload, core.partner_columns");
   });
 
-  test('Stage 2C never turns on mapped mode or changes the site flag', () => {
-    expect(`${core}\n${repository}\n${ui}`).not.toMatch(/availability_mode\s*:\s*['"]mapped['"]/);
+  test('exact activation can select mapped mode but never changes a site flag', () => {
+    expect(core).toContain("availability_mode: 'mapped'");
+    expect(core).toContain("const activation_columns = object.freeze([");
+    expect(repository).toContain('updateactivationstate');
+    expect(repository).toContain("rpc('admin_set_car_threshold_offer_activation_state'");
     expect(`${core}\n${repository}\n${ui}`).not.toMatch(/car_multi_city_mapped_enabled\s*:\s*true/);
     expect(repository).not.toMatch(/from\(tables\.sitesettings\)\.update/);
     expect(core).toContain("availability_mode: 'legacy'");
+  });
+
+  test('Fleet uses the shared lifecycle evaluator and exact configured cities without breaking email templates', () => {
+    const emailDraftLoader = admin.slice(
+      admin.indexOf('async function loademailtemplatedraftstate'),
+      admin.indexOf('function cloneemailtemplatecontent'),
+    );
+    const fleetLoader = admin.slice(
+      admin.indexOf('async function loadfleetdata'),
+      admin.indexOf('async function togglecaravailability'),
+    );
+    expect(admin).toContain("import { derivecarofferadminpublicstate } from '../js/car-rental-public-eligibility.js'");
+    expect(emailDraftLoader).not.toContain('fleetpresentation');
+    expect(fleetLoader).toContain('getfleetpresentationcontext');
+    expect(fleetLoader).toContain('derivecarofferadminpublicstate');
+    expect(fleetLoader).toContain('legacy compatibility region:');
+    expect(fleetLoader).toContain(".sort((left, right) => number(left.threshold_days) - number(right.threshold_days))[0]");
+    expect(fleetLoader).not.toContain('math.min(...activerates)');
+    expect(fleetLoader).toContain("string(car.pricing_strategy) === 'threshold_daily_rate'");
   });
 
   test('there is no public import or public adapter in Stage 2C', () => {
@@ -136,7 +158,7 @@ describe('Car Rental Multi-City Stage 2C static guards', () => {
   test('protected source hashes remain at the accepted baseline', () => {
     const expected: Record<string, string> = {
       'js/car-pricing.js': '30e886602888aa9eae76f6cfa6628eca00112e12ca1d3b6cac971c234c53e292',
-      'js/car-reservation.js': '52cc4f032e162fd92bfe62099ca376cb357436cf63289d94c65aacfe34bdde98',
+      'js/car-reservation.js': 'c17851dd55d3998fb41c92150774f11e42bb7f7354b4b1f8b9a7a753543cba11',
       'js/car-rental-flow.js': '64a461171c4496ce53ced64146623ec15025e8784645e4e1f572e817db546f16',
       'supabase/functions/partner-fulfillment-action/index.ts': '802aa0b8d3a1204f93adefcf598a77c764fde4a6e15dfe2624366c0a99c1297b',
     };

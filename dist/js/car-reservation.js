@@ -219,14 +219,27 @@ function getCurrentSelectedOfferId() {
 
 function getCurrentSelectedOfferRow({ offerId = '', carModel = '' } = {}) {
   if (typeof window.CE_CAR_FIND_CURRENT_FLEET_CAR !== 'function') return null;
-  return window.CE_CAR_FIND_CURRENT_FLEET_CAR({
-    offerId: String(offerId || getCurrentSelectedOfferId() || '').trim(),
+  const normalizedOfferId = String(offerId || getCurrentSelectedOfferId() || '').trim();
+  const offerRow = window.CE_CAR_FIND_CURRENT_FLEET_CAR({
+    offerId: normalizedOfferId,
     carModel: String(carModel || document.getElementById('res_car')?.value || '').trim(),
   }) || null;
+  if (!offerRow) return null;
+  if (normalizedOfferId && String(offerRow?.id || '').trim() !== normalizedOfferId) return null;
+  if (!normalizedOfferId && requiresExactOfferSelection(offerRow)) return null;
+  return offerRow;
 }
 
 function getOfferPricingContext(offerRow) {
   return offerRow?.pricingContext || offerRow?.availabilityContext || null;
+}
+
+function requiresExactOfferSelection(offerRow) {
+  const context = getOfferPricingContext(offerRow);
+  return String(offerRow?.pricing_strategy || '').trim() === CAR_THRESHOLD_PRICING_STRATEGY
+    || (String(offerRow?.availability_mode || '').trim() === 'mapped' && !!context)
+    || String(context?.pricingStrategy || '').trim() === CAR_THRESHOLD_PRICING_STRATEGY
+    || String(context?.availabilityMode || '').trim() === 'mapped';
 }
 
 function isThresholdOffer(offerRow) {
@@ -297,6 +310,7 @@ function computeReservationQuote(quoteInput) {
       offerId: quoteInput?.offerId,
       carModel,
     });
+    if (!offerRow) return null;
     const pricingContext = getOfferPricingContext(offerRow);
     if (isThresholdOffer(offerRow)) {
       const computed = calculateThresholdCarRentalQuote({
@@ -2020,6 +2034,13 @@ async function handleReservationSubmit(event) {
       offerId,
       carModel: selectedResCarOpt?.value || formData.get('car'),
     });
+    if (!selectedOfferRow) {
+      throw new Error(uiText(
+        'Nie można zweryfikować wybranej oferty po dokładnym identyfikatorze. Odśwież listę i wybierz pojazd ponownie.',
+        'The selected offer could not be verified by its exact ID. Refresh the list and select the vehicle again.',
+        'לא ניתן לאמת את ההצעה שנבחרה לפי המזהה המדויק. רעננו את הרשימה ובחרו שוב את הרכב.',
+      ));
+    }
     const thresholdBooking = isThresholdOffer(selectedOfferRow);
     const selectedPricingContext = getOfferPricingContext(selectedOfferRow);
     const pageLocation = thresholdBooking

@@ -170,10 +170,20 @@ export function findCurrentFleetCarByOfferId(offerId) {
   return getCurrentFleetRows().find((car) => String(car?.id || '').trim() === requested) || null;
 }
 
+function requiresExactFleetOffer(car) {
+  const context = car?.pricingContext || car?.availabilityContext || null;
+  return String(car?.pricing_strategy || '').trim() === CAR_THRESHOLD_PRICING_STRATEGY
+    || (String(car?.availability_mode || '').trim() === 'mapped' && !!context)
+    || String(context?.pricingStrategy || '').trim() === CAR_THRESHOLD_PRICING_STRATEGY
+    || String(context?.availabilityMode || '').trim() === 'mapped';
+}
+
 export function findCurrentFleetCarByModel(carModel) {
   const requested = String(carModel || '').trim();
   if (!requested) return null;
-  return getCurrentFleetRows().find((car) => getCarName(car) === requested) || null;
+  const matches = getCurrentFleetRows().filter((car) => getCarName(car) === requested);
+  if (matches.some((car) => requiresExactFleetOffer(car))) return null;
+  return matches.find((car) => String(car?.pricing_strategy || 'legacy_compat').trim() === 'legacy_compat') || null;
 }
 
 function getCurrentYoungDriverSelected() {
@@ -288,8 +298,7 @@ function buildFleetByPricingLocation(cars) {
 function findFleetCarForQuote({ offerId = '', carModel = '' } = {}) {
   const normalizedOfferId = String(offerId || '').trim();
   if (normalizedOfferId) {
-    const byId = findCurrentFleetCarByOfferId(normalizedOfferId);
-    if (byId) return byId;
+    return findCurrentFleetCarByOfferId(normalizedOfferId);
   }
   return findCurrentFleetCarByModel(carModel);
 }
@@ -1491,13 +1500,16 @@ function attachCarSelectButtons() {
       };
 
       if (pfoSelect && carName) {
-        if (!setSelectByOfferId(pfoSelect)) setSelectByModel(pfoSelect);
+        if (offerId) setSelectByOfferId(pfoSelect);
+        else setSelectByModel(pfoSelect);
       }
       if (lcaSelect && carName) {
-        if (!setSelectByOfferId(lcaSelect)) setSelectByModel(lcaSelect);
+        if (offerId) setSelectByOfferId(lcaSelect);
+        else setSelectByModel(lcaSelect);
       }
       if (resSelect && carName) {
-        if (!setSelectByOfferId(resSelect)) setSelectByModel(resSelect);
+        if (offerId) setSelectByOfferId(resSelect);
+        else setSelectByModel(resSelect);
       }
       if (isLandingCarRentalPage() && typeof window.CE_CAR_ON_CARD_SELECT === 'function') {
         try {
@@ -1506,7 +1518,7 @@ function attachCarSelectButtons() {
           console.warn('Landing card select callback failed:', e);
         }
       }
-      const selectedCar = findCurrentFleetCarByOfferId(offerId) || findCurrentFleetCarByModel(carName);
+      const selectedCar = findFleetCarForQuote({ offerId, carModel: carName });
       const pricingContext = selectedCar?.pricingContext || selectedCar?.availabilityContext || null;
       const controlledHybridSelection = getCarPageShadowConfig()?.renderMapped === true && !!pricingContext;
       if (!controlledHybridSelection) window.calculatePrice();

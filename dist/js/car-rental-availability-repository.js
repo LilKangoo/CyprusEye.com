@@ -214,6 +214,7 @@ export function createCarRentalAvailabilityRepository({ supabase } = {}) {
     let profiles = [];
     let profileCities = [];
     let dailyRateTiers = [];
+    let publicEligibleThresholdOfferIds = [];
     const reads = [];
     if (profileIds.length) {
       reads.push(Promise.all([
@@ -240,16 +241,29 @@ export function createCarRentalAvailabilityRepository({ supabase } = {}) {
       }));
     }
     if (thresholdOfferIds.length) {
-      reads.push(read(
-        'active daily-rate tiers by exact offer IDs',
-        supabase
-          .from('car_offer_daily_rate_tiers')
-          .select(DAILY_RATE_TIER_SELECT)
-          .in('offer_id', thresholdOfferIds)
-          .eq('is_active', true)
-          .order('threshold_days', { ascending: true }),
-      ).then((rows) => {
-        dailyRateTiers = rows || [];
+      reads.push(Promise.all([
+        read(
+          'active daily-rate tiers by exact offer IDs',
+          supabase
+            .from('car_offer_daily_rate_tiers')
+            .select(DAILY_RATE_TIER_SELECT)
+            .in('offer_id', thresholdOfferIds)
+            .eq('is_active', true)
+            .order('threshold_days', { ascending: true }),
+        ),
+        read(
+          'authoritative public threshold eligibility by exact route',
+          supabase.rpc('resolve_public_threshold_offer_ids', {
+            p_pickup_city_code: String(pickupCityCode || '').trim().toLowerCase(),
+            p_return_city_code: String(returnCityCode || '').trim().toLowerCase(),
+          }),
+        ),
+      ]).then(([tierRows, eligibilityRows]) => {
+        dailyRateTiers = tierRows || [];
+        const allowed = new Set(thresholdOfferIds);
+        publicEligibleThresholdOfferIds = uniqueStrings((eligibilityRows || [])
+          .map((row) => row?.offer_id))
+          .filter((offerId) => allowed.has(offerId));
       }));
     }
     await Promise.all(reads);
@@ -261,6 +275,8 @@ export function createCarRentalAvailabilityRepository({ supabase } = {}) {
       profiles,
       profileCities,
       dailyRateTiers,
+      publicEligibleThresholdOfferIds,
+      thresholdEligibilityAuthoritative: thresholdOfferIds.length > 0,
       metrics: getMetrics(),
     };
   }

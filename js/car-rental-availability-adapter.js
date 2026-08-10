@@ -14,6 +14,7 @@ import {
   CAR_THRESHOLD_PRICING_STRATEGY,
   calculateThresholdCarRentalQuote,
 } from './car-rental-threshold-pricing.js';
+import { evaluateCarOfferPublicEligibility } from './car-rental-public-eligibility.js';
 
 export const CAR_RENTAL_AVAILABILITY_MODES = Object.freeze(['legacy', 'shadow', 'mapped-test', 'hybrid']);
 export const CAR_RENTAL_SHADOW_DIFFERENCE_CODES = Object.freeze([
@@ -324,6 +325,10 @@ export function resolveMappedAvailabilityFromContext(input, rawContext = {}) {
     profiles: Array.isArray(rawContext.profiles) ? rawContext.profiles : [],
     profileCities: Array.isArray(rawContext.profileCities) ? rawContext.profileCities : [],
     dailyRateTiers: Array.isArray(rawContext.dailyRateTiers) ? rawContext.dailyRateTiers : [],
+    publicEligibleThresholdOfferIds: Array.isArray(rawContext.publicEligibleThresholdOfferIds)
+      ? rawContext.publicEligibleThresholdOfferIds.map(text)
+      : [],
+    thresholdEligibilityAuthoritative: rawContext.thresholdEligibilityAuthoritative === true,
   };
   const pickupCode = normalizeConfiguredCity(input.pickupCityCode);
   const returnCode = normalizeConfiguredCity(input.returnCityCode);
@@ -404,18 +409,46 @@ export function resolveMappedAvailabilityFromContext(input, rawContext = {}) {
 
     const pricingStrategy = normalized(offer.pricing_strategy || 'legacy_compat') || 'legacy_compat';
     if (pricingStrategy === CAR_THRESHOLD_PRICING_STRATEGY) {
-      if (input.thresholdFeatureFlagEnabled !== true) {
-        addDiagnostic(diagnostics, 'THRESHOLD_FEATURE_FLAG_DISABLED', { offerId }, 'info');
-        continue;
-      }
       const dailyRateTiers = context.dailyRateTiers
         .filter((tier) => text(tier.offer_id) === offerId && tier.is_active !== false)
         .sort((left, right) => Number(left.threshold_days) - Number(right.threshold_days));
-      if (!dailyRateTiers.length) {
-        addDiagnostic(diagnostics, 'THRESHOLD_TIER_CONFIGURATION_INVALID', {
+      const exactAvailabilityRows = context.availability
+        .filter((row) => text(row.offer_id) === offerId);
+      if (context.thresholdEligibilityAuthoritative
+        && !context.publicEligibleThresholdOfferIds.includes(offerId)) {
+        addDiagnostic(diagnostics, 'INVALID_MAPPED_CONFIGURATION', {
           offerId,
-          reason: 'NO_ACTIVE_EXACT_OFFER_TIERS',
-        }, 'error');
+          reason: 'AUTHORITATIVE_PUBLIC_ELIGIBILITY_REJECTED',
+        }, 'warning');
+        continue;
+      }
+      const eligibility = evaluateCarOfferPublicEligibility({
+        offer,
+        dailyRateTiers,
+        availabilityRows: exactAvailabilityRows,
+        cities: context.cities,
+        pickupCityCode: pickupCode,
+        returnCityCode: returnCode,
+        pickupAvailability,
+        returnAvailability,
+        featureFlags: {
+          mappedEnabled: true,
+          thresholdDailyRatesEnabled: input.thresholdFeatureFlagEnabled === true,
+        },
+        partnerRouteValid: context.thresholdEligibilityAuthoritative ? true : undefined,
+        // Isolated mapped-test contexts predate the authoritative route RPC.
+        // Production repositories always set thresholdEligibilityAuthoritative.
+        partnerEligibilityEnforcedByRls: context.thresholdEligibilityAuthoritative === true,
+      });
+      if (!eligibility.publicEligible) {
+        for (const reason of eligibility.reasons) {
+          addDiagnostic(diagnostics, reason.code, {
+            offerId,
+            reason: reason.code,
+            cityCode: reason.cityCode || undefined,
+            direction: reason.direction || undefined,
+          }, reason.code.includes('DISABLED') ? 'info' : 'warning');
+        }
         continue;
       }
       if (!passesFilters(offer, null, input, diagnostics)) continue;

@@ -174,7 +174,7 @@ describe('Car Rental Multi-City Stage 2B inert foundation', () => {
   test('the authorized pricing seams and protected downstream sources match accepted hashes', () => {
     const expectedHashes: Record<string, string> = {
       'js/car-pricing.js': '30e886602888aa9eae76f6cfa6628eca00112e12ca1d3b6cac971c234c53e292',
-      'js/car-reservation.js': '52cc4f032e162fd92bfe62099ca376cb357436cf63289d94c65aacfe34bdde98',
+      'js/car-reservation.js': 'c17851dd55d3998fb41c92150774f11e42bb7f7354b4b1f8b9a7a753543cba11',
       'js/car-rental-flow.js': '64a461171c4496ce53ced64146623ec15025e8784645e4e1f572e817db546f16',
       'supabase/functions/partner-fulfillment-action/index.ts': '802aa0b8d3a1204f93adefcf598a77c764fde4a6e15dfe2624366c0a99c1297b',
       'supabase/migrations/057_admin_notification_queue.sql': '509f701e938ba08672968d303529fa2bac8c2f7bad3cc4aa677a82158090211a',
@@ -192,7 +192,7 @@ describe('Car Rental Multi-City Stage 2B inert foundation', () => {
     });
   });
 
-  test('no current public reader imports or references the Stage 2B foundation', () => {
+  test('later exact-ID public seams do not query Stage 2B tables outside the shared read repository', () => {
     const publicReaders = [
       'car.html',
       'index.html',
@@ -209,12 +209,14 @@ describe('Car Rental Multi-City Stage 2B inert foundation', () => {
       'car_pricing_profiles',
       'car_rental_cities',
       'car_multi_city_mapped_enabled',
-      'availability_mode',
     ];
 
     publicReaders.forEach((relativePath) => {
       const source = read(relativePath);
       forbiddenRuntimeMarkers.forEach((marker) => expect(source).not.toContain(marker));
     });
+    expect(read('js/car-rental-paphos.js')).toContain("String(car?.availability_mode || '').trim() === 'mapped'");
+    expect(read('js/car-offer-modal.js')).toContain("String(car?.availability_mode || '').trim() === 'mapped'");
+    expect(read('js/car-reservation.js')).toContain("String(offerRow?.availability_mode || '').trim() === 'mapped'");
   });
 });

@@ -24,13 +24,18 @@ describe('Car Rental Multi-City Admin UX and media hotfix guards', () => {
     expect(`${core}\n${repository}\n${ui}`).not.toMatch(/data:image\/[^;]+;base64/i);
   });
 
-  test('availability and profile support use one paired Admin control', () => {
-    expect(ui.match(/data-availability-field="paired"/g)?.length).toBeGreaterThanOrEqual(1);
-    expect(ui).not.toMatch(/data-availability-field="(?:pickup_enabled|return_enabled)"/);
-    expect(ui).toContain('Pickup and return settings differ. Review required.');
+  test('offer availability uses independent direction controls while profile support stays paired', () => {
+    const offerAvailabilityUi = ui.slice(
+      ui.indexOf('function renderAvailabilityFields'),
+      ui.indexOf('function renderPartnerFields'),
+    );
+    expect(ui).not.toContain('data-availability-field="paired"');
+    expect(ui).toMatch(/data-availability-field="pickup_enabled"/);
+    expect(ui).toMatch(/data-availability-field="return_enabled"/);
+    expect(offerAvailabilityUi).not.toContain('Pickup and return settings differ. Review required.');
     expect(ui).toContain('data-mapping-field="paired_supported"');
-    expect(core).toContain('row.pickup_enabled = enabled');
-    expect(core).toContain('row.return_enabled = enabled');
+    expect(core).toContain("direction === 'pickup' ? 'pickup_enabled' : 'return_enabled'");
+    expect(core).toContain("row.is_active = row.pickup_enabled === true || row.return_enabled === true");
   });
 
   test('deposit data is read only and never enters a Cars save payload', () => {

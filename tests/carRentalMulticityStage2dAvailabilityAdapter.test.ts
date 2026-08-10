@@ -15,6 +15,7 @@ function loadAdapter(): any {
   vm.runInContext(moduleToScript('js/car-rental-flow.js'), context, { filename: 'js/car-rental-flow.js' });
   vm.runInContext(moduleToScript('js/car-rental-duration-contract.js'), context, { filename: 'js/car-rental-duration-contract.js' });
   vm.runInContext(moduleToScript('js/car-rental-threshold-pricing.js'), context, { filename: 'js/car-rental-threshold-pricing.js' });
+  vm.runInContext(moduleToScript('js/car-rental-public-eligibility.js'), context, { filename: 'js/car-rental-public-eligibility.js' });
   const adapter = `${moduleToScript('js/car-rental-availability-adapter.js')}
     globalThis.CarRentalAvailabilityAdapter = {
       resolveCarRentalAvailability,
@@ -363,6 +364,7 @@ describe('Car Rental Multi-City Stage 2D availability adapter', () => {
       young_driver_fee: false,
       young_driver_cost: 0,
       north_allowed: false,
+      owner_partner_id: 'speedbikes-partner',
     });
     const speedBikesAvailability = {
       ...availability(speedBikesOffer.id, 'ayia-napa'),
@@ -372,6 +374,8 @@ describe('Car Rental Multi-City Stage 2D availability adapter', () => {
     const context = baseContext({
       offers: [speedBikesOffer],
       availability: [speedBikesAvailability],
+      publicEligibleThresholdOfferIds: [speedBikesOffer.id],
+      thresholdEligibilityAuthoritative: true,
       dailyRateTiers: [{
         id: 'speedbikes-tier-1', offer_id: speedBikesOffer.id,
         threshold_days: 1, daily_rate: 50, is_active: true,

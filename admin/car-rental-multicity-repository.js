@@ -247,12 +247,12 @@
       return { cities, profiles, profileCities, vehicleKinds, partners, siteSetting };
     }
 
-    function assertInertCatalog(catalog) {
-      if (catalog?.siteSetting?.car_multi_city_mapped_enabled !== false) {
-        throw staleConflict('Mapped feature flag must remain false during Stage 2C.');
-      }
-      if (catalog?.siteSetting?.car_threshold_daily_rates_enabled !== false) {
-        throw staleConflict('Threshold-pricing feature flag must remain false during Stage 3A/3B.');
+    function assertCatalogContract(catalog) {
+      const setting = catalog?.siteSetting;
+      if (!setting
+        || typeof setting.car_multi_city_mapped_enabled !== 'boolean'
+        || typeof setting.car_threshold_daily_rates_enabled !== 'boolean') {
+        throw staleConflict('Cars capability settings could not be verified from the fresh catalog.');
       }
     }
 
@@ -275,6 +275,32 @@
     async function getCreateContext() {
       const [catalog, depositRule] = await Promise.all([getCatalog(), getCarsDepositDefault()]);
       return { offer: null, availability: [], dailyRateTiers: [], partnerResources: [], depositRule, depositOverride: null, ...catalog, loadedAt: new Date().toISOString() };
+    }
+
+    async function getFleetPresentationContext(offerIds = []) {
+      const exactOfferIds = Array.from(new Set((offerIds || []).map(normalizeId).filter(Boolean))).sort();
+      const catalog = await getCatalog();
+      if (!exactOfferIds.length) {
+        return { ...catalog, availability: [], dailyRateTiers: [], partnerResources: [], loadedAt: new Date().toISOString() };
+      }
+      const [availability, dailyRateTiers, partnerResources] = await Promise.all([
+        listRows(
+          TABLES.availability,
+          '*',
+          (query) => query.in('offer_id', exactOfferIds).order('offer_id', { ascending: true }).order('city_id', { ascending: true }),
+        ),
+        listRows(
+          TABLES.dailyRateTiers,
+          '*',
+          (query) => query.in('offer_id', exactOfferIds).order('offer_id', { ascending: true }).order('threshold_days', { ascending: true }),
+        ),
+        listRows(
+          TABLES.partnerResources,
+          'id,partner_id,resource_type,resource_id,created_at',
+          (query) => query.eq('resource_type', 'cars').in('resource_id', exactOfferIds).order('resource_id', { ascending: true }),
+        ),
+      ]);
+      return { ...catalog, availability, dailyRateTiers, partnerResources, loadedAt: new Date().toISOString() };
     }
 
     async function exactOfferUpdate(offerId, expectedUpdatedAt, payload, allowedFields, operation) {
@@ -340,6 +366,54 @@
       );
     }
 
+    async function updateActivationState(request) {
+      const offerId = normalizeId(request.offerId);
+      if (!offerId || !request.expectedUpdatedAt) {
+        throw staleConflict('Exact offer ID and expectedUpdatedAt are required for activation.', { offerId });
+      }
+      assertAllowedPayload(request.payload, core.ACTIVATION_COLUMNS, 'Exact offer activation update');
+      const keys = Object.keys(request.payload || {}).sort();
+      const activate = request.payload?.availability_mode === 'mapped'
+        && request.payload?.is_available === true
+        && request.payload?.is_published === true
+        && request.payload?.submission_status === 'approved'
+        && keys.join(',') === ['availability_mode', 'is_available', 'is_published', 'submission_status'].sort().join(',');
+      const unpublish = request.payload?.is_published === false
+        && keys.length === 1
+        && keys[0] === 'is_published';
+      if (!activate && !unpublish) {
+        throw internalError('Activation request does not match the reviewed exact-offer contract.');
+      }
+      if (typeof client().rpc !== 'function') throw internalError('Transactional activation RPC is unavailable.');
+      const result = await client().rpc('admin_set_car_threshold_offer_activation_state', {
+        p_offer_id: offerId,
+        p_expected_updated_at: request.expectedUpdatedAt,
+        p_activate: activate,
+      });
+      if (result?.error?.code === '40001') {
+        throw staleConflict('Car offer changed since Review.', { offerId, expectedUpdatedAt: request.expectedUpdatedAt });
+      }
+      const matches = rows(assertResult(result));
+      if (matches.length !== 1 || normalizeId(matches[0]?.id) !== offerId) {
+        throw internalError('Transactional activation returned an unexpected exact offer.', {
+          offerId,
+          count: matches.length,
+        });
+      }
+      if (activate && (
+        matches[0].availability_mode !== 'mapped'
+        || matches[0].is_available !== true
+        || matches[0].is_published !== true
+        || matches[0].submission_status !== 'approved'
+      )) {
+        throw internalError('Transactional activation postcondition failed.', { offerId });
+      }
+      if (unpublish && matches[0].is_published !== false) {
+        throw internalError('Transactional unpublish postcondition failed.', { offerId });
+      }
+      return matches[0];
+    }
+
     async function getAvailabilityRow(offerId, cityId) {
       const result = await client().from(TABLES.availability).select('*')
         .eq('offer_id', normalizeId(offerId))
@@ -391,6 +465,20 @@
       if (removed.length === 0) throw staleConflict('Availability row changed or disappeared since Review.', { offerId, cityId });
       if (removed.length !== 1) throw internalError('Availability delete returned multiple rows.', { offerId, cityId, count: removed.length });
       return removed[0];
+    }
+
+    async function saveAvailabilityBatch(plan) {
+      const offerId = normalizeId(plan?.exactOfferId);
+      if (!offerId) throw staleConflict('Exact offer ID is required for the availability batch.');
+      const result = assertResult(await client().rpc('admin_save_car_offer_city_availability_batch', {
+        p_offer_id: offerId,
+        p_expected_rows: core.clone(plan.expectedAvailabilityRows || []),
+        p_desired_rows: core.clone(plan.desiredAvailabilityRows || []),
+      }));
+      if (!result || result.data === null || result.data === undefined) {
+        throw internalError('Availability batch did not return a receipt.', { offerId });
+      }
+      return result.data;
     }
 
     async function insertDailyRateTier(request) {
@@ -497,6 +585,7 @@
         if (execution.planKind === 'vehicle') return updateVehicleDetails(request);
         if (execution.planKind === 'pricing_profile') return updatePricingProfile(request);
         if (execution.planKind === 'partner') return updatePartnerAssignment(request);
+        if (execution.planKind === 'activation') return updateActivationState(request);
         throw internalError(`Unsupported car offer plan kind: ${execution.planKind}`);
       }
       if (step.type === 'car_offer_city_availability') {
@@ -509,6 +598,10 @@
         const offerId = normalizeId(payload.offer_id || step.entityId?.split(':')[0]);
         if (step.action === 'update') return updateAvailability({ offerId, cityId, expectedUpdatedAt: step.expectedUpdatedAt, payload });
         if (step.action === 'delete') return deleteAvailability({ offerId, cityId, expectedUpdatedAt: step.expectedUpdatedAt });
+      }
+      if (step.type === 'car_offer_city_availability_batch') {
+        if (execution.planKind !== 'availability') throw internalError('Availability batch belongs to an unexpected plan.');
+        return saveAvailabilityBatch(execution.plan);
       }
       if (step.type === 'car_offer_daily_rate_tier') {
         const payload = { ...(step.payload || {}) };
@@ -594,7 +687,7 @@
 
     async function createCity(draft) {
       const catalog = await getCatalog();
-      assertInertCatalog(catalog);
+      assertCatalogContract(catalog);
       const validation = core.validateCityDraft(draft, catalog.cities);
       if (!validation.valid) {
         const error = new Error(validation.errors[0]?.message || 'Invalid city draft.');
@@ -618,7 +711,7 @@
       const id = normalizeId(draft.id);
       if (!id || !draft.expectedUpdatedAt) throw staleConflict('Exact city ID and timestamp are required.');
       const catalog = await getCatalog();
-      assertInertCatalog(catalog);
+      assertCatalogContract(catalog);
       const current = (catalog.cities || []).find((city) => normalizeId(city.id) === id);
       if (!current || String(current.updated_at || '') !== String(draft.expectedUpdatedAt)) {
         throw staleConflict('City changed since Review.', { cityId: id });
@@ -689,7 +782,7 @@
 
     async function saveProfileCityMapping(draft) {
       const validationContext = await getCatalog();
-      assertInertCatalog(validationContext);
+      assertCatalogContract(validationContext);
       const validation = core.validateProfileCityDraft(draft, validationContext);
       if (!validation.valid) {
         const error = new Error(validation.errors[0]?.message || 'Invalid profile-city mapping.');
@@ -739,6 +832,7 @@
       getCarsDepositOverride,
       getCatalog,
       getCreateContext,
+      getFleetPresentationContext,
       getOfferById,
       getOfferContext,
       getSiteSetting,
@@ -756,8 +850,10 @@
       listProfiles,
       listVehicleKinds,
       removeVehicleImage,
+      saveAvailabilityBatch,
       saveProfileCityMapping,
       updateAvailability,
+      updateActivationState,
       updateDailyRateTier,
       deleteDailyRateTier,
       updateCity,

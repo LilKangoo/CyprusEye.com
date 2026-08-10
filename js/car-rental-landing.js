@@ -114,11 +114,9 @@ function applyCarDeepLinkSelection() {
 
     const calculatorSelect = byId('rentalCarSelect');
     const reservationSelect = byId('res_car');
-    const matched =
-      (targetOfferId && selectByOfferId(calculatorSelect))
-      || (targetOfferId && selectByOfferId(reservationSelect))
-      || selectByCarSlug(calculatorSelect)
-      || selectByCarSlug(reservationSelect);
+    const matched = targetOfferId
+      ? (selectByOfferId(calculatorSelect) || selectByOfferId(reservationSelect))
+      : (selectByCarSlug(calculatorSelect) || selectByCarSlug(reservationSelect));
 
     if (!matched) return false;
 
@@ -147,8 +145,9 @@ function maybeOpenDeepLinkModal() {
   const selectedCarSlug = slugifyCarLabel(selectedMeta.title || '');
   const targetOfferId = String(state.deepLink.offerId || '').trim();
   const targetCarSlug = String(state.deepLink.carSlug || '').trim();
-  const isMatch = (targetOfferId && selectedOfferId === targetOfferId)
-    || (targetCarSlug && selectedCarSlug === targetCarSlug);
+  const isMatch = targetOfferId
+    ? selectedOfferId === targetOfferId
+    : !!targetCarSlug && selectedCarSlug === targetCarSlug;
 
   if (!isMatch) {
     return;
@@ -830,6 +829,12 @@ function buildDeepLinkModalPrefill() {
   };
 }
 
+function resolveSelectedLandingCar(offerId, carModel) {
+  const normalizedOfferId = String(offerId || '').trim();
+  if (normalizedOfferId) return findCurrentFleetCarByOfferId(normalizedOfferId);
+  return findCurrentFleetCarByModel(carModel);
+}
+
 function openSelectedLandingCarModal(options = {}) {
   const { bypassFinder = false, prefillOverride = null } = options;
   const widgetState = readWidgetState();
@@ -839,8 +844,7 @@ function openSelectedLandingCarModal(options = {}) {
   const selectedModel = String(selectedMeta?.title || widgetState.carModel || byId('rentalCarSelect')?.value || '').trim();
   if (!selectedModel) return;
 
-  const selectedCar = findCurrentFleetCarByOfferId(selectedMeta?.offerId)
-    || findCurrentFleetCarByModel(selectedModel);
+  const selectedCar = resolveSelectedLandingCar(selectedMeta?.offerId, selectedModel);
   if (!selectedCar) return;
 
   openCarOfferModal({
@@ -920,8 +924,10 @@ function syncReservationForm(widgetState) {
 
     if (resYoungDriver) {
       const selectedMeta = getSelectedCarOfferMeta();
-      const selectedCar = findCurrentFleetCarByOfferId(selectedMeta?.offerId)
-        || findCurrentFleetCarByModel(selectedMeta?.title || widgetState.carModel);
+      const selectedCar = resolveSelectedLandingCar(
+        selectedMeta?.offerId,
+        selectedMeta?.title || widgetState.carModel,
+      );
       const thresholdOffer = selectedCar?.pricing_strategy === 'threshold_daily_rate'
         && (selectedCar?.pricingContext || selectedCar?.availabilityContext)?.pricingStrategy === 'threshold_daily_rate';
       const canUseYoungDriver = thresholdOffer

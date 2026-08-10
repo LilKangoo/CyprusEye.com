@@ -212,6 +212,7 @@
         availability: 'Pickup and return availability',
         pricing: 'Pricing and profile',
         partner: 'Partner assignment',
+        activation: 'Activate / Publish exact offer',
         create: 'Add new vehicle',
       };
       title.textContent = labels[state.mode] || 'Car rental configuration';
@@ -341,9 +342,9 @@
             <label class="admin-form-field"><span>Luggage capacity</span><input type="number" min="0" data-number="integer" data-draft-field="vehicle.maxLuggage" value="${escapeHtml(vehicle.maxLuggage ?? '')}" placeholder="Not confirmed"></label>
             <label class="admin-form-field"><span>Stock</span><input type="number" min="0" data-number="integer" data-draft-field="vehicle.stockCount" value="${escapeHtml(vehicle.stockCount)}"></label>
             <label class="admin-form-field"><span>Sort order</span><input type="number" min="0" data-number="integer" data-draft-field="vehicle.sortOrder" value="${escapeHtml(vehicle.sortOrder)}"></label>
-            <label class="car-multicity-check"><input type="checkbox" data-boolean="true" data-draft-field="vehicle.isAvailable" ${vehicle.isAvailable ? 'checked' : ''}> Available</label>
             <label class="car-multicity-check"><input type="checkbox" data-boolean="true" data-draft-field="vehicle.northAllowed" ${vehicle.northAllowed ? 'checked' : ''}> North allowed</label>
           </div>
+          <p class="car-multicity-note">Requestability and publication are controlled separately through <strong>Activate / Publish</strong>. Editing vehicle details cannot make this offer live.</p>
           ${i18nInput('vehicle.carType', 'Commercial class', vehicle.carType)}
           ${i18nInput('vehicle.carModel', 'Vehicle model', vehicle.carModel)}
         </section>
@@ -429,7 +430,7 @@
             <option value="legacy_compat" ${!threshold ? 'selected' : ''}>Legacy compatibility pricing</option>
             <option value="threshold_daily_rate" ${threshold ? 'selected' : ''}>Flexible daily-rate thresholds</option>
           </select></label>
-          <label class="admin-form-field"><span>${threshold ? 'Legacy booking compatibility' : 'Pricing profile'}</span>
+          <label class="admin-form-field"><span>${threshold ? 'Legacy compatibility region (technical only)' : 'Pricing profile'}</span>
             <select id="carMulticityPricingProfile" data-profile-selector="true" ${threshold && !isCreate ? 'disabled' : ''}>
               <option value="">Select exact profile</option>
               ${profiles.map((profile) => `<option value="${escapeHtml(profile.id)}" ${core.normalizeId(profile.id) === core.normalizeId(state.draft.pricing.profileId) ? 'selected' : ''} ${profile.is_active !== true ? 'disabled' : ''}>${escapeHtml(profile.name)} — ${escapeHtml(profile.code)}</option>`).join('')}
@@ -514,9 +515,12 @@
         ? city.is_active === true
         : Boolean(mapping && mapping.is_active && city.is_active && key);
       const paphosBlocked = !thresholdStrategy && core.normalizeCode(profile?.code) === 'paphos' && key !== 'paphos';
-      const pairedSupported = thresholdStrategy || (mapping?.pickup_supported === true && mapping?.return_supported === true);
-      const disabled = !supported || !pairedSupported || paphosBlocked;
-      const paired = core.pairedAvailabilityState(row);
+      const pickupSupported = thresholdStrategy || mapping?.pickup_supported === true;
+      const returnSupported = thresholdStrategy || mapping?.return_supported === true;
+      const pickupDisabled = !supported || !pickupSupported || paphosBlocked;
+      const returnDisabled = !supported || !returnSupported || paphosBlocked;
+      const feeDisabled = !supported || (!pickupSupported && !returnSupported) || paphosBlocked;
+      const directional = core.directionalAvailabilityState(row);
       const fee = thresholdStrategy
         ? (() => {
           const mode = core.normalizeCode(row.fee_mode) === 'override' ? 'override' : 'inherit';
@@ -538,25 +542,35 @@
           ? 'Existing Paphos place-type rule'
           : `${money(fee.standardAmount)} per direction`
         : 'Not available — custom fee required';
-      const routeFeeSummary = (amount) => `${money(amount)} pickup · ${money(amount)} return · ${money(Number(amount) * 2)} route total`;
-      const resultLabel = fee.valid
+      const routeFeeSummary = (amount) => {
+        const pickupAmount = directional.pickupEnabled ? Number(amount) : 0;
+        const returnAmount = directional.returnEnabled ? Number(amount) : 0;
+        return `${money(pickupAmount)} pickup · ${money(returnAmount)} return · ${money(pickupAmount + returnAmount)} route total`;
+      };
+      const feeRequired = directional.mode !== 'off' && !fee.valid;
+      const resultLabel = directional.mode === 'off'
+        ? 'No fee applies while this city is unavailable'
+        : fee.valid
         ? fee.mode === 'override'
           ? routeFeeSummary(fee.amount)
           : fee.standardAmount === null
-            ? 'Calculated by existing Paphos place-type rule · route total depends on place type'
+            ? `Calculated by existing Paphos place-type rule for enabled ${directional.mode === 'both' ? 'directions' : 'direction'}`
             : routeFeeSummary(fee.standardAmount)
         : 'Fee required for this city';
       return `
-        <article class="car-multicity-availability-card ${paired.checked ? 'is-selected' : ''}" data-city-id="${escapeHtml(city.id)}">
+        <article class="car-multicity-availability-card ${directional.mode !== 'off' ? 'is-selected' : ''}" data-city-id="${escapeHtml(city.id)}" data-direction-mode="${escapeHtml(directional.mode)}">
           <header><div><strong>${escapeHtml(labelI18n(city.name_i18n) || city.code)}</strong><code>${escapeHtml(city.code)}</code></div><span class="car-multicity-status-badge ${city.is_active ? 'is-active' : 'is-inactive'}">${city.is_active ? 'Active' : 'Inactive'}</span></header>
-          <label class="car-multicity-city-toggle"><input type="checkbox" data-availability-field="paired" ${paired.checked ? 'checked' : ''} ${paired.mismatched ? 'data-mixed="true" aria-checked="mixed"' : ''} ${disabled ? 'disabled' : ''}> Available for pickup and return</label>
-          ${paired.mismatched ? '<span class="car-multicity-row-warning" role="alert">Pickup and return settings differ. Review required.</span>' : ''}
+          <div class="car-multicity-direction-toggles" role="group" aria-label="Pickup and return availability">
+            <label class="car-multicity-city-toggle"><input type="checkbox" data-availability-field="pickup_enabled" ${directional.pickupEnabled ? 'checked' : ''} ${pickupDisabled ? 'disabled' : ''}> Pickup available</label>
+            <label class="car-multicity-city-toggle"><input type="checkbox" data-availability-field="return_enabled" ${directional.returnEnabled ? 'checked' : ''} ${returnDisabled ? 'disabled' : ''}> Return available</label>
+          </div>
+          <p class="car-multicity-note">Directions are independent. Current configuration: <strong>${escapeHtml(directional.mode.replace('-', ' '))}</strong>.</p>
           <p class="car-multicity-fee-scope">This fee applies only to this exact vehicle in this city.</p>
           <div class="car-multicity-fee-controls">
-            <label class="admin-form-field"><span>Delivery fee</span><select data-availability-field="fee_mode" ${disabled ? 'disabled' : ''}><option value="inherit" ${fee.mode === 'inherit' ? 'selected' : ''}>Use standard fee</option><option value="override" ${fee.mode === 'override' ? 'selected' : ''}>Custom fee</option></select></label>
-            <label class="admin-form-field"><span>Fee per direction</span><input type="number" min="0" step="0.01" data-availability-field="fee_per_direction" value="${escapeHtml(fee.mode === 'override' && row.fee_per_direction != null ? row.fee_per_direction : '')}" ${fee.mode !== 'override' || disabled ? 'disabled' : ''}></label>
+            <label class="admin-form-field"><span>Delivery fee</span><select data-availability-field="fee_mode" ${feeDisabled ? 'disabled' : ''}><option value="inherit" ${fee.mode === 'inherit' ? 'selected' : ''}>Use standard fee</option><option value="override" ${fee.mode === 'override' ? 'selected' : ''}>Custom fee</option></select></label>
+            <label class="admin-form-field"><span>Fee per direction</span><input type="number" min="0" step="0.01" data-availability-field="fee_per_direction" value="${escapeHtml(fee.mode === 'override' && row.fee_per_direction != null ? row.fee_per_direction : '')}" ${fee.mode !== 'override' || feeDisabled ? 'disabled' : ''}></label>
           </div>
-          <dl><div><dt>Standard fee per direction</dt><dd>${escapeHtml(standardLabel)}</dd></div><div><dt>Pickup + return example</dt><dd class="${fee.valid ? '' : 'is-required'}">${escapeHtml(resultLabel)}</dd></div><div><dt>${thresholdStrategy ? 'Exact offer-city support' : 'Profile support'}</dt><dd>${supported && pairedSupported && !paphosBlocked ? 'Supported' : mapping && mapping.pickup_supported !== mapping.return_supported ? 'Support differs — review required' : 'Unavailable'}</dd></div></dl>
+          <dl><div><dt>Standard fee per direction</dt><dd>${escapeHtml(standardLabel)}</dd></div><div><dt>Enabled-direction result</dt><dd class="${feeRequired ? 'is-required' : ''}">${escapeHtml(resultLabel)}</dd></div><div><dt>${thresholdStrategy ? 'Exact offer-city support' : 'Profile support'}</dt><dd>Pickup: ${pickupSupported && supported && !paphosBlocked ? 'supported' : 'unavailable'} · Return: ${returnSupported && supported && !paphosBlocked ? 'supported' : 'unavailable'}</dd></div></dl>
         </article>
       `;
     }
@@ -567,10 +581,10 @@
         <section class="car-multicity-section" aria-labelledby="carMulticityAvailabilityHeading">
           <h4 id="carMulticityAvailabilityHeading">Availability configuration</h4>
           <div class="car-multicity-mode-strip">
-            <div><span>Current public mode</span><strong>Legacy</strong></div>
+            <div><span>Availability mode</span><strong>${escapeHtml(state.context?.offer?.availability_mode || 'legacy')}</strong></div>
             <div><span>Mapped configuration</span><strong>${readiness.ready ? 'Ready' : state.draft.availability.length ? 'Incomplete' : 'Not configured'}</strong></div>
           </div>
-          <p class="car-multicity-note">The global mapped flag remains OFF. Saving this screen does not activate mapped availability.</p>
+          <p class="car-multicity-note">Mapped rendering flag: <strong>${state.context?.siteSetting?.car_multi_city_mapped_enabled === true ? 'ON' : 'OFF'}</strong>. Threshold pricing flag: <strong>${state.context?.siteSetting?.car_threshold_daily_rates_enabled === true ? 'ON' : 'OFF'}</strong>. Saving this screen only changes exact offer-city rows and never activates or publishes an offer.</p>
           <div class="car-multicity-availability-grid">${(state.context?.cities || []).map(availabilityRow).join('')}</div>
           <div class="${readiness.ready ? 'car-multicity-ready' : 'car-multicity-warning'}">
             <strong>${readiness.ready ? 'Ready for future mapped activation' : 'Not ready for mapped activation'}</strong>
@@ -583,10 +597,13 @@
     function renderPartnerFields() {
       const partners = state.context?.partners || [];
       const resources = state.context?.partnerResources || [];
+      const threshold = state.draft?.pricing?.strategy === 'threshold_daily_rate';
       return `
         <section class="car-multicity-section" aria-labelledby="carMulticityPartnerHeading">
           <h4 id="carMulticityPartnerHeading">Partner</h4>
-          <p class="car-multicity-note">Partner assignment is independent from cities, pricing profile, and legacy location. No notification is sent. Existing partner_resources rows are read-only here: clearing owner_partner_id leaves that assignment as the fulfillment fallback, while a conflicting owner is blocked.</p>
+          <p class="car-multicity-note">Partner assignment is independent from cities, pricing, and legacy location. No notification is sent. ${threshold
+            ? 'This threshold offer routes only through its exact active owner_partner_id; legacy partner_resources rows are read-only and are not a fallback.'
+            : 'Existing partner_resources rows are read-only here: clearing owner_partner_id leaves that assignment as the legacy fulfillment fallback, while a conflicting owner is blocked.'}</p>
           <label class="admin-form-field"><span>Owner partner</span>
             <select data-draft-field="partner.ownerPartnerId" id="carMulticityOwnerPartner">
               <option value="">No owner partner</option>
@@ -600,6 +617,36 @@
             <div><dt>Exact partner_resources IDs</dt><dd>${resources.map((row) => escapeHtml(row.id)).join(', ') || 'None'}</dd></div>
             <div><dt>Legacy cars_locations</dt><dd>${escapeHtml((partners.find((row) => core.normalizeId(row.id) === core.normalizeId(state.draft.partner.ownerPartnerId))?.cars_locations || []).join(', ') || 'None')}</dd></div>
           </dl>
+        </section>
+      `;
+    }
+
+    function renderActivationFields() {
+      const offer = state.context?.offer || {};
+      const readiness = core.getActivationReadiness(state.draft, state.context);
+      const intent = state.draft.activation?.action;
+      const currentlyPublished = offer.is_published === true;
+      return `
+        <section class="car-multicity-section" aria-labelledby="carMulticityActivationHeading">
+          <h4 id="carMulticityActivationHeading">Activate / Publish exact offer</h4>
+          <p class="car-multicity-exact-id"><strong>Exact car_offers.id:</strong> ${escapeHtml(state.draft.offerId)}</p>
+          <p class="car-multicity-note">This workflow changes one exact offer row only. It never changes either global feature flag, any city configuration, partner, price, deposit or booking.</p>
+          <dl class="car-multicity-summary-grid">
+            <div><dt>Availability mode</dt><dd>${escapeHtml(offer.availability_mode || 'legacy')}</dd></div>
+            <div><dt>Requestable</dt><dd>${offer.is_available === true ? 'Yes' : 'No'}</dd></div>
+            <div><dt>Published</dt><dd>${currentlyPublished ? 'Yes' : 'No'}</dd></div>
+            <div><dt>Submission status</dt><dd>${escapeHtml(offer.submission_status || 'draft')}</dd></div>
+            <div><dt>Configuration</dt><dd>${readiness.configurationReady ? 'READY' : 'INCOMPLETE'}</dd></div>
+            <div><dt>Capability flags</dt><dd>${readiness.capabilityEnabled ? 'ON' : 'OFF'}</dd></div>
+          </dl>
+          ${readiness.reasons.length ? `<div class="car-multicity-warning"><strong>Configuration blockers</strong><ul>${readiness.reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join('')}</ul></div>` : '<div class="car-multicity-ready"><strong>Configuration READY</strong><p>Exact tiers, partner and directional city availability passed structural checks.</p></div>'}
+          ${readiness.capabilityReasons.length ? `<div class="car-multicity-information-card"><strong>Capability disabled</strong><ul>${readiness.capabilityReasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join('')}</ul><p>Turn flags on only through the separately approved database rollout. This Admin action cannot change flags.</p></div>` : ''}
+          <div class="car-multicity-activation-actions">
+            ${currentlyPublished
+              ? `<button type="button" class="btn-secondary" data-activation-intent="unpublish">${intent === 'unpublish' ? 'Unpublish selected for Review' : 'Prepare Unpublish Review'}</button>`
+              : `<button type="button" class="btn-primary" data-activation-intent="activate" ${readiness.ready ? '' : 'disabled aria-disabled="true"'}>${intent === 'activate' ? 'Activate / Publish selected for Review' : 'Prepare Activate / Publish Review'}</button>`}
+          </div>
+          ${intent ? `<div class="car-multicity-information-card"><strong>Pending Review</strong><p>${intent === 'activate' ? 'One atomic exact-offer transaction will set availability_mode=mapped, is_available=true, is_published=true and submission_status=approved.' : 'One atomic exact-offer transaction will set is_published=false and preserve mapped configuration, requestability, pricing and availability rows.'}</p></div>` : ''}
         </section>
       `;
     }
@@ -641,18 +688,39 @@
           ${entries.length ? `<ul class="car-multicity-city-review-list">${entries.map((entry) => {
             const city = (state.context?.cities || []).find((candidate) => core.normalizeId(candidate.id) === core.normalizeId(entry.exactCityId));
             const label = labelI18n(city?.name_i18n) || city?.code || entry.exactCityId;
-            const before = entry.beforeMismatch ? 'Pickup/return differ' : entry.beforeAvailable ? 'Available' : 'Not available';
-            const after = entry.afterMismatch ? 'Pickup/return differ' : entry.afterAvailable ? 'Available' : 'Not available';
+            const beforePickup = entry.beforePickupEnabled ? 'Pickup on' : 'Pickup off';
+            const afterPickup = entry.afterPickupEnabled ? 'Pickup on' : 'Pickup off';
+            const beforeReturn = entry.beforeReturnEnabled ? 'Return on' : 'Return off';
+            const afterReturn = entry.afterReturnEnabled ? 'Return on' : 'Return off';
             const beforeFee = entry.beforeFeeMode === 'override'
               ? `Custom ${money(entry.beforeFeePerDirection)} per direction`
               : 'Use standard fee';
             const afterFee = entry.afterFeeMode === 'override'
               ? `Custom ${money(entry.afterFeePerDirection)} per direction`
               : entry.afterFeeMode === null ? 'Removed' : 'Use standard fee';
-            const afterResult = entry.afterFeeMode === 'override' && entry.afterFeePerDirection !== null
-              ? `Pickup ${money(entry.afterFeePerDirection)} · Return ${money(entry.afterFeePerDirection)} · Route total ${money(Number(entry.afterFeePerDirection) * 2)}`
-              : entry.afterFeeMode === null ? 'No resulting fee' : 'Result uses the standard fee for this city';
-            return `<li><strong>${escapeHtml(label)}</strong><code>${escapeHtml(entry.exactCityId)}</code><span>${escapeHtml(before)} → ${escapeHtml(after)}</span><span>${escapeHtml(beforeFee)} → ${escapeHtml(afterFee)}</span><small>This exact vehicle only · ${escapeHtml(afterResult)} · ${escapeHtml(entry.action)}</small></li>`;
+            const enabledDirectionResult = (amount) => {
+              const pickupAmount = entry.afterPickupEnabled ? Number(amount) : 0;
+              const returnAmount = entry.afterReturnEnabled ? Number(amount) : 0;
+              return `Pickup ${money(pickupAmount)} · Return ${money(returnAmount)} · Route total ${money(pickupAmount + returnAmount)}`;
+            };
+            const thresholdStrategy = core.normalizeCode(state.draft?.pricing?.strategy) === 'threshold_daily_rate';
+            const profile = core.profileById(state.context, state.draft?.pricing?.profileId);
+            const mapping = core.mappingFor(state.context, profile?.id, city?.id);
+            const standardAmount = thresholdStrategy
+              ? Object.prototype.hasOwnProperty.call(core.LEGACY_CITY_FEE_PREVIEW, core.normalizeCode(city?.code))
+                ? core.LEGACY_CITY_FEE_PREVIEW[core.normalizeCode(city.code)]
+                : null
+              : core.getAvailabilityFeeState({ fee_mode: 'inherit' }, profile, mapping).standardAmount;
+            const afterResult = !entry.afterPickupEnabled && !entry.afterReturnEnabled
+              ? 'No resulting fee while unavailable'
+              : entry.afterFeeMode === 'override' && entry.afterFeePerDirection !== null
+                ? enabledDirectionResult(entry.afterFeePerDirection)
+                : entry.afterFeeMode === null
+                  ? 'No resulting fee'
+                  : standardAmount !== null
+                    ? enabledDirectionResult(standardAmount)
+                    : 'Result uses the standard fee only for each enabled direction';
+            return `<li><strong>${escapeHtml(label)}</strong><code>${escapeHtml(entry.exactCityId)}</code><span>${escapeHtml(beforePickup)} → ${escapeHtml(afterPickup)}</span><span>${escapeHtml(beforeReturn)} → ${escapeHtml(afterReturn)}</span><span>${escapeHtml(beforeFee)} → ${escapeHtml(afterFee)}</span><small>This exact vehicle only · ${escapeHtml(afterResult)} · ${escapeHtml(entry.action)}</small></li>`;
           }).join('')}</ul>` : '<p>UNCHANGED</p>'}
         </section>
       `;
@@ -684,7 +752,10 @@
     function renderReview() {
       const plan = state.plan;
       const changes = allChanges(plan);
-      const vehicleChanges = changes.filter((change) => change.entityType === 'car_offer' && core.VEHICLE_COLUMNS.includes(change.field) && !['description', 'features', 'image_url'].includes(change.field));
+      const vehicleChanges = changes.filter((change) => change.entityType === 'car_offer'
+        && core.VEHICLE_COLUMNS.includes(change.field)
+        && !core.ACTIVATION_COLUMNS.includes(change.field)
+        && !['description', 'features', 'image_url'].includes(change.field));
       const profileChanges = changes.filter((change) => core.PROFILE_COLUMNS.includes(change.field));
       const priceChanges = changes.filter((change) => core.PRICE_COLUMNS.includes(change.field));
       const pricingConfigurationChanges = changes.filter((change) => change.entityType === 'car_offer' && [
@@ -698,6 +769,7 @@
       ].includes(change.field));
       const tierChanges = changes.filter((change) => change.entityType === 'car_offer_daily_rate_tier');
       const partnerChanges = changes.filter((change) => change.field === 'owner_partner_id');
+      const activationChanges = changes.filter((change) => core.ACTIVATION_COLUMNS.includes(change.field));
       const contentChanges = changes.filter((change) => ['description', 'features', 'image_url'].includes(change.field));
       return `
         <section class="car-multicity-section car-multicity-review" aria-labelledby="carMulticityReviewHeading">
@@ -722,11 +794,12 @@
           ${changeGroup('Daily-rate tiers — daily rate × complete rental days', tierChanges)}
           ${renderAvailableCitiesReview(plan)}
           ${changeGroup('Partner changes', partnerChanges)}
+          ${changeGroup('Activation / publication changes', activationChanges)}
           ${changeGroup('Content changes', contentChanges)}
           ${renderImageReview()}
           <div class="car-multicity-safety">
             <strong>Safety assertions</strong>
-            <ul><li>Global mapped flag changes: 0</li><li>Global threshold-pricing flag changes: 0</li><li>Booking changes: 0</li><li>Active public price calculation changes: 0</li><li>Deposit rule changes: 0</li><li>Public mode remains Legacy</li><li>No emails or notifications</li></ul>
+            <ul><li>Global mapped flag changes: 0</li><li>Global threshold-pricing flag changes: 0</li><li>Booking changes: 0</li><li>Price calculation code changes: 0</li><li>Deposit rule changes: 0</li><li>No emails or notifications</li></ul>
           </div>
         </section>
       `;
@@ -770,7 +843,10 @@
         if (field === 'vehicleKindId') return '#carMulticityVehicleKind';
         if (field === 'ownerPartnerId') return '#carMulticityOwnerPartner';
         if (String(field).startsWith('fee-')) return `[data-city-id="${String(field).replace('fee-', '')}"] [data-availability-field="fee_per_direction"]`;
-        if (String(field).startsWith('availability-')) return `[data-city-id="${String(field).replace('availability-', '')}"] [data-availability-field="paired"]`;
+        if (field === 'activation') return '[data-activation-intent]';
+        if (String(field).startsWith('pickup-')) return `[data-city-id="${String(field).replace('pickup-', '')}"] [data-availability-field="pickup_enabled"]`;
+        if (String(field).startsWith('return-')) return `[data-city-id="${String(field).replace('return-', '')}"] [data-availability-field="return_enabled"]`;
+        if (String(field).startsWith('availability-')) return `[data-city-id="${String(field).replace('availability-', '')}"] [data-availability-field="pickup_enabled"]`;
         return `[data-draft-field$=".${String(field)}"], [data-draft-field="${String(field)}"]`;
       };
       errors.forEach((entry, index) => {
@@ -804,6 +880,7 @@
       else if (state.mode === 'pricing') content.innerHTML = renderPricingFields(false);
       else if (state.mode === 'availability') content.innerHTML = renderAvailabilityFields();
       else if (state.mode === 'partner') content.innerHTML = renderPartnerFields();
+      else if (state.mode === 'activation') content.innerHTML = renderActivationFields();
       else if (state.mode === 'create') content.innerHTML = renderCreateStep();
       syncMixedCheckboxes(content);
       const back = byId('carMulticityBack');
@@ -815,13 +892,17 @@
       if (next) next.hidden = state.outcome || state.screen !== 'edit' || state.mode !== 'create' || state.draft.step >= 4;
       if (review) {
         review.hidden = state.outcome || state.screen !== 'edit' || (state.mode === 'create' && state.draft.step < 4);
-        review.textContent = state.mode === 'pricing' ? 'Review price changes' : 'Review changes';
+        review.textContent = state.mode === 'pricing'
+          ? 'Review price changes'
+          : state.mode === 'activation' ? 'Review activation' : 'Review changes';
       }
       if (save) {
         save.hidden = state.outcome || state.screen !== 'review';
         save.disabled = !core.isReviewCurrent(state.draft, state.plan) || !state.plan?.steps?.length;
         save.setAttribute('aria-disabled', save.disabled ? 'true' : 'false');
-        save.textContent = state.mode === 'pricing' ? 'Save pricing values' : 'Save changes';
+        save.textContent = state.mode === 'pricing'
+          ? 'Save pricing values'
+          : state.mode === 'activation' ? (state.draft.activation?.action === 'unpublish' ? 'Unpublish exact offer' : 'Activate / Publish exact offer') : 'Save changes';
       }
       if (close) close.hidden = !state.outcome;
       if (state.screen === 'review') focusElement(byId('carMulticityReviewHeading'));
@@ -874,6 +955,14 @@
     }
 
     function handleMediaClick(event) {
+      const activationButton = event.target?.closest?.('[data-activation-intent]');
+      if (activationButton && !state.executing) {
+        core.setActivationIntent(state.draft, activationButton.dataset.activationIntent);
+        state.plan = null;
+        render();
+        announce('Activation intent prepared locally. Review is required before the exact-ID write.', 'status');
+        return;
+      }
       const tierButton = event.target?.closest?.('[data-tier-action]');
       if (tierButton && !state.executing) {
         const tierAction = tierButton.dataset.tierAction;
@@ -1061,8 +1150,13 @@
       const cityRow = target?.closest?.('[data-city-id]');
       if (availabilityField && cityRow) {
         const cityId = cityRow.dataset.cityId;
-        if (availabilityField === 'paired') {
-          core.setPairedAvailability(state.draft, cityId, target.checked);
+        if (availabilityField === 'pickup_enabled' || availabilityField === 'return_enabled') {
+          core.setDirectionalAvailability(
+            state.draft,
+            cityId,
+            availabilityField === 'pickup_enabled' ? 'pickup' : 'return',
+            target.checked,
+          );
         } else if (availabilityField === 'fee_mode') {
           const current = state.draft.availability.find((entry) => core.normalizeId(entry.city_id) === core.normalizeId(cityId));
           core.setAvailabilityFee(
@@ -1273,15 +1367,9 @@
         state.context = mode === 'create'
           ? await repository.getCreateContext()
           : await repository.getOfferContext(offerId);
-        if (state.context?.siteSetting?.car_multi_city_mapped_enabled !== false) {
-          throw new Error('Stage 2C safety stop: global mapped flag is not false.');
-        }
-        if (state.context?.siteSetting?.car_threshold_daily_rates_enabled !== false) {
-          throw new Error('Stage 3A/3B safety stop: global threshold-pricing flag is not false.');
-        }
         state.draft = core.createDraft(state.context, { mode });
         state.loading = false;
-        announce(`Fresh context loaded at ${state.context.loadedAt}. Public mode remains Legacy.`, 'success');
+        announce(`Fresh context loaded at ${state.context.loadedAt}. Database capability flags were read without mutation.`, 'success');
         renderErrors({ errors: [] });
         render();
         return true;
@@ -1405,9 +1493,9 @@
       focusElement(byId('carMulticityCatalogClose'));
       try {
         state.catalog = await repository.getCatalog();
-        if (state.catalog.siteSetting?.car_multi_city_mapped_enabled !== false) throw new Error('Mapped feature flag must remain false.');
-        if (state.catalog.siteSetting?.car_threshold_daily_rates_enabled !== false) throw new Error('Threshold-pricing feature flag must remain false.');
-        if (status) status.textContent = 'Fresh catalog loaded. Mapped and threshold-pricing flags: OFF.';
+        const mappedState = state.catalog.siteSetting?.car_multi_city_mapped_enabled === true ? 'ON' : 'OFF';
+        const thresholdState = state.catalog.siteSetting?.car_threshold_daily_rates_enabled === true ? 'ON' : 'OFF';
+        if (status) status.textContent = `Fresh catalog loaded. Capability flags are read-only here: mapped ${mappedState}, threshold pricing ${thresholdState}.`;
         renderCatalog();
       } catch (error) {
         if (status) status.textContent = String(error?.message || error);
@@ -1581,7 +1669,7 @@
         options.openLegacyEditor?.(offerId);
         return;
       }
-      if (['vehicle', 'availability', 'pricing', 'partner'].includes(action)) {
+      if (['vehicle', 'availability', 'pricing', 'partner', 'activation'].includes(action)) {
         void open(action, offerId, { returnFocus: button });
       }
     }
