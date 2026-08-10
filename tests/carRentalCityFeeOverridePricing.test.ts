@@ -81,4 +81,31 @@ describe('per-offer city fee seam in the existing Cars calculator', () => {
   test.each([-1, Number.NaN, Number.POSITIVE_INFINITY, 1.234])('rejects invalid fee override %s', (invalid) => {
     expect(quote({ pickupFeeOverride: invalid })).toBeNull();
   });
+
+  test('young-driver eligibility follows exact offer configuration, not legacy location', () => {
+    expect(quote({
+      offer: 'larnaca',
+      offerRow: { young_driver_fee: false, young_driver_cost: 10 },
+      youngDriver: true,
+    })).toEqual(expect.objectContaining({
+      youngDriverAllowed: false,
+      youngDriverApplied: false,
+      youngDriverCost: 0,
+    }));
+
+    expect(quote({
+      offer: 'paphos',
+      pickupLocation: 'hotel',
+      returnLocation: 'hotel',
+      offerRow: { young_driver_fee: true, young_driver_cost: 12 },
+      youngDriver: true,
+    })).toEqual(expect.objectContaining({
+      offer: 'paphos',
+      youngDriverAllowed: true,
+      youngDriverApplied: true,
+      youngDriverDailyRate: 12,
+      youngDriverCost: 36,
+      total: 141,
+    }));
+  });
 });

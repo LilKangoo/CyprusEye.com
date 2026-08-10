@@ -6239,6 +6239,8 @@ body[data-seo-page='carRentalLanding'] #carRentalGrid .auto-card-badge {
   font-weight: 800;
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 body[data-seo-page='carRentalLanding'] #carRentalGrid .auto-card-overlay {
@@ -6888,6 +6890,90 @@ html[lang='he'] .selected-car-highlight__instruction-icon {
   border-radius: 20px;
   border: 1px solid rgba(148, 163, 184, 0.24);
   background: linear-gradient(180deg, rgba(248, 250, 252, 0.95), rgba(255, 255, 255, 0.92));
+}
+
+.auto-optional-panel {
+  padding: 0;
+  overflow: clip;
+}
+
+.auto-optional-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  align-items: start;
+  min-width: 0;
+}
+
+.auto-optional-panel__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 52px;
+  padding: 0.8rem 1rem;
+  color: #0f172a;
+  font-size: 0.92rem;
+  font-weight: 800;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.auto-optional-panel__summary::-webkit-details-marker {
+  display: none;
+}
+
+.auto-optional-panel__summary::after {
+  content: '+';
+  display: grid;
+  place-items: center;
+  flex: 0 0 1.7rem;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.auto-optional-panel[open] > .auto-optional-panel__summary::after {
+  content: '−';
+}
+
+.auto-optional-panel__summary:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.38);
+  outline-offset: -3px;
+}
+
+.auto-optional-panel__summary[data-state='applied'] {
+  color: #166534;
+  background: rgba(240, 253, 244, 0.82);
+}
+
+.auto-optional-panel__body {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.85rem 1rem 1rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+@media (max-width: 900px) {
+  .auto-optional-tools-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .auto-optional-tools-grid,
+  .auto-optional-panel,
+  .auto-optional-panel__summary,
+  .auto-optional-panel__body {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
 }
 
 .auto-coupon-row {
@@ -9643,6 +9729,10 @@ body.u-lock-scroll {
   border: 1px solid rgba(148, 163, 184, 0.22);
   border-radius: 16px;
   background: rgba(248, 250, 252, 0.75);
+}
+
+.referral-field--booking.auto-optional-panel {
+  padding: 0;
 }
 
 .referral-field input[readonly],

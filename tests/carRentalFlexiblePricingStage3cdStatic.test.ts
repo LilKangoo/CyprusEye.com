@@ -65,7 +65,10 @@ describe('Stage 3C/3D runtime and authoritative validation static guards', () =>
     expect(authoritativeMigration).toContain('new.pricing_snapshot is distinct from v_quote.pricing_snapshot');
     expect(reservation).toContain('requestAuthoritativeThresholdQuote');
     expect(reservation).toContain('p_offer_id: String(offerRow.id)');
-    expect(reservation).toContain('for (let i = 0; i <= (thresholdBooking ? 0 : maxRetries); i += 1)');
+    expect(reservation).toContain("const BOOKING_SUBMIT_RPC_NAME = 'submit_car_booking_request'");
+    expect(reservation).toContain('p_submission_key: submissionKey');
+    expect(reservation).not.toMatch(/\.from\(['"]car_bookings['"]\)\s*\n?\s*\.insert/);
+    expect(reservation).not.toContain('maxRetries');
   });
 
   test('the authoritative migration adds the live-missing financial snapshot columns itself', () => {

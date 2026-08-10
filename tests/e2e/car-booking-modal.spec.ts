@@ -62,6 +62,8 @@ const CAR_OFFERS = [
     price_4_6days: 31,
     price_7_10days: 29,
     price_10plus_days: 27,
+    young_driver_fee: false,
+    young_driver_cost: 0,
   },
   {
     id: 'lca-he-ready-budget',
@@ -123,6 +125,8 @@ const CAR_OFFERS = [
     price_4_6days: 34,
     price_7_10days: 31,
     price_10plus_days: 28,
+    young_driver_fee: true,
+    young_driver_cost: 12,
   },
   {
     id: 'pfo-not-he-ready',
@@ -469,11 +473,11 @@ test.describe('car booking modal regression', () => {
       card.buttonText
       && card.offerId
       && card.isFleetCard
-      && card.badge
       && !card.hasBottomBody
       && !card.hasBottomSpecs
       && !card.hasBottomNote
     ))).toBe(true);
+    expect(cardState.every((card) => card.badge === '')).toBe(true);
     expect(cardState.map((card) => card.price).join(' ')).not.toMatch(/\b(?:NaN|undefined|null)\b/i);
     expect(errors.join('\n')).not.toMatch(/isEn|ReferenceError/i);
   });
@@ -503,8 +507,8 @@ test.describe('car booking modal regression', () => {
 
     const instruction = page.locator('#selectedCarHighlight');
     await expect(instruction).toBeVisible();
-    await expect(instruction).toContainText('Kliknij wybrane auto, aby przejść do rezerwacji.');
-    await expect(instruction).not.toContainText('Wybrane auto');
+    await expect(instruction).toContainText('Kliknij wybrany pojazd, aby przejść do rezerwacji.');
+    await expect(instruction).not.toContainText('Wybrany pojazd');
     await expect(page.locator('#selectedCarHighlight .selected-car-highlight__media')).toHaveCount(0);
     await expect(page.locator('#selectedCarHighlight .selected-car-highlight__label')).toHaveCount(0);
 
@@ -532,7 +536,7 @@ test.describe('car booking modal regression', () => {
     const summary = page.locator('#estimatedPrice .auto-price-summary');
     await expect(summary).toBeVisible();
     await expect(summary).toContainText('Podsumowanie ceny');
-    await expect(summary).toContainText('Wybrane auto');
+    await expect(summary).toContainText('Wybrany pojazd');
     await expect(summary).toContainText(selectedName || '');
     await expect(summary).toContainText('Liczba dni');
     await expect(summary).toContainText('Cena bazowa');
@@ -564,7 +568,7 @@ test.describe('car booking modal regression', () => {
       document.querySelectorAll('#carRentalGrid [data-select-car-offer-id]').length > 0
     ), null, { timeout: 15000 });
 
-    await expect(page.locator('#selectedCarHighlight')).toContainText('לחצו על הרכב שבחרתם כדי להמשיך להזמנה.');
+    await expect(page.locator('#selectedCarHighlight')).toContainText('לחצו על כלי הרכב שבחרתם כדי להמשיך להזמנה.');
     const snapshot = await page.evaluate(() => ({
       noHorizontalOverflow: document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1
         && document.body.scrollWidth <= document.body.clientWidth + 1,
@@ -607,6 +611,27 @@ test.describe('car booking modal regression', () => {
     await configureFinderCities(page, 'larnaca', 'paphos', false);
     await expectGridMatchesCurrentFleet(page, 'larnaca');
     expect(await getRenderedOfferIds(page)).not.toContain('pfo-he-ready');
+  });
+
+  test('booking modal uses exact-offer young-driver configuration independently of location', async ({ page }) => {
+    await openCarPage(page, 'en');
+
+    await configureFinderCities(page, 'paphos', 'paphos', false);
+    await expectGridMatchesCurrentFleet(page, 'paphos');
+    await page.locator('[data-select-car-offer-id="pfo-he-ready"]').click();
+    const enabledControl = page.locator('#res_young_driver');
+    await expect(enabledControl).toBeVisible();
+    await expect(page.locator('label[for="res_young_driver"]')).toContainText('+12€/day');
+    const paphosTotal = page.locator('#estimatedPrice .auto-price-summary__row--total dd');
+    const totalBeforeYoungDriver = await paphosTotal.textContent();
+    await enabledControl.setChecked(true);
+    await expect.poll(async () => paphosTotal.textContent()).not.toBe(totalBeforeYoungDriver);
+
+    await openCarPage(page, 'en');
+    await configureFinderCities(page, 'larnaca', 'larnaca', false);
+    await expectGridMatchesCurrentFleet(page, 'larnaca');
+    await page.locator('[data-select-car-offer-id="lca-not-he-ready"]').click();
+    await expect(page.locator('#res_young_driver')).toHaveCount(0);
   });
 
   test('booking modal place type options depend on selected city', async ({ page }) => {
@@ -719,7 +744,17 @@ test.describe('car booking modal regression', () => {
     expect(inserted).toMatchObject({
       phone: '+48 123 456 789',
       flight_number: 'Pickup: W1234 | Return: W5678',
+      status: 'pending',
+      payment_status: 'unpaid',
     });
+    expect(inserted.booking_reference).toMatch(/^CAR-[0-9a-f]{8}$/);
+
+    const success = page.locator('#reservationSuccess');
+    await expect(success).toBeVisible();
+    await expect(success).toContainText(`#${inserted.booking_reference}`);
+    await expect(success).toContainText('Twoje zapytanie zostało wysłane do partnera w celu potwierdzenia.');
+    await expect(page.locator('#formSubmitConfirmation')).toBeHidden();
+    await expect(page.locator('#reservationSuccess')).toHaveCount(1);
   });
 
   test('phone country selector stays compact on mobile width', async ({ page }) => {

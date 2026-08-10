@@ -22,6 +22,7 @@ import {
 let reservationData = {};
 const COUPON_RPC_NAME = 'car_coupon_quote';
 const THRESHOLD_QUOTE_RPC_NAME = 'resolve_car_threshold_authoritative_quote';
+const BOOKING_SUBMIT_RPC_NAME = 'submit_car_booking_request';
 
 const couponState = {
   appliedCode: '',
@@ -30,8 +31,54 @@ const couponState = {
   revalidateTimer: null,
 };
 let referralController = null;
+let referralControllerInput = null;
 let lastCalculatorPrefillSignature = '';
 let lastCalculatorPrefillToastAt = 0;
+const bookingSubmissionAttempts = new WeakMap();
+const bookingFormsInFlight = new WeakSet();
+
+function resetReservationReferralState({ clearField = false } = {}) {
+  const input = referralControllerInput instanceof HTMLInputElement
+    ? referralControllerInput
+    : document.getElementById('res_referral_code');
+  if (clearField && input instanceof HTMLInputElement) {
+    referralController?.setValue?.('', {
+      source: 'manual',
+      locked: false,
+      capturedAt: Date.now(),
+    });
+    input.value = '';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  referralController = null;
+  referralControllerInput = null;
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('ce:car-modal-closed', () => {
+    resetReservationReferralState();
+  });
+}
+
+function getStableBookingPayloadSignature(payload) {
+  const ordered = {};
+  Object.keys(payload || {}).sort().forEach((key) => {
+    ordered[key] = payload[key];
+  });
+  return JSON.stringify(ordered);
+}
+
+function getOrCreateBookingSubmissionKey(form, payload) {
+  const signature = getStableBookingPayloadSignature(payload);
+  const previous = bookingSubmissionAttempts.get(form);
+  if (previous?.signature === signature && previous?.key) return previous.key;
+
+  const key = globalThis.crypto?.randomUUID?.();
+  if (!key) return null;
+  bookingSubmissionAttempts.set(form, { key, signature });
+  return key;
+}
 
 function currentLang() {
   const lang = (typeof window.getCurrentLanguage === 'function'
@@ -180,6 +227,13 @@ function syncCouponButtons() {
   }
   if (clearBtn) {
     clearBtn.hidden = !couponState.appliedCode;
+  }
+  const summary = input?.closest?.('[data-car-optional-panel="coupon"]')?.querySelector?.('.auto-optional-panel__summary');
+  if (summary) {
+    summary.textContent = couponState.appliedCode
+      ? uiText(`✓ Kupon ${couponState.appliedCode}`, `✓ Coupon ${couponState.appliedCode}`, `✓ קופון ${couponState.appliedCode}`)
+      : uiText('Mam kod kuponu', 'I have a coupon code', 'יש לי קוד קופון');
+    summary.dataset.state = couponState.appliedCode ? 'applied' : 'empty';
   }
 }
 
@@ -1419,20 +1473,26 @@ function ensureReservationReferralField() {
   if (shouldHideReferralEntryUi()) {
     if (panel instanceof HTMLElement) panel.remove();
     referralController = null;
+    referralControllerInput = null;
     return;
   }
   if (!(panel instanceof HTMLElement)) {
-    const couponPanel = document.querySelector('.auto-coupon-panel');
-    panel = document.createElement('div');
-    panel.className = 'auto-coupon-panel referral-field referral-field--booking';
+    const couponPanel = form.querySelector('[data-car-optional-panel="coupon"]');
+    panel = document.createElement('details');
+    panel.className = 'auto-coupon-panel auto-optional-panel referral-field referral-field--booking';
     panel.setAttribute('data-car-referral-ui', '1');
+    panel.setAttribute('data-car-optional-panel', 'referral');
     panel.innerHTML = `
-      <label for="res_referral_code">${referralMessage('label', 'Referral code')}</label>
-      <div class="auto-coupon-row referral-field__input-row">
-        <input id="res_referral_code" name="referral_code" type="text" maxlength="64" autocomplete="off" placeholder="${referralMessage('placeholder', 'Enter referral code')}" />
-        <span id="carReferralBadge" class="referral-field__badge" hidden></span>
+      <summary class="auto-optional-panel__summary">${uiText('Mam kod polecający', 'I have a referral code', 'יש לי קוד הפניה')}</summary>
+      <div class="auto-optional-panel__body">
+        <label for="res_referral_code">${referralMessage('label', 'Referral code')}</label>
+        <div class="auto-coupon-row referral-field__input-row">
+          <input id="res_referral_code" name="referral_code" type="text" maxlength="64" autocomplete="off" placeholder="${referralMessage('placeholder', 'Enter referral code')}" />
+          <span id="carReferralBadge" class="referral-field__badge" hidden></span>
+          <button id="carReferralClear" type="button" class="btn ghost" hidden>${uiText('Usuń', 'Remove', 'הסרה')}</button>
+        </div>
+        <p id="carReferralStatus" class="auto-coupon-status referral-field__status" hidden></p>
       </div>
-      <p id="carReferralStatus" class="auto-coupon-status referral-field__status" hidden></p>
     `;
     if (couponPanel instanceof HTMLElement) {
       couponPanel.insertAdjacentElement('afterend', panel);
@@ -1444,7 +1504,49 @@ function ensureReservationReferralField() {
   const input = panel.querySelector('#res_referral_code');
   const status = panel.querySelector('#carReferralStatus');
   const badge = panel.querySelector('#carReferralBadge');
+  const clearButton = panel.querySelector('#carReferralClear');
+  const summary = panel.querySelector('.auto-optional-panel__summary');
   if (!(input instanceof HTMLInputElement)) return;
+
+  const syncReferralSummary = () => {
+    if (!(summary instanceof HTMLElement)) return;
+    const code = String(input.value || '').trim();
+    const approved = badge instanceof HTMLElement && !badge.hidden;
+    summary.textContent = code
+      ? uiText(
+        `${approved ? '✓ ' : ''}Polecenie: ${code}`,
+        `${approved ? '✓ ' : ''}Referral: ${code}`,
+        `${approved ? '✓ ' : ''}הפניה: ${code}`,
+      )
+      : uiText('Mam kod polecający', 'I have a referral code', 'יש לי קוד הפניה');
+    summary.dataset.state = approved ? 'applied' : code ? 'entered' : 'empty';
+    if (clearButton instanceof HTMLButtonElement) clearButton.hidden = !code;
+  };
+
+  if (panel.dataset.referralSummaryBound !== '1') {
+    panel.dataset.referralSummaryBound = '1';
+    input.addEventListener('input', syncReferralSummary);
+    input.addEventListener('change', syncReferralSummary);
+    clearButton?.addEventListener('click', () => {
+      input.value = '';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      input.focus();
+    });
+    if (badge instanceof HTMLElement && typeof MutationObserver === 'function') {
+      const observer = new MutationObserver(syncReferralSummary);
+      observer.observe(badge, { attributes: true, childList: true, subtree: true });
+    }
+  }
+
+  if (input.value.trim() && panel instanceof HTMLDetailsElement) {
+    panel.open = true;
+  }
+
+  if (referralControllerInput !== input) {
+    referralController = null;
+    referralControllerInput = null;
+  }
 
   if (!referralController) {
     referralController = createReferralFieldController({
@@ -1462,6 +1564,7 @@ function ensureReservationReferralField() {
         fromManual: referralMessage('fromManual', 'Referral code approved.'),
       },
     });
+    referralControllerInput = input;
   } else {
     referralController.updateMessages({
       baseHint: referralMessage('bookingHint', 'Optional. Referral code is separate from coupon discounts.'),
@@ -1473,6 +1576,7 @@ function ensureReservationReferralField() {
       fromManual: referralMessage('fromManual', 'Referral code approved.'),
     });
   }
+  syncReferralSummary();
 }
 
 // Populate form from calculator
@@ -1680,8 +1784,8 @@ function renderEstimatedPriceQuote(estimatedEl, quote, rentalDays, daysLabel) {
   };
   const rows = [
     renderPriceSummaryRow(
-      tr('carRental.page.reservation.priceSummary.selectedCar', 'Selected car'),
-      carName || tr('carRental.page.reservation.estimated.chooseCar', 'Choose a car to see the total price.')
+      tr('carRental.page.reservation.priceSummary.selectedCar', 'Selected vehicle'),
+      carName || tr('carRental.page.reservation.estimated.chooseCar', 'Choose a vehicle to see the total price.')
     ),
     renderPriceSummaryRow(
       tr('carRental.page.reservation.priceSummary.days', 'Number of days'),
@@ -1874,7 +1978,7 @@ function getValidationMessages() {
     flightNumber: uiText('Proszę podać numer lotu', 'Please enter the flight number', 'אנא הזינו מספר טיסה'),
     pickupDate: tr('carRental.page.reservation.validation.pickupDate', 'Proszę wybrać datę odbioru'),
     returnDate: tr('carRental.page.reservation.validation.returnDate', 'Proszę wybrać datę zwrotu'),
-    car: tr('carRental.page.reservation.validation.car', 'Proszę wybrać samochód'),
+    car: tr('carRental.page.reservation.validation.car', 'Proszę wybrać pojazd'),
     pickupLocation: tr('carRental.page.reservation.validation.pickupLocation', 'Proszę wybrać miejsce odbioru'),
     returnLocation: tr('carRental.page.reservation.validation.returnLocation', 'Proszę wybrać miejsce zwrotu'),
     minimumDays: tr(
@@ -2019,6 +2123,9 @@ async function handleReservationSubmit(event) {
     return;
   }
 
+  if (bookingFormsInFlight.has(form)) return;
+  bookingFormsInFlight.add(form);
+
   // Clear any previous validation errors
   document.querySelectorAll('.field-error').forEach(el => el.remove());
   document.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
@@ -2038,7 +2145,7 @@ async function handleReservationSubmit(event) {
       throw new Error(uiText(
         'Nie można zweryfikować wybranej oferty po dokładnym identyfikatorze. Odśwież listę i wybierz pojazd ponownie.',
         'The selected offer could not be verified by its exact ID. Refresh the list and select the vehicle again.',
-        'לא ניתן לאמת את ההצעה שנבחרה לפי המזהה המדויק. רעננו את הרשימה ובחרו שוב את הרכב.',
+        'לא ניתן לאמת את ההצעה שנבחרה לפי המזהה המדויק. רעננו את הרשימה ובחרו שוב את כלי הרכב.',
       ));
     }
     const thresholdBooking = isThresholdOffer(selectedOfferRow);
@@ -2240,7 +2347,7 @@ async function handleReservationSubmit(event) {
     const insurance = formData.get('insurance');
     if (insurance === 'on') data.full_insurance = true;
     
-    if (!thresholdBooking && computedQuote?.breakdown?.youngDriverCost > 0 && pageLocation === 'larnaca') {
+    if (!thresholdBooking && computedQuote?.breakdown?.youngDriverCost > 0) {
       data.young_driver = true;
     }
     
@@ -2250,76 +2357,63 @@ async function handleReservationSubmit(event) {
     const requests = formData.get('special_requests');
     if (requests) data.special_requests = requests;
 
-    async function insertCarBooking(payload) {
-      return supabase
-        .from('car_bookings')
-        .insert([payload]);
+    // The public reference is generated and persisted by the server.  A
+    // per-attempt idempotency key is reused if the transport retries, while it
+    // never becomes the customer-facing booking number.
+    const submissionKey = getOrCreateBookingSubmissionKey(form, data);
+    if (!submissionKey) {
+      throw new Error(tr(
+        'carRental.page.reservation.error.secureSubmissionUnavailable',
+        'Secure booking submission is unavailable. Refresh the page and try again.'
+      ));
     }
 
-    // Threshold financial fields are server-authoritative and must never be
-    // silently removed. Legacy compatibility retains the existing narrow
-    // unknown-column retry while its strategy flag remains OFF.
-    let booking = null;
-    let error = null;
-    let attemptPayload = { ...data };
-    const maxRetries = 12;
-
-    for (let i = 0; i <= (thresholdBooking ? 0 : maxRetries); i += 1) {
-      ({ data: booking, error } = await insertCarBooking(attemptPayload));
-      if (!error) break;
-
-      const msg = String(error.message || '');
-
-      if (error.code === '42501' || /row-level security/i.test(msg) || /permission denied/i.test(msg)) {
-        break;
-      }
-
-      const m = msg.match(/column\s+([a-zA-Z0-9_]+)\s+does not exist/i)
-        || msg.match(/Could not find the '([a-zA-Z0-9_]+)' column/i)
-        || msg.match(/Could not find the \"([a-zA-Z0-9_]+)\" column/i);
-      if (!m || !m[1]) break;
-
-      const unknownCol = m[1];
-      if (!(unknownCol in attemptPayload)) break;
-
-      delete attemptPayload[unknownCol];
-    }
+    const { data: bookingResult, error } = await supabase.rpc(BOOKING_SUBMIT_RPC_NAME, {
+      p_submission_key: submissionKey,
+      p_booking: data,
+    });
     
     if (error) {
       console.error('Booking error:', error);
       throw new Error(error.message || tr('carRental.page.reservation.error.saveBooking', 'Could not save reservation'));
     }
 
-    // Show success message
+    const bookingRow = Array.isArray(bookingResult) ? bookingResult[0] : bookingResult;
+    const bookingReference = String(bookingRow?.booking_reference || '').trim();
+    const bookingId = String(bookingRow?.booking_id || '').trim();
+    if (
+      !bookingId
+      || !/^CAR-[0-9a-f]{8}$/.test(bookingReference)
+    ) {
+      throw new Error(tr(
+        'carRental.page.reservation.error.bookingReferenceMissing',
+        'Your request may have been received, but its booking number could not be displayed. Please contact support before submitting again.'
+      ));
+    }
+
+    // A single success panel is the only persistent success message.
     showSuccessMessage({
-      id: booking?.id,
-      email: booking?.email || data.email || data.customer_email,
+      id: bookingId,
+      booking_reference: bookingReference,
+      email: data.email || data.customer_email,
     });
+    bookingSubmissionAttempts.delete(form);
     
-    // Show visible confirmation
+    // Historical templates contain a second generic confirmation card. Keep
+    // it hidden so the customer receives one unambiguous pending-request state.
     const confirmDiv = document.getElementById('formSubmitConfirmation');
     if (confirmDiv) {
-      confirmDiv.hidden = false;
-      confirmDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      confirmDiv.hidden = true;
     }
     
     // Reset form
     form.reset();
+    resetReservationReferralState({ clearField: true });
     clearCouponApplication({ clearInput: true, silent: true });
     setCouponStatus('');
     try { delete window.CE_CAR_PRICE_QUOTE; } catch (_e) {}
     calculateEstimatedPrice({ skipCouponRevalidation: true });
     
-    // Show toast
-    if (typeof showToast === 'function') {
-      showToast(
-        tr('carRental.page.reservation.toast.submitSuccess', '🎉 Gratulacje! Twój formularz został wysłany!'),
-        'success'
-      );
-    } else {
-      console.warn('showToast function not available');
-    }
-
   } catch (e) {
     console.error('Reservation error:', e);
     const fallbackError = tr(
@@ -2342,6 +2436,7 @@ async function handleReservationSubmit(event) {
     );
     
   } finally {
+    bookingFormsInFlight.delete(form);
     if (submitBtn) submitBtn.disabled = false;
   }
 }
@@ -2351,25 +2446,33 @@ function showSuccessMessage(booking) {
   const successDiv = document.getElementById('reservationSuccess');
   if (!successDiv) return;
 
-  const bookingIdShort = booking?.id ? String(booking.id).slice(0, 8) : '--------';
+  const bookingReference = String(booking?.booking_reference || '').trim();
+  if (!/^CAR-[0-9a-f]{8}$/.test(bookingReference)) {
+    throw new Error('car_booking_public_reference_missing');
+  }
   const bookingEmail = booking?.email ? String(booking.email) : '';
-  const title = tr('carRental.page.reservation.successBox.title', '✅ Rezerwacja wysłana!');
+  const title = tr('carRental.page.reservation.successBox.title', '✓ Rezerwacja wysłana');
   const bookingNumberLabel = tr('carRental.page.reservation.successBox.bookingNumberLabel', 'Numer rezerwacji:');
-  const contactWithin24h = tr(
-    'carRental.page.reservation.successBox.contactWithin24h',
-    'Skontaktujemy się z Tobą w ciągu 24h, aby potwierdzić dostępność i przesłać umowę. Sprawdź też folder Spam.'
+  const partnerConfirmation = tr(
+    'carRental.page.reservation.successBox.partnerConfirmation',
+    'Twoje zapytanie zostało wysłane do partnera w celu potwierdzenia.'
+  );
+  const contactAfterConfirmation = tr(
+    'carRental.page.reservation.successBox.contactAfterConfirmation',
+    'Skontaktujemy się z Tobą po potwierdzeniu dostępności.'
   );
   const checkEmailLabel = tr('carRental.page.reservation.successBox.checkEmailLabel', 'Sprawdź email i folder Spam:');
 
   successDiv.innerHTML = `
     <div style="background: #10b981; color: white; padding: 20px; border-radius: 8px; margin-top: 16px;">
-      <h4 style="margin: 0 0 8px; font-size: 18px;">${title}</h4>
+      <h4 style="margin: 0 0 8px; font-size: 18px;">${escapeHtml(title)}</h4>
       <p style="margin: 0; opacity: 0.9;">
-        ${bookingNumberLabel} <strong>#${bookingIdShort}</strong><br>
-        ${contactWithin24h}
+        ${escapeHtml(bookingNumberLabel)} <strong>#${escapeHtml(bookingReference)}</strong><br>
+        ${escapeHtml(partnerConfirmation)}<br>
+        ${escapeHtml(contactAfterConfirmation)}
       </p>
       <p style="margin: 12px 0 0; font-size: 14px; opacity: 0.8;">
-        ${checkEmailLabel} <strong>${bookingEmail}</strong>
+        ${escapeHtml(checkEmailLabel)} <strong>${escapeHtml(bookingEmail)}</strong>
       </p>
     </div>
   `;

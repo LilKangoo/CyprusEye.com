@@ -38,14 +38,17 @@ describe('Car Rental Multi-City Admin UX and media hotfix guards', () => {
     expect(core).toContain("row.is_active = row.pickup_enabled === true || row.return_enabled === true");
   });
 
-  test('deposit data is read only and never enters a Cars save payload', () => {
+  test('payment-due rules stay read only while security deposit uses the exact offer field', () => {
     expect(repository).toContain("depositRules: 'service_deposit_rules'");
     expect(repository).toContain("depositOverrides: 'service_deposit_overrides'");
     expect(repository).not.toMatch(/from\(TABLES\.deposit(?:Rules|Overrides)\)\.(?:insert|update|upsert|delete)/);
     expect(ui).toContain('Payment due at booking');
     expect(ui).toContain('Deposit rule changes: 0');
     const pricingPayload = core.slice(core.indexOf('function pricingPayload'), core.indexOf('function validateAvailability'));
-    expect(pricingPayload).not.toContain('deposit_amount');
+    expect(pricingPayload).toContain('deposit_amount');
+    expect(pricingPayload).toContain("securityDepositMode === 'unspecified'");
+    expect(ui).toContain('Refundable vehicle damage/security deposit for this exact offer');
+    expect(ui).toContain('This never changes Stripe or <code>service_deposit_*</code> rules.');
   });
 
   test('new Cars repository never emits the legacy jsonb car_type filter that causes HTTP 400', () => {

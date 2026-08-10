@@ -485,7 +485,7 @@ describe('Car Rental Multi-City Stage 2C core', () => {
     expect(plan.steps[0].payload.availability_mode).toBe('legacy');
     expect(plan.globalMappedFlagChanges).toBe(0);
     expect(plan.depositRuleChanges).toBe(0);
-    expect(plan.steps[0].payload).not.toHaveProperty('deposit_amount');
+    expect(plan.steps[0].payload).toHaveProperty('deposit_amount', null);
   });
 
   test('threshold create is exact-ID ordered, hidden until tiers exist, and remains publicly legacy', () => {

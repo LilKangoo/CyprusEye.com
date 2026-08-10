@@ -74,10 +74,12 @@ describe('Car Rental Multi-City Stage 2C static guards', () => {
     expect(core).toContain('pickup and return support must be saved together');
   });
 
-  test('deposit preview is read-only and create payload does not write legacy deposit_amount', () => {
+  test('payment-due preview stays read-only while exact-offer security deposit is separate', () => {
     expect(ui).toContain('payment due at booking');
     expect(ui).toContain('deposit rule changes: 0');
-    expect(core).not.toContain("'deposit_amount',\n    'insurance_per_day'");
+    expect(core).toContain("'deposit_amount'");
+    expect(ui).toContain('security deposit');
+    expect(ui).toContain('separate from the refundable security deposit');
     expect(repository).toContain('getcarsdepositdefault');
     expect(repository).toContain('getcarsdepositoverride');
   });
@@ -157,8 +159,8 @@ describe('Car Rental Multi-City Stage 2C static guards', () => {
 
   test('protected source hashes remain at the accepted baseline', () => {
     const expected: Record<string, string> = {
-      'js/car-pricing.js': '30e886602888aa9eae76f6cfa6628eca00112e12ca1d3b6cac971c234c53e292',
-      'js/car-reservation.js': 'c17851dd55d3998fb41c92150774f11e42bb7f7354b4b1f8b9a7a753543cba11',
+      'js/car-pricing.js': '6305c5cc9636c690c220d2f9f9f7a1e66b30de5a2ce239eefd32d2fdfd76c6c9',
+      'js/car-reservation.js': 'c24b0c2eea003cf929d163a360306910958179581a09154da7104c84773ca540',
       'js/car-rental-flow.js': '64a461171c4496ce53ced64146623ec15025e8784645e4e1f572e817db546f16',
       'supabase/functions/partner-fulfillment-action/index.ts': '802aa0b8d3a1204f93adefcf598a77c764fde4a6e15dfe2624366c0a99c1297b',
     };

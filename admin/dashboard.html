@@ -8691,8 +8691,9 @@
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
               <label class="admin-form-field">
-                <span>Deposit Amount (€)</span>
-                <input type="number" id="fleetCarDeposit" name="deposit_amount" step="0.01" min="0" value="200" placeholder="200.00">
+                <span>Security / Damage Deposit (€)</span>
+                <input type="number" id="fleetCarDeposit" name="deposit_amount" step="0.01" min="0" placeholder="Blank = not specified; 0 = no deposit">
+                <small>Refundable vehicle security deposit only. Payment due at booking is managed separately in Deposit settings.</small>
               </label>
               <label class="admin-form-field">
                 <span>Insurance per day (€)</span>

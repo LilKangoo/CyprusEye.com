@@ -295,6 +295,18 @@
       return labels[core.normalizeCode(mode)] || String(mode || 'Not configured');
     }
 
+    function depositRuleValue(rule) {
+      if (!rule || !Number.isFinite(Number(rule.amount))) return '—';
+      const amount = Number(rule.amount);
+      const formatted = Number.isInteger(amount) ? String(amount) : amount.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+      if (core.normalizeCode(rule.mode) === 'percent_total') return `${formatted}%`;
+      const symbols = { EUR: '€', USD: '$', GBP: '£' };
+      const currency = String(rule.currency || 'EUR').trim().toUpperCase();
+      const moneyValue = `${symbols[currency] || `${currency} `}${formatted}`;
+      const suffixes = { per_day: '/day', per_hour: '/hour', per_person: '/person', flat: '' };
+      return `${moneyValue}${suffixes[core.normalizeCode(rule.mode)] ?? ''}`;
+    }
+
     function renderDepositSummary() {
       const defaultRule = state.context?.depositRule || null;
       const override = state.draft?.offerId ? state.context?.depositOverride || null : null;
@@ -303,13 +315,13 @@
       return `
         <section class="car-multicity-deposit-card" aria-labelledby="carMulticityDepositHeading">
           <div class="car-multicity-section-heading">
-            <div><h5 id="carMulticityDepositHeading">Payment due at booking</h5><p>Read-only preview from Deposit settings. <code>car_offers.deposit_amount</code> is not used as the operational source here.</p></div>
+            <div><h5 id="carMulticityDepositHeading">Payment due at booking</h5><p>Read-only preview from the central Deposit settings. This part-payment is separate from the refundable security deposit.</p></div>
             <span class="car-multicity-readonly-badge">Read only</span>
           </div>
           <dl class="car-multicity-summary-grid">
             <div><dt>Effective source</dt><dd>${escapeHtml(source)}</dd></div>
             <div><dt>Mode</dt><dd>${escapeHtml(depositModeLabel(effective?.mode))}</dd></div>
-            <div><dt>Value</dt><dd>${effective ? `${escapeHtml(effective.amount)} ${escapeHtml(effective.currency || 'EUR')}` : '—'}</dd></div>
+            <div><dt>Value</dt><dd>${escapeHtml(depositRuleValue(effective))}</dd></div>
             <div><dt>Enabled</dt><dd>${effective ? (effective.enabled ? 'Yes' : 'No') : '—'}</dd></div>
             <div><dt>Exact override</dt><dd>${override ? `<code>${escapeHtml(override.id)}</code>` : state.draft?.offerId ? 'None' : 'Available after exact offer ID is created'}</dd></div>
             <div><dt>Include children</dt><dd>${effective ? (effective.include_children ? 'Yes' : 'No') : '—'}</dd></div>
@@ -367,6 +379,7 @@
     function renderExactOfferOptions() {
       const pricing = state.draft.pricing;
       const dailyAmountDisabled = !['legacy_optional_daily', 'optional_daily'].includes(core.normalizeCode(pricing.insuranceMode));
+      const securityDepositMode = core.normalizeCode(pricing.securityDepositMode) || 'unspecified';
       return `
         <section class="car-multicity-pricing-options" aria-labelledby="carMulticityOfferOptionsHeading">
           <h5 id="carMulticityOfferOptionsHeading">Exact-offer options</h5>
@@ -382,6 +395,21 @@
             <label class="admin-form-field"><span>Young driver surcharge per day</span><input type="number" min="0" step="0.01" data-number="money" data-draft-field="pricing.youngDriverCost" value="${escapeHtml(pricing.youngDriverCost)}"></label>
           </div>
           <p class="car-multicity-note">These settings belong to the exact offer. They are independent from pricing profile, city, partner and vehicle type. Existing values are never enabled automatically.</p>
+          <section class="car-multicity-information-card" aria-labelledby="carMulticitySecurityDepositHeading">
+            <div class="car-multicity-section-heading">
+              <div><h5 id="carMulticitySecurityDepositHeading">Security deposit</h5><p>Refundable vehicle damage/security deposit for this exact offer. It is not the payment due at booking.</p></div>
+              <span class="car-multicity-readonly-badge">Exact offer</span>
+            </div>
+            <div class="car-multicity-form-grid">
+              <label class="admin-form-field"><span>Security deposit state</span><select id="carMulticitySecurityDepositMode" data-security-deposit-mode="true">
+                <option value="unspecified" ${securityDepositMode === 'unspecified' ? 'selected' : ''}>Not specified — no public claim</option>
+                <option value="none" ${securityDepositMode === 'none' ? 'selected' : ''}>No deposit</option>
+                <option value="amount" ${securityDepositMode === 'amount' ? 'selected' : ''}>Refundable amount</option>
+              </select></label>
+              <label class="admin-form-field"><span>Security deposit amount (EUR)</span><input id="carMulticitySecurityDepositAmount" type="number" min="0.01" step="0.01" data-number="money" data-draft-field="pricing.securityDepositAmount" value="${securityDepositMode === 'amount' ? escapeHtml(pricing.securityDepositAmount ?? '') : ''}" ${securityDepositMode === 'amount' ? '' : 'disabled'} placeholder="e.g. 300"></label>
+            </div>
+            <p class="car-multicity-note"><strong>Blank/not specified</strong> shows no customer claim. <strong>No deposit</strong> displays “No Deposit”. A positive amount displays the refundable deposit amount. This never changes Stripe or <code>service_deposit_*</code> rules.</p>
+          </section>
         </section>
       `;
     }
@@ -767,6 +795,7 @@
         'young_driver_fee',
         'young_driver_cost',
       ].includes(change.field));
+      const securityDepositChanges = changes.filter((change) => change.entityType === 'car_offer' && change.field === 'deposit_amount');
       const tierChanges = changes.filter((change) => change.entityType === 'car_offer_daily_rate_tier');
       const partnerChanges = changes.filter((change) => change.field === 'owner_partner_id');
       const activationChanges = changes.filter((change) => core.ACTIVATION_COLUMNS.includes(change.field));
@@ -782,6 +811,7 @@
             <div><dt>Booking changes</dt><dd><strong>0</strong></dd></div>
             <div><dt>Active public price calculation changes</dt><dd><strong>0</strong></dd></div>
             <div><dt>Deposit rule changes</dt><dd><strong>0</strong></dd></div>
+            <div><dt>Security deposit changes</dt><dd><strong>${escapeHtml(securityDepositChanges.length)}</strong></dd></div>
             <div><dt>Existing base price changes</dt><dd><strong>${escapeHtml(plan.existingPriceColumnChanges)}</strong></dd></div>
             <div><dt>Existing inactive pricing columns changed</dt><dd><strong>0</strong></dd></div>
             <div><dt>Daily-rate tier changes</dt><dd><strong>${escapeHtml(plan.dailyRateTierChanges || 0)}</strong></dd></div>
@@ -791,6 +821,7 @@
           ${changeGroup('Pricing profile changes', profileChanges)}
           ${changeGroup('Pricing values changes', priceChanges)}
           ${changeGroup('Pricing strategy, minimum and exact-offer options', pricingConfigurationChanges)}
+          ${changeGroup('Security deposit — separate from payment due at booking', securityDepositChanges)}
           ${changeGroup('Daily-rate tiers — daily rate × complete rental days', tierChanges)}
           ${renderAvailableCitiesReview(plan)}
           ${changeGroup('Partner changes', partnerChanges)}
@@ -1131,6 +1162,17 @@
         } else {
           state.draft.pricing.minRentalDays = Number(state.context?.offer?.min_rental_days || (state.mode === 'create' ? 3 : 1));
         }
+        core.invalidateReview(state.draft);
+        state.plan = null;
+        render();
+        return;
+      }
+      if (target?.dataset?.securityDepositMode === 'true') {
+        const mode = core.normalizeCode(target.value);
+        state.draft.pricing.securityDepositMode = mode;
+        if (mode === 'unspecified') state.draft.pricing.securityDepositAmount = null;
+        else if (mode === 'none') state.draft.pricing.securityDepositAmount = 0;
+        else if (!(Number(state.draft.pricing.securityDepositAmount) > 0)) state.draft.pricing.securityDepositAmount = null;
         core.invalidateReview(state.draft);
         state.plan = null;
         render();

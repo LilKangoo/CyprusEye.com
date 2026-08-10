@@ -116,7 +116,7 @@ function passesFilters(offer, profile, input, diagnostics) {
   if (Number.isFinite(capacity) && capacity > 0 && capacity < passengers) return false;
 
   if (input.youngDriver) {
-    if ((!thresholdOffer && profile?.calculator_key !== 'larnaca') || offer?.young_driver_fee !== true) return false;
+    if (offer?.young_driver_fee !== true) return false;
   }
 
   const platform = normalized(filters.platform);

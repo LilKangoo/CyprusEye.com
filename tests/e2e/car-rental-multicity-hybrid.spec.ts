@@ -145,6 +145,7 @@ async function seedThresholdHybrid(page: Page) {
     max_rental_days: null,
     insurance_mode: 'included',
     insurance_per_day: 0,
+    deposit_amount: null,
     young_driver_fee: false,
     young_driver_cost: 0,
     owner_partner_id: SPEED_BIKES_PARTNER,
@@ -204,6 +205,27 @@ async function seedThresholdHybrid(page: Page) {
       }]);
       stub.setRpcHandler?.('resolve_public_threshold_offer_ids', async () => ({
         data: [{ offer_id: seededThresholdOfferId }],
+        error: null,
+      }));
+      stub.setRpcHandler?.('car_coupon_quote', async (params: any) => ({
+        data: [{
+          is_valid: true,
+          message: 'Coupon applied',
+          coupon_id: 'coupon-public-ui',
+          coupon_code: String(params.p_coupon_code || '').toUpperCase(),
+          discount_type: 'fixed',
+          discount_value: 10,
+          base_rental_price: Number(params.p_base_rental_price || 0),
+          discount_amount: 10,
+          final_rental_price: Number(params.p_base_rental_price || 0) - 10,
+          currency: 'EUR',
+          partner_id: null,
+          partner_commission_bps_override: null,
+        }],
+        error: null,
+      }));
+      stub.setRpcHandler?.('validate_referral_code_public', async (params: any) => ({
+        data: { ok: true, referral_code: String(params.p_code || ''), matched_by: 'code' },
         error: null,
       }));
       stub.setRpcHandler?.('resolve_car_threshold_authoritative_quote', async (params: any) => {
@@ -347,6 +369,64 @@ async function requestSafetySnapshot(page: Page) {
 }
 
 test.describe('Car Rental Multi-City Stage 2E public hybrid rendering', () => {
+  test('threshold vehicle uses explicit deposit claims and compact coupon/referral tools responsively', async ({ page }) => {
+    await seedThresholdHybrid(page);
+    await page.goto('/car.html?lang=en', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => typeof (window as any).CE_CAR_GET_CURRENT_FLEET === 'function');
+    await configureCarPage(page, 'ayia-napa', 'ayia-napa', '2026-09-17');
+    await page.locator(`[data-select-car-offer-id="${THRESHOLD_OFFER}"]`).click();
+
+    const tools = page.locator('[data-car-optional-tools]');
+    const coupon = page.locator('[data-car-optional-panel="coupon"]');
+    const referral = page.locator('[data-car-optional-panel="referral"]');
+    await expect(tools).toBeVisible();
+    await expect(coupon).not.toHaveAttribute('open', '');
+    await expect(referral).not.toHaveAttribute('open', '');
+    expect(await tools.evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(' ').length)).toBe(2);
+
+    await coupon.locator('summary').click();
+    await page.locator('#res_coupon_code').fill('SAVE10');
+    await page.locator('#btnApplyCoupon').click();
+    await expect(coupon.locator('summary')).toContainText('✓ Coupon SAVE10');
+    await coupon.locator('summary').click();
+    await coupon.locator('summary').click();
+    await expect(page.locator('#res_coupon_code')).toHaveValue('SAVE10');
+    await expect(page.locator('#btnClearCoupon')).toBeVisible();
+    await page.locator('#btnClearCoupon').click();
+    await expect(coupon.locator('summary')).toHaveText('I have a coupon code');
+
+    await referral.locator('summary').click();
+    await page.locator('#res_referral_code').fill('FRIEND');
+    await page.locator('#res_referral_code').blur();
+    await expect(referral.locator('summary')).toContainText('✓ Referral: FRIEND');
+    await referral.locator('summary').click();
+    await referral.locator('summary').click();
+    await expect(page.locator('#res_referral_code')).toHaveValue('FRIEND');
+    await expect(page.locator('#carReferralClear')).toBeVisible();
+    await page.locator('#carReferralClear').click();
+    await expect(referral.locator('summary')).toHaveText('I have a referral code');
+
+    await page.locator('#carHomeModal .modal-close').click();
+    await page.locator(`[data-select-car-offer-id="${THRESHOLD_OFFER}"]`).click();
+    const reopenedReferral = page.locator('[data-car-optional-panel="referral"]');
+    await reopenedReferral.locator('summary').click();
+    await page.locator('#res_referral_code').fill('REOPENED');
+    await page.locator('#res_referral_code').blur();
+    await expect(reopenedReferral.locator('summary')).toContainText('✓ Referral: REOPENED');
+
+    await page.locator('#res_full_name').fill('Referral Lifecycle');
+    await page.locator('#res_email').fill('referral-lifecycle@example.test');
+    await page.locator('#res_phone_local').fill('99111222');
+    await page.locator('#btnSubmitReservation').click();
+    await expect(page.locator('#reservationSuccess')).toBeVisible();
+    await expect(page.locator('#res_referral_code')).toHaveValue('');
+    await expect(reopenedReferral.locator('summary')).toHaveText('I have a referral code');
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.locator('[data-car-optional-tools]').evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(' ').length)).toBe(1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+  });
+
   test('exact Snipper uses one 7-day quote on car.html and homepage and remains a pending request', async ({ page }) => {
     const errors = ownSourceErrors(page);
     await seedThresholdHybrid(page);
@@ -386,6 +466,7 @@ test.describe('Car Rental Multi-City Stage 2E public hybrid rendering', () => {
     }));
     expect(carPage.orderedTotals).toEqual([...carPage.orderedTotals].sort((left, right) => left - right));
     await expect(page.locator(`[data-select-car-offer-id="${THRESHOLD_OFFER}"] .auto-card-price`)).toContainText('490.00');
+    await expect(page.locator(`[data-select-car-offer-id="${THRESHOLD_OFFER}"] [data-security-deposit-state]`)).toHaveCount(0);
     await page.locator(`[data-select-car-offer-id="${THRESHOLD_OFFER}"]`).click();
     await expect(page.locator('#res_car option:checked')).toHaveAttribute('data-offer-id', THRESHOLD_OFFER);
     await expect(page.locator('.ce-car-home-hero-price')).toContainText('490.00');
@@ -394,7 +475,9 @@ test.describe('Car Rental Multi-City Stage 2E public hybrid rendering', () => {
     await expect(page.locator('.ce-car-home-details')).toContainText('Minimum age');
     await expect(page.locator('.ce-car-home-details')).toContainText('18+');
     await expect(page.locator('#res_child_seats')).toHaveCount(0);
-    await expect(page.getByText('Insurance is included in this offer price.', { exact: true })).toBeVisible();
+    await expect(page.locator('#res_young_driver')).toHaveCount(0);
+    await expect(page.locator('.ce-car-home-hero-badges [data-security-deposit-state]')).toHaveCount(0);
+    await expect(page.getByText('Insurance included', { exact: true })).toBeVisible();
     await page.locator('#res_full_name').fill('Threshold Request');
     await page.locator('#res_email').fill('threshold-request@example.test');
     await page.locator('#res_phone_local').fill('99111222');

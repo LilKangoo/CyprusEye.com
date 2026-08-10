@@ -1084,6 +1084,51 @@ export function createClient() {
       if (name === 'admin_get_user_details') {
         return getAdminUserDetails(params);
       }
+      if (name === 'submit_car_booking_request') {
+        const submissionKey = String(params?.p_submission_key || '').trim();
+        const payload = clone(params?.p_booking || {});
+        if (!submissionKey) {
+          return { data: null, error: { message: 'car_booking_submission_key_required' } };
+        }
+        const existing = getTableRows('car_bookings')
+          .find((row) => String(row?.public_submission_key || '') === submissionKey);
+        if (existing) {
+          return {
+            data: [{
+              booking_id: existing.id,
+              booking_reference: existing.booking_reference,
+              booking_status: existing.status,
+              idempotent: true,
+            }],
+            error: null,
+          };
+        }
+
+        const bookingId = globalThis.crypto?.randomUUID?.()
+          || `00000000-0000-4000-8000-${Math.random().toString(16).slice(2, 14).padEnd(12, '0')}`;
+        const bookingReference = `CAR-${bookingId.replace(/-/g, '').slice(0, 8).toLowerCase()}`;
+        const row = {
+          ...payload,
+          id: bookingId,
+          booking_reference: bookingReference,
+          public_submission_key: submissionKey,
+          status: 'pending',
+          payment_status: 'unpaid',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        recordMutation('car_bookings', 'insert', payload, []);
+        setTableRows('car_bookings', [...getTableRows('car_bookings'), row]);
+        return {
+          data: [{
+            booking_id: bookingId,
+            booking_reference: bookingReference,
+            booking_status: 'pending',
+            idempotent: false,
+          }],
+          error: null,
+        };
+      }
       return { data: null, error: { message: `RPC not implemented in Supabase stub: ${name}` } };
     },
     storage: {

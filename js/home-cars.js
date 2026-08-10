@@ -27,6 +27,10 @@ import {
 } from '/js/car-rental-availability-adapter.js';
 import { calculateRentalDaysFromLocalDateTimes } from '/js/car-rental-duration-contract.js';
 import { createCarRentalAvailabilityRepository } from '/js/car-rental-availability-repository.js';
+import {
+  resolveCarSecurityDepositPresentation,
+  resolveGenericVehicleCopy,
+} from '/js/car-rental-public-presentation.js';
 
 let allHomeCars = [];
 let homeCarsById = {};
@@ -483,9 +487,9 @@ function renderFinderStatus() {
 
   if (!String(state.pickupLocation || '').trim() || !String(state.returnLocation || '').trim()) {
     statusEl.textContent = text(
-      'Wybierz odbiór i zwrot, aby system dobrał właściwą ofertę i odblokował auta.',
-      'Choose pickup and return so the system can resolve the correct offer and unlock cars.',
-      'בחרו נקודת איסוף והחזרה כדי שהמערכת תבחר את ההצעה הנכונה ותפתח את הרכבים.'
+      'Wybierz odbiór i zwrot, aby system dobrał właściwą ofertę i odblokował pojazdy.',
+      'Choose pickup and return so the system can resolve the correct offer and unlock vehicles.',
+      'בחרו נקודת איסוף והחזרה כדי שהמערכת תבחר את ההצעה הנכונה ותציג את כלי הרכב.'
     );
     return;
   }
@@ -510,18 +514,18 @@ function renderFinderStatus() {
       return;
     }
     statusEl.textContent = text(
-      'Uzupełnij trasę i daty. Lista aut zaktualizuje się automatycznie.',
-      'Complete route and dates. Car list will refresh automatically.',
-      'השלימו מסלול ותאריכים. רשימת הרכבים תתעדכן אוטומטית.'
+      'Uzupełnij trasę i daty. Lista pojazdów zaktualizuje się automatycznie.',
+      'Complete route and dates. Vehicle list will refresh automatically.',
+      'השלימו מסלול ותאריכים. רשימת כלי הרכב תתעדכן אוטומטית.'
     );
     return;
   }
 
   if (offer.forcedToLarnaca) {
     statusEl.textContent = text(
-      'Młody kierowca jest dostępny tylko w ofercie Larnaka / cały Cypr, dlatego flota została automatycznie przełączona z Pafos.',
-      'Young driver is available only in the Larnaca / island-wide offer, so the fleet was switched automatically from Paphos.',
-      'נהג צעיר זמין רק בהצעת לרנקה / כל האי, לכן הצי הוחלף אוטומטית מפאפוס.'
+      'Dostępność dla młodego kierowcy jest sprawdzana osobno dla każdego pojazdu. Pokazujemy tylko kwalifikujące się oferty.',
+      'Young-driver availability is checked separately for each vehicle. Only eligible offers are shown.',
+      'זמינות לנהג צעיר נבדקת בנפרד לכל כלי רכב. מוצגות רק הצעות מתאימות.'
     );
     statusEl.classList.add('is-warning');
     return;
@@ -529,9 +533,9 @@ function renderFinderStatus() {
 
   statusEl.classList.add(offer.offer === 'paphos' ? 'is-paphos' : 'is-larnaca');
   statusEl.textContent = text(
-    `Aktywna oferta: ${offerLabel}. Lista aut jest dobierana automatycznie wyłącznie z trasy.`,
-    `Active offer: ${offerLabel}. Car list is selected automatically from your route only.`,
-    `הצעה פעילה: ${offerLabel}. רשימת הרכבים נבחרת אוטומטית לפי המסלול בלבד.`
+    `Aktywna oferta: ${offerLabel}. Lista pojazdów jest dobierana automatycznie wyłącznie z trasy.`,
+    `Active offer: ${offerLabel}. Vehicle list is selected automatically from your route only.`,
+    `הצעה פעילה: ${offerLabel}. רשימת כלי הרכב נבחרת אוטומטית לפי המסלול בלבד.`
   );
 }
 
@@ -567,11 +571,11 @@ function renderHomeCarsFinder() {
     <div class="home-cars-finder-accordion is-open">
       <div class="home-cars-finder-panel">
         <div class="home-cars-finder-panel__header">
-          <h3>${escapeHtml(text('Znajdź auto w 15 sekund', 'Find your car in 15 seconds', 'מצאו רכב ב-15 שניות'))}</h3>
+          <h3>${escapeHtml(text('Znajdź pojazd w 15 sekund', 'Find a vehicle in 15 seconds', 'מצאו כלי רכב ב-15 שניות'))}</h3>
           <p>${escapeHtml(text(
-            'Najpierw wybierz trasę i termin. Dopiero potem pokażemy dostępne auta z właściwej oferty.',
-            'Choose route and timing first. We will unlock matching cars only after the route is complete.',
-            'בחרו קודם מסלול וזמנים. נציג רכבים מתאימים רק אחרי שהמסלול יושלם.'
+            'Najpierw wybierz trasę i termin. Dopiero potem pokażemy dostępne pojazdy z właściwej oferty.',
+            'Choose route and timing first. We will unlock matching vehicles only after the route is complete.',
+            'בחרו קודם מסלול וזמנים. נציג כלי רכב מתאימים רק אחרי שהמסלול יושלם.'
           ))}</p>
         </div>
 
@@ -619,7 +623,7 @@ function renderHomeCarsFinder() {
               </label>
               <label class="home-cars-finder-checkbox">
                 <input id="carsFinderYoungDriver" type="checkbox" ${state.youngDriver ? 'checked' : ''} />
-                <span>${escapeHtml(text('Młody kierowca (cena zależy od wybranego auta)', 'Young driver (price depends on the selected car)', 'נהג צעיר (המחיר תלוי ברכב שנבחר)'))}</span>
+                <span>${escapeHtml(text('Młody kierowca (cena zależy od wybranego pojazdu)', 'Young driver (price depends on the selected vehicle)', 'נהג צעיר (המחיר תלוי בכלי הרכב שנבחר)'))}</span>
               </label>
             </div>
           </div>
@@ -722,7 +726,7 @@ function buildQuoteForCarWithFinder(car, finderState) {
     pickupLocation,
     returnLocation,
     fullInsurance: !!finderState.fullInsurance,
-    youngDriver: location === 'larnaca' && !!finderState.youngDriver,
+    youngDriver: car?.young_driver_fee === true && !!finderState.youngDriver,
     offerRow: car,
   });
 }
@@ -743,7 +747,7 @@ function renderHomeCarsTabs() {
   const offer = evaluateFinderOffer(homeCarsFinderState || buildDefaultFinderState());
   const routeReady = String(homeCarsFinderState?.pickupLocation || '').trim() && String(homeCarsFinderState?.returnLocation || '').trim();
   const offerLabel = !routeReady
-    ? text('Wybierz trasę, aby odblokować auta', 'Choose route to unlock cars', 'בחרו מסלול כדי לפתוח רכבים')
+    ? text('Wybierz trasę, aby odblokować pojazdy', 'Choose route to unlock vehicles', 'בחרו מסלול כדי לפתוח כלי רכב')
     : offer.offer === 'paphos'
       ? text('Aktywna oferta: strefa Pafos', 'Active offer: Paphos zone', 'הצעה פעילה: אזור פאפוס')
       : text('Aktywna oferta: cały Cypr', 'Active offer: island-wide', 'הצעה פעילה: כל קפריסין');
@@ -864,14 +868,14 @@ function renderHomeCars() {
         <p>${escapeHtml(
           finderState.youngDriver
             ? text(
-              `Brak aut dla ${passengerCount} pasażerów z opcją młodego kierowcy w tym ustawieniu`,
-              `No cars available for ${passengerCount} passengers with young driver enabled in the current setup`,
-              `אין רכבים זמינים ל-${passengerCount} נוסעים עם נהג צעיר בהגדרה הנוכחית`
+              `Brak pojazdów dla ${passengerCount} pasażerów z opcją młodego kierowcy w tym ustawieniu`,
+              `No vehicles available for ${passengerCount} passengers with young driver enabled in the current setup`,
+              `אין כלי רכב זמינים ל-${passengerCount} נוסעים עם נהג צעיר בהגדרה הנוכחית`
             )
             : text(
-              `Brak aut dla ${passengerCount} pasażerów w tym ustawieniu`,
-              `No cars available for ${passengerCount} passengers in current setup`,
-              `אין רכבים זמינים ל-${passengerCount} נוסעים בהגדרה הנוכחית`
+              `Brak pojazdów dla ${passengerCount} pasażerów w tym ustawieniu`,
+              `No vehicles available for ${passengerCount} passengers in current setup`,
+              `אין כלי רכב זמינים ל-${passengerCount} נוסעים בהגדרה הנוכחית`
             )
         )}</p>
       </div>
@@ -881,8 +885,7 @@ function renderHomeCars() {
   }
 
   homeCarsLastQuoteByCarId = {};
-  const noDepositLabel = text('Bez kaucji', 'No deposit', 'ללא פיקדון');
-  const requestOnlyLabel = text('Wymaga potwierdzenia partnera', 'Partner confirmation required', 'נדרש אישור שותף');
+  const vehicleCopy = resolveGenericVehicleCopy(getLang());
   const totalLabel = text('Razem', 'Total', 'סה״כ');
   const daysLabel = text('dni', 'days', 'ימים');
   const fromLabel = text('Od', 'From', 'מ-');
@@ -917,6 +920,7 @@ function renderHomeCars() {
         ? text('Manual', 'Manual', 'ידני')
         : text('Nie dotyczy', 'Not applicable', 'לא רלוונטי');
     const thresholdOffer = car?.pricing_strategy === 'threshold_daily_rate';
+    const securityDeposit = resolveCarSecurityDepositPresentation(car, getLang());
     const seats = Number(car?.max_passengers);
     const seatsText = Number.isInteger(seats) && seats > 0
       ? text(`${seats} miejsc`, `${seats} seats`, `${seats} מושבים`)
@@ -937,7 +941,7 @@ function renderHomeCars() {
         data-car-offer-id="${escapeHtml(car.id)}"
         onclick="openCarHomeModal('${escapeHtml(car.id)}'); return false;"
       >
-        <div class="ce-home-featured-badge">${thresholdOffer ? 'ℹ️' : '🚗'} ${escapeHtml(thresholdOffer ? requestOnlyLabel : noDepositLabel)}</div>
+        ${securityDeposit.visible ? `<div class="ce-home-featured-badge" data-security-deposit-state="${escapeHtml(securityDeposit.state)}">${escapeHtml(securityDeposit.label)}</div>` : ''}
         <button
           type="button"
           class="ce-save-star ce-home-card-star"
@@ -959,7 +963,7 @@ function renderHomeCars() {
           onerror="this.onerror=null; this.src=this.dataset.originalSrc || '/assets/cyprus_logo-128.png'"
         />
         <div class="ce-home-card-overlay">
-          <h3 class="ce-home-card-title">${escapeHtml(title)}</h3>
+          <h3 class="ce-home-card-title" aria-label="${escapeHtml(vehicleCopy.singular)}: ${escapeHtml(title)}">${escapeHtml(title)}</h3>
           <p class="ce-home-card-subtitle">${escapeHtml(quoteLine)}</p>
         </div>
       </a>
@@ -975,9 +979,9 @@ function renderHomeCars() {
       emptyHtml: `
         <div style="flex: 0 0 100%; text-align: center; padding: 40px 20px; color: #9ca3af;">
           <p>${escapeHtml(text(
-            `Brak aut dla ${passengerCount} pasażerów w tym ustawieniu`,
-            `No cars available for ${passengerCount} passengers in current setup`,
-            `אין רכבים זמינים ל-${passengerCount} נוסעים בהגדרה הנוכחית`
+            `Brak pojazdów dla ${passengerCount} pasażerów w tym ustawieniu`,
+            `No vehicles available for ${passengerCount} passengers in current setup`,
+            `אין כלי רכב זמינים ל-${passengerCount} נוסעים בהגדרה הנוכחית`
           ))}</p>
         </div>
       `,
@@ -1064,6 +1068,7 @@ function setBodyCarLocation(next) {
 function buildReservationFormHtml({ location, selectedCarId, prefill = null }) {
   const loc = location === 'paphos' ? 'paphos' : 'larnaca';
   const cars = homeCarsByLocation[loc] || [];
+  const selectedCar = cars.find((car) => String(car?.id || '') === String(selectedCarId || '')) || null;
 
   const today = new Date();
   const pickupDefault = today.toISOString().split('T')[0];
@@ -1075,7 +1080,8 @@ function buildReservationFormHtml({ location, selectedCarId, prefill = null }) {
   const pickupTimeValue = String(prefill?.pickupTime || '10:00');
   const returnTimeValue = String(prefill?.returnTime || '10:00');
   const insuranceChecked = !!prefill?.fullInsurance;
-  const youngDriverChecked = loc === 'larnaca' && !!prefill?.youngDriver;
+  const youngDriverAllowed = selectedCar?.young_driver_fee === true;
+  const youngDriverChecked = youngDriverAllowed && !!prefill?.youngDriver;
   const passengersValue = Math.max(1, Number(prefill?.passengers || 2));
 
   const optionsHtml = cars.map((car) => {
@@ -1089,7 +1095,7 @@ function buildReservationFormHtml({ location, selectedCarId, prefill = null }) {
     return `<option value="${escapeHtml(title)}" data-offer-id="${escapeHtml(car.id)}" ${String(car.id) === String(selectedCarId) ? 'selected' : ''}>${escapeHtml(title)} — ${escapeHtml(transmission)} • ${escapeHtml(seatsText)}</option>`;
   }).join('');
 
-  const youngDriverBlock = loc === 'larnaca'
+  const youngDriverBlock = youngDriverAllowed
     ? `
       <div class="auto-checkbox">
         <input type="checkbox" id="res_young_driver" name="young_driver" ${youngDriverChecked ? 'checked' : ''}>
@@ -1110,6 +1116,7 @@ function buildReservationFormHtml({ location, selectedCarId, prefill = null }) {
   const couponPlaceholder = text('Wpisz kod kuponu', 'Enter coupon code', 'הזינו קוד קופון');
   const couponApplyLabel = text('Zastosuj', 'Apply', 'החל');
   const couponClearLabel = text('Wyczyść', 'Clear', 'נקה');
+  const couponSummaryLabel = text('Mam kod kuponu', 'I have a coupon code', 'יש לי קוד קופון');
   const selectedPickupLocation = loc === 'paphos'
     ? normalizePaphosLocation(prefill?.pickupLocation)
     : (isPaphosSpecificCarLocationValue(prefill?.pickupLocation)
@@ -1178,7 +1185,7 @@ function buildReservationFormHtml({ location, selectedCarId, prefill = null }) {
         </div>
         <div class="auto-form-grid">
           <div class="auto-field">
-            <label for="res_car" data-i18n="${i18nPrefix}.fields.car.label">Wybierz auto *</label>
+            <label for="res_car">${escapeHtml(`${resolveGenericVehicleCopy(getLang()).select} *`)}</label>
             <select id="res_car" name="car" required>
               <option value="" data-i18n="${i18nPrefix}.fields.car.loading">Ładowanie...</option>
               ${optionsHtml}
@@ -1268,16 +1275,19 @@ function buildReservationFormHtml({ location, selectedCarId, prefill = null }) {
         </div>
       </section>
 
-      <div class="auto-coupon-panel" aria-live="polite">
-        <div class="auto-field">
-          <label for="res_coupon_code" data-i18n="carRental.page.reservation.coupon.label">${escapeHtml(couponLabel)}</label>
-          <div class="auto-coupon-row">
-            <input type="text" id="res_coupon_code" name="coupon_code" placeholder="${escapeHtml(couponPlaceholder)}" data-i18n-attrs="placeholder:carRental.page.reservation.coupon.placeholder" autocomplete="off" spellcheck="false">
-            <button type="button" class="btn btn-secondary secondary" id="btnApplyCoupon" data-i18n="carRental.page.reservation.coupon.apply">${escapeHtml(couponApplyLabel)}</button>
-            <button type="button" class="btn ghost" id="btnClearCoupon" hidden data-i18n="carRental.page.reservation.coupon.clear">${escapeHtml(couponClearLabel)}</button>
+      <div class="auto-optional-tools-grid" data-car-optional-tools>
+        <details class="auto-coupon-panel auto-optional-panel" data-car-optional-panel="coupon">
+          <summary class="auto-optional-panel__summary">${escapeHtml(couponSummaryLabel)}</summary>
+          <div class="auto-field auto-optional-panel__body" aria-live="polite">
+            <label for="res_coupon_code" data-i18n="carRental.page.reservation.coupon.label">${escapeHtml(couponLabel)}</label>
+            <div class="auto-coupon-row">
+              <input type="text" id="res_coupon_code" name="coupon_code" placeholder="${escapeHtml(couponPlaceholder)}" data-i18n-attrs="placeholder:carRental.page.reservation.coupon.placeholder" autocomplete="off" spellcheck="false">
+              <button type="button" class="btn btn-secondary secondary" id="btnApplyCoupon" data-i18n="carRental.page.reservation.coupon.apply">${escapeHtml(couponApplyLabel)}</button>
+              <button type="button" class="btn ghost" id="btnClearCoupon" hidden data-i18n="carRental.page.reservation.coupon.clear">${escapeHtml(couponClearLabel)}</button>
+            </div>
+            <p id="couponStatusMessage" class="auto-coupon-status" hidden></p>
           </div>
-          <p id="couponStatusMessage" class="auto-coupon-status" hidden></p>
-        </div>
+        </details>
       </div>
 
       <div id="estimatedPrice" class="auto-estimated-price"></div>
@@ -1324,7 +1334,7 @@ function buildModalPrefillForLocation(location) {
     pickupLocation,
     returnLocation,
     fullInsurance: !!finderState.fullInsurance,
-    youngDriver: loc === 'larnaca' && !!finderState.youngDriver,
+    youngDriver: !!finderState.youngDriver,
     passengers: Math.max(1, Number(finderState.passengers || defaults.passengers || 2)),
   };
 }
@@ -1341,9 +1351,7 @@ function buildContextualHomeModalPrefill(car, location) {
     returnPlaceType: context.returnPlaceType,
     pickupLocation: context.pickupLegacyPricingLocation,
     returnLocation: context.returnLegacyPricingLocation,
-    youngDriver: context.pricingStrategy === 'threshold_daily_rate'
-      ? car?.young_driver_fee === true && (homeCarsFinderState?.youngDriver === true)
-      : context.calculatorKey === 'larnaca' && prefill.youngDriver,
+    youngDriver: car?.young_driver_fee === true && (homeCarsFinderState?.youngDriver === true),
   };
 }
 
@@ -1447,7 +1455,7 @@ async function loadHomeCars() {
     if (grid) {
       grid.innerHTML = `
         <div style="flex: 0 0 100%; text-align: center; padding: 40px 20px; color: #ef4444;">
-        <p>${escapeHtml(text('Błąd ładowania aut', 'Failed to load cars', 'טעינת הרכבים נכשלה'))}</p>
+        <p>${escapeHtml(text('Błąd ładowania pojazdów', 'Failed to load vehicles', 'טעינת כלי הרכב נכשלה'))}</p>
         </div>
       `;
     }

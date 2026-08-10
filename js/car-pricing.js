@@ -87,14 +87,6 @@ export function resolveCarYoungDriverConfig({
   youngDriverAllowed = null,
   youngDriverDailyCost = null,
 } = {}) {
-  const normalizedOffer = normalizeOfferLocation(offerLocation);
-  if (normalizedOffer !== 'larnaca') {
-    return {
-      allowed: false,
-      dailyCost: 0,
-    };
-  }
-
   const rawAllowed = youngDriverAllowed == null
     ? offerRow?.young_driver_fee
     : youngDriverAllowed;
@@ -186,7 +178,7 @@ export function calculateCarRentalQuote({
     youngDriverAllowed,
     youngDriverDailyCost,
   });
-  const youngDriverApplied = normalizedOffer === 'larnaca' && !!youngDriver && youngDriverConfig.allowed;
+  const youngDriverApplied = !!youngDriver && youngDriverConfig.allowed;
   const youngDriverCost = youngDriverApplied ? youngDriverConfig.dailyCost * days : 0;
 
   const total = basePrice + pickupFee + returnFee + insuranceCost + youngDriverCost;

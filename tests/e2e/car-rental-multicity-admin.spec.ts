@@ -664,7 +664,7 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     await openAction(page, 'vehicle');
     await expect(page.locator('#carMulticityModalContent')).toContainText('Payment due at booking');
     await expect(page.locator('#carMulticityModalContent')).toContainText('Exact offer override');
-    await expect(page.locator('#carMulticityModalContent')).toContainText('50 EUR');
+    await expect(page.locator('#carMulticityModalContent')).toContainText('€50');
     await clearMutations(page);
     await page.locator('[data-media-action="manage-deposit"]').click();
     await expect(page.locator('#carMulticityModal')).toBeHidden();
@@ -674,6 +674,44 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     await expect(page.locator('#depositOverrideSearch')).toHaveValue(OFFER_ID);
     await expect(page.locator('#depositOverrideResourceSelect')).toHaveValue(OFFER_ID);
     expect(await page.evaluate(() => (window as any).__supabaseStub.getMutationCalls())).toEqual([]);
+  });
+
+  test('payment percent uses percent units while security deposit saves independently', async ({ page }) => {
+    await page.evaluate((offerId) => {
+      const stub = (window as any).__supabaseStub;
+      stub.seedTable('service_deposit_overrides', [{
+        id: 'deposit-offer-override', resource_type: 'cars', resource_id: offerId,
+        mode: 'percent_total', amount: 15, currency: 'EUR', include_children: true,
+        enabled: true, updated_at: '2026-08-10T10:00:00.000Z',
+      }]);
+    }, OFFER_ID);
+    await openAction(page, 'pricing');
+    await expect(page.locator('#carMulticityModalContent')).toContainText('15%');
+    await expect(page.locator('#carMulticityModalContent')).not.toContainText('15 EUR');
+    await expect(page.locator('#carMulticitySecurityDepositMode')).toHaveValue('amount');
+    await expect(page.locator('#carMulticitySecurityDepositAmount')).toHaveValue('200');
+
+    await page.locator('#carMulticitySecurityDepositMode').selectOption('none');
+    await expect(page.locator('#carMulticitySecurityDepositAmount')).toBeDisabled();
+    await page.locator('#carMulticityReview').click();
+    await expect(page.locator('#carMulticityModalContent')).toContainText('Security deposit — separate from payment due at booking');
+    await expect(page.locator('#carMulticityModalContent')).toContainText('deposit_amount');
+    await page.locator('#carMulticitySave').click();
+    await page.locator('#carMulticityConfirmAccept').click();
+    await expect(page.locator('#carMulticityReceiptHeading')).toHaveText('Saved');
+
+    const result = await page.evaluate((offerId) => {
+      const stub = (window as any).__supabaseStub;
+      return {
+        offer: stub.getTableRows('car_offers').find((row: any) => row.id === offerId),
+        override: stub.getTableRows('service_deposit_overrides').find((row: any) => row.resource_id === offerId),
+        mutations: stub.getMutationCalls(),
+      };
+    }, OFFER_ID);
+    expect(result.offer.deposit_amount).toBe(0);
+    expect(result.override).toEqual(expect.objectContaining({ mode: 'percent_total', amount: 15 }));
+    expect(result.mutations.filter((call: any) => call.table === 'car_offers' && call.action === 'update')).toHaveLength(1);
+    expect(result.mutations.some((call: any) => ['service_deposit_rules', 'service_deposit_overrides', 'car_bookings'].includes(call.table))).toBe(false);
   });
 
   test('modern wizard has stepper, sticky actions, responsive layout and focus restore', async ({ page }) => {
@@ -1025,7 +1063,8 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     await page.locator('[data-draft-field="pricing.pricePerDay"]').fill('42');
     await expect(page.locator('#carMulticityModalContent')).toContainText('Cars default rule');
     await expect(page.locator('#carMulticityModalContent')).toContainText('Per day');
-    await expect(page.locator('[data-draft-field="pricing.depositAmount"]')).toHaveCount(0);
+    await expect(page.locator('#carMulticitySecurityDepositMode')).toHaveValue('unspecified');
+    await expect(page.locator('#carMulticitySecurityDepositAmount')).toBeDisabled();
     await page.locator('#carMulticityNext').click();
     await expect(page.locator(`[data-city-id="${CITY_LARNACA}"] [data-availability-field="pickup_enabled"]`)).toBeChecked();
     await expect(page.locator(`[data-city-id="${CITY_LARNACA}"] [data-availability-field="return_enabled"]`)).toBeChecked();
@@ -1050,7 +1089,7 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
       };
     });
     expect(result.created).toEqual(expect.objectContaining({ availability_mode: 'legacy', location: 'larnaca', pricing_profile_id: PROFILE_LARNACA }));
-    expect(result.created).not.toHaveProperty('deposit_amount');
+    expect(result.created).toHaveProperty('deposit_amount', null);
     expect(result.availability).toHaveLength(1);
     expect(result.availability[0].city_id).toBe(CITY_LARNACA);
     expect(result.mutations.some((call: any) => ['car_bookings', 'service_deposit_overrides', 'partner_service_fulfillments', 'service_coupons', 'coupons'].includes(call.table))).toBe(false);

@@ -482,7 +482,7 @@ describe('Car Rental Multi-City Stage 2C repository', () => {
     expect(created?.location).toBe('larnaca');
     expect(memory.tables.site_settings[0].car_multi_city_mapped_enabled).toBe(false);
     expect(memory.mutations.some((mutation) => ['car_bookings', 'service_deposit_overrides', 'partner_resources'].includes(mutation.table))).toBe(false);
-    expect(created).not.toHaveProperty('deposit_amount');
+    expect(created).toHaveProperty('deposit_amount', null);
   });
 
   test('threshold create executes exact offer, tiers, finalization, then availability without activating flags', async () => {

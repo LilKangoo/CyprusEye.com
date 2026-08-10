@@ -33127,6 +33127,13 @@ function getCarsBookingEffectiveState(booking, paidDepositMap = {}) {
   };
 }
 
+function getCarBookingPublicReference(booking) {
+  const persisted = String(booking?.booking_reference || '').trim();
+  if (/^CAR-[0-9a-f]{8}$/.test(persisted)) return persisted;
+  const internalId = String(booking?.id || '').trim().toLowerCase();
+  return internalId ? `CAR-${internalId.replace(/-/g, '').slice(0, 8)}` : 'CAR-unknown';
+}
+
 async function loadCarsData(options = {}) {
   const { silent = false, showSuccessToast = false } = options;
   try {
@@ -33251,11 +33258,12 @@ async function loadCarsData(options = {}) {
       const couponBadge = priceMeta.couponCode
         ? `<div style="font-size: 10px; color: #2563eb; margin-top: 2px;">Coupon ${escapeHtml(priceMeta.couponCode)}</div>`
         : '';
+      const bookingReference = getCarBookingPublicReference(booking);
       
       return `
         <tr>
           <td>
-            <div style="font-weight: 600;">#${booking.id.slice(0, 8).toUpperCase()}</div>
+            <div style="font-weight: 600;">#${escapeHtml(bookingReference)}</div>
             <div style="font-size: 11px; color: var(--admin-text-muted); margin-top: 2px;">
               ${pickupLoc} → ${returnLoc}
             </div>
@@ -33489,6 +33497,7 @@ async function viewCarBookingDetails(bookingId) {
     const pickupDate = booking.pickup_date ? new Date(booking.pickup_date).toLocaleDateString('en-GB') : 'N/A';
     const returnDate = booking.return_date ? new Date(booking.return_date).toLocaleDateString('en-GB') : 'N/A';
     const createdAt = booking.created_at ? new Date(booking.created_at).toLocaleString('en-GB') : 'N/A';
+    const bookingReference = getCarBookingPublicReference(booking);
     
     // Calculate rental days (combine date + time for accurate calculation)
     let days = 0;
@@ -33805,7 +33814,7 @@ async function viewCarBookingDetails(bookingId) {
         <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
           <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px;">
             <div>
-              <h4 style="margin: 0; font-size: 16px; font-weight: 600;">Booking #${booking.id.slice(0, 8).toUpperCase()}</h4>
+              <h4 style="margin: 0; font-size: 16px; font-weight: 600;">Booking #${escapeHtml(bookingReference)}</h4>
               <p style="margin: 4px 0 0; font-size: 12px; color: var(--admin-text-muted);">Created: ${createdAt}</p>
             </div>
             <div style="display: flex; align-items: center; gap: 12px;">
@@ -36169,7 +36178,7 @@ function openFleetCarModal(carData = null) {
       $('#fleetCarPrice10PlusDays').value = carData.price_10plus_days || '';
     }
     
-    $('#fleetCarDeposit').value = carData.deposit_amount || 200;
+    $('#fleetCarDeposit').value = carData.deposit_amount ?? '';
     $('#fleetCarInsurance').value = carData.insurance_per_day || 17;
     const fleetCarYoungDriverAllowed = $('#fleetCarYoungDriverAllowed');
     const fleetCarYoungDriverCost = $('#fleetCarYoungDriverCost');
@@ -36640,6 +36649,12 @@ async function handleFleetCarSubmit(event) {
     }
     
     // Build car object
+    const securityDepositRaw = String($('#fleetCarDeposit')?.value ?? '').trim();
+    const securityDepositAmount = securityDepositRaw === '' ? null : Number(securityDepositRaw);
+    if (securityDepositAmount !== null && (!Number.isFinite(securityDepositAmount) || securityDepositAmount < 0)) {
+      throw new Error('Security / Damage Deposit must be zero or greater, or left blank when not specified');
+    }
+
     const carData = {
       location: location,
       car_type: $('#fleetCarType').value,
@@ -36650,7 +36665,7 @@ async function handleFleetCarSubmit(event) {
       max_luggage: parseInt($('#fleetCarMaxLuggage').value) || 2,
       stock_count: parseInt($('#fleetCarStockCount').value) || 1,
       sort_order: parseInt($('#fleetCarSortOrder').value) || 1000,
-      deposit_amount: parseFloat($('#fleetCarDeposit').value) || 0,
+      deposit_amount: securityDepositAmount,
       insurance_per_day: parseFloat($('#fleetCarInsurance').value) || 0,
       young_driver_fee: location === 'larnaca' ? !!fleetCarYoungDriverAllowed?.checked : false,
       young_driver_cost: location === 'larnaca'

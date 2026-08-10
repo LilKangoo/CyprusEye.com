@@ -547,7 +547,7 @@ function renderOfferIndicators(widgetState) {
   if (state.forcedToLarnaca) {
     info.textContent = tr(
       'carRentalLanding.offer.info.youngDriverOnlyLarnaca',
-      'Młody kierowca jest dostępny tylko dla floty Larnaka / cały Cypr, dlatego oferta została przełączona automatycznie.',
+      'Dostępność dla młodego kierowcy jest sprawdzana osobno dla każdego pojazdu. Pokazujemy tylko kwalifikujące się oferty.',
     );
     return;
   }
@@ -610,7 +610,7 @@ function renderReservationOfferIndicator(widgetState) {
   const modeDescription = widgetState.youngDriver
     ? (
       state.forcedToLarnaca
-        ? tr('carRentalLanding.reservation.offerMode.youngDriverForcedLarnaca', 'młody kierowca • wymuszona flota Larnaka')
+        ? tr('carRentalLanding.reservation.offerMode.youngDriverForcedLarnaca', 'młody kierowca • filtr dokładnej oferty')
         : tr('carRentalLanding.reservation.offerMode.youngDriver', 'młody kierowca aktywny')
     )
     : state.paphosEligible && state.effectiveOffer === 'paphos'
@@ -676,7 +676,7 @@ function renderSelectedCarHighlight() {
   }
 
   if (meta) {
-    meta.textContent = cardMeta || tr('carRentalLanding.selectedCar.ready', 'Wybrane auto jest gotowe do rezerwacji.');
+    meta.textContent = cardMeta || tr('carRentalLanding.selectedCar.ready', 'Wybrany pojazd jest gotowy do rezerwacji.');
   }
 
   if (price) {
@@ -804,9 +804,7 @@ function buildLandingModalPrefill(widgetState, selectedCar = null) {
       ? context.returnLegacyPricingLocation
       : mapCityToLegacyLocationForPricing(returnCity, state.effectiveOffer, returnPlaceType),
     fullInsurance: !!widgetState.fullInsurance,
-    youngDriver: thresholdOffer
-      ? selectedCar?.young_driver_fee === true && !!widgetState.youngDriver
-      : state.effectiveOffer === 'larnaca' && !!widgetState.youngDriver,
+    youngDriver: selectedCar?.young_driver_fee === true && !!widgetState.youngDriver,
     passengers: parsePassengerCount(widgetState.passengers, 2),
   };
 }
@@ -928,12 +926,10 @@ function syncReservationForm(widgetState) {
         selectedMeta?.offerId,
         selectedMeta?.title || widgetState.carModel,
       );
-      const thresholdOffer = selectedCar?.pricing_strategy === 'threshold_daily_rate'
-        && (selectedCar?.pricingContext || selectedCar?.availabilityContext)?.pricingStrategy === 'threshold_daily_rate';
-      const canUseYoungDriver = thresholdOffer
-        ? selectedCar?.young_driver_fee === true
-        : state.effectiveOffer === 'larnaca';
-      setCheckboxIfChanged(resYoungDriver, canUseYoungDriver && widgetState.youngDriver, 'res_young_driver');
+      const canUseYoungDriver = selectedCar?.young_driver_fee === true;
+      if (!modalOpen) {
+        setCheckboxIfChanged(resYoungDriver, canUseYoungDriver && widgetState.youngDriver, 'res_young_driver');
+      }
       const previousDisabled = !!resYoungDriver.disabled;
       resYoungDriver.disabled = !canUseYoungDriver;
       resYoungDriver.setAttribute('aria-disabled', canUseYoungDriver ? 'false' : 'true');
@@ -1171,7 +1167,6 @@ async function syncWidgetFromReservationForm() {
   const calcReturnLocation = byId('returnLocation');
   const calcPassengers = byId('rentalPassengers');
   const calcInsurance = byId('fullInsurance');
-  const calcYoungDriver = byId('youngDriver');
   const calcCar = byId('rentalCarSelect');
 
   const resPickupDate = byId('res_pickup_date');
@@ -1182,7 +1177,6 @@ async function syncWidgetFromReservationForm() {
   const resReturnLocation = byId('res_return_location');
   const resPassengers = byId('res_passengers');
   const resInsurance = byId('res_insurance');
-  const resYoungDriver = byId('res_young_driver');
   const resCar = byId('res_car');
 
   let changed = false;
@@ -1221,7 +1215,8 @@ async function syncWidgetFromReservationForm() {
   syncSelectValue(calcReturnLocation, resReturnLocation);
   syncInputValue(calcPassengers, resPassengers);
   syncCheckbox(calcInsurance, resInsurance);
-  syncCheckbox(calcYoungDriver, resYoungDriver);
+  // The finder filters candidate offers. The reservation option belongs to
+  // the exact offer and must not switch the already selected legacy route.
   syncSelectValue(calcCar, resCar);
 
   if (!changed) {
@@ -1262,7 +1257,8 @@ function applyWidgetStateFromModal(prefill = {}) {
   setValue('returnLocation', prefill.returnLocation);
   setValue('rentalPassengers', parsePassengerCount(prefill.passengers, 2));
   setChecked('fullInsurance', prefill.fullInsurance);
-  setChecked('youngDriver', prefill.youngDriver);
+  // Keep exact-offer young-driver selection inside the reservation. Copying
+  // it to the finder could switch the legacy route after closing the modal.
 
   const carSelect = byId('rentalCarSelect');
   if (carSelect instanceof HTMLSelectElement) {

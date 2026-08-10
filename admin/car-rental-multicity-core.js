@@ -84,6 +84,7 @@
     'insurance_per_day',
     'young_driver_fee',
     'young_driver_cost',
+    'deposit_amount',
     ...PRICE_COLUMNS,
   ]);
   const PARTNER_COLUMNS = Object.freeze(['owner_partner_id']);
@@ -111,6 +112,7 @@
     'insurance_mode',
     'young_driver_fee',
     'young_driver_cost',
+    'deposit_amount',
     'pricing_strategy',
     'min_rental_days',
     'max_rental_days',
@@ -649,6 +651,10 @@
           : 'legacy_optional_daily',
         youngDriverFee: offer?.young_driver_fee === true,
         youngDriverCost: normalizeMoney(offer?.young_driver_cost, 0),
+        securityDepositMode: offer?.deposit_amount === null || offer?.deposit_amount === undefined
+          ? 'unspecified'
+          : Number(offer.deposit_amount) === 0 ? 'none' : 'amount',
+        securityDepositAmount: normalizeMoney(offer?.deposit_amount),
         minRentalDays: normalizeInteger(offer?.min_rental_days, isCreate ? 3 : 1),
         maxRentalDays: normalizeInteger(offer?.max_rental_days),
         dailyRateTiers: sortDailyRateTiers(
@@ -744,6 +750,7 @@
   }
 
   function pricingPayload(draft) {
+    const securityDepositMode = normalizeCode(draft.pricing.securityDepositMode);
     return {
       pricing_strategy: 'legacy_compat',
       min_rental_days: normalizeInteger(draft.pricing.minRentalDays, 1),
@@ -760,6 +767,9 @@
         : 'legacy_optional_daily',
       young_driver_fee: draft.pricing.youngDriverFee === true,
       young_driver_cost: normalizeMoney(draft.pricing.youngDriverCost, 0),
+      deposit_amount: securityDepositMode === 'unspecified'
+        ? null
+        : securityDepositMode === 'none' ? 0 : normalizeMoney(draft.pricing.securityDepositAmount),
     };
   }
 
@@ -769,6 +779,7 @@
       : 'legacy_compat';
     const profile = profileById(context, draft.pricing.profileId);
     const code = normalizeCode(profile?.code);
+    const securityDepositMode = normalizeCode(draft.pricing.securityDepositMode);
     const payload = {
       ...(strategy === 'legacy_compat' ? profilePayload(draft, context) : {}),
       pricing_strategy: strategy,
@@ -783,6 +794,9 @@
       insurance_per_day: normalizeMoney(draft.pricing.insurancePerDay, 0),
       young_driver_fee: draft.pricing.youngDriverFee === true,
       young_driver_cost: normalizeMoney(draft.pricing.youngDriverCost, 0),
+      deposit_amount: securityDepositMode === 'unspecified'
+        ? null
+        : securityDepositMode === 'none' ? 0 : normalizeMoney(draft.pricing.securityDepositAmount),
     };
     const fieldValues = {
       price_per_day: draft.pricing.pricePerDay,
@@ -1105,6 +1119,15 @@
       if (!(normalizeMoney(draft.pricing.youngDriverCost, -1) >= 0) || !hasAtMostTwoDecimals(draft.pricing.youngDriverCost)) {
         errors.push({ field: 'youngDriverCost', message: 'Young-driver daily surcharge must be zero or greater.' });
       }
+      const securityDepositMode = normalizeCode(draft.pricing.securityDepositMode);
+      if (!['unspecified', 'none', 'amount'].includes(securityDepositMode)) {
+        errors.push({ field: 'securityDepositMode', message: 'Select a supported security-deposit state.' });
+      } else if (securityDepositMode === 'amount') {
+        const securityDepositAmount = normalizeMoney(draft.pricing.securityDepositAmount, -1);
+        if (!(securityDepositAmount > 0) || !hasAtMostTwoDecimals(draft.pricing.securityDepositAmount)) {
+          errors.push({ field: 'securityDepositAmount', message: 'Security deposit amount must be greater than zero with at most two decimals.' });
+        }
+      }
     }
 
     const partnerId = normalizeNullableId(draft.partner.ownerPartnerId);
@@ -1426,6 +1449,7 @@
           'insurance_per_day',
           'young_driver_fee',
           'young_driver_cost',
+          'deposit_amount',
           'updated_at',
         ],
       ),

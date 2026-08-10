@@ -21,6 +21,11 @@ import {
   calculateThresholdCarRentalQuote,
   normalizeThresholdCityCode,
 } from '/js/car-rental-threshold-pricing.js';
+import {
+  resolveCarSecurityDepositPresentation,
+  resolveGenericVehicleCopy,
+  resolveThresholdInsurancePresentation,
+} from '/js/car-rental-public-presentation.js';
 
 let previousBodyCarLocation = null;
 let previousCarPricingContext = null;
@@ -246,7 +251,7 @@ function resolveQuoteForCar({ car, location, prefill, quote }) {
     pickupLocation: prefill.pickupLocation,
     returnLocation: prefill.returnLocation,
     fullInsurance: !!prefill.fullInsurance,
-    youngDriver: location === 'larnaca' && !!prefill.youngDriver,
+    youngDriver: !!prefill.youngDriver,
     offerRow: car,
   });
 }
@@ -352,13 +357,18 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
   if (!selectedCar) return '';
   const thresholdOffer = selectedCar?.pricing_strategy === CAR_THRESHOLD_PRICING_STRATEGY
     && (selectedCar?.pricingContext || selectedCar?.availabilityContext)?.pricingStrategy === CAR_THRESHOLD_PRICING_STRATEGY;
+  const vehicleCopy = resolveGenericVehicleCopy(getLang());
 
   const pickupDateValue = String(prefill?.pickupDate || '');
   const returnDateValue = String(prefill?.returnDate || '');
   const pickupTimeValue = String(prefill?.pickupTime || '10:00');
   const returnTimeValue = String(prefill?.returnTime || '10:00');
   const insuranceChecked = !!prefill?.fullInsurance;
-  const youngDriverChecked = (thresholdOffer || loc === 'larnaca') && !!prefill?.youngDriver;
+  const youngDriverConfig = resolveCarYoungDriverConfig({
+    offerLocation: loc,
+    offerRow: selectedCar,
+  });
+  const youngDriverChecked = youngDriverConfig.allowed && !!prefill?.youngDriver;
   const passengersValue = Math.max(1, Number(prefill?.passengers || 2));
 
   const optionsHtml = cars.map((car) => {
@@ -376,39 +386,22 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
     return `<option value="${escapeHtml(title)}" data-offer-id="${escapeHtml(car.id)}" ${String(car.id) === String(selectedCarId) ? 'selected' : ''}>${escapeHtml(title)}${optionMeta ? ` — ${escapeHtml(optionMeta)}` : ''}</option>`;
   }).join('');
 
-  const youngDriverConfig = thresholdOffer
-    ? {
-      allowed: selectedCar?.young_driver_fee === true,
-      dailyCost: selectedCar?.young_driver_fee === true
-        ? Math.max(0, Number(selectedCar?.young_driver_cost || 0))
-        : 0,
-    }
-    : resolveCarYoungDriverConfig({
-      offerLocation: loc,
-      offerRow: selectedCar,
-    });
-  const youngDriverLabel = youngDriverConfig.allowed
-    ? (youngDriverConfig.dailyCost > 0
+  const youngDriverLabel = youngDriverConfig.dailyCost > 0
       ? text(
         `Młody kierowca / staż < 3 lata (+${youngDriverConfig.dailyCost}€/dzień)`,
         `Young driver / license < 3 years (+${youngDriverConfig.dailyCost}€/day)`,
         `נהג צעיר / רישיון פחות מ-3 שנים (+${youngDriverConfig.dailyCost}€ ליום)`
       )
       : text(
-        'Młody kierowca / staż < 3 lata (dostępny dla tego auta)',
-        'Young driver / license < 3 years (available for this car)',
-        'נהג צעיר / רישיון פחות מ-3 שנים (זמין לרכב זה)'
-      ))
-    : text(
-      'Młody kierowca niedostępny dla tego auta',
-      'Young driver is not available for this car',
-      'נהג צעיר אינו זמין לרכב זה'
-    );
+        'Młody kierowca / staż < 3 lata (dostępny dla tego pojazdu)',
+        'Young driver / license < 3 years (available for this vehicle)',
+        'נהג צעיר / רישיון פחות מ-3 שנים (זמין לכלי רכב זה)'
+      );
 
-  const youngDriverBlock = thresholdOffer || loc === 'larnaca'
+  const youngDriverBlock = youngDriverConfig.allowed
     ? `
       <div class="auto-checkbox">
-        <input type="checkbox" id="res_young_driver" name="young_driver" ${youngDriverChecked && youngDriverConfig.allowed ? 'checked' : ''} ${youngDriverConfig.allowed ? '' : 'disabled'}>
+        <input type="checkbox" id="res_young_driver" name="young_driver" ${youngDriverChecked ? 'checked' : ''}>
         <label for="res_young_driver">${escapeHtml(youngDriverLabel)}</label>
       </div>
     `
@@ -416,30 +409,16 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
   const insuranceMode = thresholdOffer
     ? String(selectedCar?.insurance_mode || 'legacy_optional_daily').trim().toLowerCase()
     : 'legacy_optional_daily';
-  const insuranceDailyRate = thresholdOffer
-    ? Math.max(0, Number(selectedCar?.insurance_per_day || 0))
-    : 17;
-  const insuranceBlock = thresholdOffer && insuranceMode === 'not_offered'
-    ? `<div class="auto-readonly-value">${escapeHtml(text(
-      'Dodatkowe ubezpieczenie nie jest oferowane dla tego pojazdu.',
-      'Optional insurance is not offered for this vehicle.',
-      'ביטוח נוסף אינו מוצע לרכב זה.',
-    ))}</div>`
-    : thresholdOffer && insuranceMode === 'included'
-      ? `<div class="auto-readonly-value">${escapeHtml(text(
-        'Ubezpieczenie jest uwzględnione w cenie tej oferty.',
-        'Insurance is included in this offer price.',
-        'הביטוח כלול במחיר הצעה זו.',
-      ))}</div>`
+  const insurancePresentation = thresholdOffer
+    ? resolveThresholdInsurancePresentation(selectedCar, getLang())
+    : null;
+  const insuranceBlock = thresholdOffer && !insurancePresentation.selectable
+    ? `<div class="auto-readonly-value" data-insurance-mode="${escapeHtml(insuranceMode)}">${escapeHtml(insurancePresentation.label)}</div>`
       : `
         <div class="auto-checkbox">
           <input type="checkbox" id="res_insurance" name="insurance" ${insuranceChecked ? 'checked' : ''}>
           <label for="res_insurance">${escapeHtml(thresholdOffer
-    ? text(
-      `Opcjonalne ubezpieczenie (+${insuranceDailyRate}€/dzień)`,
-      `Optional insurance (+${insuranceDailyRate}€/day)`,
-      `ביטוח אופציונלי (+${insuranceDailyRate}€ ליום)`,
-    )
+    ? insurancePresentation.label
     : text('Pełne ubezpieczenie AC (+17€/dzień)', 'Full insurance (+17€/day)', 'ביטוח מלא (+17€ ליום)'))}</label>
         </div>
       `;
@@ -462,6 +441,7 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
   const couponPlaceholder = text('Wpisz kod kuponu', 'Enter coupon code', 'הזינו קוד קופון');
   const couponApplyLabel = text('Zastosuj', 'Apply', 'החל');
   const couponClearLabel = text('Wyczyść', 'Clear', 'נקה');
+  const couponSummaryLabel = text('Mam kod kuponu', 'I have a coupon code', 'יש לי קוד קופון');
   const pickupCity = thresholdOffer
     ? normalizeThresholdCityCode(prefill?.pickupCity || prefill?.pickupLocation)
     : normalizeCarCity(
@@ -572,7 +552,7 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
         </div>
         <div class="auto-form-grid">
           <div class="auto-field">
-            <label for="res_car" data-i18n="${i18nPrefix}.fields.car.label">Wybierz auto *</label>
+            <label for="res_car">${escapeHtml(thresholdOffer ? `${vehicleCopy.select} *` : text('Wybierz auto *', 'Choose a car *', 'בחרו רכב *'))}</label>
             <select id="res_car" name="car" required>
               <option value="" data-i18n="${i18nPrefix}.fields.car.loading">Ładowanie...</option>
               ${optionsHtml}
@@ -679,16 +659,19 @@ function buildReservationFormHtml({ location, fleetByLocation, selectedCarId, pr
         </div>
       </section>
 
-      <div class="auto-coupon-panel" aria-live="polite">
-        <div class="auto-field">
-          <label for="res_coupon_code" data-i18n="carRental.page.reservation.coupon.label">${escapeHtml(couponLabel)}</label>
-          <div class="auto-coupon-row">
-            <input type="text" id="res_coupon_code" name="coupon_code" placeholder="${escapeHtml(couponPlaceholder)}" data-i18n-attrs="placeholder:carRental.page.reservation.coupon.placeholder" autocomplete="off" spellcheck="false">
-            <button type="button" class="btn btn-secondary secondary" id="btnApplyCoupon" data-i18n="carRental.page.reservation.coupon.apply">${escapeHtml(couponApplyLabel)}</button>
-            <button type="button" class="btn ghost" id="btnClearCoupon" hidden data-i18n="carRental.page.reservation.coupon.clear">${escapeHtml(couponClearLabel)}</button>
+      <div class="auto-optional-tools-grid" data-car-optional-tools>
+        <details class="auto-coupon-panel auto-optional-panel" data-car-optional-panel="coupon">
+          <summary class="auto-optional-panel__summary">${escapeHtml(couponSummaryLabel)}</summary>
+          <div class="auto-field auto-optional-panel__body" aria-live="polite">
+            <label for="res_coupon_code" data-i18n="carRental.page.reservation.coupon.label">${escapeHtml(couponLabel)}</label>
+            <div class="auto-coupon-row">
+              <input type="text" id="res_coupon_code" name="coupon_code" placeholder="${escapeHtml(couponPlaceholder)}" data-i18n-attrs="placeholder:carRental.page.reservation.coupon.placeholder" autocomplete="off" spellcheck="false">
+              <button type="button" class="btn btn-secondary secondary" id="btnApplyCoupon" data-i18n="carRental.page.reservation.coupon.apply">${escapeHtml(couponApplyLabel)}</button>
+              <button type="button" class="btn ghost" id="btnClearCoupon" hidden data-i18n="carRental.page.reservation.coupon.clear">${escapeHtml(couponClearLabel)}</button>
+            </div>
+            <p id="couponStatusMessage" class="auto-coupon-status" hidden></p>
           </div>
-          <p id="couponStatusMessage" class="auto-coupon-status" hidden></p>
-        </div>
+        </details>
       </div>
 
       <div id="estimatedPrice" class="auto-estimated-price"></div>
@@ -791,6 +774,7 @@ export function openCarOfferModal({
   const pricingContext = car?.pricingContext || car?.availabilityContext || null;
   const thresholdOffer = car?.pricing_strategy === CAR_THRESHOLD_PRICING_STRATEGY
     && pricingContext?.pricingStrategy === CAR_THRESHOLD_PRICING_STRATEGY;
+  const vehicleCopy = resolveGenericVehicleCopy(getLang());
   const normalizedPickupCity = thresholdOffer
     ? normalizeThresholdCityCode(prefill?.pickupCity || pricingContext?.pickupCityCode)
     : normalizeCarCity(
@@ -848,11 +832,9 @@ export function openCarOfferModal({
     )
     : thresholdOffer
       ? text('Żądanie wymaga potwierdzenia partnera', 'Request requires partner confirmation', 'הבקשה דורשת אישור שותף')
-      : text('Wsparcie 24/7 • Brak depozytu', '24/7 support • No deposit', 'תמיכה 24/7 • ללא פיקדון');
+      : text('Wsparcie 24/7 • przejrzyste warunki', '24/7 support • transparent terms', 'תמיכה 24/7 • תנאים שקופים');
 
-  const noDepositLabel = thresholdOffer
-    ? text('Wymaga potwierdzenia partnera', 'Partner confirmation required', 'נדרש אישור שותף')
-    : text('Bez kaucji', 'No deposit', 'ללא פיקדון');
+  const securityDeposit = resolveCarSecurityDepositPresentation(car, getLang());
   const transmissionCode = String(car.transmission || '').toLowerCase();
   const transmission = transmissionCode === 'automatic'
     ? text('Automat', 'Automatic', 'אוטומטי')
@@ -911,7 +893,7 @@ export function openCarOfferModal({
         <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(title)}" class="ce-car-home-hero-image" />
         <div class="ce-car-home-hero-overlay">
           <div class="ce-car-home-hero-badges">
-            <span class="ce-car-home-pill ce-car-home-pill--light">${thresholdOffer ? 'ℹ️' : '🚗'} ${escapeHtml(noDepositLabel)}</span>
+            ${securityDeposit.visible ? `<span class="ce-car-home-pill ce-car-home-pill--light" data-security-deposit-state="${escapeHtml(securityDeposit.state)}">${escapeHtml(securityDeposit.label)}</span>` : ''}
             <span class="ce-car-home-pill">⚙️ ${escapeHtml(transmission)}</span>
             ${seatsText ? `<span class="ce-car-home-pill">👥 ${escapeHtml(seatsText)}</span>` : ''}
             ${fuelText ? `<span class="ce-car-home-pill">⛽ ${escapeHtml(fuelText)}</span>` : ''}
@@ -925,7 +907,7 @@ export function openCarOfferModal({
 
       <div class="ce-car-home-body">
         <div class="ce-car-home-details">
-          <h3 class="ce-car-home-section-title">${escapeHtml(detailsTitle)}</h3>
+          <h3 class="ce-car-home-section-title" aria-label="${escapeHtml(vehicleCopy.singular)}">${escapeHtml(detailsTitle)}</h3>
           <div class="ce-car-home-specs">
             <div class="ce-car-home-spec">
               <div class="ce-car-home-spec-label">${escapeHtml(labelTransmission)}</div>

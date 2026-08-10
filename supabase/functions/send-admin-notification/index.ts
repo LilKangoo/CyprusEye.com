@@ -2117,6 +2117,9 @@ function buildSubject(params: {
   record: Record<string, unknown>;
 }): string {
   const label = params.category.toUpperCase();
+  const displayReference = params.category === "cars"
+    ? firstNonEmpty(getField(params.record, ["booking_reference", "reference"]), params.recordId)
+    : params.recordId;
 
   if (params.event === "affiliate_cashout_requested") {
     const partnerName = getField(params.record, ["partner_name", "partner", "partnerName", "name"]);
@@ -2158,7 +2161,7 @@ function buildSubject(params: {
   }
 
   if (params.event === "partner_accepted") {
-    const parts = [`[${label}] Partner accepted #${params.recordId}`];
+    const parts = [`[${label}] Partner accepted #${displayReference}`];
     const service = getField(params.record, [
       "route_label",
       "route_name",
@@ -2175,7 +2178,7 @@ function buildSubject(params: {
   }
 
   if (params.event === "customer_received") {
-    const parts = [`[${label}] Customer confirmation #${params.recordId}`];
+    const parts = [`[${label}] Customer confirmation #${displayReference}`];
     const service = getField(params.record, [
       "car_model",
       "trip_name",
@@ -2265,7 +2268,7 @@ function buildSubject(params: {
   }
 
   if (params.event === "partner_rejected") {
-    const parts = [`[${label}] Partner rejected #${params.recordId}`];
+    const parts = [`[${label}] Partner rejected #${displayReference}`];
     if (categoryMeta.name) parts.push(categoryMeta.name);
     if (categoryMeta.date) parts.push(categoryMeta.date);
     const rejectReason = getField(params.record, ["rejected_reason", "rejection_reason", "reason", "note"]);
@@ -2276,13 +2279,13 @@ function buildSubject(params: {
     return parts.join(" — ");
   }
   if (params.event === "partner_sla") {
-    const parts = [`[${label}] SLA: no partner response #${params.recordId}`];
+    const parts = [`[${label}] SLA: no partner response #${displayReference}`];
     if (categoryMeta.name) parts.push(categoryMeta.name);
     if (categoryMeta.date) parts.push(categoryMeta.date);
     return parts.join(" — ");
   }
 
-  const parts = [`[${label}] New ${categoryMeta.what} #${params.recordId}`];
+  const parts = [`[${label}] New ${categoryMeta.what} #${displayReference}`];
   if (categoryMeta.name) parts.push(categoryMeta.name);
   if (categoryMeta.date) parts.push(categoryMeta.date);
   if (customerName) parts.push(customerName);
@@ -2304,6 +2307,9 @@ function buildCustomerReceivedSubject(params: {
   record: Record<string, unknown>;
 }): string {
   const label = params.category.toUpperCase();
+  const displayReference = params.category === "cars"
+    ? firstNonEmpty(getField(params.record, ["booking_reference", "reference"]), params.recordId)
+    : params.recordId;
   const name = (() => {
     if (params.category === "cars") return getField(params.record, ["car_model", "vehicle", "car"]);
     if (params.category === "trips") return getField(params.record, ["trip_name", "trip_title", "title", "trip_slug"]);
@@ -2314,7 +2320,7 @@ function buildCustomerReceivedSubject(params: {
   })();
   const parts = [`[${label}] We received your request`];
   if (name) parts.push(name);
-  parts.push(`#${params.recordId}`);
+  parts.push(`#${displayReference}`);
   return parts.join(" — ");
 }
 
@@ -2324,6 +2330,10 @@ function renderCustomerReceivedEmail(params: {
   record: Record<string, unknown>;
 }): { subject: string; html: string; text: string } {
   const { category, recordId, record } = params;
+  const bookingReference = firstNonEmpty(
+    getField(record, ["booking_reference", "reference", "order_number", "orderNumber"]),
+    recordId,
+  );
 
   const createdAtIso = getField(record, ["created_at", "createdAt"]) || new Date().toISOString();
   const createdAt = formatDateTime(createdAtIso);
@@ -2341,8 +2351,8 @@ function renderCustomerReceivedEmail(params: {
   const summaryRows = (() => {
     if (category === "cars") {
       return buildKeyValueRows(record, [
-        { label: "Reference", value: recordId },
-        { label: "Car", value: getField(record, ["car_model", "vehicle", "car"]) },
+        { label: "Reference", value: bookingReference },
+        { label: "Vehicle", value: getField(record, ["car_model", "vehicle", "car"]) },
         {
           label: "Pick-up",
           value: [

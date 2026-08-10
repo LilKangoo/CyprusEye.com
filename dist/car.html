@@ -23,7 +23,7 @@
     <title data-i18n="carRental.meta.title">Choose your city – CyprusEye car rental</title>
     <meta
       name="description"
-      content="Select your pick-up city and compare CyprusEye car rental offers with no deposit, transparent pricing and concierge support."
+      content="Select your pickup and return cities and compare CyprusEye vehicle rental offers with transparent pricing and concierge support."
     />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Choose your city – CyprusEye car rental" />
@@ -301,10 +301,10 @@
     <section class="card surface-card standalone-hero" aria-labelledby="carRentalLandingHeroTitle">
       <div class="standalone-hero-content">
         <p class="standalone-hero-badge" data-i18n="carRentalLanding.hero.stepBadge">Krok 1 • Wybierz trasę i termin</p>
-        <h1 id="carRentalLandingHeroTitle" data-i18n="carRentalLanding.hero.title">Wynajem auta na Cyprze z automatycznym doborem oferty</h1>
+        <h1 id="carRentalLandingHeroTitle" data-i18n="carRentalLanding.hero.title">Wynajem pojazdów na Cyprze z automatycznym doborem oferty</h1>
         <p data-i18n="carRentalLanding.hero.description">
-          Ustaw odbior i zwrot, a system sam wybierze najlepszą ofertę: Larnaka lub Pafos.
-          Zobaczysz dokładne ceny total na kartach aut i od razu przejdziesz do rezerwacji.
+          Ustaw odbiór i zwrot, a system pokaże pasujące oferty pojazdów.
+          Zobaczysz dokładne ceny całkowite na kartach i od razu przejdziesz do rezerwacji.
         </p>
         <p class="standalone-hero-note" id="landingOfferInfo" aria-live="polite" data-i18n="carRentalLanding.hero.autoOfferNote">
           Oferta jest wybierana automatycznie na podstawie lokalizacji odbioru/zwrotu i opcji młodego kierowcy.
@@ -320,16 +320,16 @@
           <span data-i18n="carRentalLanding.hero.stats.minimumDays">Minimalny czas wynajmu (dni)</span>
         </li>
         <li>
-          <strong data-i18n="carRentalLanding.hero.stats.noDeposit">Bez kaucji</strong>
-          <span data-i18n="carRentalLanding.hero.stats.noDepositSupport">Wsparcie 24/7 i przejrzysta wycena</span>
+          <strong data-i18n="carRentalLanding.hero.stats.noDeposit">Jasne warunki kaucji</strong>
+          <span data-i18n="carRentalLanding.hero.stats.noDepositSupport">Dokładna kaucja jest pokazana na karcie pojazdu</span>
         </li>
       </ul>
     </section>
 
     <section class="card surface-card auto-rental" id="carRentalSection" aria-labelledby="carRentalTitle">
       <header class="auto-rental-header">
-        <span class="auto-rental-badge" data-i18n="carRentalLanding.config.badge">Bez Kaucji</span>
-        <h2 id="carRentalTitle" data-i18n="carRentalLanding.config.title">Skonfiguruj wynajem i wybierz auto</h2>
+        <span class="auto-rental-badge" data-i18n="carRentalLanding.config.badge">Przejrzyste warunki</span>
+        <h2 id="carRentalTitle" data-i18n="carRentalLanding.config.title">Skonfiguruj wynajem i wybierz pojazd</h2>
         <p data-i18n="carRentalLanding.config.description">
           Wybierz daty, godziny i lokalizacje. Ceny na kartach poniżej pokazują dokładną kwotę całkowitą
           dla Twoich ustawień (z uwzględnieniem opłat lokalizacyjnych i dodatków).
@@ -401,7 +401,7 @@
               </div>
 
               <div class="auto-field auto-field--car-choice" style="grid-column: 1 / -1;" hidden aria-hidden="true">
-                <label for="rentalCarSelect" data-i18n="carRental.calculator.form.car">Wybierz auto</label>
+                <label for="rentalCarSelect" data-i18n="carRental.calculator.form.car">Wybierz pojazd</label>
                 <select id="rentalCarSelect" name="car" tabindex="-1"></select>
               </div>
             </div>
@@ -422,7 +422,7 @@
       <section class="selected-car-highlight" id="selectedCarHighlight" hidden aria-live="polite">
         <div class="selected-car-highlight__instruction" role="note">
           <span class="selected-car-highlight__instruction-icon" aria-hidden="true">↘</span>
-          <p data-i18n="car.selectInstruction">Kliknij wybrane auto, aby przejść do rezerwacji.</p>
+          <p data-i18n="car.selectInstruction">Kliknij wybrany pojazd, aby przejść do rezerwacji.</p>
         </div>
         <div class="selected-car-highlight__state" hidden>
           <img id="selectedCarHighlightImage" src="" alt="" loading="lazy" />
@@ -895,10 +895,10 @@
   >
     <div class="car-image-modal__dialog" role="document" tabindex="-1">
       <header class="car-image-modal__header">
-        <h3 id="carImageModalTitle" data-i18n="carRentalLanding.imageModal.title">Podgląd auta</h3>
+        <h3 id="carImageModalTitle" data-i18n="carRentalLanding.imageModal.title">Podgląd pojazdu</h3>
         <button type="button" class="ghost" id="carImageModalClose" aria-label="Zamknij podgląd" data-i18n-attrs="aria-label:carRentalLanding.imageModal.closeAria">✕</button>
       </header>
-      <img id="carImageModalImg" src="" alt="Podgląd auta" loading="lazy" data-i18n-attrs="alt:carRentalLanding.imageModal.imageAlt" />
+      <img id="carImageModalImg" src="" alt="Podgląd pojazdu" loading="lazy" data-i18n-attrs="alt:carRentalLanding.imageModal.imageAlt" />
       <div id="carImageModalPano" class="car-image-modal__panorama" hidden></div>
       <p id="carImageModalCaption"></p>
     </div>

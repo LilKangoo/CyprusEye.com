@@ -22,6 +22,10 @@ import {
 import { calculateRentalDaysFromLocalDateTimes } from './car-rental-duration-contract.js';
 import { createCarRentalAvailabilityRepository } from './car-rental-availability-repository.js';
 import { hydrateCarRentalCityCatalogForActiveRuntime } from './car-location-options.js';
+import {
+  resolveCarSecurityDepositPresentation,
+  resolveGenericVehicleCopy,
+} from './car-rental-public-presentation.js';
 
 let paphosFleet = [];
 let pricing = {};
@@ -733,18 +737,19 @@ function renderFleet() {
   }
 
   const lang = getI18nShortLanguage();
+  const vehicleCopy = resolveGenericVehicleCopy(lang);
   if (filteredFleet.length === 0) {
     const fallbackMessage = requireYoungDriver
       ? (lang === 'he'
-        ? `אין רכבים עם נהג צעיר ל-${requiredPassengers} נוסעים. שנו את הגדרת הרכב או המסלול.`
+        ? `אין כלי רכב עם נהג צעיר ל-${requiredPassengers} נוסעים. שנו את הגדרת כלי הרכב או המסלול.`
         : lang === 'en'
-        ? `No cars available for ${requiredPassengers} passengers with young driver enabled. Change car setup or route.`
-        : `Brak aut dla ${requiredPassengers} pasażerów z opcją młodego kierowcy. Zmień ustawienie auta lub trasę.`)
+        ? `No vehicles available for ${requiredPassengers} passengers with young driver enabled. Change vehicle setup or route.`
+        : `Brak pojazdów dla ${requiredPassengers} pasażerów z opcją młodego kierowcy. Zmień ustawienie pojazdu lub trasę.`)
       : (lang === 'he'
-        ? `אין רכבים זמינים ל-${requiredPassengers} נוסעים. הפחיתו נוסעים או שנו מסלול.`
+        ? `אין כלי רכב זמינים ל-${requiredPassengers} נוסעים. הפחיתו נוסעים או שנו מסלול.`
         : lang === 'en'
-        ? `No cars available for ${requiredPassengers} passengers. Reduce passengers or change route.`
-        : `Brak aut dla ${requiredPassengers} pasażerów. Zmniejsz liczbę pasażerów lub zmień trasę.`);
+        ? `No vehicles available for ${requiredPassengers} passengers. Reduce passengers or change route.`
+        : `Brak pojazdów dla ${requiredPassengers} pasażerów. Zmniejsz liczbę pasażerów lub zmień trasę.`);
     grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #64748b;"><p>${escapeHtml(fallbackMessage)}</p></div>`;
     return;
   }
@@ -823,10 +828,10 @@ function renderFleet() {
       }
     }
 
-    const reserveLabel = i18n('carRental.common.reserveCar', null, 'Zarezerwuj to auto');
-    const noDepositLabel = thresholdOffer
-      ? carUiText({ pl: 'Wymaga potwierdzenia partnera', en: 'Partner confirmation required', he: 'נדרש אישור שותף' }, null, lang)
-      : i18n('carRentalLanding.hero.stats.noDeposit', null, 'Bez kaucji');
+    const reserveLabel = thresholdOffer
+      ? vehicleCopy.reserve
+      : i18n('carRental.common.reserveCar', null, 'Zarezerwuj to auto');
+    const securityDeposit = resolveCarSecurityDepositPresentation(car, lang);
 
     const cardMeta = [transmission, seatsText, thresholdOffer ? '' : 'AC'].filter(Boolean).join(' • ');
 
@@ -835,7 +840,7 @@ function renderFleet() {
         <div class="auto-card-media">
           ${car.image_url ? `<img src="${escapeHtml(car.image_url)}" alt="${escapeHtml(carModelName)}" class="auto-card-image" data-preview-title="${escapeHtml(carModelName)}">` : ''}
           ${imageIsPanorama ? '<span class="ce-media-badge ce-media-badge--auto-card">360°</span>' : ''}
-          <span class="auto-card-badge">${escapeHtml(noDepositLabel)}</span>
+          ${securityDeposit.visible ? `<span class="auto-card-badge" data-security-deposit-state="${escapeHtml(securityDeposit.state)}">${escapeHtml(securityDeposit.label)}</span>` : ''}
           <div class="auto-card-overlay">
             <span class="auto-card-price">${escapeHtml(priceLabel)}</span>
             <div class="auto-card-title">
@@ -875,13 +880,13 @@ function updateCalculatorOptions() {
       ? (lang === 'he'
         ? `אין רכבי נהג צעיר ל-${requiredPassengers} נוסעים`
         : lang === 'en'
-        ? `No young driver cars for ${requiredPassengers} passengers`
-        : `Brak aut z młodym kierowcą dla ${requiredPassengers} pasażerów`)
+        ? `No young-driver vehicles for ${requiredPassengers} passengers`
+        : `Brak pojazdów dla młodego kierowcy i ${requiredPassengers} pasażerów`)
       : (lang === 'he'
-        ? `אין רכבים ל-${requiredPassengers} נוסעים`
+        ? `אין כלי רכב ל-${requiredPassengers} נוסעים`
         : lang === 'en'
-        ? `No cars for ${requiredPassengers} passengers`
-        : `Brak aut dla ${requiredPassengers} pasażerów`);
+        ? `No vehicles for ${requiredPassengers} passengers`
+        : `Brak pojazdów dla ${requiredPassengers} pasażerów`);
     const noCarsOption = `<option value="">${escapeHtml(noCarsLabel)}</option>`;
     if (select) select.innerHTML = noCarsOption;
     if (resSelect) resSelect.innerHTML = noCarsOption;
@@ -1432,7 +1437,7 @@ function buildLandingModalPrefill(location) {
       ? normalizePaphosWidgetLocation(returnLocationValue)
       : (normalizeLocationForOffer(returnLocationValue || 'larnaca', 'larnaca') || 'larnaca'),
     fullInsurance: !!document.getElementById('fullInsurance')?.checked,
-    youngDriver: loc === 'larnaca' && !!document.getElementById('youngDriver')?.checked,
+    youngDriver: !!document.getElementById('youngDriver')?.checked,
     passengers: parsePassengerCount(document.getElementById('rentalPassengers')?.value || 2, 2),
   };
 }
@@ -1449,16 +1454,13 @@ function buildContextualLandingModalPrefill(car, location) {
     returnPlaceType: context.returnPlaceType,
     pickupLocation: context.pickupLegacyPricingLocation,
     returnLocation: context.returnLegacyPricingLocation,
-    youngDriver: context.pricingStrategy === 'threshold_daily_rate'
-      ? car?.young_driver_fee === true && !!document.getElementById('youngDriver')?.checked
-      : context.calculatorKey === 'larnaca' && prefill.youngDriver,
+    youngDriver: car?.young_driver_fee === true && !!document.getElementById('youngDriver')?.checked,
   };
 }
 
 function buildLandingQuoteForCar(carName, location, offerId = '') {
   const loc = location === 'paphos' ? 'paphos' : 'larnaca';
   const selectedOffer = findFleetCarForQuote({ offerId, carModel: carName });
-  const thresholdOffer = selectedOffer?.pricing_strategy === CAR_THRESHOLD_PRICING_STRATEGY;
   const quote = calculateQuoteForSelection({
     offer: loc,
     offerId,
@@ -1470,7 +1472,7 @@ function buildLandingQuoteForCar(carName, location, offerId = '') {
     pickupLocation: document.getElementById('pickupLocation')?.value || '',
     returnLocation: document.getElementById('returnLocation')?.value || '',
     fullInsurance: !!document.getElementById('fullInsurance')?.checked,
-    youngDriver: (thresholdOffer || loc === 'larnaca') && !!document.getElementById('youngDriver')?.checked,
+    youngDriver: selectedOffer?.young_driver_fee === true && !!document.getElementById('youngDriver')?.checked,
   });
   return quote || null;
 }

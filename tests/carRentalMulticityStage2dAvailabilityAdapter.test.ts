@@ -298,6 +298,44 @@ describe('Car Rental Multi-City Stage 2D availability adapter', () => {
     expect(rejected.mappedOffers).toEqual([]);
   });
 
+  test('young-driver eligibility follows the exact mapped offer even for a Paphos pricing profile', async () => {
+    const enabledOffer = offer('offer-paphos-young-enabled', 'paphos', {
+      young_driver_fee: true,
+      young_driver_cost: 12,
+    });
+    const enabledContext = baseContext({
+      offers: [enabledOffer],
+      availability: [availability(enabledOffer.id, 'paphos')],
+    });
+    const enabled = await resolve({
+      pickupCityCode: 'paphos',
+      returnCityCode: 'paphos',
+      youngDriver: true,
+    }, enabledContext);
+    expect(enabled.mappedOffers.map((row: any) => row.id)).toEqual([enabledOffer.id]);
+    expect(enabled.mappedOffers[0].quote).toEqual(expect.objectContaining({
+      youngDriverAllowed: true,
+      youngDriverApplied: true,
+      youngDriverDailyRate: 12,
+      youngDriverCost: 36,
+    }));
+
+    const disabledOffer = offer('offer-paphos-young-disabled', 'paphos', {
+      young_driver_fee: false,
+      young_driver_cost: 0,
+    });
+    const disabledContext = baseContext({
+      offers: [disabledOffer],
+      availability: [availability(disabledOffer.id, 'paphos')],
+    });
+    const disabled = await resolve({
+      pickupCityCode: 'paphos',
+      returnCityCode: 'paphos',
+      youngDriver: true,
+    }, disabledContext);
+    expect(disabled.mappedOffers).toEqual([]);
+  });
+
   test('sorts by quote.total and keeps the same-offer quote exactly equal to legacy', async () => {
     const cheap = offer('offer-cheap', 'larnaca', { price_per_day: 20, sort_order: 100 });
     const expensive = offer('offer-expensive', 'larnaca', { price_per_day: 40, sort_order: 1 });
