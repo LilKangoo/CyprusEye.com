@@ -168,9 +168,10 @@ describe('Stage 3C/3D runtime and authoritative validation static guards', () =>
     expect(thresholdBranch).not.toContain('mappingFor(');
   });
 
-  test('active custom cities are loaded only for the fully enabled mapped threshold runtime', () => {
+  test('active custom cities are loaded for mapped runtime independently of pricing strategy', () => {
     expect(locationOptions).toContain('hydrateCarRentalCityCatalogForActiveRuntime');
-    expect(locationOptions).toContain('flags?.mappedEnabled !== true || flags?.thresholdDailyRatesEnabled !== true');
+    expect(locationOptions).toContain('flags?.mappedEnabled !== true');
+    expect(locationOptions).not.toContain('flags?.mappedEnabled !== true || flags?.thresholdDailyRatesEnabled !== true');
     expect(locationOptions).toContain('repository.getActiveCities');
     expect(repository).toContain(".from('car_rental_cities')");
     expect(repository).toContain(".eq('is_active', true)");

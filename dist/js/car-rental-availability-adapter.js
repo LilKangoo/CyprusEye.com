@@ -203,14 +203,12 @@ function exactRecord(rows, predicate) {
   return { record: matches.length === 1 ? matches[0] : null, count: matches.length };
 }
 
-function mappingFor(context, profileId, cityId, direction) {
+function legacyPricingMappingFor(context, profileId, cityId) {
   const result = exactRecord(
     context.profileCities,
     (mapping) => text(mapping.pricing_profile_id) === profileId && text(mapping.city_id) === cityId,
   );
   if (!result.record || result.record.is_active !== true) return { mapping: null, count: result.count };
-  if (direction === 'pickup' && result.record.pickup_supported !== true) return { mapping: null, count: result.count };
-  if (direction === 'return' && result.record.return_supported !== true) return { mapping: null, count: result.count };
   return { mapping: result.record, count: result.count };
 }
 
@@ -513,7 +511,6 @@ export function resolveMappedAvailabilityFromContext(input, rawContext = {}) {
     if (
       !['larnaca', 'paphos'].includes(calculatorKey)
       || legacyBookingLocation !== calculatorKey
-      || normalized(offer.location) !== legacyBookingLocation
     ) {
       addDiagnostic(diagnostics, 'PROFILE_MISMATCH', {
         offerId,
@@ -525,41 +522,30 @@ export function resolveMappedAvailabilityFromContext(input, rawContext = {}) {
       continue;
     }
 
-    if (calculatorKey === 'paphos' && (pickupCode !== 'paphos' || returnCode !== 'paphos')) {
-      addDiagnostic(diagnostics, 'PAPHOS_PROFILE_OUTSIDE_PAPHOS', {
-        offerId,
-        profileId,
-        pickupCityCode: pickupCode,
-        returnCityCode: returnCode,
-      }, 'warning');
-      continue;
-    }
-
-    const pickupMappingResult = mappingFor(context, profileId, text(pickupCity.id), 'pickup');
-    const returnMappingResult = mappingFor(context, profileId, text(returnCity.id), 'return');
-    const pickupMapping = pickupMappingResult.mapping;
-    const returnMapping = returnMappingResult.mapping;
-    if (!pickupMapping || !returnMapping) {
+    // Exact offer-city rows are the sole route-availability contract for a
+    // mapped offer. Profile-city pickup/return support is legacy catalog
+    // metadata and must not veto an exact mapped direction. An active mapping
+    // may still provide the legacy pricing key used by the existing
+    // calculator; a known city code is the safe fallback when no mapping is
+    // present (custom cities still require an explicit fee override).
+    const pickupMappingResult = legacyPricingMappingFor(context, profileId, text(pickupCity.id));
+    const returnMappingResult = legacyPricingMappingFor(context, profileId, text(returnCity.id));
+    if (pickupMappingResult.count > 1 || returnMappingResult.count > 1) {
       addDiagnostic(diagnostics, 'INVALID_MAPPED_CONFIGURATION', {
         offerId,
         profileId,
-        reason: 'ACTIVE_DIRECTIONAL_PROFILE_CITY_MAPPING_MISSING',
-      }, 'warning');
-      continue;
-    }
-
-    const pickupLegacyKey = normalized(pickupMapping.legacy_pricing_city_key);
-    const returnLegacyKey = normalized(returnMapping.legacy_pricing_city_key);
-    if (pickupLegacyKey !== pickupCode || returnLegacyKey !== returnCode) {
-      addDiagnostic(diagnostics, 'INVALID_MAPPED_CONFIGURATION', {
-        offerId,
-        profileId,
-        reason: 'PRICING_KEY_DOES_NOT_MATCH_EXACT_CITY',
-        pickupPricingKey: pickupLegacyKey,
-        returnPricingKey: returnLegacyKey,
+        reason: 'DUPLICATE_PROFILE_CITY_PRICING_MAPPING',
       }, 'error');
       continue;
     }
+    const pickupMapping = pickupMappingResult.mapping;
+    const returnMapping = returnMappingResult.mapping;
+    const pickupLegacyKey = pickupMapping
+      ? normalized(pickupMapping.legacy_pricing_city_key)
+      : pickupCode;
+    const returnLegacyKey = returnMapping
+      ? normalized(returnMapping.legacy_pricing_city_key)
+      : returnCode;
 
     const pickupFee = resolveDirectionalFee(pickupAvailability, calculatorKey, pickupLegacyKey);
     const returnFee = resolveDirectionalFee(returnAvailability, calculatorKey, returnLegacyKey);
@@ -575,14 +561,51 @@ export function resolveMappedAvailabilityFromContext(input, rawContext = {}) {
       continue;
     }
 
+    const exactAvailabilityRows = context.availability
+      .filter((row) => text(row.offer_id) === offerId);
+    const eligibility = evaluateCarOfferPublicEligibility({
+      offer,
+      availabilityRows: exactAvailabilityRows,
+      cities: context.cities,
+      pickupCityCode: pickupCode,
+      returnCityCode: returnCode,
+      pickupAvailability,
+      returnAvailability,
+      featureFlags: {
+        mappedEnabled: true,
+        thresholdDailyRatesEnabled: input.thresholdFeatureFlagEnabled === true,
+      },
+      pickupFeeContractValid: pickupFee.valid,
+      returnFeeContractValid: returnFee.valid,
+      directionalFeeValidator: (row, cityCode) => {
+        const mappingResult = legacyPricingMappingFor(context, profileId, text(row?.city_id));
+        if (mappingResult.count > 1) return false;
+        const pricingKey = mappingResult.mapping
+          ? normalized(mappingResult.mapping.legacy_pricing_city_key)
+          : normalizeConfiguredCity(cityCode);
+        return resolveDirectionalFee(row, calculatorKey, pricingKey).valid;
+      },
+    });
+    if (!eligibility.publicEligible) {
+      for (const reason of eligibility.reasons) {
+        addDiagnostic(diagnostics, reason.code, {
+          offerId,
+          reason: reason.code,
+          cityCode: reason.cityCode || undefined,
+          direction: reason.direction || undefined,
+        }, reason.code.includes('DISABLED') ? 'info' : 'warning');
+      }
+      continue;
+    }
+
     if (!passesFilters(offer, profile, input, diagnostics)) continue;
 
     const pickupPricingKey = calculatorKey === 'paphos'
-      ? mapCityToLegacyLocationForPricing(pickupCode, calculatorKey, input.pickupPlaceType)
-      : pickupLegacyKey;
+      ? mapCityToLegacyLocationForPricing(pickupLegacyKey || pickupCode, calculatorKey, input.pickupPlaceType)
+      : pickupLegacyKey || pickupCode;
     const returnPricingKey = calculatorKey === 'paphos'
-      ? mapCityToLegacyLocationForPricing(returnCode, calculatorKey, input.returnPlaceType)
-      : returnLegacyKey;
+      ? mapCityToLegacyLocationForPricing(returnLegacyKey || returnCode, calculatorKey, input.returnPlaceType)
+      : returnLegacyKey || returnCode;
     const quoteContext = {
       calculatorKey,
       pickupPricingKey,

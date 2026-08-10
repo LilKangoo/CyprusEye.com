@@ -5286,21 +5286,31 @@
 
         <!-- Fleet Tab Content -->
         <div id="carsTabFleet" class="cars-tab-content" hidden>
-          <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
-            <div style="display: flex; gap: 12px;">
-              <select id="fleetLocationFilter" class="admin-form-field" style="padding: 8px 12px;">
+          <div class="car-fleet-operations-toolbar">
+            <div class="car-fleet-filter-grid" aria-label="Fleet filters">
+              <label class="admin-form-field car-fleet-filter-search"><span>Search vehicle</span><input id="fleetSearchFilter" type="search" placeholder="Model, class or exact ID"></label>
+              <label class="admin-form-field"><span>Partner</span><select id="fleetPartnerFilter"><option value="">All partners</option></select></label>
+              <label class="admin-form-field"><span>Vehicle kind</span><select id="fleetVehicleKindFilter"><option value="">All vehicle kinds</option></select></label>
+              <label class="admin-form-field"><span>Pricing</span><select id="fleetPricingStrategyFilter"><option value="">All pricing</option><option value="legacy_compat">Legacy pricing</option><option value="threshold_daily_rate">Flexible daily rates</option></select></label>
+              <label class="admin-form-field"><span>Availability</span><select id="fleetAvailabilityModeFilter"><option value="">All availability</option><option value="legacy">Legacy coverage</option><option value="mapped">Configured availability</option></select></label>
+              <label class="admin-form-field"><span>Public status</span><select id="fleetPublicStatusFilter"><option value="">All public states</option><option value="LIVE">Live</option><option value="READY">Ready</option><option value="DRAFT">Draft</option><option value="UNAVAILABLE">Unavailable</option><option value="BLOCKED">Blocked</option></select></label>
+              <label class="admin-form-field"><span>Operational state</span><select id="fleetOperationalFilter"><option value="">Available and unavailable</option><option value="available">Available</option><option value="unavailable">Unavailable</option></select></label>
+              <label class="admin-form-field"><span>Configured city</span><select id="fleetCityFilter"><option value="">All configured cities</option></select></label>
+              <label class="admin-form-field"><span>Legacy compatibility region</span><select id="fleetLocationFilter">
                 <option value="">All legacy compatibility regions</option>
                 <option value="larnaca">Larnaca</option>
                 <option value="paphos">Paphos</option>
-              </select>
-              <select id="fleetTypeFilter" class="admin-form-field" style="padding: 8px 12px;">
-                <option value="">All Types</option>
+              </select></label>
+              <label class="admin-form-field"><span>Commercial class</span><select id="fleetTypeFilter">
+                <option value="">All classes</option>
                 <option value="Economy">Economy</option>
                 <option value="Compact">Compact</option>
                 <option value="SUV">SUV</option>
                 <option value="MPV">MPV</option>
                 <option value="Luxury">Luxury</option>
-              </select>
+              </select></label>
+              <label class="admin-form-field"><span>Presentation</span><select id="fleetGroupingFilter"><option value="">Flat list</option><option value="partner">Group by Partner</option></select></label>
+              <div class="car-fleet-filter-actions"><button class="btn-secondary" type="button" id="btnClearFleetFilters">Clear filters</button></div>
             </div>
             <div class="car-multicity-fleet-actions">
               <button class="btn-secondary" type="button" id="btnManageCarMulticity">Cities &amp; profile support</button>
@@ -5309,11 +5319,21 @@
             </div>
           </div>
 
+          <div class="car-fleet-selection-bar" id="fleetSelectionBar" aria-live="polite">
+            <strong id="fleetSelectionCount">0 vehicles selected</strong>
+            <span id="fleetFilteredCount">0 filtered results</span>
+            <button type="button" class="btn-secondary" id="btnSelectVisibleFleet">Select all visible</button>
+            <button type="button" class="btn-secondary" id="btnSelectFilteredFleet">Select all filtered results</button>
+            <button type="button" class="btn-secondary" id="btnClearFleetSelection" disabled>Clear selection</button>
+            <button type="button" class="btn-primary" id="btnOpenFleetBulk" disabled>Bulk actions</button>
+          </div>
+
           <!-- Fleet Table -->
           <div class="admin-table-container" aria-label="Fleet">
             <table class="admin-table">
               <thead>
                 <tr>
+                  <th class="car-fleet-select-column"><input type="checkbox" id="fleetSelectVisibleCheckbox" aria-label="Select all visible vehicles"></th>
                   <th style="width: 80px;">Image</th>
                   <th>Configured cities</th>
                   <th>Order</th>
@@ -5329,7 +5349,7 @@
               </thead>
               <tbody id="fleetTableBody">
                 <tr>
-                  <td colspan="11" class="table-loading">Loading fleet...</td>
+                  <td colspan="12" class="table-loading">Loading fleet...</td>
                 </tr>
               </tbody>
             </table>
@@ -8496,6 +8516,29 @@
     </div>
   </div>
 
+  <!-- Exact-ID transactional Fleet Operations drawer/modal -->
+  <div class="admin-modal car-fleet-bulk-modal" id="carFleetBulkModal" role="dialog" aria-modal="true" aria-labelledby="carFleetBulkTitle" hidden>
+    <div class="admin-modal-overlay" id="carFleetBulkOverlay"></div>
+    <div class="admin-modal-content car-fleet-bulk-modal__content">
+      <header class="admin-modal-header car-fleet-bulk-modal__header">
+        <div><h3 id="carFleetBulkTitle">Fleet bulk actions</h3><p id="carFleetBulkSubtitle">Review-first exact vehicle operations</p></div>
+        <button class="btn-modal-close" type="button" id="carFleetBulkClose" aria-label="Close fleet bulk actions">&times;</button>
+      </header>
+      <div class="car-fleet-bulk-modal__body">
+        <div id="carFleetBulkError" class="admin-error-message" role="alert" hidden></div>
+        <section class="car-fleet-bulk-summary"><strong id="carFleetBulkSelectedCount">0 selected</strong><details><summary>Exact offer IDs</summary><pre id="carFleetBulkExactIds"></pre></details></section>
+        <div id="carFleetBulkEditor"></div>
+        <div id="carFleetBulkReview" hidden></div>
+      </div>
+      <footer class="admin-modal-footer car-fleet-bulk-modal__footer">
+        <button type="button" class="btn-secondary" id="carFleetBulkCancel">Cancel</button>
+        <button type="button" class="btn-secondary" id="carFleetBulkBack" hidden>Back to edit</button>
+        <button type="button" class="btn-primary" id="carFleetBulkReviewButton">Review exact changes</button>
+        <button type="button" class="btn-primary" id="carFleetBulkSave" hidden disabled>Apply atomically</button>
+      </footer>
+    </div>
+  </div>
+
   <!-- Car Rental Multi-City Stage 2C Modal: global and outside hidden Cars tabs -->
   <div
     class="admin-modal car-multicity-modal"
@@ -8519,8 +8562,9 @@
         </button>
       </header>
       <div class="car-multicity-modal__toolbar">
-        <span class="car-multicity-legacy-badge">Current public mode: Legacy</span>
-        <span>Global mapped flag: OFF</span>
+        <span class="car-multicity-legacy-badge" id="carMulticityPricingModeBadge">Pricing: —</span>
+        <span class="car-multicity-legacy-badge" id="carMulticityAvailabilityModeBadge">Availability: —</span>
+        <span id="carMulticityCapabilityBadge">Mapped capability: —</span>
         <button type="button" class="btn-secondary" id="carMulticityRefresh">Refresh data</button>
       </div>
       <div id="carMulticityModalStatus" class="car-multicity-live-status" role="status" aria-live="polite"></div>

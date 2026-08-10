@@ -458,13 +458,13 @@ describe('Car Rental Multi-City Stage 2C core', () => {
     expect(validation.valid).toBe(false);
   });
 
-  test('missing legacy pricing key blocks active availability', () => {
+  test('known legacy fee city does not require a profile-direction mapping for mapped availability', () => {
     const badContext = context({ profileCities: profileCities.filter((row) => row.city_id !== 'city-nicosia') });
     const draft = core.createDraft(badContext, { mode: 'availability' });
     draft.availability.push({ city_id: 'city-nicosia', pickup_enabled: true, return_enabled: true, is_active: true });
     const validation = core.validateDraft(draft, badContext);
-    expect(validation.valid).toBe(false);
-    expect(validation.errors.some((entry: any) => entry.message.includes('mapping'))).toBe(true);
+    expect(validation.valid).toBe(true);
+    expect(core.getMappedReadiness(draft, badContext).ready).toBe(true);
   });
 
   test('mapped readiness requires active pickup and return', () => {

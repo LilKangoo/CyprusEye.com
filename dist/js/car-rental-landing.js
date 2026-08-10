@@ -785,22 +785,23 @@ function buildLandingModalPrefill(widgetState, selectedCar = null) {
   const pickupPlaceType = 'hotel';
   const returnPlaceType = 'hotel';
   const context = selectedCar?.pricingContext || selectedCar?.availabilityContext || null;
-  const thresholdOffer = selectedCar?.pricing_strategy === 'threshold_daily_rate'
-    && context?.pricingStrategy === 'threshold_daily_rate';
+  const exactMappedOffer = String(selectedCar?.availability_mode || '').trim() === 'mapped'
+    && String(context?.availabilityMode || '').trim() === 'mapped'
+    && String(context?.offerId || '').trim() === String(selectedCar?.id || '').trim();
 
   return {
     pickupDate: widgetState.pickupDate,
     pickupTime: widgetState.pickupTime,
     returnDate: widgetState.returnDate,
     returnTime: widgetState.returnTime,
-    pickupCity,
-    returnCity,
+    pickupCity: exactMappedOffer ? context.pickupCityCode : pickupCity,
+    returnCity: exactMappedOffer ? context.returnCityCode : returnCity,
     pickupPlaceType,
     returnPlaceType,
-    pickupLocation: thresholdOffer
+    pickupLocation: exactMappedOffer
       ? context.pickupLegacyPricingLocation
       : mapCityToLegacyLocationForPricing(pickupCity, state.effectiveOffer, pickupPlaceType),
-    returnLocation: thresholdOffer
+    returnLocation: exactMappedOffer
       ? context.returnLegacyPricingLocation
       : mapCityToLegacyLocationForPricing(returnCity, state.effectiveOffer, returnPlaceType),
     fullInsurance: !!widgetState.fullInsurance,
@@ -873,6 +874,16 @@ function syncReservationForm(widgetState) {
   const calcCar = byId('rentalCarSelect');
 
   const modalOpen = isCarOfferModalOpen();
+  const selectedMeta = getSelectedCarOfferMeta();
+  const selectedCar = resolveSelectedLandingCar(
+    selectedMeta?.offerId,
+    selectedMeta?.title || widgetState.carModel || resCar?.value,
+  );
+  const pricingContext = selectedCar?.pricingContext || selectedCar?.availabilityContext || null;
+  const exactMappedOffer = modalOpen
+    && String(selectedCar?.availability_mode || '').trim() === 'mapped'
+    && String(pricingContext?.availabilityMode || '').trim() === 'mapped'
+    && String(pricingContext?.offerId || '').trim() === String(selectedCar?.id || '').trim();
   if (!modalOpen) {
     populateReservationLocations();
   }
@@ -900,12 +911,20 @@ function syncReservationForm(widgetState) {
     setInputIfChanged(resReturnDate, widgetState.returnDate, 'res_return_date');
     setInputIfChanged(resReturnTime, widgetState.returnTime, 'res_return_time');
 
-    const pickupCity = normalizeCarCity(widgetState.pickupLocation, 'larnaca');
-    const returnCity = normalizeCarCity(widgetState.returnLocation, pickupCity || 'larnaca');
+    const pickupCity = exactMappedOffer
+      ? String(pricingContext.pickupCityCode || '').trim()
+      : normalizeCarCity(widgetState.pickupLocation, 'larnaca');
+    const returnCity = exactMappedOffer
+      ? String(pricingContext.returnCityCode || '').trim()
+      : normalizeCarCity(widgetState.returnLocation, pickupCity || 'larnaca');
     const pickupPlaceType = String(resPickupPlaceType?.value || 'hotel').trim() || 'hotel';
     const returnPlaceType = String(resReturnPlaceType?.value || 'hotel').trim() || 'hotel';
-    const pickupForReservation = mapCityToLegacyLocationForPricing(pickupCity, state.effectiveOffer, pickupPlaceType);
-    const returnForReservation = mapCityToLegacyLocationForPricing(returnCity, state.effectiveOffer, returnPlaceType);
+    const pickupForReservation = exactMappedOffer
+      ? String(pricingContext.pickupLegacyPricingLocation || '').trim()
+      : mapCityToLegacyLocationForPricing(pickupCity, state.effectiveOffer, pickupPlaceType);
+    const returnForReservation = exactMappedOffer
+      ? String(pricingContext.returnLegacyPricingLocation || '').trim()
+      : mapCityToLegacyLocationForPricing(returnCity, state.effectiveOffer, returnPlaceType);
 
     setInputIfChanged(resPickupCity, pickupCity, 'res_pickup_city');
     setInputIfChanged(resReturnCity, returnCity, 'res_return_city');

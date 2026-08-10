@@ -285,9 +285,9 @@
       const exactOfferIds = Array.from(new Set((offerIds || []).map(normalizeId).filter(Boolean))).sort();
       const catalog = await getCatalog();
       if (!exactOfferIds.length) {
-        return { ...catalog, availability: [], dailyRateTiers: [], partnerResources: [], loadedAt: new Date().toISOString() };
+        return { ...catalog, availability: [], dailyRateTiers: [], partnerResources: [], depositOverrides: [], loadedAt: new Date().toISOString() };
       }
-      const [availability, dailyRateTiers, partnerResources] = await Promise.all([
+      const [availability, dailyRateTiers, partnerResources, depositOverrides] = await Promise.all([
         listRows(
           TABLES.availability,
           '*',
@@ -303,8 +303,57 @@
           'id,partner_id,resource_type,resource_id,created_at',
           (query) => query.eq('resource_type', 'cars').in('resource_id', exactOfferIds).order('resource_id', { ascending: true }),
         ),
+        listRows(
+          TABLES.depositOverrides,
+          'id,resource_type,resource_id,mode,amount,currency,include_children,enabled,created_at,updated_at',
+          (query) => query.eq('resource_type', 'cars').in('resource_id', exactOfferIds).order('resource_id', { ascending: true }),
+        ),
       ]);
-      return { ...catalog, availability, dailyRateTiers, partnerResources, loadedAt: new Date().toISOString() };
+      return { ...catalog, availability, dailyRateTiers, partnerResources, depositOverrides, loadedAt: new Date().toISOString() };
+    }
+
+    async function applyFleetBulkOperation(plan) {
+      if (!plan?.valid || !Array.isArray(plan.targets) || !plan.targets.length) {
+        throw internalError('A current reviewed Fleet bulk plan is required.');
+      }
+      if (typeof client().rpc !== 'function') {
+        throw internalError('Transactional Fleet bulk RPC is unavailable.');
+      }
+      const targets = plan.targets.map((target) => ({
+        offer_id: normalizeId(target.offer_id),
+        expected_updated_at: target.expected_updated_at || null,
+        expected_availability: core.clone(target.expected_availability || []),
+        expected_deposit_override: target.expected_deposit_override
+          ? core.clone(target.expected_deposit_override)
+          : null,
+        desired_availability: Array.isArray(target.desired_availability)
+          ? core.clone(target.desired_availability)
+          : null,
+        target_availability_mode: String(target.target_availability_mode || 'legacy'),
+      }));
+      const result = await client().rpc('admin_apply_car_fleet_bulk_operation', {
+        p_targets: targets,
+        p_operations: core.clone(plan.operations),
+      });
+      if (result?.error?.code === '40001') {
+        throw staleConflict('One or more selected vehicles changed since Review. No changes were applied.', {
+          exactOfferIds: targets.map((target) => target.offer_id),
+        });
+      }
+      const asserted = assertResult(result);
+      const receipt = asserted?.data;
+      if (!receipt || Number(receipt.target_count) !== targets.length) {
+        throw internalError('Fleet bulk transaction returned an unexpected receipt.', {
+          expected: targets.length,
+          received: receipt?.target_count,
+        });
+      }
+      const returnedIds = Array.isArray(receipt.offer_ids) ? receipt.offer_ids.map(normalizeId).sort() : [];
+      const expectedIds = targets.map((target) => target.offer_id).sort();
+      if (core.stableSerialize(returnedIds) !== core.stableSerialize(expectedIds)) {
+        throw internalError('Fleet bulk transaction returned unexpected exact offer IDs.', { expectedIds, returnedIds });
+      }
+      return receipt;
     }
 
     async function exactOfferUpdate(offerId, expectedUpdatedAt, payload, allowedFields, operation) {
@@ -1012,6 +1061,7 @@
       getOfferById,
       getOfferContext,
       getSiteSetting,
+      applyFleetBulkOperation,
       insertAvailability,
       insertDailyRateTier,
       insertOffer,

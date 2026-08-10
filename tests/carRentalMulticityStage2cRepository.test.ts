@@ -603,7 +603,7 @@ describe('Car Rental Multi-City Stage 2C repository', () => {
     expect(memory.mutations).toEqual([expect.objectContaining({ table: 'car_rental_cities', action: 'insert' })]);
   });
 
-  test('profile-city impact reports exact offer IDs and readiness invalidation before write', async () => {
+  test('profile-city direction metadata no longer invalidates exact mapped availability', async () => {
     const memory = memoryClient(seed());
     const repository = repositoryApi.create({ client: memory.client, core });
     const impact = await repository.listMappingImpact('profile-larnaca', 'city-larnaca', {
@@ -616,8 +616,8 @@ describe('Car Rental Multi-City Stage 2C repository', () => {
     });
     expect(impact.offerIds).toEqual(['offer-one']);
     expect(impact.readyOfferIds).toEqual(['offer-one']);
-    expect(impact.readyAfterOfferIds).toEqual([]);
-    expect(impact.readinessInvalidatedOfferIds).toEqual(['offer-one']);
+    expect(impact.readyAfterOfferIds).toEqual(['offer-one']);
+    expect(impact.readinessInvalidatedOfferIds).toEqual([]);
     expect(memory.mutations).toHaveLength(0);
   });
 

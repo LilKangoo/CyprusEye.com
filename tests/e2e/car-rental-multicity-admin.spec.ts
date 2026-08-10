@@ -124,6 +124,17 @@ function adminSeedScript() {
           helpers.setTableRows('car_offers', allOffers.map((row: any) => row.id === offerId ? updated : row));
           return { data: updated, error: null };
         });
+        stub.setRpcHandler('admin_apply_car_fleet_bulk_operation', (params: any) => {
+          const offerIds = (params.p_targets || []).map((target: any) => String(target.offer_id || '')).sort();
+          return {
+            data: {
+              operation: 'fleet_bulk',
+              target_count: offerIds.length,
+              offer_ids: offerIds,
+            },
+            error: null,
+          };
+        });
         stub.seedTable('car_offer_daily_rate_tiers', []);
         stub.seedTable('car_bookings', []);
         stub.seedTable('service_deposit_rules', [{ id: 'deposit-cars-default', resource_type: 'cars', mode: 'per_day', amount: 5, currency: 'EUR', include_children: true, enabled: true, updated_at: '2026-08-02T09:20:00.000Z' }]);
@@ -166,9 +177,10 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
   });
 
   test('Fleet actions open exact vehicle, availability, profile, partner and Legacy editor', async ({ page }) => {
-    await expect(page.locator('#fleetTableBody')).toContainText('Legacy larnaca');
-    await expect(page.locator('#fleetTableBody')).toContainText('Current runtime: legacy resolver coverage');
-    await expect(page.locator('#fleetTableBody')).toContainText('Future configured rows: Pickup & return: Larnaca');
+    await expect(page.locator('#fleetTableBody')).toContainText('Legacy coverage: larnaca');
+    await expect(page.locator('#fleetTableBody')).toContainText('Saved configured rows (not active publicly): Pickup & return: Larnaca');
+    await expect(page.locator('#fleetTableBody')).toContainText('Pricing: Legacy pricing');
+    await expect(page.locator('#fleetTableBody')).toContainText('Availability: Legacy coverage');
     await expect(page.locator('#fleetTableBody [data-offer-status="LIVE"]')).toHaveCount(1);
     await openAction(page, 'vehicle');
     await expect(page.locator('#carMulticityVehicleKind')).toHaveValue(KIND_CAR);
@@ -193,6 +205,88 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     await expect(page.locator('#fleetCarModal')).toBeVisible();
     await expect(page.locator('#fleetCarLocation')).toBeDisabled();
     await expect(page.locator('#fleetCarLegacyLocationNotice')).toContainText('Pricing profile');
+  });
+
+  test('Fleet partner filters, grouping and exact selection scopes never retain hidden vehicles', async ({ page }) => {
+    const secondOfferId = 'ca300001-0000-4000-8000-000000000002';
+    await page.evaluate(({ secondOfferId, profileId, cityId, kindId }) => {
+      const stub = (window as any).__supabaseStub;
+      stub.seedTable('partners', [
+        ...stub.getTableRows('partners'),
+        { id: 'partner-two', name: 'CruiseCarRental', status: 'active', can_manage_cars: true, cars_locations: ['paphos'], updated_at: '2026-08-02T08:35:00.000Z' },
+      ]);
+      stub.seedTable('car_offers', [
+        ...stub.getTableRows('car_offers'),
+        {
+          id: secondOfferId,
+          updated_at: '2026-08-02T09:30:00.000Z',
+          location: 'paphos', pricing_profile_id: profileId, availability_mode: 'legacy', pricing_strategy: 'legacy_compat', vehicle_kind_id: kindId,
+          car_model: { en: 'Honda Fit Hybrid' }, car_type: { en: 'Compact' }, description: { en: 'Second deterministic Fleet vehicle' }, features: { en: [] },
+          transmission: 'automatic', fuel_type: 'hybrid', currency: 'EUR', max_passengers: 5, max_luggage: 2, stock_count: 1, sort_order: 20,
+          price_per_day: 40, price_3days: 120, price_4_6days: 39, price_7_10days: 36, price_10plus_days: 34,
+          deposit_amount: null, insurance_mode: 'legacy_optional_daily', insurance_per_day: 17, young_driver_fee: false, young_driver_cost: 0,
+          min_rental_days: 1, max_rental_days: 30, owner_partner_id: 'partner-two', is_available: true, is_published: true, submission_status: 'approved',
+        },
+      ]);
+      stub.seedTable('car_offer_city_availability', [
+        ...stub.getTableRows('car_offer_city_availability'),
+        { id: 'availability-paphos-two', offer_id: secondOfferId, city_id: cityId, pickup_enabled: true, return_enabled: true, is_active: true, fee_mode: 'inherit', fee_per_direction: null, fee_note: null, updated_at: '2026-08-02T09:31:00.000Z' },
+      ]);
+    }, { secondOfferId, profileId: PROFILE_PAPHOS, cityId: CITY_PAPHOS, kindId: KIND_CAR });
+    await page.evaluate(() => (window as any).loadFleetData({ silent: true }));
+
+    await expect(page.locator('#fleetTableBody')).toContainText('Mazda 2');
+    await expect(page.locator('#fleetTableBody')).toContainText('Honda Fit Hybrid');
+
+    await page.locator('#fleetGroupingFilter').selectOption('partner');
+    await expect(page.locator('.car-fleet-group-row')).toHaveCount(2);
+    await expect(page.locator('.car-fleet-group-row')).toContainText(['Cars Partner', 'CruiseCarRental']);
+    expect(await page.locator('#fleetTableBody button[title^="Move up"], #fleetTableBody button[title^="Move down"]')
+      .evaluateAll((buttons: HTMLButtonElement[]) => buttons.length === 4 && buttons.every((button) => button.disabled))).toBe(true);
+
+    await page.locator('#fleetGroupingFilter').selectOption('');
+    await page.locator('#fleetPartnerFilter').selectOption('partner-one');
+    await expect(page.locator('#fleetTableBody [data-fleet-offer-id]')).toHaveCount(1);
+    await page.locator('#btnSelectVisibleFleet').click();
+    await expect(page.locator('#fleetSelectionCount')).toHaveText('1 vehicle selected');
+
+    await page.locator('#fleetPartnerFilter').selectOption('partner-two');
+    await expect(page.locator('#fleetSelectionCount')).toHaveText('0 vehicles selected');
+    await expect(page.locator('#fleetTableBody')).not.toContainText('Mazda 2');
+    await expect(page.locator('#fleetTableBody')).toContainText('Honda Fit Hybrid');
+
+    await page.locator('#btnSelectFilteredFleet').click();
+    await expect(page.locator('#fleetSelectionCount')).toHaveText('1 vehicle selected');
+    await expect(page.locator(`[data-fleet-select-id="${secondOfferId}"]`)).toBeChecked();
+    await expect(page.locator('#fleetTableBody button[title^="Move up"]')).toBeDisabled();
+  });
+
+  test('Fleet bulk Review sends mode-only and security-only plans without availability rowset writes', async ({ page }) => {
+    await page.locator('[data-fleet-select-id]').check();
+    await page.locator('#btnOpenFleetBulk').click();
+    await expect(page.locator('#carFleetBulkModal')).toBeVisible();
+    await page.locator('#carFleetBulkSecurityAction').selectOption('none');
+    await page.locator('#carFleetBulkReviewButton').click();
+    await expect(page.locator('#carFleetBulkReview')).toContainText('Reviewed exact scope');
+    await expect(page.locator('#carFleetBulkReview')).toContainText('Security deposit');
+    await page.locator('#carFleetBulkSave').click();
+    await expect(page.locator('#carFleetBulkModal')).toBeHidden();
+
+    await page.locator('[data-fleet-availability-action="mapped"]').evaluate((element: HTMLButtonElement) => element.click());
+    await expect(page.locator('#carFleetBulkAvailabilityMode')).toHaveValue('mapped');
+    await page.locator('#carFleetBulkReviewButton').click();
+    await expect(page.locator('#carFleetBulkReview')).toContainText('Legacy coverage → Configured pickup/return cities');
+    await page.locator('#carFleetBulkSave').click();
+
+    const calls = await page.evaluate(() => (window as any).__supabaseStub.getRpcCalls()
+      .filter((call: any) => call.name === 'admin_apply_car_fleet_bulk_operation'));
+    expect(calls).toHaveLength(2);
+    expect(calls[0].params.p_operations.security_deposit).toMatchObject({ action: 'none' });
+    expect(calls[0].params.p_targets).toHaveLength(1);
+    expect(calls[0].params.p_targets[0].desired_availability).toBeNull();
+    expect(calls[1].params.p_operations.availability_mode).toBe('mapped');
+    expect(calls[1].params.p_operations.cities).toEqual([]);
+    expect(calls[1].params.p_targets[0].desired_availability).toBeNull();
   });
 
   test('threshold booking details render the authoritative Kymco snapshot without a legacy Larnaca quote or writes', async ({ page }) => {
@@ -463,7 +557,7 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     await expect(page.locator('#carMulticityModalContent')).toContainText('Pickup €0.00 · Return €25.00 · Route total €25.00');
   });
 
-  test('Paphos profile UI blocks every non-Paphos city', async ({ page }) => {
+  test('Paphos pricing keeps exact configured cities independent and requires an explicit non-Paphos fee', async ({ page }) => {
     await page.evaluate(({ offerId, profileId }) => {
       const stub = (window as any).__supabaseStub;
       const offers = stub.getTableRows('car_offers');
@@ -472,8 +566,9 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     }, { offerId: OFFER_ID, profileId: PROFILE_PAPHOS });
     await page.evaluate(() => (window as any).loadFleetData({ silent: true }));
     await openAction(page, 'availability');
-    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="pickup_enabled"]`)).toBeDisabled();
-    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="return_enabled"]`)).toBeDisabled();
+    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="pickup_enabled"]`)).toBeEnabled();
+    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="return_enabled"]`)).toBeEnabled();
+    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"]`)).toContainText('custom fee required');
     await expect(page.locator(`[data-city-id="${CITY_PAPHOS}"] [data-availability-field="pickup_enabled"]`)).toBeEnabled();
     await expect(page.locator(`[data-city-id="${CITY_PAPHOS}"] [data-availability-field="return_enabled"]`)).toBeEnabled();
   });
@@ -1023,7 +1118,7 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     expect(result.mutations[0]).toEqual(expect.objectContaining({ table: 'car_rental_cities', action: 'update' }));
   });
 
-  test('profile-city change reviews exact readiness impact before exact composite-key save', async ({ page }) => {
+  test('profile-city direction changes do not invalidate exact offer-city readiness', async ({ page }) => {
     await page.locator('#btnManageCarMulticity').click();
     await page.locator('#carMulticityCatalogMappingsTab').click();
     const row = page.locator(`[data-mapping-profile-id="${PROFILE_LARNACA}"][data-mapping-city-id="${CITY_LARNACA}"]`);
@@ -1031,8 +1126,9 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     await row.locator('[data-mapping-field="is_active"]').uncheck();
     await clearMutations(page);
     await row.locator('[data-catalog-action="save-mapping"]').click();
-    await expect(page.locator('#carMulticityConfirmDialog')).toContainText('Readiness invalidated: 1');
+    await expect(page.locator('#carMulticityConfirmDialog')).toContainText('Readiness invalidated: 0');
     await expect(page.locator('#carMulticityConfirmDialog')).toContainText(OFFER_ID);
+    await expect(page.locator('#carMulticityConfirmDialog')).toContainText('Exact IDs losing readinessNone');
     expect(await page.evaluate(() => (window as any).__supabaseStub.getMutationCalls())).toEqual([]);
     await page.locator('#carMulticityConfirmAccept').click();
     await expect(page.locator('#carMulticityCatalogStatus')).toContainText('impact review');

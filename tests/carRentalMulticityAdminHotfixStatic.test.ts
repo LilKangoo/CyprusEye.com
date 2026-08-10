@@ -55,8 +55,8 @@ describe('Car Rental Multi-City Admin UX and media hotfix guards', () => {
     expect(`${repository}\n${ui}\n${admin}`).not.toMatch(/\.eq\(['"]car_type['"]/);
     expect(ui).not.toContain('String(vehicle.carType)');
     expect(core).toContain('resolveI18nText');
-    expect(admin).toContain("Object.values(car.car_type)");
-    expect(admin).toContain("core.resolveI18nText(car?.car_type");
+    expect(admin).toContain("fleetLocalized(offer.car_type");
+    expect(admin).toContain("normalizeI18nText(row?.car_type)");
   });
 
   test('modal UX keeps a large responsive shell with sticky actions and loading state', () => {

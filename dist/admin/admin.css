@@ -15795,3 +15795,61 @@ body.car-multicity-modal-open {
     width: 100%;
   }
 }
+
+/* Cars Fleet Operations: filters, exact-ID selection and transactional bulk review. */
+.car-fleet-operations-toolbar { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:14px; }
+.car-fleet-filter-grid { display:grid; grid-template-columns:repeat(4,minmax(150px,1fr)); gap:10px; flex:1 1 auto; }
+.car-fleet-filter-grid .admin-form-field { min-width:0; margin:0; }
+.car-fleet-filter-grid input,
+.car-fleet-filter-grid select,
+.car-fleet-bulk-modal input,
+.car-fleet-bulk-modal select { width:100%; min-height:42px; color:var(--admin-text); background:var(--admin-bg-secondary); border:1px solid var(--admin-border); border-radius:8px; }
+.car-fleet-filter-search { grid-column:span 2; }
+.car-fleet-filter-actions { display:flex; align-items:flex-end; }
+.car-fleet-selection-bar { position:sticky; top:0; z-index:4; display:flex; flex-wrap:wrap; align-items:center; gap:9px; margin-bottom:12px; padding:10px 12px; background:color-mix(in srgb,var(--admin-bg-secondary) 94%,transparent); border:1px solid var(--admin-border); border-radius:10px; backdrop-filter:blur(8px); }
+.car-fleet-selection-bar > span { margin-right:auto; color:var(--admin-text-muted); }
+.car-fleet-select-column { width:44px; text-align:center; }
+.car-fleet-row-checkbox,
+#fleetSelectVisibleCheckbox { width:18px; height:18px; accent-color:var(--admin-primary); }
+.car-fleet-group-row td { padding:10px 14px !important; background:color-mix(in srgb,var(--admin-primary) 10%,var(--admin-bg-secondary)); border-top:2px solid color-mix(in srgb,var(--admin-primary) 45%,var(--admin-border)); }
+.car-fleet-group-summary { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+.car-fleet-group-summary strong { margin-right:auto; }
+.car-fleet-mode-pair { display:grid; gap:3px; margin-top:5px; font-size:11px; color:var(--admin-text-muted); }
+.car-fleet-mode-pair b { color:var(--admin-text); font-weight:600; }
+.car-fleet-bulk-modal__content { width:min(1180px,96vw); max-width:1180px; height:min(92vh,980px); display:grid; grid-template-rows:auto minmax(0,1fr) auto; overflow:hidden; }
+.car-fleet-bulk-modal__header,
+.car-fleet-bulk-modal__footer { position:sticky; z-index:3; background:var(--admin-bg-secondary); }
+.car-fleet-bulk-modal__header { top:0; }
+.car-fleet-bulk-modal__footer { bottom:0; }
+.car-fleet-bulk-modal__body { overflow:auto; padding:18px 22px; }
+.car-fleet-bulk-summary,
+.car-fleet-bulk-section,
+.car-fleet-bulk-review-card { margin-bottom:14px; padding:14px; background:var(--admin-bg-secondary); border:1px solid var(--admin-border); border-radius:10px; }
+.car-fleet-bulk-summary pre,
+.car-fleet-bulk-review-card pre { max-height:160px; overflow:auto; white-space:pre-wrap; color:var(--admin-text-muted); }
+.car-fleet-bulk-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+.car-fleet-bulk-city-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.car-fleet-bulk-city { padding:12px; background:color-mix(in srgb,var(--admin-bg) 72%,transparent); border:1px solid var(--admin-border); border-radius:9px; }
+.car-fleet-bulk-city > strong { display:block; margin-bottom:9px; }
+.car-fleet-bulk-city-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.car-fleet-bulk-city .car-fleet-bulk-fee-amount { margin-top:8px; }
+.car-fleet-bulk-review-table { width:100%; border-collapse:collapse; }
+.car-fleet-bulk-review-table th,
+.car-fleet-bulk-review-table td { padding:8px; text-align:left; border-bottom:1px solid var(--admin-border); }
+.car-fleet-bulk-blocked { color:var(--admin-danger); }
+
+@media (max-width:1100px) {
+  .car-fleet-operations-toolbar { align-items:stretch; flex-direction:column; }
+  .car-fleet-filter-grid { grid-template-columns:repeat(3,minmax(140px,1fr)); }
+}
+
+@media (max-width:760px) {
+  .car-fleet-filter-grid,
+  .car-fleet-bulk-grid,
+  .car-fleet-bulk-city-grid,
+  .car-fleet-bulk-city-fields { grid-template-columns:1fr; }
+  .car-fleet-filter-search { grid-column:auto; }
+  .car-fleet-selection-bar > span { width:100%; margin-right:0; }
+  .car-fleet-bulk-modal__content { width:100vw; height:100dvh; max-height:100dvh; border-radius:0; }
+  .car-fleet-bulk-modal__body { padding:14px; }
+}

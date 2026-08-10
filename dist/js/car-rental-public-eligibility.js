@@ -181,6 +181,19 @@ function exactRouteRow(input, direction) {
   return activeDirectionalRows(input).find((row) => row.resolvedCityCode === requestedCode) || null;
 }
 
+function directionalFeeIsValid(input, row, cityCode, direction) {
+  const explicit = input?.[`${direction}FeeContractValid`];
+  if (typeof explicit === 'boolean') return explicit;
+  if (typeof input?.directionalFeeValidator === 'function') {
+    try {
+      return input.directionalFeeValidator(row, cityCode, direction) === true;
+    } catch (_error) {
+      return false;
+    }
+  }
+  return !!resolveThresholdDirectionalFee(row, cityCode);
+}
+
 function validateDirectionalConfiguration(input, reasons) {
   const rows = activeDirectionalRows(input);
   const pickupRows = rows.filter((row) => row.pickup_enabled === true);
@@ -190,7 +203,7 @@ function validateDirectionalConfiguration(input, reasons) {
 
   for (const row of rows.filter((candidate) => candidate.pickup_enabled === true || candidate.return_enabled === true)) {
     const cityCode = row.resolvedCityCode;
-    if (!cityCode || !resolveThresholdDirectionalFee(row, cityCode)) {
+    if (!cityCode || !directionalFeeIsValid(input, row, cityCode, 'configuration')) {
       addReason(reasons, 'CITY_FEE_INVALID', { cityCode: cityCode || null });
     }
   }
@@ -202,14 +215,14 @@ function validateDirectionalConfiguration(input, reasons) {
   if (pickupCode) {
     if (pickupRow?.is_active !== true || pickupRow?.pickup_enabled !== true) {
       addReason(reasons, 'PICKUP_ROUTE_UNAVAILABLE', { cityCode: pickupCode, direction: 'pickup' });
-    } else if (!resolveThresholdDirectionalFee(pickupRow, pickupCode)) {
+    } else if (!directionalFeeIsValid(input, pickupRow, pickupCode, 'pickup')) {
       addReason(reasons, 'CITY_FEE_INVALID', { cityCode: pickupCode, direction: 'pickup' });
     }
   }
   if (returnCode) {
     if (returnRow?.is_active !== true || returnRow?.return_enabled !== true) {
       addReason(reasons, 'RETURN_ROUTE_UNAVAILABLE', { cityCode: returnCode, direction: 'return' });
-    } else if (!resolveThresholdDirectionalFee(returnRow, returnCode)) {
+    } else if (!directionalFeeIsValid(input, returnRow, returnCode, 'return')) {
       addReason(reasons, 'CITY_FEE_INVALID', { cityCode: returnCode, direction: 'return' });
     }
   }
@@ -239,10 +252,55 @@ function legacyState(offer) {
   });
 }
 
+function mappedLegacyState(input, offer) {
+  const reasons = [];
+  const flags = normalizeFlags(input);
+  const directions = validateDirectionalConfiguration(input, reasons);
+  if (offer?.is_published !== true) addReason(reasons, 'OFFER_NOT_PUBLISHED');
+  if (offer?.is_available !== true) addReason(reasons, 'OFFER_NOT_AVAILABLE');
+  if (!flags.mappedEnabled) addReason(reasons, 'MAPPED_CAPABILITY_DISABLED');
+
+  const configurationReady = !reasons.some((reason) => STRUCTURAL_CODES.has(reason.code));
+  const capabilityEnabled = flags.mappedEnabled;
+  const routeReady = !reasons.some((reason) => reason.code === 'PICKUP_ROUTE_UNAVAILABLE'
+    || reason.code === 'RETURN_ROUTE_UNAVAILABLE'
+    || reason.code === 'CITY_FEE_INVALID');
+  const publicEligible = configurationReady
+    && routeReady
+    && capabilityEnabled
+    && offer?.is_published === true
+    && offer?.is_available === true;
+
+  let status = 'READY';
+  if (!configurationReady) status = 'BLOCKED';
+  else if (publicEligible) status = 'LIVE';
+  else if (offer?.is_available !== true) status = 'UNAVAILABLE';
+  else if (code(offer?.submission_status) === 'draft') status = 'DRAFT';
+
+  return Object.freeze({
+    offerId: text(offer?.id),
+    pricingStrategy: 'legacy_compat',
+    path: 'mapped-legacy',
+    status,
+    publicEligible,
+    configurationReady,
+    capabilityEnabled,
+    routeReady,
+    flags,
+    pickupCount: directions.pickupCount,
+    returnCount: directions.returnCount,
+    reasons: Object.freeze(reasons),
+  });
+}
+
 export function evaluateCarOfferPublicEligibility(input = {}) {
   const offer = input.offer || {};
   const pricingStrategy = code(offer.pricing_strategy || 'legacy_compat') || 'legacy_compat';
-  if (pricingStrategy !== CAR_THRESHOLD_PRICING_STRATEGY) return legacyState(offer);
+  if (pricingStrategy !== CAR_THRESHOLD_PRICING_STRATEGY) {
+    return code(offer.availability_mode || 'legacy') === 'mapped'
+      ? mappedLegacyState(input, offer)
+      : legacyState(offer);
+  }
 
   const reasons = [];
   const flags = normalizeFlags(input);

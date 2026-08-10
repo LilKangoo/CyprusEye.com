@@ -5,6 +5,14 @@
 import { buildPricingMatrixForOfferRow, calculateCarRentalQuote } from '../js/car-pricing.js';
 import { deriveCarOfferAdminPublicState } from '../js/car-rental-public-eligibility.js';
 import { initSpecialOffers } from './special-offers.js';
+import {
+  buildFleetBulkPlan,
+  filterFleetItems,
+  groupFleetItemsByPartner,
+  normalizeFleetBulkOperations,
+  reconcileFleetSelection,
+  setFleetSelectionScope,
+} from './car-fleet-operations-core.js';
 
 // =====================================================
 // CONFIGURATION & GLOBALS
@@ -35678,43 +35686,227 @@ async function handleCarsAddAction() {
 // FLEET MANAGEMENT
 // =====================================================
 
+const initialFleetFilters = Object.freeze({
+  search: '',
+  partnerId: '',
+  vehicleKind: '',
+  pricingStrategy: '',
+  availabilityMode: '',
+  publicStatus: '',
+  operationalAvailability: '',
+  cityId: '',
+  legacyRegion: '',
+  commercialClass: '',
+});
+
 let fleetState = {
   cars: [],
-  locationFilter: '',
-  typeFilter: ''
+  presentation: null,
+  items: [],
+  filteredItems: [],
+  visibleIds: [],
+  selectedIds: new Set(),
+  filters: { ...initialFleetFilters },
+  grouping: '',
+  bulkPlan: null,
+  bulkExecuting: false,
+  bulkReturnFocus: null,
 };
 
-// Setup event delegation for car availability dropdowns
-function setupFleetEventListeners() {
-  console.log('🔧 Setting up fleet event listeners...');
-  
-  const tbody = $('#fleetTableBody');
-  if (!tbody) {
-    console.warn('⚠️ Fleet table body not found');
-    return;
-  }
-  
-  // Use event delegation on tbody instead of document
-  tbody.removeEventListener('change', handleAvailabilityChange);
-  tbody.addEventListener('change', handleAvailabilityChange);
-  
-  console.log('✅ Event listener attached to fleetTableBody');
+function fleetLocalized(value, fallback = '') {
+  return window.CarRentalMulticityCore?.resolveI18nText?.(
+    value,
+    document.documentElement?.lang || 'en',
+  ) || (typeof value === 'string' ? value.trim() : '') || fallback;
 }
 
-function handleAvailabilityChange(e) {
-  console.log('🎯 Change event detected on:', e.target);
-  
-  if (e.target && e.target.classList.contains('car-availability-select')) {
-    const carId = e.target.dataset.carId;
-    const newValue = e.target.value;
-    console.log('🔄 Availability dropdown changed:', { carId, newValue, element: e.target });
-    
-    if (carId && newValue) {
-      toggleCarAvailability(carId, newValue);
-    } else {
-      console.error('❌ Missing carId or newValue:', { carId, newValue });
-    }
+function setDynamicFleetOptions(elementId, rows, valueFor, labelFor, placeholder) {
+  const element = document.getElementById(elementId);
+  if (!(element instanceof HTMLSelectElement)) return;
+  const current = element.value;
+  const options = (rows || []).map((row) => {
+    const value = String(valueFor(row) || '').trim();
+    return value ? `<option value="${escapeHtml(value)}">${escapeHtml(labelFor(row) || value)}</option>` : '';
+  }).join('');
+  element.innerHTML = `<option value="">${escapeHtml(placeholder)}</option>${options}`;
+  if ([...element.options].some((option) => option.value === current)) element.value = current;
+}
+
+function buildFleetPresentationItems(cars, presentation) {
+  const cityById = new Map((presentation.cities || []).map((city) => [String(city.id), city]));
+  const kindById = new Map((presentation.vehicleKinds || []).map((kind) => [String(kind.id), kind]));
+  const partnerById = new Map((presentation.partners || []).map((partner) => [String(partner.id), partner]));
+  const rowsFor = (rows, offerId, key = 'offer_id') => (rows || []).filter((row) => String(row?.[key]) === String(offerId));
+  return (cars || []).map((offer) => {
+    const availabilityRows = rowsFor(presentation.availability, offer.id);
+    const dailyRateTiers = rowsFor(presentation.dailyRateTiers, offer.id);
+    const partnerResources = rowsFor(presentation.partnerResources, offer.id, 'resource_id');
+    const depositOverride = (presentation.depositOverrides || []).find((row) => String(row.resource_id) === String(offer.id)) || null;
+    const fallbackPartnerIds = [...new Set(partnerResources.map((row) => String(row.partner_id || '')).filter(Boolean))];
+    const partnerId = String(offer.owner_partner_id || (fallbackPartnerIds.length === 1 ? fallbackPartnerIds[0] : '')).trim();
+    const partner = partnerById.get(partnerId) || null;
+    const kind = kindById.get(String(offer.vehicle_kind_id)) || null;
+    const model = fleetLocalized(offer.car_model, 'Unknown vehicle');
+    const commercialClass = fleetLocalized(offer.car_type, 'Not specified');
+    const publicState = deriveCarOfferAdminPublicState({
+      offer,
+      availabilityRows,
+      dailyRateTiers,
+      cities: presentation.cities,
+      profiles: presentation.profiles,
+      profileCities: presentation.profileCities,
+      partners: presentation.partners,
+      partnerResources,
+      siteSetting: presentation.siteSetting,
+    });
+    return {
+      offer,
+      model,
+      commercialClass,
+      availabilityRows,
+      dailyRateTiers,
+      partnerResources,
+      depositOverride,
+      partnerId,
+      partnerName: partner?.name || (partnerId ? 'Unknown partner' : 'Unassigned'),
+      vehicleKindCode: String(kind?.code || '').trim().toLowerCase(),
+      vehicleKindLabel: fleetLocalized(kind?.name_i18n, kind?.code || 'Not specified'),
+      publicState,
+      cityById,
+    };
+  });
+}
+
+function configuredFleetCitySummary(item) {
+  const activeRows = item.availabilityRows.filter((row) => row.is_active === true);
+  const cityLabel = (cityId) => {
+    const city = item.cityById.get(String(cityId));
+    return fleetLocalized(city?.name_i18n, city?.code || 'Unknown city');
+  };
+  const pickup = activeRows.filter((row) => row.pickup_enabled === true).map((row) => cityLabel(row.city_id));
+  const returns = activeRows.filter((row) => row.return_enabled === true).map((row) => cityLabel(row.city_id));
+  const same = pickup.length === returns.length && pickup.every((label) => returns.includes(label));
+  const exactSummary = same && pickup.length
+    ? `Pickup & return: ${pickup.join(', ')}`
+    : `Pickup: ${pickup.join(', ') || 'None'} · Return: ${returns.join(', ') || 'None'}`;
+  if (String(item.offer.availability_mode || 'legacy') === 'mapped') {
+    return {
+      primary: activeRows.length === 1 ? cityLabel(activeRows[0].city_id) : `${activeRows.length} configured ${activeRows.length === 1 ? 'city' : 'cities'}`,
+      detail: exactSummary,
+    };
   }
+  return {
+    primary: `Legacy coverage: ${String(item.offer.location || 'not specified')}`,
+    detail: activeRows.length ? `Saved configured rows (not active publicly): ${exactSummary}` : 'No configured city rows',
+  };
+}
+
+function renderFleetPrice(item) {
+  const offer = item.offer;
+  if (String(offer.pricing_strategy) === 'threshold_daily_rate') {
+    const firstTier = item.dailyRateTiers
+      .filter((tier) => tier.is_active !== false && Number(tier.daily_rate) > 0)
+      .sort((left, right) => Number(left.threshold_days) - Number(right.threshold_days))[0] || null;
+    if (!firstTier) return '<div style="font-weight:600;">Not specified</div><div style="font-size:11px;color:var(--admin-text-muted);">No active daily-rate tier</div>';
+    const amount = Number(firstTier.daily_rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 });
+    return `<div style="font-weight:600;">From €${escapeHtml(amount)}/day</div><div style="font-size:11px;color:var(--admin-text-muted);">From ${escapeHtml(firstTier.threshold_days)} day(s)</div>`;
+  }
+  if (offer.location === 'paphos' && offer.price_3days) {
+    return `<div style="font-weight:600;">€${escapeHtml(offer.price_3days)}/3d</div><div style="font-size:11px;color:var(--admin-text-muted);">€${escapeHtml(offer.price_10plus_days)}+/day</div>`;
+  }
+  return `<div style="font-weight:600;">€${escapeHtml(offer.price_per_day)}/day</div>`;
+}
+
+function fleetOrderingIsSafe() {
+  return fleetState.grouping === ''
+    && Object.values(fleetState.filters || {}).every((value) => String(value || '').trim() === '')
+    && fleetState.filteredItems.length === fleetState.items.length;
+}
+
+function renderFleetItemRow(item, index) {
+  const offer = item.offer;
+  const citySummary = configuredFleetCitySummary(item);
+  const description = fleetLocalized(offer.description, '');
+  const image = offer.image_url
+    ? `<img src="${escapeHtml(offer.image_url)}" alt="${escapeHtml(item.model)}" style="width:60px;height:40px;object-fit:cover;border-radius:4px;">`
+    : '<div style="width:60px;height:40px;background:var(--admin-border);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:20px;">🚗</div>';
+  const passengerCount = Number(offer.max_passengers);
+  const passengerLabel = Number.isInteger(passengerCount) && passengerCount > 0 ? `${passengerCount} seats` : 'Not specified';
+  const pricingLabel = String(offer.pricing_strategy || 'legacy_compat') === 'threshold_daily_rate' ? 'Flexible daily rates' : 'Legacy pricing';
+  const availabilityLabel = String(offer.availability_mode || 'legacy') === 'mapped' ? 'Configured availability' : 'Legacy coverage';
+  const checked = fleetState.selectedIds.has(String(offer.id));
+  const modeAction = String(offer.availability_mode || 'legacy') === 'mapped' ? 'legacy' : 'mapped';
+  const modeActionLabel = modeAction === 'mapped' ? 'Use configured availability' : 'Use legacy coverage';
+  const orderingEnabled = fleetOrderingIsSafe();
+  const orderingTitle = orderingEnabled ? '' : ' Reordering is disabled while Fleet filters or grouping are active.';
+  return `
+    <tr data-fleet-offer-id="${escapeHtml(offer.id)}">
+      <td class="car-fleet-select-column"><input class="car-fleet-row-checkbox" type="checkbox" data-fleet-select-id="${escapeHtml(offer.id)}" aria-label="Select ${escapeHtml(item.model)}" ${checked ? 'checked' : ''}></td>
+      <td>${image}</td>
+      <td><div class="car-multicity-fleet-cities"><strong>${escapeHtml(citySummary.primary)}</strong><small>${escapeHtml(citySummary.detail)}</small><span class="car-fleet-mode-pair"><span>Pricing: <b>${escapeHtml(pricingLabel)}</b></span><span>Availability: <b>${escapeHtml(availabilityLabel)}</b></span><span>Partner: <b>${escapeHtml(item.partnerName)}</b></span></span></div></td>
+      <td><div style="display:flex;flex-direction:column;align-items:center;gap:4px;"><span style="font-size:11px;color:var(--admin-text-muted);">#${index + 1}</span><div style="display:flex;flex-direction:column;gap:2px;"><button type="button" title="Move up.${orderingTitle}" onclick="moveFleetCarOrder('${offer.id}','up')" class="btn-icon" ${orderingEnabled ? '' : 'disabled'}>▲</button><button type="button" title="Move down.${orderingTitle}" onclick="moveFleetCarOrder('${offer.id}','down')" class="btn-icon" ${orderingEnabled ? '' : 'disabled'}>▼</button></div><span style="font-size:10px;color:var(--admin-text-muted);">${escapeHtml(offer.sort_order ?? index + 1)}</span></div></td>
+      <td><div style="font-weight:600;">${escapeHtml(item.model)}</div><div style="font-size:11px;color:var(--admin-text-muted);">${escapeHtml(description.substring(0, 40))}${description.length > 40 ? '…' : ''}</div><code>${escapeHtml(offer.id)}</code></td>
+      <td><span class="badge badge-secondary">${escapeHtml(item.vehicleKindLabel)}</span><div class="car-multicity-commercial-class">${escapeHtml(item.commercialClass)}</div></td>
+      <td>${renderFleetPrice(item)}</td>
+      <td><span class="badge ${offer.transmission === 'automatic' ? 'badge-success' : 'badge-secondary'}">${escapeHtml(String(offer.transmission || '').trim() || 'Not specified')}</span></td>
+      <td>${escapeHtml(String(offer.fuel_type || '').trim() || 'Not specified')}</td>
+      <td>${escapeHtml(passengerLabel)}</td>
+      <td><div class="car-multicity-lifecycle" data-offer-status="${escapeHtml(item.publicState.status)}"><span class="car-multicity-lifecycle__badge is-${escapeHtml(String(item.publicState.status).toLowerCase())}">${escapeHtml(item.publicState.status)}</span>${item.publicState.reasons.length ? `<details><summary>${escapeHtml(item.publicState.reasons.length)} reason(s)</summary><ul>${item.publicState.reasons.map((reason) => `<li><code>${escapeHtml(reason.code)}</code> ${escapeHtml(reason.message)}</li>`).join('')}</ul></details>` : '<small>No public eligibility blockers</small>'}<small>Stock: ${Number.isFinite(Number(offer.stock_count)) ? escapeHtml(offer.stock_count) : 'Not specified'}</small></div></td>
+      <td><div class="car-multicity-row-actions"><details class="transport-admin-v2-route-action-menu"><summary aria-label="Actions for ${escapeHtml(item.model)}" title="Vehicle actions"><span aria-hidden="true">&#8942;</span></summary><div class="transport-admin-v2-route-action-menu__items" role="menu"><button type="button" role="menuitem" data-car-multicity-action="vehicle" data-offer-id="${escapeHtml(offer.id)}">Edit vehicle</button><button type="button" role="menuitem" data-car-multicity-action="availability" data-offer-id="${escapeHtml(offer.id)}">Availability</button><button type="button" role="menuitem" data-fleet-availability-action="${modeAction}" data-offer-id="${escapeHtml(offer.id)}">${escapeHtml(modeActionLabel)}</button><button type="button" role="menuitem" data-car-multicity-action="pricing" data-offer-id="${escapeHtml(offer.id)}">Pricing and profile</button><button type="button" role="menuitem" data-car-multicity-action="partner" data-offer-id="${escapeHtml(offer.id)}">Partner</button>${String(offer.pricing_strategy) === 'threshold_daily_rate' ? `<button type="button" role="menuitem" data-car-multicity-action="activation" data-offer-id="${escapeHtml(offer.id)}">Activate / Publish</button>` : ''}<button type="button" role="menuitem" data-car-multicity-action="legacy" data-offer-id="${escapeHtml(offer.id)}">Legacy editor</button></div></details><button class="btn-icon" type="button" title="Delete" onclick="deleteFleetCar('${offer.id}', '${escapeHtml(item.model)}')" style="color:var(--admin-danger);">🗑</button></div></td>
+    </tr>`;
+}
+
+function updateFleetSelectionUi() {
+  const count = fleetState.selectedIds.size;
+  const filteredCount = fleetState.filteredItems.length;
+  const visibleIds = fleetState.visibleIds;
+  const visibleSelected = visibleIds.filter((offerId) => fleetState.selectedIds.has(offerId)).length;
+  const countElement = document.getElementById('fleetSelectionCount');
+  const filteredElement = document.getElementById('fleetFilteredCount');
+  if (countElement) countElement.textContent = `${count} ${count === 1 ? 'vehicle' : 'vehicles'} selected`;
+  if (filteredElement) filteredElement.textContent = `${filteredCount} filtered ${filteredCount === 1 ? 'result' : 'results'}`;
+  ['btnClearFleetSelection', 'btnOpenFleetBulk'].forEach((elementId) => {
+    const button = document.getElementById(elementId);
+    if (button) button.disabled = count < 1;
+  });
+  const selectVisible = document.getElementById('fleetSelectVisibleCheckbox');
+  if (selectVisible instanceof HTMLInputElement) {
+    selectVisible.checked = visibleIds.length > 0 && visibleSelected === visibleIds.length;
+    selectVisible.indeterminate = visibleSelected > 0 && visibleSelected < visibleIds.length;
+  }
+  document.querySelectorAll('[data-fleet-select-id]').forEach((checkbox) => {
+    if (checkbox instanceof HTMLInputElement) checkbox.checked = fleetState.selectedIds.has(String(checkbox.dataset.fleetSelectId || ''));
+  });
+}
+
+function renderFleetData() {
+  const tbody = document.getElementById('fleetTableBody');
+  if (!tbody) return;
+  const filters = { ...fleetState.filters, commercialClass: fleetState.filters.commercialClass };
+  let items = filterFleetItems(fleetState.items, filters);
+  if (filters.commercialClass) {
+    const requested = String(filters.commercialClass).toLowerCase();
+    items = items.filter((item) => String(item.commercialClass || '').toLowerCase() === requested);
+  }
+  fleetState.filteredItems = items;
+  fleetState.visibleIds = items.map((item) => String(item.offer.id));
+  window.fleetCarsList = items.map((item) => item.offer);
+  if (!items.length) {
+    tbody.innerHTML = '<tr><td colspan="12" class="table-loading">No vehicles found with current filters</td></tr>';
+    updateFleetSelectionUi();
+    return;
+  }
+  let renderedIndex = 0;
+  if (fleetState.grouping === 'partner') {
+    tbody.innerHTML = groupFleetItemsByPartner(items, fleetState.presentation?.partners || []).map((group) => {
+      const header = `<tr class="car-fleet-group-row"><td colspan="12"><div class="car-fleet-group-summary"><strong>${escapeHtml(group.partnerName)}</strong><span>${group.count} vehicles</span><span>${group.live} live</span><span>${group.unavailable} unavailable</span><span>${group.legacyAvailability} legacy availability</span><span>${group.configuredAvailability} configured availability</span></div></td></tr>`;
+      const rows = group.items.map((item) => renderFleetItemRow(item, renderedIndex++)).join('');
+      return header + rows;
+    }).join('');
+  } else {
+    tbody.innerHTML = items.map((item, index) => renderFleetItemRow(item, index)).join('');
+  }
+  updateFleetSelectionUi();
 }
 
 async function loadFleetData(options = {}) {
@@ -35731,17 +35923,11 @@ async function loadFleetData(options = {}) {
 
     console.log('Loading fleet data...');
 
-    // Build query with filters
-    let query = client
+    const query = client
       .from('car_offers')
       .select('*')
       .order('location', { ascending: true })
       .order('sort_order', { ascending: true });
-
-    // Apply filters
-    if (fleetState.locationFilter) {
-      query = query.eq('location', fleetState.locationFilter);
-    }
     const { data: cars, error } = await query;
 
     if (error) {
@@ -35749,203 +35935,17 @@ async function loadFleetData(options = {}) {
       throw error;
     }
 
-    const requestedType = String(fleetState.typeFilter || '').trim().toLowerCase();
-    fleetState.cars = (cars || []).filter((car) => {
-      if (!requestedType) return true;
-      const core = window.CarRentalMulticityCore;
-      const values = car?.car_type && typeof car.car_type === 'object' && !Array.isArray(car.car_type)
-        ? Object.values(car.car_type)
-        : [car?.car_type];
-      const localized = typeof core?.resolveI18nText === 'function'
-        ? core.resolveI18nText(car?.car_type, document.documentElement?.lang || 'en')
-        : '';
-      return [...values, localized]
-        .map((value) => String(value ?? '').trim().toLowerCase())
-        .filter(Boolean)
-        .includes(requestedType);
-    });
+    fleetState.cars = cars || [];
     const fleetPresentation = await getCarRentalMulticityRepository().getFleetPresentationContext(
       fleetState.cars.map((car) => car?.id),
     );
-    // Store ordered list globally for reordering helpers
-    window.fleetCarsList = Array.isArray(fleetState.cars) ? fleetState.cars.slice() : [];
-    console.log(`Loaded ${window.fleetCarsList.length} cars`);
-
-    // Render fleet table
-    const tbody = $('#fleetTableBody');
-    if (!tbody) {
-      markCarsLiveSyncUpdated();
-      if (!silent && showSuccessToast) {
-        showToast('Fleet refreshed', 'success');
-      }
-      return;
-    }
-
-    if (!window.fleetCarsList || window.fleetCarsList.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="11" class="table-loading">No cars found with current filters</td></tr>';
-      markCarsLiveSyncUpdated();
-      if (!silent && showSuccessToast) {
-        showToast('Fleet refreshed', 'success');
-      }
-      return;
-    }
-
-    const cityById = new Map((fleetPresentation.cities || []).map((city) => [String(city.id), city]));
-    const kindById = new Map((fleetPresentation.vehicleKinds || []).map((kind) => [String(kind.id), kind]));
-    const rowsByOffer = (rows) => (offerId) => (rows || []).filter((row) => String(row.offer_id) === String(offerId));
-    const availabilityFor = rowsByOffer(fleetPresentation.availability);
-    const tiersFor = rowsByOffer(fleetPresentation.dailyRateTiers);
-    const partnerResourcesFor = (offerId) => (fleetPresentation.partnerResources || [])
-      .filter((row) => String(row.resource_id) === String(offerId));
-    const cityLabel = (cityId) => {
-      const city = cityById.get(String(cityId));
-      return window.CarRentalMulticityCore?.resolveI18nText?.(
-        city?.name_i18n,
-        document.documentElement?.lang || 'en',
-      ) || city?.code || 'Unknown city';
-    };
-    const configuredCitySummary = (car, availabilityRows) => {
-      const activeRows = availabilityRows.filter((row) => row.is_active === true);
-      const pickup = activeRows.filter((row) => row.pickup_enabled === true).map((row) => cityLabel(row.city_id));
-      const returns = activeRows.filter((row) => row.return_enabled === true).map((row) => cityLabel(row.city_id));
-      const same = pickup.length === returns.length && pickup.every((label) => returns.includes(label));
-      const configuredRowsLabel = same && pickup.length
-        ? `Pickup & return: ${pickup.join(', ')}`
-        : `Pickup: ${pickup.join(', ') || 'None'} · Return: ${returns.join(', ') || 'None'}`;
-      if (String(car.pricing_strategy || 'legacy_compat') === 'legacy_compat') {
-        return {
-          primary: `Legacy ${String(car.location || 'not specified')}`,
-          detail: activeRows.length
-            ? `Current runtime: legacy resolver coverage · Future configured rows: ${configuredRowsLabel}`
-            : 'Current runtime: legacy resolver coverage · No future configured city rows',
-        };
-      }
-      return {
-        primary: configuredRowsLabel,
-        detail: `Legacy compatibility region: ${String(car.location || 'not specified')}`,
-      };
-    };
-    const formatDailyRate = (value) => {
-      const numeric = Number(value);
-      if (!Number.isFinite(numeric)) return 'Not specified';
-      return numeric.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 });
-    };
-
-    tbody.innerHTML = window.fleetCarsList.map((car, index) => {
-      // Extract i18n values for display (prefer Polish, fallback to English)
-      const carModel = car.car_model?.pl || car.car_model?.en || car.car_model || 'Unknown';
-      const carType = window.CarRentalMulticityCore?.resolveI18nText?.(
-        car.car_type,
-        document.documentElement?.lang || 'en',
-      ) || (typeof car.car_type === 'string' ? car.car_type : '');
-      const carDesc = car.description?.pl || car.description?.en || car.description || '';
-      
-      const offerAvailability = availabilityFor(car.id);
-      const offerTiers = tiersFor(car.id);
-      const citySummary = configuredCitySummary(car, offerAvailability);
-      const publicState = deriveCarOfferAdminPublicState({
-        offer: car,
-        availabilityRows: offerAvailability,
-        dailyRateTiers: offerTiers,
-        cities: fleetPresentation.cities,
-        partners: fleetPresentation.partners,
-        partnerResources: partnerResourcesFor(car.id),
-        siteSetting: fleetPresentation.siteSetting,
-      });
-      const kind = kindById.get(String(car.vehicle_kind_id));
-      const vehicleKindLabel = window.CarRentalMulticityCore?.resolveI18nText?.(
-        kind?.name_i18n,
-        document.documentElement?.lang || 'en',
-      ) || kind?.code || 'Not specified';
-
-      // Determine price display by exact offer pricing strategy.
-      let priceDisplay;
-      if (String(car.pricing_strategy) === 'threshold_daily_rate') {
-        const firstActiveTier = offerTiers
-          .filter((tier) => tier.is_active !== false && Number(tier.daily_rate) > 0)
-          .sort((left, right) => Number(left.threshold_days) - Number(right.threshold_days))[0] || null;
-        priceDisplay = firstActiveTier
-          ? `<div style="font-weight: 600;">From €${escapeHtml(formatDailyRate(firstActiveTier.daily_rate))}/day</div><div style="font-size:11px;color:var(--admin-text-muted);">Daily rate from ${escapeHtml(firstActiveTier.threshold_days)} day(s)</div>`
-          : '<div style="font-weight:600;">Not specified</div><div style="font-size:11px;color:var(--admin-text-muted);">No active daily-rate tier</div>';
-      } else if (car.location === 'paphos' && car.price_3days) {
-        priceDisplay = `<div style="font-weight: 600;">€${car.price_3days}/3d</div>
-          <div style="font-size: 11px; color: var(--admin-text-muted);">€${car.price_10plus_days}+/day</div>`;
-      } else {
-        priceDisplay = `<div style="font-weight: 600;">€${car.price_per_day}/day</div>`;
-      }
-
-      // Image display
-      const imageDisplay = car.image_url 
-        ? `<img src="${escapeHtml(car.image_url)}" alt="${escapeHtml(carModel)}" style="width: 60px; height: 40px; object-fit: cover; border-radius: 4px;">`
-        : `<div style="width: 60px; height: 40px; background: var(--admin-border); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 20px;">🚗</div>`;
-
-      const sortOrder = typeof car.sort_order === 'number' ? car.sort_order : (index + 1);
-      const transmissionLabel = String(car.transmission || '').trim() || 'Not specified';
-      const fuelLabel = String(car.fuel_type || '').trim() || 'Not specified';
-      const passengerCount = Number(car.max_passengers);
-      const passengerLabel = Number.isInteger(passengerCount) && passengerCount > 0
-        ? `${passengerCount} seats`
-        : 'Not specified';
-
-      return `
-        <tr>
-          <td>${imageDisplay}</td>
-          <td><div class="car-multicity-fleet-cities"><strong>${escapeHtml(citySummary.primary)}</strong><small>${escapeHtml(citySummary.detail)}</small></div></td>
-          <td>
-            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-              <span style="font-size:11px;color:var(--admin-text-muted);">#${index + 1}</span>
-              <div style="display:flex;flex-direction:column;gap:2px;">
-                <button type="button" title="Move up" onclick="moveFleetCarOrder('${car.id}','up')" style="border:1px solid var(--admin-border);background:var(--admin-bg-secondary);color:var(--admin-text);border-radius:4px;padding:0 4px;font-size:10px;line-height:14px;">▲</button>
-                <button type="button" title="Move down" onclick="moveFleetCarOrder('${car.id}','down')" style="border:1px solid var(--admin-border);background:var(--admin-bg-secondary);color:var(--admin-text);border-radius:4px;padding:0 4px;font-size:10px;line-height:14px;">▼</button>
-              </div>
-              <span style="font-size:10px;color:var(--admin-text-muted);">${sortOrder}</span>
-            </div>
-          </td>
-          <td>
-            <div style="font-weight: 600;">${escapeHtml(carModel)}</div>
-            <div style="font-size: 11px; color: var(--admin-text-muted);">${escapeHtml(carDesc.substring(0, 40))}${carDesc.length > 40 ? '...' : ''}</div>
-          </td>
-          <td><span class="badge badge-secondary">${escapeHtml(vehicleKindLabel)}</span><div class="car-multicity-commercial-class">${escapeHtml(carType || 'Not specified')}</div></td>
-          <td>${priceDisplay}</td>
-          <td>
-            <span class="badge ${car.transmission === 'automatic' ? 'badge-success' : 'badge-secondary'}">
-              ${escapeHtml(transmissionLabel)}
-            </span>
-          </td>
-          <td>${escapeHtml(fuelLabel)}</td>
-          <td>${escapeHtml(passengerLabel)}</td>
-          <td><div class="car-multicity-lifecycle" data-offer-status="${escapeHtml(publicState.status)}"><span class="car-multicity-lifecycle__badge is-${escapeHtml(String(publicState.status).toLowerCase())}">${escapeHtml(publicState.status)}</span>${publicState.reasons.length ? `<details><summary>${escapeHtml(publicState.reasons.length)} reason(s)</summary><ul>${publicState.reasons.map((reason) => `<li><code>${escapeHtml(reason.code)}</code> ${escapeHtml(reason.message)}</li>`).join('')}</ul></details>` : '<small>No public eligibility blockers</small>'}<small>Stock: ${Number.isFinite(Number(car.stock_count)) ? escapeHtml(car.stock_count) : 'Not specified'}</small></div></td>
-          <td>
-            <div class="car-multicity-row-actions">
-              <details class="transport-admin-v2-route-action-menu">
-                <summary aria-label="Actions for ${escapeHtml(carModel)}" title="Vehicle actions"><span aria-hidden="true">&#8942;</span></summary>
-                <div class="transport-admin-v2-route-action-menu__items" role="menu">
-                  <button type="button" role="menuitem" data-car-multicity-action="vehicle" data-offer-id="${escapeHtml(car.id)}">Edit vehicle</button>
-                  <button type="button" role="menuitem" data-car-multicity-action="availability" data-offer-id="${escapeHtml(car.id)}">Availability</button>
-                  <button type="button" role="menuitem" data-car-multicity-action="pricing" data-offer-id="${escapeHtml(car.id)}">Pricing and profile</button>
-                  <button type="button" role="menuitem" data-car-multicity-action="partner" data-offer-id="${escapeHtml(car.id)}">Partner</button>
-                  ${String(car.pricing_strategy) === 'threshold_daily_rate'
-                    ? `<button type="button" role="menuitem" data-car-multicity-action="activation" data-offer-id="${escapeHtml(car.id)}">Activate / Publish</button>`
-                    : ''}
-                  <button type="button" role="menuitem" data-car-multicity-action="legacy" data-offer-id="${escapeHtml(car.id)}">Legacy editor</button>
-                </div>
-              </details>
-              <button class="btn-icon" type="button" title="Delete" onclick="deleteFleetCar('${car.id}', '${escapeHtml(carModel)}')" style="color: var(--admin-danger);">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="3 6 5 6 21 6"/>
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
-                  <path d="M10 11v6"/>
-                  <path d="M14 11v6"/>
-                </svg>
-              </button>
-            </div>
-          </td>
-        </tr>
-      `;
-    }).join('');
-
-    // Setup event listeners after rendering table
-    setupFleetEventListeners();
+    fleetState.presentation = fleetPresentation;
+    fleetState.items = buildFleetPresentationItems(fleetState.cars, fleetPresentation);
+    fleetState.selectedIds = reconcileFleetSelection(fleetState.selectedIds, fleetState.items);
+    setDynamicFleetOptions('fleetPartnerFilter', fleetPresentation.partners, (row) => row.id, (row) => row.name, 'All partners');
+    setDynamicFleetOptions('fleetVehicleKindFilter', fleetPresentation.vehicleKinds, (row) => row.code, (row) => fleetLocalized(row.name_i18n, row.code), 'All vehicle kinds');
+    setDynamicFleetOptions('fleetCityFilter', fleetPresentation.cities, (row) => row.id, (row) => fleetLocalized(row.name_i18n, row.code), 'All configured cities');
+    renderFleetData();
     markCarsLiveSyncUpdated();
     if (!silent && showSuccessToast) {
       showToast('Fleet refreshed', 'success');
@@ -35959,13 +35959,262 @@ async function loadFleetData(options = {}) {
     }
     const tbody = $('#fleetTableBody');
     if (tbody) {
-      tbody.innerHTML = `<tr><td colspan="11" class="table-loading" style="color: var(--admin-danger);">Error: ${escapeHtml(e.message)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="12" class="table-loading" style="color: var(--admin-danger);">Error: ${escapeHtml(e.message)}</td></tr>`;
     }
   }
 }
 
+function fleetBulkDefaultOperations(defaultAvailabilityMode = 'no_change') {
+  return {
+    availability_mode: defaultAvailabilityMode,
+    cities: [],
+    security_deposit: { action: 'no_change', amount: null },
+    payment_due: { action: 'no_change', amount: null, currency: 'EUR', include_children: true },
+    partner: { action: 'no_change', partner_id: null },
+  };
+}
+
+function fleetBulkCityLabel(city) {
+  return fleetLocalized(city?.name_i18n, city?.code || 'Unknown city');
+}
+
+function renderFleetBulkEditor(defaultAvailabilityMode = 'no_change') {
+  const editor = document.getElementById('carFleetBulkEditor');
+  if (!editor) return;
+  const presentation = fleetState.presentation || {};
+  const cities = (presentation.cities || []).filter((city) => city.is_active === true);
+  const partners = (presentation.partners || []).filter((partner) => partner.status === 'active' && partner.can_manage_cars === true);
+  editor.innerHTML = `
+    <section class="car-fleet-bulk-section">
+      <h4>Availability strategy</h4>
+      <p>Pricing strategy, pricing profile, compatibility region and all prices remain unchanged.</p>
+      <label class="admin-form-field"><span>Exact-offer availability</span><select id="carFleetBulkAvailabilityMode">
+        <option value="no_change" ${defaultAvailabilityMode === 'no_change' ? 'selected' : ''}>No change</option>
+        <option value="mapped" ${defaultAvailabilityMode === 'mapped' ? 'selected' : ''}>Use configured availability</option>
+        <option value="legacy" ${defaultAvailabilityMode === 'legacy' ? 'selected' : ''}>Use legacy coverage</option>
+      </select></label>
+      <p class="car-multicity-note">Configured availability is enabled only when every selected exact offer is individually Ready. Returning to legacy coverage keeps all saved city rows.</p>
+    </section>
+    <section class="car-fleet-bulk-section">
+      <h4>Pickup, return and city fees</h4>
+      <p>Each direction is explicit: <strong>No change</strong>, <strong>Enable</strong>, or <strong>Disable</strong>. Fees remain exact offer + city data.</p>
+      <div class="car-fleet-bulk-city-grid">${cities.map((city) => `
+        <article class="car-fleet-bulk-city" data-bulk-city-id="${escapeHtml(city.id)}">
+          <strong>${escapeHtml(fleetBulkCityLabel(city))}</strong><code>${escapeHtml(city.code)}</code>
+          <div class="car-fleet-bulk-city-fields">
+            <label class="admin-form-field"><span>Pickup</span><select data-bulk-city-field="pickup"><option value="no_change">No change</option><option value="enable">Enable</option><option value="disable">Disable</option></select></label>
+            <label class="admin-form-field"><span>Return</span><select data-bulk-city-field="return"><option value="no_change">No change</option><option value="enable">Enable</option><option value="disable">Disable</option></select></label>
+            <label class="admin-form-field"><span>Fee</span><select data-bulk-city-field="fee_action"><option value="no_change">No change</option><option value="inherit">Use standard / inherit</option><option value="custom">Custom amount</option></select></label>
+          </div>
+          <label class="admin-form-field car-fleet-bulk-fee-amount" hidden><span>Custom fee per direction (EUR)</span><input type="number" min="0" step="0.01" data-bulk-city-field="fee_per_direction" placeholder="0 is free"></label>
+        </article>`).join('')}</div>
+    </section>
+    <div class="car-fleet-bulk-grid">
+      <section class="car-fleet-bulk-section">
+        <h4>Security / damage deposit</h4>
+        <p>Vehicle information only. This never changes payment due at booking.</p>
+        <label class="admin-form-field"><span>Security deposit</span><select id="carFleetBulkSecurityAction"><option value="no_change">No change</option><option value="unspecified">Not specified</option><option value="none">No deposit</option><option value="amount">Refundable amount</option></select></label>
+        <label class="admin-form-field" id="carFleetBulkSecurityAmountField" hidden><span>Refundable amount (EUR)</span><input id="carFleetBulkSecurityAmount" type="number" min="0.01" step="0.01"></label>
+      </section>
+      <section class="car-fleet-bulk-section">
+        <h4>Payment due at booking</h4>
+        <p>Uses the existing central <code>service_deposit_overrides</code> exact-offer contract.</p>
+        <label class="admin-form-field"><span>Exact offer override</span><select id="carFleetBulkPaymentAction"><option value="no_change">No change</option><option value="default">Remove override / use Cars default</option><option value="flat">Flat</option><option value="per_day">Per day</option><option value="percent_total">Percent of total</option></select></label>
+        <label class="admin-form-field" id="carFleetBulkPaymentAmountField" hidden><span id="carFleetBulkPaymentAmountLabel">Value</span><input id="carFleetBulkPaymentAmount" type="number" min="0.01" step="0.01"></label>
+      </section>
+      <section class="car-fleet-bulk-section">
+        <h4>Partner assignment</h4>
+        <p>Only active partners allowed to manage Cars are selectable. No location, price, deposit or publication field is inferred.</p>
+        <label class="admin-form-field"><span>Partner</span><select id="carFleetBulkPartnerAction"><option value="no_change">No change</option><option value="assign">Assign exact owner partner</option></select></label>
+        <label class="admin-form-field" id="carFleetBulkPartnerField" hidden><span>Exact owner partner</span><select id="carFleetBulkPartnerId"><option value="">Select partner</option>${partners.map((partner) => `<option value="${escapeHtml(partner.id)}">${escapeHtml(partner.name)}</option>`).join('')}</select></label>
+      </section>
+      <section class="car-fleet-bulk-section">
+        <h4>Protected fields</h4>
+        <ul><li>Base prices / daily-rate tiers: unchanged</li><li>Publication / stock: unchanged</li><li>Insurance / young driver: unchanged</li><li>Bookings / fulfillments / flags: unchanged</li></ul>
+      </section>
+    </div>`;
+}
+
+function readFleetBulkOperations() {
+  const cityOperations = [...document.querySelectorAll('[data-bulk-city-id]')].map((card) => ({
+    city_id: card.dataset.bulkCityId,
+    pickup: card.querySelector('[data-bulk-city-field="pickup"]')?.value || 'no_change',
+    return: card.querySelector('[data-bulk-city-field="return"]')?.value || 'no_change',
+    fee_action: card.querySelector('[data-bulk-city-field="fee_action"]')?.value || 'no_change',
+    fee_per_direction: card.querySelector('[data-bulk-city-field="fee_per_direction"]')?.value || null,
+  })).filter((operation) => operation.pickup !== 'no_change' || operation.return !== 'no_change' || operation.fee_action !== 'no_change');
+  return normalizeFleetBulkOperations({
+    availability_mode: document.getElementById('carFleetBulkAvailabilityMode')?.value || 'no_change',
+    cities: cityOperations,
+    security_deposit: {
+      action: document.getElementById('carFleetBulkSecurityAction')?.value || 'no_change',
+      amount: document.getElementById('carFleetBulkSecurityAmount')?.value || null,
+    },
+    payment_due: {
+      action: document.getElementById('carFleetBulkPaymentAction')?.value || 'no_change',
+      amount: document.getElementById('carFleetBulkPaymentAmount')?.value || null,
+      currency: 'EUR',
+      include_children: true,
+    },
+    partner: {
+      action: document.getElementById('carFleetBulkPartnerAction')?.value || 'no_change',
+      partner_id: document.getElementById('carFleetBulkPartnerId')?.value || null,
+    },
+  });
+}
+
+function setFleetBulkError(messages = []) {
+  const element = document.getElementById('carFleetBulkError');
+  if (!element) return;
+  const list = Array.isArray(messages) ? messages.filter(Boolean) : [String(messages || '')].filter(Boolean);
+  element.hidden = list.length === 0;
+  element.innerHTML = list.length ? `<strong>Cannot continue</strong><ul>${list.map((message) => `<li>${escapeHtml(message)}</li>`).join('')}</ul>` : '';
+}
+
+function openFleetBulkActions({ exactOfferIds = null, availabilityMode = 'no_change', returnFocus = null } = {}) {
+  if (Array.isArray(exactOfferIds)) {
+    fleetState.selectedIds = new Set(exactOfferIds.map((offerId) => String(offerId || '').trim()).filter(Boolean));
+    fleetState.selectedIds = reconcileFleetSelection(fleetState.selectedIds, fleetState.items);
+    updateFleetSelectionUi();
+  }
+  if (!fleetState.selectedIds.size) {
+    showToast('Select at least one exact vehicle.', 'info');
+    return;
+  }
+  fleetState.bulkPlan = null;
+  fleetState.bulkExecuting = false;
+  fleetState.bulkReturnFocus = returnFocus || document.activeElement;
+  const modal = document.getElementById('carFleetBulkModal');
+  const count = fleetState.selectedIds.size;
+  const countElement = document.getElementById('carFleetBulkSelectedCount');
+  const idsElement = document.getElementById('carFleetBulkExactIds');
+  if (countElement) countElement.textContent = `${count} exact ${count === 1 ? 'vehicle' : 'vehicles'} selected`;
+  if (idsElement) idsElement.textContent = [...fleetState.selectedIds].sort().join('\n');
+  renderFleetBulkEditor(availabilityMode);
+  document.getElementById('carFleetBulkReview')?.setAttribute('hidden', '');
+  document.getElementById('carFleetBulkEditor')?.removeAttribute('hidden');
+  document.getElementById('carFleetBulkBack')?.setAttribute('hidden', '');
+  document.getElementById('carFleetBulkReviewButton')?.removeAttribute('hidden');
+  const save = document.getElementById('carFleetBulkSave');
+  if (save) { save.hidden = true; save.disabled = true; }
+  setFleetBulkError([]);
+  if (modal) modal.hidden = false;
+  document.body.classList.add('modal-open');
+  requestAnimationFrame(() => document.getElementById('carFleetBulkAvailabilityMode')?.focus());
+}
+
+function closeFleetBulkActions() {
+  if (fleetState.bulkExecuting) return;
+  const modal = document.getElementById('carFleetBulkModal');
+  if (modal) modal.hidden = true;
+  document.body.classList.remove('modal-open');
+  const focus = fleetState.bulkReturnFocus;
+  fleetState.bulkPlan = null;
+  fleetState.bulkReturnFocus = null;
+  focus?.focus?.();
+}
+
+function renderFleetBulkReview(plan) {
+  const review = document.getElementById('carFleetBulkReview');
+  if (!review) return;
+  const operations = plan.operations;
+  const cityChanges = operations.cities.map((operation) => {
+    const city = (fleetState.presentation?.cities || []).find((row) => String(row.id) === String(operation.city_id));
+    const fee = operation.fee_action === 'custom' ? `Custom €${operation.fee_per_direction}` : operation.fee_action === 'inherit' ? 'Use standard / inherit' : 'No change';
+    return `<tr><td>${escapeHtml(fleetBulkCityLabel(city))}</td><td>${escapeHtml(operation.pickup.replace('_', ' '))}</td><td>${escapeHtml(operation.return.replace('_', ' '))}</td><td>${escapeHtml(fee)}</td></tr>`;
+  }).join('');
+  const blocked = plan.targets.filter((target) => target.target_availability_mode === 'mapped' && !target.readiness.ready);
+  const partner = (fleetState.presentation?.partners || []).find((row) => String(row.id) === String(operations.partner.partner_id));
+  review.innerHTML = `
+    <section class="car-fleet-bulk-review-card"><h4>Reviewed exact scope</h4><p><strong>${plan.selectedCount}</strong> selected · <strong>${plan.selectedCount - blocked.length}</strong> Ready · <strong class="${blocked.length ? 'car-fleet-bulk-blocked' : ''}">${blocked.length}</strong> Blocked</p><details><summary>Exact offer IDs</summary><pre>${escapeHtml(plan.exactOfferIds.join('\n'))}</pre></details></section>
+    <section class="car-fleet-bulk-review-card"><h4>Availability</h4><p>Mode: <strong>${operations.availability_mode === 'mapped' ? 'Legacy coverage → Configured pickup/return cities' : operations.availability_mode === 'legacy' ? 'Configured availability → Legacy coverage (rows retained)' : 'No mode change'}</strong></p>${cityChanges ? `<table class="car-fleet-bulk-review-table"><thead><tr><th>City</th><th>Pickup</th><th>Return</th><th>Fee</th></tr></thead><tbody>${cityChanges}</tbody></table>` : '<p>City rows: no change</p>'}</section>
+    <section class="car-fleet-bulk-review-card"><h4>Other approved operations</h4><dl class="car-multicity-summary-grid"><div><dt>Security deposit</dt><dd>${escapeHtml(operations.security_deposit.action)}${operations.security_deposit.amount !== null ? ` €${escapeHtml(operations.security_deposit.amount)}` : ''}</dd></div><div><dt>Payment due at booking</dt><dd>${escapeHtml(operations.payment_due.action)}${operations.payment_due.amount !== null ? ` ${escapeHtml(operations.payment_due.amount)}${operations.payment_due.action === 'percent_total' ? '%' : ' EUR'}` : ''}</dd></div><div><dt>Partner</dt><dd>${escapeHtml(operations.partner.action === 'assign' ? partner?.name || operations.partner.partner_id : 'No change')}</dd></div><div><dt>Exact row count</dt><dd>${plan.selectedCount}</dd></div></dl></section>
+    <section class="car-fleet-bulk-review-card"><h4>Hard guarantees</h4><p>Pricing changes: 0 · Publication changes: 0 · Global flag changes: 0 · Booking changes: 0 · Fulfillment changes: 0.</p><p>The database performs one transaction. A stale or blocked exact record aborts all selected changes before any result is committed.</p></section>`;
+  review.hidden = false;
+}
+
+function reviewFleetBulkActions() {
+  const operations = readFleetBulkOperations();
+  const plan = buildFleetBulkPlan({
+    selectedOfferIds: [...fleetState.selectedIds],
+    items: fleetState.items,
+    operations,
+    context: fleetState.presentation || {},
+  });
+  fleetState.bulkPlan = plan.valid ? plan : null;
+  setFleetBulkError(plan.errors);
+  if (!plan.valid) return;
+  renderFleetBulkReview(plan);
+  document.getElementById('carFleetBulkEditor')?.setAttribute('hidden', '');
+  document.getElementById('carFleetBulkBack')?.removeAttribute('hidden');
+  document.getElementById('carFleetBulkReviewButton')?.setAttribute('hidden', '');
+  const save = document.getElementById('carFleetBulkSave');
+  if (save) { save.hidden = false; save.disabled = false; }
+  save?.focus();
+}
+
+function backToFleetBulkEditor() {
+  fleetState.bulkPlan = null;
+  document.getElementById('carFleetBulkReview')?.setAttribute('hidden', '');
+  document.getElementById('carFleetBulkEditor')?.removeAttribute('hidden');
+  document.getElementById('carFleetBulkBack')?.setAttribute('hidden', '');
+  document.getElementById('carFleetBulkReviewButton')?.removeAttribute('hidden');
+  const save = document.getElementById('carFleetBulkSave');
+  if (save) { save.hidden = true; save.disabled = true; }
+  setFleetBulkError([]);
+}
+
+async function saveFleetBulkActions() {
+  if (fleetState.bulkExecuting || !fleetState.bulkPlan?.valid) return;
+  const save = document.getElementById('carFleetBulkSave');
+  const cancel = document.getElementById('carFleetBulkCancel');
+  fleetState.bulkExecuting = true;
+  if (save) { save.disabled = true; save.textContent = 'Applying one transaction…'; }
+  if (cancel) cancel.disabled = true;
+  try {
+    const receipt = await getCarRentalMulticityRepository().applyFleetBulkOperation(fleetState.bulkPlan);
+    fleetState.bulkExecuting = false;
+    if (cancel) cancel.disabled = false;
+    if (save) save.textContent = 'Apply atomically';
+    closeFleetBulkActions();
+    showToast(`Fleet transaction applied to ${receipt.target_count} exact vehicles.`, 'success');
+    await loadFleetData({ silent: true });
+  } catch (error) {
+    fleetState.bulkExecuting = false;
+    if (cancel) cancel.disabled = false;
+    if (save) { save.disabled = false; save.textContent = 'Apply atomically'; }
+    setFleetBulkError([String(error?.message || error), 'No partial result is accepted; refresh and Review again if data changed.']);
+  }
+}
+
+function handleFleetTableChange(event) {
+  const checkbox = event.target?.closest?.('[data-fleet-select-id]');
+  if (!(checkbox instanceof HTMLInputElement)) return;
+  fleetState.selectedIds = setFleetSelectionScope(
+    fleetState.selectedIds,
+    [checkbox.dataset.fleetSelectId],
+    checkbox.checked,
+  );
+  updateFleetSelectionUi();
+}
+
+function handleFleetTableClick(event) {
+  const modeAction = event.target?.closest?.('[data-fleet-availability-action]');
+  if (!modeAction) return;
+  event.preventDefault();
+  openFleetBulkActions({
+    exactOfferIds: [modeAction.dataset.offerId],
+    availabilityMode: modeAction.dataset.fleetAvailabilityAction,
+    returnFocus: modeAction,
+  });
+}
+
 async function moveFleetCarOrder(carId, direction) {
   try {
+    if (!fleetOrderingIsSafe()) {
+      showToast('Clear Fleet filters and grouping before changing global order.', 'info');
+      return;
+    }
     const client = ensureSupabase();
     if (!client) {
       showToast('Database connection not available', 'error');
@@ -39113,22 +39362,119 @@ function initEventListeners() {
     });
   }
 
-  // Fleet filters
-  const fleetLocationFilter = $('#fleetLocationFilter');
-  if (fleetLocationFilter) {
-    fleetLocationFilter.addEventListener('change', (e) => {
-      fleetState.locationFilter = e.target.value;
-      loadFleetData();
+  // Fleet filters, grouping and exact-ID selection.
+  const fleetFilterBindings = [
+    ['fleetSearchFilter', 'search', 'input'],
+    ['fleetPartnerFilter', 'partnerId', 'change'],
+    ['fleetVehicleKindFilter', 'vehicleKind', 'change'],
+    ['fleetPricingStrategyFilter', 'pricingStrategy', 'change'],
+    ['fleetAvailabilityModeFilter', 'availabilityMode', 'change'],
+    ['fleetPublicStatusFilter', 'publicStatus', 'change'],
+    ['fleetOperationalFilter', 'operationalAvailability', 'change'],
+    ['fleetCityFilter', 'cityId', 'change'],
+    ['fleetLocationFilter', 'legacyRegion', 'change'],
+    ['fleetTypeFilter', 'commercialClass', 'change'],
+  ];
+  fleetFilterBindings.forEach(([elementId, filterKey, eventName]) => {
+    const element = document.getElementById(elementId);
+    element?.addEventListener(eventName, (event) => {
+      fleetState.selectedIds = new Set();
+      fleetState.filters[filterKey] = String(event.target?.value || '');
+      renderFleetData();
     });
-  }
+  });
+  document.getElementById('fleetGroupingFilter')?.addEventListener('change', (event) => {
+    fleetState.grouping = String(event.target?.value || '');
+    renderFleetData();
+  });
+  document.getElementById('btnClearFleetFilters')?.addEventListener('click', () => {
+    fleetState.selectedIds = new Set();
+    fleetState.filters = { ...initialFleetFilters };
+    fleetState.grouping = '';
+    fleetFilterBindings.forEach(([elementId]) => {
+      const element = document.getElementById(elementId);
+      if (element) element.value = '';
+    });
+    const grouping = document.getElementById('fleetGroupingFilter');
+    if (grouping) grouping.value = '';
+    renderFleetData();
+  });
+  const fleetTableBody = document.getElementById('fleetTableBody');
+  fleetTableBody?.addEventListener('change', handleFleetTableChange);
+  fleetTableBody?.addEventListener('click', handleFleetTableClick);
+  document.getElementById('fleetSelectVisibleCheckbox')?.addEventListener('change', (event) => {
+    fleetState.selectedIds = setFleetSelectionScope(fleetState.selectedIds, fleetState.visibleIds, event.target.checked);
+    updateFleetSelectionUi();
+  });
+  document.getElementById('btnSelectVisibleFleet')?.addEventListener('click', () => {
+    fleetState.selectedIds = setFleetSelectionScope(fleetState.selectedIds, fleetState.visibleIds, true);
+    updateFleetSelectionUi();
+  });
+  document.getElementById('btnSelectFilteredFleet')?.addEventListener('click', () => {
+    const filteredIds = fleetState.filteredItems.map((item) => String(item.offer.id));
+    fleetState.selectedIds = setFleetSelectionScope(fleetState.selectedIds, filteredIds, true);
+    updateFleetSelectionUi();
+  });
+  document.getElementById('btnClearFleetSelection')?.addEventListener('click', () => {
+    fleetState.selectedIds = new Set();
+    updateFleetSelectionUi();
+  });
+  document.getElementById('btnOpenFleetBulk')?.addEventListener('click', (event) => {
+    openFleetBulkActions({ returnFocus: event.currentTarget });
+  });
 
-  const fleetTypeFilter = $('#fleetTypeFilter');
-  if (fleetTypeFilter) {
-    fleetTypeFilter.addEventListener('change', (e) => {
-      fleetState.typeFilter = e.target.value;
-      loadFleetData();
-    });
-  }
+  // Fleet bulk modal: Review is immutable; the single RPC either commits all
+  // exact selected records or PostgreSQL rolls the entire operation back.
+  ['carFleetBulkClose', 'carFleetBulkCancel'].forEach((elementId) => {
+    document.getElementById(elementId)?.addEventListener('click', closeFleetBulkActions);
+  });
+  document.getElementById('carFleetBulkOverlay')?.addEventListener('click', closeFleetBulkActions);
+  document.getElementById('carFleetBulkReviewButton')?.addEventListener('click', reviewFleetBulkActions);
+  document.getElementById('carFleetBulkBack')?.addEventListener('click', backToFleetBulkEditor);
+  document.getElementById('carFleetBulkSave')?.addEventListener('click', () => void saveFleetBulkActions());
+  document.getElementById('carFleetBulkEditor')?.addEventListener('change', (event) => {
+    const feeSelect = event.target?.closest?.('[data-bulk-city-field="fee_action"]');
+    if (feeSelect) {
+      const amountField = feeSelect.closest('[data-bulk-city-id]')?.querySelector('.car-fleet-bulk-fee-amount');
+      if (amountField) amountField.hidden = feeSelect.value !== 'custom';
+    }
+    if (event.target?.id === 'carFleetBulkSecurityAction') {
+      const amountField = document.getElementById('carFleetBulkSecurityAmountField');
+      if (amountField) amountField.hidden = event.target.value !== 'amount';
+    }
+    if (event.target?.id === 'carFleetBulkPaymentAction') {
+      const amountField = document.getElementById('carFleetBulkPaymentAmountField');
+      const amountLabel = document.getElementById('carFleetBulkPaymentAmountLabel');
+      if (amountField) amountField.hidden = !['flat', 'per_day', 'percent_total'].includes(event.target.value);
+      if (amountLabel) amountLabel.textContent = event.target.value === 'percent_total' ? 'Percent of total (%)' : event.target.value === 'per_day' ? 'Amount (EUR/day)' : 'Amount (EUR)';
+    }
+    if (event.target?.id === 'carFleetBulkPartnerAction') {
+      const partnerField = document.getElementById('carFleetBulkPartnerField');
+      if (partnerField) partnerField.hidden = event.target.value !== 'assign';
+    }
+  });
+  document.getElementById('carFleetBulkModal')?.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeFleetBulkActions();
+      return;
+    }
+    if (event.key === 'Tab') {
+      const modal = event.currentTarget;
+      const focusable = [...modal.querySelectorAll('button:not([disabled]):not([hidden]), input:not([disabled]):not([hidden]), select:not([disabled]):not([hidden]), textarea:not([disabled]):not([hidden]), details > summary, [tabindex]:not([tabindex="-1"])')]
+        .filter((element) => !element.closest('[hidden]') && element.getClientRects().length > 0);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+  });
 
   // Legacy Add Car remains available as an explicit fallback.
   const btnAddFleetCarLegacy = $('#btnAddFleetCarLegacy');

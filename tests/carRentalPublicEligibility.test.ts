@@ -173,6 +173,66 @@ describe('shared exact-offer public eligibility contract', () => {
     expect(result).toEqual(expect.objectContaining({ status: 'LIVE', publicEligible: true, path: 'legacy' }));
   });
 
+  test('mapped legacy compatibility uses mapped capability and exact directional route without threshold capability', () => {
+    const result = contract.evaluateCarOfferPublicEligibility({
+      offer: {
+        id: 'snipper', pricing_strategy: 'legacy_compat', availability_mode: 'mapped',
+        is_available: true, is_published: true, submission_status: 'approved',
+      },
+      availabilityRows: directions,
+      cities,
+      pickupCityCode: 'ayia-napa',
+      returnCityCode: 'larnaca',
+      pickupFeeContractValid: true,
+      returnFeeContractValid: true,
+      siteSetting: {
+        car_multi_city_mapped_enabled: true,
+        car_threshold_daily_rates_enabled: false,
+      },
+    });
+    expect(result).toEqual(expect.objectContaining({
+      status: 'LIVE',
+      publicEligible: true,
+      path: 'mapped-legacy',
+      capabilityEnabled: true,
+      routeReady: true,
+    }));
+  });
+
+  test('mapped legacy compatibility fails closed when mapped capability or an exact direction is unavailable', () => {
+    const base = {
+      offer: {
+        id: 'snipper', pricing_strategy: 'legacy_compat', availability_mode: 'mapped',
+        is_available: true, is_published: true, submission_status: 'approved',
+      },
+      availabilityRows: directions,
+      cities,
+      pickupCityCode: 'ayia-napa',
+      returnCityCode: 'larnaca',
+      pickupFeeContractValid: true,
+      returnFeeContractValid: true,
+    };
+    const disabled = contract.evaluateCarOfferPublicEligibility({
+      ...base,
+      siteSetting: { car_multi_city_mapped_enabled: false, car_threshold_daily_rates_enabled: true },
+    });
+    expect(disabled.publicEligible).toBe(false);
+    expect(disabled.reasons.some((reason: any) => reason.code === 'MAPPED_CAPABILITY_DISABLED')).toBe(true);
+    expect(disabled.reasons.some((reason: any) => reason.code === 'THRESHOLD_CAPABILITY_DISABLED')).toBe(false);
+
+    const reverse = contract.evaluateCarOfferPublicEligibility({
+      ...base,
+      pickupCityCode: 'larnaca',
+      returnCityCode: 'ayia-napa',
+      siteSetting: { car_multi_city_mapped_enabled: true, car_threshold_daily_rates_enabled: true },
+    });
+    expect(reverse.publicEligible).toBe(false);
+    expect(reverse.reasons.map((reason: any) => reason.code)).toEqual(expect.arrayContaining([
+      'PICKUP_ROUTE_UNAVAILABLE',
+      'RETURN_ROUTE_UNAVAILABLE',
+    ]));
+  });
+
   test('tier validation enforces lowest active threshold as exact minimum', () => {
     const invalid = contract.validateCarThresholdTierConfiguration(
       thresholdOffer({ min_rental_days: 3 }),

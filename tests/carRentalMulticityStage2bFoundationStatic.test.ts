@@ -174,7 +174,7 @@ describe('Car Rental Multi-City Stage 2B inert foundation', () => {
   test('the authorized pricing seams and protected downstream sources match accepted hashes', () => {
     const expectedHashes: Record<string, string> = {
       'js/car-pricing.js': '6305c5cc9636c690c220d2f9f9f7a1e66b30de5a2ce239eefd32d2fdfd76c6c9',
-      'js/car-reservation.js': 'af029ab2a1777ae9a67e66a8691ab44ed006a555b4f8f64b3855d7d716985100',
+      'js/car-reservation.js': 'dffd657581b415084b72c2984bda6a0be4db645813f876ac6185ef9ed7ae0d97',
       'js/car-rental-flow.js': '64a461171c4496ce53ced64146623ec15025e8784645e4e1f572e817db546f16',
       'supabase/functions/partner-fulfillment-action/index.ts': '802aa0b8d3a1204f93adefcf598a77c764fde4a6e15dfe2624366c0a99c1297b',
       'supabase/migrations/057_admin_notification_queue.sql': '509f701e938ba08672968d303529fa2bac8c2f7bad3cc4aa677a82158090211a',

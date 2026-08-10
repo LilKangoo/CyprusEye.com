@@ -15,6 +15,11 @@ import {
   normalizeThresholdCityCode,
 } from './car-rental-threshold-pricing.js';
 import {
+  calculateMappedLegacyCarRentalQuote,
+  isMappedLegacyOffer,
+  resolveMappedLegacyPricingContext,
+} from './car-rental-mapped-legacy-pricing.js';
+import {
   buildRentalInstantsFromLocalDateTimes,
   calculateRentalDaysFromInstants,
 } from './car-rental-duration-contract.js';
@@ -407,6 +412,41 @@ function computeReservationQuote(quoteInput) {
         },
       };
     }
+    const mappedLegacyQuote = calculateMappedLegacyCarRentalQuote({
+      offerRow,
+      carModel,
+      pickupDateStr: quoteInput?.pickupDateStr,
+      returnDateStr: quoteInput?.returnDateStr,
+      pickupTimeStr: quoteInput?.pickupTimeStr || '10:00',
+      returnTimeStr: quoteInput?.returnTimeStr || '10:00',
+      pickupCityCode: quoteInput?.pickupCityCode || pricingContext?.pickupCityCode,
+      returnCityCode: quoteInput?.returnCityCode || pricingContext?.returnCityCode,
+      pickupLocation: quoteInput?.pickupLocation || '',
+      returnLocation: quoteInput?.returnLocation || '',
+      fullInsurance: !!quoteInput?.fullInsurance,
+      youngDriver: !!quoteInput?.youngDriver,
+    });
+    if (mappedLegacyQuote) {
+      return {
+        total: mappedLegacyQuote.total,
+        currency: mappedLegacyQuote.currency || 'EUR',
+        pricingStrategy: 'legacy_compat',
+        breakdown: {
+          location: mappedLegacyQuote.offer,
+          days: mappedLegacyQuote.days,
+          basePrice: mappedLegacyQuote.basePrice,
+          dailyRate: mappedLegacyQuote.dailyRate,
+          pickupFee: mappedLegacyQuote.pickupFee,
+          returnFee: mappedLegacyQuote.returnFee,
+          insuranceCost: mappedLegacyQuote.insuranceCost,
+          youngDriverCost: mappedLegacyQuote.youngDriverCost,
+          car: mappedLegacyQuote.car,
+          pickupLoc: mappedLegacyQuote.pickupLoc,
+          returnLoc: mappedLegacyQuote.returnLoc,
+        },
+      };
+    }
+    if (String(offerRow?.availability_mode || '').trim() === 'mapped') return null;
     const pricing = window.CE_CAR_PRICING && typeof window.CE_CAR_PRICING === 'object'
       ? window.CE_CAR_PRICING
       : null;
@@ -1199,9 +1239,13 @@ function syncAddressField(side, placeType) {
 
 function syncReservationPlaceDetails(options = {}) {
   const { recalculate = false } = options;
-  const offer = getActiveOfferLocation();
   const selectedOffer = getCurrentSelectedOfferRow();
   const thresholdOffer = isThresholdOffer(selectedOffer);
+  const mappedLegacyOffer = isMappedLegacyOffer(selectedOffer);
+  const mappedLegacyContext = mappedLegacyOffer
+    ? resolveMappedLegacyPricingContext(selectedOffer)
+    : null;
+  const offer = mappedLegacyContext?.calculatorKey || getActiveOfferLocation();
   const pickupCityInput = document.getElementById('res_pickup_city');
   const returnCityInput = document.getElementById('res_return_city');
   const pickupLocationInput = document.getElementById('res_pickup_location');
@@ -1213,13 +1257,13 @@ function syncReservationPlaceDetails(options = {}) {
     return;
   }
 
-  const pickupCity = thresholdOffer
+  const pickupCity = thresholdOffer || mappedLegacyOffer
     ? normalizeThresholdCityCode(pickupCityInput?.value || pickupLocationInput.value)
     : normalizeCarCity(
       pickupCityInput?.value || pickupLocationInput.value,
       offer === 'paphos' ? 'paphos' : 'larnaca'
     );
-  const returnCity = thresholdOffer
+  const returnCity = thresholdOffer || mappedLegacyOffer
     ? normalizeThresholdCityCode(returnCityInput?.value || returnLocationInput.value)
     : normalizeCarCity(
       returnCityInput?.value || returnLocationInput.value,
@@ -1249,10 +1293,12 @@ function syncReservationPlaceDetails(options = {}) {
 
   const pickupLegacy = thresholdOffer
     ? pickupCity
-    : mapCityToLegacyLocationForPricing(pickupCity, offer, pickupPlaceType);
+    : mappedLegacyContext?.pickupLocation
+      || mapCityToLegacyLocationForPricing(pickupCity, offer, pickupPlaceType);
   const returnLegacy = thresholdOffer
     ? returnCity
-    : mapCityToLegacyLocationForPricing(returnCity, offer, returnPlaceType);
+    : mappedLegacyContext?.returnLocation
+      || mapCityToLegacyLocationForPricing(returnCity, offer, returnPlaceType);
   const changed = [
     setInputValue(pickupLocationInput, pickupLegacy),
     setInputValue(returnLocationInput, returnLegacy),
@@ -2149,8 +2195,10 @@ async function handleReservationSubmit(event) {
       ));
     }
     const thresholdBooking = isThresholdOffer(selectedOfferRow);
+    const mappedLegacyBooking = isMappedLegacyOffer(selectedOfferRow);
+    const mappedBooking = thresholdBooking || mappedLegacyBooking;
     const selectedPricingContext = getOfferPricingContext(selectedOfferRow);
-    const pageLocation = thresholdBooking
+    const pageLocation = mappedBooking
       ? (String(selectedPricingContext?.legacyBookingLocation || selectedOfferRow?.location).toLowerCase() === 'paphos'
         ? 'paphos'
         : 'larnaca')
@@ -2158,6 +2206,13 @@ async function handleReservationSubmit(event) {
 
     const quoteInput = buildReservationQuoteInputFromFormData(formData, pageLocation);
     const computedQuote = computeReservationQuote(quoteInput);
+    if (mappedBooking && !computedQuote) {
+      throw new Error(uiText(
+        'Nie można zweryfikować dokładnego kontekstu ceny i trasy tej oferty. Odśwież wyniki i wybierz pojazd ponownie.',
+        'The exact pricing and route context for this offer could not be verified. Refresh the results and select the vehicle again.',
+        'לא ניתן לאמת את הקשר המחיר והמסלול המדויק של ההצעה. רעננו את התוצאות ובחרו שוב את כלי הרכב.',
+      ));
+    }
     const uiQuote = window.CE_CAR_PRICE_QUOTE && typeof window.CE_CAR_PRICE_QUOTE === 'object'
       ? window.CE_CAR_PRICE_QUOTE
       : null;
@@ -2226,12 +2281,31 @@ async function handleReservationSubmit(event) {
     const returnCityCode = normalizeThresholdCityCode(
       document.getElementById('res_return_city')?.value || selectedPricingContext?.returnCityCode,
     );
+    const mappedLegacyContext = mappedLegacyBooking
+      ? resolveMappedLegacyPricingContext(selectedOfferRow, {
+        pickupCityCode,
+        returnCityCode,
+        pickupLocation: rawPickupLocation,
+        returnLocation: rawReturnLocation,
+      })
+      : null;
+    if (mappedLegacyBooking && !mappedLegacyContext) {
+      throw new Error(uiText(
+        'Nie można zweryfikować dokładnej konfiguracji miasta tej oferty.',
+        'The exact city configuration for this offer could not be verified.',
+        'לא ניתן לאמת את תצורת העיר המדויקת של ההצעה.',
+      ));
+    }
     const normalizedPickupLocation = thresholdBooking
       ? pickupCityCode
-      : normalizeLocationForOffer(rawPickupLocation, pageLocation) || rawPickupLocation;
+      : mappedLegacyBooking
+        ? mappedLegacyContext.pickupLocation
+        : normalizeLocationForOffer(rawPickupLocation, pageLocation) || rawPickupLocation;
     const normalizedReturnLocation = thresholdBooking
       ? returnCityCode
-      : normalizeLocationForOffer(rawReturnLocation, pageLocation) || rawReturnLocation;
+      : mappedLegacyBooking
+        ? mappedLegacyContext.returnLocation
+        : normalizeLocationForOffer(rawReturnLocation, pageLocation) || rawReturnLocation;
 
     // Build data object with only essential fields
     const data = {
@@ -2260,7 +2334,7 @@ async function handleReservationSubmit(event) {
       referral_captured_at: referralPayload.referral_captured_at || null,
     };
 
-    if (thresholdBooking) {
+    if (mappedBooking) {
       data.pickup_city_code = pickupCityCode;
       data.return_city_code = returnCityCode;
     }

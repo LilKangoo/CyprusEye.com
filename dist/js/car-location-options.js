@@ -207,7 +207,7 @@ export async function hydrateCarRentalCityCatalogForActiveRuntime(repository) {
   }
   try {
     const flags = await repository.getFeatureFlags();
-    if (flags?.mappedEnabled !== true || flags?.thresholdDailyRatesEnabled !== true) {
+    if (flags?.mappedEnabled !== true) {
       return Object.freeze({ loaded: false, reason: 'runtime_disabled', flags });
     }
     if (typeof repository.getActiveCities !== 'function') {

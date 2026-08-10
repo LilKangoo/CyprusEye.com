@@ -22,6 +22,7 @@ import {
 import { calculateRentalDaysFromLocalDateTimes } from './car-rental-duration-contract.js';
 import { createCarRentalAvailabilityRepository } from './car-rental-availability-repository.js';
 import { hydrateCarRentalCityCatalogForActiveRuntime } from './car-location-options.js';
+import { calculateMappedLegacyCarRentalQuote } from './car-rental-mapped-legacy-pricing.js';
 import {
   resolveCarSecurityDepositPresentation,
   resolveGenericVehicleCopy,
@@ -403,6 +404,22 @@ function calculateQuoteForSelection({
       carModel: selectedCar,
     });
   }
+  const mappedLegacyQuote = calculateMappedLegacyCarRentalQuote({
+    offerRow,
+    carModel: selectedCar,
+    pickupDateStr,
+    returnDateStr,
+    pickupTimeStr,
+    returnTimeStr,
+    pickupCityCode: thresholdContext?.pickupCityCode,
+    returnCityCode: thresholdContext?.returnCityCode,
+    pickupLocation,
+    returnLocation,
+    fullInsurance,
+    youngDriver,
+  });
+  if (mappedLegacyQuote) return mappedLegacyQuote;
+  if (String(offerRow?.availability_mode || '').trim() === 'mapped') return null;
   const carPricing = offerRow
     ? buildPricingMatrixForOfferRow(offerRow, offer)
     : (selectedCar ? pricing[selectedCar] : null);

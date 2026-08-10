@@ -63,8 +63,11 @@ const tables = {
     { id: PROFILE_PAPHOS, code: 'paphos', name: 'Paphos', calculator_key: 'paphos', legacy_booking_location: 'paphos', is_active: true },
   ],
   car_pricing_profile_cities: [
-    { pricing_profile_id: PROFILE_LARNACA, city_id: CITY_LARNACA, pickup_supported: true, return_supported: true, legacy_pricing_city_key: 'larnaca', is_active: true },
-    { pricing_profile_id: PROFILE_LARNACA, city_id: CITY_PAPHOS, pickup_supported: true, return_supported: true, legacy_pricing_city_key: 'paphos', is_active: true },
+    // Profile support is deliberately disabled: exact mapped rows below are
+    // authoritative for pickup/return, while these mappings supply only the
+    // legacy fee key used by the legacy-compatible calculator.
+    { pricing_profile_id: PROFILE_LARNACA, city_id: CITY_LARNACA, pickup_supported: false, return_supported: false, legacy_pricing_city_key: 'larnaca', is_active: true },
+    { pricing_profile_id: PROFILE_LARNACA, city_id: CITY_PAPHOS, pickup_supported: false, return_supported: false, legacy_pricing_city_key: 'paphos', is_active: true },
     { pricing_profile_id: PROFILE_PAPHOS, city_id: CITY_PAPHOS, pickup_supported: true, return_supported: true, legacy_pricing_city_key: 'paphos', is_active: true },
   ],
   car_offer_city_availability: [
@@ -770,6 +773,12 @@ test.describe('Car Rental Multi-City Stage 2E public hybrid rendering', () => {
     await expect(page.locator('#res_pickup_location')).toHaveValue('paphos');
     await expect(page.locator('#res_return_location')).toHaveValue('paphos');
     await expect(page.locator('.ce-car-home-hero-price')).toContainText('100.00');
+    await expect(page.locator('#res_insurance')).toHaveAttribute('data-ce-reservation-bound', '1');
+    await page.locator('#res_insurance').check();
+    await expect.poll(async () => page.evaluate(() => (window as any).CE_CAR_PRICE_QUOTE)).toEqual(expect.objectContaining({
+      base_total: 168,
+      breakdown: expect.objectContaining({ pickupFee: 0, returnFee: 0, insuranceCost: 68 }),
+    }));
 
     await page.goto('/index.html?lang=en', { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => Boolean(document.querySelector('#carsFinderPickupLocation option[value="paphos"]')));
@@ -779,6 +788,75 @@ test.describe('Car Rental Multi-City Stage 2E public hybrid rendering', () => {
     await expect(page.locator('#res_car option:checked')).toHaveAttribute('data-offer-id', MAPPED_LARNACA);
     await expect(page.locator('.ce-car-home-hero-price')).toContainText('100.00');
     expect(await requestSafetySnapshot(page)).toEqual({ mutations: [], rpc: [] });
+    expect(errors).toEqual([]);
+  });
+
+  test('mapped legacy booking preserves exact route codes, pricing locations and zero fee overrides', async ({ page }) => {
+    const errors = ownSourceErrors(page);
+    await seedHybrid(page, true, false, false, 0);
+    await page.goto('/car.html?lang=en', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => typeof (window as any).CE_CAR_GET_CURRENT_FLEET === 'function');
+    await configureCarPage(page, 'paphos', 'paphos');
+    await page.locator(`[data-select-car-offer-id="${MAPPED_LARNACA}"]`).click();
+    await expect(page.locator('#res_car option:checked')).toHaveAttribute('data-offer-id', MAPPED_LARNACA);
+    await expect(page.locator('#res_pickup_location')).toHaveValue('paphos');
+    await page.locator('#res_full_name').fill('Mapped Legacy Request');
+    await page.locator('#res_email').fill('mapped-legacy@example.test');
+    await page.locator('#res_phone_local').fill('99111222');
+    await page.locator('#btnSubmitReservation').click();
+    await expect.poll(async () => page.evaluate(() => (
+      (window as any).__supabaseStub?.getTableRows?.('car_bookings')?.length || 0
+    ))).toBe(1);
+    const booking = await page.evaluate(() => (
+      (window as any).__supabaseStub?.getTableRows?.('car_bookings')?.[0] || null
+    ));
+    expect(booking).toEqual(expect.objectContaining({
+      offer_id: MAPPED_LARNACA,
+      status: 'pending',
+      location: 'larnaca',
+      pickup_location: 'paphos',
+      return_location: 'paphos',
+      pickup_city_code: 'paphos',
+      return_city_code: 'paphos',
+      pickup_location_fee: 0,
+      return_location_fee: 0,
+      quoted_price: 100,
+      total_price: 100,
+    }));
+    expect(errors).toEqual([]);
+  });
+
+  test('mapped legacy booking preserves positive exact directional fee overrides in its payload', async ({ page }) => {
+    const errors = ownSourceErrors(page);
+    await seedHybrid(page, true, false, false, 25);
+    await page.goto('/car.html?lang=en', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => typeof (window as any).CE_CAR_GET_CURRENT_FLEET === 'function');
+    await configureCarPage(page, 'paphos', 'paphos');
+    await page.locator(`[data-select-car-offer-id="${MAPPED_LARNACA}"]`).click();
+    await expect(page.locator('#res_car option:checked')).toHaveAttribute('data-offer-id', MAPPED_LARNACA);
+    await page.locator('#res_full_name').fill('Mapped Legacy Custom Fee');
+    await page.locator('#res_email').fill('mapped-custom-fee@example.test');
+    await page.locator('#res_phone_local').fill('99111223');
+    await page.locator('#btnSubmitReservation').click();
+    await expect.poll(async () => page.evaluate(() => (
+      (window as any).__supabaseStub?.getTableRows?.('car_bookings')?.length || 0
+    ))).toBe(1);
+    const booking = await page.evaluate(() => (
+      (window as any).__supabaseStub?.getTableRows?.('car_bookings')?.[0] || null
+    ));
+    expect(booking).toEqual(expect.objectContaining({
+      offer_id: MAPPED_LARNACA,
+      status: 'pending',
+      location: 'larnaca',
+      pickup_location: 'paphos',
+      return_location: 'paphos',
+      pickup_city_code: 'paphos',
+      return_city_code: 'paphos',
+      pickup_location_fee: 25,
+      return_location_fee: 25,
+      quoted_price: 150,
+      total_price: 150,
+    }));
     expect(errors).toEqual([]);
   });
 

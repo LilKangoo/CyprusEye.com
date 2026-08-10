@@ -218,6 +218,14 @@
       title.textContent = labels[state.mode] || 'Car rental configuration';
       const exact = byId('carMulticityExactOfferId');
       if (exact) exact.textContent = state.draft?.offerId || 'Assigned by database after create';
+      const strategy = core.normalizeCode(state.draft?.pricing?.strategy || state.context?.offer?.pricing_strategy || 'legacy_compat');
+      const availabilityMode = core.normalizeCode(state.context?.offer?.availability_mode || state.draft?.activation?.availabilityMode || 'legacy');
+      const pricingBadge = byId('carMulticityPricingModeBadge');
+      const availabilityBadge = byId('carMulticityAvailabilityModeBadge');
+      const capabilityBadge = byId('carMulticityCapabilityBadge');
+      if (pricingBadge) pricingBadge.textContent = `Pricing: ${strategy === 'threshold_daily_rate' ? 'Flexible daily rates' : 'Legacy pricing'}`;
+      if (availabilityBadge) availabilityBadge.textContent = `Availability: ${availabilityMode === 'mapped' ? 'Configured availability' : 'Legacy coverage'}`;
+      if (capabilityBadge) capabilityBadge.textContent = `Mapped capability: ${state.context?.siteSetting?.car_multi_city_mapped_enabled === true ? 'ON' : 'OFF'}`;
     }
 
     function i18nInput(prefix, label, value, textarea = false) {
@@ -538,16 +546,12 @@
         is_active: false,
         updated_at: null,
       };
-      const key = core.normalizeCode(mapping?.legacy_pricing_city_key);
-      const supported = thresholdStrategy
-        ? city.is_active === true
-        : Boolean(mapping && mapping.is_active && city.is_active && key);
-      const paphosBlocked = !thresholdStrategy && core.normalizeCode(profile?.code) === 'paphos' && key !== 'paphos';
-      const pickupSupported = thresholdStrategy || mapping?.pickup_supported === true;
-      const returnSupported = thresholdStrategy || mapping?.return_supported === true;
-      const pickupDisabled = !supported || !pickupSupported || paphosBlocked;
-      const returnDisabled = !supported || !returnSupported || paphosBlocked;
-      const feeDisabled = !supported || (!pickupSupported && !returnSupported) || paphosBlocked;
+      const supported = city.is_active === true;
+      const pickupSupported = supported;
+      const returnSupported = supported;
+      const pickupDisabled = !supported;
+      const returnDisabled = !supported;
+      const feeDisabled = !supported;
       const directional = core.directionalAvailabilityState(row);
       const fee = thresholdStrategy
         ? (() => {
@@ -564,7 +568,7 @@
             valid: mode === 'override' ? Number.isFinite(amount) && amount >= 0 : standardAmount !== null,
           };
         })()
-        : core.getAvailabilityFeeState(row, profile, mapping);
+        : core.getAvailabilityFeeState(row, profile, mapping, city);
       const standardLabel = fee.inherited
         ? fee.standardAmount === null
           ? 'Existing Paphos place-type rule'
@@ -598,7 +602,7 @@
             <label class="admin-form-field"><span>Delivery fee</span><select data-availability-field="fee_mode" ${feeDisabled ? 'disabled' : ''}><option value="inherit" ${fee.mode === 'inherit' ? 'selected' : ''}>Use standard fee</option><option value="override" ${fee.mode === 'override' ? 'selected' : ''}>Custom fee</option></select></label>
             <label class="admin-form-field"><span>Fee per direction</span><input type="number" min="0" step="0.01" data-availability-field="fee_per_direction" value="${escapeHtml(fee.mode === 'override' && row.fee_per_direction != null ? row.fee_per_direction : '')}" ${fee.mode !== 'override' || feeDisabled ? 'disabled' : ''}></label>
           </div>
-          <dl><div><dt>Standard fee per direction</dt><dd>${escapeHtml(standardLabel)}</dd></div><div><dt>Enabled-direction result</dt><dd class="${feeRequired ? 'is-required' : ''}">${escapeHtml(resultLabel)}</dd></div><div><dt>${thresholdStrategy ? 'Exact offer-city support' : 'Profile support'}</dt><dd>Pickup: ${pickupSupported && supported && !paphosBlocked ? 'supported' : 'unavailable'} · Return: ${returnSupported && supported && !paphosBlocked ? 'supported' : 'unavailable'}</dd></div></dl>
+          <dl><div><dt>Standard fee per direction</dt><dd>${escapeHtml(standardLabel)}</dd></div><div><dt>Enabled-direction result</dt><dd class="${feeRequired ? 'is-required' : ''}">${escapeHtml(resultLabel)}</dd></div><div><dt>Exact offer-city support</dt><dd>Pickup: ${pickupSupported ? 'configurable' : 'unavailable'} · Return: ${returnSupported ? 'configurable' : 'unavailable'}</dd></div></dl>
         </article>
       `;
     }
@@ -738,7 +742,7 @@
               ? Object.prototype.hasOwnProperty.call(core.LEGACY_CITY_FEE_PREVIEW, core.normalizeCode(city?.code))
                 ? core.LEGACY_CITY_FEE_PREVIEW[core.normalizeCode(city.code)]
                 : null
-              : core.getAvailabilityFeeState({ fee_mode: 'inherit' }, profile, mapping).standardAmount;
+              : core.getAvailabilityFeeState({ fee_mode: 'inherit' }, profile, mapping, city).standardAmount;
             const afterResult = !entry.afterPickupEnabled && !entry.afterReturnEnabled
               ? 'No resulting fee while unavailable'
               : entry.afterFeeMode === 'override' && entry.afterFeePerDirection !== null
@@ -1501,7 +1505,7 @@
       return `
         <section class="car-multicity-section">
           <h4>Pricing profile city support</h4>
-          <p>The exact normalized city code is the pricing key. Existing six-city keys inherit legacy fees; a new Larnaca-profile city requires an offer-level custom fee. Paphos remains hard-limited to Paphos.</p>
+          <p>Profile mappings document legacy pricing keys and compatibility metadata; exact offer-city rows own mapped pickup and return directions. Existing legacy coverage is unchanged until an exact offer is deliberately switched to configured availability. A city without a valid inherited fee requires an offer-level custom fee.</p>
           <div class="admin-table-container car-multicity-mapping-table"><table class="admin-table"><thead><tr><th>Profile</th><th>City</th><th>Pickup and return support</th><th>Legacy pricing key</th><th>Active</th><th>Impact / action</th></tr></thead><tbody>
             ${(catalog.profiles || []).flatMap((profile) => (catalog.cities || []).map((city) => {
               const mapping = mappingMap.get(`${profile.id}:${city.id}`) || null;
@@ -1647,7 +1651,7 @@
         }
         openConfirmation({
           title: state.cityEditor.mode === 'create' ? 'Review new inactive city' : 'Review city change',
-          body: `<p>${state.cityEditor.mode === 'create' ? 'Create a new inactive city' : `Update exact city <code>${escapeHtml(draft.id)}</code>`}?</p><ul><li>Profile mappings created: 0</li><li>Offer assignments created: 0</li><li>Legacy offers still require an explicit profile-city mapping</li><li>Threshold offers require exact offer-city availability and an explicit custom fee for non-standard cities</li><li>No offer or feature flag is activated</li></ul>`,
+          body: `<p>${state.cityEditor.mode === 'create' ? 'Create a new inactive city' : `Update exact city <code>${escapeHtml(draft.id)}</code>`}?</p><ul><li>Profile mappings created: 0</li><li>Offer assignments created: 0</li><li>Legacy coverage remains unchanged; configured availability is assigned per exact offer</li><li>An exact offer-city without a valid inherited fee requires an explicit custom fee</li><li>No offer or feature flag is activated</li></ul>`,
           action: async () => {
             closeConfirmation();
             try {

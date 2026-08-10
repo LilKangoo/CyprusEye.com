@@ -209,6 +209,7 @@ describe('Car Rental Multi-City Stage 2D availability adapter', () => {
 
     const overridden = {
       ...inherited,
+      profileCities,
       availability: inherited.availability.map((row: any) => ({ ...row, fee_mode: 'override', fee_per_direction: 18 })),
     };
     const accepted = await resolve({ pickupCityCode: 'polis', returnCityCode: 'polis' }, overridden);
@@ -217,21 +218,88 @@ describe('Car Rental Multi-City Stage 2D availability adapter', () => {
     expect(accepted.mappedOffers[0].quote.returnLoc).toBe('polis');
   });
 
-  test('Paphos profile is only eligible for Paphos to Paphos and never falls back to Larnaca', async () => {
+  test('mapped availability is independent from Paphos profile route support while legacy Paphos remains Paphos-only', async () => {
     const valid = await resolve({ pickupCityCode: 'paphos', returnCityCode: 'paphos' });
     expect(valid.mappedOffers.map((row: any) => row.id)).toEqual(['offer-larnaca', 'offer-paphos']);
 
-    const invalidContext = baseContext({
+    const exactMappedContext = baseContext({
       profileCities: [...profileCities, {
         pricing_profile_id: 'profile-paphos', city_id: cityId('larnaca'),
-        pickup_supported: true, return_supported: true, legacy_pricing_city_key: 'larnaca', is_active: true,
+        pickup_supported: false, return_supported: false, legacy_pricing_city_key: 'larnaca', is_active: true,
       }],
-      availability: [availability('offer-paphos', 'paphos'), availability('offer-paphos', 'larnaca')],
+      availability: [
+        { ...availability('offer-paphos', 'paphos', true, false), fee_mode: 'override', fee_per_direction: 0 },
+        { ...availability('offer-paphos', 'larnaca', false, true), fee_mode: 'override', fee_per_direction: 20 },
+      ],
       offers: [offer('offer-paphos', 'paphos')],
     });
-    const invalid = await resolve({ pickupCityCode: 'paphos', returnCityCode: 'larnaca' }, invalidContext);
-    expect(invalid.mappedOffers).toEqual([]);
-    expect(invalid.diagnostics.some((entry: any) => entry.code === 'PAPHOS_PROFILE_OUTSIDE_PAPHOS')).toBe(true);
+    const exactMapped = await resolve({ pickupCityCode: 'paphos', returnCityCode: 'larnaca' }, exactMappedContext);
+    expect(exactMapped.mappedOffers).toHaveLength(1);
+    expect(exactMapped.mappedOffers[0].quote).toEqual(expect.objectContaining({
+      basePrice: 210,
+      pickupFee: 0,
+      returnFee: 20,
+      total: 230,
+    }));
+
+    const legacyPaphos = legacyOffer('legacy-paphos', 'paphos');
+    const repository = {
+      getFeatureFlags: async () => ({ mappedEnabled: true, thresholdDailyRatesEnabled: false }),
+      readMappedContext: async () => baseContext({ offers: [], availability: [] }),
+      getMetrics: () => ({ requests: 1, responseBytes: 1, durationMs: 1, queries: [] }),
+    };
+    const legacyCrossCity = await adapter.resolveCarRentalAvailability({
+      ...input({ mode: 'hybrid', pickupCityCode: 'paphos', returnCityCode: 'larnaca' }),
+      legacyOffers: [legacyPaphos],
+      repository,
+    });
+    expect(legacyCrossCity.renderedOffers).toEqual([]);
+  });
+
+  test('profile-city directional support cannot veto an exact mapped direction or change legacy base pricing', async () => {
+    const exactOffer = offer('mapped-profile-independent', 'larnaca', { location: 'paphos' });
+    const context = baseContext({
+      offers: [exactOffer],
+      profileCities: profileCities.map((row) => (
+        row.pricing_profile_id === 'profile-larnaca' && row.city_id === cityId('larnaca')
+          ? { ...row, pickup_supported: false, return_supported: false }
+          : row
+      )),
+      availability: [availability(exactOffer.id, 'larnaca', true, true)],
+    });
+    const result = await resolve({}, context);
+    expect(result.mappedOffers).toHaveLength(1);
+    expect(result.mappedOffers[0].quote).toEqual(expect.objectContaining({
+      basePrice: 105,
+      pickupFee: 0,
+      returnFee: 0,
+      total: 105,
+    }));
+    expect(result.mappedOffers[0].availabilityContext).toEqual(expect.objectContaining({
+      calculatorKey: 'larnaca',
+      legacyBookingLocation: 'larnaca',
+      pickupCityCode: 'larnaca',
+      returnCityCode: 'larnaca',
+    }));
+  });
+
+  test('known mapped cities inherit legacy fees without a profile-city support row', async () => {
+    const exactOffer = offer('mapped-known-city-no-profile-support');
+    const context = baseContext({
+      offers: [exactOffer],
+      profileCities: profileCities.filter((row) => row.city_id !== cityId('ayia-napa')),
+      availability: [availability(exactOffer.id, 'ayia-napa', true, true, {
+        fee_mode: 'inherit', fee_per_direction: null,
+      })],
+    });
+    const result = await resolve({ pickupCityCode: 'ayia-napa', returnCityCode: 'ayia-napa' }, context);
+    expect(result.mappedOffers).toHaveLength(1);
+    expect(result.mappedOffers[0].quote).toEqual(expect.objectContaining({
+      basePrice: 105,
+      pickupFee: 15,
+      returnFee: 15,
+      total: 135,
+    }));
   });
 
   test('mapped directional rows govern every route and a rejected route cannot reappear through legacy fallback', async () => {
@@ -301,20 +369,21 @@ describe('Car Rental Multi-City Stage 2D availability adapter', () => {
     expect(result.mappedOffers[0].quote.total).toBe(35 * days);
   });
 
-  test('omits inactive, missing-key, missing-mapping and incomplete-pricing configurations', async () => {
+  test('omits inactive, malformed pricing-key and incomplete-pricing configurations', async () => {
     const invalidContexts = [
       baseContext({ cities: cities.map((row) => row.code === 'larnaca' ? { ...row, is_active: false } : row) }),
       baseContext({ profileCities: profileCities.map((row) => row.city_id === cityId('larnaca') && row.pricing_profile_id === 'profile-larnaca'
         ? { ...row, legacy_pricing_city_key: null }
         : row) }),
-      baseContext({ profileCities: profileCities.filter((row) => !(row.city_id === cityId('larnaca') && row.pricing_profile_id === 'profile-larnaca')) }),
       baseContext({ offers: [offer('offer-larnaca', 'larnaca', { price_per_day: null, price_3days: null, price_4_6days: null, price_7_10days: null, price_10plus_days: null })] }),
       baseContext({ profiles: profiles.map((row) => row.id === 'profile-larnaca' ? { ...row, is_active: false } : row) }),
     ];
     for (const context of invalidContexts) {
       const result = await resolve({}, context);
       expect(result.mappedOffers).toEqual([]);
-      expect(result.diagnostics.some((entry: any) => entry.code === 'INVALID_MAPPED_CONFIGURATION')).toBe(true);
+      expect(result.diagnostics.some((entry: any) => (
+        entry.code === 'INVALID_MAPPED_CONFIGURATION' || entry.code === 'FEE_REQUIRED_FOR_CITY'
+      ))).toBe(true);
     }
   });
 

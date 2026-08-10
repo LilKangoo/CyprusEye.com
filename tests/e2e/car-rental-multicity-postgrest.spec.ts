@@ -220,6 +220,7 @@ async function loadLegacyEditorRuntime(page: any) {
   });
   for (const relativePath of [
     'admin/admin.js',
+    'admin/car-fleet-operations-core.js',
     'admin/special-offers.js',
     'js/car-pricing.js',
     'js/car-rental-duration-contract.js',
@@ -304,7 +305,7 @@ test.describe('Car Rental Multi-City Stage 2C real PostgREST Admin integration',
     expect(mutations.some((entry) => /car_bookings|service_deposit|partner_service|rpc\//.test(entry))).toBe(false);
   });
 
-  test('availability writes only exact offer-city rows and Paphos blocks cross-city', async ({ page }) => {
+  test('availability writes only exact offer-city rows and future Paphos mappings stay inert until reviewed activation', async ({ page }) => {
     const offerBefore = (await rows('car_offers', `id=eq.${OFFER_LARNACA}&select=*`))[0];
     await openAction(page, OFFER_LARNACA, 'availability');
     const nicosia = page.locator(`[data-city-id="${CITY_NICOSIA}"]`);
@@ -333,10 +334,28 @@ test.describe('Car Rental Multi-City Stage 2C real PostgREST Admin integration',
 
     await page.locator('#carMulticityCloseFooter').click();
     await openAction(page, OFFER_PAPHOS, 'availability');
-    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="pickup_enabled"]`)).toBeDisabled();
-    await expect(page.locator(`[data-city-id="${CITY_NICOSIA}"] [data-availability-field="return_enabled"]`)).toBeDisabled();
+    const paphosNicosia = page.locator(`[data-city-id="${CITY_NICOSIA}"]`);
+    await expect(paphosNicosia.locator('[data-availability-field="pickup_enabled"]')).toBeEnabled();
+    await expect(paphosNicosia.locator('[data-availability-field="return_enabled"]')).toBeEnabled();
     await expect(page.locator(`[data-city-id="${CITY_PAPHOS}"] [data-availability-field="pickup_enabled"]`)).toBeEnabled();
     await expect(page.locator(`[data-city-id="${CITY_PAPHOS}"] [data-availability-field="return_enabled"]`)).toBeEnabled();
+    await paphosNicosia.locator('[data-availability-field="return_enabled"]').check();
+    await paphosNicosia.locator('[data-availability-field="fee_mode"]').selectOption('override');
+    await paphosNicosia.locator('[data-availability-field="fee_per_direction"]').fill('0');
+    await saveReviewed(page);
+    expect(await rows('car_offer_city_availability', `offer_id=eq.${OFFER_PAPHOS}&city_id=eq.${CITY_NICOSIA}&select=pickup_enabled,return_enabled,is_active,fee_mode,fee_per_direction`)).toEqual([{
+      pickup_enabled: false,
+      return_enabled: true,
+      is_active: true,
+      fee_mode: 'override',
+      fee_per_direction: 0,
+    }]);
+    expect((await rows('car_offers', `id=eq.${OFFER_PAPHOS}&select=availability_mode,pricing_strategy,pricing_profile_id,location`))[0]).toEqual({
+      availability_mode: 'legacy',
+      pricing_strategy: 'legacy_compat',
+      pricing_profile_id: PROFILE_PAPHOS,
+      location: 'paphos',
+    });
   });
 
   test('profile and partner plans preserve prices and independent availability', async ({ page }) => {

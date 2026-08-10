@@ -21,6 +21,7 @@ import {
   calculateThresholdCarRentalQuote,
   normalizeThresholdCityCode,
 } from '/js/car-rental-threshold-pricing.js';
+import { calculateMappedLegacyCarRentalQuote } from '/js/car-rental-mapped-legacy-pricing.js';
 import {
   resolveCarSecurityDepositPresentation,
   resolveGenericVehicleCopy,
@@ -236,6 +237,23 @@ function resolveQuoteForCar({ car, location, prefill, quote }) {
       carModel: getCarName(car),
     });
   }
+
+  const mappedLegacyQuote = calculateMappedLegacyCarRentalQuote({
+    offerRow: car,
+    carModel: getCarName(car),
+    pickupDateStr: prefill.pickupDate,
+    returnDateStr: prefill.returnDate,
+    pickupTimeStr: prefill.pickupTime,
+    returnTimeStr: prefill.returnTime,
+    pickupCityCode: prefill.pickupCity || context?.pickupCityCode,
+    returnCityCode: prefill.returnCity || context?.returnCityCode,
+    pickupLocation: prefill.pickupLocation,
+    returnLocation: prefill.returnLocation,
+    fullInsurance: !!prefill.fullInsurance,
+    youngDriver: !!prefill.youngDriver,
+  });
+  if (mappedLegacyQuote) return mappedLegacyQuote;
+  if (String(car?.availability_mode || '').trim() === 'mapped') return null;
 
   const pricingMatrix = buildPricingMatrixForOfferRow(car, location);
   if (!pricingMatrix) return null;

@@ -558,19 +558,19 @@
     };
   }
 
-  function inheritedFeeIsSupported(profile, mapping) {
+  function inheritedFeeIsSupported(profile, mapping, city = null) {
     const profileCode = normalizeCode(profile?.calculator_key || profile?.code);
-    const key = normalizeCode(mapping?.legacy_pricing_city_key);
+    const key = normalizeCode(mapping?.legacy_pricing_city_key || city?.code);
     if (profileCode === 'larnaca') return LEGACY_PRICING_KEYS.includes(key);
     return profileCode === 'paphos' && key === 'paphos';
   }
 
-  function getAvailabilityFeeState(row, profile, mapping) {
+  function getAvailabilityFeeState(row, profile, mapping, city = null) {
     const mode = normalizeCode(row?.fee_mode) === 'override' ? 'override' : 'inherit';
     const amount = mode === 'override' ? normalizeMoney(row?.fee_per_direction) : null;
-    const inherited = inheritedFeeIsSupported(profile, mapping);
+    const inherited = inheritedFeeIsSupported(profile, mapping, city);
     const profileCode = normalizeCode(profile?.calculator_key || profile?.code);
-    const key = normalizeCode(mapping?.legacy_pricing_city_key);
+    const key = normalizeCode(mapping?.legacy_pricing_city_key || city?.code);
     const standardAmount = profileCode === 'larnaca' && inherited
       ? LEGACY_CITY_FEE_PREVIEW[key]
       : null;
@@ -847,6 +847,7 @@
         }
         return;
       }
+      const city = cityById(context, cityId);
       const mapping = thresholdStrategy ? null : mappingFor(context, profile.id, cityId);
       const fee = thresholdStrategy
         ? {
@@ -855,42 +856,19 @@
             ? Number.isFinite(normalizeMoney(row?.fee_per_direction)) && normalizeMoney(row?.fee_per_direction) >= 0
             : LEGACY_PRICING_KEYS.includes(normalizeCode(cityById(context, cityId)?.code)),
         }
-        : getAvailabilityFeeState(row, profile, mapping);
+        : getAvailabilityFeeState(row, profile, mapping, city);
       if (fee.mode === 'override' && (!fee.valid || !hasAtMostTwoDecimals(row.fee_per_direction))) {
         errors.push({ field: `fee-${cityId}`, message: 'Custom fee per direction must be a finite amount of zero or greater.' });
       }
       if (normalizeText(row.fee_note).length > 500) {
         errors.push({ field: `fee-${cityId}`, message: 'Fee note must not exceed 500 characters.' });
       }
-      const city = cityById(context, cityId);
       if (!city || city.is_active !== true) {
         errors.push({ field: `availability-${cityId}`, message: 'Selected city is inactive or missing.' });
         return;
       }
-      if (thresholdStrategy) {
-        if (fee.mode === 'inherit' && !LEGACY_PRICING_KEYS.includes(normalizeCode(city.code))) {
-          errors.push({ field: `fee-${cityId}`, message: 'A custom fee is required for this city.' });
-        }
-        return;
-      }
-      if (!mapping || mapping.is_active !== true || !normalizeCode(mapping.legacy_pricing_city_key)) {
-        errors.push({ field: `availability-${cityId}`, message: 'Selected city has no active legacy pricing mapping.' });
-        return;
-      }
-      if (normalizeCode(mapping.legacy_pricing_city_key) !== normalizeCode(city.code)) {
-        errors.push({ field: `availability-${cityId}`, message: 'Pricing key does not match the exact city code.' });
-      }
-      if (normalizeCode(profile.code) === 'paphos' && (
-        normalizeCode(city.code) !== 'paphos'
-        || normalizeCode(mapping.legacy_pricing_city_key) !== 'paphos'
-      )) {
-        errors.push({ field: `availability-${cityId}`, message: 'Paphos profile cannot be used outside Paphos.' });
-      }
-      if (row.pickup_enabled && mapping.pickup_supported !== true) {
-        errors.push({ field: `pickup-${cityId}`, message: 'Pickup is not supported by this profile-city mapping.' });
-      }
-      if (row.return_enabled && mapping.return_supported !== true) {
-        errors.push({ field: `return-${cityId}`, message: 'Return is not supported by this profile-city mapping.' });
+      if (fee.mode === 'inherit' && !fee.valid) {
+        errors.push({ field: `fee-${cityId}`, message: 'A custom fee is required because this city has no valid standard fee for the selected legacy calculator.' });
       }
     });
   }
@@ -1182,8 +1160,8 @@
       if (row?.is_active !== true) return;
       const city = cityById(context, row.city_id);
       const mapping = thresholdStrategy ? null : mappingFor(context, profile?.id, row.city_id);
-      if (!city || city.is_active !== true || (!thresholdStrategy && (!mapping || mapping.is_active !== true))) {
-        reasons.push(`City ${normalizeId(row.city_id) || 'unknown'} is not active or supported.`);
+      if (!city || city.is_active !== true) {
+        reasons.push(`City ${normalizeId(row.city_id) || 'unknown'} is not active.`);
         return;
       }
       const fee = thresholdStrategy
@@ -1192,13 +1170,13 @@
             ? Number.isFinite(normalizeMoney(row?.fee_per_direction)) && normalizeMoney(row?.fee_per_direction) >= 0
             : LEGACY_PRICING_KEYS.includes(normalizeCode(city.code)),
         }
-        : getAvailabilityFeeState(row, profile, mapping);
+        : getAvailabilityFeeState(row, profile, mapping, city);
       if (!fee.valid) {
         reasons.push(`Fee required for city ${normalizeCode(city.code) || normalizeId(row.city_id)}.`);
         return;
       }
-      if (row.pickup_enabled && (thresholdStrategy || mapping.pickup_supported)) pickups += 1;
-      if (row.return_enabled && (thresholdStrategy || mapping.return_supported)) returns += 1;
+      if (row.pickup_enabled) pickups += 1;
+      if (row.return_enabled) returns += 1;
     });
     if (pickups < 1) reasons.push('At least one active pickup city is required.');
     if (returns < 1) reasons.push('At least one active return city is required.');
