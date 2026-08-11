@@ -28,7 +28,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="/assets/css/tokens.css?v=20251107" />
   <link rel="stylesheet" href="/assets/css/base.css?v=20251107" />
-  <link rel="stylesheet" href="/admin/admin.css?v=20260801_3" />
+  <link rel="stylesheet" href="/admin/admin.css?v=20260811_2" />
   
   <!-- Auth meta -->
   <meta name="ce-auth" content="required" />
@@ -53,7 +53,10 @@
   <script src="/admin/car-rental-multicity-repository.js?v=20260802_1"></script>
   <script src="/admin/car-rental-multicity-ui.js?v=20260802_1"></script>
   <script src="/admin/car-fleet-action-menu.js?v=20260811_1"></script>
-  <script type="module" src="/admin/admin.js?v=20260801_3"></script>
+  <script src="/admin/hotels-v2-workspace-core.js?v=20260811_1"></script>
+  <script src="/admin/hotels-v2-workspace-repository.js?v=20260811_1"></script>
+  <script src="/admin/hotels-v2-workspace.js?v=20260811_1"></script>
+  <script type="module" src="/admin/admin.js?v=20260811_2"></script>
   <script src="/admin/admin-pwa.js?v=20260221_4" defer></script>
 </head>
 <body data-admin-panel="true">
@@ -556,7 +559,7 @@
           </div>
           <div class="admin-view-actions">
             <button class="btn-secondary" type="button" id="btnRefreshHotels">Refresh</button>
-            <button class="btn-primary" type="button" id="btnAddHotel" onclick="openNewHotelModal()">New Hotel</button>
+            <button class="btn-primary" type="button" id="btnAddHotel">New property</button>
           </div>
         </header>
 
@@ -572,46 +575,58 @@
 
         <!-- Hotels Tab Content -->
         <div id="hotelsTabHotels" class="hotels-tab-content">
-          <div class="admin-stats-grid hotels-stats-grid">
-            <div class="admin-stat-card">
-              <div class="stat-card-content">
-                <p class="stat-card-label">Total Hotels</p>
-                <p class="stat-card-value" id="hotelsStatTotal">0</p>
-                <p class="stat-card-change" id="hotelsStatSubtitle">Loading...</p>
+          <div id="hotelPropertyDirectory">
+            <div class="admin-stats-grid hotels-stats-grid">
+              <div class="admin-stat-card">
+                <div class="stat-card-content">
+                  <p class="stat-card-label">Total properties</p>
+                  <p class="stat-card-value" id="hotelsStatTotal">0</p>
+                  <p class="stat-card-change" id="hotelsStatSubtitle">Loading...</p>
+                </div>
+              </div>
+              <div class="admin-stat-card">
+                <div class="stat-card-content">
+                  <p class="stat-card-label">Published</p>
+                  <p class="stat-card-value" id="hotelsStatPublished">0</p>
+                  <p class="stat-card-change">Current legacy visibility</p>
+                </div>
               </div>
             </div>
-            <div class="admin-stat-card">
-              <div class="stat-card-content">
-                <p class="stat-card-label">Published</p>
-                <p class="stat-card-value" id="hotelsStatPublished">0</p>
-                <p class="stat-card-change">Visible to customers</p>
-              </div>
+
+            <div class="hotel-property-directory-toolbar" aria-label="Property directory controls">
+              <label class="admin-form-field hotel-property-directory-search">
+                <span>Search properties</span>
+                <input id="hotelPropertySearch" class="form-control" type="search" placeholder="Name, city or partner" autocomplete="off" />
+              </label>
+              <label class="admin-form-field">
+                <span>Architecture</span>
+                <select id="hotelPropertyArchitectureFilter" class="form-control">
+                  <option value="all">All</option>
+                  <option value="legacy">Legacy</option>
+                  <option value="rooms_v2">Rooms V2</option>
+                </select>
+              </label>
+              <label class="admin-form-field">
+                <span>Readiness</span>
+                <select id="hotelPropertyReadinessFilter" class="form-control">
+                  <option value="all">All</option>
+                  <option value="LEGACY">Legacy</option>
+                  <option value="DRAFT">Draft</option>
+                  <option value="READY_FOR_CALENDAR">Ready for calendar</option>
+                  <option value="BLOCKED">Blocked</option>
+                </select>
+              </label>
             </div>
+
+            <div class="hotel-property-grid" id="hotelPropertyList" aria-live="polite">
+              <div class="hotel-property-empty">Loading properties...</div>
+            </div>
+
+            <div id="hotelsTableBody" hidden aria-hidden="true"></div>
+            <div id="hotelsTableFooter" class="poi-table-footer"></div>
           </div>
 
-          <div class="admin-table-container" aria-label="Hotels">
-            <table class="admin-table">
-              <thead>
-                <tr>
-                  <th>Hotel</th>
-                  <th>Order</th>
-                  <th>Slug</th>
-                  <th>City</th>
-                  <th>Price</th>
-                  <th>Published</th>
-                  <th>Updated</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="hotelsTableBody">
-                <tr>
-                  <td colspan="8" class="table-loading">Loading hotels...</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div id="hotelsTableFooter" class="poi-table-footer"></div>
+          <section class="hotel-property-workspace" id="hotelPropertyWorkspace" hidden aria-label="Property Workspace"></section>
         </div>
 
         <!-- Bookings Tab Content -->

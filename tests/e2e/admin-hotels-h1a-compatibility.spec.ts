@@ -109,6 +109,29 @@ function seedHotelsH1aAdmin() {
             created_at: '2026-08-09T08:00:00.000Z',
           },
         ]);
+        stub.setRpcHandler('hotel_v2_admin_get_property_list', () => ({
+          data: [
+            {
+              id: '9b6d99a0-923a-4fbc-be54-c066e856e6ca',
+              slug: '7-ukow', name_i18n: { en: '7 Arches' }, city: 'Lefkara',
+              architecture_version: 'legacy', booking_mode: 'request_confirmation',
+              is_published: true, public_status: 'PUBLISHED', currency: 'EUR',
+              room_type_count: 0, rate_plan_count: 0, configured_inventory: 0,
+              upcoming_booking_count: 1,
+              readiness: { state: 'LEGACY', preparation_state: 'DRAFT', room_type_count: 0, rate_plan_count: 0, room_rate_count: 0 },
+            },
+            {
+              id: 'f9fbaa61-fdce-4418-8579-ddb2b0a75fb1',
+              slug: 'rgb-cabins-larnaka-centrum', name_i18n: { en: 'RGB Cabins - Larnaca City Centre' }, city: 'Larnaca',
+              architecture_version: 'legacy', booking_mode: 'request_confirmation',
+              is_published: false, public_status: 'DRAFT', currency: 'EUR',
+              room_type_count: 0, rate_plan_count: 0, configured_inventory: 0,
+              upcoming_booking_count: 1,
+              readiness: { state: 'LEGACY', preparation_state: 'DRAFT', room_type_count: 0, rate_plan_count: 0, room_rate_count: 0 },
+            },
+          ],
+          error: null,
+        }));
       },
     };
   };
@@ -125,9 +148,9 @@ test('legacy Hotels Admin list and booking views remain operational after H1A RL
   await expect(page.locator('#viewHotels')).toBeVisible();
   await expect(page.locator('#hotelsStatTotal')).toHaveText('2');
   await expect(page.locator('#hotelsStatPublished')).toHaveText('1');
-  await expect(page.locator('#hotelsTableBody tr')).toHaveCount(2);
-  await expect(page.locator('#hotelsTableBody')).toContainText('7 Arches');
-  await expect(page.locator('#hotelsTableBody')).toContainText('RGB Cabins - Larnaca City Centre');
+  await expect(page.locator('#hotelPropertyList .hotel-property-card')).toHaveCount(2);
+  await expect(page.locator('#hotelPropertyList')).toContainText('7 Arches');
+  await expect(page.locator('#hotelPropertyList')).toContainText('RGB Cabins - Larnaca City Centre');
 
   await page.locator('.hotels-tab-button[data-tab="bookings"]').click();
   await expect(page.locator('#hotelsTabBookings')).toBeVisible();

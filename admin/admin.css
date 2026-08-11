@@ -15903,3 +15903,166 @@ body.car-multicity-modal-open {
   .car-fleet-bulk-modal__content { width:100vw; height:100dvh; max-height:100dvh; border-radius:0; }
   .car-fleet-bulk-modal__body { padding:14px; }
 }
+
+/* Hotels 2.0 H2A Property Workspace. Scoped so legacy/public Hotel UI is inert. */
+.hotel-property-directory-toolbar {
+  display:grid;
+  grid-template-columns:minmax(260px,2fr) repeat(2,minmax(160px,1fr));
+  gap:12px;
+  margin:18px 0;
+  padding:14px;
+  border:1px solid var(--admin-border);
+  border-radius:14px;
+  background:color-mix(in srgb,var(--admin-bg-light) 84%,transparent);
+}
+.hotel-property-directory-toolbar .admin-form-field { margin:0; min-width:0; }
+.hotel-property-grid { display:grid; gap:16px; }
+.hotel-property-card {
+  display:grid;
+  grid-template-columns:220px minmax(0,1fr);
+  min-width:0;
+  overflow:hidden;
+  border:1px solid var(--admin-border);
+  border-radius:16px;
+  background:var(--admin-bg-light);
+  box-shadow:0 16px 38px rgba(2,6,23,.18);
+}
+.hotel-property-card__media { min-height:190px; background:#0b1220; }
+.hotel-property-card__media img { width:100%; height:100%; min-height:190px; object-fit:cover; display:block; }
+.hotel-property-card__placeholder { display:grid; place-items:center; height:100%; min-height:190px; color:var(--admin-text-muted); font-size:54px; }
+.hotel-property-card__body { display:grid; gap:14px; padding:20px; min-width:0; }
+.hotel-property-card__heading,.hotel-room-card header,.hotel-rate-plan-card,.hotel-readiness-card__header,.hotel-workspace-panel-header,.hotel-workspace-header { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; }
+.hotel-property-card h3,.hotel-workspace-header h2,.hotel-workspace-panel-header h3,.hotel-room-card h4,.hotel-rate-plan-card h5,.hotel-workspace-card h4 { margin:3px 0 5px; color:var(--admin-text); }
+.hotel-property-card p,.hotel-workspace-panel-header p,.hotel-room-card p,.hotel-rate-plan-card p,.hotel-workspace-card p { margin:0; color:var(--admin-text-muted); }
+.hotel-workspace-eyebrow { display:block; color:#fca5a5; font-size:11px; font-weight:800; letter-spacing:.09em; text-transform:uppercase; }
+.hotel-workspace-status { display:inline-flex; align-items:center; flex:0 0 auto; padding:6px 9px; border:1px solid var(--admin-border); border-radius:999px; color:var(--admin-text-muted); background:#111827; font-size:11px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; }
+.hotel-workspace-status--success { color:#86efac; border-color:rgba(34,197,94,.45); background:rgba(20,83,45,.32); }
+.hotel-workspace-status--danger { color:#fca5a5; border-color:rgba(239,68,68,.5); background:rgba(127,29,29,.3); }
+.hotel-workspace-status--warning { color:#fde68a; border-color:rgba(245,158,11,.45); background:rgba(120,53,15,.28); }
+.hotel-property-card__metrics { display:grid; grid-template-columns:repeat(5,minmax(90px,1fr)); gap:8px; }
+.hotel-property-card__metrics span { display:grid; gap:2px; padding:9px; border:1px solid var(--admin-border); border-radius:9px; color:var(--admin-text-muted); font-size:11px; }
+.hotel-property-card__metrics strong { color:var(--admin-text); font-size:14px; }
+.hotel-property-card__meta,.hotel-property-card__actions,.hotel-workspace-panel-actions { display:flex; flex-wrap:wrap; align-items:center; gap:9px; }
+.hotel-property-card__meta { color:var(--admin-text-muted); font-size:12px; }
+.hotel-property-card__blocker { color:#fca5a5; }
+.hotel-property-empty,.hotel-workspace-empty { display:grid; place-items:center; gap:7px; min-height:140px; padding:28px; border:1px dashed var(--admin-border); border-radius:12px; color:var(--admin-text-muted); text-align:center; }
+.hotel-property-empty--error { color:#fca5a5; border-color:rgba(239,68,68,.5); }
+.hotel-workspace-spinner { width:24px; height:24px; border:3px solid var(--admin-border); border-top-color:var(--admin-primary); border-radius:50%; animation:admin-spin .8s linear infinite; }
+.hotel-property-workspace { min-width:0; }
+.hotel-workspace-header { position:sticky; top:0; z-index:7; align-items:center; padding:16px 18px; border:1px solid var(--admin-border); border-radius:14px 14px 0 0; background:color-mix(in srgb,var(--admin-bg) 92%,transparent); backdrop-filter:blur(14px); }
+.hotel-workspace-header__title { flex:1 1 auto; min-width:0; }
+.hotel-workspace-header__title p { margin:0; color:var(--admin-text-muted); }
+.hotel-workspace-header__status { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:7px; }
+.hotel-workspace-back { width:40px; height:40px; border:1px solid var(--admin-border); border-radius:10px; color:var(--admin-text); background:var(--admin-bg-light); font-size:20px; cursor:pointer; }
+.hotel-workspace-tabs { position:sticky; top:74px; z-index:6; display:flex; gap:4px; overflow:auto; padding:8px; border:1px solid var(--admin-border); border-top:0; background:color-mix(in srgb,var(--admin-bg) 95%,transparent); scrollbar-width:thin; }
+.hotel-workspace-tabs button { flex:0 0 auto; padding:9px 12px; border:0; border-radius:8px; color:var(--admin-text-muted); background:transparent; cursor:pointer; }
+.hotel-workspace-tabs button.is-active { color:#fff; background:var(--admin-primary); }
+.hotel-workspace-panel { min-height:460px; padding:20px 0; }
+.hotel-workspace-panel-header { align-items:center; margin-bottom:16px; }
+.hotel-workspace-overview-grid { display:grid; grid-template-columns:minmax(0,2fr) minmax(280px,1fr); gap:16px; align-items:start; }
+.hotel-workspace-card { min-width:0; padding:18px; border:1px solid var(--admin-border); border-radius:14px; background:var(--admin-bg-light); }
+.hotel-workspace-side-stack,.hotel-workspace-summary-grid { display:grid; gap:14px; }
+.hotel-workspace-summary-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.hotel-workspace-form,.hotel-workspace-form fieldset { display:grid; gap:16px; }
+.hotel-workspace-form fieldset,.hotel-workspace-i18n { margin:0; padding:14px; border:1px solid var(--admin-border); border-radius:11px; }
+.hotel-workspace-form legend { padding:0 6px; color:var(--admin-text); font-weight:700; }
+.hotel-workspace-form-grid,.hotel-workspace-i18n-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.hotel-workspace-i18n-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.hotel-workspace-form input,.hotel-workspace-form select,.hotel-workspace-form textarea,.hotel-property-directory-toolbar input,.hotel-property-directory-toolbar select {
+  width:100%; min-width:0; color:var(--admin-text); background:var(--admin-bg); border:1px solid var(--admin-border); border-radius:9px;
+}
+.hotel-workspace-form input:disabled,.hotel-workspace-form select:disabled { opacity:.6; }
+.hotel-workspace-locked-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.hotel-workspace-locked-fields > div { display:grid; gap:4px; min-width:0; padding:10px; border:1px solid var(--admin-border); border-radius:9px; background:rgba(2,6,23,.28); }
+.hotel-workspace-locked-fields span,.hotel-workspace-locked-fields small { color:var(--admin-text-muted); }
+.hotel-workspace-locked-fields code { overflow-wrap:anywhere; }
+.hotel-readiness-progress { height:7px; margin:14px 0; overflow:hidden; border-radius:999px; background:#0f172a; }
+.hotel-readiness-progress span { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,var(--admin-primary),#f97316); }
+.hotel-readiness-list { display:grid; gap:6px; margin:10px 0; padding-left:20px; color:var(--admin-text-muted); }
+.hotel-readiness-list--blockers { color:#fca5a5; }
+.hotel-readiness-success { color:#86efac !important; }
+.hotel-migration-preview dl { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; }
+.hotel-migration-preview dl div { display:grid; gap:4px; padding:8px; border-radius:8px; background:rgba(2,6,23,.3); }
+.hotel-migration-preview dt { color:var(--admin-text-muted); font-size:11px; }
+.hotel-migration-preview dd { margin:0; color:var(--admin-text); }
+.hotel-rooms-layout { display:grid; grid-template-columns:minmax(0,2fr) minmax(310px,1fr); gap:18px; align-items:start; }
+.hotel-workspace-section-title { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+.hotel-workspace-section-title h4,.hotel-workspace-section-title p { margin:0; }
+.hotel-workspace-section-title p { color:var(--admin-text-muted); font-size:12px; }
+.hotel-room-grid,.hotel-rate-plan-list { display:grid; gap:12px; }
+.hotel-room-card,.hotel-rate-plan-card { padding:16px; border:1px solid var(--admin-border); border-radius:13px; background:var(--admin-bg-light); }
+.hotel-room-card__details { display:flex; flex-wrap:wrap; gap:7px; margin:12px 0; }
+.hotel-room-card__details span { padding:6px 8px; border-radius:8px; color:var(--admin-text-muted); background:rgba(2,6,23,.34); font-size:12px; }
+.hotel-room-card__rates { display:grid; gap:7px; }
+.hotel-room-rate-line,.hotel-unit-line { display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; padding:9px 10px; border:1px solid var(--admin-border); border-radius:8px; color:var(--admin-text); background:var(--admin-bg); text-align:left; cursor:pointer; }
+.hotel-room-rate-line span { display:grid; gap:2px; }
+.hotel-room-rate-line small,.hotel-unit-line small { color:var(--admin-text-muted); }
+.hotel-room-card__units { margin:12px 0; color:var(--admin-text-muted); }
+.hotel-room-card__units > * { margin-top:7px; }
+.hotel-room-card footer { display:flex; flex-wrap:wrap; gap:7px; margin-top:14px; }
+.hotel-rate-plan-card { align-items:center; }
+.hotel-rate-plan-card > div:last-child { display:flex; align-items:center; gap:8px; }
+.hotel-danger-action { color:#fca5a5 !important; }
+.hotel-bed-row { display:grid; grid-template-columns:1fr 110px 1fr auto; gap:8px; align-items:end; margin-bottom:8px; }
+.hotel-bed-other { visibility:hidden; }
+.hotel-bed-row.is-other .hotel-bed-other { visibility:visible; }
+.hotel-amenity-groups { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; max-height:300px; overflow:auto; }
+.hotel-amenity-group { padding:10px; border:1px solid var(--admin-border); border-radius:9px; }
+.hotel-amenity-group h5 { margin:0 0 8px; }
+.hotel-amenity-group > div { display:grid; gap:6px; }
+.hotel-amenity-group label,.admin-checkbox-field { display:flex; align-items:center; gap:8px; color:var(--admin-text); }
+.hotel-amenity-group input,.admin-checkbox-field input { width:auto; }
+.hotel-gallery-editor__grid,.hotel-content-preview { display:grid; grid-template-columns:repeat(auto-fill,minmax(100px,1fr)); gap:8px; }
+.hotel-gallery-editor__grid label { display:grid; gap:5px; }
+.hotel-gallery-editor__grid img,.hotel-content-preview img { width:100%; aspect-ratio:4/3; border-radius:8px; object-fit:cover; }
+.hotel-simple-list,.hotel-activity-list { display:grid; gap:8px; margin:12px 0; padding:0; list-style:none; }
+.hotel-simple-list li,.hotel-activity-list li { display:flex; justify-content:space-between; gap:12px; padding:9px; border:1px solid var(--admin-border); border-radius:8px; }
+.hotel-simple-list small,.hotel-activity-list small,.hotel-activity-list time { color:var(--admin-text-muted); }
+.hotel-activity-list span { display:grid; gap:3px; }
+.hotel-calendar-precedence { display:grid; gap:8px; padding:0; list-style:none; }
+.hotel-calendar-precedence li { display:flex; align-items:center; gap:10px; }
+.hotel-calendar-precedence b { display:grid; place-items:center; width:28px; height:28px; border-radius:50%; color:#fff; background:var(--admin-primary); }
+.hotel-workspace-safety-note { padding:10px; border:1px solid rgba(245,158,11,.4); border-radius:9px; color:#fde68a; background:rgba(120,53,15,.2); }
+.hotel-workspace-modal { position:fixed; inset:0; z-index:10080; display:grid; place-items:center; padding:18px; }
+.hotel-workspace-modal__backdrop { position:absolute; inset:0; background:rgba(2,6,23,.82); backdrop-filter:blur(5px); }
+.hotel-workspace-modal__dialog { position:relative; display:grid; grid-template-rows:auto minmax(0,1fr) auto; width:min(780px,calc(100vw - 28px)); max-height:min(92dvh,960px); overflow:hidden; border:1px solid var(--admin-border); border-radius:16px; color:var(--admin-text); background:var(--admin-bg-light); box-shadow:0 28px 90px rgba(0,0,0,.55); }
+.hotel-workspace-modal--wide .hotel-workspace-modal__dialog { width:min(1180px,calc(100vw - 28px)); }
+.hotel-workspace-modal__dialog > header,.hotel-workspace-modal__dialog > footer { position:sticky; z-index:2; display:flex; justify-content:space-between; align-items:center; gap:10px; padding:15px 18px; background:var(--admin-bg-light); }
+.hotel-workspace-modal__dialog > header { top:0; border-bottom:1px solid var(--admin-border); }
+.hotel-workspace-modal__dialog > footer { bottom:0; justify-content:flex-end; border-top:1px solid var(--admin-border); }
+.hotel-workspace-modal__dialog > header h3 { margin:3px 0 0; }
+.hotel-workspace-modal__body { min-height:0; overflow:auto; overscroll-behavior:contain; padding:18px; }
+.hotel-workspace-modal__close { width:38px; height:38px; border:1px solid var(--admin-border); border-radius:9px; color:var(--admin-text); background:var(--admin-bg); font-size:22px; cursor:pointer; }
+.hotel-workspace-modal-open { overflow:hidden; }
+.hotel-review-summary { display:grid; gap:10px; margin-bottom:14px; }
+.hotel-review-summary dl { display:flex; flex-wrap:wrap; gap:8px; margin:0; }
+.hotel-review-summary dl div { display:grid; gap:3px; padding:8px; border:1px solid var(--admin-border); border-radius:8px; }
+.hotel-review-summary dt { color:var(--admin-text-muted); font-size:11px; }
+.hotel-review-summary dd { margin:0; }
+.hotel-review-table-wrap { overflow:auto; border:1px solid var(--admin-border); border-radius:10px; }
+.hotel-review-table { width:100%; min-width:620px; border-collapse:collapse; }
+.hotel-review-table th,.hotel-review-table td { padding:9px; border-bottom:1px solid var(--admin-border); text-align:left; vertical-align:top; }
+.hotel-review-table pre { max-width:360px; margin:0; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; color:var(--admin-text-muted); font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace; }
+
+@media (max-width:1100px) {
+  .hotel-property-card__metrics { grid-template-columns:repeat(3,minmax(90px,1fr)); }
+  .hotel-workspace-overview-grid,.hotel-rooms-layout { grid-template-columns:1fr; }
+  .hotel-workspace-summary-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media (max-width:760px) {
+  .hotel-property-directory-toolbar,.hotel-workspace-form-grid,.hotel-workspace-i18n-grid,.hotel-workspace-locked-fields,.hotel-workspace-summary-grid,.hotel-amenity-groups { grid-template-columns:1fr; }
+  .hotel-property-card { grid-template-columns:1fr; }
+  .hotel-property-card__media,.hotel-property-card__media img,.hotel-property-card__placeholder { min-height:150px; max-height:190px; }
+  .hotel-property-card__heading,.hotel-workspace-panel-header,.hotel-workspace-header { align-items:stretch; flex-direction:column; }
+  .hotel-property-card__metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .hotel-workspace-header { position:relative; top:auto; }
+  .hotel-workspace-tabs { top:0; }
+  .hotel-workspace-header__status { justify-content:flex-start; }
+  .hotel-bed-row { grid-template-columns:1fr 90px; }
+  .hotel-bed-other { grid-column:1/-1; }
+  .hotel-workspace-modal { padding:0; }
+  .hotel-workspace-modal__dialog,.hotel-workspace-modal--wide .hotel-workspace-modal__dialog { width:100vw; height:100dvh; max-height:100dvh; border-radius:0; }
+  .hotel-workspace-modal__body { padding:14px; }
+  .hotel-workspace-modal__dialog > footer { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .hotel-workspace-modal__dialog > footer button { width:100%; min-width:0; }
+}

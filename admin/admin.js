@@ -4240,7 +4240,10 @@ async function searchPartnerResources(type, term) {
         return { id: r.id, label: `${title}${city}` };
       });
       if (!q) return rows.slice(0, 50);
-      return rows.filter((r) => String(r.label || '').toLowerCase().includes(q)).slice(0, 50);
+      return rows.filter((r) => (
+        String(r.id || '').toLowerCase() === q
+        || String(r.label || '').toLowerCase().includes(q)
+      )).slice(0, 50);
     } catch (_e) {
       return [];
     }
@@ -12281,6 +12284,7 @@ window.addNewHotelCity = addNewHotelCity;
 // HOTEL AMENITIES MANAGEMENT
 // =====================================================
 let hotelAmenitiesCache = [];
+let hotelAmenitiesCatalogueLoaded = false;
 
 const AMENITY_CATEGORY_LABELS = {
   general: { label: 'General', icon: '🏨' },
@@ -12294,7 +12298,7 @@ const AMENITY_CATEGORY_LABELS = {
 async function loadHotelAmenities() {
   try {
     const client = ensureSupabase();
-    if (!client) return;
+    if (!client) return false;
     
     const { data, error } = await client
       .from('hotel_amenities')
@@ -12305,13 +12309,19 @@ async function loadHotelAmenities() {
     if (error) {
       console.warn('Failed to load hotel amenities:', error);
       hotelAmenitiesCache = [];
+      hotelAmenitiesCatalogueLoaded = false;
+      return false;
     } else {
       hotelAmenitiesCache = data || [];
+      hotelAmenitiesCatalogueLoaded = true;
       console.log('✅ Hotel amenities loaded:', hotelAmenitiesCache.length);
+      return true;
     }
   } catch (e) {
     console.error('Failed to load hotel amenities:', e);
     hotelAmenitiesCache = [];
+    hotelAmenitiesCatalogueLoaded = false;
+    return false;
   }
 }
 
@@ -13233,7 +13243,36 @@ window.copyHotelCoverToMetaImage = copyHotelCoverToMetaImage;
 window.handleHotelMetaImageUpload = handleHotelMetaImageUpload;
 window.removeHotelMetaImage = removeHotelMetaImage;
 
+let hotelsAdminLegacyDependenciesReady = false;
+
+async function ensureHotelsAdminLegacyDependencies() {
+  if (hotelsAdminLegacyDependenciesReady) return;
+  const [, amenitiesLoaded] = await Promise.all([loadHotelCities(), loadHotelAmenities()]);
+  setupAddCityForm();
+  setupAddAmenityForm();
+  hotelsAdminLegacyDependenciesReady = amenitiesLoaded === true;
+}
+
 async function loadHotelsAdminData() {
+  // The H2A directory replaces only the Hotel list. The established property
+  // editor still owns legacy city/amenity management, so its catalogues and
+  // modal handlers must be ready before either list implementation is used.
+  await ensureHotelsAdminLegacyDependencies();
+  const hotelsV2Workspace = (typeof window !== 'undefined' && window.HotelsV2Workspace)
+    ? window.HotelsV2Workspace
+    : null;
+  if (typeof hotelsV2Workspace?.loadPropertyList === 'function') {
+    // The H2A workspace owns the property directory and its "New property"
+    // action. Remove a legacy fallback binding if the module became available
+    // after an earlier load, then let the workspace initialize exactly once.
+    const addBtn = document.getElementById('btnAddHotel');
+    if (addBtn?.dataset.hotelLegacyAddBound === '1') {
+      addBtn.removeEventListener('click', openNewHotelModal);
+      delete addBtn.dataset.hotelLegacyAddBound;
+    }
+    return hotelsV2Workspace.loadPropertyList();
+  }
+
   try {
     const client = ensureSupabase();
     if (!client) {
@@ -13248,12 +13287,6 @@ async function loadHotelsAdminData() {
       }
       return;
     }
-
-    // Load cities and amenities first
-    await loadHotelCities();
-    await loadHotelAmenities();
-    setupAddCityForm();
-    setupAddAmenityForm();
 
     const { data: hotels, error } = await client
       .from('hotels')
@@ -13333,9 +13366,9 @@ async function loadHotelsAdminData() {
     }).join('');
 
     const addBtn = document.getElementById('btnAddHotel');
-    if (addBtn && !addBtn.dataset.bound) {
+    if (addBtn && addBtn.dataset.hotelLegacyAddBound !== '1') {
       addBtn.addEventListener('click', openNewHotelModal);
-      addBtn.dataset.bound = '1';
+      addBtn.dataset.hotelLegacyAddBound = '1';
     }
 
     showToast('Hotels loaded', 'success');
@@ -14149,6 +14182,11 @@ async function editHotel(hotelId) {
       return;
     }
 
+    await ensureHotelsAdminLegacyDependencies();
+    if (!hotelAmenitiesCatalogueLoaded) {
+      showToast('Hotel amenities could not be loaded. Existing amenities will be preserved on save.', 'info');
+    }
+
     const { data: hotel, error } = await client
       .from('hotels')
       .select('*')
@@ -14227,7 +14265,19 @@ async function editHotel(hotelId) {
       editHotelMetaImageInput.value = normalizeMetaImageValue(hotel.meta_image_url || '');
     }
     document.getElementById('editHotelPricing').value = hotel.pricing_model || 'per_person_per_night';
-    document.getElementById('editHotelPublished').checked = !!hotel.is_published;
+    const publishedInput = document.getElementById('editHotelPublished');
+    const isRoomsV2Draft = hotel.architecture_version === 'rooms_v2';
+    if (publishedInput) {
+      publishedInput.checked = isRoomsV2Draft ? false : !!hotel.is_published;
+      publishedInput.disabled = isRoomsV2Draft;
+      publishedInput.closest('label')?.toggleAttribute('data-rooms-v2-publication-locked', isRoomsV2Draft);
+      publishedInput.closest('label')?.setAttribute(
+        'title',
+        isRoomsV2Draft
+          ? 'Rooms V2 publication is unavailable during H2A. Property content may be prepared without becoming public.'
+          : ''
+      );
+    }
 
     const previewWrap = document.getElementById('editHotelCoverPreview');
     const previewImg = previewWrap ? previewWrap.querySelector('img') : null;
@@ -14384,7 +14434,11 @@ async function handleEditHotelSubmit(event, originalHotel) {
     delete payload.stay_info_el;
     delete payload.stay_info_he;
 
-    payload.is_published = form.querySelector('#editHotelPublished').checked;
+    // Rooms V2 drafts are structurally inert in H2A. Never let a generic
+    // legacy editor submit publication=true, even if browser state is altered.
+    payload.is_published = originalHotel?.architecture_version === 'rooms_v2'
+      ? false
+      : form.querySelector('#editHotelPublished').checked;
     payload.updated_at = new Date().toISOString();
 
     const hotelId = document.getElementById('editHotelId').value;
@@ -14408,7 +14462,9 @@ async function handleEditHotelSubmit(event, originalHotel) {
     if (!Number.isFinite(Number(payload.longitude))) payload.longitude = null;
 
     // Collect amenities
-    payload.amenities = collectSelectedAmenities('editHotelAmenities');
+    payload.amenities = hotelAmenitiesCatalogueLoaded
+      ? collectSelectedAmenities('editHotelAmenities')
+      : (Array.isArray(originalHotel?.amenities) ? originalHotel.amenities.slice() : []);
 
     // Get photos and cover from state
     payload.photos = editHotelPhotosState.photos.slice();
@@ -24428,6 +24484,43 @@ async function openCarDepositSettings(exactOfferId) {
   });
 }
 
+async function openHotelDepositSettings(exactHotelId) {
+  const hotelId = String(exactHotelId || '').trim();
+  switchView('partners');
+  setPartnersActiveTab('emails');
+  await loadPartnersDepositAdminData(true);
+
+  const type = document.getElementById('depositOverrideType');
+  const search = document.getElementById('depositOverrideSearch');
+  const resource = document.getElementById('depositOverrideResourceSelect');
+  if (type) type.value = 'hotels';
+  if (search) search.value = hotelId;
+  updateDepositOverrideModeOptions('hotels');
+
+  if (!hotelId) {
+    requestAnimationFrame(() => {
+      document.getElementById('depositRuleModeHotels')?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+    });
+    return;
+  }
+
+  const rows = await searchPartnerResources('hotels', hotelId);
+  partnersUiState.depositOverrideSearchResults = rows;
+  setDepositOverrideSelectOptions(rows);
+  const exactRow = rows.find((row) => String(row?.id || '') === hotelId) || null;
+  if (resource && exactRow) {
+    resource.value = hotelId;
+    applySelectedOverrideToForm();
+  }
+
+  requestAnimationFrame(() => {
+    resource?.closest?.('.admin-card')?.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
+    (exactRow ? resource : search)?.focus?.();
+  });
+}
+
+window.openHotelDepositSettings = (hotelId) => void openHotelDepositSettings(hotelId);
+
 function bindCarRentalMulticityAdminUi() {
   CarRentalMulticityAdmin.initialize({
     document,
@@ -25775,25 +25868,98 @@ function previewLocalImages(fileInput, container, max = 10) {
   });
 }
 
-async function uploadHotelPhotosBatch(slug, files) {
+async function uploadHotelPhotosBatch(slug, files, options = {}) {
   const client = ensureSupabase();
   if (!client) throw new Error('Database connection not available');
+  const safeSlug = String(slug || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  if (!safeSlug) throw new Error('A valid property slug is required for image upload');
+
+  const roomTypeId = String(options?.roomTypeId || '').trim().toLowerCase();
+  if (roomTypeId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(roomTypeId)) {
+    throw new Error('An exact Room Type ID is required for room gallery upload');
+  }
+  const storageFolder = roomTypeId ? `rooms/${roomTypeId}` : 'gallery';
   const results = [];
-  for (const file of files) {
-    if (!file || !file.type || !file.type.startsWith('image/')) continue;
-    const compressed = await compressToWebp(file, 3840, 2160, 0.9);
-    const path = `hotels/${slug}/gallery/${Date.now()}-${Math.random().toString(36).slice(2,8)}.webp`;
-    const { error: upErr } = await client.storage.from('poi-photos').upload(path, compressed, {
-      cacheControl: '31536000',
-      upsert: false,
-      contentType: 'image/webp'
-    });
-    if (upErr) throw upErr;
-    const { data: pub } = client.storage.from('poi-photos').getPublicUrl(path);
-    if (pub && pub.publicUrl) results.push(pub.publicUrl);
+  try {
+    for (const file of files) {
+      if (!file || !file.type || !file.type.startsWith('image/')) continue;
+      const compressed = await compressToWebp(file, 3840, 2160, 0.9);
+      const path = `hotels/${safeSlug}/${storageFolder}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.webp`;
+      const { error: upErr } = await client.storage.from('poi-photos').upload(path, compressed, {
+        cacheControl: '31536000',
+        upsert: false,
+        contentType: 'image/webp'
+      });
+      if (upErr) throw upErr;
+      const { data: pub } = client.storage.from('poi-photos').getPublicUrl(path);
+      if (pub && pub.publicUrl) results.push(pub.publicUrl);
+    }
+  } catch (error) {
+    if (roomTypeId && results.length) {
+      try { await removeHotelRoomGalleryUploads(results); } catch (cleanupError) { console.error('Failed to clean partial Room Type uploads:', cleanupError); }
+    }
+    throw error;
   }
   return results;
 }
+
+async function uploadHotelRoomGallery(propertySlug, roomTypeId, files) {
+  return uploadHotelPhotosBatch(propertySlug, Array.from(files || []), { roomTypeId });
+}
+
+async function uploadHotelPropertyGallery(propertySlug, files) {
+  return uploadHotelPhotosBatch(propertySlug, Array.from(files || []));
+}
+
+async function removeHotelRoomGalleryUploads(urls) {
+  const client = ensureSupabase();
+  if (!client) return;
+  const marker = '/storage/v1/object/public/poi-photos/';
+  const paths = Array.from(urls || []).map((value) => {
+    try {
+      const pathname = new URL(String(value || '')).pathname;
+      const offset = pathname.indexOf(marker);
+      return offset >= 0 ? decodeURIComponent(pathname.slice(offset + marker.length)) : '';
+    } catch (_error) {
+      return '';
+    }
+  }).filter((path) => path.startsWith('hotels/') && path.includes('/rooms/'));
+  if (!paths.length) return;
+  const { error } = await client.storage.from('poi-photos').remove(paths);
+  if (error) throw error;
+}
+
+async function removeHotelPropertyGalleryUploads(urls) {
+  const client = ensureSupabase();
+  if (!client) return;
+  const marker = '/storage/v1/object/public/poi-photos/';
+  const paths = Array.from(urls || []).map((value) => {
+    try {
+      const pathname = new URL(String(value || '')).pathname;
+      const offset = pathname.indexOf(marker);
+      return offset >= 0 ? decodeURIComponent(pathname.slice(offset + marker.length)) : '';
+    } catch (_error) {
+      return '';
+    }
+  }).filter((path) => path.startsWith('hotels/') && path.includes('/gallery/'));
+  if (!paths.length) return;
+  const { error } = await client.storage.from('poi-photos').remove(paths);
+  if (error) throw error;
+}
+
+// Narrow bridge for the H2A repository. It reuses the established Hotel WebP
+// optimization and Storage bucket without exposing unrelated legacy editor
+// state or mutation helpers.
+window.HotelsV2AdminMedia = Object.freeze({
+  uploadPropertyGallery: uploadHotelPropertyGallery,
+  removePropertyGalleryUploads: removeHotelPropertyGalleryUploads,
+  uploadRoomGallery: uploadHotelRoomGallery,
+  removeRoomGalleryUploads: removeHotelRoomGalleryUploads,
+});
 
 window.openNewTripModal = openNewTripModal;
 
