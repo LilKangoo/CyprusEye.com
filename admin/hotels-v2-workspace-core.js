@@ -344,6 +344,83 @@
     };
   }
 
+  function sevenArchesShadowReconciliation(originalWorkspace, freshWorkspace) {
+    const original = normalizeWorkspace(originalWorkspace);
+    const fresh = normalizeWorkspace(freshWorkspace);
+    const preparation = sevenArchesShadowPreparation(fresh);
+    const blockers = preparation.eligible ? [] : [preparation.blocker || 'The two-apartment preparation is no longer eligible.'];
+    const changes = [];
+    const same = (left, right) => JSON.stringify(left) === JSON.stringify(right);
+    const addChange = (scope, field, before, after) => {
+      if (!same(before, after)) changes.push({ scope, field, before: clone(before), after: clone(after) });
+    };
+    const propertyBusinessValues = (workspaceValue) => ({
+      architecture_version: workspaceValue.property.architecture_version,
+      children_policy: workspaceValue.property.children_policy,
+      minimum_child_age: workspaceValue.property.minimum_child_age,
+      property_gallery: normalizeGallery(workspaceValue.property.photos),
+      legacy_pricing_fingerprint: asText(workspaceValue.legacy_shadow_preview?.legacy_pricing_fingerprint) || null,
+    });
+    const originalProperty = propertyBusinessValues(original);
+    const freshProperty = propertyBusinessValues(fresh);
+    Object.keys(originalProperty).forEach((field) => {
+      addChange('Property', field, originalProperty[field], freshProperty[field]);
+    });
+
+    const roomBusinessValues = (room) => room ? {
+      name_i18n: clone(room.name_i18n),
+      gallery: clone(room.gallery),
+      status: room.status,
+      code: room.code,
+      legacy_source_key: room.legacy_source_key,
+      max_occupancy: room.max_occupancy,
+      capacity_adults: room.capacity_adults,
+      capacity_children: room.capacity_children,
+      inventory_mode: room.inventory_mode,
+      base_inventory_count: room.base_inventory_count,
+      amenities: [...room.amenities].sort(),
+      bed_configuration: clone(room.bed_configuration),
+      bathrooms: room.bathrooms,
+      size_sqm: room.size_sqm,
+      sort_order: room.sort_order,
+    } : null;
+
+    SEVEN_ARCHES_ROOM_DEFINITIONS.forEach((definition) => {
+      const originalRoom = original.room_types.find((room) => room.id === definition.id) || null;
+      const freshRoom = fresh.room_types.find((room) => room.id === definition.id) || null;
+      const label = i18nText(definition.name_i18n, 'en', definition.code);
+      const originalBusiness = roomBusinessValues(originalRoom);
+      const freshBusiness = roomBusinessValues(freshRoom);
+      if (!same(originalBusiness, freshBusiness)) {
+        const fields = new Set([
+          ...Object.keys(originalBusiness || {}),
+          ...Object.keys(freshBusiness || {}),
+        ]);
+        fields.forEach((field) => addChange(label, field, originalBusiness?.[field], freshBusiness?.[field]));
+      }
+      if (!freshRoom) return;
+
+      const expectedAmenities = [...definition.amenities].sort();
+      const structuralMismatches = [];
+      if (freshRoom.hotel_id !== SEVEN_ARCHES_PROPERTY_ID) structuralMismatches.push('property identity');
+      if (freshRoom.legacy_source_key != null && freshRoom.legacy_source_key !== definition.source_key) structuralMismatches.push('source identity');
+      if (freshRoom.code !== definition.code) structuralMismatches.push('room code');
+      if (freshRoom.max_occupancy !== 4 || freshRoom.capacity_adults != null || freshRoom.capacity_children != null) structuralMismatches.push('capacity contract');
+      if (freshRoom.inventory_mode !== 'pooled' || freshRoom.base_inventory_count !== 1) structuralMismatches.push('inventory contract');
+      if (!same([...freshRoom.amenities].sort(), expectedAmenities)) structuralMismatches.push('confirmed amenities');
+      if (structuralMismatches.length) {
+        blockers.push(`${label} changed in fields this reviewed preparation cannot safely replace: ${structuralMismatches.join(', ')}.`);
+      }
+    });
+
+    return {
+      eligible: preparation.eligible && blockers.length === 0,
+      blocker: blockers[0] || null,
+      blockers,
+      changes,
+    };
+  }
+
   function buildSevenArchesShadowPlan(workspace, roomReviews, options = {}) {
     const preparation = sevenArchesShadowPreparation(workspace);
     if (!preparation.eligible) throw new Error(preparation.blocker);
@@ -430,6 +507,7 @@
     return {
       id: normalizeUuid(source.id),
       hotel_id: normalizeUuid(source.hotel_id),
+      legacy_source_key: asNullableText(source.legacy_source_key)?.toLowerCase() || null,
       code: asText(source.code).toLowerCase(),
       name_i18n: normalizeI18n(source.name_i18n),
       description_i18n: normalizeI18n(source.description_i18n),
@@ -1192,6 +1270,7 @@
     resolveChildrenPolicy,
     childrenPolicyLabel,
     sevenArchesShadowPreparation,
+    sevenArchesShadowReconciliation,
     buildSevenArchesShadowPlan,
     normalizeRoomType,
     normalizeUnit,

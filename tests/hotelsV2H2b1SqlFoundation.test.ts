@@ -23,6 +23,10 @@ const policyRepairVerify = fs.readFileSync(
   'utf8',
 );
 const pgGate = fs.readFileSync('tests/integration/hotels-v2-h2b1-postgres-gate.sql', 'utf8');
+const reviewedSavePostgrestGate = fs.readFileSync(
+  'tests/integration/hotels-v2-h2b1-reviewed-save-postgrest-gate.mjs',
+  'utf8',
+);
 
 describe('Hotels H2B.1 SQL foundation', () => {
   test('adds structural property defaults and optional exact-room overrides without applying them publicly', () => {
@@ -120,6 +124,19 @@ describe('Hotels H2B.1 SQL foundation', () => {
     expect(policyRepairMigration).toContain('hotels_v2_h2b1_reviewed_policy_fix_data_changed');
     expect(policyRepairMigration).not.toContain('update public.hotel_room_types set status');
     expect(pgGate).toContain('hotels_v2_h2b1_stale_property_policy_atomic_abort_failed');
+  });
+
+  test('requires a fresh read and explicit second Save after a stale Room Type review', () => {
+    expect(reviewedSavePostgrestGate).toContain('The stale Save was retried automatically.');
+    expect(reviewedSavePostgrestGate).toContain('hotels_v2_h2b1_stale_shadow_room');
+    expect(reviewedSavePostgrestGate).toContain('CONCURRENT_ROOM_CORRELATION');
+    expect(reviewedSavePostgrestGate).toContain(
+      'Fresh read/re-review issued a mutation before the second explicit Save.',
+    );
+    expect(reviewedSavePostgrestGate).toContain('before.property.photos.slice(0, 5)');
+    expect(reviewedSavePostgrestGate).toContain('before.property.photos.slice(4, 9)');
+    expect(reviewedSavePostgrestGate).toContain('freshReadPreservedGalleryCounts');
+    expect(reviewedSavePostgrestGate).toContain('secondExplicitStatus');
   });
 
   test('translates inherited H2A/H2B serialization conflicts at the PostgREST boundary', () => {

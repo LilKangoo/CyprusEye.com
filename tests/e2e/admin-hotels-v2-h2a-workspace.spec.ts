@@ -488,7 +488,7 @@ function seedHotelsV2H2aWorkspace() {
             ground_room_rate: versionFor(store.room_rates, SEVEN_ARCHES_GROUND_RATE_ID),
           };
           if (JSON.stringify(actualVersions) !== JSON.stringify(plan.expected_versions)) {
-            return { data: null, error: { code: 'PT409', message: 'shadow row changed after Review' } };
+            return { data: null, error: { code: 'PT409', message: 'hotels_v2_h2b1_stale_shadow_room' } };
           }
           const working = clone({
             property: store.property, room_types: store.room_types, rate_plans: store.rate_plans,
@@ -1005,25 +1005,18 @@ test('H2B.1 reviews child policy and prepares exactly two idempotent 7 Arches sh
     (window as any).__h2aE2eStore.property.updated_at = '2026-08-11T12:01:00.000Z';
   });
   await review.locator('[data-hotel-review-confirm]').click();
-  await expect(page.getByText(/Save stopped: this configuration changed after Review/)).toBeVisible();
+  review = page.locator('.hotel-workspace-modal--review');
+  await expect(review).toContainText('Review fresh 7 Arches two-apartment values');
+  await expect(review).toContainText('Nothing was retried automatically');
   const afterStale = await page.evaluate(() => ({
     rooms: (window as any).__h2aE2eStore.room_types.length,
     plans: (window as any).__h2aE2eStore.rate_plans.length,
     rates: (window as any).__h2aE2eStore.room_rates.length,
     policy: (window as any).__h2aE2eStore.property.children_policy,
+    shadowCalls: (window as any).__supabaseStub.getRpcCalls()
+      .filter((entry: any) => entry.name === 'hotel_v2_admin_prepare_legacy_shadow_rooms').length,
   }));
-  expect(afterStale).toEqual({ rooms: 0, plans: 0, rates: 0, policy: 'minimum_age' });
-  await page.evaluate(() => {
-    (window as any).__h2aE2eStore.property.updated_at = '2026-08-11T12:00:00.000Z';
-  });
-  await review.getByRole('button', { name: 'Back', exact: true }).click();
-
-  await page.locator('[data-prepare-seven-arches-apartments]').click();
-  prepareForm = page.locator('#hotelSevenArchesPreparationForm');
-  await prepareForm.locator('[name="seven_arches_room_0_photo"]').first().check();
-  await prepareForm.locator('[name="seven_arches_room_1_photo"]').nth(1).check();
-  await page.locator('button[form="hotelSevenArchesPreparationForm"]').click();
-  review = page.locator('.hotel-workspace-modal--review');
+  expect(afterStale).toEqual({ rooms: 0, plans: 0, rates: 0, policy: 'minimum_age', shadowCalls: 1 });
   await review.locator('[data-hotel-review-confirm]').click();
   await expect(page.locator('.hotel-guest-policy-card').first()).toContainText('Children allowed from age 10');
   const shadowPolicySnapshot = await page.evaluate(() => {
@@ -1289,6 +1282,107 @@ test('H2B.1 reviewed save preserves existing ACTIVE v4/v5 apartments while chang
     savedPolicy: { children_policy: 'minimum_age', minimum_child_age: 10 },
     upper: { status: 'active', version: 5, gallery: ['https://example.test/7-arches-property-3.webp'] },
     ground: { status: 'active', version: 6, gallery: ['https://example.test/7-arches-property-4.webp'] },
+  });
+});
+
+test('H2B.1 stale apartment review refreshes versions, preserves 5+5 photos, and waits for a second explicit Save', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.addInitScript(seedHotelsV2H2aWorkspace(), { adminId: ADMIN_ID, hotelId: HOTEL_ID, partnerId: PARTNER_ID });
+  await enableSupabaseStub(page);
+  await page.goto('/admin/dashboard.html', { waitUntil: 'domcontentloaded' });
+  await waitForSupabaseStub(page);
+
+  await page.evaluate(({ hotelId, upperId, groundId }) => {
+    const store = (window as any).__h2aE2eStore;
+    store.property.children_policy = 'minimum_age';
+    store.property.minimum_child_age = 15;
+    store.room_types = [{
+      id: upperId, hotel_id: hotelId, legacy_source_key: 'upper_floor_apartment',
+      code: 'upper-floor-apartment',
+      name_i18n: { pl: 'Apartament na piętrze', en: 'Upper Floor Apartment', he: 'דירה בקומה העליונה' },
+      description_i18n: {}, gallery: [], capacity_adults: null, capacity_children: null, max_occupancy: 4,
+      children_policy_override: null, minimum_child_age_override: null, bed_configuration: [], bathrooms: null,
+      size_sqm: null, amenities: ['air_conditioning', 'balcony', 'terrace'], inventory_mode: 'pooled',
+      base_inventory_count: 1, status: 'active', sort_order: 100, version: 4,
+      created_at: '2026-08-11T09:00:00.000Z', updated_at: '2026-08-11T09:00:00.000Z',
+    }, {
+      id: groundId, hotel_id: hotelId, legacy_source_key: 'ground_floor_apartment',
+      code: 'ground-floor-apartment',
+      name_i18n: { pl: 'Apartament na parterze', en: 'Ground Floor Apartment', he: 'דירה בקומת הקרקע' },
+      description_i18n: {}, gallery: [], capacity_adults: null, capacity_children: null, max_occupancy: 4,
+      children_policy_override: null, minimum_child_age_override: null, bed_configuration: [], bathrooms: null,
+      size_sqm: null, amenities: ['air_conditioning', 'terrace'], inventory_mode: 'pooled',
+      base_inventory_count: 1, status: 'active', sort_order: 200, version: 5,
+      created_at: '2026-08-11T09:00:00.000Z', updated_at: '2026-08-11T09:00:00.000Z',
+    }];
+  }, { hotelId: HOTEL_ID, upperId: SEVEN_ARCHES_UPPER_ID, groundId: SEVEN_ARCHES_GROUND_ID });
+
+  await page.locator('button.admin-nav-item[data-view="hotels"]').click();
+  await page.locator(`[data-hotel-open-workspace="${HOTEL_ID}"]`).click();
+  await page.locator('[data-prepare-seven-arches-apartments]').click();
+  const preparation = page.locator('#hotelSevenArchesPreparationForm');
+  for (let index = 0; index < 5; index += 1) {
+    await preparation.locator('[name="seven_arches_room_0_photo"]').nth(index).check();
+    await preparation.locator('[name="seven_arches_room_1_photo"]').nth(index + 4).check();
+  }
+  await page.locator('button[form="hotelSevenArchesPreparationForm"]').click();
+  let review = page.locator('.hotel-workspace-modal--review');
+  await expect(review).toContainText('selected_photo_count');
+
+  await page.evaluate(({ upperId }) => {
+    const store = (window as any).__h2aE2eStore;
+    const upper = store.room_types.find((room: any) => room.id === upperId);
+    upper.version += 1;
+    upper.updated_at = '2026-08-11T09:05:00.000Z';
+  }, { upperId: SEVEN_ARCHES_UPPER_ID });
+
+  await review.locator('[data-hotel-review-confirm]').click();
+  review = page.locator('.hotel-workspace-modal--review');
+  await expect(review).toContainText('Review fresh 7 Arches two-apartment values');
+  await expect(review).toContainText('Nothing was retried automatically');
+  await expect(review).toContainText('"selected_photo_count": 5');
+
+  const afterConflict = await page.evaluate(() => ({
+    shadowCalls: (window as any).__supabaseStub.getRpcCalls()
+      .filter((entry: any) => entry.name === 'hotel_v2_admin_prepare_legacy_shadow_rooms').length,
+    galleries: (window as any).__h2aE2eStore.room_types.map((room: any) => room.gallery.length),
+    policyAge: (window as any).__h2aE2eStore.property.minimum_child_age,
+  }));
+  expect(afterConflict).toEqual({ shadowCalls: 1, galleries: [0, 0], policyAge: 15 });
+
+  await review.locator('[data-hotel-review-confirm]').click();
+  await expect(page.locator('.hotel-workspace-modal--review')).toHaveCount(0);
+  const afterExplicitSave = await page.evaluate(({ upperId, groundId }) => {
+    const store = (window as any).__h2aE2eStore;
+    const room = (id: string) => store.room_types.find((candidate: any) => candidate.id === id);
+    return {
+      shadowCalls: (window as any).__supabaseStub.getRpcCalls()
+        .filter((entry: any) => entry.name === 'hotel_v2_admin_prepare_legacy_shadow_rooms').length,
+      roomCount: store.room_types.length,
+      versions: [room(upperId).version, room(groundId).version],
+      galleries: [room(upperId).gallery.length, room(groundId).gallery.length],
+      statuses: [room(upperId).status, room(groundId).status],
+      propertyPhotos: store.property.photos.length,
+      policy: [store.property.children_policy, store.property.minimum_child_age],
+      architecture: store.property.architecture_version,
+      flags: store.flags,
+    };
+  }, { upperId: SEVEN_ARCHES_UPPER_ID, groundId: SEVEN_ARCHES_GROUND_ID });
+  expect(afterExplicitSave).toMatchObject({
+    shadowCalls: 2,
+    roomCount: 2,
+    versions: [6, 6],
+    galleries: [5, 5],
+    statuses: ['active', 'active'],
+    propertyPhotos: 9,
+    policy: ['minimum_age', 10],
+    architecture: 'legacy',
+    flags: {
+      hotel_rooms_v2_enabled: false,
+      hotel_external_sync_enabled: false,
+      hotel_instant_booking_enabled: false,
+      hotel_stripe_connect_enabled: false,
+    },
   });
 });
 

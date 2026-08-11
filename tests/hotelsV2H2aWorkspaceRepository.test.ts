@@ -193,6 +193,10 @@ describe('Hotels V2 H2A Property Workspace repository', () => {
         code: 'PT409', message: 'hotels_v2_h2b1_stale_rate_plan',
         expected: 'one of its pricing relationships changed after Review',
       },
+      {
+        code: 'PT409', message: 'hotels_v2_h2b1_stale_shadow_room',
+        expected: 'Current data must be refreshed and reviewed again',
+      },
     ];
     let calls = 0;
     const client = {

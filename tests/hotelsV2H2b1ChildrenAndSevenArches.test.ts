@@ -391,6 +391,120 @@ describe('Hotels H2B.1 children policy and 7 Arches shadow preparation', () => {
     expect(new Set(repeatedPlan.rooms.map((room: any) => room.id)).size).toBe(2);
   });
 
+  test('rebases fresh concurrency snapshots without changing reviewed names or 5+5 photo selections', () => {
+    const original = sevenArches();
+    const preparation = Core.sevenArchesShadowPreparation(original);
+    const reviewedRooms = preparation.rooms.map((room: any, index: number) => ({
+      id: room.id,
+      name_i18n: {
+        ...room.name_i18n,
+        en: index === 0 ? 'Reviewed Upper Apartment' : 'Reviewed Ground Apartment',
+      },
+      gallery: index === 0
+        ? preparation.property_gallery.slice(0, 5)
+        : preparation.property_gallery.slice(4, 9),
+    }));
+    const originalPlan = Core.buildSevenArchesShadowPlan(original, reviewedRooms, {
+      reviewedAt: '2026-08-11T16:00:00.000Z',
+    });
+    const fresh = sevenArches({
+      property: {
+        ...original.property,
+        children_policy: 'minimum_age',
+        minimum_child_age: 15,
+        updated_at: '2026-08-11T16:01:00.000Z',
+      },
+      room_types: preparation.rooms.map((room: any) => ({
+        ...room,
+        created_at: '2026-08-11T09:00:00.000Z',
+        version: 5,
+      })),
+    });
+    const freshPlan = Core.buildSevenArchesShadowPlan(fresh, reviewedRooms, {
+      reviewedAt: '2026-08-11T16:02:00.000Z',
+    });
+
+    expect(freshPlan.expected_property_updated_at).toBe('2026-08-11T16:01:00.000Z');
+    expect(freshPlan.expected_property_policy).toEqual({
+      children_policy: 'minimum_age', minimum_child_age: 15,
+    });
+    expect(freshPlan.rooms.map((room: any) => room.expected_version)).toEqual([5, 5]);
+    expect(freshPlan.rooms.map((room: any) => ({
+      id: room.id, name_i18n: room.name_i18n, gallery: room.gallery,
+    }))).toEqual(originalPlan.rooms.map((room: any) => ({
+      id: room.id, name_i18n: room.name_i18n, gallery: room.gallery,
+    })));
+    expect(freshPlan.rooms.map((room: any) => room.gallery.length)).toEqual([5, 5]);
+  });
+
+  test('distinguishes harmless version refreshes from business conflicts and unsafe structural drift', () => {
+    const original = sevenArches();
+    const preparation = Core.sevenArchesShadowPreparation(original);
+    const existingRooms = preparation.rooms.map((room: any, index: number) => ({
+      ...room,
+      status: 'active',
+      legacy_source_key: index === 0 ? 'upper_floor_apartment' : 'ground_floor_apartment',
+      created_at: '2026-08-11T09:00:00.000Z',
+      updated_at: '2026-08-11T09:00:00.000Z',
+      version: 4 + index,
+    }));
+    const loaded = sevenArches({ room_types: existingRooms });
+    const versionOnly = sevenArches({
+      room_types: existingRooms.map((room: any, index: number) => ({
+        ...room,
+        version: room.version + (index === 0 ? 1 : 0),
+        updated_at: '2026-08-11T09:05:00.000Z',
+      })),
+    });
+    expect(Core.sevenArchesShadowReconciliation(loaded, versionOnly)).toMatchObject({
+      eligible: true,
+      blockers: [],
+      changes: [],
+    });
+
+    const businessChange = sevenArches({
+      room_types: existingRooms.map((room: any, index: number) => index === 0
+        ? { ...room, name_i18n: { ...room.name_i18n, en: 'Concurrent reviewed name' }, status: 'disabled', version: 5 }
+        : room),
+    });
+    const reviewedConflict = Core.sevenArchesShadowReconciliation(loaded, businessChange);
+    expect(reviewedConflict.eligible).toBe(true);
+    expect(reviewedConflict.changes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ scope: 'Upper Floor Apartment', field: 'name_i18n' }),
+      expect.objectContaining({ scope: 'Upper Floor Apartment', field: 'status' }),
+    ]));
+
+    const structuralDrift = sevenArches({
+      room_types: existingRooms.map((room: any, index: number) => index === 0
+        ? { ...room, capacity_adults: 4, capacity_children: 0, version: 5 }
+        : room),
+    });
+    const blocked = Core.sevenArchesShadowReconciliation(loaded, structuralDrift);
+    expect(blocked.eligible).toBe(false);
+    expect(blocked.blockers.join(' ')).toContain('capacity contract');
+  });
+
+  test('reports property-gallery changes while accepting a null legacy source key exactly as the RPC does', () => {
+    const original = sevenArches();
+    const preparation = Core.sevenArchesShadowPreparation(original);
+    const existingRooms = preparation.rooms.map((room: any, index: number) => ({
+      ...room,
+      legacy_source_key: null,
+      created_at: '2026-08-11T09:00:00.000Z',
+      version: 4 + index,
+    }));
+    const loaded = sevenArches({ room_types: existingRooms });
+    const fresh = sevenArches({
+      property: { ...original.property, photos: original.property.photos.slice(0, 8) },
+      room_types: existingRooms,
+    });
+    const result = Core.sevenArchesShadowReconciliation(loaded, fresh);
+    expect(result.eligible).toBe(true);
+    expect(result.changes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ scope: 'Property', field: 'property_gallery' }),
+    ]));
+  });
+
   test('fails closed when an unexpected normalized room or required amenity contract exists', () => {
     expect(Core.sevenArchesShadowPreparation(sevenArches({
       room_types: [{

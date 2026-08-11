@@ -33,10 +33,6 @@ as $function$
     'reviewed_at', clock_timestamp(),
     'source_contract', 'seven_arches_two_apartments_v1',
     'expected_legacy_pricing_fingerprint', md5(hotel.pricing_tiers::text),
-    'expected_property_policy', jsonb_build_object(
-      'children_policy', hotel.children_policy,
-      'minimum_child_age', hotel.minimum_child_age
-    ),
     'expected_versions', jsonb_build_object(
       'upper_room', 0,
       'ground_room', 0,

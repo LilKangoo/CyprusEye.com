@@ -1077,7 +1077,7 @@
     return result;
   }
 
-  async function openReview({ title, entity, before, after, operation, operations, onConfirm, onCancel, onApplyError, closeOnApplyError = false, successMessage, contextMessage = '' }) {
+  async function openReview({ title, entity, before, after, operation, operations, onConfirm, onCancel, onApplyError, onStaleReview, closeOnApplyError = false, successMessage, contextMessage = '' }) {
     const reviewedOperations = Array.isArray(operations) ? operations : [operation];
     const rows = Core.buildReviewRows(entity, before, after);
     if (!rows.length) {
@@ -1112,27 +1112,56 @@
               await applyReviewedOperations(reviewedOperations, { successMessage });
             }
           } catch (error) {
-            try { await onApplyError?.(error); } catch (cleanupError) { console.error('Failed to clean up reviewed Hotel media upload:', cleanupError); }
-            if (error?.diagnosticContext) {
+            let failure = error;
+            if (error?.isStale && typeof onStaleReview === 'function') {
+              try {
+                const freshReview = await onStaleReview(error);
+                if (freshReview) {
+                  setModalSaving(overlay, false);
+                  closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+                  await openReview(freshReview);
+                  toast(freshReview.reReviewMessage
+                    || 'Save stopped because this workspace changed. Fresh values are ready for review; nothing was retried automatically.', 'warning');
+                  return;
+                }
+              } catch (refreshError) {
+                failure = refreshError;
+                if (!failure.userMessage) {
+                  failure.userMessage = 'The stale save was stopped safely, but fresh values could not be prepared for review. Refresh the workspace and try again.';
+                }
+              }
+            }
+            try { await onApplyError?.(failure); } catch (cleanupError) { console.error('Failed to clean up reviewed Hotel media upload:', cleanupError); }
+            if (failure?.diagnosticContext) {
               console.error('Reviewed Hotel save rejected.', {
-                code: error.code || null,
-                reason: error.diagnosticReason || null,
-                diagnosticContext: error.diagnosticContext,
+                code: failure.code || null,
+                reason: failure.diagnosticReason || null,
+                diagnosticContext: failure.diagnosticContext,
               });
+            }
+            if (failure?.closeReviewAfterStale === true) {
+              setModalSaving(overlay, false);
+              closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+              renderWorkspace();
+              if (failure.reopenSevenArchesPreparation) {
+                openSevenArchesPreparation(failure.reopenSevenArchesPreparation);
+              }
+              toast(failure.userMessage || failure.message, 'error');
+              return;
             }
             setModalSaving(overlay, false);
             if (closeOnApplyError) closeModal({ restoreFocus: false, skipCleanup: true, force: true });
             button.disabled = false;
             button.textContent = 'Save reviewed changes';
-            const message = error?.userMessage
-              || (error?.isStale
+            const message = failure?.userMessage
+              || (failure?.isStale
                 ? 'Save stopped: this configuration changed after Review. Refresh and review the fresh values.'
-              : error?.isAmbiguousOutcome
+              : failure?.isAmbiguousOutcome
                 ? 'The save result could not be confirmed because the connection was interrupted. Uploaded media was preserved. Refresh Property Workspace before retrying; do not upload the same files again.'
-                : error?.isDefinitiveFailure
+                : failure?.isDefinitiveFailure
                   ? 'The reviewed save was rejected safely. Refresh the workspace and review the current configuration; no partial save was kept.'
-                  : (error?.message || 'Reviewed save failed. No database changes were kept.'));
-            toast(message, error?.isAmbiguousOutcome ? 'warning' : 'error');
+                  : (failure?.message || 'Reviewed save failed. No database changes were kept.'));
+            toast(message, failure?.isAmbiguousOutcome ? 'warning' : 'error');
           }
         });
       },
@@ -1290,13 +1319,143 @@
     </fieldset>`;
   }
 
-  function openSevenArchesPreparation() {
-    const preparation = Core.sevenArchesShadowPreparation(state.workspace);
+  function retainedSevenArchesRoomReviews(roomReviews, workspace) {
+    const allowedPhotos = new Set(Core.normalizeGallery(workspace?.property?.photos));
+    let removedPhotoCount = 0;
+    const reviews = Core.asArray(roomReviews).map((review) => {
+      const gallery = Core.normalizeGallery(review?.gallery);
+      const retainedGallery = gallery.filter((url) => allowedPhotos.has(url));
+      removedPhotoCount += gallery.length - retainedGallery.length;
+      return { ...Core.clone(review), gallery: retainedGallery };
+    });
+    return { reviews, removedPhotoCount };
+  }
+
+  function sevenArchesReviewConfiguration(workspace, roomReviews, options = {}) {
+    const preparation = Core.sevenArchesShadowPreparation(workspace);
+    const retained = retainedSevenArchesRoomReviews(roomReviews, workspace);
+    const reconciliation = Core.sevenArchesShadowReconciliation(options.originalWorkspace || workspace, workspace);
+    if (!reconciliation.eligible) {
+      const error = new Error(reconciliation.blockers.join(' '));
+      error.userMessage = preparation.eligible
+        ? `Fresh workspace values cannot be safely applied: ${reconciliation.blockers.join(' ')} Your room names and valid photo selections remain available for review, but this package cannot be saved until the structural conflict is resolved.`
+        : `Fresh workspace values cannot be safely applied: ${reconciliation.blockers.join(' ')} The old review was closed because this property is no longer eligible for the two-apartment preparation.`;
+      error.closeReviewAfterStale = true;
+      if (preparation.eligible) {
+        error.reopenSevenArchesPreparation = {
+          draftReviews: retained.reviews,
+          notice: error.userMessage,
+          blocked: true,
+        };
+      }
+      throw error;
+    }
+    if (retained.removedPhotoCount) {
+      const error = new Error('The property gallery changed while this preparation was open.');
+      error.userMessage = `${retained.removedPhotoCount} selected room photo reference${retained.removedPhotoCount === 1 ? ' is' : 's are'} no longer present in the property gallery. Remaining selections were preserved; review the current gallery and select replacements before continuing.`;
+      error.closeReviewAfterStale = true;
+      error.reopenSevenArchesPreparation = {
+        draftReviews: retained.reviews,
+        notice: error.userMessage,
+      };
+      throw error;
+    }
+    const reviewedBusinessValues = Core.clone(retained.reviews);
+    const plan = Core.buildSevenArchesShadowPlan(workspace, reviewedBusinessValues);
+    const before = {
+      id: preparation.hotel_id,
+      architecture_version: workspace.property.architecture_version,
+      property_children_policy: workspace.property.children_policy,
+      property_minimum_child_age: workspace.property.minimum_child_age,
+      room_types: preparation.rooms.map((room) => ({
+        id: room.id,
+        version: room.created_at ? room.version : 0,
+        code: room.code,
+        name_i18n: room.name_i18n,
+        gallery: room.gallery,
+        status: room.status,
+        max_occupancy: room.max_occupancy,
+        capacity_adults: room.capacity_adults,
+        capacity_children: room.capacity_children,
+        inventory_mode: room.inventory_mode,
+        base_inventory_count: room.base_inventory_count,
+        amenities: room.amenities,
+      })),
+      pricing: 'Legacy 63-rule matrix remains authoritative',
+      ...(reconciliation.changes.length
+        ? { business_values_changed_since_preparation: 'None in the original preparation snapshot' }
+        : {}),
+    };
+    const after = {
+      id: preparation.hotel_id,
+      architecture_version: 'legacy (unchanged)',
+      property_children_policy: 'minimum_age',
+      property_minimum_child_age: 10,
+      rooms: plan.rooms.map((room) => ({
+        id: room.id,
+        source_key: room.source_key,
+        name_i18n: room.name_i18n,
+        max_occupancy: room.max_occupancy,
+        inventory: 'pooled · 1',
+        amenities: room.amenities,
+        selected_photo_count: room.gallery.length,
+        status: preparation.rooms.find((candidate) => candidate.id === room.id)?.status || 'draft',
+      })),
+      pricing: 'Dormant shared Standard schedule preview; cancellation/payment blocked',
+      public_change: false,
+      ...(reconciliation.changes.length
+        ? { business_values_changed_since_preparation: reconciliation.changes }
+        : {}),
+    };
+    const isConflictReview = options.afterStaleConflict === true;
+    return {
+      title: isConflictReview
+        ? 'Review fresh 7 Arches two-apartment values'
+        : 'Review 7 Arches two-apartment shadow package',
+      entity: 'seven_arches_shadow_package',
+      before,
+      after,
+      onConfirm: () => Repository.prepareLegacyShadowRooms(plan),
+      onStaleReview: async () => {
+        const freshWorkspace = await Repository.getWorkspace(plan.hotel_id);
+        state.workspace = freshWorkspace;
+        try {
+          return sevenArchesReviewConfiguration(freshWorkspace, reviewedBusinessValues, {
+            afterStaleConflict: true,
+            originalWorkspace: workspace,
+          });
+        } catch (error) {
+          error.closeReviewAfterStale = true;
+          throw error;
+        }
+      },
+      contextMessage: isConflictReview
+        ? 'The stale save was stopped. Fresh workspace values are shown with your reviewed names and photo selections preserved. Nothing was retried automatically; review these values and click Save reviewed changes again to submit.'
+        : 'Fresh workspace values were loaded immediately before this Review. One atomic exact-property RPC creates or updates only the deterministic shadow IDs. Existing legacy pricing, property gallery, public state, architecture, bookings and feature flags remain unchanged.',
+      reReviewMessage: 'This room was updated after this review was prepared. Current data has been refreshed and your selected photos were preserved. Please review the changes again before saving; nothing was retried automatically.',
+      successMessage: 'Two reviewed 7 Arches apartments prepared in Rooms V2 shadow configuration.',
+    };
+  }
+
+  function openSevenArchesPreparation(options = {}) {
+    const preparationWorkspace = Core.clone(state.workspace);
+    const preparation = Core.sevenArchesShadowPreparation(preparationWorkspace);
     if (!preparation.eligible) {
       toast(preparation.blocker || 'The two-apartment preparation is not available.', 'error');
       return;
     }
-    const [upper, ground] = preparation.rooms;
+    const draftByRoom = new Map(Core.asArray(options.draftReviews).map((review) => [Core.normalizeUuid(review?.id), review]));
+    const currentPropertyPhotos = new Set(preparation.property_gallery);
+    const preparedRooms = preparation.rooms.map((room) => {
+      const draft = draftByRoom.get(room.id);
+      if (!draft) return room;
+      return {
+        ...room,
+        name_i18n: Core.normalizeI18n(draft.name_i18n || room.name_i18n),
+        gallery: Core.normalizeGallery(draft.gallery).filter((url) => currentPropertyPhotos.has(url)),
+      };
+    });
+    const [upper, ground] = preparedRooms;
     const roomMarkup = (room, index, locationFacts) => `<section class="hotel-seven-arches-room" data-seven-arches-room="${escapeAttr(room.id)}">
       <header><div><span class="hotel-workspace-eyebrow">Room ${index + 1} · exact shadow Room Type</span><h4>${escapeHtml(Core.i18nText(room.name_i18n, 'en', room.code))}</h4></div><code>${escapeHtml(room.id)}</code></header>
       ${i18nFields(`seven_room_${index}_name`, 'Editable room name', room.name_i18n)}
@@ -1315,6 +1474,7 @@
       title: 'Prepare 2 existing apartments',
       className: 'hotel-workspace-modal--wide hotel-workspace-modal--seven-arches',
       body: `<form id="hotelSevenArchesPreparationForm" class="hotel-workspace-form">
+        ${options.notice ? `<section class="hotel-workspace-card hotel-property-empty--error"><strong>Fresh review required</strong><p>${escapeHtml(options.notice)}</p></section>` : ''}
         <section class="hotel-legacy-source-review">
           <span class="hotel-workspace-eyebrow">7 Arches · reviewed source contract</span>
           <h4>Two real accommodation units</h4>
@@ -1332,52 +1492,52 @@
           <small>No public price, legacy pricing JSON, booking, deposit or coupon is changed.</small>
         </section>
       </form>`,
-      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelSevenArchesPreparationForm">Review 2 apartments</button>',
+      footer: `<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelSevenArchesPreparationForm" ${options.blocked ? 'disabled title="Resolve the refreshed structural conflict before reviewing this package"' : ''}>Review 2 apartments</button>`,
       onReady(overlay) {
         const form = overlay.querySelector('#hotelSevenArchesPreparationForm');
         form.addEventListener('submit', async (event) => {
           event.preventDefault();
+          const submitButton = overlay.querySelector('button[form="hotelSevenArchesPreparationForm"]');
           const fd = new FormData(form);
-          const reviews = preparation.rooms.map((room, index) => ({
+          const reviews = preparedRooms.map((room, index) => ({
             id: room.id,
             name_i18n: readI18n(fd, `seven_room_${index}_name`),
             gallery: fd.getAll(`seven_arches_room_${index}_photo`),
           }));
-          let plan;
-          try { plan = Core.buildSevenArchesShadowPlan(state.workspace, reviews); }
-          catch (error) { toast(error.message, 'error'); return; }
-          const before = {
-            id: preparation.hotel_id,
-            architecture_version: state.workspace.property.architecture_version,
-            property_children_policy: state.workspace.property.children_policy,
-            property_minimum_child_age: state.workspace.property.minimum_child_age,
-            room_types: preparation.rooms.map((room) => ({ id: room.id, version: room.created_at ? room.version : 0, gallery: room.gallery })),
-            pricing: 'Legacy 63-rule matrix remains authoritative',
-          };
-          const after = {
-            id: preparation.hotel_id,
-            architecture_version: 'legacy (unchanged)',
-            property_children_policy: 'minimum_age',
-            property_minimum_child_age: 10,
-            rooms: plan.rooms.map((room) => ({
-              id: room.id,
-              source_key: room.source_key,
-              name_i18n: room.name_i18n,
-              max_occupancy: room.max_occupancy,
-              inventory: 'pooled · 1',
-              amenities: room.amenities,
-              selected_photo_count: room.gallery.length,
-            })),
-            pricing: 'Dormant shared Standard schedule preview; cancellation/payment blocked',
-            public_change: false,
-          };
-          closeModal({ restoreFocus: false });
-          await openReview({
-            title: 'Review 7 Arches two-apartment shadow package', entity: 'seven_arches_shadow_package', before, after,
-            onConfirm: () => Repository.prepareLegacyShadowRooms(plan),
-            contextMessage: 'One atomic exact-property RPC creates or updates only the deterministic shadow IDs. Existing legacy pricing, property gallery, public state, architecture, bookings and feature flags remain unchanged.',
-            successMessage: 'Two reviewed 7 Arches apartments prepared in Rooms V2 shadow configuration.',
-          });
+          if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.textContent = 'Loading fresh values…';
+          }
+          setModalSaving(overlay, true);
+          try {
+            const freshWorkspace = await Repository.getWorkspace(preparation.hotel_id);
+            // Make recovery paths use the same fresh snapshot being reconciled.
+            // Otherwise a removed photo or structural blocker would reopen the
+            // preparation against the cached gallery that caused the conflict.
+            state.workspace = freshWorkspace;
+            const review = sevenArchesReviewConfiguration(freshWorkspace, reviews, { originalWorkspace: preparationWorkspace });
+            closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+            await openReview(review);
+          } catch (error) {
+            setModalSaving(overlay, false);
+            if (error?.reopenSevenArchesPreparation) {
+              closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+              openSevenArchesPreparation(error.reopenSevenArchesPreparation);
+              toast(error.userMessage || error.message, 'error');
+              return;
+            }
+            if (error?.closeReviewAfterStale === true) {
+              closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+              renderWorkspace();
+              toast(error.userMessage || error.message, 'error');
+              return;
+            }
+            if (submitButton) {
+              submitButton.disabled = false;
+              submitButton.textContent = 'Review 2 apartments';
+            }
+            toast(error?.userMessage || error?.message || 'Fresh workspace values could not be prepared for review.', 'error');
+          }
         });
       },
     });

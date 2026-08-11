@@ -55,6 +55,17 @@ describe('Hotels H2B.1 Admin UX static safety', () => {
     expect(publicHotel).not.toContain('children_policy_override');
   });
 
+  test('refreshes stale shadow reviews without silently retrying or losing selected photos', () => {
+    expect(core).toContain('function sevenArchesShadowReconciliation');
+    expect(core).toContain('property_gallery: normalizeGallery(workspaceValue.property.photos)');
+    expect(ui).toContain('const freshWorkspace = await Repository.getWorkspace(plan.hotel_id)');
+    expect(ui).toContain('Current data has been refreshed and your selected photos were preserved');
+    expect(ui).toContain('nothing was retried automatically');
+    expect(ui).toContain('retainedSevenArchesRoomReviews');
+    expect(repository).toContain('Current data must be refreshed and reviewed again');
+    expect(ui).not.toContain('Repository.prepareLegacyShadowRooms(plan).catch');
+  });
+
   test('shows unresolved cancellation and shared shadow pricing without a fake Flexible or EUR 0 fallback', () => {
     expect(core).toContain("'requires_review'");
     expect(core).toContain('Cancellation terms require review');

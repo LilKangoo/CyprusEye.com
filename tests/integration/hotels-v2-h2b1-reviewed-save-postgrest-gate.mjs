@@ -15,11 +15,15 @@ const UPPER_RATE = '7e420964-9cbf-4f1b-abd3-09840af5240f';
 const GROUND_RATE = '3320590d-632d-423f-80d0-fd021cba7293';
 const SCHEDULE = 'b0a3104f-7b31-5265-a59f-c2d166f11a23';
 const PARTY_PREVIEW = '443065c0-984a-5de3-a22a-d03042c41107';
-const FIRST_CORRELATION = '84000000-0000-4000-8000-000000000002';
-const STALE_CORRELATION = '84000000-0000-4000-8000-000000000003';
-const FOREIGN_PHOTO_CORRELATION = '84000000-0000-4000-8000-000000000004';
-const STALE_POLICY_CORRELATION = '84000000-0000-4000-8000-000000000005';
-const SECOND_CORRELATION = '84000000-0000-4000-8000-000000000006';
+const CONCURRENT_ROOM_CORRELATION = '84000000-0000-4000-8000-000000000008';
+const FIRST_STALE_CORRELATION = '84000000-0000-4000-8000-000000000002';
+const FIRST_EXPLICIT_CORRELATION = '84000000-0000-4000-8000-000000000003';
+const STALE_CORRELATION = '84000000-0000-4000-8000-000000000004';
+const FOREIGN_PHOTO_CORRELATION = '84000000-0000-4000-8000-000000000005';
+const STALE_POLICY_CORRELATION = '84000000-0000-4000-8000-000000000006';
+const SECOND_CORRELATION = '84000000-0000-4000-8000-000000000007';
+
+let shadowPrepareRequestCount = 0;
 
 async function request(path, { token, method = 'GET', body } = {}) {
   const headers = { Accept: 'application/json' };
@@ -40,6 +44,9 @@ async function request(path, { token, method = 'GET', body } = {}) {
 }
 
 function rpc(name, body) {
+  if (name === 'hotel_v2_admin_prepare_legacy_shadow_rooms') {
+    shadowPrepareRequestCount += 1;
+  }
   return request(`/rpc/${name}`, {
     token: TOKENS.admin,
     method: 'POST',
@@ -57,9 +64,13 @@ async function workspace() {
   return result.payload;
 }
 
-function reviewedPlan(state, { staleUpper = false } = {}) {
+function reviewedPlan(state, { galleries = null, staleUpper = false } = {}) {
   const upperVersion = version(state.room_types, UPPER);
   const groundVersion = version(state.room_types, GROUND);
+  const reviewedGalleries = galleries || {
+    upper: [state.property.photos[0], state.property.photos[1]],
+    ground: [state.property.photos[2], state.property.photos[3]],
+  };
   return {
     hotel_id: HOTEL,
     expected_property_updated_at: state.property.updated_at,
@@ -91,7 +102,7 @@ function reviewedPlan(state, { staleUpper = false } = {}) {
         he: 'דירה בקומה העליונה',
       },
       description_i18n: {},
-      gallery: [state.property.photos[0], state.property.photos[1]],
+      gallery: [...reviewedGalleries.upper],
       amenities: ['air_conditioning', 'terrace', 'balcony'],
       max_occupancy: 4,
       sort_order: 100,
@@ -105,7 +116,7 @@ function reviewedPlan(state, { staleUpper = false } = {}) {
         he: 'דירה בקומת הקרקע',
       },
       description_i18n: {},
-      gallery: [state.property.photos[2], state.property.photos[3]],
+      gallery: [...reviewedGalleries.ground],
       amenities: ['air_conditioning', 'terrace'],
       max_occupancy: 4,
       sort_order: 200,
@@ -167,12 +178,83 @@ assertInert(before);
 const rawBefore = await request('/hotel_room_types?select=id,status&limit=5');
 assert.equal(rawBefore.status, 401);
 
+// Reproduce the customer-reported flow: the first reviewed Save contains one
+// stale Room Type version. The browser must surface 409 and stop. A fresh
+// workspace read is then merged with the Admin's still-local photo selections;
+// only a second explicit Save may issue another mutation request.
+const selectedGalleries = Object.freeze({
+  upper: Object.freeze(before.property.photos.slice(0, 5)),
+  ground: Object.freeze(before.property.photos.slice(4, 9)),
+});
+assert.equal(selectedGalleries.upper.length, 5);
+assert.equal(selectedGalleries.ground.length, 5);
+
+const firstReviewedPlan = reviewedPlan(before, { galleries: selectedGalleries });
+const concurrentRoomEdit = await rpc('hotel_v2_admin_apply_room_type_plan', {
+  p_plan: {
+    hotel_id: HOTEL,
+    expected_property_updated_at: before.property.updated_at,
+    reviewed_at: new Date().toISOString(),
+    operation: {
+      type: 'update',
+      id: UPPER,
+      expected_version: version(before.room_types, UPPER),
+      // A same-value operational edit still advances the optimistic version,
+      // reproducing a concurrent Admin save without changing room content.
+      payload: { sort_order: 100 },
+    },
+  },
+  p_correlation_id: CONCURRENT_ROOM_CORRELATION,
+});
+assert.equal(concurrentRoomEdit.status, 200, JSON.stringify(concurrentRoomEdit.payload));
+const afterConcurrentRoomEdit = concurrentRoomEdit.payload.workspace;
+assert.equal(version(afterConcurrentRoomEdit.room_types, UPPER), 5);
+assert.equal(version(afterConcurrentRoomEdit.room_types, GROUND), 5);
+assert.deepEqual(afterConcurrentRoomEdit.room_types.map((room) => room.gallery), [[], []]);
+
+const firstStale = await rpc('hotel_v2_admin_prepare_legacy_shadow_rooms', {
+  p_plan: firstReviewedPlan,
+  p_correlation_id: FIRST_STALE_CORRELATION,
+});
+assert.equal(firstStale.status, 409);
+assert.equal(firstStale.payload?.code, 'PT409');
+assert.equal(
+  firstStale.payload?.message,
+  'hotels_v2_h2b1_stale_shadow_room',
+);
+assert.equal(shadowPrepareRequestCount, 1, 'The stale Save was retried automatically.');
+
+const afterFirstStale = await workspace();
+assert.deepEqual(
+  mutationSnapshot(afterFirstStale),
+  mutationSnapshot(afterConcurrentRoomEdit),
+);
+assert.equal(
+  afterFirstStale.recent_activity.some(
+    (row) => row.correlation_id === FIRST_STALE_CORRELATION,
+  ),
+  false,
+);
+assert.deepEqual(afterFirstStale.room_types.map((room) => room.gallery), [[], []]);
+
+const reReviewedPlan = reviewedPlan(afterFirstStale, { galleries: selectedGalleries });
+assert.deepEqual(reReviewedPlan.rooms.map((room) => room.gallery), [
+  [...selectedGalleries.upper],
+  [...selectedGalleries.ground],
+]);
+assert.equal(
+  shadowPrepareRequestCount,
+  1,
+  'Fresh read/re-review issued a mutation before the second explicit Save.',
+);
+
 const first = await rpc('hotel_v2_admin_prepare_legacy_shadow_rooms', {
-  p_plan: reviewedPlan(before),
-  p_correlation_id: FIRST_CORRELATION,
+  p_plan: reReviewedPlan,
+  p_correlation_id: FIRST_EXPLICIT_CORRELATION,
 });
 assert.equal(first.status, 200, JSON.stringify(first.payload));
 assert.equal(first.payload.public_change, false);
+assert.equal(shadowPrepareRequestCount, 2);
 
 const afterFirst = first.payload.workspace;
 assert.equal(afterFirst.property.children_policy, 'minimum_age');
@@ -184,12 +266,12 @@ assert.deepEqual(
   })),
   [
     {
-      id: UPPER, version: 5, status: 'active',
-      gallery: [afterFirst.property.photos[0], afterFirst.property.photos[1]],
+      id: UPPER, version: 6, status: 'active',
+      gallery: [...selectedGalleries.upper],
     },
     {
       id: GROUND, version: 6, status: 'active',
-      gallery: [afterFirst.property.photos[2], afterFirst.property.photos[3]],
+      gallery: [...selectedGalleries.ground],
     },
   ],
 );
@@ -249,7 +331,7 @@ assert.equal(
 );
 
 const second = await rpc('hotel_v2_admin_prepare_legacy_shadow_rooms', {
-  p_plan: reviewedPlan(afterStalePolicy),
+  p_plan: reviewedPlan(afterStalePolicy, { galleries: selectedGalleries }),
   p_correlation_id: SECOND_CORRELATION,
 });
 assert.equal(second.status, 200, JSON.stringify(second.payload));
@@ -259,8 +341,8 @@ assert.equal(second.payload.workspace.room_types.length, 2);
 assert.deepEqual(
   second.payload.workspace.room_types.map((room) => room.gallery),
   [
-    [second.payload.workspace.property.photos[0], second.payload.workspace.property.photos[1]],
-    [second.payload.workspace.property.photos[2], second.payload.workspace.property.photos[3]],
+    [...selectedGalleries.upper],
+    [...selectedGalleries.ground],
   ],
 );
 
@@ -287,6 +369,16 @@ process.stdout.write(`${JSON.stringify({
     roomVersions: afterFirst.room_types.map((room) => Number(room.version)),
     roomStatuses: afterFirst.room_types.map((room) => room.status),
     roomGalleryCounts: afterFirst.room_types.map((room) => room.gallery.length),
+  },
+  staleFirstSaveThenExplicitReview: {
+    firstStatus: firstStale.status,
+    firstCode: firstStale.payload.code,
+    firstMessage: firstStale.payload.message,
+    staleReviewedVersion: firstReviewedPlan.expected_versions.upper_room,
+    freshRoomVersion: version(afterFirstStale.room_types, UPPER),
+    automaticRetryCount: 0,
+    freshReadPreservedGalleryCounts: reReviewedPlan.rooms.map((room) => room.gallery.length),
+    secondExplicitStatus: first.status,
   },
   staleRollback: {
     status: stale.status,

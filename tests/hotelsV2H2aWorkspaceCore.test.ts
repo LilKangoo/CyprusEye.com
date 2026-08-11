@@ -395,6 +395,7 @@ describe('Hotels V2 H2A Property Workspace core', () => {
     expect(seed).toEqual({
       id: DUPLICATE_ID,
       hotel_id: '9b6d99a0-923a-4fbc-be54-c066e856e6ca',
+      legacy_source_key: null,
       code: '',
       name_i18n: {},
       description_i18n: {},

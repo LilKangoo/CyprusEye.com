@@ -50,7 +50,10 @@
     if (/shadow_room_identity_conflict/.test(key)) {
       return 'An expected 7 Arches Room Type is missing or its deterministic identity conflicts with another row. Refresh and inspect the exact Room Types before retrying.';
     }
-    if (/room_expected_version_mismatch|stale_shadow_room|stale_pricing_schedule|stale_property_party_preview|stale_rate_plan|stale_(?:upper|ground)_room_rate|relationship.*mismatch/.test(key)) {
+    if (/stale_shadow_room/.test(key)) {
+      return 'This room was updated after this review was prepared. Current data must be refreshed and reviewed again; no partial save was kept.';
+    }
+    if (/room_expected_version_mismatch|stale_pricing_schedule|stale_property_party_preview|stale_rate_plan|stale_(?:upper|ground)_room_rate|relationship.*mismatch/.test(key)) {
       return 'A shadow Room Type or one of its pricing relationships changed after Review. Refresh and review the current configuration; no partial save was kept.';
     }
     if (/unknown_room_amenity|confirmed_room_amenity_mismatch/.test(key)) {
