@@ -801,15 +801,13 @@ async function fetchAllBookings(limit = 100) {
 
   if (tripError) console.warn('Trip bookings fetch error (RLS?):', tripError);
 
-  // Fetch Hotel Bookings (by email)
+  // Fetch Hotel bookings through the scoped customer bridge. New bookings are
+  // owned by user_id; historical guest rows are matched only to the verified
+  // JWT email inside the server-side function.
   let hotelBookings = [];
   try {
     const { data, error } = await supabase
-      .from('hotel_bookings')
-      .select('*')
-      .ilike('customer_email', currentUser.email)
-      .order('created_at', { ascending: false })
-      .limit(limit);
+      .rpc('customer_get_hotel_bookings', { p_limit: limit });
     
     if (error) console.warn('Hotel bookings fetch error:', error);
     if (data) hotelBookings = data;

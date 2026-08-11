@@ -162,6 +162,42 @@ function buildSeedScript() {
           },
         ]);
 
+        // H1A uses the exact-partner, identity-redacted referral bridge. Keep
+        // this fixture on that contract instead of relying on the raw Hotel
+        // booking fallback that the security migration intentionally removes.
+        stub.setRpcHandler('partner_get_referral_attributed_orders_safe', (params: any) => {
+          if (params?.p_partner_id !== 'partner-referrals-1') return { data: [], error: null };
+          return {
+            data: [
+              {
+                booking_id: 'car-booking-ref-1', service_type: 'cars', service_id: 'car-ref-1',
+                service_slug: null, service_date: '2026-04-22', customer_name: null,
+                booking_status: 'pending', payment_status: null, total_amount: 210, currency: 'EUR',
+                referral_code: 'CYREF123', referral_source: 'stored', referral_captured_at: isoDaysAgo(1), created_at: isoDaysAgo(1),
+              },
+              {
+                booking_id: 'hotel-booking-ref-1', service_type: 'hotels', service_id: 'hotel-ref-1',
+                service_slug: 'lefkara-courtyard', service_date: '2026-04-20', customer_name: null,
+                booking_status: 'pending', payment_status: null, total_amount: 420, currency: 'EUR',
+                referral_code: 'CYREF123', referral_source: 'url', referral_captured_at: isoDaysAgo(2), created_at: isoDaysAgo(2),
+              },
+              {
+                booking_id: 'trip-booking-ref-1', service_type: 'trips', service_id: 'trip-ref-1',
+                service_slug: 'troodos-loop', service_date: '2026-04-18', customer_name: null,
+                booking_status: 'confirmed', payment_status: null, total_amount: 180, currency: 'EUR',
+                referral_code: 'CYREF123', referral_source: 'manual', referral_captured_at: isoDaysAgo(3), created_at: isoDaysAgo(3),
+              },
+              {
+                booking_id: 'transport-booking-ref-1', service_type: 'transport', service_id: 'route-ref-1',
+                service_slug: null, service_date: '2026-04-19', customer_name: null,
+                booking_status: 'confirmed', payment_status: 'paid', total_amount: 95, currency: 'EUR',
+                referral_code: 'CYREF123', referral_source: 'url', referral_captured_at: isoDaysAgo(4), created_at: isoDaysAgo(4),
+              },
+            ],
+            error: null,
+          };
+        });
+
         stub.setSession({
           id: partnerUser.id,
           email: partnerUser.email,

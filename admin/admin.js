@@ -23234,7 +23234,7 @@ async function assignTransportBookingPartnerFallback(client, booking, partnerId)
   };
 
   const { data: rpcFid, error: rpcError } = await runTransportMutation(
-    (db) => db.rpc('upsert_partner_service_fulfillment_from_booking_with_partner', rpcPayload),
+    (db) => db.rpc('admin_upsert_partner_service_fulfillment_exact', rpcPayload),
     { silentAuthNotice: true },
   );
   if (rpcError) throw rpcError;

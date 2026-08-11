@@ -927,7 +927,7 @@
 
   async function loadReferralAttributedOrdersViaRpc(limit = 40) {
     if (!state.sb || !state.selectedPartnerId) return [];
-    const { data, error } = await withRateLimitRetry(() => state.sb.rpc('partner_get_referral_attributed_orders', {
+    const { data, error } = await withRateLimitRetry(() => state.sb.rpc('partner_get_referral_attributed_orders_safe', {
       p_partner_id: state.selectedPartnerId,
       p_limit: limit,
     }));
@@ -956,20 +956,88 @@
       }
     };
 
-    const [hotelRows, tripRows, carRows, transportRows] = await Promise.all([
-      loadTable('hotels', 'hotel_bookings', 'id,created_at,hotel_id,hotel_slug,arrival_date,departure_date,customer_name,total_price,status,referral_code,referral_source,referral_captured_at'),
+    // Hotels intentionally have no direct-table fallback here. The primary
+    // partner_get_referral_attributed_orders_safe scopes Hotel rows to the exact
+    // partner. Falling back to hotel_bookings would require unsafe broad RLS.
+    const [tripRows, carRows, transportRows] = await Promise.all([
       loadTable('trips', 'trip_bookings', 'id,created_at,trip_id,trip_slug,trip_date,arrival_date,departure_date,customer_name,total_price,status,referral_code,referral_source,referral_captured_at'),
       loadTable('cars', 'car_bookings', 'id,created_at,offer_id,location,pickup_date,return_date,customer_name,total_price,status,referral_code,referral_source,referral_captured_at'),
       loadTable('transport', 'transport_bookings', 'id,created_at,route_id,travel_date,travel_time,customer_name,total_price,status,payment_status,currency,referral_code,referral_source,referral_captured_at'),
     ]);
 
-    return [...hotelRows, ...tripRows, ...carRows, ...transportRows]
+    return [...tripRows, ...carRows, ...transportRows]
       .sort((a, b) => {
         const aTs = new Date(a?.created_at || 0).getTime() || 0;
         const bTs = new Date(b?.created_at || 0).getTime() || 0;
         return bTs - aTs;
       })
       .slice(0, limit);
+  }
+
+  const PARTNER_HOTEL_OPERATIONAL_CONTEXT_RPC = 'partner_get_hotel_booking_operational_context';
+
+  function normalizePartnerHotelContextIds(values) {
+    return Array.from(new Set((Array.isArray(values) ? values : [])
+      .map((value) => String(value || '').trim())
+      .filter(Boolean)));
+  }
+
+  async function loadPartnerHotelBookingOperationalContext(options = {}) {
+    if (!state.sb) return [];
+
+    const partnerId = String(options.partnerId || state.selectedPartnerId || '').trim();
+    const bookingIds = normalizePartnerHotelContextIds(options.bookingIds);
+    const hotelIds = normalizePartnerHotelContextIds(options.hotelIds);
+    if (!partnerId || (!bookingIds.length && !hotelIds.length)) return [];
+
+    const requestedLimit = Number(options.limit);
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.max(1, Math.min(1000, Math.floor(requestedLimit)))
+      : 500;
+    const startDate = String(options.startDate || '').trim() || null;
+    const endDate = String(options.endDate || '').trim() || null;
+
+    const { data, error } = await withRateLimitRetry(() => state.sb.rpc(
+      PARTNER_HOTEL_OPERATIONAL_CONTEXT_RPC,
+      {
+        p_partner_id: partnerId,
+        p_booking_ids: bookingIds.length ? bookingIds : null,
+        p_hotel_ids: hotelIds.length ? hotelIds : null,
+        p_start_date: startDate,
+        p_end_date: endDate,
+        p_limit: limit,
+      },
+    ));
+    if (error) throw error;
+
+    return (Array.isArray(data) ? data : [])
+      .filter((row) => row && row.booking_id)
+      .map((row) => ({
+        // Keep the existing Partner Portal booking-map contract without ever
+        // selecting the raw Hotel booking row or its contact fields.
+        id: String(row.booking_id),
+        booking_id: String(row.booking_id),
+        fulfillment_id: row.fulfillment_id || null,
+        hotel_id: row.hotel_id || null,
+        arrival_date: row.arrival_date || null,
+        departure_date: row.departure_date || null,
+        nights: row.nights ?? null,
+        num_adults: row.num_adults ?? null,
+        num_children: row.num_children ?? null,
+        total_price: row.total_price ?? null,
+        base_price: row.base_price ?? null,
+        final_price: row.final_price ?? null,
+        extras_price: row.extras_price ?? null,
+        selected_extras: Array.isArray(row.selected_extras) ? row.selected_extras : [],
+        room_type_id: row.room_type_id || null,
+        room_type_name: row.room_type_name || null,
+        rate_plan_id: row.rate_plan_id || null,
+        rate_plan_name: row.rate_plan_name || null,
+        cancellation_policy_type: row.cancellation_policy_type || null,
+        room_inventory_units: row.room_inventory_units ?? null,
+        status: row.status || null,
+        currency: row.currency || 'EUR',
+      }));
   }
 
   async function enrichReferralAttributedOrders(rows) {
@@ -6098,17 +6166,16 @@
 
       if (type === 'hotels') {
         try {
-          const { data, error } = await state.sb
-            .from('hotel_bookings')
-            .select('arrival_date, departure_date, status')
-            .eq('hotel_id', resourceId)
-            .neq('status', 'cancelled')
-            .lte('arrival_date', endIso)
-            .gte('departure_date', startIso)
-            .limit(500);
-          if (error) throw error;
-          (data || []).forEach((r) => {
+          const rows = await loadPartnerHotelBookingOperationalContext({
+            hotelIds: [resourceId],
+            startDate: startIso,
+            endDate: endIso,
+            limit: 500,
+          });
+          rows.forEach((r) => {
+            if (String(r.status || '').trim().toLowerCase() === 'cancelled') return;
             if (!r.arrival_date || !r.departure_date) return;
+            if (String(r.arrival_date) > endIso || String(r.departure_date) < startIso) return;
             ranges.push({ start_date: r.arrival_date, end_date: r.departure_date });
           });
         } catch (_e) {}
@@ -6669,10 +6736,28 @@
       }
     };
 
+    const loadHotelStatuses = async (ids) => {
+      if (!ids.length) return;
+      for (const idChunk of chunkArray(ids, 120)) {
+        try {
+          const rows = await loadPartnerHotelBookingOperationalContext({
+            bookingIds: idChunk,
+            limit: 500,
+          });
+          rows.forEach((row) => {
+            if (!row?.id) return;
+            upsertState('hotels', row.id, row.status, null);
+          });
+        } catch (error) {
+          console.warn('Partner panel: failed to load hotels booking statuses:', error);
+        }
+      }
+    };
+
     await Promise.all([
       loadCarsStatuses(Array.from(idsByType.cars || [])),
       loadSimpleStatuses('trips', 'trip_bookings', Array.from(idsByType.trips || [])),
-      loadSimpleStatuses('hotels', 'hotel_bookings', Array.from(idsByType.hotels || [])),
+      loadHotelStatuses(Array.from(idsByType.hotels || [])),
       loadSimpleStatuses('transport', 'transport_bookings', Array.from(idsByType.transport || []), { includePaymentStatus: true }),
     ]);
 
@@ -7252,22 +7337,11 @@
     if (hotelBookingIds.length) {
       try {
         for (const bookingIdChunk of chunkArray(hotelBookingIds, 120)) {
-          let data = null;
-          let error = null;
-          ({ data, error } = await state.sb
-            .from('hotel_bookings')
-            .select('id, hotel_id, arrival_date, departure_date, nights, num_adults, num_children, total_price, base_price, final_price, extras_price, selected_extras, pricing_breakdown, booking_details, room_type_id, room_type_name, rate_plan_id, rate_plan_name, cancellation_policy_type, status')
-            .in('id', bookingIdChunk)
-            .limit(500));
-          if (error && /(pricing_breakdown|booking_details|room_type_id|room_type_name|rate_plan_id|rate_plan_name|cancellation_policy_type|selected_extras|extras_price|base_price|final_price)/i.test(String(error.message || ''))) {
-            ({ data, error } = await state.sb
-              .from('hotel_bookings')
-              .select('id, hotel_id, arrival_date, departure_date, nights, num_adults, num_children, total_price, status')
-              .in('id', bookingIdChunk)
-              .limit(500));
-          }
-          if (error) throw error;
-          (data || []).forEach((row) => {
+          const rows = await loadPartnerHotelBookingOperationalContext({
+            bookingIds: bookingIdChunk,
+            limit: 500,
+          });
+          rows.forEach((row) => {
             if (!row?.id) return;
             hotelBookingById[String(row.id)] = row;
           });
@@ -7347,28 +7421,17 @@
         const activeRows = [];
         for (const hotelIdChunk of chunkArray(activeHotelIdsForDecision, 40)) {
           try {
-            let data = null;
-            let error = null;
-            ({ data, error } = await state.sb
-              .from('hotel_bookings')
-              .select('id, hotel_id, arrival_date, departure_date, room_type_id, status')
-              .in('hotel_id', hotelIdChunk)
-              .neq('status', 'cancelled')
-              .lt('arrival_date', decisionWindowEnd)
-              .gt('departure_date', decisionWindowStart)
-              .limit(1000));
-            if (error && /room_type_id/i.test(String(error.message || ''))) {
-              ({ data, error } = await state.sb
-                .from('hotel_bookings')
-                .select('id, hotel_id, arrival_date, departure_date, status')
-                .in('hotel_id', hotelIdChunk)
-                .neq('status', 'cancelled')
-                .lt('arrival_date', decisionWindowEnd)
-                .gt('departure_date', decisionWindowStart)
-                .limit(1000));
-            }
-            if (error) throw error;
-            activeRows.push(...(Array.isArray(data) ? data : []));
+            const rows = await loadPartnerHotelBookingOperationalContext({
+              hotelIds: hotelIdChunk,
+              startDate: decisionWindowStart,
+              endDate: decisionWindowEnd,
+              limit: 1000,
+            });
+            activeRows.push(...rows.filter((row) => {
+              if (String(row?.status || '').trim().toLowerCase() === 'cancelled') return false;
+              return String(row?.arrival_date || '') < decisionWindowEnd
+                && String(row?.departure_date || '') > decisionWindowStart;
+            }));
           } catch (error) {
             console.warn('Partner panel: failed to load hotel inventory context:', error);
           }
@@ -7387,8 +7450,8 @@
             ? roomTypes.find((entry) => String(entry?.id || '').trim() === roomTypeId) || null
             : null;
           const configuredUnitsRaw = roomType?.inventory_units
-            ?? booking?.booking_details?.room_inventory_units
-            ?? booking?.room_inventory_units;
+            ?? booking?.room_inventory_units
+            ?? booking?.booking_details?.room_inventory_units;
           const configuredUnits = Number(configuredUnitsRaw);
           const overlappingRows = activeRows.filter((row) => {
             if (!row) return false;

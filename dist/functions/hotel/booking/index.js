@@ -1,11 +1,3 @@
-import { createSupabaseClients } from '../../_utils/supabaseAdmin.js';
-
-function normalizeReferralSource(value) {
-  const raw = String(value || '').trim().toLowerCase();
-  if (raw === 'manual' || raw === 'url' || raw === 'stored') return raw;
-  return null;
-}
-
 const CORS = {
   'access-control-allow-origin': '*',
   'access-control-allow-methods': 'POST, OPTIONS',
@@ -16,75 +8,26 @@ const CORS = {
 };
 
 export async function onRequest(context) {
-  const { request, env } = context;
+  const { request } = context;
   
   // Handle OPTIONS preflight
   if (request.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: CORS });
   }
   
-  // Only allow POST
+  // Preserve a clear method contract while keeping this legacy endpoint inert.
   if (request.method !== 'POST') {
-    return json({ ok: false, error: 'Method not allowed. Use POST.' }, 405);
+    return json({ ok: false, error: 'method_not_allowed', message: 'Method not allowed. Use POST.' }, 405);
   }
-  
-  try {
-    // Check env vars
-    if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
-      console.error('Missing Supabase env vars');
-      return json({ ok: false, error: 'Server configuration error. Missing environment variables.' }, 500);
-    }
-    
-    const { adminClient } = createSupabaseClients(env);
-    const body = await request.json();
 
-    const required = ['hotel_id','hotel_slug','customer_name','customer_email','arrival_date','departure_date','nights','total_price'];
-    for (const k of required) {
-      if (body[k] === undefined || body[k] === null || body[k] === '') {
-        return json({ ok: false, error: `Missing field: ${k}` }, 400);
-      }
-    }
-
-    const payload = {
-      hotel_id: body.hotel_id,
-      hotel_slug: body.hotel_slug,
-      customer_name: body.customer_name,
-      customer_email: body.customer_email,
-      customer_phone: body.customer_phone || null,
-      arrival_date: body.arrival_date,
-      departure_date: body.departure_date,
-      num_adults: Number(body.num_adults || body.adults || 0),
-      num_children: Number(body.num_children || body.children || 0),
-      nights: Number(body.nights || 1),
-      notes: body.notes || null,
-      base_price: body.base_price == null ? null : Number(body.base_price || 0),
-      final_price: body.final_price == null ? null : Number(body.final_price || 0),
-      total_price: Number(body.total_price || 0),
-      coupon_id: body.coupon_id || null,
-      coupon_code: body.coupon_code || null,
-      coupon_discount_amount: body.coupon_discount_amount == null ? 0 : Number(body.coupon_discount_amount || 0),
-      coupon_partner_id: body.coupon_partner_id || null,
-      coupon_partner_commission_bps: body.coupon_partner_commission_bps == null ? null : Number(body.coupon_partner_commission_bps),
-      referral_code: body.referral_code || null,
-      referral_source: normalizeReferralSource(body.referral_source),
-      referral_captured_at: body.referral_captured_at || null,
-      status: body.status || 'pending'
-    };
-
-    const { data, error } = await adminClient
-      .from('hotel_bookings')
-      .insert([payload])
-      .select()
-      .single();
-
-    if (error) {
-      return json({ ok: false, error: error.message }, 500);
-    }
-
-    return json({ ok: true, data }, 200);
-  } catch (e) {
-    return json({ ok: false, error: e.message || 'Unexpected error' }, 500);
-  }
+  // This unauthenticated service-role write path is intentionally retired.
+  // Current Hotel pages submit through their existing RLS-protected PostgREST
+  // flow; this route must never parse or trust booking status/financial input.
+  return json({
+    ok: false,
+    error: 'hotel_booking_endpoint_retired',
+    message: 'This legacy Hotel booking endpoint is no longer available.',
+  }, 410);
 }
 
 function json(obj, status = 200) {
