@@ -12,6 +12,26 @@ const publicFiles = ['index.html', 'hotels.html', 'hotel.html', 'js/home-hotels.
   .join('\n');
 
 const HOTEL_ID = '11111111-1111-4111-8111-111111111111';
+const RGB_HOTEL_ID = 'f9fbaa61-fdce-4418-8579-ddb2b0a75fb1';
+
+const SEVEN_ARCHES_THRESHOLDS = [2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
+const SEVEN_ARCHES_RATE_MATRIX = [
+  { persons: 2, rates: [100, 90, 88, 84, 80, 76, 74, 72, 70] },
+  { persons: 3, rates: [130, 113, 113, 104, 100, 95, 94, 90, 90] },
+  { persons: 4, rates: [155, 135, 135, 120, 118, 114, 111, 107, 107] },
+  { persons: 5, rates: [200, 180, 176, 168, 160, 152, 148, 144, 140] },
+  { persons: 6, rates: [260, 226, 226, 208, 200, 190, 188, 180, 180] },
+  { persons: 7, rates: [310, 270, 270, 240, 236, 228, 222, 214, 214] },
+  { persons: 8, rates: [310, 270, 270, 240, 236, 228, 222, 214, 214] },
+] as const;
+
+const SEVEN_ARCHES_RULES = SEVEN_ARCHES_RATE_MATRIX.flatMap((matrixRow) =>
+  SEVEN_ARCHES_THRESHOLDS.map((minNights, index) => ({
+    persons: matrixRow.persons,
+    min_nights: minNights,
+    price_per_night: matrixRow.rates[index],
+  })),
+);
 
 class FakeElement {
   innerHTML = '';
@@ -51,6 +71,7 @@ function loadUiForDirectoryRender(): { api: any; elements: Record<string, FakeEl
     },
   };
   for (const relative of [
+    'js/hotel-pricing.js',
     'admin/hotels-v2-workspace-core.js',
     'admin/hotels-v2-workspace-repository.js',
     'admin/hotels-v2-workspace.js',
@@ -100,6 +121,130 @@ describe('Hotels V2 H2A Property Workspace UI/static contract', () => {
     expect(html).toContain('<strong>4</strong> room types');
     expect(html).toContain('<strong>3</strong> rate plans');
     expect((html.match(/Open workspace/g) || [])).toHaveLength(1);
+  });
+
+  test('shows accepted legacy price inputs separately from empty Rooms V2 preparation', () => {
+    const { api, elements } = loadUiForDirectoryRender();
+    api.state.properties = [{
+      id: HOTEL_ID,
+      slug: '7-ukow',
+      architecture_version: 'legacy',
+      title_i18n: { en: '7 Arches' },
+      city: 'Lefkara',
+      currency: 'EUR',
+      booking_mode: 'request_confirmation',
+      is_published: true,
+      room_type_count: 0,
+      total_inventory: 0,
+      rate_plan_count: 0,
+      room_rate_count: 0,
+      price_from: null,
+      legacy_configuration: {
+        pricing_model: 'tiered_by_nights',
+        pricing_tiers: { currency: 'EUR', rules: SEVEN_ARCHES_RULES },
+        pricing_extras: { currency: 'EUR', items: [] },
+        room_types: [],
+        max_persons: 8,
+        currency: 'EUR',
+      },
+      readiness: { state: 'LEGACY', preparation_state: 'DRAFT' },
+    }, {
+      id: RGB_HOTEL_ID,
+      slug: 'rgb-cabins-larnaka-centrum',
+      architecture_version: 'legacy',
+      title_i18n: { en: 'RGB Cabins – Larnaca City Centre' },
+      city: 'Larnaca',
+      currency: 'EUR',
+      booking_mode: 'request_confirmation',
+      is_published: false,
+      room_type_count: 0,
+      total_inventory: 0,
+      rate_plan_count: 0,
+      room_rate_count: 0,
+      price_from: null,
+      legacy_configuration: {
+        pricing_model: 'flat_per_night',
+        pricing_tiers: {
+          currency: 'EUR',
+          rules: [{
+            persons: 2,
+            min_nights: 2,
+            price_per_night: 45,
+            month_prices: {
+              jan: 45, feb: 45, mar: 45, apr: 45, may: 50, jun: 60,
+              jul: 60, aug: 60, sep: 50, oct: 45, nov: 45, dec: 45,
+            },
+          }],
+        },
+        pricing_extras: { currency: 'EUR', items: [] },
+        room_types: [],
+        max_persons: 2,
+        currency: 'EUR',
+      },
+      readiness: { state: 'LEGACY', preparation_state: 'DRAFT' },
+    }];
+
+    api.renderPropertyList();
+    const cards = elements.hotelPropertyList.innerHTML.split('<article').slice(1);
+    expect(cards).toHaveLength(2);
+
+    expect(SEVEN_ARCHES_RULES).toHaveLength(63);
+    expect(cards[0]).toContain('Current public pricing');
+    expect(cards[0]).toContain('€70.00');
+    expect(cards[0]).toContain('63 legacy pricing rules');
+    expect(cards[0]).toContain('Rooms V2 preparation');
+    expect(cards[0]).toContain('Not configured');
+    expect(cards[0]).not.toContain('— configured from');
+
+    expect(cards[1]).toContain('Current public pricing');
+    expect(cards[1]).toContain('€45.00');
+    expect(cards[1]).toContain('1 legacy pricing rule');
+    expect(cards[1]).toContain('Rooms V2 preparation');
+    expect(cards[1]).toContain('Not configured');
+    expect(cards[1]).not.toContain('— configured from');
+  });
+
+  test('uses normalized price_from only for Rooms V2 and never falls back to legacy JSON', () => {
+    const { api, elements } = loadUiForDirectoryRender();
+    api.state.properties = [{
+      id: HOTEL_ID,
+      slug: 'rooms-v2-draft',
+      architecture_version: 'rooms_v2',
+      title_i18n: { en: 'Rooms V2 Draft' },
+      city: 'Lefkara',
+      currency: 'EUR',
+      booking_mode: 'request_confirmation',
+      is_published: false,
+      room_type_count: 1,
+      total_inventory: 4,
+      rate_plan_count: 1,
+      room_rate_count: 1,
+      price_from: 105,
+      legacy_configuration: null,
+      // Stale compatibility-looking fields must never become the Rooms V2
+      // price source even if a malformed client response contains them.
+      pricing_model: 'flat_per_night',
+      pricing_tiers: { rules: [{ persons: 2, min_nights: 1, price_per_night: 1 }] },
+      readiness: { state: 'READY_FOR_CALENDAR', preparation_state: 'READY_FOR_CALENDAR' },
+    }];
+
+    api.renderPropertyList();
+    const html = elements.hotelPropertyList.innerHTML;
+    expect(html).toContain('Rooms V2');
+    expect(html).toContain('€105.00');
+    expect(html).toContain('configured from');
+    expect(html).not.toContain('Current public pricing');
+    expect(html).not.toContain('€1.00');
+  });
+
+  test('keeps structured legacy room pricing visible without copying it into Rooms V2', () => {
+    expect(ui).toContain('Current legacy rooms / pricing');
+    expect(ui).toContain('Capacity not specified');
+    expect(ui).toContain('Inventory not specified');
+    expect(ui).toContain('Pricing inherited');
+    expect(ui).toContain('selectedRoomTypeId: roomId');
+    expect(ui).toContain('This is the current legacy configuration. Rooms V2 preparation below is separate and cannot overwrite it.');
+    expect(ui).not.toMatch(/JSON\.stringify\(summary\.rooms\)/);
   });
 
   test('presents one Room Type with several property Rate Plans rather than duplicate room semantics', () => {

@@ -16,6 +16,23 @@ function seedHotelsV2H2aWorkspace() {
   return ({ adminId, hotelId, partnerId }: { adminId: string; hotelId: string; partnerId: string }) => {
     const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
     const timestamp = () => '2026-08-11T12:00:00.000Z';
+    const thresholdNights = [2, 3, 4, 5, 6, 7, 8, 9, 10];
+    const legacyRateMatrix = [
+      { persons: 2, rates: [100, 90, 88, 84, 80, 76, 74, 72, 70] },
+      { persons: 3, rates: [130, 113, 113, 104, 100, 95, 94, 90, 90] },
+      { persons: 4, rates: [155, 135, 135, 120, 118, 114, 111, 107, 107] },
+      { persons: 5, rates: [200, 180, 176, 168, 160, 152, 148, 144, 140] },
+      { persons: 6, rates: [260, 226, 226, 208, 200, 190, 188, 180, 180] },
+      { persons: 7, rates: [310, 270, 270, 240, 236, 228, 222, 214, 214] },
+      { persons: 8, rates: [310, 270, 270, 240, 236, 228, 222, 214, 214] },
+    ];
+    const legacyPricingRules = legacyRateMatrix.flatMap((matrixRow) =>
+      thresholdNights.map((minNights, index) => ({
+        persons: matrixRow.persons,
+        min_nights: minNights,
+        price_per_night: matrixRow.rates[index],
+      })),
+    );
     const property = {
       id: hotelId,
       slug: '7-ukow',
@@ -32,9 +49,11 @@ function seedHotelsV2H2aWorkspace() {
       booking_mode: 'request_confirmation',
       owner_partner_id: partnerId,
       owner_partner: { id: partnerId, name: 'Fixture Hotels Partner', status: 'active', can_manage_hotels: true },
-      room_types: [{ id: 'legacy-standard', name: { en: 'Legacy Standard' } }],
-      pricing_tiers: { rules: [{ persons: 2, min_nights: 2, price_per_night: 100 }] },
+      room_types: [],
+      pricing_tiers: { currency: 'EUR', rules: legacyPricingRules },
+      pricing_extras: { currency: 'EUR', items: [] },
       pricing_model: 'tiered_by_nights',
+      max_persons: 8,
       photos: [],
       amenities: [],
       is_published: true,
@@ -45,6 +64,11 @@ function seedHotelsV2H2aWorkspace() {
     };
     const store: any = {
       property,
+      legacy_baseline: {
+        pricing_tiers: clone(property.pricing_tiers),
+        pricing_extras: clone(property.pricing_extras),
+        room_types: clone(property.room_types),
+      },
       room_types: [],
       units: [],
       rate_plans: [],
@@ -147,6 +171,16 @@ function seedHotelsV2H2aWorkspace() {
           rate_plan_count: store.rate_plans.length,
           price_from: store.room_rates.length
             ? Math.min(...store.room_rates.map((rate: any) => Number(rate.base_nightly_rate)))
+            : null,
+          legacy_configuration: store.property.architecture_version === 'legacy'
+            ? {
+              pricing_model: store.property.pricing_model,
+              pricing_tiers: clone(store.property.pricing_tiers),
+              room_types: clone(store.property.room_types),
+              pricing_extras: clone(store.property.pricing_extras),
+              max_persons: store.property.max_persons,
+              currency: store.property.currency,
+            }
             : null,
           upcoming_booking_count: 0,
           readiness: {
@@ -289,6 +323,12 @@ test('H2A Property Workspace keeps one legacy property inert while Rooms, Units 
   await expect(propertyCard).toContainText('7 Arches');
   await expect(propertyCard).toContainText('0 room types');
   await expect(propertyCard).toContainText('Legacy');
+  await expect(propertyCard).toContainText('Current public pricing');
+  await expect(propertyCard).toContainText('€70.00');
+  await expect(propertyCard).toContainText('63 legacy pricing rules');
+  await expect(propertyCard).toContainText('Rooms V2 preparation');
+  await expect(propertyCard).toContainText('Not configured');
+  await expect(propertyCard).not.toContainText('— configured from');
 
   await propertyCard.locator('[data-hotel-open-workspace]').click();
   await expect(page.locator('#hotelPropertyWorkspace')).toBeVisible();
@@ -296,6 +336,11 @@ test('H2A Property Workspace keeps one legacy property inert while Rooms, Units 
   await expect(page.locator('#hotelWorkspaceActivePanel')).toContainText('Migration preview');
   await expect(page.locator('#hotelWorkspaceActivePanel')).toContainText('Not migrated');
   await expect(page.locator('#hotelWorkspaceActivePanel')).toContainText('Legacy room rows');
+  await expect(page.locator('#hotelWorkspaceActivePanel')).toContainText('Current live legacy configuration');
+  await expect(page.locator('#hotelWorkspaceActivePanel')).toContainText('Tiered legacy pricing');
+  await expect(page.locator('#hotelWorkspaceActivePanel')).toContainText('€70.00');
+  await expect(page.locator('#hotelWorkspaceActivePanel')).toContainText('63');
+  await expect(page.locator('#hotelWorkspaceActivePanel')).toContainText('Rooms V2 preparation');
 
   await openRoomsTab(page);
 
@@ -465,6 +510,12 @@ test('H2A Property Workspace keeps one legacy property inert while Rooms, Units 
         architecture_version: store.property.architecture_version,
         is_published: store.property.is_published,
         pricing_model: store.property.pricing_model,
+        legacy_pricing_rule_count: store.property.pricing_tiers?.rules?.length || 0,
+        legacy_configuration_unchanged: JSON.stringify({
+          pricing_tiers: store.property.pricing_tiers,
+          pricing_extras: store.property.pricing_extras,
+          room_types: store.property.room_types,
+        }) === JSON.stringify(store.legacy_baseline),
       },
       flags: store.flags,
       roomIds: store.room_types.map((room: any) => room.id).sort(),
@@ -495,6 +546,8 @@ test('H2A Property Workspace keeps one legacy property inert while Rooms, Units 
     architecture_version: 'legacy',
     is_published: true,
     pricing_model: 'tiered_by_nights',
+    legacy_pricing_rule_count: 63,
+    legacy_configuration_unchanged: true,
   });
   expect(audit.flags).toEqual({
     hotel_rooms_v2_enabled: false,

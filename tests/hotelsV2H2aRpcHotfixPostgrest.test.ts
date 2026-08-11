@@ -11,6 +11,9 @@ describe('Hotels V2 H2A property-directory hotfix real PostgREST gate', () => {
   const repair = read(
     'supabase/migrations/20260811210000_hotels_v2_h2a_property_directory_rpc_fix.sql',
   );
+  const legacyPriceVisibility = read(
+    'supabase/migrations/20260811220000_hotels_v2_h2a_legacy_price_visibility.sql',
+  );
 
   test('is strictly loopback and applies the exact H2A repair after H1A/H2A', () => {
     expect(config).toContain('127.0.0.1:55437/hotels_v2_h2a_hotfix');
@@ -20,6 +23,18 @@ describe('Hotels V2 H2A property-directory hotfix real PostgREST gate', () => {
     expect(fixture).toContain('20260811170000_hotels_v2_h1a_core.sql');
     expect(fixture).toContain('20260811200000_hotels_v2_h2a_admin_workspace_foundation.sql');
     expect(fixture).toContain('20260811210000_hotels_v2_h2a_property_directory_rpc_fix.sql');
+    expect(fixture).toContain('20260811220000_hotels_v2_h2a_legacy_price_visibility.sql');
+  });
+
+  test('returns legacy pricing inputs without using normalized price_from as a fallback', () => {
+    expect(legacyPriceVisibility).toContain("'legacy_configuration'");
+    expect(legacyPriceVisibility).toContain("when hotel.architecture_version = 'legacy'");
+    expect(gate).toContain('propertyA.legacy_configuration');
+    expect(gate).toContain('propertyB.legacy_configuration');
+    expect(gate).toContain("propertyA.price_from, null");
+    expect(gate).toContain("propertyB.price_from, null");
+    expect(gate).toContain("pricing_model: 'tiered_by_nights'");
+    expect(gate).toContain("pricing_model: 'flat_per_night'");
   });
 
   test('models the exact production partner_resources existence contract', () => {

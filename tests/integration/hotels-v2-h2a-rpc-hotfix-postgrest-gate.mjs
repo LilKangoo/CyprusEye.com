@@ -73,6 +73,38 @@ assert.equal(propertyA.slug, '7-ukow');
 assert.equal(propertyB.slug, 'rgb-cabins-larnaka-centrum');
 assert.equal(propertyA.operational_partner_count, 1);
 assert.equal(propertyB.operational_partner_count, 0);
+assert.equal(propertyA.price_from, null, 'Legacy property must not borrow normalized Rooms V2 price_from.');
+assert.equal(propertyB.price_from, null, 'Legacy property must not borrow normalized Rooms V2 price_from.');
+assert.deepEqual(propertyA.legacy_configuration, {
+  pricing_model: 'tiered_by_nights',
+  pricing_tiers: {
+    currency: 'EUR',
+    rules: [
+      { persons: 2, min_nights: 2, price_per_night: 100 },
+      { persons: 2, min_nights: 10, price_per_night: 70 },
+    ],
+  },
+  room_types: [],
+  pricing_extras: { currency: 'EUR', items: [] },
+  max_persons: 8,
+  currency: 'EUR',
+});
+assert.deepEqual(propertyB.legacy_configuration, {
+  pricing_model: 'flat_per_night',
+  pricing_tiers: {
+    currency: 'EUR',
+    rules: [{
+      persons: 2,
+      min_nights: 2,
+      price_per_night: 45,
+      month_prices: { jul: 60 },
+    }],
+  },
+  room_types: [],
+  pricing_extras: { currency: 'EUR', items: [] },
+  max_persons: 2,
+  currency: 'EUR',
+});
 
 const workspaces = {};
 for (const propertyId of EXPECTED_PROPERTY_IDS) {
@@ -144,6 +176,10 @@ summary.admin = {
   operationalPartnerCounts: {
     [PROPERTY_A]: propertyA.operational_partner_count,
     [PROPERTY_B]: propertyB.operational_partner_count,
+  },
+  legacyPricingModels: {
+    [PROPERTY_A]: propertyA.legacy_configuration.pricing_model,
+    [PROPERTY_B]: propertyB.legacy_configuration.pricing_model,
   },
   exactPartnerIdentity: exactPartnerIdentity.payload,
 };

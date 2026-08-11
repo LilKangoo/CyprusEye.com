@@ -87,6 +87,88 @@
     return labels[value] || 'Request confirmation';
   }
 
+  function legacyPricingModelLabel(value) {
+    const labels = {
+      per_person_per_night: 'Per-person legacy pricing',
+      category_per_night: 'Category-based legacy pricing',
+      tiered_by_nights: 'Tiered legacy pricing',
+      flat_per_night: 'Flat legacy nightly pricing',
+    };
+    return labels[String(value || '').trim()] || 'Legacy pricing';
+  }
+
+  function legacyConfiguration(value) {
+    const source = Core.asObject(value);
+    const embedded = Core.asObject(source.legacy_configuration);
+    return Object.keys(embedded).length ? embedded : source;
+  }
+
+  function legacyPricingSummary(value) {
+    const source = legacyConfiguration(value);
+    const pricingEngine = window.CE_HOTEL_PRICING;
+    const rawRooms = Core.asArray(source.room_types);
+    const normalizedRooms = typeof pricingEngine?.normalizeHotelRoomTypes === 'function'
+      ? pricingEngine.normalizeHotelRoomTypes(rawRooms, source)
+      : rawRooms;
+    const propertyRuleCount = Core.asArray(Core.asObject(source.pricing_tiers).rules).length;
+    const roomRuleCount = normalizedRooms.reduce((count, room) => (
+      count + Core.asArray(Core.asObject(room?.pricing_tiers).rules).length
+    ), 0);
+    let minNightlyRate = null;
+    if (typeof pricingEngine?.getHotelMinPricePerNight === 'function') {
+      try {
+        const calculated = pricingEngine.getHotelMinPricePerNight(source, { preferredPersons: 2 });
+        if (calculated != null && Number.isFinite(Number(calculated))) minNightlyRate = Number(calculated);
+      } catch (_error) {
+        minNightlyRate = null;
+      }
+    }
+    return {
+      source,
+      pricing_model: String(source.pricing_model || '').trim(),
+      pricing_model_label: legacyPricingModelLabel(source.pricing_model),
+      property_rule_count: propertyRuleCount,
+      room_rule_count: roomRuleCount,
+      pricing_rule_count: propertyRuleCount + roomRuleCount,
+      room_count: normalizedRooms.length,
+      rooms: normalizedRooms,
+      min_nightly_rate: minNightlyRate,
+      currency: String(source.currency || Core.asObject(source.pricing_tiers).currency || 'EUR').toUpperCase(),
+    };
+  }
+
+  function legacyPublicPriceMarkup(summary, options = {}) {
+    if (summary.min_nightly_rate != null) {
+      return `${options.compact ? '' : 'From '}${escapeHtml(formatMoney(summary.min_nightly_rate, summary.currency))}${options.compact ? '/night' : ' / night'}`;
+    }
+    return escapeHtml(summary.pricing_model_label);
+  }
+
+  function renderLegacyRoomSummary(summary) {
+    if (!summary.rooms.length) {
+      return '<p class="hotel-legacy-live__empty">Property-level legacy pricing is active. No structured legacy room rows are configured.</p>';
+    }
+    return `<div class="hotel-legacy-room-summary"><span class="hotel-workspace-eyebrow">Current legacy rooms / pricing</span><ul>${summary.rooms.map((room) => {
+      const roomId = String(room.id || '').trim();
+      let roomPrice = null;
+      if (roomId && typeof window.CE_HOTEL_PRICING?.getHotelMinPricePerNight === 'function') {
+        try {
+          roomPrice = window.CE_HOTEL_PRICING.getHotelMinPricePerNight(summary.source, {
+            preferredPersons: 2,
+            selectedRoomTypeId: roomId,
+          });
+        } catch (_error) {
+          roomPrice = null;
+        }
+      }
+      const label = Core.i18nText(room.name, 'en', room.id || 'Legacy room');
+      const capacity = Number(room.max_persons) > 0 ? `${Number(room.max_persons)} guests` : 'Capacity not specified';
+      const inventory = Number(room.inventory_units) > 0 ? `${Number(room.inventory_units)} units` : 'Inventory not specified';
+      const plans = Core.asArray(room.rate_plans).length;
+      return `<li><span><strong>${escapeHtml(label)}</strong><small>${escapeHtml(capacity)} · ${escapeHtml(inventory)} · ${plans} rate plan${plans === 1 ? '' : 's'}</small></span><b>${roomPrice == null ? 'Pricing inherited' : legacyPublicPriceMarkup({ ...summary, min_nightly_rate: Number(roomPrice) }, { compact: true })}</b></li>`;
+    }).join('')}</ul></div>`;
+  }
+
   function getPropertyReadiness(row) {
     const source = Core.asObject(row?.readiness);
     if (source.state) return source;
@@ -211,6 +293,7 @@
     const title = propertyTitle(property);
     const image = String(property.cover_image_url || Core.asArray(property.photos)[0] || '').trim();
     const architecture = property.architecture_version || 'legacy';
+    const legacySummary = architecture === 'legacy' ? legacyPricingSummary(property) : null;
     const owner = property.owner_partner_name || property.owner_partner?.name || 'Not assigned';
     const publicLabel = property.is_published ? 'Published legacy page' : 'Not published';
     const readinessLabel = architecture === 'legacy' && !hasPreparation
@@ -232,16 +315,34 @@
             </div>
             <span class="hotel-workspace-status hotel-workspace-status--${statusTone(readinessLabel)}">${escapeHtml(readinessLabel)}</span>
           </div>
-          <div class="hotel-property-card__metrics">
-            <span><strong>${roomCount}</strong> room types</span>
-            <span><strong>${inventory}</strong> inventory</span>
-            <span><strong>${ratePlans}</strong> rate plans</span>
-            <span><strong>${price == null ? '—' : escapeHtml(formatMoney(price, property.currency))}</strong> configured from</span>
-            <span><strong>${upcoming}</strong> upcoming</span>
-          </div>
+          ${architecture === 'legacy' ? `
+            <div class="hotel-property-card__configuration-split">
+              <section class="hotel-property-card__legacy-pricing">
+                <span class="hotel-workspace-eyebrow">Current public pricing</span>
+                <strong>${legacyPublicPriceMarkup(legacySummary)}</strong>
+                <small>${escapeHtml(legacySummary.pricing_model_label)} · ${legacySummary.pricing_rule_count} legacy pricing rule${legacySummary.pricing_rule_count === 1 ? '' : 's'}</small>
+              </section>
+              <section class="hotel-property-card__v2-preparation">
+                <span class="hotel-workspace-eyebrow">Rooms V2 preparation</span>
+                <div class="hotel-property-card__metrics hotel-property-card__metrics--preparation">
+                  <span><strong>${roomCount}</strong> room types</span>
+                  <span><strong>${inventory}</strong> inventory</span>
+                  <span><strong>${ratePlans}</strong> rate plans</span>
+                  <span><strong>${price == null ? 'Not configured' : escapeHtml(formatMoney(price, property.currency))}</strong>${price == null ? 'shadow setup' : 'configured from'}</span>
+                </div>
+              </section>
+            </div>` : `
+            <div class="hotel-property-card__metrics">
+              <span><strong>${roomCount}</strong> room types</span>
+              <span><strong>${inventory}</strong> inventory</span>
+              <span><strong>${ratePlans}</strong> rate plans</span>
+              <span><strong>${price == null ? 'Not configured' : escapeHtml(formatMoney(price, property.currency))}</strong> configured from</span>
+              <span><strong>${upcoming}</strong> upcoming</span>
+            </div>`}
           <div class="hotel-property-card__meta">
             <span>${escapeHtml(publicLabel)}</span>
             <span>${escapeHtml(bookingModeLabel(property.booking_mode))}</span>
+            ${architecture === 'legacy' ? `<span>${upcoming} upcoming</span>` : ''}
             ${Core.asArray(readiness.blockers).length ? `<span class="hotel-property-card__blocker">${escapeHtml(Core.asArray(readiness.blockers)[0])}</span>` : ''}
           </div>
           <div class="hotel-property-card__actions">
@@ -375,6 +476,7 @@
     const property = state.workspace.property;
     const readiness = Core.deriveWorkspaceReadiness(state.workspace);
     const preview = Core.migrationPreview(state.workspace);
+    const legacySummary = property.architecture_version === 'legacy' ? legacyPricingSummary(property) : null;
     const partnerOptions = state.workspace.partners.map((partner) => `
       <option value="${escapeAttr(partner.id)}" ${partner.id === property.owner_partner_id ? 'selected' : ''}>${escapeHtml(partner.name || partner.company_name || partner.id)}</option>
     `).join('');
@@ -411,6 +513,20 @@
           </div>
         </form>
         <aside class="hotel-workspace-side-stack">
+          ${legacySummary ? `<section class="hotel-workspace-card hotel-legacy-live">
+            <span class="hotel-workspace-eyebrow">Current live legacy configuration</span>
+            <h4>${legacyPublicPriceMarkup(legacySummary)}</h4>
+            <dl>
+              <div><dt>Pricing model</dt><dd>${escapeHtml(legacySummary.pricing_model_label)}</dd></div>
+              <div><dt>Existing public price</dt><dd>${legacyPublicPriceMarkup(legacySummary)}</dd></div>
+              <div><dt>Legacy pricing rules</dt><dd>${legacySummary.pricing_rule_count}</dd></div>
+              <div><dt>Legacy room rows</dt><dd>${legacySummary.room_count}</dd></div>
+              <div><dt>Publication</dt><dd>${property.is_published ? 'Published' : 'Not published'}</dd></div>
+              <div><dt>Booking mode</dt><dd>${escapeHtml(bookingModeLabel(property.booking_mode))}</dd></div>
+            </dl>
+            ${renderLegacyRoomSummary(legacySummary)}
+            <p class="hotel-workspace-safety-note">This is the current legacy configuration. Rooms V2 preparation below is separate and cannot overwrite it.</p>
+          </section>` : ''}
           ${renderReadinessCard(readiness)}
           <section class="hotel-workspace-card hotel-migration-preview">
             <span class="hotel-workspace-eyebrow">Migration preview · read only</span>

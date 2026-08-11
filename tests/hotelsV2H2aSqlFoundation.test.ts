@@ -16,6 +16,12 @@ describe('Hotels V2 H2A Admin SQL foundation', () => {
   const repairVerify = read(
     'supabase/manual/hotels_v2_h2a_property_directory_rpc_fix_verify.sql',
   );
+  const legacyPriceVisibility = read(
+    'supabase/migrations/20260811220000_hotels_v2_h2a_legacy_price_visibility.sql',
+  );
+  const legacyPriceVisibilityVerify = read(
+    'supabase/manual/hotels_v2_h2a_legacy_price_visibility_verify.sql',
+  );
   const h1aBase = read('tests/integration/hotels-v2-h1a-base.sql');
   const h2aBase = read('tests/integration/hotels-v2-h2a-base.sql');
   const gate = read('tests/integration/hotels-v2-h2a-postgres-gate.sql');
@@ -76,6 +82,41 @@ describe('Hotels V2 H2A Admin SQL foundation', () => {
     expect(repairVerify).toContain('derived_assignment_activity');
     expect(repairVerify).toContain('exact_property_contract');
     expect(repairVerify).toContain('hotels_v2_h2a_property_directory_rpc_fix_safe');
+  });
+
+  test('exposes legacy pricing inputs separately without changing normalized price semantics', () => {
+    expect(legacyPriceVisibility.trimStart().toLowerCase()).toMatch(/^begin;/);
+    expect(legacyPriceVisibility.trimEnd().toLowerCase()).toMatch(/commit;$/);
+    expect(legacyPriceVisibility).toContain('public.hotel_v2_admin_get_property_list()');
+    expect(legacyPriceVisibility).toContain("'legacy_configuration'");
+    expect(legacyPriceVisibility).toContain("when hotel.architecture_version = 'legacy'");
+    for (const key of [
+      'pricing_model',
+      'pricing_tiers',
+      'room_types',
+      'pricing_extras',
+      'max_persons',
+      'currency',
+    ]) expect(legacyPriceVisibility).toContain(`'${key}'`);
+    expect(legacyPriceVisibility).toContain("'price_from'");
+    expect(legacyPriceVisibility).toContain('public.hotel_room_rates');
+    expect(legacyPriceVisibility).toContain("assignment.resource_type = 'hotels'");
+    const listDefinition = legacyPriceVisibility.match(
+      /create or replace function public\.hotel_v2_admin_get_property_list\(\)([\s\S]*?)\$function\$;/i,
+    )?.[0] || '';
+    expect(listDefinition).toContain('create or replace function');
+    expect(listDefinition).not.toContain('assignment.is_active');
+    expect(legacyPriceVisibility).not.toMatch(
+      /(?:insert\s+into|update|delete\s+from)\s+public\.(?:hotels|hotel_bookings|partner_service_fulfillments|hotel_room_types|hotel_rate_plans|hotel_room_rates)/i,
+    );
+    expect(legacyPriceVisibilityVerify).toContain('seven_arches_contract');
+    expect(legacyPriceVisibilityVerify).toContain('rgb_cabins_contract');
+    expect(legacyPriceVisibilityVerify).toContain('normalized_price_from_preserved');
+    expect(legacyPriceVisibilityVerify).toContain('partner_row_existence_preserved');
+    expect(legacyPriceVisibilityVerify).toContain('hotels_v2_h2a_legacy_price_visibility_safe');
+    expect(legacyPriceVisibilityVerify).not.toMatch(
+      /^\s*(?:insert|update|delete|merge|alter|create|drop|truncate|grant|revoke|call|do)\b/im,
+    );
   });
 
   test('uses the exact row-existence partner_resources fixture contract', () => {
@@ -204,6 +245,7 @@ describe('Hotels V2 H2A Admin SQL foundation', () => {
     expect(gate).toContain('20260811170000_hotels_v2_h1a_core.sql');
     expect(gate).toContain('20260811200000_hotels_v2_h2a_admin_workspace_foundation.sql');
     expect(gate).toContain('20260811210000_hotels_v2_h2a_property_directory_rpc_fix.sql');
+    expect(gate).toContain('20260811220000_hotels_v2_h2a_legacy_price_visibility.sql');
     expect(gate).toContain('hotels_v2_h2a_gate_partner_resources_fixture_drift');
     expect(gate).toContain('hotels_v2_h2a_gate_property_directory_repair_source_failed');
     expect(gate).toContain('hotels_v2_h2a_gate_unassigned_workspace_read_contract_failed');

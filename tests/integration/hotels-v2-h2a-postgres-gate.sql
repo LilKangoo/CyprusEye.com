@@ -4,6 +4,7 @@
 \ir ../../supabase/migrations/20260811170000_hotels_v2_h1a_core.sql
 \ir ../../supabase/migrations/20260811200000_hotels_v2_h2a_admin_workspace_foundation.sql
 \ir ../../supabase/migrations/20260811210000_hotels_v2_h2a_property_directory_rpc_fix.sql
+\ir ../../supabase/migrations/20260811220000_hotels_v2_h2a_legacy_price_visibility.sql
 
 -- Keep this fixture pinned to the deployed partner_resources contract.  An
 -- operational assignment is active by row existence; no status column exists.
@@ -41,7 +42,8 @@ begin
     );
 
   if v_source is null
-     or position('assignment.is_active' in v_source) > 0 then
+     or position('assignment.is_active' in v_source) > 0
+     or position('''legacy_configuration''' in v_source) = 0 then
     raise exception 'hotels_v2_h2a_gate_property_directory_repair_source_failed';
   end if;
 end
@@ -85,6 +87,18 @@ begin
      or (select count(*) from jsonb_array_elements(v_list) property where (property->>'is_published')::boolean) <> 1
      or v_list @? '$[*] ? (@.id == "30000000-0000-4000-8000-000000000001" && @.operational_partner_count == 1)' is not true
      or v_list @? '$[*] ? (@.id == "30000000-0000-4000-8000-000000000002" && @.operational_partner_count == 0)' is not true
+     or v_list @? '$[*] ? (@.id == "30000000-0000-4000-8000-000000000001" && @.legacy_configuration.pricing_model == "tiered_by_nights" && @.legacy_configuration.max_persons == 8)' is not true
+     or v_list @? '$[*] ? (@.id == "30000000-0000-4000-8000-000000000002" && @.legacy_configuration.pricing_model == "flat_per_night" && @.legacy_configuration.max_persons == 2)' is not true
+     or jsonb_array_length(
+       (select property->'legacy_configuration'->'pricing_tiers'->'rules'
+        from jsonb_array_elements(v_list) property
+        where property->>'id' = '30000000-0000-4000-8000-000000000001')
+     ) <> 2
+     or jsonb_array_length(
+       (select property->'legacy_configuration'->'room_types'
+        from jsonb_array_elements(v_list) property
+        where property->>'id' = '30000000-0000-4000-8000-000000000001')
+     ) <> 1
      or v_list @? '$[*] ? (@.room_type_count == 0 && @.rate_plan_count == 0)' is not true then
     raise exception 'hotels_v2_h2a_gate_property_list_contract_failed';
   end if;
@@ -139,6 +153,7 @@ select public.hotel_v2_admin_create_property_draft(
 do $draft_contract$
 declare
   v_property jsonb;
+  v_directory_row jsonb;
 begin
   v_property := public.hotel_v2_admin_get_property_workspace(
     '50000000-0000-4000-8000-000000000001'
@@ -149,6 +164,15 @@ begin
      or v_property->>'status' <> 'draft'
      or v_property->>'submission_status' <> 'draft' then
     raise exception 'hotels_v2_h2a_gate_new_property_not_inert';
+  end if;
+
+  select property into v_directory_row
+  from jsonb_array_elements(public.hotel_v2_admin_get_property_list()) property
+  where property->>'id' = '50000000-0000-4000-8000-000000000001';
+
+  if v_directory_row is null
+     or v_directory_row->'legacy_configuration' <> 'null'::jsonb then
+    raise exception 'hotels_v2_h2a_gate_rooms_v2_received_legacy_configuration';
   end if;
 end
 $draft_contract$;

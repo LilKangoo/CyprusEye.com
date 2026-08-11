@@ -32,7 +32,8 @@ delete from public.hotels;
 
 insert into public.hotels(
   id, slug, title, description, title_i18n, description_i18n, city,
-  owner_partner_id, is_published, status, submission_status, photos
+  owner_partner_id, is_published, status, submission_status, photos,
+  pricing_model, pricing_tiers, room_types, pricing_extras, max_persons
 ) values
   (
     '9b6d99a0-923a-4fbc-be54-c066e856e6ca', '7-ukow',
@@ -40,7 +41,9 @@ insert into public.hotels(
     '{"en":"7 Arches","pl":"7 Łuków","he":"7 Arches"}',
     '{"en":"Local PostgREST fixture"}', 'Lefkara',
     '20000000-0000-4000-8000-000000000001', true, 'published', 'approved',
-    '["/images/hotels/h2a-fixture-a.webp"]'
+    '["/images/hotels/h2a-fixture-a.webp"]', 'tiered_by_nights',
+    '{"currency":"EUR","rules":[{"persons":2,"min_nights":2,"price_per_night":100},{"persons":2,"min_nights":10,"price_per_night":70}]}',
+    '[]', '{"currency":"EUR","items":[]}', 8
   ),
   (
     'f9fbaa61-fdce-4418-8579-ddb2b0a75fb1', 'rgb-cabins-larnaka-centrum',
@@ -48,7 +51,9 @@ insert into public.hotels(
     '{"en":"RGB Cabins","pl":"RGB Cabins","he":"RGB Cabins"}',
     '{"en":"Local PostgREST fixture"}', 'Larnaca',
     null, false, 'draft', 'draft',
-    '["/images/hotels/h2a-fixture-b.webp"]'
+    '["/images/hotels/h2a-fixture-b.webp"]', 'flat_per_night',
+    '{"currency":"EUR","rules":[{"persons":2,"min_nights":2,"price_per_night":45,"month_prices":{"jul":60}}]}',
+    '[]', '{"currency":"EUR","items":[]}', 2
   );
 
 insert into public.partner_resources(partner_id, resource_type, resource_id)
@@ -116,6 +121,6 @@ grant usage on schema public, auth to anon, authenticated, service_role;
 \ir ../../supabase/migrations/20260811170000_hotels_v2_h1a_core.sql
 \ir ../../supabase/migrations/20260811200000_hotels_v2_h2a_admin_workspace_foundation.sql
 \ir ../../supabase/migrations/20260811210000_hotels_v2_h2a_property_directory_rpc_fix.sql
+\ir ../../supabase/migrations/20260811220000_hotels_v2_h2a_legacy_price_visibility.sql
 
 notify pgrst, 'reload schema';
-

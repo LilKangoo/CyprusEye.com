@@ -67,6 +67,7 @@ create table public.hotels (
   photos jsonb default '[]'::jsonb,
   pricing_model text default 'flat_per_night',
   pricing_tiers jsonb default '{"currency":"EUR","rules":[]}'::jsonb,
+  max_persons integer check (max_persons is null or max_persons >= 1),
   booking_settings jsonb default '{}'::jsonb,
   pricing_extras jsonb default '{"currency":"EUR","items":[]}'::jsonb,
   owner_partner_id uuid references public.partners(id),
@@ -196,20 +197,26 @@ insert into public.partners(id, name, status, can_manage_hotels) values
 
 insert into public.hotels(
   id, slug, title, description, title_i18n, description_i18n, city,
-  owner_partner_id, is_published, status, submission_status, photos
+  owner_partner_id, is_published, status, submission_status, photos,
+  pricing_model, pricing_tiers, room_types, pricing_extras, max_persons
 ) values
   (
     '30000000-0000-4000-8000-000000000001', 'synthetic-legacy-a',
     '{"en":"Synthetic Legacy A"}', '{"en":"Legacy property A"}',
     '{"en":"Synthetic Legacy A"}', '{"en":"Legacy property A"}', 'Lefkara',
     '20000000-0000-4000-8000-000000000001', true, 'published', 'approved',
-    '["/images/a.webp"]'
+    '["/images/a.webp"]', 'tiered_by_nights',
+    '{"currency":"EUR","rules":[{"persons":2,"min_nights":2,"price_per_night":100},{"persons":2,"min_nights":7,"price_per_night":70}]}',
+    '[{"id":"legacy-suite","name":{"en":"Legacy Suite"},"pricing_model":"flat_per_night","pricing_tiers":{"currency":"EUR","rules":[{"persons":2,"min_nights":2,"price_per_night":90}]}}]',
+    '{"currency":"EUR","items":[]}', 8
   ),
   (
     '30000000-0000-4000-8000-000000000002', 'synthetic-legacy-b',
     '{"en":"Synthetic Legacy B"}', '{"en":"Legacy property B"}',
     '{"en":"Synthetic Legacy B"}', '{"en":"Legacy property B"}', 'Larnaca',
-    null, false, 'draft', 'draft', '["/images/b.webp"]'
+    null, false, 'draft', 'draft', '["/images/b.webp"]', 'flat_per_night',
+    '{"currency":"EUR","rules":[{"persons":2,"min_nights":2,"price_per_night":45,"month_prices":{"jul":60}}]}',
+    '[]', '{"currency":"EUR","items":[]}', 2
   );
 
 insert into public.partner_resources(partner_id, resource_type, resource_id)
