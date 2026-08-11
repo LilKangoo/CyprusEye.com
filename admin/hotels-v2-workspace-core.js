@@ -10,6 +10,57 @@
   const UNIT_STATUSES = Object.freeze(['active', 'maintenance', 'disabled']);
   const INVENTORY_MODES = Object.freeze(['pooled', 'unitized']);
   const BOOKING_MODES = Object.freeze(['request_confirmation', 'instant_booking', 'external_redirect']);
+  const CHILDREN_POLICIES = Object.freeze(['allowed', 'not_allowed', 'minimum_age']);
+  const ROOM_CHILDREN_POLICY_OVERRIDES = Object.freeze(['allowed', 'not_allowed', 'minimum_age']);
+  const CHILD_AGE_MIN = 0;
+  const CHILD_AGE_MAX = 17;
+  const SEVEN_ARCHES_PROPERTY_ID = '9b6d99a0-923a-4fbc-be54-c066e856e6ca';
+  const SEVEN_ARCHES_SHADOW_IDS = Object.freeze({
+    upper_room_type: 'b4ef504f-cdeb-4e3c-a54d-932146ef4e94',
+    ground_room_type: '825c01b7-9f82-492a-9c81-9b1d5cd7acd3',
+    rate_plan: '22e47a63-a630-4fb6-8f43-816f2d3fdc17',
+    upper_room_rate: '7e420964-9cbf-4f1b-abd3-09840af5240f',
+    ground_room_rate: '3320590d-632d-423f-80d0-fd021cba7293',
+    pricing_schedule: 'b0a3104f-7b31-5265-a59f-c2d166f11a23',
+    property_party_preview: '443065c0-984a-5de3-a22a-d03042c41107',
+  });
+  const SEVEN_ARCHES_SOURCE_CONTRACT = 'seven_arches_two_apartments_v1';
+  const SEVEN_ARCHES_ROOM_DEFINITIONS = Object.freeze([
+    Object.freeze({
+      id: SEVEN_ARCHES_SHADOW_IDS.upper_room_type,
+      source_key: 'upper_floor_apartment',
+      code: 'upper-floor-apartment',
+      name_i18n: Object.freeze({
+        pl: 'Apartament na piętrze',
+        en: 'Upper Floor Apartment',
+        he: 'דירה בקומה העליונה',
+      }),
+      description_i18n: Object.freeze({
+        pl: 'Apartament na piętrze z tarasem i balkonem.',
+        en: 'Upper-floor apartment with a terrace and balcony.',
+        he: 'דירה בקומה העליונה עם טרסה ומרפסת.',
+      }),
+      amenities: Object.freeze(['air_conditioning', 'balcony', 'terrace']),
+      sort_order: 100,
+    }),
+    Object.freeze({
+      id: SEVEN_ARCHES_SHADOW_IDS.ground_room_type,
+      source_key: 'ground_floor_apartment',
+      code: 'ground-floor-apartment',
+      name_i18n: Object.freeze({
+        pl: 'Apartament na parterze',
+        en: 'Ground Floor Apartment',
+        he: 'דירה בקומת הקרקע',
+      }),
+      description_i18n: Object.freeze({
+        pl: 'Apartament na parterze z tarasem, bez balkonu.',
+        en: 'Ground-floor apartment with a terrace and no balcony.',
+        he: 'דירה בקומת הקרקע עם טרסה וללא מרפסת.',
+      }),
+      amenities: Object.freeze(['air_conditioning', 'terrace']),
+      sort_order: 200,
+    }),
+  ]);
   const BED_TYPES = Object.freeze([
     'double',
     'single',
@@ -136,11 +187,19 @@
 
   function normalizeCancellationPolicy(value) {
     const source = asObject(value);
-    const type = ['flexible', 'custom', 'non_refundable'].includes(asText(source.type))
+    const type = ['flexible', 'custom', 'non_refundable', 'requires_review'].includes(asText(source.type))
       ? asText(source.type)
       : 'flexible';
     if (type === 'non_refundable') return { type: 'non_refundable' };
     if (type === 'flexible') return { type: 'flexible' };
+    if (type === 'requires_review') {
+      const summary = normalizeI18n(source.summary_i18n);
+      return {
+        type: 'requires_review',
+        reason: asText(source.reason),
+        ...(Object.keys(summary).length ? { summary_i18n: summary } : {}),
+      };
+    }
 
     const deadlineHours = asInteger(source.deadline_hours, 0);
     const legacyPenalty = asObject(source.penalty);
@@ -160,10 +219,192 @@
     return normalized;
   }
 
+  function normalizeChildrenPolicy(policy, minimumAge, options = {}) {
+    const allowInherit = options.allowInherit === true;
+    const normalizedPolicy = asText(policy).toLowerCase();
+    if (allowInherit && !normalizedPolicy) {
+      if (minimumAge != null && minimumAge !== '') {
+        throw new Error('A child age cannot be stored while the Room Type uses the property policy.');
+      }
+      return { policy: null, minimum_age: null };
+    }
+    if (!CHILDREN_POLICIES.includes(normalizedPolicy)) {
+      throw new Error('Choose a valid children policy.');
+    }
+    if (normalizedPolicy !== 'minimum_age') {
+      if (minimumAge != null && minimumAge !== '') {
+        throw new Error('Minimum child age is available only with Allowed from age.');
+      }
+      return { policy: normalizedPolicy, minimum_age: null };
+    }
+    if (minimumAge == null || minimumAge === '') {
+      throw new Error(`Minimum child age must be a whole number from ${CHILD_AGE_MIN} to ${CHILD_AGE_MAX}.`);
+    }
+    const age = Number(minimumAge);
+    if (!Number.isInteger(age) || age < CHILD_AGE_MIN || age > CHILD_AGE_MAX) {
+      throw new Error(`Minimum child age must be a whole number from ${CHILD_AGE_MIN} to ${CHILD_AGE_MAX}.`);
+    }
+    return { policy: normalizedPolicy, minimum_age: age };
+  }
+
+  function resolveChildrenPolicy(property, roomType = null) {
+    const override = asText(roomType?.children_policy_override);
+    if (override) {
+      const roomPolicy = normalizeChildrenPolicy(override, roomType?.minimum_child_age_override, { allowInherit: true });
+      return { ...roomPolicy, source: 'room_type' };
+    }
+    if (!asText(property?.children_policy)) throw new Error('Property children policy has not been reviewed.');
+    const propertyPolicy = normalizeChildrenPolicy(property.children_policy, property.minimum_child_age);
+    return { ...propertyPolicy, source: 'property' };
+  }
+
+  function childrenPolicyLabel(policy, minimumAge) {
+    const normalized = normalizeChildrenPolicy(policy, minimumAge);
+    if (normalized.policy === 'not_allowed') return 'Adults only / No children';
+    if (normalized.policy === 'minimum_age') return `Children allowed from age ${normalized.minimum_age}`;
+    return 'Children allowed';
+  }
+
+  function sevenArchesShadowPreparation(workspace) {
+    const normalized = normalizeWorkspace(workspace);
+    if (normalized.property.id !== SEVEN_ARCHES_PROPERTY_ID) {
+      return { eligible: false, blocker: 'This reviewed preparation is available only for the exact 7 Arches property.' };
+    }
+    if (normalized.property.architecture_version !== 'legacy') {
+      return { eligible: false, blocker: '7 Arches is no longer a legacy property. Stop and review its architecture state.' };
+    }
+    const expectedIds = new Set([
+      SEVEN_ARCHES_SHADOW_IDS.upper_room_type,
+      SEVEN_ARCHES_SHADOW_IDS.ground_room_type,
+    ]);
+    const unexpectedRooms = normalized.room_types.filter((room) => !expectedIds.has(room.id));
+    if (unexpectedRooms.length) {
+      return {
+        eligible: false,
+        blocker: 'Unexpected normalized Room Types already exist. Review them before preparing the confirmed two-apartment package.',
+        unexpected_room_ids: unexpectedRooms.map((room) => room.id),
+      };
+    }
+    const gallery = normalizeGallery(normalized.property.photos);
+    const catalogCodes = new Set(normalized.amenities_catalog.map((entry) => asText(entry.code)));
+    const requiredAmenities = ['air_conditioning', 'balcony', 'terrace'];
+    const missingAmenities = requiredAmenities.filter((code) => !catalogCodes.has(code));
+    if (missingAmenities.length) {
+      return {
+        eligible: false,
+        blocker: `Required amenity catalogue entries are missing: ${missingAmenities.join(', ')}.`,
+        missing_amenities: missingAmenities,
+      };
+    }
+    const rooms = SEVEN_ARCHES_ROOM_DEFINITIONS.map((definition) => {
+      const existing = normalized.room_types.find((room) => room.id === definition.id);
+      return normalizeRoomType({
+        ...(existing || {}),
+        id: definition.id,
+        hotel_id: SEVEN_ARCHES_PROPERTY_ID,
+        code: definition.code,
+        name_i18n: existing?.name_i18n || definition.name_i18n,
+        description_i18n: definition.description_i18n,
+        gallery: existing?.gallery || [],
+        capacity_adults: null,
+        capacity_children: null,
+        max_occupancy: 4,
+        children_policy_override: null,
+        minimum_child_age_override: null,
+        bed_configuration: [],
+        bathrooms: null,
+        size_sqm: null,
+        amenities: definition.amenities,
+        inventory_mode: 'pooled',
+        base_inventory_count: 1,
+        status: 'draft',
+        sort_order: definition.sort_order,
+        version: existing?.version || 1,
+        created_at: existing?.created_at || null,
+        updated_at: existing?.updated_at || null,
+      });
+    });
+    return {
+      eligible: true,
+      hotel_id: SEVEN_ARCHES_PROPERTY_ID,
+      source_contract: SEVEN_ARCHES_SOURCE_CONTRACT,
+      property_policy: { children_policy: 'minimum_age', minimum_child_age: 10 },
+      property_gallery: gallery,
+      rooms,
+      pricing: {
+        status: 'BLOCKED_PENDING_CANCELLATION_REVIEW',
+        shared_rate_plan_label: 'Standard',
+        source_rule_count: 63,
+        legacy_public_unchanged: true,
+      },
+      public_change: false,
+    };
+  }
+
+  function buildSevenArchesShadowPlan(workspace, roomReviews, options = {}) {
+    const preparation = sevenArchesShadowPreparation(workspace);
+    if (!preparation.eligible) throw new Error(preparation.blocker);
+    const normalizedWorkspace = normalizeWorkspace(workspace);
+    const reviews = asArray(roomReviews);
+    if (reviews.length !== 2) throw new Error('Exactly two reviewed 7 Arches apartments are required.');
+    const propertyGallery = new Set(preparation.property_gallery);
+    const rooms = preparation.rooms.map((room) => {
+      const reviewed = reviews.find((entry) => normalizeUuid(entry.id) === room.id);
+      if (!reviewed) throw new Error(`Missing reviewed apartment ${room.code}.`);
+      const name = normalizeI18n(reviewed.name_i18n);
+      if (LANGUAGES.some((language) => !asText(name[language]))) {
+        throw new Error(`${i18nText(room.name_i18n, 'en', room.code)} needs PL, EN and HE names.`);
+      }
+      const selectedPhotos = normalizeGallery(reviewed.gallery);
+      if (!selectedPhotos.length) throw new Error(`${i18nText(name, 'en', room.code)} needs at least one reviewed room photo.`);
+      if (selectedPhotos.some((url) => !propertyGallery.has(url))) {
+        throw new Error('Room photos must be selected from the current 7 Arches property gallery.');
+      }
+      const existing = normalizedWorkspace.room_types.find((candidate) => candidate.id === room.id);
+      return {
+        id: room.id,
+        expected_version: existing ? existing.version : 0,
+        source_key: SEVEN_ARCHES_ROOM_DEFINITIONS.find((definition) => definition.id === room.id).source_key,
+        code: room.code,
+        name_i18n: name,
+        description_i18n: clone(room.description_i18n),
+        gallery: selectedPhotos,
+        amenities: clone(room.amenities),
+        max_occupancy: 4,
+        sort_order: room.sort_order,
+      };
+    });
+    const currentVersion = (rows, id) => Math.max(0, asInteger(asArray(rows).find((row) => normalizeUuid(row?.id) === id)?.version, 0));
+    const legacyFingerprint = asText(normalizedWorkspace.legacy_shadow_preview?.legacy_pricing_fingerprint);
+    if (!legacyFingerprint) throw new Error('The server did not return the reviewed legacy pricing fingerprint. Refresh after deploying the H2B.1 SQL foundation.');
+    return {
+      hotel_id: SEVEN_ARCHES_PROPERTY_ID,
+      expected_property_updated_at: normalizedWorkspace.property.updated_at || null,
+      expected_legacy_pricing_fingerprint: legacyFingerprint,
+      expected_versions: {
+        upper_room: currentVersion(normalizedWorkspace.room_types, SEVEN_ARCHES_SHADOW_IDS.upper_room_type),
+        ground_room: currentVersion(normalizedWorkspace.room_types, SEVEN_ARCHES_SHADOW_IDS.ground_room_type),
+        pricing_schedule: currentVersion(normalizedWorkspace.pricing_schedules, SEVEN_ARCHES_SHADOW_IDS.pricing_schedule),
+        property_party_preview: currentVersion(normalizedWorkspace.pricing_schedules, SEVEN_ARCHES_SHADOW_IDS.property_party_preview),
+        rate_plan: currentVersion(normalizedWorkspace.rate_plans, SEVEN_ARCHES_SHADOW_IDS.rate_plan),
+        upper_room_rate: currentVersion(normalizedWorkspace.room_rates, SEVEN_ARCHES_SHADOW_IDS.upper_room_rate),
+        ground_room_rate: currentVersion(normalizedWorkspace.room_rates, SEVEN_ARCHES_SHADOW_IDS.ground_room_rate),
+      },
+      reviewed_at: options.reviewedAt || new Date().toISOString(),
+      source_contract: SEVEN_ARCHES_SOURCE_CONTRACT,
+      property_policy: clone(preparation.property_policy),
+      rooms,
+      prepare_pricing_preview: true,
+    };
+  }
+
   function cancellationPolicyLabel(value) {
     const policy = normalizeCancellationPolicy(value);
     if (policy.type === 'non_refundable') return 'Non-refundable';
     if (policy.type === 'flexible') return 'Flexible';
+    if (policy.type === 'requires_review') {
+      return i18nText(policy.summary_i18n, 'en', 'Cancellation terms require review');
+    }
     const deadline = `${policy.deadline_hours}h deadline`;
     if (policy.penalty_mode === 'percent') return `Custom · ${deadline} · ${policy.penalty_value || 0}%`;
     if (policy.penalty_mode === 'flat') return `Custom · ${deadline} · fixed ${policy.penalty_value || 0}`;
@@ -172,6 +413,11 @@
 
   function normalizeRoomType(value) {
     const source = asObject(value);
+    const capacityAdults = source.capacity_adults == null ? null : asInteger(source.capacity_adults, 0);
+    const capacityChildren = source.capacity_children == null ? null : asInteger(source.capacity_children, 0);
+    const inferredTotal = capacityAdults == null || capacityChildren == null ? null : capacityAdults + capacityChildren;
+    const explicitTotal = source.max_occupancy == null ? null : asInteger(source.max_occupancy, 0);
+    const roomChildrenPolicy = asText(source.children_policy_override);
     return {
       id: normalizeUuid(source.id),
       hotel_id: normalizeUuid(source.hotel_id),
@@ -179,8 +425,14 @@
       name_i18n: normalizeI18n(source.name_i18n),
       description_i18n: normalizeI18n(source.description_i18n),
       gallery: normalizeGallery(source.gallery),
-      capacity_adults: asInteger(source.capacity_adults, 0),
-      capacity_children: asInteger(source.capacity_children, 0),
+      capacity_adults: capacityAdults,
+      capacity_children: capacityChildren,
+      max_occupancy: explicitTotal,
+      effective_max_occupancy: explicitTotal == null ? inferredTotal : explicitTotal,
+      children_policy_override: ROOM_CHILDREN_POLICY_OVERRIDES.includes(roomChildrenPolicy) ? roomChildrenPolicy : null,
+      minimum_child_age_override: roomChildrenPolicy === 'minimum_age'
+        ? asInteger(source.minimum_child_age_override, -1)
+        : null,
       bed_configuration: normalizeBedConfiguration(source.bed_configuration),
       bathrooms: asNumber(source.bathrooms, null),
       size_sqm: asNumber(source.size_sqm, null),
@@ -236,6 +488,7 @@
       hotel_id: normalizeUuid(source.hotel_id),
       room_type_id: normalizeUuid(source.room_type_id),
       rate_plan_id: normalizeUuid(source.rate_plan_id),
+      pricing_schedule_id: normalizeUuid(source.pricing_schedule_id) || null,
       base_nightly_rate: asNumber(source.base_nightly_rate, null),
       currency: (asText(source.currency) || 'EUR').toUpperCase(),
       external_redirect_url: asNullableText(source.external_redirect_url),
@@ -244,6 +497,85 @@
       version: Math.max(1, asInteger(source.version, 1)),
       created_at: source.created_at || null,
       updated_at: source.updated_at || null,
+    };
+  }
+
+  function sharedScheduleCalendarDisplayState(product, stayDate, exactOverride = null, dailyInventory = null, options = {}) {
+    const rate = asObject(product);
+    const roomRateId = normalizeUuid(rate.id);
+    const roomTypeId = normalizeUuid(rate.room_type_id);
+    const scheduleId = normalizeUuid(rate.pricing_schedule_id);
+    const date = asText(stayDate);
+    if (!scheduleId) return null;
+    if (!roomRateId || !roomTypeId || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      throw new Error('Shared schedule Calendar state requires exact Room Type, Room Rate and stay-date identifiers.');
+    }
+
+    const asOfValue = options.asOf || new Date().toISOString();
+    const asOf = Date.parse(asOfValue);
+    const isCurrent = (row, { allowInactive = false } = {}) => {
+      const source = asObject(row);
+      if (!Object.keys(source).length) return false;
+      if (!allowInactive && source.is_active === false) return false;
+      if (!source.expires_at) return true;
+      const expiry = Date.parse(source.expires_at);
+      return Number.isFinite(asOf) && Number.isFinite(expiry) && expiry > asOf;
+    };
+    const overrideSource = asObject(exactOverride);
+    const inventorySource = asObject(dailyInventory);
+    const overrideMatches = normalizeUuid(overrideSource.room_rate_id) === roomRateId
+      && asText(overrideSource.stay_date) === date
+      && isCurrent(overrideSource);
+    const inventoryMatches = normalizeUuid(inventorySource.room_type_id) === roomTypeId
+      && asText(inventorySource.stay_date) === date
+      && isCurrent(inventorySource, { allowInactive: true });
+    const override = overrideMatches ? overrideSource : null;
+    const inventory = inventoryMatches ? inventorySource : null;
+    const modeValue = (row, field) => {
+      const mode = row && ['set', 'clear'].includes(asText(row[`${field}_mode`]))
+        ? asText(row[`${field}_mode`])
+        : null;
+      return {
+        mode,
+        value: mode === 'set' ? row[field] : null,
+      };
+    };
+    const nightlyRate = modeValue(override, 'nightly_rate');
+    const minimumStay = modeValue(override, 'minimum_stay');
+    const maximumStay = modeValue(override, 'maximum_stay');
+    const rateClosed = modeValue(override, 'closed');
+    const closedToArrival = modeValue(override, 'closed_to_arrival');
+    const closedToDeparture = modeValue(override, 'closed_to_departure');
+    const sellableUnits = modeValue(inventory, 'sellable_units');
+    const inventoryClosed = modeValue(inventory, 'closed');
+    const baseInventory = Math.max(0, asInteger(rate.base_inventory_count, 0));
+
+    return {
+      kind: 'shared_schedule_shadow',
+      authoritative: false,
+      requestable: false,
+      blocker: 'shared_room_pricing_schedule_requires_h3_resolution',
+      room_rate_id: roomRateId,
+      room_type_id: roomTypeId,
+      pricing_schedule_id: scheduleId,
+      stay_date: date,
+      exact_override_id: override ? normalizeUuid(override.id) || null : null,
+      exact_override_version: override ? Math.max(1, asInteger(override.version, 1)) : null,
+      inventory_version: inventory ? Math.max(1, asInteger(inventory.version, 1)) : null,
+      nightly_rate: nightlyRate,
+      minimum_stay: minimumStay,
+      maximum_stay: maximumStay,
+      closed: rateClosed,
+      closed_to_arrival: closedToArrival,
+      closed_to_departure: closedToDeparture,
+      sellable_units: sellableUnits,
+      inventory_closed: inventoryClosed,
+      configured_inventory: sellableUnits.mode === 'set'
+        ? Math.max(0, asInteger(sellableUnits.value, 0))
+        : baseInventory,
+      inventory_source: sellableUnits.mode === 'set' ? 'exact_room_date' : 'room_base',
+      explicitly_closed: (inventoryClosed.mode === 'set' && inventoryClosed.value === true)
+        || (rateClosed.mode === 'set' && rateClosed.value === true),
     };
   }
 
@@ -259,6 +591,12 @@
         booking_mode: asText(property.booking_mode) || 'request_confirmation',
         timezone: asText(property.timezone) || 'Europe/Nicosia',
         currency: (asText(property.currency) || 'EUR').toUpperCase(),
+        children_policy: CHILDREN_POLICIES.includes(asText(property.children_policy))
+          ? asText(property.children_policy)
+          : null,
+        minimum_child_age: asText(property.children_policy) === 'minimum_age'
+          ? asInteger(property.minimum_child_age, -1)
+          : null,
         title: normalizeI18n(property.title_i18n || property.title),
         title_i18n: normalizeI18n(property.title_i18n || property.title),
         description: normalizeI18n(property.description_i18n || property.description),
@@ -271,6 +609,9 @@
       units: asArray(source.units).map(normalizeUnit),
       rate_plans: asArray(source.rate_plans).map(normalizeRatePlan),
       room_rates: asArray(source.room_rates).map(normalizeRoomRate),
+      pricing_schedules: asArray(source.pricing_schedules).map((entry) => clone(entry)),
+      pricing_schedule_tiers: asArray(source.pricing_schedule_tiers).map((entry) => clone(entry)),
+      legacy_shadow_preview: clone(source.legacy_shadow_preview || {}),
       amenities_catalog: asArray(source.amenities_catalog || source.amenities_catalogue).map((entry) => clone(entry)),
       partners: asArray(source.partners).map((entry) => clone(entry)),
       operational_partners: asArray(source.operational_partners).map((entry) => clone(entry)),
@@ -309,9 +650,20 @@
     if (!/^[A-Z]{3}$/.test(asText(property.currency))) blockers.push('Currency must be a three-letter code.');
     if (!BOOKING_MODES.includes(asText(property.booking_mode))) blockers.push('Booking mode is invalid.');
     if (!activeRooms.length) blockers.push('Add at least one active Room Type.');
-    if (activeRooms.some((room) => room.capacity_adults < 1 || room.capacity_children < 0)) {
+    if (activeRooms.some((room) => !Number.isInteger(room.effective_max_occupancy) || room.effective_max_occupancy < 1)) {
       blockers.push('Every active Room Type needs valid guest capacity.');
     }
+    if (activeRooms.length && !asText(property.children_policy)
+        && !activeRooms.every((room) => asText(room.children_policy_override))) {
+      blockers.push('Review the property children policy or configure every active Room Type override.');
+    }
+    activeRooms.forEach((room) => {
+      try {
+        resolveChildrenPolicy(property, room);
+      } catch (_error) {
+        blockers.push(`${i18nText(room.name_i18n, 'en', room.code)} has an invalid children policy.`);
+      }
+    });
     activeRooms.forEach((room) => {
       if (room.inventory_mode === 'pooled' && room.base_inventory_count < 1) {
         blockers.push(`${i18nText(room.name_i18n, 'en', room.code)} needs pooled inventory.`);
@@ -322,6 +674,12 @@
       }
     });
     if (!activePlans.length) blockers.push('Add at least one active Rate Plan.');
+    if (activePlans.some((plan) => plan.cancellation_policy?.type === 'requires_review')) {
+      blockers.push('Confirm cancellation terms before activating the Rate Plan.');
+    }
+    if (activeRates.some((rate) => rate.pricing_schedule_id)) {
+      blockers.push('Shared pricing schedules require the H3 allocation review before activation.');
+    }
     const sellableRates = activeRates.filter((rate) => Number.isFinite(rate.base_nightly_rate) && rate.base_nightly_rate > 0);
     if (!sellableRates.length) blockers.push('Create at least one active Room + Rate Plan product with a positive base rate.');
     sellableRates.forEach((rate) => {
@@ -563,8 +921,16 @@
     room.hotel_id = room.hotel_id || normalizeUuid(workspace?.property?.id);
     room.code = validateCode(room.code, 'Room code');
     if (!i18nText(room.name_i18n, 'en')) throw new Error('Room name in English is required.');
-    if (room.capacity_adults < 1) throw new Error('Adults capacity must be at least 1.');
-    if (room.capacity_children < 0) throw new Error('Children capacity cannot be negative.');
+    if (!Number.isInteger(room.effective_max_occupancy) || room.effective_max_occupancy < 1 || room.effective_max_occupancy > 50) {
+      throw new Error('Maximum total occupancy must be a whole number from 1 to 50.');
+    }
+    if (room.max_occupancy == null) {
+      if (!Number.isInteger(room.capacity_adults) || room.capacity_adults < 1) throw new Error('Adults capacity must be at least 1.');
+      if (!Number.isInteger(room.capacity_children) || room.capacity_children < 0) throw new Error('Children capacity cannot be negative.');
+    } else if (room.capacity_adults != null || room.capacity_children != null) {
+      throw new Error('Adult and child capacities must stay unset when maximum total occupancy is used without a confirmed split.');
+    }
+    normalizeChildrenPolicy(room.children_policy_override, room.minimum_child_age_override, { allowInherit: true });
     if (room.base_inventory_count < 0) throw new Error('Base inventory cannot be negative.');
     const duplicate = normalizeWorkspace(workspace).room_types.find((candidate) => (
       candidate.id !== room.id && candidate.code.toLowerCase() === room.code.toLowerCase()
@@ -603,6 +969,12 @@
     plan.hotel_id = plan.hotel_id || normalizeUuid(workspace?.property?.id);
     plan.code = validateCode(plan.code, 'Rate Plan code');
     if (!i18nText(plan.name_i18n, 'en')) throw new Error('Rate Plan name in English is required.');
+    if (plan.cancellation_policy.type === 'requires_review') {
+      if (!asText(plan.cancellation_policy.reason) || asText(plan.cancellation_policy.reason).length > 160) {
+        throw new Error('The unresolved cancellation-policy reason is missing or invalid.');
+      }
+      if (plan.is_active) throw new Error('Confirm cancellation terms before activating this Rate Plan.');
+    }
     if (normalizeWorkspace(workspace).rate_plans.some((candidate) => candidate.id !== plan.id && candidate.code === plan.code)) {
       throw new Error('Rate Plan code already exists in this property.');
     }
@@ -643,7 +1015,9 @@
       ],
       room_type: [
         'source_id', 'code', 'name_i18n', 'description_i18n', 'gallery', 'capacity_adults',
-        'capacity_children', 'bed_configuration', 'bathrooms', 'size_sqm', 'amenities',
+        'capacity_children', 'max_occupancy',
+        'children_policy_override', 'minimum_child_age_override',
+        'bed_configuration', 'bathrooms', 'size_sqm', 'amenities',
         'inventory_mode', 'base_inventory_count', 'status', 'sort_order',
       ],
       unit: ['room_type_id', 'code', 'name_i18n', 'status'],
@@ -685,6 +1059,33 @@
       expected_property_updated_at: options.expectedPropertyUpdatedAt || normalized.property.updated_at || null,
       reviewed_at: options.reviewedAt || new Date().toISOString(),
       operations: rows,
+    };
+  }
+
+  function buildRoomTypePlan(workspace, operation, options = {}) {
+    const normalized = normalizeWorkspace(workspace);
+    const reviewedOperation = clone(operation);
+    if (!normalized.property.id || reviewedOperation?.entity !== 'room_type'
+        || !normalizeUuid(reviewedOperation?.id)
+        || !['create', 'update', 'disable', 'duplicate'].includes(asText(reviewedOperation?.type))) {
+      throw new Error('A reviewed exact Room Type operation is required.');
+    }
+    const expectedVersion = reviewedOperation.type === 'create'
+      ? 0
+      : asInteger(reviewedOperation.expected_version, -1);
+    if (expectedVersion < 0 || (reviewedOperation.type !== 'create' && expectedVersion < 1)) {
+      throw new Error('The reviewed Room Type operation is missing its optimistic version.');
+    }
+    return {
+      hotel_id: normalized.property.id,
+      expected_property_updated_at: options.expectedPropertyUpdatedAt || normalized.property.updated_at || null,
+      reviewed_at: options.reviewedAt || new Date().toISOString(),
+      operation: {
+        type: reviewedOperation.type,
+        id: normalizeUuid(reviewedOperation.id),
+        expected_version: expectedVersion,
+        payload: clone(reviewedOperation.payload || {}),
+      },
     };
   }
 
@@ -749,6 +1150,14 @@
     UNIT_STATUSES,
     INVENTORY_MODES,
     BOOKING_MODES,
+    CHILDREN_POLICIES,
+    ROOM_CHILDREN_POLICY_OVERRIDES,
+    CHILD_AGE_MIN,
+    CHILD_AGE_MAX,
+    SEVEN_ARCHES_PROPERTY_ID,
+    SEVEN_ARCHES_SHADOW_IDS,
+    SEVEN_ARCHES_SOURCE_CONTRACT,
+    SEVEN_ARCHES_ROOM_DEFINITIONS,
     BED_TYPES,
     BED_LABELS,
     PENALTY_MODES,
@@ -770,10 +1179,16 @@
     formatBedConfiguration,
     normalizeCancellationPolicy,
     cancellationPolicyLabel,
+    normalizeChildrenPolicy,
+    resolveChildrenPolicy,
+    childrenPolicyLabel,
+    sevenArchesShadowPreparation,
+    buildSevenArchesShadowPlan,
     normalizeRoomType,
     normalizeUnit,
     normalizeRatePlan,
     normalizeRoomRate,
+    sharedScheduleCalendarDisplayState,
     normalizeWorkspace,
     totalConfiguredInventory,
     deriveWorkspaceReadiness,
@@ -786,6 +1201,7 @@
     validateRoomRate,
     operationForEntity,
     buildWorkspacePlan,
+    buildRoomTypePlan,
     buildReviewRows,
     buildDuplicateRoom,
     priceFrom,

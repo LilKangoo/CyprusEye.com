@@ -138,6 +138,42 @@ describe('Hotels V2 H2A Property Workspace repository', () => {
     expect(calls).toBe(1);
   });
 
+  test('treats PostgREST PT409 optimistic conflicts as definitive stale failures', async () => {
+    let calls = 0;
+    const client = {
+      async rpc() {
+        calls += 1;
+        return {
+          data: null,
+          error: {
+            code: 'PT409',
+            message: 'Reviewed operation conflict',
+          },
+        };
+      },
+    };
+    const { Repository } = loadRepository(client);
+    const plan = {
+      hotel_id: HOTEL_ID,
+      expected_property_updated_at: '2026-08-11T10:00:00.000Z',
+      reviewed_at: '2026-08-11T10:01:00.000Z',
+      source_contract: 'seven_arches_two_apartments_v1',
+      expected_legacy_pricing_fingerprint: 'fixture',
+      expected_versions: {},
+      property_policy: { children_policy: 'minimum_age', minimum_child_age: 10 },
+      rooms: [{ id: HOTEL_ID }, { id: OTHER_HOTEL_ID }],
+      prepare_pricing_preview: true,
+    };
+
+    await expect(Repository.prepareLegacyShadowRooms(plan, CORRELATION_ID)).rejects.toMatchObject({
+      code: 'PT409',
+      isStale: true,
+      isDefinitiveFailure: true,
+      isAmbiguousOutcome: false,
+    });
+    expect(calls).toBe(1);
+  });
+
   test('classifies a lost RPC response as ambiguous so committed media is never deleted blindly', async () => {
     const client = {
       async rpc() { throw new TypeError('Failed to fetch'); },
@@ -300,5 +336,55 @@ describe('Hotels V2 H2A Property Workspace repository', () => {
       name: 'hotel_v2_admin_resolve_rate',
       payload: { p_room_rate_id: OTHER_HOTEL_ID, p_check_in: '2026-08-10', p_check_out: '2026-08-13', p_guest_count: 2 },
     }]);
+  });
+
+  test('uses dedicated transactional RPCs for Room Types, children policy and two-apartment shadow preparation', async () => {
+    const calls: any[] = [];
+    const client = {
+      async rpc(name: string, payload: any) {
+        calls.push({ name, payload });
+        return { data: { correlation_id: CORRELATION_ID, workspace: workspace() }, error: null };
+      },
+      from() { throw new Error('raw table access is forbidden'); },
+    };
+    const { Repository } = loadRepository(client);
+    const roomPlan = {
+      hotel_id: HOTEL_ID,
+      expected_property_updated_at: '2026-08-11T10:00:00.000Z',
+      reviewed_at: '2026-08-11T11:00:00.000Z',
+      operation: {
+        type: 'create', id: OTHER_HOTEL_ID, expected_version: 0,
+        payload: { code: 'apartment', max_occupancy: 4, capacity_adults: null, capacity_children: null },
+      },
+    };
+    await Repository.applyRoomTypePlan(roomPlan, CORRELATION_ID);
+
+    const childPlan = {
+      hotel_id: HOTEL_ID,
+      expected_property_updated_at: '2026-08-11T10:00:00.000Z',
+      reviewed_at: '2026-08-11T11:00:00.000Z',
+      property_policy: { children_policy: 'not_allowed', minimum_child_age: null },
+      room_policies: [],
+    };
+    await Repository.applyGuestPolicyPlan(childPlan, CORRELATION_ID);
+
+    const shadowPlan = {
+      hotel_id: HOTEL_ID,
+      expected_property_updated_at: '2026-08-11T10:00:00.000Z',
+      reviewed_at: '2026-08-11T11:00:00.000Z',
+      source_contract: 'seven_arches_two_apartments_v1',
+      property_policy: { children_policy: 'minimum_age', minimum_child_age: 10 },
+      rooms: [
+        { id: 'b4ef504f-cdeb-4e3c-a54d-932146ef4e94', expected_version: 0 },
+        { id: '825c01b7-9f82-492a-9c81-9b1d5cd7acd3', expected_version: 0 },
+      ],
+      prepare_pricing_preview: true,
+    };
+    await Repository.prepareLegacyShadowRooms(shadowPlan, CORRELATION_ID);
+    expect(calls).toEqual([
+      { name: 'hotel_v2_admin_apply_room_type_plan', payload: { p_plan: roomPlan, p_correlation_id: CORRELATION_ID } },
+      { name: 'hotel_v2_admin_apply_guest_policy_plan', payload: { p_plan: childPlan, p_correlation_id: CORRELATION_ID } },
+      { name: 'hotel_v2_admin_prepare_legacy_shadow_rooms', payload: { p_plan: shadowPlan, p_correlation_id: CORRELATION_ID } },
+    ]);
   });
 });

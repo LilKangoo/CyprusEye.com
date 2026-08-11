@@ -15,6 +15,9 @@
     calendar: 'hotel_v2_admin_get_calendar',
     applyCalendar: 'hotel_v2_admin_apply_calendar_plan',
     resolveRate: 'hotel_v2_admin_resolve_rate',
+    applyGuestPolicy: 'hotel_v2_admin_apply_guest_policy_plan',
+    applyRoomType: 'hotel_v2_admin_apply_room_type_plan',
+    prepareLegacyShadowRooms: 'hotel_v2_admin_prepare_legacy_shadow_rooms',
   });
 
   const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -39,7 +42,12 @@
     normalized.code = code;
     normalized.details = error?.details || null;
     normalized.hint = error?.hint || null;
-    normalized.isStale = code === '40001' || /stale|version|concurrent|changed after review/i.test(message);
+    // H2B.1 uses PostgREST's explicit HTTP-conflict SQLSTATE for reviewed
+    // optimistic-concurrency failures. Keep 40001 recognition for the older
+    // H2A/H2B RPCs until their contracts are migrated independently.
+    normalized.isStale = code === 'PT409'
+      || code === '40001'
+      || /stale|version|concurrent|changed after review/i.test(message);
     normalized.isFoundationMissing = code === '42883' || /hotel_v2_admin_|schema cache|could not find the function/i.test(message);
     // A structured PostgreSQL/PostgREST rejection is returned only after the
     // request transaction has failed. Network/transport failures are
@@ -200,6 +208,62 @@
     }, 'Preview authoritative Hotel rate'));
   }
 
+  async function applyGuestPolicyPlan(plan, correlationId) {
+    const reviewedPlan = Core.clone(plan);
+    const id = Core.normalizeUuid(reviewedPlan?.hotel_id);
+    const hasPropertyPolicy = reviewedPlan?.property_policy && typeof reviewedPlan.property_policy === 'object';
+    const hasRoomPolicies = Array.isArray(reviewedPlan?.room_policies) && reviewedPlan.room_policies.length > 0;
+    if (!id || (!hasPropertyPolicy && !hasRoomPolicies)) {
+      throw new Error('A reviewed exact-property children-policy plan is required.');
+    }
+    const correlation = Core.normalizeUuid(correlationId) || Core.newUuid();
+    const data = await runRpc(RPC.applyGuestPolicy, {
+      p_plan: reviewedPlan,
+      p_correlation_id: correlation,
+    }, 'Save reviewed children policy');
+    const payload = Core.asObject(data);
+    const workspace = Core.normalizeWorkspace(payload.workspace || payload);
+    if (workspace.property.id !== id) throw new Error('Saved children policy returned a different property ID.');
+    return { ...payload, correlation_id: payload.correlation_id || correlation, workspace };
+  }
+
+  async function applyRoomTypePlan(plan, correlationId) {
+    const reviewedPlan = Core.clone(plan);
+    const id = Core.normalizeUuid(reviewedPlan?.hotel_id);
+    const roomId = Core.normalizeUuid(reviewedPlan?.operation?.id);
+    if (!id || !roomId || !['create', 'update', 'disable', 'duplicate'].includes(Core.asText(reviewedPlan?.operation?.type))) {
+      throw new Error('A reviewed exact Room Type save plan is required.');
+    }
+    const correlation = Core.normalizeUuid(correlationId) || Core.newUuid();
+    const data = await runRpc(RPC.applyRoomType, {
+      p_plan: reviewedPlan,
+      p_correlation_id: correlation,
+    }, 'Save reviewed Room Type');
+    const payload = Core.asObject(data);
+    const workspace = Core.normalizeWorkspace(payload.workspace || payload);
+    if (workspace.property.id !== id) throw new Error('Saved Room Type returned a different property ID.');
+    return { ...payload, correlation_id: payload.correlation_id || correlation, workspace };
+  }
+
+  async function prepareLegacyShadowRooms(plan, correlationId) {
+    const reviewedPlan = Core.clone(plan);
+    const id = Core.normalizeUuid(reviewedPlan?.hotel_id);
+    const exactRoomIds = Core.asArray(reviewedPlan?.rooms).map((room) => Core.normalizeUuid(room?.id)).filter(Boolean);
+    if (!id || reviewedPlan?.source_contract !== Core.SEVEN_ARCHES_SOURCE_CONTRACT
+        || exactRoomIds.length !== 2 || new Set(exactRoomIds).size !== 2) {
+      throw new Error('A reviewed exact two-apartment shadow preparation plan is required.');
+    }
+    const correlation = Core.normalizeUuid(correlationId) || Core.newUuid();
+    const data = await runRpc(RPC.prepareLegacyShadowRooms, {
+      p_plan: reviewedPlan,
+      p_correlation_id: correlation,
+    }, 'Prepare reviewed 7 Arches shadow apartments');
+    const payload = Core.asObject(data);
+    const workspace = Core.normalizeWorkspace(payload.workspace || payload);
+    if (workspace.property.id !== id) throw new Error('Prepared apartments returned a different property ID.');
+    return { ...payload, correlation_id: payload.correlation_id || correlation, workspace };
+  }
+
   async function uploadRoomGallery(propertySlug, roomId, files) {
     const optimizedUploader = typeof window !== 'undefined' && window.HotelsV2AdminMedia?.uploadRoomGallery;
     if (typeof optimizedUploader === 'function') {
@@ -237,6 +301,9 @@
     getCalendar,
     applyCalendarPlan,
     resolveRate,
+    applyGuestPolicyPlan,
+    applyRoomTypePlan,
+    prepareLegacyShadowRooms,
     uploadRoomGallery,
   });
 });

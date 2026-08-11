@@ -16109,6 +16109,10 @@ body.car-multicity-modal-open {
 .hotel-calendar-cell.is-closed strong { color:#fca5a5; }
 .hotel-calendar-cell__blocker { display:block; color:#fecaca; font-size:10px; font-style:normal; font-weight:700; line-height:1.25; }
 .hotel-calendar-cell.is-not-requestable:not(.is-closed) { box-shadow:inset 0 0 0 1px rgba(248,113,113,.5); }
+.hotel-calendar-cell.is-shadow-schedule { min-height:136px; background:linear-gradient(145deg,rgba(30,64,175,.2),rgba(15,23,42,.55)); }
+.hotel-calendar-cell.is-shadow-schedule strong { color:#bfdbfe; }
+.hotel-calendar-cell.is-shadow-schedule .hotel-calendar-cell__blocker { color:#fde68a; }
+.hotel-calendar-cell.is-shadow-schedule.is-not-requestable:not(.is-closed) { box-shadow:inset 0 0 0 1px rgba(96,165,250,.5); }
 .hotel-calendar-mobile { display:none; }
 .hotel-calendar-rules { position:sticky; top:244px; display:grid; gap:12px; }
 .hotel-calendar-rules__heading { display:flex; align-items:center; justify-content:space-between; gap:10px; }
@@ -16155,6 +16159,27 @@ body.car-multicity-modal-open {
 .hotel-review-table { width:100%; min-width:620px; border-collapse:collapse; }
 .hotel-review-table th,.hotel-review-table td { padding:9px; border-bottom:1px solid var(--admin-border); text-align:left; vertical-align:top; }
 .hotel-review-table pre { max-width:360px; margin:0; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; color:var(--admin-text-muted); font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace; }
+.hotel-guest-policy-card { display:grid; gap:9px; border-color:rgba(56,189,248,.34); background:linear-gradient(145deg,rgba(14,116,144,.15),rgba(15,23,42,.78)); }
+.hotel-guest-policy-card.is-unreviewed { border-color:rgba(245,158,11,.42); background:linear-gradient(145deg,rgba(120,53,15,.18),rgba(15,23,42,.78)); }
+.hotel-guest-policy-card h4,.hotel-guest-policy-card p { margin:0; }
+.hotel-child-policy-options { display:grid; grid-template-columns:minmax(220px,1fr) minmax(180px,.7fr); gap:12px; }
+.hotel-room-card__guest-policy { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:9px; padding:9px; border:1px solid rgba(56,189,248,.22); border-radius:9px; background:rgba(14,116,144,.08); }
+.hotel-room-card__guest-policy > span { color:var(--admin-text-muted); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+.hotel-room-card__guest-policy strong { min-width:0; overflow-wrap:anywhere; font-size:12px; }
+.hotel-seven-arches-room-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.hotel-seven-arches-room { min-width:0; display:grid; gap:14px; padding:15px; border:1px solid var(--admin-border); border-radius:14px; background:rgba(15,23,42,.54); }
+.hotel-seven-arches-room > header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.hotel-seven-arches-room > header h4 { margin:3px 0 0; }
+.hotel-seven-arches-room > header code { max-width:48%; overflow-wrap:anywhere; color:var(--admin-text-muted); font-size:10px; }
+.hotel-seven-arches-facts { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.hotel-seven-arches-facts > div { display:grid; gap:3px; padding:9px; border:1px solid var(--admin-border); border-radius:8px; background:rgba(2,6,23,.28); }
+.hotel-seven-arches-facts span,.hotel-seven-arches-facts small { color:var(--admin-text-muted); font-size:10px; }
+.hotel-seven-arches-amenities { display:flex; flex-wrap:wrap; align-items:center; gap:7px; }
+.hotel-seven-arches-amenities > span { flex-basis:100%; color:var(--admin-text-muted); font-size:11px; }
+.hotel-seven-arches-amenities b { padding:5px 8px; border:1px solid rgba(34,197,94,.28); border-radius:999px; color:#bbf7d0; background:rgba(20,83,45,.18); font-size:11px; text-transform:capitalize; }
+.hotel-seven-arches-photos { min-width:0; }
+.hotel-seven-arches-photos .hotel-legacy-photo-picker__grid { max-height:390px; overflow:auto; overscroll-behavior:contain; }
+.hotel-seven-arches-photos label:has(input:checked) { border-color:#38bdf8; background:rgba(14,116,144,.18); }
 
 @media (max-width:1100px) {
   .hotel-property-card__metrics { grid-template-columns:repeat(3,minmax(90px,1fr)); }
@@ -16205,4 +16230,10 @@ body.car-multicity-modal-open {
   .hotel-calendar-edit-context { grid-template-columns:1fr; }
   .hotel-calendar-patch-field { grid-template-columns:1fr; }
   .hotel-calendar-patch-field > span { grid-column:auto; }
+  .hotel-child-policy-options,.hotel-seven-arches-room-grid,.hotel-seven-arches-facts { grid-template-columns:1fr; }
+  .hotel-room-card__guest-policy { grid-template-columns:1fr; align-items:stretch; }
+  .hotel-room-card__guest-policy .btn-secondary { width:100%; }
+  .hotel-seven-arches-room { padding:11px; }
+  .hotel-seven-arches-room > header { flex-direction:column; }
+  .hotel-seven-arches-room > header code { max-width:100%; }
 }

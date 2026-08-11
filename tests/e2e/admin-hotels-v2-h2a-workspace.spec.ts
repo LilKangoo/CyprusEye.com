@@ -22,11 +22,27 @@ const OPEN_CORRELATION_ID = '30000000-0000-4000-8000-000000000004';
 const RATE_RULE_CORRELATION_ID = '30000000-0000-4000-8000-000000000005';
 const STALE_CALENDAR_CORRELATION_ID = '30000000-0000-4000-8000-000000000006';
 const DEPARTURE_CORRELATION_ID = '30000000-0000-4000-8000-000000000007';
+const SEVEN_ARCHES_UPPER_ID = 'b4ef504f-cdeb-4e3c-a54d-932146ef4e94';
+const SEVEN_ARCHES_GROUND_ID = '825c01b7-9f82-492a-9c81-9b1d5cd7acd3';
+const SEVEN_ARCHES_RATE_PLAN_ID = '22e47a63-a630-4fb6-8f43-816f2d3fdc17';
+const SEVEN_ARCHES_UPPER_RATE_ID = '7e420964-9cbf-4f1b-abd3-09840af5240f';
+const SEVEN_ARCHES_GROUND_RATE_ID = '3320590d-632d-423f-80d0-fd021cba7293';
+const SEVEN_ARCHES_SCHEDULE_ID = 'b0a3104f-7b31-5265-a59f-c2d166f11a23';
+const SEVEN_ARCHES_PARTY_PREVIEW_ID = '443065c0-984a-5de3-a22a-d03042c41107';
 
 function seedHotelsV2H2aWorkspace() {
   return ({ adminId, hotelId, partnerId }: { adminId: string; hotelId: string; partnerId: string }) => {
     const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
     const timestamp = () => '2026-08-11T12:00:00.000Z';
+    // Keep deterministic IDs inside the serialized init-script closure. Values
+    // declared only in the Playwright module are not visible in the browser.
+    const SEVEN_ARCHES_UPPER_ID = 'b4ef504f-cdeb-4e3c-a54d-932146ef4e94';
+    const SEVEN_ARCHES_GROUND_ID = '825c01b7-9f82-492a-9c81-9b1d5cd7acd3';
+    const SEVEN_ARCHES_RATE_PLAN_ID = '22e47a63-a630-4fb6-8f43-816f2d3fdc17';
+    const SEVEN_ARCHES_UPPER_RATE_ID = '7e420964-9cbf-4f1b-abd3-09840af5240f';
+    const SEVEN_ARCHES_GROUND_RATE_ID = '3320590d-632d-423f-80d0-fd021cba7293';
+    const SEVEN_ARCHES_SCHEDULE_ID = 'b0a3104f-7b31-5265-a59f-c2d166f11a23';
+    const SEVEN_ARCHES_PARTY_PREVIEW_ID = '443065c0-984a-5de3-a22a-d03042c41107';
     const thresholdNights = [2, 3, 4, 5, 6, 7, 8, 9, 10];
     const legacyRateMatrix = [
       { persons: 2, rates: [100, 90, 88, 84, 80, 76, 74, 72, 70] },
@@ -58,6 +74,8 @@ function seedHotelsV2H2aWorkspace() {
       timezone: 'Europe/Nicosia',
       currency: 'EUR',
       booking_mode: 'request_confirmation',
+      children_policy: null,
+      minimum_child_age: null,
       owner_partner_id: partnerId,
       owner_partner: { id: partnerId, name: 'Fixture Hotels Partner', status: 'active', can_manage_hotels: true },
       room_types: [],
@@ -65,7 +83,7 @@ function seedHotelsV2H2aWorkspace() {
       pricing_extras: { currency: 'EUR', items: [] },
       pricing_model: 'tiered_by_nights',
       max_persons: 8,
-      photos: [],
+      photos: Array.from({ length: 9 }, (_, index) => `https://example.test/7-arches-property-${index + 1}.webp`),
       amenities: [],
       is_published: true,
       status: 'active',
@@ -84,6 +102,8 @@ function seedHotelsV2H2aWorkspace() {
       units: [],
       rate_plans: [],
       room_rates: [],
+      pricing_schedules: [],
+      pricing_schedule_tiers: [],
       rate_rules: [],
       occupancy_tiers: [],
       calendar_overrides: [],
@@ -91,7 +111,9 @@ function seedHotelsV2H2aWorkspace() {
       calendar_apply_receipts: [],
       amenities_catalog: [
         { code: 'wifi', category: 'Connectivity', name_en: 'Wi-Fi', name_pl: 'Wi-Fi' },
-        { code: 'air-conditioning', category: 'Comfort', name_en: 'Air conditioning', name_pl: 'Klimatyzacja' },
+        { code: 'air_conditioning', category: 'Comfort', name_en: 'Air conditioning', name_pl: 'Klimatyzacja' },
+        { code: 'terrace', category: 'Outdoor', name_en: 'Terrace', name_pl: 'Taras' },
+        { code: 'balcony', category: 'Outdoor', name_en: 'Balcony', name_pl: 'Balkon' },
       ],
       partners: [{ id: partnerId, name: 'Fixture Hotels Partner', status: 'active', can_manage_hotels: true }],
       operational_partners: [{ id: partnerId, name: 'Fixture Hotels Partner' }],
@@ -158,6 +180,13 @@ function seedHotelsV2H2aWorkspace() {
           units: store.units,
           rate_plans: store.rate_plans,
           room_rates: store.room_rates,
+          pricing_schedules: store.pricing_schedules,
+          pricing_schedule_tiers: store.pricing_schedule_tiers,
+          legacy_shadow_preview: {
+            legacy_pricing_fingerprint: 'fixture-legacy-63-fingerprint',
+            legacy_pricing_rule_count: 63,
+            property_gallery_count: store.property.photos.length,
+          },
           amenities_catalog: store.amenities_catalog,
           partners: store.partners,
           operational_partners: store.operational_partners,
@@ -368,10 +397,161 @@ function seedHotelsV2H2aWorkspace() {
           store.apply_receipts.push(clone({ plan, correlation_id: params.p_correlation_id }));
           return { data: { correlation_id: params.p_correlation_id, workspace: snapshot() }, error: null };
         });
+        stub.setRpcHandler('hotel_v2_admin_apply_room_type_plan', (params: any) => {
+          if ((window as any).__h2aFailNextApply) {
+            (window as any).__h2aFailNextApply = false;
+            return { data: null, error: { code: 'PT409', message: 'Room Type changed after Review' } };
+          }
+          const plan = params.p_plan || {};
+          const operation = plan.operation || {};
+          if (plan.hotel_id !== hotelId || plan.expected_property_updated_at !== store.property.updated_at
+              || !['create', 'update', 'disable', 'duplicate'].includes(operation.type)
+              || !operation.id || typeof operation.payload !== 'object') {
+            return { data: null, error: { code: 'PT409', message: 'Room Type changed after Review' } };
+          }
+          const nextRooms = clone(store.room_types);
+          const targetIndex = nextRooms.findIndex((row: any) => row.id === operation.id);
+          if (operation.type === 'create') {
+            if (targetIndex >= 0 || operation.expected_version !== 0) {
+              return { data: null, error: { code: '23505', message: 'Room Type exact ID already exists' } };
+            }
+            nextRooms.push({ ...clone(operation.payload), id: operation.id, hotel_id: hotelId, version: 1, created_at: timestamp(), updated_at: timestamp() });
+          } else if (operation.type === 'duplicate') {
+            const sourceIndex = nextRooms.findIndex((row: any) => row.id === operation.payload.source_id);
+            if (targetIndex >= 0 || sourceIndex < 0 || nextRooms[sourceIndex].version !== operation.expected_version) {
+              return { data: null, error: { code: 'PT409', message: 'Room Type duplicate source changed after Review' } };
+            }
+            const { source_id: _sourceId, ...payload } = clone(operation.payload);
+            nextRooms.push({ ...nextRooms[sourceIndex], ...payload, id: operation.id, hotel_id: hotelId, version: 1, created_at: timestamp(), updated_at: timestamp() });
+          } else {
+            if (targetIndex < 0 || nextRooms[targetIndex].version !== operation.expected_version) {
+              return { data: null, error: { code: 'PT409', message: 'Room Type changed after Review' } };
+            }
+            nextRooms[targetIndex] = operation.type === 'disable'
+              ? { ...nextRooms[targetIndex], status: 'disabled', version: nextRooms[targetIndex].version + 1, updated_at: timestamp() }
+              : { ...nextRooms[targetIndex], ...clone(operation.payload), version: nextRooms[targetIndex].version + 1, updated_at: timestamp() };
+          }
+          store.room_types = nextRooms;
+          store.apply_receipts.push(clone({ plan, correlation_id: params.p_correlation_id }));
+          return { data: { correlation_id: params.p_correlation_id, workspace: snapshot() }, error: null };
+        });
         stub.setRpcHandler('hotel_v2_admin_create_property_draft', () => ({
           data: null,
           error: { code: '42501', message: 'not used by this legacy shadow preparation fixture' },
         }));
+        stub.setRpcHandler('hotel_v2_admin_apply_guest_policy_plan', (params: any) => {
+          const plan = params.p_plan || {};
+          if (plan.hotel_id !== hotelId || plan.expected_property_updated_at !== store.property.updated_at) {
+            return { data: null, error: { code: 'PT409', message: 'guest policy changed after Review' } };
+          }
+          const nextProperty = clone(store.property);
+          const nextRooms = clone(store.room_types);
+          if (plan.property_policy) {
+            nextProperty.children_policy = plan.property_policy.children_policy;
+            nextProperty.minimum_child_age = plan.property_policy.minimum_child_age;
+          }
+          for (const roomPolicy of plan.room_policies || []) {
+            const index = nextRooms.findIndex((room: any) => room.id === roomPolicy.room_type_id);
+            if (index < 0 || nextRooms[index].version !== roomPolicy.expected_version) {
+              return { data: null, error: { code: 'PT409', message: 'Room policy changed after Review' } };
+            }
+            nextRooms[index] = {
+              ...nextRooms[index],
+              children_policy_override: roomPolicy.children_policy_override,
+              minimum_child_age_override: roomPolicy.minimum_child_age_override,
+              version: nextRooms[index].version + 1,
+              updated_at: timestamp(),
+            };
+          }
+          nextProperty.updated_at = timestamp();
+          store.property = nextProperty;
+          store.room_types = nextRooms;
+          return { data: { correlation_id: params.p_correlation_id, workspace: snapshot() }, error: null };
+        });
+        stub.setRpcHandler('hotel_v2_admin_prepare_legacy_shadow_rooms', (params: any) => {
+          const plan = params.p_plan || {};
+          if (plan.hotel_id !== hotelId || plan.source_contract !== 'seven_arches_two_apartments_v1'
+              || plan.expected_property_updated_at !== store.property.updated_at
+              || plan.expected_legacy_pricing_fingerprint !== 'fixture-legacy-63-fingerprint') {
+            return { data: null, error: { code: 'PT409', message: 'legacy source changed after Review' } };
+          }
+          const versionFor = (rows: any[], id: string) => rows.find((row: any) => row.id === id)?.version || 0;
+          const actualVersions = {
+            upper_room: versionFor(store.room_types, SEVEN_ARCHES_UPPER_ID),
+            ground_room: versionFor(store.room_types, SEVEN_ARCHES_GROUND_ID),
+            pricing_schedule: versionFor(store.pricing_schedules, SEVEN_ARCHES_SCHEDULE_ID),
+            property_party_preview: versionFor(store.pricing_schedules, SEVEN_ARCHES_PARTY_PREVIEW_ID),
+            rate_plan: versionFor(store.rate_plans, SEVEN_ARCHES_RATE_PLAN_ID),
+            upper_room_rate: versionFor(store.room_rates, SEVEN_ARCHES_UPPER_RATE_ID),
+            ground_room_rate: versionFor(store.room_rates, SEVEN_ARCHES_GROUND_RATE_ID),
+          };
+          if (JSON.stringify(actualVersions) !== JSON.stringify(plan.expected_versions)) {
+            return { data: null, error: { code: 'PT409', message: 'shadow row changed after Review' } };
+          }
+          const working = clone({
+            property: store.property, room_types: store.room_types, rate_plans: store.rate_plans,
+            room_rates: store.room_rates, pricing_schedules: store.pricing_schedules,
+            pricing_schedule_tiers: store.pricing_schedule_tiers,
+          });
+          const upsert = (collection: any[], id: string, value: any) => {
+            const index = collection.findIndex((row: any) => row.id === id);
+            const previous = index >= 0 ? collection[index] : null;
+            const next = { ...previous, ...clone(value), id, version: previous ? previous.version + 1 : 1, updated_at: timestamp(), ...(previous ? {} : { created_at: timestamp() }) };
+            if (index >= 0) collection[index] = next; else collection.push(next);
+          };
+          for (const room of plan.rooms) {
+            const existingRoom = working.room_types.find((candidate: any) => candidate.id === room.id);
+            upsert(working.room_types, room.id, {
+              hotel_id: hotelId, code: room.code, name_i18n: room.name_i18n, description_i18n: room.description_i18n,
+              gallery: room.gallery, capacity_adults: null, capacity_children: null, max_occupancy: 4,
+              children_policy_override: existingRoom?.children_policy_override ?? null,
+              minimum_child_age_override: existingRoom?.minimum_child_age_override ?? null,
+              bed_configuration: [], bathrooms: null,
+              size_sqm: null, amenities: room.amenities, inventory_mode: 'pooled', base_inventory_count: 1,
+              status: 'draft', sort_order: room.sort_order,
+            });
+          }
+          if (!working.rate_plans.some((row: any) => row.id === SEVEN_ARCHES_RATE_PLAN_ID)) {
+            upsert(working.rate_plans, SEVEN_ARCHES_RATE_PLAN_ID, {
+              hotel_id: hotelId, code: 'standard', name_i18n: { en: 'Standard', pl: 'Standard', he: 'סטנדרט' },
+              description_i18n: {}, cancellation_policy: {
+                type: 'requires_review', reason: 'legacy_cancellation_terms_unconfirmed',
+                summary_i18n: { en: 'Cancellation terms require confirmation' },
+              }, booking_mode_override: null, is_active: false, sort_order: 100,
+            });
+          }
+          if (!working.room_rates.some((row: any) => row.id === SEVEN_ARCHES_UPPER_RATE_ID)) {
+            upsert(working.room_rates, SEVEN_ARCHES_UPPER_RATE_ID, {
+              hotel_id: hotelId, room_type_id: SEVEN_ARCHES_UPPER_ID, rate_plan_id: SEVEN_ARCHES_RATE_PLAN_ID,
+              pricing_schedule_id: SEVEN_ARCHES_SCHEDULE_ID,
+              base_nightly_rate: 0, currency: 'EUR', is_active: false, sort_order: 100,
+            });
+          }
+          if (!working.room_rates.some((row: any) => row.id === SEVEN_ARCHES_GROUND_RATE_ID)) {
+            upsert(working.room_rates, SEVEN_ARCHES_GROUND_RATE_ID, {
+              hotel_id: hotelId, room_type_id: SEVEN_ARCHES_GROUND_ID, rate_plan_id: SEVEN_ARCHES_RATE_PLAN_ID,
+              pricing_schedule_id: SEVEN_ARCHES_SCHEDULE_ID,
+              base_nightly_rate: 0, currency: 'EUR', is_active: false, sort_order: 200,
+            });
+          }
+          if (!working.pricing_schedules.some((row: any) => row.id === SEVEN_ARCHES_SCHEDULE_ID)) {
+            upsert(working.pricing_schedules, SEVEN_ARCHES_SCHEDULE_ID, { hotel_id: hotelId, application_scope: 'room_occupancy', is_active: false, requires_review: true });
+          }
+          if (!working.pricing_schedules.some((row: any) => row.id === SEVEN_ARCHES_PARTY_PREVIEW_ID)) {
+            upsert(working.pricing_schedules, SEVEN_ARCHES_PARTY_PREVIEW_ID, { hotel_id: hotelId, application_scope: 'property_booking_party', is_active: false, requires_review: true });
+          }
+          if (!working.pricing_schedule_tiers.length) {
+            working.pricing_schedule_tiers = Array.from({ length: 90 }, (_, index) => ({
+              id: `50000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+              schedule_id: index < 27 ? SEVEN_ARCHES_SCHEDULE_ID : SEVEN_ARCHES_PARTY_PREVIEW_ID,
+            }));
+          }
+          working.property.children_policy = 'minimum_age';
+          working.property.minimum_child_age = 10;
+          working.property.updated_at = timestamp();
+          Object.assign(store, working);
+          return { data: { correlation_id: params.p_correlation_id, workspace: snapshot() }, error: null };
+        });
         stub.setRpcHandler('hotel_v2_admin_get_calendar', (params: any) => {
           if (params.p_hotel_id !== hotelId || !params.p_start_date || !params.p_end_date) {
             return { data: null, error: { code: '22023', message: 'invalid_calendar_query' } };
@@ -514,25 +694,23 @@ test('H2A Property Workspace keeps one legacy property inert while Rooms, Units 
   await expect(page.locator('#hotelWorkspaceActivePanel')).toContainText('63');
   await expect(page.locator('#hotelWorkspaceActivePanel')).toContainText('Rooms V2 preparation');
 
-  // The dedicated reconstruction flow carries no unconfirmed room facts or
-  // pricing into V2. It only opens an inert exact-ID draft for explicit review.
-  await queueUuid(page, SHADOW_PREVIEW_ID);
-  await page.locator('[data-prepare-legacy-accommodation]').click();
-  const shadowForm = page.locator('#hotelRoomEditorForm');
+  // The exact reconstruction flow proposes two reviewed physical apartments,
+  // but never chooses a Room Type photo or changes live legacy pricing.
+  await page.locator('[data-prepare-seven-arches-apartments]').click();
+  const shadowForm = page.locator('#hotelSevenArchesPreparationForm');
   await expect(shadowForm).toBeVisible();
-  await expect(shadowForm).toContainText('Legacy source · read only');
-  await expect(shadowForm).toContainText('Pricing is not copied in this operation');
-  await expect(shadowForm.locator('input[readonly]').first()).toHaveValue(SHADOW_PREVIEW_ID);
-  await expect(shadowForm.locator('[name="code"]')).toHaveValue('');
-  await expect(shadowForm.locator('[name="name_en"]')).toHaveValue('');
-  await expect(shadowForm.locator('[name="capacity_adults"]')).toHaveValue('');
-  await expect(shadowForm.locator('[name="capacity_children"]')).toHaveValue('');
-  await expect(shadowForm.locator('[name="inventory_mode"]')).toHaveValue('');
-  await expect(shadowForm.locator('[name="base_inventory_count"]')).toHaveValue('');
-  await expect(shadowForm.locator('[name="status"]')).toHaveValue('draft');
-  await expect(shadowForm.locator('[name="room_amenity"]:checked')).toHaveCount(0);
-  await expect(shadowForm.locator('[name="legacy_property_photo"]:checked')).toHaveCount(0);
-  await expect(shadowForm).not.toContainText('Base nightly rate');
+  await expect(shadowForm).toContainText('Two real accommodation units');
+  await expect(shadowForm).toContainText('Upper Floor Apartment');
+  await expect(shadowForm).toContainText('Ground Floor Apartment');
+  await expect(shadowForm).toContainText('Max 4 guests');
+  await expect(shadowForm).toContainText('Adult/child split not confirmed');
+  await expect(shadowForm).toContainText('Children allowed from age 10');
+  await expect(shadowForm).toContainText('Shared pricing preparation');
+  await expect(shadowForm.locator('[name="seven_room_0_name_he"]')).toHaveValue('דירה בקומה העליונה');
+  await expect(shadowForm.locator('[name="seven_room_1_name_he"]')).toHaveValue('דירה בקומת הקרקע');
+  await expect(shadowForm.locator('[name="seven_arches_room_0_photo"]:checked')).toHaveCount(0);
+  await expect(shadowForm.locator('[name="seven_arches_room_1_photo"]:checked')).toHaveCount(0);
+  await expect(shadowForm.locator('img')).toHaveCount(18);
   await page.locator('.hotel-workspace-modal [data-hotel-modal-close]').last().click();
 
   const preCreateShadowAudit = await page.evaluate(() => ({
@@ -772,12 +950,233 @@ test('H2A Property Workspace keeps one legacy property inert while Rooms, Units 
   }]);
   expect(audit.applyReceipts.length).toBeGreaterThanOrEqual(10);
   expect(audit.applyReceipts.every((receipt: any) => receipt.plan.hotel_id === HOTEL_ID)).toBe(true);
-  expect(audit.applyReceipts.flatMap((receipt: any) => receipt.plan.operations)
+  expect(audit.applyReceipts.flatMap((receipt: any) => receipt.plan.operations || [receipt.plan.operation]).filter(Boolean)
     .every((operation: any) => /^[0-9a-f]{8}-[0-9a-f-]{27}$/.test(operation.id))).toBe(true);
   expect(audit.persistedLegacyHotel.architecture_version).toBe('legacy');
   expect(audit.persistedLegacyHotel.is_published).toBe(true);
   expect(audit.rawHotelMutations).toEqual([]);
   expect(audit.rawPublicMutations).toEqual([]);
+});
+
+test('H2B.1 reviews child policy and prepares exactly two idempotent 7 Arches shadow apartments', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.addInitScript(seedHotelsV2H2aWorkspace(), { adminId: ADMIN_ID, hotelId: HOTEL_ID, partnerId: PARTNER_ID });
+  await enableSupabaseStub(page);
+  await page.goto('/admin/dashboard.html', { waitUntil: 'domcontentloaded' });
+  await waitForSupabaseStub(page);
+  await page.locator('button.admin-nav-item[data-view="hotels"]').click();
+  await page.locator('[data-hotel-open-workspace]').click();
+
+  const guestCard = page.locator('.hotel-guest-policy-card').first();
+  await expect(guestCard).toContainText('Not reviewed');
+  await guestCard.locator('[data-edit-property-child-policy]').click();
+  const childForm = page.locator('#hotelPropertyChildPolicyForm');
+  await childForm.locator('[name="children_policy"]').selectOption('not_allowed');
+  await expect(childForm.locator('[name="minimum_child_age"]')).toBeHidden();
+  await page.locator('button[form="hotelPropertyChildPolicyForm"]').click();
+  const childReview = page.locator('.hotel-workspace-modal--review');
+  await expect(childReview).toContainText('not_allowed');
+  await childReview.locator('[data-hotel-review-confirm]').click();
+  await expect(page.locator('.hotel-guest-policy-card').first()).toContainText('Adults only / No children');
+  const propertyPolicyPayload = await page.evaluate(() => {
+    const call = (window as any).__supabaseStub.getRpcCalls()
+      .filter((entry: any) => entry.name === 'hotel_v2_admin_apply_guest_policy_plan').at(-1);
+    return call?.params?.p_plan?.property_policy;
+  });
+  expect(propertyPolicyPayload).toEqual({ children_policy: 'not_allowed', minimum_child_age: null });
+
+  await page.locator('[data-prepare-seven-arches-apartments]').click();
+  let prepareForm = page.locator('#hotelSevenArchesPreparationForm');
+  await prepareForm.locator('[name="seven_arches_room_0_photo"]').first().check();
+  await prepareForm.locator('[name="seven_arches_room_1_photo"]').nth(1).check();
+  await page.locator('button[form="hotelSevenArchesPreparationForm"]').click();
+  let review = page.locator('.hotel-workspace-modal--review');
+  await expect(review).toContainText('two-apartment shadow package');
+  await expect(review).toContainText(SEVEN_ARCHES_UPPER_ID);
+  await expect(review).toContainText(SEVEN_ARCHES_GROUND_ID);
+  await page.evaluate(() => {
+    (window as any).__h2aE2eStore.property.updated_at = '2026-08-11T12:01:00.000Z';
+  });
+  await review.locator('[data-hotel-review-confirm]').click();
+  await expect(page.getByText(/Save stopped: this configuration changed after Review/)).toBeVisible();
+  const afterStale = await page.evaluate(() => ({
+    rooms: (window as any).__h2aE2eStore.room_types.length,
+    plans: (window as any).__h2aE2eStore.rate_plans.length,
+    rates: (window as any).__h2aE2eStore.room_rates.length,
+    policy: (window as any).__h2aE2eStore.property.children_policy,
+  }));
+  expect(afterStale).toEqual({ rooms: 0, plans: 0, rates: 0, policy: 'not_allowed' });
+  await page.evaluate(() => {
+    (window as any).__h2aE2eStore.property.updated_at = '2026-08-11T12:00:00.000Z';
+  });
+  await review.getByRole('button', { name: 'Back', exact: true }).click();
+
+  await page.locator('[data-prepare-seven-arches-apartments]').click();
+  prepareForm = page.locator('#hotelSevenArchesPreparationForm');
+  await prepareForm.locator('[name="seven_arches_room_0_photo"]').first().check();
+  await prepareForm.locator('[name="seven_arches_room_1_photo"]').nth(1).check();
+  await page.locator('button[form="hotelSevenArchesPreparationForm"]').click();
+  review = page.locator('.hotel-workspace-modal--review');
+  await review.locator('[data-hotel-review-confirm]').click();
+  await expect(page.locator('.hotel-guest-policy-card').first()).toContainText('Children allowed from age 10');
+
+  const firstSave = await page.evaluate(() => {
+    const store = (window as any).__h2aE2eStore;
+    return {
+      roomIds: store.room_types.map((room: any) => room.id).sort(),
+      roomFacts: store.room_types.map((room: any) => ({
+        id: room.id, max: room.max_occupancy, adults: room.capacity_adults, children: room.capacity_children,
+        inventory: room.base_inventory_count, amenities: room.amenities, photos: room.gallery.length,
+      })).sort((a: any, b: any) => a.id.localeCompare(b.id)),
+      planCount: store.rate_plans.length,
+      rateCount: store.room_rates.length,
+      scheduleCount: store.pricing_schedules.length,
+      scheduleTierCount: store.pricing_schedule_tiers.length,
+      propertyPhotoCount: store.property.photos.length,
+      legacyRuleCount: store.property.pricing_tiers.rules.length,
+      architecture: store.property.architecture_version,
+      flags: store.flags,
+    };
+  });
+  expect(firstSave.roomIds).toEqual([SEVEN_ARCHES_GROUND_ID, SEVEN_ARCHES_UPPER_ID].sort());
+  expect(firstSave.roomFacts).toEqual(expect.arrayContaining([
+    expect.objectContaining({ id: SEVEN_ARCHES_UPPER_ID, max: 4, adults: null, children: null, inventory: 1, amenities: ['air_conditioning', 'balcony', 'terrace'], photos: 1 }),
+    expect.objectContaining({ id: SEVEN_ARCHES_GROUND_ID, max: 4, adults: null, children: null, inventory: 1, amenities: ['air_conditioning', 'terrace'], photos: 1 }),
+  ]));
+  expect(firstSave).toMatchObject({ planCount: 1, rateCount: 2, scheduleCount: 2, scheduleTierCount: 90, propertyPhotoCount: 9, legacyRuleCount: 63, architecture: 'legacy' });
+  expect(Object.values(firstSave.flags).every((value) => value === false)).toBe(true);
+
+  await page.locator('[data-hotel-workspace-tab="rooms"]').click();
+  const upperCard = page.locator(`[data-room-id="${SEVEN_ARCHES_UPPER_ID}"]`);
+  await expect(upperCard).toContainText('Shared schedule');
+  await expect(upperCard).toContainText('Inactive shared schedule · 27 tiers · H3 allocation review required');
+  const shadowRatePlan = page.locator('.hotel-rate-plan-card').filter({ hasText: 'Standard' });
+  await expect(shadowRatePlan).toContainText('Cancellation terms require confirmation');
+  await expect(shadowRatePlan).toContainText('INACTIVE');
+  await upperCard.locator('[data-edit-room-rate]').click();
+  const scheduleModal = page.locator('.hotel-workspace-modal');
+  await expect(scheduleModal).toContainText('Dormant Rooms V2 shadow pricing');
+  await expect(scheduleModal).toContainText('Its base rate is not an executable €0 price');
+  await expect(scheduleModal.locator('#hotelRoomRateEditorForm')).toHaveCount(0);
+  await scheduleModal.locator('[data-hotel-modal-close]').last().click();
+  await upperCard.locator('[data-edit-room-child-policy]').click();
+  const roomPolicyForm = page.locator('#hotelRoomChildPolicyForm');
+  await roomPolicyForm.locator('[name="children_policy_override"]').selectOption('not_allowed');
+  await page.locator('button[form="hotelRoomChildPolicyForm"]').click();
+  const roomPolicyReview = page.locator('.hotel-workspace-modal--review');
+  await expect(roomPolicyReview).toContainText(SEVEN_ARCHES_UPPER_ID);
+  await expect(roomPolicyReview).toContainText('not_allowed');
+  await roomPolicyReview.locator('[data-hotel-review-confirm]').click();
+  const policyAudit = await page.evaluate((upperId) => {
+    const store = (window as any).__h2aE2eStore;
+    const upperRoom = store.room_types.find((room: any) => room.id === upperId);
+    const call = (window as any).__supabaseStub.getRpcCalls().filter((entry: any) => entry.name === 'hotel_v2_admin_apply_guest_policy_plan').at(-1);
+    return {
+      propertyPolicy: store.property.children_policy,
+      propertyAge: store.property.minimum_child_age,
+      roomPolicy: upperRoom.children_policy_override,
+      roomAge: upperRoom.minimum_child_age_override,
+      roomVersion: upperRoom.version,
+      payloadRoomId: call?.params?.p_plan?.room_policies?.[0]?.room_type_id,
+    };
+  }, SEVEN_ARCHES_UPPER_ID);
+  expect(policyAudit).toMatchObject({ propertyPolicy: 'minimum_age', propertyAge: 10, roomPolicy: 'not_allowed', roomAge: null, roomVersion: 2, payloadRoomId: SEVEN_ARCHES_UPPER_ID });
+
+  await page.evaluate(({ upperRateId, upperRoomId, groundRoomId }) => {
+    const store = (window as any).__h2aE2eStore;
+    store.calendar_overrides.push({
+      id: '20000000-0000-4000-8000-000000000021',
+      hotel_id: store.property.id,
+      room_rate_id: upperRateId,
+      stay_date: '2026-08-20',
+      nightly_rate: 155,
+      nightly_rate_mode: 'set',
+      minimum_stay: 2,
+      minimum_stay_mode: 'set',
+      reason: 'Upper apartment shadow review',
+      source: 'manual',
+      is_active: true,
+      version: 1,
+    });
+    store.daily_inventory.push(
+      {
+        room_type_id: upperRoomId,
+        stay_date: '2026-08-20',
+        sellable_units: 0,
+        sellable_units_mode: 'set',
+        closed: true,
+        closed_mode: 'set',
+        reason: 'Upper apartment maintenance preview',
+        source: 'manual',
+        version: 1,
+      },
+      {
+        room_type_id: groundRoomId,
+        stay_date: '2026-08-20',
+        sellable_units: 1,
+        sellable_units_mode: 'set',
+        closed: false,
+        closed_mode: 'set',
+        reason: 'Ground apartment inventory preview',
+        source: 'manual',
+        version: 1,
+      },
+    );
+  }, {
+    upperRateId: SEVEN_ARCHES_UPPER_RATE_ID,
+    upperRoomId: SEVEN_ARCHES_UPPER_ID,
+    groundRoomId: SEVEN_ARCHES_GROUND_ID,
+  });
+
+  await page.locator('[data-hotel-workspace-tab="calendar"]').click();
+  await expect(page.locator('.hotel-calendar-grid')).toContainText('Upper Floor Apartment');
+  await expect(page.locator('.hotel-calendar-grid')).toContainText('Ground Floor Apartment');
+  await expect(page.locator('.hotel-calendar-grid')).toContainText('Shared 27-tier shadow schedule');
+  await expect(page.locator('.hotel-calendar-grid [data-calendar-product-row]')).toHaveCount(2);
+  const upperShadowCell = page.locator(`.hotel-calendar-grid [data-calendar-cell][data-product-id="${SEVEN_ARCHES_UPPER_RATE_ID}"][data-date="2026-08-20"]`);
+  const groundShadowCell = page.locator(`.hotel-calendar-grid [data-calendar-cell][data-product-id="${SEVEN_ARCHES_GROUND_RATE_ID}"][data-date="2026-08-20"]`);
+  await expect(upperShadowCell).toContainText('Shared schedule · H3 pending');
+  await expect(upperShadowCell).toContainText('Exact date draft rate: €155.00');
+  await expect(upperShadowCell).toContainText('Exact room inventory: 0 rooms');
+  await expect(upperShadowCell).toContainText('Min 2');
+  await expect(upperShadowCell).toContainText('Shadow only · not requestable until occupancy/allocation is resolved');
+  await expect(upperShadowCell).not.toContainText('Not resolved');
+  await expect(groundShadowCell).toContainText('Shared schedule · H3 pending');
+  await expect(groundShadowCell).toContainText('No exact date price override');
+  await expect(groundShadowCell).toContainText('Exact room inventory: 1 room');
+  await expect(groundShadowCell).not.toContainText('€155.00');
+  await expect(groundShadowCell).not.toContainText('Not resolved');
+
+  await page.locator('[data-hotel-workspace-tab="rooms"]').click();
+  await page.locator('[data-prepare-seven-arches-apartments]').click();
+  prepareForm = page.locator('#hotelSevenArchesPreparationForm');
+  await expect(prepareForm.locator('[name="seven_arches_room_0_photo"]:checked')).toHaveCount(1);
+  await expect(prepareForm.locator('[name="seven_arches_room_1_photo"]:checked')).toHaveCount(1);
+  await page.locator('button[form="hotelSevenArchesPreparationForm"]').click();
+  review = page.locator('.hotel-workspace-modal--review');
+  await review.locator('[data-hotel-review-confirm]').click();
+  const repeatedCounts = await page.evaluate(() => {
+    const store = (window as any).__h2aE2eStore;
+    return {
+      rooms: store.room_types.length, plans: store.rate_plans.length, rates: store.room_rates.length,
+      schedules: store.pricing_schedules.length, propertyPhotos: store.property.photos.length,
+      planVersion: store.rate_plans[0].version,
+      rateVersions: store.room_rates.map((rate: any) => rate.version),
+      scheduleVersions: store.pricing_schedules.map((schedule: any) => schedule.version),
+    };
+  });
+  expect(repeatedCounts).toEqual({
+    rooms: 2, plans: 1, rates: 2, schedules: 2, propertyPhotos: 9,
+    planVersion: 1, rateVersions: [1, 1], scheduleVersions: [1, 1],
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(() => { document.documentElement.dir = 'rtl'; });
+  await page.locator('[data-prepare-seven-arches-apartments]').click();
+  await expect(page.locator('.hotel-seven-arches-room')).toHaveCount(2);
+  const mobile = await page.evaluate(() => ({ documentWidth: document.documentElement.scrollWidth, viewportWidth: window.innerWidth, dir: document.documentElement.dir }));
+  expect(mobile.dir).toBe('rtl');
+  expect(mobile.documentWidth).toBeLessThanOrEqual(mobile.viewportWidth + 1);
 });
 
 test('H2B Calendar edits exact dates atomically, exposes occupancy tiers, and switches to a mobile product list', async ({ page }) => {

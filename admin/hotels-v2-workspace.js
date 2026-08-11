@@ -282,6 +282,9 @@
     const product = Core.asObject(preview?.legacy_product);
     const pricingPreview = Core.asObject(preview?.pricing_preview);
     if (!Object.keys(product).length) return '';
+    const sevenArches = preview.property_id === Core.SEVEN_ARCHES_PROPERTY_ID
+      ? Core.sevenArchesShadowPreparation(state.workspace)
+      : null;
     return `<div class="hotel-legacy-product-preview">
       <div class="hotel-legacy-product-preview__columns">
         <section>
@@ -296,20 +299,21 @@
         </section>
         <section>
           <span class="hotel-workspace-eyebrow">Proposed V2 shadow</span>
-          <h5>Room Type #1</h5>
-          <p><strong>Awaiting Admin confirmation</strong></p>
-          <small>No Room Type, Rate Plan, Room Rate or Calendar row has been created.</small>
+          ${sevenArches ? `<h5>2 confirmed apartments</h5><p><strong>${sevenArches.eligible ? 'Ready for photo selection and Review' : 'Preparation blocked'}</strong></p><small>Upper Floor Apartment · Ground Floor Apartment</small>` : '<h5>Room Type #1</h5><p><strong>Awaiting Admin confirmation</strong></p><small>No Room Type, Rate Plan, Room Rate or Calendar row has been created.</small>'}
         </section>
       </div>
       ${renderMigrationFieldClassifications(preview)}
       ${pricingPreview.requires_occupancy_los_model ? `<div class="hotel-legacy-pricing-blocker">
-        <strong>Pricing conversion remains separate</strong>
-        <p>${pricingPreview.rule_count} rules combine ${Core.asArray(pricingPreview.guest_counts).length} guest counts with ${Core.asArray(pricingPreview.stay_thresholds).length} stay thresholds. The H1 rate-rule foundation cannot represent that occupancy × length-of-stay matrix without an H2B model.</p>
+        <strong>Pricing activation remains separate</strong>
+        <p>${pricingPreview.rule_count} rules combine ${Core.asArray(pricingPreview.guest_counts).length} guest counts with ${Core.asArray(pricingPreview.stay_thresholds).length} stay thresholds. H2B can preserve the matrix in shadow, but the shared Standard plan remains inactive until cancellation/payment conditions and the complete oracle are reviewed.</p>
         <code>${escapeHtml(pricingPreview.oracle)}</code>
       </div>` : ''}
-      ${preview.can_prepare_existing_accommodation
-        ? '<button class="btn-primary" type="button" data-prepare-legacy-accommodation>Prepare existing accommodation as Room Type</button>'
+      ${sevenArches?.eligible
+        ? '<button class="btn-primary" type="button" data-prepare-seven-arches-apartments>Prepare 2 existing apartments</button>'
+        : preview.can_prepare_existing_accommodation && !sevenArches
+          ? '<button class="btn-primary" type="button" data-prepare-legacy-accommodation>Prepare existing accommodation as Room Type</button>'
         : ''}
+      ${sevenArches && !sevenArches.eligible ? `<p class="hotel-property-card__blocker">${escapeHtml(sevenArches.blocker)}</p>` : ''}
       <p class="hotel-workspace-safety-note">Pricing migration is separate and remains blocked until the full legacy price oracle can be reproduced.</p>
     </div>`;
   }
@@ -632,6 +636,133 @@
     return Core.normalizeI18n(Object.fromEntries(Core.LANGUAGES.map((language) => [language, formData.get(`${prefix}_${language}`)])));
   }
 
+  function childPolicyText(policy, minimumAge, options = {}) {
+    if (!policy) return options.inherit ? 'Use property policy' : 'Not reviewed';
+    try { return Core.childrenPolicyLabel(policy, minimumAge); }
+    catch (_error) { return 'Invalid policy'; }
+  }
+
+  function childPolicyOptions(policy, options = {}) {
+    const current = String(policy || '');
+    return `${options.allowInherit ? `<option value="" ${!current ? 'selected' : ''}>Use property policy</option>` : `<option value="" ${!current ? 'selected' : ''} disabled>Choose policy</option>`}
+      <option value="allowed" ${current === 'allowed' ? 'selected' : ''}>Children allowed</option>
+      <option value="not_allowed" ${current === 'not_allowed' ? 'selected' : ''}>Adults only / No children</option>
+      <option value="minimum_age" ${current === 'minimum_age' ? 'selected' : ''}>Children allowed from minimum age</option>`;
+  }
+
+  function bindChildPolicyAge(form, policyName, ageName) {
+    const policy = form.elements[policyName];
+    const age = form.elements[ageName];
+    const sync = () => {
+      const enabled = policy.value === 'minimum_age';
+      age.closest('label').hidden = !enabled;
+      age.disabled = !enabled;
+      age.required = enabled;
+      if (!enabled) age.value = '';
+    };
+    policy.addEventListener('change', sync);
+    sync();
+  }
+
+  function renderPropertyGuestPolicyCard(property) {
+    const reviewed = Boolean(property.children_policy);
+    return `<section class="hotel-workspace-card hotel-guest-policy-card${reviewed ? '' : ' is-unreviewed'}">
+      <span class="hotel-workspace-eyebrow">Guest policy · Rooms V2 metadata</span>
+      <h4>${escapeHtml(childPolicyText(property.children_policy, property.minimum_child_age))}</h4>
+      <p>${property.architecture_version === 'legacy'
+        ? 'Shadow metadata only. Current legacy public booking remains unchanged until an exact future migration.'
+        : 'This policy will become authoritative only when the future Rooms V2 public booking contract is activated.'}</p>
+      <button class="btn-secondary" type="button" data-edit-property-child-policy>${reviewed ? 'Edit children policy' : 'Review children policy'}</button>
+    </section>`;
+  }
+
+  function openPropertyChildrenPolicyEditor() {
+    const property = state.workspace.property;
+    openModal({
+      title: 'Children policy',
+      body: `<form id="hotelPropertyChildPolicyForm" class="hotel-workspace-form">
+        <p class="hotel-workspace-intro">Choose how this property accepts guests classified as children. This does not define a legal age category.</p>
+        <div class="hotel-child-policy-options" role="group" aria-label="Children policy">
+          <label class="admin-form-field"><span>Children</span><select name="children_policy" required>${childPolicyOptions(property.children_policy)}</select></label>
+          <label class="admin-form-field"><span>Minimum child age</span><input name="minimum_child_age" type="number" min="${Core.CHILD_AGE_MIN}" max="${Core.CHILD_AGE_MAX}" step="1" value="${escapeAttr(property.minimum_child_age ?? '')}" /></label>
+        </div>
+        <p class="hotel-workspace-safety-note">For a legacy property this remains Admin/shadow metadata. Public guest selection is unchanged in H2B.1.</p>
+      </form>`,
+      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelPropertyChildPolicyForm">Review policy</button>',
+      onReady(overlay) {
+        const form = overlay.querySelector('#hotelPropertyChildPolicyForm');
+        bindChildPolicyAge(form, 'children_policy', 'minimum_child_age');
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const fd = new FormData(form);
+          let policy;
+          try { policy = Core.normalizeChildrenPolicy(fd.get('children_policy'), fd.get('minimum_child_age')); }
+          catch (error) { toast(error.message, 'error'); return; }
+          const policyPayload = { children_policy: policy.policy, minimum_child_age: policy.minimum_age };
+          const before = { id: property.id, children_policy: property.children_policy, minimum_child_age: property.minimum_child_age };
+          const after = { id: property.id, ...policyPayload };
+          const plan = {
+            hotel_id: property.id,
+            expected_property_updated_at: property.updated_at || null,
+            reviewed_at: new Date().toISOString(),
+            property_policy: policyPayload,
+            room_policies: [],
+          };
+          closeModal({ restoreFocus: false });
+          await openReview({
+            title: 'Review property children policy', entity: 'children_policy', before, after,
+            onConfirm: () => Repository.applyGuestPolicyPlan(plan),
+            contextMessage: 'No public booking form, legacy price, property architecture, feature flag or historical row is changed.',
+            successMessage: 'Property children policy saved as Rooms V2 Admin metadata.',
+          });
+        });
+      },
+    });
+  }
+
+  function openRoomChildrenPolicyEditor(roomId) {
+    const room = state.workspace.room_types.find((candidate) => candidate.id === roomId);
+    if (!room) return;
+    openModal({
+      title: `Children policy · ${Core.i18nText(room.name_i18n, 'en', room.code)}`,
+      body: `<form id="hotelRoomChildPolicyForm" class="hotel-workspace-form">
+        <p class="hotel-workspace-intro">Use the property policy by default, or configure an exact Room Type override.</p>
+        <div class="hotel-child-policy-options">
+          <label class="admin-form-field"><span>Room policy</span><select name="children_policy_override">${childPolicyOptions(room.children_policy_override, { allowInherit: true })}</select></label>
+          <label class="admin-form-field"><span>Minimum child age</span><input name="minimum_child_age_override" type="number" min="${Core.CHILD_AGE_MIN}" max="${Core.CHILD_AGE_MAX}" step="1" value="${escapeAttr(room.minimum_child_age_override ?? '')}" /></label>
+        </div>
+        <div class="hotel-workspace-locked-fields"><div><span>Property default</span><strong>${escapeHtml(childPolicyText(state.workspace.property.children_policy, state.workspace.property.minimum_child_age))}</strong></div><div><span>Exact Room Type</span><code>${escapeHtml(room.id)}</code></div></div>
+      </form>`,
+      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelRoomChildPolicyForm">Review override</button>',
+      onReady(overlay) {
+        const form = overlay.querySelector('#hotelRoomChildPolicyForm');
+        bindChildPolicyAge(form, 'children_policy_override', 'minimum_child_age_override');
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const fd = new FormData(form);
+          let policy;
+          try { policy = Core.normalizeChildrenPolicy(fd.get('children_policy_override'), fd.get('minimum_child_age_override'), { allowInherit: true }); }
+          catch (error) { toast(error.message, 'error'); return; }
+          const before = { id: room.id, children_policy_override: room.children_policy_override, minimum_child_age_override: room.minimum_child_age_override };
+          const after = { id: room.id, children_policy_override: policy.policy, minimum_child_age_override: policy.minimum_age };
+          const plan = {
+            hotel_id: state.workspace.property.id,
+            expected_property_updated_at: state.workspace.property.updated_at || null,
+            reviewed_at: new Date().toISOString(),
+            room_policies: [{ room_type_id: room.id, expected_version: room.version, children_policy_override: policy.policy, minimum_child_age_override: policy.minimum_age }],
+          };
+          closeModal({ restoreFocus: false });
+          await openReview({
+            title: 'Review Room Type children policy', entity: 'room_children_policy', before, after,
+            onConfirm: () => Repository.applyGuestPolicyPlan(plan),
+            contextMessage: `Exact Room Type ${room.id}. This override does not alter pricing, inventory, publication or the property default.`,
+            successMessage: 'Room Type children-policy override saved.',
+          });
+        });
+      },
+    });
+  }
+
   function renderOverviewPanel(panel) {
     const property = state.workspace.property;
     const readiness = Core.deriveWorkspaceReadiness(state.workspace);
@@ -673,6 +804,7 @@
           </div>
         </form>
         <aside class="hotel-workspace-side-stack">
+          ${renderPropertyGuestPolicyCard(property)}
           ${legacySummary ? `<section class="hotel-workspace-card hotel-legacy-live">
             <span class="hotel-workspace-eyebrow">Current live legacy product</span>
             <h4>${legacyPublicPriceMarkup(legacySummary)}</h4>
@@ -708,6 +840,8 @@
       overviewForm.querySelectorAll('.hotel-amenity-group').forEach((group) => { group.hidden = term && !group.textContent.toLowerCase().includes(term); });
     });
     panel.querySelector('[data-prepare-legacy-accommodation]')?.addEventListener('click', () => openLegacyAccommodationPreparation(preview));
+    panel.querySelector('[data-prepare-seven-arches-apartments]')?.addEventListener('click', openSevenArchesPreparation);
+    panel.querySelector('[data-edit-property-child-policy]')?.addEventListener('click', openPropertyChildrenPolicyEditor);
   }
 
   function renderReadinessCard(readiness) {
@@ -764,6 +898,9 @@
   function renderRoomsPanel(panel) {
     const workspace = state.workspace;
     const migration = Core.migrationPreview(workspace);
+    const sevenArches = workspace.property.id === Core.SEVEN_ARCHES_PROPERTY_ID
+      ? Core.sevenArchesShadowPreparation(workspace)
+      : null;
     const rooms = workspace.room_types.slice().sort((a, b) => a.sort_order - b.sort_order || a.code.localeCompare(b.code));
     const plans = workspace.rate_plans.slice().sort((a, b) => a.sort_order - b.sort_order || a.code.localeCompare(b.code));
     panel.innerHTML = `
@@ -771,7 +908,11 @@
         <div class="hotel-workspace-panel-actions"><button class="btn-secondary" type="button" data-add-rate-plan>+ Rate Plan</button><button class="btn-primary" type="button" data-add-room>${rooms.length ? '+ Another Room Type' : '+ Room Type'}</button></div>`)}
       ${migration.legacy_product ? `<section class="hotel-workspace-card hotel-legacy-product-banner">
         <div><span class="hotel-workspace-eyebrow">Current live legacy product</span><h4>${migration.legacy_live_product_count} configured accommodation product${migration.legacy_live_product_count === 1 ? '' : 's'}</h4><p>${migration.legacy_pricing_rule_count} legacy pricing rules remain live. Below are ${rooms.length} normalized Room Types in inert V2 preparation.</p></div>
-        ${migration.can_prepare_existing_accommodation ? '<button class="btn-primary" type="button" data-prepare-legacy-accommodation>Prepare existing accommodation as Room Type</button>' : '<span class="hotel-workspace-status hotel-workspace-status--warning">Not migrated</span>'}
+        ${sevenArches?.eligible
+          ? '<button class="btn-primary" type="button" data-prepare-seven-arches-apartments>Prepare 2 existing apartments</button>'
+          : migration.can_prepare_existing_accommodation && !sevenArches
+            ? '<button class="btn-primary" type="button" data-prepare-legacy-accommodation>Prepare existing accommodation as Room Type</button>'
+            : '<span class="hotel-workspace-status hotel-workspace-status--warning">Not migrated</span>'}
       </section>` : ''}
       <div class="hotel-rooms-layout">
         <section>
@@ -786,6 +927,7 @@
     panel.querySelector('[data-add-room]')?.addEventListener('click', () => openRoomEditor());
     panel.querySelector('[data-add-rate-plan]')?.addEventListener('click', () => openRatePlanEditor());
     panel.querySelector('[data-prepare-legacy-accommodation]')?.addEventListener('click', () => openLegacyAccommodationPreparation(migration));
+    panel.querySelector('[data-prepare-seven-arches-apartments]')?.addEventListener('click', openSevenArchesPreparation);
     bindRoomPanelActions(panel);
   }
 
@@ -800,9 +942,20 @@
     const inventoryLabel = room.inventory_mode === 'pooled'
       ? `${room.base_inventory_count} pooled units`
       : `${activeUnits} active physical units`;
+    const capacityLabel = room.max_occupancy != null
+      ? `Max ${room.max_occupancy} guests · adult/child split not confirmed`
+      : `${room.capacity_adults} adults · ${room.capacity_children} children`;
+    let childPolicy;
+    try {
+      const resolved = Core.resolveChildrenPolicy(state.workspace.property, room);
+      childPolicy = `${childPolicyText(resolved.policy, resolved.minimum_age)} · ${resolved.source === 'property' ? 'property default' : 'room override'}`;
+    } catch (_error) {
+      childPolicy = 'Children policy not reviewed';
+    }
     return `<article class="hotel-room-card" data-room-id="${escapeAttr(room.id)}">
-      <header><div><span class="hotel-workspace-eyebrow">${escapeHtml(room.code)}</span><h4>${escapeHtml(Core.i18nText(room.name_i18n, 'en', room.code))}</h4><p>${room.capacity_adults} adults · ${room.capacity_children} children · ${escapeHtml(inventoryLabel)}</p></div><span class="hotel-workspace-status hotel-workspace-status--${statusTone(room.status === 'active' ? 'READY' : room.status === 'disabled' ? 'BLOCKED' : 'DRAFT')}">${escapeHtml(room.status.toUpperCase())}</span></header>
+      <header><div><span class="hotel-workspace-eyebrow">${escapeHtml(room.code)}</span><h4>${escapeHtml(Core.i18nText(room.name_i18n, 'en', room.code))}</h4><p>${escapeHtml(capacityLabel)} · ${escapeHtml(inventoryLabel)}</p></div><span class="hotel-workspace-status hotel-workspace-status--${statusTone(room.status === 'active' ? 'READY' : room.status === 'disabled' ? 'BLOCKED' : 'DRAFT')}">${escapeHtml(room.status.toUpperCase())}</span></header>
       <div class="hotel-room-card__details"><span>${escapeHtml(Core.formatBedConfiguration(room.bed_configuration))}</span><span>${room.bathrooms == null ? 'Bathrooms not specified' : `${room.bathrooms} bathroom(s)`}</span><span>${room.size_sqm == null ? 'Size not specified' : `${room.size_sqm} m²`}</span></div>
+      <div class="hotel-room-card__guest-policy"><span>Children</span><strong>${escapeHtml(childPolicy)}</strong><button class="btn-secondary" type="button" data-edit-room-child-policy="${escapeAttr(room.id)}">Edit</button></div>
       <div class="hotel-room-card__rates">${roomRates.length ? roomRates.map(renderRoomRateLine).join('') : '<p>No Rate Plans connected.</p>'}</div>
       ${room.inventory_mode === 'unitized' ? `<details class="hotel-room-card__units"><summary>${units.length} physical units</summary>${units.length ? units.map(renderUnitLine).join('') : '<p>No units configured.</p>'}<button class="btn-secondary" type="button" data-add-unit="${escapeAttr(room.id)}">Add unit</button></details>` : ''}
       <footer><button class="btn-secondary" type="button" data-edit-room="${escapeAttr(room.id)}">Edit</button><button class="btn-secondary" type="button" data-connect-room-rate="${escapeAttr(room.id)}">Rates</button><button class="btn-secondary" type="button" data-duplicate-room="${escapeAttr(room.id)}">Duplicate</button>${room.status !== 'disabled' ? `<button class="btn-secondary hotel-danger-action" type="button" data-disable-room="${escapeAttr(room.id)}">Disable</button>` : ''}</footer>
@@ -811,7 +964,17 @@
 
   function renderRoomRateLine(rate) {
     const plan = state.workspace.rate_plans.find((candidate) => candidate.id === rate.rate_plan_id);
-    return `<button type="button" class="hotel-room-rate-line" data-edit-room-rate="${escapeAttr(rate.id)}"><span><strong>${escapeHtml(Core.i18nText(plan?.name_i18n, 'en', 'Rate Plan'))}</strong><small>${rate.is_active ? 'Active product' : 'Inactive product'}</small></span><b>${escapeHtml(formatMoney(rate.base_nightly_rate, rate.currency))}</b></button>`;
+    const schedule = rate.pricing_schedule_id
+      ? state.workspace.pricing_schedules.find((candidate) => candidate.id === rate.pricing_schedule_id)
+      : null;
+    const tierCount = schedule
+      ? state.workspace.pricing_schedule_tiers.filter((tier) => tier.schedule_id === schedule.id && tier.is_active !== false).length
+      : 0;
+    const detail = schedule
+      ? `Inactive shared schedule · ${tierCount} tiers · H3 allocation review required`
+      : (rate.is_active ? 'Active product' : 'Inactive product');
+    const price = schedule ? 'Shared schedule' : formatMoney(rate.base_nightly_rate, rate.currency);
+    return `<button type="button" class="hotel-room-rate-line" data-edit-room-rate="${escapeAttr(rate.id)}"><span><strong>${escapeHtml(Core.i18nText(plan?.name_i18n, 'en', 'Rate Plan'))}</strong><small>${escapeHtml(detail)}</small></span><b>${escapeHtml(price)}</b></button>`;
   }
 
   function renderUnitLine(unit) {
@@ -832,6 +995,7 @@
     panel.querySelectorAll('[data-edit-rate-plan]').forEach((button) => button.addEventListener('click', () => openRatePlanEditor(button.dataset.editRatePlan)));
     panel.querySelectorAll('[data-connect-room-rate]').forEach((button) => button.addEventListener('click', () => openRoomRateEditor(null, button.dataset.connectRoomRate)));
     panel.querySelectorAll('[data-edit-room-rate]').forEach((button) => button.addEventListener('click', () => openRoomRateEditor(button.dataset.editRoomRate)));
+    panel.querySelectorAll('[data-edit-room-child-policy]').forEach((button) => button.addEventListener('click', () => openRoomChildrenPolicyEditor(button.dataset.editRoomChildPolicy)));
   }
 
   function modalMarkup(title, body, footer = '') {
@@ -897,8 +1061,14 @@
   }
 
   async function applyReviewedOperations(operations, options = {}) {
-    const plan = Core.buildWorkspacePlan(state.workspace, operations);
-    const result = await Repository.applyWorkspacePlan(plan);
+    const reviewedOperations = Core.asArray(operations);
+    const isExactRoomTypeSave = reviewedOperations.length === 1 && reviewedOperations[0]?.entity === 'room_type';
+    const plan = isExactRoomTypeSave
+      ? Core.buildRoomTypePlan(state.workspace, reviewedOperations[0])
+      : Core.buildWorkspacePlan(state.workspace, reviewedOperations);
+    const result = isExactRoomTypeSave
+      ? await Repository.applyRoomTypePlan(plan)
+      : await Repository.applyWorkspacePlan(plan);
     state.workspace = result.workspace;
     closeModal({ restoreFocus: false, skipCleanup: true, force: true });
     renderWorkspace();
@@ -907,7 +1077,7 @@
     return result;
   }
 
-  async function openReview({ title, entity, before, after, operation, operations, onCancel, onApplyError, closeOnApplyError = false, successMessage, contextMessage = '' }) {
+  async function openReview({ title, entity, before, after, operation, operations, onConfirm, onCancel, onApplyError, closeOnApplyError = false, successMessage, contextMessage = '' }) {
     const reviewedOperations = Array.isArray(operations) ? operations : [operation];
     const rows = Core.buildReviewRows(entity, before, after);
     if (!rows.length) {
@@ -931,7 +1101,16 @@
           button.textContent = 'Saving…';
           setModalSaving(overlay, true);
           try {
-            await applyReviewedOperations(reviewedOperations, { successMessage });
+            if (typeof onConfirm === 'function') {
+              const result = await onConfirm();
+              if (result?.workspace) state.workspace = result.workspace;
+              closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+              renderWorkspace();
+              void loadPropertyList().catch(() => {});
+              toast(successMessage || 'Reviewed Property Workspace changes saved.', 'success');
+            } else {
+              await applyReviewedOperations(reviewedOperations, { successMessage });
+            }
           } catch (error) {
             try { await onApplyError?.(error); } catch (cleanupError) { console.error('Failed to clean up reviewed Hotel media upload:', cleanupError); }
             setModalSaving(overlay, false);
@@ -1088,6 +1267,110 @@
     </fieldset>`;
   }
 
+  function sevenArchesPhotoChecklist(room, index, propertyPhotos) {
+    const selected = new Set(Core.normalizeGallery(room.gallery));
+    const inputName = `seven_arches_room_${index}_photo`;
+    return `<fieldset class="hotel-seven-arches-photos"><legend>Select room photos · required</legend>
+      <p>Every source image remains in the Property gallery. Checking an image adds a safe reference to this exact Room Type.</p>
+      <div class="hotel-legacy-photo-picker__grid">${propertyPhotos.map((url, photoIndex) => `<label>
+        <img src="${escapeAttr(url)}" alt="7 Arches property photo ${photoIndex + 1}" loading="lazy" />
+        <span><input type="checkbox" name="${inputName}" value="${escapeAttr(url)}" ${selected.has(url) ? 'checked' : ''} /> Use for ${escapeHtml(Core.i18nText(room.name_i18n, 'en', room.code))}</span>
+      </label>`).join('')}</div>
+      <small>No photo is selected automatically. Shared photos may be selected for both apartments only when they genuinely apply to both.</small>
+    </fieldset>`;
+  }
+
+  function openSevenArchesPreparation() {
+    const preparation = Core.sevenArchesShadowPreparation(state.workspace);
+    if (!preparation.eligible) {
+      toast(preparation.blocker || 'The two-apartment preparation is not available.', 'error');
+      return;
+    }
+    const [upper, ground] = preparation.rooms;
+    const roomMarkup = (room, index, locationFacts) => `<section class="hotel-seven-arches-room" data-seven-arches-room="${escapeAttr(room.id)}">
+      <header><div><span class="hotel-workspace-eyebrow">Room ${index + 1} · exact draft</span><h4>${escapeHtml(Core.i18nText(room.name_i18n, 'en', room.code))}</h4></div><code>${escapeHtml(room.id)}</code></header>
+      ${i18nFields(`seven_room_${index}_name`, 'Editable room name', room.name_i18n)}
+      <div class="hotel-seven-arches-facts">
+        <div><span>Floor</span><strong>${escapeHtml(locationFacts.floor)}</strong></div>
+        <div><span>Terrace</span><strong>Yes</strong></div>
+        <div><span>Balcony</span><strong>${locationFacts.balcony ? 'Yes' : 'No'}</strong></div>
+        <div><span>Capacity</span><strong>Max 4 guests</strong><small>Adult/child split not confirmed</small></div>
+        <div><span>Inventory</span><strong>1 pooled apartment</strong></div>
+        <div><span>Beds · bathrooms · size</span><strong>Not confirmed</strong></div>
+      </div>
+      <div class="hotel-seven-arches-amenities"><span>Confirmed room amenities</span>${room.amenities.map((code) => `<b>${escapeHtml(code.replaceAll('_', ' '))}</b>`).join('')}</div>
+      ${sevenArchesPhotoChecklist(room, index, preparation.property_gallery)}
+    </section>`;
+    openModal({
+      title: 'Prepare 2 existing apartments',
+      className: 'hotel-workspace-modal--wide hotel-workspace-modal--seven-arches',
+      body: `<form id="hotelSevenArchesPreparationForm" class="hotel-workspace-form">
+        <section class="hotel-legacy-source-review">
+          <span class="hotel-workspace-eyebrow">7 Arches · reviewed source contract</span>
+          <h4>Two real accommodation units</h4>
+          <div><span>Legacy pricing remains live</span><span>Property gallery: ${preparation.property_gallery.length} photos</span><span>Public: no change</span></div>
+          <p>The two normalized Room Types, dormant shared Standard pricing structure and age policy remain Rooms V2 shadow configuration. No architecture or feature flag is changed.</p>
+        </section>
+        <section class="hotel-workspace-card hotel-guest-policy-card"><span class="hotel-workspace-eyebrow">Children policy · source confirmed</span><h4>Children allowed from age 10</h4><p>Saved as shadow/Admin metadata. The current legacy booking form remains unchanged.</p></section>
+        <div class="hotel-seven-arches-room-grid">
+          ${roomMarkup(upper, 0, { floor: 'Upper floor', balcony: true })}
+          ${roomMarkup(ground, 1, { floor: 'Ground floor', balcony: false })}
+        </div>
+        <section class="hotel-workspace-card hotel-legacy-pricing-blocker">
+          <strong>Shared pricing preparation · inactive</strong>
+          <p>One reusable Standard Rate Plan structure is prepared for both apartments. The server copies the 27 confirmed 2–4 guest tiers into their dormant shared room schedule and preserves the complete 63-rule matrix as a separate inactive property-party preview for future multi-room allocation. Cancellation and payment terms remain BLOCKED for Review.</p>
+          <small>No public price, legacy pricing JSON, booking, deposit or coupon is changed.</small>
+        </section>
+      </form>`,
+      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelSevenArchesPreparationForm">Review 2 apartments</button>',
+      onReady(overlay) {
+        const form = overlay.querySelector('#hotelSevenArchesPreparationForm');
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const fd = new FormData(form);
+          const reviews = preparation.rooms.map((room, index) => ({
+            id: room.id,
+            name_i18n: readI18n(fd, `seven_room_${index}_name`),
+            gallery: fd.getAll(`seven_arches_room_${index}_photo`),
+          }));
+          let plan;
+          try { plan = Core.buildSevenArchesShadowPlan(state.workspace, reviews); }
+          catch (error) { toast(error.message, 'error'); return; }
+          const before = {
+            id: preparation.hotel_id,
+            architecture_version: state.workspace.property.architecture_version,
+            property_children_policy: state.workspace.property.children_policy,
+            room_types: preparation.rooms.map((room) => ({ id: room.id, version: room.created_at ? room.version : 0, gallery: room.gallery })),
+            pricing: 'Legacy 63-rule matrix remains authoritative',
+          };
+          const after = {
+            id: preparation.hotel_id,
+            architecture_version: 'legacy (unchanged)',
+            property_children_policy: 'minimum_age · 10',
+            rooms: plan.rooms.map((room) => ({
+              id: room.id,
+              source_key: room.source_key,
+              name_i18n: room.name_i18n,
+              max_occupancy: room.max_occupancy,
+              inventory: 'pooled · 1',
+              amenities: room.amenities,
+              selected_photo_count: room.gallery.length,
+            })),
+            pricing: 'Dormant shared Standard schedule preview; cancellation/payment blocked',
+            public_change: false,
+          };
+          closeModal({ restoreFocus: false });
+          await openReview({
+            title: 'Review 7 Arches two-apartment shadow package', entity: 'seven_arches_shadow_package', before, after,
+            onConfirm: () => Repository.prepareLegacyShadowRooms(plan),
+            contextMessage: 'One atomic exact-property RPC creates or updates only the deterministic shadow IDs. Existing legacy pricing, property gallery, public state, architecture, bookings and feature flags remain unchanged.',
+            successMessage: 'Two reviewed 7 Arches apartments prepared in Rooms V2 shadow configuration.',
+          });
+        });
+      },
+    });
+  }
+
   function openLegacyAccommodationPreparation(preview = null) {
     const freshPreview = Core.migrationPreview(state.workspace);
     if (!freshPreview.can_prepare_existing_accommodation || !freshPreview.legacy_product) {
@@ -1109,11 +1392,13 @@
       ? Core.buildLegacyShadowRoomSeed(state.workspace, Core.newUuid())
       : Core.normalizeRoomType({
       id: Core.newUuid(), hotel_id: state.workspace.property.id, code: '', name_i18n: {}, description_i18n: {},
-      gallery: [], capacity_adults: 2, capacity_children: 0, bed_configuration: [], amenities: [],
+      gallery: [], capacity_adults: 2, capacity_children: 0, max_occupancy: null, bed_configuration: [], amenities: [],
       inventory_mode: 'pooled', base_inventory_count: 1, status: 'draft', sort_order: 1000, version: 1,
     }));
-    const adultsValue = isLegacyPreparation ? '' : room.capacity_adults;
-    const childrenValue = isLegacyPreparation ? '' : room.capacity_children;
+    const adultsValue = isLegacyPreparation ? '' : (room.capacity_adults ?? '');
+    const childrenValue = isLegacyPreparation ? '' : (room.capacity_children ?? '');
+    const totalValue = isLegacyPreparation ? '' : (room.max_occupancy ?? '');
+    const capacityContract = room.max_occupancy != null ? 'total_only' : 'split';
     const inventoryValue = isLegacyPreparation ? '' : room.base_inventory_count;
     openModal({
       title: existing ? 'Edit Room Type' : isLegacyPreparation ? 'Prepare existing accommodation as Room Type' : 'Add Room Type',
@@ -1129,8 +1414,10 @@
         ${i18nFields('name', 'Room name', room.name_i18n)}
         ${i18nFields('description', 'Room description', room.description_i18n, 'textarea')}
         <fieldset><legend>Capacity & inventory</legend><div class="hotel-workspace-form-grid">
-          <label class="admin-form-field"><span>Adults</span><input name="capacity_adults" type="number" min="1" max="50" step="1" value="${adultsValue}" required /></label>
-          <label class="admin-form-field"><span>Children</span><input name="capacity_children" type="number" min="0" max="50" step="1" value="${childrenValue}" required /></label>
+          <label class="admin-form-field"><span>Capacity detail</span><select name="capacity_contract"><option value="split" ${capacityContract === 'split' ? 'selected' : ''}>Adults and children confirmed</option><option value="total_only" ${capacityContract === 'total_only' ? 'selected' : ''}>Maximum total only · split not confirmed</option></select></label>
+          <label class="admin-form-field" data-capacity-split><span>Adults</span><input name="capacity_adults" type="number" min="1" max="50" step="1" value="${adultsValue}" /></label>
+          <label class="admin-form-field" data-capacity-split><span>Children</span><input name="capacity_children" type="number" min="0" max="50" step="1" value="${childrenValue}" /></label>
+          <label class="admin-form-field" data-capacity-total><span>Maximum total guests</span><input name="max_occupancy" type="number" min="1" max="50" step="1" value="${totalValue}" /><small>Use only when the adult/child split is genuinely not confirmed.</small></label>
           <label class="admin-form-field"><span>Inventory model</span><select name="inventory_mode" required>${isLegacyPreparation ? '<option value="" selected disabled>Select after confirmation</option>' : ''}<option value="pooled" ${!isLegacyPreparation && room.inventory_mode === 'pooled' ? 'selected' : ''}>Pooled inventory</option><option value="unitized" ${!isLegacyPreparation && room.inventory_mode === 'unitized' ? 'selected' : ''}>Individual units</option></select></label>
           <label class="admin-form-field"><span>Base inventory count</span><input name="base_inventory_count" type="number" min="${isLegacyPreparation ? '1' : '0'}" step="1" value="${inventoryValue}" ${isLegacyPreparation ? 'required' : ''} /></label>
           <label class="admin-form-field"><span>Bathrooms</span><input name="bathrooms" type="number" min="0" step="0.5" value="${escapeAttr(room.bathrooms ?? '')}" /></label>
@@ -1179,6 +1466,20 @@
         };
         inventoryMode.addEventListener('change', syncInventory);
         syncInventory();
+        const capacityContractInput = form.elements.capacity_contract;
+        const syncCapacityContract = () => {
+          const totalOnly = capacityContractInput.value === 'total_only';
+          form.querySelectorAll('[data-capacity-split]').forEach((label) => { label.hidden = totalOnly; });
+          form.querySelector('[data-capacity-total]').hidden = !totalOnly;
+          form.elements.capacity_adults.disabled = totalOnly;
+          form.elements.capacity_children.disabled = totalOnly;
+          form.elements.max_occupancy.disabled = !totalOnly;
+          form.elements.capacity_adults.required = !totalOnly;
+          form.elements.capacity_children.required = !totalOnly;
+          form.elements.max_occupancy.required = totalOnly;
+        };
+        capacityContractInput.addEventListener('change', syncCapacityContract);
+        syncCapacityContract();
         const search = form.querySelector('[data-amenity-search]');
         search?.addEventListener('input', () => {
           const term = search.value.trim().toLowerCase();
@@ -1201,8 +1502,9 @@
             code: String(fd.get('code') || '').trim().toLowerCase(),
             name_i18n: readI18n(fd, 'name'),
             description_i18n: readI18n(fd, 'description'),
-            capacity_adults: Number(fd.get('capacity_adults')),
-            capacity_children: Number(fd.get('capacity_children')),
+            capacity_adults: fd.get('capacity_contract') === 'total_only' ? null : Number(fd.get('capacity_adults')),
+            capacity_children: fd.get('capacity_contract') === 'total_only' ? null : Number(fd.get('capacity_children')),
+            max_occupancy: fd.get('capacity_contract') === 'total_only' ? Number(fd.get('max_occupancy')) : null,
             inventory_mode: String(fd.get('inventory_mode')),
             base_inventory_count: fd.get('inventory_mode') === 'unitized' ? 0 : Number(fd.get('base_inventory_count')),
             bathrooms: fd.get('bathrooms') === '' ? null : Number(fd.get('bathrooms')),
@@ -1311,15 +1613,16 @@
   function cancellationFields(policy) {
     const normalized = Core.normalizeCancellationPolicy(policy);
     return `<fieldset><legend>Cancellation policy</legend><div class="hotel-workspace-form-grid">
-      <label class="admin-form-field"><span>Policy</span><select name="cancellation_type"><option value="flexible" ${normalized.type === 'flexible' ? 'selected' : ''}>Flexible</option><option value="non_refundable" ${normalized.type === 'non_refundable' ? 'selected' : ''}>Non-refundable</option><option value="custom" ${normalized.type === 'custom' ? 'selected' : ''}>Custom</option></select></label>
+      <label class="admin-form-field"><span>Policy</span><select name="cancellation_type">${normalized.type === 'requires_review' ? '<option value="requires_review" selected disabled>Requires confirmation</option>' : ''}<option value="flexible" ${normalized.type === 'flexible' ? 'selected' : ''}>Flexible</option><option value="non_refundable" ${normalized.type === 'non_refundable' ? 'selected' : ''}>Non-refundable</option><option value="custom" ${normalized.type === 'custom' ? 'selected' : ''}>Custom</option></select></label>
       <label class="admin-form-field" data-custom-cancellation><span>Deadline before arrival (hours)</span><input name="deadline_hours" type="number" min="0" step="1" value="${normalized.deadline_hours ?? 48}" /></label>
       <label class="admin-form-field" data-custom-cancellation><span>Penalty</span><select name="penalty_mode"><option value="none" ${normalized.penalty_mode === 'none' ? 'selected' : ''}>No configured penalty</option><option value="flat" ${normalized.penalty_mode === 'flat' ? 'selected' : ''}>Fixed amount</option><option value="percent" ${normalized.penalty_mode === 'percent' ? 'selected' : ''}>Percent of total</option></select></label>
       <label class="admin-form-field" data-custom-cancellation data-penalty-value><span>Penalty value</span><input name="penalty_value" type="number" min="0" step="0.01" value="${escapeAttr(normalized.penalty_value ?? '')}" /></label>
-    </div><small>This stores a safe policy description only. H2A does not change booking or refund calculations.</small></fieldset>`;
+    </div>${normalized.type === 'requires_review' ? '<p class="hotel-workspace-safety-note">Cancellation terms are unresolved. This Rate Plan must remain inactive until an Admin selects and reviews a confirmed policy.</p>' : ''}<small>This stores a safe policy description only. H2A does not change booking or refund calculations.</small></fieldset>`;
   }
 
-  function readCancellationPolicy(form) {
+  function readCancellationPolicy(form, currentPolicy = null) {
     const type = String(form.elements.cancellation_type.value || 'flexible');
+    if (type === 'requires_review') return Core.normalizeCancellationPolicy(currentPolicy);
     if (type !== 'custom') return Core.normalizeCancellationPolicy({ type });
     const mode = String(form.elements.penalty_mode.value || 'none');
     return Core.normalizeCancellationPolicy({
@@ -1371,7 +1674,7 @@
               name_i18n: readI18n(fd, 'name'),
               description_i18n: readI18n(fd, 'description'),
               meal_plan_code: String(fd.get('meal_plan_code') || '').trim().toLowerCase() || null,
-              cancellation_policy: readCancellationPolicy(form),
+              cancellation_policy: readCancellationPolicy(form, plan.cancellation_policy),
               booking_mode_override: String(fd.get('booking_mode_override') || '') || null,
               is_active: fd.get('is_active') === 'on',
               sort_order: Number(fd.get('sort_order')),
@@ -1399,6 +1702,21 @@
     });
     if (!state.workspace.room_types.length || !state.workspace.rate_plans.length) {
       toast('Create at least one Room Type and one Rate Plan before connecting them.', 'error');
+      return;
+    }
+    if (existing?.pricing_schedule_id) {
+      const schedule = state.workspace.pricing_schedules.find((candidate) => candidate.id === existing.pricing_schedule_id);
+      const tierCount = state.workspace.pricing_schedule_tiers.filter((tier) => tier.schedule_id === existing.pricing_schedule_id && tier.is_active !== false).length;
+      openModal({
+        title: 'Shared Room Rate schedule',
+        body: `<section class="hotel-workspace-card hotel-legacy-pricing-blocker">
+          <span class="hotel-workspace-eyebrow">Dormant Rooms V2 shadow pricing</span>
+          <h4>${escapeHtml(Core.i18nText(schedule?.name_i18n, 'en', 'Shared apartment pricing'))}</h4>
+          <p>This exact product uses a reusable ${tierCount}-tier occupancy × length-of-stay schedule. Its base rate is not an executable €0 price.</p>
+          <p>Generic Room Rate editing is locked until H3 adds allocation-aware detach/clone and authoritative public resolution.</p>
+          <div class="hotel-workspace-locked-fields"><div><span>Exact product ID</span><code>${escapeHtml(existing.id)}</code></div><div><span>Schedule ID</span><code>${escapeHtml(existing.pricing_schedule_id)}</code></div></div>
+        </section>`,
+      });
       return;
     }
     openModal({
@@ -1474,6 +1792,12 @@
       const rate = Core.asObject(raw);
       const room = roomById.get(rate.room_type_id) || Core.asObject(rate.room_type);
       const plan = planById.get(rate.rate_plan_id) || Core.asObject(rate.rate_plan);
+      const schedule = rate.pricing_schedule_id
+        ? state.workspace.pricing_schedules.find((candidate) => candidate.id === rate.pricing_schedule_id)
+        : null;
+      const scheduleTierCount = schedule
+        ? state.workspace.pricing_schedule_tiers.filter((tier) => tier.schedule_id === schedule.id && tier.is_active !== false).length
+        : 0;
       return {
         ...rate,
         id: Core.normalizeUuid(rate.id),
@@ -1485,6 +1809,9 @@
         rate_plan_name: Core.i18nText(rate.rate_plan_name_i18n || plan.name_i18n, 'en', plan.code || 'Rate Plan'),
         rate_plan_code: String(plan.code || rate.rate_plan_code || '').trim(),
         currency: String(rate.currency || state.workspace.property.currency || 'EUR'),
+        pricing_label: schedule
+          ? `Shared ${scheduleTierCount}-tier shadow schedule`
+          : `${formatMoney(rate.base_nightly_rate, rate.currency || state.workspace.property.currency || 'EUR')} base`,
       };
     }).filter((rate) => rate.id && rate.room_type_id);
   }
@@ -1493,21 +1820,45 @@
     const data = Core.asObject(calendar);
     const dailyRates = new Map();
     const inventory = new Map();
+    const overrides = new Map();
     const effective = new Map();
     Core.asArray(data.daily_rates).forEach((row) => dailyRates.set(`${row.room_rate_id}:${row.stay_date}`, row));
     Core.asArray(data.daily_inventory).forEach((row) => inventory.set(`${row.room_type_id}:${row.stay_date}`, row));
+    Core.asArray(data.calendar_overrides).forEach((row) => overrides.set(`${row.room_rate_id}:${row.stay_date}`, row));
     Core.asArray(data.effective_cells).forEach((row) => {
       const productId = row.room_rate_id || row.product_id;
       const date = row.stay_date || row.date;
       if (productId && date) effective.set(`${productId}:${date}`, row);
     });
-    return { dailyRates, inventory, effective };
+    return { dailyRates, inventory, overrides, effective };
   }
 
   function calendarCell(product, date, maps) {
     const rateRow = maps.dailyRates.get(`${product.id}:${date}`) || null;
     const inventoryRow = maps.inventory.get(`${product.room_type_id}:${date}`) || null;
+    const overrideRow = maps.overrides.get(`${product.id}:${date}`) || null;
     const serverCell = maps.effective.get(`${product.id}:${date}`) || null;
+    const sharedSchedule = Core.sharedScheduleCalendarDisplayState(product, date, overrideRow, inventoryRow);
+    if (sharedSchedule) {
+      return {
+        rate: null,
+        inventory: sharedSchedule.configured_inventory,
+        closed: sharedSchedule.explicitly_closed,
+        minimumStay: sharedSchedule.minimum_stay.mode === 'set' ? sharedSchedule.minimum_stay.value : null,
+        maximumStay: sharedSchedule.maximum_stay.mode === 'set' ? sharedSchedule.maximum_stay.value : null,
+        cta: sharedSchedule.closed_to_arrival.mode === 'set' && sharedSchedule.closed_to_arrival.value === true,
+        ctd: sharedSchedule.closed_to_departure.mode === 'set' && sharedSchedule.closed_to_departure.value === true,
+        source: 'Shadow only · H3 occupancy/allocation pending',
+        requestable: false,
+        blockingReasons: [sharedSchedule.blocker],
+        rateRow,
+        inventoryRow,
+        overrideRow,
+        serverCell,
+        unresolved: true,
+        sharedSchedule,
+      };
+    }
     if (!serverCell) {
       return {
         rate: null,
@@ -1522,6 +1873,7 @@
         blockingReasons: [],
         rateRow,
         inventoryRow,
+        overrideRow,
         serverCell: null,
         unresolved: true,
       };
@@ -1556,6 +1908,7 @@
       blockingReasons,
       rateRow,
       inventoryRow,
+      overrideRow,
       serverCell,
       unresolved: rate == null || inventory == null,
     };
@@ -1574,6 +1927,7 @@
       ambiguous_range_rules: 'Ambiguous seasonal rules',
       ambiguous_weekday_rules: 'Ambiguous weekday rules',
       invalid_resolved_stay_restriction: 'Invalid stay restriction',
+      shared_room_pricing_schedule_requires_h3_resolution: 'H3 occupancy/allocation resolution required',
     };
     return labels[code] || code.replaceAll('_', ' ');
   }
@@ -1592,6 +1946,29 @@
       cell.ctd ? 'CTD' : '',
     ].filter(Boolean);
     const selected = isCalendarDateSelected(date) && state.calendar.selected_product_ids.includes(product.id);
+    if (cell.sharedSchedule) {
+      const shadow = cell.sharedSchedule;
+      const nightlyRate = shadow.nightly_rate.mode === 'set'
+        ? `Exact date draft rate: ${formatMoney(shadow.nightly_rate.value, product.currency)}`
+        : shadow.nightly_rate.mode === 'clear'
+          ? 'Exact date rate cleared · shared schedule inherited'
+          : 'No exact date price override';
+      const inventory = shadow.inventory_source === 'exact_room_date'
+        ? `Exact room inventory: ${shadow.configured_inventory} room${Number(shadow.configured_inventory) === 1 ? '' : 's'}`
+        : `${shadow.sellable_units.mode === 'clear' ? 'Daily inventory cleared · ' : ''}Base room inventory: ${shadow.configured_inventory}`;
+      const shadowRestrictions = [
+        shadow.explicitly_closed ? 'Closed' : '',
+        ...restrictions,
+      ].filter(Boolean);
+      return `<button type="button" class="hotel-calendar-cell is-shadow-schedule${selected ? ' is-selected' : ''}${shadow.explicitly_closed ? ' is-closed' : ''} is-not-requestable" data-calendar-cell data-product-id="${escapeAttr(product.id)}" data-date="${escapeAttr(date)}" aria-pressed="${selected}" title="${escapeAttr(`${product.room_name} · ${product.rate_plan_name} · ${date}`)}">
+        <strong>Shared schedule · H3 pending</strong>
+        <span>${escapeHtml(nightlyRate)}</span>
+        <span>${escapeHtml(inventory)}</span>
+        <small>${shadowRestrictions.length ? escapeHtml(shadowRestrictions.join(' · ')) : 'No exact restrictions'}</small>
+        <em class="hotel-calendar-cell__blocker">Shadow only · not requestable until occupancy/allocation is resolved</em>
+        <i>Exact room configuration</i>
+      </button>`;
+    }
     const blockerLabels = cell.blockingReasons.map(calendarBlockingReasonLabel);
     const requestability = !cell.unresolved && cell.requestable === false
       ? `<em class="hotel-calendar-cell__blocker">Not requestable${blockerLabels.length ? ` · ${escapeHtml(blockerLabels.join(' · '))}` : ''}</em>`
@@ -1623,7 +2000,7 @@
     return `<div class="hotel-calendar-grid-shell" tabindex="0" aria-label="Monthly room rate and inventory calendar">
       <table class="hotel-calendar-grid">
         <thead><tr><th class="hotel-calendar-grid__product"><span>Room × Rate Plan</span><small>Choose products to edit</small></th>${dates.map((date) => `<th class="${date === todayIsoDate() ? 'is-today' : ''}"><span>${escapeHtml(calendarDateLabel(date))}</span><small>${escapeHtml(date.slice(5))}</small></th>`).join('')}</tr></thead>
-        <tbody>${products.map((product) => `<tr data-calendar-product-row="${escapeAttr(product.id)}"><th class="hotel-calendar-grid__product"><label><input type="checkbox" data-calendar-product-check value="${escapeAttr(product.id)}" ${state.calendar.selected_product_ids.includes(product.id) ? 'checked' : ''} /><span><strong>${escapeHtml(product.room_name)}</strong><small>${escapeHtml(product.rate_plan_name)} · ${escapeHtml(formatMoney(product.base_nightly_rate, product.currency))} base</small></span></label></th>${dates.map((date) => `<td>${calendarCellMarkup(product, date, maps)}</td>`).join('')}</tr>`).join('')}</tbody>
+        <tbody>${products.map((product) => `<tr data-calendar-product-row="${escapeAttr(product.id)}"><th class="hotel-calendar-grid__product"><label><input type="checkbox" data-calendar-product-check value="${escapeAttr(product.id)}" ${state.calendar.selected_product_ids.includes(product.id) ? 'checked' : ''} /><span><strong>${escapeHtml(product.room_name)}</strong><small>${escapeHtml(product.rate_plan_name)} · ${escapeHtml(product.pricing_label)}</small></span></label></th>${dates.map((date) => `<td>${calendarCellMarkup(product, date, maps)}</td>`).join('')}</tr>`).join('')}</tbody>
       </table>
     </div>`;
   }
