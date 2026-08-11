@@ -472,6 +472,8 @@ function seedHotelsV2H2aWorkspace() {
           const plan = params.p_plan || {};
           if (plan.hotel_id !== hotelId || plan.source_contract !== 'seven_arches_two_apartments_v1'
               || plan.expected_property_updated_at !== store.property.updated_at
+              || plan.expected_property_policy?.children_policy !== (store.property.children_policy ?? null)
+              || plan.expected_property_policy?.minimum_child_age !== (store.property.minimum_child_age ?? null)
               || plan.expected_legacy_pricing_fingerprint !== 'fixture-legacy-63-fingerprint') {
             return { data: null, error: { code: 'PT409', message: 'legacy source changed after Review' } };
           }
@@ -508,7 +510,7 @@ function seedHotelsV2H2aWorkspace() {
               minimum_child_age_override: existingRoom?.minimum_child_age_override ?? null,
               bed_configuration: [], bathrooms: null,
               size_sqm: null, amenities: room.amenities, inventory_mode: 'pooled', base_inventory_count: 1,
-              status: 'draft', sort_order: room.sort_order,
+              status: existingRoom?.status || 'draft', sort_order: room.sort_order,
             });
           }
           if (!working.rate_plans.some((row: any) => row.id === SEVEN_ARCHES_RATE_PLAN_ID)) {
@@ -971,19 +973,21 @@ test('H2B.1 reviews child policy and prepares exactly two idempotent 7 Arches sh
   await expect(guestCard).toContainText('Not reviewed');
   await guestCard.locator('[data-edit-property-child-policy]').click();
   const childForm = page.locator('#hotelPropertyChildPolicyForm');
-  await childForm.locator('[name="children_policy"]').selectOption('not_allowed');
-  await expect(childForm.locator('[name="minimum_child_age"]')).toBeHidden();
+  await childForm.locator('[name="children_policy"]').selectOption('minimum_age');
+  await childForm.locator('[name="minimum_child_age"]').fill('15');
+  await expect(childForm.locator('[name="minimum_child_age"]')).toBeVisible();
   await page.locator('button[form="hotelPropertyChildPolicyForm"]').click();
   const childReview = page.locator('.hotel-workspace-modal--review');
-  await expect(childReview).toContainText('not_allowed');
+  await expect(childReview).toContainText('minimum_age');
+  await expect(childReview).toContainText('15');
   await childReview.locator('[data-hotel-review-confirm]').click();
-  await expect(page.locator('.hotel-guest-policy-card').first()).toContainText('Adults only / No children');
+  await expect(page.locator('.hotel-guest-policy-card').first()).toContainText('Children allowed from age 15');
   const propertyPolicyPayload = await page.evaluate(() => {
     const call = (window as any).__supabaseStub.getRpcCalls()
       .filter((entry: any) => entry.name === 'hotel_v2_admin_apply_guest_policy_plan').at(-1);
     return call?.params?.p_plan?.property_policy;
   });
-  expect(propertyPolicyPayload).toEqual({ children_policy: 'not_allowed', minimum_child_age: null });
+  expect(propertyPolicyPayload).toEqual({ children_policy: 'minimum_age', minimum_child_age: 15 });
 
   await page.locator('[data-prepare-seven-arches-apartments]').click();
   let prepareForm = page.locator('#hotelSevenArchesPreparationForm');
@@ -994,6 +998,9 @@ test('H2B.1 reviews child policy and prepares exactly two idempotent 7 Arches sh
   await expect(review).toContainText('two-apartment shadow package');
   await expect(review).toContainText(SEVEN_ARCHES_UPPER_ID);
   await expect(review).toContainText(SEVEN_ARCHES_GROUND_ID);
+  await expect(review).toContainText('property_minimum_child_age');
+  await expect(review).toContainText('15');
+  await expect(review).toContainText('10');
   await page.evaluate(() => {
     (window as any).__h2aE2eStore.property.updated_at = '2026-08-11T12:01:00.000Z';
   });
@@ -1005,7 +1012,7 @@ test('H2B.1 reviews child policy and prepares exactly two idempotent 7 Arches sh
     rates: (window as any).__h2aE2eStore.room_rates.length,
     policy: (window as any).__h2aE2eStore.property.children_policy,
   }));
-  expect(afterStale).toEqual({ rooms: 0, plans: 0, rates: 0, policy: 'not_allowed' });
+  expect(afterStale).toEqual({ rooms: 0, plans: 0, rates: 0, policy: 'minimum_age' });
   await page.evaluate(() => {
     (window as any).__h2aE2eStore.property.updated_at = '2026-08-11T12:00:00.000Z';
   });
@@ -1019,6 +1026,12 @@ test('H2B.1 reviews child policy and prepares exactly two idempotent 7 Arches sh
   review = page.locator('.hotel-workspace-modal--review');
   await review.locator('[data-hotel-review-confirm]').click();
   await expect(page.locator('.hotel-guest-policy-card').first()).toContainText('Children allowed from age 10');
+  const shadowPolicySnapshot = await page.evaluate(() => {
+    const call = (window as any).__supabaseStub.getRpcCalls()
+      .filter((entry: any) => entry.name === 'hotel_v2_admin_prepare_legacy_shadow_rooms').at(-1);
+    return call?.params?.p_plan?.expected_property_policy;
+  });
+  expect(shadowPolicySnapshot).toEqual({ children_policy: 'minimum_age', minimum_child_age: 15 });
 
   const firstSave = await page.evaluate(() => {
     const store = (window as any).__h2aE2eStore;
@@ -1177,6 +1190,106 @@ test('H2B.1 reviews child policy and prepares exactly two idempotent 7 Arches sh
   const mobile = await page.evaluate(() => ({ documentWidth: document.documentElement.scrollWidth, viewportWidth: window.innerWidth, dir: document.documentElement.dir }));
   expect(mobile.dir).toBe('rtl');
   expect(mobile.documentWidth).toBeLessThanOrEqual(mobile.viewportWidth + 1);
+});
+
+test('H2B.1 reviewed save preserves existing ACTIVE v4/v5 apartments while changing reviewed age 15 to 10', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.addInitScript(seedHotelsV2H2aWorkspace(), { adminId: ADMIN_ID, hotelId: HOTEL_ID, partnerId: PARTNER_ID });
+  await enableSupabaseStub(page);
+  await page.goto('/admin/dashboard.html', { waitUntil: 'domcontentloaded' });
+  await waitForSupabaseStub(page);
+
+  await page.evaluate(({ hotelId, upperId, groundId }) => {
+    const store = (window as any).__h2aE2eStore;
+    store.property.children_policy = 'minimum_age';
+    store.property.minimum_child_age = 15;
+    store.room_types = [{
+      id: upperId,
+      hotel_id: hotelId,
+      legacy_source_key: 'upper_floor_apartment',
+      code: 'upper-floor-apartment',
+      name_i18n: { pl: 'Apartament na piętrze', en: 'Upper Floor Apartment', he: 'דירה בקומה העליונה' },
+      description_i18n: {},
+      gallery: [],
+      capacity_adults: null,
+      capacity_children: null,
+      max_occupancy: 4,
+      children_policy_override: null,
+      minimum_child_age_override: null,
+      bed_configuration: [],
+      bathrooms: null,
+      size_sqm: null,
+      amenities: ['air_conditioning', 'balcony', 'terrace'],
+      inventory_mode: 'pooled',
+      base_inventory_count: 1,
+      status: 'active',
+      sort_order: 100,
+      version: 4,
+      created_at: '2026-08-11T09:00:00.000Z',
+      updated_at: '2026-08-11T09:00:00.000Z',
+    }, {
+      id: groundId,
+      hotel_id: hotelId,
+      legacy_source_key: 'ground_floor_apartment',
+      code: 'ground-floor-apartment',
+      name_i18n: { pl: 'Apartament na parterze', en: 'Ground Floor Apartment', he: 'דירה בקומת הקרקע' },
+      description_i18n: {},
+      gallery: [],
+      capacity_adults: null,
+      capacity_children: null,
+      max_occupancy: 4,
+      children_policy_override: null,
+      minimum_child_age_override: null,
+      bed_configuration: [],
+      bathrooms: null,
+      size_sqm: null,
+      amenities: ['air_conditioning', 'terrace'],
+      inventory_mode: 'pooled',
+      base_inventory_count: 1,
+      status: 'active',
+      sort_order: 200,
+      version: 5,
+      created_at: '2026-08-11T09:00:00.000Z',
+      updated_at: '2026-08-11T09:00:00.000Z',
+    }];
+  }, { hotelId: HOTEL_ID, upperId: SEVEN_ARCHES_UPPER_ID, groundId: SEVEN_ARCHES_GROUND_ID });
+
+  await page.locator('button.admin-nav-item[data-view="hotels"]').click();
+  await page.locator(`[data-hotel-open-workspace="${HOTEL_ID}"]`).click();
+  await page.locator('[data-prepare-seven-arches-apartments]').click();
+  const form = page.locator('#hotelSevenArchesPreparationForm');
+  await expect(form.locator('[name="seven_arches_room_0_photo"]:checked')).toHaveCount(0);
+  await expect(form.locator('[name="seven_arches_room_1_photo"]:checked')).toHaveCount(0);
+  await form.locator('[name="seven_arches_room_0_photo"]').nth(2).check();
+  await form.locator('[name="seven_arches_room_1_photo"]').nth(3).check();
+  await page.locator('button[form="hotelSevenArchesPreparationForm"]').click();
+  const review = page.locator('.hotel-workspace-modal--review');
+  await expect(review).toContainText('property_minimum_child_age');
+  await expect(review).toContainText('15');
+  await expect(review).toContainText('10');
+  await review.locator('[data-hotel-review-confirm]').click();
+
+  const audit = await page.evaluate(({ upperId, groundId }) => {
+    const store = (window as any).__h2aE2eStore;
+    const call = (window as any).__supabaseStub.getRpcCalls()
+      .filter((entry: any) => entry.name === 'hotel_v2_admin_prepare_legacy_shadow_rooms').at(-1);
+    const room = (id: string) => store.room_types.find((candidate: any) => candidate.id === id);
+    return {
+      expectedPolicy: call?.params?.p_plan?.expected_property_policy,
+      expectedRoomVersions: call?.params?.p_plan?.rooms?.map((candidate: any) => [candidate.id, candidate.expected_version]),
+      savedPolicy: { children_policy: store.property.children_policy, minimum_child_age: store.property.minimum_child_age },
+      upper: { status: room(upperId).status, version: room(upperId).version, gallery: room(upperId).gallery },
+      ground: { status: room(groundId).status, version: room(groundId).version, gallery: room(groundId).gallery },
+    };
+  }, { upperId: SEVEN_ARCHES_UPPER_ID, groundId: SEVEN_ARCHES_GROUND_ID });
+
+  expect(audit).toEqual({
+    expectedPolicy: { children_policy: 'minimum_age', minimum_child_age: 15 },
+    expectedRoomVersions: [[SEVEN_ARCHES_UPPER_ID, 4], [SEVEN_ARCHES_GROUND_ID, 5]],
+    savedPolicy: { children_policy: 'minimum_age', minimum_child_age: 10 },
+    upper: { status: 'active', version: 5, gallery: ['https://example.test/7-arches-property-3.webp'] },
+    ground: { status: 'active', version: 6, gallery: ['https://example.test/7-arches-property-4.webp'] },
+  });
 });
 
 test('H2B Calendar edits exact dates atomically, exposes occupancy tiers, and switches to a mobile product list', async ({ page }) => {

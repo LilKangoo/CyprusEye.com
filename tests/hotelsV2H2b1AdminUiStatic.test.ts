@@ -44,6 +44,12 @@ describe('Hotels H2B.1 Admin UX static safety', () => {
     expect(ui).toContain('Cancellation and payment terms remain BLOCKED for Review');
     expect(core).toContain("source_contract: SEVEN_ARCHES_SOURCE_CONTRACT");
     expect(core).toContain('expected_legacy_pricing_fingerprint');
+    expect(core).toContain('expected_property_policy');
+    expect(ui).toContain('property_minimum_child_age');
+    expect(repository).toContain('normalized.userMessage = reviewedShadowUserMessage(message)');
+    expect(repository).toContain('error.diagnosticContext = diagnosticContext');
+    expect(ui).toContain("console.error('Reviewed Hotel save rejected.'");
+    expect(ui).toContain('The reviewed save was rejected safely.');
     expect(core).toContain('prepare_pricing_preview: true');
     expect(publicHotel).not.toContain('hotel_v2_admin_prepare_legacy_shadow_rooms');
     expect(publicHotel).not.toContain('children_policy_override');

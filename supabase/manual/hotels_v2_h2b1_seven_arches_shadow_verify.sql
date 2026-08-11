@@ -18,10 +18,11 @@ property_contract as (
 ),
 rooms as (
   select count(*)::integer room_count,
+    count(*) filter(where status in ('draft','active'))::integer safe_room_status_count,
     count(*) filter(where id='b4ef504f-cdeb-4e3c-a54d-932146ef4e94'::uuid
       and legacy_source_key='upper_floor_apartment' and code='upper-floor-apartment'
       and max_occupancy=4 and capacity_adults is null and capacity_children is null
-      and inventory_mode='pooled' and base_inventory_count=1 and status='draft'
+      and inventory_mode='pooled' and base_inventory_count=1 and status in ('draft','active')
       and amenities @> array['air_conditioning','terrace','balcony']::text[] and cardinality(amenities)=3
       and coalesce(length(btrim(name_i18n->>'pl')),0)>0
       and coalesce(length(btrim(name_i18n->>'en')),0)>0
@@ -30,7 +31,7 @@ rooms as (
     count(*) filter(where id='825c01b7-9f82-492a-9c81-9b1d5cd7acd3'::uuid
       and legacy_source_key='ground_floor_apartment' and code='ground-floor-apartment'
       and max_occupancy=4 and capacity_adults is null and capacity_children is null
-      and inventory_mode='pooled' and base_inventory_count=1 and status='draft'
+      and inventory_mode='pooled' and base_inventory_count=1 and status in ('draft','active')
       and amenities @> array['air_conditioning','terrace']::text[] and cardinality(amenities)=2
       and not (amenities @> array['balcony']::text[])
       and coalesce(length(btrim(name_i18n->>'pl')),0)>0
@@ -144,7 +145,8 @@ protected_history as (
 )
 select
   property_contract.property_count,property_contract.exact_contract_count,
-  rooms.room_count,rooms.upper_exact_count,rooms.ground_exact_count,rooms.rooms_with_foreign_photo,
+  rooms.room_count,rooms.safe_room_status_count,
+  rooms.upper_exact_count,rooms.ground_exact_count,rooms.rooms_with_foreign_photo,
   rate_plan.plan_count,rate_plan.exact_plan_count,
   schedules.schedule_count,schedules.room_schedule_count,schedules.party_schedule_count,schedules.fingerprint_match_count,
   room_rates.rate_count,room_rates.upper_rate_count,room_rates.ground_rate_count,
@@ -161,7 +163,8 @@ select
     then 0 else 1 end as "HOTEL_BOOKING_PAYLOAD_UNEXPLAINED_DIFFERENCE",
   (
     property_contract.property_count=1 and property_contract.exact_contract_count=1
-    and rooms.room_count=2 and rooms.upper_exact_count=1 and rooms.ground_exact_count=1
+    and rooms.room_count=2 and rooms.safe_room_status_count=2
+    and rooms.upper_exact_count=1 and rooms.ground_exact_count=1
     and rooms.rooms_with_foreign_photo=0
     and rate_plan.plan_count=1 and rate_plan.exact_plan_count=1
     and schedules.schedule_count=2 and schedules.room_schedule_count=1

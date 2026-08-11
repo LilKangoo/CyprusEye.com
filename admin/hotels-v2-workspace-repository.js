@@ -30,6 +30,35 @@
     return client;
   }
 
+  function reviewedShadowUserMessage(message) {
+    const key = String(message || '').trim().toLowerCase();
+    if (/guest_policy_already_reviewed/.test(key)) {
+      return 'This property already has a different reviewed children policy. Refresh the workspace and explicitly review the current policy and age before replacing it with the confirmed age-10 policy.';
+    }
+    if (/property.*policy.*(?:snapshot|stale|changed)|stale.*property.*policy/.test(key)) {
+      return 'The property children-policy snapshot changed after Review. Refresh the workspace and review the current policy and minimum age again.';
+    }
+    if (/room_photo_not_in_property_gallery|foreign.*gallery|invalid.*gallery/.test(key)) {
+      return 'A selected room photo is not in the current 7 Arches property gallery. Refresh the workspace and select the room photos again.';
+    }
+    if (/invalid_shadow_room/.test(key)) {
+      return 'A reviewed apartment name, photo selection, capacity or exact identity is invalid. Reopen the preparation and review both apartments again.';
+    }
+    if (/shadow_rooms_exact_set_required|missing.*shadow.*room|shadow.*room.*missing/.test(key)) {
+      return 'The reviewed package no longer contains exactly the two expected 7 Arches apartments. Refresh and reopen the two-apartment preparation.';
+    }
+    if (/shadow_room_identity_conflict/.test(key)) {
+      return 'An expected 7 Arches Room Type is missing or its deterministic identity conflicts with another row. Refresh and inspect the exact Room Types before retrying.';
+    }
+    if (/room_expected_version_mismatch|stale_shadow_room|stale_pricing_schedule|stale_property_party_preview|stale_rate_plan|stale_(?:upper|ground)_room_rate|relationship.*mismatch/.test(key)) {
+      return 'A shadow Room Type or one of its pricing relationships changed after Review. Refresh and review the current configuration; no partial save was kept.';
+    }
+    if (/unknown_room_amenity|confirmed_room_amenity_mismatch/.test(key)) {
+      return 'The confirmed terrace/balcony amenity mapping no longer matches the current Hotel amenity catalogue. Refresh and review the room configuration.';
+    }
+    return null;
+  }
+
   function asRpcPayload(data) {
     if (Array.isArray(data) && data.length === 1 && data[0] && typeof data[0] === 'object') return data[0];
     return data;
@@ -42,6 +71,10 @@
     normalized.code = code;
     normalized.details = error?.details || null;
     normalized.hint = error?.hint || null;
+    normalized.userMessage = reviewedShadowUserMessage(message);
+    normalized.diagnosticReason = /^hotels_v2_h2b1_[a-z0-9_]+$/i.test(message)
+      ? message
+      : null;
     // H2B.1 uses PostgREST's explicit HTTP-conflict SQLSTATE for reviewed
     // optimistic-concurrency failures. Keep 40001 recognition for the older
     // H2A/H2B RPCs until their contracts are migrated independently.
@@ -249,15 +282,37 @@
     const reviewedPlan = Core.clone(plan);
     const id = Core.normalizeUuid(reviewedPlan?.hotel_id);
     const exactRoomIds = Core.asArray(reviewedPlan?.rooms).map((room) => Core.normalizeUuid(room?.id)).filter(Boolean);
+    const expectedPolicy = Core.asObject(reviewedPlan?.expected_property_policy);
+    const hasPolicySnapshot = Object.prototype.hasOwnProperty.call(expectedPolicy, 'children_policy')
+      && Object.prototype.hasOwnProperty.call(expectedPolicy, 'minimum_child_age');
     if (!id || reviewedPlan?.source_contract !== Core.SEVEN_ARCHES_SOURCE_CONTRACT
-        || exactRoomIds.length !== 2 || new Set(exactRoomIds).size !== 2) {
+        || exactRoomIds.length !== 2 || new Set(exactRoomIds).size !== 2 || !hasPolicySnapshot) {
       throw new Error('A reviewed exact two-apartment shadow preparation plan is required.');
     }
     const correlation = Core.normalizeUuid(correlationId) || Core.newUuid();
-    const data = await runRpc(RPC.prepareLegacyShadowRooms, {
-      p_plan: reviewedPlan,
-      p_correlation_id: correlation,
-    }, 'Prepare reviewed 7 Arches shadow apartments');
+    const diagnosticContext = {
+      correlation_id: correlation,
+      hotel_id: id,
+      expected_property_updated_at: reviewedPlan.expected_property_updated_at || null,
+      expected_property_policy: Core.clone(expectedPolicy),
+      rooms: Core.asArray(reviewedPlan.rooms).map((room) => ({
+        id: Core.normalizeUuid(room?.id) || null,
+        expected_version: Number.isInteger(Number(room?.expected_version))
+          ? Number(room.expected_version)
+          : null,
+      })),
+      expected_versions: Core.clone(Core.asObject(reviewedPlan.expected_versions)),
+    };
+    let data;
+    try {
+      data = await runRpc(RPC.prepareLegacyShadowRooms, {
+        p_plan: reviewedPlan,
+        p_correlation_id: correlation,
+      }, 'Prepare reviewed 7 Arches shadow apartments');
+    } catch (error) {
+      error.diagnosticContext = diagnosticContext;
+      throw error;
+    }
     const payload = Core.asObject(data);
     const workspace = Core.normalizeWorkspace(payload.workspace || payload);
     if (workspace.property.id !== id) throw new Error('Prepared apartments returned a different property ID.');

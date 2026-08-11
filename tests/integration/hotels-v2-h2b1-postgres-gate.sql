@@ -33,6 +33,7 @@ select
   ),8,false,'draft','draft','legacy';
 
 \ir ../../supabase/migrations/20260811240000_hotels_v2_h2b1_children_shadow_rooms.sql
+\ir ../../supabase/migrations/20260811250000_hotels_v2_h2b1_shadow_policy_review_fix.sql
 
 -- CHECK predicates must reject invalid NULL/UNKNOWN combinations, not merely
 -- return UNKNOWN (which PostgreSQL CHECK would otherwise accept).
@@ -100,6 +101,9 @@ returns jsonb language sql stable security definer set search_path=pg_catalog,pu
     'hotel_id',hotel.id,'expected_property_updated_at',hotel.updated_at,'reviewed_at',clock_timestamp(),
     'source_contract','seven_arches_two_apartments_v1',
     'expected_legacy_pricing_fingerprint',md5(hotel.pricing_tiers::text),
+    'expected_property_policy',jsonb_build_object(
+      'children_policy',hotel.children_policy,'minimum_child_age',hotel.minimum_child_age
+    ),
     'expected_versions',jsonb_build_object(
       'upper_room',coalesce((select version from public.hotel_room_types where id='b4ef504f-cdeb-4e3c-a54d-932146ef4e94'),0),
       'ground_room',coalesce((select version from public.hotel_room_types where id='825c01b7-9f82-492a-9c81-9b1d5cd7acd3'),0),
@@ -132,6 +136,13 @@ returns jsonb language sql stable security definer set search_path=pg_catalog,pu
     ),'prepare_pricing_preview',true
   ) from public.hotels hotel where hotel.id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'
 $function$;
+
+-- Reproduce the deployed reviewed-policy state. The exact two-apartment
+-- Review is allowed to change 15 -> source-confirmed 10 only because it sends
+-- this freshly read value as expected_property_policy.
+update public.hotels
+set children_policy='minimum_age',minimum_child_age=15
+where id='9b6d99a0-923a-4fbc-be54-c066e856e6ca';
 
 create function pg_temp.upper_guest_policy_plan()
 returns jsonb language sql stable security definer set search_path=pg_catalog,public,pg_temp as $function$
@@ -224,6 +235,42 @@ begin
   reset role;
 end
 $h2b1_first_save$;
+
+-- A reviewed plan cannot overwrite a property policy that differs from its
+-- exact snapshot, even when the property updated_at value is otherwise fresh.
+do $h2b1_stale_property_policy$
+declare
+  v_plan jsonb:=pg_temp.seven_arches_plan();
+  v_failed boolean:=false;
+  v_message text;
+  v_activity_count integer;
+  v_rooms_fingerprint text;
+begin
+  select count(*) into v_activity_count from public.hotel_activity_log;
+  select md5(string_agg(to_jsonb(room_type)::text,'|' order by room_type.id))
+    into v_rooms_fingerprint from public.hotel_room_types room_type
+    where room_type.hotel_id='9b6d99a0-923a-4fbc-be54-c066e856e6ca';
+  v_plan:=jsonb_set(v_plan,'{expected_property_policy,minimum_child_age}','15'::jsonb,false);
+  begin
+    set local role authenticated;
+    perform set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+    perform public.hotel_v2_admin_prepare_legacy_shadow_rooms(
+      v_plan,'71000000-0000-4000-8000-000000000022'
+    );
+  exception when sqlstate 'PT409' then
+    get stacked diagnostics v_message=message_text;
+    v_failed:=v_message='hotels_v2_h2b1_stale_property_policy';
+  end;
+  reset role;
+  if not v_failed
+     or (select count(*) from public.hotel_activity_log)<>v_activity_count
+     or (select md5(string_agg(to_jsonb(room_type)::text,'|' order by room_type.id))
+       from public.hotel_room_types room_type
+       where room_type.hotel_id='9b6d99a0-923a-4fbc-be54-c066e856e6ca') is distinct from v_rooms_fingerprint then
+    raise exception 'hotels_v2_h2b1_stale_property_policy_atomic_abort_failed';
+  end if;
+end
+$h2b1_stale_property_policy$;
 
 -- Room override and a repeated preparation preserve the individual override.
 begin;

@@ -317,7 +317,10 @@
         amenities: definition.amenities,
         inventory_mode: 'pooled',
         base_inventory_count: 1,
-        status: 'draft',
+        // This is the normalized configuration status, not public eligibility.
+        // Existing reviewed Room Types may legitimately be active while the
+        // legacy property and disabled V2 capabilities keep them public-inert.
+        status: existing?.status || 'draft',
         sort_order: definition.sort_order,
         version: existing?.version || 1,
         created_at: existing?.created_at || null,
@@ -380,6 +383,12 @@
     return {
       hotel_id: SEVEN_ARCHES_PROPERTY_ID,
       expected_property_updated_at: normalizedWorkspace.property.updated_at || null,
+      expected_property_policy: {
+        children_policy: normalizedWorkspace.property.children_policy || null,
+        minimum_child_age: normalizedWorkspace.property.minimum_child_age == null
+          ? null
+          : normalizedWorkspace.property.minimum_child_age,
+      },
       expected_legacy_pricing_fingerprint: legacyFingerprint,
       expected_versions: {
         upper_room: currentVersion(normalizedWorkspace.room_types, SEVEN_ARCHES_SHADOW_IDS.upper_room_type),
@@ -774,11 +783,11 @@
         note: 'The shadow Room Type belongs to this exact property.',
       },
       {
-        field: 'Shadow status',
+        field: 'Normalized configuration status',
         target_field: 'status',
         classification: 'SAFE_TO_COPY',
-        source_summary: 'Draft only',
-        note: 'Preparation always creates an inert draft and never changes the property architecture or publication.',
+        source_summary: 'Independent from public eligibility',
+        note: 'A new shadow starts as draft; an existing reviewed active status is preserved. Both remain public-inert while the property is legacy and V2 capabilities are off.',
       },
       {
         field: 'Currency',

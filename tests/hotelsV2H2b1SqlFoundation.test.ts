@@ -10,6 +10,18 @@ const shadowVerify = fs.readFileSync(
   'supabase/manual/hotels_v2_h2b1_seven_arches_shadow_verify.sql',
   'utf8',
 );
+const policyRepairMigration = fs.readFileSync(
+  'supabase/migrations/20260811250000_hotels_v2_h2b1_shadow_policy_review_fix.sql',
+  'utf8',
+);
+const policyRepairPreflight = fs.readFileSync(
+  'supabase/manual/hotels_v2_h2b1_shadow_policy_review_fix_preflight.sql',
+  'utf8',
+);
+const policyRepairVerify = fs.readFileSync(
+  'supabase/manual/hotels_v2_h2b1_shadow_policy_review_fix_verify.sql',
+  'utf8',
+);
 const pgGate = fs.readFileSync('tests/integration/hotels-v2-h2b1-postgres-gate.sql', 'utf8');
 
 describe('Hotels H2B.1 SQL foundation', () => {
@@ -97,6 +109,19 @@ describe('Hotels H2B.1 SQL foundation', () => {
     expect(pgGate).toContain('hotels_v2_h2b1_repeat_save_overwrote_reviewed_pricing');
   });
 
+  test('repairs the reviewed property-policy transition with an exact atomic snapshot', () => {
+    expect(policyRepairMigration).toContain("'expected_property_policy'");
+    expect(policyRepairMigration).toContain('hotels_v2_h2b1_stale_property_policy');
+    expect(policyRepairMigration).toContain('children_policy is not distinct from v_expected_policy_value');
+    expect(policyRepairMigration).toContain('minimum_child_age is not distinct from v_expected_minimum_age');
+    expect(policyRepairMigration).toContain('perform public.hotel_v2_h2a_require_admin()');
+    expect(policyRepairMigration).toContain("array['search_path=pg_catalog, public, auth']");
+    expect(policyRepairMigration).not.toContain("message='hotels_v2_h2b1_guest_policy_already_reviewed'");
+    expect(policyRepairMigration).toContain('hotels_v2_h2b1_reviewed_policy_fix_data_changed');
+    expect(policyRepairMigration).not.toContain('update public.hotel_room_types set status');
+    expect(pgGate).toContain('hotels_v2_h2b1_stale_property_policy_atomic_abort_failed');
+  });
+
   test('translates inherited H2A/H2B serialization conflicts at the PostgREST boundary', () => {
     expect(migration).toContain('hotel_v2_admin_apply_calendar_plan_h2b1_core');
     expect(migration).toContain('hotel_v2_admin_apply_workspace_plan_h2b1_core');
@@ -140,5 +165,13 @@ describe('Hotels H2B.1 SQL foundation', () => {
     expect(shadowVerify).toContain('property_party_value_mismatch');
     expect(shadowVerify).toContain('tiers.room_tier_count=27');
     expect(shadowVerify).toContain('tiers.party_tier_count=63');
+    expect(shadowVerify).toContain("status in ('draft','active')");
+    expect(policyRepairPreflight).toContain('hotels_v2_h2b1_shadow_policy_review_fix_preflight_safe');
+    expect(policyRepairPreflight).toContain('protected_fingerprints');
+    expect(policyRepairPreflight).toContain('fb5a4c508b0df32afbffe5b1594c7a50');
+    expect(policyRepairPreflight).toContain('1e01541853d87d26adccb8172074934b');
+    expect(policyRepairVerify).toContain('hotels_v2_h2b1_shadow_policy_review_fix_safe');
+    expect(policyRepairVerify).toContain('fb5a4c508b0df32afbffe5b1594c7a50');
+    expect(policyRepairVerify).toContain('1e01541853d87d26adccb8172074934b');
   });
 });

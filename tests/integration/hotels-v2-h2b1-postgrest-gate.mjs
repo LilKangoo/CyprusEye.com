@@ -87,6 +87,10 @@ function shadowPlan(workspace) {
     source_contract: 'seven_arches_two_apartments_v1',
     expected_legacy_pricing_fingerprint:
       workspace.legacy_shadow_preview.legacy_pricing_fingerprint,
+    expected_property_policy: {
+      children_policy: workspace.property.children_policy ?? null,
+      minimum_child_age: workspace.property.minimum_child_age ?? null,
+    },
     expected_versions: {
       upper_room: entityVersion(workspace.room_types, UPPER_ROOM),
       ground_room: entityVersion(workspace.room_types, GROUND_ROOM),

@@ -314,6 +314,7 @@ describe('Hotels H2B.1 children policy and 7 Arches shadow preparation', () => {
     expect(plan).toMatchObject({
       hotel_id: HOTEL_ID,
       expected_property_updated_at: '2026-08-11T15:00:00.000Z',
+      expected_property_policy: { children_policy: null, minimum_child_age: null },
       reviewed_at: '2026-08-11T16:00:00.000Z',
       source_contract: 'seven_arches_two_apartments_v1',
       expected_legacy_pricing_fingerprint: 'legacy-fingerprint-63',
@@ -326,6 +327,42 @@ describe('Hotels H2B.1 children policy and 7 Arches shadow preparation', () => {
     });
     expect(plan.rooms.map((room: any) => [room.id, room.expected_version])).toEqual([[UPPER_ID, 0], [GROUND_ID, 0]]);
     expect(workspace.property.photos).toHaveLength(9);
+
+    const reviewedAgeWorkspace = sevenArches({
+      property: {
+        ...workspace.property,
+        children_policy: 'minimum_age',
+        minimum_child_age: 15,
+      },
+    });
+    const reviewedAgePreparation = Core.sevenArchesShadowPreparation(reviewedAgeWorkspace);
+    const reviewedAgePlan = Core.buildSevenArchesShadowPlan(
+      reviewedAgeWorkspace,
+      reviewedAgePreparation.rooms.map((room: any, index: number) => ({
+        id: room.id,
+        name_i18n: room.name_i18n,
+        gallery: [reviewedAgePreparation.property_gallery[index]],
+      })),
+      { reviewedAt: '2026-08-11T16:00:00.000Z' },
+    );
+    expect(reviewedAgePlan.expected_property_policy).toEqual({
+      children_policy: 'minimum_age',
+      minimum_child_age: 15,
+    });
+    expect(reviewedAgePlan.property_policy).toEqual({
+      children_policy: 'minimum_age',
+      minimum_child_age: 10,
+    });
+
+    const activePreparation = Core.sevenArchesShadowPreparation(sevenArches({
+      room_types: preparation.rooms.map((room: any, index: number) => ({
+        ...room,
+        status: 'active',
+        version: 4 + index,
+        created_at: '2026-08-11T09:00:00.000Z',
+      })),
+    }));
+    expect(activePreparation.rooms.map((room: any) => room.status)).toEqual(['active', 'active']);
 
     const repeatedWorkspace = sevenArches({
       room_types: preparation.rooms.map((room: any, index: number) => ({

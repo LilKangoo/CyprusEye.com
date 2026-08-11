@@ -160,6 +160,7 @@ describe('Hotels V2 H2A Property Workspace repository', () => {
       source_contract: 'seven_arches_two_apartments_v1',
       expected_legacy_pricing_fingerprint: 'fixture',
       expected_versions: {},
+      expected_property_policy: { children_policy: 'minimum_age', minimum_child_age: 15 },
       property_policy: { children_policy: 'minimum_age', minimum_child_age: 10 },
       rooms: [{ id: HOTEL_ID }, { id: OTHER_HOTEL_ID }],
       prepare_pricing_preview: true,
@@ -171,6 +172,126 @@ describe('Hotels V2 H2A Property Workspace repository', () => {
       isDefinitiveFailure: true,
       isAmbiguousOutcome: false,
     });
+    expect(calls).toBe(1);
+  });
+
+  test('maps reviewed shadow policy, gallery, missing-room and relationship failures without retrying', async () => {
+    const failures = [
+      {
+        code: 'PT409', message: 'hotels_v2_h2b1_property_policy_snapshot_mismatch',
+        expected: 'children-policy snapshot changed after Review',
+      },
+      {
+        code: '23514', message: 'hotels_v2_h2b1_room_photo_not_in_property_gallery',
+        expected: 'selected room photo is not in the current 7 Arches property gallery',
+      },
+      {
+        code: '22023', message: 'hotels_v2_h2b1_shadow_rooms_exact_set_required',
+        expected: 'exactly the two expected 7 Arches apartments',
+      },
+      {
+        code: 'PT409', message: 'hotels_v2_h2b1_stale_rate_plan',
+        expected: 'one of its pricing relationships changed after Review',
+      },
+    ];
+    let calls = 0;
+    const client = {
+      async rpc() {
+        const failure = failures[calls];
+        calls += 1;
+        return { data: null, error: failure };
+      },
+    };
+    const { Repository } = loadRepository(client);
+    const plan = {
+      hotel_id: HOTEL_ID,
+      expected_property_updated_at: '2026-08-11T10:00:00.000Z',
+      expected_property_policy: { children_policy: 'minimum_age', minimum_child_age: 15 },
+      reviewed_at: '2026-08-11T10:01:00.000Z',
+      source_contract: 'seven_arches_two_apartments_v1',
+      expected_legacy_pricing_fingerprint: 'fixture',
+      expected_versions: {},
+      property_policy: { children_policy: 'minimum_age', minimum_child_age: 10 },
+      rooms: [{ id: HOTEL_ID }, { id: OTHER_HOTEL_ID }],
+      prepare_pricing_preview: true,
+    };
+
+    for (const failure of failures) {
+      await expect(Repository.prepareLegacyShadowRooms(plan, CORRELATION_ID)).rejects.toMatchObject({
+        code: failure.code,
+        diagnosticReason: failure.message,
+        userMessage: expect.stringContaining(failure.expected),
+        isDefinitiveFailure: true,
+        isAmbiguousOutcome: false,
+      });
+    }
+    expect(calls).toBe(failures.length);
+  });
+
+  test('refuses a shadow save without the exact reviewed property-policy snapshot', async () => {
+    let calls = 0;
+    const client = {
+      async rpc() {
+        calls += 1;
+        return { data: null, error: null };
+      },
+    };
+    const { Repository } = loadRepository(client);
+    await expect(Repository.prepareLegacyShadowRooms({
+      hotel_id: HOTEL_ID,
+      source_contract: 'seven_arches_two_apartments_v1',
+      rooms: [{ id: HOTEL_ID }, { id: OTHER_HOTEL_ID }],
+    }, CORRELATION_ID)).rejects.toThrow('A reviewed exact two-apartment shadow preparation plan is required.');
+    expect(calls).toBe(0);
+  });
+
+  test('attaches a non-media diagnostic snapshot to a rejected shadow RPC without retrying', async () => {
+    let calls = 0;
+    const client = {
+      async rpc() {
+        calls += 1;
+        return { data: null, error: { code: 'PT409', message: 'hotels_v2_h2b1_stale_property_policy' } };
+      },
+    };
+    const { Repository } = loadRepository(client);
+    const plan = {
+      hotel_id: HOTEL_ID,
+      expected_property_updated_at: '2026-08-11T10:00:00.000Z',
+      expected_property_policy: { children_policy: 'minimum_age', minimum_child_age: 15 },
+      reviewed_at: '2026-08-11T10:01:00.000Z',
+      source_contract: 'seven_arches_two_apartments_v1',
+      expected_legacy_pricing_fingerprint: 'fixture',
+      expected_versions: { upper_room: 7, ground_room: 8 },
+      property_policy: { children_policy: 'minimum_age', minimum_child_age: 10 },
+      rooms: [
+        { id: HOTEL_ID, expected_version: 7, gallery: ['https://private.example/upper.webp'] },
+        { id: OTHER_HOTEL_ID, expected_version: 8, gallery: ['https://private.example/ground.webp'] },
+      ],
+      prepare_pricing_preview: true,
+    };
+
+    let rejected: any = null;
+    try {
+      await Repository.prepareLegacyShadowRooms(plan, CORRELATION_ID);
+    } catch (error) {
+      rejected = error;
+    }
+    expect(rejected).toMatchObject({
+      code: 'PT409',
+      userMessage: expect.stringContaining('children-policy snapshot changed after Review'),
+      diagnosticContext: {
+        correlation_id: CORRELATION_ID,
+        hotel_id: HOTEL_ID,
+        expected_property_updated_at: '2026-08-11T10:00:00.000Z',
+        expected_property_policy: { children_policy: 'minimum_age', minimum_child_age: 15 },
+        rooms: [
+          { id: HOTEL_ID, expected_version: 7 },
+          { id: OTHER_HOTEL_ID, expected_version: 8 },
+        ],
+        expected_versions: { upper_room: 7, ground_room: 8 },
+      },
+    });
+    expect(JSON.stringify(rejected.diagnosticContext)).not.toContain('private.example');
     expect(calls).toBe(1);
   });
 
@@ -373,6 +494,7 @@ describe('Hotels V2 H2A Property Workspace repository', () => {
       expected_property_updated_at: '2026-08-11T10:00:00.000Z',
       reviewed_at: '2026-08-11T11:00:00.000Z',
       source_contract: 'seven_arches_two_apartments_v1',
+      expected_property_policy: { children_policy: 'minimum_age', minimum_child_age: 15 },
       property_policy: { children_policy: 'minimum_age', minimum_child_age: 10 },
       rooms: [
         { id: 'b4ef504f-cdeb-4e3c-a54d-932146ef4e94', expected_version: 0 },

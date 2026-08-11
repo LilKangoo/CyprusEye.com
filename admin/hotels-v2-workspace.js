@@ -1113,15 +1113,25 @@
             }
           } catch (error) {
             try { await onApplyError?.(error); } catch (cleanupError) { console.error('Failed to clean up reviewed Hotel media upload:', cleanupError); }
+            if (error?.diagnosticContext) {
+              console.error('Reviewed Hotel save rejected.', {
+                code: error.code || null,
+                reason: error.diagnosticReason || null,
+                diagnosticContext: error.diagnosticContext,
+              });
+            }
             setModalSaving(overlay, false);
             if (closeOnApplyError) closeModal({ restoreFocus: false, skipCleanup: true, force: true });
             button.disabled = false;
             button.textContent = 'Save reviewed changes';
-            const message = error?.isStale
-              ? 'Save stopped: this configuration changed after Review. Refresh and review the fresh values.'
+            const message = error?.userMessage
+              || (error?.isStale
+                ? 'Save stopped: this configuration changed after Review. Refresh and review the fresh values.'
               : error?.isAmbiguousOutcome
                 ? 'The save result could not be confirmed because the connection was interrupted. Uploaded media was preserved. Refresh Property Workspace before retrying; do not upload the same files again.'
-                : (error?.message || 'Reviewed save failed. No database changes were kept.');
+                : error?.isDefinitiveFailure
+                  ? 'The reviewed save was rejected safely. Refresh the workspace and review the current configuration; no partial save was kept.'
+                  : (error?.message || 'Reviewed save failed. No database changes were kept.'));
             toast(message, error?.isAmbiguousOutcome ? 'warning' : 'error');
           }
         });
@@ -1288,7 +1298,7 @@
     }
     const [upper, ground] = preparation.rooms;
     const roomMarkup = (room, index, locationFacts) => `<section class="hotel-seven-arches-room" data-seven-arches-room="${escapeAttr(room.id)}">
-      <header><div><span class="hotel-workspace-eyebrow">Room ${index + 1} · exact draft</span><h4>${escapeHtml(Core.i18nText(room.name_i18n, 'en', room.code))}</h4></div><code>${escapeHtml(room.id)}</code></header>
+      <header><div><span class="hotel-workspace-eyebrow">Room ${index + 1} · exact shadow Room Type</span><h4>${escapeHtml(Core.i18nText(room.name_i18n, 'en', room.code))}</h4></div><code>${escapeHtml(room.id)}</code></header>
       ${i18nFields(`seven_room_${index}_name`, 'Editable room name', room.name_i18n)}
       <div class="hotel-seven-arches-facts">
         <div><span>Floor</span><strong>${escapeHtml(locationFacts.floor)}</strong></div>
@@ -1340,13 +1350,15 @@
             id: preparation.hotel_id,
             architecture_version: state.workspace.property.architecture_version,
             property_children_policy: state.workspace.property.children_policy,
+            property_minimum_child_age: state.workspace.property.minimum_child_age,
             room_types: preparation.rooms.map((room) => ({ id: room.id, version: room.created_at ? room.version : 0, gallery: room.gallery })),
             pricing: 'Legacy 63-rule matrix remains authoritative',
           };
           const after = {
             id: preparation.hotel_id,
             architecture_version: 'legacy (unchanged)',
-            property_children_policy: 'minimum_age · 10',
+            property_children_policy: 'minimum_age',
+            property_minimum_child_age: 10,
             rooms: plan.rooms.map((room) => ({
               id: room.id,
               source_key: room.source_key,
