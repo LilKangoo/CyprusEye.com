@@ -328,4 +328,114 @@ describe('Hotels V2 H2A Property Workspace core', () => {
     expect(legacy.property.architecture_version).toBe('legacy');
     expect(legacy.room_types).toHaveLength(0);
   });
+
+  test('reconstructs one property-level legacy product without pretending it is a normalized Room Type', () => {
+    const rules = [2, 3, 4, 5, 6, 7, 8].flatMap((persons) =>
+      [2, 3, 4, 5, 6, 7, 8, 9, 10].map((minNights) => ({
+        persons,
+        min_nights: minNights,
+        price_per_night: 100,
+      })),
+    );
+    const legacy = workspace({
+      property: {
+        ...workspace().property,
+        id: '9b6d99a0-923a-4fbc-be54-c066e856e6ca',
+        slug: '7-ukow',
+        architecture_version: 'legacy',
+        pricing_model: 'tiered_by_nights',
+        pricing_tiers: { currency: 'EUR', rules },
+        room_types: [],
+        max_persons: 8,
+        photos: Array.from({ length: 9 }, (_, index) => `https://example.test/property-${index + 1}.webp`),
+        amenities: ['wifi', 'terrace'],
+      },
+      room_types: [],
+      rate_plans: [],
+      room_rates: [],
+    });
+
+    const preview = Core.migrationPreview(legacy);
+    expect(preview).toMatchObject({
+      architecture_version: 'legacy',
+      legacy_room_count: 0,
+      legacy_live_product_count: 1,
+      legacy_pricing_rule_count: 63,
+      property_gallery_count: 9,
+      can_prepare_existing_accommodation: true,
+      status: 'NOT_MIGRATED',
+      legacy_product: {
+        kind: 'property_level_accommodation',
+        status: 'AWAITING_ADMIN_CONFIRMATION',
+        max_persons: 8,
+      },
+      pricing_preview: {
+        rule_count: 63,
+        guest_counts: [2, 3, 4, 5, 6, 7, 8],
+        stay_thresholds: [2, 3, 4, 5, 6, 7, 8, 9, 10],
+        requires_occupancy_los_model: true,
+        h1_rate_rules_compatible: false,
+        oracle: 'HOTEL_7_ARCHES_ROOM1_PRICE_MISMATCH',
+        conversion_status: 'BLOCKED_PENDING_H2B_MODEL',
+      },
+    });
+    expect(preview.messages[0]).toContain('not a normalized Room Type');
+    expect(preview.legacy_product.field_classifications).toEqual(expect.arrayContaining([
+      expect.objectContaining({ field: 'Property relationship', classification: 'SAFE_TO_COPY' }),
+      expect.objectContaining({ field: 'Currency', classification: 'SAFE_TO_COPY' }),
+      expect.objectContaining({ field: 'Guest capacity', classification: 'REQUIRES_REVIEW' }),
+      expect.objectContaining({ field: 'Property gallery', classification: 'REQUIRES_REVIEW' }),
+      expect.objectContaining({ field: 'Physical inventory', classification: 'UNKNOWN' }),
+      expect.objectContaining({ field: 'Beds, bathrooms and size', classification: 'UNKNOWN' }),
+    ]));
+    const seed = Core.buildLegacyShadowRoomSeed(legacy, DUPLICATE_ID);
+    expect(seed).toEqual({
+      id: DUPLICATE_ID,
+      hotel_id: '9b6d99a0-923a-4fbc-be54-c066e856e6ca',
+      code: '',
+      name_i18n: {},
+      description_i18n: {},
+      gallery: [],
+      capacity_adults: 0,
+      capacity_children: 0,
+      bed_configuration: [],
+      bathrooms: null,
+      size_sqm: null,
+      amenities: [],
+      inventory_mode: 'pooled',
+      base_inventory_count: 0,
+      status: 'draft',
+      sort_order: 1000,
+      version: 1,
+      created_at: null,
+      updated_at: null,
+    });
+    expect(seed).not.toHaveProperty('pricing_model');
+    expect(seed).not.toHaveProperty('pricing_tiers');
+    expect(seed).not.toHaveProperty('rate_plan_id');
+    expect(legacy.property.architecture_version).toBe('legacy');
+    expect(legacy.room_types).toHaveLength(0);
+  });
+
+  test('keeps a simple single-occupancy/single-stay legacy rule compatible with the H1 rate-rule shape', () => {
+    const preview = Core.migrationPreview(workspace({
+      property: {
+        ...workspace().property,
+        architecture_version: 'legacy',
+        pricing_model: 'flat_per_night',
+        pricing_tiers: { currency: 'EUR', rules: [{ persons: 2, min_nights: 2, price_per_night: 45 }] },
+        room_types: [],
+      },
+      room_types: [],
+      rate_plans: [],
+      room_rates: [],
+    }));
+    expect(preview.pricing_preview).toMatchObject({
+      guest_counts: [2],
+      stay_thresholds: [2],
+      requires_occupancy_los_model: false,
+      h1_rate_rules_compatible: true,
+      oracle: 'HOTEL_LEGACY_SHADOW_PRICE_MISMATCH',
+    });
+  });
 });

@@ -114,6 +114,8 @@
     const roomRuleCount = normalizedRooms.reduce((count, room) => (
       count + Core.asArray(Core.asObject(room?.pricing_tiers).rules).length
     ), 0);
+    const propertyPhotos = Core.normalizeGallery(source.photos);
+    const propertyLevelProduct = normalizedRooms.length === 0 && propertyRuleCount > 0;
     let minNightlyRate = null;
     if (typeof pricingEngine?.getHotelMinPricePerNight === 'function') {
       try {
@@ -132,6 +134,10 @@
       pricing_rule_count: propertyRuleCount + roomRuleCount,
       room_count: normalizedRooms.length,
       rooms: normalizedRooms,
+      configured_product_count: normalizedRooms.length || (propertyLevelProduct ? 1 : 0),
+      product_kind: propertyLevelProduct ? 'property_level_accommodation' : 'structured_legacy_rooms',
+      property_gallery_count: propertyPhotos.length,
+      max_persons: Number(source.max_persons) > 0 ? Number(source.max_persons) : null,
       min_nightly_rate: minNightlyRate,
       currency: String(source.currency || Core.asObject(source.pricing_tiers).currency || 'EUR').toUpperCase(),
     };
@@ -167,6 +173,62 @@
       const plans = Core.asArray(room.rate_plans).length;
       return `<li><span><strong>${escapeHtml(label)}</strong><small>${escapeHtml(capacity)} · ${escapeHtml(inventory)} · ${plans} rate plan${plans === 1 ? '' : 's'}</small></span><b>${roomPrice == null ? 'Pricing inherited' : legacyPublicPriceMarkup({ ...summary, min_nightly_rate: Number(roomPrice) }, { compact: true })}</b></li>`;
     }).join('')}</ul></div>`;
+  }
+
+  function migrationClassificationLabel(value) {
+    return String(value || '').replaceAll('_', ' ');
+  }
+
+  function renderMigrationFieldClassifications(preview) {
+    const fields = Core.asArray(preview?.legacy_product?.field_classifications);
+    if (!fields.length) return '';
+    return `<div class="hotel-legacy-migration-fields">
+      <span class="hotel-workspace-eyebrow">Source → proposed Room Type</span>
+      <ul>${fields.map((item) => {
+        const classification = String(item.classification || 'UNKNOWN');
+        return `<li>
+          <div><strong>${escapeHtml(item.field)}</strong><small>${escapeHtml(item.source_summary || 'Not specified')}</small></div>
+          <span class="hotel-migration-classification hotel-migration-classification--${escapeAttr(classification.toLowerCase().replaceAll('_', '-'))}">${escapeHtml(migrationClassificationLabel(classification))}</span>
+          <p>${escapeHtml(item.note || '')}</p>
+        </li>`;
+      }).join('')}</ul>
+    </div>`;
+  }
+
+  function renderLegacyProductPreview(preview, legacySummary) {
+    const product = Core.asObject(preview?.legacy_product);
+    const pricingPreview = Core.asObject(preview?.pricing_preview);
+    if (!Object.keys(product).length) return '';
+    return `<div class="hotel-legacy-product-preview">
+      <div class="hotel-legacy-product-preview__columns">
+        <section>
+          <span class="hotel-workspace-eyebrow">Current live product</span>
+          <h5>${escapeHtml(product.label || 'Legacy property-level accommodation')}</h5>
+          <p><strong>${preview.legacy_live_product_count}</strong> configured accommodation product${preview.legacy_live_product_count === 1 ? '' : 's'}</p>
+          <ul>
+            <li>${legacyPublicPriceMarkup(legacySummary)}</li>
+            <li>${preview.legacy_pricing_rule_count} legacy pricing rule${preview.legacy_pricing_rule_count === 1 ? '' : 's'}</li>
+            <li>${preview.property_gallery_count} property gallery photo${preview.property_gallery_count === 1 ? '' : 's'}</li>
+          </ul>
+        </section>
+        <section>
+          <span class="hotel-workspace-eyebrow">Proposed V2 shadow</span>
+          <h5>Room Type #1</h5>
+          <p><strong>Awaiting Admin confirmation</strong></p>
+          <small>No Room Type, Rate Plan, Room Rate or Calendar row has been created.</small>
+        </section>
+      </div>
+      ${renderMigrationFieldClassifications(preview)}
+      ${pricingPreview.requires_occupancy_los_model ? `<div class="hotel-legacy-pricing-blocker">
+        <strong>Pricing conversion remains separate</strong>
+        <p>${pricingPreview.rule_count} rules combine ${Core.asArray(pricingPreview.guest_counts).length} guest counts with ${Core.asArray(pricingPreview.stay_thresholds).length} stay thresholds. The H1 rate-rule foundation cannot represent that occupancy × length-of-stay matrix without an H2B model.</p>
+        <code>${escapeHtml(pricingPreview.oracle)}</code>
+      </div>` : ''}
+      ${preview.can_prepare_existing_accommodation
+        ? '<button class="btn-primary" type="button" data-prepare-legacy-accommodation>Prepare existing accommodation as Room Type</button>'
+        : ''}
+      <p class="hotel-workspace-safety-note">Pricing migration is separate and remains blocked until the full legacy price oracle can be reproduced.</p>
+    </div>`;
   }
 
   function getPropertyReadiness(row) {
@@ -321,14 +383,15 @@
                 <span class="hotel-workspace-eyebrow">Current public pricing</span>
                 <strong>${legacyPublicPriceMarkup(legacySummary)}</strong>
                 <small>${escapeHtml(legacySummary.pricing_model_label)} · ${legacySummary.pricing_rule_count} legacy pricing rule${legacySummary.pricing_rule_count === 1 ? '' : 's'}</small>
+                <small>${legacySummary.configured_product_count} configured accommodation product${legacySummary.configured_product_count === 1 ? '' : 's'} · ${legacySummary.product_kind === 'property_level_accommodation' ? 'property-level legacy product' : 'structured legacy rooms'}</small>
               </section>
               <section class="hotel-property-card__v2-preparation">
                 <span class="hotel-workspace-eyebrow">Rooms V2 preparation</span>
                 <div class="hotel-property-card__metrics hotel-property-card__metrics--preparation">
-                  <span><strong>${roomCount}</strong> room types</span>
+                  <span><strong>${roomCount}</strong> normalized room types</span>
                   <span><strong>${inventory}</strong> inventory</span>
                   <span><strong>${ratePlans}</strong> rate plans</span>
-                  <span><strong>${price == null ? 'Not configured' : escapeHtml(formatMoney(price, property.currency))}</strong>${price == null ? 'shadow setup' : 'configured from'}</span>
+                  <span><strong>${price == null ? 'Not configured' : escapeHtml(formatMoney(price, property.currency))}</strong> ${price == null ? 'shadow setup' : 'configured from'}</span>
                 </div>
               </section>
             </div>` : `
@@ -514,13 +577,16 @@
         </form>
         <aside class="hotel-workspace-side-stack">
           ${legacySummary ? `<section class="hotel-workspace-card hotel-legacy-live">
-            <span class="hotel-workspace-eyebrow">Current live legacy configuration</span>
+            <span class="hotel-workspace-eyebrow">Current live legacy product</span>
             <h4>${legacyPublicPriceMarkup(legacySummary)}</h4>
             <dl>
               <div><dt>Pricing model</dt><dd>${escapeHtml(legacySummary.pricing_model_label)}</dd></div>
               <div><dt>Existing public price</dt><dd>${legacyPublicPriceMarkup(legacySummary)}</dd></div>
               <div><dt>Legacy pricing rules</dt><dd>${legacySummary.pricing_rule_count}</dd></div>
+              <div><dt>Configured accommodation products</dt><dd>${legacySummary.configured_product_count}</dd></div>
+              <div><dt>Normalized room types</dt><dd>${state.workspace.room_types.length}</dd></div>
               <div><dt>Legacy room rows</dt><dd>${legacySummary.room_count}</dd></div>
+              <div><dt>Existing property gallery</dt><dd>${legacySummary.property_gallery_count} photo${legacySummary.property_gallery_count === 1 ? '' : 's'}</dd></div>
               <div><dt>Publication</dt><dd>${property.is_published ? 'Published' : 'Not published'}</dd></div>
               <div><dt>Booking mode</dt><dd>${escapeHtml(bookingModeLabel(property.booking_mode))}</dd></div>
             </dl>
@@ -531,9 +597,10 @@
           <section class="hotel-workspace-card hotel-migration-preview">
             <span class="hotel-workspace-eyebrow">Migration preview · read only</span>
             <h4>${escapeHtml(preview.property_name)}</h4>
-            <dl><div><dt>Legacy room rows</dt><dd>${preview.legacy_room_count}</dd></div><div><dt>Legacy pricing rules</dt><dd>${preview.legacy_pricing_rule_count}</dd></div><div><dt>Status</dt><dd>Not migrated</dd></div></dl>
+            <dl><div><dt>Live accommodation products</dt><dd>${preview.legacy_live_product_count}</dd></div><div><dt>Legacy room rows</dt><dd>${preview.legacy_room_count}</dd></div><div><dt>Legacy pricing rules</dt><dd>${preview.legacy_pricing_rule_count}</dd></div><div><dt>Status</dt><dd>Not migrated</dd></div></dl>
             <p>${escapeHtml(preview.messages[0])}</p>
             ${preview.suggestions.length ? `<ul>${preview.suggestions.map((item) => `<li>${escapeHtml(Core.i18nText(item.proposed_name, 'en', item.proposed_code))} → draft Room Type</li>`).join('')}</ul>` : ''}
+            ${legacySummary ? renderLegacyProductPreview(preview, legacySummary) : ''}
           </section>
         </aside>
       </div>`;
@@ -543,6 +610,7 @@
       const term = event.currentTarget.value.trim().toLowerCase();
       overviewForm.querySelectorAll('.hotel-amenity-group').forEach((group) => { group.hidden = term && !group.textContent.toLowerCase().includes(term); });
     });
+    panel.querySelector('[data-prepare-legacy-accommodation]')?.addEventListener('click', () => openLegacyAccommodationPreparation(preview));
   }
 
   function renderReadinessCard(readiness) {
@@ -598,14 +666,19 @@
 
   function renderRoomsPanel(panel) {
     const workspace = state.workspace;
+    const migration = Core.migrationPreview(workspace);
     const rooms = workspace.room_types.slice().sort((a, b) => a.sort_order - b.sort_order || a.code.localeCompare(b.code));
     const plans = workspace.rate_plans.slice().sort((a, b) => a.sort_order - b.sort_order || a.code.localeCompare(b.code));
     panel.innerHTML = `
       ${workspacePanelHeader('Rooms & Rates', 'Manage Room Types, optional physical units, reusable Rate Plans and their sellable products.', `
-        <div class="hotel-workspace-panel-actions"><button class="btn-secondary" type="button" data-add-rate-plan>+ Rate Plan</button><button class="btn-primary" type="button" data-add-room>+ Room Type</button></div>`)}
+        <div class="hotel-workspace-panel-actions"><button class="btn-secondary" type="button" data-add-rate-plan>+ Rate Plan</button><button class="btn-primary" type="button" data-add-room>${rooms.length ? '+ Another Room Type' : '+ Room Type'}</button></div>`)}
+      ${migration.legacy_product ? `<section class="hotel-workspace-card hotel-legacy-product-banner">
+        <div><span class="hotel-workspace-eyebrow">Current live legacy product</span><h4>${migration.legacy_live_product_count} configured accommodation product${migration.legacy_live_product_count === 1 ? '' : 's'}</h4><p>${migration.legacy_pricing_rule_count} legacy pricing rules remain live. Below are ${rooms.length} normalized Room Types in inert V2 preparation.</p></div>
+        ${migration.can_prepare_existing_accommodation ? '<button class="btn-primary" type="button" data-prepare-legacy-accommodation>Prepare existing accommodation as Room Type</button>' : '<span class="hotel-workspace-status hotel-workspace-status--warning">Not migrated</span>'}
+      </section>` : ''}
       <div class="hotel-rooms-layout">
         <section>
-          <div class="hotel-workspace-section-title"><div><h4>Room Types</h4><p>One Room Type may use several Rate Plans.</p></div><span>${rooms.length}</span></div>
+          <div class="hotel-workspace-section-title"><div><h4>Normalized Room Types</h4><p>One Room Type may use several Rate Plans.</p></div><span>${rooms.length}</span></div>
           <div class="hotel-room-grid">${rooms.length ? rooms.map(renderRoomCard).join('') : renderEmptyState('No Room Types yet', 'Create the first draft room without changing the current public Hotel.')}</div>
         </section>
         <section>
@@ -615,6 +688,7 @@
       </div>`;
     panel.querySelector('[data-add-room]')?.addEventListener('click', () => openRoomEditor());
     panel.querySelector('[data-add-rate-plan]')?.addEventListener('click', () => openRatePlanEditor());
+    panel.querySelector('[data-prepare-legacy-accommodation]')?.addEventListener('click', () => openLegacyAccommodationPreparation(migration));
     bindRoomPanelActions(panel);
   }
 
@@ -736,7 +810,7 @@
     return result;
   }
 
-  async function openReview({ title, entity, before, after, operation, operations, onCancel, onApplyError, closeOnApplyError = false, successMessage }) {
+  async function openReview({ title, entity, before, after, operation, operations, onCancel, onApplyError, closeOnApplyError = false, successMessage, contextMessage = '' }) {
     const reviewedOperations = Array.isArray(operations) ? operations : [operation];
     const rows = Core.buildReviewRows(entity, before, after);
     if (!rows.length) {
@@ -748,6 +822,7 @@
       title,
       className: 'hotel-workspace-modal--review',
       body: `<div class="hotel-review-summary"><p>One atomic exact-property operation will be applied only after all version and relationship checks pass.</p><dl><div><dt>Property ID</dt><dd><code>${escapeHtml(state.workspace.property.id)}</code></dd></div><div><dt>Entity</dt><dd>${escapeHtml(entity.replaceAll('_', ' '))}</dd></div><div><dt>Changes</dt><dd>${rows.length}</dd></div></dl></div>
+        ${contextMessage ? `<p class="hotel-workspace-safety-note">${escapeHtml(contextMessage)}</p>` : ''}
         <div class="hotel-review-table-wrap"><table class="hotel-review-table"><thead><tr><th>Field</th><th>Before</th><th>After</th></tr></thead><tbody>${rows.map((row) => `<tr><th>${escapeHtml(row.field)}</th><td><pre>${escapeHtml(displayReviewValue(row.before))}</pre></td><td><pre>${escapeHtml(displayReviewValue(row.after))}</pre></td></tr>`).join('') || '<tr><td colspan="3">The exact reviewed operation has no scalar field diff.</td></tr>'}</tbody></table></div>
         <p class="hotel-workspace-safety-note">Public Hotels V2 remains disabled. This save does not publish, convert, book or alter historical rows.</p>`,
       footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Back</button><button class="btn-primary" type="button" data-hotel-review-confirm>Save reviewed changes</button>',
@@ -904,35 +979,77 @@
     </fieldset>`;
   }
 
-  function openRoomEditor(roomId = null) {
+  function legacyPropertyPhotoSelectionMarkup(preview) {
+    const photos = Core.normalizeGallery(state.workspace?.property?.photos);
+    if (!photos.length) {
+      return '<fieldset class="hotel-legacy-photo-picker"><legend>Property photos requiring review</legend><p>No property gallery photos are available. No Room Type photo will be copied.</p></fieldset>';
+    }
+    return `<fieldset class="hotel-legacy-photo-picker"><legend>Property photos requiring review</legend>
+      <p>These remain property-level media. Select a photo only after confirming that it belongs to this exact accommodation. Nothing is selected automatically.</p>
+      <div class="hotel-legacy-photo-picker__grid">${photos.map((url, index) => `<label><img src="${escapeAttr(url)}" alt="Property photo candidate ${index + 1}" loading="lazy" /><span><input type="checkbox" name="legacy_property_photo" value="${escapeAttr(url)}" /> Use for this Room Type</span><small>REQUIRES REVIEW</small></label>`).join('')}</div>
+      <small>${preview.property_gallery_count} source photo${preview.property_gallery_count === 1 ? '' : 's'} · the property gallery is not moved or changed.</small>
+    </fieldset>`;
+  }
+
+  function openLegacyAccommodationPreparation(preview = null) {
+    const freshPreview = Core.migrationPreview(state.workspace);
+    if (!freshPreview.can_prepare_existing_accommodation || !freshPreview.legacy_product) {
+      toast('The current legacy product is no longer eligible for one-room shadow preparation. Refresh and review the latest workspace.', 'error');
+      return;
+    }
+    if (preview?.property_id && preview.property_id !== freshPreview.property_id) {
+      toast('The reviewed legacy source no longer matches this property.', 'error');
+      return;
+    }
+    openRoomEditor(null, { legacyPreparation: freshPreview });
+  }
+
+  function openRoomEditor(roomId = null, options = {}) {
     const existing = roomId ? state.workspace.room_types.find((room) => room.id === roomId) : null;
-    const room = existing || Core.normalizeRoomType({
+    const legacyPreparation = !existing ? Core.asObject(options.legacyPreparation) : {};
+    const isLegacyPreparation = legacyPreparation.legacy_product?.kind === 'property_level_accommodation';
+    const room = existing || (isLegacyPreparation
+      ? Core.buildLegacyShadowRoomSeed(state.workspace, Core.newUuid())
+      : Core.normalizeRoomType({
       id: Core.newUuid(), hotel_id: state.workspace.property.id, code: '', name_i18n: {}, description_i18n: {},
       gallery: [], capacity_adults: 2, capacity_children: 0, bed_configuration: [], amenities: [],
       inventory_mode: 'pooled', base_inventory_count: 1, status: 'draft', sort_order: 1000, version: 1,
-    });
+    }));
+    const adultsValue = isLegacyPreparation ? '' : room.capacity_adults;
+    const childrenValue = isLegacyPreparation ? '' : room.capacity_children;
+    const inventoryValue = isLegacyPreparation ? '' : room.base_inventory_count;
     openModal({
-      title: existing ? 'Edit Room Type' : 'Add Room Type',
+      title: existing ? 'Edit Room Type' : isLegacyPreparation ? 'Prepare existing accommodation as Room Type' : 'Add Room Type',
       className: 'hotel-workspace-modal--wide',
       body: `<form id="hotelRoomEditorForm" class="hotel-workspace-form">
+        ${isLegacyPreparation ? `<section class="hotel-legacy-source-review">
+          <span class="hotel-workspace-eyebrow">Legacy source · read only</span>
+          <h4>${escapeHtml(legacyPreparation.legacy_product.label)}</h4>
+          <div><span>${legacyPreparation.legacy_pricing_rule_count} legacy pricing rules</span><span>Legacy booking maximum ${legacyPreparation.legacy_product.max_persons || 'not specified'}</span><span>${legacyPreparation.property_gallery_count} property photos</span></div>
+          <p>The source is a property-level accommodation product, not a normalized Room Type. Enter and confirm every room-specific value below. Pricing is not copied in this operation.</p>
+        </section>` : ''}
         <div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>Internal code</span><input name="code" value="${escapeAttr(room.code)}" required pattern="[a-z0-9][a-z0-9_-]*" /></label><label class="admin-form-field"><span>Exact Room Type ID</span><input value="${escapeAttr(room.id)}" readonly /></label></div>
         ${i18nFields('name', 'Room name', room.name_i18n)}
         ${i18nFields('description', 'Room description', room.description_i18n, 'textarea')}
         <fieldset><legend>Capacity & inventory</legend><div class="hotel-workspace-form-grid">
-          <label class="admin-form-field"><span>Adults</span><input name="capacity_adults" type="number" min="1" max="50" step="1" value="${room.capacity_adults}" required /></label>
-          <label class="admin-form-field"><span>Children</span><input name="capacity_children" type="number" min="0" max="50" step="1" value="${room.capacity_children}" required /></label>
-          <label class="admin-form-field"><span>Inventory model</span><select name="inventory_mode"><option value="pooled" ${room.inventory_mode === 'pooled' ? 'selected' : ''}>Pooled inventory</option><option value="unitized" ${room.inventory_mode === 'unitized' ? 'selected' : ''}>Individual units</option></select></label>
-          <label class="admin-form-field"><span>Base inventory count</span><input name="base_inventory_count" type="number" min="0" step="1" value="${room.base_inventory_count}" /></label>
+          <label class="admin-form-field"><span>Adults</span><input name="capacity_adults" type="number" min="1" max="50" step="1" value="${adultsValue}" required /></label>
+          <label class="admin-form-field"><span>Children</span><input name="capacity_children" type="number" min="0" max="50" step="1" value="${childrenValue}" required /></label>
+          <label class="admin-form-field"><span>Inventory model</span><select name="inventory_mode" required>${isLegacyPreparation ? '<option value="" selected disabled>Select after confirmation</option>' : ''}<option value="pooled" ${!isLegacyPreparation && room.inventory_mode === 'pooled' ? 'selected' : ''}>Pooled inventory</option><option value="unitized" ${!isLegacyPreparation && room.inventory_mode === 'unitized' ? 'selected' : ''}>Individual units</option></select></label>
+          <label class="admin-form-field"><span>Base inventory count</span><input name="base_inventory_count" type="number" min="${isLegacyPreparation ? '1' : '0'}" step="1" value="${inventoryValue}" ${isLegacyPreparation ? 'required' : ''} /></label>
           <label class="admin-form-field"><span>Bathrooms</span><input name="bathrooms" type="number" min="0" step="0.5" value="${escapeAttr(room.bathrooms ?? '')}" /></label>
           <label class="admin-form-field"><span>Size m²</span><input name="size_sqm" type="number" min="0.01" step="0.01" value="${escapeAttr(room.size_sqm ?? '')}" /></label>
-          <label class="admin-form-field"><span>Status</span><select name="status">${Core.ROOM_STATUSES.map((status) => `<option value="${status}" ${status === room.status ? 'selected' : ''}>${escapeHtml(status)}</option>`).join('')}</select></label>
+          ${isLegacyPreparation
+            ? '<label class="admin-form-field"><span>Status</span><input name="status" value="draft" readonly /><small>Shadow preparation is always inert.</small></label>'
+            : `<label class="admin-form-field"><span>Status</span><select name="status">${Core.ROOM_STATUSES.map((status) => `<option value="${status}" ${status === room.status ? 'selected' : ''}>${escapeHtml(status)}</option>`).join('')}</select></label>`}
           <label class="admin-form-field"><span>Admin sort order</span><input name="sort_order" type="number" min="0" step="1" value="${room.sort_order}" /></label>
         </div><p class="hotel-inventory-mode-note" data-inventory-note></p></fieldset>
         <fieldset><legend>Bed configuration</legend><div data-bed-rows>${room.bed_configuration.map(bedRowMarkup).join('')}</div><button class="btn-secondary" type="button" data-add-bed>+ Add bed</button></fieldset>
-        <fieldset><legend>Room amenities</legend>${amenitiesMarkup(room.amenities)}</fieldset>
+        <fieldset><legend>Room amenities</legend>${isLegacyPreparation ? '<p>Property amenities are not copied. Select only amenities confirmed for this exact accommodation.</p>' : ''}${amenitiesMarkup(room.amenities)}</fieldset>
         ${galleryEditorMarkup(room)}
+        ${isLegacyPreparation ? legacyPropertyPhotoSelectionMarkup(legacyPreparation) : ''}
+        ${isLegacyPreparation ? '<p class="hotel-workspace-safety-note">This operation creates one draft Room Type only. It does not create a Rate Plan, Room Rate, Calendar row, booking, or pricing conversion.</p>' : ''}
       </form>`,
-      footer: `<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelRoomEditorForm">Review ${existing ? 'changes' : 'new Room Type'}</button>`,
+      footer: `<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelRoomEditorForm">Review ${existing ? 'changes' : isLegacyPreparation ? 'shadow Room Type' : 'new Room Type'}</button>`,
       onReady(overlay) {
         const form = overlay.querySelector('#hotelRoomEditorForm');
         const beds = form.querySelector('[data-bed-rows]');
@@ -952,6 +1069,11 @@
         const inventoryCount = form.elements.base_inventory_count;
         const inventoryNote = form.querySelector('[data-inventory-note]');
         const syncInventory = () => {
+          if (!inventoryMode.value) {
+            inventoryCount.disabled = false;
+            inventoryNote.textContent = 'Select and confirm the inventory model. No legacy inventory value is assumed.';
+            return;
+          }
           const unitized = inventoryMode.value === 'unitized';
           inventoryCount.disabled = unitized;
           inventoryNote.textContent = unitized
@@ -988,11 +1110,14 @@
             base_inventory_count: fd.get('inventory_mode') === 'unitized' ? 0 : Number(fd.get('base_inventory_count')),
             bathrooms: fd.get('bathrooms') === '' ? null : Number(fd.get('bathrooms')),
             size_sqm: fd.get('size_sqm') === '' ? null : Number(fd.get('size_sqm')),
-            status: String(fd.get('status')),
+            status: isLegacyPreparation ? 'draft' : String(fd.get('status')),
             sort_order: Number(fd.get('sort_order')),
             bed_configuration: bedConfiguration,
             amenities: fd.getAll('room_amenity'),
-            gallery: room.gallery.filter((url) => !fd.getAll('remove_gallery_url').includes(url)),
+            gallery: Core.normalizeGallery([
+              ...room.gallery.filter((url) => !fd.getAll('remove_gallery_url').includes(url)),
+              ...(isLegacyPreparation ? fd.getAll('legacy_property_photo') : []),
+            ]),
           };
           let validated;
           try { validated = Core.validateRoomType(candidate, state.workspace); }
@@ -1026,7 +1151,7 @@
             if (error?.isDefinitiveFailure) await cleanupUploaded();
           };
           await openReview({
-            title: existing ? 'Review Room Type changes' : 'Review new Room Type',
+            title: existing ? 'Review Room Type changes' : isLegacyPreparation ? 'Review legacy → shadow Room Type' : 'Review new Room Type',
             entity: 'room_type',
             before: existing,
             after: validated,
@@ -1034,7 +1159,10 @@
             onCancel: files.length ? cleanupUploaded : null,
             onApplyError: files.length ? cleanupRejectedUpload : null,
             closeOnApplyError: files.length > 0,
-            successMessage: existing ? 'Room Type updated.' : 'Room Type created as an inert configuration.',
+            contextMessage: isLegacyPreparation
+              ? 'The exact legacy property remains live and unchanged. This reviewed operation creates one draft Room Type only; pricing migration stays separate.'
+              : '',
+            successMessage: existing ? 'Room Type updated.' : isLegacyPreparation ? 'Existing accommodation prepared as one inert draft Room Type.' : 'Room Type created as an inert configuration.',
           });
         });
       },

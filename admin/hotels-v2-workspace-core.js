@@ -380,25 +380,175 @@
     const property = normalized.property;
     const legacyRooms = asArray(property.room_types);
     const rules = asArray(asObject(property.pricing_tiers).rules);
+    const propertyPhotos = normalizeGallery(property.photos);
+    const propertyAmenities = normalizeAmenities(property.amenities);
+    const guestCounts = Array.from(new Set(rules
+      .map((rule) => asInteger(rule?.persons, 0))
+      .filter((value) => value > 0))).sort((a, b) => a - b);
+    const stayThresholds = Array.from(new Set(rules
+      .map((rule) => asInteger(rule?.min_nights, 0))
+      .filter((value) => value > 0))).sort((a, b) => a - b);
+    const isSevenArchesMatrix = (
+      property.id === '9b6d99a0-923a-4fbc-be54-c066e856e6ca'
+      || asText(property.slug) === '7-ukow'
+    ) && rules.length === 63
+      && guestCounts.join(',') === '2,3,4,5,6,7,8'
+      && stayThresholds.join(',') === '2,3,4,5,6,7,8,9,10';
+    const requiresOccupancyLosModel = guestCounts.length > 1 || stayThresholds.length > 1;
+    const hasPropertyLevelAccommodation = (
+      property.architecture_version === 'legacy'
+      && legacyRooms.length === 0
+      && rules.length > 0
+    );
+    const liveProductCount = legacyRooms.length || (hasPropertyLevelAccommodation ? 1 : 0);
     const suggestions = legacyRooms.map((legacyRoom, index) => ({
       source_index: index,
       proposed_code: asText(legacyRoom.id || legacyRoom.code || `legacy-room-${index + 1}`).toLowerCase().replace(/[^a-z0-9_-]+/g, '-'),
       proposed_name: normalizeI18n(legacyRoom.name || legacyRoom.title, { fallback: `Legacy room ${index + 1}` }),
       status: 'not_migrated',
     }));
+    const fieldClassifications = hasPropertyLevelAccommodation ? [
+      {
+        field: 'Property relationship',
+        target_field: 'hotel_id',
+        classification: 'SAFE_TO_COPY',
+        source_summary: property.id,
+        note: 'The shadow Room Type belongs to this exact property.',
+      },
+      {
+        field: 'Shadow status',
+        target_field: 'status',
+        classification: 'SAFE_TO_COPY',
+        source_summary: 'Draft only',
+        note: 'Preparation always creates an inert draft and never changes the property architecture or publication.',
+      },
+      {
+        field: 'Currency',
+        target_field: 'future Room Rate currency',
+        classification: 'SAFE_TO_COPY',
+        source_summary: property.currency,
+        note: 'Currency may be carried into the separately reviewed pricing product; no Room Rate is created now.',
+      },
+      {
+        field: 'Room name and description',
+        target_field: 'name_i18n / description_i18n',
+        classification: 'REQUIRES_REVIEW',
+        source_summary: i18nText(property.title, 'en', property.slug || property.id),
+        note: 'Current text describes the property and must not be assumed to be the physical room name or room-only description.',
+      },
+      {
+        field: 'Guest capacity',
+        target_field: 'capacity_adults / capacity_children',
+        classification: 'REQUIRES_REVIEW',
+        source_summary: Number(property.max_persons) > 0
+          ? `Legacy booking maximum: ${Number(property.max_persons)} guests`
+          : 'No legacy booking maximum',
+        note: 'A property-level booking maximum may span more than one accommodation and is not copied as Room Type capacity.',
+      },
+      {
+        field: 'Property gallery',
+        target_field: 'gallery',
+        classification: 'REQUIRES_REVIEW',
+        source_summary: `${propertyPhotos.length} property photo${propertyPhotos.length === 1 ? '' : 's'}`,
+        note: 'Every photo remains property media. Admin may explicitly select only photos confirmed for this Room Type.',
+      },
+      {
+        field: 'Property amenities',
+        target_field: 'amenities',
+        classification: 'REQUIRES_REVIEW',
+        source_summary: `${propertyAmenities.length} property amenit${propertyAmenities.length === 1 ? 'y' : 'ies'}`,
+        note: 'Property amenities are shown as context but are not copied into the room automatically.',
+      },
+      {
+        field: 'Legacy pricing matrix',
+        target_field: 'future Room Rate / pricing rules',
+        classification: 'REQUIRES_REVIEW',
+        source_summary: `${rules.length} legacy pricing rule${rules.length === 1 ? '' : 's'}`,
+        note: 'Safe to preview, but pricing conversion is a separate reviewed step with a zero-mismatch oracle.',
+      },
+      {
+        field: 'Physical inventory',
+        target_field: 'inventory_mode / base_inventory_count',
+        classification: 'UNKNOWN',
+        source_summary: 'Not represented structurally in the legacy product',
+        note: 'Admin or partner must confirm the inventory model and exact count.',
+      },
+      {
+        field: 'Beds, bathrooms and size',
+        target_field: 'bed_configuration / bathrooms / size_sqm',
+        classification: 'UNKNOWN',
+        source_summary: 'No unambiguous structured room data',
+        note: 'Do not infer these values from marketing text or photographs.',
+      },
+    ] : [];
     return {
       property_id: property.id,
       property_name: i18nText(property.title, 'en', property.slug || property.id),
       architecture_version: property.architecture_version,
       legacy_room_count: legacyRooms.length,
+      legacy_live_product_count: liveProductCount,
       legacy_pricing_rule_count: rules.length,
+      property_gallery_count: propertyPhotos.length,
+      pricing_preview: {
+        pricing_model: asText(property.pricing_model),
+        rule_count: rules.length,
+        guest_counts: guestCounts,
+        stay_thresholds: stayThresholds,
+        requires_occupancy_los_model: requiresOccupancyLosModel,
+        h1_rate_rules_compatible: !requiresOccupancyLosModel,
+        oracle: isSevenArchesMatrix
+          ? 'HOTEL_7_ARCHES_ROOM1_PRICE_MISMATCH'
+          : 'HOTEL_LEGACY_SHADOW_PRICE_MISMATCH',
+        conversion_status: requiresOccupancyLosModel ? 'BLOCKED_PENDING_H2B_MODEL' : 'REVIEW_REQUIRED',
+      },
+      legacy_product: hasPropertyLevelAccommodation ? {
+        kind: 'property_level_accommodation',
+        label: 'Legacy property-level accommodation',
+        status: 'AWAITING_ADMIN_CONFIRMATION',
+        pricing_rule_count: rules.length,
+        property_gallery_count: propertyPhotos.length,
+        max_persons: Number(property.max_persons) > 0 ? Number(property.max_persons) : null,
+        field_classifications: fieldClassifications,
+      } : null,
       suggestions,
       needs_manual_room_mapping: legacyRooms.length === 0,
+      can_prepare_existing_accommodation: hasPropertyLevelAccommodation && normalized.room_types.length === 0,
       status: 'NOT_MIGRATED',
       messages: legacyRooms.length
         ? ['Review every suggested Room Type before a future migration.']
-        : ['No structured legacy room rows are available. Create Room Types manually in shadow mode.'],
+        : hasPropertyLevelAccommodation
+          ? ['One live property-level accommodation product exists. It is not a normalized Room Type and requires Admin confirmation before shadow preparation.']
+          : ['No structured legacy room rows or property-level pricing product are available. Create Room Types manually in shadow mode.'],
     };
+  }
+
+  function buildLegacyShadowRoomSeed(workspace, exactId) {
+    const normalized = normalizeWorkspace(workspace);
+    const preview = migrationPreview(normalized);
+    const id = normalizeUuid(exactId);
+    if (!preview.can_prepare_existing_accommodation || !preview.legacy_product) {
+      throw new Error('This property does not have an eligible property-level legacy product to prepare.');
+    }
+    if (!id) throw new Error('An exact Room Type UUID is required for shadow preparation.');
+    return normalizeRoomType({
+      id,
+      hotel_id: normalized.property.id,
+      code: '',
+      name_i18n: {},
+      description_i18n: {},
+      gallery: [],
+      capacity_adults: 0,
+      capacity_children: 0,
+      bed_configuration: [],
+      bathrooms: null,
+      size_sqm: null,
+      amenities: [],
+      inventory_mode: 'pooled',
+      base_inventory_count: 0,
+      status: 'draft',
+      sort_order: 1000,
+      version: 1,
+    });
   }
 
   function validateCode(code, label = 'Code') {
@@ -628,6 +778,7 @@
     totalConfiguredInventory,
     deriveWorkspaceReadiness,
     migrationPreview,
+    buildLegacyShadowRoomSeed,
     validateCode,
     validateRoomType,
     validateUnit,

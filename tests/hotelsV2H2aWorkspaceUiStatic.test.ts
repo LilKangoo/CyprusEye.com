@@ -192,6 +192,8 @@ describe('Hotels V2 H2A Property Workspace UI/static contract', () => {
     expect(cards[0]).toContain('Current public pricing');
     expect(cards[0]).toContain('€70.00');
     expect(cards[0]).toContain('63 legacy pricing rules');
+    expect(cards[0]).toContain('1 configured accommodation product');
+    expect(cards[0]).toContain('property-level legacy product');
     expect(cards[0]).toContain('Rooms V2 preparation');
     expect(cards[0]).toContain('Not configured');
     expect(cards[0]).not.toContain('— configured from');
@@ -245,6 +247,34 @@ describe('Hotels V2 H2A Property Workspace UI/static contract', () => {
     expect(ui).toContain('selectedRoomTypeId: roomId');
     expect(ui).toContain('This is the current legacy configuration. Rooms V2 preparation below is separate and cannot overwrite it.');
     expect(ui).not.toMatch(/JSON\.stringify\(summary\.rooms\)/);
+  });
+
+  test('prepares one property-level accommodation through an explicit inert Room Type review with no unsafe defaults', () => {
+    expect(core).toContain("kind: 'property_level_accommodation'");
+    expect(core).toContain("classification: 'SAFE_TO_COPY'");
+    expect(core).toContain("classification: 'REQUIRES_REVIEW'");
+    expect(core).toContain("classification: 'UNKNOWN'");
+    expect(core).toContain("oracle: isSevenArchesMatrix");
+    expect(core).toContain("'HOTEL_7_ARCHES_ROOM1_PRICE_MISMATCH'");
+    expect(core).toContain('requires_occupancy_los_model: requiresOccupancyLosModel');
+    expect(core).toContain('h1_rate_rules_compatible: !requiresOccupancyLosModel');
+
+    expect(ui).toContain('Current live legacy product');
+    expect(ui).toContain('configured accommodation product');
+    expect(ui).toContain('normalized room types');
+    expect(ui).toContain('Prepare existing accommodation as Room Type');
+    expect(ui).toContain('function openLegacyAccommodationPreparation');
+    expect(ui).toContain('Core.buildLegacyShadowRoomSeed(state.workspace, Core.newUuid())');
+    expect(core).toContain('capacity_adults: 0');
+    expect(core).toContain('base_inventory_count: 0');
+    expect(ui).toContain('Select after confirmation');
+    expect(ui).toContain("status: isLegacyPreparation ? 'draft'");
+    expect(ui).toContain("...(isLegacyPreparation ? fd.getAll('legacy_property_photo') : [])");
+    expect(ui).toContain('Property amenities are not copied.');
+    expect(ui).toContain('Pricing migration is separate');
+    expect(ui).toContain('contextMessage');
+    expect(ui).toContain('This reviewed operation creates one draft Room Type only; pricing migration stays separate.');
+    expect(ui).not.toContain('legacy_price_copy');
   });
 
   test('presents one Room Type with several property Rate Plans rather than duplicate room semantics', () => {

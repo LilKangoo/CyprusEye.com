@@ -10,6 +10,7 @@ const UNIT_ID = '20000000-0000-4000-8000-000000000002';
 const RATE_PLAN_ID = '20000000-0000-4000-8000-000000000003';
 const ROOM_RATE_ID = '20000000-0000-4000-8000-000000000004';
 const DUPLICATE_ROOM_ID = '20000000-0000-4000-8000-000000000005';
+const SHADOW_PREVIEW_ID = '20000000-0000-4000-8000-000000000006';
 const CORRELATION_ID = '30000000-0000-4000-8000-000000000001';
 
 function seedHotelsV2H2aWorkspace() {
@@ -321,7 +322,8 @@ test('H2A Property Workspace keeps one legacy property inert while Rooms, Units 
   await expect(page.locator('#hotelPropertyList .hotel-property-card')).toHaveCount(1);
   const propertyCard = page.locator('#hotelPropertyList .hotel-property-card');
   await expect(propertyCard).toContainText('7 Arches');
-  await expect(propertyCard).toContainText('0 room types');
+  await expect(propertyCard).toContainText('0 normalized room types');
+  await expect(propertyCard).toContainText('1 configured accommodation product');
   await expect(propertyCard).toContainText('Legacy');
   await expect(propertyCard).toContainText('Current public pricing');
   await expect(propertyCard).toContainText('€70.00');
@@ -336,11 +338,45 @@ test('H2A Property Workspace keeps one legacy property inert while Rooms, Units 
   await expect(page.locator('#hotelWorkspaceActivePanel')).toContainText('Migration preview');
   await expect(page.locator('#hotelWorkspaceActivePanel')).toContainText('Not migrated');
   await expect(page.locator('#hotelWorkspaceActivePanel')).toContainText('Legacy room rows');
-  await expect(page.locator('#hotelWorkspaceActivePanel')).toContainText('Current live legacy configuration');
+  await expect(page.locator('#hotelWorkspaceActivePanel')).toContainText('Current live legacy product');
   await expect(page.locator('#hotelWorkspaceActivePanel')).toContainText('Tiered legacy pricing');
   await expect(page.locator('#hotelWorkspaceActivePanel')).toContainText('€70.00');
   await expect(page.locator('#hotelWorkspaceActivePanel')).toContainText('63');
   await expect(page.locator('#hotelWorkspaceActivePanel')).toContainText('Rooms V2 preparation');
+
+  // The dedicated reconstruction flow carries no unconfirmed room facts or
+  // pricing into V2. It only opens an inert exact-ID draft for explicit review.
+  await queueUuid(page, SHADOW_PREVIEW_ID);
+  await page.locator('[data-prepare-legacy-accommodation]').click();
+  const shadowForm = page.locator('#hotelRoomEditorForm');
+  await expect(shadowForm).toBeVisible();
+  await expect(shadowForm).toContainText('Legacy source · read only');
+  await expect(shadowForm).toContainText('Pricing is not copied in this operation');
+  await expect(shadowForm.locator('input[readonly]').first()).toHaveValue(SHADOW_PREVIEW_ID);
+  await expect(shadowForm.locator('[name="code"]')).toHaveValue('');
+  await expect(shadowForm.locator('[name="name_en"]')).toHaveValue('');
+  await expect(shadowForm.locator('[name="capacity_adults"]')).toHaveValue('');
+  await expect(shadowForm.locator('[name="capacity_children"]')).toHaveValue('');
+  await expect(shadowForm.locator('[name="inventory_mode"]')).toHaveValue('');
+  await expect(shadowForm.locator('[name="base_inventory_count"]')).toHaveValue('');
+  await expect(shadowForm.locator('[name="status"]')).toHaveValue('draft');
+  await expect(shadowForm.locator('[name="room_amenity"]:checked')).toHaveCount(0);
+  await expect(shadowForm.locator('[name="legacy_property_photo"]:checked')).toHaveCount(0);
+  await expect(shadowForm).not.toContainText('Base nightly rate');
+  await page.locator('.hotel-workspace-modal [data-hotel-modal-close]').last().click();
+
+  const preCreateShadowAudit = await page.evaluate(() => ({
+    architectureVersion: (window as any).__h2aE2eStore.property.architecture_version,
+    publicState: (window as any).__h2aE2eStore.property.is_published,
+    roomCount: (window as any).__h2aE2eStore.room_types.length,
+    legacyRuleCount: (window as any).__h2aE2eStore.property.pricing_tiers.rules.length,
+  }));
+  expect(preCreateShadowAudit).toEqual({
+    architectureVersion: 'legacy',
+    publicState: true,
+    roomCount: 0,
+    legacyRuleCount: 63,
+  });
 
   await openRoomsTab(page);
 
