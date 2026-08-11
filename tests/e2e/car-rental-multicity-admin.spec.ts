@@ -67,6 +67,11 @@ function adminSeedScript() {
           min_rental_days: 1, max_rental_days: 30, engine_capacity_cc: null, required_licence_category: null, minimum_driver_age: null,
           owner_partner_id: 'partner-one', north_allowed: true, is_available: true, is_published: true, submission_status: 'approved', image_url: '/assets/mazda.jpg',
         }]);
+        stub.seedTable('car_offer_admin_order', [{
+          offer_id: 'ca300001-0000-4000-8000-000000000001',
+          admin_sort_order: 1,
+          updated_at: '2026-08-02T09:00:30.000Z',
+        }]);
         stub.seedTable('car_offer_city_availability', [
           { id: 'availability-larnaca', offer_id: 'ca300001-0000-4000-8000-000000000001', city_id: 'ca200001-0000-4000-8000-000000000001', pickup_enabled: true, return_enabled: true, is_active: true, fee_mode: 'inherit', fee_per_direction: null, fee_note: null, updated_at: '2026-08-02T09:10:00.000Z' },
         ]);
@@ -135,6 +140,43 @@ function adminSeedScript() {
             error: null,
           };
         });
+        stub.setRpcHandler('admin_reorder_car_fleet', (params: any, helpers: any) => {
+          const current = helpers.getTableRows('car_offer_admin_order');
+          const expected = (params.p_expected_rows || []).map((row: any) => ({
+            offer_id: String(row.offer_id || ''),
+            admin_sort_order: Number(row.admin_sort_order),
+            updated_at: row.updated_at || null,
+          })).sort((left: any, right: any) => left.offer_id.localeCompare(right.offer_id));
+          const actual = current.map((row: any) => ({
+            offer_id: String(row.offer_id || ''),
+            admin_sort_order: Number(row.admin_sort_order),
+            updated_at: row.updated_at || null,
+          })).sort((left: any, right: any) => left.offer_id.localeCompare(right.offer_id));
+          const desiredIds = (params.p_ordered_offer_ids || []).map(String);
+          if (JSON.stringify(expected) !== JSON.stringify(actual)
+            || desiredIds.length !== current.length
+            || new Set(desiredIds).size !== current.length
+            || desiredIds.some((offerId: string) => !current.some((row: any) => String(row.offer_id) === offerId))) {
+            const error: any = new Error('car_fleet_admin_order_stale_snapshot');
+            error.code = '40001';
+            throw error;
+          }
+          const updated = desiredIds.map((offerId: string, index: number) => ({
+            offer_id: offerId,
+            admin_sort_order: index + 1,
+            updated_at: `admin-order-rpc-${index + 1}`,
+          }));
+          helpers.setTableRows('car_offer_admin_order', updated);
+          return {
+            data: {
+              operation: 'fleet_admin_reorder',
+              offer_count: updated.length,
+              offer_ids: desiredIds,
+              rows: updated,
+            },
+            error: null,
+          };
+        });
         stub.seedTable('car_offer_daily_rate_tiers', []);
         stub.seedTable('car_bookings', []);
         stub.seedTable('service_deposit_rules', [{ id: 'deposit-cars-default', resource_type: 'cars', mode: 'per_day', amount: 5, currency: 'EUR', include_children: true, enabled: true, updated_at: '2026-08-02T09:20:00.000Z' }]);
@@ -159,8 +201,15 @@ async function openFleet(page: any) {
 }
 
 async function openAction(page: any, action: string) {
-  const button = page.locator(`#fleetTableBody [data-car-multicity-action="${action}"]`).first();
-  await button.evaluate((element: HTMLButtonElement) => element.click());
+  // Fleet tab activation performs one silent live refresh. Wait for that
+  // read-only rerender before exercising the user-triggered floating menu.
+  await page.waitForTimeout(250);
+  const trigger = page.locator('#fleetTableBody [data-fleet-action-menu-trigger]').first();
+  await trigger.evaluate((element: HTMLElement) => element.scrollIntoView({ block: 'center', inline: 'center' }));
+  await trigger.click();
+  const menu = page.locator('[data-car-fleet-action-menu-portal]');
+  await expect(menu).toBeVisible();
+  await menu.locator(`[data-car-multicity-action="${action}"]`).click();
   if (action !== 'legacy') {
     await expect(page.locator('#carMulticityModal')).toBeVisible();
     await expect(page.locator('#carMulticityExactOfferId')).toHaveText(OFFER_ID);
@@ -169,6 +218,28 @@ async function openAction(page: any, action: string) {
 
 async function clearMutations(page: any) {
   await page.evaluate(() => (window as any).__supabaseStub.clearMutationCalls());
+}
+
+async function seedThreeVehicleAdminOrder(page: any) {
+  const vehicleA = OFFER_ID;
+  const vehicleB = 'ca300001-0000-4000-8000-000000000002';
+  const vehicleC = 'ca300001-0000-4000-8000-000000000003';
+  await page.evaluate(({ vehicleA, vehicleB, vehicleC }) => {
+    const stub = (window as any).__supabaseStub;
+    const base = stub.getTableRows('car_offers').find((row: any) => row.id === vehicleA);
+    stub.seedTable('car_offers', [
+      { ...base, id: vehicleA, car_model: { en: 'Vehicle A' }, sort_order: 1, updated_at: 'offer-a-v1' },
+      { ...base, id: vehicleB, car_model: { en: 'Vehicle B' }, sort_order: 2, updated_at: 'offer-b-v1' },
+      { ...base, id: vehicleC, car_model: { en: 'Vehicle C' }, sort_order: 3, updated_at: 'offer-c-v1' },
+    ]);
+    stub.seedTable('car_offer_admin_order', [
+      { offer_id: vehicleC, admin_sort_order: 1, updated_at: 'admin-c-v1' },
+      { offer_id: vehicleA, admin_sort_order: 2, updated_at: 'admin-a-v1' },
+      { offer_id: vehicleB, admin_sort_order: 3, updated_at: 'admin-b-v1' },
+    ]);
+  }, { vehicleA, vehicleB, vehicleC });
+  await page.evaluate(() => (window as any).loadFleetData({ silent: true }));
+  return { vehicleA, vehicleB, vehicleC };
 }
 
 test.describe('Car Rental Multi-City Stage 2C Admin', () => {
@@ -205,6 +276,119 @@ test.describe('Car Rental Multi-City Stage 2C Admin', () => {
     await expect(page.locator('#fleetCarModal')).toBeVisible();
     await expect(page.locator('#fleetCarLocation')).toBeDisabled();
     await expect(page.locator('#fleetCarLegacyLocationNotice')).toContainText('Pricing profile');
+  });
+
+  test('Fleet action menus portal to body, flip above the last row, clamp to the viewport and remain keyboard accessible', async ({ page }) => {
+    await seedThreeVehicleAdminOrder(page);
+    await page.setViewportSize({ width: 760, height: 430 });
+    const rows = page.locator('#fleetTableBody [data-fleet-offer-id]');
+    await expect(rows).toHaveCount(3);
+
+    for (const rowIndex of [0, 1, 2]) {
+      const trigger = rows.nth(rowIndex).locator('[data-fleet-action-menu-trigger]');
+      await trigger.evaluate(
+        (element: HTMLElement, index: number) => element.scrollIntoView({ block: index === 2 ? 'end' : 'center' }),
+        rowIndex,
+      );
+      await page.waitForTimeout(50);
+      await trigger.click();
+      const menu = page.locator('[data-car-fleet-action-menu-portal]');
+      await expect(menu).toBeVisible();
+      const geometry = await page.evaluate(() => {
+        const portal = document.querySelector('[data-car-fleet-action-menu-portal]') as HTMLElement;
+        const rect = portal.getBoundingClientRect();
+        return {
+          parentIsBody: portal.parentElement === document.body,
+          left: rect.left,
+          top: rect.top,
+          right: rect.right,
+          bottom: rect.bottom,
+          width: window.innerWidth,
+          height: window.innerHeight,
+          placement: portal.dataset.placement,
+        };
+      });
+      expect(geometry.parentIsBody).toBe(true);
+      expect(geometry.left).toBeGreaterThanOrEqual(8);
+      expect(geometry.top).toBeGreaterThanOrEqual(8);
+      expect(geometry.right).toBeLessThanOrEqual(geometry.width - 8 + 0.5);
+      expect(geometry.bottom).toBeLessThanOrEqual(geometry.height - 8 + 0.5);
+      if (rowIndex === 2) expect(geometry.placement).toBe('top');
+      await page.keyboard.press('Escape');
+      await expect(page.locator('[data-car-fleet-action-menu-portal]')).toHaveCount(0);
+      await expect(trigger).toBeFocused();
+    }
+
+    const lastTrigger = rows.last().locator('[data-fleet-action-menu-trigger]');
+    await lastTrigger.click();
+    await expect(page.locator('[data-car-fleet-action-menu-portal]')).toBeVisible();
+    await page.evaluate(() => (window as any).loadFleetData({ silent: true, deferWhenFleetMenuOpen: true }));
+    await expect(page.locator('[data-car-fleet-action-menu-portal]')).toBeVisible();
+    await lastTrigger.click();
+    await expect(page.locator('[data-car-fleet-action-menu-portal]')).toHaveCount(0);
+    await expect(lastTrigger).toBeFocused();
+
+    await lastTrigger.click();
+    await page.locator('[data-car-fleet-action-menu-portal] [data-car-multicity-action="vehicle"]').click();
+    await expect(page.locator('#carMulticityModal')).toBeVisible();
+    await page.locator('#carMulticityModalClose').click();
+
+    await lastTrigger.click();
+    await page.locator('#fleetSelectionBar').click();
+    await expect(page.locator('[data-car-fleet-action-menu-portal]')).toHaveCount(0);
+
+    await lastTrigger.click();
+    await page.evaluate(() => window.dispatchEvent(new Event('scroll')));
+    await expect(page.locator('[data-car-fleet-action-menu-portal]')).toHaveCount(0);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await lastTrigger.evaluate((element: HTMLElement) => element.scrollIntoView({ block: 'end' }));
+    await page.waitForTimeout(100);
+    await lastTrigger.click();
+    const mobileBox = await page.locator('[data-car-fleet-action-menu-portal]').boundingBox();
+    expect(mobileBox).not.toBeNull();
+    expect(mobileBox!.x).toBeGreaterThanOrEqual(8);
+    expect(mobileBox!.x + mobileBox!.width).toBeLessThanOrEqual(382.5);
+    await page.locator('[data-car-fleet-action-menu-portal] [data-car-multicity-action="vehicle"]').click();
+    await expect(page.locator('#carMulticityModal')).toBeVisible();
+  });
+
+  test('last vehicle moves upward in persistent Admin-only order without touching public sort_order', async ({ page }) => {
+    const { vehicleA, vehicleB, vehicleC } = await seedThreeVehicleAdminOrder(page);
+    const rowIds = () => page.locator('#fleetTableBody [data-fleet-offer-id]').evaluateAll(
+      (rows: HTMLElement[]) => rows.map((row) => row.dataset.fleetOfferId),
+    );
+    await expect.poll(rowIds).toEqual([vehicleC, vehicleA, vehicleB]);
+
+    const firstRow = page.locator(`[data-fleet-offer-id="${vehicleC}"]`);
+    const lastRow = page.locator(`[data-fleet-offer-id="${vehicleB}"]`);
+    await expect(firstRow.locator('button[title^="Move up"]')).toBeDisabled();
+    await expect(lastRow.locator('button[title^="Move up"]')).toBeEnabled();
+    await expect(lastRow.locator('button[title^="Move down"]')).toBeDisabled();
+
+    await lastRow.locator('button[title^="Move up"]').click();
+    await expect.poll(rowIds).toEqual([vehicleC, vehicleB, vehicleA]);
+    await page.evaluate(() => (window as any).loadFleetData({ silent: true }));
+    await expect.poll(rowIds).toEqual([vehicleC, vehicleB, vehicleA]);
+
+    await page.locator(`[data-fleet-offer-id="${vehicleB}"] button[title^="Move down"]`).click();
+    await expect.poll(rowIds).toEqual([vehicleC, vehicleA, vehicleB]);
+    await page.locator(`[data-fleet-offer-id="${vehicleA}"] button[title^="Move down"]`).click();
+    await expect.poll(rowIds).toEqual([vehicleC, vehicleB, vehicleA]);
+
+    const state = await page.evaluate(() => {
+      const stub = (window as any).__supabaseStub;
+      return {
+        publicSort: stub.getTableRows('car_offers').map((row: any) => [row.id, row.sort_order]),
+        adminOrder: stub.getTableRows('car_offer_admin_order')
+          .sort((left: any, right: any) => left.admin_sort_order - right.admin_sort_order)
+          .map((row: any) => row.offer_id),
+        reorderCalls: stub.getRpcCalls().filter((call: any) => call.name === 'admin_reorder_car_fleet'),
+      };
+    });
+    expect(state.publicSort.sort()).toEqual([[vehicleA, 1], [vehicleB, 2], [vehicleC, 3]].sort());
+    expect(state.adminOrder).toEqual([vehicleC, vehicleB, vehicleA]);
+    expect(state.reorderCalls).toHaveLength(3);
   });
 
   test('Fleet partner filters, grouping and exact selection scopes never retain hidden vehicles', async ({ page }) => {

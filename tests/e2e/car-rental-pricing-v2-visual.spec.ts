@@ -140,7 +140,18 @@ async function openFleet(page: any) {
 }
 
 async function openAction(page: any, action: string, offerId = LARNACA_OFFER) {
-  await page.locator(`#fleetTableBody [data-car-multicity-action="${action}"][data-offer-id="${offerId}"]`).evaluate((element: HTMLButtonElement) => element.click());
+  await page.waitForTimeout(250);
+  const trigger = page.locator(`#fleetTableBody [data-fleet-action-menu-trigger][data-offer-id="${offerId}"]`);
+  await trigger.evaluate((element: HTMLElement) => element.scrollIntoView({ block: 'center', inline: 'center' }));
+  await page.waitForTimeout(50);
+  await trigger.evaluate((element: HTMLElement, payload: { action: string; offerId: string }) => {
+    element.click();
+    const item = document.querySelector(
+      `[data-car-fleet-action-menu-portal] [data-car-multicity-action="${payload.action}"][data-offer-id="${payload.offerId}"]`,
+    );
+    if (!(item instanceof HTMLElement)) throw new Error('Expected Fleet action was not portaled.');
+    item.click();
+  }, { action, offerId });
   await expect(page.locator('#carMulticityModal')).toBeVisible();
   await expect(page.locator('#carMulticityExactOfferId')).toHaveText(offerId);
 }

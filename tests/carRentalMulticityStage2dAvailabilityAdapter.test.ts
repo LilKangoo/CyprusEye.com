@@ -460,6 +460,58 @@ describe('Car Rental Multi-City Stage 2D availability adapter', () => {
     expect(result.comparison.commonOfferIds).toEqual(['offer-cheap', 'offer-expensive']);
   });
 
+  test('divergent Admin-only order cannot override public quote.total ordering', async () => {
+    const cheap = offer('offer-public-cheap', 'larnaca', {
+      price_per_day: 20,
+      sort_order: 900,
+      admin_sort_order: 9999,
+    });
+    const expensive = offer('offer-public-expensive', 'larnaca', {
+      price_per_day: 40,
+      sort_order: 1,
+      admin_sort_order: 1,
+    });
+    const context = baseContext({
+      offers: [expensive, cheap],
+      availability: [availability(cheap.id, 'larnaca'), availability(expensive.id, 'larnaca')],
+    });
+
+    const result = await resolve({}, context);
+
+    // This shared mapped result feeds both homepage Cars and /car. Admin workspace
+    // order is intentionally opposite and must never influence customer ordering.
+    expect(result.mappedOffers.map((row: any) => row.id)).toEqual([
+      cheap.id,
+      expensive.id,
+    ]);
+    expect(result.mappedOffers.map((row: any) => Number(row.quote.total))).toEqual([60, 120]);
+  });
+
+  test('public equal-price tie-break remains car_offers.sort_order, never Admin-only order', async () => {
+    const publicFirst = offer('offer-public-first', 'larnaca', {
+      price_per_day: 30,
+      sort_order: 10,
+      admin_sort_order: 9999,
+    });
+    const adminFirst = offer('offer-admin-first', 'larnaca', {
+      price_per_day: 30,
+      sort_order: 20,
+      admin_sort_order: 1,
+    });
+    const context = baseContext({
+      offers: [adminFirst, publicFirst],
+      availability: [availability(publicFirst.id, 'larnaca'), availability(adminFirst.id, 'larnaca')],
+    });
+
+    const result = await resolve({}, context);
+
+    expect(result.mappedOffers.map((row: any) => row.id)).toEqual([
+      publicFirst.id,
+      adminFirst.id,
+    ]);
+    expect(result.mappedOffers.map((row: any) => Number(row.quote.total))).toEqual([90, 90]);
+  });
+
   test('feature flag false performs no mapped read and renderedOffers remains the exact legacy array', async () => {
     const legacyOffers = [legacyOffer('legacy-one')];
     let mappedReads = 0;

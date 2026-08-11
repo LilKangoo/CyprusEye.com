@@ -361,7 +361,7 @@
             <label class="admin-form-field"><span>Passenger capacity</span><input type="number" min="1" data-number="integer" data-draft-field="vehicle.maxPassengers" id="carMulticityMaxPassengers" value="${escapeHtml(vehicle.maxPassengers ?? '')}" placeholder="Not confirmed"></label>
             <label class="admin-form-field"><span>Luggage capacity</span><input type="number" min="0" data-number="integer" data-draft-field="vehicle.maxLuggage" value="${escapeHtml(vehicle.maxLuggage ?? '')}" placeholder="Not confirmed"></label>
             <label class="admin-form-field"><span>Stock</span><input type="number" min="0" data-number="integer" data-draft-field="vehicle.stockCount" value="${escapeHtml(vehicle.stockCount)}"></label>
-            <label class="admin-form-field"><span>Sort order</span><input type="number" min="0" data-number="integer" data-draft-field="vehicle.sortOrder" value="${escapeHtml(vehicle.sortOrder)}"></label>
+            <label class="admin-form-field"><span>Legacy public tie-break order</span><input type="number" min="0" data-number="integer" data-draft-field="vehicle.sortOrder" value="${escapeHtml(vehicle.sortOrder)}"><small>This compatibility value is not the Admin Fleet display order.</small></label>
             <label class="car-multicity-check"><input type="checkbox" data-boolean="true" data-draft-field="vehicle.northAllowed" ${vehicle.northAllowed ? 'checked' : ''}> North allowed</label>
           </div>
           <p class="car-multicity-note">Requestability and publication are controlled separately through <strong>Activate / Publish</strong>. Editing vehicle details cannot make this offer live.</p>

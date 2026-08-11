@@ -10569,6 +10569,23 @@ select#orderStatusFilter:focus {
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32);
 }
 
+.car-fleet-action-menu__items[data-car-fleet-action-menu-portal] {
+  bottom: auto;
+  box-sizing: border-box;
+  min-width: 184px;
+  position: fixed;
+  right: auto;
+  z-index: 10050;
+}
+
+.car-fleet-action-menu__items[data-placement="top"] {
+  transform-origin: bottom right;
+}
+
+.car-fleet-action-menu__items[data-placement="bottom"] {
+  transform-origin: top right;
+}
+
 .transport-admin-v2-route-action-menu__items button {
   width: 100%;
   min-height: 34px;
@@ -14765,6 +14782,39 @@ body.car-multicity-modal-open {
 .car-multicity-row-actions {
   flex-wrap: nowrap;
   justify-content: flex-end;
+}
+
+.car-fleet-admin-order-note {
+  color: var(--admin-text-muted);
+  font-size: 12px;
+  margin: 0 0 10px;
+}
+
+.car-fleet-admin-order-controls,
+.car-fleet-admin-order-buttons {
+  align-items: center;
+  display: flex;
+}
+
+.car-fleet-admin-order-controls {
+  flex-direction: column;
+  gap: 4px;
+}
+
+.car-fleet-admin-order-buttons {
+  flex-direction: column;
+  gap: 2px;
+}
+
+.car-fleet-admin-order-position {
+  color: var(--admin-text-muted);
+  font-size: 11px;
+}
+
+.car-fleet-admin-order-value {
+  color: var(--admin-text-muted);
+  font-size: 10px;
+  white-space: nowrap;
 }
 
 .car-multicity-modal__content {

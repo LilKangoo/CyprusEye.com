@@ -52,6 +52,7 @@
   <script src="/admin/car-rental-multicity-core.js?v=20260802_1"></script>
   <script src="/admin/car-rental-multicity-repository.js?v=20260802_1"></script>
   <script src="/admin/car-rental-multicity-ui.js?v=20260802_1"></script>
+  <script src="/admin/car-fleet-action-menu.js?v=20260811_1"></script>
   <script type="module" src="/admin/admin.js?v=20260801_3"></script>
   <script src="/admin/admin-pwa.js?v=20260221_4" defer></script>
 </head>
@@ -5328,6 +5329,10 @@
             <button type="button" class="btn-primary" id="btnOpenFleetBulk" disabled>Bulk actions</button>
           </div>
 
+          <p class="car-fleet-admin-order-note" id="fleetAdminOrderNote">
+            Admin display order only. Clear filters and Partner grouping to reorder. Customer results remain ranked by the final quote total.
+          </p>
+
           <!-- Fleet Table -->
           <div class="admin-table-container" aria-label="Fleet">
             <table class="admin-table">
@@ -5336,7 +5341,7 @@
                   <th class="car-fleet-select-column"><input type="checkbox" id="fleetSelectVisibleCheckbox" aria-label="Select all visible vehicles"></th>
                   <th style="width: 80px;">Image</th>
                   <th>Configured cities</th>
-                  <th>Order</th>
+                  <th>Admin order</th>
                   <th>Car Model</th>
                   <th>Type</th>
                   <th>Price</th>
@@ -8811,8 +8816,9 @@
             </label>
 
             <label class="admin-form-field">
-              <span>Sort Order</span>
+              <span>Legacy public tie-break order</span>
               <input type="number" id="fleetCarSortOrder" name="sort_order" min="1" value="1000">
+              <small>This compatibility value is separate from the Admin Fleet display order.</small>
             </label>
           </div>
 

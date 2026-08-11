@@ -13,6 +13,13 @@ import {
   reconcileFleetSelection,
   setFleetSelectionScope,
 } from './car-fleet-operations-core.js';
+import {
+  buildAdminOrderMove,
+  getAdminOrderControlState,
+  hasCompleteAdminOrder,
+  indexAdminOrderRows,
+  sortFleetItemsByAdminOrder,
+} from './car-fleet-admin-order-core.js';
 
 // =====================================================
 // CONFIGURATION & GLOBALS
@@ -32725,7 +32732,12 @@ function markCarsLiveSyncError() {
 }
 
 async function refreshCarsActiveTabData(options = {}) {
-  const { silent = true, showSuccessToast = false, forcePartnersRefresh = false } = options;
+  const {
+    silent = true,
+    showSuccessToast = false,
+    forcePartnersRefresh = false,
+    deferWhenFleetMenuOpen = false,
+  } = options;
   const activeTab = getActiveCarsTab();
 
   if (activeTab === 'coupons') {
@@ -32734,7 +32746,7 @@ async function refreshCarsActiveTabData(options = {}) {
   }
 
   if (activeTab === 'fleet') {
-    await loadFleetData({ silent, showSuccessToast });
+    await loadFleetData({ silent, showSuccessToast, deferWhenFleetMenuOpen });
     return;
   }
 
@@ -32745,9 +32757,10 @@ function startCarsLiveRefresh() {
   if (carsLiveRefreshTimer) return;
   carsLiveRefreshTimer = window.setInterval(async () => {
     if (!isCarsViewActive() || document.hidden || carsLiveRefreshRunning) return;
+    if (getActiveCarsTab() === 'fleet' && fleetActionMenuController?.isOpen?.()) return;
     carsLiveRefreshRunning = true;
     try {
-      await refreshCarsActiveTabData({ silent: true });
+      await refreshCarsActiveTabData({ silent: true, deferWhenFleetMenuOpen: true });
     } finally {
       carsLiveRefreshRunning = false;
     }
@@ -35701,6 +35714,8 @@ const initialFleetFilters = Object.freeze({
 
 let fleetState = {
   cars: [],
+  adminOrderRows: [],
+  adminOrderByOfferId: new Map(),
   presentation: null,
   items: [],
   filteredItems: [],
@@ -35711,7 +35726,10 @@ let fleetState = {
   bulkPlan: null,
   bulkExecuting: false,
   bulkReturnFocus: null,
+  reordering: false,
 };
+
+let fleetActionMenuController = null;
 
 function fleetLocalized(value, fallback = '') {
   return window.CarRentalMulticityCore?.resolveI18nText?.(
@@ -35820,7 +35838,19 @@ function renderFleetPrice(item) {
 function fleetOrderingIsSafe() {
   return fleetState.grouping === ''
     && Object.values(fleetState.filters || {}).every((value) => String(value || '').trim() === '')
-    && fleetState.filteredItems.length === fleetState.items.length;
+    && fleetState.filteredItems.length === fleetState.items.length
+    && hasCompleteAdminOrder(fleetState.items, fleetState.adminOrderRows);
+}
+
+function fleetOrderingStatus() {
+  if (fleetState.reordering) return 'Saving the exact Admin display order…';
+  if (!hasCompleteAdminOrder(fleetState.items, fleetState.adminOrderRows)) {
+    return 'Admin display order is incomplete. Apply the approved order migration or refresh Fleet before reordering.';
+  }
+  if (fleetState.grouping || Object.values(fleetState.filters || {}).some((value) => String(value || '').trim())) {
+    return 'Admin order is global. Clear filters and Partner grouping to reorder without changing hidden vehicles.';
+  }
+  return 'Admin display order only. Customer results remain ranked by the final quote total.';
 }
 
 function renderFleetItemRow(item, index) {
@@ -35838,13 +35868,15 @@ function renderFleetItemRow(item, index) {
   const modeAction = String(offer.availability_mode || 'legacy') === 'mapped' ? 'legacy' : 'mapped';
   const modeActionLabel = modeAction === 'mapped' ? 'Use configured availability' : 'Use legacy coverage';
   const orderingEnabled = fleetOrderingIsSafe();
-  const orderingTitle = orderingEnabled ? '' : ' Reordering is disabled while Fleet filters or grouping are active.';
+  const orderControls = getAdminOrderControlState(index, fleetState.filteredItems.length, orderingEnabled, fleetState.reordering);
+  const adminOrder = fleetState.adminOrderByOfferId.get(String(offer.id))?.admin_sort_order;
+  const orderingTitle = orderingEnabled ? '' : ` ${fleetOrderingStatus()}`;
   return `
     <tr data-fleet-offer-id="${escapeHtml(offer.id)}">
       <td class="car-fleet-select-column"><input class="car-fleet-row-checkbox" type="checkbox" data-fleet-select-id="${escapeHtml(offer.id)}" aria-label="Select ${escapeHtml(item.model)}" ${checked ? 'checked' : ''}></td>
       <td>${image}</td>
       <td><div class="car-multicity-fleet-cities"><strong>${escapeHtml(citySummary.primary)}</strong><small>${escapeHtml(citySummary.detail)}</small><span class="car-fleet-mode-pair"><span>Pricing: <b>${escapeHtml(pricingLabel)}</b></span><span>Availability: <b>${escapeHtml(availabilityLabel)}</b></span><span>Partner: <b>${escapeHtml(item.partnerName)}</b></span></span></div></td>
-      <td><div style="display:flex;flex-direction:column;align-items:center;gap:4px;"><span style="font-size:11px;color:var(--admin-text-muted);">#${index + 1}</span><div style="display:flex;flex-direction:column;gap:2px;"><button type="button" title="Move up.${orderingTitle}" onclick="moveFleetCarOrder('${offer.id}','up')" class="btn-icon" ${orderingEnabled ? '' : 'disabled'}>▲</button><button type="button" title="Move down.${orderingTitle}" onclick="moveFleetCarOrder('${offer.id}','down')" class="btn-icon" ${orderingEnabled ? '' : 'disabled'}>▼</button></div><span style="font-size:10px;color:var(--admin-text-muted);">${escapeHtml(offer.sort_order ?? index + 1)}</span></div></td>
+      <td><div class="car-fleet-admin-order-controls"><span class="car-fleet-admin-order-position">#${index + 1}</span><div class="car-fleet-admin-order-buttons"><button type="button" title="Move up in Admin display order.${orderingTitle}" aria-label="Move ${escapeHtml(item.model)} up in Admin display order" onclick="moveFleetCarOrder('${offer.id}','up')" class="btn-icon" ${orderControls.upDisabled ? 'disabled' : ''}>▲</button><button type="button" title="Move down in Admin display order.${orderingTitle}" aria-label="Move ${escapeHtml(item.model)} down in Admin display order" onclick="moveFleetCarOrder('${offer.id}','down')" class="btn-icon" ${orderControls.downDisabled ? 'disabled' : ''}>▼</button></div><span class="car-fleet-admin-order-value">Admin ${escapeHtml(adminOrder ?? index + 1)}</span></div></td>
       <td><div style="font-weight:600;">${escapeHtml(item.model)}</div><div style="font-size:11px;color:var(--admin-text-muted);">${escapeHtml(description.substring(0, 40))}${description.length > 40 ? '…' : ''}</div><code>${escapeHtml(offer.id)}</code></td>
       <td><span class="badge badge-secondary">${escapeHtml(item.vehicleKindLabel)}</span><div class="car-multicity-commercial-class">${escapeHtml(item.commercialClass)}</div></td>
       <td>${renderFleetPrice(item)}</td>
@@ -35852,7 +35884,7 @@ function renderFleetItemRow(item, index) {
       <td>${escapeHtml(String(offer.fuel_type || '').trim() || 'Not specified')}</td>
       <td>${escapeHtml(passengerLabel)}</td>
       <td><div class="car-multicity-lifecycle" data-offer-status="${escapeHtml(item.publicState.status)}"><span class="car-multicity-lifecycle__badge is-${escapeHtml(String(item.publicState.status).toLowerCase())}">${escapeHtml(item.publicState.status)}</span>${item.publicState.reasons.length ? `<details><summary>${escapeHtml(item.publicState.reasons.length)} reason(s)</summary><ul>${item.publicState.reasons.map((reason) => `<li><code>${escapeHtml(reason.code)}</code> ${escapeHtml(reason.message)}</li>`).join('')}</ul></details>` : '<small>No public eligibility blockers</small>'}<small>Stock: ${Number.isFinite(Number(offer.stock_count)) ? escapeHtml(offer.stock_count) : 'Not specified'}</small></div></td>
-      <td><div class="car-multicity-row-actions"><details class="transport-admin-v2-route-action-menu"><summary aria-label="Actions for ${escapeHtml(item.model)}" title="Vehicle actions"><span aria-hidden="true">&#8942;</span></summary><div class="transport-admin-v2-route-action-menu__items" role="menu"><button type="button" role="menuitem" data-car-multicity-action="vehicle" data-offer-id="${escapeHtml(offer.id)}">Edit vehicle</button><button type="button" role="menuitem" data-car-multicity-action="availability" data-offer-id="${escapeHtml(offer.id)}">Availability</button><button type="button" role="menuitem" data-fleet-availability-action="${modeAction}" data-offer-id="${escapeHtml(offer.id)}">${escapeHtml(modeActionLabel)}</button><button type="button" role="menuitem" data-car-multicity-action="pricing" data-offer-id="${escapeHtml(offer.id)}">Pricing and profile</button><button type="button" role="menuitem" data-car-multicity-action="partner" data-offer-id="${escapeHtml(offer.id)}">Partner</button>${String(offer.pricing_strategy) === 'threshold_daily_rate' ? `<button type="button" role="menuitem" data-car-multicity-action="activation" data-offer-id="${escapeHtml(offer.id)}">Activate / Publish</button>` : ''}<button type="button" role="menuitem" data-car-multicity-action="legacy" data-offer-id="${escapeHtml(offer.id)}">Legacy editor</button></div></details><button class="btn-icon" type="button" title="Delete" onclick="deleteFleetCar('${offer.id}', '${escapeHtml(item.model)}')" style="color:var(--admin-danger);">🗑</button></div></td>
+      <td><div class="car-multicity-row-actions"><details class="transport-admin-v2-route-action-menu car-fleet-action-menu"><summary data-fleet-action-menu-trigger data-offer-id="${escapeHtml(offer.id)}" aria-label="Actions for ${escapeHtml(item.model)}" aria-haspopup="menu" aria-expanded="false" title="Vehicle actions"><span aria-hidden="true">&#8942;</span></summary><div class="transport-admin-v2-route-action-menu__items car-fleet-action-menu__items" role="menu" aria-label="Actions for ${escapeHtml(item.model)}" hidden><button type="button" role="menuitem" data-car-multicity-action="vehicle" data-offer-id="${escapeHtml(offer.id)}">Edit vehicle</button><button type="button" role="menuitem" data-car-multicity-action="availability" data-offer-id="${escapeHtml(offer.id)}">Availability</button><button type="button" role="menuitem" data-fleet-availability-action="${modeAction}" data-offer-id="${escapeHtml(offer.id)}">${escapeHtml(modeActionLabel)}</button><button type="button" role="menuitem" data-car-multicity-action="pricing" data-offer-id="${escapeHtml(offer.id)}">Pricing and profile</button><button type="button" role="menuitem" data-car-multicity-action="partner" data-offer-id="${escapeHtml(offer.id)}">Partner</button>${String(offer.pricing_strategy) === 'threshold_daily_rate' ? `<button type="button" role="menuitem" data-car-multicity-action="activation" data-offer-id="${escapeHtml(offer.id)}">Activate / Publish</button>` : ''}<button type="button" role="menuitem" data-car-multicity-action="legacy" data-offer-id="${escapeHtml(offer.id)}">Legacy editor</button></div></details><button class="btn-icon" type="button" title="Delete" onclick="deleteFleetCar('${offer.id}', '${escapeHtml(item.model)}')" style="color:var(--admin-danger);">🗑</button></div></td>
     </tr>`;
 }
 
@@ -35880,6 +35912,7 @@ function updateFleetSelectionUi() {
 }
 
 function renderFleetData() {
+  fleetActionMenuController?.close?.('fleet-rerender', { restoreFocus: false });
   const tbody = document.getElementById('fleetTableBody');
   if (!tbody) return;
   const filters = { ...fleetState.filters, commercialClass: fleetState.filters.commercialClass };
@@ -35889,6 +35922,8 @@ function renderFleetData() {
     items = items.filter((item) => String(item.commercialClass || '').toLowerCase() === requested);
   }
   fleetState.filteredItems = items;
+  const orderNote = document.getElementById('fleetAdminOrderNote');
+  if (orderNote) orderNote.textContent = fleetOrderingStatus();
   fleetState.visibleIds = items.map((item) => String(item.offer.id));
   window.fleetCarsList = items.map((item) => item.offer);
   if (!items.length) {
@@ -35910,7 +35945,7 @@ function renderFleetData() {
 }
 
 async function loadFleetData(options = {}) {
-  const { silent = false, showSuccessToast = false } = options;
+  const { silent = false, showSuccessToast = false, deferWhenFleetMenuOpen = false } = options;
   try {
     const client = ensureSupabase();
     if (!client) {
@@ -35923,24 +35958,40 @@ async function loadFleetData(options = {}) {
 
     console.log('Loading fleet data...');
 
-    const query = client
-      .from('car_offers')
-      .select('*')
-      .order('location', { ascending: true })
-      .order('sort_order', { ascending: true });
-    const { data: cars, error } = await query;
+    const [offersResult, adminOrderResult] = await Promise.all([
+      client
+        .from('car_offers')
+        .select('*')
+        .order('id', { ascending: true }),
+      client
+        .from('car_offer_admin_order')
+        .select('offer_id,admin_sort_order,updated_at')
+        .order('admin_sort_order', { ascending: true }),
+    ]);
+    const { data: cars, error } = offersResult;
 
     if (error) {
       console.error('Error loading fleet:', error);
       throw error;
     }
+    if (adminOrderResult.error) {
+      console.error('Error loading Admin-only Fleet order:', adminOrderResult.error);
+      throw new Error(`Admin display order is unavailable. Apply the approved Fleet order migration first. ${adminOrderResult.error.message || ''}`.trim());
+    }
+
+    if (deferWhenFleetMenuOpen && fleetActionMenuController?.isOpen?.()) return;
 
     fleetState.cars = cars || [];
+    fleetState.adminOrderRows = adminOrderResult.data || [];
+    fleetState.adminOrderByOfferId = indexAdminOrderRows(fleetState.adminOrderRows);
     const fleetPresentation = await getCarRentalMulticityRepository().getFleetPresentationContext(
       fleetState.cars.map((car) => car?.id),
     );
     fleetState.presentation = fleetPresentation;
-    fleetState.items = buildFleetPresentationItems(fleetState.cars, fleetPresentation);
+    fleetState.items = sortFleetItemsByAdminOrder(
+      buildFleetPresentationItems(fleetState.cars, fleetPresentation),
+      fleetState.adminOrderRows,
+    );
     fleetState.selectedIds = reconcileFleetSelection(fleetState.selectedIds, fleetState.items);
     setDynamicFleetOptions('fleetPartnerFilter', fleetPresentation.partners, (row) => row.id, (row) => row.name, 'All partners');
     setDynamicFleetOptions('fleetVehicleKindFilter', fleetPresentation.vehicleKinds, (row) => row.code, (row) => fleetLocalized(row.name_i18n, row.code), 'All vehicle kinds');
@@ -36198,7 +36249,66 @@ function handleFleetTableChange(event) {
   updateFleetSelectionUi();
 }
 
+function getFleetActionMenuController() {
+  if (fleetActionMenuController) return fleetActionMenuController;
+  const menuApi = window.CarFleetActionMenu;
+  if (!menuApi?.createBodyPortalController) {
+    throw new Error('Fleet action menu controller is unavailable.');
+  }
+  fleetActionMenuController = menuApi.createBodyPortalController({
+    document,
+    window,
+    padding: 8,
+    gap: 6,
+    zIndex: 10050,
+    onAction: ({ item, trigger }) => {
+      const offerId = String(item?.dataset?.offerId || trigger?.dataset?.offerId || '').trim();
+      const availabilityAction = String(item?.dataset?.fleetAvailabilityAction || '').trim();
+      if (availabilityAction) {
+        openFleetBulkActions({
+          exactOfferIds: [offerId],
+          availabilityMode: availabilityAction,
+          returnFocus: trigger,
+        });
+        return;
+      }
+      const action = String(item?.dataset?.carMulticityAction || '').trim();
+      if (action === 'legacy') {
+        void editFleetCar(offerId);
+        return;
+      }
+      if (['vehicle', 'availability', 'pricing', 'partner', 'activation'].includes(action)) {
+        void CarRentalMulticityAdmin.open(action, offerId, { returnFocus: trigger });
+      }
+    },
+  });
+  return fleetActionMenuController;
+}
+
+function toggleFleetActionMenu(trigger) {
+  const controller = getFleetActionMenuController();
+  const activeMenu = controller.getState?.();
+  if (activeMenu?.trigger === trigger) {
+    controller.close('toggle');
+    return;
+  }
+  const details = trigger?.closest?.('.car-fleet-action-menu');
+  const menu = details?.querySelector?.('.car-fleet-action-menu__items');
+  if (!menu) return;
+  controller.toggle({
+    trigger,
+    menu,
+    context: { offerId: String(trigger.dataset.offerId || '') },
+  });
+}
+
 function handleFleetTableClick(event) {
+  const actionMenuTrigger = event.target?.closest?.('[data-fleet-action-menu-trigger]');
+  if (actionMenuTrigger) {
+    event.preventDefault();
+    toggleFleetActionMenu(actionMenuTrigger);
+    return;
+  }
   const modeAction = event.target?.closest?.('[data-fleet-availability-action]');
   if (!modeAction) return;
   event.preventDefault();
@@ -36210,9 +36320,10 @@ function handleFleetTableClick(event) {
 }
 
 async function moveFleetCarOrder(carId, direction) {
+  if (fleetState.reordering) return;
   try {
     if (!fleetOrderingIsSafe()) {
-      showToast('Clear Fleet filters and grouping before changing global order.', 'info');
+      showToast('Clear Fleet filters and Partner grouping, then refresh the complete Admin order before reordering.', 'info');
       return;
     }
     const client = ensureSupabase();
@@ -36221,38 +36332,34 @@ async function moveFleetCarOrder(carId, direction) {
       return;
     }
 
-    const list = Array.isArray(window.fleetCarsList) ? window.fleetCarsList : [];
-    const index = list.findIndex(c => c.id === carId);
-    if (index === -1) return;
-
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= list.length) {
+    const move = buildAdminOrderMove(fleetState.items, fleetState.adminOrderRows, carId, direction);
+    if (!move.moved) {
       showToast('Cannot move further', 'info');
       return;
     }
-
-    const current = list[index];
-    const target = list[targetIndex];
-    const currentOrder = typeof current.sort_order === 'number' ? current.sort_order : (index + 1);
-    const targetOrder = typeof target.sort_order === 'number' ? target.sort_order : (targetIndex + 1);
-
-    const { error: err1 } = await client
-      .from('car_offers')
-      .update({ sort_order: targetOrder })
-      .eq('id', current.id);
-    if (err1) throw err1;
-
-    const { error: err2 } = await client
-      .from('car_offers')
-      .update({ sort_order: currentOrder })
-      .eq('id', target.id);
-    if (err2) throw err2;
-
-    showToast('Car order updated', 'success');
+    fleetState.reordering = true;
+    renderFleetData();
+    const { data, error } = await client.rpc('admin_reorder_car_fleet', {
+      p_expected_rows: move.expectedRows,
+      p_ordered_offer_ids: move.orderedOfferIds,
+    });
+    if (error) throw error;
+    if (String(data?.operation || '') !== 'fleet_admin_reorder'
+      || Number(data?.offer_count) !== move.orderedOfferIds.length) {
+      throw new Error('Admin display order receipt did not match the reviewed exact Fleet scope.');
+    }
+    showToast('Admin display order updated. Customer quote sorting is unchanged.', 'success');
     await loadFleetData();
   } catch (e) {
     console.error('Failed to update car order:', e);
-    showToast('Failed to update order: ' + (e.message || 'Unknown error'), 'error');
+    const stale = String(e?.code || '') === '40001' || /stale|membership/i.test(String(e?.message || ''));
+    showToast(stale
+      ? 'Admin order changed elsewhere. Refresh Fleet and try again.'
+      : 'Failed to update Admin order: ' + (e.message || 'Unknown error'), 'error');
+    if (stale) await loadFleetData({ silent: true });
+  } finally {
+    fleetState.reordering = false;
+    renderFleetData();
   }
 }
 
@@ -37628,8 +37735,8 @@ function getDiagnosticChecks() {
     },
     {
       id: 'check_cars_sort_order',
-      title: 'Cars: sort_order & availability',
-      description: 'Detects cars with missing sort_order or unavailable but ordered items',
+      title: 'Cars: legacy public tie-break & availability',
+      description: 'Detects cars with missing public sort_order compatibility metadata or unavailable but ordered items',
       run: async (client) => {
         try {
           const { data, error } = await client
