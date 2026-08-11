@@ -37,12 +37,13 @@ create table public.partners (
 
 create table public.partner_resources (
   id uuid primary key default gen_random_uuid(),
-  partner_id uuid not null references public.partners(id),
+  partner_id uuid not null references public.partners(id) on delete cascade,
   resource_type text not null,
   resource_id uuid not null,
-  is_active boolean not null default true,
+  created_at timestamptz default now(),
   unique (partner_id, resource_type, resource_id)
 );
+alter table public.partner_resources enable row level security;
 
 create table public.hotels (
   id uuid primary key default gen_random_uuid(),
@@ -211,8 +212,8 @@ insert into public.hotels(
     null, false, 'draft', 'draft', '["/images/b.webp"]'
   );
 
-insert into public.partner_resources(partner_id, resource_type, resource_id, is_active)
-values ('20000000-0000-4000-8000-000000000001', 'hotels', '30000000-0000-4000-8000-000000000001', true);
+insert into public.partner_resources(partner_id, resource_type, resource_id)
+values ('20000000-0000-4000-8000-000000000001', 'hotels', '30000000-0000-4000-8000-000000000001');
 
 insert into public.hotel_bookings(id, hotel_id, arrival_date, departure_date, status, total_price)
 values (

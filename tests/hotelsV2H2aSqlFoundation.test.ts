@@ -10,6 +10,14 @@ describe('Hotels V2 H2A Admin SQL foundation', () => {
   );
   const preflight = read('supabase/manual/hotels_v2_h2a_preflight.sql');
   const verify = read('supabase/manual/hotels_v2_h2a_verify.sql');
+  const repair = read(
+    'supabase/migrations/20260811210000_hotels_v2_h2a_property_directory_rpc_fix.sql',
+  );
+  const repairVerify = read(
+    'supabase/manual/hotels_v2_h2a_property_directory_rpc_fix_verify.sql',
+  );
+  const h1aBase = read('tests/integration/hotels-v2-h1a-base.sql');
+  const h2aBase = read('tests/integration/hotels-v2-h2a-base.sql');
   const gate = read('tests/integration/hotels-v2-h2a-postgres-gate.sql');
 
   test('is one inert, independently transacted migration', () => {
@@ -39,6 +47,50 @@ describe('Hotels V2 H2A Admin SQL foundation', () => {
     expect(migration).toContain("'readiness'");
     expect(migration).toContain("'preparation_state'");
     expect(migration).toContain("'preparation_blockers'");
+  });
+
+  test('repairs the property readers against the production partner assignment contract', () => {
+    expect(repair.trimStart().toLowerCase()).toMatch(/^begin;/);
+    expect(repair.trimEnd().toLowerCase()).toMatch(/commit;$/);
+    expect(repair).toContain('public.hotel_v2_h2a_readiness(p_hotel_id uuid)');
+    expect(repair).toContain('public.hotel_v2_admin_get_property_list()');
+    expect(repair).toContain('public.hotel_v2_admin_get_property_workspace(p_hotel_id uuid)');
+    for (const signature of [
+      'public.hotel_v2_h2a_readiness\\(p_hotel_id uuid\\)',
+      'public.hotel_v2_admin_get_property_list\\(\\)',
+      'public.hotel_v2_admin_get_property_workspace\\(p_hotel_id uuid\\)',
+    ]) {
+      const definition = repair.match(new RegExp(
+        `create or replace function ${signature}([\\s\\S]*?)\\$function\\$;`,
+        'i',
+      ))?.[0] || '';
+      expect(definition).toContain('create or replace function');
+      expect(definition).not.toContain('assignment.is_active');
+    }
+    expect(repair).toContain("'is_active', true");
+    expect(repair).not.toMatch(/alter\s+table\s+public\.partner_resources/i);
+    expect(repair).not.toMatch(/add\s+column\s+(?:if\s+not\s+exists\s+)?is_active/i);
+    expect(repair).not.toMatch(/(?:insert\s+into|update|delete\s+from)\s+public\.partner_resources/i);
+    expect(repairVerify).toContain('partner_resources_actual_columns');
+    expect(repairVerify).toContain('invalid_reference_removed');
+    expect(repairVerify).toContain('derived_assignment_activity');
+    expect(repairVerify).toContain('exact_property_contract');
+    expect(repairVerify).toContain('hotels_v2_h2a_property_directory_rpc_fix_safe');
+  });
+
+  test('uses the exact row-existence partner_resources fixture contract', () => {
+    for (const fixture of [h1aBase, h2aBase]) {
+      const definition = fixture.match(
+        /create table public\.partner_resources\s*\(([\s\S]*?)\n\);/i,
+      )?.[1] || '';
+      expect(definition).toContain('partner_id uuid not null references public.partners(id) on delete cascade');
+      expect(definition).toContain('created_at timestamptz default now()');
+      expect(definition).not.toContain('is_active');
+      expect(fixture).toContain('alter table public.partner_resources enable row level security;');
+      expect(fixture).not.toMatch(
+        /insert into public\.partner_resources\s*\([^)]*is_active/i,
+      );
+    }
   });
 
   test('uses exact/versioned all-or-nothing reviewed workspace plans', () => {
@@ -151,6 +203,11 @@ describe('Hotels V2 H2A Admin SQL foundation', () => {
   test('isolated gate proves CRUD, duplicate, stale abort, invariant, RLS and legacy freeze', () => {
     expect(gate).toContain('20260811170000_hotels_v2_h1a_core.sql');
     expect(gate).toContain('20260811200000_hotels_v2_h2a_admin_workspace_foundation.sql');
+    expect(gate).toContain('20260811210000_hotels_v2_h2a_property_directory_rpc_fix.sql');
+    expect(gate).toContain('hotels_v2_h2a_gate_partner_resources_fixture_drift');
+    expect(gate).toContain('hotels_v2_h2a_gate_property_directory_repair_source_failed');
+    expect(gate).toContain('hotels_v2_h2a_gate_unassigned_workspace_read_contract_failed');
+    expect(gate).toContain('property_directory_repair_pass');
     expect(gate).toContain('hotels_v2_h2a_gate_ready_workspace_contract_failed');
     expect(gate).toContain('hotels_v2_h2a_gate_rooms_v2_publication_guard_failed');
     expect(gate).toContain('hotels_v2_h2a_gate_room_duplicate_not_safe');

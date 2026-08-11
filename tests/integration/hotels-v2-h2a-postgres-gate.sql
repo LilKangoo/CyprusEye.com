@@ -3,6 +3,49 @@
 \ir hotels-v2-h2a-base.sql
 \ir ../../supabase/migrations/20260811170000_hotels_v2_h1a_core.sql
 \ir ../../supabase/migrations/20260811200000_hotels_v2_h2a_admin_workspace_foundation.sql
+\ir ../../supabase/migrations/20260811210000_hotels_v2_h2a_property_directory_rpc_fix.sql
+
+-- Keep this fixture pinned to the deployed partner_resources contract.  An
+-- operational assignment is active by row existence; no status column exists.
+do $partner_resources_contract$
+declare
+  v_columns text[];
+begin
+  select array_agg(column_name::text order by ordinal_position)
+  into v_columns
+  from information_schema.columns
+  where table_schema = 'public'
+    and table_name = 'partner_resources';
+
+  if v_columns is distinct from array[
+    'id', 'partner_id', 'resource_type', 'resource_id', 'created_at'
+  ]::text[] then
+    raise exception 'hotels_v2_h2a_gate_partner_resources_fixture_drift: %', v_columns;
+  end if;
+end
+$partner_resources_contract$;
+
+do $directory_function_source_contract$
+declare
+  v_source text;
+begin
+  select string_agg(lower(pg_get_functiondef(procedure_info.oid)), E'\n')
+  into v_source
+  from pg_proc procedure_info
+  join pg_namespace namespace_info on namespace_info.oid = procedure_info.pronamespace
+  where namespace_info.nspname = 'public'
+    and procedure_info.proname in (
+      'hotel_v2_h2a_readiness',
+      'hotel_v2_admin_get_property_list',
+      'hotel_v2_admin_get_property_workspace'
+    );
+
+  if v_source is null
+     or position('assignment.is_active' in v_source) > 0 then
+    raise exception 'hotels_v2_h2a_gate_property_directory_repair_source_failed';
+  end if;
+end
+$directory_function_source_contract$;
 
 create temporary table hotels_v2_h2a_fixture_protected on commit preserve rows as
 select
@@ -31,32 +74,48 @@ select set_config(
 do $admin_read_contract$
 declare
   v_list jsonb;
-  v_workspace jsonb;
+  v_assigned_workspace jsonb;
+  v_unassigned_workspace jsonb;
 begin
   v_list := public.hotel_v2_admin_get_property_list();
   if jsonb_array_length(v_list) <> 2
      or v_list @? '$[*] ? (@.id == "30000000-0000-4000-8000-000000000001" && @.architecture_version == "legacy")' is not true
+     or v_list @? '$[*] ? (@.id == "30000000-0000-4000-8000-000000000002" && @.architecture_version == "legacy")' is not true
      or v_list @? '$[*] ? (@.id == "30000000-0000-4000-8000-000000000001" && @.readiness.state == "LEGACY" && @.preparation_state == "DRAFT")' is not true
+     or (select count(*) from jsonb_array_elements(v_list) property where (property->>'is_published')::boolean) <> 1
+     or v_list @? '$[*] ? (@.id == "30000000-0000-4000-8000-000000000001" && @.operational_partner_count == 1)' is not true
+     or v_list @? '$[*] ? (@.id == "30000000-0000-4000-8000-000000000002" && @.operational_partner_count == 0)' is not true
      or v_list @? '$[*] ? (@.room_type_count == 0 && @.rate_plan_count == 0)' is not true then
     raise exception 'hotels_v2_h2a_gate_property_list_contract_failed';
   end if;
 
-  v_workspace := public.hotel_v2_admin_get_property_workspace('30000000-0000-4000-8000-000000000001');
-  if v_workspace->'readiness'->>'state' <> 'LEGACY'
-     or v_workspace->>'preparation_state' <> 'DRAFT'
-     or jsonb_array_length(v_workspace->'room_types') <> 0
-     or jsonb_array_length(v_workspace->'amenities_catalogue') <> 2
-     or jsonb_array_length(v_workspace->'partners') <> 1
-     or v_workspace->'partners'->0->>'id' <> '20000000-0000-4000-8000-000000000001'
-     or v_workspace->'feature_flags' <> jsonb_build_object(
+  v_assigned_workspace := public.hotel_v2_admin_get_property_workspace('30000000-0000-4000-8000-000000000001');
+  if v_assigned_workspace->'readiness'->>'state' <> 'LEGACY'
+     or v_assigned_workspace->>'preparation_state' <> 'DRAFT'
+     or jsonb_array_length(v_assigned_workspace->'room_types') <> 0
+     or jsonb_array_length(v_assigned_workspace->'amenities_catalogue') <> 2
+     or jsonb_array_length(v_assigned_workspace->'partners') <> 1
+     or v_assigned_workspace->'partners'->0->>'id' <> '20000000-0000-4000-8000-000000000001'
+     or jsonb_array_length(v_assigned_workspace->'operational_partners') <> 1
+     or v_assigned_workspace->'operational_partners'->0->>'partner_id' <> '20000000-0000-4000-8000-000000000001'
+     or (v_assigned_workspace->'operational_partners'->0->>'is_active')::boolean is not true
+     or v_assigned_workspace->'feature_flags' <> jsonb_build_object(
        'hotel_rooms_v2_enabled', false,
        'hotel_external_sync_enabled', false,
        'hotel_instant_booking_enabled', false,
        'hotel_stripe_connect_enabled', false
      )
-     or v_workspace->'payment_due_at_booking'->'default_rule'->>'mode' <> 'per_day'
-     or (v_workspace->>'upcoming_booking_count')::integer <> 1 then
+     or v_assigned_workspace->'payment_due_at_booking'->'default_rule'->>'mode' <> 'per_day'
+     or (v_assigned_workspace->>'upcoming_booking_count')::integer <> 1 then
     raise exception 'hotels_v2_h2a_gate_workspace_read_contract_failed';
+  end if;
+
+  v_unassigned_workspace := public.hotel_v2_admin_get_property_workspace('30000000-0000-4000-8000-000000000002');
+  if v_unassigned_workspace->'property'->>'id' <> '30000000-0000-4000-8000-000000000002'
+     or v_unassigned_workspace->'readiness'->>'state' <> 'LEGACY'
+     or v_unassigned_workspace->>'preparation_state' <> 'DRAFT'
+     or jsonb_array_length(v_unassigned_workspace->'operational_partners') <> 0 then
+    raise exception 'hotels_v2_h2a_gate_unassigned_workspace_read_contract_failed';
   end if;
 end
 $admin_read_contract$;
@@ -502,6 +561,7 @@ $inert_and_legacy_contract$;
 select
   true as admin_property_list_pass,
   true as workspace_snapshot_pass,
+  true as property_directory_repair_pass,
   true as rooms_rates_plan_pass,
   true as exact_version_pass,
   true as atomic_stale_abort_pass,
