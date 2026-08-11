@@ -16,6 +16,19 @@
     modal: null,
     pendingReview: null,
     lastFocused: null,
+    calendar: {
+      loading: false,
+      error: null,
+      anchor_date: null,
+      view: 'month',
+      data: null,
+      selected_product_ids: [],
+      mobile_product_id: null,
+      selection_start: null,
+      selection_end: null,
+      selection_anchor: null,
+      drag_active: false,
+    },
   };
 
   const WORKSPACE_TABS = Object.freeze([
@@ -60,6 +73,76 @@
     } catch (_error) {
       return `${String(currency || 'EUR')} ${amount.toFixed(2)}`;
     }
+  }
+
+  function isoDateFromUtc(date) {
+    return new Date(date).toISOString().slice(0, 10);
+  }
+
+  function parseIsoDate(value) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ''));
+    if (!match) return null;
+    const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  function todayIsoDate() {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: state.workspace?.property?.timezone || 'Europe/Nicosia',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+    }).formatToParts(new Date());
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return `${values.year}-${values.month}-${values.day}`;
+  }
+
+  function addCalendarDays(value, days) {
+    const date = parseIsoDate(value);
+    if (!date) return '';
+    date.setUTCDate(date.getUTCDate() + Number(days || 0));
+    return isoDateFromUtc(date);
+  }
+
+  function calendarMonthRange(anchor) {
+    const date = parseIsoDate(anchor) || parseIsoDate(todayIsoDate());
+    const first = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+    const last = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0));
+    return { start: isoDateFromUtc(first), end: isoDateFromUtc(last) };
+  }
+
+  function calendarWeekRange(anchor) {
+    const date = parseIsoDate(anchor) || parseIsoDate(todayIsoDate());
+    const isoWeekday = date.getUTCDay() || 7;
+    date.setUTCDate(date.getUTCDate() - (isoWeekday - 1));
+    const start = isoDateFromUtc(date);
+    return { start, end: addCalendarDays(start, 6) };
+  }
+
+  function calendarTwoMonthRange(anchor) {
+    const date = parseIsoDate(anchor) || parseIsoDate(todayIsoDate());
+    const first = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+    const last = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 2, 0));
+    return { start: isoDateFromUtc(first), end: isoDateFromUtc(last) };
+  }
+
+  function activeCalendarRange() {
+    const anchor = state.calendar.anchor_date || todayIsoDate();
+    if (state.calendar.view === 'week') return calendarWeekRange(anchor);
+    if (state.calendar.view === 'two_months') return calendarTwoMonthRange(anchor);
+    return calendarMonthRange(anchor);
+  }
+
+  function enumerateCalendarDates(start, end) {
+    const dates = [];
+    for (let value = start; value && value <= end; value = addCalendarDays(value, 1)) dates.push(value);
+    return dates;
+  }
+
+  function calendarDateLabel(value, options = {}) {
+    const date = parseIsoDate(value);
+    if (!date) return value;
+    return new Intl.DateTimeFormat('en-GB', options.long
+      ? { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }
+      : { weekday: 'short', day: 'numeric', timeZone: 'UTC' }).format(date);
   }
 
   function propertyTitle(property) {
@@ -436,6 +519,19 @@
     workspaceElement.innerHTML = '<div class="hotel-property-empty"><span class="hotel-workspace-spinner" aria-hidden="true"></span> Loading Property Workspace…</div>';
     try {
       state.workspace = await Repository.getWorkspace(id);
+      state.calendar = {
+        loading: false,
+        error: null,
+        anchor_date: todayIsoDate(),
+        view: 'month',
+        data: null,
+        selected_product_ids: [],
+        mobile_product_id: null,
+        selection_start: null,
+        selection_end: null,
+        selection_anchor: null,
+        drag_active: false,
+      };
       state.activeTab = options.tab || 'overview';
       renderWorkspace();
       workspaceElement.scrollIntoView({ block: 'start' });
@@ -454,6 +550,7 @@
     const directory = byId('hotelPropertyDirectory');
     const workspaceElement = byId('hotelPropertyWorkspace');
     state.workspace = null;
+    state.calendar.data = null;
     if (workspaceElement) {
       workspaceElement.hidden = true;
       workspaceElement.innerHTML = '';
@@ -1369,9 +1466,768 @@
     });
   }
 
+  function calendarProducts(calendar = state.calendar.data) {
+    const data = Core.asObject(calendar);
+    const roomById = new Map(state.workspace.room_types.map((room) => [room.id, room]));
+    const planById = new Map(state.workspace.rate_plans.map((plan) => [plan.id, plan]));
+    return Core.asArray(data.room_rates).map((raw) => {
+      const rate = Core.asObject(raw);
+      const room = roomById.get(rate.room_type_id) || Core.asObject(rate.room_type);
+      const plan = planById.get(rate.rate_plan_id) || Core.asObject(rate.rate_plan);
+      return {
+        ...rate,
+        id: Core.normalizeUuid(rate.id),
+        room_type_id: Core.normalizeUuid(rate.room_type_id || room.id),
+        room_name: Core.i18nText(rate.room_name_i18n || room.name_i18n, 'en', room.code || 'Room Type'),
+        room_code: String(room.code || rate.room_code || '').trim(),
+        room_version: Number(room.version || rate.room_version || 0) || null,
+        base_inventory_count: Number(room.base_inventory_count ?? rate.base_inventory_count ?? 0),
+        rate_plan_name: Core.i18nText(rate.rate_plan_name_i18n || plan.name_i18n, 'en', plan.code || 'Rate Plan'),
+        rate_plan_code: String(plan.code || rate.rate_plan_code || '').trim(),
+        currency: String(rate.currency || state.workspace.property.currency || 'EUR'),
+      };
+    }).filter((rate) => rate.id && rate.room_type_id);
+  }
+
+  function calendarRecordMaps(calendar = state.calendar.data) {
+    const data = Core.asObject(calendar);
+    const dailyRates = new Map();
+    const inventory = new Map();
+    const effective = new Map();
+    Core.asArray(data.daily_rates).forEach((row) => dailyRates.set(`${row.room_rate_id}:${row.stay_date}`, row));
+    Core.asArray(data.daily_inventory).forEach((row) => inventory.set(`${row.room_type_id}:${row.stay_date}`, row));
+    Core.asArray(data.effective_cells).forEach((row) => {
+      const productId = row.room_rate_id || row.product_id;
+      const date = row.stay_date || row.date;
+      if (productId && date) effective.set(`${productId}:${date}`, row);
+    });
+    return { dailyRates, inventory, effective };
+  }
+
+  function calendarCell(product, date, maps) {
+    const rateRow = maps.dailyRates.get(`${product.id}:${date}`) || null;
+    const inventoryRow = maps.inventory.get(`${product.room_type_id}:${date}`) || null;
+    const serverCell = maps.effective.get(`${product.id}:${date}`) || null;
+    if (!serverCell) {
+      return {
+        rate: null,
+        inventory: null,
+        closed: true,
+        minimumStay: null,
+        maximumStay: null,
+        cta: false,
+        ctd: false,
+        source: 'Unresolved — reload required',
+        requestable: null,
+        blockingReasons: [],
+        rateRow,
+        inventoryRow,
+        serverCell: null,
+        unresolved: true,
+      };
+    }
+    const resolved = Core.asObject(serverCell?.resolved);
+    const resolvedNight = Core.asObject(Core.asArray(resolved.nightly_breakdown)[0]);
+    const rate = resolvedNight.nightly_rate ?? serverCell.nightly_rate ?? serverCell.effective_nightly_rate ?? null;
+    const inventory = resolvedNight.sellable_units ?? serverCell.sellable_units ?? serverCell.effective_sellable_units ?? null;
+    const closed = Boolean(resolvedNight.closed ?? serverCell.closed ?? serverCell.effective_closed ?? true);
+    const minimumStay = resolvedNight.minimum_stay ?? serverCell.minimum_stay ?? null;
+    const maximumStay = resolvedNight.maximum_stay ?? serverCell.maximum_stay ?? null;
+    const cta = Boolean(resolvedNight.closed_to_arrival ?? serverCell.closed_to_arrival ?? false);
+    const ctd = Boolean(resolvedNight.closed_to_departure ?? serverCell.closed_to_departure ?? false);
+    const provenance = Core.asObject(resolvedNight.provenance || serverCell.provenance);
+    const blockingReasons = Core.asArray(serverCell.blocking_reasons || resolved.blocking_reasons);
+    const requestableValue = serverCell.requestable ?? resolved.requestable ?? resolved.bookable;
+    const requestable = typeof requestableValue === 'boolean'
+      ? requestableValue
+      : (blockingReasons.length ? false : null);
+    const source = String(resolvedNight.source || serverCell.source_label || serverCell.source || provenance.source
+      || blockingReasons[0]?.code || blockingReasons[0] || 'Resolved');
+    return {
+      rate,
+      inventory,
+      closed,
+      minimumStay,
+      maximumStay,
+      cta,
+      ctd,
+      source,
+      requestable,
+      blockingReasons,
+      rateRow,
+      inventoryRow,
+      serverCell,
+      unresolved: rate == null || inventory == null,
+    };
+  }
+
+  function calendarBlockingReasonLabel(reason) {
+    const source = typeof reason === 'string' ? { code: reason } : Core.asObject(reason);
+    const code = String(source.code || source.reason || 'not_requestable').trim();
+    const labels = {
+      closed_to_departure: source.stay_date
+        ? `Checkout ${source.stay_date}: closed to departure`
+        : 'Closed to departure on checkout date',
+      closed_to_arrival: 'Closed to arrival',
+      insufficient_or_closed_inventory: 'Inventory unavailable or closed',
+      missing_occupancy_los_tier: 'No matching occupancy / stay tier',
+      ambiguous_range_rules: 'Ambiguous seasonal rules',
+      ambiguous_weekday_rules: 'Ambiguous weekday rules',
+      invalid_resolved_stay_restriction: 'Invalid stay restriction',
+    };
+    return labels[code] || code.replaceAll('_', ' ');
+  }
+
+  function isCalendarDateSelected(date) {
+    return Boolean(state.calendar.selection_start && state.calendar.selection_end
+      && date >= state.calendar.selection_start && date <= state.calendar.selection_end);
+  }
+
+  function calendarCellMarkup(product, date, maps) {
+    const cell = calendarCell(product, date, maps);
+    const restrictions = [
+      cell.minimumStay ? `Min ${cell.minimumStay}` : '',
+      cell.maximumStay ? `Max ${cell.maximumStay}` : '',
+      cell.cta ? 'CTA' : '',
+      cell.ctd ? 'CTD' : '',
+    ].filter(Boolean);
+    const selected = isCalendarDateSelected(date) && state.calendar.selected_product_ids.includes(product.id);
+    const blockerLabels = cell.blockingReasons.map(calendarBlockingReasonLabel);
+    const requestability = !cell.unresolved && cell.requestable === false
+      ? `<em class="hotel-calendar-cell__blocker">Not requestable${blockerLabels.length ? ` · ${escapeHtml(blockerLabels.join(' · '))}` : ''}</em>`
+      : '';
+    return `<button type="button" class="hotel-calendar-cell${selected ? ' is-selected' : ''}${cell.closed ? ' is-closed' : ''}${cell.requestable === false ? ' is-not-requestable' : ''}" data-calendar-cell data-product-id="${escapeAttr(product.id)}" data-date="${escapeAttr(date)}" aria-pressed="${selected}" title="${escapeAttr(`${product.room_name} · ${product.rate_plan_name} · ${date}`)}">
+      <strong>${cell.unresolved ? 'Not resolved' : cell.closed ? 'Closed' : escapeHtml(formatMoney(cell.rate, product.currency))}</strong>
+      <span>${cell.inventory == null ? 'Inventory unavailable' : `${cell.inventory} room${Number(cell.inventory) === 1 ? '' : 's'}`}</span>
+      ${restrictions.length ? `<small>${escapeHtml(restrictions.join(' · '))}</small>` : '<small>No restrictions</small>'}
+      ${requestability}
+      <i>${escapeHtml(cell.source)}</i>
+    </button>`;
+  }
+
+  function calendarMonthTitle(range) {
+    const start = parseIsoDate(range.start);
+    const end = parseIsoDate(range.end);
+    if (!start || !end) return `${range.start} – ${range.end}`;
+    if (state.calendar.view === 'week') {
+      return `${calendarDateLabel(range.start, { long: true })} – ${calendarDateLabel(range.end, { long: true })}`;
+    }
+    if (state.calendar.view === 'two_months') {
+      const format = new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+      return `${format.format(start)} – ${format.format(end)}`;
+    }
+    return new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(start);
+  }
+
+  function renderCalendarDesktop(products, dates, maps) {
+    return `<div class="hotel-calendar-grid-shell" tabindex="0" aria-label="Monthly room rate and inventory calendar">
+      <table class="hotel-calendar-grid">
+        <thead><tr><th class="hotel-calendar-grid__product"><span>Room × Rate Plan</span><small>Choose products to edit</small></th>${dates.map((date) => `<th class="${date === todayIsoDate() ? 'is-today' : ''}"><span>${escapeHtml(calendarDateLabel(date))}</span><small>${escapeHtml(date.slice(5))}</small></th>`).join('')}</tr></thead>
+        <tbody>${products.map((product) => `<tr data-calendar-product-row="${escapeAttr(product.id)}"><th class="hotel-calendar-grid__product"><label><input type="checkbox" data-calendar-product-check value="${escapeAttr(product.id)}" ${state.calendar.selected_product_ids.includes(product.id) ? 'checked' : ''} /><span><strong>${escapeHtml(product.room_name)}</strong><small>${escapeHtml(product.rate_plan_name)} · ${escapeHtml(formatMoney(product.base_nightly_rate, product.currency))} base</small></span></label></th>${dates.map((date) => `<td>${calendarCellMarkup(product, date, maps)}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table>
+    </div>`;
+  }
+
+  function renderCalendarMobile(products, dates, maps) {
+    const selectedProduct = products.find((product) => product.id === state.calendar.mobile_product_id) || products[0];
+    if (!selectedProduct) return '';
+    return `<div class="hotel-calendar-mobile">
+      <label class="admin-form-field"><span>Room and Rate Plan</span><select data-calendar-mobile-product>${products.map((product) => `<option value="${escapeAttr(product.id)}" ${product.id === selectedProduct.id ? 'selected' : ''}>${escapeHtml(product.room_name)} · ${escapeHtml(product.rate_plan_name)}</option>`).join('')}</select></label>
+      <label class="hotel-calendar-mobile__select"><input type="checkbox" data-calendar-product-check value="${escapeAttr(selectedProduct.id)}" ${state.calendar.selected_product_ids.includes(selectedProduct.id) ? 'checked' : ''} /> Include this product in the next edit</label>
+      <div class="hotel-calendar-mobile__days">${dates.map((date) => `<article class="${date === todayIsoDate() ? 'is-today' : ''}"><header><strong>${escapeHtml(calendarDateLabel(date, { long: true }))}</strong><small>${escapeHtml(date)}</small></header>${calendarCellMarkup(selectedProduct, date, maps)}</article>`).join('')}</div>
+    </div>`;
+  }
+
+  function renderCalendarRuleLists(products) {
+    const selected = new Set(state.calendar.selected_product_ids);
+    const rules = Core.asArray(state.calendar.data?.rate_rules).filter((rule) => !selected.size || selected.has(rule.room_rate_id));
+    const tiers = Core.asArray(state.calendar.data?.occupancy_tiers).filter((tier) => !selected.size || selected.has(tier.room_rate_id));
+    const productById = new Map(products.map((product) => [product.id, product]));
+    return `<aside class="hotel-calendar-rules">
+      <section class="hotel-workspace-card">
+        <div class="hotel-calendar-rules__heading"><div><span class="hotel-workspace-eyebrow">Seasonal & weekday rules</span><h4>${rules.length} rule${rules.length === 1 ? '' : 's'}</h4></div><button class="btn-secondary" type="button" data-add-calendar-rule ${selected.size ? '' : 'disabled'}>+ Rule</button></div>
+        ${rules.length ? `<ul>${rules.slice(0, 20).map((rule) => { const product = productById.get(rule.room_rate_id); return `<li><button type="button" data-edit-calendar-rule="${escapeAttr(rule.id)}"><strong>${escapeHtml(product?.room_name || 'Rate product')} · ${escapeHtml(formatMoney(rule.nightly_rate, product?.currency))}</strong><small>${escapeHtml(rule.valid_from)} → ${escapeHtml(rule.valid_to)} · priority ${Number(rule.priority || 0)}${rule.is_active === false ? ' · inactive' : ''}</small></button></li>`; }).join('')}</ul>` : '<p>Select a product, then create a reviewed seasonal or weekday rule.</p>'}
+      </section>
+      <section class="hotel-workspace-card">
+        <div class="hotel-calendar-rules__heading"><div><span class="hotel-workspace-eyebrow">Occupancy / LOS tiers</span><h4>${tiers.length} tier${tiers.length === 1 ? '' : 's'}</h4></div><button class="btn-secondary" type="button" data-add-occupancy-tier ${selected.size ? '' : 'disabled'}>+ Tier</button></div>
+        ${tiers.length ? `<ul>${tiers.slice(0, 30).map((tier) => { const product = productById.get(tier.room_rate_id); return `<li><button type="button" data-edit-occupancy-tier="${escapeAttr(tier.id)}"><strong>${Number(tier.guest_count)} guests · ${Number(tier.threshold_nights)}+ nights</strong><small>${escapeHtml(product?.room_name || 'Rate product')} · ${escapeHtml(formatMoney(tier.nightly_rate, product?.currency))}${tier.is_active === false ? ' · inactive' : ''}</small></button></li>`; }).join('')}</ul>` : '<p>Optional tiers let one product reproduce reviewed guest-count and length-of-stay pricing without duplicating rooms.</p>'}
+        <button class="btn-secondary" type="button" data-preview-authoritative-rate ${selected.size === 1 ? '' : 'disabled'}>Preview authoritative stay</button>
+      </section>
+    </aside>`;
+  }
+
+  function renderCalendarLoaded(panel, range, data) {
+    const products = calendarProducts(data);
+    const dates = enumerateCalendarDates(range.start, range.end);
+    const maps = calendarRecordMaps(data);
+    const selectedCount = state.calendar.selected_product_ids.length;
+    const selectionLabel = state.calendar.selection_start
+      ? `${state.calendar.selection_start}${state.calendar.selection_end !== state.calendar.selection_start ? ` → ${state.calendar.selection_end}` : ''}`
+      : 'Select one date or a range';
+    if (!products.length) {
+      panel.innerHTML = `${workspacePanelHeader('Calendar & Rates', 'Manual prices, inventory and restrictions for normalized Room × Rate Plan products.')}
+        <section class="hotel-workspace-card hotel-placeholder-card"><span class="hotel-workspace-eyebrow">Rooms V2 shadow</span><h4>No Room Rate products to calendar yet</h4><p>The current legacy property and its public prices remain unchanged. Prepare a normalized Room Type, Rate Plan and Room Rate product first.</p><button class="btn-primary" type="button" data-calendar-open-rooms>Open Rooms & Rates</button></section>`;
+      panel.querySelector('[data-calendar-open-rooms]')?.addEventListener('click', () => { state.activeTab = 'rooms'; renderWorkspace(); });
+      return;
+    }
+    if (!state.calendar.mobile_product_id || !products.some((product) => product.id === state.calendar.mobile_product_id)) {
+      state.calendar.mobile_product_id = products[0].id;
+    }
+    panel.innerHTML = `${workspacePanelHeader('Calendar & Rates', 'Select exact products and dates, then Review one transactional manual update.')}
+      <section class="hotel-calendar-toolbar hotel-workspace-card">
+        <div class="hotel-calendar-toolbar__navigation"><button class="btn-secondary" type="button" data-calendar-shift="-1" aria-label="Previous ${state.calendar.view}">←</button><button class="btn-secondary" type="button" data-calendar-today>Today</button><button class="btn-secondary" type="button" data-calendar-shift="1" aria-label="Next ${state.calendar.view}">→</button><strong>${escapeHtml(calendarMonthTitle(range))}</strong></div>
+        <div class="hotel-calendar-toolbar__actions"><label><span>View</span><select data-calendar-view><option value="month" ${state.calendar.view === 'month' ? 'selected' : ''}>Month</option><option value="two_months" ${state.calendar.view === 'two_months' ? 'selected' : ''}>2 months</option><option value="week" ${state.calendar.view === 'week' ? 'selected' : ''}>Week</option></select></label><button class="btn-secondary" type="button" data-calendar-select-all>${selectedCount === products.length ? 'Clear products' : 'Select all products'}</button><button class="btn-primary" type="button" data-calendar-edit-range ${selectedCount && state.calendar.selection_start ? '' : 'disabled'}>Edit selected range</button></div>
+        <div class="hotel-calendar-selection" aria-live="polite"><strong>${selectedCount} product${selectedCount === 1 ? '' : 's'} selected</strong><span>${escapeHtml(selectionLabel)}</span><button type="button" data-calendar-clear-selection ${state.calendar.selection_start ? '' : 'disabled'}>Clear dates</button></div>
+      </section>
+      <div class="hotel-calendar-layout"><section class="hotel-calendar-board">${renderCalendarDesktop(products, dates, maps)}${renderCalendarMobile(products, dates, maps)}</section>${renderCalendarRuleLists(products)}</div>
+      <section class="hotel-calendar-legend"><span><i class="is-base"></i> Base</span><span><i class="is-manual"></i> Manual / resolved override</span><span><i class="is-closed"></i> Closed</span><small>Displayed cells use server-resolved effective values and provenance whenever supplied. Raw rows remain in the reviewed concurrency snapshot.</small></section>`;
+    bindCalendarPanel(panel, products, range);
+  }
+
+  async function loadCalendarRange() {
+    if (!state.workspace || state.calendar.loading) return;
+    const propertyId = state.workspace.property.id;
+    const range = activeCalendarRange();
+    state.calendar.loading = true;
+    state.calendar.error = null;
+    renderActivePanel();
+    try {
+      const data = await Repository.getCalendar(propertyId, range.start, range.end);
+      if (!state.workspace || state.workspace.property.id !== propertyId) return;
+      state.calendar.data = data;
+      state.calendar.selected_product_ids = state.calendar.selected_product_ids.filter((id) => data.room_rates.some((rate) => rate.id === id));
+    } catch (error) {
+      state.calendar.error = error;
+    } finally {
+      state.calendar.loading = false;
+      if (state.workspace?.property.id === propertyId && state.activeTab === 'calendar') renderActivePanel();
+    }
+  }
+
+  function shiftCalendar(periods) {
+    const anchor = parseIsoDate(state.calendar.anchor_date || todayIsoDate());
+    if (!anchor) return;
+    if (state.calendar.view === 'week') anchor.setUTCDate(anchor.getUTCDate() + Number(periods) * 7);
+    else anchor.setUTCMonth(anchor.getUTCMonth() + Number(periods) * (state.calendar.view === 'two_months' ? 2 : 1), 1);
+    state.calendar.anchor_date = isoDateFromUtc(anchor);
+    state.calendar.data = null;
+    state.calendar.error = null;
+    state.calendar.selection_start = null;
+    state.calendar.selection_end = null;
+    state.calendar.selection_anchor = null;
+    renderActivePanel();
+  }
+
+  function chooseCalendarDate(productId, date, extend = false) {
+    if (!state.calendar.selected_product_ids.includes(productId)) state.calendar.selected_product_ids.push(productId);
+    const existingAnchor = state.calendar.selection_anchor || (extend ? state.calendar.selection_start : null);
+    if (existingAnchor) {
+      state.calendar.selection_start = existingAnchor < date ? existingAnchor : date;
+      state.calendar.selection_end = existingAnchor > date ? existingAnchor : date;
+      state.calendar.selection_anchor = null;
+    } else {
+      state.calendar.selection_start = date;
+      state.calendar.selection_end = date;
+      state.calendar.selection_anchor = date;
+    }
+    renderActivePanel();
+  }
+
+  function bindCalendarPanel(panel, products, range) {
+    panel.querySelectorAll('[data-calendar-cell]').forEach((button) => button.addEventListener('click', (event) => {
+      chooseCalendarDate(button.dataset.productId, button.dataset.date, event.shiftKey);
+    }));
+    panel.querySelectorAll('[data-calendar-product-check]').forEach((checkbox) => checkbox.addEventListener('change', () => {
+      const id = checkbox.value;
+      state.calendar.selected_product_ids = checkbox.checked
+        ? Array.from(new Set([...state.calendar.selected_product_ids, id]))
+        : state.calendar.selected_product_ids.filter((value) => value !== id);
+      renderActivePanel();
+    }));
+    panel.querySelector('[data-calendar-mobile-product]')?.addEventListener('change', (event) => {
+      state.calendar.mobile_product_id = event.currentTarget.value;
+      renderActivePanel();
+    });
+    panel.querySelectorAll('[data-calendar-shift]').forEach((button) => button.addEventListener('click', () => shiftCalendar(Number(button.dataset.calendarShift))));
+    panel.querySelector('[data-calendar-today]')?.addEventListener('click', () => {
+      state.calendar.anchor_date = todayIsoDate(); state.calendar.data = null; state.calendar.error = null; renderActivePanel();
+    });
+    panel.querySelector('[data-calendar-view]')?.addEventListener('change', (event) => {
+      state.calendar.view = ['week', 'two_months'].includes(event.currentTarget.value) ? event.currentTarget.value : 'month';
+      state.calendar.data = null; state.calendar.error = null; renderActivePanel();
+    });
+    panel.querySelector('[data-calendar-select-all]')?.addEventListener('click', () => {
+      state.calendar.selected_product_ids = state.calendar.selected_product_ids.length === products.length ? [] : products.map((product) => product.id);
+      renderActivePanel();
+    });
+    panel.querySelector('[data-calendar-clear-selection]')?.addEventListener('click', () => {
+      state.calendar.selection_start = null; state.calendar.selection_end = null; state.calendar.selection_anchor = null; renderActivePanel();
+    });
+    panel.querySelector('[data-calendar-edit-range]')?.addEventListener('click', openCalendarRangeEditor);
+    panel.querySelector('[data-add-calendar-rule]')?.addEventListener('click', () => openCalendarRuleEditor());
+    panel.querySelectorAll('[data-edit-calendar-rule]').forEach((button) => button.addEventListener('click', () => openCalendarRuleEditor(button.dataset.editCalendarRule)));
+    panel.querySelector('[data-add-occupancy-tier]')?.addEventListener('click', () => openOccupancyTierEditor());
+    panel.querySelectorAll('[data-edit-occupancy-tier]').forEach((button) => button.addEventListener('click', () => openOccupancyTierEditor(button.dataset.editOccupancyTier)));
+    panel.querySelector('[data-preview-authoritative-rate]')?.addEventListener('click', openAuthoritativeRatePreview);
+    void range;
+  }
+
   function renderCalendarPanel(panel) {
-    panel.innerHTML = `${workspacePanelHeader('Calendar', 'The full inventory and rate calendar is intentionally scheduled for H2B.')}
-      <section class="hotel-workspace-card hotel-placeholder-card"><span class="hotel-workspace-eyebrow">Read-only design contract</span><h4>Deterministic manual precedence</h4><ol class="hotel-calendar-precedence">${Core.CALENDAR_PRECEDENCE.map((rule) => `<li><b>${rule.rank}</b><span>${escapeHtml(rule.label)}</span></li>`).join('')}</ol><p>Equal-priority ambiguity will fail closed. H2A creates no calendar rows and no public rates.</p><button class="btn-secondary" type="button" disabled>Calendar editor arrives in H2B</button></section>`;
+    const range = activeCalendarRange();
+    const data = state.calendar.data;
+    const rangeMatches = data?.hotel_id === state.workspace.property.id
+      && data?.start_date === range.start && data?.end_date === range.end;
+    if (state.calendar.loading) {
+      panel.innerHTML = `${workspacePanelHeader('Calendar & Rates', 'Loading authoritative room rates, inventory and restrictions…')}<div class="hotel-property-empty"><span class="hotel-workspace-spinner" aria-hidden="true"></span> Loading ${escapeHtml(calendarMonthTitle(range))}…</div>`;
+      return;
+    }
+    if (state.calendar.error) {
+      panel.innerHTML = `${workspacePanelHeader('Calendar & Rates', 'The calendar failed closed; no raw-table fallback is used.')}<div class="hotel-property-empty hotel-property-empty--error"><p>${escapeHtml(state.calendar.error.message || 'Calendar could not be loaded.')}</p><button class="btn-secondary" type="button" data-calendar-retry>Retry exact range</button></div>`;
+      panel.querySelector('[data-calendar-retry]')?.addEventListener('click', () => { state.calendar.error = null; void loadCalendarRange(); });
+      return;
+    }
+    if (!rangeMatches) {
+      panel.innerHTML = `${workspacePanelHeader('Calendar & Rates', 'Loading authoritative room rates, inventory and restrictions…')}<div class="hotel-property-empty"><span class="hotel-workspace-spinner" aria-hidden="true"></span> Loading ${escapeHtml(calendarMonthTitle(range))}…</div>`;
+      void loadCalendarRange();
+      return;
+    }
+    renderCalendarLoaded(panel, range, data);
+  }
+
+  function selectedCalendarProducts() {
+    const selected = new Set(state.calendar.selected_product_ids);
+    return calendarProducts().filter((product) => selected.has(product.id));
+  }
+
+  function buildCalendarPlan(operations) {
+    const range = activeCalendarRange();
+    const snapshotStart = state.calendar.data?.start_date;
+    const snapshotEnd = state.calendar.data?.end_date;
+    const plan = {
+      hotel_id: state.workspace.property.id,
+      // The concurrency token is bound to the complete loaded window. Exact
+      // selected dates remain in operation payloads and in the Review rows.
+      from: snapshotStart || range.start,
+      to: snapshotEnd || range.end,
+      reviewed_at: new Date().toISOString(),
+      operations: Core.clone(operations),
+    };
+    if (state.calendar.data?.snapshot_token) plan.snapshot_token = state.calendar.data.snapshot_token;
+    return plan;
+  }
+
+  function calendarReviewRows(rows) {
+    return Core.asArray(rows).map((row) => `<tr><th>${escapeHtml(row.field)}</th><td><pre>${escapeHtml(displayReviewValue(row.before))}</pre></td><td><pre>${escapeHtml(displayReviewValue(row.after))}</pre></td></tr>`).join('');
+  }
+
+  function calendarReviewState(entity, row) {
+    const source = Core.asObject(row);
+    if (entity === 'daily_inventory') return {
+      sellable_units: source.sellable_units ?? null,
+      sellable_units_mode: source.sellable_units_mode ?? null,
+      closed: source.closed ?? null,
+      closed_mode: source.closed_mode ?? null,
+      expires_at: source.expires_at ?? null,
+    };
+    return {
+      nightly_rate: source.nightly_rate ?? null,
+      nightly_rate_mode: source.nightly_rate_mode ?? null,
+      minimum_stay: source.minimum_stay ?? null,
+      minimum_stay_mode: source.minimum_stay_mode ?? null,
+      maximum_stay: source.maximum_stay ?? null,
+      maximum_stay_mode: source.maximum_stay_mode ?? null,
+      closed_to_arrival: source.closed_to_arrival ?? null,
+      closed_to_arrival_mode: source.closed_to_arrival_mode ?? null,
+      closed_to_departure: source.closed_to_departure ?? null,
+      closed_to_departure_mode: source.closed_to_departure_mode ?? null,
+      expires_at: source.expires_at ?? null,
+    };
+  }
+
+  function calendarExactReviewRows(operations) {
+    const overrideById = new Map(Core.asArray(state.calendar.data?.calendar_overrides).map((row) => [row.id, row]));
+    const inventoryByKey = new Map(Core.asArray(state.calendar.data?.daily_inventory).map((row) => [`${row.room_type_id}:${row.stay_date}`, row]));
+    const productById = new Map(calendarProducts().map((product) => [product.id, product]));
+    const roomById = new Map(state.workspace.room_types.map((room) => [room.id, room]));
+    const rows = operations.slice(0, 200).map((operation) => {
+      const payload = Core.asObject(operation.payload);
+      const existing = operation.entity === 'daily_inventory'
+        ? inventoryByKey.get(`${payload.room_type_id}:${payload.stay_date}`)
+        : overrideById.get(operation.id);
+      const after = operation.type === 'delete' ? null : { ...Core.asObject(existing), ...payload };
+      const product = productById.get(payload.room_rate_id || existing?.room_rate_id);
+      const room = roomById.get(payload.room_type_id || existing?.room_type_id || product?.room_type_id);
+      const label = operation.entity === 'daily_inventory'
+        ? `${Core.i18nText(room?.name_i18n, 'en', room?.code || 'Room Type')} inventory · ${payload.stay_date}`
+        : `${product?.room_name || 'Rate product'} · ${product?.rate_plan_name || ''} · ${payload.stay_date || existing?.stay_date}`;
+      return {
+        field: label,
+        before: existing ? calendarReviewState(operation.entity, existing) : 'Inherited / base value',
+        after: after ? calendarReviewState(operation.entity, after) : 'Inherited / base value',
+      };
+    });
+    if (operations.length > rows.length) rows.push({ field: 'Additional exact rows', before: 0, after: operations.length - rows.length });
+    return rows;
+  }
+
+  async function openCalendarReview({ title, plan, rows, successMessage }) {
+    if (!plan?.operations?.length) {
+      toast('There are no Calendar changes to review.', 'info');
+      return;
+    }
+    state.pendingReview = { calendarPlan: Core.clone(plan) };
+    openModal({
+      title,
+      className: 'hotel-workspace-modal--review hotel-workspace-modal--wide',
+      body: `<div class="hotel-review-summary"><p>One exact-property Calendar transaction will apply only if every reviewed version still matches.</p><dl><div><dt>Property ID</dt><dd><code>${escapeHtml(plan.hotel_id)}</code></dd></div><div><dt>Operations</dt><dd>${plan.operations.length}</dd></div><div><dt>Range</dt><dd>${escapeHtml(plan.from)} → ${escapeHtml(plan.to)}</dd></div><div><dt>Concurrency</dt><dd>Exact row versions</dd></div></dl></div>
+        <div class="hotel-review-table-wrap"><table class="hotel-review-table"><thead><tr><th>Change</th><th>Before</th><th>After</th></tr></thead><tbody>${calendarReviewRows(rows)}</tbody></table></div>
+        <p class="hotel-workspace-safety-note">This remains inert V2 configuration. It does not publish the property, alter legacy prices, migrate bookings or enable a Hotels feature flag.</p>`,
+      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Back</button><button class="btn-primary" type="button" data-calendar-review-confirm>Save reviewed Calendar changes</button>',
+      onReady(overlay) {
+        overlay.querySelector('[data-calendar-review-confirm]')?.addEventListener('click', async (event) => {
+          const button = event.currentTarget;
+          button.disabled = true;
+          button.textContent = 'Saving…';
+          setModalSaving(overlay, true);
+          try {
+            const result = await Repository.applyCalendarPlan(plan);
+            closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+            const activeRange = activeCalendarRange();
+            if (result.calendar?.hotel_id === state.workspace.property.id
+                && result.calendar.start_date === activeRange.start && result.calendar.end_date === activeRange.end) {
+              state.calendar.data = result.calendar;
+              if (Array.isArray(result.calendar.activity)) {
+                state.workspace.activity = Core.clone(result.calendar.activity);
+              }
+              renderActivePanel();
+            } else {
+              state.calendar.data = null;
+              await loadCalendarRange();
+            }
+            toast(successMessage || 'Reviewed Calendar changes saved.', 'success');
+          } catch (error) {
+            setModalSaving(overlay, false);
+            button.disabled = false;
+            button.textContent = 'Save reviewed Calendar changes';
+            const message = error?.isStale
+              ? 'Save stopped: Calendar data changed after Review. Reload the exact range and review again.'
+              : error?.isAmbiguousOutcome
+                ? 'The Calendar save result could not be confirmed. Reload before retrying; never submit the reviewed plan blindly.'
+                : (error?.message || 'Calendar save failed. No partial change was kept.');
+            toast(message, error?.isAmbiguousOutcome ? 'warning' : 'error');
+          }
+        });
+      },
+    });
+  }
+
+  function calendarPatchField(fd, field, options = {}) {
+    const mode = String(fd.get(`${field}_mode`) || 'no_change');
+    if (mode === 'no_change') return null;
+    if (mode === 'clear') return { mode: 'clear' };
+    if (options.boolean) return { mode: 'set', value: mode === 'true' };
+    const raw = fd.get(field);
+    const value = Number(raw);
+    if (!Number.isFinite(value) || value < 0 || (options.integer && !Number.isInteger(value)) || (options.positive && value <= 0)) {
+      throw new Error(`${options.label || field} is invalid.`);
+    }
+    return { mode: 'set', value };
+  }
+
+  function rangePatchControl(name, label, type, options = {}) {
+    const setLabel = options.setLabel || 'Set value';
+    const clearLabel = options.clearLabel || 'Clear override';
+    return `<label class="admin-form-field hotel-calendar-patch-field"><span>${escapeHtml(label)}</span><select name="${escapeAttr(name)}_mode" data-calendar-patch-mode><option value="no_change">No change</option><option value="set">${escapeHtml(setLabel)}</option><option value="clear">${escapeHtml(clearLabel)}</option></select><input name="${escapeAttr(name)}" type="${type}" min="${options.min ?? 0}" step="${options.step || 1}" placeholder="${escapeAttr(options.placeholder || '')}" disabled /></label>`;
+  }
+
+  function applyCalendarFieldPatch(source, patch) {
+    const next = { ...source };
+    Object.entries(patch).forEach(([field, change]) => {
+      next[`${field}_mode`] = change.mode;
+      if (change.mode === 'set') next[field] = change.value;
+      else if (change.mode === 'clear') next[field] = null;
+    });
+    return next;
+  }
+
+  function calendarOverrideOperations(products, dates, patch, provenance) {
+    if (!Object.keys(patch).length) return [];
+    const existingByKey = new Map(Core.asArray(state.calendar.data?.calendar_overrides)
+      .map((row) => [`${row.room_rate_id}:${row.stay_date}`, row]));
+    const valueFields = ['nightly_rate', 'minimum_stay', 'maximum_stay', 'closed', 'closed_to_arrival', 'closed_to_departure'];
+    const operations = [];
+    products.forEach((product) => dates.forEach((stayDate) => {
+      const existing = existingByKey.get(`${product.id}:${stayDate}`) || null;
+      const next = applyCalendarFieldPatch(existing || {}, patch);
+      const hasValue = valueFields.some((field) => next[`${field}_mode`] != null);
+      if (!hasValue) return;
+      const payload = {};
+      Object.entries(patch).forEach(([field, change]) => {
+        payload[field] = change.mode === 'clear' ? null : change.value;
+        payload[`${field}_mode`] = change.mode;
+      });
+      payload.provenance = { ...Core.asObject(existing?.provenance), ...provenance, source: 'manual' };
+      payload.reason = provenance.reason;
+      payload.expires_at = provenance.expires_at;
+      payload.source = 'manual';
+      payload.is_active = true;
+      if (!existing) {
+        payload.room_rate_id = product.id;
+        payload.stay_date = stayDate;
+      }
+      operations.push({
+        entity: 'calendar_override', type: existing ? 'update' : 'create',
+        id: existing?.id || Core.newUuid(), expected_version: existing ? Number(existing.version) : 0, payload,
+      });
+    }));
+    return operations;
+  }
+
+  function dailyInventoryOperations(products, dates, patch, provenance) {
+    if (!Object.keys(patch).length) return [];
+    const roomById = new Map();
+    products.forEach((product) => { if (!roomById.has(product.room_type_id)) roomById.set(product.room_type_id, product); });
+    const existingByKey = new Map(Core.asArray(state.calendar.data?.daily_inventory)
+      .map((row) => [`${row.room_type_id}:${row.stay_date}`, row]));
+    const operations = [];
+    roomById.forEach((product, roomTypeId) => dates.forEach((stayDate) => {
+      const existing = existingByKey.get(`${roomTypeId}:${stayDate}`) || null;
+      const next = applyCalendarFieldPatch(existing || {}, patch);
+      const sellableMode = next.sellable_units_mode ?? null;
+      const closedMode = next.closed_mode ?? null;
+      const noRemainingOverride = (!sellableMode || sellableMode === 'clear') && (!closedMode || closedMode === 'clear');
+      if (existing && noRemainingOverride) {
+        operations.push({ entity: 'daily_inventory', type: 'delete', expected_version: Number(existing.version), payload: { room_type_id: roomTypeId, stay_date: stayDate } });
+        return;
+      }
+      if (!existing && noRemainingOverride) return;
+      const payload = {
+        room_type_id: roomTypeId,
+        stay_date: stayDate,
+        source: 'manual',
+        reason: provenance.reason,
+        expires_at: provenance.expires_at,
+        provenance: { ...Core.asObject(existing?.provenance), ...provenance, source: 'manual' },
+      };
+      Object.entries(patch).forEach(([field, change]) => {
+        payload[field] = change.mode === 'clear' ? null : change.value;
+        payload[`${field}_mode`] = change.mode;
+      });
+      // The physical storage columns are NOT NULL, while the companion modes
+      // decide whether a value is authoritative or inherited. New rows still
+      // need harmless storage values for the direction the Admin did not edit.
+      if (!existing && !Object.hasOwn(payload, 'sellable_units')) {
+        payload.sellable_units = Number(product.base_inventory_count ?? 0);
+        payload.sellable_units_mode = 'clear';
+      }
+      if (!existing && !Object.hasOwn(payload, 'closed')) {
+        payload.closed = false;
+        payload.closed_mode = 'clear';
+      }
+      operations.push({ entity: 'daily_inventory', type: 'upsert', expected_version: existing ? Number(existing.version) : 0, payload });
+    }));
+    return operations;
+  }
+
+  function openCalendarRangeEditor() {
+    const products = selectedCalendarProducts();
+    const startDate = state.calendar.selection_start;
+    const endDate = state.calendar.selection_end;
+    if (!products.length || !startDate || !endDate) {
+      toast('Select at least one Room × Rate Plan product and a date range.', 'error');
+      return;
+    }
+    openModal({
+      title: 'Edit selected Calendar range',
+      className: 'hotel-workspace-modal--wide',
+      body: `<form id="hotelCalendarRangeForm" class="hotel-workspace-form">
+        <div class="hotel-calendar-edit-context"><div><span>Products</span><strong>${products.length}</strong><small>${products.map((product) => `${product.room_name} · ${product.rate_plan_name}`).join(', ')}</small></div><div><span>Date range</span><strong>${escapeHtml(startDate)} → ${escapeHtml(endDate)}</strong><small>${enumerateCalendarDates(startDate, endDate).length} calendar days</small></div></div>
+        <fieldset><legend>Apply on weekdays</legend><div class="hotel-calendar-weekdays">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((label, index) => `<label><input type="checkbox" name="weekday" value="${index + 1}" checked /> ${label}</label>`).join('')}</div></fieldset>
+        <fieldset><legend>Rates & inventory</legend><div class="hotel-workspace-form-grid">${rangePatchControl('nightly_rate', 'Nightly rate', 'number', { step: '0.01', placeholder: 'EUR', clearLabel: 'Use lower-precedence price' })}${rangePatchControl('sellable_units', 'Sellable rooms', 'number', { integer: true, clearLabel: 'Use base inventory' })}</div></fieldset>
+        <fieldset><legend>Availability & restrictions</legend><div class="hotel-workspace-form-grid">
+          <label class="admin-form-field"><span>Room safety closure</span><select name="closed_mode"><option value="no_change">No change</option><option value="false">Set open</option><option value="true">Set closed</option><option value="clear">Clear override / inherit</option></select></label>
+          ${rangePatchControl('minimum_stay', 'Minimum stay', 'number', { min: 1, positive: true, clearLabel: 'No minimum override' })}
+          ${rangePatchControl('maximum_stay', 'Maximum stay', 'number', { min: 1, positive: true, clearLabel: 'No maximum override' })}
+          <label class="admin-form-field"><span>Arrival</span><select name="closed_to_arrival_mode"><option value="no_change">No change</option><option value="false">Allow arrival</option><option value="true">Close to arrival</option><option value="clear">Clear override / inherit</option></select></label>
+          <label class="admin-form-field"><span>Departure</span><select name="closed_to_departure_mode"><option value="no_change">No change</option><option value="false">Allow departure</option><option value="true">Close to departure</option><option value="clear">Clear override / inherit</option></select></label>
+        </div></fieldset>
+        <fieldset><legend>Audit context</legend><div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>Reason</span><input name="reason" maxlength="500" required placeholder="Why is this override needed?" /></label><label class="admin-form-field"><span>Temporary override expires</span><input name="expires_at" type="datetime-local" /><small>Optional. Leave empty for a reviewed persistent override.</small></label></div></fieldset>
+        <p class="hotel-workspace-safety-note">No change preserves every selected product's current value. Clear removes only the selected override field and reveals the next lower precedence.</p>
+      </form>`,
+      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelCalendarRangeForm">Review range changes</button>',
+      onReady(overlay) {
+        const form = overlay.querySelector('#hotelCalendarRangeForm');
+        form.querySelectorAll('[data-calendar-patch-mode]').forEach((select) => select.addEventListener('change', () => {
+          const input = select.parentElement.querySelector('input');
+          input.disabled = select.value !== 'set';
+          if (!input.disabled) input.focus();
+        }));
+        form.addEventListener('submit', (event) => {
+          event.preventDefault();
+          const fd = new FormData(form);
+          let ratePatch;
+          let inventoryPatch;
+          try {
+            ratePatch = {
+              nightly_rate: calendarPatchField(fd, 'nightly_rate', { label: 'Nightly rate' }),
+              minimum_stay: calendarPatchField(fd, 'minimum_stay', { label: 'Minimum stay', integer: true, positive: true }),
+              maximum_stay: calendarPatchField(fd, 'maximum_stay', { label: 'Maximum stay', integer: true, positive: true }),
+              closed_to_arrival: calendarPatchField(fd, 'closed_to_arrival', { boolean: true }),
+              closed_to_departure: calendarPatchField(fd, 'closed_to_departure', { boolean: true }),
+            };
+            inventoryPatch = {
+              sellable_units: calendarPatchField(fd, 'sellable_units', { label: 'Sellable rooms', integer: true }),
+              closed: calendarPatchField(fd, 'closed', { boolean: true }),
+            };
+          } catch (error) {
+            toast(error.message, 'error');
+            return;
+          }
+          ratePatch = Object.fromEntries(Object.entries(ratePatch).filter(([_key, value]) => value));
+          inventoryPatch = Object.fromEntries(Object.entries(inventoryPatch).filter(([_key, value]) => value));
+          if (!Object.keys(ratePatch).length && !Object.keys(inventoryPatch).length) {
+            toast('Choose at least one explicit Calendar change.', 'error');
+            return;
+          }
+          const weekdays = fd.getAll('weekday').map(Number).sort((a, b) => a - b);
+          if (!weekdays.length) { toast('Select at least one weekday.', 'error'); return; }
+          const reason = String(fd.get('reason') || '').trim();
+          const expiresAtRaw = String(fd.get('expires_at') || '').trim();
+          const expiresDate = expiresAtRaw ? new Date(expiresAtRaw) : null;
+          const expiresAt = expiresDate && !Number.isNaN(expiresDate.getTime()) ? expiresDate.toISOString() : null;
+          if (!reason) { toast('A concise audit reason is required.', 'error'); return; }
+          if (expiresAtRaw && !expiresAt) { toast('Temporary override expiry is invalid.', 'error'); return; }
+          const dates = enumerateCalendarDates(startDate, endDate).filter((date) => weekdays.includes((parseIsoDate(date).getUTCDay() || 7)));
+          const provenance = { reason, expires_at: expiresAt, reviewed_range: { from: startDate, to: endDate, weekdays } };
+          const operations = [
+            ...calendarOverrideOperations(products, dates, ratePatch, provenance),
+            ...dailyInventoryOperations(products, dates, inventoryPatch, provenance),
+          ];
+          if (!operations.length) { toast('The reviewed range produces no database changes.', 'info'); return; }
+          const plan = buildCalendarPlan(operations, { start_date: startDate, end_date: endDate, product_ids: products.map((product) => product.id), reason, expires_at: expiresAt });
+          closeModal({ restoreFocus: false });
+          void openCalendarReview({
+            title: 'Review Calendar range update', plan,
+            rows: [
+              { field: 'Room × Rate Plan products', before: 'No change', after: products.map((product) => `${product.room_name} · ${product.rate_plan_name}`) },
+              { field: 'Dates / weekdays', before: 'Current exact rows', after: { start_date: startDate, end_date: endDate, weekdays } },
+              { field: 'Audit context', before: 'Not supplied', after: { reason, expires_at: expiresAt } },
+              ...calendarExactReviewRows(operations),
+            ],
+            successMessage: 'Calendar range updated atomically.',
+          });
+        });
+      },
+    });
+  }
+
+  function openCalendarRuleEditor(ruleId = null) {
+    const existing = ruleId ? Core.asArray(state.calendar.data?.rate_rules).find((rule) => rule.id === ruleId) : null;
+    const products = existing ? calendarProducts().filter((product) => product.id === existing.room_rate_id) : selectedCalendarProducts();
+    if (!products.length) { toast('Select at least one Room × Rate Plan product.', 'error'); return; }
+    const range = activeCalendarRange();
+    openModal({
+      title: existing ? 'Edit seasonal / weekday rule' : 'Add seasonal / weekday rule',
+      className: 'hotel-workspace-modal--wide',
+      body: `<form id="hotelCalendarRuleForm" class="hotel-workspace-form">
+        <p>${existing ? 'This edits one exact reviewed rule.' : `One draft rule will be created for each of ${products.length} selected products.`}</p>
+        <div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>Valid from</span><input type="date" name="valid_from" value="${escapeAttr(existing?.valid_from || range.start)}" required /></label><label class="admin-form-field"><span>Valid to</span><input type="date" name="valid_to" value="${escapeAttr(existing?.valid_to || range.end)}" required /></label><label class="admin-form-field"><span>Nightly rate</span><input type="number" name="nightly_rate" min="0" step="0.01" value="${escapeAttr(existing?.nightly_rate ?? '')}" required /></label><label class="admin-form-field"><span>Priority</span><input type="number" name="priority" min="-32768" max="32767" step="1" value="${escapeAttr(existing?.priority ?? 0)}" required /></label><label class="admin-form-field"><span>Minimum stay</span><input type="number" name="minimum_stay" min="1" step="1" value="${escapeAttr(existing?.minimum_stay ?? '')}" /></label><label class="admin-form-field"><span>Maximum stay</span><input type="number" name="maximum_stay" min="1" step="1" value="${escapeAttr(existing?.maximum_stay ?? '')}" /></label></div>
+        <fieldset><legend>Weekdays</legend><div class="hotel-calendar-weekdays">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((label, index) => `<label><input type="checkbox" name="weekday" value="${index + 1}" ${!existing || Core.asArray(existing.weekdays).includes(index + 1) ? 'checked' : ''} /> ${label}</label>`).join('')}</div></fieldset>
+        <div class="hotel-workspace-form-grid"><label class="admin-checkbox-field"><input type="checkbox" name="closed_to_arrival" ${existing?.closed_to_arrival ? 'checked' : ''} /> Closed to arrival</label><label class="admin-checkbox-field"><input type="checkbox" name="closed_to_departure" ${existing?.closed_to_departure ? 'checked' : ''} /> Closed to departure</label><label class="admin-checkbox-field"><input type="checkbox" name="is_active" ${existing?.is_active === false ? '' : 'checked'} /> Active</label></div>
+        <p class="hotel-workspace-safety-note">Equal-priority overlapping rules are rejected by the server. Use exact priorities deliberately.</p>
+      </form>`,
+      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelCalendarRuleForm">Review rule</button>',
+      onReady(overlay) {
+        overlay.querySelector('#hotelCalendarRuleForm')?.addEventListener('submit', (event) => {
+          event.preventDefault();
+          const fd = new FormData(event.currentTarget);
+          const payload = {
+            valid_from: String(fd.get('valid_from')), valid_to: String(fd.get('valid_to')),
+            weekdays: fd.getAll('weekday').map(Number).sort((a, b) => a - b),
+            nightly_rate: Number(fd.get('nightly_rate')),
+            minimum_stay: fd.get('minimum_stay') === '' ? null : Number(fd.get('minimum_stay')),
+            maximum_stay: fd.get('maximum_stay') === '' ? null : Number(fd.get('maximum_stay')),
+            closed_to_arrival: fd.has('closed_to_arrival'), closed_to_departure: fd.has('closed_to_departure'),
+            priority: Number(fd.get('priority')), is_active: fd.has('is_active'),
+          };
+          if (!payload.valid_from || !payload.valid_to || payload.valid_to < payload.valid_from || !payload.weekdays.length
+              || !Number.isFinite(payload.nightly_rate) || payload.nightly_rate < 0
+              || (payload.minimum_stay && payload.maximum_stay && payload.maximum_stay < payload.minimum_stay)) {
+            toast('Review dates, weekdays, rate and stay limits.', 'error'); return;
+          }
+          const operations = products.map((product) => ({
+            entity: 'rate_rule', type: existing ? 'update' : 'create',
+            id: existing?.id || Core.newUuid(),
+            expected_version: existing ? Number(existing.version) : 0,
+            payload: { ...payload, room_rate_id: product.id },
+          }));
+          const plan = buildCalendarPlan(operations, { product_ids: products.map((product) => product.id) });
+          closeModal({ restoreFocus: false });
+          void openCalendarReview({ title: 'Review seasonal / weekday rule', plan, rows: [
+            { field: 'Products', before: existing ? existing.room_rate_id : 'No rules', after: products.map((product) => `${product.room_name} · ${product.rate_plan_name}`) },
+            { field: 'Rule', before: existing || 'Not configured', after: payload },
+          ], successMessage: existing ? 'Rate rule updated.' : 'Rate rules created atomically.' });
+        });
+      },
+    });
+  }
+
+  function openOccupancyTierEditor(tierId = null) {
+    const existing = tierId ? Core.asArray(state.calendar.data?.occupancy_tiers).find((tier) => tier.id === tierId) : null;
+    const products = existing ? calendarProducts().filter((product) => product.id === existing.room_rate_id) : selectedCalendarProducts();
+    if (!products.length) { toast('Select at least one Room × Rate Plan product.', 'error'); return; }
+    openModal({
+      title: existing ? 'Edit occupancy / stay tier' : 'Add occupancy / stay tier',
+      body: `<form id="hotelOccupancyTierForm" class="hotel-workspace-form"><p>${existing ? 'Edit this exact tier.' : `Create one reviewed tier for each of ${products.length} selected products.`}</p><div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>Guest count</span><input name="guest_count" type="number" min="1" step="1" value="${escapeAttr(existing?.guest_count ?? '')}" required /></label><label class="admin-form-field"><span>From stay length</span><input name="threshold_nights" type="number" min="1" step="1" value="${escapeAttr(existing?.threshold_nights ?? '')}" required /><small>Selected nightly rate applies to the complete stay.</small></label><label class="admin-form-field"><span>Nightly rate</span><input name="nightly_rate" type="number" min="0" step="0.01" value="${escapeAttr(existing?.nightly_rate ?? '')}" required /></label><label class="admin-checkbox-field"><input name="is_active" type="checkbox" ${existing?.is_active === false ? '' : 'checked'} /> Active</label></div><p class="hotel-workspace-safety-note">A duplicate exact product + guest count + threshold is rejected. Pricing conversion remains shadow-only until its complete legacy oracle passes.</p></form>`,
+      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelOccupancyTierForm">Review tier</button>',
+      onReady(overlay) {
+        overlay.querySelector('#hotelOccupancyTierForm')?.addEventListener('submit', (event) => {
+          event.preventDefault();
+          const fd = new FormData(event.currentTarget);
+          const payload = { guest_count: Number(fd.get('guest_count')), threshold_nights: Number(fd.get('threshold_nights')), nightly_rate: Number(fd.get('nightly_rate')), is_active: fd.has('is_active') };
+          if (!Number.isInteger(payload.guest_count) || payload.guest_count <= 0 || !Number.isInteger(payload.threshold_nights) || payload.threshold_nights <= 0 || !Number.isFinite(payload.nightly_rate) || payload.nightly_rate < 0) {
+            toast('Guest count, stay threshold and nightly rate are required.', 'error'); return;
+          }
+          const operations = products.map((product) => ({ entity: 'occupancy_tier', type: existing ? 'update' : 'create', id: existing?.id || Core.newUuid(), expected_version: existing ? Number(existing.version) : 0, payload: { ...payload, room_rate_id: product.id } }));
+          const plan = buildCalendarPlan(operations, { product_ids: products.map((product) => product.id) });
+          closeModal({ restoreFocus: false });
+          void openCalendarReview({ title: 'Review occupancy / stay tier', plan, rows: [
+            { field: 'Products', before: existing ? existing.room_rate_id : 'No tiers', after: products.map((product) => `${product.room_name} · ${product.rate_plan_name}`) },
+            { field: 'Tier', before: existing || 'Not configured', after: payload },
+          ], successMessage: existing ? 'Occupancy tier updated.' : 'Occupancy tiers created atomically.' });
+        });
+      },
+    });
+  }
+
+  function openAuthoritativeRatePreview() {
+    const [product] = selectedCalendarProducts();
+    if (!product || state.calendar.selected_product_ids.length !== 1) { toast('Select exactly one product to preview.', 'error'); return; }
+    const range = activeCalendarRange();
+    const arrival = state.calendar.selection_start || range.start;
+    const departure = addCalendarDays(state.calendar.selection_end || arrival, 1);
+    openModal({
+      title: 'Preview authoritative stay rate',
+      body: `<form id="hotelRatePreviewForm" class="hotel-workspace-form"><p><strong>${escapeHtml(product.room_name)} · ${escapeHtml(product.rate_plan_name)}</strong></p><div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>Check-in</span><input name="check_in" type="date" value="${escapeAttr(arrival)}" required /></label><label class="admin-form-field"><span>Check-out</span><input name="check_out" type="date" value="${escapeAttr(departure)}" required /></label><label class="admin-form-field"><span>Guests</span><input name="guest_count" type="number" min="1" step="1" value="2" required /></label></div><div data-rate-preview-result aria-live="polite"></div></form>`,
+      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Close</button><button class="btn-primary" type="submit" form="hotelRatePreviewForm">Resolve preview</button>',
+      onReady(overlay) {
+        overlay.querySelector('#hotelRatePreviewForm')?.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const form = event.currentTarget;
+          const fd = new FormData(form);
+          const resultBox = form.querySelector('[data-rate-preview-result]');
+          resultBox.innerHTML = '<span class="hotel-workspace-spinner" aria-hidden="true"></span> Resolving on server…';
+          try {
+            const result = await Repository.resolveRate(product.id, fd.get('check_in'), fd.get('check_out'), Number(fd.get('guest_count')));
+            const total = result.total ?? result.total_price ?? result.quote_total;
+            const nights = result.nights ?? Core.asArray(result.nightly_rates).length;
+            resultBox.innerHTML = `<section class="hotel-rate-preview-result"><span class="hotel-workspace-eyebrow">Authoritative read-only preview</span><h4>${total == null ? 'See nightly breakdown' : escapeHtml(formatMoney(total, product.currency))}</h4><p>${Number(nights || 0)} night${Number(nights) === 1 ? '' : 's'} · ${escapeHtml(result.status || (result.ok === false ? 'Blocked' : 'Resolved'))}</p><pre>${escapeHtml(JSON.stringify(result, null, 2))}</pre></section>`;
+          } catch (error) {
+            resultBox.innerHTML = `<p class="hotel-property-card__blocker">${escapeHtml(error.message || 'Authoritative preview failed closed.')}</p>`;
+          }
+        });
+      },
+    });
   }
 
   function renderBookingsPanel(panel) {

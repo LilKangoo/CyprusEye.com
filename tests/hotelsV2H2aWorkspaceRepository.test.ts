@@ -190,4 +190,115 @@ describe('Hotels V2 H2A Property Workspace repository', () => {
       payload: { p_id: HOTEL_ID, p_payload: payload, p_correlation_id: CORRELATION_ID },
     }]);
   });
+
+  test('loads an exact authoritative Calendar range without raw normalized-table reads', async () => {
+    const calls: any[] = [];
+    const client = {
+      async rpc(name: string, payload: any) {
+        calls.push({ name, payload });
+        return {
+          data: {
+            hotel_id: HOTEL_ID,
+            start_date: '2026-08-01',
+            end_date: '2026-08-31',
+            snapshot_token: 'calendar-snapshot-1',
+            property: { id: HOTEL_ID },
+            room_types: [{ id: OTHER_HOTEL_ID }],
+            room_rates: [], rate_rules: [], occupancy_tiers: [], calendar_overrides: [],
+            daily_inventory: [], daily_rates: [], effective_cells: [],
+          },
+          error: null,
+        };
+      },
+      from() { throw new Error('raw table access is forbidden'); },
+    };
+    const { Repository } = loadRepository(client);
+    await expect(Repository.getCalendar(HOTEL_ID, '2026-08-01', '2026-08-31')).resolves.toMatchObject({
+      hotel_id: HOTEL_ID,
+      start_date: '2026-08-01',
+      end_date: '2026-08-31',
+      snapshot_token: 'calendar-snapshot-1',
+      room_types: [{ id: OTHER_HOTEL_ID }],
+    });
+    expect(calls).toEqual([{
+      name: 'hotel_v2_admin_get_calendar',
+      payload: {
+        p_hotel_id: HOTEL_ID,
+        p_start_date: '2026-08-01',
+        p_end_date: '2026-08-31',
+      },
+    }]);
+  });
+
+  test('applies one reviewed exact-row Calendar plan and preserves the RPC transaction boundary', async () => {
+    const calls: any[] = [];
+    const plan = {
+      hotel_id: HOTEL_ID,
+      from: '2026-08-01',
+      to: '2026-08-31',
+      reviewed_at: '2026-08-11T12:00:00.000Z',
+      snapshot_token: 'calendar-snapshot-1',
+      operations: [{
+        entity: 'daily_inventory', type: 'upsert', expected_version: 0,
+        payload: { room_type_id: OTHER_HOTEL_ID, stay_date: '2026-08-01', sellable_units: 2, closed: false },
+      }],
+    };
+    const client = {
+      async rpc(name: string, payload: any) {
+        calls.push({ name, payload });
+        return {
+          data: {
+            correlation_id: CORRELATION_ID,
+            calendar: {
+              hotel_id: HOTEL_ID,
+              start_date: '2026-08-01',
+              end_date: '2026-08-31',
+              snapshot_token: 'calendar-snapshot-2',
+              property: { id: HOTEL_ID },
+            },
+          }, error: null,
+        };
+      },
+    };
+    const { Repository } = loadRepository(client);
+    await expect(Repository.applyCalendarPlan(plan, CORRELATION_ID)).resolves.toMatchObject({
+      correlation_id: CORRELATION_ID,
+      calendar: { hotel_id: HOTEL_ID, start_date: '2026-08-01', end_date: '2026-08-31', snapshot_token: 'calendar-snapshot-2' },
+    });
+    expect(calls).toEqual([{
+      name: 'hotel_v2_admin_apply_calendar_plan',
+      payload: { p_plan: plan, p_correlation_id: CORRELATION_ID },
+    }]);
+  });
+
+  test('rejects a Calendar apply locally when the reviewed snapshot token is absent', async () => {
+    const calls: any[] = [];
+    const client = { async rpc(name: string, payload: any) { calls.push({ name, payload }); return { data: null, error: null }; } };
+    const { Repository } = loadRepository(client);
+    await expect(Repository.applyCalendarPlan({
+      hotel_id: HOTEL_ID,
+      from: '2026-08-01',
+      to: '2026-08-31',
+      reviewed_at: '2026-08-11T12:00:00.000Z',
+      operations: [{ entity: 'daily_inventory', type: 'upsert', expected_version: 0, payload: {} }],
+    }, CORRELATION_ID)).rejects.toThrow('A reviewed exact-property calendar plan is required.');
+    expect(calls).toEqual([]);
+  });
+
+  test('calls the read-only authoritative stay resolver with exact product and stay context', async () => {
+    const calls: any[] = [];
+    const client = {
+      async rpc(name: string, payload: any) {
+        calls.push({ name, payload });
+        return { data: { room_rate_id: OTHER_HOTEL_ID, nights: 3, guest_count: 2, total: 360 }, error: null };
+      },
+    };
+    const { Repository } = loadRepository(client);
+    await expect(Repository.resolveRate(OTHER_HOTEL_ID, '2026-08-10', '2026-08-13', 2))
+      .resolves.toMatchObject({ room_rate_id: OTHER_HOTEL_ID, total: 360 });
+    expect(calls).toEqual([{
+      name: 'hotel_v2_admin_resolve_rate',
+      payload: { p_room_rate_id: OTHER_HOTEL_ID, p_check_in: '2026-08-10', p_check_out: '2026-08-13', p_guest_count: 2 },
+    }]);
+  });
 });

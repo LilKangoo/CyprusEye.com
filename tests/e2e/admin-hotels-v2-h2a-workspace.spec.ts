@@ -11,7 +11,17 @@ const RATE_PLAN_ID = '20000000-0000-4000-8000-000000000003';
 const ROOM_RATE_ID = '20000000-0000-4000-8000-000000000004';
 const DUPLICATE_ROOM_ID = '20000000-0000-4000-8000-000000000005';
 const SHADOW_PREVIEW_ID = '20000000-0000-4000-8000-000000000006';
+const CALENDAR_OVERRIDE_1_ID = '20000000-0000-4000-8000-000000000007';
+const CALENDAR_OVERRIDE_2_ID = '20000000-0000-4000-8000-000000000008';
+const OCCUPANCY_TIER_ID = '20000000-0000-4000-8000-000000000009';
+const RATE_RULE_ID = '20000000-0000-4000-8000-000000000010';
 const CORRELATION_ID = '30000000-0000-4000-8000-000000000001';
+const CALENDAR_CORRELATION_ID = '30000000-0000-4000-8000-000000000002';
+const TIER_CORRELATION_ID = '30000000-0000-4000-8000-000000000003';
+const OPEN_CORRELATION_ID = '30000000-0000-4000-8000-000000000004';
+const RATE_RULE_CORRELATION_ID = '30000000-0000-4000-8000-000000000005';
+const STALE_CALENDAR_CORRELATION_ID = '30000000-0000-4000-8000-000000000006';
+const DEPARTURE_CORRELATION_ID = '30000000-0000-4000-8000-000000000007';
 
 function seedHotelsV2H2aWorkspace() {
   return ({ adminId, hotelId, partnerId }: { adminId: string; hotelId: string; partnerId: string }) => {
@@ -74,6 +84,11 @@ function seedHotelsV2H2aWorkspace() {
       units: [],
       rate_plans: [],
       room_rates: [],
+      rate_rules: [],
+      occupancy_tiers: [],
+      calendar_overrides: [],
+      daily_inventory: [],
+      calendar_apply_receipts: [],
       amenities_catalog: [
         { code: 'wifi', category: 'Connectivity', name_en: 'Wi-Fi', name_pl: 'Wi-Fi' },
         { code: 'air-conditioning', category: 'Comfort', name_en: 'Air conditioning', name_pl: 'Klimatyzacja' },
@@ -198,6 +213,84 @@ function seedHotelsV2H2aWorkspace() {
           rate_plan: 'rate_plans',
           room_rate: 'room_rates',
         };
+        const calendarSnapshotToken = (from: string, to: string) => JSON.stringify({
+          hotel_id: hotelId,
+          start_date: from,
+          end_date: to,
+          room_types: store.room_types.map((row: any) => [row.id, row.version]),
+          room_rates: store.room_rates.map((row: any) => [row.id, row.version]),
+          rate_rules: store.rate_rules.filter((row: any) => row.valid_from <= to && row.valid_to >= from).map((row: any) => [row.id, row.version]),
+          calendar_overrides: store.calendar_overrides.filter((row: any) => row.stay_date >= from && row.stay_date <= to).map((row: any) => [row.id, row.version]),
+          occupancy_tiers: store.occupancy_tiers.map((row: any) => [row.id, row.version]),
+          daily_inventory: store.daily_inventory.filter((row: any) => row.stay_date >= from && row.stay_date <= to).map((row: any) => [row.room_type_id, row.stay_date, row.version]),
+        });
+        const calendarSnapshot = (from: string, to: string) => {
+          const dates: string[] = [];
+          for (let cursor = new Date(`${from}T00:00:00.000Z`); cursor.toISOString().slice(0, 10) <= to; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+            dates.push(cursor.toISOString().slice(0, 10));
+          }
+          return clone({
+            hotel_id: hotelId,
+            start_date: from,
+            end_date: to,
+            snapshot_token: calendarSnapshotToken(from, to),
+            property: store.property,
+            range: { from, to, guest_count: 2, stay_nights: 1 },
+            room_types: store.room_types,
+            room_rates: store.room_rates.map((rate: any) => ({
+              ...rate,
+              rate_plan_name_i18n: store.rate_plans.find((plan: any) => plan.id === rate.rate_plan_id)?.name_i18n || {},
+            })),
+            rate_rules: store.rate_rules,
+            occupancy_tiers: store.occupancy_tiers,
+            calendar_overrides: store.calendar_overrides.filter((row: any) => row.stay_date >= from && row.stay_date <= to),
+            daily_inventory: store.daily_inventory.filter((row: any) => row.stay_date >= from && row.stay_date <= to),
+            daily_rates: [],
+            activity: store.activity,
+            effective_cells: store.room_rates.flatMap((rate: any) => dates.map((stayDate) => {
+              const room = store.room_types.find((entry: any) => entry.id === rate.room_type_id);
+              const override = store.calendar_overrides.find((entry: any) => entry.room_rate_id === rate.id && entry.stay_date === stayDate && entry.is_active !== false);
+              const inventory = store.daily_inventory.find((entry: any) => entry.room_type_id === rate.room_type_id && entry.stay_date === stayDate);
+              const effectiveRate = override?.nightly_rate_mode === 'set' ? override.nightly_rate : rate.base_nightly_rate;
+              const effectiveInventory = inventory?.sellable_units_mode === 'set' ? inventory.sellable_units : room?.base_inventory_count ?? 0;
+              const effectiveClosed = inventory?.closed_mode === 'set' ? Boolean(inventory.closed) : false;
+              const departure = new Date(`${stayDate}T00:00:00.000Z`);
+              departure.setUTCDate(departure.getUTCDate() + 1);
+              const departureDate = departure.toISOString().slice(0, 10);
+              const departureOverride = store.calendar_overrides.find((entry: any) => entry.room_rate_id === rate.id && entry.stay_date === departureDate && entry.is_active !== false);
+              const departureClosed = departureOverride?.closed_to_departure_mode === 'set' && Boolean(departureOverride.closed_to_departure);
+              const blockingReasons = [
+                ...(effectiveClosed || Number(effectiveInventory) <= 0 ? ['insufficient_or_closed_inventory'] : []),
+                ...(departureClosed ? [{ code: 'closed_to_departure', stay_date: departureDate }] : []),
+              ];
+              return {
+                room_rate_id: rate.id,
+                stay_date: stayDate,
+                requestable: blockingReasons.length === 0,
+                blocking_reasons: blockingReasons,
+                resolved: {
+                  total: effectiveRate,
+                  nights: 1,
+                  bookable: blockingReasons.length === 0,
+                  requestable: blockingReasons.length === 0,
+                  blocking_reasons: blockingReasons,
+                  nightly_breakdown: [{
+                    stay_date: stayDate,
+                    nightly_rate: effectiveRate,
+                    sellable_units: effectiveInventory,
+                    closed: effectiveClosed,
+                    minimum_stay: override?.minimum_stay_mode === 'set' ? override.minimum_stay : null,
+                    maximum_stay: override?.maximum_stay_mode === 'set' ? override.maximum_stay : null,
+                    closed_to_arrival: override?.closed_to_arrival_mode === 'set' ? Boolean(override.closed_to_arrival) : false,
+                    closed_to_departure: override?.closed_to_departure_mode === 'set' ? Boolean(override.closed_to_departure) : false,
+                    source: override ? 'calendar_override' : 'room_rate_base',
+                    provenance: override?.provenance || {},
+                  }],
+                },
+              };
+            })),
+          });
+        };
 
         stub.setRpcHandler('hotel_v2_admin_get_property_list', () => ({ data: directory(), error: null }));
         stub.setRpcHandler('hotel_v2_admin_get_property_workspace', (params: any) => {
@@ -279,6 +372,83 @@ function seedHotelsV2H2aWorkspace() {
           data: null,
           error: { code: '42501', message: 'not used by this legacy shadow preparation fixture' },
         }));
+        stub.setRpcHandler('hotel_v2_admin_get_calendar', (params: any) => {
+          if (params.p_hotel_id !== hotelId || !params.p_start_date || !params.p_end_date) {
+            return { data: null, error: { code: '22023', message: 'invalid_calendar_query' } };
+          }
+          return { data: calendarSnapshot(params.p_start_date, params.p_end_date), error: null };
+        });
+        stub.setRpcHandler('hotel_v2_admin_apply_calendar_plan', (params: any) => {
+          const plan = params.p_plan;
+          if (plan?.hotel_id !== hotelId || !plan.from || !plan.to || !plan.reviewed_at || !plan.snapshot_token
+              || !Array.isArray(plan.operations) || !plan.operations.length) {
+            return { data: null, error: { code: '22023', message: 'invalid_calendar_plan' } };
+          }
+          if (plan.snapshot_token !== calendarSnapshotToken(plan.from, plan.to)) {
+            return { data: null, error: { code: '40001', message: 'hotels_v2_h2b_stale_calendar_snapshot' } };
+          }
+          // Work only against staged copies. Any stale row or invalid operation
+          // aborts before the fixture commits a single calendar change.
+          const working: any = {
+            calendar_overrides: clone(store.calendar_overrides),
+            daily_inventory: clone(store.daily_inventory),
+            rate_rules: clone(store.rate_rules),
+            occupancy_tiers: clone(store.occupancy_tiers),
+          };
+          const pendingActivity: any[] = [];
+          for (const operation of plan.operations) {
+            const collections: Record<string, string> = {
+              calendar_override: 'calendar_overrides', daily_inventory: 'daily_inventory',
+              rate_rule: 'rate_rules', occupancy_tier: 'occupancy_tiers',
+            };
+            const collection = working[collections[operation.entity]];
+            if (!collection) return { data: null, error: { code: '22023', message: 'unsupported_calendar_entity' } };
+            const index = operation.entity === 'daily_inventory'
+              ? collection.findIndex((row: any) => row.room_type_id === operation.payload.room_type_id && row.stay_date === operation.payload.stay_date)
+              : collection.findIndex((row: any) => row.id === operation.id);
+            const before = index >= 0 ? clone(collection[index]) : null;
+            if (operation.type === 'delete') {
+              if (index < 0 || collection[index].version !== operation.expected_version) return { data: null, error: { code: '40001', message: 'stale_calendar_row' } };
+              collection.splice(index, 1);
+            } else if (operation.type === 'create' || (operation.type === 'upsert' && operation.expected_version === 0)) {
+              if (index >= 0) return { data: null, error: { code: '23505', message: 'calendar_key_exists' } };
+              collection.push({ ...clone(operation.payload), ...(operation.id ? { id: operation.id } : {}), hotel_id: hotelId, version: 1, created_at: timestamp(), updated_at: timestamp() });
+            } else {
+              if (index < 0 || collection[index].version !== operation.expected_version) return { data: null, error: { code: '40001', message: 'stale_calendar_row' } };
+              collection[index] = operation.type === 'disable'
+                ? { ...collection[index], is_active: false, version: collection[index].version + 1, updated_at: timestamp() }
+                : { ...collection[index], ...clone(operation.payload), version: collection[index].version + 1, updated_at: timestamp() };
+            }
+            const afterIndex = operation.entity === 'daily_inventory'
+              ? collection.findIndex((row: any) => row.room_type_id === operation.payload.room_type_id && row.stay_date === operation.payload.stay_date)
+              : collection.findIndex((row: any) => row.id === operation.id);
+            const activityOrdinal = store.activity.length + pendingActivity.length + 1;
+            pendingActivity.push({
+              id: `40000000-0000-4000-8000-${String(activityOrdinal).padStart(12, '0')}`,
+              hotel_id: hotelId,
+              entity_type: operation.entity,
+              entity_id: operation.id || operation.payload.room_type_id,
+              action: `${operation.entity}_${operation.type}`,
+              before_state: before,
+              after_state: afterIndex >= 0 ? clone(collection[afterIndex]) : null,
+              actor_type: 'admin', actor_id: adminId, source: 'admin',
+              correlation_id: params.p_correlation_id,
+              created_at: timestamp(),
+            });
+          }
+          store.calendar_overrides = working.calendar_overrides;
+          store.daily_inventory = working.daily_inventory;
+          store.rate_rules = working.rate_rules;
+          store.occupancy_tiers = working.occupancy_tiers;
+          store.activity = [...pendingActivity.reverse(), ...store.activity];
+          store.calendar_apply_receipts.push(clone({ plan, correlation_id: params.p_correlation_id }));
+          return { data: { correlation_id: params.p_correlation_id, calendar: calendarSnapshot(plan.from, plan.to) }, error: null };
+        });
+        stub.setRpcHandler('hotel_v2_admin_resolve_rate', (params: any) => {
+          const rate = store.room_rates.find((entry: any) => entry.id === params.p_room_rate_id);
+          const nights = Math.round((Date.parse(`${params.p_check_out}T00:00:00Z`) - Date.parse(`${params.p_check_in}T00:00:00Z`)) / 86_400_000);
+          return { data: { room_rate_id: rate?.id, nights, guest_count: params.p_guest_count, total: Number(rate?.base_nightly_rate || 0) * nights, bookable: true, status: 'Resolved' }, error: null };
+        });
       },
     };
   };
@@ -608,4 +778,267 @@ test('H2A Property Workspace keeps one legacy property inert while Rooms, Units 
   expect(audit.persistedLegacyHotel.is_published).toBe(true);
   expect(audit.rawHotelMutations).toEqual([]);
   expect(audit.rawPublicMutations).toEqual([]);
+});
+
+test('H2B Calendar edits exact dates atomically, exposes occupancy tiers, and switches to a mobile product list', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.addInitScript(seedHotelsV2H2aWorkspace(), {
+    adminId: ADMIN_ID,
+    hotelId: HOTEL_ID,
+    partnerId: PARTNER_ID,
+  });
+  await enableSupabaseStub(page);
+  await page.goto('/admin/dashboard.html', { waitUntil: 'domcontentloaded' });
+  await waitForSupabaseStub(page);
+
+  await page.evaluate(({ roomId, ratePlanId, roomRateId, hotelId }) => {
+    const store = (window as any).__h2aE2eStore;
+    store.room_types.push({
+      id: roomId, hotel_id: hotelId, code: 'deluxe-double', name_i18n: { en: 'Deluxe Double' },
+      capacity_adults: 2, capacity_children: 1, inventory_mode: 'pooled', base_inventory_count: 4,
+      status: 'active', sort_order: 10, version: 1,
+    });
+    store.rate_plans.push({ id: ratePlanId, hotel_id: hotelId, code: 'flexible', name_i18n: { en: 'Standard Flexible' }, is_active: true, sort_order: 10, version: 1 });
+    store.room_rates.push({ id: roomRateId, hotel_id: hotelId, room_type_id: roomId, rate_plan_id: ratePlanId, base_nightly_rate: 120, currency: 'EUR', is_active: true, sort_order: 10, version: 1 });
+  }, { roomId: ROOM_ID, ratePlanId: RATE_PLAN_ID, roomRateId: ROOM_RATE_ID, hotelId: HOTEL_ID });
+
+  await page.locator('button.admin-nav-item[data-view="hotels"]').click();
+  await page.locator(`[data-hotel-open-workspace="${HOTEL_ID}"]`).click();
+  await page.locator('[data-hotel-workspace-tab="calendar"]').click();
+  await expect(page.locator('.hotel-calendar-grid')).toBeVisible();
+  await expect(page.locator('.hotel-calendar-grid')).toContainText('Deluxe Double');
+  await expect(page.locator('.hotel-calendar-grid')).toContainText('Standard Flexible');
+  await expect(page.locator('.hotel-calendar-grid')).toContainText('€120.00');
+
+  await page.locator(`input[data-calendar-product-check][value="${ROOM_RATE_ID}"]`).first().check();
+  // A single click is a deliberate one-day selection; clear it before the
+  // next two-click range selection.
+  await page.locator(`.hotel-calendar-grid [data-calendar-cell][data-product-id="${ROOM_RATE_ID}"][data-date="2026-08-09"]`).click();
+  await expect(page.locator('.hotel-calendar-selection')).toContainText('2026-08-09');
+  await expect(page.locator('.hotel-calendar-selection')).not.toContainText('2026-08-09 →');
+  await page.locator('[data-calendar-clear-selection]').click();
+  await page.locator(`.hotel-calendar-grid [data-calendar-cell][data-product-id="${ROOM_RATE_ID}"][data-date="2026-08-10"]`).click();
+  await page.locator(`.hotel-calendar-grid [data-calendar-cell][data-product-id="${ROOM_RATE_ID}"][data-date="2026-08-11"]`).click();
+  await expect(page.locator('.hotel-calendar-selection')).toContainText('2026-08-10 → 2026-08-11');
+  await page.locator('[data-calendar-edit-range]').click();
+
+  const rangeForm = page.locator('#hotelCalendarRangeForm');
+  await rangeForm.locator('[name="nightly_rate_mode"]').selectOption('set');
+  await rangeForm.locator('[name="nightly_rate"]').fill('150');
+  await rangeForm.locator('[name="sellable_units_mode"]').selectOption('set');
+  await rangeForm.locator('[name="sellable_units"]').fill('2');
+  await rangeForm.locator('[name="minimum_stay_mode"]').selectOption('set');
+  await rangeForm.locator('[name="minimum_stay"]').fill('2');
+  await rangeForm.locator('[name="closed_mode"]').selectOption('true');
+  await rangeForm.locator('[name="reason"]').fill('August demand review');
+  await rangeForm.locator('[name="expires_at"]').fill('2026-09-01T00:00');
+  await queueUuid(page, CALENDAR_OVERRIDE_1_ID);
+  await queueUuid(page, CALENDAR_OVERRIDE_2_ID);
+  await page.locator('button[form="hotelCalendarRangeForm"]').click();
+
+  const review = page.locator('.hotel-workspace-modal--review');
+  await expect(review).toContainText('One exact-property Calendar transaction');
+  await expect(review).toContainText('August demand review');
+  await expect(review).toContainText('Inherited / base value');
+  await expect(review).toContainText('nightly_rate_mode');
+  await queueUuid(page, CALENDAR_CORRELATION_ID);
+  await review.locator('[data-calendar-review-confirm]').click();
+  await expect(review).toBeHidden();
+  const august10Cell = page.locator(`.hotel-calendar-grid [data-calendar-cell][data-date="2026-08-10"]`).first();
+  await expect(august10Cell).toContainText('Closed');
+  await expect(august10Cell).toContainText('2 rooms');
+  await expect(august10Cell).toContainText('Min 2');
+
+  const rangeAudit = await page.evaluate(() => {
+    const store = (window as any).__h2aE2eStore;
+    return {
+      overrides: store.calendar_overrides.map((row: any) => ({ stay_date: row.stay_date, nightly_rate: row.nightly_rate, reason: row.reason, source: row.source, expires_at: row.expires_at })),
+      inventory: store.daily_inventory.map((row: any) => ({ stay_date: row.stay_date, sellable_units: row.sellable_units, sellable_units_mode: row.sellable_units_mode, closed: row.closed, closed_mode: row.closed_mode })),
+      operations: store.calendar_apply_receipts[0].plan.operations,
+      planBounds: {
+        from: store.calendar_apply_receipts[0].plan.from,
+        to: store.calendar_apply_receipts[0].plan.to,
+        snapshot_token: store.calendar_apply_receipts[0].plan.snapshot_token,
+      },
+      legacyRules: store.property.pricing_tiers.rules.length,
+      architecture: store.property.architecture_version,
+      published: store.property.is_published,
+      flags: store.flags,
+    };
+  });
+  expect(rangeAudit.overrides).toHaveLength(2);
+  expect(rangeAudit.overrides.map((row: any) => row.stay_date)).toEqual(['2026-08-10', '2026-08-11']);
+  expect(rangeAudit.overrides.every((row: any) => row.nightly_rate === 150 && row.reason === 'August demand review' && row.source === 'manual')).toBe(true);
+  expect(rangeAudit.inventory).toEqual([
+    { stay_date: '2026-08-10', sellable_units: 2, sellable_units_mode: 'set', closed: true, closed_mode: 'set' },
+    { stay_date: '2026-08-11', sellable_units: 2, sellable_units_mode: 'set', closed: true, closed_mode: 'set' },
+  ]);
+  expect(rangeAudit.operations.filter((operation: any) => operation.entity === 'calendar_override')
+    .every((operation: any) => operation.type === 'create' && operation.expected_version === 0
+      && operation.payload.nightly_rate_mode === 'set' && operation.payload.minimum_stay_mode === 'set')).toBe(true);
+  expect(rangeAudit.operations.filter((operation: any) => operation.entity === 'daily_inventory')
+    .every((operation: any) => operation.type === 'upsert' && operation.expected_version === 0
+      && operation.payload.sellable_units_mode === 'set' && operation.payload.closed_mode === 'set')).toBe(true);
+  expect(rangeAudit.planBounds).toMatchObject({ from: '2026-08-01', to: '2026-08-31' });
+  expect(rangeAudit.planBounds.snapshot_token).toContain('"start_date":"2026-08-01"');
+  expect(rangeAudit).toMatchObject({ legacyRules: 63, architecture: 'legacy', published: true });
+  expect(Object.values(rangeAudit.flags).every((value) => value === false)).toBe(true);
+
+  // Reopen one exact day while preserving its reviewed inventory and minimum
+  // stay. This covers the independent Set open operation.
+  await page.locator('[data-calendar-clear-selection]').click();
+  await august10Cell.click();
+  await expect(page.locator('.hotel-calendar-selection')).toContainText('2026-08-10');
+  await page.locator('[data-calendar-edit-range]').click();
+  const openForm = page.locator('#hotelCalendarRangeForm');
+  await openForm.locator('[name="closed_mode"]').selectOption('false');
+  await openForm.locator('[name="reason"]').fill('Reopen exact day after review');
+  await page.locator('button[form="hotelCalendarRangeForm"]').click();
+  const openReview = page.locator('.hotel-workspace-modal--review');
+  await expect(openReview).toContainText('Reopen exact day after review');
+  await queueUuid(page, OPEN_CORRELATION_ID);
+  await openReview.locator('[data-calendar-review-confirm]').click();
+  await expect(openReview).toBeHidden();
+  await expect(august10Cell).toContainText('€150.00');
+  await expect(august10Cell).toContainText('2 rooms');
+  await expect(august10Cell).toContainText('Min 2');
+  await expect(august10Cell).not.toContainText('Closed');
+
+  // A checkout-day CTD restriction belongs to 11 August but must visibly
+  // block the authoritative one-night cell starting on 10 August.
+  await page.locator('[data-calendar-clear-selection]').click();
+  await page.locator(`.hotel-calendar-grid [data-calendar-cell][data-product-id="${ROOM_RATE_ID}"][data-date="2026-08-11"]`).click();
+  await page.locator('[data-calendar-edit-range]').click();
+  const departureForm = page.locator('#hotelCalendarRangeForm');
+  await departureForm.locator('[name="closed_to_departure_mode"]').selectOption('true');
+  await departureForm.locator('[name="reason"]').fill('Close departures on exact checkout date');
+  await page.locator('button[form="hotelCalendarRangeForm"]').click();
+  const departureReview = page.locator('.hotel-workspace-modal--review');
+  await queueUuid(page, DEPARTURE_CORRELATION_ID);
+  await departureReview.locator('[data-calendar-review-confirm]').click();
+  await expect(departureReview).toBeHidden();
+  await expect(august10Cell).toContainText('€150.00');
+  await expect(august10Cell).toContainText('Not requestable');
+  await expect(august10Cell).toContainText('Checkout 2026-08-11: closed to departure');
+  await expect(august10Cell).not.toContainText('Not resolved');
+
+  // One seasonal rule limited to explicit weekdays is created for the exact
+  // selected Room × Rate Plan product.
+  await page.locator('[data-add-calendar-rule]').click();
+  const ruleForm = page.locator('#hotelCalendarRuleForm');
+  await ruleForm.locator('[name="valid_from"]').fill('2026-08-15');
+  await ruleForm.locator('[name="valid_to"]').fill('2026-08-31');
+  await ruleForm.locator('[name="nightly_rate"]').fill('175');
+  await ruleForm.locator('[name="minimum_stay"]').fill('3');
+  await ruleForm.locator('[name="priority"]').fill('20');
+  for (const checkbox of await ruleForm.locator('[name="weekday"]').all()) await checkbox.uncheck();
+  await ruleForm.locator('[name="weekday"][value="1"]').check();
+  await ruleForm.locator('[name="weekday"][value="5"]').check();
+  await queueUuid(page, RATE_RULE_ID);
+  await page.locator('button[form="hotelCalendarRuleForm"]').click();
+  const ruleReview = page.locator('.hotel-workspace-modal--review');
+  await expect(ruleReview).toContainText('Review seasonal / weekday rule');
+  await queueUuid(page, RATE_RULE_CORRELATION_ID);
+  await ruleReview.locator('[data-calendar-review-confirm]').click();
+  await expect(ruleReview).toBeHidden();
+  await expect(page.locator('.hotel-calendar-rules')).toContainText('€175.00');
+  const storedRule = await page.evaluate(() => (window as any).__h2aE2eStore.rate_rules[0]);
+  expect(storedRule).toMatchObject({ id: RATE_RULE_ID, room_rate_id: ROOM_RATE_ID, valid_from: '2026-08-15', valid_to: '2026-08-31', weekdays: [1, 5], nightly_rate: 175, minimum_stay: 3, priority: 20 });
+
+  await page.locator('[data-add-occupancy-tier]').click();
+  const tierForm = page.locator('#hotelOccupancyTierForm');
+  await tierForm.locator('[name="guest_count"]').fill('2');
+  await tierForm.locator('[name="threshold_nights"]').fill('3');
+  await tierForm.locator('[name="nightly_rate"]').fill('105');
+  await queueUuid(page, OCCUPANCY_TIER_ID);
+  await page.locator('button[form="hotelOccupancyTierForm"]').click();
+  const tierReview = page.locator('.hotel-workspace-modal--review');
+  await expect(tierReview).toContainText('occupancy / stay tier');
+  await queueUuid(page, TIER_CORRELATION_ID);
+  await tierReview.locator('[data-calendar-review-confirm]').click();
+  await expect(tierReview).toBeHidden();
+  await expect(page.locator('.hotel-calendar-rules')).toContainText('2 guests · 3+ nights');
+
+  await page.locator('[data-preview-authoritative-rate]').click();
+  await page.locator('#hotelRatePreviewForm [name="check_in"]').fill('2026-08-10');
+  await page.locator('#hotelRatePreviewForm [name="check_out"]').fill('2026-08-13');
+  await page.locator('button[form="hotelRatePreviewForm"]').click();
+  await expect(page.locator('[data-rate-preview-result]')).toContainText('€360.00');
+  await page.locator('.hotel-workspace-modal [data-hotel-modal-close]').last().click();
+
+  // Every successful exact operation is returned in the Calendar snapshot and
+  // becomes visible in the shared property Activity panel.
+  await page.locator('[data-hotel-workspace-tab="activity"]').click();
+  const activityPanel = page.locator('#hotelWorkspaceActivePanel');
+  await expect(activityPanel).toContainText('calendar override create');
+  await expect(activityPanel).toContainText('calendar override update');
+  await expect(activityPanel).toContainText('daily inventory upsert');
+  await expect(activityPanel).toContainText('rate rule create');
+  await expect(activityPanel).toContainText('occupancy tier create');
+
+  // A changed snapshot rejects the complete reviewed multi-entity plan before
+  // either its rate or inventory operation can mutate persisted state.
+  await page.locator('[data-hotel-workspace-tab="calendar"]').click();
+  await expect(page.locator('.hotel-calendar-grid')).toBeVisible();
+  await page.locator('[data-calendar-edit-range]').click();
+  const staleForm = page.locator('#hotelCalendarRangeForm');
+  await staleForm.locator('[name="nightly_rate_mode"]').selectOption('set');
+  await staleForm.locator('[name="nightly_rate"]').fill('999');
+  await staleForm.locator('[name="sellable_units_mode"]').selectOption('set');
+  await staleForm.locator('[name="sellable_units"]').fill('1');
+  await staleForm.locator('[name="reason"]').fill('Must fail stale and atomically');
+  await page.locator('button[form="hotelCalendarRangeForm"]').click();
+  const staleCalendarReview = page.locator('.hotel-workspace-modal--review');
+  await expect(staleCalendarReview).toContainText('Must fail stale and atomically');
+  const beforeStale = await page.evaluate(() => {
+    const store = (window as any).__h2aE2eStore;
+    return {
+      overrides: JSON.stringify(store.calendar_overrides),
+      inventory: JSON.stringify(store.daily_inventory),
+      receiptCount: store.calendar_apply_receipts.length,
+      activityCount: store.activity.length,
+    };
+  });
+  await page.evaluate(() => { (window as any).__h2aE2eStore.room_rates[0].version += 1; });
+  await queueUuid(page, STALE_CALENDAR_CORRELATION_ID);
+  await staleCalendarReview.locator('[data-calendar-review-confirm]').click();
+  await expect(page.getByText('Save stopped: Calendar data changed after Review. Reload the exact range and review again.')).toBeVisible();
+  await expect(staleCalendarReview).toBeVisible();
+  const afterStale = await page.evaluate(() => {
+    const store = (window as any).__h2aE2eStore;
+    return {
+      overrides: JSON.stringify(store.calendar_overrides),
+      inventory: JSON.stringify(store.daily_inventory),
+      receiptCount: store.calendar_apply_receipts.length,
+      activityCount: store.activity.length,
+    };
+  });
+  expect(afterStale).toEqual(beforeStale);
+  await staleCalendarReview.getByRole('button', { name: 'Back', exact: true }).click();
+
+  // The configurable two-month window remains bounded by the SQL 62-day
+  // contract and navigation reloads one matching authoritative snapshot.
+  await page.locator('[data-calendar-view]').selectOption('two_months');
+  await expect(page.locator('[data-calendar-view]')).toHaveValue('two_months');
+  await expect(page.locator('.hotel-calendar-toolbar')).toContainText('August 2026 – September 2026');
+  await expect(page.locator(`.hotel-calendar-grid [data-calendar-cell][data-date="2026-09-30"]`)).toHaveCount(1);
+  const twoMonthQuery = await page.evaluate(() => {
+    const calls = (window as any).__supabaseStub.getRpcCalls().filter((call: any) => call.name === 'hotel_v2_admin_get_calendar');
+    return calls.at(-1)?.params;
+  });
+  expect(twoMonthQuery).toMatchObject({ p_hotel_id: HOTEL_ID, p_start_date: '2026-08-01', p_end_date: '2026-09-30' });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(() => { document.documentElement.dir = 'rtl'; });
+  await expect(page.locator('.hotel-calendar-grid-shell')).toBeHidden();
+  await expect(page.locator('.hotel-calendar-mobile')).toBeVisible();
+  await expect(page.locator('[data-calendar-mobile-product]')).toHaveValue(ROOM_RATE_ID);
+  await expect(page.locator(`.hotel-calendar-mobile [data-calendar-cell][data-date="2026-09-30"]`)).toBeVisible();
+  const mobileLayout = await page.evaluate(() => ({
+    direction: document.documentElement.dir,
+    documentWidth: document.documentElement.scrollWidth,
+    viewportWidth: window.innerWidth,
+  }));
+  expect(mobileLayout.direction).toBe('rtl');
+  expect(mobileLayout.documentWidth).toBeLessThanOrEqual(mobileLayout.viewportWidth + 1);
 });
