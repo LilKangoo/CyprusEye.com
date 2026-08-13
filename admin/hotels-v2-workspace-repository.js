@@ -50,6 +50,9 @@
     if (/shadow_room_identity_conflict/.test(key)) {
       return 'An expected 7 Arches Room Type is missing or its deterministic identity conflicts with another row. Refresh and inspect the exact Room Types before retrying.';
     }
+    if (/shadow_room_three_way_conflict/.test(key)) {
+      return 'A reviewed room value changed in two different ways. Current data must be refreshed so you can compare the original, current and requested values; nothing was saved.';
+    }
     if (/stale_shadow_room/.test(key)) {
       return 'This room was updated after this review was prepared. Current data must be refreshed and reviewed again; no partial save was kept.';
     }

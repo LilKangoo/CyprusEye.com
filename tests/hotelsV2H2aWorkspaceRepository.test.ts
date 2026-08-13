@@ -197,6 +197,10 @@ describe('Hotels V2 H2A Property Workspace repository', () => {
         code: 'PT409', message: 'hotels_v2_h2b1_stale_shadow_room',
         expected: 'Current data must be refreshed and reviewed again',
       },
+      {
+        code: 'PT409', message: 'hotels_v2_h2b1_shadow_room_three_way_conflict',
+        expected: 'compare the original, current and requested values',
+      },
     ];
     let calls = 0;
     const client = {

@@ -34,6 +34,7 @@ select
 
 \ir ../../supabase/migrations/20260811240000_hotels_v2_h2b1_children_shadow_rooms.sql
 \ir ../../supabase/migrations/20260811250000_hotels_v2_h2b1_shadow_policy_review_fix.sql
+\ir ../../supabase/migrations/20260811260000_hotels_v2_h2b1_shadow_three_way_merge.sql
 
 -- CHECK predicates must reject invalid NULL/UNKNOWN combinations, not merely
 -- return UNKNOWN (which PostgreSQL CHECK would otherwise accept).
@@ -137,6 +138,38 @@ returns jsonb language sql stable security definer set search_path=pg_catalog,pu
   ) from public.hotels hotel where hotel.id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'
 $function$;
 
+create function pg_temp.shadow_room_original(p_room_id uuid)
+returns jsonb language sql stable security definer set search_path=pg_catalog,public,pg_temp as $function$
+  select jsonb_build_object(
+    'hotel_id',room_type.hotel_id,
+    'source_key',room_type.legacy_source_key,
+    'code',room_type.code,
+    'name_i18n',room_type.name_i18n,
+    'description_i18n',room_type.description_i18n,
+    'gallery',room_type.gallery,
+    'amenities',to_jsonb(array(select amenity from unnest(room_type.amenities) amenity order by amenity)),
+    'max_occupancy',room_type.max_occupancy,
+    'capacity_adults',room_type.capacity_adults,
+    'capacity_children',room_type.capacity_children,
+    'inventory_mode',room_type.inventory_mode,
+    'base_inventory_count',room_type.base_inventory_count,
+    'sort_order',room_type.sort_order
+  )
+  from public.hotel_room_types room_type where room_type.id=p_room_id
+$function$;
+
+create function pg_temp.with_shadow_originals(p_plan jsonb)
+returns jsonb language sql stable security definer set search_path=pg_catalog,public,pg_temp as $function$
+  select jsonb_set(
+    jsonb_set(p_plan,'{rooms,0,expected_original}',coalesce(pg_temp.shadow_room_original(
+      'b4ef504f-cdeb-4e3c-a54d-932146ef4e94'
+    ),'null'::jsonb),true),
+    '{rooms,1,expected_original}',coalesce(pg_temp.shadow_room_original(
+      '825c01b7-9f82-492a-9c81-9b1d5cd7acd3'
+    ),'null'::jsonb),true
+  )
+$function$;
+
 -- Reproduce the deployed reviewed-policy state. The exact two-apartment
 -- Review is allowed to change 15 -> source-confirmed 10 only because it sends
 -- this freshly read value as expected_property_policy.
@@ -171,7 +204,8 @@ begin;
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000001","email":"admin@example.test","role":"authenticated"}',true);
 select public.hotel_v2_admin_prepare_legacy_shadow_rooms(
-  pg_temp.seven_arches_plan(),'71000000-0000-4000-8000-000000000001'
+  pg_temp.with_shadow_originals(pg_temp.seven_arches_plan()),
+  '71000000-0000-4000-8000-000000000001'
 );
 commit;
 
@@ -189,6 +223,10 @@ begin
         is distinct from array['air_conditioning','terrace','balcony']::text[]
      or (select amenities from public.hotel_room_types where id='825c01b7-9f82-492a-9c81-9b1d5cd7acd3')
         is distinct from array['air_conditioning','terrace']::text[]
+     or (select legacy_source_key from public.hotel_room_types where id='b4ef504f-cdeb-4e3c-a54d-932146ef4e94')
+        is distinct from 'upper_floor_apartment'
+     or (select legacy_source_key from public.hotel_room_types where id='825c01b7-9f82-492a-9c81-9b1d5cd7acd3')
+        is distinct from 'ground_floor_apartment'
      or (select photos from public.hotels where id='9b6d99a0-923a-4fbc-be54-c066e856e6ca')->>0<>'/images/7a-1.webp'
      or (select count(*) from public.hotel_pricing_schedule_occupancy_tiers where schedule_id='b0a3104f-7b31-5265-a59f-c2d166f11a23')<>27
      or (select count(*) from public.hotel_pricing_schedule_occupancy_tiers where schedule_id='443065c0-984a-5de3-a22a-d03042c41107')<>63
@@ -235,6 +273,157 @@ begin
   reset role;
 end
 $h2b1_first_save$;
+
+-- A historical deterministic row may predate legacy_source_key. NULL is not
+-- a competing identity: a fresh reviewed snapshot may populate only the
+-- exact deterministic source key.
+update public.hotel_room_types
+set legacy_source_key=null
+where id='b4ef504f-cdeb-4e3c-a54d-932146ef4e94';
+
+begin;
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"10000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+select public.hotel_v2_admin_prepare_legacy_shadow_rooms(
+  pg_temp.with_shadow_originals(pg_temp.seven_arches_plan()),
+  '71000000-0000-4000-8000-000000000030'
+);
+commit;
+
+do $h2b1_three_way_null_source_population$
+begin
+  if (select legacy_source_key from public.hotel_room_types
+      where id='b4ef504f-cdeb-4e3c-a54d-932146ef4e94')
+       is distinct from 'upper_floor_apartment' then
+    raise exception 'hotels_v2_h2b1_three_way_null_source_population_failed';
+  end if;
+end
+$h2b1_three_way_null_source_population$;
+
+-- Per reviewed field, a fresh target change is safe when CURRENT still equals
+-- ORIGINAL. A field already equal to TARGET is a safe no-op even when the old
+-- ORIGINAL differed. A third value is a real conflict and aborts atomically.
+update public.hotel_room_types
+set amenities=array['air_conditioning','terrace']::text[]
+where id='b4ef504f-cdeb-4e3c-a54d-932146ef4e94';
+
+begin;
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+select public.hotel_v2_admin_prepare_legacy_shadow_rooms(
+  pg_temp.with_shadow_originals(pg_temp.seven_arches_plan()),
+  '71000000-0000-4000-8000-000000000031'
+);
+commit;
+
+do $h2b1_three_way_current_original$
+begin
+  if (select amenities from public.hotel_room_types
+      where id='b4ef504f-cdeb-4e3c-a54d-932146ef4e94')
+       is distinct from array['air_conditioning','terrace','balcony']::text[] then
+    raise exception 'hotels_v2_h2b1_three_way_current_original_failed';
+  end if;
+end
+$h2b1_three_way_current_original$;
+
+do $h2b1_three_way_target_noop$
+declare v_plan jsonb;
+begin
+  v_plan:=pg_temp.with_shadow_originals(pg_temp.seven_arches_plan());
+  v_plan:=jsonb_set(v_plan,'{rooms,0,expected_original,amenities}',
+    '["air_conditioning","terrace"]'::jsonb,false);
+  set local role authenticated;
+  perform set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+  perform public.hotel_v2_admin_prepare_legacy_shadow_rooms(
+    v_plan,'71000000-0000-4000-8000-000000000032'
+  );
+  reset role;
+end
+$h2b1_three_way_target_noop$;
+
+do $h2b1_three_way_real_conflict$
+declare
+  v_plan jsonb;
+  v_failed boolean:=false;
+  v_message text;
+  v_activity_count integer;
+  v_ground_fingerprint text;
+begin
+  update public.hotel_room_types
+  set amenities=array['air_conditioning','terrace','private_pool']::text[]
+  where id='b4ef504f-cdeb-4e3c-a54d-932146ef4e94';
+  v_plan:=pg_temp.with_shadow_originals(pg_temp.seven_arches_plan());
+  v_plan:=jsonb_set(v_plan,'{rooms,0,expected_original,amenities}',
+    '["air_conditioning","terrace"]'::jsonb,false);
+  select count(*) into v_activity_count from public.hotel_activity_log;
+  select md5(to_jsonb(room_type)::text) into v_ground_fingerprint
+  from public.hotel_room_types room_type
+  where id='825c01b7-9f82-492a-9c81-9b1d5cd7acd3';
+  begin
+    set local role authenticated;
+    perform set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+    perform public.hotel_v2_admin_prepare_legacy_shadow_rooms(
+      v_plan,'71000000-0000-4000-8000-000000000033'
+    );
+  exception when sqlstate 'PT409' then
+    get stacked diagnostics v_message=message_text;
+    v_failed:=v_message='hotels_v2_h2b1_shadow_room_three_way_conflict';
+  end;
+  reset role;
+  if not v_failed
+     or (select count(*) from public.hotel_activity_log)<>v_activity_count
+     or (select amenities from public.hotel_room_types
+       where id='b4ef504f-cdeb-4e3c-a54d-932146ef4e94')
+          is distinct from array['air_conditioning','terrace','private_pool']::text[]
+     or (select md5(to_jsonb(room_type)::text) from public.hotel_room_types room_type
+       where id='825c01b7-9f82-492a-9c81-9b1d5cd7acd3') is distinct from v_ground_fingerprint then
+    raise exception 'hotels_v2_h2b1_three_way_real_conflict_atomic_abort_failed';
+  end if;
+  -- Restore the deterministic fixture after proving the RPC made no change.
+  update public.hotel_room_types
+  set amenities=array['air_conditioning','terrace','balcony']::text[]
+  where id='b4ef504f-cdeb-4e3c-a54d-932146ef4e94';
+end
+$h2b1_three_way_real_conflict$;
+
+-- Identity is never a mergeable business field. A forged ORIGINAL source or
+-- code fails validation even if another mutable field would otherwise satisfy
+-- the three-way rule.
+do $h2b1_three_way_identity_locked$
+declare
+  v_plan jsonb;
+  v_failed boolean:=false;
+  v_message text;
+  v_room_fingerprint text;
+  v_activity_count integer;
+begin
+  v_plan:=pg_temp.with_shadow_originals(pg_temp.seven_arches_plan());
+  v_plan:=jsonb_set(v_plan,'{rooms,0,expected_original,source_key}',
+    '"forged_source"'::jsonb,false);
+  select md5(to_jsonb(room_type)::text) into v_room_fingerprint
+  from public.hotel_room_types room_type
+  where id='b4ef504f-cdeb-4e3c-a54d-932146ef4e94';
+  select count(*) into v_activity_count from public.hotel_activity_log;
+  begin
+    set local role authenticated;
+    perform set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+    perform public.hotel_v2_admin_prepare_legacy_shadow_rooms(
+      v_plan,'71000000-0000-4000-8000-000000000034'
+    );
+  exception when sqlstate '22023' then
+    get stacked diagnostics v_message=message_text;
+    v_failed:=v_message='hotels_v2_h2b1_invalid_expected_original';
+  end;
+  reset role;
+  if not v_failed
+     or (select md5(to_jsonb(room_type)::text) from public.hotel_room_types room_type
+       where id='b4ef504f-cdeb-4e3c-a54d-932146ef4e94') is distinct from v_room_fingerprint
+     or (select count(*) from public.hotel_activity_log)<>v_activity_count then
+    raise exception 'hotels_v2_h2b1_three_way_identity_lock_failed';
+  end if;
+end
+$h2b1_three_way_identity_locked$;
 
 -- A reviewed plan cannot overwrite a property policy that differs from its
 -- exact snapshot, even when the property updated_at value is otherwise fresh.

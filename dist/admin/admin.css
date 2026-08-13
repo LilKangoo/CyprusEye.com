@@ -16180,6 +16180,14 @@ body.car-multicity-modal-open {
 .hotel-seven-arches-photos { min-width:0; }
 .hotel-seven-arches-photos .hotel-legacy-photo-picker__grid { max-height:390px; overflow:auto; overscroll-behavior:contain; }
 .hotel-seven-arches-photos label:has(input:checked) { border-color:#38bdf8; background:rgba(14,116,144,.18); }
+.hotel-seven-arches-conflict-list { display:grid; gap:12px; margin-top:14px; }
+.hotel-seven-arches-conflict { min-width:0; padding:13px; border:1px solid rgba(251,191,36,.35); border-radius:12px; background:rgba(120,53,15,.14); }
+.hotel-seven-arches-conflict > header { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; }
+.hotel-seven-arches-conflict > header span { color:#fde68a; font-size:12px; }
+.hotel-seven-arches-conflict > div { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.hotel-seven-arches-conflict section { min-width:0; padding:9px; border:1px solid var(--admin-border); border-radius:8px; background:rgba(2,6,23,.4); }
+.hotel-seven-arches-conflict small { color:var(--admin-text-muted); }
+.hotel-seven-arches-conflict pre { margin:6px 0 0; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; color:var(--admin-text); font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace; }
 
 @media (max-width:1100px) {
   .hotel-property-card__metrics { grid-template-columns:repeat(3,minmax(90px,1fr)); }
@@ -16231,6 +16239,7 @@ body.car-multicity-modal-open {
   .hotel-calendar-patch-field { grid-template-columns:1fr; }
   .hotel-calendar-patch-field > span { grid-column:auto; }
   .hotel-child-policy-options,.hotel-seven-arches-room-grid,.hotel-seven-arches-facts { grid-template-columns:1fr; }
+  .hotel-seven-arches-conflict > div { grid-template-columns:1fr; }
   .hotel-room-card__guest-policy { grid-template-columns:1fr; align-items:stretch; }
   .hotel-room-card__guest-policy .btn-secondary { width:100%; }
   .hotel-seven-arches-room { padding:11px; }

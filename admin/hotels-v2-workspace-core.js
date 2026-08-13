@@ -344,15 +344,60 @@
     };
   }
 
-  function sevenArchesShadowReconciliation(originalWorkspace, freshWorkspace) {
+  function sevenArchesExpectedOriginalRoom(room) {
+    if (!room) return null;
+    return {
+      hotel_id: room.hotel_id,
+      source_key: room.legacy_source_key,
+      code: room.code,
+      name_i18n: clone(room.name_i18n),
+      description_i18n: clone(room.description_i18n),
+      gallery: clone(room.gallery),
+      amenities: normalizeAmenities(room.amenities),
+      max_occupancy: room.max_occupancy,
+      capacity_adults: room.capacity_adults,
+      capacity_children: room.capacity_children,
+      inventory_mode: room.inventory_mode,
+      base_inventory_count: room.base_inventory_count,
+      sort_order: room.sort_order,
+    };
+  }
+
+  function sevenArchesShadowReconciliation(originalWorkspace, freshWorkspace, options = {}) {
     const original = normalizeWorkspace(originalWorkspace);
     const fresh = normalizeWorkspace(freshWorkspace);
     const preparation = sevenArchesShadowPreparation(fresh);
     const blockers = preparation.eligible ? [] : [preparation.blocker || 'The two-apartment preparation is no longer eligible.'];
     const changes = [];
+    const conflicts = [];
+    const safeRebases = [];
+    const normalizedOptions = Array.isArray(options) ? { roomReviews: options } : asObject(options);
+    const roomReviews = asArray(normalizedOptions.roomReviews || normalizedOptions.room_reviews);
     const same = (left, right) => JSON.stringify(left) === JSON.stringify(right);
     const addChange = (scope, field, before, after) => {
       if (!same(before, after)) changes.push({ scope, field, before: clone(before), after: clone(after) });
+    };
+    const classify = ({ scope, entityId, field, label, originalValue, currentValue, targetValue }) => {
+      const detail = {
+        scope,
+        entity_id: entityId || null,
+        field,
+        label,
+        original: clone(originalValue),
+        current: clone(currentValue),
+        target: clone(targetValue),
+      };
+      if (same(currentValue, targetValue)) {
+        if (!same(originalValue, currentValue)) {
+          safeRebases.push({ ...detail, reason: 'current_equals_target' });
+        }
+        return;
+      }
+      if (same(currentValue, originalValue)) {
+        safeRebases.push({ ...detail, reason: 'current_equals_original' });
+        return;
+      }
+      conflicts.push(detail);
     };
     const propertyBusinessValues = (workspaceValue) => ({
       architecture_version: workspaceValue.property.architecture_version,
@@ -365,6 +410,34 @@
     const freshProperty = propertyBusinessValues(fresh);
     Object.keys(originalProperty).forEach((field) => {
       addChange('Property', field, originalProperty[field], freshProperty[field]);
+    });
+
+    classify({
+      scope: 'Property',
+      entityId: SEVEN_ARCHES_PROPERTY_ID,
+      field: 'children_policy',
+      label: 'Children policy',
+      originalValue: originalProperty.children_policy,
+      currentValue: freshProperty.children_policy,
+      targetValue: 'minimum_age',
+    });
+    classify({
+      scope: 'Property',
+      entityId: SEVEN_ARCHES_PROPERTY_ID,
+      field: 'minimum_child_age',
+      label: 'Minimum child age',
+      originalValue: originalProperty.minimum_child_age,
+      currentValue: freshProperty.minimum_child_age,
+      targetValue: 10,
+    });
+    classify({
+      scope: 'Property',
+      entityId: SEVEN_ARCHES_PROPERTY_ID,
+      field: 'legacy_pricing_fingerprint',
+      label: 'Legacy pricing fingerprint',
+      originalValue: originalProperty.legacy_pricing_fingerprint,
+      currentValue: freshProperty.legacy_pricing_fingerprint,
+      targetValue: originalProperty.legacy_pricing_fingerprint,
     });
 
     const roomBusinessValues = (room) => room ? {
@@ -398,26 +471,94 @@
         ]);
         fields.forEach((field) => addChange(label, field, originalBusiness?.[field], freshBusiness?.[field]));
       }
-      if (!freshRoom) return;
-
-      const expectedAmenities = [...definition.amenities].sort();
-      const structuralMismatches = [];
-      if (freshRoom.hotel_id !== SEVEN_ARCHES_PROPERTY_ID) structuralMismatches.push('property identity');
-      if (freshRoom.legacy_source_key != null && freshRoom.legacy_source_key !== definition.source_key) structuralMismatches.push('source identity');
-      if (freshRoom.code !== definition.code) structuralMismatches.push('room code');
-      if (freshRoom.max_occupancy !== 4 || freshRoom.capacity_adults != null || freshRoom.capacity_children != null) structuralMismatches.push('capacity contract');
-      if (freshRoom.inventory_mode !== 'pooled' || freshRoom.base_inventory_count !== 1) structuralMismatches.push('inventory contract');
-      if (!same([...freshRoom.amenities].sort(), expectedAmenities)) structuralMismatches.push('confirmed amenities');
-      if (structuralMismatches.length) {
-        blockers.push(`${label} changed in fields this reviewed preparation cannot safely replace: ${structuralMismatches.join(', ')}.`);
+      if (!freshRoom) {
+        if (originalRoom) {
+          conflicts.push({
+            scope: label,
+            entity_id: definition.id,
+            field: 'room_type',
+            label: 'Room Type existence',
+            original: sevenArchesExpectedOriginalRoom(originalRoom),
+            current: null,
+            target: { id: definition.id, source_key: definition.source_key, code: definition.code },
+          });
+        }
+        return;
       }
+
+      const identityFields = [
+        ['hotel_id', 'Property identity', SEVEN_ARCHES_PROPERTY_ID],
+        ['legacy_source_key', 'Source identity', definition.source_key],
+        ['code', 'Room code', definition.code],
+      ];
+      identityFields.forEach(([field, fieldLabel, targetValue]) => {
+        // The original H2B.1 RPC deliberately accepts an unset legacy source
+        // key for an already-known deterministic Room Type ID. A conflicting
+        // non-null key remains an identity failure and is never three-way
+        // merged into another source relationship.
+        if (field === 'legacy_source_key' && freshRoom[field] == null) return;
+        if (same(freshRoom[field], targetValue)) return;
+        conflicts.push({
+          scope: label,
+          entity_id: definition.id,
+          field,
+          label: fieldLabel,
+          original: clone(originalRoom?.[field]),
+          current: clone(freshRoom[field]),
+          target: clone(targetValue),
+          identity_conflict: true,
+        });
+      });
+
+      const review = roomReviews.find((entry) => normalizeUuid(entry?.id) === definition.id);
+      const targetRoom = {
+        name_i18n: normalizeI18n(review?.name_i18n || freshRoom.name_i18n || definition.name_i18n),
+        description_i18n: normalizeI18n(definition.description_i18n),
+        gallery: normalizeGallery(review?.gallery == null ? freshRoom.gallery : review.gallery),
+        amenities: normalizeAmenities(definition.amenities),
+        max_occupancy: 4,
+        capacity_adults: null,
+        capacity_children: null,
+        inventory_mode: 'pooled',
+        base_inventory_count: 1,
+        sort_order: definition.sort_order,
+      };
+      const mergeFields = [
+        ['name_i18n', 'Room name'],
+        ['description_i18n', 'Room description'],
+        ['gallery', 'Room gallery'],
+        ['amenities', 'confirmed amenities'],
+        ['max_occupancy', 'Capacity contract (maximum occupancy)'],
+        ['capacity_adults', 'Capacity contract (adults)'],
+        ['capacity_children', 'Capacity contract (children)'],
+        ['inventory_mode', 'Inventory mode'],
+        ['base_inventory_count', 'Inventory count'],
+        ['sort_order', 'Display order'],
+      ];
+      mergeFields.forEach(([field, fieldLabel]) => {
+        classify({
+          scope: label,
+          entityId: definition.id,
+          field,
+          label: fieldLabel,
+          originalValue: originalRoom?.[field],
+          currentValue: freshRoom[field],
+          targetValue: targetRoom[field],
+        });
+      });
+    });
+
+    conflicts.forEach((conflict) => {
+      blockers.push(`${conflict.scope} has a reviewed ${conflict.label.toLowerCase()} conflict: current and requested values both differ from the original review.`);
     });
 
     return {
-      eligible: preparation.eligible && blockers.length === 0,
+      eligible: preparation.eligible && blockers.length === 0 && conflicts.length === 0,
       blocker: blockers[0] || null,
       blockers,
       changes,
+      conflicts,
+      safe_rebases: safeRebases,
     };
   }
 
@@ -444,6 +585,7 @@
       return {
         id: room.id,
         expected_version: existing ? existing.version : 0,
+        ...(existing ? { expected_original: sevenArchesExpectedOriginalRoom(existing) } : {}),
         source_key: SEVEN_ARCHES_ROOM_DEFINITIONS.find((definition) => definition.id === room.id).source_key,
         code: room.code,
         name_i18n: name,

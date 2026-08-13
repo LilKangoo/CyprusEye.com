@@ -326,6 +326,7 @@ describe('Hotels H2B.1 children policy and 7 Arches shadow preparation', () => {
       prepare_pricing_preview: true,
     });
     expect(plan.rooms.map((room: any) => [room.id, room.expected_version])).toEqual([[UPPER_ID, 0], [GROUND_ID, 0]]);
+    expect(plan.rooms.every((room: any) => !Object.prototype.hasOwnProperty.call(room, 'expected_original'))).toBe(true);
     expect(workspace.property.photos).toHaveLength(9);
 
     const reviewedAgeWorkspace = sevenArches({
@@ -384,6 +385,24 @@ describe('Hotels H2B.1 children policy and 7 Arches shadow preparation', () => {
       id: room.id, name_i18n: room.name_i18n, gallery: room.gallery,
     })));
     expect(repeatedPlan.rooms.map((room: any) => [room.id, room.expected_version])).toEqual([[UPPER_ID, 4], [GROUND_ID, 5]]);
+    expect(repeatedPlan.rooms.map((room: any) => room.expected_original)).toEqual([
+      expect.objectContaining({
+        hotel_id: HOTEL_ID,
+        code: 'upper-floor-apartment',
+        amenities: ['air_conditioning', 'balcony', 'terrace'],
+        max_occupancy: 4,
+        inventory_mode: 'pooled',
+        base_inventory_count: 1,
+      }),
+      expect.objectContaining({
+        hotel_id: HOTEL_ID,
+        code: 'ground-floor-apartment',
+        amenities: ['air_conditioning', 'terrace'],
+        max_occupancy: 4,
+        inventory_mode: 'pooled',
+        base_inventory_count: 1,
+      }),
+    ]);
     expect(repeatedPlan.expected_versions).toEqual({
       upper_room: 4, ground_room: 5, pricing_schedule: 6, property_party_preview: 7,
       rate_plan: 8, upper_room_rate: 9, ground_room_rate: 10,
@@ -481,7 +500,173 @@ describe('Hotels H2B.1 children policy and 7 Arches shadow preparation', () => {
     });
     const blocked = Core.sevenArchesShadowReconciliation(loaded, structuralDrift);
     expect(blocked.eligible).toBe(false);
-    expect(blocked.blockers.join(' ')).toContain('capacity contract');
+    expect(blocked.blockers.join(' ')).toContain('capacity contract (adults) conflict');
+    expect(blocked.blockers.join(' ')).toContain('capacity contract (children) conflict');
+  });
+
+  test('rebases an old amenities snapshot when the fresh room already equals the reviewed target', () => {
+    const source = sevenArches();
+    const preparation = Core.sevenArchesShadowPreparation(source);
+    const originalRooms = preparation.rooms.map((room: any, index: number) => ({
+      ...room,
+      // Reproduce the stale browser snapshot which predates the confirmed
+      // balcony assignment. The exact reviewed target remains the immutable
+      // source-backed two-apartment contract.
+      amenities: index === 0
+        ? ['air_conditioning', 'terrace']
+        : ['air_conditioning'],
+      legacy_source_key: index === 0 ? 'upper_floor_apartment' : 'ground_floor_apartment',
+      created_at: '2026-08-11T09:00:00.000Z',
+      updated_at: '2026-08-11T09:00:00.000Z',
+      version: 4 + index,
+    }));
+    const freshRooms = preparation.rooms.map((room: any, index: number) => ({
+      ...room,
+      amenities: index === 0
+        ? ['terrace', 'air_conditioning', 'balcony']
+        : ['terrace', 'air_conditioning'],
+      legacy_source_key: index === 0 ? 'upper_floor_apartment' : 'ground_floor_apartment',
+      created_at: '2026-08-11T09:00:00.000Z',
+      updated_at: '2026-08-11T09:05:00.000Z',
+      version: 5 + index,
+    }));
+
+    const reconciliation = Core.sevenArchesShadowReconciliation(
+      sevenArches({ room_types: originalRooms }),
+      sevenArches({ room_types: freshRooms }),
+    );
+
+    expect(reconciliation.eligible).toBe(true);
+    expect(reconciliation.blockers).toEqual([]);
+    expect(reconciliation.changes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        scope: 'Upper Floor Apartment',
+        field: 'amenities',
+        before: ['air_conditioning', 'terrace'],
+        after: ['air_conditioning', 'balcony', 'terrace'],
+      }),
+      expect.objectContaining({
+        scope: 'Ground Floor Apartment',
+        field: 'amenities',
+        before: ['air_conditioning'],
+        after: ['air_conditioning', 'terrace'],
+      }),
+    ]));
+    expect(reconciliation.conflicts).toEqual([]);
+    expect(reconciliation.safe_rebases).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        entity_id: UPPER_ID,
+        field: 'amenities',
+        current: ['air_conditioning', 'balcony', 'terrace'],
+        target: ['air_conditioning', 'balcony', 'terrace'],
+        reason: 'current_equals_target',
+      }),
+      expect.objectContaining({
+        entity_id: GROUND_ID,
+        field: 'amenities',
+        current: ['air_conditioning', 'terrace'],
+        target: ['air_conditioning', 'terrace'],
+        reason: 'current_equals_target',
+      }),
+    ]));
+  });
+
+  test('allows CURRENT equal to ORIGINAL amenities and carries the exact original into the reviewed plan', () => {
+    const source = sevenArches();
+    const preparation = Core.sevenArchesShadowPreparation(source);
+    const unchangedRooms = preparation.rooms.map((room: any, index: number) => ({
+      ...room,
+      amenities: index === 0
+        ? ['air_conditioning', 'terrace']
+        : ['air_conditioning'],
+      legacy_source_key: index === 0 ? 'upper_floor_apartment' : 'ground_floor_apartment',
+      created_at: '2026-08-11T09:00:00.000Z',
+      version: 4 + index,
+    }));
+    const unchanged = sevenArches({ room_types: unchangedRooms });
+    const reviews = preparation.rooms.map((room: any, index: number) => ({
+      id: room.id,
+      name_i18n: room.name_i18n,
+      gallery: [preparation.property_gallery[index]],
+    }));
+
+    const reconciliation = Core.sevenArchesShadowReconciliation(unchanged, unchanged, { roomReviews: reviews });
+    expect(reconciliation.eligible).toBe(true);
+    expect(reconciliation.conflicts).toEqual([]);
+    expect(reconciliation.safe_rebases).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        entity_id: UPPER_ID,
+        field: 'amenities',
+        original: ['air_conditioning', 'terrace'],
+        current: ['air_conditioning', 'terrace'],
+        target: ['air_conditioning', 'balcony', 'terrace'],
+        reason: 'current_equals_original',
+      }),
+      expect.objectContaining({
+        entity_id: GROUND_ID,
+        field: 'amenities',
+        original: ['air_conditioning'],
+        current: ['air_conditioning'],
+        target: ['air_conditioning', 'terrace'],
+        reason: 'current_equals_original',
+      }),
+    ]));
+
+    const plan = Core.buildSevenArchesShadowPlan(unchanged, reviews);
+    expect(plan.rooms.map((room: any) => room.expected_original?.amenities)).toEqual([
+      ['air_conditioning', 'terrace'],
+      ['air_conditioning'],
+    ]);
+    expect(plan.rooms.map((room: any) => room.amenities)).toEqual([
+      ['air_conditioning', 'balcony', 'terrace'],
+      ['air_conditioning', 'terrace'],
+    ]);
+  });
+
+  test('fails closed on a genuine third-value amenities conflict and reports the divergent field', () => {
+    const source = sevenArches();
+    const preparation = Core.sevenArchesShadowPreparation(source);
+    const originalRooms = preparation.rooms.map((room: any, index: number) => ({
+      ...room,
+      amenities: index === 0
+        ? ['air_conditioning', 'terrace']
+        : ['air_conditioning', 'terrace'],
+      legacy_source_key: index === 0 ? 'upper_floor_apartment' : 'ground_floor_apartment',
+      created_at: '2026-08-11T09:00:00.000Z',
+      version: 4 + index,
+    }));
+    const freshRooms = originalRooms.map((room: any, index: number) => index === 0
+      ? {
+        ...room,
+        amenities: ['air_conditioning', 'private_pool', 'terrace'],
+        version: room.version + 1,
+      }
+      : room);
+
+    const reconciliation = Core.sevenArchesShadowReconciliation(
+      sevenArches({ room_types: originalRooms }),
+      sevenArches({ room_types: freshRooms }),
+    );
+
+    expect(reconciliation.eligible).toBe(false);
+    expect(reconciliation.blockers.join(' ')).toContain('confirmed amenities');
+    expect(reconciliation.changes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        scope: 'Upper Floor Apartment',
+        field: 'amenities',
+        before: ['air_conditioning', 'terrace'],
+        after: ['air_conditioning', 'private_pool', 'terrace'],
+      }),
+    ]));
+    expect(reconciliation.conflicts).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        entity_id: UPPER_ID,
+        field: 'amenities',
+        original: ['air_conditioning', 'terrace'],
+        current: ['air_conditioning', 'private_pool', 'terrace'],
+        target: ['air_conditioning', 'balcony', 'terrace'],
+      }),
+    ]));
   });
 
   test('reports property-gallery changes while accepting a null legacy source key exactly as the RPC does', () => {

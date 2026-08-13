@@ -117,4 +117,8 @@ where id in (
 );
 commit;
 
+-- Apply the reviewed structural three-way contract after reconstructing the
+-- deployed v4/v5 state. This migration changes only the RPC definition.
+\ir ../../supabase/migrations/20260811260000_hotels_v2_h2b1_shadow_three_way_merge.sql
+
 notify pgrst, 'reload schema';

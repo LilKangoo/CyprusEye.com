@@ -1,4 +1,4 @@
--- Special Offer entry submit ambiguity hotfix verify.
+ -- Special Offer entry submit ambiguity hotfix verify.
 -- Read-only. Returns a vertical table: check_name, pass, details.
 
 with fn as (

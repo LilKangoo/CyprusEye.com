@@ -58,6 +58,25 @@ function version(rows, id) {
   return Number(rows.find((row) => row.id === id)?.version || 0);
 }
 
+function roomOriginal(room) {
+  if (!room) return null;
+  return {
+    hotel_id: room.hotel_id,
+    source_key: room.legacy_source_key ?? null,
+    code: room.code,
+    name_i18n: room.name_i18n,
+    description_i18n: room.description_i18n,
+    gallery: room.gallery,
+    amenities: [...room.amenities].sort(),
+    max_occupancy: room.max_occupancy,
+    capacity_adults: room.capacity_adults,
+    capacity_children: room.capacity_children,
+    inventory_mode: room.inventory_mode,
+    base_inventory_count: room.base_inventory_count,
+    sort_order: room.sort_order,
+  };
+}
+
 async function workspace() {
   const result = await rpc('hotel_v2_admin_get_property_workspace', { p_hotel_id: HOTEL });
   assert.equal(result.status, 200, JSON.stringify(result.payload));
@@ -95,6 +114,7 @@ function reviewedPlan(state, { galleries = null, staleUpper = false } = {}) {
     rooms: [{
       id: UPPER,
       expected_version: staleUpper ? upperVersion + 1 : upperVersion,
+      expected_original: roomOriginal(state.room_types.find((room) => room.id === UPPER)),
       source_key: 'upper_floor_apartment',
       code: 'upper-floor-apartment',
       name_i18n: {
@@ -109,6 +129,7 @@ function reviewedPlan(state, { galleries = null, staleUpper = false } = {}) {
     }, {
       id: GROUND,
       expected_version: groundVersion,
+      expected_original: roomOriginal(state.room_types.find((room) => room.id === GROUND)),
       source_key: 'ground_floor_apartment',
       code: 'ground-floor-apartment',
       name_i18n: {

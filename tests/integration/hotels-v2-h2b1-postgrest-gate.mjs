@@ -79,6 +79,25 @@ function entityVersion(rows, id) {
   return Number(rows.find((row) => row.id === id)?.version || 0);
 }
 
+function roomOriginal(room) {
+  if (!room) return null;
+  return {
+    hotel_id: room.hotel_id,
+    source_key: room.legacy_source_key ?? null,
+    code: room.code,
+    name_i18n: room.name_i18n,
+    description_i18n: room.description_i18n,
+    gallery: room.gallery,
+    amenities: [...room.amenities].sort(),
+    max_occupancy: room.max_occupancy,
+    capacity_adults: room.capacity_adults,
+    capacity_children: room.capacity_children,
+    inventory_mode: room.inventory_mode,
+    base_inventory_count: room.base_inventory_count,
+    sort_order: room.sort_order,
+  };
+}
+
 function shadowPlan(workspace) {
   return {
     hotel_id: HOTEL,
@@ -104,6 +123,7 @@ function shadowPlan(workspace) {
     rooms: [{
       id: UPPER_ROOM,
       expected_version: entityVersion(workspace.room_types, UPPER_ROOM),
+      expected_original: roomOriginal(workspace.room_types.find((room) => room.id === UPPER_ROOM)),
       source_key: 'upper_floor_apartment',
       code: 'upper-floor-apartment',
       name_i18n: {
@@ -119,6 +139,7 @@ function shadowPlan(workspace) {
     }, {
       id: GROUND_ROOM,
       expected_version: entityVersion(workspace.room_types, GROUND_ROOM),
+      expected_original: roomOriginal(workspace.room_types.find((room) => room.id === GROUND_ROOM)),
       source_key: 'ground_floor_apartment',
       code: 'ground-floor-apartment',
       name_i18n: {

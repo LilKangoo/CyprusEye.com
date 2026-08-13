@@ -1143,10 +1143,12 @@
               setModalSaving(overlay, false);
               closeModal({ restoreFocus: false, skipCleanup: true, force: true });
               renderWorkspace();
-              if (failure.reopenSevenArchesPreparation) {
+              if (failure.openSevenArchesConflictReview) {
+                openSevenArchesConflictReview(failure.openSevenArchesConflictReview);
+              } else if (failure.reopenSevenArchesPreparation) {
                 openSevenArchesPreparation(failure.reopenSevenArchesPreparation);
               }
-              toast(failure.userMessage || failure.message, 'error');
+              toast(failure.userMessage || failure.message, failure.openSevenArchesConflictReview ? 'warning' : 'error');
               return;
             }
             setModalSaving(overlay, false);
@@ -1331,25 +1333,75 @@
     return { reviews, removedPhotoCount };
   }
 
+  function sevenArchesConflictValue(value) {
+    if (value == null) return 'Not specified';
+    if (Array.isArray(value)) return value.length ? value.join(', ') : 'None';
+    if (typeof value === 'object') return JSON.stringify(value, null, 2);
+    return String(value);
+  }
+
+  function openSevenArchesConflictReview({ workspace, roomReviews, reconciliation }) {
+    const conflicts = Core.asArray(reconciliation?.conflicts);
+    const immutableConflict = conflicts.some((conflict) => (
+      conflict?.identity_conflict === true
+      || conflict?.field === 'legacy_pricing_fingerprint'
+      || conflict?.field === 'room_type'
+    ));
+    const conflictRows = conflicts.map((conflict) => `<article class="hotel-seven-arches-conflict">
+      <header><strong>${escapeHtml(conflict.scope || '7 Arches')}</strong><span>${escapeHtml(conflict.label || conflict.field || 'Reviewed field')}</span></header>
+      <div><section><small>Originally reviewed</small><pre>${escapeHtml(sevenArchesConflictValue(conflict.original))}</pre></section><section><small>Current</small><pre>${escapeHtml(sevenArchesConflictValue(conflict.current))}</pre></section><section><small>Requested</small><pre>${escapeHtml(sevenArchesConflictValue(conflict.target))}</pre></section></div>
+    </article>`).join('');
+    const returnToPreparation = (notice) => {
+      closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+      state.workspace = workspace;
+      openSevenArchesPreparation({ draftReviews: roomReviews, notice });
+    };
+
+    openModal({
+      title: 'Review changed 7 Arches values',
+      className: 'hotel-workspace-modal--wide hotel-workspace-modal--review',
+      body: `<section>
+        <div class="hotel-review-summary"><p>This configuration changed after the apartment preparation was opened. No database change has been submitted.</p></div>
+        <p class="hotel-workspace-safety-note">Compare the original, current and requested values. Keeping the current value leaves this shadow package unsaved. Using the reviewed value creates a new Review with the fresh exact versions; it never submits automatically.</p>
+        <div class="hotel-seven-arches-conflict-list">${conflictRows}</div>
+        ${immutableConflict ? '<p class="hotel-workspace-card hotel-property-empty--error">An identity, existence or legacy-pricing conflict cannot be replaced by this preparation. Keep the current value or cancel and investigate it separately.</p>' : ''}
+      </section>`,
+      footer: `<button class="btn-secondary" type="button" data-seven-arches-conflict-cancel>Cancel</button><button class="btn-secondary" type="button" data-seven-arches-keep-current>Keep current</button>${immutableConflict ? '' : '<button class="btn-primary" type="button" data-seven-arches-use-reviewed>Use reviewed value</button>'}`,
+      onReady(overlay) {
+        overlay.setAttribute('data-seven-arches-conflict-review', '');
+        overlay.querySelector('[data-seven-arches-conflict-cancel]')?.addEventListener('click', () => {
+          returnToPreparation('Conflict review cancelled. Your selected room photos were preserved; nothing was saved.');
+        });
+        overlay.querySelector('[data-seven-arches-keep-current]')?.addEventListener('click', () => {
+          returnToPreparation('Current structural values were kept. Your selected room photos were preserved, but the canonical two-apartment shadow package remains unsaved.');
+        });
+        overlay.querySelector('[data-seven-arches-use-reviewed]')?.addEventListener('click', async (event) => {
+          const button = event.currentTarget;
+          button.disabled = true;
+          button.textContent = 'Preparing fresh Review…';
+          try {
+            // Explicit resolution only: the current snapshot becomes the
+            // reviewed original. Saving still uses exact versions and the
+            // expected_original snapshot; this action never submits itself.
+            const review = sevenArchesReviewConfiguration(workspace, roomReviews, {
+              originalWorkspace: workspace,
+              afterStaleConflict: true,
+            });
+            closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+            await openReview(review);
+          } catch (error) {
+            button.disabled = false;
+            button.textContent = 'Use reviewed value';
+            toast(error?.userMessage || error?.message || 'The fresh conflict Review could not be prepared.', 'error');
+          }
+        });
+      },
+    });
+  }
+
   function sevenArchesReviewConfiguration(workspace, roomReviews, options = {}) {
     const preparation = Core.sevenArchesShadowPreparation(workspace);
     const retained = retainedSevenArchesRoomReviews(roomReviews, workspace);
-    const reconciliation = Core.sevenArchesShadowReconciliation(options.originalWorkspace || workspace, workspace);
-    if (!reconciliation.eligible) {
-      const error = new Error(reconciliation.blockers.join(' '));
-      error.userMessage = preparation.eligible
-        ? `Fresh workspace values cannot be safely applied: ${reconciliation.blockers.join(' ')} Your room names and valid photo selections remain available for review, but this package cannot be saved until the structural conflict is resolved.`
-        : `Fresh workspace values cannot be safely applied: ${reconciliation.blockers.join(' ')} The old review was closed because this property is no longer eligible for the two-apartment preparation.`;
-      error.closeReviewAfterStale = true;
-      if (preparation.eligible) {
-        error.reopenSevenArchesPreparation = {
-          draftReviews: retained.reviews,
-          notice: error.userMessage,
-          blocked: true,
-        };
-      }
-      throw error;
-    }
     if (retained.removedPhotoCount) {
       const error = new Error('The property gallery changed while this preparation was open.');
       error.userMessage = `${retained.removedPhotoCount} selected room photo reference${retained.removedPhotoCount === 1 ? ' is' : 's are'} no longer present in the property gallery. Remaining selections were preserved; review the current gallery and select replacements before continuing.`;
@@ -1360,27 +1412,55 @@
       };
       throw error;
     }
+    const reconciliation = Core.sevenArchesShadowReconciliation(options.originalWorkspace || workspace, workspace, {
+      roomReviews: retained.reviews,
+    });
+    if (!reconciliation.eligible) {
+      const error = new Error(reconciliation.blockers.join(' '));
+      error.userMessage = preparation.eligible && reconciliation.conflicts?.length
+        ? 'This preparation has a real concurrent value conflict. Compare the current and requested values before deciding; nothing was saved.'
+        : `Fresh workspace values cannot be safely applied: ${reconciliation.blockers.join(' ')} The old review was closed because this property is no longer eligible for the two-apartment preparation.`;
+      error.closeReviewAfterStale = true;
+      if (preparation.eligible && reconciliation.conflicts?.length) {
+        error.openSevenArchesConflictReview = {
+          workspace,
+          roomReviews: retained.reviews,
+          reconciliation,
+        };
+      } else if (preparation.eligible) {
+        error.reopenSevenArchesPreparation = {
+          draftReviews: retained.reviews,
+          notice: error.userMessage,
+        };
+      }
+      throw error;
+    }
     const reviewedBusinessValues = Core.clone(retained.reviews);
     const plan = Core.buildSevenArchesShadowPlan(workspace, reviewedBusinessValues);
+    const normalizedWorkspace = Core.normalizeWorkspace(workspace);
     const before = {
       id: preparation.hotel_id,
       architecture_version: workspace.property.architecture_version,
       property_children_policy: workspace.property.children_policy,
       property_minimum_child_age: workspace.property.minimum_child_age,
-      room_types: preparation.rooms.map((room) => ({
-        id: room.id,
-        version: room.created_at ? room.version : 0,
-        code: room.code,
-        name_i18n: room.name_i18n,
-        gallery: room.gallery,
-        status: room.status,
-        max_occupancy: room.max_occupancy,
-        capacity_adults: room.capacity_adults,
-        capacity_children: room.capacity_children,
-        inventory_mode: room.inventory_mode,
-        base_inventory_count: room.base_inventory_count,
-        amenities: room.amenities,
-      })),
+      room_types: preparation.rooms.map((preparedRoom) => {
+        const room = normalizedWorkspace.room_types.find((candidate) => candidate.id === preparedRoom.id);
+        if (!room) return { id: preparedRoom.id, status: 'Not created' };
+        return {
+          id: room.id,
+          version: room.version,
+          code: room.code,
+          name_i18n: room.name_i18n,
+          gallery: room.gallery,
+          status: room.status,
+          max_occupancy: room.max_occupancy,
+          capacity_adults: room.capacity_adults,
+          capacity_children: room.capacity_children,
+          inventory_mode: room.inventory_mode,
+          base_inventory_count: room.base_inventory_count,
+          amenities: room.amenities,
+        };
+      }),
       pricing: 'Legacy 63-rule matrix remains authoritative',
       ...(reconciliation.changes.length
         ? { business_values_changed_since_preparation: 'None in the original preparation snapshot' }
@@ -1405,6 +1485,9 @@
       public_change: false,
       ...(reconciliation.changes.length
         ? { business_values_changed_since_preparation: reconciliation.changes }
+        : {}),
+      ...(reconciliation.safe_rebases?.length
+        ? { safe_three_way_rebases: reconciliation.safe_rebases }
         : {}),
     };
     const isConflictReview = options.afterStaleConflict === true;
@@ -1492,7 +1575,7 @@
           <small>No public price, legacy pricing JSON, booking, deposit or coupon is changed.</small>
         </section>
       </form>`,
-      footer: `<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelSevenArchesPreparationForm" ${options.blocked ? 'disabled title="Resolve the refreshed structural conflict before reviewing this package"' : ''}>Review 2 apartments</button>`,
+      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelSevenArchesPreparationForm">Review 2 apartments</button>',
       onReady(overlay) {
         const form = overlay.querySelector('#hotelSevenArchesPreparationForm');
         form.addEventListener('submit', async (event) => {
@@ -1520,6 +1603,12 @@
             await openReview(review);
           } catch (error) {
             setModalSaving(overlay, false);
+            if (error?.openSevenArchesConflictReview) {
+              closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+              openSevenArchesConflictReview(error.openSevenArchesConflictReview);
+              toast(error.userMessage || error.message, 'warning');
+              return;
+            }
             if (error?.reopenSevenArchesPreparation) {
               closeModal({ restoreFocus: false, skipCleanup: true, force: true });
               openSevenArchesPreparation(error.reopenSevenArchesPreparation);

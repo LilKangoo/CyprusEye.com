@@ -66,6 +66,15 @@ describe('Hotels H2B.1 Admin UX static safety', () => {
     expect(ui).not.toContain('Repository.prepareLegacyShadowRooms(plan).catch');
   });
 
+  test('uses an explicit three-way amenities review and never leaves a dead Review button', () => {
+    expect(core).toContain('current_equals_target');
+    expect(core).toContain('current_equals_original');
+    expect(ui).toContain('Keep current');
+    expect(ui).toContain('Use reviewed value');
+    expect(ui).toContain('data-seven-arches-conflict-review');
+    expect(ui).not.toContain('disabled title="Resolve the refreshed structural conflict before reviewing this package"');
+  });
+
   test('shows unresolved cancellation and shared shadow pricing without a fake Flexible or EUR 0 fallback', () => {
     expect(core).toContain("'requires_review'");
     expect(core).toContain('Cancellation terms require review');

@@ -22,6 +22,18 @@ const policyRepairVerify = fs.readFileSync(
   'supabase/manual/hotels_v2_h2b1_shadow_policy_review_fix_verify.sql',
   'utf8',
 );
+const threeWayMigration = fs.readFileSync(
+  'supabase/migrations/20260811260000_hotels_v2_h2b1_shadow_three_way_merge.sql',
+  'utf8',
+);
+const threeWayPreflight = fs.readFileSync(
+  'supabase/manual/hotels_v2_h2b1_shadow_three_way_merge_preflight.sql',
+  'utf8',
+);
+const threeWayVerify = fs.readFileSync(
+  'supabase/manual/hotels_v2_h2b1_shadow_three_way_merge_verify.sql',
+  'utf8',
+);
 const pgGate = fs.readFileSync('tests/integration/hotels-v2-h2b1-postgres-gate.sql', 'utf8');
 const reviewedSavePostgrestGate = fs.readFileSync(
   'tests/integration/hotels-v2-h2b1-reviewed-save-postgrest-gate.mjs',
@@ -137,6 +149,25 @@ describe('Hotels H2B.1 SQL foundation', () => {
     expect(reviewedSavePostgrestGate).toContain('before.property.photos.slice(4, 9)');
     expect(reviewedSavePostgrestGate).toContain('freshReadPreservedGalleryCounts');
     expect(reviewedSavePostgrestGate).toContain('secondExplicitStatus');
+  });
+
+  test('repairs shadow-room reconciliation with an exact field-level three-way contract', () => {
+    expect(threeWayMigration).toContain("'expected_original'");
+    expect(threeWayMigration).toContain('hotels_v2_h2b1_shadow_room_three_way_conflict');
+    expect(threeWayMigration).toContain('v_current_state->v_state_key is distinct from v_expected_original->v_state_key');
+    expect(threeWayMigration).toContain('v_current_state->v_state_key is distinct from v_target_state->v_state_key');
+    expect(threeWayMigration).toContain("errcode='PT409'");
+    expect(threeWayMigration).toContain('perform public.hotel_v2_h2a_require_admin()');
+    expect(threeWayMigration).toContain("array['search_path=pg_catalog, public, auth']");
+    expect(threeWayMigration).toContain('hotels_v2_h2b1_three_way_migration_changed_data');
+    expect(threeWayMigration).not.toContain("architecture_version='rooms_v2'");
+    expect(threeWayMigration).not.toContain('hotel_rooms_v2_enabled=true');
+    expect(threeWayPreflight).toContain('upper_current_amenities');
+    expect(threeWayPreflight).toContain('ground_current_amenities');
+    expect(threeWayPreflight).toContain('hotels_v2_h2b1_shadow_three_way_merge_preflight_safe');
+    expect(threeWayVerify).toContain('hotels_v2_h2b1_shadow_three_way_merge_safe');
+    expect(pgGate).toContain('hotels_v2_h2b1_three_way_current_original_failed');
+    expect(pgGate).toContain('hotels_v2_h2b1_three_way_real_conflict_atomic_abort_failed');
   });
 
   test('translates inherited H2A/H2B serialization conflicts at the PostgREST boundary', () => {
