@@ -2176,7 +2176,7 @@ test('H3.1 saves reviewed 7 Kamares booking setup atomically while public legacy
   await page.goto('/admin/dashboard.html', { waitUntil: 'domcontentloaded' });
   await waitForSupabaseStub(page);
 
-  await page.evaluate(({ hotelId, partnerId, upperId, groundId, planId, upperRateId, groundRateId, scheduleId }) => {
+  await page.evaluate(({ hotelId, partnerId, upperId, groundId, planId, upperRateId, groundRateId, scheduleId, partyPreviewId, externalSourceId }) => {
     const clone = (value: any) => JSON.parse(JSON.stringify(value));
     const store = (window as any).__h2aE2eStore;
     store.property.children_policy = 'minimum_age';
@@ -2211,8 +2211,12 @@ test('H3.1 saves reviewed 7 Kamares booking setup atomically while public legacy
     }];
     store.pricing_schedules = [{
       id: scheduleId, hotel_id: hotelId, code: 'seven-kamares-shared-room',
-      name: 'Shared room schedule', maximum_party_size: 4,
+      name: 'Shared room schedule', application_scope: 'room_occupancy', maximum_party_size: 4,
       minimum_billable_occupancy: 1, is_active: false, version: 3,
+    }, {
+      id: partyPreviewId, hotel_id: hotelId, code: 'legacy-property-party-preview',
+      name: 'Legacy property party preview', application_scope: 'property_booking_party', maximum_party_size: 8,
+      minimum_billable_occupancy: 1, is_active: false, version: 5,
     }];
 
     const configuration: any = {
@@ -2223,7 +2227,10 @@ test('H3.1 saves reviewed 7 Kamares booking setup atomically while public legacy
       },
       pricing_schedules: clone(store.pricing_schedules),
       rate_plans: clone(store.rate_plans),
-      allocation_rules: [], payment_policies: [], commission_policies: [], calendar_sources: [],
+      allocation_rules: [], payment_policies: [], commission_policies: [], calendar_sources: [{
+        id: externalSourceId, hotel_id: hotelId, code: 'booking-com-future', source_type: 'booking_com',
+        is_enabled: true, review_status: 'reviewed', priority: 50, configuration: {}, version: 2,
+      }],
       flags: clone(store.flags),
     };
     store.h3_configuration = configuration;
@@ -2309,24 +2316,31 @@ test('H3.1 saves reviewed 7 Kamares booking setup atomically while public legacy
     upperRateId: SEVEN_ARCHES_UPPER_RATE_ID,
     groundRateId: SEVEN_ARCHES_GROUND_RATE_ID,
     scheduleId: SEVEN_ARCHES_SCHEDULE_ID,
+    partyPreviewId: SEVEN_ARCHES_PARTY_PREVIEW_ID,
+    externalSourceId: '34000000-0000-4000-8000-000000000001',
   });
 
   await page.locator('button.admin-nav-item[data-view="hotels"]').click();
   await page.locator(`[data-hotel-open-workspace="${HOTEL_ID}"]`).click();
   await page.locator('[data-hotel-workspace-tab="booking_setup"]').click();
   const bookingPanel = page.locator('#hotelWorkspaceActivePanel');
-  await expect(bookingPanel).toContainText('7 Kamares reviewed business template');
   await expect(bookingPanel).toContainText('Public Hotels V2 flags stay OFF');
 
-  await bookingPanel.locator('[data-edit-h3-configuration]').click();
+  await bookingPanel.locator('[data-apply-seven-kamares-h3-template]').click();
   const editor = page.locator('#hotelH3ConfigurationForm');
   await expect(editor).toBeVisible();
+  await expect(editor).toContainText('Reviewed 7 Kamares template');
   await expect(editor.locator('[name="minimum_stay_nights"]')).toHaveValue('2');
   await expect(editor).toContainText('Customer chooses one room');
   await expect(editor).toContainText('Required bundle · exact rooms');
   await expect(editor).toContainText('Taxes included');
   await expect(editor).toContainText('Cleaning included');
   await expect(editor).toContainText('Preserved custom inclusions: private_transfer');
+  await expect(editor).toContainText('Required for H3 readiness: check-in 14:00 · check-out 11:00');
+  await expect(editor).toContainText('template does not invent account details');
+  await expect(editor).toContainText('Future customer pricing is the sum of exact allocated Room Rates using the room_occupancy schedule');
+  await expect(editor).toContainText('inactive 63-tier property_booking_party schedule remains a legacy parity preview only');
+  await expect(editor.locator('[data-h3-open-overview]')).toHaveText('Review times in Overview');
   await expect(editor).toContainText('Public: no change');
   await page.locator('button[form="hotelH3ConfigurationForm"]').click();
 
@@ -2335,6 +2349,9 @@ test('H3.1 saves reviewed 7 Kamares booking setup atomically while public legacy
   await expect(review).toContainText('Review Hotel booking setup');
   await expect(review).toContainText('One atomic, version-checked plan');
   await expect(review).toContainText('current public booking remain unchanged');
+  await expect(review).toContainText('Future customer pricing will sum the exact allocated Room Rates using the room_occupancy schedule');
+  await expect(review).toContainText('property_booking_party schedule is legacy preview only and never customer pricing');
+  await expect(review).toContainText('Separately review 14:00 check-in and 11:00 check-out in Overview');
   const receiptCountBeforeConfirm = await page.evaluate(
     () => (window as any).__h2aE2eStore.h3_apply_receipts.length,
   );
@@ -2348,8 +2365,9 @@ test('H3.1 saves reviewed 7 Kamares booking setup atomically while public legacy
   await expect(bookingPanel).toContainText('€10.00 / allocated room / night');
   await expect(bookingPanel).toContainText('Manual Calendar');
   await expect(bookingPanel).toContainText('BLOCKED');
-  await expect(bookingPanel).toContainText('Configure property check-in time in Overview.');
-  await expect(bookingPanel).toContainText('Configure property check-out time in Overview.');
+  await expect(bookingPanel).toContainText('Review and save 7 Kamares check-in 14:00 in Overview.');
+  await expect(bookingPanel).toContainText('Review and save 7 Kamares check-out 11:00 in Overview.');
+  await expect(bookingPanel).toContainText('Add reviewed partner bank-transfer instructions before H3 shadow booking can be operational.');
   await expect(bookingPanel).toContainText('Activate one reviewed Rate Plan before H3 activation.');
   await expect(bookingPanel).toContainText('Activate the reviewed Room Rate products before H3 activation.');
 
@@ -2368,7 +2386,12 @@ test('H3.1 saves reviewed 7 Kamares booking setup atomically while public legacy
     };
   });
   expect(saved.configuration.property.minimum_stay_nights).toBe(2);
-  expect(saved.configuration.pricing_schedules[0].minimum_billable_occupancy).toBe(2);
+  expect(saved.configuration.pricing_schedules.map((schedule: any) => [
+    schedule.application_scope, schedule.minimum_billable_occupancy,
+  ])).toEqual([
+    ['room_occupancy', 2],
+    ['property_booking_party', 2],
+  ]);
   expect(saved.configuration.rate_plans[0].price_inclusions).toEqual([
     'cleaning', 'private_transfer', 'taxes',
   ]);
@@ -2382,9 +2405,12 @@ test('H3.1 saves reviewed 7 Kamares booking setup atomically while public legacy
   expect(saved.configuration.commission_policies[0]).toMatchObject({
     commission_mode: 'per_allocated_room_per_night', amount: 10, currency: 'EUR',
   });
-  expect(saved.configuration.calendar_sources).toEqual([
+  expect(saved.configuration.calendar_sources).toEqual(expect.arrayContaining([
     expect.objectContaining({ source_type: 'manual', is_enabled: true, review_status: 'reviewed' }),
-  ]);
+    expect.objectContaining({ source_type: 'booking_com', is_enabled: false }),
+  ]));
+  expect(saved.configuration.calendar_sources.filter((source: any) => source.source_type !== 'manual')
+    .every((source: any) => source.is_enabled === false)).toBe(true);
   expect(saved.receipt.plan.operations.find((operation: any) => operation.entity === 'property_configuration'))
     .toMatchObject({ id: HOTEL_ID, expected_version: 0, payload: { minimum_stay_nights: 2 } });
   expect(JSON.stringify(saved.receipt.plan)).not.toMatch(/architecture_version|is_published|hotel_rooms_v2_enabled/);

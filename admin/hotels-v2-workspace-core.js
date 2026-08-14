@@ -24,6 +24,8 @@
   const CHILD_AGE_MIN = 0;
   const CHILD_AGE_MAX = 17;
   const SEVEN_ARCHES_PROPERTY_ID = '9b6d99a0-923a-4fbc-be54-c066e856e6ca';
+  const SEVEN_ARCHES_CHECK_IN_FROM = '14:00';
+  const SEVEN_ARCHES_CHECK_OUT_UNTIL = '11:00';
   const SEVEN_ARCHES_SHADOW_IDS = Object.freeze({
     upper_room_type: 'b4ef504f-cdeb-4e3c-a54d-932146ef4e94',
     ground_room_type: '825c01b7-9f82-492a-9c81-9b1d5cd7acd3',
@@ -1908,8 +1910,20 @@
       blockers.push('H3 shadow launch requires request-confirmation booking mode.');
     }
     if (!Number.isInteger(normalized.property.minimum_stay_nights)) blockers.push('Review the property minimum stay.');
-    if (!asText(normalizedWorkspace?.property?.check_in_from)) blockers.push('Configure property check-in time in Overview.');
-    if (!asText(normalizedWorkspace?.property?.check_out_until)) blockers.push('Configure property check-out time in Overview.');
+    const propertyId = normalizeUuid(normalizedWorkspace?.property?.id);
+    const checkIn = asText(normalizedWorkspace?.property?.check_in_from).slice(0, 5);
+    const checkOut = asText(normalizedWorkspace?.property?.check_out_until).slice(0, 5);
+    if (propertyId === SEVEN_ARCHES_PROPERTY_ID) {
+      if (checkIn !== SEVEN_ARCHES_CHECK_IN_FROM) {
+        blockers.push(`Review and save 7 Kamares check-in ${SEVEN_ARCHES_CHECK_IN_FROM} in Overview.`);
+      }
+      if (checkOut !== SEVEN_ARCHES_CHECK_OUT_UNTIL) {
+        blockers.push(`Review and save 7 Kamares check-out ${SEVEN_ARCHES_CHECK_OUT_UNTIL} in Overview.`);
+      }
+    } else {
+      if (!checkIn) blockers.push('Configure property check-in time in Overview.');
+      if (!checkOut) blockers.push('Configure property check-out time in Overview.');
+    }
     if (normalizedWorkspace) {
       const rooms = normalizedWorkspace.room_types.filter((room) => room.status !== 'disabled');
       rooms.forEach((room) => {
@@ -1948,7 +1962,15 @@
     if (ranges.some((range, index) => index > 0 && range[0] !== ranges[index - 1][1] + 1)) {
       blockers.push('Guest allocation ranges contain an uncovered guest-count gap.');
     }
-    if (!normalized.payment_policies.some((policy) => policy.is_active)) blockers.push('Configure reviewed customer payment terms.');
+    const activePaymentPolicies = normalized.payment_policies.filter((policy) => policy.is_active);
+    if (!activePaymentPolicies.length) blockers.push('Configure reviewed customer payment terms.');
+    if (activePaymentPolicies.some((policy) => policy.terms.some((term) => (
+      term.recipient === 'partner'
+      && term.payment_methods.includes('bank_transfer')
+      && !Object.values(term.instructions_i18n).some((instruction) => asText(instruction))
+    )))) {
+      blockers.push('Add reviewed partner bank-transfer instructions before H3 shadow booking can be operational.');
+    }
     if (!normalized.commission_policies.some((policy) => policy.is_active)) blockers.push('Configure a separate platform commission policy.');
     const enabledManual = normalized.calendar_sources.some((source) => source.source_type === 'manual' && source.is_enabled);
     if (!enabledManual) blockers.push('Enable the manual Calendar source for shadow request-confirmation testing.');
@@ -2068,6 +2090,8 @@
     CHILD_AGE_MIN,
     CHILD_AGE_MAX,
     SEVEN_ARCHES_PROPERTY_ID,
+    SEVEN_ARCHES_CHECK_IN_FROM,
+    SEVEN_ARCHES_CHECK_OUT_UNTIL,
     SEVEN_ARCHES_SHADOW_IDS,
     SEVEN_ARCHES_SOURCE_CONTRACT,
     SEVEN_ARCHES_ROOM_DEFINITIONS,

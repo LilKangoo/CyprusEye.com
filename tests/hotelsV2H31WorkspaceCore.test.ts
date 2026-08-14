@@ -280,13 +280,45 @@ describe('Hotels V2 H3.1 workspace core', () => {
       state: 'BLOCKED',
       public_live: false,
       blockers: expect.arrayContaining([
-        'Configure property check-in time in Overview.',
-        'Configure property check-out time in Overview.',
+        'Review and save 7 Kamares check-in 14:00 in Overview.',
+        'Review and save 7 Kamares check-out 11:00 in Overview.',
+        'Add reviewed partner bank-transfer instructions before H3 shadow booking can be operational.',
         'Activate one reviewed Rate Plan before H3 activation.',
         'Activate the reviewed Room Rate products before H3 activation.',
       ]),
     });
     expect(Object.values(reviewed.flags).every((value) => value === false)).toBe(true);
+  });
+
+  test('keeps exact 7 Kamares arrival times and partner transfer instructions as explicit readiness prerequisites', () => {
+    const reviewed = reviewedConfiguration();
+    const wrongTimes = workspace();
+    wrongTimes.property.check_in_from = '15:00:00';
+    wrongTimes.property.check_out_until = '10:00:00';
+    const wrongBlockers = Core.deriveH3Readiness(reviewed, wrongTimes).blockers;
+    expect(wrongBlockers).toEqual(expect.arrayContaining([
+      'Review and save 7 Kamares check-in 14:00 in Overview.',
+      'Review and save 7 Kamares check-out 11:00 in Overview.',
+      'Add reviewed partner bank-transfer instructions before H3 shadow booking can be operational.',
+    ]));
+
+    const exactTimes = workspace();
+    exactTimes.property.check_in_from = '14:00:00';
+    exactTimes.property.check_out_until = '11:00:00';
+    reviewed.payment_policies[0].terms[0].instructions_i18n = {
+      en: 'Use the confirmed partner bank account shown after acceptance.',
+    };
+    const exactBlockers = Core.deriveH3Readiness(reviewed, exactTimes).blockers;
+    expect(exactBlockers).not.toContain('Review and save 7 Kamares check-in 14:00 in Overview.');
+    expect(exactBlockers).not.toContain('Review and save 7 Kamares check-out 11:00 in Overview.');
+    expect(exactBlockers).not.toContain('Add reviewed partner bank-transfer instructions before H3 shadow booking can be operational.');
+
+    const generic = workspace();
+    generic.property.id = '33000000-0000-4000-8000-000000000001';
+    expect(Core.deriveH3Readiness(reviewed, generic).blockers).toEqual(expect.arrayContaining([
+      'Configure property check-in time in Overview.',
+      'Configure property check-out time in Overview.',
+    ]));
   });
 
   test('represents a future full platform payment at booking without changing 7 Kamares terms', () => {
