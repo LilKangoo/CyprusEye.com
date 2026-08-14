@@ -49,5 +49,6 @@ on conflict(code) do update set is_active = true;
 \ir ../../supabase/migrations/20260811240000_hotels_v2_h2b1_children_shadow_rooms.sql
 \ir ../../supabase/migrations/20260811250000_hotels_v2_h2b1_shadow_policy_review_fix.sql
 \ir ../../supabase/migrations/20260811260000_hotels_v2_h2b1_shadow_three_way_merge.sql
+\ir ../../supabase/migrations/20260811270000_hotels_v2_h2b1_reviewed_rate_plan_preservation.sql
 
 notify pgrst, 'reload schema';

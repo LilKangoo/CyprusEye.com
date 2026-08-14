@@ -34,6 +34,18 @@ const threeWayVerify = fs.readFileSync(
   'supabase/manual/hotels_v2_h2b1_shadow_three_way_merge_verify.sql',
   'utf8',
 );
+const reviewedRatePlanMigration = fs.readFileSync(
+  'supabase/migrations/20260811270000_hotels_v2_h2b1_reviewed_rate_plan_preservation.sql',
+  'utf8',
+);
+const reviewedRatePlanPreflight = fs.readFileSync(
+  'supabase/manual/hotels_v2_h2b1_reviewed_rate_plan_preservation_preflight.sql',
+  'utf8',
+);
+const reviewedRatePlanVerify = fs.readFileSync(
+  'supabase/manual/hotels_v2_h2b1_reviewed_rate_plan_preservation_verify.sql',
+  'utf8',
+);
 const pgGate = fs.readFileSync('tests/integration/hotels-v2-h2b1-postgres-gate.sql', 'utf8');
 const reviewedSavePostgrestGate = fs.readFileSync(
   'tests/integration/hotels-v2-h2b1-reviewed-save-postgrest-gate.mjs',
@@ -148,6 +160,12 @@ describe('Hotels H2B.1 SQL foundation', () => {
     expect(reviewedSavePostgrestGate).toContain('before.property.photos.slice(0, 5)');
     expect(reviewedSavePostgrestGate).toContain('before.property.photos.slice(4, 9)');
     expect(reviewedSavePostgrestGate).toContain('freshReadPreservedGalleryCounts');
+    expect(reviewedSavePostgrestGate).toContain('SECOND_CONCURRENT_ROOM_CORRELATION');
+    expect(reviewedSavePostgrestGate).toContain('A second stale Save was retried automatically.');
+    expect(reviewedSavePostgrestGate).toContain('Second fresh read/re-review issued a mutation before the third explicit Save.');
+    expect(reviewedSavePostgrestGate).toContain('firstPayload');
+    expect(reviewedSavePostgrestGate).toContain('firstFreshPayload');
+    expect(reviewedSavePostgrestGate).toContain('secondFreshPayload');
     expect(reviewedSavePostgrestGate).toContain('secondExplicitStatus');
   });
 
@@ -168,6 +186,22 @@ describe('Hotels H2B.1 SQL foundation', () => {
     expect(threeWayVerify).toContain('hotels_v2_h2b1_shadow_three_way_merge_safe');
     expect(pgGate).toContain('hotels_v2_h2b1_three_way_current_original_failed');
     expect(pgGate).toContain('hotels_v2_h2b1_three_way_real_conflict_atomic_abort_failed');
+  });
+
+  test('preserves an exact-version inactive Admin-reviewed Standard Rate Plan', () => {
+    expect(reviewedRatePlanMigration).toContain('hotels_v2_h2b1_preserve_reviewed_rate_plan_v1');
+    expect(reviewedRatePlanMigration).toContain('hotel_v2_h2a_cancellation_policy_is_valid');
+    expect(reviewedRatePlanMigration).toContain('hotels_v2_h2b1_stale_rate_plan');
+    expect(reviewedRatePlanMigration).toContain("lower(btrim(rate_plan.code))<>'standard'");
+    expect(reviewedRatePlanMigration).toContain('or rate_plan.is_active');
+    expect(reviewedRatePlanMigration).toContain('hotels_v2_h2b1_rate_plan_repair_changed_data');
+    expect(reviewedRatePlanMigration).not.toContain("update public.hotel_rate_plans set cancellation_policy");
+    expect(reviewedRatePlanMigration).not.toContain("architecture_version='rooms_v2'");
+    expect(reviewedRatePlanPreflight).toContain('"type":"non_refundable"');
+    expect(reviewedRatePlanPreflight).toContain('hotels_v2_h2b1_reviewed_rate_plan_preservation_preflight_safe');
+    expect(reviewedRatePlanVerify).toContain('hotels_v2_h2b1_reviewed_rate_plan_preservation_safe');
+    expect(reviewedSavePostgrestGate).toContain("{ type: 'non_refundable' }");
+    expect(reviewedSavePostgrestGate).toContain('Room/photo preparation changed the existing reviewed Rate Plan.');
   });
 
   test('translates inherited H2A/H2B serialization conflicts at the PostgREST boundary', () => {
@@ -211,6 +245,8 @@ describe('Hotels H2B.1 SQL foundation', () => {
     expect(shadowVerify).toContain('hotels_v2_h2b1_seven_arches_shadow_safe');
     expect(shadowVerify).toContain('room_schedule_value_mismatch');
     expect(shadowVerify).toContain('property_party_value_mismatch');
+    expect(shadowVerify).toContain('exact_inactive_valid_plan_count');
+    expect(shadowVerify).toContain('hotel_v2_h2a_cancellation_policy_is_valid');
     expect(shadowVerify).toContain('tiers.room_tier_count=27');
     expect(shadowVerify).toContain('tiers.party_tier_count=63');
     expect(shadowVerify).toContain("status in ('draft','active')");

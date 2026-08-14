@@ -121,4 +121,13 @@ commit;
 -- deployed v4/v5 state. This migration changes only the RPC definition.
 \ir ../../supabase/migrations/20260811260000_hotels_v2_h2b1_shadow_three_way_merge.sql
 
+-- Production has an inactive Standard plan whose cancellation policy was
+-- explicitly reviewed as non-refundable. Room/photo preparation must preserve
+-- that exact reviewed plan rather than requiring the original placeholder.
+update public.hotel_rate_plans
+set cancellation_policy = jsonb_build_object('type', 'non_refundable')
+where id = '22e47a63-a630-4fb6-8f43-816f2d3fdc17';
+
+\ir ../../supabase/migrations/20260811270000_hotels_v2_h2b1_reviewed_rate_plan_preservation.sql
+
 notify pgrst, 'reload schema';

@@ -16,6 +16,8 @@ const GROUND_RATE = '3320590d-632d-423f-80d0-fd021cba7293';
 const SCHEDULE = 'b0a3104f-7b31-5265-a59f-c2d166f11a23';
 const PARTY_PREVIEW = '443065c0-984a-5de3-a22a-d03042c41107';
 const CONCURRENT_ROOM_CORRELATION = '84000000-0000-4000-8000-000000000008';
+const SECOND_CONCURRENT_ROOM_CORRELATION = '84000000-0000-4000-8000-000000000009';
+const SECOND_STALE_CORRELATION = '84000000-0000-4000-8000-000000000010';
 const FIRST_STALE_CORRELATION = '84000000-0000-4000-8000-000000000002';
 const FIRST_EXPLICIT_CORRELATION = '84000000-0000-4000-8000-000000000003';
 const STALE_CORRELATION = '84000000-0000-4000-8000-000000000004';
@@ -174,6 +176,7 @@ function assertInert(state) {
   assert.equal(state.room_types.filter((room) => room.status === 'active').length, 2);
   assert.equal(state.rate_plans.length, 1);
   assert.equal(state.rate_plans[0].is_active, false);
+  assert.deepEqual(state.rate_plans[0].cancellation_policy, { type: 'non_refundable' });
   assert.equal(state.room_rates.length, 2);
   assert.equal(state.room_rates.every((rate) => rate.is_active === false), true);
   assert.equal(state.pricing_schedules.length, 2);
@@ -195,6 +198,7 @@ assert.deepEqual(
   ],
 );
 assertInert(before);
+const reviewedRatePlanBefore = structuredClone(before.rate_plans[0]);
 
 const rawBefore = await request('/hotel_room_types?select=id,status&limit=5');
 assert.equal(rawBefore.status, 401);
@@ -269,13 +273,91 @@ assert.equal(
   'Fresh read/re-review issued a mutation before the second explicit Save.',
 );
 
-const first = await rpc('hotel_v2_admin_prepare_legacy_shadow_rooms', {
+// Capture the complete stale-sensitive payload delta, then prove a second
+// concurrent write after the refreshed Review causes another controlled 409.
+assert.equal(
+  reReviewedPlan.expected_property_updated_at,
+  firstReviewedPlan.expected_property_updated_at,
+);
+assert.deepEqual(
+  reReviewedPlan.expected_property_policy,
+  firstReviewedPlan.expected_property_policy,
+);
+assert.equal(
+  reReviewedPlan.expected_legacy_pricing_fingerprint,
+  firstReviewedPlan.expected_legacy_pricing_fingerprint,
+);
+assert.deepEqual(reReviewedPlan.expected_versions, {
+  ...firstReviewedPlan.expected_versions,
+  upper_room: firstReviewedPlan.expected_versions.upper_room + 1,
+});
+assert.deepEqual(reReviewedPlan.rooms.map((room) => room.expected_version), [5, 5]);
+assert.deepEqual(reReviewedPlan.rooms.map((room) => room.expected_original.amenities), [
+  ['air_conditioning', 'balcony', 'terrace'],
+  ['air_conditioning', 'terrace'],
+]);
+
+const secondConcurrentRoomEdit = await rpc('hotel_v2_admin_apply_room_type_plan', {
+  p_plan: {
+    hotel_id: HOTEL,
+    expected_property_updated_at: afterFirstStale.property.updated_at,
+    reviewed_at: new Date().toISOString(),
+    operation: {
+      type: 'update',
+      id: GROUND,
+      expected_version: version(afterFirstStale.room_types, GROUND),
+      payload: { sort_order: 200 },
+    },
+  },
+  p_correlation_id: SECOND_CONCURRENT_ROOM_CORRELATION,
+});
+assert.equal(secondConcurrentRoomEdit.status, 200, JSON.stringify(secondConcurrentRoomEdit.payload));
+const afterSecondConcurrentRoomEdit = secondConcurrentRoomEdit.payload.workspace;
+assert.equal(version(afterSecondConcurrentRoomEdit.room_types, UPPER), 5);
+assert.equal(version(afterSecondConcurrentRoomEdit.room_types, GROUND), 6);
+
+const secondStale = await rpc('hotel_v2_admin_prepare_legacy_shadow_rooms', {
   p_plan: reReviewedPlan,
+  p_correlation_id: SECOND_STALE_CORRELATION,
+});
+assert.equal(secondStale.status, 409);
+assert.equal(secondStale.payload?.code, 'PT409');
+assert.equal(secondStale.payload?.message, 'hotels_v2_h2b1_stale_shadow_room');
+assert.equal(shadowPrepareRequestCount, 2, 'A second stale Save was retried automatically.');
+const afterSecondStale = await workspace();
+assert.deepEqual(
+  mutationSnapshot(afterSecondStale),
+  mutationSnapshot(afterSecondConcurrentRoomEdit),
+);
+assert.equal(
+  afterSecondStale.recent_activity.some(
+    (row) => row.correlation_id === SECOND_STALE_CORRELATION,
+  ),
+  false,
+);
+
+const secondReReviewedPlan = reviewedPlan(afterSecondStale, { galleries: selectedGalleries });
+assert.deepEqual(secondReReviewedPlan.expected_versions, {
+  ...reReviewedPlan.expected_versions,
+  ground_room: reReviewedPlan.expected_versions.ground_room + 1,
+});
+assert.deepEqual(secondReReviewedPlan.rooms.map((room) => room.gallery), [
+  [...selectedGalleries.upper],
+  [...selectedGalleries.ground],
+]);
+assert.equal(
+  shadowPrepareRequestCount,
+  2,
+  'Second fresh read/re-review issued a mutation before the third explicit Save.',
+);
+
+const first = await rpc('hotel_v2_admin_prepare_legacy_shadow_rooms', {
+  p_plan: secondReReviewedPlan,
   p_correlation_id: FIRST_EXPLICIT_CORRELATION,
 });
 assert.equal(first.status, 200, JSON.stringify(first.payload));
 assert.equal(first.payload.public_change, false);
-assert.equal(shadowPrepareRequestCount, 2);
+assert.equal(shadowPrepareRequestCount, 3);
 
 const afterFirst = first.payload.workspace;
 assert.equal(afterFirst.property.children_policy, 'minimum_age');
@@ -291,12 +373,17 @@ assert.deepEqual(
       gallery: [...selectedGalleries.upper],
     },
     {
-      id: GROUND, version: 6, status: 'active',
+      id: GROUND, version: 7, status: 'active',
       gallery: [...selectedGalleries.ground],
     },
   ],
 );
 assertInert(afterFirst);
+assert.deepEqual(
+  afterFirst.rate_plans[0],
+  reviewedRatePlanBefore,
+  'Room/photo preparation changed the existing reviewed Rate Plan.',
+);
 
 const stale = await rpc('hotel_v2_admin_prepare_legacy_shadow_rooms', {
   p_plan: reviewedPlan(afterFirst, { staleUpper: true }),
@@ -360,6 +447,11 @@ assert.equal(second.payload.public_change, false);
 assertInert(second.payload.workspace);
 assert.equal(second.payload.workspace.room_types.length, 2);
 assert.deepEqual(
+  second.payload.workspace.rate_plans[0],
+  reviewedRatePlanBefore,
+  'Idempotent room/photo preparation changed the existing reviewed Rate Plan.',
+);
+assert.deepEqual(
   second.payload.workspace.room_types.map((room) => room.gallery),
   [
     [...selectedGalleries.upper],
@@ -399,6 +491,27 @@ process.stdout.write(`${JSON.stringify({
     freshRoomVersion: version(afterFirstStale.room_types, UPPER),
     automaticRetryCount: 0,
     freshReadPreservedGalleryCounts: reReviewedPlan.rooms.map((room) => room.gallery.length),
+    firstPayload: {
+      expectedPropertyUpdatedAt: firstReviewedPlan.expected_property_updated_at,
+      expectedPropertyPolicy: firstReviewedPlan.expected_property_policy,
+      expectedVersions: firstReviewedPlan.expected_versions,
+      roomExpectedVersions: firstReviewedPlan.rooms.map((room) => room.expected_version),
+    },
+    firstFreshPayload: {
+      expectedPropertyUpdatedAt: reReviewedPlan.expected_property_updated_at,
+      expectedPropertyPolicy: reReviewedPlan.expected_property_policy,
+      expectedVersions: reReviewedPlan.expected_versions,
+      roomExpectedVersions: reReviewedPlan.rooms.map((room) => room.expected_version),
+      galleryCounts: reReviewedPlan.rooms.map((room) => room.gallery.length),
+    },
+    secondConcurrentStatus: secondStale.status,
+    secondConcurrentCode: secondStale.payload.code,
+    secondConcurrentMessage: secondStale.payload.message,
+    secondFreshPayload: {
+      expectedVersions: secondReReviewedPlan.expected_versions,
+      roomExpectedVersions: secondReReviewedPlan.rooms.map((room) => room.expected_version),
+      galleryCounts: secondReReviewedPlan.rooms.map((room) => room.gallery.length),
+    },
     secondExplicitStatus: first.status,
   },
   staleRollback: {

@@ -52,8 +52,11 @@ rate_plan as (
   select count(*)::integer plan_count,
     count(*) filter(where hotel_id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid
       and code='standard' and not is_active
-      and cancellation_policy->>'type'='requires_review'
-      and cancellation_policy->>'reason'='legacy_cancellation_terms_unconfirmed')::integer exact_plan_count
+      and public.hotel_v2_h2a_cancellation_policy_is_valid(cancellation_policy)
+    )::integer exact_inactive_valid_plan_count,
+    jsonb_agg(cancellation_policy)->0 cancellation_policy,
+    max(version) version,
+    max(updated_at) updated_at
   from public.hotel_rate_plans where id='22e47a63-a630-4fb6-8f43-816f2d3fdc17'::uuid
 ),
 schedules as (
@@ -147,7 +150,10 @@ select
   property_contract.property_count,property_contract.exact_contract_count,
   rooms.room_count,rooms.safe_room_status_count,
   rooms.upper_exact_count,rooms.ground_exact_count,rooms.rooms_with_foreign_photo,
-  rate_plan.plan_count,rate_plan.exact_plan_count,
+  rate_plan.plan_count,rate_plan.exact_inactive_valid_plan_count,
+  rate_plan.cancellation_policy as preserved_rate_plan_policy,
+  rate_plan.version as preserved_rate_plan_version,
+  rate_plan.updated_at as preserved_rate_plan_updated_at,
   schedules.schedule_count,schedules.room_schedule_count,schedules.party_schedule_count,schedules.fingerprint_match_count,
   room_rates.rate_count,room_rates.upper_rate_count,room_rates.ground_rate_count,
   tiers.room_tier_count,tiers.party_tier_count,
@@ -166,7 +172,7 @@ select
     and rooms.room_count=2 and rooms.safe_room_status_count=2
     and rooms.upper_exact_count=1 and rooms.ground_exact_count=1
     and rooms.rooms_with_foreign_photo=0
-    and rate_plan.plan_count=1 and rate_plan.exact_plan_count=1
+    and rate_plan.plan_count=1 and rate_plan.exact_inactive_valid_plan_count=1
     and schedules.schedule_count=2 and schedules.room_schedule_count=1
     and schedules.party_schedule_count=1 and schedules.fingerprint_match_count=2
     and room_rates.rate_count=2 and room_rates.upper_rate_count=1 and room_rates.ground_rate_count=1

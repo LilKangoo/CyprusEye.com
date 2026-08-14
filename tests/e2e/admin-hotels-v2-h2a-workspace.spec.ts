@@ -1434,19 +1434,35 @@ test('H2B.1 stale apartment review refreshes versions, preserves 5+5 photos, and
   const afterConflict = await page.evaluate(() => ({
     shadowCalls: (window as any).__supabaseStub.getRpcCalls()
       .filter((entry: any) => entry.name === 'hotel_v2_admin_prepare_legacy_shadow_rooms').length,
+    plans: (window as any).__supabaseStub.getRpcCalls()
+      .filter((entry: any) => entry.name === 'hotel_v2_admin_prepare_legacy_shadow_rooms')
+      .map((entry: any) => entry.params.p_plan),
     galleries: (window as any).__h2aE2eStore.room_types.map((room: any) => room.gallery.length),
     policyAge: (window as any).__h2aE2eStore.property.minimum_child_age,
   }));
-  expect(afterConflict).toEqual({ shadowCalls: 1, galleries: [0, 0], policyAge: 15 });
+  expect(afterConflict.shadowCalls).toBe(1);
+  expect(afterConflict.galleries).toEqual([0, 0]);
+  expect(afterConflict.policyAge).toBe(15);
+  const [firstPlan] = afterConflict.plans;
+  expect(firstPlan.expected_versions).toMatchObject({ upper_room: 4, ground_room: 5 });
+  expect(firstPlan.rooms.map((room: any) => room.expected_version)).toEqual([4, 5]);
+  expect(firstPlan.rooms.map((room: any) => room.expected_original.amenities)).toEqual([
+    ['air_conditioning', 'balcony', 'terrace'],
+    ['air_conditioning', 'terrace'],
+  ]);
 
   await review.locator('[data-hotel-review-confirm]').click();
   await expect(page.locator('.hotel-workspace-modal--review')).toHaveCount(0);
   const afterExplicitSave = await page.evaluate(({ upperId, groundId }) => {
     const store = (window as any).__h2aE2eStore;
     const room = (id: string) => store.room_types.find((candidate: any) => candidate.id === id);
+    const plans = (window as any).__supabaseStub.getRpcCalls()
+      .filter((entry: any) => entry.name === 'hotel_v2_admin_prepare_legacy_shadow_rooms')
+      .map((entry: any) => entry.params.p_plan);
     return {
       shadowCalls: (window as any).__supabaseStub.getRpcCalls()
         .filter((entry: any) => entry.name === 'hotel_v2_admin_prepare_legacy_shadow_rooms').length,
+      plans,
       roomCount: store.room_types.length,
       versions: [room(upperId).version, room(groundId).version],
       galleries: [room(upperId).gallery.length, room(groundId).gallery.length],
@@ -1473,6 +1489,78 @@ test('H2B.1 stale apartment review refreshes versions, preserves 5+5 photos, and
       hotel_stripe_connect_enabled: false,
     },
   });
+  const [stalePlan, refreshedPlan] = afterExplicitSave.plans;
+  expect(refreshedPlan.expected_property_updated_at).toBe(stalePlan.expected_property_updated_at);
+  expect(refreshedPlan.expected_property_policy).toEqual(stalePlan.expected_property_policy);
+  expect(refreshedPlan.expected_legacy_pricing_fingerprint).toBe(stalePlan.expected_legacy_pricing_fingerprint);
+  expect(refreshedPlan.expected_versions).toEqual({
+    ...stalePlan.expected_versions,
+    upper_room: stalePlan.expected_versions.upper_room + 1,
+  });
+  expect(refreshedPlan.rooms.map((room: any) => room.expected_version)).toEqual([5, 5]);
+  expect(refreshedPlan.rooms.map((room: any) => room.expected_original)).toEqual([
+    expect.objectContaining({ amenities: ['air_conditioning', 'balcony', 'terrace'], gallery: [] }),
+    expect.objectContaining({ amenities: ['air_conditioning', 'terrace'], gallery: [] }),
+  ]);
+  expect(refreshedPlan.rooms.map((room: any) => room.gallery.length)).toEqual([5, 5]);
+});
+
+test('H2B.1 a second concurrent edit after refreshed Review returns another controlled 409 with no auto retry', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.addInitScript(seedHotelsV2H2aWorkspace(), { adminId: ADMIN_ID, hotelId: HOTEL_ID, partnerId: PARTNER_ID });
+  await enableSupabaseStub(page);
+  await page.goto('/admin/dashboard.html', { waitUntil: 'domcontentloaded' });
+  await waitForSupabaseStub(page);
+  await setExistingSevenArchesShadowRooms(page, {
+    upperAmenities: ['air_conditioning', 'balcony', 'terrace'],
+    groundAmenities: ['air_conditioning', 'terrace'],
+  });
+
+  await page.locator('button.admin-nav-item[data-view="hotels"]').click();
+  await page.locator(`[data-hotel-open-workspace="${HOTEL_ID}"]`).click();
+  await page.locator('[data-prepare-seven-arches-apartments]').click();
+  const preparation = page.locator('#hotelSevenArchesPreparationForm');
+  for (let index = 0; index < 5; index += 1) {
+    await preparation.locator('[name="seven_arches_room_0_photo"]').nth(index).check();
+    await preparation.locator('[name="seven_arches_room_1_photo"]').nth(index + 4).check();
+  }
+  await page.locator('button[form="hotelSevenArchesPreparationForm"]').click();
+  let review = page.locator('.hotel-workspace-modal--review');
+
+  await page.evaluate(({ upperId }) => {
+    const store = (window as any).__h2aE2eStore;
+    const upper = store.room_types.find((room: any) => room.id === upperId);
+    upper.version += 1;
+    upper.updated_at = '2026-08-11T09:05:00.000Z';
+  }, { upperId: SEVEN_ARCHES_UPPER_ID });
+  await review.locator('[data-hotel-review-confirm]').click();
+  review = page.locator('.hotel-workspace-modal--review');
+  await expect(review).toContainText('Review fresh 7 Arches two-apartment values');
+
+  await page.evaluate(({ groundId }) => {
+    const store = (window as any).__h2aE2eStore;
+    const ground = store.room_types.find((room: any) => room.id === groundId);
+    ground.version += 1;
+    ground.updated_at = '2026-08-11T09:06:00.000Z';
+  }, { groundId: SEVEN_ARCHES_GROUND_ID });
+  await review.locator('[data-hotel-review-confirm]').click();
+
+  review = page.locator('.hotel-workspace-modal--review');
+  await expect(review).toContainText('Review fresh 7 Arches two-apartment values');
+  const audit = await page.evaluate(() => ({
+    calls: (window as any).__supabaseStub.getRpcCalls()
+      .filter((entry: any) => entry.name === 'hotel_v2_admin_prepare_legacy_shadow_rooms')
+      .map((entry: any) => entry.params.p_plan),
+    galleries: (window as any).__h2aE2eStore.room_types.map((room: any) => room.gallery.length),
+    policyAge: (window as any).__h2aE2eStore.property.minimum_child_age,
+  }));
+  expect(audit.calls).toHaveLength(2);
+  expect(audit.calls[0].expected_versions).toMatchObject({ upper_room: 4, ground_room: 5 });
+  expect(audit.calls[1].expected_versions).toMatchObject({ upper_room: 5, ground_room: 5 });
+  expect(audit.calls[1].rooms.map((room: any) => room.gallery.length)).toEqual([5, 5]);
+  expect(audit.galleries).toEqual([0, 0]);
+  expect(audit.policyAge).toBe(15);
+  await expect(review).toContainText('"selected_photo_count": 5');
 });
 
 test('H2B.1 harmless amenities rebase preserves 5+5 photos and saves when fresh values already equal target', async ({ page }) => {
