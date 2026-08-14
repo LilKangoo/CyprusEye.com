@@ -18,6 +18,8 @@
     applyGuestPolicy: 'hotel_v2_admin_apply_guest_policy_plan',
     applyRoomType: 'hotel_v2_admin_apply_room_type_plan',
     prepareLegacyShadowRooms: 'hotel_v2_admin_prepare_legacy_shadow_rooms',
+    h3Configuration: 'hotel_v2_admin_get_h3_1_configuration',
+    applyH3Configuration: 'hotel_v2_admin_apply_h3_1_configuration',
   });
 
   const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -32,6 +34,12 @@
 
   function reviewedShadowUserMessage(message) {
     const key = String(message || '').trim().toLowerCase();
+    if (/hotels_v2_h3_1_(?:stale|version|children_fingerprint|property_changed)/.test(key)) {
+      return 'This booking configuration changed after Review. Fresh exact values are required before you can review and save it again.';
+    }
+    if (/hotels_v2_h3_1_(?:invalid|relationship|cross_property|external_source)/.test(key)) {
+      return 'The reviewed booking configuration no longer matches this exact property. Refresh the workspace and inspect the highlighted setup fields.';
+    }
     if (/guest_policy_already_reviewed/.test(key)) {
       return 'This property already has a different reviewed children policy. Refresh the workspace and explicitly review the current policy and age before making a separate guest-policy change.';
     }
@@ -81,7 +89,7 @@
     normalized.details = error?.details || null;
     normalized.hint = error?.hint || null;
     normalized.userMessage = reviewedShadowUserMessage(message);
-    normalized.diagnosticReason = /^hotels_v2_h2b(?:1|2)_[a-z0-9_]+$/i.test(message)
+    normalized.diagnosticReason = /^(?:hotels_v2_h2b(?:1|2)|hotels_v2_h3_1)_[a-z0-9_]+$/i.test(message)
       ? message
       : null;
     // H2B.1 uses PostgREST's explicit HTTP-conflict SQLSTATE for reviewed
@@ -328,6 +336,61 @@
     return { ...payload, correlation_id: payload.correlation_id || correlation, workspace };
   }
 
+  async function getH3Configuration(hotelId) {
+    const id = Core.normalizeUuid(hotelId);
+    if (!id) throw new Error('A valid property ID is required.');
+    const data = await runRpc(RPC.h3Configuration, { p_hotel_id: id }, 'Load H3.1 booking configuration');
+    const configuration = Core.normalizeH3Configuration(data);
+    if ((configuration.hotel_id || configuration.property.id) !== id) {
+      throw new Error('H3.1 configuration returned a different property ID.');
+    }
+    return configuration;
+  }
+
+  async function applyH3ConfigurationPlan(plan, correlationId) {
+    const reviewedPlan = Core.clone(plan);
+    const id = Core.normalizeUuid(reviewedPlan?.hotel_id);
+    const allowedEntities = [
+      'property_configuration', 'pricing_schedule', 'rate_plan', 'allocation_rule',
+      'payment_policy', 'commission_policy', 'calendar_source',
+    ];
+    if (!id || !reviewedPlan?.expected_property_updated_at
+        || !Array.isArray(reviewedPlan?.operations) || !reviewedPlan.operations.length) {
+      throw new Error('A reviewed exact-property H3.1 configuration plan is required.');
+    }
+    reviewedPlan.operations.forEach((operation) => {
+      if (!Core.normalizeUuid(operation?.id)
+          || !allowedEntities.includes(Core.asText(operation?.entity))
+          || !['create', 'update', 'disable'].includes(Core.asText(operation?.type))
+          || !Number.isInteger(Number(operation?.expected_version))
+          || (operation.type === 'create' && Number(operation.expected_version) !== 0)
+          || (operation.type !== 'create' && operation.entity !== 'property_configuration'
+            && Number(operation.expected_version) < 1)) {
+        throw new Error('Every H3.1 operation requires an exact ID, action and optimistic version.');
+      }
+      if ((operation.entity === 'property_configuration'
+          && (operation.type !== 'update' || Number(operation.expected_version) !== 0))
+          || (['pricing_schedule', 'rate_plan'].includes(operation.entity) && operation.type !== 'update')) {
+        throw new Error('This H3.1 entity supports reviewed exact updates only.');
+      }
+      if (['allocation_rule', 'payment_policy'].includes(operation.entity)
+          && operation.type !== 'create' && !Core.asText(operation.expected_children_fingerprint)) {
+        throw new Error('Reviewed aggregate updates require their fresh child fingerprint.');
+      }
+    });
+    const correlation = Core.normalizeUuid(correlationId) || Core.newUuid();
+    const data = await runRpc(RPC.applyH3Configuration, {
+      p_plan: reviewedPlan,
+      p_correlation_id: correlation,
+    }, 'Save reviewed H3.1 booking configuration');
+    const payload = Core.asObject(data);
+    const configuration = Core.normalizeH3Configuration(payload.configuration || payload.h3_1_configuration || payload);
+    if ((configuration.hotel_id || configuration.property.id) !== id) {
+      throw new Error('Saved H3.1 configuration returned a different property ID.');
+    }
+    return { ...payload, correlation_id: payload.correlation_id || correlation, configuration };
+  }
+
   async function uploadRoomGallery(propertySlug, roomId, files) {
     const optimizedUploader = typeof window !== 'undefined' && window.HotelsV2AdminMedia?.uploadRoomGallery;
     if (typeof optimizedUploader === 'function') {
@@ -368,6 +431,8 @@
     applyGuestPolicyPlan,
     applyRoomTypePlan,
     prepareLegacyShadowRooms,
+    getH3Configuration,
+    applyH3ConfigurationPlan,
     uploadRoomGallery,
   });
 });

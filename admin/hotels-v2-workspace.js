@@ -12,6 +12,8 @@
     loading: false,
     properties: [],
     workspace: null,
+    h3Configuration: null,
+    h3ConfigurationError: null,
     activeTab: 'overview',
     modal: null,
     pendingReview: null,
@@ -35,6 +37,7 @@
     ['overview', 'Overview'],
     ['rooms', 'Rooms & Rates'],
     ['calendar', 'Calendar'],
+    ['booking_setup', 'Booking setup'],
     ['bookings', 'Bookings'],
     ['payments', 'Payments'],
     ['content', 'Content & Media'],
@@ -523,6 +526,13 @@
     workspaceElement.innerHTML = '<div class="hotel-property-empty"><span class="hotel-workspace-spinner" aria-hidden="true"></span> Loading Property Workspace…</div>';
     try {
       state.workspace = await Repository.getWorkspace(id);
+      state.h3Configuration = null;
+      state.h3ConfigurationError = null;
+      try {
+        state.h3Configuration = await Repository.getH3Configuration(id);
+      } catch (error) {
+        state.h3ConfigurationError = error;
+      }
       state.calendar = {
         loading: false,
         error: null,
@@ -554,6 +564,8 @@
     const directory = byId('hotelPropertyDirectory');
     const workspaceElement = byId('hotelPropertyWorkspace');
     state.workspace = null;
+    state.h3Configuration = null;
+    state.h3ConfigurationError = null;
     state.calendar.data = null;
     if (workspaceElement) {
       workspaceElement.hidden = true;
@@ -609,6 +621,7 @@
       overview: renderOverviewPanel,
       rooms: renderRoomsPanel,
       calendar: renderCalendarPanel,
+      booking_setup: renderBookingSetupPanel,
       bookings: renderBookingsPanel,
       payments: renderPaymentsPanel,
       content: renderContentPanel,
@@ -2945,6 +2958,427 @@
     });
   }
 
+  function h3ExactId(existing) {
+    return Core.normalizeUuid(existing?.id) || Core.newUuid();
+  }
+
+  function h3RoomName(room) {
+    return Core.i18nText(room?.name_i18n, 'en', room?.code || 'Room Type');
+  }
+
+  function h3CommissionLabel(policy) {
+    if (!policy) return 'Not configured';
+    if (policy.commission_mode === 'percent_booking_total') return `${Number(policy.amount || 0)}% of booking total`;
+    return `${formatMoney(policy.amount, policy.currency)} / allocated room / night`;
+  }
+
+  function sevenKamaresAllocationRule(configuration, code, minGuests, maxGuests, mode, allocations, sortOrder) {
+    const existing = configuration.allocation_rules.find((rule) => rule.code === code);
+    const existingItems = new Map(Core.asArray(existing?.items).map((item) => [item.room_type_id, item]));
+    return {
+      ...(existing || {}), id: h3ExactId(existing), hotel_id: configuration.hotel_id, code,
+      min_guest_count: minGuests, max_guest_count: maxGuests, allocation_mode: mode,
+      is_active: true, review_status: 'reviewed', sort_order: sortOrder,
+      version: existing?.version || 1, items_fingerprint: existing?.items_fingerprint || null,
+      items: allocations.map((allocation, index) => {
+        const current = existingItems.get(allocation.room_type_id);
+        return {
+          ...(current || {}), id: h3ExactId(current), room_type_id: allocation.room_type_id,
+          units_required: allocation.units_required || 1,
+          allocated_guest_count: allocation.allocated_guest_count ?? null,
+          sort_order: (index + 1) * 100,
+        };
+      }),
+    };
+  }
+
+  function sevenKamaresH3Template(configuration) {
+    const base = Core.normalizeH3Configuration(configuration);
+    const upperId = Core.SEVEN_ARCHES_SHADOW_IDS.upper_room_type;
+    const groundId = Core.SEVEN_ARCHES_SHADOW_IDS.ground_room_type;
+    const choiceRooms = [
+      { room_type_id: upperId, units_required: 1, allocated_guest_count: null },
+      { room_type_id: groundId, units_required: 1, allocated_guest_count: null },
+    ];
+    const split = (upperGuests, groundGuests) => [
+      { room_type_id: upperId, units_required: 1, allocated_guest_count: upperGuests },
+      { room_type_id: groundId, units_required: 1, allocated_guest_count: groundGuests },
+    ];
+    const paymentCode = 'seven-kamares-request-confirmation';
+    const payment = base.payment_policies.find((entry) => entry.code === paymentCode);
+    const currentTerms = new Map(Core.asArray(payment?.terms).map((term) => [term.sequence, term]));
+    const commissionCode = 'seven-kamares-platform-commission';
+    const commission = base.commission_policies.find((entry) => entry.code === commissionCode);
+    const manual = base.calendar_sources.find((entry) => entry.source_type === 'manual');
+    return Core.normalizeH3Configuration({
+      ...base,
+      property: { ...base.property, minimum_stay_nights: 2 },
+      pricing_schedules: base.pricing_schedules.map((entry) => ({ ...entry, minimum_billable_occupancy: 2 })),
+      rate_plans: base.rate_plans.map((entry) => ({
+        ...entry,
+        price_inclusions: Core.normalizeStringSet([...entry.price_inclusions, 'cleaning', 'taxes']),
+      })),
+      allocation_rules: [
+        sevenKamaresAllocationRule(base, 'guests-1-4-choice', 1, 4, 'customer_choice', choiceRooms, 100),
+        sevenKamaresAllocationRule(base, 'guests-5-bundle', 5, 5, 'required_bundle', split(3, 2), 200),
+        sevenKamaresAllocationRule(base, 'guests-6-bundle', 6, 6, 'required_bundle', split(3, 3), 300),
+        sevenKamaresAllocationRule(base, 'guests-7-bundle', 7, 7, 'required_bundle', split(4, 3), 400),
+        sevenKamaresAllocationRule(base, 'guests-8-bundle', 8, 8, 'required_bundle', split(4, 4), 500),
+      ],
+      payment_policies: [{
+        ...(payment || {}), id: h3ExactId(payment), hotel_id: base.hotel_id, code: paymentCode,
+        name_i18n: { pl: 'Płatność po akceptacji partnera', en: 'Payment after partner acceptance', he: 'תשלום לאחר אישור השותף' },
+        currency: base.property.currency || state.workspace.property.currency || 'EUR',
+        is_active: true, review_status: 'reviewed', version: payment?.version || 1,
+        terms_fingerprint: payment?.terms_fingerprint || null,
+        terms: [
+          {
+            ...(currentTerms.get(1) || {}), id: h3ExactId(currentTerms.get(1)), sequence: 1,
+            due_event: 'after_partner_acceptance', amount_mode: 'percent_total', amount_value: 50,
+            recipient: 'partner', payment_methods: ['bank_transfer'], instructions_i18n: {},
+          },
+          {
+            ...(currentTerms.get(2) || {}), id: h3ExactId(currentTerms.get(2)), sequence: 2,
+            due_event: 'on_arrival', amount_mode: 'remaining_balance', amount_value: null,
+            recipient: 'partner', payment_methods: ['card', 'cash'], instructions_i18n: {},
+          },
+        ],
+      }],
+      commission_policies: [{
+        ...(commission || {}), id: h3ExactId(commission), hotel_id: base.hotel_id, code: commissionCode,
+        commission_mode: 'per_allocated_room_per_night', amount: 10,
+        currency: base.property.currency || state.workspace.property.currency || 'EUR',
+        is_active: true, review_status: 'reviewed', version: commission?.version || 1,
+      }],
+      calendar_sources: [{
+        ...(manual || {}), id: h3ExactId(manual), hotel_id: base.hotel_id, code: manual?.code || 'manual-primary',
+        source_type: 'manual', room_type_id: null, external_reference: null,
+        is_enabled: true, review_status: 'reviewed', priority: manual?.priority || 100,
+        configuration: Core.asObject(manual?.configuration), version: manual?.version || 1,
+      }, ...base.calendar_sources.filter((entry) => entry.source_type !== 'manual').map((entry) => ({ ...entry, is_enabled: false }))],
+    });
+  }
+
+  function h3ConfigurationHasReviewedRows(configuration) {
+    const normalized = Core.normalizeH3Configuration(configuration);
+    return normalized.allocation_rules.length > 0 || normalized.payment_policies.length > 0
+      || normalized.commission_policies.length > 0 || normalized.calendar_sources.length > 0;
+  }
+
+  function h3WorkingConfiguration(configuration, options = {}) {
+    const normalized = Core.normalizeH3Configuration(configuration);
+    const useTemplate = state.workspace.property.id === Core.SEVEN_ARCHES_PROPERTY_ID
+      && (options.forceTemplate === true || !h3ConfigurationHasReviewedRows(normalized));
+    return useTemplate ? sevenKamaresH3Template(normalized) : normalized;
+  }
+
+  function h3AllocationRuleEditorMarkup(rule) {
+    const rooms = state.workspace.room_types.filter((room) => room.status !== 'disabled');
+    const itemMap = new Map(rule.items.map((item) => [item.room_type_id, item]));
+    return `<section class="hotel-h3-allocation-rule" data-h3-allocation-rule data-rule-id="${escapeAttr(rule.id)}" data-rule-code="${escapeAttr(rule.code)}">
+      <header><div><span class="hotel-workspace-eyebrow">Guest allocation</span><strong>${escapeHtml(rule.code)}</strong></div><button class="btn-secondary hotel-danger-action" type="button" data-remove-h3-rule>${rule.created_at ? 'Disable rule' : 'Remove draft'}</button></header>
+      <div class="hotel-workspace-form-grid">
+        <label class="admin-form-field"><span>From guests</span><input data-h3-rule-min type="number" min="1" max="50" step="1" value="${rule.min_guest_count}" required /></label>
+        <label class="admin-form-field"><span>To guests</span><input data-h3-rule-max type="number" min="1" max="50" step="1" value="${rule.max_guest_count}" required /></label>
+        <label class="admin-form-field"><span>Allocation behavior</span><select data-h3-rule-mode><option value="customer_choice" ${rule.allocation_mode === 'customer_choice' ? 'selected' : ''}>Customer chooses one room</option><option value="required_bundle" ${rule.allocation_mode === 'required_bundle' ? 'selected' : ''}>Required bundle · exact rooms</option></select></label>
+        <label class="admin-checkbox-field"><input data-h3-rule-active type="checkbox" ${rule.is_active ? 'checked' : ''} /><span>Enabled in shadow configuration</span></label>
+      </div>
+      <div class="hotel-h3-room-allocation-list">${rooms.map((room) => {
+        const item = itemMap.get(room.id);
+        return `<div class="hotel-h3-room-allocation" data-h3-room-allocation data-room-id="${escapeAttr(room.id)}" data-item-id="${escapeAttr(item?.id || Core.newUuid())}">
+          <label class="admin-checkbox-field"><input data-h3-room-selected type="checkbox" ${item ? 'checked' : ''} /><span>${escapeHtml(h3RoomName(room))}</span></label>
+          <label class="admin-form-field"><span>Units</span><input data-h3-room-units type="number" min="1" max="${Math.max(1, room.base_inventory_count)}" step="1" value="${item?.units_required || 1}" /></label>
+          <label class="admin-form-field" data-h3-allocated-guests-field><span>Guests assigned</span><input data-h3-room-guests type="number" min="1" max="${Math.max(1, room.effective_max_occupancy)}" step="1" value="${item?.allocated_guest_count ?? ''}" /></label>
+          <small>Capacity ${room.effective_max_occupancy} · inventory ${room.base_inventory_count}</small>
+        </div>`;
+      }).join('')}</div>
+    </section>`;
+  }
+
+  function h3PaymentTermMarkup(term) {
+    const dueLabels = { at_booking: 'At booking', after_partner_acceptance: 'After partner acceptance', before_arrival: 'Before arrival', on_arrival: 'On arrival' };
+    const amountLabels = { percent_total: 'Percent of total', flat: 'Flat amount', remaining_balance: 'Remaining balance' };
+    return `<section class="hotel-h3-payment-term" data-h3-payment-term data-term-id="${escapeAttr(term.id)}">
+      <header><strong>Payment step <span data-h3-term-number>${term.sequence}</span></strong><button class="btn-secondary hotel-danger-action" type="button" data-remove-h3-term>Remove</button></header>
+      <div class="hotel-workspace-form-grid">
+        <label class="admin-form-field"><span>When due</span><select data-h3-term-due>${Core.HOTEL_PAYMENT_DUE_EVENTS.map((value) => `<option value="${value}" ${term.due_event === value ? 'selected' : ''}>${escapeHtml(dueLabels[value])}</option>`).join('')}</select></label>
+        <label class="admin-form-field"><span>Amount</span><select data-h3-term-mode>${Core.HOTEL_PAYMENT_AMOUNT_MODES.map((value) => `<option value="${value}" ${term.amount_mode === value ? 'selected' : ''}>${escapeHtml(amountLabels[value])}</option>`).join('')}</select></label>
+        <label class="admin-form-field" data-h3-term-amount-field><span>Value</span><input data-h3-term-amount type="number" min="0" step="0.01" value="${escapeAttr(term.amount_value ?? '')}" /></label>
+        <label class="admin-form-field"><span>Paid to</span><select data-h3-term-recipient>${Core.HOTEL_PAYMENT_RECIPIENTS.map((value) => `<option value="${value}" ${term.recipient === value ? 'selected' : ''}>${value === 'partner' ? 'Partner' : 'CyprusEye platform'}</option>`).join('')}</select></label>
+      </div>
+      <fieldset><legend>Accepted methods</legend><div class="hotel-h3-method-grid">${Core.HOTEL_PAYMENT_METHODS.map((method) => `<label class="admin-checkbox-field"><input data-h3-term-method type="checkbox" value="${method}" ${term.payment_methods.includes(method) ? 'checked' : ''} /><span>${escapeHtml(method.replaceAll('_', ' '))}</span></label>`).join('')}</div></fieldset>
+      <fieldset><legend>Customer instructions</legend><div class="hotel-workspace-i18n-grid">${Core.LANGUAGES.map((language) => `<label class="admin-form-field"><span>${language.toUpperCase()}</span><textarea data-h3-term-instruction="${language}" rows="2" dir="${language === 'he' ? 'rtl' : 'ltr'}">${escapeHtml(Core.asObject(term.instructions_i18n)[language] || '')}</textarea></label>`).join('')}</div></fieldset>
+    </section>`;
+  }
+
+  function bindH3DynamicEditor(form) {
+    const renumberTerms = () => form.querySelectorAll('[data-h3-payment-term]').forEach((term, index) => {
+      const label = term.querySelector('[data-h3-term-number]'); if (label) label.textContent = String(index + 1);
+    });
+    const updateRuleMode = (ruleElement) => {
+      const bundle = ruleElement.querySelector('[data-h3-rule-mode]')?.value === 'required_bundle';
+      ruleElement.querySelectorAll('[data-h3-allocated-guests-field]').forEach((field) => { field.hidden = !bundle; });
+    };
+    form.querySelectorAll('[data-h3-allocation-rule]').forEach((rule) => {
+      if (rule.dataset.h3Bound === '1') return;
+      rule.dataset.h3Bound = '1'; updateRuleMode(rule);
+      rule.querySelector('[data-h3-rule-mode]')?.addEventListener('change', () => updateRuleMode(rule));
+      rule.querySelector('[data-remove-h3-rule]')?.addEventListener('click', () => rule.remove());
+    });
+    const updateTermMode = (term) => {
+      const remaining = term.querySelector('[data-h3-term-mode]')?.value === 'remaining_balance';
+      const field = term.querySelector('[data-h3-term-amount-field]');
+      if (field) field.hidden = remaining;
+    };
+    form.querySelectorAll('[data-h3-payment-term]').forEach((term) => {
+      if (term.dataset.h3Bound === '1') return;
+      term.dataset.h3Bound = '1'; updateTermMode(term);
+      term.querySelector('[data-h3-term-mode]')?.addEventListener('change', () => updateTermMode(term));
+      term.querySelector('[data-remove-h3-term]')?.addEventListener('click', () => { term.remove(); renumberTerms(); });
+    });
+    renumberTerms();
+  }
+
+  function readH3ConfigurationForm(form, draft) {
+    const next = Core.clone(draft);
+    const persisted = Core.normalizeH3Configuration(state.h3Configuration);
+    const minimumStayValue = String(form.elements.minimum_stay_nights.value || '').trim();
+    next.property.minimum_stay_nights = minimumStayValue ? Number(minimumStayValue) : null;
+    next.pricing_schedules = next.pricing_schedules.map((schedule) => ({
+      ...schedule,
+      minimum_billable_occupancy: Number(form.querySelector(`[data-h3-schedule-id="${schedule.id}"]`)?.value),
+    }));
+    next.rate_plans = next.rate_plans.map((plan) => ({
+      ...plan,
+      price_inclusions: Core.normalizeStringSet([
+        ...plan.price_inclusions.filter((value) => !Core.HOTEL_PRICE_INCLUSIONS.includes(value)),
+        ...Array.from(form.querySelectorAll(`[data-h3-inclusion-plan="${plan.id}"]:checked`)).map((input) => input.value),
+      ]),
+    }));
+    const editedAllocationRules = Array.from(form.querySelectorAll('[data-h3-allocation-rule]')).map((rule, index) => {
+      const mode = rule.querySelector('[data-h3-rule-mode]').value;
+      const items = Array.from(rule.querySelectorAll('[data-h3-room-allocation]'))
+        .filter((row) => row.querySelector('[data-h3-room-selected]').checked)
+        .map((row, itemIndex) => ({
+          id: Core.normalizeUuid(row.dataset.itemId) || Core.newUuid(),
+          room_type_id: Core.normalizeUuid(row.dataset.roomId),
+          units_required: Number(row.querySelector('[data-h3-room-units]').value),
+          allocated_guest_count: mode === 'required_bundle' ? Number(row.querySelector('[data-h3-room-guests]').value) : null,
+          sort_order: (itemIndex + 1) * 100,
+        }));
+      const existing = next.allocation_rules.find((candidate) => candidate.id === rule.dataset.ruleId);
+      const persistedRule = persisted.allocation_rules.find((candidate) => candidate.id === rule.dataset.ruleId);
+      const isActive = rule.querySelector('[data-h3-rule-active]').checked;
+      return {
+        ...(existing || {}), id: Core.normalizeUuid(rule.dataset.ruleId) || Core.newUuid(), hotel_id: next.hotel_id,
+        code: rule.dataset.ruleCode || `guest-allocation-${index + 1}`,
+        min_guest_count: Number(rule.querySelector('[data-h3-rule-min]').value),
+        max_guest_count: Number(rule.querySelector('[data-h3-rule-max]').value),
+        allocation_mode: mode, is_active: isActive,
+        review_status: isActive || persistedRule?.review_status === 'reviewed' ? 'reviewed' : 'requires_review',
+        sort_order: (index + 1) * 100, items,
+      };
+    });
+    next.allocation_rules = [
+      ...editedAllocationRules,
+      ...next.allocation_rules.filter((rule) => rule.review_status === 'disabled'),
+    ];
+    const policyElement = form.querySelector('[data-h3-payment-policy]');
+    const currentPolicy = next.payment_policies.find((entry) => entry.id === policyElement.dataset.policyId);
+    const persistedPolicy = persisted.payment_policies.find((entry) => entry.id === policyElement.dataset.policyId);
+    const terms = Array.from(policyElement.querySelectorAll('[data-h3-payment-term]')).map((term, index) => {
+      const mode = term.querySelector('[data-h3-term-mode]').value;
+      return {
+        id: Core.normalizeUuid(term.dataset.termId) || Core.newUuid(), sequence: index + 1,
+        due_event: term.querySelector('[data-h3-term-due]').value, amount_mode: mode,
+        amount_value: mode === 'remaining_balance' ? null : Number(term.querySelector('[data-h3-term-amount]').value),
+        recipient: term.querySelector('[data-h3-term-recipient]').value,
+        payment_methods: Array.from(term.querySelectorAll('[data-h3-term-method]:checked')).map((input) => input.value),
+        instructions_i18n: Core.normalizeI18n(Object.fromEntries(Core.LANGUAGES.map((language) => [language, term.querySelector(`[data-h3-term-instruction="${language}"]`)?.value]))),
+      };
+    });
+    const reviewedPayment = {
+      ...(currentPolicy || {}), id: Core.normalizeUuid(policyElement.dataset.policyId) || Core.newUuid(), hotel_id: next.hotel_id,
+      code: policyElement.dataset.policyCode || 'request-confirmation-payment',
+      name_i18n: readI18n(new FormData(form), 'h3_payment_policy_name'),
+      currency: state.workspace.property.currency || 'EUR', is_active: form.elements.payment_policy_active.checked,
+      review_status: form.elements.payment_policy_active.checked || persistedPolicy?.review_status === 'reviewed'
+        ? 'reviewed' : 'requires_review', terms,
+    };
+    next.payment_policies = [reviewedPayment, ...next.payment_policies.filter((entry) => entry.id !== reviewedPayment.id)];
+    const currentCommission = next.commission_policies.find((entry) => entry.is_active) || next.commission_policies[0];
+    const persistedCommission = persisted.commission_policies.find((entry) => entry.id === currentCommission?.id);
+    const reviewedCommission = {
+      ...(currentCommission || {}), id: h3ExactId(currentCommission), hotel_id: next.hotel_id,
+      code: currentCommission?.code || 'platform-commission', commission_mode: form.elements.commission_mode.value,
+      amount: Number(form.elements.commission_amount.value), currency: state.workspace.property.currency || 'EUR',
+      is_active: form.elements.commission_active.checked,
+      review_status: form.elements.commission_active.checked || persistedCommission?.review_status === 'reviewed'
+        ? 'reviewed' : 'requires_review',
+    };
+    next.commission_policies = [reviewedCommission, ...next.commission_policies.filter((entry) => entry.id !== reviewedCommission.id)];
+    const manual = next.calendar_sources.find((entry) => entry.source_type === 'manual');
+    next.calendar_sources = [{
+      ...(manual || {}), id: h3ExactId(manual), hotel_id: next.hotel_id, code: manual?.code || 'manual-primary',
+      source_type: 'manual', room_type_id: null, external_reference: null, is_enabled: true,
+      review_status: 'reviewed', priority: manual?.priority || 100, configuration: Core.asObject(manual?.configuration),
+    }, ...next.calendar_sources.filter((entry) => entry.source_type !== 'manual').map((entry) => ({ ...entry, is_enabled: false }))];
+    return Core.normalizeH3Configuration(next);
+  }
+
+  async function refreshH3Configuration() {
+    const hotelId = state.workspace.property.id;
+    const [workspace, configuration] = await Promise.all([
+      Repository.getWorkspace(hotelId), Repository.getH3Configuration(hotelId),
+    ]);
+    state.workspace = workspace; state.h3Configuration = configuration; state.h3ConfigurationError = null;
+    return { workspace, configuration };
+  }
+
+  function h3ConflictError(conflicts) {
+    const fields = conflicts.map((item) => item.field.replaceAll('_', ' ')).join(', ');
+    const error = new Error(`The following booking setup changed after the editor opened: ${fields}.`);
+    error.userMessage = `${error.message} Fresh values are shown; review them before preparing a new save.`;
+    return error;
+  }
+
+  async function buildFreshH3Review(original, target) {
+    const { workspace, configuration: fresh } = await refreshH3Configuration();
+    const reconciliation = Core.reconcileH3Configuration(original, fresh, target);
+    if (!reconciliation.safe) throw h3ConflictError(reconciliation.conflicts);
+    const plan = Core.buildH3ConfigurationPlan(fresh, target, workspace);
+    return {
+      title: 'Review Hotel booking setup', entity: 'h3_booking_configuration',
+      before: Core.h3BusinessState(fresh), after: Core.h3BusinessState(target),
+      contextMessage: `Exact property ${workspace.property.id}. One atomic, version-checked plan updates only H3.1 Admin configuration. Architecture remains ${workspace.property.architecture_version}; all Hotels V2 flags and current public booking remain unchanged.`,
+      onConfirm: async () => {
+        await Repository.applyH3ConfigurationPlan(plan);
+        const saved = await refreshH3Configuration();
+        return { workspace: saved.workspace, configuration: saved.configuration };
+      },
+      onStaleReview: async () => ({
+        ...(await buildFreshH3Review(fresh, target)),
+        reReviewMessage: 'The stale booking setup save was stopped. Fresh exact versions are ready for explicit Review; nothing was retried automatically.',
+      }),
+      successMessage: 'Reviewed Hotel booking setup saved in shadow mode.',
+    };
+  }
+
+  function openH3ConfigurationEditor(options = {}) {
+    const original = Core.normalizeH3Configuration(state.h3Configuration);
+    const draft = h3WorkingConfiguration(original, options);
+    const proposedTemplate = state.workspace.property.id === Core.SEVEN_ARCHES_PROPERTY_ID
+      && !h3ConfigurationHasReviewedRows(original);
+    const payment = draft.payment_policies.find((entry) => entry.is_active) || draft.payment_policies[0] || {
+      id: Core.newUuid(), code: 'request-confirmation-payment', name_i18n: { en: 'Reviewed payment terms' },
+      is_active: false, terms: [{
+        id: Core.newUuid(), sequence: 1, due_event: 'after_partner_acceptance', amount_mode: 'percent_total',
+        amount_value: 50, recipient: 'partner', payment_methods: ['bank_transfer'], instructions_i18n: {},
+      }],
+    };
+    const commission = draft.commission_policies.find((entry) => entry.is_active) || draft.commission_policies[0] || { amount: 0, is_active: false };
+    openModal({
+      title: 'Configure booking setup',
+      className: 'hotel-workspace-modal--wide hotel-h3-configuration-modal',
+      body: `<form id="hotelH3ConfigurationForm" class="hotel-workspace-form">
+        ${proposedTemplate ? '<section class="hotel-h3-template-banner"><span class="hotel-workspace-eyebrow">Reviewed 7 Kamares template</span><h4>Proposed only · no automatic write</h4><p>2-night minimum; one guest billed at the 2-person tier; choice for 1–4 guests; exact apartment bundles for 5–8; taxes and cleaning included; 50% after acceptance; balance on arrival; €10 commission per allocated apartment per night; manual Calendar.</p></section>' : ''}
+        <section class="hotel-h3-editor-section"><header><div><span class="hotel-workspace-eyebrow">Stay rules</span><h4>Minimums and inclusions</h4></div></header>
+          <div class="hotel-workspace-form-grid">
+            <label class="admin-form-field"><span>Minimum stay (nights)</span><input name="minimum_stay_nights" type="number" min="1" max="365" step="1" value="${draft.property.minimum_stay_nights ?? ''}" placeholder="Not reviewed" /><small>Leave blank while preparing another draft section; readiness stays blocked.</small></label>
+            <div class="hotel-h3-overview-link"><span>Arrival and departure</span><strong>${escapeHtml(String(state.workspace.property.check_in_from || 'Not configured').slice(0, 5))} → ${escapeHtml(String(state.workspace.property.check_out_until || 'Not configured').slice(0, 5))}</strong><button class="btn-secondary" type="button" data-h3-open-overview>Manage in Overview</button></div>
+          </div>
+          <div class="hotel-h3-config-list">${draft.pricing_schedules.map((schedule) => `<label class="admin-form-field"><span>Minimum billable occupancy · ${escapeHtml(schedule.name || schedule.code || schedule.id)}</span><input data-h3-schedule-id="${schedule.id}" type="number" min="1" max="${Math.max(1, Number(schedule.maximum_party_size || 64))}" step="1" value="${schedule.minimum_billable_occupancy ?? 1}" required /><small>A one-guest stay may use this reviewed minimum occupancy price.</small></label>`).join('') || '<p class="hotel-property-card__blocker">No pricing schedule is available. Configure Rooms & Rates before saving H3.1.</p>'}</div>
+          <div class="hotel-h3-config-list">${draft.rate_plans.map((plan) => {
+            const preserved = plan.price_inclusions.filter((value) => !Core.HOTEL_PRICE_INCLUSIONS.includes(value));
+            return `<fieldset><legend>${escapeHtml(Core.i18nText(plan.name_i18n, 'en', plan.code || 'Rate Plan'))} inclusions</legend><div class="hotel-h3-method-grid">${Core.HOTEL_PRICE_INCLUSIONS.map((value) => `<label class="admin-checkbox-field"><input data-h3-inclusion-plan="${plan.id}" type="checkbox" value="${value}" ${plan.price_inclusions.includes(value) ? 'checked' : ''} /><span>${value === 'taxes' ? 'Taxes included' : 'Cleaning included'}</span></label>`).join('')}</div>${preserved.length ? `<small>Preserved custom inclusions: ${escapeHtml(preserved.join(', '))}</small>` : ''}</fieldset>`;
+          }).join('')}</div>
+        </section>
+        <section class="hotel-h3-editor-section"><header><div><span class="hotel-workspace-eyebrow">Guest → Room Type</span><h4>Allocation rules</h4></div><button class="btn-secondary" type="button" data-add-h3-rule>+ Allocation rule</button></header><p>Choice rules let the customer select one exact Room Type. Bundle rules allocate exact rooms and an exact guest split. Persisted rules are disabled, not deleted.</p><div data-h3-allocation-rules>${draft.allocation_rules.filter((rule) => rule.review_status !== 'disabled').map(h3AllocationRuleEditorMarkup).join('')}</div></section>
+        <section class="hotel-h3-editor-section" data-h3-payment-policy data-policy-id="${escapeAttr(payment.id)}" data-policy-code="${escapeAttr(payment.code)}"><header><div><span class="hotel-workspace-eyebrow">Customer payment</span><h4>Reviewed payment terms</h4></div><button class="btn-secondary" type="button" data-add-h3-term>+ Payment step</button></header>
+          ${i18nFields('h3_payment_policy_name', 'Policy label', payment.name_i18n)}<label class="admin-checkbox-field"><input name="payment_policy_active" type="checkbox" ${payment.is_active ? 'checked' : ''} /><span>Use these terms in future shadow quotes</span></label><div data-h3-payment-terms>${payment.terms.map(h3PaymentTermMarkup).join('')}</div>
+          <p class="hotel-workspace-safety-note">These terms do not collect money, accept a booking, change central Deposit Settings or create a payout.</p>
+        </section>
+        <section class="hotel-h3-editor-section"><header><div><span class="hotel-workspace-eyebrow">CyprusEye commission</span><h4>Separate commercial rule</h4></div></header><div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>Calculation</span><select name="commission_mode"><option value="per_allocated_room_per_night" ${commission.commission_mode !== 'percent_booking_total' ? 'selected' : ''}>Amount per allocated room / night</option><option value="percent_booking_total" ${commission.commission_mode === 'percent_booking_total' ? 'selected' : ''}>Percent of booking total</option></select></label><label class="admin-form-field"><span>Amount or percent</span><input name="commission_amount" type="number" min="0" step="0.01" value="${escapeAttr(commission.amount ?? 0)}" required /></label><label class="admin-checkbox-field"><input name="commission_active" type="checkbox" ${commission.is_active ? 'checked' : ''} /><span>Commission reviewed for shadow calculations</span></label></div><p>Commission remains separate from the customer total, payment due and partner payout.</p></section>
+        <section class="hotel-h3-editor-section"><header><div><span class="hotel-workspace-eyebrow">Availability adapter</span><h4>Manual Calendar source</h4></div><span class="hotel-workspace-status hotel-workspace-status--success">MANUAL</span></header><div class="hotel-h3-provider-grid">${Core.HOTEL_CALENDAR_SOURCES.map((source) => `<div class="${source === 'manual' ? 'is-enabled' : ''}"><strong>${escapeHtml(source.replaceAll('_', ' '))}</strong><small>${source === 'manual' ? 'Enabled for H3.1 shadow configuration' : 'Future provider · disabled'}</small></div>`).join('')}</div></section>
+        <div class="hotel-workspace-locked-fields"><div><span>Architecture</span><strong>${escapeHtml(state.workspace.property.architecture_version)}</strong><small>Not included in this save.</small></div><div><span>Public: no change</span><strong>Legacy stays authoritative</strong><small>No public runtime reads this plan.</small></div><div><span>Hotels V2 flags</span><strong>OFF required</strong><small>Not included in this save.</small></div></div>
+      </form>`,
+      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelH3ConfigurationForm">Review booking setup</button>',
+      onReady(overlay) {
+        const form = overlay.querySelector('#hotelH3ConfigurationForm');
+        bindH3DynamicEditor(form);
+        const commissionMode = form.elements.commission_mode;
+        const commissionAmount = form.elements.commission_amount;
+        const updateCommissionAmount = () => {
+          if (commissionMode.value === 'percent_booking_total') commissionAmount.setAttribute('max', '100');
+          else commissionAmount.removeAttribute('max');
+        };
+        commissionMode.addEventListener('change', updateCommissionAmount);
+        updateCommissionAmount();
+        form.querySelector('[data-h3-open-overview]')?.addEventListener('click', () => {
+          closeModal({ restoreFocus: false }); state.activeTab = 'overview'; renderWorkspace();
+        });
+        form.querySelector('[data-add-h3-rule]')?.addEventListener('click', () => {
+          const index = form.querySelectorAll('[data-h3-allocation-rule]').length + 1;
+          const rule = { id: Core.newUuid(), code: `guest-allocation-${Core.newUuid().slice(0, 8)}`, min_guest_count: 1, max_guest_count: 1, allocation_mode: 'customer_choice', is_active: true, items: [], sort_order: index * 100 };
+          const holder = document.createElement('div'); holder.innerHTML = h3AllocationRuleEditorMarkup(rule);
+          form.querySelector('[data-h3-allocation-rules]').append(holder.firstElementChild); bindH3DynamicEditor(form);
+        });
+        form.querySelector('[data-add-h3-term]')?.addEventListener('click', () => {
+          const sequence = form.querySelectorAll('[data-h3-payment-term]').length + 1;
+          const holder = document.createElement('div'); holder.innerHTML = h3PaymentTermMarkup({ id: Core.newUuid(), sequence, due_event: 'after_partner_acceptance', amount_mode: 'percent_total', amount_value: 50, recipient: 'partner', payment_methods: ['bank_transfer'], instructions_i18n: {} });
+          form.querySelector('[data-h3-payment-terms]').append(holder.firstElementChild); bindH3DynamicEditor(form);
+        });
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const submit = overlay.querySelector('[type="submit"]'); submit.disabled = true; submit.textContent = 'Refreshing exact values…';
+          try {
+            const target = readH3ConfigurationForm(form, draft);
+            Core.validateH3Configuration(target, state.workspace);
+            closeModal({ restoreFocus: false });
+            await openReview(await buildFreshH3Review(original, target));
+          } catch (error) {
+            submit.disabled = false; submit.textContent = 'Review booking setup';
+            toast(error?.userMessage || error?.message || 'Booking setup could not be prepared for Review.', 'error');
+          }
+        });
+      },
+    });
+  }
+
+  function renderH3Readiness(readiness) {
+    return `<section class="hotel-workspace-card hotel-h3-readiness"><div class="hotel-readiness-card__header"><div><span class="hotel-workspace-eyebrow">H3 shadow readiness</span><h4>${escapeHtml(readiness.state.replaceAll('_', ' '))}</h4></div><span class="hotel-workspace-status hotel-workspace-status--${readiness.blockers.length ? 'danger' : 'success'}">${readiness.blockers.length ? `${readiness.blockers.length} blocker${readiness.blockers.length === 1 ? '' : 's'}` : 'STRUCTURALLY READY'}</span></div>${readiness.blockers.length ? `<ul class="hotel-readiness-list hotel-readiness-list--blockers">${readiness.blockers.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '<p class="hotel-readiness-success">Structurally ready for shadow quote/booking implementation.</p>'}${readiness.warnings.length ? `<ul class="hotel-readiness-list">${readiness.warnings.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : ''}<small>Readiness never activates Rooms V2 or accepts a partner booking.</small></section>`;
+  }
+
+  function renderBookingSetupPanel(panel) {
+    if (!state.h3Configuration) {
+      const error = state.h3ConfigurationError;
+      panel.innerHTML = `${workspacePanelHeader('Booking setup', 'Stay, allocation, payment and commission configuration for future shadow request-confirmation flows.')}<section class="hotel-workspace-card hotel-placeholder-card"><span class="hotel-workspace-eyebrow">H3.1 foundation unavailable</span><h4>Booking setup is fail-closed</h4><p>${escapeHtml(error?.isFoundationMissing ? 'Apply the approved H3.1 SQL foundation before enabling this editor.' : (error?.message || 'Configuration could not be loaded.'))}</p><button class="btn-secondary" type="button" data-retry-h3-config>Retry secure configuration load</button></section>`;
+      panel.querySelector('[data-retry-h3-config]')?.addEventListener('click', async () => { try { await refreshH3Configuration(); renderWorkspace(); } catch (loadError) { toast(loadError.message, 'error'); } });
+      return;
+    }
+    const configuration = Core.normalizeH3Configuration(state.h3Configuration);
+    const readiness = Core.deriveH3Readiness(configuration, state.workspace);
+    const activeRules = configuration.allocation_rules.filter((rule) => rule.is_active);
+    const payment = configuration.payment_policies.find((entry) => entry.is_active);
+    const commission = configuration.commission_policies.find((entry) => entry.is_active);
+    const manual = configuration.calendar_sources.find((entry) => entry.source_type === 'manual' && entry.is_enabled);
+    const templateReady = state.workspace.property.id === Core.SEVEN_ARCHES_PROPERTY_ID && !h3ConfigurationHasReviewedRows(configuration);
+    const setupActions = `<div class="hotel-workspace-panel-actions">${state.workspace.property.id === Core.SEVEN_ARCHES_PROPERTY_ID ? '<button class="btn-secondary" type="button" data-apply-seven-kamares-h3-template>Review 7 Kamares template</button>' : ''}<button class="btn-primary" type="button" data-edit-h3-configuration>Configure & Review</button></div>`;
+    panel.innerHTML = `${workspacePanelHeader('Booking setup', 'Review exact stay rules, room allocation, customer payment terms, commission and availability source.', setupActions)}
+      ${templateReady ? '<section class="hotel-h3-template-banner"><span class="hotel-workspace-eyebrow">7 Kamares reviewed business template</span><h4>Ready to prepare — not saved</h4><p>The editor prefills the approved 1–8 guest allocation, 2-night stay, minimum 2-person billing, inclusions, payment, commission and manual Calendar. Admin must inspect Review and explicitly Save.</p></section>' : ''}
+      <div class="hotel-h3-dashboard">
+        <section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">Stay & price basis</span><h4>${configuration.property.minimum_stay_nights || '—'} night minimum</h4><dl><div><dt>Pricing schedules</dt><dd>${configuration.pricing_schedules.length}</dd></div><div><dt>Minimum billable guests</dt><dd>${configuration.pricing_schedules.map((entry) => entry.minimum_billable_occupancy || '—').join(', ') || 'Not configured'}</dd></div><div><dt>Rate inclusions</dt><dd>${Array.from(new Set(configuration.rate_plans.flatMap((entry) => entry.price_inclusions))).join(', ') || 'Not reviewed'}</dd></div></dl></section>
+        <section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">Guest allocation</span><h4>${activeRules.length} active rule${activeRules.length === 1 ? '' : 's'}</h4>${activeRules.length ? `<ul class="hotel-simple-list">${activeRules.map((rule) => `<li><span>${rule.min_guest_count}${rule.max_guest_count === rule.min_guest_count ? '' : `–${rule.max_guest_count}`} guests</span><strong>${rule.allocation_mode === 'customer_choice' ? 'Customer choice' : 'Exact bundle'}</strong></li>`).join('')}</ul>` : '<p>No reviewed allocation rules.</p>'}</section>
+        <section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">Payment terms</span><h4>${payment ? `${payment.terms.length} reviewed step${payment.terms.length === 1 ? '' : 's'}` : 'Not configured'}</h4>${payment ? `<ul class="hotel-simple-list">${payment.terms.map((term) => `<li><span>${escapeHtml(term.due_event.replaceAll('_', ' '))}</span><strong>${term.amount_mode === 'remaining_balance' ? 'Remaining balance' : term.amount_mode === 'percent_total' ? `${term.amount_value}%` : formatMoney(term.amount_value, payment.currency)}</strong></li>`).join('')}</ul>` : '<p>Customer payment and partner settlement remain separate.</p>'}</section>
+        <section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">Platform commission</span><h4>${escapeHtml(h3CommissionLabel(commission))}</h4><p>Calculated separately from customer payment due and partner payout.</p></section>
+        <section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">Availability source</span><h4>${manual ? 'Manual Calendar' : 'Not configured'}</h4><p>Booking.com, Airbnb and iCal remain disabled future capabilities.</p></section>
+        ${renderH3Readiness(readiness)}
+      </div>
+      <section class="hotel-workspace-card hotel-workspace-safety-note"><strong>Shadow/request-confirmation only</strong><p>Architecture is ${escapeHtml(state.workspace.property.architecture_version)}. Public Hotels V2 flags stay OFF. This cannot publish, change legacy prices, create a booking, collect payment or accept for a partner.</p></section>`;
+    panel.querySelector('[data-edit-h3-configuration]')?.addEventListener('click', () => openH3ConfigurationEditor());
+    panel.querySelector('[data-apply-seven-kamares-h3-template]')?.addEventListener('click', () => openH3ConfigurationEditor({ forceTemplate: true }));
+  }
+
   function renderBookingsPanel(panel) {
     const upcoming = Number(state.workspace.counts?.upcoming_bookings || 0);
     panel.innerHTML = `${workspacePanelHeader('Bookings', 'Existing Hotel booking and partner-confirmation behavior remains unchanged.')}
@@ -2985,11 +3419,16 @@
     const exact = Core.asObject(payment.exact_override);
     const fallback = Core.asObject(payment.default_rule);
     const effective = Object.keys(exact).length ? exact : fallback;
-    panel.innerHTML = `${workspacePanelHeader('Payments', 'A read-only summary of the existing central Hotel payment-due-at-booking system.')}
-      <div class="hotel-workspace-summary-grid"><section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">Payment due at booking</span><h4>${escapeHtml(depositRuleLabel(effective))}</h4><p>${Object.keys(exact).length ? 'Exact property override' : 'Hotels default rule'} from the existing central Deposit Settings tables.</p><button class="btn-primary" type="button" data-open-hotel-deposit>Manage in Deposit Settings</button></section>
-      <section class="hotel-workspace-card hotel-placeholder-card"><span class="hotel-workspace-eyebrow">Platform commission</span><h4>Not configured in H2A</h4><p>Commission is distinct from customer prepayment and remains future work.</p></section>
+    const h3 = state.h3Configuration ? Core.normalizeH3Configuration(state.h3Configuration) : null;
+    const h3Payment = h3?.payment_policies.find((entry) => entry.is_active);
+    const h3Commission = h3?.commission_policies.find((entry) => entry.is_active);
+    panel.innerHTML = `${workspacePanelHeader('Payments', 'Current central deposit behavior and future reviewed H3 request-confirmation terms remain separate.')}
+      <div class="hotel-workspace-summary-grid"><section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">Current legacy payment due</span><h4>${escapeHtml(depositRuleLabel(effective))}</h4><p>${Object.keys(exact).length ? 'Exact property override' : 'Hotels default rule'} from the existing central Deposit Settings tables.</p><button class="btn-primary" type="button" data-open-hotel-deposit>Manage in Deposit Settings</button></section>
+      <section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">H3 shadow payment terms</span><h4>${h3Payment ? `${h3Payment.terms.length} reviewed step${h3Payment.terms.length === 1 ? '' : 's'}` : 'Not configured'}</h4><p>These request-confirmation terms are inert and do not replace the current central deposit rule.</p><button class="btn-secondary" type="button" data-open-h3-payment-setup>Open Booking setup</button></section>
+      <section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">Platform commission</span><h4>${escapeHtml(h3CommissionLabel(h3Commission))}</h4><p>Commission is a separate commercial calculation; it is never treated as customer prepayment or partner payout.</p></section>
       <section class="hotel-workspace-card hotel-placeholder-card"><span class="hotel-workspace-eyebrow">Partner payout / Stripe Connect</span><h4>Capability disabled</h4><p>No connected-account or payout behavior is exposed in this stage.</p></section></div>`;
     panel.querySelector('[data-open-hotel-deposit]')?.addEventListener('click', openCentralHotelDepositSettings);
+    panel.querySelector('[data-open-h3-payment-setup]')?.addEventListener('click', () => { state.activeTab = 'booking_setup'; renderWorkspace(); });
   }
 
   function openPropertyMediaEditor() {
@@ -3085,8 +3524,12 @@
   function renderDistributionPanel(panel) {
     const flags = state.workspace.flags;
     const flagRows = ['hotel_rooms_v2_enabled', 'hotel_external_sync_enabled', 'hotel_instant_booking_enabled', 'hotel_stripe_connect_enabled'];
-    panel.innerHTML = `${workspacePanelHeader('Distribution & Sync', 'External sources and distribution adapters are intentionally deferred.')}
-      <section class="hotel-workspace-card hotel-placeholder-card"><span class="hotel-workspace-eyebrow">Capability status</span><h4>All Hotels V2 capabilities must remain off</h4><ul class="hotel-simple-list">${flagRows.map((key) => `<li><span>${escapeHtml(key.replaceAll('_', ' '))}</span><strong>${flags[key] === true ? 'ON — unexpected' : 'OFF'}</strong></li>`).join('')}</ul><p>No Booking.com, iCal, external API, instant-booking or Stripe Connect behavior is implemented here.</p></section>`;
+    const h3 = state.h3Configuration ? Core.normalizeH3Configuration(state.h3Configuration) : null;
+    const manual = h3?.calendar_sources.find((entry) => entry.source_type === 'manual' && entry.is_enabled);
+    panel.innerHTML = `${workspacePanelHeader('Distribution & Sync', 'A manual availability adapter is reviewable in H3.1; external providers remain inert.')}
+      <div class="hotel-workspace-summary-grid"><section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">Availability source</span><h4>${manual ? 'Manual Calendar configured' : 'Manual source not configured'}</h4><p>Future server availability will read through an adapter seam. H3.1 creates no Booking.com, Airbnb or iCal network behavior.</p><button class="btn-secondary" type="button" data-open-h3-distribution-setup>Open Booking setup</button></section>
+      <section class="hotel-workspace-card hotel-placeholder-card"><span class="hotel-workspace-eyebrow">Capability status</span><h4>All Hotels V2 capabilities must remain off</h4><ul class="hotel-simple-list">${flagRows.map((key) => `<li><span>${escapeHtml(key.replaceAll('_', ' '))}</span><strong>${flags[key] === true ? 'ON — unexpected' : 'OFF'}</strong></li>`).join('')}</ul><p>External sync, instant booking and Stripe Connect remain disabled.</p></section></div>`;
+    panel.querySelector('[data-open-h3-distribution-setup]')?.addEventListener('click', () => { state.activeTab = 'booking_setup'; renderWorkspace(); });
   }
 
   function renderActivityPanel(panel) {

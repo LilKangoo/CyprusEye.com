@@ -12,6 +12,15 @@
   const BOOKING_MODES = Object.freeze(['request_confirmation', 'instant_booking', 'external_redirect']);
   const CHILDREN_POLICIES = Object.freeze(['allowed', 'not_allowed', 'minimum_age']);
   const ROOM_CHILDREN_POLICY_OVERRIDES = Object.freeze(['allowed', 'not_allowed', 'minimum_age']);
+  const ROOM_ALLOCATION_MODES = Object.freeze(['customer_choice', 'required_bundle']);
+  const HOTEL_PRICE_INCLUSIONS = Object.freeze(['taxes', 'cleaning']);
+  const HOTEL_PAYMENT_DUE_EVENTS = Object.freeze(['at_booking', 'after_partner_acceptance', 'before_arrival', 'on_arrival']);
+  const HOTEL_PAYMENT_AMOUNT_MODES = Object.freeze(['percent_total', 'flat', 'remaining_balance']);
+  const HOTEL_PAYMENT_RECIPIENTS = Object.freeze(['partner', 'platform']);
+  const HOTEL_PAYMENT_METHODS = Object.freeze(['bank_transfer', 'cash', 'card', 'online']);
+  const HOTEL_COMMISSION_MODES = Object.freeze(['per_allocated_room_per_night', 'percent_booking_total']);
+  const HOTEL_CALENDAR_SOURCES = Object.freeze(['manual', 'booking_com', 'airbnb', 'ical']);
+  const H3_REVIEW_STATUSES = Object.freeze(['requires_review', 'reviewed', 'disabled']);
   const CHILD_AGE_MIN = 0;
   const CHILD_AGE_MAX = 17;
   const SEVEN_ARCHES_PROPERTY_ID = '9b6d99a0-923a-4fbc-be54-c066e856e6ca';
@@ -167,6 +176,172 @@
       .filter(Boolean)
       .filter((entry, index, rows) => rows.indexOf(entry) === index)
       .sort((a, b) => a.localeCompare(b));
+  }
+
+  function normalizeStringSet(value, allowed = null) {
+    return asArray(value)
+      .map((entry) => asText(entry).toLowerCase())
+      .filter((entry) => entry && (!allowed || allowed.includes(entry)))
+      .filter((entry, index, rows) => rows.indexOf(entry) === index)
+      .sort((a, b) => a.localeCompare(b));
+  }
+
+  function normalizeH31AllocationItem(value) {
+    const source = asObject(value);
+    return {
+      ...clone(source),
+      id: normalizeUuid(source.id) || null,
+      room_type_id: normalizeUuid(source.room_type_id),
+      units_required: asInteger(source.units_required ?? source.quantity, 1),
+      allocated_guest_count: source.allocated_guest_count == null
+        ? null
+        : asInteger(source.allocated_guest_count, 1),
+      sort_order: asInteger(source.sort_order, 1000),
+    };
+  }
+
+  function normalizeH31AllocationRule(value) {
+    const source = asObject(value);
+    const mode = asText(source.allocation_mode || source.mode);
+    return {
+      ...clone(source),
+      id: normalizeUuid(source.id) || null,
+      hotel_id: normalizeUuid(source.hotel_id) || null,
+      code: asText(source.code) || 'guest-allocation',
+      min_guest_count: asInteger(source.min_guest_count ?? source.min_guests ?? source.guest_count_min, 1),
+      max_guest_count: asInteger(source.max_guest_count ?? source.max_guests ?? source.guest_count_max, 1),
+      allocation_mode: ROOM_ALLOCATION_MODES.includes(mode) ? mode : 'customer_choice',
+      is_active: source.is_active === true,
+      review_status: asText(source.review_status) || 'requires_review',
+      sort_order: asInteger(source.sort_order, 1000),
+      version: Math.max(1, asInteger(source.version, 1)),
+      updated_at: source.updated_at || null,
+      items_fingerprint: asText(source.items_fingerprint) || null,
+      items: asArray(source.items).map(normalizeH31AllocationItem)
+        .filter((item) => item.room_type_id)
+        .sort((a, b) => a.sort_order - b.sort_order || a.room_type_id.localeCompare(b.room_type_id)),
+    };
+  }
+
+  function normalizeH31PaymentTerm(value) {
+    const source = asObject(value);
+    const dueEvent = asText(source.due_event);
+    const amountMode = asText(source.amount_mode);
+    const recipient = asText(source.recipient);
+    return {
+      ...clone(source),
+      id: normalizeUuid(source.id) || null,
+      due_event: HOTEL_PAYMENT_DUE_EVENTS.includes(dueEvent) ? dueEvent : 'after_partner_acceptance',
+      amount_mode: HOTEL_PAYMENT_AMOUNT_MODES.includes(amountMode) ? amountMode : 'percent_total',
+      amount_value: amountMode === 'remaining_balance' ? null : asNumber(source.amount_value, null),
+      recipient: HOTEL_PAYMENT_RECIPIENTS.includes(recipient) ? recipient : 'partner',
+      payment_methods: normalizeStringSet(source.payment_methods, HOTEL_PAYMENT_METHODS),
+      instructions_i18n: normalizeI18n(source.instructions_i18n),
+      sequence: asInteger(source.sequence ?? source.sort_order, 1),
+    };
+  }
+
+  function normalizeH31PaymentPolicy(value) {
+    const source = asObject(value);
+    return {
+      ...clone(source),
+      id: normalizeUuid(source.id) || null,
+      hotel_id: normalizeUuid(source.hotel_id) || null,
+      code: asText(source.code) || 'standard',
+      name_i18n: normalizeI18n(source.name_i18n || source.name, { fallback: 'Reviewed payment terms' }),
+      currency: (asText(source.currency) || 'EUR').toUpperCase(),
+      is_active: source.is_active === true,
+      review_status: asText(source.review_status) || 'requires_review',
+      version: Math.max(1, asInteger(source.version, 1)),
+      updated_at: source.updated_at || null,
+      terms_fingerprint: asText(source.terms_fingerprint) || null,
+      terms: asArray(source.terms).map(normalizeH31PaymentTerm)
+        .sort((a, b) => a.sequence - b.sequence || String(a.id || '').localeCompare(String(b.id || ''))),
+    };
+  }
+
+  function normalizeH31CommissionPolicy(value) {
+    const source = asObject(value);
+    const mode = asText(source.commission_mode || source.mode);
+    return {
+      ...clone(source),
+      id: normalizeUuid(source.id) || null,
+      hotel_id: normalizeUuid(source.hotel_id) || null,
+      code: asText(source.code) || 'platform-commission',
+      commission_mode: HOTEL_COMMISSION_MODES.includes(mode) ? mode : 'per_allocated_room_per_night',
+      amount: asNumber(source.amount, null),
+      currency: (asText(source.currency) || 'EUR').toUpperCase(),
+      is_active: source.is_active === true,
+      review_status: asText(source.review_status) || 'requires_review',
+      version: Math.max(1, asInteger(source.version, 1)),
+      updated_at: source.updated_at || null,
+    };
+  }
+
+  function normalizeH31CalendarSource(value) {
+    const source = asObject(value);
+    const sourceType = asText(source.source_type || source.source || source.provider);
+    return {
+      ...clone(source),
+      id: normalizeUuid(source.id) || null,
+      hotel_id: normalizeUuid(source.hotel_id) || null,
+      code: asText(source.code) || `${sourceType || 'manual'}-calendar`,
+      source_type: HOTEL_CALENDAR_SOURCES.includes(sourceType) ? sourceType : 'manual',
+      room_type_id: normalizeUuid(source.room_type_id) || null,
+      external_reference: asNullableText(source.external_reference),
+      is_enabled: source.is_enabled === true || source.enabled === true,
+      review_status: asText(source.review_status) || 'requires_review',
+      priority: asInteger(source.priority, 100),
+      configuration: clone(asObject(source.configuration || source.config)),
+      version: Math.max(1, asInteger(source.version, 1)),
+      updated_at: source.updated_at || null,
+    };
+  }
+
+  function normalizeH31Configuration(value) {
+    const outer = asObject(value);
+    const source = asObject(outer.h3_1_configuration || outer.configuration || outer);
+    const property = asObject(source.property);
+    const flags = asObject(source.flags || source.feature_flags);
+    return {
+      hotel_id: normalizeUuid(source.hotel_id || property.id),
+      property: {
+        ...clone(property),
+        id: normalizeUuid(property.id || source.hotel_id),
+        minimum_stay_nights: property.minimum_stay_nights == null
+          ? null
+          : asInteger(property.minimum_stay_nights, 0),
+        updated_at: property.updated_at || source.expected_property_updated_at || null,
+      },
+      pricing_schedules: asArray(source.pricing_schedules || source.schedules).map((entry) => {
+        const schedule = asObject(entry);
+        return {
+          ...clone(schedule),
+          id: normalizeUuid(schedule.id),
+          hotel_id: normalizeUuid(schedule.hotel_id || source.hotel_id) || null,
+          minimum_billable_occupancy: schedule.minimum_billable_occupancy == null
+            ? null
+            : asInteger(schedule.minimum_billable_occupancy, 0),
+          version: Math.max(1, asInteger(schedule.version, 1)),
+        };
+      }).filter((entry) => entry.id),
+      rate_plans: asArray(source.rate_plans).map((entry) => {
+        const plan = asObject(entry);
+        return {
+          ...clone(plan),
+          id: normalizeUuid(plan.id),
+          hotel_id: normalizeUuid(plan.hotel_id || source.hotel_id) || null,
+          price_inclusions: normalizeStringSet(plan.price_inclusions),
+          version: Math.max(1, asInteger(plan.version, 1)),
+        };
+      }).filter((entry) => entry.id),
+      allocation_rules: asArray(source.allocation_rules).map(normalizeH31AllocationRule),
+      payment_policies: asArray(source.payment_policies).map(normalizeH31PaymentPolicy),
+      commission_policies: asArray(source.commission_policies || source.commissions).map(normalizeH31CommissionPolicy),
+      calendar_sources: asArray(source.calendar_sources || source.calendar_source_configs).map(normalizeH31CalendarSource),
+      flags: clone(flags),
+      snapshot_token: asText(source.snapshot_token) || null,
+    };
   }
 
   function normalizeBedConfiguration(value) {
@@ -1310,6 +1485,487 @@
     };
   }
 
+  function h31BusinessState(value) {
+    const normalized = normalizeH31Configuration(value);
+    const byId = (rows, mapper) => Object.fromEntries(rows
+      .slice()
+      .sort((a, b) => String(a.id || '').localeCompare(String(b.id || '')))
+      .map((entry) => [entry.id || `new:${entry.code || entry.source_type || ''}`, mapper(entry)]));
+    return {
+      minimum_stay_nights: normalized.property.minimum_stay_nights,
+      pricing_schedules: byId(normalized.pricing_schedules, (entry) => ({
+        minimum_billable_occupancy: entry.minimum_billable_occupancy,
+      })),
+      rate_plans: byId(normalized.rate_plans, (entry) => ({ price_inclusions: entry.price_inclusions })),
+      allocation_rules: byId(normalized.allocation_rules, (entry) => ({
+        code: entry.code,
+        min_guest_count: entry.min_guest_count,
+        max_guest_count: entry.max_guest_count,
+        allocation_mode: entry.allocation_mode,
+        is_active: entry.is_active,
+        review_status: entry.review_status,
+        sort_order: entry.sort_order,
+        items: entry.items.map((item) => ({
+          id: item.id,
+          room_type_id: item.room_type_id,
+          units_required: item.units_required,
+          allocated_guest_count: item.allocated_guest_count,
+          sort_order: item.sort_order,
+        })),
+      })),
+      payment_policies: byId(normalized.payment_policies, (entry) => ({
+        code: entry.code,
+        name_i18n: entry.name_i18n,
+        currency: entry.currency,
+        is_active: entry.is_active,
+        review_status: entry.review_status,
+        terms: entry.terms.map((term) => ({
+          id: term.id,
+          due_event: term.due_event,
+          amount_mode: term.amount_mode,
+          amount_value: term.amount_value,
+          recipient: term.recipient,
+          payment_methods: term.payment_methods,
+          instructions_i18n: term.instructions_i18n,
+          sequence: term.sequence,
+        })),
+      })),
+      commission_policies: byId(normalized.commission_policies, (entry) => ({
+        code: entry.code,
+        commission_mode: entry.commission_mode,
+        amount: entry.amount,
+        currency: entry.currency,
+        is_active: entry.is_active,
+        review_status: entry.review_status,
+      })),
+      calendar_sources: byId(normalized.calendar_sources, (entry) => ({
+        code: entry.code,
+        source_type: entry.source_type,
+        room_type_id: entry.room_type_id,
+        external_reference: entry.external_reference,
+        is_enabled: entry.is_enabled,
+        review_status: entry.review_status,
+        priority: entry.priority,
+        configuration: entry.configuration,
+      })),
+    };
+  }
+
+  function validateH31Configuration(value, workspace = null) {
+    const normalized = normalizeH31Configuration(value);
+    const propertyId = normalized.hotel_id || normalized.property.id;
+    if (!propertyId) throw new Error('H3.1 configuration requires an exact property ID.');
+    const requireUnique = (rows, keyFor, message) => {
+      const keys = rows.map(keyFor).filter((key) => key != null && key !== '');
+      if (new Set(keys).size !== keys.length) throw new Error(message);
+    };
+    const requireSameProperty = (rows, label) => rows.forEach((entry) => {
+      if (entry.hotel_id && entry.hotel_id !== propertyId) throw new Error(`${label} belongs to another property.`);
+    });
+    if (normalized.property.minimum_stay_nights != null
+        && (!Number.isInteger(normalized.property.minimum_stay_nights)
+          || normalized.property.minimum_stay_nights < 1 || normalized.property.minimum_stay_nights > 365)) {
+      throw new Error('Minimum stay must be between 1 and 365 nights.');
+    }
+
+    normalized.pricing_schedules.forEach((schedule) => {
+      const maximumPartySize = Math.max(1, asInteger(schedule.maximum_party_size, 64));
+      if (schedule.minimum_billable_occupancy != null
+          && (!Number.isInteger(schedule.minimum_billable_occupancy)
+          || schedule.minimum_billable_occupancy < 1 || schedule.minimum_billable_occupancy > maximumPartySize)) {
+        throw new Error(`Every pricing schedule needs a minimum billable occupancy between 1 and ${maximumPartySize}.`);
+      }
+    });
+    normalized.rate_plans.forEach((plan) => {
+      if (plan.price_inclusions.some((code) => !/^[a-z0-9][a-z0-9_-]{0,79}$/.test(code))) {
+        throw new Error('Rate Plan inclusion codes must use normalized lowercase letters, numbers, hyphens or underscores.');
+      }
+    });
+
+    const normalizedWorkspace = workspace ? normalizeWorkspace(workspace) : null;
+    const roomMap = new Map(asArray(normalizedWorkspace?.room_types).map((room) => [room.id, room]));
+    const activeRules = normalized.allocation_rules.filter((rule) => rule.is_active);
+    requireSameProperty(normalized.allocation_rules, 'An allocation rule');
+    requireUnique(normalized.allocation_rules, (rule) => rule.id, 'Allocation rule IDs must be unique.');
+    requireUnique(normalized.allocation_rules, (rule) => rule.code, 'Allocation rule codes must be unique per property.');
+    normalized.allocation_rules.forEach((rule) => {
+      if (!rule.id) throw new Error('Every allocation rule requires an exact UUID.');
+      validateCode(rule.code, 'Allocation rule code');
+      if (!H3_REVIEW_STATUSES.includes(rule.review_status)) throw new Error('Allocation rule review status is invalid.');
+      if (rule.is_active && rule.review_status !== 'reviewed') throw new Error('Every active allocation rule must be reviewed.');
+      if (!Number.isInteger(rule.min_guest_count) || !Number.isInteger(rule.max_guest_count)
+          || rule.min_guest_count < 1 || rule.min_guest_count > rule.max_guest_count || rule.max_guest_count > 50) {
+        throw new Error('Every allocation rule needs a valid guest range.');
+      }
+      if (rule.allocation_mode === 'required_bundle' && rule.min_guest_count !== rule.max_guest_count) {
+        throw new Error('A required Room Type bundle must be an exact guest-count rule.');
+      }
+      if (!Number.isInteger(rule.sort_order) || rule.sort_order < 0) throw new Error('Allocation rule order cannot be negative.');
+      if (rule.review_status === 'reviewed' && !rule.items.length) {
+        throw new Error('Every reviewed allocation rule needs at least one exact Room Type.');
+      }
+      if (rule.review_status === 'reviewed' && rule.allocation_mode === 'customer_choice' && rule.items.length < 2) {
+        throw new Error('A reviewed customer-choice rule needs at least two exact Room Type options.');
+      }
+      if (rule.review_status === 'reviewed' && rule.allocation_mode === 'required_bundle'
+          && rule.items.reduce((total, item) => total + item.units_required, 0) < 2) {
+        throw new Error('A reviewed required bundle needs at least two allocated room units.');
+      }
+      if (new Set(rule.items.map((item) => item.room_type_id)).size !== rule.items.length) {
+        throw new Error('An allocation rule cannot contain the same Room Type twice.');
+      }
+      requireUnique(rule.items, (item) => item.id, 'Allocation item IDs must be unique.');
+      rule.items.forEach((item) => {
+        if (!item.id) throw new Error('Every reviewed allocation item requires an exact UUID.');
+        const room = roomMap.get(item.room_type_id);
+        if (normalizedWorkspace && !room) throw new Error('An allocation rule references a Room Type outside this property.');
+        if (!Number.isInteger(item.units_required) || item.units_required < 1) throw new Error('Allocated Room Type quantity must be at least 1.');
+        if (rule.allocation_mode === 'customer_choice' && item.units_required !== 1) {
+          throw new Error('A customer-choice option must represent one exact Room Type.');
+        }
+        if (rule.allocation_mode === 'customer_choice' && item.allocated_guest_count != null) {
+          throw new Error('Customer-choice options use the requested occupancy and must not store a fixed guest split.');
+        }
+        if (!Number.isInteger(item.sort_order) || item.sort_order < 0) throw new Error('Allocation item order cannot be negative.');
+        if (room && rule.is_active) {
+          const inventory = room.inventory_mode === 'unitized'
+            ? normalizedWorkspace.units.filter((unit) => unit.room_type_id === room.id && unit.status === 'active').length
+            : room.base_inventory_count;
+          if (room.status !== 'active' || item.units_required > inventory) {
+            throw new Error(`${i18nText(room.name_i18n, 'en', room.code)} does not have enough active configured inventory for this allocation.`);
+          }
+        }
+      });
+      if (normalizedWorkspace && rule.items.length) {
+        if (rule.allocation_mode === 'customer_choice') {
+          const insufficient = rule.items.some((item) => roomMap.get(item.room_type_id)?.effective_max_occupancy < rule.max_guest_count);
+          if (insufficient) throw new Error('Every customer-choice Room Type must hold the entire selected guest range.');
+        } else {
+          if (rule.items.some((item) => !Number.isInteger(item.allocated_guest_count) || item.allocated_guest_count < 1)) {
+            throw new Error('Every required bundle item needs an exact allocated guest count.');
+          }
+          const allocatedGuests = rule.items.reduce((total, item) => total + item.allocated_guest_count, 0);
+          if (rule.review_status === 'reviewed' && allocatedGuests !== rule.min_guest_count) {
+            throw new Error('Required bundle guest allocations must equal the exact rule guest count.');
+          }
+          const overCapacity = rule.items.some((item) => (
+            item.allocated_guest_count > (roomMap.get(item.room_type_id)?.effective_max_occupancy || 0) * item.units_required
+          ));
+          if (overCapacity) throw new Error('A required bundle allocates more guests than a Room Type can hold.');
+          const capacity = rule.items.reduce((total, item) => (
+            total + (roomMap.get(item.room_type_id)?.effective_max_occupancy || 0) * item.units_required
+          ), 0);
+          if (capacity < rule.max_guest_count) throw new Error('The required Room Type bundle cannot hold the selected guest range.');
+        }
+      }
+    });
+    const sortedRanges = activeRules.map((rule) => [rule.min_guest_count, rule.max_guest_count]).sort((a, b) => a[0] - b[0]);
+    sortedRanges.forEach((range, index) => {
+      if (index && range[0] <= sortedRanges[index - 1][1]) throw new Error('Active guest allocation ranges cannot overlap.');
+      if (!index && range[0] !== 1) throw new Error('Active guest allocation must begin at one guest.');
+      if (index && range[0] !== sortedRanges[index - 1][1] + 1) throw new Error('Active guest allocation ranges cannot contain an uncovered guest-count gap.');
+    });
+
+    const activePaymentPolicies = normalized.payment_policies.filter((policy) => policy.is_active);
+    if (activePaymentPolicies.length > 1) throw new Error('At most one reviewed payment policy may be active.');
+    requireSameProperty(normalized.payment_policies, 'A payment policy');
+    requireUnique(normalized.payment_policies, (policy) => policy.id, 'Payment policy IDs must be unique.');
+    requireUnique(normalized.payment_policies, (policy) => policy.code, 'Payment policy codes must be unique per property.');
+    normalized.payment_policies.forEach((policy) => {
+      if (!policy.id) throw new Error('Every payment policy requires an exact UUID.');
+      validateCode(policy.code, 'Payment policy code');
+      if (!/^[A-Z]{3}$/.test(policy.currency)) throw new Error('Payment policy currency must be a three-letter code.');
+      if (!H3_REVIEW_STATUSES.includes(policy.review_status)) throw new Error('Payment policy review status is invalid.');
+      if (policy.is_active && policy.review_status !== 'reviewed') throw new Error('The active payment policy must be reviewed.');
+      if (policy.review_status === 'reviewed' && !policy.terms.length) {
+        throw new Error('A reviewed payment policy needs at least one reviewed term.');
+      }
+      const sequences = policy.terms.map((term) => term.sequence);
+      if (new Set(sequences).size !== sequences.length) throw new Error('Payment terms need a unique order.');
+      requireUnique(policy.terms, (term) => term.id, 'Payment term IDs must be unique.');
+      policy.terms.forEach((term) => {
+        if (!term.id) throw new Error('Every reviewed payment term requires an exact UUID.');
+        if (!Number.isInteger(term.sequence) || term.sequence < 1) throw new Error('Every payment term needs a valid sequence.');
+        if (!term.payment_methods.length) throw new Error('Every payment term needs at least one payment method.');
+        if (term.amount_mode === 'percent_total'
+            && (!Number.isFinite(term.amount_value) || term.amount_value <= 0 || term.amount_value > 100)) {
+          throw new Error('A percent payment term must be greater than 0 and at most 100.');
+        }
+        if (term.amount_mode === 'flat' && (!Number.isFinite(term.amount_value) || term.amount_value < 0)) {
+          throw new Error('A flat payment term cannot be negative.');
+        }
+        if (term.amount_mode === 'remaining_balance' && term.amount_value != null) {
+          throw new Error('Remaining balance does not accept a separate amount.');
+        }
+      });
+      const remainingCount = policy.terms.filter((term) => term.amount_mode === 'remaining_balance').length;
+      const percentTotal = policy.terms.filter((term) => term.amount_mode === 'percent_total')
+        .reduce((total, term) => total + term.amount_value, 0);
+      const remainingTerm = policy.terms.find((term) => term.amount_mode === 'remaining_balance');
+      const finalSequence = policy.terms.reduce((maximum, term) => Math.max(maximum, term.sequence), 0);
+      if (remainingCount > 1 || percentTotal > 100
+          || (remainingTerm && remainingTerm.sequence !== finalSequence)) {
+        throw new Error('A remaining balance step must be unique, follow less than 100% scheduled payment, and be the final payment step.');
+      }
+      const fullPercentSchedule = percentTotal === 100 && remainingCount === 0;
+      const partialThenRemainder = percentTotal < 100 && remainingCount === 1;
+      if ((remainingCount === 1 && percentTotal >= 100)
+          || (policy.review_status === 'reviewed' && !fullPercentSchedule && !partialThenRemainder)) {
+        throw new Error('Reviewed payment terms must be either 100% scheduled with no remainder, or less than 100% followed by one final remaining balance step.');
+      }
+    });
+
+    const activeCommissionPolicies = normalized.commission_policies.filter((policy) => policy.is_active);
+    if (activeCommissionPolicies.length > 1) throw new Error('At most one reviewed commission policy may be active.');
+    requireSameProperty(normalized.commission_policies, 'A commission policy');
+    requireUnique(normalized.commission_policies, (policy) => policy.id, 'Commission policy IDs must be unique.');
+    requireUnique(normalized.commission_policies, (policy) => policy.code, 'Commission policy codes must be unique per property.');
+    normalized.commission_policies.forEach((policy) => {
+      if (!policy.id) throw new Error('Every commission policy requires an exact UUID.');
+      validateCode(policy.code, 'Commission policy code');
+      if (!H3_REVIEW_STATUSES.includes(policy.review_status)) throw new Error('Commission policy review status is invalid.');
+      if (policy.is_active && policy.review_status !== 'reviewed') throw new Error('The active commission policy must be reviewed.');
+      if (!HOTEL_COMMISSION_MODES.includes(policy.commission_mode)) throw new Error('Commission mode is invalid.');
+      if (!Number.isFinite(policy.amount) || policy.amount < 0) throw new Error('Commission amount cannot be negative.');
+      if (policy.commission_mode === 'percent_booking_total' && policy.amount > 100) {
+        throw new Error('Percentage commission cannot exceed 100%.');
+      }
+      if (!/^[A-Z]{3}$/.test(policy.currency)) throw new Error('Commission currency must be a three-letter code.');
+    });
+
+    const enabledSources = normalized.calendar_sources.filter((source) => source.is_enabled);
+    if (enabledSources.length > 1 || (enabledSources.length === 1 && enabledSources[0].source_type !== 'manual')) {
+      throw new Error('H3.1 permits at most one enabled manual Calendar source; external providers remain disabled.');
+    }
+    requireSameProperty(normalized.calendar_sources, 'A Calendar source');
+    requireUnique(normalized.calendar_sources, (source) => source.id, 'Calendar source IDs must be unique.');
+    requireUnique(normalized.calendar_sources, (source) => source.code, 'Calendar source codes must be unique per property.');
+    normalized.calendar_sources.forEach((source) => {
+      if (!source.id) throw new Error('Every Calendar source configuration requires an exact UUID.');
+      validateCode(source.code, 'Calendar source code');
+      if (!H3_REVIEW_STATUSES.includes(source.review_status)) throw new Error('Calendar source review status is invalid.');
+      if (source.is_enabled && source.review_status !== 'reviewed') throw new Error('The enabled Calendar source must be reviewed.');
+      if (source.source_type !== 'manual' && source.is_enabled) throw new Error('External Calendar sources are disabled in H3.1.');
+      if (source.room_type_id && normalizedWorkspace && !roomMap.has(source.room_type_id)) {
+        throw new Error('A Calendar source references a Room Type outside this property.');
+      }
+      if (!Number.isInteger(source.priority) || source.priority < -32768 || source.priority > 32767) {
+        throw new Error('Calendar source priority is outside the supported range.');
+      }
+    });
+    return normalized;
+  }
+
+  function reconcileH31Configuration(originalValue, currentValue, targetValue) {
+    const original = h31BusinessState(originalValue);
+    const current = h31BusinessState(currentValue);
+    const target = h31BusinessState(targetValue);
+    const conflicts = [];
+    Object.keys(target).forEach((field) => {
+      const originalJson = JSON.stringify(original[field]);
+      const currentJson = JSON.stringify(current[field]);
+      const targetJson = JSON.stringify(target[field]);
+      if (currentJson !== originalJson && currentJson !== targetJson) {
+        conflicts.push({ field, original: clone(original[field]), current: clone(current[field]), target: clone(target[field]) });
+      }
+    });
+    return { safe: conflicts.length === 0, conflicts, target: normalizeH31Configuration(targetValue) };
+  }
+
+  function buildH31ConfigurationPlan(currentValue, targetValue, workspace = null, options = {}) {
+    const current = normalizeH31Configuration(currentValue);
+    const target = validateH31Configuration(targetValue, workspace);
+    const hotelId = current.hotel_id || current.property.id;
+    if (!hotelId || (target.hotel_id || target.property.id) !== hotelId) {
+      throw new Error('Reviewed H3.1 configuration belongs to a different property.');
+    }
+    const operations = [];
+    if (current.property.minimum_stay_nights !== target.property.minimum_stay_nights) {
+      operations.push({
+        entity: 'property_configuration', type: 'update', id: hotelId, expected_version: 0,
+        payload: { minimum_stay_nights: target.property.minimum_stay_nights },
+      });
+    }
+
+    function addVersionedOperations(entity, currentRows, targetRows, payloadFor, fingerprintField = null) {
+      const currentById = new Map(currentRows.map((entry) => [entry.id, entry]));
+      const targetById = new Map(targetRows.map((entry) => [entry.id, entry]));
+      targetRows.forEach((entry) => {
+        if (!entry.id) throw new Error(`Every reviewed ${entity} requires an exact UUID.`);
+        const before = currentById.get(entry.id);
+        const payload = payloadFor(entry);
+        const beforePayload = before ? payloadFor(before) : null;
+        if (before && JSON.stringify(beforePayload) === JSON.stringify(payload)) return;
+        const operation = {
+          entity,
+          type: before ? 'update' : 'create',
+          id: entry.id,
+          expected_version: before ? before.version : 0,
+          payload,
+        };
+        if (before && fingerprintField) operation.expected_children_fingerprint = before[fingerprintField] || null;
+        operations.push(operation);
+      });
+      currentRows.filter((entry) => !targetById.has(entry.id)).forEach((entry) => {
+        const operation = {
+          entity, type: 'disable', id: entry.id, expected_version: entry.version, payload: {},
+        };
+        if (fingerprintField) operation.expected_children_fingerprint = entry[fingerprintField] || null;
+        operations.push(operation);
+      });
+    }
+
+    function addExistingOnlyUpdates(entity, currentRows, targetRows, payloadFor) {
+      const currentById = new Map(currentRows.map((entry) => [entry.id, entry]));
+      const targetIds = new Set(targetRows.map((entry) => entry.id));
+      if (currentRows.length !== targetRows.length || currentRows.some((entry) => !targetIds.has(entry.id))) {
+        throw new Error(`${entity} membership cannot be created, removed or disabled through H3.1 booking setup.`);
+      }
+      targetRows.forEach((entry) => {
+        const before = currentById.get(entry.id);
+        if (!before) throw new Error(`${entity} belongs outside the fresh exact property snapshot.`);
+        const payload = payloadFor(entry);
+        if (JSON.stringify(payloadFor(before)) === JSON.stringify(payload)) return;
+        operations.push({
+          entity, type: 'update', id: entry.id, expected_version: before.version, payload,
+        });
+      });
+    }
+
+    addExistingOnlyUpdates('pricing_schedule', current.pricing_schedules, target.pricing_schedules, (entry) => ({
+      minimum_billable_occupancy: entry.minimum_billable_occupancy,
+    }));
+    addExistingOnlyUpdates('rate_plan', current.rate_plans, target.rate_plans, (entry) => ({
+      price_inclusions: entry.price_inclusions,
+    }));
+    addVersionedOperations('allocation_rule', current.allocation_rules, target.allocation_rules, (entry) => ({
+      code: entry.code,
+      min_guest_count: entry.min_guest_count,
+      max_guest_count: entry.max_guest_count,
+      allocation_mode: entry.allocation_mode,
+      is_active: entry.is_active,
+      review_status: entry.review_status,
+      sort_order: entry.sort_order,
+      items: entry.items.map((item) => ({
+        id: item.id,
+        room_type_id: item.room_type_id,
+        units_required: item.units_required,
+        allocated_guest_count: item.allocated_guest_count,
+        sort_order: item.sort_order,
+      })),
+    }), 'items_fingerprint');
+    addVersionedOperations('payment_policy', current.payment_policies, target.payment_policies, (entry) => ({
+      code: entry.code,
+      name_i18n: entry.name_i18n,
+      currency: entry.currency,
+      is_active: entry.is_active,
+      review_status: entry.review_status,
+      terms: entry.terms.map((term) => ({
+        id: term.id,
+        due_event: term.due_event,
+        amount_mode: term.amount_mode,
+        amount_value: term.amount_value,
+        recipient: term.recipient,
+        payment_methods: term.payment_methods,
+        instructions_i18n: term.instructions_i18n,
+        sequence: term.sequence,
+      })),
+    }), 'terms_fingerprint');
+    addVersionedOperations('commission_policy', current.commission_policies, target.commission_policies, (entry) => ({
+      code: entry.code,
+      commission_mode: entry.commission_mode,
+      amount: entry.amount,
+      currency: entry.currency,
+      is_active: entry.is_active,
+      review_status: entry.review_status,
+    }));
+    addVersionedOperations('calendar_source', current.calendar_sources, target.calendar_sources, (entry) => ({
+      code: entry.code,
+      source_type: entry.source_type,
+      room_type_id: entry.room_type_id,
+      external_reference: entry.external_reference,
+      is_enabled: entry.is_enabled,
+      review_status: entry.review_status,
+      priority: entry.priority,
+      configuration: entry.configuration,
+    }));
+    if (!operations.length) throw new Error('There are no reviewed H3.1 configuration changes to save.');
+    return {
+      hotel_id: hotelId,
+      expected_property_updated_at: options.expectedPropertyUpdatedAt || current.property.updated_at || null,
+      reviewed_at: options.reviewedAt || new Date().toISOString(),
+      operations,
+    };
+  }
+
+  function deriveH31Readiness(value, workspace = null) {
+    const normalized = normalizeH31Configuration(value);
+    const normalizedWorkspace = workspace ? normalizeWorkspace(workspace) : null;
+    const blockers = [];
+    const warnings = [];
+    try { validateH31Configuration(normalized, workspace); } catch (error) { blockers.push(error.message); }
+    if (normalizedWorkspace?.property?.booking_mode !== 'request_confirmation') {
+      blockers.push('H3 shadow launch requires request-confirmation booking mode.');
+    }
+    if (!Number.isInteger(normalized.property.minimum_stay_nights)) blockers.push('Review the property minimum stay.');
+    if (!asText(normalizedWorkspace?.property?.check_in_from)) blockers.push('Configure property check-in time in Overview.');
+    if (!asText(normalizedWorkspace?.property?.check_out_until)) blockers.push('Configure property check-out time in Overview.');
+    if (normalizedWorkspace) {
+      const rooms = normalizedWorkspace.room_types.filter((room) => room.status !== 'disabled');
+      rooms.forEach((room) => {
+        try { resolveChildrenPolicy(normalizedWorkspace.property, room); } catch (_error) {
+          blockers.push(`${i18nText(room.name_i18n, 'en', room.code)} needs a valid effective children policy.`);
+        }
+      });
+      const ownerId = normalizeUuid(normalizedWorkspace.property.owner_partner_id);
+      const owner = asObject(normalizedWorkspace.property.owner_partner);
+      if (!ownerId || owner.id !== ownerId || owner.status !== 'active' || owner.can_manage_hotels !== true) {
+        blockers.push('Confirm an active exact commercial Hotel owner before H3 activation.');
+      }
+      const operational = normalizedWorkspace.operational_partners.filter((entry) => (
+        entry.status === 'active' && entry.can_manage_hotels === true && entry.is_active !== false
+      ));
+      if (operational.length !== 1) blockers.push('Exactly one unambiguous active operational Hotel partner route is required.');
+      const activeRatePlans = normalizedWorkspace.rate_plans.filter((plan) => plan.is_active);
+      if (!activeRatePlans.length) blockers.push('Activate one reviewed Rate Plan before H3 activation.');
+      if (activeRatePlans.some((plan) => plan.cancellation_policy?.type === 'requires_review')) {
+        blockers.push('Confirm cancellation terms for every active Rate Plan before H3 activation.');
+      }
+      if (activeRatePlans.some((plan) => plan.booking_mode_override
+          && plan.booking_mode_override !== 'request_confirmation')) {
+        blockers.push('Active Rate Plans must preserve request-confirmation mode for H3 shadow testing.');
+      }
+      if (!normalizedWorkspace.room_rates.some((rate) => rate.is_active)) blockers.push('Activate the reviewed Room Rate products before H3 activation.');
+    }
+    if (!normalized.pricing_schedules.length) blockers.push('Configure at least one exact pricing schedule.');
+    if (normalized.pricing_schedules.some((schedule) => !Number.isInteger(schedule.minimum_billable_occupancy))) {
+      blockers.push('Review minimum billable occupancy for every pricing schedule.');
+    }
+    if (!normalized.allocation_rules.some((rule) => rule.is_active)) blockers.push('Configure reviewed guest-to-room allocation rules.');
+    const ranges = normalized.allocation_rules.filter((rule) => rule.is_active)
+      .map((rule) => [rule.min_guest_count, rule.max_guest_count]).sort((a, b) => a[0] - b[0]);
+    if (ranges.length && ranges[0][0] !== 1) blockers.push('Guest allocation must begin at one guest.');
+    if (ranges.some((range, index) => index > 0 && range[0] !== ranges[index - 1][1] + 1)) {
+      blockers.push('Guest allocation ranges contain an uncovered guest-count gap.');
+    }
+    if (!normalized.payment_policies.some((policy) => policy.is_active)) blockers.push('Configure reviewed customer payment terms.');
+    if (!normalized.commission_policies.some((policy) => policy.is_active)) blockers.push('Configure a separate platform commission policy.');
+    const enabledManual = normalized.calendar_sources.some((source) => source.source_type === 'manual' && source.is_enabled);
+    if (!enabledManual) blockers.push('Enable the manual Calendar source for shadow request-confirmation testing.');
+    const requiredOffFlags = ['hotel_rooms_v2_enabled', 'hotel_external_sync_enabled', 'hotel_instant_booking_enabled', 'hotel_stripe_connect_enabled'];
+    const unsafeFlags = requiredOffFlags.filter((key) => normalized.flags[key] !== false);
+    if (unsafeFlags.length) blockers.push(`Hotels V2 capability flags must be present and OFF: ${unsafeFlags.join(', ')}.`);
+    if (workspace?.property?.architecture_version === 'legacy') {
+      warnings.push('This is shadow configuration. Legacy pricing and public booking remain authoritative.');
+    }
+    return {
+      state: blockers.length ? 'BLOCKED' : 'READY_FOR_H3_SHADOW',
+      blockers: Array.from(new Set(blockers)),
+      warnings: Array.from(new Set(warnings)),
+      public_live: false,
+    };
+  }
+
   function buildRoomTypePlan(workspace, operation, options = {}) {
     const normalized = normalizeWorkspace(workspace);
     const reviewedOperation = clone(operation);
@@ -1400,6 +2056,15 @@
     BOOKING_MODES,
     CHILDREN_POLICIES,
     ROOM_CHILDREN_POLICY_OVERRIDES,
+    ROOM_ALLOCATION_MODES,
+    HOTEL_PRICE_INCLUSIONS,
+    HOTEL_PAYMENT_DUE_EVENTS,
+    HOTEL_PAYMENT_AMOUNT_MODES,
+    HOTEL_PAYMENT_RECIPIENTS,
+    HOTEL_PAYMENT_METHODS,
+    HOTEL_COMMISSION_MODES,
+    HOTEL_CALENDAR_SOURCES,
+    H3_REVIEW_STATUSES,
     CHILD_AGE_MIN,
     CHILD_AGE_MAX,
     SEVEN_ARCHES_PROPERTY_ID,
@@ -1423,6 +2088,13 @@
     i18nText,
     normalizeGallery,
     normalizeAmenities,
+    normalizeStringSet,
+    normalizeH3Configuration: normalizeH31Configuration,
+    validateH3Configuration: validateH31Configuration,
+    reconcileH3Configuration: reconcileH31Configuration,
+    buildH3ConfigurationPlan: buildH31ConfigurationPlan,
+    deriveH3Readiness: deriveH31Readiness,
+    h3BusinessState: h31BusinessState,
     normalizeBedConfiguration,
     formatBedConfiguration,
     normalizeCancellationPolicy,

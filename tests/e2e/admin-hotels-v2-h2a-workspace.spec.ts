@@ -2164,3 +2164,252 @@ test('H2B Calendar edits exact dates atomically, exposes occupancy tiers, and sw
   expect(mobileLayout.direction).toBe('rtl');
   expect(mobileLayout.documentWidth).toBeLessThanOrEqual(mobileLayout.viewportWidth + 1);
 });
+
+test('H3.1 saves reviewed 7 Kamares booking setup atomically while public legacy behavior stays inert', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.addInitScript(seedHotelsV2H2aWorkspace(), {
+    adminId: ADMIN_ID,
+    hotelId: HOTEL_ID,
+    partnerId: PARTNER_ID,
+  });
+  await enableSupabaseStub(page);
+  await page.goto('/admin/dashboard.html', { waitUntil: 'domcontentloaded' });
+  await waitForSupabaseStub(page);
+
+  await page.evaluate(({ hotelId, partnerId, upperId, groundId, planId, upperRateId, groundRateId, scheduleId }) => {
+    const clone = (value: any) => JSON.parse(JSON.stringify(value));
+    const store = (window as any).__h2aE2eStore;
+    store.property.children_policy = 'minimum_age';
+    store.property.minimum_child_age = 15;
+    store.property.owner_partner_id = partnerId;
+    store.room_types = [{
+      id: upperId, hotel_id: hotelId, code: 'upper-floor-apartment',
+      name_i18n: { en: 'Upper Floor Apartment' }, max_occupancy: 4,
+      capacity_adults: null, capacity_children: null, children_policy_override: null,
+      minimum_child_age_override: null, inventory_mode: 'pooled', base_inventory_count: 1,
+      amenities: ['air_conditioning', 'balcony', 'terrace'], gallery: ['https://example.test/upper.webp'],
+      status: 'active', sort_order: 100, version: 9, updated_at: '2026-08-15T08:00:00.000Z',
+    }, {
+      id: groundId, hotel_id: hotelId, code: 'ground-floor-apartment',
+      name_i18n: { en: 'Ground Floor Apartment' }, max_occupancy: 4,
+      capacity_adults: null, capacity_children: null, children_policy_override: null,
+      minimum_child_age_override: null, inventory_mode: 'pooled', base_inventory_count: 1,
+      amenities: ['air_conditioning', 'terrace'], gallery: ['https://example.test/ground.webp'],
+      status: 'active', sort_order: 200, version: 10, updated_at: '2026-08-15T08:00:00.000Z',
+    }];
+    store.rate_plans = [{
+      id: planId, hotel_id: hotelId, code: 'standard', name_i18n: { en: 'Standard' },
+      cancellation_policy: { type: 'non_refundable' }, price_inclusions: ['private_transfer'],
+      is_active: false, sort_order: 100, version: 2,
+    }];
+    store.room_rates = [{
+      id: upperRateId, hotel_id: hotelId, room_type_id: upperId, rate_plan_id: planId,
+      base_nightly_rate: 0, currency: 'EUR', is_active: false, version: 1,
+    }, {
+      id: groundRateId, hotel_id: hotelId, room_type_id: groundId, rate_plan_id: planId,
+      base_nightly_rate: 0, currency: 'EUR', is_active: false, version: 1,
+    }];
+    store.pricing_schedules = [{
+      id: scheduleId, hotel_id: hotelId, code: 'seven-kamares-shared-room',
+      name: 'Shared room schedule', maximum_party_size: 4,
+      minimum_billable_occupancy: 1, is_active: false, version: 3,
+    }];
+
+    const configuration: any = {
+      hotel_id: hotelId,
+      property: {
+        id: hotelId, architecture_version: 'legacy', minimum_stay_nights: null,
+        updated_at: store.property.updated_at,
+      },
+      pricing_schedules: clone(store.pricing_schedules),
+      rate_plans: clone(store.rate_plans),
+      allocation_rules: [], payment_policies: [], commission_policies: [], calendar_sources: [],
+      flags: clone(store.flags),
+    };
+    store.h3_configuration = configuration;
+    store.h3_apply_receipts = [];
+    (window as any).__h3FailNextApply = false;
+
+    const snapshot = () => clone(store.h3_configuration);
+    const collectionByEntity: Record<string, string> = {
+      pricing_schedule: 'pricing_schedules',
+      rate_plan: 'rate_plans',
+      allocation_rule: 'allocation_rules',
+      payment_policy: 'payment_policies',
+      commission_policy: 'commission_policies',
+      calendar_source: 'calendar_sources',
+    };
+    const stub = (window as any).__supabaseStub;
+    stub.setRpcHandler('hotel_v2_admin_get_h3_1_configuration', (params: any) => {
+      if (params.p_hotel_id !== hotelId) return { data: null, error: { code: 'P0002', message: 'property_not_found' } };
+      return { data: snapshot(), error: null };
+    });
+    stub.setRpcHandler('hotel_v2_admin_apply_h3_1_configuration', (params: any) => {
+      const plan = clone(params.p_plan || {});
+      if ((window as any).__h3FailNextApply) {
+        (window as any).__h3FailNextApply = false;
+        return { data: null, error: { code: 'PT409', message: 'hotels_v2_h3_1_stale_pricing_schedule' } };
+      }
+      if (plan.hotel_id !== hotelId || plan.expected_property_updated_at !== store.h3_configuration.property.updated_at) {
+        return { data: null, error: { code: 'PT409', message: 'hotels_v2_h3_1_stale_property' } };
+      }
+      for (const operation of plan.operations || []) {
+        if (operation.entity === 'property_configuration') {
+          if (operation.id !== hotelId || operation.expected_version !== 0) {
+            return { data: null, error: { code: 'PT409', message: 'hotels_v2_h3_1_stale_property' } };
+          }
+          continue;
+        }
+        const collection = store.h3_configuration[collectionByEntity[operation.entity]];
+        const current = collection?.find((row: any) => row.id === operation.id);
+        const actualVersion = Number(current?.version || 0);
+        if (!collection || actualVersion !== Number(operation.expected_version || 0)
+            || (operation.type === 'create' && current)) {
+          return { data: null, error: { code: 'PT409', message: `hotels_v2_h3_1_stale_${operation.entity}` } };
+        }
+      }
+      const working = snapshot();
+      for (const operation of plan.operations) {
+        if (operation.entity === 'property_configuration') {
+          working.property.minimum_stay_nights = operation.payload.minimum_stay_nights;
+          working.property.updated_at = '2026-08-15T08:10:00.000Z';
+          continue;
+        }
+        const collection = working[collectionByEntity[operation.entity]];
+        const index = collection.findIndex((row: any) => row.id === operation.id);
+        const next = {
+          ...(index >= 0 ? collection[index] : {}), ...clone(operation.payload),
+          id: operation.id, hotel_id: hotelId,
+          version: index >= 0 ? Number(collection[index].version) + 1 : 1,
+        };
+        if (operation.type === 'disable') {
+          if ('is_active' in next) next.is_active = false;
+          if ('is_enabled' in next) next.is_enabled = false;
+        }
+        if (index >= 0) collection[index] = next;
+        else collection.push(next);
+      }
+      store.h3_configuration = working;
+      store.property.minimum_stay_nights = working.property.minimum_stay_nights;
+      store.property.updated_at = working.property.updated_at;
+      store.pricing_schedules = clone(working.pricing_schedules);
+      store.rate_plans = store.rate_plans.map((planRow: any) => {
+        const updated = working.rate_plans.find((entry: any) => entry.id === planRow.id);
+        return updated ? { ...planRow, ...clone(updated) } : planRow;
+      });
+      store.h3_apply_receipts.push({ plan, correlation_id: params.p_correlation_id });
+      return { data: { configuration: snapshot(), correlation_id: params.p_correlation_id }, error: null };
+    });
+  }, {
+    hotelId: HOTEL_ID,
+    partnerId: PARTNER_ID,
+    upperId: SEVEN_ARCHES_UPPER_ID,
+    groundId: SEVEN_ARCHES_GROUND_ID,
+    planId: SEVEN_ARCHES_RATE_PLAN_ID,
+    upperRateId: SEVEN_ARCHES_UPPER_RATE_ID,
+    groundRateId: SEVEN_ARCHES_GROUND_RATE_ID,
+    scheduleId: SEVEN_ARCHES_SCHEDULE_ID,
+  });
+
+  await page.locator('button.admin-nav-item[data-view="hotels"]').click();
+  await page.locator(`[data-hotel-open-workspace="${HOTEL_ID}"]`).click();
+  await page.locator('[data-hotel-workspace-tab="booking_setup"]').click();
+  const bookingPanel = page.locator('#hotelWorkspaceActivePanel');
+  await expect(bookingPanel).toContainText('7 Kamares reviewed business template');
+  await expect(bookingPanel).toContainText('Public Hotels V2 flags stay OFF');
+
+  await bookingPanel.locator('[data-edit-h3-configuration]').click();
+  const editor = page.locator('#hotelH3ConfigurationForm');
+  await expect(editor).toBeVisible();
+  await expect(editor.locator('[name="minimum_stay_nights"]')).toHaveValue('2');
+  await expect(editor).toContainText('Customer chooses one room');
+  await expect(editor).toContainText('Required bundle · exact rooms');
+  await expect(editor).toContainText('Taxes included');
+  await expect(editor).toContainText('Cleaning included');
+  await expect(editor).toContainText('Preserved custom inclusions: private_transfer');
+  await expect(editor).toContainText('Public: no change');
+  await page.locator('button[form="hotelH3ConfigurationForm"]').click();
+
+  const review = page.locator('.hotel-workspace-modal--review');
+  await expect(review).toBeVisible();
+  await expect(review).toContainText('Review Hotel booking setup');
+  await expect(review).toContainText('One atomic, version-checked plan');
+  await expect(review).toContainText('current public booking remain unchanged');
+  const receiptCountBeforeConfirm = await page.evaluate(
+    () => (window as any).__h2aE2eStore.h3_apply_receipts.length,
+  );
+  expect(receiptCountBeforeConfirm).toBe(0);
+
+  await review.locator('[data-hotel-review-confirm]').click();
+  await expect(review).toBeHidden();
+  await expect(bookingPanel).toContainText('2 night minimum');
+  await expect(bookingPanel).toContainText('5 active rules');
+  await expect(bookingPanel).toContainText('50%');
+  await expect(bookingPanel).toContainText('€10.00 / allocated room / night');
+  await expect(bookingPanel).toContainText('Manual Calendar');
+  await expect(bookingPanel).toContainText('BLOCKED');
+  await expect(bookingPanel).toContainText('Configure property check-in time in Overview.');
+  await expect(bookingPanel).toContainText('Configure property check-out time in Overview.');
+  await expect(bookingPanel).toContainText('Activate one reviewed Rate Plan before H3 activation.');
+  await expect(bookingPanel).toContainText('Activate the reviewed Room Rate products before H3 activation.');
+
+  const saved = await page.evaluate(() => {
+    const store = (window as any).__h2aE2eStore;
+    const receipt = store.h3_apply_receipts[0];
+    return {
+      configuration: store.h3_configuration,
+      receipt,
+      legacyRuleCount: store.property.pricing_tiers.rules.length,
+      architecture: store.property.architecture_version,
+      published: store.property.is_published,
+      flags: store.flags,
+      roomRatesActive: store.room_rates.filter((row: any) => row.is_active).length,
+      ratePlansActive: store.rate_plans.filter((row: any) => row.is_active).length,
+    };
+  });
+  expect(saved.configuration.property.minimum_stay_nights).toBe(2);
+  expect(saved.configuration.pricing_schedules[0].minimum_billable_occupancy).toBe(2);
+  expect(saved.configuration.rate_plans[0].price_inclusions).toEqual([
+    'cleaning', 'private_transfer', 'taxes',
+  ]);
+  expect(saved.configuration.allocation_rules.map((rule: any) => [rule.min_guest_count, rule.max_guest_count])).toEqual([
+    [1, 4], [5, 5], [6, 6], [7, 7], [8, 8],
+  ]);
+  expect(saved.configuration.payment_policies[0].terms).toEqual([
+    expect.objectContaining({ due_event: 'after_partner_acceptance', amount_mode: 'percent_total', amount_value: 50, payment_methods: ['bank_transfer'] }),
+    expect.objectContaining({ due_event: 'on_arrival', amount_mode: 'remaining_balance', payment_methods: ['card', 'cash'] }),
+  ]);
+  expect(saved.configuration.commission_policies[0]).toMatchObject({
+    commission_mode: 'per_allocated_room_per_night', amount: 10, currency: 'EUR',
+  });
+  expect(saved.configuration.calendar_sources).toEqual([
+    expect.objectContaining({ source_type: 'manual', is_enabled: true, review_status: 'reviewed' }),
+  ]);
+  expect(saved.receipt.plan.operations.find((operation: any) => operation.entity === 'property_configuration'))
+    .toMatchObject({ id: HOTEL_ID, expected_version: 0, payload: { minimum_stay_nights: 2 } });
+  expect(JSON.stringify(saved.receipt.plan)).not.toMatch(/architecture_version|is_published|hotel_rooms_v2_enabled/);
+  expect(saved).toMatchObject({
+    legacyRuleCount: 63, architecture: 'legacy', published: true,
+    roomRatesActive: 0, ratePlansActive: 0,
+  });
+  expect(Object.values(saved.flags).every((value) => value === false)).toBe(true);
+
+  // A controlled stale response must leave the first reviewed configuration
+  // untouched and prepare a fresh Review without an automatic second submit.
+  await bookingPanel.locator('[data-edit-h3-configuration]').click();
+  await page.locator('#hotelH3ConfigurationForm [name="minimum_stay_nights"]').fill('3');
+  await page.locator('button[form="hotelH3ConfigurationForm"]').click();
+  const staleReview = page.locator('.hotel-workspace-modal--review');
+  await expect(staleReview).toBeVisible();
+  await page.evaluate(() => { (window as any).__h3FailNextApply = true; });
+  await staleReview.locator('[data-hotel-review-confirm]').click();
+  await expect(page.getByText(/stale booking setup save was stopped/i)).toBeVisible();
+  await expect(page.locator('.hotel-workspace-modal--review')).toBeVisible();
+  const staleAudit = await page.evaluate(() => ({
+    receiptCount: (window as any).__h2aE2eStore.h3_apply_receipts.length,
+    minimumStay: (window as any).__h2aE2eStore.h3_configuration.property.minimum_stay_nights,
+    applyCalls: (window as any).__supabaseStub.getRpcCalls()
+      .filter((call: any) => call.name === 'hotel_v2_admin_apply_h3_1_configuration').length,
+  }));
+  expect(staleAudit).toEqual({ receiptCount: 1, minimumStay: 2, applyCalls: 2 });
+});

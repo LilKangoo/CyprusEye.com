@@ -16194,6 +16194,34 @@ body.car-multicity-modal-open {
 .hotel-seven-arches-conflict small { color:var(--admin-text-muted); }
 .hotel-seven-arches-conflict pre { margin:6px 0 0; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; color:var(--admin-text); font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace; }
 
+/* Hotels V2 H3.1 Admin-only booking configuration. Public Hotels never read these styles or controls. */
+.hotel-h3-dashboard { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+.hotel-h3-dashboard .hotel-workspace-card { display:grid; align-content:start; gap:8px; }
+.hotel-h3-dashboard dl { display:grid; gap:7px; margin:8px 0 0; }
+.hotel-h3-dashboard dl div { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:8px; border:1px solid var(--admin-border); border-radius:8px; background:rgba(2,6,23,.28); }
+.hotel-h3-dashboard dt { color:var(--admin-text-muted); }
+.hotel-h3-dashboard dd { margin:0; color:var(--admin-text); text-align:right; }
+.hotel-h3-readiness { grid-column:1/-1; }
+.hotel-h3-template-banner { display:grid; gap:7px; margin-bottom:14px; padding:16px; border:1px solid rgba(56,189,248,.45); border-radius:14px; background:linear-gradient(145deg,rgba(14,116,144,.2),rgba(15,23,42,.78)); }
+.hotel-h3-template-banner h4,.hotel-h3-template-banner p { margin:0; }
+.hotel-h3-template-banner p { color:var(--admin-text-muted); }
+.hotel-h3-editor-section { display:grid; gap:14px; padding:16px; border:1px solid var(--admin-border); border-radius:14px; background:rgba(2,6,23,.22); }
+.hotel-h3-editor-section > header,.hotel-h3-allocation-rule > header,.hotel-h3-payment-term > header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.hotel-h3-editor-section h4 { margin:3px 0 0; }
+.hotel-h3-config-list,[data-h3-allocation-rules],[data-h3-payment-terms],.hotel-h3-room-allocation-list { display:grid; gap:10px; }
+.hotel-h3-config-list fieldset { margin:0; }
+.hotel-h3-overview-link { display:grid; gap:5px; padding:11px; border:1px solid var(--admin-border); border-radius:9px; background:rgba(2,6,23,.25); }
+.hotel-h3-overview-link span { color:var(--admin-text-muted); font-size:12px; }
+.hotel-h3-overview-link .btn-secondary { width:max-content; margin-top:4px; }
+.hotel-h3-allocation-rule,.hotel-h3-payment-term { display:grid; gap:12px; min-width:0; padding:13px; border:1px solid var(--admin-border); border-radius:11px; background:var(--admin-bg-light); }
+.hotel-h3-room-allocation { display:grid; grid-template-columns:minmax(180px,1.4fr) minmax(90px,.45fr) minmax(120px,.6fr); align-items:end; gap:9px; padding:10px; border:1px solid var(--admin-border); border-radius:9px; background:rgba(2,6,23,.28); }
+.hotel-h3-room-allocation > small { grid-column:1/-1; color:var(--admin-text-muted); }
+.hotel-h3-method-grid { display:flex; flex-wrap:wrap; gap:10px 16px; }
+.hotel-h3-provider-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:9px; }
+.hotel-h3-provider-grid > div { display:grid; gap:4px; padding:11px; border:1px solid var(--admin-border); border-radius:9px; color:var(--admin-text-muted); background:rgba(2,6,23,.28); opacity:.62; }
+.hotel-h3-provider-grid > div.is-enabled { color:#bbf7d0; border-color:rgba(34,197,94,.4); background:rgba(20,83,45,.2); opacity:1; }
+.hotel-h3-provider-grid small { color:var(--admin-text-muted); }
+
 @media (max-width:1100px) {
   .hotel-property-card__metrics { grid-template-columns:repeat(3,minmax(90px,1fr)); }
   .hotel-property-card__configuration-split { grid-template-columns:1fr; }
@@ -16202,6 +16230,7 @@ body.car-multicity-modal-open {
   .hotel-workspace-summary-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .hotel-calendar-layout { grid-template-columns:1fr; }
   .hotel-calendar-rules { position:static; grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .hotel-h3-provider-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
 @media (max-width:760px) {
   .hotel-property-directory-toolbar,.hotel-workspace-form-grid,.hotel-workspace-i18n-grid,.hotel-workspace-locked-fields,.hotel-workspace-summary-grid,.hotel-amenity-groups { grid-template-columns:1fr; }
@@ -16250,4 +16279,7 @@ body.car-multicity-modal-open {
   .hotel-seven-arches-room { padding:11px; }
   .hotel-seven-arches-room > header { flex-direction:column; }
   .hotel-seven-arches-room > header code { max-width:100%; }
+  .hotel-h3-dashboard,.hotel-h3-provider-grid,.hotel-h3-room-allocation { grid-template-columns:1fr; }
+  .hotel-h3-readiness { grid-column:auto; }
+  .hotel-h3-editor-section > header,.hotel-h3-allocation-rule > header,.hotel-h3-payment-term > header { align-items:stretch; flex-direction:column; }
 }
