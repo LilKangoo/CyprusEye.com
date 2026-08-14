@@ -161,7 +161,7 @@ describe('Hotels V2 H2A Property Workspace repository', () => {
       expected_legacy_pricing_fingerprint: 'fixture',
       expected_versions: {},
       expected_property_policy: { children_policy: 'minimum_age', minimum_child_age: 15 },
-      property_policy: { children_policy: 'minimum_age', minimum_child_age: 10 },
+      property_policy: { children_policy: 'minimum_age', minimum_child_age: 15 },
       rooms: [{ id: HOTEL_ID }, { id: OTHER_HOTEL_ID }],
       prepare_pricing_preview: true,
     };
@@ -180,6 +180,10 @@ describe('Hotels V2 H2A Property Workspace repository', () => {
       {
         code: 'PT409', message: 'hotels_v2_h2b1_property_policy_snapshot_mismatch',
         expected: 'children-policy snapshot changed after Review',
+      },
+      {
+        code: '22023', message: 'hotels_v2_h2b2_shadow_property_policy_mismatch',
+        expected: 'cannot replace the separately reviewed property children policy',
       },
       {
         code: '23514', message: 'hotels_v2_h2b1_room_photo_not_in_property_gallery',
@@ -219,7 +223,7 @@ describe('Hotels V2 H2A Property Workspace repository', () => {
       source_contract: 'seven_arches_two_apartments_v1',
       expected_legacy_pricing_fingerprint: 'fixture',
       expected_versions: {},
-      property_policy: { children_policy: 'minimum_age', minimum_child_age: 10 },
+      property_policy: { children_policy: 'minimum_age', minimum_child_age: 15 },
       rooms: [{ id: HOTEL_ID }, { id: OTHER_HOTEL_ID }],
       prepare_pricing_preview: true,
     };

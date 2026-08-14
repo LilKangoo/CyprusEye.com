@@ -273,6 +273,22 @@
     if (normalized.property.architecture_version !== 'legacy') {
       return { eligible: false, blocker: '7 Arches is no longer a legacy property. Stop and review its architecture state.' };
     }
+    let propertyPolicy;
+    try {
+      const reviewedPolicy = normalizeChildrenPolicy(
+        normalized.property.children_policy,
+        normalized.property.minimum_child_age,
+      );
+      propertyPolicy = {
+        children_policy: reviewedPolicy.policy,
+        minimum_child_age: reviewedPolicy.minimum_age,
+      };
+    } catch (_error) {
+      return {
+        eligible: false,
+        blocker: 'Review the property children policy before preparing the two apartments. Room/photo preparation preserves that separately reviewed policy and never chooses an age.',
+      };
+    }
     const expectedIds = new Set([
       SEVEN_ARCHES_SHADOW_IDS.upper_room_type,
       SEVEN_ARCHES_SHADOW_IDS.ground_room_type,
@@ -331,7 +347,7 @@
       eligible: true,
       hotel_id: SEVEN_ARCHES_PROPERTY_ID,
       source_contract: SEVEN_ARCHES_SOURCE_CONTRACT,
-      property_policy: { children_policy: 'minimum_age', minimum_child_age: 10 },
+      property_policy: propertyPolicy,
       property_gallery: gallery,
       rooms,
       pricing: {
@@ -419,7 +435,10 @@
       label: 'Children policy',
       originalValue: originalProperty.children_policy,
       currentValue: freshProperty.children_policy,
-      targetValue: 'minimum_age',
+      // The room/photo preparation does not own guest policy. A fresh reviewed
+      // property value is therefore the value to preserve, not a stale
+      // source-derived age embedded in this workflow.
+      targetValue: freshProperty.children_policy,
     });
     classify({
       scope: 'Property',
@@ -428,7 +447,7 @@
       label: 'Minimum child age',
       originalValue: originalProperty.minimum_child_age,
       currentValue: freshProperty.minimum_child_age,
-      targetValue: 10,
+      targetValue: freshProperty.minimum_child_age,
     });
     classify({
       scope: 'Property',

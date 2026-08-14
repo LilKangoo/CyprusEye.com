@@ -33,10 +33,13 @@
   function reviewedShadowUserMessage(message) {
     const key = String(message || '').trim().toLowerCase();
     if (/guest_policy_already_reviewed/.test(key)) {
-      return 'This property already has a different reviewed children policy. Refresh the workspace and explicitly review the current policy and age before replacing it with the confirmed age-10 policy.';
+      return 'This property already has a different reviewed children policy. Refresh the workspace and explicitly review the current policy and age before making a separate guest-policy change.';
     }
     if (/property.*policy.*(?:snapshot|stale|changed)|stale.*property.*policy/.test(key)) {
       return 'The property children-policy snapshot changed after Review. Refresh the workspace and review the current policy and minimum age again.';
+    }
+    if (/shadow_(?:property_policy|policy_preservation)_mismatch/.test(key)) {
+      return 'Room/photo preparation cannot replace the separately reviewed property children policy. Refresh the workspace, review the current property policy, then prepare the apartments again.';
     }
     if (/room_photo_not_in_property_gallery|foreign.*gallery|invalid.*gallery/.test(key)) {
       return 'A selected room photo is not in the current 7 Arches property gallery. Refresh the workspace and select the room photos again.';
@@ -78,7 +81,7 @@
     normalized.details = error?.details || null;
     normalized.hint = error?.hint || null;
     normalized.userMessage = reviewedShadowUserMessage(message);
-    normalized.diagnosticReason = /^hotels_v2_h2b1_[a-z0-9_]+$/i.test(message)
+    normalized.diagnosticReason = /^hotels_v2_h2b(?:1|2)_[a-z0-9_]+$/i.test(message)
       ? message
       : null;
     // H2B.1 uses PostgREST's explicit HTTP-conflict SQLSTATE for reviewed

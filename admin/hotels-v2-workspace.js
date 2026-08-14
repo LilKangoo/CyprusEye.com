@@ -678,6 +678,9 @@
 
   function openPropertyChildrenPolicyEditor() {
     const property = state.workspace.property;
+    const overriddenRooms = state.workspace.room_types.filter((room) => (
+      Boolean(room.children_policy_override) || room.minimum_child_age_override != null
+    ));
     openModal({
       title: 'Children policy',
       body: `<form id="hotelPropertyChildPolicyForm" class="hotel-workspace-form">
@@ -686,7 +689,13 @@
           <label class="admin-form-field"><span>Children</span><select name="children_policy" required>${childPolicyOptions(property.children_policy)}</select></label>
           <label class="admin-form-field"><span>Minimum child age</span><input name="minimum_child_age" type="number" min="${Core.CHILD_AGE_MIN}" max="${Core.CHILD_AGE_MAX}" step="1" value="${escapeAttr(property.minimum_child_age ?? '')}" /></label>
         </div>
-        <p class="hotel-workspace-safety-note">For a legacy property this remains Admin/shadow metadata. Public guest selection is unchanged in H2B.1.</p>
+        <label class="hotel-workspace-card hotel-guest-policy-inheritance">
+          <input type="checkbox" name="clear_room_policy_overrides" value="true" ${overriddenRooms.length ? '' : 'disabled'} />
+          <span><strong>Use this property policy for every Room Type</strong><small>${overriddenRooms.length
+            ? `Clear ${overriddenRooms.length} exact Room Type override${overriddenRooms.length === 1 ? '' : 's'} in the same atomic reviewed save.`
+            : 'Every Room Type already uses the property policy.'}</small></span>
+        </label>
+        <p class="hotel-workspace-safety-note">For a legacy property this remains Rooms V2 Admin/shadow metadata. The current public guest selection is unchanged.</p>
       </form>`,
       footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelPropertyChildPolicyForm">Review policy</button>',
       onReady(overlay) {
@@ -699,22 +708,90 @@
           try { policy = Core.normalizeChildrenPolicy(fd.get('children_policy'), fd.get('minimum_child_age')); }
           catch (error) { toast(error.message, 'error'); return; }
           const policyPayload = { children_policy: policy.policy, minimum_child_age: policy.minimum_age };
-          const before = { id: property.id, children_policy: property.children_policy, minimum_child_age: property.minimum_child_age };
-          const after = { id: property.id, ...policyPayload };
-          const plan = {
-            hotel_id: property.id,
-            expected_property_updated_at: property.updated_at || null,
-            reviewed_at: new Date().toISOString(),
-            property_policy: policyPayload,
-            room_policies: [],
-          };
-          closeModal({ restoreFocus: false });
-          await openReview({
-            title: 'Review property children policy', entity: 'children_policy', before, after,
-            onConfirm: () => Repository.applyGuestPolicyPlan(plan),
-            contextMessage: 'No public booking form, legacy price, property architecture, feature flag or historical row is changed.',
-            successMessage: 'Property children policy saved as Rooms V2 Admin metadata.',
-          });
+          const clearRoomOverrides = fd.get('clear_room_policy_overrides') === 'true';
+          const submitButton = overlay.querySelector('button[form="hotelPropertyChildPolicyForm"]');
+          if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.textContent = 'Loading fresh values…';
+          }
+          setModalSaving(overlay, true);
+          try {
+            const freshWorkspace = await Repository.getWorkspace(property.id);
+            state.workspace = freshWorkspace;
+            const freshProperty = freshWorkspace.property;
+            const exactOverrides = clearRoomOverrides
+              ? freshWorkspace.room_types.filter((room) => (
+                Boolean(room.children_policy_override) || room.minimum_child_age_override != null
+              ))
+              : [];
+            if (exactOverrides.length > 100) {
+              throw new Error('More than 100 Room Type overrides need review. Narrow the property configuration before applying one atomic policy change.');
+            }
+            const roomPolicies = exactOverrides.map((room) => ({
+              room_type_id: room.id,
+              expected_version: room.version,
+              // Explicit JSON null means clear. Omitting either field would
+              // preserve the existing exact-room value in the Admin RPC.
+              children_policy_override: null,
+              minimum_child_age_override: null,
+            }));
+            const roomBefore = exactOverrides.map((room) => ({
+              id: room.id,
+              room: Core.i18nText(room.name_i18n, 'en', room.code),
+              version: room.version,
+              children_policy_override: room.children_policy_override,
+              minimum_child_age_override: room.minimum_child_age_override,
+            }));
+            const roomAfter = exactOverrides.map((room) => ({
+              id: room.id,
+              room: Core.i18nText(room.name_i18n, 'en', room.code),
+              children_policy_override: null,
+              minimum_child_age_override: null,
+              effective_policy: childPolicyText(policyPayload.children_policy, policyPayload.minimum_child_age),
+              effective_source: 'Property policy',
+            }));
+            const before = {
+              id: freshProperty.id,
+              children_policy: freshProperty.children_policy,
+              minimum_child_age: freshProperty.minimum_child_age,
+              ...(clearRoomOverrides ? { room_type_overrides: roomBefore } : {}),
+            };
+            const after = {
+              id: freshProperty.id,
+              ...policyPayload,
+              ...(clearRoomOverrides ? { room_type_overrides: roomAfter } : {}),
+            };
+            const plan = {
+              hotel_id: freshProperty.id,
+              expected_property_updated_at: freshProperty.updated_at || null,
+              reviewed_at: new Date().toISOString(),
+              property_policy: policyPayload,
+              room_policies: roomPolicies,
+            };
+            closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+            await openReview({
+              title: clearRoomOverrides
+                ? 'Review property policy and Room Type inheritance'
+                : 'Review property children policy',
+              entity: 'children_policy',
+              before,
+              after,
+              onConfirm: () => Repository.applyGuestPolicyPlan(plan),
+              contextMessage: clearRoomOverrides
+                ? `${roomPolicies.length} exact Room Type override${roomPolicies.length === 1 ? '' : 's'} will be cleared. The property policy becomes effective for those rooms in one atomic, version-checked operation. No public booking form, legacy price, property architecture, feature flag or historical row is changed.`
+                : 'No public booking form, legacy price, property architecture, feature flag or historical row is changed.',
+              successMessage: clearRoomOverrides
+                ? 'Property children policy saved and exact Room Types now inherit it.'
+                : 'Property children policy saved as Rooms V2 Admin metadata.',
+            });
+          } catch (error) {
+            setModalSaving(overlay, false);
+            if (submitButton) {
+              submitButton.disabled = false;
+              submitButton.textContent = 'Review policy';
+            }
+            toast(error?.userMessage || error?.message || 'Fresh children-policy values could not be loaded.', 'error');
+          }
         });
       },
     });
@@ -1469,8 +1546,8 @@
     const after = {
       id: preparation.hotel_id,
       architecture_version: 'legacy (unchanged)',
-      property_children_policy: 'minimum_age',
-      property_minimum_child_age: 10,
+      property_children_policy: preparation.property_policy.children_policy,
+      property_minimum_child_age: preparation.property_policy.minimum_child_age,
       rooms: plan.rooms.map((room) => ({
         id: room.id,
         source_key: room.source_key,
@@ -1514,7 +1591,7 @@
       },
       contextMessage: isConflictReview
         ? 'The stale save was stopped. Fresh workspace values are shown with your reviewed names and photo selections preserved. Nothing was retried automatically; review these values and click Save reviewed changes again to submit.'
-        : 'Fresh workspace values were loaded immediately before this Review. One atomic exact-property RPC creates or updates only the deterministic shadow IDs. Existing legacy pricing, property gallery, public state, architecture, bookings and feature flags remain unchanged.',
+        : 'Fresh workspace values were loaded immediately before this Review. One atomic exact-property RPC creates or updates only the deterministic shadow IDs. The separately reviewed property children policy, legacy pricing, property gallery, public state, architecture, bookings and feature flags remain unchanged.',
       reReviewMessage: 'This room was updated after this review was prepared. Current data has been refreshed and your selected photos were preserved. Please review the changes again before saving; nothing was retried automatically.',
       successMessage: 'Two reviewed 7 Arches apartments prepared in Rooms V2 shadow configuration.',
     };
@@ -1562,9 +1639,9 @@
           <span class="hotel-workspace-eyebrow">7 Arches · reviewed source contract</span>
           <h4>Two real accommodation units</h4>
           <div><span>Legacy pricing remains live</span><span>Property gallery: ${preparation.property_gallery.length} photos</span><span>Public: no change</span></div>
-          <p>The two normalized Room Types, dormant shared Standard pricing structure and age policy remain Rooms V2 shadow configuration. No architecture or feature flag is changed.</p>
+          <p>The two normalized Room Types and dormant shared Standard pricing structure remain Rooms V2 shadow configuration. The separately reviewed age policy is preserved. No architecture or feature flag is changed.</p>
         </section>
-        <section class="hotel-workspace-card hotel-guest-policy-card"><span class="hotel-workspace-eyebrow">Children policy · source confirmed</span><h4>Children allowed from age 10</h4><p>Saved as shadow/Admin metadata. The current legacy booking form remains unchanged.</p></section>
+        <section class="hotel-workspace-card hotel-guest-policy-card"><span class="hotel-workspace-eyebrow">Children policy · separately reviewed</span><h4>${escapeHtml(childPolicyText(preparation.property_policy.children_policy, preparation.property_policy.minimum_child_age))}</h4><p>Preserved unchanged by this room/photo preparation. The current legacy booking form remains unchanged.</p></section>
         <div class="hotel-seven-arches-room-grid">
           ${roomMarkup(upper, 0, { floor: 'Upper floor', balcony: true })}
           ${roomMarkup(ground, 1, { floor: 'Ground floor', balcony: false })}

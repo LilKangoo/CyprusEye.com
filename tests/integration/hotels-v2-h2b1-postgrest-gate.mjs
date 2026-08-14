@@ -157,10 +157,10 @@ function shadowPlan(workspace) {
   };
 }
 
-function assertExactShadow(workspace, label) {
+function assertExactShadow(workspace, label, expectedMinimumChildAge = 10) {
   assertLegacyAndFlags(workspace, label);
   assert.equal(workspace.property.children_policy, 'minimum_age');
-  assert.equal(workspace.property.minimum_child_age, 10);
+  assert.equal(workspace.property.minimum_child_age, expectedMinimumChildAge);
   assert.equal(workspace.room_types.length, 2, `${label}: expected exactly two room rows.`);
   assert.deepEqual(
     workspace.room_types.map((room) => room.id).sort(),
@@ -356,6 +356,118 @@ assert.equal(
   'Repeated preparation must preserve the explicit Room guest-policy override.',
 );
 
+// H2B.2 uses the existing exact-property guest-policy RPC as one transaction:
+// property age 15 plus both exact Room Type overrides cleared to inherited
+// NULL. First reproduce the accepted pre-save state (property age 10, both
+// exact rooms overriding age 15), then prove stale property/room snapshots
+// abort every mutation before one fresh combined plan succeeds.
+const overrideSeedWorkspace = secondShadow.payload.workspace;
+const overrideSeed = await rpc(RPCS.guestPolicy, TOKENS.admin, {
+  p_plan: {
+    hotel_id: HOTEL,
+    expected_property_updated_at: overrideSeedWorkspace.property.updated_at,
+    reviewed_at: new Date().toISOString(),
+    property_policy: { children_policy: 'minimum_age', minimum_child_age: 10 },
+    room_policies: [UPPER_ROOM, GROUND_ROOM].map((roomId) => ({
+      room_type_id: roomId,
+      expected_version: entityVersion(overrideSeedWorkspace.room_types, roomId),
+      children_policy_override: 'minimum_age',
+      minimum_child_age_override: 15,
+    })),
+  },
+  p_correlation_id: '81000000-0000-4000-8000-000000000008',
+});
+assertSuccess(overrideSeed, 'seed H2B.2 inherited-policy transition');
+const inheritedBefore = overrideSeed.payload.workspace;
+const protectedPricingGraph = JSON.stringify({
+  ratePlans: inheritedBefore.rate_plans,
+  roomRates: inheritedBefore.room_rates,
+  schedules: inheritedBefore.pricing_schedules,
+  tiers: inheritedBefore.pricing_schedule_tiers,
+});
+const policyState = (workspace) => ({
+  property: {
+    updated_at: workspace.property.updated_at,
+    children_policy: workspace.property.children_policy,
+    minimum_child_age: workspace.property.minimum_child_age,
+  },
+  rooms: workspace.room_types.map((room) => ({
+    id: room.id,
+    version: Number(room.version),
+    children_policy_override: room.children_policy_override,
+    minimum_child_age_override: room.minimum_child_age_override,
+    gallery: room.gallery,
+  })),
+  pricing: JSON.stringify({
+    ratePlans: workspace.rate_plans,
+    roomRates: workspace.room_rates,
+    schedules: workspace.pricing_schedules,
+    tiers: workspace.pricing_schedule_tiers,
+  }),
+});
+const clearInheritancePlan = (workspace) => ({
+  hotel_id: HOTEL,
+  expected_property_updated_at: workspace.property.updated_at,
+  reviewed_at: new Date().toISOString(),
+  property_policy: { children_policy: 'minimum_age', minimum_child_age: 15 },
+  room_policies: [UPPER_ROOM, GROUND_ROOM].map((roomId) => ({
+    room_type_id: roomId,
+    expected_version: entityVersion(workspace.room_types, roomId),
+    children_policy_override: null,
+    minimum_child_age_override: null,
+  })),
+});
+
+const stalePropertyPlan = clearInheritancePlan(inheritedBefore);
+stalePropertyPlan.expected_property_updated_at = '2000-01-01T00:00:00.000Z';
+const stalePropertyPolicy = await rpc(RPCS.guestPolicy, TOKENS.admin, {
+  p_plan: stalePropertyPlan,
+  p_correlation_id: '81000000-0000-4000-8000-000000000009',
+});
+assert.equal(stalePropertyPolicy.status, 409);
+assert.equal(stalePropertyPolicy.payload?.code, 'PT409');
+assert.equal(stalePropertyPolicy.payload?.message, 'hotels_v2_h2b1_stale_property');
+const afterStalePropertyResult = await rpc(
+  'hotel_v2_admin_get_property_workspace', TOKENS.admin, { p_hotel_id: HOTEL },
+);
+assertSuccess(afterStalePropertyResult, 'workspace after stale property policy');
+assert.deepEqual(policyState(afterStalePropertyResult.payload), policyState(inheritedBefore));
+
+const staleRoomPolicyPlan = clearInheritancePlan(afterStalePropertyResult.payload);
+staleRoomPolicyPlan.room_policies[1].expected_version += 1;
+const staleRoomPolicy = await rpc(RPCS.guestPolicy, TOKENS.admin, {
+  p_plan: staleRoomPolicyPlan,
+  p_correlation_id: '81000000-0000-4000-8000-000000000010',
+});
+assert.equal(staleRoomPolicy.status, 409);
+assert.equal(staleRoomPolicy.payload?.code, 'PT409');
+assert.equal(staleRoomPolicy.payload?.message, 'hotels_v2_h2b1_stale_room_policy');
+const afterStaleRoomResult = await rpc(
+  'hotel_v2_admin_get_property_workspace', TOKENS.admin, { p_hotel_id: HOTEL },
+);
+assertSuccess(afterStaleRoomResult, 'workspace after stale room policy');
+assert.deepEqual(policyState(afterStaleRoomResult.payload), policyState(inheritedBefore));
+
+const combinedInheritancePlan = clearInheritancePlan(afterStaleRoomResult.payload);
+const combinedInheritance = await rpc(RPCS.guestPolicy, TOKENS.admin, {
+  p_plan: combinedInheritancePlan,
+  p_correlation_id: '81000000-0000-4000-8000-000000000011',
+});
+assertSuccess(combinedInheritance, 'combined property age and Room Type inheritance plan');
+assert.equal(combinedInheritance.payload.updated_room_policy_count, 2);
+assert.equal(combinedInheritance.payload.workspace.property.minimum_child_age, 15);
+for (const room of combinedInheritance.payload.workspace.room_types) {
+  assert.equal(room.children_policy_override, null);
+  assert.equal(room.minimum_child_age_override, null);
+}
+assert.equal(JSON.stringify({
+  ratePlans: combinedInheritance.payload.workspace.rate_plans,
+  roomRates: combinedInheritance.payload.workspace.room_rates,
+  schedules: combinedInheritance.payload.workspace.pricing_schedules,
+  tiers: combinedInheritance.payload.workspace.pricing_schedule_tiers,
+}), protectedPricingGraph, 'Combined children-policy plan changed the pricing graph.');
+assertLegacyAndFlags(combinedInheritance.payload.workspace, 'combined inheritance plan');
+
 const denied = {};
 for (const [role, token] of [
   ['anon', TOKENS.anon],
@@ -400,7 +512,7 @@ const finalWorkspaceResult = await rpc(
   { p_hotel_id: HOTEL },
 );
 assertSuccess(finalWorkspaceResult, 'final Admin workspace');
-assertExactShadow(finalWorkspaceResult.payload, 'final workspace');
+assertExactShadow(finalWorkspaceResult.payload, 'final workspace', 15);
 
 process.stdout.write(`${JSON.stringify({
   environment: { postgrestUrl: POSTGREST_URL, loopbackOnly: true },
@@ -426,6 +538,9 @@ process.stdout.write(`${JSON.stringify({
     pricingScheduleTierCount: finalWorkspaceResult.payload.pricing_schedule_tiers.length,
     upperRoomPolicyOverride: finalWorkspaceResult.payload.room_types
       .find((room) => room.id === UPPER_ROOM).children_policy_override,
+    groundRoomPolicyOverride: finalWorkspaceResult.payload.room_types
+      .find((room) => room.id === GROUND_ROOM).children_policy_override,
+    effectiveMinimumChildAge: finalWorkspaceResult.payload.property.minimum_child_age,
   },
   denied,
   rawTableDenials,

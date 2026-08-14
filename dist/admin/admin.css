@@ -16163,6 +16163,11 @@ body.car-multicity-modal-open {
 .hotel-guest-policy-card.is-unreviewed { border-color:rgba(245,158,11,.42); background:linear-gradient(145deg,rgba(120,53,15,.18),rgba(15,23,42,.78)); }
 .hotel-guest-policy-card h4,.hotel-guest-policy-card p { margin:0; }
 .hotel-child-policy-options { display:grid; grid-template-columns:minmax(220px,1fr) minmax(180px,.7fr); gap:12px; }
+.hotel-guest-policy-inheritance { display:flex; align-items:flex-start; gap:11px; cursor:pointer; }
+.hotel-guest-policy-inheritance > input { width:18px; height:18px; margin:2px 0 0; accent-color:#38bdf8; }
+.hotel-guest-policy-inheritance > input:disabled { cursor:not-allowed; opacity:.55; }
+.hotel-guest-policy-inheritance > span { min-width:0; display:grid; gap:4px; }
+.hotel-guest-policy-inheritance small { color:var(--admin-text-muted); line-height:1.45; }
 .hotel-room-card__guest-policy { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:9px; padding:9px; border:1px solid rgba(56,189,248,.22); border-radius:9px; background:rgba(14,116,144,.08); }
 .hotel-room-card__guest-policy > span { color:var(--admin-text-muted); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
 .hotel-room-card__guest-policy strong { min-width:0; overflow-wrap:anywhere; font-size:12px; }

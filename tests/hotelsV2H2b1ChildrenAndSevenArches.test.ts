@@ -26,7 +26,7 @@ function sevenArches(overrides: Record<string, any> = {}): any {
       title_i18n: { pl: '7 Kamares', en: '7 Arches', he: '7 קשתות' },
       city: 'Lefkara', timezone: 'Europe/Nicosia', currency: 'EUR',
       booking_mode: 'request_confirmation',
-      children_policy: null, minimum_child_age: null,
+      children_policy: 'minimum_age', minimum_child_age: 15,
       photos,
       room_types: [],
       pricing_model: 'tiered_by_nights',
@@ -67,7 +67,10 @@ describe('Hotels H2B.1 children policy and 7 Arches shadow preparation', () => {
   });
 
   test('preserves an unreviewed legacy property policy and resolves an exact Room Type override first', () => {
-    const normalized = Core.normalizeWorkspace(sevenArches());
+    const source = sevenArches();
+    const normalized = Core.normalizeWorkspace(sevenArches({
+      property: { ...source.property, children_policy: null, minimum_child_age: null },
+    }));
     expect(normalized.property.children_policy).toBeNull();
     expect(() => Core.resolveChildrenPolicy(normalized.property)).toThrow('has not been reviewed');
     expect(Core.resolveChildrenPolicy(normalized.property, {
@@ -82,6 +85,15 @@ describe('Hotels H2B.1 children policy and 7 Arches shadow preparation', () => {
     expect(Core.resolveChildrenPolicy({ children_policy: 'minimum_age', minimum_child_age: 10 }, {
       children_policy_override: null,
     })).toEqual({ policy: 'minimum_age', minimum_age: 10, source: 'property' });
+  });
+
+  test('blocks two-apartment preparation until the property child policy is separately reviewed', () => {
+    const source = sevenArches();
+    const preparation = Core.sevenArchesShadowPreparation(sevenArches({
+      property: { ...source.property, children_policy: null, minimum_child_age: null },
+    }));
+    expect(preparation).toMatchObject({ eligible: false });
+    expect(preparation.blocker).toContain('Review the property children policy');
   });
 
   test('preserves unresolved cancellation and shared-schedule metadata instead of presenting executable fallback pricing', () => {
@@ -252,7 +264,7 @@ describe('Hotels H2B.1 children policy and 7 Arches shadow preparation', () => {
       eligible: true,
       hotel_id: HOTEL_ID,
       source_contract: 'seven_arches_two_apartments_v1',
-      property_policy: { children_policy: 'minimum_age', minimum_child_age: 10 },
+      property_policy: { children_policy: 'minimum_age', minimum_child_age: 15 },
       public_change: false,
       pricing: { source_rule_count: 63, legacy_public_unchanged: true },
     });
@@ -314,7 +326,7 @@ describe('Hotels H2B.1 children policy and 7 Arches shadow preparation', () => {
     expect(plan).toMatchObject({
       hotel_id: HOTEL_ID,
       expected_property_updated_at: '2026-08-11T15:00:00.000Z',
-      expected_property_policy: { children_policy: null, minimum_child_age: null },
+      expected_property_policy: { children_policy: 'minimum_age', minimum_child_age: 15 },
       reviewed_at: '2026-08-11T16:00:00.000Z',
       source_contract: 'seven_arches_two_apartments_v1',
       expected_legacy_pricing_fingerprint: 'legacy-fingerprint-63',
@@ -322,7 +334,7 @@ describe('Hotels H2B.1 children policy and 7 Arches shadow preparation', () => {
         upper_room: 0, ground_room: 0, pricing_schedule: 0, property_party_preview: 0,
         rate_plan: 0, upper_room_rate: 0, ground_room_rate: 0,
       },
-      property_policy: { children_policy: 'minimum_age', minimum_child_age: 10 },
+      property_policy: { children_policy: 'minimum_age', minimum_child_age: 15 },
       prepare_pricing_preview: true,
     });
     expect(plan.rooms.map((room: any) => [room.id, room.expected_version])).toEqual([[UPPER_ID, 0], [GROUND_ID, 0]]);
@@ -352,7 +364,7 @@ describe('Hotels H2B.1 children policy and 7 Arches shadow preparation', () => {
     });
     expect(reviewedAgePlan.property_policy).toEqual({
       children_policy: 'minimum_age',
-      minimum_child_age: 10,
+      minimum_child_age: 15,
     });
 
     const activePreparation = Core.sevenArchesShadowPreparation(sevenArches({
