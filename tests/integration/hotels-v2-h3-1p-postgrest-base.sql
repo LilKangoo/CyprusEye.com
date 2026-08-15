@@ -170,6 +170,27 @@ select
     where resource_type='hotels') h3_1p_expected_fulfillment_fingerprint
 \gset
 
+select set_config(
+  'hotels_v2.h3_1p_expected_booking_count',
+  :'h3_1p_expected_booking_count',
+  false
+);
+select set_config(
+  'hotels_v2.h3_1p_expected_booking_fingerprint',
+  :'h3_1p_expected_booking_fingerprint',
+  false
+);
+select set_config(
+  'hotels_v2.h3_1p_expected_fulfillment_count',
+  :'h3_1p_expected_fulfillment_count',
+  false
+);
+select set_config(
+  'hotels_v2.h3_1p_expected_fulfillment_fingerprint',
+  :'h3_1p_expected_fulfillment_fingerprint',
+  false
+);
+
 \ir ../../supabase/manual/hotels_v2_h3_1_legacy_pricing_promotion_preflight.sql
 \ir ../../supabase/migrations/20260811310000_hotels_v2_h3_1_legacy_pricing_promotion.sql
 

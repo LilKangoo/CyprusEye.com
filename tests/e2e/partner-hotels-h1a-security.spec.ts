@@ -246,6 +246,45 @@ function seedHotelsH1aPartnerPortal() {
             return { data: rows, error: null };
           },
         );
+        stub.setRpcHandler('hotel_v2_partner_list_assigned_properties', (params: any) => {
+          if (params?.p_partner_id !== PARTNER_A_ID) {
+            return { data: null, error: { code: '42501', message: 'partner_scope_denied' } };
+          }
+          const capabilities = {
+            edit_property_content: false,
+            edit_property_photos: false,
+            edit_room_content: false,
+            edit_room_photos: false,
+            create_rooms: false,
+            edit_room_structure: false,
+            manage_prices: false,
+            manage_availability: false,
+            process_bookings: false,
+            request_booking_changes: false,
+            view_payment_status: true,
+            initiate_stripe_onboarding: false,
+          };
+          return {
+            data: {
+              contract_version: 'hotels_v2_h3_2a_partner_permissions_v1',
+              partner: { id: PARTNER_A_ID, role: 'owner' },
+              foundation_only: true,
+              workspace_available: false,
+              properties: [{
+                assignment_id: '80000000-0000-4000-8000-000000000001',
+                hotel_id: HOTEL_A_ID,
+                slug: 'synthetic-boutique-a',
+                name_i18n: { pl: 'Syntetyczny hotel butikowy', en: 'Synthetic Boutique Hotel', he: 'מלון בוטיק לדוגמה' },
+                city: 'Ayia Napa',
+                cover_image_url: '/images/hotels/synthetic-a.webp',
+                foundation_status: 'foundation_only',
+                workspace_available: false,
+                permission: { exists: true, version: 1, has_mutation_capability: false, capabilities },
+              }],
+            },
+            error: null,
+          };
+        });
 
         stub.setSession({
           id: user.id,
@@ -280,6 +319,20 @@ test.describe('Hotels H1A Partner Portal security and manual fulfillment', () =>
     await expect(row.locator('button[data-action="reject"]')).toBeVisible();
     await expect(page.locator('#fulfillmentsTableBody')).not.toContainText('Other Partner Hotel');
     await expect(page.locator('#fulfillmentsTableBody')).not.toContainText('999.00 EUR');
+
+    await page.locator('#partnerNavHotels').click();
+    const assignedHotels = page.locator('#partnerAssignedHotelsCard');
+    await expect(assignedHotels).toBeVisible();
+    await expect(assignedHotels).toContainText('Synthetic Boutique Hotel');
+    await expect(assignedHotels).toContainText('Foundation only');
+    await expect(assignedHotels).toContainText('Payment status');
+    await expect(assignedHotels).not.toContainText('Other Partner Hotel');
+    await expect(assignedHotels.locator('a, button')).toHaveCount(0);
+    const assignedHotelAudit = await page.evaluate(() => (window as any).__supabaseStub.getRpcCalls()
+      .filter((call: any) => call.name === 'hotel_v2_partner_list_assigned_properties'));
+    expect(assignedHotelAudit).toEqual([
+      expect.objectContaining({ params: { p_partner_id: PARTNER_A_ID } }),
+    ]);
 
     await row.locator('button[data-partner-details-open]').click();
     const details = page.locator('#partnerDetailsModal.is-open');

@@ -91,6 +91,22 @@
     .partner-tab { border: 1px solid var(--admin-border); background: transparent; color: var(--admin-text); border-radius: 999px; padding: 8px 14px; font-weight: 600; cursor: pointer; }
     .partner-tab.is-active { background: var(--admin-primary); border-color: var(--admin-primary); color: white; }
 
+    .partner-assigned-hotels { display:grid; gap:12px; margin-top:12px; padding:14px; border:1px solid rgba(56,189,248,.3); border-radius:14px; background:rgba(14,116,144,.08); }
+    .partner-assigned-hotels[hidden] { display:none; }
+    .partner-assigned-hotels__head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+    .partner-assigned-hotels__head h3 { margin:0 0 3px; color:var(--admin-text); }
+    .partner-assigned-hotels__head p { margin:0; color:var(--admin-text-muted); font-size:12px; }
+    .partner-assigned-hotels__list { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:10px; }
+    .partner-assigned-hotel { display:grid; grid-template-columns:64px minmax(0,1fr); gap:11px; min-width:0; padding:10px; border:1px solid var(--admin-border); border-radius:11px; background:rgba(2,6,23,.32); }
+    .partner-assigned-hotel img,.partner-assigned-hotel__placeholder { width:64px; height:64px; border-radius:9px; object-fit:cover; background:rgba(15,23,42,.8); }
+    .partner-assigned-hotel__placeholder { display:grid; place-items:center; color:var(--admin-text-muted); font-size:24px; }
+    .partner-assigned-hotel__body { display:grid; align-content:start; gap:4px; min-width:0; }
+    .partner-assigned-hotel__body strong,.partner-assigned-hotel__body small { overflow-wrap:anywhere; }
+    .partner-assigned-hotel__body small { color:var(--admin-text-muted); }
+    .partner-assigned-hotel__access { display:flex; flex-wrap:wrap; gap:5px; margin-top:3px; }
+    .partner-assigned-hotel__access span { padding:3px 6px; border-radius:999px; color:#bae6fd; background:rgba(14,116,144,.22); font-size:10px; }
+    @media (max-width:560px) { .partner-assigned-hotels__head { flex-direction:column; } .partner-assigned-hotels__list { grid-template-columns:1fr; } }
+
     .partner-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
     .partner-table th, .partner-table td { border-bottom: 1px solid var(--border); padding: 10px 8px; text-align: left; font-size: 14px; vertical-align: top; }
     .partner-table th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
@@ -3246,6 +3262,15 @@
           <div id="partnerTabFulfillments" style="margin-top: 10px;">
             <div class="muted small" id="fulfillmentsHint" style="margin-top: 10px;"></div>
 
+            <section id="partnerAssignedHotelsCard" class="partner-assigned-hotels" aria-labelledby="partnerAssignedHotelsTitle" hidden>
+              <div class="partner-assigned-hotels__head">
+                <div><h3 id="partnerAssignedHotelsTitle">Assigned Hotels</h3><p>Foundation access for exact Hotel assignments. Property editing arrives in a later reviewed stage.</p></div>
+                <span class="badge" style="background:#075985;">Foundation only</span>
+              </div>
+              <div id="partnerAssignedHotelsStatus" class="muted small" aria-live="polite">Loading assigned Hotels…</div>
+              <div id="partnerAssignedHotelsList" class="partner-assigned-hotels__list"></div>
+            </section>
+
             <div class="partner-orders-calendar-card" aria-label="Paid reservations calendar">
               <button
                 id="btnPartnerOrdersCalendarToggle"
@@ -4397,7 +4422,7 @@
 
   <script src="/js/i18n.js?v=20260509_profile_lang1" defer></script>
   <script src="/assets/js/modal-auth.js" defer></script>
-  <script src="/js/partners.js?v=36" defer></script>
+  <script src="/js/partners.js?v=37" defer></script>
 
   <div
     id="auth-modal"

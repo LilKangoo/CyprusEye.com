@@ -21,6 +21,24 @@
   const HOTEL_COMMISSION_MODES = Object.freeze(['per_allocated_room_per_night', 'percent_booking_total']);
   const HOTEL_CALENDAR_SOURCES = Object.freeze(['manual', 'booking_com', 'airbnb', 'ical']);
   const H3_REVIEW_STATUSES = Object.freeze(['requires_review', 'reviewed', 'disabled']);
+  const H3_2A_PARTNER_PERMISSIONS_CONTRACT = 'hotels_v2_h3_2a_partner_permissions_v1';
+  const HOTEL_PARTNER_CAPABILITIES = Object.freeze([
+    'edit_property_content',
+    'edit_property_photos',
+    'edit_room_content',
+    'edit_room_photos',
+    'create_rooms',
+    'edit_room_structure',
+    'manage_prices',
+    'manage_availability',
+    'process_bookings',
+    'request_booking_changes',
+    'view_payment_status',
+    'initiate_stripe_onboarding',
+  ]);
+  const HOTEL_PARTNER_MUTATION_CAPABILITIES = Object.freeze(
+    HOTEL_PARTNER_CAPABILITIES.filter((key) => key !== 'view_payment_status'),
+  );
   const CHILD_AGE_MIN = 0;
   const CHILD_AGE_MAX = 17;
   const SEVEN_ARCHES_PROPERTY_ID = '9b6d99a0-923a-4fbc-be54-c066e856e6ca';
@@ -188,6 +206,201 @@
       .filter((entry) => entry && (!allowed || allowed.includes(entry)))
       .filter((entry, index, rows) => rows.indexOf(entry) === index)
       .sort((a, b) => a.localeCompare(b));
+  }
+
+  function normalizeHotelPartnerCapabilities(value) {
+    const source = asObject(value);
+    return Object.fromEntries(HOTEL_PARTNER_CAPABILITIES.map((key) => [key, source[key] === true]));
+  }
+
+  function hotelPartnerCapabilitiesHaveMutation(value) {
+    const capabilities = normalizeHotelPartnerCapabilities(value);
+    return HOTEL_PARTNER_MUTATION_CAPABILITIES.some((key) => capabilities[key] === true);
+  }
+
+  function normalizePartnerHotelPermission(value, hotelId = '') {
+    const source = asObject(value);
+    const permissionSource = asObject(source.permission);
+    const exists = permissionSource.exists === true;
+    const version = exists ? asInteger(permissionSource.version, 0) : 0;
+    const capabilities = normalizeHotelPartnerCapabilities(permissionSource.capabilities);
+    const capabilityKeys = Object.keys(asObject(permissionSource.capabilities)).sort();
+    const expectedCapabilityKeys = [...HOTEL_PARTNER_CAPABILITIES].sort();
+    return {
+      ...clone(source),
+      assignment_id: normalizeUuid(source.assignment_id || source.id),
+      partner_id: normalizeUuid(source.partner_id || source.partner?.id),
+      hotel_id: normalizeUuid(source.hotel_id) || normalizeUuid(hotelId),
+      assignment_active: source.assignment_active === true,
+      partner: {
+        ...clone(asObject(source.partner)),
+        id: normalizeUuid(source.partner?.id || source.partner_id),
+        name: asText(source.partner?.name),
+        status: asText(source.partner?.status) || 'unknown',
+        can_manage_hotels: source.partner?.can_manage_hotels === true,
+      },
+      permission: {
+        ...clone(permissionSource),
+        exists,
+        version,
+        updated_at: asNullableText(permissionSource.updated_at),
+        capability_contract_valid: JSON.stringify(capabilityKeys) === JSON.stringify(expectedCapabilityKeys)
+          && HOTEL_PARTNER_CAPABILITIES.every((key) => typeof permissionSource.capabilities?.[key] === 'boolean'),
+        has_mutation_summary_present: typeof permissionSource.has_mutation_capability === 'boolean',
+        reported_has_mutation_capability: permissionSource.has_mutation_capability === true,
+        has_mutation_capability: hotelPartnerCapabilitiesHaveMutation(capabilities),
+        capabilities,
+      },
+    };
+  }
+
+  function normalizePartnerHotelPermissions(value) {
+    const source = asObject(value);
+    const property = asObject(source.property);
+    const hotelId = normalizeUuid(property.id || source.hotel_id);
+    const flags = clone(asObject(source.feature_flags || source.flags));
+    return {
+      contract_version: asText(source.contract_version),
+      property: {
+        ...clone(property),
+        id: hotelId,
+        updated_at: asNullableText(property.updated_at),
+        architecture_version: asText(property.architecture_version) || 'legacy',
+        is_published: property.is_published === true,
+        status: asText(property.status) || 'unknown',
+      },
+      feature_flags: flags,
+      capability_catalog: normalizeStringSet(source.capability_catalog),
+      assignment_fingerprint: asText(source.assignment_fingerprint),
+      permissions_fingerprint: asText(source.permissions_fingerprint),
+      snapshot_token: asText(source.snapshot_token),
+      assignments: asArray(source.assignments).map((entry) => normalizePartnerHotelPermission(entry, hotelId)),
+    };
+  }
+
+  function validatePartnerHotelPermissions(value, expectedHotelId = '') {
+    const normalized = normalizePartnerHotelPermissions(value);
+    const expected = normalizeUuid(expectedHotelId);
+    if (normalized.contract_version !== H3_2A_PARTNER_PERMISSIONS_CONTRACT) {
+      throw new Error('The Partner & Access contract version is not supported.');
+    }
+    if (!normalized.property.id || (expected && normalized.property.id !== expected)) {
+      throw new Error('Partner & Access returned a different exact property ID.');
+    }
+    if (!normalized.snapshot_token || !normalized.assignment_fingerprint || !normalized.permissions_fingerprint) {
+      throw new Error('Partner & Access is missing its fresh optimistic snapshot.');
+    }
+    const catalog = normalizeStringSet(normalized.capability_catalog);
+    if (JSON.stringify(catalog) !== JSON.stringify(normalizeStringSet(HOTEL_PARTNER_CAPABILITIES))) {
+      throw new Error('Partner & Access returned an unexpected capability catalogue.');
+    }
+    const requiredOffFlags = [
+      'hotel_rooms_v2_enabled',
+      'hotel_external_sync_enabled',
+      'hotel_instant_booking_enabled',
+      'hotel_stripe_connect_enabled',
+    ];
+    if (requiredOffFlags.some((key) => normalized.feature_flags[key] !== false)) {
+      throw new Error('Partner permissions remain fail-closed until every Hotels V2 capability flag is present and OFF.');
+    }
+    const assignmentIds = new Set();
+    const partnerIds = new Set();
+    normalized.assignments.forEach((assignment) => {
+      if (!assignment.assignment_id || !assignment.partner_id || assignment.hotel_id !== normalized.property.id) {
+        throw new Error('Partner & Access contains an invalid exact assignment relationship.');
+      }
+      if (assignment.assignment_active !== true) {
+        throw new Error('Partner & Access returned an assignment outside the active exact-assignment scope.');
+      }
+      if (assignmentIds.has(assignment.assignment_id) || partnerIds.has(assignment.partner_id)) {
+        throw new Error('Partner & Access contains a duplicate exact assignment.');
+      }
+      assignmentIds.add(assignment.assignment_id);
+      partnerIds.add(assignment.partner_id);
+      if ((assignment.permission.exists && assignment.permission.version < 1)
+          || (!assignment.permission.exists && assignment.permission.version !== 0)) {
+        throw new Error('Partner & Access returned an invalid permission version.');
+      }
+      if (!assignment.permission.capability_contract_valid || !assignment.permission.has_mutation_summary_present) {
+        throw new Error('Partner & Access returned an incomplete permission capability contract.');
+      }
+      if (assignment.permission.reported_has_mutation_capability !== assignment.permission.has_mutation_capability) {
+        throw new Error('Partner & Access returned an inconsistent mutation-capability summary.');
+      }
+    });
+    if (normalized.assignments.filter((assignment) => assignment.permission.has_mutation_capability).length > 1) {
+      throw new Error('Only one exact Hotel assignment may hold mutation capabilities.');
+    }
+    return normalized;
+  }
+
+  function partnerHotelPermissionBusinessState(value) {
+    const assignment = asObject(value);
+    return {
+      assignment_id: normalizeUuid(assignment.assignment_id),
+      partner_id: normalizeUuid(assignment.partner_id),
+      capabilities: normalizeHotelPartnerCapabilities(assignment.permission?.capabilities || assignment.capabilities),
+    };
+  }
+
+  function reconcilePartnerHotelPermission(originalValue, currentValue, targetCapabilitiesValue) {
+    const original = partnerHotelPermissionBusinessState(originalValue);
+    const current = partnerHotelPermissionBusinessState(currentValue);
+    const target = {
+      assignment_id: original.assignment_id,
+      partner_id: original.partner_id,
+      capabilities: normalizeHotelPartnerCapabilities(targetCapabilitiesValue),
+    };
+    const identityChanged = current.assignment_id !== original.assignment_id
+      || current.partner_id !== original.partner_id;
+    const currentJson = JSON.stringify(current.capabilities);
+    const originalJson = JSON.stringify(original.capabilities);
+    const targetJson = JSON.stringify(target.capabilities);
+    const conflicts = [];
+    if (identityChanged) {
+      conflicts.push({ field: 'exact assignment', original: clone(original), current: clone(current), target: clone(target) });
+    } else if (currentJson !== originalJson && currentJson !== targetJson) {
+      conflicts.push({
+        field: 'capabilities',
+        original: clone(original.capabilities),
+        current: clone(current.capabilities),
+        target: clone(target.capabilities),
+      });
+    }
+    return { safe: conflicts.length === 0, conflicts, target };
+  }
+
+  function buildPartnerHotelPermissionsPlan(snapshotValue, assignmentIdValue, targetCapabilitiesValue, options = {}) {
+    const snapshot = validatePartnerHotelPermissions(snapshotValue, options.hotelId);
+    const assignmentId = normalizeUuid(assignmentIdValue);
+    const assignment = snapshot.assignments.find((entry) => entry.assignment_id === assignmentId);
+    if (!assignment) throw new Error('The reviewed exact Hotel assignment is missing from the fresh snapshot.');
+    const capabilities = normalizeHotelPartnerCapabilities(targetCapabilitiesValue);
+    if (HOTEL_PARTNER_CAPABILITIES.some((key) => capabilities[key] === true)
+        && (assignment.partner.can_manage_hotels !== true
+          || asText(assignment.partner.status).toLowerCase() !== 'active')) {
+      throw new Error('Capabilities cannot be granted to an inactive, suspended, or non-managing Hotel partner. Existing access must be disabled.');
+    }
+    if (hotelPartnerCapabilitiesHaveMutation(capabilities)) {
+      const conflicting = snapshot.assignments.find((entry) => (
+        entry.assignment_id !== assignmentId && entry.permission.has_mutation_capability
+      ));
+      if (conflicting) {
+        throw new Error('Another exact Hotel assignment already holds mutation capabilities. Disable it in a separate reviewed save first.');
+      }
+    }
+    return {
+      contract_version: H3_2A_PARTNER_PERMISSIONS_CONTRACT,
+      decision: 'apply_partner_hotel_permissions',
+      hotel_id: snapshot.property.id,
+      assignment_id: assignment.assignment_id,
+      partner_id: assignment.partner_id,
+      reviewed_at: options.reviewedAt || new Date().toISOString(),
+      snapshot_token: snapshot.snapshot_token,
+      expected_assignment_fingerprint: snapshot.assignment_fingerprint,
+      expected_permission_version: assignment.permission.version,
+      capabilities,
+    };
   }
 
   function normalizeH31AllocationItem(value) {
@@ -2558,6 +2771,9 @@
     HOTEL_COMMISSION_MODES,
     HOTEL_CALENDAR_SOURCES,
     H3_REVIEW_STATUSES,
+    H3_2A_PARTNER_PERMISSIONS_CONTRACT,
+    HOTEL_PARTNER_CAPABILITIES,
+    HOTEL_PARTNER_MUTATION_CAPABILITIES,
     CHILD_AGE_MIN,
     CHILD_AGE_MAX,
     SEVEN_ARCHES_PROPERTY_ID,
@@ -2586,6 +2802,13 @@
     normalizeGallery,
     normalizeAmenities,
     normalizeStringSet,
+    normalizeHotelPartnerCapabilities,
+    hotelPartnerCapabilitiesHaveMutation,
+    normalizePartnerHotelPermissions,
+    validatePartnerHotelPermissions,
+    partnerHotelPermissionBusinessState,
+    reconcilePartnerHotelPermission,
+    buildPartnerHotelPermissionsPlan,
     normalizeH3Configuration: normalizeH31Configuration,
     validateH3Configuration: validateH31Configuration,
     reconcileH3Configuration: reconcileH31Configuration,

@@ -1,4 +1,33 @@
 (function () {
+  const HOTELS_V2_H3_2A_PARTNER_CONTRACT = 'hotels_v2_h3_2a_partner_permissions_v1';
+  const HOTEL_PARTNER_CAPABILITY_KEYS = Object.freeze([
+    'edit_property_content',
+    'edit_property_photos',
+    'edit_room_content',
+    'edit_room_photos',
+    'create_rooms',
+    'edit_room_structure',
+    'manage_prices',
+    'manage_availability',
+    'process_bookings',
+    'request_booking_changes',
+    'view_payment_status',
+    'initiate_stripe_onboarding',
+  ]);
+  const HOTEL_PARTNER_CAPABILITY_LABELS = Object.freeze({
+    edit_property_content: 'Property content',
+    edit_property_photos: 'Property photos',
+    edit_room_content: 'Room content',
+    edit_room_photos: 'Room photos',
+    create_rooms: 'Create rooms',
+    edit_room_structure: 'Room structure',
+    manage_prices: 'Prices',
+    manage_availability: 'Availability',
+    process_bookings: 'Booking requests',
+    request_booking_changes: 'Request changes',
+    view_payment_status: 'Payment status',
+    initiate_stripe_onboarding: 'Stripe onboarding',
+  });
   const state = {
     sb: null,
     session: null,
@@ -17,6 +46,12 @@
     hotelResourcesById: {},
     hotelBookingsById: {},
     hotelDecisionSupportByBookingId: {},
+    assignedHotels: {
+      loading: false,
+      error: null,
+      properties: [],
+      partnerId: null,
+    },
     transportBookingsById: {},
     transportFinancialSummaryByBookingId: {},
     blocks: [],
@@ -148,6 +183,9 @@
     fulfillmentsHint: null,
     fulfillmentsBody: null,
     fulfillmentsTableContainer: null,
+    assignedHotelsCard: null,
+    assignedHotelsStatus: null,
+    assignedHotelsList: null,
     btnOrdersFilterToggle: null,
     ordersFilterBody: null,
     ordersFilterCurrent: null,
@@ -1903,6 +1941,145 @@
     return { partner, canShop, canCars, canTrips, canHotels, canBlog, canTransport, hasAnyServicePermission, affiliateEnabled, isAffiliateOnly };
   }
 
+  function normalizeHotelPartnerCapabilities(value) {
+    const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    return Object.fromEntries(HOTEL_PARTNER_CAPABILITY_KEYS.map((key) => [key, source[key] === true]));
+  }
+
+  function normalizeAssignedHotelsEnvelope(value, expectedPartnerId) {
+    const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    const partner = source.partner && typeof source.partner === 'object' && !Array.isArray(source.partner) ? source.partner : {};
+    const partnerId = String(partner.id || '').trim().toLowerCase();
+    const expected = String(expectedPartnerId || '').trim().toLowerCase();
+    const validUuid = (candidate) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(String(candidate || '').trim().toLowerCase());
+    const hasExactKeys = (candidate, allowed) => {
+      const keys = Object.keys(candidate || {}).sort();
+      return keys.length === allowed.length && keys.every((key, index) => key === [...allowed].sort()[index]);
+    };
+    if (!hasExactKeys(source, ['contract_version', 'partner', 'foundation_only', 'workspace_available', 'properties'])
+        || !hasExactKeys(partner, ['id', 'role'])) {
+      throw new Error('Assigned Hotels returned fields outside the exact foundation contract.');
+    }
+    if (source.contract_version !== HOTELS_V2_H3_2A_PARTNER_CONTRACT
+        || !validUuid(partnerId) || partnerId !== expected
+        || typeof partner.role !== 'string' || !partner.role.trim()
+        || source.foundation_only !== true || source.workspace_available !== false) {
+      throw new Error('Assigned Hotels returned an unsupported or mismatched foundation contract.');
+    }
+    const seenAssignments = new Set();
+    const properties = (Array.isArray(source.properties) ? source.properties : []).map((entry) => {
+      const row = entry && typeof entry === 'object' && !Array.isArray(entry) ? entry : {};
+      const permission = row.permission && typeof row.permission === 'object' && !Array.isArray(row.permission) ? row.permission : {};
+      const assignmentId = String(row.assignment_id || '').trim().toLowerCase();
+      const hotelId = String(row.hotel_id || '').trim().toLowerCase();
+      if (!hasExactKeys(row, ['assignment_id', 'hotel_id', 'slug', 'name_i18n', 'city', 'cover_image_url', 'foundation_status', 'workspace_available', 'permission'])
+          || !hasExactKeys(permission, ['exists', 'version', 'has_mutation_capability', 'capabilities'])
+          || !validUuid(assignmentId) || !validUuid(hotelId) || seenAssignments.has(assignmentId)
+          || row.foundation_status !== 'foundation_only' || row.workspace_available !== false
+          || typeof permission.exists !== 'boolean'
+          || !Number.isInteger(Number(permission.version)) || Number(permission.version) < 0
+          || (permission.exists === true && Number(permission.version) < 1)
+          || (permission.exists === false && Number(permission.version) !== 0)
+          || typeof permission.has_mutation_capability !== 'boolean') {
+        throw new Error('Assigned Hotels contains an invalid exact assignment.');
+      }
+      const names = row.name_i18n && typeof row.name_i18n === 'object' && !Array.isArray(row.name_i18n) ? row.name_i18n : {};
+      if (!hasExactKeys(names, ['pl', 'en', 'he'])
+          || ['pl', 'en', 'he'].some((key) => typeof names[key] !== 'string')) {
+        throw new Error('Assigned Hotels returned invalid localized property names.');
+      }
+      const capabilitySource = permission.capabilities && typeof permission.capabilities === 'object' && !Array.isArray(permission.capabilities)
+        ? permission.capabilities
+        : {};
+      if (HOTEL_PARTNER_CAPABILITY_KEYS.some((key) => typeof capabilitySource[key] !== 'boolean')
+          || Object.keys(capabilitySource).some((key) => !HOTEL_PARTNER_CAPABILITY_KEYS.includes(key))) {
+        throw new Error('Assigned Hotels returned an invalid capability set.');
+      }
+      const computedMutation = HOTEL_PARTNER_CAPABILITY_KEYS
+        .filter((key) => key !== 'view_payment_status')
+        .some((key) => capabilitySource[key] === true);
+      if (computedMutation !== permission.has_mutation_capability) {
+        throw new Error('Assigned Hotels returned an inconsistent capability summary.');
+      }
+      seenAssignments.add(assignmentId);
+      return {
+        assignment_id: assignmentId,
+        hotel_id: hotelId,
+        slug: String(row.slug || '').trim(),
+        name_i18n: { ...names },
+        city: String(row.city || '').trim(),
+        cover_image_url: String(row.cover_image_url || '').trim(),
+        foundation_status: 'foundation_only',
+        workspace_available: false,
+        permission: {
+          exists: permission.exists,
+          version: Number(permission.version),
+          has_mutation_capability: permission.has_mutation_capability,
+          capabilities: normalizeHotelPartnerCapabilities(capabilitySource),
+        },
+      };
+    });
+    return { contract_version: source.contract_version, partner: { id: partnerId, role: partner.role.trim() }, foundation_only: true, workspace_available: false, properties };
+  }
+
+  function assignedHotelName(property) {
+    const names = property?.name_i18n || {};
+    return String(names.en || names.pl || names.he || property?.slug || 'Assigned Hotel').trim();
+  }
+
+  function renderAssignedHotels() {
+    const visible = String(state.selectedCategory || '') === 'hotels'
+      && Boolean(state.selectedPartnerId)
+      && getSelectedPartnerCapabilities().canHotels;
+    setHidden(els.assignedHotelsCard, !visible);
+    if (!visible) return;
+    if (state.assignedHotels.loading) {
+      setText(els.assignedHotelsStatus, 'Loading exact assigned Hotels…');
+      setHtml(els.assignedHotelsList, '');
+      return;
+    }
+    if (state.assignedHotels.error) {
+      setText(els.assignedHotelsStatus, `Assigned Hotels unavailable: ${state.assignedHotels.error}`);
+      setHtml(els.assignedHotelsList, '<div class="partner-warning">The secure assigned-property list could not be loaded. No raw-table fallback was used.</div>');
+      return;
+    }
+    const properties = state.assignedHotels.properties || [];
+    setText(els.assignedHotelsStatus, `${properties.length} exact assigned Hotel${properties.length === 1 ? '' : 's'} · workspace unavailable in H3.2A`);
+    if (!properties.length) {
+      setHtml(els.assignedHotelsList, '<div class="muted small">No Hotel property is available through this exact partner/staff assignment scope.</div>');
+      return;
+    }
+    setHtml(els.assignedHotelsList, properties.map((property) => {
+      const enabled = HOTEL_PARTNER_CAPABILITY_KEYS.filter((key) => property.permission.capabilities[key]);
+      return `<article class="partner-assigned-hotel" data-assigned-hotel-id="${escapeHtml(property.hotel_id)}">
+        ${property.cover_image_url ? `<img src="${escapeHtml(property.cover_image_url)}" alt="" loading="lazy" />` : '<div class="partner-assigned-hotel__placeholder" aria-hidden="true">⌂</div>'}
+        <div class="partner-assigned-hotel__body"><strong>${escapeHtml(assignedHotelName(property))}</strong><small>${escapeHtml(property.city || 'Location not specified')}</small><small>Foundation only · no workspace or actions</small><div class="partner-assigned-hotel__access">${enabled.length ? enabled.map((key) => `<span>${escapeHtml(HOTEL_PARTNER_CAPABILITY_LABELS[key])}</span>`).join('') : '<span>All capabilities OFF</span>'}</div></div>
+      </article>`;
+    }).join(''));
+  }
+
+  async function refreshAssignedHotels() {
+    const partnerId = String(state.selectedPartnerId || '').trim().toLowerCase();
+    if (!partnerId || String(state.selectedCategory || '') !== 'hotels') {
+      renderAssignedHotels();
+      return;
+    }
+    state.assignedHotels = { loading: true, error: null, properties: [], partnerId };
+    renderAssignedHotels();
+    try {
+      const { data, error } = await state.sb.rpc('hotel_v2_partner_list_assigned_properties', { p_partner_id: partnerId });
+      if (error) throw error;
+      const envelope = normalizeAssignedHotelsEnvelope(Array.isArray(data) && data.length === 1 ? data[0] : data, partnerId);
+      if (String(state.selectedPartnerId || '').trim().toLowerCase() !== partnerId) return;
+      state.assignedHotels = { loading: false, error: null, properties: envelope.properties, partnerId };
+    } catch (error) {
+      console.error('Assigned Hotels secure list failed:', error);
+      if (String(state.selectedPartnerId || '').trim().toLowerCase() !== partnerId) return;
+      state.assignedHotels = { loading: false, error: String(error?.message || 'Secure list failed'), properties: [], partnerId };
+    }
+    renderAssignedHotels();
+  }
+
   function updateServiceSectionVisibility() {
     const { isAffiliateOnly } = getSelectedPartnerCapabilities();
     setHidden(els.servicesCard, isAffiliateOnly);
@@ -3420,6 +3597,7 @@
     }
 
     showTabOnly('fulfillments');
+    if (next !== 'hotels') renderAssignedHotels();
     try {
       refreshAffiliateSummaryCard();
     } catch (_e) {
@@ -3430,6 +3608,7 @@
       refreshOrdersPanelViews();
       startAnalyticsRealtime();
       refreshPortalResponseInsights();
+      if (next === 'hotels') void refreshAssignedHotels();
     }
     closeSidebar();
   }
@@ -13434,6 +13613,8 @@
         await refreshAffiliateSummaryCard();
       } catch (_e) {
       }
+      if (String(state.selectedCategory || '') === 'hotels') await refreshAssignedHotels();
+      else renderAssignedHotels();
       setText(els.status, `Loaded ${state.fulfillments.length} fulfillments.`);
     } catch (error) {
       console.error(error);
@@ -13528,6 +13709,7 @@
 
   async function handlePartnerChange(nextPartnerId) {
     state.selectedPartnerId = nextPartnerId || null;
+    state.assignedHotels = { loading: false, error: null, properties: [], partnerId: state.selectedPartnerId };
     state.partnerBlog.resourcesByType = {};
     state.partnerBlog.items = [];
     if (state.selectedPartnerId) {
@@ -13610,6 +13792,7 @@
       return;
     }
 
+    if (String(state.selectedCategory || '') !== 'hotels') renderAssignedHotels();
     setActiveTab(els.tabBtnCalendar?.classList.contains('is-active') ? 'calendar' : 'fulfillments');
   }
 
@@ -14565,6 +14748,9 @@
     els.fulfillmentsHint = $('fulfillmentsHint');
     els.fulfillmentsBody = $('fulfillmentsTableBody');
     els.fulfillmentsTableContainer = $('partnerFulfillmentsTableContainer');
+    els.assignedHotelsCard = $('partnerAssignedHotelsCard');
+    els.assignedHotelsStatus = $('partnerAssignedHotelsStatus');
+    els.assignedHotelsList = $('partnerAssignedHotelsList');
     els.btnOrdersFilterToggle = $('btnPartnerOrdersFilterToggle');
     els.ordersFilterBody = $('partnerOrdersFilterBody');
     els.ordersFilterCurrent = $('partnerOrdersFilterCurrent');

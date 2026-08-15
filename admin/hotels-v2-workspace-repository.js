@@ -22,6 +22,8 @@
     applyH3Configuration: 'hotel_v2_admin_apply_h3_1_configuration',
     legacyPricingPromotionPreview: 'hotel_v2_admin_get_legacy_pricing_promotion_preview',
     applyLegacyPricingPromotion: 'hotel_v2_admin_apply_legacy_pricing_promotion',
+    partnerHotelPermissions: 'hotel_v2_admin_get_partner_hotel_permissions',
+    applyPartnerHotelPermissions: 'hotel_v2_admin_apply_partner_hotel_permissions',
   });
 
   const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -50,6 +52,15 @@
     }
     if (/hotels_v2_h3_1_(?:invalid|relationship|cross_property|external_source)/.test(key)) {
       return 'The reviewed booking configuration no longer matches this exact property. Refresh the workspace and inspect the highlighted setup fields.';
+    }
+    if (/hotels_v2_h3_2a_stale_partner_permissions/.test(key)) {
+      return 'This exact partner permission changed after Review. Fresh values are required before an explicit second Save.';
+    }
+    if (/hotels_v2_h3_2a_mutating_assignment_conflict/.test(key)) {
+      return 'Another exact Hotel assignment already holds mutation access. Disable it in a separate reviewed save before transferring access.';
+    }
+    if (/hotels_v2_h3_2a_idempotency_key_reused/.test(key)) {
+      return 'This reviewed Partner & Access request identifier was already used for different values. Refresh and prepare a new Review.';
     }
     if (/guest_policy_already_reviewed/.test(key)) {
       return 'This property already has a different reviewed children policy. Refresh the workspace and explicitly review the current policy and age before making a separate guest-policy change.';
@@ -100,7 +111,7 @@
     normalized.details = error?.details || null;
     normalized.hint = error?.hint || null;
     normalized.userMessage = reviewedShadowUserMessage(message);
-    normalized.diagnosticReason = /^(?:hotels_v2_h2b(?:1|2)|hotels_v2_h3(?:_1|_pricing_promotion))_[a-z0-9_]+$/i.test(message)
+    normalized.diagnosticReason = /^(?:hotels_v2_h2b(?:1|2)|hotels_v2_h3(?:_1|_2a|_pricing_promotion))_[a-z0-9_]+$/i.test(message)
       ? message
       : null;
     // H2B.1 uses PostgREST's explicit HTTP-conflict SQLSTATE for reviewed
@@ -435,6 +446,66 @@
     return { ...payload, correlation_id: payload.correlation_id || correlation };
   }
 
+  async function getPartnerHotelPermissions(hotelId) {
+    const id = Core.normalizeUuid(hotelId);
+    if (!id) throw new Error('A valid property ID is required.');
+    const data = await runRpc(RPC.partnerHotelPermissions, {
+      p_hotel_id: id,
+    }, 'Load Partner & Access permissions');
+    return Core.validatePartnerHotelPermissions(data, id);
+  }
+
+  async function applyPartnerHotelPermissionsPlan(plan, correlationId, idempotencyKey) {
+    const reviewedPlan = Core.clone(plan);
+    const hotelId = Core.normalizeUuid(reviewedPlan?.hotel_id);
+    const assignmentId = Core.normalizeUuid(reviewedPlan?.assignment_id);
+    const partnerId = Core.normalizeUuid(reviewedPlan?.partner_id);
+    const capabilities = Core.asObject(reviewedPlan?.capabilities);
+    const exactCapabilityKeys = Core.normalizeStringSet(Object.keys(capabilities));
+    if (reviewedPlan?.contract_version !== Core.H3_2A_PARTNER_PERMISSIONS_CONTRACT
+        || reviewedPlan?.decision !== 'apply_partner_hotel_permissions'
+        || !hotelId || !assignmentId || !partnerId
+        || !Core.asText(reviewedPlan?.reviewed_at)
+        || !Core.asText(reviewedPlan?.snapshot_token)
+        || !Core.asText(reviewedPlan?.expected_assignment_fingerprint)
+        || !Number.isInteger(Number(reviewedPlan?.expected_permission_version))
+        || Number(reviewedPlan.expected_permission_version) < 0
+        || JSON.stringify(exactCapabilityKeys) !== JSON.stringify(Core.normalizeStringSet(Core.HOTEL_PARTNER_CAPABILITIES))
+        || Core.HOTEL_PARTNER_CAPABILITIES.some((key) => typeof capabilities[key] !== 'boolean')) {
+      throw new Error('A reviewed exact-assignment Partner & Access plan is required.');
+    }
+    const correlation = Core.normalizeUuid(correlationId) || Core.newUuid();
+    const idempotency = Core.normalizeUuid(idempotencyKey) || Core.newUuid();
+    const data = await runRpc(RPC.applyPartnerHotelPermissions, {
+      p_plan: reviewedPlan,
+      p_correlation_id: correlation,
+      p_idempotency_key: idempotency,
+    }, 'Save reviewed Partner & Access permissions');
+    const payload = Core.asObject(data);
+    if (payload.ok !== true
+        || payload.contract_version !== Core.H3_2A_PARTNER_PERMISSIONS_CONTRACT
+        || payload.decision !== 'apply_partner_hotel_permissions'
+        || Core.normalizeUuid(payload.hotel_id) !== hotelId
+        || Core.normalizeUuid(payload.assignment_id) !== assignmentId
+        || Core.normalizeUuid(payload.partner_id) !== partnerId
+        || Core.normalizeUuid(payload.correlation_id) !== correlation
+        || Core.normalizeUuid(payload.idempotency_key) !== idempotency) {
+      throw new Error('Saved Partner & Access permissions returned a different exact assignment.');
+    }
+    const snapshot = Core.validatePartnerHotelPermissions(payload.snapshot, hotelId);
+    const savedAssignment = snapshot.assignments.find((entry) => entry.assignment_id === assignmentId);
+    if (!savedAssignment
+        || JSON.stringify(savedAssignment.permission.capabilities) !== JSON.stringify(Core.normalizeHotelPartnerCapabilities(capabilities))) {
+      throw new Error('Saved Partner & Access permissions were not confirmed by the fresh exact-assignment snapshot.');
+    }
+    return {
+      ...payload,
+      correlation_id: correlation,
+      idempotency_key: idempotency,
+      snapshot,
+    };
+  }
+
   async function uploadRoomGallery(propertySlug, roomId, files) {
     const optimizedUploader = typeof window !== 'undefined' && window.HotelsV2AdminMedia?.uploadRoomGallery;
     if (typeof optimizedUploader === 'function') {
@@ -479,6 +550,8 @@
     applyH3ConfigurationPlan,
     getLegacyPricingPromotionPreview,
     applyLegacyPricingPromotion,
+    getPartnerHotelPermissions,
+    applyPartnerHotelPermissionsPlan,
     uploadRoomGallery,
   });
 });

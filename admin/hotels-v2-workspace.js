@@ -16,6 +16,8 @@
     h3ConfigurationError: null,
     pricingPromotionPreview: null,
     pricingPromotionError: null,
+    partnerPermissions: null,
+    partnerPermissionsError: null,
     activeTab: 'overview',
     modal: null,
     pendingReview: null,
@@ -47,6 +49,21 @@
     ['distribution', 'Distribution & Sync'],
     ['activity', 'Activity'],
   ]);
+
+  const PARTNER_CAPABILITY_DETAILS = Object.freeze({
+    edit_property_content: ['Property content', 'Edit property names, descriptions and structured content.'],
+    edit_property_photos: ['Property photos', 'Manage the property gallery without changing publication.'],
+    edit_room_content: ['Room content', 'Edit assigned Hotel room names and descriptions.'],
+    edit_room_photos: ['Room photos', 'Manage Room Type galleries.'],
+    create_rooms: ['Create rooms', 'Create new Room Types inside this exact property.'],
+    edit_room_structure: ['Room structure', 'Change room capacity, inventory model and structural fields.'],
+    manage_prices: ['Prices and rate rules', 'Manage reviewed Room Rate pricing and restrictions.'],
+    manage_availability: ['Availability', 'Manage exact Room Type calendar availability.'],
+    process_bookings: ['Process booking requests', 'Accept or reject exact assigned Hotel requests only after a later reviewed booking stage enables that workflow.'],
+    request_booking_changes: ['Request booking changes', 'Request reviewed changes to an assigned Hotel booking.'],
+    view_payment_status: ['View payment status', 'See status only; no payment details or payout settings are exposed by this capability.'],
+    initiate_stripe_onboarding: ['Start Stripe onboarding', 'Future capability only. Stripe Connect remains disabled.'],
+  });
 
   function byId(id) {
     return document.getElementById(id);
@@ -532,6 +549,8 @@
       state.h3ConfigurationError = null;
       state.pricingPromotionPreview = null;
       state.pricingPromotionError = null;
+      state.partnerPermissions = null;
+      state.partnerPermissionsError = null;
       try {
         state.h3Configuration = await Repository.getH3Configuration(id);
       } catch (error) {
@@ -543,6 +562,11 @@
         } catch (error) {
           state.pricingPromotionError = error;
         }
+      }
+      try {
+        state.partnerPermissions = await Repository.getPartnerHotelPermissions(id);
+      } catch (error) {
+        state.partnerPermissionsError = error;
       }
       state.calendar = {
         loading: false,
@@ -579,6 +603,8 @@
     state.h3ConfigurationError = null;
     state.pricingPromotionPreview = null;
     state.pricingPromotionError = null;
+    state.partnerPermissions = null;
+    state.partnerPermissionsError = null;
     state.calendar.data = null;
     if (workspaceElement) {
       workspaceElement.hidden = true;
@@ -3830,14 +3856,207 @@
     panel.querySelector('[data-open-rooms-media]')?.addEventListener('click', () => { state.activeTab = 'rooms'; renderWorkspace(); });
   }
 
+  function partnerCapabilityLabel(key) {
+    return PARTNER_CAPABILITY_DETAILS[key]?.[0] || String(key || '').replaceAll('_', ' ');
+  }
+
+  function enabledPartnerCapabilities(capabilities) {
+    const normalized = Core.normalizeHotelPartnerCapabilities(capabilities);
+    return Core.HOTEL_PARTNER_CAPABILITIES.filter((key) => normalized[key]);
+  }
+
+  function partnerPermissionReviewState(assignment, capabilities = null) {
+    const selected = Core.normalizeHotelPartnerCapabilities(capabilities || assignment?.permission?.capabilities);
+    return {
+      exact_assignment_id: assignment?.assignment_id || null,
+      exact_partner_id: assignment?.partner_id || null,
+      partner: assignment?.partner?.name || 'Unnamed partner',
+      permission_version: assignment?.permission?.version || 0,
+      enabled_capabilities: enabledPartnerCapabilities(selected).map(partnerCapabilityLabel),
+      capabilities: selected,
+    };
+  }
+
+  async function refreshPartnerPermissions(options = {}) {
+    const hotelId = state.workspace?.property?.id;
+    if (!hotelId) return null;
+    try {
+      state.partnerPermissions = await Repository.getPartnerHotelPermissions(hotelId);
+      state.partnerPermissionsError = null;
+      if (options.render !== false && state.activeTab === 'partner') renderWorkspace();
+      return state.partnerPermissions;
+    } catch (error) {
+      state.partnerPermissions = null;
+      state.partnerPermissionsError = error;
+      if (options.render !== false && state.activeTab === 'partner') renderWorkspace();
+      throw error;
+    }
+  }
+
+  function showPartnerPermissionConflict(assignment, target, conflicts) {
+    const rows = Core.asArray(conflicts);
+    openModal({
+      title: 'Partner access changed before Review',
+      body: `<p class="hotel-workspace-safety-note">This exact assignment changed in a different way after the editor opened. Nothing was saved. Compare the fresh values and reopen the editor before preparing another Review.</p>
+        <dl class="hotel-workspace-key-values"><div><dt>Assignment</dt><dd><code>${escapeHtml(assignment?.assignment_id || '')}</code></dd></div><div><dt>Partner</dt><dd>${escapeHtml(assignment?.partner?.name || assignment?.partner_id || '')}</dd></div></dl>
+        <div class="hotel-review-table-wrap"><table class="hotel-review-table"><thead><tr><th>Field</th><th>Originally loaded</th><th>Current</th><th>Requested</th></tr></thead><tbody>${rows.map((row) => `<tr><th>${escapeHtml(row.field)}</th><td><pre>${escapeHtml(displayReviewValue(row.original))}</pre></td><td><pre>${escapeHtml(displayReviewValue(row.current))}</pre></td><td><pre>${escapeHtml(displayReviewValue(row.target))}</pre></td></tr>`).join('')}</tbody></table></div>`,
+      footer: '<button class="btn-primary" type="button" data-hotel-modal-close>Close and use fresh values</button>',
+    });
+  }
+
+  function partnerPermissionReviewOptions(snapshot, assignmentId, targetCapabilities) {
+    const assignment = snapshot.assignments.find((entry) => entry.assignment_id === assignmentId);
+    if (!assignment) throw new Error('The exact operational assignment no longer exists.');
+    const target = Core.normalizeHotelPartnerCapabilities(targetCapabilities);
+    const plan = Core.buildPartnerHotelPermissionsPlan(snapshot, assignmentId, target, {
+      hotelId: state.workspace.property.id,
+    });
+    const correlationId = Core.newUuid();
+    const idempotencyKey = Core.newUuid();
+    return {
+      title: 'Review exact Partner & Access permissions',
+      entity: 'partner_assignment_permission',
+      before: partnerPermissionReviewState(assignment),
+      after: partnerPermissionReviewState(assignment, target),
+      operation: { entity: 'partner_assignment_permission', type: 'review', id: assignmentId },
+      contextMessage: 'Only the permission row for this exact existing Hotel assignment changes. Commercial owner, operational routing, public behavior, feature flags, bookings, prices and payment rules remain unchanged.',
+      successMessage: 'Reviewed exact-assignment Partner permissions saved.',
+      async onConfirm() {
+        const result = await Repository.applyPartnerHotelPermissionsPlan(plan, correlationId, idempotencyKey);
+        state.partnerPermissions = result.snapshot;
+        state.partnerPermissionsError = null;
+        return result;
+      },
+      async onStaleReview() {
+        const fresh = await Repository.getPartnerHotelPermissions(state.workspace.property.id);
+        const current = fresh.assignments.find((entry) => entry.assignment_id === assignmentId);
+        state.partnerPermissions = fresh;
+        state.partnerPermissionsError = null;
+        if (!current) {
+          const error = new Error('The exact operational assignment was removed after Review. Nothing was saved.');
+          error.userMessage = error.message;
+          throw error;
+        }
+        const reconciliation = Core.reconcilePartnerHotelPermission(assignment, current, target);
+        if (!reconciliation.safe) {
+          const fields = reconciliation.conflicts.map((entry) => entry.field).join(', ');
+          const error = new Error(`The fresh assignment differs in reviewed fields: ${fields}.`);
+          error.userMessage = `The stale save was stopped. Fresh Partner & Access values differ in ${fields}; reopen the permission editor and review the exact current values.`;
+          throw error;
+        }
+        return {
+          ...partnerPermissionReviewOptions(fresh, assignmentId, target),
+          reReviewMessage: 'The stale save was stopped. Fresh exact assignment values are shown; review them and click Save again. Nothing was retried automatically.',
+        };
+      },
+    };
+  }
+
+  function openPartnerPermissionEditor(assignmentId) {
+    const snapshot = state.partnerPermissions;
+    const assignment = snapshot?.assignments?.find((entry) => entry.assignment_id === assignmentId);
+    if (!assignment) {
+      toast('Refresh Partner & Access before editing this exact assignment.', 'error');
+      return;
+    }
+    const current = Core.normalizeHotelPartnerCapabilities(assignment.permission.capabilities);
+    const otherWriter = snapshot.assignments.find((entry) => (
+      entry.assignment_id !== assignmentId && entry.permission.has_mutation_capability
+    ));
+    const assignmentCannotReceiveCapability = assignment.assignment_active !== true
+      || assignment.partner.can_manage_hotels !== true
+      || String(assignment.partner.status || '').toLowerCase() !== 'active';
+    openModal({
+      title: `Access for ${assignment.partner.name || 'Hotel partner'}`,
+      className: 'hotel-workspace-modal--wide',
+      body: `<p class="hotel-workspace-intro">Choose explicit capabilities for this exact existing operational assignment. A missing permission row starts with every capability OFF.</p>
+        <dl class="hotel-workspace-key-values"><div><dt>Assignment ID</dt><dd><code>${escapeHtml(assignment.assignment_id)}</code></dd></div><div><dt>Partner ID</dt><dd><code>${escapeHtml(assignment.partner_id)}</code></dd></div><div><dt>Current version</dt><dd>${assignment.permission.version}</dd></div></dl>
+        ${otherWriter ? `<p class="hotel-workspace-safety-note">${escapeHtml(otherWriter.partner.name || 'Another assignment')} currently holds mutation access. This assignment may keep status-only access, but mutation access must first be disabled through a separate reviewed save.</p>` : ''}
+        ${assignmentCannotReceiveCapability ? '<p class="hotel-workspace-safety-note">This assignment or partner is inactive, suspended, or no longer allowed to manage Hotels. Existing capabilities may be removed, but no capability can be granted or restored.</p>' : ''}
+        <form id="hotelPartnerPermissionForm" class="hotel-workspace-form">
+          <div class="hotel-partner-capability-grid">${Core.HOTEL_PARTNER_CAPABILITIES.map((key) => {
+            const detail = PARTNER_CAPABILITY_DETAILS[key] || [key, ''];
+            const isMutation = Core.HOTEL_PARTNER_MUTATION_CAPABILITIES.includes(key);
+            const grantBlocked = assignmentCannotReceiveCapability || (Boolean(otherWriter) && isMutation);
+            return `<label class="hotel-partner-capability"><input type="checkbox" name="${escapeAttr(key)}" ${current[key] ? 'checked' : ''} ${grantBlocked ? 'data-capability-grant-blocked="true"' : ''}/><span><strong>${escapeHtml(detail[0])}</strong><small>${escapeHtml(detail[1])}</small>${!isMutation ? '<em>Status-only access</em>' : ''}</span></label>`;
+          }).join('')}</div>
+        </form>
+        <p class="hotel-workspace-safety-note">Foundation only: granting a capability does not enable a feature, publish Rooms V2, reveal booking PII or create a Partner workspace. All Hotels V2 flags remain OFF.</p>`,
+      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelPartnerPermissionForm">Review access</button>',
+      onReady(overlay) {
+        overlay.querySelectorAll('[data-capability-grant-blocked="true"]').forEach((checkbox) => {
+          checkbox.addEventListener('change', () => {
+            if (!checkbox.checked) {
+              checkbox.dataset.revocationSelected = 'true';
+              return;
+            }
+            if (!current[checkbox.name] || checkbox.dataset.revocationSelected === 'true') {
+              checkbox.checked = false;
+              toast('This capability cannot be granted to the assignment. Existing access may only be removed.', 'warning');
+            }
+          });
+        });
+        overlay.querySelector('#hotelPartnerPermissionForm')?.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const form = event.currentTarget;
+          const target = Object.fromEntries(Core.HOTEL_PARTNER_CAPABILITIES.map((key) => [key, form.elements[key]?.checked === true]));
+          const submit = overlay.querySelector('[type="submit"]');
+          submit.disabled = true;
+          submit.textContent = 'Refreshing…';
+          try {
+            const fresh = await Repository.getPartnerHotelPermissions(state.workspace.property.id);
+            const freshAssignment = fresh.assignments.find((entry) => entry.assignment_id === assignmentId);
+            if (!freshAssignment) throw new Error('The exact operational assignment no longer exists.');
+            const reconciliation = Core.reconcilePartnerHotelPermission(assignment, freshAssignment, target);
+            state.partnerPermissions = fresh;
+            state.partnerPermissionsError = null;
+            if (!reconciliation.safe) {
+              showPartnerPermissionConflict(freshAssignment, target, reconciliation.conflicts);
+              return;
+            }
+            if (JSON.stringify(freshAssignment.permission.capabilities) === JSON.stringify(Core.normalizeHotelPartnerCapabilities(target))) {
+              toast('No Partner & Access changes were selected.', 'info');
+              submit.disabled = false;
+              submit.textContent = 'Review access';
+              return;
+            }
+            await openReview(partnerPermissionReviewOptions(fresh, assignmentId, target));
+          } catch (error) {
+            toast(error?.userMessage || error?.message || 'Could not prepare fresh Partner & Access Review.', 'error');
+            if (state.modal === overlay) {
+              submit.disabled = false;
+              submit.textContent = 'Review access';
+            }
+          }
+        });
+      },
+    });
+  }
+
   function renderPartnerPanel(panel) {
     const property = state.workspace.property;
     const owner = Core.asObject(property.owner_partner);
     const assignments = state.workspace.operational_partners;
-    panel.innerHTML = `${workspacePanelHeader('Partner & Access', 'Commercial ownership and existing operational partner routing are shown separately.')}
+    const permissionSnapshot = state.partnerPermissions;
+    const permissionsError = state.partnerPermissionsError;
+    const permissionSection = permissionsError
+      ? `<section class="hotel-workspace-card hotel-placeholder-card hotel-property-empty--error"><span class="hotel-workspace-eyebrow">Partner capabilities</span><h4>Secure permission snapshot unavailable</h4><p>${escapeHtml(permissionsError.userMessage || permissionsError.message || 'Partner permissions could not be loaded.')}</p><button class="btn-secondary" type="button" data-retry-partner-permissions>Retry secure load</button></section>`
+      : permissionSnapshot
+        ? `<section class="hotel-workspace-card hotel-workspace-card--wide"><span class="hotel-workspace-eyebrow">Reviewed exact-assignment capabilities</span><h4>${permissionSnapshot.assignments.length} exact assignment${permissionSnapshot.assignments.length === 1 ? '' : 's'}</h4><p>Capabilities are denied by default and attach only to the selected existing assignment. They never create or reroute an assignment.</p>${permissionSnapshot.assignments.length ? `<div class="hotel-partner-permission-list">${permissionSnapshot.assignments.map((assignment) => {
+          const enabled = enabledPartnerCapabilities(assignment.permission.capabilities);
+          return `<article class="hotel-partner-permission-card"><div><strong>${escapeHtml(assignment.partner.name || assignment.partner_id)}</strong><small>${escapeHtml(assignment.partner.status)} · ${assignment.assignment_active ? 'Active assignment' : 'Inactive assignment'} · Permission v${assignment.permission.version}</small></div><div class="hotel-partner-capability-chips">${enabled.length ? enabled.map((key) => `<span>${escapeHtml(partnerCapabilityLabel(key))}</span>`).join('') : '<span class="is-empty">All capabilities OFF</span>'}</div><button class="btn-secondary" type="button" data-edit-partner-permission="${escapeAttr(assignment.assignment_id)}">Review access</button></article>`;
+        }).join('')}</div>` : '<div class="hotel-property-empty"><p>No active exact Hotel assignment is available for capability review.</p></div>'}<p class="hotel-workspace-safety-note">Partner access remains foundation-only. Public Hotels V2 and all four capability flags remain OFF.</p></section>`
+        : '<section class="hotel-workspace-card hotel-placeholder-card"><span class="hotel-workspace-eyebrow">Partner capabilities</span><h4>Loading secure snapshot…</h4><p>No capability editor is available until the exact assignment snapshot is verified.</p></section>';
+    panel.innerHTML = `${workspacePanelHeader('Partner & Access', 'Commercial ownership, operational routing and reviewed exact-assignment capabilities remain separate.')}
       <div class="hotel-workspace-summary-grid"><section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">Commercial owner</span><h4>${escapeHtml(owner.name || 'Not assigned')}</h4><p>${owner.id ? `Status: ${escapeHtml(owner.status || 'unknown')}` : 'Assign an active commercial owner from Overview if required.'}</p>${owner.id ? `<code>${escapeHtml(owner.id)}</code>` : ''}</section>
-      <section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">Operational assignments</span><h4>${assignments.length} assignment${assignments.length === 1 ? '' : 's'}</h4>${assignments.length ? `<ul class="hotel-simple-list">${assignments.map((entry) => `<li><span>${escapeHtml(entry.name || entry.partner_id)}</span><small>${entry.is_active ? 'Active' : 'Inactive'}</small></li>`).join('')}</ul>` : '<p>No operational partner assignment.</p>'}<small>H2A is read-only for operational assignments so it cannot backfill or reroute historical fulfillments.</small></section>
-      <section class="hotel-workspace-card hotel-placeholder-card"><span class="hotel-workspace-eyebrow">Partner permissions</span><h4>Not broadened</h4><p>Partners retain the exact H1A booking/fulfillment access contract. Raw normalized tables remain unavailable.</p></section></div>`;
+      <section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">Operational assignments</span><h4>${assignments.length} assignment${assignments.length === 1 ? '' : 's'}</h4>${assignments.length ? `<ul class="hotel-simple-list">${assignments.map((entry) => `<li><span>${escapeHtml(entry.name || entry.partner_id)}</span><small>${entry.is_active ? 'Active' : 'Inactive'}</small></li>`).join('')}</ul>` : '<p>No operational partner assignment.</p>'}<small>Capability saves never backfill, transfer or reroute operational assignments or historical fulfillments.</small></section>
+      ${permissionSection}</div>`;
+    panel.querySelector('[data-retry-partner-permissions]')?.addEventListener('click', () => {
+      void refreshPartnerPermissions().catch((error) => toast(error?.userMessage || error?.message, 'error'));
+    });
+    panel.querySelectorAll('[data-edit-partner-permission]').forEach((button) => {
+      button.addEventListener('click', () => openPartnerPermissionEditor(button.dataset.editPartnerPermission));
+    });
   }
 
   function renderDistributionPanel(panel) {

@@ -1,24 +1,43 @@
 -- Hotels V2 H3.1P legacy pricing promotion preflight (READ ONLY).
--- Run immediately before 20260811310000.  It accepts only the reviewed,
--- public-inert 7 Kamares H3.1 graph and never changes production state.
-\set ON_ERROR_STOP on
+-- Supabase SQL Editor compatible version.
+-- Run immediately before 20260811310000.
+-- Accepts only the reviewed public-inert 7 Kamares H3.1 graph.
 
-\if :{?h3_1p_expected_booking_count}
-\else
-\set h3_1p_expected_booking_count 3
-\set h3_1p_expected_booking_fingerprint fb5a4c508b0df32afbffe5b1594c7a50
-\set h3_1p_expected_fulfillment_count 5
-\set h3_1p_expected_fulfillment_fingerprint 1e01541853d87d26adccb8172074934b
-\endif
+select set_config(
+  'hotels_v2.h3_1p_expected_booking_count',
+  coalesce(
+    nullif(current_setting('hotels_v2.h3_1p_expected_booking_count', true), ''),
+    '3'
+  ),
+  false
+);
 
-select set_config('hotels_v2.h3_1p_expected_booking_count',
-  :'h3_1p_expected_booking_count',false);
-select set_config('hotels_v2.h3_1p_expected_booking_fingerprint',
-  :'h3_1p_expected_booking_fingerprint',false);
-select set_config('hotels_v2.h3_1p_expected_fulfillment_count',
-  :'h3_1p_expected_fulfillment_count',false);
-select set_config('hotels_v2.h3_1p_expected_fulfillment_fingerprint',
-  :'h3_1p_expected_fulfillment_fingerprint',false);
+select set_config(
+  'hotels_v2.h3_1p_expected_booking_fingerprint',
+  coalesce(
+    nullif(current_setting('hotels_v2.h3_1p_expected_booking_fingerprint', true), ''),
+    'fb5a4c508b0df32afbffe5b1594c7a50'
+  ),
+  false
+);
+
+select set_config(
+  'hotels_v2.h3_1p_expected_fulfillment_count',
+  coalesce(
+    nullif(current_setting('hotels_v2.h3_1p_expected_fulfillment_count', true), ''),
+    '5'
+  ),
+  false
+);
+
+select set_config(
+  'hotels_v2.h3_1p_expected_fulfillment_fingerprint',
+  coalesce(
+    nullif(current_setting('hotels_v2.h3_1p_expected_fulfillment_fingerprint', true), ''),
+    '1e01541853d87d26adccb8172074934b'
+  ),
+  false
+);
 
 do $preflight$
 declare
@@ -30,39 +49,77 @@ declare
   c_ground_rate constant uuid:='3320590d-632d-423f-80d0-fd021cba7293';
   c_room_schedule constant uuid:='b0a3104f-7b31-5265-a59f-c2d166f11a23';
   c_party_schedule constant uuid:='443065c0-984a-5de3-a22a-d03042c41107';
+
 begin
+
   if to_regclass('public.hotel_room_allocation_rule_items') is null
      or to_regprocedure('public.hotel_v2_admin_get_h3_1_configuration(uuid)') is null
      or to_regprocedure('public.hotel_v2_admin_apply_h3_1_configuration(jsonb,uuid)') is null
-     or exists(select 1 from information_schema.columns
-       where table_schema='public' and table_name='hotel_room_allocation_rule_items'
-         and column_name='pricing_guest_count')
-     or to_regclass('public.hotel_pricing_promotion_reviews') is not null then
+     or exists(
+        select 1
+        from information_schema.columns
+        where table_schema='public'
+        and table_name='hotel_room_allocation_rule_items'
+        and column_name='pricing_guest_count'
+     )
+     or to_regclass('public.hotel_pricing_promotion_reviews') is not null
+  then
     raise exception 'HOTELS_V2_H3_1P_PREFLIGHT_FAIL: migration boundary mismatch';
   end if;
 
+
   if (select count(*) from public.site_settings)<>1
-     or exists(select 1 from public.site_settings where id=1 and (
-       hotel_rooms_v2_enabled or hotel_external_sync_enabled
-       or hotel_instant_booking_enabled or hotel_stripe_connect_enabled
-     )) then
+     or exists(
+        select 1
+        from public.site_settings
+        where id=1
+        and (
+          hotel_rooms_v2_enabled
+          or hotel_external_sync_enabled
+          or hotel_instant_booking_enabled
+          or hotel_stripe_connect_enabled
+        )
+     )
+  then
     raise exception 'HOTELS_V2_H3_1P_PREFLIGHT_FAIL: public inert guard mismatch';
   end if;
 
-  if (select count(*) from public.hotel_bookings)<>
-       current_setting('hotels_v2.h3_1p_expected_booking_count')::integer
-     or (select md5(coalesce(string_agg(to_jsonb(row_value)::text,'|' order by row_value.id),''))
-       from public.hotel_bookings row_value)<>
-         current_setting('hotels_v2.h3_1p_expected_booking_fingerprint')
-     or (select count(*) from public.partner_service_fulfillments
-       where resource_type='hotels')<>
-         current_setting('hotels_v2.h3_1p_expected_fulfillment_count')::integer
-     or (select md5(coalesce(string_agg(to_jsonb(row_value)::text,'|' order by row_value.id),''))
-       from public.partner_service_fulfillments row_value
-       where resource_type='hotels')<>
-         current_setting('hotels_v2.h3_1p_expected_fulfillment_fingerprint') then
+
+  if (
+    select count(*) from public.hotel_bookings
+  ) <>
+     current_setting('hotels_v2.h3_1p_expected_booking_count')::integer
+  or (
+    select md5(
+      coalesce(
+        string_agg(to_jsonb(row_value)::text,'|' order by row_value.id),
+        ''
+      )
+    )
+    from public.hotel_bookings row_value
+  ) <>
+     current_setting('hotels_v2.h3_1p_expected_booking_fingerprint')
+  or (
+    select count(*)
+    from public.partner_service_fulfillments
+    where resource_type='hotels'
+  ) <>
+     current_setting('hotels_v2.h3_1p_expected_fulfillment_count')::integer
+  or (
+    select md5(
+      coalesce(
+        string_agg(to_jsonb(row_value)::text,'|' order by row_value.id),
+        ''
+      )
+    )
+    from public.partner_service_fulfillments row_value
+    where resource_type='hotels'
+  ) <>
+     current_setting('hotels_v2.h3_1p_expected_fulfillment_fingerprint')
+  then
     raise exception 'HOTELS_V2_H3_1P_PREFLIGHT_FAIL: booking/fulfillment history drift';
   end if;
+
 
   if not exists(select 1 from public.hotels hotel where hotel.id=c_hotel
        and hotel.architecture_version='legacy' and hotel.is_published
@@ -206,11 +263,11 @@ select set_config('hotels_v2.h3_1p_expected_fulfillment_count','',false);
 select set_config('hotels_v2.h3_1p_expected_fulfillment_fingerprint','',false);
 
 select
-  '7208ab4ecc0e47abd64d87ca1ac53a03' legacy_pricing_fingerprint,
-  63 legacy_tier_count,
-  27 room_tier_count,
+  '7208ab4ecc0e47abd64d87ca1ac53a03' as legacy_pricing_fingerprint,
+  63 as legacy_tier_count,
+  27 as room_tier_count,
   0 as "HOTEL_7_ARCHES_OCCUPANCY_PRICE_MISMATCH",
   0 as "HOTEL_LEGACY_PRICE_MISMATCH",
   0 as "HOTEL_LEGACY_PUBLIC_MISMATCH",
   0 as "HOTEL_BOOKING_PAYLOAD_UNEXPLAINED_DIFFERENCE",
-  true hotels_v2_h3_1_legacy_pricing_promotion_preflight_safe;
+  true as hotels_v2_h3_1_legacy_pricing_promotion_preflight_safe;

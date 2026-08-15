@@ -43,6 +43,7 @@ function seedHotelsV2H2aWorkspace() {
     const SEVEN_ARCHES_GROUND_RATE_ID = '3320590d-632d-423f-80d0-fd021cba7293';
     const SEVEN_ARCHES_SCHEDULE_ID = 'b0a3104f-7b31-5265-a59f-c2d166f11a23';
     const SEVEN_ARCHES_PARTY_PREVIEW_ID = '443065c0-984a-5de3-a22a-d03042c41107';
+    const H32_ASSIGNMENT_ID = '70000000-0000-4000-8000-000000000032';
     const thresholdNights = [2, 3, 4, 5, 6, 7, 8, 9, 10];
     const legacyRateMatrix = [
       { persons: 2, rates: [100, 90, 88, 84, 80, 76, 74, 72, 70] },
@@ -127,6 +128,26 @@ function seedHotelsV2H2aWorkspace() {
       },
       activity: [],
       apply_receipts: [],
+      h32_permission: {
+        exists: false,
+        version: 0,
+        updated_at: null,
+        capabilities: {
+          edit_property_content: false,
+          edit_property_photos: false,
+          edit_room_content: false,
+          edit_room_photos: false,
+          create_rooms: false,
+          edit_room_structure: false,
+          manage_prices: false,
+          manage_availability: false,
+          process_bookings: false,
+          request_booking_changes: false,
+          view_payment_status: false,
+          initiate_stripe_onboarding: false,
+        },
+      },
+      h32_apply_receipts: [],
     };
     (window as any).__h2aE2eStore = store;
     (window as any).__h2aFailNextApply = false;
@@ -325,6 +346,81 @@ function seedHotelsV2H2aWorkspace() {
         stub.setRpcHandler('hotel_v2_admin_get_property_workspace', (params: any) => {
           if (params.p_hotel_id !== hotelId) return { data: null, error: { code: 'P0002', message: 'property_not_found' } };
           return { data: snapshot(), error: null };
+        });
+        const h32CapabilityKeys = Object.keys(store.h32_permission.capabilities);
+        const h32PermissionSnapshot = () => {
+          const hasMutation = h32CapabilityKeys.some((key) => key !== 'view_payment_status' && store.h32_permission.capabilities[key] === true);
+          return clone({
+            contract_version: 'hotels_v2_h3_2a_partner_permissions_v1',
+            property: {
+              id: hotelId,
+              updated_at: store.property.updated_at,
+              architecture_version: store.property.architecture_version,
+              is_published: store.property.is_published,
+              status: store.property.status,
+            },
+            feature_flags: store.flags,
+            capability_catalog: h32CapabilityKeys,
+            assignment_fingerprint: 'h32-exact-assignment-v1',
+            permissions_fingerprint: `h32-permission-v${store.h32_permission.version}`,
+            snapshot_token: `h32-snapshot-v${store.h32_permission.version}`,
+            assignments: [{
+              assignment_id: H32_ASSIGNMENT_ID,
+              partner_id: partnerId,
+              hotel_id: hotelId,
+              assignment_active: true,
+              partner: { id: partnerId, name: 'Fixture Hotels Partner', status: 'active', can_manage_hotels: true },
+              permission: {
+                ...store.h32_permission,
+                has_mutation_capability: hasMutation,
+              },
+            }],
+          });
+        };
+        stub.setRpcHandler('hotel_v2_admin_get_partner_hotel_permissions', (params: any) => (
+          params.p_hotel_id === hotelId
+            ? { data: h32PermissionSnapshot(), error: null }
+            : { data: null, error: { code: 'P0002', message: 'property_not_found' } }
+        ));
+        stub.setRpcHandler('hotel_v2_admin_apply_partner_hotel_permissions', (params: any) => {
+          const plan = clone(params.p_plan || {});
+          if ((window as any).__h32FailNextApply) {
+            (window as any).__h32FailNextApply = false;
+            store.h32_permission.version += 1;
+            store.h32_permission.exists = true;
+            store.h32_permission.updated_at = timestamp();
+            return { data: null, error: { code: 'PT409', message: 'hotels_v2_h3_2a_stale_partner_permissions' } };
+          }
+          if (plan.contract_version !== 'hotels_v2_h3_2a_partner_permissions_v1'
+              || plan.decision !== 'apply_partner_hotel_permissions'
+              || plan.hotel_id !== hotelId || plan.assignment_id !== H32_ASSIGNMENT_ID || plan.partner_id !== partnerId
+              || plan.snapshot_token !== `h32-snapshot-v${store.h32_permission.version}`
+              || plan.expected_assignment_fingerprint !== 'h32-exact-assignment-v1'
+              || Number(plan.expected_permission_version) !== Number(store.h32_permission.version)
+              || h32CapabilityKeys.some((key) => typeof plan.capabilities?.[key] !== 'boolean')) {
+            return { data: null, error: { code: 'PT409', message: 'hotels_v2_h3_2a_stale_partner_permissions' } };
+          }
+          store.h32_permission.exists = true;
+          store.h32_permission.version += 1;
+          store.h32_permission.updated_at = timestamp();
+          store.h32_permission.capabilities = clone(plan.capabilities);
+          store.h32_apply_receipts.push(clone({ plan, correlation_id: params.p_correlation_id, idempotency_key: params.p_idempotency_key }));
+          return {
+            data: {
+              ok: true,
+              contract_version: plan.contract_version,
+              decision: plan.decision,
+              hotel_id: hotelId,
+              assignment_id: H32_ASSIGNMENT_ID,
+              partner_id: partnerId,
+              changed: true,
+              permission: clone(store.h32_permission),
+              correlation_id: params.p_correlation_id,
+              idempotency_key: params.p_idempotency_key,
+              snapshot: h32PermissionSnapshot(),
+            },
+            error: null,
+          };
         });
         stub.setRpcHandler('hotel_v2_admin_apply_workspace_plan', (params: any) => {
           if ((window as any).__h2aFailNextApply) {
@@ -2921,4 +3017,90 @@ test('H3.1P reviews exact legacy pricing parity, rebases one stale save, and sta
   await expect(reviewedFiveGuestPricing.nth(0)).toHaveValue('2');
   await expect(reviewedFiveGuestPricing.nth(1)).toHaveValue('2');
   await expect(reviewedFiveGuestPricing.nth(0)).toHaveAttribute('readonly', '');
+});
+
+test('H3.2A reviews one exact Partner assignment, rebases stale versions explicitly, and remains foundation-only', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.addInitScript(seedHotelsV2H2aWorkspace(), {
+    adminId: ADMIN_ID,
+    hotelId: HOTEL_ID,
+    partnerId: PARTNER_ID,
+  });
+  await enableSupabaseStub(page);
+  await page.goto('/admin/dashboard.html', { waitUntil: 'domcontentloaded' });
+  await waitForSupabaseStub(page);
+  await page.locator('button.admin-nav-item[data-view="hotels"]').click();
+  await page.locator(`[data-hotel-open-workspace="${HOTEL_ID}"]`).click();
+  await page.locator('[data-hotel-workspace-tab="partner"]').click();
+
+  const panel = page.locator('#hotelWorkspaceActivePanel');
+  await expect(panel).toContainText('Reviewed exact-assignment capabilities');
+  await expect(panel).toContainText('All capabilities OFF');
+  await panel.locator('[data-edit-partner-permission]').click();
+  const editor = page.locator('#hotelPartnerPermissionForm');
+  await editor.locator('[name="manage_availability"]').check();
+  await page.locator('button[form="hotelPartnerPermissionForm"]').click();
+
+  let review = page.locator('.hotel-workspace-modal--review');
+  await expect(review).toContainText('Only the permission row for this exact existing Hotel assignment changes.');
+  await expect(review).toContainText('Public Hotels V2 remains disabled');
+  await review.locator('[data-hotel-review-confirm]').click();
+  await expect(panel).toContainText('Availability');
+
+  const firstSave = await page.evaluate(() => {
+    const store = (window as any).__h2aE2eStore;
+    const receipt = store.h32_apply_receipts[0];
+    return {
+      receipts: store.h32_apply_receipts.length,
+      plan: receipt.plan,
+      architecture: store.property.architecture_version,
+      published: store.property.is_published,
+      flags: store.flags,
+    };
+  });
+  expect(firstSave.receipts).toBe(1);
+  expect(firstSave.plan.assignment_id).toBe('70000000-0000-4000-8000-000000000032');
+  expect(firstSave.plan.expected_permission_version).toBe(0);
+  expect(firstSave.plan.capabilities.manage_availability).toBe(true);
+  expect(firstSave.plan).not.toHaveProperty('owner_partner_id');
+  expect(firstSave.architecture).toBe('legacy');
+  expect(firstSave.published).toBe(true);
+  expect(Object.values(firstSave.flags).every((value) => value === false)).toBe(true);
+
+  await panel.locator('[data-edit-partner-permission]').click();
+  await page.locator('#hotelPartnerPermissionForm [name="manage_prices"]').check();
+  await page.locator('button[form="hotelPartnerPermissionForm"]').click();
+  review = page.locator('.hotel-workspace-modal--review');
+  await expect(review).toBeVisible();
+  await page.evaluate(() => { (window as any).__h32FailNextApply = true; });
+  await review.locator('[data-hotel-review-confirm]').click();
+  await expect(page.locator('.hotel-workspace-modal--review')).toBeVisible();
+  await expect(page.getByText(/fresh exact assignment values are shown/i)).toBeVisible();
+
+  const afterStale = await page.evaluate(() => ({
+    committedReceipts: (window as any).__h2aE2eStore.h32_apply_receipts.length,
+    applyCalls: (window as any).__supabaseStub.getRpcCalls()
+      .filter((call: any) => call.name === 'hotel_v2_admin_apply_partner_hotel_permissions').length,
+  }));
+  expect(afterStale).toEqual({ committedReceipts: 1, applyCalls: 2 });
+
+  await page.locator('.hotel-workspace-modal--review [data-hotel-review-confirm]').click();
+  await expect(panel).toContainText('Prices and rate rules');
+  const finalSave = await page.evaluate(() => {
+    const store = (window as any).__h2aE2eStore;
+    return {
+      receipts: store.h32_apply_receipts.length,
+      versions: store.h32_apply_receipts.map((entry: any) => entry.plan.expected_permission_version),
+      capabilities: store.h32_permission.capabilities,
+      roomCount: store.room_types.length,
+      architecture: store.property.architecture_version,
+      flags: store.flags,
+    };
+  });
+  expect(finalSave.receipts).toBe(2);
+  expect(finalSave.versions).toEqual([0, 2]);
+  expect(finalSave.capabilities).toMatchObject({ manage_availability: true, manage_prices: true });
+  expect(finalSave.roomCount).toBe(0);
+  expect(finalSave.architecture).toBe('legacy');
+  expect(Object.values(finalSave.flags).every((value) => value === false)).toBe(true);
 });
