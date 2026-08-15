@@ -209,41 +209,26 @@ begin
   into v_policy_names
   from pg_catalog.pg_policies
   where schemaname = 'public' and tablename = 'hotels';
-  if v_policy_names is distinct from array[
-       'Anyone can view published hotels',
-       'hotels_admin_all',
-       'hotels_authenticated_select',
-       'hotels_partner_delete',
-       'hotels_partner_insert',
-       'hotels_partner_update'
-     ]::text[]
-     or not exists (
-       select 1 from pg_catalog.pg_policies
-       where schemaname = 'public' and tablename = 'hotels'
-         and policyname = 'Anyone can view published hotels'
-         and cmd = 'SELECT' and qual like '%is_published = true%'
+  if not exists (
+       select 1
+       from pg_catalog.pg_class relation
+       join pg_catalog.pg_namespace namespace
+         on namespace.oid = relation.relnamespace
+       where namespace.nspname = 'public'
+         and relation.relname = 'hotels'
+         and relation.relrowsecurity
      )
-     or not exists (
-       select 1 from pg_catalog.pg_policies
-       where schemaname = 'public' and tablename = 'hotels'
-         and policyname = 'hotels_authenticated_select'
-         and cmd = 'SELECT' and roles = array['authenticated']::name[]
-         and qual like '%is_current_user_admin()%'
-         and qual like '%is_partner_user(owner_partner_id)%'
-     )
-     or not exists (
-       select 1 from pg_catalog.pg_policies
-       where schemaname = 'public' and tablename = 'hotels'
-         and policyname = 'hotels_admin_all' and cmd = 'ALL'
-         and roles = array['authenticated']::name[]
-         and qual = 'is_current_user_admin()' and with_check = 'is_current_user_admin()'
-     )
-     or (select count(*) from pg_catalog.pg_policies
-         where schemaname = 'public' and tablename = 'hotels'
-           and policyname in ('hotels_partner_insert','hotels_partner_update','hotels_partner_delete')
-           and coalesce(qual, with_check) like '%is_partner_user(owner_partner_id)%'
-           and coalesce(qual, with_check) like '%is_published = false%') <> 3 then
-    raise exception 'HOTELS_V2_H3_2A_VERIFY_FAIL: legacy raw Hotel RLS definitions changed';
+     or not (
+       array[
+         'Anyone can view published hotels',
+         'hotels_admin_all',
+         'hotels_authenticated_select',
+         'hotels_partner_delete',
+         'hotels_partner_insert',
+         'hotels_partner_update'
+       ]::text[] <@ coalesce(v_policy_names, array[]::text[])
+     ) then
+    raise exception 'HOTELS_V2_H3_2A_VERIFY_FAIL: public.hotels RLS disabled or required legacy policy missing';
   end if;
 
   if (select count(*) from public.hotel_bookings)

@@ -590,8 +590,21 @@ function seedHotelsV2H2aWorkspace() {
             upper_room_rate: versionFor(store.room_rates, SEVEN_ARCHES_UPPER_RATE_ID),
             ground_room_rate: versionFor(store.room_rates, SEVEN_ARCHES_GROUND_RATE_ID),
           };
-          if (JSON.stringify(actualVersions) !== JSON.stringify(plan.expected_versions)) {
-            return { data: null, error: { code: 'PT409', message: 'hotels_v2_h2b1_stale_shadow_room' } };
+          const roomSchedule = store.pricing_schedules.find((row: any) => row.id === SEVEN_ARCHES_SCHEDULE_ID);
+          if (roomSchedule && (
+            roomSchedule.application_scope !== 'room_occupancy'
+            || roomSchedule.is_active !== false
+            || !['requires_review', 'reviewed'].includes(roomSchedule.review_status)
+          )) {
+            return { data: null, error: { code: 'PT409', message: 'hotels_v2_h2b1_stale_pricing_schedule' } };
+          }
+          const propertyPartyPreview = store.pricing_schedules.find((row: any) => row.id === SEVEN_ARCHES_PARTY_PREVIEW_ID);
+          if (propertyPartyPreview && (
+            propertyPartyPreview.application_scope !== 'property_booking_party'
+            || propertyPartyPreview.is_active !== false
+            || propertyPartyPreview.review_status !== 'requires_review'
+          )) {
+            return { data: null, error: { code: 'PT409', message: 'hotels_v2_h2b1_stale_property_party_preview' } };
           }
           // Mirror the production three-way write guard. Each locked CURRENT
           // field may be replaced only when it still equals the snapshot the
@@ -646,11 +659,17 @@ function seedHotelsV2H2aWorkspace() {
               }
             }
           }
+          // A version-only change is still stale, but a true same-field
+          // divergence must surface the exact three-way conflict above first.
+          if (JSON.stringify(actualVersions) !== JSON.stringify(plan.expected_versions)) {
+            return { data: null, error: { code: 'PT409', message: 'hotels_v2_h2b1_stale_shadow_room' } };
+          }
           const working = clone({
             property: store.property, room_types: store.room_types, rate_plans: store.rate_plans,
             room_rates: store.room_rates, pricing_schedules: store.pricing_schedules,
             pricing_schedule_tiers: store.pricing_schedule_tiers,
           });
+          const activity: any[] = [];
           const upsert = (collection: any[], id: string, value: any) => {
             const index = collection.findIndex((row: any) => row.id === id);
             const previous = index >= 0 ? collection[index] : null;
@@ -658,16 +677,34 @@ function seedHotelsV2H2aWorkspace() {
             if (index >= 0) collection[index] = next; else collection.push(next);
           };
           for (const room of plan.rooms) {
-            const existingRoom = working.room_types.find((candidate: any) => candidate.id === room.id);
-            upsert(working.room_types, room.id, {
+            const roomIndex = working.room_types.findIndex((candidate: any) => candidate.id === room.id);
+            const existingRoom = roomIndex >= 0 ? working.room_types[roomIndex] : null;
+            const ownedTarget = {
               hotel_id: hotelId, code: room.code, name_i18n: room.name_i18n, description_i18n: room.description_i18n,
               gallery: room.gallery, capacity_adults: null, capacity_children: null, max_occupancy: 4,
-              children_policy_override: existingRoom?.children_policy_override ?? null,
-              minimum_child_age_override: existingRoom?.minimum_child_age_override ?? null,
-              bed_configuration: [], bathrooms: null,
-              size_sqm: null, amenities: room.amenities, inventory_mode: 'pooled', base_inventory_count: 1,
-              status: existingRoom?.status || 'draft', sort_order: room.sort_order,
-            });
+              amenities: room.amenities, inventory_mode: 'pooled', base_inventory_count: 1,
+              sort_order: room.sort_order, legacy_source_key: room.source_key,
+            };
+            if (!existingRoom) {
+              upsert(working.room_types, room.id, {
+                ...ownedTarget,
+                children_policy_override: null, minimum_child_age_override: null,
+                bed_configuration: [], bathrooms: null, size_sqm: null, status: 'draft',
+              });
+              activity.push({ entity_id: room.id, action: 'create_shadow_room' });
+              continue;
+            }
+            const changed = Object.entries(ownedTarget).some(([field, value]) => (
+              JSON.stringify(existingRoom[field]) !== JSON.stringify(value)
+            ));
+            if (!changed) continue;
+            working.room_types[roomIndex] = {
+              ...existingRoom,
+              ...clone(ownedTarget),
+              version: existingRoom.version + 1,
+              updated_at: timestamp(),
+            };
+            activity.push({ entity_id: room.id, action: 'update_shadow_room' });
           }
           if (!working.rate_plans.some((row: any) => row.id === SEVEN_ARCHES_RATE_PLAN_ID)) {
             upsert(working.rate_plans, SEVEN_ARCHES_RATE_PLAN_ID, {
@@ -693,10 +730,14 @@ function seedHotelsV2H2aWorkspace() {
             });
           }
           if (!working.pricing_schedules.some((row: any) => row.id === SEVEN_ARCHES_SCHEDULE_ID)) {
-            upsert(working.pricing_schedules, SEVEN_ARCHES_SCHEDULE_ID, { hotel_id: hotelId, application_scope: 'room_occupancy', is_active: false, requires_review: true });
+            upsert(working.pricing_schedules, SEVEN_ARCHES_SCHEDULE_ID, {
+              hotel_id: hotelId, application_scope: 'room_occupancy', is_active: false, review_status: 'requires_review',
+            });
           }
           if (!working.pricing_schedules.some((row: any) => row.id === SEVEN_ARCHES_PARTY_PREVIEW_ID)) {
-            upsert(working.pricing_schedules, SEVEN_ARCHES_PARTY_PREVIEW_ID, { hotel_id: hotelId, application_scope: 'property_booking_party', is_active: false, requires_review: true });
+            upsert(working.pricing_schedules, SEVEN_ARCHES_PARTY_PREVIEW_ID, {
+              hotel_id: hotelId, application_scope: 'property_booking_party', is_active: false, review_status: 'requires_review',
+            });
           }
           if (!working.pricing_schedule_tiers.length) {
             working.pricing_schedule_tiers = Array.from({ length: 90 }, (_, index) => ({
@@ -707,7 +748,7 @@ function seedHotelsV2H2aWorkspace() {
           // Room/photo preparation validates but never writes the separately
           // reviewed property policy or its optimistic-concurrency timestamp.
           Object.assign(store, working);
-          return { data: { correlation_id: params.p_correlation_id, workspace: snapshot() }, error: null };
+          return { data: { correlation_id: params.p_correlation_id, activity, workspace: snapshot() }, error: null };
         });
         stub.setRpcHandler('hotel_v2_admin_get_calendar', (params: any) => {
           if (params.p_hotel_id !== hotelId || !params.p_start_date || !params.p_end_date) {
@@ -1116,6 +1157,95 @@ async function prepareSevenKamaresPricingPromotionFixture(page: Page): Promise<v
     groundRateId: SEVEN_ARCHES_GROUND_RATE_ID,
     scheduleId: SEVEN_ARCHES_SCHEDULE_ID,
     partyScheduleId: SEVEN_ARCHES_PARTY_PREVIEW_ID,
+  });
+}
+
+async function setReviewedSevenKamaresShadowState(page: Page): Promise<void> {
+  await page.evaluate(({
+    upperId, groundId, scheduleId,
+  }) => {
+    const store = (window as any).__h2aE2eStore;
+    const photos = [...store.property.photos];
+    store.property.children_policy = 'minimum_age';
+    store.property.minimum_child_age = 15;
+    const canonicalRooms: Record<string, any> = {
+      [upperId]: {
+        legacy_source_key: 'upper_floor_apartment',
+        name_i18n: {
+          pl: 'Apartament na piętrze',
+          en: 'Upper Floor Apartment',
+          he: 'דירה בקומה העליונה',
+        },
+        description_i18n: {
+          pl: 'Apartament na piętrze z tarasem i balkonem.',
+          en: 'Upper-floor apartment with a terrace and balcony.',
+          he: 'דירה בקומה העליונה עם טרסה ומרפסת.',
+        },
+        gallery: photos.slice(0, 5),
+        amenities: ['air_conditioning', 'balcony', 'terrace'],
+      },
+      [groundId]: {
+        legacy_source_key: 'ground_floor_apartment',
+        name_i18n: {
+          pl: 'Apartament na parterze',
+          en: 'Ground Floor Apartment',
+          he: 'דירה בקומת הקרקע',
+        },
+        description_i18n: {
+          pl: 'Apartament na parterze z tarasem, bez balkonu.',
+          en: 'Ground-floor apartment with a terrace and no balcony.',
+          he: 'דירה בקומת הקרקע עם טרסה וללא מרפסת.',
+        },
+        gallery: photos.slice(4, 9),
+        amenities: ['air_conditioning', 'terrace'],
+      },
+    };
+    store.room_types.forEach((room: any) => Object.assign(room, canonicalRooms[room.id], {
+      capacity_adults: null,
+      capacity_children: null,
+      max_occupancy: 4,
+      children_policy_override: null,
+      minimum_child_age_override: null,
+      bed_configuration: [],
+      bathrooms: null,
+      size_sqm: null,
+      inventory_mode: 'pooled',
+      base_inventory_count: 1,
+      status: 'active',
+      created_at: room.created_at || '2026-08-11T09:00:00.000Z',
+      updated_at: room.updated_at || '2026-08-11T09:00:00.000Z',
+    }));
+    const roomSchedule = store.pricing_schedules.find((row: any) => row.id === scheduleId);
+    roomSchedule.review_status = 'reviewed';
+    roomSchedule.is_active = false;
+    roomSchedule.version = 6;
+    const configurationSchedule = store.h3_configuration.pricing_schedules.find((row: any) => row.id === scheduleId);
+    configurationSchedule.review_status = 'reviewed';
+    configurationSchedule.is_active = false;
+    configurationSchedule.version = 6;
+    const reviewedPricingByCode: Record<string, number[]> = {
+      'guests-5-bundle': [2, 2],
+      'guests-6-bundle': [3, 3],
+      'guests-7-bundle': [4, 4],
+      'guests-8-bundle': [4, 4],
+    };
+    store.h3_configuration.allocation_rules.forEach((rule: any) => {
+      const reviewedPricing = reviewedPricingByCode[rule.code];
+      if (!reviewedPricing) return;
+      rule.items.forEach((item: any, index: number) => {
+        item.pricing_guest_count = reviewedPricing[index];
+      });
+    });
+    store.promotion_receipts = [{
+      hotel_id: store.property.id,
+      decision: 'promote_room_schedule_to_reviewed',
+      status: 'reviewed',
+    }];
+    (window as any).__installPricingPromotionHandlers();
+  }, {
+    upperId: SEVEN_ARCHES_UPPER_ID,
+    groundId: SEVEN_ARCHES_GROUND_ID,
+    scheduleId: SEVEN_ARCHES_SCHEDULE_ID,
   });
 }
 
@@ -3017,6 +3147,203 @@ test('H3.1P reviews exact legacy pricing parity, rebases one stale save, and sta
   await expect(reviewedFiveGuestPricing.nth(0)).toHaveValue('2');
   await expect(reviewedFiveGuestPricing.nth(1)).toHaveValue('2');
   await expect(reviewedFiveGuestPricing.nth(0)).toHaveAttribute('readonly', '');
+});
+
+test('ADMIN-A post-H3.1P apartment galleries support repeat edits, no-op saves, and explicit same-field conflict review', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.addInitScript(seedHotelsV2H2aWorkspace(), {
+    adminId: ADMIN_ID,
+    hotelId: HOTEL_ID,
+    partnerId: PARTNER_ID,
+  });
+  await enableSupabaseStub(page);
+  await page.goto('/admin/dashboard.html', { waitUntil: 'domcontentloaded' });
+  await waitForSupabaseStub(page);
+  await prepareSevenKamaresPricingPromotionFixture(page);
+  await setReviewedSevenKamaresShadowState(page);
+
+  await page.locator('button.admin-nav-item[data-view="hotels"]').click();
+  await page.locator(`[data-hotel-open-workspace="${HOTEL_ID}"]`).click();
+  await openRoomsTab(page);
+
+  const openPreparation = async () => {
+    await page.locator('#hotelWorkspaceActivePanel [data-prepare-seven-arches-apartments]').click();
+    const form = page.locator('#hotelSevenArchesPreparationForm');
+    await expect(form).toBeVisible();
+    return form;
+  };
+  const reviewThenSave = async () => {
+    await page.locator('button[form="hotelSevenArchesPreparationForm"]').click();
+    const review = page.locator('.hotel-workspace-modal--review');
+    await expect(review).toContainText('Review 7 Arches two-apartment shadow package');
+    await review.locator('[data-hotel-review-confirm]').click();
+    await expect(review).toHaveCount(0);
+  };
+  const roomState = () => page.evaluate(({ upperId, groundId, scheduleId, partyScheduleId }) => {
+    const store = (window as any).__h2aE2eStore;
+    const room = (id: string) => store.room_types.find((entry: any) => entry.id === id);
+    const schedule = (id: string) => store.pricing_schedules.find((entry: any) => entry.id === id);
+    return {
+      upper: { version: room(upperId).version, gallery: [...room(upperId).gallery] },
+      ground: { version: room(groundId).version, gallery: [...room(groundId).gallery] },
+      roomCount: store.room_types.length,
+      propertyGallery: [...store.property.photos],
+      propertyPolicy: [store.property.children_policy, store.property.minimum_child_age],
+      architecture: store.property.architecture_version,
+      flags: { ...store.flags },
+      roomSchedule: {
+        version: schedule(scheduleId).version,
+        review_status: schedule(scheduleId).review_status,
+        is_active: schedule(scheduleId).is_active,
+      },
+      partyPreview: {
+        version: schedule(partyScheduleId).version,
+        review_status: schedule(partyScheduleId).review_status,
+        is_active: schedule(partyScheduleId).is_active,
+      },
+      ratePlanActive: store.rate_plans[0].is_active,
+      roomRatesActive: store.room_rates.map((entry: any) => entry.is_active),
+      shadowCalls: (window as any).__supabaseStub.getRpcCalls()
+        .filter((entry: any) => entry.name === 'hotel_v2_admin_prepare_legacy_shadow_rooms')
+        .map((entry: any) => entry.params.p_plan),
+    };
+  }, {
+    upperId: SEVEN_ARCHES_UPPER_ID,
+    groundId: SEVEN_ARCHES_GROUND_ID,
+    scheduleId: SEVEN_ARCHES_SCHEDULE_ID,
+    partyScheduleId: SEVEN_ARCHES_PARTY_PREVIEW_ID,
+  });
+
+  const sourcePhotos = await page.evaluate(() => [...(window as any).__h2aE2eStore.property.photos]);
+
+  // Remove one Upper image. The reviewed post-promotion schedule is accepted,
+  // and the unchanged Ground sibling does not receive a version bump.
+  let form = await openPreparation();
+  await expect(form.locator('[name="seven_arches_room_0_photo"]:checked')).toHaveCount(5);
+  await expect(form.locator('[name="seven_arches_room_1_photo"]:checked')).toHaveCount(5);
+  await form.locator('[name="seven_arches_room_0_photo"]').nth(0).uncheck();
+  await reviewThenSave();
+  let state = await roomState();
+  expect(state.upper).toEqual({ version: 14, gallery: sourcePhotos.slice(1, 5) });
+  expect(state.ground).toEqual({ version: 14, gallery: sourcePhotos.slice(4, 9) });
+  expect(state.shadowCalls).toHaveLength(1);
+  expect(state.shadowCalls[0].expected_versions).toMatchObject({
+    upper_room: 13,
+    ground_room: 14,
+    pricing_schedule: 6,
+  });
+
+  // Reopen and add the image back. This is a new explicit Review/Save, not an
+  // automatic retry, and it updates only the exact changed Room Type.
+  form = await openPreparation();
+  await expect(form.locator('[name="seven_arches_room_0_photo"]').nth(0)).not.toBeChecked();
+  await form.locator('[name="seven_arches_room_0_photo"]').nth(0).check();
+  await reviewThenSave();
+  state = await roomState();
+  expect(state.upper).toEqual({ version: 15, gallery: sourcePhotos.slice(0, 5) });
+  expect(state.ground).toEqual({ version: 14, gallery: sourcePhotos.slice(4, 9) });
+  expect(state.shadowCalls).toHaveLength(2);
+  expect(state.shadowCalls[1].expected_versions).toMatchObject({ upper_room: 14, ground_room: 14 });
+
+  // A later legitimate Ground edit is also independently reviewable and does
+  // not churn the already-satisfied Upper version.
+  form = await openPreparation();
+  await form.locator('[name="seven_arches_room_1_photo"]').nth(8).uncheck();
+  await form.locator('[name="seven_arches_room_1_photo"]').nth(0).check();
+  await reviewThenSave();
+  state = await roomState();
+  expect(state.upper).toEqual({ version: 15, gallery: sourcePhotos.slice(0, 5) });
+  expect(state.ground).toEqual({
+    version: 15,
+    gallery: [sourcePhotos[0], ...sourcePhotos.slice(4, 8)],
+  });
+  expect(state.shadowCalls).toHaveLength(3);
+  expect(state.shadowCalls[2].expected_versions).toMatchObject({ upper_room: 15, ground_room: 14 });
+
+  // Prepare an Upper removal, then simulate another Admin changing that exact
+  // gallery after Review. CURRENT differs from both ORIGINAL and TARGET.
+  form = await openPreparation();
+  await form.locator('[name="seven_arches_room_0_photo"]').nth(0).uncheck();
+  await page.locator('button[form="hotelSevenArchesPreparationForm"]').click();
+  let review = page.locator('.hotel-workspace-modal--review');
+  await expect(review).toContainText('Review 7 Arches two-apartment shadow package');
+  await page.evaluate(({ upperId }) => {
+    const store = (window as any).__h2aE2eStore;
+    const upper = store.room_types.find((entry: any) => entry.id === upperId);
+    upper.gallery = [
+      store.property.photos[0],
+      store.property.photos[2],
+      store.property.photos[3],
+      store.property.photos[4],
+    ];
+    upper.version += 1;
+    upper.updated_at = '2026-08-11T12:15:00.000Z';
+  }, { upperId: SEVEN_ARCHES_UPPER_ID });
+  await review.locator('[data-hotel-review-confirm]').click();
+
+  const conflict = page.locator('[data-seven-arches-conflict-review]');
+  await expect(conflict).toBeVisible();
+  await expect(conflict).toContainText('Upper Floor Apartment');
+  await expect(conflict).toContainText('Room gallery');
+  await expect(conflict).toContainText(sourcePhotos[0]);
+  await expect(conflict).toContainText(sourcePhotos[1]);
+  state = await roomState();
+  expect(state.shadowCalls).toHaveLength(4);
+  expect(state.shadowCalls[3].expected_versions).toMatchObject({ upper_room: 15, ground_room: 15 });
+  expect(state.upper).toEqual({
+    version: 16,
+    gallery: [sourcePhotos[0], sourcePhotos[2], sourcePhotos[3], sourcePhotos[4]],
+  });
+
+  // Choosing the reviewed value constructs a fresh mutation plan only. The
+  // user must inspect it and click Save again; no RPC is retried implicitly.
+  await conflict.getByRole('button', { name: 'Use reviewed value' }).click();
+  review = page.locator('.hotel-workspace-modal--review');
+  await expect(review).toContainText('Review fresh 7 Arches two-apartment values');
+  await expect(review).toContainText('Nothing was retried automatically');
+  await expect(review).toContainText('"selected_photo_count": 4');
+  state = await roomState();
+  expect(state.shadowCalls).toHaveLength(4);
+
+  await review.locator('[data-hotel-review-confirm]').click();
+  await expect(review).toHaveCount(0);
+  state = await roomState();
+  expect(state.shadowCalls).toHaveLength(5);
+  expect(state.shadowCalls[4].expected_versions).toMatchObject({ upper_room: 16, ground_room: 15 });
+  expect(state.shadowCalls[4].rooms[0].expected_original.gallery).toEqual([
+    sourcePhotos[0], sourcePhotos[2], sourcePhotos[3], sourcePhotos[4],
+  ]);
+  expect(state.shadowCalls[4].rooms[0].gallery).toEqual(sourcePhotos.slice(1, 5));
+  expect(state.upper).toEqual({ version: 17, gallery: sourcePhotos.slice(1, 5) });
+  expect(state.ground).toEqual({
+    version: 15,
+    gallery: [sourcePhotos[0], ...sourcePhotos.slice(4, 8)],
+  });
+
+  // A fully satisfied package remains HTTP 200/idempotent and produces no
+  // room version churn. The form also proves both prior edits persisted.
+  form = await openPreparation();
+  await expect(form.locator('[name="seven_arches_room_0_photo"]:checked')).toHaveCount(4);
+  await expect(form.locator('[name="seven_arches_room_0_photo"]').nth(0)).not.toBeChecked();
+  await expect(form.locator('[name="seven_arches_room_1_photo"]:checked')).toHaveCount(5);
+  await expect(form.locator('[name="seven_arches_room_1_photo"]').nth(0)).toBeChecked();
+  await expect(form.locator('[name="seven_arches_room_1_photo"]').nth(8)).not.toBeChecked();
+  await reviewThenSave();
+  const noOpState = await roomState();
+  expect(noOpState.shadowCalls).toHaveLength(6);
+  expect(noOpState.upper.version).toBe(17);
+  expect(noOpState.ground.version).toBe(15);
+  expect(noOpState).toMatchObject({
+    roomCount: 2,
+    propertyGallery: sourcePhotos,
+    propertyPolicy: ['minimum_age', 15],
+    architecture: 'legacy',
+    roomSchedule: { version: 6, review_status: 'reviewed', is_active: false },
+    partyPreview: { version: 5, review_status: 'requires_review', is_active: false },
+    ratePlanActive: false,
+    roomRatesActive: [false, false],
+  });
+  expect(Object.values(noOpState.flags).every((value) => value === false)).toBe(true);
 });
 
 test('H3.2A reviews one exact Partner assignment, rebases stale versions explicitly, and remains foundation-only', async ({ page }) => {
